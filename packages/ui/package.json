@@ -7,10 +7,8 @@
 	],
 	"exports": {
 		"./foundations": "./src/foundations/index.ts",
-		"./foundations/product.css": "./src/foundations/product.css",
 		"./foundations/preview": "./src/foundations/preview/FoundationsPreview.tsx",
 		"./controls": "./src/controls/index.ts",
-		"./controls/controls.css": "./src/controls/controls.css",
 		"./controls/preview": "./src/controls/preview/ControlsPreview.tsx",
 		"./shell": "./src/shell/index.ts",
 		"./shell/preview": "./src/shell/preview/ShellPreview.tsx",
@@ -19,8 +17,8 @@
 		"./display/preview": "./src/display/preview/DisplayPreview.tsx"
 	},
 	"scripts": {
-		"typecheck": "tsc --noEmit",
-		"typecheck:bun": "../../node_modules/.bin/bun check --no-script --no-pretty --all",
+		"typecheck": "../../node_modules/.bin/bun check --no-script --no-pretty --all",
+		"typecheck:tsc": "../../node_modules/typescript-7/bin/tsc --noEmit",
 		"lint": "oxlint -c ../../.oxlintrc.json --max-warnings=0 ."
 	},
 	"dependencies": {

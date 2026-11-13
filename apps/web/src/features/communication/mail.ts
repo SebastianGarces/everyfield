@@ -1,13 +1,15 @@
 import "server-only";
 
 import { z } from "zod";
+import { MAIL_BATCH_LIMIT } from "@everyfield/contracts/communication";
+import { mailEnv } from "../../server/mail-env.ts";
 
 import type { DeliveryTransport } from "@everyfield/domain/communication";
 import { mailRecipientAllowed, type MailEnv } from "@everyfield/domain/mail-recipients";
 import { parseKeyRing, type OptOutKeyRing } from "@everyfield/domain/notifications";
 import type { MailTransport } from "../../server/jobs/mail.ts";
 import { createResendTransport } from "../../server/jobs/resend.ts";
-import { captureAllowed, captureSilent, changeCaptured, isCaptureId, record } from "./capture.ts";
+import { capture, captureAllowed, captured, captureSilent, changeCaptured, isCaptureId } from "./capture.ts";
 import { settleCaptured } from "./settle.ts";
 
 // Provider adapter for the Messages screens. A handoff is one batch call under the domain's idempotency key; a held
@@ -15,15 +17,14 @@ import { settleCaptured } from "./settle.ts";
 // returned at handoff. A missing id or answer is unknown, never a fabricated acceptance.
 
 const env = z.object({
-	IDENTITY_MAIL_KEY: z.string().regex(/^[a-f0-9]{64}$/),
-	IDENTITY_ADDRESS_KEY: z.string().regex(/^[a-f0-9]{64}$/),
-	IDENTITY_MAIL_FROM: z.email(),
+	...mailEnv,
 	IDENTITY_ORIGIN: z.url(),
 	RESEND_API_KEY: z.string().trim().min(1).optional(),
 });
 
+// One answer per email of one batch call: the handoff never sends more than MAIL_BATCH_LIMIT in a call.
 const batchBody = z.object({
-	data: z.array(z.object({ id: z.string().min(1).max(128).optional() })).max(100),
+	data: z.array(z.object({ id: z.string().min(1).max(128).optional() })).max(MAIL_BATCH_LIMIT),
 });
 
 const refusedStatus = new Set([400, 401, 403, 422]);
@@ -167,9 +168,9 @@ export function mailReady(): MailReady | null {
 }
 
 /**
- * The transport for queued one-by-one mail (church invitations): Resend with a provider key, which captures a recipient
- * that is not approved, else the capture outbox. A capture records the email and answers accepted with its capture id;
- * it never reaches a mailbox.
+ * The transport for queued one-by-one mail (every mount's runner pass): Resend with a provider key, which captures a
+ * recipient that is not approved, else the capture outbox. A capture records the email under its idempotency key and
+ * answers accepted with its capture id, the same id on a replay of that key; it never reaches a mailbox.
  */
 export function queuedMailTransport(
 	ready: MailReady,
@@ -178,11 +179,11 @@ export function queuedMailTransport(
 ): MailTransport {
 	if (ready.apiKey) return createResendTransport(ready.apiKey, request, environment);
 	return {
-		async send(payload) {
-			return { kind: "accepted", id: await record(payload) };
+		async send(payload, key) {
+			return { kind: "accepted", id: (await capture(payload, null, key)).id };
 		},
-		async lookup() {
-			return { kind: "unknown" };
+		async lookup(id) {
+			return (await captured(id)) ? { kind: "accepted", id } : { kind: "unknown" };
 		},
 	};
 }
@@ -287,22 +288,27 @@ export function deliveryTransport(
 		// The provider receives approved recipients only. Without a key nothing goes to the provider.
 		const isApproved = (message: Outgoing) => ready.apiKey !== null && mailRecipientAllowed(environment, message.to);
 		const approved = messages.filter(isApproved);
-		const captured = messages.filter((message) => !isApproved(message));
-		if (captured.length > 0 && (await captureSilent())) return { outcome: "unknown" };
+		const toCapture = messages.filter((message) => !isApproved(message));
+		if (toCapture.length > 0 && (await captureSilent())) return { outcome: "unknown" };
 		const batch: Batch =
 			approved.length > 0 ? await postApproved(key, approved, scheduledAt, signal) : { outcome: "ids", ids: [] };
 		if (batch.outcome !== "ids") return batch;
-		// After the provider's ids: a refused or unknown batch leaves no capture that a retry would duplicate.
-		let captureIds: string[];
+		// After the provider's ids: a refused or unknown batch leaves no capture that a retry would duplicate. Each
+		// capture is keyed by the batch key and its own email, so a re-POST of the batch answers with the first captures.
+		let captures: { id: string; fresh: boolean }[];
 		try {
-			captureIds = await Promise.all(
-				captured.map((message) => record({ from: ready.keys.from, ...message }, scheduledAt)),
+			captures = await Promise.all(
+				toCapture.map((message) =>
+					capture({ from: ready.keys.from, ...message }, scheduledAt, `${key}/${JSON.stringify(message)}`),
+				),
 			);
 		} catch {
 			return { outcome: "unknown" };
 		}
-		// A held capture is not sent yet, so no sent callback follows it.
-		if (captureIds.length > 0 && scheduledAt === null) settle(captureIds);
+		const captureIds = captures.map((c) => c.id);
+		// A held capture is not sent yet, so no sent callback follows it. A replayed one already had its callback.
+		const fresh = captures.filter((c) => c.fresh).map((c) => c.id);
+		if (fresh.length > 0 && scheduledAt === null) settle(fresh);
 		// Each id returns to its message's position. A provider answer with no id stays null.
 		let nextSent = 0;
 		let nextCaptured = 0;
@@ -357,10 +363,6 @@ export function deliveryTransport(
 	return {
 		send(batch, signal) {
 			return post(batch.key, batch.messages, batch.scheduledAt, signal);
-		},
-		// A batch handoff has no lookup by its idempotency key, so an earlier unknown stays unknown.
-		async lookup() {
-			return { outcome: "unknown" };
 		},
 		cancel(providerIds, signal) {
 			return eachLimited(providerIds, async (id) => ({ outcome: await change(id, null, signal) }));

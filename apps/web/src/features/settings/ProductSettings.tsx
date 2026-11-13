@@ -1,8 +1,10 @@
 "use client";
 
+import { avatarRoute } from "@everyfield/contracts/settings";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { loadPage } from "../identity/api";
+import { readSourceOrder, saveSourceOrder } from "../wiki/actions";
 import { SettingsGuide } from "../wiki/client.tsx";
 import {
 	finalizeAssetUpload,
@@ -15,16 +17,21 @@ import {
 import { assetSrc, uploadBytes } from "./brand/bytes";
 import {
 	changePassword,
+	finalizeAvatar,
 	getSection,
 	previewPersonalTimezone,
 	previewPlantTimezone,
+	removeAvatar,
 	requestAccountDeletion,
+	requestAvatarUpload,
 	requestEmailChange,
+	requestWorkspaceDeletion,
 	saveChurch,
 	saveSection,
 	setPersonalTimezone,
 	setPlantTimezone,
 } from "./actions";
+import { uploadAvatarBytes } from "./flows/avatarBytes";
 import { sectionAt, type DialogSection } from "./model";
 import type { DeletionStatus, SectionKey, SectionSeed, SettingsPort, SettingsViewer } from "./port";
 import { SettingsDialog } from "./SettingsDialog";
@@ -37,8 +44,6 @@ import { SettingsProvider } from "./store";
 // route (app/settings/[section]), and closing then goes to the viewer's home page. /settings shows the first section
 // the viewer is offered without changing the address.
 
-// The photo stays out until a private bucket exists (Q2), and church workspace deletion until it has a server action:
-// their rows are then not shown at all.
 const PORT: SettingsPort = {
 	getSection,
 	saveSection,
@@ -55,7 +60,16 @@ const PORT: SettingsPort = {
 		suggestColors,
 		assetSrc,
 	},
-	flows: { requestEmailChange, changePassword, previewPersonalTimezone, setPersonalTimezone, requestAccountDeletion },
+	wiki: { read: readSourceOrder, save: saveSourceOrder },
+	flows: {
+		avatar: { requestAvatarUpload, uploadAvatarBytes, finalizeAvatar, removeAvatar, avatarSrc: avatarRoute },
+		requestEmailChange,
+		changePassword,
+		previewPersonalTimezone,
+		setPersonalTimezone,
+		requestAccountDeletion,
+		requestWorkspaceDeletion,
+	},
 };
 const hrefFor = (key: SectionKey) => `/settings/${key}`;
 
@@ -78,6 +92,29 @@ export function useProductSettings(viewer: SettingsViewer | null, seed: SectionS
 		if (!atPath) underneath.current = window.location.pathname + window.location.search;
 	}, [atPath, pathname]);
 
+	// A saved Wiki source order changes which version the page underneath shows, so it is read again once the address
+	// is that page's again (the router refreshes the address it holds).
+	const stale = useRef(false);
+	const port = useMemo<SettingsPort>(
+		() => ({
+			...PORT,
+			wiki: {
+				...PORT.wiki,
+				save: async (...args) => {
+					const reply = await PORT.wiki.save(...args);
+					if (reply.status === "ok") stale.current = true;
+					return reply;
+				},
+			},
+		}),
+		[],
+	);
+	useEffect(() => {
+		if (atPath || !stale.current) return;
+		stale.current = false;
+		router.refresh();
+	}, [atPath, router]);
+
 	const navigate = (key: SectionKey | null) => {
 		if (key || underneath.current) {
 			setAsked({ section: key, path: pathname });
@@ -86,7 +123,7 @@ export function useProductSettings(viewer: SettingsViewer | null, seed: SectionS
 	};
 
 	const element = viewer ? (
-		<SettingsProvider key={`${viewer.accountId}-${viewer.context}`} port={PORT} viewer={viewer} seed={seed}>
+		<SettingsProvider key={`${viewer.accountId}-${viewer.context}`} port={port} viewer={viewer} seed={seed}>
 			<SettingsDialog
 				section={section}
 				onNavigate={navigate}
@@ -102,9 +139,14 @@ export function useProductSettings(viewer: SettingsViewer | null, seed: SectionS
 	return { element, open: (key: DialogSection) => navigate(key) };
 }
 
-/** The restricted deletion page, with the deadline the request returned when the request is known to be pending. */
-export function deletionPage(status: DeletionStatus | null): string {
-	return status?.status === "pending_deletion"
-		? `/account-deletion?until=${encodeURIComponent(status.cancelUntil)}`
-		: "/account-deletion";
+/**
+ * The restricted deletion page for the request's subject (a church workspace or your account), with the deadline the
+ * request returned when it is known to be pending. A reply that never arrived came from your account's dialog.
+ */
+function deletionPage(status: DeletionStatus | null): string {
+	const page =
+		status && status.status !== "active" && status.subject.kind === "plant"
+			? "/workspace-deletion"
+			: "/account-deletion";
+	return status?.status === "pending_deletion" ? `${page}?until=${encodeURIComponent(status.cancelUntil)}` : page;
 }

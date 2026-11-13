@@ -1,10 +1,9 @@
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
-import { before, after, test } from "node:test";
+import { after, test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import * as S from "./support.mts";
 import * as Q from "../../../packages/contracts/src/organizations/index.ts";
-before(S.setup);
 after(S.teardown);
 test("AC:ORG55-001 AC:TARGET-IDN-026 exact organization Owner/Admin profile changes are bounded and audited without narrative values", async () => {
 	for (const kind of ["sending_church", "sending_network"] as const) {

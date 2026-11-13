@@ -21,8 +21,8 @@ const recordDialogFocus = {
 	},
 };
 
-// Tiptap's free UI components, copied as they are (editor/tiptap/README.md lists each file and its source). They were
-// written before the React compiler rules and set state in effects, read refs while rendering and compose refs by
+// Tiptap's free UI components, vendored with the Everyfield changes that editor/tiptap/README.md lists per file. They
+// were written before the React compiler rules and set state in effects, read refs while rendering and compose refs by
 // writing to a local. Rewriting them would make later upstream updates hard to compare, so these three rules stay off
 // for that folder only; the Everyfield files around it keep every rule.
 const vendoredTiptap = {

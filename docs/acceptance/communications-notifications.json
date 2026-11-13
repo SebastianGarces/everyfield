@@ -2086,8 +2086,7 @@
       },
       "run_by": [
         "tests/integration/communication/opens.test.mts",
-        "tests/integration/meetings/meetings.test.mts",
-        "tests/ui/meetings/meetings.test.mjs"
+        "tests/integration/meetings/meetings.test.mts"
       ]
     },
     {
@@ -2307,9 +2306,7 @@
         "tests/integration/communication/communication.test.mts",
         "tests/integration/communication/held.test.mts",
         "tests/integration/communication/ui-reads.test.mts",
-        "tests/ui/communication/capture.test.mts",
-        "tests/ui/communication/communication.test.mjs",
-        "tests/ui/communication/drafts.test.mjs"
+        "tests/unit/communication/capture.test.mts"
       ]
     },
     {
@@ -3215,7 +3212,7 @@
           },
           "verified": true,
           "operation_ids": [
-            "notifications.syncMeetingReminders"
+            "notifications.enqueue"
           ],
           "environment": "isolated-test",
           "subject_actor": {
@@ -3235,7 +3232,7 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "notifications.syncMeetingReminders",
+        "operation": "notifications.enqueue",
         "arguments": {
           "meeting": "M"
         }
@@ -8965,7 +8962,7 @@
           },
           "verified": true,
           "operation_ids": [
-            "notifications.cancelForEntity"
+            "notifications.syncTaskReminders"
           ],
           "environment": "isolated-test",
           "subject_actor": {
@@ -8985,7 +8982,7 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "notifications.cancelForEntity",
+        "operation": "notifications.syncTaskReminders",
         "arguments": {
           "entity": "T1"
         }

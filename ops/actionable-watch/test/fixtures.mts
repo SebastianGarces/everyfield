@@ -4,28 +4,42 @@
 // redacted capture lives in status-open-decision.json.
 export const NOW = 1_794_122_077_675;
 
-export type Task = { id: number; phase?: string; lifecycle?: string; hold?: string | null; wait?: string | null; label?: string };
+export type Task = {
+	id: number;
+	phase?: string;
+	lifecycle?: string;
+	hold?: string | null;
+	wait?: string | null;
+	label?: string;
+};
 type Agent = { task: number; run?: number | null; step?: string | null; state?: string };
 type Seat = { task: number; run: number; live?: boolean; activity_at?: number; started_at?: number };
 
-export function rawStatus(o: {
-	tasks?: Task[];
-	agents?: Agent[];
-	seats?: Seat[];
-	decisions?: Record<string, unknown>[];
-	seatsUsed?: number;
-	seatsMax?: number;
-	now?: number;
-	heartbeat?: number | null;
-	tickError?: string | null;
-	noise?: string;
-} = {}) {
+export function rawStatus(
+	o: {
+		tasks?: Task[];
+		agents?: Agent[];
+		seats?: Seat[];
+		decisions?: Record<string, unknown>[];
+		seatsUsed?: number;
+		seatsMax?: number;
+		now?: number;
+		heartbeat?: number | null;
+		tickError?: string | null;
+		noise?: string;
+	} = {},
+) {
 	const now = o.now ?? NOW;
 	const noise = o.noise ?? "a";
 	return {
 		now,
 		heartbeat: o.heartbeat === undefined ? now - 500 : o.heartbeat,
-		machine: { at: now - 1000, free_mem_pct: noise === "a" ? 34 : 12, load1: noise === "a" ? 5.8 : 19.1, swap_used_gb: 10.3 },
+		machine: {
+			at: now - 1000,
+			free_mem_pct: noise === "a" ? 34 : 12,
+			load1: noise === "a" ? 5.8 : 19.1,
+			swap_used_gb: 10.3,
+		},
 		paused: null,
 		tick_error: o.tickError ?? null,
 		tick_error_at: o.tickError ? now - 10 : null,
@@ -37,7 +51,15 @@ export function rawStatus(o: {
 			seats: { max: o.seatsMax ?? 8, used: o.seatsUsed ?? 2 },
 			slots: { max: 2, used: 0 },
 		},
-		audit: [{ action: "spec_stored", actor: "seat:R-1", at: now - (noise === "a" ? 5 : 900), detail: `{"n":"${noise}"}`, hash: noise.repeat(64) }],
+		audit: [
+			{
+				action: "spec_stored",
+				actor: "seat:R-1",
+				at: now - (noise === "a" ? 5 : 900),
+				detail: `{"n":"${noise}"}`,
+				hash: noise.repeat(64),
+			},
+		],
 		checks: [],
 		grants: [],
 		recent_answers: [{ id: 20, question: `May it land? ${noise}`, answered_at: now - 99 }],
@@ -64,21 +86,23 @@ export function rawStatus(o: {
 		})),
 		agents: [
 			...needsYou(o.decisions ?? [], now),
-			...(o.agents ?? []).filter((a) => !(o.decisions ?? []).some((d) => d.task === a.task)).map((a) => ({
-			hold: null,
-			hold_by: null,
-			label: `task-${a.task}`,
-			lifecycle: "open",
-			part: "Build",
-			phase: "running",
-			run: a.run ?? null,
-			since: now - (noise === "a" ? 100 : 7000),
-			state: a.state ?? "working",
-			step: a.step === undefined ? "implement" : a.step,
-			task: a.task,
-			title: `Title ${noise}`,
-			wait: `implement is running ${noise}`,
-			})),
+			...(o.agents ?? [])
+				.filter((a) => !(o.decisions ?? []).some((d) => d.task === a.task))
+				.map((a) => ({
+					hold: null,
+					hold_by: null,
+					label: `task-${a.task}`,
+					lifecycle: "open",
+					part: "Build",
+					phase: "running",
+					run: a.run ?? null,
+					since: now - (noise === "a" ? 100 : 7000),
+					state: a.state ?? "working",
+					step: a.step === undefined ? "implement" : a.step,
+					task: a.task,
+					title: `Title ${noise}`,
+					wait: `implement is running ${noise}`,
+				})),
 		],
 		seats: (o.seats ?? []).map((s) => ({
 			activity: `Bash: something ${noise}`,

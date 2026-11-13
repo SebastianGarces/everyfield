@@ -158,7 +158,7 @@ These rules held in the prototype checks. Keep them in the build.
 Sebastian approved this brand on 2026-10-20. It is drawn in two prototypes:
 
 - `design/everyfield-ui.html`: the dashboard.
-- `design/everyfield-marketing.html` with `design/marketing-styles.css`: the marketing page.
+- `design/everyfield-marketing.html`: the marketing page. Its Signal tokens are inline in the `mk-tokens` block.
 
 `tokens.css`, `assets/` (symbol, wordmark and lockup), the product logo paths and `components.md` come from `design/everyfield-ui.html` through `export.py`. R1 moved the app tokens, fonts and gradient tone names to this brand. R2 restyles the dashboard components and R3 the marketing pages.
 

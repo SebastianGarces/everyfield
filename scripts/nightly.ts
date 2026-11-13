@@ -330,7 +330,7 @@ function realDeps(): NightlyDeps {
 	return {
 		home,
 		now: Date.now,
-		load: () => ({ load: loadavg()[0], cores: availableParallelism() }),
+		load: () => ({ load: loadavg()[0]!, cores: availableParallelism() }),
 		slot: async (project) => {
 			const { ensurePreviewSlot } = (await import(SLOTS)) as {
 				ensurePreviewSlot(o: object): Promise<unknown>;

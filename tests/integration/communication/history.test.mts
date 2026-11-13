@@ -4,7 +4,9 @@ import { randomUUID } from "node:crypto";
 import { sql } from "../../../packages/db/src/query.ts";
 import { fixture } from "../identity/invitations-support.mts";
 import { communicationWriter, withCommunicationWrite } from "../../../packages/domain/src/communication/index.ts";
-import { addressAad, mailAddressHash, sealText } from "../../../packages/domain/src/communication/delivery.ts";
+import { addressAad, mailAddressHash } from "../../../packages/domain/src/communication/delivery.ts";
+import { sealAddress } from "./sealed-address.mts";
+import { ok, refused } from "../../support/fixture.mts";
 
 let f, plant, other, owner, member, stranger, foreign;
 const keys = {
@@ -12,15 +14,6 @@ const keys = {
 	addressKey: Buffer.alloc(32, 9),
 	from: "news@example.test",
 	origin: "https://app.example.test",
-};
-const ok = (result) => {
-	assert.equal(result.status, "ok", JSON.stringify(result));
-	return result.value;
-};
-const refused = (result, code) => {
-	assert.equal(result.status, "refused", JSON.stringify(result));
-	assert.equal(result.error.code, code, JSON.stringify(result.error));
-	return result.error;
 };
 const key = () => randomUUID();
 const rows = async (query) => (await f.admin.execute(query)).rows;
@@ -63,15 +56,16 @@ async function meeting(title, target = plant) {
 async function mail(communicationId, personId, address, patch = {}) {
 	const id = randomUUID();
 	const tenant = patch.plant ?? plant.id;
-	const sealed = sealText(keys.encryptionKey, address, addressAad(tenant, id));
+	const sealed = sealAddress(keys.encryptionKey, address, addressAad(tenant, id));
 	const addressHash = mailAddressHash(keys.addressKey, address);
 	const hours = patch.sentHours ?? null;
+	const created = patch.createdHours ?? null;
 	await f.admin
-		.execute(sql`INSERT INTO mail (id, tenant_id, recipient_person_id, recipient_address_encrypted, purpose, logical_key,
+		.execute(sql`INSERT INTO mail (id, tenant_id, recipient_person_id, recipient_address_encrypted, purpose, communication_id, logical_key,
 		payload_hash, audience_hash, frozen_payload, state, address_hash, created_at, sent_at, delivered_at, opened_at, clicked_at, accepted_at)
-		SELECT ${id}, ${tenant}, ${personId}, ${sealed}, 'communication', ${`communication/${communicationId}/${personId}`},
+		SELECT ${id}, ${tenant}, ${personId}, ${sealed}, 'communication', ${communicationId}, ${`communication/${communicationId}/${personId}`},
 			'payload', 'audience', ${JSON.stringify({ v: 1, sealed: "x" })}::jsonb, ${patch.state ?? "sent"}, ${addressHash},
-			clock_timestamp(),
+			clock_timestamp() - make_interval(hours => coalesce(${created}::int, 0)),
 			CASE WHEN ${hours}::int IS NULL THEN NULL ELSE clock_timestamp() - make_interval(hours => ${hours}::int) END,
 			CASE WHEN ${Boolean(patch.delivered)} THEN clock_timestamp() - make_interval(hours => coalesce(${hours}::int, 0)) END,
 			CASE WHEN ${Boolean(patch.opened)} THEN clock_timestamp() END,
@@ -185,7 +179,7 @@ test("AC:CASE-COM-001 AC:MAIL51-008 history keeps a zero rate and hides private 
 	assert.equal(fallback.visibleCount, 2);
 });
 
-test("AC:CASE-COM-002 detail keeps the sealed delivery address", async () => {
+test("AC:CASE-COM-002 AC:CASE-COM-003 detail keeps the sealed delivery address", async () => {
 	const alex = await person("Alex Detail", { email: "old@example.test" });
 	const meet = await meeting("Vision");
 	const emptyMeeting = await meeting("Empty vision");
@@ -227,6 +221,21 @@ test("AC:CASE-COM-002 detail keeps the sealed delivery address", async () => {
 	refused(await read(owner, "listForMeeting", { meetingId: randomUUID() }), "not_found");
 	refused(await read(owner, "listForPerson", { personId: randomUUID() }), "not_found");
 	refused(await read(owner, "getDetail", { id: randomUUID() }, keys), "not_found");
+
+	// A message written before the HTML editor has no stored HTML: detail returns its plain text exactly as stored.
+	const legacy = await message({ subject: "LEGACY-PLAIN" });
+	await f.admin.execute(
+		sql`UPDATE communication SET body_html = NULL, body_text = 'Line one' || chr(10) || 'Line two' WHERE id = ${legacy}`,
+	);
+	const plain = ok(await read(owner, "getDetail", { id: legacy }, keys));
+	assert.equal(plain.subject, "LEGACY-PLAIN");
+	assert.equal(plain.bodyHtml, null);
+	assert.equal(plain.bodyText, "Line one\nLine two");
+	const legacyPage = ok(await read(owner, "listHistory", { query: "LEGACY-PLAIN" }));
+	assert.deepEqual(
+		legacyPage.items.map((item) => item.id),
+		[legacy],
+	);
 });
 
 test("AC:CASE-COM-006 AC:MAIL51-006 totals and execution stay partial until every recipient is sent", async () => {
@@ -270,7 +279,7 @@ test("AC:CASE-COM-006 AC:MAIL51-006 totals and execution stay partial until ever
 	refused(await read(owner, "getExecutionResult", { communicationId: randomUUID() }), "not_found");
 });
 
-test("AC:CASE-COM-009 reviewed resend keeps delivered non-openers and one replay", async () => {
+test("AC:CASE-COM-009 AC:CASE-COM-003 AC:CASE-COM-012 reviewed resend keeps delivered non-openers and one replay", async () => {
 	const alex = await person("Alex", { email: "alex@example.test" });
 	const casey = await person("Casey", { email: "casey@example.test" });
 	const jamie = await person("Jamie", { email: "jamie@example.test" });
@@ -324,6 +333,32 @@ test("AC:CASE-COM-009 reviewed resend keeps delivered non-openers and one replay
 	assert.equal(copy.body_html, "<p>Please read</p>");
 	assert.equal(copy.template_source, `lineage:${id}`);
 	assert.deepEqual(copy.audience.personIds, [alex]);
+	// The reviewed copy is locked: its subject and body cannot be edited, and it cannot be deleted as a draft.
+	const copyRevision = (
+		await rows(sql`SELECT revision::text AS r FROM communication WHERE id = ${created.communicationId}`)
+	)[0].r;
+	refused(
+		await write(owner, "saveDraft", {
+			requestKey: key(),
+			expectedRevision: copyRevision,
+			input: { communicationId: created.communicationId, subject: "Changed", bodyHtml: "<p>Changed</p>" },
+		}),
+		"conflict",
+	);
+	refused(
+		await write(owner, "deleteDraft", {
+			requestKey: key(),
+			expectedRevision: copyRevision,
+			input: { communicationId: created.communicationId },
+		}),
+		"conflict",
+	);
+	assert.deepEqual(
+		await rows(
+			sql`SELECT state, subject, body_html, revision::text AS r FROM communication WHERE id = ${created.communicationId}`,
+		),
+		[{ state: "reviewed", subject: "Please read", body_html: "<p>Please read</p>", r: copyRevision }],
+	);
 	assert.equal(
 		await countOf(
 			sql`SELECT count(*)::int AS n FROM mail WHERE tenant_id = ${plant.id} AND logical_key LIKE ${"communication/" + created.communicationId + "/%"}`,
@@ -357,7 +392,7 @@ test("AC:CASE-COM-009 reviewed resend keeps delivered non-openers and one replay
 	refused(await read(owner, "listResendCandidates", { communicationId: randomUUID() }), "not_found");
 });
 
-test("AC:CASE-COM-011 AC:TARGET-PPL-021 contact freshness follows effective contact only", async () => {
+test("AC:TARGET-COM-011 AC:TARGET-PPL-021 contact freshness follows effective contact only", async () => {
 	const nora = await person("Nora", { email: "nora@example.test" });
 	const owen = await person("Owen", { email: "owen@example.test" });
 	const sent = await message({
@@ -524,4 +559,64 @@ test("AC:CASE-COM-011 AC:TARGET-PPL-021 contact freshness follows effective cont
 		}),
 		"not_found",
 	);
+});
+
+test("INV-history-search: history search for an ampersand phrase matches the message body and subject as typed", async () => {
+	const inBody = ok(
+		await write(owner, "saveDraft", {
+			requestKey: key(),
+			input: {
+				subject: "Sunday lunch",
+				bodyHtml: "<p>Food &amp; fellowship after the service.</p>",
+				audience: { groups: [], teamIds: [], personIds: [] },
+			},
+		}),
+	);
+	const inSubject = ok(
+		await write(owner, "saveDraft", {
+			requestKey: key(),
+			input: {
+				subject: "Food & fellowship night",
+				bodyHtml: "<p>Bring a dish.</p>",
+				audience: { groups: [], teamIds: [], personIds: [] },
+			},
+		}),
+	);
+	const page = ok(await read(owner, "listHistory", { query: "Food & fellowship" }));
+	assert.deepEqual(
+		page.items.map((item) => item.id).sort(),
+		[inBody.communicationId, inSubject.communicationId].sort(),
+	);
+});
+
+test("AC:CASE-COM-002 meeting tracking lists a person emailed by two of the meeting's messages once, with the latest mail", async () => {
+	const twice = await person("Twice Tracked", { email: "twice@example.test" });
+	const once = await person("Once Tracked", { email: "once@example.test" });
+	const meet = await meeting("Tracked twice");
+	const invite = await message({ meeting: meet, subject: "Invitation" });
+	const reminder = await message({ meeting: meet, subject: "Reminder" });
+	// The reminder's mail is the later one by its own created_at, set in the row.
+	await mail(invite, twice, "twice@example.test", { state: "sent", sentHours: 30, createdHours: 30 });
+	await mail(invite, once, "once@example.test", { state: "sent", sentHours: 30, createdHours: 30, delivered: true });
+	await mail(reminder, twice, "twice@example.test", { state: "sent", sentHours: 2, createdHours: 2, delivered: true });
+	const tracked = ok(await read(owner, "listMeetingTracking", { meetingId: meet }));
+	const ids = tracked.items.map((row) => row.personId);
+	assert.deepEqual(ids.sort(), [once, twice].sort());
+	assert.equal(new Set(ids).size, ids.length, "one row per person, so the list has unique keys");
+	assert.equal(tracked.items.find((row) => row.personId === twice).deliveryStatus, "delivered");
+});
+
+test("AC:RECOVERY-DELETE-001 a pending-deletion witness on the plant hides communication history reads", async () => {
+	const meet = await meeting("Hidden");
+	const witness = randomUUID();
+	await f.admin.execute(sql`INSERT INTO lifecycle_witness(id,kind,opaque_subject_id,plant_id,request_revision,state,
+		witness_checkpoint,cleanup_state,request_id,requested_at,cancel_until) VALUES(${witness},'plant',${plant.id},${plant.id},1,
+		'pending_deletion',1,'not_started',${randomUUID()},statement_timestamp(),statement_timestamp()+interval '720 hours')`);
+	try {
+		refused(await read(owner, "listMeetingTracking", { meetingId: meet }), "access_denied");
+		refused(await read(owner, "listHistory", {}), "access_denied");
+	} finally {
+		await f.admin.execute(sql`DELETE FROM lifecycle_witness WHERE id=${witness}`);
+	}
+	ok(await read(owner, "listMeetingTracking", { meetingId: meet }));
 });

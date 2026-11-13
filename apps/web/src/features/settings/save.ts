@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { errorReference, errorText, sameValue } from "./model";
+import { errorReference, errorText, same } from "./model";
 import { newRequestKey, type BrandError, type Reply, type SettingsError } from "./port";
 
 /** The reference of a write whose reply never arrived: it may have been applied. */
@@ -31,7 +31,7 @@ export function useWrite(prefix: string) {
 	const last = useRef<{ payload: unknown; key: string } | null>(null);
 
 	const keyFor = (payload: unknown) => {
-		if (last.current && sameValue(last.current.payload, payload)) return last.current.key;
+		if (last.current && same(last.current.payload, payload)) return last.current.key;
 		const key = newRequestKey(prefix);
 		last.current = { payload, key };
 		return key;

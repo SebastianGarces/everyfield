@@ -8,7 +8,7 @@ import {
 	Refresh01Icon,
 	StarIcon,
 } from "@hugeicons/core-free-icons";
-import { nativeText, type DocNode } from "@everyfield/contracts/documents";
+import { IMPORT_BYTES_MAX, IMPORT_TOO_LARGE, nativeText, type DocNode } from "@everyfield/contracts/documents";
 import {
 	Button,
 	ConfirmDialog,
@@ -26,10 +26,13 @@ import type { Node as PMNode } from "@tiptap/pm/model";
 import { EditorContent, EditorContext, useEditor } from "@tiptap/react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { archiveOwnedDocument, designateOwnedDocument, importOwnedDocument, saveOwnedDocument } from "../actions.ts";
+import { archiveOwnedDocument, designateOwnedDocument, saveOwnedDocument, type DocumentOutcome } from "../actions.ts";
 import { clean } from "../church/editor/document-json.ts";
 import "../church/editor/editor.css";
 import { nativeExtensions } from "../church/editor/extensions.ts";
+import { BlockControls } from "../church/editor/LayoutControls.tsx";
+import { TABLE_REFUSED } from "../church/editor/TableControls.tsx";
+import { blocksFromEditor, blocksToEditor } from "../church/editor/table-json.ts";
 import {
 	BlockShortcuts,
 	LeaveDialog,
@@ -39,13 +42,23 @@ import {
 } from "../church/editor/session.tsx";
 import { EditorToolbar } from "../church/editor/Toolbar.tsx";
 import { documentProblem, type WrittenView } from "../model.ts";
+import { SaveChain } from "../save-chain.ts";
 import { CopiedNote, SECTION, TextRevisionNote } from "./notes.tsx";
 
-// A plain native document in the Church Document editor's toolbar and paper (D-208), with the prose tools only: no
-// page setup, merge fields, slots, template compare, branding, preview or export (D-211). Save sends the title and the
-// editor's body node with the expected revision; the domain parses the body again.
+// A plain native document in the Church Document editor's toolbar and paper (D-208), with the prose tools and T-16's
+// table editor in its plain form (T-100): no page setup, merge fields, slots, template compare, branding, preview or
+// export (D-211). Save sends the title and the editor's body node with the expected revision; the domain parses the
+// body again.
 
 const EMPTY: DocNode = { type: "doc", content: [{ type: "paragraph" }] };
+
+/** A stored body as the editor holds it: a table's amount and check box cells are the editor's value cells. */
+const toEditor = (body: DocNode) => ({ ...body, content: blocksToEditor(body.content ?? []) });
+/** The editor's document as the stored body node. */
+const fromEditor = (doc: PMNode): DocNode => {
+	const json = clean(doc.toJSON()) as DocNode;
+	return json.content ? { ...json, content: blocksFromEditor(json.content) as DocNode["content"] } : json;
+};
 
 function fileFormat(file: File): "text" | "docx" | null {
 	const name = file.name.toLowerCase();
@@ -54,12 +67,20 @@ function fileFormat(file: File): "text" | "docx" | null {
 	return null;
 }
 
-async function encodeFile(file: File) {
-	const bytes = new Uint8Array(await file.arrayBuffer());
-	let binary = "";
-	for (let index = 0; index < bytes.length; index += 0x8000)
-		binary += String.fromCharCode(...bytes.subarray(index, index + 0x8000));
-	return btoa(binary);
+/** Sends the file's raw bytes to the import route (a server action caps its body far below the import limit). */
+async function importWritten(file: File, params: Record<string, string>): Promise<DocumentOutcome<WrittenView>> {
+	try {
+		const response = await fetch(`/documents/written/import?${new URLSearchParams(params)}`, {
+			method: "POST",
+			headers: { "content-type": "application/octet-stream" },
+			body: file,
+		});
+		if (!response.ok) return { status: "lost" };
+		return (await response.json()) as DocumentOutcome<WrittenView>;
+	} catch {
+		// A call that never reached the server, or an answer that is not the route's, reads as a lost answer.
+		return { status: "lost" };
+	}
 }
 
 type Saved = { id: string | null; revision: string; title: string; kind: WrittenView["kind"] };
@@ -104,7 +125,7 @@ export default function NativeEditor({
 	const [archiveOpen, setArchiveOpen] = useState(false);
 	const [textRevision, setTextRevision] = useState(doc?.textRevision ?? false);
 	const savedDoc = useRef<PMNode | null>(null);
-	const inflight = useRef<Promise<boolean> | null>(null);
+	const [saves] = useState(() => new SaveChain());
 	const discarding = useRef(false);
 	const fileRef = useRef<HTMLInputElement>(null);
 	const importKey = useRef<string | null>(null);
@@ -112,7 +133,7 @@ export default function NativeEditor({
 
 	const editor = useEditor({
 		extensions: [...nativeExtensions(), BlockShortcuts],
-		content: doc?.body ?? EMPTY,
+		content: toEditor(doc?.body ?? EMPTY),
 		immediatelyRender: true,
 		editorProps: {
 			attributes: {
@@ -135,8 +156,8 @@ export default function NativeEditor({
 		() =>
 			!discarding.current &&
 			!!editor &&
-			(inflight.current !== null || !isSaved(editor.state.doc) || titleRef.current.trim() !== savedRef.current.title),
-		[editor, isSaved],
+			(saves.busy || !isSaved(editor.state.doc) || titleRef.current.trim() !== savedRef.current.title),
+		[editor, isSaved, saves],
 	);
 	useEffect(() => {
 		if (!editor) return;
@@ -166,11 +187,11 @@ export default function NativeEditor({
 		window.history.replaceState(window.history.state, "", `/documents/written/${id}`);
 	};
 
-	const save = useCallback((): Promise<boolean> => {
+	/** One save of the document as it is now. The caller has checked that no save is in flight. */
+	const saveNow = useCallback((): Promise<boolean> => {
 		if (!editor) return Promise.resolve(false);
-		if (inflight.current) return inflight.current;
 		const current = editor.state.doc;
-		const body = clean(current.toJSON()) as DocNode;
+		const body = fromEditor(current);
 		const nextTitle = titleRef.current.trim();
 		const found = {
 			...(nextTitle ? {} : { title: "Enter a title." }),
@@ -181,13 +202,14 @@ export default function NativeEditor({
 		setPhase({ kind: "saving" });
 		setNote(null);
 		const base = savedRef.current;
-		const run = (async () => {
+		return saves.start(async () => {
+			// A call that never reached the server (no connection, a refused body) reads as a lost answer, not a hang.
 			const result = await saveOwnedDocument({
 				title: nextTitle,
 				body,
 				expectedRevision: base.revision,
 				...(base.id ? { documentId: base.id } : {}),
-			});
+			}).catch(() => ({ status: "lost" }) as const);
 			if (result.status !== "ok") {
 				const conflict = result.status === "refused" && result.code === "conflict";
 				setPhase({
@@ -209,12 +231,14 @@ export default function NativeEditor({
 			setTextRevision(false);
 			setPhase({ kind: "idle" });
 			return true;
-		})().finally(() => {
-			inflight.current = null;
 		});
-		inflight.current = run;
-		return run;
-	}, [editor]);
+	}, [editor, saves]);
+
+	/** Saves the document on screen, after any save in flight (SaveChain.save). */
+	const save = useCallback(async (): Promise<boolean> => {
+		if (!editor) return false;
+		return saves.save(() => isSaved(editor.state.doc) && titleRef.current.trim() === savedRef.current.title, saveNow);
+	}, [editor, isSaved, saveNow, saves]);
 
 	// Cmd/Ctrl+S saves from anywhere on the page, and the browser's own Save dialog stays closed.
 	useEffect(() => {
@@ -228,6 +252,22 @@ export default function NativeEditor({
 		return () => window.removeEventListener("keydown", onKey);
 	}, [save]);
 
+	// A change that would break a table does not happen. The note says why, until the next change or cursor move.
+	const [refused, setRefused] = useState(false);
+	useEffect(() => {
+		if (!editor) return;
+		const table = () => setRefused(true);
+		const hide = () => setRefused(false);
+		editor.on("tableChangeRefused", table);
+		editor.on("update", hide);
+		editor.on("selectionUpdate", hide);
+		return () => {
+			editor.off("tableChangeRefused", table);
+			editor.off("update", hide);
+			editor.off("selectionUpdate", hide);
+		};
+	}, [editor]);
+
 	const leave = useLeaveGuard(editor, unsaved);
 
 	function reload() {
@@ -240,7 +280,7 @@ export default function NativeEditor({
 		const format = fileFormat(file);
 		if (!format) return setNote("Use a .txt or .docx file. Older .doc Word files are not accepted.");
 		if (file.size === 0) return setNote("The file is empty.");
-		if (file.size > 10 * 1024 * 1024) return setNote("The file must be 10 MB or smaller.");
+		if (file.size > IMPORT_BYTES_MAX) return setNote(IMPORT_TOO_LARGE);
 		const base = savedRef.current;
 		const nextTitle =
 			titleRef.current.trim() || file.name.replace(/\.(txt|docx)$/i, "").slice(0, 200) || "Imported document";
@@ -249,17 +289,9 @@ export default function NativeEditor({
 		setPhase({ kind: "saving" });
 		setNote(null);
 		void (async () => {
-			let bytes: string;
-			try {
-				bytes = await encodeFile(file);
-			} catch {
-				setPhase({ kind: "idle" });
-				return setNote("This file did not import. Try a .txt or .docx file.");
-			}
-			const result = await importOwnedDocument({
+			const result = await importWritten(file, {
 				title: nextTitle,
 				format,
-				bytes,
 				expectedRevision: base.revision,
 				requestKey: key,
 				...(base.id ? { documentId: base.id } : {}),
@@ -278,14 +310,18 @@ export default function NativeEditor({
 			importKey.current = null;
 			const value = result.value;
 			created(value.id);
-			// The imported text is the saved revision now: it lands as editable paragraphs and the page reads "Saved".
-			editor.chain().setMeta("addToHistory", false).setContent(value.body).run();
+			// The imported file is the saved revision now: text as paragraphs, a Word file with its headings, lists, links and tables.
+			editor.chain().setMeta("addToHistory", false).setContent(toEditor(value.body)).run();
 			savedDoc.current = editor.state.doc;
 			setBodyChanged(false);
 			setSaved({ id: value.id, revision: value.revision, title: value.title, kind: value.kind });
 			setTitle(value.title);
 			setTextRevision(false);
-			setNote("The file's text is now this document's saved version. Each line is a paragraph you can edit.");
+			setNote(
+				format === "docx"
+					? "The Word file is now this document's saved version. Its headings, lists, links and tables came across, ready to edit."
+					: "The file's text is now this document's saved version. Each line is a paragraph you can edit.",
+			);
 		})();
 	}
 
@@ -293,7 +329,7 @@ export default function NativeEditor({
 		const base = savedRef.current;
 		if (!base.id) return;
 		setPhase({ kind: "saving" });
-		const result = await designateOwnedDocument(base.id, base.revision);
+		const result = await designateOwnedDocument(base.id, base.revision).catch(() => ({ status: "lost" }) as const);
 		setPhase({ kind: "idle" });
 		if (result.status !== "ok")
 			return setNote(
@@ -445,7 +481,19 @@ export default function NativeEditor({
 					</p>
 				) : null}
 				<div className="sticky top-[calc(var(--ef-topbar-h)+28px)] z-20 w-full max-w-[816px] self-center overflow-hidden rounded-card bg-surface-raised shadow-[0_0_0_1px_var(--ef-line)]">
-					{editor ? <EditorToolbar editor={editor} /> : <div className="h-[49px]" />}
+					{editor ? (
+						<>
+							<EditorToolbar editor={editor} />
+							<BlockControls editor={editor} palette={null} />
+							{refused ? (
+								<p role="alert" data-table-refused="" className="px-3 py-2 text-xs font-medium text-magenta-600">
+									{TABLE_REFUSED}
+								</p>
+							) : null}
+						</>
+					) : (
+						<div className="h-[49px]" />
+					)}
 				</div>
 				{errors.body ? (
 					<p role="alert" className="w-full max-w-[816px] self-center text-sm text-magenta-600">

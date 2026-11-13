@@ -22,7 +22,7 @@ Read the project's `.preview.json`. Commands are argv arrays, not shell strings.
 }
 ```
 
-Adapt commands to the project. Application databases and email services need their own disposable configuration. Optional `setup` requires idempotent `teardown`; both receive `PREVIEW_ID` and `PREVIEW_DATA_DIR`. The SQLite registry does not isolate application data. Development frameworks may load the worktree's `.env` files. An app whose auth trusts one origin sets that origin to `${PREVIEW_URL}` in the preview config `env`; Portless replaces it with the preview's own URL.
+Adapt commands to the project. Application databases and email services need their own disposable configuration. Optional `setup` requires idempotent `teardown`; both receive `PREVIEW_ID` and `PREVIEW_DATA_DIR`. The SQLite registry does not isolate application data. Development frameworks may load the worktree's `.env` files.
 
 ```bash
 portless preview up --project /absolute/worktree --mode development --json
@@ -53,12 +53,6 @@ portless preview gc --apply
 Ordinary `down` stops processes and removes owned dependencies/data/snapshots. It preserves the source worktree and borrowed dependencies. Use `--remove-worktree` when the task authorizes removing the source too and all users of that worktree are finished. Stop any other previews of that worktree first. The CLI refuses main, dirty, detached, changed-HEAD and concurrently previewed worktrees. It keeps the Git branch; ignored files disappear with the worktree. Do not bypass a refusal with force deletion.
 
 Confirm the record is terminal, its URL no longer serves the app, and an explicitly removed worktree is absent from disk and `git worktree list`. Successful cleanup reports `removed`; an already-cleaned failed startup may retain `failed` for diagnosis. `cleanup_pending` is incomplete cleanup; inspect its error and retry after fixing the cause. `gc` is a dry run unless passed `--apply`. Shut down a dedicated test supervisor after verification; do not stop unrelated previews.
-
-Timing previews: D81's quiet timing runner retired with evf v1. Do not time on a shared preview and call it a qualifying timing set; report the measurement and what it shared the machine with.
-
-Slots: the managed launcher sets `PORTLESS_PREVIEW_LIMIT=4`, so four previews run at a time. The supervisor reads the limit when it starts; restarting it stops every active preview, so never restart it while another agent's preview runs. Builders and verifiers come first. The coordinator may stop Sebastian's review preview at any time and restarts it later on main. Never stop another workspace's preview. See D74 in `docs/architecture/decisions.md`.
-
-Tests of Portless itself never touch the shared service. Give the test a new temporary folder in `PORTLESS_STATE_DIR` and `PORTLESS_PREVIEW_DIR`, its own `PORTLESS_PORT` and `PORTLESS_PREVIEW_PORT`, and `PORTLESS_PREVIEW_HTTP=1`. Never restart, reinstall, `clean` or stop the shared service or its supervisor: at 02:04 UTC on 2026-10-22 one restart removed every live preview.
 
 Worktree cleanup does not revert commits. If a rehearsal requires reverting the change, keep its SHA and revert it on the retained branch after cleanup. Report preview removal and Git reversion separately.
 

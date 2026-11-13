@@ -8,15 +8,17 @@
 // Nora's 2026-11-04 cases add a second Member (Owen Price) whose seat she can remove, a verified sign-up with no church
 // yet, a sent message with one refused recipient, the Admin's suppressed address with one past restore, and article C,
 // which two sending churches each publish, so the Owner and Admin see the "Order needed" prompt.
-// Every address is delivered+<label>@resend.dev, an approved test recipient. The send path keeps mail safe: on a preview
-// mailRecipientAllowed captures any other address, also one a tester types.
+// T-255 adds a second church, Riverside (QA), with an Owner login, and makes Ana Lee a person in both churches.
+// Every address is delivered+<label>@resend.dev, an approved test recipient, except Ana Lee's when QA_TEST_RECIPIENTS
+// is set: she then gets its first address, which `bin/qa up --test-recipients` also approves on that one deployment.
+// The send path keeps mail safe: on a preview mailRecipientAllowed captures any other address, also one a tester types.
 //
 // Idempotent: each part first looks for its own rows by a fixed name and is skipped when they are there. A second run
 // on a complete branch signs nobody in and writes nothing.
 //
 //   DATABASE_URL=<QA branch owner URL> QA_ROLE_PASSWORD=<new login password> \
 //     IDENTITY_MAIL_KEY=<preview mail key> IDENTITY_ADDRESS_KEY=<preview address key> \
-//     node --conditions=react-server --import tsx tools/qa/qa-seed.ts
+//     [QA_TEST_RECIPIENTS=<a@x,b@x>] node --conditions=react-server --import tsx tools/qa/qa-seed.ts
 //
 // It refuses production, the shared development branch, NODE_ENV=production, a missing DATABASE_URL and missing mail
 // keys before it opens any connection (qa-guard.ts). QA_ROLE_PASSWORD sets the password of the two app logins it
@@ -29,6 +31,7 @@ import { closeDatabase, createDatabase, type Database } from "../../packages/db/
 import { RequestActor } from "../../packages/domain/src/access/session.ts";
 import { communicationWriter, type DeliveryTransport } from "../../packages/domain/src/communication/index.ts";
 import { mailAddressHash } from "../../packages/domain/src/communication/delivery.ts";
+import type { Instant } from "../../packages/contracts/src/common/time.ts";
 import { nativeFromText } from "../../packages/contracts/src/documents/native.ts";
 import { documentsWriter } from "../../packages/domain/src/documents/index.ts";
 import { createFollowUpWriter } from "../../packages/domain/src/followups/index.ts";
@@ -40,11 +43,14 @@ import { createOrganizationAdapter, type OrganizationEffects } from "../../packa
 import { accountPersonProducer, peopleWriter, personFields } from "../../packages/domain/src/people/index.ts";
 import { createTaskWriter } from "../../packages/domain/src/tasks/index.ts";
 import { teamsWriter } from "../../packages/domain/src/teams/index.ts";
-import { queueJobs } from "../../apps/web/src/server/jobs/queue.ts";
 import { receiveMailCallback } from "../../apps/web/src/server/jobs/webhook.ts";
-import { QA_LOGINS, QA_PASSWORD, QA_ROLES as ROLES, roleUrl, seedRefusal } from "./qa-guard.ts";
+import { FULL_ADDRESS, QA_LOGINS, QA_PASSWORD, QA_ROLES as ROLES, roleUrl, seedRefusal } from "./qa-guard.ts";
 
 const CHURCH = "Harvest Point (QA)";
+/** T-255: the second church plant, with its own Owner login, so one person can belong to two churches. */
+const RIVERSIDE = { name: "Riverside (QA)", city: "Dallas", owner: "Rachel Moss" } as const;
+/** The person in both churches. Her address is the first test recipient, or her own resend.dev address. */
+const SHARED = { name: "Ana Lee", label: "ana" } as const;
 const ORIGIN = "https://qa-seed.everyfield.invalid";
 const GLOBAL = "00000000-0000-0000-0000-000000000000";
 const digest = () => randomBytes(32).toString("hex");
@@ -121,6 +127,14 @@ async function logins(admin: Database, password: string) {
 
 class SeedRefusal extends Error {}
 
+/** Ana Lee's address: the first entry of QA_TEST_RECIPIENTS, which `bin/qa up` checked, or her resend.dev address. */
+function sharedAddress(env: Readonly<Record<string, string | undefined>>): string {
+	const first = (env.QA_TEST_RECIPIENTS ?? "").split(",")[0]!.trim();
+	if (!first) return address(SHARED.label);
+	if (!FULL_ADDRESS.test(first)) throw new SeedRefusal("QA_TEST_RECIPIENTS must start with one full address.");
+	return first;
+}
+
 async function seed(env: Readonly<Record<string, string | undefined>>): Promise<string> {
 	const refusal = seedRefusal(env);
 	if (refusal) throw new SeedRefusal(refusal);
@@ -128,8 +142,8 @@ async function seed(env: Readonly<Record<string, string | undefined>>): Promise<
 	if (!password || password.length < 16) throw new SeedRefusal("QA_ROLE_PASSWORD must hold at least 16 characters.");
 	const source = env.DATABASE_URL!;
 	const admin = createDatabase({ connectionString: source, max: 2 });
-	let runtime: Database | null = null,
-		authDb: Database | null = null;
+	let runtime: ReturnType<typeof createDatabase> | null = null,
+		authDb: ReturnType<typeof createDatabase> | null = null;
 	try {
 		await logins(admin, password);
 		runtime = createDatabase({ connectionString: roleUrl(source, ROLES.runtime, password), max: 2 });
@@ -138,7 +152,7 @@ async function seed(env: Readonly<Record<string, string | undefined>>): Promise<
 			encryptionKey: Buffer.from(env.IDENTITY_MAIL_KEY!, "hex"),
 			addressKey: Buffer.from(env.IDENTITY_ADDRESS_KEY!, "hex"),
 		};
-		return await fill(admin, runtime, authDb, keys);
+		return await fill(admin, runtime, authDb, keys, sharedAddress(env));
 	} finally {
 		if (runtime) await closeDatabase(runtime);
 		if (authDb) await closeDatabase(authDb);
@@ -146,7 +160,13 @@ async function seed(env: Readonly<Record<string, string | undefined>>): Promise<
 	}
 }
 
-async function fill(admin: Database, runtime: Database, authDb: Database, keys: MailKeys): Promise<string> {
+async function fill(
+	admin: Database,
+	runtime: Database,
+	authDb: Database,
+	keys: MailKeys,
+	shared: string,
+): Promise<string> {
 	const done: string[] = [];
 	// Registration admission is limited per address, so each account registers from its own loopback address.
 	let ip = 0;
@@ -159,7 +179,7 @@ async function fill(admin: Database, runtime: Database, authDb: Database, keys: 
 		secret: randomBytes(32).toString("hex"),
 		trustedIp: () => `127.0.106.${ip}`,
 		// Verification mail is skipped: the seed marks each QA address verified below.
-		enqueueMail: async () => {},
+		enqueueMail: async () => "",
 		diagnostic: () => {},
 	});
 	const host = new URL(ORIGIN).host;
@@ -236,47 +256,53 @@ async function fill(admin: Database, runtime: Database, authDb: Database, keys: 
 	};
 	const ownerSession = () => sessionOf(QA_LOGINS.owner);
 
-	// The church, created by the owner through onboarding and marked complete, so every login lands on it.
+	// Each church, created by its owner through onboarding and marked complete, so its logins land on it.
 	const noop = async () => {};
-	const onboarding = createOnboardingProducer({ invalidate: noop, notice: noop, enqueue: noop });
-	let plantId = (await rows(admin, sql`SELECT id FROM plant WHERE name=${CHURCH} ORDER BY id LIMIT 1`))[0]?.id as
-		string | undefined;
-	if (!plantId) {
-		const s = await ownerSession();
-		const created = ok(
-			"createPlant",
-			await runtime.transaction((tx) =>
-				onboarding.createPlant(
-					tx,
-					{ session: s, selected: { kind: "account", id: owner } } as never,
-					{
-						requestKey: randomUUID(),
-						expectedRevision: "1",
-						input: { name: CHURCH, locality: { city: "Austin" }, confirmed: true },
-					} as never,
+	const onboarding = createOnboardingProducer({ relationships: noop, enqueue: noop });
+	const write = <T>(run: (tx: never) => Promise<T>) => runtime.transaction((tx) => run(tx as never));
+	async function church(name: string, city: string, ownerAccount: string, ownerEmail: string, label: string) {
+		let id = (await rows(admin, sql`SELECT id FROM plant WHERE name=${name} ORDER BY id LIMIT 1`))[0]?.id as
+			string | undefined;
+		if (!id) {
+			const s = await sessionOf(ownerEmail);
+			const created = ok(
+				`createPlant ${name}`,
+				await write((tx) =>
+					onboarding.createPlant(
+						tx,
+						{ session: s, selected: { kind: "account", id: ownerAccount } } as never,
+						{
+							requestKey: randomUUID(),
+							expectedRevision: "1",
+							input: { name, locality: { city }, confirmed: true },
+						} as never,
+					),
 				),
-			),
-		) as { plant: { id: string } };
-		plantId = created.plant.id;
-		done.push("church");
+			) as { plant: { id: string } };
+			id = created.plant.id;
+			done.push(`church${label}`);
+		}
+		const completed = await rows(admin, sql`SELECT onboarding_completed_at FROM plant WHERE id=${id}`);
+		if (!completed[0]!.onboarding_completed_at) {
+			const c = { session: await sessionOf(ownerEmail), selected: { kind: "plant", id } };
+			const revision = (await rows(admin, sql`SELECT revision::text AS r FROM plant WHERE id=${id}`))[0]!.r as string;
+			ok(
+				`complete onboarding ${name}`,
+				await write((tx) =>
+					onboarding.complete(
+						tx,
+						c as never,
+						{ requestKey: randomUUID(), expectedRevision: revision, input: {} } as never,
+					),
+				),
+			);
+			done.push(`onboarding${label}`);
+		}
+		return id;
 	}
+	const plantId = await church(CHURCH, "Austin", owner, QA_LOGINS.owner, "");
 	const plant = { kind: "plant", id: plantId } as const;
 	const ctx = async (): Promise<Ctx> => ({ session: await ownerSession(), selected: plant });
-	const write = <T>(run: (tx: never) => Promise<T>) => runtime.transaction((tx) => run(tx as never));
-
-	const completed = await rows(admin, sql`SELECT onboarding_completed_at FROM plant WHERE id=${plantId}`);
-	if (!completed[0]!.onboarding_completed_at) {
-		const c = await ctx();
-		const revision = (await rows(admin, sql`SELECT revision::text AS r FROM plant WHERE id=${plantId}`))[0]!
-			.r as string;
-		ok(
-			"complete onboarding",
-			await write((tx) =>
-				onboarding.complete(tx, c as never, { requestKey: randomUUID(), expectedRevision: revision, input: {} }),
-			),
-		);
-		done.push("onboarding");
-	}
 
 	// Admin and Member seats. Seat acceptance belongs to invitations; the seed writes the accepted seat, as the
 	// People UI seed does, and links a Person to each account.
@@ -300,17 +326,19 @@ async function fill(admin: Database, runtime: Database, authDb: Database, keys: 
 		done.push(label);
 	}
 
-	const personId = async (name: string) =>
+	const personIn = async (church: string, name: string) =>
 		(
 			await rows(
 				admin,
-				sql`SELECT id, revision::text AS revision FROM person WHERE plant_id=${plantId} AND display_name=${name} AND state='live' LIMIT 1`,
+				sql`SELECT id, revision::text AS revision FROM person WHERE plant_id=${church} AND display_name=${name} AND state='live' LIMIT 1`,
 			)
 		)[0] as { id: string; revision: string } | undefined;
+	const personId = (name: string) => personIn(plantId, name);
 
 	for (const [displayName, stage, label] of PEOPLE) {
 		if (await personId(displayName)) continue;
 		const c = await ctx();
+		const email = displayName === SHARED.name ? shared : label ? address(label) : null;
 		ok(
 			`create ${displayName}`,
 			await write((tx) =>
@@ -319,7 +347,7 @@ async function fill(admin: Database, runtime: Database, authDb: Database, keys: 
 					c as never,
 					{
 						requestKey: randomUUID(),
-						input: { displayName, stage, email: label ? address(label) : null, source: "other" },
+						input: { displayName, stage, email, source: "other" },
 					} as never,
 				),
 			),
@@ -377,7 +405,7 @@ async function fill(admin: Database, runtime: Database, authDb: Database, keys: 
 	for (const [index, title] of MEETINGS.entries()) {
 		if ((await rows(admin, sql`SELECT 1 FROM meeting WHERE plant_id=${plantId} AND title=${title}`)).length) continue;
 		const c = await ctx();
-		const guests = [];
+		const guests: string[] = [];
 		for (const name of ["Sara Nunez", "Leo Pratt", "James Okafor"]) guests.push((await personId(name))!.id);
 		ok(
 			`meeting ${title}`,
@@ -472,18 +500,7 @@ async function fill(admin: Database, runtime: Database, authDb: Database, keys: 
 	const effects: OrganizationEffects = {
 		// The seed keeps the proof instead of mailing it, as it skips verification mail.
 		invitation: async (_tx, input) => void proofs.set(input.invitationId, input.proof),
-		// The app's own effects (apps/web/src/server/organizations): the coarse notice job and the stale-work supersede.
-		notice: (tx, input) =>
-			queueJobs(tx, [
-				{
-					tenant: input.pair.kind === "plant" ? input.pair.subject.id : input.pair.organization.id,
-					kind: "notification",
-					subject: input.relationshipId,
-					key: `${input.kind}/${input.eventId}`,
-					revision: input.revision,
-					eligibleAt: new Date().toISOString(),
-				},
-			]),
+		// The app's own stale-work supersede (apps/web/src/server/organizations).
 		invalidate: (_tx, input) =>
 			sql`UPDATE job SET state='superseded',claim_generation=claim_generation+1,lease_owner=NULL,lease_until=NULL,revision=revision+1,finished_at=clock_timestamp() WHERE subject_record_id=${input.sourceId} AND kind IN ('assessment','digest') AND state IN ('ready','retry_wait','claimed')`,
 	};
@@ -522,30 +539,73 @@ async function fill(admin: Database, runtime: Database, authDb: Database, keys: 
 		);
 		for (const i of stale)
 			await runtime.transaction((tx) =>
-				organizations["associations.revokeInvitation"](tx, s, plant, {
-					requestKey: randomUUID(),
-					expectedRevision: i.revision as string,
-					input: { invitationId: i.id as string },
-				} as never),
+				organizations["associations.revokeInvitation"](
+					tx,
+					s,
+					plant as never,
+					{
+						requestKey: randomUUID(),
+						expectedRevision: i.revision as string,
+						input: { invitationId: i.id as string },
+					} as never,
+				),
 			);
 		const revision = (await rows(admin, sql`SELECT revision::text AS r FROM plant WHERE id=${plantId}`))[0]!
 			.r as string;
 		const invited = await runtime.transaction((tx) =>
-			organizations["associations.invite"](tx, s, plant, {
-				requestKey: randomUUID(),
-				expectedRevision: revision,
-				input: { pair: { kind: "plant", subject: plant, organization }, recipientEmail: o.login },
-			} as never),
+			organizations["associations.invite"](
+				tx,
+				s,
+				plant as never,
+				{
+					requestKey: randomUUID(),
+					expectedRevision: revision,
+					input: { pair: { kind: "plant", subject: plant, organization }, recipientEmail: o.login },
+				} as never,
+			),
 		);
 		const answer = (await sessionOf(o.login)) as never;
 		await runtime.transaction((tx) =>
-			organizations["associations.acceptInvitation"](tx, answer, organization, {
-				requestKey: randomUUID(),
-				expectedRevision: invited.revision,
-				input: { invitationId: invited.invitationId, proof: proofs.get(invited.invitationId)!, decision: "accept" },
-			} as never),
+			organizations["associations.acceptInvitation"](
+				tx,
+				answer,
+				organization as never,
+				{
+					requestKey: randomUUID(),
+					expectedRevision: invited.revision,
+					input: { invitationId: invited.invitationId, proof: proofs.get(invited.invitationId)!, decision: "accept" },
+				} as never,
+			),
 		);
 		done.push(`connection ${o.name}`);
+	}
+
+	// T-255: Riverside (QA), a second church plant with its own Owner, and Ana Lee as a person there too, at the same
+	// address she has in Harvest Point (QA). Before the wiki parts, which the OPS-106 tests expect last.
+	const riversideOwner = await account(RIVERSIDE.owner, QA_LOGINS.riverside);
+	const riverside = await church(
+		RIVERSIDE.name,
+		RIVERSIDE.city,
+		riversideOwner,
+		QA_LOGINS.riverside,
+		` ${RIVERSIDE.name}`,
+	);
+	if (!(await personIn(riverside, SHARED.name))) {
+		const c = { session: await sessionOf(QA_LOGINS.riverside), selected: { kind: "plant", id: riverside } };
+		ok(
+			`create ${SHARED.name} in ${RIVERSIDE.name}`,
+			await write((tx) =>
+				peopleWriter.createPerson(
+					tx,
+					c as never,
+					{
+						requestKey: randomUUID(),
+						input: { displayName: SHARED.name, stage: "attendee", email: shared, source: "other" },
+					} as never,
+				),
+			),
+		);
+		done.push(`person ${SHARED.name} in ${RIVERSIDE.name}`);
 	}
 
 	// After the overseers: on a fresh branch the OPS-126 connection to Harvest Network (QA) comes first, so the wiki
@@ -638,7 +698,7 @@ async function mailCases(
 		)[0] as { id: string; revision: string } | undefined;
 	if (!(await message())) {
 		const c = await p.ctx();
-		const personIds = [];
+		const personIds: string[] = [];
 		for (const name of DELIVERY_TO) personIds.push((await p.personId(name))!.id);
 		ok(
 			"delivery message",
@@ -671,7 +731,6 @@ async function mailCases(
 		if (!(actor instanceof RequestActor)) throw Error(`delivery actor: ${JSON.stringify(actor)}`);
 		const accepting: DeliveryTransport = {
 			send: async (batch) => ({ outcome: "ids", ids: batch.messages.map(() => `qa-seed-${randomUUID()}`) }),
-			lookup: async () => ({ outcome: "unknown" }),
 			cancel: async (ids) => ids.map(() => ({ outcome: "unknown" })),
 			reschedule: async (ids) => ids.map(() => ({ outcome: "unknown" })),
 		};
@@ -791,7 +850,7 @@ async function checkIns(
 		)
 	).map((r) => r.at as string);
 	let now = "";
-	const care = createPrivateCare({ clock: { now: () => now } });
+	const care = createPrivateCare({ clock: { now: () => now as Instant } });
 	const actor = await RequestActor.resolve(runtime, (await ownerSession()) as never);
 	if (!(actor instanceof RequestActor)) throw Error(`check-in actor: ${JSON.stringify(actor)}`);
 	await runtime.transaction(async (tx) => {

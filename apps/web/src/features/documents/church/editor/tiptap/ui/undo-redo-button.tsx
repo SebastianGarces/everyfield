@@ -3,41 +3,18 @@
 import * as React from "react";
 import { BUTTON_ICON } from "../styles.ts";
 
-// --- Lib ---
-import { parseShortcutKeys } from "../tiptap-utils.ts";
-
 // --- Hooks ---
 import { useTiptapEditor } from "../use-tiptap-editor.ts";
 
 // --- Tiptap UI ---
-import type { UndoRedoAction, UseUndoRedoConfig } from "./use-undo-redo.ts";
-import { UNDO_REDO_SHORTCUT_KEYS, useUndoRedo } from "./use-undo-redo.ts";
+import type { UseUndoRedoConfig } from "./use-undo-redo.ts";
+import { useUndoRedo } from "./use-undo-redo.ts";
 
 // --- UI Primitives ---
 import type { ButtonProps } from "../primitives/button.tsx";
 import { Button } from "../primitives/button.tsx";
 
-export interface UndoRedoButtonProps extends Omit<ButtonProps, "type">, UseUndoRedoConfig {
-	/**
-	 * Optional text to display alongside the icon.
-	 */
-	text?: string;
-	/**
-	 * Optional show shortcut keys in the button.
-	 * @default false
-	 */
-	showShortcut?: boolean;
-}
-
-export function HistoryShortcutBadge({
-	action,
-	shortcutKeys = UNDO_REDO_SHORTCUT_KEYS[action],
-}: {
-	action: UndoRedoAction;
-	shortcutKeys?: string;
-}) {
-	return <kbd className="ml-1 text-xs opacity-70">{parseShortcutKeys({ shortcutKeys })}</kbd>;
-}
+export interface UndoRedoButtonProps extends Omit<ButtonProps, "type">, UseUndoRedoConfig {}
 
 /**
  * Button component for triggering undo/redo actions in a Tiptap editor.
@@ -45,26 +22,11 @@ export function HistoryShortcutBadge({
  * For custom button implementations, use the `useHistory` hook instead.
  */
 export const UndoRedoButton = React.forwardRef<HTMLButtonElement, UndoRedoButtonProps>(
-	(
-		{
-			editor: providedEditor,
-			action,
-			text,
-			hideWhenUnavailable = false,
-			onExecuted,
-			showShortcut = false,
-			onClick,
-			children,
-			...buttonProps
-		},
-		ref,
-	) => {
+	({ editor: providedEditor, action, onClick, children, ...buttonProps }, ref) => {
 		const { editor } = useTiptapEditor(providedEditor);
-		const { isVisible, handleAction, label, canExecute, Icon, shortcutKeys } = useUndoRedo({
+		const { isVisible, handleAction, label, canExecute, Icon } = useUndoRedo({
 			editor,
 			action,
-			hideWhenUnavailable,
-			onExecuted,
 		});
 
 		const handleClick = React.useCallback(
@@ -84,8 +46,7 @@ export const UndoRedoButton = React.forwardRef<HTMLButtonElement, UndoRedoButton
 			<Button
 				type="button"
 				disabled={!canExecute}
-				data-style="ghost"
-				data-disabled={!canExecute}
+				data-disabled={!canExecute || undefined}
 				role="button"
 				tabIndex={-1}
 				aria-label={label}
@@ -97,8 +58,6 @@ export const UndoRedoButton = React.forwardRef<HTMLButtonElement, UndoRedoButton
 				{children ?? (
 					<>
 						<Icon className={BUTTON_ICON} />
-						{text && <span className="text-sm">{text}</span>}
-						{showShortcut && <HistoryShortcutBadge action={action} shortcutKeys={shortcutKeys} />}
 					</>
 				)}
 			</Button>

@@ -11,7 +11,14 @@ import {
 	FileAddIcon,
 	ViewIcon,
 } from "@hugeicons/core-free-icons";
-import { LEGAL_NOTICE, pageBox, tileBox, type DocBrand, type DocDocument } from "@everyfield/contracts/documents";
+import {
+	LEGAL_NOTICE,
+	pageBox,
+	tileBox,
+	type DocBrand,
+	type DocDocument,
+	type ExportFormat,
+} from "@everyfield/contracts/documents";
 import {
 	Button,
 	ConfirmDialog,
@@ -27,6 +34,7 @@ import type { Node as PMNode } from "@tiptap/pm/model";
 import { Selection } from "@tiptap/pm/state";
 import { EditorContent, EditorContext, useEditor, useEditorState } from "@tiptap/react";
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties } from "react";
+import { SaveChain } from "../../save-chain.ts";
 import { saveChurchDocument } from "../actions.ts";
 import { ChurchPdf } from "../ChurchPdf.tsx";
 import type { RevisionRow } from "../server.ts";
@@ -36,6 +44,7 @@ import { documentFrom, editorContent } from "./document-json.ts";
 import "./editor.css";
 import { editorExtensions } from "./extensions.ts";
 import { BlockControls } from "./LayoutControls.tsx";
+import { TABLE_REFUSED } from "./TableControls.tsx";
 import { readPage } from "./layout.ts";
 import { paletteVars } from "./paper.ts";
 import { PageSetupPanel } from "./PageSetup.tsx";
@@ -60,13 +69,16 @@ type Props = {
 	/** The church's current value of each merge field Insert offers, by key. */
 	mergeValues: Record<string, string>;
 	revision: string;
-	onRevision: (revision: string) => void;
+	/** A save moved the revision; `formats` are the downloads its body offers (Excel only with a budget table). */
+	onRevision: (revision: string, formats: ExportFormat[]) => void;
 	/** The saved revisions, newest first, as Version history lists them. */
 	revisions: RevisionRow[];
 	/** The preview address of one revision in one format: the preview and history read it. */
 	file: (format: string, revision: string) => string;
 	/** Where the document stands against its template; null when there is nothing to compare with. */
 	template: "behind" | "current" | null;
+	/** The church template's name when the document was made from one; null for a built-in template. */
+	templateName: string | null;
 	/** Changes from the template were accepted as `revision`: the page reopens the editor on it. */
 	onAccepted: (document: DocDocument, revision: string, taken: number) => void;
 	/** What the last accept did, shown in the status line until the next edit. */
@@ -84,6 +96,7 @@ export default function ChurchEditor({
 	revisions,
 	file,
 	template,
+	templateName,
 	onAccepted,
 	accepted = null,
 }: Props) {
@@ -94,7 +107,7 @@ export default function ChurchEditor({
 	const [status, setStatus] = useState<SaveStatus>({ kind: "saved" });
 	const [mode, setMode] = useState<"edit" | "preview" | "history" | "compare">("edit");
 	const savedDoc = useRef<PMNode | null>(null);
-	const inflight = useRef<Promise<boolean> | null>(null);
+	const [saves] = useState(() => new SaveChain());
 
 	// The image blocks read the brand-kit images through this one object, so the branding switch can change the images
 	// without a new editor: its content, cursor and undo history stay, and only the image views draw again (below).
@@ -114,23 +127,30 @@ export default function ChurchEditor({
 		[],
 	);
 	const extensions = useMemo(() => [...editorExtensions(assets), BlockShortcuts], [assets]);
-	const editor = useEditor({
-		extensions,
-		content: editorContent(stored),
-		immediatelyRender: true,
-		// Start with the cursor in the first line of text, not on a whole block.
-		onCreate: ({ editor: created }) => {
-			const first = Selection.findFrom(created.state.doc.resolve(0), 1, true);
-			if (first) created.view.dispatch(created.state.tr.setSelection(first).setMeta("addToHistory", false));
-		},
-		editorProps: {
+	// The editor reads its content once, when it starts. Options that keep their identity across renders also spare the
+	// editor an options update (and a view update) on every parent render.
+	const [content] = useState(() => editorContent(stored));
+	const editorProps = useMemo(
+		() => ({
 			attributes: {
 				"aria-label": `${title}, document body`,
 				"aria-multiline": "true",
 				role: "textbox",
 				spellcheck: "true",
 			},
+		}),
+		[title],
+	);
+	const editor = useEditor({
+		extensions,
+		content,
+		immediatelyRender: true,
+		// Start with the cursor in the first line of text, not on a whole block.
+		onCreate: ({ editor: created }) => {
+			const first = Selection.findFrom(created.state.doc.resolve(0), 1, true);
+			if (first) created.view.dispatch(created.state.tr.setSelection(first).setMeta("addToHistory", false));
 		},
+		editorProps,
 	});
 
 	useEffect(() => {
@@ -150,43 +170,39 @@ export default function ChurchEditor({
 		return saved.eq(doc);
 	}, []);
 	// Read when a way out is taken, not from React state: a click straight after an edit can come before React renders.
-	const unsaved = useCallback(
-		() => !!editor && (inflight.current !== null || !isSaved(editor.state.doc)),
-		[editor, isSaved],
-	);
+	const unsaved = useCallback(() => !!editor && (saves.busy || !isSaved(editor.state.doc)), [editor, isSaved, saves]);
 	useEffect(() => {
 		if (!editor) return;
 		savedDoc.current ??= editor.state.doc;
 		const sync = () => {
 			const same = isSaved(editor.state.doc);
-			setStatus((current) =>
-				current.kind === "saving"
-					? current
-					: same
-						? { kind: "saved" }
-						: current.kind === "failed"
-							? current
-							: { kind: "dirty" },
-			);
+			// The status object stays the same while its kind does, so React skips the render: typing in a document that is
+			// already unsaved draws nothing here.
+			setStatus((current) => {
+				if (current.kind === "saving") return current;
+				if (same) return current.kind === "saved" ? current : { kind: "saved" };
+				return current.kind === "failed" || current.kind === "dirty" ? current : { kind: "dirty" };
+			});
 		};
 		editor.on("update", sync);
 		return () => void editor.off("update", sync);
 	}, [editor, isSaved]);
 
-	const save = useCallback((): Promise<boolean> => {
+	/** One save of the document as it is now. The caller has checked that no save is in flight. */
+	const saveNow = useCallback((): Promise<boolean> => {
 		if (!editor) return Promise.resolve(false);
-		if (inflight.current) return inflight.current;
 		const doc = editor.state.doc;
 		const body = documentFrom(base.current, doc.toJSON());
 		setStatus({ kind: "saving" });
-		const run = (async () => {
-			const result = await saveChurchDocument(docId, revision.current, body);
+		return saves.start(async () => {
+			// A call that never reached the server (no connection, a refused body) reads as a lost answer, not a hang.
+			const result = await saveChurchDocument(docId, revision.current, body).catch(() => ({ status: "lost" }) as const);
 			if (result.status === "saved") {
 				revision.current = result.revision;
 				savedDoc.current = doc;
 				base.current = body;
 				setShownRevision(result.revision);
-				onRevision(result.revision);
+				onRevision(result.revision, body.exports);
 				// Edits typed while the request ran keep the "Unsaved changes" status.
 				setStatus((editor.state.doc.eq(doc) ? { kind: "saved" } : { kind: "dirty" }) satisfies SaveStatus);
 				return true;
@@ -201,12 +217,14 @@ export default function ChurchEditor({
 						: "The connection dropped. Your edits are still here.",
 			});
 			return false;
-		})().finally(() => {
-			inflight.current = null;
 		});
-		inflight.current = run;
-		return run;
-	}, [editor, docId, onRevision]);
+	}, [editor, docId, onRevision, saves]);
+
+	/** Saves the document on screen, after any save in flight (SaveChain.save). */
+	const save = useCallback(async (): Promise<boolean> => {
+		if (!editor) return false;
+		return saves.save(() => isSaved(editor.state.doc), saveNow);
+	}, [editor, isSaved, saveNow, saves]);
 
 	// Cmd/Ctrl+S saves from anywhere on the page, and the browser's own Save dialog stays closed.
 	useEffect(() => {
@@ -219,6 +237,26 @@ export default function ChurchEditor({
 		window.addEventListener("keydown", onKey);
 		return () => window.removeEventListener("keydown", onKey);
 	}, [save]);
+
+	// A change that would break a table, or put conditional text where the format refuses it, does not happen. The note
+	// says why, until the next change or cursor move.
+	const [refused, setRefused] = useState<string | null>(null);
+	useEffect(() => {
+		if (!editor) return;
+		const table = () => setRefused(TABLE_REFUSED);
+		const condition = (reason: string) => setRefused(`${reason} Nothing changed.`);
+		const hide = () => setRefused(null);
+		editor.on("tableChangeRefused", table);
+		editor.on("conditionChangeRefused", condition);
+		editor.on("update", hide);
+		editor.on("selectionUpdate", hide);
+		return () => {
+			editor.off("tableChangeRefused", table);
+			editor.off("conditionChangeRefused", condition);
+			editor.off("update", hide);
+			editor.off("selectionUpdate", hide);
+		};
+	}, [editor]);
 
 	const leave = useLeaveGuard(editor, unsaved);
 
@@ -254,8 +292,9 @@ export default function ChurchEditor({
 			: { x: page.margin.left, y: page.margin.top };
 		const px = (n: number) => `${((n * 4) / 3).toFixed(2)}px`;
 		return {
-			"--page-w": px(width + (page.tile ? 2 * page.tile.padding : 0)),
-			"--page-h": px(height + (page.tile ? 2 * page.tile.padding : 0)),
+			// A card is its tile cell, padding inside, so its text column is the PDF's: the cell less twice the padding.
+			"--page-w": px(width),
+			"--page-h": px(height),
 			"--pad-x": px(pad.x),
 			"--pad-y": px(pad.y),
 			...paletteVars(brand.palette),
@@ -370,7 +409,9 @@ export default function ChurchEditor({
 						/>
 					</div>
 				) : null}
-				{template === "behind" && mode === "edit" ? <TemplateNotice onCompare={() => void compare()} /> : null}
+				{template === "behind" && mode === "edit" ? (
+					<TemplateNotice churchTemplate={templateName} onCompare={() => void compare()} />
+				) : null}
 				{/* The editor stays in the page while the preview shows, so its content, cursor and undo history stay. */}
 				<div hidden={mode !== "edit"} className="flex flex-col gap-3">
 					<div className="sticky top-[calc(var(--ef-topbar-h)+28px)] z-20 overflow-hidden rounded-card bg-surface-raised shadow-[0_0_0_1px_var(--ef-line)]">
@@ -385,6 +426,16 @@ export default function ChurchEditor({
 									}}
 								/>
 								<BlockControls editor={editor} palette={brand.palette} />
+								{refused ? (
+									<p
+										role="alert"
+										data-table-refused={refused === TABLE_REFUSED ? "" : undefined}
+										data-condition-refused={refused === TABLE_REFUSED ? undefined : ""}
+										className="px-3 py-2 text-xs font-medium text-magenta-600"
+									>
+										{refused}
+									</p>
+								) : null}
 							</>
 						) : (
 							<div className="h-[49px]" />
@@ -462,18 +513,21 @@ export default function ChurchEditor({
 				) : null}
 			</div>
 			<LeaveDialog request={leave.request} onSave={save} onDone={leave.close} />
-			<SaveAsTemplateDialog
-				key={templateDialog.opening}
-				open={templateDialog.open}
-				onOpenChange={(open) => setTemplateDialog((d) => ({ ...d, open }))}
-				docId={docId}
-				title={title}
-				revision={shownRevision}
-				unsaved={status.kind !== "saved"}
-				saving={status.kind === "saving"}
-				onSaveFirst={save}
-				onSaved={setSavedTemplate}
-			/>
+			{/* Mounted from its first opening on: the dialog reads the church templates when it mounts. */}
+			{templateDialog.opening > 0 ? (
+				<SaveAsTemplateDialog
+					key={templateDialog.opening}
+					open={templateDialog.open}
+					onOpenChange={(open) => setTemplateDialog((d) => ({ ...d, open }))}
+					docId={docId}
+					title={title}
+					revision={shownRevision}
+					unsaved={status.kind !== "saved"}
+					saving={status.kind === "saving"}
+					onSaveFirst={save}
+					onSaved={setSavedTemplate}
+				/>
+			) : null}
 		</EditorContext.Provider>
 	);
 }
@@ -495,8 +549,11 @@ function LockGlyph() {
 	);
 }
 
-/** The template this document came from has changed since: a plain notice with the way to compare. */
-function TemplateNotice({ onCompare }: { onCompare: () => void }) {
+/**
+ * The template this document came from has changed since: a plain notice with the way to compare. A church template
+ * is named, so the notice says it is the church's own.
+ */
+function TemplateNotice({ churchTemplate, onCompare }: { churchTemplate: string | null; onCompare: () => void }) {
 	return (
 		<section
 			aria-label="Template updated"
@@ -507,7 +564,14 @@ function TemplateNotice({ onCompare }: { onCompare: () => void }) {
 					Template updated
 				</span>
 				<span className="min-w-0 flex-[1_1_14rem] text-pretty text-text-2">
-					The template this document came from has changed. Compare to choose which changes to take.
+					{churchTemplate ? (
+						<>
+							Your church&rsquo;s template &ldquo;{churchTemplate}&rdquo; has changed since this document was made from
+							it. Compare to choose which changes to take.
+						</>
+					) : (
+						"The template this document came from has changed. Compare to choose which changes to take."
+					)}
 				</span>
 			</p>
 			<Button variant="primary" size="sm" icon={FileSyncIcon} onClick={onCompare}>

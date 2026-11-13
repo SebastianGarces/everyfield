@@ -8,13 +8,18 @@ import type {
 	Region,
 	TableNode,
 } from "@everyfield/contracts/documents";
-import { attrsOf, computeTable, pageBox, tileBox } from "@everyfield/contracts/documents";
+import { attrsOf, columnWidths, computeTable, formatNumber, pageBox, tileBox } from "@everyfield/contracts/documents";
 import { textOn } from "./contrast.ts";
-import { fieldValues, listValues, PLACEHOLDER_FILL, placeholderParts } from "./doc-values.ts";
+import {
+	fieldValues,
+	listValues,
+	PLACEHOLDER_FILL,
+	placeholderParts,
+	printedDoc,
+	SLOT_BLANK_NOTE,
+} from "./doc-values.ts";
 import { HEAD, NS, border, escape, hex, styles, type DocxCtx } from "./docx.ts";
-import { formatNumber } from "./layouts/doc.tsx";
 import { LEGAL_NOTICE } from "@everyfield/contracts/documents";
-import { SLOT_BLANK_NOTE } from "./templates/church.ts";
 import { makePalette, tokenColor, type RenderTheme, type ThemeImage } from "./theme.ts";
 import { zip, type ZipEntry } from "./zip.ts";
 
@@ -44,8 +49,8 @@ type W = DocxCtx & {
 	drawings: { n: number };
 };
 
-const onFill = (w: W) =>
-	w.fill && w.fill !== w.p.muted ? (w.fill === w.p.primary ? w.p.onPrimary : w.p.onAccent) : null;
+// Text on a fill takes the color the PDF and the workbook pick for it (textOn), whatever palette token the fill is.
+const onFill = (w: W) => (w.fill && w.fill !== w.p.muted ? textOn(w.fill, w.p.ink) : null);
 
 type RunStyle = {
 	bold?: boolean;
@@ -320,29 +325,17 @@ function divider(w: W, node: Extract<BlockNode, { type: "divider" }>) {
 	);
 }
 
-function columnWidths(cols: readonly ColumnSpec[], width: number) {
-	const fixed = cols.reduce((s, c) => s + c.width * TW, 0);
-	const auto = cols.filter((c) => c.width === 0).length;
-	const share = auto ? Math.max(480, Math.floor((width - fixed) / auto)) : 0;
-	return cols.map((c) => (c.width ? c.width * TW : share));
-}
-
 function table(w: W, node: TableNode) {
 	const a = attrsOf(node);
 	const cols = a.columns;
-	const widths = columnWidths(cols, w.width);
+	// The shared rule works in points; Word wants twips.
+	const widths = columnWidths(cols, w.width / TW).map((pt) => Math.floor(pt * TW));
 	const computed = computeTable(node);
 	const anyValue = (node.content ?? []).some((row) =>
 		row.content.some((cell) => typeof cell.attrs?.value === "number"),
 	);
 	const headFill = tokenColor(w.p, a.headerFill);
-	const headColor = headFill
-		? headFill === w.p.muted
-			? w.p.ink
-			: headFill === w.p.primary
-				? w.p.onPrimary
-				: w.p.onAccent
-		: w.p.ink;
+	const headColor = headFill && headFill !== w.p.muted ? textOn(headFill, w.p.ink) : w.p.ink;
 	const align = (c: ColumnSpec) => c.align ?? (c.type === "text" ? "left" : "right");
 	const cellText = (c: ColumnSpec, text: string, bold = false) =>
 		para(run(text, { bold, size: 10 }), `<w:spacing w:before="20" w:after="20"/>${jc(align(c))}`);
@@ -447,6 +440,8 @@ function block(w: W, node: BlockNode): string {
 			return slot(w, node);
 		case "table":
 			return table(w, node);
+		case "if":
+			throw new Error("conditional text resolves before the Word file is written (printedDoc)");
 	}
 }
 const blocks = (w: W, nodes: readonly BlockNode[]) => nodes.map((n) => block(w, n)).join("");
@@ -513,10 +508,12 @@ function regionPart(w: W, which: "header" | "footer", region: Region | null) {
 
 /** The Word file for one document or template. The theme names the fonts and colors; images come from it. */
 export function renderDocDocx(
-	doc: EveryfieldDoc,
+	source: EveryfieldDoc,
 	theme: { render: RenderTheme; fonts: { heading: string; body: string } },
 	created: Date,
 ): Buffer {
+	// Conditional text resolves first, as for the PDF: a block left out leaves no empty paragraph behind.
+	const doc = printedDoc(source);
 	const size = pageBox(doc.page);
 	if (!size) throw new Error("the page has no size");
 	const m = doc.page.margin;

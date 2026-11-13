@@ -23,22 +23,23 @@
 		"./followups": "./src/followups/index.ts",
 		"./notifications": "./src/notifications/index.ts",
 		"./communication": "./src/communication/index.ts",
+		"./communication/values": "./src/communication/values.ts",
 		"./wiki": "./src/wiki/index.ts",
 		"./phases": "./src/phases/index.ts",
 		"./intelligence": "./src/intelligence/index.ts"
 	},
 	"scripts": {
-		"test:unit": "node --test ${EVF_NODE_TEST_FLAGS:-} ../../tests/contracts/common/*.test.mts ../../tests/contracts/wiki/*.test.mts && node --test ${EVF_NODE_TEST_FLAGS:-} src/identity/*.test.mts src/branding/*.test.mts",
-		"typecheck": "tsc --noEmit",
-		"typecheck:bun": "../../node_modules/.bin/bun check --no-script --no-pretty --all",
-		"lint": "cd ../.. && packages/contracts/node_modules/.bin/oxlint -c .oxlintrc.json --max-warnings=0 packages/contracts tests/contracts/common tests/contracts/wiki"
+		"test:unit": "node --test ${EVF_NODE_TEST_FLAGS:-} ../../tests/contracts/common/*.test.mts ../../tests/contracts/communication/*.test.mts ../../tests/contracts/wiki/*.test.mts && node --test ${EVF_NODE_TEST_FLAGS:-} src/identity/*.test.mts",
+		"typecheck": "../../node_modules/.bin/bun check --no-script --no-pretty --all",
+		"typecheck:tsc": "../../node_modules/typescript-7/bin/tsc --noEmit",
+		"lint": "cd ../.. && packages/contracts/node_modules/.bin/oxlint -c .oxlintrc.json --max-warnings=0 packages/contracts tests/contracts/common tests/contracts/communication tests/contracts/wiki"
 	},
 	"dependencies": {
 		"sanitize-html": "2.17.3",
 		"zod": "4.6.7"
 	},
 	"devDependencies": {
-		"@types/node": "^24",
+		"@types/node": "24.19.2",
 		"@types/sanitize-html": "2.16.1",
 		"typescript": "6.0.3",
 		"oxlint": "1.92.0"

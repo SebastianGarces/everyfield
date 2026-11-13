@@ -1,7 +1,8 @@
-import type { DocDocument } from "@everyfield/contracts/documents";
+import { exportsFor, type DocDocument } from "@everyfield/contracts/documents";
+import { blocksFromEditor, blocksToEditor } from "./table-json.ts";
 
-// Between the stored document and the editor. The editor holds the body as ProseMirror JSON and the page header and
-// footer as attributes of the root node (so Undo covers them). Nothing else changes: the prose JSON is the format.
+// Between the stored document and the editor. The editor holds the body as ProseMirror JSON, with the page header and
+// footer as its first and last child (so Undo covers them). Nothing else changes: the prose JSON is the format.
 
 type Json = Record<string, unknown>;
 
@@ -29,14 +30,18 @@ export function editorContent(doc: DocDocument): Json {
 			{
 				type: REGION_NODE[key],
 				attrs: { pages: value.pages },
-				...(value.content?.length ? { content: value.content } : {}),
+				...(value.content?.length ? { content: blocksToEditor(value.content) } : {}),
 			},
 		];
 	};
 	return {
 		type: "doc",
 		attrs: { page, fields: doc.fields, ...(doc.data === undefined ? {} : { data: doc.data }) },
-		content: [...region("header"), ...withSlotLines((doc.body.content ?? []) as Json[]), ...region("footer")],
+		content: [
+			...region("header"),
+			...blocksToEditor(withSlotLines((doc.body.content ?? []) as Json[])),
+			...region("footer"),
+		],
 	};
 }
 
@@ -101,7 +106,7 @@ export function documentFrom(base: DocDocument, json: Json): DocDocument {
 		content?: Json[];
 	};
 	const page: Json = { ...(attrs?.page ?? (base.page as Json)) };
-	const body = blankSlotsEmpty(content);
+	const body = blankSlotsEmpty(blocksFromEditor(content) as Json[]);
 	// A region node left in the page becomes the region; with none, the page keeps a stored null or has no key.
 	for (const [key, type] of Object.entries(REGION_NODE) as [keyof typeof REGION_NODE, string][]) {
 		delete page[key];
@@ -115,11 +120,14 @@ export function documentFrom(base: DocDocument, json: Json): DocDocument {
 	}
 	// The merge fields and their values the editor holds; `data` stays out when the document never had any.
 	const data = attrs ? attrs.data : base.data;
+	const next = { type: "doc", ...(body.length ? { content: body } : {}) } as DocDocument["body"];
 	return {
 		...without(base as unknown as Json, "data"),
 		fields: attrs?.fields ?? base.fields,
 		...(data === undefined ? {} : { data }),
 		page,
-		body: { type: "doc", ...(body.length ? { content: body } : {}) },
+		body: next,
+		// Excel follows the body: `exports` lists it only while the body holds a budget table.
+		exports: exportsFor(base.exports, next),
 	} as unknown as DocDocument;
 }

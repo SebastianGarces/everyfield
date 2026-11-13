@@ -22,7 +22,6 @@ import type * as c from "@everyfield/contracts/teams/responsibilities";
 import { useEffect, useId, useOptimistic, useRef, useState, useTransition } from "react";
 import type { z } from "zod";
 import { RecordDialog, RowNotices, SaveNotice, useRowLanes, useSaveIntent } from "../../../components/save/parts.tsx";
-import { reloadTeam } from "../actions.ts";
 import { asRecordId, asRevision, dayText, problemText } from "../model.ts";
 import {
 	addResponsibility,
@@ -32,6 +31,7 @@ import {
 	listResponsibilities,
 	offerResponsibilities,
 	previewResponsibilities,
+	readTeamRevision,
 } from "./actions.ts";
 
 // One ministry's responsibilities (REQ-TEAM-007). The playbook lines are an offer: a read shows them and writes
@@ -207,8 +207,8 @@ export function ResponsibilitiesPanel({
 
 	const conflict = () => {
 		setReloadToken((n) => n + 1);
-		void reloadTeam(teamId).then((result) => {
-			if (result.status === "ok" && result.value) onTeamRevision(result.value.team.revision);
+		void readTeamRevision(teamId).then((result) => {
+			if (result.status === "ok") rememberRevision(result.value.revision);
 		});
 	};
 

@@ -19,6 +19,7 @@ import {
 	sendReviewed,
 } from "./actions.ts";
 import { PreviewStage } from "./EmailFrame.tsx";
+import { deliveryName, Tile, Totals, when } from "./SentTotals.tsx";
 import {
 	cancelText,
 	contactLabel,
@@ -68,34 +69,10 @@ function problem(result: Outcome<unknown>): string {
 	return outcomeText(result) ?? "Unable to load history. Try again.";
 }
 
-function when(iso: string | null): string {
-	if (!iso) return "Not recorded";
-	const date = new Date(iso);
-	if (Number.isNaN(date.getTime())) return iso;
-	return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(date);
-}
-
 function listed(items: string[], max = 8): string {
 	if (items.length === 0) return "None";
 	if (items.length <= max) return items.join(", ");
 	return `${items.slice(0, max).join(", ")}, and ${items.length - max} more`;
-}
-
-function deliveryName(status: string): string {
-	const labels: Record<string, string> = {
-		delivered: "Delivered",
-		sent: "Sent",
-		accepted: "Accepted",
-		dispatched: "Sending",
-		pending: "Waiting",
-		scheduled: "Scheduled",
-		refused: "Refused",
-		unsubscribed: "Unsubscribed",
-		failed: "Failed",
-		cancelled: "Cancelled",
-		unknown: "Unknown",
-	};
-	return labels[status] ?? status;
 }
 
 function useHistory(load: (cursor: string | null) => Promise<Outcome<HistoryPage>>) {
@@ -199,6 +176,7 @@ const stateTone: Record<HubState, string> = {
 	draft: "bg-surface-2 text-text-2",
 	scheduled: "bg-amber-100 text-amber-600",
 	not_scheduled: "bg-magenta-50 text-magenta-600",
+	unsubscribed: "bg-surface-2 text-text-2",
 	sending: "bg-amber-100 text-amber-600",
 	sent: "bg-green-100 text-green-700",
 	logged: "bg-surface-2 text-text-2",
@@ -257,85 +235,6 @@ function MessageButton({
 const recipientCount = (n: number, state: HubState) =>
 	n === 0 && (state === "draft" || state === "scheduled") ? "Not sent yet" : plural(n, "recipient", "recipients");
 
-function Tile({ label, value }: { label: string; value: number }) {
-	return (
-		<div className="flex flex-col gap-1 rounded-lg bg-surface px-4 py-3">
-			<span className="font-display text-[28px] leading-none tracking-[-0.02em] text-ink tabular-nums">{value}</span>
-			<span className="text-sm text-text-2">{label}</span>
-		</div>
-	);
-}
-
-function Totals({ view }: { view: MessageView }) {
-	const totals = view.totals;
-	const groups: { title: string; rows: { label: string; value: number }[] }[] = [
-		{
-			title: "Delivery",
-			rows: [
-				{ label: "Selected", value: totals.selected },
-				{ label: "Reachable", value: totals.reachable },
-				{ label: "Attempted", value: totals.attempted },
-				{ label: "Accepted", value: totals.accepted },
-				{ label: "Sent", value: totals.sent },
-				{ label: "Delivered", value: totals.delivered },
-			],
-		},
-		{
-			title: "Engagement",
-			rows: [
-				{ label: "Opened", value: totals.opened },
-				{ label: "Clicked", value: totals.clicked },
-			],
-		},
-		{
-			title: "Not delivered",
-			rows: [
-				{ label: "Bounced", value: totals.bounced },
-				{ label: "Failed", value: totals.failed },
-				{ label: "Suppressed", value: totals.suppressed },
-				{ label: "Unsubscribed", value: totals.unsubscribed },
-				{ label: "Unknown", value: totals.unknown },
-			],
-		},
-	];
-	return (
-		<div className="flex flex-col gap-6">
-			<p className="text-sm text-text-2">Counts as of {when(totals.asOf)}. A draft or an unknown result is not sent.</p>
-			<div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-				<Tile label="Reachable" value={totals.reachable} />
-				<Tile label="Delivered" value={totals.delivered} />
-				<Tile label="Opened" value={totals.opened} />
-				<Tile
-					label="Not delivered"
-					value={totals.bounced + totals.failed + totals.suppressed + totals.unsubscribed + totals.unknown}
-				/>
-			</div>
-			{groups.map((group) => (
-				<div key={group.title} className="flex flex-col gap-3">
-					<h3 className="text-sm font-medium text-ink-2">{group.title}</h3>
-					<dl className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
-						{group.rows.map((row) => (
-							<div key={row.label}>
-								<dt className="text-sm text-text-3">{row.label}</dt>
-								<dd className="text-md font-medium text-ink tabular-nums">{row.value}</dd>
-							</div>
-						))}
-					</dl>
-				</div>
-			))}
-			<p className="text-sm text-text-2">{rateText(totals.delivered, totals.reachable, totals.rate)}</p>
-			<p className="text-sm text-text-2">An open and a click stay separate. Neither one is a typed contact.</p>
-			{totals.unknown > 0 ? (
-				<p className="text-sm text-text-2">Some recipients have no result yet. Unknown is not delivered.</p>
-			) : null}
-			<p className="text-sm text-text-2">
-				{totals.sentForAll ? "Every recipient record is sent." : "Not every recipient record is sent."}
-				{totals.outcomes.length > 0 ? ` Provider words: ${totals.outcomes.map(deliveryName).join(", ")}.` : ""}
-			</p>
-		</div>
-	);
-}
-
 function AddressFact({ label, value }: { label: string; value: string | null }) {
 	return (
 		<p className="text-sm text-text-2">
@@ -369,7 +268,12 @@ function heldStatus(view: MessageView): { title: string; body: string } {
 		case "scheduled":
 			return {
 				title: `Scheduled for ${when(detail.scheduledAt)}`,
-				body: `The email service holds it until then. ${handoffCounts(totals)}`,
+				body: `It goes to ${plural(totals.reachable, "person", "people")} then. Anyone who unsubscribes before then gets nothing.${unsubscribedNote(totals.unsubscribed)}`,
+			};
+		case "unsubscribed":
+			return {
+				title: "Not sent: unsubscribed",
+				body: "Every recipient unsubscribed from this church's email, so it does not go out. This is not an error.",
 			};
 		case "not_scheduled":
 			return {
@@ -389,7 +293,7 @@ function heldStatus(view: MessageView): { title: string; body: string } {
 		case "cancelled":
 			return {
 				title: "Cancelled",
-				body: `The email service confirmed the cancel for ${totals.cancelled}.${went}`,
+				body: `Cancelled for ${plural(totals.cancelled, "person", "people")}. No email went out to them.${went}`,
 			};
 		case "failed":
 			return {
@@ -451,7 +355,7 @@ function ScheduledPanel({ view, actions }: { view: MessageView; actions: Schedul
 				{state === "time_unconfirmed" && requestedAt
 					? action("reschedule", "Check again", () => actions.onReschedule(new Date(requestedAt)), "primary")
 					: null}
-				{!held && !unconfirmed && state !== "cancelled" ? (
+				{!held && !unconfirmed && state !== "cancelled" && state !== "unsubscribed" ? (
 					<Button variant="primary" onClick={actions.onSendNow} disabled={busy}>
 						Send now
 					</Button>
@@ -596,7 +500,7 @@ function Detail({
 			) : notice ? (
 				<ResultNotice notice={notice} />
 			) : null}
-			<Totals view={view} />
+			<Totals totals={view.totals} />
 			{detail.bodyHtml ? (
 				<PreviewStage
 					input={{ bodyHtml: detail.bodyHtml, name: as, hasMeeting: detail.meetingId !== null, origin, churchName }}
@@ -635,7 +539,9 @@ function Detail({
 							return (
 								<li key={`${personId ?? "none"}-${row.sentAt ?? index}`} className="flex flex-col gap-1">
 									<p className="font-medium text-ink">{nameFor(row, index)}</p>
-									<p className="text-sm text-text-2">{deliveryName(row.deliveryStatus)}</p>
+									<p className="text-sm text-text-2">
+										{deliveryName(row.deliveryStatus, !heldStates.includes(totals.state))}
+									</p>
 									<AddressFact label="Address at send" value={row.deliveryAddress} />
 									<AddressFact label="Address now" value={row.currentPersonAddress} />
 									<p className="text-sm text-text-3">
@@ -1117,8 +1023,9 @@ function Browser({
 }
 
 /**
- * The person's own opt-out from this church's email (D-284). Staff see it and when, and nothing here can clear it: only
- * the person can undo it, from the page their Unsubscribe link opens.
+ * The person's own opt-out from this church's email (D-284). Staff see it and when, and nothing here can clear it. The
+ * Unsubscribe page offered the person an Undo for one hour after they pressed Unsubscribe; opening the link again later
+ * only shows that they are unsubscribed.
  */
 function OptOutNote({ at, churchName }: { at: string; churchName: string }) {
 	return (
@@ -1126,7 +1033,8 @@ function OptOutNote({ at, churchName }: { at: string; churchName: string }) {
 			<p className="font-medium text-ink">Unsubscribed from email</p>
 			<p className="text-sm text-text-2">
 				They unsubscribed from {churchName.trim() || "this church"}&rsquo;s email on {when(at)}. Messages are not sent
-				to them. Only they can undo this, from the Unsubscribe link in an email.
+				to them. They could undo it for one hour on the page their Unsubscribe link opened; it can&rsquo;t be undone
+				here.
 			</p>
 		</div>
 	);

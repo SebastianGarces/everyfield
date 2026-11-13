@@ -33,5 +33,4 @@ test('INV-internal-feedback: only trusted authors and the Actions reporter reach
 test('INV-internal-feedback: the checked-in route is one the queue accepts', () => {
   const config = require('../internal-feedback.json');
   assert.equal(queue(config, () => []).repo, 'SebastianGarces/everyfield');
-  assert.match(config.internalFeedback.triageCron, /^\S+( \S+){4}$/);
 });

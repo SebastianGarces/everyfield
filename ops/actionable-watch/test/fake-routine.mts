@@ -6,7 +6,12 @@ import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-export type Seen = { method: string; path: string; headers: Record<string, string | string[] | undefined>; body: string };
+export type Seen = {
+	method: string;
+	path: string;
+	headers: Record<string, string | string[] | undefined>;
+	body: string;
+};
 /** A status code, "hang" (never answer) or "reset" (drop the connection after reading the request). */
 export type Reply = number | "hang" | "reset";
 
@@ -25,12 +30,32 @@ let cert: Promise<{ key: string; cert: string; caPath: string }> | undefined;
 function selfSigned() {
 	cert ??= (async () => {
 		const dir = await mkdtemp(join(tmpdir(), "actionable-watch-cert-"));
-		execFileSync("openssl", [
-			"req", "-x509", "-newkey", "rsa:2048", "-nodes", "-days", "1", "-subj", "/CN=localhost",
-			"-addext", "subjectAltName=IP:127.0.0.1,DNS:localhost",
-			"-keyout", join(dir, "key.pem"), "-out", join(dir, "cert.pem"),
-		], { stdio: "ignore" });
-		return { key: await readFile(join(dir, "key.pem"), "utf8"), cert: await readFile(join(dir, "cert.pem"), "utf8"), caPath: join(dir, "cert.pem") };
+		execFileSync(
+			"openssl",
+			[
+				"req",
+				"-x509",
+				"-newkey",
+				"rsa:2048",
+				"-nodes",
+				"-days",
+				"1",
+				"-subj",
+				"/CN=localhost",
+				"-addext",
+				"subjectAltName=IP:127.0.0.1,DNS:localhost",
+				"-keyout",
+				join(dir, "key.pem"),
+				"-out",
+				join(dir, "cert.pem"),
+			],
+			{ stdio: "ignore" },
+		);
+		return {
+			key: await readFile(join(dir, "key.pem"), "utf8"),
+			cert: await readFile(join(dir, "cert.pem"), "utf8"),
+			caPath: join(dir, "cert.pem"),
+		};
 	})();
 	return cert;
 }
@@ -46,7 +71,7 @@ export async function fakeRoutine(replies: Reply[] = [200]): Promise<FakeRoutine
 		req.on("data", (c) => (body += c));
 		req.on("end", () => {
 			seen.push({ method: req.method ?? "", path: req.url ?? "", headers: req.headers, body });
-			const reply = state.replies[Math.min(i++, state.replies.length - 1)];
+			const reply = state.replies[Math.min(i++, state.replies.length - 1)]!;
 			if (reply === "hang") return;
 			if (reply === "reset") return void req.socket.destroy();
 			res.writeHead(reply, { "content-type": "text/plain" }).end("ok");

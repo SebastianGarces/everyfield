@@ -1,6 +1,5 @@
 import type { Database } from "@everyfield/db/client";
-import { streamText, tool, type ModelMessage, type StopCondition, type ToolSet } from "ai";
-import { z } from "zod";
+import { streamText, type ModelMessage, type StopCondition, type ToolSet } from "ai";
 import { readCatalog, SELECT_RETURNED_ROWS } from "../catalog/catalog.ts";
 import { invokeRead } from "../catalog/invoke.ts";
 import { verifyPeople } from "../adapters/people/reads/index.ts";
@@ -17,11 +16,12 @@ import {
 } from "../context/compile.ts";
 import { EvryRefusal, projectError, scrub } from "../context/errors.ts";
 import { LIMITS, type StopReason } from "../context/limits.ts";
-import { allowedWrites, prepareProposal } from "../proposals/store.ts";
+import { prepareProposal } from "../proposals/store.ts";
+import type { MailPort } from "../proposals/types.ts";
 import type { QualifiedModel } from "./model.ts";
 import { appendEvent, loadHistory, loadTurn, savedResult, type RunLease, type Turn } from "./run-store.ts";
 import { liveRoom } from "./live.ts";
-import { readTools } from "./tools.ts";
+import { modelTools, proposalForModel, resultForModel } from "./tools.ts";
 import { meteredModel } from "./spend.ts";
 import { traced, traceTurn, type Claimed } from "./trace.ts";
 
@@ -30,12 +30,14 @@ export type RunDeps = {
 	model: QualifiedModel;
 	/** The session's current actor, read again from the database: the fresh authority check before every read. */
 	freshActor(session: string): Promise<EvryActor | null>;
+	/** The email service and keys a review that hashes addresses needs; null when the deployment has no mail keys. */
+	mail?: MailPort | null;
 	now?: () => Date;
 };
-/** succeeded: the turn saved its final state. failed: it saved a failure. lost: it no longer owned the run. */
 /** Stands in for this turn's earlier assistant text once one of its sources is no longer available. */
 const WITHHELD_TEXT = "[An earlier part of this answer used a source that is no longer available.]";
 
+/** succeeded: the turn saved its final state. failed: it saved a failure. lost: it no longer owned the run. */
 export type RunOutcome = "succeeded" | "failed" | "lost";
 
 const TRANSIENT_SQL = new Set(["40001", "40P01", "08000", "08003", "08006", "57P01", "53300"]);
@@ -45,19 +47,6 @@ const transientRead = (error: unknown) => {
 		(error as { cause?: { code?: unknown } })?.cause?.code;
 	return typeof code === "string" && (TRANSIENT_SQL.has(code) || code === "ECONNRESET" || code === "ETIMEDOUT");
 };
-
-/** The model sees the rows' safe fields, the exact total and the paging facts, bounded to one content section. */
-function forModel(resultId: number, result: SourceResult) {
-	const value = { resultId, ...result };
-	const json = scrub(JSON.stringify(value));
-	if (json.length <= LIMITS.sectionChars) return JSON.parse(json) as Record<string, unknown>;
-	const rows: SourceResult["rows"] = [];
-	for (const row of result.rows) {
-		if (JSON.stringify([...rows, row]).length > LIMITS.sectionChars - 1_000) break;
-		rows.push(row);
-	}
-	return JSON.parse(scrub(JSON.stringify({ ...value, rows, truncatedRows: result.rows.length - rows.length })));
-}
 
 /**
  * Runs one claimed turn to its saved end. Reads run under the actor's authority, re-read before each one; every saved
@@ -301,105 +290,68 @@ async function run(
 				}
 			}
 			const sequence = await save("tool_result", { operation: adapter.operation, input, result });
-			return sequence === null ? { error: "cancelled" } : forModel(sequence, result);
+			return sequence === null ? { error: "cancelled" } : resultForModel(sequence, result);
 		};
 
-		const tools: ToolSet = readTools(actor, read);
-		if (catalog.selection.length)
-			tools.select_returned_rows = tool({
-				description:
-					"Select people rows by id from a result this conversation already returned (its resultId). Selection never adds rows or ids.",
-				inputSchema: z.strictObject({
-					resultId: z.int().min(1),
-					ids: z.array(z.uuid()).min(1).max(LIMITS.selectedRows),
-				}),
-				execute: async ({ resultId, ids }) => {
-					const fresh = await admit();
-					if (!fresh) return { error: stop === "tool_budget" ? "tool_budget" : "access_denied" };
-					const saved = await savedResult(db, turn.conversation_id, resultId);
-					const source = saved?.result as SourceResult | undefined;
-					const returned = new Set(source?.rows.filter((r) => r.kind === "person").map((r) => r.id) ?? []);
-					const rejected = ids.filter((id) => !returned.has(id));
-					if (!source || rejected.length) return { error: "not_returned", rejected: rejected.length };
-					// Current access is checked again before a returned row is reused.
-					const rows = await verifyPeople(db, fresh, ids);
-					const result: SourceResult = {
-						operation: SELECT_RETURNED_ROWS,
+		const tools = modelTools(actor, {
+			read,
+			select: async ({ resultId, ids }) => {
+				const fresh = await admit();
+				if (!fresh) return { error: stop === "tool_budget" ? "tool_budget" : "access_denied" };
+				const saved = await savedResult(db, turn.conversation_id, resultId);
+				const source = saved?.result as SourceResult | undefined;
+				const returned = new Set(source?.rows.filter((r) => r.kind === "person").map((r) => r.id) ?? []);
+				const rejected = ids.filter((id) => !returned.has(id));
+				if (!source || rejected.length) return { error: "not_returned", rejected: rejected.length };
+				// Current access is checked again before a returned row is reused.
+				const rows = await verifyPeople(db, fresh, ids);
+				const result: SourceResult = {
+					operation: SELECT_RETURNED_ROWS,
+					status: "available",
+					rows,
+					total: rows.length,
+					page: 1,
+					next: null,
+					completeness: "complete",
+					exclusions: source.total === null ? [] : [`selected from ${source.total} matched`],
+				};
+				const sequence = await save("tool_result", {
+					operation: SELECT_RETURNED_ROWS,
+					input: { resultId, ids },
+					result,
+					originalTotal: source.total,
+				});
+				return sequence === null ? { error: "cancelled" } : resultForModel(sequence, result);
+			},
+			// A reviewed write is only proposed here: the review card is saved and a person approves it in the app.
+			propose: async (call) => {
+				const fresh = await admit();
+				if (!fresh) return { error: stop === "tool_budget" ? "tool_budget" : "access_denied" };
+				const proposal = await prepareProposal(db, fresh, lease, turn.conversation_id, call, deps.mail).catch(
+					(error) => (error instanceof EvryRefusal ? error.code : "unknown"),
+				);
+				if (typeof proposal === "string") return { error: proposal };
+				if (!proposal) return { error: "source_unavailable" };
+				const target = proposal.review.target;
+				const sequence = await save("tool_result", {
+					operation: "evry.prepareProposal",
+					input: { operation: call.operation },
+					result: {
+						operation: "evry.prepareProposal",
 						status: "available",
-						rows,
-						total: rows.length,
+						// The target row lets replay withhold the card once the target is no longer available.
+						rows: target ? [{ kind: target.kind, id: target.id, label: target.label, fields: {} }] : [],
+						total: 1,
 						page: 1,
 						next: null,
 						completeness: "complete",
-						exclusions: source.total === null ? [] : [`selected from ${source.total} matched`],
-					};
-					const sequence = await save("tool_result", {
-						operation: SELECT_RETURNED_ROWS,
-						input: { resultId, ids },
-						result,
-						originalTotal: source.total,
-					});
-					return sequence === null ? { error: "cancelled" } : forModel(sequence, result);
-				},
-			});
-
-		// A reviewed write is only proposed here: the review card is saved and a person approves it in the app.
-		const writes = allowedWrites(actor);
-		if (writes.length) {
-			const options = writes.map((w) => z.strictObject({ operation: z.literal(w.operation), input: w.input }));
-			tools.propose_change = tool({
-				description: `Prepare an exact review of one change for the user to approve: ${writes.map((w) => `${w.operation} (${w.description})`).join("; ")}. Use ids from earlier results. Nothing changes until the user approves.`,
-				inputSchema: options.length === 1 ? options[0]! : z.discriminatedUnion("operation", options as never),
-				execute: async (call: { operation: string; input: unknown }) => {
-					const fresh = await admit();
-					if (!fresh) return { error: stop === "tool_budget" ? "tool_budget" : "access_denied" };
-					const proposal = await prepareProposal(db, fresh, lease, turn.conversation_id, call).catch((error) =>
-						error instanceof EvryRefusal ? error.code : "unknown",
-					);
-					if (typeof proposal === "string") return { error: proposal };
-					if (!proposal) return { error: "source_unavailable" };
-					const target = proposal.review.target;
-					const sequence = await save("tool_result", {
-						operation: "evry.prepareProposal",
-						input: { operation: call.operation },
-						result: {
-							operation: "evry.prepareProposal",
-							status: "available",
-							// The target row lets replay withhold the card once the target is no longer available.
-							rows: target ? [{ kind: "person", id: target.id, label: target.label, fields: {} }] : [],
-							total: 1,
-							page: 1,
-							next: null,
-							completeness: "complete",
-							exclusions: [],
-							proposalId: proposal.id,
-						},
-					});
-					if (sequence === null) return { error: "cancelled" };
-					return JSON.parse(
-						scrub(
-							JSON.stringify({
-								proposalId: proposal.id,
-								status: "awaiting_approval",
-								expiresAt: proposal.expiresAt,
-								// The reviewed fields live in their source row, so a later model call withholds them with
-								// the row once the target is no longer available (withLiveRows).
-								rows: target
-									? [
-											{
-												kind: "person",
-												id: target.id,
-												label: target.label,
-												fields: { changes: proposal.review.changes },
-											},
-										]
-									: [],
-							}),
-						),
-					) as Record<string, unknown>;
-				},
-			});
-		}
+						exclusions: [],
+						proposalId: proposal.id,
+					},
+				});
+				return sequence === null ? { error: "cancelled" } : proposalForModel(proposal);
+			},
+		});
 
 		// The classification call counts against the same turn budget as every tool-loop step.
 		const before = { ...usage };

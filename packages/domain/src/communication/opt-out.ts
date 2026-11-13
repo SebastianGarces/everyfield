@@ -109,7 +109,11 @@ async function readState(db: Database, value: Claim) {
 	return stateRow.parse(result.rows[0]);
 }
 
-/** Record the opt-out once. A second unsubscribe while one is current changes nothing and returns that one. */
+/**
+ * Record the opt-out once. A second unsubscribe while one is current changes nothing and returns that one. Every
+ * scheduled Messages email from this church that has not gone out yet skips them (T-241), and whoever scheduled it
+ * gets a notice in the same statement (T-242).
+ */
 async function writeOptOut(db: Database, value: Claim) {
 	const result = await db.execute(sql`WITH target AS (
 			SELECT p.id, p.tenant_id, pl.name FROM person p JOIN plant pl ON pl.id = p.tenant_id
@@ -120,6 +124,53 @@ async function writeOptOut(db: Database, value: Claim) {
 			SELECT tenant_id, id FROM target
 			ON CONFLICT (person_id) WHERE undone_at IS NULL DO NOTHING
 			RETURNING id, opted_out_at
+		), skipped AS (
+			-- A scheduled email still waiting in Everyfield skips them from now on, and the one-hour undo does not bring it
+			-- back. An email the email service already holds is cancelled there by the minute runner.
+			UPDATE mail m SET state = 'refused', refusal = 'unsubscribed'
+			FROM target t
+			WHERE m.tenant_id = t.tenant_id AND m.purpose = 'communication' AND m.state = 'scheduled'
+				AND m.recipient_person_id IN (SELECT t.id UNION ALL
+					SELECT q.merged_into_person_id FROM person q WHERE q.id = t.id AND q.merged_into_person_id IS NOT NULL)
+			RETURNING m.id, m.recipient_person_id, m.scheduled_at, m.communication_id
+		), noticed AS (
+			-- The staff member who scheduled each skipped email is told now, in the bell, while they hold a seat in this
+			-- church (T-242, D-680 to D-684). One notice per email and per person: the key repeats on a retry, and an
+			-- email skipped once is never skipped again, so neither a second click nor an undo and new opt-out adds one.
+			INSERT INTO notice (tenant_id, recipient_id, category, purpose, logical_key, source_record_id, source_revision,
+				title, safe_body, eligible_at, created_at, timezone)
+			SELECT c.plant_id, x.scheduler, 'communication', 'communication_unsubscribed',
+				c.plant_id::text || '/scheduled_email_unsubscribe/' || c.id::text || '/' || k.recipient_person_id::text,
+				c.id, c.revision,
+				CASE WHEN x.only THEN 'Not sent: ' || p.display_name || ' unsubscribed'
+					ELSE p.display_name || ' unsubscribed from a scheduled email' END,
+				CASE WHEN x.only
+					THEN x.subject || ', scheduled for ' || x.send_at || ', will not go out because its only recipient unsubscribed from this church''s email.'
+					ELSE p.display_name || ' will not get ' || x.subject || ', scheduled for ' || x.send_at || '.' END,
+				clock_timestamp(), clock_timestamp(), pl.timezone
+			FROM skipped k
+			JOIN communication c ON c.id = k.communication_id
+			JOIN plant pl ON pl.id = c.plant_id
+			JOIN person p ON p.id = k.recipient_person_id AND p.tenant_id = c.plant_id
+			CROSS JOIN LATERAL (SELECT
+				(SELECT a.actor_id FROM audit_event a
+					WHERE a.tenant_id = c.plant_id AND a.subject_id = c.id AND a.action = 'communication.send_intended'
+						AND a.event_key LIKE 'dispatch/%'
+					ORDER BY a.occurred_at, a.id LIMIT 1) AS scheduler,
+				-- A scheduled email always has a subject; the fallback only names the gap.
+				coalesce('“' || c.subject || '”', '(No subject)') AS subject,
+				to_char(coalesce(k.scheduled_at, c.scheduled_at) AT TIME ZONE pl.timezone, 'Mon FMDD, YYYY, FMHH12:MI AM') AS send_at,
+				-- This statement's own skips are not visible to its other parts, so they count as unsubscribed here.
+				NOT EXISTS (SELECT 1 FROM mail o
+					WHERE o.tenant_id = c.plant_id AND o.purpose = 'communication'
+						AND o.communication_id = c.id
+						AND o.id NOT IN (SELECT id FROM skipped) AND o.refusal IS DISTINCT FROM 'unsubscribed') AS only
+			) x
+			WHERE c.plant_id = (SELECT tenant_id FROM target)
+				AND EXISTS (SELECT 1 FROM seat s WHERE s.account_id = x.scheduler AND s.plant_id = c.plant_id
+					AND s.ended_at IS NULL AND s.accepted_at <= clock_timestamp())
+			ON CONFLICT (recipient_id, logical_key) DO NOTHING
+			RETURNING id
 		), current AS (
 			SELECT id, opted_out_at FROM inserted
 			UNION ALL

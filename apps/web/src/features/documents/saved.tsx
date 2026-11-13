@@ -23,16 +23,19 @@ export function SavedHistory({ enabled, refreshKey }: Props) {
 	useEffect(() => {
 		if (!enabled) return;
 		let cancel = false;
-		listSavedDocuments().then((result) => {
-			if (cancel) return;
-			if (result.status !== "ok") {
-				setEntries([]);
-				setFailed(true);
-				return;
-			}
-			setFailed(false);
-			setEntries(result.value);
-		});
+		// A call that never reached the server reads as a failed load, with its Retry, not an endless skeleton.
+		listSavedDocuments()
+			.catch(() => ({ status: "lost" }) as const)
+			.then((result) => {
+				if (cancel) return;
+				if (result.status !== "ok") {
+					setEntries([]);
+					setFailed(true);
+					return;
+				}
+				setFailed(false);
+				setEntries(result.value);
+			});
 		return () => {
 			cancel = true;
 		};
@@ -42,16 +45,15 @@ export function SavedHistory({ enabled, refreshKey }: Props) {
 		setBusyId(entry.id);
 		setNote(null);
 		setLink(null);
-		const result = await downloadSavedDocument(entry.id);
+		// A call that never reached the server reads as a dropped connection, and the row can be downloaded again.
+		const result = await downloadSavedDocument(entry.id).catch(() => ({ status: "lost" }) as const);
 		setBusyId(null);
-		if (result.status !== "ok") {
-			setNote(
-				documentProblem(
-					result.status === "refused" ? result.code : "lost",
-					result.status === "refused" ? result.problem : undefined,
-					"This download did not start. Try again.",
-				),
-			);
+		if (result.status === "lost") {
+			setNote("The connection dropped, so the download did not start. Try again.");
+			return;
+		}
+		if (result.status === "refused") {
+			setNote(documentProblem(result.code, result.problem, "This download did not start. Try again."));
 			return;
 		}
 		const opened = window.open(result.value.url, "_blank", "noopener,noreferrer");

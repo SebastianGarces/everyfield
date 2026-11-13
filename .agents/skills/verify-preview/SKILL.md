@@ -9,7 +9,7 @@ You prove the change works. The author's summary is not evidence, but the author
 diff in full and judge the code (D66), read `evf proof show` and open each proof's evidence.
 Spot-check. Re-run a flow on a preview of the exact head only where a proof is unmet, missing or looks
 wrong. Run local checks with `bin/dev check --full`: a verifier ignores selection and runs every check. You own the verdict. The Experience section may use the author's recorded
-measurements; re-measure where they look wrong or missing. Scripts are in `scripts/` next to this file. They need Node 22+, `gh`, `portless`, the
+measurements; re-measure where they look wrong or missing. Scripts are in `scripts/` next to this file. They need Node 24+, `gh`, `portless`, the
 local env files of the main checkout and, for `publish.mjs`, the evidence env file (step 5). Every command below runs from any checkout of this repo.
 
 ```bash
@@ -23,13 +23,13 @@ Keep scripts, logs, screenshots and videos in `$E`, never in the repository.
 ## Browsers and processes
 
 The machine has little CPU and memory. Run one browser job at a time and close every browser you
-start (D35). These rules apply to every role that opens a browser.
+start. These rules apply to every role that opens a browser.
 
 - Scripted checks run through `bin/dev browser run [--timeout <s>] -- <command>`. It runs the
   command in its own process group with a timeout (default 900 s). When the command ends, fails,
   times out or gets a signal, it closes the run's agent-browser session, stops every process
   the run started and deletes the run's temporary directory, where Playwright keeps its profiles.
-- Interactive checks use agent-browser (D36), never the Playwright MCP. Give each job its own
+- Interactive checks use agent-browser, never the Playwright MCP. Give each job its own
   session and a short idle timeout, and close it when you finish, also after a failure:
 
   ```bash
@@ -55,6 +55,23 @@ brew install ffmpeg                      # macOS; video recording only
 agent-browser drives Chrome only. Its Safari backend needs the iOS Simulator and Appium and
 cannot take headless 390 and 1440 px desktop shots, so WebKit parity stays in `capture.mjs`.
 
+## Shared preview service
+
+These Everyfield rules sit on top of the verbatim `portless-preview` skill and apply to every role that runs a preview.
+
+- An app whose auth trusts one origin sets that origin to `${PREVIEW_URL}` in the preview config `env`; Portless
+  replaces it with the preview's own URL.
+- Timing previews: D81's quiet timing runner retired with evf v1. Do not time on a shared preview and call it a
+  qualifying timing set; report the measurement and what it shared the machine with.
+- Slots: the managed launcher sets `PORTLESS_PREVIEW_LIMIT=4`, so four previews run at a time. The supervisor reads the
+  limit when it starts; restarting it stops every active preview, so never restart it while another agent's preview
+  runs. Builders and verifiers come first. The coordinator may stop Sebastian's review preview at any time and restarts
+  it later on main. Never stop another workspace's preview. See D74 in `docs/architecture/decisions.md`.
+- Tests of Portless itself never touch the shared service. Give the test a new temporary folder in `PORTLESS_STATE_DIR`
+  and `PORTLESS_PREVIEW_DIR`, its own `PORTLESS_PORT` and `PORTLESS_PREVIEW_PORT`, and `PORTLESS_PREVIEW_HTTP=1`. Never
+  restart, reinstall, `clean` or stop the shared service or its supervisor: at 02:04 UTC on 2026-10-22 one restart
+  removed every live preview.
+
 ## 1. Read
 
 Read your brief (the ask and the spec) and the full diff against the merge base. Read the
@@ -64,11 +81,12 @@ You are a fresh Opus 5.5 medium session that never shared context with the autho
 ## 2. Start the previews
 
 ```bash
-node $S/preview.mjs --pr <n>      # after: the PR head, in a detached worktree .worktrees/verify-<sha7>
+node $S/preview.mjs --pr <n>      # after: the PR head, in a worktree .worktrees/verify-<sha7> on branch verify/<sha7>
 node $S/preview.mjs --main        # before: current origin/main, the same way
+node $S/preview.mjs --ref <sha>   # any other commit, the same way (for example a PR's old base)
 ```
 
-Each prints `{id, url, head}`. Both are production builds of a clean commit with a two-hour lease.
+Review starts after evf has opened the PR, so `--pr <n>` is the after side. Each prints `{id, url, head}`. Both are production builds of a clean commit with a two-hour lease.
 `preview.mjs` builds the preview env from the main checkout's `apps/web/.env.local` and lays the
 worktree's own `apps/web/.env.local` over it, so a `tests/ui` seed's `IDENTITY_*` values reach the preview.
 `IDENTITY_ORIGIN` is the exception: it is always `${PREVIEW_URL}` unless an explicit `--config` sets it.
@@ -113,7 +131,7 @@ flow check on the branch.
 
 Measure end-to-end time for every changed read and write on the production preview, from the user
 action until its confirmed result. Simple actions must finish in under 1 second. Do not time a head
-that already has blocking behavior findings (C119). The quiet timing runner of D81 retired with evf v1,
+that already has blocking behavior findings. The quiet timing runner of D81 retired with evf v1,
 so say what else shared the machine and the database, and do not call a miss proven or a pass
 qualifying on one sample. Keep the measurements in `$E`. Record whether writes update the UI
 optimistically and roll back clearly on failure. Count requests for main actions and inspect them for needless
@@ -188,8 +206,7 @@ umask 077; mkdir -p ~/.config/everyfield
 tigris access-keys create everyfield-evidence-upload --bucket everyfield-evidence --role Editor \
   --default-permissions disable --env ~/.config/everyfield/evidence.env --for aws >/dev/null
 ```
-Use the PR task ID as `<task>`, for example `OPS-W3` or `WP-012`, so its evidence can be deleted
-together.
+Use the PR task ID as `<task>`, for example `T-41`, so its evidence can be deleted together.
 
 Everything you publish is public to anyone with the link. Upload only synthetic data or data from
 the shared development database. Never upload:
@@ -287,6 +304,7 @@ when you asked for changes. A new head needs a new verification.
 
 ```bash
 agent-browser --session <task>-verify close
-portless preview down <id>          # both previews
-git worktree remove <project>       # both verify worktrees, paths printed by preview.mjs
+portless preview down <id> --remove-worktree    # both previews and their verify worktrees
 ```
+
+The `verify/<sha7>` branch stays after its worktree is gone. Delete it with `git branch -D verify/<sha7>`.

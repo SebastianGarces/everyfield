@@ -2,13 +2,14 @@ import type { GetSectionRequest, NotificationChoice, SectionKey, SettingsError, 
 
 // Pure settings rules: which sections exist, which a viewer is offered, and the words for each refusal.
 
-export const SECTION_ORDER: readonly SectionKey[] = [
+const SECTION_ORDER: readonly SectionKey[] = [
 	"church",
 	"brand",
 	"organization",
 	"seats",
 	"notifications",
 	"sharing",
+	"wiki",
 	"account",
 ];
 
@@ -19,15 +20,17 @@ export const SECTION_LABEL: Record<SectionKey, string> = {
 	seats: "Seats and invitations",
 	notifications: "Notifications",
 	sharing: "Sharing and privacy",
+	wiki: "Wiki sources",
 	account: "Your account",
 };
 
 /** The sections the product dialog shows. Seats and Sharing are pages of their own (/settings/seats, /settings/sharing). */
-export const DIALOG_SECTIONS = [
+const DIALOG_SECTIONS = [
 	"church",
 	"brand",
 	"organization",
 	"notifications",
+	"wiki",
 	"account",
 ] as const satisfies SectionKey[];
 export type DialogSection = (typeof DIALOG_SECTIONS)[number];
@@ -43,7 +46,7 @@ export function parseSectionKey(value: string | undefined): SectionKey | null {
 /**
  * The sections this viewer is offered. The server checks authority again on every read and save; this only keeps a
  * section out of the nav when the viewer cannot use it. Church and organization profiles need an Owner or Admin of
- * that exact context, and so does the church brand kit; notifications and your account are always yours. Seats needs a
+ * that exact context, and so do the church brand kit and the church's Wiki source order; notifications and your account are always yours. Seats needs a
  * workspace: without one its page only says it is not available. `slots` names the sections this surface can show, as
  * a section or as a link to their own page, so firstSection never lands on one.
  */
@@ -53,6 +56,7 @@ export function offeredSections(viewer: SettingsViewer, slots: readonly SectionK
 		switch (key) {
 			case "church":
 			case "brand":
+			case "wiki":
 				return viewer.context === "plant" && admin;
 			case "organization":
 				return viewer.context === "organization" && admin;
@@ -80,7 +84,7 @@ export function sectionAt(pathname: string, viewer: SettingsViewer | null): Dial
 
 /**
  * The settings-section read a dialog section makes for this viewer; null when the viewer has no such profile, and for
- * the brand kit, which has its own read (brand/).
+ * the brand kit and the Wiki source order, which have their own reads (brand/, port.wiki).
  */
 export function sectionRequest(viewer: SettingsViewer, section: DialogSection): GetSectionRequest | null {
 	switch (section) {
@@ -89,6 +93,7 @@ export function sectionRequest(viewer: SettingsViewer, section: DialogSection): 
 		case "organization":
 			return viewer.context === "organization" ? { section: "organization", organization: viewer.organization } : null;
 		case "brand":
+		case "wiki":
 			return null;
 		case "notifications":
 		case "account":
@@ -101,7 +106,7 @@ export function canDeleteWorkspace(viewer: SettingsViewer): boolean {
 	return viewer.context === "plant" && viewer.role === "owner";
 }
 
-export const ERROR_TEXT: Record<SettingsError["code"], string> = {
+const ERROR_TEXT: Record<SettingsError["code"], string> = {
 	invalid_input: "Some values are not valid. Check the fields marked in red.",
 	access_denied: "You no longer have access to this. Ask an Owner or Admin of your church.",
 	unavailable: "This is not available right now.",
@@ -138,18 +143,40 @@ export const CATEGORY_TEXT: Record<Category, { label: string; description: strin
 	phase_milestone: { label: "Phase milestones", description: "A plant moves to its next phase" },
 	launch_milestone: { label: "Launch milestones", description: "Completed or reopened" },
 	wiki_upstream_review: { label: "Wiki review requests", description: "Changes waiting for your review" },
+	scheduled_email_unsubscribe: {
+		label: "Unsubscribes from scheduled email",
+		description: "Someone on an email you scheduled unsubscribes",
+	},
 };
 
-/** The rows of the preference matrix, in the order of CATEGORY_TEXT, with only the pairs this audience has. */
+/**
+ * The categories something sends today. Nothing writes launch milestones yet (D-762), so Settings does not offer a
+ * choice that nothing reads; its stored choices are kept.
+ */
+const SENT: ReadonlySet<Category> = new Set([
+	"task_due",
+	"task_overdue",
+	"meeting_announcement",
+	"meeting_reminder",
+	"planter_digest",
+	"oversight_digest",
+	"relationship_milestone",
+	"sharing_milestone",
+	"phase_milestone",
+	"wiki_upstream_review",
+	"scheduled_email_unsubscribe",
+]);
+
+/** The rows of the preference matrix, in the order of CATEGORY_TEXT, with only the sent pairs this audience has. */
 export function preferenceRows(choices: readonly NotificationChoice[]) {
-	return (Object.keys(CATEGORY_TEXT) as Category[]).flatMap((category) => {
-		const inApp = choices.find((c) => c.category === category && c.channel === "in_app");
-		const email = choices.find((c) => c.category === category && c.channel === "email");
-		return inApp || email ? [{ category, inApp, email, ...CATEGORY_TEXT[category] }] : [];
-	});
+	return (Object.keys(CATEGORY_TEXT) as Category[])
+		.filter((category) => SENT.has(category))
+		.flatMap((category) => {
+			const inApp = choices.find((c) => c.category === category && c.channel === "in_app");
+			const email = choices.find((c) => c.category === category && c.channel === "email");
+			return inApp || email ? [{ category, inApp, email, ...CATEGORY_TEXT[category] }] : [];
+		});
 }
 
-/** Shallow structural equality for drafts made of plain values. */
-export function sameValue(a: unknown, b: unknown): boolean {
-	return JSON.stringify(a) === JSON.stringify(b);
-}
+/** Shallow structural equality for drafts made of plain values: one rule, kept in drafts.ts. */
+export { same } from "./drafts.ts";

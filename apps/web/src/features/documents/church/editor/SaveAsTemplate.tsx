@@ -1,7 +1,11 @@
 "use client";
 
 import { Alert02Icon, FloppyDiskIcon } from "@hugeicons/core-free-icons";
-import type { ChurchTemplateSummary } from "@everyfield/contracts/documents";
+import {
+	TEMPLATE_DESCRIPTION_MAX,
+	TEMPLATE_NAME_MAX,
+	type ChurchTemplateSummary,
+} from "@everyfield/contracts/documents";
 import {
 	Button,
 	Dialog,
@@ -25,9 +29,6 @@ import { listChurchTemplates, saveChurchTemplate, updateChurchTemplate } from ".
 // Save as template (Approach A): the saved revision becomes the church's own template, or the next version of one it
 // already has. Unsaved edits are not in a saved revision, so the dialog offers to save them first and holds Confirm
 // until they are saved.
-
-const NAME_MAX = 200;
-const DESCRIPTION_MAX = 500;
 
 /** The church's templates now; none when they cannot be read, so the dialog offers only a new template. */
 const currentTemplates = () =>
@@ -262,7 +263,7 @@ export function SaveAsTemplateDialog({
 							<Field label="Template name">
 								<Input
 									value={name}
-									maxLength={NAME_MAX}
+									maxLength={TEMPLATE_NAME_MAX}
 									onChange={(event) => setName(event.target.value)}
 									onKeyDown={(event) => {
 										if (event.key === "Enter") {
@@ -275,7 +276,7 @@ export function SaveAsTemplateDialog({
 							<Field label="Description" optional hint="Shown under the name in New from template.">
 								<Textarea
 									value={description}
-									maxLength={DESCRIPTION_MAX}
+									maxLength={TEMPLATE_DESCRIPTION_MAX}
 									rows={3}
 									onChange={(event) => setDescription(event.target.value)}
 								/>

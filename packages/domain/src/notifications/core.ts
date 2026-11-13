@@ -1,5 +1,10 @@
 import { owner, requestIdentity, type Owner } from "@everyfield/contracts/common";
-import { notificationError, type NotificationError, type NotificationReply } from "@everyfield/contracts/notifications";
+import {
+	notificationCategory,
+	notificationError,
+	type NotificationError,
+	type NotificationReply,
+} from "@everyfield/contracts/notifications";
 import type { Database, Transaction } from "@everyfield/db/client";
 import { sql, type SQL } from "@everyfield/db/query";
 import { randomUUID } from "node:crypto";
@@ -19,7 +24,7 @@ import {
 
 export type Tx = Transaction;
 export const PAGE = 50;
-export class NotificationRefusal extends Error {
+class NotificationRefusal extends Error {
 	readonly code: NotificationError["code"];
 	constructor(code: NotificationError["code"]) {
 		super(code);
@@ -49,7 +54,7 @@ function refused(error: NotificationRefusal): NotificationReply<never> {
 		}),
 	};
 }
-export function refusal(error: unknown): NotificationReply<never> {
+function refusal(error: unknown): NotificationReply<never> {
 	if (error instanceof WriteUnavailable) return refused(new NotificationRefusal("unavailable"));
 	if (error instanceof NotificationRefusal) return refused(error);
 	throw error;
@@ -66,7 +71,7 @@ export function parse<S extends z.ZodType>(schema: S, raw: unknown): z.output<S>
 	if (!result.success) deny("invalid_input");
 	return result.data;
 }
-export async function withNotificationWrite<T>(
+async function withNotificationWrite<T>(
 	db: Database,
 	authority: RequestActor,
 	selected: Owner,
@@ -80,7 +85,7 @@ export async function withNotificationWrite<T>(
 	);
 }
 export type Command = AuditWrite & { actorId: string; selected: Owner };
-export async function command<T>(
+async function command<T>(
 	tx: Tx,
 	authority: RequestActor,
 	selected: Owner,
@@ -129,6 +134,27 @@ export function audit(
 export function accountOwner(accountId: string): Owner {
 	return owner.parse({ kind: "account", id: accountId });
 }
+/**
+ * C13: one notifications access check as a condition. `account` holds an accepted, current seat in `tenant` (a plant or
+ * an organization; Owner or Admin when `admin`), the account is active, and no lifecycle witness hides the account, the
+ * seat or the tenant. With `session`, that session is also live and is the account's own: a request's caller. Without
+ * it, the check is for a recipient a worker sends to.
+ */
+export function seatAccess(input: { account: string; tenant: string; admin?: boolean; session?: string }): SQL {
+	return sql`EXISTS (SELECT FROM seat s JOIN account a ON a.id = s.account_id
+		WHERE s.account_id = ${input.account}::uuid AND (s.plant_id = ${input.tenant}::uuid OR s.organization_id = ${input.tenant}::uuid)
+			${input.admin ? sql`AND s.role IN ('owner','admin')` : sql``}
+			AND s.ended_at IS NULL AND s.accepted_at <= clock_timestamp() AND a.registration_state = 'active'
+			${
+				input.session
+					? sql`AND EXISTS (SELECT FROM live_session(${input.session}::uuid) i
+						WHERE i.registration_state = 'active' AND i.account_id = s.account_id)`
+					: sql``
+			}
+			AND NOT EXISTS (SELECT FROM lifecycle_witness w WHERE w.state NOT IN ('active','cancelled') AND (
+				w.seat_id = s.id OR (w.kind = 'account' AND w.opaque_subject_id = a.id)
+				OR (w.kind IN ('plant','organization') AND w.opaque_subject_id = ${input.tenant}::uuid))))`;
+}
 export function selfSql(session: string, accountId: string): SQL {
 	return sql`me AS (
 		SELECT i.account_id FROM live_session(${session}::uuid) i
@@ -137,8 +163,7 @@ export function selfSql(session: string, accountId: string): SQL {
 		   AND w.kind = 'account' AND w.opaque_subject_id = i.account_id)
 	)`;
 }
-const categories =
-	"'task_due','task_overdue','meeting_announcement','meeting_reminder','planter_digest','oversight_digest','relationship_milestone','sharing_milestone','phase_milestone','launch_milestone','wiki_upstream_review'";
+const categories = notificationCategory.options.map((category) => `'${category}'`).join(",");
 /** Rows the signed-in recipient may see in the feed, the bell, and mark. */
 export function noticeVisible(eligible: SQL = sql`n.eligible_at <= clock_timestamp()`): SQL {
 	return sql`n.cancelled_at IS NULL AND n.archived_at IS NULL AND ${eligible}
@@ -180,4 +205,4 @@ export async function runWrite<S extends z.ZodType<{ requestKey: string }>, T>(
 		return refusal(error);
 	}
 }
-export { hash, RequestActor };
+export { RequestActor };

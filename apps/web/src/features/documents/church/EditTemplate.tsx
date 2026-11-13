@@ -1,7 +1,11 @@
 "use client";
 
 import { Alert02Icon } from "@hugeicons/core-free-icons";
-import type { ChurchTemplateSummary } from "@everyfield/contracts/documents";
+import {
+	TEMPLATE_DESCRIPTION_MAX,
+	TEMPLATE_NAME_MAX,
+	type ChurchTemplateSummary,
+} from "@everyfield/contracts/documents";
 import {
 	Button,
 	Dialog,
@@ -19,10 +23,7 @@ import { useRef, useState } from "react";
 import { editChurchTemplate } from "./actions.ts";
 
 // Rename a church template or change its description. It makes no new version: documents already made from it keep
-// their own title, and new ones take the new name. The limits are Save as template's.
-
-const NAME_MAX = 200;
-const DESCRIPTION_MAX = 500;
+// their own title, and new ones take the new name. The limits are Save as template's, from the contract.
 
 /** What the card shows after a save: the template's name and description. */
 export type TemplateDetails = Pick<ChurchTemplateSummary, "title" | "description">;
@@ -86,7 +87,7 @@ export function EditTemplateDialog({
 					<Field label="Template name" error={trimmed ? undefined : "Give the template a name."}>
 						<Input
 							value={name}
-							maxLength={NAME_MAX}
+							maxLength={TEMPLATE_NAME_MAX}
 							onChange={(event) => {
 								setName(event.target.value);
 								setError(null);
@@ -102,7 +103,7 @@ export function EditTemplateDialog({
 					<Field label="Description" optional hint="Shown under the name in New from template.">
 						<Textarea
 							value={description}
-							maxLength={DESCRIPTION_MAX}
+							maxLength={TEMPLATE_DESCRIPTION_MAX}
 							rows={3}
 							onChange={(event) => {
 								setDescription(event.target.value);

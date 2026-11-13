@@ -5,29 +5,33 @@ import { Button } from "@everyfield/ui/controls";
 import { Tag } from "@everyfield/ui/display";
 import { cn } from "@everyfield/ui/foundations";
 import { useState } from "react";
-import { FORMAT_LABEL, savedAt } from "./labels.ts";
+import { FORMAT_LABEL } from "../model.ts";
+import { savedAt } from "./labels.ts";
 import type { RevisionRow } from "./server.ts";
 
 // The saved revisions of one Church Document, newest first, read only. Each row downloads that revision: the download
 // saves one export of it (D-78) and joins Saved exports. Any seat that reads the document downloads (D-80). No row edits,
-// restores or deletes a revision. Each row names its saver, or "A former member" once their seat here has ended (D-105).
+// restores or deletes a revision. Each row offers the formats its own revision can make: Excel only while that revision
+// holds a budget table. Each row names its saver, or "A former member" once their seat here has ended (D-105).
 
 type Format = keyof typeof FORMAT_LABEL;
 
 const FIRST_SHOWN = 10;
+const FORMATS = ["pdf", "docx", "xlsx"] as const satisfies readonly Format[];
 
 export function ChurchRevisions({
 	revisions,
+	truncated,
 	current,
-	formats,
 	exporting,
 	error,
 	onDownload,
 }: {
 	/** Newest first. */
 	revisions: RevisionRow[];
+	/** True when the document has older revisions than `revisions` holds. */
+	truncated: boolean;
 	current: number;
-	formats: readonly Format[];
 	/** The row download running now. */
 	exporting: { at: number; format: Format } | null;
 	/** The last failed download; it shows on its row when `at` is that row's revision. */
@@ -36,7 +40,6 @@ export function ChurchRevisions({
 }) {
 	const [all, setAll] = useState(false);
 	const shown = all ? revisions : revisions.slice(0, FIRST_SHOWN);
-	const offered = (["pdf", "docx", "xlsx"] as const).filter((f) => formats.includes(f));
 	return (
 		<section aria-labelledby="revisions-heading" className="mx-auto mt-8 flex w-full max-w-[880px] flex-col gap-3">
 			<div className="flex flex-col gap-1">
@@ -70,7 +73,7 @@ export function ChurchRevisions({
 								</span>
 							</div>
 							<div className="flex flex-none flex-wrap items-center gap-2">
-								{offered.map((format) => {
+								{FORMATS.filter((f) => r.formats.includes(f)).map((format) => {
 									const busy = exporting?.at === r.number && exporting.format === format;
 									return (
 										<Button
@@ -100,8 +103,13 @@ export function ChurchRevisions({
 			</ul>
 			{revisions.length > shown.length ? (
 				<Button variant="ghost" className="self-start" onClick={() => setAll(true)}>
-					Show all {revisions.length} revisions
+					{truncated ? `Show the newest ${revisions.length} revisions` : `Show all ${revisions.length} revisions`}
 				</Button>
+			) : null}
+			{truncated ? (
+				<p className="text-sm text-text-3 text-pretty">
+					Only the newest {revisions.length} revisions are listed. Older revisions are kept but not shown here.
+				</p>
 			) : null}
 		</section>
 	);

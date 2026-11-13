@@ -1,8 +1,12 @@
 import * as S from "@everyfield/contracts/settings";
 import * as N from "@everyfield/contracts/settings/native";
 import type { z } from "zod";
+import { rowsInOrder } from "../sections/wikiOrder";
 import { createFixtureBrand, type BrandFault, type BrandOperation, type PreviewKit } from "../brand/fixtures";
 import type {
+	OrderRead,
+	OrderRow,
+	OrderSave,
 	DeletionPort,
 	DeletionStatus,
 	Relationship,
@@ -77,6 +81,8 @@ export type Operation =
 	| "requestWorkspaceDeletion"
 	| "getStatus"
 	| "cancel"
+	| "readWikiOrder"
+	| "saveWikiOrder"
 	| BrandOperation;
 export type Fault = SettingsError["code"] | BrandFault;
 
@@ -109,17 +115,14 @@ function initialSections(persona: PreviewPersona): Map<string, SectionResult> {
 		S.sectionResult.parse({
 			section: "notifications",
 			accountId: account,
-			revision: "5",
+			// Your account and notification choices share the account's one revision, as on the server.
+			revision: "3",
 			values: {
 				choices:
 					persona === "network"
 						? [
 								{ category: "oversight_digest", channel: "email", enabled: true },
 								{ category: "oversight_digest", channel: "in_app", enabled: true },
-								{ category: "relationship_milestone", channel: "email", enabled: true },
-								{ category: "relationship_milestone", channel: "in_app", enabled: true },
-								{ category: "sharing_milestone", channel: "in_app", enabled: true },
-								{ category: "sharing_milestone", channel: "email", enabled: false },
 								{ category: "phase_milestone", channel: "in_app", enabled: true },
 								{ category: "phase_milestone", channel: "email", enabled: false },
 							]
@@ -134,9 +137,12 @@ function initialSections(persona: PreviewPersona): Map<string, SectionResult> {
 								{ category: "meeting_announcement", channel: "email", enabled: false },
 								{ category: "planter_digest", channel: "in_app", enabled: true },
 								{ category: "planter_digest", channel: "email", enabled: true },
-								{ category: "launch_milestone", channel: "in_app", enabled: true },
-								{ category: "launch_milestone", channel: "email", enabled: true },
+								{ category: "relationship_milestone", channel: "in_app", enabled: true },
+								{ category: "relationship_milestone", channel: "email", enabled: true },
+								{ category: "sharing_milestone", channel: "in_app", enabled: true },
+								{ category: "sharing_milestone", channel: "email", enabled: false },
 								{ category: "wiki_upstream_review", channel: "in_app", enabled: false },
+								{ category: "scheduled_email_unsubscribe", channel: "in_app", enabled: true },
 							],
 				planterCadence: persona === "network" ? null : "weekly",
 				oversightCadence: persona === "network" ? "daily" : null,
@@ -223,6 +229,7 @@ function initialSections(persona: PreviewPersona): Map<string, SectionResult> {
 						description: "We send and support new churches across Central Texas.",
 						contactEmail: "office@austinsending.org",
 						contactPhone: null,
+						statementOfFaith: null,
 					},
 					timeZone: "America/Chicago",
 				},
@@ -256,10 +263,26 @@ export type FixtureControls = {
 	onChange: (listener: () => void) => () => void;
 };
 
+/** The Wiki sources the preview plant reads: no order stored yet, an order stored, or no sharing affiliations. */
+export type WikiScenario = "unordered" | "ordered" | "empty";
+export function parseWikiScenario(value: string | null | undefined): WikiScenario {
+	return value === "ordered" || value === "empty" ? value : "unordered";
+}
+const WIKI_CHURCHES = [
+	{ id: SENDING.id, name: "Grace Fellowship" },
+	{ id: uuid(4, 2), name: "Redeemer Church Austin" },
+];
+const WIKI_NETWORKS = [{ id: NETWORK.id, name: "Austin Sending Network" }];
+
 /** A fixture port for one persona. `delay` is the reply time in milliseconds. */
 export function createFixturePort(
 	persona: PreviewPersona,
-	{ delay = 450, now = () => Date.now(), kit = "none" }: { delay?: number; now?: () => number; kit?: PreviewKit } = {},
+	{
+		delay = 450,
+		now = () => Date.now(),
+		kit = "none",
+		wiki = "unordered",
+	}: { delay?: number; now?: () => number; kit?: PreviewKit; wiki?: WikiScenario } = {},
 ): { port: SettingsPort; controls: FixtureControls } {
 	const store: Store = {
 		sections: initialSections(persona),
@@ -311,9 +334,50 @@ export function createFixturePort(
 		return row?.section === "account" ? row.personalTimezone : { status: "unconfirmed" };
 	};
 	const bump = (revision: string) => String(BigInt(revision) + 1n);
+	/**
+	 * Stores an account or notifications row and gives the other one its revision: both carry the account's one
+	 * revision, so a save of either (or of your photo or time zone) refuses the other's stale revision with `conflict`.
+	 */
+	const setAccountScope = (row: Extract<SectionResult, { section: "account" | "notifications" }>) => {
+		store.sections.set(row.section, row);
+		const other = store.sections.get(row.section === "account" ? "notifications" : "account");
+		if (other?.section === "account" || other?.section === "notifications")
+			store.sections.set(other.section, { ...other, revision: row.revision });
+	};
 	const canAdminPlant = persona === "owner" || persona === "admin";
+	// The stored Wiki source order, as wiki.setSourceOrder keeps it: revision "0" until an order is saved.
+	let wikiOrder: { revision: string; churches: OrderRow[]; networks: OrderRow[] } =
+		wiki === "empty"
+			? { revision: "0", churches: [], networks: [] }
+			: wiki === "ordered"
+				? { revision: "3", churches: [...WIKI_CHURCHES].reverse(), networks: WIKI_NETWORKS }
+				: { revision: "0", churches: WIKI_CHURCHES, networks: WIKI_NETWORKS };
 
 	const port: SettingsPort = {
+		wiki: {
+			async read(): Promise<OrderRead> {
+				const fault = await tick("readWikiOrder");
+				if (fault) return { status: "lost" };
+				return canAdminPlant ? { status: "ok", ...wikiOrder } : { status: "denied" };
+			},
+			async save(_requestKey, expectedRevision, churches, networks): Promise<OrderSave> {
+				const fault = await tick("saveWikiOrder");
+				if (fault === "conflict") {
+					// Someone else saved another order first.
+					wikiOrder = { ...wikiOrder, revision: bump(wikiOrder.revision), churches: [...wikiOrder.churches].reverse() };
+					return { status: "conflict", revision: wikiOrder.revision };
+				}
+				if (fault) return { status: "lost" };
+				if (!canAdminPlant) return { status: "denied" };
+				if (expectedRevision !== wikiOrder.revision) return { status: "conflict", revision: wikiOrder.revision };
+				wikiOrder = {
+					revision: bump(wikiOrder.revision),
+					churches: rowsInOrder(wikiOrder.churches, churches),
+					networks: rowsInOrder(wikiOrder.networks, networks),
+				};
+				return { status: "ok", revision: wikiOrder.revision };
+			},
+		},
 		brand: createFixtureBrand({
 			kit,
 			churchName: "Harvest Point Church",
@@ -409,7 +473,8 @@ export function createFixturePort(
 				case "teams":
 					return refuse("unavailable");
 			}
-			store.sections.set(key, next);
+			if (next.section === "account" || next.section === "notifications") setAccountScope(next);
+			else store.sections.set(key, next);
 			return ok(S.savedSectionResult, {
 				current: next,
 			});
@@ -503,9 +568,9 @@ export function createFixturePort(
 					S.requestAvatarUpload.parse(request);
 					return ok(S.avatarUploadResult, { uploadId: nextId(), expiresAt: nowIso(now() + 15 * 60_000) });
 				},
-				async uploadAvatarBytes(uploadId, file) {
+				async uploadAvatarBytes(target, file) {
 					await wait(300);
-					store.staged.set(uploadId, file);
+					store.staged.set(target.versionId, file);
 					return { status: "ok", value: null };
 				},
 				async finalizeAvatar(raw) {
@@ -521,7 +586,7 @@ export function createFixturePort(
 						status: "available",
 						avatar: { accountId: ACCOUNT[persona], versionId },
 					});
-					store.sections.set("account", { ...row, avatar, revision: bump(row.revision) as typeof row.revision });
+					setAccountScope({ ...row, avatar, revision: bump(row.revision) as typeof row.revision });
 					return { status: "ok", value: avatar };
 				},
 				async removeAvatar(raw) {
@@ -530,7 +595,7 @@ export function createFixturePort(
 					const row = store.sections.get("account");
 					if (!row || row.section !== "account") return refuse("invalid_input");
 					const avatar = S.avatarResult.parse({ status: "absent" });
-					store.sections.set("account", { ...row, avatar, revision: bump(row.revision) as typeof row.revision });
+					setAccountScope({ ...row, avatar, revision: bump(row.revision) as typeof row.revision });
 					return { status: "ok", value: avatar };
 				},
 				avatarSrc(avatar) {
@@ -594,7 +659,7 @@ export function createFixturePort(
 					timeZone: request.input.timeZone,
 					revision: bump(current),
 				});
-				store.sections.set("account", { ...row, personalTimezone: preference });
+				setAccountScope({ ...row, personalTimezone: preference, revision: bump(row.revision) as typeof row.revision });
 				return ok(N.personalTimezoneResult, { preference });
 			},
 			async requestAccountDeletion(raw) {

@@ -5,6 +5,7 @@ import {
 	processBrandAsset,
 	putPrivateObject,
 	readAuthorizedObject,
+	readAuthorizedObjectIfChanged,
 	type PrivateStorage,
 	type ResourceAuthorizer,
 } from "@everyfield/db/schema";
@@ -124,5 +125,32 @@ export async function readBrandAsset(
 			() => deny(),
 		);
 		return { bytes, mediaType: bytes[0] === 0x89 ? ("image/png" as const) : ("image/jpeg" as const) };
+	});
+}
+
+const storedMedia = z.enum(["image/png", "image/jpeg"]);
+
+/**
+ * A stored asset's SHA-256 and media type from the same statement that checks the live session, the seat and the kit's
+ * current reference. The bytes come from storage only when `current` rejects that SHA-256; `bytes` is null otherwise.
+ */
+export async function readBrandAssetIfChanged(
+	db: Database,
+	storage: PrivateStorage | null,
+	authority: RequestActor,
+	fileId: string,
+	current: (sha256: string) => boolean,
+) {
+	return settle(async () => {
+		const scope = scopeOf(authority);
+		if (!storage) deny();
+		const read = await readAuthorizedObjectIfChanged(
+			db,
+			storage,
+			brandAssetReader(scope, "settings"),
+			parse(z.uuid(), fileId),
+			current,
+		).catch(() => deny());
+		return { ...read, mediaType: storedMedia.parse(read.mediaType) };
 	});
 }

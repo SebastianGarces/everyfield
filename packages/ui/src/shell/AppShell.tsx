@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { Menu, MenuContent, MenuTrigger } from "../controls";
+import { AvatarImage } from "../display/AvatarImage";
 import { cn, EvryBot, HoverGroup, Icon, Lockup, LogoMark, useHoverItem } from "../foundations";
 import { both, useIntentPrefetch } from "../controls/IntentLink";
 import { currentKey, linkPrefetch, type ShellItem, type ShellLink, type ShellNav, type ShellUser } from "./nav";
@@ -179,9 +180,10 @@ function Topbar({
 					>
 						<span
 							aria-hidden="true"
-							className="grid size-10 flex-none place-items-center rounded-full bg-green-100 text-md font-semibold text-green-700"
+							className="relative grid size-10 flex-none place-items-center overflow-hidden rounded-full bg-green-100 text-md font-semibold text-green-700"
 						>
 							{user.initials}
+							{user.photo ? <AvatarImage key={user.photo} src={user.photo} /> : null}
 						</span>
 						<span className="leading-[1.2] max-app-lg:sr-only">
 							<span className="block text-nav font-semibold">{user.name}</span>
@@ -349,7 +351,8 @@ function NarrowMenu({ nav, current, onSearch }: { nav: ShellNav; current: string
 	const rest = [...nav.pages, ...nav.tools];
 
 	return (
-		<div ref={wrapper} onKeyDown={onKeyDown} className="app-md:hidden">
+		// Escape from the menu button or any panel link bubbles here and closes the menu; the wrapper is no control.
+		<div ref={wrapper} role="presentation" onKeyDown={onKeyDown} className="app-md:hidden">
 			<div className={cn(PILL, "flex h-topbar items-center px-2")}>
 				<button
 					ref={button}

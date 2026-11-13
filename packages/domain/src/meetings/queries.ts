@@ -4,8 +4,10 @@ import "server-only";
 import { z } from "zod";
 import type { RequestActor } from "../access/session.ts";
 import { deny, one, parse, read, type Reader } from "./core.ts";
+import { attendanceColumns, attendanceValue } from "./analytics.ts";
 import { card, guest, guestColumns, guestRow } from "./guests.ts";
 import { kitColumns, kitItem, kitRow } from "./meetings.ts";
+import { personAliasPhoto } from "../people/photos.ts";
 import { agendaOf, detail, meetingColumns, meetingRow, plantMeeting, summary } from "./rows.ts";
 
 // Every read is one statement that checks the reader's live access (C13) after the request's verified viewer names
@@ -18,14 +20,19 @@ const guests = (where: SQL) =>
 	sql`(SELECT coalesce(json_agg(x ORDER BY x.person_name, x.id), '[]') FROM (SELECT ${guestColumns}
 		WHERE g.meeting_id = m.id AND g.removed_at IS NULL AND ${where}) x)`;
 
+/** Each current guest's photo, as the People list shows it (REQ-PPL-005, REQ-IDN-006). Guests with none are left out. */
+const guestPhotos = sql`(SELECT coalesce(json_agg(json_build_object('personId', x.person_id, 'photo', x.photo)
+		ORDER BY x.person_id), '[]') FROM (SELECT p.id AS person_id, ${personAliasPhoto} AS photo
+		FROM participation g JOIN person p ON p.id = g.person_id WHERE g.meeting_id = m.id AND g.removed_at IS NULL) x
+	WHERE x.photo IS NOT NULL)`;
+
 /** Per Person, the first open of any email sent from this meeting's messages, as the email service reported it. */
 const emailOpens = sql`(SELECT coalesce(json_agg(json_build_object(
 		'personId', o.person_id, 'openedAt', to_char(o.opened_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
 	) ORDER BY o.person_id), '[]') FROM (
 		SELECT ml.recipient_person_id AS person_id, min(ml.opened_at) AS opened_at
 		FROM communication cm
-		JOIN mail ml ON ml.tenant_id = cm.plant_id AND ml.purpose = 'communication'
-			AND ml.logical_key LIKE 'communication/' || cm.id::text || '/%'
+		JOIN mail ml ON ml.tenant_id = cm.plant_id AND ml.communication_id = cm.id
 		WHERE cm.plant_id = m.plant_id AND cm.meeting_id = m.id
 			AND ml.opened_at IS NOT NULL AND ml.recipient_person_id IS NOT NULL
 		GROUP BY ml.recipient_person_id
@@ -140,7 +147,7 @@ export const meetingsReader = {
 			const { row, admin } = await one(
 				db,
 				v,
-				sql`SELECT ${guests(sql`true`)} AS guests, ${emailOpens} AS email_opens
+				sql`SELECT ${guests(sql`true`)} AS guests, ${emailOpens} AS email_opens, ${guestPhotos} AS photos
 					FROM meeting m WHERE ${current(v.plantId, i.meetingId)}`,
 			);
 			if (!row) deny();
@@ -148,7 +155,40 @@ export const meetingsReader = {
 				meetingId: i.meetingId,
 				guests: z.array(guestRow).parse(row.guests).map(guest),
 				emailOpens: admin ? row.email_opens : [],
+				photos: row.photos,
 			});
+		});
+	},
+	/**
+	 * The meeting page's guests in one statement: the guest list with its email opens, the recorded cards (notes for
+	 * Owner/Admin only) and the attendance list of up to the 500 guests a meeting can finalize. The page reads the
+	 * participation rows once instead of once each for listGuests, listCards and listAttendance.
+	 */
+	async pageGuests(db: Reader, authority: RequestActor, raw: unknown) {
+		return read(authority, async (v) => {
+			const i = parse(c.meetingRequest, raw);
+			const list = parse(c.attendanceListRequest, { meetingId: i.meetingId, limit: 500 });
+			const { row, admin } = await one(
+				db,
+				v,
+				sql`SELECT ${guests(sql`true`)} AS guests, ${emailOpens} AS email_opens, ${guestPhotos} AS photos,
+					${attendanceColumns(list, v.accountId)} FROM meeting m WHERE ${current(v.plantId, i.meetingId)}`,
+			);
+			if (!row) deny();
+			const rows = z.array(guestRow).parse(row.guests);
+			return {
+				guests: c.guestList.parse({
+					meetingId: i.meetingId,
+					guests: rows.map(guest),
+					emailOpens: admin ? row.email_opens : [],
+					photos: row.photos,
+				}),
+				cards: c.cardList.parse({
+					meetingId: i.meetingId,
+					cards: rows.filter((g) => g.card_response !== null).map((g) => card(g, admin)),
+				}),
+				attendance: attendanceValue(row, list, { admin }),
+			};
 		});
 	},
 	/** Recorded Vision cards. Notes appear only for Owner/Admin. */
@@ -285,7 +325,7 @@ export const meetingsReader = {
 				meetingId: i.meetingId,
 				guestId: g.id,
 				rsvp: g.rsvp,
-				responseAllowed: ["planning", "ready", "in_progress"].includes(g.status),
+				responseAllowed: c.answeringStatuses.includes(g.status),
 				revision: g.revision,
 			});
 		});

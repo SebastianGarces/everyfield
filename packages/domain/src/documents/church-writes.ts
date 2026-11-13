@@ -8,10 +8,11 @@ import type { RequestActor } from "../access/session.ts";
 import { dataFromRow } from "../branding/kit.ts";
 import { deny, parse, plantViewer, readPlant, rejectInput, seniorPastorName, settle } from "./access.ts";
 import { documentBrand, exportTheme, type ImageSource } from "./church-theme.ts";
-import { docFormats, renderDocFile, type DocFormat } from "./doc-render.ts";
-import { docTemplateById, sheetOf } from "./doc-templates.ts";
+import { docFormats, offeredFormats, renderDocFile, type DocFormat } from "./doc-render.ts";
+import { docTemplateById, publishedTemplate, sheetOf } from "./doc-templates.ts";
 import { fieldValues, frozenData, insertableValues, type MergeSources } from "./doc-values.ts";
 import { cleanOverrides } from "./merge.ts";
+import { fillStatementSlots } from "./network-statement.ts";
 import { RenderFailed, digestOf, renderEngineVersion } from "./render.ts";
 import {
 	MEDIA,
@@ -22,6 +23,7 @@ import {
 	iso,
 	plantScope,
 	postgresCode,
+	rerun,
 	rowsOf,
 	storeBytes,
 	type Scope,
@@ -59,6 +61,19 @@ type Provenance = { key: string; value: string | null; source: string }[];
 const TEMPLATE_NAME = sql`(SELECT t.title FROM document t WHERE t.tenant_id = d.tenant_id AND t.kind = 'church_template'
 	AND 'church-' || t.id::text = d.template_id)`;
 /**
+ * The church template a Church Document `d` (current revision `r`) was made from, while it is live: its name (the
+ * row's, D-171), the body of its current version, and `base`, the body of the version the document's origin records
+ * (D-148: version n is the template's revision n, D-422). Null for a built-in template and for a deleted one, which
+ * offers no compare (D-133). Only the document's own church plant is read.
+ */
+const FOLLOWED_CHURCH_TEMPLATE = sql`(SELECT json_build_object('title', t.title, 'body', tr.body,
+		'base', (SELECT b.body FROM document_revision b WHERE b.document_id = t.id AND b.tenant_id = t.tenant_id
+			AND b.version_number::text = r.body::jsonb #>> '{origin,version}'))
+	FROM document t
+	JOIN document_revision tr ON tr.id = t.current_revision_id AND tr.tenant_id = t.tenant_id
+	WHERE t.tenant_id = d.tenant_id AND t.kind = 'church_template' AND t.archived_at IS NULL
+		AND 'church-' || t.id::text = d.template_id)`;
+/**
  * The name of `account` while they hold a seat in the church plant of document `d`, else null, which reads "A former
  * member" (D-105). A seat in another plant does not count. Saved exports name their creator and revisions their saver by it.
  */
@@ -85,6 +100,7 @@ function storedDoc(text: string | null) {
 	return parsed.success ? parsed.data : null;
 }
 
+const churchFields = c.churchDocument.omit({ body: true });
 /** One Church Document as the writers return it. The formats follow from the body; a stored row is never deleted here. */
 function churchResult(
 	tenantId: string,
@@ -101,10 +117,16 @@ function churchResult(
 		body: c.DocDocument;
 		contentHash: string;
 		provenance: Provenance;
+		archived?: { at: string; by: string | null } | null;
 	},
 ) {
 	const templateVersion = followedVersion(d.templateId, d.templateVersion, d.body.origin);
-	return c.churchDocument.parse({ ...d, templateVersion, tenantId, formats: docFormats(d.body), archived: false });
+	// The body arrives parsed (the request or the stored revision), so only the fields around it are checked here.
+	const { body, archived = null, ...rest } = d;
+	return {
+		...churchFields.parse({ ...rest, templateVersion, tenantId, formats: docFormats(body), archived }),
+		body,
+	};
 }
 
 /**
@@ -122,16 +144,25 @@ function followedVersion(
 
 /**
  * The current state of one Church Document, as a reader sees it, with the plant's brand kit for the editor. One
- * statement: the kit joins the same read. With `withSources`, it also reads the plant's name and senior pastor, the values
- * the editor's merge fields offer.
+ * statement: the kit joins the same read. With `sources`, it also reads the plant's name and senior pastor, the values
+ * the editor's merge fields offer; with `template`, the church template it was made from, for a compare. An archived
+ * document reads only with `archived`, which the read-only page asks for; the editor and every write never see it.
  */
-async function readChurchWithKit(db: Database, scope: Scope, documentId: string, admin = false, withSources = false) {
+async function readChurchWithKit(
+	db: Database,
+	scope: Scope,
+	documentId: string,
+	{ admin = false, sources: withSources = false, template = false, archived = false } = {},
+) {
 	const found = await rowsOf<
 		ChurchRow & {
 			ok: boolean;
 			kit: Record<string, unknown> | null;
 			church_name: string | null;
 			pastor_name: string | null;
+			church_template: StoredChurchTemplate | null;
+			archived_at: Date | string | null;
+			archived_by: string | null;
 		}
 	>(
 		db,
@@ -139,10 +170,13 @@ async function readChurchWithKit(db: Database, scope: Scope, documentId: string,
 			d.revision::text AS revision, r.id AS revision_id, r.body, r.content_hash,
 			d.input_provenance, to_jsonb(k) AS kit, ${TEMPLATE_NAME} AS template_name,
 			${withSources ? sql`(SELECT p.name FROM plant p WHERE p.id = d.tenant_id)` : sql`NULL::text`} AS church_name,
-			${withSources ? sql`(${seniorPastorName(scope.tenantId)})` : sql`NULL::text`} AS pastor_name
+			${withSources ? sql`(${seniorPastorName(scope.tenantId)})` : sql`NULL::text`} AS pastor_name,
+			${template ? FOLLOWED_CHURCH_TEMPLATE : sql`NULL::json`} AS church_template,
+			d.church_archived_at AS archived_at, ${seatedName(sql`d.church_archived_by`)} AS archived_by
 		FROM (SELECT ${gateSql(scope, admin)} AS ok) g
 		LEFT JOIN document d ON g.ok AND d.id = ${documentId}::uuid AND d.tenant_id = ${scope.tenantId}::uuid
 			AND d.kind = 'church_document' AND d.current_revision_id IS NOT NULL AND d.archived_at IS NULL
+			${archived ? sql`` : sql`AND d.church_archived_at IS NULL`}
 		LEFT JOIN document_revision r ON r.id = d.current_revision_id AND r.tenant_id = d.tenant_id
 		LEFT JOIN church_brand_kit k ON g.ok AND k.tenant_id = ${scope.tenantId}::uuid`,
 	);
@@ -162,6 +196,7 @@ async function readChurchWithKit(db: Database, scope: Scope, documentId: string,
 		body: storedDoc(row.body) ?? deny("render_failed"),
 		contentHash: row.content_hash,
 		provenance: row.input_provenance,
+		archived: row.archived_at ? { at: iso(row.archived_at), by: row.archived_by || null } : null,
 	});
 	const kit = row.kit ? dataFromRow(row.kit) : null;
 	const sources: MergeSources = {
@@ -172,12 +207,12 @@ async function readChurchWithKit(db: Database, scope: Scope, documentId: string,
 		contactLine: contactLine(kit),
 		meetingDate: null,
 	};
-	return { doc, kit, sources };
+	return { doc, kit, sources, churchTemplate: row.church_template };
 }
 
 /** The current state of one Church Document, as a reader sees it. One statement. */
 async function readChurch(db: Database, scope: Scope, documentId: string, admin = false) {
-	return (await readChurchWithKit(db, scope, documentId, admin))?.doc ?? null;
+	return (await readChurchWithKit(db, scope, documentId, { admin }))?.doc ?? null;
 }
 
 function safeJson(text: string): unknown {
@@ -263,18 +298,82 @@ function mergeSources(plant: Awaited<ReturnType<typeof readPlant>>, kit: Kit): M
 	};
 }
 
-/** Finds the current version of a built-in template. A test passes its own to compare with a template version 2. */
-type TemplateLookup = (id: string) => c.DocTemplate | undefined;
+/**
+ * The built-in templates a compare reads: the current version of each, and a published version by its id and hash
+ * (D-421). A test passes its own to compare with a template version 2.
+ */
+type TemplateSource = {
+	current: (id: string) => c.DocTemplate | undefined;
+	published: (id: string, hash: string) => c.DocTemplate | undefined;
+};
+const BUILT_IN: TemplateSource = { current: docTemplateById, published: publishedTemplate };
+
+/** A church template as the document read finds it: its name, its current body and the base's body, if stored. */
+type StoredChurchTemplate = { title: string; body: string; base: string | null };
 
 /**
- * Where a document stands against its template: "behind" when the template hash it records is not the current
- * template's, "current" when it is, and null when there is nothing to compare with (a blank document, or a template
- * that no longer exists).
+ * The template a document follows: its current version, its name, whether it is the church's own, and its base,
+ * the version the document's origin records (D-422), or null when that version is not stored.
  */
-export async function templateStatus(body: c.DocDocument, templates: TemplateLookup = docTemplateById) {
-	const template = body.origin ? templates(body.origin.template) : undefined;
-	if (!body.origin || !template) return null;
-	return (await c.templateHash(template)) === body.origin.hash ? ("current" as const) : ("behind" as const);
+type Followed = { template: c.DocTemplate; base: c.DocTemplate | null; title: string; church: boolean };
+
+/**
+ * The template a document follows: a built-in template, or the church's own template the document was made from,
+ * read with the document (`stored`, D-133). Null when there is nothing to compare with: a blank document, a template
+ * that no longer exists, or an origin naming a church template other than the row's. A base whose version or hash is
+ * not the one the origin records is not stored.
+ */
+async function followedTemplate(
+	body: c.DocDocument,
+	madeFrom: string | null,
+	stored: StoredChurchTemplate | null,
+	templates: TemplateSource,
+): Promise<Followed | null> {
+	const { origin } = body;
+	if (!origin) return null;
+	const recorded = async (base: c.DocTemplate | null | undefined) =>
+		base &&
+		base.id === origin.template &&
+		base.version === origin.version &&
+		(await c.templateHash(base)) === origin.hash
+			? base
+			: null;
+	if (c.churchTemplateRecord(origin.template)) {
+		const template = origin.template === madeFrom && stored ? storedTemplate(stored.body) : null;
+		return template && stored && template.id === origin.template
+			? { template, base: await recorded(storedTemplate(stored.base)), title: stored.title, church: true }
+			: null;
+	}
+	const template = templates.current(origin.template);
+	if (!template) return null;
+	return {
+		template,
+		base: await recorded(templates.published(origin.template, origin.hash)),
+		title: template.title,
+		church: false,
+	};
+}
+
+/**
+ * Where a document stands against its template (D-425): "behind" while at least one change the template made since
+ * the base is not in the document, else "current". With no stored base, "behind" when the template hash the document
+ * records is not the current template's (D-75).
+ */
+async function statusAgainst(body: c.DocDocument, followed: Followed | null) {
+	if (!body.origin || !followed) return null;
+	const behind = followed.base
+		? c.templateChanges(body, followed.base, followed.template).length > 0
+		: (await c.templateHash(followed.template)) !== body.origin.hash;
+	return behind ? ("behind" as const) : ("current" as const);
+}
+
+/**
+ * Where a document stands against its built-in template: "behind", "current", or null when there is nothing to
+ * compare with (a blank document, or a template that no longer exists). A church template is read with the document,
+ * so the editor read carries its status.
+ */
+export async function templateStatus(body: c.DocDocument, templates: TemplateSource = BUILT_IN) {
+	return statusAgainst(body, await followedTemplate(body, null, null, templates));
 }
 
 /**
@@ -296,14 +395,31 @@ async function addedValues(db: Database, scope: Scope, body: c.DocDocument, temp
 }
 
 /** The document and its template for a compare or an accept: an Owner or Admin, a fork of a template that exists. */
-async function compareSubject(db: Database, scope: Scope, documentId: string, templates: TemplateLookup) {
-	const found = await readChurchWithKit(db, scope, documentId, true);
+async function compareSubject(db: Database, scope: Scope, documentId: string, templates: TemplateSource) {
+	const found = await readChurchWithKit(db, scope, documentId, { admin: true, template: true });
 	if (!found) deny("unavailable");
 	const { body } = found.doc;
-	const template = body.origin ? templates(body.origin.template) : undefined;
-	if (!body.origin || !template) deny("unavailable");
-	return { ...found, body, origin: body.origin, template, hash: await c.templateHash(template) };
+	const followed = await followedTemplate(body, found.doc.templateId, found.churchTemplate, templates);
+	if (!body.origin || !followed) deny("unavailable");
+	const { template, base } = followed;
+	// Both lists, each with a key that names it (D-423): an accept names its list by the key it was shown.
+	const all = c.compareWithTemplate(body, template);
+	const changes = base ? c.templateChanges(body, base, template) : null;
+	return {
+		...found,
+		body,
+		origin: body.origin,
+		followed,
+		template,
+		hash: await c.templateHash(template),
+		lists: { all, changes },
+		keys: { all: listKey("all", all), changes: changes ? listKey("changes", changes) : null },
+	};
 }
+
+/** What names one list as the compare showed it: its view and its items. */
+const listKey = (view: c.CompareView, items: readonly c.DocDifference[]) =>
+	`sha256:${hashOf(JSON.stringify([view, items]))}`;
 
 export const churchWriter = {
 	/** CASE-DOC-022: revision 1 holds the template body with the merge values resolved once. It makes no file. */
@@ -323,6 +439,9 @@ export const churchWriter = {
 				{ personId: null, meetingId: null, teamId: null },
 			);
 			// The brand kit and, for a church template, its body: one statement. Another church's template reads as none.
+			// D-108, D-109, D-417: the plant read above holds the network's statement of faith, read now, once. The
+			// earliest-accepted active network with a statement fills each `statement-of-faith` slot; with none, the slot
+			// stays the marked blank.
 			const kitRows = await rowsOf<{
 				kit: Record<string, unknown> | null;
 				church_template: { title: string; body: string } | null;
@@ -351,7 +470,10 @@ export const churchWriter = {
 					source: cleaned.values[field.key] ? "override" : (frozen.from[field.key] ?? "absent").slice(0, 40),
 				}));
 			const docId = stableId(scope.tenantId, "church-document", input.requestKey);
-			const forked = await c.forkTemplate(template, { id: `doc-${docId}`, data });
+			const forked = fillStatementSlots(
+				await c.forkTemplate(template, { id: `doc-${docId}`, data }),
+				plant.open && plant.subjectOk ? plant.statement : null,
+			);
 			const checked = c.docDocument.safeParse({ ...forked, title });
 			if (!checked.success) rejectInput("mergeFields", "The merge values make the document too large.");
 			const body = JSON.stringify(checked.data);
@@ -476,6 +598,7 @@ export const churchWriter = {
 					d.input_provenance, ${TEMPLATE_NAME} AS template_name
 				FROM document d JOIN gate ON gate.ok
 				WHERE d.id = ${input.documentId}::uuid AND d.tenant_id = ${scope.tenantId}::uuid AND d.kind = 'church_document'
+					AND d.church_archived_at IS NULL
 			),
 			added AS (
 				INSERT INTO document_revision (
@@ -537,60 +660,73 @@ export const churchWriter = {
 	},
 
 	/**
-	 * "Compare with template": every difference between the current revision and the current version of its template,
-	 * and the text each merge field prints on both sides. An Owner or Admin only. One statement reads the document and
-	 * the brand kit; a document that lacks some template fields reads the church plant too, for what they would print.
+	 * "Compare with template": both lists of the current revision beside the current version of its template (D-423).
+	 * "Template changes" holds only what the template changed since the base, the version the revision records; it is
+	 * null when that version is not stored. "All differences" holds every difference (T-19). With the text each merge
+	 * field prints on both sides. An Owner or Admin only. One statement reads the document, the brand kit and a church
+	 * template's versions; a document that lacks some template fields reads the church plant too, for what they print.
 	 */
-	async readTemplateCompare(
-		db: Database,
-		authority: RequestActor,
-		raw: unknown,
-		templates: TemplateLookup = docTemplateById,
-	) {
+	async readTemplateCompare(db: Database, authority: RequestActor, raw: unknown, templates: TemplateSource = BUILT_IN) {
 		return settle(async () => {
 			const input = parse(c.churchCompareRequest, raw);
 			const scope = adminScope(authority);
-			const { doc, body, origin, template, hash, kit } = await compareSubject(db, scope, input.documentId, templates);
+			const { doc, body, origin, followed, template, hash, kit, lists, keys } = await compareSubject(
+				db,
+				scope,
+				input.documentId,
+				templates,
+			);
 			const added = await addedValues(db, scope, body, template, kit);
 			const missing = c.missingFields(body, template);
 			return c.churchCompare.parse({
 				documentId: doc.id,
 				revision: doc.revision,
-				templateTitle: template.title,
+				templateTitle: followed.title,
+				churchTemplate: followed.church,
 				templateVersion: template.version,
 				templateHash: hash,
+				baseVersion: followed.base?.version ?? null,
 				behind: hash !== origin.hash,
 				values: fieldValues({ ...body, fields: [...body.fields, ...missing], data: { ...body.data, ...added } }),
-				differences: c.compareWithTemplate(body, template),
+				changes: lists.changes,
+				differences: lists.all,
+				keys,
 			});
 		});
 	},
 
 	/**
-	 * Accept differences from the current template: one new revision through the expected-revision save, recording the
-	 * current template version and hash. A template field the document lacked freezes the church's value now, else the
-	 * template's fallback. A newer revision or template than the compare named is a conflict and writes nothing.
+	 * Accept items of one list from the current template: one new revision through the expected-revision save,
+	 * recording the current template version and hash (D-76), which becomes the next compare's base. A template field
+	 * the document lacked freezes the church's value now, else the template's fallback. A newer revision or template
+	 * than the compare named, or a list other than the one the key names, is a conflict and writes nothing.
 	 */
 	async acceptTemplateChanges(
 		db: Database,
 		authority: RequestActor,
 		raw: unknown,
-		templates: TemplateLookup = docTemplateById,
+		templates: TemplateSource = BUILT_IN,
 	) {
 		return settle(async () => {
 			const input = parse(c.acceptTemplateRequest, raw);
 			const scope = adminScope(authority);
-			const { doc, body, template, hash, kit } = await compareSubject(db, scope, input.documentId, templates);
+			const { doc, body, template, hash, kit, followed, lists, keys } = await compareSubject(
+				db,
+				scope,
+				input.documentId,
+				templates,
+			);
 			if (BigInt(doc.revision) !== BigInt(input.expectedRevision) || hash !== input.templateHash) deny("conflict");
-			const count = c.compareWithTemplate(body, template).length;
+			if (keys[input.view] !== input.key) deny("conflict");
+			const count = (lists[input.view] ?? []).length;
 			if (input.accept !== "all" && input.accept.some((id) => id >= count))
 				rejectInput("accept", "That change is not in the compare.");
 			const added = await addedValues(db, scope, body, template, kit);
+			const options = { origin: { template: template.id, version: template.version, hash }, values: added };
 			const next = c.docDocument.safeParse(
-				c.acceptDifferences(body, template, input.accept, {
-					origin: { template: template.id, version: template.version, hash },
-					values: added,
-				}),
+				input.view === "changes" && followed.base
+					? c.acceptTemplateChanges(body, followed.base, template, input.accept, options)
+					: c.acceptDifferences(body, template, input.accept, options),
 			);
 			if (!next.success) rejectInput("accept", (next.error.issues[0]?.message ?? "invalid").slice(0, 200));
 			return churchWriter.saveChurch(
@@ -615,6 +751,7 @@ export const churchWriter = {
 					FROM gate
 					WHERE gate.ok AND document.id = ${input.documentId}::uuid AND document.tenant_id = ${scope.tenantId}::uuid
 						AND document.kind = 'church_document' AND document.archived_at IS NULL
+						AND document.church_archived_at IS NULL
 					RETURNING document.id, document.use_church_branding
 				),
 				aud AS (
@@ -664,7 +801,7 @@ export const churchWriter = {
 					(gd.source_document_id = ${input.documentId}::uuid AND gd.source_revision_id = r.id AND gd.format = ${input.format}) AS prior_same
 				FROM (SELECT ${gateSql(scope, false)} AS ok) g
 				LEFT JOIN document d ON g.ok AND d.id = ${input.documentId}::uuid AND d.tenant_id = ${scope.tenantId}::uuid
-					AND d.kind = 'church_document'
+					AND d.kind = 'church_document' AND d.archived_at IS NULL
 				LEFT JOIN document_revision r ON r.document_id = d.id AND r.tenant_id = d.tenant_id
 					AND r.version_number = ${input.revision}
 				LEFT JOIN church_brand_kit k ON g.ok AND k.tenant_id = ${scope.tenantId}::uuid
@@ -761,20 +898,24 @@ export const churchWriter = {
 				}
 			}
 			// The same request key finished first: answer with its record when it is the same export.
-			const raced = await rowsOf<{ id: string; same: boolean }>(
-				db,
-				sql`SELECT gd.id, (gd.source_document_id = ${row.id}::uuid AND gd.source_revision_id = ${row.revision_id}::uuid
-					AND gd.format = ${input.format}) AS same
-				FROM generated_document gd WHERE gd.tenant_id = ${scope.tenantId}::uuid AND gd.request_key = ${input.requestKey}`,
-			);
-			if (raced[0]?.same) return exportRecord(db, scope, raced[0].id);
-			deny("conflict");
+			// It runs as the retry of this write, so the statement budgets count it as one.
+			return rerun(db, async (bound) => {
+				const raced = await rowsOf<{ id: string; same: boolean }>(
+					bound,
+					sql`SELECT gd.id, (gd.source_document_id = ${row.id}::uuid AND gd.source_revision_id = ${row.revision_id}::uuid
+						AND gd.format = ${input.format}) AS same
+					FROM generated_document gd WHERE gd.tenant_id = ${scope.tenantId}::uuid AND gd.request_key = ${input.requestKey}`,
+				);
+				if (raced[0]?.same) return exportRecord(bound, scope, raced[0].id);
+				deny("conflict");
+			});
 		});
 	},
 
 	/**
 	 * The saved exports of one Church Document, the latest 100 newest first (DOC-003). Any seat reads them. One statement.
-	 * A creator's name shows while that person holds a seat in the church plant.
+	 * A creator's name shows while that person holds a seat in the church plant. A deleted document lists nothing: its
+	 * seats are told "deleted", anyone else "unavailable".
 	 */
 	async listExports(db: Database, authority: RequestActor, raw: unknown) {
 		return settle(async () => {
@@ -783,6 +924,7 @@ export const churchWriter = {
 			const found = await rowsOf<{
 				ok: boolean;
 				document_id: string | null;
+				deleted: boolean | null;
 				id: string | null;
 				revision: number | null;
 				format: string | null;
@@ -793,24 +935,25 @@ export const churchWriter = {
 				download_name: string | null;
 			}>(
 				db,
-				sql`SELECT g.ok, d.id AS document_id, x.id, x.version_number AS revision, x.format, x.generated_at,
-					x.creator_name, x.sha256, x.byte_count, x.download_name
+				sql`SELECT g.ok, d.id AS document_id, d.archived_at IS NOT NULL AS deleted, x.id, x.version_number AS revision,
+					x.format, x.generated_at, x.creator_name, x.sha256, x.byte_count, x.download_name
 				FROM (SELECT ${gateSql(scope, false)} AS ok) g
 				LEFT JOIN document d ON g.ok AND d.id = ${input.documentId}::uuid AND d.tenant_id = ${scope.tenantId}::uuid
-					AND d.kind = 'church_document' AND d.archived_at IS NULL
+					AND d.kind = 'church_document'
 				LEFT JOIN LATERAL (
 					SELECT gd.id, sr.version_number, gd.format, gd.generated_at, f.sha256, f.byte_count, gd.download_name,
 						${seatedName(sql`gd.creator_account_id`)} AS creator_name
 					FROM generated_document gd
 					JOIN file_object f ON f.id = gd.object_id AND f.tenant_id = gd.tenant_id AND f.state = 'ready'
 					JOIN document_revision sr ON sr.id = gd.source_revision_id AND sr.tenant_id = gd.tenant_id
-					WHERE gd.tenant_id = d.tenant_id AND gd.source_document_id = d.id
+					WHERE d.archived_at IS NULL AND gd.tenant_id = d.tenant_id AND gd.source_document_id = d.id
 					ORDER BY gd.generated_at DESC, gd.id DESC
 					LIMIT ${PAGE}
 				) x ON true`,
 			);
 			if (found[0]?.ok !== true) deny("access_denied");
 			if (!found[0].document_id) deny("unavailable");
+			if (found[0].deleted) deny("deleted");
 			return c.savedExportList.parse({
 				documentId: input.documentId,
 				exports: found
@@ -832,7 +975,8 @@ export const churchWriter = {
 
 	/**
 	 * The stored bytes of one saved export (DOC-003): read from private storage, checked against the saved digest, never
-	 * rendered again. The seat is checked before and after the bytes are read. Any seat reads it.
+	 * rendered again. The seat is checked before and after the bytes are read. Any seat reads it. Once the document is
+	 * deleted no export of it is read: its seats are told "deleted", anyone else "unavailable" (Nora, Nov 10, 2026).
 	 */
 	async readExportFile(db: Database, authority: RequestActor, raw: unknown, storage: PrivateStorage | null) {
 		return settle(async () => {
@@ -841,6 +985,7 @@ export const churchWriter = {
 			if (!storage) deny("unavailable");
 			const found = await rowsOf<{
 				ok: boolean;
+				deleted: boolean | null;
 				id: string | null;
 				object_id: string | null;
 				format: c.SavedExport["format"] | null;
@@ -848,20 +993,26 @@ export const churchWriter = {
 				revision: number | null;
 			}>(
 				db,
-				sql`SELECT g.ok, gd.id, gd.object_id, gd.format, gd.download_name, sr.version_number AS revision
+				sql`SELECT g.ok, d.archived_at IS NOT NULL AS deleted, gd.id, gd.object_id, gd.format, gd.download_name,
+					sr.version_number AS revision
 				FROM (SELECT ${gateSql(scope, false)} AS ok) g
-				LEFT JOIN generated_document gd ON g.ok AND gd.id = ${input.exportId}::uuid AND gd.tenant_id = ${scope.tenantId}::uuid
-					AND gd.source_document_id = ${input.documentId}::uuid
+				LEFT JOIN document d ON g.ok AND d.id = ${input.documentId}::uuid AND d.tenant_id = ${scope.tenantId}::uuid
+					AND d.kind = 'church_document'
+				LEFT JOIN generated_document gd ON d.archived_at IS NULL AND gd.id = ${input.exportId}::uuid
+					AND gd.tenant_id = d.tenant_id AND gd.source_document_id = d.id
 				LEFT JOIN document_revision sr ON sr.id = gd.source_revision_id AND sr.tenant_id = gd.tenant_id`,
 			);
 			const row = found[0];
 			if (!row?.ok) deny("access_denied");
+			if (row.deleted) deny("deleted");
 			if (!row.id || !row.object_id || !row.format || !row.download_name || row.revision === null) deny("unavailable");
 			const authorize: ResourceAuthorizer = async (tx, file, intent) => {
 				if (intent !== "read") return null;
 				const allowed = await rowsOf<{ ok: boolean }>(
 					tx,
 					sql`SELECT ${gateSql(scope, false)} AS ok FROM generated_document gd
+					JOIN document d ON d.id = gd.source_document_id AND d.tenant_id = gd.tenant_id
+						AND d.kind = 'church_document' AND d.archived_at IS NULL
 					WHERE gd.id = ${input.exportId}::uuid AND gd.tenant_id = ${scope.tenantId}::uuid
 						AND gd.source_document_id = ${input.documentId}::uuid AND gd.object_id = ${file.id}::uuid`,
 				);
@@ -884,7 +1035,8 @@ export const churchWriter = {
 
 	/**
 	 * An Owner or Admin deletes one saved export (D-79). One statement checks the seat, removes the record and writes one
-	 * audit row; its download stops working. A Member is refused before any statement.
+	 * audit row; its download stops working. A Member is refused before any statement. An archived document's saved
+	 * exports stay, so they are not deleted (T-9).
 	 */
 	async deleteExport(db: Database, authority: RequestActor, raw: unknown) {
 		return settle(async () => {
@@ -897,6 +1049,8 @@ export const churchWriter = {
 					DELETE FROM generated_document gd USING gate
 					WHERE gate.ok AND gd.id = ${input.exportId}::uuid AND gd.tenant_id = ${scope.tenantId}::uuid
 						AND gd.source_document_id = ${input.documentId}::uuid
+						AND NOT EXISTS (SELECT FROM document d WHERE d.id = gd.source_document_id AND d.tenant_id = gd.tenant_id
+							AND d.church_archived_at IS NOT NULL)
 					RETURNING gd.id, gd.object_id
 				),
 				rel AS (
@@ -923,12 +1077,15 @@ export const churchWriter = {
 		});
 	},
 
-	/** One Church Document with its current revision. Any seat of the church plant reads it. One statement. */
+	/**
+	 * One Church Document with its current revision. Any seat of the church plant reads it, archived too: its page stays
+	 * readable, with who archived it and when (T-9). One statement.
+	 */
 	async readChurch(db: Database, authority: RequestActor, raw: unknown) {
 		return settle(async () => {
 			const input = parse(c.readChurchRequest, raw);
-			const found = await readChurch(db, readerScope(authority), input.documentId);
-			return found ?? deny("unavailable");
+			const found = await readChurchWithKit(db, readerScope(authority), input.documentId, { archived: true });
+			return found?.doc ?? deny("unavailable");
 		});
 	},
 
@@ -939,11 +1096,17 @@ export const churchWriter = {
 	async readChurchForEdit(db: Database, authority: RequestActor, raw: unknown) {
 		return settle(async () => {
 			const input = parse(c.readChurchRequest, raw);
-			const found = await readChurchWithKit(db, adminScope(authority), input.documentId, false, true);
+			const found = await readChurchWithKit(db, adminScope(authority), input.documentId, {
+				sources: true,
+				template: true,
+			});
 			if (!found) return deny("unavailable");
 			const church = documentBrand(found.kit, true);
+			const { body, templateId } = found.doc;
+			const followed = await followedTemplate(body, templateId, found.churchTemplate, BUILT_IN);
 			return c.churchDocumentView.parse({
 				...found.doc,
+				template: await statusAgainst(body, followed),
 				brands: { church: church.palette.themed ? church : null, plain: documentBrand(null, false) },
 				mergeValues: insertableValues(found.sources),
 			});
@@ -951,7 +1114,7 @@ export const churchWriter = {
 	},
 
 	/**
-	 * The library: every Church Document of the church plant that is not deleted, newest first, and for an Owner or
+	 * The library: every Church Document of the church plant that is not deleted or archived, newest first, and for an Owner or
 	 * Admin the church's own templates for "New from template", newest first. One statement.
 	 */
 	async listChurch(db: Database, authority: RequestActor, raw: unknown) {
@@ -981,6 +1144,7 @@ export const churchWriter = {
 						FROM document d
 						JOIN document_revision r ON r.id = d.current_revision_id AND r.tenant_id = d.tenant_id
 						WHERE g.ok AND d.tenant_id = ${scope.tenantId}::uuid AND d.kind = 'church_document' AND d.archived_at IS NULL
+							AND d.church_archived_at IS NULL
 						ORDER BY r.recorded_at DESC NULLS LAST, d.id
 						LIMIT 200
 					) x) AS documents,
@@ -1038,7 +1202,7 @@ export const churchWriter = {
 				sql`SELECT g.ok, r.id AS revision_id, r.body, r.content_hash AS hash
 				FROM (SELECT ${gateSql(scope, true)} AS ok) g
 				LEFT JOIN document d ON g.ok AND d.id = ${input.documentId}::uuid AND d.tenant_id = ${scope.tenantId}::uuid
-					AND d.kind = 'church_document' AND d.archived_at IS NULL
+					AND d.kind = 'church_document' AND d.archived_at IS NULL AND d.church_archived_at IS NULL
 				LEFT JOIN document_revision r ON r.document_id = d.id AND r.tenant_id = d.tenant_id
 					AND r.version_number = ${input.revision}`,
 			);
@@ -1076,7 +1240,7 @@ export const churchWriter = {
 						FROM document d JOIN gate ON gate.ok
 						JOIN document_revision r ON r.id = ${src.revision_id}::uuid AND r.document_id = d.id AND r.tenant_id = d.tenant_id
 						WHERE d.id = ${input.documentId}::uuid AND d.tenant_id = ${scope.tenantId}::uuid
-							AND d.kind = 'church_document' AND d.archived_at IS NULL
+							AND d.kind = 'church_document' AND d.archived_at IS NULL AND d.church_archived_at IS NULL
 					),
 					ins AS (
 						INSERT INTO document (
@@ -1144,7 +1308,8 @@ export const churchWriter = {
 	 * written, so documents made from them keep what they recorded. One read finds the seat, the source revision, the
 	 * template and an earlier request on the key; one statement writes the revision, moves the row to it and writes one
 	 * audit row. A template no longer at the named version is a conflict. The same request key returns the version it
-	 * made; a race on it, or on the version number, meets a unique key and reads what the winner wrote.
+	 * made; a race on it, or on the version number, meets a unique key or writes nothing, then reads what the winner
+	 * wrote as a retry run.
 	 */
 	async updateTemplate(db: Database, authority: RequestActor, raw: unknown) {
 		return settle(async () => {
@@ -1171,7 +1336,7 @@ export const churchWriter = {
 					t.description, t.revision::text AS version, p.after_value->>'hash' AS prior_hash
 				FROM (SELECT ${gateSql(scope, true)} AS ok) g
 				LEFT JOIN document d ON g.ok AND d.id = ${input.documentId}::uuid AND d.tenant_id = ${scope.tenantId}::uuid
-					AND d.kind = 'church_document' AND d.archived_at IS NULL
+					AND d.kind = 'church_document' AND d.archived_at IS NULL AND d.church_archived_at IS NULL
 				LEFT JOIN document_revision r ON r.document_id = d.id AND r.tenant_id = d.tenant_id
 					AND r.version_number = ${input.revision}
 				LEFT JOIN document t ON g.ok AND t.id = ${input.templateId}::uuid AND t.tenant_id = ${scope.tenantId}::uuid
@@ -1211,7 +1376,7 @@ export const churchWriter = {
 						FROM document d JOIN gate ON gate.ok
 						JOIN document_revision r ON r.id = ${src.revision_id}::uuid AND r.document_id = d.id AND r.tenant_id = d.tenant_id
 						WHERE d.id = ${input.documentId}::uuid AND d.tenant_id = ${scope.tenantId}::uuid
-							AND d.kind = 'church_document' AND d.archived_at IS NULL
+							AND d.kind = 'church_document' AND d.archived_at IS NULL AND d.church_archived_at IS NULL
 					),
 					tpl AS (
 						SELECT t.id, t.tenant_id FROM document t JOIN gate ON gate.ok
@@ -1254,13 +1419,13 @@ export const churchWriter = {
 				// A race on the same request key meets the stable revision id; another update from the same version meets the
 				// unique version number. The first gets what the winner wrote, the second has no request of its own: a conflict.
 				if (postgresCode(error) !== "23505") throw error;
-				return sameUpdate(db, scope, input.requestKey, requestHash);
+				return rerun(db, (bound) => sameUpdate(bound, scope, input.requestKey, requestHash));
 			}
 			const row = found[0];
 			if (!row?.ok) deny("access_denied");
 			// Nothing written: the template or the source changed after the read. When it was this request on the same key
-			// that landed first, answer with what it made; anything else is a conflict.
-			if (!row.id) return sameUpdate(db, scope, input.requestKey, requestHash);
+			// that landed first, answer with what it made; anything else is a conflict. Both race answers run as retries.
+			if (!row.id) return rerun(db, (bound) => sameUpdate(bound, scope, input.requestKey, requestHash));
 			return (
 				templateSummary({
 					id: row.id,
@@ -1483,6 +1648,147 @@ export const churchWriter = {
 		});
 	},
 
+	/**
+	 * An Owner or Admin archives a Church Document (T-9): it leaves the library and every write, and its page, revisions
+	 * and saved exports stay readable and downloadable. Archive is not delete: `archived_at` still marks a deleted
+	 * document, and the deleted-export rule reads only that (D-935). One statement checks the seat and the expected
+	 * revision, marks it and writes one `documents.church_archived` audit row. An archived document answers archived again
+	 * and writes nothing more.
+	 */
+	async archiveChurch(db: Database, authority: RequestActor, raw: unknown) {
+		return settle(async () => {
+			const input = parse(c.archiveChurchRequest, raw);
+			const scope = adminScope(authority);
+			const found = await rowsOf<{
+				ok: boolean;
+				found: string | null;
+				already: boolean | null;
+				archived: string | null;
+			}>(
+				db,
+				sql`WITH gate AS (SELECT ${gateSql(scope, true)} AS ok),
+				existing AS (
+					SELECT d.id, d.revision, d.church_archived_at FROM document d JOIN gate ON gate.ok
+					WHERE d.id = ${input.documentId}::uuid AND d.tenant_id = ${scope.tenantId}::uuid AND d.kind = 'church_document'
+						AND d.archived_at IS NULL
+				),
+				upd AS (
+					UPDATE document SET church_archived_at = clock_timestamp(), church_archived_by = ${scope.accountId}::uuid
+					FROM existing
+					WHERE document.id = existing.id AND existing.church_archived_at IS NULL
+						AND document.church_archived_at IS NULL AND document.archived_at IS NULL
+						AND existing.revision = ${input.expectedRevision}::bigint
+					RETURNING document.id, document.revision
+				),
+				aud AS (
+					INSERT INTO audit_event (
+						tenant_id, actor_id, action, kind, subject_id, occurred_at, recorded_at, event_key, after_revision, metadata
+					)
+					SELECT ${scope.tenantId}::uuid, ${scope.accountId}::uuid, 'documents.church_archived', 'archive', upd.id,
+						clock_timestamp(), clock_timestamp(), 'church-document-archived:' || upd.id::text || ':' || ${randomUUID()}::text,
+						upd.revision, '{}'::jsonb
+					FROM upd
+					RETURNING id
+				)
+				SELECT (SELECT ok FROM gate) AS ok, (SELECT id FROM existing) AS found,
+					(SELECT church_archived_at IS NOT NULL FROM existing) AS already, (SELECT id FROM upd) AS archived,
+					(SELECT count(*) FROM aud) AS audited`,
+			);
+			const row = found[0];
+			if (!row?.ok) deny("access_denied");
+			if (!row.found) deny("unavailable");
+			if (row.already) return c.archivedChurch.parse({ documentId: row.found, archived: true });
+			if (!row.archived) deny("conflict");
+			return c.archivedChurch.parse({ documentId: row.archived, archived: true });
+		});
+	},
+
+	/**
+	 * The church plant's archived Church Documents for an Owner or Admin (T-284): the latest 200 by archive, newest first,
+	 * each with who archived it while they hold a seat here (D-105). A deleted document never lists, archived or not. A
+	 * Member is refused before any statement. One statement.
+	 */
+	async listArchivedChurch(db: Database, authority: RequestActor, raw: unknown) {
+		return settle(async () => {
+			parse(c.listArchivedChurchRequest, raw);
+			const scope = adminScope(authority);
+			const found = await rowsOf<{
+				ok: boolean;
+				documents: {
+					id: string;
+					title: string;
+					document_class: ChurchRow["document_class"];
+					archived_at: string;
+					archived_by: string | null;
+				}[];
+			}>(
+				db,
+				sql`SELECT g.ok,
+					(SELECT coalesce(json_agg(x ORDER BY x.archived_at DESC, x.id), '[]'::json) FROM (
+						SELECT d.id, d.title, d.document_class, d.church_archived_at AS archived_at,
+							${seatedName(sql`d.church_archived_by`)} AS archived_by
+						FROM document d
+						WHERE g.ok AND d.tenant_id = ${scope.tenantId}::uuid AND d.kind = 'church_document' AND d.archived_at IS NULL
+							AND d.church_archived_at IS NOT NULL AND d.current_revision_id IS NOT NULL
+						ORDER BY d.church_archived_at DESC, d.id
+						LIMIT 200
+					) x) AS documents
+				FROM (SELECT ${gateSql(scope, true)} AS ok) g`,
+			);
+			if (found[0]?.ok !== true) deny("access_denied");
+			return c.archivedChurchList.parse({
+				documents: found[0].documents.map((row) => ({
+					id: row.id,
+					title: row.title,
+					documentClass: row.document_class,
+					archivedAt: iso(row.archived_at),
+					archivedBy: row.archived_by || null,
+				})),
+			});
+		});
+	},
+
+	/**
+	 * An Owner or Admin restores an archived Church Document (T-284), the reverse of archive only: it returns to the library
+	 * and to every read and write archive hid it from, with its revision, revisions and saved exports as they were. One
+	 * statement checks the seat, clears both archive columns and writes one `documents.church_restored` audit row. A
+	 * document that is not archived, or is deleted, is refused as unavailable and writes nothing, so a second restore of
+	 * the same document writes nothing more.
+	 */
+	async restoreChurch(db: Database, authority: RequestActor, raw: unknown) {
+		return settle(async () => {
+			const input = parse(c.restoreChurchRequest, raw);
+			const scope = adminScope(authority);
+			const found = await rowsOf<{ ok: boolean; restored: string | null }>(
+				db,
+				sql`WITH gate AS (SELECT ${gateSql(scope, true)} AS ok),
+				upd AS (
+					UPDATE document SET church_archived_at = NULL, church_archived_by = NULL
+					FROM gate
+					WHERE gate.ok AND document.id = ${input.documentId}::uuid AND document.tenant_id = ${scope.tenantId}::uuid
+						AND document.kind = 'church_document' AND document.archived_at IS NULL
+						AND document.church_archived_at IS NOT NULL
+					RETURNING document.id, document.revision
+				),
+				aud AS (
+					INSERT INTO audit_event (
+						tenant_id, actor_id, action, kind, subject_id, occurred_at, recorded_at, event_key, after_revision, metadata
+					)
+					SELECT ${scope.tenantId}::uuid, ${scope.accountId}::uuid, 'documents.church_restored', 'restore', upd.id,
+						clock_timestamp(), clock_timestamp(), 'church-document-restored:' || upd.id::text || ':' || ${randomUUID()}::text,
+						upd.revision, '{}'::jsonb
+					FROM upd
+					RETURNING id
+				)
+				SELECT (SELECT ok FROM gate) AS ok, (SELECT id FROM upd) AS restored`,
+			);
+			const row = found[0];
+			if (!row?.ok) deny("access_denied");
+			if (!row.restored) deny("unavailable");
+			return c.restoredChurch.parse({ documentId: row.restored, restored: true });
+		});
+	},
+
 	async "history.list.church"(db: Database, authority: RequestActor, raw: unknown) {
 		return settle(async () => {
 			const input = parse(c.churchHistoryRequest, raw);
@@ -1496,22 +1802,37 @@ export const churchWriter = {
 				author_name: string | null;
 				recorded_at: Date | string | null;
 				content_hash: string | null;
+				exports: unknown;
+				ledger: boolean | null;
 			}>(
 				db,
+				// Each revision's formats come from its own body: its export list and whether it holds a ledger table (a
+				// conditional block holds none, so a table under the body, a column or a box is every place one can be).
+				// Only those two facts leave the database, not the bodies.
 				sql`SELECT g.ok, d.id AS document_id, r.id, r.version_number, r.author_account_id,
-					${seatedName(sql`r.author_account_id`)} AS author_name, r.recorded_at, r.content_hash
+					${seatedName(sql`r.author_account_id`)} AS author_name, r.recorded_at, r.content_hash,
+					b.doc -> 'exports' AS exports,
+					jsonb_path_exists(b.doc, 'strict $.body.** ? (@.type == "table" && @.attrs.style == "ledger")') AS ledger
 				FROM (SELECT ${gateSql(scope, false)} AS ok) g
 				LEFT JOIN document d ON g.ok AND d.id = ${input.documentId}::uuid AND d.tenant_id = ${scope.tenantId}::uuid
-					AND d.kind = 'church_document'
+					AND d.kind = 'church_document' AND d.archived_at IS NULL
 				LEFT JOIN document_revision r ON r.document_id = d.id AND r.tenant_id = d.tenant_id
-				ORDER BY r.version_number`,
+				LEFT JOIN LATERAL (
+					SELECT CASE WHEN pg_input_is_valid(r.body, 'jsonb') THEN r.body::jsonb END AS doc
+				) b ON true
+				ORDER BY r.version_number DESC
+				LIMIT ${c.CHURCH_REVISION_LIST_MAX + 1}`,
 			);
 			if (found[0]?.ok !== true) deny("access_denied");
 			if (!found[0].document_id) deny("unavailable");
+			// One row past the bound says there are older revisions than the list holds.
+			const saved = found.filter((row) => row.id);
 			return c.churchRevisionList.parse({
 				documentId: input.documentId,
-				revisions: found
-					.filter((row) => row.id)
+				truncated: saved.length > c.CHURCH_REVISION_LIST_MAX,
+				revisions: saved
+					.slice(0, c.CHURCH_REVISION_LIST_MAX)
+					.reverse()
 					.map((row) => ({
 						id: row.id,
 						number: row.version_number,
@@ -1519,6 +1840,7 @@ export const churchWriter = {
 						authorName: row.author_name || null,
 						recordedAt: iso(row.recorded_at),
 						contentHash: row.content_hash,
+						formats: revisionFormats(row.exports, row.ledger),
 					})),
 			});
 		});
@@ -1543,13 +1865,14 @@ export const churchWriter = {
 					${seatedName(sql`r.author_account_id`)} AS author_name, r.recorded_at, r.content_hash, r.body
 				FROM (SELECT ${gateSql(scope, false)} AS ok) g
 				LEFT JOIN document d ON g.ok AND d.id = ${input.documentId}::uuid AND d.tenant_id = ${scope.tenantId}::uuid
-					AND d.kind = 'church_document'
+					AND d.kind = 'church_document' AND d.archived_at IS NULL
 				LEFT JOIN document_revision r ON r.document_id = d.id AND r.tenant_id = d.tenant_id
 					AND r.version_number = ${input.revision}`,
 			);
 			if (found[0]?.ok !== true) deny("access_denied");
 			const row = found[0];
 			if (!row.id || row.body === null) deny("unavailable");
+			const body = storedDoc(row.body) ?? deny("render_failed");
 			return c.churchRevision.parse({
 				id: row.id,
 				number: row.version_number,
@@ -1558,11 +1881,20 @@ export const churchWriter = {
 				recordedAt: iso(row.recorded_at),
 				contentHash: row.content_hash,
 				documentId: input.documentId,
-				body: storedDoc(row.body) ?? deny("render_failed"),
+				body,
+				formats: docFormats(body),
 			});
 		});
 	},
 };
+
+const exportList = c.documentFormat.array().min(1).max(3);
+
+/** A listed revision's formats from the two facts its row read; a body that is not a document offers none. */
+function revisionFormats(exports: unknown, ledger: boolean | null) {
+	const list = exportList.safeParse(exports);
+	return list.success ? offeredFormats(list.data, ledger === true) : [];
+}
 
 /** The image sources a body uses, so the render reads only those brand assets. */
 function imageSources(node: unknown, found = new Set<ImageSource>()) {
@@ -1587,6 +1919,8 @@ async function renderRevision(
 	row: { kit: Record<string, unknown> | null; use_church_branding: boolean | null; recorded_at: Date | string | null },
 	format: DocFormat,
 ) {
+	// A format this revision does not offer is refused before the theme reads any brand asset.
+	if (!docFormats(body).includes(format)) rejectInput("format", "This revision does not offer that format.");
 	const church = fieldValues(body).church_name ?? body.title;
 	const theme = await exportTheme(
 		db,
@@ -1595,13 +1929,14 @@ async function renderRevision(
 		{ name: church, kit: row.kit ? dataFromRow(row.kit) : null },
 		body.class,
 		row.use_church_branding === true,
-		imageSources(body.body),
+		// The page header and footer are regions of the page setup, outside the body, and may hold an image too.
+		imageSources(body.page.footer, imageSources(body.page.header, imageSources(body.body))),
 	);
 	try {
 		const bytes = await renderDocFile(body, format, theme, new Date(row.recorded_at ?? 0));
 		return { bytes, theme };
 	} catch (error) {
-		if (error instanceof RenderFailed) deny(docFormats(body).includes(format) ? "render_failed" : "unavailable");
+		if (error instanceof RenderFailed) deny("render_failed");
 		throw error;
 	}
 }

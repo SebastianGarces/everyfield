@@ -6,8 +6,9 @@ import { DESCRIPTION_EXCERPT, MAX_DESCRIPTION, normalizeDescription } from "@eve
 import { useEffect, useRef, useState } from "react";
 import { RecordDialog } from "../../components/save/parts.tsx";
 import type { Wait } from "../../components/save/model.ts";
+import { offsetText } from "../shared/dates.ts";
 import { createTask, editTask } from "./actions.ts";
-import { AssigneePicker } from "./AssigneePicker.tsx";
+import { AssigneePicker, forgetAssignees } from "./AssigneePicker.tsx";
 import { relationOptions } from "./fetch.ts";
 import {
 	CATEGORIES,
@@ -15,10 +16,11 @@ import {
 	DUE_KIND_LABEL,
 	dueDraftOf,
 	dueInputOf,
-	offsetText,
-	ownerWarning,
+	heldAssignees,
+	noticingIneligible,
 	PRIORITIES,
 	PRIORITY_LABEL,
+	problemText,
 	previewOverdue,
 	rebase,
 	sameDue,
@@ -33,12 +35,12 @@ import {
 	type TaskDetail,
 	type TaskError,
 	type TaskItem,
+	type Viewer,
 } from "./model.ts";
-import type { Viewer } from "./TasksScreen.tsx";
 
 type RelationKind = "person" | "meeting" | "team";
 type Relation = { kind: RelationKind; id: string; label: string } | null;
-export type Draft = {
+type Draft = {
 	title: string;
 	description: string;
 	priority: Priority;
@@ -48,6 +50,8 @@ export type Draft = {
 	/** Each chosen assignee's name as the form shows it, for the row before the server answers. */
 	assigneeNames: Record<string, string>;
 	relation: Relation;
+	/** The assignee the last refused save named as unable to own follow-ups (`owner_ineligible`). */
+	ineligible?: string;
 };
 /**
  * A save the screen shows before the answer: the row as it will be, the request and the person's text (the form opens
@@ -59,15 +63,8 @@ export type Commit = {
 	send: (key: string) => Promise<Outcome<Saved>>;
 	draft: Draft;
 };
-export type Choices = Extract<TaskError, { code: "ambiguous_local_time" }>["details"]["choices"];
-const RELATION_NAME = { person: "person", meeting: "meeting", team: "team" } as const;
+type Choices = Extract<TaskError, { code: "ambiguous_local_time" }>["details"]["choices"];
 const RELATION_PLURAL = { person: "people", meeting: "meetings", team: "teams" } as const;
-
-/** The warning a person already on the task earns beside their name, or null when they may still hold it. */
-function heldWarning(accountId: string, owners: TaskItem["followUpOwners"]) {
-	const view = owners.find((o) => o.accountId === accountId);
-	return view ? ownerWarning(view) : null;
-}
 
 function draftOf(task: TaskDetail | null, viewer: Viewer): Draft {
 	if (!task)
@@ -166,7 +163,12 @@ function Form({
 		form.draft ? rebase(form.draft, draftOf(form.task, viewer), initial) : initial,
 	);
 	const [touched, setTouched] = useState(false);
-	const [problem, setProblem] = useState(refusal ?? null);
+	// A follow-up owner refusal names the assignee it is about, not the viewer's seat.
+	const [problem, setProblem] = useState(() =>
+		form.problem === "owner_ineligible" && form.draft
+			? problemText("owner_ineligible", form.draft.assigneeNames[form.draft.ineligible ?? ""])
+			: (refusal ?? null),
+	);
 	const [gap, setGap] = useState(form.problem === "nonexistent_local_time");
 	const [fold, setFold] = useState<Choices | null>(() =>
 		form.choices ? [...form.choices].sort((a, b) => a.instant.localeCompare(b.instant)) : null,
@@ -238,6 +240,10 @@ function Form({
 			const revision = task.revision;
 			send = (key) => editTask(key, revision, task.id, patch);
 		}
+		// A refusal that names an assignee who cannot own follow-ups: the reopened form keeps who it was, and the next
+		// picker open reads the eligible list again.
+		const committed: Draft = { ...draft, ineligible: undefined };
+		send = noticingIneligible(send, forgetAssignees, (accountId) => (committed.ineligible = accountId));
 		// A new time of day shows its day until the server resolves the instant in the church's time zone.
 		const shownDue: Due =
 			due.due.kind === "undated"
@@ -284,7 +290,7 @@ function Form({
 			followUpOwners: task ? task.followUpOwners.filter((o) => draft.assigneeIds.includes(o.accountId)) : [],
 			relation: draft.relation as TaskItem["relation"],
 		};
-		onCommit({ before: task, preview, send, draft });
+		onCommit({ before: task, preview, send, draft: committed });
 		return true;
 	}
 
@@ -369,8 +375,10 @@ function Form({
 				<AssigneeField
 					value={draft.assigneeIds}
 					followUp={draft.category === "follow_up" && draft.relation?.kind === "person"}
+					names={draft.assigneeNames}
 					current={task?.assignees ?? []}
 					owners={task?.followUpOwners ?? []}
+					refused={draft.ineligible}
 					viewer={viewer}
 					onChange={(assigneeIds, assigneeNames) => set({ assigneeIds, assigneeNames })}
 				/>
@@ -398,15 +406,20 @@ function Form({
 function AssigneeField({
 	value,
 	followUp,
+	names,
 	current,
 	owners,
+	refused,
 	viewer,
 	onChange,
 }: {
 	value: string[];
 	/** A follow-up with a person offers only seats that may own one (REQ-TSK-012). */
 	followUp: boolean;
+	names: Record<string, string>;
 	current: TaskItem["assignees"];
+	/** The assignee a refusal named as unable to own follow-ups. */
+	refused?: string;
 	/** The follow-up owner views of the people already on the task, for their warnings. */
 	owners: TaskItem["followUpOwners"];
 	viewer: Viewer;
@@ -421,11 +434,7 @@ function AssigneeField({
 				value={value}
 				onChange={onChange}
 				purpose={followUp ? "committed_follow_up" : "any"}
-				held={current.map((a) => ({
-					accountId: a.accountId,
-					displayName: a.displayName,
-					warning: heldWarning(a.accountId, owners),
-				}))}
+				held={heldAssignees(value, names, current, owners, refused)}
 				viewerId={viewer.accountId}
 			/>
 		</Field>
@@ -508,7 +517,7 @@ function RelationField({
 						<p className="px-1 py-2 text-sm text-text-3">No {RELATION_PLURAL[kind]} match.</p>
 					) : (
 						<RadioGroup
-							aria-label={`Choose a ${RELATION_NAME[kind]}`}
+							aria-label={`Choose a ${kind}`}
 							value={value?.kind === kind ? value.id : ""}
 							onValueChange={(id) => {
 								const hit = listed.find((c) => c.id === id);

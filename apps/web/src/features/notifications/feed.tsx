@@ -19,6 +19,13 @@ import {
 
 // The feed's client state, shared by the page and the bell: the account's unread count and mark revision, the browser
 // clock, and one hook that loads a filtered feed and marks entries read optimistically, rolling back with a message.
+// The bell and the page share one read state: a mark in one shows in the other at once, and so does its rollback.
+
+/**
+ * One mark as the other feeds see it: the entries it marks, or for mark-all every entry at or before `cutoff`.
+ * `read: false` is its rollback, which puts back what that mark changed.
+ */
+type MarkEvent = { from: object; token: object; ids: ReadonlySet<string>; cutoff: string | null; read: boolean };
 
 type Account = {
 	/** The account's whole unread count, the bell's number; null until the first read answers. */
@@ -28,6 +35,15 @@ type Account = {
 	/** The account revision each mark's envelope carries, from the latest feed read. */
 	revision: () => string | null;
 	setRevision: (revision: string) => void;
+	/**
+	 * The entries marked read in this frame, kept while their marks stand. A page that Back restores from the router
+	 * cache was read before them, so it shows them read and reads its first page again.
+	 */
+	marked: ReadonlySet<string>;
+	remember: (ids: ReadonlySet<string>, read: boolean) => void;
+	/** Tells every other feed in the frame about a mark or its rollback. */
+	publish: (event: MarkEvent) => void;
+	subscribe: (listener: (event: MarkEvent) => void) => () => void;
 };
 const AccountContext = createContext<Account | null>(null);
 
@@ -37,10 +53,26 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
 	// Stable for the frame's life, so effects that depend on them run once.
 	const [stable] = useState(() => {
 		let revision: string | null = null;
+		const marked = new Set<string>();
+		const listeners = new Set<(event: MarkEvent) => void>();
 		return {
+			publish: (event: MarkEvent) => {
+				for (const listener of listeners) listener(event);
+			},
+			subscribe: (listener: (event: MarkEvent) => void) => {
+				listeners.add(listener);
+				return () => void listeners.delete(listener);
+			},
 			revision: () => revision,
 			setRevision: (r: string) => {
 				revision = r;
+			},
+			marked,
+			remember: (ids: ReadonlySet<string>, read: boolean) => {
+				for (const id of ids) {
+					if (read) marked.add(id);
+					else marked.delete(id);
+				}
 			},
 			adjust: (delta: number) => setCount((n) => (n === null ? n : Math.max(0, n + delta))),
 		};
@@ -82,19 +114,62 @@ const lost = () => ({ status: "lost" }) as const;
 export function useFeed(query: FeedQuery, initial: FeedPage | null) {
 	const toast = useToast();
 	const account = useAccount();
+	// Entries this frame marked that the server's page still shows unread: Back restored a page read before the mark.
+	const [stale] = useState(() => initial?.feed.items.filter((i) => !i.read && account.marked.has(i.id)).length ?? 0);
 	const [state, setState] = useState<{ status: "loading" } | { status: "failed" } | ({ status: "ready" } & Ready)>(
-		initial ? { status: "ready", ...fromPage(initial) } : { status: "loading" },
+		initial
+			? {
+					status: "ready",
+					...fromPage(initial),
+					items: markedRead(initial.feed.items, account.marked),
+					unread: Math.max(0, initial.unread - stale),
+				}
+			: { status: "loading" },
 	);
 	const [refreshing, setRefreshing] = useState(false);
 	const latest = useRef(0);
-	const { setRevision, setCount } = account;
-	// The server's first page brings the revision marks carry and, unfiltered by category, the bell's fresh count.
-	const first = useRef({ page: initial, category: query.category });
+	const { setRevision, setCount, subscribe } = account;
+	// This feed's identity, and the entries each other feed's mark changed here, so its rollback restores just those.
+	const [self] = useState(() => ({}));
+	const applied = useRef(new Map<object, ReadonlySet<string>>());
+	useEffect(
+		() =>
+			subscribe((e) => {
+				if (e.from === self) return;
+				setState((s) => {
+					if (s.status !== "ready") return s;
+					if (e.read) {
+						const at = e.cutoff ? Date.parse(e.cutoff) : null;
+						const hit = new Set(
+							s.items
+								.filter((i) => !i.read && (e.ids.has(i.id) || (at !== null && Date.parse(i.eligibleAt) <= at)))
+								.map((i) => i.id),
+						);
+						applied.current.set(e.token, hit);
+						return { ...s, items: markedRead(s.items, hit), unread: Math.max(0, s.unread - hit.size) };
+					}
+					const hit = applied.current.get(e.token) ?? new Set<string>();
+					applied.current.delete(e.token);
+					return {
+						...s,
+						items: s.items.map((i) => (hit.has(i.id) ? { ...i, read: false } : i)),
+						unread: s.unread + hit.size,
+					};
+				});
+			}),
+		[subscribe, self],
+	);
+	// The server's first page brings the revision marks carry and, unfiltered by category, the bell's fresh count. A
+	// restored page that predates a mark is read again instead, so its count is the server's current one.
+	const first = useRef({ page: initial, query, stale });
 	useEffect(() => {
-		const { page, category } = first.current;
+		const { page, query: q, stale: behind } = first.current;
 		if (!page) return;
 		setRevision(page.revision);
-		if (!category) setCount(page.unread);
+		if (behind) void load(q);
+		else if (!q.category) setCount(page.unread);
+		// `load` is this render's; the effect runs once for the server's page.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [setRevision, setCount]);
 
 	const load = async (q: FeedQuery) => {
@@ -149,15 +224,21 @@ export function useFeed(query: FeedQuery, initial: FeedPage | null) {
 		drop: number,
 		run: (e: Envelope) => Promise<Marked>,
 		settle?: (n: number) => void,
+		cutoff: string | null = null,
 	) => {
 		const envelope = { requestKey: newRequestKey(), expectedRevision: account.revision() ?? "0" };
 		const go = async () => {
+			const token = {};
 			setState((s) =>
 				s.status === "ready" ? { ...s, items: markedRead(s.items, ids), unread: Math.max(0, s.unread - drop) } : s,
 			);
 			account.adjust(-drop);
+			account.remember(ids, true);
+			account.publish({ from: self, token, ids, cutoff, read: true });
 			const r = await deliver(envelope, run);
 			if (r.status === "ok") return settle?.(r.value.markedIds.length);
+			account.remember(ids, false);
+			account.publish({ from: self, token, ids, cutoff, read: false });
 			setState((s) =>
 				s.status === "ready"
 					? { ...s, items: s.items.map((i) => (ids.has(i.id) ? { ...i, read: false } : i)), unread: s.unread + drop }
@@ -189,7 +270,7 @@ export function useFeed(query: FeedQuery, initial: FeedPage | null) {
 		const open = state.items.filter((i) => !i.read);
 		const cutoff = cutoffOf(state.items);
 		if (!query.category && cutoff) {
-			const before = state.unread;
+			const before = account.count ?? state.unread;
 			if (before === 0 && !open.length) return;
 			mark(
 				new Set(open.map((i) => i.id)),
@@ -200,6 +281,7 @@ export function useFeed(query: FeedQuery, initial: FeedPage | null) {
 					setState((s) => (s.status === "ready" ? { ...s, unread: before - marked } : s));
 					account.adjust(before - marked);
 				},
+				cutoff,
 			);
 			return;
 		}
@@ -209,9 +291,13 @@ export function useFeed(query: FeedQuery, initial: FeedPage | null) {
 		}
 	};
 
+	// Without a category the unread count is the account's, the bell's number, so the bell and the page agree.
 	const loadable: Loadable<Ready> =
 		state.status === "ready"
-			? { status: "ready", data: state }
+			? {
+					status: "ready",
+					data: query.category || account.count === null ? state : { ...state, unread: account.count },
+				}
 			: state.status === "loading"
 				? { status: "loading" }
 				: { status: "error", title: "Notifications did not load", onRetry: () => void load(query) };
