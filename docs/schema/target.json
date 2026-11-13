@@ -20931,6 +20931,7 @@
           "nullable": true
         },
         {
+          "note": "Seed identity: the fixed Playbook milestone key (launch.md), unique per plant, so repair never creates a milestone twice.",
           "name": "template_key",
           "type": "text",
           "nullable": false
@@ -20966,11 +20967,13 @@
           "nullable": true
         },
         {
+          "note": "The account that completed the milestone; set null if the account is deleted, keeping the completion time.",
           "name": "completed_by",
           "type": "uuid",
           "nullable": true
         },
         {
+          "note": "Linked tasks complete at completion; reopening one shows the milestone as Needs review (LCH-004).",
           "name": "completed_task_ids",
           "type": "uuid[]",
           "nullable": false,
@@ -21059,6 +21062,10 @@
           "on_delete": "restrict"
         },
         {
+          "deletion": {
+            "action": "set_null",
+            "policy": "Deleting the account clears who completed the milestone; the completion time and its audit history stay."
+          },
           "columns": [
             "completed_by"
           ],
@@ -38075,6 +38082,7 @@
           "nullable": true
         },
         {
+          "note": "Launch readiness seed identity <milestone key>/<n>, unique per plant; a deleted task keeps it as the tombstone repair respects (LCH-009).",
           "name": "launch_task_key",
           "type": "text",
           "nullable": true

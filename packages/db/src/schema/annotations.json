@@ -7001,6 +7001,9 @@
 				"launch_id": {
 					"note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
 				},
+				"launch_task_key": {
+					"note": "Launch readiness seed identity <milestone key>/<n>, unique per plant; a deleted task keeps it as the tombstone repair respects (LCH-009)."
+				},
 				"parent_id": {
 					"note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
 				},
@@ -8075,6 +8078,15 @@
 				"removed_at": {
 					"note": ""
 				},
+				"template_key": {
+					"note": "Seed identity: the fixed Playbook milestone key (launch.md), unique per plant, so repair never creates a milestone twice."
+				},
+				"completed_by": {
+					"note": "The account that completed the milestone; set null if the account is deleted, keeping the completion time."
+				},
+				"completed_task_ids": {
+					"note": "Linked tasks complete at completion; reopening one shows the milestone as Needs review (LCH-004)."
+				},
 				"revision": {
 					"note": ""
 				}
@@ -8096,6 +8108,12 @@
 					"deletion": {
 						"action": "restrict",
 						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
+					}
+				},
+				"completed_by->account(id)": {
+					"deletion": {
+						"action": "set_null",
+						"policy": "Deleting the account clears who completed the milestone; the completion time and its audit history stay."
 					}
 				}
 			}

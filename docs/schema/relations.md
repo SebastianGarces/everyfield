@@ -139,6 +139,7 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `launch_milestone(source_version_id)` | `reference_version(id)` | restrict |  |
 | `launch_milestone(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
 | `launch_milestone(plant_id)` | `launch(plant_id)` | restrict |  |
+| `launch_milestone(completed_by)` | `account(id)` | set_null |  |
 | `lifecycle_witness(account_id)` | `account(id)` | restrict |  |
 | `lifecycle_witness(plant_id)` | `plant(id)` | restrict |  |
 | `lifecycle_witness(requester_id)` | `account(id)` | restrict |  |
