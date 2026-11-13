@@ -19,9 +19,9 @@ const POLICY = "conflict-of-interest-policy";
 test("INV-template-changes: the store holds the current version of every built-in template, with its hash", async () => {
 	assert.deepEqual(await publishedProblems(DOC_TEMPLATES, PUBLISHED, SUPERSEDED), []);
 	assert.deepEqual(Object.keys(PUBLISHED).sort(), DOC_TEMPLATES.map((t) => t.id).sort());
-	// Today: version 1 of eight, and version 2 of commitment-card (T-205: the card's return line), whose version 1
+	// Today: version 1 of ten, and version 2 of commitment-card (T-205: the card's return line), whose version 1
 	// body is kept.
-	assert.equal(DOC_TEMPLATES.length, 9);
+	assert.equal(DOC_TEMPLATES.length, 11);
 	for (const template of DOC_TEMPLATES) {
 		const current = { version: template.version, hash: await templateHash(template) };
 		if (template.id !== "commitment-card") assert.deepEqual(PUBLISHED[template.id], [current], template.id);
