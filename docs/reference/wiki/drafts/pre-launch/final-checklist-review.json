@@ -16,10 +16,10 @@
 	],
 	"section_id": "ad384ca4-56a8-46ba-a4ae-df5f6bb20842",
 	"slug": "pre-launch/final-checklist-review",
-	"sort_order": 8,
+	"sort_order": 9,
 	"status": "draft",
 	"title": "Final Checklist Review",
-	"updated_at": "2026-11-09T13:00:00Z",
+	"updated_at": "2026-11-13T13:00:00Z",
 	"draft": {
 		"backlog_id": "OPS-94",
 		"tier": "F",
@@ -34,7 +34,8 @@
 		},
 		"rulings": [
 			"F51: 'Guest follow-up set up in Everyfield; choose a ChMS for check-in and giving if needed.' replaces the assimilation software or database line. Everyfield covers guests, response cards and follow-up tasks (docs/product/meetings-follow-up.md); it does not do check-in or giving. 'Database tested and ready' becomes 'Guest entry in Everyfield tested'.",
-			"Read time recomputed from lint's word count (rounded words / 200), per the audit's read-time row (F58)."
+			"Read time recomputed from lint's word count (rounded words / 200), per the audit's read-time row (F58).",
+			"Maya (Head of Growth) Nov 13 2026 copy audit: sort_order 8 → 9, the next unused order in its section, so it does not collide with a leftover seed row after promotion."
 		]
 	}
 }
