@@ -46,6 +46,9 @@ const PROBES: Record<string, Record<string, unknown> | (() => Promise<SourceResu
 	"people.listTags": {},
 	"people.previewImport": { file: FILE },
 	"communication.list": {},
+	"notifications.feed": { unread: true },
+	"notifications.preferences.get": {},
+	"notifications.previewPlanterDigest": {},
 	[catalog.SELECT_RETURNED_ROWS]: async () => {
 		const list = await read("people.listPeople", {});
 		return { ...list, operation: catalog.SELECT_RETURNED_ROWS, rows: list.rows.slice(0, 2), total: 2 };

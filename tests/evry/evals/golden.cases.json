@@ -79,17 +79,23 @@
 		"area": "Dashboard / tasks",
 		"case_id": "MON-04",
 		"question": "anything I missed over the weekend?",
-		"status": "Not yet",
+		"status": "Supported",
 		"expected_operation": "not yet: needs `notifications.feed`, `notifications.unreadCount`",
 		"expected_answer": "Later: unread items grouped by type",
 		"must_not": "Mark anything read without a review",
 		"eval": {
-			"cantYet": true,
-			"forbid": ["/marked (them |it |everything )?(as )?read/i"],
-			"finding": {
-				"checks": ["calls only no tool"],
-				"note": "Answers from the pipeline board's inactivity flags instead of saying notifications aren't readable yet."
-			}
+			"calls": [
+				{
+					"operation": "notifications.feed"
+				}
+			],
+			"require": ["/\\b(4|four)\\b/i", "/task/i", "/meeting/i"],
+			"forbid": [
+				"/\\b(I['’]?ve|I have|have been|has been|are now|is now|were|was|I)( now| just| already)? marked\\b/i",
+				"/kids check-in/i",
+				"/pipeline|inactiv/i"
+			],
+			"derivation": "Four unread notices from the weekend: three task reminders (the launch budget due and overdue, the school gym due) and one meeting announcement. The Admin's own notice is not the Owner's. Reading marks nothing read."
 		}
 	},
 	{

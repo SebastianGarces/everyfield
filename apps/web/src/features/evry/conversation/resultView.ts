@@ -127,14 +127,6 @@ const VIEWS: Record<string, OpView> = {
 		counts: "notice",
 		empty: "You have no notifications that match.",
 	},
-	"notifications.unreadCount": {
-		title: "Unread notifications",
-		noun: ["unread notification", "unread notifications"],
-		icon: "notice",
-		counts: "notice",
-		empty: "You have no unread notifications.",
-		countAnswer: "Open the bell to see them.",
-	},
 	"notifications.preferences.get": {
 		title: "Notification settings",
 		noun: ["category", "categories"],

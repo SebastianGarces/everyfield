@@ -139,8 +139,8 @@ test("AC:GAP-EVR-421 AC:NOTIFY47-010 the feed and count show only the account's 
 	const all = await readAs(owner, "notifications.feed");
 	assert.ok(all.rows.some((r) => r.id === read && r.fields.read === true));
 	assert.ok(!all.rows.some((r) => others.includes(r.id)));
-	assert.equal((await readAs(owner, "notifications.unreadCount")).total, 4);
-	assert.equal((await readAs(owner, "notifications.unreadCount", { category: "meeting_reminder" })).total, 2);
+	const meetings = await readAs(owner, "notifications.feed", { unread: true, category: "meeting_reminder" });
+	assert.deepEqual([meetings.total, meetings.rows.length], [2, 2]);
 	assert.deepEqual(await unreadIds(accounts.owner.id), before);
 	// The member reads only their own two.
 	assert.deepEqual(
@@ -331,7 +331,6 @@ test("INV-digest-preview the next church digest preview has its send time, date 
 	const answers = [
 		preview,
 		await readAs(owner, "notifications.feed"),
-		await readAs(owner, "notifications.unreadCount"),
 		await readAs(owner, "notifications.preferences.get"),
 	];
 	for (const answer of answers) assert.doesNotMatch(JSON.stringify(answer), /Robin|diagnosis|pray/);

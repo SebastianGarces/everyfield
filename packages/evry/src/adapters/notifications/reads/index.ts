@@ -1,14 +1,14 @@
 import type { Transaction } from "@everyfield/db/client";
 import { sql } from "@everyfield/db/query";
 import { notificationCategory } from "@everyfield/contracts/notifications";
-import { getPreferences, previewPlanterDigest, readFeedPage, readUnreadCount } from "@everyfield/domain/notifications";
+import { getPreferences, previewPlanterDigest, readFeedPage } from "@everyfield/domain/notifications";
 import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
 import type { ReadAdapter, SourceResult, SourceRow } from "../../../catalog/types.ts";
 import { ownerOrAdmin } from "../../people/commands/index.ts";
 
-// The Notifications reads (WP-081): the signed-in account's own bell, its unread count, its own notification choices
+// The Notifications reads (WP-081): the signed-in account's own bell with its exact unread count, its own notification choices
 // and a preview of its next church digest. Each one calls the native read the bell and Settings use, under the
 // actor's live session, and never takes an account id: another person's notices or settings cannot be asked for.
 // Reading never marks anything read (GAP-EVR-421). Notices are offered in a plant context only.
@@ -77,20 +77,6 @@ export const feed: ReadAdapter<z.infer<typeof feedInput>> = {
 	},
 };
 
-const countInput = z.strictObject({ category: notificationCategory.optional() });
-export const unreadCount: ReadAdapter<z.infer<typeof countInput>> = {
-	operation: "notifications.unreadCount",
-	description:
-		"How many of the user's own notifications are unread, as the bell counts them, optionally in one category.",
-	input: countInput,
-	allowed: inPlant,
-	async invoke(tx, actor, input) {
-		const reply = await readUnreadCount(tx, actor.authority, input);
-		if (reply.status !== "ok") return refused(reply.error.code);
-		return { ...result("notifications.unreadCount", [], reply.value.count), status: "available" };
-	},
-};
-
 const onOff = (enabled: boolean | undefined) => (enabled === undefined ? null : enabled ? "on" : "off");
 export const preferences: ReadAdapter<Record<string, never>> = {
 	operation: "notifications.preferences.get",
@@ -146,4 +132,4 @@ export const planterDigest: ReadAdapter<Record<string, never>> = {
 };
 
 /** The installed Notifications read tools, in catalog order. */
-export const NOTIFICATION_READS = [feed, unreadCount, preferences, planterDigest] as const;
+export const NOTIFICATION_READS = [feed, preferences, planterDigest] as const;

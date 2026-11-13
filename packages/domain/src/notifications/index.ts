@@ -93,7 +93,7 @@ export const lockedNotificationWrites = {
 	setPreferences: (tx: Transaction, raw: unknown) => runLockedWrite(tx, raw, setPreferencesCommand),
 	setDigestCadence: (tx: Transaction, raw: unknown) => runLockedWrite(tx, raw, setDigestCadenceCommand),
 };
-export { readFeedPage, readUnreadCount } from "./feed.ts";
+export { readFeedPage } from "./feed.ts";
 export { getPreferences } from "./preferences.ts";
 /** The signed-in account (`me`) and the notices it may see and mark: the bell's own rule, for an Evry review. */
 export { noticeVisible, selfSql } from "./core.ts";

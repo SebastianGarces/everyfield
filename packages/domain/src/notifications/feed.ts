@@ -184,7 +184,7 @@ export async function readFeedPage(
 	});
 }
 
-export async function readUnreadCount(db: Pick<Database, "execute">, authority: RequestActor, raw: unknown) {
+export async function readUnreadCount(db: Database, authority: RequestActor, raw: unknown) {
 	return readReply(async () => {
 		const input = parse(readUnreadCountRequest, raw);
 		const result = await db.execute(sql`WITH ${selfSql(authority.session, authority.actor.accountId)}
