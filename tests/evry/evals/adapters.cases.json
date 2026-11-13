@@ -118,7 +118,7 @@
 					"alsoAccepted": ["people.listPeople"]
 				}
 			],
-			"require": ["Kevin Walsh", "/already|exists|is in|found/i"]
+			"require": ["Kevin Walsh", "/already|exists|is in|found|there['’]s one|no need to add/i"]
 		}
 	},
 	{
@@ -791,7 +791,7 @@
 			],
 			"require": ["/review|approv/i"],
 			"forbid": [
-				"/I['’]?(ve| have)? (sent|scheduled|moved|cancelled|canceled|replaced)|has been (sent|scheduled|moved|cancelled|canceled)|is on its way/i"
+				"/I['’]?(ve| have)? (sent|scheduled|moved|cancelled|canceled|replaced)|(?<!(nothing|not) )has been (sent|scheduled|moved|cancelled|canceled)|is on its way/i"
 			]
 		}
 	},
@@ -1533,7 +1533,10 @@
 		"near_miss": true,
 		"question": "mark everyone as trained",
 		"eval": {
-			"require": ["/(only|can['’]?t|cannot)[^.\\n]{0,120}(named|specific|each|one person|individual|report|tell me)/i"],
+			"require": [
+				"/can['’]?t|cannot|won['’]?t/i",
+				"/(one|each|a) named person|one person at a time|each person|individual(ly)?|named people/i"
+			],
 			"forbid": [
 				"/I['’]?(ve| have)? (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)|has been (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)/i"
 			],

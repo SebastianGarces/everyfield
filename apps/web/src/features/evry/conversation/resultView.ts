@@ -530,14 +530,16 @@ function rowView(operation: string, row: SourceRow): RowView {
 				line:
 					typeof fields.of === "number"
 						? `${fields.complete} of ${fields.of} finished`
-						: typeof fields.requiredPeople === "number"
-							? joined(
-									`${fields.finished} of ${count(fields.requiredPeople, "required person", "required people")} finished`,
-									fields.churchWide === true ? "Church-wide" : null,
-								)
-							: typeof fields.people === "number"
-								? count(fields.people, "person", "people")
-								: null,
+						: fields.required === false && fields.requiredPeople === 0
+							? null
+							: typeof fields.requiredPeople === "number"
+								? joined(
+										`${fields.finished} of ${count(fields.requiredPeople, "required person", "required people")} finished`,
+										fields.churchWide === true ? "Church-wide" : null,
+									)
+								: typeof fields.people === "number"
+									? count(fields.people, "person", "people")
+									: null,
 				mark: fields.required === false ? { kind: "status", text: "Optional", warn: false } : null,
 				avatar: "training",
 			};
@@ -673,6 +675,9 @@ function rowView(operation: string, row: SourceRow): RowView {
 function shownRows(operation: string, view: OpView, result: SourceResult) {
 	if (view.countAnswer) return [];
 	if (operation === "people.getImportReceipt") return result.rows.filter((r) => r.kind !== "person");
+	// A roster leads with its people: the ministry, then who serves, then its role slots.
+	if (operation === "teams.get")
+		return ["team", "person", "role"].flatMap((kind) => result.rows.filter((r) => r.kind === kind));
 	return result.rows;
 }
 
