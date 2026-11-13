@@ -155,7 +155,7 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 	assert.equal(await work(), "succeeded");
 	assert.match((await events(seatless, none)).text, /no application reads available/);
 	// No catalog offers direct writes, approvals, code, private care or coach tools to any context. Only a plant Owner or
-	// Admin may propose the reviewed People changes, the same floor as the native commands.
+	// Admin may propose the reviewed People, Messages, phase and signal changes, the same floor as the native commands.
 	for (const who of ["owner", "member", "orgOwner", "seatless"] as const) {
 		const catalog = readCatalog(await actor(who));
 		const operations = catalog.domains.flatMap((d) => d.operations.map((o) => o.operation));
@@ -174,6 +174,11 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 						"communication.rescheduleReviewed",
 						"communication.cancelScheduledReviewed",
 						"communication.replaceScheduledReviewed",
+						"phases.declare",
+						"phases.transition",
+						"signals.attest",
+						"signals.correct",
+						"signals.reaffirm",
 					]
 				: [],
 		);
@@ -210,6 +215,11 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 						"people.listTags",
 						"people.previewImport",
 						"communication.list",
+						"phases.readCatalog",
+						"phases.readHistory",
+						"phases.readReadiness",
+						"signals.listDefinitions",
+						"signals.getHistory",
 					]
 				: who === "member"
 					? [...peopleReads, ...organizationReads, "communication.list"]
@@ -376,7 +386,15 @@ test("AC:INH-EDGES-03 AC:TEN-008 AC:EVRY-CONTEXT-BOUNDS a guessed foreign id and
 	assert.ok(seen.includes("Alex Rivera"), "an authorized page reference is verified");
 	assert.deepEqual(
 		[...new Set(calls.flatMap((c) => c.tools?.map((t) => t.name) ?? []))].sort(),
-		["communication_read", "peopleOrganization_read", "people_read", "propose_change", "select_returned_rows"],
+		[
+			"communication_read",
+			"peopleOrganization_read",
+			"people_read",
+			"phases_read",
+			"propose_change",
+			"select_returned_rows",
+			"signals_read",
+		],
 		"prompt text cannot add tools or scope; the owner's catalog decides them",
 	);
 });
