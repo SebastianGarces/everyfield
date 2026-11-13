@@ -1,5 +1,7 @@
 "use client";
 
+import { timeText } from "@everyfield/contracts/common";
+
 import { ArrowLeft01Icon, CheckListIcon, Tick02Icon, UserAdd01Icon } from "@hugeicons/core-free-icons";
 import {
 	Button,
@@ -17,9 +19,9 @@ import {
 	ToastProvider,
 	useToast,
 } from "@everyfield/ui/controls";
-import { Avatar, StatusBadge } from "@everyfield/ui/display";
+import { StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { addWalkIn, reloadCheckIn, setPresence, settleAttendance } from "./actions.ts";
 import {
 	DialogNotice,
@@ -29,19 +31,11 @@ import {
 	useSaveIntent,
 	type RowSave,
 } from "../../components/save/parts.tsx";
-import {
-	attendanceAfter,
-	canSettle,
-	settledText,
-	SettleDialog,
-	usePresence,
-	useSeats,
-	type SettleInput,
-} from "./Attendance.tsx";
+import { attendanceAfter, settledText, SettleDialog, usePresence, warmSeats, type SettleInput } from "./Attendance.tsx";
 import { PersonPicker, type PickedPerson } from "./dialogs.tsx";
-import { problemText, RSVP_LABEL, timeText, type Guest } from "./model.ts";
+import { problemText, RSVP_LABEL, type Guest } from "./model.ts";
 import { attendeeOf, isPending, PENDING, withAttendees, type GuestRow, type PendingGuest } from "./page-state.ts";
-import { Problem } from "./parts.tsx";
+import { Problem, TabStack } from "./parts.tsx";
 import type { CheckInData } from "./server.ts";
 
 /**
@@ -58,22 +52,25 @@ export function CheckInScreen({ data, admin }: { data: CheckInData; admin: boole
 }
 
 /**
- * `admin` is an Owner or Admin. A team meeting's leader (not admin) marks people here and checks in someone already in
- * People; adding a new person and finalizing stay with Owners and Admins (C74).
+ * `admin` is an Owner or Admin. A team meeting's current leader (not admin) marks people here, checks in someone already
+ * in People and finishes check-in (REQ-MTG-010, D-562); adding a new person stays with Owners and Admins (C74).
  */
 function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 	const toast = useToast();
 	const [data, setData] = useState(loaded);
-	const [filter, setFilter] = useState<"waiting" | "here">("waiting");
+	// The saved walk-in to show: scrolled to the middle and held in a soft highlight for a moment. Keyed by guest id,
+	// because two guests can share a name.
+	const [arrived, setArrived] = useState<string | null>(null);
+	const list = useRef<HTMLUListElement>(null);
 	const [search, setSearch] = useState("");
-	const [early, setEarly] = useState(false);
-	const seats = useSeats();
 	// A walk-in and Finish both change who attended, so they share one save lane (C68). Presence taps have one per person.
 	const door = useSaveIntent<DoorForm>({ explain: problemText });
 	// The walk-in row as the person asked for it, shown while its save is on its way or unknown.
 	const [draft, setDraft] = useState<PendingGuest | null>(null);
 	const m = data.meeting;
 	const final = data.attendance?.finalized != null;
+	// Who finalizes: the attendance read answers by the write's rule (Owner, Admin or this team meeting's leader).
+	const finalizer = admin || data.attendance?.viewerCanMarkAttendance === true;
 	/** The latest guests and attendance after a refusal as out of date. Resolves true once they show. */
 	const stale = () =>
 		reloadCheckIn(m.id).then(
@@ -101,11 +98,22 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 			: g.presence;
 	};
 	const here = guests.filter((g) => listed(g) === "attended");
-	const waiting = guests.filter((g) => listed(g) !== "attended");
 	const q = search.trim().toLowerCase();
-	const rows = (filter === "here" ? here : waiting)
+	// One list. The order never depends on who is here, so a tap never moves a row.
+	const rows = guests
 		.filter((g) => !q || g.person.displayName.toLowerCase().includes(q))
 		.sort((a, b) => rank(a) - rank(b) || a.person.displayName.localeCompare(b.person.displayName));
+
+	// The effect depends on the guest alone, so a render never restarts the timer or the scroll.
+	useEffect(() => {
+		if (!arrived) return;
+		const calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+		list.current
+			?.querySelector(`[data-guest="${CSS.escape(arrived)}"]`)
+			?.scrollIntoView({ block: "center", behavior: calm ? "instant" : "smooth" });
+		const t = setTimeout(() => setArrived(null), 3000);
+		return () => clearTimeout(t);
+	}, [arrived]);
 
 	function submitWalkIn(input: WalkInInput) {
 		const p = input.person;
@@ -120,8 +128,9 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 			presence: "attended",
 			hasCard: false,
 		};
-		const done = () => {
+		const done = (guestId: string) => {
 			setDraft(null);
+			setArrived(guestId);
 			toast({ message: `${pending.person.displayName} is checked in.`, tone: "success" });
 		};
 		const save = {
@@ -131,7 +140,6 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 			refused: () => setDraft(null),
 		};
 		setDraft(pending);
-		setFilter("here");
 		if (p)
 			return void door.save({
 				...save,
@@ -150,7 +158,7 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 						hasCard: a.hasCard,
 					};
 					setData((d) => withAttendees({ ...d, guests: [...d.guests, g] }, value.attendees, value.attendanceRevision));
-					done();
+					done(g.id);
 				},
 			});
 		const body = {
@@ -163,23 +171,17 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 		void door.save({
 			...save,
 			send: (key) => addWalkIn(key, body),
-			ok: ({ guest: g }) => {
-				setData((d) => ({
-					...d,
-					guests: [...d.guests, g],
-					attendance: d.attendance && { ...d.attendance, items: [...d.attendance.items, attendeeOf(g)] },
-				}));
-				done();
+			ok: ({ guest: g, attendanceRevision }) => {
+				// The walk-in moved the attendance revision; Finish reviews at the one it returned.
+				setData((d) => withAttendees({ ...d, guests: [...d.guests, g] }, [attendeeOf(g)], attendanceRevision));
+				done(g.id);
 			},
 		});
 	}
 
 	function finish() {
 		if (door.wait !== null || presence.busy) return;
-		// The meeting must have started before attendance can be final; the time is read when the person asks.
-		if (!canSettle(m, new Date().toISOString())) return setEarly(true);
-		setEarly(false);
-		seats.load();
+		warmSeats();
 		door.open({ kind: "settle", input: null });
 	}
 	function submitSettle(input: SettleInput) {
@@ -192,21 +194,27 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 				settleAttendance("finalize", key, attendance.attendanceRevision, {
 					meetingId: m.id,
 					attendeeIds: input.attendeeIds,
-					followUpAssigneeId: input.followUpAssigneeId,
-					evaluationAssigneeId: input.evaluationAssigneeId,
+					followUpAssigneeIds: input.followUpAssigneeIds,
+					evaluationAssigneeIds: input.evaluationAssigneeIds,
 				}),
 			ok: ({ result }) => {
-				setData((d) => ({ ...d, attendance: d.attendance && attendanceAfter(d.attendance, result) }));
+				setData((d) =>
+					withAttendees(
+						{ ...d, attendance: d.attendance && attendanceAfter(d.attendance, result) },
+						result.attendees,
+						result.attendanceRevision,
+					),
+				);
 				toast({ message: settledText(result, m.displayTitle, "finalize"), tone: "success" });
 			},
-			// Out of date: review again from who is marked now, never from the earlier list (F6).
-			refused: (code) => {
-				if (code !== "conflict") return;
-				void stale().then((shown) =>
-					door.open({ kind: "settle", input: null, problem: shown ? "conflict" : "conflict_unloaded" }),
-				);
-			},
+			refused: (code) => code === "conflict" && settleConflict(),
 		});
+	}
+	/** A finalize or its review out of date: review again from who is marked now, never from the earlier list (F6). */
+	function settleConflict() {
+		void stale().then((shown) =>
+			door.open({ kind: "settle", input: null, problem: shown ? "conflict" : "conflict_unloaded" }),
+		);
 	}
 	const doorBusy = door.wait !== null;
 
@@ -228,8 +236,10 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 						</p>
 					</div>
 					<StatusBadge status="positive" size="sm">
-						<span className="tabular-nums">{here.length}</span>
-						<span className="sr-only"> here</span>
+						<span className="tabular-nums">
+							{here.length} of {guests.length}
+						</span>
+						<span className="sr-only"> checked in</span>
 					</StatusBadge>
 				</div>
 				{final ? (
@@ -248,65 +258,61 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 					onChange={(e) => setSearch(e.target.value)}
 					className="h-[46px]"
 				/>
-				<SegmentedControl
-					label="Show"
-					value={filter}
-					onValueChange={setFilter}
-					className="flex w-full [&>*]:flex-1 [&>*]:justify-center"
-					options={[
-						{ value: "waiting", label: "Not here yet", count: waiting.length },
-						{ value: "here", label: "Here", count: here.length },
-					]}
-				/>
 			</header>
 
 			<main className="flex flex-1 flex-col px-4 pb-4">
 				<SaveNotice {...door.noticeProps} dialogOpen={door.editing !== null} className="mb-3" />
 				<RowNotices lanes={presence.lanes} className="mb-3" />
-				<h2 className="sr-only">{filter === "here" ? "Here" : "Not here yet"}</h2>
+				<h2 className="sr-only">Guests</h2>
 				{rows.length === 0 ? (
 					<p className="px-1 py-8 text-center text-md text-text-3" aria-live="polite">
 						{q
 							? "No one on the list matches. Add them as a walk-in."
-							: filter === "here"
-								? "Nobody is checked in yet."
-								: guests.length === 0
-									? "The guest list is empty. Add people as they arrive."
-									: "Everyone on the list is here."}
+							: "The guest list is empty. Add people as they arrive."}
 					</p>
 				) : (
-					<ul className="flex flex-col gap-2">
-						{rows.map((g) => (
-							<li key={g.id}>
-								<Row
-									guest={g}
-									disabled={final || isPending(g) || g.person.state !== "live"}
-									state={isPending(g) ? (door.saving ? "saving" : "unknown") : stateOf(g)}
-									onToggle={() =>
-										!isPending(g) && presence.set(g.person, g.presence === "attended" ? "absent" : "attended")
-									}
-								/>
-							</li>
-						))}
-					</ul>
+					<>
+						{final ? null : (
+							<p className="px-1 pb-2 text-sm text-text-2" aria-live="polite">
+								{here.length === 0
+									? "Nobody is here yet. Tap a name when they arrive."
+									: here.length < guests.length
+										? "Tap a name to check them in. Tap again to undo."
+										: `Everyone on the list is here.${finalizer ? " Finish check-in when you are ready." : ""}`}
+							</p>
+						)}
+						<ul
+							ref={list}
+							className="overflow-hidden rounded-card bg-surface-raised shadow-[inset_0_0_0_1px_var(--ef-line),var(--ef-shadow-raised)]"
+						>
+							{rows.map((g) => (
+								<li key={g.id} className="border-line not-first:border-t">
+									<Row
+										guest={g}
+										highlight={g.id === arrived}
+										disabled={final || isPending(g) || g.person.state !== "live"}
+										state={isPending(g) ? (door.saving ? "saving" : "unknown") : stateOf(g)}
+										onToggle={() =>
+											!isPending(g) && presence.set(g.person, g.presence === "attended" ? "absent" : "attended")
+										}
+									/>
+								</li>
+							))}
+						</ul>
+					</>
 				)}
 			</main>
 
 			{final ? null : (
 				<footer className="sticky bottom-0 flex flex-col gap-2 bg-frame px-4 pt-2 pb-[max(16px,env(safe-area-inset-bottom))]">
-					{early ? (
-						<p role="status" className="text-center text-sm text-text-2">
-							You can finish after the meeting starts at {timeText(m.localTime)}.
-						</p>
-					) : null}
-					{admin ? null : (
+					{finalizer ? null : (
 						<p className="text-center text-sm text-text-2">
-							An Owner or Admin finalizes attendance on the meeting page.
+							An Owner, an Admin or the ministry&rsquo;s leader finalizes attendance.
 						</p>
 					)}
-					<div className={admin ? "grid grid-cols-2 gap-2" : "grid grid-cols-1 gap-2"}>
+					<div className={finalizer ? "grid grid-cols-2 gap-2" : "grid grid-cols-1 gap-2"}>
 						<Button
-							variant="secondary"
+							variant="outline"
 							icon={UserAdd01Icon}
 							className="h-12"
 							disabled={doorBusy}
@@ -314,7 +320,7 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 						>
 							Add a walk-in
 						</Button>
-						{admin ? (
+						{finalizer ? (
 							<Button
 								variant="primary"
 								icon={CheckListIcon}
@@ -322,9 +328,9 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 								loading={door.saving && !draft}
 								disabled={doorBusy || presence.busy}
 								onClick={finish}
-								onPointerEnter={seats.load}
-								onFocus={seats.load}
-								onTouchStart={seats.load}
+								onPointerEnter={warmSeats}
+								onFocus={warmSeats}
+								onTouchStart={warmSeats}
 							>
 								Finish check-in
 							</Button>
@@ -350,12 +356,15 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 						meeting={m}
 						guests={data.guests}
 						attendance={data.attendance}
-						seats={seats.seats}
-						onSeats={seats.load}
+						onSeats={warmSeats}
 						initial={door.editing.input}
 						problem={door.problem}
 						onClose={door.close}
 						onSubmit={submitSettle}
+						onConflict={() => {
+							door.close();
+							settleConflict();
+						}}
 					/>
 				) : null}
 			</NoticeInDialog>
@@ -366,17 +375,20 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 /** Guests who said yes come first, then pending, then no. */
 const rank = (g: GuestRow) => (g.rsvp === "confirmed" ? 0 : g.rsvp === "pending" ? 1 : 2);
 
-/** One guest at the door: a 58px toggle button. Pressed means here. */
+/** One guest at the door: a 56px to-do row with a round check and a status chip. Pressed means here. */
 function Row({
 	guest: g,
 	disabled,
 	state,
+	highlight,
 	onToggle,
 }: {
 	guest: GuestRow;
 	disabled: boolean;
 	/** This row's save: on its way, unknown or being checked again. Undefined when the row takes a tap. */
 	state: RowSave | undefined;
+	/** A walk-in just saved: held in a soft highlight for a moment. */
+	highlight: boolean;
 	onToggle: () => void;
 }) {
 	const here = g.presence === "attended";
@@ -392,31 +404,49 @@ function Row({
 	return (
 		<button
 			type="button"
+			data-guest={g.id}
 			aria-pressed={here}
 			aria-busy={state === "saving" || state === "checking" || undefined}
 			aria-disabled={disabled || saving || undefined}
 			onClick={() => !saving && !disabled && onToggle()}
 			className={cn(
-				"flex min-h-[58px] w-full cursor-pointer items-center gap-3 rounded-card px-3.5 py-2 text-left transition-[background-color,box-shadow] duration-150 focus-visible:shadow-[0_0_0_2px_var(--ef-ink)] focus-visible:outline-none aria-disabled:cursor-default",
-				here
-					? "bg-green-50 shadow-[inset_0_0_0_1px_var(--ef-green-200)]"
-					: "bg-surface-raised shadow-[inset_0_0_0_1px_var(--ef-line)] hover:bg-surface-2 aria-disabled:hover:bg-surface-raised",
+				"flex min-h-14 w-full cursor-pointer items-center gap-3.5 px-4 py-2.5 text-left transition-colors duration-150 hover:bg-surface-2 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus aria-disabled:cursor-not-allowed aria-disabled:hover:bg-transparent motion-reduce:transition-none",
+				highlight && "bg-surface-2",
 			)}
 		>
-			<Avatar name={g.person.displayName} size="sm" decorative />
-			<span className="min-w-0 flex-1">
-				<span className="block truncate font-medium text-ink">{g.person.displayName}</span>
-				{detail ? <span className="block truncate text-xs text-text-3">{detail}</span> : null}
-			</span>
 			<span
 				aria-hidden="true"
 				className={cn(
-					"grid size-8 flex-none place-items-center rounded-full transition-[background-color,box-shadow] duration-150",
-					here ? "bg-green-500 text-white" : "shadow-[inset_0_0_0_1.5px_var(--ef-line-2)]",
+					"grid size-6 flex-none place-items-center rounded-full transition-[background-color,box-shadow] duration-150 motion-reduce:transition-none",
+					here
+						? "bg-green-500 text-ink-fixed shadow-[inset_0_0_0_1px_var(--ef-green-700)]"
+						: "bg-surface-raised shadow-[inset_0_0_0_1.5px_var(--ef-text-3)]",
 				)}
 			>
 				{here ? <Icon icon={Tick02Icon} size={16} /> : null}
 			</span>
+			<span className="min-w-0 flex-1">
+				<span className="block truncate font-medium text-ink">{g.person.displayName}</span>
+				{detail ? <span className="block truncate text-sm text-text-3">{detail}</span> : null}
+			</span>
+			<StatusBadge
+				aria-hidden="true"
+				plain
+				size="sm"
+				status="positive"
+				fill={here ? "soft" : "outline"}
+				className="w-[76px] justify-center"
+			>
+				{here ? (
+					// The badge sets text-ink after its soft tone, so the green text sits on an inner span.
+					<span className="inline-flex items-center gap-1 text-green-700">
+						<Icon icon={Tick02Icon} size={16} />
+						Here
+					</span>
+				) : (
+					"Not here"
+				)}
+			</StatusBadge>
 		</button>
 	);
 }
@@ -448,7 +478,8 @@ function WalkInDialog({
 	onClose: () => void;
 	onSubmit: (input: WalkInInput) => void;
 }) {
-	const [mode, setMode] = useState<"existing" | "new">(initial && !initial.person ? "new" : "existing");
+	const initialMode = initial && !initial.person ? "new" : "existing";
+	const [mode, setMode] = useState<"existing" | "new">(initialMode);
 	const [input, setInput] = useState<WalkInInput>(initial ?? { person: null, name: "", email: "", phone: "" });
 	const [touched, setTouched] = useState(false);
 	const body = useRef<HTMLDivElement>(null);
@@ -488,61 +519,75 @@ function WalkInDialog({
 								]}
 							/>
 						) : null}
-						{mode === "existing" ? (
-							<div data-field="person" className="contents">
-								<Field label="Person" error={touched && !input.person ? "Choose who came." : null}>
-									<PersonPicker
-										label="Person"
-										value={input.person}
-										onChange={(person) => setInput((i) => ({ ...i, person }))}
-										exclude={exclude}
-										autoFocus
-									/>
-								</Field>
-							</div>
-						) : (
-							<>
-								<div data-field="name" className="contents">
-									<Field label="Name" error={touched && nameMissing ? "Enter the name people call them." : null}>
-										<Input
-											value={input.name}
-											maxLength={255}
-											autoComplete="off"
-											onChange={(e) => setInput((i) => ({ ...i, name: e.target.value }))}
-											autoFocus
-										/>
-									</Field>
-								</div>
-								<div data-field="email" className="contents">
-									<Field label="Email" optional error={touched && emailBad ? "Enter a full email address." : null}>
-										<Input
-											type="email"
-											inputMode="email"
-											value={input.email}
-											maxLength={320}
-											autoComplete="off"
-											onChange={(e) => setInput((i) => ({ ...i, email: e.target.value }))}
-										/>
-									</Field>
-								</div>
-								<Field label="Phone" optional hint="Country: United States (US).">
-									<Input
-										type="tel"
-										value={input.phone}
-										maxLength={40}
-										autoComplete="off"
-										onChange={(e) => setInput((i) => ({ ...i, phone: e.target.value }))}
-									/>
-								</Field>
-								<p className="text-sm text-text-3">
-									They join People as a prospect from this meeting. If they are already in People, choose In People.
-								</p>
-							</>
-						)}
+						<TabStack
+							active={mode}
+							className="gap-4"
+							panels={{
+								existing: (
+									<div data-field="person" className="contents">
+										<Field label="Person" error={touched && !input.person ? "Choose who came." : null}>
+											<PersonPicker
+												label="Person"
+												value={input.person}
+												onChange={(person) => setInput((i) => ({ ...i, person }))}
+												exclude={exclude}
+												autoFocus={initialMode === "existing"}
+											/>
+										</Field>
+									</div>
+								),
+								...(allowNew && {
+									new: (
+										<>
+											<div data-field="name" className="contents">
+												<Field label="Name" error={touched && nameMissing ? "Enter the name people call them." : null}>
+													<Input
+														value={input.name}
+														maxLength={255}
+														autoComplete="off"
+														onChange={(e) => setInput((i) => ({ ...i, name: e.target.value }))}
+														autoFocus={initialMode === "new"}
+													/>
+												</Field>
+											</div>
+											<div data-field="email" className="contents">
+												<Field
+													label="Email"
+													optional
+													error={touched && emailBad ? "Enter a full email address." : null}
+												>
+													<Input
+														type="email"
+														inputMode="email"
+														value={input.email}
+														maxLength={320}
+														autoComplete="off"
+														onChange={(e) => setInput((i) => ({ ...i, email: e.target.value }))}
+													/>
+												</Field>
+											</div>
+											<Field label="Phone" optional hint="Country: United States (US).">
+												<Input
+													type="tel"
+													value={input.phone}
+													maxLength={40}
+													autoComplete="off"
+													onChange={(e) => setInput((i) => ({ ...i, phone: e.target.value }))}
+												/>
+											</Field>
+											<p className="text-sm text-text-2">
+												They join People as a prospect from this meeting. If they are already in People, choose In
+												People.
+											</p>
+										</>
+									),
+								}),
+							}}
+						/>
 						<Problem text={problem} />
 					</DialogBody>
 					<DialogFooter>
-						<Button variant="secondary" type="button" onClick={onClose}>
+						<Button variant="outline" type="button" onClick={onClose}>
 							Cancel
 						</Button>
 						<Button variant="primary" type="submit">

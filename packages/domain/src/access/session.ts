@@ -31,6 +31,7 @@ const sessionRow = z.strictObject({
 	hidden: z.array(z.object({ kind: z.string(), opaque_subject_id: z.uuid(), seat_id: z.uuid().nullable() })),
 	own_person: z.object({ id: z.uuid(), name: z.string() }).nullable(),
 	discovery: z.boolean(),
+	avatar: z.uuid().nullable(),
 });
 type SessionRow = z.infer<typeof sessionRow>;
 /** A pool or a transaction: the viewer read is one statement and needs no transaction. */
@@ -128,7 +129,8 @@ async function viewerRow(db: Executor, identity: SQL, requested?: Owner) {
 			(SELECT jsonb_build_object('id',p.id,'name',p.display_name) FROM person p
 				WHERE selected.owner->>'kind'='plant' AND p.tenant_id=(selected.owner->>'id')::uuid
 					AND p.linked_account_id=i.account_id AND p.state='live' LIMIT 1) AS own_person,
-			EXISTS (SELECT 1 FROM discovery d WHERE d.account_id=i.account_id AND d.converted_at IS NULL) AS discovery
+			EXISTS (SELECT 1 FROM discovery d WHERE d.account_id=i.account_id AND d.converted_at IS NULL) AS discovery,
+			(SELECT a.avatar_object_id FROM account a WHERE a.id=i.account_id) AS avatar
 		FROM identity i CROSS JOIN selected
 	`);
 	return r.rows.length === 1 ? r.rows[0]! : null;
@@ -188,6 +190,8 @@ function viewerOf(row: SessionRow, session: z.infer<typeof sessionId>) {
 		authority: actor.status === "active" ? RequestActor.of(session, actor) : null,
 		person: row.own_person,
 		discovery: row.discovery,
+		/** The account's own current photo version, which its own account may always load. */
+		avatar: row.avatar,
 	};
 }
 
@@ -413,6 +417,12 @@ export function writeVisibility(actor: string | SQLWrapper, selected: Owner) {
    AND coalesce(plant_id,organization_id)=${selected.id}::uuid AND ended_at IS NULL))))`;
 }
 /**
+ * A seat as it stands now, for a statement that runs with no session (a mail authorizer or worker): accepted by now and
+ * not ended. `alias` is a fixed table alias, never input.
+ */
+export const seatHeld = (alias: string) =>
+	sql`${sql.raw(alias)}.ended_at IS NULL AND ${sql.raw(alias)}.accepted_at <= clock_timestamp()`;
+/**
  * C13 and C22: access as it is now, as one condition for each statement of a tenant read. The session is live and its
  * account active; for a plant or organization the account still holds an accepted seat there, not ended, Owner or Admin
  * when `admin`, exactly `role` when it is named, and the same seat as the request's actor when `seatId` names it; no
@@ -433,6 +443,25 @@ export function liveRead(
  ${access.role ? sql`AND s.role=${access.role}` : admin ? sql`AND s.role<>'member'` : sql``})`;
 	return sql`EXISTS(SELECT FROM live_session(${access.session}::uuid) i WHERE i.registration_state='active'
  AND ${seat} AND ${writeVisibility(sql`i.account_id`, owner)})`;
+}
+/** liveRead's access for one request actor: its session, owner and, for a seat, that same seat. */
+export function liveAccess(authority: RequestActor): Parameters<typeof liveRead>[0] {
+	const context = authority.actor.context;
+	return context.kind === "seat"
+		? { session: authority.session, owner: context.owner, seatId: context.seatId }
+		: { session: authority.session, owner: context.owner };
+}
+/**
+ * One statement: `query`'s rows when `live` (a liveRead condition) holds, or null when it fails, so a read whose actor
+ * lost access returns no tenant data (C13). The rows keep no order and carry the access_live and access_found
+ * columns; the caller sorts them and parses its own columns.
+ */
+export async function liveRows(db: Executor, live: SQL, query: SQLWrapper): Promise<Record<string, unknown>[] | null> {
+	const found = await db.execute(sql`SELECT a.access_live, q.* FROM (SELECT ${live} AS access_live) a
+ LEFT JOIN LATERAL (SELECT true AS access_found, x.* FROM (${query}) x) q ON a.access_live`);
+	const rows = found.rows as Record<string, unknown>[];
+	if (rows[0]?.access_live !== true) return null;
+	return rows.filter((r) => r.access_found === true);
 }
 export async function currentWriteAllowed(tx: Transaction, actor: string, selected: Owner) {
 	const result = await tx.execute(sql`SELECT ${writeVisibility(actor, selected)} AS allowed`);

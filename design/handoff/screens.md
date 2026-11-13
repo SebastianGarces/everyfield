@@ -30,6 +30,7 @@ All app pages are desktop only and sit inside the app shell (top bar, rail, cont
 | `#/launch` | Launch plan | `/launch` | none | WP-045, WP-046 | live |
 | `#/communication` | Communication | `/communication` | `/communication` | WP-027, WP-029 | live |
 | `#/documents` | Documents (wide) | `/documents` | `/documents` | WP-036, WP-037 | live |
+| `#/documents/written` | Written documents: the church's own statements, covenants and policies in a list pane and a WYSIWYG editor on a Letter sheet with the letterhead and signature from Settings, locked doctrinal slots, a selection toolbar and / menu, autosave, export, version history and print preview (OPS-101 prototype; the app port decides the route) | not decided | none | WP-037 | document open, none selected, no documents, archived, offline, version history, narrow, phone keyboard bar |
 | `#/notifications` | Notifications | `/notifications` | `/notifications` | WP-030 | live |
 | `#/network` | Network plants: portfolio stats, plant directory by area, status by name, no ranking | `/network` | `/oversight`, `/oversight/plants` | WP-047, WP-007 | live |
 | `#/network/plant` | One plant as the network sees it: phase journey, launch, sharing categories, the plant's shared findings | `/network/plants/[plantId]` | `/oversight/plants/[id]` | WP-047, WP-044 | shared, shared but empty, not shared |
@@ -59,6 +60,7 @@ Settings is a dialog over the current page, not a page. Each section has its own
 | `#/settings/notifications` | Notifications per category and channel | `/settings/notifications` | WP-030 |
 | `#/settings/sharing` | Sharing and privacy for organizations | `/settings/sharing` | WP-007 |
 | `#/settings/account` | Your account | `/settings/account` | WP-005, WP-010 |
+| `#/settings/brand` | Church brand kit: logos, colors, fonts, letterhead and live document preview. Owner and Admin only | `/settings/brand` | WP-104 |
 
 Closing Settings returns to the page underneath. Unsaved changes ask before they are discarded.
 
@@ -88,6 +90,7 @@ The main app is desktop only. These screens need a phone layout because people u
 | Accept a seat invitation | Seat invitation email | `/invite/[token]` | creates an account | WP-008 |
 | RSVP confirmed, change answer | RSVP confirmation email | `/rsvp/[token]` | no, token link | WP-021 |
 | Email preferences | Footer of every church email | `/email-preferences/[token]` (v2 used `/unsubscribe`) | no, token link | WP-030, WP-028 |
+| Messages unsubscribe | Footer of every Messages email to a CRM person | `/unsubscribe/[token]` | no, token link | WP-028 |
 
 Token links are personal and expire. They show only that person's own data.
 
@@ -133,6 +136,7 @@ Each prototype screen or flow and the features it serves. Feature IDs are in [`d
 | Network plants and one plant, with the phase journey (`#/network`, `#/network/plant`) | IDN-022, IDN-023, PI-030, PI-031 | WP-007, WP-030, WP-038, WP-044, WP-046, WP-047 | designed |
 | Network Intelligence (`#/network/intelligence`) | PI-043, PI-044 | WP-002, WP-004, WP-007, WP-010, WP-032, WP-041, WP-042, WP-043, WP-044, WP-047, WP-058, WP-073, WP-074, WP-093, WP-096 | designed |
 | Settings dialog: church, seats, sharing, account | IDN-010, IDN-011, IDN-017, IDN-019, IDN-022, IDN-006 to IDN-008 | WP-004, WP-005, WP-006, WP-007, WP-008, WP-010, WP-017, WP-030, WP-039 | designed |
+| Church brand kit (`#/settings/brand`) | BRD-001 to BRD-005 | WP-104 | not designed |
 | Evry panel | EVR-005, EVR-010, EVR-012 | WP-051, WP-053 | designed |
 | Guide panel | WIKI-008 | WP-034 | designed |
 | Feedback dialog | ADM-001 | WP-049 | designed |
@@ -154,9 +158,10 @@ These flows have requirements but no drawing. Do not wait for a drawing. The own
 | Church workspace deletion by the Owner and its cancellation | IDN-026 (REQ-IDN-032) | WP-007, WP-010 | not designed |
 | Personal timezone for the private check-in | IDN-010, IDN-011 (REQ-IDN-033) | WP-010, WP-039 | not designed |
 | Native document writing and Word import | DOC-016 | WP-037, WP-079, WP-080 | not designed |
+| Church Documents from editable templates and their PDF and Word export | DOC-022, DOC-023 | WP-037 | not designed |
 | Your own feedback and its status | ADM-001, ADM-002 (REQ-KNOW-029) | WP-049 | not designed |
 | Discovery without a plant | IDN-016, ADM-004 (REQ-ADM-004) | WP-007, WP-009, WP-048 | not designed |
-| Wiki source order in Settings | WIKI-001 (REQ-KNOW-191) | WP-034, WP-035 | not designed; see the [README](README.md#not-designed-yet) |
+| Wiki source order in Settings | WIKI-001 (REQ-KNOW-191) | WP-034, WP-035 | not designed; composed as the Wiki sources section at `/settings/wiki`, see the [README](README.md#not-designed-yet) |
 | Organization relationship invitations: send, accept, decline | IDN-020 | WP-007, WP-008 | not designed |
 | Leave a relationship, sever an organization, association history | IDN-021 | WP-007 | not designed |
 | Network sending-church roster and member detail | IDN-024 | WP-047 | not designed |
@@ -173,6 +178,7 @@ These flows have requirements but no drawing. Do not wait for a drawing. The own
 | Correct, revoke and redo training | TEAM-009 | WP-019 | not designed |
 | Cold-start guidance on Plant Intelligence | PI-034 | WP-044 | not designed |
 | Restore an address after global suppression, with history | NTF-011 | WP-028, WP-030 | not designed |
+| Messages unsubscribe page, one-hour undo, and the opt-out line on the person's record | NTF-016 | WP-028 | not designed |
 
 ### Features with no screen of their own
 

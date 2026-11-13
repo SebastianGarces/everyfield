@@ -1,12 +1,18 @@
 "use client";
 
-import { Bookmark02Icon, Download01Icon, PrinterIcon, Search01Icon } from "@hugeicons/core-free-icons";
+import {
+	BookOpen02Icon,
+	Bookmark02Icon,
+	Download01Icon,
+	PrinterIcon,
+	Search01Icon,
+	Tick02Icon,
+} from "@hugeicons/core-free-icons";
 import {
 	Button,
 	Dialog,
 	DialogBody,
 	DialogContent,
-	DialogFooter,
 	DialogHeader,
 	EmptyState,
 	IconButton,
@@ -15,28 +21,40 @@ import {
 	Sheet,
 	StatePanel,
 } from "@everyfield/ui/controls";
-import { Toc, useActiveHeading, WikiSourceBar, type WikiPhase, WikiTree } from "@everyfield/ui/display";
+import { Tag, Toc, WikiSourceBar, type WikiPhase, WikiTree } from "@everyfield/ui/display";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { createContext, use, useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { createContext, use, useEffect, useLayoutEffect, useRef, useState, useTransition, type ReactNode } from "react";
 import {
 	downloadPdf,
 	loadGuide,
 	printCopy,
-	readSourceOrder,
 	recordArticleView,
 	saveBookmark,
 	saveProgress,
 	saveSourceOrder,
 	searchWiki,
+	type ExportResult,
 	type GuideResult,
-	type OrderRow,
+	type OrderSave,
 	type SearchResult,
 	type WriteResult,
 } from "./actions.ts";
-import { fractionText, pdfFilename, PHASE_NAME, snippetParts, type SourceRow } from "./model.ts";
+import { useOpenSettings, useSettingsLink } from "../settings/opener.tsx";
+import { ARTICLE_FIXED, BELOW_WIDE_ONLY, GRID, GRID_FIXED, RAIL_FIXED, RAIL_STICKY, RAIL_TOC_PAD } from "./layout.ts";
+import {
+	type ArticleVersion,
+	fractionText,
+	pdfFilename,
+	PHASE_NAME,
+	preferredOrder,
+	snippetParts,
+	type SourceOrder,
+	type SourceRow,
+} from "./model.ts";
+import { ArticleBody } from "./prose.tsx";
 
-const Chrome = createContext<{ openSearch: () => void; openGuide: () => void; guideOpen: boolean } | null>(null);
+const Chrome = createContext<{ openSearch: () => void; toggleGuide: () => void; guideOpen: boolean } | null>(null);
 
 export function useWikiChrome() {
 	return use(Chrome);
@@ -60,7 +78,9 @@ export function WikiChrome({ children }: { children: ReactNode }) {
 		return () => window.removeEventListener("keydown", onKey);
 	}, [pathname]);
 	return (
-		<Chrome value={{ openSearch: () => setSearch(true), openGuide: () => setGuide(true), guideOpen: guide }}>
+		<Chrome
+			value={{ openSearch: () => setSearch(true), toggleGuide: () => setGuide((open) => !open), guideOpen: guide }}
+		>
 			{children}
 			<SearchDialog open={search} onOpenChange={setSearch} />
 			<GuideSheet open={guide} onOpenChange={setGuide} />
@@ -80,8 +100,12 @@ export function WikiSearchButton() {
 					shortcut="/"
 					aria-label="Search the wiki"
 					boxClassName="w-[280px]"
-					onFocus={open}
 					onClick={open}
+					onKeyDown={(event) => {
+						if (event.key !== "Enter" && event.key !== " " && event.key !== "/") return;
+						event.preventDefault();
+						open();
+					}}
 				/>
 			</div>
 			<IconButton className="app-sm:hidden" icon={Search01Icon} label="Search the wiki" onClick={open} />
@@ -94,8 +118,11 @@ const PHASES = [
 	...PHASE_NAME.map((name, number) => ({ value: String(number), label: `${number} ${name}` })),
 ];
 
+const SEARCH_DELAY_MS = 250;
+
 function SearchDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
 	const params = useSearchParams();
+	const source = params.get("source");
 	const pathname = usePathname();
 	const route = useRef(pathname);
 	const [query, setQuery] = useState("");
@@ -104,6 +131,8 @@ function SearchDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (op
 	const [result, setResult] = useState<SearchResult | null>(null);
 	const [pending, setPending] = useState(false);
 	const field = useRef<HTMLInputElement>(null);
+	const sequence = useRef(0);
+	const timer = useRef(0);
 
 	useEffect(() => {
 		if (route.current === pathname) return;
@@ -111,17 +140,37 @@ function SearchDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (op
 		onOpenChange(false);
 	}, [pathname, onOpenChange]);
 
-	async function run(nextPage: number, text = query) {
+	useEffect(() => () => window.clearTimeout(timer.current), []);
+
+	/** Run one search. Only the newest request may write its result. */
+	async function run(text: string, phaseValue: string, nextPage: number) {
+		window.clearTimeout(timer.current);
+		const id = ++sequence.current;
 		const trimmed = text.trim();
 		if (!trimmed) {
 			setResult(null);
+			setPending(false);
 			return;
 		}
 		setPending(true);
-		const found = await searchWiki(trimmed, phase === "all" ? null : Number(phase), nextPage, params.get("source"));
+		let found: SearchResult;
+		try {
+			found = await searchWiki(trimmed, phaseValue === "all" ? null : Number(phaseValue), nextPage, source);
+		} catch {
+			found = { status: "lost" };
+		}
+		if (id !== sequence.current) return;
 		setResult(found);
 		setPage(nextPage);
 		setPending(false);
+	}
+
+	function schedule(text: string, phaseValue: string) {
+		window.clearTimeout(timer.current);
+		// Supersede any request in flight while the delay runs.
+		sequence.current += 1;
+		setPending(true);
+		timer.current = window.setTimeout(() => void run(text, phaseValue, 1), SEARCH_DELAY_MS);
 	}
 
 	return (
@@ -134,12 +183,12 @@ function SearchDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (op
 				}}
 			>
 				<DialogHeader title="Search the wiki" description="Search titles, excerpts and article text." />
-				<DialogBody className="flex flex-col gap-4">
+				<DialogBody className="flex flex-col gap-4 pt-1 pb-7 max-app-sm:pb-5">
 					<form
 						className="flex flex-col gap-3"
 						onSubmit={(event) => {
 							event.preventDefault();
-							void run(1);
+							void run(query, phase, 1);
 						}}
 					>
 						<SearchInput
@@ -148,24 +197,25 @@ function SearchDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (op
 							maxLength={200}
 							placeholder="Search the wiki"
 							aria-label="Search words"
-							onChange={(event) => setQuery(event.target.value)}
+							onChange={(event) => {
+								setQuery(event.target.value);
+								schedule(event.target.value, phase);
+							}}
 						/>
-						<div className="flex flex-wrap items-center gap-2">
-							<Select
-								aria-label="Phase"
-								value={phase}
-								options={PHASES}
-								onValueChange={setPhase}
-								className="w-[240px]"
-							/>
-							<Button type="submit" loading={pending}>
-								Search
-							</Button>
-						</div>
+						<Select
+							aria-label="Phase"
+							value={phase}
+							options={PHASES}
+							onValueChange={(next) => {
+								setPhase(next);
+								void run(query, next, 1);
+							}}
+							className="w-[240px]"
+						/>
 					</form>
 					<SearchBody result={result} pending={pending} query={query.trim()} />
 					{result?.status === "results" && result.nextPage ? (
-						<Button variant="secondary" onClick={() => void run(page + 1)} loading={pending}>
+						<Button variant="secondary" onClick={() => void run(query, phase, page + 1)} loading={pending}>
 							Next page
 						</Button>
 					) : null}
@@ -175,10 +225,23 @@ function SearchDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (op
 	);
 }
 
+/** Shows the pending line whenever a search runs, also while the previous hits stay on screen. */
 function SearchBody({ result, pending, query }: { result: SearchResult | null; pending: boolean; query: string }) {
-	if (!query) return <p className="text-text-2">Type a word to search the wiki.</p>;
-	if (pending && !result) return <p className="text-text-2">Searching.</p>;
-	if (!result || result.status === "lost")
+	if (!query || (!result && !pending)) return <p className="text-text-2">Type a word to search the wiki.</p>;
+	if (!result) return <p className="text-text-2">Searching.</p>;
+	if (!pending) return <SearchResults result={result} />;
+	return (
+		<div className="flex flex-col gap-3" aria-busy="true">
+			<p className="text-text-2">Searching.</p>
+			<div className="opacity-50">
+				<SearchResults result={result} />
+			</div>
+		</div>
+	);
+}
+
+function SearchResults({ result }: { result: SearchResult }) {
+	if (result.status === "lost")
 		return (
 			<StatePanel tone="error" title="Search could not be loaded" headingLevel="h3">
 				This is a loading problem. Try again.
@@ -239,15 +302,38 @@ function Snippet({ text }: { text: string }) {
 	);
 }
 
+/**
+ * The Guide inside a modal dialog that covers the frame's Guide button (Settings). Its panel renders inside the
+ * dialog's React tree, so using the panel does not count as a click outside the dialog.
+ */
+export function SettingsGuide() {
+	const [open, setOpen] = useState(false);
+	return (
+		<>
+			<IconButton
+				icon={BookOpen02Icon}
+				label="Guide"
+				size="sm"
+				aria-expanded={open}
+				onClick={() => setOpen((value) => !value)}
+			/>
+			<GuideSheet open={open} onOpenChange={setOpen} />
+		</>
+	);
+}
+
 function GuideSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
 	const pathname = usePathname();
 	const [result, setResult] = useState<{ path: string; value: GuideResult } | null>(null);
 	useEffect(() => {
 		if (!open) return;
 		let live = true;
-		void loadGuide(pathname).then((next) => {
-			if (live) setResult({ path: pathname, value: next });
-		});
+		// A rejected call (offline) shows the same text as a guide the server could not read.
+		void loadGuide(pathname)
+			.catch((): GuideResult => ({ status: "unavailable" }))
+			.then((next) => {
+				if (live) setResult({ path: pathname, value: next });
+			});
 		return () => {
 			live = false;
 		};
@@ -269,23 +355,28 @@ function GuideSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (open
 function GuideBody({ result }: { result: GuideResult | null }) {
 	if (!result) return <p>Loading the guide.</p>;
 	if (result.status === "missing") return <p>No guide for this page.</p>;
-	if (result.status === "gone") return <p>This guide is no longer available.</p>;
 	if (result.status === "denied") return <p>Sign in to read the guide.</p>;
 	if (result.status === "unavailable") return <p>The guide could not be loaded. Try again.</p>;
+	// The domain cut (sectionExcerpt) ends a mid-sentence cut with its own ellipsis, so the excerpt shows as it comes.
 	return (
-		<div className="flex flex-col gap-3">
-			{result.title ? <p className="font-medium text-ink">{result.title}</p> : null}
-			{result.body ? <p className="whitespace-pre-wrap">{result.body}</p> : null}
-			{result.citation ? <p className="text-sm text-text-3">{result.citation}</p> : null}
-			{result.href ? (
-				<Link
-					href={result.href}
-					className="font-medium text-ink underline decoration-green-500 decoration-2 underline-offset-[3px]"
-				>
-					Open the article
-				</Link>
-			) : null}
-		</div>
+		<article className="flex flex-col gap-4">
+			<header>
+				<p className="text-sm text-text-3">From the Wiki</p>
+				<h3 className="mt-0.5 font-title text-[21px] leading-tight tracking-[-0.02em] text-ink">{result.title}</h3>
+			</header>
+			<ArticleBody
+				size="sm"
+				contentType="safe_mdx"
+				body={result.excerpt}
+				className="[&>:first-child]:mt-0! [&>:last-child]:mb-0 [&_h2]:mt-5! [&_h2]:mb-1.5! [&_h2]:font-body! [&_h2]:text-[16px]! [&_h2]:font-semibold [&_h3]:mt-4! [&_h3]:mb-1! [&_h3]:font-body! [&_h3]:text-[15px]! [&_h3]:font-medium"
+			/>
+			<Link
+				href={result.href}
+				className="cursor-pointer self-start font-medium text-ink underline decoration-green-500 decoration-2 underline-offset-[3px]"
+			>
+				Open the article
+			</Link>
+		</article>
 	);
 }
 
@@ -299,15 +390,55 @@ type ArticleProps = {
 	observedFraction: string;
 	completed: boolean;
 	updated: boolean;
+	children: ReactNode;
 };
 
-export function ArticleTools(props: ArticleProps) {
+type Session = {
+	marked: boolean;
+	percent: string;
+	done: boolean;
+	updated: boolean;
+	note: string;
+	busy: "pdf" | "print" | null;
+	toggleBookmark: () => void;
+	pdf: () => void;
+	print: () => void;
+};
+
+const SessionContext = createContext<Session | null>(null);
+
+function useSession(): Session {
+	const session = use(SessionContext);
+	if (!session) throw new Error("Article tools need an ArticleSession.");
+	return session;
+}
+
+/** The scroll container of the article column. Below 1280px it does not scroll and the window does. */
+const ARTICLE_SCROLL_ID = "wiki-scroll";
+
+/** The article column when it is the scroll container (1280px and up), else null and the window scrolls. */
+function scrollColumn(): HTMLElement | null {
+	const column = document.getElementById(ARTICLE_SCROLL_ID);
+	return column && getComputedStyle(column).overflowY !== "visible" ? column : null;
+}
+
+/** Coarse progress steps: each quarter, past the 0.80 completion line, and the end of the article. */
+function progressStep(fraction: number): number {
+	return [0.25, 0.5, 0.75, 1].filter((step) => fraction >= step).length + (fraction > 0.8 ? 1 : 0);
+}
+
+/**
+ * One article's reading state: the open record, scroll progress, the bookmark and the print and PDF writes.
+ * Mount it with the article id as key, so a new article starts from its own state.
+ */
+export function ArticleSession({ children, ...props }: ArticleProps) {
 	const revision = useRef(props.readingRevision);
 	const chain = useRef<Promise<WriteResult | void>>(Promise.resolve());
 	const seen = useRef(Number(props.observedFraction) || 0);
+	// The furthest point already sent. Progress writes go out only at coarse steps and on leaving.
+	const sent = useRef(seen.current);
 	const viewKey = useRef(crypto.randomUUID());
-	// Strict mode runs this effect twice. The second view would reuse the request key
-	// after the revision moved, and the write gate would report a conflict.
+	// Strict mode runs this effect twice. Record one view per article.
 	const recorded = useRef<string | null>(null);
 	const bookmarkKey = useRef(crypto.randomUUID());
 	const [marked, setMarked] = useState(props.bookmarked);
@@ -319,12 +450,14 @@ export function ArticleTools(props: ArticleProps) {
 	const [busy, setBusy] = useState<"pdf" | "print" | null>(null);
 
 	function enqueue(task: (rev: string) => Promise<WriteResult>) {
-		chain.current = chain.current.then(async () => {
-			const result = await task(revision.current);
+		chain.current = chain.current.then(async (): Promise<WriteResult> => {
+			// A thrown write (network failure) must not reject the chain: that would stop every later write.
+			const result = await task(revision.current).catch((): WriteResult => ({ status: "lost" }));
 			if (result.status === "ok") {
 				revision.current = result.revision;
 				setMarked(result.bookmarked);
-				setPercent(result.observedFraction);
+				// The label follows the reader between the coarse saves, so a saved result never lowers it.
+				setPercent(fractionText(Math.max(Number(result.observedFraction) || 0, seen.current)));
 				setDone(result.completed);
 				if (result.updated) setUpdated(true);
 				setNote("");
@@ -340,51 +473,71 @@ export function ArticleTools(props: ArticleProps) {
 		if (recorded.current !== props.articleId) {
 			recorded.current = props.articleId;
 			viewKey.current = crypto.randomUUID();
-			void enqueue((rev) =>
-				recordArticleView({
-					requestKey: viewKey.current,
-					expectedRevision: rev,
-					articleId: props.articleId,
-					plantId: props.plantId,
-				}),
+			void enqueue(() =>
+				recordArticleView({ requestKey: viewKey.current, articleId: props.articleId, plantId: props.plantId }),
 			);
 		}
 		const article = document.getElementById("wiki-article");
+		const column = scrollColumn();
 		if (!article) return;
 		let timer = 0;
+		const save = () => {
+			if (seen.current <= sent.current) return;
+			sent.current = seen.current;
+			const fraction = fractionText(seen.current);
+			void enqueue(() =>
+				saveProgress({ requestKey: crypto.randomUUID(), articleId: props.articleId, plantId: props.plantId }, fraction),
+			);
+		};
+		// Progress is the share of the article above the bottom edge of what the reader sees. That edge is the
+		// article column's, or the window’s below 1280px, where the column does not scroll.
 		const measure = () => {
 			const total = article.scrollHeight;
 			if (total <= 0) return;
 			const rect = article.getBoundingClientRect();
-			const visible = Math.min(total, Math.max(0, window.innerHeight - rect.top));
+			const edge = column ? column.getBoundingClientRect().bottom : window.innerHeight;
+			const visible = Math.min(total, Math.max(0, edge - rect.top));
 			const next = Math.min(1, visible / total);
-			if (next <= seen.current + 0.01) return;
-			seen.current = next;
-			void enqueue((rev) =>
-				saveProgress(
-					{
-						requestKey: crypto.randomUUID(),
-						expectedRevision: rev,
-						articleId: props.articleId,
-						plantId: props.plantId,
-					},
-					fractionText(next),
-				),
-			);
+			const reached = next >= 0.995 ? 1 : next;
+			if (reached <= seen.current) return;
+			seen.current = reached;
+			setPercent(fractionText(reached));
+			if (progressStep(reached) > progressStep(sent.current)) save();
 		};
 		const onScroll = () => {
 			window.clearTimeout(timer);
 			timer = window.setTimeout(measure, 500);
 		};
 		measure();
-		window.addEventListener("scroll", onScroll, { passive: true });
+		const target: Element | Window = column ?? window;
+		target.addEventListener("scroll", onScroll, { passive: true });
 		window.addEventListener("resize", onScroll);
-		return () => {
-			window.removeEventListener("scroll", onScroll);
-			window.removeEventListener("resize", onScroll);
-			window.clearTimeout(timer);
+		// Leaving the page saves the furthest point read since the last step. A server action's fetch dies with the
+		// page, so this one is a keepalive request. Leaving the article inside the app saves through the action below.
+		const leave = () => {
+			if (seen.current <= sent.current) return;
+			sent.current = seen.current;
+			void fetch("/api/wiki/progress", {
+				method: "POST",
+				keepalive: true,
+				headers: { "content-type": "application/json" },
+				body: JSON.stringify({
+					requestKey: crypto.randomUUID(),
+					articleId: props.articleId,
+					fraction: fractionText(seen.current),
+					...(props.plantId ? { plantId: props.plantId } : {}),
+				}),
+			}).catch(() => undefined);
 		};
-		// Record the open once. Later scrolls use the revision that write returned.
+		window.addEventListener("pagehide", leave);
+		return () => {
+			target.removeEventListener("scroll", onScroll);
+			window.removeEventListener("resize", onScroll);
+			window.removeEventListener("pagehide", leave);
+			window.clearTimeout(timer);
+			save();
+		};
+		// Record the open once per article.
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [props.articleId]);
 
@@ -401,7 +554,8 @@ export function ArticleTools(props: ArticleProps) {
 	async function pdf() {
 		setBusy("pdf");
 		setFallback(null);
-		const result = await downloadPdf(props.articleId, props.source);
+		// A rejected call (offline) is a lost export: the buttons come back and the reader sees why.
+		const result = await downloadPdf(props.articleId, props.source).catch((): ExportResult => ({ status: "lost" }));
 		setBusy(null);
 		if (result.status === "pdf") {
 			saveFile(pdfFilename(props.slug), result.bytes);
@@ -419,7 +573,7 @@ export function ArticleTools(props: ArticleProps) {
 		setBusy("print");
 		const result = fallback
 			? { status: "print" as const, html: fallback, fallback: true }
-			: await printCopy(props.articleId, props.source);
+			: await printCopy(props.articleId, props.source).catch((): ExportResult => ({ status: "lost" }));
 		setBusy(null);
 		if (result.status === "print") {
 			if (!openPrint(result.html)) setNote("Allow pop-up windows to print this article.");
@@ -428,29 +582,72 @@ export function ArticleTools(props: ArticleProps) {
 		setNote(result.status === "denied" ? "You cannot print this article." : "Print could not be prepared. Try again.");
 	}
 
-	const read = done ? "Read" : `${Math.round(Math.min(1, Math.max(0, Number(percent) || 0)) * 100)}% read`;
 	return (
-		<div className="flex flex-col items-end gap-2">
-			<div className="flex flex-wrap items-center gap-2">
-				<IconButton
-					icon={Bookmark02Icon}
-					label={marked ? "Remove bookmark" : "Bookmark"}
-					aria-pressed={marked}
-					onClick={() => void toggleBookmark()}
-				/>
-				<IconButton icon={Download01Icon} label="Download PDF" onClick={() => void pdf()} disabled={busy !== null} />
-				<IconButton icon={PrinterIcon} label="Print" onClick={() => void printArticle()} disabled={busy !== null} />
-			</div>
-			<p className="text-sm text-text-2">
-				{read}
-				{updated ? " · Updated since you read it" : ""}
-			</p>
-			{note ? (
-				<p role="status" className="max-w-[280px] text-right text-sm text-text-2">
-					{note}
-				</p>
+		<SessionContext
+			value={{
+				marked,
+				percent,
+				done,
+				updated,
+				note,
+				busy,
+				toggleBookmark: () => void toggleBookmark(),
+				pdf: () => void pdf(),
+				print: () => void printArticle(),
+			}}
+		>
+			{children}
+		</SessionContext>
+	);
+}
+
+/** Bookmark, download and print: one row of equal buttons beside the search field. */
+export function ArticleTools() {
+	const { marked, busy, toggleBookmark, pdf, print } = useSession();
+	return (
+		<>
+			<IconButton
+				icon={Bookmark02Icon}
+				label={marked ? "Remove bookmark" : "Bookmark"}
+				aria-pressed={marked}
+				onClick={toggleBookmark}
+				className="aria-pressed:bg-ink aria-pressed:text-on-ink aria-pressed:shadow-none aria-pressed:hover:bg-ink-2 aria-pressed:[&_svg]:fill-current"
+			/>
+			<IconButton icon={Download01Icon} label="Download PDF" onClick={pdf} disabled={busy !== null} />
+			<IconButton icon={PrinterIcon} label="Print" onClick={print} disabled={busy !== null} />
+		</>
+	);
+}
+
+/** The meta line under the title: read status, the credit, the update flag and the status note. */
+export function ReadStatus({ credit, version }: { credit: string | null; version: ArticleVersion | null }) {
+	const { percent, done, updated, note } = useSession();
+	const text = `${Math.round(Math.min(1, Math.max(0, Number(percent) || 0)) * 100)}% read`;
+	return (
+		<span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1 align-middle">
+			{done ? (
+				<Tag tone="green" icon={Tick02Icon}>
+					Read
+				</Tag>
+			) : (
+				<span>{text}</span>
+			)}
+			{version ? (
+				<span className="inline-flex items-center gap-2">
+					<Tag tone={version.kind === "church" ? "teal" : "blue"}>
+						{version.kind === "church" ? "Church version" : "Network version"}
+					</Tag>
+					<span className="text-ink">{version.name}</span>
+				</span>
 			) : null}
-		</div>
+			{credit ? <span>· {credit}</span> : null}
+			{updated ? <span>· Updated since you read it</span> : null}
+			{note ? (
+				<span role="status" className="basis-full text-sm text-text-2">
+					{note}
+				</span>
+			) : null}
+		</span>
 	);
 }
 
@@ -474,24 +671,48 @@ function openPrint(html: string): boolean {
 	return true;
 }
 
+/** What the last "Set as preferred" said, on the article it was chosen from. */
+type Said = { path: string } & (
+	| { saved: { name: string; list: "churches" | "networks"; id: string } }
+	| { refused: Exclude<OrderSave, { status: "ok" }> }
+);
+
+function refusedText(reply: Exclude<OrderSave, { status: "ok" }>): string {
+	switch (reply.status) {
+		case "conflict":
+		case "required":
+		case "invalid":
+			return "The preferred source was not changed because the order changed elsewhere. Reload the page to see the current order.";
+		case "denied":
+			return "The preferred source was not changed. Only an Owner or Admin of your church can set it.";
+		case "lost":
+			return "The preferred source was not changed. Check your connection and try again.";
+	}
+}
+
 export function SourceBar({
 	sources,
 	currentId,
 	preferredId,
 	canOrder,
+	order,
 }: {
 	sources: SourceRow[];
 	currentId: string;
 	preferredId: string;
 	canOrder: boolean;
+	order: SourceOrder | null;
 }) {
 	const router = useRouter();
 	const pathname = usePathname();
 	const search = useSearchParams();
-	const order = search.get("order") === "edit";
+	const openSettings = useOpenSettings();
+	const [said, setSaid] = useState<Said | null>(null);
+	const [saving, setSaving] = useState(false);
+	// The article reloads inside this transition, so the status line waits for the version the save chose.
+	const [loading, startLoading] = useTransition();
 	const hrefFor = (id: string) => {
 		const params = new URLSearchParams(search.toString());
-		params.delete("order");
 		if (id === preferredId) params.delete("source");
 		else {
 			const row = sources.find((source) => source.id === id);
@@ -500,178 +721,124 @@ export function SourceBar({
 		const query = params.toString();
 		return query ? `${pathname}?${query}` : pathname;
 	};
-	const settings = new URLSearchParams(search.toString());
-	settings.set("order", "edit");
-	return (
-		<>
-			<WikiSourceBar
-				sources={sources.map((source) => ({
-					id: source.id,
-					short: source.short,
-					name: source.name,
-					meta: source.meta,
-					kind: source.barKind,
-				}))}
-				currentId={currentId}
-				preferredId={preferredId}
-				onChoose={(id) => router.push(hrefFor(id))}
-				settingsHref={canOrder ? `${pathname}?${settings.toString()}` : undefined}
-			/>
-			{canOrder ? <SourceOrder open={order} /> : null}
-		</>
-	);
-}
-
-function SourceOrder({ open }: { open: boolean }) {
-	const router = useRouter();
-	const pathname = usePathname();
-	const search = useSearchParams();
-	const [churches, setChurches] = useState<OrderRow[]>([]);
-	const [networks, setNetworks] = useState<OrderRow[]>([]);
-	const [revision, setRevision] = useState("0");
-	const [note, setNote] = useState("");
-	const [pending, setPending] = useState(false);
-	const loaded = useRef(false);
-
-	useEffect(() => {
-		if (!open) {
-			loaded.current = false;
+	const current = sources.find((source) => source.id === currentId);
+	const next = current ? preferredOrder(order, current, preferredId) : null;
+	const prefer = async (name: string, change: NonNullable<typeof next>) => {
+		setSaving(true);
+		let reply: OrderSave;
+		try {
+			reply = await saveSourceOrder(crypto.randomUUID(), change.revision, change.churches, change.networks);
+		} catch {
+			reply = { status: "lost" };
+		}
+		setSaving(false);
+		if (reply.status !== "ok") {
+			setSaid({ path: pathname, refused: reply });
 			return;
 		}
-		if (loaded.current) return;
-		loaded.current = true;
-		void readSourceOrder().then((result) => {
-			if (result.status !== "ok") {
-				setNote(
-					result.status === "denied"
-						? "Only an Owner or Admin can set this order."
-						: "The source order could not be loaded.",
-				);
-				return;
-			}
-			setChurches(result.churches);
-			setNetworks(result.networks);
-			setRevision(result.revision);
-		});
-	}, [open]);
-
-	function close() {
+		setSaid({ path: pathname, saved: { name, list: change.list, id: currentId } });
+		// The preferred source now opens without ?source=, in the default bar.
 		const params = new URLSearchParams(search.toString());
-		params.delete("order");
+		params.delete("source");
 		const query = params.toString();
-		router.replace(query ? `${pathname}?${query}` : pathname);
-	}
-
-	function move(kind: "church" | "network", index: number, step: number) {
-		const list = kind === "church" ? churches : networks;
-		const next = index + step;
-		if (next < 0 || next >= list.length) return;
-		const copy = list.slice();
-		const [row] = copy.splice(index, 1);
-		if (!row) return;
-		copy.splice(next, 0, row);
-		if (kind === "church") setChurches(copy);
-		else setNetworks(copy);
-	}
-
-	async function save() {
-		setPending(true);
-		const result = await saveSourceOrder(
-			crypto.randomUUID(),
-			revision,
-			churches.map((row) => row.id),
-			networks.map((row) => row.id),
-		);
-		setPending(false);
-		if (result.status === "ok") {
-			router.refresh();
-			close();
-			return;
-		}
-		if (result.status === "conflict") setNote("Someone else changed the order. Reload the page, then try again.");
-		else if (result.status === "required") setNote("Choose every church. An empty church list cannot set the order.");
-		else if (result.status === "invalid") setNote("The order has to list each source once.");
-		else if (result.status === "denied") setNote("Only an Owner or Admin can set this order.");
-		else setNote("The order did not save. Try again.");
-	}
-
+		startLoading(() => {
+			if (search.has("source")) router.push(query ? `${pathname}?${query}` : pathname);
+			else router.refresh();
+		});
+	};
+	const status = (() => {
+		if (saving || loading) return "Saving the order…";
+		if (!said || said.path !== pathname) return "";
+		if ("refused" in said) return refusedText(said.refused);
+		const { name, list, id } = said.saved;
+		if (list === "churches") return `${name} is now your preferred church.`;
+		if (preferredId === id) return `${name} is now your preferred network.`;
+		const shown = sources.find((source) => source.id === preferredId)?.name ?? "a church version";
+		return `${name} is now your first network. Church versions are read before networks, so this article shows ${shown}.`;
+	})();
 	return (
-		<Dialog open={open} onOpenChange={(next) => (next ? undefined : close())}>
-			<DialogContent size="md">
-				<DialogHeader
-					title="Preferred source order"
-					description="This order chooses the article people see first. It does not hide the other sources."
-				/>
-				<DialogBody className="flex flex-col gap-4">
-					<OrderList title="Churches" rows={churches} kind="church" onMove={move} />
-					<OrderList title="Networks" rows={networks} kind="network" onMove={move} />
-					{note ? (
-						<p role="status" className="text-sm text-text-2">
-							{note}
-						</p>
-					) : null}
-				</DialogBody>
-				<DialogFooter>
-					<Button variant="ghost" onClick={close}>
-						Cancel
-					</Button>
-					<Button onClick={() => void save()} loading={pending} disabled={churches.length + networks.length === 0}>
-						Save order
-					</Button>
-				</DialogFooter>
-			</DialogContent>
-		</Dialog>
+		<WikiSourceBar
+			sources={sources.map((source) => ({
+				id: source.id,
+				short: source.short,
+				name: source.name,
+				meta: source.meta,
+				kind: source.barKind,
+			}))}
+			currentId={currentId}
+			preferredId={preferredId}
+			onChoose={(id) => {
+				setSaid(null);
+				router.push(hrefFor(id));
+			}}
+			prefer={
+				current && next && !saving && !loading
+					? { name: current.name, onSelect: () => void prefer(current.name, next) }
+					: undefined
+			}
+			status={canOrder ? status : undefined}
+			// The order is set in Settings, opened over this article so Escape and Back return here.
+			onSettings={canOrder ? () => (openSettings ? openSettings("wiki") : router.push("/settings/wiki")) : undefined}
+		/>
 	);
 }
 
-function OrderList({
-	title,
-	rows,
-	kind,
-	onMove,
-}: {
-	title: string;
-	rows: OrderRow[];
-	kind: "church" | "network";
-	onMove: (kind: "church" | "network", index: number, step: number) => void;
-}) {
-	const label = useId();
-	if (!rows.length) return <p className="text-text-2">No {title.toLowerCase()} share a wiki with this church.</p>;
+/** The Owner's way from an article to the church's Wiki source order in Settings, opened over the article. */
+export function OrderSettingsButton({ children }: { children: ReactNode }) {
+	const link = useSettingsLink("wiki");
 	return (
-		<div>
-			<p id={label} className="mb-2 font-medium text-ink">
-				{title}
-			</p>
-			<ol aria-labelledby={label} className="flex flex-col gap-1">
-				{rows.map((row, index) => (
-					<li key={row.id} className="flex items-center justify-between gap-3 rounded-md bg-surface-2 px-3 py-2">
-						<span className="min-w-0 truncate text-ink">{row.name}</span>
-						<span className="flex gap-1">
-							<Button variant="ghost" size="sm" onClick={() => onMove(kind, index, -1)} disabled={index === 0}>
-								Move up
-							</Button>
-							<Button
-								variant="ghost"
-								size="sm"
-								onClick={() => onMove(kind, index, 1)}
-								disabled={index === rows.length - 1}
-							>
-								Move down
-							</Button>
-						</span>
-					</li>
-				))}
-			</ol>
-		</div>
+		<Button asChild variant="secondary">
+			<a {...link}>{children}</a>
+		</Button>
 	);
+}
+
+/** Thin scrollbar in theme colors. Each column reserves its gutter so text never shifts when a bar appears. */
+const SCROLL =
+	"overscroll-contain [scrollbar-color:var(--ef-line-2)_transparent] [scrollbar-gutter:stable] [scrollbar-width:thin]";
+
+/** A side column: it scrolls on its own when the layout is fixed, else it sticks below the app bar. */
+const RAIL = `${RAIL_FIXED} ${SCROLL}`;
+
+/** The heading nearest the top of the article column (the window below 1280px) is the current one. */
+function useCurrentHeading(ids: string[]): string | undefined {
+	const [current, setCurrent] = useState<string | undefined>(ids[0]);
+	const key = ids.join("|");
+	useEffect(() => {
+		const list = key ? key.split("|") : [];
+		if (!list.length) return;
+		const column = scrollColumn();
+		const update = () => {
+			// Below 1280px the window scrolls and headings stop under the sticky app bar.
+			const top = column ? column.getBoundingClientRect().top + 24 : 120;
+			let found = list[0];
+			for (const id of list) {
+				const el = document.getElementById(id);
+				if (el && el.getBoundingClientRect().top <= top) found = id;
+			}
+			setCurrent(found);
+		};
+		update();
+		const target: Element | Window = column ?? window;
+		target.addEventListener("scroll", update, { passive: true });
+		return () => target.removeEventListener("scroll", update);
+	}, [key]);
+	return current;
 }
 
 export function TocRail({ items }: { items: { id: string; label: string; level?: 2 | 3 }[] }) {
-	const current = useActiveHeading(items.map((item) => item.id));
+	const current = useCurrentHeading(items.map((item) => item.id));
 	if (!items.length) return null;
 	return <Toc items={items} current={current} />;
 }
 
+/** Where the sidenav was scrolled to. It outlives the page mount, so a click on a link keeps the place. */
+let sidenavTop = 0;
+
+/**
+ * The reading columns. From 1280px up and with `fixed`, the page header above stays put and the sidenav, the article
+ * and the contents list each scroll on their own. Below 1280px the page scrolls as one.
+ */
 export function ArticleColumns({
 	phases,
 	more,
@@ -679,6 +846,7 @@ export function ArticleColumns({
 	toc,
 	children,
 	meter,
+	fixed,
 }: {
 	phases: WikiPhase[];
 	more: { name: string; items: { id: string; title: string; href: string; read?: boolean }[] }[];
@@ -686,10 +854,28 @@ export function ArticleColumns({
 	toc: ReactNode;
 	children: ReactNode;
 	meter: ReactNode;
+	fixed: boolean;
 }) {
 	const pathname = usePathname();
 	const [openPath, setOpenPath] = useState<string | null>(null);
 	const open = openPath === pathname;
+	const side = useRef<HTMLDivElement>(null);
+	// Each article is a new page mount, so the article column starts at its top. The sidenav takes back the place it had
+	// and shows the current link when that link is out of view.
+	useLayoutEffect(() => {
+		const el = side.current;
+		if (!el) return;
+		el.scrollTop = sidenavTop;
+		// Set scrollTop directly: scrollIntoView moves Chromium's focus start point and breaks the first Tab.
+		const current = el.querySelector<HTMLElement>('[aria-current="page"]');
+		if (current) {
+			const box = el.getBoundingClientRect();
+			const link = current.getBoundingClientRect();
+			if (link.top < box.top) el.scrollTop += link.top - box.top;
+			else if (link.bottom > box.bottom) el.scrollTop += link.bottom - box.bottom;
+		}
+		sidenavTop = el.scrollTop;
+	}, []);
 	const tree = () => (
 		<div className="flex flex-col gap-4">
 			{phases.length ? <WikiTree phases={phases} currentId={currentId} linkAs={Link} /> : null}
@@ -722,7 +908,7 @@ export function ArticleColumns({
 	);
 	return (
 		<>
-			<div className="mb-4 app-lg:hidden">
+			<div className={`mb-4 ${BELOW_WIDE_ONLY}`}>
 				<Button variant="secondary" onClick={() => setOpenPath(pathname)}>
 					Articles
 				</Button>
@@ -733,13 +919,26 @@ export function ArticleColumns({
 					<DialogBody>{tree()}</DialogBody>
 				</DialogContent>
 			</Dialog>
-			<div className="grid items-start gap-8 app-lg:grid-cols-[250px_minmax(0,1fr)_220px]">
-				<div className="hidden app-lg:sticky app-lg:top-24 app-lg:block">{tree()}</div>
-				<div className="min-w-0">
-					<div className="mb-6 app-lg:hidden">{toc}</div>
+			<div className={fixed ? GRID_FIXED : GRID}>
+				<div
+					ref={side}
+					onScroll={(event) => {
+						sidenavTop = event.currentTarget.scrollTop;
+					}}
+					className={fixed ? RAIL : RAIL_STICKY}
+				>
+					{tree()}
+				</div>
+				<div
+					id={fixed ? ARTICLE_SCROLL_ID : undefined}
+					tabIndex={fixed ? 0 : undefined}
+					aria-label={fixed ? "Article" : undefined}
+					className={fixed ? `${ARTICLE_FIXED} ${SCROLL}` : "min-w-0"}
+				>
+					<div className={`mb-6 ${BELOW_WIDE_ONLY}`}>{toc}</div>
 					{children}
 				</div>
-				<div className="hidden app-lg:sticky app-lg:top-24 app-lg:block">{toc}</div>
+				<div className={fixed ? `${RAIL} ${RAIL_TOC_PAD}` : RAIL_STICKY}>{toc}</div>
 			</div>
 		</>
 	);

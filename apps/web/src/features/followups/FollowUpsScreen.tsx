@@ -23,6 +23,7 @@ import { HandoffDialog, useHandoff } from "./HandoffDialog.tsx";
 import {
 	COVERAGE_PAGE,
 	coverageOf,
+	moveOf,
 	problemText,
 	totalsAfter,
 	type Coverage,
@@ -46,7 +47,7 @@ type Row = Coverage["items"][number];
  * or no follow-up at all, which is not late work and shows no invented date. They assign, add a follow-up and hand off
  * an account's follow-ups. A Member sees the follow-ups they own.
  */
-export function FollowUpsScreen({ data, filter, accountId }: { data: Data; filter: Filter; accountId: string }) {
+export function FollowUpsScreen({ data, filter }: { data: Data; filter: Filter }) {
 	return (
 		<>
 			<Breadcrumb items={[{ label: "Tasks", href: "/tasks" }, { label: "Follow-ups" }]} className="mb-4" />
@@ -58,7 +59,7 @@ export function FollowUpsScreen({ data, filter, accountId }: { data: Data; filte
 					filter={filter}
 				/>
 			) : (
-				<Mine owners={data.owners} accountId={accountId} />
+				<Mine owners={data.owners} />
 			)}
 		</>
 	);
@@ -127,16 +128,29 @@ function Coverage({ coverage, owners, filter }: { coverage: Coverage; owners: Ac
 			all.map((row) => {
 				const duties = row.duties.map((d) =>
 					revisions.has(d.taskId)
-						? { ...d, owner: r.to, formerOwner: null, revision: revisions.get(d.taskId) ?? d.revision }
+						? {
+								...d,
+								// D-d: the recipient takes the source's place; when it already holds the follow-up, the source leaves.
+								owners: [
+									...d.owners.filter((o) => o.accountId !== plan.from.accountId && o.accountId !== r.to.accountId),
+									{ ...r.to, eligible: true, reason: null },
+								],
+								revision: revisions.get(d.taskId) ?? d.revision,
+							}
 						: d,
 				);
 				return { ...row, duties, coverage: coverageOf(duties) };
 			}),
 		);
-		const former = plan.from.eligible
-			? null
-			: { accountId: plan.from.accountId, displayName: plan.from.displayName ?? "" };
-		confirmed(r.moved.map((m) => ({ from: byId.get(m.taskId)?.owner ?? null, to: r.to, former })));
+		confirmed(
+			r.moved.map((m) => {
+				const before = byId.get(m.taskId) ?? { owners: [] };
+				return moveOf(before, [
+					...before.owners.filter((o) => o.accountId !== plan.from.accountId && o.accountId !== r.to.accountId),
+					{ ...r.to, eligible: true, reason: null },
+				]);
+			}),
+		);
 	});
 	const pageCount = Math.max(1, Math.ceil(coverage.total / COVERAGE_PAGE));
 	return (
@@ -228,7 +242,7 @@ function Coverage({ coverage, owners, filter }: { coverage: Coverage; owners: Ac
 									) : (
 										<ul className="flex flex-col gap-1">
 											{r.duties.map((d) => (
-												<li key={d.taskId} className="flex items-center gap-3 max-app-sm:flex-wrap">
+												<li key={d.taskId} className="flex items-start gap-3 max-app-sm:flex-col max-app-sm:gap-1.5">
 													<span className="min-w-0 flex-1">
 														<IntentLink
 															href={`/follow-ups/${d.taskId}`}
@@ -246,9 +260,7 @@ function Coverage({ coverage, owners, filter }: { coverage: Coverage; owners: Ac
 														lane={lane}
 														canAssign
 														onChange={change}
-														onSaved={(before, after) =>
-															confirmed([{ from: before.owner, to: after.owner, former: before.formerOwner }])
-														}
+														onSaved={(before, after) => confirmed([moveOf(before, after.owners)])}
 														onConflict={reload}
 													/>
 												</li>
@@ -337,7 +349,7 @@ function Coverage({ coverage, owners, filter }: { coverage: Coverage; owners: Ac
 					onCreated={(d) => {
 						const first = rows.find((r) => r.person.id === d.person.id)?.duties.length === 0;
 						change(d);
-						confirmed([{ from: "new", to: d.owner, firstForContact: first }]);
+						confirmed([{ before: "new", after: d.owners, firstForContact: first }]);
 					}}
 				/>
 			) : null}
@@ -357,7 +369,7 @@ function Coverage({ coverage, owners, filter }: { coverage: Coverage; owners: Ac
 }
 
 /** The follow-ups a Member owns, 50 to a page, with the pages in the address (D67). */
-function Mine({ owners }: { owners: Owners; accountId: string }) {
+function Mine({ owners }: { owners: Owners }) {
 	const router = useRouter();
 	const path = usePathname();
 	const pageCount = Math.max(1, Math.ceil(owners.matched / 50));

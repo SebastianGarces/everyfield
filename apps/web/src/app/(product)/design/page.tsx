@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
 export default function DesignIndex() {
-  redirect("/design/shell/owner");
+	redirect("/design/shell/owner");
 }

@@ -14,15 +14,18 @@ import {
 	UNCONFIRMED,
 	plural,
 	RECONNECTING,
+	retryRefusal,
 	suggestedChoices,
 	type ImportReceipt,
+	type ImportUpload,
 	type Notice,
 	type Preview,
 	type Review,
 } from "./model.ts";
 
 // People CSV import (REQ-PPL-018): upload, review every row, import as one background job, then the receipt. The
-// file never leaves this page as parsed rows: the server reads the bytes itself, at preview and again at import.
+// file goes once into the private bucket with a signed PUT (REQ-PPL-014's private-file flow); the preview and the import
+// name that upload, and the server reads the stored bytes itself each time. No parsed row is ever sent back.
 // One import has one request key, made when the person presses Import. It lives in the address (?import=), so a
 // lost reply or a reload reads the same import's receipt instead of starting a second one.
 
@@ -30,7 +33,23 @@ type State =
 	| { step: "upload"; checking: File | null; error: Notice | null }
 	| { step: "review"; review: Review; refusal: Notice | null }
 	| { step: "import"; review: Review | null; key: string; receipt: ImportReceipt | null; trouble: Notice | null }
-	| { step: "done"; review: Review | null; key: string; receipt: ImportReceipt };
+	| {
+			step: "done";
+			review: Review | null;
+			key: string;
+			receipt: ImportReceipt;
+			working: File | boolean;
+			problem: Notice | null;
+	  };
+type Done = Extract<State, { step: "done" }>;
+const done = (review: Review | null, key: string, receipt: ImportReceipt, problem: Notice | null = null): Done => ({
+	step: "done",
+	review,
+	key,
+	receipt,
+	working: false,
+	problem,
+});
 
 /** What the page found for ?import= when it loaded. */
 export type Initial =
@@ -49,6 +68,22 @@ async function call<T>(input: string, init?: RequestInit): Promise<Answer<T>> {
 		return { status: "lost" };
 	}
 }
+const post = (body: unknown): RequestInit => ({
+	method: "POST",
+	headers: { "Content-Type": "application/json" },
+	body: JSON.stringify(body),
+});
+/** Puts the file into the private bucket under a freshly signed upload: its id, or why not. */
+async function stage(file: File): Promise<Answer<string>> {
+	const signed = await call<ImportUpload>("/api/people/import/upload", post({ byteLength: file.size }));
+	if (signed.status !== "ok") return signed;
+	try {
+		const res = await fetch(signed.value.url, { method: "PUT", headers: signed.value.headers, body: file });
+		return res.ok ? { status: "ok", value: signed.value.uploadId } : { status: "lost" };
+	} catch {
+		return { status: "lost" };
+	}
+}
 const readReceipt = (key: string) => call<ImportReceipt>(`/api/people/import?key=${encodeURIComponent(key)}`);
 const address = (key: string | null) =>
 	window.history.replaceState(null, "", key ? `/people/import?import=${key}` : "/people/import");
@@ -59,7 +94,7 @@ export function ImportScreen({ initial }: { initial: Initial }) {
 	const [state, setState] = useState<State>(() => {
 		if (initial.kind === "receipt")
 			return finished(initial.receipt)
-				? { step: "done", review: null, key: initial.key, receipt: initial.receipt }
+				? done(null, initial.key, initial.receipt)
 				: { step: "import", review: null, key: initial.key, receipt: initial.receipt, trouble: null };
 		if (initial.kind === "lost")
 			return { step: "import", review: null, key: initial.key, receipt: null, trouble: LOST_CHECK };
@@ -89,43 +124,39 @@ export function ImportScreen({ initial }: { initial: Initial }) {
 			return;
 		}
 		setState({ step: "upload", checking: picked, error: null });
-		// The reviewed bytes stay in memory, so the import sends exactly what was previewed even if the file on disk
-		// changes or moves afterwards.
+		// The chosen bytes stay in memory, so checking again uploads the same file even if the one on disk changes or
+		// moves afterwards. The import names the upload that was previewed, never new bytes.
 		const file = new File([await picked.arrayBuffer()], picked.name, { type: "text/csv" });
-		const got = await call<Preview>("/api/people/import/preview", {
-			method: "POST",
-			headers: { "Content-Type": "text/csv" },
-			body: file,
-		});
-		if (got.status === "ok")
-			setState({
-				step: "review",
-				review: { file, preview: got.value, choices: suggestedChoices(got.value) },
-				refusal: null,
-			});
-		else
+		const refuse = (got: Exclude<Answer<unknown>, { status: "ok" }>) =>
 			setState({
 				step: "upload",
 				checking: null,
 				error: fileRefusal(got.status === "lost" ? "lost" : got.code, got.status === "refused" ? got.line : undefined),
 			});
+		const staged = await stage(file);
+		if (staged.status !== "ok") return refuse(staged);
+		const got = await call<Preview>("/api/people/import/preview", post({ uploadId: staged.value }));
+		if (got.status !== "ok") return refuse(got);
+		setState({
+			step: "review",
+			review: { file, uploadId: staged.value, preview: got.value, choices: suggestedChoices(got.value) },
+			refusal: null,
+		});
 	};
 
-	/** Sends the reviewed import under its key. The same key repeats it safely after a lost reply or a partial import. */
+	/** Sends the reviewed import under its key. The same key repeats it safely after a lost reply. */
 	const send = async (review: Review, key: string) => {
 		setState({ step: "import", review, key, receipt: null, trouble: null });
-		const form = new FormData();
-		form.set("file", review.file);
-		form.set(
-			"review",
-			JSON.stringify({
+		const got = await call<ImportReceipt>(
+			"/api/people/import",
+			post({
 				requestKey: key,
+				uploadId: review.uploadId,
 				fileDigest: review.preview.fileDigest,
 				reviewDigest: review.preview.reviewDigest,
 				choices: choicesPayload(review.choices),
 			}),
 		);
-		const got = await call<ImportReceipt>("/api/people/import", { method: "POST", body: form });
 		if (got.status === "ok") return settle(review, key, got.value);
 		if (got.status === "lost") return confirm(review, key);
 		address(null);
@@ -142,11 +173,31 @@ export function ImportScreen({ initial }: { initial: Initial }) {
 	};
 
 	const settle = (review: Review | null, key: string, receipt: ImportReceipt) =>
-		setState(
-			finished(receipt)
-				? { step: "done", review, key, receipt }
-				: { step: "import", review, key, receipt, trouble: null },
-		);
+		setState(finished(receipt) ? done(review, key, receipt) : { step: "import", review, key, receipt, trouble: null });
+
+	/**
+	 * "Try N rows again": from the server's kept copy, or with `picked`, the same file uploaded again once the copy is
+	 * deleted. A refusal reads the receipt again, so the screen shows whether the copy is still kept.
+	 */
+	const retry = async (s: Done, picked?: File) => {
+		const refuse = async (code: string) => {
+			const fresh = await readReceipt(s.key);
+			setState(done(s.review, s.key, fresh.status === "ok" ? fresh.value : s.receipt, retryRefusal(code)));
+		};
+		if (picked && picked.size > MAX_BYTES) return refuse("file_too_large");
+		setState({ ...s, working: picked ?? true, problem: null });
+		let uploadId: string | undefined;
+		if (picked) {
+			const staged = await stage(new File([await picked.arrayBuffer()], picked.name, { type: "text/csv" }));
+			if (staged.status !== "ok")
+				return setState({ ...s, problem: retryRefusal(staged.status === "lost" ? "lost" : staged.code) });
+			uploadId = staged.value;
+		}
+		const got = await call<ImportReceipt>("/api/people/import/retry", post({ requestKey: s.key, uploadId }));
+		if (got.status === "ok") return settle(s.review, s.key, got.value);
+		if (got.status === "lost") return confirm(s.review, s.key);
+		return refuse(got.code);
+	};
 
 	// While the job runs, read its receipt about once a second. A failed read waits longer, then tries again.
 	const running = state.step === "import" && state.receipt !== null ? state : null;
@@ -250,7 +301,9 @@ export function ImportScreen({ initial }: { initial: Initial }) {
 					heading={heading}
 					receipt={state.receipt}
 					review={state.review}
-					onRetry={state.review ? () => send(state.review!, state.key) : null}
+					working={state.working}
+					problem={state.problem}
+					onRetry={(file) => void retry(state, file)}
 					onStartOver={startOver}
 				/>
 			)}
@@ -259,5 +312,5 @@ export function ImportScreen({ initial }: { initial: Initial }) {
 }
 
 function next(s: Extract<State, { step: "import" }>, receipt: ImportReceipt): State {
-	return finished(receipt) ? { step: "done", review: s.review, key: s.key, receipt } : { ...s, receipt, trouble: null };
+	return finished(receipt) ? done(s.review, s.key, receipt) : { ...s, receipt, trouble: null };
 }

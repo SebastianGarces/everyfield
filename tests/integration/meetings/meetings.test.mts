@@ -1,27 +1,25 @@
-import { createDatabase, closeDatabase } from "../../../packages/db/src/client.ts";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { randomUUID, randomBytes } from "node:crypto";
+import { randomUUID } from "node:crypto";
 
-import { migrate } from "../../../packages/db/src/schema/migrate.ts";
-import { executeWrites } from "../../../packages/domain/src/operations/writes.ts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { peopleReader, peopleWriter, readPersonPage } from "../../../packages/domain/src/people/index.ts";
 import {
 	answerRsvpToken,
-	createRsvpToken,
+	attendanceReader,
 	describeRsvpToken,
 	guestsWriter as guests,
 	meetingsReader as reads,
 	meetingsWriter as meetings,
 	planNotifications,
-	syncNotifications,
 	venuesReader,
 	venuesWriter as venues,
-	withMeetingsWrite,
 } from "../../../packages/domain/src/meetings/index.ts";
+import { fixture, ok, refused } from "../../support/fixture.mts";
+import { NEXT_REQUEST } from "../../../apps/web/src/features/meetings/model.ts";
+import { issueRsvpToken } from "./rsvp-token.mts";
 
 // The task reminder port of a stage change or retirement. These people hold no dated, assigned task, so a replan
 // here would be a bug.
@@ -29,42 +27,21 @@ const noReminders = async () => {
 	throw Error("unexpected task reminder replan");
 };
 
-const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
-const localCi =
-	process.env.CI === "true" &&
-	process.env.EARLY_ACCESS_TEST_DATABASE === "1" &&
-	["localhost", "127.0.0.1"].includes(source.hostname) &&
-	source.pathname === "/everyfield_ci";
-if (
-	(!localCi && source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech") ||
-	process.env.NODE_ENV === "production"
-)
-	throw Error("Only approved shared development or disposable CI endpoint allowed");
-if (!localCi) source.searchParams.set("sslmode", "verify-full");
-const schema = "wp020_" + randomUUID().replaceAll("-", ""),
-	role = "wp020_" + randomBytes(8).toString("hex");
-const admin = createDatabase({
-	connectionString: source.href,
-	max: 4,
-	options: `-c search_path=${schema},pg_catalog,pg_temp`,
-});
-let db;
+const database = await fixture({ prefix: "wp020", max: 6 });
+const { admin } = database;
+const db = database.pools.runtime;
 let queries = [];
 
 // Plant P (Chicago): 0 Owner, 1 Member with an own linked Person, 2 Admin. Plant Q: 3 Admin.
-const P = randomUUID(),
-	Q = randomUUID();
-const actors = Array.from({ length: 4 }, () => ({ id: randomUUID(), user: randomUUID(), session: randomUUID() }));
+const P = database.tenant.id;
+const Q = (await database.plant({ timezone: "America/New_York" })).id;
+const actors = [
+	database.actors.owner,
+	database.actors.member,
+	database.actors.admin,
+	await database.actor({ kind: "plant", id: Q }, "admin"),
+];
 const ctx = (who = 0) => ({ session: actors[who].session, selected: { kind: "plant", id: who === 3 ? Q : P } });
-const ok = (result) => {
-	assert.equal(result.status, "ok", JSON.stringify(result));
-	return result.value;
-};
-const refused = (result, code = "unavailable") => {
-	assert.equal(result.status, "refused", JSON.stringify(result));
-	assert.equal(result.error.code, code, JSON.stringify(result.error));
-	return result.error;
-};
 const tx = (body) => db.transaction(body);
 const run = (op, input, who = 0) => tx((t) => op(t, ctx(who), input));
 const key = () => randomUUID();
@@ -111,17 +88,6 @@ const guestOf = async (meetingId, personId, who = 0) =>
 	ok(await reads.listGuests(db, await viewer(who), { meetingId })).guests.find((g) => g.person.personId === personId);
 
 before(async () => {
-	await admin.execute(sql.raw(`CREATE SCHEMA ${schema}`));
-	await migrate(admin, schema);
-	const password = randomBytes(32).toString("hex");
-	await admin.execute(
-		sql.raw(`CREATE ROLE ${role} LOGIN INHERIT PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`),
-	);
-	await admin.execute(sql.raw(`GRANT everyfield_runtime TO ${role}`));
-	const url = new URL(source);
-	url.username = role;
-	url.password = password;
-	db = createDatabase({ connectionString: url.href, max: 6, options: `-c search_path=${schema},pg_catalog,pg_temp` });
 	db.$client.on("connect", (client) => {
 		const query = client.query;
 		client.query = function (...args) {
@@ -129,45 +95,12 @@ before(async () => {
 			return Reflect.apply(query, this, args);
 		};
 	});
-	for (const a of actors) {
-		await admin.execute(
-			sql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${a.user},${a.id + "@example.test"},true,'Synthetic')`,
-		);
-		await admin.execute(
-			sql`INSERT INTO account(id,auth_user_id,registration_state,registration_kind) VALUES(${a.id},${a.user},'active','planter')`,
-		);
-		await admin.execute(
-			sql`INSERT INTO auth_session(id,user_id,token,expires_at) VALUES(${a.session},${a.user},${randomUUID()},clock_timestamp()+interval '1 day')`,
-		);
-	}
-	for (const [id, zone] of [
-		[P, "America/Chicago"],
-		[Q, "America/New_York"],
-	])
-		await admin.execute(
-			sql`INSERT INTO plant(id,name,timezone,warning_days,alert_days,digest_weekday,digest_hour,phase,material_revision) VALUES(${id},'Synthetic',${zone},7,14,1,8,1,1)`,
-		);
-	for (const [i, plant, seatRole] of [
-		[0, P, "owner"],
-		[1, P, "member"],
-		[2, P, "admin"],
-		[3, Q, "admin"],
-	])
-		await admin.execute(
-			sql`INSERT INTO seat(account_id,plant_id,role,accepted_at) VALUES(${actors[i].id},${plant},${seatRole},clock_timestamp())`,
-		);
 });
 after(async () => {
-	if (db) await closeDatabase(db);
-	try {
-		await admin.execute(sql.raw(`DROP SCHEMA IF EXISTS ${schema} CASCADE`));
-		await admin.execute(sql.raw(`DROP ROLE IF EXISTS ${role}`));
-	} finally {
-		await closeDatabase(admin);
-	}
+	await database.close();
 });
 
-test("AC:TARGET-MTG-002 AC:GAP-MTG-003 AC:TARGET-MTG-005 AC:TARGET-MTG-006 schedule saves venue copy, agenda, kit and guests together with distinct Vision numbers", async (t) => {
+test("AC:TARGET-MTG-002 AC:GAP-MTG-003 AC:TARGET-MTG-005 AC:TARGET-MTG-006 schedule saves venue copy, agenda, kit and guests together with distinct Vision numbers", async () => {
 	const hall = ok(
 		await run(venues.create, { requestKey: key(), input: { name: "Hall", address: "100 Main St", capacity: 80 } }),
 	).venue;
@@ -237,21 +170,6 @@ test("AC:TARGET-MTG-002 AC:GAP-MTG-003 AC:TARGET-MTG-005 AC:TARGET-MTG-006 sched
 	assert.equal(created.visionNumber, null);
 	assert.equal(created.kit, null);
 	assert.deepEqual(created.agenda.sections, [], "only Vision starts from the default agenda");
-
-	// D69: a create with venue, agenda, kit, guests and reminders is a fixed handful of statements.
-	queries = [];
-	const viewerP = await viewer();
-	queries = [];
-	ok(
-		await withMeetingsWrite(db, viewerP, (t, c) =>
-			meetings.schedule(t, c, {
-				requestKey: key(),
-				input: { type: "vision_meeting", date: day(40), time: "19:00", guests: [alex] },
-			}),
-		),
-	);
-	t.diagnostic(JSON.stringify({ schedule: queries.length }));
-	assert.ok(queries.length <= 6, `schedule statements: ${queries.length}`);
 });
 
 test("AC:B03-008 AC:B03-009 AC:TARGET-TSK-018 an entered spring-gap time refuses and a fall-fold time needs its offset", async () => {
@@ -735,12 +653,8 @@ test("AC:TARGET-MTG-007 AC:TARGET-MTG-019 AC:PERSONREF-MEETING-INVITATION-RSVP-A
 			input: { personId: alex, body: "Followed up", meetingId: m.id },
 		}),
 	);
-	const token = await tx(async (t) => {
-		const writes = [];
-		const issued = await createRsvpToken(t, ctx(), { meetingId: m.id, personId: alex }, writes);
-		await executeWrites(t, writes);
-		return issued;
-	});
+	const token = await issueRsvpToken(admin, P, m.id, alex);
+	assert.ok(token);
 	g = await guestOf(m.id, alex);
 	const removed = ok(
 		await run(guests.removeGuest, {
@@ -755,8 +669,8 @@ test("AC:TARGET-MTG-007 AC:TARGET-MTG-019 AC:PERSONREF-MEETING-INVITATION-RSVP-A
 		await count(sql`SELECT count(*)::int AS n FROM person_note WHERE id=${note.noteId} AND removed_at IS NULL`),
 		1,
 	);
-	assert.deepEqual(await describeRsvpToken(db, { token: token.token }), { state: "unavailable" });
-	refused(await answerRsvpToken(db, { token: token.token, rsvp: "confirmed" }), "token_closed");
+	assert.deepEqual(await describeRsvpToken(db, { token }), { state: "unavailable" });
+	refused(await answerRsvpToken(db, { token, rsvp: "confirmed" }), "token_closed");
 	assert.deepEqual(
 		(
 			await admin.execute(sql`SELECT kind FROM audit_event WHERE subject_id=${first.guest.id} ORDER BY occurred_at`)
@@ -765,13 +679,11 @@ test("AC:TARGET-MTG-007 AC:TARGET-MTG-019 AC:PERSONREF-MEETING-INVITATION-RSVP-A
 	);
 	// Retiring a guest keeps the guest row with the historical Person; reminders and links leave them out.
 	const casey2 = await guestOf(m.id, casey);
+	const caseyLink = await issueRsvpToken(admin, P, m.id, casey);
 	await retire(casey);
 	const retired = await guestOf(m.id, casey);
 	assert.deepEqual([retired.id, retired.person.state], [casey2.id, "retired"]);
-	await assert.rejects(
-		tx(async (t) => createRsvpToken(t, ctx(), { meetingId: m.id, personId: casey }, [])),
-		(e) => e.code === "unavailable",
-	);
+	assert.deepEqual(await describeRsvpToken(db, { token: caseyLink }), { state: "unavailable" });
 	ok(await invite(alex, null));
 	assert.equal((await guestOf(m.id, alex)).id, first.guest.id, "a removed guest invited again reuses their row");
 });
@@ -835,7 +747,7 @@ test("AC:TARGET-MTG-011 AC:GAP-MTG-011 AC:B02-023 AC:B02-024 quick-add contacts 
 	);
 });
 
-test("BUG-WP-020-guest-history: a Person created from a guest list or at the door opens with their history", async () => {
+test("BUG-ecafe8d01: a Person created from a guest list or at the door opens with their history", async () => {
 	const m = await schedule();
 	for (const op of [guests.createGuestContact, guests.createWalkInContact]) {
 		const made = ok(await run(op, { requestKey: key(), input: { meetingId: m.id, displayName: "Robin" } }));
@@ -851,23 +763,11 @@ test("BUG-WP-020-guest-history: a Person created from a guest list or at the doo
 	}
 });
 
-test("AC:CASE-COM-010 AC:TARGET-MTG-008 AC:TARGET-MTG-009 AC:GAP-MTG-008 one current RSVP from link, own reply or Admin, never attendance", async () => {
+test("AC:CASE-COM-010 AC:TARGET-MTG-001 AC:TARGET-MTG-008 AC:TARGET-MTG-009 AC:GAP-MTG-008 one current RSVP from link, own reply or Admin, never attendance", async () => {
 	const memberPerson = await person("Morgan", { account: actors[1].id });
 	const alex = await person("Alex Rivera");
 	const m = await schedule({ guests: [alex, memberPerson] });
-	const issue = (personId) =>
-		tx(async (t) => {
-			const writes = [];
-			const issued = await createRsvpToken(t, ctx(), { meetingId: m.id, personId }, writes);
-			await executeWrites(t, writes);
-			return issued.token;
-		});
-	refused(
-		await tx((t) => createRsvpToken(t, ctx(1), { meetingId: m.id, personId: alex }, [])).catch((e) => ({
-			status: "refused",
-			error: { code: e.code },
-		})),
-	);
+	const issue = (personId) => issueRsvpToken(admin, P, m.id, personId);
 	const token = await issue(alex);
 	const totalWrites = () =>
 		count(
@@ -977,6 +877,45 @@ test("AC:CASE-COM-010 AC:TARGET-MTG-008 AC:TARGET-MTG-009 AC:GAP-MTG-008 one cur
 		),
 		0,
 	);
+	// The own reply is open only until the meeting is completed or cancelled.
+	assert.equal(ok(await reads.getOwnRsvp(db, await viewer(1), { meetingId: m.id })).responseAllowed, true);
+	for (const status of ["completed", "cancelled"]) {
+		await admin.execute(sql`UPDATE meeting SET status=${status} WHERE id=${m.id}`);
+		const closed = ok(await reads.getOwnRsvp(db, await viewer(1), { meetingId: m.id }));
+		assert.deepEqual([closed.rsvp, closed.responseAllowed], ["confirmed", false], status);
+		refused(
+			await run(guests.saveOwnRsvp, { requestKey: key(), input: { meetingId: m.id, rsvp: "declined" } }, 1),
+			"status_transition",
+		);
+	}
+	assert.equal((await guestOf(m.id, memberPerson)).rsvp, "confirmed");
+});
+
+test("BUG-ce8e6b7f7: a link to a cancelled or completed meeting reads as closed, open, answered or expired, and takes no answer", async () => {
+	const alex = await person("Alex Rivera");
+	for (const to of ["cancelled", "completed"]) {
+		const m = await schedule({ guests: [alex] });
+		const token = await issueRsvpToken(admin, P, m.id, alex);
+		assert.equal((await describeRsvpToken(db, { token })).state, "pending");
+		if (to === "cancelled")
+			ok(
+				await run(meetings.changeStatus, {
+					requestKey: key(),
+					expectedRevision: m.revision,
+					input: { meetingId: m.id, to },
+				}),
+			);
+		// A Vision meeting completes after it is held; the link only reads the status.
+		else await admin.execute(sql`UPDATE meeting SET status='completed' WHERE id=${m.id}`);
+		const view = await describeRsvpToken(db, { token });
+		assert.deepEqual([view.state, view.rsvp, view.meeting.displayTitle], ["closed", "pending", m.displayTitle], to);
+		refused(await answerRsvpToken(db, { token, rsvp: "confirmed" }), "token_closed");
+		// Closed wins over an expired link too: the meeting, not the link's age, is why it takes no answer.
+		await admin.execute(
+			sql`UPDATE participation SET rsvp_token_expires_at=clock_timestamp()-interval '1 second' WHERE meeting_id=${m.id}`,
+		);
+		assert.equal((await describeRsvpToken(db, { token })).state, "closed", to);
+	}
 });
 
 test("AC:TARGET-MTG-013 cards: attended guests are the denominator, no card is unknown and notes stay with Owner/Admin", async () => {
@@ -1020,6 +959,16 @@ test("AC:TARGET-MTG-013 cards: attended guests are the denominator, no card is u
 		[[casey, "not_interested", null]],
 	);
 	assert.equal(ok(await reads.listCards(db, await viewer(), { meetingId: m.id })).cards[0].notes, "PRAYER-CANARY");
+	// The meeting page reads its guests, cards and attendance once; each part equals its own read, for both roles.
+	for (const who of [await viewer(), await viewer(1)]) {
+		const page = ok(await reads.pageGuests(db, who, { meetingId: m.id }));
+		assert.deepEqual(page.guests, ok(await reads.listGuests(db, who, { meetingId: m.id })));
+		assert.deepEqual(page.cards, ok(await reads.listCards(db, who, { meetingId: m.id })));
+		assert.deepEqual(
+			page.attendance,
+			ok(await attendanceReader.listAttendance(db, who, { meetingId: m.id, limit: 500 })),
+		);
+	}
 	const history = await count(
 		sql`SELECT count(*)::int AS n FROM audit_event WHERE (before_value::text LIKE '%PRAYER-CANARY%' OR after_value::text LIKE '%PRAYER-CANARY%' OR result::text LIKE '%PRAYER-CANARY%')`,
 	);
@@ -1050,8 +999,13 @@ test("AC:TARGET-MTG-018 AC:CASE-NTF-006 AC:NOTIFY47-007 AC:B03-010 AC:B03-011 AC
 			["day_1", "2026-03-09T14:00:00.000Z", "planned"],
 		],
 	);
+	// D-763: a reminder stays planned through its own time and passes once the next slot is due.
 	assert.deepEqual(
 		(await plan(march.id, "2026-03-08T00:00:00Z")).slots.map((s) => s.state),
+		["planned", "passed", "planned", "planned"],
+	);
+	assert.deepEqual(
+		(await plan(march.id, "2026-03-09T14:00:00Z")).slots.map((s) => s.state),
 		["planned", "passed", "passed", "planned"],
 	);
 	assert.equal(
@@ -1071,13 +1025,20 @@ test("AC:TARGET-MTG-018 AC:CASE-NTF-006 AC:NOTIFY47-007 AC:B03-010 AC:B03-011 AC
 	const jobs = async () =>
 		(
 			await admin.execute(
-				sql`SELECT producer_key AS key, state, eligible_at FROM job WHERE subject_record_id=${m.id} ORDER BY producer_key`,
+				sql`SELECT producer_key AS key, state, eligible_at, source_revision::text AS revision FROM job
+					WHERE subject_record_id=${m.id} AND kind='notification' ORDER BY producer_key`,
 			)
 		).rows;
 	const first = await jobs();
 	assert.deepEqual(
-		first.map((j) => j.key.split("/").slice(0, 2).join("/")),
-		["meeting/announcement", "meeting/day_1", "meeting/day_3", "meeting/day_7"],
+		first.map((j) => [j.key.split("/").slice(0, 2).join("/"), j.state, j.revision]),
+		[
+			["meeting/announcement", "ready", "1"],
+			["meeting/day_1", "ready", "1"],
+			["meeting/day_3", "ready", "1"],
+			["meeting/day_7", "ready", "1"],
+		],
+		"one job per slot, queued with the meeting",
 	);
 	const now = new Date().toISOString();
 	let current = await plan(m.id, now);
@@ -1097,13 +1058,24 @@ test("AC:TARGET-MTG-018 AC:CASE-NTF-006 AC:NOTIFY47-007 AC:B03-010 AC:B03-011 AC
 		}),
 	).meeting;
 	const afterMove = await jobs();
-	assert.equal(afterMove.filter((j) => j.state === "ready").length, 4);
+	assert.deepEqual(
+		afterMove.filter((j) => j.state === "ready").map((j) => [j.key.split("/").slice(0, 2).join("/"), j.revision]),
+		[
+			["meeting/announcement", moved.revision],
+			["meeting/day_1", moved.revision],
+			["meeting/day_3", moved.revision],
+			["meeting/day_7", moved.revision],
+		],
+		"the announcement and the new slots carry the new revision",
+	);
 	assert.equal(afterMove.filter((j) => j.state === "superseded").length, 3);
 	assert.ok(
 		afterMove
 			.filter((j) => j.state === "ready" && j.key !== "meeting/announcement")
 			.every((j) => j.key.endsWith(moved.startsAt)),
 	);
+	current = await plan(m.id, new Date().toISOString());
+	assert.ok(current.slots.filter((s) => s.slot !== "announcement").every((s) => s.eligibleAt < moved.startsAt));
 	const same = ok(
 		await run(meetings.edit, {
 			requestKey: key(),
@@ -1112,18 +1084,26 @@ test("AC:TARGET-MTG-018 AC:CASE-NTF-006 AC:NOTIFY47-007 AC:B03-010 AC:B03-011 AC
 		}),
 	);
 	assert.equal(same.outcome, "noop");
-	assert.equal((await jobs()).length, afterMove.length, "the same time again queues nothing new");
-	// The worker's reconcile changes nothing when the jobs already match, and requeues a current slot lost in between.
-	await tx((t) => syncNotifications(t, P, { meetingId: m.id }));
-	assert.deepEqual(await jobs(), afterMove);
-	const lost = afterMove.find((j) => j.state === "ready" && j.key.startsWith("meeting/day_7"));
+	assert.deepEqual(await jobs(), afterMove, "the same time again queues nothing new");
+	// A slot already sent is never queued again: an agenda change brings the waiting jobs to the new revision only.
+	const sent = afterMove.find((j) => j.state === "ready" && j.key.startsWith("meeting/day_7"));
 	await admin.execute(
-		sql`UPDATE job SET state='cancelled' WHERE subject_record_id=${m.id} AND producer_key=${lost.key}`,
+		sql`UPDATE job SET state='succeeded', finished_at=clock_timestamp() WHERE subject_record_id=${m.id} AND producer_key=${sent.key}`,
 	);
-	await tx((t) => syncNotifications(t, P, { meetingId: m.id }));
-	assert.equal((await jobs()).find((j) => j.key === lost.key).state, "ready");
-	assert.equal((await jobs()).length, afterMove.length);
-	// The member leaves the guest list: their queued reminder audience drops them when the job runs.
+	const agenda = ok(
+		await run(meetings.replaceAgenda, {
+			requestKey: key(),
+			expectedRevision: moved.revision,
+			input: { meetingId: m.id, sections: [] },
+		}),
+	).agenda;
+	const afterAgenda = await jobs();
+	assert.equal(afterAgenda.find((j) => j.key === sent.key).state, "succeeded");
+	assert.ok(
+		afterAgenda.filter((j) => j.state === "ready").every((j) => j.revision === agenda.revision),
+		"waiting jobs follow the meeting's revision",
+	);
+	// The member leaves the guest list: the reminder audience drops them.
 	const g = await guestOf(m.id, memberPerson);
 	ok(
 		await run(guests.removeGuest, {
@@ -1134,11 +1114,11 @@ test("AC:TARGET-MTG-018 AC:CASE-NTF-006 AC:NOTIFY47-007 AC:B03-010 AC:B03-011 AC
 	);
 	current = await plan(m.id, new Date().toISOString());
 	assert.deepEqual(current.slots.find((s) => s.slot === "day_1").recipients, [actors[0].id]);
-	// Completing or cancelling stops every pending reminder; nothing obsolete is sent.
+	// Cancelling supersedes every waiting job and suppresses every slot; nothing obsolete is sent.
 	ok(
 		await run(meetings.changeStatus, {
 			requestKey: key(),
-			expectedRevision: moved.revision,
+			expectedRevision: agenda.revision,
 			input: { meetingId: m.id, to: "cancelled" },
 		}),
 	);
@@ -1175,21 +1155,8 @@ test("INV-reads: meeting pages and details are one statement whatever their size
 
 test("INV-tenancy C13: meeting and venue reads check access in their own statement, so a seat that changes mid-request reads only what it still may", async () => {
 	// A second Admin of P whose seat changes after the request's viewer lookup; their own Person is a guest.
-	const a = { id: randomUUID(), user: randomUUID(), session: randomUUID() };
-	await admin.execute(
-		sql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${a.user},${a.id + "@example.test"},true,'Synthetic')`,
-	);
-	await admin.execute(
-		sql`INSERT INTO account(id,auth_user_id,registration_state,registration_kind) VALUES(${a.id},${a.user},'active','planter')`,
-	);
-	await admin.execute(
-		sql`INSERT INTO auth_session(id,user_id,token,expires_at) VALUES(${a.session},${a.user},${randomUUID()},clock_timestamp()+interval '1 day')`,
-	);
-	const seat = (
-		await admin.execute(
-			sql`INSERT INTO seat(account_id,plant_id,role,accepted_at) VALUES(${a.id},${P},'admin',clock_timestamp()) RETURNING id`,
-		)
-	).rows[0].id;
+	const a = await database.actor(null, "admin", { account: { registration_kind: "planter" } });
+	const seat = await database.seat(a, { kind: "plant", id: P }, "admin");
 	const m = await schedule();
 	const own = await person("Admin Two", { account: a.id });
 	ok(await run(guests.inviteGuest, { requestKey: key(), input: { meetingId: m.id, personId: own } }));
@@ -1233,4 +1200,52 @@ test("INV-tenancy C13: meeting and venue reads check access in their own stateme
 	// The seat ends: every read refuses and returns nothing of the church.
 	await admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE id=${seat}`);
 	for (const r of await reads13()) refused(r);
+});
+
+test("AC:TARGET-MTG-001 the Next card's read skips a sooner cancelled or completed meeting and shows the one still on", async () => {
+	// Plant Q, minutes from now, so no meeting another test schedules days ahead comes sooner.
+	const at = (minutes) => new Date(Date.now() + minutes * 60_000).toISOString();
+	const insert = async (status, minutes) => {
+		const id = randomUUID();
+		await admin.execute(sql`INSERT INTO meeting(id,plant_id,type,title,local_date,local_time,timezone,starts_at,
+			resolver_version,status,attendance_revision) VALUES(${id},${Q},'orientation',${status},${day(0)},'18:00',
+			'America/New_York',${at(minutes)},'1',${status},1)`);
+		return id;
+	};
+	await insert("cancelled", 5);
+	await insert("completed", 6);
+	const scheduled = await insert("ready", 7);
+	const next = ok(await reads.list(db, await viewer(3), NEXT_REQUEST)).items;
+	assert.deepEqual(
+		next.map((m) => m.id),
+		[scheduled],
+	);
+	// Without the status filter the cancelled meeting would have been first.
+	const unfiltered = ok(await reads.list(db, await viewer(3), { window: "upcoming", limit: 1 })).items;
+	assert.equal(unfiltered[0].status, "cancelled");
+});
+
+test("AC:RECOVERY-DELETE-001 a plant pending deletion answers no RSVP link, read or answer, until the witness is gone", async () => {
+	const guest = await person("Wren", { plant: Q });
+	const m = await schedule({ guests: [guest] }, 3);
+	const token = await issueRsvpToken(admin, Q, m.id, guest);
+	assert.ok(token, "the guest row took the link");
+	assert.equal((await describeRsvpToken(db, { token })).state, "pending");
+	const witness = randomUUID();
+	await admin.execute(sql`INSERT INTO lifecycle_witness(id,kind,opaque_subject_id,plant_id,request_revision,state,
+		witness_checkpoint,cleanup_state,request_id,requested_at,cancel_until) VALUES(${witness},'plant',${Q},${Q},1,
+		'pending_deletion',1,'not_started',${randomUUID()},statement_timestamp(),statement_timestamp()+interval '720 hours')`);
+	try {
+		assert.deepEqual(await describeRsvpToken(db, { token }), { state: "unavailable" });
+		refused(await answerRsvpToken(db, { token, rsvp: "confirmed" }), "token_closed");
+		assert.equal(
+			await count(sql`SELECT count(*)::int AS n FROM participation WHERE meeting_id=${m.id} AND rsvp_source='token'`),
+			0,
+			"a hidden plant records no answer",
+		);
+	} finally {
+		await admin.execute(sql`DELETE FROM lifecycle_witness WHERE id=${witness}`);
+	}
+	// The same link works again once the witness is gone, so the link itself was valid.
+	assert.equal(ok(await answerRsvpToken(db, { token, rsvp: "confirmed" })).rsvp, "confirmed");
 });

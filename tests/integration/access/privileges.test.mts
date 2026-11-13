@@ -5,6 +5,7 @@ import { readFile, mkdtemp, cp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { pathToFileURL } from "node:url";
 import { database, transaction, id, account, plant } from "./support.mts";
+import { waitingOnLock } from "../../support/fixture.mts";
 import { migrate, migrationArtifact } from "../../../packages/db/src/schema/migrate.ts";
 import { currentActor } from "../../../packages/domain/src/access/index.ts";
 
@@ -24,7 +25,7 @@ test("INV-privileges: fresh and upgraded grants converge without rewriting appli
 	try {
 		for (const name of ["0001_early_access.sql", "0002_baseline.sql"])
 			await cp(new URL("../../../packages/db/migrations/" + name, import.meta.url), dir + "/" + name);
-		await db.admin.execute(querySql.raw(`CREATE SCHEMA ${other}`));
+		await db.createSchema(other);
 		await migrate(db.admin, other, pathToFileURL(dir + "/"));
 		const oldACL = await permissions(db.admin, other);
 		assert.equal(
@@ -194,16 +195,7 @@ test("INV-revocation: a session revoke waits for an in-flight authority transact
 			await tx.execute(querySql`DELETE FROM auth_session WHERE id=${a.session}`);
 		});
 		await Promise.race([revokeReady, deleting]);
-		let observed = false;
-		for (let i = 0; i < 40; i++) {
-			const status = (await db.admin.execute(querySql`SELECT wait_event_type FROM pg_stat_activity WHERE pid=${pid}`))
-				.rows[0];
-			if (status?.wait_event_type === "Lock") {
-				observed = true;
-				break;
-			}
-		}
-		assert.equal(observed, true);
+		assert.equal(await waitingOnLock(db.admin, { pids: [pid] }), true);
 		release();
 		await active;
 		await deleting;
