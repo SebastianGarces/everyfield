@@ -118,7 +118,11 @@
 					"alsoAccepted": ["people.listPeople"]
 				}
 			],
-			"require": ["Kevin Walsh", "/already|exists|is in|found/i"]
+			"require": ["Kevin Walsh", "/already|exists|is in|found/i"],
+			"finding": {
+				"checks": ["says /already|exists|is in|found/i"],
+				"note": "T-324 (D-1153): after the Evry Wiki tools joined the tool list, the re-recorded model answer misses these checks; recorded as a finding under the owner's standing rule for re-records (D-958, D-1151)."
+			}
 		}
 	},
 	{
