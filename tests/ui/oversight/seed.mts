@@ -25,9 +25,20 @@ type Owner = { kind: "plant"; id: string } | { kind: "organization"; id: string;
 type OrgKind = "sending_church" | "sending_network";
 type Account = { cookie: string; accountId: string; sessionId: string; email: string };
 
-async function up(origin: string) {
-	const env = await openSeedEnvironment(origin);
-	const { admin, runtime, authDb, secret } = env;
+type Database = Awaited<ReturnType<typeof openSeedEnvironment>>["admin"];
+/**
+ * The example's accounts, organizations, plants, links and records in the schema `admin` and `runtime` are pinned to,
+ * signed in for `origin` with `secret`. `address(n)` is the n-th sign-up address. Returns the fixture data.
+ */
+export async function seedOversight(env: {
+	admin: Database;
+	runtime: Database;
+	authDb: Database;
+	secret: string;
+	origin: string;
+	address: (n: number) => string;
+}) {
+	const { admin, runtime, authDb, secret, origin } = env;
 	let ip = 1;
 	const identity = createIdentityService({
 		db: runtime,
@@ -36,7 +47,7 @@ async function up(origin: string) {
 		scheduleDelivery: () => {},
 		origin,
 		secret,
-		trustedIp: () => env.loopback("oversight", ip),
+		trustedIp: () => env.address(ip),
 		enqueueMail: async () => {},
 		diagnostic: () => {},
 	});
@@ -174,7 +185,11 @@ async function up(origin: string) {
 			async invitation(_tx, v) {
 				proofs.set(v.invitationId, v.proof);
 			},
-			invalidate: () => sql`SELECT 1`,
+			// As the production mount: ending or changing a link stops queued digest work that read the old grant.
+			invalidate: (_tx, v) =>
+				sql`UPDATE job SET state='superseded',claim_generation=claim_generation+1,lease_owner=NULL,lease_until=NULL,
+				revision=revision+1,finished_at=clock_timestamp() WHERE subject_record_id=${v.sourceId} AND kind='digest'
+				AND state IN ('ready','retry_wait','claimed')`,
 		},
 		{ candidates: async () => [] },
 	);
@@ -199,8 +214,8 @@ async function up(origin: string) {
 			).rows[0]!.revision,
 		);
 	/**
-	 * `subject` asks `org` to connect and `org`'s owner approves; then the subject turns off every category not in
-	 * `shared`. Returns the relationship id.
+	 * `subject` asks `org` to connect, addressed to `orgOwner` (an Owner or Admin there), who approves; then the subject
+	 * turns off every category not in `shared`. An address takes three requests in 30 days. Returns the relationship id.
 	 */
 	async function link(
 		subject: Owner,
@@ -224,19 +239,23 @@ async function up(origin: string) {
 		})) as { status: string; relationship: { id: string } };
 		if (accepted.status !== "accepted") throw Error(`accept: ${JSON.stringify(accepted)}`);
 		const id = accepted.relationship.id;
-		if (shared !== "all" && subject.kind === "plant") {
-			let consent = 1;
-			for (const category of ["people", "meetings", "tasks", "ministry_teams", "wiki", "activity", "shared_findings"])
-				if (!shared.includes(category))
-					await write(subjectOwner, subject, "privacy.setSharing", await subjectRevision(subject), {
-						plant: subject,
-						organization: org,
-						relationshipId: id,
-						category,
-						enabled: false,
-						expectedConsentRevision: String(consent++),
-					});
-		}
+		if (shared !== "all" && subject.kind === "plant")
+			for (const category of ["people", "meetings", "tasks", "ministry_teams", "wiki", "activity", "shared_findings"]) {
+				if (shared.includes(category)) continue;
+				const [now] = (
+					await admin.execute(
+						sql`SELECT revision::text AS revision, consent_revision::text AS consent FROM affiliation WHERE id=${id}`,
+					)
+				).rows as { revision: string; consent: string }[];
+				await write(subjectOwner, subject, "privacy.setSharing", now!.revision, {
+					plant: subject,
+					organization: org,
+					relationshipId: id,
+					category,
+					enabled: false,
+					expectedConsentRevision: now!.consent,
+				});
+			}
 		return id;
 	}
 
@@ -281,6 +300,8 @@ async function up(origin: string) {
 		["Eli Park", "interviewed"],
 	] as const)
 		hpPeople.push(await person(dana, hp, n, stage));
+	// Contact details the oversight pages must never show.
+	await admin.execute(sql`UPDATE person SET phone='512-555-0142', street='12 Private Lane' WHERE id=${marcus}`);
 	await admin.execute(sql`UPDATE team_tenure SET ended_on=current_date WHERE plant_id=${hp.id} AND ended_on IS NULL`);
 	await admin.execute(sql`INSERT INTO team_tenure(plant_id,role_id,person_id,started_on)
 		SELECT ${hp.id}, (s.lead->'assignment'->>'roleId')::uuid, ${marcus}, current_date FROM onboarding_setup s
@@ -394,8 +415,8 @@ async function up(origin: string) {
 	await link(hp, dana, grace, paul);
 	await link(ec, priya, network, ruth);
 	await link(ec, priya, grace, paul);
-	await link(mf, ben, network, ruth, ["people"]);
-	await link(oc, grace2, network, ruth, ["tasks"]);
+	await link(mf, ben, network, sam, ["people"]);
+	await link(oc, grace2, network, sam, ["tasks"]);
 	await link(bayou, remy, gulf, gulfOwner);
 	await link(westlake, westlakeOwner, grace, paul);
 	await link(westlake, westlakeOwner, gulf, gulfOwner);
@@ -412,7 +433,7 @@ async function up(origin: string) {
 	}
 
 	const seat = (a: Account) => ({ cookie: a.cookie, accountId: a.accountId, email: a.email });
-	const fixture = writeFixture("oversight", env.schema, {
+	return {
 		origin,
 		password: PASSWORD,
 		seats: {
@@ -433,7 +454,13 @@ async function up(origin: string) {
 			westlake: westlake.id,
 		},
 		harvestPointPerson: marcus,
-	});
+	};
+}
+
+async function up(origin: string) {
+	const env = await openSeedEnvironment(origin);
+	const data = await seedOversight({ ...env, origin, address: (n) => env.loopback("oversight", n) });
+	const fixture = writeFixture("oversight", env.schema, data);
 	await env.close();
 	console.log(JSON.stringify({ schema: env.schema, fresh: env.fresh, fixture }));
 }
@@ -441,4 +468,4 @@ async function up(origin: string) {
 const [action, arg] = process.argv.slice(2);
 if (action === "up" && arg) await up(arg.replace(/\/$/, ""));
 else if (action === "down") console.log(JSON.stringify(await dropSeed("oversight")));
-else throw Error("Usage: seed.mts up <preview-url> | down");
+else if (action !== undefined) throw Error("Usage: seed.mts up <preview-url> | down");

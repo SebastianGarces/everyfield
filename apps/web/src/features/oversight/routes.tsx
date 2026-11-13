@@ -7,7 +7,7 @@ import {
 	type Loaded,
 	type OversightViewer,
 } from "@/server/oversight";
-import { Button, Card, Skeleton, StatePanel } from "@everyfield/ui/controls";
+import { Button, Card, StatePanel } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import type { ReactNode } from "react";
@@ -16,7 +16,8 @@ import { DirectoryScreen, PlantScreen, RosterScreen, SendingChurchScreen } from 
 
 // The /network routes (WP-047a): the organization home, one plant, and a network's sending churches.
 // apps/web/src/app/(product)/(frame)/network/ only re-exports these. A plant this organization is not linked to now, a
-// plant that does not exist and a sending church a network does not have all render the same not-found page.
+// plant that does not exist and a sending church a network does not have all render the same not-found page, with a 404
+// status: the pages have no loading boundary, so nothing streams before the read decides.
 
 const hidden = { robots: { index: false, follow: false } } as const;
 export const networkMetadata: Metadata = { title: "Plants", ...hidden };
@@ -88,18 +89,5 @@ export async function SendingChurchPage({ params }: Params<"churchId">) {
 	const { churchId } = await params;
 	return organizationOnly(`/network/sending-churches/${churchId}`, async (viewer) =>
 		shown(await loadSendingChurch(viewer, churchId), (church) => <SendingChurchScreen church={church} />),
-	);
-}
-
-/** The first paint while a /network page loads: its shape, not a spinner. */
-export function NetworkLoading() {
-	return (
-		<div aria-busy="true" className="flex flex-col gap-5">
-			<span className="sr-only" role="status">
-				Loading
-			</span>
-			<Skeleton className="h-14 w-72 rounded-card" />
-			<Skeleton className="h-80 rounded-card" />
-		</div>
 	);
 }

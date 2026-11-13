@@ -27,9 +27,15 @@ const DAY = new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeZone: "U
 export const calendarDate = (date: string) => DAY.format(new Date(`${date}T00:00:00Z`));
 export const launchLabel = (date: string | null) => (date ? calendarDate(date) : "Not set");
 
+/** The directory's Linked column: "Directly" or "Through Grace Austin". */
 export function provenanceLabel(row: Pick<PlantDirectoryRow, "provenance">): string {
 	const p = row.provenance;
 	return p.kind === "direct" ? "Directly" : `Through ${listOf(p.sendingChurches)}`;
+}
+/** The same in a sentence: "Linked directly" or "Linked through Grace Austin". */
+export function linkedLabel(row: Pick<PlantDirectoryRow, "provenance">): string {
+	const p = row.provenance;
+	return p.kind === "direct" ? "Linked directly" : `Linked through ${listOf(p.sendingChurches)}`;
 }
 
 export const leadLabel = (row: Pick<PlantDirectoryRow, "leadPlanter">) => row.leadPlanter ?? "No lead planter named";

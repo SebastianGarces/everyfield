@@ -38,6 +38,7 @@ import {
 	HOME_HEADING,
 	launchLabel,
 	leadLabel,
+	linkedLabel,
 	locality,
 	phaseLabel,
 	plural,
@@ -182,9 +183,11 @@ export function DirectoryScreen({ directory, kind }: { directory: PlantDirectory
 				<h2 id="plants-title" className="font-title text-title-sm tracking-[-0.02em] text-ink">
 					{HOME_HEADING[kind]}
 				</h2>
-				<p className="mt-1 mb-3 text-text-2">In order of name. Select a plant to see what it shares with you.</p>
 				{plants.length ? (
-					<PlantList plants={plants} caption={HOME_HEADING[kind]} />
+					<>
+						<p className="mt-1 mb-3 text-text-2">In order of name. Select a plant to see what it shares with you.</p>
+						<PlantList plants={plants} caption={HOME_HEADING[kind]} />
+					</>
 				) : (
 					<EmptyState
 						icon={ChurchIcon}
@@ -230,15 +233,13 @@ export function PlantScreen({ view }: { view: PlantView }) {
 		<div className="flex flex-col">
 			<PageHeader
 				breadcrumb={[{ label: "Plants", href: "/network" }, { label: plant.name }]}
-				title={
-					<span className="flex flex-wrap items-center gap-3">
-						{plant.name}
-						<Tag className="align-middle">{phaseLabel(plant.phase)}</Tag>
+				title={plant.name}
+				subtitle={
+					<span className="flex flex-wrap items-center gap-x-3 gap-y-2">
+						<Tag>{phaseLabel(plant.phase)}</Tag>
+						{[place, `Lead planter: ${leadLabel(plant)}`, linkedLabel(plant)].filter(Boolean).join(" · ")}
 					</span>
 				}
-				subtitle={[place, `Lead planter: ${leadLabel(plant)}`, `Linked ${provenanceLabel(plant).toLowerCase()}`]
-					.filter(Boolean)
-					.join(" · ")}
 				actions={
 					<StatusBadge plain>
 						<Icon icon={ShieldUserIcon} size={16} />
@@ -388,7 +389,8 @@ function SectionCounts({
 						))}
 					</div>
 					<p className="mt-2 text-sm text-text-3">
-						{plural(m.attendedTotal, "attendance")} at the last {plural(m.meetings.length, "meeting")}
+						Attendance at the last {plural(m.meetings.length, "meeting")} · {m.attendedTotal.toLocaleString("en-US")} in
+						total
 					</p>
 				</>
 			);
