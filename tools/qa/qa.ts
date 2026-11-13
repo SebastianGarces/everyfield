@@ -365,8 +365,14 @@ export function qaDown(root: string, id: string): number {
 	const removed: string[] = [];
 	if (stopDriver(root, id, row?.driver_pid)) removed.push("scheduled-send driver");
 	if (row?.deployment) {
-		tool(redactor, "vercel", ["alias", "rm", aliasHost(id), "--yes", "--scope", VERCEL.orgId], { allow: NOT_FOUND });
-		tool(redactor, "vercel", ["remove", row.deployment, "--yes", "--scope", VERCEL.orgId], { allow: NOT_FOUND });
+		// Vercel CLI 65 refuses --yes from an agent; --confirm-name approves by naming the target exactly as passed.
+		const alias = aliasHost(id);
+		tool(redactor, "vercel", ["alias", "rm", alias, "--confirm-name", alias, "--scope", VERCEL.orgId], {
+			allow: NOT_FOUND,
+		});
+		tool(redactor, "vercel", ["remove", row.deployment, "--confirm-name", row.deployment, "--scope", VERCEL.orgId], {
+			allow: NOT_FOUND,
+		});
 		removed.push("alias", "deployment");
 	}
 	const branch = neonBranches(redactor).find((b) => b.name === id);

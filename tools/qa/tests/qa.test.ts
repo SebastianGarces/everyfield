@@ -132,13 +132,21 @@ if (fs.existsSync(path.join(S, "FAIL_SEED"))) {
 	if (fs.existsSync(path.join(S, "FAIL_CRON"))) { process.stdout.write("Unauthorized\\nqa-cron-http:401\\n"); process.exit(0); }
 	process.stdout.write('{"status":"ok","messages":1}\\nqa-cron-http:200\\n');
 } else if (a[0] === "alias" && a[1] === "set") write("alias.json", { [a[3]]: a[2] });
-else if (a[0] === "alias" && a[1] === "rm") {
-	const aliases = fs.existsSync(path.join(S, "alias.json")) ? read("alias.json") : {};
-	if (!aliases[a[2]]) { console.error("Error: The alias " + a[2] + " was not found"); process.exit(1); }
-	write("alias.json", {});
-} else if (a[0] === "remove") {
-	if (fs.existsSync(path.join(S, "removed"))) { console.error("Error: Deployment not found"); process.exit(1); }
-	fs.writeFileSync(path.join(S, "removed"), a[1]);
+else if ((a[0] === "alias" && a[1] === "rm") || a[0] === "remove") {
+	// As Vercel CLI 65 off a TTY: --yes approves nothing; --confirm-name must name the target exactly as passed.
+	const target = a[0] === "remove" ? a[1] : a[2];
+	if (a.includes("--yes") || !a.includes("--confirm-name") || a[a.indexOf("--confirm-name") + 1] !== target) {
+		console.log(JSON.stringify({ status: "action_required", reason: "confirmation_required", message: "Can't delete " + target + " without approval." }));
+		process.exit(2);
+	}
+	if (a[0] === "alias") {
+		const aliases = fs.existsSync(path.join(S, "alias.json")) ? read("alias.json") : {};
+		if (!aliases[target]) { console.error('Error: Alias not found by "' + target + '" under team'); process.exit(1); }
+		write("alias.json", {});
+	} else {
+		if (fs.existsSync(path.join(S, "removed"))) { console.error('> Could not find any deployments or projects matching "' + target + '".'); process.exit(1); }
+		fs.writeFileSync(path.join(S, "removed"), target);
+	}
 }`,
 	);
 	const qa = (...args: string[]) =>
@@ -312,6 +320,28 @@ test("INV-qa-secrets: qa up, list and down keep every secret out of output, the 
 		for (const [where, text] of seen)
 			for (const secret of secrets) assert.ok(!text.includes(secret), `a secret reached ${where}`);
 		assert.deepEqual(readdirSync(s.temp), [], "the deploy checkout is removed");
+	} finally {
+		s.done();
+	}
+});
+
+test("INV-qa-preview: qa down approves Vercel removals by name and finishes a preview whose alias and deployment are gone", () => {
+	const s = setup();
+	try {
+		const up = s.qa("up", "feature/nora-qa");
+		assert.equal(up.status, 0, up.stderr);
+		const id = /^QA preview (qa-\S+)$/.exec(up.stdout.trim().split("\n")[0]!)?.[1];
+		assert.ok(id, up.stdout);
+		const deployment = "https://everyfield-abc123-team.vercel.app";
+		// Half removed: the alias and the deployment went by hand; the driver, Neon branch and record remain.
+		writeFileSync(join(s.state, "alias.json"), "{}");
+		writeFileSync(join(s.state, "removed"), deployment);
+
+		const down = s.qa("down", id);
+		assert.equal(down.status, 0, down.stderr);
+		assert.match(down.stdout, new RegExp(`^Removed QA preview ${id}: .*Neon branch ${id}\\.$`, "m"));
+		assert.deepEqual(s.stubState("branches.json"), BRANCHES);
+		assert.equal(s.qa("list").stdout.trim(), "No open QA previews.");
 	} finally {
 		s.done();
 	}
