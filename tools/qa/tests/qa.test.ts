@@ -1110,7 +1110,7 @@ async function until(ready: () => boolean, what = "not ready", ms = 10_000): Pro
 /**
  * Once a minute, on the host's own schedule: each minute it plans is the next minute's start plus the offset, a preview's
  * first call starts at once, and from then on it gets exactly one call for every planned minute, never before that
- * minute. Two calls in a minute, a skipped minute or a call ahead of its minute fail; a host that runs late does not.
+ * minute starts. Two calls in a minute, a skipped minute or a call ahead of its minute fail; a host that runs late does not.
  */
 function assertOnceAMinute(
 	host: { plans: () => { at: number; due: number }[]; ticks: (id: string) => { at: number; due: number | "now" }[] },
@@ -1125,7 +1125,11 @@ function assertOnceAMinute(
 		);
 	assert.equal(pickup?.due, "now", `${id}'s first call did not start at once`);
 	for (const c of calls)
-		assert.ok(typeof c.due === "number" && c.at >= c.due, `${id} got a call at ${c.at} ahead of its minute ${c.due}`);
+		// Timers may fire a millisecond before Date.now() reaches their due time, so the bound is the minute's start.
+		assert.ok(
+			typeof c.due === "number" && c.at >= c.due - TEST_OFFSET,
+			`${id} got a call at ${c.at}, before its minute ${c.due} began`,
+		);
 	const dues = calls.map((c) => c.due as number),
 		planned = plans.map((p) => p.due).filter((due) => due >= dues[0]! && due <= dues.at(-1)!);
 	assert.deepEqual(dues, planned, `${id} did not get exactly one call in each planned minute`);
