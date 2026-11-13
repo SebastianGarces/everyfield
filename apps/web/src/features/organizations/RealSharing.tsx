@@ -1,14 +1,23 @@
 "use client";
 
-import type { pipelineAggregateAccessResult } from "@everyfield/contracts/organizations";
+import type { pipelineAggregateAccessResult, pipelineConsentResult } from "@everyfield/contracts/organizations";
 import { PageHeader } from "@everyfield/ui/controls";
 import { useMemo } from "react";
 import type { z } from "zod";
 import { Connections, type ConnectionsData } from "./Connections";
 import type { InviteTarget } from "./InviteDialog";
 import { PipelineAccessNote, PipelineTotals } from "./Pipeline";
-import { createNames, readResidency, readSharing, realRun, saveSharingChoice } from "./real";
-import { ResidencySharing } from "./Residency";
+import {
+	createNames,
+	readConsent,
+	readResidency,
+	readSharing,
+	realRun,
+	saveConsent,
+	saveResidency,
+	saveSharingChoice,
+} from "./real";
+import { ResidencySharing, type ResidencyRow } from "./Residency";
 
 export type SharingPageData = {
 	kind: "plant" | "sending_church" | "sending_network" | "discovery" | "account";
@@ -17,11 +26,11 @@ export type SharingPageData = {
 	revision: string;
 	names: Record<string, string>;
 	targets: InviteTarget[];
-	/** Sending church only: its current network connections, for the pipeline totals opt-in. */
-	networks: { relationshipId: string; name: string }[];
+	/** Sending church Owners and Admins only: each current network connection's pipeline totals opt-in. */
+	pipeline: { networkName: string; consent: Extract<z.infer<typeof pipelineConsentResult>, { status: "available" }> }[];
 	/** Network only: whether combined pipeline totals could be shown (S0 check). */
 	aggregate: z.infer<typeof pipelineAggregateAccessResult> | null;
-	residencies: { linkId: string; organizationName: string }[];
+	residencies: ({ linkId: string; organizationName: string } & ResidencyRow)[];
 	/** The connections list read with the page; null for a seatless account, which has no list. */
 	connections: ConnectionsData | null;
 };
@@ -65,24 +74,26 @@ export function RealSharing({ data }: { data: SharingPageData }) {
 					}
 				/>
 			)}
-			{data.canManage
-				? data.networks.map((n) => (
-						<PipelineTotals
-							key={n.relationshipId}
-							relationshipId={n.relationshipId}
-							networkName={n.name}
-							canManage={data.canManage}
-							run={realRun}
-						/>
-					))
-				: null}
+			{data.pipeline.map(({ networkName, consent }) => (
+				<PipelineTotals
+					key={consent.relationshipId}
+					relationshipId={consent.relationshipId}
+					networkName={networkName}
+					canManage={data.canManage}
+					initial={consent}
+					read={readConsent}
+					save={saveConsent}
+				/>
+			))}
 			{data.aggregate ? <PipelineAccessNote access={data.aggregate} /> : null}
-			{data.residencies.map((r) => (
+			{data.residencies.map(({ linkId, organizationName, sharing, linkRevision }) => (
 				<ResidencySharing
-					key={r.linkId}
-					linkId={r.linkId}
-					organizationName={r.organizationName}
+					key={linkId}
+					linkId={linkId}
+					organizationName={organizationName}
+					initial={{ sharing, linkRevision }}
 					read={readResidency}
+					save={saveResidency}
 					run={realRun}
 				/>
 			))}

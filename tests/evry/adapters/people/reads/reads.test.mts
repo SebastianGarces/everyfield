@@ -1,10 +1,11 @@
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { invokeRead } from "../../../../../packages/evry/src/index.ts";
+import { invokeRead, readCatalog } from "../../../../../packages/evry/src/index.ts";
 import {
 	checkForDuplicates,
 	getPersonPhoto,
+	listDuplicatePairs,
 	verifyPeople,
 } from "../../../../../packages/evry/src/adapters/people/reads/index.ts";
 import {
@@ -180,4 +181,84 @@ test("AC:AC-EVR-108--EVR-108 AC:AC-EVR-READ--EVR-108 duplicate hints match norma
 	);
 	assert.equal(counted(start), 1);
 	assert.ok(jordan);
+});
+
+test("AC:TARGET-PPL-016 the import review pairs read lists this church's open pairs, oldest first, with exact completeness, for an Owner or Admin only", async () => {
+	let at = 0;
+	const add = async (tenant: string, name: string, state = "live") => {
+		const id = randomUUID();
+		await admin.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,source,created_at,stage,adult_classification,commitment_state,pipeline_position,state,retired_at)
+			VALUES(${id},${tenant},${tenant},${name},'other',clock_timestamp()+make_interval(secs=>${++at}),'prospect','unknown','unknown',4000,${state},${state === "retired" ? new Date() : null})`);
+		return id;
+	};
+	// An import's people.created audit row, as the import writes it: the existing person to review against.
+	const imported = async (tenant: string, name: string, reviewWith: string | null, state = "live") => {
+		const id = await add(tenant, name, state);
+		await admin.execute(sql`INSERT INTO audit_event(tenant_id,actor_id,action,kind,subject_type,subject_id,after_revision,metadata)
+			VALUES(${tenant},${accounts.owner.id},'people.created','create','person',${id},1,
+				${JSON.stringify({ import: reviewWith ? { row: 1, reviewWith } : { row: 1 } })}::jsonb)`);
+		return id;
+	};
+	const pat = await add(plant, "Pat Quill");
+	const patImported = await imported(plant, "Pat Quil", pat);
+	const robin = await add(plant, "Robin Vale");
+	const robinImported = await imported(plant, "Robin Vail", robin);
+	// Not listed: a pair marked "Not a duplicate", an import row with nobody to review, a retired imported person and
+	// another church's pair.
+	const lee = await add(plant, "Lee Marsh");
+	const leeImported = await imported(plant, "Lee Marshe", lee);
+	await admin.execute(
+		sql`INSERT INTO person_duplicate_dismissal(plant_id,person_id,with_person_id) VALUES(${plant},${leeImported},${lee})`,
+	);
+	await imported(plant, "Nia Fresh", null);
+	await imported(plant, "Pat Quille", pat, "retired");
+	const quinn = await add(otherPlant, "Quinn Stone");
+	await imported(otherPlant, "Quinn Stoan", quinn);
+
+	const owner = await actor("owner");
+	const start = queries.length;
+	assert.deepEqual(await invokeRead(db, owner, listDuplicatePairs, {}), {
+		operation: "people.listDuplicatePairs",
+		status: "available",
+		rows: [
+			{
+				kind: "person",
+				id: patImported,
+				label: "Pat Quil",
+				fields: { mayDuplicateId: pat, mayDuplicate: "Pat Quill" },
+			},
+			{
+				kind: "person",
+				id: robinImported,
+				label: "Robin Vail",
+				fields: { mayDuplicateId: robin, mayDuplicate: "Robin Vale" },
+			},
+		],
+		total: 2,
+		page: 1,
+		next: null,
+		completeness: "complete",
+		exclusions: ["pairs marked not a duplicate", "retired or merged people", "pairs no import flagged"],
+	});
+	// The read timeout and one native statement, which checks the live Owner or Admin seat itself.
+	assert.equal(counted(start), 2);
+
+	// The other church's Admin sees only its own pair.
+	const foreign = await invokeRead(db, await actor("foreign"), listDuplicatePairs, {});
+	assert.deepEqual(
+		foreign.rows.map((r) => [r.label, r.fields.mayDuplicate]),
+		[["Quinn Stoan", "Quinn Stone"]],
+	);
+
+	// A Member is never offered the tool, and a forced call is refused before any read.
+	const member = await actor("member");
+	const offered = (a: typeof member) => readCatalog(a).domains.flatMap((d) => d.operations.map((o) => o.operation));
+	assert.ok(offered(owner).includes("people.listDuplicatePairs"));
+	assert.ok(!offered(member).includes("people.listDuplicatePairs"));
+	const before = queries.length;
+	await assert.rejects(
+		() => invokeRead(db, member, listDuplicatePairs, {}),
+		(e: { code?: string }) => e.code === "access_denied",
+	);
+	assert.equal(counted(before), 0);
 });

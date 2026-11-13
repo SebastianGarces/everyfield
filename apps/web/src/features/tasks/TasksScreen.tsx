@@ -2,8 +2,6 @@
 
 import {
 	Add01Icon,
-	ArrowTurnBackwardIcon,
-	Cancel01Icon,
 	Delete02Icon,
 	FilterHorizontalIcon,
 	LockKeyIcon,
@@ -65,7 +63,7 @@ import {
 	type StatusAction,
 } from "./actions.ts";
 import { BulkBar, BulkReport, type Report } from "./bulk.tsx";
-import { loadBlocking, loadTask, relationOptions, type Loaded as TaskLoad } from "./fetch.ts";
+import { loadBlocking, loadRows, loadTask, relationOptions, type Loaded as TaskLoad } from "./fetch.ts";
 import {
 	BadgeReads,
 	blocks,
@@ -76,6 +74,7 @@ import {
 	matches,
 	NO_PENDING,
 	PENDING_PREFIX,
+	bulkActions,
 	shownRows,
 	withChange,
 	CATEGORIES,
@@ -111,22 +110,29 @@ import {
 	type TaskItem,
 	type TaskQuery,
 	type BulkResult,
+	type OpenOffer,
 	type DueInput,
 	type Prerequisite,
 	type Rule,
 	type Step,
+	type Viewer,
 } from "./model.ts";
-import { Assignee, DoneBox, intentHandlers, MetaLine } from "./parts.tsx";
+import { DescriptionPreview } from "./description.ts";
+import { Assignee, DoneBox, intentHandlers, MetaLine, StatusItems } from "./parts.tsx";
 import type { StepAssignee } from "./structure.tsx";
-import { TaskDialog, warmAssignees, type Commit, type EditForm } from "./TaskDialog.tsx";
+import { warmAssignees } from "./AssigneePicker.tsx";
+import { TaskDialog, type Commit, type EditForm } from "./TaskDialog.tsx";
 import { TaskSheet, type DetailState, type PanelEdit } from "./TaskSheet.tsx";
+import { PhaseOffer } from "./PhaseOffer.tsx";
+import { Templates } from "./Templates.tsx";
 
-export type Viewer = { accountId: string; role: "owner" | "admin" | "member"; name: string | null };
 type Loaded = {
 	query: TaskQuery;
 	page: { items: TaskItem[]; total: number; page: number };
 	counts: TaskCounts;
 	opened: TaskLoad | null;
+	/** The open phase offer for an Owner or Admin, or null. */
+	offer: OpenOffer | null;
 };
 
 const GROUP: Record<Group["key"], { label: string; tone: "risk" | "measured" | "unknown" | "positive" } | null> = {
@@ -289,6 +295,14 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 	const [deleting, setDeleting] = useState<TaskItem | null>(null);
 	const loading = useRef(new Set<string>());
 	const query = loaded.query;
+	/** Tasks a checklist import or a phase offer just created: listed and counted when they match the query. */
+	const addTasks = (tasks: TaskItem[]) => {
+		const fresh = tasks.filter((t) => matches(query, t, viewer.accountId));
+		if (!fresh.length) return;
+		setItems((rows) => [...fresh, ...rows]);
+		setCounts((c) => fresh.reduce((n, t) => countsAfter(n, null, t), c));
+		setTotal((t) => t + fresh.length);
+	};
 
 	const go = (next: TaskQuery, replace = false) =>
 		startNav(() => (replace ? router.replace : router.push)(pathname + querySearch(next), { scroll: false }));
@@ -303,7 +317,7 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 	};
 	const warm = (id: string) => {
 		const known = details[id];
-		if (loading.current.has(id) || (known?.status === "ok" && known.history !== null)) return;
+		if (loading.current.has(id) || (known?.status === "ok" && known.history.status === "ok")) return;
 		loading.current.add(id);
 		setDetails((d) => ({ ...d, [id]: { status: "loading" } }));
 		loadTask(id)
@@ -355,7 +369,17 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 
 	/** A confirmed write: the row, the counts and an open panel show the saved task; its history gains the entry. */
 	const confirm = (before: TaskItem | null, saved: Saved, fields = false) => {
-		const task = saved.task;
+		// A write's answer skips the owner and origin reads (they cost a statement each): this screen keeps the ones it
+		// showed. An owner stays for the same assignee; a new follow-up reads them again.
+		const task = {
+			...saved.task,
+			followUpOwners: saved.task.followUpOwners.map(
+				(o) => before?.followUpOwners.find((b) => b.accountId === o.accountId) ?? o,
+			),
+			followUpOrigin: saved.task.followUpOrigin ?? before?.followUpOrigin ?? null,
+		};
+		if (!before && task.category === "follow_up" && task.relation?.kind === "person" && !task.followUpOrigin)
+			void refresh(task.id);
 		// A task opened from the address may be outside this list (a closed task in the open list): only its panel changes.
 		// A status change keeps its row in place, struck through; a new or edited task is listed and counted only when it
 		// matches the query (F5), as the server would list it.
@@ -386,23 +410,27 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 			// Nothing cached yet (a new task): the panel reads the task and its history when it opens (F6).
 			if (cur?.status !== "ok") return d;
 			const moved = saved.changed && before && before.status !== task.status;
-			// A status change moves a series' open occurrence; a successor (below) names the new one.
-			const occurrence = moved ? null : cur.occurrence;
+			// A status change moves a series' open occurrence; a successor (below) names the new one. A task that starts a
+			// new series (Make it repeat on a stopped one) leaves its old series' open occurrence behind.
+			const occurrence = moved || cur.task.recurrence?.seriesId !== task.recurrence?.seriesId ? null : cur.occurrence;
 			const history =
-				moved && cur.history && cur.history.next === null
+				moved && cur.history.status === "ok" && cur.history.value.next === null
 					? {
-							...cur.history,
-							items: [
-								...cur.history.items,
-								{
-									id: saved.receiptId as never,
-									occurredAt: new Date().toISOString() as never,
-									from: before.status,
-									to: task.status,
-									actor: { kind: "account" as const, accountId: viewer.accountId as never, displayName: viewer.name },
-									source: "person" as const,
-								},
-							],
+							status: "ok" as const,
+							value: {
+								...cur.history.value,
+								items: [
+									...cur.history.value.items,
+									{
+										id: saved.receiptId as never,
+										occurredAt: new Date().toISOString() as never,
+										from: before.status,
+										to: task.status,
+										actor: { kind: "account" as const, accountId: viewer.accountId as never, displayName: viewer.name },
+										source: "person" as const,
+									},
+								],
+							},
 						}
 					: cur.history;
 			return { ...d, [task.id]: { ...cur, task, history, occurrence } };
@@ -466,9 +494,18 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 	const readBadges = (attempt = 0) => {
 		const read = badgeReads.current.start(window.location.search);
 		const current = () => badgeReads.current.applies(read, window.location.search);
+		const held = (id: string) => {
+			const st = known.current[id];
+			return st?.status === "ok" && st.prerequisites !== null;
+		};
+		const ids = listed.current.filter((row) => !held(row.id)).map((row) => row.id);
+		if (!ids.length) {
+			readingBadges.current = false;
+			return badgeReads.current.end();
+		}
 		readingBadges.current = true;
 		setBadgesStale(false);
-		loadBlocking(read.scope).then((r) => {
+		loadBlocking(ids).then((r) => {
 			if (!current()) return;
 			if (r.status !== "ok") {
 				if (attempt < 2) return void setTimeout(() => current() && readBadges(attempt + 1), 1000 * (attempt + 1));
@@ -477,10 +514,6 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 			}
 			readingBadges.current = false;
 			const fresh = new Map(r.value.map((t) => [t.id, t.openPrerequisites]));
-			const held = (id: string) => {
-				const st = known.current[id];
-				return st?.status === "ok" && st.prerequisites !== null;
-			};
 			setItems((rows) =>
 				rows.map((row) =>
 					fresh.has(row.id) && !held(row.id) && fresh.get(row.id) !== row.openPrerequisites
@@ -493,9 +526,9 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 
 	/**
 	 * The next occurrence a completed recurring task created: it joins the list next to its predecessor when it matches
-	 * the query, the counts move, and the toast offers to open it.
+	 * the query, and the counts move. A single complete also toasts it (succeeded); a bulk one reports the whole set.
 	 */
-	const succeeded = (pred: Pick<TaskItem, "id">, next: TaskDetail) => {
+	const addSuccessor = (pred: Pick<TaskItem, "id">, next: TaskDetail) => {
 		if (matches(query, next, viewer.accountId) && !listed.current.some((r) => r.id === next.id)) {
 			setItems((rows) =>
 				rows.some((r) => r.id === pred.id)
@@ -518,6 +551,9 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 				};
 				return { ...d, [pred.id]: { ...cur, occurrence: { status: "series", seriesId, open } } };
 			});
+	};
+	const succeeded = (pred: Pick<TaskItem, "id">, next: TaskDetail) => {
+		addSuccessor(pred, next);
 		const when = dueText(next.due, year);
 		toast({
 			tone: "success",
@@ -541,6 +577,23 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 				setDetails((d) => ({ ...d, [id]: { status: "ok", ...r.value } }));
 			});
 
+	/** Stale rows after a bulk change, read again together: one request whatever their number. */
+	const refreshRows = (ids: string[]): void => {
+		if (!ids.length) return;
+		const again = new Set(ids);
+		void loadRows(ids)
+			.catch(() => lost)
+			.then((r) => {
+				if (r.status !== "ok") return;
+				const fresh = new Map(r.value.items.map((t) => [t.id, t]));
+				setItems((rows) => rows.map((x) => fresh.get(x.id) ?? x));
+				// A cached panel of a stale task no longer matches; the open one reads again, the others on their next open.
+				const shown = shownId.current;
+				setDetails((d) => Object.fromEntries(Object.entries(d).filter(([id]) => !again.has(id) || id === shown)));
+				if (shown && again.has(shown)) void refresh(shown);
+			});
+	};
+
 	/**
 	 * A step's confirmed answer: added, ticked or removed. The open panel's steps, the parent row's step count and the
 	 * step counts follow, measured against the steps this screen last confirmed.
@@ -555,7 +608,7 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 			revision: step.revision,
 			title: step.title,
 			status: step.status,
-			assignee: step.assignee,
+			assignees: step.assignees,
 		};
 		setDetails((d) => {
 			const c = d[parentId];
@@ -625,20 +678,20 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 	 * not change its task's revision, so several can be added quickly.
 	 */
 	const addStepTo = (parent: TaskItem, title: string, who: StepAssignee) => {
-		const assignee =
+		const assignees =
 			who.kind === "inherit"
-				? parent.assignee
+				? parent.assignees
 				: who.kind === "nobody"
-					? null
-					: { accountId: who.accountId as never, displayName: who.name };
+					? []
+					: [{ accountId: who.accountId as never, displayName: who.name }];
 		const shownStep: Step = {
 			id: (PENDING_PREFIX + crypto.randomUUID()) as never,
 			revision: "0" as never,
 			title,
 			status: "not_started",
-			assignee,
+			assignees,
 		};
-		const holder = who.kind === "inherit" ? undefined : who.kind === "nobody" ? null : who.accountId;
+		const holder = who.kind === "inherit" ? undefined : who.kind === "nobody" ? [] : [who.accountId];
 		run(shownStep.id, () => setPending({ kind: "step", parentId: parent.id, step: shownStep }), {
 			what: `The step “${title}”`,
 			done: "added",
@@ -714,7 +767,9 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 	 * confirms each task that changed, rolls back the rest and reports why each one did not. The open ones that did not
 	 * change stay selected, and a task that changed since it was selected is loaded again for review.
 	 */
-	const runBulk = (kind: Report["kind"], due: DueInput | null, chosen: TaskItem[]) => {
+	const runBulk = (kind: Report["kind"], due: DueInput | null, selectedTasks: TaskItem[]) => {
+		// A closed task never goes in a bulk request: its status and due date stay as they are (REQ-TSK-008).
+		const chosen = selectedTasks.filter((t) => !isSettled(t.status));
 		if (!chosen.length) return;
 		setReport(null);
 		const items = chosen.map((t) => ({ taskId: t.id, expectedRevision: t.revision }));
@@ -728,7 +783,7 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 				bulkHeld.current = chosen.map((t) => t.id);
 				for (const t of chosen)
 					if (kind === "complete") setPending({ kind: "status", id: t.id, status: "complete" });
-					else if (!isSettled(t.status)) setPending({ kind: "row", id: t.id, row: after(t, t.revision) });
+					else setPending({ kind: "row", id: t.id, row: after(t, t.revision) });
 			},
 			{
 				what: `The change to ${chosen.length} ${chosen.length === 1 ? "task" : "tasks"}`,
@@ -758,6 +813,7 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 					);
 					setCounts(nextCounts);
 					if (moved) setTotal((t) => Math.max(0, t - moved));
+					for (const i of result.items) if (i.successor) addSuccessor({ id: i.taskId }, i.successor);
 					// A changed task's cached panel no longer matches; the open one reads again, the others on their next open.
 					const changed = new Set<string>(result.items.filter((i) => i.outcome === "changed").map((i) => i.taskId));
 					if (kind === "complete" && changed.size)
@@ -767,7 +823,7 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 						Object.fromEntries(Object.entries(d).filter(([id]) => !changed.has(id) || id === shownTask)),
 					);
 					if (shownTask && changed.has(shownTask)) refresh(shownTask);
-					for (const i of result.items) if (i.outcome === "stale") refresh(i.taskId);
+					refreshRows(result.items.filter((i) => i.outcome === "stale").map((i) => i.taskId));
 					setSelected(new Set(result.remaining));
 					const unchanged = result.items
 						.filter((i) => i.outcome !== "changed")
@@ -833,7 +889,8 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 		});
 	};
 	const toggle = (task: TaskItem) => act(task, isSettled(task.status) ? { kind: "reopen" } : { kind: "complete" });
-	const canAct = (task: Pick<TaskItem, "assignee">) => admin || task.assignee?.accountId === viewer.accountId;
+	const canAct = (task: Pick<TaskItem, "assignees">) =>
+		admin || task.assignees.some((a) => a.accountId === viewer.accountId);
 
 	/** Delete, shown at once: the row leaves; a refusal brings it back with the reason. */
 	const remove = (task: TaskItem) => {
@@ -917,6 +974,7 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 						<IntentLink href="/tasks/follow-ups" className={buttonVariants({ variant: "secondary" })}>
 							Follow-ups
 						</IntentLink>
+						{admin ? <Templates year={year} onImported={addTasks} /> : null}
 						{admin ? (
 							<Button
 								variant="primary"
@@ -930,6 +988,9 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 					</>
 				}
 			/>
+			{admin && loaded.offer ? (
+				<PhaseOffer key={loaded.offer.transition.id} initial={loaded.offer} year={year} onAdded={addTasks} />
+			) : null}
 			<div className="grid grid-cols-[minmax(0,1.9fr)_minmax(0,1fr)] items-start gap-5 max-app-md:grid-cols-1">
 				<Card className="gap-2 px-[18px] py-5 max-app-sm:px-3">
 					<Toolbar query={query} go={go} admin={admin} rows={items} />
@@ -1007,6 +1068,8 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 							}
 							onClear={() => setSelected(new Set())}
 							wait={lanes.of(BULK).wait()}
+							actions={bulkActions(chosen.map((t) => t.status))}
+							onKeepOpen={() => setSelected(new Set(chosen.filter((t) => !isSettled(t.status)).map((t) => t.id)))}
 							onComplete={() => runBulk("complete", null, chosen)}
 							onReschedule={(due) => runBulk("reschedule", due, chosen)}
 						/>
@@ -1168,9 +1231,15 @@ function TaskRow({
 						{wait === "saving" ? "Saving…" : "Check the last save first."}
 					</span>
 				) : null}
+				<DescriptionPreview value={task.excerpt} />
 				<MetaLine task={task} year={year} />
 			</div>
 			<Assignee task={task} you={you} />
+			{admin && !settled && task.followUpOwners.some((o) => !o.eligible) ? (
+				<Button variant="outline" size="sm" onClick={onEdit}>
+					Reassign
+				</Button>
+			) : null}
 			{canAct ? (
 				<Menu>
 					<MenuTrigger asChild>
@@ -1201,50 +1270,6 @@ function TaskRow({
 			)}
 			<SaveNotice {...notice} dialogOpen={modal} className="basis-full pt-2.5 pl-[58px] max-app-sm:pl-0" />
 		</li>
-	);
-}
-
-/** The status choices for one task, shared by the row menu and the task panel. */
-export function StatusItems({
-	task,
-	disabled = false,
-	onAction,
-}: {
-	task: Pick<TaskItem, "status">;
-	/** The task's last save is in flight or unknown (C68). */
-	disabled?: boolean;
-	onAction: (a: StatusAction) => void;
-}) {
-	if (isSettled(task.status))
-		return (
-			<MenuItem icon={ArrowTurnBackwardIcon} disabled={disabled} onSelect={() => onAction({ kind: "reopen" })}>
-				Reopen
-			</MenuItem>
-		);
-	return (
-		<>
-			<MenuItem icon={Tick02Icon} disabled={disabled} onSelect={() => onAction({ kind: "complete" })}>
-				Mark done
-			</MenuItem>
-			<MenuLabel>Status</MenuLabel>
-			<MenuRadioGroup
-				value={task.status}
-				onValueChange={(v) => {
-					const status = OPEN_STATUSES.find((s) => s === v);
-					if (status && status !== task.status) onAction({ kind: "status", status });
-				}}
-			>
-				{OPEN_STATUSES.map((s) => (
-					<MenuRadioItem key={s} value={s} disabled={disabled}>
-						{STATUS_LABEL[s]}
-					</MenuRadioItem>
-				))}
-			</MenuRadioGroup>
-			<MenuSeparator />
-			<MenuItem icon={Cancel01Icon} disabled={disabled} onSelect={() => onAction({ kind: "waive", reason: null })}>
-				Close as no longer needed
-			</MenuItem>
-		</>
 	);
 }
 

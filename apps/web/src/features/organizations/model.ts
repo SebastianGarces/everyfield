@@ -1,5 +1,5 @@
 import { normalizedEmail } from "@everyfield/contracts/identity";
-import type { Category, Choices, HistoryItem, NameOf, Organization, RelationshipPair } from "./port";
+import type { Category, HistoryItem, NameOf, Organization, RelationshipPair } from "./port";
 
 /** REQ-IDN-022 categories, in the words the settings sharing card already uses (WP-010/ui). */
 export const CATEGORY_TEXT: Record<Category, { label: string; description: string }> = {
@@ -7,7 +7,7 @@ export const CATEGORY_TEXT: Record<Category, { label: string; description: strin
 	meetings: { label: "Meetings", description: "Counts and attendance totals" },
 	tasks: { label: "Tasks", description: "Counts and progress" },
 	ministry_teams: { label: "Ministry teams", description: "Teams and how many serve" },
-	wiki: { label: "Wiki", description: "Totals for articles your church writes" },
+	wiki: { label: "Wiki", description: "Totals for articles your church writes. Their Wiki also shows in Wiki sources" },
 	activity: { label: "Activity updates", description: "Milestones sent to them as they happen" },
 	shared_findings: { label: "Plant Intelligence findings", description: "Shown to you first, then shared" },
 };
@@ -27,17 +27,6 @@ export function subjectOf(pair: RelationshipPair) {
 
 export function subjectName(pair: RelationshipPair, nameOf: NameOf): string {
 	return nameOf(subjectOf(pair));
-}
-
-/** "Mar 2, 2026" in the reader's zone. Relationship dates are calendar facts; the hour adds nothing. */
-export function formatDay(instant: string, zone: string): string {
-	return new Intl.DateTimeFormat("en-US", { timeZone: zone, month: "short", day: "numeric", year: "numeric" }).format(
-		new Date(instant),
-	);
-}
-
-export function countOn(choices: Choices): number {
-	return CATEGORIES.filter((c) => choices[c]).length;
 }
 
 /**

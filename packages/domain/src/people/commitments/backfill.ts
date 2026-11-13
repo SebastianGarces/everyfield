@@ -11,7 +11,7 @@ const cached = z.object({
 });
 
 /**
- * C101: make every plant Person's commitment cache equal commitmentOf over its valid cards and dated changes, in
+ * C100: make every plant Person's commitment cache equal commitmentOf over its valid cards and dated changes, in
  * batches by Person ID, writing only the rows that differ. A merged Person keeps its value: Unmerge restores it.
  */
 export function commitmentCacheBackfill(batch = 500): Backfill {

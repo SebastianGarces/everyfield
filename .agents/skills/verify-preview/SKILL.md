@@ -1,12 +1,15 @@
 ---
 name: verify-preview
-description: "Apply when you verify a PR written by the other model family. Run the PR head on its own portless preview against the shared dev database, check UI in Chromium and WebKit and backend with a temporary script, drive interactive checks with agent-browser, publish the evidence, then post one PR comment with the exact-head EVF-Review line."
+description: "Apply when you verify a change as the independent Opus verifier. Run the head on its own portless preview against the shared dev database, check UI in Chromium and WebKit and backend with a temporary script, drive interactive checks with agent-browser, publish the evidence, then record the review with evf review submit."
 ---
 
 # Verify on a preview
 
-You prove the change works on a running copy of the exact PR head. The author's summary is not
-evidence. Scripts are in `scripts/` next to this file. They need Node 22+, `gh`, `portless`, the
+You prove the change works. The author's summary is not evidence, but the author's proof is: read the
+diff in full and judge the code (D66), read `evf proof show` and open each proof's evidence.
+Spot-check. Re-run a flow on a preview of the exact head only where a proof is unmet, missing or looks
+wrong. Run local checks with `bin/dev check --full`: a verifier ignores selection and runs every check. You own the verdict. The Experience section may use the author's recorded
+measurements; re-measure where they look wrong or missing. Scripts are in `scripts/` next to this file. They need Node 24+, `gh`, `portless`, the
 local env files of the main checkout and, for `publish.mjs`, the evidence env file (step 5). Every command below runs from any checkout of this repo.
 
 ```bash
@@ -20,14 +23,13 @@ Keep scripts, logs, screenshots and videos in `$E`, never in the repository.
 ## Browsers and processes
 
 The machine has little CPU and memory. Run one browser job at a time and close every browser you
-start (D35). These rules apply to every role that opens a browser.
+start. These rules apply to every role that opens a browser.
 
-- Scripted checks run through `bin/evf browser run [--timeout <s>] -- <command>`. It runs the
+- Scripted checks run through `bin/dev browser run [--timeout <s>] -- <command>`. It runs the
   command in its own process group with a timeout (default 900 s). When the command ends, fails,
-  times out or evf gets a signal, it closes the run's agent-browser session, stops every process
+  times out or gets a signal, it closes the run's agent-browser session, stops every process
   the run started and deletes the run's temporary directory, where Playwright keeps its profiles.
-  It first waits while the machine is above its load limit (see `tools/evf/README.md`).
-- Interactive checks use agent-browser (D36), never the Playwright MCP. Give each job its own
+- Interactive checks use agent-browser, never the Playwright MCP. Give each job its own
   session and a short idle timeout, and close it when you finish, also after a failure:
 
   ```bash
@@ -40,8 +42,7 @@ start (D35). These rules apply to every role that opens a browser.
   Run `agent-browser skills get core` once for the full command guide.
 - Stop only processes you started, by PID or process group. Never stop processes by a name
   pattern (`pkill chrome`, `killall`): other agents' browsers run on the same machine.
-- `bin/evf doctor` lists headless browsers and agent-browser daemons older than 15 minutes, with
-  PID, age and memory. It never stops them. Before you end, it must list none of yours.
+- Before you end, none of your browsers or agent-browser sessions may still be running.
 
 Install the pinned tools once per machine. Video needs `ffmpeg` on `PATH`.
 
@@ -54,24 +55,51 @@ brew install ffmpeg                      # macOS; video recording only
 agent-browser drives Chrome only. Its Safari backend needs the iOS Simulator and Appium and
 cannot take headless 390 and 1440 px desktop shots, so WebKit parity stays in `capture.mjs`.
 
+## Shared preview service
+
+These Everyfield rules sit on top of the verbatim `portless-preview` skill and apply to every role that runs a preview.
+
+- An app whose auth trusts one origin sets that origin to `${PREVIEW_URL}` in the preview config `env`; Portless
+  replaces it with the preview's own URL.
+- Timing previews: D81's quiet timing runner retired with evf v1. Do not time on a shared preview and call it a
+  qualifying timing set; report the measurement and what it shared the machine with.
+- Slots: the managed launcher sets `PORTLESS_PREVIEW_LIMIT=4`, so four previews run at a time. The supervisor reads the
+  limit when it starts; restarting it stops every active preview, so never restart it while another agent's preview
+  runs. Builders and verifiers come first. The coordinator may stop Sebastian's review preview at any time and restarts
+  it later on main. Never stop another workspace's preview. See D74 in `docs/architecture/decisions.md`.
+- Tests of Portless itself never touch the shared service. Give the test a new temporary folder in `PORTLESS_STATE_DIR`
+  and `PORTLESS_PREVIEW_DIR`, its own `PORTLESS_PORT` and `PORTLESS_PREVIEW_PORT`, and `PORTLESS_PREVIEW_HTTP=1`. Never
+  restart, reinstall, `clean` or stop the shared service or its supervisor: at 02:04 UTC on 2026-10-22 one restart
+  removed every live preview.
+
 ## 1. Read
 
-Read the task note, the PR body (`gh pr view <n>`) and the diff (`gh pr diff <n>`). Read the
+Read your brief (the ask and the spec) and the full diff against the merge base. Read the
 requirements the task names. Write down the behavior you will check before you run anything.
-Your family must differ from the PR's `EVF-Author` line, and one of the two must be `anthropic`. Until 2026-10-27T19:00:00.000Z, `xai` may review `xai`. For that pair, run this checkout's `post-review.mjs` and `bin/evf ship`. The copies on main refuse the pair until this change is on main.
+You are a fresh Opus 5.5 medium session that never shared context with the author (D82).
 
 ## 2. Start the previews
 
 ```bash
-node $S/preview.mjs --pr <n>      # after: the PR head, in a detached worktree .worktrees/verify-<sha7>
+node $S/preview.mjs --pr <n>      # after: the PR head, in a worktree .worktrees/verify-<sha7> on branch verify/<sha7>
 node $S/preview.mjs --main        # before: current origin/main, the same way
+node $S/preview.mjs --ref <sha>   # any other commit, the same way (for example a PR's old base)
 ```
 
-Each prints `{id, url, head}`. Both are production builds of a clean commit with a two-hour lease.
-`preview.mjs` copies `apps/web/.env.local` from the main checkout and refuses to start when its
-`DATABASE_URL` is not the shared development database. The supervisor runs four previews at a
-time. Stop your own old previews first (`portless preview down <id>`). Stop another agent's
+Review starts after evf has opened the PR, so `--pr <n>` is the after side. Each prints `{id, url, head}`. Both are production builds of a clean commit with a two-hour lease.
+`preview.mjs` builds the preview env from the main checkout's `apps/web/.env.local` and lays the
+worktree's own `apps/web/.env.local` over it, so a `tests/ui` seed's `IDENTITY_*` values reach the preview.
+`IDENTITY_ORIGIN` is the exception: it is always `${PREVIEW_URL}` unless an explicit `--config` sets it.
+It only reads the worktree's file and never creates, edits or deletes it. It writes the composed env to a
+mode 0600 config outside the repository, prints no value and refuses to start when the composed
+`DATABASE_URL` is not the shared development database.
+The supervisor runs four previews at a time. Stop your own old previews first (`portless preview down <id>`). Stop another agent's
 preview only when its PR is merged or closed, and say so in your report.
+
+Setup timing: `preview.mjs` and `bin/dev stack up` record each install and build as one JSON file in
+`$(git rev-parse --path-format=absolute --git-common-dir)/evf-setup-steps` (or `EVF_SETUP_STEPS_DIR`), with the
+build's `.next/cache` state. `node scripts/setup-step.mjs report [--json]` gives weekly totals and hit rates per step.
+`node tools/ci/ci-timing.ts --last <n> [--json]` splits GitHub CI jobs into queue, setup and run time with cache hits.
 
 The development database is shared and may be wiped and reseeded at any time:
 `corepack pnpm --filter @everyfield/db reset:dev`. Never point a check at production. Never print
@@ -91,7 +119,7 @@ export default async ({ page, side, engine, width, path }) => [
 Return `[]` for paths the flow does not cover. Then capture before and after:
 
 ```bash
-bin/evf browser run --timeout 900 -- \
+bin/dev browser run --timeout 900 -- \
   node $S/capture.mjs --before <main url> --after <branch url> --paths /,/access --flow "$E/flow.mjs" --out "$E"
 ```
 
@@ -101,37 +129,12 @@ difference into `$E/ui-results.json`. The flow runs on both sides with a video. 
 a non-200 status, a page or console error, an axe violation that main does not have, or a failed
 flow check on the branch.
 
-Measure end-to-end time for every changed read and write, from the user action until its
-confirmed result, with `bin/evf timing` (D81). Simple actions must finish in under 1 second.
-Do not time a head that already has blocking behavior findings (C119). Write one timing set per
-action in `$E`, then run it on the exact head:
-
-```js
-// $E/timing-add-person.mjs: ctx = { url, databaseUrl, env, require, out, index, replacementFor }
-export default {
-  name: "add a person", budgetMs: 1000, samples: 40, write: true, // write: saves add the write probe
-  async setup(ctx) {}, // seed synthetic data in ctx.databaseUrl; sign a session with ctx.env.IDENTITY_SECRET;
-                       // open a browser with ctx.require("playwright")
-  async sample(ctx) {  // untimed steps first, then the timed action until its confirmed result
-    const startedAt = Date.now();
-    return { startedAt, endedAt: Date.now() }; // add interference: "<what>" when the set wrote in parallel
-  },
-  async teardown(ctx) {}, // close the browser
-};
-```
-
-```bash
-bin/evf timing <task> --set "$E/timing-add-person.mjs" --head <40-char sha>
-```
-
-It builds a production preview of that head on its own quiet local database, never the shared
-one, and runs an independent SELECT 1 probe (and a write probe for saves) every 100 ms. Each sample
-is qualifying or labeled non-qualifying: load above the machine limit, a probe round trip above
-150 ms in its window (database spike or write stall), or self-interference. Each non-qualifying
-sample gets exactly one labeled replacement. The set passes only when every declared sample has a
-qualifying result under budget; a qualifying miss is never rerun away. Copy its PASSED or FAILED
-line and `report.json` into the evidence. Record whether writes update the UI optimistically and
-roll back clearly on failure. Count requests for main actions and inspect them for needless
+Measure end-to-end time for every changed read and write on the production preview, from the user
+action until its confirmed result. Simple actions must finish in under 1 second. Do not time a head
+that already has blocking behavior findings. The quiet timing runner of D81 retired with evf v1,
+so say what else shared the machine and the database, and do not call a miss proven or a pass
+qualifying on one sample. Keep the measurements in `$E`. Record whether writes update the UI
+optimistically and roll back clearly on failure. Count requests for main actions and inspect them for needless
 refetches or refreshes. Keep request logs in `$E` and summarize them in the Experience section.
 Reports and analytics may exceed the time budget only when the PR names that approved category
 and explains the slower action.
@@ -181,7 +184,8 @@ A change with both parts gets both. A tooling-only change gets its commands reru
 node $S/publish.mjs "$E" --task <task>
 ```
 
-It writes `index.html` (before and after side by side, videos, checks, all files) and uploads the
+It writes `index.html` (before and after side by side, videos, checks, then one section per folder
+with every image inline and other files as links) and uploads the
 folder to the `everyfield-evidence` Tigris bucket under a random 128-bit prefix. Objects are
 public-read and the bucket refuses listing, so only the link opens them. It prints the index link.
 
@@ -202,8 +206,7 @@ umask 077; mkdir -p ~/.config/everyfield
 tigris access-keys create everyfield-evidence-upload --bucket everyfield-evidence --role Editor \
   --default-permissions disable --env ~/.config/everyfield/evidence.env --for aws >/dev/null
 ```
-Use the PR task ID as `<task>`, for example `OPS-W3` or `WP-012`, so its evidence can be deleted
-together.
+Use the PR task ID as `<task>`, for example `T-41`, so its evidence can be deleted together.
 
 Everything you publish is public to anyone with the link. Upload only synthetic data or data from
 the shared development database. Never upload:
@@ -235,11 +238,25 @@ The command prints how many objects it deleted. Then check that the old index li
 
 Write `$E/report.md` in this shape. Name what you did not check.
 
+Start with the Ask coverage table, before any criterion or check table. Read the verbatim ask
+in your brief and list every deliverable it names: routes, pages, sections,
+screens, commands, files and similar named outputs. One row for each. A deliverable is `delivered`
+(you saw it work), `deferred <T-n>` (a task evf filed for it) or `missing`. A `missing` row
+is a blocking finding: ask for changes.
+
 ```markdown
-## Verification of <task> at <sha7> (<family> verifier)
+## Verification of <task> at <sha7>
 
 **Verdict:** approved | changes requested
 **Evidence:** <index link>
+
+## Ask coverage
+
+| Deliverable in the verbatim ask | Status |
+|---|---|
+| <route, page, section, screen, command or file> | delivered / deferred <T-n> / missing |
+
+## Checks
 
 | Check | How | Result |
 |---|---|---|
@@ -271,39 +288,23 @@ test-behavior-not-implementation, <other applicable principles>.
 ```
 
 Read the diff against those principles. Needless layers, copied patterns or dead code require
-changes_requested even when behavior passes. Post it once:
+changes even when behavior passes. A timing exception covers only reports and analytics: name the
+action and the reason in the report. It never waives failed smoothness or code quality.
+
+Record the review once:
 
 ```bash
-node $S/post-review.mjs --pr <n> --report "$E/report.md" --family <your family> \
-  --verdict approved --head <40-char sha> --quality-verdict approved \
-  --experience-verdict approved --budget met \
-  --principles laziness-protocol,minimize-reader-load,subtract-before-you-add,test-behavior-not-implementation \
-  --results "$E/ui-results.json" --results "$E/backend-results.json"
+evf review submit --verdict approved --report-file "$E/report.md"   # or --verdict changes
 ```
 
-Pass only the results files you produced. Include every applicable principle in --principles.
-
-Use `--budget not_applicable` only when there is no UI experience to measure, and explain why.
-For an approved reports or analytics timing exception, pass `--budget exceeded
---experience-exception reports` (or `analytics`); the PR body must contain the matching standalone
-line `EVF-Experience-Exception: reports` (or `analytics`) and explain the action and reason.
-These categories are the approved timing exceptions in Everyfield patterns. They never waive
-failed smoothness or code quality; use `--experience-verdict changes_requested` for those failures.
-
-The script appends `EVF-Review: {"head":...,"verifierFamily":...,"verdict":...,"quality":{"verdict":...,"principles":[...]},"experience":{"verdict":...,"budget":...}}` and posts one
-comment. It refuses a head that is not the PR's current head, a family pair ship refuses, results captured on
-another head, and an approval when any results file or the report shows a failure. Use
-`--verdict changes_requested` when anything fails, then send the failures to the coordinator.
-A new head needs a new verification and a new comment. One exception: do not re-review a head that
-only merges main after your approval. Run `bin/evf ship <task>` once required CI is green on it.
-Ship carries your approval when the merges are clean and touch no PR path, and refuses otherwise.
-Then verify the new head as usual. `ship` describes the merge.
+Then close your step: `evf run done --status passed` when you approved, and `--status failed --cause change`
+when you asked for changes. A new head needs a new verification.
 
 ## 7. Clean up
 
 ```bash
 agent-browser --session <task>-verify close
-portless preview down <id>          # both previews
-git worktree remove <project>       # both verify worktrees, paths printed by preview.mjs
-bin/evf doctor                      # lists no browser of yours
+portless preview down <id> --remove-worktree    # both previews and their verify worktrees
 ```
+
+The `verify/<sha7>` branch stays after its worktree is gone. Delete it with `git branch -D verify/<sha7>`.

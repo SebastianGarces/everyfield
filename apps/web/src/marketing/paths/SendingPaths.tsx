@@ -6,7 +6,6 @@ import { Reveal } from "@/components/motion/Reveal";
 import type { Copy } from "../copy";
 import { ICONS, type IconName } from "../icons";
 import type { PhotoName } from "../photo/photos";
-import { SampleTag } from "../sections/SampleTag";
 import { PathsCycle } from "./PathsCycle";
 
 type Paths = Copy["shared"]["oversight_page"]["paths"];
@@ -48,7 +47,6 @@ export function SendingPaths({ p }: { p: Paths }) {
 					panes={panes}
 					apps={APPS}
 					photos={PHOTOS}
-					tag={<SampleTag className="top-3 left-3" />}
 				/>
 				<p className="mx-auto mt-[clamp(24px,3vw,36px)] max-w-[720px] text-center text-mk-lead-sm leading-[1.55] text-pretty text-text-2">
 					{p.line}
@@ -82,7 +80,7 @@ const KV = "flex items-center justify-between gap-2.5 border-t border-line py-2.
 
 const APPS = [
 	<App key="church">
-		<Head icon="heart" tone="blue" title="Grace Church" sub="Your plants · in launch order" />
+		<Head icon="heart" tone="blue" title="Grace Church" sub="Your church plants · in launch order" />
 		{[
 			["Harvest Point Church", "Hyde Park, Austin", "1 · Core group", "Mar 14, 2027"],
 			["Eastside Commons", "East Austin · with Austin Sending Network", "3 · Training", "May 2, 2027"],
@@ -101,7 +99,7 @@ const APPS = [
 		))}
 	</App>,
 	<App key="network">
-		<Head icon="network" tone="teal" title="Austin Sending Network" sub="Plants by sending church" />
+		<Head icon="network" tone="teal" title="Austin Sending Network" sub="Church plants by sending church" />
 		{(
 			[
 				[
@@ -124,7 +122,7 @@ const APPS = [
 				<div className="flex items-center justify-between gap-2">
 					<span className="type-md font-semibold">{g[0]}</span>
 					<span className="type-xs text-text-2">
-						{g[1].length} plant{g[1].length > 1 ? "s" : ""}
+						{g[1].length} church plant{g[1].length > 1 ? "s" : ""}
 					</span>
 				</div>
 				<div className="mt-1.5 flex flex-wrap gap-1">

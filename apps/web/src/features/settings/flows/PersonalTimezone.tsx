@@ -4,11 +4,12 @@ import { Clock01Icon } from "@hugeicons/core-free-icons";
 import { Button, Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
 import { useState } from "react";
-import type { PersonalTimezonePreview, TimezonePreference } from "../port";
-import { OFFLINE_REFERENCE, useWrite, type Outcome, type Refusal } from "../save";
+import type { TimezonePreference } from "../port";
+import type { Outcome, Refusal } from "../save";
 import { SaveError } from "../SettingsDialog";
 import { useFlows } from "../store";
 import { formatInstant, formatLocalDate, nextMonday, zoneLabel } from "../time";
+import { usePersonalZoneChoice } from "./usePersonalZoneChoice";
 import { ZonePicker } from "./ZonePicker";
 
 /**
@@ -104,40 +105,24 @@ function PersonalTimezoneDialog({
 	onSaving: (preference: TimezonePreference) => void;
 	onSettled: (result: Outcome<TimezonePreference>) => void;
 }) {
-	const port = useFlows();
-	const [zone, setZone] = useState<string | null>(null);
-	const [preview, setPreview] = useState<PersonalTimezonePreview | null>(null);
-	const previewing = useWrite("personal-timezone-preview");
-	const saving = useWrite("personal-timezone");
 	const currentZone = current.status === "confirmed" ? current.timeZone : null;
-
-	const choose = async (next: string) => {
-		setZone(next);
-		setPreview(null);
-		saving.setRefusal(null);
-		if (next === currentZone) return;
-		const result = await previewing.run({ next, at: Date.now() }, () =>
-			port.previewPersonalTimezone({ timeZone: next }),
-		);
-		if (result.ok) setPreview(result.value);
-	};
+	const {
+		zone,
+		preview,
+		previewing,
+		saving,
+		choose,
+		save: send,
+		stale,
+		city,
+	} = usePersonalZoneChoice(useFlows(), currentZone);
 
 	const save = async () => {
 		if (!preview) return;
-		const input = { timeZone: preview.newZone, previewId: preview.previewId, confirmed: true as const };
 		onSaving({ status: "confirmed", timeZone: preview.newZone, revision: preview.expectedRevision });
-		const send = () =>
-			saving.run(input, (requestKey) =>
-				port.setPersonalTimezone({ requestKey, expectedRevision: preview.expectedRevision, input }),
-			);
-		// A lost reply may hide a saved zone. The same request key asks again, and the server answers from its record.
-		let result = await send();
-		if (!result.ok && result.refusal.reference === OFFLINE_REFERENCE) result = await send();
-		onSettled(result.ok ? { ok: true, value: result.value.preference } : result);
+		const result = await send();
+		if (result) onSettled(result.ok ? { ok: true, value: result.value.preference } : result);
 	};
-
-	const stale = saving.refusal?.code === "stale_preview" || saving.refusal?.code === "conflict";
-	const city = preview ? zoneLabel(preview.newZone).split(" · ")[0] : "";
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>

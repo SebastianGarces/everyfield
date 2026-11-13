@@ -1,0 +1,156 @@
+{
+	"plugins": ["typescript", "unicorn"],
+	"jsPlugins": ["./scripts/lint/everyfield-plugin.mjs"],
+	"categories": {
+		"correctness": "off"
+	},
+	"env": {
+		"builtin": true
+	},
+	"rules": {
+		"no-array-constructor": "error",
+		"no-unused-expressions": "error",
+		"no-unused-vars": [
+			"error",
+			{
+				"vars": "all",
+				"args": "after-used",
+				"caughtErrors": "all",
+				"ignoreRestSiblings": false,
+				"argsIgnorePattern": false,
+				"varsIgnorePattern": false,
+				"caughtErrorsIgnorePattern": false,
+				"destructuredArrayIgnorePattern": false
+			}
+		],
+		"typescript/ban-ts-comment": "error",
+		"typescript/no-duplicate-enum-values": "error",
+		"typescript/no-empty-object-type": "error",
+		"typescript/no-explicit-any": "error",
+		"typescript/no-extra-non-null-assertion": "error",
+		"typescript/no-misused-new": "error",
+		"typescript/no-namespace": "error",
+		"typescript/no-non-null-asserted-optional-chain": "error",
+		"typescript/no-require-imports": "error",
+		"typescript/no-this-alias": "error",
+		"typescript/no-unnecessary-type-constraint": "error",
+		"typescript/no-unsafe-declaration-merging": "error",
+		"typescript/no-unsafe-function-type": "error",
+		"typescript/no-wrapper-object-types": "error",
+		"typescript/prefer-as-const": "error",
+		"typescript/prefer-namespace-keyword": "error",
+		"typescript/triple-slash-reference": "error",
+		// AC:WP-029-13: only the guarded senders import resend (any form) or name api.resend.com. Tests are spared below.
+		"everyfield/resend-senders": "error"
+	},
+	"overrides": [
+		{
+			"files": ["**/*.ts", "**/*.tsx", "**/*.mts", "**/*.cts"],
+			"rules": {
+				"constructor-super": "off",
+				"getter-return": "off",
+				"no-class-assign": "off",
+				"no-const-assign": "off",
+				"no-dupe-class-members": "off",
+				"no-dupe-keys": "off",
+				"no-func-assign": "off",
+				"no-import-assign": "off",
+				"no-new-native-nonconstructor": "off",
+				"no-obj-calls": "off",
+				"no-redeclare": "off",
+				"no-setter-return": "off",
+				"no-this-before-super": "off",
+				"no-unreachable": "off",
+				"no-unsafe-negation": "off",
+				"no-var": "error",
+				"no-with": "off",
+				"prefer-const": "error",
+				"prefer-rest-params": "error",
+				"prefer-spread": "error"
+			}
+		},
+		{
+			"files": ["**/*.test.*", "**/test/**", "**/tests/**", "packages/domain/src/early-access/index.ts"],
+			"rules": {
+				// The guarded sender in this config's reach; apps/web/.oxlintrc.json spares the other two.
+				"everyfield/resend-senders": "off"
+			}
+		},
+		{
+			// The root `lint:tests` folders (T-176).
+			"files": ["tests/integration/**", "tests/evry/**", "tests/ui/**", "tests/unit/**", "tests/workflow/**"],
+			"rules": {
+				// No typecheck covers these folders, so a type written here goes unchecked; `any` marks untyped JSON.
+				"typescript/no-explicit-any": "off",
+				// Tests drop fields with rest destructuring to compare what is left.
+				"no-unused-vars": [
+					"error",
+					{
+						"vars": "all",
+						"args": "after-used",
+						"caughtErrors": "all",
+						"ignoreRestSiblings": true,
+						"argsIgnorePattern": false,
+						"varsIgnorePattern": false,
+						"caughtErrorsIgnorePattern": false,
+						"destructuredArrayIgnorePattern": false
+					}
+				]
+			}
+		},
+		{
+			"files": ["tests/**/*.cjs"],
+			"rules": {
+				// A CommonJS preload that node loads with --require can only require.
+				"typescript/no-require-imports": "off"
+			}
+		},
+		{
+			"files": ["packages/evry/src/**", "packages/domain/src/**"],
+			"rules": {
+				// INV-privacy: only the intelligence domain names the private-care tables (care.test.mts checks the runtime side).
+				"everyfield/private-care-scope": "error"
+			}
+		},
+		{
+			"files": ["packages/domain/src/intelligence/**"],
+			"rules": {
+				"everyfield/private-care-scope": "off"
+			}
+		},
+		{
+			"files": ["packages/domain/src/mail-recipients.ts"],
+			"rules": {
+				// AC:WP-029-1: the mail rule reads only its two arguments: no value import, require, process, fetch, await or Date.
+				"everyfield/pure-module": "error"
+			}
+		},
+		{
+			"files": ["packages/evry/src/runtime/turn.ts"],
+			"rules": {
+				// INV-evry-golden: the turn only prepares a review; approval runs from the review card.
+				"no-restricted-imports": [
+					"error",
+					{
+						"patterns": [
+							{
+								"group": ["../execution", "../execution/*"],
+								"message": "The turn wires no executor: a reviewed change runs only when a person approves its review card."
+							}
+						]
+					}
+				]
+			}
+		},
+		{
+			"files": ["packages/ui/src/**"],
+			"plugins": ["react", "jsx-a11y"],
+			"rules": {
+				// Shared UI renders text, never raw HTML; each a11y rule keeps a click on a control or an explicit shortcut.
+				"everyfield/no-inner-html": "error",
+				"jsx-a11y/no-static-element-interactions": "error",
+				"jsx-a11y/click-events-have-key-events": "error"
+			}
+		}
+	]
+}

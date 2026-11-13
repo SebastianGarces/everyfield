@@ -25,13 +25,14 @@ import {
 	PageHeader,
 	Select,
 } from "@everyfield/ui/controls";
+import { avatarRoute } from "@everyfield/contracts/settings";
 import { Avatar, Tag } from "@everyfield/ui/display";
 import { Icon } from "@everyfield/ui/foundations";
 import { useCallback, useRef, useState, type FormEvent } from "react";
 import { NotAvailable } from "../../access/AccessStates";
 import { Refusal, useIntent } from "../../organizations/intent";
 import { ProblemLine } from "../../organizations/parts";
-import { useOwnSeatChange } from "../../people/PeopleFrame";
+import { useOwnSeatChange } from "../../shell/ProductFrame";
 import { FormMessage } from "../parts";
 import { readSeats, readSeatsPage, runSeatCommand, type SeatOperation } from "./actions";
 import { RemoveDialog } from "./RemoveDialog";
@@ -76,10 +77,10 @@ class SeatRefusal extends Refusal {
 	}
 }
 
-type Load = { attempt: number; data: SeatsData } | { attempt: number; gone: true };
+type Load = { data: SeatsData } | { gone: true };
 
 export function SeatsScreen({ initial }: { initial: SeatsData }) {
-	const [state, setState] = useState<Load>({ attempt: 0, data: initial });
+	const [state, setState] = useState<Load>({ data: initial });
 	const [refreshing, setRefreshing] = useState(false);
 	const [reloadFailed, setReloadFailed] = useState(false);
 	const [status, setStatus] = useState<string | null>(null);
@@ -94,7 +95,7 @@ export function SeatsScreen({ initial }: { initial: SeatsData }) {
 		try {
 			const r = await readSeats();
 			if (mine !== attempt.current) return;
-			setState(r.status === "ready" ? { attempt: mine, data: parseSeats(r) } : { attempt: mine, gone: true });
+			setState(r.status === "ready" ? { data: parseSeats(r) } : { gone: true });
 		} catch {
 			if (mine === attempt.current) setReloadFailed(true);
 		} finally {
@@ -133,7 +134,7 @@ export function SeatsScreen({ initial }: { initial: SeatsData }) {
 		setStatus(message);
 		if (change.removed) {
 			frameSeat(null);
-			setState((s) => ({ attempt: s.attempt, gone: true }));
+			setState({ gone: true });
 			return;
 		}
 		frameSeat("member");
@@ -162,9 +163,7 @@ export function SeatsScreen({ initial }: { initial: SeatsData }) {
 					}
 				/>
 			) : null}
-			{data.canManage ? (
-				<InviteCard key={state.attempt} data={data} refreshing={refreshing} onApply={apply} onStale={stale} />
-			) : null}
+			{data.canManage ? <InviteCard data={data} refreshing={refreshing} onApply={apply} onStale={stale} /> : null}
 			<RosterCard data={data} refreshing={refreshing} onApply={apply} onStale={stale} onOwnSeat={ownSeat} />
 			{data.canManage && data.invitations ? (
 				<PendingCard
@@ -205,6 +204,8 @@ function inviteRefused(code: string | null, retryAt: string | null, zone: string
 			return `This address has had 3 invitations in the last 30 days.${retryAt ? ` You can invite it again after ${formatMoment(retryAt, zone)}.` : ""}`;
 		case "invitation_unavailable":
 			return "An invitation to this address is already waiting. Resend it from the list below.";
+		case "address_blocked":
+			return "Invitation not sent: this address is blocked after an earlier bounce.";
 		case "conflict":
 			return `Your ${place} changed since this page loaded. Reload the page, then send again.`;
 		default:
@@ -243,6 +244,7 @@ function InviteCard({
 			emailRef.current?.focus();
 			return;
 		}
+		let stale = false;
 		const result = await intent.run(
 			"invite",
 			(requestKey) =>
@@ -256,6 +258,7 @@ function InviteCard({
 					return await send("invite", command, invitationSentResult);
 				} catch (e) {
 					setRetryAt(e instanceof SeatRefusal ? e.retryAt : null);
+					stale = e instanceof SeatRefusal && e.code === "conflict";
 					throw e;
 				}
 			},
@@ -267,6 +270,8 @@ function InviteCard({
 			const invitation = result.reply.invitation;
 			onApply((d) => withInvitation(d, invitation), `Invitation sent to ${invitation.recipientEmail}.`);
 		}
+		// The workspace changed since this page loaded: the message stays and the page data loads again at once.
+		else if (stale) onStale();
 	}
 
 	return (
@@ -423,7 +428,13 @@ function RosterCard({
 							key={seat.seatId}
 							className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-line py-3.5 first:border-t-0"
 						>
-							<Avatar name={seat.displayName} tone={seat.isSelf ? "green" : "blue"} size="sm" decorative />
+							<Avatar
+								name={seat.displayName}
+								src={seat.avatar ? avatarRoute(seat.avatar) : undefined}
+								tone={seat.isSelf ? "green" : "blue"}
+								size="sm"
+								decorative
+							/>
 							<div className="min-w-0 flex-1 basis-48">
 								<p className="font-semibold text-ink">
 									{seat.displayName}

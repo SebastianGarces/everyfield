@@ -5,7 +5,7 @@
 // At most one save per section is in flight. The book lives in the settings store, so leaving a section and coming
 // back changes nothing: the in-flight save, its refusal and the draft are still there.
 //
-// Invariant (tests/ui/settings/drafts-model.test.mjs checks it over random interleavings of edits, saves, section
+// Invariant (tests/unit/settings/drafts-model.test.mjs checks it over random interleavings of edits, saves, section
 // switches and accepted or refused replies): the visible value is the latest edit, or the server value when there
 // is no edit; a section is dirty exactly when its visible value differs from the server value. The one exception is
 // normalization: when a save succeeds and nothing was typed since, the server's version of what was sent ("Name"

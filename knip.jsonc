@@ -1,0 +1,45 @@
+// Unused-export sweep (T-188, finding repo/L6). Run from the repository root:
+//   pnpm dlx knip@6.43.0 --include exports,types,nsExports,nsTypes
+// knip is not a dependency and does not run in CI or `pnpm lint`. Every test, script and tool is an entry point, so an
+// export that only they use counts as used. The package.json `exports` maps count as public entry points (knip's
+// default mode, without --include-entry-exports). The sweep covers packages/contracts, packages/domain, packages/ui,
+// apps/web (T-188), packages/db, packages/evry and packages/reference (T-278), and the landing-marketing paths (T-279).
+{
+	"$schema": "https://unpkg.com/knip@6.43.0/schema-jsonc.json",
+	"workspaces": {
+		".": {
+			"entry": [
+				// Tests.
+				"tests/**/*.{js,mjs,cjs,ts,mts,cts,tsx}",
+				// Scripts.
+				"scripts/**/*.{js,mjs,cjs,ts,mts,cts}",
+				// Tools. bin/ holds shell wrappers today (they run scripts/ and tools/ files); the glob keeps any JS tool there.
+				"tools/**/*.{js,mjs,cjs,ts,mts,cts}",
+				"bin/**/*.{js,mjs,cjs,ts,mts,cts}",
+				"ops/**/*.{js,mjs,cjs,ts,mts,cts}",
+				"docs/**/*.{js,mjs,cjs,ts,mts,cts}",
+				".agents/**/*.{js,mjs,cjs,ts,mts,cts}",
+				".github/**/*.{js,mjs,cjs,ts,mts,cts}",
+			],
+			"project": ["**/*.{js,mjs,cjs,ts,mts,cts,tsx}"],
+		},
+		"apps/*": {
+			// Scripts and any colocated tests.
+			"entry": ["scripts/**/*.{js,mjs,cjs,ts,mts,cts}", "**/*.test.{js,mjs,cjs,ts,mts,cts,tsx}"],
+		},
+		"packages/*": {
+			// Package tests (test/ folders and colocated *.test.* files), scripts and top-level tools such as verify.mjs.
+			"entry": [
+				"test/**/*.{js,mjs,cjs,ts,mts,cts,tsx}",
+				"scripts/**/*.{js,mjs,cjs,ts,mts,cts}",
+				"**/*.test.{js,mjs,cjs,ts,mts,cts,tsx}",
+				"*.{js,mjs,cjs}",
+			],
+		},
+	},
+	// The keep-list: unused exports left in place on purpose, one file per entry.
+	"ignoreIssues": {
+		// rescheduleReviewed: planned operation communication.rescheduleReviewed. The server action exists; no screen calls it yet.
+		"apps/web/src/features/communication/actions.ts": ["exports"],
+	},
+}
