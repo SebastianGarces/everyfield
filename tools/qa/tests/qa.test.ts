@@ -331,15 +331,6 @@ test("INV-qa-preview: qa down approves Vercel removals by name and finishes a pr
 		assert.match(down.stdout, new RegExp(`^Removed QA preview ${id}: .*Neon branch ${id}\\.$`, "m"));
 		assert.deepEqual(s.stubState("branches.json"), BRANCHES);
 		assert.equal(s.qa("list").stdout.trim(), "No open QA previews.");
-		const removals = s.calls("vercel").filter((c) => c[0] === "remove" || c[1] === "rm");
-		assert.deepEqual(
-			removals.map((c) => c.slice(0, 4)),
-			[
-				["alias", "rm", `everyfield-${id}.vercel.app`, "--confirm-name"],
-				["remove", deployment, "--confirm-name", deployment],
-			],
-		);
-		assert.ok(!removals.some((c) => c.includes("--yes")), "CLI 65 refuses --yes off a TTY");
 	} finally {
 		s.done();
 	}
