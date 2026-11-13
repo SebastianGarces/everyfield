@@ -29,6 +29,12 @@ export const plantDirectoryRow = z.strictObject({
 	leadPlanter: z.string().nullable(),
 });
 export type PlantDirectoryRow = z.infer<typeof plantDirectoryRow>;
+/** The organization's own name and the plants linked to it, by name (oversight.listPlants). */
+export const plantDirectory = z.strictObject({
+	organizationName: z.string().min(1),
+	plants: z.array(plantDirectoryRow),
+});
+export type PlantDirectory = z.infer<typeof plantDirectory>;
 
 /**
  * One shared category as the organization sees it: not shared (a choice, never a zero), shared with nothing recorded,
@@ -64,7 +70,10 @@ export const taskCounts = z.strictObject({ open: count, overdue: count });
 /** The last held meetings, at most 12, oldest first: each one's local date and attended people. */
 export const meetingCounts = z.strictObject({
 	/** `attended` is null until the meeting's attendance is finalized, as the meeting reports count it. */
-	meetings: z.array(z.strictObject({ date: localDate, attended: count.nullable() })).min(1).max(12),
+	meetings: z
+		.array(z.strictObject({ date: localDate, attended: count.nullable() }))
+		.min(1)
+		.max(12),
 	/** Average days between consecutive meetings, rounded; null with one meeting. */
 	averageDaysBetween: z.int().min(0).nullable(),
 	/** Attended people summed over the finalized meetings. */

@@ -56,21 +56,32 @@ function plantRow(raw: unknown): C.PlantDirectoryRow {
 		country: r.country,
 		phase: r.phase,
 		launchDate: r.launch_date,
-		provenance: r.through.length
-			? { kind: "through", sendingChurches: [...r.through].sort() }
-			: { kind: "direct" },
+		provenance: r.through.length ? { kind: "through", sendingChurches: [...r.through].sort() } : { kind: "direct" },
 		leadPlanter: r.lead_planter,
 	});
 }
 const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name);
 const uuid = (id: string) => sql`${id}::uuid`;
 
-/** oversight.listPlants: the plants linked to this organization, by name; null for an actor without a live seat. */
-export async function listPlants(db: Reader, authority: RequestActor): Promise<C.PlantDirectoryRow[] | null> {
+/** The plants of `directory` as one JSON array column. */
+const plantsJson = (plants: SQL) => sql`(SELECT coalesce(json_agg(d), '[]'::json) FROM (${plants}) d)`;
+const plantList = (raw: unknown) => z.array(z.unknown()).parse(raw).map(plantRow).sort(byName);
+
+/**
+ * oversight.listPlants: this organization's name and the plants linked to it, by name; null for an actor without a live
+ * organization seat.
+ */
+export async function listPlants(db: Reader, authority: RequestActor): Promise<C.PlantDirectory | null> {
 	const org = organizationOf(authority);
 	if (!org) return null;
-	const rows = await liveRows(db, live(authority), directory(uuid(org.id), sql`true`));
-	return rows && rows.map(plantRow).sort(byName);
+	const o = uuid(org.id);
+	const rows = await liveRows(
+		db,
+		live(authority),
+		sql`SELECT o.name, ${plantsJson(directory(o, sql`true`))} AS plants FROM organization o WHERE o.id=${o}`,
+	);
+	const row = rows?.[0];
+	return row ? C.plantDirectory.parse({ organizationName: row.name, plants: plantList(row.plants) }) : null;
 }
 
 /** What each section counts, as one JSON value for plant `p` (a uuid parameter), and when it has nothing recorded. */
@@ -150,7 +161,9 @@ const SECTIONS = {
 	},
 	wiki: {
 		share: "share_wiki",
-		body: (p: SQL) => sql`SELECT json_build_object('finished', (count(*) FILTER (WHERE r.completed_at IS NOT NULL))::int,
+		body: (
+			p: SQL,
+		) => sql`SELECT json_build_object('finished', (count(*) FILTER (WHERE r.completed_at IS NOT NULL))::int,
 			'inProgress', (count(*) FILTER (WHERE r.completed_at IS NULL))::int) FROM reading r WHERE r.plant_context_id=${p}`,
 		parse: (raw: unknown) => {
 			const r = C.wikiCounts.parse(raw);
@@ -204,14 +217,17 @@ export async function getPlant(
 	if (!org || !recordId.safeParse(plantId).success) return null;
 	const rows = await liveRows(db, live(authority), directory(uuid(org.id), sql`p.id=${uuid(plantId)}`));
 	if (!rows?.[0]) return null;
-	const settled = await Promise.allSettled(KEYS.map((key) => readSection(db, authority, org, plantId, key)));
-	const sections = Object.fromEntries(
-		settled.map((r, i) => {
-			if (r.status === "fulfilled") return [KEYS[i], r.value];
-			report(KEYS[i]!, r.reason);
-			return [KEYS[i], { status: "unavailable" }];
-		}),
-	);
+	// One statement per section, so a section that fails leaves the others readable. A failed statement on the pool
+	// ends no transaction.
+	const sections: Partial<Record<C.SectionKey, unknown>> = {};
+	for (const key of KEYS) {
+		try {
+			sections[key] = await readSection(db, authority, org, plantId, key);
+		} catch (error) {
+			report(key, error);
+			sections[key] = { status: "unavailable" };
+		}
+	}
 	return C.plantView.parse({ plant: plantRow(rows[0]), sections });
 }
 
@@ -272,14 +288,14 @@ export async function getSendingChurch(
 	const rows = await liveRows(
 		db,
 		live(authority),
-		sql`SELECT o.id, o.name, (SELECT coalesce(json_agg(d), '[]'::json) FROM (${plants}) d) AS plants
+		sql`SELECT o.id, o.name, ${plantsJson(plants)} AS plants
 		FROM affiliation sn JOIN organization o ON o.id=sn.sending_church_id WHERE ${churchLink(n, church)}`,
 	);
 	if (!rows?.[0]) return null;
-	const r = z.object({ id: z.string(), name: z.string(), plants: z.array(z.unknown()) }).parse(rows[0]);
+	const r = z.object({ id: z.string(), name: z.string(), plants: z.unknown() }).parse(rows[0]);
 	return C.sendingChurchView.parse({
 		organizationId: r.id,
 		name: r.name,
-		plants: r.plants.map(plantRow).sort(byName),
+		plants: plantList(r.plants),
 	});
 }

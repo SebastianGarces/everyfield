@@ -6,8 +6,12 @@ import {
 	Calendar03Icon,
 	ChartLineData01Icon,
 	File02Icon,
+	HierarchyIcon,
+	Link01Icon,
 	Mail01Icon,
+	Notification03Icon,
 	Settings02Icon,
+	ShieldUserIcon,
 	Task01Icon,
 	UserGroupIcon,
 	UserMultipleIcon,
@@ -83,6 +87,14 @@ const INTELLIGENCE = {
 	icon: ChartLineData01Icon,
 	prefetch: false,
 } as const;
+// A sending church or network seat (WP-047a): its plants, its connections and what it shares, its notifications and
+// Settings. No planter page appears. Connections and Sharing are the one /settings/sharing page (D-1097).
+const PLANTS = { kind: "link", key: "plants", label: "Plants", href: "/network", icon: HierarchyIcon } as const;
+const ORGANIZATION_PAGES = [
+	{ kind: "link", key: "connections", label: "Connections", href: "/settings/sharing#connections", icon: Link01Icon },
+	{ kind: "link", key: "sharing", label: "Sharing", href: "/settings/sharing", icon: ShieldUserIcon },
+	{ kind: "link", key: "notifications", label: "Notifications", href: "/notifications", icon: Notification03Icon },
+] as const;
 const ROLE: Record<Role, string> = { owner: "Owner", admin: "Admin", member: "Member" };
 
 type FrameProps = {
@@ -149,33 +161,37 @@ function Frame({ name, photo, settings, seed = null, children }: FrameProps) {
 			</RoleBanner>
 		) : null;
 	// The rail's Settings opens the dialog over the current page, as the user menu does; /settings is its address.
-	const nav: ShellNav = {
-		main: [PEOPLE, MEETINGS, MESSAGES, TASKS, MINISTRIES, WIKI],
-		pages: settings?.context === "plant" && role !== "member" ? [INTELLIGENCE, DOCUMENTS] : [DOCUMENTS],
-		tools: [
-			{
-				kind: "action",
-				key: "guide",
-				label: "Guide",
-				icon: BookOpen02Icon,
-				onSelect: () => wiki?.toggleGuide(),
-				expanded: wiki?.guideOpen,
-			},
-			{
-				kind: "link",
-				key: "settings",
-				label: "Settings",
-				href: "/settings",
-				icon: Settings02Icon,
-				onNavigate: settings
-					? (event) => {
-							event.preventDefault();
-							dialog.open(firstSection(settings));
-						}
-					: undefined,
-			},
-		],
-	};
+	const settingsLink = {
+		kind: "link",
+		key: "settings",
+		label: "Settings",
+		href: "/settings",
+		icon: Settings02Icon,
+		onNavigate: settings
+			? (event: { preventDefault: () => void }) => {
+					event.preventDefault();
+					dialog.open(firstSection(settings));
+				}
+			: undefined,
+	} as const;
+	const organization = settings?.context === "organization";
+	const nav: ShellNav = organization
+		? { main: [PLANTS], pages: ORGANIZATION_PAGES, tools: [settingsLink] }
+		: {
+				main: [PEOPLE, MEETINGS, MESSAGES, TASKS, MINISTRIES, WIKI],
+				pages: settings?.context === "plant" && role !== "member" ? [INTELLIGENCE, DOCUMENTS] : [DOCUMENTS],
+				tools: [
+					{
+						kind: "action",
+						key: "guide",
+						label: "Guide",
+						icon: BookOpen02Icon,
+						onSelect: () => wiki?.toggleGuide(),
+						expanded: wiki?.guideOpen,
+					},
+					settingsLink,
+				],
+			};
 	const later = (what: string) => () => toast({ message: `${what} is not available yet.`, tone: "info" });
 	const seat = role ? `${ROLE[role]} seat` : "";
 	return (
@@ -190,7 +206,7 @@ function Frame({ name, photo, settings, seed = null, children }: FrameProps) {
 					checkIn={settings?.context === "plant" && role !== "member"}
 				/>
 			}
-			homeHref="/people"
+			homeHref={organization ? "/network" : "/people"}
 			unread={bell.unread}
 			width="wide"
 			onSearch={() => {

@@ -31,12 +31,14 @@ type Owner = Awaited<ReturnType<typeof S.tenant>>;
 /** An active link from `subject` (a plant or sending church) to `org`, sharing exactly `shared`. */
 async function link(subject: Owner, org: Owner, shared: readonly Category[] = []) {
 	const column = subject.kind === "plant" ? "plant_id" : "sending_church_id";
-	const r = await S.db.execute(sql`INSERT INTO affiliation(${sql.raw(column)},organization_id,accepted_at,${sql.raw(
-		ALL.map((c) => COLUMN[c]).join(","),
-	)}) VALUES(${subject.id},${org.id},clock_timestamp(),${sql.join(
-		ALL.map((c) => sql`${shared.includes(c)}`),
-		sql`,`,
-	)}) RETURNING id`);
+	const r = await S.db.execute(
+		sql`INSERT INTO affiliation(${sql.raw(column)},organization_id,accepted_at,${sql.raw(
+			ALL.map((c) => COLUMN[c]).join(","),
+		)}) VALUES(${subject.id},${org.id},clock_timestamp(),${sql.join(
+			ALL.map((c) => sql`${shared.includes(c)}`),
+			sql`,`,
+		)}) RETURNING id`,
+	);
 	return r.rows[0]!.id as string;
 }
 async function plant(name: string, city: string, state = "TX") {
@@ -72,13 +74,15 @@ async function leadRole(p: Owner, ownerAccount: string, roleId: string, teamId: 
 	const op = await S.db.execute(sql`INSERT INTO audit_event(tenant_id,actor_id,action,kind,subject_id)
 		VALUES(${p.id},${ownerAccount},'identity.domain_accepted','create',${p.id}) RETURNING id`);
 	const lead = { answer: "yes", assignment: { teamId, roleId, personId }, savedAt: "2026-01-01T00:00:00.000Z" };
-	await S.db.execute(sql`INSERT INTO onboarding_setup(plant_id,account_id,creation_operation_id,lead,journey,launch,people_step)
+	await S.db
+		.execute(sql`INSERT INTO onboarding_setup(plant_id,account_id,creation_operation_id,lead,journey,launch,people_step)
 		VALUES(${p.id},${ownerAccount},${op.rows[0]!.id},${JSON.stringify(lead)}::jsonb,'{"status":"pending"}'::jsonb,
 		'{"status":"pending"}'::jsonb,'pending')`);
 }
 async function task(p: Owner, fields: { status?: string; parent?: string; due?: string; deleted?: boolean } = {}) {
 	const id = randomUUID();
-	await S.db.execute(sql`INSERT INTO task(id,plant_id,title,category,priority,status,created_at,due_kind,due_date,parent_id,deleted_at,completed_at)
+	await S.db
+		.execute(sql`INSERT INTO task(id,plant_id,title,category,priority,status,created_at,due_kind,due_date,parent_id,deleted_at,completed_at)
 		VALUES(${id},${p.id},'Task','general','medium',${fields.status ?? "not_started"},clock_timestamp(),
 		${fields.due ? "date_only" : "undated"},${fields.due ?? null},${fields.parent ?? null},
 		${fields.deleted ? sql`clock_timestamp()` : null},${fields.status === "complete" ? sql`clock_timestamp()` : null})`);
@@ -86,7 +90,8 @@ async function task(p: Owner, fields: { status?: string; parent?: string; due?: 
 }
 async function meeting(p: Owner, date: string, attended: string[], finalized = true) {
 	const id = randomUUID();
-	await S.db.execute(sql`INSERT INTO meeting(id,plant_id,type,title,local_date,local_time,timezone,starts_at,resolver_version,
+	await S.db
+		.execute(sql`INSERT INTO meeting(id,plant_id,type,title,local_date,local_time,timezone,starts_at,resolver_version,
 		status,attendance_revision,finalized_at) VALUES(${id},${p.id},'vision_meeting','Vision night',${date},'18:00',
 		'America/Chicago',${date + "T23:00:00Z"},'1','completed',1,${finalized ? sql`clock_timestamp()` : null})`);
 	for (const who of attended)
@@ -164,7 +169,9 @@ after(async () => {
 });
 
 test("AC:TARGET-IDN-023 AC:ORG55-004 AC:ORG55-005 AC:AF-039 the directory lists only own linked plants, once, with the lead and no contacts", async () => {
-	const rows = await listPlants(S.runtime, await as(networkAdmin));
+	const directory = await listPlants(S.runtime, await as(networkAdmin));
+	assert.equal(directory!.organizationName, "Hill Country Network");
+	const rows = directory!.plants;
 	assert.deepEqual(rows, [
 		{
 			plantId: EC.id,
@@ -216,11 +223,11 @@ test("AC:TARGET-IDN-023 AC:ORG55-004 AC:ORG55-005 AC:AF-039 the directory lists 
 	for (const secret of ["private street", "12 Private Lane", "@example.test", "555-0100", "Dana"])
 		assert.equal(text.includes(secret), false, secret);
 	// The Member reads the same directory; a plant seat and a foreign network read none of it.
-	assert.deepEqual(await listPlants(S.runtime, await as(networkMember)), rows);
+	assert.deepEqual(await listPlants(S.runtime, await as(networkMember)), directory);
 	assert.equal(await listPlants(S.runtime, await as(hpOwner)), null);
 	// A sending church sees its own directly linked plants.
 	assert.deepEqual(
-		(await listPlants(S.runtime, await as(graceOwner)))!.map((r) => [r.name, r.provenance.kind]),
+		(await listPlants(S.runtime, await as(graceOwner)))!.plants.map((r) => [r.name, r.provenance.kind]),
 		[
 			["Eastside Commons", "direct"],
 			["Harvest Point", "direct"],
@@ -229,7 +236,7 @@ test("AC:TARGET-IDN-023 AC:ORG55-004 AC:ORG55-005 AC:AF-039 the directory lists 
 	);
 	// A launch date appears once the plant sets one.
 	await S.db.execute(sql`INSERT INTO launch(plant_id,target_date,status) VALUES(${OC.id},'2027-03-14','scheduled')`);
-	const oc = (await listPlants(S.runtime, await as(networkOwner)))!.find((r) => r.plantId === OC.id);
+	const oc = (await listPlants(S.runtime, await as(networkOwner)))!.plants.find((r) => r.plantId === OC.id);
 	assert.equal(oc!.launchDate, "2027-03-14");
 });
 
@@ -267,7 +274,9 @@ test("AC:TARGET-IDN-023 Grace Austin reads every section: meetings, teams, train
 	await meeting(HP, "2026-09-15", [marcus, two]);
 	await meeting(HP, "2026-09-29", [marcus], false);
 	// Required training: two assignments, one complete.
-	const program = await S.db.execute(sql`INSERT INTO training_program(plant_id,name,required) VALUES(${HP.id},'Safe kids',true) RETURNING id, version`);
+	const program = await S.db.execute(
+		sql`INSERT INTO training_program(plant_id,name,required) VALUES(${HP.id},'Safe kids',true) RETURNING id, version`,
+	);
 	const { id: programId, version } = program.rows[0] as { id: string; version: number };
 	for (const who of [marcus, two])
 		await S.db.execute(sql`INSERT INTO training_assignment(plant_id,program_id,person_id,version,state,effective_on)
@@ -281,11 +290,13 @@ test("AC:TARGET-IDN-023 Grace Austin reads every section: meetings, teams, train
 	const hash = () => randomUUID().replaceAll("-", "").repeat(2);
 	await S.db.execute(sql`INSERT INTO reference_item(id,kind,canonical_key,tenant_id) VALUES
 		(${section},'section','framework/oversight',${GLOBAL}),(${article},'article','oversight-read',${GLOBAL})`);
-	await S.db.execute(sql`INSERT INTO reference_release(id,release_key,artifact_locator,manifest_hash,state,complete_at,validated_at,
+	await S.db
+		.execute(sql`INSERT INTO reference_release(id,release_key,artifact_locator,manifest_hash,state,complete_at,validated_at,
 		approval_locator,approval_hash,chunker_version,embedding_profile,embedding_dimensions,tenant_id,expected_passages)
 		VALUES(${release},${"release-" + release},'memory://oversight',${hash()},'validated',clock_timestamp(),clock_timestamp(),
 		'memory://approval',${hash()},'v','profile',1,${GLOBAL},0)`);
-	await S.db.execute(sql`INSERT INTO article_revision(id,article_id,tenant_id,release_id,revision_number,title,slug,excerpt,body,
+	await S.db
+		.execute(sql`INSERT INTO article_revision(id,article_id,tenant_id,release_id,revision_number,title,slug,excerpt,body,
 		content_type,phase,position,content_hash,published_at,meaningful,meaningful_sequence,section_id,related_slugs)
 		VALUES(${revision},${article},${GLOBAL},${release},1,'Oversight read','oversight-read','About it','Opening line.',
 		'safe_mdx',1,1,${hash()},clock_timestamp(),true,1,${section},ARRAY[]::text[])`);
@@ -364,10 +375,10 @@ test("AC:AF-029 AC:AF-030 AC:AF-031 AC:AF-040 AC:ORG55-003 turning People off or
 	);
 	assert.equal(await getPlant(S.runtime, await as(graceOwner), HP.id), null);
 	assert.deepEqual(
-		(await listPlants(S.runtime, await as(graceOwner)))!.map((r) => r.name),
+		(await listPlants(S.runtime, await as(graceOwner)))!.plants.map((r) => r.name),
 		["Eastside Commons", "Westlake Church"],
 	);
-	const still = (await listPlants(S.runtime, await as(networkAdmin)))!.find((r) => r.plantId === HP.id);
+	const still = (await listPlants(S.runtime, await as(networkAdmin)))!.plants.find((r) => r.plantId === HP.id);
 	assert.deepEqual(still!.provenance, { kind: "direct" });
 	assert.notEqual(await getPlant(S.runtime, await as(networkAdmin), HP.id), null);
 });
@@ -386,10 +397,12 @@ test("AC:TARGET-IDN-024 the network's roster: linked sending churches, unexpired
 		["31 days", "old-network@example.test"],
 	]) {
 		const invitation = randomUUID();
-		await S.db.execute(sql`INSERT INTO invitation(id,tenant_id,purpose,recipient_email,token_hash,state,created_at,revision)
+		await S.db
+			.execute(sql`INSERT INTO invitation(id,tenant_id,purpose,recipient_email,token_hash,state,created_at,revision)
 			VALUES(${invitation},${S2.id},'church_network',${email},${randomUUID()},'pending',
 			clock_timestamp() - ${age}::interval,1)`);
-		await S.db.execute(sql`INSERT INTO relationship_invitation(invitation_id,sending_church_id,organization_id,inviter_description,subject_revision)
+		await S.db
+			.execute(sql`INSERT INTO relationship_invitation(invitation_id,sending_church_id,organization_id,inviter_description,subject_revision)
 			VALUES(${invitation},${S2.id},${N.id},'Cedar Park Church',1)`);
 	}
 	const roster = await listSendingChurches(S.runtime, await as(networkMember));
@@ -409,5 +422,8 @@ test("AC:TARGET-IDN-024 the network's roster: linked sending churches, unexpired
 	assert.equal(await listSendingChurches(S.runtime, await as(graceOwner)), null);
 	assert.equal(await getSendingChurch(S.runtime, await as(graceOwner), GA.id), null);
 	// The sending church with no linked plants reads an empty directory.
-	assert.deepEqual(await listPlants(S.runtime, await as(emptyChurchOwner)), []);
+	assert.deepEqual(await listPlants(S.runtime, await as(emptyChurchOwner)), {
+		organizationName: "Cedar Park Church",
+		plants: [],
+	});
 });
