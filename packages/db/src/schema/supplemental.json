@@ -4601,6 +4601,20 @@
 			"grantee": "everyfield_cleanup",
 			"is_grantable": false,
 			"kind": "table",
+			"object": "pipeline_stage_move",
+			"privilege_type": "DELETE"
+		},
+		{
+			"grantee": "everyfield_cleanup",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "pipeline_stage_move",
+			"privilege_type": "SELECT"
+		},
+		{
+			"grantee": "everyfield_cleanup",
+			"is_grantable": false,
+			"kind": "table",
 			"object": "pipeline_stage",
 			"privilege_type": "DELETE"
 		},
@@ -6983,6 +6997,20 @@
 			"kind": "table",
 			"object": "pipeline_sharing",
 			"privilege_type": "UPDATE"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "pipeline_stage_move",
+			"privilege_type": "INSERT"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "pipeline_stage_move",
+			"privilege_type": "SELECT"
 		},
 		{
 			"grantee": "everyfield_runtime",

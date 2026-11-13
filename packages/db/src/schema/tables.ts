@@ -3410,6 +3410,62 @@ export const pipeline_stage = pgTable(
 		index("pipeline_stage_ref_0").using("btree", table.organization_id.asc().nullsLast()),
 	],
 );
+export const pipeline_stage_move = pgTable(
+	"pipeline_stage_move",
+	{
+		id: uuid("id").notNull(),
+		organization_id: uuid("organization_id").notNull(),
+		pipeline_person_id: uuid("pipeline_person_id").notNull(),
+		from_stage_id: uuid("from_stage_id"),
+		to_stage_id: uuid("to_stage_id").notNull(),
+		from_label: text("from_label"),
+		to_label: text("to_label").notNull(),
+		reason: text("reason"),
+	},
+	(table): PgTableExtraConfigValue[] => [
+		foreignKey({
+			name: "pipeline_stage_move_audit",
+			columns: [table.id, table.organization_id],
+			foreignColumns: [audit_event.id, audit_event.tenant_id],
+		})
+			.onDelete("cascade")
+			.onUpdate("no action"),
+		foreignKey({
+			name: "pipeline_stage_move_person",
+			columns: [table.pipeline_person_id, table.organization_id],
+			foreignColumns: [pipeline_person.id, pipeline_person.organization_id],
+		})
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		foreignKey({
+			name: "pipeline_stage_move_from",
+			columns: [table.from_stage_id, table.organization_id],
+			foreignColumns: [pipeline_stage.id, pipeline_stage.organization_id],
+		})
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		foreignKey({
+			name: "pipeline_stage_move_to",
+			columns: [table.to_stage_id, table.organization_id],
+			foreignColumns: [pipeline_stage.id, pipeline_stage.organization_id],
+		})
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		primaryKey({ name: "pipeline_stage_move_pkey", columns: [table.id] }),
+		check("pipeline_stage_move_from_label", sql`((from_stage_id IS NULL) = (from_label IS NULL))`),
+		check(
+			"pipeline_stage_move_reason",
+			sql`((reason IS NULL AND from_stage_id IS NULL) OR ((length(btrim(reason)) >= 1) AND (length(reason) <= 1000)))`,
+		),
+		index("pipeline_stage_move_person_idx").using(
+			"btree",
+			table.pipeline_person_id.asc().nullsLast(),
+			table.organization_id.asc().nullsLast(),
+		),
+		index("pipeline_stage_move_from_idx").using("btree", table.from_stage_id.asc().nullsLast()),
+		index("pipeline_stage_move_to_idx").using("btree", table.to_stage_id.asc().nullsLast()),
+	],
+);
 export const plant = pgTable(
 	"plant",
 	{
