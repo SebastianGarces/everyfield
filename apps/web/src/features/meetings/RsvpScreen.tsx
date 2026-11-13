@@ -1,5 +1,7 @@
 "use client";
 
+import { timeText } from "@everyfield/contracts/common";
+
 import { Alert02Icon, Calendar03Icon, Location01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 import type * as c from "@everyfield/contracts/meetings";
 import { Button } from "@everyfield/ui/controls";
@@ -7,7 +9,7 @@ import { Icon, LogoMark } from "@everyfield/ui/foundations";
 import { useOptimistic, useState, useTransition, type ReactNode } from "react";
 import type { z } from "zod";
 import { answerRsvp, readRsvpLink } from "./actions.ts";
-import { longDateText, problemText, timeText } from "./model.ts";
+import { longDateText, problemText } from "./model.ts";
 
 type View = z.infer<typeof c.rsvpTokenView>;
 type Open = Extract<View, { meeting: unknown }>;
@@ -77,11 +79,13 @@ function Invitation({ token, view }: { token: string; view: Open }) {
 			<header className="relative bg-ink-fixed px-6 pt-14 pb-7 text-cream max-app-sm:pt-12">
 				<LogoMark className="h-8 w-8 text-green-500" />
 				<h1 className="mt-5 font-display text-[26px] leading-[1.15] tracking-[-0.02em] text-balance">
-					{shown.state === "answered" && shown.rsvp === "confirmed"
-						? `See you there, ${name}`
-						: shown.state === "answered" && shown.rsvp === "declined"
-							? `Thanks for letting us know, ${name}`
-							: `You're invited to ${m.displayTitle}`}
+					{shown.state === "closed"
+						? m.displayTitle
+						: shown.state === "answered" && shown.rsvp === "confirmed"
+							? `See you there, ${name}`
+							: shown.state === "answered" && shown.rsvp === "declined"
+								? `Thanks for letting us know, ${name}`
+								: `You're invited to ${m.displayTitle}`}
 				</h1>
 				{shown.state === "answered" ? <p className="mt-1.5 text-sm text-cream/75">{m.displayTitle}</p> : null}
 			</header>
@@ -110,9 +114,15 @@ function Invitation({ token, view }: { token: string; view: Open }) {
 					</Row>
 				</dl>
 
-				{shown.state === "expired" ? (
+				{shown.state === "closed" ? (
+					<Notice icon={Alert02Icon} title="This meeting is closed">
+						It was cancelled or has already happened, so it takes no more answers. Contact the person who invited you
+						with any questions.
+					</Notice>
+				) : shown.state === "expired" ? (
 					<Notice icon={Alert02Icon} title="This link has expired">
-						Links work for 7 days. Ask the person who invited you for a new one.
+						A link works for 7 days after it is sent, or until the meeting starts if that is later. Ask the person who
+						invited you for a new one.
 					</Notice>
 				) : shown.state === "answered" && shown.rsvp === "pending" ? (
 					<Notice icon={Alert02Icon} title="This link is closed">

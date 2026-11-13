@@ -1,10 +1,42 @@
-import { BookOpen01Icon } from "@hugeicons/core-free-icons";
-import { Button, Card, EmptyState, PageHeader, StatePanel } from "@everyfield/ui/controls";
+import { ArrowLeft01Icon, ArrowRight01Icon, BookOpen01Icon, SortingIcon } from "@hugeicons/core-free-icons";
+import {
+	Button,
+	CalloutLabel,
+	CalloutText,
+	CalloutTitle,
+	Card,
+	EmptyState,
+	PageHeader,
+	StatePanel,
+} from "@everyfield/ui/controls";
+import { humanCredit } from "@everyfield/contracts/wiki";
+import { Icon } from "@everyfield/ui/foundations";
 import Link from "next/link";
-import { ArticleTools, ArticleColumns, SourceBar, TocRail, WikiSearchButton } from "./client.tsx";
+import {
+	ArticleColumns,
+	ArticleSession,
+	ArticleTools,
+	OrderSettingsButton,
+	ReadStatus,
+	SourceBar,
+	TocRail,
+	WikiSearchButton,
+} from "./client.tsx";
+import { FixedFrame } from "../../components/frame/FixedFrame.tsx";
+import { FRAME, HEADER_GAP, SOURCE_BAR_GAP } from "./layout.ts";
 import { WikiEditor } from "./editor.tsx";
 import { ArticleFeedback } from "./feedback.tsx";
-import { articleBlocks, articlePath, editPath, humanCredit, percentLabel, PHASE_NAME, type Listed } from "./model.ts";
+import {
+	type ArticleVersion,
+	articleBlocks,
+	articlePath,
+	editPath,
+	percentLabel,
+	PHASE_NAME,
+	stepsAround,
+	type Listed,
+	type Step,
+} from "./model.ts";
 import { ArticleBody } from "./prose.tsx";
 import type { WikiPageData } from "./server.ts";
 
@@ -49,6 +81,12 @@ function ArticleList({ title, articles }: { title: string; articles: Listed[] })
 							<span className="block font-medium text-ink">{article.title}</span>
 							<span className="mt-1 block text-sm text-text-2">
 								{article.completed ? "Read" : percentLabel(article.observedFraction)}
+								{article.updated ? (
+									<>
+										{" · "}
+										<span className="font-medium text-ink">Updated since you read it</span>
+									</>
+								) : null}
 								{article.excerpt ? ` · ${article.excerpt}` : ""}
 							</span>
 						</Link>
@@ -56,6 +94,48 @@ function ArticleList({ title, articles }: { title: string; articles: Listed[] })
 				))}
 			</ul>
 		</section>
+	);
+}
+
+function StepCard({ step, direction }: { step: Step; direction: "previous" | "next" }) {
+	const next = direction === "next";
+	return (
+		<Link
+			href={step.href}
+			className={`group flex cursor-pointer items-center gap-4 rounded-card bg-surface p-5 shadow-card transition-colors hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus ${next ? "flex-row-reverse text-right app-sm:col-start-2" : ""}`}
+		>
+			<Icon
+				icon={next ? ArrowRight01Icon : ArrowLeft01Icon}
+				size={22}
+				className="flex-none text-text-3 group-hover:text-ink"
+			/>
+			<span className="min-w-0">
+				<span className="block text-sm text-text-3">{next ? "Next" : "Previous"}</span>
+				{step.group ? <span className="mt-0.5 block text-sm text-text-2">{step.group}</span> : null}
+				<span className="mt-1 block font-title text-[20px] leading-tight tracking-[-0.02em] text-ink">
+					{step.title}
+				</span>
+			</span>
+		</Link>
+	);
+}
+
+/** Owner and Admin only: two church versions have no order, so everyone reads the next version in line. */
+function OrderPrompt({ fallback }: { fallback: ArticleVersion | null }) {
+	return (
+		<Card variant="callout" tone="amber" className="mb-6">
+			<CalloutLabel tone="amber" icon={SortingIcon}>
+				Order needed
+			</CalloutLabel>
+			<CalloutTitle>Choose which church version comes first</CalloutTitle>
+			<CalloutText>
+				More than one sending church published its own version of this article. Until you choose an order, everyone
+				reads the {fallback?.kind === "network" ? "network version" : "global version"} below.
+			</CalloutText>
+			<div className="mt-4">
+				<OrderSettingsButton>Choose the order</OrderSettingsButton>
+			</div>
+		</Card>
 	);
 }
 
@@ -69,86 +149,98 @@ export function WikiScreen({ data, source }: { data: WikiPageData; source: strin
 			: [];
 	const title = data.editing ? `Edit ${article?.article.title ?? "article"}` : (article?.article.title ?? "Wiki");
 	const phase = article?.article.phase;
-	const credit = article ? humanCredit(article.article.credit) : null;
-	return (
-		<>
-			<PageHeader
-				title={title}
-				size={article ? "default" : "xl"}
-				breadcrumb={
-					article
-						? [
-								{ label: "Wiki", href: "/wiki" },
-								...(phase != null ? [{ label: PHASE_NAME[phase] ?? `Phase ${phase}` }] : []),
-								data.editing
-									? { label: article.article.title, href: articlePath(article.article.slug) }
-									: { label: article.article.title },
-								...(data.editing ? [{ label: "Edit" }] : []),
-							]
-						: undefined
-				}
-				subtitle={
-					data.editing ? (
-						data.editorName ? (
-							`This version belongs to ${data.editorName}`
-						) : (
-							"Organization version"
-						)
-					) : article ? (
-						<>
-							{percentLabel(article.article.observedFraction)}
-							{credit ? ` · ${credit}` : ""}
-							{article.article.updatedLabel ? " · Updated since you read it" : ""}
-						</>
+	// The stored credit belongs to the global article, so a church or network version shows its own name instead.
+	const credit = article && !article.version ? humanCredit(article.article.credit) : null;
+	const fixed = !data.editing;
+	const header = (
+		<PageHeader
+			className={fixed ? HEADER_GAP : undefined}
+			title={title}
+			size={article ? "default" : "xl"}
+			breadcrumb={
+				article
+					? [
+							{ label: "Wiki", href: "/wiki" },
+							...(phase != null ? [{ label: PHASE_NAME[phase] ?? `Phase ${phase}` }] : []),
+							data.editing
+								? { label: article.article.title, href: articlePath(article.article.slug) }
+								: { label: article.article.title },
+							...(data.editing ? [{ label: "Edit" }] : []),
+						]
+					: undefined
+			}
+			subtitle={
+				data.editing ? (
+					data.editorName ? (
+						`This version belongs to ${data.editorName}`
 					) : (
-						`${data.readCount} of ${data.articleCount} articles read`
+						"Organization version"
 					)
-				}
-				actions={
-					article ? (
-						<>
-							<WikiSearchButton />
-							{data.editing ? (
-								<Button asChild variant="outline">
-									<Link href={articlePath(article.article.slug)}>Back to article</Link>
-								</Button>
-							) : (
-								<>
-									{data.editorName ? (
-										<Button asChild variant="outline">
-											<Link href={editPath(article.article.slug)}>Edit article</Link>
-										</Button>
-									) : null}
-									<ArticleTools
-										articleId={article.article.articleId}
-										slug={article.article.slug}
-										source={source}
-										readingRevision={article.readingRevision}
-										plantId={article.plantId}
-										bookmarked={article.article.bookmarked}
-										observedFraction={article.article.observedFraction}
-										completed={article.article.completed}
-										updated={article.article.updatedLabel}
-									/>
-								</>
-							)}
-						</>
-					) : (
+				) : article ? (
+					<ReadStatus credit={credit} version={article.version} />
+				) : (
+					`${data.readCount} of ${data.articleCount} articles read`
+				)
+			}
+			actions={
+				article ? (
+					<>
 						<WikiSearchButton />
-					)
-				}
-			/>
+						{data.editing ? (
+							<Button asChild variant="outline">
+								<Link href={articlePath(article.article.slug)}>Back to article</Link>
+							</Button>
+						) : (
+							<>
+								{data.editorName ? (
+									<Button asChild variant="outline">
+										<Link href={editPath(article.article.slug)}>Edit article</Link>
+									</Button>
+								) : null}
+								<ArticleTools />
+							</>
+						)}
+					</>
+				) : (
+					<WikiSearchButton />
+				)
+			}
+		/>
+	);
+	const steps = article && !data.editing ? stepsAround(data.tree, article.article.articleId) : null;
+	return (
+		<FixedFrame fixed={fixed} className={FRAME}>
+			{article && !data.editing ? (
+				<ArticleSession
+					key={article.article.articleId}
+					articleId={article.article.articleId}
+					slug={article.article.slug}
+					source={source}
+					readingRevision={article.readingRevision}
+					plantId={article.plantId}
+					bookmarked={article.article.bookmarked}
+					observedFraction={article.article.observedFraction}
+					completed={article.article.completed}
+					updated={article.article.updatedLabel}
+				>
+					{header}
+				</ArticleSession>
+			) : (
+				header
+			)}
 			{article && article.sources.length && !data.editing ? (
-				<div className="mb-6">
+				<div className={SOURCE_BAR_GAP}>
 					<SourceBar
 						sources={article.sources}
 						currentId={article.currentSourceId}
 						preferredId={article.preferredSourceId}
 						canOrder={article.canOrder}
+						order={article.order}
 					/>
 				</div>
 			) : null}
 			<ArticleColumns
+				fixed={fixed}
 				phases={data.tree.phases}
 				more={data.tree.more}
 				currentId={article?.article.articleId}
@@ -226,44 +318,38 @@ export function WikiScreen({ data, source }: { data: WikiPageData; source: strin
 						</StatePanel>
 					</Card>
 				) : article?.article.body ? (
-					<div id="wiki-article" className="rounded-card bg-surface px-6 py-8 shadow-card max-app-sm:px-4 sm:px-11">
-						<ArticleBody contentType={article.article.contentType} body={article.article.body} />
-						{data.feedback ? <ArticleFeedback articleId={article.article.articleId} vote={data.feedback.vote} /> : null}
-						{article.siblings.length ? (
-							<section className="mx-auto mt-10 max-w-[700px]">
-								<h2 className="mb-3 font-title text-[22px] tracking-[-0.02em] text-ink">In this section</h2>
-								<ul className="flex flex-col gap-1">
-									{article.siblings.map((item) => (
-										<li key={item.articleId}>
-											<Link
-												href={articlePath(item.slug)}
-												className="text-ink underline decoration-green-500 decoration-2 underline-offset-[3px]"
-											>
-												{item.title}
-											</Link>
-										</li>
-									))}
-								</ul>
-							</section>
+					<>
+						{article.orderPrompt ? <OrderPrompt fallback={article.version} /> : null}
+						<div id="wiki-article" className="rounded-card bg-surface px-6 py-8 shadow-card max-app-sm:px-4 sm:px-11">
+							<ArticleBody contentType={article.article.contentType} body={article.article.body} />
+							{data.feedback ? (
+								<ArticleFeedback articleId={article.article.articleId} vote={data.feedback.vote} />
+							) : null}
+							{article.related.length ? (
+								<section className="mx-auto mt-8 max-w-[700px]">
+									<h2 className="mb-3 font-title text-[22px] tracking-[-0.02em] text-ink">Related</h2>
+									<ul className="flex flex-col gap-1">
+										{article.related.map((item) => (
+											<li key={item.articleId}>
+												<Link
+													href={item.href}
+													className="text-ink underline decoration-green-500 decoration-2 underline-offset-[3px]"
+												>
+													{item.title}
+												</Link>
+											</li>
+										))}
+									</ul>
+								</section>
+							) : null}
+						</div>
+						{steps && (steps.previous || steps.next) ? (
+							<nav aria-label="More articles" className="mt-6 grid gap-4 app-sm:grid-cols-2">
+								{steps.previous ? <StepCard step={steps.previous} direction="previous" /> : null}
+								{steps.next ? <StepCard step={steps.next} direction="next" /> : null}
+							</nav>
 						) : null}
-						{article.related.length ? (
-							<section className="mx-auto mt-8 max-w-[700px]">
-								<h2 className="mb-3 font-title text-[22px] tracking-[-0.02em] text-ink">Related</h2>
-								<ul className="flex flex-col gap-1">
-									{article.related.map((item) => (
-										<li key={item.articleId}>
-											<Link
-												href={item.href}
-												className="text-ink underline decoration-green-500 decoration-2 underline-offset-[3px]"
-											>
-												{item.title}
-											</Link>
-										</li>
-									))}
-								</ul>
-							</section>
-						) : null}
-					</div>
+					</>
 				) : (
 					<>
 						{!data.tree.phases.length && !data.tree.more.length ? (
@@ -280,6 +366,6 @@ export function WikiScreen({ data, source }: { data: WikiPageData; source: strin
 					</>
 				)}
 			</ArticleColumns>
-		</>
+		</FixedFrame>
 	);
 }

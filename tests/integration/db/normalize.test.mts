@@ -116,3 +116,90 @@ test("INV-migration-artifacts: committed migration checks reject raw Kit qualifi
 		await rm(directory, { recursive: true, force: true });
 	}
 });
+
+test("INV-migration-artifacts: the last audit_action list keeps every action an earlier timestamped migration allowed", async () => {
+	const { mkdtemp, mkdir, writeFile, rm } = await import("node:fs/promises");
+	const { tmpdir } = await import("node:os");
+	const { pathToFileURL } = await import("node:url");
+	const { checkMigrationArtifacts } = await import("../../../packages/db/src/schema/artifacts.ts");
+	const directory = await mkdtemp(tmpdir() + "/db1-audit-actions-");
+	const url = pathToFileURL(directory + "/");
+	const actions = (...names: string[]) =>
+		'ALTER TABLE "audit_event" DROP CONSTRAINT "audit_action";--> statement-breakpoint\n' +
+		`ALTER TABLE "audit_event" ADD CONSTRAINT "audit_action" CHECK ((action IN (${names.map((name) => `'${name}'`).join(",")})));`;
+	try {
+		await mkdir(directory + "/meta");
+		await writeFile(directory + "/frozen.json", JSON.stringify({ files: [] }));
+		await writeFile(directory + "/meta/_journal.json", JSON.stringify({ entries: [] }));
+		await writeFile(
+			directory + "/20261101000000_first.sql",
+			actions("person.created", "person.updated", "wiki.hidden"),
+		);
+		await writeFile(directory + "/20261103000000_last.sql", actions("person.created"));
+		await assert.rejects(
+			checkMigrationArtifacts(url),
+			(error: Error) =>
+				error.message ===
+				"20261103000000_last.sql drops audit actions 20261101000000_first.sql allowed: person.updated, wiki.hidden",
+		);
+		await writeFile(
+			directory + "/20261103000000_last.sql",
+			actions("person.created", "person.updated", "wiki.hidden", "wiki.published"),
+		);
+		await assert.doesNotReject(checkMigrationArtifacts(url));
+	} finally {
+		await rm(directory, { recursive: true, force: true });
+	}
+});
+
+test("INV-migration-artifacts: a committed retirement lets one migration drop exactly the audit actions it names", async () => {
+	const { mkdtemp, mkdir, writeFile, rm } = await import("node:fs/promises");
+	const { tmpdir } = await import("node:os");
+	const { pathToFileURL } = await import("node:url");
+	const { checkMigrationArtifacts } = await import("../../../packages/db/src/schema/artifacts.ts");
+	const directory = await mkdtemp(tmpdir() + "/db1-retired-actions-");
+	const url = pathToFileURL(directory + "/");
+	const actions = (...names: string[]) =>
+		'ALTER TABLE "audit_event" DROP CONSTRAINT "audit_action";--> statement-breakpoint\n' +
+		`ALTER TABLE "audit_event" ADD CONSTRAINT "audit_action" CHECK ((action IN (${names.map((name) => `'${name}'`).join(",")})));`;
+	const retire = (...names: string[]) =>
+		writeFile(
+			directory + "/retired-audit-actions.json",
+			JSON.stringify({ retirements: [{ migration: "20261103000000_drop.sql", actions: names }] }),
+		);
+	try {
+		await mkdir(directory + "/meta");
+		await writeFile(directory + "/frozen.json", JSON.stringify({ files: [] }));
+		await writeFile(directory + "/meta/_journal.json", JSON.stringify({ entries: [] }));
+		await writeFile(
+			directory + "/20261101000000_first.sql",
+			actions("person.created", "launch.corrected", "security.bulk_export"),
+		);
+		await writeFile(directory + "/20261103000000_drop.sql", actions("person.created"));
+		await writeFile(directory + "/20261105000000_later.sql", actions("person.created", "wiki.hidden"));
+
+		await retire("launch.corrected", "security.bulk_export");
+		await assert.doesNotReject(checkMigrationArtifacts(url));
+
+		// Removing an action from the entry leaves an unlisted drop, which the superset rule refuses as before.
+		await writeFile(directory + "/20261103000000_drop.sql", actions("person.created", "security.bulk_export"));
+		await writeFile(directory + "/20261105000000_later.sql", actions("person.created", "wiki.hidden"));
+		await retire("launch.corrected");
+		await assert.rejects(
+			checkMigrationArtifacts(url),
+			(error: Error) =>
+				error.message ===
+				"20261105000000_later.sql drops audit actions 20261101000000_first.sql allowed: security.bulk_export",
+		);
+
+		// An entry must match its migration's drop exactly; it cannot pre-retire an action that migration keeps.
+		await retire("launch.corrected", "security.bulk_export");
+		await assert.rejects(
+			checkMigrationArtifacts(url),
+			(error: Error) =>
+				error.message === "Retirement 20261103000000_drop.sql must name exactly the audit actions that migration drops",
+		);
+	} finally {
+		await rm(directory, { recursive: true, force: true });
+	}
+});

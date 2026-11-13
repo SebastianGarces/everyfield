@@ -1,36 +1,21 @@
-import { createDatabase, closeDatabase } from "../../../packages/db/src/client.ts";
+import { fixture, ok, refused } from "../../support/fixture.mts";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import test, { after, before, describe } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID, randomBytes } from "node:crypto";
-import { migrate } from "../../../packages/db/src/schema/migrate.ts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { createWikiProducer } from "../../../packages/domain/src/wiki/index.ts";
+import { createNotificationProducer } from "../../../packages/domain/src/notifications/index.ts";
+import { GUIDE_ROUTES, guideFor } from "../../../packages/domain/src/wiki/guides.ts";
+import { sectionExcerpt } from "../../../packages/domain/src/wiki/excerpt.ts";
+import { assertCleanEnd, PHASE_ROWS, seedBody, sourceSection } from "./excerpt-checks.mjs";
 
-const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
-const localCi =
-	process.env.CI === "true" &&
-	process.env.EARLY_ACCESS_TEST_DATABASE === "1" &&
-	["localhost", "127.0.0.1"].includes(source.hostname) &&
-	source.pathname === "/everyfield_ci";
-if (
-	(!localCi && source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech") ||
-	process.env.NODE_ENV === "production"
-)
-	throw Error("Only approved shared development or disposable CI endpoint allowed");
-if (!localCi) source.searchParams.set("sslmode", "verify-full");
-
-const schema = "wp034_" + randomUUID().replaceAll("-", "");
-const roleName = "wp034_" + randomBytes(8).toString("hex");
 const GLOBAL = "00000000-0000-0000-0000-000000000000";
-const admin = createDatabase({
-	connectionString: source.href,
-	max: 4,
-	options: `-c search_path=${schema},pg_catalog,pg_temp`,
-});
-let db;
-const P = randomUUID();
-const Q = randomUUID();
+const database = await fixture({ prefix: "wp034", max: 6 });
+const { admin } = database;
+const db = database.pools.runtime;
+const P = database.tenant.id;
+const Q = (await database.plant({ name: "Other" })).id;
 const S1 = randomUUID();
 const S2 = randomUUID();
 const S3 = randomUUID();
@@ -55,13 +40,14 @@ const discovery = Array.from({ length: 6 }, () => randomUUID());
 const release = randomUUID();
 const links = {};
 const people = {
-	owner: { id: randomUUID(), user: randomUUID(), session: randomUUID() },
-	member: { id: randomUUID(), user: randomUUID(), session: randomUUID() },
-	lead: { id: randomUUID(), user: randomUUID(), session: randomUUID() },
-	outsider: { id: randomUUID(), user: randomUUID(), session: randomUUID() },
-	org: { id: randomUUID(), user: randomUUID(), session: randomUUID() },
+	owner: database.actors.owner,
+	member: database.actors.member,
+	lead: database.actors.admin,
+	outsider: await database.actor({ kind: "plant", id: Q }, "admin"),
+	org: await database.actor(null, "owner", { account: { registration_kind: "planter" } }),
 };
 let renders = 0;
+const notices = createNotificationProducer({ optOutKey: randomBytes(32), now: () => new Date() });
 const api = createWikiProducer({
 	renderPdf() {
 		renders += 1;
@@ -71,15 +57,6 @@ const api = createWikiProducer({
 const plain = createWikiProducer();
 const hash = () => randomBytes(32).toString("hex");
 const key = () => randomUUID();
-const ok = (result) => {
-	assert.equal(result.status, "ok", JSON.stringify(result));
-	return result.value;
-};
-const refused = (result, code) => {
-	assert.equal(result.status, "refused", JSON.stringify(result));
-	assert.equal(result.error.code, code);
-	return result.error;
-};
 const count = async (query) => Number((await admin.execute(query)).rows[0].n);
 const actor = async (who) => {
 	const resolved = await RequestActor.resolve(db, who.session);
@@ -87,6 +64,8 @@ const actor = async (who) => {
 	return resolved;
 };
 const cmd = (input, expected = "0") => ({ requestKey: key(), expectedRevision: expected, input });
+// Progress and view writes carry no expected revision.
+const reading = (input) => ({ requestKey: key(), input });
 const current = async (who, articleId, sourceView) =>
 	ok(await api.getArticle(db, await actor(who), { articleId, ...(sourceView ? { source: sourceView } : {}) }));
 const ac = (ids) => ids.map((id) => "AC:" + id).join(" ");
@@ -185,43 +164,6 @@ async function affiliate(org, minutes) {
 }
 
 before(async () => {
-	await admin.execute(sql.raw(`CREATE SCHEMA ${schema}`));
-	await migrate(admin, schema);
-	const password = randomBytes(32).toString("hex");
-	await admin.execute(
-		sql.raw(
-			`CREATE ROLE ${roleName} LOGIN INHERIT PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`,
-		),
-	);
-	await admin.execute(sql.raw(`GRANT everyfield_runtime TO ${roleName}`));
-	const url = new URL(source);
-	url.username = roleName;
-	url.password = password;
-	db = createDatabase({ connectionString: url.href, max: 6, options: `-c search_path=${schema},pg_catalog,pg_temp` });
-	for (const who of Object.values(people)) {
-		await admin.execute(
-			sql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${who.user},${who.id + "@example.test"},true,'Synthetic')`,
-		);
-		await admin.execute(
-			sql`INSERT INTO account(id,auth_user_id,registration_state,registration_kind) VALUES(${who.id},${who.user},'active','planter')`,
-		);
-		await admin.execute(
-			sql`INSERT INTO auth_session(id,user_id,token,expires_at) VALUES(${who.session},${who.user},${key()},clock_timestamp()+interval '1 day')`,
-		);
-	}
-	await admin.execute(
-		sql`INSERT INTO plant(id,name,timezone,warning_days,alert_days,digest_weekday,digest_hour,phase,material_revision) VALUES
-			(${P},'Synthetic','America/Chicago',7,14,1,8,1,1),(${Q},'Other','America/Chicago',7,14,1,8,1,1)`,
-	);
-	for (const [id, role, plant] of [
-		[people.owner, "owner", P],
-		[people.member, "member", P],
-		[people.lead, "admin", P],
-		[people.outsider, "admin", Q],
-	])
-		await admin.execute(
-			sql`INSERT INTO seat(account_id,plant_id,role,accepted_at) VALUES(${id.id},${plant},${role},clock_timestamp())`,
-		);
 	for (const [id, kind, name] of [
 		[S1, "sending_church", "S1"],
 		[S2, "sending_church", "S2"],
@@ -230,12 +172,8 @@ before(async () => {
 		[N1, "sending_network", "N1"],
 		[N2, "sending_network", "N2"],
 	])
-		await admin.execute(
-			sql`INSERT INTO organization(id,kind,name,timezone,material_revision) VALUES(${id},${kind},${name},'America/Chicago',1)`,
-		);
-	await admin.execute(
-		sql`INSERT INTO seat(account_id,organization_id,role,accepted_at) VALUES(${people.org.id},${S1},'admin',clock_timestamp())`,
-	);
+		await database.organization(kind, { id, name, timezone: "America/Chicago" });
+	await database.seat(people.org, { kind: "organization", id: S1, organizationKind: "sending_church" }, "admin");
 	await item(section, "section", "framework/start", GLOBAL);
 	for (const [id, slug] of [
 		[lead, "lead"],
@@ -500,16 +438,10 @@ before(async () => {
 		await affiliate(org, minutes);
 });
 after(async () => {
-	if (db) await closeDatabase(db);
-	try {
-		await admin.execute(sql.raw(`DROP SCHEMA IF EXISTS ${schema} CASCADE`));
-		await admin.execute(sql.raw(`DROP ROLE IF EXISTS ${roleName}`));
-	} finally {
-		await closeDatabase(admin);
-	}
+	await database.close();
 });
 
-describe("wiki api", { concurrency: 1 }, () => {
+describe("AC:CASE-WIKI-001 wiki api", { concurrency: 1 }, () => {
 	test(
 		ac([
 			"CASE-WIKI-001",
@@ -539,9 +471,11 @@ describe("wiki api", { concurrency: 1 }, () => {
 		async () => {
 			const listed = ok(await api.listArticles(db, await actor(people.owner), {}));
 			assert.equal(listed.orderRevision, "0");
-			assert.deepEqual(listed.churches, []);
+			// With no stored order, the order dialog still lists every live source, by join time.
+			assert.deepEqual(listed.churches, [S1, S2, S3, Sx]);
+			assert.deepEqual(listed.networks, [N1, N2]);
 			const leadView = await current(people.owner, lead);
-			assert.equal(leadView.article.body, null);
+			assert.equal(leadView.article.body, "Global lead");
 			assert.equal(leadView.article.state, "source_order_required");
 			assert.equal(leadView.article.sourceKind, "global");
 			assert.notEqual(leadView.article.sourceId, S1);
@@ -589,11 +523,44 @@ describe("wiki api", { concurrency: 1 }, () => {
 		ac(["CASE-WIKI-002", "CASE-WIKI-008", "WR-038", "WR-039", "WR-040", "WR-041", "WR-054", "WR-064"]) +
 			" navigation, guide and excerpts keep the global citation and add no reading",
 		async () => {
+			// One section's articles, stored out of order, come back by phase, position, then title.
+			const ordered = randomUUID();
+			await item(ordered, "section", "reference/order", GLOBAL);
+			const placed = {};
+			for (const [name, phase, position] of [
+				["Order late", 2, 1],
+				["Order second", 1, 2],
+				["Order beta", 1, 1],
+				["Order alpha", 1, 1],
+			]) {
+				const article = randomUUID();
+				const slug = name.toLowerCase().replace(" ", "-");
+				await item(article, "article", slug, GLOBAL);
+				await revision({
+					id: randomUUID(),
+					article,
+					tenant: GLOBAL,
+					release,
+					title: name,
+					slug,
+					body: name,
+					phase,
+					position,
+					section: ordered,
+				});
+				placed[article] = name;
+			}
 			const before = await count(sql`SELECT count(*)::int AS n FROM reading`);
 			const nav = ok(await api.navigation(db, await actor(people.owner), {}));
+			assert.deepEqual(
+				nav.groups
+					.find((group) => group.name === "Reference")
+					.articles.filter((a) => a.articleId in placed)
+					.map((a) => placed[a.articleId]),
+				["Order alpha", "Order beta", "Order second", "Order late"],
+			);
 			const encoded = nav.groups.flatMap((group) => group.articles).find((item) => item.articleId === guide);
 			assert.equal(encoded.encodedSlug, "leadership%2Fwith%20space");
-			assert.ok(nav.relatedIds.includes(sibling));
 			const neighbors = ok(await api.articleNeighbors(db, await actor(people.owner), { articleId: guide }));
 			assert.deepEqual(
 				neighbors.articles.map((item) => item.articleId),
@@ -693,16 +660,29 @@ describe("wiki api", { concurrency: 1 }, () => {
 				await api.updateProgress(
 					db,
 					await actor(people.owner),
-					cmd({ articleId: departed, fraction: "0.80", plantId: P }),
+					reading({ articleId: departed, fraction: "0.80", plantId: P }),
 				),
 			);
 			assert.equal(held.completed, false);
 			assert.equal(held.written, true);
+			// The partial fraction is kept for the next read, and a lower later fraction does not lower it.
+			const partial = (await current(people.owner, departed)).article;
+			assert.deepEqual([partial.observedFraction, partial.completed], ["0.80", false]);
+			const lower = ok(
+				await api.updateProgress(
+					db,
+					await actor(people.owner),
+					reading({ articleId: departed, fraction: "0.30", plantId: P }),
+				),
+			);
+			assert.equal(lower.completed, false);
+			const kept = (await current(people.owner, departed)).article;
+			assert.deepEqual([kept.observedFraction, kept.completed], ["0.80", false]);
 			const done = ok(
 				await api.updateProgress(
 					db,
 					await actor(people.owner),
-					cmd({ articleId: departed, fraction: "0.800100", plantId: P }, held.revision),
+					reading({ articleId: departed, fraction: "0.800100", plantId: P }),
 				),
 			);
 			assert.equal(done.completed, true);
@@ -712,7 +692,7 @@ describe("wiki api", { concurrency: 1 }, () => {
 				sql`SELECT count(*)::int AS n FROM reading WHERE account_id=${people.owner.id} AND completed_at IS NOT NULL`,
 			);
 			const viewed = ok(
-				await api.recordView(db, await actor(people.owner), cmd({ articleId: departed, plantId: P }, done.revision)),
+				await api.recordView(db, await actor(people.owner), reading({ articleId: departed, plantId: P })),
 			);
 			assert.equal(viewed.completed, true);
 			assert.equal(
@@ -752,7 +732,7 @@ describe("wiki api", { concurrency: 1 }, () => {
 				parent: lead,
 			});
 			const opened = ok(
-				await api.updateProgress(db, await actor(people.owner), cmd({ articleId: guide, fraction: "0.91" })),
+				await api.updateProgress(db, await actor(people.owner), reading({ articleId: guide, fraction: "0.91" })),
 			);
 			assert.equal(opened.completed, true);
 			assert.equal(opened.meaningfulUpdateLabel, false);
@@ -1051,7 +1031,9 @@ describe("wiki api", { concurrency: 1 }, () => {
 			const pdf = Buffer.from(exported.bytes, "base64").toString("latin1");
 			assert.ok(pdf.split("/Type /Page /Parent").length > 2);
 			assert.equal(pdf.includes("long-lines.pdf"), true);
-			assert.equal(pdf.includes(view.article.credit), true);
+			// The credit is an internal source id here, so the footer shows only the page.
+			assert.match(view.article.credit, /^global:/);
+			assert.equal(pdf.includes(view.article.credit), false);
 			for (const line of lines) assert.equal(pdf.includes(line), true, line);
 			const html = ok(await plain.printArticle(db, await actor(people.owner), { articleId: longId })).html;
 			assert.equal(html.includes("<pre>"), false);
@@ -1060,10 +1042,100 @@ describe("wiki api", { concurrency: 1 }, () => {
 			assert.equal(html.includes("<table>"), true);
 			assert.equal(html.includes("Callout text"), true);
 			assert.equal(html.includes("long-lines.pdf"), true);
-			assert.equal(html.includes(view.article.credit), true);
+			assert.equal(html.includes(view.article.credit), false);
+			assert.equal(html.includes("<footer></footer>"), true);
 			for (const line of lines) assert.equal(html.includes(line), true, line);
 		},
 	);
+
+	test("AC:CASE-WIKI-007 PDF and print export render diagrams as text and code fences verbatim in Courier", async () => {
+		const id = randomUUID();
+		await item(id, "article", "diagram-export", GLOBAL);
+		const longCode = `  ${"x".repeat(100)}`;
+		await revision({
+			id: randomUUID(),
+			article: id,
+			tenant: GLOBAL,
+			release,
+			title: "Diagram export",
+			slug: "diagram-export",
+			body: [
+				"## Diagrams",
+				"```diagram flow",
+				"title: Guest path",
+				"loop: Each season",
+				"- First visit | Greeted | Week 1",
+				"- Connect card | Follow-up",
+				"- Lunch",
+				"```",
+				"```diagram hierarchy",
+				"title: Leaders",
+				"- Pastor | Vision",
+				"  - Director",
+				"    - Leader | | 4 teams",
+				"```",
+				"```",
+				"Cash total:   $____",
+				"              ---------",
+				"- stays text",
+				longCode,
+				"```",
+				"```diagram flow",
+				"title: Broken",
+				"- A | B | C | D",
+				"```",
+			].join("\n"),
+			phase: 6,
+		});
+		const exported = ok(await plain.exportPdf(db, await actor(people.owner), { articleId: id }));
+		const pdf = Buffer.from(exported.bytes, "base64").toString("latin1");
+		// The text each Tj shows, with the PDF string escapes undone.
+		const shown = [...pdf.matchAll(/\((.*)\) Tj/g)].map((match) => match[1]!.replace(/\\([()\\])/g, "$1"));
+		const start = shown.indexOf("Guest path");
+		assert.deepEqual(shown.slice(start, start + 18), [
+			"Guest path",
+			"Flow diagram",
+			"1. First visit - Greeted (Week 1) ->",
+			"2. Connect card - Follow-up ->",
+			"3. Lunch",
+			"Repeats: Each season",
+			"Leaders",
+			"Hierarchy diagram",
+			"Pastor - Vision",
+			"  Director",
+			"    Leader (4 teams)",
+			"Cash total:   $____",
+			"              ---------",
+			"- stays text",
+			longCode.slice(0, 78),
+			longCode.slice(78),
+			"title: Broken",
+			"- A | B | C | D",
+		]);
+		assert.equal(pdf.includes("/BaseFont /Courier"), true);
+		assert.match(pdf, /\/F2 10 Tf\nT\* \(Cash total: {3}\$____\) Tj/);
+		const html = ok(await plain.printArticle(db, await actor(people.owner), { articleId: id })).html;
+		assert.equal(
+			html.includes(
+				"<figure><figcaption>Guest path</figcaption><ol><li><strong>First visit</strong> - Greeted (Week 1)</li><li><strong>Connect card</strong> - Follow-up</li><li><strong>Lunch</strong></li></ol><p>Repeats: Each season</p></figure>",
+			),
+			true,
+			html,
+		);
+		assert.equal(
+			html.includes(
+				"<figure><figcaption>Leaders</figcaption><ul><li><strong>Pastor</strong> - Vision<ul><li><strong>Director</strong><ul><li><strong>Leader</strong> (4 teams)</li></ul></li></ul></li></ul></figure>",
+			),
+			true,
+			html,
+		);
+		assert.equal(
+			html.includes(`<pre><code>Cash total:   $____\n              ---------\n- stays text\n${longCode}</code></pre>`),
+			true,
+		);
+		assert.equal(html.includes("<pre><code>title: Broken\n- A | B | C | D</code></pre>"), true);
+		assert.equal(html.includes("<li>stays text</li>"), false);
+	});
 
 	test(
 		ac(["CASE-WIKI-011", "SEC-05"]) + " public wiki paths stay sessionless and private reads are not cached",
@@ -1117,7 +1189,7 @@ describe("wiki api", { concurrency: 1 }, () => {
 			const phaseBefore = await count(sql`SELECT phase AS n FROM plant WHERE id=${P}`);
 			for (const articleId of discovery) {
 				const row = ok(
-					await api.updateProgress(db, await actor(people.lead), cmd({ articleId, fraction: "0.91", plantId: P })),
+					await api.updateProgress(db, await actor(people.lead), reading({ articleId, fraction: "0.91", plantId: P })),
 				);
 				assert.equal(row.completed, true);
 			}
@@ -1175,6 +1247,24 @@ describe("wiki api", { concurrency: 1 }, () => {
 		);
 		const table = await admin.execute(sql`SELECT to_regclass('wiki_article_feedback') AS name`);
 		assert.equal(table.rows[0].name, null);
+	});
+
+	test("AC:CASE-WIKI-006 own feedback reads only while the reader's plant seat and lifecycle are live, as setMine writes", async () => {
+		const voter = await enroll("member", { kind: "plant", id: P });
+		const reader = await actor(voter);
+		ok(await api.setMine(db, reader, cmd({ articleId: guide, vote: "helpful" })));
+		assert.deepEqual(ok(await api.getMine(db, reader, { articleId: guide })).ownHistoryVotes, ["helpful"]);
+		// A pending-deletion witness on the account hides it.
+		const witness = randomUUID();
+		await admin.execute(sql`INSERT INTO lifecycle_witness(id,kind,opaque_subject_id,request_revision,state,witness_checkpoint,
+			cleanup_state,request_id,requested_at,cancel_until) VALUES(${witness},'account',${voter.id},1,'pending_deletion',1,
+			'not_started',${randomUUID()},statement_timestamp(),statement_timestamp()+interval '720 hours')`);
+		refused(await api.getMine(db, reader, { articleId: guide }), "access_denied");
+		await admin.execute(sql`DELETE FROM lifecycle_witness WHERE id=${witness}`);
+		assert.deepEqual(ok(await api.getMine(db, reader, { articleId: guide })).ownHistoryVotes, ["helpful"]);
+		// An ended seat reads nothing either, though the request's viewer was resolved while it was live.
+		await admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${voter.id}`);
+		refused(await api.getMine(db, reader, { articleId: guide }), "access_denied");
 	});
 
 	test(
@@ -1431,6 +1521,20 @@ describe("wiki api", { concurrency: 1 }, () => {
 			assert.equal(note.emailIntents, 0);
 			assert.equal(note.autoAdoptions, 0);
 			assert.deepEqual(note.recipientIds, [editor.id]);
+			// T-229: the notices carry the notification key shape, so the editor's bell shows them and links each to
+			// its published global revision's article, until the editor turns Wiki review requests off in the bell.
+			const bell = async () =>
+				ok(await notices.readFeed(db, await actor(editor), {}))
+					.items.filter((i) => i.category === "wiki_upstream_review")
+					.map((i) => [i.title, i.subject]);
+			const linked = { kind: "article", id: article.article, slug: "wp035/upstream/" + article.article };
+			assert.deepEqual(await bell(), [
+				["wp035/upstream", linked],
+				["wp035/upstream", linked],
+			]);
+			await admin.execute(sql`INSERT INTO notification_preference(account_id,category,channel,enabled,unsubscribe_revision)
+				VALUES (${editor.id},'wiki_upstream_review','in_app',false,1)`);
+			assert.deepEqual(await bell(), []);
 			const kept = await current(people.owner, article.article);
 			assert.equal(kept.article.body, "S1 guidance.");
 			assert.equal(kept.article.sourceId, S2);
@@ -1451,7 +1555,103 @@ describe("wiki api", { concurrency: 1 }, () => {
 		},
 	);
 
-	test("organization draft edit and hide keep every prior revision", async () => {
+	test("publish clears the draft pointer, so the editor reads what was published until a new draft", async () => {
+		const piece = await globalPiece("t157/publish/" + randomUUID(), [{ text: "Global guidance." }]);
+		const editor = await enroll("admin", { kind: "organization", id: S3 });
+		const at = { articleId: piece.article, organizationId: S3 };
+		const pointer = async () =>
+			(
+				await admin.execute(
+					sql`SELECT e.draft_revision_id, d.body AS draft, c.body AS current FROM article_editor_state e
+						LEFT JOIN article_revision d ON d.id = e.draft_revision_id
+						LEFT JOIN article_revision c ON c.id = e.current_revision_id
+						WHERE e.organization_id=${S3} AND e.article_id=${piece.article}`,
+				)
+			).rows[0];
+		// The editor's read in apps/web/src/features/wiki/server.ts: the draft read's body, else the stored draft,
+		// else the current revision.
+		const opens = async () => {
+			const draft = ok(await api.getOrganizationDraft(db, await actor(editor), at));
+			const stored = await pointer();
+			return { body: draft.body ?? stored.draft ?? stored.current, state: draft.state };
+		};
+		// Save draft A, edit the editor to B and publish B without saving it as a draft first.
+		ok(await api.addOrganizationArticle(db, await actor(editor), cmd({ ...at, body: "Draft A." })));
+		const published = ok(
+			await api.publishOrganizationArticle(
+				db,
+				await actor(editor),
+				cmd({ ...at, body: "Draft B.", cachePath: "wiki/t157" }, "1"),
+			),
+		);
+		assert.equal(published.errorCode, null);
+		assert.equal(published.state, "published");
+		assert.deepEqual(await opens(), { body: "Draft B.", state: "published" });
+		const stored = await pointer();
+		assert.equal(stored.draft_revision_id, null);
+		assert.equal(stored.current, "Draft B.");
+		assert.equal(
+			(await current(editor, piece.article, { kind: "organization", organizationId: S3 })).article.body,
+			"Draft B.",
+		);
+		// A draft saved after the publish is a real unpublished draft, and the editor shows it.
+		ok(await api.editOrganizationArticle(db, await actor(editor), cmd({ ...at, body: "Draft C." }, "2")));
+		assert.deepEqual(await opens(), { body: "Draft C.", state: "published" });
+		assert.equal((await pointer()).current, "Draft B.");
+	});
+
+	test("two tabs write progress and views from stale revisions without a conflict; bookmark still works", async () => {
+		const piece = await globalPiece("t157/tabs/" + randomUUID(), [{ text: "Global guidance." }]);
+		const reader = await enroll("member", { kind: "plant", id: P });
+		const write = async (call, input) => ok(await call(db, await actor(reader), reading(input)));
+		const article = { articleId: piece.article, plantId: P };
+		// Both tabs loaded the page before any reading row existed, so each holds revision "0".
+		const loaded = "0";
+		const results = [
+			await write(api.recordView, article),
+			await write(api.recordView, article),
+			await write(api.updateProgress, { ...article, fraction: "0.25" }),
+			await write(api.updateProgress, { ...article, fraction: "0.6" }),
+			await write(api.updateProgress, { ...article, fraction: "0.5" }),
+			await write(api.recordView, article),
+			await write(api.updateProgress, { ...article, fraction: "0.4" }),
+		];
+		for (const result of results) {
+			assert.equal(result.errorCode, null);
+			assert.equal(result.written, true);
+			// A reading row starts at revision 1 and only a bookmark moves it.
+			assert.equal(result.revision, "1");
+		}
+		assert.equal(results.at(-1).observedFraction, "0.6");
+		assert.equal(results.at(-1).completed, false);
+		const row = async () =>
+			(
+				await admin.execute(
+					sql`SELECT observed_fraction::text AS fraction, revision::text AS revision, bookmarked FROM reading
+						WHERE account_id=${reader.id} AND article_id=${piece.article}`,
+				)
+			).rows[0];
+		assert.deepEqual(await row(), { fraction: "0.6", revision: "1", bookmarked: false });
+		const marked = ok(
+			await api.setBookmark(db, await actor(reader), cmd({ articleId: piece.article, desired: true }, loaded)),
+		);
+		assert.equal(marked.written, true);
+		assert.equal(marked.bookmarked, true);
+		assert.equal(marked.revision, "2");
+		// Progress after the bookmark keeps the bookmark and the revision, and completion keeps its rule.
+		const finished = await write(api.updateProgress, { ...article, fraction: "0.85" });
+		assert.equal(finished.completed, true);
+		assert.equal(finished.bookmarked, true);
+		assert.equal(finished.revision, "2");
+		// The bookmark keeps its revision check: the stale tab's toggle is a conflict.
+		refused(
+			await api.setBookmark(db, await actor(reader), cmd({ articleId: piece.article, desired: false }, loaded)),
+			"conflict",
+		);
+		assert.deepEqual(await row(), { fraction: "0.85", revision: "2", bookmarked: true });
+	});
+
+	test("AC:CASE-WIKI-001 organization draft edit and hide keep every prior revision", async () => {
 		const piece = await globalPiece("wp035/draft/" + randomUUID(), [{ text: "Global guidance." }]);
 		const editor = await enroll("admin", { kind: "organization", id: S3 });
 		const added = ok(
@@ -1558,7 +1758,7 @@ describe("wiki api", { concurrency: 1 }, () => {
 		refused(await api.getArticle(db, forged, { articleId: lead }), "access_denied");
 		const audits = await count(sql`SELECT count(*)::int AS n FROM audit_event`);
 		const readings = await count(sql`SELECT count(*)::int AS n FROM reading`);
-		refused(await api.updateProgress(db, forged, cmd({ articleId: lead, fraction: "0.91" })), "unavailable");
+		refused(await api.updateProgress(db, forged, reading({ articleId: lead, fraction: "0.91" })), "unavailable");
 		assert.equal(await count(sql`SELECT count(*)::int AS n FROM audit_event`), audits);
 		assert.equal(await count(sql`SELECT count(*)::int AS n FROM reading`), readings);
 	});
@@ -1599,4 +1799,653 @@ describe("wiki api", { concurrency: 1 }, () => {
 			assert.equal(absent.rows[0].pref, null);
 		},
 	);
+});
+
+// WP-034: church and network versions, the order prompt's data, the updated label and the Guide. Fresh plants, so no
+// stored order from the tests above applies. Runs last: it adds global articles to the active release.
+describe("AC:CASE-WIKI-008 wiki versions and the Guide", { concurrency: 1 }, () => {
+	const C1 = randomUUID();
+	const C2 = randomUUID();
+	const M1 = randomUUID();
+	const R1 = randomUUID();
+	const R2 = randomUUID();
+	const worship = randomUUID();
+	const churchPair = randomUUID();
+	const networkPiece = randomUUID();
+	const plainPiece = randomUUID();
+	const support = randomUUID();
+	const typoPiece = randomUUID();
+	const r1 = {};
+	const r2 = {};
+	const guideIds = new Map();
+	const id = () => randomUUID();
+	const LONG = "Pray, cast vision, tell stories and invite a response. ".repeat(12);
+	// The section crosses the 500-character limit, so it is cut at the last sentence end inside it.
+	const LONG_CUT = `## Seven Essential Elements\n${"Pray, cast vision, tell stories and invite a response. ".repeat(8).trimEnd()}`;
+	const sectionBody = (heading, text) =>
+		`Opening line\n## ${heading}\n${text}\n### Detail\nInside the section\n## Next part\nOutside`;
+
+	async function plant(plantId, name, orgs) {
+		await database.plant({ id: plantId, name });
+		for (const org of orgs)
+			await admin.execute(sql`INSERT INTO affiliation(id,plant_id,organization_id,accepted_at,share_people,share_meetings,share_tasks,share_ministry_teams,share_wiki,share_activity,shared_findings)
+				VALUES(${id()},${plantId},${org},clock_timestamp()-interval '10 minutes',false,false,false,false,true,false,false)`);
+	}
+	async function globalArticle(article, slug, title, body, extra = {}) {
+		await item(article, "article", slug, GLOBAL);
+		await revision({ id: id(), article, tenant: GLOBAL, release, title, slug, body, ...extra });
+	}
+	async function copy(org, article, slug, title, body) {
+		const rev = await revision({ id: id(), article, tenant: org, title, slug, body, content: "safe_nodes" });
+		await orgCopy(org, article, body, "published", rev);
+	}
+	const editorDoc = (blocks) => JSON.stringify({ format: "everyfield-editor-v1", blocks });
+	const words = (text) => [{ type: "text", text, marks: [] }];
+	const guideOf = async (who, route) => ok(await api.contextGuide(db, await actor(who), { route }));
+
+	before(async () => {
+		for (const [org, kind, name] of [
+			[C1, "sending_church", "Grace Church"],
+			[C2, "sending_church", "Hope Church"],
+			[M1, "sending_network", "Harvest Network"],
+		])
+			await admin.execute(
+				sql`INSERT INTO organization(id,kind,name,timezone,material_revision) VALUES(${org},${kind},${name},'America/Chicago',1)`,
+			);
+		await plant(R1, "One church", [C1, M1]);
+		await plant(R2, "Two churches", [C1, C2, M1]);
+		for (const role of ["owner", "member"]) r1[role] = await enroll(role, { kind: "plant", id: R1 });
+		r1.ending = await enroll("member", { kind: "plant", id: R1 });
+		for (const role of ["owner", "admin", "member"]) r2[role] = await enroll(role, { kind: "plant", id: R2 });
+		const slug = "worship/planning-worship-services";
+		await globalArticle(worship, slug, "Planning Worship Services", "Global worship text");
+		await copy(C1, worship, slug, "Planning Worship Services", "Grace worship text");
+		await copy(C2, worship, slug, "Planning Worship Services", "Hope worship text");
+		await copy(M1, worship, slug, "Planning Worship Services", "Harvest worship text");
+		await globalArticle(churchPair, "worship/two-church-copies", "Two church copies", "Global pair text");
+		await copy(C1, churchPair, "worship/two-church-copies", "Two church copies", "Grace pair text");
+		await copy(C2, churchPair, "worship/two-church-copies", "Two church copies", "Hope pair text");
+		await globalArticle(networkPiece, "worship/network-copy", "Network copy", "Global network piece");
+		await copy(M1, networkPiece, "worship/network-copy", "Network copy", "Harvest network piece");
+		await globalArticle(plainPiece, "worship/global-only", "Global only", "Global only text");
+		await globalArticle(support, "funding/raising-outside-support", "Raising Outside Support", "Ask early", {
+			sequence: 1,
+		});
+		await globalArticle(typoPiece, "funding/typo", "Typo fix", "Before the typo", { sequence: 1 });
+		for (const entry of GUIDE_ROUTES) {
+			if (entry.route === "/settings/brand" || guideIds.has(entry.slug)) continue;
+			const article = id();
+			guideIds.set(entry.slug, article);
+			const headings = GUIDE_ROUTES.filter((other) => other.slug === entry.slug).map((other) => other.heading);
+			const body = [
+				"Opening line",
+				...headings.flatMap((heading) => [
+					`## ${heading}`,
+					heading === "Seven Essential Elements" ? LONG : `Text under ${heading}`,
+					"### Detail",
+					`Inside ${heading}`,
+				]),
+				"## Next part",
+				"Outside",
+			].join("\n");
+			await globalArticle(article, entry.slug, `Title of ${entry.slug}`, body);
+		}
+	});
+
+	test(
+		ac(["CASE-WIKI-001", "WR-001", "WR-002"]) +
+			" a church copy wins over the network copy, a network copy over global, and global stays unlabeled",
+		async () => {
+			const church = await current(r1.member, worship);
+			assert.equal(church.article.body, "Grace worship text");
+			assert.equal(church.article.sourceKind, "church");
+			assert.equal(church.article.sourceId, C1);
+			assert.equal(church.article.state, "published");
+			const network = await current(r1.member, networkPiece);
+			assert.equal(network.article.body, "Harvest network piece");
+			assert.equal(network.article.sourceKind, "network");
+			assert.equal(network.article.sourceId, M1);
+			const plain = await current(r1.member, plainPiece);
+			assert.equal(plain.article.body, "Global only text");
+			assert.equal(plain.article.sourceKind, "global");
+		},
+	);
+
+	test(
+		ac(["WIKI-ORDER-001", "WR-043"]) +
+			" two unranked church copies fall back to the network, then global, for every role until an order is saved",
+		async () => {
+			for (const who of [r2.owner, r2.admin, r2.member]) {
+				const fallback = await current(who, worship);
+				assert.equal(fallback.article.state, "source_order_required");
+				assert.equal(fallback.article.sourceKind, "network");
+				assert.equal(fallback.article.sourceId, M1);
+				assert.equal(fallback.article.body, "Harvest worship text");
+				const pair = await current(who, churchPair);
+				assert.equal(pair.article.state, "source_order_required");
+				assert.equal(pair.article.sourceKind, "global");
+				assert.equal(pair.article.body, "Global pair text");
+			}
+			// The one-church plant reads its church copy: one church is never unranked against another.
+			assert.equal((await current(r1.owner, churchPair)).article.body, "Grace pair text");
+			// The order dialog lists both churches before any order is stored, so the first save can name each one.
+			const unsaved = ok(await api.listArticles(db, await actor(r2.owner), {}));
+			assert.deepEqual([unsaved.churches, unsaved.networks, unsaved.orderRevision], [[C1, C2], [M1], "0"]);
+			const denied = ok(
+				await api.setSourceOrder(db, await actor(r2.member), cmd({ churches: [C2, C1], networks: [M1] })),
+			);
+			assert.equal(denied.errorCode, "access_denied");
+			const saved = ok(
+				await api.setSourceOrder(db, await actor(r2.owner), cmd({ churches: [C2, C1], networks: [M1] })),
+			);
+			assert.equal(saved.errorCode, null);
+			const ordered = ok(await api.listArticles(db, await actor(r2.owner), {}));
+			assert.deepEqual([ordered.churches, ordered.networks, ordered.orderRevision], [[C2, C1], [M1], "1"]);
+			for (const who of [r2.owner, r2.member]) {
+				const chosen = await current(who, worship);
+				assert.equal(chosen.article.state, "published");
+				assert.equal(chosen.article.sourceId, C2);
+				assert.equal(chosen.article.body, "Hope worship text");
+			}
+		},
+	);
+
+	test(
+		ac(["CASE-WIKI-004", "WIKI49-001", "WIKI49-002", "WR-023", "WR-025"]) +
+			" a meaningful revision after a finished read labels the article and its home entries; a typo fix does not",
+		async () => {
+			const reader = await actor(r1.owner);
+			const finished = ok(
+				await api.updateProgress(db, reader, reading({ articleId: support, fraction: "0.95", plantId: R1 })),
+			);
+			assert.equal(finished.completed, true);
+			ok(
+				await api.setBookmark(db, await actor(r1.owner), cmd({ articleId: support, desired: true }, finished.revision)),
+			);
+			ok(
+				await api.updateProgress(
+					db,
+					await actor(r1.owner),
+					reading({ articleId: typoPiece, fraction: "0.95", plantId: R1 }),
+				),
+			);
+			await revision({
+				id: id(),
+				article: support,
+				tenant: GLOBAL,
+				release,
+				number: 2,
+				title: "Raising Outside Support",
+				slug: "funding/raising-outside-support",
+				body: "Ask early, and ask again",
+				meaningful: true,
+				sequence: 2,
+			});
+			await revision({
+				id: id(),
+				article: typoPiece,
+				tenant: GLOBAL,
+				release,
+				number: 2,
+				title: "Typo fix",
+				slug: "funding/typo",
+				body: "After the typo",
+				meaningful: false,
+				sequence: 1,
+			});
+			const labeled = await current(r1.owner, support);
+			assert.equal(labeled.article.updatedLabel, true);
+			assert.equal(labeled.article.completed, true);
+			const recent = ok(await api.readingRecent(db, await actor(r1.owner), {}));
+			assert.equal(recent.articles.find((item) => item.articleId === support)?.updatedLabel, true);
+			const marks = ok(await api.bookmarksList(db, await actor(r1.owner), {}));
+			assert.equal(marks.articles.find((item) => item.articleId === support)?.updatedLabel, true);
+			const quiet = await current(r1.owner, typoPiece);
+			assert.equal(quiet.article.updatedLabel, false);
+			assert.equal(quiet.article.completed, true);
+			const never = await current(r1.member, support);
+			assert.equal(never.article.updatedLabel, false);
+		},
+	);
+
+	test(
+		ac(["CASE-WIKI-004", "WIKI49-002", "WR-023"]) +
+			" opening an updated article clears its Updated since you read it for that person only",
+		async () => {
+			const article = id();
+			const slug = "funding/reopened-guidance";
+			await globalArticle(article, slug, "Reopened guidance", "First text");
+			// Both people finish it and bookmark it; then a meaningful revision lands.
+			for (const who of [r1.owner, r1.member]) {
+				const done = ok(
+					await api.updateProgress(
+						db,
+						await actor(who),
+						reading({ articleId: article, fraction: "0.95", plantId: R1 }),
+					),
+				);
+				ok(await api.setBookmark(db, await actor(who), cmd({ articleId: article, desired: true }, done.revision)));
+			}
+			await revision({
+				id: id(),
+				article,
+				tenant: GLOBAL,
+				release,
+				number: 2,
+				title: "Reopened guidance",
+				slug,
+				body: "Second text",
+				meaningful: true,
+				sequence: 2,
+			});
+			const lists = async (who) => {
+				const recent = ok(await api.readingRecent(db, await actor(who), {}));
+				const marks = ok(await api.bookmarksList(db, await actor(who), {}));
+				return [recent, marks].map((l) => l.articles.find((a) => a.articleId === article)?.updatedLabel);
+			};
+			const stored = async (who) =>
+				(
+					await admin.execute(
+						sql`SELECT completed_at, completed_revision_id, completed_fraction::text, observed_fraction::text, bookmarked,
+							revision::text FROM reading WHERE account_id=${who.id} AND article_id=${article}`,
+					)
+				).rows[0];
+			assert.deepEqual(await lists(r1.owner), [true, true]);
+			assert.deepEqual(await lists(r1.member), [true, true]);
+			assert.equal((await current(r1.owner, article)).article.updatedLabel, true);
+
+			// The owner opens it: the badge is gone from their lists and the article, and nothing else on the reading moves.
+			const before = await stored(r1.owner);
+			const opened = ok(await api.recordView(db, await actor(r1.owner), reading({ articleId: article, plantId: R1 })));
+			assert.deepEqual([opened.meaningfulUpdateLabel, opened.completed, opened.bookmarked], [false, true, true]);
+			assert.deepEqual(await stored(r1.owner), before);
+			assert.deepEqual(await lists(r1.owner), [false, false]);
+			assert.equal((await current(r1.owner, article)).article.updatedLabel, false);
+			assert.equal((await current(r1.owner, article)).article.updatedLabel, false);
+			// The member has not opened it since: they still see it.
+			assert.deepEqual(await lists(r1.member), [true, true]);
+			assert.equal((await current(r1.member, article)).article.updatedLabel, true);
+		},
+	);
+
+	test("AC:CASE-WIKI-008 the Guide registry holds Nora's 13 routes and matches whole addresses only", () => {
+		assert.deepEqual(
+			GUIDE_ROUTES.map((entry) => [entry.route, entry.slug, entry.heading]),
+			[
+				["/people", "core-group/follow-up/database-management", "What to Track"],
+				["/people/[personId]", "core-group/follow-up/database-management", "Status Categories"],
+				["/people/import", "core-group/follow-up/database-management", "After Each Vision Meeting"],
+				["/meetings", "core-group/vision-meetings/what-is-a-vision-meeting", "Seven Essential Elements"],
+				["/meetings/[meetingId]", "core-group/vision-meetings/planning-your-vision-meeting", "Building Your Agenda"],
+				["/tasks/follow-ups", "core-group/follow-up/the-importance-of-great-follow-up", "The Follow-Up Process"],
+				["/follow-ups/[taskId]", "core-group/follow-up/4-reasons-follow-up-is-vital", "Putting It All Together"],
+				["/ministries", "training/goals-by-launch-sunday", "Ministry Teams to Establish"],
+				["/ministries/[teamId]", "launch-team/leadership/key-leadership-roles-overview", "Finding the Right People"],
+				["/documents", "core-group/commitment/the-three-key-documents", "Overview of the Three Documents"],
+				["/documents/church", "core-group/commitment/the-three-key-documents", "Overview of the Three Documents"],
+				[
+					"/settings/brand",
+					"administrative/technology/building-your-churchs-brand",
+					"Choose colors and type people can read",
+				],
+				["/intelligence", "getting-started/welcome-to-the-launch-playbook", "How to Navigate the Playbook"],
+			],
+		);
+		const record = randomUUID();
+		for (const route of [
+			"/people/duplicates",
+			"/tasks",
+			"/communication",
+			`/documents/church/${record}`,
+			"/me/check-in",
+			"/notifications",
+			"/settings/account",
+			"/settings",
+			"/home",
+			"/onboarding",
+			`/meetings/${record}/check-in`,
+			"/wiki/core-group/follow-up/database-management",
+		])
+			assert.equal(guideFor(route), null, route);
+		assert.equal(guideFor(`/people/${record}`)?.heading, "Status Categories");
+		assert.equal(guideFor("/people/import")?.heading, "After Each Vision Meeting");
+		assert.equal(guideFor("/meetings/?view=past#top")?.route, "/meetings");
+		assert.equal(guideFor(`/ministries/${record}/`)?.route, "/ministries/[teamId]");
+		assert.equal(guideFor("/tasks?tab=follow-ups"), null);
+	});
+
+	test(
+		ac(["CASE-WIKI-008", "WR-038", "WR-039", "WR-040", "WR-041"]) +
+			" the Guide shows each mapped section of the viewer's version, and no guide elsewhere, without reading",
+		async () => {
+			const readings = await count(sql`SELECT count(*)::int AS n FROM reading`);
+			const recentBefore = ok(await api.readingRecent(db, await actor(r1.owner), {}));
+			const record = randomUUID();
+			for (const entry of GUIDE_ROUTES) {
+				const route = entry.route.replace(/\[[^\]]+\]/, record);
+				const guide = await guideOf(r1.member, route);
+				if (entry.route === "/settings/brand") {
+					// This synthetic release leaves the brand article out, so a mapped article missing from a release shows no
+					// guide. The real living seed has it: tests/reference/starter/living.db.mts resolves it after wiki:install.
+					assert.deepEqual([guide.found, guide.missing, guide.body], [false, true, null], route);
+					continue;
+				}
+				assert.equal(guide.found, true, route);
+				assert.equal(guide.articleId, guideIds.get(entry.slug), route);
+				assert.equal(guide.title, `Title of ${entry.slug}`, route);
+				assert.equal(guide.slug, entry.slug, route);
+				assert.equal(guide.citation, entry.heading, route);
+				if (entry.heading === "Seven Essential Elements") assert.equal(guide.body, LONG_CUT, route);
+				else
+					assert.equal(
+						guide.body,
+						`## ${entry.heading}\nText under ${entry.heading}\n### Detail\nInside ${entry.heading}`,
+						route,
+					);
+			}
+			for (const route of [
+				"/people/duplicates",
+				"/tasks",
+				"/communication",
+				`/documents/church/${record}`,
+				"/me/check-in",
+				"/notifications",
+				"/settings/account",
+			]) {
+				const guide = await guideOf(r1.member, route);
+				assert.deepEqual([guide.found, guide.missing, guide.articleId, guide.body], [false, true, null, null], route);
+			}
+			assert.equal((await guideOf(r1.member, "/meetings/?from=rail")).citation, "Seven Essential Elements");
+			assert.equal(await count(sql`SELECT count(*)::int AS n FROM reading`), readings);
+			assert.deepEqual(ok(await api.readingRecent(db, await actor(r1.owner), {})), recentBefore);
+
+			const brand = id();
+			await globalArticle(
+				brand,
+				"administrative/technology/building-your-churchs-brand",
+				"Building Your Church's Brand",
+				sectionBody("Choose colors and type people can read", "Pick two colors with strong contrast."),
+			);
+			const branded = await guideOf(r1.member, "/settings/brand");
+			assert.equal(branded.found, true);
+			assert.equal(branded.articleId, brand);
+			assert.equal(
+				branded.body,
+				"## Choose colors and type people can read\nPick two colors with strong contrast.\n### Detail\nInside the section",
+			);
+		},
+	);
+
+	test(
+		ac(["CASE-WIKI-008", "WIKI-ENTITLEMENT-001"]) +
+			" the Guide excerpt comes from the church version, falls back to its start, and an ended seat gets no text",
+		async () => {
+			const meetings = guideIds.get("core-group/vision-meetings/what-is-a-vision-meeting");
+			const database = guideIds.get("core-group/follow-up/database-management");
+			const meetingsCopy = await revision({
+				id: id(),
+				article: meetings,
+				tenant: C1,
+				title: "Grace vision meetings",
+				slug: "core-group/vision-meetings/what-is-a-vision-meeting",
+				body: editorDoc([
+					{ type: "paragraph", children: words("Grace opening") },
+					{ type: "heading", level: 2, children: words("Seven Essential Elements") },
+					{ type: "paragraph", children: words("Grace keeps it to five.") },
+					{ type: "list", ordered: false, items: [words("Welcome"), words("Vision")] },
+					{ type: "heading", level: 2, children: words("Afterwards") },
+					{ type: "paragraph", children: words("Not in the excerpt") },
+				]),
+				content: "safe_nodes",
+			});
+			await orgCopy(C1, meetings, "", "published", meetingsCopy);
+			const peopleCopy = await revision({
+				id: id(),
+				article: database,
+				tenant: C1,
+				title: "Grace database notes",
+				slug: "core-group/follow-up/database-management",
+				body: editorDoc([{ type: "paragraph", children: words("Grace tracks names and next steps.") }]),
+				content: "safe_nodes",
+			});
+			await orgCopy(C1, database, "", "published", peopleCopy);
+
+			const church = await guideOf(r1.member, "/meetings");
+			assert.equal(church.title, "Grace vision meetings");
+			assert.equal(church.body, "## Seven Essential Elements\nGrace keeps it to five.\n- Welcome\n- Vision");
+			assert.equal((await guideOf(r1.member, "/people")).body, "Grace tracks names and next steps.");
+			// A plant outside Grace Church reads the global section, never Grace's text.
+			const outsider = await guideOf(people.outsider, "/meetings");
+			assert.equal(outsider.title, "Title of core-group/vision-meetings/what-is-a-vision-meeting");
+			assert.equal(outsider.body, LONG_CUT);
+
+			const stale = await actor(r1.ending);
+			await admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${r1.ending.id}`);
+			refused(await api.contextGuide(db, stale, { route: "/meetings" }), "access_denied");
+			refused(await api.contextGuide(db, stale, { route: "/tasks" }), "access_denied");
+		},
+	);
+	test("AC:CASE-WIKI-008 on the seeded text each Guide is the clean cut, and referenceExcerpt returns the same cut", async () => {
+		const reader = await actor(people.outsider);
+		for (const entry of GUIDE_ROUTES) {
+			const found = await admin.execute(
+				sql`SELECT article_id::text AS id, max(revision_number)::int AS n FROM article_revision WHERE tenant_id=${GLOBAL} AND slug=${entry.slug} GROUP BY article_id`,
+			);
+			const row = found.rows[0];
+			assert.ok(row, entry.slug);
+			const body = seedBody(entry.slug);
+			await revision({
+				id: id(),
+				article: row.id,
+				tenant: GLOBAL,
+				release,
+				title: `Seeded ${entry.slug}`,
+				slug: entry.slug,
+				body,
+				number: row.n + 1,
+			});
+			const guide = await guideOf(people.outsider, entry.route.replace(/\[[^\]]+\]/, randomUUID()));
+			assert.equal(guide.title, `Seeded ${entry.slug}`, entry.route);
+			assert.equal(guide.body, sectionExcerpt("safe_mdx", body, entry.heading), entry.route);
+			assertCleanEnd(guide.body, sourceSection(body, entry.heading), entry.route);
+			const excerpt = ok(await api.referenceExcerpt(db, reader, { articleId: row.id, heading: entry.heading }));
+			assert.equal(excerpt.excerpt, guide.body, entry.route);
+		}
+		const intelligence = await guideOf(people.outsider, "/intelligence");
+		assert.deepEqual(intelligence.body.split("\n").slice(-7), PHASE_ROWS);
+		assert.match(intelligence.body, /^## How to Navigate the Playbook\n\nThe Launch Playbook is organized into phases/);
+	});
+
+	test("AC:CASE-WIKI-001 AC:CASE-WIKI-003 AC:CASE-WIKI-007 an org-edited article exports, prints and searches as its visible text, never its JSON", async () => {
+		const editor = await enroll("admin", { kind: "organization", id: C1 });
+		const reader = await actor(r1.member);
+		const said = id();
+		const silent = id();
+		await globalArticle(said, "t156/said", "Said", "Global said text");
+		await globalArticle(silent, "t156/silent", "Silent", "Global silent text");
+		const publish = async (articleId, blocks) =>
+			assert.equal(
+				ok(
+					await api.publishOrganizationArticle(
+						db,
+						await actor(editor),
+						cmd({ articleId, organizationId: C1, body: editorDoc(blocks) }),
+					),
+				).errorCode,
+				null,
+			);
+		await publish(said, [{ type: "paragraph", children: words("Each paragraph names one next step.") }]);
+		await publish(silent, [
+			{ type: "heading", level: 2, children: words("Welcome plan") },
+			{ type: "paragraph", children: words("Greet each zebrafinch guest by name.") },
+			{ type: "list", ordered: false, items: [words("Coffee"), words("Name tags")] },
+			{ type: "callout", label: "Kiwilabel", children: words("Smile.") },
+			{ type: "diagram", info: "diagram hierarchy", source: "title: Leaders\n- Pastor | Vision\n  - Wombatdirector" },
+		]);
+		const slugs = async (query) =>
+			(ok(await api.search(db, reader, { query })).results ?? [])
+				.map((article) => article.slug)
+				.filter((slug) => slug.startsWith("t156/"));
+		assert.deepEqual(await slugs("paragraph"), ["t156/said"]);
+		for (const query of ["children", "format", "type", "marks", "everyfield"])
+			assert.deepEqual(await slugs(query), [], query);
+		const found = ok(await api.search(db, reader, { query: "zebrafinch" })).results;
+		assert.deepEqual(
+			found.map((article) => article.slug),
+			["t156/silent"],
+		);
+		assert.match(found[0].snippet, /Greet each <b>zebrafinch<\/b> guest by name/);
+		assert.doesNotMatch(found[0].snippet, /type|children|format/);
+		// A callout label and a diagram's words are visible text too.
+		for (const query of ["kiwilabel", "wombatdirector"]) assert.deepEqual(await slugs(query), ["t156/silent"], query);
+
+		const exported = ok(await plain.exportPdf(db, reader, { articleId: silent }));
+		const pdf = Buffer.from(exported.bytes, "base64").toString("latin1");
+		for (const raw of ['{"format"', '"type":', '"children"', "everyfield-editor-v1"])
+			assert.equal(pdf.includes(raw), false, raw);
+		const shown = [...pdf.matchAll(/\((.*)\) Tj/g)].map((match) => match[1]);
+		assert.deepEqual(shown.slice(1, 6), [
+			"Silent",
+			"Welcome plan",
+			"Greet each zebrafinch guest by name.",
+			"\x95 Coffee",
+			"\x95 Name tags",
+		]);
+		// A church version prints no credit: the stored credit belongs to the global article.
+		assert.equal(shown.at(-1), "1/1");
+		const html = ok(await plain.printArticle(db, reader, { articleId: silent })).html;
+		assert.ok(
+			html.includes(
+				"<h2>Welcome plan</h2><p>Greet each zebrafinch guest by name.</p><ul><li>Coffee</li><li>Name tags</li></ul>",
+			),
+			html,
+		);
+		for (const raw of ["format", "children", "&quot;"]) assert.equal(html.includes(raw), false, raw);
+		assert.ok(html.includes("<footer></footer>"));
+	});
+
+	test("AC:CASE-WIKI-003 search finds an organization article by the word its last edit wrote, not the word it replaced", async () => {
+		const editor = await enroll("admin", { kind: "organization", id: C1 });
+		const reader = await actor(r1.member);
+		const article = id();
+		await globalArticle(article, "t233/edited", "Edited", "Global edited text");
+		const publish = async (text, expected) =>
+			assert.equal(
+				ok(
+					await api.publishOrganizationArticle(
+						db,
+						await actor(editor),
+						cmd(
+							{
+								articleId: article,
+								organizationId: C1,
+								body: editorDoc([{ type: "paragraph", children: words(text) }]),
+							},
+							expected,
+						),
+					),
+				).errorCode,
+				null,
+			);
+		const slugs = async (query) =>
+			(ok(await api.search(db, reader, { query })).results ?? [])
+				.map((found) => found.slug)
+				.filter((slug) => slug === "t233/edited");
+		await publish("Every guest meets a pelicanword greeter.", "0");
+		assert.deepEqual(await slugs("pelicanword"), ["t233/edited"]);
+		await publish("Every guest meets a heronword greeter.", "1");
+		const found = ok(await api.search(db, reader, { query: "heronword" })).results;
+		assert.deepEqual(
+			found.map((hit) => hit.slug),
+			["t233/edited"],
+		);
+		assert.match(found[0].snippet, /meets a <b>heronword<\/b> greeter/);
+		assert.deepEqual(await slugs("pelicanword"), []);
+	});
+
+	test("AC:CASE-WIKI-007 the export footer shows a human credit and never a source path or digest", async () => {
+		const reader = await actor(r1.member);
+		const credited = async (credit) => {
+			const article = id();
+			await globalArticle(article, `t156/credit-${article}`, "Credited", "Body text with José.");
+			await admin.execute(sql`INSERT INTO reference_version(id,item_id,release_id,version_number,artifact_path,content_hash,source_credit)
+				VALUES(${id()},${article},${release},1,'wiki/credited',${hash()},${credit})`);
+			const pdf = Buffer.from(
+				ok(await plain.exportPdf(db, reader, { articleId: article, source: { kind: "global" } })).bytes,
+				"base64",
+			).toString("latin1");
+			const html = ok(await plain.printArticle(db, reader, { articleId: article, source: { kind: "global" } })).html;
+			assert.ok(pdf.includes("(Body text with Jos\xe9.) Tj"), "WinAnsi é");
+			return { footer: [...pdf.matchAll(/\((.*)\) Tj/g)].at(-1)[1], html, pdf };
+		};
+		const human = await credited("Ana Torres");
+		assert.equal(human.footer, "Ana Torres  1/1");
+		assert.ok(human.html.includes("<footer>Ana Torres</footer>"));
+		for (const credit of ["wiki/lead@abc1234def", "docs/reference/wiki/lead.mdx", "f".repeat(64)]) {
+			const path = await credited(credit);
+			assert.equal(path.footer, "1/1", credit);
+			assert.equal(path.pdf.includes(credit), false, credit);
+			assert.equal(path.html.includes(credit), false, credit);
+			assert.ok(path.html.includes("<footer></footer>"), credit);
+		}
+	});
+
+	test("BUG-63e46c879 AC:CASE-WIKI-003 search snippets are plain whole words with each match in <b>", async () => {
+		const reader = await actor(people.outsider);
+		const marked = id();
+		const markdown = [
+			"## quokkamark heading",
+			"",
+			"**quokkamark bold** and __quokkamark strong__ and `quokkamark code` and [quokkamark link](https://example.org/x)",
+			"",
+			"---",
+			"",
+			"| Cell one | quokkamark cell |",
+			"|---|---|",
+			"| left | right |",
+			"",
+			"- quokkamark item one",
+			"- item two",
+			"",
+			'<Callout type="tip">quokkamark callout</Callout>',
+		].join("\n");
+		await globalArticle(marked, "wiki/markdown-snippet", "Markdown snippet", markdown);
+		const plain =
+			"quokkamark heading quokkamark bold and quokkamark strong and quokkamark code and quokkamark link Cell one quokkamark cell left right quokkamark item one item two quokkamark callout";
+		const words = (text) => text.replace(/<\/?b>/g, "").split(" ");
+		const contiguous = (part, whole) => ` ${whole.join(" ")} `.includes(` ${part.join(" ")} `);
+		const plainText = (snippet) => {
+			for (const syntax of [/(^|\s)#{1,6}\s/, /\*\*/, /__/, /---/, /\|/, /`/, /\]\(/, /<(?!\/?b>)[^>]*>/])
+				assert.doesNotMatch(snippet, syntax, snippet);
+			assert.doesNotMatch(snippet, /\s{2}|^\s|\s$/, snippet);
+		};
+		const result = ok(await api.search(db, reader, { query: "quokkamark" }));
+		assert.equal(result.results.length, 1);
+		const snippet = result.results[0].snippet;
+		plainText(snippet);
+		assert.match(snippet, /<b>quokkamark<\/b>/);
+		assert.ok(contiguous(words(snippet), plain.split(" ")), snippet);
+		assert.ok(words(snippet).length >= 5, snippet);
+
+		const phase = ok(await api.search(db, reader, { query: "Phase" }));
+		assert.equal(phase.status, "results");
+		const seeded = phase.results.find((article) => article.slug === "getting-started/welcome-to-the-launch-playbook");
+		assert.ok(seeded, "the seeded playbook welcome is a hit");
+		for (const article of phase.results) {
+			plainText(article.snippet);
+			assert.match(article.snippet, /<b>phase<\/b>/i, article.slug);
+			for (const match of article.snippet.matchAll(/<b>([^<]*)<\/b>/g)) assert.match(match[1], /^phase/i, article.slug);
+			// Each word, the first and last included, is a whole word of the article, never two words run together.
+			for (const word of words(article.snippet)) {
+				const bare = word.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "");
+				if (!bare) continue;
+				const escaped = bare.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+				assert.match(
+					article.body ?? "",
+					new RegExp(`(^|[^\\p{L}\\p{N}])${escaped}([^\\p{L}\\p{N}]|$)`, "u"),
+					`${article.slug}: ${word}`,
+				);
+			}
+		}
+	});
 });

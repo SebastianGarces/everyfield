@@ -32,6 +32,8 @@ export type Change =
 	| { kind: "own"; rsvp: Rsvp }
 	| { kind: "guest"; guest: GuestRow }
 	| { kind: "removeGuest"; guestId: string }
+	/** A reviewed update from the ministry: the people it adds, and the guests it takes off by Person. */
+	| { kind: "roster"; add: PendingGuest[]; removePersonIds: string[] }
 	| { kind: "card"; personId: string; card: CardEntry | null }
 	| { kind: "agenda"; agenda: Detail["agenda"] };
 
@@ -59,6 +61,15 @@ export function withAttendees<V extends { guests: Guest[] | null; attendance: At
 			],
 		},
 	};
+}
+/** The page after a guest answer: the attendance revision it returned, so the next attendance save is current. */
+export function withAttendanceRevision<V extends { attendance: Attendance | null }>(
+	v: V,
+	revision: string | undefined,
+): V {
+	return revision && v.attendance
+		? { ...v, attendance: { ...v.attendance, attendanceRevision: revision as Attendance["attendanceRevision"] } }
+		: v;
 }
 /** A guest row as an attendance row before finalization: no classification yet. */
 export const attendeeOf = (g: Guest): Attendee =>
@@ -92,6 +103,16 @@ export function applyChange(v: PageView, change: Change): PageView {
 		}
 		case "removeGuest":
 			return { ...v, guests: v.guests?.filter((g) => g.id !== change.guestId) ?? null };
+		case "roster": {
+			const gone = new Set(change.removePersonIds);
+			return {
+				...v,
+				guests: v.guests && [
+					...v.guests.filter((g) => !g.person.personId || !gone.has(g.person.personId)),
+					...change.add,
+				],
+			};
+		}
 		case "card":
 			return {
 				...v,

@@ -19,10 +19,15 @@ import type { Wait } from "../../components/save/model.ts";
 import { When } from "../people/parts.tsx";
 import type { StatusAction } from "./actions.ts";
 import { loadHistory, type Loaded } from "./fetch.ts";
+import { loadHistory as loadContacts } from "../followups/fetch.ts";
+import { ContactEntries } from "../followups/parts.tsx";
+import type { ContactHistory, Outcome as ReadOutcome } from "../followups/model.ts";
 import {
 	blockedText,
 	CATEGORY_LABEL,
 	isSettled,
+	ownerLabel,
+	ownerText,
 	PRIORITY_LABEL,
 	problemText,
 	shownSteps,
@@ -31,12 +36,14 @@ import {
 	type Prerequisite,
 	type Rule,
 	type Step,
+	type Outcome,
 	type TaskHistory,
 	type TaskItem,
+	type Viewer,
 } from "./model.ts";
-import { DueLine, STATUS_TONE } from "./parts.tsx";
+import { DescriptionView } from "./description.ts";
+import { DueLine, STATUS_TONE, StatusItems } from "./parts.tsx";
 import { BlockedBy, Repeats, Section, Steps, type StepAssignee } from "./structure.tsx";
-import { StatusItems, type Viewer } from "./TasksScreen.tsx";
 
 export type DetailState = { status: "loading" } | { status: "failed"; code: string } | ({ status: "ok" } & Loaded);
 /**
@@ -129,7 +136,8 @@ export function TaskSheet({
 }) {
 	const hint = useId();
 	const locked = wait !== null;
-	const detail = state?.status === "ok" ? state.task : null;
+	const loaded = state?.status === "ok" ? state : null;
+	const detail = loaded ? loaded.task : null;
 	const panel = detail ? pending.panel[detail.id] : undefined;
 	// The row is the latest confirmed or optimistic state; the detail adds description, steps and history.
 	const task: TaskItem | null = row ?? detail;
@@ -268,12 +276,27 @@ export function TaskSheet({
 							size="sm"
 							k="Assigned to"
 							value={
-								task.assignee ? (
-									task.assignee.accountId === viewer.accountId ? (
-										"You"
-									) : (
-										task.assignee.displayName || "A former member"
-									)
+								task.assignees.length ? (
+									<ul className="m-0 flex list-none flex-col gap-1 p-0" aria-label="Assigned to">
+										{task.assignees.map((a) => {
+											const view = task.followUpOwners.find((o) => o.accountId === a.accountId);
+											return (
+												<li key={a.accountId} className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
+													{view ? ownerText(view) : ownerLabel(a)}
+													{admin && !isSettled(task.status) && view && !view.eligible ? (
+														<Button
+															variant="outline"
+															size="sm"
+															aria-label={`Reassign ${ownerLabel(a)}`}
+															onClick={onEdit}
+														>
+															Reassign
+														</Button>
+													) : null}
+												</li>
+											);
+										})}
+									</ul>
 								) : (
 									<StatusBadge status="attention" size="sm">
 										Needs owner
@@ -306,16 +329,16 @@ export function TaskSheet({
 					{detail ? (
 						<>
 							<Section title="Description">
-								{detail.description ? (
-									<p className="text-md whitespace-pre-wrap text-ink">{detail.description}</p>
-								) : (
-									<p className="text-sm text-text-3">No description.</p>
-								)}
+								<DescriptionView value={detail.description} />
 							</Section>
 							<Steps
 								steps={shownSteps(detail.checklistItems, detail.id, pending)}
-								taskAssignee={task.assignee}
-								canAdd={!detail.parentId && !detail.deleted && (admin || task.assignee?.accountId === viewer.accountId)}
+								taskAssignees={task.assignees}
+								canAdd={
+									!detail.parentId &&
+									!detail.deleted &&
+									(admin || task.assignees.some((a) => a.accountId === viewer.accountId))
+								}
 								admin={admin}
 								you={viewer.accountId}
 								canTick={canActStep}
@@ -359,7 +382,15 @@ export function TaskSheet({
 									/>
 								</>
 							)}
-							<History key={detail.id} taskId={detail.id} history={state?.status === "ok" ? state.history : null} />
+							{task.relation?.kind === "person" && !task.parentId && loaded?.contacts ? (
+								<ContactHistorySection
+									taskId={detail.id}
+									personId={task.relation.id}
+									first={loaded.contacts}
+									accountId={viewer.accountId}
+								/>
+							) : null}
+							{loaded ? <History key={detail.id} taskId={detail.id} first={loaded.history} /> : null}
 						</>
 					) : state?.status === "failed" ? (
 						<StatePanel
@@ -396,20 +427,88 @@ function Loading() {
 	);
 }
 
+/**
+ * What was recorded on a follow-up, newest first: the outcome, how, the note, who and when, with corrected and withdrawn
+ * entries kept (REQ-MTG-022). The first page comes with the panel's own read, so it paints with the rest of the panel.
+ * A page that did not load is read again on request, so the panel never needs closing.
+ */
+function ContactHistorySection({
+	personId,
+	taskId,
+	first,
+	accountId,
+}: {
+	personId: string;
+	taskId: string;
+	first: ReadOutcome<ContactHistory>;
+	accountId: string;
+}) {
+	const [loading, setLoading] = useState(false);
+	// A newer first page from the panel replaces the one read here.
+	const [read, setRead] = useState({ from: first, page: first });
+	const log = read.from === first ? read.page : first;
+	return (
+		<Section title="What happened">
+			{log.status !== "ok" ? (
+				<>
+					<p className="text-sm text-text-3">What was recorded did not load.</p>
+					<Button
+						variant="ghost"
+						size="sm"
+						className="self-start"
+						loading={loading}
+						onClick={async () => {
+							setLoading(true);
+							const r = await loadContacts(personId, 1, taskId);
+							setLoading(false);
+							setRead({ from: first, page: r });
+						}}
+					>
+						Try again
+					</Button>
+				</>
+			) : log.value.items.length === 0 ? (
+				<p className="text-sm text-text-3">Nothing is recorded for this follow-up yet.</p>
+			) : (
+				<ContactEntries items={log.value.items} accountId={accountId} />
+			)}
+		</Section>
+	);
+}
+
 /** Every status change, oldest first, with who or what made it and when. Later pages load on request. */
-function History({ taskId, history }: { taskId: string; history: TaskHistory | null }) {
+function History({ taskId, first }: { taskId: string; first: Outcome<TaskHistory> }) {
 	const [more, setMore] = useState<{ items: Entry[]; next: number | null; problem?: string } | null>(null);
 	const [loading, setLoading] = useState(false);
-	if (!history)
+	// A first page that did not load is read again on request, so a failed read never needs the panel closed. A newer
+	// first page from the panel replaces the one read here.
+	const [read, setRead] = useState({ from: first, page: first });
+	const page = read.from === first ? read.page : first;
+	if (page.status !== "ok")
 		return (
 			<Section title="Status history">
-				<p className="text-sm text-text-3">The history did not load. Close and open the task to try again.</p>
+				<p className="text-sm text-text-3">The history did not load.</p>
+				<Button
+					variant="ghost"
+					size="sm"
+					loading={loading}
+					className="self-start"
+					onClick={async () => {
+						setLoading(true);
+						const r = await loadHistory(taskId, 1);
+						setLoading(false);
+						setRead({ from: first, page: r });
+					}}
+				>
+					Try again
+				</Button>
 			</Section>
 		);
-	const items = [...history.items, ...(more?.items ?? [])];
-	const next = more ? more.next : history.next;
+	const items = [...page.value.items, ...(more?.items ?? [])];
+	const next = more ? more.next : page.value.next;
 	return (
 		<Section title="Status history">
+			{items.length === 0 ? <p className="text-sm text-text-3">No status changes are recorded for this task.</p> : null}
 			<ol className="flex flex-col">
 				{items.map((e) => (
 					<li

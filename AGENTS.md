@@ -5,46 +5,68 @@ Current requirements and cases live in `docs/catalog/index.json`. Keep this file
 
 ## Task flow
 
-1. Read your Intent task note and role below. The coordinator plans and delegates.
-2. `bin/evf task start <task>` creates the isolated worktree and prints its brief.
-   Register that path with Intent. Edit and commit there, never in the workspace root.
-3. Build inside the owning paths. Use the brief and linked current clauses as the contract.
-4. Include current main, commit, run the task checks and `bin/evf verify <task>`.
-   Open a PR explaining the change, actual verification, evidence, risks and follow-ups.
-5. A verifier from a different model family checks the PR head on its own preview with
-   `verify-preview`, posts the exact-head review on the PR and runs `bin/evf ship <task>`.
-   Ship requires green required GitHub CI, independent approval and a valid PR body.
+evf v2 (the `evf` in `~/.cargo/bin`) runs the work: `evf.toml` holds this repo's roles and owner classes, and the store and
+dashboard live outside the checkout. `bin/` here holds product tools only.
 
-Use `bin/evf help` for commands. IDs are WP-NNN, WP-NNN/api or /ui,
-FB-<n> for feedback and OPS-<n> for tooling maintenance. Reserve a new OPS-<n> or ruling
-number D<n> with `bin/evf id next ops|decision`; never take the next number from main.
+1. A seat starts in its own worktree with a brief that holds the full ask and spec. Your role's prompt comes from
+   `.agents/role-prompts/`. Use the brief and linked current clauses as the contract.
+2. Build inside the scope. Commit. Do not push or open a PR: after simplify, evf runs the checks, the PR, the review, CI,
+   the owner gate and the landing, in that order (`docs/build-agent-workflow.md`).
+3. Prove your own work: tests, 390 and 1440 px screenshots of each UI state you changed and one
+   `evf proof add <n> --status met --evidence <path>` per `verifier` criterion, after your last commit.
+4. Close with `evf run done --status passed --summary-file <file>`. Your summary becomes the what and why of the PR.
+5. A fresh Opus 5.5 medium session that never shared context with the author (D82) reads the full diff, spot-checks the
+   proof with `verify-preview` and records `evf review submit --verdict approved|changes --report-file <file>`.
+6. evf lands the exact head once required GitHub CI is green, the review approved it and any owner gate passed.
+
+A path in an `evf.toml` owner class also waits for Sebastian. The classes are `document-templates`, `landing-marketing`,
+`wiki`, `brand-prototype` and `workflow-gates`. Decide reversible things yourself and record them with
+`evf rule "<what>" --why "<why>" --revert "<how>"`. Ask with `evf ask owner` when only Sebastian can settle it.
+
+evf numbers tasks T-<n>. WP-NNN, FB-<n> and OPS-<n> stay as labels and in history.
 
 ## Rules
 
-- Follow `.agents/skills/ship/SKILL.md` for merge authority. Never merge your own work,
-  push directly to main or force-push. Preserve the owner approval routes from PR #13.
-- All UI work belongs to `ui-designer` on Opus 5.5.
-- Use one portless preview per worktree. No Vercel preview deployments.
-- Use the shared development database for behavior checks. It may be wiped and reseeded.
-  Timing sets run only through `bin/evf timing`, on its own quiet local database (D81).
-  Production is separate. Never print credentials or use production for tests.
+- Three guards hold. Everything else is your judgment.
+  1. Never use the production database. Tests and checks use the shared development database.
+  2. Only evf lands work. Never push to main, force-push or merge by hand.
+  3. Never read or print secrets: `.env*` files, credentials or connection strings.
+- UI tasks run in the `ui` seat, which reads `.agents/roles/ui-designer.md`, `.agents/roles/implementor.md` and the
+  better-* skills. `evf.toml` sets every role to Opus 5.5 medium.
+- Use one portless preview per worktree (`bin/dev stack up`). No Vercel preview deployments, except `bin/qa` for Nora's
+  QA previews (`docs/runbooks/qa-preview.md`).
+- The shared development database may be wiped and reseeded. Run the repo seed and preview scripts freely.
 - Follow `docs/architecture/patterns.md` and `docs/architecture/decisions.md` for shared mechanisms
   and durable rulings. Requirements describe end-state behavior.
+- The repository is public. PR bodies, commit messages and committed docs never describe an unfixed security
+  weakness in detail: no affected route, field, input or way to trigger it. Reference the task id only, for example
+  "fixes a weakness tracked in T-NNN". The detail stays in the evf task.
 - Prove actual behavior. Tooling checks establish tooling behavior, not application acceptance.
-- Decide reversible ambiguities and record them in task notes, using `decisions`.
 - Keep screenshots, traces and temporary verification scripts outside the repository.
 - Encode repeated corrections in a type, lint rule or test before adding written rules.
-- Put shared workflow enforcement in evf or a skill, never a second host-specific hook.
+- Every clickable element shows `cursor-pointer`: buttons, links, tabs, menu items, clickable rows, chips,
+  labelled checkboxes and radios, icon buttons. `packages/ui` primitives apply it, not call sites.
+  Disabled controls keep `cursor-not-allowed`.
+- Every Evry adapter operation or catalog tool you add or change ships with recorded eval cases in
+  `tests/evry/evals/`; the rule is in `.agents/skills/test-standard/SKILL.md`.
+- Put shared workflow rules in `evf.toml`, a role prompt or a skill, never a second host-specific hook.
 - Preserve original reference bytes, unrelated assets and design/everyfield-ui.html (the approved brand prototype).
+  The prototype changes only through a task Sebastian approves through its owner class.
 
 ## Roles and skills
 
-| Specialist | Read |
+Each `[role.*]` in `evf.toml` and the role notes its `.agents/role-prompts/<role>.md` names:
+
+| Role | Read |
 |---|---|
-| spec-writer, coordinator | `.agents/roles/coordinator.md` |
-| implementor | `.agents/roles/implementor.md` |
-| ui-designer | `.agents/roles/ui-designer.md` |
-| verifier | `.agents/roles/verifier.md` |
+| planner | `.agents/roles/coordinator.md` |
+| implementer | `.agents/roles/implementor.md`, plus `.agents/roles/ui-designer.md` for UI work |
+| ui | `.agents/roles/ui-designer.md` and `.agents/roles/implementor.md` |
+| simplifier | `principle-laziness-protocol` and `principle-subtract-before-you-add` |
+| ideator | `.agents/roles/ui-designer.md` for UI ideas |
+| comparer | `.agents/roles/ui-designer.md` for UI ideas |
+| prototype-merger | `.agents/roles/coordinator.md` |
+| verifier | `.agents/roles/verifier.md` and `.agents/skills/verify-preview/SKILL.md` |
 
 | Need | Read |
 |---|---|
@@ -53,15 +75,15 @@ number D<n> with `bin/evf id next ops|decision`; never take the next number from
 | Architecture | `docs/architecture/README.md` |
 | Regression tests | `.agents/skills/test-standard/SKILL.md` |
 | Local checks | `.agents/skills/verify/SKILL.md` |
-| Verify a PR from the other family | `.agents/skills/verify-preview/SKILL.md` |
-| Merge rules | `.agents/skills/ship/SKILL.md` |
-| PR body standard | `.agents/skills/everyfield-pr/SKILL.md` and its template |
+| Verify a change as the independent verifier | `.agents/skills/verify-preview/SKILL.md` |
+| Workflow, progress and merge rules | `docs/build-agent-workflow.md` |
 | PR visual examples | `.agents/skills/pr/SKILL.md` |
 | Debugging | `.agents/skills/debug-with-traces/SKILL.md` |
 | Decisions | `.agents/skills/decisions/SKILL.md` |
-| Previews | `.agents/skills/portless-preview/SKILL.md` |
+| Previews | `.agents/skills/portless-preview/SKILL.md`, then the Everyfield rules in "Shared preview service" of `verify-preview` |
 | UI quality | better-interface and the better-* suite |
-| Tooling and recovery | `tools/evf/README.md` |
+| Browser runs, preview stack, logs | `bin/dev help` |
+| QA previews | `docs/runbooks/qa-preview.md` |
 
 ## Principles
 
@@ -97,8 +119,7 @@ by your role, then others when needed. These are verbatim upstream copies pinned
 
 ## Progress and context
 
-Only evf writes `docs/build-progress.json`. Coordinators acknowledge shipped milestones
-through `bin/evf shipped --clear <task>`. Owners update task notes, not progress patches.
+`docs/build-progress.json` stopped updating on 2026-10-22 at PR #235. evf v2's task records are the live state.
 Read `docs/build-agent-workflow.md` for milestone and integration closure.
 Generate the explorer outside the repo with
 `python3 docs/render-build-explorer.py --output /tmp/everyfield-build-explorer.html`.
@@ -107,5 +128,4 @@ Run documentation checks with `python3 docs/check-all.py`.
 Generate assigned context with `docs/package-context.py` from `docs/plan/context-manifest.json`.
 Requirement JSON is the behavior authority; product chapters are summaries. Read original
 references and approved design sections on demand. Documentation status grants no implementation
-or spending approval. G-WORKFLOW closes only after W0 to W5 merge and one task completes
-end to end through Phase 7.
+or spending approval.

@@ -1,14 +1,15 @@
 import { writeActor, loadAffiliations, type Reader } from "./core.ts";
 import { revision, type Owner, type sessionId } from "@everyfield/contracts/common";
-import type { RequestActor } from "../access/session.ts";
+import { liveRead, type RequestActor } from "../access/session.ts";
 import type { OrganizationAdapter } from "@everyfield/contracts/organizations";
 import * as Q from "@everyfield/contracts/organizations";
 import type { Transaction } from "@everyfield/db/client";
 import { alias } from "@everyfield/db/columns";
 import { and, eq, sql } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
-import type { z } from "zod";
+import { z } from "zod";
 import { auditSavepoint } from "../operations/writes.ts";
+import { queueMilestoneJob } from "./notifications.ts";
 import {
 	active,
 	administrator,
@@ -17,16 +18,15 @@ import {
 	checkRevision,
 	choices,
 	currentActor,
-	endpointValues,
 	finishCommand,
 	invalidate,
 	loadAffiliation,
 	pairOf,
 	refuse,
+	pairLive,
+	pairMatch,
 	sameOwner,
-	subjectAuthority,
 	unavailable,
-	validPair,
 	type OrganizationEffects,
 } from "./core.ts";
 const affiliation_a = alias(tables.affiliation, "a");
@@ -134,6 +134,11 @@ export async function readPlantSharing(db: Reader, authority: RequestActor, orga
 
 // Native review disclosure. Re-read before approving; this observation grants no
 // authority and never overwrites the exact pair's persisted consent on rejoin.
+/**
+ * What an organization would see if this plant connects with it: the pair's saved choices when it was connected
+ * before, otherwise the first-invitation defaults. One statement: the plant's live Owner or Admin seat (C13), both
+ * endpoints live, and the exact pair's link. Only a plant has a disclosure; any other pair answers unavailable.
+ */
 export async function readSharingDisclosure(
 	tx: Transaction,
 	session: z.infer<typeof sessionId>,
@@ -143,40 +148,55 @@ export async function readSharingDisclosure(
 	const pair = Q.relationshipPair.parse(raw),
 		actor = await currentActor(tx, session, selected);
 	if (
+		pair.kind !== "plant" ||
 		actor.status !== "active" ||
-		!(await validPair(tx, pair, false)) ||
-		!(await subjectAuthority(tx, actor, pair, false))
+		!sameOwner(actor.context.owner, pair.subject) ||
+		!administrator(actor)
 	)
 		return unavailable();
-	const r = await tx.execute<{ id: string }>(
-		sql`SELECT id FROM affiliation WHERE plant_id IS NOT DISTINCT FROM ${sql.param(endpointValues(pair)[0])}::uuid AND account_id IS NOT DISTINCT FROM ${sql.param(endpointValues(pair)[1])}::uuid AND sending_church_id IS NOT DISTINCT FROM ${sql.param(endpointValues(pair)[2])}::uuid AND organization_id=${sql.param(endpointValues(pair)[3])}`,
+	const share = Object.values(columns).map((c) => sql`a.${sql.identifier(c)}`);
+	const r = await tx.execute(
+		sql`SELECT (${pairLive(pair)} AND ${liveRead({ session, owner: pair.subject }, true)}) AS allowed,
+		a.consent_revision::text AS consent_revision, ${sql.join(share, sql`,`)}
+		FROM (SELECT) one LEFT JOIN LATERAL (SELECT * FROM affiliation WHERE ${pairMatch(tables.affiliation, pair)} LIMIT 1) a ON true`,
 	);
-	const previous = r.rows[0] ? await loadAffiliation(tx, r.rows[0].id) : null;
-	if (previous && pair.kind === "plant")
+	const row = disclosureRow.parse(r.rows[0]);
+	if (!row.allowed) return unavailable();
+	if (row.consent_revision === null)
 		return Q.sharingDisclosure.parse({
-			kind: "existing_consent",
+			kind: "first_invitation",
 			organization: pair.organization,
-			consentRevision: previous.consent_revision,
-			choices: choices(previous),
+			choices: {
+				people: true,
+				meetings: true,
+				tasks: true,
+				ministry_teams: true,
+				wiki: true,
+				activity: true,
+				shared_findings: true,
+			},
 		});
-	if (pair.kind !== "plant") return unavailable();
 	return Q.sharingDisclosure.parse({
-		kind: "first_invitation",
+		kind: "existing_consent",
 		organization: pair.organization,
-		choices: {
-			people: true,
-			meetings: true,
-			tasks: true,
-			ministry_teams: true,
-			wiki: true,
-			activity: true,
-			shared_findings: true,
-		},
+		consentRevision: row.consent_revision,
+		choices: Object.fromEntries(Q.sharingChoices.keyof().options.map((category) => [category, row[columns[category]]])),
 	});
 }
+const disclosureRow = z.object({
+	allowed: z.boolean(),
+	consent_revision: revision.nullable(),
+	share_people: z.boolean().nullable(),
+	share_meetings: z.boolean().nullable(),
+	share_tasks: z.boolean().nullable(),
+	share_ministry_teams: z.boolean().nullable(),
+	share_wiki: z.boolean().nullable(),
+	share_activity: z.boolean().nullable(),
+	shared_findings: z.boolean().nullable(),
+});
 
-// Both privacy and settings use one locked revision update, audit, invalidation and
-// coarse notice. Caller has freshly checked the exact pair and both CAS revisions.
+// Both privacy and settings use one locked revision update, audit, invalidation and milestone job.
+// Caller has freshly checked the exact pair and both CAS revisions.
 export async function applySharingMutation(
 	tx: Transaction,
 	a: NonNullable<Awaited<ReturnType<typeof loadAffiliation>>>,
@@ -203,16 +223,11 @@ export async function applySharingMutation(
 	const next = String(BigInt(a.revision) + 1n);
 	const event = await appendEvent(tx, c, a.id, "preference", "sharing.changed", a.revision, next);
 	invalidate(tx, effects, c, pairOf(a), a.id, next);
-	c.writes.push(
-		effects.notice(tx, {
-			eventId: event,
-			relationshipId: a.id,
-			pair: pairOf(a),
-			kind: "sharing_changed",
-			revision: next,
-			operationId: c.id,
-		}),
-	);
+	// Sharing belongs to a plant's connection only: both callers checked the plant side.
+	if (a.plant_id)
+		c.writes.push(
+			queueMilestoneJob({ plantId: a.plant_id, affiliationId: a.id, occurrence: "sharing", revision: next }),
+		);
 	return {
 		changed: true,
 		events: [event],

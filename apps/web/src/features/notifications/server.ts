@@ -2,7 +2,7 @@ import { requestDatabase } from "@/server/database";
 import { getViewer } from "@/server/request-context";
 import type { Database } from "@everyfield/db/client";
 import type { RequestActor } from "@everyfield/domain/access";
-import { createNotificationProducer } from "@everyfield/domain/notifications";
+import { createNotificationProducer, parseKeyRing } from "@everyfield/domain/notifications";
 import { randomBytes } from "node:crypto";
 import "server-only";
 import type { FeedPage, FeedQuery, Outcome, Reply } from "./model.ts";
@@ -13,22 +13,10 @@ import type { FeedPage, FeedQuery, Outcome, Reply } from "./model.ts";
 type Producer = ReturnType<typeof createNotificationProducer>;
 export type Mount = { db: Database; producer: Producer; optOut: boolean };
 
-/**
- * NOTIFICATION_OPT_OUT_KEYS: comma-separated base64 keys of 32 bytes, the current key first, then older keys that
- * still open tokens issued before a rotation. Anything else counts as not configured, so opt-out fails closed.
- */
-export function parseKeyRing(raw: string | undefined): { current: Buffer; previous: Buffer[] } | null {
-	const keys = (raw ?? "")
-		.split(",")
-		.map((k) => k.trim())
-		.filter(Boolean)
-		.map((k) => Buffer.from(k, "base64"));
-	const [current, ...previous] = keys;
-	return current && keys.every((k) => k.length === 32) ? { current, previous } : null;
-}
-
-const MOUNT: unique symbol = Symbol.for("everyfield.web.notifications");
-const slot = globalThis as { [MOUNT]?: { url: string; mount: Mount } };
+// One producer per module instance, never shared on globalThis: Next loads this module once per layer (the read route
+// handler and the server actions), and the producer's write gate finds the request actor by its own module's identity.
+// A producer the read route made first refused every mark from an action as unavailable.
+let slot: { url: string; mount: Mount } | undefined;
 
 /**
  * The producer for this server. Email opt-out needs its own key ring in NOTIFICATION_OPT_OUT_KEYS (REQ-NTF-012: a
@@ -40,12 +28,12 @@ export function notificationsMount(): Mount | null {
 	const db = requestDatabase();
 	const url = process.env.IDENTITY_DATABASE_URL;
 	if (!db || !url) return null;
-	if (slot[MOUNT]?.url !== url) {
+	if (slot?.url !== url) {
 		const ring = parseKeyRing(process.env.NOTIFICATION_OPT_OUT_KEYS);
 		const producer = createNotificationProducer({ optOutKeys: ring ?? { current: randomBytes(32) } });
-		slot[MOUNT] = { url, mount: { db, producer, optOut: ring !== null } };
+		slot = { url, mount: { db, producer, optOut: ring !== null } };
 	}
-	return slot[MOUNT].mount;
+	return slot.mount;
 }
 
 /** The request's verified actor, or null when signed out. Any active account has a feed, with or without a seat. */
@@ -69,20 +57,14 @@ export async function call<T>(run: (m: Mount) => Promise<Reply<T>>): Promise<Out
 }
 
 /**
- * One page of the feed, the unread count of the same filter and the account revision for marks, read together: three
- * statements (REQ-NTF-003).
+ * One page of the feed, the unread count of the same filter and the account revision for marks, in one statement
+ * (REQ-NTF-003).
  */
 export function loadFeedPage(actor: RequestActor, query: FeedQuery): Promise<Outcome<FeedPage>> {
-	const filter = query.category ? { category: query.category } : {};
-	return call(async ({ db, producer }) => {
-		const [feed, unread, account] = await Promise.all([
-			producer.readFeed(db, actor, { ...filter, ...(query.unread ? { unread: true } : {}) }),
-			producer.readUnreadCount(db, actor, filter),
-			producer.getPreferences(db, actor),
-		]);
-		if (feed.status !== "ok") return feed;
-		if (unread.status !== "ok") return unread;
-		if (account.status !== "ok") return account;
-		return { status: "ok", value: { feed: feed.value, unread: unread.value.count, revision: account.value.revision } };
-	});
+	return call(({ db, producer }) =>
+		producer.readFeedPage(db, actor, {
+			...(query.category ? { category: query.category } : {}),
+			...(query.unread ? { unread: true } : {}),
+		}),
+	);
 }

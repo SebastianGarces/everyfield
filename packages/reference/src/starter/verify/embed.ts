@@ -14,7 +14,7 @@ export function localEmbedding(text: string): number[] {
 }
 
 export type WikiEmbedder = (text: string) => readonly number[] | Promise<readonly number[]>;
-export type WikiEmbedMany = (
+type WikiEmbedMany = (
 	texts: readonly string[],
 ) => Promise<{ vectors: readonly (readonly number[])[]; totalTokens: number }>;
 export type { WikiEmbedFetch };

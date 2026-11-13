@@ -1,0 +1,23 @@
+{
+	// Tool code that node runs directly with type stripping: nodenext, .ts imports and only erasable syntax (T-176).
+	"compilerOptions": {
+		"target": "ES2024",
+		"lib": ["ES2024", "ESNext.Collection"],
+		"module": "nodenext",
+		"moduleResolution": "nodenext",
+		"allowImportingTsExtensions": true,
+		"erasableSyntaxOnly": true,
+		"verbatimModuleSyntax": true,
+		"resolveJsonModule": true,
+		// tools/qa imports domain code that renders .tsx document layouts.
+		"jsx": "react-jsx",
+		"strict": true,
+		"noUncheckedIndexedAccess": true,
+		"skipLibCheck": true,
+		// The root has no node_modules/@types; every package pins the same @types/node.
+		"typeRoots": ["./packages/db/node_modules/@types"],
+		"types": ["node"],
+		"noEmit": true
+	},
+	"include": ["scripts/**/*.ts", "tools/ci/**/*.ts", "tools/qa/**/*.ts", "ops/actionable-watch/**/*.mts"]
+}

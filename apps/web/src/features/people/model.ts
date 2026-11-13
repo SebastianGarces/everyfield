@@ -1,6 +1,8 @@
-// Pure rules of the People screens: URL state, stage vocabulary and the one-save-per-person store. No React, no
-// server code and no runtime imports, so the rules run the same in the browser, on the server and in node tests.
+// Pure rules of the People screens: URL state, stage vocabulary and the one-save-per-person store. No React and no
+// server code; the one runtime import is the contract's id rule, so the rules run the same in the browser, on the
+// server and in node tests.
 
+import { recordId } from "@everyfield/contracts/common";
 import type { Outcome } from "../../components/save/model.ts";
 
 export const STAGES = [
@@ -13,7 +15,7 @@ export const STAGES = [
 	"leader",
 ] as const;
 export type StageValue = (typeof STAGES)[number];
-export const COLUMNS = ["prospect", "attendee", "following_up", "interviewed", "core_group"] as const;
+const COLUMNS = ["prospect", "attendee", "following_up", "interviewed", "core_group"] as const;
 export type ColumnValue = (typeof COLUMNS)[number];
 export const SOURCES = [
 	"personal_referral",
@@ -28,11 +30,11 @@ export const SOURCES = [
 export type SourceValue = (typeof SOURCES)[number];
 export const CLASSIFICATIONS = ["adult", "child", "unknown"] as const;
 export type ClassificationValue = (typeof CLASSIFICATIONS)[number];
-export const COMMITMENTS = ["any", "active", "withdrawn", "unknown"] as const;
-export type CommitmentValue = (typeof COMMITMENTS)[number];
-export const ARCHIVED = ["exclude", "include", "only"] as const;
-export type ArchivedValue = (typeof ARCHIVED)[number];
-export const VIEWS = ["list", "card", "pipeline"] as const;
+const COMMITMENTS = ["any", "active", "withdrawn", "unknown"] as const;
+type CommitmentValue = (typeof COMMITMENTS)[number];
+const ARCHIVED = ["exclude", "include", "only"] as const;
+type ArchivedValue = (typeof ARCHIVED)[number];
+const VIEWS = ["list", "card", "pipeline"] as const;
 export type ViewValue = (typeof VIEWS)[number];
 
 /** The shared StageChip keys (packages/ui display Badges) for each contract stage. */
@@ -99,8 +101,7 @@ export type PeopleQuery = {
 	archived: ArchivedValue;
 	page: number;
 };
-export const PAGE_SIZE = 24;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+const PAGE_SIZE = 24;
 /** The contract's highest page number; a larger number in the address reads as the last page. */
 const MAX_PAGE = 100_000;
 
@@ -125,7 +126,9 @@ export function parseQuery(params: Params): PeopleQuery {
 					.getAll("tag")
 					.flatMap((t) => t.split(","))
 					.map((t) => t.trim().toLowerCase())
-					.filter((t) => UUID.test(t)),
+					// The contract's id rule: a looser test lets a tag through that the list and export requests then
+					// refuse as a whole.
+					.filter((t) => recordId.safeParse(t).success),
 			),
 		].slice(0, 100),
 		classification:
@@ -191,6 +194,14 @@ export function isFiltered(q: PeopleQuery): boolean {
 		q.archived !== "exclude"
 	);
 }
+/**
+ * The People header's link to /people/duplicates (D-847): "3 to review in Duplicates", or "100+ …" when the pairs read
+ * stopped at its first 100 (D-846). Null, so no link, with nothing to review or when the read is not there.
+ */
+export function pairsToReview(pairs: { items: readonly unknown[]; completeness: "complete" | "partial" } | null) {
+	if (!pairs?.items.length) return null;
+	return `${pairs.items.length}${pairs.completeness === "partial" ? "+" : ""} to review in Duplicates`;
+}
 /** "Showing 25–48 of 214 people". */
 export function rangeText(q: PeopleQuery, shown: number, total: number | null): string {
 	const first = (q.page - 1) * PAGE_SIZE + 1;
@@ -248,7 +259,7 @@ export type PersonEvent<P extends Saved, D> =
 	| { type: "settle"; slot: string; outcome: Outcome<P | null>; keepDraft?: boolean }
 	| { type: "server"; person: P };
 
-export function initialPerson<P extends Saved, D>(person: P): PersonState<P, D> {
+function initialPerson<P extends Saved, D>(person: P): PersonState<P, D> {
 	return { saved: person, drafts: {}, pending: null, keys: {}, errors: {} };
 }
 const without = <T>(r: Readonly<Record<string, T>>, k: string): Record<string, T> => {
@@ -257,7 +268,7 @@ const without = <T>(r: Readonly<Record<string, T>>, k: string): Record<string, T
 	return rest;
 };
 
-export function personReducer<P extends Saved, D>(s: PersonState<P, D>, e: PersonEvent<P, D>): PersonState<P, D> {
+function personReducer<P extends Saved, D>(s: PersonState<P, D>, e: PersonEvent<P, D>): PersonState<P, D> {
 	switch (e.type) {
 		case "edit":
 			// A form being saved is read-only; an edit that still arrives for it is ignored, so the sent draft stays the draft.
@@ -381,9 +392,9 @@ export const throughStore =
 		runSave(store, slot, null, send, { fresh: () => key, key: { key, body: "" }, toPerson });
 
 /**
- * Activity after a saved change, without reading it again: an entry with a new ID joins the end of the list (Activity
- * is oldest first), and an entry with a known ID (an edited or deleted note) replaces it in place. While later pages
- * are still unloaded the new entry belongs to them, so the loaded pages stay as they are.
+ * Activity after a saved change, without reading it again: an entry with a new ID joins the top of the list (Activity
+ * is newest first, and a new entry is the newest), and an entry with a known ID (an edited or deleted note) replaces it
+ * in place. The loaded pages are the newest ones, so a new entry belongs on top whether or not older pages are loaded.
  */
 export function withEntry<E extends { id: string }, A extends { items: E[]; next: number | null }>(
 	activities: Outcome<A>,
@@ -393,8 +404,7 @@ export function withEntry<E extends { id: string }, A extends { items: E[]; next
 	const list = activities.value;
 	if (list.items.some((e) => e.id === entry.id))
 		return { status: "ok", value: { ...list, items: list.items.map((e) => (e.id === entry.id ? entry : e)) } };
-	if (list.next !== null) return activities;
-	return { status: "ok", value: { ...list, items: [...list.items, entry] } };
+	return { status: "ok", value: { ...list, items: [entry, ...list.items] } };
 }
 
 /** A column order with one person moved one place up or down. The same order when that move leaves the column. */
