@@ -870,7 +870,12 @@ function Affects({ review }: { review: Review }) {
 
 function Value({ field, value, before }: { field: string; value: unknown; before?: boolean }) {
 	const text = valueText(field, value);
-	if (text === null) return <span className="text-text-3 italic">{field === "photo" ? "No photo" : "Empty"}</span>;
+	if (text === null)
+		return (
+			<span className="text-text-3 italic">
+				{field === "photo" ? "No photo" : field === "feedback" ? "No vote" : "Empty"}
+			</span>
+		);
 	if (field === "stage" && typeof value === "string" && value in STAGE_KEY)
 		return <StageChip stage={STAGE_KEY[value as StageValue]}>{text}</StageChip>;
 	return <span className={cn("break-words", before ? "text-text-2" : "font-medium text-ink")}>{text}</span>;

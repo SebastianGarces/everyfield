@@ -126,7 +126,7 @@ const VIEWS: Record<string, OpView> = {
 		counts: "message",
 		empty: "No draft or scheduled message in this church matches.",
 	},
-	"wiki.search": wiki("Wiki articles", { empty: "The Wiki has nothing on this." }),
+	"wiki.search": wiki("Wiki articles", { empty: "No Wiki article to show." }),
 	"wiki.referenceExcerpt": wiki("From the Wiki", { empty: "This article is not in your Wiki, or you can't read it." }),
 	"wiki.recommendForPhase": wiki("Suggested reading", { empty: "The Wiki has no suggestions for your phase." }),
 	"wiki.reading.resume": wiki("Where you left off", { empty: "You haven't opened a Wiki article yet." }),

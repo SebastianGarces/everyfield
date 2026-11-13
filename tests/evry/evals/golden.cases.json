@@ -1846,7 +1846,9 @@
 			"as": "member",
 			"kind": "capabilities",
 			"require": ["/people|household/i", "/coming|soon|later|not yet/i"],
-			"forbid": ["/propose (adding|a change to|moving|removing|saving|scheduling|making|cancelling|replacing|changing)/i"],
+			"forbid": [
+				"/propose (adding|a change to|moving|removing|saving|scheduling|making|cancelling|replacing|changing)/i"
+			],
 			"derivation": "Asked as a Member, the actor this case's must-not names: the list holds reads only.",
 			"target": {
 				"require": ["/coming|soon|later|not yet/i"]

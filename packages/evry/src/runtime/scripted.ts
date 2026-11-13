@@ -141,11 +141,6 @@ function pageArticle(prompt: Prompt): string | null {
 	return refs.find((r) => r.kind === "article")?.id ?? null;
 }
 const linked = (row: Row) => `[${row.label}](${String(row.fields.href)})`;
-const quoted = (text: string) =>
-	text
-		.split("\n")
-		.map((line) => `> ${line}`)
-		.join("\n");
 function wikiStep(
 	text: string,
 	options: LanguageModelV4CallOptions,
@@ -157,7 +152,7 @@ function wikiStep(
 	const rows = (result?.rows as Row[] | undefined) ?? [];
 	if (WIKI_EDIT.test(text) && !WIKI_ASK.test(text)) return say(WIKI_EDIT_ANSWER);
 	if (result && typeof result.proposalId === "string" && rows[0]?.kind === "article")
-		return say(`I prepared a review for ${linked(rows[0])}. Nothing changes until you approve it.`);
+		return say(`I prepared a review for ${rows[0].label}. Nothing changes until you approve it.`);
 	if (result?.error) return say(`I could not read the Wiki (${String(result.error)}).`);
 	const ask = WIKI_ASK.exec(text);
 	if (ask) {
@@ -170,7 +165,8 @@ function wikiStep(
 		const [row] = rows;
 		if (!row) return say(`The Wiki has nothing on ${topic}.`);
 		const whose = row.fields.source === "global" ? "" : ` This is your ${String(row.fields.source)}'s version.`;
-		return say(`The Wiki's article ${linked(row)} says:\n\n${quoted(String(row.fields.excerpt))}${whose}`);
+		// The excerpt itself is quoted word for word on the result card above the answer.
+		return say(`Here is what the Wiki's article ${linked(row)} says, quoted above.${whose}`);
 	}
 	if (WIKI_NEXT.test(text)) {
 		if (!result) return read("wiki.recommendForPhase", {});
