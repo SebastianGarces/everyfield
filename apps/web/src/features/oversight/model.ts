@@ -24,7 +24,7 @@ export function locality(row: Pick<PlantDirectoryRow, "city" | "stateProvince" |
 
 const DAY = new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeZone: "UTC" });
 /** A plant-local calendar date as "Mar 14, 2027": the date itself, never shifted by a time zone. */
-export const calendarDate = (date: string) => DAY.format(new Date(`${date}T00:00:00Z`));
+const calendarDate = (date: string) => DAY.format(new Date(`${date}T00:00:00Z`));
 export const launchLabel = (date: string | null) => (date ? calendarDate(date) : "Not set");
 
 /** The directory's Linked column: "Directly" or "Through Grace Austin". */

@@ -93,7 +93,7 @@ const organizationFirst = sql<boolean>`EXISTS(SELECT FROM organization o WHERE o
  * The affiliation row `a` (a table name or alias) is live: no lifecycle witness hides the link or any endpoint, and a
  * Discovery subject is still open.
  */
-export const linkLive = (a: string) => {
+const linkLive = (a: string) => {
 	const c = (column: string) => sql.raw(`${a}.${column}`);
 	return sql<boolean>`(NOT EXISTS(SELECT FROM lifecycle_witness w WHERE w.state NOT IN ('active','cancelled') AND (w.affiliation_id=${c("id")} OR (w.opaque_subject_id IN (${c("organization_id")},${c("plant_id")},${c("account_id")},${c("sending_church_id")}) AND w.kind IN ('account','plant','organization')))) AND (${c("account_id")} IS NULL OR EXISTS(SELECT FROM discovery d WHERE d.account_id=${c("account_id")} AND d.converted_at IS NULL)))`;
 };

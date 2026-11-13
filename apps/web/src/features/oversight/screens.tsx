@@ -80,15 +80,15 @@ function NetworkTabs({ current }: { current: "plants" | "churches" }) {
 	);
 }
 
-function PrivacyNote({ who }: { who: string }) {
+function PrivacyNote() {
 	return (
 		<Card variant="callout" tone="ink" className="mt-5">
 			<CalloutLabel tone="ink" icon={ShieldUserIcon}>
 				Privacy
 			</CalloutLabel>
 			<CalloutText className="text-md">
-				Names and personal details of people in each plant are never shown here. Each plant decides what it shares with{" "}
-				{who}, and can change it at any time.
+				Names and personal details of people in each plant are never shown here. Each plant decides what it shares with
+				you, and can change it at any time.
 			</CalloutText>
 		</Card>
 	);
@@ -204,7 +204,7 @@ export function DirectoryScreen({ directory, kind }: { directory: PlantDirectory
 					</EmptyState>
 				)}
 			</Card>
-			<PrivacyNote who="you" />
+			<PrivacyNote />
 		</div>
 	);
 }
@@ -265,7 +265,7 @@ export function PlantScreen({ view }: { view: PlantView }) {
 					<SectionCard key={key} name={key} label={label} section={sections[key]} plantName={plant.name} />
 				))}
 			</div>
-			<PrivacyNote who="you" />
+			<PrivacyNote />
 		</div>
 	);
 }
@@ -502,7 +502,7 @@ export function SendingChurchScreen({ church }: { church: SendingChurchView }) {
 					</EmptyState>
 				)}
 			</Card>
-			<PrivacyNote who="you" />
+			<PrivacyNote />
 		</div>
 	);
 }
