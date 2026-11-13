@@ -6,8 +6,9 @@
 // Derived facts come from their source rows, never from a stored label (the technique golden-church.mts documents).
 // Inactivity is the real board's comparison of each person's latest activity with the church's 7 and 14 inactivity
 // days, against the database clock. So that it reads the same on every day the suite runs, a person at level none or
-// warning has a last contact (a follow-up outcome) 2 or 10 days before the seed runs; an alert-level person has no
-// contact and was created months ago. Coverage is whether a person has an open task.
+// warning has a recorded activity 2 or 10 days before the seed runs: an audit row that neither the contact log nor a
+// follow-up read lists, so no read shows a time that moves with the clock. An alert-level person has no activity and
+// was created months ago. Coverage is whether a person has an open task.
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { stepCountIs, streamText } from "../../../packages/evry/node_modules/ai/dist/index.js";
 import type { LanguageModelV4 } from "@ai-sdk/provider";
@@ -91,8 +92,8 @@ export async function smallChurch<A extends string>(spec: SmallChurchSpec<A>): P
 				await run(sql`INSERT INTO task(id,plant_id,title,category,priority,status,creator_id,created_at,due_kind,person_id)
 					VALUES(${id(++task)},${PLANT},${`Follow up with ${p.name}`},'follow_up','medium','not_started',${owner},'2026-10-20T15:00:00.000Z','undated',${p.id})`);
 			if ((p.inactivity ?? "none") !== "alert")
-				await run(sql`INSERT INTO contact_outcome(plant_id,person_id,outcome,occurred_at,recorded_at,contact_channel)
-					SELECT ${PLANT},${p.id},'contacted',t,t,'phone'
+				await run(sql`INSERT INTO audit_event(tenant_id,actor_id,action,kind,subject_type,subject_id,occurred_at,recorded_at,after_revision)
+					SELECT ${PLANT},${owner},'followup.recorded','outcome','person',${p.id},t,t,1
 					FROM (SELECT clock_timestamp()-make_interval(days=>${p.inactivity === "warning" ? 10 : 2}) AS t) x`);
 		}
 		const db = database.pools.runtime;

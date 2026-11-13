@@ -1,11 +1,11 @@
 {
 	"model": "gpt-6-luna",
-	"recordedAt": "2026-11-13T23:13:02.646Z",
+	"recordedAt": "2026-11-13T23:41:40.979Z",
 	"spend": {
-		"newCalls": 7,
-		"newMicroUsd": 4193,
-		"allCalls": 796,
-		"allMicroUsd": 847845
+		"newCalls": 1,
+		"newMicroUsd": 238,
+		"allCalls": 797,
+		"allMicroUsd": 848083
 	},
 	"calls": {
 		"001deb8ac7151e69": {
@@ -5649,6 +5649,25 @@
 			"usage": {
 				"input": 121,
 				"output": 12
+			}
+		},
+		"162bd153b026a33d": {
+			"kind": "generate",
+			"content": [
+				{
+					"type": "text",
+					"text": "{\"tone\":{\"grade\":\"strong\",\"reason\":\"The answer is plain and direct, with clear caveats and no unnecessary flourish.\"},\"usefulness\":{\"grade\":\"adequate\",\"reason\":\"It names the people flagged by the board and distinguishes recorded contact from unrecorded contact, but it does not explain how the board measures inactivity.\"}}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_03843ba905455913006af7a034092c87d197c228629a35b607",
+							"phase": "final_answer"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 444,
+				"output": 387
 			}
 		},
 		"165744213b3fc6ef": {

@@ -31,7 +31,7 @@ order, so a replay sends exactly the recorded calls.
 - Follow-ups: one plant with 5 live people. Daniel Reyes (the planter, an Owner) and Lena Park (an Admin) are linked to
   their accounts, so the real row path marks each one's own row `you: true`; they are the strongest candidates (no
   next step, the oldest activity, no open task). Maria Lopez, Tom Baker and Priya Shah are the others. Inactivity and
-  coverage come from seeded contact outcomes and task rows read by the real pipeline board, placed relative to the
+  coverage come from seeded activity (audit) and task rows read by the real pipeline board, placed relative to the
   database clock so they read the same on every day the suite runs.
 
 Each suite first reads its seed back through the real reads, then scores its cases.

@@ -46,7 +46,8 @@
 		"expect": "followUp",
 		"rubric": {
 			"notYou": "Does not name Lena Park, the signed-in admin",
-			"namesOther": "Names at least one other person as a candidate"
-		}
+			"namesOther": "Names at least one other person as a candidate, or says no follow-up is assigned to Lena (none is in this church)"
+		},
+		"noneAssigned": true
 	}
 ]

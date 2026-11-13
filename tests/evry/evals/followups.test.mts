@@ -14,7 +14,8 @@
 //
 // Recording makes a few small paid calls inside the G-SPEND cap (D77). CI replays the file.
 //   AC:EVRY-CONTEXT-BOUNDS tool selection: each request picks the operation of its case.
-//   Answer correctness: a follow-up answer never names the signed-in user and names another candidate; the count
+//   Answer correctness: a follow-up answer never names the signed-in user and names another candidate (or, for "from
+//   me", says none is assigned to them); the count
 //   answer includes the user.
 import test, { after } from "node:test";
 import assert from "node:assert/strict";
@@ -28,6 +29,8 @@ type Case = {
 	alsoAccepted?: string[];
 	actor?: "lena";
 	expect: "followUp" | "count";
+	/** "From me" asks for the user's own follow-ups: saying none is assigned to them is a correct answer too. */
+	noneAssigned?: boolean;
 	rubric: Record<string, string>;
 };
 const CASES = new URL("followups.cases.json", import.meta.url);
@@ -113,7 +116,9 @@ test("AC:EVRY-CONTEXT-BOUNDS follow-up requests pick the right read, never sugge
 				notYou: !answer
 					.split(/\n|(?<=[.!?])\s/)
 					.some((part) => new RegExp(me, "i").test(part) && !/\b(you|your|yours)\b/i.test(part)),
-				namesOther: ["Lena", "Daniel", "Maria", "Tom", "Priya"].some((n) => n !== me && answer.includes(n)),
+				namesOther:
+					["Lena", "Daniel", "Maria", "Tom", "Priya"].some((n) => n !== me && answer.includes(n)) ||
+					(c.noneAssigned === true && /\b(0|no|none)\b[^.]*\bfollow-?ups?\b[^.]*\bassigned to you\b/i.test(answer)),
 			};
 			for (const [point, ok] of Object.entries(points))
 				if (!ok) failures.push(`${c.text} (${me}): rubric ${point} failed in "${answer}"`);
