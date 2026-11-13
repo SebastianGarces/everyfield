@@ -49,6 +49,7 @@ import {
 	isPhoto,
 	isSettings,
 	savedPhotoSrc,
+	settingsLink,
 	settingsRefusalText,
 	retryable,
 	reviseInput,
@@ -394,6 +395,8 @@ const HEAD_TONE: Record<Tone, string> = {
 function note(view: View, review: Review | null, lapsed: boolean, unknown?: Action): string | null {
 	const who = review?.review.target?.label ?? null;
 	const mail = !!review && isMail(review.operation);
+	// A review the server can't approve as asked says why, in its own words, and offers no Approve.
+	if (review && !mail && view === "pending" && review.review.refusal) return review.review.refusal;
 	if (mail) {
 		if (view === "pending" && review.review.refusal) return review.review.refusal;
 		if (view === "pending" && review.stale)
@@ -731,7 +734,11 @@ function Footer({
 	else if (view === "photo_unavailable")
 		body = (
 			<>
-				{who ? (
+				{isSettings(review.operation) ? (
+					<Button size="sm" variant="secondary" asChild>
+						<IntentLink href={settingsLink(review.operation).href}>{settingsLink(review.operation).label}</IntentLink>
+					</Button>
+				) : who ? (
 					<Button size="sm" variant="secondary" asChild>
 						<IntentLink href={`/people/${who.id}`}>Open {who.label}</IntentLink>
 					</Button>
@@ -765,6 +772,13 @@ function Footer({
 							</IntentLink>
 						</Button>
 					</>
+				) : isSettings(review.operation) ? (
+					<Button size="sm" variant="ghost" asChild>
+						<IntentLink href={settingsLink(review.operation).href}>
+							{settingsLink(review.operation).label}
+							<Icon icon={ArrowRight02Icon} size={16} />
+						</IntentLink>
+					</Button>
 				) : who && review.operation !== "people.deletePerson" && !review.review.withheld ? (
 					<Button size="sm" variant="ghost" asChild>
 						<IntentLink href={`/people/${who.id}`}>
@@ -869,7 +883,9 @@ function Value({ field, value, before }: { field: string; value: unknown; before
 	if (text === null) return <span className="text-text-3 italic">{field === "photo" ? "No photo" : "Empty"}</span>;
 	if (field === "stage" && typeof value === "string" && value in STAGE_KEY)
 		return <StageChip stage={STAGE_KEY[value as StageValue]}>{text}</StageChip>;
-	return <span className={cn("break-words", before ? "text-text-2" : "font-medium text-ink")}>{text}</span>;
+	return (
+		<span className={cn("min-w-0 [overflow-wrap:anywhere]", before ? "text-text-2" : "font-medium text-ink")}>{text}</span>
+	);
 }
 
 type TileState = "image" | "none" | "loading" | "gone" | "lost" | "hidden";
@@ -1029,7 +1045,7 @@ function Changes({ review, staged, onRetry }: { review: Review; staged: StagedPh
 				c.field === "photo" && review.review.target ? (
 					<PhotoChange key={c.field} review={review} change={c} staged={staged} onRetry={onRetry} />
 				) : (
-					<div key={c.field} className="grid grid-cols-[minmax(88px,auto)_1fr] items-baseline gap-x-3">
+					<div key={c.field} className="grid grid-cols-[minmax(88px,auto)_minmax(0,1fr)] items-baseline gap-x-3">
 						<dt className="text-text-2">{fieldLabel(c.field)}</dt>
 						<dd className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1">
 							{create || c.field === "reason" ? null : (

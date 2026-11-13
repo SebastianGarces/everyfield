@@ -203,6 +203,15 @@ const zoneText = (zone: string) => (ZONE[zone] ? `${ZONE[zone]} (${zone})` : zon
 /** The changes Evry makes to seats, church settings, sharing, connections, your account and an organization. */
 export const isSettings = (operation: Operation): operation is SettingsOperation =>
 	/^(seats|plant|privacy|associations|account|organizations)\./.test(operation);
+/** The Settings section where a seat, settings, sharing, connection, account or organization change shows. */
+export function settingsLink(operation: SettingsOperation): { href: string; label: string } {
+	if (operation.startsWith("seats.")) return { href: "/settings/seats", label: "Open Seats" };
+	if (operation.startsWith("plant.")) return { href: "/settings/church", label: "Open Church settings" };
+	if (operation.startsWith("account.")) return { href: "/settings/account", label: "Open your account" };
+	if (operation.startsWith("organizations.")) return { href: "/settings/organization", label: "Open Organization profile" };
+	return { href: "/settings/sharing", label: "Open Sharing" };
+}
+
 /** A review that adds something new, so its fields have no value before. */
 export const isCreate = (operation: Operation) =>
 	operation === "people.createPerson" || operation === "seats.invite" || operation === "associations.invite";
