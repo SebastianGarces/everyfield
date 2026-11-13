@@ -4,7 +4,9 @@
 // approval has left on the server's clock; the browser's clock is never read.
 
 import type { MailReport, RecipientOutcome } from "@everyfield/contracts/communication";
+import { CHANNEL_LABEL } from "../../followups/model.ts";
 import { SOURCE_LABEL, STAGE_LABEL, type SourceValue, type StageValue } from "../../people/model.ts";
+import { CATEGORY_LABEL, PRIORITY_LABEL } from "../../tasks/model.ts";
 import { TASK_REFUSAL, type ProjectedError } from "../conversation/model.ts";
 
 export type Operation =
@@ -169,27 +171,9 @@ const OUTCOME: Record<string, string> = {
 	no_longer_needed: "No longer needed",
 	withdrawn: "Withdrawn",
 };
-const CHANNEL: Record<string, string> = {
-	phone: "Phone call",
-	text: "Text message",
-	in_person: "In person",
-	video: "Video call",
-	email: "Email",
-	other: "Other",
-};
-const PRIORITY: Record<string, string> = { urgent: "Urgent", high: "High", medium: "Medium", low: "Low" };
-const CATEGORY: Record<string, string> = {
-	general: "General",
-	follow_up: "Follow-up",
-	vision_meeting: "Vision meeting",
-	launch_prep: "Launch prep",
-	administrative: "Administrative",
-	ministry_team: "Ministry team",
-	training: "Training",
-	promotion: "Promotion",
-	facilities: "Facilities",
-	recurring: "Recurring",
-};
+const CHANNEL: Record<string, string> = CHANNEL_LABEL;
+const PRIORITY: Record<string, string> = PRIORITY_LABEL;
+const CATEGORY: Record<string, string> = CATEGORY_LABEL;
 const FREQUENCY: Record<string, string> = {
 	daily: "Daily",
 	weekly: "Weekly",

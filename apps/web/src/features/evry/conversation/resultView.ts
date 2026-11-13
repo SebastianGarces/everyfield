@@ -1,5 +1,7 @@
 import { sendTimeShort } from "../review/model.ts";
+import { CHANNEL_LABEL } from "../../followups/model.ts";
 import { STAGE_LABEL, type StageValue } from "../../people/model.ts";
+import { CATEGORY_LABEL } from "../../tasks/model.ts";
 import type { SourceResult, SourceRow } from "./model.ts";
 
 // What a result card says, as plain data: the title, the count, the notes under the rows and, per row, its name, a short
@@ -331,14 +333,7 @@ const OUTCOME: Record<string, string> = {
 	administrative_completion: "Admin completion",
 	no_longer_needed: "No longer needed",
 };
-const CHANNEL: Record<string, string> = {
-	phone: "Phone call",
-	text: "Text message",
-	in_person: "In person",
-	video: "Video call",
-	email: "Email",
-	other: "Other",
-};
+const CHANNEL: Record<string, string> = CHANNEL_LABEL;
 /** How a conversation happened, as the first word of its row: "Call — conversation". */
 const CONVERSATION_BY: Record<string, string> = {
 	phone: "Call",
@@ -348,7 +343,7 @@ const CONVERSATION_BY: Record<string, string> = {
 	email: "Email",
 };
 const ROLE_WORD: Record<string, string> = { owner: "Owner", admin: "Admin", member: "Member" };
-const CATEGORY: Record<string, string> = { follow_up: "Follow-up" };
+const CATEGORY: Record<string, string> = CATEGORY_LABEL;
 const COVERAGE: Record<string, string> = {
 	needs_owner: "Follow-up needs an owner",
 	uncovered: "No open follow-up",
