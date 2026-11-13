@@ -16,7 +16,7 @@ export function CreateChurch({ state, actions, onBack }: Props & { onBack?: () =
 			<StepHeading title="Start your church">
 				Name it and say where it is. It starts in Phase 1, Core group development.
 			</StepHeading>
-			<Notice code={state.notice?.op === "createPlant" ? state.notice.code : null} />
+			<Notice notice={state.notice} op="createPlant" />
 			<BasicsForm
 				draft={state.drafts.basics}
 				onEdit={(basics) => actions.edit({ basics })}
@@ -36,7 +36,7 @@ export function StartDiscovery({ state, actions, onBack }: Props & { onBack?: ()
 			<StepHeading title="Explore before you plant">
 				Discovery is your own space to read the foundations and test the call. No church is created until you start one.
 			</StepHeading>
-			<Notice code={state.notice?.op === "createDiscovery" ? state.notice.code : null} />
+			<Notice notice={state.notice} op="createDiscovery" />
 			<StepFooter
 				onBack={onBack}
 				busy={state.pending === "createDiscovery"}
@@ -117,7 +117,7 @@ export function DiscoveryHome({ state, actions, articles }: Props & { articles: 
 				<StepHeading title="Start your church">
 					Your Discovery space becomes a church in Phase 1. Your reading stays with you.
 				</StepHeading>
-				<Notice code={state.notice?.op === "convertDiscovery" ? state.notice.code : null} />
+				<Notice notice={state.notice} op="convertDiscovery" />
 				<BasicsForm
 					draft={state.drafts.basics}
 					onEdit={(basics) => actions.edit({ basics })}

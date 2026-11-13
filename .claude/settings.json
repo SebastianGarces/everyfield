@@ -1,14 +1,36 @@
 {
 	"permissions": {
-		"allow": ["Bash(cd *)", "Bash(bin/evf pr open *)", "Bash(./bin/evf pr open *)", "Bash(*/bin/evf pr open *)"],
-		"ask": ["Bash(git push)", "Bash(git push *)"],
+		"allow": [
+			"Bash(cd *)",
+			"Bash(git add *)",
+			"Bash(git commit *)",
+			"Bash(git -C * add *)",
+			"Bash(git -C * commit *)"
+		],
 		"deny": [
 			"Bash(git push *--force*)",
 			"Bash(git push -f*)",
 			"Bash(git push * -f*)",
 			"Bash(git push * +*)",
+			"Bash(git push *--no-verify*)",
 			"Bash(git push --mirror*)",
-			"Bash(git push * --mirror*)"
+			"Bash(git push * --mirror*)",
+			"Bash(git push * main)",
+			"Bash(git push * main *)",
+			"Bash(git push *:main*)",
+			"Bash(git push *:refs/heads/main*)",
+			"Bash(gh pr merge*)",
+			"Bash(gh pr review*)",
+			"Bash(gh api -X *)",
+			"Bash(gh api --method *)",
+			"Bash(gh repo *)",
+			"Bash(git checkout main*)",
+			"Bash(git switch main*)",
+			"Bash(git branch -D *)",
+			"Bash(git branch -d *)",
+			"Bash(git worktree remove*)",
+			"Bash(git worktree prune*)",
+			"Read(./**/.env*)"
 		]
 	}
 }

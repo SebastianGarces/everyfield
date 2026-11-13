@@ -1,30 +1,37 @@
 "use client";
 
-import { CardIcon, Skeleton } from "@everyfield/ui/controls";
+import { CardIcon, IntentLink, Skeleton } from "@everyfield/ui/controls";
 import { cn } from "@everyfield/ui/foundations";
-import { areaOf, dueLabel, timeLabel, type Clock, type FeedItem } from "./model.ts";
+import { areaOf, dueLabel, subjectHref, timeLabel, type Clock, type FeedItem } from "./model.ts";
 
 // One notification entry (prototype .notif-item) and the loading shape of a list of them. The page and the bell share it.
 
 const ROW =
 	"grid w-full grid-cols-[36px_minmax(0,1fr)_8px] items-start gap-3 rounded-card p-2.5 text-left transition-[background-color] duration-150";
+const CHOOSABLE =
+	"cursor-pointer hover:bg-surface-2 focus-visible:shadow-[0_0_0_2px_var(--ef-focus)] focus-visible:outline-none active:bg-surface-3";
 
 /**
- * An unread entry is a button: choosing it marks it read, the only action an entry has (reading never completes the
- * work it is about). A read entry is plain text. The dot and the bold title show unread; the hidden words say it too.
+ * An entry whose category has a subject page is a link to it, read or not (D-731, D-732); following it marks it read.
+ * Any other unread entry is a button that marks it read, and a read one is plain text. Reading never completes the work
+ * it is about. The dot and the bold title show unread; the hidden words say it too. `onOpen` runs as a link is
+ * followed, so the bell can close.
  */
 export function NotificationItem({
 	item,
 	clock,
 	onRead,
+	onOpen,
 	compact = false,
 }: {
 	item: FeedItem;
 	clock: Clock | null;
 	onRead: (item: FeedItem) => void;
+	onOpen?: () => void;
 	compact?: boolean;
 }) {
 	const { area, icon, tone } = areaOf(item.category);
+	const href = subjectHref(item.subject);
 	const due = dueLabel(item);
 	const body = (
 		<>
@@ -55,20 +62,26 @@ export function NotificationItem({
 			{item.read ? <span /> : <span aria-hidden="true" className="mt-1.5 size-2 rounded-full bg-blue-500" />}
 		</>
 	);
+	const unread = item.read ? null : <span className="sr-only">Unread: </span>;
 	return (
 		<li>
-			{item.read ? (
+			{href ? (
+				<IntentLink
+					href={href}
+					onClick={() => {
+						onRead(item);
+						onOpen?.();
+					}}
+					className={cn(ROW, CHOOSABLE)}
+				>
+					{unread}
+					{body}
+				</IntentLink>
+			) : item.read ? (
 				<div className={ROW}>{body}</div>
 			) : (
-				<button
-					type="button"
-					onClick={() => onRead(item)}
-					className={cn(
-						ROW,
-						"cursor-pointer hover:bg-surface-2 focus-visible:shadow-[0_0_0_2px_var(--ef-focus)] focus-visible:outline-none active:bg-surface-3",
-					)}
-				>
-					<span className="sr-only">Unread: </span>
+				<button type="button" onClick={() => onRead(item)} className={cn(ROW, CHOOSABLE)}>
+					{unread}
 					{body}
 					<span className="sr-only">. Mark as read</span>
 				</button>

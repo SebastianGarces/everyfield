@@ -4,6 +4,9 @@ import { sql, type SQL } from "@everyfield/db/query";
 import "server-only";
 import { z } from "zod";
 import { liveRead, type RequestActor } from "../access/session.ts";
+import { originJson, originOf } from "./origin.ts";
+import { assigneeList, assigneesOf, assignedTo, sortPeople } from "./assignees.ts";
+import { ownerView, eligibleOwner } from "./owner.ts";
 import { administers, deny, parse, readReply, readerOf, type Reader, type Tx, type Viewer } from "./core.ts";
 
 // Storage keeps the shipped short kind names; the contract names say which duty it is.
@@ -12,7 +15,7 @@ export const storedKind = z
 	.transform((k) => (k === "follow_up" ? "first_vision_follow_up" : "meeting_evaluation"));
 export const storageKind = (k: z.infer<typeof c.obligationKind>) =>
 	k === "first_vision_follow_up" ? ("follow_up" as const) : ("evaluation" as const);
-export const taskRow = z.object({
+const taskRow = z.object({
 	id: z.uuid(),
 	revision,
 	title: z.string(),
@@ -23,7 +26,8 @@ export const taskRow = z.object({
 	created_at: z.coerce.date(),
 	completed_at: z.coerce.date().nullable(),
 	deleted_at: z.coerce.date().nullable(),
-	assignee_id: z.uuid().nullable(),
+	// Ordered by display name, then account ID (D-b).
+	assignees: assigneeList,
 	due_kind: z.enum(["undated", "date_only", "timed"]),
 	due_date: z.string().nullable(),
 	due_time: z.string().nullable(),
@@ -40,7 +44,8 @@ export const taskRow = z.object({
 	occurrence_key: z.string().nullable(),
 	obligation_id: z.uuid().nullable(),
 	obligation_kind: storedKind.nullable(),
-	assignee_name: z.string().nullable(),
+	follow_up_owners: z.array(c.followUpOwner).nullish(),
+	follow_up_origin: z.unknown().nullish(),
 	relation_label: z.string().nullable(),
 	child_total: z.int(),
 	child_complete: z.int(),
@@ -53,10 +58,8 @@ export const taskRow = z.object({
 				revision,
 				title: z.string(),
 				status: c.taskStatus,
-				assignee_id: z.uuid().nullable(),
-				assignee_name: z.string().nullable(),
-				// The assignee still holds a seat in the church, so a recurrence copy may keep them.
-				seated: z.boolean(),
+				// Each assignee's seat status says whether a recurrence copy may keep them.
+				assignees: assigneeList,
 			}),
 		)
 		.optional(),
@@ -78,48 +81,51 @@ export type TaskRow = z.infer<typeof taskRow>;
  * One task as a single-task read returns it: its checklist, its series rule, whether a live successor exists, whether
  * the assignee is still seated and whether the relation is live. A status change needs all of them (REQ-TSK-007).
  */
-export const lockedTask = taskRow.extend({
+const lockedTask = taskRow.extend({
 	checklist: taskRow.shape.checklist
 		.unwrap()
 		.nullable()
 		.transform((k) => k ?? []),
 	rule: taskRow.shape.rule.unwrap(),
 	has_successor: z.boolean(),
-	assignee_seated: z.boolean(),
 	// The related Person is live, the team active: a recurrence copy may name them again.
 	relation_live: z.boolean(),
 });
 export type LockedTask = z.infer<typeof lockedTask>;
 
 const columns = sql`t.id, t.revision::text AS revision, t.title, t.description, t.category, t.priority, t.status,
-	t.created_at, t.completed_at, t.deleted_at, t.assignee_id, t.due_kind, t.due_date::text AS due_date,
+	t.created_at, t.completed_at, t.deleted_at, ${assigneesOf("t")} AS assignees, t.due_kind, t.due_date::text AS due_date,
 	t.due_time::text AS due_time, t.timezone, t.due_at, t.person_id, t.meeting_id, t.team_id, t.parent_id, t.series_id,
 	t.predecessor_id, t.prerequisite_ids::text[] AS prerequisite_ids,
 	(SELECT count(*)::int FROM task q WHERE q.id=ANY(t.prerequisite_ids) AND q.plant_id=t.plant_id AND q.deleted_at IS NULL
 		AND q.status NOT IN ('complete','no_longer_needed')) AS open_prerequisites,
-	t.occurrence_key, t.obligation_id, o.kind AS obligation_kind, ai.display_name AS assignee_name,
+	t.occurrence_key, t.obligation_id, o.kind AS obligation_kind,
 	coalesce(p.display_name, m.title, tm.name) AS relation_label, pl.timezone AS plant_zone,
 	(SELECT count(*)::int FROM task k WHERE k.parent_id=t.id AND k.plant_id=t.plant_id AND k.deleted_at IS NULL) AS child_total,
 	(SELECT count(*)::int FROM task k WHERE k.parent_id=t.id AND k.plant_id=t.plant_id AND k.deleted_at IS NULL
 		AND k.status='complete') AS child_complete,
 	(SELECT k.id FROM task k WHERE k.series_id=t.series_id AND k.plant_id=t.plant_id AND k.id<>t.id
 		AND k.deleted_at IS NULL AND k.status NOT IN ('complete','no_longer_needed') LIMIT 1) AS open_successor`;
-const seated = (account: SQL) => sql`EXISTS(SELECT FROM seat s WHERE s.account_id=${account} AND s.plant_id=t.plant_id
-	AND s.ended_at IS NULL AND s.accepted_at<=clock_timestamp())`;
+/**
+ * A person follow-up's owner view and origin. Only reads carry them: each is another seat_identity call the planner
+ * cannot inline, and a write's answer is merged with what the screen already shows.
+ */
+const views = sql`	CASE WHEN t.category='follow_up' AND t.person_id IS NOT NULL AND t.parent_id IS NULL
+		THEN (SELECT coalesce(jsonb_agg(${ownerView(sql`a.account_id`, sql`t.plant_id`)}),'[]'::jsonb)
+			FROM task_assignee a WHERE a.task_id=t.id) END AS follow_up_owners,
+	CASE WHEN t.category='follow_up' AND t.person_id IS NOT NULL AND t.parent_id IS NULL
+		THEN ${originJson(sql`t`)} END AS follow_up_origin`;
 const checklist = sql`(SELECT jsonb_agg(jsonb_build_object('id',k.id,'revision',k.revision::text,'title',k.title,
-	'status',k.status,'assignee_id',k.assignee_id,'assignee_name',ki.display_name,'seated',${seated(sql`k.assignee_id`)})
+	'status',k.status,'assignees',${assigneesOf("k")})
 	ORDER BY k.created_at,k.id)
-	FROM task k LEFT JOIN LATERAL seat_identity(k.assignee_id) ki ON true
-	WHERE k.parent_id=t.id AND k.plant_id=t.plant_id AND k.deleted_at IS NULL) AS checklist,
+	FROM task k WHERE k.parent_id=t.id AND k.plant_id=t.plant_id AND k.deleted_at IS NULL) AS checklist,
 	(SELECT jsonb_build_object('id',r.id,'frequency',r.interval,'until',r.end_date,'local_time',to_char(r.local_time,'HH24:MI'),
 		'stopped',r.stopped_at IS NOT NULL) FROM recurrence r WHERE r.id=t.series_id AND r.plant_id=t.plant_id) AS rule,
-	EXISTS(SELECT FROM task n WHERE n.predecessor_id=t.id AND n.plant_id=t.plant_id AND n.deleted_at IS NULL)
-		AS has_successor,
-	${seated(sql`t.assignee_id`)} AS assignee_seated,
+	EXISTS(SELECT FROM task n WHERE n.predecessor_id=t.id AND n.series_id=t.series_id AND n.plant_id=t.plant_id
+		AND n.deleted_at IS NULL) AS has_successor,
 	(t.person_id IS NULL OR p.state='live') AND (t.team_id IS NULL OR tm.archived_at IS NULL) AS relation_live`;
 const joins = sql`FROM task t JOIN plant pl ON pl.id=t.plant_id
 	LEFT JOIN obligation o ON o.id=t.obligation_id AND o.plant_id=t.plant_id
-	LEFT JOIN LATERAL seat_identity(t.assignee_id) ai ON true
 	LEFT JOIN person p ON p.id=t.person_id AND p.tenant_id=t.plant_id
 	LEFT JOIN meeting m ON m.id=t.meeting_id AND m.plant_id=t.plant_id
 	LEFT JOIN team tm ON tm.id=t.team_id AND tm.plant_id=t.plant_id`;
@@ -150,8 +156,8 @@ export async function loadTasks(tx: Tx, plantId: string, ids: readonly string[])
 export const managedTasks = (plantId: string, obligations: SQL) =>
 	sql`(SELECT coalesce(json_agg(x ORDER BY x.id), '[]') FROM (${taskQuery(plantId, sql`t.obligation_id=ANY(${obligations}) AND t.deleted_at IS NULL`)} ORDER BY t.id FOR UPDATE OF t) x)`;
 export const managedTaskRows = z.array(lockedTask);
-const taskQuery = (plantId: string, which: SQL) =>
-	sql`SELECT ${columns}, ${checklist}, 1 AS ord ${joins} WHERE ${which} AND t.plant_id=${plantId}::uuid`;
+const taskQuery = (plantId: string, which: SQL, withViews = false) =>
+	sql`SELECT ${columns}, ${withViews ? sql`${views}, ` : sql``}${checklist}, 1 AS ord ${joins} WHERE ${which} AND t.plant_id=${plantId}::uuid`;
 
 /**
  * One read statement: the reader's live authority (C13, lock-free per C27) and the rows of `query`, which numbers its
@@ -179,6 +185,29 @@ export function dueOf(row: Pick<TaskRow, "due_kind" | "due_date" | "due_time" | 
 		offsetSeconds: (Date.parse(`${local}Z`) - at.getTime()) / 1000,
 	});
 }
+/**
+ * A person follow-up's owner views (REQ-TSK-012), one for each assignee. A read carries the stored views; an assignee a
+ * write just added was checked by that write, so it reads as eligible.
+ */
+function followUpOwnersOf(row: TaskRow) {
+	if (row.category !== "follow_up" || !row.person_id || row.parent_id) return [];
+	const views = new Map((row.follow_up_owners ?? []).map((v) => [v.accountId, v]));
+	return sortPeople(
+		row.assignees.map(
+			(a) =>
+				views.get(a.accountId) ?? {
+					accountId: a.accountId,
+					displayName: a.displayName,
+					eligible: true,
+					reason: null,
+				},
+		),
+	);
+}
+const peopleOf = (a: { accountId: string; displayName: string }) => ({
+	accountId: a.accountId,
+	displayName: a.displayName,
+});
 export function itemOf(row: TaskRow, asOf: Instant) {
 	const due = dueOf(row);
 	const settled = (c.settledStatus as readonly string[]).includes(row.status);
@@ -186,12 +215,15 @@ export function itemOf(row: TaskRow, asOf: Instant) {
 		id: row.id,
 		revision: row.revision,
 		title: row.title,
+		excerpt: (row.description ?? "").slice(0, c.DESCRIPTION_EXCERPT),
 		status: row.status,
 		priority: row.priority,
 		category: row.category,
 		due,
 		overdue: due.kind === "undated" ? null : settled ? false : c.overdueAt(due, row.plant_zone, asOf),
-		assignee: row.assignee_id ? { accountId: row.assignee_id, displayName: row.assignee_name ?? "" } : null,
+		assignees: row.assignees.map(peopleOf),
+		followUpOwners: followUpOwnersOf(row),
+		followUpOrigin: row.follow_up_origin ? originOf(row.follow_up_origin) : null,
 		relation: row.person_id
 			? { kind: "person", id: row.person_id, label: row.relation_label ?? "" }
 			: row.meeting_id
@@ -218,7 +250,7 @@ export function detailOf(row: TaskRow, asOf: Instant) {
 			revision: k.revision,
 			title: k.title,
 			status: k.status,
-			assignee: k.assignee_id ? { accountId: k.assignee_id, displayName: k.assignee_name ?? "" } : null,
+			assignees: k.assignees.map(peopleOf),
 		})),
 		prerequisiteIds: row.prerequisite_ids,
 		obligationId: row.obligation_id,
@@ -241,7 +273,7 @@ const escapeLike = (v: string) => v.replace(/[\\%_]/g, (m) => "\\" + m);
 function scope(viewer: Viewer, f: z.infer<typeof c.countTasksRequest>): SQL {
 	const parts = [
 		sql`t.plant_id=${viewer.plantId}::uuid AND t.parent_id IS NULL AND t.deleted_at IS NULL`,
-		f.view === "my" ? sql`t.assignee_id=${viewer.accountId}::uuid` : null,
+		f.view === "my" ? assignedTo("t", sql`${viewer.accountId}::uuid`) : null,
 		f.search ? sql`t.title ILIKE ${"%" + escapeLike(f.search) + "%"} ESCAPE '\\'` : null,
 		f.statuses.length ? sql`t.status=ANY(${sql.param(f.statuses)}::text[])` : null,
 		f.priorities.length ? sql`t.priority=ANY(${sql.param(f.priorities)}::text[])` : null,
@@ -289,7 +321,7 @@ export const taskReader = {
 			const found = await gated(
 				tx,
 				viewer,
-				sql`SELECT ${columns}, count(*) OVER () AS total, row_number() OVER (ORDER BY ${order}) AS ord ${joins}
+				sql`SELECT ${columns}, ${views}, count(*) OVER () AS total, row_number() OVER (ORDER BY ${order}) AS ord ${joins}
 				WHERE ${scope(viewer, v)} ORDER BY ${order} LIMIT ${v.limit} OFFSET ${(v.page - 1) * v.limit}`,
 			);
 			const rows = z.array(taskRow).parse(found),
@@ -302,6 +334,26 @@ export const taskReader = {
 				page: v.page,
 				next: v.page * v.limit < total ? v.page + 1 : null,
 				completeness: "complete",
+			});
+		});
+	},
+	/** The list rows of the named live tasks of the church, without the list's search, order or count. One statement. */
+	async listRows(tx: Tx, authority: RequestActor, raw: unknown) {
+		return readReply(async () => {
+			const viewer = reader(authority),
+				v = parse(c.taskRowsRequest, raw);
+			const found = await gated(
+				tx,
+				viewer,
+				sql`SELECT ${columns}, ${views}, row_number() OVER (ORDER BY t.id) AS ord ${joins}
+				WHERE t.plant_id=${viewer.plantId}::uuid AND t.deleted_at IS NULL AND t.id=ANY(${sql.param(v.taskIds)}::uuid[])`,
+			);
+			const asOf = now();
+			return c.taskRows.parse({
+				items: z
+					.array(taskRow)
+					.parse(found)
+					.map((row) => itemOf(row, asOf)),
 			});
 		});
 	},
@@ -350,7 +402,7 @@ export const taskReader = {
 		return readReply(async () => {
 			const viewer = reader(authority),
 				v = parse(c.getTaskRequest, raw);
-			const [found] = await gated(tx, viewer, taskQuery(viewer.plantId, sql`t.id=${v.taskId}::uuid`));
+			const [found] = await gated(tx, viewer, taskQuery(viewer.plantId, sql`t.id=${v.taskId}::uuid`, true));
 			const row = found && lockedTask.parse(found);
 			if (!row || row.deleted_at) return c.taskResult.parse({ status: "unavailable" });
 			return c.taskResult.parse({ status: "available", task: detailOf(row, v.asOf ?? now()) });
@@ -369,11 +421,11 @@ export const taskReader = {
 				viewer,
 				sql`SELECT a.id, a.occurred_at, a.before_value->>'status' AS "from",
 					a.after_value->>'status' AS "to", a.actor_id, a.actor_token, a.system_cause,
-					coalesce(a.metadata->>'source','person') AS source, ai.display_name, count(*) OVER () AS total,
+					coalesce(a.metadata->>'source','person') AS source, ai.display_name, count(a.id) OVER () AS total,
 					row_number() OVER (ORDER BY a.occurred_at, a.id) AS ord
-				FROM task t JOIN audit_event a ON a.tenant_id=t.plant_id AND a.subject_id=t.id
+				FROM task t LEFT JOIN audit_event a ON a.tenant_id=t.plant_id AND a.subject_id=t.id AND a.after_value ? 'status'
 				LEFT JOIN LATERAL seat_identity(a.actor_id) ai ON true
-				WHERE t.id=${v.taskId}::uuid AND t.plant_id=${viewer.plantId}::uuid AND a.after_value ? 'status'
+				WHERE t.id=${v.taskId}::uuid AND t.plant_id=${viewer.plantId}::uuid
 				ORDER BY a.occurred_at, a.id LIMIT ${v.limit} OFFSET ${(v.page - 1) * v.limit}`,
 			);
 			const rows = z
@@ -391,9 +443,10 @@ export const taskReader = {
 						total: z.coerce.number().int(),
 					}),
 				)
-				.parse(found);
-			// Every task has its creation entry, so no rows on the first page means no such task in this church.
-			if (!rows.length && v.page === 1) deny();
+				.parse(found.filter((a) => a.id !== null));
+			// The task row always comes back: no rows on page 1 means no such task here. A task with no status audit row
+			// comes back as one row with null audit columns, which reads as an empty history.
+			if (!found.length && v.page === 1) deny();
 			const total = rows[0]?.total ?? 0;
 			return c.statusHistory.parse({
 				taskId: v.taskId,
@@ -415,17 +468,23 @@ export const taskReader = {
 			});
 		});
 	},
-	/** The church's current accepted seats, who may hold a task. Owner/Admin only. One statement. */
-	async eligibleAssignees(tx: Tx, authority: RequestActor) {
+	/**
+	 * The church's current accepted seats, who may hold a task. With purpose `committed_follow_up` only the seats that may
+	 * own a follow-up (REQ-TSK-012). Owner/Admin only. One statement.
+	 */
+	async eligibleAssignees(tx: Tx, authority: RequestActor, raw: unknown = {}) {
 		return readReply(async () => {
-			const viewer = reader(authority, true);
+			const viewer = reader(authority, true),
+				v = parse(c.eligibleAssigneesRequest, raw);
+			const plant = sql`${viewer.plantId}::uuid`;
 			const found = await gated(
 				tx,
 				viewer,
 				sql`SELECT s.account_id, s.role, i.display_name,
 					row_number() OVER (ORDER BY lower(i.display_name), s.account_id) AS ord FROM seat s
 				CROSS JOIN LATERAL seat_identity(s.account_id) i
-				WHERE s.plant_id=${viewer.plantId}::uuid AND s.ended_at IS NULL AND s.accepted_at<=clock_timestamp()
+				WHERE s.plant_id=${plant} AND s.ended_at IS NULL AND s.accepted_at<=clock_timestamp()
+				${v.purpose === "committed_follow_up" ? sql`AND ${eligibleOwner(sql`s.account_id`, plant)}` : sql``}
 				ORDER BY lower(i.display_name), s.account_id LIMIT 500`,
 				true,
 			);
@@ -472,13 +531,12 @@ export const taskReader = {
 				tx,
 				viewer,
 				sql`SELECT 0 AS ord, NULL::uuid AS id, NULL AS title, NULL AS status, NULL::text AS revision,
-					NULL::uuid AS assignee_id, NULL AS assignee_name, NULL::timestamptz AS completed_at,
+					NULL::jsonb AS assignees, NULL::timestamptz AS completed_at,
 					(SELECT count(*)::int FROM task k WHERE k.parent_id=t.id AND k.plant_id=t.plant_id AND k.deleted_at IS NULL) AS total
 				FROM task t WHERE t.id=${v.parentId}::uuid AND t.plant_id=${viewer.plantId}::uuid AND t.deleted_at IS NULL
 				UNION ALL (SELECT row_number() OVER (ORDER BY k.created_at, k.id), k.id, k.title, k.status, k.revision::text,
-					k.assignee_id, ki.display_name, k.completed_at, NULL
+					${assigneesOf("k")}, k.completed_at, NULL
 				FROM task k JOIN task t ON t.id=k.parent_id AND t.plant_id=k.plant_id AND t.deleted_at IS NULL
-				LEFT JOIN LATERAL seat_identity(k.assignee_id) ki ON true
 				WHERE k.parent_id=${v.parentId}::uuid AND k.plant_id=${viewer.plantId}::uuid AND k.deleted_at IS NULL
 				ORDER BY k.created_at, k.id LIMIT ${v.limit} OFFSET ${(v.page - 1) * v.limit})`,
 			);
@@ -493,8 +551,7 @@ export const taskReader = {
 						title: z.string(),
 						status: c.taskStatus,
 						revision,
-						assignee_id: z.uuid().nullable(),
-						assignee_name: z.string().nullable(),
+						assignees: assigneeList,
 						completed_at: z.coerce.date().nullable(),
 					}),
 				)
@@ -506,7 +563,7 @@ export const taskReader = {
 					revision: k.revision,
 					title: k.title,
 					status: k.status,
-					assignee: k.assignee_id ? { accountId: k.assignee_id, displayName: k.assignee_name ?? "" } : null,
+					assignees: k.assignees.map(peopleOf),
 					completedAt: k.completed_at?.toISOString() ?? null,
 				})),
 				total,

@@ -25,18 +25,3 @@ export const rise = (t: number, at: number, R = 1): Frame => {
 	const p = out(P(t, at, 420));
 	return [0, (1 - p) * 8, 1, p * R];
 };
-/** Pop in from 70 % with a small overshoot. */
-export const pop = (t: number, at: number, R = 1): Frame => {
-	const p = P(t, at, 380);
-	return [0, 0, 0.7 + 0.3 * back(p), clamp(p * 2.5) * R];
-};
-/** Press: scale down by d (5 %) and back over 200 ms. */
-export const press = (t: number, at: number, d = 0.05) => "scale(" + (1 - d * bump(t, at, 200)).toFixed(4) + ")";
-/** Short highlight: fades in at a, out at b. */
-export const flash = (t: number, a: number, b: number, R = 1) =>
-	+(out(P(t, a, 250)) * (1 - sine(P(t, b, 300))) * R).toFixed(3);
-/** The loop reset: 1 until a, then down to 0 over 450 ms. */
-export const reset = (t: number, a: number) => 1 - sine(P(t, a, 450));
-/** Swap two stacked labels: the first slides up and out, the second slides up and in. */
-export const swapOut = (p: number): Frame => [0, -7 * p, 1, 1 - p];
-export const swapIn = (p: number): Frame => [0, 7 * (1 - p), 1, p];

@@ -9,10 +9,9 @@ export const operationId = z.uuid().brand<"OperationId">();
 export const eventId = z.uuid().brand<"EventId">();
 export const sessionId = z.string().min(1).max(256).brand<"SessionId">();
 export const requestKey = z.string().min(1).max(200).brand<"RequestKey">();
-export const digest = z
-	.string()
-	.regex(/^[a-f0-9]{64}$/)
-	.brand<"Digest">();
+/** A lowercase hex SHA-256, as plain text. `digest` is the same text, branded. */
+export const sha256Text = z.string().regex(/^[a-f0-9]{64}$/);
+export const digest = sha256Text.brand<"Digest">();
 // PostgreSQL bigint revisions cross JSON as decimal strings, never lossy numbers.
 export const revision = z
 	.string()
@@ -43,6 +42,8 @@ export function sameOwner(a: Owner, b: Owner): boolean {
 }
 
 export const correlationId = z.uuid().brand<"CorrelationId">();
+/** The answer every feature operation returns: its value, or a reviewed refusal. */
+export type Reply<T, E> = { status: "ok"; value: T } | { status: "refused"; error: E };
 export type RetryEligibility = "never" | "refresh" | "same_request" | "reconcile";
 // Producers define literal codes and reviewed, closed detail fields. Compose the
 // returned variants with safeError.options in their own discriminated union.
@@ -63,9 +64,9 @@ export const safeError = z.discriminatedUnion("code", [
 	// Inaccessible and missing records use the same empty-detail refusal.
 	defineSafeError("access_denied", {}, "never"),
 	defineSafeError("unavailable", {}, "never"),
-	defineSafeError("invalid_subject", {}, "never"),
+	// A named account that cannot be assigned says which one.
+	defineSafeError("invalid_subject", { accountId: accountId.optional() }, "never"),
 	defineSafeError("conflict", {}, "refresh"),
 	defineSafeError("temporary", {}, "same_request"),
 	defineSafeError("unknown", {}, "reconcile"),
 ]);
-export type SafeError = z.infer<typeof safeError>;

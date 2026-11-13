@@ -30,7 +30,7 @@ function queue(config, readIssues) {
 }
 if (require.main === module) {
   const root = resolve(__dirname, '../..');
-  const config = JSON.parse(readFileSync(resolve(root, 'evf.config.json'), 'utf8'));
+  const config = JSON.parse(readFileSync(resolve(root, '.github/internal-feedback.json'), 'utf8'));
   const result = queue(config, repo => JSON.parse(execFileSync('gh', [
     'api', '--paginate', '--slurp', `repos/${repo}/issues?state=open&per_page=100`,
   ], { encoding: 'utf8' })).flat());

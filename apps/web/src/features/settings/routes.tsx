@@ -5,10 +5,12 @@ import { PATH_HEADER } from "@/proxy";
 import { getViewer } from "@/server/request-context";
 import { instant } from "@everyfield/contracts/common";
 import { confirmEmailChange, getSection } from "./actions";
+import { getBrand } from "./brand/actions";
 import { ConfirmEmailScreen } from "./restricted/ConfirmEmailScreen";
 import { AccountDeletionScreen } from "./restricted/AccountDeletionScreen";
+import { WorkspaceDeletionScreen } from "./restricted/WorkspaceDeletionScreen";
 import { restrictedStatus } from "./server";
-import { dialogSection, sectionAt, sectionRequest } from "./model";
+import { dialogSection, offeredSections, sectionAt, sectionRequest } from "./model";
 import type { SectionSeed, SettingsViewer } from "./port";
 
 export const settingsMetadata: Metadata = { title: "Settings", robots: { index: false, follow: false } };
@@ -41,6 +43,8 @@ export async function SettingsIndexPage() {
  */
 export async function sectionSeed(viewer: SettingsViewer | null): Promise<SectionSeed | null> {
 	const section = sectionAt((await headers()).get(PATH_HEADER) ?? "", viewer);
+	// The brand kit is read only for a viewer who is offered it, so no kit data starts for anyone else.
+	if (viewer && section === "brand" && offeredSections(viewer, []).includes("brand")) return { brand: getBrand() };
 	const request = viewer && section ? sectionRequest(viewer, section) : null;
 	if (!request) return null;
 	return { request, value: getSection(request) };
@@ -62,7 +66,22 @@ export const accountDeletionMetadata: Metadata = {
  */
 export async function AccountDeletionPage({ searchParams }: { searchParams: Search }) {
 	const until = instant.safeParse(one((await searchParams).until));
-	return <AccountDeletionScreen initial={restrictedStatus()} requestedUntil={until.success ? until.data : null} />;
+	return (
+		<AccountDeletionScreen initial={restrictedStatus("account")} requestedUntil={until.success ? until.data : null} />
+	);
+}
+
+export const workspaceDeletionMetadata: Metadata = { ...accountDeletionMetadata, title: "Church workspace deletion" };
+
+/**
+ * The restricted page for a church workspace deletion (REQ-IDN-026, REQ-IDN-032), the same way: only the Owner who
+ * asked opens it, with a fresh email and password, and sees that request's status and cancel.
+ */
+export async function WorkspaceDeletionPage({ searchParams }: { searchParams: Search }) {
+	const until = instant.safeParse(one((await searchParams).until));
+	return (
+		<WorkspaceDeletionScreen initial={restrictedStatus("plant")} requestedUntil={until.success ? until.data : null} />
+	);
 }
 
 export const confirmEmailMetadata: Metadata = {

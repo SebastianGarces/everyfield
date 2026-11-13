@@ -13,7 +13,15 @@ import { randomUUID } from "node:crypto";
 import { hash } from "../operations/canonical.ts";
 import "server-only";
 import { z } from "zod";
-import { RequestActor, currentActor, liveOwner, lockWriteAuthority, requestWrite } from "../access/session.ts";
+import {
+	RequestActor,
+	currentActor,
+	liveAccess,
+	liveOwner,
+	liveRead,
+	lockWriteAuthority,
+	requestWrite,
+} from "../access/session.ts";
 import { WriteUnavailable, auditSavepoint, auditTransaction, finishAudit, prepareWrite } from "../operations/writes.ts";
 
 export type Tx = Transaction;
@@ -44,7 +52,6 @@ export function deny(code?: Refusal["code"]): never {
 	throw new Refusal(code);
 }
 export const now = sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value));
-export { hash };
 export async function reply<T>(tx: Tx, body: () => Promise<T>): Promise<OnboardingReply<T>> {
 	if (requestWrite(tx)) return { status: "ok", value: await body() };
 	return recover(async () => ({ status: "ok", value: await auditSavepoint(tx, async () => body()) }));
@@ -53,9 +60,17 @@ export async function reply<T>(tx: Tx, body: () => Promise<T>): Promise<Onboardi
 export async function readReply<T>(body: () => Promise<T>): Promise<OnboardingReply<T>> {
 	return recover(async () => ({ status: "ok", value: await body() }));
 }
+/** Postgres lock_not_available (a lock_timeout) and query_canceled (a statement_timeout): the same request may pass later. */
+const MOMENTARY = new Set(["55P03", "57014"]);
+function momentary(error: unknown): boolean {
+	for (let e = error, depth = 0; e instanceof Error && depth < 5; e = e.cause, depth++)
+		if (MOMENTARY.has(String((e as { code?: unknown }).code))) return true;
+	return false;
+}
 async function recover<T>(body: () => Promise<OnboardingReply<T>>): Promise<OnboardingReply<T>> {
 	return body().catch((error) => {
 		if (error instanceof WriteUnavailable) error = new Refusal("unavailable");
+		else if (momentary(error)) error = new Refusal("temporary");
 		if (!(error instanceof Refusal)) throw error;
 		return {
 			status: "refused" as const,
@@ -107,7 +122,8 @@ export async function actor(tx: Tx, ctx: Context, allowPending = false, write = 
 		return locked;
 	}
 	if (ctx instanceof OnboardingReadContext) {
-		// The request already verified this actor: one statement reads the rows a read needs, without locks.
+		// The request already verified this actor: one statement reads the rows a read needs, without locks, while the
+		// actor still holds this access (C13).
 		const a = ctx.authority.actor;
 		if (ctx.selected.kind === "account" && ctx.selected.id !== a.accountId) deny();
 		const plantId = ctx.selected.kind === "plant" ? ctx.selected.id : null;
@@ -116,7 +132,7 @@ export async function actor(tx: Tx, ctx: Context, allowPending = false, write = 
 			.from(t.account)
 			.leftJoin(t.plant, sql`${t.plant.id}=${plantId}::uuid`)
 			.leftJoin(t.onboarding_setup, eq(t.onboarding_setup.plant_id, t.plant.id))
-			.where(eq(t.account.id, a.accountId));
+			.where(and(eq(t.account.id, a.accountId), liveRead(liveAccess(ctx.authority))));
 		if (!row) deny();
 		return {
 			account: row.account,
@@ -229,13 +245,26 @@ export async function finish<T>(tx: Tx, c: NewCommand, schema: z.ZodType<T>, res
 	await finishAudit(tx, c, c.identity, value);
 	return value;
 }
-export async function bump(tx: Tx, id: string) {
+/** The command's one plant write: its own columns, both revisions, and the statement clock for its saved times. */
+export async function bump(
+	tx: Tx,
+	id: string,
+	set: Pick<Partial<typeof t.plant.$inferInsert>, "lead_answer" | "journey_answer" | "launch_answer"> & {
+		onboarding_completed_at?: typeof now;
+	},
+) {
 	const [plant] = await tx
 		.update(t.plant)
-		.set({ revision: sql`${t.plant.revision}+1`, material_revision: sql`${t.plant.material_revision}+1` })
+		.set({ ...set, revision: sql`${t.plant.revision}+1`, material_revision: sql`${t.plant.material_revision}+1` })
 		.where(eq(t.plant.id, id))
-		.returning();
-	return plant!;
+		.returning({
+			revision: t.plant.revision,
+			material_revision: t.plant.material_revision,
+			phase: t.plant.phase,
+			onboarding_completed_at: t.plant.onboarding_completed_at,
+			at: now,
+		});
+	return { ...plant!, at: plant!.at.toISOString() };
 }
 
 export function parse<S extends z.ZodType>(schema: S, raw: unknown): z.output<S> {

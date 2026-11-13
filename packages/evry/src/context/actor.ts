@@ -17,6 +17,8 @@ export type EvryActor = {
 	readonly role: "owner" | "admin" | "member" | null;
 	/** The seat that grants the context; null in the account context. */
 	readonly seatId: string | null;
+	/** The actor's own live person row in this church, resolved once per turn (self.ts); null when there is none. */
+	readonly selfPersonId: string | null;
 };
 
 export function evryActor(authority: RequestActor): EvryActor {
@@ -30,6 +32,7 @@ export function evryActor(authority: RequestActor): EvryActor {
 		contextKind: owner.kind === "organization" ? owner.organizationKind : owner.kind,
 		role: actor.context.kind === "seat" ? actor.context.role : null,
 		seatId: actor.context.kind === "seat" ? actor.context.seatId : null,
+		selfPersonId: null,
 	};
 }
 

@@ -18,6 +18,9 @@ import { populateKit, updateKitItem } from "./actions.ts";
 import { KIT_CATEGORY_LABEL, problemText, type Detail, type KitItem } from "./model.ts";
 import { RowNotices, SaveNotice, useRowLanes, useSaveIntent } from "../../components/save/parts.tsx";
 
+/** Where the card fills its tab: a column, so the checklist takes what the header leaves. */
+const FILL_CARD = "app-md:flex app-md:h-full app-md:min-h-0 app-md:flex-col";
+
 export type Kit = { version: number | null; items: KitItem[] };
 
 /**
@@ -28,10 +31,13 @@ export function KitCard({
 	meeting,
 	kit,
 	canWrite,
+	fill,
 	onKit,
 	onMeeting,
 	onStale,
 }: {
+	/** The card fills the height its tab gives it where the two columns show; its checklist scrolls inside. */
+	fill?: boolean;
 	meeting: Detail;
 	kit: Kit | null;
 	canWrite: boolean;
@@ -82,7 +88,7 @@ export function KitCard({
 
 	if (!kit || kit.version === null)
 		return (
-			<Card as="section" aria-labelledby="kit-title">
+			<Card as="section" aria-labelledby="kit-title" className={fill ? FILL_CARD : undefined}>
 				<CardHeader>
 					<CardHeading>
 						<CardTitle id="kit-title">Vision kit</CardTitle>
@@ -117,7 +123,7 @@ export function KitCard({
 		.map(([category, label]) => ({ label, items: items.filter((k) => k.category === category) }))
 		.filter((g) => g.items.length > 0);
 	return (
-		<Card as="section" aria-labelledby="kit-title">
+		<Card as="section" aria-labelledby="kit-title" className={fill ? FILL_CARD : undefined}>
 			<CardHeader className="mb-3">
 				<CardHeading>
 					<CardTitle id="kit-title">Vision kit</CardTitle>
@@ -128,7 +134,11 @@ export function KitCard({
 				<KitRing done={checked} total={items.length} />
 			</CardHeader>
 			<RowNotices lanes={ticks} className="mb-3" />
-			<CardScrollArea label="Vision kit items" maxHeight={300}>
+			<CardScrollArea
+				label="Vision kit items"
+				maxHeight={300}
+				className={fill ? "app-md:max-h-none! app-md:min-h-0 app-md:flex-1" : undefined}
+			>
 				{groups.map((g) => (
 					<fieldset key={g.label} className="mt-3 first:mt-0">
 						<legend className="mb-0.5 text-xs font-semibold tracking-[0.04em] text-text-3 uppercase">{g.label}</legend>

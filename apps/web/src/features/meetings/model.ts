@@ -1,6 +1,9 @@
+import { dateText, timeText } from "@everyfield/contracts/common";
 import type * as c from "@everyfield/contracts/meetings";
+import { statusTransitions } from "@everyfield/contracts/meetings";
 import type { Status } from "@everyfield/ui/display";
 import type { z } from "zod";
+import { MONTHS } from "../shared/dates.ts";
 
 // Words, filters and dates for the meetings screens. Pure functions only: the server and the browser both import this.
 
@@ -27,28 +30,49 @@ export type Finalization = z.infer<typeof c.finalizationResult>;
 /** A server action's answer. "lost" means no answer arrived: the same request key may be sent again. */
 export type Outcome<T> =
 	| { status: "ok"; value: T }
-	| { status: "refused"; code: string; choices?: { instant: string; offsetSeconds: number }[] }
+	| { status: "refused"; code: string; choices?: { instant: string; offsetSeconds: number }[]; issues?: Issue[] }
 	| { status: "lost" };
 
+/** One named problem of a refused request: where it is (`input.reason`) and what is wrong (the server's words). */
+export type Issue = { path: string; problem: string };
+
+/** Where each issue of a refused evaluation or correction shows: under a factor, a field, or in the dialog. */
+export type EvaluationIssues = {
+	scores: Partial<Record<Factor, string>>;
+	notes?: string;
+	reason?: string;
+	/** Problems with no field in the form, each in a sentence. */
+	dialog: string[];
+};
+
+const GENERIC = "Some details are not valid. Check them and try again.";
+
+/** Maps the issues of a refused evaluation or correction onto the form's fields (REQ-MTG-014, REQ-MTG-015). */
+export function evaluationIssues(issues: readonly Issue[]): EvaluationIssues {
+	const out: EvaluationIssues = { scores: {}, dialog: [] };
+	for (const { path } of issues) {
+		const [, field, factor] = path.split(".");
+		const named = FACTORS.find((f) => f.key === factor);
+		if ((field === "scores" || field === "changes") && named)
+			out.scores[named.key] = `Choose a score for ${named.label}.`;
+		else if (field === "notes") out.notes = "Shorten the notes, or leave them empty.";
+		else if (field === "reason") out.reason = "Enter a reason.";
+		else if (field === "evaluatedOn")
+			out.dialog.push(
+				"The evaluation date must fall between the meeting date and today. Reload the page and try again.",
+			);
+		else if (!out.dialog.includes(GENERIC)) out.dialog.push(GENERIC);
+	}
+	return out;
+}
+
 export const TYPES = ["vision_meeting", "orientation", "team_meeting", "prelaunch_practice"] as const;
-/** The types a new meeting can be. Team meetings arrive with teams (WP-017). */
-export const NEW_TYPES = ["vision_meeting", "orientation", "prelaunch_practice"] as const;
 export const TYPE_LABEL: Record<MeetingType, string> = {
 	vision_meeting: "Vision meeting",
 	orientation: "Orientation",
 	team_meeting: "Team meeting",
 	prelaunch_practice: "Pre-launch practice",
 };
-/** The title a meeting shows without its own title, as the producer builds it ("Vision Meeting #12"). */
-const DEFAULT_TITLE: Record<MeetingType, string> = {
-	vision_meeting: "Vision Meeting",
-	orientation: "Orientation",
-	team_meeting: "Team Meeting",
-	prelaunch_practice: "Pre-launch Practice",
-};
-export const defaultTitle = (m: { type: MeetingType; visionNumber: number | null }) =>
-	DEFAULT_TITLE[m.type] + (m.visionNumber ? ` #${m.visionNumber}` : "");
-
 /** Short labels for filters. */
 export const TYPE_SHORT: Record<MeetingType, string> = {
 	vision_meeting: "Vision",
@@ -71,13 +95,32 @@ export const STATUS_LABEL: Record<MeetingStatus, string> = {
 	completed: "Completed",
 	cancelled: "Cancelled",
 };
-export const STATUS_TONE: Record<MeetingStatus, Status> = {
+const STATUS_TONE: Record<MeetingStatus, Status> = {
 	planning: "measured",
 	ready: "positive",
 	in_progress: "attention",
 	completed: "unknown",
 	cancelled: "risk",
 };
+/**
+ * What a meeting's status reads as on screen. Status changes stay explicit (REQ-MTG-002), so a meeting whose start has
+ * passed while it is still planning or ready reads "Not closed": its organizer has yet to set what happened. Every
+ * other meeting reads its stored status. The stored status, the API and the Status filter are unchanged.
+ */
+export function statusView(status: MeetingStatus, startsAt: string, now: string): { label: string; tone: Status } {
+	if ((status === "planning" || status === "ready") && Date.parse(startsAt) < Date.parse(now))
+		return { label: "Not closed", tone: "attention" };
+	return { label: STATUS_LABEL[status], tone: STATUS_TONE[status] };
+}
+/**
+ * The statuses the Status menu offers from here. A practice is completed only by marking it held, and a completed
+ * practice moves only through Mark as not held, so neither offers a plain status move (the producer refuses both).
+ */
+export function statusMoves(type: MeetingType, status: MeetingStatus): readonly MeetingStatus[] {
+	if (type === "prelaunch_practice")
+		return status === "completed" ? [] : statusTransitions[status].filter((to) => to !== "completed");
+	return statusTransitions[status];
+}
 /** The menu words for moving to each status. */
 export const STATUS_ACTION: Record<MeetingStatus, string> = {
 	planning: "Back to planning",
@@ -156,7 +199,7 @@ export const peopleText = (n: number) => `${n} ${n === 1 ? "person" : "people"}`
 export const WINDOWS = ["all", "upcoming", "past"] as const;
 export type Window = (typeof WINDOWS)[number];
 export const WINDOW_LABEL: Record<Window, string> = { all: "All", upcoming: "Upcoming", past: "Past" };
-export const PAGE_SIZE = 24;
+const PAGE_SIZE = 24;
 
 export type MeetingsQuery = { window: Window; type: MeetingType | null; status: MeetingStatus | null; page: number };
 export const DEFAULT_QUERY: MeetingsQuery = { window: "all", type: null, status: null, page: 1 };
@@ -194,6 +237,13 @@ export function listRequest(q: MeetingsQuery) {
 	};
 }
 
+/** The Next card's read: the soonest upcoming meeting still on, so a cancelled or completed one never shows as Next. */
+export const NEXT_REQUEST = {
+	window: "upcoming",
+	statuses: ["planning", "ready", "in_progress"],
+	limit: 1,
+} as const satisfies { window: Window; statuses: readonly MeetingStatus[]; limit: number };
+
 export const isFiltered = (q: MeetingsQuery) => q.window !== "all" || q.type !== null || q.status !== null;
 export const pageCount = (total: number) => Math.max(1, Math.ceil(total / PAGE_SIZE));
 
@@ -201,27 +251,10 @@ export const pageCount = (total: number) => Math.max(1, Math.ceil(total / PAGE_S
 // Dates. A meeting's date and time are the church's wall clock (localDate, localTime in its zone). They are formatted
 // from those strings, never through the browser's zone, so the server and the browser print the same words.
 
-const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const LONG_DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
 function parts(localDate: string) {
 	const [y, m, d] = localDate.split("-").map(Number) as [number, number, number];
 	return { y, m, d, weekday: new Date(Date.UTC(y, m - 1, d)).getUTCDay() };
-}
-
-/** "6:30 pm" from "18:30". */
-export function timeText(localTime: string): string {
-	const [h, min] = localTime.split(":").map(Number) as [number, number];
-	const suffix = h < 12 ? "am" : "pm";
-	const hour = h % 12 === 0 ? 12 : h % 12;
-	return `${hour}:${String(min).padStart(2, "0")} ${suffix}`;
-}
-
-/** "Sun Oct 12" (with the year when it differs from `thisYear`). */
-export function dateText(localDate: string, thisYear?: number): string {
-	const { y, m, d, weekday } = parts(localDate);
-	return `${DAYS[weekday]} ${MONTHS[m - 1]} ${d}${thisYear !== undefined && y !== thisYear ? `, ${y}` : ""}`;
 }
 
 /** "Sunday, Oct 12". */
@@ -235,35 +268,23 @@ export function whenText(m: { localDate: string; localTime: string }, thisYear?:
 	return `${dateText(m.localDate, thisYear)} · ${timeText(m.localTime)}`;
 }
 
-/** "today", "tomorrow", "in 4 days", "in 3 weeks", from the meeting's instant and the page's render time. */
-export function untilText(startsAt: string, now: string): string {
-	const days = Math.round((Date.parse(startsAt) - Date.parse(now)) / 86_400_000);
+/** The civil date (yyyy-mm-dd) of an instant in a time zone. */
+function civilDate(instant: string, zone: string): string {
+	return new Intl.DateTimeFormat("en-CA", { timeZone: zone, year: "numeric", month: "2-digit", day: "2-digit" }).format(
+		new Date(instant),
+	);
+}
+/**
+ * "today", "tomorrow", "in 4 days", "in 3 weeks": civil days in the meeting's zone, from the page's render time to the
+ * meeting's local date. A meeting later today reads "today" however many hours away it is.
+ */
+export function untilText(m: { localDate: string; zone: string }, now: string): string {
+	const day = (date: string) => Date.parse(`${date}T00:00:00Z`) / 86_400_000;
+	const days = Math.round(day(m.localDate) - day(civilDate(now, m.zone)));
 	if (days <= 0) return "today";
 	if (days === 1) return "tomorrow";
 	if (days < 14) return `in ${days} days`;
 	return `in ${Math.round(days / 7)} weeks`;
-}
-
-/** Minutes after a wall-clock time: "18:30" + 25 is "18:55". Wraps past midnight. */
-export function addMinutes(localTime: string, minutes: number): string {
-	const [h, m] = localTime.split(":").map(Number) as [number, number];
-	const total = (((h * 60 + m + minutes) % 1440) + 1440) % 1440;
-	return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
-}
-
-/** "1 h 30 min", "45 min". */
-export function durationText(minutes: number): string {
-	if (minutes < 60) return `${minutes} min`;
-	const h = Math.floor(minutes / 60);
-	const rest = minutes % 60;
-	return rest ? `${h} h ${rest} min` : `${h} h`;
-}
-
-/** The offset a fold choice carries, in words: "1:30 am (CDT)" style hints are zone-specific, so show UTC offsets. */
-export function offsetText(offsetSeconds: number): string {
-	const sign = offsetSeconds < 0 ? "−" : "+";
-	const abs = Math.abs(offsetSeconds);
-	return `UTC${sign}${Math.floor(abs / 3600)}${abs % 3600 ? `:${String((abs % 3600) / 60).padStart(2, "0")}` : ""}`;
 }
 
 /** RSVP counts from the guest list. */
@@ -288,8 +309,12 @@ export function problemText(code: string): string {
 			return "Some details are not valid. Check them and try again.";
 		case "invalid_subject":
 			return "That person cannot be chosen here. They may have been retired or merged.";
+		case "owner_ineligible":
+			return "That person cannot own follow-up calls now. They need a seat and a core group, launch team or leader stage. Choose someone else.";
 		case "venue_archived":
 			return "That place is archived. Restore it in Places, or choose another one.";
+		case "team_unavailable":
+			return "That ministry is archived or no longer here. Choose another ministry, or restore it in Ministries.";
 		case "wrong_meeting_type":
 			return "This kind of meeting does not have that.";
 		case "status_transition":

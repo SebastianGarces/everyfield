@@ -1,6 +1,6 @@
 "use client";
 
-import { useReduced } from "@/components/motion/scene";
+import { useReduced, useTabHidden } from "@/components/motion/scene";
 import { ArrowRight02Icon } from "@hugeicons/core-free-icons";
 import { useInView } from "motion/react";
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
@@ -20,11 +20,10 @@ type Props = {
 	panes: ReactNode[];
 	apps: ReactNode[];
 	photos: PhotoName[];
-	/** A caption in the picture's corner (Revision 8: "Sample data"). */
-	tag?: ReactNode;
 };
 
-/* Revision 28: one timer moves the phrase and the card together every STEP ms, only while 30 % of the block is on screen. */
+/* Revision 28: one timer moves the phrase and the card together every STEP ms, only while 30 % of the block is on screen
+   and the tab is visible. */
 const STEP = 5500;
 const EASE = "cubic-bezier(.65,0,.35,1)";
 
@@ -43,7 +42,7 @@ const EASE = "cubic-bezier(.65,0,.35,1)";
  * Phrase widths are measured once per resize. Reduced motion: no auto advance and no transitions; the control shows
  * the next state.
  */
-export function PathsCycle({ sentence, lead, tail, phrases, panes, apps, photos, tag }: Props) {
+export function PathsCycle({ sentence, lead, tail, phrases, panes, apps, photos }: Props) {
 	const reduced = useReduced();
 	const run = useRef<HTMLDivElement>(null);
 	const items = useRef<(HTMLSpanElement | null)[]>([]);
@@ -72,11 +71,13 @@ export function PathsCycle({ sentence, lead, tail, phrases, panes, apps, photos,
 		return () => ro.disconnect();
 	}, [measure]);
 
+	// A hidden tab stops the timer, as in the prototype; a full step starts again when the tab shows.
+	const hidden = useTabHidden();
 	useEffect(() => {
-		if (!seen || paused || reduced) return;
+		if (!seen || paused || reduced || hidden) return;
 		const id = setTimeout(() => setK((c) => (c + 1) % n), STEP);
 		return () => clearTimeout(id);
-	}, [seen, paused, reduced, k, n]);
+	}, [seen, paused, reduced, hidden, k, n]);
 
 	const wk = w ? w.items[k]! : 0;
 	// Before the first measurement (server HTML) the slot shows the widest phrase with its full highlight and the period after it.
@@ -113,7 +114,7 @@ export function PathsCycle({ sentence, lead, tail, phrases, panes, apps, photos,
 								style={{ transition: t }}
 							>
 								<span className="block [transform:translateX(var(--cut,0px))]" style={{ transition: t }}>
-									<span className="absolute top-0 left-0 -z-1 h-[1.14em] w-full bg-green-100" />
+									<span className="absolute top-0 left-0 -z-1 h-[1.14em] w-full bg-mk-mint" />
 									<span
 										className="flex flex-col items-start [transform:translateY(calc(var(--k)*-1.14em))]"
 										style={{ "--k": k, transition: t } as CSSProperties}
@@ -172,7 +173,6 @@ export function PathsCycle({ sentence, lead, tail, phrases, panes, apps, photos,
 							{a}
 						</Fade>
 					))}
-					{tag}
 				</div>
 				<button
 					type="button"
@@ -180,7 +180,8 @@ export function PathsCycle({ sentence, lead, tail, phrases, panes, apps, photos,
 						reduced ? "Show the next sending path" : paused ? "Play the sending paths" : "Pause the sending paths"
 					}
 					onClick={() => (reduced ? setK((c) => (c + 1) % n) : setPaused((p) => !p))}
-					className="absolute right-4 bottom-4 z-2 grid size-[34px] cursor-pointer place-items-center rounded-full border-0 bg-mk-ink-46 text-cream hover:bg-mk-ink-66 focus-visible:outline-cream max-mk-sm:right-3 max-mk-sm:bottom-3"
+					// 34 px as in the prototype; the ring around it (before:) makes the hit area 44 px.
+					className="absolute right-4 bottom-4 z-2 grid size-[34px] cursor-pointer place-items-center rounded-full border-0 bg-mk-ink-46 text-cream before:absolute before:-inset-[5px] before:content-[''] hover:bg-mk-ink-66 focus-visible:outline-cream max-mk-sm:right-3 max-mk-sm:bottom-3"
 				>
 					{reduced ? <Icon icon={ArrowRight02Icon} size={14} /> : <PlaybackGlyph paused={paused} />}
 				</button>

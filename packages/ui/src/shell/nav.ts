@@ -39,7 +39,13 @@ export type ShellItem = ShellLink | ShellAction;
 export type ShellNav = { main: readonly ShellLink[]; pages: readonly ShellItem[]; tools: readonly ShellItem[] };
 
 /** The person in the user menu. `detail` is the role line, such as "Lead planter · Harvest Point". */
-export type ShellUser = { name: string; initials: string; detail: string };
+export type ShellUser = {
+	name: string;
+	initials: string;
+	detail: string;
+	/** The app's own route for the account's photo; the initials show without one or when it fails. */
+	photo?: string;
+};
 
 function matches(link: ShellLink, pathname: string): boolean {
 	if (link.match === "exact") return pathname === link.href;

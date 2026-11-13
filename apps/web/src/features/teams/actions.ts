@@ -1,7 +1,7 @@
 "use server";
 
 import { getViewer } from "@/server/request-context";
-import { reviewDigest, teamsWriter } from "@everyfield/domain/teams";
+import { teamsWriter } from "@everyfield/domain/teams";
 import type { Transaction } from "@everyfield/db/client";
 import type { TeamsReply } from "@everyfield/contracts/teams";
 import type { Outcome } from "./model.ts";
@@ -57,16 +57,15 @@ export async function createTeam(requestKey: string, input: unknown) {
 	return write(v, (tx, ctx) => teamsWriter.create(tx, ctx, { requestKey, input }));
 }
 
-/** Edit, correct (with a reason), archive or restore one ministry, at the revision the page last saw. */
+/** Edit (with an optional reason), archive or restore one ministry, at the revision the page last saw. */
 export async function changeTeam(
-	op: "edit" | "correct" | "archive" | "restore",
+	op: "edit" | "archive" | "restore",
 	requestKey: string,
 	expectedRevision: string,
 	teamId: string,
 	patch: Record<string, unknown> = {},
 ) {
-	if (!["edit", "correct", "archive", "restore"].includes(op))
-		return { status: "refused", code: "invalid_input" } as const;
+	if (!["edit", "archive", "restore"].includes(op)) return { status: "refused", code: "invalid_input" } as const;
 	return change((tx, ctx) => teamsWriter[op](tx, ctx, command(requestKey, expectedRevision, { ...patch, teamId })));
 }
 
@@ -126,6 +125,14 @@ export async function reactivateMembership(
 	);
 }
 
+/**
+ * Owner or Admin corrects one role tenure's start or end date with a reason, from the person's record. The answer is
+ * the corrected row; the ministry's history names the change.
+ */
+export async function correctTenure(requestKey: string, expectedRevision: string, input: Record<string, unknown>) {
+	return change((tx, ctx) => teamsWriter.correctTenure(tx, ctx, command(requestKey, expectedRevision, input)));
+}
+
 /** The ministry page's data again, after a change was refused as out of date. */
 export async function reloadTeam(teamId: string): Promise<Outcome<TeamView | null>> {
 	const v = await seat();
@@ -148,11 +155,8 @@ export async function templateCatalog() {
 	return outcome(await readCatalog(v));
 }
 
-type Selection = { teamKey: string; roleKeys: string[] };
-/**
- * Adds the templates the person just reviewed. The digest is computed here from those choices, so the browser never
- * computes it and cannot send a review for a different choice. The answer says how many ministries and roles are new.
- */
+type Selection = { teamKey: string; roleKeys: string[]; destinationTeamId?: string };
+/** Adds the templates the person just reviewed. The answer says how many ministries and roles are new. */
 export async function importTemplates(
 	requestKey: string,
 	version: string,
@@ -160,11 +164,10 @@ export async function importTemplates(
 ): Promise<Outcome<{ newTeams: number; newRoles: number }>> {
 	const v = await seat();
 	if (!v) return noSeat;
-	const digest = reviewDigest({ expectedVersion: version, mode: "import", selections, lines: [] });
 	const done = await write(v, (tx, ctx) =>
 		teamsWriter.initialize(tx, ctx, {
 			requestKey,
-			input: { expectedVersion: version, reviewDigest: digest, mode: "import", selections },
+			input: { expectedVersion: version, mode: "import", selections },
 		}),
 	);
 	if (done.status !== "ok") return done;
