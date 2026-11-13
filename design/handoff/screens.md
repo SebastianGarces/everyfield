@@ -161,7 +161,7 @@ These flows have requirements but no drawing. Do not wait for a drawing. The own
 | Church Documents from editable templates and their PDF and Word export | DOC-022, DOC-023 | WP-037 | not designed |
 | Your own feedback and its status | ADM-001, ADM-002 (REQ-KNOW-029) | WP-049 | not designed |
 | Discovery without a plant | IDN-016, ADM-004 (REQ-ADM-004) | WP-007, WP-009, WP-048 | not designed |
-| Wiki source order in Settings | WIKI-001 (REQ-KNOW-191) | WP-034, WP-035 | not designed; see the [README](README.md#not-designed-yet) |
+| Wiki source order in Settings | WIKI-001 (REQ-KNOW-191) | WP-034, WP-035 | not designed; composed as the Wiki sources section at `/settings/wiki`, see the [README](README.md#not-designed-yet) |
 | Organization relationship invitations: send, accept, decline | IDN-020 | WP-007, WP-008 | not designed |
 | Leave a relationship, sever an organization, association history | IDN-021 | WP-007 | not designed |
 | Network sending-church roster and member detail | IDN-024 | WP-047 | not designed |

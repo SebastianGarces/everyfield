@@ -25,6 +25,7 @@ export async function DocumentsPage({ searchParams }: { searchParams: Search }) 
 	return (
 		<DocumentsScreen
 			templates={loaded.templates}
+			version={loaded.version}
 			query={query}
 			context={loaded.context}
 			canPreview={loaded.canPreview}

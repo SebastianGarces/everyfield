@@ -1,6 +1,7 @@
-// The everyfield.doc/1 schema: a port of design/doc-format/approach-a/schema.json. Each node lists its group, its
+// The everyfield.doc/1 schema, ported from the retired approach-a prototype. Each node lists its group, its
 // attributes and the nodes it may hold. Units are points (72 per inch). Colors are theme tokens, never hex values.
-// A test keeps this object equal to the design file, plus the later `if` node the design names (conditional text).
+// A test keeps this object equal to tests/integration/documents/fixtures/format/schema.json, plus the later `if`
+// node the design names (conditional text).
 import type { FormatSchema } from "./types.ts";
 
 export const FORMAT_SCHEMA: FormatSchema = {
@@ -712,3 +713,15 @@ export const FORMAT_SCHEMA: FormatSchema = {
 		},
 	},
 };
+
+const range = (spec: { min?: number; max?: number } | undefined) => ({ min: spec?.min ?? 0, max: spec?.max ?? 0 });
+
+/** The limits the editor's controls show, read from the schema above so the two cannot drift. Lengths are points. */
+export const FORMAT_LIMITS = {
+	imageHeight: range(FORMAT_SCHEMA.nodes.image?.attrs.height),
+	writeInRows: range(FORMAT_SCHEMA.nodes.table?.attrs.writeInRows),
+	pageSide: range(FORMAT_SCHEMA.page.width),
+	margin: range(FORMAT_SCHEMA.page.margin?.props?.top),
+	/** A merge field's written value is held to the length of its declared fallback. */
+	fieldValue: FORMAT_SCHEMA.envelope.fields?.of?.props?.fallback?.max ?? 0,
+} as const;

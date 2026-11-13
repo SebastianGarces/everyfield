@@ -52,7 +52,8 @@ export async function PeoplePage({ searchParams }: { searchParams: Search }) {
 	if ("blocked" in g) return g.blocked;
 	const { viewer } = g;
 
-	return <PeopleScreen loaded={await loadPeople(viewer, query)} canWrite={canWrite(viewer)} />;
+	const write = canWrite(viewer);
+	return <PeopleScreen loaded={await loadPeople(viewer, query, write)} canWrite={write} />;
 }
 
 export const personMetadata: Metadata = { title: "Person", robots: { index: false, follow: false } };
@@ -111,8 +112,7 @@ export async function PersonPage({
 			records={loaded.value.records}
 			ministries={loaded.value.ministries}
 			followUps={loaded.value.followUps}
-			// Photo uploads stay hidden until the photo UI task ships; stored photos still read through the photo route.
-			photosEnabled={false}
+			photosEnabled={privateStorage() !== null}
 			documentsEnabled={privateStorage() !== null}
 		/>
 	);

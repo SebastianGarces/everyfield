@@ -19,16 +19,8 @@ import {
 } from "@everyfield/ui/controls";
 import { useEffect, useState } from "react";
 import { editMeeting, listMinistries, listVenues, scheduleMeeting } from "./actions.ts";
-import {
-	NEW_TYPES,
-	offsetText,
-	problemText,
-	TYPE_LABEL,
-	type Detail,
-	type MeetingType,
-	type Outcome,
-	type Venue,
-} from "./model.ts";
+import { offsetText } from "../shared/dates.ts";
+import { problemText, TYPE_LABEL, TYPES, type Detail, type MeetingType, type Outcome, type Venue } from "./model.ts";
 import {
 	DialogNotice,
 	focusFirstProblem,
@@ -82,6 +74,7 @@ export function PlanMeetingDialog<E extends { problem?: string }>({
 	meeting,
 	onSaved,
 	onPreview,
+	onStale,
 	ministry,
 }: {
 	open: boolean;
@@ -95,6 +88,8 @@ export function PlanMeetingDialog<E extends { problem?: string }>({
 	onSaved?: (meeting: Detail) => void;
 	/** Edit only: the meeting as it will look, shown while the save runs; null when the answer arrives. */
 	onPreview?: (meeting: Detail | null) => void;
+	/** Edit only: reads the meeting again after a save refused as out of date; resolves once the latest shows. */
+	onStale?: () => Promise<unknown>;
 }) {
 	// The form stays mounted while the dialog is closed, so an edit that fails after the dialog closed reopens with
 	// the person's input and the reason.
@@ -109,6 +104,7 @@ export function PlanMeetingDialog<E extends { problem?: string }>({
 					onReopen={() => onOpenChange(true)}
 					onSaved={onSaved}
 					onPreview={onPreview}
+					onStale={onStale}
 					ministry={ministry}
 				/>
 			</Dialog>
@@ -124,6 +120,7 @@ function Form<E extends { problem?: string }>({
 	onReopen,
 	onSaved,
 	onPreview,
+	onStale,
 	ministry,
 }: {
 	open: boolean;
@@ -133,6 +130,7 @@ function Form<E extends { problem?: string }>({
 	onReopen: () => void;
 	onSaved?: (meeting: Detail) => void;
 	onPreview?: (meeting: Detail | null) => void;
+	onStale?: () => Promise<unknown>;
 	ministry?: Ministry;
 }) {
 	const editing = meeting !== undefined;
@@ -258,9 +256,11 @@ function Form<E extends { problem?: string }>({
 					onPreview?.(null);
 					onSaved?.(value.meeting);
 				},
-				// The page goes back, and the dialog opens again with the person's input and the refusal.
-				refused: () => {
+				// The page goes back, and the dialog opens again with the person's input and the refusal. Out of date, it
+				// opens on the latest meeting instead, read again first, as the refusal says.
+				refused: (code) => {
 					onPreview?.(null);
+					if (code === "conflict" && onStale) return void onStale().then(onReopen);
 					setKeep(true);
 					onReopen();
 				},
@@ -318,7 +318,7 @@ function Form<E extends { problem?: string }>({
 								value={draft.type}
 								disabled={pending}
 								onValueChange={(type) => set({ type: type as MeetingType })}
-								options={NEW_TYPES.map((t) => ({ value: t, label: TYPE_LABEL[t] }))}
+								options={TYPES.map((t) => ({ value: t, label: TYPE_LABEL[t] }))}
 							/>
 						</Field>
 					)}

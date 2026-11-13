@@ -11,21 +11,17 @@ import { invokeRead } from "../../../packages/evry/src/catalog/invoke.ts";
 import { listPeople } from "../../../packages/evry/src/adapters/people/reads/index.ts";
 import {
 	createConversation,
-	latestConversation,
+	openLatestConversation,
 	listConversations,
 	readConversation,
 } from "../../../packages/evry/src/conversations/store.ts";
+import { ok } from "../../support/fixture.mts";
 
 let f;
 before(async () => {
 	f = await fixture();
 });
 after(() => f?.close());
-
-const ok = (r) => {
-	assert.equal(r.status, "ok", JSON.stringify(r));
-	return r.value;
-};
 
 // People reads have their own 42-path check in tests/integration/people/people.test.mts.
 test("INV-reads (C22, C27): Tasks, Settings, Evry and residency reads hold no lock on the reader's session, so sign-out never waits for them", async () => {
@@ -92,7 +88,7 @@ test("INV-reads (C22, C27): Tasks, Settings, Evry and residency reads hold no lo
 		["settings organization", section(orgOwner, { section: "organization", organization: org })],
 		["evry listConversations", (tx) => listConversations(tx, evry, {})],
 		["evry readConversation", (tx) => readConversation(tx, evry, conversation.id)],
-		["evry latestConversation", (tx) => latestConversation(tx, evry)],
+		["evry openLatestConversation", (tx) => openLatestConversation(tx, evry)],
 		["evry invokeRead", (tx) => invokeRead(tx, evry, listPeople, {})],
 		["readOwnResidency", (tx) => readOwnResidency(tx, s.recipient.session, s.w, { personId: resident })],
 		[

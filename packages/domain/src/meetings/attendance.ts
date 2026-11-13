@@ -206,7 +206,8 @@ async function lockAttendance(
 		if (!r.rows[0]) deny();
 		const f = factsRow.parse(r.rows[0]);
 		if (f.snapshot_revision === f.attendance_revision || attempt > 0) {
-			// Only an Owner or Admin, or the current leader of this team meeting, records attendance.
+			// REQ-MTG-010 (D-562): only an Owner or Admin, or the current leader of this team meeting's ministry, records,
+			// finalizes and corrects attendance. Any other Member is refused.
 			if (!w.admin && !f.leads) deny();
 			return f;
 		}
@@ -445,8 +446,9 @@ async function settle(
 	const people = new Map(f.people.map((p) => [p.id, p]));
 	const byPerson = new Map(f.guests.map((g) => [g.person_id, g]));
 	const occurredAt = f.occurred_at;
-	const rows: RowWrite[] = [],
-		inserts: RowWrite[] = [];
+	// This meeting's rows, written whole, so the result returns each one with its new revision.
+	const rows: GuestRow[] = [],
+		inserts: GuestRow[] = [];
 	// The result parses these with the contract below.
 	const classifications: z.input<typeof c.finalizationResult>["classifications"] = [];
 	const stageChanges: { personId: string; from: Stage; to: Stage; revision: string; position: string }[] = [];
@@ -486,7 +488,17 @@ async function settle(
 			actual_occurrence_at: occurredAt,
 		};
 		if (g) rows.push({ ...g, ...snapshot });
-		else inserts.push({ id: randomUUID(), revision: "1", person_id: personId, ...snapshot });
+		else
+			inserts.push({
+				id: randomUUID(),
+				revision: "1",
+				person_id: personId,
+				rsvp: "pending",
+				has_card: false,
+				display_name: p!.display_name,
+				person_state: p!.state,
+				...snapshot,
+			});
 		if (vision && stage === "prospect" && !noop)
 			stageChanges.push({
 				personId,
@@ -702,6 +714,9 @@ async function settle(
 		classifications,
 		stageChanges: stageChanges.map((s) => ({ personId: s.personId, from: s.from, to: s.to })),
 		work,
+		attendees: noop
+			? []
+			: [...rows.map((r) => ({ ...r, revision: nextRevision(r.revision) })), ...inserts].map(attendee),
 	});
 	const change: Change<typeof value> = {
 		value,

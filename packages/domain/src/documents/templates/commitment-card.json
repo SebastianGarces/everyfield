@@ -2,7 +2,7 @@
 	"format": "everyfield.doc/1",
 	"kind": "template",
 	"id": "commitment-card",
-	"version": 1,
+	"version": 2,
 	"title": "Core Group Commitment Card",
 	"description": "Four commitment cards on one Letter sheet. Cut on the marks.",
 	"class": "outward-facing",
@@ -70,6 +70,18 @@
 							"attrs": {
 								"key": "contact_line"
 							}
+						}
+					]
+				},
+				{
+					"type": "paragraph",
+					"attrs": {
+						"style": "small"
+					},
+					"content": [
+						{
+							"type": "text",
+							"text": "Please hand this card back to the person who gave it to you."
 						}
 					]
 				}

@@ -38,8 +38,6 @@ export const buttonVariants = cva(
 	},
 );
 
-export type ButtonVariant = NonNullable<VariantProps<typeof buttonVariants>["variant"]>;
-
 type ButtonProps = ComponentPropsWithRef<"button"> &
 	VariantProps<typeof buttonVariants> & {
 		/** Render the child element (a link) with the button look. */

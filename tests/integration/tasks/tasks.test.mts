@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";
 import { sql } from "../../../packages/db/src/query.ts";
 import { fixture } from "../identity/invitations-support.mts";
+import { ok, refused } from "../../support/fixture.mts";
 import { requestIdentity } from "../../../packages/contracts/src/common/index.ts";
 import { auditTransaction, finishAudit, prepareWrite } from "../../../packages/domain/src/operations/writes.ts";
 import {
@@ -21,15 +22,6 @@ import { taskReminders } from "../../../apps/web/src/server/tasks/reminders.ts";
 import { claimDue } from "../../../apps/web/src/server/jobs/queue.ts";
 
 let f, writer, reminders, mail, sent, plant, other, owner, member, admin2, foreign;
-const ok = (r) => {
-	assert.equal(r.status, "ok", JSON.stringify(r));
-	return r.value;
-};
-const refused = (r, code) => {
-	assert.equal(r.status, "refused", JSON.stringify(r));
-	assert.equal(r.error.code, code);
-	return r.error;
-};
 const write = (who, op, input) => withTaskWrite(f.db, who.actor, (tx, ctx) => writer[op](tx, ctx, input));
 const read = (who, op, input) => f.db.transaction((tx) => taskReader[op](tx, who.actor, input));
 const create = async (who, input) =>
@@ -502,13 +494,7 @@ test("AC:TARGET-TSK-017 AC:PERSONREF-TASK-PERSON-FOLLOW-UP-RETIRE generated foll
 	const [f1, f2, evaluation] = await Promise.all(first.map((r) => task(r.taskId)));
 	assert.deepEqual(
 		[f1.title, f1.due, f1.assignees[0].accountId, f1.managed.kind, f2.assignees],
-		[
-			"Follow up with Alex Rivera",
-			{ kind: "local_date", date: "2026-10-15" },
-			member.id,
-			"first_vision_follow_up",
-			[],
-		],
+		["Follow up with Alex Rivera", { kind: "local_date", date: "2026-10-15" }, member.id, "first_vision_follow_up", []],
 	);
 	assert.deepEqual(
 		[evaluation.relation, evaluation.managed.kind],
@@ -773,7 +759,7 @@ test("INV-statements: page reads are one statement and generated work costs the 
 	};
 	// Each generated task is dated and assigned, so each one also gets its two reminders.
 	const [one, five] = [await batch(1), await batch(5)];
-	assert.ok(one > 0);
+	assert.equal(one, 8);
 	assert.equal(five, one);
 	assert.deepEqual(
 		await rows(
@@ -820,18 +806,17 @@ test("AC:TARGET-TSK-014 a delivered due reminder is not sent again after the dea
 	const dispatch = async () => {
 		for (const claim of await claimDue(f.db, ["mail"], 10)) await mail.dispatch(claim);
 	};
-	const wait = (ms) => new Promise((resolve) => setTimeout(resolve, Math.max(0, ms - Date.now()) + 200));
 	const before = sent.length;
-	const first = Date.now() + 3000;
+	const first = (await dbNow()) + 86_400_000;
 	const t = await create(owner, {
 		title: "Print programs",
 		assigneeIds: [member.id],
 		due: deadline(first),
 	});
-	await wait(first);
+	await arrive(first);
 	await dispatch();
 	assert.equal(sent.length, before + 1);
-	const second = Date.now() + 3000;
+	const second = first + 3_600_000;
 	ok(
 		await write(owner, "edit", {
 			requestKey: randomUUID(),
@@ -839,7 +824,7 @@ test("AC:TARGET-TSK-014 a delivered due reminder is not sent again after the dea
 			input: { taskId: t.id, patch: { due: deadline(second) } },
 		}),
 	);
-	await wait(second);
+	await arrive(second);
 	await dispatch();
 	assert.equal(sent.length, before + 1);
 	// The overdue slot is still owed, once, at the new deadline plus 24 hours.
@@ -878,7 +863,19 @@ function deadline(ms) {
 const dispatch = async () => {
 	for (const claim of await claimDue(f.db, ["mail"], 10)) await mail.dispatch(claim);
 };
-const wait = (ms) => new Promise((resolve) => setTimeout(resolve, Math.max(0, ms - Date.now()) + 200));
+/** The database clock, in epoch milliseconds. */
+async function dbNow() {
+	return Number((await rows(sql`SELECT (extract(epoch FROM clock_timestamp())*1000)::float8 AS ms`))[0].ms);
+}
+/**
+ * The clock reaching `ms`, told through the data: every queued mail job due by then becomes due now, and later ones
+ * stay where the product put them.
+ */
+async function arrive(ms) {
+	await f.admin.execute(
+		sql`UPDATE job SET eligible_at=clock_timestamp()-interval '1 second' WHERE kind='mail' AND state IN ('ready','retry_wait') AND eligible_at<=${new Date(ms).toISOString()}::timestamptz`,
+	);
+}
 test("AC:TARGET-TSK-014 a duty handed off when its person leaves reminds its new assignee", async () => {
 	// Team members with their own Person records, as account links make them.
 	const linked = async (name) => {
@@ -899,9 +896,8 @@ test("AC:TARGET-TSK-014 a duty handed off when its person leaves reminds its new
 	const warnings = (id) => f.db.transaction((tx) => peopleReader.getStatusWarnings(tx, ctx, { personId: id }));
 	const handTo = (duties, to) =>
 		duties.map((d) => ({ kind: "assign", dutyId: d.id, expectedRevision: d.revision, toPersonId: to }));
-	const due = Date.now() + 4000;
-	const dated = (assigneeId, title) =>
-		create(owner, { title, assigneeIds: [assigneeId], due: deadline(due) });
+	const due = (await dbNow()) + 86_400_000;
+	const dated = (assigneeId, title) => create(owner, { title, assigneeIds: [assigneeId], due: deadline(due) });
 	const [retired, demoted] = [await dated(leaving.id, "Set up chairs"), await dated(moving.id, "Lead worship")];
 	// Retiring a person hands the duty to another member; leaving the core stages does the same.
 	const review = ok(await warnings(leaving.person));
@@ -944,7 +940,7 @@ test("AC:TARGET-TSK-014 a duty handed off when its person leaves reminds its new
 			),
 		),
 	);
-	await wait(due);
+	await arrive(due);
 	await dispatch();
 	// Each duty's due reminder went to its new assignee and was sent, and the overdue one waits for them; the former
 	// assignee's two reminders were withdrawn.
@@ -972,9 +968,8 @@ test("AC:TARGET-TSK-014 AC:TARGET-IDN-019 a duty handed off when a seat is remov
 		return { ...a, seat: await f.seat(a, plant, "member") };
 	};
 	const [leaving, taking] = [await seated(), await seated()];
-	const due = Date.now() + 4000;
-	const dated = (title) =>
-		create(owner, { title, assigneeIds: [leaving.id], due: deadline(due) });
+	const due = (await dbNow()) + 86_400_000;
+	const dated = (title) => create(owner, { title, assigneeIds: [leaving.id], due: deadline(due) });
 	const [handed, unowned] = [await dated("Print bulletins"), await dated("Order supplies")];
 	// Removing the seat hands one duty to another member and leaves the other needing an owner.
 	const review = await f.seats.readRemoval(owner.session, plant, { seatId: leaving.seat });
@@ -997,7 +992,7 @@ test("AC:TARGET-TSK-014 AC:TARGET-IDN-019 a duty handed off when a seat is remov
 		reminders,
 	);
 	assert.equal(result.outcome, "changed");
-	await wait(due);
+	await arrive(due);
 	await dispatch();
 	// The handed duty's due reminder went to its new assignee and was sent, and the overdue one waits for them. The
 	// removed member's reminders were withdrawn from both duties; the duty without an owner reminds nobody.
@@ -1025,7 +1020,7 @@ test("INV-tenancy: a seat ended, demoted or signed out after the viewer lookup r
 		const seat = await f.seat(a, plant, role);
 		return { ...a, seat, actor: await f.actor(a.session) };
 	};
-	const reads = (who) => [
+	const reads = () => [
 		["get", { taskId: t.id }],
 		["list", {}],
 		["count", {}],
@@ -1188,6 +1183,10 @@ test("AC:TARGET-TSK-006 prerequisites never form a cycle, even proposed at once,
 	const fresh = await get(owner, c.id);
 	for (const id of [c.id, theirs.id, gone.id, row.id]) refused(await replace(owner, fresh, [id]), "invalid_subject");
 	refused(await replace(member, fresh, [b.id]), "unavailable");
+	// One read names the rows again, by ID: a bulk change's stale rows and the page's badges. A deleted or foreign task
+	// is absent, never an error, and the badge counts open prerequisites only.
+	const named = ok(await read(owner, "listRows", { taskIds: [a.id, b.id, c.id, gone.id, theirs.id] }));
+	assert.deepEqual(Object.fromEntries(named.items.map((t) => [t.title, t.openPrerequisites])), { A: 1, B: 1, C: 0 });
 	assert.deepEqual(
 		ok(await read(owner, "prerequisiteCandidates", { taskId: c.id })).items.filter((t) =>
 			[a.id, b.id, c.id].includes(t.id),
@@ -1425,6 +1424,103 @@ test("AC:TARGET-TSK-007 AC:TARGET-TSK-018 completing a recurring task creates ex
 	);
 });
 
+test("AC:TARGET-TSK-006 saving the same prerequisites in another order is a no-op", async () => {
+	const [a, b] = [await create(owner, { title: "First" }), await create(owner, { title: "Second" })];
+	const task = await create(owner, { title: "Blocked" });
+	const replace = (t, ids) =>
+		write(owner, "replacePrerequisites", {
+			requestKey: randomUUID(),
+			expectedRevision: t.revision,
+			input: { taskId: t.id, prerequisiteIds: ids },
+		});
+	const saved = ok(await replace(task, [a.id, b.id]));
+	// History is the audit rows that carry a change; a no-op keeps only its request receipt, with no change.
+	const history = async () =>
+		(
+			await rows(
+				sql`SELECT count(*)::int n FROM audit_event WHERE subject_id=${task.id}
+				AND (before_value IS NOT NULL OR after_value IS NOT NULL)`,
+			)
+		)[0].n;
+	const entries = await history();
+	const reordered = ok(await replace(saved.task, [b.id, a.id]));
+	assert.equal(reordered.outcome, "noop");
+	const read = await get(owner, task.id);
+	assert.deepEqual([read.revision, read.prerequisiteIds], [saved.task.revision, [a.id, b.id]]);
+	assert.equal(await history(), entries);
+});
+
+test("AC:TARGET-TSK-007 Make it repeat on an older occurrence of a stopped series starts a new series from it", async () => {
+	const complete = (task, requestKey = randomUUID()) =>
+		write(owner, "completeOccurrence", { requestKey, expectedRevision: task.revision, input: { taskId: task.id } });
+	const configure = (task, rule) =>
+		write(owner, "configureRecurrence", {
+			requestKey: randomUUID(),
+			expectedRevision: task.revision,
+			input: { taskId: task.id, rule },
+		});
+	// Occurrences 1, 2 and 3 of a weekly series; then the series stops at occurrence 3.
+	const first = await recurring({ title: "Count offering", due: { kind: "local_date", date: "2026-09-07" } });
+	const second = ok(await complete(first)).successor;
+	const third = ok(await complete(second)).successor;
+	const old = first.recurrence.seriesId;
+	ok(await configure(third, null));
+	const oldSeries = async () => ({
+		rule: await rows(
+			sql`SELECT interval, stopped_at IS NOT NULL AS stopped, revision::text FROM recurrence WHERE id=${old}`,
+		),
+		tasks: await rows(
+			sql`SELECT t.id, t.series_id, t.occurrence_key, t.status, t.revision::text,
+				(SELECT count(*)::int FROM audit_event a WHERE a.subject_id=t.id) AS history
+			FROM task t WHERE t.id IN (${first.id}, ${third.id}) ORDER BY t.occurrence_key`,
+		),
+	});
+	const before = await oldSeries();
+
+	// Occurrence 2 is complete and already has occurrence 3 after it. A monthly rule on it starts a new series.
+	const rule = { frequency: "monthly", until: null, localTime: null };
+	const restarted = ok(await configure(await get(owner, second.id), rule)).task;
+	assert.equal(restarted.occurrenceId, "1");
+	assert.notEqual(restarted.recurrence.seriesId, old);
+	assert.deepEqual((await get(owner, second.id)).recurrence, {
+		seriesId: restarted.recurrence.seriesId,
+		...rule,
+		stopped: false,
+	});
+	// The old series stays stopped, and its other occurrences keep their series, number, status and history.
+	assert.deepEqual(await oldSeries(), before);
+	assert.equal(before.rule[0].stopped, true);
+	assert.equal(ok(await complete(await get(owner, third.id))).successor, null);
+
+	// Reopened and completed, the restarted occurrence adds exactly one next occurrence in the new series.
+	const reopened = ok(
+		await write(owner, "reopen", {
+			requestKey: randomUUID(),
+			expectedRevision: restarted.revision,
+			input: { taskId: second.id },
+		}),
+	).task;
+	const key = randomUUID();
+	const done = ok(await complete(reopened, key));
+	assert.deepEqual(
+		[done.successor.occurrenceId, done.successor.recurrence.seriesId, done.successor.due],
+		["2", restarted.recurrence.seriesId, { kind: "local_date", date: "2026-10-14" }],
+	);
+	// A retry, with the same key or a new one, adds nothing more.
+	assert.deepEqual(ok(await complete(reopened, key)), done);
+	ok(await complete(await get(owner, second.id)));
+	assert.deepEqual(
+		await rows(
+			sql`SELECT series_id, occurrence_key FROM task WHERE predecessor_id=${second.id} AND deleted_at IS NULL
+			ORDER BY occurrence_key`,
+		),
+		[
+			{ series_id: restarted.recurrence.seriesId, occurrence_key: "2" },
+			{ series_id: old, occurrence_key: "3" },
+		],
+	);
+});
+
 test("AC:TARGET-TSK-008 bulk changes report each task, commit all valid tasks or none, and never repeat on retry", async () => {
 	const bulk = (who, op, tasks, extra = {}, requestKey = randomUUID()) =>
 		write(who, op, {
@@ -1534,10 +1630,42 @@ test("AC:TARGET-TSK-008 bulk changes report each task, commit all valid tasks or
 	assert.deepEqual((await get(owner, others.id)).due, { kind: "undated" });
 });
 
+test("AC:TARGET-TSK-008 AC:TARGET-TSK-007 a bulk complete names each recurring task's next occurrence once", async () => {
+	const due = (date) => ({ kind: "local_date", date });
+	const weekly = await recurring({ title: "Weekly prayer", due: due("2026-10-05") });
+	const monthly = await recurring(
+		{ title: "Monthly report", due: due("2026-10-31") },
+		{ frequency: "monthly", until: null },
+	);
+	const plain = await create(owner, { title: "One-off" });
+	const request = {
+		requestKey: randomUUID(),
+		items: [weekly, plain, monthly].map((t) => ({ taskId: t.id, expectedRevision: t.revision })),
+	};
+	const result = ok(await write(owner, "bulkComplete", request));
+	assert.deepEqual(
+		result.items.map((i) => [i.taskId, i.outcome, i.successor?.title ?? null, i.successor?.due ?? null]),
+		[
+			[weekly.id, "changed", "Weekly prayer", due("2026-10-12")],
+			[plain.id, "changed", null, null],
+			[monthly.id, "changed", "Monthly report", due("2026-11-30")],
+		],
+	);
+	// Each successor is the series' live next task, as a single read returns it.
+	for (const i of [result.items[0], result.items[2]]) {
+		const next = await get(owner, i.successor.id);
+		assert.deepEqual([next.status, next.occurrenceId, next.revision], ["not_started", "2", i.successor.revision]);
+	}
+	// A retry with the same request key returns the same answer and adds nothing; the one-off has no successor.
+	assert.deepEqual(ok(await write(owner, "bulkComplete", request)), result);
+	const successors = async (t) => (await rows(sql`SELECT count(*)::int n FROM task WHERE predecessor_id=${t.id}`))[0].n;
+	assert.deepEqual([await successors(weekly), await successors(plain), await successors(monthly)], [1, 0, 1]);
+});
+
 // ---------------------------------------------------------------------------------------------------------------
 // WP-023 F07b: a task has one or more assignees.
 
-test("AC:TARGET-TSK-002 F07b criteria 2 to 4: a list of assignees is checked as a whole, kept as a set and audited", async () => {
+test("AC:TARGET-TSK-002 a list of assignees is checked as a whole, kept as a set and audited", async () => {
 	const assigneeIds = async (id) =>
 		(await rows(sql`SELECT account_id FROM task_assignee WHERE task_id=${id} ORDER BY account_id`)).map(
 			(r) => r.account_id,
@@ -1555,10 +1683,7 @@ test("AC:TARGET-TSK-002 F07b criteria 2 to 4: a list of assignees is checked as 
 	assert.equal((await rows(sql`SELECT count(*)::int n FROM task`))[0].n, before);
 	// A repeated ID collapses to one; more than ten distinct accounts are refused.
 	const t = await create(owner, { title: "Pair", assigneeIds: [member.id, admin2.id, member.id] });
-	assert.deepEqual(
-		t.assignees.map((a) => a.accountId).sort(),
-		[member.id, admin2.id].sort(),
-	);
+	assert.deepEqual(t.assignees.map((a) => a.accountId).sort(), [member.id, admin2.id].sort());
 	assert.deepEqual(await assigneeIds(t.id), [member.id, admin2.id].sort());
 	refused(
 		await write(owner, "create", {
@@ -1614,7 +1739,7 @@ test("AC:TARGET-TSK-002 F07b criteria 2 to 4: a list of assignees is checked as 
 	assert.deepEqual([cleared.assignees, await assigneeIds(t.id)], [[], []]);
 });
 
-test("AC:TARGET-TSK-003 AC:TARGET-TSK-005 F07b criteria 5 and 6: any assignee acts, a Member adds nobody, children and successors keep the set", async () => {
+test("AC:TARGET-TSK-003 AC:TARGET-TSK-005 any assignee acts, a Member adds nobody, children and successors keep the set", async () => {
 	const shared = await create(owner, { title: "Shared duty", assigneeIds: [member.id, admin2.id] });
 	// Another Member is not an assignee and cannot complete it; one of the assignees can.
 	const stranger = await (async () => {
@@ -1640,10 +1765,7 @@ test("AC:TARGET-TSK-003 AC:TARGET-TSK-005 F07b criteria 5 and 6: any assignee ac
 		"access_denied",
 	);
 	const step = await subtask(member, shared, "Check the list");
-	assert.deepEqual(
-		step.assignees.map((a) => a.accountId).sort(),
-		[member.id, admin2.id].sort(),
-	);
+	assert.deepEqual(step.assignees.map((a) => a.accountId).sort(), [member.id, admin2.id].sort());
 	// The next occurrence of a recurring task copies the set.
 	const weekly = await recurring({
 		title: "Weekly set-up",
@@ -1657,15 +1779,16 @@ test("AC:TARGET-TSK-003 AC:TARGET-TSK-005 F07b criteria 5 and 6: any assignee ac
 			input: { taskId: weekly.id },
 		}),
 	).successor;
-	assert.deepEqual(
-		next.assignees.map((a) => a.accountId).sort(),
-		[member.id, admin2.id].sort(),
-	);
+	assert.deepEqual(next.assignees.map((a) => a.accountId).sort(), [member.id, admin2.id].sort());
 	// One of the assignees completes the shared task, once, and "My tasks" lists it for each of them.
 	const mine = async (who) =>
-		ok(await read(who, "list", { view: "my", search: "Shared duty", statuses: ["not_started", "in_progress", "blocked"] })).items.map(
-			(t) => t.id,
-		);
+		ok(
+			await read(who, "list", {
+				view: "my",
+				search: "Shared duty",
+				statuses: ["not_started", "in_progress", "blocked"],
+			}),
+		).items.map((t) => t.id);
 	assert.ok((await mine(member)).includes(shared.id));
 	assert.ok((await mine(admin2)).includes(shared.id));
 	assert.equal((await mine(stranger)).includes(shared.id), false);
@@ -1681,7 +1804,7 @@ test("AC:TARGET-TSK-003 AC:TARGET-TSK-005 F07b criteria 5 and 6: any assignee ac
 	);
 });
 
-test("INV-statements F07b criterion 10: a page read sends the same statements for one assignee or three", async () => {
+test("INV-statements: a page read sends the same statements for one assignee or three", async () => {
 	const third = await (async () => {
 		const a = await f.account();
 		await f.seat(a, plant, "member");
@@ -1698,7 +1821,7 @@ test("INV-statements F07b criterion 10: a page read sends the same statements fo
 	assert.deepEqual(await each(three.id), await each(one.id));
 });
 
-test("AC:TARGET-TSK-014 F07b criterion 11: each assignee gets their own reminders, and removing one withdraws only theirs", async () => {
+test("AC:TARGET-TSK-014 each assignee gets their own reminders, and removing one withdraws only theirs", async () => {
 	const notices = (task) =>
 		rows(sql`SELECT n.recipient_id, n.purpose, n.cancelled_at IS NOT NULL cancelled FROM notice n
 			WHERE n.source_record_id=${task} ORDER BY n.recipient_id, n.eligible_at`);
@@ -1725,10 +1848,7 @@ test("AC:TARGET-TSK-014 F07b criterion 11: each assignee gets their own reminder
 			WHERE n.source_record_id=${t.id}`,
 	);
 	const allowed = await f.db.transaction((tx) => authorizeTaskReminders(tx, stale));
-	assert.deepEqual(
-		[...new Set(stale.filter((m) => allowed.has(m.id)).map((m) => m.recipient))],
-		[admin2.id],
-	);
+	assert.deepEqual([...new Set(stale.filter((m) => allowed.has(m.id)).map((m) => m.recipient))], [admin2.id]);
 	// Adding one plans theirs.
 	ok(
 		await write(owner, "edit", {
@@ -1738,4 +1858,29 @@ test("AC:TARGET-TSK-014 F07b criterion 11: each assignee gets their own reminder
 		}),
 	);
 	assert.deepEqual(await live(t.id), both);
+});
+
+test("AC:TARGET-TSK-014 a seat that has not accepted yet gets no task-reminder mail", async () => {
+	const t = await create(owner, {
+		title: "Print the programs",
+		assigneeIds: [member.id],
+		due: { kind: "local_date", date: "2099-02-15" },
+	});
+	const mailRows = await rows(
+		sql`SELECT id, recipient_account_id recipient, notice_id notice FROM mail WHERE notice_id IN (SELECT id FROM notice WHERE source_record_id=${t.id})`,
+	);
+	assert.equal(mailRows.length, 2);
+	const allowed = () => f.db.transaction((tx) => authorizeTaskReminders(tx, mailRows));
+	assert.equal((await allowed()).size, 2);
+	const [seat] = await rows(sql`SELECT id, accepted_at FROM seat WHERE account_id=${member.id} AND plant_id=${plant.id}
+		AND ended_at IS NULL`);
+	await f.admin.execute(sql`UPDATE seat SET accepted_at=clock_timestamp()+interval '1 day' WHERE id=${seat.id}`);
+	try {
+		assert.equal((await allowed()).size, 0, "the seat is not accepted yet");
+		const recipients = await f.db.transaction((tx) => reminderRecipients(tx, plant.id, [member.id]));
+		assert.equal(recipients.size, 0);
+	} finally {
+		await f.admin.execute(sql`UPDATE seat SET accepted_at=${seat.accepted_at} WHERE id=${seat.id}`);
+	}
+	assert.equal((await allowed()).size, 2);
 });

@@ -1,9 +1,8 @@
 import { owner, type Owner } from "@everyfield/contracts/common";
-import type { OrganizationOperations } from "@everyfield/contracts/organizations";
 import * as C from "@everyfield/contracts/organizations";
 import type { Database, Transaction } from "@everyfield/db/client";
 import { sql } from "@everyfield/db/query";
-import type { RequestActor } from "@everyfield/domain/access";
+import { liveAccess, type RequestActor } from "@everyfield/domain/access";
 import { createSeatService } from "@everyfield/domain/identity";
 import { auditTransaction } from "@everyfield/domain/operations";
 import {
@@ -18,14 +17,14 @@ import "server-only";
 import { z } from "zod";
 import { mailEnv } from "../mail-env.ts";
 import { database } from "../database";
-import { createMailService } from "../jobs/mail";
-import { queueJobs } from "../jobs/queue";
+import { createMailService, MAIL_PASSES, runDueMail, type MailPass, type MailTransport } from "../jobs/mail";
 import { getViewer } from "../request-context";
 
 // The organization mount (WP-007/ui ruling D11). Screens reach it only through features/organizations/actions.ts.
 // The session comes from the identity mount and the workspace from the seat service; every command runs through the
-// WP-007/api adapter in one transaction, which rechecks all authority. Mail and notices are enqueued only: WP-031
-// dispatches them. Domain reads supply names, waiting requests and residency links for the viewer's scope.
+// WP-007/api adapter in one transaction, which rechecks all authority. Commands queue mail and notices; the scheduled
+// runner sends the relationship mail with organizationMailPass. Domain reads supply names, waiting requests and
+// residency links for the viewer's scope.
 
 const env = z.object({
 	IDENTITY_DATABASE_URL: z.string().min(1),
@@ -33,32 +32,43 @@ const env = z.object({
 	...mailEnv,
 });
 
-export type Operation = keyof OrganizationOperations;
 export type Reply<T = unknown> = { status: "ok"; value: T } | { status: "refused"; code: string };
 export type Mount = NonNullable<ReturnType<typeof current>>;
-export /** The domain refuses by throwing a short code (`refuse()` in core.ts); anything else is not a refusal. */
+/** The domain refuses by throwing a short code (`refuse()` in core.ts); anything else is not a refusal. */
 const REFUSAL_CODE = /^[a-z_]{3,40}$/;
 
-let mount: ReturnType<typeof create> | undefined;
-function create(v: z.infer<typeof env>) {
-	const db: Database = database(v.IDENTITY_DATABASE_URL);
-	const mail = createMailService({
-		db,
+/** The day an invitation stops working, as the mail prints it: a long date in UTC, labelled UTC. */
+const expiryDay = new Intl.DateTimeFormat("en-US", { dateStyle: "long", timeZone: "UTC" });
+
+function organizationMail(v: z.infer<typeof env>, transport?: MailTransport) {
+	return createMailService({
+		db: database(v.IDENTITY_DATABASE_URL),
 		encryptionKey: Buffer.from(v.IDENTITY_MAIL_KEY, "hex"),
 		addressKey: Buffer.from(v.IDENTITY_ADDRESS_KEY, "hex"),
 		from: v.IDENTITY_MAIL_FROM,
 		// A relationship invitation goes to the typed address only; nothing else is sent from this mount.
 		authorize: async (_tx, mail) =>
 			new Set(mail.filter((m) => m.purpose === "relationship_invitation" && m.recipient === null).map((m) => m.id)),
-		transport: {
-			async send() {
-				return { kind: "refused", retryable: true };
-			},
-			async lookup() {
-				return { kind: "unknown" };
-			},
-		},
+		transport,
 	});
+}
+
+/**
+ * The scheduled runner's relationship mail pass: one bounded batch of this mount's due mail through `transport`, each
+ * rechecked under the mount's own rule. Null when the deployment has no configuration for this mount.
+ */
+export function organizationMailPass(transport: MailTransport): MailPass | null {
+	const v = env.safeParse(process.env);
+	if (!v.success) return null;
+	const db = database(v.data.IDENTITY_DATABASE_URL),
+		mail = organizationMail(v.data, transport);
+	return (limit, until) => runDueMail(db, mail, MAIL_PASSES.organization, limit, until);
+}
+
+let mount: ReturnType<typeof create> | undefined;
+function create(v: z.infer<typeof env>) {
+	const db: Database = database(v.IDENTITY_DATABASE_URL);
+	const mail = organizationMail(v);
 	// Each effect is one or more rows the command runs inside its single write statement (D70).
 	const effects: OrganizationEffects = {
 		async invitation(tx, input, writes) {
@@ -74,7 +84,7 @@ function create(v: z.infer<typeof env>) {
 					address: input.recipientEmail,
 					content: {
 						subject: `${input.inviterDescription} asks to connect on Everyfield`,
-						text: `${input.inviterDescription} asks to connect on Everyfield. Open this link to accept or decline. It works for 30 days.\n\n${link}`,
+						text: `${input.inviterDescription} asks to connect on Everyfield. Open this link to accept or decline. It works until ${expiryDay.format(new Date(input.expiresAt))} (UTC).\n\n${link}`,
 					},
 					operation: input.operationId,
 					notice: null,
@@ -83,23 +93,9 @@ function create(v: z.infer<typeof env>) {
 				writes,
 			);
 		},
-		notice(tx, input) {
-			// The coarse notice goes to the plant (REQ-NTF-009); the notification job reads only the event.
-			const tenant = input.pair.kind === "plant" ? input.pair.subject.id : input.pair.organization.id;
-			return queueJobs(tx, [
-				{
-					tenant,
-					kind: "notification",
-					subject: input.relationshipId,
-					key: `${input.kind}/${input.eventId}`,
-					revision: input.revision,
-					eligibleAt: new Date().toISOString(),
-				},
-			]);
-		},
 		invalidate(_tx, input) {
 			// Ending or changing a link stops queued work that read the old grant (REQ-IDN-021).
-			return sql`UPDATE job SET state='superseded',claim_generation=claim_generation+1,lease_owner=NULL,lease_until=NULL,revision=revision+1,finished_at=clock_timestamp() WHERE subject_record_id=${input.sourceId} AND kind IN ('assessment','digest') AND state IN ('ready','retry_wait','claimed')`;
+			return sql`UPDATE job SET state='superseded',claim_generation=claim_generation+1,lease_owner=NULL,lease_until=NULL,revision=revision+1,finished_at=clock_timestamp() WHERE subject_record_id=${input.sourceId} AND kind='digest' AND state IN ('ready','retry_wait','claimed')`;
 		},
 	};
 	// No reporting-location screen here; the plant settings owner supplies the reference (WP-010).
@@ -114,7 +110,7 @@ export function current() {
 	return mount;
 }
 
-export type { Kind, Viewer } from "@everyfield/domain/organizations";
+export type { Viewer } from "@everyfield/domain/organizations";
 /** Who is asking, from the session and the one current seat. Seatless accounts count only with a Discovery profile. */
 export async function viewerOf(): Promise<
 	| { kind: "signed_out" }
@@ -151,6 +147,7 @@ export async function viewerOf(): Promise<
 			accountId: s.accountId,
 			selected,
 			canManage: context.kind === "seat" ? context.role !== "member" : s.discovery,
+			access: liveAccess(authority),
 		},
 	};
 }
@@ -239,15 +236,13 @@ export async function invitationFor(
 }
 
 export {
-	connectionRevision,
 	idsIn,
 	namesFor,
-	pairOf,
 	pendingFor,
 	readHistory,
+	readPipelineConsents,
 	readPlantSharing,
 	residencyLinks,
-	residencyRevision,
 	subjectFacts,
 	targetsFor,
 } from "@everyfield/domain/organizations";

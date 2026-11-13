@@ -3,7 +3,7 @@ import { validate } from "./rules.ts";
 import type { DocDocument, DocTemplate, EveryfieldDoc } from "./types.ts";
 
 export * from "./types.ts";
-export { FORMAT_SCHEMA } from "./schema.ts";
+export { FORMAT_LIMITS, FORMAT_SCHEMA } from "./schema.ts";
 export { columnWidths, exportsFor, formatNumber, ledgerTables, parseAmount, TABLE_LIMITS } from "./table.ts";
 export {
 	acceptDifferences,
@@ -21,6 +21,7 @@ export {
 	computeTable,
 	forkTemplate,
 	formulaDeps,
+	KEY as FORMAT_KEY,
 	pageBox,
 	parseFormula,
 	templateFromDocument,
@@ -32,7 +33,7 @@ export {
 
 /**
  * The zod parser for one everyfield.doc/1 file. It runs every schema and format rule and reports each fault as one
- * issue, "<path>: <message>", in the words of design/doc-format/approach-a/format.js.
+ * issue, "<path>: <message>", in the words of the retired approach-a prototype.
  */
 function docParser<T extends EveryfieldDoc>(kind?: T["kind"]) {
 	return z.unknown().transform((value, ctx): T => {

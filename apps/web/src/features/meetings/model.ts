@@ -1,5 +1,6 @@
 import { dateText, timeText } from "@everyfield/contracts/common";
 import type * as c from "@everyfield/contracts/meetings";
+import { statusTransitions } from "@everyfield/contracts/meetings";
 import type { Status } from "@everyfield/ui/display";
 import type { z } from "zod";
 import { MONTHS } from "../shared/dates.ts";
@@ -66,8 +67,6 @@ export function evaluationIssues(issues: readonly Issue[]): EvaluationIssues {
 }
 
 export const TYPES = ["vision_meeting", "orientation", "team_meeting", "prelaunch_practice"] as const;
-/** The types a new meeting can be. Planning one takes an Owner or Admin; a team meeting also names its ministry. */
-export const NEW_TYPES = ["vision_meeting", "orientation", "team_meeting", "prelaunch_practice"] as const;
 export const TYPE_LABEL: Record<MeetingType, string> = {
 	vision_meeting: "Vision meeting",
 	orientation: "Orientation",
@@ -96,7 +95,7 @@ export const STATUS_LABEL: Record<MeetingStatus, string> = {
 	completed: "Completed",
 	cancelled: "Cancelled",
 };
-export const STATUS_TONE: Record<MeetingStatus, Status> = {
+const STATUS_TONE: Record<MeetingStatus, Status> = {
 	planning: "measured",
 	ready: "positive",
 	in_progress: "attention",
@@ -112,6 +111,15 @@ export function statusView(status: MeetingStatus, startsAt: string, now: string)
 	if ((status === "planning" || status === "ready") && Date.parse(startsAt) < Date.parse(now))
 		return { label: "Not closed", tone: "attention" };
 	return { label: STATUS_LABEL[status], tone: STATUS_TONE[status] };
+}
+/**
+ * The statuses the Status menu offers from here. A practice is completed only by marking it held, and a completed
+ * practice moves only through Mark as not held, so neither offers a plain status move (the producer refuses both).
+ */
+export function statusMoves(type: MeetingType, status: MeetingStatus): readonly MeetingStatus[] {
+	if (type === "prelaunch_practice")
+		return status === "completed" ? [] : statusTransitions[status].filter((to) => to !== "completed");
+	return statusTransitions[status];
 }
 /** The menu words for moving to each status. */
 export const STATUS_ACTION: Record<MeetingStatus, string> = {
@@ -191,7 +199,7 @@ export const peopleText = (n: number) => `${n} ${n === 1 ? "person" : "people"}`
 export const WINDOWS = ["all", "upcoming", "past"] as const;
 export type Window = (typeof WINDOWS)[number];
 export const WINDOW_LABEL: Record<Window, string> = { all: "All", upcoming: "Upcoming", past: "Past" };
-export const PAGE_SIZE = 24;
+const PAGE_SIZE = 24;
 
 export type MeetingsQuery = { window: Window; type: MeetingType | null; status: MeetingStatus | null; page: number };
 export const DEFAULT_QUERY: MeetingsQuery = { window: "all", type: null, status: null, page: 1 };
@@ -229,6 +237,13 @@ export function listRequest(q: MeetingsQuery) {
 	};
 }
 
+/** The Next card's read: the soonest upcoming meeting still on, so a cancelled or completed one never shows as Next. */
+export const NEXT_REQUEST = {
+	window: "upcoming",
+	statuses: ["planning", "ready", "in_progress"],
+	limit: 1,
+} as const satisfies { window: Window; statuses: readonly MeetingStatus[]; limit: number };
+
 export const isFiltered = (q: MeetingsQuery) => q.window !== "all" || q.type !== null || q.status !== null;
 export const pageCount = (total: number) => Math.max(1, Math.ceil(total / PAGE_SIZE));
 
@@ -253,20 +268,23 @@ export function whenText(m: { localDate: string; localTime: string }, thisYear?:
 	return `${dateText(m.localDate, thisYear)} · ${timeText(m.localTime)}`;
 }
 
-/** "today", "tomorrow", "in 4 days", "in 3 weeks", from the meeting's instant and the page's render time. */
-export function untilText(startsAt: string, now: string): string {
-	const days = Math.round((Date.parse(startsAt) - Date.parse(now)) / 86_400_000);
+/** The civil date (yyyy-mm-dd) of an instant in a time zone. */
+function civilDate(instant: string, zone: string): string {
+	return new Intl.DateTimeFormat("en-CA", { timeZone: zone, year: "numeric", month: "2-digit", day: "2-digit" }).format(
+		new Date(instant),
+	);
+}
+/**
+ * "today", "tomorrow", "in 4 days", "in 3 weeks": civil days in the meeting's zone, from the page's render time to the
+ * meeting's local date. A meeting later today reads "today" however many hours away it is.
+ */
+export function untilText(m: { localDate: string; zone: string }, now: string): string {
+	const day = (date: string) => Date.parse(`${date}T00:00:00Z`) / 86_400_000;
+	const days = Math.round(day(m.localDate) - day(civilDate(now, m.zone)));
 	if (days <= 0) return "today";
 	if (days === 1) return "tomorrow";
 	if (days < 14) return `in ${days} days`;
 	return `in ${Math.round(days / 7)} weeks`;
-}
-
-/** The offset a fold choice carries, in words: "1:30 am (CDT)" style hints are zone-specific, so show UTC offsets. */
-export function offsetText(offsetSeconds: number): string {
-	const sign = offsetSeconds < 0 ? "−" : "+";
-	const abs = Math.abs(offsetSeconds);
-	return `UTC${sign}${Math.floor(abs / 3600)}${abs % 3600 ? `:${String((abs % 3600) / 60).padStart(2, "0")}` : ""}`;
 }
 
 /** RSVP counts from the guest list. */

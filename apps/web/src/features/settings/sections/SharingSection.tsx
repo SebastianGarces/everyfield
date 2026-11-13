@@ -7,7 +7,7 @@ import { Icon } from "@everyfield/ui/foundations";
 import { useState } from "react";
 import type { AffiliationPatch, PlantOwner, Relationship, SectionResult } from "../port";
 import { newRequestKey } from "../port";
-import { refusalOf, type Refusal } from "../save";
+import { OFFLINE_REFERENCE, refusalOf, type Refusal } from "../save";
 import { AutoSaveFooter, SaveError, SectionBody } from "../SettingsDialog";
 import { useSection, useSettings } from "../store";
 
@@ -31,7 +31,7 @@ const CATEGORY_TEXT: Record<Category, { label: string; description: string }> = 
 	meetings: { label: "Meetings", description: "Counts and attendance totals" },
 	tasks: { label: "Tasks", description: "Counts and progress" },
 	ministry_teams: { label: "Ministry teams", description: "Teams and how many serve" },
-	wiki: { label: "Wiki", description: "Totals for articles your church writes" },
+	wiki: { label: "Wiki", description: "Totals for articles your church writes. Their Wiki also shows in Wiki sources" },
 	activity: { label: "Activity updates", description: "Milestones sent to them as they happen" },
 	shared_findings: { label: "Plant Intelligence findings", description: "Shown to you first, then shared" },
 };
@@ -154,7 +154,7 @@ function Choices({
 			if (reply.status === "ok") replace(reply.value.current);
 			else setRefusal(refusalOf(reply.error));
 		} catch {
-			setRefusal({ message: "Your change was not saved. Try again.", reference: "EF-OFFLINE", code: "temporary" });
+			setRefusal({ message: "Your change was not saved. Try again.", reference: OFFLINE_REFERENCE, code: "temporary" });
 		} finally {
 			setPending(null);
 		}

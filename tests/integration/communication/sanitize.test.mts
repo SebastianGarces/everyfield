@@ -12,17 +12,13 @@ const stored = [
 ] as const;
 
 for (const [input, output] of stored) {
-	test("sanitizeHtml drops executable markup: " + input.slice(0, 24), () => {
+	test("AC:CASE-COM-003 sanitizeHtml drops executable markup: " + input.slice(0, 24), () => {
 		const clean = sanitizeHtml(input);
 		assert.equal(clean, output);
 		assert.equal(/<script/i.test(clean), false);
 		assert.equal(/onerror|onload|javascript:/i.test(clean), false);
 	});
 }
-
-test("renderBody keeps the safe sentence and drops the script", () => {
-	assert.equal(renderBody("<p>Hello {{name}}</p><script>alert(1)</script>", { name: "Alex" }), "<p>Hello Alex</p>");
-});
 
 const link = "https://app.example.com/rsvp/abc_DEF-123";
 

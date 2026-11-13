@@ -23,7 +23,9 @@ chat. This list names every variable `src/` reads, never a value.
 - `RESEND_API_KEY`: Resend send permission. Without it, mail outside production is captured to the dev outbox.
 - `RESEND_WEBHOOK_SECRET`: verifies Resend delivery webhooks at `/api/webhooks/resend`.
 - `NOTIFICATION_OPT_OUT_KEYS`: the key ring that seals email opt-out and unsubscribe links.
-- `CRON_SECRET`: the bearer secret both scheduled routes require (see Scheduled routes).
+- `CRON_SECRET`: the bearer secret both scheduled routes require, `/api/cron/access-retention` and `/api/cron/jobs`
+  (see Scheduled routes). Set it in the Vercel Production environment: Vercel runs cron there only, not on previews
+  (`docs/runbooks/qa-preview.md`).
 - `PLATFORM_PROOF_SECRET`: outside production only, turns on proof mode for a request sending it in `x-platform-proof`.
 - `EVERYFIELD_DEV_OUTBOX`: optional folder for captured dev mail; defaults to a folder under the system temp dir.
 
@@ -48,7 +50,8 @@ refuse a missing or wrong secret.
 ## Checks
 
 ```sh
-corepack pnpm --filter @everyfield/web typecheck
+corepack pnpm --filter @everyfield/web typecheck      # bun check, the typecheck (T-110)
+corepack pnpm --filter @everyfield/web typecheck:tsc  # tsc, which GitHub CI also runs as the backstop
 corepack pnpm --filter @everyfield/web lint
 corepack pnpm --filter @everyfield/web test:unit
 corepack pnpm test:logs

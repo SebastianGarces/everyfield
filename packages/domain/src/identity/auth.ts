@@ -4,7 +4,8 @@ import { randomUUID } from "node:crypto";
 import type { Database } from "@everyfield/db/client";
 import { auth_user, auth_account, auth_session, auth_verification } from "@everyfield/db/tables";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { authStorage } from "@everyfield/db/auth-storage";
+import { authStorage } from "@everyfield/db/schema";
+import { IDENTITY_LINK_SECONDS } from "@everyfield/contracts/identity";
 
 export function identityAuth(config: {
 	db: Database;
@@ -43,12 +44,12 @@ export function identityAuth(config: {
 			autoSignIn: false,
 			minPasswordLength: 8,
 			maxPasswordLength: 1024,
-			resetPasswordTokenExpiresIn: 3600,
+			resetPasswordTokenExpiresIn: IDENTITY_LINK_SECONDS,
 			revokeSessionsOnPasswordReset: true,
 			sendResetPassword: async ({ user, token }) => config.deliver(user, "password_reset", token),
 		},
 		emailVerification: {
-			...(config.emailChange ? { expiresIn: 86400 } : {}),
+			expiresIn: config.emailChange ? 86400 : IDENTITY_LINK_SECONDS,
 			sendOnSignUp: false,
 			autoSignInAfterVerification: false,
 			sendVerificationEmail: async ({ user, token }) => config.deliver(user, "email_verification", token),

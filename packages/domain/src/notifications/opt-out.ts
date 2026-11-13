@@ -1,6 +1,6 @@
 import { notificationCategory, type NotificationReply } from "@everyfield/contracts/notifications";
 import { emailOptOutResult, emailOptOutRequest, optOutPurpose } from "@everyfield/contracts/notifications";
-import { defaultChannelEnabled } from "@everyfield/contracts/settings";
+import { defaultChannelEnabled, notificationChannels } from "@everyfield/contracts/settings";
 import type { Database } from "@everyfield/db/client";
 import { sql } from "@everyfield/db/query";
 import { createCipheriv, createDecipheriv, createHmac, randomBytes } from "node:crypto";
@@ -20,7 +20,7 @@ const payload = z.strictObject({
 type Payload = z.infer<typeof payload>;
 const DAY = 86_400_000;
 const HOUR = 60 * 60 * 1000;
-export const OPT_OUT_DISABLE_MS = 180 * DAY;
+const OPT_OUT_DISABLE_MS = 180 * DAY;
 export type OptOutKeyRing = { current: Buffer; previous?: readonly Buffer[] };
 
 function asRing(key: Buffer | OptOutKeyRing): OptOutKeyRing {
@@ -173,7 +173,7 @@ async function writeState(db: Database, claim: Payload) {
 			INSERT INTO notification_preference (account_id, category, channel, enabled, unsubscribe_revision)
 			SELECT account_id, ${claim.category}, 'email', ${enable},
 				CASE WHEN ${claim.purpose} = 'disable' THEN COALESCE((SELECT unsubscribe_revision FROM email_pref), 0) + 1
-					ELSE COALESCE((SELECT unsubscribe_revision FROM email_pref), 1) END
+					ELSE COALESCE((SELECT unsubscribe_revision FROM email_pref), 0) END
 			FROM state
 			WHERE account_id IS NOT NULL AND rev = ${claim.unsubscribeRevision}
 				AND ((${claim.purpose} = 'disable' AND email_enabled IS TRUE) OR (${claim.purpose} = 'undo' AND email_enabled IS FALSE))
@@ -212,7 +212,7 @@ export function emailOptOut(
 			purpose === "describe" ? { token: parse(emailOptOutRequest, raw).token } : parse(emailOptOutRequest, raw);
 		const claim = openToken(key, input.token);
 		if (!claim || (purpose !== "describe" && claim.purpose !== purpose)) deny("access_denied");
-		if (claim.category === "wiki_upstream_review") deny("invalid_input");
+		if (!notificationChannels(claim.category).includes("email")) deny("invalid_input");
 		if (windowTooLong(claim)) deny("access_denied");
 		const expired = Date.parse(claim.exp) <= now().getTime();
 		const row = expired || purpose === "describe" ? await readState(db, claim) : await writeState(db, claim);

@@ -190,6 +190,102 @@
 		}
 	},
 	{
+		"case_id": "ADP-R-10",
+		"extra": true,
+		"adapter": "people/reads",
+		"operation": "people.listDuplicatePairs",
+		"near_miss": false,
+		"question": "who do I need to review?",
+		"eval": {
+			"as": "owner",
+			"calls": [
+				{
+					"operation": "people.listDuplicatePairs"
+				}
+			],
+			"names": {
+				"all": ["Casey Brooks", "Casey Morgan", "John Smith", "Jon Smith"],
+				"allowed": ["Casey Brooks", "Casey Morgan", "John Smith", "Jon Smith"]
+			},
+			"forbid": [
+				"/no duplicates (found|in)|(you['’]?re|you are|church is|records are) (all )?clean|no (possible )?duplicates\\b/i",
+				"Maria Delgado",
+				"Maria Santos",
+				"/\\b(yes|definitely|clearly|confirmed)\\b[^.\\n]{0,30}same person/i"
+			],
+			"derivation": "The earlier import flagged John Smith (with Jon Smith) and Casey Brooks (with Casey Morgan) for review; Maria Delgado with Maria Santos was marked \"Not a duplicate\", so it is not listed. A pair is a possible duplicate, never proof."
+		}
+	},
+	{
+		"case_id": "ADP-R-11",
+		"extra": true,
+		"adapter": "people/reads",
+		"operation": "people.listDuplicatePairs",
+		"near_miss": false,
+		"question": "any possible duplicates I should look at?",
+		"eval": {
+			"as": "admin",
+			"calls": [
+				{
+					"operation": "people.listDuplicatePairs"
+				}
+			],
+			"names": {
+				"all": ["Casey Brooks", "Casey Morgan", "John Smith", "Jon Smith"],
+				"allowed": ["Casey Brooks", "Casey Morgan", "John Smith", "Jon Smith"]
+			},
+			"forbid": [
+				"/no duplicates (found|in)|(you['’]?re|you are|church is|records are) (all )?clean|no (possible )?duplicates\\b/i",
+				"Maria Delgado",
+				"Maria Santos",
+				"/\\b(yes|definitely|clearly|confirmed)\\b[^.\\n]{0,30}same person/i"
+			],
+			"derivation": "The earlier import flagged John Smith (with Jon Smith) and Casey Brooks (with Casey Morgan) for review; Maria Delgado with Maria Santos was marked \"Not a duplicate\", so it is not listed. A pair is a possible duplicate, never proof."
+		}
+	},
+	{
+		"case_id": "ADP-R-12",
+		"extra": true,
+		"adapter": "people/reads",
+		"operation": "people.listDuplicatePairs",
+		"near_miss": true,
+		"question": "who do I need to review?",
+		"eval": {
+			"as": "member",
+			"maxCalls": {
+				"people.listDuplicatePairs": 0
+			},
+			"forbid": [
+				"John Smith",
+				"Casey Brooks",
+				"Maria Delgado",
+				"/possible duplicates? (are|is)|flagged (for review|as (a )?possible)/i"
+			],
+			"derivation": "A Member is not offered the import review pairs, so the answer names no pair."
+		}
+	},
+	{
+		"case_id": "ADP-R-13",
+		"extra": true,
+		"adapter": "people/reads",
+		"operation": "people.checkForDuplicates",
+		"near_miss": true,
+		"question": "is jon smith the same as john smith?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "people.checkForDuplicates"
+				}
+			],
+			"require": [
+				"John Smith",
+				"/hint|possible|potential|might|may|similar|not (proof|certain|sure)|can['’]?t (be sure|confirm|tell)|enough to (tell|say|know)/i"
+			],
+			"forbid": ["/\\b(yes|definitely|clearly|confirmed)\\b[^.\\n]{0,30}same person/i"],
+			"derivation": "Comparing two named people is the duplicate check, not the import review list."
+		}
+	},
+	{
 		"case_id": "ADP-C-01",
 		"extra": true,
 		"adapter": "people/commands",
@@ -565,6 +661,271 @@
 				"checks": ["gives an answer"],
 				"note": "Reads tags person by person until the 24-tool budget ends the turn with no answer."
 			}
+		}
+	},
+	{
+		"case_id": "ADP-S-01",
+		"extra": true,
+		"adapter": "catalog",
+		"operation": "evry.selectReturnedRows",
+		"near_miss": false,
+		"question": "Find everyone named Maria, then narrow that result to just the one in Austin and show me only her.",
+		"eval": {
+			"calls": [
+				{
+					"operation": "people.listPeople",
+					"input": {
+						"search": "Maria"
+					}
+				},
+				{
+					"operation": "evry.selectReturnedRows"
+				}
+			],
+			"require": ["Maria Delgado"],
+			"derivation": "A search returns both Marias (Round Rock and Austin); the selection keeps Maria Delgado from that result instead of reading again."
+		}
+	},
+	{
+		"case_id": "ADP-M-01",
+		"extra": true,
+		"adapter": "communication/commands",
+		"operation": "communication.saveDraft",
+		"near_miss": false,
+		"question": "Draft an email to the launch team inviting them to Sunday's interest meeting.",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "communication.saveDraft",
+					"input": {
+						"audience": {
+							"groups": ["launch_team"]
+						}
+					}
+				}
+			],
+			"require": ["/review|approv/i"],
+			"forbid": [
+				"/I['’]?(ve| have)? (sent|scheduled|moved|cancelled|canceled|replaced)|has been (sent|scheduled|moved|cancelled|canceled)|is on its way/i"
+			],
+			"derivation": "One saveDraft review card to the launch team; nothing is saved before approval."
+		}
+	},
+	{
+		"case_id": "ADP-M-02",
+		"extra": true,
+		"adapter": "communication/commands",
+		"operation": "communication.saveDraft",
+		"near_miss": false,
+		"question": "Write an email to the launch team about Sunday's interest meeting and save it as a draft.",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "communication.saveDraft",
+					"input": {
+						"audience": {
+							"groups": ["launch_team"]
+						}
+					}
+				}
+			],
+			"require": ["/review|approv/i"],
+			"forbid": [
+				"/I['’]?(ve| have)? (sent|scheduled|moved|cancelled|canceled|replaced)|has been (sent|scheduled|moved|cancelled|canceled)|is on its way/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-M-03",
+		"extra": true,
+		"adapter": "communication/commands",
+		"operation": "communication.scheduleReviewed",
+		"near_miss": false,
+		"question": "Schedule it for Friday at 9am.",
+		"eval": {
+			"history": [
+				{
+					"user": "Draft an email to the launch team inviting them to Sunday's interest meeting."
+				},
+				{
+					"assistant": "I prepared a draft review: \"Sunday's interest meeting\" to the launch team. You approved it, so it's saved in Messages as a draft. Nothing was sent."
+				}
+			],
+			"calls": [
+				{
+					"operation": "communication.list"
+				}
+			],
+			"proposals": [
+				{
+					"operation": "communication.scheduleReviewed",
+					"input": {
+						"communicationId": "5b6d1f0e-0000-4000-8000-000000000c01",
+						"sendAt": "~2026-11-13T09:00"
+					}
+				}
+			],
+			"require": ["/review|approv/i"],
+			"forbid": [
+				"/I['’]?(ve| have)? (sent|scheduled|moved|cancelled|canceled|replaced)|has been (sent|scheduled|moved|cancelled|canceled)|is on its way/i"
+			],
+			"derivation": "Finds the saved draft, then one schedule review for Fri 13 Nov 9:00 AM church time."
+		}
+	},
+	{
+		"case_id": "ADP-M-04",
+		"extra": true,
+		"adapter": "communication/commands",
+		"operation": "communication.scheduleReviewed",
+		"near_miss": false,
+		"question": "Send the Sunday interest meeting draft on Friday morning at 9:00.",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "communication.scheduleReviewed",
+					"input": {
+						"communicationId": "5b6d1f0e-0000-4000-8000-000000000c01",
+						"sendAt": "~2026-11-13T09:00"
+					}
+				}
+			],
+			"require": ["/review|approv/i"],
+			"forbid": [
+				"/I['’]?(ve| have)? (sent|scheduled|moved|cancelled|canceled|replaced)|has been (sent|scheduled|moved|cancelled|canceled)|is on its way/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-M-05",
+		"extra": true,
+		"adapter": "communication/commands",
+		"operation": "communication.rescheduleReviewed",
+		"near_miss": false,
+		"question": "Move the Friday volunteer email to Saturday at 9am.",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "communication.rescheduleReviewed",
+					"input": {
+						"communicationId": "5b6d1f0e-0000-4000-8000-000000000c02",
+						"sendAt": "~2026-11-14T09:00"
+					}
+				}
+			],
+			"require": ["/review|approv/i"],
+			"forbid": [
+				"/I['’]?(ve| have)? (sent|scheduled|moved|cancelled|canceled|replaced)|has been (sent|scheduled|moved|cancelled|canceled)|is on its way/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-M-06",
+		"extra": true,
+		"adapter": "communication/commands",
+		"operation": "communication.cancelScheduledReviewed",
+		"near_miss": false,
+		"question": "Cancel the Friday email.",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "communication.cancelScheduledReviewed",
+					"input": {
+						"communicationId": "5b6d1f0e-0000-4000-8000-000000000c02"
+					}
+				}
+			],
+			"require": ["/review|approv/i"],
+			"forbid": [
+				"/I['’]?(ve| have)? (sent|scheduled|moved|cancelled|canceled|replaced)|has been (sent|scheduled|moved|cancelled|canceled)|is on its way/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-M-07",
+		"extra": true,
+		"adapter": "communication/commands",
+		"operation": "communication.replaceScheduledReviewed",
+		"near_miss": false,
+		"question": "Replace the body of the Friday volunteer email with: Thanks for volunteering. We now start at 5pm sharp, so please arrive by 4:45.",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "communication.replaceScheduledReviewed",
+					"input": {
+						"communicationId": "5b6d1f0e-0000-4000-8000-000000000c02"
+					},
+					"mentions": "5"
+				}
+			],
+			"require": ["/review|approv/i"],
+			"forbid": [
+				"/I['’]?(ve| have)? (sent|scheduled|moved|cancelled|canceled|replaced)|has been (sent|scheduled|moved|cancelled|canceled)|is on its way/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-M-08",
+		"extra": true,
+		"adapter": "communication/commands",
+		"operation": "communication.saveDraft",
+		"near_miss": false,
+		"question": "Write an email to the launch team about the Sunday interest meeting and schedule it for Friday at 9am.",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "communication.saveDraft",
+					"input": {
+						"audience": {
+							"groups": ["launch_team"]
+						}
+					}
+				}
+			],
+			"require": ["/review|approv/i"],
+			"forbid": [
+				"/I['’]?(ve| have)? (sent|scheduled|moved|cancelled|canceled|replaced)|has been (sent|scheduled|moved|cancelled|canceled)|is on its way/i"
+			],
+			"derivation": "A schedule needs a saved message: the draft review comes first, and no schedule card is proposed for an unsaved message."
+		}
+	},
+	{
+		"case_id": "ADP-M-09",
+		"extra": true,
+		"adapter": "communication/reads",
+		"operation": "communication.list",
+		"near_miss": true,
+		"question": "Send it now.",
+		"eval": {
+			"history": [
+				{
+					"user": "Draft an email to the launch team inviting them to Sunday's interest meeting."
+				},
+				{
+					"assistant": "I prepared a draft review: \"Sunday's interest meeting\" to the launch team. You approved it, so it's saved in Messages as a draft. Nothing was sent."
+				}
+			],
+			"forbid": ["/I['’]?(ve| have)? sent|has been sent|is on its way|sending (it|now)/i"],
+			"require": ["/Messages|schedul|can['’]?t send|cannot send/i"],
+			"derivation": "Evry has no send-now tool: no review card of any kind, and it points to Messages or a schedule."
+		}
+	},
+	{
+		"case_id": "ADP-M-10",
+		"extra": true,
+		"adapter": "communication/reads",
+		"operation": "communication.list",
+		"near_miss": false,
+		"question": "What emails are scheduled to go out this week?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "communication.list"
+				}
+			],
+			"require": ["/Friday volunteer email/i"],
+			"forbid": [
+				"/I['’]?(ve| have)? (sent|scheduled|moved|cancelled|canceled|replaced)|has been (sent|scheduled|moved|cancelled|canceled)|is on its way/i"
+			]
 		}
 	}
 ]

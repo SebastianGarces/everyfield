@@ -1,6 +1,6 @@
 # Future build plan
 
-The approved target has 99 active single-owner packages. WP-086 is retired into WP-085; WP-016 is retired into WP-017; WP-021 is retired into WP-020; WP-052 is retired into WP-051; WP-060 is retired into WP-059; IDs are never reused. docs/build-progress.json stopped updating at the evf v2 cutover; evf v2's task records are the live state.
+The approved target has 99 active single-owner packages. WP-086 is retired into WP-085; WP-016 is retired into WP-017; WP-021 is retired into WP-020; WP-052 is retired into WP-051; WP-060 is retired into WP-059; IDs are never reused. docs/build-progress.json stopped updating on 2026-10-22 at PR #235; evf v2's task records are the live state.
 
 Start with a [short package brief](context.md). Read detailed requirements and cases on demand. The [DAG](dag.json) owns scope and dependencies; builders choose filenames and internal structures within the owned directories.
 
@@ -40,7 +40,7 @@ The DAG estimates effort from owned clauses, operations, cases and referenced ta
 | WP-002 | Shared identity, access, time and change-history behavior | 5 | 2 | 8 | 0 | 1.5 |
 | WP-003 | Secure sign-in, private files and streamed responses | 12 | 0 | 11 | 2 | 1.5 |
 | WP-004 | Data storage for shipped features with tenant isolation | 20 | 4 | 46 | 73 | 4 |
-| WP-031 | Reliable background work and delivery recovery | 17 | 17 | 22 | 7 | 2 |
+| WP-031 | Reliable background work and delivery recovery | 17 | 15 | 22 | 7 | 2 |
 | WP-088 | Product design foundations, dark mode and application shell | 0 | 0 | 0 | 0 | 2 |
 | WP-089 | Shared controls, surfaces and overlays | 0 | 0 | 0 | 0 | 3 |
 | WP-090 | Shared data, content and domain displays | 0 | 0 | 0 | 0 | 3.5 |
@@ -54,9 +54,9 @@ The DAG estimates effort from owned clauses, operations, cases and referenced ta
 | WP-012 | Households tags skills and person fields | 8 | 21 | 10 | 4 | 2 |
 | WP-013 | People CSV import/export | 2 | 5 | 3 | 4 | 1.5 |
 | WP-014 | Assessments interviews commitments | 8 | 10 | 13 | 7 | 2 |
-| WP-015 | Corrections duplicate resolution and merge | 9 | 10 | 36 | 3 | 2 |
+| WP-015 | Corrections duplicate resolution and merge | 9 | 12 | 36 | 4 | 2 |
 | WP-032 | Canonical reference/template manifest | 7 | 12 | 15 | 2 | 1.5 |
-| WP-020 | Meetings, venues, list and detail, invitations and RSVP | 29 | 48 | 35 | 5 | 3 |
+| WP-020 | Meetings, venues, list and detail, invitations and RSVP | 29 | 49 | 35 | 5 | 3 |
 | WP-017 | Teams, roster, roles, leader appointments and org chart | 11 | 40 | 26 | 4 | 2.5 |
 | WP-018 | Responsibilities canonical offer | 3 | 7 | 3 | 2 | 1.5 |
 | WP-019 | Training programs completion revoke/correct | 14 | 10 | 27 | 4 | 2 |
@@ -74,7 +74,7 @@ The DAG estimates effort from owned clauses, operations, cases and referenced ta
 | WP-034 | Wiki browsing/search/progress/bookmarks | 80 | 21 | 88 | 4 | 4 |
 | WP-035 | Wiki feedback/admin/revalidation | 89 | 7 | 88 | 3 | 4 |
 | WP-036 | Document template and format contracts | 27 | 5 | 15 | 3 | 2 |
-| WP-037 | Generated files and native owned documents | 27 | 19 | 30 | 3 | 2.5 |
+| WP-037 | Generated files and native owned documents | 27 | 20 | 30 | 3 | 2.5 |
 | WP-039 | Check-ins manual signals and corrections | 15 | 11 | 41 | 6 | 2 |
 | WP-045 | Launch plan/readiness/milestones | 18 | 10 | 19 | 7 | 2 |
 | WP-046 | Launch outcomes/events/history | 43 | 11 | 45 | 5 | 3 |
@@ -112,7 +112,7 @@ The DAG estimates effort from owned clauses, operations, cases and referenced ta
 | WP-079 | Evry documents reads/helper adapters | 2 | 14 | 7 | 0 | 1.5 |
 | WP-080 | Evry documents draft/propose/execute adapters | 0 | 12 | 4 | 0 | 1.5 |
 | WP-081 | Evry notifications reads/helper adapters | 2 | 8 | 8 | 0 | 1.5 |
-| WP-082 | Evry notifications draft/propose/execute adapters | 2 | 28 | 3 | 0 | 1.5 |
+| WP-082 | Evry notifications draft/propose/execute adapters | 2 | 26 | 3 | 0 | 1.5 |
 | WP-083 | Evry platform reads/helper adapters | 0 | 38 | 0 | 0 | 2 |
 | WP-084 | Evry platform draft/propose/execute adapters | 1 | 53 | 1 | 0 | 2 |
 | WP-085 | Evry named helpers and candidate preparation | 1 | 2 | 9 | 0 | 1.5 |

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { correlationId, recordId, requestKey, revision } from "../common/values.ts";
+import { defineSafeError, recordId, requestKey, revision, type Reply } from "../common/values.ts";
 import { instant, localDate } from "../common/time.ts";
 
 // Manual signals and leadership-candidate attestations (WP-039 slice 2, REQ-PI-014, REQ-PI-015, REQ-TEAM-017, REQ-KNOW-050).
@@ -298,24 +298,22 @@ export type SignalWriteResult = z.infer<typeof signalWriteResult>;
 export const candidateWriteResult = z.strictObject({ outcome: z.literal("saved"), candidate: candidateEntry });
 export type CandidateWriteResult = z.infer<typeof candidateWriteResult>;
 
-const error = <C extends string>(code: C, retry: "never" | "refresh") =>
-	z.strictObject({ code: z.literal(code), details: z.strictObject({}), correlationId, retry: z.literal(retry) });
 /**
  * Every refusal. `not_found` is the one answer for a missing, foreign or retired Person and for a foreign church. A
  * refusal never carries details.
  */
 export const signalError = z.discriminatedUnion("code", [
-	error("invalid_input", "never"),
-	error("access_denied", "never"),
-	error("not_found", "never"),
-	error("idempotency_conflict", "never"),
-	error("revision_conflict", "refresh"),
+	defineSafeError("invalid_input", {}, "never"),
+	defineSafeError("access_denied", {}, "never"),
+	defineSafeError("not_found", {}, "never"),
+	defineSafeError("idempotency_conflict", {}, "never"),
+	defineSafeError("revision_conflict", {}, "refresh"),
 	/** The correction names the value the signal already has. */
-	error("no_change", "never"),
+	defineSafeError("no_change", {}, "never"),
 	/** There is no current answer to correct, retract or reaffirm. */
-	error("not_current", "refresh"),
+	defineSafeError("not_current", {}, "refresh"),
 	/** "Still true" is only for the three signals that go stale. */
-	error("not_reaffirmable", "never"),
+	defineSafeError("not_reaffirmable", {}, "never"),
 ]);
 export type SignalError = z.infer<typeof signalError>;
-export type SignalReply<T> = { status: "ok"; value: T } | { status: "refused"; error: SignalError };
+export type SignalReply<T> = Reply<T, SignalError>;

@@ -46,12 +46,15 @@ export function NativeDocuments({ written, canEdit }: { written: Scope; canEdit:
 
 	useEffect(() => {
 		let cancel = false;
-		loadWrittenDocuments().then((result) => {
-			if (cancel) return;
-			setFailed(result.status !== "ok");
-			setDocuments(result.status === "ok" ? result.value.documents : []);
-			setEvidence(result.status === "ok" ? result.value.evidence : null);
-		});
+		// A call that never reached the server reads as a failed load, with its Retry, not an endless skeleton.
+		loadWrittenDocuments()
+			.catch(() => ({ status: "lost" }) as const)
+			.then((result) => {
+				if (cancel) return;
+				setFailed(result.status !== "ok");
+				setDocuments(result.status === "ok" ? result.value.documents : []);
+				setEvidence(result.status === "ok" ? result.value.evidence : null);
+			});
 		return () => {
 			cancel = true;
 		};
@@ -167,11 +170,13 @@ function UseForChurch({ onClose }: { onClose: () => void }) {
 	// Each opening mounts the dialog afresh, so the list is read again and no earlier choice or problem carries over.
 	useEffect(() => {
 		let cancel = false;
-		loadCopySources().then((result) => {
-			if (cancel) return;
-			setLoadFailed(result.status !== "ok");
-			setSources(result.status === "ok" ? result.value : []);
-		});
+		loadCopySources()
+			.catch(() => ({ status: "lost" }) as const)
+			.then((result) => {
+				if (cancel) return;
+				setLoadFailed(result.status !== "ok");
+				setSources(result.status === "ok" ? result.value : []);
+			});
 		return () => {
 			cancel = true;
 		};
@@ -185,7 +190,10 @@ function UseForChurch({ onClose }: { onClose: () => void }) {
 		const key = attempt.current.key;
 		setCopying(source.id);
 		setProblem(null);
-		const result = await copyToChurch({ documentId: source.id, revisionId: source.revisionId, requestKey: key });
+		// A call that never reached the server reads as a lost reply, so the same choice retries with the same key.
+		const result = await copyToChurch({ documentId: source.id, revisionId: source.revisionId, requestKey: key }).catch(
+			() => ({ status: "lost" }) as const,
+		);
 		if (result.status === "ok") {
 			attempt.current = null;
 			router.push(`/documents/written/${result.value.id}`);

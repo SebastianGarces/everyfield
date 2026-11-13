@@ -11,59 +11,36 @@
 //   Criterion 8: an accept after another save, or after the church template changed, is a conflict and writes nothing.
 //   Criterion 9: a deleted church template offers no compare; the document still opens, saves and exports.
 //   Criterion 10: a Member, another church's seat and a forged origin are refused, write nothing and reveal nothing.
-import { createDatabase, closeDatabase } from "../../../packages/db/src/client.ts";
+import { fixture, ok, refused } from "../../support/fixture.mts";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
-import { migrate } from "../../../packages/db/src/schema/migrate.ts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { documentsWriter } from "../../../packages/domain/src/documents/index.ts";
 import { LEGAL_NOTICE, docTemplate, templateHash } from "../../../packages/contracts/src/documents/index.ts";
 import { pdfPages, docxParts, wordText } from "./fixtures/readers.mts";
 import test, { after, before, describe } from "node:test";
 import assert from "node:assert/strict";
-import { randomBytes, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 
 const POLICY = "conflict-of-interest-policy";
 const para = (text) => ({ type: "paragraph", content: [{ type: "text", text }] });
 const shape = (differences) => differences.map((d) => [d.id, d.part, d.kind]);
 
-const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
-const localCi =
-	process.env.CI === "true" &&
-	process.env.EARLY_ACCESS_TEST_DATABASE === "1" &&
-	["localhost", "127.0.0.1"].includes(source.hostname) &&
-	source.pathname === "/everyfield_ci";
-if (
-	(!localCi && source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech") ||
-	process.env.NODE_ENV === "production"
-)
-	throw Error("Only approved shared development or disposable CI endpoint allowed");
-if (!localCi) source.searchParams.set("sslmode", "verify-full");
-
-const schema = "t80cmp_" + randomUUID().replaceAll("-", "");
-const roleName = "t80cmp_" + randomBytes(8).toString("hex");
-const admin = createDatabase({
-	connectionString: source.href,
-	max: 4,
-	options: `-c search_path=${schema},pg_catalog,pg_temp`,
-});
-const P = randomUUID();
-const Q = randomUUID();
-const actors = Array.from({ length: 4 }, () => ({ id: randomUUID(), user: randomUUID(), session: randomUUID() }));
+const database = await fixture({ prefix: "t80cmp", plant: { name: "Harvest Point" } });
+const { admin } = database;
+const db = database.pools.runtime;
+const P = database.tenant.id;
+const Q = (await database.plant({ name: "Other Church", timezone: "America/New_York" })).id;
+const actors = [
+	database.actors.owner,
+	database.actors.member,
+	database.actors.admin,
+	await database.actor({ kind: "plant", id: Q }, "admin"),
+];
 const OWNER = 0;
 const MEMBER = 1;
 const ADMIN = 2;
 const OTHER = 3;
-let db;
 
-const ok = (result) => {
-	assert.equal(result.status, "ok", JSON.stringify(result.status === "refused" ? result.error : result.status));
-	return result.value;
-};
-const refused = (result, code) => {
-	assert.equal(result.status, "refused", JSON.stringify(result));
-	assert.equal(result.error.code, code, JSON.stringify(result.error));
-	return result.error;
-};
 const authority = async (who) => {
 	const actor = await RequestActor.resolve(db, actors[who].session);
 	assert.ok(actor instanceof RequestActor, JSON.stringify(actor));
@@ -173,46 +150,6 @@ async function versionTwo(template) {
 }
 
 before(async () => {
-	await admin.execute(sql.raw(`CREATE SCHEMA ${schema}`));
-	await migrate(admin, schema);
-	const password = randomBytes(32).toString("hex");
-	await admin.execute(
-		sql.raw(
-			`CREATE ROLE ${roleName} LOGIN INHERIT PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`,
-		),
-	);
-	await admin.execute(sql.raw(`GRANT everyfield_runtime TO ${roleName}`));
-	const url = new URL(source);
-	url.username = roleName;
-	url.password = password;
-	db = createDatabase({ connectionString: url.href, max: 4, options: `-c search_path=${schema},pg_catalog,pg_temp` });
-	for (const actor of actors) {
-		await admin.execute(
-			sql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${actor.user},${actor.id + "@example.test"},true,'Synthetic')`,
-		);
-		await admin.execute(
-			sql`INSERT INTO account(id,auth_user_id,registration_state,registration_kind) VALUES(${actor.id},${actor.user},'active','planter')`,
-		);
-		await admin.execute(
-			sql`INSERT INTO auth_session(id,user_id,token,expires_at) VALUES(${actor.session},${actor.user},${randomUUID()},clock_timestamp()+interval '1 day')`,
-		);
-	}
-	for (const [id, name, tz] of [
-		[P, "Harvest Point", "America/Chicago"],
-		[Q, "Other Church", "America/New_York"],
-	])
-		await admin.execute(
-			sql`INSERT INTO plant(id,name,timezone,warning_days,alert_days,digest_weekday,digest_hour,phase,material_revision) VALUES(${id},${name},${tz},7,14,1,8,1,1)`,
-		);
-	for (const [index, plant, role] of [
-		[OWNER, P, "owner"],
-		[MEMBER, P, "member"],
-		[ADMIN, P, "admin"],
-		[OTHER, Q, "admin"],
-	])
-		await admin.execute(
-			sql`INSERT INTO seat(account_id,plant_id,role,accepted_at) VALUES(${actors[index].id},${plant},${role},clock_timestamp())`,
-		);
 	// Harvest Point has a senior pastor, so the pastor field prints the church's value; Other Church has none.
 	const pastor = randomUUID();
 	const team = randomUUID();
@@ -232,17 +169,11 @@ before(async () => {
 	);
 });
 after(async () => {
-	if (db) await closeDatabase(db);
-	try {
-		await admin.execute(sql.raw(`DROP SCHEMA IF EXISTS ${schema} CASCADE`));
-		await admin.execute(sql.raw(`DROP ROLE IF EXISTS ${roleName}`));
-	} finally {
-		await closeDatabase(admin);
-	}
+	await database.close();
 });
 
-describe("T-80 compare a document with the church's own template", { concurrency: 1 }, () => {
-	test("criteria 1, 3: a fresh document matches its church template; the compare names it as the church's own", async () => {
+describe("INV-doc-compare: compare a document with the church's own template", { concurrency: 1 }, () => {
+	test("INV-doc-compare: a fresh document matches its church template; the compare names it as the church's own", async () => {
 		const template = await churchTemplate(ADMIN, "Board policy");
 		const doc = await create(ADMIN, template.templateId);
 		assert.equal(doc.body.origin.template, template.templateId);
@@ -268,7 +199,7 @@ describe("T-80 compare a document with the church's own template", { concurrency
 		assert.equal(builtIn.churchTemplate, false);
 	});
 
-	test("criterion 2: a deleted paragraph, a reworded heading and a new margin are each listed once, in reading order", async () => {
+	test("INV-doc-compare: a deleted paragraph, a reworded heading and a new margin are each listed once, in reading order", async () => {
 		const template = await churchTemplate(OWNER, "Margins policy");
 		const v1 = await storedTemplate(template.id);
 		const doc = await create(OWNER, template.templateId);
@@ -292,7 +223,7 @@ describe("T-80 compare a document with the church's own template", { concurrency
 		assert.deepEqual(found.differences[2].template, v1.body.content[7]);
 	});
 
-	test("criteria 1, 4, 5, 6, 12: accepting some changes of version 2 writes one revision with the exact body and origin", async () => {
+	test("INV-doc-compare: accepting some changes of version 2 writes one revision with the exact body and origin", async () => {
 		const template = await churchTemplate(OWNER, "Our conflict policy");
 		const doc = await create(ADMIN, template.templateId);
 		const other = await create(ADMIN, template.templateId);
@@ -388,7 +319,7 @@ describe("T-80 compare a document with the church's own template", { concurrency
 		assert.deepEqual(ok(await compare(OWNER, other.id)).differences, []);
 	});
 
-	test("criterion 6: a church with no value for a new field prints the template's fallback; a value is not a difference", async () => {
+	test("INV-doc-compare: a church with no value for a new field prints the template's fallback; a value is not a difference", async () => {
 		const template = await churchTemplate(OTHER, "Other policy");
 		const doc = await create(OTHER, template.templateId);
 		// Other Church's details change: a frozen value that differs is not a difference.
@@ -438,7 +369,7 @@ describe("T-80 compare a document with the church's own template", { concurrency
 		assert.ok((await pdfText(await file(OTHER, doc.id, "pdf"))).includes("Questions go to our pastor"));
 	});
 
-	test("criterion 7: after Delete all content, the legal notice is never a difference and accept all keeps it", async () => {
+	test("AC:DOC-019 after Delete all content, the legal notice is never a difference and accept all keeps it", async () => {
 		const template = await churchTemplate(ADMIN, "Legal policy");
 		assert.equal(template.documentClass, "formal/legal");
 		const v1 = await storedTemplate(template.id);
@@ -469,7 +400,7 @@ describe("T-80 compare a document with the church's own template", { concurrency
 		assert.ok(docxText(await file(ADMIN, doc.id, "docx")).includes(LEGAL_NOTICE));
 	});
 
-	test("criterion 8: an accept after another save, or after the church template changed, is a conflict and writes nothing", async () => {
+	test("INV-doc-compare: an accept after another save, or after the church template changed, is a conflict and writes nothing", async () => {
 		const template = await churchTemplate(OWNER, "Conflict policy");
 		const doc = await create(ADMIN, template.templateId);
 		const edited = structuredClone(doc.body);
@@ -507,7 +438,7 @@ describe("T-80 compare a document with the church's own template", { concurrency
 		assert.equal(ok(await compare(ADMIN, doc.id)).templateVersion, 2);
 	});
 
-	test("criterion 9: a deleted church template offers no compare; the document still opens, saves and exports", async () => {
+	test("AC:DOC-022 a deleted church template offers no compare; the document still opens, saves and exports", async () => {
 		const template = await churchTemplate(OWNER, "Gone policy");
 		const doc = await create(OWNER, template.templateId);
 		const found = ok(await compare(OWNER, doc.id));
@@ -535,7 +466,7 @@ describe("T-80 compare a document with the church's own template", { concurrency
 		assert.ok(docxText(await file(OWNER, doc.id, "docx")).length > 0);
 	});
 
-	test("criterion 10: a Member, another church's seat and a forged origin are refused, write nothing and reveal nothing", async () => {
+	test("INV-tenancy: a Member, another church's seat and a forged origin are refused, write nothing and reveal nothing", async () => {
 		const template = await churchTemplate(OWNER, "Private board policy");
 		const doc = await create(OWNER, template.templateId);
 		const found = ok(await compare(OWNER, doc.id));

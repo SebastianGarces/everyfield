@@ -15,6 +15,7 @@ import { cn, Icon } from "@everyfield/ui/foundations";
 import { useRef, useState, useSyncExternalStore } from "react";
 import { dueText, lacksOwner, ownerText } from "../tasks/model.ts";
 import { AssignMenu, dutyFrom } from "./duties.tsx";
+import { outcomeSaved } from "../tasks/fresh.tsx";
 import { recordOutcome } from "./actions.ts";
 import { loadCall } from "./fetch.ts";
 import { OutcomeFields } from "./fields.tsx";
@@ -24,6 +25,7 @@ import {
 	OUTCOME_LABEL,
 	OUTCOMES,
 	outcomeInput,
+	recentAfter,
 	windowAt,
 	type Draft,
 	type DraftErrors,
@@ -61,10 +63,7 @@ export function CallScreen({ initial, accountId, admin }: { initial: CallData; a
 	const due = dueText(task.due);
 
 	async function submit(form: HTMLFormElement) {
-		const parsed =
-			!open && draft.outcome === "no_longer_needed"
-				? ({ ok: false, errors: { outcome: "This follow-up is already finished. Choose what happened." } } as const)
-				: outcomeInput(draft, { completable: open });
+		const parsed = outcomeInput(draft, { completable: open });
 		if (!parsed.ok) {
 			setErrors(parsed.errors);
 			focusFirstProblem(form);
@@ -76,6 +75,7 @@ export function CallScreen({ initial, accountId, admin }: { initial: CallData; a
 			what: "The outcome",
 			send: (key) => recordOutcome(key, input),
 			ok: (value) => {
+				outcomeSaved();
 				setSaved(value);
 				setDraft(emptyDraft());
 				setCall((c) => ({
@@ -89,7 +89,7 @@ export function CallScreen({ initial, accountId, admin }: { initial: CallData; a
 						? {
 								...c.recent,
 								lastConfirmedContactAt: value.lastConfirmedContactAt,
-								items: [value.record, ...c.recent.items].slice(0, 3),
+								items: recentAfter(c.recent.items, value),
 							}
 						: c.recent,
 				}));

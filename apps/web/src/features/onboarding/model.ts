@@ -2,11 +2,11 @@ import type * as C from "@everyfield/contracts/onboarding";
 import type { z } from "zod";
 
 // The onboarding rules as pure functions (WP-009/ui R4-R6). The store (store.tsx) holds one State and applies these;
-// tests/ui/onboarding/model.test.mjs checks them over random interleavings. This file has only type imports, so the
+// tests/unit/onboarding/model.test.mjs checks them over random interleavings. This file has only type imports, so the
 // model test runs it without a bundler.
 
 export type Resume = Extract<z.infer<typeof C.resumeResult>, { status: "available" }>;
-export type DiscoveryProfile = Extract<z.infer<typeof C.discoveryProfileResult>, { status: "active" }>["profile"];
+type DiscoveryProfile = Extract<z.infer<typeof C.discoveryProfileResult>, { status: "active" }>["profile"];
 export type OnboardingError = z.infer<typeof C.onboardingError>;
 export type ErrorCode = OnboardingError["code"];
 export type Reply<T> = { status: "ok"; value: T } | { status: "refused"; error: OnboardingError };
@@ -66,9 +66,9 @@ export type Drafts = {
 	/** Discovery relationships the person ticked to bring into the new church. None by default. */
 	keep: string[];
 };
-export const EMPTY_BASICS: BasicsDraft = { name: "", city: "", stateProvince: "", country: "", confirmed: false };
+const EMPTY_BASICS: BasicsDraft = { name: "", city: "", stateProvince: "", country: "", confirmed: false };
 export const DEFAULT_LEAD = { roleName: "Lead pastor", teamName: "Leadership", seniorPastor: false } as const;
-export function emptyDrafts(): Drafts {
+function emptyDrafts(): Drafts {
 	return { basics: EMPTY_BASICS, journey: null, launch: null, lead: null, keep: [] };
 }
 
@@ -76,7 +76,7 @@ export function emptyDrafts(): Drafts {
 
 export type Op = "createPlant" | "createDiscovery" | "convertDiscovery" | "declareJourney" | "answerLead" | "complete";
 /** One intent: the same payload retried keeps its request key, so a retry replays instead of acting twice. */
-export type Intent = { op: Op; digest: string; requestKey: string };
+type Intent = { op: Op; digest: string; requestKey: string };
 export type Command = { requestKey: string; expectedRevision: string; input: unknown };
 
 /**
@@ -102,7 +102,7 @@ export function initialState(entry: Entry, requested: StepKey | null, drafts = e
 
 // ---- Facts and steps ----
 
-export const journeySaved = (r: Resume) => r.journey.status === "saved";
+const journeySaved = (r: Resume) => r.journey.status === "saved";
 /** An existing-journey attestation is once only. After it the phase and the launch answer show read-only (R4). */
 export const journeyLocked = (r: Resume) => r.journey.status === "saved" && r.journey.value.answer === "existing";
 /** A saved yes made a real role assignment; sending yes again would make a second one (R4). */
@@ -136,7 +136,7 @@ export function stepDone(key: StepKey, r: Resume): boolean {
 }
 
 /** Where a returning Owner picks up: the first unanswered step, or Finish. */
-export function resumeStep(r: Resume): StepKey {
+function resumeStep(r: Resume): StepKey {
 	if (finished(r)) return "finish";
 	if (!stepDone("journey", r) || !stepDone("launch", r)) return "journey";
 	if (!stepDone("team", r)) return "team";
@@ -148,7 +148,7 @@ export function resumeStep(r: Resume): StepKey {
  * read-only summary: basics are never reentered. Launch date needs a phase answer first, saved or drafted, because
  * the two save together.
  */
-export function clampView(state: Pick<State, "entry" | "drafts">, requested: StepKey | null): StepKey {
+function clampView(state: Pick<State, "entry" | "drafts">, requested: StepKey | null): StepKey {
 	if (state.entry.kind !== "plant") return "church";
 	const r = state.entry.resume;
 	const view = requested ?? resumeStep(r);
@@ -273,7 +273,7 @@ export function stable(value: unknown): string {
 /** Why a command is not sent: already busy, or the step is read-only. */
 export type Hold = "busy" | "locked" | "unavailable";
 
-export function expectedRevision(entry: Entry, op: Op): string | null {
+function expectedRevision(entry: Entry, op: Op): string | null {
 	if (op === "createPlant" || op === "createDiscovery") return entry.kind === "start" ? entry.accountRevision : null;
 	if (op === "convertDiscovery") return entry.kind === "discovery" ? entry.profile.revision : null;
 	return entry.kind === "plant" ? entry.resume.revision : null;
@@ -327,7 +327,7 @@ export type Results = {
 export type Settled = { [K in Op]: { op: K; reply: Reply<Results[K]> } }[Op];
 
 /** Codes after which the screen reloads its facts from the server before the person tries again. */
-export const RELOAD_CODES: ReadonlySet<ErrorCode> = new Set([
+const RELOAD_CODES: ReadonlySet<ErrorCode> = new Set([
 	"conflict",
 	"already_declared",
 	"active_seat_conflict",

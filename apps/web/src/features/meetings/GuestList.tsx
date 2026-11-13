@@ -36,20 +36,13 @@ import {
 	useToast,
 } from "@everyfield/ui/controls";
 import { instant } from "@everyfield/contracts/common";
+import { answeringStatuses } from "@everyfield/contracts/meetings";
+import { listPhotoRoute, type PersonPhoto } from "@everyfield/contracts/people";
 import { Avatar, DataTable, StatusBadge, type Column } from "@everyfield/ui/display";
 import { flushSync } from "react-dom";
 import { startTransition, useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { NoticeInDialog, RecordDialog, RowNotices, SaveNotice, useSaveIntent } from "../../components/save/parts.tsx";
-import {
-	addAttendeeNote,
-	clearCard,
-	correctRsvp,
-	createGuestContact,
-	inviteGuest,
-	recordCard,
-	removeGuest,
-	setInviter,
-} from "./actions.ts";
+import { addAttendeeNote, addGuests, clearCard, correctRsvp, recordCard, removeGuest, setInviter } from "./actions.ts";
 import { PresenceCell, type usePresence } from "./Attendance.tsx";
 import {
 	ChosenList,
@@ -59,7 +52,7 @@ import {
 	type ChosenChip,
 	type PickedPerson,
 } from "./dialogs.tsx";
-import { sendTwice, type Wait } from "../../components/save/model.ts";
+import type { Wait } from "../../components/save/model.ts";
 import {
 	CARD_LABEL,
 	CARD_RESPONSES,
@@ -108,7 +101,6 @@ type Form = (
 ) & { problem?: string };
 
 const STATE_NOTE = { retired: "Retired", merged: "Merged", live: null } as const;
-const ACCEPTS_REPLIES = ["planning", "ready", "in_progress"];
 const nextRevision = (r: string) => String(BigInt(r) + 1n) as Guest["revision"];
 const EMPTY_ADD: AddDraft = {
 	mode: "existing",
@@ -138,6 +130,7 @@ export function GuestList({
 	meeting,
 	guests,
 	emailOpens,
+	photos,
 	cards,
 	attendance,
 	presence,
@@ -159,6 +152,8 @@ export function GuestList({
 	guests: GuestRow[] | null;
 	/** When a guest first opened an email of this meeting, from the email service. Never an RSVP or attendance. */
 	emailOpens: readonly { personId: string; openedAt: string }[];
+	/** Each guest's photo as the People list shows it; a guest with none keeps the initials. */
+	photos: readonly PersonPhoto[];
 	cards: CardEntry[] | null;
 	attendance: Attendance | null;
 	presence: ReturnType<typeof usePresence>;
@@ -166,8 +161,9 @@ export function GuestList({
 	canMark: boolean;
 	canWrite: boolean;
 	project: (change: Change) => void;
-	onGuest: (guest: Guest) => void;
-	onRemoved: (guestId: string) => void;
+	/** A saved guest; a guest result also names the meeting's attendance revision after it, which the page keeps. */
+	onGuest: (guest: Guest, attendanceRevision?: string) => void;
+	onRemoved: (guestId: string, attendanceRevision: string) => void;
 	onCard: (personId: string, card: CardEntry | null) => void;
 	onStale: () => void;
 }) {
@@ -181,6 +177,7 @@ export function GuestList({
 	const counts = rsvpCounts(shown);
 	const cardOf = new Map((cards ?? []).map((c) => [c.personId, c]));
 	const openedOf = new Map<string | null, string>(emailOpens.map((o) => [o.personId, o.openedAt]));
+	const photoOf = new Map<string | null, string>(photos.map((p) => [p.personId, listPhotoRoute(p.photo)]));
 	/** Owners and Admins see the Email column; until a guest has an open, a note says when opens appear. */
 	const noOpensYet = canWrite && shown.length > 0 && !shown.some((g) => openedOf.has(g.person.personId));
 	const table = useRef<HTMLDivElement>(null);
@@ -206,7 +203,7 @@ export function GuestList({
 	const final = attendance?.finalized != null;
 	const classOf = new Map((attendance?.items ?? []).map((a) => [a.person.personId, a.classification]));
 	const rows = filter === "all" ? shown : shown.filter((g) => g.rsvp === filter);
-	const open = ACCEPTS_REPLIES.includes(meeting.status);
+	const open = answeringStatuses.includes(meeting.status);
 	const busy = lane.wait !== null;
 
 	/**
@@ -241,59 +238,41 @@ export function GuestList({
 			send: (key) =>
 				correctRsvp(key, guest.revision, meeting.id, guest.person.personId, rsvp === "pending" ? null : rsvp),
 			ok: (v) => {
-				onGuest(v.guest);
+				onGuest(v.guest, v.attendanceRevision);
 				toast({ message: `${guest.person.displayName}: RSVP set to ${RSVP_LABEL[rsvp]}.`, tone: "success" });
 			},
 		});
 	}
 	/**
-	 * Everyone on Chosen, added together: people from People with meetings.inviteGuest, new people with
-	 * meetings.createGuestContact (their Person and guest row in one write), one request per person, each with its own
-	 * request key. The keys are made once per click, so the lane's replay of a lost answer never adds anyone twice.
-	 * Some refused or lost: the added guests stay and the form opens again with only the others chosen.
+	 * Everyone on Chosen, added together in one meetings.addGuests write: people from People and new people (their
+	 * Person and guest row). The request key is made once per click, so the lane's replay of a lost answer never adds
+	 * anyone twice. People no longer live are not added: the others stay and the form opens again with only them chosen.
 	 */
 	function add(draft: AddDraft) {
-		type Entry = { key: string; name: string; person: PickedPerson | null; fresh: NewGuest | null };
-		const entries: Entry[] = [
-			...draft.people.map((p) => ({ key: crypto.randomUUID(), name: p.name, person: p, fresh: null })),
-			...draft.fresh.map((n) => ({ key: crypto.randomUUID(), name: n.displayName, person: null, fresh: n })),
-		];
-		write<{ added: Guest[]; left: Entry[] }>({
-			what: entries.length === 1 ? entries[0]!.name : `${entries.length} guests`,
+		const names = new Map(draft.people.map((p) => [p.id, p.name]));
+		const count = draft.people.length + draft.fresh.length;
+		write({
+			what: count === 1 ? (draft.people[0]?.name ?? draft.fresh[0]!.displayName) : `${count} guests`,
 			done: "added",
 			form: { kind: "add", draft },
-			changes: entries.map((e) => ({
-				kind: "guest" as const,
-				guest: pendingGuest(e.person, e.name, e.fresh?.key),
-			})),
-			send: async () => {
-				const added: Guest[] = [];
-				const left: Entry[] = [];
-				let refusal: string | null = null;
-				for (const e of entries) {
-					const send = e.fresh
-						? () =>
-								createGuestContact(e.key, {
-									meetingId: meeting.id,
-									displayName: e.fresh!.displayName,
-									email: e.fresh!.email || null,
-									phone: e.fresh!.phone || null,
-									country: "US" as const,
-								})
-						: () => inviteGuest(e.key, { meetingId: meeting.id, personId: e.person!.id, inviterPersonId: null });
-					const r = await sendTwice(send);
-					if (r.status === "ok") added.push(r.value.guest);
-					else {
-						left.push(e);
-						if (r.status === "refused") refusal ??= r.code;
-					}
-				}
-				if (!added.length) return refusal ? { status: "refused", code: refusal } : { status: "lost" };
-				return { status: "ok", value: { added, left } };
-			},
-			ok: ({ added, left }) => {
-				for (const g of added) onGuest(g);
-				if (!left.length)
+			changes: [
+				...draft.people.map((p) => ({ kind: "guest" as const, guest: pendingGuest(p, p.name) })),
+				...draft.fresh.map((n) => ({ kind: "guest" as const, guest: pendingGuest(null, n.displayName, n.key) })),
+			],
+			send: (key) =>
+				addGuests(key, {
+					meetingId: meeting.id,
+					people: draft.people.map((p) => p.id),
+					contacts: draft.fresh.map((n) => ({
+						displayName: n.displayName,
+						email: n.email || null,
+						phone: n.phone || null,
+						country: "US" as const,
+					})),
+				}),
+			ok: ({ guests: added, notAdded, attendanceRevision }) => {
+				for (const g of added) onGuest(g, attendanceRevision);
+				if (!notAdded.length)
 					return toast({
 						message:
 							added.length === 1
@@ -301,14 +280,15 @@ export function GuestList({
 								: `${added.length} guests are on the guest list.`,
 						tone: "success",
 					});
-				toast({ message: `${added.length} added. ${left.length} not added.`, tone: "info" });
+				toast({ message: `${added.length} added. ${notAdded.length} not added.`, tone: "info" });
+				const left = new Set<string>(notAdded);
 				lane.open({
 					kind: "add",
 					draft: {
 						...draft,
-						people: left.flatMap((e) => (e.person ? [e.person] : [])),
-						fresh: left.flatMap((e) => (e.fresh ? [e.fresh] : [])),
-						notAdded: left.map((e) => e.name),
+						people: draft.people.filter((p) => left.has(p.id)),
+						fresh: [],
+						notAdded: notAdded.map((id) => names.get(id) ?? ""),
 					},
 				});
 			},
@@ -332,7 +312,7 @@ export function GuestList({
 				},
 			],
 			send: (key) => setInviter(key, guest.revision, meeting.id, guest.person.personId, id),
-			ok: (v) => onGuest(v.guest),
+			ok: (v) => onGuest(v.guest, v.attendanceRevision),
 		});
 	}
 	function saveCard(guest: Guest, response: CardResponse, notes: string) {
@@ -403,8 +383,8 @@ export function GuestList({
 			done: "removed",
 			changes: [{ kind: "removeGuest", guestId: guest.id }],
 			send: (key) => removeGuest(key, guest.revision, meeting.id, guest.person.personId),
-			ok: () => {
-				onRemoved(guest.id);
+			ok: (v) => {
+				onRemoved(guest.id, v.attendanceRevision);
 				toast({ message: `${guest.person.displayName} was removed from the guest list.`, tone: "success" });
 			},
 		});
@@ -416,7 +396,7 @@ export function GuestList({
 			header: "Guest",
 			cell: (g) => (
 				<div className="flex items-center gap-3">
-					<Avatar name={g.person.displayName} size="sm" decorative />
+					<Avatar name={g.person.displayName} src={photoOf.get(g.person.personId)} size="sm" decorative />
 					<div className="min-w-0">
 						{g.person.state === "live" && !isPending(g) ? (
 							<IntentLink

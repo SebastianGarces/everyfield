@@ -10,7 +10,7 @@ import { isMarkInSchema, isNodeTypeSelected } from "../tiptap-utils.ts";
 // --- Icons ---
 import { BoldIcon, ItalicIcon, UnderlineIcon } from "../icons.tsx";
 
-export type Mark = "bold" | "italic" | "underline";
+type Mark = "bold" | "italic" | "underline";
 
 /**
  * Configuration for the mark functionality
@@ -24,24 +24,15 @@ export interface UseMarkConfig {
 	 * The type of mark to toggle
 	 */
 	type: Mark;
-	/**
-	 * Whether the button should hide when mark is not available.
-	 * @default false
-	 */
-	hideWhenUnavailable?: boolean;
-	/**
-	 * Callback function called after a successful mark toggle.
-	 */
-	onToggled?: () => void;
 }
 
-export const markIcons = {
+const markIcons = {
 	bold: BoldIcon,
 	italic: ItalicIcon,
 	underline: UnderlineIcon,
 };
 
-export const MARK_SHORTCUT_KEYS: Record<Mark, string> = {
+const MARK_SHORTCUT_KEYS: Record<Mark, string> = {
 	bold: "mod+b",
 	italic: "mod+i",
 	underline: "mod+u",
@@ -50,7 +41,7 @@ export const MARK_SHORTCUT_KEYS: Record<Mark, string> = {
 /**
  * Checks if a mark can be toggled in the current editor state
  */
-export function canToggleMark(editor: Editor | null, type: Mark): boolean {
+function canToggleMark(editor: Editor | null, type: Mark): boolean {
 	if (!editor || !editor.isEditable) return false;
 	if (!isMarkInSchema(type, editor) || isNodeTypeSelected(editor, ["image"])) return false;
 
@@ -60,7 +51,7 @@ export function canToggleMark(editor: Editor | null, type: Mark): boolean {
 /**
  * Checks if a mark is currently active
  */
-export function isMarkActive(editor: Editor | null, type: Mark): boolean {
+function isMarkActive(editor: Editor | null, type: Mark): boolean {
 	if (!editor || !editor.isEditable) return false;
 	return editor.isActive(type);
 }
@@ -68,7 +59,7 @@ export function isMarkActive(editor: Editor | null, type: Mark): boolean {
 /**
  * Toggles a mark in the editor
  */
-export function toggleMark(editor: Editor | null, type: Mark): boolean {
+function toggleMark(editor: Editor | null, type: Mark): boolean {
 	if (!editor || !editor.isEditable) return false;
 	if (!canToggleMark(editor, type)) return false;
 
@@ -78,23 +69,17 @@ export function toggleMark(editor: Editor | null, type: Mark): boolean {
 /**
  * Determines if the mark button should be shown
  */
-export function shouldShowButton(props: { editor: Editor | null; type: Mark; hideWhenUnavailable: boolean }): boolean {
-	const { editor, type, hideWhenUnavailable } = props;
+function shouldShowButton(props: { editor: Editor | null; type: Mark }): boolean {
+	const { editor, type } = props;
 
 	if (!editor || !editor.isEditable) return false;
-	if (!isMarkInSchema(type, editor)) return false;
-
-	if (hideWhenUnavailable) {
-		return canToggleMark(editor, type);
-	}
-
-	return true;
+	return isMarkInSchema(type, editor);
 }
 
 /**
  * Gets the formatted mark name
  */
-export function getFormattedMarkName(type: Mark): string {
+function getFormattedMarkName(type: Mark): string {
 	return type.charAt(0).toUpperCase() + type.slice(1);
 }
 
@@ -117,8 +102,6 @@ export function getFormattedMarkName(type: Mark): string {
  *   const { isVisible, handleMark, label, isActive } = useMark({
  *     editor: myEditor,
  *     type: "italic",
- *     hideWhenUnavailable: true,
- *     onToggled: () => console.log('Mark toggled!')
  *   })
  *
  *   if (!isVisible) return null
@@ -136,24 +119,20 @@ export function getFormattedMarkName(type: Mark): string {
  * ```
  */
 export function useMark(config: UseMarkConfig) {
-	const { editor: providedEditor, type, hideWhenUnavailable = false, onToggled } = config;
+	const { editor: providedEditor, type } = config;
 
 	const { editor } = useTiptapEditor(providedEditor);
 	const canToggle = canToggleMark(editor, type);
 	const isActive = isMarkActive(editor, type);
 	// Everyfield change: derive visibility from the editor state on every render. Tiptap's copy set it in an effect
 	// that ran before the view mounted, so Bold, Italic and Underline stayed hidden until the first selection change.
-	const isVisible = shouldShowButton({ editor, type, hideWhenUnavailable });
+	const isVisible = shouldShowButton({ editor, type });
 
 	const handleMark = React.useCallback(() => {
 		if (!editor) return false;
 
-		const success = toggleMark(editor, type);
-		if (success) {
-			onToggled?.();
-		}
-		return success;
-	}, [editor, type, onToggled]);
+		return toggleMark(editor, type);
+	}, [editor, type]);
 
 	return {
 		isVisible,

@@ -13,8 +13,9 @@ import { Extension, mergeAttributes, Node as TiptapNode, type Editor } from "@ti
 import { closeHistory } from "@tiptap/pm/history";
 import { Fragment, Slice, type Node as PMNode } from "@tiptap/pm/model";
 import { NodeSelection, Plugin, PluginKey, TextSelection, type EditorState } from "@tiptap/pm/state";
-import { Decoration, DecorationSet, type EditorView, type ViewMutationRecord } from "@tiptap/pm/view";
+import { Decoration, type EditorView, type ViewMutationRecord } from "@tiptap/pm/view";
 import { attrsOfSpec, BLOCKS, px } from "./attrs.ts";
+import { docDecorations } from "./doc-decorations.ts";
 import {
 	focusPlace,
 	newTyping,
@@ -364,8 +365,15 @@ function valueCellView(
 
 // ---------------------------------------------------------------- the table
 
-/** The width in points the PDF gives a block at the top of the page, or of a card on a sheet of cards. */
-function textWidth(page: PageSetup) {
+/** The text width of a plain document's paper in points: 816 px Letter less 88 px on each side (`.ef-native`). */
+const PLAIN_TEXT_WIDTH = 480;
+
+/**
+ * The width in points the PDF gives a block at the top of the page, or of a card on a sheet of cards. A plain document
+ * has no page setup and prints nothing, so its tables take the width of its paper.
+ */
+function textWidth(page: PageSetup | undefined) {
+	if (!page) return PLAIN_TEXT_WIDTH;
 	return (tileBox(page)?.width ?? 0) - (page.tile ? 2 * page.tile.padding : 0);
 }
 
@@ -395,7 +403,10 @@ function tableNodeView(initial: PMNode, editor: Editor, getPos: () => number | u
 		// or a box has. The table scrolls inside its own area when the screen is narrower than that.
 		const paper = dom.closest<HTMLElement>(".ProseMirror")?.clientWidth;
 		const share = paper && scroll.clientWidth ? Math.min(1, scroll.clientWidth / paper) : 1;
-		const points = columnWidths(table().columns, textWidth(editor.state.doc.attrs.page as PageSetup) * share);
+		const points = columnWidths(
+			table().columns,
+			textWidth(editor.state.doc.attrs.page as PageSetup | undefined) * share,
+		);
 		grid.style.setProperty("--ef-cols", points.map((pt) => px(pt)).join(" "));
 		grid.style.minWidth = `${points.reduce((s, pt) => s + pt, 0) * (4 / 3)}px`;
 	}
@@ -642,14 +653,10 @@ export const TableRules = Extension.create({
 	addProseMirrorPlugins() {
 		return [
 			tableFocusPlugin(),
+			docDecorations("efTableDisplay", (doc) => tablesIn(doc).flatMap(({ node, pos }) => decorationsFor(node, pos))),
 			new Plugin({
-				key: new PluginKey("efTableDisplay"),
+				key: new PluginKey("efTableRules"),
 				props: {
-					decorations: ({ doc }) =>
-						DecorationSet.create(
-							doc,
-							tablesIn(doc).flatMap(({ node, pos }) => decorationsFor(node, pos)),
-						),
 					// A selection inside a table stays in one cell: a drag or Shift+arrows cannot span cells.
 					createSelectionBetween: (_view, $anchor, $head) => {
 						const doc = $anchor.doc;

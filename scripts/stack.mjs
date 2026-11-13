@@ -1,15 +1,15 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { recordsDir, wrapSetupCommands } from "./setup-step.mjs";
 
 const help = `Local preview commands, Node 24 and managed Portless required:
-  corepack pnpm stack:up [--mode development|production]
-  corepack pnpm stack:status
-  corepack pnpm stack:check
-  corepack pnpm stack:down
+  bin/dev stack up [--mode development|production]
+  bin/dev stack status
+  bin/dev stack check
+  bin/dev stack down
 Optional --project PATH selects another worktree. Production requires a clean commit.
 Status and check print JSON. Down preserves the worktree. See apps/web/README.md.`;
 
@@ -52,9 +52,7 @@ async function main() {
 	if (values.mode && action !== "up") throw new Error("--mode is only valid with up.");
 	const mode = values.mode ?? "development";
 	if (!["development", "production"].includes(mode)) throw new Error("Choose development or production mode.");
-	const project = realpathSync(
-		resolve(values.project ?? process.env.EVF_WORKTREE ?? join(dirname(fileURLToPath(import.meta.url)), "..")),
-	);
+	const project = realpathSync(resolve(values.project ?? join(dirname(fileURLToPath(import.meta.url)), "..")));
 	const records = portless(["status"]);
 	if (!Array.isArray(records)) throw new Error("Portless status must return an array.");
 	const previews = records.filter((p) => p.project === project && !["removed", "failed"].includes(p.state));
@@ -71,15 +69,8 @@ async function main() {
 	const info = preview
 		? Object.fromEntries(["id", "project", "head", "branch", "mode", "state", "url"].map((key) => [key, preview[key]]))
 		: { project, state: "stopped" };
-	if (process.env.EVF_RUNTIME_DIR) {
-		const file = join(process.env.EVF_RUNTIME_DIR, "stack.json");
-		if (preview) {
-			mkdirSync(process.env.EVF_RUNTIME_DIR, { recursive: true });
-			writeFileSync(file, JSON.stringify(info) + "\n", { mode: 0o600 });
-		} else rmSync(file, { force: true });
-	}
 	if (action === "check") {
-		if (preview?.state !== "ready") throw new Error("This worktree has no ready preview. Run stack:up first.");
+		if (preview?.state !== "ready") throw new Error("This worktree has no ready preview. Run bin/dev stack up first.");
 		const git = spawnSync("git", ["-C", project, "rev-parse", "HEAD"], { encoding: "utf8" });
 		if (git.status !== 0 || git.stdout.trim() !== preview.head)
 			throw new Error("Preview commit differs from HEAD. Stop and recreate the preview.");

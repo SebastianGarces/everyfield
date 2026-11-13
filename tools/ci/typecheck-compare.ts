@@ -6,15 +6,17 @@ import { parseArgs } from "node:util";
 import { outcomeOf, parseDiagnostics, typecheckPackages, type Outcome } from "./typecheck.ts";
 
 /**
- * Time tsc, tsgo and bun check on each typecheck package (T-53).
+ * Time bun check (the `typecheck` scripts), TypeScript 7 (the `typecheck:tsc` scripts) and TypeScript 6 (each package's
+ * own `typescript`, which lint, Next and the reference build still need) on each typecheck package (T-53, T-252, T-110).
+ * Each tool runs with the arguments of its package script, so apps/web reads tsconfig.typecheck.json.
  * `node tools/ci/typecheck-compare.ts [--runs 3] [--package packages/ui]...`
  * Each run records the 1-minute load average before it starts, wall time, CPU time (user + system, children
- * included) and peak resident memory, from /usr/bin/time. tsc and tsgo run with --incremental false, so every run
+ * included) and peak resident memory, from /usr/bin/time. ts6 and ts7 run with --incremental false, so every run
  * is a full check, as on a fresh checkout or in GitHub CI.
  */
 
-type Tool = "tsc" | "tsgo" | "bun";
-const TOOLS: Tool[] = ["tsc", "tsgo", "bun"];
+type Tool = "ts6" | "ts7" | "bun";
+const TOOLS: Tool[] = ["ts6", "ts7", "bun"];
 
 export type Measurement = {
 	package: string;
@@ -29,16 +31,20 @@ export type Measurement = {
 	errors: number;
 };
 
+/** A package script's arguments after its binary. The typecheck scripts are plain space-separated commands. */
+const argsOf = (script: string): string[] => script.trim().split(/\s+/).slice(1);
+
 function commands(root: string, dir: string): Record<Tool, string[]> {
-	const tsc = join(root, dir, "node_modules/.bin/tsc");
-	const tsgo = join(root, "apps/web/node_modules/.bin/tsgo");
+	const pkg = typecheckPackages(root).find((p) => p.dir === dir);
+	const [bunScript, tscScript] = [pkg?.scripts.typecheck, pkg?.scripts["typecheck:tsc"]];
+	if (!bunScript || !tscScript) throw new Error(`${dir} has no typecheck and typecheck:tsc scripts`);
+	const ts6 = join(root, dir, "node_modules/typescript/bin/tsc");
+	const ts7 = join(root, "node_modules/typescript-7/bin/tsc");
+	// The real binary behind the pinned shim, so its own start-up is what is timed.
 	const bun = join(realpathSync(join(root, "node_modules/bun")), "bin/bun.exe");
-	for (const bin of [tsc, tsgo, bun]) if (!existsSync(bin)) throw new Error(`missing ${bin}; run pnpm install`);
-	return {
-		tsc: [tsc, "--noEmit", "--pretty", "false", "--incremental", "false"],
-		tsgo: [tsgo, "--noEmit", "--pretty", "false", "--incremental", "false"],
-		bun: [bun, "check", "--no-script", "--no-pretty", "--all"],
-	};
+	for (const bin of [ts6, ts7, bun]) if (!existsSync(bin)) throw new Error(`missing ${bin}; run pnpm install`);
+	const tsc = [...argsOf(tscScript), "--pretty", "false", "--incremental", "false"];
+	return { ts6: [ts6, ...tsc], ts7: [ts7, ...tsc], bun: [bun, ...argsOf(bunScript)] };
 }
 
 /** Parse /usr/bin/time's report: BSD `-l` gives bytes, GNU `-v` gives kilobytes. */
@@ -78,7 +84,7 @@ function measure(
 }
 
 function version(command: string[]): string {
-	const run = spawnSync(command[0], ["--version"], { encoding: "utf8" });
+	const run = spawnSync(command[0]!, ["--version"], { encoding: "utf8" });
 	return (run.stdout || run.stderr).trim().split("\n")[0] ?? "?";
 }
 
@@ -133,7 +139,7 @@ export async function compare(
 		for (const dir of packages) {
 			const cmd = commands(root, dir);
 			for (const tool of TOOLS) {
-				const load = loadavg()[0];
+				const load = loadavg()[0]!;
 				const m = await measure(cmd[tool], join(root, dir));
 				const row: Measurement = {
 					package: dir,
@@ -154,13 +160,13 @@ export async function compare(
 				);
 			}
 		}
-	const cmd = commands(root, packages[0]);
+	const cmd = commands(root, packages[0]!);
 	const header = [
 		`## Typecheck comparison, ${new Date().toISOString().slice(0, 16).replace("T", " ")} UTC`,
 		"",
 		`${platform()} ${release()}, ${cpus()[0]?.model ?? "?"}, ${availableParallelism()} cores, ${Math.round(totalmem() / 2 ** 30)} GB. ` +
-			`tsc ${version(cmd.tsc)}, tsgo ${version(cmd.tsgo)}, bun ${version(cmd.bun)}. ${runs} runs per package, tools interleaved. ` +
-			"Load is the 1-minute load average when each run started. CPU is user plus system time. tsc and tsgo ran with --incremental false.",
+			`ts6 ${version(cmd.ts6)}, ts7 ${version(cmd.ts7)}, bun ${version(cmd.bun)}. ${runs} runs per package, tools interleaved. ` +
+			"Load is the 1-minute load average when each run started. CPU is user plus system time. ts6 and ts7 ran with --incremental false.",
 	];
 	return { rows, markdown: table(rows, header) };
 }
@@ -176,7 +182,7 @@ if (import.meta.main) {
 	const packages = values.package?.length
 		? values.package
 		: typecheckPackages(root)
-				.filter((p) => p.scripts["typecheck:bun"])
+				.filter((p) => p.scripts["typecheck:tsc"])
 				.map((p) => p.dir);
 	const { rows, markdown } = await compare(root, packages, Number(values.runs));
 	process.stdout.write(markdown);

@@ -1,12 +1,12 @@
 import {
+	articleRequest,
 	contextGuideRequest,
-	getArticleRequest,
 	guideResult,
+	humanCredit,
 	listArticlesRequest,
 	listResult,
 	navigationRequest,
 	navigationResult,
-	neighborsRequest,
 	neighborsResult,
 	previewResult,
 	publicPreviewRequest,
@@ -20,9 +20,9 @@ import {
 	searchRequest,
 	searchResult,
 	statsResult,
-	tocRequest,
 	tocResult,
 	wikiArticle,
+	wikiBlocks,
 	type SourceView,
 	type WikiArticle,
 	type WikiReply,
@@ -81,7 +81,7 @@ function displayBody(contentType: unknown, hidden: unknown, body: unknown): stri
 		return text;
 	}
 }
-export function headings(contentType: string, body: string | null): { level: 2 | 3; text: string }[] {
+function headings(contentType: string, body: string | null): { level: 2 | 3; text: string }[] {
 	if (!body) return [];
 	if (contentType === "safe_nodes") {
 		try {
@@ -160,7 +160,7 @@ export function listArticles(
 }
 export function getArticle(db: Database, authority: RequestActor, raw: unknown) {
 	return runRead(async () => {
-		const input = parse(getArticleRequest, raw);
+		const input = parse(articleRequest, raw);
 		const page = await readPage(
 			db,
 			accessFor(authority),
@@ -178,10 +178,9 @@ export function getArticle(db: Database, authority: RequestActor, raw: unknown) 
 export function bookmarksList(db: Database, authority: RequestActor, raw: unknown) {
 	return runRead(async () => {
 		const input = parse(listArticlesRequest, raw);
-		const owner = selectedOwner(authority);
 		const page = await readPage(
 			db,
-			accessFor(authority, owner.kind === "account" ? owner : selectedOwner(authority)),
+			accessFor(authority),
 			sourceOf(input.source),
 			input.page ?? 1,
 			sql`NOT p.hidden AND EXISTS (
@@ -234,18 +233,13 @@ export async function search(db: Database, authority: RequestActor, raw: unknown
 				await tx.execute(sql`SELECT set_config('lock_timeout','1s',true)`);
 				return tx.execute(sql`WITH ${corpusCtes(access, source)},
 					scored AS (
-						SELECT p.*,
-							ts_rank(v.vector, websearch_to_tsquery('english', ${input.query})) AS text_rank
+						-- Every visible row comes from exactly one revision, whose stored vector the database wrote with it.
+						SELECT p.*, ts_rank(r.search_vector, websearch_to_tsquery('english', ${input.query})) AS text_rank
 						FROM picked p
-						CROSS JOIN LATERAL (
-							SELECT
-								setweight(to_tsvector('english', coalesce(p.title, '')), 'A')
-								|| setweight(to_tsvector('english', coalesce(p.excerpt, '')), 'B')
-								|| setweight(to_tsvector('english', coalesce(p.body, '')), 'C') AS vector
-						) v
+						JOIN article_revision r ON r.id = p.revision_id
 						WHERE NOT p.hidden
 							AND (${phase === null}::boolean OR p.phase = ${phase ?? 0})
-							AND v.vector @@ websearch_to_tsquery('english', ${input.query})
+							AND r.search_vector @@ websearch_to_tsquery('english', ${input.query})
 					)
 					SELECT
 						EXISTS (SELECT FROM me) AS allowed,
@@ -253,7 +247,7 @@ export async function search(db: Database, authority: RequestActor, raw: unknown
 						COALESCE((
 							SELECT json_agg(${articleJson()} ORDER BY p.text_rank DESC, p.article_id)
 							FROM (
-								SELECT s.*, ts_headline('english', ${plainText(sql`coalesce(s.body, s.excerpt, s.title, '')`)}, websearch_to_tsquery('english', ${input.query}), 'MaxFragments=1, MinWords=5, MaxWords=20') AS snippet
+								SELECT s.*, ts_headline('english', ${plainText(sql`coalesce(wiki_search_words(s.content_type, s.body), s.excerpt, s.title, '')`)}, websearch_to_tsquery('english', ${input.query}), 'MaxFragments=1, MinWords=5, MaxWords=20') AS snippet
 								FROM (
 									SELECT * FROM scored
 									ORDER BY text_rank DESC, article_id
@@ -304,7 +298,6 @@ const navRow = z.object({
 	slug: z.string(),
 	phase: z.coerce.number().int().nullable(),
 	sectionKey: z.string(),
-	relatedIds: z.array(z.uuid()),
 });
 export function navigation(db: Database, authority: RequestActor, raw: unknown) {
 	return runRead(async () => {
@@ -330,14 +323,12 @@ export function navigation(db: Database, authority: RequestActor, raw: unknown) 
 					phase: item.phase,
 				})),
 			})),
-			breadcrumbs: articles.map((item) => ({ articleId: item.articleId, crumbs: [item.sectionKey, item.title] })),
-			relatedIds: [...new Set(articles.flatMap((item) => item.relatedIds))],
 		});
 	});
 }
 export function articleNeighbors(db: Database, authority: RequestActor, raw: unknown) {
 	return runRead(async () => {
-		const input = parse(neighborsRequest, raw);
+		const input = parse(articleRequest, raw);
 		const access = accessFor(authority);
 		const result = await db.execute(sql`WITH ${corpusCtes(access, sourceOf(input.source))}
 			SELECT
@@ -370,7 +361,7 @@ export function articleNeighbors(db: Database, authority: RequestActor, raw: unk
 }
 export function tableOfContents(db: Database, authority: RequestActor, raw: unknown) {
 	return runRead(async () => {
-		const input = parse(tocRequest, raw);
+		const input = parse(articleRequest, raw);
 		const page = await readPage(
 			db,
 			accessFor(authority),
@@ -474,7 +465,7 @@ export function readingRecent(db: Database, authority: RequestActor, raw: unknow
 			SELECT
 				EXISTS (SELECT FROM me) AS allowed,
 				COALESCE((
-					SELECT json_agg(${articleJson()} ORDER BY r.last_viewed_at DESC)
+					SELECT json_agg(${articleJson({ body: false })} ORDER BY r.last_viewed_at DESC)
 					FROM recent p
 					JOIN reading r ON r.article_id = p.article_id AND r.account_id = (SELECT account_id FROM me)
 					LEFT JOIN reading rd ON rd.account_id = r.account_id AND rd.article_id = p.article_id
@@ -583,7 +574,7 @@ export function recommendForPhase(db: Database, authority: RequestActor, raw: un
 			input.phase == null
 				? sql`(${access.owner.kind} <> 'plant' OR p.phase = (SELECT phase FROM plant WHERE id = ${access.owner.id}::uuid))`
 				: sql`p.phase = ${input.phase}`;
-		const result = await db.execute(catalogQuery(access, sourceOf(input.source), where));
+		const result = await db.execute(catalogQuery(access, sourceOf(input.source), where, { body: false }));
 		const row = z
 			.object({
 				allowed: z.boolean(),
@@ -671,11 +662,15 @@ function deniedExport() {
 		fontFailureOffersPrintFallback: false,
 	});
 }
+/** The stored credit belongs to the global article, so only the global version prints it, and only a human one. */
 function exportMeta(article: WikiArticle) {
-	return { filename: pdfFilename(article.slug), source: article.credit };
+	return {
+		filename: pdfFilename(article.slug),
+		credit: article.sourceKind === "global" ? humanCredit(article.credit) : null,
+	};
 }
 async function visibleBody(db: Database, authority: RequestActor, raw: unknown) {
-	const input = parse(getArticleRequest, raw);
+	const input = parse(articleRequest, raw);
 	const page = await readPage(
 		db,
 		accessFor(authority),
@@ -692,8 +687,9 @@ export function exportPdf(db: Database, authority: RequestActor, raw: unknown, r
 		const article = await visibleBody(db, authority, raw);
 		if (!article) return deniedExport();
 		const meta = exportMeta(article);
+		const blocks = wikiBlocks(article.contentType, article.body!);
 		try {
-			const bytes = Buffer.from(render(article.title, article.body!, meta)).toString("base64");
+			const bytes = Buffer.from(render(article.title, blocks, meta)).toString("base64");
 			return exportResult.parse({
 				bytes,
 				html: null,
@@ -703,7 +699,7 @@ export function exportPdf(db: Database, authority: RequestActor, raw: unknown, r
 		} catch {
 			return exportResult.parse({
 				bytes: null,
-				html: printHtml(article.title, article.body!, meta),
+				html: printHtml(article.title, blocks, meta),
 				errorCode: null,
 				fontFailureOffersPrintFallback: true,
 			});
@@ -717,7 +713,7 @@ export function printArticle(db: Database, authority: RequestActor, raw: unknown
 		const meta = exportMeta(article);
 		return exportResult.parse({
 			bytes: null,
-			html: printHtml(article.title, article.body!, meta),
+			html: printHtml(article.title, wikiBlocks(article.contentType, article.body!), meta),
 			errorCode: null,
 			fontFailureOffersPrintFallback: false,
 		});

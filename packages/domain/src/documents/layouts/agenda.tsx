@@ -21,7 +21,7 @@ import { Doc, LETTER, LETTER_MARGIN } from "./shell.tsx";
 const AGENDA_SLOT = { w: 150, h: 34 };
 
 /** Rows of the attendee table: the people on the list, then blank write-in rows, at least the approved minimum. */
-export function attendeeSlots(people: number) {
+function attendeeSlots(people: number) {
 	const total = Math.max(MIN_ATTENDEE_ROWS, people + 2);
 	return total + (total % 2);
 }

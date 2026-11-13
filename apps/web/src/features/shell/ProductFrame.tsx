@@ -23,6 +23,7 @@ import { useNotificationBell } from "../notifications/Bell.tsx";
 import { NotificationsProvider } from "../notifications/feed.tsx";
 import { AccountMenu } from "../settings/AccountMenu";
 import { firstSection } from "../settings/model";
+import { SettingsOpener } from "../settings/opener";
 import type { SectionSeed, SettingsViewer } from "../settings/port";
 import { useProductSettings } from "../settings/ProductSettings";
 import type { Role } from "../people/server.ts";
@@ -86,6 +87,8 @@ const ROLE: Record<Role, string> = { owner: "Owner", admin: "Admin", member: "Me
 
 type FrameProps = {
 	name: string;
+	/** The app's own route for the viewer's current photo, when there is one. */
+	photo?: string;
 	/** The viewer as Settings sees it, with the seat's role; null when there is no active actor. */
 	settings: SettingsViewer | null;
 	/** The settings section read the server started for this page's address, for the server's viewer only. */
@@ -127,7 +130,7 @@ export function ProductFrame({ settings: initial, seed, ...props }: FrameProps) 
 	);
 }
 
-function Frame({ name, settings, seed = null, children }: FrameProps) {
+function Frame({ name, photo, settings, seed = null, children }: FrameProps) {
 	const toast = useToast();
 	const dialog = useProductSettings(settings, seed);
 	const pathname = usePathname();
@@ -178,7 +181,7 @@ function Frame({ name, settings, seed = null, children }: FrameProps) {
 	return (
 		<AppShell
 			nav={nav}
-			user={{ name, initials: initials(name), detail: role ? ROLE[role] : "" }}
+			user={{ name, initials: initials(name), detail: role ? ROLE[role] : "", photo }}
 			userMenu={
 				<AccountMenu
 					name={name}
@@ -204,7 +207,7 @@ function Frame({ name, settings, seed = null, children }: FrameProps) {
 			onAskEvry={privatePage ? undefined : evry.open}
 			banner={banner}
 		>
-			{children}
+			<SettingsOpener value={dialog.open}>{children}</SettingsOpener>
 			{dialog.element}
 			{evry.element}
 			{bell.element}

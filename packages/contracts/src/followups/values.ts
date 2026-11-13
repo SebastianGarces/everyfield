@@ -17,6 +17,11 @@ export const reason = z.string().trim().min(1).max(500);
 export const obligationState = z.enum(["open", "complete", "no_longer_needed", "superseded"]);
 export type ObligationState = z.infer<typeof obligationState>;
 
+/**
+ * How far a stated occurred instant may run ahead of the server's clock before it is refused as future: a "Just now"
+ * sends the browser's clock, which can be a little ahead (Audit #551 ruling 1). Within it the server stores its own clock.
+ */
+export const CLOCK_ALLOWANCE_MS = 2 * 60 * 1000;
 /** The exact elapsed window a first-Vision follow-up has, from the meeting's actual start (REQ-MTG-021). */
 export const FOLLOW_UP_WINDOW_MS = 48 * 60 * 60 * 1000;
 /** A completion at or after the origin and at most 48 elapsed hours later. */

@@ -1,42 +1,30 @@
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID, randomBytes, createHash } from "node:crypto";
-import { createDatabase, closeDatabase } from "../../../packages/db/src/client.ts";
-import { migrate } from "../../../packages/db/src/schema/migrate.ts";
+import { testDatabase } from "../../support/test-database.mts";
 import { sql, eq } from "../../../packages/db/src/query.ts";
 import * as t from "../../../packages/db/src/schema/tables.ts";
-import { createSettingsProducer, createAccountCredentials } from "../../../packages/domain/src/settings/index.ts";
+import { createAccountCredentials } from "../../../packages/domain/src/settings/index.ts";
+import { settingsApi } from "../settings/settings-api.mts";
 import { createOrganizationAdapter } from "../../../packages/domain/src/organizations/index.ts";
 import { createOnboardingProducer } from "../../../packages/domain/src/onboarding/index.ts";
 import { identityAuth } from "../../../packages/domain/src/identity/auth.ts";
 import { readViewer } from "../../../packages/domain/src/access/session.ts";
 import { queueJobs } from "../../../apps/web/src/server/jobs/queue.ts";
 import { scheduledJobs } from "../../../apps/web/src/server/jobs/scheduled.ts";
+import { ok } from "../../support/fixture.mts";
 
 // REQ-IDN-032: a requested deletion finishes on its own. The account or church requests deletion through the real
 // settings operation; once the cancellation deadline has passed, the every-minute scheduled run claims the purge job and
 // purges on the cleanup login. Runs on a suite schema of the shared development (or disposable CI) database, with three
 // logins (runtime, cleanup, auth) and a synthetic private bucket.
-const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
-const ci =
-	process.env.CI === "true" &&
-	process.env.EARLY_ACCESS_TEST_DATABASE === "1" &&
-	["localhost", "127.0.0.1"].includes(source.hostname) &&
-	source.pathname === "/everyfield_ci";
-if (
-	(!ci && source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech") ||
-	process.env.NODE_ENV === "production"
-)
-	throw Error("Only approved development or disposable CI database allowed");
-if (!ci) source.searchParams.set("sslmode", "verify-full");
-const schema = "t128_" + randomUUID().replaceAll("-", ""),
-	role = "t128_" + randomBytes(8).toString("hex");
-const admin = createDatabase({
-	connectionString: source.href,
-	max: 4,
-	options: `-c search_path=${schema},pg_catalog,pg_temp`,
+const database = await testDatabase({
+	prefix: "t128",
+	roles: { runtime: ["runtime"], cleanup: ["cleanup"], auth: ["auth"] },
 });
-let db, cleanupDb, authDb, api, onboarding, credentials, signInAuth;
+const { admin } = database;
+const { runtime: db, cleanup: cleanupDb, auth: authDb } = database.pools;
+let api, onboarding, credentials, signInAuth;
 const origin = "http://purge.localhost";
 const secret = randomBytes(40).toString("hex"),
 	cron = "cron-" + randomUUID();
@@ -68,44 +56,12 @@ async function run() {
 	return response.json();
 }
 
-const ok = (r) => {
-	assert.equal(r.status, "ok", JSON.stringify(r));
-	return r.value;
-};
 const command = (input = {}, expectedRevision = "1") => ({ input, expectedRevision, requestKey: randomUUID() });
 const ctx = (a, selected = { kind: "account", id: a.id }) => ({ session: a.session, selected });
 
 before(async () => {
-	await admin.execute(sql.raw(`CREATE SCHEMA ${schema}`));
-	await migrate(admin, schema);
-	for (const [suffix, cap] of [
-		["", "everyfield_runtime"],
-		["_cleanup", "everyfield_cleanup"],
-		["_auth", "everyfield_auth"],
-	]) {
-		const password = randomBytes(32).toString("hex"),
-			name = role + suffix;
-		await admin.execute(
-			sql.raw(
-				`CREATE ROLE ${name} LOGIN INHERIT PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`,
-			),
-		);
-		await admin.execute(sql.raw(`GRANT ${cap} TO ${name}`));
-		const url = new URL(source);
-		url.username = name;
-		url.password = password;
-		const client = createDatabase({
-			connectionString: url.href,
-			max: 4,
-			options: `-c search_path=${schema},pg_catalog,pg_temp`,
-		});
-		if (suffix === "") db = client;
-		else if (suffix === "_cleanup") cleanupDb = client;
-		else authDb = client;
-	}
 	const organizationEffects = {
 		invitation: async () => {},
-		notice: (tx) => queueJobs(tx, []),
 		invalidate: (tx) => queueJobs(tx, []),
 	};
 	credentials = createAccountCredentials({
@@ -123,10 +79,10 @@ before(async () => {
 		deliverVerification: async () => {},
 		securityNotice: async () => {},
 	});
-	api = createSettingsProducer({
+	api = settingsApi({
 		organizations: createOrganizationAdapter(organizationEffects, { candidates: async () => [] }),
 		organizationEffects,
-		effects: { replan: async () => {}, invalidate: async () => {} },
+		effects: { replan: async () => {} },
 		suppression: async () => "unavailable",
 		avatarCleanup: { queue: (tx) => queueJobs(tx, []) },
 		// As the settings mount queues it (apps/web/src/features/settings/server.ts).
@@ -142,6 +98,8 @@ before(async () => {
 						eligibleAt: i.eligibleAt,
 					},
 				]),
+			// Notice mail is covered by workspace-deletion-mail.test.mts.
+			workspaceNotice: async () => {},
 		},
 		credentials,
 	});
@@ -156,16 +114,7 @@ before(async () => {
 	});
 	tick = scheduledJobs({ secret: cron, db, storage, cleanup: cleanupDb, reminders: null, digests: null, mail: null });
 });
-after(async () => {
-	for (const client of [db, cleanupDb, authDb]) if (client) await closeDatabase(client);
-	try {
-		await admin.execute(sql.raw(`DROP SCHEMA IF EXISTS ${schema} CASCADE`));
-		for (const suffix of ["", "_cleanup", "_auth"])
-			await admin.execute(sql.raw(`DROP ROLE IF EXISTS ${role + suffix}`));
-	} finally {
-		await closeDatabase(admin);
-	}
-});
+after(database.close);
 
 const signIn = (a) => signInAuth.api.signInEmail({ body: { email: a.email, password: a.password }, asResponse: true });
 /** A signed-up account with a password and a live session, as Better Auth creates it. */
@@ -189,8 +138,12 @@ async function member() {
 	ingress.set(s.session.id, request);
 	return { id, user: signed.user.id, email, password, session: s.session.id };
 }
-/** One private file the tenant owns, with its bytes in the bucket. */
+/**
+ * One private file the tenant owns, with its bytes in the bucket. It is referenced as a live file is (an account's
+ * avatar, or a church person's photo), so the scheduled orphan sweep leaves it for the purge.
+ */
 async function file(tenant) {
+	const [account] = await admin.select({ id: t.account.id }).from(t.account).where(eq(t.account.id, tenant));
 	const id = randomUUID(),
 		key = `private/${tenant}/${randomUUID()}`,
 		bytes = Buffer.from("synthetic");
@@ -198,7 +151,7 @@ async function file(tenant) {
 	await admin.insert(t.file_object).values({
 		id,
 		tenant_id: tenant,
-		purpose: "avatar",
+		purpose: account ? "avatar" : "person_photo",
 		opaque_key: key,
 		media_type: "image/png",
 		max_bytes: String(bytes.length),
@@ -208,6 +161,15 @@ async function file(tenant) {
 		upload_key: randomUUID(),
 		claim_generation: "0",
 	});
+	if (account) await admin.update(t.account).set({ avatar_object_id: id }).where(eq(t.account.id, tenant));
+	else {
+		const [person] = await admin
+			.select({ id: t.person.id })
+			.from(t.person)
+			.where(eq(t.person.plant_id, tenant))
+			.limit(1);
+		await admin.update(t.person).set({ photo_object_id: id }).where(eq(t.person.id, person.id));
+	}
 	return { id, key };
 }
 const revisionOf = async (id) => (await admin.select().from(t.account).where(eq(t.account.id, id)))[0].revision;
@@ -275,8 +237,8 @@ test("AC:TARGET-IDN-032 after Delete my account and the grace period, a schedule
 	assert.equal((await admin.select().from(t.file_object).where(eq(t.file_object.id, avatar.id)))[0].state, "purged");
 
 	// The old email and password no longer sign in, and the deletion page asks for proof again.
-	const refused = await signIn(a);
-	assert.notEqual(refused.status, 200);
+	const rejected = await signIn(a);
+	assert.notEqual(rejected.status, 200);
 	assert.deepEqual(await openDeletion(a), { status: "refused", code: "proof_invalid" });
 	assert.equal(await readViewer(db, a.session), null);
 

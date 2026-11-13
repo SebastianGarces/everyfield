@@ -1,7 +1,14 @@
 "use client";
 
-import { Clock01Icon, Delete02Icon, Download01Icon, ViewIcon } from "@hugeicons/core-free-icons";
-import { exportsFor, type DocBrands, type DocDocument, type SavedExport } from "@everyfield/contracts/documents";
+import { Archive02Icon, Clock01Icon, Delete02Icon, Download01Icon, ViewIcon } from "@hugeicons/core-free-icons";
+import {
+	CHURCH_REVISION_LIST_MAX,
+	exportsFor,
+	type DocBrands,
+	type DocDocument,
+	type ExportFormat,
+	type SavedExport,
+} from "@everyfield/contracts/documents";
 import { Button, ConfirmDialog, PageHeader, Skeleton } from "@everyfield/ui/controls";
 import { Tag } from "@everyfield/ui/display";
 import dynamic from "next/dynamic";
@@ -11,13 +18,15 @@ import { ChurchPdf } from "./ChurchPdf.tsx";
 import { ChurchRevisions } from "./ChurchRevisions.tsx";
 import { SavedExports, savedExportHref } from "./SavedExports.tsx";
 import { VersionHistory } from "./VersionHistory.tsx";
-import { deleteChurchDocument, type ChurchActionResult } from "./actions.ts";
-import { CLASS_LABEL, type FORMAT_LABEL } from "./labels.ts";
+import { archiveChurchDocument, deleteChurchDocument, type ChurchActionResult } from "./actions.ts";
+import { CLASS_LABEL, savedAt } from "./labels.ts";
 import type { ChurchView, ExportResult, RevisionRow, TemplateState } from "./server.ts";
 
 // One Church Document: the real PDF as its preview, the downloads, the revisions and the saved exports. A download saves
 // one export of the shown revision (or of the revision a Revisions row names), then downloads that export's stored bytes (D-78); the preview stays a fresh render and saves
-// nothing. Any seat downloads (D-80). An Owner or Admin can edit and delete it, and delete a saved export (D-79).
+// nothing. Any seat downloads (D-80). An Owner or Admin can edit, archive and delete it, and delete a saved export (D-79).
+// An archived document is read-only for every seat: no editor, no branding switch, no Archive and no export delete, while its revisions
+// and saved exports stay readable and downloadable, and an Owner or Admin can still delete it (T-9).
 // The editor is a separate chunk, loaded only when an Owner or Admin opens the page: a Member's page never loads it.
 
 const ChurchEditor = dynamic(() => import("./editor/ChurchEditor.tsx"), {
@@ -45,11 +54,14 @@ export function ChurchDocumentScreen({
 	canManage,
 	exports: firstExports,
 	revisions: firstRevisions,
+	revisionsTruncated,
 	viewerName,
 }: {
 	doc: ChurchView;
-	/** The saved revisions, newest first. */
+	/** The newest saved revisions, newest first, at most CHURCH_REVISION_LIST_MAX. */
 	revisions: RevisionRow[];
+	/** True when the document has older revisions than `revisions` holds. */
+	revisionsTruncated: boolean;
 	/** The latest saved exports, newest first. */
 	exports: SavedExport[];
 	/** The stored document, only for an Owner or Admin. A Member gets null and the read-only page. */
@@ -65,16 +77,27 @@ export function ChurchDocumentScreen({
 }) {
 	// A save moves the revision here, so the header, the downloads and the Revisions list follow without a page refresh.
 	const [revision, setShownRevision] = useState(doc.revision);
-	const [revisions, setRevisions] = useState(firstRevisions);
+	const [listed, setListed] = useState({ revisions: firstRevisions, truncated: revisionsTruncated });
+	const { revisions } = listed;
 	const [history, setHistory] = useState(false);
-	const setRevision = (next: string) => {
+	// Excel is offered while the body holds a budget table, so a save can add it or take it away. The header follows the
+	// shown revision; each Revisions row keeps the formats its own revision offers.
+	const [formats, setFormats] = useState<readonly ExportFormat[]>(doc.formats);
+	const setRevision = (next: string, offered: readonly ExportFormat[]) => {
 		setShownRevision(next);
+		setFormats(offered);
 		// The save's own time is on the server; this one is within a second of it and a reload shows the stored one.
-		const row = { number: Number(next), recordedAt: new Date().toISOString(), savedBy: viewerName };
-		setRevisions((list) => (list.some((r) => r.number === row.number) ? list : [row, ...list]));
+		const row = { number: Number(next), recordedAt: new Date().toISOString(), savedBy: viewerName, formats: offered };
+		// The list keeps the server's bound: a save past it drops the oldest row, and the list then says it is cut short.
+		setListed((now) =>
+			now.revisions.some((r) => r.number === row.number)
+				? now
+				: {
+						revisions: [row, ...now.revisions].slice(0, CHURCH_REVISION_LIST_MAX),
+						truncated: now.truncated || now.revisions.length >= CHURCH_REVISION_LIST_MAX,
+					},
+		);
 	};
-	// Excel is offered while the body holds a budget table, so a save can add it or take it away.
-	const [formats, setFormats] = useState<readonly string[]>(doc.formats);
 	// Accepting template changes writes a revision the editor did not make: the editor opens again on it.
 	const [current, setCurrent] = useState(() => ({
 		document: editable?.document ?? null,
@@ -94,13 +117,13 @@ export function ChurchDocumentScreen({
 	const [exports, setExports] = useState(firstExports);
 	// `at` is null for the header's downloads (the shown revision) and a revision number for a Revisions row, so the
 	// spinner and a failure show beside the button that was clicked.
-	const [exporting, setExporting] = useState<{ at: number | null; format: keyof typeof FORMAT_LABEL } | null>(null);
+	const [exporting, setExporting] = useState<{ at: number | null; format: ExportFormat } | null>(null);
 	const [exportError, setExportError] = useState<{ at: number | null; message: string } | null>(null);
 	// One request key for each revision and format until a result arrives: a double click or a retry after a lost reply
 	// reaches the same saved export instead of making a second one.
 	const keys = useRef(new Map<string, string>());
 
-	async function download(format: keyof typeof FORMAT_LABEL, at: number | null = null) {
+	async function download(format: ExportFormat, at: number | null = null) {
 		if (exporting) return;
 		const target = at === null ? revision : String(at);
 		const slot = `${target}:${format}`;
@@ -137,6 +160,13 @@ export function ChurchDocumentScreen({
 		if (result?.status === "lost") throw new Error("The connection dropped. Nothing was deleted.");
 	}
 
+	async function archive() {
+		const result: ChurchActionResult | undefined = await archiveChurchDocument(doc.id, revision);
+		// A success redirects to the library and returns nothing here; a refusal stays in the dialog with its reason.
+		if (result?.status === "refused") throw new Error(result.message);
+		if (result?.status === "lost") throw new Error("The connection dropped. Nothing was archived.");
+	}
+
 	return (
 		<>
 			<PageHeader
@@ -151,6 +181,7 @@ export function ChurchDocumentScreen({
 						<span>
 							from {doc.templateName ?? doc.templateId} v{templateVersion}
 						</span>
+						{doc.archived ? <Tag tone="amber">Archived</Tag> : null}
 						<Tag>{CLASS_LABEL[doc.documentClass]}</Tag>
 						<span className="tabular-nums">Revision {revision}</span>
 						{doc.page.perSheet > 1 ? <span>{doc.page.perSheet} cards on each sheet</span> : null}
@@ -170,6 +201,23 @@ export function ChurchDocumentScreen({
 								{d.label}
 							</Button>
 						))}
+						{canManage && !doc.archived ? (
+							<ConfirmDialog
+								trigger={
+									<Button variant="secondary" icon={Archive02Icon}>
+										Archive
+									</Button>
+								}
+								title={`Archive "${doc.title}"?`}
+								description="The document leaves your church plant's library and can no longer be edited."
+								consequences={[
+									"Its revisions and saved exports stay available to everyone in your church plant.",
+									"Its link still opens it, read-only.",
+								]}
+								confirmLabel="Archive document"
+								onConfirm={archive}
+							/>
+						) : null}
 						{canManage ? (
 							<ConfirmDialog
 								trigger={
@@ -191,6 +239,15 @@ export function ChurchDocumentScreen({
 					</>
 				}
 			/>
+			{doc.archived ? (
+				<p
+					role="status"
+					className="mb-4 rounded-md bg-surface-raised px-4 py-3 text-md text-text-2 shadow-[0_0_0_1px_var(--ef-line)]"
+				>
+					Archived by {doc.archived.by ?? "a former member"} on {savedAt(doc.archived.at)}. It is read-only; its
+					revisions and saved exports stay available.
+				</p>
+			) : null}
 			{exportError?.at === null ? (
 				<p
 					role="alert"
@@ -199,13 +256,15 @@ export function ChurchDocumentScreen({
 					{exportError.message}
 				</p>
 			) : null}
-			<ChurchBranding
-				documentId={doc.id}
-				stored={branded}
-				onSaved={setBranded}
-				access={!brands ? "member" : brands.church ? "kit" : "no-kit"}
-				className={editable ? undefined : "mx-auto w-full max-w-[880px]"}
-			/>
+			{doc.archived ? null : (
+				<ChurchBranding
+					documentId={doc.id}
+					stored={branded}
+					onSaved={setBranded}
+					access={!brands ? "member" : brands.church ? "kit" : "no-kit"}
+					className={editable ? undefined : "mx-auto w-full max-w-[880px]"}
+				/>
+			)}
 			{editable && brand && current.document ? (
 				<ChurchEditor
 					key={current.epoch}
@@ -215,19 +274,15 @@ export function ChurchDocumentScreen({
 					brand={brand}
 					mergeValues={editable.mergeValues}
 					revision={current.revision}
-					onRevision={(next, offered) => {
-						setRevision(next);
-						setFormats(offered);
-					}}
+					onRevision={setRevision}
 					revisions={revisions}
 					file={file}
 					template={current.template}
 					templateName={doc.templateName}
 					accepted={current.accepted}
 					onAccepted={(document, next, taken) => {
-						setRevision(next);
 						// The accepted body may add or remove a budget table, and Excel follows it as on a save.
-						setFormats(exportsFor(document.exports, document.body));
+						setRevision(next, exportsFor(document.exports, document.body));
 						setCurrent((now) => ({
 							document,
 							revision: next,
@@ -261,15 +316,15 @@ export function ChurchDocumentScreen({
 			)}
 			<ChurchRevisions
 				revisions={revisions}
+				truncated={listed.truncated}
 				current={Number(revision)}
-				formats={doc.formats}
 				exporting={exporting && exporting.at !== null ? { at: exporting.at, format: exporting.format } : null}
 				error={exportError}
 				onDownload={(at, format) => void download(format, at)}
 			/>
 			<SavedExports
 				exports={exports}
-				canManage={canManage}
+				canManage={canManage && !doc.archived}
 				onDeleted={(id) => setExports((list) => list.filter((e) => e.id !== id))}
 			/>
 		</>

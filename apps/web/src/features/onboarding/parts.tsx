@@ -235,7 +235,7 @@ export function StepFooter({
  * One sentence per refusal code, saying what happened and what to do. `reloaded` is whether the latest facts arrived
  * after the refusal; without them the text never claims they did.
  */
-export function noticeText(code: ErrorCode, reloaded: boolean): string {
+function noticeText(code: ErrorCode, reloaded: boolean): string {
 	switch (code) {
 		case "conflict":
 			return reloaded

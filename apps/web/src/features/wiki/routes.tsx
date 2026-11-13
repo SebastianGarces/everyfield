@@ -17,7 +17,7 @@ function one(value: string | string[] | undefined): string | undefined {
 	return Array.isArray(value) ? value[0] : value;
 }
 
-async function requestPath(slug: string): Promise<string> {
+function requestPath(slug: string): string {
 	return slug
 		? `/wiki/${slug
 				.split("/")
@@ -31,7 +31,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug?: st
 	const userAgent = (await headers()).get("user-agent");
 	if (editing || !isCrawler(userAgent))
 		return { title: editing ? "Edit article" : "Wiki", robots: { index: false, follow: false } };
-	const path = await requestPath(slug);
+	const path = requestPath(slug);
 	const preview = await loadPreview(path, userAgent ?? "");
 	if (!preview?.allowed || !preview.crawler) return { title: "Wiki", robots: { index: false, follow: false } };
 	return { title: preview.title ?? "Wiki", description: preview.excerpt ?? undefined };
@@ -45,15 +45,15 @@ export async function WikiPage({
 	searchParams: Search;
 }) {
 	const { slug, editing } = splitWikiPath((await params).slug);
-	const path = editing ? editPath(slug) : await requestPath(slug);
+	const path = editing ? editPath(slug) : requestPath(slug);
 	const userAgent = (await headers()).get("user-agent");
 	if (isCrawler(userAgent)) {
-		const preview = await loadPreview(await requestPath(slug), userAgent ?? "");
+		const preview = await loadPreview(requestPath(slug), userAgent ?? "");
 		if (preview?.crawler && preview.allowed) return <PublicPreview title={preview.title} excerpt={preview.excerpt} />;
 	}
 	const query = await searchParams;
 	const source = parseSource(one(query.source));
-	const data = await loadWiki(slug, source, one(query.order) === "edit", editing);
+	const data = await loadWiki(slug, source, editing);
 	if (data === "signed-out") redirect(`/signin?returnTo=${encodeURIComponent(wikiReturn(path, source))}`);
 	if (data === "lost") {
 		return (

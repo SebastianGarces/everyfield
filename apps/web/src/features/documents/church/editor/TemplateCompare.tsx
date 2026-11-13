@@ -17,8 +17,10 @@ import { Button, Checkbox, SegmentedControl, Skeleton, StatePanel } from "@every
 import { EditorContent, useEditor, type JSONContent } from "@tiptap/react";
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { acceptTemplateChanges, compareWithTemplate, type CompareResult } from "../actions.ts";
+import { blockLabel, PAPER_LABEL } from "../labels.ts";
 import { editorExtensions, type FieldValues } from "./extensions.ts";
 import { paletteVars } from "./paper.ts";
+import { blocksToEditor } from "./table-json.ts";
 import { WORD_MARK, wordMarks } from "./word-marks.ts";
 
 // "Compare with template": the document's saved revision beside the current template, block by block, in reading
@@ -81,29 +83,6 @@ const VIEW_LABEL: Record<CompareView, string> = { changes: "Template changes", a
 const listOf = (compare: ChurchCompare, view: CompareView) =>
 	view === "changes" ? compare.changes : compare.differences;
 
-const BLOCK: Record<string, (block: BlockNode) => string> = {
-	paragraph: () => "Paragraph",
-	heading: (b) => `Heading ${(b.attrs as { level?: number } | undefined)?.level ?? 1}`,
-	bulletList: () => "Bulleted list",
-	orderedList: () => "Numbered list",
-	quote: () => "Quote",
-	divider: () => "Divider",
-	spacer: () => "Spacer",
-	pageBreak: () => "Page break",
-	columns: (b) => `${(b as { content?: unknown[] }).content?.length ?? 2} columns`,
-	box: () => "Colored box",
-	image: (b) => {
-		const source = (b.attrs as { source?: string } | undefined)?.source ?? "logo";
-		return source === "mark" ? "Mark" : source === "photo" ? "Photo" : "Logo";
-	},
-	writeIn: (b) => {
-		const kind = (b.attrs as { kind?: string } | undefined)?.kind;
-		return kind === "signature" ? "Signature line" : kind === "date" ? "Date line" : "Write-in line";
-	},
-	slot: (b) => (b.attrs as { label?: string } | undefined)?.label ?? "Section",
-	table: () => "Table",
-};
-
 /** What a difference is about: "Title", "Page setup", "Header", "Footer" or the kind of block. */
 function partLabel(d: DocDifference) {
 	if (d.part === "title") return "Title";
@@ -111,24 +90,16 @@ function partLabel(d: DocDifference) {
 	if (d.part === "header") return "Header";
 	if (d.part === "footer") return "Footer";
 	const block = (d.template ?? d.document) as BlockNode;
-	return BLOCK[block.type]?.(block) ?? "Block";
+	return blockLabel(block);
 }
 
-const SIZE: Record<string, string> = {
-	letter: "Letter",
-	legal: "Legal",
-	a4: "A4",
-	"half-letter": "Half Letter",
-	"card-4x6": "4 x 6 card",
-	custom: "Custom",
-};
 const inches = (pt: number) => `${Number((pt / 72).toFixed(2))} in`;
 
 /** The page setup in words, as Page setup names it. */
 function describePage(page: PageLayout) {
 	const m = page.margin;
 	const parts = [
-		`${SIZE[page.size] ?? page.size}, ${page.orientation}`,
+		`${PAPER_LABEL[page.size]}, ${page.orientation}`,
 		`Margins: top ${inches(m.top)}, right ${inches(m.right)}, bottom ${inches(m.bottom)}, left ${inches(m.left)}`,
 	];
 	if (page.tile)
@@ -159,11 +130,13 @@ export function TemplateCompare({ docId, brand, onBack, onAccepted, revision }: 
 	}, []);
 	const read = useCallback(async () => {
 		setLoad({ kind: "loading" });
-		return show(await compareWithTemplate(docId));
+		return show(await compareWithTemplate(docId).catch(() => ({ status: "lost" }) as const));
 	}, [docId, show]);
 	useEffect(() => {
 		let live = true;
-		void compareWithTemplate(docId).then((result) => live && show(result));
+		void compareWithTemplate(docId)
+			.catch(() => ({ status: "lost" }) as const)
+			.then((result) => live && show(result));
 		return () => {
 			live = false;
 		};
@@ -178,7 +151,9 @@ export function TemplateCompare({ docId, brand, onBack, onAccepted, revision }: 
 		if (!key) return;
 		setBusy(which === "all" ? "all" : "chosen");
 		setNotice(null);
-		const result = await acceptTemplateChanges(docId, compare.revision, compare.templateHash, view, key, which);
+		const result = await acceptTemplateChanges(docId, compare.revision, compare.templateHash, view, key, which).catch(
+			() => ({ status: "lost" }) as const,
+		);
 		setBusy(null);
 		if (result.status === "accepted") {
 			onAccepted(
@@ -566,7 +541,9 @@ function Snippet({
 	const fields = Object.keys(values).map((key) => ({ key, type: "string", label: key }));
 	const editor = useEditor({
 		extensions,
-		content: { type: "doc", attrs: { fields, data: values }, content: content as JSONContent[] },
+		// The format's tables become the editor's own table nodes, as on every other load path: without this an amount,
+		// check box or row number cell draws empty.
+		content: { type: "doc", attrs: { fields, data: values }, content: blocksToEditor(content) as JSONContent[] },
 		editable: false,
 		immediatelyRender: true,
 		editorProps: { attributes: { "aria-readonly": "true" } },

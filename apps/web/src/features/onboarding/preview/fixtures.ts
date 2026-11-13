@@ -54,8 +54,6 @@ const RETRY: Record<ErrorCode, "never" | "refresh" | "same_request" | "reconcile
 	idempotency_conflict: "never",
 };
 
-export const DECLARATION_REASON = "Declared at setup — where this plant already was when it joined EveryField.";
-
 const id = () => crypto.randomUUID();
 
 const now = () => new Date().toISOString();
@@ -367,7 +365,7 @@ function apply(w: World, op: Op, cmd: Command): unknown {
 	});
 }
 
-export type Call = { op: Op; requestKey: string; command: Command };
+type Call = { op: Op; requestKey: string; command: Command };
 /** `offline` drops the connection: the next call of that command and the entry reload after it throw, with no reply. */
 export type Fault = ErrorCode | "offline";
 export type FixtureControls = {

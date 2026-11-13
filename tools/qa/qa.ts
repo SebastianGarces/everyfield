@@ -1,10 +1,11 @@
 import { spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
 	devParent,
+	FULL_ADDRESS,
 	NEON_PROJECT,
 	QA_LOGINS,
 	QA_ROLES,
@@ -12,13 +13,25 @@ import {
 	type NeonBranch,
 	type NeonEndpoint,
 } from "./qa-guard.ts";
-import { addPreview, carryOverV1, fail, previewsPath, readPreviews, removePreview, setDeployment } from "./store.ts";
+import {
+	addPreview,
+	cronSecretPath,
+	drivePid,
+	driverLogPath,
+	fail,
+	readPreviews,
+	removePreview,
+	repoHome,
+	setDeployment,
+	writeCronSecret,
+} from "./store.ts";
 
 /**
  * OPS-106: on-demand QA previews. `qa up <branch>` makes a Neon branch off the development branch, migrates and
  * seeds it with the branch's own code, deploys that head to a Vercel preview with per-deployment database and identity
- * settings, and gives it a stable alias, the one origin the deployment trusts. `qa list` shows open previews; `qa down`
- * removes the alias, the deployment and the Neon branch.
+ * settings, and gives it a stable alias, the one origin the deployment trusts. It writes the preview's cron secret file,
+ * which `qa drive` (cron-driver.ts, T-289) reads to run its scheduled sends; `qa up` never starts a driver itself.
+ * `qa list` shows open previews; `qa down` removes the cron secret, the alias, the deployment and the Neon branch.
  *
  * Secrets pass from neonctl to child processes in memory only. qa prints, logs and stores names, never a connection
  * string, key or password: child output reaches the screen only on failure, through `redact`.
@@ -27,8 +40,8 @@ import { addPreview, carryOverV1, fail, previewsPath, readPreviews, removePrevie
 const VERCEL = { orgId: "team_JKEPRxDWACtp9hugEthW215I", projectId: "prj_N6MhFGqi0UW5Iaa6RBDpusMKxMwu" };
 const QA_ID = /^qa-[a-z0-9]+(-[a-z0-9]+)*$/;
 const aliasHost = (id: string) => `everyfield-${id}.vercel.app`;
-/** The seed runs from the branch's own code. A branch made before the move still has it at the old path. */
-const SEED_PATHS = ["tools/qa/qa-seed.ts", "tools/evf/qa-seed.ts"];
+/** The seed runs from the branch's own code. */
+const SEED_PATHS = ["tools/qa/qa-seed.ts"];
 
 /** Hides connection strings and Neon passwords in text that leaves a process. */
 const redactConnections = (text: string) =>
@@ -78,6 +91,25 @@ function tool(
 
 const json = <T>(r: Result): T => JSON.parse(r.stdout) as T;
 
+/**
+ * The deployment URL `vercel deploy` printed. Off a terminal, Vercel CLI 65 prints one JSON object with the URL at
+ * `deployment.url`; older CLIs print the bare URL as their last stdout line.
+ */
+function deploymentUrl(stdout: string): string | undefined {
+	const isUrl = (s: unknown): s is string => typeof s === "string" && /^https:\/\/\S+\.vercel\.app$/.test(s);
+	try {
+		const url = (JSON.parse(stdout) as { deployment?: { url?: unknown } }).deployment?.url;
+		if (isUrl(url)) return url;
+	} catch {
+		// Not JSON: an older CLI's plain lines.
+	}
+	return stdout
+		.split("\n")
+		.map((line) => line.trim())
+		.filter(isUrl)
+		.pop();
+}
+
 function neon(redactor: Redactor, ...args: string[]): Result {
 	return tool(redactor, "neonctl", [...args, "--project-id", NEON_PROJECT]);
 }
@@ -106,7 +138,21 @@ function resolveHead(root: string, branch: string): string {
 	fail(`No branch ${branch} on origin or in this checkout.`);
 }
 
-export function qaUp(root: string, branch: string): number {
+/**
+ * The `--test-recipients` list: one or more full addresses, comma-separated, or what to fix. The value goes only to this
+ * one deployment (EMAIL_TEST_RECIPIENTS) and to the seed (QA_TEST_RECIPIENTS); it is never stored.
+ */
+export function parseTestRecipients(raw: string): string[] | string {
+	const entries = raw.split(",").map((entry) => entry.trim());
+	if (!raw.trim())
+		return "--test-recipients needs one or more full addresses, comma-separated: --test-recipients a@example.com";
+	const bad = entries.filter((entry) => !FULL_ADDRESS.test(entry));
+	if (bad.length)
+		return `--test-recipients takes full addresses only, comma-separated, with no empty entry, bare domain or wildcard. Fix: ${bad.map((b) => JSON.stringify(b)).join(", ")}`;
+	return entries;
+}
+
+export function qaUp(root: string, branch: string, recipients: string[] = []): number {
 	if (!/^[A-Za-z0-9._/-]+$/.test(branch) || branch.startsWith("-")) fail(`${branch} is not a branch name.`);
 	const redactor = new Redactor();
 	const head = resolveHead(root, branch);
@@ -129,6 +175,7 @@ export function qaUp(root: string, branch: string): number {
 		deployment: null,
 		created_at: new Date().toISOString(),
 	});
+	let cron = "";
 	console.error(`qa up: ${id} for ${branch} at ${head.slice(0, 12)}, Neon branch off ${parent.name}.`);
 	try {
 		const created = json<{ branch: NeonBranch }>(
@@ -150,7 +197,9 @@ export function qaUp(root: string, branch: string): number {
 		};
 		const direct = cs(),
 			pooled = cs("--pooled");
-		deployCheckout(root, redactor, { id, head, url, direct, pooled });
+		const { deployment, cronSecret } = deployCheckout(root, redactor, { id, head, url, direct, pooled, recipients });
+		writeCronSecret(root, id, cronSecret);
+		cron = scheduledSends(root, id, deployment);
 	} catch (error) {
 		console.error(`qa up: ${id} failed; removing what it made.`);
 		try {
@@ -162,16 +211,55 @@ export function qaUp(root: string, branch: string): number {
 	}
 	console.log(`QA preview ${id}\n${url}`);
 	console.error(
-		`Sign in as ${QA_LOGINS.owner} (also qa-admin, qa-member). Remove it with: bin/qa down ${id}. Runbook: docs/runbooks/qa-preview.md`,
+		`Sign in as ${QA_LOGINS.owner} (also qa-admin, qa-member; Riverside (QA): ${QA_LOGINS.riverside}). Remove it with: bin/qa down ${id}. Runbook: docs/runbooks/qa-preview.md`,
 	);
+	console.error(
+		recipients.length
+			? `Real mail on this preview also reaches: ${recipients.join(", ")}. Ana Lee uses ${recipients[0]} in both churches. Other addresses go to /api/dev/outbox.`
+			: "Real mail on this preview reaches no extra address: only delivered+...@resend.dev. Other addresses go to /api/dev/outbox.",
+	);
+	console.error(cron);
 	return 0;
+}
+
+/** How long `qa up` waits for a running `qa drive` to answer its first call of the new preview's /api/cron/jobs. */
+const FIRST_RUN_WAIT_MS = 90_000;
+/** How long `qa down` waits for a running `qa drive` to log that it stopped calling the preview. */
+const STOP_WAIT_MS = 15_000;
+
+const lastLine = (log: string) => (existsSync(log) ? (readFileSync(log, "utf8").trim().split("\n").pop() ?? "") : "");
+const pause = (ms: number) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+const shellQuote = (s: string) => `'${s.replaceAll("'", "'\\''")}'`;
+
+/**
+ * The line to print about scheduled sends. With `qa drive` running, it waits for the host's first call of this preview
+ * and says whether it answered. Without one, it says sends are off and gives the command to run outside a seat.
+ */
+function scheduledSends(root: string, id: string, deployment: string): string {
+	const pid = drivePid(root);
+	if (!pid)
+		return `Scheduled sends: off until you run, outside a seat: cd ${shellQuote(repoHome(root))} && bin/qa drive`;
+	const log = driverLogPath(root, id);
+	let first = "";
+	for (let waited = 0; waited < FIRST_RUN_WAIT_MS && !first; waited += 250) {
+		pause(250);
+		first = existsSync(log)
+			? (readFileSync(log, "utf8")
+					.split("\n")
+					.find((line) => / (ok|failed): /.test(line)) ?? "")
+			: "";
+	}
+	const where = `qa drive (pid ${pid}) calls /api/cron/jobs on ${deployment} every minute until bin/qa down. Log: ${log}`;
+	if (/ ok: /.test(first)) return `Scheduled sends: on. ${where}`;
+	if (!first) return `Scheduled sends: the first run has not answered yet. ${where}`;
+	return `Scheduled sends: the first run FAILED (${first.split(" failed: ")[1]}). It keeps trying. ${where}`;
 }
 
 function deployCheckout(
 	root: string,
 	redactor: Redactor,
-	p: { id: string; head: string; url: string; direct: string; pooled: string },
-): void {
+	p: { id: string; head: string; url: string; direct: string; pooled: string; recipients: string[] },
+): { deployment: string; cronSecret: string } {
 	const checkout = mkdtempSync(join(tmpdir(), "evf-qa-"));
 	tool(redactor, "git", ["-C", root, "worktree", "add", "--quiet", "--detach", checkout, p.head]);
 	try {
@@ -188,40 +276,53 @@ function deployCheckout(
 		// preview must run with the same two values.
 		const mailKeys = { IDENTITY_MAIL_KEY: key(), IDENTITY_ADDRESS_KEY: key() };
 		redactor.add(rolePassword, ...Object.values(mailKeys));
-		console.error("qa up: seeding the test church.");
+		console.error("qa up: seeding the test churches.");
 		tool(
 			redactor,
 			"corepack",
 			["pnpm", "--filter", "@everyfield/domain", "exec", "tsx", "--conditions=react-server", `../../${seed}`],
-			{ cwd: checkout, env: { ...dbEnv, QA_ROLE_PASSWORD: rolePassword, ...mailKeys } },
+			{
+				cwd: checkout,
+				env: {
+					...dbEnv,
+					QA_ROLE_PASSWORD: rolePassword,
+					...mailKeys,
+					QA_TEST_RECIPIENTS: p.recipients.length ? p.recipients.join(",") : undefined,
+				},
+			},
 		);
-		// Per-deployment settings: this preview's database and its own identity keys. Shared credentials (mail,
-		// storage, cron, Langfuse, Evry) come from the Vercel Preview environment.
+		// Per-deployment settings: this preview's database, its own identity keys, its own cron secret for the driver
+		// (T-255) and, when given, the extra addresses that get real mail. The cleanup login points at this branch too, so
+		// the cron's purges stay in it. Shared credentials (mail, storage, Langfuse, Evry) come from the Vercel Preview
+		// environment, which qa never changes.
+		const cronSecret = key();
 		const settings: Record<string, string> = {
 			DATABASE_URL: p.pooled,
 			DATABASE_URL_UNPOOLED: p.direct,
-			IDENTITY_DATABASE_URL: roleUrl(p.pooled, QA_ROLES.runtime, rolePassword),
+			// Direct, not pooled: the cron's job pool sets statement_timeout as a startup option, which Neon's pooler refuses
+			// (08P01 unsupported startup parameter), so every scheduled job failed on the pooled endpoint.
+			IDENTITY_DATABASE_URL: roleUrl(p.direct, QA_ROLES.runtime, rolePassword),
 			IDENTITY_AUTH_DATABASE_URL: roleUrl(p.pooled, QA_ROLES.auth, rolePassword),
 			IDENTITY_ORIGIN: p.url,
 			IDENTITY_SECRET: key(),
 			...mailKeys,
 			NOTIFICATION_OPT_OUT_KEYS: randomBytes(32).toString("base64"),
+			CRON_SECRET: cronSecret,
+			LIFECYCLE_CLEANUP_DATABASE_URL: p.direct,
+			...(p.recipients.length ? { EMAIL_TEST_RECIPIENTS: p.recipients.join(",") } : {}),
 		};
-		redactor.add(...Object.entries(settings).flatMap(([k, v]) => (k === "IDENTITY_ORIGIN" ? [] : [v])));
+		const notSecret = new Set(["IDENTITY_ORIGIN", "EMAIL_TEST_RECIPIENTS"]);
+		redactor.add(...Object.entries(settings).flatMap(([k, v]) => (notSecret.has(k) ? [] : [v])));
 		mkdirSync(join(checkout, ".vercel"));
 		writeFileSync(join(checkout, ".vercel/project.json"), JSON.stringify(VERCEL));
 		const flags = Object.entries(settings).flatMap(([k, v]) => ["-e", `${k}=${v}`, "-b", `${k}=${v}`]);
 		console.error("qa up: deploying to a Vercel preview (several minutes).");
 		const deployed = tool(redactor, "vercel", ["deploy", "--yes", "--target", "preview", ...flags], { cwd: checkout });
-		const deployment = deployed.stdout
-			.trim()
-			.split("\n")
-			.map((line) => line.trim())
-			.filter((line) => /^https:\/\/\S+\.vercel\.app$/.test(line))
-			.pop();
+		const deployment = deploymentUrl(deployed.stdout);
 		if (!deployment) fail("vercel deploy printed no deployment URL.");
 		setDeployment(root, p.id, deployment);
 		tool(redactor, "vercel", ["alias", "set", deployment, aliasHost(p.id), "--scope", VERCEL.orgId], { cwd: checkout });
+		return { deployment, cronSecret };
 	} finally {
 		spawnSync("git", ["-C", root, "worktree", "remove", "--force", checkout], { encoding: "utf8" });
 		rmSync(checkout, { recursive: true, force: true });
@@ -256,9 +357,19 @@ export function qaDown(root: string, id: string): number {
 	const redactor = new Redactor();
 	const row = readPreviews(root).find((r) => r.id === id);
 	const removed: string[] = [];
+	// Without its secret file, a running qa drive stops calling the preview at its next read of the records.
+	const secret = cronSecretPath(root, id);
+	if (existsSync(secret)) removed.push("scheduled sends");
+	rmSync(secret, { force: true });
 	if (row?.deployment) {
-		tool(redactor, "vercel", ["alias", "rm", aliasHost(id), "--yes", "--scope", VERCEL.orgId], { allow: NOT_FOUND });
-		tool(redactor, "vercel", ["remove", row.deployment, "--yes", "--scope", VERCEL.orgId], { allow: NOT_FOUND });
+		// Vercel CLI 65 refuses --yes from an agent; --confirm-name approves by naming the target exactly as passed.
+		const alias = aliasHost(id);
+		tool(redactor, "vercel", ["alias", "rm", alias, "--confirm-name", alias, "--scope", VERCEL.orgId], {
+			allow: NOT_FOUND,
+		});
+		tool(redactor, "vercel", ["remove", row.deployment, "--confirm-name", row.deployment, "--scope", VERCEL.orgId], {
+			allow: NOT_FOUND,
+		});
 		removed.push("alias", "deployment");
 	}
 	const branch = neonBranches(redactor).find((b) => b.name === id);
@@ -266,19 +377,16 @@ export function qaDown(root: string, id: string): number {
 		neon(redactor, "branches", "delete", branch.id);
 		removed.push(`Neon branch ${branch.name}`);
 	}
+	const log = driverLogPath(root, id);
+	if (drivePid(root))
+		for (let waited = 0; waited < STOP_WAIT_MS && existsSync(log) && !/ stopped: /.test(lastLine(log)); waited += 100)
+			pause(100);
+	rmSync(log, { force: true });
 	if (row) removePreview(root, id);
 	console.log(
 		row || branch
 			? `Removed QA preview ${id}: ${removed.join(", ") || "its record"}.`
 			: `No QA preview ${id}. Nothing to remove.`,
 	);
-	return 0;
-}
-
-/** Brings the previews recorded in the v1 store into the preview file. Every preview keeps running. */
-export function qaCarryOver(root: string): number {
-	const { added, seen } = carryOverV1(root);
-	for (const preview of added) console.log(`carried ${preview.id}  ${preview.branch}  ${preview.url}`);
-	console.log(`Carried ${added.length} of ${seen} v1 previews into ${previewsPath(root)}. Nothing was torn down.`);
 	return 0;
 }

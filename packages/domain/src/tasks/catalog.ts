@@ -11,7 +11,7 @@ import type { z } from "zod";
 // only 4 items, which are kept verbatim, and the rest are written here (decisions.md D87).
 
 type Key = z.infer<typeof c.templateKey>;
-export type ChecklistItem = {
+type ChecklistItem = {
 	key: Key;
 	title: string;
 	description: string;

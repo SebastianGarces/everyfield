@@ -1,7 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
-import { DatabaseSync } from "node:sqlite";
+import { basename, dirname, join, resolve } from "node:path";
 
 /**
  * The open QA previews, in one small JSON file under the git common directory, so every worktree of the repository
@@ -18,8 +17,7 @@ export type QaPreview = {
 	created_at: string;
 };
 
-/** `carriedFromV1` lists every id already read from the v1 store, so a second carry-over cannot revive a removed preview. */
-type PreviewFile = { previews: QaPreview[]; carriedFromV1: string[] };
+type PreviewFile = { previews: QaPreview[] };
 
 /** A refusal or failure to show as one line. */
 export class QaError extends Error {
@@ -40,11 +38,51 @@ function commonDir(root: string): string {
 
 export const previewsPath = (root: string) => join(commonDir(root), "qa", "previews.json");
 
+/** The checkout that owns the git common directory, where `bin/qa drive` runs from. */
+export function repoHome(root: string): string {
+	const common = commonDir(root);
+	return basename(common) === ".git" ? dirname(common) : common;
+}
+
+/** The scheduled-send log of one preview, next to the records: times, HTTP statuses and counts only. */
+export const driverLogPath = (root: string, id: string) => join(commonDir(root), "qa", `${id}.cron.log`);
+
+/**
+ * T-289: one preview's cron secret, which `qa drive` reads to call its /api/cron/jobs. Only the owner can read it
+ * (0600); it is never in the records. `qa down` deletes it, which also tells `qa drive` to stop calling the preview.
+ */
+export const cronSecretPath = (root: string, id: string) => join(commonDir(root), "qa", `${id}.cron-secret`);
+
+export function writeCronSecret(root: string, id: string, secret: string): void {
+	const file = cronSecretPath(root, id);
+	mkdirSync(dirname(file), { recursive: true, mode: 0o700 });
+	rmSync(file, { force: true });
+	writeFileSync(file, secret, { mode: 0o600, flag: "wx" });
+}
+
+/** The lock of the one `qa drive` of this repository: a file holding its pid. */
+export const driveLockPath = (root: string) => join(commonDir(root), "qa", "drive.lock");
+
+/** The pid of the running `qa drive` of this repository, or undefined when none runs (a stale lock counts as none). */
+export function drivePid(root: string): number | undefined {
+	let pid: number;
+	try {
+		pid = Number(readFileSync(driveLockPath(root), "utf8").trim());
+	} catch {
+		return undefined;
+	}
+	if (!Number.isInteger(pid) || pid <= 0) return undefined;
+	// The pid must still be a qa drive: after a crash or a restart the number can belong to another process.
+	const command = spawnSync("ps", ["-p", String(pid), "-o", "command="], { encoding: "utf8" }).stdout ?? "";
+	return /\bmain\.ts drive\b/.test(command) ? pid : undefined;
+}
+
 function readFile(file: string): PreviewFile {
-	if (!existsSync(file)) return { previews: [], carriedFromV1: [] };
+	if (!existsSync(file)) return { previews: [] };
 	const parsed = JSON.parse(readFileSync(file, "utf8")) as Partial<PreviewFile>;
 	if (!Array.isArray(parsed.previews)) fail(`${file} has no previews list. Inspect it before you run qa again.`);
-	return { previews: parsed.previews, carriedFromV1: parsed.carriedFromV1 ?? [] };
+	// Only the previews list is kept, so any other key an older qa wrote drops on the next write.
+	return { previews: parsed.previews };
 }
 
 /** Every open preview, oldest first. */
@@ -91,29 +129,3 @@ export const removePreview = (root: string, id: string) =>
 	change(root, (records) => {
 		records.previews = records.previews.filter((preview) => preview.id !== id);
 	});
-
-/**
- * Copies the previews recorded in the v1 work store into the preview file. It reads the store and never writes to it.
- * It stops nothing: every preview stays up and `qa list` shows it. A second run adds only ids it has not seen.
- */
-export function carryOverV1(root: string): { added: QaPreview[]; seen: number } {
-	const store = join(commonDir(root), "evf", "work.sqlite");
-	if (!existsSync(store)) fail(`No v1 store at ${store}, so there is nothing to carry over.`);
-	const db = new DatabaseSync(store, { readOnly: true });
-	let rows: QaPreview[];
-	try {
-		rows = db
-			.prepare("SELECT id, branch, head, neon_branch, url, deployment, created_at FROM qa_previews ORDER BY created_at")
-			.all()
-			.map((row) => ({ ...row }) as QaPreview);
-	} finally {
-		db.close();
-	}
-	return change(root, (records) => {
-		const known = new Set([...records.carriedFromV1, ...records.previews.map((preview) => preview.id)]);
-		const added = rows.filter((row) => !known.has(row.id));
-		records.previews.push(...added);
-		records.carriedFromV1 = [...new Set([...records.carriedFromV1, ...rows.map((row) => row.id)])];
-		return { added, seen: rows.length };
-	});
-}

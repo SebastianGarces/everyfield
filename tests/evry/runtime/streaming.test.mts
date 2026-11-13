@@ -35,7 +35,6 @@ const usage = {
 	outputTokens: { total: 1, text: 1, reasoning: 0 },
 };
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-const SENTENCES = ["There are 19 prospects in this church. ", "The list is complete and up to date."];
 const DELTAS = [
 	"There ",
 	"are ",
@@ -103,7 +102,7 @@ async function readAll(who: EvryActor, id: string) {
 	return (await readConversation(db, who, id)).events;
 }
 
-test("INV-stream-progressive: a short answer arrives as 3+ ordered updates, each within 150 ms of the model", async () => {
+test("INV-stream-paint INV-stream-progressive: a short answer arrives as 3+ ordered updates, each within 150 ms of the model", async () => {
 	const owner = await actor("owner");
 	const id = await ask(owner);
 	const emitted: number[] = [];
@@ -181,6 +180,23 @@ test("INV-stream-durable: reconnect mid-stream, a second tab and a reload agree;
 	for (const p of lives(again)) assert.equal(TEXT.slice(p.offset, p.offset + p.text.length), p.text);
 });
 
+test("INV-statements: the stream route's access check is its first page, so an idle conversation streams with no second read", async () => {
+	const owner = await actor("owner");
+	const c = await createConversation(db, owner, { requestKey: randomUUID() });
+	const first = await readConversation(db, owner, c.id);
+	let statements = 0;
+	const counted = {
+		execute: (...args: unknown[]) => (statements++, (db.execute as (...args: unknown[]) => unknown)(...args)),
+	} as typeof db;
+	const seen: Observed[] = [];
+	for await (const item of observeRun(counted, owner, c.id, 0, AbortSignal.timeout(5_000), { first })) seen.push(item);
+	assert.deepEqual(
+		seen,
+		first.events.map((event) => ({ event })),
+	);
+	assert.equal(statements, 0);
+});
+
 test("INV-stream-durable: a lost run's interrupted end is saved exactly once", async () => {
 	const owner = await actor("owner");
 	const id = await ask(owner);
@@ -228,7 +244,7 @@ test("INV-stream-access: an observer whose seat ends mid-stream gets no more tex
 	}
 });
 
-test("INV-stream-end: Stop keeps the partial text and ends the stream promptly", async () => {
+test("INV-stream-stop INV-stream-end: Stop keeps the partial text and ends the stream promptly", async () => {
 	const owner = await actor("owner");
 	const id = await ask(owner);
 	const seen: Seen[] = [];

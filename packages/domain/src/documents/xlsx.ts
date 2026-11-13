@@ -1,12 +1,11 @@
 import type { BlockNode, EveryfieldDoc, Formula, TableNode } from "@everyfield/contracts/documents";
 import { attrsOf, computeTable, parseFormula } from "@everyfield/contracts/documents";
 import { textOn } from "./contrast.ts";
+// The Word writer's escaper: it also drops the control characters XML 1.0 forbids, which make a sheet unreadable.
+import { escape as xml } from "./docx.ts";
 import type { Palette, RenderTheme } from "./theme.ts";
 import { makePalette, tokenColor } from "./theme.ts";
 import { zip } from "./zip.ts";
-
-const xml = (value: string) =>
-	value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
 
 function column(index: number) {
 	let value = index;
@@ -334,31 +333,9 @@ function firstYear(church: string): Sheet[] {
 	return [monthly, summary];
 }
 
-function worksheet(church: string): Sheet[] {
-	const b = block(1, (row) => `B${row}*12`);
-	return [
-		{
-			name: "Budget worksheet",
-			widths: [36, 16, 16],
-			freeze: { x: 1, y: 3 },
-			rows: [
-				[text(`${church} Budget Worksheet`, S.title)],
-				[
-					text(
-						"Enter the monthly amount in each boxed cell. The annual amount is the monthly amount times 12.",
-						S.note,
-					),
-				],
-				[text("Category", S.head), text("Monthly", S.headRight), text("Annual", S.headRight)],
-				...b.rows,
-			],
-		},
-	];
-}
-
-/** A budget workbook in stored ZIP form. Totals are live formulas. The same inputs give the same bytes. */
-export function buildBudget(kind: "first-year" | "worksheet", church: string, theme: RenderTheme) {
-	return workbook(kind === "first-year" ? firstYear(church) : worksheet(church), new StyleBook(theme));
+/** The first-year budget workbook in stored ZIP form. Totals are live formulas. The same inputs give the same bytes. */
+export function buildFirstYearBudget(church: string, theme: RenderTheme) {
+	return workbook(firstYear(church), new StyleBook(theme));
 }
 
 // ---------------------------------------------------------------- everyfield.doc/1 ledgers
@@ -397,9 +374,25 @@ function excelFormula(tree: Formula, letter: (id: string) => string, row: number
 			return `-(${excelFormula(tree.a, letter, row)})`;
 		case "sum":
 			return `SUM(${letter(tree.first)}${row}:${letter(tree.last)}${row})`;
+		case "/": {
+			// evalTree gives 0 for a zero divisor; an empty cell is zero in Excel too.
+			const [a, b] = [excelFormula(tree.a, letter, row), excelFormula(tree.b, letter, row)];
+			return `IF((${b})=0,0,(${a})/(${b}))`;
+		}
 		default:
 			return `(${excelFormula(tree.a, letter, row)}${tree.op}${excelFormula(tree.b, letter, row)})`;
 	}
+}
+
+/** Ascending rows as runs of contiguous rows, so a SUM range never spans a subtotal row between two items. */
+function runs(rows: readonly number[]) {
+	const out: [number, number][] = [];
+	for (const row of rows) {
+		const last = out.at(-1);
+		if (last && row === last[1] + 1) last[1] = row;
+		else out.push([row, row]);
+	}
+	return out;
 }
 
 const cellText = (cell: TableNode["content"] extends (infer R)[] | undefined ? R : never, i: number) =>
@@ -474,6 +467,8 @@ export function buildLedgerWorkbook(doc: EveryfieldDoc, values: Record<string, s
 					groups.push(open);
 				}
 				open.items.push(at);
+				// A subtotal above this row no longer covers the whole category, so a total adds the items instead.
+				open.subtotal = null;
 				index += 1;
 				// The rows the PDF stripes: every second item row.
 				const fill = a.zebra && index % 2 === 0 ? stripe : 0;
@@ -500,7 +495,9 @@ export function buildLedgerWorkbook(doc: EveryfieldDoc, values: Record<string, s
 				g.subtotal !== null && role === "total"
 					? `${L}${g.subtotal}`
 					: g.items.length
-						? `SUM(${L}${Math.min(...g.items)}:${L}${Math.max(...g.items)})`
+						? `SUM(${runs(g.items)
+								.map(([first, last]) => `${L}${first}:${L}${last}`)
+								.join(",")})`
 						: "0";
 			if (role === "subtotal" && open) (open as Group).subtotal = at;
 			const parts = role === "subtotal" ? (open ? [open] : []) : groups;

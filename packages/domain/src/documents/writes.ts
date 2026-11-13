@@ -14,8 +14,9 @@ import { type RequestActor } from "../access/session.ts";
 import { deny, parse, plantViewer, readPlant, rejectInput, settle } from "./access.ts";
 import { churchWriter } from "./church-writes.ts";
 import { library } from "./catalog.ts";
-import { cleanOverrides, resolveMerge } from "./merge.ts";
-import { ARTIFACT_MAX, RenderFailed, digestOf, renderEngineVersion, renderPreview } from "./render.ts";
+import { cleanOverrides } from "./merge.ts";
+import { forSubject } from "./reads.ts";
+import { ARTIFACT_MAX, digestOf, renderEngineVersion } from "./render.ts";
 import {
 	MEDIA,
 	PAGE,
@@ -138,12 +139,9 @@ const generatedWriter = {
 			);
 			if (!plant.open) deny();
 			if (!plant.subjectOk) deny("invalid_subject");
-			const resolved = resolveMerge(
-				template,
-				{ churchName: plant.churchName, pastorName: plant.pastorName, launchDate: plant.launchDate },
-				cleaned.values,
-			);
-			if (!resolved.ok) rejectInput(resolved.path, resolved.problem);
+			// The preview's own resolve and render, so the file holds the bytes the preview showed for this subject.
+			const done = forSubject(loaded, template, input.format, cleaned.values, scope.tenantId, plant, input.meetingId);
+			const resolved = done.merge;
 			const inputs = resolved.fields.map((field) => ({ key: field.key, value: field.value, source: field.source }));
 			const stored = await rowsOf<{
 				id: string;
@@ -172,15 +170,9 @@ const generatedWriter = {
 			if (prior?.same) return generatedFrom(prior, scope.tenantId, template.id);
 			if (prior) deny("conflict");
 			if (!resolved.complete) rejectInput("overrides", "A required merge field is empty.");
-			let bytes: Buffer | null;
-			try {
-				// D-109, D-418: the network's statement prints as it stands now and is not an input, so a replay on the
-				// same key returns the file saved earlier.
-				bytes = await renderPreview(template, input.format, resolved, undefined, undefined, plant.statement);
-			} catch (error) {
-				if (error instanceof RenderFailed) deny("render_failed");
-				throw error;
-			}
+			// D-109, D-418: the network's statement and the brand kit print as they stand now and are not inputs, so a replay
+			// on the same key returns the file saved earlier.
+			const bytes = await done.render(db, storage, authority);
 			if (!bytes) rejectInput("overrides", "A required merge field is empty.");
 			if (bytes.length > ARTIFACT_MAX) deny("render_failed");
 			const file = await storeBytes(
@@ -332,10 +324,10 @@ const generatedWriter = {
 			parse(c.listOwnedRequest, raw);
 			const scope = viewScope(authority);
 			if (!scope) deny();
-			const found = await rowsOf<OwnedRow & { ok: boolean }>(
+			const found = await rowsOf<Omit<OwnedRow, "body"> & { ok: boolean }>(
 				db,
 				sql`SELECT g.ok, d.id, d.tenant_id, d.kind, d.title, d.revision::text AS revision,
-					d.archived_at IS NOT NULL AS archived, d.copied_from_revision_id, d.copied_from_hash, r.body, r.content_hash,
+					d.archived_at IS NOT NULL AS archived, d.copied_from_revision_id, d.copied_from_hash, r.content_hash,
 					r.id AS revision_id
 				FROM (SELECT ${gateSql(scope, false)} AS ok) g
 				LEFT JOIN document d ON g.ok AND d.tenant_id = ${scope.tenantId}::uuid AND d.current_revision_id IS NOT NULL
@@ -346,19 +338,29 @@ const generatedWriter = {
 			);
 			if (found[0]?.ok !== true && found.length > 0) deny();
 			if (found.length === 0) deny();
+			// One parse of the page checks every row once.
 			return c.ownedDocumentPage.parse({
-				documents: found.filter((row) => row.id).map((row) => ownedFrom(row, scope.tenantId)),
+				documents: found
+					.filter((row) => row.id)
+					.map((row) => ({
+						id: row.id,
+						tenantId: row.tenant_id ?? scope.tenantId,
+						kind: row.kind,
+						title: row.title,
+						revision: row.revision,
+						revisionId: row.revision_id,
+						contentHash: row.content_hash,
+						archived: row.archived,
+						copiedFromRevisionId: row.copied_from_revision_id,
+						copiedFromHash: row.copied_from_hash,
+					})),
 			});
 		});
 	},
 
-	async read(db: Database, authority: RequestActor, raw: unknown) {
-		return settle(() => readOwned(db, authority, raw));
-	},
-
-	async getAuthorized(db: Database, authority: RequestActor, raw: unknown) {
-		return settle(() => readOwned(db, authority, raw));
-	},
+	read: readOwnedDocument,
+	/** The catalog's name for `read` (D-878): the same operation, kept so its catalog entry and tenancy case hold. */
+	getAuthorized: readOwnedDocument,
 
 	createFromTemplate: churchWriter.createFromTemplate,
 	setBranding: churchWriter.setBranding,
@@ -368,6 +370,9 @@ const generatedWriter = {
 	listChurch: churchWriter.listChurch,
 	readChurchFile: churchWriter.readChurchFile,
 	deleteChurch: churchWriter.deleteChurch,
+	archiveChurch: churchWriter.archiveChurch,
+	listArchivedChurch: churchWriter.listArchivedChurch,
+	restoreChurch: churchWriter.restoreChurch,
 	saveChurchTemplate: churchWriter.saveTemplate,
 	updateChurchTemplate: churchWriter.updateTemplate,
 	editChurchTemplate: churchWriter.editTemplate,
@@ -421,7 +426,7 @@ const generatedWriter = {
 
 	async archive(db: Database, authority: RequestActor, raw: unknown) {
 		return settle(async () => {
-			const input = parse(c.archiveDocumentRequest, raw);
+			const input = parse(c.documentRevisionRequest, raw);
 			const scope = editScope(authority);
 			if (!scope) deny();
 			const row = await mutateOwned(db, scope, input.documentId, input.expectedRevision, "archive");
@@ -433,7 +438,7 @@ const generatedWriter = {
 
 	async designateCoreValues(db: Database, authority: RequestActor, raw: unknown) {
 		return settle(async () => {
-			const input = parse(c.designateCoreValuesRequest, raw);
+			const input = parse(c.documentRevisionRequest, raw);
 			const scope = editScope(authority);
 			if (!scope) deny();
 			const row = await mutateOwned(db, scope, input.documentId, input.expectedRevision, "designate");
@@ -448,10 +453,9 @@ const generatedWriter = {
 			const input = parse(c.importDocumentRequest, raw);
 			const scope = editScope(authority);
 			if (!scope) deny();
-			const bytes = decodeImport(input.bytes);
 			let read: c.DocNode;
 			try {
-				read = readImport(bytes, input.format);
+				read = readImport(input.bytes, input.format);
 			} catch (error) {
 				if (error instanceof ImportRejected) rejectInput("bytes", error.message);
 				throw error;
@@ -484,7 +488,7 @@ const generatedWriter = {
 				scope,
 				"native_import",
 				input.format === "text" ? "text/plain" : MEDIA.docx,
-				bytes,
+				input.bytes,
 				`import:${scope.tenantId}:${input.requestKey}`,
 			);
 			const imported = { objectId: file.id, format: input.format, hash, requestKey: input.requestKey };
@@ -554,23 +558,22 @@ const generatedWriter = {
 				ok: boolean;
 				id: string | null;
 				title: string;
-				revision_id: string;
-				body: string;
+				revision_id: string | null;
 			}>(
 				db,
-				sql`SELECT g.ok, d.id, d.title, r.id AS revision_id, r.body
+				sql`SELECT g.ok, d.id, d.title, r.id AS revision_id
 				FROM (SELECT ${gateSql(scope, true)} AS ok) g
 				LEFT JOIN document d ON g.ok AND d.tenant_id = ${scope.accountId}::uuid AND d.current_revision_id IS NOT NULL
 					AND d.kind IN ('native', 'core_values') AND d.archived_at IS NULL
 				LEFT JOIN document_revision r ON r.id = d.current_revision_id AND r.tenant_id = d.tenant_id
-					AND (r.import_state IS NULL OR r.import_state = 'ready')
+					AND (r.import_state IS NULL OR r.import_state = 'ready') AND ${hasText(sql.raw("r.body"))}
 				ORDER BY r.recorded_at DESC NULLS LAST
 				LIMIT ${PAGE}`,
 			);
 			if (found[0]?.ok !== true) deny();
 			return c.copySourcePage.parse({
 				documents: found
-					.filter((row) => row.id && row.body && c.nativeText(c.readNative(row.body).body))
+					.filter((row) => row.id && row.revision_id)
 					.map((row) => ({ id: row.id, title: row.title, revisionId: row.revision_id })),
 			});
 		});
@@ -592,6 +595,11 @@ const generatedWriter = {
 		});
 	},
 
+	/**
+	 * Purges up to 20 stored files nothing references once their staging window has passed. A file stays `ready` and
+	 * unreferenced between its upload and the write that refers to it (a saved export, a brand asset before Save), so a
+	 * file inside its window is never a candidate; the scheduled runner calls this every minute (D-879).
+	 */
 	async reconcileOrphans(db: Database, storage: PrivateStorage | null) {
 		return settle(async () => {
 			if (!storage) deny();
@@ -600,7 +608,7 @@ const generatedWriter = {
 				sql`SELECT id FROM file_object
 				WHERE state IN ('pending', 'failed', 'ready')
 					AND NOT file_is_referenced(id)
-					AND (state <> 'pending' OR expires_at < clock_timestamp())
+					AND (expires_at IS NULL OR expires_at < clock_timestamp())
 				ORDER BY id
 				LIMIT 20`,
 			);
@@ -622,6 +630,10 @@ const generatedWriter = {
 		});
 	},
 };
+
+async function readOwnedDocument(db: Database, authority: RequestActor, raw: unknown) {
+	return settle(() => readOwned(db, authority, raw));
+}
 
 async function readOwned(db: Database, authority: RequestActor, raw: unknown) {
 	const input = parse(c.ownedDocumentRequest, raw);
@@ -989,13 +1001,6 @@ async function mutateOwned(
 		},
 		scope.tenantId,
 	);
-}
-
-function decodeImport(value: string) {
-	if (value.length % 4 !== 0 || !/^[A-Za-z0-9+/]+={0,2}$/.test(value)) rejectInput("bytes", "Bytes are not base64.");
-	const bytes = Buffer.from(value, "base64");
-	if (!bytes.length || bytes.length > 10 * 1024 * 1024) rejectInput("bytes", "The file must be 10 MiB or smaller.");
-	return bytes;
 }
 
 type Reply<T> = Promise<c.DocumentsReply<T>>;

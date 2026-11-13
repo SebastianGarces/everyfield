@@ -1,9 +1,10 @@
 import { Extension, mergeAttributes, Node } from "@tiptap/core";
 import { Fragment, Slice, type Node as PMNode } from "@tiptap/pm/model";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
-import { Decoration, DecorationSet } from "@tiptap/pm/view";
+import { Decoration } from "@tiptap/pm/view";
 import type { DocDocument, FieldDecl } from "@everyfield/contracts/documents";
 import { attrsOfSpec, BLOCKS } from "./attrs.ts";
+import { docDecorations } from "./doc-decorations.ts";
 import { conditionHolds } from "@everyfield/domain/documents/values";
 import { conditionLabel, type Condition } from "./condition.ts";
 
@@ -47,19 +48,14 @@ export const EfIf = Node.create({
 	},
 	addProseMirrorPlugins() {
 		return [
-			new Plugin({
-				key: new PluginKey("efConditionState"),
-				props: {
-					decorations: (state) => {
-						const found: Decoration[] = [];
-						state.doc.descendants((node, pos) => {
-							if (node.type.name !== "if") return true;
-							found.push(Decoration.node(pos, pos + node.nodeSize, {}, conditionSpec(state.doc, node)));
-							return false;
-						});
-						return DecorationSet.create(state.doc, found);
-					},
-				},
+			docDecorations("efConditionState", (doc) => {
+				const found: Decoration[] = [];
+				doc.descendants((node, pos) => {
+					if (node.type.name !== "if") return true;
+					found.push(Decoration.node(pos, pos + node.nodeSize, {}, conditionSpec(doc, node)));
+					return false;
+				});
+				return found;
 			}),
 		];
 	},

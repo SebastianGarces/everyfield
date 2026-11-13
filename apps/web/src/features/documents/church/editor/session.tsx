@@ -6,6 +6,7 @@ import { Extension, type Editor } from "@tiptap/core";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { holdLeave } from "../../../../components/save/leave.ts";
+import { saveAndLeave } from "../../save-chain.ts";
 import { deleteBlock, moveBlock } from "./blocks.ts";
 
 // What the Church Document editor and the plain document editor share around the paper: the save status line, the
@@ -65,7 +66,7 @@ export function SaveStatusText({
 }
 
 /** A way out of the page that waits for an answer: `go` leaves, `stay` (if any) puts back what the way out undid. */
-export type LeaveRequest = { go: () => void; stay?: () => void };
+type LeaveRequest = { go: () => void; stay?: () => void };
 
 /**
  * Asks before an in-app link, the Back button or a page-wide action such as Sign out (`leavePage`) leaves the page
@@ -194,9 +195,10 @@ export function LeaveDialog({
 						loading={saving}
 						onClick={async () => {
 							setSaving(true);
-							const saved = await onSave();
-							setSaving(false);
-							finish(saved);
+							await saveAndLeave(onSave, (leave) => {
+								setSaving(false);
+								finish(leave);
+							});
 						}}
 					>
 						Save and leave

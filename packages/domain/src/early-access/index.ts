@@ -7,8 +7,8 @@ import {
 	validateAccessRequest,
 	type AccessRequest,
 	type AccessRequestResult,
-} from "./contract";
-import { mailRecipientAllowed } from "../mail-recipients";
+} from "./contract.ts";
+import { mailRecipientAllowed } from "../mail-recipients.ts";
 
 const mailSchema = z.object({
 	from: z.string().min(1),

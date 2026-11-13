@@ -34,6 +34,7 @@ import type { Node as PMNode } from "@tiptap/pm/model";
 import { Selection } from "@tiptap/pm/state";
 import { EditorContent, EditorContext, useEditor, useEditorState } from "@tiptap/react";
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties } from "react";
+import { SaveChain } from "../../save-chain.ts";
 import { saveChurchDocument } from "../actions.ts";
 import { ChurchPdf } from "../ChurchPdf.tsx";
 import type { RevisionRow } from "../server.ts";
@@ -43,6 +44,7 @@ import { documentFrom, editorContent } from "./document-json.ts";
 import "./editor.css";
 import { editorExtensions } from "./extensions.ts";
 import { BlockControls } from "./LayoutControls.tsx";
+import { TABLE_REFUSED } from "./TableControls.tsx";
 import { readPage } from "./layout.ts";
 import { paletteVars } from "./paper.ts";
 import { PageSetupPanel } from "./PageSetup.tsx";
@@ -54,9 +56,6 @@ import { EditorToolbar } from "./Toolbar.tsx";
 // The Church Document editor: the toolbar, the paper page, the save status and the real-PDF preview. The editor holds
 // the document as ProseMirror JSON and builds the stored document from it on Save. It stays mounted while the preview
 // shows, so the content, the cursor and the undo history survive a trip to the preview and back.
-
-const TABLE_REFUSED =
-	"That change would break a table, so nothing changed. Select the whole table, or text in one cell.";
 
 const NOTICE_WHY =
 	"Every formal or legal document prints this notice, in the PDF and the Word file. Editing the document cannot remove it.";
@@ -108,7 +107,7 @@ export default function ChurchEditor({
 	const [status, setStatus] = useState<SaveStatus>({ kind: "saved" });
 	const [mode, setMode] = useState<"edit" | "preview" | "history" | "compare">("edit");
 	const savedDoc = useRef<PMNode | null>(null);
-	const inflight = useRef<Promise<boolean> | null>(null);
+	const [saves] = useState(() => new SaveChain());
 
 	// The image blocks read the brand-kit images through this one object, so the branding switch can change the images
 	// without a new editor: its content, cursor and undo history stay, and only the image views draw again (below).
@@ -128,23 +127,30 @@ export default function ChurchEditor({
 		[],
 	);
 	const extensions = useMemo(() => [...editorExtensions(assets), BlockShortcuts], [assets]);
-	const editor = useEditor({
-		extensions,
-		content: editorContent(stored),
-		immediatelyRender: true,
-		// Start with the cursor in the first line of text, not on a whole block.
-		onCreate: ({ editor: created }) => {
-			const first = Selection.findFrom(created.state.doc.resolve(0), 1, true);
-			if (first) created.view.dispatch(created.state.tr.setSelection(first).setMeta("addToHistory", false));
-		},
-		editorProps: {
+	// The editor reads its content once, when it starts. Options that keep their identity across renders also spare the
+	// editor an options update (and a view update) on every parent render.
+	const [content] = useState(() => editorContent(stored));
+	const editorProps = useMemo(
+		() => ({
 			attributes: {
 				"aria-label": `${title}, document body`,
 				"aria-multiline": "true",
 				role: "textbox",
 				spellcheck: "true",
 			},
+		}),
+		[title],
+	);
+	const editor = useEditor({
+		extensions,
+		content,
+		immediatelyRender: true,
+		// Start with the cursor in the first line of text, not on a whole block.
+		onCreate: ({ editor: created }) => {
+			const first = Selection.findFrom(created.state.doc.resolve(0), 1, true);
+			if (first) created.view.dispatch(created.state.tr.setSelection(first).setMeta("addToHistory", false));
 		},
+		editorProps,
 	});
 
 	useEffect(() => {
@@ -164,37 +170,33 @@ export default function ChurchEditor({
 		return saved.eq(doc);
 	}, []);
 	// Read when a way out is taken, not from React state: a click straight after an edit can come before React renders.
-	const unsaved = useCallback(
-		() => !!editor && (inflight.current !== null || !isSaved(editor.state.doc)),
-		[editor, isSaved],
-	);
+	const unsaved = useCallback(() => !!editor && (saves.busy || !isSaved(editor.state.doc)), [editor, isSaved, saves]);
 	useEffect(() => {
 		if (!editor) return;
 		savedDoc.current ??= editor.state.doc;
 		const sync = () => {
 			const same = isSaved(editor.state.doc);
-			setStatus((current) =>
-				current.kind === "saving"
-					? current
-					: same
-						? { kind: "saved" }
-						: current.kind === "failed"
-							? current
-							: { kind: "dirty" },
-			);
+			// The status object stays the same while its kind does, so React skips the render: typing in a document that is
+			// already unsaved draws nothing here.
+			setStatus((current) => {
+				if (current.kind === "saving") return current;
+				if (same) return current.kind === "saved" ? current : { kind: "saved" };
+				return current.kind === "failed" || current.kind === "dirty" ? current : { kind: "dirty" };
+			});
 		};
 		editor.on("update", sync);
 		return () => void editor.off("update", sync);
 	}, [editor, isSaved]);
 
-	const save = useCallback((): Promise<boolean> => {
+	/** One save of the document as it is now. The caller has checked that no save is in flight. */
+	const saveNow = useCallback((): Promise<boolean> => {
 		if (!editor) return Promise.resolve(false);
-		if (inflight.current) return inflight.current;
 		const doc = editor.state.doc;
 		const body = documentFrom(base.current, doc.toJSON());
 		setStatus({ kind: "saving" });
-		const run = (async () => {
-			const result = await saveChurchDocument(docId, revision.current, body);
+		return saves.start(async () => {
+			// A call that never reached the server (no connection, a refused body) reads as a lost answer, not a hang.
+			const result = await saveChurchDocument(docId, revision.current, body).catch(() => ({ status: "lost" }) as const);
 			if (result.status === "saved") {
 				revision.current = result.revision;
 				savedDoc.current = doc;
@@ -215,12 +217,14 @@ export default function ChurchEditor({
 						: "The connection dropped. Your edits are still here.",
 			});
 			return false;
-		})().finally(() => {
-			inflight.current = null;
 		});
-		inflight.current = run;
-		return run;
-	}, [editor, docId, onRevision]);
+	}, [editor, docId, onRevision, saves]);
+
+	/** Saves the document on screen, after any save in flight (SaveChain.save). */
+	const save = useCallback(async (): Promise<boolean> => {
+		if (!editor) return false;
+		return saves.save(() => isSaved(editor.state.doc), saveNow);
+	}, [editor, isSaved, saveNow, saves]);
 
 	// Cmd/Ctrl+S saves from anywhere on the page, and the browser's own Save dialog stays closed.
 	useEffect(() => {
@@ -288,8 +292,9 @@ export default function ChurchEditor({
 			: { x: page.margin.left, y: page.margin.top };
 		const px = (n: number) => `${((n * 4) / 3).toFixed(2)}px`;
 		return {
-			"--page-w": px(width + (page.tile ? 2 * page.tile.padding : 0)),
-			"--page-h": px(height + (page.tile ? 2 * page.tile.padding : 0)),
+			// A card is its tile cell, padding inside, so its text column is the PDF's: the cell less twice the padding.
+			"--page-w": px(width),
+			"--page-h": px(height),
 			"--pad-x": px(pad.x),
 			"--pad-y": px(pad.y),
 			...paletteVars(brand.palette),
@@ -508,18 +513,21 @@ export default function ChurchEditor({
 				) : null}
 			</div>
 			<LeaveDialog request={leave.request} onSave={save} onDone={leave.close} />
-			<SaveAsTemplateDialog
-				key={templateDialog.opening}
-				open={templateDialog.open}
-				onOpenChange={(open) => setTemplateDialog((d) => ({ ...d, open }))}
-				docId={docId}
-				title={title}
-				revision={shownRevision}
-				unsaved={status.kind !== "saved"}
-				saving={status.kind === "saving"}
-				onSaveFirst={save}
-				onSaved={setSavedTemplate}
-			/>
+			{/* Mounted from its first opening on: the dialog reads the church templates when it mounts. */}
+			{templateDialog.opening > 0 ? (
+				<SaveAsTemplateDialog
+					key={templateDialog.opening}
+					open={templateDialog.open}
+					onOpenChange={(open) => setTemplateDialog((d) => ({ ...d, open }))}
+					docId={docId}
+					title={title}
+					revision={shownRevision}
+					unsaved={status.kind !== "saved"}
+					saving={status.kind === "saving"}
+					onSaveFirst={save}
+					onSaved={setSavedTemplate}
+				/>
+			) : null}
 		</EditorContext.Provider>
 	);
 }

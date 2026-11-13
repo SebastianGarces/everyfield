@@ -1,6 +1,6 @@
 "use client";
 
-import { pageBox, type DocDocument } from "@everyfield/contracts/documents";
+import { FORMAT_LIMITS, pageBox, type DocDocument } from "@everyfield/contracts/documents";
 import { Field, Input, Select, Switch } from "@everyfield/ui/controls";
 import type { Editor } from "@tiptap/react";
 import { useEditorState } from "@tiptap/react";
@@ -18,20 +18,14 @@ import {
 	type RegionKey,
 } from "./layout.ts";
 import { Segmented, Tip } from "./ControlParts.tsx";
+import { PAPER_LABEL } from "../labels.ts";
 
 // The page setup panel: paper size, orientation, the four margins, cards per sheet with cut marks, and the header and
 // footer. Each change applies at once as one step of the editor's history, after the format has checked it. A value the
 // format refuses shows the format's message next to its field and is not applied. Margins and custom sizes show in
 // inches and store points (72 to the inch).
 
-const SIZES = [
-	{ value: "letter", label: "Letter" },
-	{ value: "legal", label: "Legal" },
-	{ value: "a4", label: "A4" },
-	{ value: "half-letter", label: "Half Letter" },
-	{ value: "card-4x6", label: "4 x 6 card" },
-	{ value: "custom", label: "Custom" },
-];
+const SIZES = Object.entries(PAPER_LABEL).map(([value, label]) => ({ value, label }));
 const PAGES = [
 	{ value: "all", label: "All pages" },
 	{ value: "first", label: "First page" },
@@ -85,6 +79,15 @@ function Inches({
 	);
 }
 
+/** The format's message for a control with no Field of its own, under that control. */
+function FaultNote({ message }: { message: string | undefined }) {
+	return message ? (
+		<p role="alert" className="text-xs font-medium text-magenta-600">
+			{message}
+		</p>
+	) : null;
+}
+
 function Fieldset({ legend, children }: { legend: string; children: ReactNode }) {
 	return (
 		<fieldset className="flex min-w-0 flex-col gap-1.5 border-0 p-0">
@@ -117,6 +120,7 @@ export function PageSetupPanel({
 	});
 	const [fault, setFault] = useState<Fault | null>(null);
 	const { page, header, footer } = state;
+	const faultAt = (field: string) => (fault?.field === field ? fault.message : undefined);
 
 	/** Applies `next` when the format accepts it; else shows the format's message at `field` and applies nothing. */
 	const change = (field: string, next: PageWithoutRegions) => {
@@ -188,7 +192,7 @@ export function PageSetupPanel({
 				</Tip>
 			</div>
 			<div className="grid grid-cols-1 gap-x-5 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
-				<Field label="Paper size">
+				<Field label="Paper size" error={faultAt("size")}>
 					<Tip text="Paper size">
 						<Select options={SIZES} value={page.size} onValueChange={setSize} aria-label="Paper size" />
 					</Tip>
@@ -203,6 +207,7 @@ export function PageSetupPanel({
 						]}
 						onChange={(orientation) => change("orientation", { ...page, orientation })}
 					/>
+					<FaultNote message={faultAt("orientation")} />
 				</Fieldset>
 				{page.size === "custom" ? (
 					<>
@@ -210,8 +215,8 @@ export function PageSetupPanel({
 							label="Width"
 							field="width"
 							points={page.width ?? box.width}
-							min={2}
-							max={24}
+							min={toInches(FORMAT_LIMITS.pageSide.min)}
+							max={toInches(FORMAT_LIMITS.pageSide.max)}
 							fault={fault}
 							onCommit={(width) => change("width", { ...page, width })}
 						/>
@@ -219,8 +224,8 @@ export function PageSetupPanel({
 							label="Height"
 							field="height"
 							points={page.height ?? box.height}
-							min={2}
-							max={24}
+							min={toInches(FORMAT_LIMITS.pageSide.min)}
+							max={toInches(FORMAT_LIMITS.pageSide.max)}
 							fault={fault}
 							onCommit={(height) => change("height", { ...page, height })}
 						/>
@@ -235,8 +240,8 @@ export function PageSetupPanel({
 							label={SIDE_LABEL[side]}
 							field={`margin.${side}`}
 							points={margin[side]}
-							min={0}
-							max={toInches(144)}
+							min={toInches(FORMAT_LIMITS.margin.min)}
+							max={toInches(FORMAT_LIMITS.margin.max)}
 							fault={fault}
 							onCommit={(points) => change(`margin.${side}`, { ...page, margin: { ...margin, [side]: points } })}
 						/>
@@ -259,21 +264,20 @@ export function PageSetupPanel({
 							})
 						}
 					/>
-					{fault?.field === "tile" ? (
-						<p role="alert" className="text-xs font-medium text-magenta-600">
-							{fault.message}
-						</p>
-					) : null}
+					<FaultNote message={faultAt("tile")} />
 				</Fieldset>
 				{tile ? (
-					<Tip text="Print trim marks at the corners of each card">
-						<Switch
-							label="Cut marks"
-							description="Trim marks at the corners of each card."
-							checked={tile.cutMarks}
-							onCheckedChange={(cutMarks) => change("cutMarks", { ...page, tile: { ...tile, cutMarks } })}
-						/>
-					</Tip>
+					<div className="flex min-w-0 flex-col gap-1.5">
+						<Tip text="Print trim marks at the corners of each card">
+							<Switch
+								label="Cut marks"
+								description="Trim marks at the corners of each card."
+								checked={tile.cutMarks}
+								onCheckedChange={(cutMarks) => change("cutMarks", { ...page, tile: { ...tile, cutMarks } })}
+							/>
+						</Tip>
+						<FaultNote message={faultAt("cutMarks")} />
+					</div>
 				) : null}
 			</div>
 			<div className="grid grid-cols-1 gap-x-5 gap-y-4 sm:grid-cols-2">

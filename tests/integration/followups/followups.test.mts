@@ -25,17 +25,9 @@ import { PeopleReadContext } from "../../../packages/domain/src/people/core.ts";
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import { createNotificationService } from "../../../apps/web/src/server/jobs/notifications.ts";
 import { taskReminders } from "../../../apps/web/src/server/tasks/reminders.ts";
+import { ok, refused } from "../../support/fixture.mts";
 
 let f, followups, tasks, reminders;
-const ok = (r) => {
-	assert.equal(r.status, "ok", JSON.stringify(r));
-	return r.value;
-};
-const refused = (r, code) => {
-	assert.equal(r.status, "refused", JSON.stringify(r));
-	assert.equal(r.error.code, code);
-	return r.error;
-};
 const write = (who, op, input) => withFollowUpWrite(f.db, who.actor, (tx, ctx) => followups[op](tx, ctx, input));
 const taskWrite = (who, op, input) => withTaskWrite(f.db, who.actor, (tx, ctx) => tasks[op](tx, ctx, input));
 const read = (who, op, input) => f.db.transaction((tx) => followUpReader[op](tx, who.actor, input));
@@ -470,6 +462,28 @@ test("AC:TARGET-COM-011 AC:TARGET-MTG-022 AC:ROLE43-008 contact log: only an eff
 	// Another church reads nothing.
 	const other = await church();
 	refused(await read(other.owner, "listContactHistory", { personId: alex }), "unavailable");
+});
+
+test("AC:TARGET-MTG-022 a Just now within the 2-minute clock allowance is stored as the server's clock; later is future", async () => {
+	const c = await church();
+	const alex = await person(c, "Alex Rivera");
+	const standalone = { kind: "person", personId: alex };
+	const count = async () => (await rows(sql`SELECT count(*)::int n FROM contact_outcome WHERE person_id=${alex}`))[0].n;
+	// A browser clock 90 seconds ahead of the server's: accepted, and never after the time the server recorded it.
+	const ahead = new Date(Date.now() + 90_000).toISOString();
+	const saved = ok(await record(c.owner, standalone, "contacted", { occurredAt: ahead }));
+	const [stored] = await rows(
+		sql`SELECT occurred_at <= recorded_at AS ok, occurred_at < ${ahead}::timestamptz AS before FROM contact_outcome WHERE id=${saved.record.id}`,
+	);
+	assert.deepEqual(stored, { ok: true, before: true });
+	assert.ok(Date.parse(saved.record.occurredAt) <= Date.parse(saved.record.recordedAt));
+	// Three minutes ahead is past the allowance: refused, and nothing is recorded.
+	const before = await count();
+	refused(
+		await record(c.owner, standalone, "contacted", { occurredAt: new Date(Date.now() + 180_000).toISOString() }),
+		"future_occurrence",
+	);
+	assert.equal(await count(), before);
 });
 
 test("AC:PERSONREF-TASK-PERSON-FOLLOW-UP-RETIRE AC:PERSONREF-MEETING-INVITATION-RSVP-ATTENDANCE-CARD-RETIRE a retired Person keeps follow-up history and gets no new follow-up work", async () => {
@@ -1086,7 +1100,7 @@ async function sharedBy(c, personId, title, ids) {
 	return id;
 }
 
-test("AC:TARGET-TSK-012 F07b criteria 8 and 9: a follow-up is owned while one owner is eligible, and counts once under each", async () => {
+test("AC:TARGET-TSK-012 a follow-up is owned while one owner is eligible, and counts once under each", async () => {
 	const c = await church();
 	const pia = await person(c, "Pia Hart");
 	const ready = await c.seated("member");
@@ -1143,7 +1157,7 @@ test("AC:TARGET-TSK-012 F07b criteria 8 and 9: a follow-up is owned while one ow
 	);
 });
 
-test("AC:TARGET-TSK-012 F07b criterion 3: assigning a list refuses the whole write when one account cannot own", async () => {
+test("AC:TARGET-TSK-012 assigning a list refuses the whole write when one account cannot own", async () => {
 	const c = await church();
 	const pia = await person(c, "Pia Hart");
 	const ready = await c.seated("member");
@@ -1182,7 +1196,7 @@ test("AC:TARGET-TSK-012 F07b criterion 3: assigning a list refuses the whole wri
 	);
 });
 
-test("AC:TARGET-TSK-013 F07b criteria 5 and 7: a handoff swaps only the leaving owner, and a contact finishes only the follow-ups the Member holds", async () => {
+test("AC:TARGET-TSK-013 a handoff swaps only the leaving owner, and a contact finishes only the follow-ups the Member holds", async () => {
 	const c = await church();
 	const pia = await person(c, "Pia Hart");
 	const leaving = await c.seated("member");

@@ -62,12 +62,13 @@ import { ListButton } from "./tiptap/ui/list-button.tsx";
 import { LinkPopover } from "./tiptap/ui/link-popover.tsx";
 import { MarkButton } from "./tiptap/ui/mark-button.tsx";
 import { UndoRedoButton } from "./tiptap/ui/undo-redo-button.tsx";
-import { BUTTON_ICON, MENU_ITEM } from "./tiptap/styles.ts";
+import { BUTTON_ICON, MENU_ITEM, MENU_ITEM_BASE } from "./tiptap/styles.ts";
 
 // The main toolbar. The primitives, the mark buttons, the Undo and Redo buttons and the link popover are Tiptap's free
 // ready-made parts (see tiptap/README.md); the text-style, list, block and insert controls use the same primitives.
 // Every control has a name and a tooltip. A control that cannot apply is disabled, not hidden. A plain document (no
-// `church` prop) gets the prose controls only: text style, marks, link, lists, quote, divider, move and delete block.
+// `church` prop) gets the prose controls (text style, marks, link, lists, quote, divider, move and delete block) and an
+// Insert menu with a table and checklist rows only (T-100).
 
 const glyph = (icon: IconSvgElement) => <Icon icon={icon} size={18} className={BUTTON_ICON} />;
 
@@ -93,7 +94,6 @@ function Action({
 	return (
 		<Button
 			type="button"
-			data-style="ghost"
 			data-active-state={active ? "on" : "off"}
 			aria-label={label}
 			aria-pressed={active === undefined ? undefined : active}
@@ -134,7 +134,11 @@ function WrapAction({ editor, reason, run }: { editor: Editor; reason: string | 
 	);
 }
 
-const GROUP_LABEL = {
+type InsertItem = (typeof INSERT_KINDS)[number];
+/** The Insert menu's groups. The doctrinal section (group `sections`) has its own button, not a menu item. */
+type MenuGroup = Exclude<InsertItem["group"], "sections">;
+
+const GROUP_LABEL: Record<MenuGroup, string> = {
 	text: "Text",
 	rules: "Rules and spacing",
 	layout: "Layout",
@@ -142,8 +146,7 @@ const GROUP_LABEL = {
 	images: "Brand kit images",
 	tables: "Tables",
 	conditions: "Conditions",
-	sections: "Sections",
-} as const;
+};
 
 /** A heading over a group of Insert menu items. */
 function MenuLabel({ children }: { children: string }) {
@@ -161,6 +164,10 @@ const PAGE_NUMBERS = [
 	{ format: "page", label: "Page N" },
 	{ format: "page-of-total", label: "Page N of M" },
 ] as const;
+
+/** What a plain document's Insert offers besides the divider button: a table and checklist rows, never a budget. */
+const PLAIN_TABLES = INSERT_KINDS.filter((k) => k.kind === "table" || k.kind === "checklist");
+const PLAIN_INSERTS: InsertKind[] = ["divider", ...PLAIN_TABLES.map((k) => k.kind)];
 
 /** The text styles a plain document offers: body text and the three heading levels. */
 const NATIVE_STYLES = new Set<string>(["body", "h1", "h2", "h3"]);
@@ -193,11 +200,9 @@ export function EditorToolbar({
 		selector: ({ editor: e }) => {
 			const state = e.state;
 			const empty = currentBlock(state) === null;
-			// A plain document's schema has no layout, slot or field nodes, so only the divider can be inserted.
-			const insertable = (
-				church
-					? Object.fromEntries(INSERT_KINDS.map((k) => [k.kind, canInsert(state, k.kind)]))
-					: { divider: canInsert(state, "divider") }
+			// A plain document's schema has no layout, slot or field nodes: it inserts a divider, a table and checklist rows.
+			const insertable = Object.fromEntries(
+				(church ? INSERT_KINDS.map((k) => k.kind) : PLAIN_INSERTS).map((kind) => [kind, canInsert(state, kind)]),
 			) as Record<InsertKind, boolean>;
 			return {
 				style: currentTextStyle(state),
@@ -236,12 +241,11 @@ export function EditorToolbar({
 					<DropdownMenuTrigger asChild>
 						<Button
 							type="button"
-							data-style="ghost"
 							aria-label="Text style"
 							tooltip="Text style"
 							disabled={s.style === null}
 							onMouseDown={(event) => event.preventDefault()}
-							className="min-w-[104px] justify-between"
+							className="h-9 min-w-[104px] justify-between gap-1.5 px-2"
 						>
 							<span>{current?.label ?? "Text style"}</span>
 							<Icon icon={UnfoldMoreIcon} size={16} />
@@ -289,7 +293,8 @@ export function EditorToolbar({
 						run={() => editor.chain().setMeta("closeHistory", true).focus().toggleMark("tag").run()}
 					/>
 				) : null}
-				<LinkPopover editor={editor} />
+				{/* The caret entering a link leaves focus in the document; the button opens the link's popover. */}
+				<LinkPopover editor={editor} autoOpenOnLinkActive={false} />
 			</ToolbarGroup>
 			<ToolbarSeparator />
 			<ToolbarGroup>
@@ -332,7 +337,6 @@ export function EditorToolbar({
 						<DropdownMenuTrigger asChild>
 							<Button
 								type="button"
-								data-style="ghost"
 								aria-label="Insert block"
 								tooltip="Insert block after this one"
 								onMouseDown={(event) => event.preventDefault()}
@@ -350,7 +354,9 @@ export function EditorToolbar({
 							// down the page the toolbar sits, and its notes wrap on a narrow screen.
 							className="max-h-[min(var(--radix-dropdown-menu-content-available-height),560px)] max-w-(--radix-dropdown-menu-content-available-width) overflow-y-auto"
 						>
-							{INSERT_KINDS.filter((k) => k.kind !== "slot" && s.insertable[k.kind]).map((k, i, shown) => {
+							{INSERT_KINDS.filter(
+								(k): k is InsertItem & { group: MenuGroup } => k.group !== "sections" && s.insertable[k.kind],
+							).map((k, i, shown) => {
 								const image = k.group === "images" ? (k.kind as ImageKind) : null;
 								const asset = image ? church.brand.assets[image] : null;
 								const divide = i > 0 && shown[i - 1]?.group !== k.group;
@@ -382,7 +388,7 @@ export function EditorToolbar({
 												</p>
 												<DropdownMenuItem
 													asChild
-													className={cn(MENU_ITEM, "inline-flex px-0 py-0.5 text-sm font-medium underline")}
+													className={cn(MENU_ITEM_BASE, "inline-flex py-0.5 text-sm font-medium underline")}
 												>
 													<a href="/settings/brand" target="_blank" rel="noreferrer">
 														Open the brand kit
@@ -414,7 +420,7 @@ export function EditorToolbar({
 								return (
 									<DropdownMenuItem
 										key={field.key}
-										className={cn(MENU_ITEM, "flex-col items-start gap-0")}
+										className={cn(MENU_ITEM_BASE, "flex flex-col items-start px-2.5 py-2 text-md")}
 										disabled={!s.canField}
 										onSelect={() => insertField(editor, field, church.mergeValues[field.key])}
 									>
@@ -444,7 +450,34 @@ export function EditorToolbar({
 							) : null}
 						</DropdownMenuContent>
 					</DropdownMenu>
-				) : null}
+				) : (
+					<DropdownMenu>
+						<DropdownMenuTrigger asChild>
+							<Button
+								type="button"
+								aria-label="Insert block"
+								tooltip="Insert block after this one"
+								onMouseDown={(event) => event.preventDefault()}
+							>
+								{glyph(Add01Icon)}
+								<span>Insert</span>
+							</Button>
+						</DropdownMenuTrigger>
+						<DropdownMenuContent portal align="start" aria-label="Insert block" collisionPadding={8}>
+							<MenuLabel>{GROUP_LABEL.tables}</MenuLabel>
+							{PLAIN_TABLES.map((k) => (
+								<DropdownMenuItem
+									key={k.kind}
+									className={MENU_ITEM}
+									disabled={!s.insertable[k.kind]}
+									onSelect={() => insertBlock(editor, k.kind)}
+								>
+									{k.label}
+								</DropdownMenuItem>
+							))}
+						</DropdownMenuContent>
+					</DropdownMenu>
+				)}
 				<Action
 					editor={editor}
 					label="Move block up"
@@ -486,7 +519,6 @@ export function EditorToolbar({
 					<ToolbarGroup>
 						<Button
 							type="button"
-							data-style="ghost"
 							data-active-state={church.pageSetup.open ? "on" : "off"}
 							aria-label="Page setup"
 							aria-expanded={church.pageSetup.open}
