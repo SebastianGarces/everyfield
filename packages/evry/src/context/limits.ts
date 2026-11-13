@@ -13,6 +13,8 @@ export const LIMITS = {
 	references: 64,
 	sectionChars: 16_000,
 	selectedRows: 24,
+	/** At most this many review cards in one turn: a bulk request confirms its scope and count first (SAF-16). */
+	reviewCards: 10,
 } as const;
 
 /** Why a turn stopped. Every value except "completed" says a limit or a choice ended the turn early. */

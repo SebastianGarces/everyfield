@@ -67,7 +67,8 @@ const proposeInput = z.strictObject({ operation, input: z.unknown() });
 /**
  * evry.prepareProposal: the running turn proposes one reviewed write. The target is read again under the actor's live
  * authority and the exact review, arguments and digest are saved with a 15-minute expiry. Nothing changes in the
- * domain. Null when the target is not available or the run no longer owns the conversation. One statement.
+ * domain. Null when the target is not available or the run no longer owns the conversation; already_applied when this
+ * conversation already applied the same change. One statement.
  */
 export async function prepareProposal(
 	db: Database,
@@ -80,7 +81,7 @@ export async function prepareProposal(
 	const call = parse(proposeInput, raw);
 	const write = adapter(actor, call.operation);
 	const input = parse(write.input, call.input);
-	const reviewSql = await write.review(actor, input, { db, mail });
+	const reviewSql = await write.review(actor, input, { db, mail, conversationId });
 	if (!reviewSql) return null;
 	const r = await db.execute(sql`
 		WITH r AS (${reviewSql}),
@@ -88,15 +89,21 @@ export async function prepareProposal(
 			SELECT c.id,c.tenant_id,c.account_id FROM conversation c
 			WHERE c.id=${conversationId}::uuid AND c.account_id=${actor.accountId}::uuid AND c.tenant_id=${actor.owner.id}::uuid
 				AND c.active_turn_id=${lease.turnId}::uuid AND ${fence(lease)} AND ${currentAuthority(actor)}
+		), applied AS (
+			-- The same change already applied from this conversation is never prepared again (EVRY-CONTEXT-BOUNDS).
+			SELECT FROM c,r JOIN proposal q ON true WHERE q.conversation_id=c.id AND q.operation=${write.operation}
+				AND q.outcome='completed' AND coalesce(q.input->'input',q.input)=coalesce(r.args->'input',r.args)
 		), p AS (
 			INSERT INTO proposal(tenant_id,account_id,conversation_id,operation,revision,input,review,digest,state,expires_at)
 			SELECT c.tenant_id,c.account_id,c.id,${write.operation},1,r.args,r.review,
 				encode(sha256(convert_to(jsonb_build_object('operation',${write.operation}::text,'revision',1,'args',r.args,'review',r.review)::text,'UTF8')),'hex'),
-				'pending',${expiry} FROM c,r
+				'pending',${expiry} FROM c,r WHERE NOT EXISTS(SELECT FROM applied)
 			RETURNING *
 		), audit AS (${audit("evry.proposal_prepared", "create", "p")})
-		SELECT ${projection("p")} AS proposal FROM p`);
-	return r.rows.length ? proposalRow.parse(r.rows[0]!.proposal) : null;
+		SELECT (SELECT ${projection("p")} FROM p) AS proposal, EXISTS(SELECT FROM applied) AS applied`);
+	const row = r.rows[0] as { proposal: unknown; applied: boolean } | undefined;
+	if (row?.applied) throw new EvryRefusal("already_applied");
+	return row?.proposal ? proposalRow.parse(row.proposal) : null;
 }
 
 const reviseInput = z.strictObject({ operation, revision: z.int().min(1), input: z.unknown() });
@@ -116,7 +123,7 @@ export async function reviseProposal(
 	const change = parse(reviseInput, raw);
 	const write = adapter(actor, change.operation);
 	const input = parse(write.input, change.input);
-	const reviewSql = await write.review(actor, input, { db, mail });
+	const reviewSql = await write.review(actor, input, { db, mail, conversationId: null });
 	if (!reviewSql) throw new EvryRefusal("not_found");
 	const r = await db.execute(sql`
 		WITH r AS (${reviewSql}),

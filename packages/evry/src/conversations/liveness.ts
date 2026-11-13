@@ -28,6 +28,8 @@ const ROW_LIVENESS: Record<SourceRow["kind"], Rule> = {
 	file: null,
 	skill: null,
 	activity: null,
+	// A date row is the calendar's own answer about a local time, not a stored record.
+	date: null,
 };
 
 /**

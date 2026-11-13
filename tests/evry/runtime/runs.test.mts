@@ -131,7 +131,7 @@ test("AC:INH-CROSS-06 AC:INH-REGRESSION-BUDGET AC:EVRY-RETRY-CANCEL bounded page
 	assert.deepEqual([last.total, last.completeness, last.next], [all, "partial", 25], "no false exhaustive answer");
 });
 
-test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral requests get the fixed boundary before any tool; capabilities follow the current catalog", async () => {
+test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-01 pastoral requests get the fixed boundary before any tool; capabilities follow the current catalog and the role, with what is coming later", async () => {
 	const owner = await actor("owner");
 	const pastoral = await ask(
 		owner,
@@ -146,14 +146,22 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 
 	const can = await ask(owner, "What can you do for me?");
 	assert.equal(await work(), "succeeded");
-	assert.match(
-		(await events(owner, can)).text,
-		/List people in this church[\s\S]*Read one person[\s\S]*review and approval/,
-	);
+	const owned = (await events(owner, can)).text;
+	assert.match(owned, /Find and count the people[\s\S]*Prepare changes to people[\s\S]*review and approve/);
+	// A Member's list holds reads only, says an Owner or Admin makes changes, and names what is coming later.
+	const member = await actor("member");
+	const asked = await ask(member, "hi! what are you able to do?");
+	assert.equal(await work(), "succeeded");
+	const memberAnswer = (await events(member, asked)).text;
+	assert.match(memberAnswer, /Find and count the people/);
+	assert.match(memberAnswer, /made by an Owner or Admin of this church/);
+	assert.match(memberAnswer, /Coming later:\n- Tasks and reminders/);
+	assert.doesNotMatch(memberAnswer, /Prepare (changes|emails)|propose/i);
+	assert.notEqual(memberAnswer, owned);
 	const seatless = await actor("seatless");
 	const none = await ask(seatless, "What can you do for me?");
 	assert.equal(await work(), "succeeded");
-	assert.match((await events(seatless, none)).text, /no application reads available/);
+	assert.match((await events(seatless, none)).text, /don't have anything to read in this context yet/);
 	// No catalog offers direct writes, approvals, code, private care or coach tools to any context. Only a plant Owner or
 	// Admin may propose the reviewed People changes, the same floor as the native commands.
 	for (const who of ["owner", "member", "orgOwner", "seatless"] as const) {
@@ -169,6 +177,7 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 						"people.deletePerson",
 						"people.setPersonPhoto",
 						"people.removePersonPhoto",
+						"people.executeBulkImport",
 						"communication.saveDraft",
 						"communication.scheduleReviewed",
 						"communication.rescheduleReviewed",
@@ -210,9 +219,11 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 						"people.listTags",
 						"people.previewImport",
 						"communication.list",
+						"calendar.getContext",
+						"calendar.resolve",
 					]
 				: who === "member"
-					? [...peopleReads, ...organizationReads, "communication.list"]
+					? [...peopleReads, ...organizationReads, "communication.list", "calendar.getContext", "calendar.resolve"]
 					: [],
 		);
 	}
@@ -376,7 +387,7 @@ test("AC:INH-EDGES-03 AC:TEN-008 AC:EVRY-CONTEXT-BOUNDS a guessed foreign id and
 	assert.ok(seen.includes("Alex Rivera"), "an authorized page reference is verified");
 	assert.deepEqual(
 		[...new Set(calls.flatMap((c) => c.tools?.map((t) => t.name) ?? []))].sort(),
-		["communication_read", "peopleOrganization_read", "people_read", "propose_change", "select_returned_rows"],
+		["calendar_read", "communication_read", "peopleOrganization_read", "people_read", "propose_change", "select_returned_rows"],
 		"prompt text cannot add tools or scope; the owner's catalog decides them",
 	);
 });

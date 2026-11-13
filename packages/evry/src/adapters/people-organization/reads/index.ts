@@ -456,19 +456,25 @@ export const generateCsvTemplate: ReadAdapter<z.infer<typeof templateInput>> = {
 	},
 };
 
-const previewInput = z.strictObject({
-	file: z.string().min(1).max(importLimits.bytes).describe("CSV text that uses the import template columns"),
-});
+const previewInput = z
+	.strictObject({
+		attachmentId: z.uuid().optional().describe("A file attached in this conversation, by its attachmentId"),
+		file: z.string().min(1).max(importLimits.bytes).optional().describe("CSV text the user pasted into the message"),
+	})
+	.refine((v) => (v.attachmentId === undefined) !== (v.file === undefined), "attachmentId or file");
 export const previewImport: ReadAdapter<z.infer<typeof previewInput>> = {
 	operation: "people.previewImport",
 	description:
-		"Preview a people CSV for this church: row status, the suggested choice and duplicate people. It writes nothing and returns no contact values.",
+		"Check a people CSV for this church, attached in this conversation or pasted: each row's status, the suggested choice and duplicate people. It writes nothing and returns no contact values.",
 	input: previewInput,
 	allowed: ownerOrAdmin,
-	async invoke(tx, actor, input) {
-		const file = previewInput.parse(input).file;
+	// An attached file's exact bytes, read from the conversation's own staging before the read's transaction.
+	load: async (input, files) => (input.attachmentId ? files.read(input.attachmentId) : undefined),
+	async invoke(tx, actor, input, loaded) {
+		const value = previewInput.parse(input);
+		const bytes = loaded instanceof Uint8Array ? loaded : new TextEncoder().encode(value.file ?? "");
 		const found = valueOf<z.infer<typeof importPreview>>(
-			await peopleCsv.previewImport(tx, readCtx(actor), { file: new TextEncoder().encode(file) }),
+			await peopleCsv.previewImport(tx, readCtx(actor), { file: bytes }),
 		);
 		if (!found) return missing("people.previewImport", CONTACT);
 		const rows = previewRows(actor, found);

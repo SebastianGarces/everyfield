@@ -149,7 +149,36 @@ export const saveDraft: ReviewedWrite<z.infer<typeof draftInput>> = {
 
 // --- 2. communication.scheduleReviewed ----------------------------------------------------------------------
 
-const scheduleInput = z.strictObject({ communicationId: messageId, sendAt: localTime });
+const scheduleInput = z.strictObject({
+	communicationId: messageId,
+	sendAt: localTime,
+	sendAtOffset: z
+		.string()
+		.regex(/^[+-]\d{2}:\d{2}$/)
+		.optional()
+		.describe("Only when the time happens twice that day (calendar.resolve said ambiguous): the offset the user chose"),
+});
+type SendTime = z.infer<typeof scheduleInput>;
+/**
+ * The instant a reviewed local send time names in the church's zone, and why it cannot be used as asked. A local time
+ * the clocks skip that day, or one that happens twice with no offset chosen, refuses on the review instead of being
+ * guessed (GAP-EVR-425). A chosen offset must be one the time really has that day.
+ */
+function sendInstant(value: SendTime) {
+	const local = sql`${value.sendAt}::timestamp`;
+	const at = value.sendAtOffset
+		? sql`(${value.sendAt + ":00" + value.sendAtOffset}::timestamptz)`
+		: sql`(${local} AT TIME ZONE ${zone})`;
+	const twice = sql`(((${at}-interval '1 hour') AT TIME ZONE ${zone})=${local} OR ((${at}+interval '1 hour') AT TIME ZONE ${zone})=${local}
+		OR ((${at}-interval '30 minutes') AT TIME ZONE ${zone})=${local} OR ((${at}+interval '30 minutes') AT TIME ZONE ${zone})=${local})`;
+	const refusal = sql`CASE WHEN (${at} AT TIME ZONE ${zone})<>${local} THEN ${
+		value.sendAtOffset
+			? "That time doesn't have that offset in the church's time zone. Check the time again."
+			: "That time doesn't exist in the church's time zone that day: the clocks skip it. Pick another time."
+	}::text
+		WHEN ${value.sendAtOffset ?? null}::text IS NULL AND ${twice} THEN 'That time happens twice that day as the clocks fall back. Say which one you mean.' END`;
+	return { at, refusal };
+}
 /** Stands in for the first recipient's name until the review statement knows who that is. */
 const SAMPLE_NAME = "RECIPIENT_NAME_TOKEN_7F3A";
 
@@ -242,8 +271,8 @@ export const schedule: ReviewedWrite<z.infer<typeof scheduleInput>> = {
 		if (!facts) return null;
 		// The first person who will get it is named in the content; the review statement puts the name in.
 		const content = draft.body_html ? readable(renderBody(draft.body_html, { name: SAMPLE_NAME, rsvp_link: "" })) : "";
-		const at = sql`(${value.sendAt}::timestamp AT TIME ZONE ${zone})`;
-		const refusal = sql`coalesce(${acceptedWindow(at)},
+		const { at, refusal: clock } = sendInstant(value);
+		const refusal = sql`coalesce(${clock},${acceptedWindow(at)},
 			CASE WHEN coalesce(c.subject,'')='' OR coalesce(c.body_html,'')='' THEN 'The draft needs a subject and a body before it can be scheduled.' END,
 			${audienceRefusal})`;
 		return sql`WITH c AS (
@@ -356,10 +385,10 @@ export const reschedule: ReviewedWrite<z.infer<typeof scheduleInput>> = {
 	input: scheduleInput,
 	allowed: ownerOrAdmin,
 	review(actor, value) {
-		const at = sql`(${value.sendAt}::timestamp AT TIME ZONE ${zone})`;
+		const { at, refusal: clock } = sendInstant(value);
 		// A time moves by the email service's id for each recipient. One it never answered about may hold the old time for good.
 		const refusal = sql`coalesce(CASE WHEN ${unanswered}>0 THEN 'The email service has not answered about every recipient of this message, so the send time can''t change.' END,
-			${acceptedWindow(at)})`;
+			${clock},${acceptedWindow(at)})`;
 		return sql`SELECT ${withRefusal(
 			refusal,
 			sql`jsonb_build_object('target',${message},'changes',jsonb_build_array(

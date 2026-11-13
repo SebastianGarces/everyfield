@@ -2,6 +2,7 @@ import type { Database } from "@everyfield/db/client";
 import type { TaskReminders } from "@everyfield/domain/tasks";
 import { readViewer } from "@everyfield/domain/access";
 import { sessionId } from "@everyfield/contracts/common";
+import { privateStorage } from "@everyfield/db/schema";
 import {
 	CLAIM_SECONDS,
 	evryActor,
@@ -50,7 +51,7 @@ export async function runTurns(pool: Database, limit: number, until = Infinity) 
 			const [claim] = await claimDue(pool, ["assistant_turn"], 1, LEASE_SECONDS, CLAIM_SECONDS);
 			if (!claim) break;
 			const outcome = await runTurn(
-				{ db: pool, model, freshActor, mail: evryMail() },
+				{ db: pool, model, freshActor, mail: evryMail(), storage: privateStorage() },
 				{
 					turnId: claim.id,
 					tenantId: claim.tenant_id,
