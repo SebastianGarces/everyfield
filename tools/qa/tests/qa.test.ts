@@ -109,7 +109,16 @@ if (fs.existsSync(path.join(S, "FAIL_SEED"))) {
 	write("deploy-env.json", env);
 	write("deploy-link.json", JSON.parse(fs.readFileSync(".vercel/project.json", "utf8")));
 	console.error("Inspect: https://vercel.com/x  bypass ${BYPASS}");
-	console.log("https://everyfield-abc123-team.vercel.app");
+	// A DEPLOY_JSON file prints what Vercel CLI 65 prints off a terminal: one JSON object, the URL at deployment.url.
+	if (fs.existsSync(path.join(S, "DEPLOY_JSON"))) {
+		console.error("  Preview         https://everyfield-json456-team.vercel.app");
+		console.log(JSON.stringify({
+			status: "ok",
+			deployment: { id: "dpl_json456", url: "https://everyfield-json456-team.vercel.app", readyState: "READY" },
+			message: "Deployment everyfield-json456-team.vercel.app ready.",
+			next: [{ command: "vercel curl https://everyfield-json456-team.vercel.app", when: "Verify deployment" }],
+		}, null, 2));
+	} else console.log("https://everyfield-abc123-team.vercel.app");
 } else if (a[0] === "curl") {
 	// T-255: the scheduled-send driver. Record the target, the linked project and the Authorization header curl got.
 	const file = a[a.indexOf("--header") + 1].slice(1);
@@ -248,6 +257,8 @@ test("INV-qa-secrets: qa up, list and down keep every secret out of output, the 
 		]);
 		assert.equal(env.IDENTITY_ORIGIN, url);
 		assert.equal(new URL(env.IDENTITY_DATABASE_URL!).username, "evf_qa_runtime");
+		// The cron's job pool sends a startup option that Neon's pooler refuses, so the runtime login is direct.
+		assert.match(new URL(env.IDENTITY_DATABASE_URL!).hostname, /^ep-qa-branch-a1\./);
 		// T-51: the seed ran with the preview's own mail keys, so its suppression and mail rows match on the preview.
 		const seedKeys = s.stubState<Record<string, string>>("seed-keys.json");
 		assert.deepEqual(seedKeys, {
@@ -362,6 +373,23 @@ test("INV-qa-preview: a failed qa up shows redacted output and removes the Neon 
 		assert.deepEqual(seeded.stubState("branches.json"), BRANCHES);
 	} finally {
 		seeded.done();
+	}
+});
+
+test("INV-qa-preview: qa up reads the deployment URL from the JSON Vercel CLI 65 prints off a terminal", () => {
+	const s = setup();
+	try {
+		writeFileSync(join(s.state, "DEPLOY_JSON"), "");
+		const up = s.qa("up", "feature/nora-qa");
+		assert.equal(up.status, 0, up.stderr);
+		const id = up.stdout.trim().split("\n")[0]!.replace("QA preview ", "");
+		assert.deepEqual(s.stubState("alias.json"), {
+			[`everyfield-${id}.vercel.app`]: "https://everyfield-json456-team.vercel.app",
+		});
+		const { previews } = JSON.parse(readFileSync(join(s.root, ".git/qa/previews.json"), "utf8"));
+		assert.equal(previews[0].deployment, "https://everyfield-json456-team.vercel.app");
+	} finally {
+		s.done();
 	}
 });
 
