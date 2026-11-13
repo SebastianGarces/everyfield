@@ -325,6 +325,12 @@ export function mailHead(
 			return report.confirmation === "confirmed"
 				? { title: `Replacement scheduled for ${reportTime(report.scheduledAt, review)}`, tone: "green" }
 				: { title: "Replacement not confirmed", tone: "amber" };
+		case "send":
+			// Accepted by the email service is "sent", never "delivered": delivery is a later fact Messages records.
+			if (report.confirmation === "confirmed") return { title: "Sent", tone: "green" };
+			return report.confirmation === "not_confirmed"
+				? { title: "Send not confirmed", tone: "amber" }
+				: { title: "Not sent", tone: "magenta" };
 		case "replace_stopped":
 			return report.confirmation === "not_confirmed"
 				? { title: "Not replaced: cancel not confirmed", tone: "amber" }

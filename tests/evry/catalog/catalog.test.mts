@@ -35,6 +35,11 @@ test("AC:INH-REGRESSION-CAPABILITIES INV-catalog: every installed model tool is 
 		"people.listTags",
 		"people.previewImport",
 		"communication.list",
+		"communication.resolveAudience",
+		"communication.get",
+		"communication.forPerson",
+		"communication.templates.list",
+		"communication.resendCandidates",
 		"evry.selectReturnedRows",
 	]);
 	for (const id of installed) {
