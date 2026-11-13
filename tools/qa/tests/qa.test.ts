@@ -249,6 +249,8 @@ test("INV-qa-secrets: qa up, list and down keep every secret out of output, the 
 		]);
 		assert.equal(env.IDENTITY_ORIGIN, url);
 		assert.equal(new URL(env.IDENTITY_DATABASE_URL!).username, "evf_qa_runtime");
+		// The cron's job pool sends a startup option that Neon's pooler refuses, so the runtime login is direct.
+		assert.match(new URL(env.IDENTITY_DATABASE_URL!).hostname, /^ep-qa-branch-a1\./);
 		// T-51: the seed ran with the preview's own mail keys, so its suppression and mail rows match on the preview.
 		const seedKeys = s.stubState<Record<string, string>>("seed-keys.json");
 		assert.deepEqual(seedKeys, {

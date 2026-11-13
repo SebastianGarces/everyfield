@@ -305,7 +305,9 @@ function deployCheckout(
 		const settings: Record<string, string> = {
 			DATABASE_URL: p.pooled,
 			DATABASE_URL_UNPOOLED: p.direct,
-			IDENTITY_DATABASE_URL: roleUrl(p.pooled, QA_ROLES.runtime, rolePassword),
+			// Direct, not pooled: the cron's job pool sets statement_timeout as a startup option, which Neon's pooler refuses
+			// (08P01 unsupported startup parameter), so every scheduled job failed on the pooled endpoint.
+			IDENTITY_DATABASE_URL: roleUrl(p.direct, QA_ROLES.runtime, rolePassword),
 			IDENTITY_AUTH_DATABASE_URL: roleUrl(p.pooled, QA_ROLES.auth, rolePassword),
 			IDENTITY_ORIGIN: p.url,
 			IDENTITY_SECRET: key(),
