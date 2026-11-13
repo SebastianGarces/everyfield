@@ -5,6 +5,8 @@
 //     outcome is still running, a saved outcome stays saved after its person is gone, and an unconfirmed run (or an
 //     old "failed" one) can go again only while its approval lasts. The time left is the server's, whatever the
 //     browser's clock says (R5-5).
+//   INV-phase-review: a phase move names both phases, labels a move backward as one, lists the open exit criteria and
+//     never says the church is ready; a phase or signal review rebuilds its exact input for a revision.
 //   AC:INH-REGRESSION-REVISED-APPROVAL INV-revise: a revision sends the native command's exact reviewed input with only
 //     the edited values changed, for every People reviewed write.
 import assert from "node:assert/strict";
@@ -12,11 +14,15 @@ import { test } from "node:test";
 import {
 	approvable,
 	approvalLeft,
+	consequence,
+	editableChanges,
+	openCriteria,
 	isRequired,
 	missingRequired,
 	phaseOf,
 	retryable,
 	reviseInput,
+	valueText,
 } from "../../../apps/web/src/features/evry/review/model.ts";
 
 const now = "2026-10-21T12:00:00Z";
@@ -123,4 +129,66 @@ test("AC:REQ-PPL-026 INV-revise-adult: adult or child is required only until a b
 		missingRequired(dated, { ...edits, birthDate: "", adultClassification: "" })?.field,
 		"adultClassification",
 	);
+});
+
+const church = { kind: "plant", id: "22222222-2222-4222-8222-222222222222", label: "Hope Fellowship" };
+const CORE = { phase: 1, name: "Core Group Development" };
+const move = (to, direction, open) =>
+	review({
+		operation: "phases.transition",
+		review: {
+			target: church,
+			changes: [
+				{ field: "phase", before: CORE, after: to },
+				{ field: "direction", before: null, after: direction },
+				{ field: "reason", before: null, after: "Ready for launch teams" },
+				...(open ? [{ field: "openCriteria", before: null, after: open }] : []),
+			],
+		},
+	});
+
+test("INV-phase-review: a phase move names its phases, labels a move backward and never calls the church ready", () => {
+	const open = [{ label: "30 committed adults", status: "no data yet" }];
+	const forward = move({ phase: 2, name: "Launch Team Formation" }, "forward", open);
+	assert.equal(valueText("phase", CORE), "Core Group Development");
+	assert.equal(valueText("direction", "forward"), "Forward, to the next phase");
+	assert.deepEqual(openCriteria(forward), open);
+	assert.doesNotMatch(consequence(forward), /\bis ready\b/);
+	const backward = move({ phase: 0, name: "Discovery" }, "backward", null);
+	assert.equal(valueText("direction", "backward"), "Backward, to an earlier phase");
+	assert.equal(consequence(backward), "This is a move backward. The phase journey keeps every earlier move.");
+	assert.equal(openCriteria(backward), null);
+	// Only the reason is edited; the phase, the direction and the criteria are facts of the review.
+	assert.deepEqual(
+		editableChanges(forward).map((c) => c.field),
+		["reason"],
+	);
+	assert.deepEqual(reviseInput(forward, { reason: "Teams are forming" }), { toPhase: 2, reason: "Teams are forming" });
+});
+
+test("INV-phase-review: a signal review shows the signal's name and rebuilds its exact input", () => {
+	const PRAYER = { key: "prayer_rhythm_established", label: "Corporate prayer rhythm established" };
+	const facts = [
+		{ field: "signal", before: null, after: PRAYER },
+		{ field: "value", before: null, after: "yes" },
+		{ field: "asOf", before: null, after: "2026-11-09" },
+		{ field: "detail", before: null, after: "We started prayer and fasting this week." },
+	];
+	const attest = review({ operation: "signals.attest", review: { target: church, changes: facts } });
+	assert.equal(valueText("signal", PRAYER), "Corporate prayer rhythm established");
+	assert.equal(valueText("value", "not_yet"), "Not yet");
+	assert.equal(valueText("asOf", "today"), "Today, when you approve");
+	assert.deepEqual(reviseInput(attest, { detail: "We began praying and fasting together." }), {
+		key: PRAYER.key,
+		value: "yes",
+		asOf: "2026-11-09",
+		detail: "We began praying and fasting together.",
+	});
+	const retract = review({
+		operation: "signals.correct",
+		review: { target: church, changes: [facts[0], { field: "value", before: "yes", after: "retracted" }] },
+	});
+	assert.deepEqual(reviseInput(retract), { action: "retract", key: PRAYER.key });
+	const reaffirm = review({ operation: "signals.reaffirm", review: { target: church, changes: [facts[0]] } });
+	assert.deepEqual([reviseInput(reaffirm), editableChanges(reaffirm)], [{ key: PRAYER.key }, []]);
 });

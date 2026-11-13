@@ -34,12 +34,16 @@ import {
 	fieldKind,
 	fieldLabel,
 	hasBirthDate,
+	intelligencePage,
+	intelligenceRefusalText,
+	isIntelligence,
 	isMail,
 	isRequired,
 	MAIL_DISMISSED,
 	mailHead,
 	mailRefusalText,
 	missingRequired,
+	openCriteria,
 	operationTitle,
 	phaseOf,
 	photoRef,
@@ -405,19 +409,25 @@ function note(view: View, review: Review | null, lapsed: boolean, unknown?: Acti
 				? "The message in this change is no longer available to you, so Evry can't show this change or its result."
 				: "The message in this change is no longer available to you. Nothing was changed.";
 	}
+	const intelligence = !!review && isIntelligence(review.operation);
 	switch (view) {
 		case "pending":
+			if (review?.review.refusal) return review.review.refusal;
 			return review && review.revision > 1
 				? `You revised this change. Only revision ${review.revision} can be approved.`
 				: null;
 		case "running":
 			return "Saving in the background. You can keep working. This card shows the result.";
 		case "refused":
-			return mail ? mailRefusalText(review.receipt?.code) : refusalText(review?.receipt?.code, who);
+			return mail
+				? mailRefusalText(review.receipt?.code)
+				: intelligence
+					? intelligenceRefusalText(review.receipt?.code)
+					: refusalText(review?.receipt?.code, who);
 		case "unconfirmed":
 			return review && retryable(review, lapsed)
 				? "Evry can't confirm that this was saved. Try again. A change that was saved is not saved twice."
-				: "Evry can't confirm that this was saved, and the approval expired. Open the person to check.";
+				: `Evry can't confirm that this was saved, and the approval expired. ${intelligence ? "Open the phase journey or attestations" : "Open the person"} to check.`;
 		case "unknown":
 			return UNKNOWN_TEXT[unknown ?? "approve"];
 		case "photo_unavailable":
@@ -755,6 +765,13 @@ function Footer({
 							</IntentLink>
 						</Button>
 					</>
+				) : isIntelligence(review.operation) ? (
+					<Button size="sm" variant="ghost" asChild>
+						<IntentLink href={intelligencePage(review.operation).href}>
+							{intelligencePage(review.operation).label}
+							<Icon icon={ArrowRight02Icon} size={16} />
+						</IntentLink>
+					</Button>
 				) : who && review.operation !== "people.deletePerson" && !review.review.withheld ? (
 					<Button size="sm" variant="ghost" asChild>
 						<IntentLink href={`/people/${who.id}`}>
@@ -859,6 +876,9 @@ function Value({ field, value, before }: { field: string; value: unknown; before
 	if (text === null) return <span className="text-text-3 italic">{field === "photo" ? "No photo" : "Empty"}</span>;
 	if (field === "stage" && typeof value === "string" && value in STAGE_KEY)
 		return <StageChip stage={STAGE_KEY[value as StageValue]}>{text}</StageChip>;
+	// A move backward is said in the warning color, so it is never read as an ordinary step forward.
+	if (field === "direction" && value === "backward")
+		return <span className="font-medium text-magenta-600">{text}</span>;
 	return <span className={cn("break-words", before ? "text-text-2" : "font-medium text-ink")}>{text}</span>;
 }
 
@@ -980,9 +1000,11 @@ function PhotoChange({
 
 /** Each changed field: its value now, then what it will be. A new person and a reason have no before. */
 function Changes({ review, staged, onRetry }: { review: Review; staged: StagedPhoto; onRetry: () => void }) {
-	const changes = shownChanges(review.review.changes);
+	const changes = shownChanges(review.review.changes).filter((c) => c.field !== "openCriteria");
 	if (!changes.length) return null;
 	const create = review.operation === "people.createPerson";
+	const intelligence = isIntelligence(review.operation);
+	const open = openCriteria(review);
 	return (
 		<dl className="flex flex-col gap-2 rounded-md bg-surface-2 px-3 py-2.5 text-sm">
 			{changes.map((c: Change) =>
@@ -992,7 +1014,8 @@ function Changes({ review, staged, onRetry }: { review: Review; staged: StagedPh
 					<div key={c.field} className="grid grid-cols-[minmax(88px,auto)_1fr] items-baseline gap-x-3">
 						<dt className="text-text-2">{fieldLabel(c.field)}</dt>
 						<dd className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1">
-							{create || c.field === "reason" ? null : (
+							{/* A new fact (a reason, a signal's words, a move's direction) has nothing before it. */}
+							{create || c.field === "reason" || (intelligence && c.before === null) ? null : (
 								<>
 									<span className="sr-only">from </span>
 									<Value field={c.field} value={c.before} before />
@@ -1005,6 +1028,25 @@ function Changes({ review, staged, onRetry }: { review: Review; staged: StagedPh
 					</div>
 				),
 			)}
+			{open ? (
+				<div className="grid grid-cols-[minmax(88px,auto)_1fr] items-baseline gap-x-3">
+					<dt className="text-text-2">{fieldLabel("openCriteria")}</dt>
+					<dd>
+						{open.length ? (
+							<ul className="flex flex-col gap-1">
+								{open.map((x) => (
+									<li key={x.label} className="flex flex-wrap items-baseline justify-between gap-x-3">
+										<span className="font-medium break-words text-ink">{x.label}</span>
+										<span className="text-xs text-text-3">{x.status.charAt(0).toUpperCase() + x.status.slice(1)}</span>
+									</li>
+								))}
+							</ul>
+						) : (
+							<span className="text-text-2">Every exit criterion is met</span>
+						)}
+					</dd>
+				</div>
+			) : null}
 		</dl>
 	);
 }

@@ -1,9 +1,12 @@
 "use client";
 
 import {
+	Activity01Icon,
 	Award01Icon,
+	CheckListIcon,
 	Clock01Icon,
 	File01Icon,
+	Flag01Icon,
 	Home01Icon,
 	Mail01Icon,
 	Tag01Icon,
@@ -32,6 +35,9 @@ const GLYPH: Record<Glyph, IconSvgElement> = {
 	activity: Clock01Icon,
 	file: File01Icon,
 	message: Mail01Icon,
+	phase: Flag01Icon,
+	criterion: CheckListIcon,
+	signal: Activity01Icon,
 };
 
 function Mark({ mark }: { mark: RowView["mark"] }) {

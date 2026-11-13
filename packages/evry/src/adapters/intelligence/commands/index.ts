@@ -33,8 +33,10 @@ const refused = (reply: { status: "refused"; error: { code: string } }): EffectR
 
 // --- phases ---------------------------------------------------------------------------------------------------
 
-/** The phases' names, indexed by phase number, for a review statement. */
-const phaseNames = async () => (await readCatalog()).phases.map((p) => p.name);
+/**
+ * Each phase as a review shows it, indexed by phase number: its number, which a revision sends back, and its name.
+ */
+const phaseValues = async () => (await readCatalog()).phases.map((p) => ({ phase: p.phase, name: p.name }));
 
 const declareInput = z.strictObject({ phase: c.phaseNumber });
 export const declarePhase: ReviewedWrite<z.infer<typeof declareInput>> = {
@@ -44,10 +46,10 @@ export const declarePhase: ReviewedWrite<z.infer<typeof declareInput>> = {
 	input: declareInput,
 	allowed: ownerOrAdmin,
 	async review(actor, value) {
-		const names = await phaseNames();
+		const phases = await phaseValues();
 		// Offered only while the declaration slot is unused and the church has never moved: no row otherwise.
 		return sql`SELECT jsonb_build_object('target',${plant},'changes',jsonb_build_array(
-				${change("phase", sql`${json(names)}->p.phase`, json(names[value.phase]))})) AS review,
+				${change("phase", sql`${json(phases)}->p.phase`, json(phases[value.phase]))})) AS review,
 			jsonb_build_object('expectedRevision',p.revision::text,'input',jsonb_build_object('phase',${value.phase}::int)) AS args
 			${inPlant(actor)} AND NOT EXISTS(SELECT FROM phase_transition x WHERE x.plant_id=p.id AND x.kind IN ('initial_declaration','movement'))`;
 	},
@@ -75,7 +77,7 @@ export const transitionPhase: ReviewedWrite<z.infer<typeof transitionInput>> = {
 	allowed: ownerOrAdmin,
 	async review(actor, value) {
 		const catalog = await readCatalog();
-		const names = catalog.phases.map((p) => p.name);
+		const phases = catalog.phases.map((p) => ({ phase: p.phase, name: p.name }));
 		// The exit criteria of each phase that are not met, with their status in words, indexed by phase number.
 		const open = readReadiness(catalog).map((r) =>
 			r.criteria.filter((x) => x.status !== "met").map((x) => ({ label: x.label, status: STATUS_WORDS[x.status] })),
@@ -83,11 +85,11 @@ export const transitionPhase: ReviewedWrite<z.infer<typeof transitionInput>> = {
 		const to = sql`${value.toPhase}::int`;
 		const direction = sql`CASE WHEN ${to}<p.phase THEN 'backward' WHEN ${to}=p.phase+1 THEN 'forward' WHEN ${to}>p.phase THEN 'skip_forward' END`;
 		return sql`SELECT jsonb_build_object('target',${plant},'changes',jsonb_build_array(
-				${change("phase", sql`${json(names)}->p.phase`, json(names[value.toPhase]))},
+				${change("phase", sql`${json(phases)}->p.phase`, json(phases[value.toPhase]))},
 				${change("direction", sql`NULL`, sql`to_jsonb(${direction})`)},
 				${change("reason", sql`NULL`, json(value.reason.trim()))})
 				||CASE WHEN ${to}>p.phase THEN jsonb_build_array(${change("openCriteria", sql`NULL`, sql`${json(open)}->p.phase`)}) ELSE '[]'::jsonb END)
-				||${refusal(sql`${to}=p.phase`, `The church is already in ${names[value.toPhase]}.`)} AS review,
+				||${refusal(sql`${to}=p.phase`, `The church is already in ${phases[value.toPhase]!.name}.`)} AS review,
 			jsonb_build_object('expectedRevision',p.revision::text,'input',jsonb_build_object('toPhase',${to},'reason',${value.reason.trim()}::text)) AS args
 			${inPlant(actor)}`;
 	},
@@ -105,7 +107,8 @@ export const transitionPhase: ReviewedWrite<z.infer<typeof transitionInput>> = {
 // --- manual signals ---------------------------------------------------------------------------------------------
 
 const signals = createSignals();
-const label = (key: s.SignalKey) => s.SIGNAL_DEFINITIONS.find((d) => d.key === key)!.label;
+/** A signal as a review shows it: its key, which a revision sends back, and its label. */
+const signal = (key: s.SignalKey) => json({ key, label: s.SIGNAL_DEFINITIONS.find((d) => d.key === key)!.label });
 /** The signal's current row in the church, as `a` (absent while it was never answered). */
 const current = (key: s.SignalKey) =>
 	sql`LEFT JOIN attestation a ON a.plant_id=p.id AND a.key=${key} AND a.person_id IS NULL`;
@@ -145,7 +148,7 @@ export const attestSignal: ReviewedWrite<z.infer<typeof attestInput>> = {
 	allowed: ownerOrAdmin,
 	review(actor, value) {
 		return sql`SELECT jsonb_build_object('target',${plant},'changes',jsonb_build_array(
-				${change("signal", sql`NULL`, json(label(value.key)))},
+				${change("signal", sql`NULL`, signal(value.key))},
 				${change("value", answer, json(value.value))},
 				${change("asOf", sql`NULL`, json(value.asOf))},
 				${change("detail", sql`NULL`, json(value.detail))})
@@ -183,7 +186,7 @@ export const correctSignal: ReviewedWrite<z.infer<typeof correctInput>> = {
 				];
 		const same = retract ? sql`false` : sql`a.answer=${value.value === "yes"}`;
 		return sql`SELECT jsonb_build_object('target',${plant},'changes',jsonb_build_array(
-				${change("signal", sql`NULL`, json(label(value.key)))},${sql.join(after, sql`,`)}))
+				${change("signal", sql`NULL`, signal(value.key))},${sql.join(after, sql`,`)}))
 				||${refusal(sql`a.state IS DISTINCT FROM 'answered'`, "This signal has no current answer to correct. Ask Evry to record it instead.")}
 				||${refusal(sql`a.state='answered' AND ${same}`, "The signal already has that answer, so there is nothing to correct.")}
 				||${retract ? sql`'{}'::jsonb` : refusal(afterToday(value.asOf), FUTURE)} AS review,
@@ -207,7 +210,7 @@ export const reaffirmSignal: ReviewedWrite<z.infer<typeof reaffirmInput>> = {
 		const renews = s.SIGNAL_DEFINITIONS.find((d) => d.key === value.key)!.reaffirms;
 		// The native command dates the answer on the day it runs, so the review says "today", never a fixed date.
 		return sql`SELECT jsonb_build_object('target',${plant},'changes',jsonb_build_array(
-				${change("signal", sql`NULL`, json(label(value.key)))},
+				${change("signal", sql`NULL`, signal(value.key))},
 				${change("value", answer, answer)},
 				${change("asOf", sql`to_jsonb(a.as_of::text)`, json("today"))}))
 				||${refusal(sql`a.state IS DISTINCT FROM 'answered'`, "This signal has no current answer to reaffirm. Ask Evry to record it instead.")}

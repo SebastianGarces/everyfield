@@ -30,6 +30,8 @@ const ports = {
 		throw Error("unexpected phase notice");
 	},
 };
+const CORE_GROUP = { phase: 1, name: "Core Group Development" };
+const PRAYER_RHYTHM = { key: "prayer_rhythm_established", label: "Corporate prayer rhythm established" };
 /** Core Group Development's exit criteria (docs/reference/phase-exit-criteria.ts); none has measured data yet. */
 const CORE_GROUP_CRITERIA = [
 	"30 committed adults",
@@ -99,7 +101,7 @@ test("phases.declare is offered only while the church has no declared phase, and
 	assert.ok(proposal);
 	assert.deepEqual(proposal.review, {
 		target: { kind: "plant", id: otherPlant, label: "Synthetic" },
-		changes: [{ field: "phase", before: "Core Group Development", after: "Discovery" }],
+		changes: [{ field: "phase", before: CORE_GROUP, after: { phase: 0, name: "Discovery" } }],
 	});
 	assert.equal((await phaseOf(otherPlant)).phase, 1, "nothing changes before approval");
 	assert.deepEqual(await moves(otherPlant), []);
@@ -125,7 +127,7 @@ test("a phase move lists the open exit criteria, changes the phase only after ap
 	assert.deepEqual(forward.review, {
 		target: { kind: "plant", id: plant, label: "Synthetic" },
 		changes: [
-			{ field: "phase", before: "Core Group Development", after: "Launch Team Formation" },
+			{ field: "phase", before: CORE_GROUP, after: { phase: 2, name: "Launch Team Formation" } },
 			{ field: "direction", before: null, after: "forward" },
 			{ field: "reason", before: null, after: reason },
 			{ field: "openCriteria", before: null, after: CORE_GROUP_CRITERIA },
@@ -133,7 +135,7 @@ test("a phase move lists the open exit criteria, changes the phase only after ap
 	});
 	const backward = await t.propose("phases.transition", { toPhase: 0, reason: "We are starting over." });
 	assert.deepEqual(backward?.review.changes.slice(0, 2), [
-		{ field: "phase", before: "Core Group Development", after: "Discovery" },
+		{ field: "phase", before: CORE_GROUP, after: { phase: 0, name: "Discovery" } },
 		{ field: "direction", before: null, after: "backward" },
 	]);
 	// The same phase is not a move: the card says why and offers no approval.
@@ -185,7 +187,7 @@ test("a reported signal is recorded in the Owner's words only after approval; a 
 	assert.deepEqual(attest.review, {
 		target: { kind: "plant", id: plant, label: "Synthetic" },
 		changes: [
-			{ field: "signal", before: null, after: "Corporate prayer rhythm established" },
+			{ field: "signal", before: null, after: PRAYER_RHYTHM },
 			{ field: "value", before: null, after: "yes" },
 			{ field: "asOf", before: null, after: asOf },
 			{ field: "detail", before: null, after: words },
@@ -225,7 +227,7 @@ test("a reported signal is recorded in the Owner's words only after approval; a 
 		detail: correction,
 	});
 	assert.deepEqual(correct?.review.changes, [
-		{ field: "signal", before: null, after: "Corporate prayer rhythm established" },
+		{ field: "signal", before: null, after: PRAYER_RHYTHM },
 		{ field: "value", before: "yes", after: "not_yet" },
 		{ field: "asOf", before: asOf, after: asOf },
 		{ field: "detail", before: words, after: correction },
@@ -238,7 +240,7 @@ test("a reported signal is recorded in the Owner's words only after approval; a 
 
 	const reaffirm = await t.propose("signals.reaffirm", { key: "prayer_rhythm_established" });
 	assert.deepEqual(reaffirm?.review.changes, [
-		{ field: "signal", before: null, after: "Corporate prayer rhythm established" },
+		{ field: "signal", before: null, after: PRAYER_RHYTHM },
 		{ field: "value", before: "not_yet", after: "not_yet" },
 		{ field: "asOf", before: asOf, after: "today" },
 	]);
