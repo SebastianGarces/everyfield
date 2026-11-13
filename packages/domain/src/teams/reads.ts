@@ -451,9 +451,8 @@ const memberRow = z.object({
 });
 const members = z.array(memberRow);
 function memberQuery(plantId: string, teamId: string) {
-	const body = (open: boolean) => memberList(plantId, teamId, open);
 	return sql`SELECT (SELECT plant_id FROM team WHERE id = ${teamId}::uuid) AS owner,
-		(${body(true)}) AS members, (${body(false)}) AS history`;
+		(${memberList(plantId, teamId, true)}) AS members, (${memberList(plantId, teamId, false)}) AS history`;
 }
 /** A ministry's current people (open) or its ended tenures, one row per role. */
 function memberList(plantId: string, teamId: string, open: boolean) {

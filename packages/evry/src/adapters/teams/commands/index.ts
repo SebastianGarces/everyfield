@@ -99,7 +99,7 @@ function receipt(value: Record<string, unknown>): { receiptId: string; revision:
  * the native command. Evry offers every ministry write to an Owner or Admin only: a Member's assistant reads and never
  * prepares changes, though a ministry's own leader may make some of them on the Ministries screens.
  */
-export function reviewed<I, R extends z.ZodType>(spec: {
+function reviewed<I, R extends z.ZodType>(spec: {
 	operation: string;
 	description: string;
 	input: z.ZodType<I>;

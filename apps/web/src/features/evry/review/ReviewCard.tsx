@@ -846,6 +846,7 @@ function Affects({ review }: { review: Review }) {
 	const target = review.review.target;
 	// A ministry change names its ministry, role, program or responsibility; a new ministry or program its name.
 	const record = isTeams(review.operation) ? (target ? RECORD_GLYPH[target.kind] : UserGroupIcon) : null;
+	const glyph = record ?? (mail ? Mail01Icon : create ? UserAdd01Icon : null);
 	const name = mail
 		? String(review.review.changes.find((c) => c.field === "subject")?.after ?? target?.label ?? "Email")
 		: create
@@ -855,17 +856,9 @@ function Affects({ review }: { review: Review }) {
 				: (target?.label ?? "Not available");
 	return (
 		<div className="flex items-center gap-3">
-			{record ? (
+			{glyph ? (
 				<span className="grid size-8 flex-none place-items-center rounded-full bg-surface-2 text-text-2">
-					<Icon icon={record} size={16} />
-				</span>
-			) : mail ? (
-				<span className="grid size-8 flex-none place-items-center rounded-full bg-surface-2 text-text-2">
-					<Icon icon={Mail01Icon} size={16} />
-				</span>
-			) : create ? (
-				<span className="grid size-8 flex-none place-items-center rounded-full bg-surface-2 text-text-2">
-					<Icon icon={UserAdd01Icon} size={16} />
+					<Icon icon={glyph} size={16} />
 				</span>
 			) : (
 				<Avatar name={name} size="sm" decorative />

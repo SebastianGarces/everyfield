@@ -9,19 +9,17 @@ import {
 	listTeamsRequest,
 	orgChartRequest,
 	personAssignmentsRequest,
-	personTeamCountsRequest,
-	searchMembersRequest,
-	teamHistoryRequest,
-	type TeamsReply,
-} from "@everyfield/contracts/teams";
-import {
 	listTrainingRequest,
+	personTeamCountsRequest,
 	personTrainingRequest,
 	previewRequiredTrainingRequest,
 	requiredParticipantsRequest,
+	searchMembersRequest,
 	staffingFactsRequest,
+	teamHistoryRequest,
 	trainingHistoryRequest,
 	trainingMatrixRequest,
+	type TeamsReply,
 } from "@everyfield/contracts/teams";
 import { listRequest as responsibilitiesRequest, previewRequest } from "@everyfield/contracts/teams/responsibilities";
 import { z } from "zod";
