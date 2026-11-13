@@ -134,7 +134,7 @@ const sentAt = (c: string) =>
 	`(SELECT min(coalesce(m.sent_at,m.delivered_at,CASE WHEN m.scheduled_at IS NULL THEN m.accepted_at END))
 		FROM mail m WHERE m.tenant_id=${c}.plant_id AND m.communication_id=${c}.id)`;
 const OPEN_NOTE =
-	"an open is only what the email service's tracking saw: it can miss real opens and count automatic ones, and it never means the person will come or that anyone talked to them";
+	"proof anyone read it, will come or talked to anyone (an open is only what the email service's tracking saw; it misses some opens and counts some automatic ones)";
 
 const resultRow = z.object({
 	id: z.uuid(),
@@ -339,8 +339,7 @@ export const forPerson: ReadAdapter<z.infer<typeof forPersonInput>> = {
 				next: null,
 				completeness: total > rows.length ? "partial" : "complete",
 				exclusions: [
-					"checked: every live person against Messages history for an email sent or handed to the email service",
-					"not checked: calls, texts, visits and email sent outside Everyfield",
+					"calls, texts, visits and email sent outside Everyfield (Evry checked every live person against Messages history for an email that went out)",
 				],
 			};
 		}
@@ -400,7 +399,7 @@ export const forPerson: ReadAdapter<z.infer<typeof forPersonInput>> = {
 			page: 1,
 			next: null,
 			completeness: "complete",
-			exclusions: ["email addresses", "message bodies", OPEN_NOTE, "an email is not a call or a conversation"],
+			exclusions: ["email addresses", "message bodies", OPEN_NOTE, "calls in the emails (an email is never a call)"],
 		};
 	},
 };

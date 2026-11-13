@@ -1533,7 +1533,7 @@ test("one person's emails are listed apart from recorded calls, and the never-em
 		calls.map((r) => [r.label, r.fields.channel]),
 		[["Recorded contact: contacted", "phone"]],
 	);
-	assert.ok(mine.exclusions.includes("an email is not a call or a conversation"));
+	assert.ok(mine.exclusions.some((e) => /an email is never a call/.test(e)));
 	const never = await db.transaction((tx) => forPerson.invoke(tx, owner, {}));
 	const names = never.rows.map((r) => r.label);
 	assert.ok(!names.includes("Alex Rivera") && !names.includes("Alex Chen"), "emailed people are not listed");

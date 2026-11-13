@@ -2,10 +2,12 @@
 
 import {
 	Award01Icon,
+	Calendar03Icon,
 	Clock01Icon,
 	File01Icon,
 	Home01Icon,
 	Mail01Icon,
+	NoteIcon,
 	Tag01Icon,
 	UserIcon,
 	UserMultipleIcon,
@@ -32,6 +34,8 @@ const GLYPH: Record<Glyph, IconSvgElement> = {
 	activity: Clock01Icon,
 	file: File01Icon,
 	message: Mail01Icon,
+	meeting: Calendar03Icon,
+	template: NoteIcon,
 };
 
 function Mark({ mark }: { mark: RowView["mark"] }) {
