@@ -1160,7 +1160,7 @@
     "id": "PPL-002",
     "title": "Create, quick-add and edit person profiles",
     "module": "people",
-    "behavior": "Preserve contact, independent address/source/sourceDetails/summary notes and stage fields with server validation after trim. Normal full form names allow bounded 255 character components; reject wholly blank display identity. A minimum named guest may supply one real display name with optional phone/email and no fabricated surname. Quick defaults are prospect, source other (meeting quick-add uses meeting_guest_list), and optional US country default shown/editable. Explicit null clears nullable fields rather than blank\u2192undefined losing the edit. Users cannot set the account link or creator. Every create and edit shows in the person's history. Creating or editing a person does not imply account, adult, commitment, consent or safety clearance. Background-check fields are excluded from every current form/DTO/import/export/tool.",
+    "behavior": "Preserve contact, independent address/source/sourceDetails/summary notes and stage fields with server validation after trim. Normal full form names allow bounded 255 character components; reject wholly blank display identity. A minimum named guest may supply one real display name with optional phone/email and no fabricated surname. Quick defaults are prospect, source other (meeting quick-add uses meeting_guest_list), and optional US country default shown/editable. Explicit null clears nullable fields rather than blank\u2192undefined losing the edit. Users cannot set the account link or creator. Every create and edit shows in the person's history. Creating or editing a person does not imply account, commitment, consent or safety clearance. Background-check fields are excluded from every current form/DTO/import/export/tool.",
     "spec_file": "docs/product/people.md#req-ppl-002",
     "requirement_ids": [
       "REQ-KNOW-056",
@@ -1589,7 +1589,7 @@
     "id": "PPL-015",
     "title": "Correct assessment, interview and commitment records",
     "module": "people",
-    "behavior": "Correct exact same plant Person/record kind under current Owner/Admin and unchanged reviewed record. Reuse original domain validations; recompute assessment total, preserve original recording actor/time and show the old value, new value, who and why in history. Ordinary score/result/notes/occurrence date correction never replays stage automation. Immutable original account/private author cannot be changed. Document/witness/original assessor replacement is outside ordinary correction fields; no arbitrary field patch or universal Undo. Use explicit new evidence record where necessary, retaining previous private document and provenance under ownership/deletion rules. Invalid historical commitment/lifecycle may be voided/corrected with attributable history and recomputed current projection, preserving earlier assessments. A correction based on an outdated view, another person's record or another church writes nothing; repeating a correction changes nothing more.",
+    "behavior": "Correct exact same plant Person/record kind under current Owner/Admin and unchanged reviewed record. Reuse original domain validations; recompute assessment total, preserve original recording actor/time and show the old value, new value, who and why (when given) in history. Ordinary score/result/notes/occurrence date correction never replays stage automation. Immutable original account/private author cannot be changed. Document/witness/original assessor replacement is outside ordinary correction fields; no arbitrary field patch or universal Undo. Use explicit new evidence record where necessary, retaining previous private document and provenance under ownership/deletion rules. Invalid historical commitment/lifecycle may be voided/corrected with attributable history and recomputed current projection, preserving earlier assessments. A correction based on an outdated view, another person's record or another church writes nothing; repeating a correction changes nothing more.",
     "spec_file": "docs/product/people.md#req-ppl-015",
     "requirement_ids": [
       "REQ-PPL-015",
@@ -1636,7 +1636,9 @@
     ],
     "operations": [
       "people.checkForDuplicates",
-      "people.listDuplicatePairs"
+      "people.listDuplicatePairs",
+      "people.dismissDuplicatePair",
+      "people.restoreDuplicatePair"
     ],
     "acceptance_ids": [
       "AC-PPL-016--PPL-016"
@@ -1772,7 +1774,7 @@
     "id": "PPL-018",
     "title": "CSV template, preview, row validation, duplicate resolutions and partial import",
     "module": "people",
-    "behavior": "Use RFC 4180 parser with BOM/CRLF/commas/escaped quotes/quoted multiline and explicit malformed quoting errors. Keep 12 contact input columns(first_name, last_name, email, phone, street, city, state, postal_code, country, source, source_details, notes); normalizer/defaults match People and background fields are absent. Server limits 10 MiB and 10000 rows and validates the uploaded file itself, never rows returned by the client. Preview all valid/invalid/existing and within-file duplicate rows; resolutions skip/create/create_and_review never overwrite existing Person. Import saves exactly the rows the user reviewed; each row is created, skipped or failed, with an optional new duplicate-review pair. A retry never creates a person twice. A changed file, review or authority is refused. A partial import names each failed row and why, and what remains, never a generic failure after rows were saved.",
+    "behavior": "Use RFC 4180 parser with BOM/CRLF/commas/escaped quotes/quoted multiline and explicit malformed quoting errors. Keep 12 contact input columns(first_name, last_name, email, phone, street, city, state, postal_code, country, source, source_details, notes); normalizer/defaults match People and background fields are absent. Server limits 10 MiB and 10000 rows and validates the uploaded file itself, never rows returned by the client. Preview all valid/invalid/existing and within-file duplicate rows; resolutions skip/create/create_and_review never overwrite existing Person. Import saves exactly the rows the user reviewed; each row is created, skipped or failed, with an optional new duplicate-review pair. A retry never creates a person twice. A changed file, review or authority is refused. A partial import names each failed row and why, and what remains, never a generic failure after rows were saved. A failed or partial import keeps its uploaded file on the server for 7 days from when it last stopped with rows left, then deletes it on a schedule; its receipt stays. While the file is kept, Try N rows again writes only the remaining rows from it. After it is deleted, the Owner or Admin uploads the same file again to finish the remaining rows; a different file is refused and nothing is written. A complete import keeps no file.",
     "spec_file": "docs/product/people.md#req-ppl-018",
     "requirement_ids": [
       "REQ-PPL-018"
@@ -1802,7 +1804,7 @@
     "id": "PPL-019",
     "title": "Filtered CSV export and file serialization",
     "module": "people",
-    "behavior": "Export same current filters as directory with 15 documented columns: first_name, last_name, email, phone, street, city, state, postal_code, country, status, source, source_details, notes, tags, created_at; tags semicolon joined and recorded createdAt UTC. Header-only empty export valid. RFC 4180 escaping preserves comma/newline/quotes; spreadsheet-dangerous leading=,+,-,@, TAB/CR values get documented leading apostrophe neutralization. The exact bytes are CSV not an XLSX claim. Private photo/account/storage/qualification/background/care fields are absent. Tenant read/export authority rechecked; an export of any size finishes and states its filters and row count. Narrow 12 column import ignores status/tags/date, so never claim lossless backup/roundtrip. Organization pipeline Persons use the same applicable identity, lifecycle, duplicate, merge, reference and inverse rules within their exact organization under REQ-MUL-001 and REQ-MUL-005; plant-only recruitment/household/commitment facts remain plant-only.",
+    "behavior": "Export same current filters as directory with 15 documented columns: first_name, last_name, email, phone, street, city, state, postal_code, country, status, source, source_details, notes, tags, created_at; tags semicolon joined and recorded createdAt UTC. When a person has no stored name parts, first_name is the first word of the display name and last_name is the rest; stored name parts always win. Header-only empty export valid. RFC 4180 escaping preserves comma/newline/quotes; spreadsheet-dangerous leading=,+,-,@, TAB/CR values get documented leading apostrophe neutralization. The exact bytes are CSV not an XLSX claim. Private photo/account/storage/qualification/background/care fields are absent. Tenant read/export authority rechecked; an export of any size finishes and states its filters and row count. Narrow 12 column import ignores status/tags/date, so never claim lossless backup/roundtrip. Organization pipeline Persons use the same applicable identity, lifecycle, duplicate, merge, reference and inverse rules within their exact organization under REQ-MUL-001 and REQ-MUL-005; plant-only recruitment/household/commitment facts remain plant-only.",
     "spec_file": "docs/product/people.md#req-ppl-019",
     "requirement_ids": [
       "REQ-PPL-019"
@@ -2592,7 +2594,7 @@
     "id": "TSK-002",
     "title": "Create, edit and delete tasks",
     "module": "tasks",
-    "behavior": "Full/quick task retains trimmed nonempty bounded title, safe description, state/priority/category, optional LocalDate/time, current same plant assignee, person/meeting/team relation, parent, recurrence and prerequisites. Reject facility relation and malformed/mismatched relation pair; explicit null clears. Generated obligation/evaluation relation/source identity is protected from ordinary edit. Validate current task, graph, series and related subjects; concurrent edits must preserve their invariants; edit+status+prerequisites/history and recorded outcome/intent commit all or none, with no failed response after hidden title change. Soft-delete parent+children coherently; generated obligation/history persists. Parent deletion reviews consequences and cancels live reminders without erasing already performed evidence.",
+    "behavior": "Full/quick task retains trimmed nonempty bounded title, safe description, state/priority/category, optional LocalDate/time, one or more current same plant assignees (up to ten), person/meeting/team relation, parent, recurrence and prerequisites. Reject facility relation and malformed/mismatched relation pair; explicit null clears. Generated obligation/evaluation relation/source identity is protected from ordinary edit. Validate current task, graph, series and related subjects; concurrent edits must preserve their invariants; edit+status+prerequisites/history and recorded outcome/intent commit all or none, with no failed response after hidden title change. Soft-delete parent+children coherently; generated obligation/history persists. Parent deletion reviews consequences and cancels live reminders without erasing already performed evidence.",
     "spec_file": "docs/product/tasks.md#req-tsk-002",
     "requirement_ids": [
       "REQ-KNOW-115",
@@ -2631,7 +2633,7 @@
     "id": "TSK-003",
     "title": "Complete and reopen tasks under own-duty authority",
     "module": "tasks",
-    "behavior": "Recheck actual assignee/current authority at execution; Member completes/reopens only own duty, Owner/Admin any current same plant task. Completion records when and by whom, with status history and any successor or outcome, together. Repeating the same request shows the earlier result and adds no history. Reopen clears current completion projection but retains prior history and recomputes current metrics/contact evidence where affected; it does not forge past success or unsend delivery. Recurring older occurrence reopen fails if another open successor exists and names it. Parent completion remains explicit human judgment. Person linked administrative completion never implies contact.",
+    "behavior": "Recheck actual assignees/current authority at execution; a task has one or more assignees, and a Member completes/reopens only a duty they are one of the assignees of, Owner/Admin any current same plant task. Completion records when and by whom, with status history and any successor or outcome, together. Repeating the same request shows the earlier result and adds no history. Reopen clears current completion projection but retains prior history and recomputes current metrics/contact evidence where affected; it does not forge past success or unsend delivery. Recurring older occurrence reopen fails if another open successor exists and names it. Parent completion remains explicit human judgment. Person linked administrative completion never implies contact.",
     "spec_file": "docs/product/tasks.md#req-tsk-003",
     "requirement_ids": [
       "REQ-MTG-021",
@@ -2708,7 +2710,7 @@
     "id": "TSK-005",
     "title": "One-level subtasks and checklists",
     "module": "tasks",
-    "behavior": "One parent level only: deny nesting/self parent/cycles and turning task with children into child. New child inherits the parent assignee when omitted. Owner/Admin may explicitly choose a currently valid same-plant assignee or null; a Member may create only under their own currently assigned parent and inherits their own assignment, with no other-account or null override. Tick/untick/reopen uses the actual child assignee for Member own-duty. Child tasks have no deadline, recurrence, obligation, completion automation or contact hook; inert template definitions create real child Tasks, and a checklist item's completion is the child task's own status. Subsequent parent edit previews intended child assignment changes rather than silently moving others. Child tick/untick has own completion history/current own-duty policy; parent never auto completes. Parent delete soft deletes children with history. Recurrent successor copy resets every checklist item, clears child due dates and completion facts, and copies no contact/outcome hooks.",
+    "behavior": "One parent level only: deny nesting/self parent/cycles and turning task with children into child. New child inherits all of the parent's one or more assignees when omitted. Owner/Admin may explicitly choose one or more currently valid same-plant assignees or none; a Member may create only under their own currently assigned parent and inherits the parent's assignees, with no other-account or empty override. Tick/untick/reopen uses the actual child assignees for Member own-duty. Child tasks have no deadline, recurrence, obligation, completion automation or contact hook; inert template definitions create real child Tasks, and a checklist item's completion is the child task's own status. Subsequent parent edit previews intended child assignment changes rather than silently moving others. Child tick/untick has own completion history/current own-duty policy; parent never auto completes. Parent delete soft deletes children with history. Recurrent successor copy resets every checklist item, clears child due dates and completion facts, and copies no contact/outcome hooks.",
     "spec_file": "docs/product/tasks.md#req-tsk-005",
     "requirement_ids": [
       "REQ-TSK-005"
@@ -2739,7 +2741,7 @@
     "id": "TSK-006",
     "title": "Task prerequisites and derived blocking",
     "module": "tasks",
-    "behavior": "Top-level same-tenant tasks have unique prerequisite relationships. Deny self, foreign and deleted candidates. Cycles are forbidden, including when concurrent opposite relationships are proposed. Show derived blocked badge for unfinished actionable prerequisite, distinct from manual blocked status; Complete, no_longer_needed, or an existing prerequisite soft-deleted after the edge was saved releases derived blocking. Deletion supplies no successful-completion/48-hour/contact credit and preserves the predecessor and edge history. Badge is advisory and does not prevent explicit allowed completion. Current/history edge correction is audited and retry-safe; no generalized project work flow engine.",
+    "behavior": "Top-level same-tenant tasks have unique prerequisite relationships. Deny self, foreign and deleted candidates. Cycles are forbidden, including when concurrent opposite relationships are proposed. Show derived blocked badge for unfinished actionable prerequisite, distinct from manual blocked status; Complete, no_longer_needed, or an existing prerequisite soft-deleted after the edge was saved releases derived blocking. Deletion supplies no successful-completion/48-hour/contact credit and preserves the predecessor and edge history. Badge is advisory and does not prevent explicit allowed completion. The prerequisites are a set: saving the same tasks in another order is a no-op that keeps the task's revision, history and saved order (Audit #551). Current/history edge correction is audited and retry-safe; no generalized project work flow engine.",
     "spec_file": "docs/product/tasks.md#req-tsk-006",
     "requirement_ids": [
       "REQ-TSK-006"
@@ -2766,7 +2768,7 @@
     "id": "TSK-007",
     "title": "Recurring tasks and fresh successor checklists",
     "module": "tasks",
-    "behavior": "Daily/weekly/biweekly/monthly/quarterly/yearly rules keep their interval, inclusive end date and optional local time. Completion creates exactly one successor by one interval from current due LocalDate, or completion LocalDate when undated, clamping month/year end. Late completion intentionally may produce already overdue successor; no skip-ahead/backfill service calendar. Completing a recurring task creates exactly one next task with a fresh checklist, history and reminders, even on retry; failure does not require user reopen/recomplete. Stop recurrence preserves history; older reopen refuses open-successor collision. Zone edit previews future wall recurrence and resolver applies once; inherited due LocalDate remains explicit.",
+    "behavior": "Daily/weekly/biweekly/monthly/quarterly/yearly rules keep their interval, inclusive end date and optional local time. Completion creates exactly one successor by one interval from current due LocalDate, or completion LocalDate when undated, clamping month/year end. Late completion intentionally may produce already overdue successor; no skip-ahead/backfill service calendar. Completing a recurring task creates exactly one next task with a fresh checklist, history and reminders, even on retry; failure does not require user reopen/recomplete. Stop recurrence preserves history; an Owner or Admin may make any occurrence of a stopped series repeat again, which starts a new series with that occurrence as occurrence 1 and leaves the old series stopped with its other occurrences, so completing it adds exactly one next occurrence in the new series even when it already had one in the old (Audit #551); a bulk Complete names each next occurrence as a single Complete does; older reopen refuses open-successor collision. Zone edit previews future wall recurrence and resolver applies once; inherited due LocalDate remains explicit.",
     "spec_file": "docs/product/tasks.md#req-tsk-007",
     "requirement_ids": [
       "REQ-TSK-007",
@@ -2929,7 +2931,7 @@
     "id": "TSK-012",
     "title": "Follow-up assignments and unowned contacts",
     "module": "tasks",
-    "behavior": "Eligible owner is actual account linked live same plant committed stage Person(core_group/launch_team/leader) with current seat; shared email/unlinked contact cannot own. Current demotion/access loss resolves stale assignee Needs owner even if stored ID remains. Assignment validates current eligibility at execution, derived labels from stored Person not client name. Manual create+assign may remain undated and has distinct manual origin; no invented due date or 48 h lineage invented. Assignment view shows actionable open tasks, grouped current owners, uncovered contact coverage without claiming urgent task when no explicit duty exists. No lead title-based authorization.",
+    "behavior": "Eligible owner is actual account linked live same plant committed stage Person(core_group/launch_team/leader) with current seat; shared email/unlinked contact cannot own. Current demotion/access loss of every assignee resolves the task Needs owner even if stored IDs remain; a follow-up with one or more assignees is owned while any one of them is eligible. Assignment validates current eligibility at execution, derived labels from stored Person not client name. Manual create+assign may remain undated and has distinct manual origin; no invented due date or 48 h lineage invented. Assignment view shows actionable open tasks, grouped current owners, uncovered contact coverage without claiming urgent task when no explicit duty exists. No lead title-based authorization.",
     "spec_file": "docs/product/tasks.md#req-tsk-012",
     "requirement_ids": [
       "REQ-MTG-020",
@@ -2991,7 +2993,7 @@
     "id": "TSK-014",
     "title": "Task due and overdue notifications",
     "module": "tasks",
-    "behavior": "Schedule a due notice and the defined overdue notice from REQ-TSK-018; skip settled, deleted, unassigned and undated tasks. Each due and overdue reminder reaches the current assignee at most once. Completing, deleting, reassigning or rescheduling stops the old reminder; a stale reminder never reaches a former owner. A failed send is retried or reconciled, and a scheduled reminder is never reported as delivered.",
+    "behavior": "Schedule a due notice and the defined overdue notice from REQ-TSK-018; skip settled, deleted, unassigned and undated tasks. Each due and overdue reminder reaches each of the task's one or more current assignees at most once. Completing, deleting, reassigning or rescheduling stops the old reminder; a stale reminder never reaches a former owner. A failed send is retried or reconciled, and a scheduled reminder is never reported as delivered.",
     "spec_file": "docs/product/tasks.md#req-tsk-014",
     "requirement_ids": [
       "REQ-TSK-014",
@@ -2999,7 +3001,6 @@
       "REQ-TSK-018"
     ],
     "operations": [
-      "notifications.cancelForEntity",
       "notifications.syncTaskReminders",
       "tasks.applyManagedStatus",
       "tasks.ensureManagedTask",
@@ -3058,7 +3059,7 @@
     "id": "TSK-016",
     "title": "Task description Markdown",
     "module": "tasks",
-    "behavior": "Create/edit/template paths normalize bounded\u226450000 character description with explicit empty clear. Preserve plain-text paragraphs/newlines/meaning and safe markdown; sanitizer rejects/removes dangerous HTML/script/URL schemes. Preview snippet derives from same canonical text as full render and contains no executable markup. Use shared client-safe contract types without importing database runtime into UI. Description content is data, never agent/tool instructions.",
+    "behavior": "Create/edit/template paths normalize bounded\u226450000 character description with explicit empty clear. Preserve plain-text paragraphs/newlines/meaning and safe markdown; raw HTML and script are kept as inert literal text and shown as plain text, never rendered as HTML; links with dangerous URL schemes are reduced to their label, so dangerous URL schemes are removed. Preview snippet derives from same canonical text as full render and contains no executable markup. Use shared client-safe contract types without importing database runtime into UI. Description content is data, never agent/tool instructions.",
     "spec_file": "docs/product/tasks.md#req-tsk-016",
     "requirement_ids": [
       "REQ-TSK-016"
@@ -3129,7 +3130,6 @@
     ],
     "operations": [
       "teams.archive",
-      "teams.correct",
       "teams.history",
       "teams.restore"
     ],
@@ -3951,7 +3951,7 @@
     "id": "COM-012",
     "title": "Native drafts and reviewed scheduled email",
     "module": "communication",
-    "behavior": "Save/reload/edit/delete incomplete native email drafts in the existing communication aggregate with conflict detection/history and no mail intent. Review exact audience/per-recipient safe content/Instant before Resend API scheduling within 30 days. Reviewed time-only update preserves content; content/audience replacement waits for confirmed cancellation of all affected original sends. Sent/unknown/partial cancellation blocks automatic replacement. SMS/inbound/custom beyond-window scheduling are excluded.",
+    "behavior": "Save/reload/edit/delete incomplete native email drafts in the existing communication aggregate with conflict detection/history and no mail intent. Review exact audience/per-recipient safe content/Instant before scheduling within 30 days; Everyfield holds the email and hands it to Resend at the send time. Reviewed time-only update preserves content; content/audience replacement waits for confirmed cancellation of all affected original sends. Sent/unknown/partial cancellation blocks automatic replacement. SMS/inbound/custom beyond-window scheduling are excluded.",
     "spec_file": "docs/product/communications-notifications.md#drafts-and-provider-scheduling",
     "requirement_ids": [
       "REQ-COM-012",
@@ -4021,7 +4021,6 @@
       "REQ-NTF-001"
     ],
     "operations": [
-      "notifications.cancelForEntity",
       "notifications.enqueue"
     ],
     "acceptance_ids": [
@@ -4102,7 +4101,7 @@
     "id": "NTF-003",
     "title": "In-app notification feed, unread filters, pagination and bell",
     "module": "notifications",
-    "behavior": "Self feed/unread/bell show only due visible uncanceled entries under current grants; deterministic bounded pagination, unread filter, individual mark and mark-all-visible use identical predicates. Future/foreign/revoked entries and their counts are hidden. Read does not complete work. Empty differs from unavailable.",
+    "behavior": "Self feed/unread/bell show only due visible uncanceled entries under current grants; deterministic bounded pagination, unread filter, individual mark and mark-all-visible use identical predicates. Future/foreign/revoked entries and their counts are hidden. The bell and the feed page share one read state: an entry marked read in either, singly or by mark-all, shows read in the other at once without a reload, the unread counts agree, and opening the bell marks nothing (Audit #551). Read does not complete work. Empty differs from unavailable.",
     "spec_file": "docs/product/communications-notifications.md#notification-product",
     "requirement_ids": [
       "REQ-KNOW-001",
@@ -4177,7 +4176,7 @@
     "id": "NTF-005",
     "title": "Task due/overdue reminders and reminder cancellation/resync",
     "module": "notifications",
-    "behavior": "Each due and one-calendar-day overdue reminder reaches the current assignee at most once. Completing, deleting, reassigning or rescheduling stops the old reminder; a stale reminder never reaches a former owner.",
+    "behavior": "Each due and one-calendar-day overdue reminder reaches each of the task's one or more current assignees at most once. Completing, deleting, reassigning or rescheduling stops the old reminder; a stale reminder never reaches a former owner.",
     "spec_file": "docs/product/communications-notifications.md#notification-product",
     "requirement_ids": [
       "REQ-KNOW-006",
@@ -4218,8 +4217,8 @@
       "REQ-NTF-006"
     ],
     "operations": [
-      "notifications.meetingAudience",
-      "notifications.syncMeetingReminders"
+      "meetings.planNotifications",
+      "notifications.meetingAudience"
     ],
     "acceptance_ids": [
       "AC-NTF-006--NTF-006"
@@ -4576,10 +4575,37 @@
     ]
   },
   {
+    "id": "NTF-016",
+    "title": "Per-church, per-person Messages email opt-out for CRM people",
+    "module": "notifications",
+    "behavior": "Every church Messages email to a CRM Person (announcement or meeting invitation) ends with a visible Unsubscribe link and carries RFC8058 List-Unsubscribe and List-Unsubscribe-Post headers with the same token. The opt-out is per church and per Person (D-284: \"Per church and per person, staff can see it but can't clear it\"): the token names that church and that Person and nothing about an account; it never lifts on an address change and never affects another church. GET confirms and names the church, never the address; the button or one-click POST changes; a forged, tampered or wrong-purpose token fails closed; undo lasts one hour. A later send or schedule refuses the Person like a blocked address, still sends the rest, and counts Unsubscribed apart from refused and blocked. An email scheduled before the opt-out skips them too, whenever they opt out before its send time and whether or not the email service can be reached; one the email service already holds is cancelled there; the one-hour undo does not bring a skipped email back. At that moment the staff member who scheduled each skipped email, while they hold a current seat in that church, gets one in-app notice per email and per Person, written with the opt-out and naming the Person, the subject and the send time in the church's time zone, never the address, and opening that scheduled email in Messages; no email goes to staff, and an email the email service already held gets none. Staff see them as unsubscribed on the scheduled and the sent email and in compose with the date, and an email whose every recipient unsubscribed reads Not sent: unsubscribed, not a failure or a cancel. Owner/Admin see it and when on the Person record with no control to clear it; no staff path clears or rewrites it. A merge keeps the survivor unsubscribed. It never changes account notification preferences, CRM marketing consent, stage, groups or other fields.",
+    "spec_file": "docs/product/communications-notifications.md#notification-product",
+    "requirement_ids": [
+      "REQ-NTF-016"
+    ],
+    "operations": [
+      "communication.applyMessagesOptOut",
+      "communication.describeMessagesOptOut",
+      "communication.undoMessagesOptOut"
+    ],
+    "acceptance_ids": [
+      "AC-NTF-016--NTF-016"
+    ],
+    "case_ids": [
+      "CASE-NTF-016"
+    ],
+    "work_packages": [
+      "WP-028"
+    ],
+    "routes": [
+      "/unsubscribe/[token]"
+    ]
+  },
+  {
     "id": "DOC-001",
     "title": "Document template library, filtering and contextual entry points",
     "module": "documents",
-    "behavior": "Filterable/contextual library of 11 templates and 12 offered template-format combinations; commitment/vision_meeting/administrative/operational categories, phase and curated Wiki/meeting/team mappings. Unknown retired mapping omits link.",
+    "behavior": "Filterable/contextual library of the generated document catalog. The catalog grows as templates are added, and `docs/catalog/document-templates.json` names every entry with its class, format and phase. Format rule: budgets are XLSX, emails are HTML mail, fixed-layout documents are PDF only, and editable prose documents are edited in the app and exported as PDF and DOCX. The Forme engine (@formepdf) renders PDFs with fillable fields and PDF/UA tagging. Commitment/vision_meeting/administrative/operational categories, phase and curated Wiki/meeting/team mappings. Unknown retired mapping omits link.",
     "spec_file": "docs/product/knowledge-documents.md#generated-documents-and-templates",
     "requirement_ids": [
       "REQ-DOC-001",
@@ -4651,7 +4677,7 @@
     "id": "DOC-003",
     "title": "Saved generated-document history and fresh signed re-download",
     "module": "documents",
-    "behavior": "Save generated_document owner/creator/template+content+renderer versions/MIME/length/hash/object identity and pending\u2192ready only after coherent upload/finalization. Latest 100 authorized history entries and fresh downloads return exact saved bytes rather than regenerating current facts. Missing template uses saved label. Failed insert/upload compensation is fenced/reconciled; plant-owned artifacts survive creator-account deletion.",
+    "behavior": "Save generated_document owner/creator/template+content+renderer versions/MIME/length/hash/object identity and pending\u2192ready only after coherent upload/finalization. Latest 100 authorized history entries and fresh downloads return exact saved bytes rather than regenerating current facts. Missing template uses saved label. Failed insert/upload compensation is fenced/reconciled; plant-owned artifacts survive creator-account deletion. Once a Church Document is deleted, none of its saved exports lists or downloads for any seat; its seats are told it was deleted, and anyone outside the church plant gets the unknown-id answer.",
     "spec_file": "docs/product/knowledge-documents.md#generated-documents-and-templates",
     "requirement_ids": [
       "REQ-DOC-003",
@@ -4785,7 +4811,7 @@
     "id": "DOC-007",
     "title": "Vision Meeting Agenda",
     "module": "documents",
-    "behavior": "Vision Meeting Agenda \u2014 PDF and DOCX; shared content model, welcome/story/vision/GROW-PRAY-GIVE/next steps.",
+    "behavior": "Vision Meeting Agenda \u2014 PDF; printed from the meeting's own agenda (its sections, minutes and start times in the app's order, its date, time, place and guest list), with blank write-in rows when it has none.",
     "spec_file": "docs/product/knowledge-documents.md#generated-documents-and-templates",
     "requirement_ids": [
       "REQ-DOC-007"
@@ -4812,13 +4838,14 @@
     "id": "DOC-008",
     "title": "Expectations of a Core Group Member",
     "module": "documents",
-    "behavior": "Expectations of a Core Group Member \u2014 DOCX; presence/GROW-PRAY-GIVE/team participation.",
+    "behavior": "Expectations of a Core Group Member \u2014 editable Church Document, exported as PDF and DOCX; presence/GROW-PRAY-GIVE/team participation.",
     "spec_file": "docs/product/knowledge-documents.md#generated-documents-and-templates",
     "requirement_ids": [
       "REQ-DOC-008"
     ],
     "operations": [
-      "documents.generate",
+      "documents.createFromTemplate",
+      "documents.exportNative",
       "documents.preview"
     ],
     "acceptance_ids": [
@@ -4829,7 +4856,8 @@
       "EVRY-ACCOUNT-PRIVATE-DISCOVERY"
     ],
     "work_packages": [
-      "WP-036"
+      "WP-036",
+      "WP-037"
     ],
     "routes": [
       "/documents"
@@ -4839,13 +4867,14 @@
     "id": "DOC-009",
     "title": "Launch Team Commitment",
     "module": "documents",
-    "behavior": "Launch Team Commitment \u2014 DOCX; member commitment approaching Launch Sunday.",
+    "behavior": "Launch Team Commitment \u2014 editable Church Document, exported as PDF and DOCX; member commitment approaching Launch Sunday.",
     "spec_file": "docs/product/knowledge-documents.md#generated-documents-and-templates",
     "requirement_ids": [
       "REQ-DOC-009"
     ],
     "operations": [
-      "documents.generate",
+      "documents.createFromTemplate",
+      "documents.exportNative",
       "documents.preview"
     ],
     "acceptance_ids": [
@@ -4856,7 +4885,8 @@
       "EVRY-ACCOUNT-PRIVATE-DISCOVERY"
     ],
     "work_packages": [
-      "WP-036"
+      "WP-036",
+      "WP-037"
     ],
     "routes": [
       "/documents"
@@ -4866,13 +4896,14 @@
     "id": "DOC-010",
     "title": "Vision Meeting Follow-up Letter",
     "module": "documents",
-    "behavior": "Vision Meeting Follow-up Letter \u2014 DOCX; guest thank-you/next-step invitation.",
+    "behavior": "Vision Meeting Follow-up Letter \u2014 editable Church Document, exported as PDF and DOCX; guest thank-you/next-step invitation.",
     "spec_file": "docs/product/knowledge-documents.md#generated-documents-and-templates",
     "requirement_ids": [
       "REQ-DOC-010"
     ],
     "operations": [
-      "documents.generate",
+      "documents.createFromTemplate",
+      "documents.exportNative",
       "documents.preview"
     ],
     "acceptance_ids": [
@@ -4883,7 +4914,8 @@
       "EVRY-ACCOUNT-PRIVATE-DISCOVERY"
     ],
     "work_packages": [
-      "WP-036"
+      "WP-036",
+      "WP-037"
     ],
     "routes": [
       "/documents"
@@ -4893,7 +4925,7 @@
     "id": "DOC-011",
     "title": "Board / Elder Meeting Agenda",
     "module": "documents",
-    "behavior": "Board/Elder Meeting Agenda \u2014 DOCX; prayer/minutes/financial/ministry/action items.",
+    "behavior": "Board/Elder Meeting Agenda \u2014 PDF; printed from a leadership team meeting's own agenda the same way, with blank write-in rows when it has none.",
     "spec_file": "docs/product/knowledge-documents.md#generated-documents-and-templates",
     "requirement_ids": [
       "REQ-DOC-011"
@@ -6432,7 +6464,7 @@
     "id": "PI-002",
     "title": "Committed adult growth, first commitments and flat streak",
     "module": "intelligence",
-    "behavior": "Count each currently active explicitly classified adult once across supported commitments; genuine valid historical first acquisitions drive adjacent 28 day windows and 21/28 day timing independently of current size. Real withdrawal lowers size without erasing acquisition; rejoin/repeat/team move is not new. Correct invalid occurrence evidence through history; partial lower-bound size and timing certainty remain separate.",
+    "behavior": "Count each currently active effective adult (from the birth date, else the recorded classification) once across supported commitments; genuine valid historical first acquisitions drive adjacent 28 day windows and 21/28 day timing independently of current size. Real withdrawal lowers size without erasing acquisition; rejoin/repeat/team move is not new. Correct invalid occurrence evidence through history; partial lower-bound size and timing certainty remain separate.",
     "spec_file": "docs/product/methodology-intelligence.md",
     "requirement_ids": [
       "REQ-PI-002"
@@ -8835,9 +8867,9 @@
   },
   {
     "id": "REF-003",
-    "title": "Eleven generated document template catalog",
+    "title": "Generated document template catalog",
     "module": "reference",
-    "behavior": "Preserve eleven original document template catalog entries, meaningful generated document/private exact byte/history workflow; approved optional operational copying never silently overwrites tenant work.",
+    "behavior": "Preserve the eleven original document template catalog entries as the base of the growing catalog, with the meaningful generated document/private exact byte/history workflow; approved optional operational copying never silently overwrites tenant work.",
     "spec_file": "docs/reference/manifest.json",
     "requirement_ids": [
       "REQ-REF-003"
@@ -10141,6 +10173,338 @@
       "WP-037",
       "WP-079",
       "WP-080"
+    ],
+    "routes": []
+  },
+  {
+    "id": "DOC-017",
+    "title": "Themed document rendering with the neutral fallback",
+    "module": "documents",
+    "behavior": "Generated PDF and email templates render through a document theme. `resolveDocumentTheme(church, documentClass)` returns the church theme when the church has a brand kit and the document's \"use church branding\" toggle is on. Otherwise it returns the Everyfield-neutral theme. Library template previews and \"Save for your church\" (`documents.preview` and `documents.generate`) use the church theme when the church has a brand kit and the Everyfield-neutral theme when it has none. The preview says \"No brand kit yet. Your church name stands in for a logo.\" only when the church has no brand kit. A theme change applies only to newly generated documents, and saved files keep their exact bytes.",
+    "spec_file": "docs/product/knowledge-documents.md#template-themes-classes-and-copy",
+    "requirement_ids": [
+      "REQ-DOC-017"
+    ],
+    "operations": [
+      "documents.preview",
+      "documents.generate"
+    ],
+    "acceptance_ids": [
+      "AC-DOC-017--DOC-017"
+    ],
+    "case_ids": [
+      "CASE-DOC-017",
+      "CASE-DOC-017-CHURCH"
+    ],
+    "work_packages": [
+      "WP-036",
+      "WP-104"
+    ],
+    "routes": []
+  },
+  {
+    "id": "DOC-018",
+    "title": "Document classes",
+    "module": "documents",
+    "behavior": "Every template has exactly one document class: formal/legal, outward-facing, operational or email. The class decides how the theme applies. `docs/catalog/document-templates.json` records the class of each template. Policies, bylaws and agreements are formal/legal; the prospectus and letters are outward-facing; budgets, checklists and agendas are operational; every email is class email.",
+    "spec_file": "docs/product/knowledge-documents.md#template-themes-classes-and-copy",
+    "requirement_ids": [
+      "REQ-DOC-018"
+    ],
+    "operations": [
+      "documents.templates.list",
+      "documents.templates.get"
+    ],
+    "acceptance_ids": [
+      "AC-DOC-018--DOC-018"
+    ],
+    "case_ids": [
+      "CASE-DOC-018"
+    ],
+    "work_packages": [
+      "WP-036"
+    ],
+    "routes": []
+  },
+  {
+    "id": "DOC-019",
+    "title": "Legal template notice",
+    "module": "documents",
+    "behavior": "Every formal/legal template shows the notice \"Template, not legal advice\" in the preview and in the saved PDF. Church branding cannot hide or remove the notice. Templates of other classes do not show it. A Church Document made from a formal/legal template keeps the notice too. The notice \"Template, not legal advice\" renders at export, outside the editable body, in both the PDF and the DOCX. No edit removes it. Exports of other classes do not show it.",
+    "spec_file": "docs/product/knowledge-documents.md#template-themes-classes-and-copy",
+    "requirement_ids": [
+      "REQ-DOC-019"
+    ],
+    "operations": [
+      "documents.exportNative",
+      "documents.generate",
+      "documents.preview"
+    ],
+    "acceptance_ids": [
+      "AC-DOC-019--DOC-019"
+    ],
+    "case_ids": [
+      "CASE-DOC-019",
+      "CASE-DOC-019-EDIT"
+    ],
+    "work_packages": [
+      "WP-036",
+      "WP-037"
+    ],
+    "routes": []
+  },
+  {
+    "id": "DOC-020",
+    "title": "Doctrinal sections as network-filled slots",
+    "module": "documents",
+    "behavior": "A doctrinal section in a template is an empty slot. Everyfield ships no doctrinal text. The sending network fills the slot for its churches, and a church without a network fills it itself. A slot that no one has filled generates as a visible blank, never as default text. In a Church Document, a doctrinal slot is a node that editing can fill or delete, and the block menu can add it back. A deleted slot is left out of later revisions and their exports entirely; earlier revisions keep it. The sending network's current text fills the slot at creation when the network has filled it. An empty slot shows as a marked blank in the editor and exports as a visible blank in the PDF and the DOCX, never as default text.",
+    "spec_file": "docs/product/knowledge-documents.md#template-themes-classes-and-copy",
+    "requirement_ids": [
+      "REQ-DOC-020"
+    ],
+    "operations": [
+      "documents.exportNative",
+      "documents.generate",
+      "documents.preview"
+    ],
+    "acceptance_ids": [
+      "AC-DOC-020--DOC-020"
+    ],
+    "case_ids": [
+      "CASE-DOC-020",
+      "CASE-DOC-020-EDIT"
+    ],
+    "work_packages": [
+      "WP-036",
+      "WP-037"
+    ],
+    "routes": []
+  },
+  {
+    "id": "DOC-021",
+    "title": "Template copy rule",
+    "module": "documents",
+    "behavior": "Template text says \"church plant\" and never a bare \"plant\". Template text spells the brand \"Everyfield\". The rule covers every template, notice and email.",
+    "spec_file": "docs/product/knowledge-documents.md#template-themes-classes-and-copy",
+    "requirement_ids": [
+      "REQ-DOC-021"
+    ],
+    "operations": [
+      "documents.preview",
+      "documents.generate"
+    ],
+    "acceptance_ids": [
+      "AC-DOC-021--DOC-021"
+    ],
+    "case_ids": [
+      "CASE-DOC-021"
+    ],
+    "work_packages": [
+      "WP-036"
+    ],
+    "routes": []
+  },
+  {
+    "id": "DOC-022",
+    "title": "Church Documents from editable templates",
+    "module": "documents",
+    "behavior": "An editable template creates one Church Document owned by the church plant, under the DOC-016 owner, revision and archive rules. Revision 1 holds the template text with merge values that resolve once under the DOC-002 limits, so later contact or church data changes do not change the text. The document records the template id, template version, document class and frozen input provenance. It also holds a \"use church branding\" toggle. Only a current Owner or Admin of the church plant creates it. Creation makes no file. Fixed-layout, budget and email templates are refused. Before creation, `documents.preview` shows the pre-filled content as a PDF. An Owner or Admin can also save one saved revision of a Church Document as the church's own template (\"Save as template\"). A church template is a full copy of that revision's page setup, fields and body without its origin and frozen merge values. A document made from it resolves the church's current details once, as above, and records the church template's id, name and the version it was made from. The template keeps the document class, so a template saved from a formal/legal document keeps the DOC-019 notice. Editing or deleting the document it was saved from, or a document made from it, never changes the template. Only a current Owner or Admin of the church plant saves, deletes or uses a church template in \"New from template\". A Member does not see it, and no other church plant sees or uses it. Deleting a church template removes it from \"New from template\" and leaves the documents already made from it unchanged. An Owner or Admin can also save a saved revision of any of the church's Church Documents over one of its live church templates (\"Update a template\"). The template keeps its name and description and gains its next version: v1 becomes v2, v2 becomes v3. The request names the version it replaces, so an update from a version that is no longer current is refused as a conflict and writes nothing, and the same request key makes one version. Every earlier version stays stored unchanged, and \"New from template\" copies the newest. A document made from an earlier version keeps its content, revisions, saved exports, origin and recorded version. A version saved from a formal/legal document keeps the formal/legal class and the DOC-019 notice. Each update writes one `documents.template_updated` audit event naming the actor, the template, the version it replaced, the new version and the source document and revision. An Owner or Admin can also rename a live church template or change its description, from its card in \"New from template\" (a pencil button beside Delete). The name and description belong to the template row and keep the limits of \"Save as template\": a name of 1 to 200 characters and a description of up to 500 characters, which may be cleared. An edit makes no new version: the version, every stored revision and every document made earlier stay as they were. A document made after the edit takes the new name as its title. Earlier documents keep their own title, revisions, stored origin and exports, and their \"from\" line in the library and the document header shows the template's current name with the version they were made from. A later update carries the current name and description into the next version. The same request key makes one change, the same key with another template, name or description is refused as a conflict, a save that changes nothing writes nothing, and the last write wins. An edit from a Member, from another church plant's seat, of another church's template or of a deleted template is refused and writes nothing. Each edit writes one `documents.template_details_changed` audit event naming the actor and the template, with the name and description before and after.",
+    "spec_file": "docs/product/knowledge-documents.md#church-documents-from-editable-templates",
+    "requirement_ids": [
+      "REQ-DOC-022"
+    ],
+    "operations": [
+      "documents.createFromTemplate"
+    ],
+    "acceptance_ids": [
+      "AC-DOC-022--DOC-022"
+    ],
+    "case_ids": [
+      "CASE-DOC-022"
+    ],
+    "work_packages": [
+      "WP-037"
+    ],
+    "routes": [
+      "/documents"
+    ]
+  },
+  {
+    "id": "DOC-023",
+    "title": "Church Document export as PDF and Word",
+    "module": "documents",
+    "behavior": "A user who can read a template-made Church Document exports one revision as a PDF or a DOCX. The PDF comes from the Forme engine with PDF/UA tagging. Both formats use the theme that `resolveDocumentTheme(church, documentClass)` returns, the \"use church branding\" toggle and the Everyfield-neutral fallback. The DOCX carries the theme's logo with alt text, fonts, colors and letterhead footer where Word can show them. Each export saves one `generated_document` under DOC-003. That record holds the document id and revision as frozen provenance. A later download returns the exact saved bytes after later edits, brand kit changes or template changes. The DOC-002 limits apply to the export (8 MiB and 1,000 content blocks), and a render failure is truthful. Only a Church Document made from a template exports, because only these documents carry a document class. On the document's page each Download saves one export of the shown revision and then downloads that export's stored bytes; the live preview stays a fresh render and saves nothing. The page lists the latest 100 saved exports newest first with revision, format, date and time and who exported it, and any seat downloads a row. Only an Owner or Admin deletes a saved export, after a confirm, with one audit row.",
+    "spec_file": "docs/product/knowledge-documents.md#church-documents-from-editable-templates",
+    "requirement_ids": [
+      "REQ-DOC-023"
+    ],
+    "operations": [
+      "documents.exportNative"
+    ],
+    "acceptance_ids": [
+      "AC-DOC-023--DOC-023"
+    ],
+    "case_ids": [
+      "CASE-DOC-023"
+    ],
+    "work_packages": [
+      "WP-037"
+    ],
+    "routes": [
+      "/documents"
+    ]
+  },
+  {
+    "id": "BRD-001",
+    "title": "Brand settings",
+    "module": "documents",
+    "behavior": "Each church has one brand kit. Edit it at `/settings/brand`, in the Church group of the Settings dialog. Only the Owner and Admin can open or change it. Controls sit on the left and a live preview sits on the right, with one preview tab per document class (formal/legal, outward-facing, operational and email). Reset to default clears the kit and returns the church to the Everyfield-neutral theme.",
+    "spec_file": "docs/product/knowledge-documents.md#church-brand-kit",
+    "requirement_ids": [
+      "REQ-BRD-001"
+    ],
+    "operations": [
+      "brand.get",
+      "brand.reset"
+    ],
+    "acceptance_ids": [
+      "AC-BRD-001--BRD-001"
+    ],
+    "case_ids": [
+      "CASE-BRD-001"
+    ],
+    "work_packages": [
+      "WP-104"
+    ],
+    "routes": [
+      "/settings/brand"
+    ]
+  },
+  {
+    "id": "BRD-002",
+    "title": "Logo assets",
+    "module": "documents",
+    "behavior": "The kit holds a full logo (about 3:1) and a square mark, each with an optional light-on-dark variant. Upload accepts SVG, PNG and WebP, trims empty margin and rasterizes the file. Files use private storage with the `brand_asset` purpose, reusing the avatar upload pattern. Every logo needs alt text. The preview shows each logo on light, dark and brand-color backgrounds.",
+    "spec_file": "docs/product/knowledge-documents.md#church-brand-kit",
+    "requirement_ids": [
+      "REQ-BRD-002"
+    ],
+    "operations": [
+      "brand.uploadAsset",
+      "brand.get"
+    ],
+    "acceptance_ids": [
+      "AC-BRD-002--BRD-002"
+    ],
+    "case_ids": [
+      "CASE-BRD-002"
+    ],
+    "work_packages": [
+      "WP-104"
+    ],
+    "routes": [
+      "/settings/brand"
+    ]
+  },
+  {
+    "id": "BRD-003",
+    "title": "Colors and contrast",
+    "module": "documents",
+    "behavior": "The kit has a required primary color and an accent color that falls back to the primary color. The page suggests colors from the uploaded logo. A contrast badge shows the WCAG contrast ratio and the text color derived for each brand color. A brand color under 3:1 against its background is never used as text.",
+    "spec_file": "docs/product/knowledge-documents.md#church-brand-kit",
+    "requirement_ids": [
+      "REQ-BRD-003"
+    ],
+    "operations": [
+      "brand.saveSettings",
+      "brand.suggestColors"
+    ],
+    "acceptance_ids": [
+      "AC-BRD-003--BRD-003"
+    ],
+    "case_ids": [
+      "CASE-BRD-003"
+    ],
+    "work_packages": [
+      "WP-104"
+    ],
+    "routes": [
+      "/settings/brand"
+    ]
+  },
+  {
+    "id": "BRD-004",
+    "title": "Fonts",
+    "module": "documents",
+    "behavior": "Heading and body fonts come from a curated list of open-license fonts. The defaults are DM Serif for headings and DM Sans for body text. Version 1 has no font upload.",
+    "spec_file": "docs/product/knowledge-documents.md#church-brand-kit",
+    "requirement_ids": [
+      "REQ-BRD-004"
+    ],
+    "operations": [
+      "brand.saveSettings"
+    ],
+    "acceptance_ids": [
+      "AC-BRD-004--BRD-004"
+    ],
+    "case_ids": [
+      "CASE-BRD-004"
+    ],
+    "work_packages": [
+      "WP-104"
+    ],
+    "routes": [
+      "/settings/brand"
+    ]
+  },
+  {
+    "id": "BRD-005",
+    "title": "Letterhead details",
+    "module": "documents",
+    "behavior": "The kit holds legal name, address, website, phone, email, EIN and tagline. It also holds an optional cover photo and an optional signature block.",
+    "spec_file": "docs/product/knowledge-documents.md#church-brand-kit",
+    "requirement_ids": [
+      "REQ-BRD-005"
+    ],
+    "operations": [
+      "brand.saveSettings",
+      "brand.uploadAsset"
+    ],
+    "acceptance_ids": [
+      "AC-BRD-005--BRD-005"
+    ],
+    "case_ids": [
+      "CASE-BRD-005"
+    ],
+    "work_packages": [
+      "WP-104"
+    ],
+    "routes": [
+      "/settings/brand"
+    ]
+  },
+  {
+    "id": "BRD-006",
+    "title": "Document theme",
+    "module": "documents",
+    "behavior": "`resolveDocumentTheme(church, documentClass)` returns the theme for one document class. Formal/legal: small header logo, primary color only on rules and headings, neutral body text, and a letterhead footer with the EIN and page numbers. Outward-facing: a cover with a large logo, full primary and accent colors, brand fonts, and photo, tagline and contact details. Operational: small mark, accent color on table headers and checkboxes, readable in grayscale. Email: header logo at most 200 px wide, primary-color button with derived text color, web-safe fonts, and a footer with the church name and address. A church with no kit gets the Everyfield-neutral theme: the church name set in type, no Everyfield logo on church documents, and fixed-size slots. Each document has a \"use church branding\" toggle. A kit change applies only to newly generated documents, and saved files keep their exact bytes (DOC-002 and DOC-003 are unchanged). PDFs are tagged and logos carry alt text.",
+    "spec_file": "docs/product/knowledge-documents.md#church-brand-kit",
+    "requirement_ids": [
+      "REQ-BRD-006"
+    ],
+    "operations": [
+      "brand.resolveTheme"
+    ],
+    "acceptance_ids": [
+      "AC-BRD-006--BRD-006"
+    ],
+    "case_ids": [
+      "CASE-BRD-006",
+      "CASE-BRD-006-NEUTRAL",
+      "CASE-BRD-006-SAVED"
+    ],
+    "work_packages": [
+      "WP-104"
     ],
     "routes": []
   },

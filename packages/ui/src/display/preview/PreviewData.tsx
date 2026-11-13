@@ -9,7 +9,7 @@ import {
 	UserMultipleIcon,
 } from "@hugeicons/core-free-icons";
 import { useMemo, useState } from "react";
-import { SegmentedControl } from "../../controls";
+import { InsightCard, InsightTitle, type InsightTone, SegmentedControl } from "../../controls";
 import { Icon } from "../../foundations";
 import {
 	Avatar,
@@ -30,12 +30,19 @@ import {
 import { PEOPLE, type Person } from "./fixtures";
 import { Grid, Section, Specimen } from "./kit";
 
+const INSIGHT_TONES: { tone: InsightTone; label: string }[] = [
+	{ tone: "field", label: "Field" },
+	{ tone: "sky", label: "Sky" },
+	{ tone: "sage", label: "Sage" },
+	{ tone: "rose", label: "Rose" },
+];
+
 export function BadgesSection({ index }: { index: number }) {
 	return (
 		<Section
 			index={index}
 			title="Badges, chips and avatars"
-			code="<StatusBadge status fill> <DeltaChip dir> <Tag> <StageChip stage> <Avatar> <AvatarGroup>"
+			code="<StatusBadge status fill> <DeltaChip dir onInk> <Tag> <StageChip stage> <Avatar> <AvatarGroup>"
 			note="The dot, arrow or tint repeats what the word already says, so no state depends on color alone."
 		>
 			<Grid cols={2}>
@@ -111,6 +118,23 @@ export function BadgesSection({ index }: { index: number }) {
 						</div>
 					</div>
 				</Specimen>
+			</Grid>
+			<Grid cols={4} className="mt-5">
+				{INSIGHT_TONES.map(({ tone, label }) => (
+					<InsightCard key={tone} tone={tone} size="sm" aria-labelledby={`delta-on-ink-${tone}`}>
+						<InsightTitle as="h3" size="sm" id={`delta-on-ink-${tone}`} className="mt-0">
+							{label}
+						</InsightTitle>
+						<div className="mt-4 flex flex-wrap gap-2">
+							<DeltaChip dir="up" onInk>
+								9 people
+							</DeltaChip>
+							<DeltaChip dir="down" onInk>
+								2 pts
+							</DeltaChip>
+						</div>
+					</InsightCard>
+				))}
 			</Grid>
 		</Section>
 	);

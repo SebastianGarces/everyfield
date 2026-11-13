@@ -1,0 +1,1036 @@
+{
+	"apps/web": {
+		"@next/next/google-font-display": {
+			"severity": "warn",
+			"options": []
+		},
+		"@next/next/google-font-preconnect": {
+			"severity": "warn",
+			"options": []
+		},
+		"@next/next/inline-script-id": {
+			"severity": "error",
+			"options": []
+		},
+		"@next/next/next-script-for-ga": {
+			"severity": "warn",
+			"options": []
+		},
+		"@next/next/no-assign-module-variable": {
+			"severity": "error",
+			"options": []
+		},
+		"@next/next/no-async-client-component": {
+			"severity": "warn",
+			"options": []
+		},
+		"@next/next/no-before-interactive-script-outside-document": {
+			"severity": "warn",
+			"options": []
+		},
+		"@next/next/no-css-tags": {
+			"severity": "warn",
+			"options": []
+		},
+		"@next/next/no-document-import-in-page": {
+			"severity": "error",
+			"options": []
+		},
+		"@next/next/no-duplicate-head": {
+			"severity": "error",
+			"options": []
+		},
+		"@next/next/no-head-element": {
+			"severity": "warn",
+			"options": []
+		},
+		"@next/next/no-head-import-in-document": {
+			"severity": "error",
+			"options": []
+		},
+		"@next/next/no-html-link-for-pages": {
+			"severity": "error",
+			"options": []
+		},
+		"@next/next/no-img-element": {
+			"severity": "warn",
+			"options": []
+		},
+		"@next/next/no-location-assign-relative-destination": {
+			"severity": "warn",
+			"options": []
+		},
+		"@next/next/no-page-custom-font": {
+			"severity": "warn",
+			"options": []
+		},
+		"@next/next/no-script-component-in-head": {
+			"severity": "error",
+			"options": []
+		},
+		"@next/next/no-styled-jsx-in-document": {
+			"severity": "warn",
+			"options": []
+		},
+		"@next/next/no-sync-scripts": {
+			"severity": "error",
+			"options": []
+		},
+		"@next/next/no-title-in-document-head": {
+			"severity": "warn",
+			"options": []
+		},
+		"@next/next/no-typos": {
+			"severity": "warn",
+			"options": []
+		},
+		"@next/next/no-unwanted-polyfillio": {
+			"severity": "warn",
+			"options": []
+		},
+		"@typescript-eslint/ban-ts-comment": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-array-constructor": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-duplicate-enum-values": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-empty-object-type": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-explicit-any": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-extra-non-null-assertion": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-misused-new": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-namespace": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-non-null-asserted-optional-chain": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-require-imports": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-this-alias": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-unnecessary-type-constraint": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-unsafe-declaration-merging": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-unsafe-function-type": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-unused-expressions": {
+			"severity": "warn",
+			"options": [
+				{
+					"allowShortCircuit": false,
+					"allowTaggedTemplates": false,
+					"allowTernary": false
+				}
+			]
+		},
+		"@typescript-eslint/no-unused-vars": {
+			"severity": "warn",
+			"options": []
+		},
+		"@typescript-eslint/no-wrapper-object-types": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/prefer-as-const": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/prefer-namespace-keyword": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/triple-slash-reference": {
+			"severity": "error",
+			"options": []
+		},
+		"import/no-anonymous-default-export": {
+			"severity": "warn",
+			"options": []
+		},
+		"jsx-a11y/alt-text": {
+			"severity": "warn",
+			"options": [
+				{
+					"elements": ["img"],
+					"img": ["Image"]
+				}
+			]
+		},
+		"jsx-a11y/aria-props": {
+			"severity": "warn",
+			"options": []
+		},
+		"jsx-a11y/aria-proptypes": {
+			"severity": "warn",
+			"options": []
+		},
+		"jsx-a11y/aria-unsupported-elements": {
+			"severity": "warn",
+			"options": []
+		},
+		"jsx-a11y/role-has-required-aria-props": {
+			"severity": "warn",
+			"options": []
+		},
+		"jsx-a11y/role-supports-aria-props": {
+			"severity": "warn",
+			"options": []
+		},
+		"no-restricted-syntax": {
+			"severity": "error",
+			"options": [
+				{
+					"selector": "JSXElement[openingElement.name.name=\"RecordDialog\"] JSXAttribute[name.name=\"autoFocus\"]:matches(:not([value]), [value.expression.value=true])",
+					"message": "RecordDialog sets the opening focus itself. Remove autoFocus from its content; use autoFocus={state} only for a field the person switches to after the dialog opens."
+				}
+			]
+		},
+		"no-var": {
+			"severity": "error",
+			"options": []
+		},
+		"prefer-const": {
+			"severity": "error",
+			"options": [
+				{
+					"destructuring": "any",
+					"ignoreReadBeforeAssign": false
+				}
+			]
+		},
+		"prefer-rest-params": {
+			"severity": "error",
+			"options": []
+		},
+		"prefer-spread": {
+			"severity": "error",
+			"options": []
+		},
+		"react-hooks/config": {
+			"severity": "error",
+			"options": []
+		},
+		"react-hooks/error-boundaries": {
+			"severity": "error",
+			"options": []
+		},
+		"react-hooks/exhaustive-deps": {
+			"severity": "warn",
+			"options": []
+		},
+		"react-hooks/gating": {
+			"severity": "error",
+			"options": []
+		},
+		"react-hooks/globals": {
+			"severity": "error",
+			"options": []
+		},
+		"react-hooks/immutability": {
+			"severity": "error",
+			"options": []
+		},
+		"react-hooks/incompatible-library": {
+			"severity": "warn",
+			"options": []
+		},
+		"react-hooks/preserve-manual-memoization": {
+			"severity": "error",
+			"options": []
+		},
+		"react-hooks/purity": {
+			"severity": "error",
+			"options": []
+		},
+		"react-hooks/refs": {
+			"severity": "error",
+			"options": []
+		},
+		"react-hooks/rules-of-hooks": {
+			"severity": "error",
+			"options": []
+		},
+		"react-hooks/set-state-in-effect": {
+			"severity": "error",
+			"options": []
+		},
+		"react-hooks/set-state-in-render": {
+			"severity": "error",
+			"options": []
+		},
+		"react-hooks/static-components": {
+			"severity": "error",
+			"options": []
+		},
+		"react-hooks/unsupported-syntax": {
+			"severity": "warn",
+			"options": []
+		},
+		"react-hooks/use-memo": {
+			"severity": "error",
+			"options": []
+		},
+		"react/display-name": {
+			"severity": "error",
+			"options": []
+		},
+		"react/jsx-key": {
+			"severity": "error",
+			"options": []
+		},
+		"react/jsx-no-comment-textnodes": {
+			"severity": "error",
+			"options": []
+		},
+		"react/jsx-no-duplicate-props": {
+			"severity": "error",
+			"options": []
+		},
+		"react/jsx-no-undef": {
+			"severity": "error",
+			"options": []
+		},
+		"react/jsx-uses-react": {
+			"severity": "error",
+			"options": []
+		},
+		"react/jsx-uses-vars": {
+			"severity": "error",
+			"options": []
+		},
+		"react/no-children-prop": {
+			"severity": "error",
+			"options": []
+		},
+		"react/no-danger-with-children": {
+			"severity": "error",
+			"options": []
+		},
+		"react/no-deprecated": {
+			"severity": "error",
+			"options": []
+		},
+		"react/no-direct-mutation-state": {
+			"severity": "error",
+			"options": []
+		},
+		"react/no-find-dom-node": {
+			"severity": "error",
+			"options": []
+		},
+		"react/no-is-mounted": {
+			"severity": "error",
+			"options": []
+		},
+		"react/no-render-return-value": {
+			"severity": "error",
+			"options": []
+		},
+		"react/no-string-refs": {
+			"severity": "error",
+			"options": []
+		},
+		"react/no-unescaped-entities": {
+			"severity": "error",
+			"options": []
+		},
+		"react/require-render-return": {
+			"severity": "error",
+			"options": []
+		}
+	},
+	"packages/contracts": {
+		"@typescript-eslint/ban-ts-comment": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-array-constructor": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-duplicate-enum-values": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-empty-object-type": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-explicit-any": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-extra-non-null-assertion": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-misused-new": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-namespace": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-non-null-asserted-optional-chain": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-require-imports": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-this-alias": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-unnecessary-type-constraint": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-unsafe-declaration-merging": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-unsafe-function-type": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-unused-expressions": {
+			"severity": "error",
+			"options": [
+				{
+					"allowShortCircuit": false,
+					"allowTaggedTemplates": false,
+					"allowTernary": false
+				}
+			]
+		},
+		"@typescript-eslint/no-unused-vars": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-wrapper-object-types": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/prefer-as-const": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/prefer-namespace-keyword": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/triple-slash-reference": {
+			"severity": "error",
+			"options": []
+		},
+		"no-var": {
+			"severity": "error",
+			"options": []
+		},
+		"prefer-const": {
+			"severity": "error",
+			"options": [
+				{
+					"destructuring": "any",
+					"ignoreReadBeforeAssign": false
+				}
+			]
+		},
+		"prefer-rest-params": {
+			"severity": "error",
+			"options": []
+		},
+		"prefer-spread": {
+			"severity": "error",
+			"options": []
+		}
+	},
+	"packages/db": {
+		"@typescript-eslint/ban-ts-comment": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-array-constructor": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-duplicate-enum-values": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-empty-object-type": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-explicit-any": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-extra-non-null-assertion": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-misused-new": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-namespace": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-non-null-asserted-optional-chain": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-require-imports": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-this-alias": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-unnecessary-type-constraint": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-unsafe-declaration-merging": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-unsafe-function-type": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-unused-expressions": {
+			"severity": "error",
+			"options": [
+				{
+					"allowShortCircuit": false,
+					"allowTaggedTemplates": false,
+					"allowTernary": false
+				}
+			]
+		},
+		"@typescript-eslint/no-unused-vars": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-wrapper-object-types": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/prefer-as-const": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/prefer-namespace-keyword": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/triple-slash-reference": {
+			"severity": "error",
+			"options": []
+		},
+		"no-var": {
+			"severity": "error",
+			"options": []
+		},
+		"prefer-const": {
+			"severity": "error",
+			"options": [
+				{
+					"destructuring": "any",
+					"ignoreReadBeforeAssign": false
+				}
+			]
+		},
+		"prefer-rest-params": {
+			"severity": "error",
+			"options": []
+		},
+		"prefer-spread": {
+			"severity": "error",
+			"options": []
+		}
+	},
+	"packages/domain": {
+		"@typescript-eslint/ban-ts-comment": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-array-constructor": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-duplicate-enum-values": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-empty-object-type": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-explicit-any": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-extra-non-null-assertion": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-misused-new": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-namespace": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-non-null-asserted-optional-chain": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-require-imports": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-this-alias": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-unnecessary-type-constraint": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-unsafe-declaration-merging": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-unsafe-function-type": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-unused-expressions": {
+			"severity": "error",
+			"options": [
+				{
+					"allowShortCircuit": false,
+					"allowTaggedTemplates": false,
+					"allowTernary": false
+				}
+			]
+		},
+		"@typescript-eslint/no-unused-vars": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-wrapper-object-types": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/prefer-as-const": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/prefer-namespace-keyword": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/triple-slash-reference": {
+			"severity": "error",
+			"options": []
+		},
+		"no-restricted-syntax": {
+			"severity": "error",
+			"options": [
+				{
+					"selector": "CallExpression[callee.object.name='Promise'][callee.property.name=/^(all|allSettled|race|any)$/]",
+					"message": "Await domain queries sequentially. Batch rows in SQL instead of running promises on a shared transaction."
+				}
+			]
+		},
+		"no-var": {
+			"severity": "error",
+			"options": []
+		},
+		"prefer-const": {
+			"severity": "error",
+			"options": [
+				{
+					"destructuring": "any",
+					"ignoreReadBeforeAssign": false
+				}
+			]
+		},
+		"prefer-rest-params": {
+			"severity": "error",
+			"options": []
+		},
+		"prefer-spread": {
+			"severity": "error",
+			"options": []
+		}
+	},
+	"packages/evry": {
+		"@typescript-eslint/ban-ts-comment": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-array-constructor": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-duplicate-enum-values": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-empty-object-type": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-explicit-any": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-extra-non-null-assertion": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-misused-new": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-namespace": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-non-null-asserted-optional-chain": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-require-imports": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-this-alias": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-unnecessary-type-constraint": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-unsafe-declaration-merging": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-unsafe-function-type": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-unused-expressions": {
+			"severity": "error",
+			"options": [
+				{
+					"allowShortCircuit": false,
+					"allowTaggedTemplates": false,
+					"allowTernary": false
+				}
+			]
+		},
+		"@typescript-eslint/no-unused-vars": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-wrapper-object-types": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/prefer-as-const": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/prefer-namespace-keyword": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/triple-slash-reference": {
+			"severity": "error",
+			"options": []
+		},
+		"no-var": {
+			"severity": "error",
+			"options": []
+		},
+		"prefer-const": {
+			"severity": "error",
+			"options": [
+				{
+					"destructuring": "any",
+					"ignoreReadBeforeAssign": false
+				}
+			]
+		},
+		"prefer-rest-params": {
+			"severity": "error",
+			"options": []
+		},
+		"prefer-spread": {
+			"severity": "error",
+			"options": []
+		}
+	},
+	"packages/reference": {
+		"@typescript-eslint/ban-ts-comment": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-array-constructor": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-duplicate-enum-values": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-empty-object-type": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-explicit-any": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-extra-non-null-assertion": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-misused-new": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-namespace": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-non-null-asserted-optional-chain": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-require-imports": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-this-alias": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-unnecessary-type-constraint": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-unsafe-declaration-merging": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-unsafe-function-type": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-unused-expressions": {
+			"severity": "error",
+			"options": [
+				{
+					"allowShortCircuit": false,
+					"allowTaggedTemplates": false,
+					"allowTernary": false
+				}
+			]
+		},
+		"@typescript-eslint/no-unused-vars": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-wrapper-object-types": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/prefer-as-const": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/prefer-namespace-keyword": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/triple-slash-reference": {
+			"severity": "error",
+			"options": []
+		},
+		"no-var": {
+			"severity": "error",
+			"options": []
+		},
+		"prefer-const": {
+			"severity": "error",
+			"options": [
+				{
+					"destructuring": "any",
+					"ignoreReadBeforeAssign": false
+				}
+			]
+		},
+		"prefer-rest-params": {
+			"severity": "error",
+			"options": []
+		},
+		"prefer-spread": {
+			"severity": "error",
+			"options": []
+		}
+	},
+	"packages/ui": {
+		"@typescript-eslint/ban-ts-comment": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-array-constructor": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-duplicate-enum-values": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-empty-object-type": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-explicit-any": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-extra-non-null-assertion": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-misused-new": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-namespace": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-non-null-asserted-optional-chain": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-require-imports": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-this-alias": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-unnecessary-type-constraint": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-unsafe-declaration-merging": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-unsafe-function-type": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-unused-expressions": {
+			"severity": "error",
+			"options": [
+				{
+					"allowShortCircuit": false,
+					"allowTaggedTemplates": false,
+					"allowTernary": false
+				}
+			]
+		},
+		"@typescript-eslint/no-unused-vars": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/no-wrapper-object-types": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/prefer-as-const": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/prefer-namespace-keyword": {
+			"severity": "error",
+			"options": []
+		},
+		"@typescript-eslint/triple-slash-reference": {
+			"severity": "error",
+			"options": []
+		},
+		"no-var": {
+			"severity": "error",
+			"options": []
+		},
+		"prefer-const": {
+			"severity": "error",
+			"options": [
+				{
+					"destructuring": "any",
+					"ignoreReadBeforeAssign": false
+				}
+			]
+		},
+		"prefer-rest-params": {
+			"severity": "error",
+			"options": []
+		},
+		"prefer-spread": {
+			"severity": "error",
+			"options": []
+		}
+	}
+}

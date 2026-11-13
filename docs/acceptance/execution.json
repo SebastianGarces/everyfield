@@ -1123,7 +1123,7 @@
           "fixture_type": "job",
           "id": "assessment-J",
           "status": "pending",
-          "kind": "assessment"
+          "planned_kind": "assessment"
         },
         "caller-capability": {
           "fixture_type": "operation_capability",
@@ -1275,7 +1275,7 @@
           "fixture_type": "job",
           "id": "reference-J",
           "status": "pending",
-          "kind": "reference_generation"
+          "planned_kind": "reference_generation"
         },
         "caller-capability": {
           "fixture_type": "operation_capability",
@@ -1424,7 +1424,7 @@
           "fixture_type": "job",
           "id": "render-J",
           "status": "pending",
-          "kind": "document_render"
+          "planned_kind": "document_render"
         },
         "caller-capability": {
           "fixture_type": "operation_capability",
@@ -1541,7 +1541,7 @@
         },
         "feedback-J": {
           "fixture_type": "job",
-          "kind": "feedback_publication",
+          "planned_kind": "feedback_publication",
           "state": "reconcile",
           "repository_id": 10,
           "marker": "feedback-occurrence-1",

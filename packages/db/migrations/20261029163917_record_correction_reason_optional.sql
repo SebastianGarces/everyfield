@@ -1,0 +1,1 @@
+ALTER TABLE "record_correction" ALTER COLUMN "reason" DROP NOT NULL;

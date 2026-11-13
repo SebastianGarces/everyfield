@@ -21,6 +21,7 @@ test("AC:INH-REGRESSION-CAPABILITIES INV-catalog: every installed model tool is 
 		"people.getPerson",
 		"people.getPersonPhoto",
 		"people.checkForDuplicates",
+		"people.listDuplicatePairs",
 		"people.exportPeople",
 		"people.generateCsvTemplate",
 		"people.getActivities",
@@ -33,6 +34,7 @@ test("AC:INH-REGRESSION-CAPABILITIES INV-catalog: every installed model tool is 
 		"people.listHouseholds",
 		"people.listTags",
 		"people.previewImport",
+		"communication.list",
 		"evry.selectReturnedRows",
 	]);
 	for (const id of installed) {

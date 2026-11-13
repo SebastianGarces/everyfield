@@ -4,6 +4,7 @@ import { LaptopPhoneSyncIcon, Logout01Icon } from "@hugeicons/core-free-icons";
 import { invalidSessionReturn } from "@everyfield/contracts/identity";
 import { Button } from "@everyfield/ui/controls";
 import { useState } from "react";
+import { leavePage } from "../../components/save/leave.ts";
 import { identityApi, loadPage } from "./api";
 import { refusalMessage } from "./messages";
 import { FormMessage } from "./parts";
@@ -51,7 +52,12 @@ export function SessionActions({ className }: { className?: string }) {
 	return (
 		<div className={className}>
 			<div className="flex flex-wrap gap-3">
-				<Button variant="secondary" icon={Logout01Icon} loading={busy === "sign_out"} onClick={signOut}>
+				<Button
+					variant="secondary"
+					icon={Logout01Icon}
+					loading={busy === "sign_out"}
+					onClick={() => leavePage(() => void signOut())}
+				>
 					Sign out
 				</Button>
 				<Button variant="ghost" icon={LaptopPhoneSyncIcon} loading={busy === "others"} onClick={signOutOthers}>
