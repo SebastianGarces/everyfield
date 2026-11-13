@@ -4,7 +4,8 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { CommunicationScreen } from "./CommunicationScreen.tsx";
-import { canWrite, communicationViewer, loadCommunicationPage, type Viewer } from "./server.ts";
+import { canWrite } from "../shared/seat-role.ts";
+import { communicationViewer, loadCommunicationPage, type Viewer } from "./server.ts";
 
 // The Messages route. apps/web/src/app only re-exports this module. The screen and its states stay in this feature.
 
@@ -37,10 +38,10 @@ async function gate(returnTo: string, title: string): Promise<{ viewer: Viewer }
 export const communicationMetadata: Metadata = { title: "Messages", robots: { index: false, follow: false } };
 
 type Search = Promise<Record<string, string | string[] | undefined>>;
-const one = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value) ?? null;
 
 export async function CommunicationPage({ searchParams }: { searchParams?: Search }) {
-	const raw = searchParams ? await searchParams : {};
+	// The address is read on the client from useSearchParams. This awaits it so the page stays dynamic.
+	if (searchParams) await searchParams;
 	const g = await gate("/communication", "Messages");
 	if ("blocked" in g) return g.blocked;
 	const loaded = await loadCommunicationPage(g.viewer);
@@ -56,12 +57,5 @@ export async function CommunicationPage({ searchParams }: { searchParams?: Searc
 			</>
 		);
 	}
-	return (
-		<CommunicationScreen
-			data={loaded.value}
-			canWrite={canWrite(g.viewer)}
-			personId={one(raw.person)}
-			meetingId={one(raw.meeting)}
-		/>
-	);
+	return <CommunicationScreen data={loaded.value} canWrite={canWrite(g.viewer)} />;
 }

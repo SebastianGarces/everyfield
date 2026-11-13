@@ -11,11 +11,13 @@ import { currentActor, liveOwner, RequestActor, requestWrite } from "../access/s
 import { canonical } from "../operations/canonical.ts";
 import { auditTransaction, finishAudit, prepareWrite } from "../operations/writes.ts";
 import { rethrowWriteError } from "./budget.ts";
-export { currentActor, liveOwner };
+export { currentActor };
 export const hash = (value: string) => createHash("sha256").update(value).digest("hex");
 export class InvitationRefusal extends Error {
-	constructor(readonly value: z.infer<typeof invitationError> | z.infer<typeof seatError>) {
+	readonly value: z.infer<typeof invitationError> | z.infer<typeof seatError>;
+	constructor(value: z.infer<typeof invitationError> | z.infer<typeof seatError>) {
 		super(value.code);
+		this.value = value;
 	}
 }
 export function refuse(code = "invitation_unavailable", retryAt?: string): never {
@@ -54,8 +56,9 @@ export async function identity(tx: Transaction, session: string) {
 	if (!r.rows[0]) refuse();
 	return identityRow.parse(r.rows[0]);
 }
+/** An Owner or Admin of `selected`, for a read: the check takes no session lock (C22). */
 export async function readAdministrator(tx: Transaction, session: string, selected: Owner) {
-	const actor = await currentActor(tx, sessionId.parse(session), selected);
+	const actor = await currentActor(tx, sessionId.parse(session), selected, false);
 	if (actor.status !== "active" || actor.context.kind !== "seat" || actor.context.role === "member") refuse();
 	return actor;
 }
@@ -210,7 +213,7 @@ export async function now(tx: Transaction) {
 	if (!v) throw Error("clock_unavailable");
 	return v.now;
 }
-export const expires = (i: Invitation) => new Date(i.created_at.getTime() + 30 * 86400000);
+export const expires = (i: Pick<Invitation, "created_at">) => new Date(i.created_at.getTime() + 30 * 86400000);
 export async function pending(tx: Transaction, i: Invitation, expected?: string) {
 	current(i, await now(tx), expected);
 }

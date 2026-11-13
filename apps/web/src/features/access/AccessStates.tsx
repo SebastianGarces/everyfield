@@ -1,9 +1,7 @@
 "use client";
 
-import type { CurrentActorResult } from "@everyfield/contracts/access";
 import { invalidSessionReturn } from "@everyfield/contracts/identity";
 import { Button, StatePanel } from "@everyfield/ui/controls";
-import type { ReactNode } from "react";
 import { AuthFooter, AuthFrame, AuthHeading, AuthLink } from "../identity/AuthFrame";
 import { SessionActions } from "../identity/SessionActions";
 import { AFTER_SIGN_IN } from "../identity/SignInScreen";
@@ -89,29 +87,4 @@ export function PendingAccount() {
 			<SessionActions className="mt-6" />
 		</AuthFrame>
 	);
-}
-
-type ActiveActor = Extract<CurrentActorResult, { status: "active" }>;
-
-/**
- * Picks the screen for the server's current-actor result (access.currentActor). Only an active actor reaches the
- * page; what that actor may open is still each operation's own server check.
- */
-export function ActorGate({
-	actor,
-	returnTo,
-	children,
-}: {
-	actor: CurrentActorResult;
-	returnTo: string | null;
-	children: (actor: ActiveActor) => ReactNode;
-}) {
-	switch (actor.status) {
-		case "unavailable":
-			return <SessionEnded returnTo={returnTo} />;
-		case "pending_domain":
-			return <PendingAccount />;
-		case "active":
-			return children(actor);
-	}
 }

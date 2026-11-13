@@ -128,7 +128,7 @@ const writeEntries = (writes: readonly SQLWrapper[]) =>
 		writes.map((q, i) => sql`${sql.identifier("write_" + i)} AS (${q.getSQL()} RETURNING 1)`),
 		sql`, `,
 	);
-export function isAuditRetry(error: unknown): boolean {
+function isAuditRetry(error: unknown): boolean {
 	const found = z
 		.object({ cause: z.object({ code: z.literal("23505"), constraint: z.literal("audit_request_key") }) })
 		.safeParse(error);
@@ -243,7 +243,7 @@ export async function nativeWrite<T>(
 const RETRY = "BEGIN /* evf:retry */";
 
 /** A statement after a native write committed on its own: a "single" command must end with its final write. */
-export class WriteOrderError extends Error {}
+class WriteOrderError extends Error {}
 
 /**
  * What follows a first attempt that changed nothing: "replay" when its write met a stored request key; "answer", or

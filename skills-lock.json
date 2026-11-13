@@ -14,56 +14,64 @@
       "source": "jakubkrehel/skills",
       "sourceType": "github",
       "skillPath": "skills/better-accessibility/SKILL.md",
-      "computedHash": "828416336ea982ac71add19e0998ce1dc560d28a912718693a01de7276594ac2"
+      "computedHash": "828416336ea982ac71add19e0998ce1dc560d28a912718693a01de7276594ac2",
+      "sha256": "edc88a7a5be16c03d9ff96139b060a218e603c8e28a833e6f0f057c030796dc6"
     },
     "better-colors": {
       "source": "jakubkrehel/skills",
       "sourceType": "github",
       "skillPath": "skills/better-colors/SKILL.md",
-      "computedHash": "aee99741f731a9cbc0c2f3c782bdaaa39d4e4fedb657a7bdc80a6519f9a9a0da"
+      "computedHash": "aee99741f731a9cbc0c2f3c782bdaaa39d4e4fedb657a7bdc80a6519f9a9a0da",
+      "sha256": "31fec0b8d25dabea26d63d0e6d2b79c29ae1eb14f0a6398f5307fc4381e9266a"
     },
     "better-interface": {
       "source": "jakubkrehel/skills",
       "sourceType": "github",
       "skillPath": "skills/better-interface/SKILL.md",
-      "computedHash": "3d974ecb37be195d400cf964164ef5ac84cccd995b41847a46e344488be47e93"
+      "computedHash": "3d974ecb37be195d400cf964164ef5ac84cccd995b41847a46e344488be47e93",
+      "sha256": "85679e6fd21178e0deda4a2a26d56e20e94d07c9460ffa784f15d28d64b2ca23"
     },
     "better-layout": {
       "source": "jakubkrehel/skills",
       "sourceType": "github",
       "skillPath": "skills/better-layout/SKILL.md",
-      "computedHash": "d166f32df548e6da2d45677d959d7020668316b036e8c495b76233b05f7a6c4e"
+      "computedHash": "d166f32df548e6da2d45677d959d7020668316b036e8c495b76233b05f7a6c4e",
+      "sha256": "7f53b2c4be8c4ed9ac3ff58874fda7874bcf24a0056cdcd3c5274c47ef1a0553"
     },
     "better-typography": {
       "source": "jakubkrehel/skills",
       "sourceType": "github",
       "skillPath": "skills/better-typography/SKILL.md",
-      "computedHash": "a43f293432e6df33b62553b67bc1c60e01f7ec66894da9d6bdb8fb95027f6d8d"
+      "computedHash": "a43f293432e6df33b62553b67bc1c60e01f7ec66894da9d6bdb8fb95027f6d8d",
+      "sha256": "7a6cead7b7ddc2e659b482ab184164edd1f10800fc8016d425d1cd164fe86281"
     },
     "better-ui": {
       "source": "jakubkrehel/skills",
       "sourceType": "github",
       "skillPath": "skills/better-ui/SKILL.md",
-      "computedHash": "d9924d70217ff33a659bafcf78b68189156c406c633e4e958c7d764b3b528517"
+      "computedHash": "d9924d70217ff33a659bafcf78b68189156c406c633e4e958c7d764b3b528517",
+      "sha256": "301b4e6a6f3a2b5420cf0e960163ccdae4a7002f1b20f6f3afbea195ffc1a90f"
     },
     "better-writing": {
       "source": "jakubkrehel/skills",
       "sourceType": "github",
       "skillPath": "skills/better-writing/SKILL.md",
-      "computedHash": "ea8e80fe5c72ff3b8c04956dc6c92fa86723f83c9d90674db9edba1cc621d344"
+      "computedHash": "ea8e80fe5c72ff3b8c04956dc6c92fa86723f83c9d90674db9edba1cc621d344",
+      "sha256": "5508ab735dac93a0d3409408048c7929a9e089319b30d3199c754a436b8a86ae"
     },
     "pr": {
       "source": "mattpocock/skills",
       "sourceType": "github",
       "skillPath": "skills/engineering/pr/SKILL.md",
-      "computedHash": "22a15d4d469344b38e03eb0e95772478393975836289393b1bad3c0febcdc679"
+      "computedHash": "22a15d4d469344b38e03eb0e95772478393975836289393b1bad3c0febcdc679",
+      "sha256": "c64be6316bd153d29dacb448c91c343be80b2980c815e7892dad00a3b2e94441"
     },
     "principle-attack-the-premise": {
       "source": "cursor/plugins (pstack/skills), MIT",
       "sourceType": "github",
       "upstreamPath": "pstack/skills/principle-attack-the-premise",
       "upstreamCommit": "d1715e03a8b1a2f03fdbe336d40c4a56b81f3c8f",
-      "policy": "verbatim: do not edit; update with `bin/evf principles --apply`; put Everyfield rules in .agents/roles/ or workflow skills",
+      "policy": "verbatim: do not edit; update by copying the pinned upstream again; put Everyfield rules in .agents/roles/ or workflow skills",
       "sha256": "6a932884daad4aa189e9b5d1665226bbc75621d4d2a398fd4003bebd382f4599"
     },
     "principle-boundary-discipline": {
@@ -71,7 +79,7 @@
       "sourceType": "github",
       "upstreamPath": "pstack/skills/principle-boundary-discipline",
       "upstreamCommit": "d1715e03a8b1a2f03fdbe336d40c4a56b81f3c8f",
-      "policy": "verbatim: do not edit; update with `bin/evf principles --apply`; put Everyfield rules in .agents/roles/ or workflow skills",
+      "policy": "verbatim: do not edit; update by copying the pinned upstream again; put Everyfield rules in .agents/roles/ or workflow skills",
       "sha256": "62ac2862c2caa22dd14531f51c9c6bb445ceb198ca98a687e25b4d47c1f10a28"
     },
     "principle-build-the-lever": {
@@ -79,7 +87,7 @@
       "sourceType": "github",
       "upstreamPath": "pstack/skills/principle-build-the-lever",
       "upstreamCommit": "d1715e03a8b1a2f03fdbe336d40c4a56b81f3c8f",
-      "policy": "verbatim: do not edit; update with `bin/evf principles --apply`; put Everyfield rules in .agents/roles/ or workflow skills",
+      "policy": "verbatim: do not edit; update by copying the pinned upstream again; put Everyfield rules in .agents/roles/ or workflow skills",
       "sha256": "3434b0ad0c640c6f1d7960be7a8986c3bcdc14e26060360dec29903df60074ff"
     },
     "principle-encode-lessons-in-structure": {
@@ -87,7 +95,7 @@
       "sourceType": "github",
       "upstreamPath": "pstack/skills/principle-encode-lessons-in-structure",
       "upstreamCommit": "d1715e03a8b1a2f03fdbe336d40c4a56b81f3c8f",
-      "policy": "verbatim: do not edit; update with `bin/evf principles --apply`; put Everyfield rules in .agents/roles/ or workflow skills",
+      "policy": "verbatim: do not edit; update by copying the pinned upstream again; put Everyfield rules in .agents/roles/ or workflow skills",
       "sha256": "228963799189f481827d6f28065f278bc2008ffa37030b1234cbd5814d36b9e9"
     },
     "principle-exhaust-the-design-space": {
@@ -95,7 +103,7 @@
       "sourceType": "github",
       "upstreamPath": "pstack/skills/principle-exhaust-the-design-space",
       "upstreamCommit": "d1715e03a8b1a2f03fdbe336d40c4a56b81f3c8f",
-      "policy": "verbatim: do not edit; update with `bin/evf principles --apply`; put Everyfield rules in .agents/roles/ or workflow skills",
+      "policy": "verbatim: do not edit; update by copying the pinned upstream again; put Everyfield rules in .agents/roles/ or workflow skills",
       "sha256": "2de83d99f93f60ec6313455b0bc9aa9f0bfb93dd59f414f403691322db00d4db"
     },
     "principle-experience-first": {
@@ -103,7 +111,7 @@
       "sourceType": "github",
       "upstreamPath": "pstack/skills/principle-experience-first",
       "upstreamCommit": "d1715e03a8b1a2f03fdbe336d40c4a56b81f3c8f",
-      "policy": "verbatim: do not edit; update with `bin/evf principles --apply`; put Everyfield rules in .agents/roles/ or workflow skills",
+      "policy": "verbatim: do not edit; update by copying the pinned upstream again; put Everyfield rules in .agents/roles/ or workflow skills",
       "sha256": "58903529d733b1c1a7c9ccf127d45ef3c7d0d9f0b81164a4dc6b80efe6f2912b"
     },
     "principle-explain-the-number": {
@@ -111,7 +119,7 @@
       "sourceType": "github",
       "upstreamPath": "pstack/skills/principle-explain-the-number",
       "upstreamCommit": "d1715e03a8b1a2f03fdbe336d40c4a56b81f3c8f",
-      "policy": "verbatim: do not edit; update with `bin/evf principles --apply`; put Everyfield rules in .agents/roles/ or workflow skills",
+      "policy": "verbatim: do not edit; update by copying the pinned upstream again; put Everyfield rules in .agents/roles/ or workflow skills",
       "sha256": "cd5a25f9e7cf023627ccb470dc5faa97542f29b4319496a32b839a8e1e988047"
     },
     "principle-fix-root-causes": {
@@ -119,7 +127,7 @@
       "sourceType": "github",
       "upstreamPath": "pstack/skills/principle-fix-root-causes",
       "upstreamCommit": "d1715e03a8b1a2f03fdbe336d40c4a56b81f3c8f",
-      "policy": "verbatim: do not edit; update with `bin/evf principles --apply`; put Everyfield rules in .agents/roles/ or workflow skills",
+      "policy": "verbatim: do not edit; update by copying the pinned upstream again; put Everyfield rules in .agents/roles/ or workflow skills",
       "sha256": "8df3c8c3fe57eb0055a5c8efab8ab144557fdf301da70b1cdc77a3a3ef3f3052"
     },
     "principle-foundational-thinking": {
@@ -127,7 +135,7 @@
       "sourceType": "github",
       "upstreamPath": "pstack/skills/principle-foundational-thinking",
       "upstreamCommit": "d1715e03a8b1a2f03fdbe336d40c4a56b81f3c8f",
-      "policy": "verbatim: do not edit; update with `bin/evf principles --apply`; put Everyfield rules in .agents/roles/ or workflow skills",
+      "policy": "verbatim: do not edit; update by copying the pinned upstream again; put Everyfield rules in .agents/roles/ or workflow skills",
       "sha256": "864b827e8199d946ce58beca0f89c4ed4099ed6e426fb698a3aaa45de2a9eea2"
     },
     "principle-guard-the-context-window": {
@@ -135,7 +143,7 @@
       "sourceType": "github",
       "upstreamPath": "pstack/skills/principle-guard-the-context-window",
       "upstreamCommit": "d1715e03a8b1a2f03fdbe336d40c4a56b81f3c8f",
-      "policy": "verbatim: do not edit; update with `bin/evf principles --apply`; put Everyfield rules in .agents/roles/ or workflow skills",
+      "policy": "verbatim: do not edit; update by copying the pinned upstream again; put Everyfield rules in .agents/roles/ or workflow skills",
       "sha256": "af0b9dd70b43628ce4a59a4d332e9d9ad055084e460f430e7a757495c627e81a"
     },
     "principle-laziness-protocol": {
@@ -143,7 +151,7 @@
       "sourceType": "github",
       "upstreamPath": "pstack/skills/principle-laziness-protocol",
       "upstreamCommit": "d1715e03a8b1a2f03fdbe336d40c4a56b81f3c8f",
-      "policy": "verbatim: do not edit; update with `bin/evf principles --apply`; put Everyfield rules in .agents/roles/ or workflow skills",
+      "policy": "verbatim: do not edit; update by copying the pinned upstream again; put Everyfield rules in .agents/roles/ or workflow skills",
       "sha256": "1be6e7a435f26a75a76eb848b9c3d611b9977d0f5822361753244da25ca3ca45"
     },
     "principle-make-operations-idempotent": {
@@ -151,7 +159,7 @@
       "sourceType": "github",
       "upstreamPath": "pstack/skills/principle-make-operations-idempotent",
       "upstreamCommit": "d1715e03a8b1a2f03fdbe336d40c4a56b81f3c8f",
-      "policy": "verbatim: do not edit; update with `bin/evf principles --apply`; put Everyfield rules in .agents/roles/ or workflow skills",
+      "policy": "verbatim: do not edit; update by copying the pinned upstream again; put Everyfield rules in .agents/roles/ or workflow skills",
       "sha256": "7aa9327cf1f1aa057e95d47a0a78bd88a8f9d556b608866fee939d455a53a019"
     },
     "principle-migrate-callers-then-delete-legacy-apis": {
@@ -159,7 +167,7 @@
       "sourceType": "github",
       "upstreamPath": "pstack/skills/principle-migrate-callers-then-delete-legacy-apis",
       "upstreamCommit": "d1715e03a8b1a2f03fdbe336d40c4a56b81f3c8f",
-      "policy": "verbatim: do not edit; update with `bin/evf principles --apply`; put Everyfield rules in .agents/roles/ or workflow skills",
+      "policy": "verbatim: do not edit; update by copying the pinned upstream again; put Everyfield rules in .agents/roles/ or workflow skills",
       "sha256": "580ad9bb1a0994ecb924321ba49efc38a2f85c64e22c76fb133f57a78272a2e6"
     },
     "principle-minimize-reader-load": {
@@ -167,7 +175,7 @@
       "sourceType": "github",
       "upstreamPath": "pstack/skills/principle-minimize-reader-load",
       "upstreamCommit": "d1715e03a8b1a2f03fdbe336d40c4a56b81f3c8f",
-      "policy": "verbatim: do not edit; update with `bin/evf principles --apply`; put Everyfield rules in .agents/roles/ or workflow skills",
+      "policy": "verbatim: do not edit; update by copying the pinned upstream again; put Everyfield rules in .agents/roles/ or workflow skills",
       "sha256": "1ea2b7fef2391cae5844c4efdbd59031f775e8a52d06b7495d707229a200dcca"
     },
     "principle-model-the-domain": {
@@ -175,7 +183,7 @@
       "sourceType": "github",
       "upstreamPath": "pstack/skills/principle-model-the-domain",
       "upstreamCommit": "d1715e03a8b1a2f03fdbe336d40c4a56b81f3c8f",
-      "policy": "verbatim: do not edit; update with `bin/evf principles --apply`; put Everyfield rules in .agents/roles/ or workflow skills",
+      "policy": "verbatim: do not edit; update by copying the pinned upstream again; put Everyfield rules in .agents/roles/ or workflow skills",
       "sha256": "52c0d85e0c3827c41c18299b642657d7b47eaf77b7b31609e42e0df42b84c75f"
     },
     "principle-never-block-on-the-human": {
@@ -183,7 +191,7 @@
       "sourceType": "github",
       "upstreamPath": "pstack/skills/principle-never-block-on-the-human",
       "upstreamCommit": "d1715e03a8b1a2f03fdbe336d40c4a56b81f3c8f",
-      "policy": "verbatim: do not edit; update with `bin/evf principles --apply`; put Everyfield rules in .agents/roles/ or workflow skills",
+      "policy": "verbatim: do not edit; update by copying the pinned upstream again; put Everyfield rules in .agents/roles/ or workflow skills",
       "sha256": "05030a7a083c337676f793881b4e93cd218e8f1dd676529f56e6ac1d3efb8d1f"
     },
     "principle-outcome-oriented-execution": {
@@ -191,7 +199,7 @@
       "sourceType": "github",
       "upstreamPath": "pstack/skills/principle-outcome-oriented-execution",
       "upstreamCommit": "d1715e03a8b1a2f03fdbe336d40c4a56b81f3c8f",
-      "policy": "verbatim: do not edit; update with `bin/evf principles --apply`; put Everyfield rules in .agents/roles/ or workflow skills",
+      "policy": "verbatim: do not edit; update by copying the pinned upstream again; put Everyfield rules in .agents/roles/ or workflow skills",
       "sha256": "10eb91633aa570355ba4bb37088fcade2b22e498df7a58edc749e65bc5a78e2d"
     },
     "principle-prove-it-works": {
@@ -199,7 +207,7 @@
       "sourceType": "github",
       "upstreamPath": "pstack/skills/principle-prove-it-works",
       "upstreamCommit": "d1715e03a8b1a2f03fdbe336d40c4a56b81f3c8f",
-      "policy": "verbatim: do not edit; update with `bin/evf principles --apply`; put Everyfield rules in .agents/roles/ or workflow skills",
+      "policy": "verbatim: do not edit; update by copying the pinned upstream again; put Everyfield rules in .agents/roles/ or workflow skills",
       "sha256": "ec79a15025bac8d33d62011c54f3b612733fd2a024e623b531b3637aa75070e2"
     },
     "principle-redesign-from-first-principles": {
@@ -207,7 +215,7 @@
       "sourceType": "github",
       "upstreamPath": "pstack/skills/principle-redesign-from-first-principles",
       "upstreamCommit": "d1715e03a8b1a2f03fdbe336d40c4a56b81f3c8f",
-      "policy": "verbatim: do not edit; update with `bin/evf principles --apply`; put Everyfield rules in .agents/roles/ or workflow skills",
+      "policy": "verbatim: do not edit; update by copying the pinned upstream again; put Everyfield rules in .agents/roles/ or workflow skills",
       "sha256": "170e0a658783e43fee8ec5a8c2422a4abb8f69cef621dd1819a95910b8207034"
     },
     "principle-separate-before-serializing-shared-state": {
@@ -215,7 +223,7 @@
       "sourceType": "github",
       "upstreamPath": "pstack/skills/principle-separate-before-serializing-shared-state",
       "upstreamCommit": "d1715e03a8b1a2f03fdbe336d40c4a56b81f3c8f",
-      "policy": "verbatim: do not edit; update with `bin/evf principles --apply`; put Everyfield rules in .agents/roles/ or workflow skills",
+      "policy": "verbatim: do not edit; update by copying the pinned upstream again; put Everyfield rules in .agents/roles/ or workflow skills",
       "sha256": "05294b40448e927c5da1c7b6f5c6b9fed3744637e3833d2d948b9154a9dd00bb"
     },
     "principle-sequence-verifiable-units": {
@@ -223,7 +231,7 @@
       "sourceType": "github",
       "upstreamPath": "pstack/skills/principle-sequence-verifiable-units",
       "upstreamCommit": "d1715e03a8b1a2f03fdbe336d40c4a56b81f3c8f",
-      "policy": "verbatim: do not edit; update with `bin/evf principles --apply`; put Everyfield rules in .agents/roles/ or workflow skills",
+      "policy": "verbatim: do not edit; update by copying the pinned upstream again; put Everyfield rules in .agents/roles/ or workflow skills",
       "sha256": "2ccbbacc56ace5afdfb8670cef19d7bd009fb2a0033b9a741cbdf2b6baf72187"
     },
     "principle-subtract-before-you-add": {
@@ -231,7 +239,7 @@
       "sourceType": "github",
       "upstreamPath": "pstack/skills/principle-subtract-before-you-add",
       "upstreamCommit": "d1715e03a8b1a2f03fdbe336d40c4a56b81f3c8f",
-      "policy": "verbatim: do not edit; update with `bin/evf principles --apply`; put Everyfield rules in .agents/roles/ or workflow skills",
+      "policy": "verbatim: do not edit; update by copying the pinned upstream again; put Everyfield rules in .agents/roles/ or workflow skills",
       "sha256": "8c93bb9d1a7f38e2ef37655d93f0e790fa59903105af3d500cc8a663ebe45f3f"
     },
     "principle-test-behavior-not-implementation": {
@@ -239,7 +247,7 @@
       "sourceType": "github",
       "upstreamPath": "pstack/skills/principle-test-behavior-not-implementation",
       "upstreamCommit": "d1715e03a8b1a2f03fdbe336d40c4a56b81f3c8f",
-      "policy": "verbatim: do not edit; update with `bin/evf principles --apply`; put Everyfield rules in .agents/roles/ or workflow skills",
+      "policy": "verbatim: do not edit; update by copying the pinned upstream again; put Everyfield rules in .agents/roles/ or workflow skills",
       "sha256": "f7223698623b6a26fea49c751e466b38e6691b1f32ce841d3983e7ffbe2b74a6"
     },
     "principle-type-system-discipline": {
@@ -247,7 +255,7 @@
       "sourceType": "github",
       "upstreamPath": "pstack/skills/principle-type-system-discipline",
       "upstreamCommit": "d1715e03a8b1a2f03fdbe336d40c4a56b81f3c8f",
-      "policy": "verbatim: do not edit; update with `bin/evf principles --apply`; put Everyfield rules in .agents/roles/ or workflow skills",
+      "policy": "verbatim: do not edit; update by copying the pinned upstream again; put Everyfield rules in .agents/roles/ or workflow skills",
       "sha256": "5cdaf79785e3c12b2592b9469ee8c272143eb86ab7a18d8382197cea5fd30106"
     },
     "vercel-react-best-practices": {
@@ -255,6 +263,7 @@
       "sourceType": "github",
       "skillPath": "skills/react-best-practices/SKILL.md",
       "computedHash": "ca7b0c0c6e5f2750043f7f0cd72d16ac4e2abc48f9b5500d047a4b77a2506212",
+      "sha256": "71ed7794962fa6e803ee83030517b5b93a9f70fbfeb431ec4535c5480a8d8355",
       "fileHashes": {
         "AGENTS.md": "fc93e7421177bbf869cce892bc60a6c83a4517d974bc3bf65c4e2c1e58a6ccf6"
       }

@@ -1,36 +1,46 @@
 "use client";
 
-import { Clock01Icon, Download01Icon, File02Icon, Search01Icon } from "@hugeicons/core-free-icons";
+import { Clock01Icon, Download01Icon, File02Icon, Folder01Icon, Search01Icon } from "@hugeicons/core-free-icons";
 import {
 	Button,
 	Card,
 	EmptyState,
 	Field,
+	IntentLink,
 	Input,
 	PageHeader,
 	SearchInput,
 	SegmentedControl,
+	Skeleton,
+	StatePanel,
 } from "@everyfield/ui/controls";
 import { Tag } from "@everyfield/ui/display";
 import { cn } from "@everyfield/ui/foundations";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { MERGE_VALUE_MAX } from "@everyfield/contracts/documents";
+import { useEffect, useRef, useState, useTransition, type ReactNode } from "react";
 import { generateDocument, resolveDocument } from "./actions.ts";
+import { createChurchDocument, type ChurchActionResult } from "./church/actions.ts";
+import { PdfPreview } from "./PdfPreview.tsx";
+import { Thumbnail } from "./Thumbnail.tsx";
+import { RENDER_FAILED, bytesOf, downloadBytes, sharedPreview } from "./preview-client.ts";
 import {
 	CATEGORIES,
 	FORMAT_LABEL,
-	MIME,
+	MERGE_TOO_LONG,
+	mergeTooLong,
 	SOURCE_LABEL,
 	categoryLabel,
 	choose,
+	churchValues,
 	combinedTooLong,
 	documentProblem,
 	draftsFrom,
 	fieldError,
-	fileName,
 	filterTemplates,
 	offeredFormat,
 	overridesOf,
 	phaseText,
+	renderKey,
 	type DocumentsQuery,
 	type Format,
 	type Resolved,
@@ -43,83 +53,43 @@ import { SavedHistory } from "./saved.tsx";
 // A preview download stays on this device.
 
 type PreviewState =
-	{ kind: "idle" } | { kind: "pdf"; url: string } | { kind: "office" } | { kind: "message"; text: string };
+	| { kind: "idle" }
+	| { kind: "pdf"; bytes: Uint8Array; key: string; brandKit: boolean }
+	| { kind: "office" }
+	| { kind: "message"; text: string };
 
 type Props = {
 	templates: Template[];
+	/** The library version: part of every render key, so a new library draws new thumbnails. */
+	version: string;
 	query: DocumentsQuery;
 	context: Resolved | null;
 	canPreview: boolean;
 	canEdit: boolean;
 	canStore: boolean;
 	written: "church" | "account" | null;
+	/** The authored text templates: each makes a saved file or an editable Church Document. */
+	textTemplates: readonly string[];
 };
 
-function bytesOf(encoded: string) {
-	const binary = atob(encoded);
-	const bytes = new Uint8Array(binary.length);
-	for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-	return bytes;
-}
-
-function downloadBytes(name: string, format: Format, encoded: string) {
-	const url = URL.createObjectURL(new Blob([bytesOf(encoded)], { type: MIME[format] }));
-	const link = document.createElement("a");
-	link.href = url;
-	link.download = fileName(name, format);
-	document.body.append(link);
-	link.click();
-	link.remove();
-	URL.revokeObjectURL(url);
-}
-
-type PreviewReply =
-	| { status: "ok"; value: Resolved & { artifact: string | null } }
-	| { status: "refused"; code: string; problem?: string }
-	| { status: "lost" };
-
-/** One JSON post. The preview route skips the server-action flight, which was the slow part. */
-async function postPreview(
-	templateId: string,
-	format: Format,
-	overrides: Record<string, string>,
-): Promise<PreviewReply> {
-	try {
-		const response = await fetch("/documents/preview", {
-			method: "POST",
-			headers: { accept: "application/json", "content-type": "application/json" },
-			body: JSON.stringify({ templateId, format, overrides }),
-		});
-		const body: unknown = await response.json();
-		if (!body || typeof body !== "object" || !("status" in body)) return { status: "lost" };
-		const status = (body as { status: unknown }).status;
-		if (status === "lost") return { status: "lost" };
-		if (status === "refused") {
-			const code = (body as { code?: unknown }).code;
-			const problem = (body as { problem?: unknown }).problem;
-			if (typeof code !== "string") return { status: "lost" };
-			return typeof problem === "string" ? { status: "refused", code, problem } : { status: "refused", code };
-		}
-		if (status !== "ok") return { status: "lost" };
-		const value = (body as { value?: unknown }).value;
-		if (!value || typeof value !== "object") return { status: "lost" };
-		const artifact = (value as { artifact?: unknown }).artifact;
-		if (typeof artifact !== "string" && artifact !== null) return { status: "lost" };
-		return { status: "ok", value: value as Resolved & { artifact: string | null } };
-	} catch {
-		return { status: "lost" };
-	}
-}
-
-function failureText(code: string, problem?: string) {
-	if (code === "invalid_input" && problem?.toLowerCase().includes("16"))
-		return "Shorten the fields. Together they must stay under 16 KB.";
+function failureText(code: string, path?: string) {
+	if (mergeTooLong(code, path)) return MERGE_TOO_LONG;
 	if (code === "unavailable")
 		return "Preview uses the church name, the pastor, and the launch date. This account has no current church seat.";
-	return "This file did not render. Nothing was saved.";
+	return RENDER_FAILED;
 }
 
-export function DocumentsScreen({ templates, query, context, canPreview, canEdit, canStore, written }: Props) {
+export function DocumentsScreen({
+	templates,
+	version,
+	query,
+	context,
+	canPreview,
+	canEdit,
+	canStore,
+	written,
+	textTemplates,
+}: Props) {
 	const initial = filterTemplates(templates, query);
 	const [category, setCategory] = useState(query.category);
 	const [wiki, setWiki] = useState(query.wiki);
@@ -134,20 +104,23 @@ export function DocumentsScreen({ templates, query, context, canPreview, canEdit
 		return chosen ? offeredFormat(chosen, context?.format ?? query.format) : null;
 	});
 	const [preview, setPreview] = useState<PreviewState>({ kind: "idle" });
-	const [artifact, setArtifact] = useState<{ key: string; format: Format; bytes: string } | null>(null);
+	// The church's values as this page load read them: every render key of the visit names them.
+	const [church] = useState(() => churchValues(context));
+	const [artifact, setArtifact] = useState<{ key: string; format: Format; bytes: string; brandKit: boolean } | null>(
+		null,
+	);
 	const [resolving, startResolve] = useTransition();
 	const [previewing, startPreview] = useTransition();
 	const [saving, startSave] = useTransition();
 	const [saveNote, setSaveNote] = useState<string | null>(null);
+	const [creating, startCreate] = useTransition();
+	const [createNote, setCreateNote] = useState<string | null>(null);
+	const createKeys = useRef(new Map<string, string>());
 	const [savedTick, setSavedTick] = useState(0);
-	const previewUrl = useRef<string | null>(null);
+	const panel = useRef<HTMLDivElement>(null);
+	const autoPreviewed = useRef<string | null>(null);
 	const resolveToken = useRef(0);
 	const saveKeys = useRef(new Map<string, string>());
-
-	function revokePreview() {
-		if (previewUrl.current) URL.revokeObjectURL(previewUrl.current);
-		previewUrl.current = null;
-	}
 
 	const filtered = filterTemplates(templates, { category, wiki, phase, q });
 	const visibleId = filtered.some((template) => template.id === selectedId) ? selectedId : (filtered[0]?.id ?? null);
@@ -164,8 +137,6 @@ export function DocumentsScreen({ templates, query, context, canPreview, canEdit
 		startResolve(async () => {
 			const result = await resolveDocument(template.id, nextFormat);
 			if (token !== resolveToken.current) return;
-			if (previewUrl.current) URL.revokeObjectURL(previewUrl.current);
-			previewUrl.current = null;
 			setArtifact(null);
 			setResolvedFor(template.id);
 			if (result.status !== "ok") {
@@ -175,7 +146,7 @@ export function DocumentsScreen({ templates, query, context, canPreview, canEdit
 					kind: "message",
 					text: failureText(
 						result.status === "refused" ? result.code : "lost",
-						result.status === "refused" ? result.problem : undefined,
+						result.status === "refused" ? result.path : undefined,
 					),
 				});
 				return;
@@ -187,22 +158,12 @@ export function DocumentsScreen({ templates, query, context, canPreview, canEdit
 		});
 	}, [visibleId, canPreview, resolvedFor, templates]);
 
-	useEffect(
-		() => () => {
-			if (previewUrl.current) URL.revokeObjectURL(previewUrl.current);
-		},
-		[],
-	);
-
-	function showBytes(nextFormat: Format, encoded: string) {
-		revokePreview();
+	function showBytes(nextFormat: Format, encoded: string, key: string, brandKit: boolean) {
 		if (nextFormat !== "pdf") {
 			setPreview({ kind: "office" });
 			return;
 		}
-		const url = URL.createObjectURL(new Blob([bytesOf(encoded)], { type: MIME.pdf }));
-		previewUrl.current = url;
-		setPreview({ kind: "pdf", url });
+		setPreview({ kind: "pdf", bytes: bytesOf(encoded), key, brandKit });
 	}
 
 	const overrides = selected ? overridesOf(selected, drafts, current) : {};
@@ -216,19 +177,21 @@ export function DocumentsScreen({ templates, query, context, canPreview, canEdit
 	function runPreview(download: boolean) {
 		if (!selected || !activeFormat || !ready) return;
 		if (!download && artifact?.key === signature && artifact.format === activeFormat) {
-			showBytes(activeFormat, artifact.bytes);
+			showBytes(activeFormat, artifact.bytes, signature, artifact.brandKit);
 			return;
 		}
 		const template = selected;
 		const nextFormat = activeFormat;
+		// The same template, format and values as its thumbnail share the thumbnail's render.
+		const key = renderKey({ templateId: template.id, version, format: nextFormat, overrides, church });
 		startPreview(async () => {
-			const result = await postPreview(template.id, nextFormat, overrides);
+			const result = await sharedPreview(key, template.id, nextFormat, overrides);
 			if (result.status !== "ok") {
 				setPreview({
 					kind: "message",
 					text: failureText(
 						result.status === "refused" ? result.code : "lost",
-						result.status === "refused" ? result.problem : undefined,
+						result.status === "refused" ? result.path : undefined,
 					),
 				});
 				return;
@@ -238,10 +201,29 @@ export function DocumentsScreen({ templates, query, context, canPreview, canEdit
 				setPreview({ kind: "message", text: "This file did not render. Nothing was saved." });
 				return;
 			}
-			setArtifact({ key: signature, format: nextFormat, bytes: result.value.artifact });
+			const brandKit = result.value.brandKit;
+			setArtifact({ key: signature, format: nextFormat, bytes: result.value.artifact, brandKit });
 			if (download) downloadBytes(template.name, nextFormat, result.value.artifact);
-			else showBytes(nextFormat, result.value.artifact);
+			else showBytes(nextFormat, result.value.artifact, signature, brandKit);
 		});
+	}
+
+	// A template opens in the preview once its church values load. Editing a field never reopens it by itself.
+	useEffect(() => {
+		if (!ready || !selected || !current || preview.kind !== "idle" || autoPreviewed.current === selected.id) return;
+		autoPreviewed.current = selected.id;
+		runPreview(false);
+	});
+
+	function select(id: string) {
+		setSelectedId(id);
+		setPreview({ kind: "idle" });
+		setSaveNote(null);
+		setCreateNote(null);
+		// Below the desktop width the preview sits under the list, so bring it into view.
+		// 1023px is one under Tailwind's `lg` (1024px), where the layout turns side by side.
+		if (window.matchMedia("(max-width: 1023px)").matches)
+			requestAnimationFrame(() => panel.current?.scrollIntoView({ block: "start" }));
 	}
 
 	function runSave() {
@@ -268,6 +250,24 @@ export function DocumentsScreen({ templates, query, context, canPreview, canEdit
 		});
 	}
 
+	// "Create Church Document" opens the new document's page. The same values reuse one request key, so a second click
+	// opens the same document. It uses the values typed here, as "Save for your church" does.
+	function runCreate() {
+		if (!selected || !ready || !canEdit) return;
+		const template = selected;
+		const key = createKeys.current.get(signature) ?? crypto.randomUUID();
+		createKeys.current.set(signature, key);
+		setCreateNote(null);
+		startCreate(async () => {
+			const result: ChurchActionResult | undefined = await createChurchDocument(template.id, key, overrides);
+			// A success redirects to the new document and returns nothing here; only a refusal comes back.
+			if (!result) return;
+			setCreateNote(
+				result.status === "refused" ? result.message : "The connection dropped. Nothing was made. Try again.",
+			);
+		});
+	}
+
 	const searchEmpty = q.trim().length > 0 && filtered.length === 0;
 	const wikiEmpty = !searchEmpty && filtered.length === 0 && (wiki !== null || phase !== null);
 
@@ -278,16 +278,23 @@ export function DocumentsScreen({ templates, query, context, canPreview, canEdit
 				title="Documents"
 				subtitle="Print-ready templates from the Playbook, filled in with your church's details."
 				actions={
-					<Button variant="secondary" icon={Clock01Icon} asChild>
-						<a href="#saved" data-scroll="instant">
-							History
-						</a>
-					</Button>
+					<>
+						{written === "church" ? (
+							<Button variant="secondary" icon={Folder01Icon} asChild>
+								<IntentLink href="/documents/church">Church documents</IntentLink>
+							</Button>
+						) : null}
+						<Button variant="secondary" icon={Clock01Icon} asChild>
+							<a href="#saved" data-scroll="instant">
+								History
+							</a>
+						</Button>
+					</>
 				}
 			/>
 			<section
 				aria-labelledby="templates-heading"
-				className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_360px]"
+				className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(420px,500px)]"
 			>
 				<h2 id="templates-heading" className="sr-only">
 					Templates
@@ -371,36 +378,58 @@ export function DocumentsScreen({ templates, query, context, canPreview, canEdit
 								const pressed = template.id === selected?.id;
 								const phase = phaseText(template.phase);
 								return (
-									<button
+									<div
 										key={template.id}
-										type="button"
-										aria-pressed={pressed}
-										onClick={() => setSelectedId(template.id)}
 										className={cn(
-											"flex min-h-11 cursor-pointer flex-col items-start gap-2 rounded-card bg-surface-raised px-5 py-5 text-left",
+											"relative flex min-h-11 flex-col gap-3 rounded-card bg-surface-raised p-3 text-left",
 											"transition-shadow duration-150 hover:bg-surface",
 											pressed ? "shadow-[0_0_0_2px_var(--ef-ink)]" : "shadow-[0_0_0_1px_var(--ef-line)]",
-											"focus-visible:shadow-[0_0_0_2px_var(--ef-ink),0_0_0_5px_color-mix(in_srgb,var(--ef-focus)_28%,transparent)] focus-visible:outline-none",
+											"has-[:focus-visible]:shadow-[0_0_0_2px_var(--ef-ink),0_0_0_5px_color-mix(in_srgb,var(--ef-focus)_28%,transparent)]",
 										)}
 									>
-										<p className="text-xs text-text-3">
-											{categoryLabel(template.category)}
-											{phase ? ` · ${phase}` : ""}
-										</p>
-										<span className="flex flex-wrap gap-1.5">
-											{template.formats.map((item) => (
-												<Tag key={item}>{FORMAT_LABEL[item]}</Tag>
-											))}
+										<button
+											type="button"
+											aria-pressed={pressed}
+											aria-labelledby={`template-${template.id}-name`}
+											aria-describedby={`template-${template.id}-meta`}
+											onClick={() => select(template.id)}
+											className="flex cursor-pointer flex-col items-stretch gap-3 text-left outline-none after:absolute after:inset-0 after:content-['']"
+										>
+											<Thumbnail
+												template={template}
+												renderKey={renderKey({
+													templateId: template.id,
+													version,
+													format: "pdf",
+													overrides: {},
+													church,
+												})}
+												enabled={canPreview}
+											/>
+											<span id={`template-${template.id}-name`} className="px-2 font-medium text-ink">
+												{template.name}
+											</span>
+										</button>
+										<span className="flex flex-col items-start gap-2 px-2 pb-2">
+											<span id={`template-${template.id}-meta`} className="text-xs text-text-3">
+												{categoryLabel(template.category)}
+												{phase ? ` · ${phase}` : ""}
+											</span>
+											<span className="flex flex-wrap gap-1.5">
+												{template.formats.map((item) => (
+													<Tag key={item}>{FORMAT_LABEL[item]}</Tag>
+												))}
+												{template.fillable ? <Tag tone="green">Fillable</Tag> : null}
+											</span>
+											<span className="line-clamp-3 text-sm text-text-2">{template.description}</span>
 										</span>
-										<span className="font-medium text-ink">{template.name}</span>
-										<span className="line-clamp-3 text-sm text-text-2">{template.description}</span>
-									</button>
+									</div>
 								);
 							})}
 						</div>
 					)}
 				</div>
-				<aside className="lg:sticky lg:top-24">
+				<aside ref={panel} className="scroll-mt-20 lg:sticky lg:top-24 lg:max-h-[calc(100dvh-7rem)] lg:overflow-y-auto">
 					<Card className="gap-4">
 						{selected && activeFormat ? (
 							<TemplatePanel
@@ -414,25 +443,29 @@ export function DocumentsScreen({ templates, query, context, canPreview, canEdit
 								busy={previewing || resolving}
 								ready={ready}
 								preview={preview}
+								stale={preview.kind === "pdf" && preview.key !== signature}
 								canStore={canStore}
 								saving={saving}
 								saveNote={saveNote}
+								make={textTemplates.includes(selected.id) && canPreview ? (canEdit ? "both" : "member") : "save"}
+								creating={creating}
+								createNote={createNote}
 								onDraft={(key, value) => {
 									setDrafts((current) => ({ ...current, [key]: value }));
 									setArtifact(null);
 									setSaveNote(null);
-									if (preview.kind !== "idle") setPreview({ kind: "idle" });
+									setCreateNote(null);
 								}}
 								onFormat={(next) => {
 									setFormat(next);
 									setArtifact(null);
 									setSaveNote(null);
-									revokePreview();
 									setPreview({ kind: "idle" });
 								}}
 								onPreview={() => runPreview(false)}
 								onDownload={() => runPreview(true)}
 								onSave={runSave}
+								onCreate={runCreate}
 							/>
 						) : (
 							<EmptyState icon={File02Icon} title="Select a template" headingLevel="h2">
@@ -443,7 +476,7 @@ export function DocumentsScreen({ templates, query, context, canPreview, canEdit
 				</aside>
 			</section>
 			<SavedHistory enabled={canPreview} refreshKey={savedTick} />
-			{written ? <NativeDocuments written={written} canEdit={canEdit} canStore={canStore} /> : null}
+			{written ? <NativeDocuments written={written} canEdit={canEdit} /> : null}
 		</>
 	);
 }
@@ -461,12 +494,17 @@ function TemplatePanel({
 	saving,
 	ready,
 	preview,
+	stale,
 	saveNote,
+	make,
+	creating,
+	createNote,
 	onDraft,
 	onFormat,
 	onPreview,
 	onDownload,
 	onSave,
+	onCreate,
 }: {
 	template: Template;
 	format: Format;
@@ -480,29 +518,68 @@ function TemplatePanel({
 	saving: boolean;
 	ready: boolean;
 	preview: PreviewState;
+	stale: boolean;
 	saveNote: string | null;
+	/**
+	 * How this template makes a document here. `save`: the one Save button, as for every other template. `both`: an
+	 * Owner or Admin chooses a saved file or an editable Church Document. `member`: a Member is told who makes them.
+	 */
+	make: "save" | "both" | "member";
+	creating: boolean;
+	createNote: string | null;
 	onDraft: (key: string, value: string) => void;
 	onFormat: (format: Format) => void;
 	onPreview: () => void;
 	onDownload: () => void;
 	onSave: () => void;
+	onCreate: () => void;
 }) {
 	return (
 		<div className="flex flex-col gap-4">
 			<h2 className="font-title text-title-sm leading-[1.2] tracking-[-0.02em] text-ink text-balance">
 				{template.name}
 			</h2>
-			{template.formats.length > 1 ? (
-				<SegmentedControl
-					label="Format"
-					size="sm"
-					value={format}
-					onValueChange={onFormat}
-					options={template.formats.map((item) => ({ value: item, label: FORMAT_LABEL[item] }))}
-				/>
-			) : (
-				<Tag>{FORMAT_LABEL[format]}</Tag>
-			)}
+			<div className="flex flex-wrap items-center gap-2">
+				{template.formats.length > 1 ? (
+					<SegmentedControl
+						label="Format"
+						size="sm"
+						value={format}
+						onValueChange={onFormat}
+						options={template.formats.map((item) => ({ value: item, label: FORMAT_LABEL[item] }))}
+					/>
+				) : (
+					<Tag>{FORMAT_LABEL[format]}</Tag>
+				)}
+				{template.fillable ? <Tag tone="green">Fillable</Tag> : null}
+			</div>
+			{format === "pdf" && template.pageSize ? (
+				<div className="flex flex-col gap-2">
+					{preview.kind === "pdf" ? (
+						<PdfPreview key={preview.key} title={template.name} pageSize={template.pageSize} bytes={preview.bytes} />
+					) : preview.kind === "message" ? (
+						<StatePanel tone="error" title="Preview unavailable" headingLevel="h3" className="py-8">
+							{preview.text}
+						</StatePanel>
+					) : canPreview ? (
+						<div
+							role="status"
+							aria-busy="true"
+							style={{ aspectRatio: `${template.pageSize.width} / ${template.pageSize.height}` }}
+							className="relative w-full"
+						>
+							<span className="sr-only">Loading preview</span>
+							<Skeleton shape="block" className="absolute inset-0 rounded-none" />
+						</div>
+					) : null}
+					{preview.kind === "pdf" && (stale || !preview.brandKit) ? (
+						<p className="text-sm text-text-2">
+							{stale ? "The fields changed. Update the preview to see them. " : ""}
+							{preview.brandKit ? "" : "No brand kit yet. Your church name stands in for a logo."}
+						</p>
+					) : null}
+				</div>
+			) : null}
 			<div className="flex flex-col gap-3">
 				{template.mergeFields.map((field) => {
 					const value = drafts[field.key] ?? "";
@@ -522,14 +599,18 @@ function TemplatePanel({
 							hint={shown ?? undefined}
 							error={invalid ? fieldError(field.key, field.label) : undefined}
 						>
-							<Input value={value} maxLength={2000} onChange={(event) => onDraft(field.key, event.target.value)} />
+							<Input
+								value={value}
+								maxLength={MERGE_VALUE_MAX}
+								onChange={(event) => onDraft(field.key, event.target.value)}
+							/>
 						</Field>
 					);
 				})}
 			</div>
 			{tooLong ? (
 				<p role="status" className="text-sm font-medium text-magenta-600">
-					Shorten the fields. Together they must stay under 16 KB.
+					{MERGE_TOO_LONG}
 				</p>
 			) : null}
 			{canPreview ? null : (
@@ -539,18 +620,67 @@ function TemplatePanel({
 			)}
 			<div className="flex flex-wrap gap-2">
 				<Button variant="secondary" loading={busy} disabled={!ready} onClick={onPreview}>
-					Preview
+					{preview.kind === "pdf" ? "Update preview" : "Preview"}
 				</Button>
 				<Button variant="secondary" icon={Download01Icon} loading={busy} disabled={!ready} onClick={onDownload}>
 					Download {FORMAT_LABEL[format]}
 				</Button>
-				{canPreview ? (
+				{canPreview && make === "save" ? (
 					<Button variant="primary" loading={saving} disabled={!ready || !canStore} onClick={onSave}>
 						Save for your church
 					</Button>
 				) : null}
 			</div>
-			{canPreview && !canStore ? (
+			{make === "both" ? (
+				<section aria-labelledby="make-heading" className="flex flex-col gap-3 border-t border-line pt-4">
+					<h3 id="make-heading" className="font-sans text-sm font-medium tracking-normal text-ink">
+						Make a document for your church
+					</h3>
+					<MakeOption
+						id="make-save"
+						note="Saves a finished PDF in History. It can't be edited."
+						button={
+							<Button
+								variant="primary"
+								loading={saving}
+								disabled={!ready || !canStore || creating}
+								onClick={onSave}
+								aria-describedby="make-save"
+								className="w-full sm:w-56"
+							>
+								Save for your church
+							</Button>
+						}
+					/>
+					<MakeOption
+						id="make-create"
+						note="Makes a Church Document you can edit, then export as PDF or Word."
+						button={
+							<Button
+								variant="secondary"
+								loading={creating}
+								disabled={!ready || saving}
+								onClick={onCreate}
+								aria-describedby="make-create"
+								className="w-full sm:w-56"
+							>
+								Create Church Document
+							</Button>
+						}
+					/>
+				</section>
+			) : null}
+			{make === "member" ? (
+				<p className="text-sm text-text-2">
+					An Owner or Admin makes documents from templates. You can preview and download this one.
+				</p>
+			) : null}
+			{createNote ? (
+				<p role="status" className="text-sm font-medium text-magenta-600">
+					{createNote}
+				</p>
+			) : null}
+			{canPreview && !canStore && make !== "member" ? (
 				<p className="text-sm text-text-2">
 					Saving for your church is not available right now. A preview download stays on this device.
 				</p>
@@ -560,19 +690,28 @@ function TemplatePanel({
 					{saveNote}
 				</p>
 			) : null}
-			{preview.kind === "message" ? (
+			{preview.kind === "office" ? (
+				<p role="status" className="text-sm text-text-2">
+					Excel opens in its own app. Download the file to check it.
+				</p>
+			) : null}
+			{preview.kind === "message" && format !== "pdf" ? (
 				<p role="status" className="text-sm text-text-2">
 					{preview.text}
 				</p>
 			) : null}
-			{preview.kind === "office" ? (
-				<p role="status" className="text-sm text-text-2">
-					Word and Excel open in their own apps. Download the file to check it.
-				</p>
-			) : null}
-			{preview.kind === "pdf" ? (
-				<iframe title="PDF preview" src={preview.url} className="h-56 w-full rounded-md bg-surface-2" />
-			) : null}
+		</div>
+	);
+}
+
+/** One way to make a document: its button, and a one-line note that says what the button makes. */
+function MakeOption({ id, note, button }: { id: string; note: string; button: ReactNode }) {
+	return (
+		<div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-3">
+			{button}
+			<p id={id} className="text-sm text-text-2 text-pretty">
+				{note}
+			</p>
 		</div>
 	);
 }

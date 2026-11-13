@@ -1,8 +1,10 @@
+import { recordId } from "@everyfield/contracts/common";
 import type * as c from "@everyfield/contracts/tasks";
 import type { z } from "zod";
+import { MONTHS } from "../shared/dates.ts";
 
 // The Tasks screen rules that need no React: the address, labels, due-date words, counts after a change and the
-// due-date form value. The screens and the server page share them, and tests/ui/tasks runs them in node.
+// due-date form value. The screens and the server page share them, and tests/unit/tasks runs them in node.
 
 export type Status = z.infer<typeof c.taskStatus>;
 export type Priority = z.infer<typeof c.priority>;
@@ -23,6 +25,13 @@ export type Candidate = z.infer<typeof c.prerequisiteCandidates>["items"][number
 export type Occurrence = z.infer<typeof c.openOccurrence>;
 export type BulkResult = z.infer<typeof c.bulkResult>;
 export type BulkOutcome = z.infer<typeof c.bulkOutcome>;
+export type TemplateCatalog = z.infer<typeof c.templateCatalog>;
+type ChecklistSummary = TemplateCatalog["checklists"][number];
+export type TemplatePreview = z.infer<typeof c.templatePreview>;
+export type TemplateImport = z.infer<typeof c.templateImport>;
+export type PhaseOffer = z.infer<typeof c.phaseOffer>;
+export type OpenOffer = Extract<PhaseOffer, { status: "open" }>;
+export type OfferAnswered = z.infer<typeof c.offerAnswered>;
 /**
  * A confirmed write: the task as saved, its audit record's ID (the history entry), whether anything changed and, for a
  * completed recurring task, the next occurrence it created.
@@ -53,7 +62,7 @@ export const CATEGORIES = [
 export const RELATIONS = ["person", "meeting", "team", "none"] as const;
 export const DUE_KINDS = ["local_date", "resolved_instant", "undated"] as const;
 export const SORTS = ["due", "priority", "status", "title", "created"] as const;
-export const VIEWS = ["my", "all"] as const;
+const VIEWS = ["my", "all"] as const;
 
 export const STATUS_LABEL: Record<Status, string> = {
 	not_started: "Not started",
@@ -95,6 +104,100 @@ export const SORT_LABEL: Record<(typeof SORTS)[number], string> = {
 };
 
 export const isSettled = (s: Status) => s === "complete" || s === "no_longer_needed";
+
+/**
+ * An assignee's name, as every task screen shows it: the task row, the task panel, the assignee picker and the
+ * assignee summary. Every empty name reads "Unnamed member": a current seat never reads as a former member, and a
+ * former member whose account still exists keeps their name.
+ */
+export const assigneeName = (person: { displayName: string }) => person.displayName.trim() || "Unnamed member";
+/** Who owns a task or step, as text. The owner's own name shows, also for the signed-in person (never "You"). */
+export function ownerLabel(owner: { displayName: string } | null): string {
+	return owner ? assigneeName(owner) : "Needs owner";
+}
+
+/** An owner view of a follow-up's assignee (REQ-TSK-012): the name and whether they may own follow-ups. */
+export type FollowUpOwner = c.FollowUpOwner;
+const OWNER_REASON_TEXT: Record<NonNullable<FollowUpOwner["reason"]>, string> = {
+	no_seat: "no current seat",
+	no_person: "no linked Person",
+	not_committed: "Person not in a core group, launch team or leader stage",
+};
+/**
+ * The follow-up owner in the words every screen uses: the name, and for someone who cannot own follow-ups, why. The
+ * one wording of the one value, so the Tasks list, task panel, Follow-ups page, call screen, person card and Correct
+ * attendance all read the same.
+ */
+export function ownerText(owner: Pick<FollowUpOwner, "displayName" | "eligible" | "reason"> | null): string {
+	if (!owner) return "Needs owner";
+	const warning = ownerWarning(owner);
+	return warning ? `${ownerLabel(owner)} · ${warning}` : ownerLabel(owner);
+}
+/** Why someone cannot own follow-ups, in the words every screen uses, or null when they can. */
+export function ownerWarning(owner: Pick<FollowUpOwner, "eligible" | "reason">): string | null {
+	return owner.eligible || !owner.reason ? null : `Can't own follow-ups: ${OWNER_REASON_TEXT[owner.reason]}`;
+}
+
+/**
+ * The people a task form holds in its "Assigned to" picker: everyone chosen, on the task or only in the draft (the
+ * viewer a new task starts with), with the warning they earn. The picker lists one of them who is not an eligible
+ * choice with that warning, so they can be seen and removed. `refused` is the account a refusal named as unable to own
+ * follow-ups.
+ */
+export function heldAssignees(
+	ids: readonly string[],
+	names: Readonly<Record<string, string>>,
+	current: readonly { accountId: string; displayName: string }[],
+	owners: readonly Pick<FollowUpOwner, "accountId" | "eligible" | "reason">[],
+	refused?: string | null,
+): { accountId: string; displayName: string; warning: string | null }[] {
+	const warningOf = (accountId: string) => {
+		const view = owners.find((o) => o.accountId === accountId);
+		return (view ? ownerWarning(view) : null) ?? (accountId === refused ? "Can't own follow-ups now" : null);
+	};
+	const drafted = ids.filter((id) => !current.some((a) => a.accountId === id));
+	return [
+		...current.map((a) => ({ accountId: a.accountId, displayName: a.displayName, warning: warningOf(a.accountId) })),
+		...drafted.map((id) => ({ accountId: id, displayName: names[id] ?? "", warning: warningOf(id) })),
+	];
+}
+
+/**
+ * A task save's send that notices an `owner_ineligible` refusal: it forgets the cached assignee lists, so the next
+ * picker open reads who may own follow-ups now, and hands on the account the refusal named.
+ */
+export function noticingIneligible<T>(
+	send: (key: string) => Promise<Outcome<T>>,
+	forget: () => void,
+	named: (accountId: string | undefined) => void,
+): (key: string) => Promise<Outcome<T>> {
+	return async (key) => {
+		const r = await send(key);
+		if (r.status === "refused" && r.code === "owner_ineligible") {
+			forget();
+			named(r.error?.code === "owner_ineligible" ? r.error.details.accountId : undefined);
+		}
+		return r;
+	};
+}
+
+/** Whether a follow-up has an owner who can hold it: nobody, or only people who cannot, reads Needs owner (D-a). */
+export const lacksOwner = (owners: readonly Pick<FollowUpOwner, "eligible">[]) => !owners.some((o) => o.eligible);
+/** Every assignee's name, in the order the server lists them. */
+export const assigneeNames = (people: readonly { displayName: string }[]) => people.map(assigneeName);
+/** The first name and how many more, for a place with no room for all of them: "Ana Lee +2". */
+export function assigneeSummary(people: readonly { displayName: string }[]) {
+	const [first, ...rest] = assigneeNames(people);
+	return first === undefined ? null : rest.length ? `${first} +${rest.length}` : first;
+}
+
+/** What the bulk bar offers for the selected tasks' current statuses (REQ-TSK-008: only open tasks complete or move). */
+export type BulkActions = { kind: "open" | "settled" | "mixed"; settled: number };
+
+export function bulkActions(statuses: readonly Status[]): BulkActions {
+	const settled = statuses.filter(isSettled).length;
+	return { kind: settled === 0 ? "open" : settled === statuses.length ? "settled" : "mixed", settled };
+}
 
 // ---------------------------------------------------------------------------------------------------------------
 // Task structure (REQ-TSK-005 to 008): steps, what a task waits for, repeats and bulk changes.
@@ -209,8 +312,8 @@ export type TaskQuery = {
 	direction: "asc" | "desc";
 	page: number;
 };
-export const PAGE_SIZE = 50;
-export const DEFAULT_QUERY: TaskQuery = {
+const PAGE_SIZE = 50;
+const DEFAULT_QUERY: TaskQuery = {
 	view: "my",
 	search: "",
 	statuses: [...OPEN_STATUSES],
@@ -224,11 +327,16 @@ export const DEFAULT_QUERY: TaskQuery = {
 	page: 1,
 };
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const oneOf = <T extends string>(list: readonly T[], v: string | null): T | undefined =>
 	list.find((x) => x === v) as T | undefined;
 const manyOf = <T extends string>(list: readonly T[], vs: string[]): T[] => list.filter((x) => vs.includes(x));
 const sameSet = (a: readonly string[], b: readonly string[]) => a.length === b.length && a.every((x) => b.includes(x));
+
+/** The team in the address, by the contract's id rule; any other value lists every team, never refusing the request. */
+function teamOf(raw: string | null): string | null {
+	const id = raw?.toLowerCase() ?? "";
+	return recordId.safeParse(id).success ? id : null;
+}
 
 export function parseQuery(p: URLSearchParams): TaskQuery {
 	const raw = p.getAll("status"),
@@ -242,7 +350,7 @@ export function parseQuery(p: URLSearchParams): TaskQuery {
 		categories: manyOf(CATEGORIES, p.getAll("category")),
 		relation: oneOf(RELATIONS, p.get("relation")) ?? "any",
 		due: oneOf(DUE_KINDS, p.get("due")) ?? "any",
-		teamId: UUID.test(p.get("team") ?? "") ? p.get("team")!.toLowerCase() : null,
+		teamId: teamOf(p.get("team")),
 		sort: oneOf(SORTS, p.get("sort")) ?? "due",
 		direction: p.get("dir") === "desc" ? "desc" : "asc",
 		page: Number.isInteger(page) && page >= 1 && page <= 100_000 ? page : 1,
@@ -327,7 +435,6 @@ export function rangeText(q: TaskQuery, shown: number, total: number): string {
 // Due dates. A date-only task shows its church-local day; a deadline shows the wall time it was entered in the church
 // zone. Both are written in the church's own terms, so no browser time zone changes them.
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 /** "Tue Oct 14" for a church-local date, with the year when it is not `year`. */
 export function dayText(date: string, year?: number): string {
@@ -345,14 +452,6 @@ export function dueText(due: Due, year?: number): string | null {
 	if (due.kind === "undated") return null;
 	if (due.kind === "local_date") return dayText(due.date, year);
 	return `${dayText(due.local.slice(0, 10), year)} · ${timeText(due.local.slice(11))}`;
-}
-/** "UTC−5" or "UTC+5:30" for an offset in seconds. */
-export function offsetText(seconds: number): string {
-	const sign = seconds < 0 ? "−" : "+";
-	const abs = Math.abs(seconds),
-		h = Math.floor(abs / 3600),
-		m = Math.round((abs % 3600) / 60);
-	return `UTC${sign}${h}${m ? `:${String(m).padStart(2, "0")}` : ""}`;
 }
 
 /** The due-date form value. `offsetSeconds` is the occurrence chosen for a time the clocks repeat. */
@@ -455,8 +554,14 @@ export function groupsOf(items: TaskItem[], sort: TaskQuery["sort"]): Group[] {
 // ---------------------------------------------------------------------------------------------------------------
 // Words for refusals. Nothing here reveals another church's records.
 
-export function problemText(code: Outcome<unknown>["status"] | TaskError["code"] | "access_denied"): string {
+/** `name` is the person a refusal is about, when the form knows them (an `owner_ineligible` assignee). */
+export function problemText(
+	code: Outcome<unknown>["status"] | TaskError["code"] | "access_denied",
+	name?: string | null,
+): string {
 	switch (code) {
+		case "owner_ineligible":
+			return `${name?.trim() || "Someone you assigned"} cannot own follow-ups now. Remove them from Assigned to or choose someone else, then save again.`;
 		case "conflict":
 			return "This task changed while you were working. We loaded the latest version; check it and try again.";
 		case "lost":
@@ -479,6 +584,10 @@ export function problemText(code: Outcome<unknown>["status"] | TaskError["code"]
 			return "The server is busy. Try again in a moment.";
 		case "unavailable":
 			return "This task is no longer here, or your seat cannot change it. Reload the page.";
+		case "stale_catalog":
+			return "The checklists were updated since you opened them. We loaded the current version; check it and try again.";
+		case "offer_answered":
+			return "This phase offer was already answered, on another device or by someone else.";
 		default:
 			return "You cannot make this change. Your seat may have changed; reload the page.";
 	}
@@ -499,7 +608,7 @@ export type Pending = {
 	panel: Readonly<Record<string, Partial<Panel>>>;
 };
 /** What the task panel shows beyond the task itself. */
-export type Panel = { recurrence: TaskDetail["recurrence"]; prerequisites: Prerequisite[] };
+type Panel = { recurrence: TaskDetail["recurrence"]; prerequisites: Prerequisite[] };
 export type Change =
 	| { kind: "status"; id: string; status: Status }
 	| { kind: "row"; id: string; row: TaskItem | null }
@@ -538,7 +647,7 @@ export function shownRows(items: readonly TaskItem[], p: Pending): TaskItem[] {
  */
 export function matches(q: TaskQuery, t: TaskItem, you: string): boolean {
 	if (t.deleted || t.parentId) return false;
-	if (q.view === "my" && t.assignee?.accountId !== you) return false;
+	if (q.view === "my" && !t.assignees.some((a) => a.accountId === you)) return false;
 	if (q.search && !t.title.toLowerCase().includes(q.search.toLowerCase())) return false;
 	if (q.statuses.length && !q.statuses.includes(t.status)) return false;
 	if (q.priorities.length && !q.priorities.includes(t.priority)) return false;
@@ -561,3 +670,27 @@ export function rebase<T extends object>(mine: T, base: T, latest: T): T {
 	for (const k of Object.keys(mine) as (keyof T)[]) if (!same(mine[k], base[k])) out[k] = mine[k];
 	return out;
 }
+
+// ---------------------------------------------------------------------------------------------------------------
+// Phase checklists (WP-026)
+
+/** The catalog grouped for browsing: each phase in order, then each category in the order it first appears. */
+export function checklistGroups(list: readonly ChecklistSummary[]) {
+	const phases = new Map<number, Map<Category, ChecklistSummary[]>>();
+	for (const k of list) {
+		const byCategory = phases.get(k.phase) ?? new Map<Category, ChecklistSummary[]>();
+		byCategory.set(k.category, [...(byCategory.get(k.category) ?? []), k]);
+		phases.set(k.phase, byCategory);
+	}
+	return [...phases.entries()]
+		.sort(([a], [b]) => a - b)
+		.map(([phase, byCategory]) => ({
+			phase,
+			categories: [...byCategory.entries()].map(([category, checklists]) => ({ category, checklists })),
+		}));
+}
+/** "1 task", "9 tasks". */
+export const taskCount = (n: number) => (n === 1 ? "1 task" : `${n} tasks`);
+
+/** The signed-in person the Tasks screens act for. */
+export type Viewer = { accountId: string; role: "owner" | "admin" | "member"; name: string | null };

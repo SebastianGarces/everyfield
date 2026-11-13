@@ -60,6 +60,8 @@ export const setSharingRequest = commandEnvelope(
 	}),
 );
 
+/** The longest statement of faith a network stores, in characters. */
+export const STATEMENT_OF_FAITH_MAX = 10_000;
 const boundedText = z.string().trim().max(200).nullable();
 export const profileFields = z.strictObject({
 	name: z.string().trim().min(1).max(200),
@@ -69,6 +71,17 @@ export const profileFields = z.strictObject({
 	description: z.string().trim().max(5000).nullable(),
 	contactEmail: normalizedEmail.pipe(z.string().max(320)).nullable(),
 	contactPhone: z.string().trim().max(50).nullable(),
+	/**
+	 * A sending network's statement of faith (DOC-020, D-107): plain text, paragraphs split by a blank line. It fills
+	 * the statement-of-faith slot of Church Documents its plants create from a template. Blank text is a clear. A
+	 * sending church holds none.
+	 */
+	statementOfFaith: z
+		.string()
+		.transform((text) => text.replace(/\r\n?/g, "\n").trim())
+		.pipe(z.string().max(STATEMENT_OF_FAITH_MAX))
+		.transform((text) => text || null)
+		.nullable(),
 });
 export const organizationProfileRequest = z.strictObject({ organization: organizationOwner });
 export const updateOrganizationProfileRequest = commandEnvelope(

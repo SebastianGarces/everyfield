@@ -11,6 +11,7 @@ import type { Tone } from "./tone";
  */
 export function PersonCard({
 	name,
+	photo,
 	meta,
 	tone,
 	footer,
@@ -21,6 +22,8 @@ export function PersonCard({
 	className,
 }: {
 	name: string;
+	/** The app's own route for the person's photo; the initials show without one or when it fails. */
+	photo?: string;
 	meta?: ReactNode;
 	tone?: Tone;
 	footer?: ReactNode;
@@ -43,7 +46,7 @@ export function PersonCard({
 			)}
 		>
 			<div className="flex items-center gap-2.5">
-				<Avatar name={name} tone={tone} size="sm" decorative />
+				<Avatar name={name} src={photo} tone={tone} size="sm" decorative />
 				<div className="min-w-0">
 					<div className="truncate text-sm leading-[1.2] font-semibold text-ink">
 						{href ? (

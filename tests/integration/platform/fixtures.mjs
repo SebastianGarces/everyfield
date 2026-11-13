@@ -1,22 +1,3 @@
-import { requireApp } from "./support.mjs";
-const { zipSync, strToU8 } = requireApp("fflate");
-export function office(format, text = "Synthetic document") {
-	const files = {
-		"[Content_Types].xml": strToU8('<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"/>'),
-		"_rels/.rels": strToU8("<Relationships/>"),
-	};
-	if (format === "docx")
-		files["word/document.xml"] = strToU8(
-			`<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>${text}</w:t></w:r></w:p></w:body></w:document>`,
-		);
-	else {
-		files["xl/workbook.xml"] = strToU8("<workbook/>");
-		files["xl/worksheets/sheet1.xml"] = strToU8(
-			`<worksheet><sheetData><row><c t="inlineStr"><is><t>${text}</t></is></c></row></sheetData></worksheet>`,
-		);
-	}
-	return zipSync(files);
-}
 export function pdf() {
 	let output = "%PDF-1.4\n";
 	const offsets = [0];
