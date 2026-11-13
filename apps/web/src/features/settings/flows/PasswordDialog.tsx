@@ -19,7 +19,7 @@ import { useFlows } from "../store";
 type Form = { currentPassword: string; newPassword: string; confirmPassword: string };
 const EMPTY: Form = { currentPassword: "", newPassword: "", confirmPassword: "" };
 
-export function passwordProblems(form: Form): Partial<Record<keyof Form, string>> {
+function passwordProblems(form: Form): Partial<Record<keyof Form, string>> {
 	const problems: Partial<Record<keyof Form, string>> = {};
 	if (!form.currentPassword) problems.currentPassword = "Enter your current password.";
 	if (form.newPassword.length < 8) problems.newPassword = "Use at least 8 characters.";

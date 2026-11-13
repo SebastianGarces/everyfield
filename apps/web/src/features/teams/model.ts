@@ -17,6 +17,7 @@ import type { Tone } from "@everyfield/ui/controls";
 import type { Status } from "@everyfield/ui/display";
 import type { IconSvgElement } from "@everyfield/ui/foundations";
 import type { z } from "zod";
+import { MONTHS } from "../shared/dates.ts";
 
 // The teams screens' shared words and shapes. No React and no server code. The producer calls a team a ministry in
 // the product's words; code and contracts say team.
@@ -24,7 +25,12 @@ import type { z } from "zod";
 export type Team = z.infer<typeof c.team>;
 export type Role = z.infer<typeof c.teamRole>;
 export type Member = z.infer<typeof c.memberRow>;
-export type ChartNode = z.infer<typeof c.chartNode>;
+/** A team as the list reads it, with its leader's name. */
+export type ListedTeam = z.infer<typeof c.listedTeam>;
+/** One ministry on the organization view, built from the list: its chosen icon shows on the chart. */
+export type ChartNode = Pick<ListedTeam, "id" | "name" | "icon" | "templateKey" | "archived" | "leaderName"> & {
+	parentId: ListedTeam["id"] | null;
+};
 export type HistoryEntry = z.infer<typeof c.historyEntry>;
 export type Catalog = z.infer<typeof c.catalogPage>;
 export type TeamState = Team["state"];
@@ -108,7 +114,6 @@ export function people(members: readonly Member[]): Person[] {
 	return [...byId.values()];
 }
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 /** A LocalDate (YYYY-MM-DD) as "Jul 14, 2026". No time zone is involved: the date is the church's own day. */
 export function dayText(day: string): string {
 	const [y, m, d] = day.split("-").map(Number);
@@ -158,8 +163,21 @@ export function problemText(code: string): string {
 	}
 }
 
-/** What a history entry did, in words. */
-export const HISTORY_KIND: Record<string, string> = {
+/** What a history entry did, in words. A correction that names a person and role corrected that role's dates. */
+export function historyTitle(e: HistoryEntry) {
+	if (e.kind === "correct" && e.about) return "Role dates corrected";
+	// A leader change with no new leader is a leader who left, for example with a removed seat.
+	if (e.kind === "leader_change" && !e.after?.leaderPersonId) return "Leader removed";
+	if (e.subject === "role") return ROLE_KIND[e.kind] ?? "Role changed";
+	return HISTORY_KIND[e.kind] ?? "Changed";
+}
+/** A change filed under one of the ministry's roles. */
+const ROLE_KIND: Record<string, string> = {
+	create: "Role added",
+	edit: "Role edited",
+	retire: "Role retired",
+};
+const HISTORY_KIND: Record<string, string> = {
 	create: "Created",
 	edit: "Edited",
 	correct: "Corrected",
@@ -169,9 +187,8 @@ export const HISTORY_KIND: Record<string, string> = {
 	assign: "Role filled",
 	remove: "Left the ministry",
 	retire: "Role retired",
-	noop: "No change",
 };
-export const FIELD_LABEL: Record<string, string> = {
+const FIELD_LABEL: Record<string, string> = {
 	name: "Name",
 	description: "Description",
 	icon: "Icon",
@@ -180,6 +197,8 @@ export const FIELD_LABEL: Record<string, string> = {
 	occupantPersonId: "Person",
 	desiredSkills: "Desired skills",
 	retired: "Retired",
+	startedOn: "Start date",
+	endedOn: "End date",
 };
 /** The changed fields of an entry ("Name, State"). Person IDs are not shown; the field name says what changed. */
 export function changedFields(entry: HistoryEntry): string {
@@ -190,11 +209,53 @@ export function changedFields(entry: HistoryEntry): string {
 		.join(", ");
 }
 
+/** The order a history entry lists its changed fields in: the order of FIELD_LABEL, then any others. */
+const FIELD_ORDER = Object.keys(FIELD_LABEL);
+const fieldRank = (k: string) => (FIELD_ORDER.includes(k) ? FIELD_ORDER.indexOf(k) : FIELD_ORDER.length);
+/**
+ * The "Field: before → after" lines of an entry, for fields shown as text. A field that reads the same before and
+ * after is no change, so it has no line: a ministry made with no description has no "Description: None → None".
+ */
+export function diffLines(e: HistoryEntry): { label: string; from: string; to: string }[] {
+	const keys = [...new Set([...Object.keys(e.before ?? {}), ...Object.keys(e.after ?? {})])].sort(
+		(a, b) => fieldRank(a) - fieldRank(b),
+	);
+	return keys.flatMap((k) => {
+		const from = shownValue(k, e.before?.[k]);
+		const to = shownValue(k, e.after?.[k]);
+		if (from === null && to === null) return [];
+		const line = { label: FIELD_LABEL[k] ?? k, from: from ?? "None", to: to ?? "None" };
+		return line.from === line.to ? [] : [line];
+	});
+}
+
 /** A value of a changed text field for the history list, or null when it is an identifier or not text. */
 export function shownValue(key: string, value: unknown): string | null {
 	if (key === "state" && typeof value === "string" && value in STATE_LABEL) return STATE_LABEL[value as TeamState];
 	if (key === "name" || key === "description")
 		return typeof value === "string" ? value : value === null ? "None" : null;
 	if (key === "archived") return value === true ? "Yes" : value === false ? "No" : null;
+	if (key === "startedOn" || key === "endedOn")
+		return typeof value === "string" ? dayText(value) : value === null ? "None" : null;
 	return null;
 }
+
+/** What a ministry Edit save does. A reason is not a change: with no field changed, nothing is sent. */
+type EditPlan = "send" | "close" | "close-and-say";
+export function planTeamEdit(
+	was: Pick<Team, "name" | "icon" | "state"> & { description: string },
+	now: typeof was & { reason: string },
+): EditPlan {
+	const text = (s: string) => s.trim() || null;
+	const same =
+		now.name.trim() === was.name &&
+		text(now.description) === text(was.description) &&
+		now.icon === was.icon &&
+		now.state === was.state;
+	if (!same) return "send";
+	return now.reason.trim() ? "close-and-say" : "close";
+}
+
+/** `chosen` is null until the person changes a choice: then the default applies (nothing, or the `into` template). */
+export type SetupForm = { chosen: Record<string, string[]> | null; step: "choose" | "review"; problem?: string };
+export const NEW_SETUP: SetupForm = { chosen: null, step: "choose" };

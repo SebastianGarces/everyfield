@@ -17,7 +17,9 @@ const read =
 	/^(?:get|read|list|describe|registrationEligible|addressHash|jobVisibility|append|current|registrationIntent|checkAggregateAccess)/;
 const factories = {
 	createOrganizationAdapter: "organizations",
-	createSettingsProducer: "settings",
+	// The settings suites call every settings operation through one composition of the factories the app mounts. It is
+	// labelled there, not on each factory, so other suites that build one factory keep their own budgets.
+	settingsApi: "settings",
 	createAccountCredentials: "settings",
 	createOnboardingProducer: "onboarding",
 	createInvitationService: "invitations",
@@ -26,11 +28,14 @@ const factories = {
 	createMailService: "mail",
 	createNotificationService: "notifications",
 	createNotificationProducer: "notifications",
-	createDigestService: "digest",
 	createLifecycleCleanup: "lifecycle.purge",
 	referenceService: "reference",
 	attemptBudget: "identity.budget",
 	createTaskWriter: "tasks",
+	createTemplateReader: "tasks",
+	createPhaseWriter: "phases",
+	createPrivateCare: "privateCare",
+	createSignals: "signals",
 	createFollowUpWriter: "followups",
 	createAttendanceWriter: "meetings",
 	createWikiProducer: "wiki",
@@ -38,35 +43,39 @@ const factories = {
 const standalone = {
 	"/packages/domain/src/early-access/index.ts": ["receiveAccessRequest"],
 	"/packages/domain/src/people/core.ts": ["withPeopleWrite"],
+	"/packages/domain/src/people/duplicates.ts": ["dismissDuplicatePair", "restoreDuplicatePair"],
 	"/packages/domain/src/meetings/core.ts": ["withMeetingsWrite"],
 	"/packages/domain/src/meetings/tokens.ts": ["answerRsvpToken"],
-	"/packages/domain/src/meetings/notifications.ts": ["syncNotifications"],
 	"/packages/domain/src/onboarding/core.ts": ["withOnboardingWrite"],
 	"/packages/domain/src/settings/core.ts": ["withSettingsWrite"],
 	"/packages/domain/src/tasks/core.ts": ["withTaskWrite"],
 	"/packages/domain/src/followups/core.ts": ["withFollowUpWrite"],
 	"/packages/domain/src/settings/avatar.ts": ["uploadAvatar"],
+	"/packages/domain/src/branding/files.ts": ["uploadBrandAsset", "readBrandAsset"],
 	"/packages/domain/src/people/fields/index.ts": ["uploadPersonPhoto"],
-	"/packages/domain/src/people/csv/index.ts": ["executeBulkImport"],
+	"/packages/domain/src/people/csv/index.ts": [
+		"executeBulkImport",
+		"signPeopleImport",
+		"retryStoredImport",
+		"deleteExpiredImportFiles",
+	],
 	"/packages/domain/src/people/commitments/index.ts": [
 		"getCommitmentDownload",
 		"signCommitmentDocument",
 		"saveCommitmentDocument",
 	],
 	"/packages/domain/src/settings/deletion.ts": ["issueRestrictedDeletionSession"],
-	"/packages/domain/src/people/references.ts": ["detachAccountPersonLinks"],
 	"/apps/web/src/server/jobs/queue.ts": [
 		"enqueueJob",
 		"enqueueJobs",
 		"claimDue",
 		"claimUnknownMail",
-		"extendLease",
 		"finishClaim",
 		"recoverLease",
 		"checkpoint",
 		"scanPage",
 	],
-	"/apps/web/src/server/jobs/webhook.ts": ["receiveMailCallback", "replayStoredCallbacks"],
+	"/apps/web/src/server/jobs/webhook.ts": ["applyMailCallback", "applyStoredCallback"],
 	"/apps/web/src/server/jobs/notifications.ts": ["sendDiscoveryAssociationReceipt", "sendOnboardingRelationships"],
 };
 
@@ -75,6 +84,8 @@ export async function measure(name, body, options = {}) {
 	const parent = frames.getStore()?.at(-1);
 	if (parent && parent.first === undefined) parent.first = name;
 	return frames.run([...(frames.getStore() ?? []), frame], async () => {
+		// Exempt from the no-wall-clock rule (test-standard): the sample's `ms` reports real time, which is its job; nothing
+		// asserts on it.
 		const started = performance.now();
 		let status = "threw";
 		try {
@@ -164,14 +175,13 @@ registerHooks({
 		} else if (
 			path.includes("/packages/reference/src/") ||
 			path.includes("/packages/domain/src/") ||
-			path.includes("/apps/web/src/server/jobs/")
+			path.includes("/apps/web/src/server/jobs/") ||
+			path === root + "/tests/integration/settings/settings-api.mts"
 		) {
 			const ast = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true),
 				edits = [];
 			const names = standalone[path.slice(root.length)] ?? [];
-			const localAliases = path.endsWith("/jobs/notifications.ts")
-				? { enqueueMany: "notifications.enqueueMany", cancelForEntity: "notifications.cancelForEntity" }
-				: {};
+			const localAliases = path.endsWith("/jobs/notifications.ts") ? { enqueueMany: "notifications.enqueueMany" } : {};
 			function walk(n) {
 				if (ts.isReturnStatement(n) && n.expression) {
 					let ancestor = n.parent;
@@ -237,10 +247,13 @@ registerHooks({
 				"/packages/domain/src/teams/responsibilities/reads.ts": { responsibilityReader: "teams" },
 				"/packages/domain/src/documents/reads.ts": { documentsReader: "documents" },
 				"/packages/domain/src/documents/writes.ts": { documentsWriter: "documents" },
+				"/packages/domain/src/branding/reads.ts": { brandReader: "brand" },
+				"/packages/domain/src/branding/writes.ts": { brandWriter: "brand" },
 				"/packages/domain/src/teams/responsibilities/writes.ts": { responsibilityWriter: "teams" },
 				"/packages/domain/src/teams/training/commands.ts": { trainingWriter: "teams" },
 				"/packages/domain/src/teams/training/reads.ts": { trainingReader: "teams" },
-				"/packages/domain/src/teams/roster.ts": { rosterWriter: "meetings" },
+				"/packages/domain/src/meetings/roster.ts": { rosterWriter: "meetings" },
+				"/packages/domain/src/phases/reads.ts": { phaseReader: "phases" },
 			};
 			for (const [name, prefix] of Object.entries(objects[path.slice(root.length)] ?? {}))
 				source += `\nglobalThis.__evfWriteCounts.decorate(${JSON.stringify(prefix)},${name});`;

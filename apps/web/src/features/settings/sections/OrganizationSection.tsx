@@ -1,6 +1,7 @@
 "use client";
 
 import { normalizedEmail } from "@everyfield/contracts/identity";
+import { STATEMENT_OF_FAITH_MAX } from "@everyfield/contracts/organizations";
 import { Button, Field, Input, Skeleton, StatePanel, Textarea } from "@everyfield/ui/controls";
 import { LoadableView } from "@everyfield/ui/display";
 import { useState } from "react";
@@ -12,11 +13,17 @@ import { zoneLabel } from "../time";
 
 type Organization = Extract<SectionResult, { section: "organization" }>;
 type Available = Extract<Organization["values"], { status: "available" }>;
-type Form = Record<
-	"name" | "city" | "stateProvince" | "country" | "description" | "contactEmail" | "contactPhone",
-	string
->;
-const FIELDS = ["name", "city", "stateProvince", "country", "description", "contactEmail", "contactPhone"] as const;
+const FIELDS = [
+	"name",
+	"city",
+	"stateProvince",
+	"country",
+	"description",
+	"contactEmail",
+	"contactPhone",
+	"statementOfFaith",
+] as const;
+type Form = Record<(typeof FIELDS)[number], string>;
 const LIMIT: Record<keyof Form, number> = {
 	name: 200,
 	city: 200,
@@ -25,13 +32,14 @@ const LIMIT: Record<keyof Form, number> = {
 	description: 5000,
 	contactEmail: 320,
 	contactPhone: 50,
+	statementOfFaith: STATEMENT_OF_FAITH_MAX,
 };
 
 function formOf(values: Available): Form {
 	return Object.fromEntries(FIELDS.map((k) => [k, values.profile[k] ?? ""])) as Form;
 }
 
-export function validateOrganization(form: Form): Partial<Record<keyof Form, string>> {
+function validateOrganization(form: Form): Partial<Record<keyof Form, string>> {
 	const errors: Partial<Record<keyof Form, string>> = {};
 	if (!form.name.trim()) errors.name = "Enter the organization's name.";
 	for (const k of FIELDS)
@@ -43,7 +51,8 @@ export function validateOrganization(form: Form): Partial<Record<keyof Form, str
 
 /**
  * The organization profile for a sending church or network (REQ-IDN-026): its own Owner or Admin edits name,
- * locality, description and contact. The kind and identity are not editable here, and nothing here transfers or
+ * locality, description and contact. A network also writes its statement of faith, which fills the doctrinal section
+ * of Church Documents its churches create from a template (DOC-020, D-107). The kind and identity are not editable here, and nothing here transfers or
  * deletes the organization.
  */
 export function OrganizationSection() {
@@ -177,6 +186,21 @@ function OrganizationForm({
 						</Field>
 					</div>
 				</SettingRow>
+				{values.organization.organizationKind === "sending_network" ? (
+					<SettingRow
+						label="Statement of faith"
+						description="Optional. It fills the doctrinal section of new documents your churches create."
+					>
+						<Field label={<span className="sr-only">Statement of faith</span>} error={visible.statementOfFaith}>
+							<Textarea
+								value={draft.statementOfFaith}
+								onChange={set("statementOfFaith")}
+								rows={8}
+								invalid={Boolean(visible.statementOfFaith)}
+							/>
+						</Field>
+					</SettingRow>
+				) : null}
 				<SettingRow label="Time zone">
 					<span className="font-medium text-ink">{zoneLabel(values.timeZone)}</span>
 				</SettingRow>

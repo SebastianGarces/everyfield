@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Template. The README's install step replaces __NODE__ and __HOME__ and writes the result to
+     ~/Library/LaunchAgents/com.everyfield.actionable-watch.plist. One poll per run; launchd owns cadence. -->
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.everyfield.actionable-watch</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>__NODE__</string>
+		<string>__HOME__/Library/Application Support/everyfield-actionable-watch/app/run.mts</string>
+		<string>--transport</string>
+		<string>dry-run</string>
+	</array>
+	<key>WorkingDirectory</key>
+	<string>__HOME__/Library/Application Support/everyfield-actionable-watch/app</string>
+	<key>StartInterval</key>
+	<integer>90</integer>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>ProcessType</key>
+	<string>Background</string>
+	<key>LowPriorityIO</key>
+	<true/>
+	<key>StandardOutPath</key>
+	<string>__HOME__/Library/Logs/everyfield-actionable-watch/launchd.log</string>
+	<key>StandardErrorPath</key>
+	<string>__HOME__/Library/Logs/everyfield-actionable-watch/launchd.log</string>
+</dict>
+</plist>

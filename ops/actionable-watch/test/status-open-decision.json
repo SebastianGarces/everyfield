@@ -1,0 +1,412 @@
+{
+	"agents": [
+		{
+			"decision": 900,
+			"kind": "question",
+			"label": "",
+			"open_decisions": 1,
+			"since": 1794151835094,
+			"state": "needs_you",
+			"task": 100,
+			"title": ""
+		},
+		{
+			"hold": null,
+			"hold_by": null,
+			"label": "",
+			"lifecycle": "landed",
+			"part": null,
+			"phase": "landed",
+			"run": null,
+			"since": 1794143567937,
+			"state": "done",
+			"step": null,
+			"task": 101,
+			"title": "",
+			"wait": null
+		},
+		{
+			"hold": "",
+			"hold_by": "",
+			"label": "",
+			"lifecycle": "open",
+			"part": null,
+			"phase": "held",
+			"run": null,
+			"since": 1794004652698,
+			"state": "stopped",
+			"step": null,
+			"task": 102,
+			"title": "",
+			"wait": ""
+		}
+	],
+	"audit": [
+		{
+			"action": "spec_stored",
+			"actor": "",
+			"at": 1794151258320,
+			"channel": "",
+			"decision_id": null,
+			"detail": "",
+			"hash": "",
+			"prev_hash": "",
+			"seq": 184,
+			"subject": null,
+			"task_id": 76,
+			"words": null
+		},
+		{
+			"action": "decision_answered",
+			"actor": "",
+			"at": 1794151126247,
+			"channel": "",
+			"decision_id": 53,
+			"detail": "",
+			"hash": "",
+			"prev_hash": "",
+			"seq": 183,
+			"subject": null,
+			"task_id": 76,
+			"words": ""
+		},
+		{
+			"action": "note_added",
+			"actor": "",
+			"at": 1794147442043,
+			"channel": "",
+			"decision_id": null,
+			"detail": "",
+			"hash": "",
+			"prev_hash": "",
+			"seq": 182,
+			"subject": null,
+			"task_id": 76,
+			"words": ""
+		}
+	],
+	"budget": {
+		"cores": 12,
+		"max_load": 24,
+		"min_free_mem_pct": 15,
+		"previews": {
+			"max": 4,
+			"used": 0
+		},
+		"seats": {
+			"max": 8,
+			"used": 1
+		},
+		"slots": {
+			"max": 2,
+			"used": 0
+		}
+	},
+	"checks": [],
+	"decisions": [
+		{
+			"allow_words": true,
+			"asked_at": 1794151835094,
+			"asked_by": "",
+			"blocks": 1,
+			"checks": [],
+			"ci": {
+				"state": "unknown"
+			},
+			"context": "",
+			"criteria": [
+				{
+					"evidence": null,
+					"n": 1,
+					"proof_by": null,
+					"settle": {
+						"type": "verifier",
+						"value": ""
+					},
+					"status": null,
+					"text": ""
+				}
+			],
+			"diff_lines": 1048,
+			"gate": null,
+			"goal": "",
+			"head": "",
+			"id": 900,
+			"kind": "question",
+			"label": "",
+			"options": [
+				{
+					"effect": {
+						"type": "answer"
+					},
+					"key": "",
+					"label": "",
+					"needs_words": false,
+					"recommended": true,
+					"send": null,
+					"why": ""
+				}
+			],
+			"options_by": "",
+			"paths": [""],
+			"pr_number": null,
+			"pr_url": null,
+			"question": "",
+			"round": 0,
+			"state": "open",
+			"subject": null,
+			"task": 100,
+			"title": "",
+			"urgent": false
+		}
+	],
+	"grants": [],
+	"heartbeat": 1794151834013,
+	"machine": {
+		"at": 1794151824362,
+		"free_mem_pct": 57,
+		"load1": 1.87158203125,
+		"swap_used_gb": 9.585751953125
+	},
+	"now": 1794151835106,
+	"paused": null,
+	"recent_answers": [
+		{
+			"actor": "",
+			"answered_at": 1794151126247,
+			"can_revoke": false,
+			"channel": "",
+			"id": 901,
+			"kind": "question",
+			"option": "",
+			"question": "",
+			"task": 100,
+			"title": "",
+			"words": ""
+		},
+		{
+			"actor": "",
+			"answered_at": 1794143274013,
+			"can_revoke": false,
+			"channel": "",
+			"id": 902,
+			"kind": "approval",
+			"option": "",
+			"question": "",
+			"task": 101,
+			"title": "",
+			"words": null
+		}
+	],
+	"rulings": [
+		{
+			"allow_words": true,
+			"asked_at": 1794151769483,
+			"asked_by": "",
+			"blocks": 1,
+			"ci": {
+				"state": "unknown"
+			},
+			"context": "",
+			"diff_lines": 1048,
+			"gate": null,
+			"head": "",
+			"id": 903,
+			"kind": "ruling",
+			"label": "",
+			"options": [
+				{
+					"effect": {
+						"type": "accept"
+					},
+					"key": "",
+					"label": "",
+					"needs_words": false,
+					"recommended": false,
+					"send": null,
+					"why": null
+				}
+			],
+			"options_by": "",
+			"paths": [""],
+			"pr_number": null,
+			"pr_url": null,
+			"question": "",
+			"round": 0,
+			"state": "open",
+			"subject": null,
+			"task": 100,
+			"title": "",
+			"urgent": false
+		},
+		{
+			"allow_words": true,
+			"asked_at": 1794123195394,
+			"asked_by": "",
+			"blocks": 0,
+			"ci": {
+				"state": "green"
+			},
+			"context": "",
+			"diff_lines": 1465,
+			"gate": null,
+			"head": "",
+			"id": 904,
+			"kind": "ruling",
+			"label": "",
+			"options": [
+				{
+					"effect": {
+						"type": "accept"
+					},
+					"key": "",
+					"label": "",
+					"needs_words": false,
+					"recommended": false,
+					"send": null,
+					"why": null
+				}
+			],
+			"options_by": "",
+			"paths": [""],
+			"pr_number": 510,
+			"pr_url": "",
+			"question": "",
+			"round": 0,
+			"state": "open",
+			"subject": null,
+			"task": 101,
+			"title": "",
+			"urgent": false
+		},
+		{
+			"allow_words": true,
+			"asked_at": 1793969587979,
+			"asked_by": "",
+			"blocks": 0,
+			"ci": {
+				"state": "green"
+			},
+			"context": "",
+			"diff_lines": 238,
+			"gate": null,
+			"head": "",
+			"id": 905,
+			"kind": "ruling",
+			"label": null,
+			"options": [
+				{
+					"effect": {
+						"type": "accept"
+					},
+					"key": "",
+					"label": "",
+					"needs_words": false,
+					"recommended": false,
+					"send": null,
+					"why": null
+				}
+			],
+			"options_by": "",
+			"paths": [""],
+			"pr_number": 484,
+			"pr_url": "",
+			"question": "",
+			"round": 2,
+			"state": "open",
+			"subject": null,
+			"task": 103,
+			"title": "",
+			"urgent": false
+		}
+	],
+	"seats": [
+		{
+			"activity": "",
+			"activity_at": 1794151819274,
+			"cache_read": null,
+			"cost": null,
+			"doing": "",
+			"effort": "medium",
+			"instance": 0,
+			"label": "",
+			"live": true,
+			"model": "",
+			"pane": "",
+			"parked_on": 500,
+			"role": "implementer",
+			"round": 0,
+			"run": 501,
+			"session": "",
+			"started_at": 1794151265897,
+			"step": "implement",
+			"task": 100,
+			"title": "",
+			"tokens_in": null,
+			"tokens_out": null,
+			"turn": 1,
+			"turn_started_at": 1794151267528
+		}
+	],
+	"tasks": [
+		{
+			"blocks": 1,
+			"created_at": 1794122050853,
+			"hold": null,
+			"hold_by": null,
+			"id": 100,
+			"label": "",
+			"landed_sha": null,
+			"lifecycle": "open",
+			"phase": "running",
+			"pr_number": null,
+			"pr_url": null,
+			"priority": 0,
+			"round": 0,
+			"title": "",
+			"updated_at": 1794151777897,
+			"wait": "",
+			"workflow": "implement"
+		},
+		{
+			"blocks": 1,
+			"created_at": 1794004652698,
+			"hold": "",
+			"hold_by": "",
+			"id": 102,
+			"label": "",
+			"landed_sha": null,
+			"lifecycle": "open",
+			"phase": "held",
+			"pr_number": null,
+			"pr_url": null,
+			"priority": 0,
+			"round": 0,
+			"title": "",
+			"updated_at": 1794004652698,
+			"wait": "",
+			"workflow": "implement"
+		},
+		{
+			"blocks": 0,
+			"created_at": 1794121983818,
+			"hold": null,
+			"hold_by": null,
+			"id": 101,
+			"label": "",
+			"landed_sha": "",
+			"lifecycle": "landed",
+			"phase": "landed",
+			"pr_number": 510,
+			"pr_url": "",
+			"priority": 0,
+			"round": 0,
+			"title": "",
+			"updated_at": 1794143567937,
+			"wait": null,
+			"workflow": "implement"
+		}
+	],
+	"tick_error": null,
+	"tick_error_at": null
+}

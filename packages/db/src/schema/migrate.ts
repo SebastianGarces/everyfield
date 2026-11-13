@@ -25,6 +25,21 @@ async function locked<T>(db: Database, schema: string, body: (tx: Transaction) =
 		return body(tx);
 	});
 }
+/**
+ * Reviewed replacements of landed migrations: a file name and the earlier bytes (sha256) some databases applied. A
+ * ledger row holding one of these still names its file, so the database migrates on with no checksum conflict.
+ * 20261112031340 lost its backfill, which failed on PostgreSQL 18 with a plain-text body; 20261112073258 now runs it
+ * with a function that database can apply (T-275).
+ */
+const replacedBytes: Readonly<Record<string, readonly string[]>> = {
+	"20261112031340_article_revision_search_vector.sql": [
+		"fd8e4e477a59a07aabde0e851106e9ff636bd4e6c5d22b05b357225b38eb9b97",
+	],
+};
+/** Whether a ledger row's bytes are its file's current bytes or a reviewed earlier version of them. */
+function ledgerMatches(sha256: string | undefined, name: string, file: string | undefined): boolean {
+	return file !== undefined && (sha256 === file || (replacedBytes[name]?.includes(sha256 ?? "") ?? false));
+}
 export async function migrationArtifact() {
 	return (await migrations()).map(({ name, sha256 }) => ({ name, sha256 }));
 }
@@ -49,7 +64,10 @@ export async function migrate(db: Database, schema = "public", directory?: URL):
 			.from(schema_migration);
 		const byName = new Map(files.map((file) => [file.name, file]));
 		for (const row of old)
-			if (byName.get(row.name)?.sha256 !== row.sha256 || !["original", "adopted"].includes(row.provenance))
+			if (
+				!ledgerMatches(row.sha256, row.name, byName.get(row.name)?.sha256) ||
+				!["original", "adopted"].includes(row.provenance)
+			)
 				throw Error("migration_checksum_conflict");
 		const done = new Set(old.map((row) => row.name));
 		const applied: string[] = [];
@@ -143,7 +161,9 @@ export async function inspectMigrationProvenance(db: Database, schema = "public"
 	);
 	const byName = new Map(artifact.map((file) => [file.name, file.sha256]));
 	const coherent = result.rows.every(
-		(row) => byName.get(row.name) === row.sha256 && ["original", "adopted"].includes(row.provenance ?? ""),
+		(row) =>
+			ledgerMatches(row.sha256, row.name, byName.get(row.name)) &&
+			["original", "adopted"].includes(row.provenance ?? ""),
 	);
 	return {
 		state: !proven

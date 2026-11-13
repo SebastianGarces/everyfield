@@ -2,12 +2,12 @@ import { sameOwner, type Owner } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/identity";
 import type { AccountPersonProducer } from "@everyfield/contracts/people";
 import type { Database, Transaction } from "@everyfield/db/client";
-import { and, asc, eq, getTableColumns, gt, isNull, or, sql } from "@everyfield/db/query";
+import { and, eq, gt, isNull, or, sql, type SQL } from "@everyfield/db/query";
 import * as t from "@everyfield/db/tables";
 import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
-import { RequestActor } from "../access/session.ts";
+import { liveAccess, liveRead, liveRows, RequestActor } from "../access/session.ts";
 import { timedTransaction, timeouts, transaction } from "./budget.ts";
 import { lastWrite } from "../operations/writes.ts";
 import * as d from "./invitation-core.ts";
@@ -27,6 +27,11 @@ export interface InvitationConfig {
 	origin: string;
 	budgetSecret: string;
 	enqueueMail(tx: Transaction, input: InvitationMail, command: d.Command): Promise<string>;
+	/**
+	 * A boolean SQL expression: mail to this address is blocked after an earlier bounce or complaint. The invite's
+	 * budget statement reads it, so a blocked invite reserves and sends nothing at no extra statement.
+	 */
+	addressBlocked(email: string): SQL;
 	people: Pick<AccountPersonProducer<Transaction>, "ensureAccountPerson">;
 }
 const sourceRow = z.object({
@@ -37,6 +42,31 @@ const sourceRow = z.object({
 	revision: z.string(),
 	state: z.string(),
 });
+const listRow = z.object({
+	id: z.uuid(),
+	purpose: z.enum(["seat", "residency_link"]),
+	role: z.enum(["admin", "member"]).nullable(),
+	resident_person_id: z.uuid().nullable(),
+	revision: z.string(),
+	inviter_description: z.string(),
+	recipient_email: z.string(),
+	created_at: z.coerce.date(),
+	resent_at: z.coerce.date().nullable(),
+	workspace_name: z.string().nullable(),
+});
+/** The fields a pending invitation's description reads. */
+type Listed = Pick<
+	d.Invitation,
+	| "id"
+	| "purpose"
+	| "role"
+	| "resident_person_id"
+	| "revision"
+	| "inviter_description"
+	| "recipient_email"
+	| "created_at"
+	| "resent_at"
+>;
 const heldRow = z.object({ seats: z.number().int(), links: z.number().int() });
 export function createInvitationService(config: InvitationConfig) {
 	const origin = new URL(config.origin).origin;
@@ -49,7 +79,7 @@ export function createInvitationService(config: InvitationConfig) {
 		const { selected, name } = await d.workspace(tx, i.tenant_id);
 		return pendingOf(i, selected, name);
 	}
-	function pendingOf(i: d.Invitation, selected: Owner, name: string | null) {
+	function pendingOf(i: Listed, selected: Owner, name: string | null) {
 		return c.pendingInvitation.parse({
 			status: "pending",
 			invitationId: i.id,
@@ -122,16 +152,19 @@ export function createInvitationService(config: InvitationConfig) {
  expired AS (UPDATE invitation SET state='expired',revision=revision+1 FROM clock WHERE tenant_id=${selected.id}::uuid AND recipient_email=${email} AND state='pending' AND created_at<=clock.at-interval '720 hours' RETURNING 1),
  budget AS MATERIALIZED (SELECT count(*)::int AS n,min(reserved_at)+interval '720 hours' AS retry FROM admission_attempt,clock WHERE kind=${kind} AND workspace_key=${selected.id} AND identifier_hash=${h} AND reserved_at>clock.at-interval '720 hours'),
  duplicate AS MATERIALIZED (SELECT EXISTS(SELECT FROM invitation,clock WHERE tenant_id=${selected.id}::uuid AND recipient_email=${email} AND state='pending' AND created_at>clock.at-interval '720 hours') AS found),
- reserved AS (INSERT INTO admission_attempt(kind,identifier_hash,workspace_key,reserved_at,state,expires_at) SELECT ${kind},${h},${selected.id},clock.at,'counted',clock.at+interval '720 hours' FROM clock,budget,duplicate WHERE budget.n<3 AND NOT duplicate.found RETURNING 1)
- SELECT budget.n,budget.retry,duplicate.found,(SELECT count(*)::int FROM reserved) AS reserved FROM budget,duplicate`);
+ blocked AS MATERIALIZED (SELECT ${config.addressBlocked(email)} AS found),
+ reserved AS (INSERT INTO admission_attempt(kind,identifier_hash,workspace_key,reserved_at,state,expires_at) SELECT ${kind},${h},${selected.id},clock.at,'counted',clock.at+interval '720 hours' FROM clock,budget,duplicate,blocked WHERE budget.n<3 AND NOT duplicate.found AND NOT blocked.found RETURNING 1)
+ SELECT budget.n,budget.retry,duplicate.found,blocked.found AS blocked,(SELECT count(*)::int FROM reserved) AS reserved FROM budget,duplicate,blocked`);
 		const row = z
 			.object({
 				n: z.number().int(),
 				retry: z.coerce.date().nullable(),
 				found: z.boolean(),
+				blocked: z.boolean(),
 				reserved: z.number().int(),
 			})
 			.parse(result.rows[0]);
+		if (row.blocked) d.refuse("address_blocked");
 		if (row.n >= 3) d.refuse("invitation_rate_limited", z.date().parse(row.retry).toISOString());
 		if (row.found || row.reserved !== 1) d.refuse();
 	}
@@ -143,7 +176,8 @@ export function createInvitationService(config: InvitationConfig) {
 			const inviter = bound.principal;
 			const cmd = await d.begin(tx, selected, a.accountId, resident ? "residency.invite" : "seats.invite", v);
 			if (cmd.kind === "replay") return c.invitationSentResult.parse(cmd.result);
-			if (v.expectedRevision !== (bound.plant?.revision ?? bound.organization?.revision)) d.refuse();
+			// The workspace changed since the page read its revision: the page reloads, unlike a duplicate invitation.
+			if (v.expectedRevision !== (bound.plant?.revision ?? bound.organization?.revision)) d.refuse("conflict");
 			if ("personId" in v.input && (await activePerson(tx, selected.id, v.input.personId)).linked_account_id)
 				d.refuse();
 			await charge(tx, selected, v.input.recipientEmail, resident ? "relationship_invite" : "seat_invite");
@@ -179,22 +213,22 @@ export function createInvitationService(config: InvitationConfig) {
 			a = authority.actor;
 		if (a.context.kind !== "seat" || a.context.role === "member" || !sameOwner(a.context.owner, v.workspace))
 			d.refuse();
-		const rows = await config.db
-			.select({ ...getTableColumns(t.invitation), workspace_name: sql<string | null>`coalesce(p.name, o.name)` })
-			.from(t.invitation)
-			.leftJoin(sql`plant p`, sql`p.id=${t.invitation.tenant_id}`)
-			.leftJoin(sql`organization o`, sql`o.id=${t.invitation.tenant_id}`)
-			.where(
-				and(
-					eq(t.invitation.tenant_id, v.workspace.id),
-					or(eq(t.invitation.purpose, "seat"), eq(t.invitation.purpose, "residency_link")),
-					eq(t.invitation.state, "pending"),
-					gt(t.invitation.created_at, sql`clock_timestamp()-interval '720 hours'`),
-					v.after ? gt(t.invitation.id, v.after) : undefined,
-				),
-			)
-			.orderBy(asc(t.invitation.id))
-			.limit(101);
+		// The caller must still hold an Owner or Admin seat here when the list is read, in the same statement (C13).
+		const found = await liveRows(
+			config.db,
+			liveRead(liveAccess(authority), true),
+			sql`SELECT i.id, i.purpose, i.role, i.resident_person_id, i.revision::text AS revision, i.inviter_description,
+ i.recipient_email, i.created_at, i.resent_at, coalesce(p.name, o.name) AS workspace_name
+ FROM invitation i LEFT JOIN plant p ON p.id=i.tenant_id LEFT JOIN organization o ON o.id=i.tenant_id
+ WHERE i.tenant_id=${v.workspace.id}::uuid AND i.purpose IN ('seat','residency_link') AND i.state='pending'
+ AND i.created_at>clock_timestamp()-interval '720 hours' ${v.after ? sql`AND i.id>${v.after}::uuid` : sql``}
+ ORDER BY i.id LIMIT 101`,
+		);
+		if (!found) d.refuse();
+		const rows = listRow
+			.array()
+			.parse(found)
+			.sort((x, y) => (x.id < y.id ? -1 : 1));
 		const items = rows.slice(0, 100).map(({ workspace_name, ...i }) => pendingOf(i, v.workspace, workspace_name));
 		return c.invitationListResult.parse({
 			workspace: v.workspace,
@@ -544,7 +578,7 @@ export function createInvitationService(config: InvitationConfig) {
 					or(eq(t.invitation.purpose, "seat"), eq(t.invitation.purpose, "residency_link")),
 				),
 			);
-		return !!i && (await describe({ proof })).status === "pending";
+		return !!i;
 	}
 	async function resume(session: string, proof: string, requestKey: string) {
 		return accept(session, undefined, false, { proof, requestKey });

@@ -1,17 +1,19 @@
 import { sendOnboardingRelationships } from "../jobs/notifications";
 import "server-only";
 import { z } from "zod";
+import { mailEnv } from "../mail-env.ts";
 import type { Database } from "@everyfield/db/client";
 import { database } from "../database";
 import * as c from "@everyfield/contracts/onboarding";
 import type { OnboardingWriteContext } from "@everyfield/contracts/onboarding/server";
 import { createOnboardingProducer, withOnboardingWrite, readOnboardingEntry } from "@everyfield/domain/onboarding";
 import { getViewer } from "../request-context";
-import { createMailService } from "../jobs/mail";
+import { createMailService, MAIL_PASSES, runDueMail, type MailPass, type MailTransport } from "../jobs/mail";
 
 // The onboarding mount (WP-009/ui R2). The screens reach it only through the server actions in
 // features/onboarding/actions.ts. The session comes from the identity mount, the plant from the seat service, and
-// every write goes through the WP-009/api producer in one transaction. Mail is enqueued only; WP-031 dispatches.
+// every write goes through the WP-009/api producer in one transaction. Writes queue mail; the scheduled runner sends
+// it with onboardingMailPass.
 
 export type Op = "createPlant" | "createDiscovery" | "convertDiscovery" | "declareJourney" | "answerLead" | "complete";
 type Reply = { status: "ok"; value: unknown } | { status: "refused"; error: z.infer<typeof c.onboardingError> };
@@ -19,16 +21,12 @@ type Reply = { status: "ok"; value: unknown } | { status: "refused"; error: z.in
 const env = z.object({
 	IDENTITY_DATABASE_URL: z.string().min(1),
 	IDENTITY_ORIGIN: z.url(),
-	IDENTITY_MAIL_KEY: z.string().regex(/^[a-f0-9]{64}$/),
-	IDENTITY_ADDRESS_KEY: z.string().regex(/^[a-f0-9]{64}$/),
-	IDENTITY_MAIL_FROM: z.email(),
+	...mailEnv,
 });
 
-let mount: ReturnType<typeof create> | undefined;
-function create(v: z.infer<typeof env>) {
-	const db: Database = database(v.IDENTITY_DATABASE_URL);
-	const mail = createMailService({
-		db,
+function onboardingMail(v: z.infer<typeof env>, transport?: MailTransport) {
+	return createMailService({
+		db: database(v.IDENTITY_DATABASE_URL),
 		encryptionKey: Buffer.from(v.IDENTITY_MAIL_KEY, "hex"),
 		addressKey: Buffer.from(v.IDENTITY_ADDRESS_KEY, "hex"),
 		from: v.IDENTITY_MAIL_FROM,
@@ -42,21 +40,32 @@ function create(v: z.infer<typeof env>) {
 					)
 					.map((m) => m.id),
 			),
-		transport: {
-			async send() {
-				return { kind: "refused", retryable: true };
-			},
-			async lookup() {
-				return { kind: "unknown" };
-			},
-		},
+		transport,
 	});
+}
+
+/**
+ * The scheduled runner's onboarding mail pass: one bounded batch of this mount's due mail through `transport`, each
+ * rechecked under the mount's own rule. Null when the deployment has no configuration for this mount.
+ */
+export function onboardingMailPass(transport: MailTransport): MailPass | null {
+	const v = env.safeParse(process.env);
+	if (!v.success) return null;
+	const db = database(v.data.IDENTITY_DATABASE_URL),
+		mail = onboardingMail(v.data, transport);
+	return (limit, until) => runDueMail(db, mail, MAIL_PASSES.onboarding, limit, until);
+}
+
+let mount: ReturnType<typeof create> | undefined;
+function create(v: z.infer<typeof env>) {
+	const db: Database = database(v.IDENTITY_DATABASE_URL);
+	const mail = onboardingMail(v);
 	const producer = createOnboardingProducer({
 		relationships: async (tx, inputs) => {
 			await sendOnboardingRelationships(tx, inputs, mail);
 		},
 		async enqueue(tx, input, command) {
-			mail.append(
+			await mail.append(
 				tx,
 				{
 					owner: { kind: "account", id: input.accountId },
@@ -81,17 +90,16 @@ function create(v: z.infer<typeof env>) {
 	});
 	return { db, producer, origin: v.IDENTITY_ORIGIN };
 }
-function current() {
+/** The onboarding producer and its database; null when the deployment has no identity or mail configuration. */
+export function onboardingMount() {
 	const v = env.safeParse(process.env);
 	if (!v.success) return null;
 	mount ??= create(v.data);
 	return mount;
 }
 
-export type { RawEntry } from "@everyfield/domain/onboarding";
-
 export async function onboardingEntry() {
-	const m = current();
+	const m = onboardingMount();
 	if (!m) return { kind: "elsewhere", reason: "unavailable" } as const;
 	const session = await getViewer();
 	if (!session) return { kind: "elsewhere", reason: "unavailable" } as const;
@@ -105,7 +113,7 @@ const refusal = (code: "unavailable" | "invalid_input"): Reply => ({
 
 /** Run one onboarding command for the signed-in account. Input is parsed here; the producer rechecks every authority. */
 export async function onboardingCommand(op: Op, input: unknown): Promise<Reply> {
-	const m = current();
+	const m = onboardingMount();
 	if (!m) return refusal("unavailable");
 	const s = await getViewer();
 	if (!s || s.status === "unauthenticated") return refusal("unavailable");

@@ -2,23 +2,19 @@
 
 import { createContext, useContext, useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
 import {
-	begin,
+	addressStep,
 	editDrafts,
 	initialState,
-	needsReload,
 	parseStep,
-	reload,
 	setView,
-	settle,
 	type Drafts,
 	type Entry,
 	type Hold,
 	type Op,
-	type Settled,
 	type State,
 	type StepKey,
 } from "./model";
-import type { OnboardingPort } from "./port";
+import { refreshEntry, runCommand, type OnboardingPort } from "./port";
 
 // The onboarding store (WP-009/ui R6). It owns the one command on the wire, so a reply lands in the store even if
 // the step that sent it is gone, and facts change only from the server's reply (model.ts settle). The view follows
@@ -56,10 +52,12 @@ export type Actions = {
 const Context = createContext<{ store: Store; actions: Actions } | null>(null);
 
 const STEP_PARAM = "step";
-function writeStep(view: StepKey, mode: "push" | "replace") {
+function writeStep(state: State, mode: "push" | "replace") {
 	const url = new URL(window.location.href);
-	if (url.searchParams.get(STEP_PARAM) === view) return;
-	url.searchParams.set(STEP_PARAM, view);
+	const step = addressStep(state);
+	if (url.searchParams.get(STEP_PARAM) === step) return;
+	if (step) url.searchParams.set(STEP_PARAM, step);
+	else url.searchParams.delete(STEP_PARAM);
 	window.history[mode === "push" ? "pushState" : "replaceState"](null, "", url);
 }
 
@@ -81,42 +79,25 @@ export function OnboardingProvider({
 	const [store] = useState(() => createStore(initialState(entry, step)));
 
 	const actions = useMemo<Actions>(() => {
-		async function fresh(): Promise<Entry | null> {
-			const load = await port.entry();
-			if (load.kind === "signed_out") {
-				signIn();
-				return null;
-			}
-			return load.entry;
-		}
 		return {
 			go(view) {
 				store.set(setView(store.get(), view));
-				writeStep(store.get().view, "push");
+				writeStep(store.get(), "push");
 			},
 			edit(patch) {
 				store.set(editDrafts(store.get(), patch));
 			},
 			async run(op, input) {
-				const started = begin(store.get(), op, input, () => crypto.randomUUID());
-				if ("hold" in started) return started.hold;
-				store.set(started.state);
-				const reply = await port.command(op, started.send);
-				const settled = { op, reply } as Settled;
-				const entry = needsReload(settled) ? await fresh() : null;
-				store.set(settle(store.get(), settled, entry));
-				writeStep(store.get().view, "replace");
-				return reply.status;
+				const result = await runCommand(port, store, op, input, () => crypto.randomUUID(), signIn);
+				if (result === "ok" || result === "refused") writeStep(store.get(), "replace");
+				return result;
 			},
-			async refresh() {
-				const entry = await fresh();
-				if (entry) store.set(reload(store.get(), entry));
-			},
+			refresh: () => refreshEntry(port, store, signIn),
 		};
 	}, [port, signIn, store]);
 
 	useEffect(() => {
-		writeStep(store.get().view, "replace");
+		writeStep(store.get(), "replace");
 		const back = () =>
 			store.set(
 				setView(store.get(), parseStep(new URL(window.location.href).searchParams.get(STEP_PARAM)) ?? "church"),
