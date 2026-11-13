@@ -36,6 +36,11 @@ Use this template for writing the PR body:
 
 Skip all preambles and keep prose brief. Use the user's domain language from `GLOSSARY.md`.
 
+The repository is public. When the PR fixes or touches an unfixed security weakness, the Summary, Evidence and
+Merge Danger never describe it in detail: leave out the affected route, field or input, how to trigger it, what it
+exposes and any reproducing test or output. Say "fixes a weakness tracked in T-NNN" and keep the detail in the evf
+task. The same rule holds for commit messages and committed docs (`AGENTS.md`).
+
 ### Summary
 
 Pick the smallest view that makes the key point clear.

@@ -34,7 +34,7 @@ export function referenceTeamKey(templateKey: string | null): string | null {
 }
 
 /** Same split as docs/reference/ministry-role-templates.ts playbookResponsibilities. */
-export function playbookLines(description: string | null): PlaybookLine[] {
+function playbookLines(description: string | null): PlaybookLine[] {
 	if (!description) return [];
 	return description
 		.split(",")
@@ -52,12 +52,12 @@ export async function linesForTemplate(templateKey: string | null): Promise<Play
 	return playbookLines((await playbookTeam(referenceKey)).description);
 }
 
-export function catalogSha(): Promise<string> {
+function catalogSha(): Promise<string> {
 	return referenceArtifactSha256();
 }
 
 /** The caller selects from team t. The CASE reads t.template_key. */
-export function referenceKeySql(): SQL {
+function referenceKeySql(): SQL {
 	const arms = Object.entries(REFERENCE_TEAM_KEY).map(
 		([templateKey, referenceKey]) => sql`WHEN ${templateKey} THEN ${referenceKey}`,
 	);

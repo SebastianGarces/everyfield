@@ -4,21 +4,28 @@ import { Search01Icon } from "@hugeicons/core-free-icons";
 import { createContext, use, useId, type ComponentPropsWithRef, type ReactNode } from "react";
 import { cn, Icon, type IconSvgElement } from "../foundations";
 
-type FieldState = { id: string; describedBy: string | undefined; invalid: boolean };
+type FieldState = { id: string; labelId: string; describedBy: string | undefined; invalid: boolean };
 const FieldContext = createContext<FieldState | null>(null);
 
 /**
  * The props a control spreads to join its Field: id (the label's target), aria-describedby (hint and error) and
  * aria-invalid. Outside a Field it returns only what the caller passed.
+ *
+ * A button-style trigger (Combobox, Select) passes `trigger: true`. A browser forwards a click on a label to the
+ * control it targets, so a label targeting a trigger would open it, or close and reopen it. The trigger keeps the
+ * label as its name through aria-labelledby and does not take the label's target id.
  */
 export function useFieldControl(props: {
 	id?: string;
 	"aria-describedby"?: string;
 	"aria-invalid"?: ComponentPropsWithRef<"input">["aria-invalid"];
+	trigger?: boolean;
+	"aria-label"?: string;
 }) {
 	const field = use(FieldContext);
 	return {
-		id: props.id ?? field?.id,
+		id: props.id ?? (props.trigger ? undefined : field?.id),
+		"aria-labelledby": props.trigger && field && !props["aria-label"] ? field.labelId : undefined,
 		"aria-describedby": [field?.describedBy, props["aria-describedby"]].filter(Boolean).join(" ") || undefined,
 		"aria-invalid": props["aria-invalid"] ?? (field?.invalid || undefined),
 	};
@@ -42,14 +49,20 @@ type FieldProps = {
  */
 export function Field({ label, hint, error, optional, children, className }: FieldProps) {
 	const id = useId();
+	const labelId = `${id}-label`;
 	const hintId = hint ? `${id}-hint` : undefined;
 	const errorId = error ? `${id}-error` : undefined;
 	return (
 		<FieldContext
-			value={{ id, describedBy: [errorId, hintId].filter(Boolean).join(" ") || undefined, invalid: Boolean(error) }}
+			value={{
+				id,
+				labelId,
+				describedBy: [errorId, hintId].filter(Boolean).join(" ") || undefined,
+				invalid: Boolean(error),
+			}}
 		>
 			<div className={cn("flex min-w-0 flex-col gap-1.5", className)}>
-				<label htmlFor={id} className="text-sm font-medium text-ink-2">
+				<label id={labelId} htmlFor={id} className="text-sm font-medium text-ink-2">
 					{label}
 					{optional ? <span className="font-normal text-text-3"> · Optional</span> : null}
 				</label>
@@ -73,9 +86,9 @@ export function Field({ label, hint, error, optional, children, className }: Fie
 
 /** The input box look, shared by Input, the Select trigger and the Combobox trigger. */
 export const inputBox =
-	"flex h-11 w-full min-w-0 items-center gap-2.5 rounded-md bg-surface-raised px-3.5 text-md text-ink shadow-[0_0_0_1px_var(--ef-line-2)] transition-[box-shadow] duration-150";
+	"flex h-11 w-full min-w-0 items-center gap-2.5 rounded-md bg-surface-raised px-3.5 text-md text-ink shadow-[0_0_0_1px_var(--control-edge,var(--ef-line-2))] transition-[box-shadow] duration-150";
 /** Focus on the whole box (foundations.md: text inputs show focus on the whole field). */
-export const inputFocus =
+const inputFocus =
 	"has-[:focus-visible]:shadow-[0_0_0_1px_var(--ef-ink),0_0_0_4px_color-mix(in_srgb,var(--ef-focus)_28%,transparent)]";
 export const inputInvalid =
 	"shadow-[0_0_0_1px_var(--ef-magenta-500),0_0_0_4px_color-mix(in_srgb,var(--ef-magenta-500)_18%,transparent)]";

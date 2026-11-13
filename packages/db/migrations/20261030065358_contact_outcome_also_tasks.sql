@@ -1,0 +1,1 @@
+ALTER TABLE "contact_outcome" ADD COLUMN "also_task_ids" uuid[] DEFAULT '{}'::uuid[] NOT NULL;

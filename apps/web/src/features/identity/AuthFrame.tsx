@@ -37,7 +37,7 @@ export function AuthFrame({ children }: { children: ReactNode }) {
 						Plant your church.
 					</p>
 					<p className="mt-4 max-w-[420px] text-cream/72 max-app-sm:hidden">
-						The Launch Playbook, your people, meetings and ministries in one place.
+						Your people, meetings and ministries in one place.
 					</p>
 				</div>
 				<LogoMark className="pointer-events-none absolute -right-[110px] -bottom-[90px] w-[460px] text-green-500 opacity-95 max-app-md:-right-16 max-app-md:-bottom-16 max-app-md:w-[220px] max-app-sm:w-[170px]" />

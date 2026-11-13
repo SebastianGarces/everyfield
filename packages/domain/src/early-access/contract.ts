@@ -5,7 +5,7 @@ import { z } from "zod";
 // - the server action parses the same schema, so the rules cannot drift.
 // Field rules come from the Phase 4 decision "Form data" in the spec.
 
-export const ACCESS_KINDS = ["planter", "network"] as const;
+const ACCESS_KINDS = ["planter", "network"] as const;
 export type AccessRequestKind = (typeof ACCESS_KINDS)[number];
 
 export const PHASES = [
@@ -48,7 +48,7 @@ const optionalText = (max: number) =>
 		.optional();
 const honeypot = z.string().max(500).optional();
 
-export const planterSchema = z.object({
+const planterSchema = z.object({
 	name,
 	email,
 	plant_name: text(FIELD_MAX.plant_name),
@@ -58,7 +58,7 @@ export const planterSchema = z.object({
 	[HONEYPOT]: honeypot,
 });
 
-export const networkSchema = z.object({
+const networkSchema = z.object({
 	name,
 	email,
 	organization: text(FIELD_MAX.organization),
@@ -73,7 +73,7 @@ export const networkSchema = z.object({
 	[HONEYPOT]: honeypot,
 });
 
-export const SCHEMAS = { planter: planterSchema, network: networkSchema } as const;
+const SCHEMAS = { planter: planterSchema, network: networkSchema } as const;
 
 /** What the form sends: every field as the raw string the person typed. */
 export type AccessRequestFields<K extends AccessRequestKind = AccessRequestKind> = {

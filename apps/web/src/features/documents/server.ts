@@ -31,8 +31,8 @@ export async function documentActor(): Promise<RequestActor | null> {
 }
 
 export type PreviewOutcome =
-	| { status: "ok"; value: Resolved & { artifact: string | null } }
-	| { status: "refused"; code: DocumentsError["code"]; problem?: string }
+	| { status: "ok"; value: Resolved & { artifact: string | null; brandKit: boolean } }
+	| { status: "refused"; code: DocumentsError["code"]; path?: string }
 	| { status: "lost" };
 
 /**
@@ -48,16 +48,12 @@ export async function readPreview(
 	const db = requestDatabase();
 	if (!actor || !db) return { status: "lost" };
 	try {
-		const reply = await documentsReader.preview(db, actor, { templateId, format, overrides });
+		const reply = await documentsReader.preview(db, actor, { templateId, format, overrides }, privateStorage());
 		if (reply.status === "refused") {
-			const problem = reply.error.code === "invalid_input" ? reply.error.details.issues[0]?.problem : undefined;
-			return problem
-				? { status: "refused", code: reply.error.code, problem }
-				: { status: "refused", code: reply.error.code };
+			const path = reply.error.code === "invalid_input" ? reply.error.details.issues[0]?.path : undefined;
+			return path ? { status: "refused", code: reply.error.code, path } : { status: "refused", code: reply.error.code };
 		}
 		const value = reply.value;
-		const artifact = "artifact" in value ? value.artifact : undefined;
-		if (typeof artifact !== "string" && artifact !== null) return { status: "lost" };
 		return {
 			status: "ok",
 			value: {
@@ -66,7 +62,8 @@ export async function readPreview(
 				fields: value.fields,
 				missing: value.missing,
 				complete: value.complete,
-				artifact,
+				artifact: value.artifact,
+				brandKit: value.brandKit,
 			},
 		};
 	} catch (error) {

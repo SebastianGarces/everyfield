@@ -1,4 +1,3 @@
-import type { RequestActor } from "@everyfield/domain/access";
 import { Card, PageHeader, StatePanel } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
@@ -6,17 +5,12 @@ import { parseQuery, querySearch } from "./model.ts";
 import { NotificationsScreen } from "./NotificationsScreen.tsx";
 import { OptOutScreen, type OptOutView } from "./OptOutScreen.tsx";
 import { call, loadFeedPage, notificationActor, notificationsMount } from "./server.ts";
+import { params } from "../shared/search-params.ts";
 
 // The notification routes. The files under apps/web/src/app/ only re-export these, so the screens, their data loading
 // and their states stay in this feature folder.
 
 type Search = Promise<Record<string, string | string[] | undefined>>;
-const params = (raw: Record<string, string | string[] | undefined>) => {
-	const out = new URLSearchParams();
-	for (const [k, v] of Object.entries(raw)) for (const one of [v ?? []].flat()) out.append(k, one);
-	return out;
-};
-
 export const notificationsMetadata: Metadata = { title: "Notifications", robots: { index: false, follow: false } };
 
 /** The feed page: the first page and the unread count of its filter, read on the server (REQ-NTF-003). */
@@ -56,12 +50,11 @@ export async function OptOutPage({ params: route }: { params: Promise<{ token: s
 
 async function describe(token: string): Promise<OptOutView> {
 	if (!notificationsMount()?.optOut) return { state: "unavailable" };
-	// The token is the authority; describe never reads a session. The producer's signature still names one.
-	const r = await call(({ db, producer }) => producer.describeEmailOptOut(db, NO_SESSION, { token }));
+	// The token is the authority; describe never reads a session.
+	const r = await call(({ db, producer }) => producer.describeEmailOptOut(db, { token }));
 	if (r.status === "lost") return { state: "unavailable" };
 	if (r.status === "refused") return { state: "invalid" };
 	if (r.value.purpose !== "disable") return { state: "invalid" };
 	if (r.value.expired) return { state: "expired", category: r.value.category };
 	return { state: "open", category: r.value.category, emailEnabled: r.value.emailEnabled };
 }
-const NO_SESSION = undefined as unknown as RequestActor;

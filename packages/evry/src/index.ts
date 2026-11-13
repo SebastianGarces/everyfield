@@ -8,7 +8,7 @@ export {
 	cancelTurn,
 	closeLostJobs,
 	createConversation,
-	latestConversation,
+	openLatestConversation,
 	listConversations,
 	readConversation,
 	retryTurn,
@@ -17,7 +17,7 @@ export {
 	type ConversationEvent,
 } from "./conversations/store.ts";
 export { CLAIM_SECONDS } from "./runtime/job.ts";
-export { observeConversation } from "./runtime/observe.ts";
+export { observeConversation, observeRun, type LiveText, type Observed } from "./runtime/observe.ts";
 export { selectQualifiedModel, type QualifiedModel } from "./runtime/model.ts";
 export { runTurn, type RunDeps, type RunOutcome } from "./runtime/turn.ts";
 export { flushTraces, type Claimed } from "./runtime/trace.ts";
@@ -25,6 +25,7 @@ export type { RunLease } from "./runtime/run-store.ts";
 export {
 	approveProposal,
 	cancelProposal,
+	checkProposal,
 	prepareProposal,
 	readReview,
 	readStagedPhoto,
@@ -33,4 +34,5 @@ export {
 	REVIEW_MINUTES,
 	type Proposal,
 } from "./proposals/store.ts";
+export type { MailPort } from "./proposals/types.ts";
 export { executeProposal, type EffectLease, type EffectOutcome } from "./execution/execute.ts";
