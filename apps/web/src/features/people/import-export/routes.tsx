@@ -2,7 +2,7 @@ import { drainPeopleImports } from "@/server/people/imports";
 import { buttonVariants, Card, IntentLink, PageHeader, StatePanel } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
 import { gate } from "../routes.tsx";
-import { canWrite } from "../server.ts";
+import { canWrite } from "../../shared/seat-role.ts";
 import { ImportScreen, type Initial } from "./ImportScreen.tsx";
 import { readReceipt } from "./server.ts";
 

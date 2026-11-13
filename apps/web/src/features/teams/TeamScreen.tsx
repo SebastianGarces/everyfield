@@ -6,7 +6,7 @@ import {
 	ArchiveArrowUpIcon,
 	CrownIcon,
 	Edit02Icon,
-	FileEditIcon,
+	LayoutGridIcon,
 	MoreHorizontalIcon,
 	UserAdd01Icon,
 	UserGroupIcon,
@@ -74,21 +74,25 @@ import {
 	asPersonId,
 	asRecordId,
 	asRevision,
-	FIELD_LABEL,
-	HISTORY_KIND,
+	diffLines,
+	historyTitle,
 	iconKey,
+	NEW_SETUP,
 	people,
+	planTeamEdit,
 	plural,
 	problemText,
-	shownValue,
 	stampText,
 	type HistoryEntry,
 	type Member,
 	type Outcome,
 	type Role,
+	type SetupForm,
 } from "./model.ts";
+import { MeetingsCard } from "./MeetingsCard.tsx";
 import { ChartTree } from "./OrgChart.tsx";
 import { LeaderLine, TeamBadge, TeamIcon } from "./parts.tsx";
+import { SetupDialog } from "./Setup.tsx";
 import { apply, today, type Change } from "./page-state.ts";
 import { ResponsibilitiesPanel } from "./responsibilities/Responsibilities.tsx";
 import type { TeamView } from "./server.ts";
@@ -96,8 +100,6 @@ import type { TeamView } from "./server.ts";
 // One ministry (REQ-TEAM-001, -002, -004 to -006): its roles, its people now and before, its leader, its place in the
 // organization view and its history. Every change shows at once, then settles from the write's own answer through the
 // same step (page-state.ts); a refusal puts the page back and says why. Nothing reloads the page.
-//
-// The tabs are a list so the responsibilities (WP-018) and training (WP-019) tabs join it without reshaping the page.
 
 type Confirm =
 	| { kind: "archive" }
@@ -120,6 +122,7 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 	const teamLane = useSaveIntent<TeamForm>({ explain: problemText });
 	const roleLane = useSaveIntent<RoleForm>({ explain: problemText });
 	const peopleLane = useSaveIntent<PersonForm>({ explain: problemText });
+	const templatesLane = useSaveIntent<SetupForm>({ explain: problemText });
 	const [flow, setFlow] = useState<PersonFlow | null>(null);
 	const [confirm, setConfirm] = useState<Confirm | null>(null);
 	const [tab, setTab] = useState("roles");
@@ -177,8 +180,8 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 	}
 
 	// The ministry ---------------------------------------------------------------------------------------------------
-	const teamForm = (mode: "edit" | "correct"): TeamForm => ({
-		mode,
+	const teamForm = (): TeamForm => ({
+		mode: "edit",
 		name: t.name,
 		description: t.description ?? "",
 		icon: iconKey(t),
@@ -191,8 +194,16 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 			description: optional(form.description),
 			icon: form.icon,
 			state: form.state,
-			...(form.mode === "correct" ? { reason: form.reason.trim() } : {}),
+			reason: form.reason,
 		};
+		// Nothing changed: send no request, whatever the reason says. A reason alone is not a change,
+		// so say that nothing was saved instead of dropping it silently.
+		const plan = planTeamEdit(teamForm(), form);
+		if (plan !== "send") {
+			teamLane.close();
+			if (plan === "close-and-say") toast({ tone: "info", message: "Nothing changed, so nothing was saved." });
+			return;
+		}
 		save(teamLane, {
 			what: "The ministry",
 			form,
@@ -200,13 +211,9 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 				kind: "team",
 				patch: { name: patch.name, description: patch.description, icon: patch.icon, state: patch.state },
 			},
-			send: (key) => changeTeam(form.mode === "correct" ? "correct" : "edit", key, t.revision, t.id, patch),
+			send: (key) => changeTeam("edit", key, t.revision, t.id, patch),
 			confirm: (r) => ({ kind: "team", patch: r.team }),
-			ok: () =>
-				toast({
-					tone: "success",
-					message: form.mode === "correct" ? "The correction is saved." : "The ministry is saved.",
-				}),
+			ok: () => toast({ tone: "success", message: "The ministry is saved." }),
 		});
 	}
 	function archive(to: boolean) {
@@ -320,6 +327,23 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 		});
 	}
 
+	/** After roles are added from the templates, the roles read again in their own request: their ids are the server's. */
+	function addedFromTemplates(added: { newRoles: number }) {
+		toast({
+			tone: "success",
+			message: added.newRoles
+				? `Added ${plural(added.newRoles, "role")} to ${t.name}.`
+				: "Everything you chose was already here. Nothing was added.",
+		});
+		void stale();
+	}
+	const addRole = {
+		admin: data.admin,
+		disabled: roleLane.wait !== null || templatesLane.wait !== null,
+		onBlank: () => roleLane.open(roleForm(null)),
+		onTemplates: () => templatesLane.open(NEW_SETUP),
+	};
+
 	const leaderNote =
 		t.leaderSource === "role_derived"
 			? "From a leadership role"
@@ -355,14 +379,9 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 					Add member
 				</Button>
 			) : (
-				<Button
-					variant="primary"
-					icon={Add01Icon}
-					onClick={() => roleLane.open(roleForm(null))}
-					disabled={roleLane.wait !== null}
-				>
+				<AddRole {...addRole} variant="primary">
 					Add role
-				</Button>
+				</AddRole>
 			)}
 			{admin ? (
 				<Menu>
@@ -370,11 +389,8 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 						<IconButton icon={MoreHorizontalIcon} label="More actions" />
 					</MenuTrigger>
 					<MenuContent align="end">
-						<MenuItem icon={Edit02Icon} onSelect={() => teamLane.open(teamForm("edit"))}>
+						<MenuItem icon={Edit02Icon} onSelect={() => teamLane.open(teamForm())}>
 							Edit details
-						</MenuItem>
-						<MenuItem icon={FileEditIcon} onSelect={() => teamLane.open(teamForm("correct"))}>
-							Correct the record
 						</MenuItem>
 						<MenuSeparator />
 						<MenuItem icon={Archive02Icon} danger onSelect={() => setConfirm({ kind: "archive" })}>
@@ -430,6 +446,7 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 			<SaveNotice {...teamLane.noticeProps} dialogOpen={teamLane.editing !== null} />
 			<SaveNotice {...roleLane.noticeProps} dialogOpen={roleLane.editing !== null} />
 			<SaveNotice {...peopleLane.noticeProps} dialogOpen={flow !== null} />
+			<SaveNotice {...templatesLane.noticeProps} dialogOpen={templatesLane.editing !== null} />
 
 			<div className="grid grid-cols-[minmax(0,1.9fr)_minmax(280px,1fr)] items-start gap-5 max-app-lg:grid-cols-1">
 				<Tabs value={tab} onValueChange={setTab} className="min-w-0">
@@ -450,7 +467,7 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 							retired={retired}
 							can={can}
 							busy={roleLane.wait !== null || peopleLane.wait !== null}
-							onAdd={() => roleLane.open(roleForm(null))}
+							addRole={addRole}
 							onEdit={(r) => roleLane.open(roleForm(r))}
 							onFill={(r) => setFlow({ kind: "member", role: r })}
 							onRetire={(r) => setConfirm({ kind: "retire", role: r })}
@@ -501,7 +518,14 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 						/>
 					</TabsPanel>
 					<TabsPanel value="history">
-						<HistoryCard teamId={t.id} revision={t.revision} />
+						<HistoryCard
+							teamId={t.id}
+							revision={[
+								t.revision,
+								// Role changes are filed under the role, so a settled role change reads the history again too.
+								...(data.roles ?? []).map((r) => `${r.id}.${r.revision}.${r.occupantPersonId ?? ""}`),
+							].join(":")}
+						/>
 					</TabsPanel>
 				</Tabs>
 
@@ -521,6 +545,12 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 							</p>
 						) : null}
 					</Card>
+					<MeetingsCard
+						team={{ id: t.id, name: t.name }}
+						meetings={data.meetings}
+						now={data.now}
+						canPlan={data.admin && !t.archived}
+					/>
 					<Card>
 						<CardHeader>
 							<CardHeading>
@@ -529,7 +559,8 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 							</CardHeading>
 						</CardHeader>
 						<div className="[&_a]:w-full">
-							<ChartTree nodes={view.nodes} focus={t.id} />
+							{/* An archived ministry is out of the organization view; its own page shows only itself, labelled Archived. */}
+							<ChartTree nodes={view.nodes.filter((n) => !n.archived || n.id === t.id)} focus={t.id} />
 						</div>
 						<IntentLink
 							href="/ministries?view=chart"
@@ -596,6 +627,20 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 					/>
 				) : null}
 			</NoticeInDialog>
+			{data.admin && can ? (
+				<NoticeInDialog {...templatesLane.noticeProps}>
+					<SetupDialog
+						lane={templatesLane}
+						into={{
+							id: t.id,
+							name: t.name,
+							templateKey: t.templateKey,
+							has: new Set((view.roles ?? []).flatMap((r) => (r.templateKey ? [r.templateKey] : []))),
+						}}
+						onDone={addedFromTemplates}
+					/>
+				</NoticeInDialog>
+			) : null}
 			<ConfirmDialog
 				open={confirm !== null}
 				onOpenChange={(next) => !next && setConfirm(null)}
@@ -722,6 +767,52 @@ function PersonFlowDialog({
 	);
 }
 
+/**
+ * One way to add a role. An Owner or Admin chooses between a blank role and the templates (one extra click); anyone
+ * else who may change the ministry gets the blank role at once (the templates change the church's structure).
+ */
+function AddRole({
+	admin,
+	disabled,
+	onBlank,
+	onTemplates,
+	variant,
+	size,
+	children,
+}: {
+	admin: boolean;
+	disabled: boolean;
+	onBlank: () => void;
+	onTemplates: () => void;
+	variant: "primary" | "ghost";
+	size?: "sm";
+	children: ReactNode;
+}) {
+	if (!admin)
+		return (
+			<Button variant={variant} size={size} icon={Add01Icon} onClick={onBlank} disabled={disabled}>
+				{children}
+			</Button>
+		);
+	return (
+		<Menu>
+			<MenuTrigger asChild>
+				<Button variant={variant} size={size} icon={Add01Icon} disabled={disabled}>
+					{children}
+				</Button>
+			</MenuTrigger>
+			<MenuContent align="end">
+				<MenuItem icon={UserAdd01Icon} onSelect={onBlank}>
+					New blank role
+				</MenuItem>
+				<MenuItem icon={LayoutGridIcon} onSelect={onTemplates}>
+					Set up from templates
+				</MenuItem>
+			</MenuContent>
+		</Menu>
+	);
+}
+
 // Roles ----------------------------------------------------------------------------------------------------------
 
 function RolesCard({
@@ -729,7 +820,7 @@ function RolesCard({
 	retired,
 	can,
 	busy,
-	onAdd,
+	addRole,
 	onEdit,
 	onFill,
 	onRetire,
@@ -739,7 +830,7 @@ function RolesCard({
 	retired: number;
 	can: boolean;
 	busy: boolean;
-	onAdd: () => void;
+	addRole: Omit<Parameters<typeof AddRole>[0], "variant" | "size" | "children">;
 	onEdit: (r: Role) => void;
 	onFill: (r: Role) => void;
 	onRetire: (r: Role) => void;
@@ -747,9 +838,9 @@ function RolesCard({
 }) {
 	const filled = roles?.filter((r) => r.occupantPersonId).length ?? 0;
 	const add = can ? (
-		<Button variant="ghost" size="sm" icon={Add01Icon} onClick={onAdd} disabled={busy}>
+		<AddRole {...addRole} disabled={addRole.disabled || busy} variant="ghost" size="sm">
 			Role
-		</Button>
+		</AddRole>
 	) : null;
 	return (
 		<Card as="section" aria-labelledby="roles-title">
@@ -1050,11 +1141,17 @@ function HistoryList({ state }: { state: Outcome<{ entries: HistoryEntry[] }> | 
 					{state.value.entries.map((e) => (
 						<li key={e.id} className="flex flex-col gap-1 py-3">
 							<p className="flex flex-wrap items-baseline justify-between gap-2">
-								<span className="font-medium text-ink">{HISTORY_KIND[e.kind] ?? "Changed"}</span>
-								<time dateTime={e.occurredAt} className="text-sm text-text-3">
-									{stampText(e.occurredAt)}
-								</time>
+								<span className="font-medium text-ink">{historyTitle(e)}</span>
+								<span className="text-sm text-text-3">
+									<time dateTime={e.occurredAt}>{stampText(e.occurredAt)}</time>
+									{e.actorName ? ` · ${e.actorName}` : null}
+								</span>
 							</p>
+							{e.about ? (
+								<p className="text-sm text-ink">
+									{e.about.personName ? `${e.about.personName} · ${e.about.roleName}` : e.about.roleName}
+								</p>
+							) : null}
 							<Diff entry={e} />
 							{e.reason ? <p className="text-sm text-text-2">Reason: {e.reason}</p> : null}
 						</li>
@@ -1066,12 +1163,7 @@ function HistoryList({ state }: { state: Outcome<{ entries: HistoryEntry[] }> | 
 }
 
 function Diff({ entry: e }: { entry: HistoryEntry }) {
-	const keys = [...new Set([...Object.keys(e.before ?? {}), ...Object.keys(e.after ?? {})])];
-	const lines = keys.flatMap((k) => {
-		const from = shownValue(k, e.before?.[k]);
-		const to = shownValue(k, e.after?.[k]);
-		return from !== null || to !== null ? [{ k, from, to }] : [];
-	});
+	const lines = diffLines(e);
 	if (!lines.length) {
 		const fields = changedFields(e);
 		return fields ? <p className="text-sm text-text-2">{fields}</p> : null;
@@ -1079,8 +1171,8 @@ function Diff({ entry: e }: { entry: HistoryEntry }) {
 	return (
 		<ul className="flex flex-col gap-0.5 text-sm text-text-2">
 			{lines.map((l) => (
-				<li key={l.k} className="wrap-anywhere">
-					{FIELD_LABEL[l.k] ?? l.k}: {l.from ?? "None"} → {l.to ?? "None"}
+				<li key={l.label} className="wrap-anywhere">
+					{l.label}: {l.from} → {l.to}
 				</li>
 			))}
 		</ul>

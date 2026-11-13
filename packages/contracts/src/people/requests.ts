@@ -1,15 +1,14 @@
 import { z } from "zod";
-import { instant, localDate } from "../common/time.ts";
+import { localDate } from "../common/time.ts";
 import { personId, recordId, requestKey, revision } from "../common/values.ts";
 import { commandEnvelope } from "../common/writes.ts";
 import {
 	adultClassification,
 	contactFields,
 	displayName,
-	noteBody,
+	longText,
 	pageInput,
 	pipelineColumn,
-	reason,
 	recruitmentSource,
 	stage,
 } from "./values.ts";
@@ -48,12 +47,9 @@ export const updatePersonRequest = commandEnvelope(
 		}),
 	}),
 );
-// Same transaction caller owns Launch attendance. No name/email matching branch.
-export const guestSelection = z.discriminatedUnion("kind", [
-	z.strictObject({ kind: z.literal("existing"), personId }),
-	z.strictObject({ kind: z.literal("new"), displayName, email: contactFields.email, phone: contactFields.phone }),
-]);
 export const personRequest = z.strictObject({ personId });
+/** The people whose current photos a screen asks for: at most one page of rows. */
+export const personPhotosRequest = z.strictObject({ personIds: z.array(personId).max(100) });
 export const ownAccountPersonRequest = z.strictObject({});
 export const listPeopleRequest = z.strictObject({
 	...pageInput,
@@ -79,46 +75,42 @@ export const activityRequest = z.strictObject({
 		.optional(),
 });
 export const addNoteRequest = commandEnvelope(
-	z.strictObject({ personId, body: noteBody, meetingId: recordId.optional() }),
+	z.strictObject({ personId, body: longText, meetingId: recordId.optional() }),
 );
-export const editNoteRequest = commandEnvelope(z.strictObject({ personId, noteId: recordId, body: noteBody, reason }));
-export const deleteNoteRequest = commandEnvelope(z.strictObject({ personId, noteId: recordId, reason }));
+export const editNoteRequest = commandEnvelope(
+	z.strictObject({ personId, noteId: recordId, body: longText, reason: longText }),
+);
+export const deleteNoteRequest = commandEnvelope(z.strictObject({ personId, noteId: recordId, reason: longText }));
 export const handoffChoice = z.discriminatedUnion("kind", [
 	z.strictObject({ kind: z.literal("assign"), dutyId: recordId, expectedRevision: revision, toPersonId: personId }),
 	z.strictObject({ kind: z.literal("needs_owner"), dutyId: recordId, expectedRevision: revision }),
 ]);
 export const changeStatusRequest = commandEnvelope(
-	z.strictObject({ personId, stage, reason, handoffs: z.array(handoffChoice).max(100) }),
+	z.strictObject({ personId, stage, reason: longText, handoffs: z.array(handoffChoice).max(100) }),
 );
 export const retirePersonRequest = commandEnvelope(
-	z.strictObject({ personId, reason, reviewRevision: revision, handoffs: z.array(handoffChoice).max(100) }),
+	z.strictObject({ personId, reason: longText, reviewRevision: revision, handoffs: z.array(handoffChoice).max(100) }),
 );
 export const restorePersonRequest = commandEnvelope(z.strictObject({ personId }));
 export const classifyAdultRequest = commandEnvelope(
-	z.strictObject({ personId, classification: adultClassification, occurredOn: localDate, reason }),
+	z.strictObject({ personId, classification: adultClassification, occurredOn: localDate, reason: longText }),
 );
 // Places one person in a pipeline column: right after `afterId`, or first when it is null. The expected revision is the
 // column's, so a move against an order that changed meanwhile is refused (REQ-PPL-007).
 export const reorderPipelineRequest = commandEnvelope(
 	z
 		.strictObject({
-			column: z.enum(["prospect", "attendee", "following_up", "interviewed", "core_group"]),
+			column: pipelineColumn,
 			personId,
 			afterId: personId.nullable(),
 		})
 		.refine((v) => v.afterId !== v.personId),
 );
-export const pipelineMetricsRequest = z
-	.strictObject({ asOf: instant, from: localDate, through: localDate })
-	.refine((v) => v.from <= v.through);
 
 // Organization identity never carries plant recruitment or commitment fields.
 export const createOrganizationPersonRequest = z.strictObject({ requestKey, input: z.strictObject(contactFields) });
-export const updateOrganizationPersonRequest = commandEnvelope(
-	z.strictObject({ personId, patch: z.strictObject(contactFields).partial() }),
-);
-export const removeOrganizationPersonRequest = commandEnvelope(z.strictObject({ personId, reason }));
-export const exportOrganizationPersonRequest = z.strictObject({ personId, format: z.literal("csv") });
+/** One pair on the duplicates list: the person an import added with "Add, review later" and the person it may duplicate. */
+export const duplicatePairRequest = z.strictObject({ personId, withPersonId: personId });
 /** Contact facts to check for likely duplicates before a create. Empty and short signals are ignored. */
 export const duplicateCheckRequest = z.strictObject({
 	displayName: z.string().max(255).optional(),

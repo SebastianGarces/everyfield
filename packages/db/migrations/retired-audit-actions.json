@@ -1,0 +1,35 @@
+{
+	"$comment": "Audit actions a migration drops on purpose. check-migrations accepts a dropped action only when an entry here names its migration and exactly the actions it drops. T-200: writer-less pac-8 actions, Nora ruling Nov 10, 2026 (D-848 to D-851, D-853).",
+	"retirements": [
+		{
+			"migration": "20261112071656_drop_unused_baseline_schema.sql",
+			"actions": [
+				"audit.imported",
+				"communication.approved",
+				"execution.cancelled",
+				"execution.completed",
+				"execution.partial",
+				"execution.reconciled",
+				"execution.started",
+				"feedback.publication_intended",
+				"feedback.published",
+				"feedback.reconciled",
+				"identity.credential_reconciled",
+				"intelligence.feedback_recorded",
+				"intelligence.published",
+				"intelligence.requested",
+				"intelligence.superseded",
+				"launch.corrected",
+				"launch.debrief_submitted",
+				"launch.outcome_recorded",
+				"launch.summary_published",
+				"note_correction",
+				"security.access_denied",
+				"security.audit_exported",
+				"security.audit_inspected",
+				"security.bulk_export",
+				"security.operator_accessed"
+			]
+		}
+	]
+}

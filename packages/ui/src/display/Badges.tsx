@@ -1,6 +1,7 @@
 import { cva, type VariantProps } from "class-variance-authority";
 import type { ComponentPropsWithRef, ReactNode } from "react";
 import { cn, Icon, type IconSvgElement } from "../foundations";
+import { AvatarImage } from "./AvatarImage";
 import { TINT, type Tone } from "./tone";
 
 /**
@@ -76,7 +77,7 @@ export function DeltaChip({
 	dir: "up" | "down";
 	tone?: "auto" | "risk";
 	size?: "md" | "sm";
-	/** On an InsightCard gradient: a translucent white chip. */
+	/** On an InsightCard gradient: the light island's ink pill, like InsightPill (D-415). */
 	onInk?: boolean;
 	className?: string;
 	children: ReactNode;
@@ -89,7 +90,7 @@ export function DeltaChip({
 				"inline-flex flex-none items-center gap-1.5 rounded-pill font-semibold whitespace-nowrap tabular-nums",
 				size === "sm" ? "h-6 px-2 text-xs" : "h-[30px] px-[11px] text-md",
 				onInk
-					? "bg-white/14 text-white shadow-[inset_0_0_0_1px_color-mix(in_srgb,white_22%,transparent)]"
+					? "bg-[var(--pill-bg)] text-[var(--on)] shadow-[inset_0_0_0_1px_var(--pill-edge)]"
 					: "bg-surface-raised text-ink shadow-[inset_0_0_0_1px_var(--ef-line)]",
 				className,
 			)}
@@ -246,11 +247,8 @@ export function Avatar({
 				className,
 			)}
 		>
-			{src ? (
-				<img src={src} alt="" className="size-full object-cover" />
-			) : (
-				(children ?? <span aria-hidden="true">{initials(name)}</span>)
-			)}
+			{children ?? <span aria-hidden="true">{initials(name)}</span>}
+			{src ? <AvatarImage key={src} src={src} /> : null}
 		</span>
 	);
 }
@@ -294,12 +292,13 @@ export function AvatarGroup({
 				<span
 					aria-hidden="true"
 					className={cn(
-						"grid flex-none place-items-center rounded-full bg-ink font-semibold text-on-ink shadow-[0_0_0_2px_var(--ef-surface)]",
+						// relative, like each Avatar, so the counter paints over the avatar before it and its "+" stays clear.
+						"relative grid flex-none place-items-center rounded-full bg-ink font-semibold text-on-ink shadow-[0_0_0_2px_var(--ef-surface)]",
 						AVATAR_SIZE[size],
 						size === "xs" ? "-ml-[5px] text-[10px]" : "-ml-2",
 					)}
 				>
-					+{more}
+					<span>+{more}</span>
 				</span>
 			) : null}
 		</span>
