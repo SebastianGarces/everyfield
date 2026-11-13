@@ -95,10 +95,6 @@ const holder = sql`(SELECT op.display_name FROM team_tenure tn JOIN person op ON
 	WHERE tn.role_id=r.id AND tn.ended_on IS NULL ORDER BY tn.started_on DESC LIMIT 1)`;
 const holderId = sql`(SELECT tn.person_id FROM team_tenure tn WHERE tn.role_id=r.id AND tn.ended_on IS NULL
 	ORDER BY tn.started_on DESC LIMIT 1)`;
-/** The church's own date today, in its time zone. */
-const today = (actor: EvryActor) =>
-	sql`(SELECT (clock_timestamp() AT TIME ZONE pl.timezone)::date::text FROM plant pl WHERE pl.id=${plant(actor)})`;
-
 /** A domain receipt's revision, where the result names one; the outcome still says what happened. */
 function receipt(value: Record<string, unknown>): { receiptId: string; revision: string } {
 	const nested = ["team", "role", "program", "meeting", "assignment"]
@@ -602,10 +598,10 @@ const setRequiredTrainingParticipants = reviewed({
 	run: (tx, c, r) => trainingWriter.setRequiredTrainingParticipants(tx, c, r),
 });
 
-/** One person's completion of program `g`, as the user reported it, on a date (default the church's today). */
+/** One person's completion of program `g`, as the user reported it, on the date they gave. */
 const completion = (
 	actor: EvryActor,
-	value: { programId: string; personId: string; earnedOn?: string },
+	value: { programId: string; personId: string; earnedOn: string },
 	entry: string,
 	extra: Record<string, string> = {},
 ) =>
@@ -613,19 +609,19 @@ const completion = (
 		programTarget,
 		changes(
 			change("person", sql`'null'::jsonb`, sql`to_jsonb(p.display_name)`),
-			change(entry, sql`'null'::jsonb`, sql`to_jsonb(${value.earnedOn ?? null}::text)`),
+			change(entry, sql`'null'::jsonb`, json(value.earnedOn)),
 		),
 	)} AS review,
-		${args(sql`g.revision`, sql`${json(extra)}||jsonb_build_object('personId',p.id,'programId',g.id,'earnedOn',coalesce(${value.earnedOn ?? null}::text,${today(actor)}))`)} AS args
+		${args(sql`g.revision`, sql`${json(extra)}||jsonb_build_object('personId',p.id,'programId',g.id,'earnedOn',${value.earnedOn}::text)`)} AS args
 		FROM training_program g ${livePerson(actor, value.personId)}
 		WHERE g.id=${value.programId}::uuid AND g.plant_id=${plant(actor)} AND g.archived_at IS NULL
 			AND ${admin(actor) ? sql`true` : sql`g.team_id IS NOT NULL AND ${mayChange(actor, sql`g.team_id`)}`}`;
 const reported = z.strictObject({
 	personId,
 	programId,
-	earnedOn: date
-		.optional()
-		.describe("The date the user says it was completed; omit for today in the church's time zone"),
+	earnedOn: date.describe(
+		"The date the user says it was completed. For today, today's date in the church's time zone from the trusted clock.",
+	),
 });
 
 const attestCompletion = reviewed({
@@ -633,9 +629,7 @@ const attestCompletion = reviewed({
 	description: `Propose recording that one named person completed one training program, only when the user reports it: never for a group, a guess or on Evry's own judgment. ${NOTHING}`,
 	input: reported,
 	leaders: true,
-	review: async (actor, value) =>
-		sql`SELECT x.args AS args, jsonb_set(x.review,'{changes,1,after}',to_jsonb(x.args->'input'->>'earnedOn')) AS review
-			FROM (${completion(actor, value, "completedOn", { kind: "program" })}) x`,
+	review: (actor, value) => completion(actor, value, "completedOn", { kind: "program" }),
 	request: attestProgramRequest,
 	run: (tx, c, r) => trainingWriter.attestCompletion(tx, c, r),
 });
@@ -665,9 +659,7 @@ const recompleteTraining = reviewed({
 	description: `Propose recording that one named person completed a program again after a revoked completion, only when the user reports it. ${NOTHING}`,
 	input: reported,
 	leaders: true,
-	review: async (actor, value) =>
-		sql`SELECT x.args AS args, jsonb_set(x.review,'{changes,1,after}',to_jsonb(x.args->'input'->>'earnedOn')) AS review
-			FROM (${completion(actor, value, "completedAgainOn")}) x`,
+	review: (actor, value) => completion(actor, value, "completedAgainOn"),
 	request: recompleteTrainingRequest,
 	run: (tx, c, r) => trainingWriter.recompleteTraining(tx, c, r),
 });

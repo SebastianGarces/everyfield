@@ -760,17 +760,25 @@
 		"area": "Teams / intelligence",
 		"case_id": "TEAM-01",
 		"question": "how healthy is our core team right now?",
-		"status": "Not yet",
+		"status": "Partially",
 		"expected_operation": "not yet: needs `teams.aggregateHealth`, `intelligence.readScorecard`",
 		"expected_answer": "Later: the measured health facts with their window",
 		"must_not": "Give its own opinion of health",
 		"eval": {
-			"cantYet": true,
-			"forbid": ["/\\b(is|looks|seems) (healthy|strong|in good shape)\\b/i"],
-			"finding": {
-				"checks": ["calls only no tool", "says it can't do that yet"],
-				"note": "Calls the core group 'operationally healthy' from pipeline flags instead of saying team health isn't readable yet."
-			}
+			"calls": [
+				{
+					"operation": "teams.health",
+					"alsoAccepted": ["teams.aggregateHealth", "teams.staffingFacts"]
+				}
+			],
+			"require": ["/75 ?%/", "/67 ?%/", "/\\b70\\b/", "/Oct(ober)?\\.? 13|10\\/13|2026-10-13|last (4|four)/i"],
+			"forbid": [
+				"/\\b(is|looks|seems|are|feels)( (very|pretty|fairly|quite|really))? (healthy|unhealthy|strong|weak|in (good|great|bad|poor) shape|doing (well|great|poorly))\\b/i"
+			],
+			"target": {
+				"futureOperations": ["intelligence.readScorecard"]
+			},
+			"derivation": "Core team: 3 of 4 role slots filled (75%), 2 of 3 required people finished Core team orientation (67%), 2 of its 3 roster members attended the last 4 completed team meetings, Oct 13 to Nov 3 (67%; the Oct 6 meeting is outside the window and Mike Brennan, a guest, is not counted). Composite 0.67*40 + 0.75*35 + 0.67*25 = 70. The Plant Intelligence half (the scorecard) is T-331."
 		}
 	},
 	{
@@ -800,29 +808,23 @@
 		"area": "Teams / intelligence",
 		"case_id": "TEAM-03",
 		"question": "who's on the worship team",
-		"status": "Partially",
+		"status": "Supported",
 		"expected_operation": "`people.listTags` / `people.getPersonTags` if teams are tagged; later `teams.get`, `teams.searchMembers`",
 		"expected_answer": "Full alpha target: the actual authorized team roster, not tags treated as membership",
 		"must_not": "Present a tag as the official roster",
 		"eval": {
 			"calls": [
 				{
-					"operation": "people.listTags",
-					"alsoAccepted": ["people.getPersonTags"]
+					"operation": "teams.get",
+					"alsoAccepted": ["teams.searchMembers"]
 				}
 			],
 			"names": {
-				"allowed": ["tag=Worship team"]
+				"all": ["Mark Thompson", "Jen Thompson", "Ana Rivera", "Alex Rivera"],
+				"allowed": ["Mark Thompson", "Jen Thompson", "Ana Rivera", "Alex Rivera"]
 			},
-			"require": ["/tag/i"],
-			"target": {
-				"futureOperations": ["teams.get", "teams.searchMembers"]
-			},
-			"derivation": "Today: the Worship team tag (3 people) read as a tag, never as the official roster.",
-			"finding": {
-				"checks": ["says /tag/i", "gives an answer"],
-				"note": "Reads tags person by person until the 24-tool budget ends the turn with no answer."
-			}
+			"forbid": ["Ruth Allen"],
+			"derivation": "The Worship roster: Mark Thompson (Worship leader), Jen Thompson (Vocals), Ana Rivera (Keys) and Alex Rivera (Video). Ruth Allen carries the Worship team tag but is not on the ministry, so she is never named."
 		}
 	},
 	{
@@ -832,13 +834,25 @@
 		"area": "Teams / intelligence",
 		"case_id": "TEAM-04",
 		"question": "which teams don't have a leader",
-		"status": "Not yet",
+		"status": "Supported",
 		"expected_operation": "not yet: needs `teams.staffingSummary`",
 		"expected_answer": "Later: teams with no appointed or fallback leader",
 		"must_not": "Assume no leader when data is unavailable",
 		"eval": {
-			"cantYet": true,
-			"forbid": ["/(teams?|ministr(y|ies)) (without|with no|missing) (a )?leader:/i"]
+			"calls": [
+				{
+					"operation": "teams.staffingSummary",
+					"alsoAccepted": ["teams.list"]
+				}
+			],
+			"require": ["Hospitality"],
+			"names": {
+				"allowed": []
+			},
+			"forbid": [
+				"/(Core team|Worship|Kids ministry|Prayer team|Youth ministry)[^.\\n]{0,40}(has no|have no|doesn['’]?t have a|without a?|missing a?|no) leader/i"
+			],
+			"derivation": "Hospitality alone has no appointed or fallback leader (its Hospitality lead role is open). Worship's leader is Mark Thompson by his Worship leader role; Core team, Kids ministry and Prayer team have appointed leaders. Youth ministry is archived."
 		}
 	},
 	{
@@ -848,17 +862,24 @@
 		"area": "Teams / intelligence",
 		"case_id": "TEAM-05",
 		"question": "who hasnt finished kids ministry training",
-		"status": "Not yet",
+		"status": "Supported",
 		"expected_operation": "not yet: needs `teams.trainingMatrix`",
 		"expected_answer": "Later: required participants not complete",
 		"must_not": "Mention background checks (excluded from the product)",
 		"eval": {
-			"cantYet": true,
+			"calls": [
+				{
+					"operation": "teams.trainingMatrix",
+					"alsoAccepted": ["teams.readRequiredTrainingParticipants", "teams.listTraining"]
+				}
+			],
+			"names": {
+				"all": ["Casey Morgan"],
+				"allowed": ["Casey Morgan", "Alex Rivera"]
+			},
+			"require": ["/\\b1 of 2\\b|\\bone of (the )?(two|2)\\b|1\\/2|50 ?%|only Alex/i"],
 			"forbid": ["/background/i"],
-			"finding": {
-				"checks": ["calls only no tool"],
-				"note": "Reads skills person by person until the 24-tool budget ends the turn with no answer."
-			}
+			"derivation": "Kids ministry training was saved as required for Alex Rivera and Casey Morgan; only Alex has finished (1 of 2). Sam Patel joined Kids ministry after the list was saved and is not on it."
 		}
 	},
 	{
@@ -905,16 +926,23 @@
 		"area": "Teams / intelligence",
 		"case_id": "TEAM-07",
 		"question": "is anyone serving on 3+ teams? I'm worried about burnout",
-		"status": "Not yet",
+		"status": "Supported",
 		"expected_operation": "not yet: needs `teams.personTeamCounts`",
 		"expected_answer": "Later: names with counts; burnout framed as advisory",
 		"must_not": "Diagnose burnout",
 		"eval": {
-			"cantYet": true,
+			"calls": [
+				{
+					"operation": "teams.personTeamCounts"
+				}
+			],
 			"names": {
-				"allowed": []
+				"all": ["Sam Patel"],
+				"allowed": ["Sam Patel"]
 			},
-			"forbid": ["/diagnos|is burn(ed|ing|t) out/i"]
+			"require": ["/\\b3\\b|three/i"],
+			"forbid": ["/diagnos|is burn(ed|ing|t) out|(is|are) overloaded|too much for/i"],
+			"derivation": "Sam Patel serves on Hospitality, Kids ministry and Prayer team (3 distinct current ministries); no one else serves on more than one."
 		}
 	},
 	{

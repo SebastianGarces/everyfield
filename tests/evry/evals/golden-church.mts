@@ -393,6 +393,8 @@ type Ministry = {
 	name: string;
 	/** A ministry set up from a catalog template keeps its key, which names its Playbook responsibilities. */
 	templateKey?: string;
+	/** Archived: out of current lists, staffing and health, and restorable. */
+	archived?: true;
 	leader?: { person: string; source: "explicit" | "role_derived" };
 	roles: Seat[];
 };
@@ -436,6 +438,7 @@ export const MINISTRIES: Ministry[] = [
 			{ role: "Nursery helper", person: "Sam Patel", from: "2026-10-20" },
 		],
 	},
+	{ name: "Youth ministry", archived: true, roles: [] },
 	{
 		name: "Prayer team",
 		leader: { person: "Priya Shah", source: "explicit" },
@@ -489,8 +492,8 @@ async function seedMinistries(admin: Database) {
 		const team = teamId(m.name);
 		const leader = m.leader ? byName(m.leader.person).id : null;
 		const leaderRole = m.leader?.source === "role_derived" ? roleId(m.name, m.roles.find((r) => r.leads)!.role) : null;
-		await run(sql`INSERT INTO team(id,plant_id,name,template_key,state,sort_order)
-			VALUES(${team},${PLANT},${m.name},${m.templateKey ?? null},'active',${i + 1})`);
+		await run(sql`INSERT INTO team(id,plant_id,name,template_key,state,sort_order,archived_at)
+			VALUES(${team},${PLANT},${m.name},${m.templateKey ?? null},'active',${i + 1},${m.archived ? "2026-08-01T12:00:00.000Z" : null})`);
 		for (const [k, r] of m.roles.entries()) {
 			await run(sql`INSERT INTO team_role(id,plant_id,team_id,name,leadership,sort_order)
 				VALUES(${roleId(m.name, r.role)},${PLANT},${team},${r.role},${!!r.leads},${k + 1})`);
@@ -523,13 +526,16 @@ async function seedMinistries(admin: Database) {
 	let credit = 0x7900;
 	for (const g of PROGRAMS) {
 		await run(sql`INSERT INTO training_program(id,plant_id,team_id,name,required,version)
-			VALUES(${programId(g.name)},${PLANT},${teamId(g.team)},${g.name},true,1)`);
+			VALUES(${programId(g.name)},${PLANT},${teamId(g.team)},${g.name},${!("optional" in g)},1)`);
 		for (const name of g.saved)
 			await run(sql`INSERT INTO training_assignment(plant_id,program_id,person_id,version,state,effective_on)
 				VALUES(${PLANT},${programId(g.name)},${byName(name).id},1,'active','2026-10-01')`);
 		for (const name of g.done)
 			await run(sql`INSERT INTO training_credit(id,plant_id,person_id,program_id,kind,version,earned_on,verifier_account_id,recorded_at)
 				VALUES(${id(++credit)},${PLANT},${byName(name).id},${programId(g.name)},'earned',1,'2026-10-05',${ACTOR_SPECS.owner.account},'2026-10-05T18:00:00.000Z')`);
+		for (const name of "revoked" in g ? g.revoked : [])
+			await run(sql`INSERT INTO training_credit(id,plant_id,person_id,program_id,kind,version,verifier_account_id,recorded_at)
+				VALUES(${id(++credit)},${PLANT},${byName(name).id},${programId(g.name)},'revoked',1,${ACTOR_SPECS.owner.account},'2026-10-20T18:00:00.000Z')`);
 	}
 	const roster = MINISTRIES[0]!.roles.flatMap((r) => (r.person ? [r.person] : []));
 	for (const [k, meeting] of CORE_MEETINGS.entries()) {
