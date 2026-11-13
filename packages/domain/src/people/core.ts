@@ -411,7 +411,7 @@ export function contactValues(patch: object) {
 		}),
 	);
 }
-export function contactPatch(patch: object) {
+function contactPatch(patch: object) {
 	return Object.fromEntries(
 		Object.entries(contactValues(patch)).map(([key, value]) => [key, sql`${sql.param(value)}`]),
 	);
@@ -461,7 +461,7 @@ export function personChanges(before?: Revisioned, after?: Revisioned) {
  * final statement locks again: creating a Person (no read), editing its contact fields and adding a note to it. Every
  * other write reads another row, a count or the church's settings and runs in the gate's transaction.
  */
-export const peopleWritePaths = {
+const peopleWritePaths = {
 	"orgPeople.merge": "established",
 	"orgPeople.unmerge": "established",
 	"people.addNote": "single",

@@ -13,7 +13,7 @@ const CODE_WIDTH = 78;
 /** Four spaces of Helvetica at 11pt, in 1/1000 em: a quote's indent. */
 const QUOTE_INDENT = 4 * 278;
 
-export function escapeHtml(text: string): string {
+function escapeHtml(text: string): string {
 	return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 

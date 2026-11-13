@@ -96,6 +96,7 @@ test("INV-scheduled-steps: a throwing object cleanup step still lets digests and
 	assert.deepEqual([quiet.body.status, quiet.body.failed, quiet.body.digests], ["ok", [], 0]);
 	assert.deepEqual(quiet.body.steps["object-cleanup"], { status: "ok", count: 0 });
 	assert.deepEqual(quiet.body.steps["lifecycle-purge"], { status: "skipped" });
+	assert.deepEqual(quiet.body.steps["documents-orphans"], { status: "ok", count: { purged: 0, unknown: 0 } });
 
 	// Owed work for 08:00: a seat invitation, and the cleanup of one unreferenced private file.
 	const actor = await f.actor(s.sender.session);
@@ -118,6 +119,8 @@ test("INV-scheduled-steps: a throwing object cleanup step still lets digests and
 		state: "ready",
 		upload_key: randomUUID(),
 		claim_generation: "0",
+		// Still inside its staging window, so only its queued cleanup job may remove it, not the orphan sweep.
+		expires_at: new Date(Date.now() + 3_600_000),
 	});
 	await f.admin
 		.execute(sql`INSERT INTO job(tenant_id,kind,subject_record_id,producer_key,state,eligible_at,attempt_count,max_attempts,claim_generation)
@@ -142,6 +145,7 @@ test("INV-scheduled-steps: a throwing object cleanup step still lets digests and
 	assert.deepEqual(due.body.steps["object-cleanup"], { status: "failed" });
 	assert.equal(due.body.removed, 0);
 	assert.deepEqual(deletes, [], "the locked file was not deleted");
+	assert.deepEqual(due.body.steps["documents-orphans"], { status: "ok", count: { purged: 0, unknown: 0 } });
 	// One log line names the failed component and carries no error text or row values.
 	assert.deepEqual(
 		logged.map((line) => JSON.parse(line)),
@@ -211,4 +215,71 @@ test("INV-scheduled-steps: a throwing notification step names itself and the lat
 		logged.map((line) => JSON.parse(line)),
 		[{ component: "notification", runner: "scheduled-jobs", outcome: "error" }],
 	);
+});
+
+test("INV-scheduled-steps: each tick sweeps an unreferenced documents file whose staging window has passed", async () => {
+	// T-126 (D-879): nothing ran documentsWriter.reconcileOrphans, so a file whose write never finished stayed stored.
+	const removed: string[] = [];
+	const tick = scheduledJobs({
+		secret,
+		db: f.db,
+		storage: {
+			bucket: "synthetic-only",
+			client: {
+				send: async (command: { input: { Key: string } }) => {
+					removed.push(command.input.Key);
+					return {};
+				},
+			},
+		} as never,
+		cleanup: null,
+		reminders: null,
+		digests: null,
+		mail: null,
+	});
+	const s = await f.setup("plant");
+	const file = (expiresAt: Date) => ({
+		id: randomUUID(),
+		tenant_id: s.w.id,
+		purpose: "generated" as const,
+		opaque_key: `private/${s.w.id}/${randomUUID()}`,
+		media_type: "application/pdf",
+		max_bytes: "9",
+		byte_count: "9",
+		sha256: createHash("sha256").update("synthetic").digest("hex"),
+		state: "pending" as const,
+		upload_key: randomUUID(),
+		claim_generation: "0",
+		expires_at: expiresAt,
+	});
+	const expired = file(new Date(Date.now() - 60_000));
+	const staging = { ...file(new Date(Date.now() + 3_600_000)), state: "ready" as const };
+	await f.admin.insert(t.file_object).values([expired, staging]);
+
+	const response = await tick(
+		new Request("http://localhost/api/cron/jobs", { headers: { authorization: `Bearer ${secret}` } }),
+	);
+	const body = (await response.json()) as Body;
+	assert.equal(response.status, 200, JSON.stringify(body));
+	assert.deepEqual(body.steps["documents-orphans"], { status: "ok", count: { purged: 1, unknown: 0 } });
+	assert.deepEqual(removed, [expired.opaque_key]);
+	const state = async (id: string) =>
+		(await f.admin.execute(sql`SELECT state FROM file_object WHERE id=${id}`)).rows[0]!.state;
+	assert.equal(await state(expired.id), "purged");
+	assert.equal(await state(staging.id), "ready", "a file inside its staging window stays");
+
+	// Without private storage the sweep is skipped and the rest of the tick still runs.
+	const bare = scheduledJobs({
+		secret,
+		db: f.db,
+		storage: null,
+		cleanup: null,
+		reminders: null,
+		digests: null,
+		mail: null,
+	});
+	const skipped = await bare(
+		new Request("http://localhost/api/cron/jobs", { headers: { authorization: `Bearer ${secret}` } }),
+	);
+	assert.deepEqual(((await skipped.json()) as Body).steps["documents-orphans"], { status: "skipped" });
 });

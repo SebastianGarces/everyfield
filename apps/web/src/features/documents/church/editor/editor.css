@@ -282,7 +282,7 @@
 	content: " ";
 }
 .ef-paper .ProseMirror-selectednode {
-	outline: 2px solid var(--ef-focus, #026b40);
+	outline: 2px solid var(--ef-focus);
 	outline-offset: 2px;
 }
 .ef-paper strong {
@@ -475,7 +475,7 @@
 }
 .ef-paper .ef-writein-label:focus-visible {
 	outline: none;
-	box-shadow: 0 0 0 2px var(--ef-focus, #026b40);
+	box-shadow: 0 0 0 2px var(--ef-focus);
 }
 .ef-paper .ef-writein-label[aria-invalid="true"] {
 	box-shadow: 0 0 0 1px #b4235a;
@@ -556,8 +556,7 @@
 }
 .ef-paper [data-ef-node="pageFooter"] {
 	margin-top: auto;
-	padding: 4px 0 0;
-	padding-top: 18px;
+	padding: 18px 0 0;
 	border-top: 1px dashed var(--paper-line);
 }
 .ef-paper [data-ef-node="pageHeader"]::before,
@@ -682,7 +681,7 @@
 }
 .ef-paper .ef-head-cell:focus-visible {
 	outline: none;
-	box-shadow: inset 0 0 0 2px var(--ef-focus, #026b40);
+	box-shadow: inset 0 0 0 2px var(--ef-focus);
 }
 .ef-paper .ef-table [data-ef-node="row"][data-role="group"] {
 	background: var(--tok-muted);
@@ -746,7 +745,7 @@
 }
 .ef-paper .ef-vinput:focus-visible {
 	outline: none;
-	box-shadow: 0 0 0 2px var(--ef-focus, #026b40);
+	box-shadow: 0 0 0 2px var(--ef-focus);
 }
 .ef-paper .ef-vinput[aria-invalid="true"] {
 	box-shadow: 0 0 0 1px #b4235a;
@@ -804,7 +803,7 @@
 }
 .ef-paper .ef-vcheck:focus-visible {
 	outline: none;
-	box-shadow: 0 0 0 2px var(--ef-focus, #026b40);
+	box-shadow: 0 0 0 2px var(--ef-focus);
 }
 .ef-paper .ef-blank-cell {
 	box-sizing: border-box;
@@ -822,7 +821,7 @@
 	justify-content: center;
 }
 .ef-paper .ef-table-blanks:focus-visible {
-	outline: 2px solid var(--ef-focus, #026b40);
+	outline: 2px solid var(--ef-focus);
 	outline-offset: -2px;
 }
 .ef-paper .ef-table-note {
@@ -958,4 +957,24 @@
 }
 .ef-native .ef-paper {
 	--tok-ink: var(--paper-text);
+	/* A table's header and stripes take the Everyfield theme's muted fill, its rules the paper's line (T-100). */
+	--tok-muted: var(--paper-muted);
+	--on-muted: var(--paper-text);
+	--tok-border: var(--paper-line);
+}
+
+/* A plain document's table read-only (written/NativeProse.tsx): the editor's cells, with nothing to click or type. */
+.ef-paper span.ef-read-head {
+	display: block;
+	cursor: default;
+}
+.ef-paper span.ef-read-head:hover {
+	box-shadow: none;
+}
+.ef-paper .ef-read-check {
+	cursor: default;
+}
+.ef-paper .ef-read-check[data-checked="true"]::after {
+	content: "\2713";
+	font-weight: 700;
 }

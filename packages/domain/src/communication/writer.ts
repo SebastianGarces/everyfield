@@ -17,7 +17,7 @@ import { z } from "zod";
 import type { RequestActor } from "../access/session.ts";
 import { communicationAccess } from "./access.ts";
 import { meetingOpenSql } from "../meetings/tokens.ts";
-import { audiencePeople, reviewedParts, summarizeAudience } from "./audience.ts";
+import { audiencePeople, recipientsDigest, reviewedParts, summarizeAudience } from "./audience.ts";
 import { optedOutAtSql } from "./opt-out.ts";
 import { personSearchMatch } from "../people/search.ts";
 import {
@@ -537,6 +537,8 @@ async function schedule(tx: Tx, context: CommunicationContext, raw: unknown, onl
 			const people = peopleRaw.people;
 			const parts = reviewedParts(people);
 			if (!parts.people.length) deny("invalid_input");
+			const shown = input.input.recipientsDigest;
+			if (shown && shown !== recipientsDigest(people)) deny("stale_review", { providerHandoffs: 0 });
 			const digest = reviewedDigest(current.subject, current.body_html, parts.people, parts.emails);
 			const revision = bump(current.revision);
 			const scheduled = {

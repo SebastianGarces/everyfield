@@ -58,7 +58,9 @@ jobs:
       - name: Lint (ESLint, image locks, colour literals)
         run: pnpm lint
       - name: Types
-        run: pnpm typecheck
+        run: |
+          pnpm typecheck
+          pnpm typecheck:tsc
       - name: Server log privacy (next dev with synthetic passwords)
         run: pnpm test:logs
         env:

@@ -170,9 +170,9 @@ const generatedWriter = {
 			if (prior?.same) return generatedFrom(prior, scope.tenantId, template.id);
 			if (prior) deny("conflict");
 			if (!resolved.complete) rejectInput("overrides", "A required merge field is empty.");
-			// D-109, D-418: the network's statement prints as it stands now and is not an input, so a replay on the same key
-			// returns the file saved earlier.
-			const bytes = await done.render();
+			// D-109, D-418: the network's statement and the brand kit print as they stand now and are not inputs, so a replay
+			// on the same key returns the file saved earlier.
+			const bytes = await done.render(db, storage, authority);
 			if (!bytes) rejectInput("overrides", "A required merge field is empty.");
 			if (bytes.length > ARTIFACT_MAX) deny("render_failed");
 			const file = await storeBytes(
@@ -358,13 +358,9 @@ const generatedWriter = {
 		});
 	},
 
-	async read(db: Database, authority: RequestActor, raw: unknown) {
-		return settle(() => readOwned(db, authority, raw));
-	},
-
-	async getAuthorized(db: Database, authority: RequestActor, raw: unknown) {
-		return settle(() => readOwned(db, authority, raw));
-	},
+	read: readOwnedDocument,
+	/** The catalog's name for `read` (D-878): the same operation, kept so its catalog entry and tenancy case hold. */
+	getAuthorized: readOwnedDocument,
 
 	createFromTemplate: churchWriter.createFromTemplate,
 	setBranding: churchWriter.setBranding,
@@ -374,6 +370,9 @@ const generatedWriter = {
 	listChurch: churchWriter.listChurch,
 	readChurchFile: churchWriter.readChurchFile,
 	deleteChurch: churchWriter.deleteChurch,
+	archiveChurch: churchWriter.archiveChurch,
+	listArchivedChurch: churchWriter.listArchivedChurch,
+	restoreChurch: churchWriter.restoreChurch,
 	saveChurchTemplate: churchWriter.saveTemplate,
 	updateChurchTemplate: churchWriter.updateTemplate,
 	editChurchTemplate: churchWriter.editTemplate,
@@ -427,7 +426,7 @@ const generatedWriter = {
 
 	async archive(db: Database, authority: RequestActor, raw: unknown) {
 		return settle(async () => {
-			const input = parse(c.archiveDocumentRequest, raw);
+			const input = parse(c.documentRevisionRequest, raw);
 			const scope = editScope(authority);
 			if (!scope) deny();
 			const row = await mutateOwned(db, scope, input.documentId, input.expectedRevision, "archive");
@@ -439,7 +438,7 @@ const generatedWriter = {
 
 	async designateCoreValues(db: Database, authority: RequestActor, raw: unknown) {
 		return settle(async () => {
-			const input = parse(c.designateCoreValuesRequest, raw);
+			const input = parse(c.documentRevisionRequest, raw);
 			const scope = editScope(authority);
 			if (!scope) deny();
 			const row = await mutateOwned(db, scope, input.documentId, input.expectedRevision, "designate");
@@ -596,6 +595,11 @@ const generatedWriter = {
 		});
 	},
 
+	/**
+	 * Purges up to 20 stored files nothing references once their staging window has passed. A file stays `ready` and
+	 * unreferenced between its upload and the write that refers to it (a saved export, a brand asset before Save), so a
+	 * file inside its window is never a candidate; the scheduled runner calls this every minute (D-879).
+	 */
 	async reconcileOrphans(db: Database, storage: PrivateStorage | null) {
 		return settle(async () => {
 			if (!storage) deny();
@@ -604,7 +608,7 @@ const generatedWriter = {
 				sql`SELECT id FROM file_object
 				WHERE state IN ('pending', 'failed', 'ready')
 					AND NOT file_is_referenced(id)
-					AND (state <> 'pending' OR expires_at < clock_timestamp())
+					AND (expires_at IS NULL OR expires_at < clock_timestamp())
 				ORDER BY id
 				LIMIT 20`,
 			);
@@ -626,6 +630,10 @@ const generatedWriter = {
 		});
 	},
 };
+
+async function readOwnedDocument(db: Database, authority: RequestActor, raw: unknown) {
+	return settle(() => readOwned(db, authority, raw));
+}
 
 async function readOwned(db: Database, authority: RequestActor, raw: unknown) {
 	const input = parse(c.ownedDocumentRequest, raw);

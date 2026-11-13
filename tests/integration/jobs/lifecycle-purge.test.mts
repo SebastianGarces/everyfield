@@ -4,7 +4,8 @@ import { randomUUID, randomBytes, createHash } from "node:crypto";
 import { testDatabase } from "../../support/test-database.mts";
 import { sql, eq } from "../../../packages/db/src/query.ts";
 import * as t from "../../../packages/db/src/schema/tables.ts";
-import { createSettingsProducer, createAccountCredentials } from "../../../packages/domain/src/settings/index.ts";
+import { createAccountCredentials } from "../../../packages/domain/src/settings/index.ts";
+import { settingsApi } from "../settings/settings-api.mts";
 import { createOrganizationAdapter } from "../../../packages/domain/src/organizations/index.ts";
 import { createOnboardingProducer } from "../../../packages/domain/src/onboarding/index.ts";
 import { identityAuth } from "../../../packages/domain/src/identity/auth.ts";
@@ -78,7 +79,7 @@ before(async () => {
 		deliverVerification: async () => {},
 		securityNotice: async () => {},
 	});
-	api = createSettingsProducer({
+	api = settingsApi({
 		organizations: createOrganizationAdapter(organizationEffects, { candidates: async () => [] }),
 		organizationEffects,
 		effects: { replan: async () => {} },
@@ -97,6 +98,8 @@ before(async () => {
 						eligibleAt: i.eligibleAt,
 					},
 				]),
+			// Notice mail is covered by workspace-deletion-mail.test.mts.
+			workspaceNotice: async () => {},
 		},
 		credentials,
 	});
@@ -135,8 +138,12 @@ async function member() {
 	ingress.set(s.session.id, request);
 	return { id, user: signed.user.id, email, password, session: s.session.id };
 }
-/** One private file the tenant owns, with its bytes in the bucket. */
+/**
+ * One private file the tenant owns, with its bytes in the bucket. It is referenced as a live file is (an account's
+ * avatar, or a church person's photo), so the scheduled orphan sweep leaves it for the purge.
+ */
 async function file(tenant) {
+	const [account] = await admin.select({ id: t.account.id }).from(t.account).where(eq(t.account.id, tenant));
 	const id = randomUUID(),
 		key = `private/${tenant}/${randomUUID()}`,
 		bytes = Buffer.from("synthetic");
@@ -144,7 +151,7 @@ async function file(tenant) {
 	await admin.insert(t.file_object).values({
 		id,
 		tenant_id: tenant,
-		purpose: "avatar",
+		purpose: account ? "avatar" : "person_photo",
 		opaque_key: key,
 		media_type: "image/png",
 		max_bytes: String(bytes.length),
@@ -154,6 +161,15 @@ async function file(tenant) {
 		upload_key: randomUUID(),
 		claim_generation: "0",
 	});
+	if (account) await admin.update(t.account).set({ avatar_object_id: id }).where(eq(t.account.id, tenant));
+	else {
+		const [person] = await admin
+			.select({ id: t.person.id })
+			.from(t.person)
+			.where(eq(t.person.plant_id, tenant))
+			.limit(1);
+		await admin.update(t.person).set({ photo_object_id: id }).where(eq(t.person.id, person.id));
+	}
 	return { id, key };
 }
 const revisionOf = async (id) => (await admin.select().from(t.account).where(eq(t.account.id, id)))[0].revision;

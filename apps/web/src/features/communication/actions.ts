@@ -92,7 +92,7 @@ export async function deleteDraft(
 }
 
 /** Save and schedule in one request. Two requests were the schedule that passed one second. */
-export async function scheduleDraft(
+async function scheduleDraft(
 	saveKey: string,
 	scheduleKey: string,
 	expectedRevision: string | null,
@@ -481,7 +481,7 @@ export async function saveResend(requestKey: string, communicationId: string): P
 }
 
 /** Schedule a message that is already reviewed. The subject and body stay as saved. */
-export async function scheduleExisting(
+async function scheduleExisting(
 	requestKey: string,
 	expectedRevision: string,
 	communicationId: string,

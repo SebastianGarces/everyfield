@@ -1,5 +1,6 @@
 "use client";
 
+import { DASHBOARD_HOME } from "@everyfield/contracts/identity";
 import { Button, Field, IntentLink, Input, Switch } from "@everyfield/ui/controls";
 import { cn } from "@everyfield/ui/foundations";
 import { useState, type ReactNode } from "react";
@@ -31,8 +32,6 @@ import { ChoiceCard, Notice, SavedCard, StepFooter, StepHeading } from "../parts
 import type { Actions } from "../store";
 
 type Props = { state: State; actions: Actions; resume: Resume; plantName: string | null };
-/** The product home: the app shell's homeHref (features/shell/ProductFrame.tsx). There is no separate /dashboard route. */
-const DASHBOARD_HREF = "/people";
 const churchName = (name: string | null) => name ?? "your church";
 const phaseName = (n: number) => PHASES[n]?.name ?? `Phase ${n}`;
 const longDate = (iso: string) =>
@@ -437,7 +436,7 @@ export function FinishStep({
 							Review answers
 						</Button>
 						<Button variant="primary" asChild>
-							<IntentLink href={DASHBOARD_HREF}>Go to dashboard</IntentLink>
+							<IntentLink href={DASHBOARD_HOME}>Go to dashboard</IntentLink>
 						</Button>
 					</div>
 					{after ? <div className="mt-4 flex justify-end">{after}</div> : null}

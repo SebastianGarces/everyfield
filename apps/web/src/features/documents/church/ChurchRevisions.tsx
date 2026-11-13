@@ -5,7 +5,8 @@ import { Button } from "@everyfield/ui/controls";
 import { Tag } from "@everyfield/ui/display";
 import { cn } from "@everyfield/ui/foundations";
 import { useState } from "react";
-import { FORMAT_LABEL, savedAt } from "./labels.ts";
+import { FORMAT_LABEL } from "../model.ts";
+import { savedAt } from "./labels.ts";
 import type { RevisionRow } from "./server.ts";
 
 // The saved revisions of one Church Document, newest first, read only. Each row downloads that revision: the download

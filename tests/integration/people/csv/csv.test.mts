@@ -571,7 +571,7 @@ test("AC:TARGET-PPL-018 a repeat of a skipped row has nothing to review against:
 	assert.equal(await count("person"), peopleBefore + 1);
 });
 
-test("AC:TARGET-PPL-018 T-193 each review-later row is a pair to review until a merge or retirement, only in its own church", async () => {
+test("AC:TARGET-PPL-018 each review-later row is a pair to review until a merge or retirement, only in its own church", async () => {
 	const tag = randomUUID().slice(0, 8);
 	const pairs = async (who = 0) => ok(await read(who, (t, c) => listDuplicatePairs(t, c)));
 	const pia = await person(`Pia ${tag}`, { email: `pia-${tag}@example.test` });
@@ -701,14 +701,22 @@ test("AC:TARGET-PPL-019 AC:PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-RETIRE INV-tenancy
 		for (let i = 1; i < text.length; i++) {
 			const ch = text[i];
 			if (quoted) {
-				if (ch === '"' && text[i + 1] === '"') ((field += '"'), i++);
-				else if (ch === '"') quoted = false;
+				if (ch === '"' && text[i + 1] === '"') {
+					field += '"';
+					i++;
+				} else if (ch === '"') quoted = false;
 				else field += ch;
 			} else if (ch === '"') quoted = true;
-			else if (ch === ",") (line.push(field), (field = ""));
-			else if (ch === "\r" && text[i + 1] === "\n")
-				(line.push(field), lines.push(line), (line = []), (field = ""), i++);
-			else field += ch;
+			else if (ch === ",") {
+				line.push(field);
+				field = "";
+			} else if (ch === "\r" && text[i + 1] === "\n") {
+				line.push(field);
+				lines.push(line);
+				line = [];
+				field = "";
+				i++;
+			} else field += ch;
 		}
 		return lines;
 	};

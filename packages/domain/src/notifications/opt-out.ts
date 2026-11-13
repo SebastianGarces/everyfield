@@ -20,7 +20,7 @@ const payload = z.strictObject({
 type Payload = z.infer<typeof payload>;
 const DAY = 86_400_000;
 const HOUR = 60 * 60 * 1000;
-export const OPT_OUT_DISABLE_MS = 180 * DAY;
+const OPT_OUT_DISABLE_MS = 180 * DAY;
 export type OptOutKeyRing = { current: Buffer; previous?: readonly Buffer[] };
 
 function asRing(key: Buffer | OptOutKeyRing): OptOutKeyRing {
@@ -173,7 +173,7 @@ async function writeState(db: Database, claim: Payload) {
 			INSERT INTO notification_preference (account_id, category, channel, enabled, unsubscribe_revision)
 			SELECT account_id, ${claim.category}, 'email', ${enable},
 				CASE WHEN ${claim.purpose} = 'disable' THEN COALESCE((SELECT unsubscribe_revision FROM email_pref), 0) + 1
-					ELSE COALESCE((SELECT unsubscribe_revision FROM email_pref), 1) END
+					ELSE COALESCE((SELECT unsubscribe_revision FROM email_pref), 0) END
 			FROM state
 			WHERE account_id IS NOT NULL AND rev = ${claim.unsubscribeRevision}
 				AND ((${claim.purpose} = 'disable' AND email_enabled IS TRUE) OR (${claim.purpose} = 'undo' AND email_enabled IS FALSE))

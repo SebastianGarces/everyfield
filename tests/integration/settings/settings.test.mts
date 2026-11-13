@@ -7,7 +7,6 @@ import { testDatabase } from "../../support/test-database.mts";
 import { sql, eq, and } from "../../../packages/db/src/query.ts";
 import * as t from "../../../packages/db/src/schema/tables.ts";
 import {
-	createSettingsProducer,
 	createLifecycleCleanup,
 	issueRestrictedDeletionSession,
 	createAccountCredentials,
@@ -15,12 +14,13 @@ import {
 	readAvatar,
 	withSettingsWrite,
 } from "../../../packages/domain/src/settings/index.ts";
+import { settingsApi } from "./settings-api.mts";
 import { createOrganizationAdapter } from "../../../packages/domain/src/organizations/index.ts";
 import { createOnboardingProducer } from "../../../packages/domain/src/onboarding/index.ts";
 import { enqueueJob, queueJobs } from "../../../apps/web/src/server/jobs/queue.ts";
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import { identityAuth } from "../../../packages/domain/src/identity/auth.ts";
-import { currentActor, readViewer } from "../../../packages/domain/src/access/session.ts";
+import { readViewer } from "../../../packages/domain/src/access/session.ts";
 import { createSeatService } from "../../../packages/domain/src/identity/seats.ts";
 import { PeopleReadContext, peopleReader } from "../../../packages/domain/src/people/index.ts";
 import { listPeopleRequest } from "../../../packages/contracts/src/people/index.ts";
@@ -208,10 +208,12 @@ before(async () => {
 					},
 				]);
 			},
+			// Notice mail is covered by workspace-deletion-mail.test.mts.
+			workspaceNotice: async () => {},
 		},
 		credentials,
 	};
-	api = createSettingsProducer(producerDeps);
+	api = settingsApi(producerDeps);
 	onboarding = createOnboardingProducer({
 		relationships: (tx, inputs) => sendOnboardingRelationships(tx, inputs, mail),
 		enqueue: async (tx, i, command) => {
@@ -281,7 +283,7 @@ test("AC:TARGET-IDN-010 AC:TARGET-IDN-011 AC:ROLE43-002 AC:ROLE43-005 scoped set
 
 test("AC:TARGET-IDN-012 account preferences keep exact category/channel choices independent and scoped", async () => {
 	const a = await actor();
-	let current = ok(await section(a, { section: "notifications" }));
+	const current = ok(await section(a, { section: "notifications" }));
 	assert.equal(current.values.choices.length, 20);
 	// T-242: an unsubscribe from an email this account scheduled is a bell-only row, on by default.
 	assert.deepEqual(
@@ -319,7 +321,7 @@ test("AC:TARGET-IDN-012 account preferences keep exact category/channel choices 
 			command({ section: "notifications", patch: { kind: "oversight_cadence", cadence: "daily" } }, "2"),
 		),
 	);
-	const f = await plant();
+	await plant();
 	const cadence = ok(
 		await call(
 			"saveSection",
@@ -374,7 +376,7 @@ test("AC:TARGET-IDN-031 AC:TARGET-IDN-032 AC:TARGET-TSK-018 personal zones canon
 test("INV-private-calendar: revoked seat keeps its personal preference but cannot invoke the author calendar", async () => {
 	const f = await plant();
 	const calls = { preview: 0, apply: 0 };
-	const producer = createSettingsProducer({
+	const producer = settingsApi({
 		...producerDeps,
 		personalCalendar: {
 			preview: async () => {
@@ -609,7 +611,10 @@ test("AC:DEL58-007 AC:DEL58-008 AC:DEL58-009 deadline refuses cancellation; retr
 	});
 	const input = { subject, requestId: p.requestId, revision: p.revision };
 	assert.deepEqual(await purge(input), { status: "purging" });
-	let [w] = await admin.select().from(t.lifecycle_witness).where(eq(t.lifecycle_witness.opaque_subject_id, subject.id));
+	const [w] = await admin
+		.select()
+		.from(t.lifecycle_witness)
+		.where(eq(t.lifecycle_witness.opaque_subject_id, subject.id));
 	assert.equal(w.state, "purging");
 	assert.equal(w.live_purged_at, null);
 	const [shared] = await admin.select().from(t.person).where(eq(t.person.id, f.result.ownerSeat.personId));
@@ -657,7 +662,7 @@ test("AC:DEL58-007 AC:DEL58-005 workspace purge hides and removes only its conte
 	);
 });
 
-test("AC:DEL58-005 T-195: purging one church workspace leaves each person's own account and the seats of other churches and organizations untouched", async () => {
+test("AC:DEL58-005: purging one church workspace leaves each person's own account and the seats of other churches and organizations untouched", async () => {
 	// An account holds one open seat at a time (seat_uq_0), so the seats elsewhere belong to other accounts.
 	const f = await plant(),
 		other = await plant(),
@@ -817,7 +822,7 @@ async function newSession(a) {
 	return { ...a, session };
 }
 
-test("AC:TARGET-IDN-006 T-271 Done 4-8: seat holders in the same church load each other's current photo; nobody else does", async () => {
+test("AC:TARGET-IDN-006: seat holders in the same church load each other's current photo; nobody else does", async () => {
 	const storage = photoStorage();
 	const f = await plant(),
 		member = await seat(f.p, "member"),
@@ -880,7 +885,7 @@ test("AC:TARGET-IDN-006 T-271 Done 4-8: seat holders in the same church load eac
 	assert.equal(await read(member, memberPhoto), "bytes");
 });
 
-test("AC:TARGET-IDN-006 T-271 Done 12: an overseeing organization and its plant load each other's photos while the link is current", async () => {
+test("AC:TARGET-IDN-006: an overseeing organization and its plant load each other's photos while the link is current", async () => {
 	const storage = photoStorage();
 	const f = await plant(),
 		staff = await seat(f.p, "member"),
@@ -940,7 +945,7 @@ test("AC:TARGET-IDN-006 T-271 Done 12: an overseeing organization and its plant 
 	assert.equal(await read(church.a, planter), "refused");
 });
 
-test("AC:TARGET-IDN-006 T-271 Done 9: a committed personal or church workspace deletion request hides the photos it reaches", async () => {
+test("AC:TARGET-IDN-006: a committed personal or church workspace deletion request hides the photos it reaches", async () => {
 	const storage = photoStorage();
 	// Personal deletion: the account's photo is refused to the church, and the account's own new session is refused too.
 	const f = await plant(),
@@ -974,7 +979,7 @@ test("AC:TARGET-IDN-006 T-271 Done 9: a committed personal or church workspace d
 	assert.equal(await photoRead(storage, again, memberPhoto), "bytes");
 });
 
-test("AC:TARGET-IDN-006 T-271 Done 2-3: the Seats roster and the People list name each visible photo by its account and version", async () => {
+test("AC:TARGET-IDN-006: the Seats roster and the People list name each visible photo by its account and version", async () => {
 	const storage = photoStorage();
 	const f = await plant(),
 		member = await seat(f.p, "member"),
@@ -1089,7 +1094,7 @@ async function credentialSeat(p, role) {
 	await admin.insert(t.seat).values({ plant_id: p.id, account_id: a.id, role, accepted_at: new Date(), revision: "1" });
 	return a;
 }
-test("AC:TARGET-IDN-026 AC:TARGET-IDN-032 T-195: only the Owner requests workspace deletion; every seat loses access; only the Owner's fresh proof opens and cancels it", async () => {
+test("AC:TARGET-IDN-026 AC:TARGET-IDN-032: only the Owner requests workspace deletion; every seat loses access; only the Owner's fresh proof opens and cancels it", async () => {
 	const owner = await credentialActor();
 	const f = await plant(owner);
 	const member = await credentialSeat(f.p, "member"),
@@ -1158,7 +1163,7 @@ test("AC:TARGET-IDN-026 AC:TARGET-IDN-032 T-195: only the Owner requests workspa
 	);
 });
 
-test("AC:DEL58-007 T-195: a workspace cancel after the stored deadline is refused even before the purge runs", async () => {
+test("AC:DEL58-007: a workspace cancel after the stored deadline is refused even before the purge runs", async () => {
 	const owner = await credentialActor();
 	const f = await plant(owner);
 	// A request whose 30 days ended a day ago, with no purge run yet.
@@ -1520,7 +1525,7 @@ test("AC:TARGET-TSK-018 frozen schedule previews disclose fold/gap policy and ig
 	]) {
 		const f = await plant();
 		ok(await call("setDigestSchedule", f.a, command({ plant: f.p, schedule: { cadence: "daily", hour } }), f.p));
-		const frozen = createSettingsProducer({ ...producerDeps, clock: frozenClock(instant.parse(asOf)) });
+		const frozen = settingsApi({ ...producerDeps, clock: frozenClock(instant.parse(asOf)) });
 		const preview = ok(
 			await db.transaction((tx) =>
 				frozen.previewPlantTimezone(tx, ctx(f.a, f.p), { plant: f.p, timeZone: "America/New_York" }),

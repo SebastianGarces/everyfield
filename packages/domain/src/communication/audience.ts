@@ -2,6 +2,7 @@ import type { AudienceInput } from "@everyfield/contracts/communication";
 import { audienceResult } from "@everyfield/contracts/communication";
 import { sql, type SQL } from "@everyfield/db/query";
 import { z } from "zod";
+import { hash } from "../operations/canonical.ts";
 import { optedOutAtSql } from "./opt-out.ts";
 
 const personRow = z.object({
@@ -109,10 +110,6 @@ export function summarizeAudience(raw: unknown) {
 	});
 }
 
-export function eligibleIds(raw: unknown): string[] {
-	return reviewedParts(raw).people;
-}
-
 /** Person ids and addresses a review freezes. Both lists are sorted the same way at schedule and at handoff. */
 export function reviewedParts(raw: unknown): { people: string[]; emails: string[] } {
 	const rows = z
@@ -124,3 +121,6 @@ export function reviewedParts(raw: unknown): { people: string[]; emails: string[
 		emails: rows.map((row) => row.email!.trim().toLowerCase()).sort(),
 	};
 }
+
+/** The people and addresses of one resolved audience: a review saves it, and the schedule compares it. */
+export const recipientsDigest = (raw: unknown) => hash(reviewedParts(raw));

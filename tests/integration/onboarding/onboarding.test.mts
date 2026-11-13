@@ -16,13 +16,12 @@ import {
 import { readViewer } from "../../../packages/domain/src/access/index.ts";
 import { createInvitationService } from "../../../packages/domain/src/identity/index.ts";
 import { accountPersonProducer } from "../../../packages/domain/src/people/index.ts";
-import { enqueueJob, enqueueJobs } from "../../../apps/web/src/server/jobs/queue.ts";
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import foundations from "../../../docs/reference/discovery-foundations.json" with { type: "json" };
 import { ok, refusedWith, waitingOnLock } from "../../support/fixture.mts";
 
 const database = await testDatabase({ prefix: "wp009", max: 6 });
-const { admin, schema } = database;
+const { admin } = database;
 const db = database.pools.runtime;
 let api, mail;
 let faults = false;

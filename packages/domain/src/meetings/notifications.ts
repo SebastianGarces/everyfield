@@ -18,7 +18,7 @@ import { displayTitle, meetingColumns, meetingRow, plantMeeting, type MeetingRow
  * Reminder slots for one meeting (REQ-MTG-018, REQ-TSK-018): 7, 3 and 1 civil days before, at the same church wall
  * clock, through the shared automatic resolver. The announcement goes out when the meeting is scheduled.
  */
-export function reminderTimes(m: Pick<MeetingRow, "local_date" | "local_time" | "timezone">) {
+function reminderTimes(m: Pick<MeetingRow, "local_date" | "local_time" | "timezone">) {
 	const zone = timeZone.parse(m.timezone);
 	return ([7, 3, 1] as const).map((days) => {
 		const wall = localDateTime.parse(`${addCivilDays(localDate.parse(m.local_date), -days)}T${m.local_time}:00`);
@@ -28,11 +28,11 @@ export function reminderTimes(m: Pick<MeetingRow, "local_date" | "local_time" | 
 	});
 }
 /** Whether the meeting still wants messages: scheduled, current and not yet started. */
-export const live = (m: Pick<MeetingRow, "status" | "retired_at" | "starts_at">, asOf: Date) =>
+const live = (m: Pick<MeetingRow, "status" | "retired_at" | "starts_at">, asOf: Date) =>
 	["planning", "ready"].includes(m.status) && m.retired_at === null && m.starts_at > asOf;
 
 /** A slot's job key: the announcement has one per meeting; a reminder's names the start it counts back from. */
-export const slotKey = (m: Pick<MeetingRow, "starts_at">, slot: z.infer<typeof c.reminderSlot>) =>
+const slotKey = (m: Pick<MeetingRow, "starts_at">, slot: z.infer<typeof c.reminderSlot>) =>
 	slot === "announcement" ? "meeting/announcement" : `meeting/${slot}/${m.starts_at.toISOString()}`;
 
 /**

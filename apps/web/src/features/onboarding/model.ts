@@ -2,11 +2,11 @@ import type * as C from "@everyfield/contracts/onboarding";
 import type { z } from "zod";
 
 // The onboarding rules as pure functions (WP-009/ui R4-R6). The store (store.tsx) holds one State and applies these;
-// tests/ui/onboarding/model.test.mjs checks them over random interleavings. This file has only type imports, so the
+// tests/unit/onboarding/model.test.mjs checks them over random interleavings. This file has only type imports, so the
 // model test runs it without a bundler.
 
 export type Resume = Extract<z.infer<typeof C.resumeResult>, { status: "available" }>;
-export type DiscoveryProfile = Extract<z.infer<typeof C.discoveryProfileResult>, { status: "active" }>["profile"];
+type DiscoveryProfile = Extract<z.infer<typeof C.discoveryProfileResult>, { status: "active" }>["profile"];
 export type OnboardingError = z.infer<typeof C.onboardingError>;
 export type ErrorCode = OnboardingError["code"];
 export type Reply<T> = { status: "ok"; value: T } | { status: "refused"; error: OnboardingError };
@@ -76,7 +76,7 @@ function emptyDrafts(): Drafts {
 
 export type Op = "createPlant" | "createDiscovery" | "convertDiscovery" | "declareJourney" | "answerLead" | "complete";
 /** One intent: the same payload retried keeps its request key, so a retry replays instead of acting twice. */
-export type Intent = { op: Op; digest: string; requestKey: string };
+type Intent = { op: Op; digest: string; requestKey: string };
 export type Command = { requestKey: string; expectedRevision: string; input: unknown };
 
 /**
@@ -273,7 +273,7 @@ export function stable(value: unknown): string {
 /** Why a command is not sent: already busy, or the step is read-only. */
 export type Hold = "busy" | "locked" | "unavailable";
 
-export function expectedRevision(entry: Entry, op: Op): string | null {
+function expectedRevision(entry: Entry, op: Op): string | null {
 	if (op === "createPlant" || op === "createDiscovery") return entry.kind === "start" ? entry.accountRevision : null;
 	if (op === "convertDiscovery") return entry.kind === "discovery" ? entry.profile.revision : null;
 	return entry.kind === "plant" ? entry.resume.revision : null;

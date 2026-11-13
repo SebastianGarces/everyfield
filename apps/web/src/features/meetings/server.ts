@@ -151,6 +151,8 @@ export async function loadMeeting(viewer: Viewer, meetingId: string) {
 		guests: page?.guests.guests ?? null,
 		/** Owners and Admins: the first email open per guest Person. Shown apart from RSVP and attendance. */
 		emailOpens: page?.guests.emailOpens ?? [],
+		/** Each guest's photo, named only by its route's version (REQ-IDN-006). */
+		photos: page?.guests.photos ?? [],
 		kit: value(kit),
 		cards: page?.cards.cards ?? null,
 		own: value(own),
@@ -162,7 +164,7 @@ export async function loadMeeting(viewer: Viewer, meetingId: string) {
 }
 
 /** Presence, classification and the attendance revision of every guest (up to the 500 a meeting can finalize). */
-export const readAttendance = (viewer: Viewer, meetingId: string) =>
+const readAttendance = (viewer: Viewer, meetingId: string) =>
 	read(viewer, (db, a) => attendanceReader.listAttendance(db, a, { meetingId, limit: 500 }));
 /** Attended, growth, the evaluation comparison and the generated work of one meeting. */
 export const readAnalytics = (viewer: Viewer, meetingId: string) =>

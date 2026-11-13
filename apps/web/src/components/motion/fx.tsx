@@ -4,10 +4,9 @@ import { useTransform } from "motion/react";
 import { createContext, useContext, type ReactNode } from "react";
 import { cn } from "../cn";
 import { EvryBot } from "../kit/EvryBot";
-import { swapIn, swapOut, type Frame } from "./curves";
-import { DoneButton } from "./DoneButton";
+import type { Frame } from "./curves";
 import { m } from "./m";
-import { MText, usePanelClock, useText, useTo } from "./scene";
+import { MText, usePanelClock, useTo } from "./scene";
 
 /**
  * Animated leaves for server-rendered product visuals. A panel's markup, copy and icons render on the server; only these
@@ -114,75 +113,6 @@ export function Target({
 	);
 }
 
-/** Two stacked states in one grid cell: the first slides up and out as p goes 0 → 1, the second slides up and in.
- *  Each state is a grid box, so a badge inside sits without a line box around it (as when the badge itself moved). */
-export function Swap({
-	fx,
-	n,
-	a,
-	b,
-	block,
-	className,
-	itemClassName,
-}: {
-	fx: string;
-	n?: number;
-	a: ReactNode;
-	b: ReactNode;
-	block?: boolean;
-	className?: string;
-	itemClassName?: string;
-}) {
-	const p = useFx<number>(fx, n),
-		t = useT();
-	const sa = useTo(t, (v) => swapOut(p(v)));
-	const sb = useTo(t, (v) => swapIn(p(v)));
-	return (
-		<span className={cn(block ? "grid" : "inline-grid", "min-w-0", className)}>
-			<m.span
-				className={cn("will-change-[transform,opacity]", "col-start-1 row-start-1 grid min-w-0", itemClassName)}
-				style={sa}
-			>
-				{a}
-			</m.span>
-			<m.span
-				className={cn(
-					"will-change-[transform,opacity]",
-					"col-start-1 row-start-1 grid min-w-0 opacity-0",
-					itemClassName,
-				)}
-				style={sb}
-			>
-				{b}
-			</m.span>
-		</span>
-	);
-}
-
-/** Typing: the full text sits invisible and holds the space, the typed part draws over it. fx gives the progress 0..1. */
-export function Typed({
-	text,
-	fx,
-	n,
-	className,
-	typedClassName,
-}: {
-	text: string;
-	fx: string;
-	n?: number;
-	className?: string;
-	typedClassName?: string;
-}) {
-	const p = useFx<number>(fx, n);
-	const typed = useText(useT(), (v) => text.slice(0, Math.floor(p(v) * text.length)));
-	return (
-		<span className={cn("relative block", className)}>
-			<span className="invisible">{text}</span>
-			<MText value={typed} className={cn("absolute inset-0", typedClassName)} />
-		</span>
-	);
-}
-
 /**
  * A counter that never changes size or moves anything (measured: zero layout-shift entries in Chromium). Digits are
  * tabular; an invisible copy of the widest value holds the group's width, so line breaks never change. The live number
@@ -211,43 +141,6 @@ export function Count({
 			</span>
 			<MText value={text} data-n="" className="col-start-1 row-start-1" />
 		</span>
-	);
-}
-
-/** A confirm button that is also a cursor target. R names the scene's loop reset, if it has one. */
-export function Done({
-	target,
-	at,
-	label,
-	done,
-	R,
-}: {
-	target: "t0" | "t1";
-	at: number;
-	label: string;
-	done: string;
-	R?: string;
-}) {
-	const reg = useContext(FxContext);
-	const r = R ? (reg[R] as ((t: number) => number) | undefined) : undefined;
-	if (R && !r) throw new Error(`no frame function "${R}" in this panel's registry`);
-	return <DoneButton ref={useTarget(target)} t={useT()} at={at} label={label} done={done} R={r} size="sm" />;
-}
-
-/** A form field picture: rounded input with a focus ring that fades in (fx gives the ring's opacity). */
-export function Field({ fx, n, children, className }: Leaf) {
-	const f = useFx<number>(fx, n);
-	const opacity = useTransform(useT(), (v) => +f(v).toFixed(3));
-	return (
-		<div
-			className={cn(
-				"relative flex h-[38px] items-center gap-2 overflow-hidden bg-surface px-3 type-md font-medium whitespace-nowrap text-ink shadow-[inset_0_0_0_1px_var(--color-line-2)]",
-				className,
-			)}
-		>
-			<m.span className="pointer-events-none absolute inset-0 opacity-0 shadow-mk-field-focus" style={{ opacity }} />
-			{children}
-		</div>
 	);
 }
 

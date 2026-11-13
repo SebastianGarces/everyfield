@@ -4,8 +4,8 @@ import { MIME, fileName, type Format, type Resolved } from "./model.ts";
 // download all use them, so the three agree by construction (DOC-002, DOC-003).
 
 export type PreviewReply =
-	| { status: "ok"; value: Resolved & { artifact: string | null } }
-	| { status: "refused"; code: string; problem?: string }
+	| { status: "ok"; value: Resolved & { artifact: string | null; brandKit: boolean } }
+	| { status: "refused"; code: string; path?: string }
 	| { status: "lost" };
 
 export function bytesOf(encoded: string) {
@@ -27,7 +27,7 @@ export function downloadBytes(name: string, format: Format, encoded: string) {
 }
 
 /** One JSON post. The preview route skips the server-action flight, which was the slow part. */
-export async function postPreview(
+async function postPreview(
 	templateId: string,
 	format: Format,
 	overrides: Record<string, string>,

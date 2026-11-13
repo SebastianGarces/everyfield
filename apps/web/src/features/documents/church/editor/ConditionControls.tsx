@@ -124,7 +124,6 @@ export function ConditionControls({ editor, target }: { editor: Editor; target: 
 			) : null}
 			<Button
 				type="button"
-				data-style="ghost"
 				aria-label="Remove condition"
 				tooltip="Remove the condition and keep the text as plain blocks"
 				onMouseDown={keepSelection}

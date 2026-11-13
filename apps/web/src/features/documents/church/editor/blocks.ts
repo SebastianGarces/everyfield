@@ -5,11 +5,13 @@ import { NodeSelection, Selection, TextSelection, type EditorState, type Transac
 import type { Condition } from "./condition.ts";
 import { conditionIssue } from "./condition-extension.ts";
 import { focusPlace, nodeFromTable, selectIn } from "./table-actions.ts";
-import { newBudget, newChecklist, newGrid } from "./table-ops.ts";
+import { newBudget, newChecklist, newGrid, newPlainChecklist, newPlainGrid } from "./table-ops.ts";
+import { BLOCK_NAME } from "../labels.ts";
 
-// Whole-block actions: Insert, Move up, Move down and Delete act on the top-level block that holds the cursor or the
-// selected block. Each one is one transaction, so one Undo reverses it. A block inside a list, quote, column or box
-// moves with its top-level parent.
+// Whole-block actions, each one transaction, so one Undo reverses it. Insert puts the new block after the block that
+// holds the selection, inside the innermost column, box, conditional text, header or footer (insertionPoint). Move up,
+// Move down and Delete act on the top-level block that holds the cursor or the selected block: a block inside a list,
+// quote, column or box moves with its top-level parent.
 
 type BlockRange = { index: number; from: number; to: number; node: PMNode };
 
@@ -67,26 +69,26 @@ export type InsertKind =
 	| "slot";
 type InsertGroup = "text" | "rules" | "layout" | "lines" | "images" | "tables" | "conditions" | "sections";
 export const INSERT_KINDS: { kind: InsertKind; label: string; group: InsertGroup }[] = [
-	{ kind: "paragraph", label: "Paragraph", group: "text" },
+	{ kind: "paragraph", label: BLOCK_NAME.paragraph, group: "text" },
 	{ kind: "heading", label: "Heading", group: "text" },
-	{ kind: "bulletList", label: "Bulleted list", group: "text" },
-	{ kind: "orderedList", label: "Numbered list", group: "text" },
-	{ kind: "quote", label: "Quote", group: "text" },
-	{ kind: "divider", label: "Divider", group: "rules" },
+	{ kind: "bulletList", label: BLOCK_NAME.bulletList, group: "text" },
+	{ kind: "orderedList", label: BLOCK_NAME.orderedList, group: "text" },
+	{ kind: "quote", label: BLOCK_NAME.quote, group: "text" },
+	{ kind: "divider", label: BLOCK_NAME.divider, group: "rules" },
 	{ kind: "accentBar", label: "Accent bar", group: "rules" },
-	{ kind: "spacer", label: "Spacer", group: "rules" },
-	{ kind: "pageBreak", label: "Page break", group: "rules" },
+	{ kind: "spacer", label: BLOCK_NAME.spacer, group: "rules" },
+	{ kind: "pageBreak", label: BLOCK_NAME.pageBreak, group: "rules" },
 	{ kind: "columns2", label: "2 columns", group: "layout" },
 	{ kind: "columns3", label: "3 columns", group: "layout" },
 	{ kind: "columns4", label: "4 columns", group: "layout" },
-	{ kind: "box", label: "Colored box", group: "layout" },
+	{ kind: "box", label: BLOCK_NAME.box, group: "layout" },
 	{ kind: "writeIn", label: "Write-in line", group: "lines" },
 	{ kind: "signature", label: "Signature line", group: "lines" },
 	{ kind: "dateLine", label: "Date line", group: "lines" },
 	{ kind: "logo", label: "Logo", group: "images" },
 	{ kind: "mark", label: "Mark", group: "images" },
 	{ kind: "photo", label: "Photo", group: "images" },
-	{ kind: "table", label: "Table", group: "tables" },
+	{ kind: "table", label: BLOCK_NAME.table, group: "tables" },
 	{ kind: "checklist", label: "Checklist rows", group: "tables" },
 	{ kind: "budget", label: "Budget table", group: "tables" },
 	{ kind: "if", label: "Conditional text", group: "conditions" },
@@ -149,10 +151,11 @@ function build(schema: Schema, kind: InsertKind, alt = "", condition: Condition 
 		case "mark":
 		case "photo":
 			return type("image").create({ source: kind, ...IMAGE_SIZE[kind], ...(alt ? { alt } : {}) });
+		// A plain document's schema has no page header: its tables have typed rows and no header color (T-100).
 		case "table":
-			return nodeFromTable(schema, newGrid());
+			return nodeFromTable(schema, schema.nodes.pageHeader ? newGrid() : newPlainGrid());
 		case "checklist":
-			return nodeFromTable(schema, newChecklist());
+			return nodeFromTable(schema, schema.nodes.pageHeader ? newChecklist() : newPlainChecklist());
 		case "budget":
 			return nodeFromTable(schema, newBudget());
 		case "if":
@@ -195,8 +198,8 @@ function insertionPoint(state: EditorState, kind?: InsertKind): { pos: number; p
 
 /** True when the schema lets this block sit at the place Insert would put it. Hidden in the menu when it cannot. */
 export function canInsert(state: EditorState, kind: InsertKind): boolean {
-	// A budget table sits in the body: the page header and footer print no Excel file.
-	if (kind === "budget" && regionAt(state)) return false;
+	// A budget table sits in the body: the page header and footer print no Excel file. A plain document has none.
+	if (kind === "budget" && (regionAt(state) || !state.schema.nodes.pageHeader)) return false;
 	if (kind === "slot" && hasSlot(state.doc)) return false;
 	// The format refuses columns anywhere under a column, a box or conditional text in a column included.
 	if (kind.startsWith("columns") && insideColumn(state)) return false;
@@ -447,7 +450,7 @@ export function deleteAllContent(editor: Editor): boolean {
 
 // ---------------------------------------------------------------- text styles
 
-export type TextStyle = "body" | "lead" | "small" | "kicker" | "h1" | "h2" | "h3";
+type TextStyle = "body" | "lead" | "small" | "kicker" | "h1" | "h2" | "h3";
 export const TEXT_STYLES: { style: TextStyle; label: string }[] = [
 	{ style: "body", label: "Body" },
 	{ style: "lead", label: "Lead" },

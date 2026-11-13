@@ -31,6 +31,7 @@ import { closeDatabase, createDatabase, type Database } from "../../packages/db/
 import { RequestActor } from "../../packages/domain/src/access/session.ts";
 import { communicationWriter, type DeliveryTransport } from "../../packages/domain/src/communication/index.ts";
 import { mailAddressHash } from "../../packages/domain/src/communication/delivery.ts";
+import type { Instant } from "../../packages/contracts/src/common/time.ts";
 import { nativeFromText } from "../../packages/contracts/src/documents/native.ts";
 import { documentsWriter } from "../../packages/domain/src/documents/index.ts";
 import { createFollowUpWriter } from "../../packages/domain/src/followups/index.ts";
@@ -42,7 +43,6 @@ import { createOrganizationAdapter, type OrganizationEffects } from "../../packa
 import { accountPersonProducer, peopleWriter, personFields } from "../../packages/domain/src/people/index.ts";
 import { createTaskWriter } from "../../packages/domain/src/tasks/index.ts";
 import { teamsWriter } from "../../packages/domain/src/teams/index.ts";
-import { queueJobs } from "../../apps/web/src/server/jobs/queue.ts";
 import { receiveMailCallback } from "../../apps/web/src/server/jobs/webhook.ts";
 import { FULL_ADDRESS, QA_LOGINS, QA_PASSWORD, QA_ROLES as ROLES, roleUrl, seedRefusal } from "./qa-guard.ts";
 
@@ -142,8 +142,8 @@ async function seed(env: Readonly<Record<string, string | undefined>>): Promise<
 	if (!password || password.length < 16) throw new SeedRefusal("QA_ROLE_PASSWORD must hold at least 16 characters.");
 	const source = env.DATABASE_URL!;
 	const admin = createDatabase({ connectionString: source, max: 2 });
-	let runtime: Database | null = null,
-		authDb: Database | null = null;
+	let runtime: ReturnType<typeof createDatabase> | null = null,
+		authDb: ReturnType<typeof createDatabase> | null = null;
 	try {
 		await logins(admin, password);
 		runtime = createDatabase({ connectionString: roleUrl(source, ROLES.runtime, password), max: 2 });
@@ -179,7 +179,7 @@ async function fill(
 		secret: randomBytes(32).toString("hex"),
 		trustedIp: () => `127.0.106.${ip}`,
 		// Verification mail is skipped: the seed marks each QA address verified below.
-		enqueueMail: async () => {},
+		enqueueMail: async () => "",
 		diagnostic: () => {},
 	});
 	const host = new URL(ORIGIN).host;
@@ -258,7 +258,7 @@ async function fill(
 
 	// Each church, created by its owner through onboarding and marked complete, so its logins land on it.
 	const noop = async () => {};
-	const onboarding = createOnboardingProducer({ invalidate: noop, notice: noop, enqueue: noop });
+	const onboarding = createOnboardingProducer({ relationships: noop, enqueue: noop });
 	const write = <T>(run: (tx: never) => Promise<T>) => runtime.transaction((tx) => run(tx as never));
 	async function church(name: string, city: string, ownerAccount: string, ownerEmail: string, label: string) {
 		let id = (await rows(admin, sql`SELECT id FROM plant WHERE name=${name} ORDER BY id LIMIT 1`))[0]?.id as
@@ -289,7 +289,11 @@ async function fill(
 			ok(
 				`complete onboarding ${name}`,
 				await write((tx) =>
-					onboarding.complete(tx, c as never, { requestKey: randomUUID(), expectedRevision: revision, input: {} }),
+					onboarding.complete(
+						tx,
+						c as never,
+						{ requestKey: randomUUID(), expectedRevision: revision, input: {} } as never,
+					),
 				),
 			);
 			done.push(`onboarding${label}`);
@@ -401,7 +405,7 @@ async function fill(
 	for (const [index, title] of MEETINGS.entries()) {
 		if ((await rows(admin, sql`SELECT 1 FROM meeting WHERE plant_id=${plantId} AND title=${title}`)).length) continue;
 		const c = await ctx();
-		const guests = [];
+		const guests: string[] = [];
 		for (const name of ["Sara Nunez", "Leo Pratt", "James Okafor"]) guests.push((await personId(name))!.id);
 		ok(
 			`meeting ${title}`,
@@ -496,18 +500,7 @@ async function fill(
 	const effects: OrganizationEffects = {
 		// The seed keeps the proof instead of mailing it, as it skips verification mail.
 		invitation: async (_tx, input) => void proofs.set(input.invitationId, input.proof),
-		// The app's own effects (apps/web/src/server/organizations): the coarse notice job and the stale-work supersede.
-		notice: (tx, input) =>
-			queueJobs(tx, [
-				{
-					tenant: input.pair.kind === "plant" ? input.pair.subject.id : input.pair.organization.id,
-					kind: "notification",
-					subject: input.relationshipId,
-					key: `${input.kind}/${input.eventId}`,
-					revision: input.revision,
-					eligibleAt: new Date().toISOString(),
-				},
-			]),
+		// The app's own stale-work supersede (apps/web/src/server/organizations).
 		invalidate: (_tx, input) =>
 			sql`UPDATE job SET state='superseded',claim_generation=claim_generation+1,lease_owner=NULL,lease_until=NULL,revision=revision+1,finished_at=clock_timestamp() WHERE subject_record_id=${input.sourceId} AND kind IN ('assessment','digest') AND state IN ('ready','retry_wait','claimed')`,
 	};
@@ -546,28 +539,43 @@ async function fill(
 		);
 		for (const i of stale)
 			await runtime.transaction((tx) =>
-				organizations["associations.revokeInvitation"](tx, s, plant, {
-					requestKey: randomUUID(),
-					expectedRevision: i.revision as string,
-					input: { invitationId: i.id as string },
-				} as never),
+				organizations["associations.revokeInvitation"](
+					tx,
+					s,
+					plant as never,
+					{
+						requestKey: randomUUID(),
+						expectedRevision: i.revision as string,
+						input: { invitationId: i.id as string },
+					} as never,
+				),
 			);
 		const revision = (await rows(admin, sql`SELECT revision::text AS r FROM plant WHERE id=${plantId}`))[0]!
 			.r as string;
 		const invited = await runtime.transaction((tx) =>
-			organizations["associations.invite"](tx, s, plant, {
-				requestKey: randomUUID(),
-				expectedRevision: revision,
-				input: { pair: { kind: "plant", subject: plant, organization }, recipientEmail: o.login },
-			} as never),
+			organizations["associations.invite"](
+				tx,
+				s,
+				plant as never,
+				{
+					requestKey: randomUUID(),
+					expectedRevision: revision,
+					input: { pair: { kind: "plant", subject: plant, organization }, recipientEmail: o.login },
+				} as never,
+			),
 		);
 		const answer = (await sessionOf(o.login)) as never;
 		await runtime.transaction((tx) =>
-			organizations["associations.acceptInvitation"](tx, answer, organization, {
-				requestKey: randomUUID(),
-				expectedRevision: invited.revision,
-				input: { invitationId: invited.invitationId, proof: proofs.get(invited.invitationId)!, decision: "accept" },
-			} as never),
+			organizations["associations.acceptInvitation"](
+				tx,
+				answer,
+				organization as never,
+				{
+					requestKey: randomUUID(),
+					expectedRevision: invited.revision,
+					input: { invitationId: invited.invitationId, proof: proofs.get(invited.invitationId)!, decision: "accept" },
+				} as never,
+			),
 		);
 		done.push(`connection ${o.name}`);
 	}
@@ -690,7 +698,7 @@ async function mailCases(
 		)[0] as { id: string; revision: string } | undefined;
 	if (!(await message())) {
 		const c = await p.ctx();
-		const personIds = [];
+		const personIds: string[] = [];
 		for (const name of DELIVERY_TO) personIds.push((await p.personId(name))!.id);
 		ok(
 			"delivery message",
@@ -723,7 +731,6 @@ async function mailCases(
 		if (!(actor instanceof RequestActor)) throw Error(`delivery actor: ${JSON.stringify(actor)}`);
 		const accepting: DeliveryTransport = {
 			send: async (batch) => ({ outcome: "ids", ids: batch.messages.map(() => `qa-seed-${randomUUID()}`) }),
-			lookup: async () => ({ outcome: "unknown" }),
 			cancel: async (ids) => ids.map(() => ({ outcome: "unknown" })),
 			reschedule: async (ids) => ids.map(() => ({ outcome: "unknown" })),
 		};
@@ -843,7 +850,7 @@ async function checkIns(
 		)
 	).map((r) => r.at as string);
 	let now = "";
-	const care = createPrivateCare({ clock: { now: () => now } });
+	const care = createPrivateCare({ clock: { now: () => now as Instant } });
 	const actor = await RequestActor.resolve(runtime, (await ownerSession()) as never);
 	if (!(actor instanceof RequestActor)) throw Error(`check-in actor: ${JSON.stringify(actor)}`);
 	await runtime.transaction(async (tx) => {

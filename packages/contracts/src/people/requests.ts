@@ -6,10 +6,9 @@ import {
 	adultClassification,
 	contactFields,
 	displayName,
-	noteBody,
+	longText,
 	pageInput,
 	pipelineColumn,
-	reason,
 	recruitmentSource,
 	stage,
 } from "./values.ts";
@@ -49,6 +48,8 @@ export const updatePersonRequest = commandEnvelope(
 	}),
 );
 export const personRequest = z.strictObject({ personId });
+/** The people whose current photos a screen asks for: at most one page of rows. */
+export const personPhotosRequest = z.strictObject({ personIds: z.array(personId).max(100) });
 export const ownAccountPersonRequest = z.strictObject({});
 export const listPeopleRequest = z.strictObject({
 	...pageInput,
@@ -74,23 +75,25 @@ export const activityRequest = z.strictObject({
 		.optional(),
 });
 export const addNoteRequest = commandEnvelope(
-	z.strictObject({ personId, body: noteBody, meetingId: recordId.optional() }),
+	z.strictObject({ personId, body: longText, meetingId: recordId.optional() }),
 );
-export const editNoteRequest = commandEnvelope(z.strictObject({ personId, noteId: recordId, body: noteBody, reason }));
-export const deleteNoteRequest = commandEnvelope(z.strictObject({ personId, noteId: recordId, reason }));
+export const editNoteRequest = commandEnvelope(
+	z.strictObject({ personId, noteId: recordId, body: longText, reason: longText }),
+);
+export const deleteNoteRequest = commandEnvelope(z.strictObject({ personId, noteId: recordId, reason: longText }));
 export const handoffChoice = z.discriminatedUnion("kind", [
 	z.strictObject({ kind: z.literal("assign"), dutyId: recordId, expectedRevision: revision, toPersonId: personId }),
 	z.strictObject({ kind: z.literal("needs_owner"), dutyId: recordId, expectedRevision: revision }),
 ]);
 export const changeStatusRequest = commandEnvelope(
-	z.strictObject({ personId, stage, reason, handoffs: z.array(handoffChoice).max(100) }),
+	z.strictObject({ personId, stage, reason: longText, handoffs: z.array(handoffChoice).max(100) }),
 );
 export const retirePersonRequest = commandEnvelope(
-	z.strictObject({ personId, reason, reviewRevision: revision, handoffs: z.array(handoffChoice).max(100) }),
+	z.strictObject({ personId, reason: longText, reviewRevision: revision, handoffs: z.array(handoffChoice).max(100) }),
 );
 export const restorePersonRequest = commandEnvelope(z.strictObject({ personId }));
 export const classifyAdultRequest = commandEnvelope(
-	z.strictObject({ personId, classification: adultClassification, occurredOn: localDate, reason }),
+	z.strictObject({ personId, classification: adultClassification, occurredOn: localDate, reason: longText }),
 );
 // Places one person in a pipeline column: right after `afterId`, or first when it is null. The expected revision is the
 // column's, so a move against an order that changed meanwhile is refused (REQ-PPL-007).

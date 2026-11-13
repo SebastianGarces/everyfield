@@ -4,6 +4,7 @@ import {
 	IMPORT_BYTES_MAX,
 	IMPORT_TOO_LARGE,
 	nativeFromText,
+	TABLE_LIMITS,
 	type DocNode,
 } from "@everyfield/contracts/documents";
 import { crc32, inflateRawSync } from "node:zlib";
@@ -25,7 +26,7 @@ export class ImportRejected extends Error {
 
 /**
  * UTF-8 text or a modern Word document, as a native body: text lands as one paragraph for each line, a Word file keeps
- * its headings, lists and links. Legacy Word, macros and remote targets are refused. The caller still checks the body
+ * its headings, lists, links and tables. Legacy Word, macros and remote targets are refused. The caller still checks the body
  * against the format rules.
  */
 export function readImport(bytes: Uint8Array, format: "text" | "docx"): DocNode {
@@ -176,7 +177,8 @@ function attr(tag: string, name: string) {
 }
 
 // The Word structure the import keeps (T-99): headings by style name or outline level, bulleted and numbered lists from
-// numbering.xml, links to safe addresses and line breaks. Everything else stays a paragraph. Each part is read with
+// numbering.xml, links to safe addresses and line breaks; and (T-111) tables as plain native tables of text columns.
+// Everything else stays a paragraph. Each part is read with
 // bounded regular expressions, so a malformed or missing part leaves its paragraphs plain instead of throwing.
 
 type Style = {
@@ -208,6 +210,9 @@ const LIST_MAX = Math.min(
 	FORMAT_SCHEMA.nodes.orderedList!.content!.max ?? Infinity,
 );
 const CHAIN_MAX = 20;
+const LABEL_MAX = FORMAT_SCHEMA.nodes.table!.attrs.columns!.of!.props!.label!.max ?? 80;
+/** Word's on/off values that mean off (ECMA-376 ST_OnOff). */
+const OFF = new Set(["0", "false", "off"]);
 const val = (body: string, tag: string) => {
 	const found = new RegExp(String.raw`<w:${tag}\b[^>]*?\bw:val\s*=\s*"([^"]*)"`).exec(body);
 	return found ? decodeEntities(found[1]!) : null;
@@ -246,7 +251,10 @@ function* chain(styles: Map<string, Style>, id: string | null) {
 	}
 }
 
-/** Word levels 1 to 9 by style name ("heading 2") or outline level (0 is level 1); 9 and up read as level 3. */
+/**
+ * Word levels 1 to 9 by style name ("heading 2") or outline level (0 is level 1). Levels 4 to 9 read as level 3; outline
+ * level 9 is Word's body text, not a heading.
+ */
 const capped = (level: number) => Math.min(level, 3) as 1 | 2 | 3;
 function headingOf(styles: Map<string, Style>, open: Open): 1 | 2 | 3 | null {
 	if (open.outline !== null) return open.outline <= 8 ? capped(open.outline + 1) : null;
@@ -337,9 +345,87 @@ function inlineNodes(inline: Inline[]) {
 	return out;
 }
 
+/** One Word table cell as read: the grid columns it spans, whether it continues a vertical merge, and its runs, with a
+ * hardBreak wherever a paragraph or line break ends a piece of its text. */
+type WordCell = { span: number; continued: boolean; items: Inline[] };
+type WordRow = { header: boolean; cells: WordCell[] };
+
+/** A cell's runs as one line: pieces of text join with a single space and the ends are trimmed. */
+function cellLine(items: Inline[]) {
+	const out: (Inline & { type: "text" })[] = [];
+	let gap = false;
+	for (const item of items) {
+		if (item.type === "hardBreak") gap = out.length > 0;
+		else if (item.text) {
+			if (gap && !/\s$/.test(out.at(-1)!.text) && !/^\s/.test(item.text))
+				out.push({ type: "text", text: " ", href: null });
+			gap = false;
+			out.push({ ...item });
+		}
+	}
+	while (out.length && !(out[0]!.text = out[0]!.text.trimStart())) out.shift();
+	while (out.length && !(out.at(-1)!.text = out.at(-1)!.text.trimEnd())) out.pop();
+	return out;
+}
+
+/**
+ * A Word table as native tables (T-111 rulings a to d): text columns as wide as the widest row, a header from Word's
+ * marked first row when every label fits, and at most the format's row limit per table. Null when the table is wider
+ * than the format allows or has no cells, so its paragraphs stay as they are.
+ */
+function wordTables(rows: WordRow[]): Node[] | null {
+	const width = rows.reduce(
+		(most, row) =>
+			Math.max(
+				most,
+				row.cells.reduce((n, cell) => n + cell.span, 0),
+			),
+		0,
+	);
+	if (width === 0 || width > TABLE_LIMITS.columns) return null;
+	const grid = rows.map((row) => {
+		const cells: (Inline & { type: "text" })[][] = [];
+		for (const cell of row.cells) {
+			cells.push(cell.continued ? [] : cellLine(cell.items));
+			for (let k = 1; k < cell.span; k++) cells.push([]);
+		}
+		while (cells.length < width) cells.push([]);
+		return cells;
+	});
+	const labels = rows[0]?.header ? grid[0]!.map((cell) => cell.map((piece) => piece.text).join("")) : null;
+	const header = !!labels && labels.every((label) => label.length <= LABEL_MAX);
+	const columns = Array.from({ length: width }, (_, i) => ({
+		id: `c${i + 1}`,
+		label: header ? labels![i]! : `Column ${i + 1}`,
+		type: "text",
+		width: 0,
+	}));
+	const data = header ? grid.slice(1) : grid;
+	const row = (cells: Inline[][]): Node => ({
+		type: "row",
+		content: cells.map((cell) => {
+			const content = inlineNodes(cell);
+			return content.length ? { type: "cell", content } : { type: "cell" };
+		}),
+	});
+	const tables: Node[] = [];
+	for (let at = 0; at === 0 || at < data.length; at += TABLE_LIMITS.rows) {
+		const slice = data.slice(at, at + TABLE_LIMITS.rows);
+		tables.push({
+			type: "table",
+			attrs: { columns, style: "grid", header },
+			...(slice.length ? { content: slice.map(row) } : {}),
+		});
+	}
+	return tables;
+}
+
 /**
  * The body of a Word document. Paragraphs in the body keep their heading level or list; paragraphs in tables and text
- * boxes stay plain. A text box inside a paragraph lands after the paragraph's text before it, so no text moves.
+ * boxes stay plain. A text box inside a paragraph lands after the paragraph's text before it, so no text moves. A table
+ * in the body (not in a text box) is read twice: its paragraphs land as plain paragraphs, and its rows and cells are
+ * collected; when it closes, a table the format can hold replaces those paragraphs. A table nested in a cell adds its
+ * text to that cell.
  */
 function wordBody(xml: string, word: Word): DocNode {
 	const blocks: Node[] = [];
@@ -347,7 +433,9 @@ function wordBody(xml: string, word: Word): DocNode {
 	let list: { kind: "bullet" | "ordered"; numId: string; node: Node & { content: Node[] } } | null = null;
 	let size = 0;
 	let printable = false;
-	let plainDepth = 0;
+	let tableDepth = 0;
+	let boxDepth = 0;
+	let table: { from: number; rows: WordRow[]; cell: WordCell | null } | null = null;
 	let skipDepth = 0;
 	let pPrDepth = 0;
 	let inText = false;
@@ -380,6 +468,7 @@ function wordBody(xml: string, word: Word): DocNode {
 		open.inline.push(item);
 		size += item.type === "text" ? item.text.length : 1;
 		if (item.type === "text" && item.text.trim()) printable = true;
+		table?.cell?.items.push(item);
 		if (size > TEXT_MAX) throw new ImportRejected("Imported text is too long.");
 	};
 
@@ -393,7 +482,7 @@ function wordBody(xml: string, word: Word): DocNode {
 			inText = false;
 		}
 		// The fallback copy of a drawing repeats its text box, and a change record repeats old properties.
-		if (name === "mc:Fallback" || name === "w:pPrChange" || name === "w:rPrChange") {
+		if (/^(mc:Fallback|w:(p|r|tc|tr|tbl)PrChange)$/.test(name)) {
 			if (!selfClosing) skipDepth += closing ? -1 : 1;
 			continue;
 		}
@@ -402,8 +491,17 @@ function wordBody(xml: string, word: Word): DocNode {
 			if (name === "w:p") {
 				const open = stack.pop();
 				if (open && !(open.split && !open.inline.length)) emit(open);
+				table?.cell?.items.push({ type: "hardBreak" });
 			} else if (name === "w:pPr") pPrDepth = Math.max(0, pPrDepth - 1);
-			else if (name === "w:tbl" || name === "w:txbxContent") plainDepth = Math.max(0, plainDepth - 1);
+			else if (name === "w:txbxContent") boxDepth = Math.max(0, boxDepth - 1);
+			else if (name === "w:tbl") {
+				tableDepth = Math.max(0, tableDepth - 1);
+				if (table && !tableDepth) {
+					const tables = wordTables(table.rows);
+					if (tables) blocks.splice(table.from, blocks.length - table.from, ...tables);
+					table = null;
+				}
+			} else if (name === "w:tc" && tableDepth === 1 && table) table.cell = null;
 			else if (name === "w:hyperlink") links.pop();
 			continue;
 		}
@@ -413,12 +511,13 @@ function wordBody(xml: string, word: Word): DocNode {
 				style: null,
 				numId: null,
 				outline: null,
-				plain: plainDepth > 0,
+				plain: tableDepth > 0 || boxDepth > 0,
 				inline: [],
 				split: false,
 			};
 			if (selfClosing) emit(next);
 			else {
+				table?.cell?.items.push({ type: "hardBreak" });
 				if (open?.inline.length) {
 					emit(open);
 					open.inline = [];
@@ -433,8 +532,29 @@ function wordBody(xml: string, word: Word): DocNode {
 			if (name === "w:pStyle" && value !== null) open.style = decodeEntities(value);
 			else if (name === "w:numId") open.numId = value;
 			else if (name === "w:outlineLvl") open.outline = int(value);
-		} else if (name === "w:tbl" || name === "w:txbxContent") {
-			if (!selfClosing) plainDepth += 1;
+		} else if (name === "w:txbxContent") {
+			if (!selfClosing) boxDepth += 1;
+		} else if (name === "w:tbl") {
+			if (selfClosing) continue;
+			if (!tableDepth && !boxDepth) {
+				list = null;
+				table = { from: blocks.length, rows: [], cell: null };
+			}
+			tableDepth += 1;
+		} else if (table && tableDepth === 1 && (name === "w:tr" || name === "w:tc")) {
+			if (selfClosing) continue;
+			if (name === "w:tr") table.rows.push({ header: false, cells: [] });
+			else {
+				table.cell = { span: 1, continued: false, items: [] };
+				table.rows.at(-1)?.cells.push(table.cell);
+			}
+		} else if (table && tableDepth === 1 && name === "w:tblHeader") {
+			const row = table.rows.at(-1);
+			if (row && !row.cells.length) row.header = !OFF.has((attr(rest, "w:val") ?? "true").toLowerCase());
+		} else if (table?.cell && tableDepth === 1 && name === "w:gridSpan") {
+			table.cell.span = Math.max(1, int(attr(rest, "w:val")) ?? 1);
+		} else if (table?.cell && tableDepth === 1 && name === "w:vMerge") {
+			table.cell.continued = attr(rest, "w:val") !== "restart";
 		} else if (name === "w:hyperlink") {
 			if (!selfClosing) {
 				const id = attr(rest, "r:id");

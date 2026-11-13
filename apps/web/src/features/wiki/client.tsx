@@ -13,7 +13,6 @@ import {
 	Dialog,
 	DialogBody,
 	DialogContent,
-	DialogFooter,
 	DialogHeader,
 	EmptyState,
 	IconButton,
@@ -25,12 +24,11 @@ import {
 import { Tag, Toc, WikiSourceBar, type WikiPhase, WikiTree } from "@everyfield/ui/display";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { createContext, use, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { createContext, use, useEffect, useLayoutEffect, useRef, useState, useTransition, type ReactNode } from "react";
 import {
 	downloadPdf,
 	loadGuide,
 	printCopy,
-	readSourceOrder,
 	recordArticleView,
 	saveBookmark,
 	saveProgress,
@@ -38,14 +36,22 @@ import {
 	searchWiki,
 	type ExportResult,
 	type GuideResult,
-	type OrderRead,
-	type OrderRow,
 	type OrderSave,
 	type SearchResult,
 	type WriteResult,
 } from "./actions.ts";
+import { useOpenSettings, useSettingsLink } from "../settings/opener.tsx";
 import { ARTICLE_FIXED, BELOW_WIDE_ONLY, GRID, GRID_FIXED, RAIL_FIXED, RAIL_STICKY, RAIL_TOC_PAD } from "./layout.ts";
-import { type ArticleVersion, fractionText, pdfFilename, PHASE_NAME, snippetParts, type SourceRow } from "./model.ts";
+import {
+	type ArticleVersion,
+	fractionText,
+	pdfFilename,
+	PHASE_NAME,
+	preferredOrder,
+	snippetParts,
+	type SourceOrder,
+	type SourceRow,
+} from "./model.ts";
 import { ArticleBody } from "./prose.tsx";
 
 const Chrome = createContext<{ openSearch: () => void; toggleGuide: () => void; guideOpen: boolean } | null>(null);
@@ -665,24 +671,48 @@ function openPrint(html: string): boolean {
 	return true;
 }
 
+/** What the last "Set as preferred" said, on the article it was chosen from. */
+type Said = { path: string } & (
+	| { saved: { name: string; list: "churches" | "networks"; id: string } }
+	| { refused: Exclude<OrderSave, { status: "ok" }> }
+);
+
+function refusedText(reply: Exclude<OrderSave, { status: "ok" }>): string {
+	switch (reply.status) {
+		case "conflict":
+		case "required":
+		case "invalid":
+			return "The preferred source was not changed because the order changed elsewhere. Reload the page to see the current order.";
+		case "denied":
+			return "The preferred source was not changed. Only an Owner or Admin of your church can set it.";
+		case "lost":
+			return "The preferred source was not changed. Check your connection and try again.";
+	}
+}
+
 export function SourceBar({
 	sources,
 	currentId,
 	preferredId,
 	canOrder,
+	order,
 }: {
 	sources: SourceRow[];
 	currentId: string;
 	preferredId: string;
 	canOrder: boolean;
+	order: SourceOrder | null;
 }) {
 	const router = useRouter();
 	const pathname = usePathname();
 	const search = useSearchParams();
-	const order = search.get("order") === "edit";
+	const openSettings = useOpenSettings();
+	const [said, setSaid] = useState<Said | null>(null);
+	const [saving, setSaving] = useState(false);
+	// The article reloads inside this transition, so the status line waits for the version the save chose.
+	const [loading, startLoading] = useTransition();
 	const hrefFor = (id: string) => {
 		const params = new URLSearchParams(search.toString());
-		params.delete("order");
 		if (id === preferredId) params.delete("source");
 		else {
 			const row = sources.find((source) => source.id === id);
@@ -691,171 +721,75 @@ export function SourceBar({
 		const query = params.toString();
 		return query ? `${pathname}?${query}` : pathname;
 	};
-	const settings = new URLSearchParams(search.toString());
-	settings.set("order", "edit");
-	return (
-		<>
-			<WikiSourceBar
-				sources={sources.map((source) => ({
-					id: source.id,
-					short: source.short,
-					name: source.name,
-					meta: source.meta,
-					kind: source.barKind,
-				}))}
-				currentId={currentId}
-				preferredId={preferredId}
-				onChoose={(id) => router.push(hrefFor(id))}
-				settingsHref={canOrder ? `${pathname}?${settings.toString()}` : undefined}
-			/>
-			{canOrder ? <SourceOrder open={order} /> : null}
-		</>
-	);
-}
-
-function SourceOrder({ open }: { open: boolean }) {
-	const router = useRouter();
-	const pathname = usePathname();
-	const search = useSearchParams();
-	const [churches, setChurches] = useState<OrderRow[]>([]);
-	const [networks, setNetworks] = useState<OrderRow[]>([]);
-	const [revision, setRevision] = useState("0");
-	const [note, setNote] = useState("");
-	const [pending, setPending] = useState(false);
-	const loaded = useRef(false);
-
-	useEffect(() => {
-		if (!open) {
-			loaded.current = false;
+	const current = sources.find((source) => source.id === currentId);
+	const next = current ? preferredOrder(order, current, preferredId) : null;
+	const prefer = async (name: string, change: NonNullable<typeof next>) => {
+		setSaving(true);
+		let reply: OrderSave;
+		try {
+			reply = await saveSourceOrder(crypto.randomUUID(), change.revision, change.churches, change.networks);
+		} catch {
+			reply = { status: "lost" };
+		}
+		setSaving(false);
+		if (reply.status !== "ok") {
+			setSaid({ path: pathname, refused: reply });
 			return;
 		}
-		if (loaded.current) return;
-		loaded.current = true;
-		void readSourceOrder()
-			.catch((): OrderRead => ({ status: "lost" }))
-			.then((result) => {
-				if (result.status !== "ok") {
-					setNote(
-						result.status === "denied"
-							? "Only an Owner or Admin can set this order."
-							: "The source order could not be loaded.",
-					);
-					return;
-				}
-				setChurches(result.churches);
-				setNetworks(result.networks);
-				setRevision(result.revision);
-			});
-	}, [open]);
-
-	function close() {
+		setSaid({ path: pathname, saved: { name, list: change.list, id: currentId } });
+		// The preferred source now opens without ?source=, in the default bar.
 		const params = new URLSearchParams(search.toString());
-		params.delete("order");
+		params.delete("source");
 		const query = params.toString();
-		router.replace(query ? `${pathname}?${query}` : pathname);
-	}
-
-	function move(kind: "church" | "network", index: number, step: number) {
-		const list = kind === "church" ? churches : networks;
-		const next = index + step;
-		if (next < 0 || next >= list.length) return;
-		const copy = list.slice();
-		const [row] = copy.splice(index, 1);
-		if (!row) return;
-		copy.splice(next, 0, row);
-		if (kind === "church") setChurches(copy);
-		else setNetworks(copy);
-	}
-
-	async function save() {
-		setPending(true);
-		const result = await saveSourceOrder(
-			crypto.randomUUID(),
-			revision,
-			churches.map((row) => row.id),
-			networks.map((row) => row.id),
-		).catch((): OrderSave => ({ status: "lost" }));
-		setPending(false);
-		if (result.status === "ok") {
-			router.refresh();
-			close();
-			return;
-		}
-		if (result.status === "conflict") setNote("Someone else changed the order. Reload the page, then try again.");
-		else if (result.status === "required") setNote("Choose every church. An empty church list cannot set the order.");
-		else if (result.status === "invalid") setNote("The order has to list each source once.");
-		else if (result.status === "denied") setNote("Only an Owner or Admin can set this order.");
-		else setNote("The order did not save. Try again.");
-	}
-
+		startLoading(() => {
+			if (search.has("source")) router.push(query ? `${pathname}?${query}` : pathname);
+			else router.refresh();
+		});
+	};
+	const status = (() => {
+		if (saving || loading) return "Saving the order…";
+		if (!said || said.path !== pathname) return "";
+		if ("refused" in said) return refusedText(said.refused);
+		const { name, list, id } = said.saved;
+		if (list === "churches") return `${name} is now your preferred church.`;
+		if (preferredId === id) return `${name} is now your preferred network.`;
+		const shown = sources.find((source) => source.id === preferredId)?.name ?? "a church version";
+		return `${name} is now your first network. Church versions are read before networks, so this article shows ${shown}.`;
+	})();
 	return (
-		<Dialog open={open} onOpenChange={(next) => (next ? undefined : close())}>
-			<DialogContent size="md">
-				<DialogHeader
-					title="Preferred source order"
-					description="This order chooses the article people see first. It does not hide the other sources."
-				/>
-				<DialogBody className="flex flex-col gap-4">
-					<OrderList title="Churches" rows={churches} kind="church" onMove={move} />
-					<OrderList title="Networks" rows={networks} kind="network" onMove={move} />
-					{note ? (
-						<p role="status" className="text-sm text-text-2">
-							{note}
-						</p>
-					) : null}
-				</DialogBody>
-				<DialogFooter>
-					<Button variant="ghost" onClick={close}>
-						Cancel
-					</Button>
-					<Button onClick={() => void save()} loading={pending} disabled={churches.length + networks.length === 0}>
-						Save order
-					</Button>
-				</DialogFooter>
-			</DialogContent>
-		</Dialog>
+		<WikiSourceBar
+			sources={sources.map((source) => ({
+				id: source.id,
+				short: source.short,
+				name: source.name,
+				meta: source.meta,
+				kind: source.barKind,
+			}))}
+			currentId={currentId}
+			preferredId={preferredId}
+			onChoose={(id) => {
+				setSaid(null);
+				router.push(hrefFor(id));
+			}}
+			prefer={
+				current && next && !saving && !loading
+					? { name: current.name, onSelect: () => void prefer(current.name, next) }
+					: undefined
+			}
+			status={canOrder ? status : undefined}
+			// The order is set in Settings, opened over this article so Escape and Back return here.
+			onSettings={canOrder ? () => (openSettings ? openSettings("wiki") : router.push("/settings/wiki")) : undefined}
+		/>
 	);
 }
 
-function OrderList({
-	title,
-	rows,
-	kind,
-	onMove,
-}: {
-	title: string;
-	rows: OrderRow[];
-	kind: "church" | "network";
-	onMove: (kind: "church" | "network", index: number, step: number) => void;
-}) {
-	const label = useId();
-	if (!rows.length) return <p className="text-text-2">No {title.toLowerCase()} share a wiki with this church.</p>;
+/** The Owner's way from an article to the church's Wiki source order in Settings, opened over the article. */
+export function OrderSettingsButton({ children }: { children: ReactNode }) {
+	const link = useSettingsLink("wiki");
 	return (
-		<div>
-			<p id={label} className="mb-2 font-medium text-ink">
-				{title}
-			</p>
-			<ol aria-labelledby={label} className="flex flex-col gap-1">
-				{rows.map((row, index) => (
-					<li key={row.id} className="flex items-center justify-between gap-3 rounded-md bg-surface-2 px-3 py-2">
-						<span className="min-w-0 truncate text-ink">{row.name}</span>
-						<span className="flex gap-1">
-							<Button variant="ghost" size="sm" onClick={() => onMove(kind, index, -1)} disabled={index === 0}>
-								Move up
-							</Button>
-							<Button
-								variant="ghost"
-								size="sm"
-								onClick={() => onMove(kind, index, 1)}
-								disabled={index === rows.length - 1}
-							>
-								Move down
-							</Button>
-						</span>
-					</li>
-				))}
-			</ol>
-		</div>
+		<Button asChild variant="secondary">
+			<a {...link}>{children}</a>
+		</Button>
 	);
 }
 

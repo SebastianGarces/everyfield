@@ -75,12 +75,12 @@ export const RULES: readonly Rule[] = [
 	{ name: "package manifest", paths: ["apps/*/package.json", "packages/*/package.json"], checks: ["ci-coverage"] },
 	{
 		name: "package test outside its package",
-		paths: ["tests/integration/**", "tests/contracts/**", "tests/evry/**", "tests/reference/**"],
+		paths: ["tests/integration/**", "tests/contracts/**", "tests/evry/**", "tests/reference/**", "tests/unit/**"],
 		packages: true,
 		checks: ["ci-coverage"],
 	},
-	// The app job runs the tests/ui model tests, the ones that do not import tests/ui/setup.mjs, through apps/web
-	// test:unit. Browser suites, which import setup.mjs, run nightly and in the verifier's preview.
+	// tests/ui holds only the browser suites, which import tests/ui/setup.mjs, and their seeds. They run nightly and in
+	// the verifier's preview; the node tests that used to sit here live in tests/unit (T-281).
 	{ name: "browser suite", paths: ["tests/ui/**"], packages: true, fallbackPackage: "@everyfield/web" },
 	{
 		name: "documentation",

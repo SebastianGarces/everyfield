@@ -8,7 +8,7 @@ import * as c from "@everyfield/contracts/onboarding";
 import type { OnboardingWriteContext } from "@everyfield/contracts/onboarding/server";
 import { createOnboardingProducer, withOnboardingWrite, readOnboardingEntry } from "@everyfield/domain/onboarding";
 import { getViewer } from "../request-context";
-import { createMailService, queueOnlyTransport, runDueMail, type MailPass, type MailTransport } from "../jobs/mail";
+import { createMailService, MAIL_PASSES, runDueMail, type MailPass, type MailTransport } from "../jobs/mail";
 
 // The onboarding mount (WP-009/ui R2). The screens reach it only through the server actions in
 // features/onboarding/actions.ts. The session comes from the identity mount, the plant from the seat service, and
@@ -24,10 +24,7 @@ const env = z.object({
 	...mailEnv,
 });
 
-/** Onboarding mail keys: the set-up and Discovery receipts and the relationship receipts after a conversion. */
-const ONBOARDING_MAIL = ["onboarding/"];
-
-function onboardingMail(v: z.infer<typeof env>, transport: MailTransport) {
+function onboardingMail(v: z.infer<typeof env>, transport?: MailTransport) {
 	return createMailService({
 		db: database(v.IDENTITY_DATABASE_URL),
 		encryptionKey: Buffer.from(v.IDENTITY_MAIL_KEY, "hex"),
@@ -56,13 +53,13 @@ export function onboardingMailPass(transport: MailTransport): MailPass | null {
 	if (!v.success) return null;
 	const db = database(v.data.IDENTITY_DATABASE_URL),
 		mail = onboardingMail(v.data, transport);
-	return (limit, until) => runDueMail(db, mail, ONBOARDING_MAIL, limit, until);
+	return (limit, until) => runDueMail(db, mail, MAIL_PASSES.onboarding, limit, until);
 }
 
 let mount: ReturnType<typeof create> | undefined;
 function create(v: z.infer<typeof env>) {
 	const db: Database = database(v.IDENTITY_DATABASE_URL);
-	const mail = onboardingMail(v, queueOnlyTransport);
+	const mail = onboardingMail(v);
 	const producer = createOnboardingProducer({
 		relationships: async (tx, inputs) => {
 			await sendOnboardingRelationships(tx, inputs, mail);

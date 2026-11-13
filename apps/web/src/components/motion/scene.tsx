@@ -1,7 +1,6 @@
 "use client";
 
 import { cancelFrame, frame, useMotionValueEvent, useTransform, type MotionValue } from "motion/react";
-import { m } from "@/components/motion/m";
 import {
 	createContext,
 	useContext,
@@ -9,11 +8,10 @@ import {
 	useEffectEvent,
 	useRef,
 	useSyncExternalStore,
-	type CSSProperties,
 	type ReactNode,
 	type RefObject,
 } from "react";
-import { out, P, transformOf, type Frame } from "./curves";
+import { transformOf, type Frame } from "./curves";
 
 /**
  * Advances a scene while `run` is true: Motion's frame loop calls `step(dt)` once per frame in its update phase, before
@@ -74,37 +72,6 @@ export function usePanelClock() {
 	const c = useContext(PanelContext);
 	if (!c) throw new Error("a panel must render inside a chapter (PanelClockProvider)");
 	return c;
-}
-
-/** A panel child that rises in with the card: the k-th one starts 75 ms after the one before. It has its own layer, as in
- *  the prototype (`.cx-card [data-st]`), so it rasterises the same way. */
-export function St({
-	i,
-	as = "div",
-	className,
-	style,
-	children,
-}: {
-	i: number;
-	as?: "div" | "span";
-	className?: string;
-	style?: CSSProperties;
-	children?: ReactNode;
-}) {
-	const { since, stagger } = usePanelClock();
-	const s = useTo(since, (v) => {
-		const p = out(P(v, stagger + i * 75, 420));
-		return [0, (1 - p) * 8, 1, p];
-	});
-	const C = as === "span" ? m.span : m.div;
-	return (
-		<C
-			className={className ? "will-change-[transform,opacity] " + className : "will-change-[transform,opacity]"}
-			style={{ ...style, ...s }}
-		>
-			{children}
-		</C>
-	);
 }
 
 /**

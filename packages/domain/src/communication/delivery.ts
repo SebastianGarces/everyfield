@@ -55,7 +55,6 @@ export type DeliveryTransport = {
 		batch: { key: string; messages: readonly DeliveryMessage[]; scheduledAt: string | null },
 		signal: AbortSignal,
 	): Promise<DeliveryBatch>;
-	lookup(key: string, signal: AbortSignal): Promise<Exclude<DeliveryBatch, { outcome: "refused" }>>;
 	/**
 	 * Cancel each held email by the id the email service gave it at handoff, never by the idempotency key. One answer
 	 * per id, in the same order.
@@ -84,7 +83,7 @@ type Mode = "now" | "scheduled" | "lookup";
 /**
  * One frozen request of a message: at most `MAIL_BATCH_LIMIT` recipients, in person-id order, under their own provider
  * key and attempt. `expired`: past the email service's 23 h 55 min idempotency window from its first handoff, so it is
- * only looked up, never sent again. `messages` holds the frozen email of each recipient still to be handed off, by
+ * never sent again. `messages` holds the frozen email of each recipient still to be handed off, by
  * position; null when it no longer opens.
  */
 type Batch = {
@@ -127,11 +126,6 @@ function addressHash(addressKey: Buffer, address: string) {
 /** The address seal binds the ciphertext to this plant and this mail row. */
 export function addressAad(plantId: string, mailId: string) {
 	return `${plantId}/${mailId}/address`;
-}
-export function sealText(key: Uint8Array, value: string, aad: string) {
-	const buf = Buffer.from(key);
-	if (buf.length !== 32) throw new Error("mail_keys_required");
-	return seal(buf, value, aad);
 }
 export function openText(key: Uint8Array, sealed: string, aad: string): string | null {
 	try {
@@ -274,8 +268,8 @@ async function loadAudience(db: Database, actor: Actor, communicationId: string)
 							'scheduledAt', to_char(m.scheduled_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
 							'cancelRequested', m.cancel_requested_at IS NOT NULL,
 							'unsubscribed', m.refusal IS NOT DISTINCT FROM 'unsubscribed',
-							'payload', CASE WHEN m.state = 'dispatched' THEN m.frozen_payload END,
-							'address', CASE WHEN m.state = 'dispatched' THEN m.recipient_address_encrypted END
+							'payload', CASE WHEN m.state IN ('dispatched', 'unknown') THEN m.frozen_payload END,
+							'address', CASE WHEN m.state IN ('dispatched', 'unknown') THEN m.recipient_address_encrypted END
 						) ORDER BY mem.position) AS members
 					FROM mail m
 					JOIN mail_request_member mem ON mem.mail_id = m.id AND mem.tenant_id = m.tenant_id
@@ -344,7 +338,7 @@ function batchesOf(raw: unknown, tenantId: string, encryptionKey?: Uint8Array): 
 		messages: new Map(
 			encryptionKey
 				? members
-						.filter((row) => row.state === "dispatched")
+						.filter((row) => row.state === "dispatched" || row.state === "unknown")
 						.map((row) => [row.position, openFrozen(encryptionKey, tenantId, row)])
 				: [],
 		),
@@ -387,6 +381,7 @@ async function prepare(
 	mode: Mode,
 	/** The send time the email service holds for a scheduled handoff; null for send now. */
 	heldUntil: string | null,
+	leftOut: readonly string[],
 ): Promise<Batch[]> {
 	const { found } = loaded;
 	const frozen = batchesOf(found.batches, actor.plantId, keys.encryptionKey);
@@ -506,7 +501,7 @@ async function prepare(
 					i.payload, i.address, i.address_hash,
 					CASE WHEN i.unsubscribed OR EXISTS (
 						SELECT 1 FROM suppression s WHERE s.address_hash = i.address_hash AND s.cleared_at IS NULL
-					) THEN 'refused' ELSE ${waiting} END,
+					) OR i.person = ANY(${sql.param(leftOut)}::uuid[]) THEN 'refused' ELSE ${waiting} END,
 					clock_timestamp(), ${heldUntil}::timestamptz,
 					-- The person's own opt-out from this church, not the address, decides this refusal (D-284).
 					CASE WHEN i.unsubscribed THEN 'unsubscribed' END
@@ -673,16 +668,12 @@ function combined(base: readonly Member[], updates: readonly Update[]) {
 	return "unknown";
 }
 
-function applyIds(
-	batch: DeliveryBatch,
-	rows: readonly Pick<Member, "id" | "position">[],
-	align: "compressed" | "absolute",
-): Update[] {
+function applyIds(batch: DeliveryBatch, rows: readonly Pick<Member, "id">[]): Update[] {
 	if (batch.outcome === "unknown") return rows.map((row) => ({ id: row.id, outcome: "unknown", providerId: null }));
 	if (batch.outcome === "refused") return rows.map((row) => ({ id: row.id, outcome: "refused", providerId: null }));
+	// One id per email of the call, in the order the call listed them.
 	return rows.map((row, index) => {
-		// A send list is only the rows handed off. A lookup list keeps the original member position.
-		const id = batch.ids[align === "absolute" ? row.position : index];
+		const id = batch.ids[index];
 		return id
 			? { id: row.id, outcome: "accepted", providerId: id }
 			: { id: row.id, outcome: "unknown", providerId: null };
@@ -690,30 +681,24 @@ function applyIds(
 }
 
 /**
- * Hand one batch over, or ask about it. A batch the email service never answered is sent under its own stored key with
- * its frozen bytes: the same request, so a send that already reached the email service is not sent twice. A batch it
- * answered with unknown, or one past the idempotency window, is only looked up by its key. Null: nothing to do, or the
- * lookup failed and the batch stays as it was. `lost`: the call threw.
+ * Hand one batch over, or ask about it. A batch the email service never answered, or answered with unknown, is sent
+ * under its own stored key with its frozen bytes: the same request, so the email service answers a send that already
+ * reached it with its first result and never sends it twice. That is how "Check result" asks. A batch past the
+ * idempotency window is never sent again: its open recipients stay unknown. Null: nothing to do. `lost`: the call threw.
  */
 async function handOffBatch(transport: DeliveryTransport, batch: Batch) {
 	const open = batch.members.filter((row) => row.state === "dispatched" || row.state === "unknown");
 	if (!open.length) return null;
-	if (batch.expired || open.some((row) => row.state === "unknown")) {
-		try {
-			return {
-				sent: false,
-				lost: false,
-				updates: applyIds(await transport.lookup(batch.providerKey, signal()), open, "absolute"),
-			};
-		} catch {
-			return { sent: false, lost: true, updates: null };
-		}
-	}
+	if (batch.expired) return { sent: false, lost: false, updates: applyIds({ outcome: "unknown" }, open) };
 	const ready = open.filter((row) => batch.messages.get(row.position));
+	// A recipient whose frozen email no longer opens is refused when it was never handed off; one the email service may
+	// hold stays unknown.
 	const updates: Update[] = open
 		.filter((row) => !batch.messages.get(row.position))
-		.map((row) => ({ id: row.id, outcome: "refused", providerId: null }));
+		.map((row) => ({ id: row.id, outcome: row.state === "unknown" ? "unknown" : "refused", providerId: null }));
 	if (!ready.length) return { sent: false, lost: false, updates };
+	// A batch the email service may already hold is being checked, not handed off again: no new provider handoff.
+	const sent = !open.some((row) => row.state === "unknown");
 	let answer: DeliveryBatch;
 	let lost = false;
 	try {
@@ -726,11 +711,11 @@ async function handOffBatch(transport: DeliveryTransport, batch: Batch) {
 			signal(),
 		);
 	} catch {
-		// The email service may hold it: the batch is unknown, and the next call looks it up by its key.
+		// The email service may hold it: the batch is unknown, and the next call sends the same request again to ask.
 		lost = true;
 		answer = { outcome: "unknown" };
 	}
-	return { sent: true, lost, updates: [...updates, ...applyIds(answer, ready, "compressed")] };
+	return { sent, lost, updates: [...updates, ...applyIds(answer, ready)] };
 }
 
 async function handoff(
@@ -750,7 +735,7 @@ async function handoff(
 	const heldUntil = mode === "scheduled" ? opened.found.scheduled_at : null;
 	if (mode === "scheduled" && (!heldUntil || !scheduleAccepted(new Date(), new Date(heldUntil))))
 		deny("schedule_window_exceeded", { providerHandoffs: 0 });
-	const batches = await prepare(db, actor, opened, ready, mode, heldUntil);
+	const batches = await prepare(db, actor, opened, ready, mode, heldUntil, input.input.leftOut ?? []);
 	// One provider call per batch, in order; every answer is stored in one statement after the last call.
 	const answered: Answered[] = [];
 	let providerCalls = 0;

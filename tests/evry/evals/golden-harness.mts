@@ -45,6 +45,7 @@ import {
 	type ConversationEvent,
 } from "../../../packages/evry/src/conversations/store.ts";
 import type { RunLease } from "../../../packages/evry/src/runtime/run-store.ts";
+import type { MailPort } from "../../../packages/evry/src/proposals/types.ts";
 import { claimDue } from "../../../apps/web/src/server/jobs/queue.ts";
 import { NOW, type ActorName, type GoldenChurch } from "./golden-church.mts";
 
@@ -257,6 +258,23 @@ export type Conversation = {
 	failed?: string;
 };
 
+/**
+ * The mail keys an email review reads (it hashes addresses to find blocked ones), as a deployment has them. A review
+ * never calls the email service, and nothing here is approved, so the transport refuses every call.
+ */
+const refuse = async (): Promise<never> => {
+	throw Error("a review never calls the email service");
+};
+const MAIL: MailPort = {
+	keys: {
+		encryptionKey: Buffer.alloc(32, 7),
+		addressKey: Buffer.alloc(32, 9),
+		from: "church@example.test",
+		origin: "https://app.example.test",
+	},
+	transport: { send: refuse, cancel: refuse, reschedule: refuse },
+};
+
 /** The turn's own stop: the 24-tool budget (a step past it runs nothing). The step bound only backs it up. */
 const MAX_STEPS = LIMITS.toolCalls + 1;
 
@@ -383,7 +401,7 @@ export async function converse(
 			proposals.push(card);
 			const number = proposals.length;
 			const open = await (conversation ??= openConversation(db, actor));
-			const proposal = await prepareProposal(db, actor, open.lease, open.id, call).catch((error) =>
+			const proposal = await prepareProposal(db, actor, open.lease, open.id, call, MAIL).catch((error) =>
 				error instanceof EvryRefusal ? error.code : "unknown",
 			);
 			if (typeof proposal === "string" || !proposal) {

@@ -2,6 +2,7 @@ import { requestDatabase } from "@/server/database";
 import { getViewer } from "@/server/request-context";
 import { recordId } from "@everyfield/contracts/common";
 import {
+	type ArchivedChurchSummary,
 	type ChurchDocument,
 	type ChurchSummary,
 	type ChurchTemplateSummary,
@@ -16,7 +17,8 @@ import "server-only";
 import { canEditDocuments, documentActor, hasPlantSeat } from "../server.ts";
 import { EXPORT_MESSAGES } from "./refusal.ts";
 
-// The Church Documents reads. The library is one statement; a document page is two (the document and its saved exports).
+// The Church Documents reads. The library is one statement; a document page is three, run together: the document, its
+// saved exports and its revisions.
 // The PDF bytes are a separate request (churchFileRoute), so the page never waits for a render.
 
 export type ChurchView = {
@@ -33,6 +35,8 @@ export type ChurchView = {
 	useChurchBranding: boolean;
 	/** The sheet the preview shows (not one card) and its cards per sheet. */
 	page: { width: number; height: number; perSheet: number };
+	/** When it was archived and by whom (null once that seat ends); an archived document is read-only. */
+	archived: ChurchDocument["archived"];
 };
 /** Where an Owner or Admin's document stands against its template; null when there is nothing to compare with. */
 export type TemplateState = "behind" | "current" | null;
@@ -75,40 +79,62 @@ export async function loadLibrary(
 	}
 }
 
+/** The church plant's archived Church Documents, newest archive first. The page lets only an Owner or Admin in. */
+export async function loadArchived(authority: RequestActor): Promise<Load<ArchivedChurchSummary[]>> {
+	const db = requestDatabase();
+	if (!db) return { status: "failed" };
+	try {
+		const reply = await documentsWriter.listArchivedChurch(db, authority, {});
+		return reply.status === "ok" ? { status: "ok", value: reply.value.documents } : { status: "refused" };
+	} catch (error) {
+		console.error(JSON.stringify({ component: "church-documents", outcome: "read_failed", error: String(error) }));
+		return { status: "failed" };
+	}
+}
+
 export async function loadChurchDocument(
 	authority: RequestActor,
 	documentId: string,
 ): Promise<
-	Load<{
-		view: ChurchView;
-		document: DocDocument;
-		brands: DocBrands | null;
-		mergeValues: Record<string, string>;
-		template: TemplateState;
-		exports: SavedExport[];
-		/** The newest 1000 revisions, newest first. */
-		revisions: RevisionRow[];
-		/** True when the document has older revisions than `revisions` holds. */
-		revisionsTruncated: boolean;
-	}>
+	| Load<{
+			view: ChurchView;
+			document: DocDocument;
+			brands: DocBrands | null;
+			mergeValues: Record<string, string>;
+			template: TemplateState;
+			exports: SavedExport[];
+			/** The newest 1000 revisions, newest first. */
+			revisions: RevisionRow[];
+			/** True when the document has older revisions than `revisions` holds. */
+			revisionsTruncated: boolean;
+	  }>
+	// Only a seat of the church plant whose document was deleted; anyone else gets "refused", as for an unknown id.
+	| { status: "deleted" }
 > {
 	const db = requestDatabase();
 	if (!db) return { status: "failed" };
 	try {
+		const readOnly = () =>
+			documentsWriter
+				.readChurch(db, authority, { documentId })
+				.then((r) =>
+					r.status === "ok" ? { ...r, value: { ...r.value, brands: null, mergeValues: {}, template: null } } : r,
+				);
 		// An Owner or Admin reads the document with both looks the PDF can paint (church and plain) in the same statement;
 		// a Member reads the document alone, with its branding value, and gets no editor and no template status, so a
 		// Member's page never learns of a template update. Every seat reads the saved exports and the revisions (D-141).
-		const [reply, saved, history] = await Promise.all([
-			canManageChurch(authority)
-				? documentsWriter.readChurchForEdit(db, authority, { documentId })
-				: documentsWriter
-						.readChurch(db, authority, { documentId })
-						.then((r) =>
-							r.status === "ok" ? { ...r, value: { ...r.value, brands: null, mergeValues: {}, template: null } } : r,
-						),
+		const [first, saved, history] = await Promise.all([
+			canManageChurch(authority) ? documentsWriter.readChurchForEdit(db, authority, { documentId }) : readOnly(),
 			documentsWriter.listExports(db, authority, { documentId }),
 			documentsWriter["history.list"](db, authority, { documentId }),
 		]);
+		if (saved.status !== "ok" && saved.error.code === "deleted") return { status: "deleted" };
+		// The editor's read never opens an archived document. When it finds nothing but the document's saved exports read,
+		// the document is archived (or deleted since), and an Owner or Admin reads it as a Member does: read-only.
+		const reply =
+			first.status !== "ok" && first.error.code === "unavailable" && saved.status === "ok" && canManageChurch(authority)
+				? await readOnly()
+				: first;
 		if (reply.status !== "ok" || saved.status !== "ok" || history.status !== "ok") return { status: "refused" };
 		const d = reply.value;
 		return {
@@ -125,6 +151,7 @@ export async function loadChurchDocument(
 					formats: d.formats,
 					useChurchBranding: d.useChurchBranding,
 					page: sheetOf(d.body.page),
+					archived: d.archived,
 				},
 				document: d.body,
 				brands: d.brands,
@@ -186,7 +213,8 @@ export async function churchFileRoute(request: Request, { params }: { params: Pr
 
 /**
  * GET /documents/church/{id}/exports/{exportId}: the stored bytes of one saved export, never rendered again (DOC-003).
- * Another church plant, a seatless account and an unknown id get not found. The actor is read again here.
+ * Another church plant, a seatless account and an unknown id get not found. A seat of the church plant whose document
+ * was deleted gets no file: it goes to the document page, which says the document was deleted. The actor is read again.
  */
 export async function savedExportRoute(
 	_request: Request,
@@ -206,6 +234,12 @@ export async function savedExportRoute(
 			{ documentId: documentId.data, exportId: exportId.data },
 			privateStorage(),
 		);
+		if (reply.status !== "ok" && reply.error.code === "deleted") {
+			return new Response(null, {
+				status: 303,
+				headers: { ...NO_STORE, Location: `/documents/church/${documentId.data}` },
+			});
+		}
 		if (reply.status !== "ok") return gone();
 		const file = reply.value;
 		return new Response(Buffer.from(file.bytes, "base64"), {

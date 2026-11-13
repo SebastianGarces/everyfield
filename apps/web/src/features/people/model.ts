@@ -15,7 +15,7 @@ export const STAGES = [
 	"leader",
 ] as const;
 export type StageValue = (typeof STAGES)[number];
-export const COLUMNS = ["prospect", "attendee", "following_up", "interviewed", "core_group"] as const;
+const COLUMNS = ["prospect", "attendee", "following_up", "interviewed", "core_group"] as const;
 export type ColumnValue = (typeof COLUMNS)[number];
 export const SOURCES = [
 	"personal_referral",
@@ -30,11 +30,11 @@ export const SOURCES = [
 export type SourceValue = (typeof SOURCES)[number];
 export const CLASSIFICATIONS = ["adult", "child", "unknown"] as const;
 export type ClassificationValue = (typeof CLASSIFICATIONS)[number];
-export const COMMITMENTS = ["any", "active", "withdrawn", "unknown"] as const;
-export type CommitmentValue = (typeof COMMITMENTS)[number];
-export const ARCHIVED = ["exclude", "include", "only"] as const;
-export type ArchivedValue = (typeof ARCHIVED)[number];
-export const VIEWS = ["list", "card", "pipeline"] as const;
+const COMMITMENTS = ["any", "active", "withdrawn", "unknown"] as const;
+type CommitmentValue = (typeof COMMITMENTS)[number];
+const ARCHIVED = ["exclude", "include", "only"] as const;
+type ArchivedValue = (typeof ARCHIVED)[number];
+const VIEWS = ["list", "card", "pipeline"] as const;
 export type ViewValue = (typeof VIEWS)[number];
 
 /** The shared StageChip keys (packages/ui display Badges) for each contract stage. */
@@ -101,7 +101,7 @@ export type PeopleQuery = {
 	archived: ArchivedValue;
 	page: number;
 };
-export const PAGE_SIZE = 24;
+const PAGE_SIZE = 24;
 /** The contract's highest page number; a larger number in the address reads as the last page. */
 const MAX_PAGE = 100_000;
 
@@ -259,7 +259,7 @@ export type PersonEvent<P extends Saved, D> =
 	| { type: "settle"; slot: string; outcome: Outcome<P | null>; keepDraft?: boolean }
 	| { type: "server"; person: P };
 
-export function initialPerson<P extends Saved, D>(person: P): PersonState<P, D> {
+function initialPerson<P extends Saved, D>(person: P): PersonState<P, D> {
 	return { saved: person, drafts: {}, pending: null, keys: {}, errors: {} };
 }
 const without = <T>(r: Readonly<Record<string, T>>, k: string): Record<string, T> => {
@@ -268,7 +268,7 @@ const without = <T>(r: Readonly<Record<string, T>>, k: string): Record<string, T
 	return rest;
 };
 
-export function personReducer<P extends Saved, D>(s: PersonState<P, D>, e: PersonEvent<P, D>): PersonState<P, D> {
+function personReducer<P extends Saved, D>(s: PersonState<P, D>, e: PersonEvent<P, D>): PersonState<P, D> {
 	switch (e.type) {
 		case "edit":
 			// A form being saved is read-only; an edit that still arrives for it is ignored, so the sent draft stays the draft.

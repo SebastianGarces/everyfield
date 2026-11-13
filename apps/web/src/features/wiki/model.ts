@@ -40,14 +40,14 @@ export function sourceInput(choice: SourceChoice): SourceInput {
 	return choice.kind === "current" ? { kind: "current" } : choice;
 }
 
-export function sourceQuery(choice: SourceChoice): string | null {
+function sourceQuery(choice: SourceChoice): string | null {
 	if (choice.kind === "global") return "global";
 	if (choice.kind === "organization") return choice.organizationId;
 	return null;
 }
 
 /** Catch-all params back into the slug the producer stored. */
-export function slugFromParts(parts: string[] | undefined): string {
+function slugFromParts(parts: string[] | undefined): string {
 	if (!parts?.length) return "";
 	return parts
 		.map((part) => {
@@ -100,7 +100,7 @@ export function pdfFilename(slug: string): string {
 	return `${clean || "article"}.pdf`;
 }
 
-export type NavItem = { id: string; title: string; href: string; read?: boolean; phase: number | null };
+type NavItem = { id: string; title: string; href: string; read?: boolean; phase: number | null };
 
 export type TreeModel = {
 	phases: { number: number; name: string; items: NavItem[] }[];
@@ -198,6 +198,30 @@ export function sourceRows(article: WikiArticle, names: ReadonlyMap<string, stri
 	return rows;
 }
 
+/** The church's stored Wiki source order, as wiki.setSourceOrder keeps it. Revision "0": no order is stored yet. */
+export type SourceOrder = { revision: string; churches: string[]; networks: string[] };
+
+/** The list with `id` first and the rest in the order they had. */
+export const toHead = (ids: readonly string[], id: string): string[] => [id, ...ids.filter((item) => item !== id)];
+
+/**
+ * The order that makes `source` the preferred one in its own list, or null when "Set as preferred" is not offered:
+ * no order to change (not an Owner or Admin), the Global source, the source already preferred here, or already first
+ * in its list. With two or more churches and no stored order, any church can be chosen, even the first one listed.
+ */
+export function preferredOrder(
+	order: SourceOrder | null,
+	source: Pick<SourceRow, "id" | "kind">,
+	preferredId: string,
+): (SourceOrder & { list: "churches" | "networks" }) | null {
+	if (!order || source.kind === "global" || source.id === preferredId) return null;
+	const list = source.kind === "church" ? "churches" : "networks";
+	const index = order[list].indexOf(source.id);
+	const unordered = list === "churches" && order.revision === "0" && order.churches.length > 1;
+	if (index < 0 || (index === 0 && !unordered)) return null;
+	return { ...order, list, [list]: toHead(order[list], source.id) };
+}
+
 export type Block =
 	| { kind: "heading"; level: 2 | 3; text: string; id: string }
 	| { kind: "paragraph"; text: string }
@@ -257,7 +281,7 @@ export function articleBlocks(contentType: string, body: string): Block[] {
 export type Inline =
 	{ kind: "text"; text: string } | { kind: "strong"; text: string } | { kind: "link"; text: string; href: string };
 
-export function safeHref(raw: string): string | null {
+function safeHref(raw: string): string | null {
 	if (raw.startsWith("/wiki/") || raw.startsWith("#")) return raw;
 	try {
 		const url = new URL(raw);
@@ -406,7 +430,7 @@ function contractBlock(block: EditorBlock): unknown {
 	return { type: "paragraph", children: text };
 }
 
-export function editorDocumentJson(blocks: EditorBlock[]): string {
+function editorDocumentJson(blocks: EditorBlock[]): string {
 	return JSON.stringify({ format: EDITOR_FORMAT, blocks: blocks.map(contractBlock) });
 }
 

@@ -24,7 +24,7 @@ import {
 
 export type Tx = Transaction;
 export const PAGE = 50;
-export class NotificationRefusal extends Error {
+class NotificationRefusal extends Error {
 	readonly code: NotificationError["code"];
 	constructor(code: NotificationError["code"]) {
 		super(code);
@@ -54,7 +54,7 @@ function refused(error: NotificationRefusal): NotificationReply<never> {
 		}),
 	};
 }
-export function refusal(error: unknown): NotificationReply<never> {
+function refusal(error: unknown): NotificationReply<never> {
 	if (error instanceof WriteUnavailable) return refused(new NotificationRefusal("unavailable"));
 	if (error instanceof NotificationRefusal) return refused(error);
 	throw error;
@@ -71,7 +71,7 @@ export function parse<S extends z.ZodType>(schema: S, raw: unknown): z.output<S>
 	if (!result.success) deny("invalid_input");
 	return result.data;
 }
-export async function withNotificationWrite<T>(
+async function withNotificationWrite<T>(
 	db: Database,
 	authority: RequestActor,
 	selected: Owner,
@@ -85,7 +85,7 @@ export async function withNotificationWrite<T>(
 	);
 }
 export type Command = AuditWrite & { actorId: string; selected: Owner };
-export async function command<T>(
+async function command<T>(
 	tx: Tx,
 	authority: RequestActor,
 	selected: Owner,
@@ -205,4 +205,4 @@ export async function runWrite<S extends z.ZodType<{ requestKey: string }>, T>(
 		return refusal(error);
 	}
 }
-export { hash, RequestActor };
+export { RequestActor };

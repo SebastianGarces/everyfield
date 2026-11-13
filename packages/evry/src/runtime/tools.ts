@@ -98,7 +98,7 @@ export function proposalForModel(proposal: Pick<Proposal, "id" | "expiresAt" | "
 				// The reviewed fields live in their source row, so a later model call withholds them with the row once the
 				// target is no longer available (withLiveRows in turn.ts).
 				rows: target
-					? [{ kind: "person", id: target.id, label: target.label, fields: { changes: proposal.review.changes } }]
+					? [{ kind: target.kind, id: target.id, label: target.label, fields: { changes: proposal.review.changes } }]
 					: [],
 			}),
 		),

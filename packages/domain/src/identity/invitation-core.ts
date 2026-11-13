@@ -11,11 +11,13 @@ import { currentActor, liveOwner, RequestActor, requestWrite } from "../access/s
 import { canonical } from "../operations/canonical.ts";
 import { auditTransaction, finishAudit, prepareWrite } from "../operations/writes.ts";
 import { rethrowWriteError } from "./budget.ts";
-export { currentActor, liveOwner };
+export { currentActor };
 export const hash = (value: string) => createHash("sha256").update(value).digest("hex");
 export class InvitationRefusal extends Error {
-	constructor(readonly value: z.infer<typeof invitationError> | z.infer<typeof seatError>) {
+	readonly value: z.infer<typeof invitationError> | z.infer<typeof seatError>;
+	constructor(value: z.infer<typeof invitationError> | z.infer<typeof seatError>) {
 		super(value.code);
+		this.value = value;
 	}
 }
 export function refuse(code = "invitation_unavailable", retryAt?: string): never {

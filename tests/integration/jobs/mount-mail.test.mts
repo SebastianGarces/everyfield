@@ -12,7 +12,7 @@ import { resendRecorder } from "../communication/resend-recorder.mts";
 import { queuedMailTransport } from "../../../apps/web/src/features/communication/mail.ts";
 import { settingsMail, settingsMailPass } from "../../../apps/web/src/features/settings/mail.ts";
 import { identityMailEnqueue, identityMailPass } from "../../../apps/web/src/server/identity/index.ts";
-import { createMailService, queueOnlyTransport } from "../../../apps/web/src/server/jobs/mail.ts";
+import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import { scheduledJobs } from "../../../apps/web/src/server/jobs/scheduled.ts";
 import { onboardingMailPass, onboardingMount } from "../../../apps/web/src/server/onboarding/index.ts";
 import {
@@ -199,17 +199,18 @@ test("INV-mount-mail: one tick sends the identity, relationship, settings and on
 		),
 	);
 
-	// Mail no new pass owns: church invitations (the `mail` step, absent here) and an association receipt.
+	// Mail none of these passes owns (church invitations: the `mail` step, absent here), and an association receipt,
+	// which the onboarding pass sends under its rule.
 	const permissive = createMailService({
 		db,
-		encryptionKey: randomBytes(32),
-		addressKey: randomBytes(32),
+		encryptionKey: Buffer.from(process.env.IDENTITY_MAIL_KEY!, "hex"),
+		addressKey: Buffer.from(process.env.IDENTITY_ADDRESS_KEY!, "hex"),
 		from: "other@example.test",
 		authorize: async (_tx, list) => new Set(list.map((m) => m.id)),
-		transport: queueOnlyTransport,
 	});
-	const foreign = [`invitation/${randomUUID()}/1`, `association/${randomUUID()}/1/${reader.id}`];
-	for (const logicalKey of foreign)
+	const foreign = [`invitation/${randomUUID()}/1`];
+	const association = `association/${randomUUID()}/1/${reader.id}`;
+	for (const logicalKey of [...foreign, association])
 		await db.transaction((tx) =>
 			permissive.enqueue(tx, {
 				owner: { kind: "account", id: reader.id },
@@ -231,11 +232,11 @@ test("INV-mount-mail: one tick sends the identity, relationship, settings and on
 	assert.equal(body.mailed, 0, "the invitation step's count is unchanged and its pass is not configured here");
 	assert.deepEqual(body.steps.mail, { status: "skipped" });
 	assert.deepEqual(body.steps.messages, { status: "skipped" });
-	// Each pass claimed only its own mail: identity 3 (one rejected), relationship 1, settings 2, onboarding 1.
+	// Each pass claimed only its own mail: identity 3 (one rejected), relationship 1, settings 2, onboarding 2.
 	assert.deepEqual(body.steps["identity-mail"], { status: "ok", count: 3 });
 	assert.deepEqual(body.steps["organization-mail"], { status: "ok", count: 1 });
 	assert.deepEqual(body.steps["settings-mail"], { status: "ok", count: 2 });
-	assert.deepEqual(body.steps["onboarding-mail"], { status: "ok", count: 1 });
+	assert.deepEqual(body.steps["onboarding-mail"], { status: "ok", count: 2 });
 
 	const calls = resend.take();
 	const sent = (to: string, subject: string | RegExp) =>
@@ -243,18 +244,20 @@ test("INV-mount-mail: one tick sends the identity, relationship, settings and on
 			const b = c.body as { to: string; subject: string };
 			return b.to === to && (typeof subject === "string" ? b.subject === subject : subject.test(b.subject));
 		});
-	assert.equal(calls.length, 6, "six mails reached the email service");
+	assert.equal(calls.length, 7, "seven mails reached the email service");
 	assert.equal(sent(reader.email, "Reset your password").length, 1, "password_reset/");
 	assert.equal(sent(reader.email, "Verify your email").length, 1, "email_verification/");
 	assert.equal(sent(invitee, /asks to connect on Everyfield$/).length, 1, "relationship/");
 	assert.equal(sent(newAddress, /./).length, 1, "email-change/");
 	assert.equal(sent(changer.email, "Your Everyfield password changed").length, 1, "security/");
 	assert.equal(sent(founder.email, "Your church is set up").length, 1, "onboarding/");
+	assert.equal(sent(reader.email, "Other").length, 1, "association/");
 	assert.deepEqual(sent(moved.email, /./), [], "a rejected identity mail is not handed to the email service");
 
 	for (const key of [reset, verification]) assert.deepEqual(await mailState(key), ["accepted"]);
 	assert.deepEqual(await mailState(stale), ["cancelled"]);
 	for (const key of foreign) assert.deepEqual(await mailState(key), ["pending"], `${key} is claimed by no new pass`);
+	assert.deepEqual(await mailState(association), ["accepted"]);
 
 	// The relationship mail prints the invitation's real expiry, as a UTC long date labelled UTC.
 	const [request] = sent(invitee, /./);

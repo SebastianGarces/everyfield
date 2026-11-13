@@ -1,5 +1,5 @@
 import type { z } from "zod";
-import type { Owner, sessionId } from "../common/values.ts";
+import type { Owner, sessionId, Reply } from "../common/values.ts";
 import type { changePasswordRequest } from "../identity/requests.ts";
 import type { credentialOutcome } from "../identity/results.ts";
 import type * as native from "./native.ts";
@@ -7,7 +7,7 @@ import type * as request from "./requests.ts";
 import type * as result from "./results.ts";
 
 export type SettingsContext = { session: z.infer<typeof sessionId>; selected: Owner };
-export type SettingsReply<T> = { status: "ok"; value: T } | { status: "refused"; error: result.SettingsError };
+export type SettingsReply<T> = Reply<T, result.SettingsError>;
 type Operation<Tx, Context, Input extends z.ZodType, Output extends z.ZodType> = (
 	tx: Tx,
 	context: Context,

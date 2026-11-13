@@ -23,6 +23,7 @@ import { useNotificationBell } from "../notifications/Bell.tsx";
 import { NotificationsProvider } from "../notifications/feed.tsx";
 import { AccountMenu } from "../settings/AccountMenu";
 import { firstSection } from "../settings/model";
+import { SettingsOpener } from "../settings/opener";
 import type { SectionSeed, SettingsViewer } from "../settings/port";
 import { useProductSettings } from "../settings/ProductSettings";
 import type { Role } from "../people/server.ts";
@@ -206,7 +207,7 @@ function Frame({ name, photo, settings, seed = null, children }: FrameProps) {
 			onAskEvry={privatePage ? undefined : evry.open}
 			banner={banner}
 		>
-			{children}
+			<SettingsOpener value={dialog.open}>{children}</SettingsOpener>
 			{dialog.element}
 			{evry.element}
 			{bell.element}

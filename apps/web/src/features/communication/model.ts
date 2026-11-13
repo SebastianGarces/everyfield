@@ -1,11 +1,13 @@
 // The shapes the Messages screens share. They match the WP-027 contract results. This module imports only a contract
-// type; the client's preview (preview.ts) imports the contract renderer, which runs the sanitizer in the browser.
+// type and `@everyfield/contracts/communication/values`, which loads no sanitizer; the client's preview (preview.ts)
+// imports the contract renderer, which runs the sanitizer in the browser.
 
 import type { hubStates as contractHubStates } from "@everyfield/contracts/communication";
+import { audienceGroups } from "@everyfield/contracts/communication/values";
 
 type ContractHubState = (typeof contractHubStates)[number];
 
-export const audienceGroups = ["core_group", "launch_team", "leaders", "prospects", "all"] as const;
+export { audienceGroups };
 type AudienceGroup = (typeof audienceGroups)[number];
 
 export const groupLabel: Record<AudienceGroup, string> = {
@@ -89,7 +91,7 @@ export type PageData = {
 export type Outcome<T> = { status: "ok"; value: T } | { status: "refused"; code: string } | { status: "lost" };
 
 /** What the person can do about a refusal. The code stays the server's word. */
-export function refusalText(code: string): string {
+function refusalText(code: string): string {
 	switch (code) {
 		case "access_denied":
 			return "An Owner or Admin seat is required to change messages.";
@@ -154,7 +156,7 @@ export type RescheduleReport = ProviderTally & {
 	scheduledAt: string;
 	heldAt: string | null;
 };
-export type Restore = { at: string; actorName: string | null; reason: string };
+type Restore = { at: string; actorName: string | null; reason: string };
 export type SuppressionReport = { address: string; active: boolean; restores: Restore[] };
 export type RestoreReport = { suppressionClears: number };
 
@@ -441,7 +443,7 @@ export type Route =
 	| { kind: "compose"; id: string | "new"; step: Step; handoff: Handoff | null }
 	| { kind: "templates"; template: string | "new" | null }
 	| { kind: "address" };
-export const steps = ["who", "write", "review"] as const;
+const steps = ["who", "write", "review"] as const;
 export type Step = (typeof steps)[number];
 export type Handoff = { meeting: string; template: string | null; recipients: "guests" | null };
 

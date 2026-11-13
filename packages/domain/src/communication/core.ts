@@ -110,7 +110,7 @@ export function readerOf(authority: RequestActor): Viewer & { session: string; s
 		owner: actor.context.owner,
 	};
 }
-export async function writerOf(tx: Tx, context: CommunicationContext) {
+async function writerOf(tx: Tx, context: CommunicationContext) {
 	const bound = await lockedWrite(tx);
 	const write =
 		bound && sameOwner(bound.selected, context.selected)

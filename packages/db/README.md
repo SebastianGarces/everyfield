@@ -45,7 +45,8 @@ IDs and timestamps.
 
 The reset refuses production mode and any host except the development branch's
 pooled or direct endpoint, currently `ep-autumn-dew-b8ltidky`. If that branch is
-replaced, review the host allowlist in `scripts/reset-dev.ts` before using it.
+replaced, review the host allowlist in `src/development.ts` before using it; every
+script, test and tool that refuses a non-development database calls its guard.
 Production's host fragment is `ep-gentle-dust-b8tvq4ha`; never add it to that list.
 Credentials belong only in ignored local files and provider environment settings.
 
@@ -126,11 +127,12 @@ table. Then take main's `current.json`, remove the branch migration, resolve
 `tables.ts` and generate again. The generated schema docs in `docs/schema/` can
 still need `catalog` and their render scripts after a merge.
 
-The numbered migrations from 0001 keep their numbers, their Kit journal entries and their
-snapshot chain in `migrations/meta/`. A branch that already has a numbered migration
-may still extend that chain until the first timestamped migration reaches main. After
-that, `current.json` is the only base, and such a branch generates its migration again.
-The first snapshot describes the exact database after frozen migrations 0001 to 0005.
+The numbered migrations from 0001 keep their numbers and their Kit journal entries in
+`migrations/meta/_journal.json`. Of their snapshots, only `migrations/meta/0005_snapshot.json`
+stays: it is the baseline that `migrations/frozen.json` names and describes the exact
+database after frozen migrations 0001 to 0005. The later numbered snapshots were deleted
+(D78 amendment); older schema states are in git history. `current.json` is the only diff
+base, so a branch with a new numbered migration generates it again as a timestamped one.
 `migrations/frozen.json` pins their original bytes; no baseline CREATE statements run
 on existing objects. Neither Kit push nor its database migrator is used.
 

@@ -1,7 +1,7 @@
 import { privateStorage } from "@everyfield/db/schema";
 import { cleanupDatabase, jobDatabase } from "@/server/database";
-import { digestsMount } from "@/server/jobs/digest";
-import { notificationsMount } from "@/server/jobs/notification-worker";
+import { digestMailPass, digestsMount } from "@/server/jobs/digest";
+import { noticeMailPass, notificationsMount } from "@/server/jobs/notification-worker";
 import { tasksMount } from "@/server/tasks";
 import { runDueInvitationMail } from "@/server/invitations";
 import { identityMailPass } from "@/server/identity";
@@ -36,6 +36,8 @@ export function GET(request: Request): Promise<Response> {
 					organization: organizationMailPass(queuedMailTransport(ready)),
 					settings: settingsMailPass(queuedMailTransport(ready)),
 					onboarding: onboardingMailPass(queuedMailTransport(ready)),
+					notice: noticeMailPass(db, queuedMailTransport(ready)),
+					digest: digestMailPass(db, queuedMailTransport(ready)),
 				}
 			: undefined,
 	})(request);

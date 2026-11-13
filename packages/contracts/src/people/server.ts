@@ -1,5 +1,5 @@
 import type { z } from "zod";
-import type { accountId, Owner, sessionId } from "../common/values.ts";
+import type { accountId, Owner, sessionId, Reply } from "../common/values.ts";
 import type { lockedPersonReference } from "./references.ts";
 import type * as request from "./requests.ts";
 import type * as result from "./results.ts";
@@ -19,12 +19,11 @@ export type PeopleContext = {
 	session: z.infer<typeof sessionId>;
 	selected: Owner;
 };
-// Origin is built by the trusted native/review adapter, never parsed from an
-// action body. Assistant review binds exact initiator/owner/effects/revisions;
+// A write carries the same session and selected plant as a read; neither comes
+// from an action body. Assistant review binds exact initiator/owner/effects/revisions;
 // the producer rechecks approval and current authority at execution.
 export type PeopleWriteContext = PeopleContext;
-export type PeopleReply<T> =
-	{ status: "ok"; value: T } | { status: "refused"; error: z.infer<typeof result.peopleError> };
+export type PeopleReply<T> = Reply<T, z.infer<typeof result.peopleError>>;
 export interface PeopleReader<Tx> {
 	getPipelineData(
 		tx: Tx,

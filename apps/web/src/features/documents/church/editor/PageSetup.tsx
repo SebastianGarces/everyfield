@@ -1,6 +1,6 @@
 "use client";
 
-import { pageBox, type DocDocument } from "@everyfield/contracts/documents";
+import { FORMAT_LIMITS, pageBox, type DocDocument } from "@everyfield/contracts/documents";
 import { Field, Input, Select, Switch } from "@everyfield/ui/controls";
 import type { Editor } from "@tiptap/react";
 import { useEditorState } from "@tiptap/react";
@@ -18,20 +18,14 @@ import {
 	type RegionKey,
 } from "./layout.ts";
 import { Segmented, Tip } from "./ControlParts.tsx";
+import { PAPER_LABEL } from "../labels.ts";
 
 // The page setup panel: paper size, orientation, the four margins, cards per sheet with cut marks, and the header and
 // footer. Each change applies at once as one step of the editor's history, after the format has checked it. A value the
 // format refuses shows the format's message next to its field and is not applied. Margins and custom sizes show in
 // inches and store points (72 to the inch).
 
-const SIZES = [
-	{ value: "letter", label: "Letter" },
-	{ value: "legal", label: "Legal" },
-	{ value: "a4", label: "A4" },
-	{ value: "half-letter", label: "Half Letter" },
-	{ value: "card-4x6", label: "4 x 6 card" },
-	{ value: "custom", label: "Custom" },
-];
+const SIZES = Object.entries(PAPER_LABEL).map(([value, label]) => ({ value, label }));
 const PAGES = [
 	{ value: "all", label: "All pages" },
 	{ value: "first", label: "First page" },
@@ -221,8 +215,8 @@ export function PageSetupPanel({
 							label="Width"
 							field="width"
 							points={page.width ?? box.width}
-							min={2}
-							max={24}
+							min={toInches(FORMAT_LIMITS.pageSide.min)}
+							max={toInches(FORMAT_LIMITS.pageSide.max)}
 							fault={fault}
 							onCommit={(width) => change("width", { ...page, width })}
 						/>
@@ -230,8 +224,8 @@ export function PageSetupPanel({
 							label="Height"
 							field="height"
 							points={page.height ?? box.height}
-							min={2}
-							max={24}
+							min={toInches(FORMAT_LIMITS.pageSide.min)}
+							max={toInches(FORMAT_LIMITS.pageSide.max)}
 							fault={fault}
 							onCommit={(height) => change("height", { ...page, height })}
 						/>
@@ -246,8 +240,8 @@ export function PageSetupPanel({
 							label={SIDE_LABEL[side]}
 							field={`margin.${side}`}
 							points={margin[side]}
-							min={0}
-							max={toInches(144)}
+							min={toInches(FORMAT_LIMITS.margin.min)}
+							max={toInches(FORMAT_LIMITS.margin.max)}
 							fault={fault}
 							onCommit={(points) => change(`margin.${side}`, { ...page, margin: { ...margin, [side]: points } })}
 						/>

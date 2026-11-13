@@ -46,6 +46,8 @@ import { withSettingsWrite } from "../../../packages/domain/src/settings/index.t
 import { sectionOperations } from "../../../packages/domain/src/settings/sections.ts";
 import { sendOnboardingRelationships } from "../../../apps/web/src/server/jobs/notifications.ts";
 import { readPair, readRecords, readUnmerge } from "../../../apps/web/src/features/people/corrections/server.ts";
+import { listMessages } from "../../../packages/evry/src/adapters/communication/reads/index.ts";
+import { evryActor } from "../../../packages/evry/src/context/actor.ts";
 import { measure } from "./counter.mjs";
 
 // Exercise the outer request boundary too; the existing suites also cover tool producers and races.
@@ -54,6 +56,10 @@ try {
 	const s = await f.setup(),
 		actor = await f.actor(s.sender.session);
 	const run = (name, body) => measure("native.people." + name, () => withPeopleWrite(f.db, actor, body));
+	// The Evry read of drafts and scheduled messages: one statement in the read transaction, however many messages match.
+	await measure("communication.list", () =>
+		f.db.transaction((tx) => listMessages.invoke(tx, evryActor(actor), { state: "scheduled" })),
+	);
 	const createKey = randomUUID();
 	const created = await run("createPerson", (tx, ctx) =>
 		peopleWriter.createPerson(tx, ctx, { requestKey: createKey, input: { displayName: "Synthetic native" } }),
@@ -1080,6 +1086,15 @@ try {
 	);
 	assert.equal(churchAudit.rows.length, 1);
 	assert.deepEqual(Object.keys(churchAudit.rows[0].metadata.diff).sort(), ["alertDays", "city", "warningDays"]);
+	// Each open seat's deletion notice joins the witness write, as the settings mount queues it.
+	const noticeMail = createMailService({
+		db: f.db,
+		encryptionKey: randomBytes(32),
+		addressKey: randomBytes(32),
+		from: "native@example.test",
+		authorize: async () => new Set(),
+		transport: { send: async () => ({ kind: "unknown" }), lookup: async () => ({ kind: "unknown" }) },
+	});
 	const deletion = deletionOperations({
 		queue: (tx, i) =>
 			queueJobs(tx, [
@@ -1092,6 +1107,24 @@ try {
 					eligibleAt: i.eligibleAt,
 				},
 			]),
+		workspaceNotice: async (tx, notice, writes) => {
+			for (const r of notice.recipients)
+				await noticeMail.append(
+					tx,
+					{
+						owner: { kind: "account", id: r.accountId },
+						purpose: "notification",
+						logicalKey: `workspace-deletion/${notice.kind}/${notice.requestId}`,
+						recipient: r.accountId,
+						address: r.address,
+						content: { subject: "Workspace deletion", text: notice.plant.name },
+						operation: null,
+						notice: null,
+						eligibleAt: new Date().toISOString(),
+					},
+					writes,
+				);
+		},
 	});
 	const requested = await measure("settings.requestWorkspaceDeletion", () =>
 		withSettingsWrite(f.db, actor, plantContext, (tx) =>

@@ -3,7 +3,7 @@ import { validate } from "./rules.ts";
 import type { DocDocument, DocTemplate, EveryfieldDoc } from "./types.ts";
 
 export * from "./types.ts";
-export { FORMAT_SCHEMA } from "./schema.ts";
+export { FORMAT_LIMITS, FORMAT_SCHEMA } from "./schema.ts";
 export { columnWidths, exportsFor, formatNumber, ledgerTables, parseAmount, TABLE_LIMITS } from "./table.ts";
 export {
 	acceptDifferences,
@@ -21,6 +21,7 @@ export {
 	computeTable,
 	forkTemplate,
 	formulaDeps,
+	KEY as FORMAT_KEY,
 	pageBox,
 	parseFormula,
 	templateFromDocument,

@@ -2,15 +2,15 @@ import { fixture, ok, refused } from "../../support/fixture.mts";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { S3Client } from "../../../packages/db/node_modules/@aws-sdk/client-s3/dist-es/index.js";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
-import { documentsReader, documentsWriter } from "../../../packages/domain/src/documents/index.ts";
+import { documentsWriter } from "../../../packages/domain/src/documents/index.ts";
 import { brandReader, brandWriter } from "../../../packages/domain/src/branding/index.ts";
 import { uploadBrandAsset } from "../../../packages/domain/src/branding/files.ts";
 import sharp from "../../../packages/db/node_modules/sharp/dist/index.mjs";
 import { docTemplateById } from "../../../packages/domain/src/documents/doc-templates.ts";
-import { forkTemplate, ledgerTables, templateHash } from "../../../packages/contracts/src/documents/format/index.ts";
+import { ledgerTables, templateHash } from "../../../packages/contracts/src/documents/format/index.ts";
 import { pdfPages, docxParts, wordText, pdfFontFaces } from "./fixtures/readers.mts";
 import { DOCTRINAL } from "./fixtures/doctrinal.mts";
-import { SLOT_BLANK_NOTE } from "../../../packages/domain/src/documents/templates/church.ts";
+import { SLOT_BLANK_NOTE } from "../../../packages/domain/src/documents/doc-values.ts";
 import { documentFrom, editorContent } from "../../../apps/web/src/features/documents/church/editor/document-json.ts";
 import { editorSchema } from "../../../apps/web/src/features/documents/church/editor/schema.ts";
 import { EXPORT_MESSAGES, refusedWith } from "../../../apps/web/src/features/documents/church/refusal.ts";
@@ -19,7 +19,7 @@ import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
 
 const database = await fixture({ prefix: "wp036c", plant: { name: "Harvest Point" } });
-const { admin, schema } = database;
+const { admin } = database;
 const db = database.pools.runtime;
 const P = database.tenant.id;
 const Q = (await database.plant({ name: "Other Church", timezone: "America/New_York" })).id;
@@ -30,7 +30,6 @@ const actors = [
 	await database.actor({ kind: "plant", id: Q }, "admin"),
 	await database.actor(null, "owner", { account: { registration_kind: "planter" } }),
 ];
-let foreignMeeting;
 const sha = (text) => createHash("sha256").update(text).digest("hex");
 
 class MemoryClient extends S3Client {
@@ -816,6 +815,50 @@ describe("AC:DOC-022 Church Documents on everyfield.doc/1", { concurrency: 1 }, 
 		refused(await exportDoc(OWNER, doc.id, 2, "xlsx", "t54-no-excel"), "invalid_input");
 		assert.deepEqual(await counts(), before, "no file and no saved export");
 		assert.deepEqual(ok(await listExports(MEMBER, doc.id)).exports, []);
+	});
+
+	// T-189 (Nora, Nov 10, 2026): once a Church Document is deleted, none of its saved exports can be downloaded.
+	test("AC:DOC-023 a deleted Church Document's saved exports download for no seat and list nothing; its seats are told it was deleted", async () => {
+		const doc = ok(await create(OWNER, "conflict-of-interest-policy", "t189-policy"));
+		const pdf = ok(await exportDoc(OWNER, doc.id, 1, "pdf", "t189-pdf"));
+		const word = ok(await exportDoc(MEMBER, doc.id, 1, "docx", "t189-docx"));
+		assert.equal(sha256(bytesFrom(ok(await exportFile(MEMBER, doc.id, pdf.id)))), pdf.digest, "before, it downloads");
+		ok(await documentsWriter.deleteChurch(db, await authority(OWNER), { documentId: doc.id, expectedRevision: "1" }));
+
+		const send = client.send.bind(client);
+		let reads = 0;
+		client.send = (command) => {
+			if (command.constructor.name === "GetObjectCommand") reads += 1;
+			return send(command);
+		};
+		try {
+			for (const who of [OWNER, ADMIN, MEMBER]) {
+				for (const saved of [pdf, word]) {
+					const reply = await exportFile(who, doc.id, saved.id);
+					refused(reply, "deleted", `seat ${who} gets no ${saved.format}`);
+					assert.equal("value" in reply, false);
+				}
+				const listed = await listExports(who, doc.id);
+				refused(listed, "deleted", `seat ${who} lists no export`);
+				assert.equal(JSON.stringify(listed).includes(pdf.id), false, "no export row comes back");
+				assert.equal(JSON.stringify(listed).includes(word.id), false);
+			}
+			// Outside the church plant the deleted document answers as an unknown id does.
+			for (const [deleted, unknown] of [
+				[await exportFile(OTHER, doc.id, pdf.id), await exportFile(OTHER, randomUUID(), randomUUID())],
+				[await listExports(OTHER, doc.id), await listExports(OTHER, randomUUID())],
+				[await exportFile(4, doc.id, pdf.id), await exportFile(4, randomUUID(), randomUUID())],
+				[await listExports(4, doc.id), await listExports(4, randomUUID())],
+			]) {
+				assert.equal(deleted.status, "refused");
+				assert.equal(deleted.error.code, unknown.error.code);
+				assert.notEqual(deleted.error.code, "deleted");
+			}
+			assert.equal(reads, 0, "no bytes are read from private storage");
+		} finally {
+			client.send = send;
+		}
+		assert.ok(await bytesOf(pdf), "the stored file is kept; only access is blocked");
 	});
 
 	// Sebastian, 2026-11-04: "No, keep Save for your church alongside editable documents".

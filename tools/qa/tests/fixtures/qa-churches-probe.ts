@@ -26,7 +26,7 @@ const identity = createIdentityService({
 	origin: ORIGIN,
 	secret: randomBytes(32).toString("hex"),
 	trustedIp: () => `127.0.255.${++ip}`,
-	enqueueMail: async () => {},
+	enqueueMail: async () => "",
 	diagnostic: () => {},
 });
 const host = new URL(ORIGIN).host;

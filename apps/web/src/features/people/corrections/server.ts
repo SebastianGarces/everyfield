@@ -26,8 +26,7 @@ type Review = z.infer<typeof c.mergeReview>;
 type PersonResult = z.infer<typeof c.personResult>;
 type PersonId = z.infer<typeof c.personRequest>["personId"];
 export type PairQuery = { person: PersonId; with: PersonId; keep: PersonId | null };
-export type PairPerson = { id: string; displayName: string; createdAt: string; linked: boolean };
-export type Photos = Partial<Record<"source" | "survivor", string>>;
+type Photos = Partial<Record<"source" | "survivor", string>>;
 /** The duplicates page for one pair of people. */
 export type PairView =
 	| {

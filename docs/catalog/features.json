@@ -4677,7 +4677,7 @@
     "id": "DOC-003",
     "title": "Saved generated-document history and fresh signed re-download",
     "module": "documents",
-    "behavior": "Save generated_document owner/creator/template+content+renderer versions/MIME/length/hash/object identity and pending\u2192ready only after coherent upload/finalization. Latest 100 authorized history entries and fresh downloads return exact saved bytes rather than regenerating current facts. Missing template uses saved label. Failed insert/upload compensation is fenced/reconciled; plant-owned artifacts survive creator-account deletion.",
+    "behavior": "Save generated_document owner/creator/template+content+renderer versions/MIME/length/hash/object identity and pending\u2192ready only after coherent upload/finalization. Latest 100 authorized history entries and fresh downloads return exact saved bytes rather than regenerating current facts. Missing template uses saved label. Failed insert/upload compensation is fenced/reconciled; plant-owned artifacts survive creator-account deletion. Once a Church Document is deleted, none of its saved exports lists or downloads for any seat; its seats are told it was deleted, and anyone outside the church plant gets the unknown-id answer.",
     "spec_file": "docs/product/knowledge-documents.md#generated-documents-and-templates",
     "requirement_ids": [
       "REQ-DOC-003",
@@ -10180,7 +10180,7 @@
     "id": "DOC-017",
     "title": "Themed document rendering with the neutral fallback",
     "module": "documents",
-    "behavior": "Generated PDF and email templates render through a document theme. `resolveDocumentTheme(church, documentClass)` returns the church theme when the church has a brand kit and the document's \"use church branding\" toggle is on. Otherwise it returns the Everyfield-neutral theme. WP-036 renders the neutral theme and accepts a theme input; the church theme needs the WP-104 brand kit. A theme change applies only to newly generated documents, and saved files keep their exact bytes.",
+    "behavior": "Generated PDF and email templates render through a document theme. `resolveDocumentTheme(church, documentClass)` returns the church theme when the church has a brand kit and the document's \"use church branding\" toggle is on. Otherwise it returns the Everyfield-neutral theme. Library template previews and \"Save for your church\" (`documents.preview` and `documents.generate`) use the church theme when the church has a brand kit and the Everyfield-neutral theme when it has none. The preview says \"No brand kit yet. Your church name stands in for a logo.\" only when the church has no brand kit. A theme change applies only to newly generated documents, and saved files keep their exact bytes.",
     "spec_file": "docs/product/knowledge-documents.md#template-themes-classes-and-copy",
     "requirement_ids": [
       "REQ-DOC-017"

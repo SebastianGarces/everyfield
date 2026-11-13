@@ -331,7 +331,6 @@ export type SettleInput = {
 	evaluationAssigneeIds: string[];
 	reason: string;
 };
-export type Settled = { result: Finalization; analytics: Analytics | null };
 /** The open finalize or correction form, with what was chosen when a refusal opens it again. */
 export type SettleEditing = { mode: "finalize" | "reconcile"; input: SettleInput | null; problem?: string };
 

@@ -26,8 +26,8 @@ import { read, type Viewer } from "../server.ts";
 // the viewer from the session; the producer rechecks the seat's authority in its own statement. Answers are JSON: ok
 // with the value, refused with the producer's code (and the bad line for quoting), both with status 200 because the
 // request itself worked, or 503 for a failed database call, which the screen reads as a lost reply. The CSV downloads
-// answer 403 or 503 without a body. Import and receipt start the import worker after the answer, until the shared job
-// executor exists (WP-050).
+// answer 403 or 503 without a body. The scheduled runner drains due imports; the import and retry routes also start the
+// import worker after the answer, so previews, which run no cron, still finish.
 
 const NO_STORE = { "Cache-Control": "private, no-store" };
 type Answer = { status: "ok"; value: unknown } | { status: "refused"; code: string; line?: number };
@@ -63,7 +63,7 @@ const BODY_LIMIT = importLimits.rows * 48 + 64 * 1024;
  * The request body, read from its stream and counted as it arrives: null once it passes `limit`, before the rest is
  * read into memory. A declared Content-Length above the limit is refused without reading at all.
  */
-export async function boundedBody(request: Request, limit = BODY_LIMIT): Promise<Uint8Array<ArrayBuffer> | null> {
+async function boundedBody(request: Request, limit = BODY_LIMIT): Promise<Uint8Array<ArrayBuffer> | null> {
 	if (Number(request.headers.get("content-length") ?? 0) > limit) return null;
 	const chunks: Uint8Array[] = [];
 	let size = 0;
@@ -216,7 +216,7 @@ export async function receiptRoute(request: Request) {
 }
 
 /** The export request for a People address: the directory's own filters, without paging or view. */
-export function exportFilters(search: URLSearchParams) {
+function exportFilters(search: URLSearchParams) {
 	const r = listRequest(parseQuery(search));
 	return exportPeopleRequest.parse({
 		...(r.search ? { search: r.search } : {}),

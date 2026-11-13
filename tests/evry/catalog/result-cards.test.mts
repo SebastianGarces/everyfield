@@ -45,6 +45,7 @@ const PROBES: Record<string, Record<string, unknown> | (() => Promise<SourceResu
 	"people.listHouseholds": {},
 	"people.listTags": {},
 	"people.previewImport": { file: FILE },
+	"communication.list": {},
 	[catalog.SELECT_RETURNED_ROWS]: async () => {
 		const list = await read("people.listPeople", {});
 		return { ...list, operation: catalog.SELECT_RETURNED_ROWS, rows: list.rows.slice(0, 2), total: 2 };

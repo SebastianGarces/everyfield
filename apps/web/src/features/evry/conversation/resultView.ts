@@ -1,3 +1,4 @@
+import { sendTimeShort } from "../review/model.ts";
 import { STAGE_LABEL, type StageValue } from "../../people/model.ts";
 import type { SourceResult, SourceRow } from "./model.ts";
 
@@ -109,6 +110,13 @@ const VIEWS: Record<string, OpView> = {
 		icon: "file",
 		countAnswer: "Download the file from the People page.",
 	}),
+	"communication.list": {
+		title: "Messages",
+		noun: ["message", "messages"],
+		icon: "message",
+		counts: "message",
+		empty: "No draft or scheduled message in this church matches.",
+	},
 };
 /** An operation with no view of its own. A test fails while any installed read falls back to it. */
 export const FALLBACK = { title: "Records", noun: ["record", "records"] } as const;
@@ -159,7 +167,7 @@ const ROW_OUTCOME: Record<string, string> = {
 	remaining: "Not added yet",
 };
 
-export const count = (n: number, one: string, many: string) => `${n.toLocaleString()} ${n === 1 ? one : many}`;
+const count = (n: number, one: string, many: string) => `${n.toLocaleString()} ${n === 1 ? one : many}`;
 const text = (value: unknown) => (typeof value === "string" && value ? value : null);
 const num = (value: unknown) => (typeof value === "string" && value !== "" ? Number(value) : Number.NaN);
 const joined = (...parts: (string | null)[]) => parts.filter(Boolean).join(" · ") || null;
@@ -179,7 +187,7 @@ const day = (value: unknown) => {
 		: null;
 };
 
-export type RowMark =
+type RowMark =
 	| { kind: "stage"; stage: string }
 	| { kind: "match"; exact: boolean }
 	| { kind: "status"; text: string; warn: boolean }
@@ -191,6 +199,8 @@ export type RowView = {
 	mark: RowMark;
 	/** The round mark before the name: a person's initials, or the icon of a household, tag, skill, activity or file. */
 	avatar: Exclude<Kind, "import"> | null;
+	/** The person whose initials the round mark shows, and whose current photo it shows when there is one. */
+	photoFor: string | null;
 	/** Only a person (or a row that names the person it created) has a page. A household or any other record has none. */
 	href: string | null;
 };
@@ -214,7 +224,7 @@ function activityLine(fields: Record<string, unknown>) {
 function rowView(operation: string, row: SourceRow): RowView {
 	const { fields } = row;
 	const key = `${row.kind}:${row.id}`;
-	const plain = { key, mark: null, href: null } as const;
+	const plain = { key, mark: null, href: null, photoFor: null } as const;
 	switch (row.kind) {
 		case "household": {
 			const members = num(fields.memberCount);
@@ -304,6 +314,7 @@ function rowView(operation: string, row: SourceRow): RowView {
 						warn: failed,
 					},
 					avatar: null,
+					photoFor: null,
 					href: personId ? `/people/${personId}` : null,
 				};
 			}
@@ -328,6 +339,17 @@ function rowView(operation: string, row: SourceRow): RowView {
 				avatar: null,
 			};
 		}
+		case "message":
+			// A draft or scheduled message: its send time in the church's zone, never its body or recipients.
+			return {
+				...plain,
+				name: row.label,
+				line:
+					typeof fields.sendsAtInstant === "string" && typeof fields.zone === "string"
+						? `Sends ${sendTimeShort({ at: fields.sendsAtInstant, zone: fields.zone })}`
+						: "Draft",
+				avatar: null,
+			};
 		case "person":
 			break;
 	}
@@ -340,6 +362,7 @@ function rowView(operation: string, row: SourceRow): RowView {
 			line: fields.photo === "available" ? "Open the person's page to see it" : null,
 			mark: null,
 			avatar: null,
+			photoFor: null,
 			href,
 		};
 	if (operation === "people.listDuplicatePairs")
@@ -349,6 +372,7 @@ function rowView(operation: string, row: SourceRow): RowView {
 			line: typeof fields.mayDuplicate === "string" ? `May duplicate ${fields.mayDuplicate}` : null,
 			mark: null,
 			avatar: "person",
+			photoFor: row.id,
 			href,
 		};
 	if (typeof fields.match === "string")
@@ -358,6 +382,7 @@ function rowView(operation: string, row: SourceRow): RowView {
 			line: null,
 			mark: { kind: "match", exact: fields.match === "exact" },
 			avatar: "person",
+			photoFor: row.id,
 			href,
 		};
 	if (HOUSEHOLD_DETAIL.has(operation))
@@ -367,6 +392,7 @@ function rowView(operation: string, row: SourceRow): RowView {
 			line: typeof fields.role === "string" ? (ROLE[fields.role] ?? fields.role) : null,
 			mark: null,
 			avatar: "person",
+			photoFor: row.id,
 			href,
 		};
 	return {
@@ -375,6 +401,7 @@ function rowView(operation: string, row: SourceRow): RowView {
 		line: typeof fields.city === "string" ? fields.city : null,
 		mark: typeof fields.stage === "string" ? { kind: "stage", stage: fields.stage } : null,
 		avatar: "person",
+		photoFor: row.id,
 		href,
 	};
 }

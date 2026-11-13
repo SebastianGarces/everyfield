@@ -4,7 +4,7 @@ import type { z } from "zod";
 import { MONTHS } from "../shared/dates.ts";
 
 // The Tasks screen rules that need no React: the address, labels, due-date words, counts after a change and the
-// due-date form value. The screens and the server page share them, and tests/ui/tasks runs them in node.
+// due-date form value. The screens and the server page share them, and tests/unit/tasks runs them in node.
 
 export type Status = z.infer<typeof c.taskStatus>;
 export type Priority = z.infer<typeof c.priority>;
@@ -62,7 +62,7 @@ export const CATEGORIES = [
 export const RELATIONS = ["person", "meeting", "team", "none"] as const;
 export const DUE_KINDS = ["local_date", "resolved_instant", "undated"] as const;
 export const SORTS = ["due", "priority", "status", "title", "created"] as const;
-export const VIEWS = ["my", "all"] as const;
+const VIEWS = ["my", "all"] as const;
 
 export const STATUS_LABEL: Record<Status, string> = {
 	not_started: "Not started",
@@ -312,8 +312,8 @@ export type TaskQuery = {
 	direction: "asc" | "desc";
 	page: number;
 };
-export const PAGE_SIZE = 50;
-export const DEFAULT_QUERY: TaskQuery = {
+const PAGE_SIZE = 50;
+const DEFAULT_QUERY: TaskQuery = {
 	view: "my",
 	search: "",
 	statuses: [...OPEN_STATUSES],
@@ -608,7 +608,7 @@ export type Pending = {
 	panel: Readonly<Record<string, Partial<Panel>>>;
 };
 /** What the task panel shows beyond the task itself. */
-export type Panel = { recurrence: TaskDetail["recurrence"]; prerequisites: Prerequisite[] };
+type Panel = { recurrence: TaskDetail["recurrence"]; prerequisites: Prerequisite[] };
 export type Change =
 	| { kind: "status"; id: string; status: Status }
 	| { kind: "row"; id: string; row: TaskItem | null }

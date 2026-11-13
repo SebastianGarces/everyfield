@@ -1,6 +1,7 @@
 // The documents reads of INV-tenancy (tenancy.test.mts): church A's documents, written through the documents writes as
 // its owner, and one case per read. The cases read through the test's throwing storage; only the seed saves files.
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
 import { sql } from "../../../packages/db/src/query.ts";
 import { nativeFromText } from "../../../packages/contracts/src/documents/index.ts";
 import { documentsReader, documentsWriter as docs } from "../../../packages/domain/src/documents/index.ts";
@@ -49,6 +50,21 @@ export async function seedDocuments(t) {
 			seedStorage,
 		),
 	).id;
+	// T-189: a deleted Church Document with a saved export. Its seats are told "deleted"; church B must not learn of it.
+	const gone = ok(await docs.createFromTemplate(db, owner, { templateId: POLICY, requestKey: key() }));
+	a.deletedDoc = gone.id;
+	a.deletedExport = ok(
+		await docs.exportNative(
+			db,
+			owner,
+			{ documentId: gone.id, revision: 1, format: "pdf", requestKey: key() },
+			seedStorage,
+		),
+	).id;
+	ok(await docs.deleteChurch(db, owner, { documentId: gone.id, expectedRevision: gone.revision }));
+	// T-284: an archived Church Document, which church A's archived list holds and church B's never does.
+	const shelved = ok(await docs.createFromTemplate(db, owner, { templateId: POLICY, requestKey: key() }));
+	ok(await docs.archiveChurch(db, owner, { documentId: shelved.id, expectedRevision: shelved.revision }));
 	ok(
 		await docs.saveChurchTemplate(db, owner, {
 			documentId: church.id,
@@ -153,6 +169,7 @@ export function documentsCases(t, who) {
 		w("history.list", () => docs["history.list"](db, who.actor, {}), { value: { entries: [] } }),
 		w("history.get", () => docs["history.get"](db, who.actor, { ...doc, revision: 1 }), gone(a.churchDoc)),
 		w("listChurch", () => docs.listChurch(db, who.actor, {}), { value: { documents: [], templates: [] } }),
+		w("listArchivedChurch", () => docs.listArchivedChurch(db, who.actor, {}), { value: { documents: [] } }),
 		w("listCopySources", () => docs.listCopySources(db, who.actor, {}), { value: { documents: [] } }),
 		w("listExports", () => docs.listExports(db, who.actor, doc), gone(a.churchDoc)),
 		w("listOwned", () => docs.listOwned(db, who.actor, {}), { value: { documents: [] } }),
@@ -173,4 +190,23 @@ export function documentsCases(t, who) {
 		}),
 		w("readTemplateCompare", () => docs.readTemplateCompare(db, who.actor, doc), gone(a.churchDoc)),
 	];
+}
+
+/**
+ * T-189: the reads of a deleted Church Document's page and saved-export link. Church A's own owner is told "deleted";
+ * church B gets the answer an unknown id gets, so it never learns the document existed.
+ */
+export function deletedDocumentCases(t, who) {
+	const { a, storage } = t;
+	const db = t.f.db;
+	const deleted = { documentId: a.deletedDoc };
+	return [
+		["readExportFile", (ids) => docs.readExportFile(db, who.actor, ids, storage)],
+		["listExports", ({ documentId }) => docs.listExports(db, who.actor, { documentId })],
+		["readChurch", ({ documentId }) => docs.readChurch(db, who.actor, { documentId })],
+	].map(([name, run]) => ({
+		name,
+		deleted: () => run({ ...deleted, exportId: a.deletedExport }),
+		unknown: () => run({ documentId: randomUUID(), exportId: randomUUID() }),
+	}));
 }

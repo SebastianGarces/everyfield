@@ -56,7 +56,7 @@ function refusal(code: "unavailable" | "unknown"): OnboardingError {
 }
 
 /** A reply that arrived outside the contract reads as unavailable. */
-export function parseReply<T>(schema: z.ZodType<T>, raw: unknown): Reply<T> {
+function parseReply<T>(schema: z.ZodType<T>, raw: unknown): Reply<T> {
 	const shape = z.object({ status: z.enum(["ok", "refused"]), value: z.unknown(), error: z.unknown() }).partial();
 	const r = shape.safeParse(raw);
 	if (r.success && r.data.status === "ok") {
@@ -72,7 +72,7 @@ export function parseReply<T>(schema: z.ZodType<T>, raw: unknown): Reply<T> {
 
 /** `offline`: the entry call itself failed (a dropped connection), so nothing is known about where the account stands. */
 export type ParsedEntry = { kind: "entry"; entry: Entry } | { kind: "signed_out" };
-export type EntryLoad = ParsedEntry | { kind: "offline" };
+type EntryLoad = ParsedEntry | { kind: "offline" };
 export function parseEntry(raw: unknown): ParsedEntry {
 	if (z.object({ kind: z.literal("signed_out") }).safeParse(raw).success) return { kind: "signed_out" };
 	const parsed = entry.safeParse(raw);

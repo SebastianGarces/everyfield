@@ -77,6 +77,35 @@
 			}
 		},
 		{
+			// The root `lint:tests` folders (T-176).
+			"files": ["tests/integration/**", "tests/evry/**", "tests/ui/**", "tests/unit/**", "tests/workflow/**"],
+			"rules": {
+				// No typecheck covers these folders, so a type written here goes unchecked; `any` marks untyped JSON.
+				"typescript/no-explicit-any": "off",
+				// Tests drop fields with rest destructuring to compare what is left.
+				"no-unused-vars": [
+					"error",
+					{
+						"vars": "all",
+						"args": "after-used",
+						"caughtErrors": "all",
+						"ignoreRestSiblings": true,
+						"argsIgnorePattern": false,
+						"varsIgnorePattern": false,
+						"caughtErrorsIgnorePattern": false,
+						"destructuredArrayIgnorePattern": false
+					}
+				]
+			}
+		},
+		{
+			"files": ["tests/**/*.cjs"],
+			"rules": {
+				// A CommonJS preload that node loads with --require can only require.
+				"typescript/no-require-imports": "off"
+			}
+		},
+		{
 			"files": ["packages/evry/src/**", "packages/domain/src/**"],
 			"rules": {
 				// INV-privacy: only the intelligence domain names the private-care tables (care.test.mts checks the runtime side).

@@ -1,14 +1,16 @@
 import test, { after } from "node:test";
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { createRequire } from "node:module";
 import {
 	chmodSync,
 	existsSync,
 	mkdirSync,
 	mkdtempSync,
+	openSync,
 	readdirSync,
 	readFileSync,
+	realpathSync,
 	rmSync,
 	statSync,
 	writeFileSync,
@@ -31,16 +33,20 @@ const NEON_PASSWORD = "npg_SentinelNeonPassword01";
 const BYPASS = "sentinel-bypass-secret-0f1e2d3c";
 const API_KEY = "re_sentinel_resend_key_99";
 
-const DEV = { id: `${DEV_ENDPOINT}-b8ltidky`, branch_id: "br-dev" };
+const DEV = { id: DEV_ENDPOINT, branch_id: "br-dev" };
 const PROD = { id: `${PROD_ENDPOINT}-b8tvq4ha`, branch_id: "br-main" };
 const BRANCHES = [
 	{ id: "br-dev", name: "development" },
 	{ id: "br-main", name: "main" },
 ];
 
+/** The length of a `qa drive` "minute" in the tests. */
+const TEST_MINUTE = 1_000;
+
 /** A git repo with one feature branch, stub neonctl, vercel and corepack first on PATH, and a private TMPDIR. */
 function setup(endpoints = [DEV, PROD], seedPath = "tools/qa/qa-seed.ts") {
-	const dir = mkdtempSync(join(tmpdir(), "qa-test-")),
+	// The real path, as git prints it (macOS puts the temporary folder behind /var -> /private/var).
+	const dir = realpathSync(mkdtempSync(join(tmpdir(), "qa-test-"))),
 		root = join(dir, "repo"),
 		bin = join(dir, "bin"),
 		state = join(dir, "stub-state"),
@@ -109,7 +115,16 @@ if (fs.existsSync(path.join(S, "FAIL_SEED"))) {
 	write("deploy-env.json", env);
 	write("deploy-link.json", JSON.parse(fs.readFileSync(".vercel/project.json", "utf8")));
 	console.error("Inspect: https://vercel.com/x  bypass ${BYPASS}");
-	console.log("https://everyfield-abc123-team.vercel.app");
+	// A DEPLOY_JSON file prints what Vercel CLI 65 prints off a terminal: one JSON object, the URL at deployment.url.
+	if (fs.existsSync(path.join(S, "DEPLOY_JSON"))) {
+		console.error("  Preview         https://everyfield-json456-team.vercel.app");
+		console.log(JSON.stringify({
+			status: "ok",
+			deployment: { id: "dpl_json456", url: "https://everyfield-json456-team.vercel.app", readyState: "READY" },
+			message: "Deployment everyfield-json456-team.vercel.app ready.",
+			next: [{ command: "vercel curl https://everyfield-json456-team.vercel.app", when: "Verify deployment" }],
+		}, null, 2));
+	} else console.log("https://everyfield-abc123-team.vercel.app");
 } else if (a[0] === "curl") {
 	// T-255: the scheduled-send driver. Record the target, the linked project and the Authorization header curl got.
 	const file = a[a.indexOf("--header") + 1].slice(1);
@@ -123,27 +138,46 @@ if (fs.existsSync(path.join(S, "FAIL_SEED"))) {
 	if (fs.existsSync(path.join(S, "FAIL_CRON"))) { process.stdout.write("Unauthorized\\nqa-cron-http:401\\n"); process.exit(0); }
 	process.stdout.write('{"status":"ok","messages":1}\\nqa-cron-http:200\\n');
 } else if (a[0] === "alias" && a[1] === "set") write("alias.json", { [a[3]]: a[2] });
-else if (a[0] === "alias" && a[1] === "rm") {
-	const aliases = fs.existsSync(path.join(S, "alias.json")) ? read("alias.json") : {};
-	if (!aliases[a[2]]) { console.error("Error: The alias " + a[2] + " was not found"); process.exit(1); }
-	write("alias.json", {});
-} else if (a[0] === "remove") {
-	if (fs.existsSync(path.join(S, "removed"))) { console.error("Error: Deployment not found"); process.exit(1); }
-	fs.writeFileSync(path.join(S, "removed"), a[1]);
+else if ((a[0] === "alias" && a[1] === "rm") || a[0] === "remove") {
+	// As Vercel CLI 65 off a TTY: --yes approves nothing; --confirm-name must name the target exactly as passed.
+	const target = a[0] === "remove" ? a[1] : a[2];
+	if (a.includes("--yes") || !a.includes("--confirm-name") || a[a.indexOf("--confirm-name") + 1] !== target) {
+		console.log(JSON.stringify({ status: "action_required", reason: "confirmation_required", message: "Can't delete " + target + " without approval." }));
+		process.exit(2);
+	}
+	if (a[0] === "alias") {
+		const aliases = fs.existsSync(path.join(S, "alias.json")) ? read("alias.json") : {};
+		if (!aliases[target]) { console.error('Error: Alias not found by "' + target + '" under team'); process.exit(1); }
+		write("alias.json", {});
+	} else {
+		if (fs.existsSync(path.join(S, "removed"))) { console.error('> Could not find any deployments or projects matching "' + target + '".'); process.exit(1); }
+		fs.writeFileSync(path.join(S, "removed"), target);
+	}
 }`,
 	);
+	const env = {
+		...process.env,
+		PATH: `${bin}${delimiter}${process.env.PATH}`,
+		TMPDIR: temp,
+		VERCEL_AUTOMATION_BYPASS_SECRET: BYPASS,
+		RESEND_API_KEY: API_KEY,
+	};
+	const main = ["--disable-warning=ExperimentalWarning", join(source, "tools/qa/main.ts")];
 	const qa = (...args: string[]) =>
-		spawnSync(process.execPath, ["--disable-warning=ExperimentalWarning", join(source, "tools/qa/main.ts"), ...args], {
+		spawnSync(process.execPath, [...main, ...args], { cwd: root, encoding: "utf8", env });
+	// T-289: `qa drive` as Jonah runs it in a terminal, with a one-second "minute"; its stdout and stderr go to a file.
+	const hosts: ChildProcess[] = [];
+	const drive = () => {
+		const out = join(dir, `drive-${hosts.length}.out`);
+		const child = spawn(process.execPath, [...main, "drive"], {
 			cwd: root,
-			encoding: "utf8",
-			env: {
-				...process.env,
-				PATH: `${bin}${delimiter}${process.env.PATH}`,
-				TMPDIR: temp,
-				VERCEL_AUTOMATION_BYPASS_SECRET: BYPASS,
-				RESEND_API_KEY: API_KEY,
-			},
+			env: { ...env, QA_DRIVE_MINUTE_MS: String(TEST_MINUTE) },
+			stdio: ["ignore", openSync(out, "w"), openSync(out, "a")],
 		});
+		hosts.push(child);
+		const exited = new Promise<number | null>((res) => child.on("exit", (code) => res(code)));
+		return { child, exited, output: () => readFileSync(out, "utf8") };
+	};
 	const calls = (name: string): string[][] => {
 		try {
 			return readFileSync(join(state, `${name}.log`), "utf8")
@@ -155,17 +189,12 @@ else if (a[0] === "alias" && a[1] === "rm") {
 		}
 	};
 	const stubState = <T>(f: string): T => JSON.parse(readFileSync(join(state, f), "utf8"));
-	// T-255: qa up leaves a detached scheduled-send driver running; stop any a test did not take down.
+	// Stop any qa drive a test did not stop itself.
 	const done = () => {
-		try {
-			const { previews } = JSON.parse(readFileSync(join(root, ".git/qa/previews.json"), "utf8"));
-			for (const p of previews) if (p.driver_pid) process.kill(p.driver_pid, "SIGKILL");
-		} catch {
-			// No record, or the driver already ended.
-		}
+		for (const host of hosts) if (host.exitCode === null && host.signalCode === null) host.kill("SIGKILL");
 		rmSync(dir, { recursive: true, force: true });
 	};
-	return { dir, root, temp, state, qa, calls, stubState, done };
+	return { dir, root, temp, state, qa, drive, calls, stubState, done };
 }
 
 /** Every file under `dir`, with its bytes as text. */
@@ -178,7 +207,7 @@ function files(dir: string): Array<[string, string]> {
 
 test("INV-qa-preview: qa up refuses before it creates anything when the parent is missing or production", () => {
 	for (const [endpoints, reason] of [
-		[[PROD], /No single ep-autumn-dew endpoint/],
+		[[PROD], new RegExp(`No single ${DEV_ENDPOINT} endpoint`)],
 		[[DEV, { ...PROD, branch_id: "br-dev" }], /production database/],
 	] as const) {
 		const s = setup([...endpoints]);
@@ -240,13 +269,15 @@ test("INV-qa-secrets: qa up, list and down keep every secret out of output, the 
 		]);
 		assert.equal(env.IDENTITY_ORIGIN, url);
 		assert.equal(new URL(env.IDENTITY_DATABASE_URL!).username, "evf_qa_runtime");
+		// The cron's job pool sends a startup option that Neon's pooler refuses, so the runtime login is direct.
+		assert.match(new URL(env.IDENTITY_DATABASE_URL!).hostname, /^ep-qa-branch-a1\./);
 		// T-51: the seed ran with the preview's own mail keys, so its suppression and mail rows match on the preview.
 		const seedKeys = s.stubState<Record<string, string>>("seed-keys.json");
 		assert.deepEqual(seedKeys, {
 			IDENTITY_MAIL_KEY: env.IDENTITY_MAIL_KEY,
 			IDENTITY_ADDRESS_KEY: env.IDENTITY_ADDRESS_KEY,
 		});
-		for (const k of Object.values(seedKeys)) assert.match(k, /^[a-f0-9]{64}$/);
+		for (const k of Object.values(seedKeys)) assert.match(k!, /^[a-f0-9]{64}$/);
 		assert.notEqual(seedKeys.IDENTITY_MAIL_KEY, seedKeys.IDENTITY_ADDRESS_KEY);
 		assert.match(new URL(env.DATABASE_URL!).hostname, /^ep-qa-branch-a1-pooler\./);
 		assert.ok(s.calls("vercel").some((c) => c.includes("--target") && c.includes("preview")));
@@ -267,7 +298,7 @@ test("INV-qa-secrets: qa up, list and down keep every secret out of output, the 
 		assert.equal(down.status, 0, down.stderr);
 		assert.equal(
 			down.stdout.trim(),
-			`Removed QA preview ${id}: scheduled-send driver, alias, deployment, Neon branch ${id}.`,
+			`Removed QA preview ${id}: scheduled sends, alias, deployment, Neon branch ${id}.`,
 		);
 		assert.deepEqual(s.stubState("branches.json"), BRANCHES);
 		assert.deepEqual(s.stubState("alias.json"), {});
@@ -306,6 +337,28 @@ test("INV-qa-secrets: qa up, list and down keep every secret out of output, the 
 	}
 });
 
+test("INV-qa-preview: qa down approves Vercel removals by name and finishes a preview whose alias and deployment are gone", () => {
+	const s = setup();
+	try {
+		const up = s.qa("up", "feature/nora-qa");
+		assert.equal(up.status, 0, up.stderr);
+		const id = /^QA preview (qa-\S+)$/.exec(up.stdout.trim().split("\n")[0]!)?.[1];
+		assert.ok(id, up.stdout);
+		const deployment = "https://everyfield-abc123-team.vercel.app";
+		// Half removed: the alias and the deployment went by hand; the driver, Neon branch and record remain.
+		writeFileSync(join(s.state, "alias.json"), "{}");
+		writeFileSync(join(s.state, "removed"), deployment);
+
+		const down = s.qa("down", id);
+		assert.equal(down.status, 0, down.stderr);
+		assert.match(down.stdout, new RegExp(`^Removed QA preview ${id}: .*Neon branch ${id}\\.$`, "m"));
+		assert.deepEqual(s.stubState("branches.json"), BRANCHES);
+		assert.equal(s.qa("list").stdout.trim(), "No open QA previews.");
+	} finally {
+		s.done();
+	}
+});
+
 test("INV-qa-preview: a failed qa up shows redacted output and removes the Neon branch it made", () => {
 	const s = setup();
 	try {
@@ -335,6 +388,23 @@ test("INV-qa-preview: a failed qa up shows redacted output and removes the Neon 
 	}
 });
 
+test("INV-qa-preview: qa up reads the deployment URL from the JSON Vercel CLI 65 prints off a terminal", () => {
+	const s = setup();
+	try {
+		writeFileSync(join(s.state, "DEPLOY_JSON"), "");
+		const up = s.qa("up", "feature/nora-qa");
+		assert.equal(up.status, 0, up.stderr);
+		const id = up.stdout.trim().split("\n")[0]!.replace("QA preview ", "");
+		assert.deepEqual(s.stubState("alias.json"), {
+			[`everyfield-${id}.vercel.app`]: "https://everyfield-json456-team.vercel.app",
+		});
+		const { previews } = JSON.parse(readFileSync(join(s.root, ".git/qa/previews.json"), "utf8"));
+		assert.equal(previews[0].deployment, "https://everyfield-json456-team.vercel.app");
+	} finally {
+		s.done();
+	}
+});
+
 test("INV-qa-preview: a branch with no tools/qa/qa-seed.ts refuses", () => {
 	const none = setup([DEV, PROD], "docs/no-seed.txt");
 	try {
@@ -357,6 +427,8 @@ test("INV-qa-preview: a previews file with a key an older qa wrote still loads, 
 		url: "https://everyfield-qa-main-b24e.vercel.app",
 		deployment: "https://d1.vercel.app",
 		created_at: "2026-11-05T12:00:00.000Z",
+		// T-289: a per-preview driver's pid, as qa before qa drive wrote it, reads harmlessly.
+		driver_pid: 999_999,
 	};
 	const file = join(s.root, ".git/qa/previews.json");
 	try {
@@ -783,9 +855,9 @@ test("INV-qa-seed: the seed stays idempotent, and a branch seeded before the org
 	assert.deepEqual(
 		(await logins()).filter(
 			(l) =>
-				![QA_LOGINS.network, QA_LOGINS.sending, QA_LOGINS.member2, QA_LOGINS.signup, QA_LOGINS.riverside].includes(
-					String(l.email),
-				),
+				!(
+					[QA_LOGINS.network, QA_LOGINS.sending, QA_LOGINS.member2, QA_LOGINS.signup, QA_LOGINS.riverside] as string[]
+				).includes(String(l.email)),
 		),
 		beforeLogins,
 	);
@@ -996,7 +1068,7 @@ test("INV-qa-preview: --test-recipients sets EMAIL_TEST_RECIPIENTS on that one d
 	}
 });
 
-/** The scheduled-send driver's calls of the stubbed `vercel curl`, in order. */
+/** `qa drive`'s calls of the stubbed `vercel curl`, in order. */
 const cronCalls = (state: string) =>
 	existsSync(join(state, "cron-calls.log"))
 		? readFileSync(join(state, "cron-calls.log"), "utf8")
@@ -1014,81 +1086,171 @@ const cronCalls = (state: string) =>
 				)
 		: [];
 
-const alive = (pid: number) => {
-	try {
-		process.kill(pid, 0);
-		return true;
-	} catch {
-		return false;
+const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));
+/** Waits until `ready` holds, for at most `ms`. */
+async function until(ready: () => boolean, ms = 10_000): Promise<void> {
+	for (let waited = 0; !ready(); waited += 50) {
+		if (waited > ms) assert.fail(`not ready within ${ms} ms`);
+		await sleep(50);
 	}
-};
+}
+const lines = (file: string) => (existsSync(file) ? readFileSync(file, "utf8").trim().split("\n").filter(Boolean) : []);
+const okLines = (file: string) => lines(file).filter((l) => / ok: HTTP 200 \{"status":"ok","messages":1\}$/.test(l));
+const upId = (up: { stdout: string }) => up.stdout.split("\n")[0]!.replace("QA preview ", "");
+/** The cron secret qa up set on that preview's deployment, from the stub's latest deploy. */
+const deploySecret = (s: ReturnType<typeof setup>) =>
+	s.stubState<Record<string, string>>("deploy-env.json").CRON_SECRET!;
 
-test("INV-qa-cron: qa up runs the preview's /api/cron/jobs with its own cron secret until qa down stops the driver", () => {
+test("INV-qa-cron: qa up writes the cron secret to a private file and starts no driver; it names the drive command", () => {
 	const s = setup();
 	try {
 		const up = s.qa("up", "feature/nora-qa");
 		assert.equal(up.status, 0, up.stderr);
-		const id = up.stdout.split("\n")[0]!.replace("QA preview ", "");
-		const env = s.stubState<Record<string, string>>("deploy-env.json");
-		// A cron secret of this deployment only, set with -e like the other per-deployment settings; purges stay on
-		// this preview's own Neon branch.
-		assert.match(env.CRON_SECRET!, /^[a-f0-9]{64}$/);
-		assert.equal(env.LIFECYCLE_CLEANUP_DATABASE_URL, env.DATABASE_URL_UNPOOLED);
-		assert.ok(!s.calls("vercel").some((c) => c[0] === "env"));
-
-		// The driver's first call reached the real route on this deployment before qa up returned, with the bearer the
-		// route checks, through vercel curl (which adds the project's protection bypass) from a linked private folder.
-		const [first] = cronCalls(s.state);
-		assert.deepEqual(first, {
-			path: "/api/cron/jobs",
-			deployment: "https://everyfield-abc123-team.vercel.app",
-			linked: { orgId: "team_JKEPRxDWACtp9hugEthW215I", projectId: "prj_N6MhFGqi0UW5Iaa6RBDpusMKxMwu" },
-			authorization: `Authorization: Bearer ${env.CRON_SECRET}\n`,
-			mode: 0o600,
-		});
-		assert.match(
-			up.stderr,
-			/Scheduled sends: on\. \/api\/cron\/jobs runs every minute from this Mac until bin\/qa down\./,
+		const id = upId(up);
+		const secretFile = join(s.root, `.git/qa/${id}.cron-secret`);
+		assert.equal(readFileSync(secretFile, "utf8"), deploySecret(s));
+		assert.equal(statSync(secretFile).mode & 0o777, 0o600);
+		assert.ok(!readFileSync(join(s.root, ".git/qa/previews.json"), "utf8").includes(deploySecret(s)));
+		assert.ok(!(up.stdout + up.stderr).includes(deploySecret(s)), "the cron secret was printed");
+		// No host runs, so nothing calls the route and the last line says how to start one outside a seat.
+		assert.equal(
+			up.stderr.trim().split("\n").pop(),
+			`Scheduled sends: off until you run, outside a seat: cd '${s.root}' && bin/qa drive`,
 		);
-		assert.ok(!(up.stdout + up.stderr).includes(env.CRON_SECRET!), "the cron secret was printed");
-
-		// The driver outlives qa up, and its record and log hold no secret.
-		const record = JSON.parse(readFileSync(join(s.root, ".git/qa/previews.json"), "utf8")).previews[0];
-		assert.ok(alive(record.driver_pid), "the driver is running");
-		const log = readFileSync(join(s.root, `.git/qa/${id}.cron.log`), "utf8");
-		assert.match(log, /ok: HTTP 200 \{"status":"ok","messages":1\}/);
-		for (const text of [log, JSON.stringify(record)]) assert.ok(!text.includes(env.CRON_SECRET!));
-
+		Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 2 * TEST_MINUTE);
+		assert.deepEqual(cronCalls(s.state), [], "qa up started a driver");
+		assert.ok(!existsSync(join(s.root, `.git/qa/${id}.cron.log`)));
 		const down = s.qa("down", id);
 		assert.equal(down.status, 0, down.stderr);
-		assert.match(down.stdout, /scheduled-send driver/);
-		assert.ok(!alive(record.driver_pid), "qa down stopped the driver");
-		assert.ok(!existsSync(join(s.root, `.git/qa/${id}.cron.log`)), "qa down removed the log");
-		assert.deepEqual(readdirSync(s.temp), [], "the driver removed its header file");
+		assert.ok(!existsSync(secretFile), "qa down left the cron secret");
 	} finally {
 		s.done();
 	}
 });
 
-test("INV-qa-cron: a failed first cron run keeps the preview and says so; a driver whose record is gone stops itself", () => {
+test("INV-qa-cron: qa drive calls every preview each minute, picks up new ones, outlives qa up, and qa down stops one only", async () => {
+	const s = setup();
+	try {
+		const first = s.qa("up", "feature/nora-qa");
+		assert.equal(first.status, 0, first.stderr);
+		const a = upId(first),
+			secretA = deploySecret(s);
+		// qa drive starts after the first preview and before the second, which qa up adds while it runs.
+		const host = s.drive();
+		const logA = join(s.root, `.git/qa/${a}.cron.log`);
+		await until(() => okLines(logA).length >= 1);
+		const second = s.qa("up", "feature/nora-qa");
+		assert.equal(second.status, 0, second.stderr);
+		const b = upId(second),
+			secretB = deploySecret(s),
+			logB = join(s.root, `.git/qa/${b}.cron.log`);
+		const pid = host.child.pid!;
+		// qa up waited for the host's first call of the new preview and names the host and the log.
+		assert.equal(
+			second.stderr.trim().split("\n").pop(),
+			`Scheduled sends: on. qa drive (pid ${pid}) calls /api/cron/jobs on https://everyfield-abc123-team.vercel.app every minute until bin/qa down. Log: ${logB}`,
+		);
+		assert.match(lines(logB)[0]!, new RegExp(`started: qa drive pid ${pid}, /api/cron/jobs every minute on https://`));
+
+		// Both qa up processes have exited; the host alone keeps calling both previews, one call a minute each.
+		const [startA, startB] = [okLines(logA).length, okLines(logB).length];
+		await sleep(4 * TEST_MINUTE + 300);
+		for (const [log, start] of [
+			[logA, startA],
+			[logB, startB],
+		] as const) {
+			const gained = okLines(log).length - start;
+			assert.ok(gained >= 3 && gained <= 5, `${log} gained ${gained} lines in 4 minutes`);
+		}
+		const calls = cronCalls(s.state);
+		assert.ok(calls.every((c) => c.path === "/api/cron/jobs" && c.mode === 0o600));
+		assert.deepEqual(calls.at(-1)!.linked, {
+			orgId: "team_JKEPRxDWACtp9hugEthW215I",
+			projectId: "prj_N6MhFGqi0UW5Iaa6RBDpusMKxMwu",
+		});
+		const callsOf = (secret: string) =>
+			cronCalls(s.state).filter((c) => c.authorization === `Authorization: Bearer ${secret}\n`).length;
+		assert.ok(callsOf(secretA) >= 4 && callsOf(secretB) >= 4);
+
+		// qa down on one preview: the host logs stopped for it and keeps calling the other.
+		const down = s.qa("down", a);
+		assert.equal(down.status, 0, down.stderr);
+		assert.equal(down.stdout.trim(), `Removed QA preview ${a}: scheduled sends, alias, deployment, Neon branch ${a}.`);
+		assert.match(host.output(), new RegExp(`qa drive: stopped ${a}: bin/qa down removed the preview`));
+		assert.ok(!existsSync(logA), "qa down removed the log");
+		assert.ok(!existsSync(join(s.root, `.git/qa/${a}.cron-secret`)), "qa down removed the cron secret");
+		const [callsA, linesB] = [callsOf(secretA), okLines(logB).length];
+		await sleep(3 * TEST_MINUTE);
+		assert.equal(callsOf(secretA), callsA, "the removed preview is still called");
+		assert.ok(!existsSync(logA), "the host wrote to the removed preview's log");
+		assert.ok(okLines(logB).length >= linesB + 2, "the other preview stopped being called");
+
+		// No secret in the records, the logs, the host's output or any file but the open preview's own 0600 secret file.
+		const secretFile = join(s.root, `.git/qa/${b}.cron-secret`);
+		assert.equal(statSync(secretFile).mode & 0o777, 0o600);
+		const seen = [
+			...[first, second, down].map((r, i): [string, string] => [`output ${i}`, r.stdout + r.stderr]),
+			["host output", host.output()] as [string, string],
+			...files(s.root).filter(([p]) => p !== secretFile),
+		];
+		assert.ok(seen.some(([p]) => p === logB) && seen.some(([p]) => p.endsWith("previews.json")));
+		for (const [where, text] of seen)
+			for (const secret of [secretA, secretB]) assert.ok(!text.includes(secret), `a cron secret reached ${where}`);
+
+		// SIGTERM: stopped in the driven preview's log, the header files and lock removed, exit 0.
+		host.child.kill("SIGTERM");
+		assert.equal(await host.exited, 0);
+		assert.match(lines(logB).at(-1)!, / stopped: qa drive ended \(SIGTERM\)$/);
+		assert.match(host.output(), /qa drive: stopped \(SIGTERM\)\.\n$/);
+		assert.ok(!existsSync(join(s.root, ".git/qa/drive.lock")), "the lock is left");
+		assert.deepEqual(readdirSync(s.temp), [], "the host left its temporary files");
+	} finally {
+		s.done();
+	}
+});
+
+test("INV-qa-cron: one qa drive per repository; a second refuses with the pid, and a stale lock does not block a start", async () => {
+	const s = setup();
+	try {
+		const one = s.drive();
+		const lock = join(s.root, ".git/qa/drive.lock");
+		await until(() => existsSync(lock) && /pid \d+ calls/.test(one.output()));
+		assert.equal(readFileSync(lock, "utf8").trim(), String(one.child.pid));
+		const two = s.drive();
+		assert.equal(await two.exited, 1);
+		assert.match(two.output(), new RegExp(`qa drive already runs for this repository \\(pid ${one.child.pid}\\)`));
+		assert.equal(readFileSync(lock, "utf8").trim(), String(one.child.pid), "the refused host touched the lock");
+
+		// A host killed outright leaves its lock; the next start replaces it.
+		one.child.kill("SIGKILL");
+		await one.exited;
+		assert.ok(existsSync(lock));
+		const three = s.drive();
+		await until(() => readFileSync(lock, "utf8").trim() === String(three.child.pid));
+		three.child.kill("SIGINT");
+		assert.equal(await three.exited, 0);
+		assert.ok(!existsSync(lock));
+	} finally {
+		s.done();
+	}
+});
+
+test("INV-qa-cron: with qa drive running, a failed first call is reported by qa up and the host keeps trying", async () => {
 	const s = setup();
 	try {
 		writeFileSync(join(s.state, "FAIL_CRON"), "");
+		const host = s.drive();
+		await until(() => /pid \d+ calls/.test(host.output()));
 		const up = s.qa("up", "feature/nora-qa");
 		assert.equal(up.status, 0, up.stderr);
 		assert.match(
 			up.stderr,
-			/Scheduled sends: the first run FAILED \(HTTP 401 Unauthorized\)\. The driver keeps trying\./,
+			/Scheduled sends: the first run FAILED \(HTTP 401 Unauthorized\)\. It keeps trying\. qa drive \(pid \d+\)/,
 		);
-		const file = join(s.root, ".git/qa/previews.json");
-		const pid = JSON.parse(readFileSync(file, "utf8")).previews[0].driver_pid;
-		assert.ok(alive(pid));
-		// A record removed by anything but qa down still ends the driver within its next check.
-		writeFileSync(file, JSON.stringify({ previews: [] }));
-		for (let waited = 0; waited < 10_000 && alive(pid); waited += 200)
-			Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 200);
-		assert.ok(!alive(pid), "the orphaned driver stopped");
-		assert.deepEqual(readdirSync(s.temp), [], "the driver removed its header file");
+		const log = join(s.root, `.git/qa/${upId(up)}.cron.log`);
+		await until(() => lines(log).filter((l) => / failed: HTTP 401 /.test(l)).length >= 3);
+		host.child.kill("SIGTERM");
+		assert.equal(await host.exited, 0);
 	} finally {
 		s.done();
 	}

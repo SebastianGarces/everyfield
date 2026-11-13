@@ -10,10 +10,16 @@ import type {
 } from "@everyfield/contracts/documents";
 import { attrsOf, columnWidths, computeTable, formatNumber, pageBox, tileBox } from "@everyfield/contracts/documents";
 import { textOn } from "./contrast.ts";
-import { fieldValues, listValues, PLACEHOLDER_FILL, placeholderParts, printedDoc } from "./doc-values.ts";
+import {
+	fieldValues,
+	listValues,
+	PLACEHOLDER_FILL,
+	placeholderParts,
+	printedDoc,
+	SLOT_BLANK_NOTE,
+} from "./doc-values.ts";
 import { HEAD, NS, border, escape, hex, styles, type DocxCtx } from "./docx.ts";
 import { LEGAL_NOTICE } from "@everyfield/contracts/documents";
-import { SLOT_BLANK_NOTE } from "./templates/church.ts";
 import { makePalette, tokenColor, type RenderTheme, type ThemeImage } from "./theme.ts";
 import { zip, type ZipEntry } from "./zip.ts";
 

@@ -13,6 +13,8 @@
 // - An earlier import that added John Smith, Casey Brooks and Maria Delgado with "Add, review later": the open review
 //   pairs are John Smith with Jon Smith and Casey Brooks with Casey Morgan; Maria Delgado with Maria Santos was marked
 //   "Not a duplicate".
+// - Messages: the draft "Sunday's interest meeting" and "Friday volunteer email", scheduled for Fri 13 Nov 9:00 AM
+//   to Mark and Jen Thompson (the launch team), waiting in Everyfield.
 // - Actors: the Owner (Nate Ellis, a leader linked to his account), an Admin (Lena Park), a Member (Priya Shah), an
 //   organization seat (a sending church, which sees no plant People) and the Owner of an empty church.
 //
@@ -31,6 +33,9 @@ import { testDatabase, type Database } from "../../support/test-database.mts";
 export const NOW = new Date("2026-11-09T15:00:00Z");
 const id = (n: number) => `5b6d1f0e-0000-4000-8000-${n.toString(16).padStart(12, "0")}`;
 export const PLANT = id(1);
+/** The saved draft and the scheduled Friday email in Messages. */
+export const DRAFT = id(0xc01);
+const FRIDAY_EMAIL = id(0xc02);
 export const EMPTY_PLANT = id(2);
 export const ORGANIZATION = id(3);
 
@@ -358,6 +363,21 @@ async function seedHope(admin: Database) {
 			await run(sql`INSERT INTO person_duplicate_dismissal(id,plant_id,person_id,with_person_id,dismissed_at)
 				VALUES(${id(0xe30 + i)},${PLANT},${p.id},${byName(r.reviewWith).id},'2026-11-06T16:00:00.000Z')`);
 	}
+	// Messages: a saved draft, and an email scheduled for Friday 9:00 AM that waits in Everyfield for its send time.
+	const LAUNCH = '{"groups":["launch_team"],"teamIds":[],"personIds":[]}';
+	await run(sql`INSERT INTO communication(id,plant_id,author_id,revision,state,subject,body_html,body_text,audience,created_at)
+		VALUES(${DRAFT},${PLANT},${ACCOUNT(1)},1,'draft','Sunday''s interest meeting',
+		'<p>We are holding an interest meeting on Sunday at 4 pm. Please come and bring a friend.</p>',
+		'We are holding an interest meeting on Sunday at 4 pm. Please come and bring a friend.',${LAUNCH}::jsonb,'2026-11-06T16:00:00.000Z')`);
+	await run(sql`INSERT INTO communication(id,plant_id,author_id,revision,state,subject,body_html,body_text,audience,scheduled_at,created_at)
+		VALUES(${FRIDAY_EMAIL},${PLANT},${ACCOUNT(1)},2,'scheduled','Friday volunteer email',
+		'<p>Thanks for volunteering on Sunday. We start at 4 pm.</p>','Thanks for volunteering on Sunday. We start at 4 pm.',
+		${LAUNCH}::jsonb,'2026-11-13T15:00:00.000Z','2026-11-06T16:00:00.000Z')`);
+	for (const [n, name] of ["Mark Thompson", "Jen Thompson"].entries())
+		await run(sql`INSERT INTO mail(id,tenant_id,purpose,communication_id,recipient_person_id,logical_key,payload_hash,audience_hash,
+			state,scheduled_at,created_at)
+			VALUES(${id(0xc10 + n)},${PLANT},'communication',${FRIDAY_EMAIL},${byName(name).id},
+			${`communication/${FRIDAY_EMAIL}/${byName(name).id}`},'seed','seed','scheduled','2026-11-13T15:00:00.000Z','2026-11-06T16:00:00.000Z')`);
 }
 
 /** The eval actor as the turn builds it: the session's live authority, with the user's own person row. */

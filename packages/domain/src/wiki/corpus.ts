@@ -305,7 +305,7 @@ export function articleJson({ body = true }: { body?: boolean } = {}): SQL {
 }
 
 /** The picked articles that match `extra`. The reading and credit joins come later, on the rows a page keeps. */
-export function articleFrom(extra: SQL = sql`true`): SQL {
+function articleFrom(extra: SQL = sql`true`): SQL {
 	return sql`picked p WHERE ${extra}`;
 }
 

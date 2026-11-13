@@ -13,10 +13,11 @@ import {
 	adultClassification,
 	adultClassificationSource,
 	currentCommitment,
-	noteBody,
+	longText,
 	pipelineColumn,
 } from "./values.ts";
 import { householdMembership } from "./fields/index.ts";
+import { avatarRoute } from "../settings/results.ts";
 
 const identityFields = { id: personId, revision, createdAt: instant, ...contactFields, lifecycle: personLifecycle };
 export const plantPerson = z
@@ -52,11 +53,22 @@ export const listPhoto = z.discriminatedUnion("kind", [
 	z.strictObject({ kind: z.literal("person"), personId, versionId: recordId }),
 	z.strictObject({ kind: z.literal("account"), accountId, versionId: recordId }),
 ]);
+/** The app's own route for a list photo's exact version. Never a storage key or bearer URL. */
+export function listPhotoRoute(photo: z.infer<typeof listPhoto>): string {
+	return photo.kind === "person"
+		? `/people/${photo.personId}/photo/${photo.versionId}`
+		: avatarRoute({ accountId: photo.accountId, versionId: photo.versionId });
+}
+/** One person's list photo. A person with none has no entry. */
+export const personPhoto = z.strictObject({ personId, photo: listPhoto });
+export type PersonPhoto = z.infer<typeof personPhoto>;
+/** The current photos of the people a screen already shows, as the People list would show them. */
+export const personPhotos = z.strictObject({ photos: z.array(personPhoto).max(100) });
 export const peoplePage = z
 	.strictObject({
 		owner: plantOwner,
 		items: z.array(plantPerson).max(100),
-		photos: z.array(z.strictObject({ personId, photo: listPhoto })).max(100),
+		photos: z.array(personPhoto).max(100),
 		next: z.int().min(2).nullable(),
 		completeness: z.enum(["complete", "partial"]),
 		total: z.int().min(0).nullable(),
@@ -154,7 +166,7 @@ export const actorAttribution = z.discriminatedUnion("kind", [
 ]);
 const activityBase = { id: recordId, occurredAt: instant, recordedAt: instant, actor: actorAttribution };
 export const activity = z.discriminatedUnion("kind", [
-	z.strictObject({ ...activityBase, kind: z.literal("note"), revision, body: noteBody, editedAt: instant.nullable() }),
+	z.strictObject({ ...activityBase, kind: z.literal("note"), revision, body: longText, editedAt: instant.nullable() }),
 	z.strictObject({ ...activityBase, kind: z.literal("note_removed"), revision }),
 	z.strictObject({ ...activityBase, kind: z.literal("stage_changed"), from: stage, to: stage }),
 	z.strictObject({

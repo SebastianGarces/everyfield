@@ -1,12 +1,8 @@
 import { z } from "zod";
 import { instant, localDate } from "../common/time.ts";
-import { owner, personId, recordId, revision } from "../common/values.ts";
+import { personId, recordId, revision } from "../common/values.ts";
 
-export const plantOwner = owner.transform((value, ctx) => {
-	if (value.kind === "plant") return value;
-	ctx.addIssue({ code: "custom", message: "Expected a plant owner" });
-	return z.NEVER;
-});
+export { plantOwner } from "../organizations/subjects.ts";
 export { organizationOwner, tenantOwner } from "../access/results.ts";
 export const stage = z.enum([
 	"prospect",
@@ -33,8 +29,7 @@ export const adultClassificationSource = z.enum(["birth_date", "recorded", "not_
 export const pipelineColumn = z.enum(["prospect", "attendee", "following_up", "interviewed", "core_group"]);
 export const displayName = z.string().trim().min(1).max(255);
 export const shortText = z.string().trim().max(255);
-export const noteBody = z.string().trim().min(1).max(5000);
-export const reason = noteBody;
+export const longText = z.string().trim().min(1).max(5000);
 export const contactFields = {
 	displayName,
 	firstName: shortText.nullable().optional(),

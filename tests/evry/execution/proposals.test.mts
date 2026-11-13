@@ -292,7 +292,7 @@ test("AC:INH-REGRESSION-EXPIRED-APPROVAL AC:UI45-004 AC:SEC-12 an approval at or
 		input: { personId: people.casey, patch: { phone: "555-0100" } },
 	});
 	await approveProposal(db, owner, proposal.id, witness(again), null);
-	let start = queries.length;
+	const start = queries.length;
 	const cancelled = await cancelProposal(db, owner, proposal.id);
 	assert.equal(counted(start), 1);
 	assert.deepEqual([cancelled.cancelled, cancelled.proposal.status], [true, "cancelled"]);
@@ -542,7 +542,7 @@ test("BUG-f52e88212: an effect that ends with an error Evry cannot classify stay
 	assert.deepEqual([(await effectAudits(proposal.id)).length, (await person(people.alexChen)).city], [1, "Joliet"]);
 });
 
-test("T-231 INV-budget: a conversation's page read brings every review card's current review, as readReview reads it, in its one statement", async () => {
+test("INV-budget: a conversation's page read brings every review card's current review, as readReview reads it, in its one statement", async () => {
 	const owner = await actor("owner");
 	const names = ["Wren Halloway", "Juno Pike", "Indigo Marsh"];
 	const ids: Record<string, string> = {};

@@ -30,7 +30,8 @@ import { newPerson } from "../people.ts";
 import { peopleFilters } from "../queries.ts";
 import { csvLine, parseCsv } from "./format.ts";
 
-// People CSV import (REQ-PPL-018) and export (REQ-PPL-019) for plant Owners and Admins.
+// People CSV import (REQ-PPL-018) for plant Owners and Admins, and export (REQ-PPL-019) for any seat in the plant:
+// Members may export what the directory shows them.
 
 /** C13/C32: the request's live access in each statement, without locking its session (live_session). */
 const access = (ctx: { session: string; selected: Owner }, admin = false) =>

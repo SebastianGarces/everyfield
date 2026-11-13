@@ -713,3 +713,15 @@ export const FORMAT_SCHEMA: FormatSchema = {
 		},
 	},
 };
+
+const range = (spec: { min?: number; max?: number } | undefined) => ({ min: spec?.min ?? 0, max: spec?.max ?? 0 });
+
+/** The limits the editor's controls show, read from the schema above so the two cannot drift. Lengths are points. */
+export const FORMAT_LIMITS = {
+	imageHeight: range(FORMAT_SCHEMA.nodes.image?.attrs.height),
+	writeInRows: range(FORMAT_SCHEMA.nodes.table?.attrs.writeInRows),
+	pageSide: range(FORMAT_SCHEMA.page.width),
+	margin: range(FORMAT_SCHEMA.page.margin?.props?.top),
+	/** A merge field's written value is held to the length of its declared fallback. */
+	fieldValue: FORMAT_SCHEMA.envelope.fields?.of?.props?.fallback?.max ?? 0,
+} as const;

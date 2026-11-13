@@ -20,7 +20,7 @@ export const TOOLBAR = `${TOOLBAR_BASE} overflow-x-auto overscroll-x-contain bor
 export const TOOLBAR_GROUP = "flex flex-none items-center gap-0.5";
 export const SEPARATOR =
 	"mx-1 h-5 w-px flex-none bg-line-2 data-[orientation=horizontal]:my-1 data-[orientation=horizontal]:h-px data-[orientation=horizontal]:w-full";
-export const SURFACE =
+const SURFACE =
 	"z-50 rounded-card bg-surface-raised p-1.5 text-md text-ink shadow-[var(--ef-shadow-pop),0_0_0_1px_var(--ef-line)] outline-none";
 export const POPOVER = `${SURFACE} min-w-[280px] max-w-[calc(100vw-24px)]`;
 export const MENU = `${SURFACE} min-w-[220px]`;
