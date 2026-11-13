@@ -18,7 +18,24 @@ export type Operation =
 	| "communication.scheduleReviewed"
 	| "communication.rescheduleReviewed"
 	| "communication.cancelScheduledReviewed"
-	| "communication.replaceScheduledReviewed";
+	| "communication.replaceScheduledReviewed"
+	| SettingsOperation;
+
+/** The seat, church settings, sharing, connection, account and organization changes (T-327). */
+export type SettingsOperation =
+	| "seats.invite"
+	| "seats.resendInvitation"
+	| "seats.revokeInvitation"
+	| "seats.changeOrdinaryRole"
+	| "seats.remove"
+	| "plant.updateProfile"
+	| "plant.setTimezone"
+	| "privacy.setSharing"
+	| "associations.invite"
+	| "associations.end"
+	| "account.finalizeAvatar"
+	| "account.requestDeletion"
+	| "organizations.updateProfile";
 
 export type Change = { field: string; before: unknown; after: unknown };
 
@@ -33,8 +50,14 @@ export type Review = {
 	approvedAt: string | null;
 	status: "pending" | "approved" | "cancelled" | "expired";
 	review: {
-		target: { kind: "person" | "message"; id: string; label: string } | null;
+		target: {
+			kind: "person" | "message" | "church" | "seat" | "invitation" | "connection" | "organization" | "account";
+			id: string;
+			label: string;
+		} | null;
 		changes: Change[];
+		/** Plain facts to know before approving, such as what a time zone change moves. */
+		notes?: string[];
 		/** A plain reason the change cannot be approved as asked; the card shows it and offers no Approve. */
 		refusal?: string;
 		withheld?: true;
@@ -103,6 +126,25 @@ const FIELD_LABEL: Record<string, string> = {
 	reason: "Reason",
 	photo: "Photo",
 	state: "Status",
+	name: "Name",
+	description: "Description",
+	contactEmail: "Contact email",
+	contactPhone: "Contact phone",
+	statementOfFaith: "Statement of faith",
+	invitation: "Invitation",
+	role: "Role",
+	access: "Access",
+	timeZone: "Time zone",
+	connection: "Connection",
+	recipientEmail: "Sent to",
+	account: "Your login",
+	people: "People totals",
+	meetings: "Meetings",
+	tasks: "Tasks",
+	ministry_teams: "Ministry teams",
+	wiki: "Wiki",
+	activity: "Activity updates",
+	shared_findings: "Plant Intelligence findings",
 };
 export const fieldLabel = (field: string) => FIELD_LABEL[field] ?? field;
 
@@ -119,6 +161,10 @@ export function valueText(field: string, value: unknown): string | null {
 	if (value === null || value === undefined || value === "") return null;
 	// A photo is a stored file: its short reference tells two uploads apart. The card shows the image where People allows it.
 	if (field === "photo") return `Photo ${photoRef(value)}`;
+	if (typeof value === "boolean" && SHARED.has(field)) return value ? "Shared" : "Not shared";
+	const word = WORDS[field]?.[String(value)];
+	if (word) return word;
+	if (field === "timeZone") return zoneText(String(value));
 	if (field === "stage") return STAGE_LABEL[value as StageValue] ?? String(value);
 	if (field === "source") return SOURCE_LABEL[value as SourceValue] ?? String(value);
 	if (field === "adultClassification") return CLASSIFICATION_LABEL[String(value)] ?? String(value);
@@ -128,12 +174,51 @@ export function valueText(field: string, value: unknown): string | null {
 	return String(value);
 }
 
+const SHARED = new Set(["people", "meetings", "tasks", "ministry_teams", "wiki", "activity", "shared_findings"]);
+const ROLE_WORD = { owner: "Owner", admin: "Admin", member: "Member" };
+/** The words a reviewed state reads as on the card. */
+const WORDS: Record<string, Record<string, string>> = {
+	role: ROLE_WORD,
+	access: { ...ROLE_WORD, removed: "Removed" },
+	invitation: { pending: "Waiting", sent_again: "Sent again", revoked: "Revoked" },
+	connection: {
+		connected: "Connected",
+		ended: "Ended",
+		"sending church": "Asked to be your sending church",
+		network: "Asked to connect as your network",
+	},
+	account: { active: "Active", deletion_requested: "Deletion requested" },
+};
+const ZONE: Record<string, string> = {
+	"America/New_York": "Eastern",
+	"America/Chicago": "Central",
+	"America/Denver": "Mountain",
+	"America/Phoenix": "Arizona",
+	"America/Los_Angeles": "Pacific",
+	"America/Anchorage": "Alaska",
+	"Pacific/Honolulu": "Hawaii",
+};
+const zoneText = (zone: string) => (ZONE[zone] ? `${ZONE[zone]} (${zone})` : zone);
+
+/** The changes Evry makes to seats, church settings, sharing, connections, your account and an organization. */
+export const isSettings = (operation: Operation): operation is SettingsOperation =>
+	/^(seats|plant|privacy|associations|account|organizations)\./.test(operation);
+/** A review that adds something new, so its fields have no value before. */
+export const isCreate = (operation: Operation) =>
+	operation === "people.createPerson" || operation === "seats.invite" || operation === "associations.invite";
+/** A photo review: the card shows the exact upload before it can be approved. */
+export const isPhoto = (operation: Operation) =>
+	operation === "people.setPersonPhoto" || operation === "account.finalizeAvatar";
+/** Where a saved photo of the review's target is read: a person's photo, or the signed-in account's own photo. */
+export const savedPhotoSrc = (target: { kind: string; id: string }, version: string) =>
+	target.kind === "account" ? `/api/accounts/${target.id}/avatar/${version}` : `/people/${target.id}/photo/${version}`;
+
 /**
  * REQ-EVR-011: approval applies only to content the person could inspect. A new photo is approvable once the card
  * shows its exact upload (GET /api/evry/proposals/{id}/photo); until then, or when the upload is gone, it is not.
  */
 export const approvable = (review: Pick<Review, "operation">, uploadShown: boolean) =>
-	review.operation !== "people.setPersonPhoto" || uploadShown;
+	!isPhoto(review.operation) || uploadShown;
 
 /** The first 8 characters of a photo's file id, upper case, as people read a reference. */
 export const photoRef = (value: unknown) => String(value).slice(0, 8).toUpperCase();
@@ -157,6 +242,19 @@ const TITLE: Record<Operation, string> = {
 	"people.deletePerson": "Remove a person",
 	"people.setPersonPhoto": "Set a photo",
 	"people.removePersonPhoto": "Remove a photo",
+	"seats.invite": "Invite someone",
+	"seats.resendInvitation": "Resend an invitation",
+	"seats.revokeInvitation": "Revoke an invitation",
+	"seats.changeOrdinaryRole": "Change a role",
+	"seats.remove": "Remove a seat",
+	"plant.updateProfile": "Update the church profile",
+	"plant.setTimezone": "Change the church time zone",
+	"privacy.setSharing": "Change what you share",
+	"associations.invite": "Ask to connect",
+	"associations.end": "End a connection",
+	"account.finalizeAvatar": "Change your photo",
+	"account.requestDeletion": "Delete your login",
+	"organizations.updateProfile": "Update the organization profile",
 };
 export const operationTitle = (operation: Operation) => TITLE[operation];
 
@@ -388,7 +486,9 @@ export function hasBirthDate(review: Review, edits: Record<string, string>) {
 }
 
 export const editableChanges = (review: Review) =>
-	review.review.withheld || isMail(review.operation) ? [] : review.review.changes.filter((c) => !FIXED.has(c.field));
+	review.review.withheld || isMail(review.operation) || isSettings(review.operation)
+		? []
+		: review.review.changes.filter((c) => !FIXED.has(c.field));
 
 /** The native command's input for this review with `edits` applied, or null when the review can't be rebuilt. */
 export function reviseInput(review: Review, edits: Record<string, string> = {}): unknown {
@@ -450,6 +550,40 @@ export function missingRequired(review: Review, edits: Record<string, string>) {
 
 // ---------------------------------------------------------------------------------------------------------------
 // Words: refusals and notices say what happened and what to do next, and never more than the server said.
+
+/** Why a seat, Settings, sharing, connection, account or organization change was refused. Nothing changed. */
+export function settingsRefusalText(code: string | undefined): string {
+	switch (code) {
+		case "revision_conflict":
+		case "conflict":
+		case "stale_preview":
+			return "This changed after Evry prepared the review, so nothing was saved. Ask Evry to prepare it again.";
+		case "access_denied":
+		case "unavailable":
+		case "invitation_unavailable":
+			return "Your seat no longer allows this change, or what it changes is gone, so nothing was saved.";
+		case "protected_owner":
+			return "The Owner's seat can't be changed here, so nothing was saved.";
+		case "invitation_cooldown":
+			return "An invitation can go again one minute after the last one, so nothing was sent. Ask again in a minute.";
+		case "invitation_rate_limited":
+		case "invitation_limit":
+			return "This address already had 3 invitations in 30 days, so nothing was sent.";
+		case "address_blocked":
+			return "Email to this address bounced before, so nothing was sent.";
+		case "already_active":
+			return "You are already connected with this organization, so nothing was sent.";
+		case "pending_invitation":
+		case "address_pending":
+			return "A request to this organization is already waiting, so nothing was sent.";
+		case "manual_owner_exception_required":
+			return "You are an Owner, so your church needs another Owner first. Nothing was changed.";
+		case "source_unavailable":
+			return "Settings are not available right now, so nothing was saved. Try again later.";
+		default:
+			return "Settings refused this change, so nothing was saved.";
+	}
+}
 
 /** Why a run was refused, from the saved receipt code. Nothing was changed in each case. */
 export function refusalText(code: string | undefined, target: string | null): string {

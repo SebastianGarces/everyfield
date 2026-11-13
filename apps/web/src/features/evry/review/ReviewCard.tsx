@@ -45,6 +45,11 @@ import {
 	photoRef,
 	pollDelay,
 	refusalText,
+	isCreate,
+	isPhoto,
+	isSettings,
+	savedPhotoSrc,
+	settingsRefusalText,
 	retryable,
 	reviseInput,
 	shownChanges,
@@ -413,7 +418,11 @@ function note(view: View, review: Review | null, lapsed: boolean, unknown?: Acti
 		case "running":
 			return "Saving in the background. You can keep working. This card shows the result.";
 		case "refused":
-			return mail ? mailRefusalText(review.receipt?.code) : refusalText(review?.receipt?.code, who);
+			return mail
+				? mailRefusalText(review.receipt?.code)
+				: review && isSettings(review.operation)
+					? settingsRefusalText(review.receipt?.code)
+					: refusalText(review?.receipt?.code, who);
 		case "unconfirmed":
 			return review && retryable(review, lapsed)
 				? "Evry can't confirm that this was saved. Try again. A change that was saved is not saved twice."
@@ -421,7 +430,9 @@ function note(view: View, review: Review | null, lapsed: boolean, unknown?: Acti
 		case "unknown":
 			return UNKNOWN_TEXT[unknown ?? "approve"];
 		case "photo_unavailable":
-			return `The uploaded photo is no longer available, so you can't approve this change. Nothing was changed. Upload the photo again on ${who ?? "the person"}'s page.`;
+			return review?.operation === "account.finalizeAvatar"
+				? "The attached photo is no longer available, so you can't approve this change. Nothing was changed. Attach it again and ask Evry."
+				: `The uploaded photo is no longer available, so you can't approve this change. Nothing was changed. Upload the photo again on ${who ?? "the person"}'s page.`;
 		case "expired":
 			return "This review expired, so nothing was changed. Prepare it again to check the current values.";
 		case "cancelled":
@@ -475,9 +486,7 @@ export function ReviewCard({
 	const focusInside = useRef(false);
 	const { review, notice } = r;
 	const upload =
-		review?.operation === "people.setPersonPhoto"
-			? review.review.changes.find((c) => c.field === "photo")?.after
-			: null;
+		review && isPhoto(review.operation) ? review.review.changes.find((c) => c.field === "photo")?.after : null;
 	const staged = useStagedPhoto(proposalId, typeof upload === "string" ? upload : null, r.view === "pending");
 	const photoGone =
 		staged.photo.status === "gone" ||
@@ -594,6 +603,7 @@ export function ReviewCard({
 									onRetry={staged.retry}
 								/>
 								{consequence(review) ? <p className="text-sm text-text-2">{consequence(review)}</p> : null}
+								{review.review.notes?.length ? <Notes notes={review.review.notes} /> : null}
 							</>
 						)}
 						{view === "pending" && !review.review.refusal && !review.stale ? (
@@ -949,7 +959,7 @@ function PhotoChange({
 			: staged.status === "ready"
 				? { state: "image", src: staged.src }
 				: saved
-					? { state: "image", src: `/people/${target.id}/photo/${String(change.after)}` }
+					? { state: "image", src: savedPhotoSrc(target, String(change.after)) }
 					: { state: staged.status === "idle" ? "hidden" : staged.status };
 	return (
 		<div className="flex flex-col gap-2">
@@ -959,7 +969,7 @@ function PhotoChange({
 				<PhotoTile
 					caption={saved ? "Before" : "Current"}
 					value={change.before}
-					src={change.before ? `/people/${target.id}/photo/${String(change.before)}` : undefined}
+					src={change.before ? savedPhotoSrc(target, String(change.before)) : undefined}
 					alt={`${saved ? "Previous" : "Current"} photo of ${target.label}`}
 					state={change.before ? "image" : "none"}
 				/>
@@ -978,11 +988,41 @@ function PhotoChange({
 	);
 }
 
+/**
+ * What else the change means, from the review itself: what a time zone change moves, what ending a connection stops,
+ * the 30 days before a login is deleted. The first line leads a list that follows it.
+ */
+function Notes({ notes }: { notes: string[] }) {
+	const [first, ...rest] = notes;
+	const list = first?.endsWith(":") ? rest : [];
+	const lines = list.length ? [] : notes;
+	return (
+		<div className="flex flex-col gap-1.5 text-sm text-text-2">
+			{lines.map((n) => (
+				<p key={n}>{n}</p>
+			))}
+			{list.length ? (
+				<>
+					<p>{first}</p>
+					<ul className="flex flex-col gap-1 rounded-md bg-surface-2 px-3 py-2.5 text-ink-2">
+						{list.slice(0, -1).map((n) => (
+							<li key={n} className="tabular-nums">
+								{n}
+							</li>
+						))}
+					</ul>
+					<p>{list.at(-1)}</p>
+				</>
+			) : null}
+		</div>
+	);
+}
+
 /** Each changed field: its value now, then what it will be. A new person and a reason have no before. */
 function Changes({ review, staged, onRetry }: { review: Review; staged: StagedPhoto; onRetry: () => void }) {
 	const changes = shownChanges(review.review.changes);
 	if (!changes.length) return null;
-	const create = review.operation === "people.createPerson";
+	const create = isCreate(review.operation);
 	return (
 		<dl className="flex flex-col gap-2 rounded-md bg-surface-2 px-3 py-2.5 text-sm">
 			{changes.map((c: Change) =>
