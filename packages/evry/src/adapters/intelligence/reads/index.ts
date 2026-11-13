@@ -34,7 +34,7 @@ const complete = (operation: string, rows: SourceRow[], exclusions: string[] = [
 });
 
 /** A phase's number and name, as the journey says it: "1 Core Group Development". */
-export const phaseName = (catalog: c.Catalog, phase: number) => catalog.phases.find((p) => p.phase === phase)!.name;
+const phaseName = (catalog: c.Catalog, phase: number) => catalog.phases.find((p) => p.phase === phase)!.name;
 /** The church's calendar day of an instant: "2026-08-03". */
 const localDay = (at: string, zone: string) =>
 	new Intl.DateTimeFormat("en-CA", { timeZone: zone, year: "numeric", month: "2-digit", day: "2-digit" }).format(

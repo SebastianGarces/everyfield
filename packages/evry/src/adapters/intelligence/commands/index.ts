@@ -28,7 +28,6 @@ const refusal = (when: SQL, text: string) =>
 /** The church's own calendar day now. */
 const today = sql`(clock_timestamp() AT TIME ZONE p.timezone)::date`;
 
-type Reply<T> = { status: "ok"; value: T } | { status: "refused"; error: { code: string } };
 const refused = (reply: { status: "refused"; error: { code: string } }): EffectResult => ({
 	refused: reply.error.code,
 });
@@ -38,7 +37,7 @@ const refused = (reply: { status: "refused"; error: { code: string } }): EffectR
 /**
  * Each phase as a review shows it, indexed by phase number: its number, which a revision sends back, and its name.
  */
-const phaseValues = async () => (await readCatalog()).phases.map((p) => ({ phase: p.phase, name: p.name }));
+const phaseValues = (catalog: c.Catalog) => catalog.phases.map((p) => ({ phase: p.phase, name: p.name }));
 
 const declareInput = z.strictObject({ phase: c.phaseNumber });
 export const declarePhase: ReviewedWrite<z.infer<typeof declareInput>> = {
@@ -48,7 +47,7 @@ export const declarePhase: ReviewedWrite<z.infer<typeof declareInput>> = {
 	input: declareInput,
 	allowed: ownerOrAdmin,
 	async review(actor, value) {
-		const phases = await phaseValues();
+		const phases = phaseValues(await readCatalog());
 		// Offered only while the declaration slot is unused and the church has never moved: no row otherwise.
 		return sql`SELECT jsonb_build_object('target',${plant},'changes',jsonb_build_array(
 				${change("phase", sql`${json(phases)}->p.phase`, json(phases[value.phase]))})) AS review,
@@ -79,7 +78,7 @@ export const transitionPhase: ReviewedWrite<z.infer<typeof transitionInput>> = {
 	allowed: ownerOrAdmin,
 	async review(actor, value) {
 		const catalog = await readCatalog();
-		const phases = catalog.phases.map((p) => ({ phase: p.phase, name: p.name }));
+		const phases = phaseValues(catalog);
 		// The exit criteria of each phase that are not met, with their status in words, indexed by phase number.
 		const open = readReadiness(catalog).map((r) =>
 			r.criteria.filter((x) => x.status !== "met").map((x) => ({ label: x.label, status: STATUS_WORDS[x.status] })),
@@ -133,19 +132,20 @@ const reference = z
 const afterToday = (date: string) => sql`${date}::date>${today}`;
 const FUTURE = "A signal can't be true as of a date after today.";
 
-/** The receipt of a signal write: its revision row, keyed by the effect key. */
-async function signalReceipt(
-	tx: Parameters<ReviewedWrite<unknown>["execute"]>[0],
-	plantId: string,
-	effectKey: string,
-	reply: Reply<s.SignalWriteResult>,
-): Promise<EffectResult> {
-	if (reply.status !== "ok") return refused(reply);
-	const r = await tx.execute(
-		sql`SELECT id FROM attestation_revision WHERE plant_id=${plantId}::uuid AND request_key=${effectKey}`,
-	);
-	return { receiptId: z.object({ id: z.uuid() }).parse(r.rows[0]).id, revision: reply.value.signal.revision };
-}
+/**
+ * Runs one native signal command with the approved arguments and the effect key as its request key. Its receipt is the
+ * revision row that key wrote.
+ */
+const runSignal =
+	(command: typeof signals.attest): ReviewedWrite<unknown>["execute"] =>
+	async (tx, context, args, effectKey, run) => {
+		const reply = await command(tx, run.authority, { ...z.object({}).loose().parse(args), requestKey: effectKey });
+		if (reply.status !== "ok") return refused(reply);
+		const r = await tx.execute(
+			sql`SELECT id FROM attestation_revision WHERE plant_id=${context.selected.id}::uuid AND request_key=${effectKey}`,
+		);
+		return { receiptId: z.object({ id: z.uuid() }).parse(r.rows[0]).id, revision: reply.value.signal.revision };
+	};
 
 const attestInput = z.strictObject({ key: s.signalKey, value: s.signalValue, asOf, detail: words, reference });
 export const attestSignal: ReviewedWrite<z.infer<typeof attestInput>> = {
@@ -166,13 +166,7 @@ export const attestSignal: ReviewedWrite<z.infer<typeof attestInput>> = {
 			jsonb_build_object('expectedRevision',coalesce(a.revision,0)::text,'input',${json(value)}) AS args
 			FROM plant p ${current(value.key)} WHERE p.id=${actor.owner.id}::uuid`;
 	},
-	async execute(tx, context, args, effectKey, run) {
-		const reply = await signals.attest(tx, run.authority, {
-			...z.object({}).loose().parse(args),
-			requestKey: effectKey,
-		});
-		return signalReceipt(tx, context.selected.id, effectKey, reply);
-	},
+	execute: runSignal(signals.attest),
 };
 
 const correctInput = z.discriminatedUnion("action", [
@@ -211,13 +205,7 @@ export const correctSignal: ReviewedWrite<z.infer<typeof correctInput>> = {
 			jsonb_build_object('expectedRevision',coalesce(a.revision,0)::text,'input',${json(value)}) AS args
 			FROM plant p ${current(value.key)} WHERE p.id=${actor.owner.id}::uuid`;
 	},
-	async execute(tx, context, args, effectKey, run) {
-		const reply = await signals.correct(tx, run.authority, {
-			...z.object({}).loose().parse(args),
-			requestKey: effectKey,
-		});
-		return signalReceipt(tx, context.selected.id, effectKey, reply);
-	},
+	execute: runSignal(signals.correct),
 };
 
 const reaffirmInput = z.strictObject({ key: s.signalKey });
@@ -240,13 +228,7 @@ export const reaffirmSignal: ReviewedWrite<z.infer<typeof reaffirmInput>> = {
 				'expectedValue',CASE WHEN a.answer THEN 'yes' ELSE 'not_yet' END)) AS args
 			FROM plant p ${current(value.key)} WHERE p.id=${actor.owner.id}::uuid`;
 	},
-	async execute(tx, context, args, effectKey, run) {
-		const reply = await signals.reaffirm(tx, run.authority, {
-			...z.object({}).loose().parse(args),
-			requestKey: effectKey,
-		});
-		return signalReceipt(tx, context.selected.id, effectKey, reply);
-	},
+	execute: runSignal(signals.reaffirm),
 };
 
 /** The installed phase and signal reviewed writes, keyed by operation. */

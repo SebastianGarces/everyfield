@@ -6,6 +6,7 @@ import type {
 	LanguageModelV4StreamPart,
 } from "@ai-sdk/provider";
 import { randomUUID } from "node:crypto";
+import { MEMBER_PHASES } from "../catalog/catalog.ts";
 
 // A deterministic stand-in for a qualified model, for local previews and tests only (selectQualifiedModel never picks
 // it on Vercel). It reads the conversation the way a model would see it and answers through the same tools, so the
@@ -129,8 +130,6 @@ const SIGNAL = /\bwe started prayer and fasting\b/i;
 const CORRECT_GIVING = /\bcorrect our core group giving\b/i;
 const STILL_GIVING = /\bcore group is still giving\b/i;
 const PHASE_ASKS = [PHASE_NOW, NEXT_PHASE, MOVE, SIGNAL, CORRECT_GIVING, STILL_GIVING];
-const MEMBER_PHASES =
-	"Your Member seat does not include the church's phase journey. Ask an Owner or Admin if you need it.";
 const longDay = (date: unknown) =>
 	typeof date === "string"
 		? new Date(`${date}T00:00:00Z`).toLocaleDateString("en-US", {
