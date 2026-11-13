@@ -475,7 +475,7 @@
 				}
 			],
 			"require": [
-				"/Worship team[^\\n]{0,40}\\b3\\b|\\b3\\b[^\\n]{0,40}Worship/i",
+				"/Worship team[^\\n]{0,40}\\b4\\b|\\b4\\b[^\\n]{0,40}Worship/i",
 				"/Kids ministry[^\\n]{0,40}\\b2\\b|\\b2\\b[^\\n]{0,40}Kids/i",
 				"/Prayer team[^\\n]{0,40}\\b1\\b|\\b1\\b[^\\n]{0,40}Prayer/i"
 			]
@@ -497,8 +497,8 @@
 					}
 				}
 			],
-			"require": ["Kids ministry"],
-			"forbid": ["Worship team", "Prayer team"]
+			"require": ["Kids ministry", "Worship team"],
+			"forbid": ["Prayer team"]
 		}
 	},
 	{
