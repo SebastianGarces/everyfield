@@ -12,6 +12,7 @@ import {
 	cancelTurn,
 	createConversation,
 	executeProposal,
+	openLatestConversation,
 	readConversation,
 	prepareProposal,
 	readReview,
@@ -291,7 +292,7 @@ test("AC:INH-REGRESSION-EXPIRED-APPROVAL AC:UI45-004 AC:SEC-12 an approval at or
 		input: { personId: people.casey, patch: { phone: "555-0100" } },
 	});
 	await approveProposal(db, owner, proposal.id, witness(again), null);
-	let start = queries.length;
+	const start = queries.length;
 	const cancelled = await cancelProposal(db, owner, proposal.id);
 	assert.equal(counted(start), 1);
 	assert.deepEqual([cancelled.cancelled, cancelled.proposal.status], [true, "cancelled"]);
@@ -519,7 +520,7 @@ test("INV-effect-recovery: an approved effect that no worker took within 60 s re
 	assert.deepEqual([(await effectAudits(proposal.id)).length, (await person(people.casey)).city], [1, "Elgin"]);
 });
 
-test("BUG-R5-3: an effect that ends with an error Evry cannot classify stays unconfirmed instead of 'failed, nothing was changed'; Try again saves it once", async () => {
+test("BUG-f52e88212: an effect that ends with an error Evry cannot classify stays unconfirmed instead of 'failed, nothing was changed'; Try again saves it once", async () => {
 	const owner = await actor("owner");
 	const { proposal } = await propose(owner, "Change Chen's city to Joliet");
 	await approveProposal(db, owner, proposal.id, witness(proposal), null);
@@ -539,4 +540,85 @@ test("BUG-R5-3: an effect that ends with an error Evry cannot classify stays unc
 	assert.equal((await retryUnresolvedEffects(db, owner, proposal.id)).retried, true);
 	assert.equal((await effects())?.outcome, "completed");
 	assert.deepEqual([(await effectAudits(proposal.id)).length, (await person(people.alexChen)).city], [1, "Joliet"]);
+});
+
+test("INV-budget: a conversation's page read brings every review card's current review, as readReview reads it, in its one statement", async () => {
+	const owner = await actor("owner");
+	const names = ["Wren Halloway", "Juno Pike", "Indigo Marsh"];
+	const ids: Record<string, string> = {};
+	for (const [i, name] of names.entries()) {
+		ids[name] = randomUUID();
+		await admin.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,city,source,created_at,stage,adult_classification,commitment_state,pipeline_position,state)
+			VALUES(${ids[name]},${plant},${plant},${name},'Oldtown','other',clock_timestamp(),'prospect','unknown','unknown',${600 + i},'live')`);
+	}
+	const c = await createConversation(db, owner, { requestKey: randomUUID() });
+	for (const name of names) {
+		await submitTurn(db, owner, c.id, {
+			requestKey: randomUUID(),
+			text: `Change ${name.split(" ")[0]}'s city to Newtown`,
+		});
+		assert.equal(await work(), "succeeded");
+	}
+	const cards = (page: { events: { kind: string; sequence: number; body: Record<string, unknown> }[] }) =>
+		page.events.flatMap((e) =>
+			e.kind === "tool_result" && (e.body.result as { proposalId?: string }).proposalId
+				? [{ sequence: e.sequence, id: (e.body.result as { proposalId: string }).proposalId }]
+				: [],
+		);
+	const [pending, expired, withheld] = cards(await readConversation(db, owner, c.id));
+	assert.ok(pending && expired && withheld, "each turn prepared one review");
+	await admin.execute(sql`UPDATE proposal SET expires_at=clock_timestamp() WHERE id=${expired.id}`);
+	await admin.execute(
+		sql`UPDATE person SET state='retired',retired_at=clock_timestamp() WHERE id=${ids["Indigo Marsh"]}`,
+	);
+	// A card that names another account's proposal: its review is never read for this owner.
+	const { proposal: theirs } = await propose(await actor("foreign"), "Change Quinn's city to Springfield");
+	await admin.execute(sql`WITH c AS (
+			UPDATE conversation SET last_sequence=last_sequence+1,updated_at=clock_timestamp() WHERE id=${c.id} RETURNING id,last_sequence
+		) INSERT INTO conversation_event(conversation_id,sequence,turn_id,kind,body)
+		SELECT id,last_sequence,NULL,'tool_result',${JSON.stringify({ operation: "evry.prepareProposal", result: { operation: "evry.prepareProposal", status: "available", rows: [], total: 0, page: 1, next: null, completeness: "complete", exclusions: [], proposalId: theirs.id } })}::jsonb FROM c`);
+
+	const start = queries.length;
+	const page = await readConversation(db, owner, c.id);
+	assert.equal(counted(start), 1, "the reviews come in the page read's one statement");
+	const opened = await openLatestConversation(db, owner);
+	assert.equal(opened?.conversation.id, c.id);
+	for (const read of [page, opened!]) {
+		assert.deepEqual(Object.keys(read.reviews).sort(), [pending.id, expired.id, withheld.id, theirs.id].sort());
+		for (const card of [pending, expired, withheld]) {
+			const { now, ...shown } = read.reviews[card.id]!;
+			const { now: alsoNow, ...current } = await readReview(db, owner, card.id);
+			assert.deepEqual(shown, current);
+			assert.ok(now <= alsoNow, "now is the database clock when the page was read");
+		}
+		assert.deepEqual(
+			[pending, expired, withheld].map((card) => [
+				read.reviews[card.id]!.status,
+				read.reviews[card.id]!.review.withheld,
+			]),
+			[
+				["pending", undefined],
+				["expired", undefined],
+				["pending", true],
+			],
+		);
+		assert.equal(read.reviews[theirs.id], null);
+	}
+	assert.equal(await refusal(readReview(db, owner, theirs.id)), "not_found");
+
+	// The next page (the after cursor) brings the reviews of its own cards only.
+	const later = await readConversation(db, owner, c.id, pending.sequence);
+	assert.deepEqual(Object.keys(later.reviews).sort(), [expired.id, withheld.id, theirs.id].sort());
+
+	// Access to reviewed writes ended: the conversation still reads, but no review does.
+	const seat = sql`account_id=${accounts.owner.id} AND plant_id IS NOT NULL`;
+	await admin.execute(sql`UPDATE seat SET role='member' WHERE ${seat}`);
+	try {
+		const member = await actor("owner");
+		const read = await readConversation(db, member, c.id);
+		assert.deepEqual(Object.values(read.reviews), [null, null, null, null]);
+		assert.equal(await refusal(readReview(db, member, pending.id)), "not_found");
+	} finally {
+		await admin.execute(sql`UPDATE seat SET role='owner' WHERE ${seat}`);
+	}
 });

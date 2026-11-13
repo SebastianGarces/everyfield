@@ -30,8 +30,8 @@ import { cn, Icon } from "@everyfield/ui/foundations";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
 	addCount,
+	canReview,
 	firstGroup,
-	isDuplicate,
 	plural,
 	problemText,
 	progressOf,
@@ -44,6 +44,7 @@ import {
 	type Preview,
 	type PreviewRow,
 	type ValidRow,
+	withReviewTargets,
 } from "./model.ts";
 
 import { RECONNECTING, type FailedRow, type Notice, type Review } from "./model.ts";
@@ -284,10 +285,12 @@ export function ReviewStep({
 	// Rows can match both ways; the group counts each row once.
 	const toCheck = rowsIn(preview.rows, "check").length;
 	const ready = counts.valid - toCheck;
+	// A row skipped under its repeat takes away that repeat's review target, so every change rechecks the targets.
+	const choose = (next: Map<number, Choice>) => onChoices(withReviewTargets(preview, next));
 	const setAll = (choice: Choice) => {
 		const next = new Map(choices);
 		for (const r of rowsIn(preview.rows, "check")) next.set(r.row, choice);
-		onChoices(next);
+		choose(next);
 	};
 	const list = useRef<HTMLDivElement>(null);
 	const turn = (p: number) => {
@@ -392,7 +395,8 @@ export function ReviewStep({
 									key={r.row}
 									row={r}
 									choice={r.status === "valid" ? choices.get(r.row)! : null}
-									onChoice={(c) => onChoices(new Map(choices).set(r.row, c))}
+									reviewable={r.status === "valid" && canReview(r, choices)}
+									onChoice={(c) => choose(new Map(choices).set(r.row, c))}
 									nameOf={(n) => nameOf(preview, n)}
 								/>
 							))}
@@ -426,11 +430,13 @@ function contact(r: ValidRow): string {
 function RowItem({
 	row,
 	choice,
+	reviewable,
 	onChoice,
 	nameOf,
 }: {
 	row: PreviewRow;
 	choice: Choice | null;
+	reviewable: boolean;
 	onChoice: (c: Choice) => void;
 	nameOf: (row: number) => string;
 }) {
@@ -490,7 +496,7 @@ function RowItem({
 						size="sm"
 						value={choice}
 						onValueChange={onChoice}
-						options={(isDuplicate(row)
+						options={(reviewable
 							? (["create", "create_and_review", "skip"] as const)
 							: (["create", "skip"] as const)
 						).map((c) => ({ value: c, label: CHOICE_LABEL[c] }))}
@@ -589,24 +595,41 @@ export function ImportStep({
 
 // ---------------------------------------------------------------------------------------------------------------
 
+/**
+ * The receipt. A partial import offers "Try N rows again" while the server keeps its file; once the file is deleted
+ * (7 days after the import stopped), the person uploads the same file again instead (`onRetry` with it).
+ */
 export function DoneStep({
 	heading,
 	receipt,
 	review,
+	working,
+	problem,
 	onRetry,
 	onStartOver,
 }: {
 	heading: React.RefObject<HTMLHeadingElement | null>;
 	receipt: ImportReceipt;
 	review: Review | null;
-	onRetry: (() => void) | null;
+	/** A retry is on its way: the chosen file while it uploads, or true for the kept copy. */
+	working: File | boolean;
+	problem: Notice | null;
+	onRetry: (file?: File) => void;
 	onStartOver: () => void;
 }) {
 	const { counts } = receipt;
 	const failed = receipt.rows.filter((r): r is FailedRow => r.status === "failed");
-	const unsaved = failed.filter((r) => r.reason === "row_write_failed");
 	const invalid = failed.filter((r) => r.reason === "invalid");
+	// Every row the import did not add, each with its reason: the ones that need a fix, the ones the job could not
+	// write and the ones it never reached.
+	const notImported = receipt.rows.filter(
+		(r): r is NotImportedRow => r.status === "failed" || r.status === "remaining",
+	);
+	// Every row still to write: the ones the job tried and could not write, and the ones it never reached.
+	const notSaved = counts.remaining;
 	const partial = receipt.status === "partial";
+	const retry = partial && receipt.fileKept;
+	const reupload = partial && !receipt.fileKept;
 	const name = (row: number) => (review ? nameOf(review.preview, row) : null);
 	const flagged = receipt.rows.filter((r) => r.status === "created" && r.reviewWith !== null).length;
 
@@ -626,37 +649,47 @@ export function DoneStep({
 					<div className="min-w-0">
 						<StepHeading heading={heading}>
 							{partial
-								? `${plural(counts.created, "person", "people")} added. ${plural(unsaved.length, "row")} did not save.`
+								? `${plural(counts.created, "person", "people")} added. ${plural(notSaved, "row")} did not save.`
 								: `${plural(counts.created, "person", "people")} added`}
 						</StepHeading>
 						<p className="mt-1.5 text-text-2 text-pretty">
-							{partial
-								? "The other rows are saved. Try the rows that did not save again; nobody is added twice."
-								: flagged
-									? `${plural(flagged, "person", "people")} added with a note to review against a possible duplicate.`
-									: "Everyone you chose is in People now."}
+							{retry ? (
+								"The other rows are saved. Try the rows that did not save again; nobody is added twice."
+							) : reupload ? (
+								`Upload the file again to finish the remaining ${plural(notSaved, "row")}.`
+							) : flagged ? (
+								<>
+									{flagged} to review in{" "}
+									<IntentLink href="/people/duplicates" className="font-medium text-ink underline underline-offset-2">
+										Duplicates
+									</IntentLink>
+									.
+								</>
+							) : (
+								"Everyone you chose is in People now."
+							)}
 						</p>
 					</div>
 				</div>
+				{problem ? <Problem notice={problem} /> : null}
 				<div className="flex flex-wrap gap-2">
-					{partial && onRetry ? (
-						<Button variant="primary" onClick={onRetry}>
-							Try {plural(unsaved.length, "row")} again
+					{retry ? (
+						<Button variant="primary" loading={working !== false} onClick={() => onRetry()}>
+							Try {plural(notSaved, "row")} again
 						</Button>
+					) : reupload ? (
+						<ChooseAgain working={working} onFile={onRetry} />
 					) : null}
-					<IntentLink
-						href="/people"
-						className={buttonVariants({ variant: partial && onRetry ? "secondary" : "primary" })}
-					>
+					<IntentLink href="/people" className={buttonVariants({ variant: partial ? "secondary" : "primary" })}>
 						Go to People
 					</IntentLink>
 					<Button variant="ghost" onClick={onStartOver}>
 						Import another file
 					</Button>
 				</div>
-				{partial && !onRetry ? (
+				{reupload ? (
 					<p className="text-sm text-text-2 text-pretty">
-						To try them again, import the same file. People already added show as duplicates, so skip them.
+						Choose the same file you imported. Rows already added are never added twice.
 					</p>
 				) : null}
 			</Card>
@@ -665,13 +698,13 @@ export function DoneStep({
 				<Stat label="Skipped" value={counts.skipped} note="By your choice" />
 				<Stat
 					label="Did not save"
-					value={unsaved.length}
-					note={unsaved.length ? "Can try again" : "None"}
-					tone={unsaved.length ? "text-magenta-600" : undefined}
+					value={notSaved}
+					note={notSaved ? "Can try again" : "None"}
+					tone={notSaved ? "text-magenta-600" : undefined}
 				/>
 				<Stat label="Needed a fix" value={invalid.length} note="Not imported" />
 			</div>
-			{unsaved.length || invalid.length ? (
+			{notImported.length ? (
 				<Card className="gap-4">
 					<CardHeader>
 						<CardHeading>
@@ -679,14 +712,52 @@ export function DoneStep({
 							<CardDescription>Each row with the reason.</CardDescription>
 						</CardHeading>
 					</CardHeader>
-					<FailedRows rows={failed} name={name} />
+					<NotImportedRows rows={notImported} name={name} />
 				</Card>
 			) : null}
 		</div>
 	);
 }
 
-function FailedRows({ rows, name }: { rows: FailedRow[]; name: (row: number) => string | null }) {
+/** The file button of an expired partial import: the same file, uploaded again to finish its remaining rows. */
+function ChooseAgain({ working, onFile }: { working: File | boolean; onFile: (file: File) => void }) {
+	const busy = working !== false;
+	return (
+		<label
+			aria-busy={busy || undefined}
+			className={cn(
+				buttonVariants({ variant: "primary" }),
+				"focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-focus",
+				busy && "cursor-progress",
+			)}
+		>
+			<Icon icon={FileImportIcon} size={18} />
+			{working instanceof File ? `Checking ${working.name}…` : "Choose the file"}
+			<input
+				type="file"
+				accept=".csv,text/csv"
+				className="sr-only"
+				aria-label="Choose the file this import used"
+				disabled={busy}
+				onChange={(e) => {
+					const file = e.currentTarget.files?.[0];
+					e.currentTarget.value = "";
+					if (file) onFile(file);
+				}}
+			/>
+		</label>
+	);
+}
+
+type NotImportedRow = FailedRow | Extract<ImportReceipt["rows"][number], { status: "remaining" }>;
+
+function reasonOf(r: NotImportedRow): string {
+	if (r.status === "remaining") return "Not reached. Try it again.";
+	if (r.reason === "row_write_failed") return "Could not be saved. Try it again.";
+	return r.problems.length ? r.problems.map(problemText).join(". ") : "Needs a fix in the file";
+}
+
+function NotImportedRows({ rows, name }: { rows: NotImportedRow[]; name: (row: number) => string | null }) {
 	const [page, setPage] = useState(1);
 	const pages = Math.max(1, Math.ceil(rows.length / ROWS_PER_PAGE));
 	const slice = rows.slice((page - 1) * ROWS_PER_PAGE, page * ROWS_PER_PAGE);
@@ -704,15 +775,11 @@ function FailedRows({ rows, name }: { rows: FailedRow[]; name: (row: number) => 
 						</span>
 						<div className="min-w-0">
 							<p className="truncate font-medium text-ink">
-								{r.reason === "invalid" ? "Needs a fix" : (name(r.row) ?? "Not saved")}
+								{r.status === "failed" && r.reason === "invalid" ? "Needs a fix" : (name(r.row) ?? "Not saved")}
 							</p>
 							<p className="flex items-start gap-1.5 text-sm text-magenta-600">
 								<Icon icon={Alert02Icon} size={16} className="mt-0.5 flex-none" />
-								{r.reason === "row_write_failed"
-									? "Could not be saved. Try it again."
-									: r.problems.length
-										? r.problems.map(problemText).join(". ")
-										: "Needs a fix in the file"}
+								{reasonOf(r)}
 							</p>
 						</div>
 					</li>

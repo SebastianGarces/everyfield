@@ -181,7 +181,7 @@ export function TagsField({
  * One tag as a chip: its color, a link to People filtered by it (prefetched on intent, like person links) and, for
  * editors, a 24 px remove button.
  */
-export function TagChip({ tag, onRemove, wait = null }: { tag: PersonTag; onRemove?: () => void; wait?: Wait }) {
+function TagChip({ tag, onRemove, wait = null }: { tag: PersonTag; onRemove?: () => void; wait?: Wait }) {
 	const look = tagLook(tag.color);
 	const pending = tag.id.startsWith("new:");
 	return (

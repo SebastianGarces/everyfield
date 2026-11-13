@@ -1,5 +1,7 @@
 import { sql as querySql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 // Run explicitly with test:identity:production. Owns one managed production preview.
+// Exempt from the no-sleep, no-wall-clock rule (test-standard): measuring real time is this file's job. It proves a
+// production latency class, so its pg_sleep stall, performance.now timings and polling deadline are the measurement.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { execFile } from "node:child_process";

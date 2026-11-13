@@ -300,9 +300,11 @@
 				"relationship",
 				"reference_update",
 				"digest",
-				"launch"
+				"launch",
+				"communication"
 			],
 			"notice.purpose": [
+				"communication_unsubscribed",
 				"insight_available",
 				"launch_milestone",
 				"meeting_evaluation",
@@ -670,7 +672,6 @@
 				"meetings.syncNotifications",
 				"meetings.updateKitItem",
 				"notifications.applyEmailOptOut",
-				"notifications.cancelForEntity",
 				"notifications.cancelTaskReminders",
 				"notifications.claimDue",
 				"notifications.describeEmailOptOut",
@@ -700,7 +701,6 @@
 				"notifications.retryAssociationReceipt",
 				"notifications.sendDiscoveryAssociationReceipt",
 				"notifications.setPreferences",
-				"notifications.syncMeetingReminders",
 				"notifications.syncTaskReminders",
 				"notifications.undoEmailOptOut",
 				"notifications.unreadCount",
@@ -957,7 +957,6 @@
 				"teams.assignmentEffects",
 				"teams.attestCompletion",
 				"teams.completeResponsibility",
-				"teams.correct",
 				"teams.correctProgram",
 				"teams.create",
 				"teams.createProgram",
@@ -1247,7 +1246,6 @@
 				"meetings.syncNotifications",
 				"meetings.updateKitItem",
 				"notifications.applyEmailOptOut",
-				"notifications.cancelForEntity",
 				"notifications.cancelTaskReminders",
 				"notifications.claimDue",
 				"notifications.digestCadence.set",
@@ -1270,7 +1268,6 @@
 				"notifications.retryAssociationReceipt",
 				"notifications.sendDiscoveryAssociationReceipt",
 				"notifications.setPreferences",
-				"notifications.syncMeetingReminders",
 				"notifications.syncTaskReminders",
 				"notifications.undoEmailOptOut",
 				"onboarding.complete",
@@ -1413,7 +1410,6 @@
 				"teams.assignmentEffects",
 				"teams.attestCompletion",
 				"teams.completeResponsibility",
-				"teams.correct",
 				"teams.correctProgram",
 				"teams.create",
 				"teams.createProgram",
@@ -1502,13 +1498,9 @@
 				"mail",
 				"notification",
 				"digest",
-				"assessment",
-				"reference_generation",
-				"feedback_publication",
 				"object_cleanup",
 				"lifecycle_purge",
 				"assistant_turn",
-				"document_render",
 				"people_import",
 				"evry_effect"
 			],
@@ -1630,7 +1622,6 @@
 				"identity.credential_observed",
 				"identity.domain_accepted",
 				"identity.credential_changed",
-				"identity.credential_reconciled",
 				"identity.email_changed",
 				"identity.sessions_revoked",
 				"membership.created",
@@ -1676,10 +1667,6 @@
 				"attestation.recorded",
 				"attestation.corrected",
 				"launch.changed",
-				"launch.outcome_recorded",
-				"launch.debrief_submitted",
-				"launch.summary_published",
-				"launch.corrected",
 				"wiki.published",
 				"wiki.hidden",
 				"wiki.source_order_changed",
@@ -1687,11 +1674,6 @@
 				"documents.saved",
 				"documents.copied",
 				"files.finalized",
-				"intelligence.requested",
-				"intelligence.published",
-				"intelligence.superseded",
-				"intelligence.feedback_recorded",
-				"communication.approved",
 				"communication.send_intended",
 				"mail.accepted",
 				"mail.delivered",
@@ -1699,25 +1681,12 @@
 				"mail.reconciled",
 				"mail.cancelled",
 				"feedback.received",
-				"feedback.publication_intended",
-				"feedback.published",
-				"feedback.reconciled",
-				"execution.started",
-				"execution.completed",
-				"execution.partial",
-				"execution.cancelled",
-				"execution.reconciled",
 				"account.deletion_requested",
 				"plant.deletion_requested",
 				"deletion.cancelled",
 				"deletion.live_purge_completed",
 				"recovery.copy_expired",
-				"recovery.restored",
-				"security.access_denied",
-				"security.bulk_export",
-				"security.audit_inspected",
-				"security.audit_exported",
-				"security.operator_accessed"
+				"recovery.restored"
 			],
 			"early_access_request.kind": ["planter", "network"],
 			"early_access_request.data.phase": [
@@ -2169,7 +2138,7 @@
 				"columns": ["person_id", "plant_id"],
 				"target_columns": ["id", "tenant_id"],
 				"consumer_work_packages": ["WP-004", "WP-039"],
-				"meaning": "Current relation with immutable original provenance",
+				"meaning": "Current candidate attestation. It follows the Person on merge; a survivor that already holds one keeps it and the source's stays on the source.",
 				"lock_order": "Lock live same-plant source and survivor in UUID order, then consumer row and owner; reference inserts take the same Person locks.",
 				"merge_policy": "Preview same-parent uniqueness collisions; apply only the reviewed canonical identity choice with exact pre/post revision witnesses. Preserve immutable evidence.",
 				"inverse_policy": "Refuse inverse after conflicting edits, private-author transfer or irreversible delivery/disclosure; exact guarded prior/result witnesses only.",
@@ -2177,6 +2146,62 @@
 				"privacy_policy": "Person movement never transfers account grants, private note authorship, private care, or conversation ownership.",
 				"immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
 				"future_case_ids": ["SCHEMA-009", "SCHEMA-010"]
+			},
+			{
+				"table": "attestation_revision",
+				"columns": ["person_id", "plant_id"],
+				"target_columns": ["id", "tenant_id"],
+				"consumer_work_packages": ["WP-039"],
+				"meaning": "Append-only attestation history. A merge leaves each revision on the Person it was written for.",
+				"lock_order": "Lock live same-plant source and survivor in UUID order. Do not rewrite the revision.",
+				"merge_policy": "Keep the revision on the source person. The current attestation moves; its history stays.",
+				"inverse_policy": "Unmerge does not move a revision, because the merge did not move it.",
+				"retirement_policy": "Lists omit a retired person. The revisions remain under that person.",
+				"privacy_policy": "Revisions never transfer account grants, private care, or organization person evidence.",
+				"immutable_evidence_policy": "Author, as-of date, statement and question version stay as written. A correction appends a row.",
+				"future_case_ids": ["SCHEMA-009", "PERSONREF-CANDIDATE-PERSON-ATTESTATION-MERGE"]
+			},
+			{
+				"table": "person_duplicate_dismissal",
+				"columns": ["person_id", "plant_id"],
+				"target_columns": ["id", "tenant_id"],
+				"consumer_work_packages": ["WP-015"],
+				"meaning": "The imported Person of a pair an Owner or Admin marked not a duplicate (D-789).",
+				"lock_order": "Lock the owner first; dismiss and restore lock both live Persons FOR SHARE, after the lifecycle writers' locks.",
+				"merge_policy": "Keep the dismissal on the pair it names. A merge leaves one side not live, so the pair is off both lists; Unmerge brings it back as it was.",
+				"inverse_policy": "Unmerge does not move a dismissal, because the merge did not move it.",
+				"retirement_policy": "A retired side takes the pair off the list and the Dismissed view; the row stays under the pair.",
+				"privacy_policy": "Names no content. Who dismissed it comes from the audit row and shows only to the church's Owners and Admins.",
+				"immutable_evidence_policy": "Each dismiss and restore writes its own audit row; Restore deletes the row.",
+				"future_case_ids": ["TARGET-PPL-018"]
+			},
+			{
+				"table": "person_duplicate_dismissal",
+				"columns": ["with_person_id", "plant_id"],
+				"target_columns": ["id", "tenant_id"],
+				"consumer_work_packages": ["WP-015"],
+				"meaning": "The Person the imported Person may duplicate, in a pair marked not a duplicate (D-789).",
+				"lock_order": "Lock the owner first; dismiss and restore lock both live Persons FOR SHARE, after the lifecycle writers' locks.",
+				"merge_policy": "Keep the dismissal on the pair it names. A merge leaves one side not live, so the pair is off both lists; Unmerge brings it back as it was.",
+				"inverse_policy": "Unmerge does not move a dismissal, because the merge did not move it.",
+				"retirement_policy": "A retired side takes the pair off the list and the Dismissed view; the row stays under the pair.",
+				"privacy_policy": "Names no content. Who dismissed it comes from the audit row and shows only to the church's Owners and Admins.",
+				"immutable_evidence_policy": "Each dismiss and restore writes its own audit row; Restore deletes the row.",
+				"future_case_ids": ["TARGET-PPL-018"]
+			},
+			{
+				"table": "person_email_opt_out",
+				"columns": ["person_id", "plant_id"],
+				"target_columns": ["id", "tenant_id"],
+				"consumer_work_packages": ["WP-028"],
+				"meaning": "A CRM person's opt-out from one church's Messages email (D-284). Only the person's own token writes it.",
+				"lock_order": "Lock live same-plant source and survivor in UUID order. Do not rewrite the opt-out.",
+				"merge_policy": "Keep the opt-out on the Person who unsubscribed. Messages reads the merge lineage, so the survivor stays unsubscribed while merged.",
+				"inverse_policy": "Unmerge does not move an opt-out, because the merge did not move it.",
+				"retirement_policy": "A retired person gets no Messages email anyway. The opt-out stays under that person.",
+				"privacy_policy": "An opt-out never transfers account grants, account notification preferences or marketing consent.",
+				"immutable_evidence_policy": "Who, which church and when stay as written; only the person's one-hour undo stamps undone_at.",
+				"future_case_ids": ["CASE-NTF-016"]
 			},
 			{
 				"table": "mail",
@@ -3278,6 +3303,176 @@
 			},
 			"foreignKeys": {}
 		},
+		"church_brand_kit": {
+			"table": {
+				"name": "church_brand_kit",
+				"domain": "documents",
+				"purpose": "The saved brand kit of one church plant: colors, fonts, letterhead and signature text, and up to six image assets. One row per church plant. Reset deletes the row.",
+				"library_owned": false,
+				"jsonb_keys": {},
+				"capabilities": ["CAP-C-047"],
+				"replaces": [],
+				"producer_work_packages": ["WP-104"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-104"],
+					"rule": "WP-104 stores one brand kit for each church plant. The plant owns the row."
+				},
+				"feature_ids": ["BRD-001", "BRD-002", "BRD-003", "BRD-004", "BRD-005", "BRD-006"],
+				"acceptance_ids": [
+					"AC-BRD-001--BRD-001",
+					"AC-BRD-002--BRD-002",
+					"AC-BRD-003--BRD-003",
+					"AC-BRD-004--BRD-004",
+					"AC-BRD-005--BRD-005"
+				],
+				"future_case_ids": [
+					"CASE-BRD-001",
+					"CASE-BRD-002",
+					"CASE-BRD-003",
+					"CASE-BRD-004",
+					"CASE-BRD-005",
+					"CASE-BRD-006"
+				],
+				"scope": "documents",
+				"invariants": [
+					"Each asset slot points at one ready brand_asset file of the same church plant and carries alt text.",
+					"The primary color, once saved, is never cleared.",
+					"Saving or resetting a kit never changes a generated file."
+				],
+				"revision": "Each save, upload attach and asset removal adds 1. A new row starts at 1. Reset deletes the row, so revision 0 means no kit.",
+				"idempotency": "A save names the expected revision. A stale revision gets a conflict and changes nothing.",
+				"deletion": "Plant purge removes the row with the plant. Reset removes it and queues cleanup of every asset file.",
+				"physical_verified": false
+			},
+			"columns": {
+				"tenant_id": {
+					"note": "Church plant owner. The primary key: at most one kit for each church plant."
+				},
+				"revision": {
+					"note": ""
+				},
+				"primary_color": {
+					"note": "Upper case #RRGGBB. Null only before the first color save."
+				},
+				"accent_color": {
+					"note": "Upper case #RRGGBB. Null means the accent is the primary color."
+				},
+				"heading_font": {
+					"note": "Curated open-license font id, checked in the contract."
+				},
+				"body_font": {
+					"note": "Curated open-license font id, checked in the contract."
+				},
+				"legal_name": {
+					"note": ""
+				},
+				"address": {
+					"note": ""
+				},
+				"website": {
+					"note": "An https URL."
+				},
+				"phone": {
+					"note": ""
+				},
+				"email": {
+					"note": ""
+				},
+				"ein": {
+					"note": "NN-NNNNNNN."
+				},
+				"tagline": {
+					"note": ""
+				},
+				"signer_name": {
+					"note": ""
+				},
+				"signer_title": {
+					"note": ""
+				},
+				"full_logo_object_id": {
+					"note": "Ready brand_asset file of the same church plant, or null."
+				},
+				"full_logo_alt": {
+					"note": "Alt text for the asset. Null exactly when the slot is empty."
+				},
+				"full_logo_dark_object_id": {
+					"note": "Ready brand_asset file of the same church plant, or null."
+				},
+				"full_logo_dark_alt": {
+					"note": "Alt text for the asset. Null exactly when the slot is empty."
+				},
+				"mark_object_id": {
+					"note": "Ready brand_asset file of the same church plant, or null."
+				},
+				"mark_alt": {
+					"note": "Alt text for the asset. Null exactly when the slot is empty."
+				},
+				"mark_dark_object_id": {
+					"note": "Ready brand_asset file of the same church plant, or null."
+				},
+				"mark_dark_alt": {
+					"note": "Alt text for the asset. Null exactly when the slot is empty."
+				},
+				"cover_photo_object_id": {
+					"note": "Ready brand_asset file of the same church plant, or null."
+				},
+				"cover_photo_alt": {
+					"note": "Alt text for the asset. Null exactly when the slot is empty."
+				},
+				"signature_object_id": {
+					"note": "Ready brand_asset file of the same church plant, or null."
+				},
+				"signature_alt": {
+					"note": "Alt text for the asset. Null exactly when the slot is empty."
+				}
+			},
+			"foreignKeys": {
+				"tenant_id->tenant(id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Plant purge removes the kit row before the plant."
+					}
+				},
+				"full_logo_object_id,tenant_id->file_object(id,tenant_id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "The private file stays while the kit references it. Cleanup deletes only an unreferenced object."
+					}
+				},
+				"full_logo_dark_object_id,tenant_id->file_object(id,tenant_id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "The private file stays while the kit references it. Cleanup deletes only an unreferenced object."
+					}
+				},
+				"mark_object_id,tenant_id->file_object(id,tenant_id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "The private file stays while the kit references it. Cleanup deletes only an unreferenced object."
+					}
+				},
+				"mark_dark_object_id,tenant_id->file_object(id,tenant_id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "The private file stays while the kit references it. Cleanup deletes only an unreferenced object."
+					}
+				},
+				"cover_photo_object_id,tenant_id->file_object(id,tenant_id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "The private file stays while the kit references it. Cleanup deletes only an unreferenced object."
+					}
+				},
+				"signature_object_id,tenant_id->file_object(id,tenant_id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "The private file stays while the kit references it. Cleanup deletes only an unreferenced object."
+					}
+				}
+			}
+		},
 		"identity_proof": {
 			"table": {
 				"name": "identity_proof",
@@ -3727,6 +3922,9 @@
 				},
 				"revision": {
 					"note": ""
+				},
+				"statement_of_faith": {
+					"note": "A sending network's plain-text statement of faith. It fills the statement-of-faith slot of Church Documents its plants create from a template (DOC-020, D-107). Null on a sending church."
 				}
 			},
 			"foreignKeys": {
@@ -5611,9 +5809,6 @@
 				"voided_at": {
 					"note": ""
 				},
-				"corrected_commitment_id": {
-					"note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
-				},
 				"revision": {
 					"note": ""
 				}
@@ -5638,12 +5833,6 @@
 					}
 				},
 				"object_id,plant_id->file_object(id,tenant_id)": {
-					"deletion": {
-						"action": "restrict",
-						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
-					}
-				},
-				"corrected_commitment_id,plant_id->commitment(id,plant_id)": {
 					"deletion": {
 						"action": "restrict",
 						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
@@ -6739,7 +6928,7 @@
 					"One parent level only, no self/cycle/nesting or converting a parent with children into a child.",
 					"Children have no due date, recurrence, managed obligation, contact hook or completion automation.",
 					"Parent completion is independent; parent soft deletion preserves child/history evidence.",
-					"At most one open occurrence per series and one successor per predecessor.",
+					"At most one open occurrence per series and one successor per predecessor in each series.",
 					"Completion, successor, reset children, history and reminder intent are atomic.",
 					"Older occurrence cannot reopen when another open successor exists.",
 					"Eligible owner is a live same-plant committed core_group/launch_team/leader Person linked to an actual account with a current seat.",
@@ -6781,9 +6970,6 @@
 				},
 				"created_at": {
 					"note": ""
-				},
-				"assignee_id": {
-					"note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
 				},
 				"due_kind": {
 					"note": ""
@@ -6842,18 +7028,6 @@
 				"deleted_at": {
 					"note": ""
 				},
-				"source_template_id": {
-					"note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
-				},
-				"import_operation_id": {
-					"note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
-				},
-				"milestone_id": {
-					"note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
-				},
-				"seed_key": {
-					"note": ""
-				},
 				"revision": {
 					"note": ""
 				}
@@ -6866,12 +7040,6 @@
 					}
 				},
 				"creator_id->account(id)": {
-					"deletion": {
-						"action": "restrict",
-						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
-					}
-				},
-				"assignee_id->account(id)": {
 					"deletion": {
 						"action": "restrict",
 						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
@@ -6926,33 +7094,124 @@
 						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
 					}
 				},
-				"source_template_id->reference_version(id)": {
-					"deletion": {
-						"action": "restrict",
-						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
-					}
-				},
-				"import_operation_id->operation(id)": {
-					"scope_exception": "Initiating account conversation context may differ from the plant output. Exact native operation validates actor, plant authority, review and target ownership.",
-					"deletion": {
-						"action": "restrict",
-						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
-					}
-				},
-				"milestone_id,plant_id->launch_milestone(id,plant_id)": {
-					"deletion": {
-						"action": "restrict",
-						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
-					}
-				},
 				"id,plant_id->record(id,tenant_id)": {
 					"deletion": {
 						"action": "restrict",
 						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
 					}
+				}
+			}
+		},
+		"task_assignee": {
+			"table": {
+				"name": "task_assignee",
+				"domain": "tasks",
+				"purpose": "One account assigned to one task. A task has one or more assignees; a person follow-up is owned by its task's assignees.",
+				"library_owned": false,
+				"jsonb_keys": {},
+				"capabilities": ["CAP-B-012", "CAP-B-013", "CAP-B-014", "CAP-B-016", "CAP-B-018", "CAP-B-019"],
+				"replaces": [],
+				"producer_work_packages": ["WP-023"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-023"],
+					"rule": "WP-023 stores the assignee set of a task. The set replaces the single task and obligation assignee columns."
 				},
-				"import_operation_id->audit_event(id)": {
-					"scope_exception": "D70 command identity correlation; the producer validates the actual owner, exact source and current authority in its transaction. Retained evidence grants no access.",
+				"feature_ids": [
+					"PHASE-006",
+					"TSK-002",
+					"TSK-003",
+					"TSK-004",
+					"TSK-005",
+					"TSK-007",
+					"TSK-009",
+					"TSK-010",
+					"TSK-012",
+					"TSK-015",
+					"TSK-016"
+				],
+				"acceptance_ids": [
+					"AC-PHASE-006--PHASE-006",
+					"AC-TSK-002--TSK-002",
+					"AC-TSK-003--TSK-003",
+					"AC-TSK-004--TSK-004",
+					"AC-TSK-005--TSK-005",
+					"AC-TSK-007--TSK-007",
+					"AC-TSK-009--TSK-009",
+					"AC-TSK-010--TSK-010",
+					"AC-TSK-012--TSK-012",
+					"AC-TSK-015--TSK-015",
+					"AC-TSK-016--TSK-016"
+				],
+				"future_case_ids": [
+					"B03-002",
+					"B03-003",
+					"B03-007",
+					"B03-008",
+					"B03-009",
+					"B03-015",
+					"EVRY-REAL-CHILD-TASK-PARITY",
+					"INH-LAUNCH-02",
+					"LAUNCH46-019",
+					"PHASE-CASE-006",
+					"ROLE43-008",
+					"ROLE43-015",
+					"SCHEMA-001",
+					"SCHEMA-013",
+					"TARGET-MTG-020",
+					"TARGET-MTG-021",
+					"TARGET-MTG-022",
+					"TARGET-TSK-002",
+					"TARGET-TSK-003",
+					"TARGET-TSK-004",
+					"TARGET-TSK-005",
+					"TARGET-TSK-007",
+					"TARGET-TSK-009",
+					"TARGET-TSK-010",
+					"TARGET-TSK-012",
+					"TARGET-TSK-015",
+					"TARGET-TSK-016",
+					"TARGET-TSK-017",
+					"TARGET-TSK-018"
+				],
+				"scope": "tasks",
+				"invariants": [
+					"One row per task and account; at most ten per task, enforced by the write.",
+					"No task or obligation column keeps a second stored owner."
+				],
+				"revision": "No mutable revision column; immutable version, history or insert/delete presence follows the capability contract.",
+				"idempotency": "Replay and no-op behavior follow the named native producer and its exact receipt/unique-key contract. Private care remains isolated from shared operation receipts.",
+				"deletion": "Plant-owned facts and history survive personal account deletion with minimum necessary attribution. Plant deletion hides them immediately, holds eligible content only for 30-day cancellation, then purges live content; recovery copies expire within seven days of coherent live purge. No additional fixed history limit is specified.",
+				"physical_verified": false
+			},
+			"columns": {
+				"plant_id": {
+					"note": ""
+				},
+				"task_id": {
+					"note": "Real FK with plant_id to task(id, plant_id)."
+				},
+				"account_id": {
+					"note": "Real FK to the assigned account. Eligibility is checked by the write, not stored."
+				},
+				"added_at": {
+					"note": "When the account joined the task; the history record keeps who added it."
+				}
+			},
+			"foreignKeys": {
+				"plant_id->plant(id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
+					}
+				},
+				"task_id,plant_id->task(id,plant_id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
+					}
+				},
+				"account_id->account(id)": {
 					"deletion": {
 						"action": "restrict",
 						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
@@ -6981,7 +7240,7 @@
 				"invariants": [
 					"Every plant-owned fact and referenced Person, meeting, task or team belongs to the same plant.",
 					"Accepted changes use expected revisions and durable operation receipts; required current facts, history and material revision commit atomically.",
-					"At most one open occurrence per series and one successor per predecessor.",
+					"At most one open occurrence per series and one successor per predecessor in each series.",
 					"Completion, successor, reset children, history and reminder intent are atomic.",
 					"Older occurrence cannot reopen when another open successor exists."
 				],
@@ -7141,9 +7400,6 @@
 				"due_date": {
 					"note": ""
 				},
-				"assignee_id": {
-					"note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
-				},
 				"waived_at": {
 					"note": ""
 				},
@@ -7171,12 +7427,6 @@
 					}
 				},
 				"person_id,plant_id->person(id,tenant_id)": {
-					"deletion": {
-						"action": "restrict",
-						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
-					}
-				},
-				"assignee_id->account(id)": {
 					"deletion": {
 						"action": "restrict",
 						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
@@ -7278,6 +7528,9 @@
 				},
 				"completes_task": {
 					"note": "The person completed the outcome's task with this outcome. A first-Vision follow-up's 48-hour measure uses the earliest effective completing outcome; a correction keeps the flag."
+				},
+				"also_task_ids": {
+					"note": "The person's other open follow-up tasks this one contact finished (REQ-MTG-022). Each keeps this entry as its completion evidence for the 48-hour measure; the log shows one entry. No foreign key: an array of same-church task IDs checked by the writer."
 				}
 			},
 			"foreignKeys": {
@@ -7426,9 +7679,6 @@
 				"operation_id": {
 					"note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
 				},
-				"criterion_version_id": {
-					"note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
-				},
 				"offer_answer": {
 					"note": ""
 				},
@@ -7445,12 +7695,6 @@
 				},
 				"operation_id->operation(id)": {
 					"scope_exception": "Initiating account conversation context may differ from the plant output. Exact native operation validates actor, plant authority, review and target ownership.",
-					"deletion": {
-						"action": "restrict",
-						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
-					}
-				},
-				"criterion_version_id->reference_version(id)": {
 					"deletion": {
 						"action": "restrict",
 						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
@@ -7727,16 +7971,7 @@
 				"decisions": {
 					"note": ""
 				},
-				"outcome_notes": {
-					"note": ""
-				},
-				"outcome_recorded_at": {
-					"note": ""
-				},
 				"reference_version_id": {
-					"note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
-				},
-				"summary_document_id": {
 					"note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
 				},
 				"revision": {
@@ -7751,12 +7986,6 @@
 					}
 				},
 				"reference_version_id->reference_version(id)": {
-					"deletion": {
-						"action": "restrict",
-						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
-					}
-				},
-				"summary_document_id,plant_id->document(id,tenant_id)": {
 					"deletion": {
 						"action": "restrict",
 						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
@@ -7827,9 +8056,6 @@
 				},
 				"source_version_id": {
 					"note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
-				},
-				"seed_key": {
-					"note": ""
 				},
 				"title": {
 					"note": ""
@@ -8140,9 +8366,6 @@
 				},
 				"source_revision_id": {
 					"note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
-				},
-				"failure_code": {
-					"note": ""
 				},
 				"expected_passages": {
 					"note": ""
@@ -9083,6 +9306,9 @@
 				},
 				"related_slugs": {
 					"note": "Approved related article slugs stored by the release install. A read resolves them to entitled article ids."
+				},
+				"search_vector": {
+					"note": "Wiki search vector (title A, excerpt B, body words C), written by the search_vector trigger on every insert and update."
 				}
 			},
 			"foreignKeys": {
@@ -9464,9 +9690,6 @@
 				"observed_fraction": {
 					"note": ""
 				},
-				"resume_position": {
-					"note": ""
-				},
 				"last_viewed_at": {
 					"note": ""
 				},
@@ -9813,9 +10036,6 @@
 				"claim_generation": {
 					"note": ""
 				},
-				"retention_until": {
-					"note": ""
-				},
 				"purge_requested_at": {
 					"note": ""
 				},
@@ -9890,7 +10110,17 @@
 				"download_name": { "note": "" },
 				"generated_at": { "note": "" },
 				"request_key": { "note": "Repeat of the same key returns this row." },
-				"revision": { "note": "" }
+				"revision": { "note": "" },
+				"source_document_id": {
+					"note": "Church Document exports only. The document this export was made from, frozen with the row."
+				},
+				"source_revision_id": { "note": "Church Document exports only. The exact revision that was exported." },
+				"theme_kind": {
+					"note": "Church Document exports only. church or everyfield-neutral: the theme that painted the saved bytes."
+				},
+				"theme_primary": {
+					"note": "Church Document exports only. Primary color of a church theme at export time. Null for the neutral theme."
+				}
 			},
 			"foreignKeys": {
 				"tenant_id->tenant(id)": {
@@ -9916,6 +10146,18 @@
 						"action": "restrict",
 						"policy": "The record binding stays with the generated row."
 					}
+				},
+				"source_document_id,tenant_id->document(id,tenant_id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "A Church Document stays while a saved export names it. Plant purge removes the exports first."
+					}
+				},
+				"source_revision_id,tenant_id->document_revision(id,tenant_id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "The exported revision stays while a saved export names it. Plant purge removes the exports first."
+					}
 				}
 			}
 		},
@@ -9925,7 +10167,13 @@
 				"domain": "documents",
 				"purpose": "Account or plant owned native writing with explicit values or Launch-summary designation. Exactly one account, plant or organization owns this row. Only account or plant tenants; launch_summary requires plant. A deferred kind trigger enforces this.",
 				"library_owned": false,
-				"jsonb_keys": {},
+				"jsonb_keys": {
+					"input_provenance": [
+						"key: template merge field id",
+						"value: frozen text used in revision 1, or null when no source had a value",
+						"source: override, church_name, pastor_name or absent"
+					]
+				},
 				"capabilities": ["CAP-B-026", "CAP-C-015", "CAP-C-016"],
 				"replaces": ["owned_documents", "launch"],
 				"producer_work_packages": ["WP-004", "WP-036", "WP-045", "WP-046"],
@@ -10049,11 +10297,20 @@
 				"title": {
 					"note": ""
 				},
+				"description": {
+					"note": "Church templates only. The description New from template shows under the name, or null. Renaming or describing a template changes this row and makes no revision (D-171)."
+				},
 				"current_revision_id": {
 					"note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
 				},
 				"archived_at": {
 					"note": ""
+				},
+				"church_archived_at": {
+					"note": "When an Owner or Admin archived a Church Document (T-9). archived_at marks it deleted, never archived (D-935)."
+				},
+				"church_archived_by": {
+					"note": "The account that archived it; set with church_archived_at. Not a foreign key, like an audit actor."
 				},
 				"copied_from_revision_id": {
 					"note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
@@ -10063,6 +10320,21 @@
 				},
 				"revision": {
 					"note": ""
+				},
+				"template_id": {
+					"note": "Church Documents only. Editable template id frozen at creation. Null for a plain native document."
+				},
+				"template_version": {
+					"note": "Church Documents only. Whole-number version of the authored template that made revision 1."
+				},
+				"document_class": {
+					"note": "Church Documents only. formal/legal, outward-facing or operational, copied from the template. It picks the export theme layout and whether the legal notice prints."
+				},
+				"use_church_branding": {
+					"note": "Church Documents only. True: export uses the church theme when the church has a brand kit. False: Everyfield-neutral theme. Changing it makes no revision."
+				},
+				"input_provenance": {
+					"note": "Church Documents only. Frozen merge values of revision 1. Each entry has key, value and source."
 				}
 			},
 			"foreignKeys": {
@@ -10243,6 +10515,9 @@
 				},
 				"recorded_at": {
 					"note": ""
+				},
+				"author_account_id": {
+					"note": "Attribution of a Church Document revision. Account deletion nulls it. Null for earlier native revisions."
 				}
 			},
 			"foreignKeys": {
@@ -10268,6 +10543,12 @@
 					"deletion": {
 						"action": "restrict",
 						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
+					}
+				},
+				"author_account_id->account(id)": {
+					"deletion": {
+						"action": "set_null",
+						"policy": "Clear revision attribution when the account row is removed. The plant keeps the revision."
 					}
 				}
 			}
@@ -10740,9 +11021,6 @@
 				"job_id": {
 					"note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
 				},
-				"original_mail_id": {
-					"note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
-				},
 				"revision": {
 					"note": ""
 				},
@@ -10751,6 +11029,12 @@
 				},
 				"address_hash": {
 					"note": ""
+				},
+				"refusal": {
+					"note": "unsubscribed when Everyfield refused this Messages recipient because the person opted out of the church's email; null otherwise. A blocked address keeps its suppression row instead."
+				},
+				"communication_id": {
+					"note": "The Messages message this recipient send belongs to, set on every communication mail insert; null for other purposes. History, delivery and meeting reads join on it instead of a logical_key prefix."
 				}
 			},
 			"foreignKeys": {
@@ -10790,12 +11074,6 @@
 						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
 					}
 				},
-				"original_mail_id,tenant_id->mail(id,tenant_id)": {
-					"deletion": {
-						"action": "restrict",
-						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
-					}
-				},
 				"id,tenant_id->record(id,tenant_id)": {
 					"deletion": {
 						"action": "restrict",
@@ -10806,6 +11084,12 @@
 					"deletion": {
 						"action": "restrict",
 						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
+					}
+				},
+				"communication_id,tenant_id->communication(id,plant_id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "A message with recipient sends is never deleted; only drafts are, and a draft has no mail. A foreign key grants no current access."
 					}
 				}
 			}
@@ -11025,13 +11309,7 @@
 				"domain": "communication",
 				"purpose": "Truthful provider request attempt with generation-fenced safe outcome.",
 				"library_owned": false,
-				"jsonb_keys": {
-					"provider_payload": [
-						"request_id: provider diagnostic correlation",
-						"status: provider response status",
-						"error: sanitized transport error detail; per-member authoritative state lives in mail and provider_event"
-					]
-				},
+				"jsonb_keys": {},
 				"capabilities": ["CAP-B-037"],
 				"replaces": ["email_attempt"],
 				"producer_work_packages": ["WP-004", "WP-028", "WP-031"],
@@ -11124,13 +11402,7 @@
 				"safe_error": {
 					"note": ""
 				},
-				"retry_at": {
-					"note": ""
-				},
 				"retryable": {
-					"note": ""
-				},
-				"provider_payload": {
 					"note": ""
 				}
 			},
@@ -11151,6 +11423,434 @@
 					"deletion": {
 						"action": "restrict",
 						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
+					}
+				}
+			}
+		},
+		"private_calendar": {
+			"table": {
+				"name": "private_calendar",
+				"domain": "intelligence",
+				"purpose": "One author's private check-in calendar in one church: the zone and instant where the next Monday week starts, and the revision that serializes saves, corrections and personal timezone changes.",
+				"library_owned": false,
+				"jsonb_keys": {},
+				"capabilities": ["CAP-B-033"],
+				"replaces": [],
+				"producer_work_packages": ["WP-039"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-039"],
+					"rule": "WP-039 stores one calendar per original author account and church plant."
+				},
+				"feature_ids": ["PI-038", "PI-040", "PI-041"],
+				"acceptance_ids": ["AC-PI-038--PI-038", "AC-PI-040--PI-040", "AC-PI-041--PI-041"],
+				"future_case_ids": [
+					"B03-019",
+					"B03-020",
+					"B03-021",
+					"B03-022",
+					"B03-023",
+					"B03-024",
+					"B03-025",
+					"B03-026",
+					"B03-035",
+					"PI-CARE-001",
+					"PI-CARE-003",
+					"SCHEMA-007",
+					"TARGET-IDN-031",
+					"TARGET-IDN-033"
+				],
+				"scope": "private_care",
+				"invariants": [
+					"One row per author account and church plant; the author never changes.",
+					"next_at is a Monday midnight in zone. A personal timezone change moves it to the first strictly future Monday in the new zone.",
+					"No shared audit row, job, notice or projection names a calendar."
+				],
+				"revision": "revision rises by one with each accepted save, correction or timezone change; a write names the revision it read.",
+				"idempotency": "A save or correction keeps its request key on its revision row; a retry with the key replays that row. Private care has no shared audit row or operation receipt.",
+				"deletion": "Account-owned private care. A personal deletion request or a church workspace deletion hides it at once through the lifecycle witness; the purge at the deadline deletes the calendar, its weeks and revisions (settings_purge_content). It never transfers to another account.",
+				"physical_verified": false
+			},
+			"columns": {
+				"author_id": {
+					"note": "The original author account. Frozen."
+				},
+				"plant_id": {
+					"note": "The church plant of the author's Owner or Admin seat. Frozen."
+				},
+				"revision": {
+					"note": "Calendar revision a save, correction or zone change must name."
+				},
+				"zone": {
+					"note": "The IANA zone of the next week to start."
+				},
+				"next_at": {
+					"note": "The instant the next week starts."
+				},
+				"preview_handle": {
+					"note": "The personal timezone preview this calendar is bound to, kept private here instead of in settings_preview."
+				},
+				"preview_revision": {
+					"note": "The calendar revision the preview saw."
+				}
+			},
+			"foreignKeys": {
+				"author_id->account(id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
+					}
+				},
+				"plant_id->plant(id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
+					}
+				}
+			}
+		},
+		"private_week": {
+			"table": {
+				"name": "private_week",
+				"domain": "intelligence",
+				"purpose": "One Monday week of an author's private calendar, answered or not, with its current answer: four levels and an optional note.",
+				"library_owned": false,
+				"jsonb_keys": {},
+				"capabilities": ["CAP-B-033", "CAP-B-034"],
+				"replaces": [],
+				"producer_work_packages": ["WP-039"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-039"],
+					"rule": "WP-039 materializes weeks in order when a save or zone change finds them due; a missing week has a row with no answer."
+				},
+				"feature_ids": ["PI-038", "PI-039", "PI-040", "PI-041"],
+				"acceptance_ids": ["AC-PI-038--PI-038", "AC-PI-040--PI-040", "AC-PI-041--PI-041"],
+				"future_case_ids": [
+					"B03-019",
+					"B03-020",
+					"B03-021",
+					"B03-022",
+					"B03-023",
+					"B03-024",
+					"B03-025",
+					"B03-026",
+					"B03-035",
+					"PI-CARE-001",
+					"PI-CARE-003",
+					"SCHEMA-007",
+					"TARGET-IDN-031",
+					"TARGET-IDN-033"
+				],
+				"scope": "private_care",
+				"invariants": [
+					"Ordinals run 1, 2, 3 with no gap for each author and church.",
+					"id, author, church, ordinal, zone, start and end never change (immutable_week).",
+					"Either all four levels are set or none is."
+				],
+				"revision": "answer_revision counts the week's answer revisions; private_week_revision keeps each one.",
+				"idempotency": "A save or correction keeps its request key on its revision row; a retry with the key replays that row. Private care has no shared audit row or operation receipt.",
+				"deletion": "Account-owned private care. A personal deletion request or a church workspace deletion hides it at once through the lifecycle witness; the purge at the deadline deletes the calendar, its weeks and revisions (settings_purge_content). It never transfers to another account.",
+				"physical_verified": false
+			},
+			"columns": {
+				"id": {
+					"note": "Stable week id."
+				},
+				"author_id": {
+					"note": "The original author account. Frozen."
+				},
+				"plant_id": {
+					"note": "The church plant. Frozen."
+				},
+				"ordinal": {
+					"note": "Position in the author's calendar, from 1. Frozen."
+				},
+				"zone": {
+					"note": "The zone the week began in. Frozen."
+				},
+				"starts_on": {
+					"note": "The Monday the week began on in its zone. Frozen."
+				},
+				"ends_on": {
+					"note": "The Sunday it was due to end on in its zone. Frozen."
+				},
+				"starts_at": {
+					"note": "The instant the week began. Frozen."
+				},
+				"spiritual": {
+					"note": "Current answer for Spiritually."
+				},
+				"family": {
+					"note": "Current answer for Marriage and family."
+				},
+				"financial": {
+					"note": "Current answer for Financially."
+				},
+				"pace": {
+					"note": "Current answer for Pace."
+				},
+				"note": {
+					"note": "Optional note for the author, at most 2,000 characters."
+				},
+				"answer_revision": {
+					"note": "Number of answer revisions; 0 while unanswered."
+				},
+				"answered_at": {
+					"note": "When the current answer was saved."
+				}
+			},
+			"foreignKeys": {
+				"author_id,plant_id->private_calendar(author_id,plant_id)": {
+					"deletion": {
+						"action": "cascade",
+						"policy": "Private care goes with its parent row in the author or church purge. No other table references it."
+					}
+				}
+			}
+		},
+		"private_week_revision": {
+			"table": {
+				"name": "private_week_revision",
+				"domain": "intelligence",
+				"purpose": "Append-only history of one week's answers: each save or correction that changed the answer, with its request key for retries.",
+				"library_owned": false,
+				"jsonb_keys": {},
+				"capabilities": ["CAP-B-033", "CAP-B-034"],
+				"replaces": [],
+				"producer_work_packages": ["WP-039"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-039"],
+					"rule": "WP-039 appends a revision only when a save or correction changes the answer."
+				},
+				"feature_ids": ["PI-038", "PI-039", "PI-040", "PI-041"],
+				"acceptance_ids": ["AC-PI-038--PI-038", "AC-PI-040--PI-040", "AC-PI-041--PI-041"],
+				"future_case_ids": [
+					"B03-019",
+					"B03-020",
+					"B03-021",
+					"B03-022",
+					"B03-023",
+					"B03-024",
+					"B03-025",
+					"B03-026",
+					"B03-035",
+					"PI-CARE-001",
+					"PI-CARE-003",
+					"SCHEMA-007",
+					"TARGET-IDN-031",
+					"TARGET-IDN-033"
+				],
+				"scope": "private_care",
+				"invariants": [
+					"Rows are never updated (immutable_revision); the runtime role cannot delete them.",
+					"One request key per author."
+				],
+				"revision": "No mutable revision column; each row is one immutable revision.",
+				"idempotency": "A save or correction keeps its request key on its revision row; a retry with the key replays that row. Private care has no shared audit row or operation receipt.",
+				"deletion": "Account-owned private care. A personal deletion request or a church workspace deletion hides it at once through the lifecycle witness; the purge at the deadline deletes the calendar, its weeks and revisions (settings_purge_content). It never transfers to another account.",
+				"physical_verified": false
+			},
+			"columns": {
+				"week_id": {
+					"note": "The week."
+				},
+				"author_id": {
+					"note": "The original author account. Frozen."
+				},
+				"revision": {
+					"note": "1 for the first answer, then one more for each change."
+				},
+				"kind": {
+					"note": "save for the open week, correction for an earlier answer."
+				},
+				"spiritual": {
+					"note": "Answer for Spiritually."
+				},
+				"family": {
+					"note": "Answer for Marriage and family."
+				},
+				"financial": {
+					"note": "Answer for Financially."
+				},
+				"pace": {
+					"note": "Answer for Pace."
+				},
+				"note": {
+					"note": "Optional note."
+				},
+				"calendar_revision": {
+					"note": "The calendar revision after this change, for replay."
+				},
+				"request_key": {
+					"note": "The request key of the save or correction."
+				},
+				"recorded_at": {
+					"note": "When the revision was recorded."
+				}
+			},
+			"foreignKeys": {
+				"week_id,author_id->private_week(id,author_id)": {
+					"deletion": {
+						"action": "cascade",
+						"policy": "Private care goes with its parent row in the author or church purge. No other table references it."
+					}
+				}
+			}
+		},
+		"attestation_revision": {
+			"table": {
+				"name": "attestation_revision",
+				"domain": "phases",
+				"purpose": "Append-only history of attestations: every answer, correction, retraction and reaffirmation with its value, detail, reference, as-of date, author, question version and request key. A merge moves the current attestation and leaves each revision on the Person it was about.",
+				"library_owned": false,
+				"jsonb_keys": {},
+				"capabilities": ["CAP-A-041", "CAP-B-030", "CAP-C-018"],
+				"replaces": [],
+				"producer_work_packages": ["WP-039"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-039"],
+					"rule": "WP-039 appends a revision when a signal or candidate attestation changes."
+				},
+				"feature_ids": ["PHASE-004", "PHASE-008", "PI-014", "PI-015", "TEAM-011", "TEAM-015"],
+				"acceptance_ids": [
+					"AC-PHASE-004--PHASE-004",
+					"AC-PHASE-008--PHASE-008",
+					"AC-PI-014--PI-014",
+					"AC-PI-015--PI-015",
+					"AC-TEAM-011--TEAM-011",
+					"AC-TEAM-015--TEAM-015"
+				],
+				"future_case_ids": [
+					"B01-001",
+					"B01-002",
+					"B01-003",
+					"B01-004",
+					"B01-017",
+					"B01-024",
+					"B01-025",
+					"B01-026",
+					"B01-027",
+					"B02-017",
+					"CA015",
+					"CA025",
+					"GAP-TEAM-015",
+					"MW-CASE-016",
+					"MW-CASE-018",
+					"PHASE-CASE-004",
+					"PHASE-CASE-008",
+					"PI-CASE-006",
+					"PI-DISC-001",
+					"PI-DISC-002",
+					"SME53-002",
+					"SME53-004",
+					"SME53-005",
+					"SME53-006",
+					"SME53-007",
+					"SME53-009",
+					"TARGET-TEAM-011",
+					"TARGET-TEAM-015",
+					"TARGET-TEAM-016"
+				],
+				"scope": "phases",
+				"invariants": [
+					"Rows are never updated except that the author link clears when the author's account is deleted; the runtime role cannot delete them.",
+					"One request key per church; a retry with the key replays the first result.",
+					"Only a human session writes a revision; models and private care never do.",
+					"Revision numbers follow the current attestation's revision without gaps."
+				],
+				"revision": "No mutable revision column; each row is one immutable revision numbered like the attestation it belongs to.",
+				"idempotency": "A write keeps its request key and a fingerprint of the request on its revision; a retry with the same key and request replays that row, and the same key with a different request is refused.",
+				"deletion": "Plant-owned facts and history survive personal account deletion with minimum necessary attribution. Plant deletion hides them immediately, holds eligible content only for 30-day cancellation, then purges live content; recovery copies expire within seven days of coherent live purge. No additional fixed history limit is specified. Plant-owned operational records follow the plant deletion policy. Account deletion preserves legitimate shared history with minimal scrubbed actor attribution. Soft deletion, retirement and correction preserve performed evidence; history is not a retention exemption. Tenant-owned content survives creator-account deletion with minimal attribution. Workspace deletion follows immediate access suspension, private 30-day cancellation hold, eligible live purge and seven-day recovery-copy horizon; restore reapplies current deletion/access witnesses.",
+				"physical_verified": false
+			},
+			"columns": {
+				"id": {
+					"note": "Revision identity."
+				},
+				"plant_id": {
+					"note": "The church that owns the attestation."
+				},
+				"attestation_id": {
+					"note": "The current attestation this revision belongs to."
+				},
+				"revision": {
+					"note": "1 for the first answer, then one more for each change."
+				},
+				"key": {
+					"note": "The manual signal key or leadership_candidate."
+				},
+				"person_id": {
+					"note": "The Person a candidate revision was about when written. Not moved by a merge."
+				},
+				"kind": {
+					"note": "answered, corrected, retracted or reaffirmed."
+				},
+				"answer": {
+					"note": "Yes (true) or Not yet (false); null once retracted and for candidates."
+				},
+				"as_of": {
+					"note": "The date the statement was true as of, in the church's time zone."
+				},
+				"detail": {
+					"note": "Optional detail, or a candidate's statement."
+				},
+				"reference": {
+					"note": "Optional reference to a document, meeting or note."
+				},
+				"period_start": {
+					"note": "Candidate period start."
+				},
+				"period_end": {
+					"note": "Candidate period end."
+				},
+				"attendance_continuous": {
+					"note": "Candidate attended unbroken."
+				},
+				"volunteering_continuous": {
+					"note": "Candidate volunteered unbroken."
+				},
+				"question_version": {
+					"note": "The version of the question or definition the author answered."
+				},
+				"author_id": {
+					"note": "The account that wrote the revision; cleared if the account is deleted."
+				},
+				"request_key": {
+					"note": "The request key of the write."
+				},
+				"request_fingerprint": {
+					"note": "A hash of the request, so a retry with a different request is refused."
+				},
+				"recorded_at": {
+					"note": "When the revision was recorded."
+				}
+			},
+			"foreignKeys": {
+				"plant_id->plant(id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
+					}
+				},
+				"attestation_id,plant_id->attestation(id,plant_id)": {
+					"deletion": {
+						"action": "cascade",
+						"policy": "History goes with its attestation in the church purge. The runtime login cannot delete attestations."
+					}
+				},
+				"person_id,plant_id->person(id,tenant_id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
+					}
+				},
+				"author_id->account(id)": {
+					"deletion": {
+						"action": "set_null",
+						"policy": "Plant-owned facts survive personal account deletion with minimum necessary attribution."
 					}
 				}
 			}
@@ -11564,9 +12264,6 @@
 				"schedule_date": {
 					"note": ""
 				},
-				"schedule_time": {
-					"note": ""
-				},
 				"timezone": {
 					"note": ""
 				},
@@ -11701,12 +12398,6 @@
 				"covered_through": {
 					"note": ""
 				},
-				"last_mail_id": {
-					"note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
-				},
-				"last_operation_id": {
-					"note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
-				},
 				"revision": {
 					"note": ""
 				}
@@ -11724,25 +12415,7 @@
 						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
 					}
 				},
-				"last_mail_id,tenant_id->mail(id,tenant_id)": {
-					"deletion": {
-						"action": "restrict",
-						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
-					}
-				},
-				"last_operation_id,tenant_id->operation(id,tenant_id)": {
-					"deletion": {
-						"action": "restrict",
-						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
-					}
-				},
 				"id,tenant_id->record(id,tenant_id)": {
-					"deletion": {
-						"action": "restrict",
-						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
-					}
-				},
-				"last_operation_id,tenant_id->audit_event(id,tenant_id)": {
 					"deletion": {
 						"action": "restrict",
 						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
@@ -12200,12 +12873,6 @@
 				"witness_checkpoint": {
 					"note": ""
 				},
-				"byte_manifest_hash": {
-					"note": ""
-				},
-				"cancellation_manifest_hash": {
-					"note": ""
-				},
 				"cleanup_state": {
 					"note": ""
 				},
@@ -12217,9 +12884,6 @@
 				},
 				"requester_opaque_id": {
 					"note": "Historical non-content subject key; retained after the live requester FK is cleared."
-				},
-				"counterparty_organization_id": {
-					"note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
 				},
 				"cancel_until": {
 					"note": "Immutable original cancellation deadline, requested_at plus 30 days; never reset by restore."
@@ -12256,12 +12920,6 @@
 				},
 				"affiliation_id->affiliation(id)": {
 					"scope_exception": "Body-free revocation witness identifies a relationship endpoint; synchronized witness writer validates exact affiliation identity and permitted counterparty before clearing live linkage on purge.",
-					"deletion": {
-						"action": "restrict",
-						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
-					}
-				},
-				"counterparty_organization_id->organization(id)": {
 					"deletion": {
 						"action": "restrict",
 						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
@@ -15710,7 +16368,7 @@
 					"Only same-plant top-level tasks; unique edges, no self edge or graph cycle.",
 					"New candidates are not deleted; existing deleted predecessor and its history survive.",
 					"Unfinished actionable prerequisite blocking is derived and separate from manual blocked state.",
-					"At most one open occurrence per series and one successor per predecessor.",
+					"At most one open occurrence per series and one successor per predecessor in each series.",
 					"Completion, successor, reset children, history and reminder intent are atomic.",
 					"Older occurrence cannot reopen when another open successor exists.",
 					"Eligible owner is a live same-plant committed core_group/launch_team/leader Person linked to an actual account with a current seat.",
@@ -16368,6 +17026,135 @@
 					"deletion": {
 						"action": "cascade",
 						"policy": "A proposal goes with its conversation, in the same tenant."
+					}
+				}
+			}
+		},
+		"person_duplicate_dismissal": {
+			"table": {
+				"name": "person_duplicate_dismissal",
+				"domain": "people",
+				"purpose": "One pair on the duplicates list an Owner or Admin marked \"Not a duplicate\" (D-789): the person a CSV import added with \"Add, review later\" and the person it may duplicate. The pair leaves the list while the row exists and shows in the Dismissed view; Restore deletes the row and the pair is listed again.",
+				"library_owned": false,
+				"jsonb_keys": {},
+				"capabilities": ["CAP-A-030"],
+				"replaces": [],
+				"producer_work_packages": ["WP-015"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-015"],
+					"rule": "WP-015 People duplicates list records a dismissal from an Owner or Admin."
+				},
+				"feature_ids": ["PPL-018"],
+				"acceptance_ids": ["AC-PPL-018--PPL-018"],
+				"future_case_ids": [],
+				"scope": "tenant",
+				"invariants": [
+					"At most one dismissal per church and pair.",
+					"Only a pair an import flagged, with both people live, is dismissed.",
+					"Each dismiss and restore writes one audit row in the same statement; a repeat writes nothing."
+				],
+				"revision": "No revision column; a dismissal is one row, and Restore deletes it.",
+				"idempotency": "A second dismiss of a dismissed pair, or a restore of a listed pair, changes nothing and writes no audit row.",
+				"deletion": "Plant-owned facts and history survive personal account deletion with minimum necessary attribution. Plant deletion hides them immediately, holds eligible content only for 30-day cancellation, then purges live content; recovery copies expire within seven days of coherent live purge. No additional fixed history limit is specified. Plant-owned operational records follow the plant deletion policy. Account deletion preserves legitimate shared history with minimal scrubbed actor attribution. Soft deletion, retirement and correction preserve performed evidence; history is not a retention exemption. Tenant-owned content survives creator-account deletion with minimal attribution. Workspace deletion follows immediate access suspension, private 30-day cancellation hold, eligible live purge and seven-day recovery-copy horizon; restore reapplies current deletion/access witnesses.",
+				"physical_verified": false
+			},
+			"columns": {
+				"id": {
+					"note": "Dismissal identity."
+				},
+				"plant_id": {
+					"note": "The church whose duplicates list the pair is on."
+				},
+				"person_id": {
+					"note": "The person the import added with \"Add, review later\". Not moved by a merge."
+				},
+				"with_person_id": {
+					"note": "The person it may duplicate. Not moved by a merge."
+				},
+				"dismissed_at": {
+					"note": "When the pair was marked not a duplicate."
+				}
+			},
+			"foreignKeys": {
+				"plant_id->plant(id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
+					}
+				},
+				"person_id,plant_id->person(id,tenant_id)": {
+					"deletion": {
+						"action": "cascade",
+						"policy": "The dismissal goes with either Person in the church purge."
+					}
+				},
+				"with_person_id,plant_id->person(id,tenant_id)": {
+					"deletion": {
+						"action": "cascade",
+						"policy": "The dismissal goes with either Person in the church purge."
+					}
+				}
+			}
+		},
+		"person_email_opt_out": {
+			"table": {
+				"name": "person_email_opt_out",
+				"domain": "communication",
+				"purpose": "A CRM person's opt-out from one church's Messages email (D-284): per church and per person, keyed by the Person and never by the address. The person's own token writes it from the Unsubscribe page or the one-click header; its undo sets undone_at within one hour. Messages refuses an opted-out person, and a merged-away Person's opt-out still covers the survivor through merge lineage.",
+				"library_owned": false,
+				"jsonb_keys": {},
+				"capabilities": ["CAP-B-046"],
+				"replaces": [],
+				"producer_work_packages": ["WP-028"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-028"],
+					"rule": "WP-028 Messages delivery records a Messages opt-out from the person's own token."
+				},
+				"feature_ids": ["NTF-016"],
+				"acceptance_ids": ["AC-NTF-016--NTF-016"],
+				"future_case_ids": [],
+				"scope": "communication",
+				"invariants": [
+					"At most one current (undone_at IS NULL) opt-out per Person.",
+					"Only the person's token writes it; no staff operation clears or rewrites it, and the runtime login cannot delete it or change any column except undone_at.",
+					"An address change on the Person does not lift it.",
+					"It never changes account notification preferences, marketing consent or any other CRM field."
+				],
+				"revision": "No revision column; an opt-out is one row, and its undo stamps undone_at once.",
+				"idempotency": "A second unsubscribe while one is current changes nothing; an undo token names the opt-out row it can undo.",
+				"deletion": "Plant-owned facts and history survive personal account deletion with minimum necessary attribution. Plant deletion hides them immediately, holds eligible content only for 30-day cancellation, then purges live content; recovery copies expire within seven days of coherent live purge. No additional fixed history limit is specified. Plant-owned operational records follow the plant deletion policy. Account deletion preserves legitimate shared history with minimal scrubbed actor attribution. Soft deletion, retirement and correction preserve performed evidence; history is not a retention exemption. Tenant-owned content survives creator-account deletion with minimal attribution. Workspace deletion follows immediate access suspension, private 30-day cancellation hold, eligible live purge and seven-day recovery-copy horizon; restore reapplies current deletion/access witnesses.",
+				"physical_verified": false
+			},
+			"columns": {
+				"id": {
+					"note": "Opt-out identity; an undo token names it."
+				},
+				"plant_id": {
+					"note": "The church whose Messages email the person stopped."
+				},
+				"person_id": {
+					"note": "The CRM Person who unsubscribed. Not moved by a merge."
+				},
+				"opted_out_at": {
+					"note": "When the person unsubscribed."
+				},
+				"undone_at": {
+					"note": "When the person undid it from the opt-out page, within one hour; null while current."
+				}
+			},
+			"foreignKeys": {
+				"plant_id->plant(id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
+					}
+				},
+				"person_id,plant_id->person(id,tenant_id)": {
+					"deletion": {
+						"action": "cascade",
+						"policy": "The opt-out goes with its Person in the church purge. The runtime login cannot delete it."
 					}
 				}
 			}

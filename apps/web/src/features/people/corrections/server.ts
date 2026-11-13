@@ -6,6 +6,9 @@ import {
 	assessments,
 	commitments,
 	interviews,
+	listDismissedDuplicatePairs,
+	listDuplicatePairs,
+	listedDuplicatePair,
 	peopleMerge,
 	peopleReader,
 	peopleUnmerge,
@@ -13,7 +16,7 @@ import {
 	recordCorrections,
 } from "@everyfield/domain/people";
 import type { z } from "zod";
-import { defaultSurvivor, fieldText, type Households, type MergeField } from "./model.ts";
+import { defaultSurvivor, fieldText, type Households, type ListedPair, type MergeField } from "./model.ts";
 
 // The reads behind the duplicate review, Unmerge preview and record corrections. Each one runs inside the caller's single
 // read transaction (people/server.ts read()), so a screen read is one transaction with the reads it needs, never one
@@ -23,11 +26,18 @@ type Review = z.infer<typeof c.mergeReview>;
 type PersonResult = z.infer<typeof c.personResult>;
 type PersonId = z.infer<typeof c.personRequest>["personId"];
 export type PairQuery = { person: PersonId; with: PersonId; keep: PersonId | null };
-export type PairPerson = { id: string; displayName: string; createdAt: string; linked: boolean };
-export type Photos = Partial<Record<"source" | "survivor", string>>;
+type Photos = Partial<Record<"source" | "survivor", string>>;
 /** The duplicates page for one pair of people. */
 export type PairView =
-	| { kind: "ready"; review: Review; households: Households; photos: Photos; added: Record<string, string> }
+	| {
+			kind: "ready";
+			review: Review;
+			households: Households;
+			photos: Photos;
+			added: Record<string, string>;
+			/** Set when the pair is on /people/duplicates, so the review offers "Not a duplicate": imported person first. */
+			listed: ListedPair | null;
+	  }
 	/** One of them was already merged into the other: show the result and the way back, never a second review. */
 	| { kind: "merged"; source: { id: string; name: string }; survivor: { id: string; name: string } }
 	/** Missing, retired, in another church or the same person twice: nothing to review. */
@@ -39,7 +49,8 @@ const available = (r: { status: string; value?: PersonResult }) =>
 
 /**
  * The review of `person` and `with`, with the person in `keep` (or the default, see defaultSurvivor) as the survivor.
- * Reads both people, the merge review and, only when those fields differ, the two households' names and photos.
+ * Reads both people, the merge review, whether an import listed the pair (in either order) and, only when those fields
+ * differ, the two households' names and photos.
  */
 export async function readPair(tx: Transaction, ctx: PeopleContext, q: PairQuery): Promise<PairView> {
 	if (q.person === q.with) return { kind: "unavailable" };
@@ -90,11 +101,25 @@ export async function readPair(tx: Transaction, ctx: PeopleContext, q: PairQuery
 			if (p.status === "ok" && p.value.status === "available")
 				photos[side] = `/people/${p.value.personId}/photo/${p.value.versionId}`;
 		}
-	return { kind: "ready", review, households, photos, added: { [a.id]: a.createdAt, [b.id]: b.createdAt } };
+	const l = await listedDuplicatePair(tx, ctx, { a: a.id, b: b.id });
+	return {
+		kind: "ready",
+		review,
+		households,
+		photos,
+		added: { [a.id]: a.createdAt, [b.id]: b.createdAt },
+		listed: l.status === "ok" ? l.value : null,
+	};
 }
 
 /** Duplicate hints for one live plant person (REQ-PPL-016), read with the person page. Hints only. */
 export type DuplicateHints = z.infer<typeof c.duplicateHints>;
+/** The pairs CSV imports flagged with "Add, review later" whose two people are both still live (REQ-PPL-018). */
+export type DuplicatePairs = z.infer<typeof c.duplicatePairs>;
+export const readPairs = (tx: Transaction, ctx: PeopleContext) => listDuplicatePairs(tx, ctx);
+/** The pairs marked "Not a duplicate" whose two people are both still live, for the Dismissed view (D-790). */
+export type DismissedPairs = z.infer<typeof c.dismissedDuplicatePairs>;
+export const readDismissedPairs = (tx: Transaction, ctx: PeopleContext) => listDismissedDuplicatePairs(tx, ctx);
 
 /** The Unmerge preview with both people's names, in one transaction. */
 export async function readUnmerge(tx: Transaction, ctx: PeopleContext, mergeId: string) {

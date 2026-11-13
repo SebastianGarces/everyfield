@@ -4,15 +4,16 @@ import { Select } from "@everyfield/ui/controls";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo } from "react";
 import { loadPage } from "../../identity/api";
-import type { ErrorCode, Op } from "../model";
+import type { Op } from "../model";
 import { parseStep } from "../model";
 import { OnboardingFlow, type Article } from "../OnboardingFlow";
-import { createFixturePort, parsePersona, PERSONA_LABEL, PERSONAS } from "./fixtures";
+import { createFixturePort, parsePersona, PERSONA_LABEL, PERSONAS, type Fault } from "./fixtures";
 
 /**
  * The onboarding design preview at /design/onboarding?as=<persona>. `delay` sets the reply time in milliseconds and
- * `fail=<op>:<code>` makes the first call of that command fail. Replies come from the fixture API, parsed by the
- * WP-009 contract. Browser tests read window.__onboardingFixture to count requests.
+ * `fail=<op>:<code>` makes the first call of that command fail, and `fail=<op>:offline` drops the connection for it
+ * instead. Replies come from the fixture API, parsed by the WP-009 contract. Browser tests read
+ * window.__onboardingFixture to count requests.
  */
 export function OnboardingPreview({ articles }: { articles: Article[] }) {
 	const search = useSearchParams();
@@ -22,7 +23,7 @@ export function OnboardingPreview({ articles }: { articles: Article[] }) {
 	useEffect(() => {
 		for (const spec of search.getAll("fail")) {
 			const [op, code] = spec.split(":");
-			if (op && code) fixture.controls.failNext(op as Op, code as ErrorCode);
+			if (op && code) fixture.controls.failNext(op as Op, code as Fault);
 		}
 		(window as unknown as { __onboardingFixture?: unknown }).__onboardingFixture = fixture.controls;
 		// Faults from the URL apply once per fixture.

@@ -65,7 +65,7 @@
       "feature_ids": [
         "REF-003"
       ],
-      "text": "Preserve eleven original document template catalog entries, meaningful generated document/private exact byte/history workflow; approved optional operational copying never silently overwrites tenant work.",
+      "text": "Preserve the eleven original document template catalog entries as the base of the growing catalog, with the meaningful generated document/private exact byte/history workflow; approved optional operational copying never silently overwrites tenant work.",
       "spec": "docs/reference/manifest.json",
       "operations": [
         "reference.packageDocumentTemplates"
@@ -90,7 +90,7 @@
           "rule": "Pure extraction/validation of registered immutable global source component, no seed, active pointer, tenant copy or model call."
         }
       ],
-      "title": "Eleven generated document template catalog"
+      "title": "Generated document template catalog"
     },
     {
       "id": "REQ-REF-004",

@@ -1,4 +1,4 @@
-import { accountId, instant, localDate, personId, recordId, timeZone } from "@everyfield/contracts/common";
+import { instant, localDate, personId, recordId, timeZone } from "@everyfield/contracts/common";
 import { meetingType } from "@everyfield/contracts/meetings";
 import * as c from "@everyfield/contracts/tasks";
 import { sql, type SQL } from "@everyfield/db/query";
@@ -7,6 +7,7 @@ import { randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
 import { displayTitle } from "../meetings/rows.ts";
+import { ownerReason } from "./owner.ts";
 import { auditRow, deny, parse, type AuditCommand, type Tx } from "./core.ts";
 import { managedTaskRows, managedTasks, storageKind, storedKind, type TaskRow } from "./queries.ts";
 import { audited, insertTasks, newTask, reminderChange, setStatus, syncAll, type TaskReminders } from "./writes.ts";
@@ -18,8 +19,8 @@ const meetingObligations = z.strictObject({
 	meetingId: recordId,
 	// The captured origin: the actual occurrence instant and the meeting's church-local date and zone.
 	origin: z.strictObject({ at: instant, date: localDate, zone: timeZone }),
-	followUps: z.array(z.strictObject({ personId, assigneeId: accountId.nullable() })).max(500),
-	evaluation: z.strictObject({ assigneeId: accountId.nullable() }).nullable(),
+	followUps: z.array(z.strictObject({ personId, assigneeIds: c.assigneeIds })).max(500),
+	evaluation: z.strictObject({ assigneeIds: c.assigneeIds }).nullable(),
 });
 /** One meeting's duties, or several: a correction of one meeting can owe a follow-up on a later one (REQ-MTG-020). */
 export const ensureMeetingObligationsInput = z
@@ -32,14 +33,18 @@ const existingRow = z.object({
 	person_id: z.uuid().nullable(),
 	task_id: z.uuid().nullable(),
 });
-const factsRow = z.object({
+export const obligationFactsRow = z.object({
 	meetings: z.record(
 		z.string(),
 		z.object({ title: z.string().nullable(), type: meetingType, vision_number: z.number().int().nullable() }),
 	),
 	existing: z.array(existingRow),
 	people: z.record(z.string(), z.string()),
-	seats: z.record(z.string(), z.string()),
+	seats: z.array(z.string()),
+	// The display name of each named assignee, whether or not the seat is current.
+	names: z.record(z.string(), z.string()),
+	// Why each named assignee cannot own a follow-up, or null when it can (REQ-TSK-012).
+	reasons: z.record(z.string(), z.string().nullable()),
 	zone: timeZone,
 });
 const asArray = (ids: readonly string[]) => sql`${sql.param([...ids])}::uuid[]`;
@@ -57,9 +62,13 @@ export function obligationFacts(plantId: string, meetings: SQL, people: SQL, ass
 			FROM obligation o WHERE o.plant_id=${plantId}::uuid AND o.meeting_id=ANY(${meetings})),
 		'people', (SELECT coalesce(jsonb_object_agg(id,display_name),'{}') FROM person WHERE tenant_id=${plantId}::uuid
 			AND plant_id IS NOT NULL AND state='live' AND id=ANY(${people})),
-		'seats', (SELECT coalesce(jsonb_object_agg(s.account_id,i.display_name),'{}') FROM seat s
-			CROSS JOIN LATERAL seat_identity(s.account_id) i WHERE s.plant_id=${plantId}::uuid AND s.ended_at IS NULL
+		'seats', (SELECT coalesce(jsonb_agg(s.account_id),'[]') FROM seat s
+			WHERE s.plant_id=${plantId}::uuid AND s.ended_at IS NULL
 			AND s.accepted_at<=clock_timestamp() AND s.account_id=ANY(${assignees})),
+		'names', (SELECT coalesce(jsonb_object_agg(u.a, coalesce(i.display_name,'')),'{}')
+			FROM unnest(${assignees}) AS u(a) LEFT JOIN LATERAL seat_identity(u.a) i ON true),
+		'reasons', (SELECT coalesce(jsonb_object_agg(u.a, ${ownerReason(sql`u.a`, sql`${plantId}::uuid`)}),'{}')
+			FROM unnest(${assignees}) AS u(a)),
 		'zone', (SELECT timezone FROM plant WHERE id=${plantId}::uuid))`;
 }
 
@@ -79,9 +88,11 @@ export async function ensureMeetingObligations(
 	const v = parse(ensureMeetingObligationsInput, raw),
 		plant = cmd.actor.plantId;
 	const assignees = [
-		...new Set(v.meetings.flatMap((m) => [...m.followUps.map((f) => f.assigneeId), m.evaluation?.assigneeId ?? null])),
-	].filter((a) => a !== null);
-	const row = factsRow.parse(
+		...new Set(
+			v.meetings.flatMap((m) => [...m.followUps.flatMap((f) => f.assigneeIds), ...(m.evaluation?.assigneeIds ?? [])]),
+		),
+	];
+	const row = obligationFactsRow.parse(
 		facts ??
 			(
 				await tx.execute(
@@ -95,7 +106,14 @@ export async function ensureMeetingObligations(
 			).rows[0]?.facts,
 	);
 	// An assignee must hold a current seat; an invalid choice refuses instead of silently becoming Needs owner.
-	if (assignees.some((a) => !(a in row.seats))) deny("invalid_subject");
+	const unseated = assignees.find((a) => !row.seats.includes(a));
+	if (unseated) deny("invalid_subject", { accountId: unseated });
+	// A follow-up owner must also be a committed Person's account; an evaluation keeps the seated rule.
+	for (const m of v.meetings)
+		for (const f of m.followUps) {
+			const bad = f.assigneeIds.find((a) => row.reasons[a] !== null);
+			if (bad) deny("owner_ineligible", { accountId: bad });
+		}
 	const at = new Date();
 	const results = [];
 	const created: TaskRow[] = [];
@@ -113,7 +131,7 @@ export async function ensureMeetingObligations(
 			...m.followUps.map((f) => ({
 				kind: "first_vision_follow_up" as const,
 				personId: f.personId,
-				assigneeId: f.assigneeId,
+				assigneeIds: f.assigneeIds,
 				title: `Follow up with ${row.people[f.personId]}`,
 			})),
 			...(m.evaluation
@@ -121,7 +139,7 @@ export async function ensureMeetingObligations(
 						{
 							kind: "meeting_evaluation" as const,
 							personId: null,
-							assigneeId: m.evaluation.assigneeId,
+							assigneeIds: m.evaluation.assigneeIds,
 							title: `Evaluate ${title}`,
 						},
 					]
@@ -152,8 +170,7 @@ export async function ensureMeetingObligations(
 					priority: "medium",
 					status: "not_started",
 					created_at: at,
-					assignee_id: w.assigneeId,
-					assignee_name: w.assigneeId ? row.seats[w.assigneeId]! : null,
+					assignees: w.assigneeIds.map((id) => ({ accountId: id, displayName: row.names[id]!, seated: true })),
 					due_kind: "date_only",
 					due_date: due,
 					person_id: w.personId,
@@ -194,7 +211,7 @@ export async function ensureMeetingObligations(
 					};
 				}),
 			),
-			insertTasks(plant, cmd.actor.accountId, created),
+			...insertTasks(plant, cmd.actor.accountId, created),
 		);
 		for (const t of created)
 			auditRow(cmd, {

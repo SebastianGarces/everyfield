@@ -68,7 +68,7 @@ Retain the SME 60 days of unbroken attendance AND volunteering, described as ste
 
 **REQ-TEAM-002.** Archive hides a team from operational selectors, current staffing/health and default chart/list while retaining team/role/membership/training/meeting history. Explicit archived inclusion permits discovery and authorized restoration. Historical Person tabs show labelled former/archive records. Current follow-up duties remain visible; archiving does not waive them or broaden team programs to churchwide. Edit/archive/restore under unchanged reviewed state commits current state, before/after actor/reason history and assessment freshness; repeated same state no-ops. Restoration does not restore revoked seats or rewrite old tenure.
 
-**Target operations:** `teams.archive`, `teams.restore`, `teams.correct`, `teams.history`.
+**Target operations:** `teams.archive`, `teams.restore`, `teams.history`.
 
 **Acceptance:** AC-TEAM-002--TEAM-002. **Named cases:** TARGET-TEAM-002.
 
@@ -244,7 +244,7 @@ Retain the SME 60 days of unbroken attendance AND volunteering, described as ste
 
 ## Consumer closure and proof
 
-[Canonical build progress](../build-progress.json) records implementation milestones and completion. Execute the named future cases through real domain requests, disposable PostgreSQL constraints/races/fault injection and native/reviewed-Evry browser paths where surfaced. Prove current authorization again at execution; no test/source count or file presence is runtime proof. Include registered Person references, assessment freshness, exact partial/committed receipts, correction limits and failure outcomes at each owning consumer closure. Domain adapter files are owned by their specific feature packages; shared Evry runtime/catalog/review UI has one integration owner.
+[Frozen build progress](../build-progress.json) records implementation milestones until it stopped updating on 2026-10-22 at PR #235; evf v2's task records are the live state. Execute the named future cases through real domain requests, disposable PostgreSQL constraints/races/fault injection and native/reviewed-Evry browser paths where surfaced. Prove current authorization again at execution; no test/source count or file presence is runtime proof. Include registered Person references, assessment freshness, exact partial/committed receipts, correction limits and failure outcomes at each owning consumer closure. Domain adapter files are owned by their specific feature packages; shared Evry runtime/catalog/review UI has one integration owner.
 
 ## Organization development programs
 

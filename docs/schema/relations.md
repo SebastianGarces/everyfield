@@ -33,17 +33,27 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `attestation(reference_version_id)` | `reference_version(id)` | restrict |  |
 | `attestation(person_id, plant_id)` | `person(id, tenant_id)` | restrict |  |
 | `attestation(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
+| `attestation_revision(attestation_id, plant_id)` | `attestation(id, plant_id)` | cascade |  |
+| `attestation_revision(person_id, plant_id)` | `person(id, tenant_id)` | restrict |  |
+| `attestation_revision(author_id)` | `account(id)` | set_null |  |
+| `attestation_revision(plant_id)` | `plant(id)` | restrict |  |
 | `audit_event(command_id)` | `audit_event(id)` | set_null | Original command correlation may cross the owned endpoint of a reviewed conversion. Cleanup may sever correlation while retaining only independently owned facts. |
 | `audit_event(actor_id)` | `account(id)` | set_null |  |
 | `audit_event(tenant_id)` | `tenant(id)` | no_action |  |
 | `audit_event(subject_id)` | `record(id)` | no_action | D70 audit subject or original-command correlation may name an authorized bilateral endpoint or retained identity; pair/source checks and current authority remain mandatory. Operator projections omit protected history and retry content. |
 | `auth_account(user_id)` | `auth_user(id)` | restrict |  |
 | `auth_session(user_id)` | `auth_user(id)` | restrict |  |
+| `church_brand_kit(cover_photo_object_id, tenant_id)` | `file_object(id, tenant_id)` | restrict |  |
+| `church_brand_kit(full_logo_dark_object_id, tenant_id)` | `file_object(id, tenant_id)` | restrict |  |
+| `church_brand_kit(full_logo_object_id, tenant_id)` | `file_object(id, tenant_id)` | restrict |  |
+| `church_brand_kit(mark_dark_object_id, tenant_id)` | `file_object(id, tenant_id)` | restrict |  |
+| `church_brand_kit(mark_object_id, tenant_id)` | `file_object(id, tenant_id)` | restrict |  |
+| `church_brand_kit(signature_object_id, tenant_id)` | `file_object(id, tenant_id)` | restrict |  |
+| `church_brand_kit(tenant_id)` | `tenant(id)` | restrict |  |
 | `commitment(plant_id)` | `plant(id)` | restrict |  |
 | `commitment(person_id, plant_id)` | `person(id, tenant_id)` | restrict |  |
 | `commitment(witness_person_id, plant_id)` | `person(id, tenant_id)` | restrict |  |
 | `commitment(object_id, plant_id)` | `file_object(id, tenant_id)` | restrict |  |
-| `commitment(corrected_commitment_id, plant_id)` | `commitment(id, plant_id)` | restrict |  |
 | `commitment(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
 | `commitment_change(actor_id)` | `account(id)` | set_null |  |
 | `commitment_change(person_id, plant_id)` | `person(id, tenant_id)` | cascade |  |
@@ -84,8 +94,6 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `development_stage(version_id, organization_id)` | `development_program_version(id, organization_id)` | restrict |  |
 | `digest_coverage(tenant_id)` | `tenant(id)` | restrict |  |
 | `digest_coverage(recipient_id)` | `account(id)` | restrict |  |
-| `digest_coverage(last_mail_id, tenant_id)` | `mail(id, tenant_id)` | restrict |  |
-| `digest_coverage(last_operation_id, tenant_id)` | `audit_event(id, tenant_id)` | restrict |  |
 | `digest_coverage(id, tenant_id)` | `record(id, tenant_id)` | restrict |  |
 | `discovery(account_id)` | `account(id)` | restrict |  |
 | `discovery(converted_plant_id)` | `plant(id)` | restrict |  |
@@ -95,6 +103,7 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `document(current_revision_id, tenant_id)` | `document_revision(id, tenant_id)` | restrict |  |
 | `document(copied_from_revision_id)` | `document_revision(id)` | restrict | Explicit account-to-plant copy may cite a differently owned source; validate source rights and immutable hash without transferring ownership. |
 | `document(id, tenant_id)` | `record(id, tenant_id)` | restrict |  |
+| `document_revision(author_account_id)` | `account(id)` | set_null |  |
 | `document_revision(tenant_id)` | `tenant(id)` | restrict |  |
 | `document_revision(document_id, tenant_id)` | `document(id, tenant_id)` | restrict |  |
 | `document_revision(import_object_id, tenant_id)` | `file_object(id, tenant_id)` | restrict |  |
@@ -108,6 +117,8 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `generated_document(creator_account_id)` | `account(id)` | set_null |  |
 | `generated_document(object_id, tenant_id)` | `file_object(id, tenant_id)` | restrict |  |
 | `generated_document(id, tenant_id)` | `record(id, tenant_id)` | restrict |  |
+| `generated_document(source_document_id, tenant_id)` | `document(id, tenant_id)` | restrict |  |
+| `generated_document(source_revision_id, tenant_id)` | `document_revision(id, tenant_id)` | restrict |  |
 | `household(plant_id)` | `plant(id)` | restrict |  |
 | `household(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
 | `identity_proof(account_id)` | `account(id)` | restrict |  |
@@ -125,7 +136,6 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `job(id, tenant_id)` | `record(id, tenant_id)` | restrict |  |
 | `launch(plant_id)` | `plant(id)` | restrict |  |
 | `launch(reference_version_id)` | `reference_version(id)` | restrict |  |
-| `launch(summary_document_id, plant_id)` | `document(id, tenant_id)` | restrict |  |
 | `launch_milestone(source_version_id)` | `reference_version(id)` | restrict |  |
 | `launch_milestone(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
 | `launch_milestone(plant_id)` | `launch(plant_id)` | restrict |  |
@@ -134,7 +144,6 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `lifecycle_witness(requester_id)` | `account(id)` | restrict |  |
 | `lifecycle_witness(seat_id)` | `seat(id)` | restrict | Body-free revocation witness identifies a seat endpoint; synchronized witness writer validates exact seat kind and original identity before clearing live linkage on purge. |
 | `lifecycle_witness(affiliation_id)` | `affiliation(id)` | restrict | Body-free revocation witness identifies a relationship endpoint; synchronized witness writer validates exact affiliation identity and permitted counterparty before clearing live linkage on purge. |
-| `lifecycle_witness(counterparty_organization_id)` | `organization(id)` | restrict |  |
 | `lifecycle_witness(id)` | `record(id)` | restrict | Subtype trigger binds actual record owner for a global/public or retained body-free variant whose live root pointer is nullable. |
 | `mail(tenant_id)` | `tenant(id)` | restrict |  |
 | `mail(recipient_account_id)` | `account(id)` | restrict |  |
@@ -142,8 +151,8 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `mail(operation_id, tenant_id)` | `audit_event(id, tenant_id)` | restrict |  |
 | `mail(notice_id, tenant_id)` | `notice(id, tenant_id)` | restrict |  |
 | `mail(job_id, tenant_id)` | `job(id, tenant_id)` | restrict |  |
-| `mail(original_mail_id, tenant_id)` | `mail(id, tenant_id)` | restrict |  |
 | `mail(id, tenant_id)` | `record(id, tenant_id)` | restrict |  |
+| `mail(communication_id, tenant_id)` | `communication(id, plant_id)` | restrict |  |
 | `mail_attempt(tenant_id)` | `tenant(id)` | restrict |  |
 | `mail_attempt(request_id, tenant_id)` | `mail_request(id, tenant_id)` | restrict |  |
 | `mail_attempt(id, tenant_id)` | `record(id, tenant_id)` | restrict |  |
@@ -172,7 +181,6 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `obligation(plant_id)` | `plant(id)` | restrict |  |
 | `obligation(meeting_id, plant_id)` | `meeting(id, plant_id)` | restrict |  |
 | `obligation(person_id, plant_id)` | `person(id, tenant_id)` | restrict |  |
-| `obligation(assignee_id)` | `account(id)` | restrict |  |
 | `obligation(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
 | `onboarding_setup(account_id)` | `account(id)` | no_action |  |
 | `onboarding_setup(creation_operation_id)` | `audit_event(id)` | no_action | D70 command identity correlation; the producer validates the actual owner, exact source and current authority in its transaction. Retained evidence grants no access. |
@@ -203,6 +211,11 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `person(id, tenant_id)` | `record(id, tenant_id)` | restrict |  |
 | `person(tenant_id)` | `tenant(id)` | restrict |  |
 | `person(organization_id)` | `organization(id)` | restrict |  |
+| `person_duplicate_dismissal(person_id, plant_id)` | `person(id, tenant_id)` | cascade |  |
+| `person_duplicate_dismissal(plant_id)` | `plant(id)` | no_action |  |
+| `person_duplicate_dismissal(with_person_id, plant_id)` | `person(id, tenant_id)` | cascade |  |
+| `person_email_opt_out(person_id, plant_id)` | `person(id, tenant_id)` | cascade |  |
+| `person_email_opt_out(plant_id)` | `plant(id)` | no_action |  |
 | `person_import(actor_id)` | `account(id)` | set_null |  |
 | `person_import(job_id, tenant_id)` | `job(id, tenant_id)` | cascade |  |
 | `person_import(tenant_id)` | `tenant(id)` | no_action |  |
@@ -223,7 +236,6 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `person_tag(tag_id, plant_id)` | `tag(id, plant_id)` | restrict |  |
 | `phase_transition(plant_id)` | `plant(id)` | restrict |  |
 | `phase_transition(operation_id)` | `audit_event(id)` | restrict | D70 command identity correlation; the producer validates the actual owner, exact source and current authority in its transaction. Retained evidence grants no access. |
-| `phase_transition(criterion_version_id)` | `reference_version(id)` | restrict |  |
 | `phase_transition(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
 | `pipeline_person(organization_id)` | `organization(id)` | restrict |  |
 | `pipeline_person(id, organization_id)` | `record(id, tenant_id)` | restrict |  |
@@ -246,6 +258,10 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `plant_geography(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
 | `platform_grant(account_id)` | `account(id)` | restrict |  |
 | `platform_grant(id, account_id)` | `record(id, tenant_id)` | restrict |  |
+| `private_calendar(author_id)` | `account(id)` | restrict |  |
+| `private_calendar(plant_id)` | `plant(id)` | restrict |  |
+| `private_week(author_id, plant_id)` | `private_calendar(author_id, plant_id)` | cascade |  |
+| `private_week_revision(week_id, author_id)` | `private_week(id, author_id)` | cascade |  |
 | `proposal(account_id)` | `account(id)` | no_action |  |
 | `proposal(approved_session_id)` | `auth_session(id)` | set_null |  |
 | `proposal(conversation_id, tenant_id)` | `conversation(id, tenant_id)` | cascade |  |
@@ -308,11 +324,7 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `task(plant_id)` | `plant(id)` | restrict |  |
 | `task(creator_id)` | `account(id)` | restrict |  |
 | `task(obligation_id, plant_id)` | `obligation(id, plant_id)` | restrict |  |
-| `task(source_template_id)` | `reference_version(id)` | restrict |  |
-| `task(import_operation_id)` | `audit_event(id)` | restrict | D70 command identity correlation; the producer validates the actual owner, exact source and current authority in its transaction. Retained evidence grants no access. |
-| `task(milestone_id, plant_id)` | `launch_milestone(id, plant_id)` | restrict |  |
 | `task(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
-| `task(assignee_id)` | `account(id)` | restrict |  |
 | `task(person_id, plant_id)` | `person(id, tenant_id)` | restrict |  |
 | `task(meeting_id, plant_id)` | `meeting(id, plant_id)` | restrict |  |
 | `task(team_id, plant_id)` | `team(id, plant_id)` | restrict |  |
@@ -320,6 +332,9 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `task(parent_id, plant_id)` | `task(id, plant_id)` | restrict |  |
 | `task(series_id, plant_id)` | `recurrence(id, plant_id)` | restrict |  |
 | `task(predecessor_id, plant_id)` | `task(id, plant_id)` | restrict |  |
+| `task_assignee(plant_id)` | `plant(id)` | restrict |  |
+| `task_assignee(task_id, plant_id)` | `task(id, plant_id)` | restrict |  |
+| `task_assignee(account_id)` | `account(id)` | restrict |  |
 | `team(plant_id)` | `plant(id)` | restrict |  |
 | `team(template_version_id)` | `reference_version(id)` | restrict |  |
 | `team(leader_person_id, plant_id)` | `person(id, tenant_id)` | restrict |  |
@@ -369,6 +384,10 @@ Every declared Person FK has one registration in `target.json.person_references`
 | `obligation` | `person_id, plant_id` | WP-004, WP-024 |
 | `contact_outcome` | `person_id, plant_id` | WP-004, WP-023 |
 | `attestation` | `person_id, plant_id` | WP-004, WP-039 |
+| `attestation_revision` | `person_id, plant_id` | WP-039 |
+| `person_duplicate_dismissal` | `person_id, plant_id` | WP-015 |
+| `person_duplicate_dismissal` | `with_person_id, plant_id` | WP-015 |
+| `person_email_opt_out` | `person_id, plant_id` | WP-028 |
 | `mail` | `recipient_person_id, tenant_id` | WP-004, WP-028, WP-031 |
 | `pipeline_person` | `person_id, organization_id` | WP-004, WP-098 |
 | `development_enrollment` | `person_id, organization_id` | WP-004, WP-099 |

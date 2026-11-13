@@ -14,6 +14,7 @@ export const communicationError = z.discriminatedUnion("code", [
 	defineSafeError("protected_source", {}, "never"),
 	defineSafeError("referenced", {}, "never"),
 	defineSafeError("not_found", {}, "never"),
+	defineSafeError("rsvp_needs_meeting", {}, "never"),
 	defineSafeError("cancel_unconfirmed", { replacementIntents: z.literal(0) }, "never"),
 ]);
 export type CommunicationError = z.infer<typeof communicationError>;
@@ -52,6 +53,7 @@ export const templateResult = z.strictObject({
 });
 export const previewResult = z.strictObject({
 	previewBody: z.string(),
+	previewHtml: z.string(),
 	scriptExecution: z.literal(false),
 	providerCalls: z.literal(0),
 	eligibleEmails: z.array(z.string()),
@@ -66,14 +68,35 @@ export const audienceResult = z.strictObject({
 	eligibleEmails: z.array(z.string()),
 	searchResultLimit: z.literal(20),
 	searchLimitTruncatesAudience: z.literal(false),
+	/** The reachable people by name, capped at 200. `complete` is false when the cap cut the list. */
+	recipients: z.array(z.strictObject({ id: recordId, displayName: z.string(), email: z.string() })).max(200),
+	complete: z.boolean(),
+	/**
+	 * People with an address who unsubscribed from this church's Messages email, and when. They are not in
+	 * `eligibleRecipients` and get nothing. Capped at 200.
+	 */
+	unsubscribedExclusions: z
+		.array(z.strictObject({ id: recordId, displayName: z.string(), unsubscribedAt: instant }))
+		.max(200),
 });
 export const recipientResult = z.strictObject({
-	people: z.array(z.strictObject({ id: recordId, displayName: z.string(), email: z.string() })).max(20),
+	/** `unsubscribedAt`: when the person unsubscribed from this church's Messages email; they cannot be added. */
+	people: z
+		.array(
+			z.strictObject({
+				id: recordId,
+				displayName: z.string(),
+				email: z.string().nullable(),
+				unsubscribedAt: instant.nullable(),
+			}),
+		)
+		.max(20),
 	limit: z.literal(20),
 });
 export const teamListResult = z.strictObject({
 	teams: z.array(z.strictObject({ id: recordId, name: z.string() })),
 });
+export const churchNameResult = z.strictObject({ churchName: z.string() });
 export const draftListResult = z.strictObject({
 	drafts: z.array(draftResult),
 });
@@ -86,6 +109,8 @@ export const dispatchResult = z.strictObject({
 	acceptedCount: z.number().int().nonnegative(),
 	rejectedCount: z.number().int().nonnegative(),
 	unknownCount: z.number().int().nonnegative(),
+	/** Recipients Everyfield refused because the person unsubscribed from this church's email. Not in rejectedCount. */
+	unsubscribedCount: z.number().int().nonnegative(),
 	uncertain: z.boolean(),
 	failed: z.boolean(),
 	providerCalls: z.number().int().nonnegative(),
@@ -97,14 +122,22 @@ export const dispatchResult = z.strictObject({
 	status: z.enum(["accepted", "partial", "uncertain", "failed", "accepted_unknown"]),
 	confirmedRecipientIds: z.array(z.string()),
 });
+const count = z.number().int().nonnegative();
+/**
+ * What the email service confirmed for one cancel or time change, per accepted recipient. `confirmed` counts the
+ * recipients it confirmed, `sent` the ones it says already went out, `open` the ones still without an answer.
+ */
+const providerTally = { confirmedCount: count, sentCount: count, openCount: count };
 export const cancelScheduledResult = z.strictObject({
 	newHandoffs: z.literal(0),
+	/** `confirmed`: no recipient is open. `reconcile`: some are. `none`: nothing was with the email service. */
 	scheduledCancel: z.enum(["reconcile", "confirmed", "none"]),
 	sentRecalled: z.literal(false),
 	cancelRequested: z.boolean(),
 	recallGuaranteed: z.literal(false),
 	newSend: z.literal(false),
 	existingUrlMayWorkUntil: instant.nullable(),
+	...providerTally,
 });
 export const replaceScheduledResult = z.strictObject({
 	replacementAllowed: z.boolean(),
@@ -113,9 +146,14 @@ export const replaceScheduledResult = z.strictObject({
 });
 export const rescheduleDispatchedResult = z.strictObject({
 	body: z.string(),
+	/** `accepted`: every open recipient now holds `scheduledAt`. `unknown`: some still hold `heldAt`. */
 	rescheduleStatus: z.enum(["accepted", "unknown"]),
 	newCommunications: z.literal(0),
+	/** The requested send time. */
 	scheduledAt: instant,
+	/** The time the email service still holds for an open recipient, or null when none is open. */
+	heldAt: instant.nullable(),
+	...providerTally,
 });
 export const transactionalResult = z.strictObject({
 	purposeMailAttempted: z.literal(true),
@@ -125,6 +163,8 @@ export const transactionalResult = z.strictObject({
 export const suppressionListResult = z.strictObject({
 	address: z.email(),
 	active: z.boolean(),
+	/** Each earlier restore of this address, newest first. `actorName` is null when no name is on record. */
+	restores: z.array(z.strictObject({ at: instant, actorName: z.string().nullable(), reason: z.string() })),
 	suppressionClears: z.literal(0),
 	newSends: z.literal(0),
 });
@@ -132,12 +172,28 @@ export const restoreSuppressionResult = z.strictObject({
 	suppressionClears: z.number().int().nonnegative(),
 	newSends: z.literal(0),
 });
-export const retryResult = z.strictObject({
-	blindResends: z.literal(0),
-	retried: z.number().int().nonnegative(),
-});
 
-const hubStates = ["draft", "scheduled", "sending", "sent", "logged", "cancelled", "failed", "unknown"] as const;
+/**
+ * The state history shows for a message. `scheduled`: at least one recipient waits for the send time, in Everyfield
+ * or at the email service. `unsubscribed`: every recipient unsubscribed from this church's email, so it does not go
+ * out; it is neither a failure nor a cancel. `not_scheduled`: a scheduled message the email service refused for every recipient. `failed`: a send the email
+ * service refused for every recipient ("Not sent"). `unknown`: no recipient confirmed ("Not confirmed").
+ * `cancel_unconfirmed` and `time_unconfirmed`: a cancel or time change still open for some recipient.
+ */
+export const hubStates = [
+	"draft",
+	"scheduled",
+	"not_scheduled",
+	"unsubscribed",
+	"sending",
+	"sent",
+	"logged",
+	"cancelled",
+	"cancel_unconfirmed",
+	"time_unconfirmed",
+	"failed",
+	"unknown",
+] as const;
 const contactOutcomes = ["contacted", "attempted_no_contact", "administrative_completion", "no_longer_needed"] as const;
 
 export const historyItem = z.strictObject({
@@ -151,6 +207,9 @@ export const historyItem = z.strictObject({
 	rate: z.number().nullable(),
 	reachable: z.number().int().nonnegative(),
 	delivered: z.number().int().nonnegative(),
+	scheduledAt: instant.nullable(),
+	sentAt: instant.nullable(),
+	senderName: z.string().nullable(),
 });
 export const historyPage = z.strictObject({
 	items: z.array(historyItem),
@@ -178,7 +237,13 @@ export const deliveryTotalsResult = z.strictObject({
 	bounced: z.number().int().nonnegative(),
 	failed: z.number().int().nonnegative(),
 	suppressed: z.number().int().nonnegative(),
+	/** Recipients refused because the person unsubscribed from this church's email. Not in failed. */
+	unsubscribed: z.number().int().nonnegative(),
 	unknown: z.number().int().nonnegative(),
+	/** Recipients the email service confirmed cancelled. */
+	cancelled: z.number().int().nonnegative(),
+	/** Recipients with a requested cancel that the email service has not confirmed. */
+	cancelOpen: z.number().int().nonnegative(),
 	asOf: instant,
 	rate: z.number().nullable(),
 	outcomes: z.array(z.enum(["accepted", "unknown", "rejected"])),
@@ -192,6 +257,12 @@ export const detailResult = z.strictObject({
 	bodyHtml: z.string().nullable(),
 	bodyText: z.string().nullable(),
 	meetingId: recordId.nullable(),
+	/** The send time the email service holds, once it holds the message; before that, the saved time. */
+	scheduledAt: instant.nullable(),
+	/** A requested send time the email service has not confirmed for every recipient, else null. */
+	requestedAt: instant.nullable(),
+	sentAt: instant.nullable(),
+	senderName: z.string().nullable(),
 	deliveryAddress: z.string().nullable(),
 	currentPersonAddress: z.string().nullable(),
 	deliveryStatus: z.string().nullable(),
@@ -211,6 +282,8 @@ export const detailResult = z.strictObject({
 export const personHistoryResult = historyPage.extend({
 	personId: recordId,
 	lastConfirmedContactAt: instant.nullable(),
+	/** When the person unsubscribed from this church's Messages email, for an Owner or Admin; null otherwise. */
+	emailOptOutAt: instant.nullable(),
 	contacts: z.array(
 		z.strictObject({
 			outcomeId: recordId,
@@ -298,3 +371,63 @@ export const contactCorrectionResult = z.strictObject({
 	correlationId: recordId,
 	lastConfirmedContactAt: instant.nullable(),
 });
+
+/** What became of one recipient of an earlier send that a replacement tried to cancel. */
+export const recipientOutcome = z.enum(["cancelled", "sent", "open"]);
+export type RecipientOutcome = z.infer<typeof recipientOutcome>;
+/**
+ * What the email service confirmed for an Evry email effect, as the proposal saves it and the review card reads it.
+ * `code` is why Messages stopped a step after the first one committed; with no code the email service itself answered.
+ */
+export const mailReport = z.discriminatedUnion("kind", [
+	z.object({
+		kind: z.literal("schedule"),
+		confirmation: z.enum(["confirmed", "not_confirmed", "refused"]),
+		scheduledAt: z.string(),
+		accepted: count,
+		refused: count,
+		unknown: count,
+		/** Set when the handoff left the email waiting in Everyfield (D-927): who waits, and who the review left out. */
+		waiting: count.optional(),
+		leftOut: count.optional(),
+		code: z.string().optional(),
+	}),
+	z.object({
+		kind: z.literal("reschedule"),
+		confirmation: z.enum(["confirmed", "not_confirmed", "none"]),
+		scheduledAt: z.string(),
+		open: count,
+		sent: count,
+	}),
+	z.object({
+		kind: z.literal("cancel"),
+		confirmation: z.enum(["confirmed", "not_confirmed", "none"]),
+		cancelled: count,
+		sent: count,
+		open: count,
+		/** Set when a cancel is not confirmed: everyone the email service held, with what happened to them. */
+		people: z.array(z.object({ name: z.string(), outcome: recipientOutcome })).optional(),
+	}),
+	/** Every old send is confirmed cancelled and the new one reached the email service. */
+	z.object({
+		kind: z.literal("replace"),
+		confirmation: z.enum(["confirmed", "not_confirmed"]),
+		scheduledAt: z.string(),
+		accepted: count,
+		refused: count,
+		unknown: count,
+		waiting: count.optional(),
+		leftOut: count.optional(),
+	}),
+	/** No new send: a cancel is open or too late, or the new one was refused after the old one was cancelled. */
+	z.object({
+		kind: z.literal("replace_stopped"),
+		confirmation: z.enum(["not_confirmed", "blocked", "refused"]),
+		cancelled: count,
+		sent: count,
+		open: count,
+		people: z.array(z.object({ name: z.string(), outcome: recipientOutcome })),
+		code: z.string().optional(),
+	}),
+]);
+export type MailReport = z.infer<typeof mailReport>;
