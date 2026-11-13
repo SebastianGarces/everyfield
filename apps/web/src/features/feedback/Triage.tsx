@@ -145,7 +145,7 @@ export function TriageItem({ initial }: { initial: TriageDetail }) {
 			if (r.value.outcome === "stale")
 				setNotice({
 					tone: "info",
-					text: `Someone else changed this to ${STATUS_NAME[r.value.status]} after you opened it. Nothing was overwritten. Choose again if it still needs to change.`,
+					text: `Someone else changed this to ${STATUS_NAME[r.value.status]} after you opened it. Nothing was overwritten. Reload to see who changed it, and choose again if it still needs to change.`,
 				});
 		});
 	}

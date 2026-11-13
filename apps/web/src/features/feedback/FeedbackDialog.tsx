@@ -181,7 +181,7 @@ function FeedbackPanel({ name, onClose }: { name: string; onClose: () => void })
 						placeholder="Describe it in your own words."
 						className="min-h-[130px]"
 						aria-describedby={`${ids.count}-hint ${ids.count}-count`}
-						invalid={count.problem !== null && text.trim().length > 0}
+						invalid={count.problem !== null && text.length > 0}
 						autoFocus
 					/>
 					<div className="flex items-start justify-between gap-3 text-xs">
@@ -193,10 +193,10 @@ function FeedbackPanel({ name, onClose }: { name: string; onClose: () => void })
 							aria-live="polite"
 							className={cn(
 								"flex-none tabular-nums",
-								count.problem && text.trim() ? "font-medium text-magenta-600" : "text-text-3",
+								count.problem && text ? "font-medium text-magenta-600" : "text-text-3",
 							)}
 						>
-							{count.problem && text.trim() ? `${count.problem} · ${count.text}` : count.text}
+							{count.problem && text ? `${count.problem} · ${count.text}` : count.text}
 						</span>
 					</div>
 				</div>
