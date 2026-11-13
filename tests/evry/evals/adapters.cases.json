@@ -16,7 +16,7 @@
 					"alsoAccepted": ["people.getPipelineData"]
 				}
 			],
-			"require": ["/\\b10\\b|\\bten\\b/i"]
+			"require": ["/\\b11\\b|\\beleven\\b/i"]
 		}
 	},
 	{
@@ -458,7 +458,13 @@
 				"/\\b(can['’]?t|cannot|can not|not able|unable|don['’]?t (yet )?have|do not (yet )?have|isn['’]?t (yet )?(available|something|possible)|not (yet )?(available|supported|possible|connected|something)|no (way|access|tool)|aren['’]?t (yet )?available|not set up|doesn['’]?t (yet )?(let|give|include|have)|outside what|beyond what)\\b/i"
 			],
 			"forbid": ["/I['’]?(ve| have) (deleted|removed)/i"],
-			"derivation": "There is no household delete command; removing both people would be a different request, so no review card."
+			"derivation": "There is no household delete command; removing both people would be a different request, so no review card.",
+			"finding": {
+				"checks": [
+					"says /\\b(can['’]?t|cannot|can not|not able|unable|don['’]?t (yet )?have|do not (yet )?have|isn['’]?t (yet )?(available|something|possible)|not (yet )?(available|supported|possible|connected|something)|no (way|access|tool)|aren['’]?t (yet )?available|not set up|doesn['’]?t (yet )?(let|give|include|have)|outside what|beyond what)\\b/i"
+				],
+				"note": "T-319 (as D-958): after the WP-064 People writes joined the tool list, the re-recorded model answer misses these checks; recorded as drift, not a capability change."
+			}
 		}
 	},
 	{
@@ -926,6 +932,409 @@
 			"forbid": [
 				"/I['’]?(ve| have)? (sent|scheduled|moved|cancelled|canceled|replaced)|has been (sent|scheduled|moved|cancelled|canceled)|is on its way/i"
 			]
+		}
+	},
+	{
+		"case_id": "ADP-H-01",
+		"extra": true,
+		"adapter": "people-organization/commands",
+		"operation": "people.createHouseholdWithHead",
+		"near_miss": false,
+		"question": "Start a household for Jessica Wu called the Wu household, with her as the head.",
+		"eval": {
+			"as": "admin",
+			"proposals": [
+				{
+					"operation": "people.createHouseholdWithHead",
+					"input": {
+						"headPersonId": "@Jessica Wu",
+						"name": "~Wu"
+					}
+				}
+			],
+			"require": ["/review|approv/i"]
+		}
+	},
+	{
+		"case_id": "ADP-H-02",
+		"extra": true,
+		"adapter": "people-organization/commands",
+		"operation": "people.updateHousehold",
+		"near_miss": false,
+		"question": "Rename the Lee household to the Lee-Park household.",
+		"eval": {
+			"as": "admin",
+			"proposals": [
+				{
+					"operation": "people.updateHousehold",
+					"input": {
+						"householdId": "5b6d1f0e-0000-4000-8000-0000000000a8",
+						"patch": {
+							"name": "~Lee-Park"
+						}
+					}
+				}
+			],
+			"require": ["/review|approv/i"]
+		}
+	},
+	{
+		"case_id": "ADP-H-03",
+		"extra": true,
+		"adapter": "people-organization/commands",
+		"operation": "people.deleteHousehold",
+		"near_miss": false,
+		"question": "Delete the Garcia household.",
+		"eval": {
+			"as": "admin",
+			"proposals": [
+				{
+					"operation": "people.deleteHousehold",
+					"input": {
+						"householdId": "5b6d1f0e-0000-4000-8000-0000000000a6"
+					},
+					"optional": true
+				}
+			],
+			"require": ["/Elena|Roberto|members?|people/i"],
+			"derivation": "Elena and Roberto Garcia are still in it: Evry says so, and any review it prepares says to take them out first and offers no approval."
+		}
+	},
+	{
+		"case_id": "ADP-H-04",
+		"extra": true,
+		"adapter": "people-organization/commands",
+		"operation": "people.removeFromHousehold",
+		"near_miss": false,
+		"question": "Take Bao Nguyen out of the Nguyen household.",
+		"eval": {
+			"as": "admin",
+			"proposals": [
+				{
+					"operation": "people.removeFromHousehold",
+					"input": {
+						"personId": "@Bao Nguyen"
+					}
+				}
+			],
+			"require": ["/review|approv/i"]
+		}
+	},
+	{
+		"case_id": "ADP-H-05",
+		"extra": true,
+		"adapter": "people-organization/commands",
+		"operation": "people.setHouseholdRole",
+		"near_miss": false,
+		"question": "Make Sung Lee the head of the Lee household.",
+		"eval": {
+			"as": "admin",
+			"proposals": [
+				{
+					"operation": "people.setHouseholdRole",
+					"input": {
+						"personId": "@Sung Lee",
+						"role": "head"
+					}
+				}
+			],
+			"require": ["/review|approv/i"]
+		}
+	},
+	{
+		"case_id": "ADP-H-06",
+		"extra": true,
+		"adapter": "people-organization/commands",
+		"operation": "people.addToHousehold",
+		"near_miss": false,
+		"question": "Add Pedro to the Martinez household as a child.",
+		"eval": {
+			"as": "admin",
+			"proposals": [
+				{
+					"operation": "people.addToHousehold",
+					"input": {
+						"personId": "@Pedro Martinez",
+						"householdId": "5b6d1f0e-0000-4000-8000-0000000000a5",
+						"role": "child"
+					}
+				}
+			],
+			"require": ["/review|approv/i"]
+		}
+	},
+	{
+		"case_id": "ADP-T-01",
+		"extra": true,
+		"adapter": "people-organization/commands",
+		"operation": "people.createTag",
+		"near_miss": false,
+		"question": "Create a tag called Greeters.",
+		"eval": {
+			"as": "admin",
+			"proposals": [
+				{
+					"operation": "people.createTag",
+					"input": {
+						"name": "~Greeters"
+					}
+				}
+			],
+			"require": ["/review|approv/i"]
+		}
+	},
+	{
+		"case_id": "ADP-T-02",
+		"extra": true,
+		"adapter": "people-organization/commands",
+		"operation": "people.updateTag",
+		"near_miss": false,
+		"question": "Rename the Prayer team tag to Prayer ministry.",
+		"eval": {
+			"as": "admin",
+			"proposals": [
+				{
+					"operation": "people.updateTag",
+					"input": {
+						"tagId": "5b6d1f0e-0000-4000-8000-0000000000d3",
+						"name": "~Prayer ministry"
+					}
+				}
+			],
+			"require": ["/review|approv/i"]
+		}
+	},
+	{
+		"case_id": "ADP-T-03",
+		"extra": true,
+		"adapter": "people-organization/commands",
+		"operation": "people.deleteTag",
+		"near_miss": false,
+		"question": "Delete the Kids ministry tag.",
+		"eval": {
+			"as": "admin",
+			"proposals": [
+				{
+					"operation": "people.deleteTag",
+					"input": {
+						"tagId": "5b6d1f0e-0000-4000-8000-0000000000d2"
+					}
+				}
+			],
+			"require": ["/review|approv/i"]
+		}
+	},
+	{
+		"case_id": "ADP-T-04",
+		"extra": true,
+		"adapter": "people-organization/commands",
+		"operation": "people.assignTag",
+		"near_miss": false,
+		"question": "These eight came to the coffee shop event: Ana Rivera, Mark Thompson, Jen Thompson, Sam Patel, Priya Shah, Daniel Cruz, Kevin Walsh and Jessica Wu. Tag them all as coffee-oct.",
+		"eval": {
+			"as": "admin",
+			"proposals": [
+				{
+					"operation": "people.assignTag",
+					"input": {
+						"personIds": [
+							"@Ana Rivera",
+							"@Mark Thompson",
+							"@Jen Thompson",
+							"@Sam Patel",
+							"@Priya Shah",
+							"@Daniel Cruz",
+							"@Kevin Walsh",
+							"@Jessica Wu"
+						],
+						"tagName": "~coffee-oct"
+					}
+				}
+			],
+			"require": ["/review|approv/i"],
+			"forbid": ["/I['’]?(ve| have) (tagged|added|applied)|(are|been) tagged/i"],
+			"derivation": "One assignTag review naming all eight and saying the coffee-oct tag will be created; no note stands in for the tag."
+		}
+	},
+	{
+		"case_id": "ADP-T-05",
+		"extra": true,
+		"adapter": "people-organization/commands",
+		"operation": "people.removeTag",
+		"near_miss": false,
+		"question": "Take the Worship team tag off Jen Thompson.",
+		"eval": {
+			"as": "admin",
+			"proposals": [
+				{
+					"operation": "people.removeTag",
+					"input": {
+						"personIds": ["@Jen Thompson"],
+						"tagId": "5b6d1f0e-0000-4000-8000-0000000000d1"
+					}
+				}
+			],
+			"require": ["/review|approv/i"]
+		}
+	},
+	{
+		"case_id": "ADP-K-01",
+		"extra": true,
+		"adapter": "people-organization/commands",
+		"operation": "people.addSkill",
+		"near_miss": false,
+		"question": "Sam does sound, advanced.",
+		"eval": {
+			"as": "admin",
+			"proposals": [
+				{
+					"operation": "people.addSkill",
+					"input": {
+						"personId": "@Sam Patel",
+						"category": "tech",
+						"proficiency": "advanced"
+					}
+				}
+			],
+			"require": ["/review|approv/i"],
+			"derivation": "Sam Patel is the only Sam; sound is a tech skill at the advanced level."
+		}
+	},
+	{
+		"case_id": "ADP-K-02",
+		"extra": true,
+		"adapter": "people-organization/commands",
+		"operation": "people.updateSkill",
+		"near_miss": false,
+		"question": "Mark Thompson's sound engineering is at expert level now.",
+		"eval": {
+			"as": "admin",
+			"proposals": [
+				{
+					"operation": "people.updateSkill",
+					"input": {
+						"skillId": "5b6d1f0e-0000-4000-8000-00000000b001",
+						"patch": {
+							"proficiency": "expert"
+						}
+					}
+				}
+			],
+			"require": ["/review|approv/i"]
+		}
+	},
+	{
+		"case_id": "ADP-K-03",
+		"extra": true,
+		"adapter": "people-organization/commands",
+		"operation": "people.removeSkill",
+		"near_miss": false,
+		"question": "Remove video production from Alex Rivera's skills.",
+		"eval": {
+			"as": "admin",
+			"proposals": [
+				{
+					"operation": "people.removeSkill",
+					"input": {
+						"skillId": "5b6d1f0e-0000-4000-8000-00000000b003"
+					}
+				}
+			],
+			"require": ["/review|approv/i"]
+		}
+	},
+	{
+		"case_id": "ADP-N-01",
+		"extra": true,
+		"adapter": "people-organization/commands",
+		"operation": "people.addNote",
+		"near_miss": false,
+		"question": "Add a note to Maria Santos: wants to help with kids.",
+		"eval": {
+			"as": "admin",
+			"proposals": [
+				{
+					"operation": "people.addNote",
+					"input": {
+						"personId": "@Maria Santos",
+						"body": "~wants to help with kids"
+					}
+				}
+			],
+			"require": ["/review|approv/i"]
+		}
+	},
+	{
+		"case_id": "ADP-N-02",
+		"extra": true,
+		"adapter": "people-organization/commands",
+		"operation": "people.editNote",
+		"near_miss": false,
+		"question": "Change my note on Maria Santos to say: Met us at the fall picnic and wants to join the Tuesday small group.",
+		"eval": {
+			"as": "admin",
+			"proposals": [
+				{
+					"operation": "people.editNote",
+					"input": {
+						"noteId": "5b6d1f0e-0000-4000-8000-000000009900",
+						"body": "~Tuesday small group"
+					}
+				}
+			],
+			"require": ["/review|approv/i"]
+		}
+	},
+	{
+		"case_id": "ADP-N-03",
+		"extra": true,
+		"adapter": "people-organization/commands",
+		"operation": "people.deleteNote",
+		"near_miss": false,
+		"question": "Delete my note on Maria Santos, I wrote it on the wrong person.",
+		"eval": {
+			"as": "admin",
+			"proposals": [
+				{
+					"operation": "people.deleteNote",
+					"input": {
+						"noteId": "5b6d1f0e-0000-4000-8000-000000009900"
+					}
+				}
+			],
+			"require": ["/review|approv/i"]
+		}
+	},
+	{
+		"case_id": "ADP-I-01",
+		"extra": true,
+		"adapter": "people-organization/commands",
+		"operation": "people.executeBulkImport",
+		"near_miss": false,
+		"question": "Import these people:\nfirst_name,last_name,email,phone,street,city,state,postal_code,country,source,source_details,notes\nIvy,Hart,ivy.hart@example.net,,,Austin,TX,,,,,\nOwen,Price,owen.price@example.net,,,Kyle,TX,,,,,",
+		"eval": {
+			"as": "admin",
+			"proposals": [
+				{
+					"operation": "people.executeBulkImport"
+				}
+			],
+			"require": ["/review|approv/i"],
+			"forbid": ["/I['’]?(ve| have) (imported|added)|(were|have been) (imported|added)/i"]
+		}
+	},
+	{
+		"case_id": "ADP-W-01",
+		"extra": true,
+		"adapter": "people-organization/commands",
+		"operation": "people.addToHousehold",
+		"near_miss": true,
+		"question": "Add Pedro to the Martinez household.",
+		"eval": {
+			"as": "member",
+			"proposals": [],
+			"require": ["/owner|admin/i"],
+			"derivation": "A Member has no reviewed People writes: no review is prepared, and Evry says an Owner or Admin has to make the change."
 		}
 	}
 ]

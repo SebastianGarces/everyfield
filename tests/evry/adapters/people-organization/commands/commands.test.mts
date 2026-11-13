@@ -58,7 +58,10 @@ async function approveAndRun(who: EvryActor, proposal: Proposal) {
 }
 
 const one = async (q: ReturnType<typeof sql>) => (await admin.execute(q)).rows[0] as Record<string, unknown>;
-async function addPerson(name: string, extra: { street?: string; city?: string; household?: string; role?: string } = {}) {
+async function addPerson(
+	name: string,
+	extra: { street?: string; city?: string; household?: string; role?: string } = {},
+) {
 	const id = randomUUID();
 	await admin.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,street,city,household_id,household_role,source,created_at,stage,
 			adult_classification,commitment_state,pipeline_position,state)
@@ -68,13 +71,14 @@ async function addPerson(name: string, extra: { street?: string; city?: string; 
 }
 async function addHousehold(name: string, street: string | null, city: string | null) {
 	const id = randomUUID();
-	await admin.execute(sql`INSERT INTO household(id,plant_id,name,street,city) VALUES(${id},${plant},${name},${street},${city})`);
+	await admin.execute(
+		sql`INSERT INTO household(id,plant_id,name,street,city) VALUES(${id},${plant},${name},${street},${city})`,
+	);
 	return id;
 }
 const addressOf = async (id: string) =>
 	(await one(sql`SELECT concat_ws(', ',street,city) AS a FROM person WHERE id=${id}`)).a;
-const notes = async (id: string) =>
-	(await one(sql`SELECT count(*)::int n FROM person_note WHERE person_id=${id}`)).n;
+const notes = async (id: string) => (await one(sql`SELECT count(*)::int n FROM person_note WHERE person_id=${id}`)).n;
 
 test("AC:TARGET-PPL-009 AC:HH-04 adding a person to a household shows the household and role, changes nothing until approval and never edits notes", async () => {
 	const owner = await actor("owner");
@@ -245,7 +249,10 @@ test("AC:TARGET-PPL-008 a note is added, edited and deleted only through its own
 	]);
 	assert.equal((await one(sql`SELECT body FROM person_note WHERE id=${note.id}`)).body, "wants to help with kids");
 	assert.equal((await approveAndRun(owner, edited!)).outcome, "completed");
-	assert.equal((await one(sql`SELECT body FROM person_note WHERE id=${note.id}`)).body, "wants to help with kids on Sundays");
+	assert.equal(
+		(await one(sql`SELECT body FROM person_note WHERE id=${note.id}`)).body,
+		"wants to help with kids on Sundays",
+	);
 
 	const removed = await propose("people.deleteNote", { noteId: note.id, reason: "Duplicate" });
 	assert.deepEqual(removed?.review.changes, [
@@ -327,7 +334,10 @@ test("AC:TARGET-PPL-018 AC:CLN-05 an import's review lists each row's planned ou
 	const receipt = READ_DOMAINS.peopleOrganization.find((a) => a.operation === "people.getImportReceipt")!;
 	const read = await invokeRead(db, owner, receipt as never, {});
 	const file = read.rows.find((r) => r.kind === "file")!;
-	assert.deepEqual([file.fields.created, file.fields.failed, file.fields.requestKey], ["2", "2", `evry:${proposal.id}:1`]);
+	assert.deepEqual(
+		[file.fields.created, file.fields.failed, file.fields.requestKey],
+		["2", "2", `evry:${proposal.id}:1`],
+	);
 	assert.deepEqual(
 		read.rows.filter((r) => r.kind === "import" && r.fields.status === "failed").map((r) => r.fields.reason),
 		["a first or last name is required", "email: the email address is not valid"],

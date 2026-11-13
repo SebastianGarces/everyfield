@@ -86,9 +86,18 @@ export function resultForModel(resultId: number, result: SourceResult): ModelRep
 	return JSON.parse(scrub(JSON.stringify({ ...value, rows, truncatedRows: result.rows.length - rows.length })));
 }
 
-/** What the model reads back for a prepared review: the card's id, its expiry and the reviewed fields on their row. */
+/**
+ * What the model reads back for a prepared review: the card's id, its expiry, the reviewed fields on their row and each
+ * other person the change reaches with what changes for them.
+ */
 export function proposalForModel(proposal: Pick<Proposal, "id" | "expiresAt" | "review">): ModelReply {
 	const target = proposal.review.target;
+	const people = (proposal.review.people ?? []).map((p) => ({
+		kind: "person",
+		id: p.id,
+		label: p.label,
+		fields: { changes: p.changes, ...(p.unchanged && { unchanged: p.unchanged }) },
+	}));
 	return JSON.parse(
 		scrub(
 			JSON.stringify({
@@ -110,8 +119,9 @@ export function proposalForModel(proposal: Pick<Proposal, "id" | "expiresAt" | "
 									),
 								},
 							},
+							...people,
 						]
-					: [],
+					: people,
 			}),
 		),
 	) as ModelReply;

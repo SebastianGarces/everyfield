@@ -7,10 +7,13 @@ import {
 	CheckmarkCircle02Icon,
 	Clock01Icon,
 	Edit02Icon,
+	FileImportIcon,
+	Home01Icon,
 	Image01Icon,
 	Mail01Icon,
 	ImageNotFound01Icon,
 	SquareLock02Icon,
+	Tag01Icon,
 	Tick02Icon,
 	UserAdd01Icon,
 } from "@hugeicons/core-free-icons";
@@ -22,8 +25,10 @@ import { STAGE_KEY, type StageValue } from "../../people/model.ts";
 import type { Reply } from "../conversation/api.ts";
 import * as api from "./api.ts";
 import { MAIL_CONSEQUENCE, MailChanges, MailResult } from "./MailChanges.tsx";
+import { CurrentState, ImportResult, ImportRows, PeopleResult, ReviewedPeople } from "./PeopleChanges.tsx";
 import {
 	actionNotice,
+	addsOnly,
 	approvalLeft,
 	approvable,
 	CHOICES,
@@ -41,6 +46,7 @@ import {
 	mailRefusalText,
 	missingRequired,
 	operationTitle,
+	peopleResult,
 	phaseOf,
 	photoRef,
 	pollDelay,
@@ -407,12 +413,15 @@ function note(view: View, review: Review | null, lapsed: boolean, unknown?: Acti
 	}
 	switch (view) {
 		case "pending":
+			if (review?.review.refusal) return review.review.refusal;
 			return review && review.revision > 1
 				? `You revised this change. Only revision ${review.revision} can be approved.`
 				: null;
 		case "running":
 			return "Saving in the background. You can keep working. This card shows the result.";
 		case "refused":
+			if (review?.receipt?.current?.length)
+				return `A record in the ${who ?? "change"} changed after Evry prepared this, so it couldn't be applied and nothing was changed for anyone. This is how they are now. Ask Evry to prepare it again.`;
 			return mail ? mailRefusalText(review.receipt?.code) : refusalText(review?.receipt?.code, who);
 		case "unconfirmed":
 			return review && retryable(review, lapsed)
@@ -423,7 +432,9 @@ function note(view: View, review: Review | null, lapsed: boolean, unknown?: Acti
 		case "photo_unavailable":
 			return `The uploaded photo is no longer available, so you can't approve this change. Nothing was changed. Upload the photo again on ${who ?? "the person"}'s page.`;
 		case "expired":
-			return "This review expired, so nothing was changed. Prepare it again to check the current values.";
+			return review && reviseInput(review) === null
+				? "This review expired, so nothing was changed. Ask Evry to prepare it again."
+				: "This review expired, so nothing was changed. Prepare it again to check the current values.";
 		case "cancelled":
 			return "You cancelled this change. Nothing was changed.";
 		case "withheld":
@@ -448,6 +459,8 @@ function announcement(view: View, review: Review | null, lapsed: boolean, unknow
 	if (view === "pending" && !(review && review.revision > 1)) return "";
 	if (view === "running") return "Approved. Saving in the background.";
 	if (view === "completed" && review && isMail(review.operation)) return mailHead(review, "completed")!.title;
+	if (view === "completed" && review && peopleResult(review)) return `${peopleResult(review)}.`;
+	if (view === "completed" && review?.receipt?.import) return "Import saved.";
 	if (view === "completed")
 		return review?.review.target ? `Saved. ${review.review.target.label} is updated.` : "Saved.";
 	return [head, note(view, review, lapsed, unknown)].filter(Boolean).join(". ");
@@ -517,7 +530,13 @@ export function ReviewCard({
 		((view === "completed" && mailTitle.tone !== "green") || (view === "pending" && review?.review.refusal))
 			? Alert02Icon
 			: base.icon;
-	const h = mailTitle ? { ...base, ...mailTitle, icon } : base;
+	const people = view === "completed" && review ? peopleResult(review) : null;
+	const imported = view === "completed" && review?.receipt?.import ? "Import saved" : null;
+	const h = mailTitle
+		? { ...base, ...mailTitle, icon }
+		: people || imported
+			? { ...base, title: people ?? imported!, ...(people && !people.startsWith("Saved") && { icon: Alert02Icon }) }
+			: base;
 	const title = view === "loading" || view === "lost" ? (target ? `Change for ${target}` : "Prepared change") : h.title;
 	const meta =
 		view === "completed" && review?.approvedAt
@@ -593,7 +612,20 @@ export function ReviewCard({
 									staged={photoGone ? { status: "gone" } : staged.photo}
 									onRetry={staged.retry}
 								/>
-								{consequence(review) ? <p className="text-sm text-text-2">{consequence(review)}</p> : null}
+								{view === "completed" && review.receipt?.people ? (
+									<PeopleResult review={review} />
+								) : (
+									<ReviewedPeople review={review} />
+								)}
+								{view === "completed" && review.receipt?.import ? (
+									<ImportResult review={review} />
+								) : (
+									<ImportRows review={review} />
+								)}
+								{view === "refused" ? <CurrentState review={review} /> : null}
+								{consequence(review) && (view === "pending" || view === "running") ? (
+									<p className="text-sm text-text-2">{consequence(review)}</p>
+								) : null}
 							</>
 						)}
 						{view === "pending" && !review.review.refusal && !review.stale ? (
@@ -755,7 +787,7 @@ function Footer({
 							</IntentLink>
 						</Button>
 					</>
-				) : who && review.operation !== "people.deletePerson" && !review.review.withheld ? (
+				) : who?.kind === "person" && review.operation !== "people.deletePerson" && !review.review.withheld ? (
 					<Button size="sm" variant="ghost" asChild>
 						<IntentLink href={`/people/${who.id}`}>
 							Open {who.label}
@@ -771,7 +803,7 @@ function Footer({
 				Try again
 			</Button>
 		);
-	else if (view === "expired" && review.outcome === null)
+	else if (view === "expired" && review.outcome === null && reviseInput(review) !== null)
 		body = (
 			<Button size="sm" variant="secondary" loading={r.busy === "revise"} onClick={() => void r.revise()}>
 				Prepare again
@@ -828,16 +860,32 @@ function CardHead({
 function Affects({ review }: { review: Review }) {
 	const mail = isMail(review.operation);
 	const create = review.operation === "people.createPerson";
-	const name = mail
-		? String(review.review.changes.find((c) => c.field === "subject")?.after ?? review.review.target?.label ?? "Email")
-		: create
-			? String(review.review.changes.find((c) => c.field === "displayName")?.after ?? "New person")
-			: (review.review.target?.label ?? "Not available");
+	const kind = review.review.target?.kind;
+	const tag = !kind && review.review.changes.find((c) => c.field === "tag" || c.field === "createTag")?.after;
+	const imported = review.operation === "people.executeBulkImport";
+	const symbol = imported
+		? FileImportIcon
+		: kind === "household"
+			? Home01Icon
+			: kind === "tag" || tag
+				? Tag01Icon
+				: null;
+	const name = imported
+		? "People import"
+		: tag
+			? String(tag)
+			: mail
+				? String(
+						review.review.changes.find((c) => c.field === "subject")?.after ?? review.review.target?.label ?? "Email",
+					)
+				: create
+					? String(review.review.changes.find((c) => c.field === "displayName")?.after ?? "New person")
+					: (review.review.target?.label ?? "Not available");
 	return (
 		<div className="flex items-center gap-3">
-			{mail ? (
+			{mail || symbol ? (
 				<span className="grid size-8 flex-none place-items-center rounded-full bg-surface-2 text-text-2">
-					<Icon icon={Mail01Icon} size={16} />
+					<Icon icon={symbol ?? Mail01Icon} size={16} />
 				</span>
 			) : create ? (
 				<span className="grid size-8 flex-none place-items-center rounded-full bg-surface-2 text-text-2">
@@ -980,9 +1028,9 @@ function PhotoChange({
 
 /** Each changed field: its value now, then what it will be. A new person and a reason have no before. */
 function Changes({ review, staged, onRetry }: { review: Review; staged: StagedPhoto; onRetry: () => void }) {
-	const changes = shownChanges(review.review.changes);
+	const changes = shownChanges(review);
 	if (!changes.length) return null;
-	const create = review.operation === "people.createPerson";
+	const create = addsOnly(review.operation);
 	return (
 		<dl className="flex flex-col gap-2 rounded-md bg-surface-2 px-3 py-2.5 text-sm">
 			{changes.map((c: Change) =>

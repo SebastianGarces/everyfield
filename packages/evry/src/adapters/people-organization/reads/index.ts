@@ -202,7 +202,9 @@ const PROBLEM: Record<string, string> = {
 };
 /** An import row's problems in words, each with its column: what the review card and the receipt read both say. */
 export const problemText = (problems: readonly { column: string | null; code: string }[]) =>
-	problems.map((p) => (p.column ? `${p.column}: ${PROBLEM[p.code] ?? p.code}` : (PROBLEM[p.code] ?? p.code))).join("; ");
+	problems
+		.map((p) => (p.column ? `${p.column}: ${PROBLEM[p.code] ?? p.code}` : (PROBLEM[p.code] ?? p.code)))
+		.join("; ");
 /** A failed row's reason in words: the columns and checks it failed, or that the import could not write it. */
 const failure = (item: Extract<z.infer<typeof importReceipt>["rows"][number], { status: "failed" }>) =>
 	item.reason === "row_write_failed" ? "the import could not write this row" : problemText(item.problems) || "invalid";
@@ -524,7 +526,16 @@ export const getImportReceipt: ReadAdapter<z.infer<typeof receiptInput>> = {
 		);
 		if (!latest || latest.status === "none") return missing("people.getImportReceipt", CONTACT);
 		const rows = receiptRows(actor, latest.receipt, latest);
-		return result("people.getImportReceipt", "available", rows, latest.receipt.rows.length, 1, null, "complete", CONTACT);
+		return result(
+			"people.getImportReceipt",
+			"available",
+			rows,
+			latest.receipt.rows.length,
+			1,
+			null,
+			"complete",
+			CONTACT,
+		);
 	},
 };
 

@@ -69,7 +69,8 @@ const personTarget = sql`jsonb_build_object('kind','person','id',p.id,'label',p.
 const householdTarget = sql`jsonb_build_object('kind','household','id',h.id,'label',h.name)`;
 const tagTarget = sql`jsonb_build_object('kind','tag','id',t.id,'label',t.name)`;
 /** A plain reason the review cannot be approved, merged into the review when `when` holds. */
-const refusal = (when: SQL, text: SQL) => sql`CASE WHEN ${when} THEN jsonb_build_object('refusal',${text}) ELSE '{}'::jsonb END`;
+const refusal = (when: SQL, text: SQL) =>
+	sql`CASE WHEN ${when} THEN jsonb_build_object('refusal',${text}) ELSE '{}'::jsonb END`;
 
 const ADDRESS = [
 	["street", "street"],
@@ -80,10 +81,9 @@ const ADDRESS = [
 ] as const;
 /** A row's address as one line, or null when it has none. */
 const addressLine = (a: string) =>
-	sql.raw(
-		`nullif(concat_ws(', ',${ADDRESS.map(([, col]) => `nullif(btrim(${a}.${col}),'')`).join(",")}),'')`,
-	);
-const hasAddress = (a: string) => sql.raw(`(${ADDRESS.map(([, col]) => `nullif(btrim(${a}.${col}),'')`).join(" IS NOT NULL OR ")} IS NOT NULL)`);
+	sql.raw(`nullif(concat_ws(', ',${ADDRESS.map(([, col]) => `nullif(btrim(${a}.${col}),'')`).join(",")}),'')`);
+const hasAddress = (a: string) =>
+	sql.raw(`(${ADDRESS.map(([, col]) => `nullif(btrim(${a}.${col}),'')`).join(" IS NOT NULL OR ")} IS NOT NULL)`);
 const sameAddress = (a: string, b: string) =>
 	sql.raw(
 		`(${ADDRESS.map(([, col]) => `${a}.${col}`).join(",")}) IS NOT DISTINCT FROM (${ADDRESS.map(([, col]) => `${b}.${col}`).join(",")})`,
@@ -124,14 +124,17 @@ const personIds = z
 // Households (REQ-PPL-009). One current household per person; the household's address reaches its members only
 // through an explicit propagation.
 
-const createHouseholdWithHead = reviewed({
+export const createHouseholdWithHead = reviewed({
 	operation: "people.createHouseholdWithHead",
 	description:
 		"Propose a new household with one person as its head, and the household's name and address. A person is in one household at a time. Nothing changes until the user approves the exact review.",
 	input: z.strictObject({ headPersonId: z.uuid(), name: householdName }).extend(address.shape),
 	review(actor, value) {
 		const { headPersonId, name, ...home } = value;
-		const line = ADDRESS.map(([key]) => home[key]?.trim()).filter(Boolean).join(", ") || null;
+		const line =
+			ADDRESS.map(([key]) => home[key]?.trim())
+				.filter(Boolean)
+				.join(", ") || null;
 		return sql`SELECT jsonb_build_object('target',${personTarget},'changes',jsonb_build_array(
 				${change("household", sql`to_jsonb(cur.name)`, json(name))},
 				${change("householdRole", sql`to_jsonb(p.household_role)`, json("head"))},
@@ -147,7 +150,7 @@ const createHouseholdWithHead = reviewed({
 const revisionOf = (v: { result: { status: string; household?: { revision: string } } }) =>
 	v.result.household?.revision ?? "0";
 
-const updateHousehold = reviewed({
+export const updateHousehold = reviewed({
 	operation: "people.updateHousehold",
 	description:
 		"Propose a change to one household's name or its own address. Members keep their own addresses; use people.propagateAddress to update them. Nothing changes until the user approves the exact review.",
@@ -165,7 +168,7 @@ const updateHousehold = reviewed({
 });
 
 const liveMembers = sql`(SELECT count(*) FROM person m WHERE m.household_id=h.id AND m.tenant_id=h.plant_id AND m.state='live')`;
-const deleteHousehold = reviewed({
+export const deleteHousehold = reviewed({
 	operation: "people.deleteHousehold",
 	description:
 		"Propose deleting one household that has nobody left in it. Nothing changes until the user approves the exact review.",
@@ -185,10 +188,10 @@ const joinedAddress = sql`CASE WHEN NOT ${hasAddress("p")} AND ${hasAddress("h")
 		jsonb_build_object('field',x.k,'before',NULL,'after',x.v) ORDER BY x.n) FILTER (WHERE nullif(btrim(x.v),'') IS NOT NULL),'[]'::jsonb)
 	FROM (VALUES (1,'street',h.street),(2,'city',h.city),(3,'stateProvince',h.state_province),(4,'postalCode',h.postal_code),(5,'country',h.country)) x(n,k,v))
 	ELSE '[]'::jsonb END`;
-const addToHousehold = reviewed({
+export const addToHousehold = reviewed({
 	operation: "people.addToHousehold",
 	description:
-		"Propose adding one person to an existing household with their role: head, spouse, child or other. Only ids from earlier results; never infer a role from a name. Nothing changes until the user approves the exact review.",
+		"Propose adding one person to an existing household with their role: head, spouse, child or other. Use the role the user gives; when they give none, use other, which the review shows and the user can change. Never infer a role from a name. Nothing changes until the user approves the exact review.",
 	input: z.strictObject({ householdId: z.uuid(), personId: z.uuid(), role: householdRole }),
 	review(actor, value) {
 		return sql`SELECT jsonb_build_object('target',${personTarget},'changes',jsonb_build_array(
@@ -205,7 +208,7 @@ const addToHousehold = reviewed({
 		done(await personFields.addToHousehold(tx, context, { ...args, requestKey: key }), revisionOf),
 });
 
-const removeFromHousehold = reviewed({
+export const removeFromHousehold = reviewed({
 	operation: "people.removeFromHousehold",
 	description:
 		"Propose taking one person out of their household. They keep their own address. Nothing changes until the user approves the exact review.",
@@ -223,7 +226,7 @@ const removeFromHousehold = reviewed({
 		done(await personFields.removeFromHousehold(tx, context, { ...args, requestKey: key }), revisionOf),
 });
 
-const setHouseholdRole = reviewed({
+export const setHouseholdRole = reviewed({
 	operation: "people.setHouseholdRole",
 	description:
 		"Propose a person's role in their household: head, spouse, child or other. Never infer a role from a name. Nothing changes until the user approves the exact review.",
@@ -248,7 +251,7 @@ type Propagation = {
 	people: { id: string; label: string; changed: boolean }[];
 };
 const UNCHANGED_ADDRESS = "Already at this address";
-const propagateAddress = reviewed({
+export const propagateAddress = reviewed({
 	operation: "people.propagateAddress",
 	description:
 		"Propose giving every current member of one household the household's address, optionally changing that address first (for example after a move). The review lists each member's address before and after; nothing changes for anyone until the user approves it, and a member changed since the review stops the whole change.",
@@ -256,7 +259,8 @@ const propagateAddress = reviewed({
 	review(actor, value) {
 		const patch = Object.fromEntries(Object.entries(value.address ?? {}).filter(([, v]) => v !== undefined));
 		const after = ADDRESS.map(
-			([key, col]) => sql`CASE WHEN ${json(patch)} ? ${key}::text THEN ${json(patch)}->>${key}::text ELSE h.${sql.raw(col)} END AS ${sql.raw(col)}`,
+			([key, col]) =>
+				sql`CASE WHEN ${json(patch)} ? ${key}::text THEN ${json(patch)}->>${key}::text ELSE h.${sql.raw(col)} END AS ${sql.raw(col)}`,
 		);
 		const members = sql`FROM person m WHERE m.household_id=h.id AND m.tenant_id=h.plant_id AND m.state='live'`;
 		return sql`SELECT jsonb_build_object('target',${householdTarget},'changes',${fieldChanges("h", patch, Object.fromEntries(ADDRESS))},
@@ -302,7 +306,9 @@ const propagateAddress = reviewed({
 		};
 	},
 	// The household's members as they are now, each with their address.
-	current: (p) => sql`(SELECT coalesce(jsonb_agg(jsonb_build_object('id',m.id,'label',m.display_name,'value',${addressLine("m")})
+	current: (
+		p,
+	) => sql`(SELECT coalesce(jsonb_agg(jsonb_build_object('id',m.id,'label',m.display_name,'value',${addressLine("m")})
 		ORDER BY ${roleOrder("m")}),'[]'::jsonb) FROM person m
 		WHERE m.household_id=(${p}.input->>'householdId')::uuid AND m.tenant_id=${p}.tenant_id AND m.state='live')`,
 });
@@ -310,7 +316,7 @@ const propagateAddress = reviewed({
 // ---------------------------------------------------------------------------------------------------------------
 // Tags (REQ-PPL-010). Names that differ only by case or surrounding spaces are the same tag.
 
-const createTag = reviewed({
+export const createTag = reviewed({
 	operation: "people.createTag",
 	description:
 		"Propose a new tag in this church's tag list, without putting it on anyone. To tag people, use people.assignTag. Nothing changes until the user approves the exact review.",
@@ -326,7 +332,7 @@ const createTag = reviewed({
 		done(await personFields.createTag(tx, context, { ...args, requestKey: key }), (v) => v.tag.revision),
 });
 
-const updateTag = reviewed({
+export const updateTag = reviewed({
 	operation: "people.updateTag",
 	description:
 		"Propose renaming a tag or changing its color, for everyone who has it. Nothing changes until the user approves the exact review.",
@@ -347,7 +353,7 @@ const updateTag = reviewed({
 /** The live people in this church who have tag `t`. */
 const tagged = sql`(SELECT count(*) FROM person_tag pt JOIN person q ON q.id=pt.person_id AND q.state='live'
 	WHERE pt.tag_id=t.id AND pt.plant_id=t.plant_id)`;
-const deleteTag = reviewed({
+export const deleteTag = reviewed({
 	operation: "people.deleteTag",
 	description:
 		"Propose deleting a tag, which takes it off everyone who has it. Their history keeps it. Nothing changes until the user approves the exact review.",
@@ -407,12 +413,14 @@ async function eachPerson(
 		people.push({
 			id: p.personId,
 			label: p.label,
-			...(r.value.outcome === "changed" ? { outcome: "changed" as const } : { outcome: "unchanged" as const, reason: unchanged }),
+			...(r.value.outcome === "changed"
+				? { outcome: "changed" as const }
+				: { outcome: "unchanged" as const, reason: unchanged }),
 		});
 	}
 	return { receiptId: receiptId!, revision: "1", people };
 }
-const assignTag = reviewed({
+export const assignTag = reviewed({
 	operation: "people.assignTag",
 	description:
 		"Propose putting one tag on each named person (up to 50), by tag id or by name; a name no tag has yet is created as part of the same review. Only person ids from earlier results. Never record a tag as a note. Nothing changes until the user approves the exact review.",
@@ -426,7 +434,8 @@ const assignTag = reviewed({
 		return tagReview(actor, value.personIds, tag, true, value.tagName ?? null);
 	},
 	async run(tx, context, args: Tagging, key) {
-		let tagId: string, first: string | null = null;
+		let tagId: string,
+			first: string | null = null;
 		if ("create" in args.tag) {
 			const created = await personFields.createTag(tx, context, {
 				requestKey: `${key}:tag`,
@@ -439,14 +448,23 @@ const assignTag = reviewed({
 		return eachPerson(tx, context, args, tagId, key, personFields.assignTag, "Already had this tag", first);
 	},
 });
-const removeTag = reviewed({
+export const removeTag = reviewed({
 	operation: "people.removeTag",
 	description:
 		"Propose taking one tag off each named person (up to 50). The tag stays in the tag list. Nothing changes until the user approves the exact review.",
 	input: z.strictObject({ personIds, tagId: z.uuid() }),
 	review: (actor, value) => tagReview(actor, value.personIds, sql`t.id=${value.tagId}::uuid`, false, null),
 	run: async (tx, context, args: Tagging, key) =>
-		eachPerson(tx, context, args, (args.tag as { id: string }).id, key, personFields.removeTag, "Didn't have this tag", null),
+		eachPerson(
+			tx,
+			context,
+			args,
+			(args.tag as { id: string }).id,
+			key,
+			personFields.removeTag,
+			"Didn't have this tag",
+			null,
+		),
 });
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -454,7 +472,7 @@ const removeTag = reviewed({
 
 const SKILL_COLUMNS = { name: "name", category: "category", proficiency: "proficiency", notes: "notes" };
 const skillReceipt = (v: { receiptId: string; skills: { revision: string }[] }) => String(v.skills.length);
-const addSkill = reviewed({
+export const addSkill = reviewed({
 	operation: "people.addSkill",
 	description:
 		"Propose adding a skill to one person: its name, its category (worship, tech, admin, teaching, hospitality, leadership or other) and the level when said (beginner, intermediate, advanced or expert). Nothing changes until the user approves the exact review.",
@@ -483,7 +501,7 @@ const addSkill = reviewed({
 const liveSkill = (actor: EvryActor, skillId: string) =>
 	sql`FROM person_skill s JOIN person p ON p.id=s.person_id AND p.tenant_id=s.plant_id AND p.state='live'
 	WHERE s.id=${skillId}::uuid AND s.plant_id=${actor.owner.id}::uuid`;
-const updateSkill = reviewed({
+export const updateSkill = reviewed({
 	operation: "people.updateSkill",
 	description:
 		"Propose a change to one of a person's skills: its name, category, level or notes, by the skill's id from people.getPersonSkills. Nothing changes until the user approves the exact review.",
@@ -510,7 +528,7 @@ const updateSkill = reviewed({
 	run: async (tx, context, args: object, key) =>
 		done(await personFields.updateSkill(tx, context, { ...args, requestKey: key }), skillReceipt),
 });
-const removeSkill = reviewed({
+export const removeSkill = reviewed({
 	operation: "people.removeSkill",
 	description:
 		"Propose removing one of a person's skills, by the skill's id from people.getPersonSkills. Nothing changes until the user approves the exact review.",
@@ -530,10 +548,10 @@ const removeSkill = reviewed({
 // Notes (REQ-PPL-008). Only a note's author may edit or delete it; the review says so instead of offering approval.
 
 const noteReceipt = (v: { personRevision: string }) => v.personRevision;
-const addNote = reviewed({
+export const addNote = reviewed({
 	operation: "people.addNote",
 	description:
-		"Propose adding a note to one person's history, with the exact text the user gave. Nothing changes until the user approves the exact review.",
+		"Propose adding a note to one person's history, with the exact text the user gave, when they ask for a note. It is not a contact log: when the user asks to log a call, visit or follow-up, say Evry can't log contacts yet and offer a note instead. Nothing changes until the user approves the exact review.",
 	input: z.strictObject({ personId: z.uuid(), body: longText }),
 	review(actor, value) {
 		return sql`SELECT jsonb_build_object('target',${personTarget},'changes',jsonb_build_array(${change("note", sql`NULL::jsonb`, json(value.body))})) AS review,
@@ -549,8 +567,11 @@ const liveNote = (actor: EvryActor, noteId: string) =>
 	sql`FROM person_note n JOIN person p ON p.id=n.person_id AND p.tenant_id=n.tenant_id AND p.plant_id=${actor.owner.id}::uuid AND p.state='live'
 	WHERE n.id=${noteId}::uuid AND n.tenant_id=${actor.owner.id}::uuid AND n.removed_at IS NULL`;
 const notAuthor = (actor: EvryActor) =>
-	refusal(sql`n.author_id IS DISTINCT FROM ${actor.accountId}::uuid`, sql`'Only the person who wrote this note can change it.'`);
-const editNote = reviewed({
+	refusal(
+		sql`n.author_id IS DISTINCT FROM ${actor.accountId}::uuid`,
+		sql`'Only the person who wrote this note can change it.'`,
+	);
+export const editNote = reviewed({
 	operation: "people.editNote",
 	description:
 		"Propose new text for one of a person's notes, by the note's id from people.getActivities, with the reason. Only the note's author may change it. Nothing changes until the user approves the exact review.",
@@ -565,7 +586,7 @@ const editNote = reviewed({
 	run: async (tx, context, args: object, key) =>
 		done(await peopleWriter.editNote(tx, context, { ...args, requestKey: key } as never), noteReceipt),
 });
-const deleteNote = reviewed({
+export const deleteNote = reviewed({
 	operation: "people.deleteNote",
 	description:
 		"Propose deleting one of a person's notes, by the note's id from people.getActivities, with the reason. Only the note's author may delete it. Nothing changes until the user approves the exact review.",
@@ -588,7 +609,12 @@ const deleteNote = reviewed({
 
 type Preview = z.infer<typeof importPreview>;
 type Choice = z.infer<typeof importChoice>;
-type ImportArgs = { file: string; fileDigest: string; reviewDigest: string; choices: { row: number; choice: Choice }[] };
+type ImportArgs = {
+	file: string;
+	fileDigest: string;
+	reviewDigest: string;
+	choices: { row: number; choice: Choice }[];
+};
 /** Each row's planned outcome, and the native choices: the user's where given, otherwise the preview's suggestion. */
 function plan(preview: Preview, chosen: Map<number, Choice>) {
 	const rows = [];
@@ -613,7 +639,7 @@ function plan(preview: Preview, chosen: Map<number, Choice>) {
 	}
 	return { rows, choices, refusal };
 }
-const executeBulkImport = reviewed({
+export const executeBulkImport = reviewed({
 	operation: "people.executeBulkImport",
 	description:
 		"Propose importing a people CSV (the same text people.previewImport takes): the review shows each row's planned outcome, and rows that match someone are skipped unless the user chose otherwise. Nothing is imported until the user approves the exact review.",
@@ -656,7 +682,10 @@ const executeBulkImport = reviewed({
 			importId: string;
 			status: "in_progress" | "complete" | "partial";
 			counts: { created: number; skipped: number; failed: number; remaining: number };
-			rows: ({ row: number; status: string } & { problems?: { column: string | null; code: string }[]; reason?: string })[];
+			rows: ({ row: number; status: string } & {
+				problems?: { column: string | null; code: string }[];
+				reason?: string;
+			})[];
 		}>;
 		if (saved.status !== "ok") return { refused: saved.error.code };
 		const receipt = saved.value;
@@ -668,7 +697,15 @@ const executeBulkImport = reviewed({
 				counts: receipt.counts,
 				failed: receipt.rows.flatMap((r) =>
 					r.status === "failed"
-						? [{ row: r.row, reason: r.reason === "row_write_failed" ? "the import could not write this row" : problemText(r.problems ?? []) }]
+						? [
+								{
+									row: r.row,
+									reason:
+										r.reason === "row_write_failed"
+											? "the import could not write this row"
+											: problemText(r.problems ?? []),
+								},
+							]
 						: [],
 				),
 			},
