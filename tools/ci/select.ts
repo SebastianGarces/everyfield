@@ -1,7 +1,8 @@
 // Which local checks a change needs (T-41). `selectChecks` is the one place that decides: the changed paths and the
 // coverage map go in, every check and selectable test file comes out with whether it runs and why. It fails safe: any
-// doubt runs everything. `bin/dev check` (scripts/check.ts) gathers the inputs and runs the result; `bin/dev nightly`
-// (scripts/nightly.ts) writes the coverage map. A change to this file or its rules runs everything.
+// doubt runs everything. `bin/dev check` (scripts/check.ts) gathers the inputs and runs the result; the GitHub nightly
+// (.github/workflows/nightly.yml, through scripts/nightly.ts) writes the coverage map. A change to this file or its
+// rules runs everything.
 import { matchesGlob, posix } from "node:path";
 
 /** Every check `bin/dev check` knows. Package checks run through pnpm; suites run their selected test files. */
@@ -79,8 +80,8 @@ export const RULES: readonly Rule[] = [
 		packages: true,
 		checks: ["ci-coverage"],
 	},
-	// tests/ui holds only the browser suites, which import tests/ui/setup.mjs, and their seeds. They run nightly and in
-	// the verifier's preview; the node tests that used to sit here live in tests/unit (T-281).
+	// tests/ui holds only the browser suites, which import tests/ui/setup.mjs, and their seeds. They run in `bin/dev
+	// nightly` and the verifier's preview; the node tests that used to sit here live in tests/unit (T-281).
 	{ name: "browser suite", paths: ["tests/ui/**"], packages: true, fallbackPackage: "@everyfield/web" },
 	{
 		name: "documentation",
@@ -149,7 +150,7 @@ export const RULES: readonly Rule[] = [
 	},
 ];
 
-/** The coverage map `bin/dev nightly` writes: which source files each selectable test file reached. */
+/** The coverage map the GitHub nightly writes: which source files each selectable test file reached. */
 export type CoverageMap = { head: string; createdAt: string; tests: Readonly<Record<string, readonly string[]>> };
 /** Why no map can be used. */
 export type MapProblem = { problem: string };

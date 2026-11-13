@@ -1,12 +1,26 @@
-// T-41: `bin/dev check` on a throwaway repository. A fake runner stands in for pnpm, python and the test runner, so
-// these tests see exactly which commands a selection runs, what the record says, and when the run fails.
+// T-41: `bin/dev check` on a throwaway repository. A fake runner stands in for pnpm, python and the test runner, and a
+// fake gh for GitHub (T-216), so these tests see exactly which commands a selection runs, which coverage map it reads,
+// what the record says, and when the run fails.
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
-import { check, type CheckRecord, type Runner } from "../../scripts/check.ts";
+import {
+	check as runCheck,
+	type CheckOptions,
+	type CheckRecord,
+	type Gh,
+	MAP_ARTIFACT,
+	NIGHTLY_WORKFLOW,
+	REPO,
+	type Runner,
+} from "../../scripts/check.ts";
+
+/** A gh that knows no successful GitHub nightly run, so selection reads the CI home's own map. */
+const noNightly: Gh = () => ({ status: 0, stdout: "[]" });
+const check = (options: CheckOptions) => runCheck({ gh: noNightly, ...options });
 
 const sh = (cwd: string, ...args: string[]) =>
 	execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t.invalid", ...args], { cwd, encoding: "utf8" }).trim();
@@ -241,4 +255,136 @@ test("T-41 an unreadable diff runs everything", (t) => {
 	assert.equal(record.mergeBase, null);
 	assert.equal(record.mode, "full");
 	assert.deepEqual(record.fullReasons, ["the diff could not be read"]);
+});
+
+/**
+ * A fake gh with one successful nightly run that started at `createdAt`. Its download writes `artifact` as the run's
+ * coverage-map.json, or fails when `artifact` is null.
+ */
+function nightlyGh(createdAt: string, artifact: string | null, listed = { status: 0 }) {
+	const calls: string[][] = [];
+	const gh: Gh = (args) => {
+		calls.push([...args]);
+		if (args[0] === "run" && args[1] === "list")
+			return { status: listed.status, stdout: JSON.stringify([{ databaseId: 7, createdAt }]) };
+		if (args[0] === "run" && args[1] === "download") {
+			if (artifact === null) return { status: 1, stdout: "" };
+			writeFileSync(join(args[args.indexOf("--dir") + 1]!, "coverage-map.json"), artifact);
+			return { status: 0, stdout: "" };
+		}
+		throw new Error(`unexpected gh ${args.join(" ")}`);
+	};
+	return { gh, calls };
+}
+
+test("T-216 selection downloads the map of the latest green GitHub nightly when the home's map is missing or older", async (t) => {
+	const map = (head: string, createdAt: string) =>
+		JSON.stringify({
+			head,
+			createdAt,
+			tests: {
+				"tests/workflow/dev.test.mjs": ["scripts/dev.ts"],
+				"tools/ci/tests/a.test.ts": [],
+				".github/scripts/a.test.cjs": [],
+			},
+		});
+	await t.test("missing: the download is saved and selects", (t) => {
+		const { root, home } = repo(t, { "scripts/dev.ts": "export const y = 2;\n" });
+		rmSync(join(home, "coverage-map.json"));
+		const now = new Date().toISOString();
+		const { gh, calls } = nightlyGh(now, map("n".repeat(40), now));
+		const { record } = runCheck({ root, full: false, home, run: fake().run, gh });
+		assert.equal(record.mode, "selected", record.fullReasons.join("; "));
+		assert.deepEqual(ran(record), ["workflow"]);
+		assert.deepEqual(calls, [
+			[
+				"run",
+				"list",
+				"--repo",
+				REPO,
+				"--workflow",
+				NIGHTLY_WORKFLOW,
+				"--branch",
+				"main",
+				"--status",
+				"success",
+				"--limit",
+				"1",
+				"--json",
+				"databaseId,createdAt",
+			],
+			["run", "download", "7", "--repo", REPO, "--name", MAP_ARTIFACT, "--dir", calls[1]![calls[1]!.length - 1]!],
+		]);
+		assert.equal(existsSync(calls[1]!.at(-1)!), false, "the download folder is removed");
+		assert.equal(JSON.parse(readFileSync(join(home, "coverage-map.json"), "utf8")).head, "n".repeat(40));
+	});
+	await t.test("older: a newer nightly run replaces it", (t) => {
+		const { root, home } = repo(t, { "scripts/dev.ts": "export const y = 2;\n" });
+		writeFileSync(join(home, "coverage-map.json"), map("o".repeat(40), "2026-11-01T07:40:00.000Z"));
+		const now = new Date().toISOString();
+		const { gh, calls } = nightlyGh(now, map("n".repeat(40), now));
+		runCheck({ root, full: false, home, run: fake().run, gh });
+		assert.equal(calls.length, 2);
+		assert.equal(JSON.parse(readFileSync(join(home, "coverage-map.json"), "utf8")).head, "n".repeat(40));
+	});
+	await t.test("no newer run: the home's map is kept and nothing is downloaded", (t) => {
+		const { root, home } = repo(t, { "scripts/dev.ts": "export const y = 2;\n" });
+		const before = readFileSync(join(home, "coverage-map.json"), "utf8");
+		const { gh, calls } = nightlyGh("2026-11-01T07:17:00.000Z", map("n".repeat(40), "2026-11-01T07:40:00.000Z"));
+		const { record } = runCheck({ root, full: false, home, run: fake().run, gh });
+		assert.deepEqual(ran(record), ["workflow"]);
+		assert.deepEqual(
+			calls.map((c) => c.slice(0, 2).join(" ")),
+			["run list"],
+		);
+		assert.equal(readFileSync(join(home, "coverage-map.json"), "utf8"), before);
+	});
+	await t.test("--full reads no map and asks gh nothing", (t) => {
+		const { root, home } = repo(t, { "docs/a.md": "b\n" });
+		const { gh, calls } = nightlyGh(new Date().toISOString(), null);
+		runCheck({ root, full: true, home, run: fake().run, gh });
+		assert.deepEqual(calls, []);
+	});
+});
+
+test("T-216 a failed or unusable nightly download runs everything and says why", async (t) => {
+	const cases: Array<[string, ReturnType<typeof nightlyGh>, string]> = [
+		[
+			"the download fails",
+			nightlyGh(new Date().toISOString(), null),
+			"the coverage map is missing and gh could not download the coverage map of GitHub nightly run 7",
+		],
+		[
+			"the download is not a map",
+			nightlyGh(new Date().toISOString(), "{not json"),
+			"the coverage map is missing and the download of GitHub nightly run 7 is unusable: the coverage map is not JSON",
+		],
+		[
+			"gh cannot list runs (offline, not signed in)",
+			nightlyGh(new Date().toISOString(), null, { status: 4 }),
+			"the coverage map is missing and gh could not list the GitHub nightly runs",
+		],
+		[
+			"no nightly run has passed",
+			{ gh: noNightly, calls: [] },
+			"the coverage map is missing and no GitHub nightly run on main has passed yet",
+		],
+	];
+	for (const [name, { gh }, reason] of cases)
+		await t.test(name, (t) => {
+			const { root, home } = repo(t, { "scripts/dev.ts": "export const y = 2;\n" });
+			rmSync(join(home, "coverage-map.json"));
+			const { record } = runCheck({ root, full: false, home, run: fake().run, gh });
+			assert.equal(record.mode, "full");
+			assert.deepEqual(record.fullReasons, [reason]);
+			assert.equal(existsSync(join(home, "coverage-map.json")), false, "nothing unusable is saved");
+		});
+	await t.test("a usable older map in the home stays in use when the download fails", (t) => {
+		const { root, home } = repo(t, { "scripts/dev.ts": "export const y = 2;\n" });
+		const before = readFileSync(join(home, "coverage-map.json"), "utf8");
+		const { gh } = nightlyGh(new Date(Date.now() + 60_000).toISOString(), null);
+		const { record } = runCheck({ root, full: false, home, run: fake().run, gh });
+		assert.equal(record.mode, "selected");
+		assert.equal(readFileSync(join(home, "coverage-map.json"), "utf8"), before);
+	});
 });

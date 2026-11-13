@@ -14,7 +14,7 @@
 		"lint:tests": "packages/evry/node_modules/.bin/oxlint -c .oxlintrc.json --max-warnings=0 tests/integration tests/evry tests/ui tests/unit tests/workflow",
 		"lint:test-names": "node tools/ci/test-names.ts",
 		"typecheck": "node tools/ci/typecheck.ts",
-		"typecheck:tsc": "pnpm -r --if-present --no-bail typecheck:tsc",
+		"typecheck:bun": "node tools/ci/typecheck.ts typecheck:bun",
 		"typecheck:tools": "node_modules/typescript-7/bin/tsc -p tsconfig.tools.json",
 		"access:export": "pnpm --filter @everyfield/db export",
 		"db:migrate": "pnpm --filter @everyfield/domain migrate",
