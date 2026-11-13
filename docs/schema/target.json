@@ -70,9 +70,9 @@
   "contract_status": "Reviewed starting design; builders may change it through a reviewed migration.",
   "as_of": "2026-10-17",
   "implementation_authorized": false,
-  "table_count": 96,
-  "column_count": 1098,
-  "foreign_key_count": 341,
+  "table_count": 104,
+  "column_count": 1187,
+  "foreign_key_count": 356,
   "type_contracts": {
     "text": "UTF8; per-boundary bounded, sanitized only when rendered in rich context.",
     "date": "YYYY-MM-DD local calendar date, never UTC midnight instant.",
@@ -134,6 +134,12 @@
       "answered",
       "unanswered",
       "retracted"
+    ],
+    "attestation_revision.kind": [
+      "answered",
+      "corrected",
+      "retracted",
+      "reaffirmed"
     ],
     "commitment.kind": [
       "core_group",
@@ -210,7 +216,14 @@
     "document.kind": [
       "native",
       "core_values",
-      "launch_summary"
+      "launch_summary",
+      "church_document",
+      "church_template"
+    ],
+    "document.document_class": [
+      "formal/legal",
+      "outward-facing",
+      "operational"
     ],
     "document_revision.import_format": [
       "text",
@@ -231,7 +244,8 @@
       "generated",
       "native_import",
       "assistant_staging",
-      "communication_attachment"
+      "communication_attachment",
+      "brand_asset"
     ],
     "file_object.state": [
       "pending",
@@ -244,6 +258,10 @@
       "pdf",
       "docx",
       "xlsx"
+    ],
+    "generated_document.theme_kind": [
+      "church",
+      "everyfield-neutral"
     ],
     "identity_proof.purpose": [
       "email_change",
@@ -304,13 +322,9 @@
       "mail",
       "notification",
       "digest",
-      "assessment",
-      "reference_generation",
-      "feedback_publication",
       "object_cleanup",
       "lifecycle_purge",
       "assistant_turn",
-      "document_render",
       "people_import",
       "evry_effect"
     ],
@@ -374,6 +388,9 @@
       "cancelled",
       "failed"
     ],
+    "mail.refusal": [
+      "unsubscribed"
+    ],
     "mail_attempt.outcome": [
       "in_flight",
       "accepted",
@@ -427,9 +444,11 @@
       "relationship",
       "reference_update",
       "digest",
-      "launch"
+      "launch",
+      "communication"
     ],
     "notice.purpose": [
+      "communication_unsubscribed",
       "insight_available",
       "launch_milestone",
       "meeting_evaluation",
@@ -456,7 +475,8 @@
       "sharing_milestone",
       "phase_milestone",
       "launch_milestone",
-      "wiki_upstream_review"
+      "wiki_upstream_review",
+      "scheduled_email_unsubscribe"
     ],
     "notification_preference.channel": [
       "email",
@@ -612,6 +632,50 @@
       "feedback_triage",
       "reference_publish",
       "recovery_operator"
+    ],
+    "private_week.spiritual": [
+      "steady",
+      "strained",
+      "struggling"
+    ],
+    "private_week.family": [
+      "steady",
+      "strained",
+      "struggling"
+    ],
+    "private_week.financial": [
+      "steady",
+      "strained",
+      "struggling"
+    ],
+    "private_week.pace": [
+      "steady",
+      "strained",
+      "struggling"
+    ],
+    "private_week_revision.kind": [
+      "save",
+      "correction"
+    ],
+    "private_week_revision.spiritual": [
+      "steady",
+      "strained",
+      "struggling"
+    ],
+    "private_week_revision.family": [
+      "steady",
+      "strained",
+      "struggling"
+    ],
+    "private_week_revision.financial": [
+      "steady",
+      "strained",
+      "struggling"
+    ],
+    "private_week_revision.pace": [
+      "steady",
+      "strained",
+      "struggling"
     ],
     "proposal.operation": [
       "people.updatePerson"
@@ -1280,14 +1344,23 @@
       "Pacific/Wallis",
       "UTC"
     ],
+    "attestation_revision.key": [
+      "values_documented",
+      "financial_base_established",
+      "core_group_giving",
+      "prayer_leader_assigned",
+      "prayer_rhythm_established",
+      "prayer_in_gatherings",
+      "systems_tested",
+      "leadership_candidate"
+    ],
     "audit_event.action": [
       "account.deletion_requested",
       "affiliation.approved",
       "affiliation.ended",
       "attestation.corrected",
       "attestation.recorded",
-      "audit.imported",
-      "communication.approved",
+      "branding.changed",
       "communication.draft_deleted",
       "communication.draft_saved",
       "communication.rescheduled",
@@ -1301,12 +1374,22 @@
       "deletion.cancelled",
       "deletion.live_purge_completed",
       "documents.archived",
+      "documents.church_archived",
+      "documents.church_restored",
+      "documents.branding_changed",
       "documents.copied",
+      "documents.created_from_template",
       "documents.designated",
+      "documents.export_deleted",
+      "documents.exported",
       "documents.generated",
       "documents.imported",
       "documents.purged",
       "documents.saved",
+      "documents.template_deleted",
+      "documents.template_details_changed",
+      "documents.template_saved",
+      "documents.template_updated",
       "evry.conversation_created",
       "evry.proposal_approved",
       "evry.proposal_cancelled",
@@ -1316,36 +1399,19 @@
       "evry.turn_cancelled",
       "evry.turn_retried",
       "evry.turn_submitted",
-      "execution.cancelled",
-      "execution.completed",
-      "execution.partial",
-      "execution.reconciled",
-      "execution.started",
-      "feedback.publication_intended",
-      "feedback.published",
       "feedback.received",
-      "feedback.reconciled",
       "files.finalized",
       "followup.corrected",
       "followup.recorded",
       "identity.credential_changed",
       "identity.credential_observed",
-      "identity.credential_reconciled",
       "identity.domain_accepted",
       "identity.email_changed",
       "identity.sessions_revoked",
-      "intelligence.feedback_recorded",
-      "intelligence.published",
-      "intelligence.requested",
-      "intelligence.superseded",
       "invitation.changed",
       "invitation.claimed",
       "invitation.revoked",
       "launch.changed",
-      "launch.corrected",
-      "launch.debrief_submitted",
-      "launch.outcome_recorded",
-      "launch.summary_published",
       "mail.accepted",
       "mail.cancelled",
       "mail.delivered",
@@ -1359,10 +1425,11 @@
       "membership.created",
       "membership.ended",
       "membership.role_changed",
-      "note_correction",
       "organization.profile_changed",
       "people.corrected",
       "people.created",
+      "people.duplicate_dismissed",
+      "people.duplicate_restored",
       "people.merged",
       "people.recorded",
       "people.restored",
@@ -1380,11 +1447,6 @@
       "recovery.restored",
       "reference.activated",
       "roles.changed",
-      "security.access_denied",
-      "security.audit_exported",
-      "security.audit_inspected",
-      "security.bulk_export",
-      "security.operator_accessed",
       "settings.changed",
       "sharing.changed",
       "tasks.changed",
@@ -4396,6 +4458,427 @@
       "Pacific/Wallis",
       "UTC"
     ],
+    "private_calendar.zone": [
+      "Africa/Abidjan",
+      "Africa/Accra",
+      "Africa/Addis_Ababa",
+      "Africa/Algiers",
+      "Africa/Asmera",
+      "Africa/Bamako",
+      "Africa/Bangui",
+      "Africa/Banjul",
+      "Africa/Bissau",
+      "Africa/Blantyre",
+      "Africa/Brazzaville",
+      "Africa/Bujumbura",
+      "Africa/Cairo",
+      "Africa/Casablanca",
+      "Africa/Ceuta",
+      "Africa/Conakry",
+      "Africa/Dakar",
+      "Africa/Dar_es_Salaam",
+      "Africa/Djibouti",
+      "Africa/Douala",
+      "Africa/El_Aaiun",
+      "Africa/Freetown",
+      "Africa/Gaborone",
+      "Africa/Harare",
+      "Africa/Johannesburg",
+      "Africa/Juba",
+      "Africa/Kampala",
+      "Africa/Khartoum",
+      "Africa/Kigali",
+      "Africa/Kinshasa",
+      "Africa/Lagos",
+      "Africa/Libreville",
+      "Africa/Lome",
+      "Africa/Luanda",
+      "Africa/Lubumbashi",
+      "Africa/Lusaka",
+      "Africa/Malabo",
+      "Africa/Maputo",
+      "Africa/Maseru",
+      "Africa/Mbabane",
+      "Africa/Mogadishu",
+      "Africa/Monrovia",
+      "Africa/Nairobi",
+      "Africa/Ndjamena",
+      "Africa/Niamey",
+      "Africa/Nouakchott",
+      "Africa/Ouagadougou",
+      "Africa/Porto-Novo",
+      "Africa/Sao_Tome",
+      "Africa/Tripoli",
+      "Africa/Tunis",
+      "Africa/Windhoek",
+      "America/Adak",
+      "America/Anchorage",
+      "America/Anguilla",
+      "America/Antigua",
+      "America/Araguaina",
+      "America/Argentina/La_Rioja",
+      "America/Argentina/Rio_Gallegos",
+      "America/Argentina/Salta",
+      "America/Argentina/San_Juan",
+      "America/Argentina/San_Luis",
+      "America/Argentina/Tucuman",
+      "America/Argentina/Ushuaia",
+      "America/Aruba",
+      "America/Asuncion",
+      "America/Bahia",
+      "America/Bahia_Banderas",
+      "America/Barbados",
+      "America/Belem",
+      "America/Belize",
+      "America/Blanc-Sablon",
+      "America/Boa_Vista",
+      "America/Bogota",
+      "America/Boise",
+      "America/Buenos_Aires",
+      "America/Cambridge_Bay",
+      "America/Campo_Grande",
+      "America/Cancun",
+      "America/Caracas",
+      "America/Catamarca",
+      "America/Cayenne",
+      "America/Cayman",
+      "America/Chicago",
+      "America/Chihuahua",
+      "America/Ciudad_Juarez",
+      "America/Coral_Harbour",
+      "America/Cordoba",
+      "America/Costa_Rica",
+      "America/Coyhaique",
+      "America/Creston",
+      "America/Cuiaba",
+      "America/Curacao",
+      "America/Danmarkshavn",
+      "America/Dawson",
+      "America/Dawson_Creek",
+      "America/Denver",
+      "America/Detroit",
+      "America/Dominica",
+      "America/Edmonton",
+      "America/Eirunepe",
+      "America/El_Salvador",
+      "America/Fort_Nelson",
+      "America/Fortaleza",
+      "America/Glace_Bay",
+      "America/Godthab",
+      "America/Goose_Bay",
+      "America/Grand_Turk",
+      "America/Grenada",
+      "America/Guadeloupe",
+      "America/Guatemala",
+      "America/Guayaquil",
+      "America/Guyana",
+      "America/Halifax",
+      "America/Havana",
+      "America/Hermosillo",
+      "America/Indiana/Knox",
+      "America/Indiana/Marengo",
+      "America/Indiana/Petersburg",
+      "America/Indiana/Tell_City",
+      "America/Indiana/Vevay",
+      "America/Indiana/Vincennes",
+      "America/Indiana/Winamac",
+      "America/Indianapolis",
+      "America/Inuvik",
+      "America/Iqaluit",
+      "America/Jamaica",
+      "America/Jujuy",
+      "America/Juneau",
+      "America/Kentucky/Monticello",
+      "America/Kralendijk",
+      "America/La_Paz",
+      "America/Lima",
+      "America/Los_Angeles",
+      "America/Louisville",
+      "America/Lower_Princes",
+      "America/Maceio",
+      "America/Managua",
+      "America/Manaus",
+      "America/Marigot",
+      "America/Martinique",
+      "America/Matamoros",
+      "America/Mazatlan",
+      "America/Mendoza",
+      "America/Menominee",
+      "America/Merida",
+      "America/Metlakatla",
+      "America/Mexico_City",
+      "America/Miquelon",
+      "America/Moncton",
+      "America/Monterrey",
+      "America/Montevideo",
+      "America/Montserrat",
+      "America/Nassau",
+      "America/New_York",
+      "America/Nome",
+      "America/Noronha",
+      "America/North_Dakota/Beulah",
+      "America/North_Dakota/Center",
+      "America/North_Dakota/New_Salem",
+      "America/Ojinaga",
+      "America/Panama",
+      "America/Paramaribo",
+      "America/Phoenix",
+      "America/Port-au-Prince",
+      "America/Port_of_Spain",
+      "America/Porto_Velho",
+      "America/Puerto_Rico",
+      "America/Punta_Arenas",
+      "America/Rankin_Inlet",
+      "America/Recife",
+      "America/Regina",
+      "America/Resolute",
+      "America/Rio_Branco",
+      "America/Santarem",
+      "America/Santiago",
+      "America/Santo_Domingo",
+      "America/Sao_Paulo",
+      "America/Scoresbysund",
+      "America/Sitka",
+      "America/St_Barthelemy",
+      "America/St_Johns",
+      "America/St_Kitts",
+      "America/St_Lucia",
+      "America/St_Thomas",
+      "America/St_Vincent",
+      "America/Swift_Current",
+      "America/Tegucigalpa",
+      "America/Thule",
+      "America/Tijuana",
+      "America/Toronto",
+      "America/Tortola",
+      "America/Vancouver",
+      "America/Whitehorse",
+      "America/Winnipeg",
+      "America/Yakutat",
+      "Antarctica/Casey",
+      "Antarctica/Davis",
+      "Antarctica/DumontDUrville",
+      "Antarctica/Macquarie",
+      "Antarctica/Mawson",
+      "Antarctica/McMurdo",
+      "Antarctica/Palmer",
+      "Antarctica/Rothera",
+      "Antarctica/Syowa",
+      "Antarctica/Troll",
+      "Antarctica/Vostok",
+      "Arctic/Longyearbyen",
+      "Asia/Aden",
+      "Asia/Almaty",
+      "Asia/Amman",
+      "Asia/Anadyr",
+      "Asia/Aqtau",
+      "Asia/Aqtobe",
+      "Asia/Ashgabat",
+      "Asia/Atyrau",
+      "Asia/Baghdad",
+      "Asia/Bahrain",
+      "Asia/Baku",
+      "Asia/Bangkok",
+      "Asia/Barnaul",
+      "Asia/Beirut",
+      "Asia/Bishkek",
+      "Asia/Brunei",
+      "Asia/Calcutta",
+      "Asia/Chita",
+      "Asia/Colombo",
+      "Asia/Damascus",
+      "Asia/Dhaka",
+      "Asia/Dili",
+      "Asia/Dubai",
+      "Asia/Dushanbe",
+      "Asia/Famagusta",
+      "Asia/Gaza",
+      "Asia/Hebron",
+      "Asia/Hong_Kong",
+      "Asia/Hovd",
+      "Asia/Irkutsk",
+      "Asia/Jakarta",
+      "Asia/Jayapura",
+      "Asia/Jerusalem",
+      "Asia/Kabul",
+      "Asia/Kamchatka",
+      "Asia/Karachi",
+      "Asia/Katmandu",
+      "Asia/Khandyga",
+      "Asia/Krasnoyarsk",
+      "Asia/Kuala_Lumpur",
+      "Asia/Kuching",
+      "Asia/Kuwait",
+      "Asia/Macau",
+      "Asia/Magadan",
+      "Asia/Makassar",
+      "Asia/Manila",
+      "Asia/Muscat",
+      "Asia/Nicosia",
+      "Asia/Novokuznetsk",
+      "Asia/Novosibirsk",
+      "Asia/Omsk",
+      "Asia/Oral",
+      "Asia/Phnom_Penh",
+      "Asia/Pontianak",
+      "Asia/Pyongyang",
+      "Asia/Qatar",
+      "Asia/Qostanay",
+      "Asia/Qyzylorda",
+      "Asia/Rangoon",
+      "Asia/Riyadh",
+      "Asia/Saigon",
+      "Asia/Sakhalin",
+      "Asia/Samarkand",
+      "Asia/Seoul",
+      "Asia/Shanghai",
+      "Asia/Singapore",
+      "Asia/Srednekolymsk",
+      "Asia/Taipei",
+      "Asia/Tashkent",
+      "Asia/Tbilisi",
+      "Asia/Tehran",
+      "Asia/Thimphu",
+      "Asia/Tokyo",
+      "Asia/Tomsk",
+      "Asia/Ulaanbaatar",
+      "Asia/Urumqi",
+      "Asia/Ust-Nera",
+      "Asia/Vientiane",
+      "Asia/Vladivostok",
+      "Asia/Yakutsk",
+      "Asia/Yekaterinburg",
+      "Asia/Yerevan",
+      "Atlantic/Azores",
+      "Atlantic/Bermuda",
+      "Atlantic/Canary",
+      "Atlantic/Cape_Verde",
+      "Atlantic/Faeroe",
+      "Atlantic/Madeira",
+      "Atlantic/Reykjavik",
+      "Atlantic/South_Georgia",
+      "Atlantic/St_Helena",
+      "Atlantic/Stanley",
+      "Australia/Adelaide",
+      "Australia/Brisbane",
+      "Australia/Broken_Hill",
+      "Australia/Darwin",
+      "Australia/Eucla",
+      "Australia/Hobart",
+      "Australia/Lindeman",
+      "Australia/Lord_Howe",
+      "Australia/Melbourne",
+      "Australia/Perth",
+      "Australia/Sydney",
+      "Europe/Amsterdam",
+      "Europe/Andorra",
+      "Europe/Astrakhan",
+      "Europe/Athens",
+      "Europe/Belgrade",
+      "Europe/Berlin",
+      "Europe/Bratislava",
+      "Europe/Brussels",
+      "Europe/Bucharest",
+      "Europe/Budapest",
+      "Europe/Busingen",
+      "Europe/Chisinau",
+      "Europe/Copenhagen",
+      "Europe/Dublin",
+      "Europe/Gibraltar",
+      "Europe/Guernsey",
+      "Europe/Helsinki",
+      "Europe/Isle_of_Man",
+      "Europe/Istanbul",
+      "Europe/Jersey",
+      "Europe/Kaliningrad",
+      "Europe/Kiev",
+      "Europe/Kirov",
+      "Europe/Lisbon",
+      "Europe/Ljubljana",
+      "Europe/London",
+      "Europe/Luxembourg",
+      "Europe/Madrid",
+      "Europe/Malta",
+      "Europe/Mariehamn",
+      "Europe/Minsk",
+      "Europe/Monaco",
+      "Europe/Moscow",
+      "Europe/Oslo",
+      "Europe/Paris",
+      "Europe/Podgorica",
+      "Europe/Prague",
+      "Europe/Riga",
+      "Europe/Rome",
+      "Europe/Samara",
+      "Europe/San_Marino",
+      "Europe/Sarajevo",
+      "Europe/Saratov",
+      "Europe/Simferopol",
+      "Europe/Skopje",
+      "Europe/Sofia",
+      "Europe/Stockholm",
+      "Europe/Tallinn",
+      "Europe/Tirane",
+      "Europe/Ulyanovsk",
+      "Europe/Vaduz",
+      "Europe/Vatican",
+      "Europe/Vienna",
+      "Europe/Vilnius",
+      "Europe/Volgograd",
+      "Europe/Warsaw",
+      "Europe/Zagreb",
+      "Europe/Zurich",
+      "Indian/Antananarivo",
+      "Indian/Chagos",
+      "Indian/Christmas",
+      "Indian/Cocos",
+      "Indian/Comoro",
+      "Indian/Kerguelen",
+      "Indian/Mahe",
+      "Indian/Maldives",
+      "Indian/Mauritius",
+      "Indian/Mayotte",
+      "Indian/Reunion",
+      "Pacific/Apia",
+      "Pacific/Auckland",
+      "Pacific/Bougainville",
+      "Pacific/Chatham",
+      "Pacific/Easter",
+      "Pacific/Efate",
+      "Pacific/Enderbury",
+      "Pacific/Fakaofo",
+      "Pacific/Fiji",
+      "Pacific/Funafuti",
+      "Pacific/Galapagos",
+      "Pacific/Gambier",
+      "Pacific/Guadalcanal",
+      "Pacific/Guam",
+      "Pacific/Honolulu",
+      "Pacific/Kiritimati",
+      "Pacific/Kosrae",
+      "Pacific/Kwajalein",
+      "Pacific/Majuro",
+      "Pacific/Marquesas",
+      "Pacific/Midway",
+      "Pacific/Nauru",
+      "Pacific/Niue",
+      "Pacific/Norfolk",
+      "Pacific/Noumea",
+      "Pacific/Pago_Pago",
+      "Pacific/Palau",
+      "Pacific/Pitcairn",
+      "Pacific/Ponape",
+      "Pacific/Port_Moresby",
+      "Pacific/Rarotonga",
+      "Pacific/Saipan",
+      "Pacific/Tahiti",
+      "Pacific/Tarawa",
+      "Pacific/Tongatapu",
+      "Pacific/Truk",
+      "Pacific/Wake",
+      "Pacific/Wallis",
+      "UTC"
+    ],
     "recurrence.timezone": [
       "Africa/Abidjan",
       "Africa/Accra",
@@ -6263,7 +6746,7 @@
         "WP-004",
         "WP-039"
       ],
-      "meaning": "Current relation with immutable original provenance",
+      "meaning": "Current candidate attestation. It follows the Person on merge; a survivor that already holds one keeps it and the source's stays on the source.",
       "lock_order": "Lock live same-plant source and survivor in UUID order, then consumer row and owner; reference inserts take the same Person locks.",
       "merge_policy": "Preview same-parent uniqueness collisions; apply only the reviewed canonical identity choice with exact pre/post revision witnesses. Preserve immutable evidence.",
       "inverse_policy": "Refuse inverse after conflicting edits, private-author transfer or irreversible delivery/disclosure; exact guarded prior/result witnesses only.",
@@ -6273,6 +6756,103 @@
       "future_case_ids": [
         "SCHEMA-009",
         "SCHEMA-010"
+      ]
+    },
+    {
+      "table": "attestation_revision",
+      "columns": [
+        "person_id",
+        "plant_id"
+      ],
+      "target_columns": [
+        "id",
+        "tenant_id"
+      ],
+      "consumer_work_packages": [
+        "WP-039"
+      ],
+      "meaning": "Append-only attestation history. A merge leaves each revision on the Person it was written for.",
+      "lock_order": "Lock live same-plant source and survivor in UUID order. Do not rewrite the revision.",
+      "merge_policy": "Keep the revision on the source person. The current attestation moves; its history stays.",
+      "inverse_policy": "Unmerge does not move a revision, because the merge did not move it.",
+      "retirement_policy": "Lists omit a retired person. The revisions remain under that person.",
+      "privacy_policy": "Revisions never transfer account grants, private care, or organization person evidence.",
+      "immutable_evidence_policy": "Author, as-of date, statement and question version stay as written. A correction appends a row.",
+      "future_case_ids": [
+        "SCHEMA-009",
+        "PERSONREF-CANDIDATE-PERSON-ATTESTATION-MERGE"
+      ]
+    },
+    {
+      "table": "person_duplicate_dismissal",
+      "columns": [
+        "person_id",
+        "plant_id"
+      ],
+      "target_columns": [
+        "id",
+        "tenant_id"
+      ],
+      "consumer_work_packages": [
+        "WP-015"
+      ],
+      "meaning": "The imported Person of a pair an Owner or Admin marked not a duplicate (D-789).",
+      "lock_order": "Lock the owner first; dismiss and restore lock both live Persons FOR SHARE, after the lifecycle writers' locks.",
+      "merge_policy": "Keep the dismissal on the pair it names. A merge leaves one side not live, so the pair is off both lists; Unmerge brings it back as it was.",
+      "inverse_policy": "Unmerge does not move a dismissal, because the merge did not move it.",
+      "retirement_policy": "A retired side takes the pair off the list and the Dismissed view; the row stays under the pair.",
+      "privacy_policy": "Names no content. Who dismissed it comes from the audit row and shows only to the church's Owners and Admins.",
+      "immutable_evidence_policy": "Each dismiss and restore writes its own audit row; Restore deletes the row.",
+      "future_case_ids": [
+        "TARGET-PPL-018"
+      ]
+    },
+    {
+      "table": "person_duplicate_dismissal",
+      "columns": [
+        "with_person_id",
+        "plant_id"
+      ],
+      "target_columns": [
+        "id",
+        "tenant_id"
+      ],
+      "consumer_work_packages": [
+        "WP-015"
+      ],
+      "meaning": "The Person the imported Person may duplicate, in a pair marked not a duplicate (D-789).",
+      "lock_order": "Lock the owner first; dismiss and restore lock both live Persons FOR SHARE, after the lifecycle writers' locks.",
+      "merge_policy": "Keep the dismissal on the pair it names. A merge leaves one side not live, so the pair is off both lists; Unmerge brings it back as it was.",
+      "inverse_policy": "Unmerge does not move a dismissal, because the merge did not move it.",
+      "retirement_policy": "A retired side takes the pair off the list and the Dismissed view; the row stays under the pair.",
+      "privacy_policy": "Names no content. Who dismissed it comes from the audit row and shows only to the church's Owners and Admins.",
+      "immutable_evidence_policy": "Each dismiss and restore writes its own audit row; Restore deletes the row.",
+      "future_case_ids": [
+        "TARGET-PPL-018"
+      ]
+    },
+    {
+      "table": "person_email_opt_out",
+      "columns": [
+        "person_id",
+        "plant_id"
+      ],
+      "target_columns": [
+        "id",
+        "tenant_id"
+      ],
+      "consumer_work_packages": [
+        "WP-028"
+      ],
+      "meaning": "A CRM person's opt-out from one church's Messages email (D-284). Only the person's own token writes it.",
+      "lock_order": "Lock live same-plant source and survivor in UUID order. Do not rewrite the opt-out.",
+      "merge_policy": "Keep the opt-out on the Person who unsubscribed. Messages reads the merge lineage, so the survivor stays unsubscribed while merged.",
+      "inverse_policy": "Unmerge does not move an opt-out, because the merge did not move it.",
+      "retirement_policy": "A retired person gets no Messages email anyway. The opt-out stays under that person.",
+      "privacy_policy": "An opt-out never transfers account grants, account notification preferences or marketing consent.",
+      "immutable_evidence_policy": "Who, which church and when stay as written; only the person's one-hour undo stamps undone_at.",
+      "future_case_ids": [
+        "CASE-NTF-016"
       ]
     },
     {
@@ -8409,6 +8989,12 @@
           "type": "text[]",
           "nullable": false,
           "default": "ARRAY[]::text[]"
+        },
+        {
+          "note": "Wiki search vector (title A, excerpt B, body words C), written by the search_vector trigger on every insert and update.",
+          "name": "search_vector",
+          "type": "tsvector",
+          "nullable": false
         }
       ],
       "primary_key": [
@@ -8815,7 +9401,7 @@
           "note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply.",
           "name": "reference_version_id",
           "type": "uuid",
-          "nullable": false
+          "nullable": true
         },
         {
           "note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply.",
@@ -9103,6 +9689,392 @@
           "attestation_ck_3",
           "attestation_ck_4",
           "attestation_ck_5"
+        ]
+      },
+      "policies": {},
+      "rls": false
+    },
+    {
+      "name": "attestation_revision",
+      "domain": "phases",
+      "purpose": "Append-only history of attestations: every answer, correction, retraction and reaffirmation with its value, detail, reference, as-of date, author, question version and request key. A merge moves the current attestation and leaves each revision on the Person it was about.",
+      "library_owned": false,
+      "jsonb_keys": {},
+      "capabilities": [
+        "CAP-A-041",
+        "CAP-B-030",
+        "CAP-C-018"
+      ],
+      "replaces": [],
+      "producer_work_packages": [
+        "WP-039"
+      ],
+      "producer_derivation": {
+        "old_target_tables": [],
+        "additional_producers": [
+          "WP-039"
+        ],
+        "rule": "WP-039 appends a revision when a signal or candidate attestation changes."
+      },
+      "feature_ids": [
+        "PHASE-004",
+        "PHASE-008",
+        "PI-014",
+        "PI-015",
+        "TEAM-011",
+        "TEAM-015"
+      ],
+      "acceptance_ids": [
+        "AC-PHASE-004--PHASE-004",
+        "AC-PHASE-008--PHASE-008",
+        "AC-PI-014--PI-014",
+        "AC-PI-015--PI-015",
+        "AC-TEAM-011--TEAM-011",
+        "AC-TEAM-015--TEAM-015"
+      ],
+      "future_case_ids": [
+        "B01-001",
+        "B01-002",
+        "B01-003",
+        "B01-004",
+        "B01-017",
+        "B01-024",
+        "B01-025",
+        "B01-026",
+        "B01-027",
+        "B02-017",
+        "CA015",
+        "CA025",
+        "GAP-TEAM-015",
+        "MW-CASE-016",
+        "MW-CASE-018",
+        "PHASE-CASE-004",
+        "PHASE-CASE-008",
+        "PI-CASE-006",
+        "PI-DISC-001",
+        "PI-DISC-002",
+        "SME53-002",
+        "SME53-004",
+        "SME53-005",
+        "SME53-006",
+        "SME53-007",
+        "SME53-009",
+        "TARGET-TEAM-011",
+        "TARGET-TEAM-015",
+        "TARGET-TEAM-016"
+      ],
+      "scope": "phases",
+      "invariants": [
+        "Rows are never updated except that the author link clears when the author's account is deleted; the runtime role cannot delete them.",
+        "One request key per church; a retry with the key replays the first result.",
+        "Only a human session writes a revision; models and private care never do.",
+        "Revision numbers follow the current attestation's revision without gaps."
+      ],
+      "revision": "No mutable revision column; each row is one immutable revision numbered like the attestation it belongs to.",
+      "idempotency": "A write keeps its request key and a fingerprint of the request on its revision; a retry with the same key and request replays that row, and the same key with a different request is refused.",
+      "deletion": "Plant-owned facts and history survive personal account deletion with minimum necessary attribution. Plant deletion hides them immediately, holds eligible content only for 30-day cancellation, then purges live content; recovery copies expire within seven days of coherent live purge. No additional fixed history limit is specified. Plant-owned operational records follow the plant deletion policy. Account deletion preserves legitimate shared history with minimal scrubbed actor attribution. Soft deletion, retirement and correction preserve performed evidence; history is not a retention exemption. Tenant-owned content survives creator-account deletion with minimal attribution. Workspace deletion follows immediate access suspension, private 30-day cancellation hold, eligible live purge and seven-day recovery-copy horizon; restore reapplies current deletion/access witnesses.",
+      "physical_verified": false,
+      "columns": [
+        {
+          "note": "Revision identity.",
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "note": "The church that owns the attestation.",
+          "name": "plant_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "The current attestation this revision belongs to.",
+          "name": "attestation_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "1 for the first answer, then one more for each change.",
+          "name": "revision",
+          "type": "bigint",
+          "nullable": false
+        },
+        {
+          "note": "The manual signal key or leadership_candidate.",
+          "name": "key",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "The Person a candidate revision was about when written. Not moved by a merge.",
+          "name": "person_id",
+          "type": "uuid",
+          "nullable": true
+        },
+        {
+          "note": "answered, corrected, retracted or reaffirmed.",
+          "name": "kind",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "Yes (true) or Not yet (false); null once retracted and for candidates.",
+          "name": "answer",
+          "type": "boolean",
+          "nullable": true
+        },
+        {
+          "note": "The date the statement was true as of, in the church's time zone.",
+          "name": "as_of",
+          "type": "date",
+          "nullable": false
+        },
+        {
+          "note": "Optional detail, or a candidate's statement.",
+          "name": "detail",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "Optional reference to a document, meeting or note.",
+          "name": "reference",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "Candidate period start.",
+          "name": "period_start",
+          "type": "date",
+          "nullable": true
+        },
+        {
+          "note": "Candidate period end.",
+          "name": "period_end",
+          "type": "date",
+          "nullable": true
+        },
+        {
+          "note": "Candidate attended unbroken.",
+          "name": "attendance_continuous",
+          "type": "boolean",
+          "nullable": true
+        },
+        {
+          "note": "Candidate volunteered unbroken.",
+          "name": "volunteering_continuous",
+          "type": "boolean",
+          "nullable": true
+        },
+        {
+          "note": "The version of the question or definition the author answered.",
+          "name": "question_version",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "The account that wrote the revision; cleared if the account is deleted.",
+          "name": "author_id",
+          "type": "uuid",
+          "nullable": true
+        },
+        {
+          "note": "The request key of the write.",
+          "name": "request_key",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "A hash of the request, so a retry with a different request is refused.",
+          "name": "request_fingerprint",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "When the revision was recorded.",
+          "name": "recorded_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "clock_timestamp()"
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "unique_keys": [
+        {
+          "columns": [
+            "attestation_id",
+            "revision"
+          ]
+        },
+        {
+          "columns": [
+            "plant_id",
+            "request_key"
+          ]
+        }
+      ],
+      "foreign_keys": [
+        {
+          "deletion": {
+            "action": "cascade",
+            "policy": "History goes with its attestation in the church purge. The runtime login cannot delete attestations."
+          },
+          "columns": [
+            "attestation_id",
+            "plant_id"
+          ],
+          "references": {
+            "table": "attestation",
+            "columns": [
+              "id",
+              "plant_id"
+            ]
+          },
+          "on_delete": "cascade"
+        },
+        {
+          "deletion": {
+            "action": "restrict",
+            "policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
+          },
+          "columns": [
+            "person_id",
+            "plant_id"
+          ],
+          "references": {
+            "table": "person",
+            "columns": [
+              "id",
+              "tenant_id"
+            ]
+          },
+          "on_delete": "restrict"
+        },
+        {
+          "deletion": {
+            "action": "set_null",
+            "policy": "Plant-owned facts survive personal account deletion with minimum necessary attribution."
+          },
+          "columns": [
+            "author_id"
+          ],
+          "references": {
+            "table": "account",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "set_null"
+        },
+        {
+          "deletion": {
+            "action": "restrict",
+            "policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
+          },
+          "columns": [
+            "plant_id"
+          ],
+          "references": {
+            "table": "plant",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "restrict"
+        }
+      ],
+      "checks": [
+        "(revision >= 1)",
+        "((key = 'leadership_candidate'::text) OR ((kind = 'retracted'::text) = (answer IS NULL)))",
+        "((char_length(request_key) >= 1) AND (char_length(request_key) <= 200))",
+        "((period_end IS NULL) OR (period_start <= period_end))",
+        "((detail IS NULL) OR ((char_length(detail) >= 1) AND (char_length(detail) <= 500))) AND ((reference IS NULL) OR ((char_length(reference) >= 1) AND (char_length(reference) <= 500)))",
+        "key in ('values_documented', 'financial_base_established', 'core_group_giving', 'prayer_leader_assigned', 'prayer_rhythm_established', 'prayer_in_gatherings', 'systems_tested', 'leadership_candidate')",
+        "((key <> 'leadership_candidate'::text) OR ((person_id IS NOT NULL) AND (period_start IS NOT NULL) AND (period_end IS NOT NULL) AND (attendance_continuous IS NOT NULL) AND (volunteering_continuous IS NOT NULL)))"
+      ],
+      "indexes": {
+        "attestation_revision_ref_1": {
+          "name": "attestation_revision_ref_1",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "recorded_at",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "attestation_revision_ref_2": {
+          "name": "attestation_revision_ref_2",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "person_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "attestation_revision_ref_3": {
+          "name": "attestation_revision_ref_3",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "author_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "constraint_names": {
+        "primary": [
+          "attestation_revision_pkey"
+        ],
+        "unique": [
+          "attestation_revision_uq_0",
+          "attestation_revision_uq_1"
+        ],
+        "foreign": [
+          "attestation_revision_fk_3",
+          "attestation_revision_fk_0",
+          "attestation_revision_fk_1",
+          "attestation_revision_fk_2"
+        ],
+        "checks": [
+          "attestation_revision_ck_0",
+          "attestation_revision_ck_1",
+          "attestation_revision_ck_5",
+          "attestation_revision_ck_6",
+          "attestation_revision_ck_2",
+          "attestation_revision_ck_3",
+          "attestation_revision_ck_4"
         ]
       },
       "policies": {},
@@ -10454,7 +11426,7 @@
         "Only same-plant top-level tasks; unique edges, no self edge or graph cycle.",
         "New candidates are not deleted; existing deleted predecessor and its history survive.",
         "Unfinished actionable prerequisite blocking is derived and separate from manual blocked state.",
-        "At most one open occurrence per series and one successor per predecessor.",
+        "At most one open occurrence per series and one successor per predecessor in each series.",
         "Completion, successor, reset children, history and reminder intent are atomic.",
         "Older occurrence cannot reopen when another open successor exists.",
         "Eligible owner is a live same-plant committed core_group/launch_team/leader Person linked to an actual account with a current seat.",
@@ -10788,7 +11760,7 @@
         }
       ],
       "checks": [
-        "action in ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','audit.imported','communication.approved','communication.draft_deleted','communication.draft_saved','communication.rescheduled','communication.scheduled','communication.send_intended','communication.template_archived','communication.template_created','communication.template_deleted','communication.template_forked','communication.template_updated','deletion.cancelled','deletion.live_purge_completed','documents.archived','documents.copied','documents.designated','documents.generated','documents.imported','documents.purged','documents.saved','evry.conversation_created','evry.proposal_approved','evry.proposal_cancelled','evry.proposal_prepared','evry.proposal_retried','evry.proposal_revised','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','execution.cancelled','execution.completed','execution.partial','execution.reconciled','execution.started','feedback.publication_intended','feedback.published','feedback.received','feedback.reconciled','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.credential_reconciled','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','intelligence.feedback_recorded','intelligence.published','intelligence.requested','intelligence.superseded','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','launch.corrected','launch.debrief_submitted','launch.outcome_recorded','launch.summary_published','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','note_correction','organization.profile_changed','people.corrected','people.created','people.merged','people.recorded','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','security.access_denied','security.audit_exported','security.audit_inspected','security.bulk_export','security.operator_accessed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.bookmark_changed','wiki.hidden','wiki.published','wiki.reading_recorded','wiki.source_order_changed')",
+        "action in ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','branding.changed','communication.draft_deleted','communication.draft_saved','communication.rescheduled','communication.scheduled','communication.send_intended','communication.template_archived','communication.template_created','communication.template_deleted','communication.template_forked','communication.template_updated','deletion.cancelled','deletion.live_purge_completed','documents.archived','documents.church_archived','documents.church_restored','documents.branding_changed','documents.copied','documents.created_from_template','documents.designated','documents.export_deleted','documents.exported','documents.generated','documents.imported','documents.purged','documents.saved','documents.template_deleted','documents.template_details_changed','documents.template_saved','documents.template_updated','evry.conversation_created','evry.proposal_approved','evry.proposal_cancelled','evry.proposal_prepared','evry.proposal_retried','evry.proposal_revised','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','feedback.received','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','organization.profile_changed','people.corrected','people.created','people.duplicate_dismissed','people.duplicate_restored','people.merged','people.recorded','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.bookmark_changed','wiki.hidden','wiki.published','wiki.reading_recorded','wiki.source_order_changed')",
         "num_nonnulls(actor_id,actor_token,system_cause)>=1",
         "kind in ('create','edit','correct','retire','restore','merge','unmerge','stage_change','classification_change','commitment_change','assign','remove','accept','revoke','resend','role_change','leader_change','tick','untick','archive','earn','revoke_credit','offer_answer','publish','hide','read','progress','complete','reopen','waive','supersede','finalize','reconcile','noop','triage','suppress','suppression_clear','preference','model_attempt','tool_attempt','effect_result','mail_member','outcome','declaration','movement')",
         "jsonb_typeof(metadata)='object' AND (metadata->'diff' IS NULL OR (jsonb_typeof(metadata->'diff')='object' AND octet_length(convert_to((metadata->'diff')::text,'UTF8'))<=2048))"
@@ -10833,6 +11805,72 @@
           "columns": [
             {
               "expression": "command_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "audit_tenant_action_latest": {
+          "name": "audit_tenant_action_latest",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "action",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "occurred_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "audit_actor_action": {
+          "name": "audit_actor_action",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "actor_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "action",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "occurred_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -11675,6 +12713,490 @@
       "rls": false
     },
     {
+      "name": "church_brand_kit",
+      "domain": "documents",
+      "purpose": "The saved brand kit of one church plant: colors, fonts, letterhead and signature text, and up to six image assets. One row per church plant. Reset deletes the row.",
+      "library_owned": false,
+      "jsonb_keys": {},
+      "capabilities": [
+        "CAP-C-047"
+      ],
+      "replaces": [],
+      "producer_work_packages": [
+        "WP-104"
+      ],
+      "producer_derivation": {
+        "old_target_tables": [],
+        "additional_producers": [
+          "WP-104"
+        ],
+        "rule": "WP-104 stores one brand kit for each church plant. The plant owns the row."
+      },
+      "feature_ids": [
+        "BRD-001",
+        "BRD-002",
+        "BRD-003",
+        "BRD-004",
+        "BRD-005",
+        "BRD-006"
+      ],
+      "acceptance_ids": [
+        "AC-BRD-001--BRD-001",
+        "AC-BRD-002--BRD-002",
+        "AC-BRD-003--BRD-003",
+        "AC-BRD-004--BRD-004",
+        "AC-BRD-005--BRD-005"
+      ],
+      "future_case_ids": [
+        "CASE-BRD-001",
+        "CASE-BRD-002",
+        "CASE-BRD-003",
+        "CASE-BRD-004",
+        "CASE-BRD-005",
+        "CASE-BRD-006"
+      ],
+      "scope": "documents",
+      "invariants": [
+        "Each asset slot points at one ready brand_asset file of the same church plant and carries alt text.",
+        "The primary color, once saved, is never cleared.",
+        "Saving or resetting a kit never changes a generated file."
+      ],
+      "revision": "Each save, upload attach and asset removal adds 1. A new row starts at 1. Reset deletes the row, so revision 0 means no kit.",
+      "idempotency": "A save names the expected revision. A stale revision gets a conflict and changes nothing.",
+      "deletion": "Plant purge removes the row with the plant. Reset removes it and queues cleanup of every asset file.",
+      "physical_verified": false,
+      "columns": [
+        {
+          "note": "Church plant owner. The primary key: at most one kit for each church plant.",
+          "name": "tenant_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "revision",
+          "type": "bigint",
+          "nullable": false,
+          "default": "1"
+        },
+        {
+          "note": "Upper case #RRGGBB. Null only before the first color save.",
+          "name": "primary_color",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "Upper case #RRGGBB. Null means the accent is the primary color.",
+          "name": "accent_color",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "Curated open-license font id, checked in the contract.",
+          "name": "heading_font",
+          "type": "text",
+          "nullable": false,
+          "default": "'DM Serif Display'"
+        },
+        {
+          "note": "Curated open-license font id, checked in the contract.",
+          "name": "body_font",
+          "type": "text",
+          "nullable": false,
+          "default": "'DM Sans'"
+        },
+        {
+          "note": "",
+          "name": "legal_name",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "",
+          "name": "address",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "An https URL.",
+          "name": "website",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "",
+          "name": "phone",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "",
+          "name": "email",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "NN-NNNNNNN.",
+          "name": "ein",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "",
+          "name": "tagline",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "",
+          "name": "signer_name",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "",
+          "name": "signer_title",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "Ready brand_asset file of the same church plant, or null.",
+          "name": "full_logo_object_id",
+          "type": "uuid",
+          "nullable": true
+        },
+        {
+          "note": "Alt text for the asset. Null exactly when the slot is empty.",
+          "name": "full_logo_alt",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "Ready brand_asset file of the same church plant, or null.",
+          "name": "full_logo_dark_object_id",
+          "type": "uuid",
+          "nullable": true
+        },
+        {
+          "note": "Alt text for the asset. Null exactly when the slot is empty.",
+          "name": "full_logo_dark_alt",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "Ready brand_asset file of the same church plant, or null.",
+          "name": "mark_object_id",
+          "type": "uuid",
+          "nullable": true
+        },
+        {
+          "note": "Alt text for the asset. Null exactly when the slot is empty.",
+          "name": "mark_alt",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "Ready brand_asset file of the same church plant, or null.",
+          "name": "mark_dark_object_id",
+          "type": "uuid",
+          "nullable": true
+        },
+        {
+          "note": "Alt text for the asset. Null exactly when the slot is empty.",
+          "name": "mark_dark_alt",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "Ready brand_asset file of the same church plant, or null.",
+          "name": "cover_photo_object_id",
+          "type": "uuid",
+          "nullable": true
+        },
+        {
+          "note": "Alt text for the asset. Null exactly when the slot is empty.",
+          "name": "cover_photo_alt",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "Ready brand_asset file of the same church plant, or null.",
+          "name": "signature_object_id",
+          "type": "uuid",
+          "nullable": true
+        },
+        {
+          "note": "Alt text for the asset. Null exactly when the slot is empty.",
+          "name": "signature_alt",
+          "type": "text",
+          "nullable": true
+        }
+      ],
+      "primary_key": [
+        "tenant_id"
+      ],
+      "unique_keys": [],
+      "foreign_keys": [
+        {
+          "deletion": {
+            "action": "restrict",
+            "policy": "The private file stays while the kit references it. Cleanup deletes only an unreferenced object."
+          },
+          "columns": [
+            "cover_photo_object_id",
+            "tenant_id"
+          ],
+          "references": {
+            "table": "file_object",
+            "columns": [
+              "id",
+              "tenant_id"
+            ]
+          },
+          "on_delete": "restrict"
+        },
+        {
+          "deletion": {
+            "action": "restrict",
+            "policy": "The private file stays while the kit references it. Cleanup deletes only an unreferenced object."
+          },
+          "columns": [
+            "full_logo_dark_object_id",
+            "tenant_id"
+          ],
+          "references": {
+            "table": "file_object",
+            "columns": [
+              "id",
+              "tenant_id"
+            ]
+          },
+          "on_delete": "restrict"
+        },
+        {
+          "deletion": {
+            "action": "restrict",
+            "policy": "The private file stays while the kit references it. Cleanup deletes only an unreferenced object."
+          },
+          "columns": [
+            "full_logo_object_id",
+            "tenant_id"
+          ],
+          "references": {
+            "table": "file_object",
+            "columns": [
+              "id",
+              "tenant_id"
+            ]
+          },
+          "on_delete": "restrict"
+        },
+        {
+          "deletion": {
+            "action": "restrict",
+            "policy": "The private file stays while the kit references it. Cleanup deletes only an unreferenced object."
+          },
+          "columns": [
+            "mark_dark_object_id",
+            "tenant_id"
+          ],
+          "references": {
+            "table": "file_object",
+            "columns": [
+              "id",
+              "tenant_id"
+            ]
+          },
+          "on_delete": "restrict"
+        },
+        {
+          "deletion": {
+            "action": "restrict",
+            "policy": "The private file stays while the kit references it. Cleanup deletes only an unreferenced object."
+          },
+          "columns": [
+            "mark_object_id",
+            "tenant_id"
+          ],
+          "references": {
+            "table": "file_object",
+            "columns": [
+              "id",
+              "tenant_id"
+            ]
+          },
+          "on_delete": "restrict"
+        },
+        {
+          "deletion": {
+            "action": "restrict",
+            "policy": "The private file stays while the kit references it. Cleanup deletes only an unreferenced object."
+          },
+          "columns": [
+            "signature_object_id",
+            "tenant_id"
+          ],
+          "references": {
+            "table": "file_object",
+            "columns": [
+              "id",
+              "tenant_id"
+            ]
+          },
+          "on_delete": "restrict"
+        },
+        {
+          "deletion": {
+            "action": "restrict",
+            "policy": "Plant purge removes the kit row before the plant."
+          },
+          "columns": [
+            "tenant_id"
+          ],
+          "references": {
+            "table": "tenant",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "restrict"
+        }
+      ],
+      "checks": [
+        "((primary_color IS NULL) OR (primary_color ~ '^#[0-9A-F]{6}$'::text)) AND ((accent_color IS NULL) OR (accent_color ~ '^#[0-9A-F]{6}$'::text))",
+        "((cover_photo_object_id IS NULL) = (cover_photo_alt IS NULL)) AND ((cover_photo_alt IS NULL) OR (char_length(btrim(cover_photo_alt)) BETWEEN 1 AND 300))",
+        "((full_logo_object_id IS NULL) = (full_logo_alt IS NULL)) AND ((full_logo_alt IS NULL) OR (char_length(btrim(full_logo_alt)) BETWEEN 1 AND 300))",
+        "((full_logo_dark_object_id IS NULL) = (full_logo_dark_alt IS NULL)) AND ((full_logo_dark_alt IS NULL) OR (char_length(btrim(full_logo_dark_alt)) BETWEEN 1 AND 300))",
+        "((mark_object_id IS NULL) = (mark_alt IS NULL)) AND ((mark_alt IS NULL) OR (char_length(btrim(mark_alt)) BETWEEN 1 AND 300))",
+        "((mark_dark_object_id IS NULL) = (mark_dark_alt IS NULL)) AND ((mark_dark_alt IS NULL) OR (char_length(btrim(mark_dark_alt)) BETWEEN 1 AND 300))",
+        "(revision >= 1)",
+        "((signature_object_id IS NULL) = (signature_alt IS NULL)) AND ((signature_alt IS NULL) OR (char_length(btrim(signature_alt)) BETWEEN 1 AND 300))",
+        "(tenant_id <> '00000000-0000-0000-0000-000000000000'::uuid)",
+        "(char_length(heading_font) <= 60) AND (char_length(body_font) <= 60) AND (char_length(legal_name) <= 200) AND (char_length(address) <= 500) AND (char_length(website) <= 300) AND (char_length(phone) <= 40) AND (char_length(email) <= 200) AND ((ein IS NULL) OR (ein ~ '^[0-9]{2}-[0-9]{7}$'::text)) AND (char_length(tagline) <= 200) AND (char_length(signer_name) <= 120) AND (char_length(signer_title) <= 120)"
+      ],
+      "indexes": {
+        "church_brand_kit_full_logo_ref": {
+          "name": "church_brand_kit_full_logo_ref",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "full_logo_object_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "church_brand_kit_full_logo_dark_ref": {
+          "name": "church_brand_kit_full_logo_dark_ref",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "full_logo_dark_object_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "church_brand_kit_mark_ref": {
+          "name": "church_brand_kit_mark_ref",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "mark_object_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "church_brand_kit_mark_dark_ref": {
+          "name": "church_brand_kit_mark_dark_ref",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "mark_dark_object_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "church_brand_kit_cover_photo_ref": {
+          "name": "church_brand_kit_cover_photo_ref",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "cover_photo_object_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "church_brand_kit_signature_ref": {
+          "name": "church_brand_kit_signature_ref",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "signature_object_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "constraint_names": {
+        "primary": [
+          "church_brand_kit_pkey"
+        ],
+        "unique": [],
+        "foreign": [
+          "church_brand_kit_tenant_fk",
+          "church_brand_kit_full_logo_fk",
+          "church_brand_kit_full_logo_dark_fk",
+          "church_brand_kit_mark_fk",
+          "church_brand_kit_mark_dark_fk",
+          "church_brand_kit_cover_photo_fk",
+          "church_brand_kit_signature_fk"
+        ],
+        "checks": [
+          "church_brand_kit_revision",
+          "church_brand_kit_tenant",
+          "church_brand_kit_colors",
+          "church_brand_kit_text",
+          "church_brand_kit_full_logo_alt",
+          "church_brand_kit_full_logo_dark_alt",
+          "church_brand_kit_mark_alt",
+          "church_brand_kit_mark_dark_alt",
+          "church_brand_kit_cover_photo_alt",
+          "church_brand_kit_signature_alt"
+        ]
+      },
+      "policies": {},
+      "rls": false
+    },
+    {
       "name": "commitment",
       "domain": "people",
       "purpose": "Genuine dated signature evidence independent from later commitment withdrawal. Original recorder and corrections come from its immutable typed event stream.",
@@ -11824,12 +13346,6 @@
           "nullable": true
         },
         {
-          "note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply.",
-          "name": "corrected_commitment_id",
-          "type": "uuid",
-          "nullable": true
-        },
-        {
           "note": "",
           "name": "revision",
           "type": "bigint",
@@ -11920,24 +13436,6 @@
             "columns": [
               "id",
               "tenant_id"
-            ]
-          },
-          "on_delete": "restrict"
-        },
-        {
-          "deletion": {
-            "action": "restrict",
-            "policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
-          },
-          "columns": [
-            "corrected_commitment_id",
-            "plant_id"
-          ],
-          "references": {
-            "table": "commitment",
-            "columns": [
-              "id",
-              "plant_id"
             ]
           },
           "on_delete": "restrict"
@@ -12045,27 +13543,6 @@
           "method": "btree",
           "with": {}
         },
-        "commitment_ref_4": {
-          "name": "commitment_ref_4",
-          "isUnique": false,
-          "columns": [
-            {
-              "expression": "corrected_commitment_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "plant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "commitment_object_uq": {
           "name": "commitment_object_uq",
           "isUnique": true,
@@ -12094,7 +13571,6 @@
           "commitment_fk_1",
           "commitment_fk_2",
           "commitment_fk_3",
-          "commitment_fk_4",
           "commitment_fk_5"
         ],
         "checks": [
@@ -12783,6 +14259,13 @@
           "type": "boolean",
           "nullable": false,
           "default": false
+        },
+        {
+          "note": "The person's other open follow-up tasks this one contact finished (REQ-MTG-022). Each keeps this entry as its completion evidence for the 48-hour measure; the log shows one entry. No foreign key: an array of same-church task IDs checked by the writer.",
+          "name": "also_task_ids",
+          "type": "uuid[]",
+          "nullable": false,
+          "default": "'{}'::uuid[]"
         }
       ],
       "primary_key": [
@@ -14801,18 +16284,6 @@
           "nullable": true
         },
         {
-          "note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply.",
-          "name": "last_mail_id",
-          "type": "uuid",
-          "nullable": true
-        },
-        {
-          "note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply.",
-          "name": "last_operation_id",
-          "type": "uuid",
-          "nullable": true
-        },
-        {
           "note": "",
           "name": "revision",
           "type": "bigint",
@@ -14877,42 +16348,6 @@
             "policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
           },
           "columns": [
-            "last_mail_id",
-            "tenant_id"
-          ],
-          "references": {
-            "table": "mail",
-            "columns": [
-              "id",
-              "tenant_id"
-            ]
-          },
-          "on_delete": "restrict"
-        },
-        {
-          "deletion": {
-            "action": "restrict",
-            "policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
-          },
-          "columns": [
-            "last_operation_id",
-            "tenant_id"
-          ],
-          "references": {
-            "table": "audit_event",
-            "columns": [
-              "id",
-              "tenant_id"
-            ]
-          },
-          "on_delete": "restrict"
-        },
-        {
-          "deletion": {
-            "action": "restrict",
-            "policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
-          },
-          "columns": [
             "id",
             "tenant_id"
           ],
@@ -14948,48 +16383,6 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
-        },
-        "digest_coverage_ref_2": {
-          "name": "digest_coverage_ref_2",
-          "isUnique": false,
-          "columns": [
-            {
-              "expression": "last_mail_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "tenant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "digest_coverage_ref_3": {
-          "name": "digest_coverage_ref_3",
-          "isUnique": false,
-          "columns": [
-            {
-              "expression": "last_operation_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "tenant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
         }
       },
       "constraint_names": {
@@ -15003,8 +16396,6 @@
         "foreign": [
           "digest_coverage_fk_0",
           "digest_coverage_fk_1",
-          "digest_coverage_fk_2",
-          "digest_coverage_fk_3",
           "digest_coverage_fk_4"
         ],
         "checks": [
@@ -15274,7 +16665,13 @@
       "domain": "documents",
       "purpose": "Account or plant owned native writing with explicit values or Launch-summary designation. Exactly one account, plant or organization owns this row. Only account or plant tenants; launch_summary requires plant. A deferred kind trigger enforces this.",
       "library_owned": false,
-      "jsonb_keys": {},
+      "jsonb_keys": {
+        "input_provenance": [
+          "key: template merge field id",
+          "value: frozen text used in revision 1, or null when no source had a value",
+          "source: override, church_name, pastor_name or absent"
+        ]
+      },
       "capabilities": [
         "CAP-B-026",
         "CAP-C-015",
@@ -15465,6 +16862,54 @@
           "type": "bigint",
           "nullable": false,
           "default": "1"
+        },
+        {
+          "note": "Church Documents only. Editable template id frozen at creation. Null for a plain native document.",
+          "name": "template_id",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "Church Documents only. Whole-number version of the authored template that made revision 1.",
+          "name": "template_version",
+          "type": "integer",
+          "nullable": true
+        },
+        {
+          "note": "Church Documents only. formal/legal, outward-facing or operational, copied from the template. It picks the export theme layout and whether the legal notice prints.",
+          "name": "document_class",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "Church Documents only. True: export uses the church theme when the church has a brand kit. False: Everyfield-neutral theme. Changing it makes no revision.",
+          "name": "use_church_branding",
+          "type": "boolean",
+          "nullable": true
+        },
+        {
+          "note": "Church Documents only. Frozen merge values of revision 1. Each entry has key, value and source.",
+          "name": "input_provenance",
+          "type": "jsonb",
+          "nullable": true
+        },
+        {
+          "note": "Church templates only. The description New from template shows under the name, or null. Renaming or describing a template changes this row and makes no revision (D-171).",
+          "name": "description",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "When an Owner or Admin archived a Church Document (T-9). archived_at marks it deleted, never archived (D-935).",
+          "name": "church_archived_at",
+          "type": "timestamptz",
+          "nullable": true
+        },
+        {
+          "note": "The account that archived it; set with church_archived_at. Not a foreign key, like an audit actor.",
+          "name": "church_archived_by",
+          "type": "uuid",
+          "nullable": true
         }
       ],
       "primary_key": [
@@ -15550,8 +16995,11 @@
         }
       ],
       "checks": [
+        "((kind = 'church_document') = (template_id IS NOT NULL)) AND ((kind = 'church_document') = (template_version IS NOT NULL)) AND ((kind = 'church_document') = (document_class IS NOT NULL)) AND ((kind = 'church_document') = (use_church_branding IS NOT NULL)) AND ((kind = 'church_document') = (input_provenance IS NOT NULL)) AND ((template_version IS NULL) OR (template_version >= 1)) AND ((input_provenance IS NULL) OR (octet_length(input_provenance::text) <= 65536))",
+        "((church_archived_at IS NULL) = (church_archived_by IS NULL)) AND ((church_archived_at IS NULL) OR (kind = 'church_document'))",
+        "((kind <> 'church_template') OR ((copied_from_revision_id IS NOT NULL) AND (copied_from_hash IS NOT NULL)))",
         "(revision >= 1)",
-        "kind in ('native', 'core_values', 'launch_summary')",
+        "kind in ('native', 'core_values', 'launch_summary', 'church_document', 'church_template')",
         "(tenant_id <> '00000000-0000-0000-0000-000000000000'::uuid)"
       ],
       "indexes": {
@@ -15623,7 +17071,10 @@
         "checks": [
           "document_ck_0",
           "document_ck_1",
-          "document_ck_2"
+          "document_church_template",
+          "document_church_archive",
+          "document_ck_2",
+          "document_church"
         ]
       },
       "policies": {},
@@ -15836,6 +17287,12 @@
           "name": "recorded_at",
           "type": "timestamptz",
           "nullable": false
+        },
+        {
+          "note": "Attribution of a Church Document revision. Account deletion nulls it. Null for earlier native revisions.",
+          "name": "author_account_id",
+          "type": "uuid",
+          "nullable": true
         }
       ],
       "primary_key": [
@@ -15856,6 +17313,22 @@
         }
       ],
       "foreign_keys": [
+        {
+          "deletion": {
+            "action": "set_null",
+            "policy": "Clear revision attribution when the account row is removed. The plant keeps the revision."
+          },
+          "columns": [
+            "author_account_id"
+          ],
+          "references": {
+            "table": "account",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "set_null"
+        },
         {
           "deletion": {
             "action": "restrict",
@@ -16003,7 +17476,8 @@
           "document_revision_fk_0",
           "document_revision_fk_1",
           "document_revision_fk_2",
-          "document_revision_fk_3"
+          "document_revision_fk_3",
+          "document_revision_author_fk"
         ],
         "checks": [
           "document_revision_ck_0",
@@ -16556,12 +18030,6 @@
         },
         {
           "note": "",
-          "name": "retention_until",
-          "type": "timestamptz",
-          "nullable": true
-        },
-        {
-          "note": "",
           "name": "purge_requested_at",
           "type": "timestamptz",
           "nullable": true
@@ -16640,7 +18108,7 @@
       "checks": [
         "((max_bytes > 0) AND (claim_generation >= 0) AND ((sha256 IS NULL) OR (sha256 ~ '^[0-9a-f]{64}$'::text)))",
         "(revision >= 1)",
-        "purpose in ('avatar', 'person_photo', 'commitment', 'generated', 'native_import', 'assistant_staging', 'communication_attachment')",
+        "purpose in ('avatar', 'person_photo', 'commitment', 'generated', 'native_import', 'assistant_staging', 'communication_attachment', 'brand_asset')",
         "state in ('pending', 'ready', 'failed', 'cleanup', 'purged')",
         "((byte_count IS NULL) OR ((byte_count >= 1) AND (byte_count <= max_bytes)))",
         "((state <> 'ready'::text) OR ((byte_count IS NOT NULL) AND (sha256 IS NOT NULL)))",
@@ -17089,6 +18557,30 @@
           "type": "bigint",
           "nullable": false,
           "default": "1"
+        },
+        {
+          "note": "Church Document exports only. The document this export was made from, frozen with the row.",
+          "name": "source_document_id",
+          "type": "uuid",
+          "nullable": true
+        },
+        {
+          "note": "Church Document exports only. The exact revision that was exported.",
+          "name": "source_revision_id",
+          "type": "uuid",
+          "nullable": true
+        },
+        {
+          "note": "Church Document exports only. church or everyfield-neutral: the theme that painted the saved bytes.",
+          "name": "theme_kind",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "Church Document exports only. Primary color of a church theme at export time. Null for the neutral theme.",
+          "name": "theme_primary",
+          "type": "text",
+          "nullable": true
         }
       ],
       "primary_key": [
@@ -17182,13 +18674,50 @@
             ]
           },
           "on_delete": "restrict"
+        },
+        {
+          "deletion": {
+            "action": "restrict",
+            "policy": "A Church Document stays while a saved export names it. Plant purge removes the exports first."
+          },
+          "columns": [
+            "source_document_id",
+            "tenant_id"
+          ],
+          "references": {
+            "table": "document",
+            "columns": [
+              "id",
+              "tenant_id"
+            ]
+          },
+          "on_delete": "restrict"
+        },
+        {
+          "deletion": {
+            "action": "restrict",
+            "policy": "The exported revision stays while a saved export names it. Plant purge removes the exports first."
+          },
+          "columns": [
+            "source_revision_id",
+            "tenant_id"
+          ],
+          "references": {
+            "table": "document_revision",
+            "columns": [
+              "id",
+              "tenant_id"
+            ]
+          },
+          "on_delete": "restrict"
         }
       ],
       "checks": [
         "(revision >= 1)",
         "format in ('pdf', 'docx', 'xlsx')",
         "(tenant_id <> '00000000-0000-0000-0000-000000000000'::uuid)",
-        "(octet_length(inputs::text) <= 65536)"
+        "(octet_length(inputs::text) <= 65536)",
+        "((source_document_id IS NULL) = (source_revision_id IS NULL)) AND ((source_document_id IS NULL) = (theme_kind IS NULL)) AND ((theme_primary IS NULL) OR (theme_primary ~ '^#[0-9A-F]{6}$'::text))"
       ],
       "indexes": {
         "generated_document_uq_2": {
@@ -17269,6 +18798,48 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "generated_document_source_ref": {
+          "name": "generated_document_source_ref",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "source_document_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "generated_document_source_revision_ref": {
+          "name": "generated_document_source_revision_ref",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "source_revision_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "constraint_names": {
@@ -17283,13 +18854,16 @@
           "generated_document_fk_0",
           "generated_document_fk_1",
           "generated_document_fk_2",
-          "generated_document_fk_3"
+          "generated_document_fk_3",
+          "generated_document_source_document_fk",
+          "generated_document_source_revision_fk"
         ],
         "checks": [
           "generated_document_ck_0",
           "generated_document_ck_1",
           "generated_document_ck_2",
-          "generated_document_ck_3"
+          "generated_document_ck_3",
+          "generated_document_source"
         ]
       },
       "policies": {},
@@ -18951,13 +20525,13 @@
       ],
       "checks": [
         "(revision >= 1)",
-        "kind in ('mail', 'notification', 'digest', 'assessment', 'reference_generation', 'feedback_publication', 'object_cleanup', 'lifecycle_purge', 'assistant_turn', 'document_render', 'people_import', 'evry_effect')",
+        "kind in ('mail', 'notification', 'digest', 'object_cleanup', 'lifecycle_purge', 'assistant_turn', 'people_import', 'evry_effect')",
         "state in ('ready', 'claimed', 'retry_wait', 'reconcile', 'succeeded', 'failed', 'cancelled', 'superseded')",
         "((attempt_count >= 0) AND (max_attempts >= 1))",
         "(claim_generation >= 0)",
         "((lease_owner IS NULL) = (lease_until IS NULL))",
         "((subject_record_id IS NOT NULL) OR (producer_key = 'sweep'::text))",
-        "((tenant_id <> '00000000-0000-0000-0000-000000000000'::uuid) OR (kind = ANY (ARRAY['mail'::text, 'reference_generation'::text, 'feedback_publication'::text, 'object_cleanup'::text, 'lifecycle_purge'::text])))"
+        "((tenant_id <> '00000000-0000-0000-0000-000000000000'::uuid) OR (kind = ANY (ARRAY['mail'::text, 'object_cleanup'::text, 'lifecycle_purge'::text])))"
       ],
       "indexes": {
         "job_ref_1": {
@@ -19166,26 +20740,8 @@
           "nullable": true
         },
         {
-          "note": "",
-          "name": "outcome_notes",
-          "type": "text",
-          "nullable": true
-        },
-        {
-          "note": "",
-          "name": "outcome_recorded_at",
-          "type": "timestamptz",
-          "nullable": true
-        },
-        {
           "note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply.",
           "name": "reference_version_id",
-          "type": "uuid",
-          "nullable": true
-        },
-        {
-          "note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply.",
-          "name": "summary_document_id",
           "type": "uuid",
           "nullable": true
         },
@@ -19233,24 +20789,6 @@
             ]
           },
           "on_delete": "restrict"
-        },
-        {
-          "deletion": {
-            "action": "restrict",
-            "policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
-          },
-          "columns": [
-            "summary_document_id",
-            "plant_id"
-          ],
-          "references": {
-            "table": "document",
-            "columns": [
-              "id",
-              "tenant_id"
-            ]
-          },
-          "on_delete": "restrict"
         }
       ],
       "checks": [
@@ -19275,27 +20813,6 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
-        },
-        "launch_ref_2": {
-          "name": "launch_ref_2",
-          "isUnique": false,
-          "columns": [
-            {
-              "expression": "summary_document_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "plant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
         }
       },
       "constraint_names": {
@@ -19305,8 +20822,7 @@
         "unique": [],
         "foreign": [
           "launch_fk_0",
-          "launch_fk_1",
-          "launch_fk_2"
+          "launch_fk_1"
         ],
         "checks": [
           "launch_ck_0",
@@ -19411,12 +20927,6 @@
         },
         {
           "note": "",
-          "name": "seed_key",
-          "type": "text",
-          "nullable": false
-        },
-        {
-          "note": "",
           "name": "title",
           "type": "text",
           "nullable": false
@@ -19467,12 +20977,6 @@
           "columns": [
             "id",
             "plant_id"
-          ]
-        },
-        {
-          "columns": [
-            "plant_id",
-            "seed_key"
           ]
         }
       ],
@@ -19553,8 +21057,7 @@
           "launch_milestone_pkey"
         ],
         "unique": [
-          "launch_milestone_uq_0",
-          "launch_milestone_uq_1"
+          "launch_milestone_uq_0"
         ],
         "foreign": [
           "launch_milestone_fk_0",
@@ -19763,18 +21266,6 @@
         },
         {
           "note": "",
-          "name": "byte_manifest_hash",
-          "type": "text",
-          "nullable": true
-        },
-        {
-          "note": "",
-          "name": "cancellation_manifest_hash",
-          "type": "text",
-          "nullable": true
-        },
-        {
-          "note": "",
           "name": "cleanup_state",
           "type": "text",
           "nullable": false
@@ -19794,12 +21285,6 @@
         {
           "note": "Historical non-content subject key; retained after the live requester FK is cleared.",
           "name": "requester_opaque_id",
-          "type": "uuid",
-          "nullable": true
-        },
-        {
-          "note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply.",
-          "name": "counterparty_organization_id",
           "type": "uuid",
           "nullable": true
         },
@@ -19904,22 +21389,6 @@
           ],
           "references": {
             "table": "affiliation",
-            "columns": [
-              "id"
-            ]
-          },
-          "on_delete": "restrict"
-        },
-        {
-          "deletion": {
-            "action": "restrict",
-            "policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
-          },
-          "columns": [
-            "counterparty_organization_id"
-          ],
-          "references": {
-            "table": "organization",
             "columns": [
               "id"
             ]
@@ -20039,21 +21508,6 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
-        },
-        "lifecycle_witness_ref_5": {
-          "name": "lifecycle_witness_ref_5",
-          "isUnique": false,
-          "columns": [
-            {
-              "expression": "counterparty_organization_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
         }
       },
       "constraint_names": {
@@ -20069,7 +21523,6 @@
           "lifecycle_witness_fk_2",
           "lifecycle_witness_fk_3",
           "lifecycle_witness_fk_4",
-          "lifecycle_witness_fk_5",
           "lifecycle_witness_fk_6"
         ],
         "checks": [
@@ -20462,12 +21915,6 @@
           "nullable": true
         },
         {
-          "note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply.",
-          "name": "original_mail_id",
-          "type": "uuid",
-          "nullable": true
-        },
-        {
           "note": "",
           "name": "revision",
           "type": "bigint",
@@ -20484,6 +21931,18 @@
           "note": "",
           "name": "address_hash",
           "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "unsubscribed when Everyfield refused this Messages recipient because the person opted out of the church's email; null otherwise. A blocked address keeps its suppression row instead.",
+          "name": "refusal",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "The Messages message this recipient send belongs to, set on every communication mail insert; null for other purposes. History, delivery and meeting reads join on it instead of a logical_key prefix.",
+          "name": "communication_id",
+          "type": "uuid",
           "nullable": true
         }
       ],
@@ -20615,11 +22074,11 @@
             "policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
           },
           "columns": [
-            "original_mail_id",
+            "id",
             "tenant_id"
           ],
           "references": {
-            "table": "mail",
+            "table": "record",
             "columns": [
               "id",
               "tenant_id"
@@ -20630,17 +22089,17 @@
         {
           "deletion": {
             "action": "restrict",
-            "policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
+            "policy": "A message with recipient sends is never deleted; only drafts are, and a draft has no mail. A foreign key grants no current access."
           },
           "columns": [
-            "id",
+            "communication_id",
             "tenant_id"
           ],
           "references": {
-            "table": "record",
+            "table": "communication",
             "columns": [
               "id",
-              "tenant_id"
+              "plant_id"
             ]
           },
           "on_delete": "restrict"
@@ -20654,7 +22113,8 @@
         "((frozen_payload IS NOT NULL) OR (state = ANY (ARRAY['unknown'::text, 'refused'::text, 'accepted'::text, 'scheduled'::text, 'sent'::text, 'cancelled'::text, 'failed'::text])))",
         "((frozen_payload IS NULL) = (address_hash IS NULL))",
         "purpose in ('communication', 'discovery_receipt', 'email_change', 'email_verification', 'notification', 'oversight_digest', 'password_reset', 'planter_digest', 'relationship_invitation', 'relationship_receipt', 'seat_invitation')",
-        "((tenant_id <> '00000000-0000-0000-0000-000000000000'::uuid) OR (frozen_payload IS NULL))"
+        "((tenant_id <> '00000000-0000-0000-0000-000000000000'::uuid) OR (frozen_payload IS NULL))",
+        "((refusal IS NULL) OR (refusal = 'unsubscribed'::text AND state = 'refused'::text))"
       ],
       "indexes": {
         "mail_ref_1": {
@@ -20756,18 +22216,34 @@
           "method": "btree",
           "with": {}
         },
-        "mail_ref_6": {
-          "name": "mail_ref_6",
+        "mail_communication": {
+          "name": "mail_communication",
           "isUnique": false,
           "columns": [
             {
-              "expression": "original_mail_id",
+              "expression": "tenant_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
             },
             {
-              "expression": "tenant_id",
+              "expression": "communication_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "mail_waiting": {
+          "name": "mail_waiting",
+          "isUnique": false,
+          "where": "((purpose = 'communication'::text) AND (state = ANY (ARRAY['scheduled'::text, 'accepted'::text])) AND (scheduled_at IS NOT NULL))",
+          "columns": [
+            {
+              "expression": "scheduled_at",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -20793,10 +22269,11 @@
           "mail_fk_3",
           "mail_fk_4",
           "mail_fk_5",
-          "mail_fk_6",
+          "mail_fk_8",
           "mail_fk_7"
         ],
         "checks": [
+          "mail_refusal",
           "mail_ck_0",
           "mail_ck_1",
           "mail_ck_2",
@@ -20815,13 +22292,7 @@
       "domain": "communication",
       "purpose": "Truthful provider request attempt with generation-fenced safe outcome.",
       "library_owned": false,
-      "jsonb_keys": {
-        "provider_payload": [
-          "request_id: provider diagnostic correlation",
-          "status: provider response status",
-          "error: sanitized transport error detail; per-member authoritative state lives in mail and provider_event"
-        ]
-      },
+      "jsonb_keys": {},
       "capabilities": [
         "CAP-B-037"
       ],
@@ -20963,20 +22434,8 @@
         },
         {
           "note": "",
-          "name": "retry_at",
-          "type": "timestamptz",
-          "nullable": true
-        },
-        {
-          "note": "",
           "name": "retryable",
           "type": "boolean",
-          "nullable": true
-        },
-        {
-          "note": "",
-          "name": "provider_payload",
-          "type": "jsonb",
           "nullable": true
         }
       ],
@@ -22939,12 +24398,6 @@
         },
         {
           "note": "",
-          "name": "schedule_time",
-          "type": "time",
-          "nullable": true
-        },
-        {
-          "note": "",
           "name": "timezone",
           "type": "text",
           "nullable": true
@@ -23069,8 +24522,8 @@
       ],
       "checks": [
         "(revision >= 1)",
-        "category in ('task', 'meeting', 'phase', 'insight', 'relationship', 'reference_update', 'digest', 'launch')",
-        "purpose in ('insight_available', 'launch_milestone', 'meeting_evaluation', 'meeting_invitation', 'meeting_reminder', 'oversight_digest', 'phase_offer', 'phase_transition', 'planter_digest', 'reference_update', 'relationship_decision', 'relationship_invitation', 'task_assignment', 'task_due')",
+        "category in ('task', 'meeting', 'phase', 'insight', 'relationship', 'reference_update', 'digest', 'launch', 'communication')",
+        "purpose in ('communication_unsubscribed', 'insight_available', 'launch_milestone', 'meeting_evaluation', 'meeting_invitation', 'meeting_reminder', 'oversight_digest', 'phase_offer', 'phase_transition', 'planter_digest', 'reference_update', 'relationship_decision', 'relationship_invitation', 'task_assignment', 'task_due')",
         "(tenant_id <> '00000000-0000-0000-0000-000000000000'::uuid)",
         "timezone in ('Africa/Abidjan', 'Africa/Accra', 'Africa/Addis_Ababa', 'Africa/Algiers', 'Africa/Asmera', 'Africa/Bamako', 'Africa/Bangui', 'Africa/Banjul', 'Africa/Bissau', 'Africa/Blantyre', 'Africa/Brazzaville', 'Africa/Bujumbura', 'Africa/Cairo', 'Africa/Casablanca', 'Africa/Ceuta', 'Africa/Conakry', 'Africa/Dakar', 'Africa/Dar_es_Salaam', 'Africa/Djibouti', 'Africa/Douala', 'Africa/El_Aaiun', 'Africa/Freetown', 'Africa/Gaborone', 'Africa/Harare', 'Africa/Johannesburg', 'Africa/Juba', 'Africa/Kampala', 'Africa/Khartoum', 'Africa/Kigali', 'Africa/Kinshasa', 'Africa/Lagos', 'Africa/Libreville', 'Africa/Lome', 'Africa/Luanda', 'Africa/Lubumbashi', 'Africa/Lusaka', 'Africa/Malabo', 'Africa/Maputo', 'Africa/Maseru', 'Africa/Mbabane', 'Africa/Mogadishu', 'Africa/Monrovia', 'Africa/Nairobi', 'Africa/Ndjamena', 'Africa/Niamey', 'Africa/Nouakchott', 'Africa/Ouagadougou', 'Africa/Porto-Novo', 'Africa/Sao_Tome', 'Africa/Tripoli', 'Africa/Tunis', 'Africa/Windhoek', 'America/Adak', 'America/Anchorage', 'America/Anguilla', 'America/Antigua', 'America/Araguaina', 'America/Argentina/La_Rioja', 'America/Argentina/Rio_Gallegos', 'America/Argentina/Salta', 'America/Argentina/San_Juan', 'America/Argentina/San_Luis', 'America/Argentina/Tucuman', 'America/Argentina/Ushuaia', 'America/Aruba', 'America/Asuncion', 'America/Bahia', 'America/Bahia_Banderas', 'America/Barbados', 'America/Belem', 'America/Belize', 'America/Blanc-Sablon', 'America/Boa_Vista', 'America/Bogota', 'America/Boise', 'America/Buenos_Aires', 'America/Cambridge_Bay', 'America/Campo_Grande', 'America/Cancun', 'America/Caracas', 'America/Catamarca', 'America/Cayenne', 'America/Cayman', 'America/Chicago', 'America/Chihuahua', 'America/Ciudad_Juarez', 'America/Coral_Harbour', 'America/Cordoba', 'America/Costa_Rica', 'America/Coyhaique', 'America/Creston', 'America/Cuiaba', 'America/Curacao', 'America/Danmarkshavn', 'America/Dawson', 'America/Dawson_Creek', 'America/Denver', 'America/Detroit', 'America/Dominica', 'America/Edmonton', 'America/Eirunepe', 'America/El_Salvador', 'America/Fort_Nelson', 'America/Fortaleza', 'America/Glace_Bay', 'America/Godthab', 'America/Goose_Bay', 'America/Grand_Turk', 'America/Grenada', 'America/Guadeloupe', 'America/Guatemala', 'America/Guayaquil', 'America/Guyana', 'America/Halifax', 'America/Havana', 'America/Hermosillo', 'America/Indiana/Knox', 'America/Indiana/Marengo', 'America/Indiana/Petersburg', 'America/Indiana/Tell_City', 'America/Indiana/Vevay', 'America/Indiana/Vincennes', 'America/Indiana/Winamac', 'America/Indianapolis', 'America/Inuvik', 'America/Iqaluit', 'America/Jamaica', 'America/Jujuy', 'America/Juneau', 'America/Kentucky/Monticello', 'America/Kralendijk', 'America/La_Paz', 'America/Lima', 'America/Los_Angeles', 'America/Louisville', 'America/Lower_Princes', 'America/Maceio', 'America/Managua', 'America/Manaus', 'America/Marigot', 'America/Martinique', 'America/Matamoros', 'America/Mazatlan', 'America/Mendoza', 'America/Menominee', 'America/Merida', 'America/Metlakatla', 'America/Mexico_City', 'America/Miquelon', 'America/Moncton', 'America/Monterrey', 'America/Montevideo', 'America/Montserrat', 'America/Nassau', 'America/New_York', 'America/Nome', 'America/Noronha', 'America/North_Dakota/Beulah', 'America/North_Dakota/Center', 'America/North_Dakota/New_Salem', 'America/Ojinaga', 'America/Panama', 'America/Paramaribo', 'America/Phoenix', 'America/Port-au-Prince', 'America/Port_of_Spain', 'America/Porto_Velho', 'America/Puerto_Rico', 'America/Punta_Arenas', 'America/Rankin_Inlet', 'America/Recife', 'America/Regina', 'America/Resolute', 'America/Rio_Branco', 'America/Santarem', 'America/Santiago', 'America/Santo_Domingo', 'America/Sao_Paulo', 'America/Scoresbysund', 'America/Sitka', 'America/St_Barthelemy', 'America/St_Johns', 'America/St_Kitts', 'America/St_Lucia', 'America/St_Thomas', 'America/St_Vincent', 'America/Swift_Current', 'America/Tegucigalpa', 'America/Thule', 'America/Tijuana', 'America/Toronto', 'America/Tortola', 'America/Vancouver', 'America/Whitehorse', 'America/Winnipeg', 'America/Yakutat', 'Antarctica/Casey', 'Antarctica/Davis', 'Antarctica/DumontDUrville', 'Antarctica/Macquarie', 'Antarctica/Mawson', 'Antarctica/McMurdo', 'Antarctica/Palmer', 'Antarctica/Rothera', 'Antarctica/Syowa', 'Antarctica/Troll', 'Antarctica/Vostok', 'Arctic/Longyearbyen', 'Asia/Aden', 'Asia/Almaty', 'Asia/Amman', 'Asia/Anadyr', 'Asia/Aqtau', 'Asia/Aqtobe', 'Asia/Ashgabat', 'Asia/Atyrau', 'Asia/Baghdad', 'Asia/Bahrain', 'Asia/Baku', 'Asia/Bangkok', 'Asia/Barnaul', 'Asia/Beirut', 'Asia/Bishkek', 'Asia/Brunei', 'Asia/Calcutta', 'Asia/Chita', 'Asia/Colombo', 'Asia/Damascus', 'Asia/Dhaka', 'Asia/Dili', 'Asia/Dubai', 'Asia/Dushanbe', 'Asia/Famagusta', 'Asia/Gaza', 'Asia/Hebron', 'Asia/Hong_Kong', 'Asia/Hovd', 'Asia/Irkutsk', 'Asia/Jakarta', 'Asia/Jayapura', 'Asia/Jerusalem', 'Asia/Kabul', 'Asia/Kamchatka', 'Asia/Karachi', 'Asia/Katmandu', 'Asia/Khandyga', 'Asia/Krasnoyarsk', 'Asia/Kuala_Lumpur', 'Asia/Kuching', 'Asia/Kuwait', 'Asia/Macau', 'Asia/Magadan', 'Asia/Makassar', 'Asia/Manila', 'Asia/Muscat', 'Asia/Nicosia', 'Asia/Novokuznetsk', 'Asia/Novosibirsk', 'Asia/Omsk', 'Asia/Oral', 'Asia/Phnom_Penh', 'Asia/Pontianak', 'Asia/Pyongyang', 'Asia/Qatar', 'Asia/Qostanay', 'Asia/Qyzylorda', 'Asia/Rangoon', 'Asia/Riyadh', 'Asia/Saigon', 'Asia/Sakhalin', 'Asia/Samarkand', 'Asia/Seoul', 'Asia/Shanghai', 'Asia/Singapore', 'Asia/Srednekolymsk', 'Asia/Taipei', 'Asia/Tashkent', 'Asia/Tbilisi', 'Asia/Tehran', 'Asia/Thimphu', 'Asia/Tokyo', 'Asia/Tomsk', 'Asia/Ulaanbaatar', 'Asia/Urumqi', 'Asia/Ust-Nera', 'Asia/Vientiane', 'Asia/Vladivostok', 'Asia/Yakutsk', 'Asia/Yekaterinburg', 'Asia/Yerevan', 'Atlantic/Azores', 'Atlantic/Bermuda', 'Atlantic/Canary', 'Atlantic/Cape_Verde', 'Atlantic/Faeroe', 'Atlantic/Madeira', 'Atlantic/Reykjavik', 'Atlantic/South_Georgia', 'Atlantic/St_Helena', 'Atlantic/Stanley', 'Australia/Adelaide', 'Australia/Brisbane', 'Australia/Broken_Hill', 'Australia/Darwin', 'Australia/Eucla', 'Australia/Hobart', 'Australia/Lindeman', 'Australia/Lord_Howe', 'Australia/Melbourne', 'Australia/Perth', 'Australia/Sydney', 'Europe/Amsterdam', 'Europe/Andorra', 'Europe/Astrakhan', 'Europe/Athens', 'Europe/Belgrade', 'Europe/Berlin', 'Europe/Bratislava', 'Europe/Brussels', 'Europe/Bucharest', 'Europe/Budapest', 'Europe/Busingen', 'Europe/Chisinau', 'Europe/Copenhagen', 'Europe/Dublin', 'Europe/Gibraltar', 'Europe/Guernsey', 'Europe/Helsinki', 'Europe/Isle_of_Man', 'Europe/Istanbul', 'Europe/Jersey', 'Europe/Kaliningrad', 'Europe/Kiev', 'Europe/Kirov', 'Europe/Lisbon', 'Europe/Ljubljana', 'Europe/London', 'Europe/Luxembourg', 'Europe/Madrid', 'Europe/Malta', 'Europe/Mariehamn', 'Europe/Minsk', 'Europe/Monaco', 'Europe/Moscow', 'Europe/Oslo', 'Europe/Paris', 'Europe/Podgorica', 'Europe/Prague', 'Europe/Riga', 'Europe/Rome', 'Europe/Samara', 'Europe/San_Marino', 'Europe/Sarajevo', 'Europe/Saratov', 'Europe/Simferopol', 'Europe/Skopje', 'Europe/Sofia', 'Europe/Stockholm', 'Europe/Tallinn', 'Europe/Tirane', 'Europe/Ulyanovsk', 'Europe/Vaduz', 'Europe/Vatican', 'Europe/Vienna', 'Europe/Vilnius', 'Europe/Volgograd', 'Europe/Warsaw', 'Europe/Zagreb', 'Europe/Zurich', 'Indian/Antananarivo', 'Indian/Chagos', 'Indian/Christmas', 'Indian/Cocos', 'Indian/Comoro', 'Indian/Kerguelen', 'Indian/Mahe', 'Indian/Maldives', 'Indian/Mauritius', 'Indian/Mayotte', 'Indian/Reunion', 'Pacific/Apia', 'Pacific/Auckland', 'Pacific/Bougainville', 'Pacific/Chatham', 'Pacific/Easter', 'Pacific/Efate', 'Pacific/Enderbury', 'Pacific/Fakaofo', 'Pacific/Fiji', 'Pacific/Funafuti', 'Pacific/Galapagos', 'Pacific/Gambier', 'Pacific/Guadalcanal', 'Pacific/Guam', 'Pacific/Honolulu', 'Pacific/Kiritimati', 'Pacific/Kosrae', 'Pacific/Kwajalein', 'Pacific/Majuro', 'Pacific/Marquesas', 'Pacific/Midway', 'Pacific/Nauru', 'Pacific/Niue', 'Pacific/Norfolk', 'Pacific/Noumea', 'Pacific/Pago_Pago', 'Pacific/Palau', 'Pacific/Pitcairn', 'Pacific/Ponape', 'Pacific/Port_Moresby', 'Pacific/Rarotonga', 'Pacific/Saipan', 'Pacific/Tahiti', 'Pacific/Tarawa', 'Pacific/Tongatapu', 'Pacific/Truk', 'Pacific/Wake', 'Pacific/Wallis', 'UTC')"
       ],
@@ -23311,12 +24764,12 @@
       ],
       "checks": [
         "(revision >= 1)",
-        "category in ('task_due','task_overdue','meeting_announcement','meeting_reminder','planter_digest','oversight_digest','relationship_milestone','sharing_milestone','phase_milestone','launch_milestone','wiki_upstream_review')",
+        "category in ('task_due','task_overdue','meeting_announcement','meeting_reminder','planter_digest','oversight_digest','relationship_milestone','sharing_milestone','phase_milestone','launch_milestone','wiki_upstream_review','scheduled_email_unsubscribe')",
         "channel in ('email', 'in_app')",
         "cadence in ('daily', 'weekly')",
         "((weekday IS NULL) OR ((weekday >= 0) AND (weekday <= 6)))",
         "((hour IS NULL) OR ((hour >= 0) AND (hour <= 23)))",
-        "((category <> 'wiki_upstream_review'::text) OR (channel = 'in_app'::text))"
+        "((category <> ALL (ARRAY['wiki_upstream_review'::text, 'scheduled_email_unsubscribe'::text])) OR (channel = 'in_app'::text))"
       ],
       "indexes": {},
       "constraint_names": {
@@ -23492,12 +24945,6 @@
           "nullable": false
         },
         {
-          "note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply.",
-          "name": "assignee_id",
-          "type": "uuid",
-          "nullable": true
-        },
-        {
           "note": "",
           "name": "waived_at",
           "type": "timestamptz",
@@ -23608,22 +25055,6 @@
             "policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
           },
           "columns": [
-            "assignee_id"
-          ],
-          "references": {
-            "table": "account",
-            "columns": [
-              "id"
-            ]
-          },
-          "on_delete": "restrict"
-        },
-        {
-          "deletion": {
-            "action": "restrict",
-            "policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
-          },
-          "columns": [
             "id",
             "plant_id"
           ],
@@ -23701,21 +25132,6 @@
           "method": "btree",
           "with": {}
         },
-        "obligation_ref_3": {
-          "name": "obligation_ref_3",
-          "isUnique": false,
-          "columns": [
-            {
-              "expression": "assignee_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "obligation_uq_1": {
           "name": "obligation_uq_1",
           "isUnique": true,
@@ -23778,7 +25194,6 @@
           "obligation_fk_0",
           "obligation_fk_1",
           "obligation_fk_2",
-          "obligation_fk_3",
           "obligation_fk_4"
         ],
         "checks": [
@@ -24177,6 +25592,12 @@
           "type": "bigint",
           "nullable": false,
           "default": "1"
+        },
+        {
+          "note": "A sending network's plain-text statement of faith. It fills the statement-of-faith slot of Church Documents its plants create from a template (DOC-020, D-107). Null on a sending church.",
+          "name": "statement_of_faith",
+          "type": "text",
+          "nullable": true
         }
       ],
       "primary_key": [
@@ -24230,6 +25651,7 @@
         "kind in ('sending_church', 'sending_network')",
         "(length(btrim(name)) > 0)",
         "(id <> '00000000-0000-0000-0000-000000000000'::uuid)",
+        "((statement_of_faith IS NULL) OR ((kind = 'sending_network'::text) AND (length(btrim(statement_of_faith)) > 0) AND (length(statement_of_faith) <= 10000)))",
         "timezone in ('Africa/Abidjan', 'Africa/Accra', 'Africa/Addis_Ababa', 'Africa/Algiers', 'Africa/Asmera', 'Africa/Bamako', 'Africa/Bangui', 'Africa/Banjul', 'Africa/Bissau', 'Africa/Blantyre', 'Africa/Brazzaville', 'Africa/Bujumbura', 'Africa/Cairo', 'Africa/Casablanca', 'Africa/Ceuta', 'Africa/Conakry', 'Africa/Dakar', 'Africa/Dar_es_Salaam', 'Africa/Djibouti', 'Africa/Douala', 'Africa/El_Aaiun', 'Africa/Freetown', 'Africa/Gaborone', 'Africa/Harare', 'Africa/Johannesburg', 'Africa/Juba', 'Africa/Kampala', 'Africa/Khartoum', 'Africa/Kigali', 'Africa/Kinshasa', 'Africa/Lagos', 'Africa/Libreville', 'Africa/Lome', 'Africa/Luanda', 'Africa/Lubumbashi', 'Africa/Lusaka', 'Africa/Malabo', 'Africa/Maputo', 'Africa/Maseru', 'Africa/Mbabane', 'Africa/Mogadishu', 'Africa/Monrovia', 'Africa/Nairobi', 'Africa/Ndjamena', 'Africa/Niamey', 'Africa/Nouakchott', 'Africa/Ouagadougou', 'Africa/Porto-Novo', 'Africa/Sao_Tome', 'Africa/Tripoli', 'Africa/Tunis', 'Africa/Windhoek', 'America/Adak', 'America/Anchorage', 'America/Anguilla', 'America/Antigua', 'America/Araguaina', 'America/Argentina/La_Rioja', 'America/Argentina/Rio_Gallegos', 'America/Argentina/Salta', 'America/Argentina/San_Juan', 'America/Argentina/San_Luis', 'America/Argentina/Tucuman', 'America/Argentina/Ushuaia', 'America/Aruba', 'America/Asuncion', 'America/Bahia', 'America/Bahia_Banderas', 'America/Barbados', 'America/Belem', 'America/Belize', 'America/Blanc-Sablon', 'America/Boa_Vista', 'America/Bogota', 'America/Boise', 'America/Buenos_Aires', 'America/Cambridge_Bay', 'America/Campo_Grande', 'America/Cancun', 'America/Caracas', 'America/Catamarca', 'America/Cayenne', 'America/Cayman', 'America/Chicago', 'America/Chihuahua', 'America/Ciudad_Juarez', 'America/Coral_Harbour', 'America/Cordoba', 'America/Costa_Rica', 'America/Coyhaique', 'America/Creston', 'America/Cuiaba', 'America/Curacao', 'America/Danmarkshavn', 'America/Dawson', 'America/Dawson_Creek', 'America/Denver', 'America/Detroit', 'America/Dominica', 'America/Edmonton', 'America/Eirunepe', 'America/El_Salvador', 'America/Fort_Nelson', 'America/Fortaleza', 'America/Glace_Bay', 'America/Godthab', 'America/Goose_Bay', 'America/Grand_Turk', 'America/Grenada', 'America/Guadeloupe', 'America/Guatemala', 'America/Guayaquil', 'America/Guyana', 'America/Halifax', 'America/Havana', 'America/Hermosillo', 'America/Indiana/Knox', 'America/Indiana/Marengo', 'America/Indiana/Petersburg', 'America/Indiana/Tell_City', 'America/Indiana/Vevay', 'America/Indiana/Vincennes', 'America/Indiana/Winamac', 'America/Indianapolis', 'America/Inuvik', 'America/Iqaluit', 'America/Jamaica', 'America/Jujuy', 'America/Juneau', 'America/Kentucky/Monticello', 'America/Kralendijk', 'America/La_Paz', 'America/Lima', 'America/Los_Angeles', 'America/Louisville', 'America/Lower_Princes', 'America/Maceio', 'America/Managua', 'America/Manaus', 'America/Marigot', 'America/Martinique', 'America/Matamoros', 'America/Mazatlan', 'America/Mendoza', 'America/Menominee', 'America/Merida', 'America/Metlakatla', 'America/Mexico_City', 'America/Miquelon', 'America/Moncton', 'America/Monterrey', 'America/Montevideo', 'America/Montserrat', 'America/Nassau', 'America/New_York', 'America/Nome', 'America/Noronha', 'America/North_Dakota/Beulah', 'America/North_Dakota/Center', 'America/North_Dakota/New_Salem', 'America/Ojinaga', 'America/Panama', 'America/Paramaribo', 'America/Phoenix', 'America/Port-au-Prince', 'America/Port_of_Spain', 'America/Porto_Velho', 'America/Puerto_Rico', 'America/Punta_Arenas', 'America/Rankin_Inlet', 'America/Recife', 'America/Regina', 'America/Resolute', 'America/Rio_Branco', 'America/Santarem', 'America/Santiago', 'America/Santo_Domingo', 'America/Sao_Paulo', 'America/Scoresbysund', 'America/Sitka', 'America/St_Barthelemy', 'America/St_Johns', 'America/St_Kitts', 'America/St_Lucia', 'America/St_Thomas', 'America/St_Vincent', 'America/Swift_Current', 'America/Tegucigalpa', 'America/Thule', 'America/Tijuana', 'America/Toronto', 'America/Tortola', 'America/Vancouver', 'America/Whitehorse', 'America/Winnipeg', 'America/Yakutat', 'Antarctica/Casey', 'Antarctica/Davis', 'Antarctica/DumontDUrville', 'Antarctica/Macquarie', 'Antarctica/Mawson', 'Antarctica/McMurdo', 'Antarctica/Palmer', 'Antarctica/Rothera', 'Antarctica/Syowa', 'Antarctica/Troll', 'Antarctica/Vostok', 'Arctic/Longyearbyen', 'Asia/Aden', 'Asia/Almaty', 'Asia/Amman', 'Asia/Anadyr', 'Asia/Aqtau', 'Asia/Aqtobe', 'Asia/Ashgabat', 'Asia/Atyrau', 'Asia/Baghdad', 'Asia/Bahrain', 'Asia/Baku', 'Asia/Bangkok', 'Asia/Barnaul', 'Asia/Beirut', 'Asia/Bishkek', 'Asia/Brunei', 'Asia/Calcutta', 'Asia/Chita', 'Asia/Colombo', 'Asia/Damascus', 'Asia/Dhaka', 'Asia/Dili', 'Asia/Dubai', 'Asia/Dushanbe', 'Asia/Famagusta', 'Asia/Gaza', 'Asia/Hebron', 'Asia/Hong_Kong', 'Asia/Hovd', 'Asia/Irkutsk', 'Asia/Jakarta', 'Asia/Jayapura', 'Asia/Jerusalem', 'Asia/Kabul', 'Asia/Kamchatka', 'Asia/Karachi', 'Asia/Katmandu', 'Asia/Khandyga', 'Asia/Krasnoyarsk', 'Asia/Kuala_Lumpur', 'Asia/Kuching', 'Asia/Kuwait', 'Asia/Macau', 'Asia/Magadan', 'Asia/Makassar', 'Asia/Manila', 'Asia/Muscat', 'Asia/Nicosia', 'Asia/Novokuznetsk', 'Asia/Novosibirsk', 'Asia/Omsk', 'Asia/Oral', 'Asia/Phnom_Penh', 'Asia/Pontianak', 'Asia/Pyongyang', 'Asia/Qatar', 'Asia/Qostanay', 'Asia/Qyzylorda', 'Asia/Rangoon', 'Asia/Riyadh', 'Asia/Saigon', 'Asia/Sakhalin', 'Asia/Samarkand', 'Asia/Seoul', 'Asia/Shanghai', 'Asia/Singapore', 'Asia/Srednekolymsk', 'Asia/Taipei', 'Asia/Tashkent', 'Asia/Tbilisi', 'Asia/Tehran', 'Asia/Thimphu', 'Asia/Tokyo', 'Asia/Tomsk', 'Asia/Ulaanbaatar', 'Asia/Urumqi', 'Asia/Ust-Nera', 'Asia/Vientiane', 'Asia/Vladivostok', 'Asia/Yakutsk', 'Asia/Yekaterinburg', 'Asia/Yerevan', 'Atlantic/Azores', 'Atlantic/Bermuda', 'Atlantic/Canary', 'Atlantic/Cape_Verde', 'Atlantic/Faeroe', 'Atlantic/Madeira', 'Atlantic/Reykjavik', 'Atlantic/South_Georgia', 'Atlantic/St_Helena', 'Atlantic/Stanley', 'Australia/Adelaide', 'Australia/Brisbane', 'Australia/Broken_Hill', 'Australia/Darwin', 'Australia/Eucla', 'Australia/Hobart', 'Australia/Lindeman', 'Australia/Lord_Howe', 'Australia/Melbourne', 'Australia/Perth', 'Australia/Sydney', 'Europe/Amsterdam', 'Europe/Andorra', 'Europe/Astrakhan', 'Europe/Athens', 'Europe/Belgrade', 'Europe/Berlin', 'Europe/Bratislava', 'Europe/Brussels', 'Europe/Bucharest', 'Europe/Budapest', 'Europe/Busingen', 'Europe/Chisinau', 'Europe/Copenhagen', 'Europe/Dublin', 'Europe/Gibraltar', 'Europe/Guernsey', 'Europe/Helsinki', 'Europe/Isle_of_Man', 'Europe/Istanbul', 'Europe/Jersey', 'Europe/Kaliningrad', 'Europe/Kiev', 'Europe/Kirov', 'Europe/Lisbon', 'Europe/Ljubljana', 'Europe/London', 'Europe/Luxembourg', 'Europe/Madrid', 'Europe/Malta', 'Europe/Mariehamn', 'Europe/Minsk', 'Europe/Monaco', 'Europe/Moscow', 'Europe/Oslo', 'Europe/Paris', 'Europe/Podgorica', 'Europe/Prague', 'Europe/Riga', 'Europe/Rome', 'Europe/Samara', 'Europe/San_Marino', 'Europe/Sarajevo', 'Europe/Saratov', 'Europe/Simferopol', 'Europe/Skopje', 'Europe/Sofia', 'Europe/Stockholm', 'Europe/Tallinn', 'Europe/Tirane', 'Europe/Ulyanovsk', 'Europe/Vaduz', 'Europe/Vatican', 'Europe/Vienna', 'Europe/Vilnius', 'Europe/Volgograd', 'Europe/Warsaw', 'Europe/Zagreb', 'Europe/Zurich', 'Indian/Antananarivo', 'Indian/Chagos', 'Indian/Christmas', 'Indian/Cocos', 'Indian/Comoro', 'Indian/Kerguelen', 'Indian/Mahe', 'Indian/Maldives', 'Indian/Mauritius', 'Indian/Mayotte', 'Indian/Reunion', 'Pacific/Apia', 'Pacific/Auckland', 'Pacific/Bougainville', 'Pacific/Chatham', 'Pacific/Easter', 'Pacific/Efate', 'Pacific/Enderbury', 'Pacific/Fakaofo', 'Pacific/Fiji', 'Pacific/Funafuti', 'Pacific/Galapagos', 'Pacific/Gambier', 'Pacific/Guadalcanal', 'Pacific/Guam', 'Pacific/Honolulu', 'Pacific/Kiritimati', 'Pacific/Kosrae', 'Pacific/Kwajalein', 'Pacific/Majuro', 'Pacific/Marquesas', 'Pacific/Midway', 'Pacific/Nauru', 'Pacific/Niue', 'Pacific/Norfolk', 'Pacific/Noumea', 'Pacific/Pago_Pago', 'Pacific/Palau', 'Pacific/Pitcairn', 'Pacific/Ponape', 'Pacific/Port_Moresby', 'Pacific/Rarotonga', 'Pacific/Saipan', 'Pacific/Tahiti', 'Pacific/Tarawa', 'Pacific/Tongatapu', 'Pacific/Truk', 'Pacific/Wake', 'Pacific/Wallis', 'UTC')"
       ],
       "indexes": {},
@@ -24249,7 +25671,8 @@
           "organization_ck_1",
           "organization_ck_2",
           "organization_ck_3",
-          "organization_timezone_iana"
+          "organization_timezone_iana",
+          "organization_statement_of_faith"
         ]
       },
       "policies": {},
@@ -26256,6 +27679,411 @@
       "rls": false
     },
     {
+      "name": "person_duplicate_dismissal",
+      "domain": "people",
+      "purpose": "One pair on the duplicates list an Owner or Admin marked \"Not a duplicate\" (D-789): the person a CSV import added with \"Add, review later\" and the person it may duplicate. The pair leaves the list while the row exists and shows in the Dismissed view; Restore deletes the row and the pair is listed again.",
+      "library_owned": false,
+      "jsonb_keys": {},
+      "capabilities": [
+        "CAP-A-030"
+      ],
+      "replaces": [],
+      "producer_work_packages": [
+        "WP-015"
+      ],
+      "producer_derivation": {
+        "old_target_tables": [],
+        "additional_producers": [
+          "WP-015"
+        ],
+        "rule": "WP-015 People duplicates list records a dismissal from an Owner or Admin."
+      },
+      "feature_ids": [
+        "PPL-018"
+      ],
+      "acceptance_ids": [
+        "AC-PPL-018--PPL-018"
+      ],
+      "future_case_ids": [],
+      "scope": "tenant",
+      "invariants": [
+        "At most one dismissal per church and pair.",
+        "Only a pair an import flagged, with both people live, is dismissed.",
+        "Each dismiss and restore writes one audit row in the same statement; a repeat writes nothing."
+      ],
+      "revision": "No revision column; a dismissal is one row, and Restore deletes it.",
+      "idempotency": "A second dismiss of a dismissed pair, or a restore of a listed pair, changes nothing and writes no audit row.",
+      "deletion": "Plant-owned facts and history survive personal account deletion with minimum necessary attribution. Plant deletion hides them immediately, holds eligible content only for 30-day cancellation, then purges live content; recovery copies expire within seven days of coherent live purge. No additional fixed history limit is specified. Plant-owned operational records follow the plant deletion policy. Account deletion preserves legitimate shared history with minimal scrubbed actor attribution. Soft deletion, retirement and correction preserve performed evidence; history is not a retention exemption. Tenant-owned content survives creator-account deletion with minimal attribution. Workspace deletion follows immediate access suspension, private 30-day cancellation hold, eligible live purge and seven-day recovery-copy horizon; restore reapplies current deletion/access witnesses.",
+      "physical_verified": false,
+      "columns": [
+        {
+          "note": "Dismissal identity.",
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "note": "The church whose duplicates list the pair is on.",
+          "name": "plant_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "The person the import added with \"Add, review later\". Not moved by a merge.",
+          "name": "person_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "The person it may duplicate. Not moved by a merge.",
+          "name": "with_person_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "When the pair was marked not a duplicate.",
+          "name": "dismissed_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "clock_timestamp()"
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "unique_keys": [
+        {
+          "columns": [
+            "plant_id",
+            "person_id",
+            "with_person_id"
+          ]
+        }
+      ],
+      "foreign_keys": [
+        {
+          "deletion": {
+            "action": "cascade",
+            "policy": "The dismissal goes with either Person in the church purge."
+          },
+          "columns": [
+            "person_id",
+            "plant_id"
+          ],
+          "references": {
+            "table": "person",
+            "columns": [
+              "id",
+              "tenant_id"
+            ]
+          },
+          "on_delete": "cascade"
+        },
+        {
+          "deletion": {
+            "action": "restrict",
+            "policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
+          },
+          "columns": [
+            "plant_id"
+          ],
+          "references": {
+            "table": "plant",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "no_action"
+        },
+        {
+          "deletion": {
+            "action": "cascade",
+            "policy": "The dismissal goes with either Person in the church purge."
+          },
+          "columns": [
+            "with_person_id",
+            "plant_id"
+          ],
+          "references": {
+            "table": "person",
+            "columns": [
+              "id",
+              "tenant_id"
+            ]
+          },
+          "on_delete": "cascade"
+        }
+      ],
+      "checks": [
+        "person_id <> with_person_id"
+      ],
+      "indexes": {
+        "person_duplicate_dismissal_pair": {
+          "name": "person_duplicate_dismissal_pair",
+          "isUnique": true,
+          "columns": [
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "person_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "with_person_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "person_duplicate_dismissal_ref_0": {
+          "name": "person_duplicate_dismissal_ref_0",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "person_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "person_duplicate_dismissal_ref_1": {
+          "name": "person_duplicate_dismissal_ref_1",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "with_person_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "constraint_names": {
+        "primary": [
+          "person_duplicate_dismissal_pkey"
+        ],
+        "unique": [],
+        "foreign": [
+          "person_duplicate_dismissal_plant_id_plant_id_fk",
+          "person_duplicate_dismissal_person",
+          "person_duplicate_dismissal_with"
+        ],
+        "checks": [
+          "person_duplicate_dismissal_distinct"
+        ]
+      },
+      "policies": {},
+      "rls": false
+    },
+    {
+      "name": "person_email_opt_out",
+      "domain": "communication",
+      "purpose": "A CRM person's opt-out from one church's Messages email (D-284): per church and per person, keyed by the Person and never by the address. The person's own token writes it from the Unsubscribe page or the one-click header; its undo sets undone_at within one hour. Messages refuses an opted-out person, and a merged-away Person's opt-out still covers the survivor through merge lineage.",
+      "library_owned": false,
+      "jsonb_keys": {},
+      "capabilities": [
+        "CAP-B-046"
+      ],
+      "replaces": [],
+      "producer_work_packages": [
+        "WP-028"
+      ],
+      "producer_derivation": {
+        "old_target_tables": [],
+        "additional_producers": [
+          "WP-028"
+        ],
+        "rule": "WP-028 Messages delivery records a Messages opt-out from the person's own token."
+      },
+      "feature_ids": [
+        "NTF-016"
+      ],
+      "acceptance_ids": [
+        "AC-NTF-016--NTF-016"
+      ],
+      "future_case_ids": [],
+      "scope": "communication",
+      "invariants": [
+        "At most one current (undone_at IS NULL) opt-out per Person.",
+        "Only the person's token writes it; no staff operation clears or rewrites it, and the runtime login cannot delete it or change any column except undone_at.",
+        "An address change on the Person does not lift it.",
+        "It never changes account notification preferences, marketing consent or any other CRM field."
+      ],
+      "revision": "No revision column; an opt-out is one row, and its undo stamps undone_at once.",
+      "idempotency": "A second unsubscribe while one is current changes nothing; an undo token names the opt-out row it can undo.",
+      "deletion": "Plant-owned facts and history survive personal account deletion with minimum necessary attribution. Plant deletion hides them immediately, holds eligible content only for 30-day cancellation, then purges live content; recovery copies expire within seven days of coherent live purge. No additional fixed history limit is specified. Plant-owned operational records follow the plant deletion policy. Account deletion preserves legitimate shared history with minimal scrubbed actor attribution. Soft deletion, retirement and correction preserve performed evidence; history is not a retention exemption. Tenant-owned content survives creator-account deletion with minimal attribution. Workspace deletion follows immediate access suspension, private 30-day cancellation hold, eligible live purge and seven-day recovery-copy horizon; restore reapplies current deletion/access witnesses.",
+      "physical_verified": false,
+      "columns": [
+        {
+          "note": "Opt-out identity; an undo token names it.",
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "note": "The church whose Messages email the person stopped.",
+          "name": "plant_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "The CRM Person who unsubscribed. Not moved by a merge.",
+          "name": "person_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "When the person unsubscribed.",
+          "name": "opted_out_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "clock_timestamp()"
+        },
+        {
+          "note": "When the person undid it from the opt-out page, within one hour; null while current.",
+          "name": "undone_at",
+          "type": "timestamptz",
+          "nullable": true
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "unique_keys": [
+        {
+          "columns": [
+            "person_id"
+          ],
+          "where": "undone_at IS NULL"
+        }
+      ],
+      "foreign_keys": [
+        {
+          "deletion": {
+            "action": "cascade",
+            "policy": "The opt-out goes with its Person in the church purge. The runtime login cannot delete it."
+          },
+          "columns": [
+            "person_id",
+            "plant_id"
+          ],
+          "references": {
+            "table": "person",
+            "columns": [
+              "id",
+              "tenant_id"
+            ]
+          },
+          "on_delete": "cascade"
+        },
+        {
+          "deletion": {
+            "action": "restrict",
+            "policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
+          },
+          "columns": [
+            "plant_id"
+          ],
+          "references": {
+            "table": "plant",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "no_action"
+        }
+      ],
+      "checks": [
+        "((undone_at IS NULL) OR (undone_at >= opted_out_at))"
+      ],
+      "indexes": {
+        "person_email_opt_out_current": {
+          "name": "person_email_opt_out_current",
+          "isUnique": true,
+          "where": "undone_at IS NULL",
+          "columns": [
+            {
+              "expression": "person_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "person_email_opt_out_plant": {
+          "name": "person_email_opt_out_plant",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "person_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "constraint_names": {
+        "primary": [
+          "person_email_opt_out_pkey"
+        ],
+        "unique": [],
+        "foreign": [
+          "person_email_opt_out_plant_id_plant_id_fk",
+          "person_email_opt_out_person"
+        ],
+        "checks": [
+          "person_email_opt_out_undone"
+        ]
+      },
+      "policies": {},
+      "rls": false
+    },
+    {
       "name": "person_import",
       "domain": "people",
       "purpose": "One People CSV import: the frozen plan for every row, the uploaded file the server reviewed (compressed) and the rows whose last write failed. Its audit intent holds the request key and review digest.",
@@ -27631,12 +29459,6 @@
           "nullable": false
         },
         {
-          "note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply.",
-          "name": "criterion_version_id",
-          "type": "uuid",
-          "nullable": true
-        },
-        {
           "note": "",
           "name": "offer_answer",
           "type": "text",
@@ -27717,22 +29539,6 @@
             "policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
           },
           "columns": [
-            "criterion_version_id"
-          ],
-          "references": {
-            "table": "reference_version",
-            "columns": [
-              "id"
-            ]
-          },
-          "on_delete": "restrict"
-        },
-        {
-          "deletion": {
-            "action": "restrict",
-            "policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
-          },
-          "columns": [
             "id",
             "plant_id"
           ],
@@ -27756,21 +29562,6 @@
         "((offer_answer IS NULL) = (answered_at IS NULL))"
       ],
       "indexes": {
-        "phase_transition_ref_2": {
-          "name": "phase_transition_ref_2",
-          "isUnique": false,
-          "columns": [
-            {
-              "expression": "criterion_version_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "phase_transition_uq_2": {
           "name": "phase_transition_uq_2",
           "isUnique": true,
@@ -27815,7 +29606,6 @@
         "foreign": [
           "phase_transition_fk_0",
           "phase_transition_fk_1",
-          "phase_transition_fk_2",
           "phase_transition_fk_3"
         ],
         "checks": [
@@ -29548,6 +31338,625 @@
       "rls": false
     },
     {
+      "name": "private_calendar",
+      "domain": "intelligence",
+      "purpose": "One author's private check-in calendar in one church: the zone and instant where the next Monday week starts, and the revision that serializes saves, corrections and personal timezone changes.",
+      "library_owned": false,
+      "jsonb_keys": {},
+      "capabilities": [
+        "CAP-B-033"
+      ],
+      "replaces": [],
+      "producer_work_packages": [
+        "WP-039"
+      ],
+      "producer_derivation": {
+        "old_target_tables": [],
+        "additional_producers": [
+          "WP-039"
+        ],
+        "rule": "WP-039 stores one calendar per original author account and church plant."
+      },
+      "feature_ids": [
+        "PI-038",
+        "PI-040",
+        "PI-041"
+      ],
+      "acceptance_ids": [
+        "AC-PI-038--PI-038",
+        "AC-PI-040--PI-040",
+        "AC-PI-041--PI-041"
+      ],
+      "future_case_ids": [
+        "B03-019",
+        "B03-020",
+        "B03-021",
+        "B03-022",
+        "B03-023",
+        "B03-024",
+        "B03-025",
+        "B03-026",
+        "B03-035",
+        "PI-CARE-001",
+        "PI-CARE-003",
+        "SCHEMA-007",
+        "TARGET-IDN-031",
+        "TARGET-IDN-033"
+      ],
+      "scope": "private_care",
+      "invariants": [
+        "One row per author account and church plant; the author never changes.",
+        "next_at is a Monday midnight in zone. A personal timezone change moves it to the first strictly future Monday in the new zone.",
+        "No shared audit row, job, notice or projection names a calendar."
+      ],
+      "revision": "revision rises by one with each accepted save, correction or timezone change; a write names the revision it read.",
+      "idempotency": "A save or correction keeps its request key on its revision row; a retry with the key replays that row. Private care has no shared audit row or operation receipt.",
+      "deletion": "Account-owned private care. A personal deletion request or a church workspace deletion hides it at once through the lifecycle witness; the purge at the deadline deletes the calendar, its weeks and revisions (settings_purge_content). It never transfers to another account.",
+      "physical_verified": false,
+      "columns": [
+        {
+          "note": "The original author account. Frozen.",
+          "name": "author_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "The church plant of the author's Owner or Admin seat. Frozen.",
+          "name": "plant_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "Calendar revision a save, correction or zone change must name.",
+          "name": "revision",
+          "type": "bigint",
+          "nullable": false,
+          "default": "1"
+        },
+        {
+          "note": "The IANA zone of the next week to start.",
+          "name": "zone",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "The instant the next week starts.",
+          "name": "next_at",
+          "type": "timestamptz",
+          "nullable": false
+        },
+        {
+          "note": "The personal timezone preview this calendar is bound to, kept private here instead of in settings_preview.",
+          "name": "preview_handle",
+          "type": "uuid",
+          "nullable": true
+        },
+        {
+          "note": "The calendar revision the preview saw.",
+          "name": "preview_revision",
+          "type": "bigint",
+          "nullable": true
+        }
+      ],
+      "primary_key": [
+        "author_id",
+        "plant_id"
+      ],
+      "unique_keys": [],
+      "foreign_keys": [
+        {
+          "deletion": {
+            "action": "restrict",
+            "policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
+          },
+          "columns": [
+            "author_id"
+          ],
+          "references": {
+            "table": "account",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "restrict"
+        },
+        {
+          "deletion": {
+            "action": "restrict",
+            "policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
+          },
+          "columns": [
+            "plant_id"
+          ],
+          "references": {
+            "table": "plant",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "restrict"
+        }
+      ],
+      "checks": [
+        "(revision >= 1)",
+        "((preview_handle IS NULL) = (preview_revision IS NULL))",
+        "zone in ('Africa/Abidjan', 'Africa/Accra', 'Africa/Addis_Ababa', 'Africa/Algiers', 'Africa/Asmera', 'Africa/Bamako', 'Africa/Bangui', 'Africa/Banjul', 'Africa/Bissau', 'Africa/Blantyre', 'Africa/Brazzaville', 'Africa/Bujumbura', 'Africa/Cairo', 'Africa/Casablanca', 'Africa/Ceuta', 'Africa/Conakry', 'Africa/Dakar', 'Africa/Dar_es_Salaam', 'Africa/Djibouti', 'Africa/Douala', 'Africa/El_Aaiun', 'Africa/Freetown', 'Africa/Gaborone', 'Africa/Harare', 'Africa/Johannesburg', 'Africa/Juba', 'Africa/Kampala', 'Africa/Khartoum', 'Africa/Kigali', 'Africa/Kinshasa', 'Africa/Lagos', 'Africa/Libreville', 'Africa/Lome', 'Africa/Luanda', 'Africa/Lubumbashi', 'Africa/Lusaka', 'Africa/Malabo', 'Africa/Maputo', 'Africa/Maseru', 'Africa/Mbabane', 'Africa/Mogadishu', 'Africa/Monrovia', 'Africa/Nairobi', 'Africa/Ndjamena', 'Africa/Niamey', 'Africa/Nouakchott', 'Africa/Ouagadougou', 'Africa/Porto-Novo', 'Africa/Sao_Tome', 'Africa/Tripoli', 'Africa/Tunis', 'Africa/Windhoek', 'America/Adak', 'America/Anchorage', 'America/Anguilla', 'America/Antigua', 'America/Araguaina', 'America/Argentina/La_Rioja', 'America/Argentina/Rio_Gallegos', 'America/Argentina/Salta', 'America/Argentina/San_Juan', 'America/Argentina/San_Luis', 'America/Argentina/Tucuman', 'America/Argentina/Ushuaia', 'America/Aruba', 'America/Asuncion', 'America/Bahia', 'America/Bahia_Banderas', 'America/Barbados', 'America/Belem', 'America/Belize', 'America/Blanc-Sablon', 'America/Boa_Vista', 'America/Bogota', 'America/Boise', 'America/Buenos_Aires', 'America/Cambridge_Bay', 'America/Campo_Grande', 'America/Cancun', 'America/Caracas', 'America/Catamarca', 'America/Cayenne', 'America/Cayman', 'America/Chicago', 'America/Chihuahua', 'America/Ciudad_Juarez', 'America/Coral_Harbour', 'America/Cordoba', 'America/Costa_Rica', 'America/Coyhaique', 'America/Creston', 'America/Cuiaba', 'America/Curacao', 'America/Danmarkshavn', 'America/Dawson', 'America/Dawson_Creek', 'America/Denver', 'America/Detroit', 'America/Dominica', 'America/Edmonton', 'America/Eirunepe', 'America/El_Salvador', 'America/Fort_Nelson', 'America/Fortaleza', 'America/Glace_Bay', 'America/Godthab', 'America/Goose_Bay', 'America/Grand_Turk', 'America/Grenada', 'America/Guadeloupe', 'America/Guatemala', 'America/Guayaquil', 'America/Guyana', 'America/Halifax', 'America/Havana', 'America/Hermosillo', 'America/Indiana/Knox', 'America/Indiana/Marengo', 'America/Indiana/Petersburg', 'America/Indiana/Tell_City', 'America/Indiana/Vevay', 'America/Indiana/Vincennes', 'America/Indiana/Winamac', 'America/Indianapolis', 'America/Inuvik', 'America/Iqaluit', 'America/Jamaica', 'America/Jujuy', 'America/Juneau', 'America/Kentucky/Monticello', 'America/Kralendijk', 'America/La_Paz', 'America/Lima', 'America/Los_Angeles', 'America/Louisville', 'America/Lower_Princes', 'America/Maceio', 'America/Managua', 'America/Manaus', 'America/Marigot', 'America/Martinique', 'America/Matamoros', 'America/Mazatlan', 'America/Mendoza', 'America/Menominee', 'America/Merida', 'America/Metlakatla', 'America/Mexico_City', 'America/Miquelon', 'America/Moncton', 'America/Monterrey', 'America/Montevideo', 'America/Montserrat', 'America/Nassau', 'America/New_York', 'America/Nome', 'America/Noronha', 'America/North_Dakota/Beulah', 'America/North_Dakota/Center', 'America/North_Dakota/New_Salem', 'America/Ojinaga', 'America/Panama', 'America/Paramaribo', 'America/Phoenix', 'America/Port-au-Prince', 'America/Port_of_Spain', 'America/Porto_Velho', 'America/Puerto_Rico', 'America/Punta_Arenas', 'America/Rankin_Inlet', 'America/Recife', 'America/Regina', 'America/Resolute', 'America/Rio_Branco', 'America/Santarem', 'America/Santiago', 'America/Santo_Domingo', 'America/Sao_Paulo', 'America/Scoresbysund', 'America/Sitka', 'America/St_Barthelemy', 'America/St_Johns', 'America/St_Kitts', 'America/St_Lucia', 'America/St_Thomas', 'America/St_Vincent', 'America/Swift_Current', 'America/Tegucigalpa', 'America/Thule', 'America/Tijuana', 'America/Toronto', 'America/Tortola', 'America/Vancouver', 'America/Whitehorse', 'America/Winnipeg', 'America/Yakutat', 'Antarctica/Casey', 'Antarctica/Davis', 'Antarctica/DumontDUrville', 'Antarctica/Macquarie', 'Antarctica/Mawson', 'Antarctica/McMurdo', 'Antarctica/Palmer', 'Antarctica/Rothera', 'Antarctica/Syowa', 'Antarctica/Troll', 'Antarctica/Vostok', 'Arctic/Longyearbyen', 'Asia/Aden', 'Asia/Almaty', 'Asia/Amman', 'Asia/Anadyr', 'Asia/Aqtau', 'Asia/Aqtobe', 'Asia/Ashgabat', 'Asia/Atyrau', 'Asia/Baghdad', 'Asia/Bahrain', 'Asia/Baku', 'Asia/Bangkok', 'Asia/Barnaul', 'Asia/Beirut', 'Asia/Bishkek', 'Asia/Brunei', 'Asia/Calcutta', 'Asia/Chita', 'Asia/Colombo', 'Asia/Damascus', 'Asia/Dhaka', 'Asia/Dili', 'Asia/Dubai', 'Asia/Dushanbe', 'Asia/Famagusta', 'Asia/Gaza', 'Asia/Hebron', 'Asia/Hong_Kong', 'Asia/Hovd', 'Asia/Irkutsk', 'Asia/Jakarta', 'Asia/Jayapura', 'Asia/Jerusalem', 'Asia/Kabul', 'Asia/Kamchatka', 'Asia/Karachi', 'Asia/Katmandu', 'Asia/Khandyga', 'Asia/Krasnoyarsk', 'Asia/Kuala_Lumpur', 'Asia/Kuching', 'Asia/Kuwait', 'Asia/Macau', 'Asia/Magadan', 'Asia/Makassar', 'Asia/Manila', 'Asia/Muscat', 'Asia/Nicosia', 'Asia/Novokuznetsk', 'Asia/Novosibirsk', 'Asia/Omsk', 'Asia/Oral', 'Asia/Phnom_Penh', 'Asia/Pontianak', 'Asia/Pyongyang', 'Asia/Qatar', 'Asia/Qostanay', 'Asia/Qyzylorda', 'Asia/Rangoon', 'Asia/Riyadh', 'Asia/Saigon', 'Asia/Sakhalin', 'Asia/Samarkand', 'Asia/Seoul', 'Asia/Shanghai', 'Asia/Singapore', 'Asia/Srednekolymsk', 'Asia/Taipei', 'Asia/Tashkent', 'Asia/Tbilisi', 'Asia/Tehran', 'Asia/Thimphu', 'Asia/Tokyo', 'Asia/Tomsk', 'Asia/Ulaanbaatar', 'Asia/Urumqi', 'Asia/Ust-Nera', 'Asia/Vientiane', 'Asia/Vladivostok', 'Asia/Yakutsk', 'Asia/Yekaterinburg', 'Asia/Yerevan', 'Atlantic/Azores', 'Atlantic/Bermuda', 'Atlantic/Canary', 'Atlantic/Cape_Verde', 'Atlantic/Faeroe', 'Atlantic/Madeira', 'Atlantic/Reykjavik', 'Atlantic/South_Georgia', 'Atlantic/St_Helena', 'Atlantic/Stanley', 'Australia/Adelaide', 'Australia/Brisbane', 'Australia/Broken_Hill', 'Australia/Darwin', 'Australia/Eucla', 'Australia/Hobart', 'Australia/Lindeman', 'Australia/Lord_Howe', 'Australia/Melbourne', 'Australia/Perth', 'Australia/Sydney', 'Europe/Amsterdam', 'Europe/Andorra', 'Europe/Astrakhan', 'Europe/Athens', 'Europe/Belgrade', 'Europe/Berlin', 'Europe/Bratislava', 'Europe/Brussels', 'Europe/Bucharest', 'Europe/Budapest', 'Europe/Busingen', 'Europe/Chisinau', 'Europe/Copenhagen', 'Europe/Dublin', 'Europe/Gibraltar', 'Europe/Guernsey', 'Europe/Helsinki', 'Europe/Isle_of_Man', 'Europe/Istanbul', 'Europe/Jersey', 'Europe/Kaliningrad', 'Europe/Kiev', 'Europe/Kirov', 'Europe/Lisbon', 'Europe/Ljubljana', 'Europe/London', 'Europe/Luxembourg', 'Europe/Madrid', 'Europe/Malta', 'Europe/Mariehamn', 'Europe/Minsk', 'Europe/Monaco', 'Europe/Moscow', 'Europe/Oslo', 'Europe/Paris', 'Europe/Podgorica', 'Europe/Prague', 'Europe/Riga', 'Europe/Rome', 'Europe/Samara', 'Europe/San_Marino', 'Europe/Sarajevo', 'Europe/Saratov', 'Europe/Simferopol', 'Europe/Skopje', 'Europe/Sofia', 'Europe/Stockholm', 'Europe/Tallinn', 'Europe/Tirane', 'Europe/Ulyanovsk', 'Europe/Vaduz', 'Europe/Vatican', 'Europe/Vienna', 'Europe/Vilnius', 'Europe/Volgograd', 'Europe/Warsaw', 'Europe/Zagreb', 'Europe/Zurich', 'Indian/Antananarivo', 'Indian/Chagos', 'Indian/Christmas', 'Indian/Cocos', 'Indian/Comoro', 'Indian/Kerguelen', 'Indian/Mahe', 'Indian/Maldives', 'Indian/Mauritius', 'Indian/Mayotte', 'Indian/Reunion', 'Pacific/Apia', 'Pacific/Auckland', 'Pacific/Bougainville', 'Pacific/Chatham', 'Pacific/Easter', 'Pacific/Efate', 'Pacific/Enderbury', 'Pacific/Fakaofo', 'Pacific/Fiji', 'Pacific/Funafuti', 'Pacific/Galapagos', 'Pacific/Gambier', 'Pacific/Guadalcanal', 'Pacific/Guam', 'Pacific/Honolulu', 'Pacific/Kiritimati', 'Pacific/Kosrae', 'Pacific/Kwajalein', 'Pacific/Majuro', 'Pacific/Marquesas', 'Pacific/Midway', 'Pacific/Nauru', 'Pacific/Niue', 'Pacific/Norfolk', 'Pacific/Noumea', 'Pacific/Pago_Pago', 'Pacific/Palau', 'Pacific/Pitcairn', 'Pacific/Ponape', 'Pacific/Port_Moresby', 'Pacific/Rarotonga', 'Pacific/Saipan', 'Pacific/Tahiti', 'Pacific/Tarawa', 'Pacific/Tongatapu', 'Pacific/Truk', 'Pacific/Wake', 'Pacific/Wallis', 'UTC')"
+      ],
+      "indexes": {
+        "private_calendar_ref_1": {
+          "name": "private_calendar_ref_1",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "constraint_names": {
+        "primary": [
+          "private_calendar_pkey"
+        ],
+        "unique": [],
+        "foreign": [
+          "private_calendar_fk_0",
+          "private_calendar_fk_1"
+        ],
+        "checks": [
+          "private_calendar_ck_0",
+          "private_calendar_zone_iana",
+          "private_calendar_preview"
+        ]
+      },
+      "policies": {},
+      "rls": false
+    },
+    {
+      "name": "private_week",
+      "domain": "intelligence",
+      "purpose": "One Monday week of an author's private calendar, answered or not, with its current answer: four levels and an optional note.",
+      "library_owned": false,
+      "jsonb_keys": {},
+      "capabilities": [
+        "CAP-B-033",
+        "CAP-B-034"
+      ],
+      "replaces": [],
+      "producer_work_packages": [
+        "WP-039"
+      ],
+      "producer_derivation": {
+        "old_target_tables": [],
+        "additional_producers": [
+          "WP-039"
+        ],
+        "rule": "WP-039 materializes weeks in order when a save or zone change finds them due; a missing week has a row with no answer."
+      },
+      "feature_ids": [
+        "PI-038",
+        "PI-039",
+        "PI-040",
+        "PI-041"
+      ],
+      "acceptance_ids": [
+        "AC-PI-038--PI-038",
+        "AC-PI-040--PI-040",
+        "AC-PI-041--PI-041"
+      ],
+      "future_case_ids": [
+        "B03-019",
+        "B03-020",
+        "B03-021",
+        "B03-022",
+        "B03-023",
+        "B03-024",
+        "B03-025",
+        "B03-026",
+        "B03-035",
+        "PI-CARE-001",
+        "PI-CARE-003",
+        "SCHEMA-007",
+        "TARGET-IDN-031",
+        "TARGET-IDN-033"
+      ],
+      "scope": "private_care",
+      "invariants": [
+        "Ordinals run 1, 2, 3 with no gap for each author and church.",
+        "id, author, church, ordinal, zone, start and end never change (immutable_week).",
+        "Either all four levels are set or none is."
+      ],
+      "revision": "answer_revision counts the week's answer revisions; private_week_revision keeps each one.",
+      "idempotency": "A save or correction keeps its request key on its revision row; a retry with the key replays that row. Private care has no shared audit row or operation receipt.",
+      "deletion": "Account-owned private care. A personal deletion request or a church workspace deletion hides it at once through the lifecycle witness; the purge at the deadline deletes the calendar, its weeks and revisions (settings_purge_content). It never transfers to another account.",
+      "physical_verified": false,
+      "columns": [
+        {
+          "note": "Stable week id.",
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "note": "The original author account. Frozen.",
+          "name": "author_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "The church plant. Frozen.",
+          "name": "plant_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "Position in the author's calendar, from 1. Frozen.",
+          "name": "ordinal",
+          "type": "integer",
+          "nullable": false
+        },
+        {
+          "note": "The zone the week began in. Frozen.",
+          "name": "zone",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "The Monday the week began on in its zone. Frozen.",
+          "name": "starts_on",
+          "type": "date",
+          "nullable": false
+        },
+        {
+          "note": "The Sunday it was due to end on in its zone. Frozen.",
+          "name": "ends_on",
+          "type": "date",
+          "nullable": false
+        },
+        {
+          "note": "The instant the week began. Frozen.",
+          "name": "starts_at",
+          "type": "timestamptz",
+          "nullable": false
+        },
+        {
+          "note": "Current answer for Spiritually.",
+          "name": "spiritual",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "Current answer for Marriage and family.",
+          "name": "family",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "Current answer for Financially.",
+          "name": "financial",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "Current answer for Pace.",
+          "name": "pace",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "Optional note for the author, at most 2,000 characters.",
+          "name": "note",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "Number of answer revisions; 0 while unanswered.",
+          "name": "answer_revision",
+          "type": "integer",
+          "nullable": false,
+          "default": 0
+        },
+        {
+          "note": "When the current answer was saved.",
+          "name": "answered_at",
+          "type": "timestamptz",
+          "nullable": true
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "unique_keys": [
+        {
+          "columns": [
+            "author_id",
+            "plant_id",
+            "ordinal"
+          ]
+        },
+        {
+          "columns": [
+            "id",
+            "author_id"
+          ]
+        }
+      ],
+      "foreign_keys": [
+        {
+          "deletion": {
+            "action": "cascade",
+            "policy": "Private care goes with its parent row in the author or church purge. No other table references it."
+          },
+          "columns": [
+            "author_id",
+            "plant_id"
+          ],
+          "references": {
+            "table": "private_calendar",
+            "columns": [
+              "author_id",
+              "plant_id"
+            ]
+          },
+          "on_delete": "cascade"
+        }
+      ],
+      "checks": [
+        "((answer_revision = 0) = (spiritual IS NULL)) AND (num_nulls(spiritual, family, financial, pace) = ANY (ARRAY[0, 4])) AND ((answer_revision = 0) = (answered_at IS NULL)) AND ((note IS NULL) OR (spiritual IS NOT NULL))",
+        "(ordinal >= 1)",
+        "(ends_on = (starts_on + 6))",
+        "(EXTRACT(isodow FROM starts_on) = (1)::numeric)",
+        "(answer_revision >= 0)",
+        "((spiritual IS NULL) OR ((spiritual = ANY (ARRAY['steady'::text, 'strained'::text, 'struggling'::text])) AND (family = ANY (ARRAY['steady'::text, 'strained'::text, 'struggling'::text])) AND (financial = ANY (ARRAY['steady'::text, 'strained'::text, 'struggling'::text])) AND (pace = ANY (ARRAY['steady'::text, 'strained'::text, 'struggling'::text]))))",
+        "((note IS NULL) OR ((char_length(note) >= 1) AND (char_length(note) <= 2000)))"
+      ],
+      "indexes": {},
+      "constraint_names": {
+        "primary": [
+          "private_week_pkey"
+        ],
+        "unique": [
+          "private_week_uq_0",
+          "private_week_uq_1"
+        ],
+        "foreign": [
+          "private_week_fk_0"
+        ],
+        "checks": [
+          "private_week_ck_0",
+          "private_week_ck_1",
+          "private_week_ck_2",
+          "private_week_answer",
+          "private_week_levels",
+          "private_week_note",
+          "private_week_ck_3"
+        ]
+      },
+      "policies": {},
+      "rls": false
+    },
+    {
+      "name": "private_week_revision",
+      "domain": "intelligence",
+      "purpose": "Append-only history of one week's answers: each save or correction that changed the answer, with its request key for retries.",
+      "library_owned": false,
+      "jsonb_keys": {},
+      "capabilities": [
+        "CAP-B-033",
+        "CAP-B-034"
+      ],
+      "replaces": [],
+      "producer_work_packages": [
+        "WP-039"
+      ],
+      "producer_derivation": {
+        "old_target_tables": [],
+        "additional_producers": [
+          "WP-039"
+        ],
+        "rule": "WP-039 appends a revision only when a save or correction changes the answer."
+      },
+      "feature_ids": [
+        "PI-038",
+        "PI-039",
+        "PI-040",
+        "PI-041"
+      ],
+      "acceptance_ids": [
+        "AC-PI-038--PI-038",
+        "AC-PI-040--PI-040",
+        "AC-PI-041--PI-041"
+      ],
+      "future_case_ids": [
+        "B03-019",
+        "B03-020",
+        "B03-021",
+        "B03-022",
+        "B03-023",
+        "B03-024",
+        "B03-025",
+        "B03-026",
+        "B03-035",
+        "PI-CARE-001",
+        "PI-CARE-003",
+        "SCHEMA-007",
+        "TARGET-IDN-031",
+        "TARGET-IDN-033"
+      ],
+      "scope": "private_care",
+      "invariants": [
+        "Rows are never updated (immutable_revision); the runtime role cannot delete them.",
+        "One request key per author."
+      ],
+      "revision": "No mutable revision column; each row is one immutable revision.",
+      "idempotency": "A save or correction keeps its request key on its revision row; a retry with the key replays that row. Private care has no shared audit row or operation receipt.",
+      "deletion": "Account-owned private care. A personal deletion request or a church workspace deletion hides it at once through the lifecycle witness; the purge at the deadline deletes the calendar, its weeks and revisions (settings_purge_content). It never transfers to another account.",
+      "physical_verified": false,
+      "columns": [
+        {
+          "note": "The week.",
+          "name": "week_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "The original author account. Frozen.",
+          "name": "author_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "1 for the first answer, then one more for each change.",
+          "name": "revision",
+          "type": "integer",
+          "nullable": false
+        },
+        {
+          "note": "save for the open week, correction for an earlier answer.",
+          "name": "kind",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "Answer for Spiritually.",
+          "name": "spiritual",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "Answer for Marriage and family.",
+          "name": "family",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "Answer for Financially.",
+          "name": "financial",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "Answer for Pace.",
+          "name": "pace",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "Optional note.",
+          "name": "note",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "The calendar revision after this change, for replay.",
+          "name": "calendar_revision",
+          "type": "bigint",
+          "nullable": false
+        },
+        {
+          "note": "The request key of the save or correction.",
+          "name": "request_key",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "When the revision was recorded.",
+          "name": "recorded_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "clock_timestamp()"
+        }
+      ],
+      "primary_key": [
+        "week_id",
+        "revision"
+      ],
+      "unique_keys": [
+        {
+          "columns": [
+            "author_id",
+            "request_key"
+          ]
+        }
+      ],
+      "foreign_keys": [
+        {
+          "deletion": {
+            "action": "cascade",
+            "policy": "Private care goes with its parent row in the author or church purge. No other table references it."
+          },
+          "columns": [
+            "week_id",
+            "author_id"
+          ],
+          "references": {
+            "table": "private_week",
+            "columns": [
+              "id",
+              "author_id"
+            ]
+          },
+          "on_delete": "cascade"
+        }
+      ],
+      "checks": [
+        "(revision >= 1)",
+        "kind in ('save', 'correction')",
+        "((char_length(request_key) >= 1) AND (char_length(request_key) <= 200))",
+        "((spiritual = ANY (ARRAY['steady'::text, 'strained'::text, 'struggling'::text])) AND (family = ANY (ARRAY['steady'::text, 'strained'::text, 'struggling'::text])) AND (financial = ANY (ARRAY['steady'::text, 'strained'::text, 'struggling'::text])) AND (pace = ANY (ARRAY['steady'::text, 'strained'::text, 'struggling'::text])))",
+        "((note IS NULL) OR ((char_length(note) >= 1) AND (char_length(note) <= 2000)))"
+      ],
+      "indexes": {
+        "private_week_revision_ref_0": {
+          "name": "private_week_revision_ref_0",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "week_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "author_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "constraint_names": {
+        "primary": [
+          "private_week_revision_pkey"
+        ],
+        "unique": [
+          "private_week_revision_uq_0"
+        ],
+        "foreign": [
+          "private_week_revision_fk_0"
+        ],
+        "checks": [
+          "private_week_revision_ck_0",
+          "private_week_revision_ck_1",
+          "private_week_revision_levels",
+          "private_week_revision_note",
+          "private_week_revision_ck_2"
+        ]
+      },
+      "policies": {},
+      "rls": false
+    },
+    {
       "name": "proposal",
       "domain": "assistant",
       "purpose": "One durable change Evry proposed in a conversation, its exact current review and approval, and the saved outcome of the approved revision.",
@@ -29824,6 +32233,27 @@
           "columns": [
             {
               "expression": "conversation_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "proposal_ref_0": {
+          "name": "proposal_ref_0",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "job_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "tenant_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -30236,12 +32666,6 @@
           "name": "observed_fraction",
           "type": "numeric",
           "nullable": false
-        },
-        {
-          "note": "",
-          "name": "resume_position",
-          "type": "text",
-          "nullable": true
         },
         {
           "note": "",
@@ -31432,7 +33856,7 @@
           "note": "",
           "name": "reason",
           "type": "text",
-          "nullable": false
+          "nullable": true
         }
       ],
       "primary_key": [
@@ -31523,6 +33947,27 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "record_correction_ref_0": {
+          "name": "record_correction_ref_0",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "person_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "constraint_names": {
@@ -31580,7 +34025,7 @@
       "invariants": [
         "Every plant-owned fact and referenced Person, meeting, task or team belongs to the same plant.",
         "Accepted changes use expected revisions and durable operation receipts; required current facts, history and material revision commit atomically.",
-        "At most one open occurrence per series and one successor per predecessor.",
+        "At most one open occurrence per series and one successor per predecessor in each series.",
         "Completion, successor, reset children, history and reminder intent are atomic.",
         "Older occurrence cannot reopen when another open successor exists."
       ],
@@ -32834,12 +35279,6 @@
         },
         {
           "note": "",
-          "name": "failure_code",
-          "type": "text",
-          "nullable": true
-        },
-        {
-          "note": "",
           "name": "expected_passages",
           "type": "integer",
           "nullable": false
@@ -33540,7 +35979,53 @@
         "((length(inviter_description) >= 1) AND (length(inviter_description) <= 500))",
         "(subject_revision >= 1)"
       ],
-      "indexes": {},
+      "indexes": {
+        "relationship_invitation_ref_0": {
+          "name": "relationship_invitation_ref_0",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "relationship_invitation_ref_1": {
+          "name": "relationship_invitation_ref_1",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "relationship_invitation_ref_2": {
+          "name": "relationship_invitation_ref_2",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "constraint_names": {
         "primary": [
           "relationship_invitation_pkey"
@@ -35399,7 +37884,7 @@
         "One parent level only, no self/cycle/nesting or converting a parent with children into a child.",
         "Children have no due date, recurrence, managed obligation, contact hook or completion automation.",
         "Parent completion is independent; parent soft deletion preserves child/history evidence.",
-        "At most one open occurrence per series and one successor per predecessor.",
+        "At most one open occurrence per series and one successor per predecessor in each series.",
         "Completion, successor, reset children, history and reminder intent are atomic.",
         "Older occurrence cannot reopen when another open successor exists.",
         "Eligible owner is a live same-plant committed core_group/launch_team/leader Person linked to an actual account with a current seat.",
@@ -35468,12 +37953,6 @@
           "name": "created_at",
           "type": "timestamptz",
           "nullable": false
-        },
-        {
-          "note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply.",
-          "name": "assignee_id",
-          "type": "uuid",
-          "nullable": true
         },
         {
           "note": "",
@@ -35584,30 +38063,6 @@
           "nullable": true
         },
         {
-          "note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply.",
-          "name": "source_template_id",
-          "type": "uuid",
-          "nullable": true
-        },
-        {
-          "note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply.",
-          "name": "import_operation_id",
-          "type": "uuid",
-          "nullable": true
-        },
-        {
-          "note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply.",
-          "name": "milestone_id",
-          "type": "uuid",
-          "nullable": true
-        },
-        {
-          "note": "",
-          "name": "seed_key",
-          "type": "text",
-          "nullable": true
-        },
-        {
           "note": "",
           "name": "revision",
           "type": "bigint",
@@ -35641,6 +38096,7 @@
         },
         {
           "columns": [
+            "series_id",
             "predecessor_id"
           ],
           "where": "((predecessor_id IS NOT NULL) AND (deleted_at IS NULL))"
@@ -35656,13 +38112,6 @@
             "obligation_id"
           ],
           "where": "((obligation_id IS NOT NULL) AND (deleted_at IS NULL))"
-        },
-        {
-          "columns": [
-            "milestone_id",
-            "seed_key"
-          ],
-          "where": "(seed_key IS NOT NULL)"
         }
       ],
       "foreign_keys": [
@@ -35722,57 +38171,6 @@
             "policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
           },
           "columns": [
-            "source_template_id"
-          ],
-          "references": {
-            "table": "reference_version",
-            "columns": [
-              "id"
-            ]
-          },
-          "on_delete": "restrict"
-        },
-        {
-          "scope_exception": "D70 command identity correlation; the producer validates the actual owner, exact source and current authority in its transaction. Retained evidence grants no access.",
-          "deletion": {
-            "action": "restrict",
-            "policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
-          },
-          "columns": [
-            "import_operation_id"
-          ],
-          "references": {
-            "table": "audit_event",
-            "columns": [
-              "id"
-            ]
-          },
-          "on_delete": "restrict"
-        },
-        {
-          "deletion": {
-            "action": "restrict",
-            "policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
-          },
-          "columns": [
-            "milestone_id",
-            "plant_id"
-          ],
-          "references": {
-            "table": "launch_milestone",
-            "columns": [
-              "id",
-              "plant_id"
-            ]
-          },
-          "on_delete": "restrict"
-        },
-        {
-          "deletion": {
-            "action": "restrict",
-            "policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
-          },
-          "columns": [
             "id",
             "plant_id"
           ],
@@ -35781,22 +38179,6 @@
             "columns": [
               "id",
               "tenant_id"
-            ]
-          },
-          "on_delete": "restrict"
-        },
-        {
-          "deletion": {
-            "action": "restrict",
-            "policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
-          },
-          "columns": [
-            "assignee_id"
-          ],
-          "references": {
-            "table": "account",
-            "columns": [
-              "id"
             ]
           },
           "on_delete": "restrict"
@@ -35994,72 +38376,6 @@
           "method": "btree",
           "with": {}
         },
-        "task_ref_11": {
-          "name": "task_ref_11",
-          "isUnique": false,
-          "columns": [
-            {
-              "expression": "source_template_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "task_ref_12": {
-          "name": "task_ref_12",
-          "isUnique": false,
-          "columns": [
-            {
-              "expression": "import_operation_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "task_ref_13": {
-          "name": "task_ref_13",
-          "isUnique": false,
-          "columns": [
-            {
-              "expression": "milestone_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "plant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "task_ref_2": {
-          "name": "task_ref_2",
-          "isUnique": false,
-          "columns": [
-            {
-              "expression": "assignee_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "task_ref_3": {
           "name": "task_ref_3",
           "isUnique": false,
@@ -36229,6 +38545,12 @@
           "where": "((predecessor_id IS NOT NULL) AND (deleted_at IS NULL))",
           "columns": [
             {
+              "expression": "series_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
               "expression": "predecessor_id",
               "isExpression": false,
               "asc": true,
@@ -36270,28 +38592,6 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
-        },
-        "task_uq_5": {
-          "name": "task_uq_5",
-          "isUnique": true,
-          "where": "(seed_key IS NOT NULL)",
-          "columns": [
-            {
-              "expression": "milestone_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "seed_key",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
         }
       },
       "constraint_names": {
@@ -36305,11 +38605,7 @@
           "task_fk_0",
           "task_fk_1",
           "task_fk_10",
-          "task_fk_11",
-          "task_fk_12",
-          "task_fk_13",
           "task_fk_14",
-          "task_fk_2",
           "task_fk_3",
           "task_fk_4",
           "task_fk_5",
@@ -36333,6 +38629,235 @@
           "task_ck_11",
           "task_timezone_iana"
         ]
+      },
+      "policies": {},
+      "rls": false
+    },
+    {
+      "name": "task_assignee",
+      "domain": "tasks",
+      "purpose": "One account assigned to one task. A task has one or more assignees; a person follow-up is owned by its task's assignees.",
+      "library_owned": false,
+      "jsonb_keys": {},
+      "capabilities": [
+        "CAP-B-012",
+        "CAP-B-013",
+        "CAP-B-014",
+        "CAP-B-016",
+        "CAP-B-018",
+        "CAP-B-019"
+      ],
+      "replaces": [],
+      "producer_work_packages": [
+        "WP-023"
+      ],
+      "producer_derivation": {
+        "old_target_tables": [],
+        "additional_producers": [
+          "WP-023"
+        ],
+        "rule": "WP-023 stores the assignee set of a task. The set replaces the single task and obligation assignee columns."
+      },
+      "feature_ids": [
+        "PHASE-006",
+        "TSK-002",
+        "TSK-003",
+        "TSK-004",
+        "TSK-005",
+        "TSK-007",
+        "TSK-009",
+        "TSK-010",
+        "TSK-012",
+        "TSK-015",
+        "TSK-016"
+      ],
+      "acceptance_ids": [
+        "AC-PHASE-006--PHASE-006",
+        "AC-TSK-002--TSK-002",
+        "AC-TSK-003--TSK-003",
+        "AC-TSK-004--TSK-004",
+        "AC-TSK-005--TSK-005",
+        "AC-TSK-007--TSK-007",
+        "AC-TSK-009--TSK-009",
+        "AC-TSK-010--TSK-010",
+        "AC-TSK-012--TSK-012",
+        "AC-TSK-015--TSK-015",
+        "AC-TSK-016--TSK-016"
+      ],
+      "future_case_ids": [
+        "B03-002",
+        "B03-003",
+        "B03-007",
+        "B03-008",
+        "B03-009",
+        "B03-015",
+        "EVRY-REAL-CHILD-TASK-PARITY",
+        "INH-LAUNCH-02",
+        "LAUNCH46-019",
+        "PHASE-CASE-006",
+        "ROLE43-008",
+        "ROLE43-015",
+        "SCHEMA-001",
+        "SCHEMA-013",
+        "TARGET-MTG-020",
+        "TARGET-MTG-021",
+        "TARGET-MTG-022",
+        "TARGET-TSK-002",
+        "TARGET-TSK-003",
+        "TARGET-TSK-004",
+        "TARGET-TSK-005",
+        "TARGET-TSK-007",
+        "TARGET-TSK-009",
+        "TARGET-TSK-010",
+        "TARGET-TSK-012",
+        "TARGET-TSK-015",
+        "TARGET-TSK-016",
+        "TARGET-TSK-017",
+        "TARGET-TSK-018"
+      ],
+      "scope": "tasks",
+      "invariants": [
+        "One row per task and account; at most ten per task, enforced by the write.",
+        "No task or obligation column keeps a second stored owner."
+      ],
+      "revision": "No mutable revision column; immutable version, history or insert/delete presence follows the capability contract.",
+      "idempotency": "Replay and no-op behavior follow the named native producer and its exact receipt/unique-key contract. Private care remains isolated from shared operation receipts.",
+      "deletion": "Plant-owned facts and history survive personal account deletion with minimum necessary attribution. Plant deletion hides them immediately, holds eligible content only for 30-day cancellation, then purges live content; recovery copies expire within seven days of coherent live purge. No additional fixed history limit is specified.",
+      "physical_verified": false,
+      "columns": [
+        {
+          "note": "",
+          "name": "plant_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "Real FK with plant_id to task(id, plant_id).",
+          "name": "task_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "Real FK to the assigned account. Eligibility is checked by the write, not stored.",
+          "name": "account_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "When the account joined the task; the history record keeps who added it.",
+          "name": "added_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()"
+        }
+      ],
+      "primary_key": [
+        "task_id",
+        "account_id"
+      ],
+      "unique_keys": [],
+      "foreign_keys": [
+        {
+          "deletion": {
+            "action": "restrict",
+            "policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
+          },
+          "columns": [
+            "plant_id"
+          ],
+          "references": {
+            "table": "plant",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "restrict"
+        },
+        {
+          "deletion": {
+            "action": "restrict",
+            "policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
+          },
+          "columns": [
+            "task_id",
+            "plant_id"
+          ],
+          "references": {
+            "table": "task",
+            "columns": [
+              "id",
+              "plant_id"
+            ]
+          },
+          "on_delete": "restrict"
+        },
+        {
+          "deletion": {
+            "action": "restrict",
+            "policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
+          },
+          "columns": [
+            "account_id"
+          ],
+          "references": {
+            "table": "account",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "restrict"
+        }
+      ],
+      "checks": [],
+      "indexes": {
+        "task_assignee_ref_0": {
+          "name": "task_assignee_ref_0",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "task_assignee_ref_2": {
+          "name": "task_assignee_ref_2",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "constraint_names": {
+        "primary": [
+          "task_assignee_pkey"
+        ],
+        "unique": [],
+        "foreign": [
+          "task_assignee_fk_0",
+          "task_assignee_fk_1",
+          "task_assignee_fk_2"
+        ],
+        "checks": []
       },
       "policies": {},
       "rls": false

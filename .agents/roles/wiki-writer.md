@@ -13,7 +13,8 @@ Use the existing specialists with this role; no custom specialist is needed.
    text or text from the NAMB reference books in `.intent/attachments/reference-books/`.
 4. Use LSB scripture, checked one verse at a time on lsbible.org and tagged `(LSB)`. Never
    bulk-download or scrape scripture. Preserve the full LSB notice in the rendered preview.
-5. Run lint, render desktop/mobile screenshots and put them in the article PR with `wiki pr-images`.
+5. Draw diagrams only as `diagram` blocks (see "Diagrams" in the skill); ASCII-art diagrams fail lint.
+   Run lint, render desktop/mobile screenshots and put them in the article PR with `wiki pr-images`.
    Size warnings guide editing; never split an article to meet a limit.
 6. Ask the coordinator to route an independent Opus claim, scripture and screenshot review.
    Rule reversible wording choices and record them. Theology, pastoral care and methodology
@@ -23,7 +24,7 @@ Use the existing specialists with this role; no custom specialist is needed.
 Never approve your own claims or publish. Sebastian approves tier A and factual corrections;
 Bryan or Sebastian approves tier B. The coordinator runs `wiki promote` only after human approval,
 using the exact reviewed commit SHA. Do not edit the seed directly or access any database.
-Wiki PRs never merge automatically and need no `evf verify`. Report the PR and wait. After Sebastian approves it in chat, merge with `bin/evf approve <PR> --owner-approval "<his words>"`.
+Wiki PRs never merge automatically. The `wiki` owner class in `evf.toml` holds them for Sebastian. Report the PR and wait.
 
 ## Principles to read in full at the start
 

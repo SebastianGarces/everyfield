@@ -16,7 +16,7 @@
         "WP-036"
       ],
       "status": "future-not-run",
-      "description": "Curated article/meeting/team deep links include unknown retired template and unsupported format.",
+      "description": "Curated article/meeting/team deep links include unknown retired template and unsupported format; the list returns each catalog template once.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -74,9 +74,8 @@
         },
         "behavior-inputs": {
           "fixture_type": "behavior_inputs",
-          "template_count": 11,
-          "format_count": 12,
-          "retired_template": "old-template"
+          "retired_template": "old-template",
+          "unsupported_format": "odt"
         }
       },
       "actor": {
@@ -93,16 +92,17 @@
         "arguments": {
           "subject": "P",
           "article": "g1",
-          "template_count": 11,
-          "format_count": 12,
           "retired_template": "old-template"
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "templates": 11,
-          "formats": 12,
+          "every_catalog_template_listed_once": true,
+          "offered_formats": [
+            "pdf",
+            "xlsx"
+          ],
           "retired_template_resolves": false
         },
         "event": null
@@ -122,7 +122,7 @@
         "WP-037"
       ],
       "status": "future-not-run",
-      "description": "Preview and generate frozen authorized merge inputs for all 12 formats; oversized field, foreign subject, malformed renderer output.",
+      "description": "Preview and generate frozen authorized merge inputs for every offered format; oversized field, foreign subject, malformed renderer output.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -774,8 +774,7 @@
           "fixture_type": "document_template",
           "id": "vision-meeting-agenda",
           "formats": [
-            "pdf",
-            "docx"
+            "pdf"
           ],
           "catalog_sha256": "ff3c2f781ca9624ce689bc6b902ee4337da89c41574b5d421675cd6edda99dab"
         },
@@ -821,118 +820,6 @@
         },
         "event": null
       },
-      "subcases": [
-        {
-          "given": {
-            "P": {
-              "fixture_type": "plant",
-              "id": "P",
-              "timezone": "America/Chicago",
-              "observed_state": "fixture-state-7",
-              "assessment_input_state": "fixture-state-11",
-              "phase": "Phase1"
-            },
-            "A": {
-              "fixture_type": "account",
-              "id": "A",
-              "email": "alex@example.test",
-              "personal_timezone": "America/Chicago",
-              "registration": "active"
-            },
-            "seat-A": {
-              "fixture_type": "seat",
-              "account": "A",
-              "tenant": "P",
-              "role": "Admin",
-              "active": true
-            },
-            "session-A": {
-              "fixture_type": "session",
-              "account": "A",
-              "expires_at": "2026-11-12T16:00:00Z"
-            },
-            "Q": {
-              "fixture_type": "plant",
-              "id": "Q",
-              "timezone": "America/New_York",
-              "observed_state": "fixture-state-3"
-            },
-            "B": {
-              "fixture_type": "account",
-              "id": "B",
-              "email": "casey@example.test"
-            },
-            "seat-B": {
-              "fixture_type": "seat",
-              "account": "B",
-              "tenant": "Q",
-              "role": "Admin",
-              "active": true
-            },
-            "G1": {
-              "fixture_type": "article",
-              "id": "g1",
-              "source": "global",
-              "version": 1,
-              "published": true,
-              "title": "Preparing leaders",
-              "body": "Prepare a leadership conversation."
-            },
-            "template": {
-              "fixture_type": "document_template",
-              "id": "vision-meeting-agenda",
-              "formats": [
-                "pdf",
-                "docx"
-              ],
-              "catalog_sha256": "ff3c2f781ca9624ce689bc6b902ee4337da89c41574b5d421675cd6edda99dab"
-            },
-            "merge": {
-              "fixture_type": "document_merge_values",
-              "church_name": "Harvest Point",
-              "pastor_name": "Alex Rivera",
-              "meeting_date": "2026-10-20"
-            }
-          },
-          "actor": {
-            "account": "A",
-            "session": "session-A",
-            "context": "P"
-          },
-          "clock": {
-            "now": "2026-10-13T16:00:00Z",
-            "zone": "America/Chicago"
-          },
-          "action": {
-            "operation": "documents.generate",
-            "arguments": {
-              "template": "vision-meeting-agenda",
-              "format": "docx",
-              "merge_fields": {
-                "church_name": "Harvest Point",
-                "pastor_name": "Alex Rivera",
-                "meeting_date": "2026-10-20"
-              },
-              "request_key": "CASE-DOC-007-generate"
-            }
-          },
-          "expected": {
-            "state": {},
-            "result": {
-              "template": "vision-meeting-agenda",
-              "format": "docx",
-              "opens_in_format_reader": true,
-              "church_name": "Harvest Point",
-              "template_catalog_sha256": "ff3c2f781ca9624ce689bc6b902ee4337da89c41574b5d421675cd6edda99dab",
-              "rendered_content_matches_template": true,
-              "automatic_ingestion": false,
-              "content_model_matches_pdf": true
-            },
-            "event": null
-          },
-          "name": "docx-same-content"
-        }
-      ],
       "group": "frozen-template-generation"
     },
     {
@@ -948,7 +835,7 @@
         "WP-037"
       ],
       "status": "future-not-run",
-      "description": "Generate Expectations of a Core Group Member with frozen named church/leader/date fields in every offered format; open actual bytes and compare preview content/footer/formulas against the approved immutable template.",
+      "description": "Create Expectations of a Core Group Member as a Church Document with frozen named church and leader fields, then export revision 1 as a PDF and as a DOCX; open the actual bytes and compare their content with revision 1.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -1008,9 +895,12 @@
           "fixture_type": "document_template",
           "id": "member-expectations",
           "formats": [
+            "pdf",
             "docx"
           ],
-          "catalog_sha256": "ff3c2f781ca9624ce689bc6b902ee4337da89c41574b5d421675cd6edda99dab"
+          "catalog_sha256": "ff3c2f781ca9624ce689bc6b902ee4337da89c41574b5d421675cd6edda99dab",
+          "document_class": "operational",
+          "editable": true
         },
         "merge": {
           "fixture_type": "document_merge_values",
@@ -1028,31 +918,125 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "documents.generate",
+        "operation": "documents.createFromTemplate",
         "arguments": {
           "template": "member-expectations",
-          "format": "docx",
           "merge_fields": {
             "church_name": "Harvest Point",
             "pastor_name": "Alex Rivera"
           },
-          "request_key": "CASE-DOC-008-generate"
+          "request_key": "CASE-DOC-008-create"
         }
       },
       "expected": {
         "state": {},
         "result": {
           "template": "member-expectations",
-          "format": "docx",
-          "opens_in_format_reader": true,
+          "document_owner": "P",
+          "revision": 1,
           "church_name": "Harvest Point",
           "template_catalog_sha256": "ff3c2f781ca9624ce689bc6b902ee4337da89c41574b5d421675cd6edda99dab",
-          "rendered_content_matches_template": true,
+          "files_created": 0,
           "automatic_ingestion": false
         },
         "event": null
       },
-      "group": "frozen-template-generation"
+      "subcases": [
+        {
+          "name": "export-pdf",
+          "given": {
+            "document": {
+              "fixture_type": "church_document",
+              "id": "D",
+              "owner": "P",
+              "template": "member-expectations",
+              "revision": 1,
+              "use_church_branding": true,
+              "church_name": "Harvest Point",
+              "pastor_name": "Alex Rivera"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "documents.exportNative",
+            "arguments": {
+              "document": "D",
+              "revision": 1,
+              "format": "pdf",
+              "request_key": "CASE-DOC-008-export-pdf"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "format": "pdf",
+              "opens_in_format_reader": true,
+              "church_name": "Harvest Point",
+              "exported_content_matches_revision": true,
+              "generated_document_saved": 1,
+              "automatic_ingestion": false
+            },
+            "event": null
+          }
+        },
+        {
+          "name": "export-docx",
+          "given": {
+            "document": {
+              "fixture_type": "church_document",
+              "id": "D",
+              "owner": "P",
+              "template": "member-expectations",
+              "revision": 1,
+              "use_church_branding": true,
+              "church_name": "Harvest Point",
+              "pastor_name": "Alex Rivera"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "documents.exportNative",
+            "arguments": {
+              "document": "D",
+              "revision": 1,
+              "format": "docx",
+              "request_key": "CASE-DOC-008-export-docx"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "format": "docx",
+              "opens_in_format_reader": true,
+              "church_name": "Harvest Point",
+              "exported_content_matches_revision": true,
+              "generated_document_saved": 1,
+              "automatic_ingestion": false
+            },
+            "event": null
+          }
+        }
+      ],
+      "operation_ids": [
+        "documents.createFromTemplate",
+        "documents.exportNative"
+      ]
     },
     {
       "id": "CASE-DOC-009",
@@ -1067,7 +1051,7 @@
         "WP-037"
       ],
       "status": "future-not-run",
-      "description": "Generate Launch Team Commitment with frozen named church/leader/date fields in every offered format; open actual bytes and compare preview content/footer/formulas against the approved immutable template.",
+      "description": "Create Launch Team Commitment as a Church Document with frozen named church and leader fields, then export revision 1 as a PDF and as a DOCX; open the actual bytes and compare their content with revision 1.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -1127,9 +1111,12 @@
           "fixture_type": "document_template",
           "id": "launch-team-commitment",
           "formats": [
+            "pdf",
             "docx"
           ],
-          "catalog_sha256": "ff3c2f781ca9624ce689bc6b902ee4337da89c41574b5d421675cd6edda99dab"
+          "catalog_sha256": "ff3c2f781ca9624ce689bc6b902ee4337da89c41574b5d421675cd6edda99dab",
+          "document_class": "operational",
+          "editable": true
         },
         "merge": {
           "fixture_type": "document_merge_values",
@@ -1147,31 +1134,125 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "documents.generate",
+        "operation": "documents.createFromTemplate",
         "arguments": {
           "template": "launch-team-commitment",
-          "format": "docx",
           "merge_fields": {
             "church_name": "Harvest Point",
             "pastor_name": "Alex Rivera"
           },
-          "request_key": "CASE-DOC-009-generate"
+          "request_key": "CASE-DOC-009-create"
         }
       },
       "expected": {
         "state": {},
         "result": {
           "template": "launch-team-commitment",
-          "format": "docx",
-          "opens_in_format_reader": true,
+          "document_owner": "P",
+          "revision": 1,
           "church_name": "Harvest Point",
           "template_catalog_sha256": "ff3c2f781ca9624ce689bc6b902ee4337da89c41574b5d421675cd6edda99dab",
-          "rendered_content_matches_template": true,
+          "files_created": 0,
           "automatic_ingestion": false
         },
         "event": null
       },
-      "group": "frozen-template-generation"
+      "subcases": [
+        {
+          "name": "export-pdf",
+          "given": {
+            "document": {
+              "fixture_type": "church_document",
+              "id": "D",
+              "owner": "P",
+              "template": "launch-team-commitment",
+              "revision": 1,
+              "use_church_branding": true,
+              "church_name": "Harvest Point",
+              "pastor_name": "Alex Rivera"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "documents.exportNative",
+            "arguments": {
+              "document": "D",
+              "revision": 1,
+              "format": "pdf",
+              "request_key": "CASE-DOC-009-export-pdf"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "format": "pdf",
+              "opens_in_format_reader": true,
+              "church_name": "Harvest Point",
+              "exported_content_matches_revision": true,
+              "generated_document_saved": 1,
+              "automatic_ingestion": false
+            },
+            "event": null
+          }
+        },
+        {
+          "name": "export-docx",
+          "given": {
+            "document": {
+              "fixture_type": "church_document",
+              "id": "D",
+              "owner": "P",
+              "template": "launch-team-commitment",
+              "revision": 1,
+              "use_church_branding": true,
+              "church_name": "Harvest Point",
+              "pastor_name": "Alex Rivera"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "documents.exportNative",
+            "arguments": {
+              "document": "D",
+              "revision": 1,
+              "format": "docx",
+              "request_key": "CASE-DOC-009-export-docx"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "format": "docx",
+              "opens_in_format_reader": true,
+              "church_name": "Harvest Point",
+              "exported_content_matches_revision": true,
+              "generated_document_saved": 1,
+              "automatic_ingestion": false
+            },
+            "event": null
+          }
+        }
+      ],
+      "operation_ids": [
+        "documents.createFromTemplate",
+        "documents.exportNative"
+      ]
     },
     {
       "id": "CASE-DOC-010",
@@ -1186,7 +1267,7 @@
         "WP-037"
       ],
       "status": "future-not-run",
-      "description": "Generate Vision Meeting Follow-up Letter with frozen named church/leader/date fields in every offered format; open actual bytes and compare preview content/footer/formulas against the approved immutable template.",
+      "description": "Create Vision Meeting Follow-up Letter as a Church Document with frozen named church and leader fields, then export revision 1 as a PDF and as a DOCX; open the actual bytes and compare their content with revision 1.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -1246,9 +1327,12 @@
           "fixture_type": "document_template",
           "id": "follow-up-letter",
           "formats": [
+            "pdf",
             "docx"
           ],
-          "catalog_sha256": "ff3c2f781ca9624ce689bc6b902ee4337da89c41574b5d421675cd6edda99dab"
+          "catalog_sha256": "ff3c2f781ca9624ce689bc6b902ee4337da89c41574b5d421675cd6edda99dab",
+          "document_class": "outward-facing",
+          "editable": true
         },
         "merge": {
           "fixture_type": "document_merge_values",
@@ -1266,31 +1350,125 @@
         "zone": "America/Chicago"
       },
       "action": {
-        "operation": "documents.generate",
+        "operation": "documents.createFromTemplate",
         "arguments": {
           "template": "follow-up-letter",
-          "format": "docx",
           "merge_fields": {
             "church_name": "Harvest Point",
             "pastor_name": "Alex Rivera"
           },
-          "request_key": "CASE-DOC-010-generate"
+          "request_key": "CASE-DOC-010-create"
         }
       },
       "expected": {
         "state": {},
         "result": {
           "template": "follow-up-letter",
-          "format": "docx",
-          "opens_in_format_reader": true,
+          "document_owner": "P",
+          "revision": 1,
           "church_name": "Harvest Point",
           "template_catalog_sha256": "ff3c2f781ca9624ce689bc6b902ee4337da89c41574b5d421675cd6edda99dab",
-          "rendered_content_matches_template": true,
+          "files_created": 0,
           "automatic_ingestion": false
         },
         "event": null
       },
-      "group": "frozen-template-generation"
+      "subcases": [
+        {
+          "name": "export-pdf",
+          "given": {
+            "document": {
+              "fixture_type": "church_document",
+              "id": "D",
+              "owner": "P",
+              "template": "follow-up-letter",
+              "revision": 1,
+              "use_church_branding": true,
+              "church_name": "Harvest Point",
+              "pastor_name": "Alex Rivera"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "documents.exportNative",
+            "arguments": {
+              "document": "D",
+              "revision": 1,
+              "format": "pdf",
+              "request_key": "CASE-DOC-010-export-pdf"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "format": "pdf",
+              "opens_in_format_reader": true,
+              "church_name": "Harvest Point",
+              "exported_content_matches_revision": true,
+              "generated_document_saved": 1,
+              "automatic_ingestion": false
+            },
+            "event": null
+          }
+        },
+        {
+          "name": "export-docx",
+          "given": {
+            "document": {
+              "fixture_type": "church_document",
+              "id": "D",
+              "owner": "P",
+              "template": "follow-up-letter",
+              "revision": 1,
+              "use_church_branding": true,
+              "church_name": "Harvest Point",
+              "pastor_name": "Alex Rivera"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-13T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "documents.exportNative",
+            "arguments": {
+              "document": "D",
+              "revision": 1,
+              "format": "docx",
+              "request_key": "CASE-DOC-010-export-docx"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "format": "docx",
+              "opens_in_format_reader": true,
+              "church_name": "Harvest Point",
+              "exported_content_matches_revision": true,
+              "generated_document_saved": 1,
+              "automatic_ingestion": false
+            },
+            "event": null
+          }
+        }
+      ],
+      "operation_ids": [
+        "documents.createFromTemplate",
+        "documents.exportNative"
+      ]
     },
     {
       "id": "CASE-DOC-011",
@@ -1365,7 +1543,7 @@
           "fixture_type": "document_template",
           "id": "board-meeting-agenda",
           "formats": [
-            "docx"
+            "pdf"
           ],
           "catalog_sha256": "ff3c2f781ca9624ce689bc6b902ee4337da89c41574b5d421675cd6edda99dab"
         },
@@ -1388,7 +1566,7 @@
         "operation": "documents.generate",
         "arguments": {
           "template": "board-meeting-agenda",
-          "format": "docx",
+          "format": "pdf",
           "merge_fields": {
             "church_name": "Harvest Point",
             "meeting_date": "2026-10-20"
@@ -1400,7 +1578,7 @@
         "state": {},
         "result": {
           "template": "board-meeting-agenda",
-          "format": "docx",
+          "format": "pdf",
           "opens_in_format_reader": true,
           "church_name": "Harvest Point",
           "template_catalog_sha256": "ff3c2f781ca9624ce689bc6b902ee4337da89c41574b5d421675cd6edda99dab",
@@ -2057,6 +2235,2702 @@
           "native_content": "We serve our community.",
           "failed_control_state": "fixture-state-1",
           "private_other_docs_copied": 0
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "CASE-DOC-017",
+      "requirement": "REQ-DOC-017",
+      "feature_ids": [
+        "DOC-017"
+      ],
+      "acceptance_ids": [
+        "AC-DOC-017--DOC-017"
+      ],
+      "work_packages": [
+        "WP-036"
+      ],
+      "status": "future-not-run",
+      "description": "Preview an outward-facing template for a church with no brand kit; the render uses the neutral theme and accepts a supplied theme input.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "template": {
+          "fixture_type": "document_template",
+          "id": "follow-up-letter",
+          "document_class": "outward-facing",
+          "formats": [
+            "pdf"
+          ]
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-30T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "documents.preview",
+        "arguments": {
+          "template": "follow-up-letter",
+          "format": "pdf",
+          "merge_fields": {
+            "church_name": "Harvest Point"
+          }
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "theme": "everyfield-neutral",
+          "church_name_set_in_type": true,
+          "everyfield_logo_present": false,
+          "opens_in_format_reader": true
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "CASE-DOC-017-CHURCH",
+      "requirement": "REQ-DOC-017",
+      "feature_ids": [
+        "DOC-017"
+      ],
+      "acceptance_ids": [
+        "AC-DOC-017--DOC-017"
+      ],
+      "work_packages": [
+        "WP-104"
+      ],
+      "status": "future-not-run",
+      "description": "Resolve the outward-facing theme for a church with a saved kit; the church theme replaces the neutral theme.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "kit": {
+          "fixture_type": "church_brand_kit",
+          "church": "P",
+          "primary_color": "#8B1E3F",
+          "accent_color": "#C9A227",
+          "heading_font": "DM Serif Display",
+          "body_font": "DM Sans",
+          "legal_name": "Harvest Point Church",
+          "ein": "12-3456789",
+          "logo_alt_text": "Harvest Point Church logo"
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-30T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "brand.resolveTheme",
+        "arguments": {
+          "church": "P",
+          "document_class": "outward-facing"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "theme": "church",
+          "primary_color": "#8B1E3F",
+          "accent_color": "#C9A227",
+          "heading_font": "DM Serif Display",
+          "fallback_used": false
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "CASE-DOC-018",
+      "requirement": "REQ-DOC-018",
+      "feature_ids": [
+        "DOC-018"
+      ],
+      "acceptance_ids": [
+        "AC-DOC-018--DOC-018"
+      ],
+      "work_packages": [
+        "WP-036"
+      ],
+      "status": "future-not-run",
+      "description": "List the catalog; every template carries exactly one of the four document classes.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "catalog": {
+          "fixture_type": "document_catalog",
+          "source": "docs/catalog/document-templates.json"
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-30T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "documents.templates.list",
+        "arguments": {
+          "subject": "P"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "templates_without_class": 0,
+          "templates_with_two_classes": 0,
+          "classes_offered": [
+            "formal/legal",
+            "outward-facing",
+            "operational",
+            "email"
+          ],
+          "budget_class": "operational"
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "CASE-DOC-019",
+      "requirement": "REQ-DOC-019",
+      "feature_ids": [
+        "DOC-019"
+      ],
+      "acceptance_ids": [
+        "AC-DOC-019--DOC-019"
+      ],
+      "work_packages": [
+        "WP-036"
+      ],
+      "status": "future-not-run",
+      "description": "Preview a formal/legal template with church branding on, then an operational template.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "template": {
+          "fixture_type": "document_template",
+          "id": "bylaws",
+          "document_class": "formal/legal",
+          "formats": [
+            "pdf"
+          ]
+        },
+        "kit": {
+          "fixture_type": "church_brand_kit",
+          "church": "P",
+          "primary_color": "#1F4E79",
+          "accent_color": "#D4A017",
+          "heading_font": "DM Serif Display",
+          "body_font": "DM Sans",
+          "legal_name": "Harvest Point Church",
+          "ein": "12-3456789",
+          "logo_alt_text": "Harvest Point Church logo"
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-30T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "documents.preview",
+        "arguments": {
+          "template": "bylaws",
+          "format": "pdf",
+          "use_church_branding": true,
+          "merge_fields": {
+            "church_name": "Harvest Point"
+          }
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "legal_notice": "Template, not legal advice",
+          "notice_in_saved_pdf_text": true,
+          "notice_hidden_by_branding": false
+        },
+        "event": null
+      },
+      "subcases": [
+        {
+          "given": {
+            "template": {
+              "fixture_type": "document_template",
+              "id": "launch-sunday-checklists",
+              "document_class": "operational",
+              "formats": [
+                "pdf"
+              ]
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-30T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "documents.preview",
+            "arguments": {
+              "template": "launch-sunday-checklists",
+              "format": "pdf",
+              "merge_fields": {
+                "church_name": "Harvest Point"
+              }
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "legal_notice": null
+            },
+            "event": null
+          },
+          "name": "operational-has-no-notice"
+        }
+      ]
+    },
+    {
+      "id": "CASE-DOC-020",
+      "requirement": "REQ-DOC-020",
+      "feature_ids": [
+        "DOC-020"
+      ],
+      "acceptance_ids": [
+        "AC-DOC-020--DOC-020"
+      ],
+      "work_packages": [
+        "WP-037"
+      ],
+      "status": "future-not-run",
+      "description": "Preview a bylaws template whose doctrinal section no one has filled.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "template": {
+          "fixture_type": "document_template",
+          "id": "bylaws",
+          "document_class": "formal/legal",
+          "formats": [
+            "pdf"
+          ]
+        },
+        "slot": {
+          "fixture_type": "doctrinal_slot",
+          "template": "bylaws",
+          "section": "statement-of-faith",
+          "filled_by_network": false
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-30T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "documents.preview",
+        "arguments": {
+          "template": "bylaws",
+          "format": "pdf",
+          "merge_fields": {
+            "church_name": "Harvest Point"
+          }
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "doctrinal_section": "visible_blank",
+          "everyfield_doctrinal_text": false,
+          "default_text_inserted": false
+        },
+        "event": null
+      },
+      "subcases": [
+        {
+          "given": {
+            "slot": {
+              "fixture_type": "doctrinal_slot",
+              "template": "bylaws",
+              "section": "statement-of-faith",
+              "filled_by_network": true,
+              "network_text": "Network statement of faith."
+            },
+            "network": {
+              "fixture_type": "organization",
+              "id": "N",
+              "kind": "sending_network",
+              "statement_of_faith": "Network statement of faith."
+            },
+            "affiliation-P-N": {
+              "fixture_type": "affiliation",
+              "plant": "P",
+              "organization": "N",
+              "active": true
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-30T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "documents.createFromTemplate",
+            "arguments": {
+              "template": "bylaws",
+              "merge_fields": {
+                "church_name": "Harvest Point"
+              },
+              "request_key": "CASE-DOC-020-network-fills-slot"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "revision": 1,
+              "doctrinal_section": "network_text",
+              "slot_text": "Network statement of faith.",
+              "everyfield_doctrinal_text": false,
+              "slot_blank_note": false
+            },
+            "event": null
+          },
+          "name": "network-fills-slot"
+        },
+        {
+          "given": {
+            "slot": {
+              "fixture_type": "doctrinal_slot",
+              "template": "bylaws",
+              "section": "statement-of-faith",
+              "filled_by_network": true,
+              "network_text": "Network statement of faith."
+            },
+            "network": {
+              "fixture_type": "organization",
+              "id": "N",
+              "kind": "sending_network",
+              "statement_of_faith": "Network statement of faith."
+            },
+            "affiliation-P-N": {
+              "fixture_type": "affiliation",
+              "plant": "P",
+              "organization": "N",
+              "active": true
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-30T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "documents.preview",
+            "arguments": {
+              "template": "bylaws",
+              "format": "pdf",
+              "merge_fields": {
+                "church_name": "Harvest Point"
+              }
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "doctrinal_section": "network_text",
+              "slot_text": "Network statement of faith.",
+              "everyfield_doctrinal_text": false,
+              "slot_blank_note": false
+            },
+            "event": null
+          },
+          "name": "network-fills-preview"
+        },
+        {
+          "given": {
+            "slot": {
+              "fixture_type": "doctrinal_slot",
+              "template": "bylaws",
+              "section": "statement-of-faith",
+              "filled_by_network": false
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-30T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "documents.createFromTemplate",
+            "arguments": {
+              "template": "bylaws",
+              "merge_fields": {
+                "church_name": "Harvest Point"
+              },
+              "request_key": "CASE-DOC-020-no-network-blank-slot"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "revision": 1,
+              "doctrinal_section": "visible_blank",
+              "everyfield_doctrinal_text": false,
+              "default_text_inserted": false,
+              "slot_blank_note": true
+            },
+            "event": null
+          },
+          "name": "no-network-blank-slot"
+        }
+      ]
+    },
+    {
+      "id": "CASE-DOC-021",
+      "requirement": "REQ-DOC-021",
+      "feature_ids": [
+        "DOC-021"
+      ],
+      "acceptance_ids": [
+        "AC-DOC-021--DOC-021"
+      ],
+      "work_packages": [
+        "WP-036"
+      ],
+      "status": "future-not-run",
+      "description": "Preview the child protection policy and read its text for the copy rule.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "template": {
+          "fixture_type": "document_template",
+          "id": "child-protection-policy",
+          "document_class": "formal/legal",
+          "formats": [
+            "pdf"
+          ]
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-30T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "documents.preview",
+        "arguments": {
+          "template": "child-protection-policy",
+          "format": "pdf",
+          "merge_fields": {
+            "church_name": "Harvest Point"
+          }
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "bare_plant_occurrences": 0,
+          "church_plant_phrase_present": true,
+          "brand_spelling": "Everyfield"
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "CASE-DOC-022",
+      "requirement": "REQ-DOC-022",
+      "feature_ids": [
+        "DOC-022"
+      ],
+      "acceptance_ids": [
+        "AC-DOC-022--DOC-022"
+      ],
+      "work_packages": [
+        "WP-037"
+      ],
+      "status": "future-not-run",
+      "description": "An Admin creates a bylaws Church Document and gets the merge values in revision 1. A Member is refused. A fixed-layout template is refused.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "template": {
+          "fixture_type": "document_template",
+          "id": "bylaws",
+          "document_class": "formal/legal",
+          "editable": true,
+          "formats": [
+            "pdf",
+            "docx"
+          ]
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-30T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "documents.createFromTemplate",
+        "arguments": {
+          "template": "bylaws",
+          "merge_fields": {
+            "church_name": "Harvest Point"
+          },
+          "request_key": "CASE-DOC-022-create"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "document_owner": "P",
+          "revision": 1,
+          "template": "bylaws",
+          "template_version": 1,
+          "document_class": "formal/legal",
+          "revision_1_church_name": "Harvest Point",
+          "use_church_branding": true,
+          "files_created": 0
+        },
+        "event": null
+      },
+      "subcases": [
+        {
+          "name": "member-refused",
+          "given": {
+            "seat-M": {
+              "fixture_type": "seat",
+              "account": "M",
+              "tenant": "P",
+              "role": "Member",
+              "active": true
+            },
+            "session-M": {
+              "fixture_type": "session",
+              "account": "M",
+              "expires_at": "2026-11-12T16:00:00Z"
+            }
+          },
+          "actor": {
+            "account": "M",
+            "session": "session-M",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-30T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "documents.createFromTemplate",
+            "arguments": {
+              "template": "bylaws",
+              "merge_fields": {
+                "church_name": "Harvest Point"
+              },
+              "request_key": "CASE-DOC-022-member"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "access_denied",
+              "document_created": false
+            },
+            "event": null
+          }
+        },
+        {
+          "name": "fixed-layout-refused",
+          "given": {
+            "template": {
+              "fixture_type": "document_template",
+              "id": "commitment-card",
+              "document_class": "operational",
+              "editable": false,
+              "formats": [
+                "pdf"
+              ]
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-30T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "documents.createFromTemplate",
+            "arguments": {
+              "template": "commitment-card",
+              "merge_fields": {
+                "church_name": "Harvest Point"
+              },
+              "request_key": "CASE-DOC-022-fixed"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "template_not_editable",
+              "document_created": false
+            },
+            "event": null
+          }
+        }
+      ],
+      "operation_ids": [
+        "documents.createFromTemplate"
+      ]
+    },
+    {
+      "id": "CASE-DOC-023",
+      "requirement": "REQ-DOC-023",
+      "feature_ids": [
+        "DOC-023"
+      ],
+      "acceptance_ids": [
+        "AC-DOC-023--DOC-023"
+      ],
+      "work_packages": [
+        "WP-037"
+      ],
+      "status": "future-not-run",
+      "description": "Export revision 2 as a PDF and a DOCX, edit to revision 3, change the brand kit, then download the revision 2 exports again. The hashes are equal. A new export uses the new theme.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "template": {
+          "fixture_type": "document_template",
+          "id": "bylaws",
+          "document_class": "formal/legal",
+          "editable": true,
+          "formats": [
+            "pdf",
+            "docx"
+          ]
+        },
+        "kit": {
+          "fixture_type": "church_brand_kit",
+          "church": "P",
+          "primary_color": "#1F4E79",
+          "accent_color": "#D4A017",
+          "heading_font": "DM Serif Display",
+          "body_font": "DM Sans",
+          "legal_name": "Harvest Point Church",
+          "ein": "12-3456789",
+          "logo_alt_text": "Harvest Point Church logo"
+        },
+        "document": {
+          "fixture_type": "church_document",
+          "id": "D",
+          "owner": "P",
+          "template": "bylaws",
+          "revision": 2,
+          "use_church_branding": true,
+          "saved_revisions": [
+            1,
+            2
+          ]
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-30T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "documents.exportNative",
+        "arguments": {
+          "document": "D",
+          "revision": 2,
+          "format": "pdf",
+          "request_key": "CASE-DOC-023-pdf-r2"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "format": "pdf",
+          "opens_in_format_reader": true,
+          "pdf_ua_tagged": true,
+          "theme": "church",
+          "primary_color": "#1F4E79",
+          "generated_document_saved": 1,
+          "provenance": {
+            "document": "D",
+            "revision": 2
+          }
+        },
+        "event": null
+      },
+      "subcases": [
+        {
+          "name": "export-docx",
+          "given": {
+            "document": {
+              "fixture_type": "church_document",
+              "id": "D",
+              "owner": "P",
+              "template": "bylaws",
+              "revision": 2,
+              "use_church_branding": true,
+              "saved_revisions": [
+                1,
+                2
+              ]
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-30T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "documents.exportNative",
+            "arguments": {
+              "document": "D",
+              "revision": 2,
+              "format": "docx",
+              "request_key": "CASE-DOC-023-docx-r2"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "format": "docx",
+              "opens_in_format_reader": true,
+              "valid_word_file": true,
+              "headings_present": true,
+              "tables_present": true,
+              "logo_alt_text_present": true,
+              "theme": "church",
+              "generated_document_saved": 1
+            },
+            "event": null
+          }
+        },
+        {
+          "name": "download-after-edit-and-kit-change",
+          "given": {
+            "document": {
+              "fixture_type": "church_document",
+              "id": "D",
+              "owner": "P",
+              "template": "bylaws",
+              "revision": 3,
+              "use_church_branding": true,
+              "saved_revisions": [
+                1,
+                2,
+                3
+              ]
+            },
+            "kit": {
+              "fixture_type": "church_brand_kit",
+              "church": "P",
+              "primary_color": "#8B1E3F",
+              "accent_color": "#C9A227",
+              "heading_font": "DM Serif Display",
+              "body_font": "DM Sans",
+              "legal_name": "Harvest Point Church",
+              "ein": "12-3456789",
+              "logo_alt_text": "Harvest Point Church logo"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-30T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "documents.download",
+            "arguments": {
+              "document": "D",
+              "revision": 2,
+              "formats": [
+                "pdf",
+                "docx"
+              ]
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "pdf_hash_equals_saved": true,
+              "docx_hash_equals_saved": true,
+              "byte_length_equals_saved": true
+            },
+            "event": null
+          }
+        },
+        {
+          "name": "new-export-uses-new-theme",
+          "given": {
+            "document": {
+              "fixture_type": "church_document",
+              "id": "D",
+              "owner": "P",
+              "template": "bylaws",
+              "revision": 3,
+              "use_church_branding": true,
+              "saved_revisions": [
+                1,
+                2,
+                3
+              ]
+            },
+            "kit": {
+              "fixture_type": "church_brand_kit",
+              "church": "P",
+              "primary_color": "#8B1E3F",
+              "accent_color": "#C9A227",
+              "heading_font": "DM Serif Display",
+              "body_font": "DM Sans",
+              "legal_name": "Harvest Point Church",
+              "ein": "12-3456789",
+              "logo_alt_text": "Harvest Point Church logo"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-30T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "documents.exportNative",
+            "arguments": {
+              "document": "D",
+              "revision": 3,
+              "format": "pdf",
+              "request_key": "CASE-DOC-023-pdf-r3"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "format": "pdf",
+              "theme": "church",
+              "primary_color": "#8B1E3F",
+              "pdf_hash_differs_from_revision_2_export": true
+            },
+            "event": null
+          }
+        }
+      ],
+      "operation_ids": [
+        "documents.exportNative",
+        "documents.download"
+      ]
+    },
+    {
+      "id": "CASE-DOC-019-EDIT",
+      "requirement": "REQ-DOC-019",
+      "feature_ids": [
+        "DOC-019"
+      ],
+      "acceptance_ids": [
+        "AC-DOC-019--DOC-019"
+      ],
+      "work_packages": [
+        "WP-037"
+      ],
+      "status": "future-not-run",
+      "description": "Delete all body text of a bylaws Church Document, then export it. Both files still hold the notice. An outward-facing export does not.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "template": {
+          "fixture_type": "document_template",
+          "id": "bylaws",
+          "document_class": "formal/legal",
+          "editable": true,
+          "formats": [
+            "pdf",
+            "docx"
+          ]
+        },
+        "document": {
+          "fixture_type": "church_document",
+          "id": "D",
+          "owner": "P",
+          "template": "bylaws",
+          "revision": 2,
+          "use_church_branding": true,
+          "body_text": "",
+          "legal_notice": "Template, not legal advice"
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-30T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "documents.exportNative",
+        "arguments": {
+          "document": "D",
+          "revision": 2,
+          "format": "pdf",
+          "request_key": "CASE-DOC-019-EDIT-pdf"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "format": "pdf",
+          "legal_notice": "Template, not legal advice",
+          "notice_in_pdf_text": true,
+          "notice_outside_editable_body": true
+        },
+        "event": null
+      },
+      "subcases": [
+        {
+          "name": "docx-keeps-notice",
+          "given": {
+            "document": {
+              "fixture_type": "church_document",
+              "id": "D",
+              "owner": "P",
+              "template": "bylaws",
+              "revision": 2,
+              "use_church_branding": true,
+              "body_text": "",
+              "legal_notice": "Template, not legal advice"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-30T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "documents.exportNative",
+            "arguments": {
+              "document": "D",
+              "revision": 2,
+              "format": "docx",
+              "request_key": "CASE-DOC-019-EDIT-docx"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "format": "docx",
+              "legal_notice": "Template, not legal advice",
+              "notice_in_docx_text": true
+            },
+            "event": null
+          }
+        },
+        {
+          "name": "outward-facing-has-no-notice",
+          "given": {
+            "template": {
+              "fixture_type": "document_template",
+              "id": "prayer-letter",
+              "document_class": "outward-facing",
+              "editable": true,
+              "formats": [
+                "pdf",
+                "docx"
+              ]
+            },
+            "document": {
+              "fixture_type": "church_document",
+              "id": "L",
+              "owner": "P",
+              "template": "prayer-letter",
+              "revision": 1,
+              "use_church_branding": true
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-30T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "documents.exportNative",
+            "arguments": {
+              "document": "L",
+              "revision": 1,
+              "format": "pdf",
+              "request_key": "CASE-DOC-019-EDIT-letter"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "format": "pdf",
+              "legal_notice": null
+            },
+            "event": null
+          }
+        }
+      ],
+      "operation_ids": [
+        "documents.exportNative"
+      ]
+    },
+    {
+      "id": "CASE-DOC-020-EDIT",
+      "requirement": "REQ-DOC-020",
+      "feature_ids": [
+        "DOC-020"
+      ],
+      "acceptance_ids": [
+        "AC-DOC-020--DOC-020"
+      ],
+      "work_packages": [
+        "WP-037"
+      ],
+      "status": "future-not-run",
+      "description": "Export a bylaws Church Document with an unfilled doctrinal slot. Both files show a visible blank. Deleting the slot node is allowed: the save makes revision 2, whose PDF and DOCX leave the section out with no label and no blank, while revision 1 still exports with the blank.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "template": {
+          "fixture_type": "document_template",
+          "id": "bylaws",
+          "document_class": "formal/legal",
+          "editable": true,
+          "formats": [
+            "pdf",
+            "docx"
+          ]
+        },
+        "document": {
+          "fixture_type": "church_document",
+          "id": "D",
+          "owner": "P",
+          "template": "bylaws",
+          "revision": 1,
+          "use_church_branding": true,
+          "doctrinal_slot": {
+            "id": "statement-of-faith",
+            "text": "",
+            "network_filled": false
+          }
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-30T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "documents.exportNative",
+        "arguments": {
+          "document": "D",
+          "revision": 1,
+          "format": "pdf",
+          "request_key": "CASE-DOC-020-EDIT-pdf"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "format": "pdf",
+          "slot": "statement-of-faith",
+          "visible_blank": true,
+          "default_text_present": false
+        },
+        "event": null
+      },
+      "subcases": [
+        {
+          "name": "docx-shows-blank",
+          "given": {
+            "document": {
+              "fixture_type": "church_document",
+              "id": "D",
+              "owner": "P",
+              "template": "bylaws",
+              "revision": 1,
+              "use_church_branding": true,
+              "doctrinal_slot": {
+                "id": "statement-of-faith",
+                "text": "",
+                "network_filled": false
+              }
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-30T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "documents.exportNative",
+            "arguments": {
+              "document": "D",
+              "revision": 1,
+              "format": "docx",
+              "request_key": "CASE-DOC-020-EDIT-docx"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "format": "docx",
+              "slot": "statement-of-faith",
+              "visible_blank": true,
+              "default_text_present": false
+            },
+            "event": null
+          }
+        },
+        {
+          "name": "slot-delete-saves",
+          "given": {
+            "document": {
+              "fixture_type": "church_document",
+              "id": "D",
+              "owner": "P",
+              "template": "bylaws",
+              "revision": 1,
+              "use_church_branding": true,
+              "doctrinal_slot": {
+                "id": "statement-of-faith",
+                "text": "",
+                "network_filled": false
+              }
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-30T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "documents.saveNative",
+            "arguments": {
+              "document": "D",
+              "expected_revision": 1,
+              "remove_node": "statement-of-faith",
+              "request_key": "CASE-DOC-020-EDIT-delete"
+            }
+          },
+          "expected": {
+            "state": {
+              "document": "D",
+              "current_revision": 2,
+              "revision_2_slot_present": false,
+              "revision_1_slot_present": true
+            },
+            "result": {
+              "revision": 2,
+              "warning": null
+            },
+            "event": null
+          }
+        },
+        {
+          "name": "deleted-slot-pdf-omits-section",
+          "given": {
+            "document": {
+              "fixture_type": "church_document",
+              "id": "D",
+              "owner": "P",
+              "template": "bylaws",
+              "revision": 2,
+              "use_church_branding": true,
+              "doctrinal_slot": null,
+              "revisions": [
+                {
+                  "number": 1,
+                  "doctrinal_slot": {
+                    "id": "statement-of-faith",
+                    "text": "",
+                    "network_filled": false
+                  }
+                },
+                {
+                  "number": 2,
+                  "doctrinal_slot": null
+                }
+              ]
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-30T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "documents.exportNative",
+            "arguments": {
+              "document": "D",
+              "revision": 2,
+              "format": "pdf",
+              "request_key": "CASE-DOC-020-EDIT-deleted-pdf"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "format": "pdf",
+              "slot_present": false,
+              "visible_blank": false,
+              "slot_label_present": false,
+              "default_text_present": false
+            },
+            "event": null
+          }
+        },
+        {
+          "name": "deleted-slot-docx-omits-section",
+          "given": {
+            "document": {
+              "fixture_type": "church_document",
+              "id": "D",
+              "owner": "P",
+              "template": "bylaws",
+              "revision": 2,
+              "use_church_branding": true,
+              "doctrinal_slot": null,
+              "revisions": [
+                {
+                  "number": 1,
+                  "doctrinal_slot": {
+                    "id": "statement-of-faith",
+                    "text": "",
+                    "network_filled": false
+                  }
+                },
+                {
+                  "number": 2,
+                  "doctrinal_slot": null
+                }
+              ]
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-30T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "documents.exportNative",
+            "arguments": {
+              "document": "D",
+              "revision": 2,
+              "format": "docx",
+              "request_key": "CASE-DOC-020-EDIT-deleted-docx"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "format": "docx",
+              "slot_present": false,
+              "visible_blank": false,
+              "slot_label_present": false,
+              "default_text_present": false
+            },
+            "event": null
+          }
+        },
+        {
+          "name": "earlier-revision-keeps-blank",
+          "given": {
+            "document": {
+              "fixture_type": "church_document",
+              "id": "D",
+              "owner": "P",
+              "template": "bylaws",
+              "revision": 2,
+              "use_church_branding": true,
+              "doctrinal_slot": null,
+              "revisions": [
+                {
+                  "number": 1,
+                  "doctrinal_slot": {
+                    "id": "statement-of-faith",
+                    "text": "",
+                    "network_filled": false
+                  }
+                },
+                {
+                  "number": 2,
+                  "doctrinal_slot": null
+                }
+              ]
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-30T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "documents.exportNative",
+            "arguments": {
+              "document": "D",
+              "revision": 1,
+              "format": "pdf",
+              "request_key": "CASE-DOC-020-EDIT-rev1-pdf"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "format": "pdf",
+              "slot": "statement-of-faith",
+              "visible_blank": true,
+              "default_text_present": false
+            },
+            "event": null
+          }
+        }
+      ],
+      "operation_ids": [
+        "documents.exportNative",
+        "documents.saveNative"
+      ]
+    },
+    {
+      "id": "CASE-BRD-001",
+      "requirement": "REQ-BRD-001",
+      "feature_ids": [
+        "BRD-001"
+      ],
+      "acceptance_ids": [
+        "AC-BRD-001--BRD-001"
+      ],
+      "work_packages": [
+        "WP-104"
+      ],
+      "status": "future-not-run",
+      "description": "An Admin resets a saved kit to default; a Member cannot open the settings.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "kit": {
+          "fixture_type": "church_brand_kit",
+          "church": "P",
+          "primary_color": "#1F4E79",
+          "accent_color": "#D4A017",
+          "heading_font": "DM Serif Display",
+          "body_font": "DM Sans",
+          "legal_name": "Harvest Point Church",
+          "ein": "12-3456789",
+          "logo_alt_text": "Harvest Point Church logo",
+          "revision": 4
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-30T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "brand.reset",
+        "arguments": {
+          "church": "P",
+          "expected_revision": 4
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "kit_state": "default",
+          "theme_after_reset": "everyfield-neutral",
+          "saved_documents_changed": 0
+        },
+        "event": null
+      },
+      "subcases": [
+        {
+          "given": {
+            "M": {
+              "fixture_type": "account",
+              "id": "M",
+              "email": "sam@example.test",
+              "registration": "active"
+            },
+            "seat-M": {
+              "fixture_type": "seat",
+              "account": "M",
+              "tenant": "P",
+              "role": "Member",
+              "active": true
+            },
+            "session-M": {
+              "fixture_type": "session",
+              "account": "M",
+              "expires_at": "2026-11-12T16:00:00Z"
+            }
+          },
+          "actor": {
+            "account": "M",
+            "session": "session-M",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-30T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "brand.get",
+            "arguments": {
+              "church": "P"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "access_denied",
+              "kit_changed": false
+            },
+            "event": null
+          },
+          "name": "member-refused"
+        }
+      ]
+    },
+    {
+      "id": "CASE-BRD-002",
+      "requirement": "REQ-BRD-002",
+      "feature_ids": [
+        "BRD-002"
+      ],
+      "acceptance_ids": [
+        "AC-BRD-002--BRD-002"
+      ],
+      "work_packages": [
+        "WP-104"
+      ],
+      "status": "future-not-run",
+      "description": "Upload a wide SVG logo with margin and alt text, then a PNG with no alt text.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "upload-logo": {
+          "fixture_type": "brand_upload",
+          "media_type": "image/svg+xml",
+          "width": 960,
+          "height": 380,
+          "content_width": 900,
+          "content_height": 300
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-30T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "brand.uploadAsset",
+        "arguments": {
+          "church": "P",
+          "asset_kind": "full_logo",
+          "file": "upload-logo",
+          "alt_text": "Harvest Point Church logo"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "stored_purpose": "brand_asset",
+          "storage": "private",
+          "margin_trimmed": true,
+          "rasterized_format": "png",
+          "aspect_ratio": 3.0,
+          "preview_backgrounds": [
+            "light",
+            "dark",
+            "brand"
+          ]
+        },
+        "event": null
+      },
+      "subcases": [
+        {
+          "given": {
+            "upload-logo": {
+              "fixture_type": "brand_upload",
+              "media_type": "image/png",
+              "width": 600,
+              "height": 200
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-30T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "brand.uploadAsset",
+            "arguments": {
+              "church": "P",
+              "asset_kind": "full_logo",
+              "file": "upload-logo"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "alt_text_required",
+              "asset_stored": false
+            },
+            "event": null
+          },
+          "name": "alt-text-required"
+        }
+      ]
+    },
+    {
+      "id": "CASE-BRD-003",
+      "requirement": "REQ-BRD-003",
+      "feature_ids": [
+        "BRD-003"
+      ],
+      "acceptance_ids": [
+        "AC-BRD-003--BRD-003"
+      ],
+      "work_packages": [
+        "WP-104"
+      ],
+      "status": "future-not-run",
+      "description": "Save a pale yellow primary color and no accent color.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "kit": {
+          "fixture_type": "church_brand_kit",
+          "church": "P",
+          "revision": 1,
+          "primary_color": "#1F4E79"
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-30T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "brand.saveSettings",
+        "arguments": {
+          "church": "P",
+          "expected_revision": 1,
+          "primary_color": "#F2D74A",
+          "accent_color": null
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "accent_color": "#F2D74A",
+          "contrast_vs_white": 1.44,
+          "contrast_badge": "fails_text",
+          "derived_text_on_primary": "#000000",
+          "primary_used_as_text": false,
+          "primary_used_for_fills_and_rules": true
+        },
+        "event": null
+      },
+      "subcases": [
+        {
+          "given": {
+            "logo": {
+              "fixture_type": "brand_upload",
+              "media_type": "image/png",
+              "dominant_color": "#2E7D32"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-30T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "brand.suggestColors",
+            "arguments": {
+              "church": "P",
+              "asset_kind": "full_logo"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "suggested_primary": "#2E7D32",
+              "suggested_from": "full_logo"
+            },
+            "event": null
+          },
+          "name": "suggest-from-logo"
+        }
+      ]
+    },
+    {
+      "id": "CASE-BRD-004",
+      "requirement": "REQ-BRD-004",
+      "feature_ids": [
+        "BRD-004"
+      ],
+      "acceptance_ids": [
+        "AC-BRD-004--BRD-004"
+      ],
+      "work_packages": [
+        "WP-104"
+      ],
+      "status": "future-not-run",
+      "description": "Save a kit with a font outside the curated list, then a kit with no font choice.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "kit": {
+          "fixture_type": "church_brand_kit",
+          "church": "P",
+          "revision": 1,
+          "primary_color": "#1F4E79"
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-30T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "brand.saveSettings",
+        "arguments": {
+          "church": "P",
+          "expected_revision": 1,
+          "heading_font": "Papyrus"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "error_code": "unsupported_font",
+          "kit_changed": false
+        },
+        "event": null
+      },
+      "subcases": [
+        {
+          "given": {
+            "kit": {
+              "fixture_type": "church_brand_kit",
+              "church": "P",
+              "revision": 1,
+              "primary_color": "#1F4E79",
+              "heading_font": null,
+              "body_font": null
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-30T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "brand.saveSettings",
+            "arguments": {
+              "church": "P",
+              "expected_revision": 1,
+              "primary_color": "#1F4E79"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "heading_font": "DM Serif Display",
+              "body_font": "DM Sans",
+              "font_upload_offered": false
+            },
+            "event": null
+          },
+          "name": "default-fonts"
+        }
+      ]
+    },
+    {
+      "id": "CASE-BRD-005",
+      "requirement": "REQ-BRD-005",
+      "feature_ids": [
+        "BRD-005"
+      ],
+      "acceptance_ids": [
+        "AC-BRD-005--BRD-005"
+      ],
+      "work_packages": [
+        "WP-104"
+      ],
+      "status": "future-not-run",
+      "description": "Save letterhead details with an EIN, then save a malformed EIN.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "kit": {
+          "fixture_type": "church_brand_kit",
+          "church": "P",
+          "revision": 1,
+          "primary_color": "#1F4E79"
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-30T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "brand.saveSettings",
+        "arguments": {
+          "church": "P",
+          "expected_revision": 1,
+          "primary_color": "#1F4E79",
+          "letterhead": {
+            "legal_name": "Harvest Point Church",
+            "address": "12 Main Street, Austin, TX 78701",
+            "website": "https://harvestpoint.example",
+            "phone": "+1 512 555 0100",
+            "email": "office@harvestpoint.example",
+            "ein": "12-3456789",
+            "tagline": "Grow, pray, give."
+          }
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "letterhead_saved": true,
+          "ein": "12-3456789",
+          "cover_photo": null,
+          "signature_block": null
+        },
+        "event": null
+      },
+      "subcases": [
+        {
+          "given": {
+            "kit": {
+              "fixture_type": "church_brand_kit",
+              "church": "P",
+              "revision": 1,
+              "primary_color": "#1F4E79",
+              "ein": null
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-30T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "brand.saveSettings",
+            "arguments": {
+              "church": "P",
+              "expected_revision": 1,
+              "letterhead": {
+                "ein": "12-34"
+              }
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "error_code": "invalid_ein",
+              "kit_changed": false
+            },
+            "event": null
+          },
+          "name": "malformed-ein"
+        }
+      ]
+    },
+    {
+      "id": "CASE-BRD-006",
+      "requirement": "REQ-BRD-006",
+      "feature_ids": [
+        "BRD-006"
+      ],
+      "acceptance_ids": [
+        "AC-BRD-006--BRD-006"
+      ],
+      "work_packages": [
+        "WP-104"
+      ],
+      "status": "future-not-run",
+      "description": "Resolve each document class for a church with a full kit and compare the class rules.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "kit": {
+          "fixture_type": "church_brand_kit",
+          "church": "P",
+          "primary_color": "#1F4E79",
+          "accent_color": "#D4A017",
+          "heading_font": "DM Serif Display",
+          "body_font": "DM Sans",
+          "legal_name": "Harvest Point Church",
+          "ein": "12-3456789",
+          "logo_alt_text": "Harvest Point Church logo"
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-30T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "brand.resolveTheme",
+        "arguments": {
+          "church": "P",
+          "document_class": "formal/legal"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "theme": "church",
+          "header_logo": "small",
+          "primary_applied_to": [
+            "rules",
+            "headings"
+          ],
+          "body_text": "neutral",
+          "footer": "letterhead with EIN",
+          "page_numbers": true
+        },
+        "event": null
+      },
+      "subcases": [
+        {
+          "given": {
+            "kit": {
+              "fixture_type": "church_brand_kit",
+              "church": "P",
+              "primary_color": "#1F4E79",
+              "accent_color": "#D4A017",
+              "heading_font": "DM Serif Display",
+              "body_font": "DM Sans",
+              "legal_name": "Harvest Point Church",
+              "ein": "12-3456789",
+              "logo_alt_text": "Harvest Point Church logo"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-30T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "brand.resolveTheme",
+            "arguments": {
+              "church": "P",
+              "document_class": "outward-facing"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "theme": "church",
+              "cover": "large logo",
+              "colors": "full primary and accent",
+              "fonts": "brand",
+              "extras": [
+                "photo",
+                "tagline",
+                "contact"
+              ]
+            },
+            "event": null
+          },
+          "name": "outward-facing"
+        },
+        {
+          "given": {
+            "kit": {
+              "fixture_type": "church_brand_kit",
+              "church": "P",
+              "primary_color": "#1F4E79",
+              "accent_color": "#D4A017",
+              "heading_font": "DM Serif Display",
+              "body_font": "DM Sans",
+              "legal_name": "Harvest Point Church",
+              "ein": "12-3456789",
+              "logo_alt_text": "Harvest Point Church logo"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-30T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "brand.resolveTheme",
+            "arguments": {
+              "church": "P",
+              "document_class": "operational"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "theme": "church",
+              "mark": "small",
+              "accent_applied_to": [
+                "table headers",
+                "checkboxes"
+              ],
+              "grayscale_safe": true
+            },
+            "event": null
+          },
+          "name": "operational"
+        },
+        {
+          "given": {
+            "kit": {
+              "fixture_type": "church_brand_kit",
+              "church": "P",
+              "primary_color": "#1F4E79",
+              "accent_color": "#D4A017",
+              "heading_font": "DM Serif Display",
+              "body_font": "DM Sans",
+              "legal_name": "Harvest Point Church",
+              "ein": "12-3456789",
+              "logo_alt_text": "Harvest Point Church logo"
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "session-A",
+            "context": "P"
+          },
+          "clock": {
+            "now": "2026-10-30T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "brand.resolveTheme",
+            "arguments": {
+              "church": "P",
+              "document_class": "email"
+            }
+          },
+          "expected": {
+            "state": {},
+            "result": {
+              "theme": "church",
+              "header_logo_max_width_px": 200,
+              "button_color": "#1F4E79",
+              "button_text_color": "#FFFFFF",
+              "fonts": "web-safe",
+              "footer": "church name and address"
+            },
+            "event": null
+          },
+          "name": "email"
+        }
+      ]
+    },
+    {
+      "id": "CASE-BRD-006-NEUTRAL",
+      "requirement": "REQ-BRD-006",
+      "feature_ids": [
+        "BRD-006"
+      ],
+      "acceptance_ids": [
+        "AC-BRD-006--BRD-006"
+      ],
+      "work_packages": [
+        "WP-104"
+      ],
+      "status": "future-not-run",
+      "description": "Resolve the outward-facing theme for a church that has never saved a kit.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "church_without_kit": {
+          "fixture_type": "church_state",
+          "church": "P",
+          "brand_kit": null,
+          "name": "Harvest Point"
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-30T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "brand.resolveTheme",
+        "arguments": {
+          "church": "P",
+          "document_class": "outward-facing"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "theme": "everyfield-neutral",
+          "church_name_set_in_type": true,
+          "everyfield_logo_present": false,
+          "slots": "fixed-size"
+        },
+        "event": null
+      }
+    },
+    {
+      "id": "CASE-BRD-006-SAVED",
+      "requirement": "REQ-BRD-006",
+      "feature_ids": [
+        "BRD-006"
+      ],
+      "acceptance_ids": [
+        "AC-BRD-006--BRD-006"
+      ],
+      "work_packages": [
+        "WP-104"
+      ],
+      "status": "future-not-run",
+      "description": "Change the primary color after a PDF was saved; the saved PDF keeps its bytes and the next PDF uses the new color.",
+      "given": {
+        "P": {
+          "fixture_type": "plant",
+          "id": "P",
+          "timezone": "America/Chicago",
+          "observed_state": "fixture-state-7",
+          "assessment_input_state": "fixture-state-11",
+          "phase": "Phase1"
+        },
+        "A": {
+          "fixture_type": "account",
+          "id": "A",
+          "email": "alex@example.test",
+          "personal_timezone": "America/Chicago",
+          "registration": "active"
+        },
+        "seat-A": {
+          "fixture_type": "seat",
+          "account": "A",
+          "tenant": "P",
+          "role": "Admin",
+          "active": true
+        },
+        "session-A": {
+          "fixture_type": "session",
+          "account": "A",
+          "expires_at": "2026-11-12T16:00:00Z"
+        },
+        "kit": {
+          "fixture_type": "church_brand_kit",
+          "church": "P",
+          "revision": 2,
+          "primary_color": "#1F4E79"
+        },
+        "saved_pdf": {
+          "fixture_type": "generated_pdf",
+          "church": "P",
+          "sha256": "b1946ac92492d2347c6235b4d2611184b1946ac92492d2347c6235b4d261118",
+          "primary_color_at_save": "#1F4E79"
+        }
+      },
+      "actor": {
+        "account": "A",
+        "session": "session-A",
+        "context": "P"
+      },
+      "clock": {
+        "now": "2026-10-30T16:00:00Z",
+        "zone": "America/Chicago"
+      },
+      "action": {
+        "operation": "brand.saveSettings",
+        "arguments": {
+          "church": "P",
+          "expected_revision": 2,
+          "primary_color": "#8B1E3F"
+        }
+      },
+      "expected": {
+        "state": {},
+        "result": {
+          "saved_pdf_sha256": "b1946ac92492d2347c6235b4d2611184b1946ac92492d2347c6235b4d261118",
+          "saved_pdf_bytes_changed": false,
+          "next_generated_pdf_primary": "#8B1E3F"
         },
         "event": null
       }
@@ -3705,8 +6579,8 @@
           "article_count": 96,
           "section_count": 21,
           "mail_template_count": 7,
-          "document_template_count": 11,
-          "customer_rows": 0
+          "customer_rows": 0,
+          "base_document_template_count": 11
         },
         "event": null
       }

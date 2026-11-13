@@ -1,16 +1,6 @@
 "use client";
 
-import {
-	ArrowTurnBackwardIcon,
-	Delete02Icon,
-	Edit02Icon,
-	GitMergeIcon,
-	Home01Icon,
-	Note01Icon,
-	Route01Icon,
-	TaskDone01Icon,
-	UserEdit01Icon,
-} from "@hugeicons/core-free-icons";
+import { ArrowTurnBackwardIcon, Delete02Icon, Edit02Icon } from "@hugeicons/core-free-icons";
 import type * as people from "@everyfield/contracts/people";
 import {
 	Button,
@@ -28,14 +18,15 @@ import {
 	StatePanel,
 	Textarea,
 } from "@everyfield/ui/controls";
-import { TINT, type Tone } from "@everyfield/ui/display";
-import { cn, Icon, type IconSvgElement } from "@everyfield/ui/foundations";
+import { TINT } from "@everyfield/ui/display";
+import { cn, Icon } from "@everyfield/ui/foundations";
 import { useState } from "react";
 import type { z } from "zod";
 import { addNote, deleteNote, editNote, loadActivities } from "./actions.ts";
+import { CHANNEL_LABEL } from "../followups/model.ts";
 import { unmergeIntent } from "./corrections/intent.ts";
-import { householdChange } from "./fields/model.ts";
-import { runSave, STAGE_LABEL, type PersonStore } from "./model.ts";
+import { describe } from "./activity.ts";
+import { runSave, type PersonStore } from "./model.ts";
 import type { Outcome } from "../../components/save/model.ts";
 import { FormProblem, fresh, isConflict, problemOf, useStore, When } from "./parts.tsx";
 import type { PersonDraft } from "./StageDialog.tsx";
@@ -47,36 +38,21 @@ type Base = "id" | "occurredAt" | "recordedAt" | "actor";
 /** An Activity entry without the parts every entry has: what a saved change adds, before its receipt is known. */
 export type EntryFields = Item extends infer I ? (I extends Item ? Omit<I, Base> : never) : never;
 type Store = PersonStore<PlantPerson, PersonDraft>;
+/**
+ * A saved note change moves the person revision on and changes nothing else on the person: the person this page holds
+ * takes the answer's revision, so the next save on this page sends the latest one.
+ */
+const savedAt =
+	(store: Store) =>
+	(v: { personRevision: PlantPerson["revision"] }): PlantPerson => ({
+		...store.get().saved,
+		revision: v.personRevision,
+	});
 type NoteEdit = { body: string; reason: string };
 
-const ACTION: Record<Extract<Item, { kind: "activity" }>["action"], string> = {
-	created: "Added to People",
-	updated: "Details changed",
-	retired: "Retired",
-	restored: "Restored",
-	classification_recorded: "Adult or child recorded",
-	classification_corrected: "Adult or child corrected",
-	assessment_recorded: "4 C's assessment recorded",
-	interview_recorded: "Interview recorded",
-	commitment_recorded: "Commitment recorded",
-	commitment_withdrawn: "Commitment withdrawn",
-	commitment_reactivated: "Commitment reactivated",
-	commitment_corrected: "Commitment corrected",
-	assessment_corrected: "4 C's assessment corrected",
-	interview_corrected: "Interview corrected",
-	person_merged: "A duplicate was merged into this person",
-	person_unmerged: "A merge was undone",
-};
-const FOLLOW_UP: Record<Extract<Item, { kind: "follow_up" }>["outcome"], string> = {
-	contacted: "Follow-up: contacted",
-	attempted_no_contact: "Follow-up: tried, no contact",
-	administrative_completion: "Follow-up closed by an administrator",
-	no_longer_needed: "Follow-up no longer needed",
-};
-
 /**
- * Activity (REQ-PPL-008): ordinary notes, stage changes, record activity and follow-up history, oldest first, in the
- * server's time-and-ID order. Only a note's author edits or deletes it, with a reason that goes to the history. A
+ * Activity (REQ-PPL-008): ordinary notes, stage changes, record activity and follow-up history, newest first, in the
+ * server's time-and-ID order, descending. Only a note's author edits or deletes it, with a reason that goes to the history. A
  * deleted note keeps a marker of who removed it and when; its words are gone. A saved note shows from its answer.
  */
 export function ActivityCard({
@@ -127,8 +103,14 @@ export function ActivityCard({
 		if (activities.status !== "ok" || !activities.value.next) return;
 		setMore({ loading: true });
 		const r = await loadActivities(person.id, activities.value.next).catch(() => ({ status: "lost" }) as const);
-		if (r.status === "ok")
-			setActivities({ status: "ok", value: { ...r.value, items: [...activities.value.items, ...r.value.items] } });
+		if (r.status === "ok") {
+			// A note saved since the first page shifted the pages by one: skip what is already shown.
+			const shown = new Set(activities.value.items.map((i) => i.id));
+			setActivities({
+				status: "ok",
+				value: { ...r.value, items: [...activities.value.items, ...r.value.items.filter((i) => !shown.has(i.id))] },
+			});
+		}
 		setMore({ loading: false, problem: problemOf(r) });
 	}
 
@@ -140,7 +122,7 @@ export function ActivityCard({
 		const rev = person.revision;
 		const r = await runSave(store, "note", { input, rev }, (key) => addNote(key, rev, input), {
 			fresh,
-			toPerson: (v) => v.person,
+			toPerson: savedAt(store),
 		});
 		if (r?.status === "ok") {
 			const { note, receipt } = r.value;
@@ -162,7 +144,7 @@ export function ActivityCard({
 			<CardHeader>
 				<CardHeading>
 					<CardTitle>Activity</CardTitle>
-					<CardDescription>Oldest first</CardDescription>
+					<CardDescription>Newest first</CardDescription>
 				</CardHeading>
 			</CardHeader>
 			{writing ? (
@@ -207,7 +189,7 @@ export function ActivityCard({
 			) : activities.value.items.length === 0 ? (
 				<p className="py-6 text-center text-text-3">No activity yet.</p>
 			) : (
-				<ol className="flex flex-col" aria-label="Activity, oldest first">
+				<ol className="flex flex-col" aria-label="Activity, newest first">
 					{activities.value.items.map((item) => (
 						<Row
 							key={item.id}
@@ -229,7 +211,7 @@ export function ActivityCard({
 			)}
 			{activities.status === "ok" && activities.value.next ? (
 				<Button variant="ghost" size="sm" className="mt-3 self-center" onClick={loadMore} loading={more.loading}>
-					Show later activity
+					Show older activity
 				</Button>
 			) : null}
 			<FormProblem code={more.problem} />
@@ -293,7 +275,7 @@ function Row({
 			const rev = item.revision;
 			const r = await runSave(store, slot, { input, rev }, (key) => editNote(key, rev, input), {
 				fresh,
-				toPerson: (v) => v.person,
+				toPerson: savedAt(store),
 			});
 			if (r?.status === "ok") {
 				setTouched(false);
@@ -361,6 +343,12 @@ function Row({
 				{item.kind === "note" ? (
 					<p className="mt-1 whitespace-pre-wrap text-md text-ink-2 [overflow-wrap:anywhere]">{item.body}</p>
 				) : null}
+				{item.kind === "follow_up" && item.channel ? (
+					<p className="mt-1 text-md text-ink-2">{CHANNEL_LABEL[item.channel]}</p>
+				) : null}
+				{item.kind === "follow_up" && item.notes ? (
+					<p className="mt-1 whitespace-pre-wrap text-md text-ink-2 [overflow-wrap:anywhere]">{item.notes}</p>
+				) : null}
 				<p className="mt-1 text-sm text-text-3">
 					{by} · <When at={item.occurredAt} withTime />
 					{item.kind === "note" && item.editedAt ? (
@@ -411,36 +399,6 @@ function Row({
 	);
 }
 
-function describe(item: Item, by: string): { title: string; icon: IconSvgElement; tone: Tone } {
-	switch (item.kind) {
-		case "note":
-			return { title: "Note", icon: Note01Icon, tone: "violet" };
-		case "note_removed":
-			return { title: `Note deleted by ${by === "You" ? "you" : by.toLowerCase()}`, icon: Delete02Icon, tone: "ink" };
-		case "stage_changed":
-			return {
-				title: `Stage changed from ${STAGE_LABEL[item.from].toLowerCase()} to ${STAGE_LABEL[item.to].toLowerCase()}`,
-				icon: Route01Icon,
-				tone: "green",
-			};
-		case "activity":
-			// A household join, leave or role change names the household as it was then (REQ-PPL-009).
-			if (item.household) return { title: householdChange(item.household), icon: Home01Icon, tone: "teal" };
-			if (item.action === "person_merged" || item.action === "person_unmerged")
-				return { title: ACTION[item.action], icon: GitMergeIcon, tone: "violet" };
-			return {
-				// A record that advanced the stage says so in the same entry (REQ-PPL-020).
-				title: item.stage
-					? `${ACTION[item.action]}. Stage moved from ${STAGE_LABEL[item.stage.from].toLowerCase()} to ${STAGE_LABEL[item.stage.to].toLowerCase()}`
-					: ACTION[item.action],
-				icon: UserEdit01Icon,
-				tone: "blue",
-			};
-		case "follow_up":
-			return { title: FOLLOW_UP[item.outcome], icon: TaskDone01Icon, tone: "amber" };
-	}
-}
-
 function DeleteNoteDialog({
 	note,
 	store,
@@ -473,7 +431,7 @@ function DeleteNoteDialog({
 		const rev = note.revision;
 		const r = await runSave(store, slot, { input, rev }, (key) => deleteNote(key, rev, input), {
 			fresh,
-			toPerson: (v) => v.person,
+			toPerson: savedAt(store),
 		});
 		if (r?.status === "ok") {
 			setTouched(false);

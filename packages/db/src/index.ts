@@ -3,6 +3,7 @@ import { database, type Database } from "./client.ts";
 import { early_access_attempt, early_access_request } from "./schema/tables.ts";
 export { database, createDatabase, closeDatabase } from "./client.ts";
 export type { Database, Transaction } from "./client.ts";
+export { assertDevelopmentDatabase, developmentHosts } from "./development.ts";
 
 export async function expireAccessRequests(db: Database = database()) {
 	return db.transaction(async (tx) => {
@@ -25,7 +26,7 @@ export async function expireAccessRequests(db: Database = database()) {
 	});
 }
 
-export const CSV_COLUMNS = [
+const CSV_COLUMNS = [
 	"id",
 	"created_at",
 	"kind",

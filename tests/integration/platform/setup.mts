@@ -1,80 +1,44 @@
-import { closeDatabase } from "../../../packages/db/src/client.ts";
-import { sql as querySql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
-// Explicit, protected synthetic setup. Never run at app startup.
-import { randomBytes, randomUUID } from "node:crypto";
-import { readFileSync, writeFileSync, chmodSync } from "node:fs";
-import { devPool, owners, subjectId } from "./support.mjs";
-import { generateDrizzleJson, generateMigration } from "../../../packages/db/node_modules/drizzle-kit/api.mjs";
-import * as proofSchema from "../../../apps/web/src/server/platform/tables.ts";
+// Puts this test process on the database's clock. The suites stamp times from the host (`accepted_at: new Date()`, an
+// `eligibleAt`, a proof's `provenAt`, a webhook's `createdAt`), and the product compares them with the database's
+// `clock_timestamp()`: a seat counts only once `accepted_at<=clock_timestamp()`. CI runs Postgres on the runner's own
+// clock. A local container runs on a VM clock (Docker Desktop on macOS) that can lag the host by tens of milliseconds,
+// so a fresh seat reads as not yet accepted (`invitation_unavailable`, `proof_invalid`, `unavailable`).
+//
+// Import this first. It reads the database clock and, when the host could be ahead of it, moves every host `Date` back
+// so the host trails the database by `MARGIN_MS`. A host that trails the database is what CI already has; a few
+// milliseconds of trail do not change what any suite asserts. It moves only this process's clock, never a product check.
+import { closeDatabase, createDatabase } from "../../../packages/db/src/client.ts";
+import { sql } from "../../../packages/db/src/query.ts";
+import { testDatabaseUrl } from "../../support/test-database.mts";
 
-if (process.env.NODE_ENV === "production" || process.env.PLATFORM_SETUP !== "synthetic-wp003")
-	throw new Error("Explicit synthetic development setup required");
-const schema = "db1_platform_" + randomUUID().replaceAll("-", "");
-const role = "db1_platform_" + randomBytes(8).toString("hex");
-const options = `-c search_path=${schema},pg_catalog,pg_temp`;
-const admin = devPool(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL, { options });
-const password = randomBytes(32).toString("hex");
-try {
-	const snapshot = generateDrizzleJson(proofSchema);
-	const scoped = {
-		...snapshot,
-		schemas: { [schema]: schema },
-		tables: Object.fromEntries(
-			Object.values(snapshot.tables).map((table) => [
-				`${schema}.${table.name}`,
-				{
-					...table,
-					schema,
-					foreignKeys: Object.fromEntries(
-						Object.entries(table.foreignKeys).map(([name, key]) => [name, { ...key, schemaTo: schema }]),
-					),
-				},
-			]),
-		),
-	};
-	const ddl = await generateMigration(generateDrizzleJson({}), scoped);
-	await admin.transaction(async (tx) => {
-		for (const statement of ddl) await tx.execute(querySql.raw(statement));
-	});
-	await admin.execute(
-		querySql`INSERT INTO proof_subject(id,owner_id) VALUES(${querySql.param(subjectId)},${querySql.param(owners.p)})`,
-	);
-	await admin.execute(
-		querySql.raw(
-			`CREATE ROLE "${role}" LOGIN PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS`,
-		),
-	);
-	await admin.execute(querySql`GRANT USAGE ON SCHEMA ${querySql.identifier(schema)} TO ${querySql.identifier(role)}`);
-	await admin.execute(
-		querySql`GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA ${querySql.identifier(schema)} TO ${querySql.identifier(role)}`,
-	);
-	await admin.execute(
-		querySql`REVOKE UPDATE,DELETE ON proof_audit,proof_receipt,proof_intent,proof_job_receipt FROM ${querySql.identifier(role)}`,
-	);
-	await admin.execute(
-		querySql`GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA ${querySql.identifier(schema)} TO ${querySql.identifier(role)}`,
-	);
-	const runtimeURL = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL!);
-	runtimeURL.username = role;
-	runtimeURL.password = password;
-	runtimeURL.searchParams.set("options", options);
-	const file = new URL("../../../apps/web/.env.local", import.meta.url);
-	let env = readFileSync(file, "utf8")
-		.split("\n")
-		.filter((line) => !/^PLATFORM_(DATABASE_URL|EXECUTOR_SECRET|STORAGE_PREFIX)=/.test(line))
-		.join("\n");
-	env += `\nPLATFORM_DATABASE_URL=${JSON.stringify(runtimeURL.href)}\nPLATFORM_EXECUTOR_SECRET=${randomBytes(32).toString("hex")}\nPLATFORM_STORAGE_PREFIX=wp003/${randomUUID()}/\n`;
-	writeFileSync(file, env);
-	chmodSync(file, 0o600);
-	const runtime = devPool(runtimeURL.href);
+const MARGIN_MS = 5;
+const SAMPLES = 5;
+
+/** The least the database clock can be ahead of the host, in ms: each read happened before the host's `Date.now()` after it. */
+async function databaseLead(): Promise<number> {
+	const db = createDatabase({ connectionString: testDatabaseUrl().href, max: 1 });
 	try {
-		const r = await runtime.execute(
-			querySql`SELECT current_user,has_table_privilege(current_user,'proof_audit','UPDATE') audit_update,has_table_privilege(current_user,'proof_audit','DELETE') audit_delete`,
-		);
-		console.log(JSON.stringify({ setup: "synthetic-only", runtime: r.rows[0] }));
+		let lead = -Infinity;
+		for (let i = 0; i < SAMPLES; i++) {
+			const [row] = (await db.execute(sql`SELECT (extract(epoch FROM clock_timestamp()) * 1000)::float8 AS ms`))
+				.rows as { ms: number }[];
+			const hostStamp = Date.now(); // read after the database's, so the difference never overstates its lead
+			lead = Math.max(lead, Number(row.ms) - hostStamp);
+		}
+		return lead;
 	} finally {
-		await closeDatabase(runtime);
+		await closeDatabase(db);
 	}
-} finally {
-	await closeDatabase(admin);
+}
+
+const lead = await databaseLead();
+if (lead < MARGIN_MS) {
+	const shift = lead - MARGIN_MS;
+	const Host = Date;
+	const now = () => Host.now() + shift;
+	globalThis.Date = new Proxy(Host, {
+		construct: (target, args, newTarget) => Reflect.construct(target, args.length ? args : [now()], newTarget),
+		apply: () => new Host(now()).toString(),
+		get: (target, property, receiver) => (property === "now" ? now : Reflect.get(target, property, receiver)),
+	});
 }

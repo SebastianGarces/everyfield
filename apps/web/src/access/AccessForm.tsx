@@ -55,7 +55,7 @@ export type FieldSpec = {
 };
 /** One step after the choice: its heading and one or two fields. */
 export type StepSpec = { title: string; fields: FieldSpec[] };
-export type Outcome = { title: string; body: string; link?: string };
+type Outcome = { title: string; body: string; link?: string };
 export type FormText = {
 	/** "Step {step} of {total}". */
 	progress: string;

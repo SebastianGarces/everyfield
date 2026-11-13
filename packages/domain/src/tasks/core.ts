@@ -1,7 +1,6 @@
 import { owner, requestIdentity, sameOwner, timeZone, type Owner } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/tasks";
 import type { Database, Transaction } from "@everyfield/db/client";
-import { sql, type SQL } from "@everyfield/db/query";
 import { randomUUID } from "node:crypto";
 import { hash } from "../operations/canonical.ts";
 import "server-only";
@@ -48,6 +47,9 @@ const retry: Record<Code, string> = {
 	ambiguous_local_time: "never",
 	open_successor: "refresh",
 	dependency_cycle: "refresh",
+	owner_ineligible: "refresh",
+	stale_catalog: "refresh",
+	offer_answered: "refresh",
 };
 function refused(error: TaskRefusal): TaskReply<never> {
 	return {
@@ -113,9 +115,9 @@ export function readerOf(authority: RequestActor): Reader {
 		owner: a.context.owner,
 	};
 }
-export type Writer = Viewer & { zone: z.infer<typeof timeZone> };
+type Writer = Viewer & { zone: z.infer<typeof timeZone> };
 /** Locks the actor's authority for this transaction once; a bound native request reuses its lock. */
-export async function writerOf(tx: Tx, context: TaskContext): Promise<Writer> {
+async function writerOf(tx: Tx, context: TaskContext): Promise<Writer> {
 	const bound = await lockedWrite(tx);
 	const write =
 		bound && sameOwner(bound.selected, context.selected)
@@ -137,9 +139,10 @@ export type Command = AuditWrite & { actor: Writer };
 /** Any command that may append task changes: a task command, or another domain's command that generates tasks. */
 export type AuditCommand = AuditWrite & { actor: { accountId: string; plantId: string } };
 /** Every task and follow-up write name. The wrapper declares each write established (C88), so one declaration decides the path. */
-export type TaskWrite =
+type TaskWrite =
 	| "followups.correctOutcome"
 	| "followups.recordOutcome"
+	| "tasks.acceptPhaseOffer"
 	| "tasks.assignFollowUp"
 	| "tasks.bulkComplete"
 	| "tasks.bulkReschedule"
@@ -150,9 +153,11 @@ export type TaskWrite =
 	| "tasks.create"
 	| "tasks.createFollowUp"
 	| "tasks.createSubtask"
+	| "tasks.declinePhaseOffer"
 	| "tasks.delete"
 	| "tasks.edit"
 	| "tasks.executeHandoff"
+	| "tasks.importTemplate"
 	| "tasks.removeSubtask"
 	| "tasks.reopen"
 	| "tasks.replacePrerequisites"
@@ -231,4 +236,3 @@ export function changes(before: Record<string, unknown>, after: Record<string, u
 		after: Object.fromEntries(keys.map((k) => [k, after[k] ?? null])),
 	};
 }
-export const literal = (v: unknown): SQL => sql`${sql.param(v)}`;
