@@ -40,8 +40,9 @@ const BRANCHES = [
 	{ id: "br-main", name: "main" },
 ];
 
-/** The length of a `qa drive` "minute" in the tests. */
+/** The length of a `qa drive` "minute" in the tests, and how far into it a call starts (2 s of a real minute). */
 const TEST_MINUTE = 1_000;
+const TEST_OFFSET = Math.round(TEST_MINUTE / 30);
 
 /** A git repo with one feature branch, stub neonctl, vercel and corepack first on PATH, and a private TMPDIR. */
 function setup(endpoints = [DEV, PROD], seedPath = "tools/qa/qa-seed.ts") {
@@ -166,17 +167,29 @@ else if ((a[0] === "alias" && a[1] === "rm") || a[0] === "remove") {
 	const qa = (...args: string[]) =>
 		spawnSync(process.execPath, [...main, ...args], { cwd: root, encoding: "utf8", env });
 	// T-289: `qa drive` as Jonah runs it in a terminal, with a one-second "minute"; its stdout and stderr go to a file.
+	// Its tick log holds each minute it plans and each call it starts, so a test reads the schedule apart from how late a
+	// starved process runs or how long calls take to answer.
 	const hosts: ChildProcess[] = [];
 	const drive = () => {
-		const out = join(dir, `drive-${hosts.length}.out`);
+		const out = join(dir, `drive-${hosts.length}.out`),
+			tickLog = join(dir, `drive-${hosts.length}.ticks`);
 		const child = spawn(process.execPath, [...main, "drive"], {
 			cwd: root,
-			env: { ...env, QA_DRIVE_MINUTE_MS: String(TEST_MINUTE) },
+			env: { ...env, QA_DRIVE_MINUTE_MS: String(TEST_MINUTE), QA_DRIVE_TICK_LOG: tickLog },
 			stdio: ["ignore", openSync(out, "w"), openSync(out, "a")],
 		});
 		hosts.push(child);
 		const exited = new Promise<number | null>((res) => child.on("exit", (code) => res(code)));
-		return { child, exited, output: () => readFileSync(out, "utf8") };
+		const entries = () =>
+			(existsSync(tickLog) ? readFileSync(tickLog, "utf8").trim().split("\n") : []).map((l) => l.split(" "));
+		/** Each minute the host planned: when it planned it and when that minute's calls are due. */
+		const plans = () => entries().flatMap(([at, kind, due]) => (kind === "next" ? [{ at: +at!, due: +due! }] : []));
+		/** Each call of preview `id` the host started, in order: when, and the planned minute it is for ("now" at pickup). */
+		const ticks = (id: string) =>
+			entries().flatMap(([at, kind, of, due]) =>
+				kind === "call" && of === id ? [{ at: +at!, due: due === "now" ? due : +due! }] : [],
+			);
+		return { child, exited, output: () => readFileSync(out, "utf8"), plans, ticks };
 	};
 	const calls = (name: string): string[][] => {
 		try {
@@ -1087,12 +1100,35 @@ const cronCalls = (state: string) =>
 		: [];
 
 const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));
-/** Waits until `ready` holds, for at most `ms`. */
-async function until(ready: () => boolean, ms = 10_000): Promise<void> {
+/** Waits until `ready` holds, for at most `ms`; `what` names the failure. */
+async function until(ready: () => boolean, what = "not ready", ms = 10_000): Promise<void> {
 	for (let waited = 0; !ready(); waited += 50) {
-		if (waited > ms) assert.fail(`not ready within ${ms} ms`);
+		if (waited > ms) assert.fail(`${what} within ${ms} ms`);
 		await sleep(50);
 	}
+}
+/**
+ * Once a minute, on the host's own schedule: each minute it plans is the next minute's start plus the offset, a preview's
+ * first call starts at once, and from then on it gets exactly one call for every planned minute, never before that
+ * minute. Two calls in a minute, a skipped minute or a call ahead of its minute fail; a host that runs late does not.
+ */
+function assertOnceAMinute(
+	host: { plans: () => { at: number; due: number }[]; ticks: (id: string) => { at: number; due: number | "now" }[] },
+	id: string,
+): void {
+	const plans = host.plans(),
+		[pickup, ...calls] = host.ticks(id);
+	for (const p of plans)
+		assert.ok(
+			(p.due - TEST_OFFSET) % TEST_MINUTE === 0 && p.at < p.due && p.due <= p.at + TEST_MINUTE,
+			`at ${p.at} the host planned its next minute for ${p.due}, not the next minute's start`,
+		);
+	assert.equal(pickup?.due, "now", `${id}'s first call did not start at once`);
+	for (const c of calls)
+		assert.ok(typeof c.due === "number" && c.at >= c.due, `${id} got a call at ${c.at} ahead of its minute ${c.due}`);
+	const dues = calls.map((c) => c.due as number),
+		planned = plans.map((p) => p.due).filter((due) => due >= dues[0]! && due <= dues.at(-1)!);
+	assert.deepEqual(dues, planned, `${id} did not get exactly one call in each planned minute`);
 }
 const lines = (file: string) => (existsSync(file) ? readFileSync(file, "utf8").trim().split("\n").filter(Boolean) : []);
 const okLines = (file: string) => lines(file).filter((l) => / ok: HTTP 200 \{"status":"ok","messages":1\}$/.test(l));
@@ -1152,15 +1188,23 @@ test("INV-qa-cron: qa drive calls every preview each minute, picks up new ones, 
 		);
 		assert.match(lines(logB)[0]!, new RegExp(`started: qa drive pid ${pid}, /api/cron/jobs every minute on https://`));
 
-		// Both qa up processes have exited; the host alone keeps calling both previews, one call a minute each.
-		const [startA, startB] = [okLines(logA).length, okLines(logB).length];
-		await sleep(4 * TEST_MINUTE + 300);
-		for (const [log, start] of [
-			[logA, startA],
-			[logB, startB],
+		// Both qa up processes have exited; the host alone keeps calling both previews, one call a minute each, and every
+		// call it starts is answered and logged once.
+		const [startA, startB] = [host.ticks(a).length, host.ticks(b).length];
+		await until(
+			() => host.ticks(a).length >= startA + 4 && host.ticks(b).length >= startB + 4,
+			"the host did not call both previews in 4 more minutes",
+		);
+		for (const [id, log] of [
+			[a, logA],
+			[b, logB],
 		] as const) {
-			const gained = okLines(log).length - start;
-			assert.ok(gained >= 3 && gained <= 5, `${log} gained ${gained} lines in 4 minutes`);
+			const started = host.ticks(id).length;
+			await until(() => okLines(log).length >= started, `${log} did not log the ${started} calls the host started`);
+			// Read the log before the ticks: a correct host never has more answered calls than calls it started.
+			const answered = okLines(log).length;
+			assert.ok(answered <= host.ticks(id).length, `${log} has ${answered} answers for ${started} calls`);
+			assertOnceAMinute(host, id);
 		}
 		const calls = cronCalls(s.state);
 		assert.ok(calls.every((c) => c.path === "/api/cron/jobs" && c.mode === 0o600));
@@ -1179,11 +1223,16 @@ test("INV-qa-cron: qa drive calls every preview each minute, picks up new ones, 
 		assert.match(host.output(), new RegExp(`qa drive: stopped ${a}: bin/qa down removed the preview`));
 		assert.ok(!existsSync(logA), "qa down removed the log");
 		assert.ok(!existsSync(join(s.root, `.git/qa/${a}.cron-secret`)), "qa down removed the cron secret");
-		const [callsA, linesB] = [callsOf(secretA), okLines(logB).length];
-		await sleep(3 * TEST_MINUTE);
-		assert.equal(callsOf(secretA), callsA, "the removed preview is still called");
+		// From here the host starts no call of the removed preview, while the other gains two answered calls.
+		const [ticksA, ticksB] = [host.ticks(a).length, host.ticks(b).length];
+		await until(
+			() => host.ticks(b).length >= ticksB + 2 && okLines(logB).length >= ticksB + 2,
+			"the other preview stopped being called",
+		);
+		assert.equal(host.ticks(a).length, ticksA, "the removed preview is still called");
+		assert.ok(callsOf(secretA) <= ticksA, "the route got a call of the removed preview the host did not start");
 		assert.ok(!existsSync(logA), "the host wrote to the removed preview's log");
-		assert.ok(okLines(logB).length >= linesB + 2, "the other preview stopped being called");
+		assertOnceAMinute(host, b);
 
 		// No secret in the records, the logs, the host's output or any file but the open preview's own 0600 secret file.
 		const secretFile = join(s.root, `.git/qa/${b}.cron-secret`);
@@ -1225,8 +1274,10 @@ test("INV-qa-cron: one qa drive per repository; a second refuses with the pid, a
 		one.child.kill("SIGKILL");
 		await one.exited;
 		assert.ok(existsSync(lock));
+		// The host takes its lock before it handles signals; its first line says both are in place.
 		const three = s.drive();
-		await until(() => readFileSync(lock, "utf8").trim() === String(three.child.pid));
+		await until(() => new RegExp(`pid ${three.child.pid} calls`).test(three.output()));
+		assert.equal(readFileSync(lock, "utf8").trim(), String(three.child.pid));
 		three.child.kill("SIGINT");
 		assert.equal(await three.exited, 0);
 		assert.ok(!existsSync(lock));

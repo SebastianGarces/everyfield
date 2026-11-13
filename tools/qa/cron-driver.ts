@@ -40,6 +40,10 @@ export function drive(root: string): number {
 	/** A tick lands this long after the minute starts, as a minute cron does (2 s of a real minute). */
 	const offset = Math.round(minute / 30);
 	const scanMs = Math.min(5_000, Math.round(minute / 5));
+	// The tests' record of each minute the host plans and each call it starts, so they check the schedule apart from how
+	// late a starved process runs or how long a call takes to answer.
+	const tickLog = process.env.QA_DRIVE_TICK_LOG;
+	const note = (at: number, line: string) => tickLog && appendFileSync(tickLog, `${at} ${line}\n`);
 
 	const lock = driveLockPath(root);
 	takeLock(root, lock);
@@ -71,7 +75,8 @@ export function drive(root: string): number {
 	}
 
 	/** One call of the route. Ticks may overlap, as production's do: the route's workers claim with SKIP LOCKED. */
-	function tick(id: string, d: Driven): void {
+	function tick(id: string, d: Driven, due?: number): void {
+		note(Date.now(), `call ${id} ${due ?? "now"}`);
 		const child = spawn(
 			"vercel",
 			[
@@ -143,8 +148,9 @@ export function drive(root: string): number {
 	function schedule(): void {
 		const now = Date.now();
 		const next = Math.ceil((now - offset + 1) / minute) * minute + offset;
+		note(now, `next ${next}`);
 		setTimeout(() => {
-			for (const [id, d] of driven) tick(id, d);
+			for (const [id, d] of driven) tick(id, d, next);
 			schedule();
 		}, next - now);
 	}
