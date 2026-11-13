@@ -1,5 +1,6 @@
 import * as c from "@everyfield/contracts/meetings";
 import { stage as personStage } from "@everyfield/contracts/people";
+import { followUpOwner } from "@everyfield/contracts/tasks";
 import { sql, type SQL } from "@everyfield/db/query";
 import { randomUUID } from "node:crypto";
 import "server-only";
@@ -11,8 +12,10 @@ import {
 	ensureMeetingObligations,
 	managedTasks,
 	obligationFacts,
+	obligationFactsRow,
 	type TaskReminders,
 } from "../tasks/index.ts";
+import { assigneeList, idsOf, sortPeople } from "../tasks/assignees.ts";
 import { TaskRefusal } from "../tasks/core.ts";
 import {
 	command,
@@ -71,12 +74,12 @@ const laterRow = guestRow.omit({ display_name: true, person_state: true, rsvp: t
 	meeting_zone: z.string(),
 	meeting_at: date,
 });
-const lockedTasks = z.array(z.object({ obligation_id: z.uuid(), assignee_id: z.uuid().nullable() }));
+const lockedTasks = z.array(z.object({ obligation_id: z.uuid(), assignees: assigneeList }));
 const obligationRow = z.object({
 	id: z.uuid(),
 	kind: z.enum(["follow_up", "evaluation"]),
 	person_id: z.uuid().nullable(),
-	assignee_id: z.uuid().nullable(),
+	assignee_ids: z.array(z.uuid()),
 	task_status: z.string().nullable(),
 });
 const factsRow = z.object({
@@ -171,7 +174,8 @@ async function lockAttendance(
 				OR coalesce(pv.actual_occurrence_at, pv.starts_at) > ${here})
 			ORDER BY g.id FOR UPDATE OF g) x) AS later,
 		(SELECT coalesce(json_agg(json_build_object('id', b.id, 'kind', b.kind, 'person_id', b.person_id,
-			'assignee_id', t.assignee_id, 'task_status', t.status)), '[]')
+			'assignee_ids', (SELECT coalesce(array_agg(a.account_id), '{}') FROM task_assignee a WHERE a.task_id = t.id),
+			'task_status', t.status)), '[]')
 			FROM obligation b LEFT JOIN task t ON t.obligation_id = b.id AND t.deleted_at IS NULL
 			WHERE b.meeting_id = m.id AND b.plant_id = m.plant_id AND b.superseded_at IS NULL) AS obligations,
 		${
@@ -181,7 +185,12 @@ async function lockAttendance(
 						sql`ARRAY(SELECT ${meeting} UNION SELECT s.meeting_id FROM participation s WHERE s.plant_id = ${plant}
 							AND s.person_id IN ${subjects})`,
 						sql`ARRAY${subjects}`,
-						sql`${sql.param([...settling.assignees])}::uuid[]`,
+						// The input's assignees and the owners of the locked duties below, so settle builds each owner view once.
+						sql`ARRAY(SELECT unnest(${sql.param([...settling.assignees])}::uuid[])
+							UNION SELECT ta.account_id FROM task t JOIN obligation b ON b.id = t.obligation_id
+							JOIN task_assignee ta ON ta.task_id = t.id
+							WHERE b.plant_id = ${plant} AND t.deleted_at IS NULL
+							AND (b.meeting_id = ${meeting} OR (b.kind = 'follow_up' AND b.person_id IN ${subjects})))`,
 					)} AS obligation_facts,
 					${managedTasks(
 						w.plant.id,
@@ -197,7 +206,8 @@ async function lockAttendance(
 		if (!r.rows[0]) deny();
 		const f = factsRow.parse(r.rows[0]);
 		if (f.snapshot_revision === f.attendance_revision || attempt > 0) {
-			// Only an Owner or Admin, or the current leader of this team meeting, records attendance.
+			// REQ-MTG-010 (D-562): only an Owner or Admin, or the current leader of this team meeting's ministry, records,
+			// finalizes and corrects attendance. Any other Member is refused.
 			if (!w.admin && !f.leads) deny();
 			return f;
 		}
@@ -210,7 +220,8 @@ async function generated<T>(body: () => Promise<T>): Promise<T> {
 		return await body();
 	} catch (error) {
 		if (!(error instanceof TaskRefusal)) throw error;
-		if (error.code === "invalid_subject" || error.code === "invalid_input") deny(error.code, {});
+		if (error.code === "invalid_subject" || error.code === "invalid_input" || error.code === "owner_ineligible")
+			deny(error.code, {});
 		deny();
 	}
 }
@@ -408,15 +419,15 @@ async function settle(
 		meetingId: string;
 		attendeeIds: readonly string[];
 		expectedRevision: string;
-		followUpAssigneeId: string | null;
-		evaluationAssigneeId: string | null;
+		followUpAssigneeIds: readonly string[];
+		evaluationAssigneeIds: readonly string[];
 		reason: string | null;
 	},
 ) {
 	const f = await lockAttendance(tx, w, input.meetingId, input.attendeeIds, {
-		assignees: [input.followUpAssigneeId, input.evaluationAssigneeId].filter((a) => a !== null),
+		assignees: [...input.followUpAssigneeIds, ...input.evaluationAssigneeIds],
 	});
-	if (f.status === "cancelled" || f.voided || f.occurred_at > f.now) deny("status_transition");
+	if (f.status === "cancelled" || f.voided) deny("status_transition");
 	const vision = f.type === "vision_meeting";
 	const current = attendedIds(f),
 		finalSet = new Set(input.attendeeIds);
@@ -435,8 +446,9 @@ async function settle(
 	const people = new Map(f.people.map((p) => [p.id, p]));
 	const byPerson = new Map(f.guests.map((g) => [g.person_id, g]));
 	const occurredAt = f.occurred_at;
-	const rows: RowWrite[] = [],
-		inserts: RowWrite[] = [];
+	// This meeting's rows, written whole, so the result returns each one with its new revision.
+	const rows: GuestRow[] = [],
+		inserts: GuestRow[] = [];
 	// The result parses these with the contract below.
 	const classifications: z.input<typeof c.finalizationResult>["classifications"] = [];
 	const stageChanges: { personId: string; from: Stage; to: Stage; revision: string; position: string }[] = [];
@@ -476,7 +488,17 @@ async function settle(
 			actual_occurrence_at: occurredAt,
 		};
 		if (g) rows.push({ ...g, ...snapshot });
-		else inserts.push({ id: randomUUID(), revision: "1", person_id: personId, ...snapshot });
+		else
+			inserts.push({
+				id: randomUUID(),
+				revision: "1",
+				person_id: personId,
+				rsvp: "pending",
+				has_card: false,
+				display_name: p!.display_name,
+				person_state: p!.state,
+				...snapshot,
+			});
 		if (vision && stage === "prospect" && !noop)
 			stageChanges.push({
 				personId,
@@ -562,9 +584,28 @@ async function settle(
 	const known = (id: string) => f.obligations.find((o) => o.id === id);
 	// The real owner of each existing duty: this meeting's duties and the locked follow-up tasks of the People involved,
 	// which include later meetings' follow-ups.
-	const owners = new Map<string, string | null>(f.obligations.map((o) => [o.id, o.assignee_id]));
-	for (const t of lockedTasks.parse(f.tasks ?? [])) owners.set(t.obligation_id, t.assignee_id);
-	const ownerOf = (id: string) => owners.get(id) ?? null;
+	const owners = new Map<string, string[]>(f.obligations.map((o) => [o.id, o.assignee_ids]));
+	for (const t of lockedTasks.parse(f.tasks ?? [])) owners.set(t.obligation_id, idsOf(t.assignees));
+	const ownerOf = (id: string) => owners.get(id) ?? [];
+	// What every screen shows for an owner (REQ-TSK-012): the stored assignee with whether they may own the work.
+	// Built once per assignee from the producer facts the lock statement read: a follow-up owner follows REQ-TSK-012,
+	// an evaluation owner needs only a seat.
+	const ownerFacts = obligationFactsRow.pick({ seats: true, names: true, reasons: true }).parse(f.obligation_facts);
+	const viewOf = (id: string, kind: "follow_up" | "evaluation"): z.infer<typeof followUpOwner> => {
+		const reason =
+			kind === "follow_up" ? (ownerFacts.reasons[id] ?? null) : ownerFacts.seats.includes(id) ? null : "no_seat";
+		return followUpOwner.parse({
+			accountId: id,
+			displayName: ownerFacts.names[id] ?? "",
+			eligible: reason === null,
+			reason,
+		});
+	};
+	/** The generated work's owner fields: each assignee's view, and Needs owner when none may own it (D-a). */
+	const ownersOf = (ids: readonly string[], kind: "follow_up" | "evaluation") => {
+		const owners = sortPeople(ids.map((id) => viewOf(id, kind)));
+		return { assigneeIds: owners.map((o) => o.accountId), needsOwner: !owners.some((o) => o.eligible), owners };
+	};
 	if (vision && noop)
 		for (const o of f.obligations)
 			work.push(
@@ -575,8 +616,7 @@ async function settle(
 					obligationId: o.id,
 					taskId: null,
 					outcome: "existing",
-					assigneeId: o.assignee_id,
-					needsOwner: o.assignee_id === null,
+					...ownersOf(o.assignee_ids, o.kind),
 				}),
 			);
 	else if (vision) {
@@ -595,14 +635,14 @@ async function settle(
 								.filter((id) => !f.earlier[id] && people.get(id)?.state === "live")
 								.map((personId) => ({
 									personId,
-									assigneeId: obligations.has(personId) ? null : input.followUpAssigneeId,
+									assigneeIds: obligations.has(personId) ? [] : [...input.followUpAssigneeIds],
 								})),
-							evaluation: { assigneeId: evaluation ? null : input.evaluationAssigneeId },
+							evaluation: { assigneeIds: evaluation ? [] : [...input.evaluationAssigneeIds] },
 						},
 						...[...laterWork].map(([meetingId, e]) => ({
 							meetingId,
 							origin: e.origin,
-							followUps: e.personIds.map((personId) => ({ personId, assigneeId: null })),
+							followUps: e.personIds.map((personId) => ({ personId, assigneeIds: [] })),
 							evaluation: null,
 						})),
 					],
@@ -612,15 +652,20 @@ async function settle(
 		);
 		after.push(ensured.after);
 		for (const e of ensured.value) {
-			const assigneeId =
+			const assigneeIds =
 				e.outcome === "existing"
 					? ownerOf(e.obligationId)
 					: e.meetingId !== f.id
-						? null
+						? []
 						: e.kind === "meeting_evaluation"
-							? input.evaluationAssigneeId
-							: input.followUpAssigneeId;
-			work.push(c.generatedWork.parse({ ...e, assigneeId, needsOwner: assigneeId === null }));
+							? input.evaluationAssigneeIds
+							: input.followUpAssigneeIds;
+			work.push(
+				c.generatedWork.parse({
+					...e,
+					...ownersOf(assigneeIds, e.kind === "meeting_evaluation" ? "evaluation" : "follow_up"),
+				}),
+			);
 		}
 	}
 	if (closing.size && !noop) {
@@ -651,7 +696,7 @@ async function settle(
 						obligationId: t.obligationId,
 						taskId: t.taskId,
 						outcome: "closed",
-						assigneeId: ownerOf(t.obligationId),
+						...ownersOf(ownerOf(t.obligationId), "follow_up"),
 						needsOwner: false,
 					}),
 				);
@@ -669,6 +714,9 @@ async function settle(
 		classifications,
 		stageChanges: stageChanges.map((s) => ({ personId: s.personId, from: s.from, to: s.to })),
 		work,
+		attendees: noop
+			? []
+			: [...rows.map((r) => ({ ...r, revision: nextRevision(r.revision) })), ...inserts].map(attendee),
 	});
 	const change: Change<typeof value> = {
 		value,
@@ -790,8 +838,8 @@ export function createAttendanceWriter(deps: { reminders: TaskReminders }) {
 							meetingId: i.meetingId,
 							attendeeIds: i.attendeeIds,
 							expectedRevision: input.expectedRevision,
-							followUpAssigneeId: i.followUpAssigneeId,
-							evaluationAssigneeId: "evaluationAssigneeId" in i ? i.evaluationAssigneeId : null,
+							followUpAssigneeIds: i.followUpAssigneeIds,
+							evaluationAssigneeIds: "evaluationAssigneeIds" in i ? i.evaluationAssigneeIds : [],
 							reason: "reason" in i ? i.reason : null,
 						});
 						after = r.after;
@@ -860,8 +908,10 @@ export function createAttendanceWriter(deps: { reminders: TaskReminders }) {
 							metadata: { event: "evaluation_recorded" },
 						};
 					if (!e.finalized || e.status === "cancelled") deny("status_transition");
+					// The window binds a date the client sends. The server's own default (today in the meeting's zone) always
+					// saves: finalize accepts a meeting before its local date, so it may be evaluated before it too.
 					const on = i.evaluatedOn ?? e.today;
-					if (on > e.today || on < e.local_date)
+					if (i.evaluatedOn && (on > e.today || on < e.local_date))
 						deny("invalid_input", { issues: [{ path: "input.evaluatedOn", problem: "outside_meeting_to_today" }] });
 					audit.writes.push(sql`UPDATE meeting SET evaluation_scores = ${scoreArray(i.scores)},
 						evaluation_notes = ${i.notes}, evaluated_on = ${on}::date, evaluated_at = ${e.now.toISOString()}::timestamptz,

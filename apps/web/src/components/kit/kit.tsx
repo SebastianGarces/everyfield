@@ -12,7 +12,7 @@ export const NUM = "tracking-[-0.02em] whitespace-nowrap";
 
 export type Tone = "green" | "blue" | "magenta" | "amber" | "violet" | "teal" | "ink";
 /** Tinted background and strong text of a tone (icon circles, stage chips, tags, avatars). */
-export const TONE: Record<Tone, string> = {
+const TONE: Record<Tone, string> = {
 	green: "bg-green-100 text-green-700",
 	blue: "bg-blue-100 text-blue-600",
 	magenta: "bg-magenta-100 text-magenta-600",
@@ -158,20 +158,6 @@ export function UiButton({
 		>
 			{children}
 		</span>
-	);
-}
-
-/** A thin rounded track (white with a hairline) and its fill; the caller styles and moves the fill. */
-export function Meter({ children, className }: { children: ReactNode; className?: string }) {
-	return (
-		<div
-			className={cn(
-				"relative mt-1.5 h-2.5 overflow-hidden bg-white shadow-[inset_0_0_0_1px_var(--color-line)]",
-				className,
-			)}
-		>
-			{children}
-		</div>
 	);
 }
 

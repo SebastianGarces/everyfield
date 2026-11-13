@@ -29,11 +29,13 @@ import {
 } from "@everyfield/ui/controls";
 import { Avatar, KeyValue, KeyValueList, StageChip, StatusBadge } from "@everyfield/ui/display";
 import { cn } from "@everyfield/ui/foundations";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { keyFor, STAGE_KEY, STAGE_LABEL, type KeyedPayload, type StageValue } from "../model.ts";
 import type { Outcome } from "../../../components/save/model.ts";
 import { fresh, LocalDay, When } from "../parts.tsx";
-import { mergeDestination, mergePair, reviewPair, type Merged } from "./actions.ts";
+import { dismissPair, mergeDestination, mergePair, reviewPair, type Merged } from "./actions.ts";
+import { leaveConfirmation } from "./DuplicatePairs.tsx";
 import {
 	blockerText,
 	counted,
@@ -42,10 +44,13 @@ import {
 	fieldText,
 	kindTitle,
 	listText,
+	notDuplicateText,
 	pairHref,
 	referenceGroups,
+	reviewDismiss,
 	sourceChoices,
 	type Columns,
+	type ListedPair,
 	type MergeField,
 	type Side,
 } from "./model.ts";
@@ -74,6 +79,25 @@ export function DuplicatesScreen({ initial, query }: { initial: PairView; query:
 	const [loading, setLoading] = useState(false);
 	// Each review request carries a number; an answer to an older request never replaces a newer one.
 	const seq = useRef(0);
+	const router = useRouter();
+	const [dismissing, setDismissing] = useState(false);
+	const [dismiss] = useState(() => reviewDismiss(dismissPair));
+
+	/** "Not a duplicate" on a listed pair (T-268): dismiss it and return to the list, or stay and say why. */
+	async function notDuplicate(listed: ListedPair, review: Review) {
+		const name = (id: string) =>
+			id === review.source.personId ? review.source.displayName : review.survivor.displayName;
+		setDismissing(true);
+		const r = await dismiss(listed);
+		if (!r) return;
+		if (r.next === "list") {
+			leaveConfirmation(notDuplicateText(name(listed.personId), name(listed.withPersonId)));
+			return router.push("/people/duplicates");
+		}
+		setDismissing(false);
+		if (r.reread) return load(review.survivor.personId, r.text);
+		setNotice((old) => ({ n: (old?.n ?? 0) + 1, text: r.text }));
+	}
 
 	async function load(keep: string | null, then?: string) {
 		const n = ++seq.current;
@@ -114,6 +138,8 @@ export function DuplicatesScreen({ initial, query }: { initial: PairView; query:
 					key={view.review.reviewDigest}
 					view={view}
 					loading={loading}
+					dismissing={dismissing}
+					onNotDuplicate={(listed) => notDuplicate(listed, view.review)}
 					onKeep={(id, why) => load(id, why)}
 					onDone={setDone}
 					onStale={(text) => load(view.review.survivor.personId, text)}
@@ -169,12 +195,17 @@ export function DuplicatesScreen({ initial, query }: { initial: PairView; query:
 function PairReview({
 	view,
 	loading,
+	dismissing,
+	onNotDuplicate,
 	onKeep,
 	onDone,
 	onStale,
 }: {
 	view: Ready;
 	loading: boolean;
+	/** A "Not a duplicate" is in flight: nothing else on the review starts. */
+	dismissing: boolean;
+	onNotDuplicate: (listed: ListedPair) => void;
 	/** Review the pair again with `personId` as the person who stays; `why` is shown when it is a refusal's answer. */
 	onKeep: (personId: string, why?: string) => void;
 	onDone: (done: Done) => void;
@@ -230,6 +261,7 @@ function PairReview({
 						size="sm"
 						icon={ArrowLeftRightIcon}
 						loading={loading}
+						disabled={dismissing}
 						onClick={() => onKeep(source.personId)}
 					>
 						{swapLabel}
@@ -373,22 +405,35 @@ function PairReview({
 						</>
 					)}
 				</Card>
-				<div className="flex gap-2 max-app-sm:flex-col-reverse">
-					<IntentLink
-						href={`/people/${survivor.personId}`}
-						className={cn(buttonVariants({ variant: "secondary" }), "flex-1")}
-					>
-						Keep both
-					</IntentLink>
-					<Button
-						variant="primary"
-						className="flex-1"
-						icon={GitMergeIcon}
-						disabled={blocked || loading}
-						onClick={() => setConfirming(true)}
-					>
-						Merge
-					</Button>
+				<div className="flex flex-col gap-2">
+					<div className="flex gap-2 max-app-sm:flex-col-reverse">
+						<IntentLink
+							href={`/people/${survivor.personId}`}
+							className={cn(buttonVariants({ variant: "secondary" }), "flex-1")}
+						>
+							Keep both
+						</IntentLink>
+						<Button
+							variant="primary"
+							className="flex-1"
+							icon={GitMergeIcon}
+							disabled={blocked || loading || dismissing}
+							onClick={() => setConfirming(true)}
+						>
+							Merge
+						</Button>
+					</div>
+					{view.listed ? (
+						<Button
+							variant="ghost"
+							className="self-start max-app-sm:self-stretch"
+							loading={dismissing}
+							disabled={loading}
+							onClick={() => view.listed && onNotDuplicate(view.listed)}
+						>
+							Not a duplicate
+						</Button>
+					) : null}
 				</div>
 			</div>
 

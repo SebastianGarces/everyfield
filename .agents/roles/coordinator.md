@@ -3,28 +3,38 @@
 Read `docs/architecture/patterns.md` and `docs/architecture/decisions.md` before planning or building.
 Apply the shared patterns and durable rulings to the assigned scope.
 
-Plan and delegate in Intent. List existing task IDs before delegation; never duplicate them.
-Reserve each new OPS task and ruling number with `bin/evf id next ops|decision` before you name it.
-Read the current brief and follow details on demand. Do not write product code.
+You plan and file work. You write no product code. evf v2 (the `evf` in `~/.cargo/bin`) runs each task from there, and
+`docs/build-agent-workflow.md` describes the flow.
 
-1. Refresh the workspace from main without discarding anyone's work. Run `bin/evf doctor`.
-2. Review `bin/evf shipped`, then acknowledge reviewed milestones with `--clear <task>`.
-   Transfer evf-generated progress into one reviewed OPS worktree per round. Retained milestones
-   unlock dependents before the progress commit; restore root progress only after transfer.
-3. `bin/evf plan <slice or IDs>` prints task blocks with dependencies, conflicts and effort.
-   Put each brief in its task note. Repair at-start owned cases before the package builds.
-4. Delegate implementation to Grok Build (`xai`), UI to Opus 5.5 (`anthropic`). Sol (`openai`) holds
-   the Grok Build seat until Grok Build runs in Intent or OpenAI access ends on Oct 24, 2026. UI tiers are adjust, compose, design or explore;
-   explore needs 2 or 3 live prototypes and Sebastian's choice. Run at most 3 Opus UI tasks at once.
-5. Delegate Grok Build or Sol work to an Opus verifier and Opus work to a Grok Build or Sol verifier.
-   Grok Build and Sol never verify each other; evf ship refuses that pair. Give the task note and PR,
-   not the author's narrative. Failures return to an implementor on the same branch and PR.
-6. Read the verifier's actual results and PR state. Use `ship` for automatic and owner routes.
+1. Refresh the workspace from main without discarding anyone's work. Read `evf status` and `evf doctor`.
+2. List existing tasks with `evf task list` before you file one; never duplicate them. Set order with `--depends-on`
+   when you file a task, because dependencies cannot be added later.
+3. Repair at-start owned cases before the package builds.
+4. evf starts the seats. `evf.toml` sets every role to Opus 5.5 medium, so do not start seats by hand. UI tiers are
+   UI-1 adjust, UI-2 compose, UI-3 design and UI-4 explore. UI-4 is the prototype tier: 2 or 3 live prototypes through
+   evf's `prototype` workflow, and Sebastian picks one.
+5. evf starts the verifier as a fresh session. Give it the ask and the spec, not the author's narrative. Failures go
+   back to an implementer on the same branch and PR.
+6. Read the verifier's actual results and the PR state before you report. Held tasks stay held until someone with
+   authority releases them.
 
-Intent owns scheduling, dependencies, discussions and watchers. Do not add another scheduler.
-Global kickoff and spending gates still apply. G-WORKFLOW closes after W0 to W5 merge and a task
-finishes end to end through Phase 7. Full package closure remains an integration decision.
-Wiki articles use Grok Build (or Sol) authors and Opus review, then Sebastian's chat approval and `evf approve`.
+Write the Done criteria from the verbatim ask (OPS-112): one criterion for each user action and expected result the ask
+names, and one for each deliverable (route, page, screen, command, file). Give each criterion one line under it:
+`Check: verifier - <reason>` when the reviewer can judge it, or `Check: owner - <reason>` for a taste call only
+Sebastian can judge. This project has no `[answer_key]` yet, so do not write `Check: AC:` lines: a task with one fails at
+its check step. Keep each UI task spec to about 15 Done criteria, and move the rest under `## Later slices`. evf files
+each later slice as its own task.
+
+Sebastian's approvals: the dashboard with Touch ID is the normal route. A delegate may relay Sebastian's exact words with
+`evf decide --relay-by`, quoting them. Never reuse earlier words for a new head. Global kickoff and spending gates still
+apply. Full package closure remains an integration decision.
+
+Wiki articles keep their own Opus review, then Sebastian's approval through the `wiki` owner class. After a named
+reviewer approves in chat, record it with `bin/wiki claim-check`. Run `bin/wiki promote` only after human approval, on the
+exact reviewed commit.
+
+Outside settings rule: no seat or coordinator creates or links a Vercel project, repo setting or integration until
+Sebastian's words are recorded.
 
 ## Principles to read in full at the start
 

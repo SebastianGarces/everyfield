@@ -1,10 +1,10 @@
 # Future build plan
 
-The approved target has 98 active single-owner packages. WP-086 is retired into WP-085; WP-016 is retired into WP-017; WP-021 is retired into WP-020; WP-052 is retired into WP-051; WP-060 is retired into WP-059; IDs are never reused. Implementation state lives only in docs/build-progress.json.
+The approved target has 99 active single-owner packages. WP-086 is retired into WP-085; WP-016 is retired into WP-017; WP-021 is retired into WP-020; WP-052 is retired into WP-051; WP-060 is retired into WP-059; IDs are never reused. docs/build-progress.json stopped updating on 2026-10-22 at PR #235; evf v2's task records are the live state.
 
 Start with a [short package brief](context.md). Read detailed requirements and cases on demand. The [DAG](dag.json) owns scope and dependencies; builders choose filenames and internal structures within the owned directories.
 
-Rough scope-based effort is 230 engineer-days. The weighted prerequisite lower bound with unconstrained capacity is 89 working days. These are planning estimates, not autonomous-agent throughput or a delivery date. Reviews, real scheduling and external setup add time. Re-estimate after the local runtime and first integrated slice.
+Rough scope-based effort is 232 engineer-days. The weighted prerequisite lower bound with unconstrained capacity is 89 working days. These are planning estimates, not autonomous-agent throughput or a delivery date. Reviews, real scheduling and external setup add time. Re-estimate after the local runtime and first integrated slice.
 
 ## Foundation and shared UI
 
@@ -22,7 +22,7 @@ Each row lists only packages newly reached in that dependency-closed slice.
 |---|---|---|
 | S0 | Fresh foundation and identity/reference skeleton | WP-097, WP-001, WP-002, WP-003, WP-004, WP-005, WP-006, WP-007, WP-008, WP-009, WP-010, WP-011, WP-031, WP-032, WP-050, WP-087, WP-088, WP-089, WP-090, WP-103 |
 | S1 | People, meeting and task native features with a reviewed Evry slice for people; Evry meeting and task adapters arrive in S4 | WP-012, WP-013, WP-014, WP-015, WP-020, WP-022, WP-023, WP-024, WP-025, WP-051, WP-053, WP-059 |
-| S2 | Teams/training/communication/Wiki/documents | WP-017, WP-018, WP-019, WP-027, WP-028, WP-029, WP-030, WP-033, WP-034, WP-035, WP-036, WP-037 |
+| S2 | Teams/training/communication/Wiki/documents | WP-017, WP-018, WP-019, WP-027, WP-028, WP-029, WP-030, WP-033, WP-034, WP-035, WP-036, WP-037, WP-104 |
 | S2M | ADR-001 stages 1 and 2 after planter S2 and before alpha | WP-098, WP-099, WP-100, WP-101, WP-102 |
 | S3 | Full phases/Plant and Network Intelligence/Launch/operations | WP-026, WP-038, WP-039, WP-040, WP-041, WP-042, WP-043, WP-044, WP-045, WP-046, WP-047, WP-048, WP-049 |
 | S4 | All assistant adapters and whole-target integration | WP-054, WP-055, WP-061, WP-062, WP-063, WP-064, WP-065, WP-066, WP-067, WP-068, WP-069, WP-070, WP-071, WP-072, WP-073, WP-074, WP-075, WP-076, WP-077, WP-078, WP-079, WP-080, WP-081, WP-082, WP-083, WP-084, WP-085 |
@@ -40,7 +40,7 @@ The DAG estimates effort from owned clauses, operations, cases and referenced ta
 | WP-002 | Shared identity, access, time and change-history behavior | 5 | 2 | 8 | 0 | 1.5 |
 | WP-003 | Secure sign-in, private files and streamed responses | 12 | 0 | 11 | 2 | 1.5 |
 | WP-004 | Data storage for shipped features with tenant isolation | 20 | 4 | 46 | 73 | 4 |
-| WP-031 | Reliable background work and delivery recovery | 17 | 17 | 22 | 7 | 2 |
+| WP-031 | Reliable background work and delivery recovery | 17 | 15 | 22 | 7 | 2 |
 | WP-088 | Product design foundations, dark mode and application shell | 0 | 0 | 0 | 0 | 2 |
 | WP-089 | Shared controls, surfaces and overlays | 0 | 0 | 0 | 0 | 3 |
 | WP-090 | Shared data, content and domain displays | 0 | 0 | 0 | 0 | 3.5 |
@@ -54,28 +54,28 @@ The DAG estimates effort from owned clauses, operations, cases and referenced ta
 | WP-012 | Households tags skills and person fields | 8 | 21 | 10 | 4 | 2 |
 | WP-013 | People CSV import/export | 2 | 5 | 3 | 4 | 1.5 |
 | WP-014 | Assessments interviews commitments | 8 | 10 | 13 | 7 | 2 |
-| WP-015 | Corrections duplicate resolution and merge | 9 | 10 | 36 | 3 | 2 |
+| WP-015 | Corrections duplicate resolution and merge | 9 | 12 | 36 | 4 | 2 |
 | WP-032 | Canonical reference/template manifest | 7 | 12 | 15 | 2 | 1.5 |
-| WP-020 | Meetings, venues, list and detail, invitations and RSVP | 29 | 48 | 35 | 5 | 3 |
-| WP-017 | Teams, roster, roles, leader appointments and org chart | 11 | 41 | 26 | 4 | 2.5 |
+| WP-020 | Meetings, venues, list and detail, invitations and RSVP | 29 | 49 | 35 | 5 | 3 |
+| WP-017 | Teams, roster, roles, leader appointments and org chart | 11 | 40 | 26 | 4 | 2.5 |
 | WP-018 | Responsibilities canonical offer | 3 | 7 | 3 | 2 | 1.5 |
 | WP-019 | Training programs completion revoke/correct | 14 | 10 | 27 | 4 | 2 |
 | WP-024 | Task core | 11 | 22 | 14 | 5 | 2 |
 | WP-022 | Attendance, finalization, evaluation and analytics | 13 | 19 | 15 | 4 | 2 |
-| WP-023 | Follow-up obligation/outcome C2b | 12 | 10 | 17 | 2 | 2 |
+| WP-023 | Follow-up obligation/outcome C2b | 12 | 10 | 17 | 3 | 2 |
 | WP-025 | Task structure | 6 | 12 | 7 | 0 | 1.5 |
 | WP-038 | Phase initial declaration and transitions | 32 | 7 | 23 | 2 | 2.5 |
 | WP-026 | Phase task templates and prompts | 5 | 7 | 5 | 3 | 1.5 |
 | WP-027 | Communication composition/templates | 14 | 17 | 5 | 3 | 2 |
-| WP-028 | Shared email delivery and webhook reconciliation | 20 | 19 | 25 | 7 | 2.5 |
+| WP-028 | Shared email delivery and webhook reconciliation | 21 | 22 | 26 | 8 | 2.5 |
 | WP-029 | Communication history and resend | 19 | 9 | 18 | 0 | 2 |
 | WP-030 | Notification feed/preferences | 19 | 19 | 25 | 4 | 2.5 |
 | WP-033 | Approve and version available global Wiki snapshot | 4 | 4 | 10 | 7 | 1.5 |
 | WP-034 | Wiki browsing/search/progress/bookmarks | 80 | 21 | 88 | 4 | 4 |
 | WP-035 | Wiki feedback/admin/revalidation | 89 | 7 | 88 | 3 | 4 |
-| WP-036 | Document template and format contracts | 22 | 5 | 11 | 3 | 2 |
-| WP-037 | Generated files and native owned documents | 20 | 15 | 25 | 3 | 2 |
-| WP-039 | Check-ins manual signals and corrections | 15 | 11 | 41 | 2 | 2 |
+| WP-036 | Document template and format contracts | 27 | 5 | 15 | 3 | 2 |
+| WP-037 | Generated files and native owned documents | 27 | 20 | 30 | 3 | 2.5 |
+| WP-039 | Check-ins manual signals and corrections | 15 | 11 | 41 | 6 | 2 |
 | WP-045 | Launch plan/readiness/milestones | 18 | 10 | 19 | 7 | 2 |
 | WP-046 | Launch outcomes/events/history | 43 | 11 | 45 | 5 | 3 |
 | WP-040 | Assessment facts, metrics and their source history | 41 | 4 | 125 | 0 | 3 |
@@ -100,7 +100,7 @@ The DAG estimates effort from owned clauses, operations, cases and referenced ta
 | WP-067 | Evry tasks reads/helper adapters | 0 | 21 | 6 | 0 | 1.5 |
 | WP-068 | Evry tasks draft/propose/execute adapters | 1 | 30 | 5 | 0 | 2 |
 | WP-069 | Evry teams reads/helper adapters | 1 | 26 | 12 | 0 | 1.5 |
-| WP-070 | Evry teams draft/propose/execute adapters | 1 | 30 | 8 | 0 | 2 |
+| WP-070 | Evry teams draft/propose/execute adapters | 1 | 29 | 8 | 0 | 2 |
 | WP-071 | Evry communication reads/helper adapters | 1 | 21 | 4 | 0 | 1.5 |
 | WP-072 | Evry communication draft/propose/execute adapters | 1 | 24 | 2 | 0 | 1.5 |
 | WP-073 | Evry intelligence reads/helper adapters | 5 | 45 | 49 | 0 | 2.5 |
@@ -110,9 +110,9 @@ The DAG estimates effort from owned clauses, operations, cases and referenced ta
 | WP-077 | Evry wiki reads/helper adapters | 0 | 19 | 3 | 0 | 1.5 |
 | WP-078 | Evry wiki draft/propose/execute adapters | 0 | 9 | 0 | 0 | 1.5 |
 | WP-079 | Evry documents reads/helper adapters | 2 | 14 | 7 | 0 | 1.5 |
-| WP-080 | Evry documents draft/propose/execute adapters | 0 | 10 | 4 | 0 | 1.5 |
+| WP-080 | Evry documents draft/propose/execute adapters | 0 | 12 | 4 | 0 | 1.5 |
 | WP-081 | Evry notifications reads/helper adapters | 2 | 8 | 8 | 0 | 1.5 |
-| WP-082 | Evry notifications draft/propose/execute adapters | 2 | 28 | 3 | 0 | 1.5 |
+| WP-082 | Evry notifications draft/propose/execute adapters | 2 | 26 | 3 | 0 | 1.5 |
 | WP-083 | Evry platform reads/helper adapters | 0 | 38 | 0 | 0 | 2 |
 | WP-084 | Evry platform draft/propose/execute adapters | 1 | 53 | 1 | 0 | 2 |
 | WP-085 | Evry named helpers and candidate preparation | 1 | 2 | 9 | 0 | 1.5 |
@@ -125,13 +125,14 @@ The DAG estimates effort from owned clauses, operations, cases and referenced ta
 | WP-100 | My residency and consented progress | 2 | 3 | 2 | 0 | 2.5 |
 | WP-101 | Pipeline and development Evry adapters | 1 | 15 | 1 | 0 | 3 |
 | WP-102 | Multiplication privacy, race and parity integration | 17 | 0 | 17 | 0 | 4.5 |
-| WP-056 | Complete cross-feature privacy, concurrency and correction behavior | 0 | 0 | 1161 | 0 | 14.5 |
+| WP-056 | Complete cross-feature privacy, concurrency and correction behavior | 0 | 0 | 1171 | 0 | 14.5 |
 | WP-094 | Core browser, file and native/Evry feature parity | 4 | 0 | 6 | 0 | 1.5 |
 | WP-095 | Knowledge browser, file and native/Evry feature parity | 7 | 0 | 8 | 0 | 1.5 |
 | WP-096 | Intelligence browser, file and native/Evry feature parity | 3 | 0 | 18 | 0 | 1.5 |
-| WP-057 | Complete browser, file and native/Evry feature parity | 0 | 0 | 1161 | 4 | 14.5 |
+| WP-057 | Complete browser, file and native/Evry feature parity | 0 | 0 | 1171 | 4 | 14.5 |
 | WP-058 | Fresh bootstrap and release rehearsal | 12 | 0 | 29 | 0 | 1.5 |
 | WP-103 | Everyfield brand spelling in app copy | 0 | 0 | 0 | 0 | 0.5 |
+| WP-104 | Church brand kit | 7 | 6 | 9 | 1 | 1.5 |
 
 ## Package splits
 
@@ -148,7 +149,7 @@ WP-057: WP-094, WP-095, WP-096, WP-057. The same domain partition for browser/fi
 
 WP-097 → WP-087 → WP-001 → WP-002 → WP-003 → WP-004 → WP-031 → WP-005 → WP-006 → WP-007 → WP-008 → WP-020 → WP-017 → WP-019 → WP-045 → WP-046 → WP-040 → WP-041 → WP-042 → WP-043 → WP-044 → WP-073 → WP-074 → WP-055 → WP-091 → WP-056 → WP-094 → WP-057 → WP-058
 
-The graph has 499 edges. The chain above is the maximum sum of scope estimates along prerequisites, calculated by docs/package-context.py --refresh-plan.
+The graph has 505 edges. The chain above is the maximum sum of scope estimates along prerequisites, calculated by docs/package-context.py --refresh-plan.
 
 ## Exact dependency graph
 
@@ -252,6 +253,7 @@ graph LR
   WP057["WP-057: Complete browser, file and native/Evry feature parity"]
   WP058["WP-058: Fresh bootstrap and release rehearsal"]
   WP103["WP-103: Everyfield brand spelling in app copy"]
+  WP104["WP-104: Church brand kit"]
   WP097 --> WP087
   WP087 --> WP001
   WP001 --> WP002
@@ -751,6 +753,12 @@ graph LR
   WP102 --> WP057
   WP057 --> WP058
   WP033 --> WP058
+  WP004 --> WP104
+  WP010 --> WP104
+  WP036 --> WP104
+  WP088 -. UI .-> WP104
+  WP089 -. UI .-> WP104
+  WP090 -. UI .-> WP104
 ```
 
 Run --check-plan for nonempty scope, directory ownership, disjoint adapter paths, operation-kind ownership, producer ancestry, gate ownership, slice closure, estimates and graph projections. Manifest and planning checks are documentation/tooling proof; they do not establish application acceptance.

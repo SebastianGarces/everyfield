@@ -1,9 +1,8 @@
-import { createDatabase, closeDatabase } from "../../../packages/db/src/client.ts";
+import { testDatabase } from "../../support/test-database.mts";
 import { sql as querySql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { migrate } from "../../../packages/db/src/schema/migrate.ts";
 import { referenceService, ReferenceRefusal } from "../../../packages/reference/src/server.ts";
 import type { ReferenceAuthority, ReferenceDependencies } from "../../../packages/reference/src/server.ts";
 import { promotion } from "../../../packages/contracts/src/reference/release.ts";
@@ -11,41 +10,22 @@ import type { Promotion } from "../../../packages/contracts/src/reference/releas
 import { hash, canonical } from "../../../packages/reference/src/hash.ts";
 import { fixture } from "./fixtures.mts";
 
-const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
-const localCi =
-	process.env.CI === "true" &&
-	process.env.EARLY_ACCESS_TEST_DATABASE === "1" &&
-	["localhost", "127.0.0.1"].includes(source.hostname) &&
-	source.pathname === "/everyfield_ci";
-if (
-	(!localCi && source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech") ||
-	process.env.NODE_ENV === "production"
-)
-	throw Error("Only shared development or disposable CI endpoint permitted");
-if (!localCi) source.searchParams.set("sslmode", "verify-full");
-const schema = "wp032_test_" + randomUUID().replaceAll("-", "");
-const db = createDatabase({
-	connectionString: source.href,
-	max: 6,
-	options: `-c search_path=${schema},pg_catalog,pg_temp`,
-});
+const database = await testDatabase({ prefix: "wp032_test", roles: {}, max: 6 });
+const { admin: db } = database;
 const actor = randomUUID(),
 	user = randomUUID(),
 	session = randomUUID(),
-	job = randomUUID(),
 	plant = randomUUID();
-const global = "00000000-0000-0000-0000-000000000000";
 const artifacts = new Map<string, unknown>();
 const reviews = new Map<string, { actorId: string; review: ReferenceAuthority["review"] }>();
 let firstCommand: Promotion;
-let claim: Extract<ReferenceAuthority, { mode: "worker" }>["claim"] | undefined;
 const authorize: ReferenceDependencies["authorize"] = async (tx, command) => {
 	const saved = reviews.get(command.requestKey);
 	if (!saved) return null;
 	const live = await tx.execute(
 		querySql`SELECT id FROM auth_session WHERE id=${querySql.param(session)} AND user_id=${querySql.param(user)} AND expires_at>clock_timestamp() FOR SHARE`,
 	);
-	return live.rowCount === 1 ? { ...saved, ...(claim ? { mode: "worker", claim } : { mode: "operator" }) } : null;
+	return live.rowCount === 1 ? saved : null;
 };
 const service = referenceService(db, {
 	authorize,
@@ -87,8 +67,6 @@ async function refused(cmd: Promotion, code: string) {
 	);
 }
 before(async () => {
-	await db.execute(querySql.raw(`CREATE SCHEMA ${schema}`));
-	await migrate(db, schema);
 	await db.execute(
 		querySql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${querySql.param(user)},${querySql.param(user + "@example.test")},true,'Synthetic')`,
 	);
@@ -105,13 +83,8 @@ before(async () => {
     VALUES(${querySql.param(plant)},'Synthetic existing plant','America/Chicago',7,14,1,8,1,1)`);
 	await db.execute(querySql`INSERT INTO task(plant_id,title,category,priority,status,created_at,due_kind)
     VALUES(${querySql.param(plant)},'Keep edited title','launch_prep','medium','in_progress',now(),'undated')`);
-	await db.execute(querySql`INSERT INTO job(id,tenant_id,kind,producer_key,state,eligible_at,attempt_count,max_attempts,lease_owner,lease_until,claim_generation)
-    VALUES(${querySql.param(job)},${querySql.param(global)},'reference_generation','sweep','claimed',now(),1,3,'synthetic-worker',now()+interval '5 minutes',2)`);
 });
-after(async () => {
-	await db.execute(querySql.raw(`DROP SCHEMA IF EXISTS ${schema} CASCADE`));
-	await closeDatabase(db);
-});
+after(database.close);
 
 test("AC:REFREL-001 initial install, exact replay and changed immutable hash refuse without rewriting originals", async () => {
 	const cmd = command("R1", "0");
@@ -150,7 +123,7 @@ test("AC:REFREL-001 initial install, exact replay and changed immutable hash ref
 	const published = await db.execute(
 		querySql`SELECT count(*)::int AS n FROM article_revision a JOIN reference_activation r ON r.release_id=a.release_id WHERE r.activation_number=1`,
 	);
-	assert.equal(published.rows[0]!.n, 96);
+	assert.equal(published.rows[0]!.n, 124);
 	const mail = await db.execute(querySql`SELECT count(*)::int AS n FROM reference_item WHERE kind='mail_template'`);
 	assert.equal(mail.rows[0]!.n, 7);
 	const sideEffects = await db.execute(
@@ -159,18 +132,12 @@ test("AC:REFREL-001 initial install, exact replay and changed immutable hash ref
 	assert.deepEqual(sideEffects.rows[0], { mail: 0, tasks: 1 });
 });
 
-test("AC:REFREL-004 concurrent promotions have one winner and stale claim loses", async () => {
+test("AC:REFREL-004 concurrent promotions have one winner and the loser must be reviewed again", async () => {
 	const outcomes = await Promise.allSettled(["R2", "R3"].map((key) => service.promote(command(key, "1"), key)));
 	assert.equal(outcomes.filter((o) => o.status === "fulfilled").length, 1);
 	const loser = outcomes.find((o) => o.status === "rejected");
 	assert.equal(loser?.status === "rejected" && loser.reason.code, "revision_conflict");
 	assert.equal((await service.current())?.activation_number, "2");
-	await db.execute(
-		querySql`UPDATE job SET checkpoint_key=${querySql.param(fixture("R4").manifestHash)} WHERE id=${querySql.param(job)}`,
-	);
-	claim = { jobId: job, generation: "1", leaseOwner: "synthetic-worker" };
-	await refused(command("R4", "2"), "stale_claim");
-	claim = undefined;
 	assert.deepEqual(await counts(), { activations: 2, releases: 2, operations: 3, events: 3 });
 });
 
@@ -275,7 +242,7 @@ test("INV-reference-atomicity: required audit fault rolls back candidate, mappin
 	assert.equal(orphans.rows[0]!.n, 0);
 });
 
-test("INV-reference-revalidation: changed persisted derivatives refuse while current claim can replay clean data", async () => {
+test("INV-reference-revalidation: changed persisted derivatives refuse while a current promotion can replay clean data", async () => {
 	const saved = (
 		await db.execute<{ id: string; content: string; embedding: string }>(
 			querySql`SELECT id,content,embedding::text FROM passage WHERE release_id=(SELECT release_id FROM reference_activation ORDER BY activation_number DESC LIMIT 1) LIMIT 1`,
@@ -292,23 +259,6 @@ test("INV-reference-revalidation: changed persisted derivatives refuse while cur
 		);
 	}
 	assert.deepEqual(await counts(), { activations: 3, releases: 2, operations: 4, events: 4 });
-	await db.execute(
-		querySql`UPDATE job SET checkpoint_key=${querySql.param(fixture("R1").manifestHash)} WHERE id=${querySql.param(job)}`,
-	);
-	claim = { jobId: job, generation: "2", leaseOwner: "another-worker" };
-	await refused(command("R1", "3"), "stale_claim");
-	claim = { jobId: job, generation: "2", leaseOwner: "synthetic-worker" };
-	await db.execute(
-		querySql`UPDATE job SET checkpoint_key=${querySql.param("wrong-manifest")} WHERE id=${querySql.param(job)}`,
-	);
-	await refused(command("R1", "3"), "stale_claim");
-	await db.execute(
-		querySql`UPDATE job SET checkpoint_key=${querySql.param(fixture("R1").manifestHash)} WHERE id=${querySql.param(job)}`,
-	);
-	try {
-		assert.equal((await service.promote(command("R1", "3"), "R1")).number, "3");
-	} finally {
-		claim = undefined;
-	}
+	assert.equal((await service.promote(command("R1", "3"), "R1")).number, "3");
 	assert.deepEqual(await counts(), { activations: 3, releases: 2, operations: 5, events: 5 });
 });

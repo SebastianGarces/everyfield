@@ -1,6 +1,10 @@
-import { safeReturn } from "@everyfield/contracts/identity";
+import { landingFor, safeReturn, type PlantSetup } from "@everyfield/contracts/identity";
+import { readPlantSetupComplete } from "@everyfield/domain/identity";
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
+import { requestDatabase } from "@/server/database";
+import { getViewer } from "@/server/request-context";
 import { AuthFrame } from "./AuthFrame";
 import { InvitationScreen } from "./invitation/InvitationScreen";
 import { RecoverScreen, ResetPasswordScreen, VerifyEmailScreen } from "./RecoveryScreens";
@@ -22,6 +26,21 @@ export const signInMetadata: Metadata = { title: "Sign in" };
 export async function SignInPage({ searchParams }: { searchParams: Search }) {
 	// Only a safe local path survives (REQ-IDN-028); anything else signs in to the default place.
 	return <SignInScreen returnTo={safeReturn(one((await searchParams).returnTo))} />;
+}
+
+// The landing route (/home). Every post-sign-in and "home" link points here; the rule is landingFor. The cached viewer is
+// the first statement; the second runs only for a plant seat and reads that plant's setup state under the live check (C13).
+export const homeMetadata: Metadata = { title: "Home", robots: { index: false, follow: false } };
+export async function HomePage() {
+	const viewer = await getViewer();
+	if (!viewer || viewer.status === "unauthenticated") redirect("/signin");
+	let plant: PlantSetup = "none";
+	const context = viewer.authority?.actor.context;
+	const db = requestDatabase();
+	if (db && viewer.status === "active" && context?.kind === "seat" && context.owner.kind === "plant") {
+		plant = (await readPlantSetupComplete(db, viewer.sessionId, context.owner)) ? "complete" : "incomplete";
+	}
+	redirect(landingFor({ status: viewer.status, plant }));
 }
 
 export const registerMetadata: Metadata = { title: "Create your account" };

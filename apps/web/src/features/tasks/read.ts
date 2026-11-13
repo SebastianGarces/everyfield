@@ -2,8 +2,8 @@ import * as c from "@everyfield/contracts/tasks";
 import { taskReader } from "@everyfield/domain/tasks";
 import "server-only";
 import type { z } from "zod";
-import { parseQuery, type Outcome } from "./model.ts";
-import { loadTask, read, reader, taskViewer, type TaskViewer } from "./server.ts";
+import { type Outcome } from "./model.ts";
+import { loadTask, read, reader, taskViewer, templates, type TaskViewer } from "./server.ts";
 
 // GET /tasks/read: the Tasks screens' reads after the first paint (the open task, more history, the seats, the
 // people, meetings or teams a task may name, the tasks one may wait for, and the list's blocked badges). A GET handler, not a server action, so a read never waits for a save or
@@ -26,40 +26,63 @@ export async function GET(request: Request) {
 	switch (p.get("what")) {
 		case "task":
 			return answer(
-				await parsed(c.getTaskRequest, { taskId: p.get("id") }, (v) =>
-					read(viewer, (tx) => loadTask(tx, viewer, v.taskId)),
-				),
+				await parsed(c.getTaskRequest, { taskId: p.get("id") }, (v) => read((tx) => loadTask(tx, viewer, v.taskId))),
 			);
 		case "history":
 			return answer(
 				await parsed(c.statusHistoryRequest, { taskId: p.get("id"), page: Number(p.get("page")), limit: 50 }, (v) =>
-					read(viewer, (tx) => reader.history(tx, viewer, v.taskId, v.page)),
+					read((tx) => reader.history(tx, viewer, v.taskId, v.page)),
 				),
 			);
 		// The current page's derived "Blocked by" counts, after a task they may wait for settled, reopened or was deleted.
-		// The same scope as the page; only the badge leaves the server.
-		case "blocking": {
-			const r = await read(viewer, (tx) => reader.list(tx, viewer, parseQuery(p)));
+		// Only the rows on screen are read, by ID, and only the badge leaves the server.
+		case "blocking":
 			return answer(
-				r.status === "ok"
-					? { status: "ok", value: r.value.items.map((t) => ({ id: t.id, openPrerequisites: t.openPrerequisites })) }
-					: r,
+				await parsed(c.taskRowsRequest, { taskIds: p.getAll("id") }, async (v) => {
+					const r = await read(async (tx) => refusalOf(await taskReader.listRows(tx, viewer.authority, v)));
+					return r.status === "ok"
+						? { status: "ok", value: r.value.items.map((t) => ({ id: t.id, openPrerequisites: t.openPrerequisites })) }
+						: r;
+				}),
 			);
-		}
+		// The list rows of the named tasks in one statement: a bulk change's stale rows, read again together.
+		case "rows":
+			return answer(
+				await parsed(c.taskRowsRequest, { taskIds: p.getAll("id") }, (v) =>
+					read(async (tx) => refusalOf(await taskReader.listRows(tx, viewer.authority, v))),
+				),
+			);
 		case "seats":
 			return answer(
-				await read(viewer, async (tx) => refusalOf(await taskReader.eligibleAssignees(tx, viewer.authority))),
+				await read(async (tx) =>
+					refusalOf(await taskReader.eligibleAssignees(tx, viewer.authority, { purpose: p.get("purpose") ?? "any" })),
+				),
 			);
 		case "candidates":
 			return answer(
 				await parsed(c.prerequisiteCandidatesRequest, { taskId: p.get("id"), search: p.get("search") ?? "" }, (v) =>
-					read(viewer, async (tx) => refusalOf(await taskReader.prerequisiteCandidates(tx, viewer.authority, v))),
+					read(async (tx) => refusalOf(await taskReader.prerequisiteCandidates(tx, viewer.authority, v))),
 				),
 			);
 		case "relations":
 			return answer(
 				await parsed(c.relationOptionsRequest, { kind: p.get("kind"), search: p.get("search") ?? "" }, (v) =>
-					read(viewer, async (tx) => refusalOf(await taskReader.relationOptions(tx, viewer.authority, v))),
+					read(async (tx) => refusalOf(await taskReader.relationOptions(tx, viewer.authority, v))),
+				),
+			);
+		// The checklist catalog, one checklist's preview and one phase offer by its move (WP-026). Owner and Admin only.
+		case "templates":
+			return answer(await read(async (tx) => refusalOf(await templates.listTemplates(tx, viewer.authority, {}))));
+		case "preview":
+			return answer(
+				await parsed(c.previewTemplateRequest, { checklistKey: p.get("key") }, (v) =>
+					read(async (tx) => refusalOf(await templates.previewTemplate(tx, viewer.authority, v))),
+				),
+			);
+		case "offer":
+			return answer(
+				await parsed(c.readPhaseOfferRequest, { transitionId: p.get("id") ?? undefined }, (v) =>
+					read((tx) => reader.offer(tx, viewer, v.transitionId)),
 				),
 			);
 		default:

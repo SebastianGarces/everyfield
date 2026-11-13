@@ -1,7 +1,6 @@
 import { requestDatabase } from "@/server/database";
 import { tasksMount } from "@/server/tasks";
 import { personId as personIdOf } from "@everyfield/contracts/common";
-import type { FollowUpError } from "@everyfield/contracts/followups";
 import type { Transaction } from "@everyfield/db/client";
 import {
 	createFollowUpWriter,
@@ -17,9 +16,11 @@ import type { TaskDetail } from "../tasks/model.ts";
 import { taskViewer, type TaskViewer } from "../tasks/server.ts";
 import {
 	COVERAGE_PAGE,
-	ownersOf,
+	HISTORY_PAGE,
+	outcomeOf,
 	type Account,
 	type ContactHistory,
+	type DutyItem,
 	type ObligationItem,
 	type Outcome,
 	type Owners,
@@ -33,7 +34,7 @@ import {
 export { COVERAGE_PAGE, taskViewer, type TaskViewer };
 
 /** One short read transaction. A database failure reads as lost, never as a crash or an empty list. */
-export async function read<T>(viewer: TaskViewer, run: (tx: Transaction) => Promise<Outcome<T>>): Promise<Outcome<T>> {
+export async function read<T>(run: (tx: Transaction) => Promise<Outcome<T>>): Promise<Outcome<T>> {
 	const db = requestDatabase();
 	if (!db) return { status: "lost" };
 	try {
@@ -44,9 +45,6 @@ export async function read<T>(viewer: TaskViewer, run: (tx: Transaction) => Prom
 	}
 }
 export const administers = (v: Pick<TaskViewer, "role">) => v.role !== "member";
-
-export const outcomeOf = <T>(reply: FollowUpReply<T>): Outcome<T> =>
-	reply.status === "ok" ? reply : { status: "refused", code: reply.error.code };
 
 let writer: ReturnType<typeof createFollowUpWriter> | undefined;
 type Writer = ReturnType<typeof createFollowUpWriter>;
@@ -67,14 +65,17 @@ export async function write<T>(
 	}
 }
 
-/** The current eligible follow-up owners, in one statement (REQ-TSK-012). Owner/Admin. */
+/** The current eligible follow-up owners, the viewer among them when eligible, in one statement (REQ-TSK-012). */
 export async function readOwners(tx: Transaction, viewer: TaskViewer): Promise<Outcome<Account[]>> {
-	const plan = outcomeOf(await followUpReader.planHandoff(tx, viewer.authority, { fromAccountId: viewer.accountId }));
-	return plan.status === "ok" ? { status: "ok", value: ownersOf(plan.value) } : plan;
+	const seats = await taskReader.eligibleAssignees(tx, viewer.authority, { purpose: "committed_follow_up" });
+	return seats.status === "ok"
+		? {
+				status: "ok",
+				value: seats.value.items.map(({ accountId, displayName }) => ({ accountId, displayName })),
+			}
+		: { status: "refused", code: seats.error.code };
 }
 
-/** Contact log entries per page on the Person page; "Show earlier" reads the next one. */
-export const HISTORY_PAGE = 20;
 /** Open follow-ups and Vision follow-ups per page on the Person page; "Show more" reads the next one. */
 export const PERSON_PAGE = 20;
 const okOrNull = <T>(r: FollowUpReply<T>) => (r.status === "ok" ? r.value : null);
@@ -121,13 +122,17 @@ export type CallData = {
 	person: { id: string; label: string; phone: string | null; email: string | null; live: boolean };
 	obligation: ObligationItem | null;
 	recent: ContactHistory | null;
+	/** The Person's other open follow-ups this follow-up's contact would also finish (D-c); empty once it is done. */
+	others: DutyItem[];
+	/** What was recorded on this follow-up, once it is done: its completing record shows with it. */
+	record: ContactHistory | null;
 };
 export type CallRead =
 	{ kind: "call"; call: CallData } | { kind: "not_follow_up"; taskId: string } | { kind: "missing" };
 
 /**
  * The call page in one transaction: the task, its Person, their last few log entries and, for a generated follow-up,
- * its obligation. Four statements. A task that is not a follow-up with a Person says so instead.
+ * its obligation. Four statements, five with the follow-ups a contact also finishes or the record of a done one. A task that is not a follow-up with a Person says so instead.
  */
 export async function loadCall(tx: Transaction, viewer: TaskViewer, taskId: string): Promise<Outcome<CallRead>> {
 	const found = await taskReader.get(tx, viewer.authority, { taskId });
@@ -150,13 +155,24 @@ export async function loadCall(tx: Transaction, viewer: TaskViewer, taskId: stri
 				}
 			: { id: personId, label: task.relation.label, phone: null, email: null, live: false };
 	const recent = okOrNull(await followUpReader.listContactHistory(tx, viewer.authority, { personId, limit: 3 }));
+	const closed = task.status === "complete" || task.status === "no_longer_needed";
+	// A done follow-up shows its completing record; an open one lists the follow-ups its contact also finishes.
+	const record = closed
+		? okOrNull(await followUpReader.listContactHistory(tx, viewer.authority, { personId, taskId: task.id, limit: 5 }))
+		: null;
+	const others = closed
+		? []
+		: (
+				okOrNull(await followUpReader.listFollowUpOwners(tx, viewer.authority, { personId, limit: 100 }))?.items ?? []
+			).filter(
+				(d) =>
+					d.taskId !== task.id && (viewer.role !== "member" || d.owners.some((o) => o.accountId === viewer.accountId)),
+			);
 	const managed = task.managed;
 	const obligation = managed
 		? (okOrNull(await followUpReader.readObligations(tx, viewer.authority, { personId, limit: 100 }))?.items.find(
 				(o) => o.id === managed.obligationId,
 			) ?? null)
 		: null;
-	return { status: "ok", value: { kind: "call", call: { task, person, obligation, recent } } };
+	return { status: "ok", value: { kind: "call", call: { task, person, obligation, recent, others, record } } };
 }
-
-export type { FollowUpError };

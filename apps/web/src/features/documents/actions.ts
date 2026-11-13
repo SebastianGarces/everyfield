@@ -4,20 +4,31 @@ import { requestDatabase } from "@/server/database";
 import type { DocumentsError } from "@everyfield/contracts/documents";
 import { privateStorage } from "@everyfield/db/schema";
 import { documentsReader, documentsWriter } from "@everyfield/domain/documents";
-import type { Format, OwnedView, Resolved, SavedFile } from "./model.ts";
+import {
+	type CopySource,
+	type Format,
+	type OwnedView,
+	type Resolved,
+	type SavedFile,
+	type WrittenView,
+} from "./model.ts";
 import { documentActor } from "./server.ts";
 
-// Field fill for the open template. The actor is read again here. The browser cannot name a person, meeting, or
-// team. Preview bytes use their own route.
+// The Documents library and written-document actions: field fill and Save for your church for the open template, the
+// saved files and their downloads, and the account's written documents (load, save, archive, designate, copy to the
+// church). The actor is read again here. The browser cannot name a person, meeting, or team. Preview bytes use their
+// own route.
 
 export type DocumentOutcome<T> =
 	| { status: "ok"; value: T }
-	| { status: "refused"; code: DocumentsError["code"]; problem?: string }
+	| { status: "refused"; code: DocumentsError["code"]; problem?: string; path?: string }
 	| { status: "lost" };
 
 function refused(error: DocumentsError): DocumentOutcome<never> {
-	const problem = error.code === "invalid_input" ? error.details.issues[0]?.problem : undefined;
-	return problem ? { status: "refused", code: error.code, problem } : { status: "refused", code: error.code };
+	const issue = error.code === "invalid_input" ? error.details.issues[0] : undefined;
+	return issue
+		? { status: "refused", code: error.code, problem: issue.problem, path: issue.path }
+		: { status: "refused", code: error.code };
 }
 
 async function run<T>(
@@ -73,14 +84,7 @@ function presentSaved(value: SavedFile): SavedFile {
 }
 
 function presentOwned(value: OwnedView): OwnedView {
-	return {
-		id: value.id,
-		kind: value.kind,
-		title: value.title,
-		body: value.body,
-		revision: value.revision,
-		archived: value.archived,
-	};
+	return { id: value.id, kind: value.kind, title: value.title, archived: value.archived };
 }
 
 /** Save one generated file for the church. The same request key and the same fields return the same file. */
@@ -138,17 +142,25 @@ export async function loadWrittenDocuments(): Promise<
 	});
 }
 
-/** Create or replace a written document. A new document uses revision "0" and has no id. */
+/**
+ * Create or replace a written document: its title and the editor's body node. A new document uses revision "0" and
+ * has no id. The domain parses the body; the browser's copy is not trusted.
+ */
 export async function saveOwnedDocument(input: {
 	title: string;
-	body: string;
+	body: unknown;
 	documentId?: string;
 	expectedRevision: string;
-}): Promise<DocumentOutcome<OwnedView>> {
+}): Promise<DocumentOutcome<{ id: string; revision: string; kind: WrittenView["kind"] }>> {
 	return run(async (db, actor) => {
-		const reply = await documentsWriter.saveNative(db, actor, input);
+		const reply = await documentsWriter.saveNative(db, actor, {
+			title: input.title,
+			body: input.body,
+			expectedRevision: input.expectedRevision,
+			...(input.documentId ? { documentId: input.documentId } : {}),
+		});
 		if (reply.status === "refused") return refused(reply.error);
-		return { status: "ok", value: presentOwned(reply.value) };
+		return { status: "ok", value: { id: reply.value.id, revision: reply.value.revision, kind: reply.value.kind } };
 	});
 }
 
@@ -166,28 +178,35 @@ export async function archiveOwnedDocument(
 export async function designateOwnedDocument(
 	documentId: string,
 	expectedRevision: string,
-): Promise<DocumentOutcome<OwnedView>> {
+): Promise<DocumentOutcome<{ revision: string; kind: WrittenView["kind"] }>> {
 	return run(async (db, actor) => {
 		const reply = await documentsWriter.designateCoreValues(db, actor, { documentId, expectedRevision });
 		if (reply.status === "refused") return refused(reply.error);
-		return { status: "ok", value: presentOwned(reply.value) };
+		return { status: "ok", value: { revision: reply.value.revision, kind: reply.value.kind } };
 	});
 }
 
-/** Import UTF-8 text or a modern Word file into a written document. The original bytes stay private. */
-export async function importOwnedDocument(input: {
-	title: string;
-	format: "text" | "docx";
-	bytes: string;
-	documentId?: string;
-	expectedRevision: string;
-	requestKey: string;
-}): Promise<DocumentOutcome<OwnedView>> {
-	const storage = privateStorage();
-	if (!storage) return storageMissing;
+/** Use for this church: your own account documents that are not archived and have text. */
+export async function loadCopySources(): Promise<DocumentOutcome<CopySource[]>> {
 	return run(async (db, actor) => {
-		const reply = await documentsWriter.importTextOrWord(db, actor, input, storage);
+		const reply = await documentsWriter.listCopySources(db, actor, {});
 		if (reply.status === "refused") return refused(reply.error);
-		return { status: "ok", value: presentOwned(reply.value) };
+		return {
+			status: "ok",
+			value: reply.value.documents.map((item) => ({ id: item.id, title: item.title, revisionId: item.revisionId })),
+		};
+	});
+}
+
+/** Copy one of your account documents into the church plant. The same request key makes one copy. */
+export async function copyToChurch(input: {
+	documentId: string;
+	revisionId: string;
+	requestKey: string;
+}): Promise<DocumentOutcome<{ id: string }>> {
+	return run(async (db, actor) => {
+		const reply = await documentsWriter.useForChurch(db, actor, input);
+		if (reply.status === "refused") return refused(reply.error);
+		return { status: "ok", value: { id: reply.value.id } };
 	});
 }

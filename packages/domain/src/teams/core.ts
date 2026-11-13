@@ -24,7 +24,7 @@ export type Reader = Pick<Transaction, "execute">;
 export type TeamsContext = { session: z.infer<typeof sessionId>; selected: Owner };
 
 type Code = TeamsError["code"];
-export class Refusal extends Error {
+class Refusal extends Error {
 	readonly code: Code;
 	readonly details: object;
 	constructor(code: Code, details: object) {
@@ -126,7 +126,7 @@ export type Writer = {
 	admin: boolean;
 	plant: NonNullable<NonNullable<ReturnType<typeof requestWrite>>["plant"]>;
 };
-export async function writer(tx: Tx, ctx: TeamsContext): Promise<Writer> {
+async function writer(tx: Tx, ctx: TeamsContext): Promise<Writer> {
 	let bound = await lockedWrite(tx);
 	if (!bound || bound.authority.session !== ctx.session || !sameOwner(bound.selected, ctx.selected))
 		bound = (await RequestActor.claimWrite(tx, ctx.session, ctx.selected)) ?? undefined;
@@ -163,8 +163,9 @@ export type Change<T> = {
 	after?: Record<string, unknown> | null;
 	revision?: { before: string | null; after: string };
 	reason?: string | null;
+	metadata?: Record<string, unknown>;
 };
-export function delta(before: Record<string, unknown> | null, after: Record<string, unknown> | null) {
+function delta(before: Record<string, unknown> | null, after: Record<string, unknown> | null) {
 	const keys = [...new Set([...Object.keys(before ?? {}), ...Object.keys(after ?? {})])].filter(
 		(key) => JSON.stringify(before?.[key]) !== JSON.stringify(after?.[key]),
 	);
@@ -173,12 +174,11 @@ export function delta(before: Record<string, unknown> | null, after: Record<stri
 		after: after ? Object.fromEntries(keys.map((key) => [key, after[key] ?? null])) : null,
 	};
 }
-export type TeamWrite =
+type TeamWrite =
 	| "teams.create"
 	| "teams.edit"
 	| "teams.archive"
 	| "teams.restore"
-	| "teams.correct"
 	| "teams.createRole"
 	| "teams.editRole"
 	| "teams.retireRole"
@@ -186,21 +186,19 @@ export type TeamWrite =
 	| "teams.endMembership"
 	| "teams.reactivateMembership"
 	| "teams.appointLeader"
+	| "teams.correctTenure"
 	| "teams.initialize"
 	| "teams.offerResponsibilities"
 	| "teams.addResponsibility"
 	| "teams.editResponsibility"
 	| "teams.completeResponsibility"
 	| "teams.deleteResponsibility"
-	| "meetings.copyTeamRoster"
 	| "teams.createProgram"
 	| "teams.correctProgram"
 	| "teams.setRequiredTrainingParticipants"
 	| "teams.attestCompletion"
 	| "teams.revokeCompletion"
-	| "teams.recompleteTraining"
-	| "teams.scheduleMeeting"
-	| "teams.recordAttendance";
+	| "teams.recompleteTraining";
 
 /** A team id, or a lookup that runs only when the actor is not an admin. */
 type LeaderGate = string | ((tx: Tx, w: Writer) => Promise<string | undefined>);
@@ -252,7 +250,7 @@ export async function command<T>(
 		before_value: values.before,
 		after_value: values.after,
 		reason: change.reason ?? null,
-		metadata: {},
+		metadata: change.metadata ?? {},
 	});
 	if (changed)
 		claim.writes.push(
@@ -265,4 +263,3 @@ export async function command<T>(
 	return change.value;
 }
 export const next = (revision: string) => String(BigInt(revision) + 1n);
-export const uuid = (value: string) => sql`${value}::uuid`;

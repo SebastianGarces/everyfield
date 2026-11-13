@@ -90,6 +90,26 @@ class CaseCountTests(unittest.TestCase):
         self.assertEqual(missing.returncode, 1)
         self.assertIn('acceptance AC-A: unknown case CASE-B', missing.stderr)
 
+    def test_run_cases_name_their_tests(self):
+        """INV-case-run: a case marked run names test files that exist and carry its AC tag."""
+        self.write('tests/digest.test.mts', 'test("AC:CASE-A shows the digest", () => {});')
+        run = dict(self.case('CASE-A'), status='run', run_by=['tests/digest.test.mts'])
+        self.fixtures([run], [])
+        self.assertEqual(self.check().returncode, 0)
+        for broken, message in [
+            (dict(run, run_by=['tests/missing.test.mts']), 'tests/missing.test.mts does not run AC:CASE-A'),
+            (dict(self.case('CASE-A'), status='run'), 'a run case names its tests in run_by'),
+            (dict(self.case('CASE-A'), run_by=['tests/digest.test.mts']), 'run_by needs status run'),
+        ]:
+            with self.subTest(message=message):
+                self.fixtures([broken], [])
+                result = self.check()
+                self.assertEqual(result.returncode, 1)
+                self.assertIn(message, result.stderr)
+        self.write('tests/digest.test.mts', 'test("AC:CASE-AB shows another case", () => {});')
+        self.fixtures([run], [])
+        self.assertIn('does not run AC:CASE-A', self.check().stderr)
+
 
 if __name__ == '__main__':
     unittest.main()

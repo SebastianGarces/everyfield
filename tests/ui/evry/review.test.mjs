@@ -10,6 +10,8 @@
 //     its replay and the read all get no answer: the card says it may already be saved and offers only Check again,
 //     with Revise and Cancel disabled. The browser clock then passes the review's expiry: the card stays "Not
 //     confirmed" and never says nothing changed. Check again sends the same request key and the change saves once.
+//   T-231 INV-open-reviews: a review card from a live turn reads its own review once; opening a conversation with two
+//     review cards, from the launcher or from History, reads no review by id: the page read brings both.
 //   AC:INH-REGRESSION-CONFIRM-REPLAY INV-approve-runs-once (real routes, no page): a first approval's own request runs
 //     the change with no other request; a replay of it returns the saved review and saves nothing again.
 import assert from "node:assert/strict";
@@ -145,6 +147,63 @@ for (const [engine, launcher] of ENGINES)
 				assert.ok(approvals.every((body) => body === approvals[0]));
 				assert.match(await saved.innerText(), new RegExp(typed));
 				assert.equal(JSON.parse(approvals[0]).revision, 2);
+			},
+			{ width: 390, height: 844 },
+		));
+
+for (const [engine, launcher] of ENGINES)
+	test(`INV-open-reviews: opening a conversation with review cards reads no review by id (${engine})`, () =>
+		withPage(
+			launcher,
+			async (page, context) => {
+				const people = fixture("people");
+				await signIn(context, people.owner.cookie);
+				// Every GET of one review by id: /api/evry/proposals/<id>, not its photo or an action.
+				const reads = [];
+				page.on("request", (r) => {
+					if (r.method() === "GET" && /^\/api\/evry\/proposals\/[^/]+$/.test(new URL(r.url()).pathname))
+						reads.push(r.url());
+				});
+				await page.goto(`${BASE}/people`);
+				await hydrated(page);
+				await page.getByRole("button", { name: "Ask Evry" }).click();
+				const panel = page.getByRole("dialog", { name: "Evry" });
+				await panel.getByRole("button", { name: "History" }).click();
+				await panel.getByRole("button", { name: "New chat" }).click();
+				const box = panel.getByLabel("Message Evry");
+				const tag = `${engine} ${Date.now().toString(36)}`;
+				const cards = panel.getByRole("region", { name: "Review before saving" });
+				const approve = panel.getByRole("button", { name: "Approve" });
+				for (const [n, ask] of [
+					`Change Maria's city to Dallas ${tag}`,
+					`Change James's city to Austin ${tag}`,
+				].entries()) {
+					await box.fill(ask);
+					await box.press("Enter");
+					await approve.nth(n).waitFor({ timeout: 60_000 });
+					await panel.getByRole("button", { name: "Stop" }).waitFor({ state: "hidden", timeout: 60_000 });
+				}
+				// A card from a live turn was not in any page read: each reads its own review (twice under React's dev
+				// StrictMode, once in production).
+				assert.equal(new Set(reads).size, 2);
+
+				// The launcher opens the latest conversation: both cards show their review with no read by id.
+				reads.length = 0;
+				await page.reload();
+				await hydrated(page);
+				await page.getByRole("button", { name: "Ask Evry" }).click();
+				await approve.nth(1).waitFor({ timeout: 15_000 });
+				assert.equal(await cards.count(), 2);
+				assert.deepEqual(reads, []);
+
+				// From History: another conversation first, then this one again.
+				await panel.getByRole("button", { name: "History" }).click();
+				await panel.getByRole("button", { name: "New chat" }).click();
+				await panel.getByRole("button", { name: "History" }).click();
+				await panel.getByRole("button", { name: new RegExp(`Change Maria's city to Dallas ${tag}`) }).click();
+				await approve.nth(1).waitFor({ timeout: 15_000 });
+				assert.equal(await cards.count(), 2);
+				assert.deepEqual(reads, []);
 			},
 			{ width: 390, height: 844 },
 		));

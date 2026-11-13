@@ -14,8 +14,6 @@
 @source "../../../../packages/ui/src";
 
 /* Data and scripts are not Tailwind sources. */
-@source not "../marketing/scene-data.ts";
-@source not "../marketing/demo-data.ts";
 @source not "../marketing/logo-symbols.ts";
 @source not "../styles";
 @source not "../../scripts";
@@ -38,7 +36,13 @@
 	--color-mk-photo-base: #3a3529;
 
 	--spacing-page: clamp(16px, 3vw, 40px);
-	--spacing-section: clamp(72px, 8vw, 120px);
+	/* The space above and below each section: 160 px on desktop (Sebastian, Oct 31 2026: "I like 160 way more"; the
+	   OPS-82 prototype grows it to 240 px) and 80 px on phones, 640 px and narrower (Sebastian, Oct 31 2026: "reduce the
+	   section spacing... to maybe half of what it's now, while keeping what we have on desktop"). The phone value is set
+	   once, in the :root block after this theme. The plain side of a full-width photo section takes 1.5 times the token
+	   (240 px, 120 px on phones), because the photo edge needs more room than text. */
+	--spacing-section: 160px;
+	--spacing-section-photo: calc(var(--spacing-section) * 1.5);
 	--container-mk: 1440px;
 
 	/* The prototype's breakpoints. Use them as max-* variants: max-mk-nav is 1120 px and narrower. */
@@ -73,8 +77,6 @@
 
 	--shadow-mk-card:
 		0 1px 2px rgb(from var(--color-ink) r g b / 0.04), 0 6px 18px -10px rgb(from var(--color-ink) r g b / 0.1);
-	--shadow-mk-media:
-		0 2px 6px rgb(from var(--color-ink) r g b / 0.06), 0 24px 48px -16px rgb(from var(--color-ink) r g b / 0.22);
 	--shadow-mk-pill:
 		inset 0 0 0 1px var(--color-mk-line), 0 1px 2px rgb(from var(--color-ink) r g b / 0.06),
 		0 14px 32px -16px rgb(from var(--color-ink) r g b / 0.3);
@@ -85,8 +87,12 @@
 	--ease-mk-out: cubic-bezier(0.33, 1, 0.68, 1);
 }
 
-/* The marketing type roles step between scale sizes at the site's breakpoints. */
+/* The marketing type roles step between scale sizes at the site's breakpoints. The section space halves on phones;
+   --spacing-section-photo follows it. */
 :root {
+	@variant max-mk-sm {
+		--spacing-section: 80px;
+	}
 	@variant mk-sm {
 		--text-mk-hero: var(--ef-display-md);
 	}
@@ -180,46 +186,43 @@
 	--color-mk-ink-04: rgb(from var(--color-ink) r g b / 0.04);
 	--color-mk-ink-05: rgb(from var(--color-ink) r g b / 0.05);
 	--color-mk-ink-06: rgb(from var(--color-ink) r g b / 0.06);
-	--color-mk-ink-10: rgb(from var(--color-ink) r g b / 0.1);
-	--color-mk-ink-12: rgb(from var(--color-ink) r g b / 0.12);
-	--color-mk-ink-18: rgb(from var(--color-ink) r g b / 0.18);
 	--color-mk-ink-30: rgb(from var(--color-ink) r g b / 0.3);
-	--color-mk-ink-35: rgb(from var(--color-ink) r g b / 0.35);
 	--color-mk-ink-40: rgb(from var(--color-ink) r g b / 0.4);
 	--color-mk-ink-42: rgb(from var(--color-ink) r g b / 0.42);
-	--color-mk-ink-45: rgb(from var(--color-ink) r g b / 0.45);
 	--color-mk-ink-46: rgb(from var(--color-ink) r g b / 0.46);
 	--color-mk-ink-50: rgb(from var(--color-ink) r g b / 0.5);
 	--color-mk-ink-60: rgb(from var(--color-ink) r g b / 0.6);
-	--color-mk-white-0: rgb(from var(--color-white) r g b / 0);
 	--color-mk-white-25: rgb(from var(--color-white) r g b / 0.25);
 	--color-mk-white-55: rgb(from var(--color-white) r g b / 0.55);
-	--color-mk-black-20: rgb(from var(--color-black) r g b / 0.2);
-	--color-mk-canvas-0: rgb(from var(--color-mk-canvas) r g b / 0);
 	--color-mk-green-16: rgb(from var(--color-green-500) r g b / 0.16);
 	--color-mk-green-35: rgb(from var(--color-green-500) r g b / 0.35);
 	--color-mk-green-600-20: rgb(from var(--color-green-600) r g b / 0.2);
-	--color-mk-green-600-22: rgb(from var(--color-green-600) r g b / 0.22);
-	--color-mk-green-600-24: rgb(from var(--color-green-600) r g b / 0.24);
-	--color-mk-green-600-30: rgb(from var(--color-green-600) r g b / 0.3);
-	--color-mk-amber-500-18: rgb(from var(--color-amber-500) r g b / 0.18);
 	/* Marketing only (the prototype's values). */
 	--color-mk-surface-3: #eae7e0;
 	--color-mk-card-shade: #01502f;
 	--color-mk-done-top: #07e38d;
 	--color-mk-done-bottom: #01c278;
 	--color-mk-done-ink: #003e23;
-	--color-mk-bot-shade: #013c22;
-	--color-mk-bot-shade-18: rgb(from var(--color-mk-bot-shade) r g b / 0.18);
-	--color-mk-bot-shade-35: rgb(from var(--color-mk-bot-shade) r g b / 0.35);
 	--color-mk-focus-blue-20: rgb(from var(--color-blue-500) r g b / 0.2);
-	--color-mk-bar: #e3e7ec;
-	--color-mk-bar-muted: #b9c0bb;
 	--color-mk-skeleton: #eceff2;
 	--color-mk-skeleton-hi: #f7f8fa;
 	/* Cream text and the ink-backed secondary button on photos (the CTA box). */
 	--color-mk-cream-90: rgb(from var(--color-cream) r g b / 0.9);
 	--color-mk-cream-70: rgb(from var(--color-cream) r g b / 0.7);
+	/* OPS-82 home sections: the frosted icon box, the journey path and the sending tiles on a photo. */
+	--color-mk-cream-26: rgb(from var(--color-cream) r g b / 0.26);
+	--color-mk-cream-42: rgb(from var(--color-cream) r g b / 0.42);
+	--color-mk-cream-45: rgb(from var(--color-cream) r g b / 0.45);
+	--color-mk-cream-78: rgb(from var(--color-cream) r g b / 0.78);
+	--color-mk-cream-92: rgb(from var(--color-cream) r g b / 0.92);
+	--color-mk-ink-26: rgb(from var(--color-ink) r g b / 0.26);
+	--color-mk-ink-62: rgb(from var(--color-ink) r g b / 0.62);
+	--color-mk-canvas-92: rgb(from var(--color-mk-canvas) r g b / 0.92);
+	/* The prototype's mint: the icon tiles of #every-plant and #trust, and the sending-paths phrase highlight. */
+	--color-mk-mint: #d6fbe3;
+	/* OPS-82 /oversight: the #every-plant tiles on the field photo and the rules under the #leaders stops. */
+	--color-mk-canvas-94: rgb(from var(--color-mk-canvas) r g b / 0.94);
+	--color-mk-cream-50: rgb(from var(--color-cream) r g b / 0.5);
 	--color-mk-ink-55: rgb(from var(--color-ink) r g b / 0.55);
 	--color-mk-ink-56: rgb(from var(--color-ink) r g b / 0.56);
 	--color-mk-ink-66: rgb(from var(--color-ink) r g b / 0.66);
@@ -227,20 +230,17 @@
 	--color-mk-danger-ink: #6e1a2e;
 	--color-mk-accent-ink: #111318;
 
-	/* Panel and card shadows. Each one starts with the white ring. */
-	--shadow-mk-panel-body:
-		0 0 0 1px var(--color-mk-ink-05), 0 1px 2px var(--color-mk-ink-05), 0 26px 50px -26px var(--color-mk-ink-40);
-	/* Written out: Tailwind inlines theme shadows into their utilities, so one shadow cannot reference another. */
-	--shadow-mk-panel:
-		var(--ui-ring), 0 0 0 1px var(--color-mk-ink-05), 0 1px 2px var(--color-mk-ink-05),
-		0 26px 50px -26px var(--color-mk-ink-40);
+	--shadow-mk-frost: inset 0 0 0 1px var(--color-mk-cream-42);
+	--shadow-mk-frost-tile: inset 0 0 0 1px var(--color-mk-cream-26);
+	--shadow-mk-stop: 0 18px 36px -18px rgb(from var(--color-ink) r g b / 0.7);
+	--shadow-mk-say: 0 16px 32px -18px rgb(from var(--color-ink) r g b / 0.65);
+	/* Panel and card shadows. Each one starts with the white ring. Written out: Tailwind inlines theme shadows into their
+	   utilities, so one shadow cannot reference another. */
 	--shadow-mk-panel-flat: var(--ui-ring), 0 0 0 1px var(--color-mk-ink-05), 0 26px 50px -26px var(--color-mk-ink-40);
 	--shadow-mk-hero-card:
 		var(--ui-ring), 0 0 0 1px rgb(from var(--color-mk-card-shade) r g b / 0.06),
 		0 1px 2px rgb(from var(--color-mk-card-shade) r g b / 0.08),
 		0 24px 48px -24px rgb(from var(--color-mk-card-shade) r g b / 0.45);
-	--shadow-mk-vignette: var(--ui-ring), 0 1px 2px var(--color-mk-ink-06), 0 22px 40px -22px var(--color-mk-ink-42);
-	--shadow-mk-insight: var(--ui-ring), 0 18px 36px -24px var(--color-mk-ink-55);
 	--shadow-mk-chip: 0 0 0 1px var(--color-line-2), 0 4px 10px -6px var(--color-mk-ink-30);
 	--shadow-mk-badge: inset 0 0 0 1px var(--color-line), 0 1px 2px var(--color-mk-ink-05);
 	/* The large product pictures (app frames in the proof and /oversight hero) and the field-gradient CTA box. */
@@ -249,31 +249,18 @@
 	--shadow-mk-cta: 0 30px 60px -36px var(--color-mk-ink-55);
 	/* The animated panel frames, the hero panel and smaller parts. */
 	--shadow-mk-frame: inset 0 0 0 1px var(--color-mk-ink-06), 0 30px 60px -40px var(--color-mk-ink-30);
-	--shadow-mk-frame-flat: inset 0 0 0 1px var(--color-mk-ink-06);
 	--shadow-mk-hero-panel: 0 30px 60px -40px var(--color-mk-ink-50);
-	--shadow-mk-icon-tile: inset 0 0 0 1px var(--color-mk-line);
 	--shadow-mk-btn-light: 0 8px 18px -10px var(--color-mk-ink-60);
-	--shadow-mk-ring-sides: -6px 0 0 0 var(--color-mk-white-25), 6px 0 0 0 var(--color-mk-white-25);
 	--shadow-mk-hairline: 0 1px 2px var(--color-mk-ink-04);
-	--shadow-mk-knob: 0 1px 2px var(--color-mk-black-20);
-	--shadow-mk-sheet: 0 0 0 1px var(--color-line), 0 22px 44px -20px var(--color-mk-ink-50);
 	--shadow-mk-input-focus: inset 0 0 0 1.5px var(--color-green-500), 0 0 0 3px var(--color-mk-green-16);
 	--shadow-mk-field-focus: inset 0 0 0 1.5px var(--color-blue-500), 0 0 0 3px var(--color-mk-focus-blue-20);
 	--shadow-mk-green-edge: inset 0 0 0 1px var(--color-mk-green-35);
 	--shadow-mk-chip-on: inset 0 0 0 1px var(--color-mk-green-600-20);
-	--shadow-mk-row-on: inset 0 0 0 1px var(--color-mk-green-600-22);
-	--shadow-mk-group-on: inset 0 0 0 1.5px var(--color-mk-green-600-30);
-	--drop-shadow-mk-cursor: 0 2px 3px var(--color-mk-ink-35);
 
 	/* Loops inside the product visuals. Each one pauses while its scene is off screen ([data-idle] below). */
 	--animate-mk-shimmer: mk-shimmer 2.4s ease-in-out infinite;
 	/* The typing caret is a 1.5 px stripe at the end of the typed text (a background), so it never moves a box. */
 	--animate-mk-caret: mk-caret 1s steps(1) infinite;
-	--animate-eb-morph: eb-morph 9s ease-in-out infinite;
-	--animate-eb-bounce: eb-bounce 0.9s cubic-bezier(0.3, 1.6, 0.5, 1) infinite alternate;
-	--animate-eb-talk: eb-talk 0.36s ease-in-out infinite alternate;
-	--animate-eb-blink: eb-blink var(--blink, 4.6s) infinite var(--blink-delay, 0s);
-	--animate-eb-blink-now: eb-blink-now 0.18s ease;
 
 	/* The /oversight hero dashboard rises in once on load. */
 	--animate-mk-ov-rise: mk-ov-rise 0.9s cubic-bezier(0.33, 1, 0.68, 1) 0.2s both;
@@ -300,58 +287,90 @@
 			background-size: 0 0;
 		}
 	}
-	@keyframes eb-blink {
-		0%,
-		94%,
-		100% {
-			transform: scaleY(1);
-		}
-		96% {
-			transform: scaleY(0.08);
-		}
+}
+
+/* Evry on the landing pages (components/kit/EvryBot.tsx wraps the @everyfield/ui EvryBot). product.css scopes its
+   .evry-bot rules to the product root, which marketing pages never render, so the kit root carries the same rules. The
+   keyframes (ef-eb-float, ef-eb-blink, ef-eb-bounce, ef-eb-orbit) come from product.css; the reduced-motion rule in the
+   base layer stops them. Keep these rules in step with product.css. */
+@layer components {
+	[data-evry-bot] .evry-bot {
+		--s: 24px;
+		position: relative;
+		display: block;
+		width: var(--s);
+		height: var(--s);
 	}
-	@keyframes eb-blink-now {
-		50% {
-			transform: scaleY(0.08);
-		}
+	[data-evry-bot] .evry-bot[data-size="lg"] {
+		--s: 40px;
 	}
-	@keyframes eb-morph {
-		0%,
-		100% {
-			border-radius: 46% 54% 52% 48% / 50% 46% 54% 50%;
-			transform: rotate(0deg) scale(1);
-		}
-		25% {
-			border-radius: 58% 42% 40% 60% / 48% 58% 42% 52%;
-			transform: rotate(-4deg) scale(1.02, 0.98);
-		}
-		50% {
-			border-radius: 38% 62% 56% 44% / 60% 40% 60% 40%;
-			transform: rotate(3deg) scale(0.98, 1.03);
-		}
-		75% {
-			border-radius: 52% 48% 62% 38% / 44% 56% 44% 56%;
-			transform: rotate(-2deg) scale(1.01);
-		}
+	[data-evry-bot] .eb-body {
+		position: absolute;
+		inset: 0;
 	}
-	@keyframes eb-bounce {
-		from {
-			transform: translateY(0) scale(1.03, 0.97);
-			border-radius: 50% 50% 46% 54% / 56% 56% 44% 44%;
-		}
-		to {
-			transform: translateY(calc(var(--s) * -0.08)) scale(0.98, 1.03);
-			border-radius: 46% 54% 52% 48% / 50% 46% 54% 50%;
-		}
+	[data-evry-bot] .eb-body svg {
+		display: block;
+		width: 100%;
+		height: 100%;
+		overflow: visible;
+		filter: drop-shadow(0 calc(var(--s) * 0.05) calc(var(--s) * 0.06) rgb(1 60 34 / 0.3));
 	}
-	@keyframes eb-talk {
-		from {
-			height: calc(var(--s) * 0.04);
-			width: calc(var(--s) * 0.14);
-		}
-		to {
-			height: calc(var(--s) * 0.12);
-			width: calc(var(--s) * 0.12);
+	/* The float runs at lg only: held bots and happy, which bounces, do not float. */
+	[data-evry-bot] .evry-bot[data-eb][data-size="lg"]:not([data-hold], [data-mood="happy"]) .eb-body {
+		transform-origin: 50% 92%;
+		will-change: transform;
+		animation: ef-eb-float var(--eb-float, 3.6s) ease-in-out var(--eb-float-at, 0s) infinite alternate;
+	}
+	[data-evry-bot] .eb-fill {
+		fill: var(--ef-green);
+	}
+	[data-evry-bot] :is(.eb-s0, .eb-s1) {
+		stop-color: #013c22;
+		stop-opacity: 0;
+	}
+	[data-evry-bot] .eb-s1 {
+		stop-opacity: 0.22;
+	}
+	[data-evry-bot] :is(.eb-h0, .eb-h1) {
+		stop-color: #fff;
+		stop-opacity: 0;
+	}
+	[data-evry-bot] .eb-h0 {
+		stop-opacity: 0.6;
+	}
+	[data-evry-bot] .eb-e {
+		fill: var(--color-ink-fixed);
+		transform-box: fill-box;
+		transform-origin: center;
+	}
+	[data-evry-bot] .evry-bot[data-blink] .eb-e {
+		animation: ef-eb-blink 0.18s ease;
+	}
+	[data-evry-bot] .evry-bot[data-mood="happy"] {
+		animation: ef-eb-bounce 0.9s cubic-bezier(0.3, 1.6, 0.5, 1) infinite alternate;
+	}
+	[data-evry-bot] .evry-bot[data-mood="happy"] .eb-e {
+		fill: none;
+		stroke: var(--color-ink-fixed);
+		stroke-width: 4.65;
+		stroke-linecap: round;
+	}
+	/* Thinking: the dot orbits at lg only. */
+	[data-evry-bot] .evry-bot[data-mood="thinking"][data-size="lg"]::after {
+		content: "";
+		position: absolute;
+		width: calc(var(--s) * 0.16);
+		height: calc(var(--s) * 0.16);
+		border-radius: 50%;
+		background: var(--color-ink-fixed);
+		top: 50%;
+		left: 50%;
+		margin: calc(var(--s) * -0.08);
+		animation: ef-eb-orbit 1.4s linear infinite;
+	}
+	@media (prefers-reduced-motion: reduce) {
+		[data-evry-bot] .evry-bot[data-mood="thinking"]::after {
+			display: none;
 		}
 	}
 }
@@ -479,6 +498,31 @@
 	);
 }
 
+/* /oversight #leaders (OPS-82 .ldr): a shade from the top and the bottom over the marigolds, so the cream headline, lead
+   and step text keep 4.5:1. The prototype darkens the shade with the photo (brightness .7), so its ink is 70 % ink. */
+@utility mk-leaders-shade {
+	--ld: rgb(from var(--color-ink) calc(r* 0.7) calc(g* 0.7) calc(b* 0.7));
+	background: linear-gradient(
+		180deg,
+		rgb(from var(--ld) r g b / 0.7),
+		rgb(from var(--ld) r g b / 0.64) 38%,
+		rgb(from var(--ld) r g b / 0.2) 53%,
+		rgb(from var(--ld) r g b / 0.32) 62%,
+		rgb(from var(--ld) r g b / 0.8)
+	);
+	@media (width < 901px) {
+		background: linear-gradient(
+			180deg,
+			rgb(from var(--ld) r g b / 0.68),
+			rgb(from var(--ld) r g b / 0.58) 28%,
+			rgb(from var(--ld) r g b / 0.28) 34%,
+			rgb(from var(--ld) r g b / 0.32) 43%,
+			rgb(from var(--ld) r g b / 0.7) 49%,
+			rgb(from var(--ld) r g b / 0.82)
+		);
+	}
+}
+
 /* Diagonal hatch fill for meters and bars. --hatch sets the colour. */
 @utility mk-hatch {
 	background-color: color-mix(in srgb, var(--hatch, var(--color-blue-300)) 16%, transparent);
@@ -523,6 +567,15 @@
 		rgba(0, 0, 0, 0.85) calc(var(--a) + var(--d) * 0.9),
 		#000 calc(var(--a) + var(--d))
 	);
+}
+
+/* A full-width photo section carries data-photo-section. Its neighbours take the photo space on the side that touches
+   it (the prototype's --mk-section-space-photo rules). Unlayered, so it wins over each section's py-section. */
+section:has(+ [data-photo-section]) {
+	padding-bottom: var(--spacing-section-photo);
+}
+[data-photo-section] + section {
+	padding-top: var(--spacing-section-photo);
 }
 
 /* A scene that is off screen or paused marks its root with data-idle: its CSS loops stop too. */
