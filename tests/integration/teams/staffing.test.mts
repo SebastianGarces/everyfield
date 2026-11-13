@@ -73,7 +73,7 @@ const worship = await team("Worship");
 const kids = await team("Kids ministry");
 const h1 = await role(hospitality, "Greeter");
 const h2 = await role(hospitality, "Coffee host");
-const w1 = await role(worship, "Vocals");
+await role(worship, "Vocals");
 
 test("AC:GAP-EVR-410 INV-counts: staffing counts role slots and people apart, and an ended membership counts for neither", async () => {
 	await assign(hospitality, h1, alex);

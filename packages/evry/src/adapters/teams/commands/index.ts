@@ -222,8 +222,7 @@ const createRole = reviewed({
 	input: z.strictObject({ teamId, name, ...roleFacts }),
 	leaders: true,
 	review: (actor, value) => {
-		const { teamId: _team, ...facts } = value;
-		return sql`SELECT ${review(teamTarget, changes(...roleFields(facts, none)))} AS review,
+		return sql`SELECT ${review(teamTarget, changes(...roleFields(value, none)))} AS review,
 			${args(null, json(value))} AS args ${ministry(actor, value.teamId)} AND t.archived_at IS NULL`;
 	},
 	request: createRoleRequest,
@@ -238,8 +237,7 @@ const editRole = reviewed({
 		.refine((v) => Object.keys(v).length > 1, "nothing to change"),
 	leaders: true,
 	review: (actor, value) => {
-		const { roleId: _role, ...facts } = value;
-		return sql`SELECT ${review(roleTarget, changes(...roleFields(facts, column("r"))))} AS review,
+		return sql`SELECT ${review(roleTarget, changes(...roleFields(value, column("r"))))} AS review,
 			${args(sql`r.revision`, json(value))} AS args ${roleIn(actor, value.roleId)} AND r.retired_at IS NULL`;
 	},
 	request: editRoleRequest,
@@ -437,7 +435,7 @@ const scheduleMeeting = reviewed({
 	}),
 	leaders: true,
 	review: (actor, value) => {
-		const { teamId: _team, ...facts } = value;
+		const facts = Object.fromEntries(Object.entries(value).filter(([field]) => field !== "teamId"));
 		return sql`SELECT ${review(
 			teamTarget,
 			changes(...Object.entries(facts).map(([field, after]) => change(field, sql`'null'::jsonb`, json(after)))),
