@@ -16,7 +16,7 @@
       "id": "G-AUTH",
       "title": "Implementation kickoff",
       "owner": "Owner",
-      "closure": "Separate explicit implementation authorization for the reviewed frozen version. Package state is recorded only in docs/build-progress.json.",
+      "closure": "Separate explicit implementation authorization for the reviewed frozen version. docs/build-progress.json stopped updating on 2026-10-22 at PR #235; evf v2's task records are the live state.",
       "status": "authorized",
       "work_packages": [],
       "authorization": {
@@ -34,6 +34,7 @@
       "owner": "Owner + operations",
       "closure": "Approve itemized tiers/usage/low-expected-high monthly envelope and recovery/operator costs before any subscription or usage commitment. No vendor/destination re-vote.",
       "status": "awaiting-concrete-approval",
+      "status_as_of": "2026-11-11",
       "work_packages": [
         "WP-003",
         "WP-050",
@@ -42,68 +43,70 @@
     },
     {
       "id": "G-WORKFLOW",
-      "title": "Merged development workflow",
-      "owner": "Phase 7 coordinator",
-      "closure": "W0 to W5 are merged, and one task has run end to end through the Phase 7 flow: isolated worktree and local preview, real verification by a different model family, green GitHub CI on the exact head, a PR body meeting the standard, and merge through the new flow. Preserve feedback routing and owner approval rules.",
+      "title": "evf v2 development workflow",
+      "owner": "Owner",
+      "closure": "One task filed with evf has run end to end through the evf v2 flow that evf.toml and docs/build-agent-workflow.md define: plan, implement, simplify, the repo's checks, a verifier review by a fresh session that did not write the change, a pull request whose required GitHub CI is green on the exact head, and landing by evf, with Sebastian's approval on any path in an evf.toml owner class. Preserve feedback routing and owner approval rules.",
       "status": "reconciled-independent-review",
+      "status_as_of": "2026-11-11",
       "source": {
         "repository": "https://github.com/SebastianGarces/everyfield",
         "ref": "refs/heads/main",
-        "verified_commit": "69d8ce4eaeb9ca74cd0b755f9380ba7e316e46eb",
-        "merged": [
-          {
-            "task": "W0",
-            "pr": 56,
-            "commit": "8d5332e609b3958a4543241a152e3f1b9276f441"
-          },
-          {
-            "task": "W0b",
-            "pr": 58,
-            "commit": "961d71f4952fb4b87a91988e4bf65c76e151e5d2"
-          },
-          {
-            "task": "W1",
-            "pr": 57,
-            "commit": "77033a5afab311d88be68d4f1c78be6985be7ff1"
-          },
-          {
-            "task": "W2",
-            "pr": 55,
-            "commit": "9adbffb5619db5c8858e81958b405ab11b8bd0ed"
-          },
-          {
-            "task": "W3",
-            "pr": 61,
-            "commit": "e0f50a65065af4d63f02ee80e3f1438aee6567b8"
-          },
-          {
-            "task": "W4",
-            "pr": 60,
-            "commit": "a32c12e9de446e6d971453689bc820565782448e"
-          },
-          {
-            "task": "W5",
-            "pr": 68,
-            "commit": "3895651f904873fadb358ec9609f5c79b3e569e7"
-          },
-          {
-            "task": "W6",
-            "pr": 72,
-            "commit": "69d8ce4eaeb9ca74cd0b755f9380ba7e316e46eb"
-          }
-        ],
-        "end_to_end_task": "OPS-1",
-        "end_to_end_evidence": "This status takes effect when evf ship merges OPS-1: the merge requires green required CI on the exact head, an EVF-Review approval from the other model family after verify-preview, and a PR body meeting the standard. The OPS-1 PR and its review comment are the record.",
         "entrypoints": [
-          "bin/evf",
-          "tools/evf/main.ts",
+          "evf.toml",
+          "docs/build-agent-workflow.md",
           ".github/workflows/ci.yml",
-          ".agents/skills/ship/SKILL.md",
           ".agents/skills/verify-preview/SKILL.md",
-          ".agents/skills/everyfield-pr/template.md",
           ".agents/roles/coordinator.md",
           ".agents/roles/feedback-desk.md"
-        ]
+        ],
+        "v1_history": {
+          "note": "evf v1 record, kept as history only. It is not the evf v2 closure condition.",
+          "verified_commit": "69d8ce4eaeb9ca74cd0b755f9380ba7e316e46eb",
+          "merged": [
+            {
+              "task": "W0",
+              "pr": 56,
+              "commit": "8d5332e609b3958a4543241a152e3f1b9276f441"
+            },
+            {
+              "task": "W0b",
+              "pr": 58,
+              "commit": "961d71f4952fb4b87a91988e4bf65c76e151e5d2"
+            },
+            {
+              "task": "W1",
+              "pr": 57,
+              "commit": "77033a5afab311d88be68d4f1c78be6985be7ff1"
+            },
+            {
+              "task": "W2",
+              "pr": 55,
+              "commit": "9adbffb5619db5c8858e81958b405ab11b8bd0ed"
+            },
+            {
+              "task": "W3",
+              "pr": 61,
+              "commit": "e0f50a65065af4d63f02ee80e3f1438aee6567b8"
+            },
+            {
+              "task": "W4",
+              "pr": 60,
+              "commit": "a32c12e9de446e6d971453689bc820565782448e"
+            },
+            {
+              "task": "W5",
+              "pr": 68,
+              "commit": "3895651f904873fadb358ec9609f5c79b3e569e7"
+            },
+            {
+              "task": "W6",
+              "pr": 72,
+              "commit": "69d8ce4eaeb9ca74cd0b755f9380ba7e316e46eb"
+            }
+          ],
+          "end_to_end_task": "OPS-1",
+          "end_to_end_evidence": "This status takes effect when evf ship merges OPS-1: the merge requires green required CI on the exact head, an EVF-Review approval from the other model family after verify-preview, and a PR body meeting the standard. The OPS-1 PR and its review comment are the record."
+        }
       },
       "scope": "global"
     },
@@ -168,7 +171,7 @@
       "title": "Early access site go-live",
       "owner": "Owner and cross-model verifier",
       "closure": "WP-097 only: normal tests, cross-model review, reviewed access/privacy/terms copy and Sebastian approval of the Vercel preview before production. No signed evf proof. Owner ruling 2026-10-14; product workflow and before-customer-data gates remain separate. Use Vercel everyfield, new Neon everyfield-v3 and Resend; never v2 database values.",
-      "status": "owner-preview-approval-required",
+      "status": "closed until the build plan completes",
       "work_packages": [
         "WP-097"
       ],
@@ -278,7 +281,5 @@
       "recommendation": "Keep whole-organization deletion outside alpha until Sebastian approves its separate policy; do not infer it from individual Person removal.",
       "decision_before": "Any whole-organization deletion feature; outside alpha"
     }
-  ],
-  "implementation_tests_run": 0,
-  "provider_changes": 0
+  ]
 }

@@ -64,7 +64,7 @@ test("INV-privacy C64: one Evry turn sends one Langfuse trace with the queue, ac
 	);
 	const { owner, conversationId, turnId } = await ask("Find Casey");
 	assert.equal(await work(), "succeeded");
-	for await (const _ of observeConversation(db, owner, conversationId, 0, AbortSignal.timeout(5_000), 20));
+	await Array.fromAsync(observeConversation(db, owner, conversationId, 0, AbortSignal.timeout(5_000), 20));
 	await flushTraces();
 
 	const traceId = createHash("sha256").update(turnId).digest("hex").slice(0, 32);

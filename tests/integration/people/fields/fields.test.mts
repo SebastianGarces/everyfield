@@ -1,10 +1,10 @@
-import { createDatabase, closeDatabase } from "../../../../packages/db/src/client.ts";
+import { fixture, ok, refused } from "../../../support/fixture.mts";
 import { sql } from "../../../../packages/db/node_modules/drizzle-orm/index.js";
-import test, { before, after } from "node:test";
+import test, { after } from "node:test";
 import assert from "node:assert/strict";
-import { randomUUID, randomBytes } from "node:crypto";
+import { randomUUID } from "node:crypto";
+import { createRequire } from "node:module";
 
-import { migrate } from "../../../../packages/db/src/schema/migrate.ts";
 import { runDueObjectCleanup } from "../../../../apps/web/src/server/jobs/object-cleanup.ts";
 import { RequestActor } from "../../../../packages/domain/src/access/session.ts";
 import { PeopleReadContext } from "../../../../packages/domain/src/people/core.ts";
@@ -16,6 +16,7 @@ import {
 	uploadPersonPhoto,
 	withPeopleWrite,
 } from "../../../../packages/domain/src/people/index.ts";
+import { leave } from "../../../../apps/web/src/features/people/fields/leave.ts";
 
 // The task reminder port of a stage change or retirement. These people hold no dated, assigned task, so a replan
 // here would be a bug.
@@ -24,39 +25,18 @@ const noReminders = async () => {
 };
 
 // Households, tags, skills and the person photo through their public operations on a scratch schema.
-const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
-const localCi =
-	process.env.CI === "true" &&
-	process.env.EARLY_ACCESS_TEST_DATABASE === "1" &&
-	["localhost", "127.0.0.1"].includes(source.hostname) &&
-	source.pathname === "/everyfield_ci";
-if (
-	(!localCi && source.hostname !== "ep-autumn-dew-b8ltidky.c-14.us-east-1.aws.neon.tech") ||
-	process.env.NODE_ENV === "production"
-)
-	throw Error("Only approved shared development or disposable CI endpoint allowed");
-if (!localCi) source.searchParams.set("sslmode", "verify-full");
-const schema = "wp012_" + randomUUID().replaceAll("-", ""),
-	role = "wp012_" + randomBytes(8).toString("hex");
-const admin = createDatabase({
-	connectionString: source.href,
-	max: 4,
-	options: `-c search_path=${schema},pg_catalog,pg_temp`,
-});
-let db;
+const database = await fixture({ prefix: "wp012" });
+const { admin } = database;
+const db = database.pools.runtime;
 
-const plants = [randomUUID(), randomUUID()],
-	actors = Array.from({ length: 3 }, () => ({ id: randomUUID(), user: randomUUID(), session: randomUUID() }));
+const plants = [database.tenant.id, (await database.plant()).id],
+	actors = [
+		database.actors.owner,
+		database.actors.member,
+		await database.actor({ kind: "plant", id: plants[1] }, "admin"),
+	];
 // 0: plant A owner, 1: plant A member, 2: plant B admin.
 const ctx = (who = 0) => ({ session: actors[who].session, selected: { kind: "plant", id: plants[who === 2 ? 1 : 0] } });
-const ok = (result) => {
-	assert.equal(result.status, "ok", JSON.stringify(result));
-	return result.value;
-};
-const refused = (result, code = "unavailable") => {
-	assert.equal(result.status, "refused", JSON.stringify(result));
-	assert.equal(result.error.code, code);
-};
 const tx = (body) => db.transaction(body);
 // A write as the web mount runs it: withPeopleWrite with the request's resolved actor (RT-3).
 const write = async (who, body) =>
@@ -94,50 +74,8 @@ async function retire(p) {
 }
 const revisionOf = async (id) => (await rows(sql`SELECT revision::text r FROM person WHERE id=${sql.param(id)}`))[0].r;
 
-before(async () => {
-	await admin.execute(sql.raw(`CREATE SCHEMA ${schema}`));
-	await migrate(admin, schema);
-	const password = randomBytes(32).toString("hex");
-	await admin.execute(
-		sql.raw(`CREATE ROLE ${role} LOGIN INHERIT PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`),
-	);
-	await admin.execute(sql.raw(`GRANT everyfield_runtime TO ${role}`));
-	const url = new URL(source);
-	url.username = role;
-	url.password = password;
-	db = createDatabase({ connectionString: url.href, max: 4, options: `-c search_path=${schema},pg_catalog,pg_temp` });
-	for (const a of actors) {
-		await admin.execute(
-			sql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${sql.param(a.user)},${sql.param(a.id + "@example.test")},true,'Synthetic')`,
-		);
-		await admin.execute(
-			sql`INSERT INTO account(id,auth_user_id,registration_state,registration_kind) VALUES(${sql.param(a.id)},${sql.param(a.user)},'active','planter')`,
-		);
-		await admin.execute(
-			sql`INSERT INTO auth_session(id,user_id,token,expires_at) VALUES(${sql.param(a.session)},${sql.param(a.user)},${sql.param(randomUUID())},clock_timestamp()+interval '1 day')`,
-		);
-	}
-	for (const id of plants)
-		await admin.execute(
-			sql`INSERT INTO plant(id,name,timezone,warning_days,alert_days,digest_weekday,digest_hour,phase,material_revision) VALUES(${sql.param(id)},'Synthetic','America/Chicago',7,14,1,8,1,1)`,
-		);
-	for (const [i, plant, roleName] of [
-		[0, plants[0], "owner"],
-		[1, plants[0], "member"],
-		[2, plants[1], "admin"],
-	])
-		await admin.execute(
-			sql`INSERT INTO seat(account_id,plant_id,role,accepted_at) VALUES(${sql.param(actors[i].id)},${sql.param(plant)},${sql.param(roleName)},clock_timestamp())`,
-		);
-});
 after(async () => {
-	if (db) await closeDatabase(db);
-	try {
-		await admin.execute(sql.raw(`DROP SCHEMA IF EXISTS ${schema} CASCADE`));
-		await admin.execute(sql.raw(`DROP ROLE IF EXISTS ${role}`));
-	} finally {
-		await closeDatabase(admin);
-	}
+	await database.close();
 });
 
 test("AC:GAP-PPL-010 AC:TARGET-PPL-010 AC:PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-RETIRE plant-local tag names, nullable color, one link per pair and deletion with history", async () => {
@@ -261,7 +199,7 @@ test("AC:GAP-PPL-010 AC:TARGET-PPL-010 AC:PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-RET
 	const activity = ok(await tx((t) => peopleReader.getActivities(t, ctx(), { personId: jamie.id }))).items;
 	assert.deepEqual(
 		activity.map((a) => a.action),
-		["created", "updated", "retired"],
+		["retired", "updated", "created"],
 	);
 
 	// Delete previews the live count, removes every current link and keeps each Person's history.
@@ -559,12 +497,69 @@ test("AC:TARGET-PPL-009 AC:PERSONREF-PERSON-REDIRECT-MERGE-HISTORY-RETIRE househ
 			.filter((a) => a.household)
 			.map((a) => [a.action, a.household.from?.role ?? null, a.household.to?.name, a.household.to?.role]),
 		[
-			["updated", null, "Rivera household", "child"],
 			["updated", "child", "Rivera household", "other"],
+			["updated", null, "Rivera household", "child"],
 		],
 	);
 	assert.equal((await audit(h.id)).at(-1).action, "people.retired");
 	assert.equal(ok(await tx((t) => fields.listHouseholds(t, ctx(), {}))).total, 0);
+});
+
+test("AC:TARGET-PPL-009 leave-and-delete: one transaction, a replay answers ok, a refused delete keeps the member", async () => {
+	const start = async (name) => {
+		const p = await person(name);
+		const made = ok(
+			await write(0, async (t, c) =>
+				fields.createHouseholdWithHead(t, c, {
+					requestKey: key(),
+					expectedRevision: p.revision,
+					input: { name: `${name} household`, headPersonId: p.id },
+				}),
+			),
+		).result.household;
+		return { p, h: made };
+	};
+	const households = async (id) => rows(sql`SELECT id FROM household WHERE id=${sql.param(id)}`);
+	const membership = async (id) =>
+		(await rows(sql`SELECT household_id FROM person WHERE id=${sql.param(id)}`))[0].household_id;
+	const leaving = (p, k, rev, deleteEmpty) =>
+		write(0, (t, c) => leave(t, c, { requestKey: k, expectedRevision: rev, input: { personId: p.id } }, deleteEmpty));
+
+	// The last member leaves and the empty household goes with them; the same request again answers ok.
+	const one = await start("Morgan Lee");
+	const k = key(),
+		rev = await revisionOf(one.p.id);
+	const first = ok(await leaving(one.p, k, rev, true));
+	assert.equal(first.result.household.memberCount, 0);
+	assert.equal(await membership(one.p.id), null);
+	assert.deepEqual(await households(one.h.id), []);
+	const again = ok(await leaving(one.p, k, rev, true));
+	assert.deepEqual(again, first, "the replay answers with the committed leave");
+	assert.deepEqual(await households(one.h.id), []);
+
+	// Leaving without the delete keeps the household.
+	const two = await start("Sam Ortiz");
+	ok(await leaving(two.p, key(), await revisionOf(two.p.id), false));
+	assert.equal(await membership(two.p.id), null);
+	assert.equal((await households(two.h.id)).length, 1);
+
+	// A household that still has a member refuses the delete, and the leave rolls back with it.
+	const three = await start("Ari Banks");
+	const other = await person("Noa Banks");
+	ok(
+		await write(0, async (t, c) =>
+			fields.addToHousehold(t, c, {
+				requestKey: key(),
+				expectedRevision: other.revision,
+				input: { householdId: three.h.id, personId: other.id, role: "spouse" },
+			}),
+		),
+	);
+	const before = await revisionOf(three.p.id);
+	refused(await leaving(three.p, key(), before, true), "conflict");
+	assert.equal(await membership(three.p.id), three.h.id);
+	assert.equal(await revisionOf(three.p.id), before);
+	assert.equal((await households(three.h.id)).length, 1);
 });
 
 const png = Buffer.from(
@@ -609,6 +604,7 @@ test("AC:TARGET-PPL-005 AC:PROVIDER48-002 AC:PROVIDER48-003 person photo: verifi
 		const pending = ok(
 			await write(who, async (t, c) =>
 				fields.requestPersonPhotoUpload(t, c, {
+					requestKey: key(),
 					personId: alex.id,
 					mime: "image/png",
 					byteLength: bytes.length,
@@ -639,7 +635,7 @@ test("AC:TARGET-PPL-005 AC:PROVIDER48-002 AC:PROVIDER48-003 person photo: verifi
 	// A failed upload keeps the current photo; a member cannot upload; a foreign church reads nothing.
 	const broken = ok(
 		await write(0, async (t, c) =>
-			fields.requestPersonPhotoUpload(t, c, { personId: alex.id, mime: "image/png", byteLength: 9 }),
+			fields.requestPersonPhotoUpload(t, c, { requestKey: key(), personId: alex.id, mime: "image/png", byteLength: 9 }),
 		),
 	);
 	refused(
@@ -649,7 +645,12 @@ test("AC:TARGET-PPL-005 AC:PROVIDER48-002 AC:PROVIDER48-003 person photo: verifi
 	refused(await set(broken.uploadId));
 	refused(
 		await write(1, async (t, c) =>
-			fields.requestPersonPhotoUpload(t, c, { personId: alex.id, mime: "image/png", byteLength: png.length }),
+			fields.requestPersonPhotoUpload(t, c, {
+				requestKey: key(),
+				personId: alex.id,
+				mime: "image/png",
+				byteLength: png.length,
+			}),
 		),
 	);
 	assert.deepEqual(ok(await tx((t) => fields.getPersonPhoto(t, ctx(), { personId: alex.id }))), {
@@ -711,6 +712,111 @@ test("AC:TARGET-PPL-005 AC:PROVIDER48-002 AC:PROVIDER48-003 person photo: verifi
 	refused(await readPersonPhoto(db, storage, ctx(), { personId: alex.id, versionId: third.pending.uploadId }));
 });
 
+const sharp = createRequire(import.meta.url)("../../../../packages/db/node_modules/sharp");
+/** A valid JPEG of exactly `size` bytes: a small image padded with comment segments after its start marker. */
+async function jpegOf(size) {
+	const image = await sharp({ create: { width: 64, height: 64, channels: 3, background: "#2e7d32" } })
+		.jpeg()
+		.toBuffer();
+	const parts = [image.subarray(0, 2)];
+	for (let left = size - image.length; left > 0;) {
+		const payload = Math.min(65533, left - 4);
+		assert.ok(payload >= 0, "a size the padding can reach");
+		const segment = Buffer.alloc(4 + payload, 0x20);
+		segment.writeUInt16BE(0xfffe, 0);
+		segment.writeUInt16BE(payload + 2, 2);
+		parts.push(segment);
+		left -= segment.length;
+	}
+	parts.push(image.subarray(2));
+	const bytes = Buffer.concat(parts);
+	assert.equal(bytes.length, size);
+	return bytes;
+}
+
+test("AC:TARGET-PPL-005 peo-51 peo-52 a 1.5 MB photo saves, and a replay of its request key after a lost answer answers the saved change with one upload", async () => {
+	const storage = privateStorage();
+	const send = storage.client.send;
+	let puts = 0;
+	storage.client.send = async (command) => {
+		if (command.constructor.name === "PutObjectCommand") puts++;
+		return send(command);
+	};
+	const sam = await person("Sam Ortiz");
+	const photo = await jpegOf(1_500_000);
+	// The three steps uploadPhoto takes (apps/web/src/features/people/fields/actions.ts), each with the change's request key.
+	const change = async (requestKey, expectedRevision, bytes) => {
+		const staged = ok(
+			await write(0, async (t, c) =>
+				fields.requestPersonPhotoUpload(t, c, {
+					requestKey,
+					personId: sam.id,
+					mime: "image/jpeg",
+					byteLength: bytes.length,
+				}),
+			),
+		);
+		ok(await uploadPersonPhoto(db, storage, ctx(), { uploadId: staged.uploadId, bytes }));
+		const saved = ok(
+			await write(0, async (t, c) =>
+				fields.setPersonPhoto(t, c, {
+					requestKey,
+					expectedRevision,
+					input: { personId: sam.id, uploadId: staged.uploadId },
+				}),
+			),
+		);
+		return { uploadId: staged.uploadId, saved };
+	};
+	const uploads = async () =>
+		(
+			await rows(
+				sql`SELECT count(*)::int n FROM file_object WHERE tenant_id=${sql.param(plants[0])} AND purpose='person_photo'`,
+			)
+		)[0].n;
+	const updates = async () =>
+		(
+			await rows(
+				sql`SELECT count(*)::int n FROM audit_event WHERE subject_id=${sql.param(sam.id)} AND command_id=id AND action='people.updated'`,
+			)
+		)[0].n;
+	const before = { uploads: await uploads(), updates: await updates() };
+
+	const requestKey = key();
+	const first = await change(requestKey, sam.revision, photo);
+	assert.equal(first.saved.outcome, "changed");
+	assert.deepEqual(first.saved.photo, { status: "available", personId: sam.id, versionId: first.uploadId });
+	// The answer is lost; the save lane sends the same request again. It answers the saved change, with its receipt.
+	const replay = await change(requestKey, sam.revision, photo);
+	assert.deepEqual(replay, first);
+	// One upload, stored once; one revision step and one audit entry.
+	assert.equal((await uploads()) - before.uploads, 1);
+	assert.equal(puts, 1);
+	assert.equal(storage.objects.size, 1);
+	assert.equal(await revisionOf(sam.id), String(Number(sam.revision) + 1));
+	assert.equal((await updates()) - before.updates, 1);
+	// Reading the photo back gives the new version and its bytes.
+	assert.deepEqual(ok(await tx((t) => fields.getPersonPhoto(t, ctx(1), { personId: sam.id }))), first.saved.photo);
+	const delivered = ok(await readPersonPhoto(db, storage, ctx(1), { personId: sam.id, versionId: first.uploadId }));
+	assert.deepEqual([Buffer.from(delivered.bytes).equals(photo), delivered.mediaType], [true, "image/jpeg"]);
+
+	// The upload ID comes from the church and the request key: another key names another upload, and the same key with
+	// another file is a conflict, not a replay.
+	const stage = (requestKey, byteLength) =>
+		write(0, async (t, c) =>
+			fields.requestPersonPhotoUpload(t, c, { requestKey, personId: sam.id, mime: "image/jpeg", byteLength }),
+		);
+	assert.equal(ok(await stage(requestKey, photo.length)).uploadId, first.uploadId);
+	assert.notEqual(ok(await stage(key(), photo.length)).uploadId, first.uploadId);
+	refused(await stage(requestKey, photo.length - 1), "conflict");
+
+	// A photo of exactly PHOTO_MAX_BYTES (3 MiB) passes the photo checks; one byte more is invalid.
+	const largest = await jpegOf(3 * 1024 * 1024);
+	const big = await change(key(), await revisionOf(sam.id), largest);
+	assert.equal(big.saved.outcome, "changed");
+	refused(await stage(key(), largest.length + 1), "invalid_input");
+});
+
 test("INV-tenancy C13: a seat ended after the request resolved its actor reads no people-fields data", async () => {
 	const p = await person("Morgan Lee");
 	const home = ok(
@@ -725,7 +831,12 @@ test("INV-tenancy C13: a seat ended after the request resolved its actor reads n
 	const storage = privateStorage();
 	const pending = ok(
 		await write(0, async (t, c) =>
-			fields.requestPersonPhotoUpload(t, c, { personId: p.id, mime: "image/png", byteLength: png.length }),
+			fields.requestPersonPhotoUpload(t, c, {
+				requestKey: key(),
+				personId: p.id,
+				mime: "image/png",
+				byteLength: png.length,
+			}),
 		),
 	);
 	ok(await uploadPersonPhoto(db, storage, ctx(), { uploadId: pending.uploadId, bytes: png }));

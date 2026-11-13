@@ -1,5 +1,7 @@
 "use client";
 
+import { defaultTitle, timeText } from "@everyfield/contracts/common";
+
 import { CalendarAdd01Icon, Edit02Icon } from "@hugeicons/core-free-icons";
 import {
 	Button,
@@ -16,19 +18,9 @@ import {
 	Textarea,
 } from "@everyfield/ui/controls";
 import { useEffect, useState } from "react";
-import { editMeeting, listVenues, scheduleMeeting } from "./actions.ts";
-import {
-	defaultTitle,
-	NEW_TYPES,
-	offsetText,
-	problemText,
-	timeText,
-	TYPE_LABEL,
-	type Detail,
-	type MeetingType,
-	type Outcome,
-	type Venue,
-} from "./model.ts";
+import { editMeeting, listMinistries, listVenues, scheduleMeeting } from "./actions.ts";
+import { offsetText } from "../shared/dates.ts";
+import { problemText, TYPE_LABEL, TYPES, type Detail, type MeetingType, type Outcome, type Venue } from "./model.ts";
 import {
 	DialogNotice,
 	focusFirstProblem,
@@ -39,8 +31,12 @@ import {
 import { Problem } from "./parts.tsx";
 
 type Choice = { instant: string; offsetSeconds: number };
+/** A ministry a team meeting can name: one that is not archived. */
+type Ministry = { id: string; name: string };
 type Draft = {
 	type: MeetingType;
+	/** A team meeting's ministry; empty until one is chosen. */
+	teamId: string;
 	title: string;
 	date: string;
 	time: string;
@@ -52,9 +48,10 @@ type Draft = {
 };
 const blank = (v: string) => (v.trim() === "" ? null : v.trim());
 
-function initial(meeting: Detail | undefined): Draft {
+function initial(meeting: Detail | undefined, ministry: Ministry | undefined): Draft {
 	return {
-		type: meeting?.type ?? "vision_meeting",
+		type: meeting?.type ?? (ministry ? "team_meeting" : "vision_meeting"),
+		teamId: ministry?.id ?? "",
 		title: meeting?.title ?? "",
 		date: meeting?.localDate ?? "",
 		time: meeting?.localTime ?? "18:30",
@@ -77,6 +74,8 @@ export function PlanMeetingDialog<E extends { problem?: string }>({
 	meeting,
 	onSaved,
 	onPreview,
+	onStale,
+	ministry,
 }: {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
@@ -84,9 +83,13 @@ export function PlanMeetingDialog<E extends { problem?: string }>({
 	lane: SaveIntent<E>;
 	/** The meeting to edit. Without it the dialog plans a new one. */
 	meeting?: Detail;
+	/** A new meeting only: plan a team meeting for this ministry, already chosen. */
+	ministry?: Ministry;
 	onSaved?: (meeting: Detail) => void;
 	/** Edit only: the meeting as it will look, shown while the save runs; null when the answer arrives. */
 	onPreview?: (meeting: Detail | null) => void;
+	/** Edit only: reads the meeting again after a save refused as out of date; resolves once the latest shows. */
+	onStale?: () => Promise<unknown>;
 }) {
 	// The form stays mounted while the dialog is closed, so an edit that fails after the dialog closed reopens with
 	// the person's input and the reason.
@@ -101,6 +104,8 @@ export function PlanMeetingDialog<E extends { problem?: string }>({
 					onReopen={() => onOpenChange(true)}
 					onSaved={onSaved}
 					onPreview={onPreview}
+					onStale={onStale}
+					ministry={ministry}
 				/>
 			</Dialog>
 		</NoticeInDialog>
@@ -115,6 +120,8 @@ function Form<E extends { problem?: string }>({
 	onReopen,
 	onSaved,
 	onPreview,
+	onStale,
+	ministry,
 }: {
 	open: boolean;
 	lane: SaveIntent<E>;
@@ -123,9 +130,12 @@ function Form<E extends { problem?: string }>({
 	onReopen: () => void;
 	onSaved?: (meeting: Detail) => void;
 	onPreview?: (meeting: Detail | null) => void;
+	onStale?: () => Promise<unknown>;
+	ministry?: Ministry;
 }) {
 	const editing = meeting !== undefined;
-	const [draft, setDraft] = useState(() => initial(meeting));
+	const [draft, setDraft] = useState(() => initial(meeting, ministry));
+	const [ministries, setMinistries] = useState<Ministry[] | null>(null);
 	const [touched, setTouched] = useState(false);
 	const [choices, setChoices] = useState<Choice[] | null>(null);
 	const [offset, setOffset] = useState<number | null>(null);
@@ -142,7 +152,7 @@ function Form<E extends { problem?: string }>({
 		if (open) setOpening((n) => n + 1);
 		if (open && keep) setKeep(false);
 		else if (open) {
-			setDraft(initial(meeting));
+			setDraft(initial(meeting, ministry));
 			setTouched(false);
 			setChoices(null);
 			setOffset(null);
@@ -171,8 +181,22 @@ function Form<E extends { problem?: string }>({
 			live = false;
 		};
 	}, [opening]);
+	// The ministries a team meeting can name load the same way, and only for a new meeting.
+	useEffect(() => {
+		if (opening === 0 || editing) return;
+		let live = true;
+		listMinistries().then(
+			(r) => live && setMinistries(r.status === "ok" ? r.value : []),
+			() => live && setMinistries((m) => m ?? []),
+		);
+		return () => {
+			live = false;
+		};
+	}, [opening, editing]);
+	const team = !editing && draft.type === "team_meeting";
 
 	const missing = {
+		teamId: team && draft.teamId === "",
 		date: draft.date === "",
 		time: draft.time === "",
 		placeName: draft.place === "new" && draft.placeName.trim() === "",
@@ -232,9 +256,11 @@ function Form<E extends { problem?: string }>({
 					onPreview?.(null);
 					onSaved?.(value.meeting);
 				},
-				// The page goes back, and the dialog opens again with the person's input and the refusal.
-				refused: () => {
+				// The page goes back, and the dialog opens again with the person's input and the refusal. Out of date, it
+				// opens on the latest meeting instead, read again first, as the refusal says.
+				refused: (code) => {
 					onPreview?.(null);
+					if (code === "conflict" && onStale) return void onStale().then(onReopen);
 					setKeep(true);
 					onReopen();
 				},
@@ -243,6 +269,7 @@ function Form<E extends { problem?: string }>({
 		}
 		const input = {
 			type: draft.type,
+			...(team ? { teamId: draft.teamId } : {}),
 			title: blank(draft.title),
 			notes: blank(draft.notes),
 			...when,
@@ -291,10 +318,31 @@ function Form<E extends { problem?: string }>({
 								value={draft.type}
 								disabled={pending}
 								onValueChange={(type) => set({ type: type as MeetingType })}
-								options={NEW_TYPES.map((t) => ({ value: t, label: TYPE_LABEL[t] }))}
+								options={TYPES.map((t) => ({ value: t, label: TYPE_LABEL[t] }))}
 							/>
 						</Field>
 					)}
+					{team ? (
+						<Field
+							label="Ministry"
+							hint={
+								ministries === null
+									? "Loading ministries…"
+									: ministries.length === 0
+										? "Add a ministry in Ministries first."
+										: "Everyone serving in it now joins the guest list."
+							}
+							error={touched && missing.teamId ? "Choose a ministry." : null}
+						>
+							<Select
+								value={draft.teamId}
+								disabled={pending}
+								placeholder="Choose a ministry"
+								onValueChange={(teamId) => set({ teamId })}
+								options={ministryOptions(ministries, ministry)}
+							/>
+						</Field>
+					) : null}
 					<Field
 						label="Title"
 						optional
@@ -417,4 +465,10 @@ function Form<E extends { problem?: string }>({
 			</form>
 		</DialogContent>
 	);
+}
+
+/** The ministries to choose from. A preset ministry shows while the list loads, so the dialog opens with it chosen. */
+function ministryOptions(list: Ministry[] | null, preset: Ministry | undefined) {
+	const all = list ?? (preset ? [preset] : []);
+	return all.map((m) => ({ value: m.id, label: m.name }));
 }

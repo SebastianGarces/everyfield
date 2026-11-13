@@ -1,5 +1,7 @@
 "use client";
 
+import { dateText } from "@everyfield/contracts/common";
+
 import { CheckListIcon, Clock01Icon, Edit02Icon, StarIcon } from "@hugeicons/core-free-icons";
 import { averageOf } from "@everyfield/contracts/meetings";
 import {
@@ -19,8 +21,6 @@ import {
 	Field,
 	IntentLink,
 	SegmentedControl,
-	Select,
-	Skeleton,
 	Spinner,
 	Textarea,
 	useToast,
@@ -28,17 +28,21 @@ import {
 import { DeltaChip, StatusBadge } from "@everyfield/ui/display";
 import { useEffect, useRef, useState } from "react";
 import { DialogNotice, SaveNotice, useRowLanes, type RowSave, type SaveIntent } from "../../components/save/parts.tsx";
-import { assigneeOptions } from "../tasks/fetch.ts";
+import { loadMeetingFollowUps } from "../followups/fetch.ts";
+import { preferredOwners } from "../followups/model.ts";
+import { ownerText } from "../tasks/model.ts";
+import { AssigneePicker, warmAssignees } from "../tasks/AssigneePicker.tsx";
 import { evaluationHistory, previewSettlement, setPresence } from "./actions.ts";
 import {
 	CLASSIFICATION_LABEL,
-	dateText,
 	deltaText,
 	FACTORS,
 	peopleText,
 	PRESENCE_LABEL,
 	PRESENCE_TONE,
 	problemText,
+	evaluationIssues,
+	type Issue,
 	scoreText,
 	type Analytics,
 	type Attendance,
@@ -64,13 +68,7 @@ type PresenceAnswer = Extract<Awaited<ReturnType<typeof setPresence>>, { status:
  * A trigger held by a save in flight or unknown (C68). It stays focusable, so focus can return to it when its dialog
  * closes, but it starts nothing; it looks like a disabled button.
  */
-const HELD = "aria-disabled:cursor-not-allowed aria-disabled:opacity-45 aria-disabled:active:translate-y-0";
-
-/** When a meeting can be finalized: it has started (or was held), and it is not cancelled or voided. */
-export const canSettle = (m: Detail, now: string) =>
-	m.status !== "cancelled" &&
-	!m.occurrence.voidedAt &&
-	Date.parse(m.occurrence.heldAt ?? m.startsAt) <= Date.parse(now);
+export const HELD = "aria-disabled:cursor-not-allowed aria-disabled:opacity-45 aria-disabled:active:translate-y-0";
 
 /**
  * Presence saves, one save lane per person (components/save useRowLanes, C68): marking people at the door never waits
@@ -135,22 +133,24 @@ export function AttendanceCard({
 	meeting: m,
 	attendance,
 	analytics,
-	canWrite,
+	canSettle,
 	lane,
 	blocked,
-	now,
+	headerFinalize,
 	onSettle,
 	onPrefetch,
 }: {
+	/** The page header already offers Finalize attendance; the card leaves its own button out. */
+	headerFinalize?: boolean;
 	meeting: Detail;
 	attendance: Attendance | null;
 	analytics: Analytics | null;
-	canWrite: boolean;
+	/** Finalize and correct: an Owner, an Admin or the team meeting's current leader (REQ-MTG-010, D-562). */
+	canSettle: boolean;
 	/** The finalize and correction lane: while its save is on its way or unknown, nothing here starts another. */
 	lane: SaveIntent<SettleEditing>;
 	/** Presence saves are on their way or unknown; finalizing waits for them. */
 	blocked: boolean;
-	now: string;
 	onSettle: (mode: "finalize" | "reconcile") => void;
 	onPrefetch: () => void;
 }) {
@@ -165,7 +165,8 @@ export function AttendanceCard({
 	const excused = attendance.items.filter((x) => x.presence === "excused").length;
 	const final = attendance.finalized;
 	const counts = classified(attendance);
-	const open = canSettle(m, now);
+	// A meeting can be finalized at any time, unless it is cancelled or voided.
+	const open = m.status !== "cancelled" && !m.occurrence.voidedAt;
 	const vision = m.type === "vision_meeting";
 	const intent = { onPointerEnter: onPrefetch, onFocus: onPrefetch, onTouchStart: onPrefetch };
 	const settling = lane.saving;
@@ -184,8 +185,10 @@ export function AttendanceCard({
 							`Final since ${dateText(final.at.slice(0, 10))}`
 						) : open ? (
 							"Not final yet"
+						) : m.status === "cancelled" ? (
+							"This meeting was cancelled"
 						) : (
-							"The meeting has not started"
+							"This meeting was voided"
 						)}
 					</CardDescription>
 				</CardHeading>
@@ -218,7 +221,7 @@ export function AttendanceCard({
 			) : null}
 			{final && vision && analytics ? <Work tasks={analytics.tasks} /> : null}
 			<SaveNotice {...lane.noticeProps} dialogOpen={lane.editing !== null} className="mt-4" />
-			{canWrite ? (
+			{canSettle ? (
 				<div className="mt-auto flex flex-wrap items-center gap-2.5 pt-4">
 					{final ? (
 						<Button
@@ -232,9 +235,9 @@ export function AttendanceCard({
 						>
 							Correct attendance
 						</Button>
-					) : open ? (
+					) : open && !headerFinalize ? (
 						<Button
-							variant="primary"
+							variant="secondary"
 							size="sm"
 							icon={CheckListIcon}
 							aria-disabled={held || undefined}
@@ -244,9 +247,7 @@ export function AttendanceCard({
 						>
 							Finalize attendance
 						</Button>
-					) : (
-						<p className="text-sm text-text-3">You can finalize after the meeting starts.</p>
-					)}
+					) : null}
 				</div>
 			) : null}
 		</Card>
@@ -286,7 +287,9 @@ function Work({ tasks }: { tasks: Analytics["tasks"] }) {
 				<span className="text-ink tabular-nums">
 					{f.total === 0
 						? "None needed"
-						: `${f.complete} of ${f.total - f.closed} done${f.closed ? ` · ${f.closed} closed` : ""}`}
+						: f.total === f.closed
+							? `${f.closed} closed`
+							: `${f.complete} of ${f.total - f.closed} done${f.closed ? ` · ${f.closed} closed` : ""}`}
 				</span>
 			</p>
 			{f.needsOwner ? (
@@ -313,34 +316,21 @@ function Work({ tasks }: { tasks: Analytics["tasks"] }) {
 // -------------------------------------------------------------------------------------------------------------
 // Finalize and correct
 
-type Seats = Outcome<{ items: { accountId: string; displayName: string; role: string }[] }>;
-const NEEDS_OWNER = "none";
-
 /**
- * The seats that can own generated work, read once per page when the person shows intent to finalize (pointer,
- * touch or keyboard focus on the button), so the dialog opens with its choices ready.
+ * Reads both lists of people the pickers offer on the first sign of intent to finalize (pointer, touch or keyboard
+ * focus on the button), so the dialog opens with its choices ready.
  */
-export function useSeats() {
-	const [seats, setSeats] = useState<Seats | null>(null);
-	const asked = useRef(false);
-	function load() {
-		if (asked.current) return;
-		asked.current = true;
-		assigneeOptions().then((r) => {
-			if (r.status !== "ok") asked.current = false;
-			setSeats(r);
-		});
-	}
-	return { seats, load };
+export function warmSeats() {
+	void warmAssignees("any");
+	void warmAssignees("committed_follow_up");
 }
 
 export type SettleInput = {
 	attendeeIds: string[];
-	followUpAssigneeId: string | null;
-	evaluationAssigneeId: string | null;
+	followUpAssigneeIds: string[];
+	evaluationAssigneeIds: string[];
 	reason: string;
 };
-export type Settled = { result: Finalization; analytics: Analytics | null };
 /** The open finalize or correction form, with what was chosen when a refusal opens it again. */
 export type SettleEditing = { mode: "finalize" | "reconcile"; input: SettleInput | null; problem?: string };
 
@@ -355,25 +345,27 @@ export function SettleDialog({
 	meeting,
 	guests,
 	attendance,
-	seats,
 	onSeats,
 	initial,
 	problem,
 	onClose,
 	onSubmit,
+	onConflict,
 }: {
 	open: boolean;
 	mode: "finalize" | "reconcile";
 	meeting: Detail;
 	guests: Guest[];
 	attendance: Attendance;
-	seats: Seats | null;
+	/** The first sign of intent to open the dialog: warm the pickers' lists. */
 	onSeats: () => void;
 	initial: SettleInput | null;
 	/** Why the last finalize or correction was refused, in words. */
 	problem: string | undefined;
 	onClose: () => void;
 	onSubmit: (input: SettleInput) => void;
+	/** The review was refused as out of date: handled like a refused submit of these choices (reload, then review). */
+	onConflict: (input: SettleInput) => void;
 }) {
 	return (
 		<Dialog open={open} onOpenChange={(o) => !o && onClose()}>
@@ -383,12 +375,12 @@ export function SettleDialog({
 					meeting={meeting}
 					guests={guests}
 					attendance={attendance}
-					seats={seats}
 					onSeats={onSeats}
 					initial={initial}
 					problem={problem}
 					onClose={onClose}
 					onSubmit={onSubmit}
+					onConflict={onConflict}
 				/>
 			) : null}
 		</Dialog>
@@ -400,17 +392,35 @@ function SettleForm({
 	meeting,
 	guests,
 	attendance,
-	seats,
 	onSeats,
 	initial,
 	problem,
 	onClose,
 	onSubmit,
+	onConflict,
 }: Omit<Parameters<typeof SettleDialog>[0], "open">) {
 	const current: string[] = attendedOf(attendance).map((a) => a.person.personId);
 	const [ids, setIds] = useState<string[]>(initial?.attendeeIds ?? current);
-	const [followUp, setFollowUp] = useState(initial?.followUpAssigneeId ?? NEEDS_OWNER);
-	const [evaluation, setEvaluation] = useState(initial?.evaluationAssigneeId ?? NEEDS_OWNER);
+	const [followUp, setFollowUpValue] = useState<string[]>(initial?.followUpAssigneeIds ?? []);
+	// Finalize starts at Needs owner: no one is picked for the person. Correct attendance starts at the owners most of
+	// the meeting's open follow-ups already have (D-e), unless the person already chose.
+	const [chose, setChose] = useState(initial !== null);
+	const setFollowUp = (v: string[]) => {
+		setChose(true);
+		setFollowUpValue(v);
+	};
+	useEffect(() => {
+		if (mode !== "reconcile" || chose) return;
+		let live = true;
+		void loadMeetingFollowUps(meeting.id).then((r) => {
+			const current = r.status === "ok" ? preferredOwners(r.value.items) : [];
+			if (live && current.length) setFollowUpValue(current);
+		});
+		return () => {
+			live = false;
+		};
+	}, [mode, meeting.id, chose]);
+	const [evaluation, setEvaluation] = useState<string[]>(initial?.evaluationAssigneeIds ?? []);
 	const [reason, setReason] = useState(initial?.reason ?? "");
 	const listRef = useRef<HTMLFieldSetElement>(null);
 	const reasonRef = useRef<HTMLTextAreaElement>(null);
@@ -428,32 +438,41 @@ function SettleForm({
 		...guests.filter((g) => g.person.state === "live" || current.includes(g.person.personId)).map((g) => g.person),
 		...attendance.items.filter((a) => !guests.some((g) => g.id === a.guestId)).map((a) => a.person),
 	];
-	const options = [
-		{ value: NEEDS_OWNER, label: "Needs owner" },
-		...(seats?.status === "ok" ? seats.value.items.map((s) => ({ value: s.accountId, label: s.displayName })) : []),
-	];
-	const ownerName = (accountId: string | null) =>
-		(accountId && seats?.status === "ok" && seats.value.items.find((x) => x.accountId === accountId)?.displayName) ||
-		(accountId ? "an owner" : "Needs owner");
 	// The exact effects of these choices, from the real command run and rolled back on the server (C73). A change of
 	// people or owners asks again after a short pause; an answer for older choices is never shown.
 	const choice = {
 		meetingId: meeting.id,
 		attendeeIds: [...ids].sort(),
-		followUpAssigneeId: followUp === NEEDS_OWNER ? null : followUp,
-		...(reconcile ? { reason: "Review" } : { evaluationAssigneeId: evaluation === NEEDS_OWNER ? null : evaluation }),
+		followUpAssigneeIds: [...followUp].sort(),
+		...(reconcile ? { reason: "Review" } : { evaluationAssigneeIds: [...evaluation].sort() }),
 	};
 	const choiceKey = JSON.stringify(choice);
 	const [attempt, setAttempt] = useState(0);
 	const [got, setGot] = useState<{ key: string; attempt: number; value: Outcome<Finalization> } | null>(null);
 	const retryRef = useRef<HTMLButtonElement>(null);
+	// The choices as they stand, for a review refused as out of date.
+	const chosen: SettleInput = {
+		attendeeIds: ids,
+		followUpAssigneeIds: followUp,
+		evaluationAssigneeIds: evaluation,
+		reason: reason.trim(),
+	};
+	const conflictRef = useRef(() => onConflict(chosen));
+	useEffect(() => {
+		conflictRef.current = () => onConflict(chosen);
+	});
 	useEffect(() => {
 		if (unchanged) return;
 		let live = true;
 		const t = setTimeout(() => {
 			previewSettlement(mode, attendance.attendanceRevision, JSON.parse(choiceKey))
 				.catch(() => ({ status: "lost" }) as const)
-				.then((value) => live && setGot({ key: choiceKey, attempt, value }));
+				.then((value) => {
+					if (!live) return;
+					// A newer attendance revision: Try again would send the same old one, so read the page again.
+					if (value.status === "refused" && value.code === "conflict") return conflictRef.current();
+					setGot({ key: choiceKey, attempt, value });
+				});
 		}, 250);
 		return () => {
 			live = false;
@@ -462,13 +481,21 @@ function SettleForm({
 	}, [choiceKey, attempt, mode, attendance.attendanceRevision, unchanged]);
 	const settled = got !== null && got.key === choiceKey && got.attempt === attempt;
 	const effects: Outcome<Finalization> = settled ? got.value : { status: "lost" };
-	const owner = (label: string, value: string, set: (v: string) => void, hint: string) => (
+	const owner = (
+		label: string,
+		value: string[],
+		set: (v: string[]) => void,
+		hint: string,
+		purpose: "any" | "committed_follow_up",
+	) => (
 		<Field label={label} hint={hint}>
-			{seats === null ? (
-				<Skeleton className="h-10 rounded-md" />
-			) : (
-				<Select value={value} onValueChange={set} options={options} aria-label={label} />
-			)}
+			<AssigneePicker
+				purpose={purpose}
+				value={value}
+				onChange={(ids) => set(ids)}
+				label={`Search people for ${label.toLowerCase()}`}
+				placeholder="Needs owner"
+			/>
 		</Field>
 	);
 	return (
@@ -485,12 +512,7 @@ function SettleForm({
 					// Confirm only what the review shows: the exact effects of these choices (C73).
 					if (!settled) return;
 					if (effects.status !== "ok") return retryRef.current?.focus();
-					onSubmit({
-						attendeeIds: ids,
-						followUpAssigneeId: followUp === NEEDS_OWNER ? null : followUp,
-						evaluationAssigneeId: evaluation === NEEDS_OWNER ? null : evaluation,
-						reason: reason.trim(),
-					});
+					onSubmit(chosen);
 				}}
 			>
 				<DialogHeader
@@ -567,7 +589,7 @@ function SettleForm({
 							</div>
 						) : (
 							<ul className="mt-1.5 flex list-disc flex-col gap-1 pl-5 text-md text-text-2">
-								{effectLines(effects.value, meeting, name, ownerName, mode).map((line) => (
+								{effectLines(effects.value, meeting, name, mode).map((line) => (
 									<li key={line}>{line}</li>
 								))}
 							</ul>
@@ -579,15 +601,21 @@ function SettleForm({
 								"Follow-up calls go to",
 								followUp,
 								setFollowUp,
-								reconcile ? "Only calls for people you add." : "Or leave it, and assign them later in Tasks.",
+								reconcile
+									? "Only calls for people you add. Up to 10 people."
+									: "Only people who can own follow-ups, up to 10. Or leave it, and assign them later in Tasks.",
+								"committed_follow_up",
 							)}
-							{reconcile ? null : owner("Evaluation task goes to", evaluation, setEvaluation, "Someone who was there.")}
+							{reconcile
+								? null
+								: owner(
+										"Evaluation task goes to",
+										evaluation,
+										setEvaluation,
+										"Someone who was there. Up to 10 people.",
+										"any",
+									)}
 						</div>
-					) : null}
-					{seats && seats.status !== "ok" && vision ? (
-						<p className="text-sm text-text-3">
-							The list of people to assign did not load. The work will need an owner; assign it later in Tasks.
-						</p>
 					) : null}
 					{reconcile ? (
 						<Field
@@ -629,13 +657,15 @@ function effectLines(
 	r: Finalization,
 	meeting: Detail,
 	name: Map<string, string>,
-	ownerName: (accountId: string | null) => string,
 	mode: "finalize" | "reconcile",
 ): string[] {
 	if (r.outcome === "noop") return ["Attendance is already final with these people. Nothing changes."];
 	const who = (id: string | null) => (id && name.get(id)) || "someone no longer on the list";
+	// The same words as every other screen: a follow-up's owner with why they cannot own it, when they cannot.
 	const owned = (w: Finalization["work"][number]) =>
-		w.needsOwner ? "Needs owner" : `Owner: ${ownerName(w.assigneeId)}`;
+		w.owners.length
+			? `Owner: ${w.owners.map((o) => (w.kind === "first_vision_follow_up" ? ownerText(o) : o.displayName)).join(", ")}`
+			: "Needs owner";
 	const due = dateText(plusDays(meeting.localDate, 2));
 	const counts = { first_time: 0, returning: 0, core_group: 0 };
 	for (const c of r.classifications) counts[c.classification]++;
@@ -716,11 +746,14 @@ export function EvaluationCard({
 	finalized,
 	canWrite,
 	lane,
+	headerRecord,
 	onRecord,
 	onCorrect,
 	onHistory,
 	onPrefetchHistory,
 }: {
+	/** The page header already offers Record evaluation; the card leaves its own button out. */
+	headerRecord?: boolean;
 	evaluation: ShownEvaluation | null;
 	analytics: Analytics | null;
 	finalized: boolean;
@@ -821,16 +854,18 @@ export function EvaluationCard({
 			) : canWrite ? (
 				<div className="flex flex-wrap items-center justify-between gap-3">
 					<p className="text-md text-text-2">Score the meeting while it is fresh. It completes the evaluation task.</p>
-					<Button
-						variant="primary"
-						size="sm"
-						icon={StarIcon}
-						onClick={() => !held && onRecord()}
-						aria-disabled={held || undefined}
-						className={HELD}
-					>
-						Record evaluation
-					</Button>
+					{headerRecord ? null : (
+						<Button
+							variant="secondary"
+							size="sm"
+							icon={StarIcon}
+							onClick={() => !held && onRecord()}
+							aria-disabled={held || undefined}
+							className={HELD}
+						>
+							Record evaluation
+						</Button>
+					)}
 				</div>
 			) : (
 				<p className="text-md text-text-3">Nobody has evaluated this meeting yet.</p>
@@ -887,6 +922,7 @@ export function EvaluationDialog({
 	title,
 	initial,
 	problem,
+	issues,
 	onClose,
 	onSubmit,
 }: {
@@ -896,6 +932,8 @@ export function EvaluationDialog({
 	initial: EvaluationInput | null;
 	/** Why the last save was refused, in words. */
 	problem: string | undefined;
+	/** The named problems of that refusal; each shows on its field. */
+	issues: readonly Issue[];
 	onClose: () => void;
 	onSubmit: (input: EvaluationInput) => void;
 }) {
@@ -907,6 +945,7 @@ export function EvaluationDialog({
 					title={title}
 					initial={initial}
 					problem={problem}
+					issues={issues}
 					onClose={onClose}
 					onSubmit={onSubmit}
 				/>
@@ -920,10 +959,12 @@ function EvaluationForm({
 	title,
 	initial,
 	problem,
+	issues,
 	onClose,
 	onSubmit,
 }: Omit<Parameters<typeof EvaluationDialog>[0], "open">) {
 	const correcting = evaluation !== null;
+	const named = evaluationIssues(issues);
 	const [scores, setScores] = useState<Partial<Scores>>(initial?.scores ?? evaluation?.scores ?? {});
 	const [notes, setNotes] = useState(initial?.notes ?? evaluation?.notes ?? "");
 	const [reason, setReason] = useState(initial?.reason ?? "");
@@ -965,6 +1006,7 @@ function EvaluationForm({
 					<div ref={first} className="flex flex-col">
 						{FACTORS.map((f) => {
 							const bad = touched && scores[f.key] === undefined;
+							const refusal = named.scores[f.key];
 							return (
 								<div
 									key={f.key}
@@ -976,9 +1018,9 @@ function EvaluationForm({
 											{f.label}
 										</p>
 										<p className="text-sm text-text-3">{f.hint}</p>
-										{bad ? (
+										{bad || refusal ? (
 											<p className="text-xs font-medium text-magenta-600" role="alert">
-												Choose a score.
+												{refusal ?? "Choose a score."}
 											</p>
 										) : null}
 									</div>
@@ -998,7 +1040,12 @@ function EvaluationForm({
 							{complete ? scoreText(averageOf(scores as Scores)) : `${8 - missing.length} of 8 scored`}
 						</span>
 					</p>
-					<Field label="Notes" optional hint="What went well, and what to change next time.">
+					<Field
+						label="Notes"
+						optional
+						hint="What went well, and what to change next time."
+						error={named.notes ?? null}
+					>
 						<Textarea value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={5000} rows={3} />
 					</Field>
 					{correcting ? (
@@ -1010,7 +1057,7 @@ function EvaluationForm({
 									? "Change a score or the notes first."
 									: touched && reason.trim() === ""
 										? "Enter a reason."
-										: null
+										: (named.reason ?? null)
 							}
 						>
 							<Textarea
@@ -1022,7 +1069,7 @@ function EvaluationForm({
 							/>
 						</Field>
 					) : null}
-					<Problem text={problem} />
+					<Problem text={issues.length === 0 ? problem : named.dialog.join(" ") || undefined} />
 				</DialogBody>
 				<DialogFooter>
 					<Button variant="secondary" type="button" onClick={onClose}>
@@ -1126,9 +1173,6 @@ export function HistoryDialog({
 		</Dialog>
 	);
 }
-
-// -------------------------------------------------------------------------------------------------------------
-// Attendee note
 
 // -------------------------------------------------------------------------------------------------------------
 // Small parts used by the guest list and the check-in screen

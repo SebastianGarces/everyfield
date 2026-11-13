@@ -2,6 +2,7 @@
 // change in Activity. No React and no server code, so they run the same in the browser, on the server and in node tests.
 
 import type * as people from "@everyfield/contracts/people";
+import { householdRole, PHOTO_MAX_BYTES, photoMime, proficiency, skillCategory } from "@everyfield/contracts/people";
 import type { Tone } from "@everyfield/ui/display";
 import type { z } from "zod";
 
@@ -25,7 +26,7 @@ export type PersonFields = {
 	photo: PhotoResult;
 };
 
-export const SKILL_CATEGORIES = ["worship", "tech", "admin", "teaching", "hospitality", "leadership", "other"] as const;
+export const SKILL_CATEGORIES = skillCategory.options;
 export const CATEGORY_LABEL: Record<SkillCategory, string> = {
 	worship: "Worship",
 	tech: "Tech",
@@ -35,14 +36,14 @@ export const CATEGORY_LABEL: Record<SkillCategory, string> = {
 	leadership: "Leadership",
 	other: "Other",
 };
-export const PROFICIENCIES = ["beginner", "intermediate", "advanced", "expert"] as const;
+export const PROFICIENCIES = proficiency.options;
 export const PROFICIENCY_LABEL: Record<Proficiency, string> = {
 	beginner: "Beginner",
 	intermediate: "Intermediate",
 	advanced: "Advanced",
 	expert: "Expert",
 };
-export const ROLES = ["head", "spouse", "child", "other"] as const;
+export const ROLES = householdRole.options;
 export const ROLE_LABEL: Record<HouseholdRole, string> = {
 	head: "Head",
 	spouse: "Spouse",
@@ -96,16 +97,34 @@ export function skillGroups(skills: readonly Skill[]): { category: SkillCategory
 
 /** One line for an address, or null when every part is blank. */
 export function addressLine(a: {
-	street: string | null;
-	city: string | null;
-	stateProvince: string | null;
-	postalCode: string | null;
-	country: string | null;
+	street?: string | null;
+	city?: string | null;
+	stateProvince?: string | null;
+	postalCode?: string | null;
+	country?: string | null;
 }): string | null {
 	const line = [a.street, [a.city, a.stateProvince].filter(Boolean).join(", "), a.postalCode, a.country]
 		.filter((x) => x && x.trim())
 		.join(" · ");
 	return line || null;
+}
+
+/** The client check before an upload (REQ-PPL-005). The server verifies the bytes and type again. */
+export function photoProblem(file: { size: number; type: string }): string | null {
+	if (file.size === 0) return "This file is empty. Choose a photo.";
+	if (!photoMime.safeParse(file.type).success) return "Use a JPG, PNG or WebP photo.";
+	if (file.size > PHOTO_MAX_BYTES) return "Choose a photo smaller than 3 MB.";
+	return null;
+}
+
+/**
+ * The file a picker's change chose, with the picker cleared at once, refused file or not. A browser fires change only
+ * when the picker's value differs, so without the clear choosing the same file again does nothing.
+ */
+export function takeFile(input: { files: ArrayLike<File> | null; value: string }): File | null {
+	const file = input.files?.[0] ?? null;
+	input.value = "";
+	return file;
 }
 
 /** The words for a household change in Activity, from the membership before and after (REQ-PPL-009). */

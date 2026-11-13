@@ -1,20 +1,17 @@
 import "server-only";
-import { checkoutClient, createDatabase, type Database, type DatabaseOptions } from "@everyfield/db/client";
+import { checkoutClient, createDatabase, type Database } from "@everyfield/db/client";
 
 // Share connections for the same configured login and schema. The native auth
-// adapter and the development proof may use different credentials or schemas.
+// adapter may use different credentials or schemas.
 // Next bundles the instrumentation hook, route handlers and server components as separate module graphs, each with its
 // own copy of this module. The map lives on globalThis so the pools the start-up warm opens are the ones every request
 // then uses.
 const POOLS: unique symbol = Symbol.for("everyfield.web.pools");
 const pools: Map<string, Database> = ((globalThis as { [POOLS]?: Map<string, Database> })[POOLS] ??= new Map());
-export function database(
-	connectionString: string,
-	options: Pick<DatabaseOptions, "connectionTimeoutMillis" | "idleTimeoutMillis"> = {},
-): Database {
+export function database(connectionString: string): Database {
 	let pool = pools.get(connectionString);
 	if (!pool) {
-		pool = createDatabase({ connectionString, max: 10, ...options });
+		pool = createDatabase({ connectionString, max: 10 });
 		pools.set(connectionString, pool);
 	}
 	return pool;
@@ -38,6 +35,25 @@ export function jobDatabase(): Database | null {
 	if (!pool) {
 		const options = `${process.env.PGOPTIONS ?? ""} -c statement_timeout=5s`.trim();
 		pool = createDatabase({ connectionString: url, max: 4, options });
+		pools.set(key, pool);
+	}
+	return pool;
+}
+
+/**
+ * The cleanup login's pool (`everyfield_cleanup`), from LIFECYCLE_CLEANUP_DATABASE_URL, or null when the deployment has
+ * none. Only the scheduled purge uses it: it removes a deleted subject's content, which neither the runtime nor the job
+ * login may do. A purge statement removes every row a church owns, so statements end after 60 s, inside the cron
+ * route's 300 s. Other PGOPTIONS stay.
+ */
+export function cleanupDatabase(): Database | null {
+	const url = process.env.LIFECYCLE_CLEANUP_DATABASE_URL;
+	if (!url) return null;
+	const key = `${url}#cleanup`;
+	let pool = pools.get(key);
+	if (!pool) {
+		const options = `${process.env.PGOPTIONS ?? ""} -c statement_timeout=60s`.trim();
+		pool = createDatabase({ connectionString: url, max: 2, options });
 		pools.set(key, pool);
 	}
 	return pool;

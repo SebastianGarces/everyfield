@@ -48,6 +48,7 @@ const retry: Record<Code, string> = {
 	protected_source: "never",
 	referenced: "never",
 	not_found: "never",
+	rsvp_needs_meeting: "never",
 	cancel_unconfirmed: "never",
 };
 function refused(error: CommunicationRefusal): CommunicationReply<never> {
@@ -109,7 +110,7 @@ export function readerOf(authority: RequestActor): Viewer & { session: string; s
 		owner: actor.context.owner,
 	};
 }
-export async function writerOf(tx: Tx, context: CommunicationContext) {
+async function writerOf(tx: Tx, context: CommunicationContext) {
 	const bound = await lockedWrite(tx);
 	const write =
 		bound && sameOwner(bound.selected, context.selected)

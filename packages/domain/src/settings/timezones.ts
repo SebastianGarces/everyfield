@@ -13,7 +13,7 @@ import * as q from "@everyfield/contracts/settings";
 import * as n from "@everyfield/contracts/settings/native";
 import type {
 	NativeAccountProducer,
-	NativeSettingsContext,
+	PersonalTimezoneCalendar,
 	SettingsProducer,
 } from "@everyfield/contracts/settings/server";
 import { and, asc, eq, isNull, sql } from "@everyfield/db/query";
@@ -45,16 +45,8 @@ import type { SettingsEffects } from "./sections.ts";
 const personalRecord = z.object({ revision: n.personalTimezoneResult.shape.preference.shape.revision });
 const personalReply = (timeZone: string, revision: string) =>
 	n.personalTimezoneResult.parse({ preference: { status: "confirmed", timeZone, revision } });
-export interface PersonalCalendar {
-	// WP-039 owns private plan storage. These handles must never contain a body,
-	// calendar revision, author-existence flag or telemetry payload.
-	preview(
-		tx: Tx,
-		ctx: NativeSettingsContext,
-		input: { previewId: string; zone: string; expiresAt: string },
-	): Promise<void>;
-	apply(tx: Tx, ctx: NativeSettingsContext, input: { previewId: string; zone: string }): Promise<void>;
-}
+/** WP-039's private calendar hook: it holds no body, calendar revision or author-existence flag in settings rows. */
+export type PersonalCalendar = PersonalTimezoneCalendar<Tx>;
 function automatic(date: string, hour: number, zone: string) {
 	const resolved = resolveCalendar(
 		localDateTime.parse(`${date}T${String(hour).padStart(2, "0")}:00:00`),
@@ -226,7 +218,6 @@ export function timezoneOperations(
 						operationId: c.id,
 						kind: "plant_timezone",
 					});
-					await effects.invalidate(s, { owner: v.input.plant, revision: next, operationId: c.id });
 					const event = await appendEvent(
 						s,
 						c,
@@ -255,7 +246,7 @@ export function timezoneOperations(
 				const previewId = randomUUID(),
 					expiresAt = new Date(at.getTime() + 15 * 60_000).toISOString();
 				if (calendar && (await calendarEligible(s, a.account.id)))
-					await calendar.preview(s, ctx, { previewId, zone, expiresAt });
+					await calendar.preview(s, { account: a.account.id, previewId });
 				const value = n.personalTimezonePreview.parse({
 					previewId,
 					preference: preference(a.account),
@@ -303,8 +294,13 @@ export function timezoneOperations(
 				if (plan.newZone !== zone || plan.expectedRevision !== a.account.personal_timezone_revision)
 					deny("stale_preview");
 				if (a.account.personal_timezone !== zone) {
-					if (calendar && (await calendarEligible(s, a.account.id)))
-						await calendar.apply(s, ctx, { previewId: saved.id, zone });
+					// The author's private weeks change with the zone or the whole change is refused (REQ-IDN-033).
+					if (
+						calendar &&
+						(await calendarEligible(s, a.account.id)) &&
+						!(await calendar.apply(s, { account: a.account.id, previewId: saved.id, zone, at: at.toISOString() }))
+					)
+						deny("conflict");
 					const next = String(BigInt(a.account.personal_timezone_revision) + 1n);
 					c.writes.push(
 						s

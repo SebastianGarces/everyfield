@@ -4,6 +4,7 @@ import type { Database } from "@everyfield/db/client";
 import { sql, type SQL } from "@everyfield/db/query";
 import "server-only";
 import { z } from "zod";
+import { plantTodaySql } from "./adult.ts";
 import { assessmentsJson, assessmentsOf } from "./assessments/index.ts";
 import { adminRead, history } from "./assessments/shared.ts";
 import { commitmentsJson, commitmentsOf } from "./commitments/index.ts";
@@ -30,6 +31,7 @@ import { personHousehold, personHouseholdJson } from "./households/index.ts";
 import { interviewsJson, interviewsOf } from "./interviews/index.ts";
 import { activitiesJson, activityFeed, peopleReader } from "./queries.ts";
 import { personSkills, personSkillsJson, personTags, personTagsJson } from "./tags-skills/index.ts";
+import { personTenures, personTenuresJson } from "../teams/reads.ts";
 
 /**
  * The parts the person page reads with the person and its first Activity page. Each is null when not asked for.
@@ -77,14 +79,23 @@ export async function readPersonPage(
 				p.state === "merged" && p.merged_into_person_id
 					? await peopleReader.getPerson(tx, ctx, c.personRequest.parse({ personId: p.merged_into_person_id }))
 					: null;
-			return { found, activities: null, link: ok(link(p)), survivor, fields: null, records: null, duplicates: null };
+			return {
+				found,
+				activities: null,
+				link: ok(link(p)),
+				survivor,
+				fields: null,
+				records: null,
+				duplicates: null,
+				ministries: null,
+			};
 		};
 		return "rollback" in db ? run(db) : db.transaction(run);
 	});
 }
 
 const personJson = (alias: SQL) =>
-	sql`to_jsonb(${alias})||jsonb_build_object('revision',${alias}.revision::text,'pipeline_position',${alias}.pipeline_position::text)`;
+	sql`to_jsonb(${alias})||jsonb_build_object('revision',${alias}.revision::text,'pipeline_position',${alias}.pipeline_position::text,'plant_today',${plantTodaySql(sql`${alias}.plant_id`)})`;
 /** The Person row with the field columns the page's photo and household read. */
 const pagePerson = personRow.extend({ household_id: z.uuid().nullable(), photo_object_id: z.uuid().nullable() });
 const pageRow = z.object({
@@ -97,6 +108,7 @@ const pageRow = z.object({
 	household: z.unknown(),
 	records: z.object({ assessments: z.unknown(), interviews: z.unknown(), commitments: z.unknown() }).nullable(),
 	duplicates: z.unknown(),
+	ministries: z.unknown(),
 });
 const evidence = (raw: unknown): Evidence[] =>
 	raw
@@ -139,6 +151,7 @@ async function plantPage(
  ${parts.fields ? sql`CASE WHEN ${own} THEN ${personTagsJson(plant)} END` : sql`NULL`} AS tags,
  ${parts.fields ? sql`CASE WHEN ${own} THEN ${personSkillsJson(plant)} END` : sql`NULL`} AS skills,
  ${parts.fields ? sql`CASE WHEN ${own} THEN ${personHouseholdJson(plant)} END` : sql`NULL`} AS household,
+ ${parts.fields ? sql`CASE WHEN ${own} THEN ${personTenuresJson(sql`person.id`, sql`${plant}::uuid`)} END` : sql`NULL`} AS ministries,
  ${
 		parts.records
 			? sql`(SELECT jsonb_build_object('assessments',${assessmentsJson(plant, records)},'interviews',${interviewsJson(plant, records)},
@@ -195,5 +208,7 @@ async function plantPage(
 		fields,
 		records: recordParts,
 		duplicates: parts.duplicates && p.state === "live" ? part(() => personDuplicates(row.duplicates)) : null,
+		/** The person's ministry roles, now and before (REQ-TEAM-006), with the field parts. */
+		ministries: parts.fields && p.plant_id === plant ? personTenures(row.ministries) : null,
 	};
 }
