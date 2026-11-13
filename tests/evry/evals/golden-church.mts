@@ -15,7 +15,8 @@
 //   "Not a duplicate".
 // - Messages: the draft "Sunday's interest meeting" and "Friday volunteer email", scheduled for Fri 13 Nov 9:00 AM
 //   to Mark and Jen Thompson (the launch team), waiting in Everyfield.
-// - Recorded judgments (Owners and Admins only): Daniel Cruz's interview on 2 Oct 2026, and Ana Rivera's core group
+// - Recorded judgments (Owners and Admins only): Daniel Cruz's interview on 2 Oct 2026, Mike Brennan's 4 C's on 15 Sep
+//   2026 (3, 4, 4, 3), and Ana Rivera's core group
 //   commitment card signed 20 Sep 2026 with its signed PDF on file. John Smith has no follow-up outcome, so the open
 //   pair John Smith and Jon Smith can merge; Casey Brooks has one, so that pair's merge is blocked (WP-091).
 // - Actors: the Owner (Nate Ellis, a leader linked to his account), an Admin (Lena Park), a Member (Priya Shah), an
@@ -49,6 +50,7 @@ export const OTHER_ALEX = id(0x4001);
 export const DANIEL_INTERVIEW = id(0x6001);
 export const ANA_COMMITMENT = id(0x6002);
 export const ANA_DOCUMENT = id(0x6003);
+export const MIKE_ASSESSMENT = id(0x6004);
 
 type Stage = "prospect" | "attendee" | "following_up" | "interviewed" | "core_group" | "launch_team" | "leader";
 /** The inactivity level the seeded activity produces on the real pipeline board. */
@@ -417,6 +419,12 @@ async function seedJudgments(admin: Database, owner: string) {
 	await run(sql`INSERT INTO audit_event(id,tenant_id,actor_id,action,kind,subject_type,subject_id,occurred_at,recorded_at,metadata)
 		VALUES(${id(0x6011)},${PLANT},${owner},'people.recorded','create','person',${daniel},'2026-10-02T21:00:00.000Z',
 			'2026-10-02T21:00:00.000Z',${JSON.stringify({ event: "interview_recorded", recordId: DANIEL_INTERVIEW })}::jsonb)`);
+	await run(sql`INSERT INTO four_cs(id,plant_id,person_id,assessed_on,recorded_at,committed,compelled,contagious,courageous,
+			committed_notes,compelled_notes,contagious_notes,courageous_notes)
+		VALUES(${MIKE_ASSESSMENT},${PLANT},${byName("Mike Brennan").id},'2026-09-15','2026-09-15T20:00:00.000Z',3,4,4,3,NULL,NULL,NULL,NULL)`);
+	await run(sql`INSERT INTO audit_event(id,tenant_id,actor_id,action,kind,subject_type,subject_id,occurred_at,recorded_at,metadata)
+		VALUES(${id(0x6013)},${PLANT},${owner},'people.recorded','create','person',${byName("Mike Brennan").id},'2026-09-15T20:00:00.000Z',
+			'2026-09-15T20:00:00.000Z',${JSON.stringify({ event: "assessment_recorded", recordId: MIKE_ASSESSMENT })}::jsonb)`);
 	const ana = byName("Ana Rivera").id;
 	await run(sql`INSERT INTO file_object(id,tenant_id,purpose,opaque_key,media_type,max_bytes,byte_count,sha256,state,upload_key,claim_generation)
 		VALUES(${ANA_DOCUMENT},${PLANT},'commitment',${`private/${PLANT}/${ANA_DOCUMENT}`},'application/pdf',48213,48213,${"0".repeat(64)},'ready',${ANA_DOCUMENT},0)`);

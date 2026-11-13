@@ -119,11 +119,19 @@ const VIEWS: Record<string, OpView> = {
 		countAnswer: "Download the file from the People page.",
 	}),
 	"people.getInterviews": records("Interviews", ["interview", "interviews"], "This person has no recorded interview."),
-	"people.getAssessments": records("4 C's assessments", ["assessment", "assessments"], "This person has no recorded 4 C's assessment."),
+	"people.getAssessments": records(
+		"4 C's assessments",
+		["assessment", "assessments"],
+		"This person has no recorded 4 C's assessment.",
+	),
 	"people.getCommitments": records("Commitment", ["card", "cards"], "This person has no commitment recorded.", {
 		shownOnly: true,
 	}),
-	"people.getCommitmentDownload": records("Signed document", ["document", "documents"], "This card has no signed document on file."),
+	"people.getCommitmentDownload": records(
+		"Signed document",
+		["document", "documents"],
+		"This card has no signed document on file.",
+	),
 	"people.getMergeReview": {
 		title: "Merge review",
 		noun: ["person", "people"],
@@ -136,10 +144,15 @@ const VIEWS: Record<string, OpView> = {
 		icon: "merge",
 		counts: "merge",
 	}),
-	"people.listRecordCorrections": records("Corrections", ["correction", "corrections"], "No record of this person was corrected.", {
-		icon: "correction",
-		counts: "correction",
-	}),
+	"people.listRecordCorrections": records(
+		"Corrections",
+		["correction", "corrections"],
+		"No record of this person was corrected.",
+		{
+			icon: "correction",
+			counts: "correction",
+		},
+	),
 	"people.mergedPersonDestination": records("Where this record leads", ["record", "records"], NO_PERSON, {
 		icon: "merge",
 		counts: "merge",
@@ -271,7 +284,10 @@ const details = (...items: ({ label: string; value: string } | null)[]) =>
 function recordRow(row: SourceRow, plain: Pick<RowView, "key" | "mark" | "href" | "photoFor">): RowView {
 	const f = row.fields;
 	const judged = (k: string, score: boolean) =>
-		detail(k, score ? { score: Number(f[k]), notes: f[`${k}Notes`] ?? null } : { rating: f[k], notes: f[`${k}Notes`] ?? null });
+		detail(
+			k,
+			score ? { score: Number(f[k]), notes: f[`${k}Notes`] ?? null } : { rating: f[k], notes: f[`${k}Notes`] ?? null },
+		);
 	switch (f.record) {
 		case "interview":
 			return {

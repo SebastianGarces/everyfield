@@ -124,3 +124,36 @@ test("AC:REQ-PPL-026 INV-revise-adult: adult or child is required only until a b
 		"adultClassification",
 	);
 });
+
+test("INV-review-judgments: a recorded judgment's review shows exactly what was given, in the People screens' words", async () => {
+	const { afterOnly, editableChanges, fieldLabel, valueText } =
+		await import("../../../apps/web/src/features/evry/review/model.ts");
+	assert.equal(fieldLabel("chemistry"), "Team chemistry");
+	assert.equal(valueText("chemistry", { rating: "concern", notes: "Needs time" }), "Concern · Needs time");
+	assert.equal(valueText("committed", { score: 4, notes: null }), "4 of 5");
+	assert.equal(valueText("result", "qualified_with_notes"), "Qualified with notes");
+	assert.equal(valueText("occurredOn", "2026-10-12"), "Oct 12, 2026");
+	assert.equal(valueText("kind", "core_group"), "Core group");
+	assert.equal(valueText("commitment", "withdrawn"), "Withdrawn");
+	// A new record has no value before; a stage it moves does.
+	const interview = { operation: "people.createInterview" };
+	assert.equal(afterOnly(interview, "maturity"), true);
+	assert.equal(afterOnly(interview, "stage"), false);
+	assert.equal(afterOnly({ operation: "people.correctPersonRecord" }, "occurredOn"), false);
+	assert.equal(afterOnly({ operation: "people.mergePeople" }, "keeps"), true);
+	// A recorded judgment, a merge or an Unmerge is asked for again, never revised on the card.
+	for (const operation of [
+		"people.createInterview",
+		"people.createAssessment",
+		"people.mergePeople",
+		"people.unmergePeople",
+	])
+		assert.deepEqual(
+			editableChanges({
+				operation,
+				review: { target: null, changes: [{ field: "occurredOn", before: null, after: "2026-10-12" }] },
+			}),
+			[],
+			operation,
+		);
+});

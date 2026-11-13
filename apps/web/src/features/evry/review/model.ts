@@ -144,8 +144,7 @@ const FIELD_LABEL: Record<string, string> = {
 	movesBack: "Moves back",
 	detailsGoBack: "Details back",
 };
-export const fieldLabel = (field: string) =>
-	FIELD_LABEL[field] ?? MERGE_FIELD_LABEL[field as MergeField] ?? field;
+export const fieldLabel = (field: string) => FIELD_LABEL[field] ?? MERGE_FIELD_LABEL[field as MergeField] ?? field;
 
 const KIND_LABEL: Record<string, string> = { core_group: "Core group", launch_team: "Launch team" };
 const COMMITMENT_LABEL: Record<string, string> = { active: "Active", withdrawn: "Withdrawn", unknown: "Not recorded" };
@@ -238,7 +237,15 @@ const RECORDS = new Set<Operation>([
 	"people.createAssessment",
 	"people.createCommitment",
 ]);
-const MERGE_FACTS = new Set(["keeps", "mergesIn", "moves", "staysWithMergedRecord", "comesBack", "movesBack", "detailsGoBack"]);
+const MERGE_FACTS = new Set([
+	"keeps",
+	"mergesIn",
+	"moves",
+	"staysWithMergedRecord",
+	"comesBack",
+	"movesBack",
+	"detailsGoBack",
+]);
 export const afterOnly = (review: Pick<Review, "operation">, field: string) =>
 	field === "reason" || MERGE_FACTS.has(field) || (RECORDS.has(review.operation) && field !== "stage");
 

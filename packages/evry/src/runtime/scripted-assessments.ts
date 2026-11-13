@@ -25,9 +25,7 @@ function turnOutputs(prompt: Prompt): Output[] {
 const userTexts = (prompt: Prompt) =>
 	prompt.flatMap((m) => (m.role === "user" ? m.content.flatMap((p) => (p.type === "text" ? [p.text] : [])) : []));
 const assistantTexts = (prompt: Prompt) =>
-	prompt.flatMap((m) =>
-		m.role === "assistant" ? m.content.flatMap((p) => (p.type === "text" ? [p.text] : [])) : [],
-	);
+	prompt.flatMap((m) => (m.role === "assistant" ? m.content.flatMap((p) => (p.type === "text" ? [p.text] : [])) : []));
 
 const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
 /** The church's today from the prompt's trusted clock. The scripted church is the fixture's, in Central time. */
@@ -98,7 +96,13 @@ function named(text: string) {
 
 type Intent =
 	| { kind: "interviews" | "assessments" | "commitments" | "corrections"; name: string }
-	| { kind: "record_interview"; name: string; occurredOn: string | null; ratings: Record<string, string>; result: string | null }
+	| {
+			kind: "record_interview";
+			name: string;
+			occurredOn: string | null;
+			ratings: Record<string, string>;
+			result: string | null;
+	  }
 	| { kind: "record_assessment"; name: string; occurredOn: string | null; scores: Record<string, number> }
 	| { kind: "record_commitment"; name: string; occurredOn: string | null; commitment: "core_group" | "launch_team" }
 	| { kind: "lifecycle"; name: string; to: "withdrawn" | "active"; on: string | null }
@@ -110,8 +114,7 @@ function intentOf(text: string, prompt: Prompt): Intent | null {
 	const lower = text.toLowerCase();
 	if (/\bundo (that|the) merge\b|\bunmerge\b/.test(lower)) return { kind: "unmerge" };
 	const merge = /\bmerge (them|([a-z][\w' ]+?) (?:and|with|into) ([a-z][\w' ]+?))\s*[.?!]?$/i.exec(text);
-	if (merge)
-		return { kind: "merge", names: merge[2] ? [merge[2], merge[3]!] : userTexts(prompt).flatMap(nameList) };
+	if (merge) return { kind: "merge", names: merge[2] ? [merge[2], merge[3]!] : userTexts(prompt).flatMap(nameList) };
 	const name = named(text);
 	if (!name) return null;
 	if (/\bfix\b.*\binterview date\b/.test(lower))
@@ -143,7 +146,8 @@ function intentOf(text: string, prompt: Prompt): Intent | null {
 			commitment: signed[1] === "core group" ? "core_group" : "launch_team",
 		};
 	const life = /\b(withdraw|reactivate)\b.*\bcommitment\b/.exec(lower);
-	if (life) return { kind: "lifecycle", name, to: life[1] === "withdraw" ? "withdrawn" : "active", on: dateIn(text, prompt) };
+	if (life)
+		return { kind: "lifecycle", name, to: life[1] === "withdraw" ? "withdrawn" : "active", on: dateIn(text, prompt) };
 	if (/\binterview/.test(lower)) return { kind: "interviews", name };
 	if (/\b(four|4) c['’]?s\b|\bassessment/.test(lower)) return { kind: "assessments", name };
 	if (/\bcommitment\b/.test(lower)) return { kind: "commitments", name };
@@ -230,9 +234,8 @@ export function assessmentStep(
 		if (!review) {
 			const rows = pairs.rows ?? [];
 			const pair =
-				rows.find((r) =>
-					intent.names.some((n) => same(n, r.label) || same(n, String(r.fields.mayDuplicate ?? ""))),
-				) ?? (intent.names.length ? undefined : rows[0]);
+				rows.find((r) => intent.names.some((n) => same(n, r.label) || same(n, String(r.fields.mayDuplicate ?? "")))) ??
+				(intent.names.length ? undefined : rows[0]);
 			if (!pair) return say("I can't find those two people among the possible duplicates to review.");
 			// The person the import flagged merges into the person already in People, as the People review defaults.
 			return read("people.getMergeReview", { sourceId: pair.id, survivorId: pair.fields.mayDuplicateId });
@@ -269,8 +272,10 @@ export function assessmentStep(
 	const found = of("people.listPeople");
 	if (!found) return [toolCall("people_read", { operation: "people.listPeople", input: { search: intent.name } })];
 	const rows = found.rows ?? [];
+	// A full name, or a first name that starts exactly one person's name ("Ana" is not "Dana Abbott").
 	const exact = rows.filter((r) => same(r.label, intent.name));
-	const matches = exact.length === 1 ? exact : rows;
+	const word = rows.filter((r) => r.label.toLowerCase().startsWith(`${intent.name.toLowerCase()} `));
+	const matches = exact.length === 1 ? exact : word.length ? word : rows;
 	if (!matches.length) return say(`I can't find ${intent.name} in this church.`);
 	if (matches.length > 1)
 		return say(`I found ${matches.length} matches: ${matches.map((r) => r.label).join(", ")}. Which one do you mean?`);
@@ -290,7 +295,9 @@ export function assessmentStep(
 			const [a] = got.rows ?? [];
 			if (!a) return say(`There is no recorded 4 C's assessment for ${person.label}.`);
 			const scores = LENSES.map((k) => `${k} ${String(a.fields[k])}`).join(", ");
-			return say(`${person.label}'s 4 C's on ${longDate(a.fields.occurredOn)}: ${scores}. Total ${String(a.fields.total)}.`);
+			return say(
+				`${person.label}'s 4 C's on ${longDate(a.fields.occurredOn)}: ${scores}. Total ${String(a.fields.total)}.`,
+			);
 		}
 		case "commitments": {
 			const got = of("people.getCommitments");

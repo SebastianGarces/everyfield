@@ -87,7 +87,9 @@ const INTERVIEW = {
 
 test("INV-evry-assessments: only an Owner or Admin of the plant gets the interview, 4 C's, commitment and merge reads", async () => {
 	const ops = (who: EvryActor) =>
-		readCatalog(who).domains.find((d) => d.domain === "peopleAssessments")?.operations.map((o) => o.operation) ?? [];
+		readCatalog(who)
+			.domains.find((d) => d.domain === "peopleAssessments")
+			?.operations.map((o) => o.operation) ?? [];
 	assert.deepEqual(ops(await actor("owner")), [...reads.keys()]);
 	assert.deepEqual(ops(await actor("member")), []);
 	assert.deepEqual(ops(await actor("orgOwner")), []);
@@ -199,7 +201,12 @@ test("INV-evry-assessments: a 4 C's review shows the four scores and their total
 	const maria = await addPerson("Maria Santos", "prospect");
 	const today = await churchToday();
 	const propose = await turn(owner);
-	const scores = { committed: { score: 4 }, compelled: { score: 5 }, contagious: { score: 3 }, courageous: { score: 4 } };
+	const scores = {
+		committed: { score: 4 },
+		compelled: { score: 5 },
+		contagious: { score: 3 },
+		courageous: { score: 4 },
+	};
 	const { courageous: _, ...three } = scores;
 	await assert.rejects(propose("people.createAssessment", { personId: maria, occurredOn: today, ...three }), {
 		code: "invalid_input",
@@ -287,14 +294,19 @@ test("INV-evry-assessments GAP-EVR-423: a card's signed document comes back as t
 		mediaType: "application/pdf",
 		byteCount: "2048",
 	});
-	assert.deepEqual((await read(await actor("foreign"), "people.getCommitmentDownload", { commitmentId: card })).rows, []);
+	assert.deepEqual(
+		(await read(await actor("foreign"), "people.getCommitmentDownload", { commitmentId: card })).rows,
+		[],
+	);
 });
 
 test("INV-evry-assessments CLN-03: a merge review shows who stays and what moves, merges once approved, and undoes through its own review", async () => {
 	const owner = await actor("owner");
 	const jon = await addPerson("Jon Merge");
 	const john = await addPerson("John Merge");
-	await admin.execute(sql`UPDATE person SET email='john.merge@example.org',created_at=clock_timestamp() WHERE id=${john}`);
+	await admin.execute(
+		sql`UPDATE person SET email='john.merge@example.org',created_at=clock_timestamp() WHERE id=${john}`,
+	);
 	await admin.execute(sql`INSERT INTO person_note(id,tenant_id,plant_id,person_id,author_id,body,occurred_at,recorded_at)
 		VALUES(${randomUUID()},${plant},${plant},${john},${accounts.owner.id},'Met at the park.',clock_timestamp(),clock_timestamp())`);
 	const review = await read(owner, "people.getMergeReview", { sourceId: john, survivorId: jon });
@@ -325,10 +337,7 @@ test("INV-evry-assessments CLN-03: a merge review shows who stays and what moves
 	assert.ok(undo);
 	assert.equal(undo.review.refusal, undefined);
 	assert.equal((await approveAndRun(owner, undo)).outcome, "completed");
-	assert.equal(
-		(await admin.execute(sql`SELECT state FROM person WHERE id=${john}`)).rows[0]!.state,
-		"live",
-	);
+	assert.equal((await admin.execute(sql`SELECT state FROM person WHERE id=${john}`)).rows[0]!.state, "live");
 	// Undone already: the preview and the card say so, and nothing can be approved.
 	const done = await read(owner, "people.previewUnmerge", { mergeId: row.id });
 	assert.equal(done.rows[0]!.fields.blocked, "This merge was already undone.");
@@ -352,10 +361,9 @@ test("INV-evry-assessments: a merge People can't carry yet gives the People scre
 		"This merge cannot run. Casey Blocked has follow-up outcomes on record. Merging people with this history is not available in Everyfield yet.",
 	);
 	assert.equal(merge.review.refusal, text);
-	await assert.rejects(
-		approveProposal(db, owner, merge.id, { revision: merge.revision, digest: merge.digest }, null),
-		{ code: "review_closed" },
-	);
+	await assert.rejects(approveProposal(db, owner, merge.id, { revision: merge.revision, digest: merge.digest }, null), {
+		code: "review_closed",
+	});
 	assert.equal((await admin.execute(sql`SELECT state FROM person WHERE id=${brooks}`)).rows[0]!.state, "live");
 });
 
@@ -363,7 +371,11 @@ test("INV-evry-assessments: correcting an interview's date shows the old and new
 	const owner = await actor("owner");
 	const person = await addPerson("Dana Fix", "following_up");
 	const propose = await turn(owner);
-	const recorded = await propose("people.createInterview", { personId: person, occurredOn: "2026-10-03", ...INTERVIEW });
+	const recorded = await propose("people.createInterview", {
+		personId: person,
+		occurredOn: "2026-10-03",
+		...INTERVIEW,
+	});
 	assert.ok(recorded);
 	await approveAndRun(owner, recorded);
 	const [interview] = (await read(owner, "people.getInterviews", { personId: person })).rows;
@@ -375,7 +387,10 @@ test("INV-evry-assessments: correcting an interview's date shows the old and new
 	assert.ok(fix);
 	assert.deepEqual(fix.review.changes, [{ field: "occurredOn", before: "2026-10-03", after: "2026-10-02" }]);
 	assert.equal((await approveAndRun(owner, fix)).outcome, "completed");
-	assert.equal((await read(owner, "people.getInterviews", { personId: person })).rows[0]!.fields.occurredOn, "2026-10-02");
+	assert.equal(
+		(await read(owner, "people.getInterviews", { personId: person })).rows[0]!.fields.occurredOn,
+		"2026-10-02",
+	);
 	const history = await read(owner, "people.listRecordCorrections", { personId: person });
 	assert.deepEqual(
 		history.rows.map((r) => r.fields.changes),
@@ -387,7 +402,5 @@ test("INV-evry-assessments: correcting an interview's date shows the old and new
 		recordId: interview!.id,
 		changes: { chemistry: { rating: "pass" } },
 	});
-	assert.deepEqual(keep?.review.changes, [
-		{ field: "chemistry", before: rating("concern"), after: rating("pass") },
-	]);
+	assert.deepEqual(keep?.review.changes, [{ field: "chemistry", before: rating("concern"), after: rating("pass") }]);
 });

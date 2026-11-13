@@ -49,7 +49,6 @@ export function listText(items: readonly string[]): string {
 	return `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
 }
 
-
 // Refusals in words. Each names a cause the person can act on.
 
 export type Blocker = z.infer<typeof mergeBlocker>;
@@ -78,13 +77,14 @@ export function conflictText(cause: InverseConflict, names: { source: string; su
 	}
 }
 
-
 /** The whole blocked answer, as the People merge review gives it: the heading, then each cause. */
 export function mergeBlockedText(
 	blockers: { causes: readonly Blocker[]; references: ReferenceKind[] },
 	names: { source: string; survivor: string },
 ) {
-	return ["This merge cannot run.", ...blockers.causes.map((c) => blockerText(c, names, blockers.references))].join(" ");
+	return ["This merge cannot run.", ...blockers.causes.map((c) => blockerText(c, names, blockers.references))].join(
+		" ",
+	);
 }
 /** Why Unmerge cannot run now, as the People Unmerge dialog says it. */
 export function unmergeBlockedText(conflicts: readonly InverseConflict[], names: { source: string; survivor: string }) {

@@ -69,26 +69,24 @@ export const getInterviews: ReadAdapter<z.infer<typeof history>> = {
 	async invoke(tx: Transaction, actor, input) {
 		const v = valueOf(await interviews.getInterviews(tx, context(actor), page(input)));
 		if (!v) return result("people.getInterviews", [], PRIVATE);
-		const rows = v.items.map(
-			(i): SourceRow => ({
-				kind: "record",
-				id: i.id,
-				label: `Interview on ${i.occurredOn}`,
-				fields: {
-					record: "interview",
-					personId: i.personId,
-					occurredOn: i.occurredOn,
-					...Object.fromEntries(
-						interviewCriteria.flatMap((k) => [
-							[k, i[k].rating],
-							[`${k}Notes`, i[k].notes],
-						]),
-					),
-					result: i.result,
-					nextSteps: i.nextSteps,
-				},
-			}),
-		);
+		const rows = v.items.map((i): SourceRow => ({
+			kind: "record",
+			id: i.id,
+			label: `Interview on ${i.occurredOn}`,
+			fields: {
+				record: "interview",
+				personId: i.personId,
+				occurredOn: i.occurredOn,
+				...Object.fromEntries(
+					interviewCriteria.flatMap((k) => [
+						[k, i[k].rating],
+						[`${k}Notes`, i[k].notes],
+					]),
+				),
+				result: i.result,
+				nextSteps: i.nextSteps,
+			},
+		}));
 		return paged("people.getInterviews", rows, v, input.page ?? 1);
 	},
 };
@@ -102,25 +100,23 @@ export const getAssessments: ReadAdapter<z.infer<typeof history>> = {
 	async invoke(tx, actor, input) {
 		const v = valueOf(await assessments.getAssessments(tx, context(actor), page(input)));
 		if (!v) return result("people.getAssessments", [], PRIVATE);
-		const rows = v.items.map(
-			(a): SourceRow => ({
-				kind: "record",
-				id: a.id,
-				label: `4 C's on ${a.occurredOn}`,
-				fields: {
-					record: "assessment",
-					personId: a.personId,
-					occurredOn: a.occurredOn,
-					...Object.fromEntries(
-						(["committed", "compelled", "contagious", "courageous"] as const).flatMap((k) => [
-							[k, String(a[k].score)],
-							[`${k}Notes`, a[k].notes],
-						]),
-					),
-					total: String(a.total),
-				},
-			}),
-		);
+		const rows = v.items.map((a): SourceRow => ({
+			kind: "record",
+			id: a.id,
+			label: `4 C's on ${a.occurredOn}`,
+			fields: {
+				record: "assessment",
+				personId: a.personId,
+				occurredOn: a.occurredOn,
+				...Object.fromEntries(
+					(["committed", "compelled", "contagious", "courageous"] as const).flatMap((k) => [
+						[k, String(a[k].score)],
+						[`${k}Notes`, a[k].notes],
+					]),
+				),
+				total: String(a.total),
+			},
+		}));
 		return paged("people.getAssessments", rows, v, input.page ?? 1);
 	},
 };
@@ -145,27 +141,25 @@ export const getCommitments: ReadAdapter<z.infer<typeof history>> = {
 				firstSignedOn: v.firstAcquisition.status === "known" ? v.firstAcquisition.occurredOn : null,
 			},
 		};
-		const cards = v.items.map(
-			(k): SourceRow => ({
-				kind: "record",
-				id: k.id,
-				label: `${k.kind === "core_group" ? "Core group" : "Launch team"} commitment signed ${k.occurredOn}`,
-				fields: {
-					record: "commitment",
-					personId: k.personId,
-					kind: k.kind,
-					occurredOn: k.occurredOn,
-					witness: k.witness
-						? k.witness.kind === "person"
-							? (v.witnessNames[k.witness.personId] ?? "A former person")
-							: k.witness.text
-						: null,
-					notes: k.notes,
-					document: k.document.status,
-					voided: k.voidedAt !== null,
-				},
-			}),
-		);
+		const cards = v.items.map((k): SourceRow => ({
+			kind: "record",
+			id: k.id,
+			label: `${k.kind === "core_group" ? "Core group" : "Launch team"} commitment signed ${k.occurredOn}`,
+			fields: {
+				record: "commitment",
+				personId: k.personId,
+				kind: k.kind,
+				occurredOn: k.occurredOn,
+				witness: k.witness
+					? k.witness.kind === "person"
+						? (v.witnessNames[k.witness.personId] ?? "A former person")
+						: k.witness.text
+					: null,
+				notes: k.notes,
+				document: k.document.status,
+				voided: k.voidedAt !== null,
+			},
+		}));
 		return { ...paged("people.getCommitments", [current, ...cards], v, input.page ?? 1), total: v.total };
 	},
 };
@@ -256,7 +250,10 @@ export async function unmergePreviewOf(tx: Transaction, actor: EvryActor, mergeI
 	const v = valueOf(await peopleUnmerge.previewUnmerge(tx, context(actor), { mergeId }));
 	if (!v) return null;
 	const named = await names(tx, actor, [v.sourceId, v.survivorId]);
-	const who = { source: named.get(v.sourceId) ?? "The merged person", survivor: named.get(v.survivorId) ?? "The kept person" };
+	const who = {
+		source: named.get(v.sourceId) ?? "The merged person",
+		survivor: named.get(v.survivorId) ?? "The kept person",
+	};
 	const blocked =
 		v.state === "unmerged"
 			? "This merge was already undone."
@@ -325,21 +322,20 @@ export const listRecordCorrections: ReadAdapter<z.infer<typeof correctionsInput>
 			await recordCorrections.listRecordCorrections(tx, context(actor), { ...input, page: 1, limit: 24 }),
 		);
 		if (!v) return result("people.listRecordCorrections", [], PRIVATE);
-		const text = (x: unknown) => (x === null || x === undefined ? "none" : typeof x === "string" ? x : JSON.stringify(x));
-		const rows = v.items.map(
-			(c): SourceRow => ({
-				kind: "correction",
-				id: c.id,
-				label: `${c.recordType} corrected ${c.correctedAt.slice(0, 10)}`,
-				fields: {
-					recordType: c.recordType,
-					recordId: c.recordId,
-					correctedAt: c.correctedAt,
-					reason: c.reason,
-					changes: c.changes.map((x) => `${x.field}: ${text(x.old)} -> ${text(x.new)}`).join("; "),
-				},
-			}),
-		);
+		const text = (x: unknown) =>
+			x === null || x === undefined ? "none" : typeof x === "string" ? x : JSON.stringify(x);
+		const rows = v.items.map((c): SourceRow => ({
+			kind: "correction",
+			id: c.id,
+			label: `${c.recordType} corrected ${c.correctedAt.slice(0, 10)}`,
+			fields: {
+				recordType: c.recordType,
+				recordId: c.recordId,
+				correctedAt: c.correctedAt,
+				reason: c.reason,
+				changes: c.changes.map((x) => `${x.field}: ${text(x.old)} -> ${text(x.new)}`).join("; "),
+			},
+		}));
 		return { ...result("people.listRecordCorrections", rows, PRIVATE, v.total), next: v.next };
 	},
 };

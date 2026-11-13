@@ -15,6 +15,11 @@ import { readCatalog, READ_DOMAINS } from "../../../packages/evry/src/catalog/ca
 import { invokeRead } from "../../../packages/evry/src/catalog/invoke.ts";
 import type { ReadAdapter, SourceResult } from "../../../packages/evry/src/catalog/types.ts";
 import { modelTools } from "../../../packages/evry/src/runtime/tools.ts";
+import { selectQualifiedModel } from "../../../packages/evry/src/runtime/model.ts";
+import { PeopleReadContext, withPeopleWrite } from "../../../packages/domain/src/people/core.ts";
+import { peopleMerge } from "../../../packages/domain/src/people/merge/index.ts";
+import { peopleWriter } from "../../../packages/domain/src/people/people.ts";
+import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import {
 	goldenChurch,
 	HOUSEHOLDS,
@@ -46,6 +51,10 @@ type ProposalSpec = {
 	mentions?: string;
 	targets?: string;
 	optional?: boolean;
+	/** The review card's own facts: [field, after] or [field, after, before], each as the card holds it. */
+	changes?: [string, unknown, unknown?][];
+	/** The card's refusal: it can't be approved, and says why. */
+	refusal?: string;
 };
 type Names = { allowed?: string[]; all?: string | string[]; orPartial?: boolean };
 type Checks = {
@@ -72,6 +81,8 @@ type Eval = Checks & {
 		proposalsAll?: { operation: string; targets: string };
 	};
 	targetProbe?: { history: Turn[]; text: string; require: string[] };
+	/** A scripted case's change through the native People commands before it runs: a merge, or an edit of a person. */
+	setup?: { merge?: [source: string, survivor: string]; touch?: string };
 	/**
 	 * Hard checks that failed when the case was recorded, reported as a finding. Only the named checks may fail:
 	 * any other failing check, an error, or a named check that now passes still blocks. Remove it once the case passes.
@@ -97,6 +108,8 @@ type GoldenCase = Approved & { eval: Eval };
 type ExtraCase = {
 	case_id: string;
 	extra: true;
+	/** "scripted": asked of the deterministic scripted model (assessments.cases.json), never recorded or judged. */
+	model?: "scripted";
 	adapter: string;
 	operation: string;
 	near_miss: boolean;
@@ -109,6 +122,7 @@ const json = (name: string) => JSON.parse(readFileSync(here(name), "utf8"));
 const approved: { cases: Approved[] } = json("golden.approved.json");
 const golden: GoldenCase[] = json("golden.cases.json");
 const extras: ExtraCase[] = json("adapters.cases.json");
+const scripted: ExtraCase[] = json("assessments.cases.json");
 const RERECORD =
 	"EVRY_EVAL_RECORD=1 node --conditions=react-server --env-file=apps/web/.env.local --test tests/evry/evals/golden.test.mts";
 
@@ -260,7 +274,17 @@ function score(spec: Checks, c: Conversation, context: { area: string; given: st
 				p.prepared &&
 				(!input || inputMatches(input, p.input)) &&
 				!(want.absent ?? []).some((f) => p.input?.[f] != null && p.input[f] !== "") &&
-				(!want.mentions || JSON.stringify(p.input).includes(want.mentions)),
+				(!want.mentions || JSON.stringify(p.input).includes(want.mentions)) &&
+				(want.changes ?? []).every(([field, after, before]) =>
+					p.review?.changes.some(
+						(x) =>
+							x.field === field &&
+							JSON.stringify(x.after) === JSON.stringify(after) &&
+							(before === undefined || JSON.stringify(x.before) === JSON.stringify(before)),
+					),
+				) &&
+				(!want.refusal || pattern(want.refusal).test(p.review?.refusal ?? "")) &&
+				(want.refusal !== undefined || !p.review?.refusal),
 		);
 		if (want.optional) continue;
 		add(
@@ -373,6 +397,43 @@ async function pool<T, R>(items: T[], size: number, run: (item: T) => Promise<R>
 	return out;
 }
 
+/** The deterministic scripted model local previews use (runtime/scripted.ts): its cases need no recording. */
+const scriptedModel = (() => {
+	const selected = selectQualifiedModel({ EVRY_SCRIPTED_MODEL: "1" });
+	if (selected.status !== "qualified") throw Error("the scripted model is not available");
+	return selected.model;
+})();
+/** A case's setup, through the native People commands as the Owner, as an approved review would run them. */
+async function setUp(setup: NonNullable<Eval["setup"]>) {
+	const authority = church.actors.owner.authority;
+	if (setup.merge) {
+		const pair = { sourceId: byName(setup.merge[0]).id, survivorId: byName(setup.merge[1]).id };
+		const review = await church.db.transaction((tx) =>
+			peopleMerge.getMergeReview(tx, new PeopleReadContext(authority), pair),
+		);
+		if (review.status !== "ok") throw Error("setup: no merge review");
+		const merged = await withPeopleWrite(church.db, authority, (tx, ctx) =>
+			peopleMerge.mergePeople(tx, ctx, {
+				requestKey: `setup-merge-${pair.sourceId}`,
+				input: { ...pair, reviewDigest: review.value.reviewDigest },
+			}),
+		);
+		if (merged.status !== "ok") throw Error(`setup: merge refused (${merged.error.code})`);
+	}
+	if (setup.touch) {
+		const personId = byName(setup.touch).id;
+		const current = await church.db.execute(sql`SELECT revision::text AS r FROM person WHERE id=${personId}::uuid`);
+		const changed = await withPeopleWrite(church.db, authority, (tx, ctx) =>
+			peopleWriter.updatePerson(tx, ctx, {
+				requestKey: `setup-touch-${personId}`,
+				expectedRevision: String(current.rows[0]!.r),
+				input: { personId, patch: { city: "Round Rock" } },
+			}),
+		);
+		if (changed.status !== "ok") throw Error(`setup: edit refused (${changed.error.code})`);
+	}
+}
+
 async function runCase(item: GoldenCase | ExtraCase): Promise<Row> {
 	const spec = item.eval;
 	const isGolden = !("extra" in item);
@@ -401,7 +462,9 @@ async function runCase(item: GoldenCase | ExtraCase): Promise<Row> {
 		keys: [],
 	};
 	try {
-		const c = await converse(church, as, text, spec.history ?? []);
+		const own = "extra" in item && item.model === "scripted";
+		if (own && spec.setup) await setUp(spec.setup);
+		const c = await converse(church, as, text, spec.history ?? [], own ? scriptedModel : undefined);
 		row.conversation = c;
 		row.keys = c.keys;
 		row.checks = [
@@ -456,7 +519,7 @@ async function runCase(item: GoldenCase | ExtraCase): Promise<Row> {
 				met: (row.target?.met ?? true) && checks.every((x) => x.ok),
 			};
 		}
-		if (row.checks.every((x) => x.ok)) {
+		if (row.checks.every((x) => x.ok) && !own) {
 			row.grade = await judge({
 				question: text,
 				expected: row.expected,
@@ -707,4 +770,23 @@ test("INV-evry-golden: every golden and adapter case passes its hard checks on t
 	);
 	assert.equal(blocking.length, 0, "\n" + blocking.join("\n\n"));
 	assert.ok(graded > 0, "the judge grades the answers that pass");
+});
+
+test("INV-evry-assessments-evals: every interview, 4 C's, commitment, merge and correction case passes on the scripted model", async () => {
+	const only = process.env.EVRY_EVAL_CASES?.split(",").map((s) => s.trim());
+	// One at a time and after the recorded cases: a case's setup merges or edits people through the native commands.
+	const rows = await pool(
+		scripted.filter((c) => !only || only.includes(c.case_id)),
+		1,
+		runCase,
+	);
+	const blocking = rows.flatMap((r) =>
+		blockingReasons(r).map(
+			(reason) =>
+				`${r.id}: ${reason}\n  answer: ${JSON.stringify(r.conversation?.answer ?? "")}\n  calls: ${
+					r.conversation?.calls.map((x) => `${x.operation} ${JSON.stringify(x.input)}`).join("; ") || "none"
+				}\n  proposals: ${JSON.stringify(r.conversation?.proposals.map((p) => [p.operation, p.input, p.review]) ?? [])}`,
+		),
+	);
+	assert.equal(blocking.length, 0, "\n" + blocking.join("\n\n"));
 });
