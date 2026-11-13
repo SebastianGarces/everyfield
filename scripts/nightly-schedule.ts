@@ -119,10 +119,10 @@ export function lastRecord(home: string): string | null {
 	const file = nightlyLog(home);
 	if (!existsSync(file)) return null;
 	const lines = readFileSync(file, "utf8").split("\n").filter(Boolean);
-	for (let i = lines.length - 1; i >= 0; i--) {
+	for (const line of lines.reverse()) {
 		try {
-			const { type } = JSON.parse(lines[i]) as { type?: string };
-			if (type === "nightly_result" || type === "nightly_skipped") return lines[i];
+			const { type } = JSON.parse(line) as { type?: string };
+			if (type === "nightly_result" || type === "nightly_skipped") return line;
 		} catch {
 			// A torn line from a killed run says nothing.
 		}
@@ -202,10 +202,10 @@ function realDeps(root: string): ScheduleDeps {
 
 /** `bin/dev nightly schedule <action>`. */
 export function scheduleCommand(args: string[], root: string): number | null {
-	if (args.length !== 1) return null;
+	const [name, ...rest] = args;
 	const actions = { install, status, uninstall };
-	if (!Object.hasOwn(actions, args[0])) return null;
-	const action = actions[args[0] as keyof typeof actions];
+	if (name === undefined || rest.length || !Object.hasOwn(actions, name)) return null;
+	const action = actions[name as keyof typeof actions];
 	if (process.platform !== "darwin") throw new Error("The nightly schedule is a launchd agent: macOS only.");
 	return action(realDeps(root));
 }
