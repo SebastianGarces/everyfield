@@ -151,9 +151,7 @@ export function createLaunchWriter(config: { notices: LaunchNotices; clock?: Clo
 		authority: RequestActor,
 		operation: "launch.schedule" | "launch.postpone",
 		q: { requestKey: string; expectedRevision: string; input: unknown },
-		decide: (
-			current: z.infer<typeof launchRow>,
-		) =>
+		decide: (current: z.infer<typeof launchRow>) =>
 			| { change: null }
 			| {
 					change: { status: c.LaunchStatus; date: string | null; event: string; reason: string | null; seed: boolean };
