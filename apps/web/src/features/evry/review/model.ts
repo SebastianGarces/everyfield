@@ -427,7 +427,16 @@ export const CHOICES: Record<string, { value: string; label: string }[]> = {
 };
 
 /** Fields a person may edit in a revision. Photos, the removal itself and the task count are fixed facts. */
-const FIXED = new Set(["photo", "state", "openTasksNeedingOwner", "phase", "direction", "openCriteria", "signal", "value"]);
+const FIXED = new Set([
+	"photo",
+	"state",
+	"openTasksNeedingOwner",
+	"phase",
+	"direction",
+	"openCriteria",
+	"signal",
+	"value",
+]);
 /** Values that may be empty. A name and a reason are required, and a signal's date and words. */
 const REQUIRED = new Set(["displayName", "reason", "stage", "source", "adultClassification", "asOf", "detail"]);
 /** Adult or child is required until a birth date is entered: then it comes from the birth date (REQ-PPL-026). */

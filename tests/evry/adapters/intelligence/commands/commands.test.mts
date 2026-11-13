@@ -158,10 +158,16 @@ test("a phase move lists the open exit criteria, changes the phase only after ap
 	const member = await actor("member");
 	await assert.rejects(
 		() =>
-			prepareProposal(db, member, { turnId: randomUUID(), tenantId: plant, leaseOwner: "x", generation: "1" }, randomUUID(), {
-				operation: "phases.transition",
-				input: { toPhase: 3, reason },
-			}),
+			prepareProposal(
+				db,
+				member,
+				{ turnId: randomUUID(), tenantId: plant, leaseOwner: "x", generation: "1" },
+				randomUUID(),
+				{
+					operation: "phases.transition",
+					input: { toPhase: 3, reason },
+				},
+			),
 		(e: { code?: string }) => e.code === "access_denied",
 	);
 });
@@ -204,7 +210,9 @@ test("a reported signal is recorded in the Owner's words only after approval; a 
 	assert.deepEqual(await answers(), [], "nothing is recorded before approval");
 
 	assert.equal((await approveAndRun(owner, attest)).outcome, "completed");
-	assert.deepEqual(await answers(), [{ state: "answered", answer: true, as_of: asOf, statement: words, revision: "1" }]);
+	assert.deepEqual(await answers(), [
+		{ state: "answered", answer: true, as_of: asOf, statement: words, revision: "1" },
+	]);
 	const recorded = await admin.execute(
 		sql`SELECT actor_id,action FROM audit_event WHERE tenant_id=${plant} AND action LIKE 'attestation.%'`,
 	);

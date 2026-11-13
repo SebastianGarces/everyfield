@@ -15,6 +15,11 @@
 //   "Not a duplicate".
 // - Messages: the draft "Sunday's interest meeting" and "Friday volunteer email", scheduled for Fri 13 Nov 9:00 AM
 //   to Mark and Jen Thompson (the launch team), waiting in Everyfield.
+// - Phases: declared at Discovery when it joined (Apr 1, 2026), then moved to Core Group Development on Aug 3, 2026,
+//   both written by the native phase writer. The empty church has never declared or moved.
+// - Signals: "Core group giving sacrificially" answered Yes as of Oct 20, 2026, in the Owner's words; the other six,
+//   "Corporate prayer rhythm established" among them, were never answered.
+// - The Owner's private weekly check-in for this week, answered Struggling with a note. No Evry read may reach it.
 // - Actors: the Owner (Nate Ellis, a leader linked to his account), an Admin (Lena Park), a Member (Priya Shah), an
 //   organization seat (a sending church, which sees no plant People) and the Owner of an empty church.
 //
@@ -25,6 +30,8 @@
 // activity older than 14 days. Coverage is whether a person has an open task.
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { readViewer } from "../../../packages/domain/src/access/session.ts";
+import { createPrivateCare, createSignals } from "../../../packages/domain/src/intelligence/index.ts";
+import { createPhaseWriter } from "../../../packages/domain/src/phases/index.ts";
 import { evryActor, type EvryActor } from "../../../packages/evry/src/context/actor.ts";
 import { resolveSelf } from "../../../packages/evry/src/context/self.ts";
 import { testDatabase, type Database } from "../../support/test-database.mts";
@@ -201,6 +208,24 @@ export const byName = (name: string) => {
 	if (!found) throw Error(`No ${name} in the golden church`);
 	return found;
 };
+
+/** The church's phase journey: where it was when it joined, and its one move since, with the reason. */
+export const PHASES = {
+	declared: { phase: 0, at: "2026-04-01T15:00:00.000Z" },
+	moved: { phase: 1, at: "2026-08-03T15:00:00.000Z", reason: "Our core group started meeting every week." },
+} as const;
+/** The one answered signal, in the Owner's words. */
+export const GIVING = {
+	key: "core_group_giving",
+	asOf: "2026-10-20",
+	detail: "Most of our core group now gives every month.",
+	at: "2026-10-20T17:00:00.000Z",
+} as const;
+/** The Owner's private check-in for this week: its words and status must never reach Evry. */
+export const PRIVATE_CHECK_IN = {
+	answers: { spiritual: "struggling", family: "struggling", financial: "strained", pace: "struggling" },
+	note: "Running on empty; my marriage is strained and I am close to quitting.",
+} as const;
 
 /** A people import whose receipt the receipt read returns, and the request key that names it. */
 export const IMPORT_KEY = "import-2026-11-08-launch-interest";
@@ -408,6 +433,60 @@ function pinHostClock() {
 	} as unknown as DateConstructor;
 }
 
+/**
+ * The phase journey, the answered signal and the Owner's private check-in, each written by its own native command
+ * as the Owner. The writers stamp their own clock, so the journey's dates are then set to the pinned ones.
+ */
+async function seedIntelligence(admin: Database, db: Database, owner: EvryActor) {
+	const ok = <T,>(reply: { status: string; value?: T }) => {
+		if (reply.status !== "ok") throw Error(`seed refused: ${JSON.stringify(reply)}`);
+		return reply.value as T;
+	};
+	const writer = createPhaseWriter({ notices: async () => {} });
+	const revision = async () =>
+		String((await admin.execute(sql`SELECT revision FROM plant WHERE id=${PLANT}`)).rows[0]!.revision);
+	ok(
+		await writer.declare(db, owner.authority, {
+			requestKey: "golden-declare",
+			expectedRevision: await revision(),
+			input: { phase: PHASES.declared.phase },
+		}),
+	);
+	ok(
+		await writer.transition(db, owner.authority, {
+			requestKey: "golden-move",
+			expectedRevision: await revision(),
+			input: { toPhase: PHASES.moved.phase, reason: PHASES.moved.reason },
+		}),
+	);
+	for (const [kind, at] of [
+		["initial_declaration", PHASES.declared.at],
+		["movement", PHASES.moved.at],
+	])
+		await admin.execute(
+			sql`UPDATE phase_transition SET occurred_at=${at}::timestamptz,recorded_at=${at}::timestamptz WHERE plant_id=${PLANT} AND kind=${kind}`,
+		);
+	ok(
+		await createSignals({ clock: { now: () => GIVING.at as never } }).attest(db, owner.authority, {
+			requestKey: "golden-giving",
+			expectedRevision: "0",
+			input: { key: GIVING.key, value: "yes", asOf: GIVING.asOf, detail: GIVING.detail },
+		}),
+	);
+	await admin.execute(
+		sql`UPDATE account SET personal_timezone='America/Chicago' WHERE id=${ACTOR_SPECS.owner.account}`,
+	);
+	const care = createPrivateCare();
+	const current = ok<{ revision: string }>(await care.readCurrent(db, owner.authority, {}));
+	ok(
+		await care.save(db, owner.authority, {
+			requestKey: "golden-check-in",
+			expectedRevision: current.revision,
+			input: { answers: PRIVATE_CHECK_IN.answers, note: PRIVATE_CHECK_IN.note },
+		}),
+	);
+}
+
 export type GoldenChurch = { db: Database; actors: Record<ActorName, EvryActor>; close(): Promise<void> };
 /** A fresh schema with Hope Fellowship seeded, the runtime pool the reads use and every eval actor. */
 export async function goldenChurch(): Promise<GoldenChurch> {
@@ -417,6 +496,7 @@ export async function goldenChurch(): Promise<GoldenChurch> {
 		const db = database.pools.runtime;
 		const actors = {} as Record<ActorName, EvryActor>;
 		for (const who of Object.keys(ACTOR_SPECS) as ActorName[]) actors[who] = await actorFor(db, who);
+		await seedIntelligence(database.admin, db, actors.owner);
 		pinHostClock();
 		return { db, actors, close: database.close };
 	} catch (error) {

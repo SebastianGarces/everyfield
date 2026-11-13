@@ -1014,8 +1014,11 @@ function Changes({ review, staged, onRetry }: { review: Review; staged: StagedPh
 					<div key={c.field} className="grid grid-cols-[minmax(88px,auto)_1fr] items-baseline gap-x-3">
 						<dt className="text-text-2">{fieldLabel(c.field)}</dt>
 						<dd className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1">
-							{/* A new fact (a reason, a signal's words, a move's direction) has nothing before it. */}
-							{create || c.field === "reason" || (intelligence && c.before === null) ? null : (
+							{/* A new fact (a reason, a signal's words, a move's direction) has nothing before it, and a value a
+							    reaffirmation keeps is said once. */}
+							{create ||
+							c.field === "reason" ||
+							(intelligence && (c.before === null || JSON.stringify(c.before) === JSON.stringify(c.after))) ? null : (
 								<>
 									<span className="sr-only">from </span>
 									<Value field={c.field} value={c.before} before />

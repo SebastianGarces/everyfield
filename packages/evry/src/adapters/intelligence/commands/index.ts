@@ -29,7 +29,9 @@ const refusal = (when: SQL, text: string) =>
 const today = sql`(clock_timestamp() AT TIME ZONE p.timezone)::date`;
 
 type Reply<T> = { status: "ok"; value: T } | { status: "refused"; error: { code: string } };
-const refused = (reply: { status: "refused"; error: { code: string } }): EffectResult => ({ refused: reply.error.code });
+const refused = (reply: { status: "refused"; error: { code: string } }): EffectResult => ({
+	refused: reply.error.code,
+});
 
 // --- phases ---------------------------------------------------------------------------------------------------
 
@@ -67,7 +69,7 @@ export const declarePhase: ReviewedWrite<z.infer<typeof declareInput>> = {
 const reason = z
 	.string()
 	.refine((text) => c.checkReason(text).ok, "a reason of 1 to 2,000 characters")
-	.describe("Why the church is moving, in the user's words");
+	.describe("Why the church is moving, in the user's words; when they gave no reason, their request as they said it");
 const transitionInput = z.strictObject({ toPhase: c.phaseNumber, reason });
 export const transitionPhase: ReviewedWrite<z.infer<typeof transitionInput>> = {
 	operation: "phases.transition",
@@ -121,7 +123,13 @@ const words = z
 	.max(s.TEXT_MAX)
 	.describe("What the user said about it, in their own words, quoted exactly");
 const asOf = localDate.describe("The day it is true as of, YYYY-MM-DD in the church's time zone, no later than today");
-const reference = z.string().trim().min(1).max(s.TEXT_MAX).optional().describe("Where it is written down, if the user said");
+const reference = z
+	.string()
+	.trim()
+	.min(1)
+	.max(s.TEXT_MAX)
+	.optional()
+	.describe("Where it is written down, if the user said");
 const afterToday = (date: string) => sql`${date}::date>${today}`;
 const FUTURE = "A signal can't be true as of a date after today.";
 
@@ -143,7 +151,7 @@ const attestInput = z.strictObject({ key: s.signalKey, value: s.signalValue, asO
 export const attestSignal: ReviewedWrite<z.infer<typeof attestInput>> = {
 	operation: "signals.attest",
 	description:
-		"Propose recording one manual signal the user reported in this conversation, answered yes or not yet, dated and in the user's own words. Never for a signal nobody reported. Nothing changes until the user approves the exact review.",
+		"Propose recording one manual signal the user reported in this conversation, answered yes or not yet, dated and in the user's own words. When what they report fits a signal, prepare the review with the closest one right away: the review is where they confirm or revise it. Never for a signal nobody reported. Nothing changes until the user approves the exact review.",
 	input: attestInput,
 	allowed: ownerOrAdmin,
 	review(actor, value) {
@@ -159,13 +167,23 @@ export const attestSignal: ReviewedWrite<z.infer<typeof attestInput>> = {
 			FROM plant p ${current(value.key)} WHERE p.id=${actor.owner.id}::uuid`;
 	},
 	async execute(tx, context, args, effectKey, run) {
-		const reply = await signals.attest(tx, run.authority, { ...z.object({}).loose().parse(args), requestKey: effectKey });
+		const reply = await signals.attest(tx, run.authority, {
+			...z.object({}).loose().parse(args),
+			requestKey: effectKey,
+		});
 		return signalReceipt(tx, context.selected.id, effectKey, reply);
 	},
 };
 
 const correctInput = z.discriminatedUnion("action", [
-	z.strictObject({ action: z.literal("correct"), key: s.signalKey, value: s.signalValue, asOf, detail: words, reference }),
+	z.strictObject({
+		action: z.literal("correct"),
+		key: s.signalKey,
+		value: s.signalValue,
+		asOf,
+		detail: words,
+		reference,
+	}),
 	z.strictObject({ action: z.literal("retract"), key: s.signalKey }),
 ]);
 export const correctSignal: ReviewedWrite<z.infer<typeof correctInput>> = {
@@ -194,7 +212,10 @@ export const correctSignal: ReviewedWrite<z.infer<typeof correctInput>> = {
 			FROM plant p ${current(value.key)} WHERE p.id=${actor.owner.id}::uuid`;
 	},
 	async execute(tx, context, args, effectKey, run) {
-		const reply = await signals.correct(tx, run.authority, { ...z.object({}).loose().parse(args), requestKey: effectKey });
+		const reply = await signals.correct(tx, run.authority, {
+			...z.object({}).loose().parse(args),
+			requestKey: effectKey,
+		});
 		return signalReceipt(tx, context.selected.id, effectKey, reply);
 	},
 };
@@ -220,7 +241,10 @@ export const reaffirmSignal: ReviewedWrite<z.infer<typeof reaffirmInput>> = {
 			FROM plant p ${current(value.key)} WHERE p.id=${actor.owner.id}::uuid`;
 	},
 	async execute(tx, context, args, effectKey, run) {
-		const reply = await signals.reaffirm(tx, run.authority, { ...z.object({}).loose().parse(args), requestKey: effectKey });
+		const reply = await signals.reaffirm(tx, run.authority, {
+			...z.object({}).loose().parse(args),
+			requestKey: effectKey,
+		});
 		return signalReceipt(tx, context.selected.id, effectKey, reply);
 	},
 };

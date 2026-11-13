@@ -606,7 +606,7 @@
 			"area": "Launch / phases",
 			"case_id": "LCH-06",
 			"question": "what phase are we in",
-			"status": "Not yet",
+			"status": "Supported",
 			"expected_operation": "not yet: needs `phases.readHistory`",
 			"expected_answer": "Later: current phase and since when",
 			"must_not": "Guess from launch date"

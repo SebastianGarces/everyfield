@@ -1,7 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { MEMBER_PHASES, READ_DOMAINS, readCatalog, SELECT_RETURNED_ROWS } from "../../../packages/evry/src/catalog/catalog.ts";
+import {
+	MEMBER_PHASES,
+	READ_DOMAINS,
+	readCatalog,
+	SELECT_RETURNED_ROWS,
+} from "../../../packages/evry/src/catalog/catalog.ts";
 import type { EvryActor } from "../../../packages/evry/src/context/actor.ts";
 import { REVIEWED_WRITES } from "../../../packages/evry/src/proposals/store.ts";
 
@@ -71,10 +76,7 @@ test("AC:INH-REGRESSION-CAPABILITIES INV-catalog: every installed model tool is 
 });
 
 /** An actor in one exact context. Availability reads only the context and the role, never the database. */
-const as = (
-	contextKind: EvryActor["contextKind"],
-	role: EvryActor["role"],
-): EvryActor => ({
+const as = (contextKind: EvryActor["contextKind"], role: EvryActor["role"]): EvryActor => ({
 	authority: null as never,
 	accountId: "5b6d1f0e-0000-4000-8000-000000000f01",
 	session: "5b6d1f0e-0000-4000-8000-000000000f21",
@@ -108,7 +110,12 @@ test("INV-catalog: the phase and signal tools follow the context: Owner and Admi
 	for (const role of ["owner", "admin"] as const)
 		assert.deepEqual(phaseTools(as("plant", role)), { ...PHASE_TOOLS, withheld: [] }, role);
 	// A Member's seat leaves the phase journey out, and the catalog says so in the /intelligence page's own words.
-	assert.deepEqual(phaseTools(as("plant", "member")), { phases: [], signals: [], writes: [], withheld: [MEMBER_PHASES] });
+	assert.deepEqual(phaseTools(as("plant", "member")), {
+		phases: [],
+		signals: [],
+		writes: [],
+		withheld: [MEMBER_PHASES],
+	});
 	// Organization seats keep no tools at all until T-311 or T-331 gives them their own (D-1116); an account has none.
 	for (const actor of [as("sending_church", "owner"), as("sending_network", "admin"), as("account", null)]) {
 		const catalog = readCatalog(actor);

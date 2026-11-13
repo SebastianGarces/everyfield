@@ -231,12 +231,16 @@ const localDay = (value: unknown) =>
 				timeZone: "UTC",
 			})
 		: null;
-const ENTRY: Record<string, string> = { creation: "Started in", initial_declaration: "Declared as", movement: "Moved to" };
-const CRITERION: Record<string, { text: string; warn: boolean }> = {
-	met: { text: "Met", warn: false },
-	"not met": { text: "Not met", warn: true },
-	"no data yet": { text: "No data yet", warn: false },
-	"not tracked": { text: "Not tracked", warn: false },
+const ENTRY: Record<string, string> = {
+	creation: "Started in",
+	initial_declaration: "Declared as",
+	movement: "Moved to",
+};
+const CRITERION: Record<string, string> = {
+	met: "Met",
+	"not met": "Not met",
+	"no data yet": "No data yet",
+	"not tracked": "Not tracked",
 };
 const SIGNAL_KIND: Record<string, string> = {
 	answered: "Recorded",
@@ -448,14 +452,9 @@ function rowView(operation: string, row: SourceRow): RowView {
 			};
 		}
 		case "criterion": {
+			// The status is the row's line, so a long criterion name is never cut short by a mark at phone width.
 			const status = CRITERION[String(fields.status)];
-			return {
-				...plain,
-				name: row.label,
-				line: null,
-				mark: status ? { kind: "status", ...status } : null,
-				avatar: "criterion",
-			};
+			return { ...plain, name: row.label, line: status ?? null, avatar: "criterion" };
 		}
 		case "signal":
 			if (operation === "signals.getHistory")
@@ -550,13 +549,13 @@ export function cardView(operation: string, result: SourceResult, originalTotal:
 		? "Not found"
 		: view.summary
 			? view.summary(result)
-		: photo
-			? ""
-			: view.countAnswer
-				? count(result.total ?? 0, one, many)
-				: view.shownOnly || result.total === null || result.total === counted
-					? count(counted, one, many)
-					: `${counted.toLocaleString()} of ${result.total.toLocaleString()}`;
+			: photo
+				? ""
+				: view.countAnswer
+					? count(result.total ?? 0, one, many)
+					: view.shownOnly || result.total === null || result.total === counted
+						? count(counted, one, many)
+						: `${counted.toLocaleString()} of ${result.total.toLocaleString()}`;
 	const facts: string[] = [];
 	if (missing || !result.rows.length) facts.push(view.empty);
 	if (result.withheldRows)

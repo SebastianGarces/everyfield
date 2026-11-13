@@ -55,7 +55,7 @@ const none = z.strictObject({});
 const readPhaseCatalog: ReadAdapter<z.infer<typeof none>> = {
 	operation: "phases.readCatalog",
 	description:
-		"the seven church planting phases in order, each with its name and the exit criteria for leaving it. Reference only: it says nothing about this church",
+		"List the seven church planting phases in order, each with the exit criteria for leaving it. Reference only: it says nothing about this church.",
 	input: none,
 	allowed: ownerOrAdmin,
 	async invoke(_tx, _actor, _input) {
@@ -79,7 +79,7 @@ const readPhaseCatalog: ReadAdapter<z.infer<typeof none>> = {
 const readHistory: ReadAdapter<z.infer<typeof none>> = {
 	operation: "phases.readHistory",
 	description:
-		"this church's current phase, the date it entered it, and its phase journey (creation, the declaration when it joined, and every move with its reason), oldest first. Use it to say what phase the church is in",
+		"Read this church's current phase, the day it entered it and its phase journey (the declaration when it joined and every move with its reason), oldest first. Use it to say what phase the church is in.",
 	input: none,
 	allowed: ownerOrAdmin,
 	async invoke(tx, actor) {
@@ -100,9 +100,10 @@ const readHistory: ReadAdapter<z.infer<typeof none>> = {
 				declarable: h.state.declarable,
 			},
 		};
-		const entries: SourceRow[] = h.entries.map((e) => ({
+		// An entry is named by its place in the journey, which never changes: entries are only ever appended.
+		const entries: SourceRow[] = h.entries.map((e, n) => ({
 			kind: "phase",
-			id: e.id,
+			id: `entry:${n + 1}`,
 			label: phaseName(catalog, e.toPhase),
 			fields: {
 				entry: e.kind,
@@ -124,7 +125,7 @@ const readinessInput = z.strictObject({
 const readReadinessAdapter: ReadAdapter<z.infer<typeof readinessInput>> = {
 	operation: "phases.readReadiness",
 	description:
-		"each exit criterion for leaving a phase (the current phase unless one is named) with its status: met, not met, or no data yet. Advisory only: say each criterion's status as returned, never that the church is ready, and never infer a criterion from People counts",
+		"Read each exit criterion for leaving a phase (the current phase unless one is named) with its status: met, not met or no data yet. Say each status as returned. Never say the church is ready, and never judge a criterion from People counts.",
 	input: readinessInput,
 	allowed: ownerOrAdmin,
 	async invoke(tx, actor, input) {
@@ -152,14 +153,14 @@ const readReadinessAdapter: ReadAdapter<z.infer<typeof readinessInput>> = {
 			fields: { phase: String(phase), status: STATUS_WORDS[x.status] },
 		}));
 		// The verdict stays out: Evry reports each criterion and a person decides when to move.
-		return complete("phases.readReadiness", [head, ...criteria], ["readiness verdict"]);
+		return complete("phases.readReadiness", [head, ...criteria]);
 	},
 };
 
 const listDefinitions: ReadAdapter<z.infer<typeof none>> = {
 	operation: "signals.listDefinitions",
 	description:
-		"the seven manual signals a church records (such as a corporate prayer rhythm or launch funding), each with its key, meaning and whether it must be reaffirmed every 30 days. Reference only: it says nothing about this church's answers",
+		"List the seven manual signals a church records, such as a corporate prayer rhythm or launch funding, with what each means and whether it is renewed every 30 days. Reference only: it says nothing about this church's answers.",
 	input: none,
 	allowed: ownerOrAdmin,
 	async invoke() {
@@ -182,7 +183,7 @@ const historyInput = z.strictObject({
 const getHistory: ReadAdapter<z.infer<typeof historyInput>> = {
 	operation: "signals.getHistory",
 	description:
-		"every recorded answer, correction, retraction and reaffirmation of this church's manual signals, newest first, with the date each is true as of and the words recorded with it. A signal with no row has never been answered",
+		"Read every recorded answer, correction, retraction and reaffirmation of this church's manual signals, newest first, with the day each is true as of and the words recorded with it. A signal with no entry has never been answered.",
 	input: historyInput,
 	allowed: ownerOrAdmin,
 	async invoke(tx, actor, input) {
@@ -192,7 +193,8 @@ const getHistory: ReadAdapter<z.infer<typeof historyInput>> = {
 			.filter((r) => r.key !== "leadership_candidate")
 			.map((r) => ({
 				kind: "signal",
-				id: r.id,
+				// A signal's revision names the entry for good: its history is append-only.
+				id: `${r.key}:${r.revision}`,
 				label: signalLabel(r.key),
 				fields: {
 					key: r.key,

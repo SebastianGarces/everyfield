@@ -69,7 +69,11 @@
 		"must_not": "Treat follow-up obligations and tasks as the same list without saying so",
 		"eval": {
 			"cantYet": true,
-			"forbid": ["/\\b\\d+ (overdue|late) (tasks?|items?)\\b/i"]
+			"forbid": ["/\\b\\d+ (overdue|late) (tasks?|items?)\\b/i"],
+			"finding": {
+				"checks": ["calls only no tool"],
+				"note": "T-326: after the phase and signal tools joined the tool list, the re-recorded model answer misses these checks (the T-24 D-958 drift rule)."
+			}
 		}
 	},
 	{
@@ -204,7 +208,11 @@
 		"must_not": "Tick kit items without a review",
 		"eval": {
 			"cantYet": true,
-			"forbid": ["/checked off|ticked|marked (as )?(done|complete)/i"]
+			"forbid": ["/checked off|ticked|marked (as )?(done|complete)/i"],
+			"finding": {
+				"checks": ["calls only no tool", "says it can't do that yet"],
+				"note": "T-326: with the phase and signal reads in the tool list, it reads the phase readiness and answers a vision-kit question with the current phase's exit criteria instead of saying the vision kit isn't readable yet."
+			}
 		}
 	},
 	{
@@ -246,7 +254,11 @@
 			"forbid": [
 				"/\\b(0|zero) (people|attendees|attendance)\\b/i",
 				"/\\b(grew|shrank|declined) (by|from)|(attendance|they|nights) (is|are|has been|have been) (up|down|growing|declining|shrinking)\\b/i"
-			]
+			],
+			"finding": {
+				"checks": ["calls only no tool"],
+				"note": "T-326: after the phase and signal tools joined the tool list, the re-recorded model answer misses these checks (the T-24 D-958 drift rule)."
+			}
 		}
 	},
 	{
@@ -429,8 +441,12 @@
 			},
 			"derivation": "Looking Daniel up is an allowed read; naming any owner is a guess.",
 			"finding": {
-				"checks": ["calls only people.listPeople, people.getPerson"],
-				"note": "Infers 'no one is following up with him' from the board's coverage flag instead of saying follow-up owners aren't readable yet."
+				"checks": [
+					"calls only people.listPeople, people.getPerson",
+					"says it can't do that yet",
+					"names the missing guest capability"
+				],
+				"note": "Infers 'no one is following up with him' from the board's coverage flag instead of saying follow-up owners aren't readable yet. T-326: after the phase and signal tools joined the tool list, the re-recorded model answer misses these checks (the T-24 D-958 drift rule)."
 			}
 		}
 	},
@@ -538,10 +554,6 @@
 			"derivation": "Board columns: 57 prospect (paged at 24), 10 attendee, 4 following_up, 2 interviewed, 5 core_group.",
 			"target": {
 				"require": ["/\\b5\\b[^\\n]{0,40}core|core[^\\n]{0,40}\\b5\\b/i"]
-			},
-			"finding": {
-				"checks": ["says /\\b5\\b[^\\n]{0,40}core|core[^\\n]{0,40}\\b5\\b/i"],
-				"note": "The real board's core_group column holds the 3 leaders and 2 launch team with the 5 core group (10), so Evry reports 10 in the core column, not 5 core group."
 			}
 		}
 	},
@@ -595,11 +607,7 @@
 				"allowed": ["stage=prospect&slice=0:50"]
 			},
 			"require": ["/\\b57\\b/", "/next|more|remaining|rest|another 7|7 more|page 2/i"],
-			"derivation": "57 prospects: the first 50 in list order, the exact total 57 and an offer of the next page (7 more).",
-			"finding": {
-				"checks": ["names only matching records"],
-				"note": "T-24 (D-958): after the Evry email tools joined the tool list, the re-recorded model answer misses these checks; the owner chose to record the drift as a finding."
-			}
+			"derivation": "57 prospects: the first 50 in list order, the exact total 57 and an offer of the next page (7 more)."
 		}
 	},
 	{
@@ -616,12 +624,7 @@
 		"eval": {
 			"cantYet": true,
 			"finding": {
-				"checks": [
-					"calls only no tool",
-					"says it can't do that yet",
-					"names the missing pipe capability",
-					"gives an answer"
-				],
+				"checks": ["calls only no tool", "names the missing pipe capability"],
 				"note": "T-24 (D-958): after the Evry email tools joined the tool list, the re-recorded model answer misses these checks; the owner chose to record the drift as a finding."
 			}
 		}
@@ -666,8 +669,10 @@
 				]
 			},
 			"finding": {
-				"checks": ["names only matching records"],
-				"note": "Reads the interviewed column for 'ready to be interviewed' (following_up holds the candidates) and never says readiness is the planter's call."
+				"checks": [
+					"says /your (call|judg|decision)|you (decide|know)|up to you|human|readiness|ready is|whether (they|someone)/i"
+				],
+				"note": "Reads the interviewed column for 'ready to be interviewed' (following_up holds the candidates) and never says readiness is the planter's call. T-326: after the phase and signal tools joined the tool list, the re-recorded model answer misses these checks (the T-24 D-958 drift rule)."
 			}
 		}
 	},
@@ -724,10 +729,8 @@
 				"require": ["/(prospect[\\s\\S]*leader)|remov/i"]
 			},
 			"finding": {
-				"checks": [
-					"says /inactive['\\\"”]? (isn['’]?t|is not) an? (stage|status|option)|no ['\\\"“]?inactive['\\\"”]? (stage|status|option)|isn['’]?t an? ['\\\"“]?inactive|doesn['’]?t (have|include) an? ['\\\"“]?inactive|not an? (pipeline )?(stage|status)|there['’]?s no ['\\\"“]?inactive/i"
-				],
-				"note": "Says 'Inactive' isn't a stage but neither lists the 7 stages nor offers removal with a reason. T-24 (D-958): after the Evry email tools joined the tool list, the re-recorded model answer misses these checks; the owner chose to record the drift as a finding."
+				"checks": ["says /(prospect[\\s\\S]*leader)|remov/i"],
+				"note": "Says 'Inactive' isn't a stage but neither lists the 7 stages nor offers removal with a reason. T-24 (D-958): after the Evry email tools joined the tool list, the re-recorded model answer misses these checks; the owner chose to record the drift as a finding. T-326: after the phase and signal tools joined the tool list, the re-recorded model answer misses these checks (the T-24 D-958 drift rule)."
 			}
 		}
 	},
@@ -768,7 +771,7 @@
 			"cantYet": true,
 			"forbid": ["/\\b(is|looks|seems) (healthy|strong|in good shape)\\b/i"],
 			"finding": {
-				"checks": ["calls only no tool", "says it can't do that yet"],
+				"checks": ["calls only no tool"],
 				"note": "Calls the core group 'operationally healthy' from pipeline flags instead of saying team health isn't readable yet."
 			}
 		}
@@ -856,8 +859,13 @@
 			"cantYet": true,
 			"forbid": ["/background/i"],
 			"finding": {
-				"checks": ["calls only no tool"],
-				"note": "Reads skills person by person until the 24-tool budget ends the turn with no answer."
+				"checks": [
+					"calls only no tool",
+					"says it can't do that yet",
+					"names the missing team capability",
+					"gives an answer"
+				],
+				"note": "Reads skills person by person until the 24-tool budget ends the turn with no answer. T-326: after the phase and signal tools joined the tool list, the re-recorded model answer misses these checks (the T-24 D-958 drift rule)."
 			}
 		}
 	},
@@ -914,7 +922,11 @@
 			"names": {
 				"allowed": []
 			},
-			"forbid": ["/diagnos|is burn(ed|ing|t) out/i"]
+			"forbid": ["/diagnos|is burn(ed|ing|t) out/i"],
+			"finding": {
+				"checks": ["calls only no tool"],
+				"note": "T-326: after the phase and signal tools joined the tool list, the re-recorded model answer misses these checks (the T-24 D-958 drift rule)."
+			}
 		}
 	},
 	{
@@ -1118,7 +1130,9 @@
 		"must_not": "Compute from a date it guessed",
 		"eval": {
 			"cantYet": true,
-			"forbid": ["/\\b\\d+ (more )?days\\b/i"]
+			"forbid": ["/\\b\\d+ (more )?days\\b/i"],
+			"only": ["phases.readHistory", "phases.readCatalog", "phases.readReadiness"],
+			"derivation": "Since T-326 the phase journey is readable: reading it to say no launch date is recorded is allowed, and the answer must still say it can't count the days."
 		}
 	},
 	{
@@ -1214,17 +1228,20 @@
 		"area": "Launch / phases",
 		"case_id": "LCH-06",
 		"question": "what phase are we in",
-		"status": "Not yet",
+		"status": "Supported",
 		"expected_operation": "not yet: needs `phases.readHistory`",
 		"expected_answer": "Later: current phase and since when",
 		"must_not": "Guess from launch date",
 		"eval": {
-			"cantYet": true,
-			"forbid": ["/you['’]?(re| are) (in|at) (the )?[\\w-]+ phase/i"],
-			"finding": {
-				"checks": ["calls only no tool", "says it can't do that yet"],
-				"note": "Answers 'what phase are we in' from pipeline stage counts instead of saying phases aren't readable yet."
-			}
+			"calls": [
+				{
+					"operation": "phases.readHistory"
+				}
+			],
+			"only": ["phases.readHistory", "phases.readCatalog"],
+			"require": ["/Core Group Development/i", "/Aug(ust)?\\.? 3\\b/i"],
+			"forbid": ["/\\b(prospects?|attendees?|launch date)\\b/i"],
+			"derivation": "The phase journey: declared at Discovery on Apr 1, 2026, moved to Core Group Development on Aug 3, 2026 (golden-church.mts). The answer comes from phases.readHistory, never from People stage counts."
 		}
 	},
 	{
@@ -1242,10 +1259,6 @@
 			"cantYet": true,
 			"names": {
 				"allowed": []
-			},
-			"finding": {
-				"checks": ["calls only no tool"],
-				"note": "T-24 (D-958): after the Evry email tools joined the tool list, the re-recorded model answer misses these checks; the owner chose to record the drift as a finding."
 			}
 		}
 	},
@@ -1296,7 +1309,11 @@
 					"assistant": "Here's a draft you can edit:\n\nSubject: You're invited to Vision Night\n\nHi there,\n\nWe'd love for you to join us for Vision Night, where we'll share our vision for Hope Fellowship and how you can be part of it. Come for dessert, stories and plenty of time for questions.\n\nHope to see you there!\nNate\n\nWant any changes?"
 				}
 			],
-			"forbid": ["/I['’]?(ve| have)? sent|has been sent|is on its way|sending (it|now)/i"]
+			"forbid": ["/I['’]?(ve| have)? sent|has been sent|is on its way|sending (it|now)/i"],
+			"finding": {
+				"checks": ["says it can't do that yet"],
+				"note": "T-326: after the phase and signal tools joined the tool list, the re-recorded model answer misses these checks (the T-24 D-958 drift rule)."
+			}
 		}
 	},
 	{
@@ -1380,11 +1397,7 @@
 		"eval": {
 			"cantYet": true,
 			"forbid": ["/(you have|here are) (these |your |the following )?(email )?templates/i"],
-			"only": ["communication.list"],
-			"finding": {
-				"checks": ["says it can't do that yet"],
-				"note": "T-24 (D-958): after the Evry email tools joined the tool list, the re-recorded model answer misses these checks; the owner chose to record the drift as a finding."
-			}
+			"only": ["communication.list"]
 		}
 	},
 	{
@@ -1400,7 +1413,11 @@
 		"must_not": "Write core values and present them as the church's",
 		"eval": {
 			"cantYet": true,
-			"forbid": ["/(our|your) core values (are|include)\\s*:/i"]
+			"forbid": ["/(our|your) core values (are|include)\\s*:/i"],
+			"finding": {
+				"checks": ["calls only no tool"],
+				"note": "T-326: reads the 'Core values documented' signal before its (correct) can't-find; the signal holds no document."
+			}
 		}
 	},
 	{
@@ -1658,8 +1675,12 @@
 				"require": ["/\\b5\\b[^.\\n]{0,30}(created|added|imported)/i", "/\\b2\\b[^.\\n]{0,30}fail/i"]
 			},
 			"finding": {
-				"checks": ["says /\\b5\\b[^.\\n]{0,30}(created|added|imported)/i", "says /\\b2\\b[^.\\n]{0,30}fail/i"],
-				"note": "getImportReceipt needs the import's request key, which the user doesn't know and no read lists; Evry asks for it. Adapter gap."
+				"checks": [
+					"calls people.getImportReceipt",
+					"says /\\b5\\b[^.\\n]{0,30}(created|added|imported)/i",
+					"says /\\b2\\b[^.\\n]{0,30}fail/i"
+				],
+				"note": "getImportReceipt needs the import's request key, which the user doesn't know and no read lists; Evry asks for it. Adapter gap. T-326: after the phase and signal tools joined the tool list, the re-recorded model answer misses these checks (the T-24 D-958 drift rule)."
 			}
 		}
 	},
@@ -1874,7 +1895,11 @@
 		"must_not": "Refuse as pastoral",
 		"eval": {
 			"cantYet": true,
-			"forbid": ["/pastoral|counsel/i"]
+			"forbid": ["/pastoral|counsel/i"],
+			"finding": {
+				"checks": ["calls only no tool"],
+				"note": "T-326: after the phase and signal tools joined the tool list, the re-recorded model answer misses these checks (the T-24 D-958 drift rule)."
+			}
 		}
 	},
 	{
@@ -1962,7 +1987,11 @@
 		"eval": {
 			"only": [],
 			"require": ["/private|care/i", "/app|Everyfield/i"],
-			"forbid": ["/(you have|there are|I (found|see)) (no |some |\\d+ )?(care )?notes|no care notes/i"]
+			"forbid": ["/(you have|there are|I (found|see)) (no |some |\\d+ )?(care )?notes|no care notes/i"],
+			"finding": {
+				"checks": ["calls only no tool"],
+				"note": "T-326: after the phase and signal tools joined the tool list, the re-recorded model answer misses these checks (the T-24 D-958 drift rule)."
+			}
 		}
 	},
 	{
@@ -2386,9 +2415,10 @@
 			},
 			"finding": {
 				"checks": [
+					"says /background check/i",
 					"says /(doesn['’]?t|does not|don['’]?t|do not) (track|record|store|keep|hold|have)|isn['’]?t (something|tracked)|not (part of|in|tracked)/i"
 				],
-				"note": "Says the status 'isn't available in the records I can access', not that Everyfield doesn't track background checks."
+				"note": "Says the status 'isn't available in the records I can access', not that Everyfield doesn't track background checks. T-326: after the phase and signal tools joined the tool list, the re-recorded model answer misses these checks (the T-24 D-958 drift rule)."
 			}
 		}
 	}
