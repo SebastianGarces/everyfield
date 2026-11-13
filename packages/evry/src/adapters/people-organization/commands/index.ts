@@ -15,13 +15,14 @@ import {
 	tagName,
 	type PeopleContext,
 	type importPreview,
+	type importReceipt,
 } from "@everyfield/contracts/people";
 import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
 import type { EffectResult, ReviewedWrite } from "../../../proposals/types.ts";
 import { ownerOrAdmin } from "../../people/commands/index.ts";
-import { problemText } from "../reads/index.ts";
+import { failure, problemText } from "../reads/index.ts";
 
 // The reviewed writes for households, tags, skills, notes and imports (WP-064). Each review is one SELECT under the
 // proposal's statement that reads the targets live in the actor's church and saves the native commands' exact
@@ -678,15 +679,7 @@ export const executeBulkImport = reviewed({
 			fileDigest: args.fileDigest,
 			reviewDigest: args.reviewDigest,
 			choices: args.choices,
-		})) as Reply<{
-			importId: string;
-			status: "in_progress" | "complete" | "partial";
-			counts: { created: number; skipped: number; failed: number; remaining: number };
-			rows: ({ row: number; status: string } & {
-				problems?: { column: string | null; code: string }[];
-				reason?: string;
-			})[];
-		}>;
+		})) as Reply<z.infer<typeof importReceipt>>;
 		if (saved.status !== "ok") return { refused: saved.error.code };
 		const receipt = saved.value;
 		return {
@@ -695,19 +688,7 @@ export const executeBulkImport = reviewed({
 			import: {
 				status: receipt.status,
 				counts: receipt.counts,
-				failed: receipt.rows.flatMap((r) =>
-					r.status === "failed"
-						? [
-								{
-									row: r.row,
-									reason:
-										r.reason === "row_write_failed"
-											? "the import could not write this row"
-											: problemText(r.problems ?? []),
-								},
-							]
-						: [],
-				),
+				failed: receipt.rows.flatMap((r) => (r.status === "failed" ? [{ row: r.row, reason: failure(r) }] : [])),
 			},
 		};
 	},

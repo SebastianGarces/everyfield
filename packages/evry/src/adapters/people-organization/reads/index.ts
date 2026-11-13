@@ -206,7 +206,7 @@ export const problemText = (problems: readonly { column: string | null; code: st
 		.map((p) => (p.column ? `${p.column}: ${PROBLEM[p.code] ?? p.code}` : (PROBLEM[p.code] ?? p.code)))
 		.join("; ");
 /** A failed row's reason in words: the columns and checks it failed, or that the import could not write it. */
-const failure = (item: Extract<z.infer<typeof importReceipt>["rows"][number], { status: "failed" }>) =>
+export const failure = (item: Extract<z.infer<typeof importReceipt>["rows"][number], { status: "failed" }>) =>
 	item.reason === "row_write_failed" ? "the import could not write this row" : problemText(item.problems) || "invalid";
 function receiptRows(
 	actor: EvryActor,
@@ -512,30 +512,20 @@ export const getImportReceipt: ReadAdapter<z.infer<typeof receiptInput>> = {
 	input: receiptInput,
 	allowed: ownerOrAdmin,
 	async invoke(tx, actor, input) {
-		if (input.requestKey) {
-			const request = importReceiptRequest.parse(input);
-			const found = valueOf<z.infer<typeof importReceipt>>(
-				await peopleCsv.getImportReceipt(tx, readCtx(actor), request),
-			);
-			if (!found) return missing("people.getImportReceipt", CONTACT);
-			const rows = receiptRows(actor, found);
-			return result("people.getImportReceipt", "available", rows, found.rows.length, 1, null, "complete", CONTACT);
-		}
-		const latest = valueOf<z.infer<typeof latestImportReceipt>>(
-			await peopleCsv.getLatestImportReceipt(tx, readCtx(actor)),
-		);
-		if (!latest || latest.status === "none") return missing("people.getImportReceipt", CONTACT);
-		const rows = receiptRows(actor, latest.receipt, latest);
-		return result(
-			"people.getImportReceipt",
-			"available",
-			rows,
-			latest.receipt.rows.length,
-			1,
-			null,
-			"complete",
-			CONTACT,
-		);
+		// Without a key, the most recent import, with its key and when it ran.
+		const latest = input.requestKey
+			? null
+			: valueOf<z.infer<typeof latestImportReceipt>>(await peopleCsv.getLatestImportReceipt(tx, readCtx(actor)));
+		const found = input.requestKey
+			? valueOf<z.infer<typeof importReceipt>>(
+					await peopleCsv.getImportReceipt(tx, readCtx(actor), importReceiptRequest.parse(input)),
+				)
+			: latest?.status === "available"
+				? latest.receipt
+				: null;
+		if (!found) return missing("people.getImportReceipt", CONTACT);
+		const rows = receiptRows(actor, found, latest?.status === "available" ? latest : null);
+		return result("people.getImportReceipt", "available", rows, found.rows.length, 1, null, "complete", CONTACT);
 	},
 };
 
