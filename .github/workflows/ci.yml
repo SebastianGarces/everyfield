@@ -1,8 +1,9 @@
 # Deterministic checks for every pull request and for main.
 # The required status check is the `ci` job. It passes only when every other job passed. The nightly full run behind
 # local selection, and the bun typecheck shadow, live in nightly.yml (T-216).
-# The database tests run against throwaway Postgres 17 service containers, one for the db job and one per domain
-# census part, with a synthetic password, never against Neon. CI uses no secrets.
+# The database tests run against throwaway PostgreSQL 18 service containers, the major version the shared development
+# database runs (D-861), one for the db job and one per domain census part, with a synthetic password, never against
+# Neon. CI uses no secrets.
 name: CI
 
 on:
@@ -149,7 +150,7 @@ jobs:
     timeout-minutes: 25
     services:
       postgres:
-        image: pgvector/pgvector:0.8.7-pg17
+        image: pgvector/pgvector:0.8.7-pg18
         env:
           POSTGRES_USER: ci
           POSTGRES_PASSWORD: ci
@@ -210,7 +211,7 @@ jobs:
           - part: 3
     services:
       postgres:
-        image: pgvector/pgvector:0.8.7-pg17
+        image: pgvector/pgvector:0.8.7-pg18
         env:
           POSTGRES_USER: ci
           POSTGRES_PASSWORD: ci
