@@ -1,7 +1,7 @@
 "use client";
 
 import type { PipelineBoard, PipelineGoals } from "@everyfield/contracts/organizations";
-import { Edit02Icon, PlusSignIcon, UserMultipleIcon } from "@hugeicons/core-free-icons";
+import { Edit02Icon, FileExportIcon, PlusSignIcon, UserMultipleIcon } from "@hugeicons/core-free-icons";
 import { Button, EmptyState, PageHeader, SearchInput } from "@everyfield/ui/controls";
 import { Avatar } from "@everyfield/ui/display";
 import { cn } from "@everyfield/ui/foundations";
@@ -14,6 +14,7 @@ import { boardHref, formatDay, PIPELINE_PATH, plural } from "./model";
 import { PersonDialog, type Saved } from "./PersonDialog";
 import { PipelineTabs } from "./PipelineTabs";
 import { StageEditor } from "./StageEditor";
+import { ExportDialog } from "../data/ExportDialog";
 
 type Stage = PipelineBoard["stages"][number];
 type Card = Stage["people"][number];
@@ -34,6 +35,7 @@ export function PipelineScreen({ initial, goals }: { initial: PipelineBoard; goa
 	}
 	const [adding, setAdding] = useState(false);
 	const [editingStages, setEditingStages] = useState(false);
+	const [exporting, setExporting] = useState(false);
 	const router = useRouter();
 	const admin = board.audience === "administrator";
 	const { query } = board;
@@ -82,6 +84,12 @@ export function PipelineScreen({ initial, goals }: { initial: PipelineBoard; goa
 				actions={
 					admin ? (
 						<>
+							<Button variant="secondary" icon={FileExportIcon} onClick={() => setExporting(true)}>
+								Export
+							</Button>
+							<Button variant="secondary" asChild>
+								<Link href={`${PIPELINE_PATH}/duplicates`}>Possible duplicates</Link>
+							</Button>
 							<Button variant="secondary" icon={Edit02Icon} onClick={() => setEditingStages(true)}>
 								Edit stages
 							</Button>
@@ -133,6 +141,7 @@ export function PipelineScreen({ initial, goals }: { initial: PipelineBoard; goa
 						stages={board.stages}
 						onSaved={added}
 					/>
+					<ExportDialog open={exporting} onOpenChange={setExporting} />
 					<StageEditor
 						open={editingStages}
 						onOpenChange={setEditingStages}

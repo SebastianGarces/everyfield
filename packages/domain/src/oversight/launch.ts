@@ -11,6 +11,15 @@ import { compatible } from "../teams/training/reads.ts";
 /** The plant-local date today for plant row `pl`. */
 const today = (pl: string) => sql`(clock_timestamp() AT TIME ZONE ${sql.raw(pl)}.timezone)::date`;
 
+/** Plant `plant`'s saved required obligations: active assignments of live people to live required programs. */
+const requiredObligations = (plant: SQL) => sql`training_assignment a
+		JOIN training_program g ON g.id=a.program_id AND g.plant_id=a.plant_id AND g.required AND g.archived_at IS NULL
+		JOIN person pe ON pe.id=a.person_id AND pe.plant_id=a.plant_id AND pe.state='live'
+		WHERE a.plant_id=${plant} AND a.state='active'`;
+/** How many saved required obligations plant `plant` has, or null when none is assigned (NIR-06 applicability). */
+export const requiredTrainingCount = (plant: SQL) =>
+	sql`(SELECT nullif(count(*), 0)::int FROM ${requiredObligations(plant)})`;
+
 /**
  * Plant `p`'s preparation counts as one JSON value (C.preparation). `teams` is the SQL condition under which the gap
  * counts may be read (Ministry teams shared, or true for the plant's own seat); without it both are null.
@@ -30,10 +39,7 @@ export const preparationJson = (p: SQL, teams: SQL) => sql`(SELECT json_build_ob
 			WHERE r.plant_id=pl.id AND r.retired_at IS NULL AND r.responsibility_key IS NOT NULL) x) END,
 	'outstandingTraining', CASE WHEN ${teams} THEN (SELECT CASE WHEN count(*) > 0
 			THEN (count(*) FILTER (WHERE NOT coalesce(${compatible}, false)))::int END
-		FROM training_assignment a
-		JOIN training_program g ON g.id=a.program_id AND g.plant_id=a.plant_id AND g.required AND g.archived_at IS NULL
-		JOIN person pe ON pe.id=a.person_id AND pe.plant_id=a.plant_id AND pe.state='live'
-		WHERE a.plant_id=pl.id AND a.state='active') END)
+		FROM ${requiredObligations(sql`pl.id`)}) END)
 	FROM plant pl LEFT JOIN launch l ON l.plant_id=pl.id WHERE pl.id=${p})`;
 
 /**

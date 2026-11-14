@@ -8,6 +8,7 @@ import type {
 import { randomUUID } from "node:crypto";
 import { onboardingStep } from "./scripted-onboarding.ts";
 import { overviewStep } from "./scripted-overview.ts";
+import { pipelineStep } from "./scripted-pipeline.ts";
 import { settingsStep } from "./scripted-settings.ts";
 
 // A deterministic stand-in for a qualified model, for local previews and tests only (selectQualifiedModel never picks
@@ -635,6 +636,8 @@ function respond(options: LanguageModelV4CallOptions): LanguageModelV4Content[] 
 	if (FORMATTING.test(text)) return [{ type: "text", text: FORMATTING_ANSWER }];
 	const overview = overviewStep(options, text);
 	if (overview) return overview;
+	const pipeline = pipelineStep(options, text);
+	if (pipeline) return pipeline;
 	const onboarding = onboardingStep(options, text);
 	if (onboarding) return onboarding;
 	const settings = settingsStep(options, text);

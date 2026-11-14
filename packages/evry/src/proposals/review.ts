@@ -14,11 +14,16 @@ import { ORGANIZATION_COMMANDS } from "../adapters/people-organization/commands/
 import { TEAMS_COMMANDS } from "../adapters/teams/commands/index.ts";
 import { ONBOARDING_COMMANDS } from "../adapters/onboarding/commands/index.ts";
 import { FEEDBACK_COMMANDS } from "../adapters/feedback/commands/index.ts";
+import { PIPELINE_COMMANDS } from "../adapters/pipeline/commands/index.ts";
 import { currentPerson, importOutcome, personOutcome, type ReviewedWrite } from "./types.ts";
 
 // The review read (evry.readReview): one projection and one access rule, used by readReview and by the conversation
 // page read, which brings every review card's review in its own statement. No conversation or run imports here, so the
 // conversation store can use it without an import cycle.
+
+/** The refusal code a person sees for a domain refusal; a changed target asks for a new review. */
+export const refusalCode = (code: string) =>
+	code === "conflict" ? "revision_conflict" : code === "unavailable" ? "access_denied" : code;
 
 /** Every installed reviewed write. A model may propose only these, and only when the actor may use them natively. */
 export const REVIEWED_WRITES = {
@@ -31,6 +36,7 @@ export const REVIEWED_WRITES = {
 	...SETTINGS_COMMANDS,
 	...ONBOARDING_COMMANDS,
 	...FEEDBACK_COMMANDS,
+	...PIPELINE_COMMANDS,
 } as const;
 export type Operation = keyof typeof REVIEWED_WRITES;
 export const operation = z.enum(Object.keys(REVIEWED_WRITES) as [Operation]);
@@ -41,6 +47,14 @@ export const operation = z.enum(Object.keys(REVIEWED_WRITES) as [Operation]);
  */
 export type Offered = (operation: string) => boolean;
 export const everyOperation: Offered = () => true;
+
+/** The writes that run in the approval request (approveNow), and those whose card asks for a typed reason. */
+export const NOW_WRITES = (Object.values(REVIEWED_WRITES) as ReviewedWrite<unknown>[]).flatMap((w) =>
+	w.approveNow ? [w.operation] : [],
+);
+export const REASON_WRITES = (Object.values(REVIEWED_WRITES) as ReviewedWrite<unknown>[]).flatMap((w) =>
+	w.approveNow?.reason ? [w.operation] : [],
+);
 
 export function allowedWrites(actor: EvryActor, offered: Offered = everyOperation) {
 	return (Object.values(REVIEWED_WRITES) as ReviewedWrite<unknown>[]).filter(
@@ -103,7 +117,8 @@ export const projection = (alias: string) =>
 			OR (${alias}.review->'target'->>'kind'='venue' AND EXISTS(SELECT FROM venue t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.plant_id=${alias}.tenant_id))
 			THEN ${alias}.review ELSE jsonb_build_object('target',NULL,'changes','[]'::jsonb,'withheld',true) END,
 		'outcome',coalesce(${alias}.outcome,(SELECT 'unknown' FROM job j WHERE j.id=${alias}.job_id AND ${alias}.state='approved'
-			AND NOT ${liveJob("j")})),
+			AND NOT ${liveJob("j")}),CASE WHEN ${alias}.state='approved' AND ${alias}.job_id IS NULL
+			AND ${alias}.approved_at<clock_timestamp()-interval '2 minutes' THEN 'unknown' END),
 		'executing',${alias}.state='approved' AND ${alias}.outcome IS NULL AND EXISTS(SELECT FROM job j WHERE j.id=${alias}.job_id
 			AND ${liveJob("j")}),
 		'stale',${alias}.state='pending' AND ${staleMessage(alias)},

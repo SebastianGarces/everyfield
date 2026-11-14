@@ -339,12 +339,18 @@ test("INV-notification-tools an organization login is offered its oversight dige
 	assert.ok("notifications_read" in tools);
 	assert.deepEqual(
 		readCatalog(org).domains.flatMap((d) => d.operations.map((o) => o.operation)),
-		["notifications.previewOversightDigest"],
+		// WP-101's pipeline reads sit beside the digest preview.
+		["notifications.previewOversightDigest", "pipeline.listPeople", "development.draftPlan"],
 	);
 	assert.deepEqual(
 		readCatalog(org).reviewedWrites.map((w) => w.operation),
-		// T-327's organization profile change is the organization's only other reviewed write.
-		["notifications.oversightDigestCadence.set", "organizations.updateProfile"],
+		// T-327's organization profile change, and WP-101's stage move and program create.
+		[
+			"notifications.oversightDigestCadence.set",
+			"organizations.updateProfile",
+			"pipeline.proposeStageMove",
+			"development.saveProgram",
+		],
 	);
 	const plantTools = modelTools(owner, { read: async () => ({}), select: async () => ({}), propose: async () => ({}) });
 	assert.ok("notifications_read" in plantTools);

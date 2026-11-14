@@ -104,6 +104,8 @@ test("AC:INH-REGRESSION-CAPABILITIES INV-catalog: every installed model tool is 
 		"dashboard.readSetupGaps",
 		"feedback.listOwn",
 		"feedback.getOwnStatus",
+		"pipeline.listPeople",
+		"development.draftPlan",
 		"evry.selectReturnedRows",
 	]);
 	for (const id of installed) {
@@ -111,16 +113,21 @@ test("AC:INH-REGRESSION-CAPABILITIES INV-catalog: every installed model tool is 
 		assert.ok(op, id);
 		assert.deepEqual([op.model_tool, op.kind, op.durable_write, generated.has(id)], [true, "query", false, true], id);
 	}
-	// A reviewed write is a flagged durable command the model may only propose; a person approves it.
-	for (const id of Object.keys(REVIEWED_WRITES)) {
+	// A reviewed write is a flagged durable command the model may only propose; a person approves it. A stage move
+	// proposal is a non-durable query instead (REQ-MUL-015): its card asks the person for the reason, and the durable
+	// move is the native pipeline command, which is never a model tool.
+	for (const [id, write] of Object.entries(REVIEWED_WRITES)) {
 		const op = operations.get(id);
 		assert.ok(op, id);
 		assert.deepEqual(
 			[op.model_tool, op.kind, op.durable_write, op.evry_review, generated.has(id)],
-			[true, "command", true, true, true],
+			"approveNow" in write && write.approveNow.reason
+				? [true, "query", false, false, true]
+				: [true, "command", true, true, true],
 			id,
 		);
 	}
+	assert.equal(operations.get("pipeline.moveStage")?.model_tool, false);
 	// Every model-tool operation of the teams packages (WP-069 reads, WP-070 reviewed writes) is installed.
 	const teams = [...operations.values()].filter(
 		(op) =>
@@ -221,7 +228,7 @@ test("INV-member-capabilities: a Member who may change only their own notificati
 	assert.doesNotMatch(describeCatalog(catalog(["people.updatePerson"])), /Owner or Admin/);
 });
 
-test("INV-organization-catalog: only an organization Owner or Admin gets the two oversight digest tools, beside the organization profile change", () => {
+test("INV-organization-catalog: only an organization Owner or Admin gets the two oversight digest tools, the organization profile change, the stage move and the program create; every seat reads its pipeline", () => {
 	const id = "00000000-0000-4000-8000-0000000000a1";
 	const actor = (owner: EvryActor["owner"], contextKind: EvryActor["contextKind"], role: EvryActor["role"]) =>
 		({
@@ -242,14 +249,23 @@ test("INV-organization-catalog: only an organization Owner or Admin gets the two
 		];
 	};
 	const oversight = ["notifications.previewOversightDigest", "notifications.oversightDigestCadence.set"];
-	// T-327's organization profile change is the only other organization tool; this task adds nothing beside it.
+	// T-327's organization profile change, and WP-101's pipeline and program tools. Plant oversight stays out (WP-073).
+	const pipeline = ["pipeline.listPeople", "development.draftPlan"];
 	for (const role of ["owner", "admin"] as const)
 		assert.deepEqual(
 			tools(actor(organization, "sending_church", role)),
-			[...oversight, "organizations.updateProfile"],
+			[
+				oversight[0],
+				...pipeline,
+				oversight[1],
+				"organizations.updateProfile",
+				"pipeline.proposeStageMove",
+				"development.saveProgram",
+			],
 			role,
 		);
-	assert.deepEqual(tools(actor(organization, "sending_church", "member")), []);
+	// A Member reads the pipeline as their Pipeline page shows it, and drafts a plan, but moves and creates nothing.
+	assert.deepEqual(tools(actor(organization, "sending_church", "member")), pipeline);
 	// An account with no seat gets only its own setup and Discovery tools (T-345), never an oversight digest.
 	assert.deepEqual(tools(actor({ kind: "account", id } as EvryActor["owner"], "account", null)), [
 		"discovery.getProfile",

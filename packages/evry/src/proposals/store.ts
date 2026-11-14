@@ -13,6 +13,9 @@ import type { MailPort, NativePorts, ReviewedWrite } from "./types.ts";
 import {
 	currentReview,
 	mine,
+	NOW_WRITES,
+	REASON_WRITES,
+	refusalCode,
 	operation,
 	projection,
 	proposalRow,
@@ -203,7 +206,12 @@ export async function readStagedPhoto(db: Database, storage: PrivateStorage | nu
 	return stagedBytes(db, storage, actor, proposalId, found);
 }
 
-const approval = z.strictObject({ revision: z.int().min(1), digest: z.string().regex(/^[0-9a-f]{64}$/) });
+const approval = z.strictObject({
+	revision: z.int().min(1),
+	digest: z.string().regex(/^[0-9a-f]{64}$/),
+	/** What the person typed on a card that asks for a reason (REASON_WRITES). It goes to the native command only. */
+	reason: z.string().max(1000).optional(),
+});
 /**
  * evry.approveProposal: the owner's trusted approval of exactly the revision and digest they reviewed, before it
  * expires (expiresAt itself is too late). Binds the approving session and queues the effect as one evry_effect job.
@@ -213,6 +221,11 @@ const approval = z.strictObject({ revision: z.int().min(1), digest: z.string().r
  * may approve an image they could not have seen (REQ-EVR-011). The first statement leaves it pending; the review read
  * that follows names the upload, the storage layer reads it under the live check, and the approval runs again bound to
  * that upload. An upload that is gone or unreadable refuses as photo_unavailable and changes nothing.
+ *
+ * A write that runs in the approval request (approveNow: the organization pipeline and programs) queues no job: once
+ * approved, its native command runs here under this request's live authority and its outcome is saved. A card that asks
+ * for a reason approves only with one typed, and that text goes to the native command alone: the proposal, its receipt
+ * and the conversation never hold it.
  */
 export async function approveProposal(
 	db: Database,
@@ -223,20 +236,26 @@ export async function approveProposal(
 ) {
 	const proposalId = parse(z.uuid(), id);
 	const witness = parse(approval, raw);
+	const reason = witness.reason?.trim() || null;
 	const approve = async (shownUpload: string | null) => {
 		const job = randomUUID();
 		const r = await db.execute(sql`
 			WITH a AS (
 				UPDATE proposal p SET state='approved',approved_at=clock_timestamp(),approved_session_id=${actor.session}::uuid,
-					job_id=${job}::uuid,updated_at=clock_timestamp()
+					job_id=CASE WHEN p.operation=ANY(${sql.param(NOW_WRITES)}::text[]) THEN NULL ELSE ${job}::uuid END,updated_at=clock_timestamp()
 				WHERE p.id=${proposalId}::uuid AND ${owned(actor)} AND p.state='pending' AND p.revision=${witness.revision}
 					AND p.digest=${witness.digest} AND p.expires_at>clock_timestamp() AND NOT (p.review ? 'refusal') AND NOT ${sql.raw(staleMessage("p"))}
 					AND (p.operation<>ALL(${sql.param([...PHOTO_WRITES])}::text[]) OR p.input->'input'->>'uploadId'=${shownUpload}::text)
+					AND (p.operation<>ALL(${sql.param(REASON_WRITES)}::text[]) OR ${reason !== null})
 				RETURNING p.*
-			), run AS (${effectJob(job, "a")}),
+			), queued AS (SELECT * FROM a WHERE a.job_id IS NOT NULL),
+			run AS (${effectJob(job, "queued")}),
 			audit AS (${audit("evry.proposal_approved", "accept", "a")})
-			SELECT ${projection("a")} AS proposal FROM a`);
-		return r.rows.length ? { proposal: proposalRow.parse(r.rows[0]!.proposal), replayed: false } : null;
+			SELECT ${projection("a")} AS proposal,a.input AS args FROM a`);
+		if (!r.rows.length) return null;
+		const proposal = proposalRow.parse(r.rows[0]!.proposal);
+		if (NOW_WRITES.includes(proposal.operation)) return runNow(db, actor, proposal, r.rows[0]!.args, reason);
+		return { proposal, replayed: false };
 	};
 	/** Not approved now: the known state of the review, or why it cannot be approved. */
 	const settled = (current: Proposal) => {
@@ -248,6 +267,9 @@ export async function approveProposal(
 	const approved = await approve(null);
 	if (approved) return approved;
 	const current = await readReview(db, actor, proposalId);
+	// A card that asks for a reason was sent without one: nothing changed, and the card still waits for it.
+	if (REASON_WRITES.includes(current.operation) && reason === null && current.status === "pending")
+		throw new EvryRefusal("invalid_input");
 	if (!(PHOTO_WRITES as readonly string[]).includes(current.operation) || current.status !== "pending")
 		return settled(current);
 	if (current.revision !== witness.revision || current.digest !== witness.digest) return settled(current);
@@ -255,6 +277,25 @@ export async function approveProposal(
 	const shown = upload.success && (await stagedBytes(db, storage, actor, proposalId, upload.data).catch(() => null));
 	if (!shown) throw new EvryRefusal("photo_unavailable");
 	return (await approve(upload.data)) ?? settled(await readReview(db, actor, proposalId));
+}
+
+/**
+ * The native command of an approved write that runs in the approval request (approveNow), under this request's live
+ * authority, and its saved outcome: the receipt holds only the new revision, and a refusal because the record changed
+ * saves the record as it is now. An error that is not a refusal saves nothing: the change may have committed, so the
+ * card reads as unknown after a while.
+ */
+async function runNow(db: Database, actor: EvryActor, proposal: Proposal, args: unknown, reason: string | null) {
+	const write = REVIEWED_WRITES[proposal.operation] as ReviewedWrite<unknown>;
+	const result = await write.approveNow!.run(db, actor.authority, args, reason);
+	const refused = "refused" in result ? refusalCode(result.refused) : null;
+	const current = write.current?.(sql`p`) ?? sql`NULL::jsonb`;
+	await db.execute(sql`
+		UPDATE proposal p SET outcome=${refused ? "refused" : "completed"},updated_at=clock_timestamp(),
+			receipt=CASE WHEN ${refused}::text IS NULL THEN ${refused ? null : JSON.stringify(result)}::jsonb
+				ELSE jsonb_strip_nulls(jsonb_build_object('code',${refused}::text,'current',CASE WHEN ${refused}::text='revision_conflict' THEN ${current} END)) END
+		WHERE p.id=${proposal.id}::uuid AND p.tenant_id=${actor.owner.id}::uuid AND p.state='approved' AND p.outcome IS NULL`);
+	return { proposal: await readReview(db, actor, proposal.id), replayed: false };
 }
 
 /**
@@ -293,6 +334,7 @@ export async function retryUnresolvedEffects(db: Database, actor: EvryActor, id:
 			UPDATE proposal p SET outcome=NULL,receipt=CASE WHEN p.receipt ? 'reached' THEN p.receipt END,job_id=${job}::uuid,approved_session_id=${actor.session}::uuid,updated_at=clock_timestamp()
 			FROM (SELECT id,job_id FROM proposal WHERE id=${proposalId}::uuid) old
 			WHERE p.id=old.id AND ${owned(actor)} AND p.state='approved' AND p.expires_at>clock_timestamp()
+				AND p.operation<>ALL(${sql.param(NOW_WRITES)}::text[])
 				AND (p.outcome='failed' OR (p.outcome IS NULL AND NOT EXISTS(SELECT FROM job j WHERE j.id=p.job_id AND ${sql.raw(liveJob("j"))})))
 			RETURNING p.*,old.job_id AS old_job_id
 		), run AS (${effectJob(job, "x")}),

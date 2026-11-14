@@ -82,18 +82,58 @@ type Named = { id: string; name: string };
 const byName = (a: Named, b: Named) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id);
 const max = (dates: string[]) => dates.reduce<string | null>((m, d) => (m === null || d > m ? d : m), null);
 
+type Acquiring = { adult: { value: "adult" | "child" | "unknown" }; firstOn: string | null };
+/** Each person's adult value at `today` and their first commitment signed on or before it. */
+const acquiring = (p: FactInputs["people"][number], today: string) => {
+	const signed = p.cards.filter((k) => k.on <= today);
+	return {
+		adult: effectiveAdult(p.birth, p.manual ?? "unknown", today),
+		signed,
+		firstOn: signed.length ? signed.map((k) => k.on).sort()[0]! : null,
+	};
+};
+
+/**
+ * The growth clock at plant-local `today` (the facts' growth rule, which Network Intelligence's NIR-05 also reads): the
+ * newest first-time committed adult's first commitment and the days since. A withdrawal never removes it, and an old
+ * date proves no slowdown while an unclassified person signed after it.
+ */
+function growthClock(
+	people: Acquiring[],
+	today: string,
+): Pick<z.input<typeof c.growth>, "status" | "reason" | "lastAcquiredOn" | "daysSince"> {
+	const last = max(people.filter((p) => p.adult.value === "adult" && p.firstOn).map((p) => p.firstOn!));
+	const unresolved = max(people.filter((p) => p.adult.value === "unknown" && p.firstOn).map((p) => p.firstOn!));
+	const daysSince = last === null ? null : c.daysBetween(last, today);
+	const clock = { lastAcquiredOn: last, daysSince };
+	if (daysSince === null)
+		return { ...clock, status: "unknown", reason: unresolved ? "unclassified_newer" : "no_acquisition" };
+	if (daysSince >= c.GROWTH_SLOWED_DAYS && unresolved !== null && unresolved > last!)
+		return { ...clock, status: "unknown", reason: "unclassified_newer" };
+	if (daysSince < c.GROWTH_SLOWED_DAYS) return { ...clock, status: "on_track", reason: null };
+	return { ...clock, status: daysSince < c.GROWTH_STALLED_DAYS ? "slowed" : "stalled", reason: null };
+}
+
+/** Days since the newest first-time committed adult, or null when the facts read growth as Unknown (NIR-05). */
+export function growthDays(people: FactInputs["people"], today: string): number | null {
+	const clock = growthClock(
+		people.map((p) => acquiring(p, today)),
+		today,
+	);
+	return clock.status === "unknown" ? null : clock.daysSince;
+}
+
 /** The facts of one plant at `asOf`, whose plant-local date is `today`. Pure: the same inputs give the same facts. */
 export function buildFacts(inputs: FactInputs, asOf: Instant, today: string): c.PlantFacts {
 	const windowStart = addDays(today, -(c.WINDOW_DAYS - 1));
 	const priorStart = addDays(today, -(2 * c.WINDOW_DAYS - 1));
 	const priorEnd = addDays(today, -c.WINDOW_DAYS);
 
-	const people = inputs.people.map((p) => {
-		const adult = effectiveAdult(p.birth, p.manual ?? "unknown", today);
-		const commitment = commitmentOf({ cards: p.cards.map(({ id, on }) => ({ id, on })), changes: p.changes });
-		const signed = p.cards.filter((k) => k.on <= today);
-		return { ...p, adult, commitment, firstOn: signed.length ? signed.map((k) => k.on).sort()[0]! : null, signed };
-	});
+	const people = inputs.people.map((p) => ({
+		...p,
+		...acquiring(p, today),
+		commitment: commitmentOf({ cards: p.cards.map(({ id, on }) => ({ id, on })), changes: p.changes }),
+	}));
 	const active = people.filter((p) => p.commitment.state === "active");
 
 	// Committed adults: each live person once, whatever teams or signatures they have.
@@ -123,22 +163,9 @@ export function buildFacts(inputs: FactInputs, asOf: Instant, today: string): c.
 
 	// Growth: each adult's first valid commitment, whatever happened after it. A withdrawal never removes it.
 	const acquired = people.filter((p) => p.adult.value === "adult" && p.firstOn !== null);
-	const last = max(acquired.map((p) => p.firstOn!));
-	const unresolved = max(people.filter((p) => p.adult.value === "unknown" && p.firstOn).map((p) => p.firstOn!));
 	const inCurrent = acquired.filter((p) => within(p.firstOn!, windowStart, today));
-	const daysSince = last === null ? null : c.daysBetween(last, today);
-	const growthStatus = (): Pick<c.Growth, "status" | "reason"> => {
-		if (daysSince === null) return { status: "unknown", reason: unresolved ? "unclassified_newer" : "no_acquisition" };
-		// An old known date cannot prove a slowdown while an unclassified person signed after it.
-		if (daysSince >= c.GROWTH_SLOWED_DAYS && unresolved !== null && unresolved > last!)
-			return { status: "unknown", reason: "unclassified_newer" };
-		if (daysSince < c.GROWTH_SLOWED_DAYS) return { status: "on_track", reason: null };
-		return { status: daysSince < c.GROWTH_STALLED_DAYS ? "slowed" : "stalled", reason: null };
-	};
 	const growth: z.input<typeof c.growth> = {
-		...growthStatus(),
-		lastAcquiredOn: last,
-		daysSince,
+		...growthClock(people, today),
 		current: inCurrent.length,
 		prior: acquired.filter((p) => within(p.firstOn!, priorStart, priorEnd)).length,
 		currentWithdrawn: inCurrent.filter((p) => p.commitment.state !== "active").length,
@@ -300,6 +327,19 @@ const MANUAL = sql.join(
 	sql`,`,
 );
 
+/** Live people of plant `plant` with at least one valid commitment card, as factInputs.people (JSON). */
+export const peopleJson = (
+	plant: SQL,
+) => sql`coalesce((SELECT jsonb_agg(jsonb_build_object('id',p.id,'name',p.display_name,'birth',p.birth_date::text,
+   'manual',p.adult_classification,
+   'cards',(SELECT jsonb_agg(jsonb_build_object('id',k.id,'kind',k.kind,'on',k.signed_on::text) ORDER BY k.signed_on,k.id)
+    FROM commitment k WHERE k.person_id=p.id AND k.plant_id=p.tenant_id AND k.voided_at IS NULL),
+   'changes',coalesce((SELECT jsonb_agg(jsonb_build_object('id',g.id,'kind',g.kind,'on',g.effective_on::text,
+    'at',extract(epoch FROM g.recorded_at)) ORDER BY g.effective_on,g.recorded_at,g.id)
+    FROM commitment_change g WHERE g.person_id=p.id AND g.plant_id=p.tenant_id),'[]'::jsonb)) ORDER BY p.id)
+  FROM person p WHERE p.tenant_id=${plant} AND p.state='live'
+  AND EXISTS(SELECT FROM commitment k WHERE k.person_id=p.id AND k.plant_id=p.tenant_id AND k.voided_at IS NULL)),'[]'::jsonb)`;
+
 /**
  * The one statement. `x` holds the plant, its zone, the as-of instant and its plant-local date, and exists only when
  * the live Owner or Admin check holds, so every input below reads nothing otherwise.
@@ -319,15 +359,7 @@ function statement(plant: string, ok: SQL, at: SQL) {
  SELECT (SELECT ok FROM gate) AS ok,x.today::text AS today,${iso(sql`x.at`)} AS at,
  jsonb_build_object(
  'zone',x.zone,
- 'people',coalesce((SELECT jsonb_agg(jsonb_build_object('id',p.id,'name',p.display_name,'birth',p.birth_date::text,
-   'manual',p.adult_classification,
-   'cards',(SELECT jsonb_agg(jsonb_build_object('id',k.id,'kind',k.kind,'on',k.signed_on::text) ORDER BY k.signed_on,k.id)
-    FROM commitment k WHERE k.person_id=p.id AND k.plant_id=p.tenant_id AND k.voided_at IS NULL),
-   'changes',coalesce((SELECT jsonb_agg(jsonb_build_object('id',g.id,'kind',g.kind,'on',g.effective_on::text,
-    'at',extract(epoch FROM g.recorded_at)) ORDER BY g.effective_on,g.recorded_at,g.id)
-    FROM commitment_change g WHERE g.person_id=p.id AND g.plant_id=p.tenant_id),'[]'::jsonb)) ORDER BY p.id)
-  FROM person p WHERE p.tenant_id=x.plant AND p.state='live'
-  AND EXISTS(SELECT FROM commitment k WHERE k.person_id=p.id AND k.plant_id=p.tenant_id AND k.voided_at IS NULL)),'[]'::jsonb),
+ 'people',${peopleJson(sql`x.plant`)},
  'vision',coalesce((SELECT jsonb_agg(jsonb_build_object('on',v.on_date::text,'attended',v.attended) ORDER BY v.at_ DESC,v.id)
   FROM (SELECT m.id,${heldOn(sql`m`)} AS on_date,coalesce(m.actual_occurrence_at,m.starts_at) AS at_,${attended(sql`m`)} AS attended
    FROM meeting m WHERE m.type='vision_meeting' AND ${held(sql`m`)} AND ${attended(sql`m`)}>0

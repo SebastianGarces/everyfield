@@ -19,6 +19,7 @@ Its `save()` writes the file on a recording run. Every call is keyed by `callKey
 | `followups.test.mts`  | `followups.cases.json`                                                                                                   | Follow-up suggestions never name the signed-in user                                   |
 | `settings.test.mts`   | `settings.cases.json`                                                                                                    | Seat, Settings, sharing, connection, account and organization tools (scripted model)  |
 | `onboarding.test.mts` | `onboarding.cases.json`                                                                                                  | Setup and Discovery tools (scripted model)                                            |
+| `pipeline.test.mts`   | `pipeline.cases.json`                                                                                                    | Organization pipeline and program tools (scripted model)                              |
 
 ## The settings suite (scripted model)
 
@@ -50,6 +51,19 @@ read, a planned Vision Meeting, a seated Member, a crowded activity feed). Each 
 shows, through its own reads and words (`apps/web/src/features/overview/model.ts`); MON-01 and CLN-10 carry their
 golden question word for word, with its expected answer and must-not. The approved feedback is read back through Sent
 feedback's own read. The recorded suites leave these tools out too.
+
+## The pipeline suite (scripted model)
+
+`pipeline.test.mts` scores the organization pipeline and program tools (WP-101) the same way, on the scripted model
+(`packages/evry/src/runtime/scripted-pipeline.ts`): reading the pipeline as each seat's Pipeline page shows it
+(`pipeline.listPeople`), drafting a program plan (`development.draftPlan`), and the two review cards, a stage move that
+names only a person and a stage (`pipeline.proposeStageMove`) and a new unpublished program (`development.saveProgram`).
+`pipeline-church.mts` seeds, beside Hope Fellowship, Grace Austin's seats and pipeline and Hill Country Network's own
+pipeline through the native pipeline writer, with each placement and move dated relative to the database clock. A case
+with `approve` is approved the way the card approves it: these writes run their native command in the approval request,
+with the reason typed on the card for a stage move, and each result is read back through the Pipeline and Programs
+pages' own reads. Two more tests hold the boundaries: the read takes no search text and matches the native board for
+every seat, and a stage move proposal refuses any reason or text field. The recorded suites leave these tools out too.
 
 ## The household and follow-up suites
 
