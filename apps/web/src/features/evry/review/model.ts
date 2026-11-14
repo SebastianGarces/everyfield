@@ -4,6 +4,7 @@
 // approval has left on the server's clock; the browser's clock is never read.
 
 import type { MailReport, RecipientOutcome } from "@everyfield/contracts/communication";
+import { ROLE_LABEL, SHARING_CATEGORIES, SHARING_CATEGORY_LABEL, ZONE_NAME } from "@everyfield/evry/labels";
 import { SOURCE_LABEL, STAGE_LABEL, type SourceValue, type StageValue } from "../../people/model.ts";
 import type { ProjectedError } from "../conversation/model.ts";
 
@@ -211,13 +212,7 @@ const FIELD_LABEL: Record<string, string> = {
 	connection: "Connection",
 	recipientEmail: "Sent to",
 	account: "Your login",
-	people: "People totals",
-	meetings: "Meetings",
-	tasks: "Tasks",
-	ministry_teams: "Ministry teams",
-	wiki: "Wiki",
-	activity: "Activity updates",
-	shared_findings: "Plant Intelligence findings",
+	...SHARING_CATEGORY_LABEL,
 };
 export const fieldLabel = (field: string) => FIELD_LABEL[field] ?? field;
 
@@ -255,12 +250,11 @@ export function valueText(field: string, value: unknown): string | null {
 	return String(value);
 }
 
-const SHARED = new Set(["people", "meetings", "tasks", "ministry_teams", "wiki", "activity", "shared_findings"]);
-const ROLE_WORD = { owner: "Owner", admin: "Admin", member: "Member" };
+const SHARED = new Set<string>(SHARING_CATEGORIES);
 /** The words a reviewed state reads as on the card. */
 const WORDS: Record<string, Record<string, string>> = {
-	role: ROLE_WORD,
-	access: { ...ROLE_WORD, removed: "Removed" },
+	role: ROLE_LABEL,
+	access: { ...ROLE_LABEL, removed: "Removed" },
 	invitation: { pending: "Waiting", sent_again: "Sent again", revoked: "Revoked" },
 	connection: {
 		connected: "Connected",
@@ -270,16 +264,7 @@ const WORDS: Record<string, Record<string, string>> = {
 	},
 	account: { active: "Active", deletion_requested: "Deletion requested" },
 };
-const ZONE: Record<string, string> = {
-	"America/New_York": "Eastern",
-	"America/Chicago": "Central",
-	"America/Denver": "Mountain",
-	"America/Phoenix": "Arizona",
-	"America/Los_Angeles": "Pacific",
-	"America/Anchorage": "Alaska",
-	"Pacific/Honolulu": "Hawaii",
-};
-const zoneText = (zone: string) => (ZONE[zone] ? `${ZONE[zone]} (${zone})` : zone);
+const zoneText = (zone: string) => (ZONE_NAME[zone] ? `${ZONE_NAME[zone]} (${zone})` : zone);
 
 /** The changes Evry makes to seats, church settings, sharing, connections, your account and an organization. */
 export const isSettings = (operation: Operation): operation is SettingsOperation =>

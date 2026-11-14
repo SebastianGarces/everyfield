@@ -347,7 +347,15 @@ export async function converse(
 				body: { text: "user" in t ? t.user : t.assistant },
 			}) as unknown as ConversationEvent,
 	);
-	const context = compileContext({ actor, catalog, history: events, text, references: [], now: NOW });
+	const context = compileContext({
+		actor,
+		catalog,
+		history: events,
+		text,
+		references: [],
+		now: NOW,
+		settingsGuidance: false,
+	});
 	const results = new Map<number, SourceResult>();
 	let sequence = 0;
 	let toolCalls = 0;

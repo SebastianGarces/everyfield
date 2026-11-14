@@ -4,13 +4,13 @@ import { z } from "zod";
 import type { ReadAdapter, SourceResult } from "../../../catalog/types.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
 import { plantAdmin, plantSeat } from "../../native.ts";
+import { ROLE_LABEL } from "../../../catalog/labels.ts";
 
 // Who has access to the church: its seats and its pending seat invitations, read through the same native reads the
 // Settings > Seats screen uses. Any seat may read the roster; only an Owner or Admin sees the invitations. Only the
 // fields Seats shows reach the model: a name and role, never a login address, and an invitation's typed address.
 
-const ROLE = { owner: "Owner", admin: "Admin", member: "Member" } as const;
-const roleLabel = (role: string) => ROLE[role as keyof typeof ROLE] ?? role;
+const roleLabel = (role: string) => ROLE_LABEL[role as keyof typeof ROLE_LABEL] ?? role;
 
 /** seats.list: the church's current seats with each person's role. The signed-in user's own seat is `you: true`. */
 export const SEAT_READS = [

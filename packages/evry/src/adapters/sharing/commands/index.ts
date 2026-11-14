@@ -1,7 +1,7 @@
 import { sql } from "@everyfield/db/query";
 import { z } from "zod";
 import { committed, nativeWrite, plantAdmin } from "../../native.ts";
-import { CATEGORIES, CATEGORY_LABEL } from "../reads/index.ts";
+import { SHARING_CATEGORIES, SHARING_CATEGORY_LABEL } from "../../../catalog/labels.ts";
 
 // Changing what the church shares with one connected organization, through the same native sharing command the
 // Settings > Sharing section reaches. The review reads the live connection and its consent revision; a change made
@@ -20,8 +20,8 @@ export const COLUMN = {
 
 export const setSharing = nativeWrite({
 	operation: "privacy.setSharing",
-	description: `Propose starting or stopping one sharing category with a connected organization (organizationId from privacy.getSharing). Categories: ${CATEGORIES.map((c) => `${c} (${CATEGORY_LABEL[c]})`).join(", ")}. Nothing changes until the user approves the exact review.`,
-	input: z.strictObject({ organizationId: z.uuid(), category: z.enum(CATEGORIES), enabled: z.boolean() }),
+	description: `Propose starting or stopping one sharing category with a connected organization (organizationId from privacy.getSharing). Categories: ${SHARING_CATEGORIES.map((c) => `${c} (${SHARING_CATEGORY_LABEL[c]})`).join(", ")}. Nothing changes until the user approves the exact review.`,
+	input: z.strictObject({ organizationId: z.uuid(), category: z.enum(SHARING_CATEGORIES), enabled: z.boolean() }),
 	allowed: plantAdmin,
 	review(actor, value) {
 		const column = sql.identifier(COLUMN[value.category]);

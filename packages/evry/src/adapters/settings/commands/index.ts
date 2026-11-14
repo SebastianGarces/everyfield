@@ -5,6 +5,7 @@ import { plantProfile } from "@everyfield/contracts/settings";
 import { z } from "zod";
 import { EvryRefusal } from "../../../context/errors.ts";
 import { change, nativeWrite, patchChanges, plantAdmin, settled } from "../../native.ts";
+import { ZONE_NAME } from "../../../catalog/labels.ts";
 
 // The church settings reviewed writes: the church profile and its time zone, through the same Settings commands the
 // Church section runs. A time zone review first runs the native preview, which saves what the change moves, and shows
@@ -40,15 +41,6 @@ export const updateProfile = nativeWrite({
 
 /** The longest list of moved items a review shows; the rest are counted. */
 const SHOWN = 8;
-const ZONE_NAME: Record<string, string> = {
-	"America/New_York": "Eastern",
-	"America/Chicago": "Central",
-	"America/Denver": "Mountain",
-	"America/Phoenix": "Arizona",
-	"America/Los_Angeles": "Pacific",
-	"America/Anchorage": "Alaska",
-	"Pacific/Honolulu": "Hawaii",
-};
 const zoneName = (zone: string) => ZONE_NAME[zone] ?? zone;
 const day = (instant: string, zone: string) =>
 	new Intl.DateTimeFormat("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: zone }).format(

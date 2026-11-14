@@ -4,7 +4,7 @@ import { normalizedEmail } from "@everyfield/contracts/identity";
 import { z } from "zod";
 import { committed, nativeWrite, notes, plantAdmin } from "../../native.ts";
 import { COLUMN } from "../../sharing/commands/index.ts";
-import { CATEGORIES, CATEGORY_LABEL } from "../../sharing/reads/index.ts";
+import { SHARING_CATEGORIES, SHARING_CATEGORY_LABEL } from "../../../catalog/labels.ts";
 
 // The church's connections with a sending church or network: asking one to connect and ending a connection, through
 // the same native commands the Settings connections screen runs. Nothing is shared with an organization until it
@@ -48,11 +48,13 @@ export const invite = nativeWrite({
 			return readSharingDisclosure(tx, actor.session as never, actor.owner, pair);
 		});
 		const shared =
-			"choices" in disclosure ? CATEGORIES.filter((c) => (disclosure.choices as Record<string, boolean>)[c]) : [];
+			"choices" in disclosure
+				? SHARING_CATEGORIES.filter((c) => (disclosure.choices as Record<string, boolean>)[c])
+				: [];
 		const lines = [
 			"Nothing is shared until they accept.",
 			shared.length
-				? `If they accept, they can see: ${shared.map((c) => CATEGORY_LABEL[c]).join(", ")}. You can change this in Settings > Sharing.`
+				? `If they accept, they can see: ${shared.map((c) => SHARING_CATEGORY_LABEL[c]).join(", ")}. You can change this in Settings > Sharing.`
 				: "If they accept, they see nothing until you choose what to share in Settings > Sharing.",
 		];
 		const email = value.recipientEmail ?? null;
@@ -87,7 +89,9 @@ export const end = nativeWrite({
 	allowed: plantAdmin,
 	review(actor, value) {
 		const shared = sql.join(
-			CATEGORIES.map((c) => sql`CASE WHEN a.${sql.identifier(COLUMN[c])} THEN ${CATEGORY_LABEL[c]}::text END`),
+			SHARING_CATEGORIES.map(
+				(c) => sql`CASE WHEN a.${sql.identifier(COLUMN[c])} THEN ${SHARING_CATEGORY_LABEL[c]}::text END`,
+			),
 			sql`,`,
 		);
 		return sql`SELECT jsonb_build_object('target',jsonb_build_object('kind','connection','id',a.id,'label',o.name),

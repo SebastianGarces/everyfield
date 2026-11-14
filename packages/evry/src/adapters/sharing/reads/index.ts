@@ -2,23 +2,11 @@ import { readPlantSharing } from "@everyfield/domain/organizations";
 import { z } from "zod";
 import type { ReadAdapter, SourceResult } from "../../../catalog/types.ts";
 import { plantSeat } from "../../native.ts";
+import { SHARING_CATEGORIES, SHARING_CATEGORY_LABEL } from "../../../catalog/labels.ts";
 
 // What the church shares with each organization it is connected to, read through the same native read the Settings >
 // Sharing section uses. An Owner or Admin sees every category and whether it is shared; a Member sees only the
 // connections, since Owners and Admins choose.
-
-/** Each sharing category in the Sharing section's words. */
-export const CATEGORY_LABEL = {
-	people: "People totals",
-	meetings: "Meetings",
-	tasks: "Tasks",
-	ministry_teams: "Ministry teams",
-	wiki: "Wiki",
-	activity: "Activity updates",
-	shared_findings: "Plant Intelligence findings",
-} as const;
-type Category = keyof typeof CATEGORY_LABEL;
-export const CATEGORIES = Object.keys(CATEGORY_LABEL) as [Category, ...Category[]];
 
 export const SHARING_READS = [
 	{
@@ -38,7 +26,7 @@ export const SHARING_READS = [
 					if (words && !sharing.organizationDisplayName.toLowerCase().includes(words)) return [];
 					const shared =
 						sharing.view === "plant_administration"
-							? CATEGORIES.filter((c) => sharing.choices[c]).map((c) => CATEGORY_LABEL[c])
+							? SHARING_CATEGORIES.filter((c) => sharing.choices[c]).map((c) => SHARING_CATEGORY_LABEL[c])
 							: null;
 					return [
 						{

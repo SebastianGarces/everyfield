@@ -1,9 +1,12 @@
 import type { LanguageModelV4CallOptions, LanguageModelV4Content } from "@ai-sdk/provider";
 import { randomUUID } from "node:crypto";
+import { ZONE_NAME } from "../catalog/labels.ts";
 
 // The scripted model's seat, Settings, sharing, connection, account and organization requests (T-327), for local
 // previews and tests only. It answers through the same tools a model gets: a read, then a proposed change the user
-// reviews. Sign-in, password and email changes and deleting the church are never tools: it points to Settings.
+// reviews. Sign-in, password and email changes and deleting the church are never tools, and a change no tool offers
+// names who can make it: it answers both with the product's own replies from the system prompt (compile.ts), so the
+// evals test the text the real model is given, not text written here.
 
 type Prompt = LanguageModelV4CallOptions["prompt"];
 type Output = Record<string, unknown> & { rows?: Row[] };
@@ -43,16 +46,20 @@ function lastAssistantText(prompt: Prompt) {
 }
 const systemText = (prompt: Prompt) => prompt.flatMap((m) => (m.role === "system" ? [m.content] : [])).join("\n");
 
-const SETTINGS_ACCOUNT = "[Settings › Account](/settings/account)";
-const ZONES: Record<string, string> = {
-	eastern: "America/New_York",
-	central: "America/Chicago",
-	mountain: "America/Denver",
-	pacific: "America/Los_Angeles",
-	arizona: "America/Phoenix",
-	alaska: "America/Anchorage",
-	hawaii: "Pacific/Honolulu",
-};
+/** The system prompt's reply for a Settings-only request (compile.ts SETTINGS_ONLY), or null when the prompt has none. */
+function settingsOnly(prompt: Prompt, request: string) {
+	const line = systemText(prompt)
+		.split("\n")
+		.find((l) => l.startsWith(`- ${request}: `));
+	return line ? say(line.slice(request.length + 4)) : null;
+}
+/** The system prompt's role rule (compile.ts roleRule): who can make a change no tool offers. */
+function notOffered(prompt: Prompt) {
+	const rule = /Only an Owner or Admin can [^.]+\./.exec(systemText(prompt))?.[0];
+	return rule ? say(`${rule} Ask one of them to make this change.`) : null;
+}
+/** A time zone by its everyday name, lowercased ("eastern" → America/New_York). */
+const ZONES = Object.fromEntries(Object.entries(ZONE_NAME).map(([zone, name]) => [name.toLowerCase(), zone]));
 const CATEGORY: [RegExp, string][] = [
 	[/\bmeetings?\b/i, "meetings"],
 	[/\bpeople\b/i, "people"],
@@ -112,15 +119,10 @@ export function settingsStep(options: LanguageModelV4CallOptions, text: string):
 
 	// Never tools: sign-in, password and email changes, and deleting the church.
 	if (/\b(?:change|reset|update)\s+(?:my\s+)?password\b/i.test(text))
-		return say(`You change your password in Settings, not here. Open ${SETTINGS_ACCOUNT} and choose Change password.`);
+		return settingsOnly(options.prompt, "Change password");
 	if (/\b(?:change|update)\s+my\s+(?:sign[- ]?in\s+|login\s+)?email\b/i.test(text))
-		return say(
-			`You change your sign-in email in Settings, not here. Open ${SETTINGS_ACCOUNT} and choose Change email.`,
-		);
-	if (/\bdelete\s+(?:our|the|this|my)\s+church\b/i.test(text))
-		return say(
-			"Only the church's Owner can delete the church, and only in Settings. Open [Settings › Church](/settings/church) to do it.",
-		);
+		return settingsOnly(options.prompt, "Change sign-in email");
+	if (/\bdelete\s+(?:our|the|this|my)\s+church\b/i.test(text)) return settingsOnly(options.prompt, "Delete the church");
 	if (last?.error) return say(`I couldn't prepare that (${String(last.error)}).`);
 
 	// Who has access: the seats, then the pending invitations an Owner or Admin may see.
@@ -145,8 +147,7 @@ export function settingsStep(options: LanguageModelV4CallOptions, text: string):
 		text,
 	);
 	if (invite) {
-		if (!offers("seats.invite"))
-			return say("Only an Owner or Admin can invite people to this church. Ask one of them to send the invitation.");
+		if (!offers("seats.invite")) return notOffered(options.prompt);
 		return propose("seats.invite", { email: invite[1]!.toLowerCase(), role: invite[2]!.toLowerCase() });
 	}
 
@@ -158,7 +159,7 @@ export function settingsStep(options: LanguageModelV4CallOptions, text: string):
 	if (pending) {
 		const resend = pending[1]!.toLowerCase() === "resend";
 		const operation = resend ? "seats.resendInvitation" : "seats.revokeInvitation";
-		if (!offers(operation)) return say("Only an Owner or Admin can change this church's invitations.");
+		if (!offers(operation)) return notOffered(options.prompt);
 		if (!of("seats.listInvitations")) return call("seats_read", { operation: "seats.listInvitations", input: {} });
 		const found = rows("seats.listInvitations").find((r) => r.label.toLowerCase() === pending[2]!.toLowerCase());
 		if (!found) return say(`No invitation to ${pending[2]} is waiting.`);
@@ -174,7 +175,7 @@ export function settingsStep(options: LanguageModelV4CallOptions, text: string):
 	);
 	if (role || removal) {
 		const operation = role ? "seats.changeOrdinaryRole" : "seats.remove";
-		if (!offers(operation)) return say("Only an Owner or Admin can change who has access to this church.");
+		if (!offers(operation)) return notOffered(options.prompt);
 		if (!of("seats.list")) return call("seats_read", { operation: "seats.list", input: {} });
 		const name = (role ?? removal)![1]!.toLowerCase();
 		const found = rows("seats.list").filter((r) => r.label.toLowerCase().startsWith(name));

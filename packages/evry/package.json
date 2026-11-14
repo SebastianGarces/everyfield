@@ -4,7 +4,8 @@
 	"type": "module",
 	"exports": {
 		".": "./src/index.ts",
-		"./tracing": "./src/runtime/trace.ts"
+		"./tracing": "./src/runtime/trace.ts",
+		"./labels": "./src/catalog/labels.ts"
 	},
 	"scripts": {
 		"typecheck": "../../node_modules/.bin/bun check --no-script --no-pretty --all",

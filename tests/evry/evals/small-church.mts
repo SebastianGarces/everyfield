@@ -155,6 +155,7 @@ export async function converse(model: LanguageModelV4, db: Database, actor: Evry
 		text,
 		references: [],
 		now,
+		settingsGuidance: false,
 	});
 	const run = streamText({
 		model,
