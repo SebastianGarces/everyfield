@@ -27,8 +27,10 @@ export type WriteContext = SettingsContext;
 export const now = sql<Date>`clock_timestamp()`.mapWith((v: string) => new Date(v));
 export { hash };
 export class Refusal extends Error {
-	constructor(readonly code: z.infer<typeof settingsError>["code"] = "unavailable") {
+	readonly code: z.infer<typeof settingsError>["code"];
+	constructor(code: z.infer<typeof settingsError>["code"] = "unavailable") {
 		super(code);
+		this.code = code;
 	}
 }
 export function deny(code?: Refusal["code"]): never {

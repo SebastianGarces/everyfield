@@ -3,6 +3,7 @@ import { sql } from "@everyfield/db/query";
 import type { EvryActor } from "../context/actor.ts";
 import { EvryRefusal } from "../context/errors.ts";
 import { LIMITS } from "../context/limits.ts";
+import type { NativePorts } from "../proposals/types.ts";
 import type { ConversationFiles, ReadAdapter, SourceResult } from "./types.ts";
 
 /**
@@ -16,6 +17,7 @@ export async function invokeRead<I>(
 	actor: EvryActor,
 	adapter: ReadAdapter<I>,
 	input: I,
+	native: NativePorts | null = null,
 	files?: ConversationFiles,
 ): Promise<SourceResult> {
 	if (!adapter.allowed(actor)) throw new EvryRefusal("access_denied");
@@ -32,6 +34,6 @@ export async function invokeRead<I>(
 		: undefined;
 	return db.transaction(async (tx) => {
 		await tx.execute(sql.raw(`SET LOCAL statement_timeout = ${LIMITS.readTimeoutMs}`));
-		return adapter.invoke(tx, actor, input, loaded);
+		return adapter.invoke(tx, actor, input, native, loaded);
 	});
 }

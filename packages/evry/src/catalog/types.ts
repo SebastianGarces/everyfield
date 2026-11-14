@@ -1,6 +1,7 @@
 import type { Transaction } from "@everyfield/db/client";
 import type { z } from "zod";
 import type { EvryActor } from "../context/actor.ts";
+import type { NativePorts } from "../proposals/types.ts";
 
 /**
  * One returned row. Only these fields reach the model; the id lets a later read or selection name it again.
@@ -26,6 +27,9 @@ export type SourceRow = {
 		| "meeting"
 		| "responsibility"
 		| "template"
+		| "seat"
+		| "invitation"
+		| "connection"
 		| "date";
 	id: string;
 	label: string;
@@ -59,7 +63,14 @@ export type ReadAdapter<I> = {
 	 * answer reaches `invoke` as `loaded`. A read with no conversation's files refuses as attachment_elsewhere.
 	 */
 	load?(input: I, files: ConversationFiles): Promise<unknown>;
-	invoke(tx: Transaction, actor: EvryActor, input: I, loaded?: unknown): Promise<SourceResult>;
+	/** `native` holds the deployment's native services, for a read that needs one (null when it has none). */
+	invoke(
+		tx: Transaction,
+		actor: EvryActor,
+		input: I,
+		native: NativePorts | null,
+		loaded?: unknown,
+	): Promise<SourceResult>;
 };
 
 /** The files attached in the turn's own conversation (attachments/store.ts): a file's exact bytes by its id. */

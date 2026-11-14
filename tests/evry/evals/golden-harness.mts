@@ -51,6 +51,20 @@ import type { RunLease } from "../../../packages/evry/src/runtime/run-store.ts";
 import type { MailPort } from "../../../packages/evry/src/proposals/types.ts";
 import { claimDue } from "../../../apps/web/src/server/jobs/queue.ts";
 import { byName, NOW, type ActorName, type GoldenChurch } from "./golden-church.mts";
+import { SEAT_READS, SETTINGS_COMMANDS, SHARING_READS } from "../../../packages/evry/src/adapters/settings/index.ts";
+
+/**
+ * The operations these recordings offer the model: every installed one except the seat, Settings, sharing, connection,
+ * account and organization tools T-327 added after they were recorded. Offering those would change every recorded
+ * provider call, and Nora's ask for T-327 (13 Nov 2026) allows no new spend, so settings.test.mts scores them on the
+ * scripted model instead. The next recording drops this filter (ruling D-1137).
+ */
+const LATER = new Set<string>([
+	...SEAT_READS.map((a) => a.operation),
+	...SHARING_READS.map((a) => a.operation),
+	...Object.keys(SETTINGS_COMMANDS),
+]);
+export const RECORDED = (operation: string) => !LATER.has(operation);
 
 type Usage = { input: number; output: number };
 type Call =
@@ -346,7 +360,7 @@ export async function converse(
 	const actor = church.actors[as];
 	const keys: string[] = [];
 	const model = golden.model(keys);
-	const catalog = readCatalog(actor);
+	const catalog = readCatalog(actor, RECORDED);
 	const calls: ToolCall[] = [];
 	const proposals: Proposal[] = [];
 	const classified = await classifyRequest(model, text, AbortSignal.timeout(60_000));
@@ -381,7 +395,16 @@ export async function converse(
 		})),
 		reviews: [],
 	};
-	const context = compileContext({ actor, catalog, history: events, text, references: [], now: NOW, state });
+	const context = compileContext({
+		actor,
+		catalog,
+		history: events,
+		text,
+		references: [],
+		now: NOW,
+		state,
+		settingsGuidance: false,
+	});
 	const conversationFiles = {
 		read: async (id: string) => {
 			const f = files.find((x) => x.id === id);
@@ -414,82 +437,96 @@ export async function converse(
 	};
 	let conversation: ReturnType<typeof openConversation> | null = null;
 
-	const tools = modelTools(actor, {
-		read: inOrder(async (adapter: ReadAdapter<unknown>, input: unknown) => {
-			if (!admit()) return { error: "tool_budget" };
-			const call: ToolCall = { operation: adapter.operation, input };
-			calls.push(call);
-			const resultId = ++sequence;
-			try {
-				call.result = await invokeRead(db, actor, adapter, input, conversationFiles);
-				return keep(resultId, call.result);
-			} catch (error) {
-				// A file from another conversation, or a gone one, is the model's to explain, as runTurn does.
-				if (error instanceof EvryRefusal && (error.code === "attachment_elsewhere" || error.code === "attachment_gone"))
-					return ((call.error = error.code), { error: error.code });
-				// A failed read ends the turn with its refusal, as runTurn does.
-				const code = error instanceof EvryRefusal ? error.code : "source_unavailable";
-				call.error = code;
-				failed ??= code;
-				abort.abort();
-				return { error: "source_unavailable" };
-			}
-		}),
-		select: inOrder(async ({ resultId, ids }: { resultId: number; ids: string[] }) => {
-			if (!admit()) return { error: "tool_budget" };
-			const source = results.get(resultId);
-			const returned = new Set(source?.rows.filter((r) => r.kind === "person").map((r) => r.id) ?? []);
-			const rejected = ids.filter((rowId) => !returned.has(rowId));
-			calls.push({ operation: SELECT_RETURNED_ROWS, input: { resultId, ids } });
-			if (!source || rejected.length) return { error: "not_returned", rejected: rejected.length };
-			const selected = ++sequence;
-			const rows = await verifyPeople(db, actor, ids);
-			return keep(selected, {
-				operation: SELECT_RETURNED_ROWS,
-				status: "available",
-				rows,
-				total: rows.length,
-				page: 1,
-				next: null,
-				completeness: "complete",
-				exclusions: source.total === null ? [] : [`selected from ${source.total} matched`],
-			});
-		}),
-		propose: inOrder(async (call: { operation: string; input: unknown }) => {
-			// The turn's review card cap (runTurn): a bulk change confirms its scope first.
-			if (++cards > LIMITS.reviewCards) return { error: "review_limit" };
-			if (!admit()) return { error: "tool_budget" };
-			const card: Proposal = { operation: call.operation, input: call.input, prepared: false, review: null };
-			proposals.push(card);
-			const number = proposals.length;
-			const open = await (conversation ??= openConversation(db, actor, files));
-			// The checks this turn made are saved in the conversation before the review reads them, as runTurn saves each
-			// read's result as it ends.
-			for (const check of calls.filter((x) => x.operation === "people.previewImport" && x.result && !saved.has(x))) {
-				saved.add(check);
-				await db.execute(sql`WITH c AS (UPDATE conversation SET last_sequence=last_sequence+1 WHERE id=${open.id}::uuid RETURNING id,last_sequence)
+	const tools = modelTools(
+		actor,
+		{
+			read: inOrder(async (adapter: ReadAdapter<unknown>, input: unknown) => {
+				if (!admit()) return { error: "tool_budget" };
+				const call: ToolCall = { operation: adapter.operation, input };
+				calls.push(call);
+				const resultId = ++sequence;
+				try {
+					call.result = await invokeRead(db, actor, adapter, input, null, conversationFiles);
+					return keep(resultId, call.result);
+				} catch (error) {
+					// A file from another conversation, or a gone one, is the model's to explain, as runTurn does.
+					if (
+						error instanceof EvryRefusal &&
+						(error.code === "attachment_elsewhere" || error.code === "attachment_gone")
+					)
+						return ((call.error = error.code), { error: error.code });
+					// A failed read ends the turn with its refusal, as runTurn does.
+					const code = error instanceof EvryRefusal ? error.code : "source_unavailable";
+					call.error = code;
+					failed ??= code;
+					abort.abort();
+					return { error: "source_unavailable" };
+				}
+			}),
+			select: inOrder(async ({ resultId, ids }: { resultId: number; ids: string[] }) => {
+				if (!admit()) return { error: "tool_budget" };
+				const source = results.get(resultId);
+				const returned = new Set(source?.rows.filter((r) => r.kind === "person").map((r) => r.id) ?? []);
+				const rejected = ids.filter((rowId) => !returned.has(rowId));
+				calls.push({ operation: SELECT_RETURNED_ROWS, input: { resultId, ids } });
+				if (!source || rejected.length) return { error: "not_returned", rejected: rejected.length };
+				const selected = ++sequence;
+				const rows = await verifyPeople(db, actor, ids);
+				return keep(selected, {
+					operation: SELECT_RETURNED_ROWS,
+					status: "available",
+					rows,
+					total: rows.length,
+					page: 1,
+					next: null,
+					completeness: "complete",
+					exclusions: source.total === null ? [] : [`selected from ${source.total} matched`],
+				});
+			}),
+			propose: inOrder(async (call: { operation: string; input: unknown }) => {
+				// The turn's review card cap (runTurn): a bulk change confirms its scope first.
+				if (++cards > LIMITS.reviewCards) return { error: "review_limit" };
+				if (!admit()) return { error: "tool_budget" };
+				const card: Proposal = { operation: call.operation, input: call.input, prepared: false, review: null };
+				proposals.push(card);
+				const number = proposals.length;
+				const open = await (conversation ??= openConversation(db, actor, files));
+				// The checks this turn made are saved in the conversation before the review reads them, as runTurn saves each
+				// read's result as it ends.
+				for (const check of calls.filter((x) => x.operation === "people.previewImport" && x.result && !saved.has(x))) {
+					saved.add(check);
+					await db.execute(sql`WITH c AS (UPDATE conversation SET last_sequence=last_sequence+1 WHERE id=${open.id}::uuid RETURNING id,last_sequence)
 					INSERT INTO conversation_event(conversation_id,sequence,turn_id,kind,body)
 					SELECT id,last_sequence,${open.lease.turnId}::uuid,'tool_result',${JSON.stringify({ operation: check.operation, input: check.input, result: check.result })}::jsonb FROM c`);
-			}
-			// An import reads the case's attached files, as a turn's review does (runtime/turn.ts).
-			const proposal = await prepareProposal(db, actor, open.lease, open.id, call, MAIL, conversationFiles).catch(
-				(error) => (error instanceof EvryRefusal ? error.code : "unknown"),
-			);
-			if (typeof proposal === "string" || !proposal) {
-				card.error = proposal || "source_unavailable";
-				return { error: card.error };
-			}
-			card.prepared = true;
-			card.review = proposal.review;
-			// The card's id and expiry come from the database. The model reads pinned ones, so a replay sends the
-			// recorded call; everything else on the card is the real review.
-			return proposalForModel({
-				...proposal,
-				id: `5b6d1f0e-0000-4000-8000-${(0x7000 + number).toString(16).padStart(12, "0")}`,
-				expiresAt: new Date(NOW.getTime() + REVIEW_MINUTES * 60_000),
-			});
-		}),
-	});
+				}
+				// An import reads the case's attached files, as a turn's review does (runtime/turn.ts).
+				const proposal = await prepareProposal(
+					db,
+					actor,
+					open.lease,
+					open.id,
+					call,
+					MAIL,
+					null,
+					conversationFiles,
+				).catch((error) => (error instanceof EvryRefusal ? error.code : "unknown"));
+				if (typeof proposal === "string" || !proposal) {
+					card.error = proposal || "source_unavailable";
+					return { error: card.error };
+				}
+				card.prepared = true;
+				card.review = proposal.review;
+				// The card's id and expiry come from the database. The model reads pinned ones, so a replay sends the
+				// recorded call; everything else on the card is the real review.
+				return proposalForModel({
+					...proposal,
+					id: `5b6d1f0e-0000-4000-8000-${(0x7000 + number).toString(16).padStart(12, "0")}`,
+					expiresAt: new Date(NOW.getTime() + REVIEW_MINUTES * 60_000),
+				});
+			}),
+		},
+		RECORDED,
+	);
 
 	const run = streamText({
 		model,

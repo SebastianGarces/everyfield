@@ -1,0 +1,382 @@
+{
+	"suite": "settings",
+	"model": "scripted",
+	"note": "T-327: seats, church settings, sharing, connections, account and organization tools, asked in Hope Fellowship (golden-church.mts) on the scripted model with the real adapters, approvals and native commands. Cases run in this order on one church; each later case sees the earlier approved changes.",
+	"cases": [
+		{
+			"id": "SET-01",
+			"criterion": 1,
+			"actor": "owner",
+			"ask": "who has access to our church?",
+			"operation": "seats.list",
+			"calls": ["seats.list", "seats.listInvitations"],
+			"answer": [
+				"3 people have access",
+				"Nate Ellis (Owner, you)",
+				"Lena Park (Admin)",
+				"Priya Shah (Member)",
+				"1 invitation is waiting: jordan@example.test as Member"
+			]
+		},
+		{
+			"id": "SET-02",
+			"criterion": 1,
+			"actor": "owner",
+			"ask": "who has access to our church?",
+			"operation": "seats.listInvitations",
+			"calls": ["seats.list", "seats.listInvitations"],
+			"answer": ["jordan@example.test as Member"]
+		},
+		{
+			"id": "SET-03",
+			"criterion": 13,
+			"actor": "member",
+			"ask": "invite sam@example.test as a Member",
+			"operation": "seats.invite",
+			"calls": [],
+			"answer": ["Only an Owner or Admin can invite people"]
+		},
+		{
+			"id": "SET-04",
+			"criterion": 2,
+			"actor": "owner",
+			"ask": "invite ana@example.test as an Admin",
+			"operation": "seats.invite",
+			"calls": [],
+			"proposal": {
+				"operation": "seats.invite",
+				"target": "Hope Fellowship",
+				"changes": [
+					{
+						"field": "invitation",
+						"before": null,
+						"after": "ana@example.test"
+					},
+					{
+						"field": "role",
+						"before": null,
+						"after": "admin"
+					}
+				],
+				"notes": ["Everyfield emails ana@example.test a link to join as an Admin"]
+			},
+			"approve": true,
+			"answer": ["I prepared a review. Nothing changes until you approve it."]
+		},
+		{
+			"id": "SET-05",
+			"criterion": 3,
+			"actor": "owner",
+			"ask": "resend the invitation to jordan@example.test",
+			"operation": "seats.resendInvitation",
+			"calls": ["seats.listInvitations"],
+			"proposal": {
+				"operation": "seats.resendInvitation",
+				"target": "jordan@example.test",
+				"changes": [
+					{
+						"field": "invitation",
+						"before": "pending",
+						"after": "sent_again"
+					}
+				],
+				"notes": ["The earlier link stops working"]
+			},
+			"approve": true
+		},
+		{
+			"id": "SET-06",
+			"criterion": 3,
+			"actor": "owner",
+			"ask": "revoke the invitation to ana@example.test",
+			"operation": "seats.revokeInvitation",
+			"calls": ["seats.listInvitations"],
+			"proposal": {
+				"operation": "seats.revokeInvitation",
+				"target": "ana@example.test",
+				"changes": [
+					{
+						"field": "invitation",
+						"before": "pending",
+						"after": "revoked"
+					}
+				],
+				"notes": ["stops working"]
+			},
+			"approve": true
+		},
+		{
+			"id": "SET-07",
+			"criterion": 11,
+			"actor": "member",
+			"ask": "delete my account",
+			"operation": "account.requestDeletion",
+			"calls": [],
+			"proposal": {
+				"operation": "account.requestDeletion",
+				"target": "Priya Shah",
+				"changes": [
+					{
+						"field": "account",
+						"before": "active",
+						"after": "deletion_requested"
+					}
+				],
+				"notes": ["30 days after you approve", "To cancel within the 30 days"],
+				"refusal": null
+			}
+		},
+		{
+			"id": "SET-08",
+			"criterion": 3,
+			"actor": "owner",
+			"ask": "make Priya Shah an Admin",
+			"operation": "seats.changeOrdinaryRole",
+			"calls": ["seats.list"],
+			"proposal": {
+				"operation": "seats.changeOrdinaryRole",
+				"target": "Priya Shah",
+				"changes": [
+					{
+						"field": "role",
+						"before": "member",
+						"after": "admin"
+					}
+				]
+			},
+			"approve": true
+		},
+		{
+			"id": "SET-09",
+			"criterion": 3,
+			"actor": "owner",
+			"ask": "remove Lena Park from our church",
+			"operation": "seats.remove",
+			"calls": ["seats.list"],
+			"proposal": {
+				"operation": "seats.remove",
+				"target": "Lena Park",
+				"changes": [
+					{
+						"field": "access",
+						"before": "admin",
+						"after": "removed"
+					}
+				],
+				"notes": ["Lena Park loses access to Hope Fellowship right away"]
+			},
+			"approve": true
+		},
+		{
+			"id": "SET-10",
+			"criterion": 4,
+			"actor": "owner",
+			"ask": "change our church time zone to Eastern",
+			"operation": "plant.setTimezone",
+			"calls": [],
+			"proposal": {
+				"operation": "plant.setTimezone",
+				"target": "Hope Fellowship",
+				"changes": [
+					{
+						"field": "timeZone",
+						"before": "America/Chicago",
+						"after": "America/New_York"
+					}
+				],
+				"notes": [
+					"These upcoming times move, shown in Eastern time:",
+					"Weekly digest email, Sun",
+					"5:00 PM → 4:00 PM Eastern time"
+				]
+			},
+			"approve": true
+		},
+		{
+			"id": "SET-11",
+			"criterion": 5,
+			"actor": "owner",
+			"conversation": "sharing",
+			"ask": "what are we sharing with Hill Country Network?",
+			"operation": "privacy.getSharing",
+			"calls": ["privacy.getSharing"],
+			"answer": ["shares 2 categories with Hill Country Network: People totals and Meetings"]
+		},
+		{
+			"id": "SET-12",
+			"criterion": 6,
+			"actor": "owner",
+			"conversation": "sharing",
+			"ask": "stop sharing meetings with them",
+			"operation": "privacy.setSharing",
+			"calls": ["privacy.getSharing"],
+			"proposal": {
+				"operation": "privacy.setSharing",
+				"target": "Hill Country Network",
+				"changes": [
+					{
+						"field": "meetings",
+						"before": true,
+						"after": false
+					}
+				]
+			},
+			"approve": true
+		},
+		{
+			"id": "SET-13",
+			"criterion": 7,
+			"actor": "owner",
+			"ask": "invite Grace Austin to be our sending church",
+			"operation": "associations.invite",
+			"calls": [],
+			"proposal": {
+				"operation": "associations.invite",
+				"target": "Grace Austin",
+				"changes": [
+					{
+						"field": "connection",
+						"before": null,
+						"after": "sending church"
+					},
+					{
+						"field": "recipientEmail",
+						"before": null,
+						"after": "connect@graceaustin.example.test"
+					}
+				],
+				"notes": ["Nothing is shared until they accept."],
+				"refusal": null
+			},
+			"approve": true
+		},
+		{
+			"id": "SET-14",
+			"criterion": 8,
+			"actor": "owner",
+			"ask": "end our connection with Hill Country Network",
+			"operation": "associations.end",
+			"calls": ["privacy.getSharing"],
+			"proposal": {
+				"operation": "associations.end",
+				"target": "Hill Country Network",
+				"changes": [
+					{
+						"field": "connection",
+						"before": "connected",
+						"after": "ended"
+					}
+				],
+				"notes": ["Hill Country Network stops seeing what you share now: People totals."]
+			},
+			"approve": true
+		},
+		{
+			"id": "SET-15",
+			"criterion": 9,
+			"actor": "owner",
+			"ask": "use this as my photo",
+			"attachPhoto": true,
+			"operation": "account.finalizeAvatar",
+			"calls": [],
+			"proposal": {
+				"operation": "account.finalizeAvatar",
+				"target": "Nate Ellis"
+			},
+			"approve": true
+		},
+		{
+			"id": "SET-16",
+			"criterion": 10,
+			"actor": "owner",
+			"ask": "change my password",
+			"calls": [],
+			"answer": ["in Settings", "(/settings/account)"],
+			"noReview": true
+		},
+		{
+			"id": "SET-17",
+			"criterion": 10,
+			"actor": "owner",
+			"ask": "change my sign-in email",
+			"calls": [],
+			"answer": ["in Settings", "(/settings/account)"],
+			"noReview": true
+		},
+		{
+			"id": "SET-18",
+			"criterion": 11,
+			"actor": "owner",
+			"ask": "delete my account",
+			"operation": "account.requestDeletion",
+			"calls": [],
+			"proposal": {
+				"operation": "account.requestDeletion",
+				"target": "Nate Ellis",
+				"notes": ["30 days after you approve", "To cancel within the 30 days"],
+				"refusal": "You are an Owner, so your church needs another Owner first. Write to Everyfield support to arrange it."
+			}
+		},
+		{
+			"id": "SET-19",
+			"criterion": 12,
+			"actor": "owner",
+			"ask": "delete our church",
+			"calls": [],
+			"answer": ["Only the church's Owner can delete the church", "(/settings/church)"],
+			"noReview": true
+		},
+		{
+			"id": "SET-20",
+			"criterion": 14,
+			"actor": "owner",
+			"ask": "update our church's city to Round Rock",
+			"operation": "plant.updateProfile",
+			"calls": [],
+			"proposal": {
+				"operation": "plant.updateProfile",
+				"target": "Hope Fellowship",
+				"changes": [
+					{
+						"field": "city",
+						"before": "Austin",
+						"after": "Round Rock"
+					}
+				]
+			},
+			"approve": true
+		},
+		{
+			"id": "SET-21",
+			"criterion": 15,
+			"actor": "network",
+			"conversation": "network",
+			"ask": "update our network's description",
+			"operation": "organizations.updateProfile",
+			"calls": [],
+			"answer": ["What should the description say?"]
+		},
+		{
+			"id": "SET-22",
+			"criterion": 15,
+			"actor": "network",
+			"conversation": "network",
+			"ask": "We help churches plant churches across Central Texas.",
+			"operation": "organizations.updateProfile",
+			"calls": [],
+			"proposal": {
+				"operation": "organizations.updateProfile",
+				"target": "Hill Country Network",
+				"changes": [
+					{
+						"field": "description",
+						"before": "Churches planting churches across the Texas Hill Country.",
+						"after": "We help churches plant churches across Central Texas."
+					}
+				]
+			},
+			"approve": true,
+			"answer": ["I prepared a review. Nothing changes until you approve it."]
+		}
+	]
+}

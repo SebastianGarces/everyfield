@@ -200,8 +200,9 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 	assert.equal(await work(), "succeeded");
 	assert.match((await events(seatless, none)).text, /don't have anything to read in this context yet/);
 	// No catalog offers direct writes, approvals, code, private care or coach tools to any context. Only a plant Owner or
-	// Admin may propose the reviewed People changes, the same floor as the native commands; any plant seat proposes changes
-	// to its own notifications.
+	// Admin may propose the reviewed People, seat, settings, sharing and connection changes, the same floor as the native
+	// commands; any plant seat proposes changes to its own notifications and account, and an organization Owner its own
+	// profile.
 	for (const who of ["owner", "member", "orgOwner", "seatless"] as const) {
 		const catalog = readCatalog(await actor(who));
 		const operations = catalog.domains.flatMap((d) => d.operations.map((o) => o.operation));
@@ -244,11 +245,32 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 						"notifications.setPreferences",
 						"notifications.digestCadence.set",
 						...Object.keys(REVIEWED_WRITES).filter((op) => op.startsWith("teams.")),
+						"seats.invite",
+						"seats.resendInvitation",
+						"seats.revokeInvitation",
+						"seats.changeOrdinaryRole",
+						"seats.remove",
+						"plant.updateProfile",
+						"plant.setTimezone",
+						"privacy.setSharing",
+						"associations.invite",
+						"associations.end",
+						"account.finalizeAvatar",
+						"account.requestDeletion",
 					]
 				: who === "member"
-					? // A Member changes only their own bell and notification settings; the church digest is an Owner's or Admin's.
-						["notifications.markSelectedRead", "notifications.markAllVisibleRead", "notifications.setPreferences"]
-					: [],
+					? // A Member changes only their own bell, notification settings and account; the church digest is an Owner's or
+						// Admin's.
+						[
+							"notifications.markSelectedRead",
+							"notifications.markAllVisibleRead",
+							"notifications.setPreferences",
+							"account.finalizeAvatar",
+							"account.requestDeletion",
+						]
+					: who === "orgOwner"
+						? ["organizations.updateProfile"]
+						: [],
 		);
 		const teamsReads = READ_DOMAINS.teams.map((a) => a.operation);
 		const peopleReads = ["people.listPeople", "people.getPerson", "people.getPersonPhoto", "people.checkForDuplicates"];
@@ -288,6 +310,9 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 						"notifications.preferences.get",
 						"notifications.previewPlanterDigest",
 						...teamsReads,
+						"seats.list",
+						"seats.listInvitations",
+						"privacy.getSharing",
 						"calendar.getContext",
 						"calendar.resolve",
 					]
@@ -299,6 +324,8 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 							"notifications.feed",
 							"notifications.preferences.get",
 							...teamsReads,
+							"seats.list",
+							"privacy.getSharing",
 							"calendar.getContext",
 							"calendar.resolve",
 						]
@@ -472,7 +499,9 @@ test("AC:INH-EDGES-03 AC:TEN-008 AC:EVRY-CONTEXT-BOUNDS a guessed foreign id and
 			"peopleOrganization_read",
 			"people_read",
 			"propose_change",
+			"seats_read",
 			"select_returned_rows",
+			"sharing_read",
 			"teams_read",
 		],
 		"prompt text cannot add tools or scope; the owner's catalog decides them",

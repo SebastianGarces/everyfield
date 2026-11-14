@@ -16,10 +16,11 @@ import {
 	readEnrollment,
 	readProgram,
 	readPrograms,
+	readVersionReview,
 	searchReadings,
 } from "../../../packages/domain/src/organizations/programs.ts";
 
-const { createProgram, savePlan, publishVersion, enroll, recordMilestone, addFeedback } = programWriter;
+const { createProgram, savePlan, publishVersion, enroll, recordMilestone, addFeedback, applyVersion } = programWriter;
 
 // Development programs (REQ-MUL-010, -011, -012, and Active residents from REQ-MUL-007) against a migrated database.
 // Grace Austin: Owner Dana, Admin Luis, Ana (Member) directs the residency, Dee (Member) is responsible for Casey Lee,
@@ -675,4 +676,295 @@ test("Ben reads programs and enrollments and every write he sends is refused", a
 		}),
 		"unavailable",
 	);
+});
+
+// Applying a newer version to one enrollment (REQ-MUL-011). Casey is on Version 1, with "Start a small group and raise
+// a replacement" finished Oct 12 and feedback on "Preach on a Sunday". Version 2 renames "Present your vision to the
+// sending church leadership" and adds "Lead a prayer walk".
+
+const review = async (a: Actor) =>
+	ok(await readVersionReview(db, await authority(a), { enrollmentId: caseyResidency }));
+const applied = async () =>
+	(
+		await admin.execute(
+			sql`SELECT metadata FROM audit_event WHERE action='development.version_applied' AND subject_id=${caseyResidency}
+			 ORDER BY occurred_at`,
+		)
+	).rows.map((r) => r.metadata);
+const completions = async () =>
+	(
+		await admin.execute(sql`SELECT id,milestone_id,version_id,completed_on::text AS completed_on,recorder_id,confirmer_id,
+		 confirmed_at,source FROM enrollment_milestone WHERE enrollment_id=${caseyResidency} ORDER BY id`)
+	).rows;
+/** The next plan from the current published version, with `edit` applied to its milestones and stages. */
+const nextPlan = (
+	v: NonNullable<Awaited<ReturnType<typeof program>>["published"]>,
+	edit: {
+		milestones?: (ms: typeof v.milestones) => typeof v.milestones;
+		stages?: (s: typeof v.stages) => typeof v.stages;
+	},
+) => ({
+	rhythm: v.rhythm,
+	expectedMonths: v.expectedMonths,
+	stages: (edit.stages ?? ((x) => x))(v.stages).map((s) => ({
+		label: s.label,
+		minMonths: s.minMonths,
+		maxMonths: s.maxMonths,
+	})),
+	milestones: (edit.milestones ?? ((x) => x))(v.milestones).map((m) => ({
+		lineage: m.lineage,
+		title: m.title,
+		description: m.description,
+		handsOn: m.handsOn,
+	})),
+	readings: v.readings.map((r) => ({ revisionId: r.revisionId })),
+});
+async function publishNext(edit: Parameters<typeof nextPlan>[1]) {
+	const p = await program(ana, residency);
+	const saved = ok(
+		await savePlan(db, await authority(ana), {
+			programId: residency,
+			expectedRevision: p.revision,
+			plan: nextPlan(p.published!, edit),
+		}),
+	);
+	ok(await publishVersion(db, await authority(ana), { programId: residency, expectedRevision: saved.revision }));
+	return (await program(ana, residency)).published!;
+}
+
+test("Casey's enrollment names Version 2; only the director reads the review, and reading it saves nothing", async () => {
+	const e = await enrollment(ana, caseyResidency);
+	const v2 = (await program(ana, residency)).published!;
+	assert.equal(e.versionNumber, 1);
+	assert.deepEqual(e.newerVersion, { id: v2.id, number: 2 });
+	for (const who of [dana, luis, dee, ben, hillOwner])
+		refusedWith(await readVersionReview(db, await authority(who), { enrollmentId: caseyResidency }), "unavailable");
+	const r = await review(ana);
+	assert.deepEqual([r.fromNumber, r.toNumber, r.versionId], [1, 2, v2.id]);
+	assert.deepEqual(r.added, [{ title: "Lead a prayer walk", description: null, handsOn: false, finished: false }]);
+	assert.deepEqual(r.removed, []);
+	// Only the renamed milestone is listed as changed, with both wordings; the unchanged ones are not.
+	assert.deepEqual(r.changed, [
+		{
+			before: {
+				title: "Present your vision to the sending church leadership",
+				description: null,
+				handsOn: false,
+				finished: false,
+			},
+			after: { title: "Present your vision to the elders", description: null, handsOn: false, finished: false },
+		},
+	]);
+	assert.deepEqual(r.carried, ["Start a small group and raise a replacement"]);
+	// Casey is at Assimilating on Version 1, and Version 2's stage with the same label is preselected.
+	assert.equal(r.stage, "Assimilating");
+	assert.equal(r.stageId, v2.stages.find((s) => s.label === "Assimilating")!.id);
+	assert.deepEqual(
+		r.stages.map((s) => s.label),
+		v2.stages.map((s) => s.label),
+	);
+	assert.equal((await enrollment(ana, caseyResidency)).versionNumber, 1);
+	assert.deepEqual(await applied(), []);
+	// An enrollment already on the current version has nothing to apply.
+	const other = ok(await readProgram(db, await authority(dana), { programId: second })).enrollments[0]!;
+	assert.equal((await enrollment(ana, other.id)).newerVersion, null);
+	refusedWith(await readVersionReview(db, await authority(ana), { enrollmentId: other.id }), "unavailable");
+});
+
+test("a review that went out of date is refused and changes nothing; the fresh one shows the change", async () => {
+	const stale = await review(ana);
+	// Another session records the milestone Version 2 renames.
+	const vision = (await enrollment(ana, caseyResidency)).milestones.find((m) =>
+		m.title.startsWith("Present your vision"),
+	)!;
+	ok(
+		await recordMilestone(db, await authority(ana), {
+			enrollmentId: caseyResidency,
+			milestoneId: vision.id,
+			completedOn: "2026-10-14",
+		}),
+	);
+	const rows = await completions();
+	refusedWith(
+		await applyVersion(db, await authority(ana), {
+			enrollmentId: caseyResidency,
+			versionId: stale.versionId,
+			stageId: stale.stageId,
+			basis: stale.basis,
+		}),
+		"stale_review",
+	);
+	assert.equal((await enrollment(ana, caseyResidency)).versionNumber, 1);
+	assert.deepEqual(await completions(), rows);
+	assert.deepEqual(await applied(), []);
+	const fresh = await review(ana);
+	assert.notEqual(fresh.basis, stale.basis);
+	assert.equal(fresh.changed[0]!.before.finished, true);
+	assert.deepEqual(fresh.carried, ["Start a small group and raise a replacement", "Present your vision to the elders"]);
+});
+
+test("only the program's current director applies, only the current version, only in their organization", async () => {
+	const r = await review(ana);
+	const v1Stage = (await enrollment(ana, caseyResidency)).stage.id;
+	const input = { enrollmentId: caseyResidency, versionId: r.versionId, stageId: r.stageId, basis: r.basis };
+	for (const who of [dana, luis, dee, ben, hillOwner])
+		refusedWith(await applyVersion(db, await authority(who), input), "unavailable");
+	// A former director: the program is now directed by Dee.
+	await admin.execute(sql`UPDATE development_program SET director_seat_id=${deeSeat} WHERE id=${residency}`);
+	refusedWith(await applyVersion(db, await authority(ana), input), "unavailable");
+	refusedWith(await readVersionReview(db, await authority(ana), { enrollmentId: caseyResidency }), "unavailable");
+	await admin.execute(sql`UPDATE development_program SET director_seat_id=${anaSeat} WHERE id=${residency}`);
+	// Version 1, which Casey is on and which is not the current version, is refused.
+	const version1 = (await admin.execute(sql`SELECT version_id FROM development_enrollment WHERE id=${caseyResidency}`))
+		.rows[0]!.version_id as string;
+	refusedWith(await applyVersion(db, await authority(ana), { ...input, versionId: version1 }), "stale_review");
+	// Casey's stage on Version 1 is not a stage of Version 2.
+	refusedWith(await applyVersion(db, await authority(ana), { ...input, stageId: v1Stage }), "invalid_input");
+	assert.equal((await enrollment(ana, caseyResidency)).versionNumber, 1);
+	assert.deepEqual(await applied(), []);
+});
+
+test("Ana applies Version 2 at a stage she picks; finished work keeps its attribution and feedback its readers", async () => {
+	const before = await enrollment(dana, caseyResidency);
+	const rows = await completions();
+	const r = await review(ana);
+	const gathering = r.stages.find((s) => s.label === "Gathering")!.id;
+	const input = { enrollmentId: caseyResidency, versionId: r.versionId, stageId: gathering, basis: r.basis };
+	assert.equal(ok(await applyVersion(db, await authority(ana), input)).outcome, "changed");
+	const e = await enrollment(dana, caseyResidency);
+	const v2 = (await program(ana, residency)).published!;
+	assert.equal(e.versionNumber, 2);
+	assert.equal(e.newerVersion, null);
+	assert.deepEqual(
+		e.milestones.map((m) => m.title),
+		v2.milestones.map((m) => m.title),
+	);
+	assert.deepEqual(e.earlier, []);
+	// Cohort, dates, status and next meeting are unchanged; the stage is the one Ana picked.
+	assert.deepEqual(
+		[e.cohort, e.startedOn, e.expectedEndOn, e.status, e.nextMeeting, e.stage.label],
+		[before.cohort, before.startedOn, before.expectedEndOn, before.status, before.nextMeeting, "Gathering"],
+	);
+	const group = e.milestones.find((m) => m.title === "Start a small group and raise a replacement")!;
+	assert.deepEqual(group.completion, {
+		completedOn: "2026-10-12",
+		confirmedOn: e.today,
+		recorder: "Ana",
+		confirmer: "Ana",
+		source: "program_leader",
+	});
+	// The renamed milestone Casey finished stays finished with its original record.
+	assert.deepEqual(e.milestones.find((m) => m.title === "Present your vision to the elders")!.completion, {
+		completedOn: "2026-10-14",
+		confirmedOn: e.today,
+		recorder: "Ana",
+		confirmer: "Ana",
+		source: "program_leader",
+	});
+	assert.equal(e.milestones.find((m) => m.title === "Lead a prayer walk")!.completion, null);
+	// The stored records are the same rows, on Version 1, with the same recorder, confirmer and times.
+	assert.deepEqual(await completions(), rows);
+	// Feedback written on Version 1 reads the same to the director, Owner and Admin, and to nobody else.
+	const v1Feedback = before.milestones.find((m) => m.title === "Preach on a Sunday")!.feedback;
+	assert.equal(v1Feedback?.length, 1);
+	for (const who of [ana, dana, luis])
+		assert.deepEqual(
+			(await enrollment(who, caseyResidency)).milestones.find((m) => m.title === "Preach on a Sunday")!.feedback,
+			v1Feedback,
+		);
+	for (const who of [dee, ben]) {
+		const read = await enrollment(who, caseyResidency);
+		assert.ok(read.milestones.every((m) => m.feedback === null));
+		assert.ok(!JSON.stringify(read).includes("slow down"));
+	}
+	const listed = (await program(dana, residency)).enrollments.find((x) => x.id === caseyResidency)!;
+	assert.deepEqual([listed.versionNumber, listed.stage], [2, "Gathering"]);
+	const record = ok(await readPipelinePersonRecord(db, await authority(dana), { personId: casey }));
+	assert.equal(record.stage.label, "Potential leader");
+	// One body-free audit row; the repeated request changes nothing and adds none.
+	assert.deepEqual(await applied(), [{ fromVersion: 1, toVersion: 2 }]);
+	assert.equal(ok(await applyVersion(db, await authority(ana), input)).outcome, "noop");
+	assert.deepEqual(await applied(), [{ fromVersion: 1, toVersion: 2 }]);
+	assert.deepEqual(await completions(), rows);
+	// A milestone carried over finished is not recorded a second time on Version 2.
+	assert.equal(
+		ok(
+			await recordMilestone(db, await authority(ana), {
+				enrollmentId: caseyResidency,
+				milestoneId: group.id,
+				completedOn: "2026-11-01",
+			}),
+		).outcome,
+		"noop",
+	);
+	assert.deepEqual(await completions(), rows);
+});
+
+test("a version that drops Casey's finished milestone keeps its record under Version 1; a renamed stage falls back", async () => {
+	const group = "Start a small group and raise a replacement";
+	const v3 = await publishNext({
+		milestones: (ms) => ms.filter((m) => m.title !== group),
+		stages: (ss) => ss.map((s) => (s.label === "Gathering" ? { ...s, label: "Gathering a core team" } : s)),
+	});
+	const open = await review(ana);
+	assert.equal(open.toNumber, 3);
+	assert.deepEqual(open.removed, [{ title: group, description: null, handsOn: false, finished: true }]);
+	assert.deepEqual([open.added, open.changed], [[], []]);
+	// Casey's stage Gathering has no match on Version 3, so the first stage is preselected.
+	assert.equal(open.stage, "Gathering");
+	assert.equal(open.stageId, v3.stages[0]!.id);
+	// A newer version published while the review is open makes it stale.
+	const v4 = await publishNext({
+		milestones: (ms) => [...ms, { ...ms[0]!, id: randomUUID(), lineage: randomUUID(), title: "Visit a church plant" }],
+	});
+	refusedWith(
+		await applyVersion(db, await authority(ana), {
+			enrollmentId: caseyResidency,
+			versionId: open.versionId,
+			stageId: open.stageId,
+			basis: open.basis,
+		}),
+		"stale_review",
+	);
+	assert.equal((await enrollment(ana, caseyResidency)).versionNumber, 2);
+	const r = await review(ana);
+	assert.equal(r.toNumber, 4);
+	assert.deepEqual(r.removed, [{ title: group, description: null, handsOn: false, finished: true }]);
+	assert.deepEqual(
+		r.added.map((m) => m.title),
+		["Visit a church plant"],
+	);
+	const rows = await completions();
+	ok(
+		await applyVersion(db, await authority(ana), {
+			enrollmentId: caseyResidency,
+			versionId: r.versionId,
+			stageId: r.stageId,
+			basis: r.basis,
+		}),
+	);
+	const e = await enrollment(ana, caseyResidency);
+	assert.deepEqual([e.versionNumber, e.stage.label], [4, v4.stages[0]!.label]);
+	assert.ok(!e.milestones.some((m) => m.title === group));
+	assert.deepEqual(
+		e.earlier.map((m) => [m.title, m.versionNumber, m.completion]),
+		[
+			[
+				group,
+				1,
+				{
+					completedOn: "2026-10-12",
+					confirmedOn: e.today,
+					recorder: "Ana",
+					confirmer: "Ana",
+					source: "program_leader",
+				},
+			],
+		],
+	);
+	assert.deepEqual(await completions(), rows);
+	assert.deepEqual(await applied(), [
+		{ fromVersion: 1, toVersion: 2 },
+		{ fromVersion: 2, toVersion: 4 },
+	]);
 });

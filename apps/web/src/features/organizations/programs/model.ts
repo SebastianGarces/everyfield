@@ -58,6 +58,8 @@ export function programProblem(answer: { status: "refused"; refusal: ProgramRefu
 			return "Add at least one stage before publishing. Every enrollment starts at a stage.";
 		case "linked_resident":
 			return "This person has a linked account, so they mark their own milestones.";
+		case "stale_review":
+			return "Something changed since you opened this review, so nothing was applied. Check the updated review below, then confirm again.";
 		case "invalid_input":
 			return r.field === "completedOn"
 				? "The date can’t be after today."

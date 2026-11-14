@@ -10,6 +10,7 @@ import { invokeRead } from "../../../packages/evry/src/catalog/invoke.ts";
 import type { ReadAdapter, SourceResult } from "../../../packages/evry/src/catalog/types.ts";
 import { cardView, FALLBACK } from "../../../apps/web/src/features/evry/conversation/resultView.ts";
 import { byName, goldenChurch, IMPORT_KEY, programId, teamId } from "../evals/golden-church.mts";
+import { nativePorts } from "../evals/settings-ports.mts";
 
 const church = await goldenChurch();
 after(church.close);
@@ -78,6 +79,10 @@ const PROBES: Record<string, Record<string, unknown> | (() => Promise<SourceResu
 	"teams.listResponsibilities": { teamId: teamId("Worship") },
 	"teams.previewResponsibilities": { teamId: teamId("Worship") },
 	"teams.listMeetings": { teamId: teamId("Core team") },
+	"seats.list": {},
+	"seats.listInvitations": () =>
+		invokeRead(church.db, church.actors.owner, adapters.get("seats.listInvitations")!, {}, nativePorts()),
+	"privacy.getSharing": {},
 	"calendar.getContext": {},
 	// In a US time zone, 1:30am on Nov 1, 2026 happens twice as the clocks fall back.
 	"calendar.resolve": { date: "2026-11-01", time: "01:30" },

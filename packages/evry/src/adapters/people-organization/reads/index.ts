@@ -491,7 +491,7 @@ export const previewImport: ReadAdapter<z.infer<typeof previewInput>> = {
 	allowed: ownerOrAdmin,
 	// An attached file's exact bytes, read from the conversation's own staging before the read's transaction.
 	load: async (input, files) => (input.attachmentId ? files.read(input.attachmentId) : undefined),
-	async invoke(tx, actor, input, loaded) {
+	async invoke(tx, actor, input, _native, loaded) {
 		const value = previewInput.parse(input);
 		const bytes = loaded instanceof Uint8Array ? loaded : new TextEncoder().encode(value.file ?? "");
 		const found = valueOf<z.infer<typeof importPreview>>(

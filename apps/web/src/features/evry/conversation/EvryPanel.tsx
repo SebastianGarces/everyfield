@@ -36,6 +36,7 @@ import {
 	retryable,
 	sendNotice,
 	type Conversation,
+	type Reference,
 	type Send,
 	type State,
 	type Turn,
@@ -46,6 +47,7 @@ import { ResultCard } from "./ResultCard.tsx";
 import { ATTACH, fileSize, useAttachments, type Picked } from "./attachments.ts";
 import { useConversation } from "./useConversation.ts";
 import { useRowPhotos } from "./useRowPhotos.ts";
+import { AttachButton, AttachedPhoto, useAttachedPhoto } from "./PhotoAttach.tsx";
 
 // The Evry panel (WP-051/ui; design/everyfield-ui.html, Evry panel): one private conversation beside any product page,
 // opened from Ask Evry or with Cmd+J (Ctrl+J). It is non-modal, so the page stays usable and the conversation stays the
@@ -547,7 +549,7 @@ function Composer({
 	attach: (() => Promise<{ id: string } | null>) | null;
 	onSend: (
 		text: string,
-		references: ReturnType<typeof pageReferences>,
+		references: Reference[],
 		attachments: ReturnType<ReturnType<typeof useAttachments>["ready"]>,
 	) => void;
 	onStop: () => void;
@@ -563,13 +565,20 @@ function Composer({
 	const shown = files.items.filter((p) => p.conversationId === null || p.conversationId === conversationId);
 	const text = draft.trim();
 	const tooLong = draft.length > MAX_MESSAGE;
-	const canSend = !disabled && !busy && text.length > 0 && !tooLong && !files.uploading;
+	const attached = useAttachedPhoto();
+	const photo = attached.photo;
+	// A file or photo still uploading holds the message, so "check it" or "use this as my photo" never goes without it.
+	const canSend =
+		!disabled && !busy && text.length > 0 && !tooLong && !files.uploading && photo?.status !== "uploading";
 
 	const submit = (value = text) => {
-		if (disabled || busy || files.uploading || !value || value.length > MAX_MESSAGE) return;
-		onSend(value, usePage ? page : [], files.ready(conversationId));
+		if (disabled || busy || files.uploading || !value || value.length > MAX_MESSAGE || photo?.status === "uploading")
+			return;
+		const photos = photo?.status === "ready" ? [{ kind: "photo" as const, id: photo.id }] : [];
+		onSend(value, [...(usePage ? page : []), ...photos], files.ready(conversationId));
 		files.clear();
 		setDraft("");
+		attached.clear();
 	};
 	const onSubmit = (e: FormEvent) => {
 		e.preventDefault();
@@ -628,6 +637,7 @@ function Composer({
 						))}
 					</ul>
 				) : null}
+				{photo ? <AttachedPhoto photo={photo} onRemove={attached.clear} /> : null}
 				<label className="sr-only" htmlFor={`${hint}-input`}>
 					Message Evry
 				</label>
@@ -691,16 +701,19 @@ function Composer({
 								Stop
 							</Button>
 						) : (
-							<Button
-								type="submit"
-								size="sm"
-								variant="primary"
-								icon={SentIcon}
-								disabled={!canSend}
-								className="w-[34px] px-0"
-							>
-								<span className="sr-only">Send</span>
-							</Button>
+							<>
+								<AttachButton disabled={disabled} onFile={(file) => void attached.attach(file)} />
+								<Button
+									type="submit"
+									size="sm"
+									variant="primary"
+									icon={SentIcon}
+									disabled={!canSend}
+									className="w-[34px] px-0"
+								>
+									<span className="sr-only">Send</span>
+								</Button>
+							</>
 						)}
 					</div>
 				</div>

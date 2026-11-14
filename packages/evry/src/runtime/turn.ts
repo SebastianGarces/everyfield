@@ -20,7 +20,7 @@ import type { PrivateStorage } from "@everyfield/db/schema";
 import { EvryRefusal, projectError, scrub } from "../context/errors.ts";
 import { LIMITS, type StopReason } from "../context/limits.ts";
 import { prepareProposal } from "../proposals/store.ts";
-import type { MailPort } from "../proposals/types.ts";
+import type { MailPort, NativePorts } from "../proposals/types.ts";
 import type { QualifiedModel } from "./model.ts";
 import { appendEvent, loadHistory, loadTurn, savedResult, type RunLease, type Turn } from "./run-store.ts";
 import { liveRoom } from "./live.ts";
@@ -37,6 +37,8 @@ export type RunDeps = {
 	mail?: MailPort | null;
 	/** The private bucket attached files are staged in; null when the deployment has none. */
 	storage?: PrivateStorage | null;
+	/** The Settings, seat and connection services those tools call; null when the deployment has none. */
+	native?: NativePorts | null;
 	now?: () => Date;
 };
 /** Stands in for this turn's earlier assistant text once one of its sources is no longer available. */
@@ -298,7 +300,7 @@ async function run(
 			let result: SourceResult | undefined;
 			for (let attempt = 0; result === undefined; attempt++) {
 				try {
-					result = await invokeRead(db, fresh, adapter, input, filesOf(fresh));
+					result = await invokeRead(db, fresh, adapter, input, deps.native ?? null, filesOf(fresh));
 				} catch (error) {
 					// A file from another conversation, or one whose 24 hours passed, is the model's to explain, not a failed turn.
 					if (error instanceof EvryRefusal && ATTACHMENT_REFUSALS.has(error.code)) return { error: error.code };
@@ -354,6 +356,7 @@ async function run(
 					turn.conversation_id,
 					call,
 					deps.mail,
+					deps.native ?? null,
 					filesOf(fresh),
 				).catch((error) => (error instanceof EvryRefusal ? error.code : "unknown"));
 				if (typeof proposal === "string") return { error: proposal };
