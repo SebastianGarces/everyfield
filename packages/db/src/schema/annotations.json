@@ -14184,35 +14184,17 @@
 				"purpose": "One leadership (ICNU) conversation of an organization pipeline person (REQ-MUL-009): which staff seat met them, the actual day, and an optional short note readable only by the Owner, Admins and the person's current responsible staff. Counts by month and quarter are read from the day.",
 				"library_owned": false,
 				"jsonb_keys": {},
-				"capabilities": [
-					"CAP-A-056"
-				],
+				"capabilities": ["CAP-A-056"],
 				"replaces": [],
-				"producer_work_packages": [
-					"WP-098"
-				],
+				"producer_work_packages": ["WP-098"],
 				"producer_derivation": {
 					"old_target_tables": [],
-					"additional_producers": [
-						"WP-098"
-					],
+					"additional_producers": ["WP-098"],
 					"rule": "WP-098 records each human-logged leadership conversation."
 				},
-				"feature_ids": [
-					"MUL-007",
-					"MUL-008",
-					"MUL-009"
-				],
-				"acceptance_ids": [
-					"AC-MUL-007--MUL-007",
-					"AC-MUL-008--MUL-008",
-					"AC-MUL-009--MUL-009"
-				],
-				"future_case_ids": [
-					"ADR1-007",
-					"ADR1-008",
-					"ADR1-009"
-				],
+				"feature_ids": ["MUL-007", "MUL-008", "MUL-009"],
+				"acceptance_ids": ["AC-MUL-007--MUL-007", "AC-MUL-008--MUL-008", "AC-MUL-009--MUL-009"],
+				"future_case_ids": ["ADR1-007", "ADR1-008", "ADR1-009"],
 				"scope": "people",
 				"invariants": [
 					"Logged only by a human with current duty for the person; never by Evry or a rule.",
@@ -14269,35 +14251,17 @@
 				"purpose": "One sending goal of a sending church or network (REQ-MUL-007): nonnegative leader and plant targets, a target year and the organization's reason. Observed counts are read from the pipeline at a stated as-of day and are never stored here.",
 				"library_owned": false,
 				"jsonb_keys": {},
-				"capabilities": [
-					"CAP-A-056"
-				],
+				"capabilities": ["CAP-A-056"],
 				"replaces": [],
-				"producer_work_packages": [
-					"WP-098"
-				],
+				"producer_work_packages": ["WP-098"],
 				"producer_derivation": {
 					"old_target_tables": [],
-					"additional_producers": [
-						"WP-098"
-					],
+					"additional_producers": ["WP-098"],
 					"rule": "WP-098 records an organization's sending goals."
 				},
-				"feature_ids": [
-					"MUL-007",
-					"MUL-008",
-					"MUL-009"
-				],
-				"acceptance_ids": [
-					"AC-MUL-007--MUL-007",
-					"AC-MUL-008--MUL-008",
-					"AC-MUL-009--MUL-009"
-				],
-				"future_case_ids": [
-					"ADR1-007",
-					"ADR1-008",
-					"ADR1-009"
-				],
+				"feature_ids": ["MUL-007", "MUL-008", "MUL-009"],
+				"acceptance_ids": ["AC-MUL-007--MUL-007", "AC-MUL-008--MUL-008", "AC-MUL-009--MUL-009"],
+				"future_case_ids": ["ADR1-007", "ADR1-008", "ADR1-009"],
 				"scope": "people",
 				"invariants": [
 					"Written only by an Owner or Admin of the same organization; body-free audit only.",
