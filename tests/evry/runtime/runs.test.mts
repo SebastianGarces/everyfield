@@ -309,6 +309,7 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 						"seats.remove",
 						"plant.updateProfile",
 						"plant.setTimezone",
+						"church.digestSchedule.set",
 						"privacy.setSharing",
 						"associations.invite",
 						"associations.end",

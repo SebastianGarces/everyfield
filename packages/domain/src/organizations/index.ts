@@ -41,4 +41,5 @@ export {
 	readVersionReviews,
 	searchReadings,
 } from "./programs.ts";
+export { geographyReference, installGeographyRelease, readReportingLocation, suggestRegions } from "./geography.ts";
 export { readMyResidency, readResidentReading, residentWriter } from "./residency.ts";

@@ -1,4 +1,5 @@
 import type {
+	IntelligenceView,
 	PlantDirectory,
 	PlantDirectoryRow,
 	PlantView,
@@ -15,6 +16,8 @@ import {
 	Calendar03Icon,
 	ChurchIcon,
 	LockKeyIcon,
+	News01Icon,
+	StartUp02Icon,
 	ShieldUserIcon,
 	Task01Icon,
 	UserGroupIcon,
@@ -34,8 +37,14 @@ import { STAGE_DOT, STAGE_LABEL, StatusBadge, Tag } from "@everyfield/ui/display
 import { cn, Icon, type IconSvgElement } from "@everyfield/ui/foundations";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { IntelligenceBody } from "./Intelligence.tsx";
 import {
+	dayOf,
+	daysText,
+	gapText,
+	HEALTH,
 	HOME_HEADING,
+	LAUNCH_STATE,
 	launchLabel,
 	leadLabel,
 	linkedLabel,
@@ -43,6 +52,7 @@ import {
 	phaseLabel,
 	plural,
 	provenanceLabel,
+	regionText,
 	SECTIONS,
 	sharedCount,
 	STAGE_OF,
@@ -53,8 +63,11 @@ import {
 // names, localities, phases, dates and counts only, are read only for every organization role, and rank nothing:
 // plants are listed by name.
 
-/** Plants and Sending churches, a network's two views. A sending church has only its plants, so no tabs. */
-function NetworkTabs({ current }: { current: "plants" | "churches" }) {
+/**
+ * Plants, Sending churches and Network Intelligence, a network's views. A sending church has only its plants, so no
+ * tabs; its Network Intelligence wording is a later slice.
+ */
+function NetworkTabs({ current }: { current: "plants" | "churches" | "intelligence" }) {
 	const tab = (active: boolean) =>
 		cn(
 			"inline-flex cursor-pointer items-center gap-2 rounded-md px-3.5 py-2 font-medium text-ink-2 transition-colors duration-150 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ef-focus)]",
@@ -75,6 +88,13 @@ function NetworkTabs({ current }: { current: "plants" | "churches" }) {
 				className={tab(current === "churches")}
 			>
 				Sending churches
+			</Link>
+			<Link
+				href="/network/intelligence"
+				aria-current={current === "intelligence" ? "page" : undefined}
+				className={tab(current === "intelligence")}
+			>
+				Network Intelligence
 			</Link>
 		</nav>
 	);
@@ -97,12 +117,14 @@ function PrivacyNote() {
 /** One plant in a list: its name, locality and lead planter, phase, Launch Sunday and how it is linked. */
 function PlantRow({ plant }: { plant: PlantDirectoryRow }) {
 	const place = locality(plant);
+	const region = regionText(plant);
+	const health = HEALTH[plant.health];
 	return (
-		<li className="border-t border-line first:border-t-0">
+		<li className="border-t border-line first:border-t-0" data-health={plant.health}>
 			<Link
 				href={`/network/plants/${plant.plantId}`}
 				data-focus-inset=""
-				className="-mx-2 grid cursor-pointer grid-cols-[minmax(0,1fr)_9rem_8rem_12rem_auto] items-center gap-x-4 gap-y-2 rounded-md px-2 py-4 transition-colors hover:bg-hover max-app-md:grid-cols-[minmax(0,1fr)_auto]"
+				className="-mx-2 grid cursor-pointer grid-cols-[minmax(0,1fr)_9rem_8rem_10rem_11rem_auto] items-center gap-x-4 gap-y-2 rounded-md px-2 py-4 transition-colors hover:bg-hover max-app-md:grid-cols-[minmax(0,1fr)_auto]"
 			>
 				<span className="flex min-w-0 items-center gap-3.5 max-app-md:col-start-1">
 					<CardIcon icon={ChurchIcon} tone="green" size={36} />
@@ -112,6 +134,7 @@ function PlantRow({ plant }: { plant: PlantDirectoryRow }) {
 							{place ? `${place} · ` : ""}
 							{plant.leadPlanter ? `Lead planter ${plant.leadPlanter}` : leadLabel(plant)}
 						</span>
+						{region ? <span className="mt-0.5 block text-sm text-text-3">{region}</span> : null}
 					</span>
 				</span>
 				<Field label="Phase">
@@ -119,6 +142,11 @@ function PlantRow({ plant }: { plant: PlantDirectoryRow }) {
 				</Field>
 				<Field label="Launch Sunday">
 					<span className={plant.launchDate ? "text-ink" : "text-text-3"}>{launchLabel(plant.launchDate)}</span>
+				</Field>
+				<Field label="Status">
+					<StatusBadge status={health.status} size="sm">
+						{health.label}
+					</StatusBadge>
 				</Field>
 				<Field label="Linked">
 					<span className="text-text-2">{provenanceLabel(plant)}</span>
@@ -148,11 +176,12 @@ function PlantList({ plants, caption }: { plants: readonly PlantDirectoryRow[]; 
 		<div>
 			<div
 				aria-hidden="true"
-				className="grid grid-cols-[minmax(0,1fr)_9rem_8rem_12rem_auto] gap-x-4 border-b border-line pb-3 text-sm text-text-3 max-app-md:hidden"
+				className="grid grid-cols-[minmax(0,1fr)_9rem_8rem_10rem_11rem_auto] gap-x-4 border-b border-line pb-3 text-sm text-text-3 max-app-md:hidden"
 			>
 				<span>Plant</span>
 				<span>Phase</span>
 				<span>Launch Sunday</span>
+				<span>Status</span>
 				<span>Linked</span>
 				<span className="w-4" />
 			</div>
@@ -228,6 +257,7 @@ const SHARE_TAG = {
 export function PlantScreen({ view }: { view: PlantView }) {
 	const { plant, sections } = view;
 	const place = locality(plant);
+	const region = regionText(plant);
 	const shared = sharedCount(sections);
 	return (
 		<div className="flex flex-col">
@@ -237,7 +267,7 @@ export function PlantScreen({ view }: { view: PlantView }) {
 				subtitle={
 					<span className="flex flex-wrap items-center gap-x-3 gap-y-2">
 						<Tag>{phaseLabel(plant.phase)}</Tag>
-						{[place, `Lead planter: ${leadLabel(plant)}`, linkedLabel(plant)].filter(Boolean).join(" · ")}
+						{[place, region, `Lead planter: ${leadLabel(plant)}`, linkedLabel(plant)].filter(Boolean).join(" · ")}
 					</span>
 				}
 				actions={
@@ -247,15 +277,8 @@ export function PlantScreen({ view }: { view: PlantView }) {
 					</StatusBadge>
 				}
 			/>
-			<Card size="sm" className="mb-5 flex-row items-center gap-4">
-				<CardIcon icon={Calendar03Icon} tone="amber" size={36} />
-				<div>
-					<p className="text-sm text-text-3">Launch Sunday</p>
-					<p className={cn("font-medium", plant.launchDate ? "text-ink" : "text-text-3")}>
-						{launchLabel(plant.launchDate)}
-					</p>
-				</div>
-			</Card>
+			<LaunchCard view={view} />
+			{view.summary ? <SummaryCard view={view} summary={view.summary} /> : null}
 			<div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
 				<h2 className="font-title text-title-sm tracking-[-0.02em] text-ink">What {plant.name} shares with you</h2>
 				<p className="text-sm text-text-3">Counts only. Names and notes are never shared.</p>
@@ -266,6 +289,135 @@ export function PlantScreen({ view }: { view: PlantView }) {
 				))}
 			</div>
 			<PrivacyNote />
+		</div>
+	);
+}
+
+/**
+ * Launch Sunday as this organization may see it. Without Plant Intelligence findings shared: only the planned date the
+ * directory shows, and Limited visibility in place of status, readiness and outcome.
+ */
+function LaunchCard({ view }: { view: PlantView }) {
+	const { plant, launch } = view;
+	if (launch.status === "withheld")
+		return (
+			<Card as="section" aria-label="Launch Sunday" size="sm" className="mb-5" data-launch="withheld">
+				<div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+					<CardIcon icon={Calendar03Icon} tone="amber" size={36} />
+					<div className="min-w-0 flex-1">
+						<p className="text-sm text-text-3">Launch Sunday</p>
+						<p className={cn("font-medium", plant.launchDate ? "text-ink" : "text-text-3")}>
+							{launchLabel(plant.launchDate)}
+						</p>
+					</div>
+					<StatusBadge status="unknown" size="sm">
+						Limited visibility
+					</StatusBadge>
+				</div>
+				<p className="mt-3 text-md text-text-2 text-pretty">
+					{plant.name} doesn&apos;t share Plant Intelligence findings with you, so its launch status, readiness and
+					outcome aren&apos;t shown. This is their choice.
+				</p>
+			</Card>
+		);
+	const state = LAUNCH_STATE[launch.state];
+	const gap = gapText(launch.preparation);
+	const days = launch.preparation.daysToLaunch;
+	return (
+		<Card as="section" aria-label="Launch Sunday" className="mb-5" data-launch={launch.state}>
+			<div className="flex flex-wrap items-center gap-x-8 gap-y-4">
+				<div className="flex min-w-[240px] flex-1 items-center gap-4">
+					<CardIcon icon={StartUp02Icon} tone="amber" size={44} />
+					<div className="min-w-0">
+						<p className="text-sm text-text-3">{launch.outcome ? "Launch Sunday" : "Planned Launch Sunday"}</p>
+						<p className="font-title text-title-sm tracking-[-0.02em] text-ink">
+							{launchLabel(launch.outcome?.actualDate ?? launch.plannedDate)}
+						</p>
+					</div>
+					<StatusBadge status={state.status} size="sm">
+						{state.label}
+					</StatusBadge>
+				</div>
+				{launch.outcome ? (
+					<dl className="flex gap-8">
+						{(
+							[
+								["Attendance", launch.outcome.attendance],
+								["Decisions", launch.outcome.decisions],
+							] as const
+						).map(([label, n]) => (
+							<div key={label}>
+								<dt className="text-sm text-text-3">{label}</dt>
+								<dd
+									className={cn("num font-display text-[28px] leading-none", n === null ? "text-text-3" : "text-ink")}
+								>
+									{n === null ? "Not recorded" : n.toLocaleString("en-US")}
+								</dd>
+							</div>
+						))}
+					</dl>
+				) : (
+					<div>
+						<p className="text-sm text-text-3">Readiness</p>
+						<p className="font-medium text-ink">
+							{launch.milestones.total
+								? `${launch.milestones.completed} of ${launch.milestones.total} milestones completed`
+								: "Milestones start once Launch Sunday has a date"}
+						</p>
+					</div>
+				)}
+			</div>
+			{plant.health === "launch_readiness" && gap && days !== null ? (
+				<Card variant="callout" tone="amber" className="mt-4" data-concern="launch_readiness">
+					<CalloutLabel tone="amber" icon={StartUp02Icon}>
+						Launch readiness
+					</CalloutLabel>
+					<CalloutText className="text-md">
+						{daysText(days)}, with {gap}. {plant.name} sees the same on their Launch page.
+					</CalloutText>
+				</Card>
+			) : null}
+		</Card>
+	);
+}
+
+/** The planter's latest published launch summary, exactly as they published it, with its day. */
+function SummaryCard({ view, summary }: { view: PlantView; summary: NonNullable<PlantView["summary"]> }) {
+	return (
+		<Card as="section" aria-labelledby="summary-title" className="mb-5" data-summary-version={summary.version}>
+			<div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1">
+				<CardIcon icon={News01Icon} tone="blue" size={36} />
+				<h2 id="summary-title" className="min-w-0 flex-1 font-semibold text-ink">
+					Launch summary
+				</h2>
+				<p className="text-sm text-text-3">Published {dayOf(summary.publishedAt, view.timeZone)}</p>
+			</div>
+			<p className="whitespace-pre-line text-ink text-pretty">{summary.body}</p>
+			<p className="mt-3 text-sm text-text-3">Written and published by {view.plant.name}.</p>
+		</Card>
+	);
+}
+
+/** /network/intelligence: patterns across the plants that share with this organization. */
+export function IntelligenceScreen({ view, kind }: { view: IntelligenceView; kind: OrganizationKind }) {
+	return (
+		<div className="flex flex-col">
+			<PageHeader
+				title="Network Intelligence"
+				subtitle="Patterns across your plants, from what each one shares with you. A pattern needs at least 2 plants."
+			/>
+			{kind === "sending_network" ? <NetworkTabs current="intelligence" /> : null}
+			<Card variant="callout" tone="ink" className="mb-5">
+				<CalloutLabel tone="ink" icon={ShieldUserIcon}>
+					How this works
+				</CalloutLabel>
+				<CalloutText className="text-md">
+					Everyfield&apos;s network rubric v1 reads only the launch dates and role and training counts each plant shares
+					with you. It never ranks or scores plants. A plant that doesn&apos;t share counts as Not shared, never as
+					zero.
+				</CalloutText>
+			</Card>
+			<IntelligenceBody initial={view} />
 		</div>
 	);
 }
