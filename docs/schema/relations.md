@@ -29,7 +29,7 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `article_revision(author_id)` | `account(id)` | restrict |  |
 | `article_revision(section_id)` | `reference_item(id)` | restrict | Canonical item is a global or entitled organization source identity; serialized boundary validates item kind, canonical identity and exact current source rights, without transferring ownership. |
 | `article_revision(id, tenant_id)` | `record(id, tenant_id)` | restrict |  |
-| `assignment_feedback(enrollment_id, version_id, organization_id)` | `development_enrollment(id, version_id, organization_id)` | restrict |  |
+| `assignment_feedback(enrollment_id, organization_id)` | `development_enrollment(id, organization_id)` | restrict |  |
 | `assignment_feedback(milestone_id, version_id, organization_id)` | `development_milestone(id, version_id, organization_id)` | restrict |  |
 | `assignment_feedback(writer_id)` | `account(id)` | restrict |  |
 | `attestation(plant_id)` | `plant(id)` | restrict |  |
@@ -116,7 +116,7 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `document_revision(import_object_id, tenant_id)` | `file_object(id, tenant_id)` | restrict |  |
 | `document_revision(id, tenant_id)` | `record(id, tenant_id)` | restrict |  |
 | `enrollment_milestone(confirmer_id)` | `account(id)` | restrict |  |
-| `enrollment_milestone(enrollment_id, version_id, organization_id)` | `development_enrollment(id, version_id, organization_id)` | restrict |  |
+| `enrollment_milestone(enrollment_id, organization_id)` | `development_enrollment(id, organization_id)` | restrict |  |
 | `enrollment_milestone(milestone_id, version_id, organization_id)` | `development_milestone(id, version_id, organization_id)` | restrict |  |
 | `enrollment_milestone(recorder_id)` | `account(id)` | restrict |  |
 | `feedback(account_id)` | `account(id)` | restrict |  |
