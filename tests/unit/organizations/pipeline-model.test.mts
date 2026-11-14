@@ -5,7 +5,10 @@ import { test } from "node:test";
 import {
 	boardHref,
 	formatDay,
+	goalHeadline,
+	monthLabel,
 	queryFromSearch,
+	refusalText,
 	stageChanges,
 } from "../../../apps/web/src/features/organizations/board/model.ts";
 
@@ -43,4 +46,33 @@ test("the board's filters round-trip through the address, and anything unreadabl
 	assert.deepEqual(queryFromSearch({ view: "other", page: "-2" }), { view: "board", stale: false, q: "", page: 1 });
 	assert.equal(boardHref(queryFromSearch({})), "/organization/pipeline");
 	assert.equal(formatDay("2026-10-02"), "Oct 2, 2026");
+});
+
+test("a goal reads in words from its own targets and year", () => {
+	assert.equal(
+		goalHeadline({ leaderTarget: 6, plantTarget: 2, targetYear: 2028 }),
+		"Develop 6 leaders to plant 2 churches by 2028",
+	);
+	assert.equal(
+		goalHeadline({ leaderTarget: 1, plantTarget: 1, targetYear: 2030 }),
+		"Develop 1 leader to plant 1 church by 2030",
+	);
+	assert.equal(goalHeadline({ leaderTarget: 3, plantTarget: 0, targetYear: 2027 }), "Develop 3 leaders by 2027");
+	assert.equal(goalHeadline({ leaderTarget: 0, plantTarget: 2, targetYear: 2029 }), "Plant 2 churches by 2029");
+	assert.equal(goalHeadline({ leaderTarget: 0, plantTarget: 0, targetYear: 2029 }), "Goal for 2029");
+});
+
+test("conversation months read as short names, with the year on January", () => {
+	assert.deepEqual(["2026-10", "2026-12", "2027-01"].map(monthLabel), ["Oct", "Dec", "Jan 2027"]);
+});
+
+test("a refused negative target or future conversation date says why in plain words", () => {
+	const refused = (field: string) => refusalText({ status: "refused", refusal: { code: "invalid_input", field } });
+	assert.equal(refused("plantTarget"), "Targets can’t be less than 0.");
+	assert.equal(refused("occurredOn"), "The date can’t be after today.");
+	// A goal's chosen counts: the server names the count's position, which the copy does not need.
+	assert.equal(refused("countingFrom"), "The counting-from date can’t be after today.");
+	assert.equal(refused("counts"), "A goal can have up to 4 counts.");
+	assert.equal(refused("counts.1.kind"), "This goal already counts that stage kind. Choose another kind.");
+	assert.equal(refused("counts.0.label"), "Name each count in 1 to 60 characters.");
 });

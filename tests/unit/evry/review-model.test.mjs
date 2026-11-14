@@ -14,8 +14,11 @@ import { test } from "node:test";
 import {
 	approvable,
 	approvalLeft,
+	digestSchedule,
 	editableChanges,
 	fieldLabel,
+	reviewedNotices,
+	settingChanges,
 	isRequired,
 	itemField,
 	missingRequired,
@@ -194,6 +197,39 @@ test("INV-review-tasks: task and follow-up reviews say their values in words and
 	assert.deepEqual(openAfter(log), { href: `/people/${maria.id}`, label: "Open Maria Santos" });
 	// People keeps its own wording.
 	assert.equal(savedText(review()), "Saved. Maria Santos is updated.");
+});
+
+test("INV-notification-review a settings review groups each category's channels, a digest review names its schedule, and neither can be revised", () => {
+	const review = (operation, changes) => ({ operation, review: { target: null, changes } });
+	const settings = review("notifications.setPreferences", [
+		{ field: "task_due.email", before: true, after: false },
+		{ field: "task_due.in_app", before: true, after: true },
+		{ field: "task_overdue.email", before: true, after: false },
+	]);
+	assert.deepEqual(settingChanges(settings), [
+		{
+			category: "task_due",
+			channels: [
+				{ channel: "Email", before: true, after: false },
+				{ channel: "In-app", before: true, after: true },
+			],
+		},
+		{ category: "task_overdue", channels: [{ channel: "Email", before: true, after: false }] },
+	]);
+	assert.equal(digestSchedule({ cadence: "weekly", weekday: 0, hour: 16 }), "Weekly on Sundays at 4:00 PM");
+	assert.equal(digestSchedule({ cadence: "daily", weekday: 0, hour: 8 }), "Daily at 8:00 AM");
+	const marks = review("notifications.markSelectedRead", [
+		{
+			field: "notice",
+			before: { id: "n1", title: "Due", category: "task_due", at: "2026-11-07T15:00:00.000Z", zone: "America/Chicago" },
+			after: "read",
+		},
+	]);
+	assert.deepEqual(
+		reviewedNotices(marks).map((n) => n.id),
+		["n1"],
+	);
+	for (const r of [settings, marks]) assert.deepEqual(editableChanges(r), []);
 });
 
 test("AC:HH-05 INV-partial: a saved change that left anyone out counts who changed and never reads as done for everyone", () => {

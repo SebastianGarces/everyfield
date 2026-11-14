@@ -81,6 +81,9 @@ const PROBES: Record<string, Record<string, unknown> | (() => Promise<SourceResu
 	"followups.readObligations": {},
 	// Beth Johnson's follow-up was completed by a recorded call.
 	"followups.listContactHistory": { personId: byName("Beth Johnson").id },
+	"notifications.feed": { unread: true },
+	"notifications.preferences.get": {},
+	"notifications.previewPlanterDigest": {},
 	"teams.list": {},
 	"teams.get": { teamId: teamId("Worship") },
 	"teams.searchMembers": { q: "Sam" },

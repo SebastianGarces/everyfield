@@ -192,7 +192,8 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 	assert.equal(await work(), "succeeded");
 	assert.match((await events(seatless, none)).text, /no application reads available/);
 	// No catalog offers direct writes, approvals, code, private care or coach tools to any context. Only a plant Owner or
-	// Admin may propose the reviewed People changes, the same floor as the native commands.
+	// Admin may propose the reviewed People changes, the same floor as the native commands; any plant seat proposes changes
+	// to its own notifications.
 	// A Member may propose only the task and follow-up changes the native commands allow on their own work.
 	const memberTaskWrites = [
 		"tasks.complete",
@@ -265,11 +266,22 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 						"communication.rescheduleReviewed",
 						"communication.cancelScheduledReviewed",
 						"communication.replaceScheduledReviewed",
+						"notifications.markSelectedRead",
+						"notifications.markAllVisibleRead",
+						"notifications.setPreferences",
+						"notifications.digestCadence.set",
 						...Object.keys(REVIEWED_WRITES).filter((op) => op.startsWith("teams.")),
 						...taskWrites,
 					]
 				: who === "member"
-					? memberTaskWrites
+					? // A Member changes only their own bell and notification settings (the church digest is an Owner's or Admin's)
+						// and only the task and follow-up changes the native commands allow on their own work.
+						[
+							"notifications.markSelectedRead",
+							"notifications.markAllVisibleRead",
+							"notifications.setPreferences",
+							...memberTaskWrites,
+						]
 					: [],
 		);
 		const teamsReads = READ_DOMAINS.teams.map((a) => a.operation);
@@ -341,10 +353,21 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 						"people.previewImport",
 						"communication.list",
 						...ownerTaskReads,
+						"notifications.feed",
+						"notifications.preferences.get",
+						"notifications.previewPlanterDigest",
 						...teamsReads,
 					]
 				: who === "member"
-					? [...peopleReads, ...organizationReads, "communication.list", ...memberTaskReads, ...teamsReads]
+					? [
+							...peopleReads,
+							...organizationReads,
+							"communication.list",
+							...memberTaskReads,
+							"notifications.feed",
+							"notifications.preferences.get",
+							...teamsReads,
+						]
 					: [],
 		);
 	}
@@ -511,6 +534,7 @@ test("AC:INH-EDGES-03 AC:TEN-008 AC:EVRY-CONTEXT-BOUNDS a guessed foreign id and
 		[
 			"communication_read",
 			"followups_read",
+			"notifications_read",
 			"peopleOrganization_read",
 			"people_read",
 			"propose_change",

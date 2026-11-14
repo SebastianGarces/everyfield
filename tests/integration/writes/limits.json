@@ -457,7 +457,7 @@
 	"documents.exportNative": {
 		"limit": 22,
 		"retry": 26,
-		"reason": "A saved export reads the church theme's logo and stores the bytes before the generated row. readBrandAsset and putPrivateObject each claim and finalize their file in their own transactions so the provider call holds no lock, then one statement inserts the generated row and its audit. Its largest first run: 6 read, 8 transaction, 4 locked read, 4 write. The loser of a same-request-key race finds the winner's row, then reads the winner's saved export in a rerun: its largest run, on the unique-key path, is 9 read, 10 transaction, 4 locked read, 3 write."
+		"reason": "A saved export reads the church theme's logo and stores the bytes before the generated row. readBrandAsset reads the logo in 8 statements whatever the timing. putPrivateObject claims the file in one transaction (inserting it unless a rival already did) and, unless the file is already ready, finalizes it in a second, so the provider call holds no lock; an update that finds the rival already finalized adds one replay read. Then one statement inserts the generated row and its audit. Its largest first run: 6 read, 8 transaction, 4 locked read, 4 write. A race winner whose rival claimed the file: 6 read, 8 transaction, 4 locked read, 3 write. A caller that finds the rival's row in its first read: 2 read. The loser of a same-request-key race finds the winner's row, then reads the winner's saved export in a rerun of one statement: begin, the row with its file and gate, commit. Its runs: it finds the file ready, 6 read, 8 transaction, 4 locked read, 1 write; it finalizes the rival's claim first, 7 read, 10 transaction, 4 locked read, 3 write; the rival finalized first, 8 read, 10 transaction, 4 locked read, 3 write; it claimed and finalized first, 7 read, 10 transaction, 4 locked read, 4 write; it claimed first and the rival finalized first (issue #758), 8 read, 10 transaction, 4 locked read, 4 write, the most: each step above runs at most once, and the INV-idempotency double-export test in documents/church.test.mts forces this order on every census."
 	},
 	"documents.generate": {
 		"limit": 31,
@@ -1474,11 +1474,19 @@
 		"limit": 4,
 		"retry": 4
 	},
+	"pipeline.correctConversation": {
+		"limit": 4,
+		"retry": 4
+	},
 	"pipeline.editNote": {
 		"limit": 4,
 		"retry": 4
 	},
 	"pipeline.editPerson": {
+		"limit": 4,
+		"retry": 4
+	},
+	"pipeline.logConversation": {
 		"limit": 4,
 		"retry": 4
 	},
@@ -1500,6 +1508,10 @@
 	"pipeline.retirePerson": {
 		"limit": 4,
 		"retry": 3
+	},
+	"pipeline.saveGoal": {
+		"limit": 4,
+		"retry": 4
 	},
 	"pipeline.saveStages": {
 		"limit": 6,
@@ -1999,5 +2011,29 @@
 	},
 	"teams.readRequiredTrainingParticipants": {
 		"limit": 1
+	},
+	"programs.addFeedback": {
+		"limit": 4,
+		"retry": 4
+	},
+	"programs.createProgram": {
+		"limit": 4,
+		"retry": 4
+	},
+	"programs.enroll": {
+		"limit": 4,
+		"retry": 4
+	},
+	"programs.publishVersion": {
+		"limit": 4,
+		"retry": 4
+	},
+	"programs.recordMilestone": {
+		"limit": 4,
+		"retry": 4
+	},
+	"programs.savePlan": {
+		"limit": 5,
+		"retry": 5
 	}
 }

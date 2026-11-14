@@ -1,12 +1,11 @@
 import * as C from "@everyfield/contracts/organizations";
-import type { Database, Transaction } from "@everyfield/db/client";
+import type { Database } from "@everyfield/db/client";
 import { sql, type SQL } from "@everyfield/db/query";
 import { createHash, randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
-import { liveAccess, liveRead, type RequestActor } from "../access/session.ts";
-import { hash } from "../operations/canonical.ts";
-import { declareWrite, lockedWrite, nativeWrite, WriteUnavailable } from "../operations/writes.ts";
+import type { RequestActor } from "../access/session.ts";
+import { activeResidents, answer, one, parse, refuse, seatOf, write, type Executor, type Writer } from "./seat.ts";
 
 // The organization pipeline (REQ-MUL-001, -002, -008, -009). An Owner or Admin reads and changes everyone; a seat named
 // responsible staff reads those people and their notes and writes notes; any other seat reads counts per stage only.
@@ -16,18 +15,6 @@ import { declareWrite, lockedWrite, nativeWrite, WriteUnavailable } from "../ope
 // audit event; central audit never holds a reason or a note body (REQ-MUL-002).
 
 const PAGE = 24;
-type Executor = Pick<Transaction, "execute">;
-
-class Refused extends Error {
-	readonly refusal: C.PipelineRefusal;
-	constructor(refusal: C.PipelineRefusal) {
-		super(refusal.code);
-		this.refusal = refusal;
-	}
-}
-function refuse(refusal: C.PipelineRefusal = { code: "unavailable" }): never {
-	throw new Refused(refusal);
-}
 
 /**
  * The starter stages (REQ-MUL-008) with IDs derived from the organization, so a board read can show them before
@@ -47,36 +34,6 @@ const insertStarters = (
 ) => sql`INSERT INTO pipeline_stage (id,organization_id,stable_kind,label,position,revision)
  SELECT x.id,${o}::uuid,x.kind,x.label,x.position,1 FROM jsonb_to_recordset(${startersJson(o)}::jsonb) x(id uuid,kind text,label text,position int)
  WHERE NOT EXISTS(SELECT FROM pipeline_stage s WHERE s.organization_id=${o}::uuid) ON CONFLICT (id) DO NOTHING`;
-
-/** The request actor's organization seat, or null for any other actor. */
-function seatOf(authority: RequestActor) {
-	const context = authority.actor.context;
-	if (context.kind !== "seat" || context.owner.kind !== "organization") return null;
-	return {
-		organization: context.owner.id,
-		seatId: context.seatId,
-		administrator: context.role !== "member",
-		accountId: authority.actor.accountId,
-		// The seat is still live with the same role: a role change after the request's lookup reads nothing (C13).
-		live: liveRead({ ...liveAccess(authority), role: context.role }),
-	};
-}
-
-type Reply<T> = C.PipelineReply<T>;
-async function answer<T>(body: () => Promise<T>): Promise<Reply<T>> {
-	try {
-		return { status: "ok", value: await body() };
-	} catch (error) {
-		if (error instanceof Refused) return { status: "refused", refusal: error.refusal };
-		if (error instanceof WriteUnavailable) return { status: "refused", refusal: { code: "unavailable" } };
-		throw error;
-	}
-}
-function parse<S extends z.ZodType>(schema: S, raw: unknown): z.output<S> {
-	const r = schema.safeParse(raw);
-	if (!r.success) refuse({ code: "invalid_input", field: r.error.issues[0]?.path.join(".") });
-	return r.data as z.output<S>;
-}
 
 const boardRow = z.object({
 	allowed: z.boolean(),
@@ -215,6 +172,17 @@ const recordRow = z.object({
 			removed: z.string().nullable(),
 		}),
 	),
+	conversations: z.array(
+		z.object({
+			id: z.string(),
+			revision: z.string(),
+			on: z.string(),
+			note: z.string().nullable(),
+			met_by: z.string().nullable(),
+			logged_on: z.string(),
+			corrections: z.array(z.record(z.string(), z.unknown())),
+		}),
+	),
 });
 
 /**
@@ -248,7 +216,7 @@ SELECT g.allowed,(SELECT today::text FROM o) AS as_of,
   FROM x CROSS JOIN o JOIN audit_event a ON a.tenant_id=${org}::uuid AND a.subject_id=x.person_id
   LEFT JOIN pipeline_stage_move m ON m.id=a.id AND m.organization_id=a.tenant_id
   WHERE a.action IN ('people.created','people.stage_changed','people.recorded','people.retired','people.restored','people.updated')
-   AND a.metadata->>'category' IS DISTINCT FROM 'note'
+   AND coalesce(a.metadata->>'category','') NOT IN ('note','leadership_conversation')
   ORDER BY a.occurred_at DESC,a.id DESC LIMIT 200) h),'[]'::jsonb) AS history,
  coalesce((SELECT jsonb_agg(n ORDER BY n.at DESC,n.id DESC) FROM (
   SELECT n.id,n.occurred_at AS at,n.revision::text AS revision,n.body,n.author_id,
@@ -256,7 +224,23 @@ SELECT g.allowed,(SELECT today::text FROM o) AS as_of,
    (n.occurred_at AT TIME ZONE o.timezone)::date::text AS written,(n.edited_at AT TIME ZONE o.timezone)::date::text AS edited,
    (n.removed_at AT TIME ZONE o.timezone)::date::text AS removed
   FROM x CROSS JOIN o JOIN person_note n ON n.tenant_id=${org}::uuid AND n.plant_id IS NULL AND n.person_id=x.person_id
-  ORDER BY n.occurred_at DESC,n.id DESC LIMIT 200) n),'[]'::jsonb) AS notes
+  ORDER BY n.occurred_at DESC,n.id DESC LIMIT 200) n),'[]'::jsonb) AS notes,
+ coalesce((SELECT jsonb_agg(c ORDER BY c.on DESC,c.id DESC) FROM (
+  SELECT c.id,c.revision::text AS revision,c.occurred_on::text AS on,c.note,
+   (SELECT coalesce(i.display_name,'Staff') FROM seat s LEFT JOIN LATERAL seat_identity(s.account_id) i ON true
+    WHERE s.id=c.staff_seat_id) AS met_by,
+   (SELECT (a.occurred_at AT TIME ZONE o.timezone)::date::text FROM audit_event a WHERE a.tenant_id=${org}::uuid
+    AND a.subject_id=x.person_id AND a.action='people.recorded' AND a.metadata->>'conversationId'=c.id::text
+    ORDER BY a.occurred_at LIMIT 1) AS logged_on,
+   coalesce((SELECT jsonb_agg(jsonb_build_object('id',a.id,'on',(a.occurred_at AT TIME ZONE o.timezone)::date::text,
+     'actor',(SELECT i.display_name FROM seat_identity(a.actor_id) i),'dateFrom',a.metadata#>>'{diff,occurredOn,before}',
+     'dateTo',a.metadata#>>'{diff,occurredOn,after}','noteChanged',coalesce(a.metadata->'fields' ? 'note',false))
+     ORDER BY a.occurred_at,a.id)
+    FROM audit_event a WHERE a.tenant_id=${org}::uuid AND a.subject_id=x.person_id AND a.action='people.corrected'
+     AND a.metadata->>'conversationId'=c.id::text),
+    '[]'::jsonb) AS corrections
+  FROM x CROSS JOIN o JOIN leadership_conversation c ON c.organization_id=${org}::uuid AND c.pipeline_person_id=x.id
+  ORDER BY c.occurred_on DESC,c.id DESC LIMIT 200) c),'[]'::jsonb) AS conversations
 FROM g`);
 		const row = recordRow.parse(r.rows[0]);
 		if (!row.allowed || !row.person || !row.as_of) refuse();
@@ -299,74 +283,98 @@ FROM g`);
 							mine: n.author_id === seat.accountId,
 						},
 			),
+			conversations: row.conversations.map((c) => ({
+				id: c.id,
+				revision: c.revision,
+				on: c.on,
+				metBy: c.met_by,
+				note: c.note,
+				loggedOn: c.logged_on,
+				corrections: c.corrections,
+			})),
 			asOf: row.as_of,
 			viewer: seat.accountId,
 		});
 	});
 }
 
-type Writer = {
-	tx: Transaction;
-	organization: string;
-	seatId: string;
-	administrator: boolean;
-	actor: string;
-	/** An audit row for this write: body-free, with IDs, actor, change kind and revisions only (REQ-MUL-002). */
-	audit: (a: {
-		id?: string;
-		action: string;
-		kind: string;
-		subject: SQL;
-		subjectType?: string;
-		before?: SQL;
-		after?: SQL;
-		metadata?: object;
-	}) => SQL;
-};
+const goalsRow = z.object({
+	allowed: z.boolean(),
+	as_of: z.string().nullable(),
+	goals: z.array(z.record(z.string(), z.unknown())),
+	kinds: z.array(z.object({ kind: z.string(), count: z.coerce.number() })),
+	months: z.array(z.object({ month: z.string(), count: z.coerce.number() })),
+	quarters: z.array(z.object({ year: z.number(), quarter: z.number(), count: z.coerce.number() })),
+	residents: z.coerce.number(),
+});
 
 /**
- * One pipeline write in the gate's transaction (C88, established): the gate locks the actor's seat and the
- * organization, so the command's reads see every committed write before it, and the command runs as that seat.
+ * The goals area of the Pipeline page for any seat of the organization (REQ-MUL-007, -009): its sending goals, each with
+ * its chosen counts; its own live people counted once each by the fixed kind of their current stage, so a rename never
+ * changes a count; and its leadership conversations by month and quarter of their day, ending today in the
+ * organization's time zone. A chosen count is the distinct live people of this organization with a move or first
+ * placement into a stage of its kind, dated by the move's audit row in the organization's time zone, from the goal's
+ * counting-from day through today: a person who moved on still counts (D-1262). No name or note is in it. Plants sent
+ * stays unavailable until commissioning arrives (ADR-001 stage 3). One statement.
  */
-async function write<T>(
-	db: Database,
-	authority: RequestActor,
-	administratorOnly: boolean,
-	run: (w: Writer) => Promise<T>,
-): Promise<Reply<T>> {
-	const selected = authority.actor.context.owner;
-	if (selected.kind !== "organization") return { status: "refused", refusal: { code: "unavailable" } };
-	return answer(() =>
-		nativeWrite(db, authority, selected, async (tx) => {
-			await declareWrite(tx, "established");
-			const locked = await lockedWrite(tx);
-			const context = locked?.actor.context;
-			if (!locked || context?.kind !== "seat" || context.owner.id !== selected.id) refuse();
-			const seat = context as Extract<NonNullable<typeof context>, { kind: "seat" }>;
-			const administrator = seat.role !== "member";
-			if (administratorOnly && !administrator) refuse();
-			const organization = selected.id;
-			const actor = locked!.actor.accountId;
-			const token = hash([organization, actor]);
-			return run({
-				tx,
-				organization,
-				seatId: seat.seatId,
-				administrator,
-				actor,
-				audit: (a) =>
-					sql`INSERT INTO audit_event (id,tenant_id,actor_id,actor_token,action,kind,subject_type,subject_id,before_revision,
- after_revision,metadata) SELECT ${a.id ?? randomUUID()}::uuid,${organization}::uuid,${actor}::uuid,${token},${a.action},${a.kind},
- ${a.subjectType ?? "person"},${a.subject},${a.before ?? sql`NULL`}::bigint,${a.after ?? sql`NULL`}::bigint,
- ${JSON.stringify(a.metadata ?? {})}::jsonb`,
-			});
-		}),
-	);
-}
-
-/** One row of a write statement's answer. */
-async function one<S extends z.ZodType>(w: Writer, schema: S, statement: SQL): Promise<z.output<S>> {
-	return schema.parse((await w.tx.execute(statement)).rows[0]);
+export async function readPipelineGoals(db: Executor, authority: RequestActor) {
+	return answer(async () => {
+		const seat = seatOf(authority) ?? refuse();
+		const org = seat.organization;
+		const r = await db.execute(sql`WITH g AS (SELECT ${seat.live} AS allowed),
+o AS (SELECT o.timezone,(clock_timestamp() AT TIME ZONE o.timezone)::date AS today FROM organization o JOIN g ON g.allowed
+ WHERE o.id=${org}::uuid),
+reached AS (SELECT pp.person_id,s.stable_kind AS kind,(a.occurred_at AT TIME ZONE o.timezone)::date AS day
+ FROM o CROSS JOIN pipeline_stage_move m JOIN pipeline_stage s ON s.id=m.to_stage_id AND s.organization_id=m.organization_id
+ JOIN audit_event a ON a.id=m.id AND a.tenant_id=m.organization_id
+ JOIN pipeline_person pp ON pp.id=m.pipeline_person_id AND pp.organization_id=m.organization_id
+ JOIN person p ON p.id=pp.person_id AND p.tenant_id=pp.organization_id
+ WHERE m.organization_id=${org}::uuid AND p.state='live'),
+st AS (
+ SELECT s.stable_kind AS kind FROM pipeline_stage s WHERE s.organization_id=${org}::uuid AND s.removed_at IS NULL
+  AND EXISTS(SELECT FROM o)
+ UNION SELECT x.kind FROM jsonb_to_recordset(${startersJson(org)}::jsonb) x(kind text)
+  WHERE EXISTS(SELECT FROM o) AND NOT EXISTS(SELECT FROM pipeline_stage s WHERE s.organization_id=${org}::uuid)),
+c AS (SELECT c.occurred_on FROM leadership_conversation c
+ JOIN pipeline_person pp ON pp.id=c.pipeline_person_id AND pp.organization_id=c.organization_id
+ JOIN person p ON p.id=pp.person_id AND p.tenant_id=pp.organization_id
+ WHERE c.organization_id=${org}::uuid AND p.state IN ('live','retired') AND EXISTS(SELECT FROM o))
+SELECT g.allowed,(SELECT today::text FROM o) AS as_of,
+ coalesce((SELECT jsonb_agg(jsonb_build_object('id',s.id,'revision',s.revision::text,'leaderTarget',s.leader_target,
+  'plantTarget',s.plant_target,'targetYear',s.target_year,'rationale',s.rationale,'countingFrom',s.counting_from::text,
+  'counts',(SELECT coalesce(jsonb_agg(jsonb_build_object('kind',k.c->>'kind','label',k.c->>'label',
+    'count',(SELECT count(DISTINCT r.person_id) FROM reached r,o WHERE r.kind=k.c->>'kind'
+     AND r.day BETWEEN s.counting_from AND o.today)) ORDER BY k.n),'[]'::jsonb)
+   FROM jsonb_array_elements(s.counts) WITH ORDINALITY k(c,n))) ORDER BY s.created_at,s.id)
+  FROM (SELECT * FROM sending_goal s WHERE s.organization_id=${org}::uuid AND EXISTS(SELECT FROM o)
+   ORDER BY s.created_at,s.id LIMIT 50) s),'[]'::jsonb) AS goals,
+ coalesce((SELECT jsonb_agg(jsonb_build_object('kind',st.kind,'count',(SELECT count(DISTINCT pp.person_id)
+   FROM pipeline_person pp JOIN person p ON p.id=pp.person_id AND p.tenant_id=pp.organization_id
+   JOIN pipeline_stage s ON s.id=pp.stage_id AND s.organization_id=pp.organization_id
+   WHERE pp.organization_id=${org}::uuid AND p.state='live' AND s.stable_kind=st.kind))) FROM st),'[]'::jsonb) AS kinds,
+ coalesce((SELECT jsonb_agg(jsonb_build_object('month',to_char(m,'YYYY-MM'),
+   'count',(SELECT count(*) FROM c WHERE date_trunc('month',c.occurred_on::timestamp)=m)) ORDER BY m)
+  FROM o,generate_series(date_trunc('month',o.today::timestamp)-interval '5 months',date_trunc('month',o.today::timestamp),interval '1 month') m),
+  '[]'::jsonb) AS months,
+ coalesce((SELECT jsonb_agg(jsonb_build_object('year',extract(year FROM q)::int,'quarter',extract(quarter FROM q)::int,
+   'count',(SELECT count(*) FROM c WHERE date_trunc('quarter',c.occurred_on::timestamp)=q)) ORDER BY q)
+  FROM o,generate_series(date_trunc('quarter',o.today::timestamp)-interval '9 months',date_trunc('quarter',o.today::timestamp),interval '3 months') q),
+  '[]'::jsonb) AS quarters,
+ CASE WHEN EXISTS(SELECT FROM o) THEN ${activeResidents(org)} ELSE 0 END AS residents
+FROM g`);
+		const row = goalsRow.parse(r.rows[0]);
+		if (!row.allowed || !row.as_of) refuse();
+		const order = C.pipelineStageKind.options;
+		return C.pipelineGoals.parse({
+			asOf: row.as_of,
+			canEdit: seat.administrator,
+			goals: row.goals,
+			kinds: row.kinds.sort((a, b) => order.indexOf(a.kind as never) - order.indexOf(b.kind as never)),
+			activeResidents: row.residents,
+			plantsSent: { status: "unavailable", reason: "deferred_stage_3" },
+			conversations: { months: row.months, quarters: row.quarters },
+		});
+	});
 }
 
 /** A seat that may be named responsible: current in this organization (REQ-MUL-002). */
@@ -612,7 +620,7 @@ SELECT 1`);
 /** Whether the writer may read and write notes on the live person `x`: an Owner or Admin, or their responsible staff. */
 const noteDuty = (w: Writer) => sql`(${w.administrator} OR x.responsible_seat_id=${w.seatId}::uuid)`;
 const noteTarget = (w: Writer, person: SQL) =>
-	sql`SELECT pp.person_id,pp.responsible_seat_id FROM pipeline_person pp JOIN person p ON p.id=pp.person_id
+	sql`SELECT pp.id,pp.person_id,pp.responsible_seat_id FROM pipeline_person pp JOIN person p ON p.id=pp.person_id
  AND p.tenant_id=pp.organization_id WHERE pp.organization_id=${w.organization}::uuid AND pp.person_id=${person}
  AND p.state='live' FOR SHARE OF pp,p`;
 
@@ -669,6 +677,141 @@ SELECT EXISTS(SELECT FROM n,x WHERE ${noteDuty(w)}) AS found,(SELECT revision::t
 		});
 }
 
+/**
+ * Adds a sending goal (no expected revision; the browser names its ID, so a repeat adds no second goal) or changes one
+ * (REQ-MUL-007), with its counting-from day and chosen counts (D-1263, D-1264). It touches only the goal: no person
+ * moves and no stage changes. The audit row holds IDs, the day and the counted kinds, never a label or the reason.
+ * Owner or Admin; at most 50 goals.
+ */
+function saveGoal(db: Database, authority: RequestActor, raw: unknown) {
+	return write(db, authority, true, async (w) => {
+		const input = parse(C.saveGoalRequest, raw);
+		const o = w.organization;
+		const adding = input.expectedRevision === null;
+		const counts = JSON.stringify(input.counts);
+		const kinds = JSON.stringify(input.counts.map((c) => c.kind));
+		// Without a day, a new goal counts from today and a saved one keeps its day.
+		const from = (fallback: SQL) => sql`coalesce(${input.countingFrom}::date,${fallback})`;
+		const values = sql`(${input.leaderTarget}::int,${input.plantTarget}::int,${input.targetYear}::int,${input.rationale}::text,${from(sql`cur.counting_from`)},${counts}::jsonb)`;
+		const metadata = (fields: SQL) =>
+			sql`jsonb_build_object('category','sending_goal','goalId',${input.goalId}::text,'countingFrom',g.counting_from::text,
+ 'kinds',${kinds}::jsonb${fields})`;
+		const row = await one(
+			w,
+			z.object({
+				current: z.string().nullable(),
+				revision: z.string().nullable(),
+				room: z.boolean(),
+				past: z.boolean(),
+			}),
+			sql`WITH cur AS (SELECT * FROM sending_goal WHERE id=${input.goalId}::uuid AND organization_id=${o}::uuid FOR UPDATE),
+room AS (SELECT count(*)<50 AS ok FROM sending_goal WHERE organization_id=${o}::uuid),
+d AS (SELECT (clock_timestamp() AT TIME ZONE o.timezone)::date AS today FROM organization o WHERE o.id=${o}::uuid),
+ok AS (SELECT coalesce(${input.countingFrom}::date<=d.today,true) AS past FROM d),
+ins AS (INSERT INTO sending_goal (id,organization_id,leader_target,plant_target,target_year,rationale,counting_from,counts,revision)
+ SELECT ${input.goalId}::uuid,${o}::uuid,${input.leaderTarget},${input.plantTarget},${input.targetYear},${input.rationale},${from(sql`d.today`)},
+  ${counts}::jsonb,1
+ FROM room,d,ok WHERE ${adding} AND room.ok AND ok.past AND NOT EXISTS(SELECT FROM cur) ON CONFLICT (id) DO NOTHING
+ RETURNING id,revision,counting_from),
+upd AS (UPDATE sending_goal s SET leader_target=${input.leaderTarget},plant_target=${input.plantTarget},
+ target_year=${input.targetYear},rationale=${input.rationale},counting_from=${from(sql`cur.counting_from`)},counts=${counts}::jsonb,revision=s.revision+1
+ FROM cur,d,ok WHERE s.id=cur.id AND NOT ${adding} AND ok.past AND cur.revision=${input.expectedRevision}::bigint
+  AND (cur.leader_target,cur.plant_target,cur.target_year,cur.rationale,cur.counting_from,cur.counts) IS DISTINCT FROM ${values}
+ RETURNING s.id,s.revision,s.counting_from,
+  to_jsonb(array_remove(ARRAY[CASE WHEN cur.leader_target<>s.leader_target THEN 'leaderTarget' END,
+   CASE WHEN cur.plant_target<>s.plant_target THEN 'plantTarget' END,CASE WHEN cur.target_year<>s.target_year THEN 'targetYear' END,
+   CASE WHEN cur.rationale<>s.rationale THEN 'rationale' END,CASE WHEN cur.counting_from<>s.counting_from THEN 'countingFrom' END,
+   CASE WHEN cur.counts<>s.counts THEN 'counts' END],NULL)) AS fields),
+ai AS (${w.audit({ action: "settings.changed", kind: "create", subjectType: "organization", subject: sql`${o}::uuid`, metadata: metadata(sql``) })}
+ FROM ins g RETURNING id),
+au AS (${w.audit({ action: "settings.changed", kind: "edit", subjectType: "organization", subject: sql`${o}::uuid`, metadata: metadata(sql`,'fields',g.fields`) })}
+ FROM upd g RETURNING id)
+SELECT (SELECT revision::text FROM cur) AS current,coalesce((SELECT revision::text FROM ins),(SELECT revision::text FROM upd)) AS revision,
+ (SELECT ok FROM room) AS room,(SELECT past FROM ok) AS past`,
+		);
+		if (row.revision) return { goalId: input.goalId, revision: row.revision, outcome: "changed" as const };
+		if (!row.past) refuse({ code: "invalid_input", field: "countingFrom" });
+		// A repeated add, or a change to the values the goal already has, answers with the goal as it is.
+		if (row.current && (adding || row.current === input.expectedRevision))
+			return { goalId: input.goalId, revision: row.current, outcome: "noop" as const };
+		if (adding && !row.room) refuse({ code: "invalid_input", field: "goals" });
+		if (!adding && !row.current) refuse();
+		return refuse({ code: "conflict" });
+	});
+}
+
+/** The organization's today, and whether `day` is not after it: a conversation's day is never in the future. */
+const notFuture = (w: Writer, day: string) =>
+	sql`SELECT ${day}::date<=(clock_timestamp() AT TIME ZONE o.timezone)::date AS past FROM organization o
+ WHERE o.id=${w.organization}::uuid`;
+
+/**
+ * Logs a leadership conversation the writer had with a live person they may see: an Owner or Admin with anyone, other
+ * staff with the people they are responsible for (REQ-MUL-009). The writer's seat is who met them. Human only: no
+ * Evry tool calls this. The browser names the conversation's ID, so a repeat logs it once.
+ */
+function logConversation(db: Database, authority: RequestActor, raw: unknown) {
+	return write(db, authority, false, async (w) => {
+		const input = parse(C.logConversationRequest, raw);
+		const row = await one(
+			w,
+			z.object({ allowed: z.boolean(), past: z.boolean(), added: z.boolean(), existing: z.string().nullable() }),
+			sql`WITH x AS (${noteTarget(w, sql`${input.personId}::uuid`)}), d AS (${notFuture(w, input.occurredOn)}),
+c AS (INSERT INTO leadership_conversation (id,organization_id,pipeline_person_id,staff_seat_id,occurred_on,note,revision)
+ SELECT ${input.conversationId}::uuid,${w.organization}::uuid,x.id,${w.seatId}::uuid,${input.occurredOn}::date,${input.note},1
+ FROM x,d WHERE ${noteDuty(w)} AND d.past ON CONFLICT (id) DO NOTHING RETURNING id),
+a AS (${w.audit({ action: "people.recorded", kind: "create", subject: sql`x.person_id`, metadata: { category: "leadership_conversation", conversationId: input.conversationId } })}
+ FROM c,x RETURNING id)
+SELECT EXISTS(SELECT FROM x WHERE ${noteDuty(w)}) AS allowed,coalesce((SELECT past FROM d),false) AS past,
+ EXISTS(SELECT FROM c) AS added,(SELECT c.revision::text FROM leadership_conversation c JOIN x ON c.pipeline_person_id=x.id
+  WHERE c.id=${input.conversationId}::uuid AND c.organization_id=${w.organization}::uuid) AS existing`,
+		);
+		if (!row.allowed) refuse();
+		if (row.added) return { conversationId: input.conversationId, revision: "1" };
+		if (row.existing) return { conversationId: input.conversationId, revision: row.existing };
+		if (!row.past) refuse({ code: "invalid_input", field: "occurredOn" });
+		return refuse({ code: "conflict" });
+	});
+}
+
+/**
+ * Corrects a conversation's day or note, by anyone who may log one with that person now. The audit row keeps the old
+ * and new day, never the note (REQ-MUL-009); counts follow the new day.
+ */
+function correctConversation(db: Database, authority: RequestActor, raw: unknown) {
+	return write(db, authority, false, async (w) => {
+		const input = parse(C.correctConversationRequest, raw);
+		const day = input.occurredOn;
+		const row = await one(
+			w,
+			changed.extend({ past: z.boolean() }),
+			sql`WITH cv AS (SELECT c.id,c.pipeline_person_id,c.occurred_on,c.note,c.revision FROM leadership_conversation c
+ WHERE c.id=${input.conversationId}::uuid AND c.organization_id=${w.organization}::uuid FOR UPDATE),
+x AS (SELECT pp.id,pp.person_id,pp.responsible_seat_id FROM pipeline_person pp JOIN person p ON p.id=pp.person_id
+ AND p.tenant_id=pp.organization_id WHERE pp.organization_id=${w.organization}::uuid AND pp.id=(SELECT pipeline_person_id FROM cv)
+ AND p.state='live' FOR SHARE OF pp,p),
+d AS (${notFuture(w, day)}),
+u AS (UPDATE leadership_conversation t SET occurred_on=${day}::date,note=${input.note},revision=t.revision+1 FROM cv,x,d
+ WHERE t.id=cv.id AND ${noteDuty(w)} AND d.past AND cv.revision=${input.expectedRevision}::bigint
+  AND (cv.occurred_on,cv.note) IS DISTINCT FROM (${day}::date,${input.note}::text) RETURNING t.revision),
+a AS (${w.audit({
+				action: "people.corrected",
+				kind: "correct",
+				subject: sql`x.person_id`,
+				metadata: sql`jsonb_build_object('category','leadership_conversation','conversationId',cv.id,
+ 'fields',to_jsonb(array_remove(ARRAY[CASE WHEN cv.occurred_on<>${day}::date THEN 'occurredOn' END,
+  CASE WHEN cv.note IS DISTINCT FROM ${input.note}::text THEN 'note' END],NULL)),
+ 'diff',CASE WHEN cv.occurred_on<>${day}::date THEN jsonb_build_object('occurredOn',
+  jsonb_build_object('before',cv.occurred_on::text,'after',${day}::text)) ELSE '{}'::jsonb END)`,
+			})} FROM cv,x,u RETURNING id)
+SELECT EXISTS(SELECT FROM cv,x WHERE ${noteDuty(w)}) AS found,(SELECT revision::text FROM cv) AS current,
+ (SELECT revision::text FROM u) AS revision,coalesce((SELECT past FROM d),false) AS past`,
+		);
+		if (row.found && !row.past) refuse({ code: "invalid_input", field: "occurredOn" });
+		return { conversationId: input.conversationId, ...settle(row, input.expectedRevision) };
+	});
+}
+
 /** Every pipeline write. The statement census measures each one as `pipeline.<name>`. */
 export const pipelineWriter = {
 	addPerson,
@@ -681,4 +824,7 @@ export const pipelineWriter = {
 	addNote,
 	editNote: noteChange("edit"),
 	removeNote: noteChange("remove"),
+	saveGoal,
+	logConversation,
+	correctConversation,
 };

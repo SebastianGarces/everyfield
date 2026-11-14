@@ -47,12 +47,15 @@ const AREA_NAMES: Record<string, string> = {
 	followups: "follow-ups",
 };
 
-/** The areas the actor reads but has no reviewed write for, named by an operation's namespace. */
+/**
+ * The record areas the actor reads but has no reviewed write for, named by an operation's namespace. The actor's own
+ * notifications are not church records, so they are never one.
+ */
 function readOnlyAreas(catalog: Catalog) {
 	const namespace = (operation: string) => operation.split(".")[0] ?? operation;
 	const written = new Set(catalog.reviewedWrites.map((w) => namespace(w.operation)));
 	const read = new Set(catalog.domains.flatMap((d) => d.operations.map((o) => namespace(o.operation))));
-	return [...read].filter((n) => !written.has(n)).map((n) => AREA_NAMES[n] ?? n);
+	return [...read].filter((n) => n !== "notifications" && !written.has(n)).map((n) => AREA_NAMES[n] ?? n);
 }
 
 /** Describes what the current catalog actually allows, so the answer follows authority rather than a fixed phrase. */
@@ -65,14 +68,20 @@ export function describeCatalog(catalog: Catalog) {
 				"In this context I have no application reads available yet: I can't read or change people, tasks, follow-ups or messages here.",
 			];
 	if (writes.length) lines.push("I can also prepare these changes for your review:", ...writes.map((w) => "- " + w));
-	// A seat that reads an area but may not change it (a church Member, who changes only their own tasks and
-	// follow-ups) is told who can, instead of a review it can't use.
+	// A seat that reads but may not change records (a church Member) is told who can, instead of a review it can't use.
+	// Its own notifications are not church records: a Member may change those and still no record. A seat that may
+	// change some records (a Member's own tasks and follow-ups) is told which areas it can't change.
+	const recordWrites = catalog.reviewedWrites.filter((w) => !w.operation.startsWith("notifications."));
 	const unchangeable = readOnlyAreas(catalog);
-	if (unchangeable.length)
+	if (reads.length && !recordWrites.length)
 		lines.push(
 			writes.length
-				? `Your seat can't change ${unchangeable.join(", ")} here, so I prepare no such changes for you: an Owner or Admin of this church has to make them.`
+				? "Your seat can't change church records here, so I prepare no record changes for you: an Owner or Admin of this church has to make them. Only your own notifications and notification settings are yours to change."
 				: "Your seat can't change records here, so I prepare no changes for you: an Owner or Admin of this church has to make them.",
+		);
+	else if (unchangeable.length)
+		lines.push(
+			`Your seat can't change ${unchangeable.join(", ")} here, so I prepare no such changes for you: an Owner or Admin of this church has to make them.`,
 		);
 	lines.push(
 		"Every change to your records needs your review and approval first. I can't give pastoral counsel, write prayers or judge anyone's spiritual readiness.",

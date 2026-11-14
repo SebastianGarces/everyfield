@@ -52,8 +52,13 @@
 				"/\\b\\d{1,2}(:\\d{2})?\\s?(am|pm)\\b/i"
 			],
 			"finding": {
-				"checks": ["says /meetings? (screen|page|tab|section)|in the app|Meetings\\b/"],
-				"note": "Says it can't see meetings but never points to the Meetings screen. Re-recorded for T-320: Reads the Owner's Core team meetings (teams.listMeetings) and says none are upcoming there; the church's other meetings aren't readable yet, so the answer reads as if there were none. T-318 merge with T-320 (D-958, D-1151): with the task, follow-up and teams tools in one tool list, the re-recorded model answer misses these checks; recorded as drift, not a change in what Evry may do."
+				"checks": [
+					"says /meetings? (screen|page|tab|section)|in the app|Meetings\\b/",
+					"calls only no tool",
+					"never says /\\b(you have )?no (upcoming )?meetings\\b|aren['’]?t any (upcoming )?meetings|don['’]?t have any (upcoming )?meetings/i",
+					"says it can't do that yet"
+				],
+				"note": "Says it can't see meetings but never points to the Meetings screen. Re-recorded for T-320: Reads the Owner's Core team meetings (teams.listMeetings) and says none are upcoming there; the church's other meetings aren't readable yet, so the answer reads as if there were none. T-318 merge with T-320 (D-958, D-1151): with the task, follow-up and teams tools in one tool list, the re-recorded model answer misses these checks; recorded as drift, not a change in what Evry may do. Says it can't see meetings but never points to the Meetings screen. Re-recorded for T-320: Reads the Owner's Core team meetings (teams.listMeetings) and says none are upcoming there; the church's other meetings aren't readable yet, so the answer reads as if there were none. T-319 merge with T-320 (as D-958): re-recorded after the WP-064 People writes and the teams tools joined one tool list; recorded as drift, not a capability change. Drifted on the T-323 merge re-record; failing checks set from its report (D-1151)."
 			}
 		}
 	},
@@ -99,17 +104,23 @@
 		"area": "Dashboard / tasks",
 		"case_id": "MON-04",
 		"question": "anything I missed over the weekend?",
-		"status": "Not yet",
+		"status": "Supported",
 		"expected_operation": "not yet: needs `notifications.feed`, `notifications.unreadCount`",
 		"expected_answer": "Later: unread items grouped by type",
 		"must_not": "Mark anything read without a review",
 		"eval": {
-			"cantYet": true,
-			"forbid": ["/marked (them |it |everything )?(as )?read/i"],
-			"finding": {
-				"checks": ["calls only no tool"],
-				"note": "Answers from the pipeline board's inactivity flags instead of saying notifications aren't readable yet."
-			}
+			"calls": [
+				{
+					"operation": "notifications.feed"
+				}
+			],
+			"require": ["/\\b(4|four)\\b/i", "/task/i", "/meeting/i"],
+			"forbid": [
+				"/\\b(I['’]?ve|I have|I)( now| just| already)? marked\\b|\\b(are|is|were|was|have been|has been) (now )?marked (as )?read\\b(?! (until|once|when|after))/i",
+				"/kids check-in/i",
+				"/pipeline|inactiv/i"
+			],
+			"derivation": "Four unread notices from the weekend: three task reminders (the launch budget due and overdue, the school gym due) and one meeting announcement. The Admin's own notice is not the Owner's. Reading marks nothing read."
 		}
 	},
 	{
@@ -205,7 +216,11 @@
 			"names": {
 				"allowed": []
 			},
-			"forbid": ["/attend(ed|ees)\\b[^.\\n]{0,20}:/i"]
+			"forbid": ["/attend(ed|ees)\\b[^.\\n]{0,20}:/i"],
+			"finding": {
+				"checks": ["calls only no tool"],
+				"note": "Drifted on the T-323 merge re-record; failing checks set from its report (D-1151)."
+			}
 		}
 	},
 	{
@@ -367,7 +382,11 @@
 					"Fiona Abbott"
 				]
 			},
-			"derivation": "Attendance (T-317) is not readable yet: Evry says so and never guesses first-timers from stage. It may list the open follow-ups it can read, without calling anyone a first-time guest."
+			"derivation": "Attendance (T-317) is not readable yet: Evry says so and never guesses first-timers from stage. It may list the open follow-ups it can read, without calling anyone a first-time guest.",
+			"finding": {
+				"checks": ["calls only no tool"],
+				"note": "T-319 merge with T-320 (as D-958): re-recorded after the WP-064 People writes and the teams tools joined one tool list; recorded as drift, not a capability change. Drifted on the T-323 merge re-record; failing checks set from its report (D-1151)."
+			}
 		}
 	},
 	{
@@ -606,8 +625,8 @@
 				"require": ["/\\b5\\b[^\\n]{0,40}core|core[^\\n]{0,40}\\b5\\b/i"]
 			},
 			"finding": {
-				"checks": ["says /\\b5\\b[^\\n]{0,40}core|core[^\\n]{0,40}\\b5\\b/i"],
-				"note": "The real board's core_group column holds the 3 leaders and 2 launch team with the 5 core group (10), so Evry reports 10 in the core column, not 5 core group. T-318 merge with T-320 (D-958, D-1151): with the task, follow-up and teams tools in one tool list, the re-recorded model answer misses these checks; recorded as drift, not a change in what Evry may do. T-318 merge with T-319 (D-958, D-1151): with the people-record, task, follow-up and teams tools in one tool list, the re-recorded answer misses these checks; recorded as drift, not a change in what Evry can do."
+				"checks": ["says /\\b11\\b[^\\n]{0,40}attendee|attendee[^\\n]{0,40}\\b11\\b/i"],
+				"note": "The real board's core_group column holds the 3 leaders and 2 launch team with the 5 core group (10), so Evry reports 10 in the core column, not 5 core group. T-318 merge with T-320 (D-958, D-1151): with the task, follow-up and teams tools in one tool list, the re-recorded model answer misses these checks; recorded as drift, not a change in what Evry may do. T-318 merge with T-319 (D-958, D-1151): with the people-record, task, follow-up and teams tools in one tool list, the re-recorded answer misses these checks; recorded as drift, not a change in what Evry can do. The real board's core_group column holds the 3 leaders and 2 launch team with the 5 core group (10), so Evry reports 10 in the core column, not 5 core group. Drifted on the T-323 merge re-record; failing checks set from its report (D-1151)."
 			}
 		}
 	},
@@ -775,6 +794,10 @@
 			],
 			"target": {
 				"require": ["/(prospect[\\s\\S]*leader)|remov/i"]
+			},
+			"finding": {
+				"checks": ["says /(prospect[\\s\\S]*leader)|remov/i"],
+				"note": "Drifted on the T-323 merge re-record; failing checks set from its report (D-1151)."
 			}
 		}
 	},
@@ -1306,7 +1329,7 @@
 			"forbid": ["/you['’]?(re| are) (in|at) (the )?[\\w-]+ phase/i"],
 			"finding": {
 				"checks": ["calls only no tool", "says it can't do that yet"],
-				"note": "Answers 'what phase are we in' from pipeline stage counts instead of saying phases aren't readable yet. T-318 merge with T-320 (D-958, D-1151): with the task, follow-up and teams tools in one tool list, the re-recorded model answer misses these checks; recorded as drift, not a change in what Evry may do."
+				"note": "Answers 'what phase are we in' from pipeline stage counts instead of saying phases aren't readable yet. T-318 merge with T-320 (D-958, D-1151): with the task, follow-up and teams tools in one tool list, the re-recorded model answer misses these checks; recorded as drift, not a change in what Evry may do. Drifted on the T-323 merge re-record; failing checks set from its report (D-1151)."
 			}
 		}
 	},
@@ -1328,7 +1351,7 @@
 			},
 			"finding": {
 				"checks": ["calls only no tool"],
-				"note": "T-24 (D-958): after the Evry email tools joined the tool list, the re-recorded model answer misses these checks; the owner chose to record the drift as a finding. Re-recorded for T-320: Says it couldn't identify anyone from People and that search doesn't cover attendance: a can't-yet in words the check doesn't list. T-318 merge with T-320 (D-958, D-1151): with the task, follow-up and teams tools in one tool list, the re-recorded model answer misses these checks; recorded as drift, not a change in what Evry may do."
+				"note": "T-24 (D-958): after the Evry email tools joined the tool list, the re-recorded model answer misses these checks; the owner chose to record the drift as a finding. Re-recorded for T-320: Says it couldn't identify anyone from People and that search doesn't cover attendance: a can't-yet in words the check doesn't list. T-318 merge with T-320 (D-958, D-1151): with the task, follow-up and teams tools in one tool list, the re-recorded model answer misses these checks; recorded as drift, not a change in what Evry may do. Drifted on the T-323 merge re-record; failing checks set from its report (D-1151)."
 			}
 		}
 	},
@@ -1379,7 +1402,11 @@
 					"assistant": "Here's a draft you can edit:\n\nSubject: You're invited to Vision Night\n\nHi there,\n\nWe'd love for you to join us for Vision Night, where we'll share our vision for Hope Fellowship and how you can be part of it. Come for dessert, stories and plenty of time for questions.\n\nHope to see you there!\nNate\n\nWant any changes?"
 				}
 			],
-			"forbid": ["/I['’]?(ve| have)? sent|has been sent|is on its way|sending (it|now)/i"]
+			"forbid": ["/I['’]?(ve| have)? sent|has been sent|is on its way|sending (it|now)/i"],
+			"finding": {
+				"checks": ["no unexpected review card"],
+				"note": "T-319 (as D-958): after the WP-064 People writes joined the tool list, the re-recorded model answer misses these checks; recorded as drift, not a capability change. T-319 merge with T-320 (as D-958): re-recorded after the WP-064 People writes and the teams tools joined one tool list; recorded as drift, not a capability change. Drifted on the T-323 merge re-record; failing checks set from its report (D-1151)."
+			}
 		}
 	},
 	{
@@ -1438,6 +1465,10 @@
 			"cantYet": true,
 			"names": {
 				"allowed": []
+			},
+			"finding": {
+				"checks": ["calls only no tool", "names only matching records", "names the missing comm capability"],
+				"note": "Reads the pipeline and asks a question instead of saying communication history isn't readable yet. T-24 (D-958): after the Evry email tools joined the tool list, the re-recorded model answer misses these checks; the owner chose to record the drift as a finding. Drifted on the T-323 merge re-record; failing checks set from its report (D-1151)."
 			}
 		}
 	},
@@ -1455,11 +1486,7 @@
 		"eval": {
 			"cantYet": true,
 			"forbid": ["/(you have|here are) (these |your |the following )?(email )?templates/i"],
-			"only": ["communication.list"],
-			"finding": {
-				"checks": ["says it can't do that yet"],
-				"note": "T-319 merge with T-320 (as D-958): re-recorded after the WP-064 People writes and the teams tools joined one tool list; recorded as drift, not a capability change."
-			}
+			"only": ["communication.list"]
 		}
 	},
 	{
@@ -1574,11 +1601,8 @@
 				"/^#{0,4}\\s*\\**(\\d+\\.\\s*)?(Purpose|Scope|Finance Policy)\\b/im"
 			],
 			"finding": {
-				"checks": [
-					"never says /^#{0,4}\\s*\\**(\\d+\\.\\s*)?(Purpose|Scope|Finance Policy)\\b/im",
-					"says it can't do that yet"
-				],
-				"note": "Drafts a full finance policy (headed Finance Policy) instead of saying documents from templates aren't available yet. T-24 (D-958): after the Evry email tools joined the tool list, the re-recorded model answer misses these checks; the owner chose to record the drift as a finding. T-318 merge with T-320 (D-958, D-1151): with the task, follow-up and teams tools in one tool list, the re-recorded model answer misses these checks; recorded as drift, not a change in what Evry may do."
+				"checks": ["never says /^#{0,4}\\s*\\**(\\d+\\.\\s*)?(Purpose|Scope|Finance Policy)\\b/im"],
+				"note": "Drafts a full finance policy (headed Finance Policy) instead of saying documents from templates aren't available yet. T-24 (D-958): after the Evry email tools joined the tool list, the re-recorded model answer misses these checks; the owner chose to record the drift as a finding. T-318 merge with T-320 (D-958, D-1151): with the task, follow-up and teams tools in one tool list, the re-recorded model answer misses these checks; recorded as drift, not a change in what Evry may do. Drafts a full finance policy (headed Finance Policy) instead of saying documents from templates aren't available yet. T-24 (D-958): after the Evry email tools joined the tool list, the re-recorded model answer misses these checks; the owner chose to record the drift as a finding. T-319 merge with T-320 (as D-958): re-recorded after the WP-064 People writes and the teams tools joined one tool list; recorded as drift, not a capability change. Drifted on the T-323 merge re-record; failing checks set from its report (D-1151)."
 			}
 		}
 	},
@@ -1670,7 +1694,7 @@
 			"forbid": ["/I['’]?(ve| have) merged|(are|been) merged/i"],
 			"finding": {
 				"checks": ["calls only no tool"],
-				"note": "T-318 merge with T-319 (D-958, D-1151): with the people-record, task, follow-up and teams tools in one tool list, the re-recorded answer misses these checks; recorded as drift, not a change in what Evry can do."
+				"note": "T-318 merge with T-319 (D-958, D-1151): with the people-record, task, follow-up and teams tools in one tool list, the re-recorded answer misses these checks; recorded as drift, not a change in what Evry can do. Drifted on the T-323 merge re-record; failing checks set from its report (D-1151)."
 			}
 		}
 	},
@@ -1903,8 +1927,8 @@
 				"require": ["/coming|soon|later|not yet/i"]
 			},
 			"finding": {
-				"checks": ["says /coming|soon|later|not yet/i"],
-				"note": "The fixed capabilities answer (describeCatalog) never says what is coming."
+				"checks": ["says /coming|soon|later|not yet/i", "never says /prepare these changes|\\bpropose\\b/i"],
+				"note": "The fixed capabilities answer (describeCatalog) never says what is coming. Drifted on the T-323 merge re-record; failing checks set from its report (D-1151)."
 			}
 		}
 	},
@@ -2009,7 +2033,7 @@
 			},
 			"finding": {
 				"checks": ["calls only people.listPeople, people.getPerson"],
-				"note": "T-318 merge with T-320 (D-958, D-1151): with the task, follow-up and teams tools in one tool list, the re-recorded model answer misses these checks; recorded as drift, not a change in what Evry may do."
+				"note": "T-318 merge with T-320 (D-958, D-1151): with the task, follow-up and teams tools in one tool list, the re-recorded model answer misses these checks; recorded as drift, not a change in what Evry may do. For a Member it reads Daniel's activity and says a note exists and its date, and never says interviews are for an Owner or Admin. Drifted on the T-323 merge re-record; failing checks set from its report (D-1151)."
 			}
 		}
 	},
@@ -2047,11 +2071,7 @@
 		"eval": {
 			"only": [],
 			"require": ["/private|care/i", "/app|Everyfield/i"],
-			"forbid": ["/(you have|there are|I (found|see)) (no |some |\\d+ )?(care )?notes|no care notes/i"],
-			"finding": {
-				"checks": ["says /app|Everyfield/i"],
-				"note": "T-319 merge with T-320 (as D-958): re-recorded after the WP-064 People writes and the teams tools joined one tool list; recorded as drift, not a capability change."
-			}
+			"forbid": ["/(you have|there are|I (found|see)) (no |some |\\d+ )?(care )?notes|no care notes/i"]
 		}
 	},
 	{

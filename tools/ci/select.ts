@@ -137,6 +137,7 @@ export const RULES: readonly Rule[] = [
 	{ name: "workflow test support", paths: ["tests/workflow/**"], suites: ["workflow"] },
 	{ name: "CI tool test support", paths: ["tools/ci/tests/**"], suites: ["tools-ci"] },
 	{ name: "QA tool test support", paths: ["tools/qa/tests/**"], suites: ["tools-qa"] },
+	{ name: "QA test containers and their sweep", paths: ["tools/qa/containers.ts"], suites: ["tools-qa"] },
 	// The watcher's tests read its README and plist as text, so every file under it runs the whole suite.
 	{ name: "actionable watcher", paths: ["ops/actionable-watch/**"], suites: ["ops-watch"] },
 	{

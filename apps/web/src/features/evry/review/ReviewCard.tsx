@@ -13,6 +13,7 @@ import {
 	Home01Icon,
 	Image01Icon,
 	Mail01Icon,
+	Notification01Icon,
 	ImageNotFound01Icon,
 	Mortarboard01Icon,
 	SquareLock02Icon,
@@ -31,6 +32,7 @@ import { STAGE_KEY, type StageValue } from "../../people/model.ts";
 import type { Reply } from "../conversation/api.ts";
 import * as api from "./api.ts";
 import { MAIL_CONSEQUENCE, MailChanges, MailResult } from "./MailChanges.tsx";
+import { NoticeChanges } from "./NoticeChanges.tsx";
 import { CurrentState, ImportResult, ImportRows, PeopleResult, ReviewedPeople } from "./PeopleChanges.tsx";
 import {
 	actionNotice,
@@ -46,6 +48,7 @@ import {
 	fieldLabel,
 	hasBirthDate,
 	isMail,
+	isNotification,
 	isTeams,
 	isRequired,
 	isTasks,
@@ -624,6 +627,11 @@ export function ReviewCard({
 									<p className="text-sm text-text-2">{MAIL_CONSEQUENCE[review.operation]}</p>
 								) : null}
 							</>
+						) : isNotification(review.operation) ? (
+							<>
+								<NoticeChanges review={review} />
+								{consequence(review) ? <p className="text-sm text-text-2">{consequence(review)}</p> : null}
+							</>
 						) : (
 							<>
 								<Changes
@@ -807,6 +815,15 @@ function Footer({
 							</IntentLink>
 						</Button>
 					</>
+				) : isNotification(review.operation) ? (
+					<Button size="sm" variant="ghost" asChild>
+						<IntentLink
+							href={review.operation.startsWith("notifications.mark") ? "/notifications" : "/settings/notifications"}
+						>
+							{review.operation.startsWith("notifications.mark") ? "Open notifications" : "Open settings"}
+							<Icon icon={ArrowRight02Icon} size={16} />
+						</IntentLink>
+					</Button>
 				) : open ? (
 					<Button size="sm" variant="ghost" asChild>
 						<IntentLink href={open.href}>
@@ -876,6 +893,14 @@ function CardHead({
 	);
 }
 
+/** A notifications review changes only the signed-in account's own bell or settings. */
+const NOTIFICATION_SUBJECT: Partial<Record<string, string>> = {
+	"notifications.markSelectedRead": "Your notifications",
+	"notifications.markAllVisibleRead": "Your notifications",
+	"notifications.setPreferences": "Your notification settings",
+	"notifications.digestCadence.set": "Your church digest",
+};
+
 const RECORD_GLYPH: Record<NonNullable<Review["review"]["target"]>["kind"], IconSvgElement> = {
 	person: UserIcon,
 	message: Mail01Icon,
@@ -888,9 +913,11 @@ const RECORD_GLYPH: Record<NonNullable<Review["review"]["target"]>["kind"], Icon
 	tag: Tag01Icon,
 };
 
-/** Who the change affects: the person, or the new person a create adds. */
+/** Who the change affects: the person, the new person a create adds, a ministry record, or the account's own
+ * notifications. */
 function Affects({ review }: { review: Review }) {
 	const mail = isMail(review.operation);
+	const own = isNotification(review.operation);
 	const create = review.operation === "people.createPerson";
 	const target = review.review.target;
 	const kind = target?.kind;
@@ -900,34 +927,37 @@ function Affects({ review }: { review: Review }) {
 	const task = isTasks(review.operation) && kind !== "person";
 	// A ministry change names its ministry, role, program or responsibility; a new ministry or program its name.
 	const record = isTeams(review.operation) ? (target ? RECORD_GLYPH[target.kind] : UserGroupIcon) : null;
-	const glyph =
-		record ??
-		(imported
-			? FileImportIcon
-			: task
-				? Task01Icon
-				: kind === "household"
-					? Home01Icon
-					: kind === "tag" || tag
-						? Tag01Icon
-						: mail
-							? Mail01Icon
-							: create
-								? UserAdd01Icon
-								: null);
-	const name = imported
-		? "People import"
-		: isTasks(review.operation)
-			? subjectName(review)
-			: tag
-				? String(tag)
-				: mail
-					? String(review.review.changes.find((c) => c.field === "subject")?.after ?? target?.label ?? "Email")
-					: create
-						? String(review.review.changes.find((c) => c.field === "displayName")?.after ?? "New person")
-						: record && !target
-							? String(review.review.changes.find((c) => c.field === "name")?.after ?? "New ministries")
-							: (target?.label ?? "Not available");
+	const glyph = own
+		? Notification01Icon
+		: (record ??
+			(imported
+				? FileImportIcon
+				: task
+					? Task01Icon
+					: kind === "household"
+						? Home01Icon
+						: kind === "tag" || tag
+							? Tag01Icon
+							: mail
+								? Mail01Icon
+								: create
+									? UserAdd01Icon
+									: null));
+	const name = own
+		? (NOTIFICATION_SUBJECT[review.operation] ?? "Your notifications")
+		: imported
+			? "People import"
+			: isTasks(review.operation)
+				? subjectName(review)
+				: tag
+					? String(tag)
+					: mail
+						? String(review.review.changes.find((c) => c.field === "subject")?.after ?? target?.label ?? "Email")
+						: create
+							? String(review.review.changes.find((c) => c.field === "displayName")?.after ?? "New person")
+							: record && !target
+								? String(review.review.changes.find((c) => c.field === "name")?.after ?? "New ministries")
+								: (target?.label ?? "Not available");
 	return (
 		<div className="flex items-center gap-3">
 			{glyph ? (
