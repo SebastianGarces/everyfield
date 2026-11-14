@@ -21,15 +21,21 @@ import { useEffect, useRef, useState } from "react";
 import { Problem, Stat, StepHeading, Steps, UploadStep } from "../../people/import-export/ImportSteps";
 import { PIPELINE_PATH } from "../board/model";
 import {
+	afterImport,
 	CHOICE_LABEL,
 	CHOICES,
+	importRequest,
+	NOBODY,
 	plural,
 	problemText,
 	refusalNotice,
+	revised,
 	type Answer,
+	type Decision,
 	type Notice,
 	type Preview,
 	type Result,
+	type Review,
 	type Row,
 } from "./model";
 
@@ -40,23 +46,11 @@ import {
 
 type Stages = PipelineBoard["stages"];
 type Staff = PipelineBoard["staff"];
-type Decision = "skip" | "add";
-type Review = {
-	file: File;
-	preview: Preview;
-	stageId: string;
-	seatId: string;
-	decisions: Map<number, Decision>;
-	checking: boolean;
-	problem: Notice | null;
-};
 type State =
 	| { step: "upload"; checking: File | null; error: Notice | null }
 	| { step: "review"; review: Review }
 	| { step: "import"; review: Review }
 	| { step: "done"; review: Review; result: Result };
-
-const NOBODY = "none";
 
 async function send<T>(path: string, file: File, request: object): Promise<Answer<T>> {
 	const form = new FormData();
@@ -98,6 +92,7 @@ export function PipelineImportScreen({ stages, staff }: { stages: Stages; staff:
 				stageId: stages[0]!.id,
 				seatId: NOBODY,
 				decisions: new Map(),
+				importId: crypto.randomUUID(),
 				checking: false,
 				problem: null,
 			},
@@ -112,12 +107,13 @@ export function PipelineImportScreen({ stages, staff }: { stages: Stages; staff:
 		const got = await previewOf(review.file, columns);
 		if (got.status !== "ok") return update({ ...review, checking: false, problem: refusalNotice(got) });
 		const flagged = new Set(got.value.rows.filter((r) => r.status === "duplicate").map((r) => r.row));
-		update({
-			...review,
-			preview: got.value,
-			checking: false,
-			decisions: new Map([...review.decisions].filter(([row]) => flagged.has(row))),
-		});
+		update(
+			revised(review, {
+				preview: got.value,
+				checking: false,
+				decisions: new Map([...review.decisions].filter(([row]) => flagged.has(row))),
+			}),
+		);
 	};
 	const recheck = async (review: Review) => {
 		update({ ...review, checking: true, problem: null });
@@ -126,24 +122,13 @@ export function PipelineImportScreen({ stages, staff }: { stages: Stages; staff:
 			review.preview.columns.map((c) => c.choice),
 		);
 		if (got.status !== "ok") return update({ ...review, checking: false, problem: refusalNotice(got) });
-		update({ ...review, preview: got.value, decisions: new Map(), checking: false });
+		update(revised(review, { preview: got.value, decisions: new Map(), checking: false }));
 	};
 
-	/** One import id per press: a lost reply retried with the same id adds no one twice. */
-	const run = async (review: Review, importId: string) => {
+	/** Every press of Import for this review sends its one import id, so a retry after a lost reply adds no one twice. */
+	const run = async (review: Review) => {
 		setState({ step: "import", review });
-		const { preview } = review;
-		const got = await send<Result>("save", review.file, {
-			importId,
-			fileDigest: preview.fileDigest,
-			reviewDigest: preview.reviewDigest,
-			columns: preview.columns.map((c) => c.choice),
-			stageId: review.stageId,
-			responsibleSeatId: review.seatId === NOBODY ? null : review.seatId,
-			duplicates: [...review.decisions].map(([row, choice]) => ({ row, choice })),
-		});
-		if (got.status === "ok") return setState({ step: "done", review, result: got.value });
-		setState({ step: "review", review: { ...review, problem: refusalNotice(got) } });
+		setState(afterImport(review, await send<Result>("save", review.file, importRequest(review))));
 	};
 
 	const review = state.step === "upload" ? null : state.review;
@@ -174,7 +159,7 @@ export function PipelineImportScreen({ stages, staff }: { stages: Stages; staff:
 							<Button
 								variant="primary"
 								disabled={adding === 0 || undecided > 0 || state.review.checking}
-								onClick={() => void run(state.review, crypto.randomUUID())}
+								onClick={() => void run(state.review)}
 							>
 								{undecided > 0
 									? `Choose for ${plural(undecided, "duplicate")}`
@@ -334,14 +319,14 @@ function ReviewStep({
 					<Field label={stageColumn ? "Rows with no stage" : "Stage"}>
 						<Select
 							value={review.stageId}
-							onValueChange={(stageId) => onChange({ ...review, stageId })}
+							onValueChange={(stageId) => onChange(revised(review, { stageId }))}
 							options={stages.map((s) => ({ value: s.id, label: s.label }))}
 						/>
 					</Field>
 					<Field label="Responsible staff" hint="They can read these people’s records and notes, and add notes.">
 						<Select
 							value={review.seatId}
-							onValueChange={(seatId) => onChange({ ...review, seatId })}
+							onValueChange={(seatId) => onChange(revised(review, { seatId }))}
 							options={[{ value: NOBODY, label: "No one" }, ...staff.map((s) => ({ value: s.seatId, label: s.name }))]}
 						/>
 					</Field>
@@ -364,7 +349,7 @@ function ReviewStep({
 							row={r}
 							stage={r.stageId ? stageLabel(r.stageId) : undefined}
 							decision={review.decisions.get(r.row) ?? null}
-							onDecide={(d) => onChange({ ...review, decisions: new Map(review.decisions).set(r.row, d) })}
+							onDecide={(d) => onChange(revised(review, { decisions: new Map(review.decisions).set(r.row, d) }))}
 						/>
 					))}
 				</ul>

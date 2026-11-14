@@ -415,7 +415,7 @@ FROM g`);
 }
 
 /** A seat that may be named responsible: current in this organization (REQ-MUL-002). */
-const eligibleSeat = (w: Writer, seat: string | null) =>
+export const eligibleSeat = (w: Writer, seat: string | null) =>
 	sql`(${seat}::uuid IS NULL OR EXISTS(SELECT FROM seat s WHERE s.id=${seat}::uuid AND s.organization_id=${w.organization}::uuid
  AND s.ended_at IS NULL AND s.accepted_at<=clock_timestamp()))`;
 

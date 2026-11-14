@@ -8,7 +8,7 @@ import { z } from "zod";
 import type { RequestActor } from "../access/session.ts";
 import { hash } from "../operations/canonical.ts";
 import { readSheet, SheetRefused, type Sheet } from "../people/csv/sheet.ts";
-import { insertStarters, startersJson } from "./pipeline.ts";
+import { eligibleSeat, insertStarters, startersJson } from "./pipeline.ts";
 import { answer, one, parse, refuse, seatOf, write, type Executor } from "./seat.ts";
 
 // Importing pipeline people from a CSV or a form's Excel export (T-363) for an Owner or Admin. Columns match fields by
@@ -329,8 +329,7 @@ async function importPeople(db: Database, authority: RequestActor, raw: unknown)
 			stateRow.extend({ prior: z.unknown(), seat: z.boolean() }),
 			sql`WITH s AS (${stateSql(sql`true`, o, candidates(sheet))})
 SELECT s.*,(SELECT a.metadata FROM audit_event a WHERE a.id=${command}::uuid AND a.tenant_id=${o}::uuid) AS prior,
- (${input.responsibleSeatId}::uuid IS NULL OR EXISTS(SELECT FROM seat x WHERE x.id=${input.responsibleSeatId}::uuid
-  AND x.organization_id=${o}::uuid AND x.ended_at IS NULL AND x.accepted_at<=clock_timestamp())) AS seat FROM s`,
+ ${eligibleSeat(w, input.responsibleSeatId)} AS seat FROM s`,
 		);
 		// A repeat of this import answers as the first did and adds no one.
 		if (r.prior) {
