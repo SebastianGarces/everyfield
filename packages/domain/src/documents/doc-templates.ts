@@ -1,8 +1,10 @@
 import { docTemplate, pageBox, templateHash, type DocTemplate, type PageSetup } from "@everyfield/contracts/documents";
 import budgetWorksheet from "./templates/budget-worksheet.json" with { type: "json" };
 import bylaws from "./templates/bylaws.json" with { type: "json" };
+import childProtectionPolicy from "./templates/child-protection-policy.json" with { type: "json" };
 import commitmentCard from "./templates/commitment-card.json" with { type: "json" };
 import conflictOfInterestPolicy from "./templates/conflict-of-interest-policy.json" with { type: "json" };
+import financialControlsPolicy from "./templates/financial-controls-policy.json" with { type: "json" };
 import followUpLetter from "./templates/follow-up-letter.json" with { type: "json" };
 import guestSignInSheet from "./templates/guest-sign-in-sheet.json" with { type: "json" };
 import launchTeamCommitment from "./templates/launch-team-commitment.json" with { type: "json" };
@@ -18,8 +20,10 @@ import { PUBLISHED, SUPERSEDED, type PublishedVersion } from "./templates/publis
 const FILES: Record<string, unknown> = {
 	"budget-worksheet": budgetWorksheet,
 	bylaws,
+	"child-protection-policy": childProtectionPolicy,
 	"commitment-card": commitmentCard,
 	"conflict-of-interest-policy": conflictOfInterestPolicy,
+	"financial-controls-policy": financialControlsPolicy,
 	"follow-up-letter": followUpLetter,
 	"guest-sign-in-sheet": guestSignInSheet,
 	"launch-team-commitment": launchTeamCommitment,

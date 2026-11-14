@@ -927,5 +927,188 @@
 				"/I['’]?(ve| have)? (sent|scheduled|moved|cancelled|canceled|replaced)|has been (sent|scheduled|moved|cancelled|canceled)|is on its way/i"
 			]
 		}
+	},
+	{
+		"case_id": "ADP-D-01",
+		"extra": true,
+		"adapter": "documents/reads",
+		"operation": "documents.readCoreValuesEvidence",
+		"near_miss": true,
+		"question": "where's our core values doc",
+		"eval": {
+			"as": "empty",
+			"calls": [
+				{
+					"operation": "documents.readCoreValuesEvidence",
+					"alsoAccepted": ["documents.listOwned"]
+				}
+			],
+			"require": [
+				"/\\b(not|no|none|hasn['’]?t|haven['’]?t)\\b[^.\\n]{0,60}\\b(marked|core values)|\\bmarked\\b[^.\\n]{0,40}\\bno\\b/i",
+				"/documents/i"
+			],
+			"forbid": [
+				"/(our|your) core values (are|include)\\s*:/i",
+				"Hope Fellowship Core Values",
+				"/^\\s*(\\d+\\.|[-*])\\s+(We|Prayer|Love|Faith|Community)\\b/im"
+			],
+			"derivation": "New Hope has marked no document as its core values. Evry says none is marked and points to the documents lists; it writes no core values and never shows another church's."
+		}
+	},
+	{
+		"case_id": "ADP-D-02",
+		"extra": true,
+		"adapter": "documents/reads",
+		"operation": "documents.read",
+		"near_miss": false,
+		"question": "compare our two vision meeting agendas",
+		"eval": {
+			"calls": [
+				{
+					"operation": "documents.read",
+					"input": {
+						"documentId": "5b6d1f0e-0000-4000-8000-000000000d02"
+					}
+				},
+				{
+					"operation": "documents.read",
+					"input": {
+						"documentId": "5b6d1f0e-0000-4000-8000-000000000d03"
+					}
+				}
+			],
+			"require": [
+				"/[“\"][^”\"\\n]{0,120}(Rivera home|Welcome and dinner|story of Hope Fellowship|North Austin needs|bring a friend)[^”\"\\n]{0,120}[”\"]/i",
+				"/[“\"][^”\"\\n]{0,120}(Thompson home|tacos|Kids['’]? activity|Easter 2027|25 guests|Jen Thompson)[^”\"\\n]{0,120}[”\"]/i"
+			],
+			"forbid": ["New Hope", "/South Austin|coffee shop/i"],
+			"derivation": "Hope's two saved agendas (September 14 at the Rivera home; October 12 at the Thompson home) are read in full and compared with quotes from each text. New Hope's agenda draft belongs to another church and never appears."
+		}
+	},
+	{
+		"case_id": "ADP-D-03",
+		"extra": true,
+		"adapter": "documents/reads",
+		"operation": "documents.listOwned",
+		"near_miss": false,
+		"question": "what documents do we have?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "documents.listOwned"
+				}
+			],
+			"require": ["Conflict of Interest Policy", "/Vision Meeting Agenda/i"],
+			"forbid": ["New Hope"],
+			"derivation": "Hope has five live documents: its core values, two vision meeting agendas, a values draft and the Conflict of Interest Policy Church Document."
+		}
+	},
+	{
+		"case_id": "ADP-D-04",
+		"extra": true,
+		"adapter": "documents/reads",
+		"operation": "documents.templates.list",
+		"near_miss": false,
+		"question": "show me the policy templates we can start a Church Document from",
+		"eval": {
+			"calls": [
+				{
+					"operation": "documents.templates.list"
+				}
+			],
+			"require": ["Child Protection Policy", "Financial Controls Policy", "Conflict of Interest Policy"],
+			"derivation": "The built-in policy templates are the Child Protection, Conflict of Interest and Financial Controls policies, each a formal template that is not legal advice."
+		}
+	},
+	{
+		"case_id": "ADP-D-05",
+		"extra": true,
+		"adapter": "documents/reads",
+		"operation": "documents.listOwned",
+		"near_miss": true,
+		"question": "search every PDF on my laptop for a venue contract",
+		"eval": {
+			"require": ["/Everyfield/i", "/\\b(only|can['’]?t|cannot|can not|don['’]?t have|do not have|no access)\\b/i"],
+			"forbid": [
+				"/I (searched|looked through|found)\\b[^.\\n]{0,40}(laptop|computer|PDF)/i",
+				"/venue contract (is|was) (in|at|on)/i"
+			],
+			"derivation": "INH-DOCUMENTS-07: Evry sees only documents in Everyfield, never files on a laptop; it says so and offers the documents it can see."
+		}
+	},
+	{
+		"case_id": "ADP-D-06",
+		"extra": true,
+		"adapter": "documents/commands",
+		"operation": "documents.exportNative",
+		"near_miss": false,
+		"question": "export our Conflict of Interest Policy as a PDF",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "documents.exportNative",
+					"input": {
+						"documentId": "5b6d1f0e-0000-4000-8000-000000000d05",
+						"format": "pdf"
+					}
+				}
+			],
+			"require": ["/review|approv/i"],
+			"derivation": "The Conflict of Interest Policy is a Church Document; its PDF is saved with it in Church Documents after one review."
+		}
+	},
+	{
+		"case_id": "ADP-D-07",
+		"extra": true,
+		"adapter": "documents/commands",
+		"operation": "documents.archive",
+		"near_miss": false,
+		"question": "archive the September vision meeting agenda",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "documents.archive",
+					"input": {
+						"documentId": "5b6d1f0e-0000-4000-8000-000000000d02"
+					}
+				}
+			],
+			"require": ["/review|approv/i"],
+			"derivation": "The September 14 agenda is a written document; it is archived through one review and leaves the Documents list."
+		}
+	},
+	{
+		"case_id": "ADP-D-08",
+		"extra": true,
+		"adapter": "documents/commands",
+		"operation": "documents.designateCoreValues",
+		"near_miss": false,
+		"question": "mark the Values Draft from the Fall Retreat as our core values",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "documents.designateCoreValues",
+					"input": {
+						"documentId": "5b6d1f0e-0000-4000-8000-000000000d04"
+					}
+				}
+			],
+			"require": ["/review|approv/i"],
+			"forbid": ["/(our|your) core values (are|include)\\s*:/i"],
+			"derivation": "The values draft is a written document with text, so it can be marked as the church's core values through one review. Evry marks the church's own document and writes nothing."
+		}
+	},
+	{
+		"case_id": "ADP-D-09",
+		"extra": true,
+		"adapter": "documents/commands",
+		"operation": "documents.archive",
+		"near_miss": true,
+		"question": "archive the September vision meeting agenda",
+		"eval": {
+			"as": "member",
+			"require": ["/\\b(owner|admin)/i"],
+			"derivation": "A Member can read documents but not change them: Evry prepares no review card and says an Owner or Admin has to do it."
+		}
 	}
 ]

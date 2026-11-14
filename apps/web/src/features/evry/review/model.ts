@@ -18,7 +18,11 @@ export type Operation =
 	| "communication.scheduleReviewed"
 	| "communication.rescheduleReviewed"
 	| "communication.cancelScheduledReviewed"
-	| "communication.replaceScheduledReviewed";
+	| "communication.replaceScheduledReviewed"
+	| "documents.createFromTemplate"
+	| "documents.exportNative"
+	| "documents.archive"
+	| "documents.designateCoreValues";
 
 export type Change = { field: string; before: unknown; after: unknown };
 
@@ -33,7 +37,7 @@ export type Review = {
 	approvedAt: string | null;
 	status: "pending" | "approved" | "cancelled" | "expired";
 	review: {
-		target: { kind: "person" | "message"; id: string; label: string } | null;
+		target: { kind: "person" | "message" | "document" | "template"; id: string; label: string } | null;
 		changes: Change[];
 		/** A plain reason the change cannot be approved as asked; the card shows it and offers no Approve. */
 		refusal?: string;
@@ -103,6 +107,14 @@ const FIELD_LABEL: Record<string, string> = {
 	reason: "Reason",
 	photo: "Photo",
 	state: "Status",
+	template: "Template",
+	templateVersion: "Version",
+	notice: "Notice",
+	format: "Format",
+	version: "Version",
+	status: "Status",
+	list: "Leaves",
+	documentType: "Type",
 };
 export const fieldLabel = (field: string) => FIELD_LABEL[field] ?? field;
 
@@ -157,6 +169,10 @@ const TITLE: Record<Operation, string> = {
 	"people.deletePerson": "Remove a person",
 	"people.setPersonPhoto": "Set a photo",
 	"people.removePersonPhoto": "Remove a photo",
+	"documents.createFromTemplate": "New Church Document from a template",
+	"documents.exportNative": "Save a file of this document",
+	"documents.archive": "Archive a document",
+	"documents.designateCoreValues": "Mark as your core values",
 };
 export const operationTitle = (operation: Operation) => TITLE[operation];
 
@@ -339,8 +355,59 @@ export const RECIPIENT_OUTCOME: Record<RecipientOutcome, string> = {
 	open: "Cancel not confirmed",
 };
 
+// ---------------------------------------------------------------------------------------------------------------
+// Documents: the four reviewed Documents writes (WP-080). Each says what it does in the app and links to where it shows.
+
+export const isDocument = (operation: Operation) => operation.startsWith("documents.");
+
+const DOCUMENT_CONSEQUENCE: Partial<Record<Operation, string>> = {
+	"documents.createFromTemplate":
+		"The new document opens in Church Documents for your church to edit. A template is starting text, not legal advice.",
+	"documents.exportNative": "The file is saved with the document in Church Documents, where it downloads.",
+	"documents.archive": "It leaves its list and stays readable. Nothing is deleted.",
+	"documents.designateCoreValues": "Evry marks your own document. It never writes core values for your church.",
+};
+
+/** Where the result of an approved document change shows in the app, and the link's words. */
+export function documentResult(review: Review): { href: string; label: string } | null {
+	const target = review.review.target;
+	if (!target || review.review.withheld) return null;
+	switch (review.operation) {
+		case "documents.createFromTemplate":
+			return review.receipt?.receiptId
+				? { href: `/documents/church/${review.receipt.receiptId}`, label: "Open the new document" }
+				: null;
+		case "documents.exportNative":
+			return { href: `/documents/church/${target.id}`, label: "Open in Church Documents" };
+		case "documents.archive":
+			return review.review.changes.find((c) => c.field === "list")?.after === "Church Documents"
+				? { href: "/documents/church/archived", label: "Open archived documents" }
+				: { href: "/documents", label: "Open Documents" };
+		case "documents.designateCoreValues":
+			return { href: `/documents/written/${target.id}`, label: `Open ${target.label}` };
+		default:
+			return null;
+	}
+}
+
+/** Why a document change was refused, from the saved receipt code. Nothing was changed in each case. */
+export function documentRefusalText(code: string | undefined): string {
+	switch (code) {
+		case "revision_conflict":
+		case "conflict":
+			return "This changed after Evry prepared the review, so nothing was saved. Ask Evry to prepare it again.";
+		case "access_denied":
+			return "Your seat no longer allows this change, so nothing was saved.";
+		case "render_failed":
+			return "The file could not be made, so nothing was saved. Try again later.";
+		default:
+			return "Documents refused this change, so nothing was saved.";
+	}
+}
+
 /** The one sentence under the target that says what happens to them beyond the listed fields. */
 export function consequence(review: Review): string | null {
+	if (isDocument(review.operation)) return DOCUMENT_CONSEQUENCE[review.operation] ?? null;
 	const tasks = handedBack(review.review.changes);
 	const owner =
 		tasks > 0 ? `${tasks.toLocaleString()} open ${tasks === 1 ? "task" : "tasks"} will need a new owner.` : null;
@@ -388,7 +455,9 @@ export function hasBirthDate(review: Review, edits: Record<string, string>) {
 }
 
 export const editableChanges = (review: Review) =>
-	review.review.withheld || isMail(review.operation) ? [] : review.review.changes.filter((c) => !FIXED.has(c.field));
+	review.review.withheld || isMail(review.operation) || isDocument(review.operation)
+		? []
+		: review.review.changes.filter((c) => !FIXED.has(c.field));
 
 /** The native command's input for this review with `edits` applied, or null when the review can't be rebuilt. */
 export function reviseInput(review: Review, edits: Record<string, string> = {}): unknown {
@@ -428,6 +497,13 @@ export function reviseInput(review: Review, edits: Record<string, string> = {}):
 		}
 		case "communication.cancelScheduledReviewed":
 			return { communicationId: target.id };
+		case "documents.createFromTemplate":
+			return { templateId: target.id };
+		case "documents.exportNative":
+			return { documentId: target.id, format: after("format") === "Word" ? "docx" : "pdf" };
+		case "documents.archive":
+		case "documents.designateCoreValues":
+			return { documentId: target.id };
 		case "communication.replaceScheduledReviewed": {
 			const audience = audienceArgs(after("audience"));
 			const body = after("body");

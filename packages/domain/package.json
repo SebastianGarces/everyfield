@@ -24,6 +24,7 @@
 		"./wiki": "./src/wiki/index.ts",
 		"./documents": "./src/documents/index.ts",
 		"./documents/values": "./src/documents/doc-values.ts",
+		"./documents/fill": "./src/documents/template-fill.ts",
 		"./branding": "./src/branding/index.ts",
 		"./branding/theme": "./src/branding/theme.ts",
 		"./branding/color": "./src/branding/color.ts"

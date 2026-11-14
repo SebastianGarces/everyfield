@@ -190,7 +190,9 @@ export function recorder(name: string) {
 						new TransformStream({
 							transform(part, controller) {
 								parts.push(part);
-								if (part.type === "finish") {
+								// A stream that carried a provider error (a rate limit) is not an answer: it is never saved,
+								// so the next recording run asks again.
+								if (part.type === "finish" && !parts.some((p) => p.type === "error")) {
 									saved.usage = usageOf(part.usage);
 									fresh.push(saved.usage);
 									used.set(key, saved);

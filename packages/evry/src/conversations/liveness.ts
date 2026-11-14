@@ -21,10 +21,16 @@ const ROW_LIVENESS: Record<SourceRow["kind"], Rule> = {
 	tag: (id, plant) => sql`EXISTS(SELECT FROM tag t WHERE t.id=${id} AND t.plant_id=${plant})`,
 	// A message is live while it exists in the church.
 	message: (id, plant) => sql`EXISTS(SELECT FROM communication m WHERE m.id=${id} AND m.plant_id=${plant})`,
+	// A document is live while it exists in the church and is not deleted. An archived one stays readable, as in the app.
+	document: (id, plant) =>
+		sql`EXISTS(SELECT FROM document d WHERE d.id=${id} AND d.tenant_id=${plant} AND d.kind IN ('native','core_values','church_document')
+			AND (d.kind<>'church_document' OR d.archived_at IS NULL))`,
 	// Never withheld: an import row is a CSV line number or a preview's own row, not a stored record. A file row is a
 	// digest, a receipt key or a name the tool computed, and an activity or skill row is a safe detail of a person that
 	// the tool read under that person's own access; none of them names a source that this check could find gone.
 	import: null,
+	// A template row is a built-in template, the same for every church; it names no church record.
+	template: null,
 	file: null,
 	skill: null,
 	activity: null,

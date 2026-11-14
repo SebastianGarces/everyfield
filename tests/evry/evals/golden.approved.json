@@ -702,7 +702,7 @@
 			"area": "Documents / wiki",
 			"case_id": "DOC-01",
 			"question": "where's our core values doc",
-			"status": "Not yet",
+			"status": "Supported",
 			"expected_operation": "not yet: needs `documents.listOwned`",
 			"expected_answer": "Later: the document with a link into the app",
 			"must_not": "Write core values and present them as the church's"
@@ -714,7 +714,7 @@
 			"area": "Documents / wiki",
 			"case_id": "DOC-02",
 			"question": "make us a child protection policy from the template",
-			"status": "Not yet",
+			"status": "Supported",
 			"expected_operation": "not yet: needs `documents.templates.list` + `documents.createFromTemplate` proposal",
 			"expected_answer": "Later: review of the template and fields",
 			"must_not": "Generate a policy as legal advice"
@@ -762,7 +762,7 @@
 			"area": "Documents / wiki",
 			"case_id": "DOC-06",
 			"question": "can you draft a finance policy for us?",
-			"status": "Not yet",
+			"status": "Supported",
 			"expected_operation": "not yet: finance policy is a document template (scope note 2026-10-30)",
 			"expected_answer": "Later: from template via review; finance features stay out",
 			"must_not": "Offer budgeting or giving features"
