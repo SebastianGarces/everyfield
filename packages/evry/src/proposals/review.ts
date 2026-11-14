@@ -13,6 +13,7 @@ import { SETTINGS_COMMANDS } from "../adapters/settings/index.ts";
 import { ORGANIZATION_COMMANDS } from "../adapters/people-organization/commands/index.ts";
 import { TEAMS_COMMANDS } from "../adapters/teams/commands/index.ts";
 import { ONBOARDING_COMMANDS } from "../adapters/onboarding/commands/index.ts";
+import { FEEDBACK_COMMANDS } from "../adapters/feedback/commands/index.ts";
 import { PIPELINE_COMMANDS } from "../adapters/pipeline/commands/index.ts";
 import { currentPerson, importOutcome, personOutcome, type ReviewedWrite } from "./types.ts";
 
@@ -34,6 +35,7 @@ export const REVIEWED_WRITES = {
 	...MEETINGS_COMMANDS,
 	...SETTINGS_COMMANDS,
 	...ONBOARDING_COMMANDS,
+	...FEEDBACK_COMMANDS,
 	...PIPELINE_COMMANDS,
 } as const;
 export type Operation = keyof typeof REVIEWED_WRITES;

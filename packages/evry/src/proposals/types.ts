@@ -36,6 +36,8 @@ export type NativePorts = {
 		Pick<DeletionProducer<Transaction>, "requestAccountDeletion">;
 	/** The onboarding producer `/onboarding` calls, with the deployment's own receipt mail (T-345). */
 	onboarding: OnboardingProducer<Transaction>;
+	/** The deployed app version the feedback dialog saves with feedback, or null when the host does not say. */
+	appVersion: string | null;
 };
 
 /** What a review may read besides the proposal statement itself. */

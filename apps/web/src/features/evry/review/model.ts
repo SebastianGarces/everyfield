@@ -406,6 +406,10 @@ const FIELD_LABEL: Record<string, string> = {
 	lead: "Lead",
 	setup: "Setup",
 	discovery: "Discovery",
+	// Feedback to the Everyfield team (T-330), as the feedback dialog lists its details
+	feedback: "Your feedback",
+	yourRole: "Your role",
+	page: "Page",
 	...SHARING_CATEGORY_LABEL,
 };
 /** Meetings words for a field another card also uses: a finalize's "tasks" are the tasks it creates, not a sharing category. */

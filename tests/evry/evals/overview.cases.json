@@ -1,0 +1,193 @@
+{
+	"suite": "overview",
+	"model": "scripted",
+	"note": "T-330: Overview and product feedback tools, asked on the scripted model with the real adapters, approvals and native feedback write, on the acceptance fixture church (setup-church.mts seedOverview, America/Chicago, database clock pinned to Oct 13, 2026). Cedar Creek Church is in its first week with setup finished; its Owner, Casey Rivera, has invited no one, set no Launch Sunday and planned no Vision Meeting. Eight people came over from an earlier list: Grace Holt, Marcus Webb and Nina Patel more than a month ago, and Ana Ruiz, Ben Carter, Chloe Diaz, David Kim and Elena Brooks in the last month; setup added Casey's own record today, so six people were added in the last month. Nina, Ben, Chloe and David have had no activity since they were added. An orientation is two days ahead and a pre-launch practice nine days ahead. Casey has one overdue task. Sam Ortiz, who has no seat, sent his own feedback. Cases run in this order; `given` applies a fixture change before its case, and each later case sees the earlier approved changes.",
+	"cases": [
+		{
+			"id": "OVW-01",
+			"criterion": [1, 3],
+			"golden": "MON-01",
+			"actor": "owner",
+			"ask": "what should I focus on this week?",
+			"expected_answer": "Full alpha target: relevant recorded tasks, upcoming meetings, follow-up obligations and People needing attention, with authorized dashboard next steps and explicit coverage limits",
+			"must_not": "Invent tasks, meetings or priorities; rank people by spiritual judgment",
+			"operation": "dashboard.availableActions",
+			"calls": ["dashboard.availableActions", "dashboard.metrics", "meetings.list", "people.getPipelineData"],
+			"answer": [
+				"Here is your week, Oct 13 to Oct 19, from what Everyfield has recorded:",
+				"**Next steps** (from Overview):\n- [Plan your first Vision Meeting](/meetings)\n- [Invite your spouse or co-leader](/settings/seats)\n- [Set Launch Sunday](/launch)",
+				"**Meetings this week** (from Meetings):\n- [Newcomer orientation](/meetings/{MEETING:Newcomer orientation}), Thu, Oct 15, 2026, 6:30 PM CDT\n\n",
+				"**People to follow up with** (from People: the pipeline marks them for inactivity):\n- [Ben Carter](/people/{PERSON:Ben Carter}), no activity for a long while\n- [Chloe Diaz](/people/{PERSON:Chloe Diaz}), no activity for a long while\n- [David Kim](/people/{PERSON:David Kim}), no recent activity\n- [Nina Patel](/people/{PERSON:Nina Patel}), no activity for a long while\n\n",
+				"**Overdue tasks** (from Tasks): you have 1 overdue task. [Open My tasks](/tasks?view=my)",
+				"Not covered yet: I can't read your task list or follow-up obligations, so this isn't everything due this week. Open [Tasks](/tasks) for them."
+			],
+			"forbid": [
+				"/spiritual|mature|godly/i",
+				"/Practice service|Casey Rivera|Grace Holt|Marcus Webb|Ana Ruiz|Elena Brooks/",
+				"/couldn't read/"
+			]
+		},
+		{
+			"id": "OVW-02",
+			"criterion": 3,
+			"actor": "owner",
+			"given": "meetingsFail",
+			"ask": "what should I focus on this week?",
+			"calls": ["dashboard.availableActions", "dashboard.metrics", "people.getPipelineData"],
+			"answer": [
+				"**Next steps** (from Overview):",
+				"**People to follow up with** (from People",
+				"I couldn't read this week's meetings (Meetings) just now, so this answer doesn't cover it. Ask again in a moment.",
+				"Not covered yet: I can't read your task list or follow-up obligations"
+			],
+			"forbid": ["/Meetings this week|Newcomer orientation|No meeting is scheduled/"]
+		},
+		{
+			"id": "OVW-03",
+			"criterion": 4,
+			"golden": "CLN-10",
+			"actor": "owner",
+			"ask": "Who did we add in the last month?",
+			"expected_answer": "Today: can't-yet; later exact list",
+			"must_not": "Guess from stage = prospect",
+			"operation": "dashboard.activity",
+			"calls": ["dashboard.activity"],
+			"answer": [
+				"6 people were added to People in the last month (since Sep 13), as Overview's activity shows:\n- [Casey Rivera (you)](/people/{PERSON:Casey Rivera}), added Oct 13\n- [Elena Brooks](/people/{PERSON:Elena Brooks}), added Oct 9\n- [David Kim](/people/{PERSON:David Kim}), added Oct 4\n- [Chloe Diaz](/people/{PERSON:Chloe Diaz}), added Sep 27\n- [Ben Carter](/people/{PERSON:Ben Carter}), added Sep 22\n- [Ana Ruiz](/people/{PERSON:Ana Ruiz}), added Sep 15\n\nThat is everyone added since Sep 13."
+			],
+			"forbid": ["/Grace Holt|Marcus Webb|Nina Patel|prospect/i"]
+		},
+		{
+			"id": "OVW-04",
+			"criterion": 5,
+			"actor": "owner",
+			"given": "visionMeetingPlanned",
+			"ask": "what's missing in our setup?",
+			"operation": "dashboard.readSetupGaps",
+			"calls": ["dashboard.readSetupGaps"],
+			"answer": [
+				"Overview lists 2 setup steps still open:\n- [Invite your spouse or co-leader](/settings/seats)\n- [Set Launch Sunday](/launch)"
+			],
+			"forbid": ["/Vision Meeting|Add the people/"]
+		},
+		{
+			"id": "OVW-05",
+			"criterion": [1, 3],
+			"actor": "owner",
+			"ask": "what should I focus on this week?",
+			"operation": "dashboard.metrics",
+			"calls": ["dashboard.availableActions", "dashboard.metrics", "meetings.list", "people.getPipelineData"],
+			"answer": [
+				"**Next steps** (from Overview):\n- [Invite your spouse or co-leader](/settings/seats)\n- [Set Launch Sunday](/launch)\n\n",
+				"**Overdue tasks** (from Tasks): you have 1 overdue task."
+			],
+			"forbid": ["/Plan your first Vision Meeting/"]
+		},
+		{
+			"id": "OVW-06",
+			"criterion": 2,
+			"golden": "MON-01",
+			"actor": "member",
+			"given": "memberSeated",
+			"ask": "what should I focus on this week?",
+			"expected_answer": "Full alpha target: relevant recorded tasks, upcoming meetings, follow-up obligations and People needing attention, with authorized dashboard next steps and explicit coverage limits",
+			"must_not": "Invent tasks, meetings or priorities; rank people by spiritual judgment",
+			"calls": ["dashboard.availableActions", "dashboard.metrics", "meetings.list", "people.getPipelineData"],
+			"answer": [
+				"Overview offers your seat no next steps: an Owner or Admin takes those (from Overview).",
+				"**Meetings this week** (from Meetings):\n- [Newcomer orientation]",
+				"You have no overdue tasks (from Tasks).",
+				"Not covered yet: I can't read your task list or follow-up obligations"
+			],
+			"forbid": [
+				"/spiritual|mature|godly/i",
+				"/Import|Invite|Plan your first Vision Meeting|Set Launch Sunday|Set date/"
+			]
+		},
+		{
+			"id": "OVW-07",
+			"criterion": 5,
+			"actor": "member",
+			"ask": "what's missing in our setup?",
+			"calls": ["dashboard.readSetupGaps"],
+			"answer": [
+				"Overview lists 1 setup step still open:\n- Set Launch Sunday\n\nAn Owner or Admin of this church takes these steps."
+			],
+			"forbid": ["/\\]\\(/"]
+		},
+		{
+			"id": "OVW-08",
+			"criterion": 4,
+			"golden": "CLN-10",
+			"actor": "owner",
+			"given": "activityCrowded",
+			"ask": "Who did we add in the last month?",
+			"expected_answer": "Today: can't-yet; later exact list",
+			"must_not": "Guess from stage = prospect",
+			"calls": ["dashboard.activity"],
+			"answer": [
+				"At least 20 people were added to People in the last month (since Sep 13), as Overview's activity shows:",
+				"Overview's activity keeps only the latest 20 changes, so this list may be incomplete. Open [People](/people) to see everyone."
+			],
+			"forbid": ["/That is everyone/"]
+		},
+		{
+			"id": "FDB-01",
+			"criterion": [6, 7, 8],
+			"actor": "owner",
+			"ask": "send feedback that the import screen is confusing",
+			"operation": "feedback.submit",
+			"calls": [],
+			"answer": [
+				"Here is your feedback to review. It goes to the Everyfield team only once you approve it, and you'll find it in [Sent feedback](/feedback)."
+			],
+			"proposal": {
+				"operation": "feedback.submit",
+				"target": "Feedback to the Everyfield team",
+				"changes": [
+					{ "field": "type", "before": null, "after": "Other" },
+					{ "field": "feedback", "before": null, "after": "The import screen is confusing" },
+					{ "field": "church", "before": null, "after": "Cedar Creek Church" },
+					{ "field": "yourRole", "before": null, "after": "Owner" },
+					{ "field": "page", "before": null, "after": "Evry" }
+				],
+				"notes": [
+					"The Everyfield team reads every message. Sending it changes nothing in your church or in Everyfield.",
+					"If we have a question, we reply to setupowner@example.test."
+				]
+			},
+			"approve": true,
+			"retry": true
+		},
+		{
+			"id": "FDB-02",
+			"criterion": 7,
+			"actor": "owner",
+			"ask": "what feedback have I sent?",
+			"operation": "feedback.listOwn",
+			"calls": ["feedback.listOwn"],
+			"answer": [
+				"You have sent 1 piece of feedback, newest first:\n- Other, sent Oct 13, 2026: New\n\nSee them in [Sent feedback](/feedback)."
+			],
+			"forbid": ["/Bug|sign-in/i"]
+		},
+		{
+			"id": "FDB-03",
+			"criterion": 7,
+			"actor": "owner",
+			"ask": "what's the status of my feedback?",
+			"operation": "feedback.getOwnStatus",
+			"calls": ["feedback.listOwn", "feedback.getOwnStatus"],
+			"answer": ["Your feedback sent Oct 13, 2026 (Other) is New. See it in [Sent feedback](/feedback)."]
+		},
+		{
+			"id": "FDB-04",
+			"criterion": 7,
+			"actor": "owner",
+			"ask": "what's the status of my feedback {FEEDBACK:other}?",
+			"calls": ["feedback.getOwnStatus"],
+			"answer": ["I can't find that feedback among what you've sent. Open [Sent feedback](/feedback)."],
+			"forbid": ["/Bug|sign-in|New/i"]
+		}
+	]
+}
