@@ -179,7 +179,6 @@ export const readWorkspace = {
 				filter,
 				milestonesDone: plan.milestones.filter(done).length,
 				milestonesTotal: plan.milestones.length,
-				milestonesListed: listed.length,
 			}),
 			total: listed.length,
 		};

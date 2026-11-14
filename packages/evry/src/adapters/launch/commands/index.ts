@@ -260,13 +260,6 @@ const debriefInput = z.strictObject({
 	/** The guest question: guests not entered by name; 0 is No. Left out keeps the draft's answer. */
 	guestsNotNamed: count.nullable().optional(),
 });
-const AREA_FIELD = {
-	wentWell: "wentWell",
-	toChange: "toChange",
-	operations: "operations",
-	followUpPlan: "followUpPlan",
-	supportNeeded: "supportNeeded",
-} as const;
 export const submitDebrief = launchWrite({
 	operation: "launch.submitDebrief",
 	description:
@@ -291,7 +284,7 @@ export const submitDebrief = launchWrite({
 		return {
 			changes: [
 				{ field: "guestAnswer", before: null, after: guestAnswer(answers) },
-				...c.WRITTEN_AREAS.map((k) => ({ field: AREA_FIELD[k], before: null, after: answers[k] })),
+				...c.WRITTEN_AREAS.map((k) => ({ field: k, before: null, after: answers[k] })),
 			],
 			notes: [
 				plan.debrief?.submitted
