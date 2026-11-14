@@ -228,8 +228,7 @@ function Frame({ name, photo, settings, seed = null, children }: FrameProps) {
 						? [MY_RESIDENCY, WIKI]
 						: [WIKI]
 					: [PEOPLE, MEETINGS, MESSAGES, TASKS, MINISTRIES, WIKI],
-				pages:
-					settings?.context === "plant" && role !== "member" ? [INTELLIGENCE, DOCUMENTS] : account ? [] : [DOCUMENTS],
+				pages: settings?.context === "plant" && role !== "member" ? [INTELLIGENCE, DOCUMENTS] : [DOCUMENTS],
 				tools: [
 					feedbackAction,
 					{
