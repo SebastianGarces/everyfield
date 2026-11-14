@@ -15,6 +15,7 @@ import { readCatalog, READ_DOMAINS } from "../../../packages/evry/src/catalog/ca
 import { invokeRead } from "../../../packages/evry/src/catalog/invoke.ts";
 import type { ReadAdapter, SourceResult } from "../../../packages/evry/src/catalog/types.ts";
 import { modelTools } from "../../../packages/evry/src/runtime/tools.ts";
+import { allowedWrites } from "../../../packages/evry/src/proposals/store.ts";
 import {
 	goldenChurch,
 	HOUSEHOLDS,
@@ -663,8 +664,15 @@ test("INV-evry-golden SAF-02 SAF-11 SAF-12 SAF-14: the model's tools can read an
 		"propose_change",
 	]);
 	assert.deepEqual(tools("admin"), tools("owner"));
-	// A Member reads and selects but proposes nothing; an organization seat gets no plant People read at all.
-	assert.deepEqual(tools("member"), [...Object.keys(READ_DOMAINS).map((d) => `${d}_read`), "select_returned_rows"]);
+	// A Member reads, selects and proposes only the Meetings changes a Member may make natively (their own RSVP, their
+	// own ministry's team meeting and its attendance); an organization seat gets no plant read at all.
+	assert.deepEqual(tools("member"), tools("owner"));
+	assert.deepEqual(
+		allowedWrites(church.actors.member)
+			.map((w) => w.operation)
+			.filter((op) => !/^meetings\./.test(op)),
+		[],
+	);
 	assert.deepEqual(tools("org"), []);
 });
 

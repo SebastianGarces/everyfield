@@ -26,7 +26,10 @@
 //   Rivera and Casey Morgan and has no attendance recorded; Vision Meeting #1 (Thu 29 Oct) was finalized with 18
 //   attended and evaluated. "Launch team orientation" on Sun 15 Nov 4:00 PM has a saved agenda. "Coffee with Pastor
 //   Nate" (today 6:00 PM) was cancelled. "Worship team training" is next Tue 17 Nov 6:30 PM at the fellowship hall.
-//   Two meetings are titled "Orientation" (Sun 22 Nov and Sun 6 Dec).
+//   Two meetings are titled "Orientation" (Sun 22 Nov and Sun 6 Dec). Vision Meeting #5 (Thu 10 Dec) has no kit yet.
+//   Pre-launch practices: "Launch rehearsal" (Sat 31 Oct) was held; "Sound check practice" (Sat 7 Nov) is not
+//   recorded as held. "Old warehouse" is an archived venue. Kevin Walsh was invited by Ana Rivera; Casey Morgan is
+//   marked attended at last week's meeting.
 //
 // The database clock runs in NOW's frame too (frameDatabaseClock): every Meetings read that says upcoming or past
 // compares with it, so a replay reads the same meetings on every day the suite runs.
@@ -265,7 +268,14 @@ export const MEETINGS = {
 	lastNight: id(0xa27),
 	lastWeek: id(0xa28),
 	earlier: id(0xa29),
+	december: id(0xa2a),
+	soundCheck: id(0xa2b),
+	rehearsal: id(0xa2c),
+	warehouse: id(0xa04),
 } as const;
+/** Thursday's kit item ids by text (the kit seed pins them). */
+export const kitItem = (text: string) =>
+	`5b6d1f0e-0000-4000-8000-${(0x3000 + 4 * 0x40 + KIT.findIndex((k) => k.text === text)).toString(16).padStart(12, "0")}`;
 /** Thursday's kit items still unchecked. */
 export const UNCHECKED_KIT = ["Name tags (50+)", "Response cards (50+)"];
 
@@ -421,9 +431,11 @@ async function seedMeetings(run: Run, owner: string) {
 		[M.coffee, "Coffee shop", "1100 S Lamar Blvd, Austin, TX", 40],
 		[M.hall, "Hope Church fellowship hall", "2400 Manor Rd, Austin, TX", 120],
 		[M.chapel, "Hope Church chapel", "2400 Manor Rd, Austin, TX", 60],
+		[M.warehouse, "Old warehouse", "77 Industrial Blvd, Austin, TX", 200],
 	] as const;
 	for (const [v, name, address, capacity] of VENUES)
-		await run(sql`INSERT INTO venue(id,plant_id,name,address,capacity) VALUES(${v},${PLANT},${name},${address},${capacity})`);
+		await run(sql`INSERT INTO venue(id,plant_id,name,address,capacity,archived_at)
+			VALUES(${v},${PLANT},${name},${address},${capacity},${v === M.warehouse ? "2026-10-01T15:00:00Z" : null}::timestamptz)`);
 	await run(sql`INSERT INTO audit_event(id,tenant_id,actor_id,action,kind,subject_type,subject_id,occurred_at,recorded_at,after_value)
 		VALUES(${id(0xa0f)},${PLANT},${owner},'meetings.changed','create','venue',${M.coffee},'2026-09-01T15:00:00.000Z',
 			'2026-09-01T15:00:00.000Z',${JSON.stringify({ name: "Coffee shop", address: "1100 S Lamar Blvd, Austin, TX" })}::jsonb)`);
@@ -441,6 +453,9 @@ async function seedMeetings(run: Run, owner: string) {
 		[M.training, "team_meeting", "Worship team training", "2026-11-17", "18:30", "2026-11-18T00:30:00Z", M.hall, "planning", null],
 		[M.orientationA, "orientation", "Orientation", "2026-11-22", "16:00", "2026-11-22T22:00:00Z", M.chapel, "planning", null],
 		[M.orientationB, "orientation", "Orientation", "2026-12-06", "16:00", "2026-12-06T22:00:00Z", M.chapel, "planning", null],
+		[M.december, "vision_meeting", null, "2026-12-10", "19:00", "2026-12-11T01:00:00Z", M.coffee, "planning", 5],
+		[M.soundCheck, "prelaunch_practice", "Sound check practice", "2026-11-07", "10:00", "2026-11-07T16:00:00Z", M.hall, "planning", null],
+		[M.rehearsal, "prelaunch_practice", "Launch rehearsal", "2026-10-31", "10:00", "2026-10-31T15:00:00Z", M.hall, "completed", null],
 	] as const;
 	const SUNDAY = [
 		{ id: id(0xa31), title: "Welcome and coffee", minutes: 15 },
@@ -452,6 +467,8 @@ async function seedMeetings(run: Run, owner: string) {
 	for (const [m, type, title, date, time, startsAt, venue, status, vision] of MEETING_ROWS) {
 		const v = VENUES.find((x) => x[0] === venue)!;
 		const isVision = type === "vision_meeting";
+		// Vision Meeting #5 has no kit yet.
+		const kit = isVision && m !== M.december;
 		const agenda = isVision ? VISION(m) : m === M.sunday ? SUNDAY : [];
 		const held = status === "completed" ? startsAt : null;
 		await run(sql`INSERT INTO meeting(id,plant_id,type,subtype,team_id,title,creator_id,local_date,local_time,timezone,starts_at,
@@ -459,8 +476,8 @@ async function seedMeetings(run: Run, owner: string) {
 				kit_version,actual_occurrence_at)
 			VALUES(${m},${PLANT},${type},${m === M.training ? "training" : null},${m === M.training ? M.worship : null},${title},${owner},
 				${date}::date,${time}::time,'America/Chicago',${startsAt}::timestamptz,'1',${venue},${v[1]},${v[2]},${vision}::int,${status},1,
-				${JSON.stringify(agenda)}::jsonb,${isVision ? 1 : null}::int,${isVision ? 1 : null}::int,${held}::timestamptz)`);
-		if (isVision)
+				${JSON.stringify(agenda)}::jsonb,${isVision ? 1 : null}::int,${kit ? 1 : null}::int,${held}::timestamptz)`);
+		if (kit)
 			await run(sql`INSERT INTO meeting_kit_item(id,plant_id,meeting_id,item_key,position,category,text,checked,checked_at)
 				SELECT x.id,${PLANT},${m},x.key,x.position,x.category,x.text,x.checked,
 					CASE WHEN x.checked THEN '2026-11-06T15:00:00Z'::timestamptz END
@@ -477,11 +494,16 @@ async function seedMeetings(run: Run, owner: string) {
 				${extra.presence ?? "absent"},${extra.card ?? null},${extra.card ? "2026-11-09T01:30:00Z" : null}::timestamptz,
 				${extra.card ? "2026-11-09T01:30:00Z" : null}::timestamptz)`);
 	for (const name of ["Nate Ellis", "Kevin Walsh", "Jessica Wu"]) await invite(M.thursday, name, { rsvp: "confirmed" });
+	await run(sql`UPDATE participation SET inviter_person_id=${byName("Ana Rivera").id}
+		WHERE meeting_id=${M.thursday} AND person_id=${byName("Kevin Walsh").id}`);
 	await invite(M.thursday, "Joy Lee", { rsvp: "declined" });
 	for (const name of ["Elena Garcia", "Roberto Garcia"]) await invite(M.thursday, name);
-	for (const name of ["Maria Santos", "Alex Rivera", "Casey Morgan"]) await invite(M.lastWeek, name, { rsvp: "confirmed" });
+	for (const name of ["Maria Santos", "Alex Rivera"]) await invite(M.lastWeek, name, { rsvp: "confirmed" });
+	// Casey Morgan was marked present at the door; nobody finalized last week's attendance.
+	await invite(M.lastWeek, "Casey Morgan", { rsvp: "confirmed", presence: "attended" });
 	await invite(M.training, "Mark Thompson");
 	await invite(M.orientationA, "Daniel Cruz", { rsvp: "confirmed" });
+	await invite(M.orientationA, "Nate Ellis");
 	await invite(M.orientationB, "Carmen Martinez");
 	await run(sql`UPDATE participation SET roster_member=true WHERE meeting_id=${M.training}`);
 	// The finalized nights: 24 attended last night (2 with a card), 18 on 29 Oct, from the generated prospects.

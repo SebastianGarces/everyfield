@@ -39,21 +39,32 @@
 		"area": "Dashboard / tasks",
 		"case_id": "MON-02",
 		"question": "what are my upcoming meetings?",
-		"status": "Not yet",
+		"status": "Supported",
 		"expected_operation": "not yet: needs `meetings.list` (WP-065)",
 		"expected_answer": "Today: a clear can't-yet plus where to look (Meetings screen). Later: next meetings with church-local date, time and venue",
 		"must_not": "Say there are no meetings; guess dates",
 		"eval": {
-			"cantYet": true,
-			"require": ["/meetings? (screen|page|tab|section)|in the app|Meetings\\b/"],
-			"forbid": [
-				"/\\b(you have )?no (upcoming )?meetings\\b|aren['’]?t any (upcoming )?meetings|don['’]?t have any (upcoming )?meetings/i",
-				"/\\b\\d{1,2}(:\\d{2})?\\s?(am|pm)\\b/i"
+			"calls": [
+				{
+					"operation": "meetings.list",
+					"input": {
+						"window": "upcoming"
+					}
+				}
 			],
-			"finding": {
-				"checks": ["says /meetings? (screen|page|tab|section)|in the app|Meetings\\b/"],
-				"note": "Says it can't see meetings but never points to the Meetings screen."
-			}
+			"require": [
+				"/Vision Meeting #4|vision/i",
+				"/Nov(ember)?\\.? 12|12 Nov|Thu/i",
+				"/7(:00)?\\s?PM/i",
+				"/Coffee shop/i",
+				"/Coffee with Pastor Nate/i",
+				"/cancel/i",
+				"/training/i"
+			],
+			"forbid": [
+				"/\\b(you have )?no (upcoming )?meetings\\b|aren['’]?t any (upcoming )?meetings|don['’]?t have any (upcoming )?meetings/i"
+			],
+			"derivation": "The upcoming list from meetings.list, as the Meetings page shows it: church-local date, time and venue, with the cancelled meeting marked cancelled."
 		}
 	},
 	{
@@ -163,16 +174,33 @@
 		"area": "Meetings",
 		"case_id": "PREP-01",
 		"question": "who rsvp'd for thursday's vision night",
-		"status": "Not yet",
+		"status": "Supported",
 		"expected_operation": "not yet: needs `meetings.list` then `meetings.listGuests`",
 		"expected_answer": "Later: guests by RSVP state; RSVP is not attendance",
 		"must_not": "Report RSVPs as attendees",
 		"eval": {
-			"cantYet": true,
+			"calls": [
+				{
+					"operation": "meetings.listGuests",
+					"input": {
+						"meetingId": "5b6d1f0e-0000-4000-8000-000000000a21"
+					}
+				}
+			],
+			"require": ["/Kevin Walsh/", "/Jessica Wu/", "/Joy Lee/", "/Elena Garcia/", "/Roberto Garcia/", "/RSVP/i"],
 			"names": {
-				"allowed": []
+				"allowed": [
+					"Nate Ellis",
+					"Kevin Walsh",
+					"Jessica Wu",
+					"Joy Lee",
+					"Elena Garcia",
+					"Roberto Garcia",
+					"Ana Rivera"
+				]
 			},
-			"forbid": ["/attend(ed|ees)\\b[^.\\n]{0,20}:/i"]
+			"forbid": ["/attend(ed|ees)\\b[^.\\n]{0,20}:/i", "/\\b(have|has) attended\\b/i"],
+			"derivation": "Guests of Vision Meeting #4 by RSVP: yes Nate Ellis, Kevin Walsh, Jessica Wu; no Joy Lee; no answer Elena and Roberto Garcia. RSVP is not attendance."
 		}
 	},
 	{
@@ -182,13 +210,25 @@
 		"area": "Meetings",
 		"case_id": "PREP-02",
 		"question": "print the agenda for sunday",
-		"status": "Not yet",
+		"status": "Supported",
 		"expected_operation": "not yet: needs `meetings.readAgenda`",
 		"expected_answer": "Later: ordered agenda items; the print itself stays in the app",
 		"must_not": "Write an agenda from scratch and present it as the saved one",
 		"eval": {
-			"cantYet": true,
-			"forbid": ["/here['’]?s (the|your|a) (saved )?agenda|agenda:\\s*\\n/i"]
+			"calls": [
+				{
+					"operation": "meetings.readAgenda",
+					"input": {
+						"meetingId": "5b6d1f0e-0000-4000-8000-000000000a22"
+					}
+				}
+			],
+			"require": [
+				"/Welcome and coffee[\\s\\S]*Our story and vision[\\s\\S]*Launch team roles[\\s\\S]*Questions[\\s\\S]*Prayer and next steps/i",
+				"/print/i"
+			],
+			"forbid": ["/\\bWorship\\b|Fellowship/"],
+			"derivation": "The saved agenda of Sunday's Launch team orientation in order, with the print link in the app; no agenda written by Evry."
 		}
 	},
 	{
@@ -198,13 +238,25 @@
 		"area": "Meetings",
 		"case_id": "PREP-03",
 		"question": "what do I still need from the vision kit?",
-		"status": "Not yet",
+		"status": "Supported",
 		"expected_operation": "not yet: needs `meetings.listKit`",
 		"expected_answer": "Later: unchecked kit items only",
 		"must_not": "Tick kit items without a review",
 		"eval": {
-			"cantYet": true,
-			"forbid": ["/checked off|ticked|marked (as )?(done|complete)/i"]
+			"calls": [
+				{
+					"operation": "meetings.listKit",
+					"input": {
+						"meetingId": "5b6d1f0e-0000-4000-8000-000000000a21"
+					}
+				}
+			],
+			"require": ["/Name tags/i", "/Response cards/i"],
+			"forbid": [
+				"/checked off|ticked|marked (as )?(done|complete)/i",
+				"/Sign-in sheets|Welcome brochures|Clipboards|banner|Flash drive/i"
+			],
+			"derivation": "Only the two unchecked items of Thursday's kit."
 		}
 	},
 	{
@@ -237,16 +289,23 @@
 		"area": "Meetings",
 		"case_id": "PREP-05",
 		"question": "are vision nights growing? last 3",
-		"status": "Not yet",
+		"status": "Supported",
 		"expected_operation": "not yet: needs `meetings.attendanceTrend`",
 		"expected_answer": "Later: per-meeting counts; zero recorded vs unknown kept apart",
 		"must_not": "Treat a meeting with no attendance recorded as zero",
 		"eval": {
-			"cantYet": true,
-			"forbid": [
-				"/\\b(0|zero) (people|attendees|attendance)\\b/i",
-				"/\\b(grew|shrank|declined) (by|from)|(attendance|they|nights) (is|are|has been|have been) (up|down|growing|declining|shrinking)\\b/i"
-			]
+			"calls": [
+				{
+					"operation": "meetings.attendanceTrend"
+				}
+			],
+			"require": [
+				"/\\b18\\b/",
+				"/\\b24\\b/",
+				"/not recorded|no attendance (was |is )?recorded|wasn['’]?t recorded|isn['’]?t recorded|unknown|no count/i"
+			],
+			"forbid": ["/\\b(0|zero) (people|attendees|attendance|attended)\\b/i"],
+			"derivation": "18 (Oct 29), not recorded (Nov 5) and 24 (Nov 8): the middle one is never shown as 0."
 		}
 	},
 	{
@@ -256,33 +315,31 @@
 		"area": "Meetings",
 		"case_id": "PREP-06",
 		"question": "add a walk-in, Luis, no last name",
-		"status": "Partially",
+		"status": "Supported",
 		"expected_operation": "`people.checkForDuplicates` then `people.createPerson` proposal; later `meetings.createWalkInContact`",
 		"expected_answer": "Full alpha target: exact review followed by a real walk-in record bound to the selected meeting, with duplicate hints and no invented surname",
 		"must_not": "Fabricate a surname, email or phone; write without review",
 		"eval": {
-			"calls": [
+			"history": [
 				{
-					"operation": "people.checkForDuplicates",
-					"input": {
-						"displayName": "~Luis"
-					}
+					"user": "who rsvp'd for thursday's vision night"
+				},
+				{
+					"assistant": "For Vision Meeting #4 on Thursday, Nov 12 at 7:00 PM CST at the Coffee shop: RSVP yes from Nate Ellis (you), Kevin Walsh and Jessica Wu; no from Joy Lee; no answer yet from Elena Garcia and Roberto Garcia. These are RSVPs, not attendance."
 				}
 			],
 			"proposals": [
 				{
-					"operation": "people.createPerson",
+					"operation": "meetings.createWalkInContact",
 					"input": {
+						"meetingId": "5b6d1f0e-0000-4000-8000-000000000a21",
 						"displayName": "~Luis"
 					},
-					"absent": ["lastName", "email", "phone"]
+					"absent": ["email", "phone"]
 				}
 			],
 			"forbid": ["/\\bLuis (?!\\(|has|is|was|with|and|to|in|as|for|or|first|didn|doesn|isn)[A-Z][a-z]{2,}/"],
-			"target": {
-				"futureOperations": ["meetings.createWalkInContact"]
-			},
-			"derivation": "Today: duplicate check on the name Luis, then one createPerson review with displayName Luis and no surname, email or phone."
+			"derivation": "With Thursday's Vision night selected: one walk-in review bound to that meeting, with the name Luis exactly, its duplicate hints and no invented surname, email or phone."
 		}
 	},
 	{
@@ -292,13 +349,21 @@
 		"area": "Meetings",
 		"case_id": "PREP-08",
 		"question": "set up a vision meeting next thursday 7pm at the coffee shop",
-		"status": "Not yet",
+		"status": "Supported",
 		"expected_operation": "not yet: needs `venues.list` + `meetings.schedule` proposal (WP-066)",
 		"expected_answer": "Later: review with resolved date, church timezone, venue match",
 		"must_not": "Pick a venue it did not find; skip the timezone",
 		"eval": {
-			"cantYet": true,
-			"forbid": ["/I['’]?(ve| have) (scheduled|booked|set up)|meeting (is|has been) (scheduled|booked|set)/i"]
+			"calls": [
+				{
+					"operation": "venues.list",
+					"alsoAccepted": ["meetings.list"]
+				}
+			],
+			"clarify": true,
+			"require": ["/Nov(ember)?\\.? 12|12th|12 Nov/i", "/Nov(ember)?\\.? 19|19th|19 Nov/i"],
+			"forbid": ["/I['’]?(ve| have) (scheduled|booked|set up)|meeting (is|has been) (scheduled|booked|set)/i"],
+			"derivation": "Next Thursday could be Nov 12 or Nov 19: Evry asks which before any review; the follow-up turn (ADP-MT schedule case) proposes the 19th at 7:00 PM Central at the Coffee shop."
 		}
 	},
 	{
