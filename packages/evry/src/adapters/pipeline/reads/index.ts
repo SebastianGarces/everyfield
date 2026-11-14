@@ -15,7 +15,7 @@ import { organizationSeat } from "../../native.ts";
 // an assessment result or a ranking (REQ-MUL-015).
 
 /** The day six months before `day` (YYYY-MM-DD), clamped to the month's end as the board's SQL date arithmetic does. */
-export function sixMonthsBefore(day: string) {
+function sixMonthsBefore(day: string) {
 	const [y, m, d] = day.split("-").map(Number) as [number, number, number];
 	const month = y * 12 + (m - 1) - 6;
 	const year = Math.floor(month / 12);

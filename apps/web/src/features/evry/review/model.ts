@@ -1100,12 +1100,10 @@ export function pipelineRefusalText(
 	const area = operation === "development.saveProgram" ? "Programs" : "The Pipeline";
 	switch (code) {
 		case "revision_conflict":
-		case "conflict":
 			return operation === "development.saveProgram"
 				? "Programs changed after Evry prepared this, so nothing was created. Ask Evry to prepare it again."
 				: `${who ?? "This person"}'s stage changed after Evry prepared this, so the move couldn't be applied and nothing moved. This is where they are now.`;
 		case "access_denied":
-		case "unavailable":
 			return "Your seat no longer allows this change, or what it changes is gone, so nothing was saved.";
 		case "invalid_input":
 			return `${area} didn't accept these values, so nothing was saved. Ask Evry to prepare it again.`;
