@@ -37,12 +37,19 @@ const context: Context = {
 		{
 			dir: "packages/db",
 			name: "@everyfield/db",
-			scripts: { "test:unit": "node --test ../../tests/integration/db/*.test.mts" },
+			scripts: {
+				"test:unit": "node --test ../../tests/integration/db/*.test.mts",
+				"test:db": "tsx --test ../../tests/integration/db/baseline.test.mts",
+			},
 		},
+		{ dir: "packages/domain", name: "@everyfield/domain", scripts: { "test:db": "pnpm test:writes" } },
 		{
 			dir: "packages/evry",
 			name: "@everyfield/evry",
-			scripts: { "test:unit": "node --test ../../tests/evry/evals/*.test.mts" },
+			scripts: {
+				"test:unit": "node --test ../../tests/evry/evals/*.test.mts",
+				"test:db": "node --test ../../tests/evry/runtime/*.test.mts",
+			},
 		},
 		{ dir: "packages/ui", name: "@everyfield/ui", scripts: { lint: "eslint .", typecheck: "tsc --noEmit" } },
 	],
@@ -122,9 +129,22 @@ test("INV-ci-select: selection table: docs, one package, tools, lockfile, workfl
 				lint: "package source: packages/ui/src/controls/Button.tsx",
 				typecheck: "package source: packages/ui/src/controls/Button.tsx",
 				"test:unit": "package source: packages/ui/src/controls/Button.tsx",
+				"test:db": "package source: packages/ui/src/controls/Button.tsx",
 			},
 			tests: {},
 			filters: ["...@everyfield/ui"],
+		}),
+	);
+	await t.test("INV-ci-select: a database package change runs its package checks, the database tests too", () =>
+		assertSelected(selectChecks(["packages/db/src/client.ts"], map, context), {
+			checks: {
+				lint: "package source: packages/db/src/client.ts",
+				typecheck: "package source: packages/db/src/client.ts",
+				"test:unit": "package source: packages/db/src/client.ts",
+				"test:db": "package source: packages/db/src/client.ts",
+			},
+			tests: {},
+			filters: ["...@everyfield/db"],
 		}),
 	);
 	await t.test("INV-ci-select: a tools/qa source change runs only the tests that reached it", () =>
@@ -193,10 +213,24 @@ test("INV-ci-select: the map selects through child-process coverage and package 
 				lint: "package test outside its package: tests/integration/db/unit.test.mts",
 				typecheck: "package test outside its package: tests/integration/db/unit.test.mts",
 				"test:unit": "package test outside its package: tests/integration/db/unit.test.mts",
+				"test:db": "package test outside its package: tests/integration/db/unit.test.mts",
 				"ci-coverage": "package test outside its package: tests/integration/db/unit.test.mts",
 			},
 			tests: {},
 			filters: ["...@everyfield/db"],
+		}),
+	);
+	await t.test("INV-ci-select: a tests/evry database test runs the checks of the package whose test:db names it", () =>
+		assertSelected(selectChecks(["tests/evry/runtime/turn.test.mts"], map, context), {
+			checks: {
+				lint: "package test outside its package: tests/evry/runtime/turn.test.mts",
+				typecheck: "package test outside its package: tests/evry/runtime/turn.test.mts",
+				"test:unit": "package test outside its package: tests/evry/runtime/turn.test.mts",
+				"test:db": "package test outside its package: tests/evry/runtime/turn.test.mts",
+				"ci-coverage": "package test outside its package: tests/evry/runtime/turn.test.mts",
+			},
+			tests: {},
+			filters: ["...@everyfield/evry"],
 		}),
 	);
 	await t.test("INV-ci-select: a tests/unit test runs the checks of the package whose test:unit names it", () =>
@@ -205,6 +239,7 @@ test("INV-ci-select: the map selects through child-process coverage and package 
 				lint: "package test outside its package: tests/unit/tasks/model.test.mjs",
 				typecheck: "package test outside its package: tests/unit/tasks/model.test.mjs",
 				"test:unit": "package test outside its package: tests/unit/tasks/model.test.mjs",
+				"test:db": "package test outside its package: tests/unit/tasks/model.test.mjs",
 				"ci-coverage": "package test outside its package: tests/unit/tasks/model.test.mjs",
 			},
 			tests: {},
@@ -220,6 +255,7 @@ test("INV-ci-select: tests that read files as text are selected when those files
 				lint: "package source: packages/evry/src/adapters/people/reads/list.ts",
 				typecheck: "package source: packages/evry/src/adapters/people/reads/list.ts",
 				"test:unit": "package source: packages/evry/src/adapters/people/reads/list.ts",
+				"test:db": "package source: packages/evry/src/adapters/people/reads/list.ts",
 				workflow: "runs tests/workflow/evry-evals-coverage.test.mjs",
 			},
 			tests: {
@@ -249,6 +285,7 @@ test("INV-ci-select: tests that read files as text are selected when those files
 				lint: "package source: apps/web/src/features/settings/actions.ts",
 				typecheck: "package source: apps/web/src/features/settings/actions.ts",
 				"test:unit": "package source: apps/web/src/features/settings/actions.ts",
+				"test:db": "package source: apps/web/src/features/settings/actions.ts",
 				workflow: "runs tests/workflow/server-logs.test.mjs",
 			},
 			tests: {
