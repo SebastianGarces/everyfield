@@ -100,7 +100,9 @@
 			"actor": "setupAdmin",
 			"ask": "I'm the lead pastor",
 			"calls": [],
-			"answer": ["Only the Owner who is setting up this church can answer its setup questions or finish its setup."]
+			"answer": [
+				"Who leads this church and its teams is set by an Owner or Admin, so I can't answer the lead question for you."
+			]
 		},
 		{
 			"id": "ONB-08",
@@ -505,7 +507,9 @@
 			"actor": "teamLead",
 			"ask": "I'm the lead pastor",
 			"calls": [],
-			"answer": ["Only the Owner who is setting up this church can answer its setup questions or finish its setup."]
+			"answer": [
+				"Who leads this church and its teams is set by an Owner or Admin, so I can't answer the lead question for you."
+			]
 		},
 		{
 			"id": "ONB-31",
@@ -513,7 +517,19 @@
 			"actor": "teamLead",
 			"ask": "someone else leads, not Casey",
 			"calls": [],
-			"answer": ["Only the Owner who is setting up this church can answer its setup questions or finish its setup."]
+			"answer": [
+				"Who leads this church and its teams is set by an Owner or Admin, so I can't answer the lead question for you."
+			]
+		},
+		{
+			"id": "ONB-32",
+			"criterion": 18,
+			"actor": "teamLead",
+			"ask": "skip the lead question",
+			"calls": [],
+			"answer": [
+				"Who leads this church and its teams is set by an Owner or Admin, so I can't answer the lead question for you."
+			]
 		}
 	]
 }
