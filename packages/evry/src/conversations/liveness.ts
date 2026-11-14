@@ -39,7 +39,8 @@ const ROW_LIVENESS: Record<SourceRow["kind"], Rule> = {
 	template: null,
 	// A venue is live while it exists in the church, archived or not.
 	venue: (id, plant) => sql`EXISTS(SELECT FROM venue lv WHERE lv.id=${id} AND lv.plant_id=${plant})`,
-	// Never withheld: an item row is a part of a meeting or venue read (an agenda section, a kit item, a report line).
+	// Never withheld: an item row is a part of a meeting, venue or Launch read (an agenda section, a kit item, a report
+	// line, a Launch prep task).
 	item: null,
 	// Never withheld: an import row is a CSV line number or a preview's own row, not a stored record. A file row is a
 	// digest, a receipt key or a name the tool computed, and an activity or skill row is a safe detail of a person that
@@ -59,6 +60,9 @@ const ROW_LIVENESS: Record<SourceRow["kind"], Rule> = {
 	relationship: null,
 	// Never withheld: a pipeline stage row is a column of the board, with its count.
 	stage: null,
+	// A Launch readiness milestone is live while it stays on the church's Launch plan.
+	milestone: (id, plant) =>
+		sql`EXISTS(SELECT FROM launch_milestone lx WHERE lx.id=${id} AND lx.plant_id=${plant} AND lx.removed_at IS NULL)`,
 	// Never withheld: a setting row is the account's own choice and a digest row a preview the tool computed.
 	setting: null,
 	digest: null,

@@ -62,7 +62,17 @@ export type Operation =
 	| "notifications.oversightDigestCadence.set"
 	| TeamsOperation
 	| SettingsOperation
-	| PipelineOperation;
+	| PipelineOperation
+	| LaunchOperation;
+
+/** The Launch plan's date, Launch Sunday, the debrief and the summary (WP-076). */
+export type LaunchOperation =
+	| "launch.schedule"
+	| "launch.postpone"
+	| "launch.recordOutcome"
+	| "launch.submitDebrief"
+	| "launch.publishDebriefSummary";
+export const isLaunch = (operation: Operation): operation is LaunchOperation => operation.startsWith("launch.");
 
 /** An organization's pipeline and program changes (WP-101). */
 export type PipelineOperation =
@@ -289,6 +299,16 @@ const FIELD_LABEL: Record<string, string> = {
 	rhythm: "Meets",
 	stages: "Stages",
 	milestones: "Milestones",
+	// The Launch plan (WP-076): each value is already in the Launch plan's words.
+	actualDate: "Launch Sunday",
+	decisions: "Decisions",
+	guestAnswer: "Guests not entered by name",
+	wentWell: "What went well",
+	toChange: "What to change",
+	operations: "Operations",
+	followUpPlan: "Follow-up plan",
+	supportNeeded: "Support needed",
+	summary: "Summary",
 	addedMilestones: "Milestones added",
 	changedMilestones: "Milestones changed",
 	removedMilestones: "Milestones removed",
@@ -575,6 +595,11 @@ const TITLE: Record<Operation, string> = {
 	"organizations.updateProfile": "Update the organization profile",
 	"pipeline.proposeStageMove": "Move to another stage",
 	"development.saveProgram": "Create a program",
+	"launch.schedule": "Set Launch Sunday",
+	"launch.postpone": "Postpone the launch",
+	"launch.recordOutcome": "Record Launch Sunday",
+	"launch.submitDebrief": "Submit the Launch debrief",
+	"launch.publishDebriefSummary": "Publish the Launch summary",
 	"development.draftNextVersion": "Draft the next version",
 	"onboarding.declareJourney": "Where your church is",
 	"identity.answerLeadOnboarding": "Who leads your church",
