@@ -19,7 +19,41 @@ export type Operation =
 	| "communication.scheduleReviewed"
 	| "communication.rescheduleReviewed"
 	| "communication.cancelScheduledReviewed"
-	| "communication.replaceScheduledReviewed";
+	| "communication.replaceScheduledReviewed"
+	| TeamsOperation;
+
+/** The Ministries reviewed writes (WP-070): shown as before and after, never revised in place. */
+const TEAMS_TITLE = {
+	"teams.create": "Add a ministry",
+	"teams.edit": "Update a ministry",
+	"teams.archive": "Archive a ministry",
+	"teams.restore": "Restore a ministry",
+	"teams.createRole": "Add a role",
+	"teams.editRole": "Update a role",
+	"teams.retireRole": "Retire a role",
+	"teams.assignRole": "Fill a role",
+	"teams.assignMember": "Add to a ministry",
+	"teams.removeRole": "End a role",
+	"teams.endMembership": "Leave a ministry",
+	"teams.reactivateMembership": "Return to a role",
+	"teams.appointLeader": "Appoint a leader",
+	"teams.initialize": "Import ministries",
+	"teams.importRoles": "Import roles",
+	"teams.scheduleMeeting": "Schedule a team meeting",
+	"teams.offerResponsibilities": "Playbook responsibilities",
+	"teams.addResponsibility": "Add a responsibility",
+	"teams.editResponsibility": "Update a responsibility",
+	"teams.completeResponsibility": "Tick a responsibility",
+	"teams.deleteResponsibility": "Remove a responsibility",
+	"teams.createProgram": "Add a training program",
+	"teams.correctProgram": "Correct a training program",
+	"teams.setRequiredTrainingParticipants": "Set required training",
+	"teams.attestCompletion": "Record a training completion",
+	"teams.revokeCompletion": "Revoke a training completion",
+	"teams.recompleteTraining": "Record training again",
+} as const;
+type TeamsOperation = keyof typeof TEAMS_TITLE;
+export const isTeams = (operation: Operation): operation is TeamsOperation => operation in TEAMS_TITLE;
 
 /** The household, tag, skill, note and import writes (WP-064), whose reviews are not revised field by field. */
 export type OrganizationOperation =
@@ -72,7 +106,11 @@ export type Review = {
 	approvedAt: string | null;
 	status: "pending" | "approved" | "cancelled" | "expired";
 	review: {
-		target: { kind: "person" | "message" | "household" | "tag"; id: string; label: string } | null;
+		target: {
+			kind: "person" | "message" | "team" | "role" | "training" | "responsibility" | "household" | "tag";
+			id: string;
+			label: string;
+		} | null;
 		changes: Change[];
 		people?: ReviewedPerson[];
 		rows?: ReviewedRow[];
@@ -167,8 +205,38 @@ const FIELD_LABEL: Record<string, string> = {
 	proficiency: "Level",
 	notes: "Skill notes",
 	note: "Note",
+	// Ministries
+	description: "Description",
+	archived: "Archived",
+	leadership: "Leadership role",
+	timeCommitment: "Time commitment",
+	desiredSkills: "Desired skills",
+	retired: "Retired",
+	filledBy: "Filled by",
+	member: "Member",
+	leader: "Leader",
+	ministries: "Ministries",
+	roles: "Roles",
+	date: "Date",
+	time: "Time",
+	subtype: "Kind",
+	title: "Title",
+	offer: "Offer",
+	responsibilities: "Responsibilities",
+	responsibility: "Responsibility",
+	text: "Text",
+	done: "Done",
+	required: "Required",
+	requiredPeople: "Required people",
+	person: "Person",
+	completedOn: "Completed on",
+	completedAgainOn: "Completed again on",
+	completion: "Completion",
 };
 export const fieldLabel = (field: string) => FIELD_LABEL[field] ?? field;
+
+const TEAM_STATE: Record<string, string> = { forming: "Forming", active: "Active", paused: "Paused" };
+const DATE_FIELDS = new Set(["birthDate", "date", "completedOn", "completedAgainOn"]);
 
 /** Values People shows capitalized: a household role, a skill's category and level, a tag color. */
 const CAPITALIZED = new Set(["householdRole", "category", "proficiency", "color"]);
@@ -188,9 +256,15 @@ export function valueText(field: string, value: unknown): string | null {
 	if (field === "stage") return STAGE_LABEL[value as StageValue] ?? String(value);
 	if (field === "source") return SOURCE_LABEL[value as SourceValue] ?? String(value);
 	if (field === "adultClassification") return CLASSIFICATION_LABEL[String(value)] ?? String(value);
-	if (field === "state") return value === "live" ? "Current" : value === "retired" ? "Removed" : String(value);
+	if (field === "state")
+		return value === "live"
+			? "Current"
+			: value === "retired"
+				? "Removed"
+				: (TEAM_STATE[String(value)] ?? String(value));
+	if (typeof value === "boolean") return value ? "Yes" : "No";
 	if (CAPITALIZED.has(field) && typeof value === "string") return value.charAt(0).toUpperCase() + value.slice(1);
-	if (field === "birthDate" && typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value))
+	if (DATE_FIELDS.has(field) && typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value))
 		return dateFormat.format(new Date(`${value}T00:00:00Z`));
 	return String(value);
 }
@@ -230,6 +304,7 @@ export const shownChanges = (review: Pick<Review, "operation" | "review">) =>
 	);
 
 const TITLE: Record<Operation, string> = {
+	...TEAMS_TITLE,
 	"communication.saveDraft": "Save an email draft",
 	"communication.scheduleReviewed": "Schedule an email",
 	"communication.rescheduleReviewed": "Change the send time",

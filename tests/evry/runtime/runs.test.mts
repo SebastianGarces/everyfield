@@ -5,6 +5,7 @@ import { APICallError, wrapLanguageModel } from "../../../packages/evry/node_mod
 import type {
 	LanguageModelV4,
 	LanguageModelV4CallOptions,
+	LanguageModelV4StreamPart,
 } from "../../../packages/evry/node_modules/@ai-sdk/provider/dist/index.js";
 import {
 	cancelTurn,
@@ -15,7 +16,8 @@ import {
 	type EvryActor,
 } from "../../../packages/evry/src/index.ts";
 import { PASTORAL_BOUNDARY, compileContext, resolveReferences } from "../../../packages/evry/src/context/compile.ts";
-import { readCatalog } from "../../../packages/evry/src/catalog/catalog.ts";
+import { READ_DOMAINS, readCatalog } from "../../../packages/evry/src/catalog/catalog.ts";
+import { REVIEWED_WRITES } from "../../../packages/evry/src/proposals/store.ts";
 import { getPerson, listPeople, verifyPeople } from "../../../packages/evry/src/adapters/people/reads/index.ts";
 import { invokeRead } from "../../../packages/evry/src/catalog/invoke.ts";
 import { scriptedModel } from "../../../packages/evry/src/runtime/scripted.ts";
@@ -51,6 +53,41 @@ function recorded() {
 		middleware: { specificationVersion: "v4", transformParams: async ({ params }) => (calls.push(params), params) },
 	}) as LanguageModelV4;
 	return { calls, model: qualified(model) };
+}
+/**
+ * The scripted model, counting only what a turn adds to its prompt: the system prompt, which lists the whole catalog and
+ * is the same on every call, stays out of its input estimate. With the full catalog in that estimate the cumulative
+ * input budget ends a long run of small reads first, so this is what shows the tool budget stopping a turn.
+ */
+function lean() {
+	const model = wrapLanguageModel({
+		model: scriptedModel(),
+		middleware: {
+			specificationVersion: "v4",
+			wrapStream: async ({ doStream, params }) => {
+				const result = await doStream();
+				const input = Math.ceil(JSON.stringify(params.prompt.filter((m) => m.role !== "system")).length / 4);
+				const stream = result.stream.pipeThrough(
+					new TransformStream<LanguageModelV4StreamPart, LanguageModelV4StreamPart>({
+						transform: (part, controller) =>
+							controller.enqueue(
+								part.type === "finish"
+									? {
+											...part,
+											usage: {
+												...part.usage,
+												inputTokens: { ...part.usage.inputTokens, total: input, noCache: input },
+											},
+										}
+									: part,
+							),
+					}),
+				);
+				return { ...result, stream };
+			},
+		},
+	}) as LanguageModelV4;
+	return qualified(model);
 }
 async function ask(who: EvryActor, text: string, references: { kind: "person"; id: string }[] = []) {
 	const c = await createConversation(db, who, { requestKey: randomUUID() });
@@ -118,10 +155,9 @@ test("AC:INH-CROSS-06 AC:INH-REGRESSION-BUDGET AC:EVRY-RETRY-CANCEL bounded page
 	assert.deepEqual([input.status.state, input.status.reason], ["stopped", "input_budget"]);
 	assert.ok(input.status.usage.inputTokens >= 128_000 && input.status.usage.toolCalls < 24);
 	assert.equal(input.cards.length, input.status.usage.toolCalls);
-	// Pages of 3 rows: the 24-tool budget is reached first, and the 25th read never runs. (Pages of 5 reach the input
-	// budget at 23 reads since the Owner's and Admin's prompt lists the household, tag, skill, note and import writes.)
-	const narrow = await ask(foreign, "Read every detail for all people, 3 at a time.");
-	assert.equal(await work(), "succeeded");
+	// Pages of 5 rows: the 24-tool budget is reached first, and the 25th read never runs.
+	const narrow = await ask(foreign, "Read every detail for all people, 5 at a time.");
+	assert.equal(await work(lean()), "succeeded");
 	const budget = await events(foreign, narrow);
 	assert.equal(budget.cards.length, 24);
 	assert.deepEqual(
@@ -194,9 +230,11 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 						"communication.rescheduleReviewed",
 						"communication.cancelScheduledReviewed",
 						"communication.replaceScheduledReviewed",
+						...Object.keys(REVIEWED_WRITES).filter((op) => op.startsWith("teams.")),
 					]
 				: [],
 		);
+		const teamsReads = READ_DOMAINS.teams.map((a) => a.operation);
 		const peopleReads = ["people.listPeople", "people.getPerson", "people.getPersonPhoto", "people.checkForDuplicates"];
 		// Only an Owner or Admin reviews the pairs an import flagged, as on /people/duplicates.
 		const ownerReads = [...peopleReads, "people.listDuplicatePairs"];
@@ -230,9 +268,10 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 						"people.listTags",
 						"people.previewImport",
 						"communication.list",
+						...teamsReads,
 					]
 				: who === "member"
-					? [...peopleReads, ...organizationReads, "communication.list"]
+					? [...peopleReads, ...organizationReads, "communication.list", ...teamsReads]
 					: [],
 		);
 	}
@@ -396,7 +435,14 @@ test("AC:INH-EDGES-03 AC:TEN-008 AC:EVRY-CONTEXT-BOUNDS a guessed foreign id and
 	assert.ok(seen.includes("Alex Rivera"), "an authorized page reference is verified");
 	assert.deepEqual(
 		[...new Set(calls.flatMap((c) => c.tools?.map((t) => t.name) ?? []))].sort(),
-		["communication_read", "peopleOrganization_read", "people_read", "propose_change", "select_returned_rows"],
+		[
+			"communication_read",
+			"peopleOrganization_read",
+			"people_read",
+			"propose_change",
+			"select_returned_rows",
+			"teams_read",
+		],
 		"prompt text cannot add tools or scope; the owner's catalog decides them",
 	);
 });

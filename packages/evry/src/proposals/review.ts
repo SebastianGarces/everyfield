@@ -8,6 +8,7 @@ import { COMMUNICATION_COMMANDS } from "../adapters/communication/commands/index
 import { untouchedMail } from "../adapters/communication/reads/index.ts";
 import { PEOPLE_COMMANDS } from "../adapters/people/commands/index.ts";
 import { ORGANIZATION_COMMANDS } from "../adapters/people-organization/commands/index.ts";
+import { TEAMS_COMMANDS } from "../adapters/teams/commands/index.ts";
 import { currentPerson, importOutcome, personOutcome, type ReviewedWrite } from "./types.ts";
 
 // The review read (evry.readReview): one projection and one access rule, used by readReview and by the conversation
@@ -15,7 +16,12 @@ import { currentPerson, importOutcome, personOutcome, type ReviewedWrite } from 
 // conversation store can use it without an import cycle.
 
 /** Every installed reviewed write. A model may propose only these, and only when the actor may use them natively. */
-export const REVIEWED_WRITES = { ...PEOPLE_COMMANDS, ...ORGANIZATION_COMMANDS, ...COMMUNICATION_COMMANDS } as const;
+export const REVIEWED_WRITES = {
+	...PEOPLE_COMMANDS,
+	...ORGANIZATION_COMMANDS,
+	...COMMUNICATION_COMMANDS,
+	...TEAMS_COMMANDS,
+} as const;
 export type Operation = keyof typeof REVIEWED_WRITES;
 export const operation = z.enum(Object.keys(REVIEWED_WRITES) as [Operation]);
 
@@ -29,7 +35,7 @@ export const mine = (actor: EvryActor) =>
 		AND p.operation=ANY(${sql.param(allowedWrites(actor).map((w) => w.operation))}::text[])`;
 /**
  * The review read (C32): the actor's own proposal under the lock-free live check, so a sign-out or seat change never
- * waits for it. Reviewed writes need Owner or Admin, the same floor as the native command.
+ * waits for it. Reviewed writes need Owner or Admin, the same floor as the native command or higher.
  */
 export const readable = (actor: EvryActor) =>
 	sql`${mine(actor)} AND ${liveRead({ session: actor.session, owner: actor.owner, seatId: actor.seatId ?? undefined }, true)}`;
@@ -58,6 +64,10 @@ export const projection = (alias: string) =>
 			OR (${alias}.review->'target'->>'kind'='message' AND EXISTS(SELECT FROM communication t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.plant_id=${alias}.tenant_id))
 			OR (${alias}.review->'target'->>'kind'='household' AND EXISTS(SELECT FROM household t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.plant_id=${alias}.tenant_id))
 			OR (${alias}.review->'target'->>'kind'='tag' AND EXISTS(SELECT FROM tag t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.plant_id=${alias}.tenant_id))
+			OR (${alias}.review->'target'->>'kind'='team' AND EXISTS(SELECT FROM team t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.plant_id=${alias}.tenant_id))
+			OR (${alias}.review->'target'->>'kind'='role' AND EXISTS(SELECT FROM team_role t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.plant_id=${alias}.tenant_id))
+			OR (${alias}.review->'target'->>'kind'='training' AND EXISTS(SELECT FROM training_program t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.plant_id=${alias}.tenant_id))
+			OR (${alias}.review->'target'->>'kind'='responsibility' AND EXISTS(SELECT FROM responsibility t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.plant_id=${alias}.tenant_id AND t.removed_at IS NULL))
 			THEN ${alias}.review ELSE jsonb_build_object('target',NULL,'changes','[]'::jsonb,'withheld',true) END,
 		'outcome',coalesce(${alias}.outcome,(SELECT 'unknown' FROM job j WHERE j.id=${alias}.job_id AND ${alias}.state='approved'
 			AND NOT ${liveJob("j")})),
@@ -84,7 +94,11 @@ export const reviewedRow = z.object({
 });
 const review = z.object({
 	target: z
-		.object({ kind: z.enum(["person", "message", "household", "tag"]), id: z.uuid(), label: z.string() })
+		.object({
+			kind: z.enum(["person", "message", "team", "role", "training", "responsibility", "household", "tag"]),
+			id: z.uuid(),
+			label: z.string(),
+		})
 		.nullable(),
 	changes: z.array(change),
 	people: z.array(reviewedPerson).optional(),
