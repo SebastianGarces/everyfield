@@ -6,7 +6,14 @@ import type { AddressInfo } from "node:net";
 // "GitHub" received. Nothing here reaches github.com. A test can delay or drop a reply after the issue is made, fail
 // the search, rename a repository or close an issue.
 
-export type FakeIssue = { repositoryId: number; number: number; title: string; body: string; state: "open" | "closed"; url: string };
+export type FakeIssue = {
+	repositoryId: number;
+	number: number;
+	title: string;
+	body: string;
+	state: "open" | "closed";
+	url: string;
+};
 export type FakeRequest = { method: string; path: string; headers: Record<string, string>; body: string };
 
 export async function fakeGitHub(repositories: Record<string, number>) {
@@ -54,7 +61,13 @@ export async function fakeGitHub(repositories: Record<string, number>) {
 			};
 			issues.push(issue);
 			if (behavior.createReplyDelayMs) await new Promise((wait) => setTimeout(wait, behavior.createReplyDelayMs));
-			return answer(201, { id: 9000 + issues.length, number, html_url: issue.url, title: issue.title, body: issue.body });
+			return answer(201, {
+				id: 9000 + issues.length,
+				number,
+				html_url: issue.url,
+				title: issue.title,
+				body: issue.body,
+			});
 		}
 		if (request.method === "GET" && url.pathname === "/search/issues") {
 			if (behavior.searchStatus !== 200) return answer(behavior.searchStatus, { message: "Search failed" });

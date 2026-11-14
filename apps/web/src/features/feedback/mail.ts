@@ -4,7 +4,13 @@ import { createHmac } from "node:crypto";
 import { z } from "zod";
 import { database } from "../../server/database.ts";
 import type { OperatorMail, OperatorNotice } from "../../server/jobs/feedback-publication.ts";
-import { createMailService, MAIL_PASSES, runDueMail, type MailPass, type MailTransport } from "../../server/jobs/mail.ts";
+import {
+	createMailService,
+	MAIL_PASSES,
+	runDueMail,
+	type MailPass,
+	type MailTransport,
+} from "../../server/jobs/mail.ts";
 import { mailEnv } from "../../server/mail-env.ts";
 
 // The operator email for each piece of feedback (REQ-ADM-003, feedback.notifyOperator), in the shared mail ledger. It
@@ -59,9 +65,7 @@ function operatorContent(notice: Omit<OperatorNotice, "tenant" | "feedbackId">, 
 			subject: "Feedback held for triage",
 			text: `A feedback report was submitted. Nothing was published: it is held for triage. Reference: ${notice.reference}.\n\n${triage}`,
 		};
-	const link = notice.url
-		? `Public issue: ${notice.url}`
-		: "No public issue was published: it is held for triage.";
+	const link = notice.url ? `Public issue: ${notice.url}` : "No public issue was published: it is held for triage.";
 	return { subject: notice.issue.title, text: `${notice.issue.body}\n\n${link}\n\n${triage}` };
 }
 

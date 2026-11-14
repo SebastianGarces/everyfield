@@ -72,7 +72,11 @@ export type PublicIssue = { title: string; body: string };
  * The exact public issue for one feedback, or null when any part is outside the approved list: the feedback is then
  * held, and nothing is published in its place.
  */
-export function publicIssue(input: { category: unknown; address: string | null; reference: unknown }): PublicIssue | null {
+export function publicIssue(input: {
+	category: unknown;
+	address: string | null;
+	reference: unknown;
+}): PublicIssue | null {
 	const category = feedbackCategory.safeParse(input.category);
 	const area = publicArea(input.address);
 	if (!category.success || area === null) return null;
@@ -86,4 +90,6 @@ export function publicIssue(input: { category: unknown; address: string | null; 
 
 /** The frozen payload's hash, saved with it before the first call. */
 export const issueHash = (issue: PublicIssue) =>
-	createHash("sha256").update(JSON.stringify([issue.title, issue.body])).digest("hex");
+	createHash("sha256")
+		.update(JSON.stringify([issue.title, issue.body]))
+		.digest("hex");

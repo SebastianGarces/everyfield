@@ -87,7 +87,8 @@ async function send(input: Record<string, unknown> = {}) {
 	) as { id: string };
 }
 const row = async (id: string) => (await rowsOf(sql`SELECT * FROM feedback WHERE id=${id}::uuid`))[0]!;
-const triage = async (id: string) => ok(await feedbackWriter["admin.get"](db, await authority(triager), { feedbackId: id }));
+const triage = async (id: string) =>
+	ok(await feedbackWriter["admin.get"](db, await authority(triager), { feedbackId: id }));
 /** The publication run as the cron route mounts it, with the fake GitHub configured. */
 const publishRun = (env: Record<string, string | undefined> = configured) =>
 	feedbackPublicationMount(db, env)!(10, Date.now() + 30_000);
@@ -183,10 +184,18 @@ test("AC:PUBLIC-SERIALIZER-001 AC:PUB57-003 INV-privacy the public issue is the 
 			issue_number: saved.issue_number,
 			issue_url: saved.issue_url,
 		},
-		{ state: "published", repository_id: "10", repository_name: REPO, issue_number: issue.number, issue_url: issue.url },
+		{
+			state: "published",
+			repository_id: "10",
+			repository_name: REPO,
+			issue_number: issue.number,
+			issue_url: issue.url,
+		},
 	);
 	assert.match(saved.publication_hash, /^[0-9a-f]{64}$/);
-	const audits = await rowsOf(sql`SELECT action FROM audit_event WHERE subject_id=${sent.id}::uuid ORDER BY occurred_at, id`);
+	const audits = await rowsOf(
+		sql`SELECT action FROM audit_event WHERE subject_id=${sent.id}::uuid ORDER BY occurred_at, id`,
+	);
 	assert.deepEqual(
 		audits.map((a) => a.action),
 		["feedback.received", "feedback.publication_intended", "feedback.published"],
@@ -201,14 +210,18 @@ test("AC:PUBLIC-SERIALIZER-001 AC:PUB57-003 INV-privacy the public issue is the 
 		mail[0]!.text,
 		`A product bug report was submitted for Documents. Private details are retained for authorized triage. Reference: ${reference}.\n\nPublic issue: ${issue.url}\n\nTriage it in Everyfield: https://app.example.test/feedback/triage`,
 	);
-	for (const canary of [...CANARIES, daniel.email]) assert.equal(JSON.stringify(mail[0]).includes(canary), false, canary);
+	for (const canary of [...CANARIES, daniel.email])
+		assert.equal(JSON.stringify(mail[0]).includes(canary), false, canary);
 	assert.equal((await triage(sent.id)).operatorMail, "sent");
 	assert.deepEqual((await triage(sent.id)).publication, { state: "published", heldReason: null, url: issue.url });
 
 	// Daniel's own list and item show the link; another account still sees nothing of it.
 	const own = ok(await feedbackWriter.listOwn(db, await authority(daniel), {}));
 	assert.equal(own.items.find((i: { id: string }) => i.id === sent.id).publicUrl, issue.url);
-	assert.equal(ok(await feedbackWriter.getOwnStatus(db, await authority(daniel), { feedbackId: sent.id })).publicUrl, issue.url);
+	assert.equal(
+		ok(await feedbackWriter.getOwnStatus(db, await authority(daniel), { feedbackId: sent.id })).publicUrl,
+		issue.url,
+	);
 	refused(await feedbackWriter.getOwnStatus(db, await authority(other), { feedbackId: sent.id }));
 });
 
@@ -223,8 +236,17 @@ test("each category has its own fixed title and sentence, and a private or forge
 	};
 	for (const [category, [title, body]] of Object.entries(expected))
 		assert.deepEqual(publicIssue({ category, address: "/documents", reference }), { title, body });
-	const application = { title: "Bug report — Application", body: `A product bug report was submitted for Application. ${tail}` };
-	for (const address of [`/people/${randomUUID()}`, "/documents/written/" + randomUUID(), "/settings/notifications", "/meetings/[token]", null])
+	const application = {
+		title: "Bug report — Application",
+		body: `A product bug report was submitted for Application. ${tail}`,
+	};
+	for (const address of [
+		`/people/${randomUUID()}`,
+		"/documents/written/" + randomUUID(),
+		"/settings/notifications",
+		"/meetings/[token]",
+		null,
+	])
 		assert.deepEqual(publicIssue({ category: "bug", address, reference }), application, String(address));
 	// Outside the approved list: nothing to publish.
 	for (const input of [
@@ -249,7 +271,10 @@ test("AC:PUB57-004 AC:FDB56-004 feedback from a private page names Application, 
 
 	// The off-list address: no GitHub call, held for the triager, and the team email says only that.
 	const held = await row(forged.id);
-	assert.deepEqual([held.publication_state, held.held_reason, held.publication_payload], ["held", "unsafe_fields", null]);
+	assert.deepEqual(
+		[held.publication_state, held.held_reason, held.publication_payload],
+		["held", "unsafe_fields", null],
+	);
 	assert.equal((await row(personal.id)).publication_state, "published");
 	const seen = await triage(forged.id);
 	assert.deepEqual(seen.publication, { state: "held", heldReason: "unsafe_fields", url: null });

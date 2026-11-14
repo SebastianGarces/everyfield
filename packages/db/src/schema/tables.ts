@@ -3597,7 +3597,9 @@ export const feedback = pgTable(
 			.default(sql`1`),
 		reference: text("reference")
 			.notNull()
-			.default(sql`('FB-'::text || upper("substring"(replace((gen_random_uuid())::text, '-'::text, ''::text), 1, 12)))`),
+			.default(
+				sql`('FB-'::text || upper("substring"(replace((gen_random_uuid())::text, '-'::text, ''::text), 1, 12)))`,
+			),
 		publication_state: text("publication_state", {
 			enum: ["pending", "publishing", "unknown", "published", "held"],
 		})

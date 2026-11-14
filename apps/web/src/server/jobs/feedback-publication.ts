@@ -44,10 +44,7 @@ const feedbackRow = z.object({
 	repository_name: z.string().nullable(),
 });
 type Feedback = z.infer<typeof feedbackRow>;
-type Outcome =
-	| { state: "published"; issue: IssueLink }
-	| { state: "held"; reason: HeldReason }
-	| { state: "unknown" };
+type Outcome = { state: "published"; issue: IssueLink } | { state: "held"; reason: HeldReason } | { state: "unknown" };
 
 const ACTION = {
 	published: "feedback.published",
