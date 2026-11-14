@@ -138,6 +138,7 @@ export const CRITERION_EVIDENCE: Partial<Record<z.infer<typeof criterionKey>, re
 	training_complete: ["training.complete", "training.total"],
 	systems_tested: ["attestations.systems_tested", "attestations.systems_tested.asOf"],
 	launch_window: ["launch.daysToLaunch"],
+	first_service_complete: ["firstService.milestone", "firstService.heldOn"],
 };
 
 /** One exit criterion of the assessed phase, as the snapshot measured it, with the facts behind it. */
