@@ -331,6 +331,7 @@ SELECT EXISTS(SELECT FROM r) AS published,EXISTS(SELECT FROM lk) AS claimed,(SEL
 			case "invalid_drafts":
 			case "attempts":
 			case "budget":
+			case "model_unavailable":
 				return settleRun(db, j, run, p, "failed", drafted.reason);
 		}
 		// Publication needs the inputs as captured: the facts' source revision recomputed at the run's own as-of.

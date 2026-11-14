@@ -6,7 +6,8 @@
 		".": "./src/index.ts",
 		"./tracing": "./src/runtime/trace.ts",
 		"./labels": "./src/catalog/labels.ts",
-		"./scripted-assessment": "./src/runtime/scripted-assessment.ts"
+		"./scripted-assessment": "./src/runtime/scripted-assessment.ts",
+		"./assessment-model": "./src/runtime/assessment-model.ts"
 	},
 	"scripts": {
 		"typecheck": "../../node_modules/typescript-7/bin/tsc --noEmit",

@@ -1,13 +1,20 @@
-// The assessment evaluation (WP-042, PI-036) on the synthetic test church, with the scripted model and the scripted
-// graded judge only: no paid call. Every case is one Owner's fresh-assessment request run by the assessment job, listed one by one with each draft's
-// text, the exact rules it broke, its language grade, and pass or fail against what the case expects. Nothing is
-// averaged. The report is written outside the repository:
+// The assessment evaluation (WP-042, PI-036) on the synthetic test church. By default it runs the scripted model and
+// the scripted graded judge only: no paid call. Every case is one Owner's fresh-assessment request run by the assessment
+// job, listed one by one with the model that drafted it, each draft's text, the exact rules it broke, its language
+// grade, the outcome, the spend it charged and pass or fail against what the case expects. Nothing is averaged. The
+// report is written outside the repository:
 //
 //   ASSESSMENT_EVAL_REPORT=/tmp/assessment-eval.md node --conditions=react-server --import tsx --test \
 //     tests/integration/intelligence/assessment-eval.test.mts
 //
 // (default path: <os tmpdir>/everyfield-assessment-eval.md). The test fails, naming each failing case, when any case
 // does not behave as expected.
+//
+// Real-model mode (D92), run by hand only: ASSESSMENT_EVAL_REAL_MODEL=1 with EVRY_MODEL=gpt-6-luna and OPENAI_API_KEY,
+// on the shared development database (real-model.mts refuses anything else). Cases that inject a violation keep the
+// scripted drafter, since only a script can break a rule on demand; the other cases are drafted by gpt-6-luna, and the
+// paid judge grades every draft. Every paid call is charged to the shared database's own model_spend counter, under
+// D77's cap, and the report records the counter before and after.
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -15,6 +22,7 @@ import { writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { draftOutput, languagePasses } from "../../../packages/contracts/src/intelligence/index.ts";
+import { closeDatabase, createDatabase } from "../../../packages/db/src/client.ts";
 import { sql } from "../../../packages/db/src/query.ts";
 import {
 	createAssessmentJob,
@@ -26,8 +34,11 @@ import {
 	scriptedAssessmentDrafter,
 	scriptedLanguageJudge,
 } from "../../../packages/evry/src/runtime/scripted-assessment.ts";
+import { meteredAssessment, type JudgeResult } from "../../../packages/evry/src/runtime/assessment-model.ts";
+import { paidModel } from "../../../packages/evry/src/runtime/model.ts";
 import { ok } from "../../support/fixture.mts";
 import { church, type Church } from "./assessment-church.mts";
+import { realModelOptIn } from "./real-model.mts";
 
 type Draft = ReturnType<typeof draftOutput.parse>;
 type Case = {
@@ -168,12 +179,39 @@ const plants: Record<Case["plant"], any> = {} as never;
 const assessments = createAssessments();
 const rows: {
 	case: Case;
+	model: string;
 	outcome: string;
 	reason: string | null;
 	drafts: any[];
+	spentMicroUsd: number;
 	passed: boolean;
 	problems: string[];
 }[] = [];
+
+const real = realModelOptIn(process.env);
+// The paid drafter and judge charge the shared development database's own model_spend row (public schema), the
+// counter Evry chat charges there, never the throwaway test schema's.
+const meterDb = real && createDatabase({ connectionString: real.meterUrl.toString(), max: 2 });
+const paid =
+	meterDb && (({ model, id, spend }) => meteredAssessment(meterDb, model, id, spend))(paidModel(process.env)!);
+const judge = async (d: Draft): Promise<JudgeResult> =>
+	paid ? paid.judge(d) : { status: "graded", grade: scriptedLanguageJudge(d) };
+const monthCounter = async () =>
+	meterDb
+		? Number(
+				(
+					await meterDb.execute(sql`SELECT coalesce(sum(charged_micro_usd),0)::bigint AS n FROM model_spend
+						WHERE month=date_trunc('month',clock_timestamp() AT TIME ZONE 'UTC')::date`)
+				).rows[0]!.n,
+			)
+		: null;
+let counterBefore: number | null = null;
+let counterAfter: number | null = null;
+let sideEffects = "";
+const sideEffectCounts = () =>
+	c.one(sql`SELECT (SELECT count(*) FROM task)::int AS tasks,(SELECT count(*) FROM phase_transition)::int AS phases,
+		(SELECT count(*) FROM communication)::int AS messages,(SELECT count(*) FROM notice)::int AS notices`);
+let baseline: Record<string, number>;
 
 before(async () => {
 	c = await church("t298e");
@@ -181,72 +219,124 @@ before(async () => {
 	plants.harvest = await c.harvest();
 	plants.unknown = await c.unknownCount();
 	plants.phase3 = await c.phaseThree();
+	baseline = await sideEffectCounts();
+	counterBefore = await monthCounter();
 });
 after(async () => {
-	const path = process.env.ASSESSMENT_EVAL_REPORT || join(tmpdir(), "everyfield-assessment-eval.md");
+	counterAfter = await monthCounter();
+	const fallback = real ? "everyfield-assessment-eval-real.md" : "everyfield-assessment-eval.md";
+	const path = process.env.ASSESSMENT_EVAL_REPORT || join(tmpdir(), fallback);
 	writeFileSync(path, report());
 	console.log(`assessment evaluation report: ${path}`);
 	await c?.database.close();
+	if (meterDb) await closeDatabase(meterDb);
 });
 
 for (const k of CASES)
 	test(`AC:PI-CASE-027 assessment evaluation: ${k.id}`, async () => {
 		const p = plants[k.plant];
 		const requestId = randomUUID();
-		const drafter = scriptedAssessmentDrafter({
-			script: (draft, call) =>
-				k.change && (k.change.on ?? [1, 2, 3]).includes(call.ordinal) ? k.change.edit(draft) : draft,
-		});
+		// A case that injects a violation runs on the scripted drafter in either mode.
+		const drafter =
+			paid && !k.change
+				? paid.drafter
+				: scriptedAssessmentDrafter({
+						script: (draft, call) =>
+							k.change && (k.change.on ?? [1, 2, 3]).includes(call.ordinal) ? k.change.edit(draft) : draft,
+					});
+		const charged = paid?.charged() ?? 0;
 		ok(await assessments.requestRefresh(c.db, p.actor, { requestId }));
 		await runAssessmentBatch(createAssessmentJob(), c.db, drafter, 1);
-		const stored = await c.one(sql`SELECT outcome, drafts, model_input FROM assessment_run
+		const stored = await c.one(sql`SELECT outcome, reason, model, drafts, model_input FROM assessment_run
 			WHERE plant_id=${p.id} AND demand_key=${"manual/" + requestId}`);
-		const result = { outcome: stored.outcome as string, drafts: stored.drafts as unknown[] };
-		const drafts = (stored.drafts as any[]).map((d) => {
+		const result = {
+			outcome: stored.outcome as string,
+			reason: stored.reason as string | null,
+			drafts: stored.drafts as unknown[],
+		};
+		const drafts = [];
+		for (const d of stored.drafts as any[]) {
 			const parsed = draftOutput.safeParse(d.output);
-			return {
+			drafts.push({
 				...d,
 				text: parsed.success ? draftText(parsed.data) : JSON.stringify(d.output),
-				language: parsed.success ? scriptedLanguageJudge(parsed.data) : null,
-			};
-		});
+				language: parsed.success ? await judge(parsed.data) : null,
+			});
+		}
+		const spentMicroUsd = (paid?.charged() ?? 0) - charged;
 		const problems: string[] = [];
 		if (result.outcome !== k.expect.outcome) problems.push(`outcome ${result.outcome}, expected ${k.expect.outcome}`);
 		const first = [...new Set(drafts[0]?.violations.map((v) => v.rule) ?? [])].sort();
 		if (JSON.stringify(first) !== JSON.stringify([...k.expect.firstDraft].sort()))
 			problems.push(`draft 1 broke [${first.join(", ")}], expected [${k.expect.firstDraft.join(", ")}]`);
 		const final = drafts.at(-1);
-		const language = final?.language ? (languagePasses(final.language) ? "pass" : "fail") : "pass";
+		const graded = final?.language;
+		const language = !graded
+			? "pass"
+			: graded.status === "judge_failed"
+				? `judge failure (${graded.detail})`
+				: languagePasses(graded.grade)
+					? "pass"
+					: "fail";
 		if (language !== k.expect.language) problems.push(`language ${language}, expected ${k.expect.language}`);
 		if (result.outcome === "failed" && result.drafts.length !== 3) problems.push("a failed run must hold three drafts");
 		if (k.plant === "phase3" && !stored.model_input.passages.every((x) => x.phase === 3 || x.phase === null))
 			problems.push("a Phase 3 run offered a passage of another phase");
 		if (k.plant === "unknown" && result.outcome === "published") {
 			const text = final.text;
-			if (!/committed-adult count is unknown/.test(text) || !/classification/.test(text))
+			if (!/\bunknown\b/i.test(text) || !/classif|birth date/i.test(text))
 				problems.push("the Unknown count is not said to be unknown with what would settle it");
 			if (/\b(at|below|above) 30\b/.test(text)) problems.push("the published draft compares the Unknown count with 30");
 		}
-		rows.push({ case: k, outcome: result.outcome, reason: result.reason, drafts, passed: !problems.length, problems });
+		rows.push({
+			case: k,
+			model: stored.model,
+			outcome: result.outcome,
+			reason: result.reason,
+			drafts,
+			spentMicroUsd,
+			passed: !problems.length,
+			problems,
+		});
 		assert.deepEqual(problems, [], `${k.id}: ${problems.join("; ")}`);
 	});
+
+test("AC:PI-CASE-027 the evaluation wrote no task, phase, message or notice row", async () => {
+	const now = await sideEffectCounts();
+	sideEffects = JSON.stringify(now);
+	assert.deepEqual(now, baseline);
+});
+
+const usd = (micro: number) => `$${(micro / 1_000_000).toFixed(6)}`;
+const gradeText = (g: JudgeResult) =>
+	g.status === "judge_failed"
+		? `JUDGE FAILURE (${g.detail})`
+		: `${languagePasses(g.grade) ? "pass" : "FAIL"} (plain ${g.grade.plain}, warm ${g.grade.warm}, useful ${g.grade.useful})`;
 
 function report() {
 	const lines = [
 		"# Plant Intelligence assessment evaluation",
 		"",
-		"Scripted model (`assessment-scripted`) and scripted graded judge only; no paid call. One row per case, nothing averaged.",
+		paid
+			? `Real-model run (D92): \`${paid.id}\` drafts every case that injects no violation and grades every draft; cases that inject a violation run on the scripted drafter (\`assessment-scripted\`). One row per case, nothing averaged, no failure retried.`
+			: "Scripted model (`assessment-scripted`) and scripted graded judge only; no paid call. One row per case, nothing averaged.",
 		"",
-		"| Case | Expected | Outcome | Draft 1 broke | Language (last draft) | Result |",
-		"|---|---|---|---|---|---|",
+		"| Case | Drafted by | Expected | Outcome | Draft 1 broke | Language (last draft) | Spend | Result |",
+		"|---|---|---|---|---|---|---|---|",
 		...rows.map((r) => {
 			const first = r.drafts[0]?.violations.map((v) => v.rule).join(", ") || "nothing";
 			const g = r.drafts.at(-1)?.language;
-			const lang = g
-				? `${languagePasses(g) ? "pass" : "FAIL"} (plain ${g.plain}, warm ${g.warm}, useful ${g.useful})`
-				: "n/a";
-			return `| ${r.case.id} | ${r.case.expect.outcome} | ${r.outcome}${r.reason ? ` (${r.reason})` : ""} | ${first} | ${lang} | ${r.passed ? "PASS" : "FAIL: " + r.problems.join("; ")} |`;
+			return `| ${r.case.id} | ${r.model} | ${r.case.expect.outcome} | ${r.outcome}${r.reason ? ` (${r.reason})` : ""} | ${first} | ${g ? gradeText(g) : "n/a"} | ${usd(r.spentMicroUsd)} | ${r.passed ? "PASS" : "FAIL: " + r.problems.join("; ")} |`;
 		}),
+		"",
+		`Cases: ${rows.length}, passed ${rows.filter((r) => r.passed).length}, failed ${rows.filter((r) => !r.passed).length}.`,
+		`Total charged by this run: ${usd(rows.reduce((n, r) => n + r.spentMicroUsd, 0))}.`,
+		...(paid
+			? [
+					`Shared development database model_spend for this month: ${usd(counterBefore!)} before, ${usd(counterAfter!)} after (a difference of ${usd(counterAfter! - counterBefore!)}; any other paid call on that database in the meantime is included).`,
+				]
+			: []),
+		`Task, phase, message and notice rows after the run: ${sideEffects || "not counted"} (before: ${JSON.stringify(baseline)}).`,
 		"",
 	];
 	for (const r of rows) {
@@ -255,8 +345,13 @@ function report() {
 			"",
 			r.case.title,
 			"",
+			`Drafted by: \`${r.model}\`${r.case.change ? " (scripted: this case injects a violation)" : ""}`,
+			"",
 			`Outcome: ${r.outcome}${r.reason ? ` (${r.reason})` : ""}`,
 			"",
+			`Spend charged: ${usd(r.spentMicroUsd)}`,
+			"",
+			...(r.problems.length ? ["Failures:", "", ...r.problems.map((x) => `- ${x}`), ""] : []),
 		);
 		for (const d of r.drafts) {
 			lines.push(
@@ -270,10 +365,10 @@ function report() {
 				lines.push("");
 			}
 			if (d.language) {
-				const g = d.language;
+				const g: JudgeResult = d.language;
 				lines.push(
-					`Language: ${languagePasses(g) ? "pass" : "FAIL"} (plain ${g.plain}/5, warm ${g.warm}/5, useful ${g.useful}/5)`,
-					...g.failures.map((f) => `- \`${f.rule}\`: "${f.quote}"`),
+					`Language: ${gradeText(g)}`,
+					...(g.status === "graded" ? g.grade.failures.map((f) => `- \`${f.rule}\`: "${f.quote}"`) : []),
 					"",
 				);
 			}
