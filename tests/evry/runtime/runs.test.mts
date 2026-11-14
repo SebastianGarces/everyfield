@@ -118,8 +118,9 @@ test("AC:INH-CROSS-06 AC:INH-REGRESSION-BUDGET AC:EVRY-RETRY-CANCEL bounded page
 	assert.deepEqual([input.status.state, input.status.reason], ["stopped", "input_budget"]);
 	assert.ok(input.status.usage.inputTokens >= 128_000 && input.status.usage.toolCalls < 24);
 	assert.equal(input.cards.length, input.status.usage.toolCalls);
-	// Pages of 5 rows: the 24-tool budget is reached first, and the 25th read never runs.
-	const narrow = await ask(foreign, "Read every detail for all people, 5 at a time.");
+	// Small pages: the 24-tool budget is reached first, and the 25th read never runs. Each call resends the whole
+	// catalog, so pages of 3 keep the cumulative input under its own budget as the catalog grows.
+	const narrow = await ask(foreign, "Read every detail for all people, 3 at a time.");
 	assert.equal(await work(), "succeeded");
 	const budget = await events(foreign, narrow);
 	assert.equal(budget.cards.length, 24);
@@ -162,7 +163,6 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 		"communication.get",
 		"communication.forPerson",
 		"communication.templates.list",
-		"communication.resendCandidates",
 	];
 	for (const who of ["owner", "member", "orgOwner", "seatless"] as const) {
 		const catalog = readCatalog(await actor(who));

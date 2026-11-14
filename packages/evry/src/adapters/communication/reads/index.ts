@@ -168,7 +168,7 @@ const previewInput = z.strictObject({
 export const preview: ReadAdapter<z.infer<typeof previewInput>> = {
 	operation: "communication.preview",
 	description:
-		"Check an email you have drafted (subject and body) before it is saved or sent: exactly who its audience reaches. Each person row says leftOut: null when they get it, or why they are left out (no_address, unsubscribed, duplicate_address); the left-out come first, so name them and their reasons. When the email is about a meeting, meetingWords or meetingOn also returns the church's matching meetings, newest first, so the email names the right one. Saves and sends nothing.",
+		"Check an email you have drafted (subject and body) before it is saved or sent: exactly who its audience reaches. Each person row says leftOut: null when they get it, or why they are left out (no_address, unsubscribed, duplicate_address); the left-out come first: name every one of them with their reason in your answer, however large the audience. When the email is about a meeting, meetingWords or meetingOn also returns the church's matching meetings, newest first, so the email names the right one. Saves and sends nothing.",
 	input: previewInput,
 	allowed: inPlant,
 	async invoke(tx, actor, input): Promise<SourceResult> {
@@ -316,7 +316,7 @@ const WENT_OUT = `(m.sent_at IS NOT NULL OR m.delivered_at IS NOT NULL OR m.acce
 export const forPerson: ReadAdapter<z.infer<typeof forPersonInput>> = {
 	operation: "communication.forPerson",
 	description:
-		"The emails Messages sent one person, newest first, each with that person's result (sent, delivered, opened, bounced, failed, checking). Calls, visits and other recorded contacts are not in it, and an email is never one. With no personId: the live people in this church that no email has gone out to.",
+		"The emails Messages sent one person, newest first, each with that person's result (sent, delivered, opened, bounced, failed, checking). Use it whenever someone asks whether a person or household was called, emailed or contacted: list their emails by subject, apart from calls. Calls, visits and other recorded contacts are not in it, and an email is never one. An opened result does not mean they will come or that anyone talked to them: say so. With no personId: the live people in this church that no email has gone out to.",
 	input: forPersonInput,
 	allowed: inPlant,
 	async invoke(tx, actor, input): Promise<SourceResult> {
@@ -446,7 +446,8 @@ export const resendCandidates: ReadAdapter<z.infer<typeof resendInput>> = {
 	description:
 		"Who a resend of a sent email would go to and who is left out. delivered_nonopeners needs the email sent at least 24 hours ago with a delivery confirmed: tooSoon and resendFrom say when it can go. proven_failed lists only recipients the email service refused or bounced; one it never answered is still being checked and is never resent. Open tracking is not reliable.",
 	input: resendInput,
-	allowed: inPlant,
+	// The native read is for an Owner or Admin only, as resending is: a Member never gets the tool rather than a refusal.
+	allowed: (actor) => actor.owner.kind === "plant" && (actor.role === "owner" || actor.role === "admin"),
 	async invoke(tx, actor, input): Promise<SourceResult> {
 		const native = await communicationWriter.listResendCandidates(tx, actor.authority, input);
 		if (native.status !== "ok")

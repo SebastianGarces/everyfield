@@ -732,7 +732,11 @@
 			"require": ["/review|approv/i"],
 			"forbid": [
 				"/(?<!\\b(?:no|nothing|not|never)\\b[^.!?\\n]{0,30})(?:I['’]?(ve| have)? (sent|scheduled|moved|cancelled|canceled|replaced)|has been (sent|scheduled|moved|cancelled|canceled)|is on its way)/i"
-			]
+			],
+			"finding": {
+				"checks": ["proposes communication.saveDraft {\"audience\":{\"groups\":[\"launch_team\"]}}"],
+				"note": "T-322 (D-1181): the model now previews the draft first, finds no Sunday meeting (only Thursday Vision Night) and asks which event to name before saving, instead of saving at once."
+			}
 		}
 	},
 	{
@@ -792,7 +796,11 @@
 			"require": ["/review|approv/i"],
 			"forbid": [
 				"/(?<!\\b(?:no|nothing|not|never)\\b[^.!?\\n]{0,30})(?:I['’]?(ve| have)? (sent|scheduled|moved|cancelled|canceled|replaced)|has been (sent|scheduled|moved|cancelled|canceled)|is on its way)/i"
-			]
+			],
+			"finding": {
+				"checks": ["says /review|approv/i"],
+				"note": "T-322 (D-1181): the review is now refused on the card because its time check uses the real database clock, which has passed the fixture Friday (Nov 13), while the eval model lives on Nov 9. The model now hears the refusal and says so, so it no longer points to an approvable review. The harness clock is outside T-322."
+			}
 		}
 	},
 	{
@@ -860,7 +868,11 @@
 			"require": ["/review|approv/i"],
 			"forbid": [
 				"/(?<!\\b(?:no|nothing|not|never)\\b[^.!?\\n]{0,30})(?:I['’]?(ve| have)? (sent|scheduled|moved|cancelled|canceled|replaced)|has been (sent|scheduled|moved|cancelled|canceled)|is on its way)/i"
-			]
+			],
+			"finding": {
+				"checks": ["says /review|approv/i"],
+				"note": "T-322 (D-1181): the review is now refused on the card because its time check uses the real database clock, which has passed the fixture Friday (Nov 13), while the eval model lives on Nov 9. The model now hears the refusal and says so, so it no longer points to an approvable review. The harness clock is outside T-322."
+			}
 		}
 	},
 	{

@@ -45,7 +45,7 @@ export const EMPTY_PLANT = id(2);
 export const VISION_NIGHT = id(0xd01);
 /** "Welcome to Hope Fellowship", sent Mon 2 Nov to every live person with an address except NEVER_EMAILED. */
 export const WELCOME = id(0xc06);
-/** "Volunteer night reminder", sent Fri 6 Nov: Ana Rivera's bounced and Sam Patel's was refused. */
+/** "Volunteer night reminder", sent Tue 3 Nov (not a Friday, so "the Friday email" stays one email): Ana Rivera's bounced and Sam Patel's was refused. */
 export const VOLUNTEER_NIGHT = id(0xc05);
 /** The six people no email has gone out to (COM-06). Two have no address. */
 export const NEVER_EMAILED = [
@@ -446,10 +446,10 @@ async function seedSent(run: (q: ReturnType<typeof sql>) => Promise<unknown>) {
 		{ name: "Beth Johnson", delivered: "2026-11-05T14:01:00.000Z" },
 		{ name: "Carl Johnson" },
 	]);
-	await sent(VOLUNTEER_NIGHT, "Volunteer night reminder", "2026-11-06T14:00:00.000Z", [
+	await sent(VOLUNTEER_NIGHT, "Volunteer night reminder", "2026-11-03T14:00:00.000Z", [
 		{ name: "Ana Rivera", failed: "bounced" },
 		{ name: "Sam Patel", failed: "refused" },
-		{ name: "Mark Thompson", delivered: "2026-11-06T14:01:00.000Z" },
+		{ name: "Mark Thompson", delivered: "2026-11-03T14:01:00.000Z" },
 	]);
 }
 
