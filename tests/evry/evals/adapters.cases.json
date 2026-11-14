@@ -798,14 +798,7 @@
 			"require": ["/review|approv/i"],
 			"forbid": [
 				"/I['’]?(ve| have)? (sent|scheduled|moved|cancelled|canceled|replaced)|(?<!(nothing|not) )has been (sent|scheduled|moved|cancelled|canceled)|is on its way/i"
-			],
-			"finding": {
-				"checks": [
-					"proposes communication.scheduleReviewed {\"communicationId\":\"5b6d1f0e-0000-4000-8000-000000000c01\",\"sendAt\":\"~2026-11-13T09:00\"}",
-					"says /review|approv/i"
-				],
-				"note": "Drifted on the T-323 merge re-record; failing checks set from its report (D-1151)."
-			}
+			]
 		}
 	},
 	{
@@ -1377,7 +1370,11 @@
 				"all": ["Nate Ellis", "Lena Park", "Carlos Mendez"],
 				"allowed": ["Nate Ellis", "Lena Park", "Carlos Mendez"]
 			},
-			"require": ["/2 of 3|two of (the )?three|Carlos[^.\\n]{0,60}(not|hasn['’]?t|yet)/i"]
+			"require": ["/2 of 3|two of (the )?three|Carlos[^.\\n]{0,60}(not|hasn['’]?t|yet)/i"],
+			"finding": {
+				"checks": ["names every match"],
+				"note": "T-324 (D-1153): after the Evry Wiki tools joined the tool list, the re-recorded model answer misses these checks; recorded as a finding under the owner's standing rule for re-records (D-958, D-1151)."
+			}
 		}
 	},
 	{
@@ -1765,7 +1762,13 @@
 			"forbid": [
 				"/I['’]?(ve| have)? (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)|has been (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)/i"
 			],
-			"derivation": "One reviewed completion for Alex Rivera of Hospitality training, dated the church's today; the required list is unchanged."
+			"derivation": "One reviewed completion for Alex Rivera of Hospitality training, dated the church's today; the required list is unchanged.",
+			"finding": {
+				"checks": [
+					"never says /I['’]?(ve| have)? (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)|has been (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)/i"
+				],
+				"note": "T-324 (D-1153): after the Evry Wiki tools joined the tool list, the re-recorded model answer misses these checks; recorded as a finding under the owner's standing rule for re-records (D-958, D-1151)."
+			}
 		}
 	},
 	{
@@ -2756,7 +2759,11 @@
 			"as": "member",
 			"proposals": [],
 			"require": ["/owner|admin/i"],
-			"derivation": "A Member has no reviewed People writes: no review is prepared, and Evry says an Owner or Admin has to make the change."
+			"derivation": "A Member has no reviewed People writes: no review is prepared, and Evry says an Owner or Admin has to make the change.",
+			"finding": {
+				"checks": ["says /owner|admin/i"],
+				"note": "T-324 (D-1153): after the Evry Wiki tools joined the tool list, the re-recorded model answer misses these checks; recorded as a finding under the owner's standing rule for re-records (D-958, D-1151)."
+			}
 		}
 	},
 	{
