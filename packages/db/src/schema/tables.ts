@@ -3474,7 +3474,11 @@ export const sending_goal = pgTable(
 		revision: int64("revision").notNull(),
 	},
 	(table): PgTableExtraConfigValue[] => [
-		foreignKey({ name: "sending_goal_organization", columns: [table.organization_id], foreignColumns: [organization.id] })
+		foreignKey({
+			name: "sending_goal_organization",
+			columns: [table.organization_id],
+			foreignColumns: [organization.id],
+		})
 			.onDelete("restrict")
 			.onUpdate("no action"),
 		primaryKey({ name: "sending_goal_pkey", columns: [table.id] }),

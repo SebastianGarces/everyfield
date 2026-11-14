@@ -37,7 +37,11 @@ const ok = <T,>(r: { status: string; value?: T; refusal?: unknown }): T => {
 	assert.equal(r.status, "ok", JSON.stringify(r));
 	return r.value as T;
 };
-const refusedWith = (r: { status: string; refusal?: { code: string; field?: string } }, code: string, field?: string) => {
+const refusedWith = (
+	r: { status: string; refusal?: { code: string; field?: string } },
+	code: string,
+	field?: string,
+) => {
 	assert.equal(r.status, "refused", JSON.stringify(r));
 	assert.equal(r.refusal?.code, code);
 	if (field) assert.equal(r.refusal?.field, field);
@@ -181,10 +185,18 @@ test("with no goals, every seat sees live people counted once by stage kind, and
 
 test("an Owner adds and edits goals; a negative target is refused; saving a goal moves nobody", async () => {
 	const moves = async () =>
-		(await admin.execute(sql`SELECT count(*)::int AS n FROM pipeline_stage_move WHERE organization_id=${grace.id}::uuid`))
-			.rows[0]!.n;
+		(
+			await admin.execute(
+				sql`SELECT count(*)::int AS n FROM pipeline_stage_move WHERE organization_id=${grace.id}::uuid`,
+			)
+		).rows[0]!.n;
 	const snapshot = async () => ({
-		board: (await board(dana)).stages.map((s) => [s.id, s.label, s.revision, s.people.map((p) => [p.personId, p.revision])]),
+		board: (await board(dana)).stages.map((s) => [
+			s.id,
+			s.label,
+			s.revision,
+			s.people.map((p) => [p.personId, p.revision]),
+		]),
 		moves: await moves(),
 		history: ok(await record(dana, casey)).history,
 	});
@@ -240,12 +252,17 @@ test("an Owner adds and edits goals; a negative target is refused; saving a goal
 		refusedWith(await saveGoal(db, await authority(who), { ...goal, goalId: randomUUID() }), "unavailable");
 	// An edit needs the current revision.
 	assert.equal(
-		(ok(await saveGoal(db, await authority(dana), { ...goal, expectedRevision: "1", leaderTarget: 7 })) as {
-			revision: string;
-		}).revision,
+		(
+			ok(await saveGoal(db, await authority(dana), { ...goal, expectedRevision: "1", leaderTarget: 7 })) as {
+				revision: string;
+			}
+		).revision,
 		"2",
 	);
-	refusedWith(await saveGoal(db, await authority(dana), { ...goal, expectedRevision: "1", leaderTarget: 8 }), "conflict");
+	refusedWith(
+		await saveGoal(db, await authority(dana), { ...goal, expectedRevision: "1", leaderTarget: 8 }),
+		"conflict",
+	);
 	assert.equal((await goals(dana)).goals[0]!.leaderTarget, 7);
 	// Nobody moved, no stage changed and nobody's history gained an entry.
 	assert.deepEqual(await snapshot(), before);
@@ -289,7 +306,12 @@ test("conversations count by month and quarter of their day; a future day is ref
 		}),
 	);
 	refusedWith(
-		await logConversation(db, auth, { conversationId: randomUUID(), personId: casey, occurredOn: tomorrow, note: null }),
+		await logConversation(db, auth, {
+			conversationId: randomUUID(),
+			personId: casey,
+			occurredOn: tomorrow,
+			note: null,
+		}),
 		"invalid_input",
 		"occurredOn",
 	);
