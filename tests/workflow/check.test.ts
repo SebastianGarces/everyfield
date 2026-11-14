@@ -6,7 +6,8 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
-import { check, type CheckRecord, type Runner } from "../../scripts/check.ts";
+import { check, type CheckRecord, type Runner, spawnRunner } from "../../scripts/check.ts";
+import { IMAGE, LABEL } from "../../scripts/throwaway-postgres.ts";
 
 const sh = (cwd: string, ...args: string[]) =>
 	execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t.invalid", ...args], { cwd, encoding: "utf8" }).trim();
@@ -95,7 +96,7 @@ test("T-41 a one-package change runs its package checks through the merge-base a
 	assert.equal(record.mergeBase, base);
 	assert.equal(record.mode, "selected");
 	assert.equal(record.result, "passed");
-	assert.deepEqual(ran(record), ["lint", "typecheck", "test:unit"]);
+	assert.deepEqual(ran(record), ["lint", "typecheck", "test:unit", "test:db"]);
 	const filter = `--filter ...[${base}] --filter ...@everyfield/ui`;
 	assert.deepEqual(
 		record.checks.filter((c) => c.run).map(({ id, command, result, tests }) => ({ id, command, result, tests })),
@@ -104,6 +105,7 @@ test("T-41 a one-package change runs its package checks through the merge-base a
 			// The fixture package defines no typecheck, so pnpm would run nothing: recorded as skipped, not passed.
 			{ id: "typecheck", command: null, result: "skipped", tests: null },
 			{ id: "test:unit", command: `corepack pnpm ${filter} --if-present run test:unit`, result: "passed", tests: 5 },
+			{ id: "test:db", command: null, result: "skipped", tests: null },
 		],
 	);
 	assert.equal(
@@ -188,7 +190,7 @@ test("T-41 a non-empty diff that selects no checks fails, and so does a check th
 			args.includes("ls") ? { status: 0, stdout: "[]", output: "" } : fake().run(command, args, options);
 		const { record } = check({ root, full: false, home, run });
 		assert.equal(record.result, "failed");
-		assert.deepEqual(record.failures, ["lint failed", "typecheck failed", "test:unit failed"]);
+		assert.deepEqual(record.failures, ["lint failed", "typecheck failed", "test:unit failed", "test:db failed"]);
 	});
 });
 
@@ -208,6 +210,7 @@ test("T-41 --full, the verifier mode, ignores selection: a docs-only diff runs e
 		"lint",
 		"typecheck",
 		"test:unit",
+		"test:db",
 		"docs",
 		"ci-coverage",
 		"workflow",
@@ -241,4 +244,204 @@ test("T-41 an unreadable diff runs everything", (t) => {
 	assert.equal(record.mergeBase, null);
 	assert.equal(record.mode, "full");
 	assert.deepEqual(record.fullReasons, ["the diff could not be read"]);
+});
+
+// T-105: package database tests on a throwaway Postgres. A fake Docker stands in for the container, so these tests see
+// every docker and pnpm command, the env each gets, and the record.
+const DB_PACKAGES = {
+	"packages/db/package.json": JSON.stringify({ name: "@everyfield/db", scripts: { "test:db": "tsx --test x" } }),
+	"packages/db/src/client.ts": "export {};\n",
+	"packages/domain/package.json": JSON.stringify({
+		name: "@everyfield/domain",
+		scripts: { "test:db": "pnpm test:writes" },
+	}),
+	"packages/domain/src/a.ts": "export {};\n",
+	"packages/evry/package.json": JSON.stringify({ name: "@everyfield/evry", scripts: { "test:db": "node --test x" } }),
+};
+
+type Call = { command: string; env: Record<string, string> };
+/** A runner whose pnpm lists `listed`, whose Docker and migration pass unless `fail` names a step, and records each call. */
+function fakeDb({
+	listed,
+	fail,
+	tests = 4,
+}: {
+	listed: string[];
+	fail?: "docker" | "ready" | "migrate" | "@everyfield/db" | "zero";
+	tests?: number;
+}) {
+	const calls: Call[] = [];
+	const run: Runner = (command, args, options) => {
+		calls.push({ command: [command, ...args].join(" "), env: options.env });
+		if (args.includes("ls")) return { status: 0, stdout: JSON.stringify(listed.map((name) => ({ name }))), output: "" };
+		if (command === "docker") {
+			if (fail === "docker") return { status: 1, stdout: "", output: "Cannot connect to the Docker daemon" };
+			if (args[0] === "exec") return { status: fail === "ready" ? 1 : 0, stdout: "", output: "" };
+			if (args[0] === "port") return { status: 0, stdout: "127.0.0.1:55432\n", output: "" };
+			return { status: 0, stdout: "", output: "" };
+		}
+		if (args.includes("db:migrate")) return { status: fail === "migrate" ? 1 : 0, stdout: "", output: "migrate" };
+		if (args.includes("test:db")) {
+			const name = args[args.indexOf("--filter") + 1];
+			const out = fail === "zero" ? "ℹ tests 0" : `ℹ tests ${tests}\nℹ pass ${tests}`;
+			return { status: fail === name ? 1 : 0, stdout: out, output: out };
+		}
+		return fake().run(command, args, options);
+	};
+	return { run, calls, commands: () => calls.map((c) => c.command) };
+}
+const noWait = { readyTimeoutMs: 0, sleep: () => {}, watch: () => () => {} };
+const dbEntry = (record: CheckRecord) => record.checks.find((c) => c.id === "test:db")!;
+
+test("T-105 a packages/domain change runs no census: test:db is skipped with the reason", (t) => {
+	const { root, home } = repo(t, { "packages/domain/src/a.ts": "export const a = 1;\n" }, DB_PACKAGES);
+	const { run, commands } = fakeDb({ listed: ["@everyfield/domain"] });
+	const { record } = check({ root, full: false, home, run, database: noWait });
+	const entry = dbEntry(record);
+	assert.equal(entry.run, true);
+	assert.equal(entry.result, "skipped");
+	assert.equal(entry.command, null);
+	assert.equal(
+		entry.reason,
+		"package source: packages/domain/src/a.ts; only @everyfield/domain defines test:db, the statement census, which runs in GitHub CI only",
+	);
+	assert.ok(!commands().some((c) => c.startsWith("docker") || c.includes("test:db")), commands().join("\n"));
+});
+
+test("T-105 a full run runs every test:db but the census, one after another on one throwaway Postgres", (t) => {
+	const { root, home } = repo(t, { "docs/a.md": "b\n" }, DB_PACKAGES);
+	const { run, calls, commands } = fakeDb({
+		listed: ["@everyfield/db", "@everyfield/domain", "@everyfield/evry", "@everyfield/ui"],
+	});
+	const { record, recordPath } = check({ root, full: true, home, run, database: noWait });
+	const entry = dbEntry(record);
+	assert.equal(entry.result, "passed", entry.detail);
+	assert.equal(entry.tests, 8);
+	assert.deepEqual(entry.packages, [
+		{
+			name: "@everyfield/db",
+			command: "corepack pnpm --filter @everyfield/db run test:db",
+			result: "passed",
+			tests: 4,
+		},
+		{
+			name: "@everyfield/evry",
+			command: "corepack pnpm --filter @everyfield/evry run test:db",
+			result: "passed",
+			tests: 4,
+		},
+	]);
+	const started = calls.find((c) => c.command.startsWith("docker run "))!.command.split(" ");
+	const container = started[started.indexOf("--name") + 1]!;
+	assert.match(container, /^evf-check-db-evf-check-repo-/);
+	assert.deepEqual(entry.database, { throwaway: true, image: IMAGE, container });
+	// One container from CI's image, labelled for this checkout, on 127.0.0.1 at a random port, with a random password.
+	assert.equal(started.at(-1), IMAGE);
+	assert.ok(started.includes("127.0.0.1::5432") && started.includes("POSTGRES_DB=everyfield_ci"), started.join(" "));
+	assert.ok(started[started.indexOf("--label") + 1]!.startsWith(`${LABEL}=`));
+	const password = started.find((a) => a.startsWith("POSTGRES_PASSWORD="))!.slice("POSTGRES_PASSWORD=".length);
+	assert.match(password, /^[0-9a-f]{36}$/);
+	assert.ok(!readFileSync(recordPath, "utf8").includes(password), "the record holds the password");
+	// Sweep, start, ready, port, migrate, the two packages in order, then removal. Never the census.
+	const order = commands().filter((c) => c.startsWith("docker") || c.includes("db:migrate") || c.includes("test:db"));
+	assert.deepEqual(
+		order.map((c) => c.split(" ").slice(0, 2).join(" ")),
+		[
+			"docker ps",
+			"docker run",
+			"docker exec",
+			"docker port",
+			"corepack pnpm",
+			"corepack pnpm",
+			"corepack pnpm",
+			"docker rm",
+		],
+	);
+	assert.ok(order.at(-1)!.endsWith(container));
+	assert.ok(!commands().some((c) => c.includes("@everyfield/domain")), commands().join("\n"));
+	const url = `postgres://ci:${password}@127.0.0.1:55432/everyfield_ci`;
+	for (const c of calls.filter((c) => c.command.includes("db:migrate") || c.command.includes("test:db")))
+		assert.deepEqual(
+			{ ...c.env, PATH: undefined },
+			{ PATH: undefined, DATABASE_URL: url, DATABASE_URL_UNPOOLED: url, EARLY_ACCESS_TEST_DATABASE: "1", CI: "true" },
+		);
+	// No other check gets the database.
+	for (const c of calls.filter((c) => !c.command.includes("db:migrate") && !c.command.includes("test:db")))
+		assert.equal(c.env.DATABASE_URL, undefined, c.command);
+});
+
+test("T-105 each database failure fails test:db and the run with its reason, never skipped or passed", async (t) => {
+	const cases: [Parameters<typeof fakeDb>[0]["fail"], string, boolean][] = [
+		["docker", "test:db failed: Docker cannot be reached: Cannot connect to the Docker daemon", false],
+		["ready", "test:db failed: the database was not ready within 0 s", true],
+		["migrate", "test:db failed: pnpm db:migrate failed on the throwaway database", true],
+		["@everyfield/db", "test:db failed: @everyfield/db test:db failed", true],
+		["zero", "test:db failed: @everyfield/db reported 0 tests", true],
+	];
+	for (const [fail, failure, started] of cases)
+		await t.test(String(fail), (t) => {
+			const { root, home } = repo(t, { "packages/db/src/client.ts": "export const c = 1;\n" }, DB_PACKAGES);
+			const { run, commands } = fakeDb({ listed: ["@everyfield/db"], fail });
+			const { record } = check({ root, full: false, home, run, database: noWait });
+			assert.equal(dbEntry(record).result, "failed");
+			assert.equal(record.result, "failed");
+			assert.deepEqual(record.failures, [failure]);
+			const run_ = commands().find((c) => c.startsWith("docker run "));
+			assert.equal(Boolean(run_), started);
+			if (run_) {
+				const container = run_.split(" ")[run_.split(" ").indexOf("--name") + 1];
+				assert.equal(commands().at(-1), `docker rm -f -v ${container}`, "the container outlives the run");
+			}
+		});
+});
+
+test("T-105 a container a crashed run left for this checkout is removed at the next start", (t) => {
+	const { root, home } = repo(t, { "packages/db/src/client.ts": "export const c = 1;\n" }, DB_PACKAGES);
+	const { run: base, commands } = fakeDb({ listed: ["@everyfield/db"] });
+	const run: Runner = (command, args, options) =>
+		command === "docker" && args[0] === "ps"
+			? (base(command, args, options), { status: 0, stdout: "abc123\n", output: "" })
+			: base(command, args, options);
+	check({ root, full: false, home, run, database: noWait });
+	const sweep = commands().find((c) => c.startsWith("docker ps"))!;
+	assert.match(sweep, new RegExp(`^docker ps -aq --filter label=${LABEL.replaceAll(".", "\\.")}=[0-9a-f]{16}$`));
+	assert.equal(commands()[commands().indexOf(sweep) + 1], "docker rm -f -v abc123");
+});
+
+test("T-105 the throwaway DATABASE_URL wins over the one an env file names", (t) => {
+	const { root, home } = repo(t, { "packages/db/src/client.ts": "export const c = 1;\n" }, DB_PACKAGES);
+	const envFile = join(root, "fixture.env");
+	writeFileSync(
+		envFile,
+		"DATABASE_URL=postgres://shared.example.test/dev\nDATABASE_URL_UNPOOLED=postgres://shared.example.test/dev\n",
+	);
+	const { run: base } = fakeDb({ listed: ["@everyfield/db"] });
+	let seen = "";
+	// The package script reads the env file as the real ones do (--env-file-if-exists), through the real runner.
+	const run: Runner = (command, args, options) => {
+		if (!args.includes("test:db")) return base(command, args, options);
+		const r = spawnRunner(
+			process.execPath,
+			[
+				`--env-file-if-exists=${envFile}`,
+				"-e",
+				"console.log(process.env.DATABASE_URL + ' ' + process.env.DATABASE_URL_UNPOOLED); console.log('ℹ tests 1')",
+			],
+			options,
+		);
+		seen = r.stdout.split("\n")[0]!;
+		return r;
+	};
+	const { record } = check({ root, full: false, home, run, database: noWait });
+	assert.equal(dbEntry(record).result, "passed", dbEntry(record).detail);
+	assert.match(
+		seen,
+		/^postgres:\/\/ci:[0-9a-f]{36}@127\.0\.0\.1:55432\/everyfield_ci postgres:\/\/ci:[0-9a-f]{36}@127\.0\.0\.1:55432\/everyfield_ci$/,
+	);
+});
+
+test("T-105 the throwaway database uses the image of GitHub CI's db job", () => {
+	const ci = readFileSync(new URL("../../.github/workflows/ci.yml", import.meta.url), "utf8");
+	const job = ci.split(/^  db:\n/m)[1]!.split(/^  \S/m)[0]!;
+	assert.equal(job.match(/^\s+image: (\S+)$/m)?.[1], IMAGE);
 });

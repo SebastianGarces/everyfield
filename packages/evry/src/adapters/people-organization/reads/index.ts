@@ -16,6 +16,7 @@ import {
 	type householdResult,
 	type importPreview,
 	type importReceipt,
+	type latestImportReceipt,
 	type peopleExport,
 	type personSkillsResult,
 	type personTagsResult,
@@ -192,9 +193,29 @@ function previewRows(actor: EvryActor, value: z.infer<typeof importPreview>): So
 		...people,
 	];
 }
-function receiptRows(actor: EvryActor, value: z.infer<typeof importReceipt>): SourceRow[] {
+const PROBLEM: Record<string, string> = {
+	name_required: "a first or last name is required",
+	invalid_email: "the email address is not valid",
+	too_long: "a value is too long",
+	invalid_source: "the source is not one People knows",
+	column_count: "the row has the wrong number of columns",
+};
+/** An import row's problems in words, each with its column: what the review card and the receipt read both say. */
+export const problemText = (problems: readonly { column: string | null; code: string }[]) =>
+	problems
+		.map((p) => (p.column ? `${p.column}: ${PROBLEM[p.code] ?? p.code}` : (PROBLEM[p.code] ?? p.code)))
+		.join("; ");
+/** A failed row's reason in words: the columns and checks it failed, or that the import could not write it. */
+export const failure = (item: Extract<z.infer<typeof importReceipt>["rows"][number], { status: "failed" }>) =>
+	item.reason === "row_write_failed" ? "the import could not write this row" : problemText(item.problems) || "invalid";
+function receiptRows(
+	actor: EvryActor,
+	value: z.infer<typeof importReceipt>,
+	found: { requestKey: string; importedAt: string } | null = null,
+): SourceRow[] {
 	const rows = [
 		row("file", value.importId, value.status, {
+			...(found && { requestKey: found.requestKey, importedAt: found.importedAt }),
 			created: String(value.counts.created),
 			skipped: String(value.counts.skipped),
 			failed: String(value.counts.failed),
@@ -207,7 +228,7 @@ function receiptRows(actor: EvryActor, value: z.infer<typeof importReceipt>): So
 			row("import", String(item.row), item.status, {
 				status: item.status,
 				personId,
-				reason: item.status === "failed" ? item.reason : null,
+				reason: item.status === "failed" ? failure(item) : null,
 			}),
 		);
 		if (personId) rows.push(personRow(actor, personId, "Imported person", { row: String(item.row) }));
@@ -476,17 +497,34 @@ export const previewImport: ReadAdapter<z.infer<typeof previewInput>> = {
 	},
 };
 
-const receiptInput = z.strictObject({ requestKey: z.string().min(1).max(200) });
+const receiptInput = z.strictObject({
+	requestKey: z
+		.string()
+		.min(1)
+		.max(200)
+		.optional()
+		.describe("Leave out to read this church's most recent import, with when it ran"),
+});
 export const getImportReceipt: ReadAdapter<z.infer<typeof receiptInput>> = {
 	operation: "people.getImportReceipt",
-	description: "Read one people import's row outcomes by its request key. Contact values stay out.",
+	description:
+		"Read a people import's row outcomes: created, skipped and failed counts and each failed row's reason. Without a request key it reads the most recent import and says when it ran. Contact values stay out.",
 	input: receiptInput,
 	allowed: ownerOrAdmin,
 	async invoke(tx, actor, input) {
-		const request = importReceiptRequest.parse(input);
-		const found = valueOf<z.infer<typeof importReceipt>>(await peopleCsv.getImportReceipt(tx, readCtx(actor), request));
+		// Without a key, the most recent import, with its key and when it ran.
+		const latest = input.requestKey
+			? null
+			: valueOf<z.infer<typeof latestImportReceipt>>(await peopleCsv.getLatestImportReceipt(tx, readCtx(actor)));
+		const found = input.requestKey
+			? valueOf<z.infer<typeof importReceipt>>(
+					await peopleCsv.getImportReceipt(tx, readCtx(actor), importReceiptRequest.parse(input)),
+				)
+			: latest?.status === "available"
+				? latest.receipt
+				: null;
 		if (!found) return missing("people.getImportReceipt", CONTACT);
-		const rows = receiptRows(actor, found);
+		const rows = receiptRows(actor, found, latest?.status === "available" ? latest : null);
 		return result("people.getImportReceipt", "available", rows, found.rows.length, 1, null, "complete", CONTACT);
 	},
 };

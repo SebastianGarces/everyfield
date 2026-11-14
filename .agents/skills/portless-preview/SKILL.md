@@ -55,3 +55,7 @@ Ordinary `down` stops processes and removes owned dependencies/data/snapshots. I
 Confirm the record is terminal, its URL no longer serves the app, and an explicitly removed worktree is absent from disk and `git worktree list`. Successful cleanup reports `removed`; an already-cleaned failed startup may retain `failed` for diagnosis. `cleanup_pending` is incomplete cleanup; inspect its error and retry after fixing the cause. `gc` is a dry run unless passed `--apply`. Shut down a dedicated test supervisor after verification; do not stop unrelated previews.
 
 Worktree cleanup does not revert commits. If a rehearsal requires reverting the change, keep its SHA and revert it on the retained branch after cleanup. Report preview removal and Git reversion separately.
+
+## Nightly run
+
+`bin/dev nightly` takes a preview slot on this Mac once a night: the launchd agent `com.everyfield.nightly` runs it from the main checkout at 03:30 local time (a missed run starts when the Mac next wakes). It skips, and starts nothing, when the machine is loaded or no slot is free. Its output goes to `~/.everyfield/ci/nightly.log`, and each result or skip is one line in `~/.everyfield/ci/nightly.jsonl`. `bin/dev nightly schedule status` says whether the agent is loaded, when it runs and the last record; `bin/dev nightly schedule uninstall` removes it, and `install` puts it back.

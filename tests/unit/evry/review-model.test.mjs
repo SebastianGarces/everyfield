@@ -12,8 +12,13 @@ import { test } from "node:test";
 import {
 	approvable,
 	approvalLeft,
+	digestSchedule,
+	editableChanges,
+	reviewedNotices,
+	settingChanges,
 	isRequired,
 	missingRequired,
+	peopleResult,
 	phaseOf,
 	retryable,
 	reviseInput,
@@ -123,4 +128,55 @@ test("AC:REQ-PPL-026 INV-revise-adult: adult or child is required only until a b
 		missingRequired(dated, { ...edits, birthDate: "", adultClassification: "" })?.field,
 		"adultClassification",
 	);
+});
+
+test("INV-notification-review a settings review groups each category's channels, a digest review names its schedule, and neither can be revised", () => {
+	const review = (operation, changes) => ({ operation, review: { target: null, changes } });
+	const settings = review("notifications.setPreferences", [
+		{ field: "task_due.email", before: true, after: false },
+		{ field: "task_due.in_app", before: true, after: true },
+		{ field: "task_overdue.email", before: true, after: false },
+	]);
+	assert.deepEqual(settingChanges(settings), [
+		{
+			category: "task_due",
+			channels: [
+				{ channel: "Email", before: true, after: false },
+				{ channel: "In-app", before: true, after: true },
+			],
+		},
+		{ category: "task_overdue", channels: [{ channel: "Email", before: true, after: false }] },
+	]);
+	assert.equal(digestSchedule({ cadence: "weekly", weekday: 0, hour: 16 }), "Weekly on Sundays at 4:00 PM");
+	assert.equal(digestSchedule({ cadence: "daily", weekday: 0, hour: 8 }), "Daily at 8:00 AM");
+	const marks = review("notifications.markSelectedRead", [
+		{
+			field: "notice",
+			before: { id: "n1", title: "Due", category: "task_due", at: "2026-11-07T15:00:00.000Z", zone: "America/Chicago" },
+			after: "read",
+		},
+	]);
+	assert.deepEqual(
+		reviewedNotices(marks).map((n) => n.id),
+		["n1"],
+	);
+	for (const r of [settings, marks]) assert.deepEqual(editableChanges(r), []);
+});
+
+test("AC:HH-05 INV-partial: a saved change that left anyone out counts who changed and never reads as done for everyone", () => {
+	const person = (n, outcome) => ({
+		id: `0000000${n}-1111-4111-8111-111111111111`,
+		label: `Nguyen ${n}`,
+		outcome,
+		...(outcome === "unchanged" && { reason: "Already at this address" }),
+	});
+	const saved = (people) =>
+		review({ status: "approved", outcome: "completed", operation: "people.propagateAddress", receipt: { people } });
+	const all = [1, 2, 3, 4].map((n) => person(n, "changed"));
+	assert.equal(peopleResult(saved(all)), "Saved for all 4");
+	const partial = [...all.slice(0, 3), person(4, "unchanged")];
+	assert.equal(peopleResult(saved(partial)), "3 of 4 changed");
+	assert.doesNotMatch(peopleResult(saved(partial)), /all|saved/i);
+	// A change that reached nobody else has no count.
+	assert.equal(peopleResult(review({ status: "approved", outcome: "completed", receipt: {} })), null);
 });

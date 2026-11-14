@@ -194,6 +194,15 @@ export const importReceipt = z.strictObject({
 	counts: z.strictObject({ created: z.int(), skipped: z.int(), failed: z.int(), remaining: z.int() }),
 });
 
+/**
+ * The church's most recent people import, found without its request key: the key, when it was saved and its receipt
+ * (CLN-05). none: the church has never imported.
+ */
+export const latestImportReceipt = z.discriminatedUnion("status", [
+	z.strictObject({ status: z.literal("none") }),
+	z.strictObject({ status: z.literal("available"), requestKey, importedAt: instant, receipt: importReceipt }),
+]);
+
 /** The directory's current filters (REQ-PPL-001), without paging or view. */
 export const exportPeopleRequest = listPeopleRequest.pick({
 	search: true,

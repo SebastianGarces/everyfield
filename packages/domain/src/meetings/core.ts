@@ -25,7 +25,8 @@ export type Reader = Pick<Transaction, "execute">;
 export type MeetingsContext = { session: z.infer<typeof sessionId>; selected: Owner };
 
 type Code = MeetingsError["code"];
-class Refusal extends Error {
+/** A refusal inside a bound write; its reply carries the same code. */
+export class Refusal extends Error {
 	readonly code: Code;
 	readonly details: object;
 	constructor(code: Code, details: object) {

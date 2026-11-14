@@ -28,11 +28,13 @@ async function target(db: Database, actor: EvryActor, id: string) {
 		href: articleHref(article.slug),
 	};
 }
-/** The native reply as an effect: `revision` is the saved revision, or null when the article was not readable. */
-function done<T>(reply: WikiReply<T>, revision: (v: T) => string | null): EffectResult {
+/**
+ * The native reply as an effect. A bookmark or vote changes only the approving reader's own Wiki state, so it has no
+ * record receipt; `readable` is false when the article could not be read.
+ */
+function done<T>(reply: WikiReply<T>, readable: (v: T) => boolean): EffectResult {
 	if (reply.status !== "ok") return { refused: reply.error.code };
-	const saved = revision(reply.value);
-	return saved === null ? { refused: "access_denied" } : { revision: saved };
+	return readable(reply.value) ? { own: true } : { refused: "access_denied" };
 }
 
 const bookmarkInput = z.strictObject({
@@ -58,7 +60,7 @@ export const setBookmark: ReviewedWrite<z.infer<typeof bookmarkInput>> = {
 	},
 	async execute(tx, context, args, effectKey) {
 		const request = setBookmarkRequest.parse({ ...z.object({}).loose().parse(args), requestKey: effectKey });
-		return done(await wikiEffects.setBookmark(tx, context, request), (v) => (v.errorCode ? null : v.revision));
+		return done(await wikiEffects.setBookmark(tx, context, request), (v) => !v.errorCode);
 	},
 };
 
@@ -81,7 +83,7 @@ export const setFeedback: ReviewedWrite<z.infer<typeof feedbackInput>> = {
 	},
 	async execute(tx, context, args, effectKey) {
 		const request = feedbackSetMineRequest.parse({ ...z.object({}).loose().parse(args), requestKey: effectKey });
-		return done(await wikiEffects.setMine(tx, context, request), (v) => String(v.ownHistoryVotes.length));
+		return done(await wikiEffects.setMine(tx, context, request), () => true);
 	},
 };
 

@@ -4175,6 +4175,73 @@
 				}
 			}
 		},
+		"feedback": {
+			"table": {
+				"name": "feedback",
+				"domain": "operations",
+				"purpose": "One piece of product feedback from the Send feedback dialog (WP-049A): its category, the author's words and the private page and device details, owned by the author's account. The author lists its status; a triager with the feedback_triage platform grant reads the private original and changes its status, and each change is an audit row.",
+				"library_owned": false,
+				"jsonb_keys": {},
+				"capabilities": ["CAP-A-044", "CAP-A-045"],
+				"replaces": [],
+				"producer_work_packages": ["WP-049"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-049"],
+					"rule": "WP-049 feedback.submit stores it; feedback.admin.changeStatus moves its status."
+				},
+				"feature_ids": ["ADM-001", "ADM-002"],
+				"acceptance_ids": ["AC-ADM-001--ADM-001", "AC-ADM-002--ADM-002"],
+				"future_case_ids": [],
+				"scope": "identity",
+				"invariants": [
+					"The author, words and details never change after submission; only status and revision do.",
+					"At most one row per account and request key, so a resend saves once.",
+					"The address is an internal path with no query, fragment or token.",
+					"Church and role come from the author's seat on the server, never from the browser.",
+					"Each status change writes one feedback.status_changed audit row in the same statement; setting the current status writes nothing."
+				],
+				"revision": "revision rises by one with each status change; a change names the revision it expects.",
+				"idempotency": "The same account and request key returns the saved feedback and writes nothing more.",
+				"deletion": "Account-owned private content. Personal account deletion hides it at once with the account, and the account purge removes it; recovery copies expire within seven days of the live purge.",
+				"physical_verified": false
+			},
+			"columns": {
+				"id": { "note": "Feedback identity, bound to a record of kind feedback owned by the author's account." },
+				"account_id": { "note": "The author's account, from the session; never changes." },
+				"request_key": { "note": "The dialog's send key; a resend with the same key returns the saved row." },
+				"category": { "note": "bug, suggestion, question or other." },
+				"description": { "note": "The author's words, trimmed, 1 to 5,000 characters. Private." },
+				"page_label": { "note": "The page name the author saw. Private." },
+				"page_address": { "note": "The internal path with query, fragment and tokens removed. Private." },
+				"church_label": {
+					"note": "The church or organization of the author's seat when sent, from the server. Private."
+				},
+				"role_label": { "note": "The author's seat role when sent, from the server. Private." },
+				"browser": { "note": "Browser and system as the browser reports them, or null. Private." },
+				"screen_width": { "note": "Viewport width in CSS pixels, or null. Private." },
+				"screen_height": { "note": "Viewport height in CSS pixels, or null. Private." },
+				"theme": { "note": "light or dark, or null when the page did not say. Private." },
+				"app_version": { "note": "The deployed app version from the server, or null. Private." },
+				"submitted_at": { "note": "When the server saved it." },
+				"status": { "note": "new, reviewed, resolved or dismissed; only a triager changes it." },
+				"revision": { "note": "Rises with each status change." }
+			},
+			"foreignKeys": {
+				"account_id->account(id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "The account purge deletes the author's feedback before the account."
+					}
+				},
+				"id,account_id->record(id,tenant_id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Deferred record binding; the record stays for the audit history."
+					}
+				}
+			}
+		},
 		"platform_grant": {
 			"table": {
 				"name": "platform_grant",
@@ -13123,6 +13190,7 @@
 					"WP-046",
 					"WP-047",
 					"WP-048",
+					"WP-049",
 					"WP-050",
 					"WP-054",
 					"WP-057",
@@ -13147,6 +13215,7 @@
 						"discovery",
 						"document",
 						"document_revision",
+						"feedback",
 						"file_object",
 						"four_cs",
 						"generated_document",
@@ -14025,6 +14094,512 @@
 					}
 				},
 				"id,organization_id->record(id,tenant_id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Explicit dependency-ordered removal or authorized minimal-attribution detachment. Current grants and removal witnesses apply to retained facts and recovery; a foreign key grants no access."
+					}
+				}
+			}
+		},
+		"development_milestone": {
+			"table": {
+				"name": "development_milestone",
+				"domain": "people",
+				"purpose": "One milestone of a program version (REQ-MUL-010): its title, an optional description, and whether it is a hands-on assignment, which always has a description. lineage carries a milestone from one version to the next, so a later version can say what was added, removed or changed.",
+				"library_owned": false,
+				"jsonb_keys": {},
+				"capabilities": ["CAP-A-057"],
+				"replaces": [],
+				"producer_work_packages": ["WP-099"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-099"],
+					"rule": "WP-099 development programs own their plans, completions and feedback."
+				},
+				"feature_ids": ["MUL-010", "MUL-011", "MUL-012", "MUL-015"],
+				"acceptance_ids": ["AC-MUL-010--MUL-010", "AC-MUL-011--MUL-011", "AC-MUL-012--MUL-012", "AC-MUL-015--MUL-015"],
+				"future_case_ids": ["ADR1-010", "ADR1-011", "ADR1-012", "ADR1-015"],
+				"scope": "people",
+				"invariants": [
+					"Belongs to exactly one version of one organization's program.",
+					"A published version's milestones never change; a draft's are replaced whole on each save.",
+					"No score, grade or rating column (REQ-MUL-012)."
+				],
+				"revision": "Rows of a published version are immutable; a draft's rows are replaced.",
+				"idempotency": "A draft save replaces its rows; a repeat writes the same plan.",
+				"deletion": "Removed with its program version under REQ-MUL-005.",
+				"physical_verified": false
+			},
+			"columns": {
+				"id": {
+					"note": ""
+				},
+				"organization_id": {
+					"note": ""
+				},
+				"version_id": {
+					"note": ""
+				},
+				"lineage": {
+					"note": ""
+				},
+				"position": {
+					"note": ""
+				},
+				"title": {
+					"note": ""
+				},
+				"description": {
+					"note": ""
+				},
+				"hands_on": {
+					"note": ""
+				}
+			},
+			"foreignKeys": {
+				"version_id,organization_id->development_program_version(id,organization_id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Explicit dependency-ordered removal or authorized minimal-attribution detachment. Current grants and removal witnesses apply to retained facts and recovery; a foreign key grants no access."
+					}
+				}
+			}
+		},
+		"development_reading": {
+			"table": {
+				"name": "development_reading",
+				"domain": "people",
+				"purpose": "One Wiki article on a program version's reading list (REQ-MUL-010). It pins the article and the revision chosen, from the global library or the organization's own version, and copies the title so an item whose source is no longer published still reads as unavailable with its title.",
+				"library_owned": false,
+				"jsonb_keys": {},
+				"capabilities": ["CAP-A-057"],
+				"replaces": [],
+				"producer_work_packages": ["WP-099"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-099"],
+					"rule": "WP-099 development programs own their plans, completions and feedback."
+				},
+				"feature_ids": ["MUL-010", "MUL-011", "MUL-012", "MUL-015"],
+				"acceptance_ids": ["AC-MUL-010--MUL-010", "AC-MUL-011--MUL-011", "AC-MUL-012--MUL-012", "AC-MUL-015--MUL-015"],
+				"future_case_ids": ["ADR1-010", "ADR1-011", "ADR1-012", "ADR1-015"],
+				"scope": "people",
+				"invariants": [
+					"The pinned revision is global or the organization's own; never another organization's.",
+					"Availability is rechecked at every read; the row grants no library access."
+				],
+				"revision": "Rows of a published version are immutable; a draft's are replaced.",
+				"idempotency": "A draft save replaces its rows.",
+				"deletion": "Removed with its program version under REQ-MUL-005.",
+				"physical_verified": false
+			},
+			"columns": {
+				"id": {
+					"note": ""
+				},
+				"organization_id": {
+					"note": ""
+				},
+				"version_id": {
+					"note": ""
+				},
+				"position": {
+					"note": ""
+				},
+				"article_id": {
+					"note": ""
+				},
+				"revision_id": {
+					"note": ""
+				},
+				"title": {
+					"note": ""
+				}
+			},
+			"foreignKeys": {
+				"version_id,organization_id->development_program_version(id,organization_id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Explicit dependency-ordered removal or authorized minimal-attribution detachment. Current grants and removal witnesses apply to retained facts and recovery; a foreign key grants no access."
+					}
+				},
+				"article_id->reference_item(id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Explicit dependency-ordered removal or authorized minimal-attribution detachment. Current grants and removal witnesses apply to retained facts and recovery; a foreign key grants no access."
+					}
+				},
+				"revision_id->article_revision(id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Explicit dependency-ordered removal or authorized minimal-attribution detachment. Current grants and removal witnesses apply to retained facts and recovery; a foreign key grants no access."
+					}
+				}
+			}
+		},
+		"enrollment_milestone": {
+			"table": {
+				"name": "enrollment_milestone",
+				"domain": "people",
+				"purpose": "A finished milestone of one enrollment (REQ-MUL-012): the day it was finished, who recorded and who confirmed it, when it was confirmed, and its source. Today only the program director records and confirms an unlinked enrollee's milestone in one step (source program_leader).",
+				"library_owned": false,
+				"jsonb_keys": {},
+				"capabilities": ["CAP-A-057"],
+				"replaces": [],
+				"producer_work_packages": ["WP-099"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-099"],
+					"rule": "WP-099 development programs own their plans, completions and feedback."
+				},
+				"feature_ids": ["MUL-010", "MUL-011", "MUL-012", "MUL-015"],
+				"acceptance_ids": ["AC-MUL-010--MUL-010", "AC-MUL-011--MUL-011", "AC-MUL-012--MUL-012", "AC-MUL-015--MUL-015"],
+				"future_case_ids": ["ADR1-010", "ADR1-011", "ADR1-012", "ADR1-015"],
+				"scope": "people",
+				"invariants": [
+					"The milestone belongs to the enrollment's own version.",
+					"At most one row per enrollment and milestone.",
+					"Never commissions anyone or creates a plant."
+				],
+				"revision": "Append-only; a row never changes.",
+				"idempotency": "A repeat for the same milestone writes nothing.",
+				"deletion": "Removed with the enrollment under REQ-MUL-005.",
+				"physical_verified": false
+			},
+			"columns": {
+				"id": {
+					"note": ""
+				},
+				"organization_id": {
+					"note": ""
+				},
+				"enrollment_id": {
+					"note": ""
+				},
+				"version_id": {
+					"note": ""
+				},
+				"milestone_id": {
+					"note": ""
+				},
+				"source": {
+					"note": ""
+				},
+				"completed_on": {
+					"note": ""
+				},
+				"recorder_id": {
+					"note": ""
+				},
+				"confirmer_id": {
+					"note": ""
+				},
+				"confirmed_at": {
+					"note": ""
+				}
+			},
+			"foreignKeys": {
+				"enrollment_id,version_id,organization_id->development_enrollment(id,version_id,organization_id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Explicit dependency-ordered removal or authorized minimal-attribution detachment. Current grants and removal witnesses apply to retained facts and recovery; a foreign key grants no access."
+					}
+				},
+				"milestone_id,version_id,organization_id->development_milestone(id,version_id,organization_id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Explicit dependency-ordered removal or authorized minimal-attribution detachment. Current grants and removal witnesses apply to retained facts and recovery; a foreign key grants no access."
+					}
+				},
+				"recorder_id->account(id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Explicit dependency-ordered removal or authorized minimal-attribution detachment. Current grants and removal witnesses apply to retained facts and recovery; a foreign key grants no access."
+					}
+				},
+				"confirmer_id->account(id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Explicit dependency-ordered removal or authorized minimal-attribution detachment. Current grants and removal witnesses apply to retained facts and recovery; a foreign key grants no access."
+					}
+				}
+			}
+		},
+		"assignment_feedback": {
+			"table": {
+				"name": "assignment_feedback",
+				"domain": "people",
+				"purpose": "Dated feedback from the program director on one hands-on assignment of an enrollment (REQ-MUL-012). Readable only by the linked resident, the current director and the organization's Owner and Admins; its body never enters central audit.",
+				"library_owned": false,
+				"jsonb_keys": {},
+				"capabilities": ["CAP-A-057"],
+				"replaces": [],
+				"producer_work_packages": ["WP-099"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-099"],
+					"rule": "WP-099 development programs own their plans, completions and feedback."
+				},
+				"feature_ids": ["MUL-010", "MUL-011", "MUL-012", "MUL-015"],
+				"acceptance_ids": ["AC-MUL-010--MUL-010", "AC-MUL-011--MUL-011", "AC-MUL-012--MUL-012", "AC-MUL-015--MUL-015"],
+				"future_case_ids": ["ADR1-010", "ADR1-011", "ADR1-012", "ADR1-015"],
+				"scope": "people",
+				"invariants": [
+					"The milestone is a hands-on assignment of the enrollment's own version.",
+					"No score, grade or judgment of calling.",
+					"The body never enters central audit or search."
+				],
+				"revision": "Append-only; a row never changes.",
+				"idempotency": "The browser names the feedback ID, so a repeat writes nothing.",
+				"deletion": "Removed with the enrollment under REQ-MUL-005.",
+				"physical_verified": false
+			},
+			"columns": {
+				"id": {
+					"note": ""
+				},
+				"organization_id": {
+					"note": ""
+				},
+				"enrollment_id": {
+					"note": ""
+				},
+				"version_id": {
+					"note": ""
+				},
+				"milestone_id": {
+					"note": ""
+				},
+				"writer_id": {
+					"note": ""
+				},
+				"written_at": {
+					"note": ""
+				},
+				"body": {
+					"note": ""
+				}
+			},
+			"foreignKeys": {
+				"enrollment_id,version_id,organization_id->development_enrollment(id,version_id,organization_id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Explicit dependency-ordered removal or authorized minimal-attribution detachment. Current grants and removal witnesses apply to retained facts and recovery; a foreign key grants no access."
+					}
+				},
+				"milestone_id,version_id,organization_id->development_milestone(id,version_id,organization_id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Explicit dependency-ordered removal or authorized minimal-attribution detachment. Current grants and removal witnesses apply to retained facts and recovery; a foreign key grants no access."
+					}
+				},
+				"writer_id->account(id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Explicit dependency-ordered removal or authorized minimal-attribution detachment. Current grants and removal witnesses apply to retained facts and recovery; a foreign key grants no access."
+					}
+				}
+			}
+		},
+		"pipeline_stage_move": {
+			"table": {
+				"name": "pipeline_stage_move",
+				"domain": "people",
+				"purpose": "One stage placement or move of an organization pipeline person (REQ-MUL-008): the stages and their labels as they were at that moment, and the reason a person gave. Its id is the id of the move's audit event (written in the same statement), which holds who moved the person and when; the reason stays here and never enters central audit (REQ-MUL-002).",
+				"library_owned": false,
+				"jsonb_keys": {},
+				"capabilities": ["CAP-A-056"],
+				"replaces": [],
+				"producer_work_packages": ["WP-098"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-098"],
+					"rule": "WP-098 organization pipeline records each human stage move with its reason."
+				},
+				"feature_ids": ["MUL-007", "MUL-008", "MUL-009"],
+				"acceptance_ids": ["AC-MUL-007--MUL-007", "AC-MUL-008--MUL-008", "AC-MUL-009--MUL-009"],
+				"future_case_ids": ["ADR1-007", "ADR1-008", "ADR1-009"],
+				"scope": "people",
+				"invariants": [
+					"Written only by a human placement or move, in the same statement as its audit event, which shares its id.",
+					"A move from a stage carries a non-empty reason; the first placement has no from stage and no reason.",
+					"Labels are copied at the time of the move, so a later rename never changes history."
+				],
+				"revision": "Append-only; a row never changes.",
+				"idempotency": "One row per audit event; a repeated move to the current stage writes nothing.",
+				"deletion": "Removed with the pipeline person under REQ-MUL-005.",
+				"physical_verified": false
+			},
+			"columns": {
+				"id": {
+					"note": ""
+				},
+				"organization_id": {
+					"note": ""
+				},
+				"pipeline_person_id": {
+					"note": ""
+				},
+				"from_stage_id": {
+					"note": ""
+				},
+				"to_stage_id": {
+					"note": ""
+				},
+				"from_label": {
+					"note": ""
+				},
+				"to_label": {
+					"note": ""
+				},
+				"reason": {
+					"note": ""
+				}
+			},
+			"foreignKeys": {
+				"pipeline_person_id,organization_id->pipeline_person(id,organization_id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Explicit dependency-ordered removal or authorized minimal-attribution detachment. Current grants and removal witnesses apply to retained facts and recovery; a foreign key grants no access."
+					}
+				},
+				"from_stage_id,organization_id->pipeline_stage(id,organization_id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Explicit dependency-ordered removal or authorized minimal-attribution detachment. Current grants and removal witnesses apply to retained facts and recovery; a foreign key grants no access."
+					}
+				},
+				"to_stage_id,organization_id->pipeline_stage(id,organization_id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Explicit dependency-ordered removal or authorized minimal-attribution detachment. Current grants and removal witnesses apply to retained facts and recovery; a foreign key grants no access."
+					}
+				}
+			}
+		},
+		"leadership_conversation": {
+			"table": {
+				"name": "leadership_conversation",
+				"domain": "people",
+				"purpose": "One leadership (ICNU) conversation of an organization pipeline person (REQ-MUL-009): which staff seat met them, the actual day, and an optional short note readable only by the Owner, Admins and the person's current responsible staff. Counts by month and quarter are read from the day.",
+				"library_owned": false,
+				"jsonb_keys": {},
+				"capabilities": ["CAP-A-056"],
+				"replaces": [],
+				"producer_work_packages": ["WP-098"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-098"],
+					"rule": "WP-098 records each human-logged leadership conversation."
+				},
+				"feature_ids": ["MUL-007", "MUL-008", "MUL-009"],
+				"acceptance_ids": ["AC-MUL-007--MUL-007", "AC-MUL-008--MUL-008", "AC-MUL-009--MUL-009"],
+				"future_case_ids": ["ADR1-007", "ADR1-008", "ADR1-009"],
+				"scope": "people",
+				"invariants": [
+					"Logged only by a human with current duty for the person; never by Evry or a rule.",
+					"The day is a calendar day in the organization's time zone and is never after the day it was logged or corrected.",
+					"The note never enters central audit, search, exports or model input; a correction's audit row holds only the old and new day."
+				],
+				"revision": "Expected revision fences corrections; each correction appends a people.corrected audit row with the old and new day.",
+				"idempotency": "The browser names the conversation id, so a repeated log writes one conversation.",
+				"deletion": "Removed with the pipeline person under REQ-MUL-005.",
+				"physical_verified": false
+			},
+			"columns": {
+				"id": {
+					"note": ""
+				},
+				"organization_id": {
+					"note": ""
+				},
+				"pipeline_person_id": {
+					"note": ""
+				},
+				"staff_seat_id": {
+					"note": ""
+				},
+				"occurred_on": {
+					"note": ""
+				},
+				"note": {
+					"note": ""
+				},
+				"revision": {
+					"note": ""
+				}
+			},
+			"foreignKeys": {
+				"pipeline_person_id,organization_id->pipeline_person(id,organization_id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Explicit dependency-ordered removal or authorized minimal-attribution detachment. Current grants and removal witnesses apply to retained facts and recovery; a foreign key grants no access."
+					}
+				},
+				"staff_seat_id->seat(id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Explicit dependency-ordered removal or authorized minimal-attribution detachment. Current grants and removal witnesses apply to retained facts and recovery; a foreign key grants no access."
+					}
+				}
+			}
+		},
+		"sending_goal": {
+			"table": {
+				"name": "sending_goal",
+				"domain": "people",
+				"purpose": "One sending goal of a sending church or network (REQ-MUL-007): nonnegative leader and plant targets, a target year and the organization's reason. Observed counts are read from the pipeline at a stated as-of day and are never stored here.",
+				"library_owned": false,
+				"jsonb_keys": {},
+				"capabilities": ["CAP-A-056"],
+				"replaces": [],
+				"producer_work_packages": ["WP-098"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-098"],
+					"rule": "WP-098 records an organization's sending goals."
+				},
+				"feature_ids": ["MUL-007", "MUL-008", "MUL-009"],
+				"acceptance_ids": ["AC-MUL-007--MUL-007", "AC-MUL-008--MUL-008", "AC-MUL-009--MUL-009"],
+				"future_case_ids": ["ADR1-007", "ADR1-008", "ADR1-009"],
+				"scope": "people",
+				"invariants": [
+					"Written only by an Owner or Admin of the same organization; body-free audit only.",
+					"A goal never moves a person, changes a stage, commissions an enrollment or creates a plant."
+				],
+				"revision": "Expected revision fences changes.",
+				"idempotency": "The browser names the goal id, so a repeated add writes one goal.",
+				"deletion": "Retained with the organization; no fixed new period is introduced.",
+				"physical_verified": false
+			},
+			"columns": {
+				"id": {
+					"note": ""
+				},
+				"organization_id": {
+					"note": ""
+				},
+				"leader_target": {
+					"note": ""
+				},
+				"plant_target": {
+					"note": ""
+				},
+				"target_year": {
+					"note": ""
+				},
+				"rationale": {
+					"note": ""
+				},
+				"created_at": {
+					"note": ""
+				},
+				"revision": {
+					"note": ""
+				}
+			},
+			"foreignKeys": {
+				"organization_id->organization(id)": {
 					"deletion": {
 						"action": "restrict",
 						"policy": "Explicit dependency-ordered removal or authorized minimal-attribution detachment. Current grants and removal witnesses apply to retained facts and recovery; a foreign key grants no access."

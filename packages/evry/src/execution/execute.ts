@@ -2,7 +2,9 @@ import type { Database, Transaction } from "@everyfield/db/client";
 import { sql } from "@everyfield/db/query";
 import { RequestActor } from "@everyfield/domain/access";
 import { CommunicationRefusal } from "@everyfield/domain/communication";
+import { MeetingsRefusal } from "@everyfield/domain/meetings";
 import { Refusal } from "@everyfield/domain/people";
+import { TeamsRefusal } from "@everyfield/domain/teams";
 import type { TaskReminders } from "@everyfield/domain/tasks";
 import { owner, sessionId } from "@everyfield/contracts/common";
 import { z } from "zod";
@@ -62,6 +64,19 @@ const locked = z.object({
 /** The refusal code a person sees for a domain refusal; a changed target asks for a new review. */
 const refusalCode = (code: string) =>
 	code === "conflict" ? "revision_conflict" : code === "unavailable" ? "access_denied" : code;
+
+/**
+ * The records a refusal because something changed shows as they are now, for the writes that name them (current), read
+ * in the statement that saves the refusal.
+ */
+const currentState = (() => {
+	const writes = (Object.values(REVIEWED_WRITES) as ReviewedWrite<unknown>[]).filter((w) => w.current);
+	if (!writes.length) return sql`NULL::jsonb`;
+	return sql`CASE proposal.operation ${sql.join(
+		writes.map((w) => sql`WHEN ${w.operation} THEN ${w.current!(sql`proposal`)}`),
+		sql` `,
+	)} END`;
+})();
 
 /** The first step committed; the email service step is next. */
 type Reach = { id: string; reach(): Promise<EffectResult> };
@@ -136,7 +151,7 @@ export async function executeProposal(
 			if ("refused" in result) throw new Refused(refusalCode(result.refused));
 			// The email service is called after this transaction commits, never inside it. The saved mark tells a retry that
 			// this effect started.
-			if (reach && mail) {
+			if (reach && mail && "receiptId" in result) {
 				await tx.execute(sql`UPDATE proposal SET receipt='{"reached":true}'::jsonb WHERE id=${p.id}::uuid`);
 				return { id: p.id, reach: () => reach(db, claimed.authority, p.input, effectKey, result, mail) };
 			}
@@ -178,7 +193,10 @@ export async function executeProposal(
 		const refused =
 			error instanceof Refused
 				? error.code
-				: error instanceof Refusal || error instanceof CommunicationRefusal
+				: error instanceof Refusal ||
+					  error instanceof CommunicationRefusal ||
+					  error instanceof TeamsRefusal ||
+					  error instanceof MeetingsRefusal
 					? refusalCode(error.code)
 					: error instanceof EvryRefusal
 						? error.code
@@ -187,7 +205,8 @@ export async function executeProposal(
 		const saved = await db.transaction(async (tx) => {
 			await holdPublicationLocks(tx, lease);
 			return tx.execute(sql`
-				UPDATE proposal SET outcome='refused',receipt=jsonb_build_object('code',${refused}::text),updated_at=clock_timestamp()
+				UPDATE proposal SET outcome='refused',receipt=jsonb_strip_nulls(jsonb_build_object('code',${refused}::text,
+					'current',CASE WHEN ${refused}::text='revision_conflict' THEN ${currentState} END)),updated_at=clock_timestamp()
 				WHERE job_id=${lease.jobId}::uuid AND tenant_id=${lease.tenantId}::uuid AND state='approved' AND outcome IS NULL AND ${fence(lease)}`);
 		});
 		return saved.rowCount ? "refused" : "lost";
