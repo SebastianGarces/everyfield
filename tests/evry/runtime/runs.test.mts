@@ -323,7 +323,8 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 							"account.requestDeletion",
 						]
 					: who === "orgOwner"
-						? ["organizations.updateProfile"]
+						? // An organization Owner sets only their own oversight digest (D-1278) and their organization's profile.
+							["notifications.oversightDigestCadence.set", "organizations.updateProfile"]
 						: [],
 		);
 		const teamsReads = READ_DOMAINS.teams.map((a) => a.operation);
@@ -381,7 +382,9 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 							"seats.list",
 							"privacy.getSharing",
 						]
-					: [],
+					: who === "orgOwner"
+						? ["notifications.previewOversightDigest"]
+						: [],
 		);
 	}
 });

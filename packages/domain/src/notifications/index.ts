@@ -24,6 +24,7 @@ import {
 	getPreferences,
 	setDigestCadence,
 	setOversightDigestCadence,
+	setOversightDigestCadenceCommand,
 	setDigestCadenceCommand,
 	setPreference,
 	setPreferences,
@@ -75,7 +76,9 @@ export {
 	compilePlanterDigest,
 	digestRecipientLive,
 	nextDigestInstant,
+	OVERSIGHT_SLOT,
 	owedPeriod,
+	previewOversightDigest,
 	previewPlanterDigest,
 	renderOversightDigest,
 	renderPlanterDigest,
@@ -90,6 +93,8 @@ export const lockedNotificationWrites = {
 	markAllVisibleRead: (tx: Transaction, raw: unknown) => runLockedWrite(tx, raw, markAllVisibleReadCommand),
 	setPreferences: (tx: Transaction, raw: unknown) => runLockedWrite(tx, raw, setPreferencesCommand),
 	setDigestCadence: (tx: Transaction, raw: unknown) => runLockedWrite(tx, raw, setDigestCadenceCommand),
+	setOversightDigestCadence: (tx: Transaction, raw: unknown) =>
+		runLockedWrite(tx, raw, setOversightDigestCadenceCommand),
 };
 export { readFeedPage } from "./feed.ts";
 export { getPreferences } from "./preferences.ts";
