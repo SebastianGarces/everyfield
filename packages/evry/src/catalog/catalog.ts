@@ -1,5 +1,6 @@
 import type { EvryActor } from "../context/actor.ts";
 import { COMMUNICATION_READS } from "../adapters/communication/reads/index.ts";
+import { MEETINGS_READS } from "../adapters/meetings/reads/index.ts";
 import { NOTIFICATION_READS } from "../adapters/notifications/reads/index.ts";
 import { ORGANIZATION_READS } from "../adapters/people-organization/reads/index.ts";
 import { PEOPLE_READS } from "../adapters/people/reads/index.ts";
@@ -20,6 +21,7 @@ export const READ_DOMAINS = {
 	communication: COMMUNICATION_READS,
 	notifications: NOTIFICATION_READS,
 	teams: TEAMS_READS,
+	meetings: MEETINGS_READS,
 	seats: SEAT_READS,
 	sharing: SHARING_READS,
 	onboarding: ONBOARDING_READS,

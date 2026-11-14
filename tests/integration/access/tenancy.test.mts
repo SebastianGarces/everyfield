@@ -66,6 +66,7 @@ import {
 	readProgram,
 	readPrograms,
 	readVersionReview,
+	readVersionReviews,
 	searchReadings,
 } from "../../../packages/domain/src/organizations/index.ts";
 import { runDueImports } from "../../../apps/web/src/server/people/run-imports.ts";
@@ -792,6 +793,10 @@ function cases(who) {
 				["readProgram", () => readProgram(f.db, who.actor, { programId: a.avery })],
 				["readEnrollment", () => readEnrollment(f.db, who.actor, { enrollmentId: a.avery })],
 				["readVersionReview", () => readVersionReview(f.db, who.actor, { enrollmentId: a.avery })],
+				[
+					"readVersionReviews",
+					() => readVersionReviews(f.db, who.actor, { programId: a.avery, enrollmentIds: [a.avery] }),
+				],
 				["searchReadings", () => searchReadings(f.db, who.actor, { q: "" })],
 			] as const
 		).map(

@@ -6,7 +6,7 @@ import type { NativePorts } from "../proposals/types.ts";
 /**
  * One returned row. Only these fields reach the model; the id lets a later read or selection name it again.
  * Selection re-checks `person` rows only. A household, tag, skill, activity, file, import, message, notice, setting or
- * digest row is not a person.
+ * digest row is not a person. A meeting or venue row names that record; an item row is a part of one (an agenda section, a kit item, a report line).
  */
 export type SourceRow = {
 	kind:
@@ -27,6 +27,8 @@ export type SourceRow = {
 		| "meeting"
 		| "responsibility"
 		| "template"
+		| "venue"
+		| "item"
 		| "seat"
 		| "invitation"
 		| "connection"

@@ -59,6 +59,8 @@ export type SourceRow = {
 		| "meeting"
 		| "responsibility"
 		| "template"
+		| "venue"
+		| "item"
 		| "seat"
 		| "invitation"
 		| "connection"

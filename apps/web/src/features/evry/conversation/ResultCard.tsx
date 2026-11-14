@@ -7,6 +7,7 @@ import {
 	CheckListIcon,
 	CheckmarkCircle02Icon,
 	Clock01Icon,
+	Location01Icon,
 	File01Icon,
 	Home01Icon,
 	LayoutTemplateIcon,
@@ -52,6 +53,8 @@ const GLYPH: Record<Glyph, IconSvgElement> = {
 	meeting: Calendar03Icon,
 	responsibility: CheckListIcon,
 	template: LayoutTemplateIcon,
+	venue: Location01Icon,
+	item: CheckListIcon,
 	seat: UserIcon,
 	invitation: MailSend01Icon,
 	connection: Link01Icon,
@@ -129,7 +132,17 @@ export function ResultCard({
 						);
 						return (
 							<li key={view.key}>
-								{view.href ? (
+								{view.href && view.newTab ? (
+									<a
+										href={view.href}
+										target="_blank"
+										rel="noopener noreferrer"
+										data-focus-inset=""
+										className={cn(rowClass, "cursor-pointer transition-[background-color] hover:bg-hover")}
+									>
+										{body}
+									</a>
+								) : view.href ? (
 									<IntentLink
 										href={view.href}
 										data-focus-inset=""

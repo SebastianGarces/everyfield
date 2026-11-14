@@ -3,6 +3,8 @@
 import {
 	Alert02Icon,
 	ArrowRight02Icon,
+	Calendar03Icon,
+	Location01Icon,
 	Briefcase01Icon,
 	CheckListIcon,
 	Cancel01Icon,
@@ -61,6 +63,7 @@ import {
 	fieldLabel,
 	hasBirthDate,
 	isMail,
+	isMeetings,
 	isNotification,
 	isTeams,
 	isRequired,
@@ -457,7 +460,7 @@ function note(view: View, review: Review | null, lapsed: boolean, unknown?: Acti
 				? mailRefusalText(review.receipt?.code)
 				: review && isSettings(review.operation)
 					? settingsRefusalText(review.receipt?.code)
-					: refusalText(review?.receipt?.code, who);
+					: refusalText(review?.receipt?.code, who, !!review && isMeetings(review.operation));
 		case "unconfirmed":
 			return review && retryable(review, lapsed)
 				? "Evry can't confirm that this was saved. Try again. A change that was saved is not saved twice."
@@ -954,14 +957,33 @@ const RECORD_GLYPH: Partial<Record<NonNullable<Review["review"]["target"]>["kind
 	responsibility: CheckListIcon,
 	household: Home01Icon,
 	tag: Tag01Icon,
+	meeting: Calendar03Icon,
+	venue: Location01Icon,
 };
 
-/** Who the change affects: the person, the new person a create adds, a ministry record, or the account's own
- * notifications. */
+/** Who the change affects: the person, the new person a create adds, a ministry record, the account's own
+ * notifications, or a meeting or venue for a Meetings write. */
 function Affects({ review }: { review: Review }) {
 	const mail = isMail(review.operation);
 	const own = isNotification(review.operation);
 	const create = review.operation === "people.createPerson";
+	if (isMeetings(review.operation)) {
+		const after = (field: string) => review.review.changes.find((c) => c.field === field)?.after;
+		const venue = review.operation.startsWith("venues.") || review.review.target?.kind === "venue";
+		const name =
+			review.review.target?.label ?? String(after("title") ?? after("name") ?? (venue ? "New venue" : "New meeting"));
+		return (
+			<div className="flex items-center gap-3">
+				<span className="grid size-8 flex-none place-items-center rounded-full bg-surface-2 text-text-2">
+					<Icon icon={venue ? Location01Icon : Calendar03Icon} size={16} />
+				</span>
+				<span className="min-w-0">
+					<span className="block truncate font-medium text-ink">{name}</span>
+					<span className="block text-xs text-text-3">{operationTitle(review.operation)}</span>
+				</span>
+			</div>
+		);
+	}
 	const target = review.review.target;
 	const kind = target?.kind;
 	const tag = !kind && review.review.changes.find((c) => c.field === "tag" || c.field === "createTag")?.after;
@@ -1013,6 +1035,16 @@ function Affects({ review }: { review: Review }) {
 }
 
 function Value({ field, value, before }: { field: string; value: unknown; before?: boolean }) {
+	if (Array.isArray(value) && value.length)
+		return (
+			<ul className={cn("flex min-w-0 flex-col gap-0.5", before ? "text-text-2" : "font-medium text-ink")}>
+				{value.map((v, i) => (
+					<li key={i} className="break-words">
+						{String(v)}
+					</li>
+				))}
+			</ul>
+		);
 	const text = valueText(field, value);
 	if (text === null) return <span className="text-text-3 italic">{emptyText(field, !before)}</span>;
 	if (field === "stage" && typeof value === "string" && value in STAGE_KEY)
@@ -1175,6 +1207,8 @@ function Changes({ review, staged, onRetry }: { review: Review; staged: StagedPh
 	const changes = shownChanges(review);
 	if (!changes.length) return null;
 	const create = addsOnly(review.operation);
+	// A Meetings value with nothing before it is new: it shows only what it will be.
+	const fresh = (c: Change) => isMeetings(review.operation) && (c.before === null || c.before === undefined);
 	return (
 		<dl className="flex flex-col gap-2 rounded-md bg-surface-2 px-3 py-2.5 text-sm">
 			{changes.map((c: Change) =>
@@ -1184,9 +1218,9 @@ function Changes({ review, staged, onRetry }: { review: Review; staged: StagedPh
 					<LinkChange key={c.field} change={c} />
 				) : (
 					<div key={c.field} className="grid grid-cols-[minmax(88px,auto)_minmax(0,1fr)] items-baseline gap-x-3">
-						<dt className="text-text-2">{fieldLabel(c.field)}</dt>
+						<dt className="text-text-2">{fieldLabel(c.field, review.operation)}</dt>
 						<dd className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1">
-							{create || c.field === "reason" ? null : (
+							{create || c.field === "reason" || fresh(c) ? null : (
 								<>
 									<span className="sr-only">from </span>
 									<Value field={c.field} value={c.before} before />
