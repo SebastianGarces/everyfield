@@ -3213,6 +3213,11 @@
 			"name": "purge_organization_person_history"
 		},
 		{
+			"arguments": "org uuid, subject uuid",
+			"definition": "CREATE OR REPLACE FUNCTION <schema>.remove_organization_person(org uuid, subject uuid)\n RETURNS jsonb\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO '<schema>', 'pg_catalog', 'pg_temp'\nAS $function$\nDECLARE members uuid[]; m uuid; moves int; conversations int; marks int; feedback int; enrollments int; completions int;\nBEGIN\n WITH RECURSIVE g(id) AS (SELECT subject UNION SELECT p.id FROM person p JOIN g ON p.merged_into_person_id=g.id\n  WHERE p.tenant_id=org) SELECT array_agg(id) INTO members FROM g;\n FOREACH m IN ARRAY members LOOP PERFORM purge_organization_person_history(org,m); END LOOP;\n DELETE FROM leadership_conversation c USING pipeline_person pp WHERE c.pipeline_person_id=pp.id\n  AND c.organization_id=pp.organization_id AND pp.organization_id=org AND pp.person_id=ANY(members);\n GET DIAGNOSTICS conversations = ROW_COUNT;\n DELETE FROM pipeline_stage_move s USING pipeline_person pp WHERE s.pipeline_person_id=pp.id\n  AND s.organization_id=pp.organization_id AND pp.organization_id=org AND pp.person_id=ANY(members);\n GET DIAGNOSTICS moves = ROW_COUNT;\n DELETE FROM pipeline_person WHERE organization_id=org AND person_id=ANY(members);\n DELETE FROM assignment_feedback f USING development_enrollment e WHERE f.enrollment_id=e.id\n  AND f.organization_id=e.organization_id AND e.organization_id=org AND e.person_id=ANY(members);\n GET DIAGNOSTICS feedback = ROW_COUNT;\n DELETE FROM enrollment_milestone x USING development_enrollment e WHERE x.enrollment_id=e.id\n  AND x.organization_id=e.organization_id AND e.organization_id=org AND e.person_id=ANY(members);\n GET DIAGNOSTICS marks = ROW_COUNT;\n DELETE FROM development_enrollment WHERE organization_id=org AND person_id=ANY(members) AND status<>'completed';\n GET DIAGNOSTICS enrollments = ROW_COUNT;\n SELECT count(*) INTO completions FROM development_enrollment WHERE organization_id=org AND person_id=ANY(members);\n DELETE FROM person_merge WHERE tenant_id=org AND (source_id=ANY(members) OR survivor_id=ANY(members));\n UPDATE person SET merged_into_person_id=NULL WHERE tenant_id=org AND id=ANY(members) AND merged_into_person_id IS NOT NULL;\n RETURN jsonb_build_object('stageMoves',moves,'conversations',conversations,'milestoneMarks',marks,'feedback',feedback,\n  'enrollments',enrollments,'programCompletions',completions,'mergedRecords',cardinality(members)-1);\nEND $function$\n",
+			"name": "remove_organization_person"
+		},
+		{
 			"arguments": "subject uuid, request uuid, expected bigint, document_id uuid",
 			"definition": "CREATE OR REPLACE FUNCTION <schema>.purge_document_revisions(subject uuid, request uuid, expected bigint, document_id uuid)\n RETURNS bigint\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO '<schema>', 'pg_catalog', 'pg_temp'\nAS $function$\nDECLARE affected bigint;\nBEGIN\n  PERFORM 1 FROM lifecycle_witness w WHERE w.opaque_subject_id=subject AND w.request_id=request\n    AND w.request_revision=expected AND w.kind IN ('account','plant')\n    AND w.state='purging' AND w.cancel_until<=clock_timestamp() FOR UPDATE;\n  IF NOT FOUND THEN RAISE EXCEPTION 'unavailable' USING ERRCODE='42501'; END IF;\n  PERFORM 1 FROM document d WHERE d.id=document_id AND d.tenant_id=subject FOR UPDATE;\n  IF NOT FOUND THEN RAISE EXCEPTION 'unavailable' USING ERRCODE='42501'; END IF;\n  -- Provenance-only source links are detached by the lifecycle producer before\n  -- this step; FK references refuse incomplete sequencing, never CASCADE it.\n  UPDATE document SET current_revision_id=NULL WHERE id=document_id AND tenant_id=subject;\n  DELETE FROM document_revision r WHERE r.document_id=purge_document_revisions.document_id AND r.tenant_id=subject;\n  GET DIAGNOSTICS affected=ROW_COUNT;\n  RETURN affected;\nEND $function$\n",
 			"name": "purge_document_revisions"
@@ -5613,6 +5618,13 @@
 			"is_grantable": false,
 			"kind": "function",
 			"object": "relationship_recipient(handle uuid)",
+			"privilege_type": "EXECUTE"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "function",
+			"object": "remove_organization_person(org uuid, subject uuid)",
 			"privilege_type": "EXECUTE"
 		},
 		{

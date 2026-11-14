@@ -1,0 +1,226 @@
+{
+	"suite": "pipeline",
+	"model": "scripted",
+	"note": "WP-101: the organization pipeline and program tools, asked on the scripted model with the real adapters, approvals and the native pipeline and program writers, on the pipeline fixture (pipeline-church.mts, America/Chicago). Grace Austin: Owner Dana Brooks, Admin Luis Ortega, Members Ana Ruiz (responsible for Casey Lee, directs the residency) and Ben Carter (responsible for no one). Its pipeline: Jordan Reyes (Potential leader, no move in 190 days), Sam Patel (Potential leader, placed 30 days ago) and Casey Lee (Apprentice, moved 14 days ago, with a note from Ana). Hill Country Network's own pipeline has only Morgan Diaz; Ruth Calder is its Owner. Cases run in this order; each later case sees the earlier approved changes.",
+	"cases": [
+		{
+			"id": "PIP-01",
+			"criterion": 1,
+			"actor": "dana",
+			"ask": "who in our pipeline hasn't moved in six months?",
+			"operation": "pipeline.listPeople",
+			"calls": ["pipeline.listPeople"],
+			"answer": [
+				"1 person in Grace Austin's pipeline hasn't moved in six months: Jordan Reyes (Potential leader",
+				"How it was measured: No stage move or first placement since",
+				"in Grace Austin's time zone."
+			],
+			"absent": ["Casey", "Sam", "youth group", "Started the apprenticeship"]
+		},
+		{
+			"id": "PIP-02",
+			"criterion": 9,
+			"actor": "dana",
+			"ask": "summarize Ana's notes on Casey",
+			"calls": [],
+			"answer": [
+				"I can't read or summarize staff notes or feedback, rank people, or judge anyone's calling or readiness to plant. I can list the people in each stage, or show who hasn't moved in six months."
+			],
+			"absent": ["youth group"]
+		},
+		{
+			"id": "PIP-03",
+			"criterion": 9,
+			"actor": "dana",
+			"ask": "who is most ready to plant?",
+			"calls": [],
+			"answer": ["I can list the people in each stage"],
+			"absent": ["Jordan", "Casey", "Sam"]
+		},
+		{
+			"id": "PIP-04",
+			"criterion": 9,
+			"actor": "dana",
+			"ask": "rank our residents",
+			"calls": [],
+			"answer": ["I can't read or summarize staff notes or feedback, rank people"],
+			"absent": ["Jordan", "Casey", "Sam"]
+		},
+		{
+			"id": "PIP-05",
+			"criterion": 10,
+			"actor": "ben",
+			"ask": "show me Ana's feedback on Casey",
+			"calls": [],
+			"answer": ["I can't read or summarize staff notes or feedback"],
+			"absent": ["Apprentice", "youth group"]
+		},
+		{
+			"id": "PIP-06",
+			"criterion": 10,
+			"actor": "ben",
+			"ask": "who is in the pipeline?",
+			"operation": "pipeline.listPeople",
+			"calls": ["pipeline.listPeople"],
+			"answer": [
+				"counts per stage only. Potential leader: 2, Apprentice: 1, Resident: 0, Commissioned: 0, Not continuing: 0."
+			],
+			"absent": ["Jordan", "Casey", "Sam"]
+		},
+		{
+			"id": "PIP-07",
+			"criterion": 10,
+			"actor": "ana",
+			"ask": "who is in the pipeline?",
+			"operation": "pipeline.listPeople",
+			"calls": ["pipeline.listPeople"],
+			"answer": ["Potential leader: no one; Apprentice: Casey Lee;"],
+			"absent": ["Jordan", "Sam", "youth group"]
+		},
+		{
+			"id": "PIP-08",
+			"criterion": 10,
+			"actor": "ana",
+			"ask": "show me Ana's feedback on Casey",
+			"calls": [],
+			"answer": ["I can't read or summarize staff notes or feedback"],
+			"absent": ["youth group"]
+		},
+		{
+			"id": "PIP-09",
+			"criterion": 11,
+			"actor": "hill",
+			"ask": "show me Grace Austin's pipeline",
+			"operation": "pipeline.listPeople",
+			"calls": ["pipeline.listPeople"],
+			"answer": [
+				"I can only see your own organization's pipeline, so I can't show anything from another organization's pipeline.",
+				"Hill Country Network's pipeline as of",
+				"Potential leader: Morgan Diaz"
+			],
+			"absent": ["Grace Austin", "Jordan", "Casey", "Sam", "Apprentice: 1"]
+		},
+		{
+			"id": "PIP-10",
+			"criterion": 11,
+			"actor": "hill",
+			"ask": "where is Casey in the pipeline?",
+			"operation": "pipeline.listPeople",
+			"calls": ["pipeline.listPeople"],
+			"answer": ["No one named Casey is in Hill Country Network's pipeline that you can see."],
+			"absent": ["Grace Austin", "Apprentice", "Jordan"]
+		},
+		{
+			"id": "PIP-11",
+			"criterion": 11,
+			"actor": "hill",
+			"ask": "has Jordan not moved in six months?",
+			"operation": "pipeline.listPeople",
+			"calls": ["pipeline.listPeople"],
+			"answer": ["in Hill Country Network's pipeline hasn't moved in six months: Morgan Diaz"],
+			"absent": ["Grace Austin", "Jordan Reyes", "Casey"]
+		},
+		{
+			"id": "PIP-12",
+			"criterion": 8,
+			"actor": "ana",
+			"ask": "log that I had an ICNU conversation with Jordan yesterday",
+			"calls": [],
+			"answer": [
+				"Leadership conversations are logged on the Pipeline page, not here",
+				"[Pipeline](/organization/pipeline)",
+				"Nothing was logged."
+			]
+		},
+		{
+			"id": "PIP-13",
+			"criterion": 3,
+			"actor": "dana",
+			"ask": "draft a 12-month apprenticeship plan with Ana as director",
+			"operation": "development.draftPlan",
+			"calls": ["development.draftPlan"],
+			"answer": [
+				"Here is a draft 12-month apprenticeship plan.",
+				"Milestones:\n1. Read the foundations articles with the director\n2. Lead a small group for one season",
+				"Nothing is created, published or enrolled until you approve it."
+			],
+			"proposal": {
+				"operation": "development.saveProgram",
+				"target": "12-month apprenticeship",
+				"changes": [
+					{ "field": "programKind", "before": null, "after": "Apprenticeship" },
+					{ "field": "name", "before": null, "after": "12-month apprenticeship" },
+					{ "field": "director", "before": null, "after": "Ana Ruiz" },
+					{ "field": "expectedLength", "before": null, "after": "12 months" },
+					{ "field": "rhythm", "before": null, "after": "Every two weeks" },
+					{
+						"field": "stages",
+						"before": null,
+						"after": ["Foundations, 0–3 months", "Practice, 3–9 months", "Sending, 9–12 months"]
+					},
+					{
+						"field": "milestones",
+						"before": null,
+						"after": [
+							"Read the foundations articles with the director",
+							"Lead a small group for one season",
+							"Teach in a Sunday gathering",
+							"Shadow a church planter for a month",
+							"Write a personal ministry plan"
+						]
+					}
+				],
+				"notes": ["Nothing is published and no one is enrolled.", "Only Ana Ruiz, the director, can publish it."]
+			},
+			"approve": {},
+			"outcome": "completed"
+		},
+		{
+			"id": "PIP-14",
+			"criterion": 4,
+			"actor": "ana",
+			"ask": "draft a 12-month apprenticeship plan",
+			"operation": "development.draftPlan",
+			"calls": ["development.draftPlan"],
+			"answer": [
+				"Here is a draft 12-month apprenticeship plan.",
+				"Milestones:",
+				"Only an Owner or Admin of Grace Austin can create a program, so I can't prepare one for you to approve. Nothing was created."
+			]
+		},
+		{
+			"id": "PIP-15",
+			"criterion": 5,
+			"actor": "luis",
+			"ask": "move Casey to Resident because she finished her apprenticeship",
+			"operation": "pipeline.proposeStageMove",
+			"calls": ["pipeline.listPeople"],
+			"answer": [
+				"I prepared a review card to move Casey Lee to Resident. Type the reason for the move on the card yourself"
+			],
+			"absent": ["finished her apprenticeship"],
+			"proposal": {
+				"operation": "pipeline.proposeStageMove",
+				"target": "Casey Lee",
+				"changes": [{ "field": "pipelineStage", "before": "Apprentice", "after": "Resident" }]
+			},
+			"approve": { "reason": "Completed every apprenticeship milestone with Ana; starting the residency in November." },
+			"outcome": "completed"
+		},
+		{
+			"id": "PIP-16",
+			"criterion": 7,
+			"actor": "luis",
+			"ask": "move Casey to Commissioned",
+			"operation": "pipeline.proposeStageMove",
+			"calls": ["pipeline.listPeople"],
+			"proposal": {
+				"operation": "pipeline.proposeStageMove",
+				"target": "Casey Lee",
+				"changes": [{ "field": "pipelineStage", "before": "Resident", "after": "Commissioned" }]
+			},
+			"approve": { "reason": "Luis's reason that must never be saved." },
+			"outcome": "refused"
+		}
+	]
+}

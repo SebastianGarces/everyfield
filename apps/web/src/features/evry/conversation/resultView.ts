@@ -172,6 +172,22 @@ const VIEWS: Record<string, OpView> = {
 		counts: "relationship",
 		empty: "No sending church or network is linked yet.",
 	},
+	// The organization pipeline as the seat's Pipeline page shows it: each stage's count, then the people it may see.
+	"pipeline.listPeople": {
+		title: "Pipeline",
+		noun: ["stage", "stages"],
+		icon: "stage",
+		counts: "stage",
+		shownOnly: true,
+		empty: "This pipeline has no stages yet.",
+	},
+	"development.draftPlan": {
+		title: "Who can direct a program",
+		noun: ["staff member", "staff members"],
+		icon: "seat",
+		counts: "seat",
+		empty: "Only an Owner or Admin sees who may direct a program.",
+	},
 	"communication.list": {
 		title: "Messages",
 		noun: ["message", "messages"],
@@ -811,6 +827,18 @@ function rowView(operation: string, row: SourceRow): RowView {
 				mark: { kind: "status", text: fields.status === "saved" ? "Saved" : "Open", warn: fields.status !== "saved" },
 				avatar: null,
 			};
+		case "stage": {
+			// A pipeline stage: everyone in it, and how many of them this answer lists when a filter narrowed it.
+			const all = Number(fields.count ?? 0);
+			const shown = typeof fields.matching === "number" && fields.matching !== all ? `, ${fields.matching} listed` : "";
+			return {
+				...plain,
+				href: "/organization/pipeline",
+				name: row.label,
+				line: `${count(all, "person", "people")}${shown}`,
+				avatar: null,
+			};
+		}
 		case "relationship":
 			// A sending church or network a Discovery space is linked to, and what that link shares.
 			return {
@@ -860,6 +888,21 @@ function rowView(operation: string, row: SourceRow): RowView {
 		case "person":
 			break;
 	}
+	// A person in an organization's pipeline: their stage, last move and responsible staff, and their pipeline record.
+	if (operation === "pipeline.listPeople")
+		return {
+			key,
+			name: row.label,
+			line: joined(
+				text(fields.stage),
+				typeof fields.lastMovedOn === "string" ? `Last moved ${day(`${fields.lastMovedOn}T12:00:00Z`)}` : null,
+				typeof fields.responsible === "string" ? `With ${fields.responsible}` : null,
+			),
+			mark: null,
+			avatar: "person",
+			photoFor: null,
+			href: `/organization/pipeline/${row.id}`,
+		};
 	const meetingMark = personMark(operation, fields);
 	if (meetingMark !== undefined)
 		return {
@@ -1058,6 +1101,12 @@ export function cardView(operation: string, result: SourceResult, originalTotal:
 	if (typeof totals.phase === "string")
 		facts.push(
 			`${String(totals.church ?? "Your church")} is in ${totals.phase}.${typeof totals.launchDate === "string" ? ` Launch date ${totals.launchDate}.` : ""}${typeof totals.resumeAt === "string" && !totals.finished ? ` Setup picks up at ${totals.resumeAt}.` : ""}`,
+		);
+	if (operation === "pipeline.listPeople" && typeof totals.asOf === "string")
+		facts.push(
+			typeof totals.measured === "string"
+				? `As of ${day(`${totals.asOf}T12:00:00Z`)}. ${totals.measured}`
+				: `As of ${day(`${totals.asOf}T12:00:00Z`)}.`,
 		);
 	if (typeof totals.discoveryClosedOn === "string")
 		facts.push(`Your Discovery space closed on ${totals.discoveryClosedOn}, when it became this church.`);
