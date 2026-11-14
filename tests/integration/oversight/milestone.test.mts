@@ -74,7 +74,13 @@ const localDay = (days: number) => {
 const schedule = async (p: Plant, days: number) =>
 	ok(await writer.schedule(S.runtime, await as(p.owner), await envelope(p, { date: localDay(days), reason: null })));
 const useMilestone = async (p: Plant, org: Owner) =>
-	ok(await writer.choosePath(S.runtime, await as(p.owner), await envelope(p, { path: "milestone", organizationId: org.id })));
+	ok(
+		await writer.choosePath(
+			S.runtime,
+			await as(p.owner),
+			await envelope(p, { path: "milestone", organizationId: org.id }),
+		),
+	);
 const useSunday = async (p: Plant) =>
 	ok(await writer.choosePath(S.runtime, await as(p.owner), await envelope(p, { path: "launch_sunday" })));
 const record = async (p: Plant, date: string) =>
