@@ -5,7 +5,18 @@ import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
 import { personRow } from "../../../catalog/person-row.ts";
 import type { ReadAdapter, SourceResult, SourceRow } from "../../../catalog/types.ts";
-import { inPlant, localWhen, meetingId, meetingRow, ownerOrAdmin, RSVP, value, venueId } from "../shared.ts";
+import {
+	day,
+	inPlant,
+	localWhen,
+	meeting,
+	meetingId,
+	meetingRow,
+	ownerOrAdmin,
+	RSVP,
+	value,
+	venueId,
+} from "../shared.ts";
 
 // The Meetings read tools (WP-065): each calls the native Meetings read the Meetings screens use, under the same domain
 // authority, whose one statement carries the lock-free live access check (C13, C27). Members read meetings, guests,
@@ -56,7 +67,6 @@ function read<I>(spec: {
 
 const one = z.strictObject({ meetingId });
 const types = z.array(c.meetingType).max(4);
-const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 /** A report window: types default to Vision meetings, dates are church-local and inclusive, limit is the latest N. */
 const report = z.strictObject({
 	types: types.optional(),
@@ -67,12 +77,6 @@ const report = z.strictObject({
 type Report = z.infer<typeof report>;
 const reportRequest = (i: Report) =>
 	c.reportRequest.parse({ types: i.types, from: i.from ?? null, to: i.to ?? null, limit: i.limit });
-
-/** The meeting row for a meeting id, through the native get. */
-async function meetingOf(tx: Transaction, actor: EvryActor, id: string) {
-	const m = value(await meetingsReader.get(tx, actor.authority, { meetingId: id }));
-	return m?.status === "available" ? m.meeting : null;
-}
 
 // --- Meetings ---------------------------------------------------------------------------------------------------
 
@@ -111,7 +115,7 @@ export const get = read({
 	description: "One meeting: date, time, venue, status, notes, kit progress, whether held.",
 	input: one,
 	async run(tx, actor, input) {
-		const m = await meetingOf(tx, actor, input.meetingId);
+		const m = await meeting(tx, actor, input.meetingId);
 		if (!m) return notFound("meetings.get");
 		return result("meetings.get", [
 			meetingRow(m, {
@@ -143,7 +147,7 @@ export const readAgenda = read({
 		"A meeting's saved agenda in order, with its print link in the app when it has one. Never write one yourself.",
 	input: one,
 	async run(tx, actor, input) {
-		const m = await meetingOf(tx, actor, input.meetingId);
+		const m = await meeting(tx, actor, input.meetingId);
 		const agenda = m && value(await meetingsReader.readAgenda(tx, actor.authority, input));
 		if (!m || !agenda) return notFound("meetings.readAgenda");
 		const [h, min] = m.localTime.split(":").map(Number) as [number, number];

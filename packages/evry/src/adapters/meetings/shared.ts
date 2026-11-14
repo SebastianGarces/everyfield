@@ -1,5 +1,7 @@
 import type { meetingSummary } from "@everyfield/contracts/meetings";
 import type { MeetingsReply } from "@everyfield/contracts/meetings";
+import type { Transaction } from "@everyfield/db/client";
+import { meetingsReader } from "@everyfield/domain/meetings";
 import { z } from "zod";
 import type { EvryActor } from "../../context/actor.ts";
 import { EvryRefusal } from "../../context/errors.ts";
@@ -16,6 +18,8 @@ export const id = z.string().regex(/^[0-9a-f-]{36}$/);
 export const meetingId = id;
 export const personId = id;
 export const venueId = id;
+/** A church-local date. */
+export const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
 /** Any current seat of the selected church: Meetings reads are open to Members (REQ-MTG-001). */
 export const inPlant = (actor: EvryActor) => actor.owner.kind === "plant" && actor.role !== null;
@@ -29,6 +33,12 @@ export function value<T>(reply: MeetingsReply<T>): T | null {
 	if (reply.error.code === "invalid_input") throw new EvryRefusal("invalid_input");
 	if (reply.error.code === "unavailable") return null;
 	throw new EvryRefusal("source_unavailable");
+}
+
+/** A meeting's detail through the native get, or null when it is missing, foreign or hidden. */
+export async function meeting(db: Pick<Transaction, "execute">, actor: EvryActor, meetingId: string) {
+	const m = value(await meetingsReader.get(db, actor.authority, { meetingId }));
+	return m?.status === "available" ? m.meeting : null;
 }
 
 const part = (at: Date, zone: string, options: Intl.DateTimeFormatOptions) =>

@@ -26,9 +26,11 @@ import type { EvryActor } from "../../../context/actor.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
 import type { EffectResult, ReviewedWrite } from "../../../proposals/types.ts";
 import {
+	day,
 	id,
 	inPlant,
 	localWhen,
+	meeting,
 	meetingId,
 	ownerOrAdmin,
 	personId,
@@ -174,10 +176,6 @@ function write<I, F, V>(spec: {
 // --- Shared reads and shapes --------------------------------------------------------------------------------------
 
 type Detail = z.infer<typeof c.meetingDetail>;
-async function meeting(db: Reader, actor: EvryActor, meetingId: string): Promise<Detail | null> {
-	const m = value(await meetingsReader.get(db, actor.authority, { meetingId }));
-	return m?.status === "available" ? m.meeting : null;
-}
 const meetingTarget = (m: Pick<Detail, "id" | "displayTitle">): Target => ({
 	kind: "meeting",
 	id: m.id,
@@ -253,7 +251,7 @@ const diffedWithReason = (p: { prepared: Prepared<Detail>; value: MeetingResult 
 	reasonRow(p.prepared),
 ];
 const reason = c.reason;
-const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+const sectionText = (s: { title: string; minutes: number }) => `${s.title} (${s.minutes} min)`;
 const clock = z.string().regex(/^\d{2}:\d{2}$/);
 
 // --- Meetings -----------------------------------------------------------------------------------------------------
@@ -312,14 +310,7 @@ export const schedule = write({
 			...(m.team ? [created("team", m.team.name)] : []),
 			created("status", STATUS[m.status]),
 			...(m.guestCount ? [created("guests", String(m.guestCount))] : []),
-			...(m.agenda.sections.length
-				? [
-						created(
-							"agenda",
-							m.agenda.sections.map((s) => `${s.title} (${s.minutes} min)`),
-						),
-					]
-				: []),
+			...(m.agenda.sections.length ? [created("agenda", m.agenda.sections.map(sectionText))] : []),
 			...(m.kit ? [created("kit", `${m.kit.total} checklist items to prepare`)] : []),
 			...(m.notes ? [created("meetingNotes", m.notes)] : []),
 		];
@@ -453,11 +444,7 @@ export const replaceAgenda = write({
 	},
 	run: (w, tx, ctx, r) => w.meetings.replaceAgenda(tx, ctx, r),
 	changes: ({ prepared, value: v }: { prepared: Prepared<Detail>; value: AgendaResult }) => [
-		change(
-			"agenda",
-			prepared.facts.agenda.sections.map((s) => `${s.title} (${s.minutes} min)`),
-			v.agenda.sections.map((s) => `${s.title} (${s.minutes} min)`),
-		),
+		change("agenda", prepared.facts.agenda.sections.map(sectionText), v.agenda.sections.map(sectionText)),
 	],
 	revision: (v) => v.agenda.revision,
 });
@@ -657,7 +644,7 @@ const contactChanges = (
 		),
 	];
 };
-const contactAsked = ({ prepared }: { prepared: Prepared<ContactFacts> }) => [
+const contactAsked = (prepared: Prepared<ContactFacts>) => [
 	created("newPerson", (prepared.args.input as { displayName: string }).displayName),
 ];
 
@@ -672,7 +659,7 @@ export const createGuestContact = write({
 			p,
 			(p.prepared.args.input as { attendance: string }).attendance === "attended" ? "attended" : "not recorded",
 		),
-	asked: (p) => contactAsked({ prepared: p }),
+	asked: contactAsked,
 	revision: guestRevision,
 });
 
@@ -684,15 +671,19 @@ export const createWalkInContact = write({
 	prepare: (db, actor, i) => onContact(db, actor, i),
 	run: (w, tx, ctx, r) => w.guests.createWalkInContact(tx, ctx, r),
 	changes: (p: { prepared: Prepared<ContactFacts>; value: ContactResult }) => contactChanges(p, "attended (walk-in)"),
-	asked: (p) => contactAsked({ prepared: p }),
+	asked: contactAsked,
 	revision: guestRevision,
 });
 
-const CARD = c.cardResponse;
 export const recordCard = write({
 	operation: "meetings.recordCard",
 	description: "Record a guest's response card.",
-	input: z.strictObject({ meetingId, personId, response: CARD, notes: z.string().trim().max(2000).optional() }),
+	input: z.strictObject({
+		meetingId,
+		personId,
+		response: c.cardResponse,
+		notes: z.string().trim().max(2000).optional(),
+	}),
 	prepare: (db, actor, i) =>
 		onGuest(db, actor, i.meetingId, i.personId, { response: i.response, notes: i.notes ?? null }),
 	run: (w, tx, ctx, r) => w.guests.recordCard(tx, ctx, r),

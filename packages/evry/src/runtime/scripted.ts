@@ -514,8 +514,7 @@ function meetingsStep(
 	const setUp = SET_UP.exec(text);
 	if (setUp || (pickedDay && asked)) {
 		const [, hour, ampm, place] = (setUp ?? asked)!;
-		if (!outputs.length)
-			return [toolCall("meetings_read", { operation: "venues.list", input: { search: place!.split(" ")[0] } })];
+		if (!outputs.length) return read("venues.list", { search: place!.split(" ")[0] });
 		const venues = rowsOf(outputs[0], "venue");
 		if (venues.length !== 1)
 			return say(

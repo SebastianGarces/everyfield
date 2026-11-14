@@ -823,7 +823,7 @@ function Footer({
 					</Button>
 				) : who?.kind === "person" && review.operation !== "people.deletePerson" && !review.review.withheld ? (
 					<Button size="sm" variant="ghost" asChild>
-						<IntentLink href={targetHref(who)}>
+						<IntentLink href={`/people/${who.id}`}>
 							Open {who.label}
 							<Icon icon={ArrowRight02Icon} size={16} />
 						</IntentLink>
@@ -983,10 +983,6 @@ function Affects({ review }: { review: Review }) {
 		</div>
 	);
 }
-
-/** The page a saved change's target opens: its person, its meeting, or Meetings for a venue. */
-const targetHref = (target: { kind: string; id: string }) =>
-	target.kind === "meeting" ? `/meetings/${target.id}` : target.kind === "venue" ? "/meetings" : `/people/${target.id}`;
 
 function Value({ field, value, before }: { field: string; value: unknown; before?: boolean }) {
 	if (Array.isArray(value) && value.length)
