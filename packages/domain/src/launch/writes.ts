@@ -5,7 +5,7 @@ import { sql, type SQL } from "@everyfield/db/query";
 import { randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
-import type { RequestActor } from "../access/session.ts";
+import { seatHeld, type RequestActor } from "../access/session.ts";
 import { hash } from "../operations/canonical.ts";
 import { auditTransaction } from "../operations/writes.ts";
 import { SEED } from "./catalog.ts";
@@ -104,7 +104,6 @@ const lockRow = z.object({
 	ok: z.boolean(),
 	prior: priorRow,
 	launch: launchRow.nullable(),
-	name: z.string().nullable(),
 });
 /** The command's first statement: its gate, its stored answer if any, and the church's launch row locked. */
 async function lockLaunch(tx: Transaction, scope: Scope, key: string, create: boolean) {
@@ -117,8 +116,7 @@ async function lockLaunch(tx: Transaction, scope: Scope, key: string, create: bo
 			: sql`SELECT status,target_date::text,revision::text FROM launch WHERE plant_id=${scope.plantId}::uuid
 	AND (SELECT ok FROM gate) AND NOT EXISTS(SELECT FROM prior) FOR UPDATE`
  })
- SELECT (SELECT ok FROM gate) AS ok,(SELECT to_jsonb(prior) FROM prior) AS prior,(SELECT to_jsonb(cur) FROM cur) AS launch,
-	(SELECT name FROM plant WHERE id=${scope.plantId}::uuid) AS name`);
+ SELECT (SELECT ok FROM gate) AS ok,(SELECT to_jsonb(prior) FROM prior) AS prior,(SELECT to_jsonb(cur) FROM cur) AS launch`);
 	return lockRow.parse(rows[0]);
 }
 /** The plan after a write, in the write's transaction. */
@@ -219,8 +217,7 @@ export function createLaunchWriter(config: { notices: LaunchNotices; clock?: Clo
 	(SELECT name FROM plant WHERE id=${scope.plantId}::uuid) AS name,
 	(SELECT i.display_name FROM seat_identity(${scope.accountId}::uuid) i LIMIT 1) AS actor,
 	(SELECT coalesce(jsonb_agg(DISTINCT s.account_id),'[]') FROM seat s WHERE s.plant_id=${scope.plantId}::uuid
-		AND s.role IN ('owner','admin') AND s.ended_at IS NULL AND s.accepted_at<=clock_timestamp()
-		AND s.account_id<>${scope.accountId}::uuid AND EXISTS(SELECT FROM m)) AS recipients`);
+		AND s.role IN ('owner','admin') AND ${seatHeld("s")} AND s.account_id<>${scope.accountId}::uuid AND EXISTS(SELECT FROM m)) AS recipients`);
 			const lock = milestoneLock.parse(rows[0]);
 			if (lock.prior) {
 				const stored = storedMilestone.parse(replay(lock.prior, identity));
