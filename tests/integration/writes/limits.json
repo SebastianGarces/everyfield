@@ -2108,11 +2108,11 @@
 		"limit": 5,
 		"retry": 5
 	},
-	"oversight/intelligence.runIntelligence": {
+	"oversight/intelligence.requestIntelligenceRefresh": {
 		"limit": 4,
 		"retry": 3
 	},
-	"oversight/intelligence.rateIntelligence": {
+	"oversight/intelligence.submitIntelligenceFeedback": {
 		"limit": 4,
 		"retry": 3
 	}

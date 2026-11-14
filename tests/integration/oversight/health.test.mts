@@ -18,9 +18,9 @@ import {
 import {
 	getPlant,
 	listPlants,
-	rateIntelligence,
+	submitIntelligenceFeedback,
 	readIntelligence,
-	runIntelligence,
+	requestIntelligenceRefresh,
 } from "../../../packages/domain/src/oversight/index.ts";
 
 const ALL = ["people", "meetings", "tasks", "ministry_teams", "wiki", "activity", "findings"] as const;
@@ -347,7 +347,7 @@ test("Network Intelligence names the near-launch pattern only where two sharing 
 			canRefresh: true,
 		},
 	);
-	const run = await runIntelligence(S.runtime, admin, { runId: randomUUID() });
+	const run = await requestIntelligenceRefresh(S.runtime, admin, { runId: randomUUID() });
 	assert.equal(run.status, "ok");
 
 	const whole = (await readIntelligence(S.runtime, admin, { level: "portfolio", runId: null }))!;
@@ -402,7 +402,7 @@ test("a sharing plant with no launch date is Unknown, and one qualifying plant m
 	await link(OC, lone, sharing);
 	const unknown = await plant("No Date Yet", "Austin");
 	await link(unknown, lone, sharing);
-	await runIntelligence(S.runtime, loneAdmin, { runId: randomUUID() });
+	await requestIntelligenceRefresh(S.runtime, loneAdmin, { runId: randomUUID() });
 	const [g] = (await readIntelligence(S.runtime, loneAdmin, { level: "portfolio", runId: null }))!.groups;
 	assert.equal(g!.pattern, null);
 	assert.deepEqual(
@@ -419,9 +419,9 @@ test("Refresh keeps history, a Member cannot refresh or rate, and turning sharin
 	const member = await as(networkMember);
 	const before = (await readIntelligence(S.runtime, admin, { level: "portfolio", runId: null }))!;
 	const second = randomUUID();
-	await runIntelligence(S.runtime, admin, { runId: second });
+	await requestIntelligenceRefresh(S.runtime, admin, { runId: second });
 	// The same press again records nothing new.
-	assert.deepEqual(await runIntelligence(S.runtime, admin, { runId: second }), {
+	assert.deepEqual(await requestIntelligenceRefresh(S.runtime, admin, { runId: second }), {
 		status: "ok",
 		value: { runId: second, outcome: "noop" },
 	});
@@ -429,7 +429,7 @@ test("Refresh keeps history, a Member cannot refresh or rate, and turning sharin
 	assert.equal(after.history.length, before.history.length + 1);
 	assert.equal(after.run!.runId, second);
 	assert.equal(after.canRefresh, false);
-	assert.deepEqual(await runIntelligence(S.runtime, member, { runId: randomUUID() }), {
+	assert.deepEqual(await requestIntelligenceRefresh(S.runtime, member, { runId: randomUUID() }), {
 		status: "refused",
 		refusal: { code: "unavailable" },
 	});
@@ -454,9 +454,9 @@ test("a pattern rating is the rater's own and changes nothing else", async () =>
 	const view = (await readIntelligence(S.runtime, admin, { level: "state", runId: null }))!;
 	const key = view.groups[0]!.pattern!.key;
 	const runId = view.run!.runId;
-	assert.equal((await rateIntelligence(S.runtime, admin, { runId, patternKey: key, rating: "useful" })).status, "ok");
+	assert.equal((await submitIntelligenceFeedback(S.runtime, admin, { runId, patternKey: key, rating: "useful" })).status, "ok");
 	assert.deepEqual(
-		await rateIntelligence(S.runtime, await as(networkMember), { runId, patternKey: key, rating: "useful" }),
+		await submitIntelligenceFeedback(S.runtime, await as(networkMember), { runId, patternKey: key, rating: "useful" }),
 		{
 			status: "refused",
 			refusal: { code: "unavailable" },
@@ -467,7 +467,7 @@ test("a pattern rating is the rater's own and changes nothing else", async () =>
 	assert.equal(mine.groups[0]!.pattern!.rating, "useful");
 	assert.equal(theirs.groups[0]!.pattern!.rating, null);
 	assert.deepEqual({ ...mine.groups[0]!.pattern!, rating: null }, theirs.groups[0]!.pattern);
-	await rateIntelligence(S.runtime, admin, { runId, patternKey: key, rating: "not_useful" });
+	await submitIntelligenceFeedback(S.runtime, admin, { runId, patternKey: key, rating: "not_useful" });
 	assert.equal(
 		(await readIntelligence(S.runtime, admin, { level: "state", runId: null }))!.groups[0]!.pattern!.rating,
 		"not_useful",

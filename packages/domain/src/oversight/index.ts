@@ -9,7 +9,7 @@ import { linkActive, type Reader } from "../organizations/core.ts";
 import { areaOf, latestGeography } from "../organizations/geography.ts";
 import { compatible } from "../teams/training/reads.ts";
 import { launchJson, parsePreparation, plantLaunchOf, preparationJson } from "./launch.ts";
-export { runIntelligence, readIntelligence, rateIntelligence } from "./intelligence.ts";
+export { requestIntelligenceRefresh, readIntelligence, submitIntelligenceFeedback } from "./intelligence.ts";
 
 // Organization oversight reads (REQ-IDN-023, REQ-IDN-024): oversight.listPlants, oversight.getPlant,
 // oversight.listSendingChurches and oversight.getSendingChurch. Each statement checks the seat's live access (C13), the

@@ -21,7 +21,7 @@ import { preparationJson } from "./launch.ts";
  * browser names the run id, so a repeated press records one run. Its audit row names the run and how many plants
  * contributed, nothing else.
  */
-export async function runIntelligence(db: Database, authority: RequestActor, raw: unknown) {
+export async function requestIntelligenceRefresh(db: Database, authority: RequestActor, raw: unknown) {
 	return write(db, authority, true, async (w) => {
 		const input = parse(C.refreshRequest, raw);
 		const o = sql`${w.organization}::uuid`;
@@ -61,7 +61,7 @@ SELECT EXISTS(SELECT FROM r) AS added,
  * organization. Nobody else reads it, and it changes no pattern, rule or run. The audit row names the run, never the
  * rating.
  */
-export async function rateIntelligence(db: Database, authority: RequestActor, raw: unknown) {
+export async function submitIntelligenceFeedback(db: Database, authority: RequestActor, raw: unknown) {
 	return write(db, authority, true, async (w) => {
 		const input = parse(C.feedbackRequest, raw);
 		const row = await one(
