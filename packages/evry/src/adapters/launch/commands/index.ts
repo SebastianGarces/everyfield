@@ -358,9 +358,6 @@ const OPEN_TASK = (t: c.PrepTask) => t.status !== "complete" && t.status !== "no
 /** The day of an instant in the church's time zone, as the Launch plan's history says it: "Oct 10, 2026". */
 const dayIn = (at: string, timeZone: string) =>
 	new Intl.DateTimeFormat("en-US", { timeZone, month: "short", day: "numeric", year: "numeric" }).format(new Date(at));
-const TASK_STATUS_SQL = (k: string) =>
-	sql.raw(`CASE ${k}.status WHEN 'not_started' THEN 'Not started' WHEN 'in_progress' THEN 'In progress'
-		WHEN 'blocked' THEN 'Blocked' WHEN 'complete' THEN 'Complete' ELSE 'No longer needed' END`);
 /**
  * A milestone card refused because the milestone or its linked tasks changed since the review: the milestone and each
  * of its live linked prep tasks as they are now, as the Launch plan lists them (LCH-004 stale_review).
@@ -369,7 +366,9 @@ const milestoneNow = (p: SQL) => sql`(SELECT jsonb_build_array(jsonb_build_objec
 	CASE WHEN m.completed_at IS NULL THEN 'Not complete' WHEN EXISTS(SELECT FROM task r WHERE r.id=ANY(m.completed_task_ids)
 		AND r.plant_id=m.plant_id AND r.deleted_at IS NULL AND r.status NOT IN ('complete','no_longer_needed'))
 		THEN 'Needs review' ELSE 'Complete' END))
-	|| coalesce((SELECT jsonb_agg(jsonb_build_object('id',k.id,'label',k.title,'value',${TASK_STATUS_SQL("k")})
+	|| coalesce((SELECT jsonb_agg(jsonb_build_object('id',k.id,'label',k.title,'value',CASE k.status WHEN 'not_started' THEN 'Not started'
+		WHEN 'in_progress' THEN 'In progress' WHEN 'blocked' THEN 'Blocked' WHEN 'complete' THEN 'Complete'
+		ELSE 'No longer needed' END)
 		ORDER BY split_part(k.launch_task_key,'/',2)::int,k.id) FROM task k WHERE k.plant_id=m.plant_id
 		AND k.deleted_at IS NULL AND split_part(k.launch_task_key,'/',1)=m.template_key),'[]'::jsonb)
 	FROM launch_milestone m WHERE m.id=(${p}.input->'input'->>'milestoneId')::uuid AND m.plant_id=${p}.tenant_id)`;

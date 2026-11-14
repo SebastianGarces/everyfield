@@ -62,7 +62,6 @@ const DERIVED = /\bguest data\b|\bdebrief\b/i;
 /** Words a user may call a milestone by that its title doesn't use. */
 const ALIASES: Record<string, string> = {
 	venue: "worship center",
-	room: "worship center",
 	fasting: "prayer and fasting",
 };
 

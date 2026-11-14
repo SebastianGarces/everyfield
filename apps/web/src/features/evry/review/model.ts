@@ -1170,7 +1170,6 @@ export function launchRefusalText(code: string | undefined): string {
 		case "stale_review":
 			return "This milestone's prep tasks changed after Evry prepared this, so nothing was saved. This is how they are now. Ask Evry to prepare it again.";
 		case "revision_conflict":
-		case "conflict":
 			return "The Launch plan changed after Evry prepared this, so nothing was saved. This is how it is now. Ask Evry to prepare it again.";
 		case "derived_evidence_only":
 			return "This milestone follows the submitted debrief. It can't be checked off by hand.";
