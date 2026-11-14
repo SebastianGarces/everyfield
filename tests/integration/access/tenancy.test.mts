@@ -61,6 +61,7 @@ import {
 	readEnrollment,
 	readPipelineBoard,
 	readPipelineConsents,
+	readPipelineGoals,
 	readPipelinePersonRecord,
 	readProgram,
 	readPrograms,
@@ -86,7 +87,7 @@ const baselinePath = fileURLToPath(new URL("./tenancy-baseline.json", import.met
 
 const WRITE_VERBS = new Set(
 	`accept add appoint archive assign attest cancel change clear complete copy correct create delete designate dismiss dispatch
-	edit end enroll ensure execute finalize fork generate hand import initialize invite merge move offer populate propagate publish
+	edit end enroll ensure execute finalize fork generate hand import initialize invite log merge move offer populate propagate publish
 	reactivate recomplete reconcile record remove reorder replace request reschedule reset restore retire revoke save schedule
 	send set sign submit unmerge update upload use with withdraw`.split(/\s+/),
 );
@@ -734,6 +735,12 @@ function cases(who) {
 			unavailable,
 		),
 		ppl(
+			"peopleCsv.getLatestImportReceipt",
+			// Church B has no import of its own; church A's latest import, with its request key, is never church B's answer.
+			() => reads((t, c) => peopleCsv.getLatestImportReceipt(t, c)),
+			{ value: { status: "none" } },
+		),
+		ppl(
 			"retryStoredImport",
 			// Church A's request key from church B names no import; church A's owner gets its complete receipt back.
 			() => retryStoredImport(f.db, storage, who.actor, { requestKey: a.importKey }),
@@ -794,6 +801,15 @@ function cases(who) {
 					},
 				] as const,
 		),
+		// Goals and conversation counts too: tests/integration/organizations/goals.test.mts holds their organization
+		// boundary, including a network that a church shares pipeline totals with.
+		[
+			"organizations:readPipelineGoals",
+			{
+				run: () => plain(() => readPipelineGoals(f.db, who.actor)),
+				expected: { value: { status: "refused", refusal: { code: "unavailable" } }, control: null },
+			},
+		],
 		...meetingsCases(t, who),
 		...followUpsCases(t, who),
 		...documentsCases(t, who),

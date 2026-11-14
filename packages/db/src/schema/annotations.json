@@ -14477,6 +14477,136 @@
 				}
 			}
 		},
+		"leadership_conversation": {
+			"table": {
+				"name": "leadership_conversation",
+				"domain": "people",
+				"purpose": "One leadership (ICNU) conversation of an organization pipeline person (REQ-MUL-009): which staff seat met them, the actual day, and an optional short note readable only by the Owner, Admins and the person's current responsible staff. Counts by month and quarter are read from the day.",
+				"library_owned": false,
+				"jsonb_keys": {},
+				"capabilities": ["CAP-A-056"],
+				"replaces": [],
+				"producer_work_packages": ["WP-098"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-098"],
+					"rule": "WP-098 records each human-logged leadership conversation."
+				},
+				"feature_ids": ["MUL-007", "MUL-008", "MUL-009"],
+				"acceptance_ids": ["AC-MUL-007--MUL-007", "AC-MUL-008--MUL-008", "AC-MUL-009--MUL-009"],
+				"future_case_ids": ["ADR1-007", "ADR1-008", "ADR1-009"],
+				"scope": "people",
+				"invariants": [
+					"Logged only by a human with current duty for the person; never by Evry or a rule.",
+					"The day is a calendar day in the organization's time zone and is never after the day it was logged or corrected.",
+					"The note never enters central audit, search, exports or model input; a correction's audit row holds only the old and new day."
+				],
+				"revision": "Expected revision fences corrections; each correction appends a people.corrected audit row with the old and new day.",
+				"idempotency": "The browser names the conversation id, so a repeated log writes one conversation.",
+				"deletion": "Removed with the pipeline person under REQ-MUL-005.",
+				"physical_verified": false
+			},
+			"columns": {
+				"id": {
+					"note": ""
+				},
+				"organization_id": {
+					"note": ""
+				},
+				"pipeline_person_id": {
+					"note": ""
+				},
+				"staff_seat_id": {
+					"note": ""
+				},
+				"occurred_on": {
+					"note": ""
+				},
+				"note": {
+					"note": ""
+				},
+				"revision": {
+					"note": ""
+				}
+			},
+			"foreignKeys": {
+				"pipeline_person_id,organization_id->pipeline_person(id,organization_id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Explicit dependency-ordered removal or authorized minimal-attribution detachment. Current grants and removal witnesses apply to retained facts and recovery; a foreign key grants no access."
+					}
+				},
+				"staff_seat_id->seat(id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Explicit dependency-ordered removal or authorized minimal-attribution detachment. Current grants and removal witnesses apply to retained facts and recovery; a foreign key grants no access."
+					}
+				}
+			}
+		},
+		"sending_goal": {
+			"table": {
+				"name": "sending_goal",
+				"domain": "people",
+				"purpose": "One sending goal of a sending church or network (REQ-MUL-007): nonnegative leader and plant targets, a target year and the organization's reason. Observed counts are read from the pipeline at a stated as-of day and are never stored here.",
+				"library_owned": false,
+				"jsonb_keys": {},
+				"capabilities": ["CAP-A-056"],
+				"replaces": [],
+				"producer_work_packages": ["WP-098"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-098"],
+					"rule": "WP-098 records an organization's sending goals."
+				},
+				"feature_ids": ["MUL-007", "MUL-008", "MUL-009"],
+				"acceptance_ids": ["AC-MUL-007--MUL-007", "AC-MUL-008--MUL-008", "AC-MUL-009--MUL-009"],
+				"future_case_ids": ["ADR1-007", "ADR1-008", "ADR1-009"],
+				"scope": "people",
+				"invariants": [
+					"Written only by an Owner or Admin of the same organization; body-free audit only.",
+					"A goal never moves a person, changes a stage, commissions an enrollment or creates a plant."
+				],
+				"revision": "Expected revision fences changes.",
+				"idempotency": "The browser names the goal id, so a repeated add writes one goal.",
+				"deletion": "Retained with the organization; no fixed new period is introduced.",
+				"physical_verified": false
+			},
+			"columns": {
+				"id": {
+					"note": ""
+				},
+				"organization_id": {
+					"note": ""
+				},
+				"leader_target": {
+					"note": ""
+				},
+				"plant_target": {
+					"note": ""
+				},
+				"target_year": {
+					"note": ""
+				},
+				"rationale": {
+					"note": ""
+				},
+				"created_at": {
+					"note": ""
+				},
+				"revision": {
+					"note": ""
+				}
+			},
+			"foreignKeys": {
+				"organization_id->organization(id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Explicit dependency-ordered removal or authorized minimal-attribution detachment. Current grants and removal witnesses apply to retained facts and recovery; a foreign key grants no access."
+					}
+				}
+			}
+		},
 		"pipeline_person": {
 			"table": {
 				"name": "pipeline_person",

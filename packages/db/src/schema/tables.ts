@@ -3650,6 +3650,82 @@ export const pipeline_stage_move = pgTable(
 		index("pipeline_stage_move_to_idx").using("btree", table.to_stage_id.asc().nullsLast()),
 	],
 );
+export const sending_goal = pgTable(
+	"sending_goal",
+	{
+		id: uuid("id").notNull(),
+		organization_id: uuid("organization_id").notNull(),
+		leader_target: integer("leader_target").notNull(),
+		plant_target: integer("plant_target").notNull(),
+		target_year: integer("target_year").notNull(),
+		rationale: text("rationale").notNull(),
+		created_at: timestamp("created_at", { withTimezone: true, mode: "date" })
+			.notNull()
+			.default(sql`clock_timestamp()`),
+		revision: int64("revision").notNull(),
+	},
+	(table): PgTableExtraConfigValue[] => [
+		foreignKey({
+			name: "sending_goal_organization",
+			columns: [table.organization_id],
+			foreignColumns: [organization.id],
+		})
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		primaryKey({ name: "sending_goal_pkey", columns: [table.id] }),
+		check("sending_goal_revision", sql`(revision >= 1)`),
+		check("sending_goal_leader_target", sql`((leader_target >= 0) AND (leader_target <= 10000))`),
+		check("sending_goal_plant_target", sql`((plant_target >= 0) AND (plant_target <= 10000))`),
+		check("sending_goal_target_year", sql`((target_year >= 2000) AND (target_year <= 2200))`),
+		check("sending_goal_rationale", sql`((length(btrim(rationale)) >= 1) AND (length(rationale) <= 1000))`),
+		index("sending_goal_organization_idx").using(
+			"btree",
+			table.organization_id.asc().nullsLast(),
+			table.created_at.asc().nullsLast(),
+		),
+	],
+);
+export const leadership_conversation = pgTable(
+	"leadership_conversation",
+	{
+		id: uuid("id").notNull(),
+		organization_id: uuid("organization_id").notNull(),
+		pipeline_person_id: uuid("pipeline_person_id").notNull(),
+		staff_seat_id: uuid("staff_seat_id").notNull(),
+		occurred_on: date("occurred_on", { mode: "string" }).notNull(),
+		note: text("note"),
+		revision: int64("revision").notNull(),
+	},
+	(table): PgTableExtraConfigValue[] => [
+		foreignKey({
+			name: "leadership_conversation_person",
+			columns: [table.pipeline_person_id, table.organization_id],
+			foreignColumns: [pipeline_person.id, pipeline_person.organization_id],
+		})
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		foreignKey({ name: "leadership_conversation_staff", columns: [table.staff_seat_id], foreignColumns: [seat.id] })
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		primaryKey({ name: "leadership_conversation_pkey", columns: [table.id] }),
+		check("leadership_conversation_revision", sql`(revision >= 1)`),
+		check(
+			"leadership_conversation_note",
+			sql`((note IS NULL) OR ((length(btrim(note)) >= 1) AND (length(note) <= 1000)))`,
+		),
+		index("leadership_conversation_on_idx").using(
+			"btree",
+			table.organization_id.asc().nullsLast(),
+			table.occurred_on.asc().nullsLast(),
+		),
+		index("leadership_conversation_person_idx").using(
+			"btree",
+			table.pipeline_person_id.asc().nullsLast(),
+			table.organization_id.asc().nullsLast(),
+		),
+		index("leadership_conversation_staff_idx").using("btree", table.staff_seat_id.asc().nullsLast()),
+	],
+);
 export const plant = pgTable(
 	"plant",
 	{

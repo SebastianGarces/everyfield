@@ -152,6 +152,8 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `launch_milestone(source_version_id)` | `reference_version(id)` | restrict |  |
 | `launch_milestone(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
 | `launch_milestone(plant_id)` | `launch(plant_id)` | restrict |  |
+| `leadership_conversation(pipeline_person_id, organization_id)` | `pipeline_person(id, organization_id)` | restrict |  |
+| `leadership_conversation(staff_seat_id)` | `seat(id)` | restrict |  |
 | `lifecycle_witness(account_id)` | `account(id)` | restrict |  |
 | `lifecycle_witness(plant_id)` | `plant(id)` | restrict |  |
 | `lifecycle_witness(requester_id)` | `account(id)` | restrict |  |
@@ -330,6 +332,7 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `seat(organization_id)` | `organization(id)` | restrict |  |
 | `seat(invitation_id)` | `invitation(id)` | restrict | Invitation owner is an endpoint, not always the plant. Serialized acceptance validates exact endpoints and tenant kind; consent cannot be inherited. |
 | `seat(id)` | `record(id)` | restrict | Subtype trigger binds actual record owner for a global/public or retained body-free variant whose live root pointer is nullable. |
+| `sending_goal(organization_id)` | `organization(id)` | restrict |  |
 | `settings_preview(account_id)` | `account(id)` | no_action |  |
 | `settings_preview(tenant_id)` | `tenant(id)` | no_action |  |
 | `suppression(source_event_id)` | `provider_event(id)` | restrict |  |

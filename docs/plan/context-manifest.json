@@ -2681,6 +2681,7 @@
         "enrollment_milestone",
         "feedback",
         "generated_document",
+        "leadership_conversation",
         "message_template",
         "model_spend",
         "onboarding_setup",
@@ -2698,6 +2699,7 @@
         "relationship_invitation",
         "schema_backfill",
         "schema_migration",
+        "sending_goal",
         "settings_preview",
         "task_assignee",
         "training_assignment",
@@ -26337,6 +26339,7 @@
         "job",
         "launch",
         "launch_milestone",
+        "leadership_conversation",
         "lifecycle_witness",
         "mail",
         "mail_attempt",
@@ -26390,6 +26393,7 @@
         "schema_backfill",
         "schema_migration",
         "seat",
+        "sending_goal",
         "settings_preview",
         "suppression",
         "tag",
@@ -32477,6 +32481,7 @@
         "job",
         "launch",
         "launch_milestone",
+        "leadership_conversation",
         "mail",
         "mail_attempt",
         "mail_request",
@@ -32528,6 +32533,7 @@
         "schema_backfill",
         "schema_migration",
         "seat",
+        "sending_goal",
         "settings_preview",
         "suppression",
         "tag",
@@ -41550,11 +41556,13 @@
         "WP-090"
       ],
       "producer_table_names": [
+        "leadership_conversation",
         "person_note",
         "pipeline_person",
         "pipeline_stage",
         "pipeline_stage_move",
-        "record"
+        "record",
+        "sending_goal"
       ],
       "consumer_table_names": [],
       "proof_stage": "stages 1 and 2 producer; final whole-target integration admits no deferrals",
@@ -42191,6 +42199,7 @@
         "development_stage",
         "enrollment_milestone",
         "invitation",
+        "leadership_conversation",
         "organization_person_removal",
         "person",
         "person_note",
@@ -42198,7 +42207,8 @@
         "pipeline_sharing",
         "pipeline_stage",
         "pipeline_stage_move",
-        "residency_link"
+        "residency_link",
+        "sending_goal"
       ],
       "proof_stage": "stages 1 and 2 producer; final whole-target integration admits no deferrals",
       "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."

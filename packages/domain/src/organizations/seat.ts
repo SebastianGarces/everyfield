@@ -1,6 +1,6 @@
 import * as C from "@everyfield/contracts/organizations";
 import type { Database, Transaction } from "@everyfield/db/client";
-import { sql, type SQL } from "@everyfield/db/query";
+import { SQL, sql } from "@everyfield/db/query";
 import { randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
@@ -73,7 +73,8 @@ export type Writer = {
 		subjectType?: string;
 		before?: SQL;
 		after?: SQL;
-		metadata?: object;
+		/** Body-free metadata; SQL when it holds a value the statement reads, such as a corrected day's old value. */
+		metadata?: object | SQL;
 	}) => SQL;
 };
 
@@ -111,7 +112,7 @@ export async function write<T, R extends Refusal = C.PipelineRefusal>(
 					sql`INSERT INTO audit_event (id,tenant_id,actor_id,actor_token,action,kind,subject_type,subject_id,before_revision,
  after_revision,metadata) SELECT ${a.id ?? randomUUID()}::uuid,${organization}::uuid,${actor}::uuid,${token},${a.action},${a.kind},
  ${a.subjectType ?? "person"},${a.subject},${a.before ?? sql`NULL`}::bigint,${a.after ?? sql`NULL`}::bigint,
- ${JSON.stringify(a.metadata ?? {})}::jsonb`,
+ ${a.metadata instanceof SQL ? a.metadata : sql`${JSON.stringify(a.metadata ?? {})}::jsonb`}`,
 			});
 		}),
 	);

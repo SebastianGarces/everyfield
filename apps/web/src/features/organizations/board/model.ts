@@ -35,6 +35,18 @@ export function boardHref(query: PipelineBoardQuery) {
 	return text ? `${PIPELINE_PATH}?${text}` : PIPELINE_PATH;
 }
 
+/** What an `invalid_input` refusal says, by the field it names. */
+const FIELD_PROBLEM: Record<string, string> = {
+	assessedOn: "The date can’t be after today.",
+	occurredOn: "The date can’t be after today.",
+	leaderTarget: "Targets can’t be less than 0.",
+	plantTarget: "Targets can’t be less than 0.",
+	targetYear: "Enter a year between 2000 and 2200.",
+	goals: "You can keep up to 50 goals.",
+	label: "Two stages can’t have the same name.",
+	responsibleSeatId: "That staff member no longer has a seat here. Choose someone else.",
+};
+
 /** What a refused or lost change tells the person. */
 export function refusalText(answer: { status: "refused"; refusal: PipelineRefusal } | { status: "lost" }) {
 	if (answer.status === "lost") return "We couldn’t reach Everyfield. Nothing was saved. Try again.";
@@ -43,13 +55,7 @@ export function refusalText(answer: { status: "refused"; refusal: PipelineRefusa
 		case "conflict":
 			return "Someone changed this while you were working. Reload the page to see the latest, then try again.";
 		case "invalid_input":
-			return r.field === "assessedOn"
-				? "The date can’t be after today."
-				: r.field === "label"
-					? "Two stages can’t have the same name."
-					: r.field === "responsibleSeatId"
-						? "That staff member no longer has a seat here. Choose someone else."
-						: "Check the highlighted fields and try again.";
+			return FIELD_PROBLEM[r.field ?? ""] ?? "Check the highlighted fields and try again.";
 		case "stage_occupied":
 			return `This stage still has ${r.people === 1 ? "1 person" : `${r.people} people`} in it. Move them to another stage first.`;
 		default:
@@ -80,3 +86,18 @@ export function stageChanges(
 		changes.push(`New order: ${rows.map((r, i) => `${i + 1}. ${r.label.trim()}`).join(", ")}`);
 	return changes;
 }
+
+/** A goal in words, from its own numbers: "Develop 6 leaders to plant 2 churches by 2028". */
+export function goalHeadline(goal: { leaderTarget: number; plantTarget: number; targetYear: number }) {
+	const leaders = goal.leaderTarget ? `Develop ${plural(goal.leaderTarget, "leader")}` : "";
+	const plants = goal.plantTarget ? `plant ${plural(goal.plantTarget, "church", "churches")}` : "";
+	const aim = leaders && plants ? `${leaders} to ${plants}` : leaders || plants.replace(/^p/, "P");
+	return aim ? `${aim} by ${goal.targetYear}` : `Goal for ${goal.targetYear}`;
+}
+
+const monthName = new Intl.DateTimeFormat("en-US", { month: "short", timeZone: "UTC" });
+/** "2026-10" as "Oct"; January also names its year, so a row that crosses a year reads plainly. */
+export const monthLabel = (month: string) => {
+	const name = monthName.format(new Date(`${month}-01T00:00:00Z`));
+	return month.endsWith("-01") ? `${name} ${month.slice(0, 4)}` : name;
+};

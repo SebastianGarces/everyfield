@@ -9540,6 +9540,164 @@
       },
       "isRLSEnabled": false
     },
+    "public.leadership_conversation": {
+      "name": "leadership_conversation",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "pipeline_person_id": {
+          "name": "pipeline_person_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "staff_seat_id": {
+          "name": "staff_seat_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "occurred_on": {
+          "name": "occurred_on",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "revision": {
+          "name": "revision",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "leadership_conversation_on_idx": {
+          "name": "leadership_conversation_on_idx",
+          "columns": [
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "occurred_on",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "leadership_conversation_person_idx": {
+          "name": "leadership_conversation_person_idx",
+          "columns": [
+            {
+              "expression": "pipeline_person_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "leadership_conversation_staff_idx": {
+          "name": "leadership_conversation_staff_idx",
+          "columns": [
+            {
+              "expression": "staff_seat_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "leadership_conversation_person": {
+          "name": "leadership_conversation_person",
+          "tableFrom": "leadership_conversation",
+          "tableTo": "pipeline_person",
+          "columnsFrom": [
+            "pipeline_person_id",
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id",
+            "organization_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "leadership_conversation_staff": {
+          "name": "leadership_conversation_staff",
+          "tableFrom": "leadership_conversation",
+          "tableTo": "seat",
+          "columnsFrom": [
+            "staff_seat_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "leadership_conversation_pkey": {
+          "name": "leadership_conversation_pkey",
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "leadership_conversation_revision": {
+          "name": "leadership_conversation_revision",
+          "value": "(revision >= 1)"
+        },
+        "leadership_conversation_note": {
+          "name": "leadership_conversation_note",
+          "value": "((note IS NULL) OR ((length(btrim(note)) >= 1) AND (length(note) <= 1000)))"
+        }
+      },
+      "isRLSEnabled": false
+    },
     "public.lifecycle_witness": {
       "name": "lifecycle_witness",
       "schema": "",
@@ -20309,6 +20467,132 @@
         "seat_ck_2": {
           "name": "seat_ck_2",
           "value": "(num_nonnulls(plant_id, organization_id) = 1)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.sending_goal": {
+      "name": "sending_goal",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "leader_target": {
+          "name": "leader_target",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "plant_target": {
+          "name": "plant_target",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "target_year": {
+          "name": "target_year",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "rationale": {
+          "name": "rationale",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "clock_timestamp()"
+        },
+        "revision": {
+          "name": "revision",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "sending_goal_organization_idx": {
+          "name": "sending_goal_organization_idx",
+          "columns": [
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "sending_goal_organization": {
+          "name": "sending_goal_organization",
+          "tableFrom": "sending_goal",
+          "tableTo": "organization",
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "sending_goal_pkey": {
+          "name": "sending_goal_pkey",
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "sending_goal_revision": {
+          "name": "sending_goal_revision",
+          "value": "(revision >= 1)"
+        },
+        "sending_goal_leader_target": {
+          "name": "sending_goal_leader_target",
+          "value": "((leader_target >= 0) AND (leader_target <= 10000))"
+        },
+        "sending_goal_plant_target": {
+          "name": "sending_goal_plant_target",
+          "value": "((plant_target >= 0) AND (plant_target <= 10000))"
+        },
+        "sending_goal_target_year": {
+          "name": "sending_goal_target_year",
+          "value": "((target_year >= 2000) AND (target_year <= 2200))"
+        },
+        "sending_goal_rationale": {
+          "name": "sending_goal_rationale",
+          "value": "((length(btrim(rationale)) >= 1) AND (length(rationale) <= 1000))"
         }
       },
       "isRLSEnabled": false
