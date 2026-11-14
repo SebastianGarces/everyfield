@@ -37,7 +37,7 @@
       "WP-005"
     ],
     "routes": [
-      "/sign-in"
+      "/signin"
     ]
   },
   {
@@ -74,7 +74,7 @@
       "WP-008"
     ],
     "routes": [
-      "/sign-in"
+      "/signin"
     ]
   },
   {
@@ -103,7 +103,7 @@
       "WP-009"
     ],
     "routes": [
-      "/sign-in"
+      "/signin"
     ]
   },
   {
@@ -128,7 +128,7 @@
       "WP-050"
     ],
     "routes": [
-      "/sign-in"
+      "/signin"
     ]
   },
   {
@@ -277,8 +277,7 @@
     ],
     "routes": [
       "/settings/account",
-      "/verify-email?token=\u2026",
-      "/verify-email/confirmed"
+      "/confirm-email?token=\u2026"
     ]
   },
   {
@@ -337,7 +336,7 @@
       "WP-005"
     ],
     "routes": [
-      "/forgot-password",
+      "/recover-password",
       "/reset-password?token=\u2026"
     ]
   },
@@ -648,8 +647,8 @@
     ],
     "routes": [
       "/settings/seats",
-      "/invite/[token]",
-      "/sign-in"
+      "/invitation",
+      "/signin"
     ]
   },
   {
@@ -762,7 +761,7 @@
     "routes": [
       "/network",
       "/settings/sharing",
-      "/sign-in"
+      "/signin"
     ]
   },
   {
@@ -1100,7 +1099,7 @@
       "WP-050"
     ],
     "routes": [
-      "/sign-in",
+      "/signin",
       "/",
       "/network",
       "/wiki/[...slug]",
