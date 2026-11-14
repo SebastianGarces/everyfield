@@ -1,14 +1,17 @@
 // `bin/dev check [--full]`: the local product checks a change needs (T-41). An author run checks what
-// tools/ci/select.ts selects from the diff against the merge base with origin/main; `--full`, the verifier's mode,
-// runs everything. Either way it writes a checks.json record outside the repository and prints its path.
+// tools/ci/select.ts selects from the diff against the merge base with origin/main, through the coverage map of the
+// latest green GitHub nightly (.github/workflows/nightly.yml, T-216); `--full`, the verifier's mode, runs everything.
+// Either way it writes a checks.json record outside the repository and prints its path.
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { basename, join, relative, resolve } from "node:path";
 import {
 	CHECKS,
 	type CheckId,
+	type CoverageMap,
 	everything,
+	type MapProblem,
 	type Package,
 	parseCoverageMap,
 	type Selection,
@@ -77,6 +80,82 @@ export type CheckRecord = {
 /** Where the coverage map and records live: outside every checkout. */
 export const ciHome = (env = process.env) => env.EVERYFIELD_CI_HOME ?? join(homedir(), ".everyfield", "ci");
 
+/** A command runner shaped like `gh`: tests pass a fake. */
+export type Gh = (args: readonly string[]) => { status: number; stdout: string };
+export const spawnGh: Gh = (args) => {
+	const r = spawnSync("gh", args, { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+	return { status: r.status ?? 1, stdout: r.stdout ?? "" };
+};
+export const REPO = "SebastianGarces/everyfield";
+/** The GitHub workflow that writes the coverage map, and the name of the run artifact that holds it. */
+export const NIGHTLY_WORKFLOW = "nightly.yml";
+export const MAP_ARTIFACT = "coverage-map";
+
+/**
+ * The coverage map selection reads: the one in the CI home, replaced first by the map of the latest successful
+ * nightly run on main when that run is newer (or the home has no usable map). The download goes to a temporary folder
+ * and replaces the home's map only once parseCoverageMap accepts it. When gh cannot list or download, or the
+ * download is unusable, the home's map stays in use; without one, the problem says why, and selection runs everything.
+ */
+export function coverageMapFor(home: string, gh: Gh): CoverageMap | MapProblem {
+	const file = join(home, "coverage-map.json");
+	const local = parseCoverageMap(existsSync(file) ? readFileSync(file, "utf8") : null);
+	const without = (why: string): CoverageMap | MapProblem =>
+		"problem" in local ? { problem: `${local.problem} and ${why}` } : local;
+	const listed = gh([
+		"run",
+		"list",
+		"--repo",
+		REPO,
+		"--workflow",
+		NIGHTLY_WORKFLOW,
+		"--branch",
+		"main",
+		"--status",
+		"success",
+		"--limit",
+		"1",
+		"--json",
+		"databaseId,createdAt",
+	]);
+	if (listed.status !== 0) return without("gh could not list the GitHub nightly runs");
+	// An off-shape run fails safe: its download fails, and the reason says so.
+	let latest: { databaseId: number; createdAt: string } | undefined;
+	try {
+		latest = JSON.parse(listed.stdout)[0];
+	} catch {
+		return without("gh run list returned no run list");
+	}
+	if (!latest) return without("no GitHub nightly run on main has passed yet");
+	// The map of a run is written after the run starts, so a map from that run or a later one is not older.
+	if (!("problem" in local) && Date.parse(local.createdAt) >= Date.parse(latest.createdAt)) return local;
+	const run = `GitHub nightly run ${latest.databaseId}`;
+	const dir = mkdtempSync(join(tmpdir(), "evf-coverage-map-"));
+	try {
+		const got = gh([
+			"run",
+			"download",
+			String(latest.databaseId),
+			"--repo",
+			REPO,
+			"--name",
+			MAP_ARTIFACT,
+			"--dir",
+			dir,
+		]);
+		if (got.status !== 0) return without(`gh could not download the coverage map of ${run}`);
+		const downloaded = join(dir, "coverage-map.json");
+		const map = parseCoverageMap(existsSync(downloaded) ? readFileSync(downloaded, "utf8") : null);
+		if ("problem" in map) return without(`the download of ${run} is unusable: ${map.problem}`);
+		mkdirSync(home, { recursive: true });
+		writeFileSync(file + ".tmp", JSON.stringify(map, null, 2) + "\n");
+		renameSync(file + ".tmp", file);
+		return map;
+	} finally {
+		rmSync(dir, { recursive: true, force: true });
+	}
+}
+
 const git = (root: string, args: string[]) => {
 	const r = spawnSync("git", ["-C", root, ...args], { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
 	return r.status === 0 ? r.stdout : null;
@@ -86,8 +165,11 @@ const lines = (text: string | null, sep = "\n") => (text ?? "").split(sep).filte
 const testCount = (output: string) =>
 	[...output.matchAll(/(?:ℹ|#) tests (\d+)\s*$/gm)].reduce((sum, [, n]) => sum + Number(n), 0);
 
-/** Reads the inputs selection needs from the checkout. A git failure means an unreadable diff, never an empty one. */
-function gather(root: string, home: string) {
+/**
+ * Reads the inputs selection needs from the checkout. A git failure means an unreadable diff, never an empty one. A
+ * full run selects nothing, so it reads no coverage map.
+ */
+function gather(root: string, home: string, full: boolean, gh: Gh) {
 	const head = git(root, ["rev-parse", "HEAD"])?.trim() ?? null;
 	const mergeBase = git(root, ["merge-base", "HEAD", "origin/main"])?.trim() ?? null;
 	const diff = mergeBase ? git(root, ["diff", "--name-only", "-z", mergeBase]) : null;
@@ -106,8 +188,9 @@ function gather(root: string, home: string) {
 			};
 			return { dir: f.slice(0, -"/package.json".length), name: pkg.name ?? "", scripts: pkg.scripts ?? {} };
 		});
-	const mapFile = join(home, "coverage-map.json");
-	const map = parseCoverageMap(existsSync(mapFile) ? readFileSync(mapFile, "utf8") : null);
+	const map: CoverageMap | MapProblem = full
+		? { problem: "a full run reads no coverage map" }
+		: coverageMapFor(home, gh);
 	return { head, mergeBase, changed, packages, map, testFiles: files.filter((f) => suiteOf(f)).sort() };
 }
 
@@ -120,6 +203,7 @@ export type CheckOptions = {
 	home?: string;
 	now?: Date;
 	run?: Runner;
+	gh?: Gh;
 	database?: Partial<Pick<PostgresOptions, "readyTimeoutMs" | "sleep" | "watch">>;
 };
 
@@ -129,12 +213,13 @@ export function check({
 	home = ciHome(),
 	now = new Date(),
 	run = spawnRunner,
+	gh = spawnGh,
 	database = {},
 }: CheckOptions) {
 	root = resolve(root);
 	if (!relative(root, resolve(home)).startsWith("..")) throw new Error(`The CI home ${home} must be outside ${root}.`);
 	const started = Date.now();
-	const input = gather(root, home);
+	const input = gather(root, home, full, gh);
 	const context = { testFiles: input.testFiles, packages: input.packages, now };
 	const selection = full
 		? everything(["verifier run (--full) ignores selection"], context)
