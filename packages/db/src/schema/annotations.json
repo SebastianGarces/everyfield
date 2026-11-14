@@ -3821,7 +3821,12 @@
 				"domain": "tenancy",
 				"purpose": "Immutable sending-church or network identity and editable contact profile.",
 				"library_owned": false,
-				"jsonb_keys": {},
+				"jsonb_keys": {
+					"pipeline_import_columns": [
+						"key: a column title with case, spacing and punctuation removed",
+						"value: name, first_name, last_name, email, stage, answer or skip"
+					]
+				},
 				"capabilities": ["CAP-A-004", "CAP-A-007"],
 				"replaces": ["organization"],
 				"producer_work_packages": ["WP-004", "WP-007"],
@@ -3953,6 +3958,9 @@
 				},
 				"statement_of_faith": {
 					"note": "A sending network's plain-text statement of faith. It fills the statement-of-faith slot of Church Documents its plants create from a template (DOC-020, D-107). Null on a sending church."
+				},
+				"pipeline_import_columns": {
+					"note": "The pipeline import's remembered column choices (T-363): normalized column title to the field, answer or skip an Owner or Admin last chose for it. Titles only, never an answer."
 				},
 				"gathering_milestone_offered": {
 					"note": "Whether the organization's plants may end the gathering phase with its milestone instead of Launch Sunday (T-296). Turning it off keeps the name and description."

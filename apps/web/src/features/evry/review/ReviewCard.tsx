@@ -18,6 +18,7 @@ import {
 	Notification01Icon,
 	ImageNotFound01Icon,
 	Mortarboard01Icon,
+	StartUp02Icon,
 	SquareLock02Icon,
 	Tag01Icon,
 	Tick02Icon,
@@ -79,6 +80,7 @@ import {
 	pollDelay,
 	refusalText,
 	isPhoto,
+	isLaunch,
 	isPipeline,
 	isSettings,
 	pipelineLink,
@@ -904,6 +906,13 @@ function Footer({
 							<Icon icon={ArrowRight02Icon} size={16} />
 						</IntentLink>
 					</Button>
+				) : isLaunch(review.operation) ? (
+					<Button size="sm" variant="ghost" asChild>
+						<IntentLink href="/launch">
+							Open Launch
+							<Icon icon={ArrowRight02Icon} size={16} />
+						</IntentLink>
+					</Button>
 				) : isPipeline(review.operation) ? (
 					<Button size="sm" variant="ghost" asChild>
 						<IntentLink href={pipelineLink(review).href}>
@@ -1038,17 +1047,19 @@ function Affects({ review }: { review: Review }) {
 		: (record ??
 			(program
 				? Mortarboard01Icon
-				: imported
-					? FileImportIcon
-					: kind === "household"
-						? Home01Icon
-						: kind === "tag" || tag
-							? Tag01Icon
-							: mail
-								? Mail01Icon
-								: create
-									? UserAdd01Icon
-									: null));
+				: isLaunch(review.operation)
+					? StartUp02Icon
+					: imported
+						? FileImportIcon
+						: kind === "household"
+							? Home01Icon
+							: kind === "tag" || tag
+								? Tag01Icon
+								: mail
+									? Mail01Icon
+									: create
+										? UserAdd01Icon
+										: null));
 	const name = own
 		? (NOTIFICATION_SUBJECT[review.operation] ?? "Your notifications")
 		: imported
@@ -1252,10 +1263,12 @@ function Changes({ review, staged, onRetry }: { review: Review; staged: StagedPh
 	const changes = shownChanges(review);
 	if (!changes.length) return null;
 	const create = addsOnly(review.operation);
-	// A Meetings value with nothing before it is new: it shows only what it will be.
+	// A Meetings or Launch value with nothing before it is new: it shows only what it will be.
 	// So is a milestone a program's next version adds.
 	const fresh = (c: Change) =>
-		(isMeetings(review.operation) || review.operation === "development.draftNextVersion") &&
+		(isMeetings(review.operation) ||
+			isLaunch(review.operation) ||
+			review.operation === "development.draftNextVersion") &&
 		(c.before === null || c.before === undefined);
 	return (
 		<dl className="flex flex-col gap-2 rounded-md bg-surface-2 px-3 py-2.5 text-sm">

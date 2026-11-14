@@ -3088,6 +3088,9 @@ export const organization = pgTable(
 			.notNull()
 			.default(sql`1`),
 		statement_of_faith: text("statement_of_faith"),
+		pipeline_import_columns: jsonb("pipeline_import_columns")
+			.notNull()
+			.default(sql`'{}'::jsonb`),
 		/**
 		 * The milestone that ends the gathering phase for this organization's plants, instead of Launch Sunday (T-296).
 		 * Turning it off keeps the name and description for the next time it is turned on.
@@ -3114,6 +3117,7 @@ export const organization = pgTable(
 			"organization_statement_of_faith",
 			sql`((statement_of_faith IS NULL) OR ((kind = 'sending_network'::text) AND (length(btrim(statement_of_faith)) > 0) AND (length(statement_of_faith) <= 10000)))`,
 		),
+		check("organization_pipeline_import_columns", sql`(jsonb_typeof(pipeline_import_columns) = 'object'::text)`),
 		check(
 			"organization_gathering_milestone",
 			sql`(((NOT gathering_milestone_offered) OR (gathering_milestone_name IS NOT NULL)) AND ((gathering_milestone_name IS NULL) OR ((length(btrim(gathering_milestone_name)) > 0) AND (length(gathering_milestone_name) <= 120))) AND ((gathering_milestone_description IS NULL) OR (length(gathering_milestone_description) <= 2000)))`,
