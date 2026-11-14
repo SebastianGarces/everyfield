@@ -97,7 +97,7 @@ export const projection = (alias: string) =>
 /**
  * What a review is about. A person, message, team, role, training, responsibility, household or tag is withheld once it
  * is no longer available; a church, seat, invitation, connection, organization or account review is checked again by
- * its native command on approval.
+ * its native command on approval; so is a phase or signal review, which targets the church as `plant`.
  */
 const targetKind = z.enum([
 	"person",
@@ -109,6 +109,8 @@ const targetKind = z.enum([
 	"household",
 	"tag",
 	"church",
+	// A phase or signal review targets the church itself under its tenancy kind (adapters/intelligence).
+	"plant",
 	"seat",
 	"invitation",
 	"connection",

@@ -17,7 +17,7 @@ import { ownerOrAdmin, STATUS_WORDS } from "../reads/index.ts";
 // refuses instead of being overwritten. Evry never moves a phase or records a signal by itself.
 
 /** The church the change is about: every phase and signal review targets the selected plant, as `p`. */
-const plant = sql`jsonb_build_object('kind','church','id',p.id,'label',p.name)`;
+const plant = sql`jsonb_build_object('kind','plant','id',p.id,'label',p.name)`;
 const inPlant = (actor: EvryActor) => sql`FROM plant p WHERE p.id=${actor.owner.id}::uuid`;
 const change = (field: string, before: SQL, after: SQL) =>
 	sql`jsonb_build_object('field',${field}::text,'before',${before},'after',${after})`;

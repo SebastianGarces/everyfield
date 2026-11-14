@@ -160,10 +160,11 @@ test("INV-catalog: the phase and signal tools follow the context: Owner and Admi
 		writes: [],
 		withheld: [MEMBER_PHASES],
 	});
-	// Organization seats keep no tools at all until T-311 or T-331 gives them their own (D-1116); an account has none.
+	// Organization seats get no phase or signal tool and no plant read (D-1116): their own tools come from T-311, T-331
+	// and T-327's profile change. An account has none either.
 	for (const actor of [as("sending_church", "owner"), as("sending_network", "admin"), as("account", null)]) {
-		const catalog = readCatalog(actor);
-		assert.deepEqual([catalog.domains, catalog.reviewedWrites, catalog.withheld], [[], [], []], actor.contextKind);
+		assert.deepEqual(phaseTools(actor), { phases: [], signals: [], writes: [], withheld: [] }, actor.contextKind);
+		assert.deepEqual(readCatalog(actor).domains, [], actor.contextKind);
 	}
 });
 

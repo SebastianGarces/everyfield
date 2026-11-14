@@ -142,8 +142,9 @@ export type Review = {
 				| "responsibility"
 				| "household"
 				| "tag"
-				/** A phase or signal change targets the church itself. */
 				| "church"
+				/** A phase or signal change targets the church itself. */
+				| "plant"
 				| "seat"
 				| "invitation"
 				| "connection"

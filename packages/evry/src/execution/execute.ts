@@ -9,7 +9,7 @@ import { owner, sessionId } from "@everyfield/contracts/common";
 import { z } from "zod";
 import { EvryRefusal } from "../context/errors.ts";
 import { REVIEWED_WRITES, staleMessage } from "../proposals/store.ts";
-import type { EffectResult, MailPort, NativePorts, ReviewedWrite } from "../proposals/types.ts";
+import type { EffectPorts, EffectResult, MailPort, NativePorts, ReviewedWrite } from "../proposals/types.ts";
 
 /** The executor's claim on one evry_effect job, as the WP-031 queue issued it. Only the current claim may publish. */
 export type EffectLease = { jobId: string; tenantId: string; leaseOwner: string; generation: string };
