@@ -287,6 +287,13 @@ async function run(
 					result = await invokeRead(db, fresh, adapter, input, deps.native ?? null);
 				} catch (error) {
 					if (attempt < LIMITS.readRetries && transientRead(error)) continue;
+					// A read that failed while the same seat still holds is one source the answer can't cover: the model
+					// reads the error and says what it couldn't read, as Overview leaves one card that failed (ADM-005).
+					// A read that failed because access ended or changed stops the turn.
+					const still = await deps.freshActor(session).catch(() => null);
+					const lost = error instanceof EvryRefusal && error.code === "access_denied";
+					if (!lost && still && sameContext(still, fresh) && still.role === fresh.role)
+						return { error: "source_unavailable", operation: adapter.operation };
 					fail(error instanceof EvryRefusal ? error : new EvryRefusal("source_unavailable"));
 					return { error: "source_unavailable" };
 				}

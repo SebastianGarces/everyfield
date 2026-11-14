@@ -727,6 +727,8 @@ test("INV-evry-golden SAF-02 SAF-11 SAF-12 SAF-14: the model's tools can read an
 			"notifications.setPreferences",
 			"account.finalizeAvatar",
 			"account.requestDeletion",
+			// Their own product feedback to the Everyfield team (T-330), which changes no church record.
+			"feedback.submit",
 		],
 	);
 	// It also reads its own pipeline and proposes stage moves and new programs (WP-101).
