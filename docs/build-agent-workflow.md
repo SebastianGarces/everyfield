@@ -3,9 +3,9 @@
 The DAG defines packages and dependencies. evf v2 (the `evf` in `~/.cargo/bin`) runs the work, and its task records are the live
 state. `evf status` and the dashboard at `http://localhost:4384` show them.
 
-`docs/build-progress.json` stopped updating on 2026-10-22 at PR #235, and nothing writes it now. It stays as
-the frozen record of what evf v1 shipped, because the explorer reads it. Do not read it as current state, and do not edit
-it to record new work.
+`docs/build-progress.json` froze on 2026-10-22 at PR #235, and nothing writes it now. T-290 refreshed WP-017–039, WP-071
+and WP-072 by hand on 2026-11-13; other packages stay as of 2026-10-22. It stays because the explorer reads it. Do not read
+it as current state, and do not edit it to record new work.
 
 Each task runs these steps in order: plan, implement, simplify, the repo's checks, the pull request (evf pushes the branch
 and opens or updates the PR), review, required GitHub CI, the owner gate where a path in an owner class applies, and
