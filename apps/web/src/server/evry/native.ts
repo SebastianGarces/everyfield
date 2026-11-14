@@ -1,6 +1,6 @@
 import type { NativePorts } from "@everyfield/evry";
 import "server-only";
-import { appVersion } from "../../features/feedback/server.ts";
+import { appVersion } from "../app-version.ts";
 import { settingsCommands } from "../../features/settings/server.ts";
 import { invitationService, invitationServiceOn } from "../invitations/index.ts";
 import { onboardingMount } from "../onboarding/index.ts";
