@@ -108,7 +108,7 @@ export function Steps({ current }: { current: StepKey }) {
 	);
 }
 
-function StepHeading({
+export function StepHeading({
 	heading,
 	children,
 }: {
@@ -122,7 +122,7 @@ function StepHeading({
 	);
 }
 
-function Problem({ notice, actions }: { notice: Notice; actions?: ReactNode }) {
+export function Problem({ notice, actions }: { notice: Notice; actions?: ReactNode }) {
 	const ref = useRef<HTMLDivElement>(null);
 	// An error takes focus when it appears, so the person hears what went wrong and what to do.
 	useEffect(() => ref.current?.focus(), [notice]);
@@ -147,23 +147,38 @@ function Problem({ notice, actions }: { notice: Notice; actions?: ReactNode }) {
 
 // ---------------------------------------------------------------------------------------------------------------
 
+/** What an upload takes. The People import takes the 12-column CSV; another import names its own. */
+export type UploadKind = { title: string; accept: string; prompt: string; limits: string; inputLabel: string };
+const CSV_UPLOAD: UploadKind = {
+	title: "Choose a CSV file",
+	accept: ".csv,text/csv",
+	prompt: "Drop a CSV file here, or choose one",
+	limits: "CSV UTF-8, up to 10 MB and 10,000 rows",
+	inputLabel: "Choose a CSV file",
+};
+
 export function UploadStep({
 	heading,
 	checking,
 	error,
 	onFile,
+	kind = CSV_UPLOAD,
+	aside = <TemplateCard />,
 }: {
 	heading: React.RefObject<HTMLHeadingElement | null>;
 	checking: File | null;
 	error: Notice | null;
 	onFile: (file: File) => void;
+	kind?: UploadKind;
+	/** The card beside the drop zone. */
+	aside?: ReactNode;
 }) {
 	const [over, setOver] = useState(false);
 	const input = useRef<HTMLInputElement>(null);
 	return (
 		<div className="grid items-start gap-5 app-lg:grid-cols-[minmax(0,1fr)_340px]">
 			<Card className="gap-5">
-				<StepHeading heading={heading}>Choose a CSV file</StepHeading>
+				<StepHeading heading={heading}>{kind.title}</StepHeading>
 				{error ? <Problem notice={error} /> : null}
 				<label
 					onDragOver={(e) => {
@@ -187,19 +202,17 @@ export function UploadStep({
 					<span aria-hidden="true" className="grid size-14 place-items-center rounded-card bg-surface-2 text-text-2">
 						<Icon icon={FileImportIcon} size={24} />
 					</span>
-					<span className="font-medium text-ink">
-						{checking ? `Checking ${checking.name}…` : "Drop a CSV file here, or choose one"}
-					</span>
-					<span className="text-sm text-text-2">CSV UTF-8, up to 10 MB and 10,000 rows</span>
+					<span className="font-medium text-ink">{checking ? `Checking ${checking.name}…` : kind.prompt}</span>
+					<span className="text-sm text-text-2">{kind.limits}</span>
 					<span className={cn(buttonVariants({ variant: "primary" }), "mt-2 pointer-events-none")} aria-hidden="true">
 						{checking ? "Checking…" : "Choose file"}
 					</span>
 					<input
 						ref={input}
 						type="file"
-						accept=".csv,text/csv"
+						accept={kind.accept}
 						className="sr-only"
-						aria-label="Choose a CSV file"
+						aria-label={kind.inputLabel}
 						disabled={checking !== null}
 						onChange={(e) => {
 							const file = e.currentTarget.files?.[0];
@@ -212,32 +225,39 @@ export function UploadStep({
 					{checking ? `Checking ${checking.name}` : ""}
 				</p>
 			</Card>
-			<Card size="sm" className="gap-3">
-				<h3 className="font-semibold text-ink">Start from the template</h3>
-				<p className="text-sm text-text-2 text-pretty">
-					The first row names the columns. Everyfield reads first_name, last_name, email, phone, street, city, state,
-					postal_code, country, source, source_details and notes. Each person needs a first or last name. Other columns
-					are listed and ignored.
-				</p>
-				<p className="text-sm text-text-2 text-pretty">
-					source is one of: {SOURCE_VALUES.join(", ")}. Leave it empty for other.
-				</p>
-				<a
-					href="/api/people/import/template"
-					download
-					className={cn(buttonVariants({ variant: "outline", size: "sm" }), "w-fit")}
-				>
-					<Icon icon={Download04Icon} size={16} />
-					Download template
-				</a>
-			</Card>
+			{aside}
 		</div>
+	);
+}
+
+/** The People import's side card: the template and what it reads. */
+function TemplateCard() {
+	return (
+		<Card size="sm" className="gap-3">
+			<h3 className="font-semibold text-ink">Start from the template</h3>
+			<p className="text-sm text-text-2 text-pretty">
+				The first row names the columns. Everyfield reads first_name, last_name, email, phone, street, city, state,
+				postal_code, country, source, source_details and notes. Each person needs a first or last name. Other columns
+				are listed and ignored.
+			</p>
+			<p className="text-sm text-text-2 text-pretty">
+				source is one of: {SOURCE_VALUES.join(", ")}. Leave it empty for other.
+			</p>
+			<a
+				href="/api/people/import/template"
+				download
+				className={cn(buttonVariants({ variant: "outline", size: "sm" }), "w-fit")}
+			>
+				<Icon icon={Download04Icon} size={16} />
+				Download template
+			</a>
+		</Card>
 	);
 }
 
 // ---------------------------------------------------------------------------------------------------------------
 
-function Stat({ label, value, note, tone }: { label: string; value: number; note: string; tone?: string }) {
+export function Stat({ label, value, note, tone }: { label: string; value: number; note: string; tone?: string }) {
 	return (
 		<Card size="sm">
 			<p className="text-md text-text-3">{label}</p>

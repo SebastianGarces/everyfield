@@ -14591,6 +14591,13 @@
           "type": "text",
           "primaryKey": false,
           "notNull": false
+        },
+        "pipeline_import_columns": {
+          "name": "pipeline_import_columns",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
         }
       },
       "indexes": {},
@@ -14665,6 +14672,10 @@
         "organization_statement_of_faith": {
           "name": "organization_statement_of_faith",
           "value": "((statement_of_faith IS NULL) OR ((kind = 'sending_network'::text) AND (length(btrim(statement_of_faith)) > 0) AND (length(statement_of_faith) <= 10000)))"
+        },
+        "organization_pipeline_import_columns": {
+          "name": "organization_pipeline_import_columns",
+          "value": "(jsonb_typeof(pipeline_import_columns) = 'object'::text)"
         }
       },
       "isRLSEnabled": false
