@@ -41,6 +41,7 @@ import { SLOT_BLANK_NOTE, fieldValues, printedDoc } from "../../../packages/doma
 import { NEUTRAL_THEME, makePalette } from "../../../packages/domain/src/documents/theme.ts";
 import { contentSnapshot, REGISTRY } from "../../../packages/domain/src/documents/templates/registry.ts";
 import { fontDigests } from "../../../packages/domain/src/documents/fonts.ts";
+import { sofficeTest } from "./fixtures/readers.mts";
 import { lowContrastKit, sampleKit } from "./fixtures/sample-kit.ts";
 
 const CHURCH = "Harborlight Church";
@@ -412,65 +413,52 @@ describe("INV-doc-engine: api engine", () => {
 		assert.deepEqual(w.getCell("C10").value, { formula: "SUM(C5:C9)" });
 	});
 
-	test(
-		"AC:DOC-012 LibreOffice recalculates a filled budget to the expected totals",
-		{ skip: !hasSoffice() },
-		async () => {
-			const { mkdtempSync, writeFileSync, readFileSync: read } = await import("node:fs");
-			const { tmpdir } = await import("node:os");
-			const { join } = await import("node:path");
-			const book = new ExcelJS.Workbook();
-			await book.xlsx.load(await xlsxBytes("first-year-budget"));
-			const monthly = book.getWorksheet("Monthly budget")!;
-			for (let c = 2; c <= 13; c++) {
-				monthly.getCell(5, c).value = 1000;
-				monthly.getCell(6, c).value = 500;
-				monthly.getCell(13, c).value = 700;
-			}
-			// LibreOffice trusts cached results in an Excel file, so a filled copy drops them and forces a real recalculation.
-			book.eachSheet((sheet) =>
-				sheet.eachRow((row) =>
-					row.eachCell((cell) => {
-						const value = cell.value as { formula?: string } | null;
-						if (value && typeof value === "object" && value.formula)
-							cell.value = { formula: value.formula } as ExcelJS.CellFormulaValue;
-					}),
-				),
-			);
-			book.calcProperties.fullCalcOnLoad = true;
-			const dir = mkdtempSync(join(tmpdir(), "ef-xlsx-"));
-			writeFileSync(join(dir, "filled.xlsx"), Buffer.from(await book.xlsx.writeBuffer()));
-			execFileSync(
-				"soffice",
-				[
-					"--headless",
-					"--convert-to",
-					"csv:Text - txt - csv (StarCalc):44,34,76,1,,0,false,true,false,false,false,-1",
-					"--outdir",
-					dir,
-					join(dir, "filled.xlsx"),
-				],
-				{ stdio: "ignore" },
-			);
-			const out = execFileSync("ls", [dir], { encoding: "utf8" });
-			const csv = out.split("\n").find((n) => n.includes("Monthly") && n.endsWith(".csv"))!;
-			const rows = read(join(dir, csv), "utf8").split("\n");
-			const income = rows.find((r) => r.startsWith("Total income"))!;
-			assert.match(income, /,18000$/, "12 months x (1000 + 500) is 18000");
-			const net = rows.find((r) => r.startsWith("Net ("))!;
-			assert.match(net, /,9600$/, "18000 income less 8400 expense is 9600");
-		},
-	);
+	sofficeTest("AC:DOC-012 LibreOffice recalculates a filled budget to the expected totals", async () => {
+		const { mkdtempSync, writeFileSync, readFileSync: read } = await import("node:fs");
+		const { tmpdir } = await import("node:os");
+		const { join } = await import("node:path");
+		const book = new ExcelJS.Workbook();
+		await book.xlsx.load(await xlsxBytes("first-year-budget"));
+		const monthly = book.getWorksheet("Monthly budget")!;
+		for (let c = 2; c <= 13; c++) {
+			monthly.getCell(5, c).value = 1000;
+			monthly.getCell(6, c).value = 500;
+			monthly.getCell(13, c).value = 700;
+		}
+		// LibreOffice trusts cached results in an Excel file, so a filled copy drops them and forces a real recalculation.
+		book.eachSheet((sheet) =>
+			sheet.eachRow((row) =>
+				row.eachCell((cell) => {
+					const value = cell.value as { formula?: string } | null;
+					if (value && typeof value === "object" && value.formula)
+						cell.value = { formula: value.formula } as ExcelJS.CellFormulaValue;
+				}),
+			),
+		);
+		book.calcProperties.fullCalcOnLoad = true;
+		const dir = mkdtempSync(join(tmpdir(), "ef-xlsx-"));
+		writeFileSync(join(dir, "filled.xlsx"), Buffer.from(await book.xlsx.writeBuffer()));
+		execFileSync(
+			"soffice",
+			[
+				"--headless",
+				"--convert-to",
+				"csv:Text - txt - csv (StarCalc):44,34,76,1,,0,false,true,false,false,false,-1",
+				"--outdir",
+				dir,
+				join(dir, "filled.xlsx"),
+			],
+			{ stdio: "ignore" },
+		);
+		const out = execFileSync("ls", [dir], { encoding: "utf8" });
+		const csv = out.split("\n").find((n) => n.includes("Monthly") && n.endsWith(".csv"))!;
+		const rows = read(join(dir, csv), "utf8").split("\n");
+		const income = rows.find((r) => r.startsWith("Total income"))!;
+		assert.match(income, /,18000$/, "12 months x (1000 + 500) is 18000");
+		const net = rows.find((r) => r.startsWith("Net ("))!;
+		assert.match(net, /,9600$/, "18000 income less 8400 expense is 9600");
+	});
 });
-
-function hasSoffice() {
-	try {
-		execFileSync("soffice", ["--version"], { stdio: "ignore" });
-		return true;
-	} catch {
-		return false;
-	}
-}
 
 async function xlsxBytes(kind: "first-year-budget" | "budget-worksheet") {
 	const loaded = await library();
