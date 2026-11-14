@@ -1,6 +1,5 @@
-import { requestDatabase } from "@/server/database";
+import { ownResidencyLinks } from "@/server/organizations";
 import { getViewer } from "@/server/request-context";
-import { readResidencyLink } from "@everyfield/domain/organizations";
 import { avatarRoute } from "@everyfield/contracts/settings";
 import type { ReactNode } from "react";
 import { sectionSeed } from "../settings/routes";
@@ -15,13 +14,13 @@ import { ProductFrame } from "./ProductFrame.tsx";
 export async function ProductFrameLayout({ children }: { children: ReactNode }) {
 	const v = await getViewer();
 	const settings = settingsViewerOf(v);
-	// A seatless account's live residency link puts My residency in its navigation (WP-100). One statement, and only
-	// for an account without a seat.
-	const db = requestDatabase();
-	const residency =
-		db && v?.status === "active" && v.authority?.actor.context.kind === "account"
-			? await readResidencyLink(db, v.authority)
-			: null;
+	// A seatless account's live residency link puts My residency in its navigation (WP-100). Only for an account
+	// without a seat, and the same per-request read the Sharing page's residency cards use: no extra statement there.
+	const live =
+		v?.status === "active" && v.authority?.actor.context.kind === "account"
+			? (await ownResidencyLinks()).find((l) => l.sharing.status === "active")
+			: undefined;
+	const residency = live ? { organizationName: live.organizationName } : null;
 	return (
 		<ProductFrame
 			name={v?.displayName ?? "You"}
