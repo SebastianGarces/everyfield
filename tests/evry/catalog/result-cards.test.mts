@@ -12,6 +12,7 @@ import { cardView, FALLBACK } from "../../../apps/web/src/features/evry/conversa
 import { byName, goldenChurch, IMPORT_KEY, MEETINGS, programId, teamId } from "../evals/golden-church.mts";
 import { nativePorts } from "../evals/settings-ports.mts";
 import { seedSetup, SETUP_SPECS } from "../evals/setup-church.mts";
+import { PIPELINE_SPECS, seedPipeline } from "../evals/pipeline-church.mts";
 import { readViewer } from "../../../packages/domain/src/access/session.ts";
 import { evryActor } from "../../../packages/evry/src/context/actor.ts";
 
@@ -21,6 +22,8 @@ after(church.close);
 const native = nativePorts();
 await seedSetup(church.admin, church.db, native);
 const setupActor = async (session: string) => evryActor((await readViewer(church.db, session as never))!.authority!);
+// Grace Austin's pipeline, for the pipeline and program reads (WP-101), read by its Owner.
+await seedPipeline(church.admin, church.db);
 const adapters = new Map<string, ReadAdapter<unknown>>(
 	Object.values(catalog.READ_DOMAINS)
 		.flat()
@@ -135,6 +138,10 @@ const PROBES: Record<string, Record<string, unknown> | (() => Promise<SourceResu
 			{},
 			native,
 		),
+	"pipeline.listPeople": async () =>
+		invokeRead(church.db, await setupActor(PIPELINE_SPECS.dana.session), adapters.get("pipeline.listPeople")!, {}),
+	"development.draftPlan": async () =>
+		invokeRead(church.db, await setupActor(PIPELINE_SPECS.dana.session), adapters.get("development.draftPlan")!, {}),
 	[catalog.SELECT_RETURNED_ROWS]: async () => {
 		const list = await read("people.listPeople", {});
 		return { ...list, operation: catalog.SELECT_RETURNED_ROWS, rows: list.rows.slice(0, 2), total: 2 };
