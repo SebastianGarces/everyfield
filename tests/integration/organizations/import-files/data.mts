@@ -1,5 +1,5 @@
 // The rows of the pipeline import fixtures (T-363). Row 1 is the header of a Microsoft Forms export: the form's own
-// ID, times, Email and Name columns, then its questions.
+// ID, times, Email and Name columns, then its questions; the last two are credentialing questions (T-385).
 export const APPLICATIONS: string[][] = [
 	[
 		"ID",
@@ -13,6 +13,8 @@ export const APPLICATIONS: string[][] = [
 		"Describe your calling",
 		"Spouse's name",
 		"Have you completed a background check?",
+		"Statement of faith",
+		"Ordination history",
 	],
 	[
 		"1",
@@ -26,6 +28,8 @@ export const APPLICATIONS: string[][] = [
 		"East Austin, among young families.\nWe have prayed about it for two years, together.",
 		"Maria Reyes",
 		"Yes, in 2025",
+		"I hold to the Apostles' Creed and the network's statement of faith.",
+		"Licensed at Grace Austin in 2022; ordination council planned for spring.",
 	],
 	[
 		"2",
@@ -39,6 +43,8 @@ export const APPLICATIONS: string[][] = [
 		"Students near campus, starting with a dinner table",
 		"",
 		"No",
+		"The Nicene Creed",
+		"",
 	],
 	[
 		"3",
@@ -52,10 +58,12 @@ export const APPLICATIONS: string[][] = [
 		"Ready to apprentice",
 		"Jo Lee",
 		"Yes",
+		"Affirmed with my home church",
+		"Ordained 2019",
 	],
 ];
 /** applications-v2.xlsx: the same titles, questions first and the form's own columns last. */
-export const V2_ORDER = [6, 5, 8, 10, 9, 7, 0, 3, 4, 1, 2];
+export const V2_ORDER = [6, 5, 8, 10, 9, 12, 11, 7, 0, 3, 4, 1, 2];
 
 /** A UTF-8 CSV with a byte order mark and CRLF line ends, every field quoted where it needs it. */
 export function csvOf(rows: string[][]) {

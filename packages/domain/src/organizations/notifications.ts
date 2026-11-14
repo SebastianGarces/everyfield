@@ -1,6 +1,6 @@
 import { sql, type SQLWrapper } from "@everyfield/db/query";
 import { z } from "zod";
-import { liveResidency } from "../access/pipeline.ts";
+import { liveResidency, reviewShared } from "../access/pipeline.ts";
 import { seatHeld } from "../access/session.ts";
 import type { Reader } from "./core.ts";
 
@@ -205,4 +205,70 @@ export function residencyMailGrants(input: SQLWrapper): SQLWrapper {
 		JOIN residency_link l ON l.account_id=i.recipient AND l.organization_id=n.tenant_id
 		WHERE ${liveResidency}
 		FOR SHARE OF n, l`;
+}
+
+// Kept answers sent for review (T-385, D-1507). The send queues one `notification` job keyed `review/<send>` in its own
+// statement. The worker writes one notice, owned by the organization, to the reviewer's account while the send is
+// shared (reviewShared), and the mail mount sends its email only while it still is. Neither names a question or an
+// answer: only the person, the group name and the sender.
+
+/** The send a review job key names: `review/<send>`. */
+export function reviewJobOf(key: string) {
+	return z.uuid().parse(key.split("/")[1]);
+}
+
+const reviewRow = z.object({
+	organization_kind: z.enum(["sending_church", "sending_network"]),
+	recipient: z.uuid(),
+	person: z.string(),
+	group_name: z.string(),
+	sender: z.string().nullable(),
+	holds: z.boolean(),
+});
+
+/** What the reviewer's notice says: who sent which group for whom, never a question or an answer (D-1507). */
+function reviewNotice(person: string, group: string, sender: string | null) {
+	const name = person.slice(0, 200);
+	return {
+		title: `Answers to review: ${name}`,
+		text: `${(sender ?? "A staff member").slice(0, 200)} sent you “${group}” for ${name} to review.`,
+	};
+}
+
+/**
+ * The review notice as the worker sees it when the job runs: the reviewer's account, whether the send is still shared,
+ * and the notice text. Null when the send is not this organization's. One statement that holds the send and the
+ * reviewer's seat, so a withdrawal or a seat end waits for this job's notice. The caller is the trusted worker.
+ */
+export async function planReviewNotice(db: Reader, org: string, reviewId: string) {
+	const r =
+		await db.execute(sql`SELECT o.kind AS organization_kind, s.account_id AS recipient, p.display_name AS person,
+			r.group_name, (SELECT i.display_name FROM seat_identity(r.sender_id) i) AS sender, ${reviewShared} AS holds
+		FROM answer_review r JOIN organization o ON o.id=r.organization_id
+		JOIN seat s ON s.id=r.reviewer_seat_id AND s.organization_id=r.organization_id
+		JOIN person p ON p.id=r.person_id AND p.tenant_id=r.organization_id
+		WHERE r.id=${sql.param(reviewId)}::uuid AND r.organization_id=${sql.param(org)}::uuid
+		FOR SHARE OF r, s`);
+	if (!r.rows[0]) return null;
+	const row = reviewRow.parse(r.rows[0]);
+	return {
+		holds: row.holds,
+		recipient: row.recipient,
+		organizationKind: row.organization_kind,
+		...reviewNotice(row.person, row.group_name, row.sender),
+	};
+}
+
+/**
+ * Which review notice mail may go out, as a locking SELECT of mail ids over `input` (rows of id, recipient and notice,
+ * under the alias `i`): the notice is the recipient's own review notice, the recipient still holds the send's reviewer
+ * seat, and the send is still shared.
+ */
+export function reviewMailGrants(input: SQLWrapper): SQLWrapper {
+	return sql`SELECT i.id FROM ${input}
+		JOIN notice n ON n.id=i.notice AND n.recipient_id=i.recipient AND n.purpose='answer_review'
+		JOIN answer_review r ON r.id=n.source_record_id AND r.organization_id=n.tenant_id
+		JOIN seat s ON s.id=r.reviewer_seat_id AND s.account_id=i.recipient AND ${seatHeld("s")}
+		WHERE ${reviewShared}
+		FOR SHARE OF n, r, s`;
 }

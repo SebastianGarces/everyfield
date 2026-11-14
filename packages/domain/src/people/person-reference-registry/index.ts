@@ -81,6 +81,9 @@ export const registry: readonly Registration[] = [
 	// refuses the merge by itself; an ended one is history.
 	r("pipeline_person", "pipeline_person", "person_id", "organization_id", "keep"),
 	r("residency_link", "residency_link", "person_id", "organization_id", "keep"),
+	// A send for review stays a record of whom it was about; its reviewer reads the note it names, wherever the note
+	// moves (T-385).
+	r("answer_review", "answer_review", "person_id", "organization_id", "keep", "id", false),
 	r("task", "task", "person_id", "plant_id", "block"),
 	r("team_leader", "team", "leader_person_id", "plant_id", "block"),
 	r("team_tenure", "team_tenure", "person_id", "plant_id", "block"),
