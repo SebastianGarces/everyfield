@@ -53,9 +53,15 @@ import { AttachButton, AttachedPhoto, useAttachedPhoto } from "./PhotoAttach.tsx
  * The panel and its opener. Cmd+J or Ctrl+J opens and closes it from anywhere in the product frame. `off` closes it and
  * ignores the shortcut (the private check-in page).
  */
-export function useEvryPanel({ inPlant, off = false }: { inPlant: boolean; off?: boolean }) {
+/**
+ * `context` names the church, organization or account the frame works in. When it changes under an open conversation
+ * (starting a church or turning a Discovery space into one moves the account into the new church), that conversation
+ * stays on screen, and the next message starts a new chat there: the old one belongs to the context the account left.
+ */
+export function useEvryPanel({ inPlant, off = false, context }: { inPlant: boolean; off?: boolean; context: string }) {
 	const [open, setOpen] = useState(false);
 	const c = useConversation(open);
+	const [startedIn, setStartedIn] = useState(context);
 	// The latest conversation loads the first time the panel opens; later opens keep what the panel already has.
 	const show = (next: boolean) => {
 		setOpen(next);
@@ -77,7 +83,16 @@ export function useEvryPanel({ inPlant, off = false }: { inPlant: boolean; off?:
 	}, []);
 	return {
 		open: () => show(true),
-		element: off ? null : <EvryPanel c={c} open={open} onOpenChange={show} inPlant={inPlant} />,
+		element: off ? null : (
+			<EvryPanel
+				c={c}
+				open={open}
+				onOpenChange={show}
+				inPlant={inPlant}
+				moved={startedIn !== context}
+				onMove={() => setStartedIn(context)}
+			/>
+		),
 	};
 }
 
@@ -86,11 +101,16 @@ function EvryPanel({
 	open,
 	onOpenChange,
 	inPlant,
+	moved,
+	onMove,
 }: {
 	c: Model;
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	inPlant: boolean;
+	/** The frame now works in another context than this conversation's: the next message starts a new chat. */
+	moved: boolean;
+	onMove: () => void;
 }) {
 	const [view, setView] = useState<"chat" | "history">("chat");
 	const [draft, setDraft] = useState("");
@@ -143,6 +163,10 @@ function EvryPanel({
 						stopping={c.state.stopping}
 						disabled={c.load !== "ready"}
 						onSend={(text, references) => {
+							if (moved) {
+								onMove();
+								if (c.state.conversation) c.newChat();
+							}
 							c.send(text, references);
 							composer.current?.focus();
 						}}

@@ -245,6 +245,7 @@ export function instrument(path, source, listed = standalone) {
 		"/packages/domain/src/phases/reads.ts": { phaseReader: "phases" },
 		"/packages/domain/src/organizations/pipeline.ts": { pipelineWriter: "pipeline" },
 		"/packages/domain/src/organizations/programs.ts": { programWriter: "programs" },
+		"/packages/domain/src/organizations/residency.ts": { residentWriter: "residency" },
 		"/packages/domain/src/feedback/index.ts": { feedbackWriter: "feedback" },
 	};
 	for (const [name, prefix] of Object.entries(objects[path.slice(root.length)] ?? {}))

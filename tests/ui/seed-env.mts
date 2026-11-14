@@ -1,9 +1,11 @@
 // The one seeded environment every tests/ui seed shares. A preview reads one apps/web/.env.local, so every seed writes
-// into the same isolated schema on the shared development database, with one pair of login roles and one set of identity
-// keys. The first seed creates the schema, applies every migration and writes the env file (git-ignored, mode 0600);
-// later seeds read it back and add their own data. Each seed writes its own fixture; `dropSeed` deletes that fixture and
-// drops the schema, roles and env file once no other seed's fixture still uses the schema. It refuses any database host
-// other than the shared development database, through the shared test-database guard.
+// into the same isolated schema on the shared development database (CI's own in the GitHub nightly), with one pair of
+// login roles and one set of identity keys. The first seed creates the schema, applies every migration and writes the
+// env file (git-ignored, mode 0600); later seeds read it back and add their own data. Each seed writes its own fixture;
+// `dropSeed` deletes that fixture and drops the schema, roles and env file once no other seed's fixture still uses the
+// schema. Through the shared test-database guard it refuses every database but the shared development one and, with
+// CI=true and EARLY_ACCESS_TEST_DATABASE=1, CI's disposable `everyfield_ci` (the GitHub nightly's tests/ui job,
+// D-1378).
 import { createDatabase, closeDatabase, type Database } from "../../packages/db/src/client.ts";
 import {
 	createLoginRole,
@@ -92,7 +94,7 @@ function readSaved(): Saved | null {
 /** Opens the shared environment for `origin`, creating the schema, roles and env file on the first call. */
 export async function openSeedEnvironment(origin: string): Promise<SeedEnvironment> {
 	if (!/^https?:\/\/[a-z0-9.-]+\.localhost(:\d+)?$/.test(origin)) throw Error("Give the local preview URL");
-	const source = testDatabaseUrl({ ci: false });
+	const source = testDatabaseUrl();
 	const saved = readSaved();
 	if (saved && saved.origin !== origin)
 		throw Error(`${ENV_FILE} seeds ${saved.origin}. Run a seed's down first, or seed that preview.`);
@@ -176,7 +178,7 @@ export async function dropSeed(name: SeedName): Promise<{ dropped: string | null
 	if (!saved) return { dropped: null, kept: [] };
 	const kept = SEEDS.filter((other) => other !== name && fixtureSchema(other) === saved.schema);
 	if (kept.length) return { dropped: null, kept };
-	const admin = createDatabase({ connectionString: testDatabaseUrl({ ci: false }).href, max: 1 });
+	const admin = createDatabase({ connectionString: testDatabaseUrl().href, max: 1 });
 	try {
 		await dropSchema(admin, saved.schema);
 		for (const r of [saved.role, saved.authRole]) if (ROLE.test(r)) await dropRole(admin, r);

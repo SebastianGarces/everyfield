@@ -9,11 +9,13 @@ import {
 	createOrganizationAdapter,
 	geographyReference,
 	readAnswerableInvitation,
+	residencyLinks,
 	readSharingDisclosure,
 	type Kind,
 	type OrganizationEffects,
 	type Viewer,
 } from "@everyfield/domain/organizations";
+import { cache } from "react";
 import "server-only";
 import { z } from "zod";
 import { mailEnv } from "../mail-env.ts";
@@ -153,6 +155,15 @@ export async function viewerOf(): Promise<
 		},
 	};
 }
+
+/**
+ * The signed-in viewer's residency links with their consent, read once per request: the product frame (My residency
+ * in the navigation, WP-100) and the Sharing page's residency cards share one statement.
+ */
+export const ownResidencyLinks = cache(async () => {
+	const who = await viewerOf();
+	return who.kind === "viewer" ? residencyLinks(who.mount.db, who.viewer) : [];
+});
 
 /** The owner a residency operation runs as: the resident's own account. */
 export const residentOwner = (viewer: Viewer) => owner.parse({ kind: "account", id: viewer.accountId });

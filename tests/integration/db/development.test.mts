@@ -2,7 +2,7 @@ import test, { afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { assertDevelopmentDatabase, developmentHosts } from "../../../packages/db/src/development.ts";
 
-const KEYS = ["NODE_ENV", "CI", "EARLY_ACCESS_TEST_DATABASE"] as const;
+const KEYS = ["NODE_ENV", "CI", "EARLY_ACCESS_TEST_DATABASE", "DATABASE_URL", "DATABASE_URL_UNPOOLED"] as const;
 const saved = Object.fromEntries(KEYS.map((k) => [k, process.env[k]]));
 afterEach(() => {
 	for (const k of KEYS)
@@ -55,4 +55,22 @@ test("INV-dev-database: the guard refuses production, other hosts and bad URLs w
 test("INV-dev-database: the guard refuses every host under NODE_ENV=production", () => {
 	env({ ...CI, NODE_ENV: "production" });
 	for (const host of [direct!, pooled!, "localhost"]) assert.throws(() => assertDevelopmentDatabase(url(host)));
+});
+
+test("INV-dev-database: the tests/ui seeds' guard takes CI's everyfield_ci only under CI's flags", async () => {
+	const { testDatabaseUrl } = await import("../../support/test-database.mts");
+	const at = (value: string) => {
+		process.env.DATABASE_URL = value;
+		return () => testDatabaseUrl();
+	};
+	env(CI);
+	for (const host of ["localhost:5432", "127.0.0.1:5432"])
+		assert.equal(at(`postgres://ci:ci@${host}/everyfield_ci`)().pathname, "/everyfield_ci");
+	assert.equal(at(url(direct!))().searchParams.get("sslmode"), "verify-full");
+	assert.throws(at("postgres://ci:ci@localhost:5432/other_db"));
+	assert.throws(at("postgres://ci:ci@db.example.org:5432/everyfield_ci"));
+	env({});
+	assert.throws(at("postgres://ci:ci@localhost:5432/everyfield_ci"));
+	env({ ...CI, NODE_ENV: "production" });
+	assert.throws(at("postgres://ci:ci@localhost:5432/everyfield_ci"));
 });
