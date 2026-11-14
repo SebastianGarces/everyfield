@@ -41,4 +41,4 @@ export {
 	readVersionReviews,
 	searchReadings,
 } from "./programs.ts";
-export { readMyResidency, readResidencyLink, readResidentReading, residentWriter } from "./residency.ts";
+export { readMyResidency, readResidentReading, residentWriter } from "./residency.ts";

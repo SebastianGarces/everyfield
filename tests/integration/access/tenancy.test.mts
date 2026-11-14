@@ -60,7 +60,6 @@ import {
 import {
 	readEnrollment,
 	readMyResidency,
-	readResidencyLink,
 	readResidentReading,
 	readPipelineBoard,
 	readPipelineConsents,
@@ -819,13 +818,6 @@ function cases(who) {
 			{
 				run: () => plain(() => readMyResidency(f.db, who.actor)),
 				expected: { value: { status: "ok", value: { status: "not_linked" } }, control: null },
-			},
-		],
-		[
-			"organizations:readResidencyLink",
-			{
-				run: () => plain(() => readResidencyLink(f.db, who.actor)),
-				expected: { value: null, control: null },
 			},
 		],
 		[

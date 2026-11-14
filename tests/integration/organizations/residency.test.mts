@@ -13,7 +13,6 @@ import {
 	programWriter,
 	readEnrollment,
 	readMyResidency,
-	readResidencyLink,
 	readPipelineBoard,
 	readPipelinePersonRecord,
 	readProgram,
@@ -357,8 +356,6 @@ test("Casey accepts sharing milestone progress only: no seat, still a Discovery 
 	// Her session still has no seat: it acts as her own account.
 	assert.equal((await authority(casey)).actor.context.kind, "account");
 	assert.deepEqual((await record(luis)).residency, { status: "linked" });
-	assert.equal((await readResidencyLink(f.db, await authority(casey)))?.organizationName, "Grace Austin");
-	assert.equal(await readResidencyLink(f.db, await authority(rae)), null);
 	assert.equal(await navLink(casey), "Grace Austin");
 	assert.equal(await navLink(rae), null);
 	assert.deepEqual((await enrollment(ana)).resident, {
@@ -694,7 +691,6 @@ test("Casey leaves: My residency is gone at once and Grace Austin sees her as no
 		input: { linkId: l.id, expectedConsentRevision: l.consent },
 	});
 	assert.deepEqual(await mine(), { status: "not_linked" });
-	assert.equal(await readResidencyLink(f.db, await authority(casey)), null);
 	assert.equal(await navLink(casey), null);
 	assert.deepEqual((await record(luis)).residency, { status: "not_linked" });
 	const shown = await enrollment(ana);

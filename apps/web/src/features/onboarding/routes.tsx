@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { requestDatabase } from "@/server/database";
 import { onboardingEntry } from "@/server/onboarding";
+import { ownResidencyLinks } from "@/server/organizations";
 import { getViewer } from "@/server/request-context";
-import { readResidencyLink } from "@everyfield/domain/organizations";
 import { ORGANIZATION_HOME } from "@everyfield/contracts/identity";
 import { FOUNDATION_ARTICLES } from "./foundations";
 import { parseStep } from "./model";
@@ -26,11 +25,11 @@ export async function OnboardingPage({ searchParams }: { searchParams: Search })
 	if (load.kind === "signed_out") redirect("/signin?returnTo=%2Fonboarding");
 	const raw = (await searchParams).step;
 	// A seatless account linked to a residency reaches My residency from its Discovery home (WP-100).
-	const db = requestDatabase();
-	const residency =
-		db && load.entry.kind === "discovery" && viewer?.status === "active" && viewer.authority
-			? await readResidencyLink(db, viewer.authority)
-			: null;
+	const live =
+		load.entry.kind === "discovery" && context?.kind === "account"
+			? (await ownResidencyLinks()).find((l) => l.sharing.status === "active")
+			: undefined;
+	const residency = live ? { organizationName: live.organizationName } : null;
 	return (
 		<RealOnboarding
 			residency={residency}
