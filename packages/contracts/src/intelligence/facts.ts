@@ -177,6 +177,11 @@ export const plantFacts = z.strictObject({
 	training,
 	attestations: z.array(attestationFact),
 	humanRecords,
+	/**
+	 * The launch countdown at `today`: the scheduled launch date and the plant-local days to it, null when no launch is
+	 * scheduled or it already happened.
+	 */
+	launch: z.strictObject({ targetOn: localDate.nullable(), daysToLaunch: z.int().nullable() }),
 	/** The exit criteria these facts measure. Every other criterion stays Unknown. */
 	criteria: z.partialRecord(criterionKey, criterionStatus),
 });

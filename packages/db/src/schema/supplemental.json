@@ -2595,6 +2595,12 @@
 			"table_name": "article_revision"
 		},
 		{
+			"definition": "CREATE TRIGGER immutable_source BEFORE UPDATE ON <schema>.assessment_run FOR EACH ROW EXECUTE FUNCTION freeze_fields('id,plant_id,as_of,phase,source_revision,formula_version,rubric_version,rubric_sha256,reference_release,reference_activation,model,grounding,facts,model_input,recorded_at,demand,demand_key,captured_at,deadline_at')",
+			"enabled": "O",
+			"name": "immutable_source",
+			"table_name": "assessment_run"
+		},
+		{
 			"definition": "CREATE TRIGGER immutable_source BEFORE UPDATE ON <schema>.document_revision FOR EACH ROW EXECUTE FUNCTION freeze_fields('id,tenant_id,document_id,version_number,body,content_hash,recorded_at,import_format,import_state')",
 			"enabled": "O",
 			"name": "immutable_source",
@@ -3575,6 +3581,20 @@
 			"kind": "table",
 			"object": "article_revision",
 			"privilege_type": "UPDATE"
+		},
+		{
+			"grantee": "everyfield_cleanup",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "assessment_insight",
+			"privilege_type": "DELETE"
+		},
+		{
+			"grantee": "everyfield_cleanup",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "assessment_insight",
+			"privilege_type": "SELECT"
 		},
 		{
 			"grantee": "everyfield_cleanup",
@@ -5834,6 +5854,20 @@
 			"grantee": "everyfield_runtime",
 			"is_grantable": false,
 			"kind": "table",
+			"object": "assessment_insight",
+			"privilege_type": "INSERT"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "assessment_insight",
+			"privilege_type": "SELECT"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
 			"object": "assessment_run",
 			"privilege_type": "INSERT"
 		},
@@ -5843,6 +5877,13 @@
 			"kind": "table",
 			"object": "assessment_run",
 			"privilege_type": "SELECT"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "assessment_run",
+			"privilege_type": "UPDATE"
 		},
 		{
 			"grantee": "everyfield_runtime",

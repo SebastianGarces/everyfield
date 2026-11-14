@@ -6424,6 +6424,7 @@
     "operations": [
       "intelligence.describeRunFailure",
       "intelligence.executeDemand",
+      "intelligence.listRunsForReview",
       "intelligence.readAssessmentRun",
       "intelligence.settleRun"
     ],

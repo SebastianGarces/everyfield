@@ -34,12 +34,22 @@ export const ASSESSMENT_BUDGET = {
 	outputTokens: 12_000,
 	callMs: 45_000,
 } as const;
+/** Three scheduled runs in a row that fail hold a plant for an operator (assessment.md, Execution and budgets). */
+export const HELD_AFTER_FAILURES = 3;
 /** Title, body and summary bounds (methodology-intelligence.md, Persisted plant views). */
 const title = z.string().trim().min(3).max(140);
 const body = z.string().trim().min(10).max(1200);
 
+/** How much a point matters, as the model says it (PI-023). It orders insights only; it never ranks plants. */
+export const urgency = z.enum(["positive", "info", "watch", "urgent"]);
+export type Urgency = z.infer<typeof urgency>;
+/** The stored severity of each model urgency, exactly (PI-023). `critical` is reserved: no assessment produces it. */
+export const SEVERITY = { positive: "info", info: "low", watch: "medium", urgent: "high" } as const;
+export const severity = z.enum(["info", "low", "medium", "high", "critical"]);
+export type Severity = z.infer<typeof severity>;
+
 /** What the model returns: one main focus, two supporting points and what's going well, each naming its citations. */
-const draftPoint = z.strictObject({ title, body, citations: z.array(z.string().max(80)).max(8) });
+const draftPoint = z.strictObject({ title, body, urgency, citations: z.array(z.string().max(80)).max(8) });
 export const draftOutput = z.strictObject({
 	summary: z.string().trim().min(10).max(600),
 	focus: draftPoint,
@@ -193,6 +203,8 @@ export function factCatalog(f: PlantFacts): FactEntry[] {
 			value: f.humanRecords.fourCs.latestOn,
 			status: null,
 		},
+		{ key: "launch.targetOn", label: "Scheduled launch date", value: f.launch.targetOn, status: null },
+		{ key: "launch.daysToLaunch", label: "Days to the launch date", value: f.launch.daysToLaunch, status: null },
 	];
 	for (const s of f.attestations)
 		entries.push(
@@ -236,14 +248,35 @@ export type ModelInput = z.infer<typeof modelInput>;
 
 // What a run stores and what readers see.
 
+/**
+ * The facts that changed between two published assessments (intelligence.computeSnapshotDelta): each citable fact whose
+ * value differs, with both values. Fact keys only, never a person.
+ */
+export const snapshotDelta = z.strictObject({
+	previousRunId: recordId,
+	previousAsOf: instant,
+	changed: z.array(
+		z.strictObject({ key: z.string(), label: z.string(), before: factEntry.shape.value, after: factEntry.shape.value }),
+	),
+});
+export type SnapshotDelta = z.infer<typeof snapshotDelta>;
+
 /** A cited fact or passage as the published assessment lists it; the citation read opens it. */
 const citationRef = z.strictObject({ key: z.string(), kind: z.enum(["fact", "passage"]), label: z.string() });
-const point = z.strictObject({ title: z.string(), body: z.string(), citations: z.array(citationRef).min(1) });
+const point = z.strictObject({
+	title: z.string(),
+	body: z.string(),
+	severity,
+	citations: z.array(citationRef).min(1),
+});
 export const assessment = z.strictObject({
 	runId: recordId,
 	asOf: instant,
 	/** Plant-local days between the run's as-of date and today: the assessment's real age. */
 	ageDays: z.int().min(0),
+	/** The plant-local date the assessment was measured on, and the days from it to the scheduled launch date. */
+	measuredOn: localDate,
+	daysToLaunch: z.int().nullable(),
 	phase: phaseNumber,
 	rubricVersion: z.string(),
 	reference: z.strictObject({ release: z.string(), activation: z.number().int() }),
@@ -251,38 +284,84 @@ export const assessment = z.strictObject({
 	focus: point,
 	supporting: z.tuple([point, point]),
 	positives: z.array(point),
+	/** Every insight in severity order (highest first, then focus, supporting, positives). */
+	insights: z.array(z.strictObject({ role: z.enum(["focus", "supporting", "positive"]), title: z.string(), severity })),
+	/** What moved since the previous published assessment; null for the first one. */
+	delta: snapshotDelta.nullable(),
 });
 export type Assessment = z.infer<typeof assessment>;
 
-/** How a run ended. Only `published` writes advice; every other outcome leaves the previous assessment current. */
-export const runOutcome = z.enum(["published", "failed", "deferred", "degraded"]);
+/**
+ * Where a run stands. `pending` is captured and being drafted; `deferred` waits for the provider until its retry instant.
+ * Only `published` writes advice; every other outcome leaves the previous assessment current. `superseded` means an
+ * input or the reference changed before it could publish, so a newer run took its place.
+ */
+export const runOutcome = z.enum(["pending", "deferred", "published", "failed", "degraded", "superseded"]);
 export type RunOutcome = z.infer<typeof runOutcome>;
+/** Why a run did not publish. */
+export const runReason = z.enum([
+	"invalid_drafts",
+	"attempts",
+	"budget",
+	"busy",
+	"deadline",
+	"persistence",
+	"guidance_unavailable",
+	"reference_missing",
+	"changed_input",
+	"changed_reference",
+]);
+export type RunReason = z.infer<typeof runReason>;
+/** What asked for a run (assessment.md, Stored identities): a changed input or reference, time, an Owner or Admin. */
+export const demandKind = z.enum(["change", "time", "manual", "followup"]);
+export type DemandKind = z.infer<typeof demandKind>;
+/** The cause an operator reads for a run that did not publish (PI-042). */
+export const failureCause = z.enum(["provider", "output_check", "budget", "persistence", "deadline", "guidance"]);
+export type FailureCause = z.infer<typeof failureCause>;
+
+/**
+ * The newest work since the current assessment, as the planter reads it: being prepared (queued or drafting), waiting
+ * for the provider until `retryAt`, couldn't be finished, or held for an operator after three failed scheduled runs.
+ * Null when the current assessment is the newest.
+ */
+export const newestRun = z.strictObject({
+	state: z.enum(["preparing", "deferred", "failed", "needs_review"]),
+	retryAt: instant.nullable(),
+	/** "degraded" means guidance couldn't be checked when the newest run ran. */
+	grounding: z.enum(["grounded", "degraded"]).nullable(),
+});
+export type NewestRun = z.infer<typeof newestRun>;
 export const assessmentView = z.strictObject({
 	/** The latest published assessment, or null before the first. */
 	current: assessment.nullable(),
-	/** The latest run, whatever its outcome. "degraded" means guidance couldn't be checked when it ran. */
-	latest: z
-		.strictObject({
-			runId: recordId,
-			asOf: instant,
-			outcome: runOutcome,
-			grounding: z.enum(["grounded", "degraded"]),
-		})
-		.nullable(),
+	newest: newestRun.nullable(),
 });
 export type AssessmentView = z.infer<typeof assessmentView>;
 
-/** A run's result as its caller sees it: each draft with the rules it broke. */
-export const runResult = z.strictObject({
+/** intelligence.requestRefresh: an Owner or Admin asks for a fresh assessment. The browser names the request id. */
+export const requestRefreshRequest = z.strictObject({ requestId: recordId });
+export const refreshReceipt = z.strictObject({ requestId: recordId, state: z.literal("preparing") });
+export type RefreshReceipt = z.infer<typeof refreshReceipt>;
+
+/** A run held for operator review, as the operator page lists it: causes and counters only, never plant data. */
+export const reviewRun = z.strictObject({
 	runId: recordId,
+	plantName: z.string(),
+	demand: demandKind,
+	asOf: instant,
+	settledAt: instant,
 	outcome: runOutcome,
-	grounding: z.enum(["grounded", "degraded"]),
-	/** Why a run did not publish: the last draft's violations, the budget or the unread guidance. */
-	reason: z.enum(["invalid_drafts", "attempts", "budget", "guidance_unavailable", "reference_missing"]).nullable(),
-	drafts: z.array(z.strictObject({ ordinal: z.int().min(1), violations: z.array(violation) })),
+	cause: failureCause,
+	/** The rules the final draft broke, with where each was; never the draft's words. */
+	violations: z.array(z.strictObject({ rule: draftRule, where: z.string() })),
+	drafts: z.int().min(0),
 	usage: z.strictObject({ attempts: z.int().min(0), inputTokens: z.int().min(0), outputTokens: z.int().min(0) }),
+	/** The plant's scheduled runs that failed in a row, newest first, with each one's cause. */
+	streak: z.array(z.strictObject({ runId: recordId, settledAt: instant, cause: failureCause })),
 });
-export type RunResult = z.infer<typeof runResult>;
+export type ReviewRun = z.infer<typeof reviewRun>;
+export const describeRunFailureRequest = z.strictObject({ runId: recordId });
+export const listRunsForReviewRequest = z.strictObject({});
 
 /** The citation read (intelligence.resolveCitation), which the Plant Intelligence screen opens. */
 export const resolveCitationRequest = z.strictObject({ runId: recordId, key: z.string().min(1).max(80) });
@@ -319,7 +398,6 @@ export const citationView = z.union([
 ]);
 export type CitationView = z.infer<typeof citationView>;
 
-export const evaluateAssessmentRequest = z.strictObject({ runId: recordId });
 export const readAssessmentRequest = z.strictObject({});
 
 export const assessmentError = z.discriminatedUnion("code", [

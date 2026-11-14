@@ -443,6 +443,9 @@ test("AC:ASMT-006 every input the facts read changes the revision on the next re
 		"training_program.required": sql`UPDATE training_program SET required=false WHERE id=${prog}`,
 		interview: sql`DELETE FROM interview WHERE person_id=${p.id}`,
 		four_cs: sql`DELETE FROM four_cs WHERE person_id=${p.id}`,
+		launch: sql`INSERT INTO launch(plant_id,target_date,status) VALUES(${o.w.id},${day(40)},'scheduled')`,
+		"launch.target_date": sql`UPDATE launch SET target_date=${day(41)} WHERE plant_id=${o.w.id}`,
+		"launch.status": sql`UPDATE launch SET status='postponed',target_date=NULL WHERE plant_id=${o.w.id}`,
 	};
 	let last = (await read(o)).sourceRevision;
 	for (const [input, change] of Object.entries(changes)) {
@@ -476,6 +479,7 @@ test("AC:ASMT-006 every input the facts read changes the revision on the next re
 		"followUps",
 		"fourCs",
 		"interviews",
+		"launch",
 		"nextVision",
 		"people",
 		"roles",

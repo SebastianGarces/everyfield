@@ -5,7 +5,13 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import * as c from "../../../packages/contracts/src/intelligence/index.ts";
-import { checkDraft, draftWithin } from "../../../packages/domain/src/intelligence/index.ts";
+import {
+	checkDraft,
+	draftWithin,
+	NO_PROGRESS,
+	type DraftProgress,
+} from "../../../packages/domain/src/intelligence/index.ts";
+import { insightsOf } from "../../../packages/domain/src/intelligence/assessment.ts";
 import {
 	scriptedAssessmentDrafter,
 	scriptedDraft,
@@ -49,7 +55,12 @@ const input: c.ModelInput = {
 	],
 	passages: [],
 };
-const point = (body: string, citations: string[]) => ({ title: "A point to look at", body, citations });
+const point = (body: string, citations: string[]) => ({
+	title: "A point to look at",
+	body,
+	urgency: "watch" as const,
+	citations,
+});
 const draft = (focus: string, citations: string[]) => ({
 	summary: "This looks at your launch progress in Phase 1.",
 	focus: point(focus, citations),
@@ -140,19 +151,22 @@ test("notes, scores, check-ins, judgments, readiness verdicts and action claims 
 });
 
 test("AC:PI-CASE-013 a run stays within four attempts per draft, three drafts and 60,000 input and 12,000 output tokens", async () => {
-	// A provider that never answers: four attempts on the first draft, then the run defers.
+	// A provider that never answers: four attempts on the first draft, each counted before it is sent, then it stops.
 	const down = scriptedAssessmentDrafter({ failures: 99 });
-	const failed = await draftWithin(down, input);
+	const reserved: number[] = [];
+	const failed = await draftWithin(down, input, undefined, async (p) => (reserved.push(p.usage.attempts), true));
 	assert.deepEqual(
-		[failed.reason, failed.drafts.length, failed.usage.attempts, down.calls.length],
+		[failed.reason, failed.progress.drafts.length, failed.progress.usage.attempts, down.calls.length],
 		["attempts", 0, 4, 4],
 	);
+	assert.deepEqual(reserved, [1, 2, 3, 4]);
+	assert.equal(failed.progress.usage.outputTokens, 12_000, "four uncertain calls are charged their full allowance");
 
 	// Three invalid drafts and no more.
 	const wrong = scriptedAssessmentDrafter({ script: (d) => ({ ...d, focus: { ...d.focus, citations: [] } }) });
 	const invalid = await draftWithin(wrong, input);
 	assert.deepEqual(
-		[invalid.reason, invalid.drafts.length, wrong.calls.length, invalid.published],
+		[invalid.reason, invalid.progress.drafts.length, wrong.calls.length, invalid.published],
 		["invalid_drafts", 3, 3, null],
 	);
 	assert.deepEqual(
@@ -187,9 +201,58 @@ test("AC:PI-CASE-013 a run stays within four attempts per draft, three drafts an
 		},
 	};
 	const spent = await draftWithin(heavy, large);
-	assert.deepEqual([spent.reason, sent, spent.drafts.length], ["budget", 2, 2]);
-	assert.ok(spent.usage.inputTokens <= c.ASSESSMENT_BUDGET.inputTokens, String(spent.usage.inputTokens));
-	assert.ok(spent.usage.outputTokens <= c.ASSESSMENT_BUDGET.outputTokens);
+	assert.deepEqual([spent.reason, sent, spent.progress.drafts.length], ["budget", 2, 2]);
+	assert.ok(spent.progress.usage.inputTokens <= c.ASSESSMENT_BUDGET.inputTokens);
+	assert.ok(spent.progress.usage.outputTokens <= c.ASSESSMENT_BUDGET.outputTokens);
+	assert.deepEqual(
+		spent.progress.drafts.at(-1)!.violations,
+		checkDraft({}, large),
+		"an exhausted run keeps the final draft's own violations",
+	);
+	// A claim lost before a dispatch sends nothing more.
+	const lost = scriptedAssessmentDrafter();
+	const stopped = await draftWithin(lost, input, undefined, async () => false);
+	assert.deepEqual([stopped.reason, lost.calls.length], ["lost_claim", 0]);
+});
+
+test("AC:PI-PROVIDER-001 429, 503, 503 then 200 are four accounted dispatches in one draft, resumed across waits; a fifth is never sent", async () => {
+	const drafter = scriptedAssessmentDrafter({
+		busy: [{ status: 429, retryAfterSeconds: 20 }, { status: 503 }, { status: 503 }],
+	});
+	let progress: DraftProgress = NO_PROGRESS;
+	const waits: (number | null)[] = [];
+	for (let i = 0; i < 3; i++) {
+		const step = await draftWithin(drafter, input, progress);
+		assert.equal(step.reason, "busy");
+		waits.push(step.retryAfterMs);
+		progress = step.progress;
+	}
+	assert.deepEqual(waits, [20_000, null, null]);
+	const done = await draftWithin(drafter, input, progress);
+	assert.deepEqual([done.reason, done.progress.usage.attempts, drafter.calls.length], [null, 4, 4]);
+	assert.ok(done.published);
+
+	const down = scriptedAssessmentDrafter({ busy: Array.from({ length: 8 }, () => ({ status: 503 as const })) });
+	progress = NO_PROGRESS;
+	for (let i = 0; i < 4; i++) progress = (await draftWithin(down, input, progress)).progress;
+	const exhausted = await draftWithin(down, input, progress);
+	assert.deepEqual([exhausted.reason, exhausted.progress.usage.attempts, down.calls.length], ["attempts", 4, 4]);
+});
+
+test("AC:PI-URGENCY-001 model urgency positive, info, watch and urgent store as info, low, medium and high; critical is never produced", () => {
+	assert.deepEqual(c.SEVERITY, { positive: "info", info: "low", watch: "medium", urgent: "high" });
+	const d = scriptedDraft({ ...input, passages: [] });
+	const urgent = { ...d, focus: { ...d.focus, urgency: "urgent" as const } };
+	assert.deepEqual(
+		insightsOf(urgent).map((i) => [i.ordinal, i.role, i.severity]),
+		[
+			[0, "focus", "high"],
+			[1, "supporting", c.SEVERITY[d.supporting[0].urgency]],
+			[2, "supporting", c.SEVERITY[d.supporting[1].urgency]],
+			...d.positives.map((p, n) => [3 + n, "positive", c.SEVERITY[p.urgency]]),
+		],
+	);
+	assert.ok(!Object.values(c.SEVERITY).includes("critical" as never));
 });
 
 test("the scripted judge grades plain, warm and useful wording and lists hype and pressure as failures", () => {

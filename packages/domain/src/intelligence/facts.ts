@@ -71,6 +71,14 @@ export const factInputs = z.strictObject({
 	),
 	interviews: presence,
 	fourCs: presence,
+	/** The plant's launch: its target date and state, null before one is planned. */
+	launch: z
+		.strictObject({
+			target: z.string().nullable(),
+			actual: z.string().nullable(),
+			status: z.enum(["planning", "scheduled", "postponed", "completed"]),
+		})
+		.nullable(),
 });
 export type FactInputs = z.infer<typeof factInputs>;
 
@@ -121,6 +129,15 @@ export function growthDays(people: FactInputs["people"], today: string): number 
 		today,
 	);
 	return clock.status === "unknown" ? null : clock.daysSince;
+}
+
+/** Days from `today` to a scheduled launch that has not happened (the oversight countdown's own rule). */
+function launchCountdown(l: FactInputs["launch"], today: string) {
+	const scheduled = l && l.status === "scheduled" && !l.actual ? l.target : null;
+	return {
+		targetOn: scheduled,
+		daysToLaunch: scheduled ? Math.round((Date.parse(scheduled) - Date.parse(today)) / DAY) : null,
+	};
 }
 
 /** The facts of one plant at `asOf`, whose plant-local date is `today`. Pure: the same inputs give the same facts. */
@@ -317,6 +334,7 @@ export function buildFacts(inputs: FactInputs, asOf: Instant, today: string): c.
 		training,
 		attestations,
 		humanRecords: { interviews: inputs.interviews, fourCs: inputs.fourCs },
+		launch: launchCountdown(inputs.launch, today),
 		criteria,
 	});
 }
@@ -405,7 +423,9 @@ function statement(plant: string, ok: SQL, at: SQL) {
  'interviews',(SELECT jsonb_build_object('count',count(*)::int,'latestOn',max(i.interviewed_on)::text)
   FROM interview i JOIN person p ON p.id=i.person_id AND p.tenant_id=i.plant_id AND p.state='live' WHERE i.plant_id=x.plant),
  'fourCs',(SELECT jsonb_build_object('count',count(*)::int,'latestOn',max(f.assessed_on)::text)
-  FROM four_cs f JOIN person p ON p.id=f.person_id AND p.tenant_id=f.plant_id AND p.state='live' WHERE f.plant_id=x.plant)
+  FROM four_cs f JOIN person p ON p.id=f.person_id AND p.tenant_id=f.plant_id AND p.state='live' WHERE f.plant_id=x.plant),
+ 'launch',(SELECT jsonb_build_object('target',l.target_date::text,'actual',l.actual_date::text,'status',l.status)
+  FROM launch l WHERE l.plant_id=x.plant)
  ) AS inputs
  FROM gate LEFT JOIN x ON true`;
 }
@@ -423,6 +443,19 @@ class Refusal extends Error {
 		super(code);
 		this.code = code;
 	}
+}
+
+/**
+ * The facts of one plant at the instant `at` (null: the statement's own time), for the assessment job only: it holds the current claim of the plant's
+ * job and carries no person's authority, so the statement has no seat check. Null when the plant no longer exists.
+ * One statement.
+ */
+export async function captureFacts(db: Pick<Database, "execute">, plant: string, at: string | null) {
+	const when = at === null ? sql`statement_timestamp()` : sql`${instant.parse(at)}::timestamptz`;
+	const { rows } = await db.execute(statement(plant, sql`true`, when));
+	const r = factsRow.parse(rows[0]);
+	if (!r.ok || !r.today || !r.at) return null;
+	return buildFacts(factInputs.parse(r.inputs), r.at, r.today);
 }
 
 /** The fact reader. A clock fixes the as-of instant; without one it is the statement's own time. */
