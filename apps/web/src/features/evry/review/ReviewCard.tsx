@@ -393,8 +393,8 @@ const HEAD_TONE: Record<Tone, string> = {
 function note(view: View, review: Review | null, lapsed: boolean, unknown?: Action): string | null {
 	const who = review?.review.target?.label ?? null;
 	const mail = !!review && isMail(review.operation);
+	if (view === "pending" && review?.review.refusal) return review.review.refusal;
 	if (mail) {
-		if (view === "pending" && review.review.refusal) return review.review.refusal;
 		if (view === "pending" && review.stale)
 			return "This message changed since the review. Nothing was changed. Review it again to see it as it is now.";
 		if (view === "expired") return "This review expired, so nothing was done. Review required: prepare it again.";
@@ -409,7 +409,6 @@ function note(view: View, review: Review | null, lapsed: boolean, unknown?: Acti
 				? "The message in this change is no longer available to you, so Evry can't show this change or its result."
 				: "The message in this change is no longer available to you. Nothing was changed.";
 	}
-	if (view === "pending" && review?.review.refusal) return review.review.refusal;
 	switch (view) {
 		case "pending":
 			return review && review.revision > 1

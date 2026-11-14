@@ -174,6 +174,10 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 						"communication.rescheduleReviewed",
 						"communication.cancelScheduledReviewed",
 						"communication.replaceScheduledReviewed",
+						"documents.createFromTemplate",
+						"documents.exportNative",
+						"documents.archive",
+						"documents.designateCoreValues",
 					]
 				: [],
 		);
@@ -191,6 +195,13 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 			"people.getPipelineData",
 			"people.listHouseholds",
 			"people.listTags",
+		];
+		// A Member finds and reads the church's documents as an Owner does; only the writes are Owner or Admin.
+		const documentsReads = [
+			"documents.listOwned",
+			"documents.read",
+			"documents.readCoreValuesEvidence",
+			"documents.templates.list",
 		];
 		assert.deepEqual(
 			operations,
@@ -210,9 +221,10 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 						"people.listTags",
 						"people.previewImport",
 						"communication.list",
+						...documentsReads,
 					]
 				: who === "member"
-					? [...peopleReads, ...organizationReads, "communication.list"]
+					? [...peopleReads, ...organizationReads, "communication.list", ...documentsReads]
 					: [],
 		);
 	}
@@ -376,7 +388,14 @@ test("AC:INH-EDGES-03 AC:TEN-008 AC:EVRY-CONTEXT-BOUNDS a guessed foreign id and
 	assert.ok(seen.includes("Alex Rivera"), "an authorized page reference is verified");
 	assert.deepEqual(
 		[...new Set(calls.flatMap((c) => c.tools?.map((t) => t.name) ?? []))].sort(),
-		["communication_read", "peopleOrganization_read", "people_read", "propose_change", "select_returned_rows"],
+		[
+			"communication_read",
+			"documents_read",
+			"peopleOrganization_read",
+			"people_read",
+			"propose_change",
+			"select_returned_rows",
+		],
 		"prompt text cannot add tools or scope; the owner's catalog decides them",
 	);
 });

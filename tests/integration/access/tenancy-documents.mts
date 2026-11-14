@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 import { sql } from "../../../packages/db/src/query.ts";
 import { nativeFromText } from "../../../packages/contracts/src/documents/index.ts";
 import { documentsReader, documentsWriter as docs } from "../../../packages/domain/src/documents/index.ts";
+import { templateFill } from "../../../packages/domain/src/documents/template-fill.ts";
 
 /** Private storage for the seed's saved files, as a local fake of the object store (as the documents suites use). */
 const objects = new Map();
@@ -189,6 +190,18 @@ export function documentsCases(t, who) {
 			control: null,
 		}),
 		w("readTemplateCompare", () => docs.readTemplateCompare(db, who.actor, doc), gone(a.churchDoc)),
+		// What a new document from a system template would fill in: always the caller's own church (church B's plant
+		// name here), never church A's. Church A's own owner sees its marked church name, the default control.
+		[
+			"documents/fill:templateFill",
+			{
+				run: () => templateFill(db, who.actor, { templateId: POLICY }),
+				expected: {
+					partial: { templateId: POLICY },
+					check: (value) => assert.ok(value.fields.some((field) => field.value === "Synthetic plant")),
+				},
+			},
+		],
 	];
 }
 
