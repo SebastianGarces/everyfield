@@ -12,7 +12,7 @@ import {
 	readPipelinePersonRecord,
 } from "../../../packages/domain/src/organizations/pipeline.ts";
 
-const { addPerson, correctConversation, editPerson, logConversation, retirePerson, saveGoal, saveStages } =
+const { addPerson, correctConversation, editPerson, logConversation, movePerson, retirePerson, saveGoal, saveStages } =
 	pipelineWriter;
 
 // Sending goals and leadership conversations (REQ-MUL-007, REQ-MUL-009) against a migrated database. Grace Austin
@@ -72,6 +72,20 @@ const quarterOf = (d: string) => `${d.slice(0, 4)}-Q${Math.floor((Number(d.slice
 const casey = randomUUID();
 const people: Record<string, string> = {};
 let stageIds: Record<string, string> = {};
+
+/** Grace Austin's board, move count and Casey's history, to show a goal save moved nobody. */
+const snapshot = async () => ({
+	board: (await board(dana)).stages.map((s) => [
+		s.id,
+		s.label,
+		s.revision,
+		s.people.map((p) => [p.personId, p.revision]),
+	]),
+	moves: (
+		await admin.execute(sql`SELECT count(*)::int AS n FROM pipeline_stage_move WHERE organization_id=${grace.id}::uuid`)
+	).rows[0]!.n,
+	history: ok(await record(dana, casey)).history,
+});
 
 before(async () => {
 	grace = (await database.organization("sending_church", {
@@ -184,22 +198,6 @@ test("with no goals, every seat sees live people counted once by stage kind, and
 });
 
 test("an Owner adds and edits goals; a negative target is refused; saving a goal moves nobody", async () => {
-	const moves = async () =>
-		(
-			await admin.execute(
-				sql`SELECT count(*)::int AS n FROM pipeline_stage_move WHERE organization_id=${grace.id}::uuid`,
-			)
-		).rows[0]!.n;
-	const snapshot = async () => ({
-		board: (await board(dana)).stages.map((s) => [
-			s.id,
-			s.label,
-			s.revision,
-			s.people.map((p) => [p.personId, p.revision]),
-		]),
-		moves: await moves(),
-		history: ok(await record(dana, casey)).history,
-	});
 	const before = await snapshot();
 	const first = randomUUID();
 	const goal = {
@@ -209,6 +207,8 @@ test("an Owner adds and edits goals; a negative target is refused; saving a goal
 		plantTarget: 2,
 		targetYear: 2028,
 		rationale: "Two new churches on the east side.",
+		countingFrom: null,
+		counts: [],
 	};
 	assert.deepEqual(ok(await saveGoal(db, await authority(dana), goal)), {
 		goalId: first,
@@ -510,4 +510,359 @@ test("sharing pipeline totals with a network shows the network none of Grace's g
 		(await goals(dana)).conversations.quarters.reduce((n, q) => n + q.count, 0),
 		2,
 	);
+});
+
+test("a goal's chosen counts count each live person who reached the kind since its start, once, even after moving on", async () => {
+	// Hill Country Network (America/Chicago): Owner Hana, Admin Hugo, Member Mia. Grace Austin is a separate church.
+	const net = await database.organization("sending_network", {
+		name: "Hill Country Network",
+		timezone: "America/Chicago",
+	});
+	const church = await database.organization("sending_church", { name: "Grace Austin", timezone: "America/Chicago" });
+	const hana = await database.actor(net as never, "owner", { user: { name: "Hana" } });
+	const hugo = await database.actor(net as never, "admin", { user: { name: "Hugo" } });
+	const mia = await database.actor(net as never, "member", { user: { name: "Mia" } });
+	const gracie = await database.actor(church as never, "owner", { user: { name: "Gina" } });
+	// Grace Austin shares pipeline totals with Hill Country; Hill Country's counts still hold only its own people.
+	const link = randomUUID();
+	await admin.execute(sql`INSERT INTO affiliation (id,sending_church_id,organization_id,accepted_at,share_people,share_meetings,
+	 share_tasks,share_ministry_teams,share_wiki,share_activity,shared_findings)
+	 VALUES (${link}::uuid,${church.id}::uuid,${net.id}::uuid,clock_timestamp(),false,false,false,false,false,false,false)`);
+	await admin.execute(sql`INSERT INTO pipeline_sharing (id,organization_id,relationship_id,network_id,share_pipeline_totals,revision)
+	 VALUES (gen_random_uuid(),${church.id}::uuid,${link}::uuid,${net.id}::uuid,true,1)`);
+	// A second Apprentice-kind stage, "Residency track".
+	const starters = await board(hana);
+	const residencyTrack = randomUUID();
+	ok(
+		await saveStages(db, await authority(hana), {
+			stages: [
+				...starters.stages.map((s) => ({ id: s.id, label: s.label, kind: s.kind, expectedRevision: s.revision })),
+				{ id: residencyTrack, label: "Residency track", kind: "apprentice", expectedRevision: null },
+			],
+			removed: [],
+		}),
+	);
+	const stageOf = async (a: Actor, kind: string) => (await board(a)).stages.find((s) => s.kind === kind)!.id;
+	const potential = await stageOf(hana, "potential_leader");
+	const apprentice = (await board(hana)).stages.find((s) => s.label === "Apprentice")!.id;
+	const commissioned = await stageOf(hana, "commissioned");
+	const who: Record<string, string> = {};
+	/** Adds a person at `stage`, with the placement dated `at` (an instant) when given. */
+	const place = async (owner: Actor, name: string, stage: string, at?: string) => {
+		who[name] = randomUUID();
+		ok(
+			await addPerson(db, await authority(owner), {
+				personId: who[name],
+				displayName: name,
+				email: null,
+				responsibleSeatId: null,
+				stageId: stage,
+			}),
+		);
+		if (at) await backdate(name, stage, at);
+	};
+	/** Dates the person's latest move into `stage` at `at`: the move's audit row is its day. */
+	const backdate = async (name: string, stage: string, at: string) =>
+		await admin.execute(sql`UPDATE audit_event SET occurred_at=${at}::timestamptz WHERE id=(SELECT m.id
+		 FROM pipeline_stage_move m JOIN pipeline_person pp ON pp.id=m.pipeline_person_id JOIN audit_event a ON a.id=m.id
+		 WHERE pp.person_id=${who[name]}::uuid AND m.to_stage_id=${stage}::uuid ORDER BY a.occurred_at DESC LIMIT 1)`);
+	const move = async (owner: Actor, name: string, stage: string, at: string) => {
+		const person = ok(await record(owner, who[name]!));
+		ok(
+			await movePerson(db, await authority(owner), {
+				personId: who[name],
+				expectedRevision: person.revision,
+				stageId: stage,
+				reason: "Ready for the next step.",
+			}),
+		);
+		await backdate(name, stage, at);
+	};
+	const early = "2025-11-01T18:00:00Z";
+	// Jo: Apprentice on Feb 3, then on to Commissioned on Sep 9. Counts in both.
+	await place(hana, "Jo", potential, early);
+	await move(hana, "Jo", apprentice, "2026-02-03T18:00:00Z");
+	await move(hana, "Jo", commissioned, "2026-09-09T18:00:00Z");
+	// Pat: into Apprentice twice. Counts once.
+	await place(hana, "Pat", potential, early);
+	await move(hana, "Pat", apprentice, "2026-03-01T18:00:00Z");
+	await move(hana, "Pat", potential, "2026-04-01T18:00:00Z");
+	await move(hana, "Pat", apprentice, "2026-06-01T18:00:00Z");
+	// Dee: only Apprentice move is Dec 20, 2025. Does not count.
+	await place(hana, "Dee", potential, early);
+	await move(hana, "Dee", apprentice, "2025-12-20T18:00:00Z");
+	// Lee: placed straight into Commissioned when added on Mar 1. Counts as a leader sent.
+	await place(hana, "Lee", commissioned, "2026-03-01T18:00:00Z");
+	// Ari moved at 00:30 on Jan 1 in Chicago (06:30 UTC): the start day, counts. Sid moved at 23:30 on Dec 31 in
+	// Chicago, already Jan 1 in UTC: does not count.
+	await place(hana, "Ari", potential, early);
+	await move(hana, "Ari", apprentice, "2026-01-01T06:30:00Z");
+	await place(hana, "Sid", potential, early);
+	await move(hana, "Sid", apprentice, "2026-01-01T05:30:00Z");
+	// Ivy moved into the second Apprentice-kind stage. Counts.
+	await place(hana, "Ivy", potential, early);
+	await move(hana, "Ivy", residencyTrack, "2026-05-01T18:00:00Z");
+	// Rae (retired), Max (merged) and a Grace Austin person all reached Apprentice since Jan 1. None counts here.
+	await place(hana, "Rae", apprentice, "2026-04-01T18:00:00Z");
+	ok(await retirePerson(db, await authority(hana), { personId: who.Rae, expectedRevision: "1" }));
+	await place(hana, "Max", apprentice, "2026-04-01T18:00:00Z");
+	await admin.execute(sql`UPDATE person SET state='merged',merged_into_person_id=${who.Jo}::uuid,retired_at=clock_timestamp()
+	 WHERE id=${who.Max}::uuid`);
+	await place(gracie, "Gus", await stageOf(gracie, "apprentice"), "2026-04-01T18:00:00Z");
+
+	const goalId = randomUUID();
+	const base = {
+		goalId,
+		leaderTarget: 6,
+		plantTarget: 2,
+		targetYear: 2028,
+		rationale: "Develop leaders across the hill country.",
+	};
+	const chosen = [
+		{ kind: "apprentice", label: "Apprentices activated" },
+		{ kind: "commissioned", label: "Leaders sent" },
+	];
+	ok(
+		await saveGoal(db, await authority(hana), {
+			...base,
+			expectedRevision: null,
+			countingFrom: "2026-01-01",
+			counts: [],
+		}),
+	);
+	const counted = async (a: Actor) => (await goals(a)).goals.find((g) => g.id === goalId)!;
+	assert.deepEqual((await counted(hana)).counts, []);
+	ok(
+		await saveGoal(db, await authority(hana), {
+			...base,
+			expectedRevision: "1",
+			countingFrom: "2026-01-01",
+			counts: chosen,
+		}),
+	);
+	const expected = [
+		{ kind: "apprentice", label: "Apprentices activated", count: 4 },
+		{ kind: "commissioned", label: "Leaders sent", count: 2 },
+	];
+	const g = await counted(hana);
+	assert.equal(g.countingFrom, "2026-01-01");
+	assert.deepEqual(g.counts, expected);
+	// Plants sent stays unavailable with Commissioned people present: Leaders sent never stands in for it.
+	assert.deepEqual((await goals(hana)).plantsSent, { status: "unavailable", reason: "deferred_stage_3" });
+
+	// Renaming Apprentice to "Intern" changes no count and no count label.
+	const b = await board(hana);
+	ok(
+		await saveStages(db, await authority(hana), {
+			stages: b.stages.map((s) => ({
+				id: s.id,
+				label: s.label === "Apprentice" ? "Intern" : s.label,
+				kind: s.kind,
+				expectedRevision: s.revision,
+			})),
+			removed: [],
+		}),
+	);
+	assert.deepEqual((await counted(hana)).counts, expected);
+
+	// Every seat reads the counts, without names. A Member cannot change them.
+	const asMia = await goals(mia);
+	assert.equal(asMia.canEdit, false);
+	assert.deepEqual(asMia.goals.find((x) => x.id === goalId)!.counts, expected);
+	const text = JSON.stringify(asMia);
+	for (const name of ["Jo", "Pat", "Lee", "Ari", "Ivy", "Gus"]) assert.equal(text.includes(`"${name}"`), false, name);
+	refusedWith(
+		await saveGoal(db, await authority(mia), {
+			...base,
+			expectedRevision: "2",
+			countingFrom: "2026-03-01",
+			counts: [],
+		}),
+		"unavailable",
+	);
+
+	// Starting from Mar 1 recounts: Jo's and Ari's Apprentice moves fall before it; Lee's start-day placement counts.
+	ok(
+		await saveGoal(db, await authority(hugo), {
+			...base,
+			expectedRevision: "2",
+			countingFrom: "2026-03-01",
+			counts: chosen,
+		}),
+	);
+	const later = await counted(hana);
+	assert.equal(later.countingFrom, "2026-03-01");
+	assert.deepEqual(
+		later.counts.map((c) => c.count),
+		[2, 2],
+	);
+
+	// Grace Austin's own goal counts only Grace Austin's person; neither organization reads the other's goals.
+	const graceGoal = randomUUID();
+	ok(
+		await saveGoal(db, await authority(gracie), {
+			...base,
+			goalId: graceGoal,
+			expectedRevision: null,
+			countingFrom: "2026-01-01",
+			counts: [{ kind: "apprentice", label: "Apprentices activated" }],
+		}),
+	);
+	const graceGoals = await goals(gracie);
+	assert.deepEqual(
+		graceGoals.goals.map((x) => [x.id, x.counts.map((c) => c.count)]),
+		[[graceGoal, [1]]],
+	);
+	assert.deepEqual(
+		(await goals(hana)).goals.map((x) => x.id),
+		[goalId],
+	);
+	// Grace Austin's Owner cannot change Hill Country's goal or its counts by naming it.
+	refusedWith(
+		await saveGoal(db, await authority(gracie), {
+			...base,
+			expectedRevision: "3",
+			countingFrom: "2026-01-01",
+			counts: [],
+		}),
+		"unavailable",
+	);
+	assert.deepEqual(
+		(await counted(hana)).counts.map((c) => c.label),
+		["Apprentices activated", "Leaders sent"],
+	);
+});
+
+test("saving counts and a start date refuses bad input, moves nobody, is audited body-free and fences stale edits", async () => {
+	const tz = "America/Chicago";
+	const auth = await authority(dana);
+	const before = await snapshot();
+	const goalId = randomUUID();
+	const base = {
+		goalId,
+		leaderTarget: 4,
+		plantTarget: 1,
+		targetYear: 2029,
+		rationale: "A private reason only staff read.",
+		counts: [{ kind: "apprentice", label: "Apprentices activated" }],
+	};
+	// Added without a date, a goal counts from the day it was added.
+	ok(await saveGoal(db, auth, { ...base, expectedRevision: null, countingFrom: null }));
+	const saved = async () => (await goals(dana)).goals.find((g) => g.id === goalId)!;
+	assert.equal((await saved()).countingFrom, await day(tz, "today"));
+	const edit = (change: object) =>
+		saveGoal(db, auth, { ...base, expectedRevision: "1", countingFrom: "2026-01-01", ...change });
+	// A day after today, a fifth count, a repeated kind, and an empty or long label are refused; nothing saves.
+	refusedWith(await edit({ countingFrom: await day(tz, "today + 1") }), "invalid_input", "countingFrom");
+	refusedWith(
+		await saveGoal(db, auth, {
+			...base,
+			goalId: randomUUID(),
+			expectedRevision: null,
+			countingFrom: await day(tz, "today + 1"),
+		}),
+		"invalid_input",
+		"countingFrom",
+	);
+	const kinds5 = ["potential_leader", "apprentice", "resident", "commissioned", "other"];
+	refusedWith(await edit({ counts: kinds5.map((kind) => ({ kind, label: kind })) }), "invalid_input", "counts");
+	refusedWith(
+		await edit({
+			counts: [
+				{ kind: "apprentice", label: "Apprentices activated" },
+				{ kind: "apprentice", label: "Apprentices again" },
+			],
+		}),
+		"invalid_input",
+		"counts.1.kind",
+	);
+	refusedWith(await edit({ counts: [{ kind: "apprentice", label: "  " }] }), "invalid_input", "counts.0.label");
+	refusedWith(
+		await edit({ counts: [{ kind: "apprentice", label: "x".repeat(61) }] }),
+		"invalid_input",
+		"counts.0.label",
+	);
+	const unchanged = await saved();
+	assert.equal(unchanged.revision, "1");
+	assert.deepEqual(
+		unchanged.counts.map((c) => c.label),
+		["Apprentices activated"],
+	);
+
+	// Four counts save; one is renamed and one removed, and the rest stay intact.
+	const four = [
+		{ kind: "potential_leader", label: "Potential leaders named" },
+		{ kind: "apprentice", label: "Apprentices activated" },
+		{ kind: "resident", label: "Residents" },
+		{ kind: "commissioned", label: "Leaders sent" },
+	];
+	ok(await edit({ counts: four }));
+	assert.deepEqual(
+		(await saved()).counts.map((c) => c.label),
+		four.map((c) => c.label),
+	);
+	ok(
+		await saveGoal(db, auth, {
+			...base,
+			expectedRevision: "2",
+			countingFrom: "2026-01-01",
+			counts: [four[0], { kind: "apprentice", label: "Apprentices started" }, four[3]],
+		}),
+	);
+	const after = await saved();
+	assert.equal(after.rationale, base.rationale);
+	assert.deepEqual(
+		after.counts.map((c) => [c.kind, c.label]),
+		[
+			["potential_leader", "Potential leaders named"],
+			["apprentice", "Apprentices started"],
+			["commissioned", "Leaders sent"],
+		],
+	);
+	// A stale edit is refused.
+	refusedWith(await edit({ counts: [] }), "conflict");
+	assert.equal((await saved()).counts.length, 3);
+
+	// Nobody moved, no stage changed and nobody's history gained an entry.
+	assert.deepEqual(await snapshot(), before);
+	// The audit rows hold ids, the day and the kinds, never a label or the reason.
+	const audit = (
+		await admin.execute(sql`SELECT kind,actor_id::text AS actor,metadata FROM audit_event WHERE tenant_id=${grace.id}::uuid
+		 AND metadata->>'goalId'=${goalId} ORDER BY occurred_at,id`)
+	).rows as { kind: string; actor: string; metadata: Record<string, unknown> }[];
+	assert.deepEqual(
+		audit.map((a) => [a.kind, a.actor, a.metadata]),
+		[
+			[
+				"create",
+				dana.id,
+				{ category: "sending_goal", goalId, countingFrom: await day(tz, "today"), kinds: ["apprentice"] },
+			],
+			[
+				"edit",
+				dana.id,
+				{
+					category: "sending_goal",
+					goalId,
+					countingFrom: "2026-01-01",
+					kinds: four.map((c) => c.kind),
+					fields: ["countingFrom", "counts"],
+				},
+			],
+			[
+				"edit",
+				dana.id,
+				{
+					category: "sending_goal",
+					goalId,
+					countingFrom: "2026-01-01",
+					kinds: ["potential_leader", "apprentice", "commissioned"],
+					fields: ["counts"],
+				},
+			],
+		],
+	);
+	const text = JSON.stringify(audit);
+	for (const secret of ["Apprentices", "Leaders sent", "private reason"])
+		assert.equal(text.includes(secret), false, secret);
 });
