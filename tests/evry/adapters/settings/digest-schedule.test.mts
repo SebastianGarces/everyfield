@@ -131,14 +131,14 @@ test("INV-church-digest-schedule the tool takes only the native digestSchedule s
 	);
 });
 
-test("INV-church-digest-schedule only a church Owner or Admin is offered it; a Member, an organization and an empty-seat context are not", () => {
+test("INV-church-digest-schedule only a church Owner or Admin is offered it; a Member and organization seats are not", () => {
 	const offered = (who: keyof GoldenChurch["actors"]) =>
 		readCatalog(church.actors[who]).reviewedWrites.some((w) => w.operation === OPERATION);
 	assert.equal(offered("owner"), true);
 	assert.equal(offered("admin"), true);
 	assert.equal(offered("member"), false);
-	assert.equal(offered("network"), false);
-	assert.equal(offered("org"), false);
+	assert.equal(offered("network"), false, "a network seat");
+	assert.equal(offered("org"), false, "a sending church seat");
 });
 
 test("INV-church-digest-schedule the Owner's Monday 8 AM review changes nothing until approved, then saves as Settings does, once", async () => {
