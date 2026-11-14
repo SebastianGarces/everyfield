@@ -1,4 +1,9 @@
-import { loadPipelineBoard, loadPipelinePerson, pipelineActor } from "@/server/organizations/pipeline";
+import {
+	loadPipelineBoard,
+	loadPipelineGoals,
+	loadPipelinePerson,
+	pipelineActor,
+} from "@/server/organizations/pipeline";
 import { Card } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
@@ -25,9 +30,13 @@ export async function PipelinePage({ searchParams }: { searchParams: Search }) {
 	const who = await pipelineActor();
 	if (who.kind === "signed_out") redirect(`/signin?returnTo=${encodeURIComponent(PIPELINE_PATH)}`);
 	if (who.kind !== "seat") return refused;
-	const board = await loadPipelineBoard(who.authority, queryFromSearch(await searchParams));
+	// The board and the goals area read independently; the goals area is left out if its read alone fails.
+	const [board, goals] = await Promise.all([
+		loadPipelineBoard(who.authority, queryFromSearch(await searchParams)),
+		loadPipelineGoals(who.authority),
+	]);
 	if (board.status !== "ok") return refused;
-	return <PipelineScreen initial={board.value} />;
+	return <PipelineScreen initial={board.value} goals={goals.status === "ok" ? goals.value : null} />;
 }
 
 export async function PipelinePersonPage({ params }: { params: Promise<{ personId: string }> }) {
