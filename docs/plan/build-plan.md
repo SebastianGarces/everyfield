@@ -1,6 +1,6 @@
 # Future build plan
 
-The approved target has 99 active single-owner packages. WP-086 is retired into WP-085; WP-016 is retired into WP-017; WP-021 is retired into WP-020; WP-052 is retired into WP-051; WP-060 is retired into WP-059; IDs are never reused. docs/build-progress.json stopped updating on 2026-10-22 at PR #235; evf v2's task records are the live state.
+The approved target has 99 active single-owner packages. WP-086 is retired into WP-085; WP-016 is retired into WP-017; WP-021 is retired into WP-020; WP-052 is retired into WP-051; WP-060 is retired into WP-059; IDs are never reused. docs/build-progress.json froze on 2026-10-22 at PR #235. T-290 refreshed WP-017–039, WP-071 and WP-072 on 2026-11-13; other packages stay as of 2026-10-22. evf v2's task records are still the live state.
 
 Start with a [short package brief](context.md). Read detailed requirements and cases on demand. The [DAG](dag.json) owns scope and dependencies; builders choose filenames and internal structures within the owned directories.
 
