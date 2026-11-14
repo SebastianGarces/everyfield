@@ -301,7 +301,7 @@ before(async () => {
 });
 after(() => f?.close());
 
-test("an Admin invites Casey to link; the record shows it pending with its date; revoking kills the emailed link", async () => {
+test("AC:ADR1-004 an Admin invites Casey to link; the record shows it pending with its date; revoking kills the emailed link", async () => {
 	assert.deepEqual((await record(luis)).residency, { status: "not_linked" });
 	const sent = await invite();
 	const pending = (await record(luis)).residency;
@@ -326,7 +326,7 @@ test("an Admin invites Casey to link; the record shows it pending with its date;
 	await assert.rejects(f.invitations.respondResident(casey.session, claim(sent, { decision: "decline" })));
 });
 
-test("someone with another email cannot accept; Casey's decline leaves her account as it was", async () => {
+test("AC:ADR1-004 someone with another email cannot accept; Casey's decline leaves her account as it was", async () => {
 	const before = await accountState();
 	const sent = await invite();
 	await assert.rejects(
@@ -342,7 +342,7 @@ test("someone with another email cannot accept; Casey's decline leaves her accou
 	assert.deepEqual(ok(await readMyResidency(f.db, await authority(casey))), { status: "not_linked" });
 });
 
-test("Casey accepts sharing milestone progress only: no seat, still a Discovery account, and Grace Austin sees her linked", async () => {
+test("AC:ADR1-004 AC:ADR1-013 Casey accepts sharing milestone progress only: no seat, still a Discovery account, and Grace Austin sees her linked", async () => {
 	const sent = await invite();
 	const accepted = await f.invitations.respondResident(
 		casey.session,
@@ -365,7 +365,7 @@ test("Casey accepts sharing milestone progress only: no seat, still a Discovery 
 	});
 });
 
-test("My residency shows the program, program stage, next meeting in Casey's zone, milestones and reading, and no staff facts", async () => {
+test("AC:ADR1-013 My residency shows the program, program stage, next meeting in Casey's zone, milestones and reading, and no staff facts", async () => {
 	const view = await mine();
 	assert.equal(view.status, "linked");
 	if (view.status !== "linked") return;
@@ -422,7 +422,7 @@ test("My residency shows the program, program stage, next meeting in Casey's zon
 	await f.admin.execute(sql`UPDATE account SET personal_timezone=NULL WHERE id=${casey.id}::uuid`);
 });
 
-test("Casey marks a milestone done; it waits; Ana confirms it; Ana cannot record Casey's milestones in one step", async () => {
+test("AC:ADR1-012 Casey marks a milestone done; it waits; Ana confirms it; Ana cannot record Casey's milestones in one step", async () => {
 	const view = await mine();
 	if (view.status !== "linked") throw Error("not linked");
 	const vision = milestoneOf(view.enrollments[0]!.milestones, "Present your vision to the sending church leadership");
@@ -468,7 +468,7 @@ test("Casey marks a milestone done; it waits; Ana confirms it; Ana cannot record
 	assert.equal((await residentWriter.markMilestone(f.db, await authority(rae), mark)).status, "refused");
 });
 
-test("Casey sees Ana's feedback on her own assignment and none written for Jordan", async () => {
+test("AC:ADR1-012 Casey sees Ana's feedback on her own assignment and none written for Jordan", async () => {
 	const view = await mine();
 	if (view.status !== "linked") throw Error("not linked");
 	const preach = milestoneOf(view.enrollments[0]!.milestones, "Preach on a Sunday");
@@ -494,7 +494,7 @@ test("Casey sees Ana's feedback on her own assignment and none written for Jorda
 	assert.ok(!JSON.stringify(after).includes("Jordan"));
 });
 
-test("foundations: not shared, then a count of the six once Casey shares them, never her reading rows", async () => {
+test("AC:ADR1-014 foundations: not shared, then a count of the six once Casey shares them, never her reading rows", async () => {
 	// Casey completed two foundations, and read one other article.
 	const foundations = (await import("../../../docs/reference/discovery-foundations.json", { with: { type: "json" } }))
 		.default.articles;
@@ -521,7 +521,7 @@ test("foundations: not shared, then a count of the six once Casey shares them, n
 	for (const a of foundations) assert.ok(!text.includes(a.title), a.title);
 });
 
-test("milestone sharing off hides Casey's own marks; the milestone Ana recorded before Casey linked stays", async () => {
+test("AC:ADR1-003 AC:ADR1-014 milestone sharing off hides Casey's own marks; the milestone Ana recorded before Casey linked stays", async () => {
 	// Jordan is unlinked, so Ana recorded his milestone herself; Casey's own confirmed mark is consented progress.
 	await share({ shareFoundations: true, shareMilestones: false });
 	const shown = await enrollment(ana);
@@ -655,7 +655,7 @@ test("a new version keeps Casey's own marks on carried milestones, and shows the
 	assert.deepEqual(ok(await programWriter.confirmMilestone(f.db, await authority(ana), confirm)), { outcome: "noop" });
 });
 
-test("church reading opens only from Casey's own list; another church article does not; unpublished reads unavailable", async () => {
+test("AC:ADR1-014 church reading opens only from Casey's own list; another church article does not; unpublished reads unavailable", async () => {
 	const view = await mine();
 	if (view.status !== "linked") throw Error("not linked");
 	const team = view.enrollments[0]!.readings.find((r) => r.source === "organization")!;
@@ -683,7 +683,7 @@ test("church reading opens only from Casey's own list; another church article do
 	});
 });
 
-test("Casey leaves: My residency is gone at once and Grace Austin sees her as not linked; its own facts stay", async () => {
+test("AC:ADR1-003 AC:ADR1-013 Casey leaves: My residency is gone at once and Grace Austin sees her as not linked; its own facts stay", async () => {
 	const l = (await linkRow())!;
 	await asResident("residency.leave", {
 		requestKey: randomUUID(),

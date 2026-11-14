@@ -69,6 +69,10 @@ export function refusalText(answer: { status: "refused"; refusal: PipelineRefusa
 	}
 }
 
+/** What a person's change says when someone else changed that person first: who, and where they are now. */
+export const changedText = (name: string, stage: string) =>
+	`Someone else changed ${name} while you were working. ${name} is now in ${stage}. Nothing was saved, so check the record, then try again.`;
+
 export const plural = (n: number, one: string, many = one + "s") => `${n} ${n === 1 ? one : many}`;
 
 /** The exact changes between the saved stages and the edited list, in the words the review shows (REQ-MUL-008). */

@@ -15,6 +15,9 @@ const CHURCH = "Grace Fellowship (QA)";
 const NETWORK = "Harvest Network (QA)";
 /** OPS-126's sending church. It has a director login and its own connection; it has no Wiki copy. */
 const DIRECTOR_CHURCH = "Grace Church (QA)";
+/** T-312's sending church and network. Both connect to the test church and share its wiki, and publish no copy. */
+const GRACE_AUSTIN = "Grace Austin (QA)";
+const HILL_COUNTRY = "Hill Country Network (QA)";
 const PASSWORD = "qa-role-password-0123";
 const tsx = join(source, "packages/domain/node_modules/.bin/tsx");
 const corpus = JSON.parse(readFileSync(join(source, "docs/reference/bootstrap/global-seed-payload.json"), "utf8")) as {
@@ -248,9 +251,11 @@ test("INV-qa-seed: the QA seed adds a sending church and network that share the 
 			[plant],
 		),
 		[
+			{ kind: "sending_church", name: GRACE_AUSTIN, share_wiki: true, active: true },
 			{ kind: "sending_church", name: DIRECTOR_CHURCH, share_wiki: true, active: true },
 			{ kind: "sending_church", name: CHURCH, share_wiki: true, active: true },
 			{ kind: "sending_network", name: NETWORK, share_wiki: true, active: true },
+			{ kind: "sending_network", name: HILL_COUNTRY, share_wiki: true, active: true },
 		],
 	);
 });
@@ -393,13 +398,19 @@ test("INV-qa-seed: a second seed run writes nothing; the first run names the new
 
 test("INV-qa-seed: the new organizations add no login, seat or outside address; the fresh-database seed test passes", async () => {
 	const b = await fresh();
-	// OPS-126 later gave the network and its own sending church one login each. Grace Fellowship (QA) still has none.
+	// OPS-126 later gave the network and its own sending church one login each, and T-312 gave its own church five
+	// and its network one. Grace Fellowship (QA) still has none.
 	assert.deepEqual(
 		await b.query(`SELECT u.email, o.name FROM seat s JOIN organization o ON o.id = s.organization_id
-			JOIN account a ON a.id = s.account_id JOIN auth_user u ON u.id = a.auth_user_id ORDER BY o.name`),
+			JOIN account a ON a.id = s.account_id JOIN auth_user u ON u.id = a.auth_user_id ORDER BY o.name, u.email`),
 		[
+			...["admin", "director", "member", "owner", "staff"].map((label) => ({
+				email: `delivered+qa-grace-${label}@resend.dev`,
+				name: GRACE_AUSTIN,
+			})),
 			{ email: "delivered+qa-sending-director@resend.dev", name: DIRECTOR_CHURCH },
 			{ email: "delivered+qa-network-admin@resend.dev", name: NETWORK },
+			{ email: "delivered+qa-hill-owner@resend.dev", name: HILL_COUNTRY },
 		],
 	);
 	assert.deepEqual(await b.query(`SELECT count(*)::int AS n FROM organization WHERE contact_email IS NOT NULL`), [
@@ -485,7 +496,8 @@ async function orderCaseHolds(b: Branch, title: string) {
 			`This is the church version from ${name}.`,
 		]),
 	);
-	// Both churches share the wiki with the test church, and it has set no order.
+	// Both churches share the wiki with the test church, and it has set no order. Grace Austin (QA) shares it too and
+	// publishes no version.
 	const plant = await plantId(b);
 	assert.deepEqual(
 		await b.query(
@@ -494,6 +506,7 @@ async function orderCaseHolds(b: Branch, title: string) {
 			[plant],
 		),
 		[
+			{ name: GRACE_AUSTIN, share_wiki: true },
 			{ name: DIRECTOR_CHURCH, share_wiki: true },
 			{ name: CHURCH, share_wiki: true },
 		],
