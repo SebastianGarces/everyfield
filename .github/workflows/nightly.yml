@@ -2,6 +2,9 @@
 # through the coverage map this workflow writes: every selectable test file runs here under coverage, and only a run
 # where all of them pass uploads its map. `bin/dev check` downloads the map of the latest successful run with gh.
 # The bun typecheck shadow runs here too, out of the pull request gate, until T-53 decides bun's fate.
+# The tests/ui browser set runs here as well (T-301), chromium then webkit, over a seeded production build on the
+# runner's own throwaway Postgres, with no secret or outside service. `bin/dev nightly` stays the local run of the
+# same set on a preview of origin/main until it is retired (D-1377).
 # GitHub runs a schedule on the default branch only. fail-forward reports a failed run on main as one incident.
 name: Nightly
 
@@ -79,3 +82,77 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: bun check over every package
         run: pnpm typecheck:bun
+
+  ui:
+    # Every tests/ui/**/*.test.mjs (the list `bin/dev nightly` runs), once per engine, over one seeded production build.
+    # scripts/nightly-ui.ts seeds every tests/ui seed into the service's everyfield_ci (CI=true and
+    # EARLY_ACCESS_TEST_DATABASE=1 let the seeds use it, D-1378), then starts the server, which reads the env file the
+    # seeds wrote: the scripted Evry model and the dev mail capture. A failed chromium run still lets webkit run; either
+    # one failing fails the job.
+    name: tests/ui (chromium and webkit)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    services:
+      postgres:
+        image: pgvector/pgvector:0.8.7-pg18
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: everyfield_ci
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U ci -d everyfield_ci"
+          --health-interval 2s --health-timeout 5s --health-retries 30
+    env:
+      DATABASE_URL: postgres://ci:ci@localhost:5432/everyfield_ci
+      EARLY_ACCESS_TEST_DATABASE: "1"
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      # GitHub allows no runner context in a job's env, so the later steps read UI_DIR from GITHUB_ENV.
+      - name: tests/ui directory
+        run: echo "UI_DIR=$RUNNER_TEMP/nightly-ui" >> "$GITHUB_ENV"
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: pnpm from corepack (retries registry errors)
+        run: .github/scripts/corepack-install.sh
+      - name: pnpm store cache
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Playwright chromium and webkit with their system dependencies
+        working-directory: apps/web
+        run: pnpm exec playwright install --with-deps chromium webkit
+      # The seeds accept only a *.localhost origin; this name reaches the server on 127.0.0.1 in both engines.
+      - name: nightly.localhost on the loopback
+        run: echo "127.0.0.1 nightly.localhost" | sudo tee -a /etc/hosts
+      - name: Production build
+        run: pnpm build
+      - name: Seed tests/ui and serve the build
+        id: up
+        run: node scripts/nightly-ui.ts up "$UI_DIR"
+      - name: tests/ui chromium
+        if: ${{ !cancelled() && steps.up.outcome == 'success' }}
+        timeout-minutes: 25
+        run: node scripts/nightly-ui.ts test chromium "$UI_DIR"
+      - name: tests/ui webkit
+        if: ${{ !cancelled() && steps.up.outcome == 'success' }}
+        timeout-minutes: 25
+        run: node scripts/nightly-ui.ts test webkit "$UI_DIR"
+      - name: Stop the server
+        if: ${{ !cancelled() && steps.up.outcome == 'success' }}
+        run: node scripts/nightly-ui.ts down "$UI_DIR"
+      # The test and server logs and the mail outbox. The fixtures hold seeded session cookies and stay out.
+      - name: tests/ui logs
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: tests-ui-logs
+          path: |
+            ${{ runner.temp }}/nightly-ui
+            !${{ runner.temp }}/nightly-ui/fixtures
+          if-no-files-found: ignore
+          retention-days: 14

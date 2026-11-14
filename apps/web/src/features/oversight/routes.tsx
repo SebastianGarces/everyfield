@@ -1,5 +1,6 @@
 import {
 	loadDirectory,
+	loadIntelligence,
 	loadPlant,
 	loadRoster,
 	loadSendingChurch,
@@ -12,9 +13,11 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { NotAvailable } from "../access/AccessStates";
-import { DirectoryScreen, PlantScreen, RosterScreen, SendingChurchScreen } from "./screens.tsx";
+import { level } from "@everyfield/contracts/oversight";
+import { DirectoryScreen, IntelligenceScreen, PlantScreen, RosterScreen, SendingChurchScreen } from "./screens.tsx";
 
-// The /network routes (WP-047a): the organization home, one plant, and a network's sending churches.
+// The /network routes (WP-047a, WP-047b): the organization home, one plant, a network's sending churches and Network
+// Intelligence.
 // apps/web/src/app/(product)/(frame)/network/ only re-exports these. A plant this organization is not linked to now, a
 // plant that does not exist and a sending church a network does not have all render the same not-found page, with a 404
 // status: the pages have no loading boundary, so nothing streams before the read decides.
@@ -24,6 +27,7 @@ export const networkMetadata: Metadata = { title: "Plants", ...hidden };
 export const plantMetadata: Metadata = { title: "Plant", ...hidden };
 export const rosterMetadata: Metadata = { title: "Sending churches", ...hidden };
 export const sendingChurchMetadata: Metadata = { title: "Sending church", ...hidden };
+export const intelligenceMetadata: Metadata = { title: "Network Intelligence", ...hidden };
 
 type Params<K extends string> = { params: Promise<Record<K, string>> };
 
@@ -89,5 +93,21 @@ export async function SendingChurchPage({ params }: Params<"churchId">) {
 	const { churchId } = await params;
 	return organizationOnly(`/network/sending-churches/${churchId}`, async (viewer) =>
 		shown(await loadSendingChurch(viewer, churchId), (church) => <SendingChurchScreen church={church} />),
+	);
+}
+
+type Search = { searchParams: Promise<Record<string, string | string[] | undefined>> };
+/**
+ * Network Intelligence at one level (`?level=`, Whole portfolio by default) for the latest run or `?run=`. A run id
+ * that is not this organization's is not found.
+ */
+export async function IntelligencePage({ searchParams }: Search) {
+	const q = await searchParams;
+	const shownLevel = level.catch("portfolio").parse(typeof q.level === "string" ? q.level : undefined);
+	const run = typeof q.run === "string" ? q.run : null;
+	return organizationOnly("/network/intelligence", async (viewer) =>
+		shown(await loadIntelligence(viewer, shownLevel, run), (view) => (
+			<IntelligenceScreen key={`${view.level}:${view.run?.runId ?? ""}`} view={view} kind={viewer.organizationKind} />
+		)),
 	);
 }

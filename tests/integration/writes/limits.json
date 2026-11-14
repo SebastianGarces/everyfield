@@ -51,7 +51,7 @@
 		"limit": 5
 	},
 	"GET /intelligence": {
-		"limit": 2
+		"limit": 3
 	},
 	"GET /intelligence/attestations": {
 		"limit": 2
@@ -641,8 +641,8 @@
 		"reason": "RT-6a: invitations.accept found by its proof in the same first statement; the same 12 statements (was 29)."
 	},
 	"invitations.revoke": {
-		"limit": 9,
-		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 2 locked read, 3 read, 2 write."
+		"limit": 10,
+		"reason": "Above the pattern today; RT-6 reviews it. A residency link invitation also locks its resident person: 2 transaction, 3 locked read, 3 read, 2 write."
 	},
 	"jobs/mail.claimUnknownMail": {
 		"limit": 1
@@ -1223,8 +1223,8 @@
 		"limit": 3
 	},
 	"organizations.organizations.correctReportingLocation": {
-		"limit": 8,
-		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 3 locked read, 1 read, 4 write."
+		"limit": 10,
+		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run, with an official Region chosen (WP-047b): 2 read, 4 locked read, 4 write. The official-list candidate check and the Region item lookup are the 2 reads."
 	},
 	"organizations.organizations.updateProfile": {
 		"limit": 2
@@ -2088,6 +2088,10 @@
 		"limit": 4,
 		"retry": 4
 	},
+	"programs.confirmMilestone": {
+		"limit": 4,
+		"retry": 4
+	},
 	"programs.createProgram": {
 		"limit": 4,
 		"retry": 4
@@ -2105,6 +2109,18 @@
 		"retry": 4
 	},
 	"programs.savePlan": {
+		"limit": 5,
+		"retry": 5
+	},
+	"oversight/intelligence.requestIntelligenceRefresh": {
+		"limit": 4,
+		"retry": 3
+	},
+	"oversight/intelligence.submitIntelligenceFeedback": {
+		"limit": 4,
+		"retry": 3
+	},
+	"residency.markMilestone": {
 		"limit": 5,
 		"retry": 5
 	}

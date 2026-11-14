@@ -1,4 +1,15 @@
-import type { PERSON_STAGES, PlantDirectoryRow, PlantSections, SectionKey } from "@everyfield/contracts/oversight";
+import type {
+	Health,
+	IntelligenceRow,
+	LaunchState,
+	Level,
+	PERSON_STAGES,
+	PlantDirectoryRow,
+	PlantSections,
+	Preparation,
+	SectionKey,
+} from "@everyfield/contracts/oversight";
+import { regionLabel } from "@everyfield/contracts/oversight";
 import type { Stage } from "@everyfield/ui/display";
 import { SHORT_NAME } from "../phases/model.ts";
 
@@ -73,3 +84,64 @@ export const STAGE_OF: Record<PersonStage, Stage> = {
 	launch_team: "launch",
 	leader: "leader",
 };
+
+type Status = "positive" | "measured" | "attention" | "risk" | "unknown";
+
+/**
+ * The home's health value. Not yet assessed is never On track: On track and Watch come from released assessments
+ * (WP-044), and a plant that shares nothing about it is Limited visibility.
+ */
+export const HEALTH: Record<Health, { label: string; status: Status }> = {
+	limited_visibility: { label: "Limited visibility", status: "unknown" },
+	launch_readiness: { label: "Launch readiness", status: "attention" },
+	not_assessed: { label: "Not yet assessed", status: "measured" },
+};
+
+/** The official reporting Region, "Austin-Round Rock-San Marcos, TX (metro area)", or null when unresolved. */
+export const regionText = (row: Pick<PlantDirectoryRow, "region">) => (row.region ? regionLabel(row.region) : null);
+
+export const LAUNCH_STATE: Record<LaunchState, { label: string; status: Status }> = {
+	not_set: { label: "Not set", status: "unknown" },
+	scheduled: { label: "Scheduled", status: "measured" },
+	moved: { label: "Moved", status: "measured" },
+	postponed: { label: "Postponed", status: "unknown" },
+	overdue: { label: "Overdue", status: "attention" },
+	completed: { label: "Launched", status: "positive" },
+};
+
+/** "1 required role unfilled and 2 required trainings not done", or null without a recorded gap. */
+export function gapText(p: Preparation): string | null {
+	const parts = [
+		p.unfilledRoles ? `${plural(p.unfilledRoles, "required role")} unfilled` : null,
+		p.outstandingTraining ? `${plural(p.outstandingTraining, "required training")} not done` : null,
+	].filter((x) => x !== null);
+	return parts.length ? parts.join(" and ") : null;
+}
+/** "Launch Sunday is in 30 days", "is tomorrow", "is today". */
+export function daysText(days: number): string {
+	if (days === 0) return "Launch Sunday is today";
+	if (days === 1) return "Launch Sunday is tomorrow";
+	return `Launch Sunday is in ${days} days`;
+}
+
+export const LEVEL_LABEL: Record<Level, string> = {
+	region: "Region",
+	state: "State",
+	country: "Country",
+	portfolio: "Whole portfolio",
+};
+
+/** A plant's NIR-03 result as its row says it. Not shared says nothing else at all. */
+export function resultLabel(row: IntelligenceRow): { label: string; status: Status } {
+	if (row.status === "not_shared") return { label: "Not shared", status: "unknown" };
+	if (row.result === "gap") return { label: "Gap near launch", status: "attention" };
+	if (row.result === "clear") return { label: "No near-launch gap", status: "measured" };
+	return { label: "Unknown", status: "unknown" };
+}
+
+/** A run's time in the organization's time zone, to the second: "Nov 14, 2026, 8:03:12 AM". */
+export const runLabel = (instant: string, timeZone: string) =>
+	new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "medium", timeZone }).format(new Date(instant));
+/** A published instant as the plant's calendar day, "Nov 14, 2026". */
+export const dayOf = (instant: string, timeZone: string) =>
+	new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeZone }).format(new Date(instant));

@@ -2,7 +2,7 @@
 
 [target.json](target.json) is generated from the Drizzle declarations in [tables.ts](../../packages/db/src/schema/tables.ts). Those declarations own modeled structure; reviewed custom migrations and supplemental catalog expectations own triggers, functions and privileges. Applied SQL remains immutable.
 
-The schema has 115 tables, 1310 columns, 386 declared FKs and 29 JSONB columns. These are counts of definitions, including compound FKs as one constraint. They exclude indexes, triggers, packaged artifacts and external backups.
+The schema has 118 tables, 1329 columns, 393 declared FKs and 29 JSONB columns. These are counts of definitions, including compound FKs as one constraint. They exclude indexes, triggers, packaged artifacts and external backups.
 
 Run documentation/tooling checks from the repository root:
 
@@ -66,6 +66,9 @@ Each replaced table inherits the union of producer packages from its previous ta
 | `mail_request_member` | Exact ordered membership splits from the shared mail intent/attempt ledger. | WP-004, WP-028, WP-031 |
 | `message_template` | WP-027 template storage through Drizzle Kit (C100). | WP-027 |
 | `model_spend` | WP-051 Evry model qualification spend limit through Drizzle Kit. | WP-051 |
+| `network_intelligence_feedback` | WP-047 records each Network Intelligence run, its plant contributions and each seat's own pattern rating. | WP-047 |
+| `network_intelligence_plant` | WP-047 records each Network Intelligence run, its plant contributions and each seat's own pattern rating. | WP-047 |
+| `network_intelligence_run` | WP-047 records each Network Intelligence run, its plant contributions and each seat's own pattern rating. | WP-047 |
 | `onboarding_setup` | WP-009 additive onboarding storage. | WP-009 |
 | `organization_person_removal` | WP-011 owns removal and WP-050 synchronizes body-free witnesses into recovery; WP-004 installs the baseline. | WP-004, WP-011, WP-050 |
 | `people_column` | WP-011 People producer storage introduced by additive migration 0004; D30/D32 current-catalog registration. | WP-011 |
@@ -402,6 +405,9 @@ Each name identifies one exact FK. The checker requires this list whenever `targ
 - `communication(meeting_id) -> meeting(id)`: A meeting can be removed while a draft still names it. The pointer clears. The draft stays in its plant. The app checks the meeting belongs to the plant before it saves the pointer.
 - `development_program(director_seat_id) -> seat(id)`: Current eligible duty seat belongs to the exact organization. Serialized boundary checks seat tenant/kind and current authority; the relation grants no broader access.
 - `discovery(conversion_operation_id) -> audit_event(id)`: D70 command identity correlation; the producer validates the actual owner, exact source and current authority in its transaction. Retained evidence grants no access.
+- `network_intelligence_feedback(run_id) -> network_intelligence_run(id)`: A rating belongs to its author's account inside the run's organization. Reads and writes check the author's current seat in that organization; the relation grants no plant access.
+- `network_intelligence_plant(region_item_id) -> reference_item(id)`: The Region is a global official reference item (OMB 23-01), not a tenant body; it grants nothing.
+- `network_intelligence_plant(run_id) -> network_intelligence_run(id)`: A run's plant rows and ratings belong to the run's organization. Each read joins the run on its organization and rechecks the plant's current link and sharing; the relation grants no plant access.
 - `onboarding_setup(creation_operation_id) -> audit_event(id)`: D70 command identity correlation; the producer validates the actual owner, exact source and current authority in its transaction. Retained evidence grants no access.
 - `phase_transition(operation_id) -> audit_event(id)`: D70 command identity correlation; the producer validates the actual owner, exact source and current authority in its transaction. Retained evidence grants no access.
 - `pipeline_person(responsible_seat_id) -> seat(id)`: Current eligible duty seat belongs to the exact organization. Serialized boundary checks seat tenant/kind and current authority; the relation grants no broader access.

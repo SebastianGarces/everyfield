@@ -182,13 +182,25 @@ test("AC:PHASE-CASE-004 readiness is an advisory conjunction: Unknown holds it b
 	assert.deepEqual(verdict("met", "not_met", "met", "met", "met"), ["approaching", false, true]);
 	assert.deepEqual(verdict("met", "not_met", "unknown", "met", "met"), ["not_ready", false, true]);
 	assert.deepEqual(verdict("unknown", "unknown", "unknown", "not_tracked", "unknown"), ["unknown", false, true]);
-	// Until WP-040 there is no measured source: every criterion reads Unknown and nothing is measured.
-	const live = readReadiness(await readCatalog());
+	// Without a measured result every criterion reads Unknown and nothing is measured.
+	const catalog = await readCatalog();
+	const live = readReadiness(catalog, {});
 	assert.ok(live.every((x) => !x.measured && x.criteria.every((c) => c.status === "unknown")));
 	assert.deepEqual(
 		live.map((x) => x.verdict),
 		["unknown", "unknown", "unknown", "unknown", "unknown", "unknown", "terminal"],
 	);
+	// The measured facts (WP-040) fill each phase's own criteria; the rest stay Unknown.
+	const filled = readReadiness(catalog, {
+		committed_adults: "met",
+		financial_base: "not_met",
+		training_complete: "met",
+	});
+	assert.deepEqual(
+		filled[1].criteria.map((c) => c.status),
+		["met", "unknown", "not_met", "unknown", "unknown"],
+	);
+	assert.deepEqual([filled[1].measured, filled[1].verdict, filled[3].criteria[0].status], [true, "not_ready", "met"]);
 });
 
 test("AC:PHASE-CASE-001 AC:DC-022 AC:DC-032 AC:TARGET-IDN-015 a declaration records where the church was, once, and creation retry keeps it", async () => {

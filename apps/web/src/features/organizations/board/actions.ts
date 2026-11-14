@@ -7,7 +7,9 @@ import {
 	pipelineActor,
 	pipelineWrite,
 } from "@/server/organizations/pipeline";
+import { invitationService } from "@/server/invitations";
 import { pipelineWriter } from "@everyfield/domain/organizations";
+import { answer, refused, type Reply } from "../../identity/server";
 
 // Server actions behind the Pipeline page and a person's record. Each one rebuilds the request actor; the domain
 // parses the input and rechecks the seat. A write's answer is its result or refusal; the screen then reads again only
@@ -72,4 +74,25 @@ export async function readPerson(personId: string) {
 	const who = await pipelineActor();
 	if (who.kind !== "seat") return { status: "refused", refusal: { code: "unavailable" } } as const;
 	return loadPipelinePerson(who.authority, personId);
+}
+
+/**
+ * The invitation to link a pipeline person's own account to this organization's residency (REQ-MUL-004): send,
+ * resend or revoke, through the shipped invitation service, which checks the Owner or Admin seat and the person again.
+ * The browser names the person, the address on their record and the revisions it read; the organization comes from
+ * the seat.
+ */
+export async function runLinkInvitation(
+	operation: "invite" | "resend" | "revoke",
+	command: { requestKey: string; expectedRevision: string; input: Record<string, unknown> },
+): Promise<Reply> {
+	const who = await pipelineActor();
+	const service = invitationService();
+	if (who.kind !== "seat" || !service) return refused("unavailable");
+	const organization = who.authority.actor.context.owner;
+	if (operation === "invite")
+		return answer(() =>
+			service.inviteResident(who.authority, { ...command, input: { ...command.input, organization } }),
+		);
+	return answer(() => (operation === "resend" ? service.resend : service.revoke)(who.authority, command));
 }
