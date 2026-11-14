@@ -124,3 +124,21 @@ test("AC:REQ-PPL-026 INV-revise-adult: adult or child is required only until a b
 		"adultClassification",
 	);
 });
+
+test("a Meetings review is revised by asking Evry, and its lists read one entry per line", async () => {
+	const { editableChanges, fieldLabel, valueText } = await import("../../../apps/web/src/features/evry/review/model.ts");
+	const review = {
+		operation: "meetings.finalizeAttendance",
+		review: {
+			target: { kind: "meeting", id: "x", label: "Vision Meeting #2" },
+			changes: [
+				{ field: "attended", before: null, after: ["Maria Santos (first Vision)", "Alex Rivera"] },
+				{ field: "tasks", before: null, after: ["Follow up with Maria Santos (needs an owner)"] },
+			],
+		},
+	};
+	assert.deepEqual(editableChanges(review), []);
+	assert.equal(fieldLabel("tasks"), "Tasks it creates");
+	assert.equal(fieldLabel("presence:Maria Santos"), "Maria Santos");
+	assert.equal(valueText("attended", review.review.changes[0].after), "Maria Santos (first Vision)\nAlex Rivera");
+});

@@ -518,3 +518,91 @@ test("INV-result-card-duplicate-pairs: listDuplicatePairs is a Duplicates to rev
 		["0 people", ["No import has flagged a possible duplicate that still needs review."]],
 	);
 });
+
+const M1 = "44444444-4444-4444-8444-444444444444";
+const M2 = "55555555-5555-4555-8555-555555555555";
+const M3 = "66666666-6666-4666-8666-666666666666";
+
+test("a Vision night with no attendance recorded says not recorded on the trend card, never 0 attended", () => {
+	const point = (id, date, attended) => ({ kind: "item", id, label: "Vision Meeting", fields: { date, attended } });
+	const view = cardView(
+		"meetings.attendanceTrend",
+		result("meetings.attendanceTrend", [
+			point(M1, "2026-10-29", "18"),
+			point(M2, "2026-11-05", "not recorded"),
+			point(M3, "2026-11-08", "24"),
+		]),
+		null,
+	);
+	assert.equal(view.title, "Attendance trend");
+	assert.deepEqual(
+		view.rows.map((r) => [r.line, r.mark?.text ?? null]),
+		[
+			["Oct 29, 2026 · 18 attended", null],
+			["Nov 5, 2026 · Not recorded", "Not recorded"],
+			["Nov 8, 2026 · 24 attended", null],
+		],
+	);
+	assert.equal(JSON.stringify(view).includes("0 attended"), false);
+});
+
+test("guests on an RSVP card are marked by their answer, never as attended, and link to their person", () => {
+	const guest = (id, label, rsvp) => ({ kind: "person", id, label, fields: { rsvp, invitedBy: null } });
+	const view = cardView(
+		"meetings.listGuests",
+		result("meetings.listGuests", [guest(P1, "Kevin Walsh", "yes"), guest(P2, "Joy Lee", "no"), guest(H, "Elena Garcia", "no answer")]),
+		null,
+	);
+	assert.equal(view.title, "RSVPs");
+	assert.deepEqual(
+		view.rows.map((r) => [r.name, r.mark?.text, r.href]),
+		[
+			["Kevin Walsh", "RSVP yes", `/people/${P1}`],
+			["Joy Lee", "RSVP no", `/people/${P2}`],
+			["Elena Garcia", "No answer", `/people/${H}`],
+		],
+	);
+	assert.equal(/attend/i.test(JSON.stringify(view)), false);
+});
+
+test("a meetings list row says when and where in the church's words, marks a cancelled one and opens the meeting", () => {
+	const meeting = (id, label, status) => ({
+		kind: "meeting",
+		id,
+		label,
+		fields: { status, when: "Thu, Nov 12, 2026, 7:00 PM CST", venue: "Coffee shop" },
+	});
+	const view = cardView(
+		"meetings.list",
+		result("meetings.list", [meeting(M1, "Coffee with Pastor Nate", "cancelled"), meeting(M2, "Vision Meeting #4", "planning")]),
+		null,
+	);
+	assert.deepEqual([view.title, view.summary], ["Meetings", "2 meetings"]);
+	assert.deepEqual(
+		view.rows.map((r) => [r.name, r.line, r.mark?.text ?? null, r.href]),
+		[
+			["Coffee with Pastor Nate", "Thu, Nov 12, 2026, 7:00 PM CST · Coffee shop", "Cancelled", `/meetings/${M1}`],
+			["Vision Meeting #4", "Thu, Nov 12, 2026, 7:00 PM CST · Coffee shop", null, `/meetings/${M2}`],
+		],
+	);
+});
+
+test("the agenda card leads with the app's print link, opened in a new tab, then the saved sections in order", () => {
+	const view = cardView(
+		"meetings.readAgenda",
+		result("meetings.readAgenda", [
+			{ kind: "meeting", id: M1, label: "Launch team orientation", fields: { print: `/meetings/${M1}/agenda` } },
+			{ kind: "item", id: "s1", label: "Welcome and coffee", fields: { order: "1", minutes: "15", starts: "16:00" } },
+			{ kind: "item", id: "s2", label: "Our story and vision", fields: { order: "2", minutes: "20", starts: "16:15" } },
+		]),
+		null,
+	);
+	assert.deepEqual(
+		view.rows.map((r) => [r.name, r.line, r.href, r.newTab ?? false]),
+		[
+			["Print agenda", "Launch team orientation", `/meetings/${M1}/agenda`, true],
+			["Welcome and coffee", "16:00 · 15 min", null, false],
+			["Our story and vision", "16:15 · 20 min", null, false],
+		],
+	);
+});
