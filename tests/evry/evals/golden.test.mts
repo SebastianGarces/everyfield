@@ -724,6 +724,8 @@ test("INV-evry-golden SAF-02 SAF-11 SAF-12 SAF-14: the model's tools can read an
 			"notifications.setPreferences",
 			"account.finalizeAvatar",
 			"account.requestDeletion",
+			// Their own product feedback to the Everyfield team (T-330), which changes no church record.
+			"feedback.submit",
 		],
 	);
 	assert.deepEqual(tools("org"), ["notifications_read", "select_returned_rows", "propose_change"]);

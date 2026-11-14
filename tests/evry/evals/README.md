@@ -38,6 +38,19 @@ Owner has not finished setup (with an Admin), two seatless accounts and a Discov
 Network, through the same onboarding producer `/onboarding` calls. Each approved change is read back through
 `/onboarding`'s own read (`readOnboardingEntry`) and Home's landing rule. The recorded suites leave these tools out too.
 
+## The overview suite (scripted model)
+
+`overview.test.mts` scores the Overview and feedback tools (T-330: `dashboard.availableActions`, `dashboard.metrics`,
+`dashboard.activity`, `dashboard.readSetupGaps`, `feedback.listOwn`, `feedback.getOwnStatus` and the reviewed
+`feedback.submit`) on the scripted model (`packages/evry/src/runtime/scripted-overview.ts`): their ask allowed no new
+spend. It runs on the acceptance fixture church, Cedar Creek (`seedOverview` in `setup-church.mts`, America/Chicago),
+with the database clock pinned to Oct 13, 2026: the church in its first week with setup finished, people added over two
+months, the week's meetings and an overdue task. A case's `given` applies one later fixture change (a failing Meetings
+read, a planned Vision Meeting, a seated Member, a crowded activity feed). Each answer is held to what Overview itself
+shows, through its own reads and words (`apps/web/src/features/overview/model.ts`); MON-01 and CLN-10 carry their
+golden question word for word, with its expected answer and must-not. The approved feedback is read back through Sent
+feedback's own read. The recorded suites leave these tools out too.
+
 ## The household and follow-up suites
 
 Each asks its cases with Evry's real system prompt and read tools (`readTools` and `compileContext`), and every read

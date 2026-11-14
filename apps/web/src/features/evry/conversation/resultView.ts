@@ -165,6 +165,51 @@ const VIEWS: Record<string, OpView> = {
 		counts: "step",
 		empty: "This church has no setup in progress for you.",
 	},
+	// Overview through Evry (T-330): its next steps, counts, recent changes and setup steps, each linking where Overview does.
+	"dashboard.availableActions": {
+		title: "Next steps",
+		noun: ["step", "steps"],
+		icon: "step",
+		counts: "step",
+		empty: "Overview offers you no next steps right now.",
+	},
+	"dashboard.readSetupGaps": {
+		title: "Setup steps",
+		noun: ["open step", "open steps"],
+		icon: "step",
+		counts: "step",
+		empty: "Every setup step is done.",
+	},
+	"dashboard.metrics": {
+		title: "Overview counts",
+		noun: ["count", "counts"],
+		icon: "item",
+		counts: "item",
+		empty: "Overview's counts are not available.",
+	},
+	"dashboard.activity": {
+		title: "Recent changes",
+		noun: ["change", "changes"],
+		icon: "activity",
+		counts: "activity",
+		shownOnly: true,
+		empty: "Nothing has changed in this church yet.",
+	},
+	// The user's own feedback, as Sent feedback lists it: type, date and status, never the words.
+	"feedback.listOwn": {
+		title: "Sent feedback",
+		noun: ["feedback", "feedback"],
+		icon: "item",
+		counts: "item",
+		empty: "You haven't sent any feedback yet.",
+	},
+	"feedback.getOwnStatus": {
+		title: "Feedback",
+		noun: ["feedback", "feedback"],
+		icon: "item",
+		counts: "item",
+		empty: "That feedback isn't one you sent.",
+	},
 	"discovery.getProfile": {
 		title: "Discovery space",
 		noun: ["linked organization", "linked organizations"],
@@ -508,6 +553,15 @@ function rowView(operation: string, row: SourceRow): RowView {
 				avatar: "skill",
 			};
 		case "activity": {
+			// An Overview change: its words as Recent changes says them, who made it and when, and the item it opens.
+			if (operation === "dashboard.activity")
+				return {
+					...plain,
+					href: text(fields.href),
+					name: fields.you === true ? `${row.label} (you)` : row.label,
+					line: joined(text(fields.by), text(fields.when)),
+					avatar: "activity",
+				};
 			// Note text never reaches the card: a note row says only that a note was added or removed, and when.
 			const kind = fields.kind;
 			const name =
@@ -762,6 +816,8 @@ function rowView(operation: string, row: SourceRow): RowView {
 		case "item":
 			return {
 				...plain,
+				// An Overview count opens its list, and a sent feedback opens Sent feedback.
+				href: /^(dashboard|feedback)\./.test(operation) ? text(fields.href) : null,
 				name: row.label,
 				line: itemLine(operation, fields),
 				mark: itemMark(operation, fields),
@@ -802,6 +858,9 @@ function rowView(operation: string, row: SourceRow): RowView {
 				avatar: null,
 			};
 		case "step":
+			// An Overview step, linked where Overview links it (a Member's has no link: Owners and Admins take it).
+			if (operation.startsWith("dashboard."))
+				return { ...plain, href: text(fields.href), name: row.label, line: "From Overview", avatar: null };
 			// A setup step as `/onboarding` shows it: saved with its answer, or still open.
 			return {
 				...plain,
@@ -976,6 +1035,11 @@ function personMark(operation: string, fields: Record<string, unknown>): RowMark
 /** The short line of an item row: an agenda section's start and length, a kit item's category, a trend point. */
 function itemLine(operation: string, f: Record<string, unknown>): string | null {
 	switch (operation) {
+		case "dashboard.metrics":
+			return String(f.count);
+		case "feedback.listOwn":
+		case "feedback.getOwnStatus":
+			return joined(`Sent ${String(f.sent)}`, text(f.status));
 		case "meetings.readAgenda":
 			return joined(
 				typeof f.starts === "string" ? timeText(f.starts) : null,

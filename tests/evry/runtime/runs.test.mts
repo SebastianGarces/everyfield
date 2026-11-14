@@ -318,6 +318,7 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 						"onboarding.declareJourney",
 						"identity.answerLeadOnboarding",
 						"onboarding.complete",
+						"feedback.submit",
 					]
 				: who === "member"
 					? // A Member changes only their own bell, notification settings and account, and the Meetings changes the native
@@ -329,6 +330,7 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 							...MEMBER_MEETINGS_WRITES,
 							"account.finalizeAvatar",
 							"account.requestDeletion",
+							"feedback.submit",
 						]
 					: who === "orgOwner"
 						? // An organization Owner sets only their own oversight digest (D-1278) and their organization's profile.
@@ -336,6 +338,16 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 						: ["onboarding.createPlant", "discovery.create", "discovery.convertToPlant"],
 		);
 		const teamsReads = READ_DOMAINS.teams.map((a) => a.operation);
+		// Overview and the user's own feedback (T-330): every church seat, Member included, reads them as Overview and Sent
+		// feedback show them to that seat.
+		const OVERVIEW_READS = [
+			"dashboard.availableActions",
+			"dashboard.metrics",
+			"dashboard.activity",
+			"dashboard.readSetupGaps",
+			"feedback.listOwn",
+			"feedback.getOwnStatus",
+		];
 		const peopleReads = ["people.listPeople", "people.getPerson", "people.getPersonPhoto", "people.checkForDuplicates"];
 		// Only an Owner or Admin reviews the pairs an import flagged, as on /people/duplicates.
 		const ownerReads = [...peopleReads, "people.listDuplicatePairs"];
@@ -378,6 +390,7 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 						"seats.listInvitations",
 						"privacy.getSharing",
 						"onboarding.getResume",
+						...OVERVIEW_READS,
 					]
 				: who === "member"
 					? [
@@ -390,6 +403,7 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 							...MEMBER_MEETINGS_READS,
 							"seats.list",
 							"privacy.getSharing",
+							...OVERVIEW_READS,
 						]
 					: who === "orgOwner"
 						? ["notifications.previewOversightDigest"]
@@ -560,6 +574,8 @@ test("AC:INH-EDGES-03 AC:TEN-008 AC:EVRY-CONTEXT-BOUNDS a guessed foreign id and
 		[...new Set(calls.flatMap((c) => c.tools?.map((t) => t.name) ?? []))].sort(),
 		[
 			"communication_read",
+			"dashboard_read",
+			"feedback_read",
 			"meetings_read",
 			"notifications_read",
 			"onboarding_read",

@@ -14,6 +14,8 @@ import { nativePorts } from "../evals/settings-ports.mts";
 import { seedSetup, SETUP_SPECS } from "../evals/setup-church.mts";
 import { readViewer } from "../../../packages/domain/src/access/session.ts";
 import { evryActor } from "../../../packages/evry/src/context/actor.ts";
+import { feedbackWriter } from "../../../packages/domain/src/feedback/index.ts";
+import { randomUUID } from "node:crypto";
 
 const church = await goldenChurch();
 after(church.close);
@@ -21,6 +23,22 @@ after(church.close);
 const native = nativePorts();
 await seedSetup(church.admin, church.db, native);
 const setupActor = async (session: string) => evryActor((await readViewer(church.db, session as never))!.authority!);
+/** One feedback the setup Owner sent, sent once however many probes ask for it. */
+let feedbackId: string | undefined;
+async function sentFeedback() {
+	if (feedbackId) return feedbackId;
+	const authority = (await setupActor(SETUP_SPECS.setupOwner.session)).authority;
+	const r = await church.db.transaction((tx) =>
+		feedbackWriter.submit(
+			tx as never,
+			authority,
+			{ requestKey: randomUUID(), category: "other", description: "Probe" },
+			{ appVersion: null },
+		),
+	);
+	assert.equal(r.status, "ok");
+	return (feedbackId = (r as { value: { id: string } }).value.id);
+}
 const adapters = new Map<string, ReadAdapter<unknown>>(
 	Object.values(catalog.READ_DOMAINS)
 		.flat()
@@ -135,6 +153,26 @@ const PROBES: Record<string, Record<string, unknown> | (() => Promise<SourceResu
 			{},
 			native,
 		),
+	// Overview and feedback (T-330), for the setup fixture's Owner: a new church in its first week.
+	...Object.fromEntries(
+		["dashboard.availableActions", "dashboard.metrics", "dashboard.activity", "dashboard.readSetupGaps"].map((op) => [
+			op,
+			async () => invokeRead(church.db, await setupActor(SETUP_SPECS.setupOwner.session), adapters.get(op)!, {}),
+		]),
+	),
+	"feedback.listOwn": async () => {
+		await sentFeedback();
+		return invokeRead(
+			church.db,
+			await setupActor(SETUP_SPECS.setupOwner.session),
+			adapters.get("feedback.listOwn")!,
+			{},
+		);
+	},
+	"feedback.getOwnStatus": async () =>
+		invokeRead(church.db, await setupActor(SETUP_SPECS.setupOwner.session), adapters.get("feedback.getOwnStatus")!, {
+			feedbackId: await sentFeedback(),
+		}),
 	[catalog.SELECT_RETURNED_ROWS]: async () => {
 		const list = await read("people.listPeople", {});
 		return { ...list, operation: catalog.SELECT_RETURNED_ROWS, rows: list.rows.slice(0, 2), total: 2 };
