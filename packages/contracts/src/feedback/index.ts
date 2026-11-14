@@ -119,7 +119,6 @@ export const triageFeedback = z.object({
 		appVersion: z.string().nullable(),
 	}),
 });
-export type TriageFeedback = z.infer<typeof triageFeedback>;
 export const triagePage = z.object({ items: z.array(triageFeedback).max(PAGE_SIZE), next: z.string().nullable() });
 export type TriagePage = z.infer<typeof triagePage>;
 export const triageListRequest = z.object({

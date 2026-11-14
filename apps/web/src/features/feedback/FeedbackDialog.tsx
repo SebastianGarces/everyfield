@@ -32,7 +32,6 @@ const ICON: Record<FeedbackCategory, IconSvgElement> = {
 	other: Comment01Icon,
 };
 
-type Sent = SubmittedFeedback;
 type Failure = "lost" | "refused" | null;
 
 /**
@@ -63,11 +62,11 @@ function FeedbackPanel({ name, onClose }: { name: string; onClose: () => void })
 	const [category, setCategory] = useState<FeedbackCategory>("suggestion");
 	const [text, setText] = useState("");
 	const [requestKey, setRequestKey] = useState(() => crypto.randomUUID());
-	const [sent, setSent] = useState<Sent | null>(null);
+	const [sent, setSent] = useState<SubmittedFeedback | null>(null);
 	const [failure, setFailure] = useState<Failure>(null);
 	const [pending, start] = useTransition();
 	const count = counter(text);
-	const ids = { count: useId(), types: useId() };
+	const ids = { count: useId() };
 
 	useEffect(() => {
 		let live = true;
@@ -154,7 +153,7 @@ function FeedbackPanel({ name, onClose }: { name: string; onClose: () => void })
 				description="Tell us what went wrong or what would help. The Everyfield team reads every message."
 			/>
 			<DialogBody className="flex flex-col gap-4 pb-1">
-				<div role="radiogroup" aria-label="Type" id={ids.types} className="grid grid-cols-4 gap-2">
+				<div role="radiogroup" aria-label="Type" className="grid grid-cols-4 gap-2">
 					{CATEGORIES.map((c) => (
 						<label
 							key={c.value}
