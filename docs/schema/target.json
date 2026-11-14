@@ -6381,6 +6381,34 @@
       ]
     },
     {
+      "table": "launch_guest",
+      "columns": [
+        "person_id",
+        "plant_id"
+      ],
+      "target_columns": [
+        "id",
+        "tenant_id"
+      ],
+      "consumer_work_packages": [
+        "WP-046"
+      ],
+      "meaning": "A Person of the church named as a Launch Sunday guest (LCH-007).",
+      "lock_order": "Lock the church's launch row first; the link reads the Person as live in the same statement. Merge and Unmerge lock both Persons in UUID order.",
+      "merge_policy": "Move the link to the survivor. When the survivor is already a guest, the source's link stays on the source as history, so the roster names the survivor once.",
+      "inverse_policy": "Unmerge moves back exactly the links the merge moved.",
+      "retirement_policy": "A retired Person leaves the current roster and cannot be named again; the link stays as history.",
+      "privacy_policy": "Names only the Person. Guest names show to the church's Owners and Admins and never reach an organization or the published summary.",
+      "immutable_evidence_policy": "The link keeps when and by whom it was named; the reported aggregate attendance and missing-guest count never change with it.",
+      "future_case_ids": [
+        "LAUNCH46-022",
+        "PERSONREF-LAUNCH-NAMED-GUEST-CONFLICT",
+        "PERSONREF-LAUNCH-NAMED-GUEST-MERGE",
+        "PERSONREF-LAUNCH-NAMED-GUEST-RETIRE",
+        "PERSONREF-LAUNCH-NAMED-GUEST-UNMERGE"
+      ]
+    },
+    {
       "table": "person",
       "columns": [
         "merged_into_person_id",
@@ -22115,11 +22143,13 @@
       },
       "feature_ids": [
         "LCH-006",
-        "LCH-010"
+        "LCH-007",
+        "LCH-008"
       ],
       "acceptance_ids": [
         "AC-LCH-006--LCH-006",
-        "AC-LCH-010--LCH-010"
+        "AC-LCH-007--LCH-007",
+        "AC-LCH-008--LCH-008"
       ],
       "future_case_ids": [
         "B02-019",
@@ -22430,11 +22460,13 @@
       },
       "feature_ids": [
         "LCH-006",
-        "LCH-007"
+        "LCH-007",
+        "LCH-008"
       ],
       "acceptance_ids": [
         "AC-LCH-006--LCH-006",
-        "AC-LCH-007--LCH-007"
+        "AC-LCH-007--LCH-007",
+        "AC-LCH-008--LCH-008"
       ],
       "future_case_ids": [
         "LAUNCH46-002",
@@ -22960,10 +22992,14 @@
         "rule": "WP-046 Launch outcomes, guests, debrief and history."
       },
       "feature_ids": [
-        "LCH-010"
+        "LCH-006",
+        "LCH-007",
+        "LCH-008"
       ],
       "acceptance_ids": [
-        "AC-LCH-010--LCH-010"
+        "AC-LCH-006--LCH-006",
+        "AC-LCH-007--LCH-007",
+        "AC-LCH-008--LCH-008"
       ],
       "future_case_ids": [
         "B02-030",

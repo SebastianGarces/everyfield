@@ -21,7 +21,7 @@ Audit records changed fields and their permitted before/after values, safe statu
 | meetings.changed, meetings.finalized, meetings.corrected, meetings.rsvp_recorded, meetings.response_recorded | meeting type, participation revision, generated-effect manifest hash, bounded counts | Cards and RSVP remain distinct; token/body omitted |
 | tasks.changed, tasks.completed, tasks.waived, followup.recorded, followup.corrected | task/outcome type, successor or obligation IDs | Complete, no longer needed and actual contact remain distinct |
 | phase.created, phase.declared, phase.transitioned, attestation.recorded, attestation.corrected | phase/criterion/source version and type | Human ownership; no private-care or pastoral narrative |
-| launch.changed | domain revision | Canonical aggregate+typed history; raw answers remain domain-private |
+| launch.changed, launch.outcome_recorded, launch.corrected, launch.debrief_submitted, launch.summary_published | domain revision; old and new planned date and status; recorded counts and date with their corrections; guest Person ID; debrief version and its guest answer; summary version and source categories | Launch history reads these rows. Outcome notes, debrief answers and summary text stay on their own versioned rows, never in audit |
 | wiki.published, wiki.hidden, wiki.source_order_changed, wiki.reading_recorded, wiki.bookmark_changed, reference.activated, documents.generated, documents.saved, documents.imported, documents.designated, documents.archived, documents.church_archived, documents.church_restored, documents.copied, documents.created_from_template, documents.branding_changed, documents.exported, documents.export_deleted, documents.purged, documents.template_saved, documents.template_updated, documents.template_details_changed, documents.template_deleted, files.finalized | logical/source/version IDs, content hash, format/byte count where permitted | Body/attachment bytes and signed URL omitted; reading progress and bookmarks stay on the account |
 | communication.send_intended, mail.accepted, mail.delivered, mail.refused, mail.reconciled, mail.cancelled | payload/audience hash, provider receipt ID, safe result | Accepted is not delivered; addresses/body omitted; unknown remains unknown |
 | communication.draft_saved, communication.draft_deleted, communication.scheduled, communication.rescheduled, communication.template_created, communication.template_forked, communication.template_updated, communication.template_archived, communication.template_deleted | state, subject, audience ids, meeting, template, schedule time, review digest, body hash | One action per write. Body text and addresses stay out. Send handoff stays communication.send_intended |
@@ -33,7 +33,6 @@ Audit records changed fields and their permitted before/after values, safe statu
 
 Planned packages add their own actions when they are built (D72):
 
-- Launch outcomes (WP-046) adds outcome, debrief, summary and correction actions to the launch family.
 - Intelligence publication (WP-043, WP-044) adds the intelligence request, publication, supersession and feedback actions.
 - Feedback publication (WP-049) adds publication intent, publication and reconciliation actions to the feedback family.
 

@@ -77,7 +77,9 @@ const footprint = (w) =>
 
 async function seated(w, role, name = "Synthetic person") {
 	const a = await f.account();
-	await f.admin.execute(sql`UPDATE auth_user SET name=${name} WHERE id=(SELECT auth_user_id FROM account WHERE id=${a.id})`);
+	await f.admin.execute(
+		sql`UPDATE auth_user SET name=${name} WHERE id=(SELECT auth_user_id FROM account WHERE id=${a.id})`,
+	);
 	await f.seat(a, w, role);
 	return { ...a, actor: await f.actor(a.session) };
 }
