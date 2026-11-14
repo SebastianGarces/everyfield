@@ -1,7 +1,8 @@
 "use server";
 
+import { feedSubject } from "@everyfield/contracts/notifications";
 import type { RequestActor } from "@everyfield/domain/access";
-import type { Outcome, OptOut, Reply } from "./model.ts";
+import { newRequestKey, type Outcome, type OptOut, type Reply } from "./model.ts";
 import { call, notificationActor, notificationsMount, type Mount } from "./server.ts";
 
 // Server actions behind the feed's and the bell's marks and the email opt-out page: the browser boundary. The producer
@@ -36,6 +37,28 @@ export async function markSelectedRead(envelope: Envelope, noticeIds: string[]):
 export async function markAllVisibleRead(envelope: Envelope, cutoff: string): Promise<Outcome<Marked>> {
 	return mark((m, actor) => m.producer.markAllVisibleRead(m.db, actor, { ...envelope, input: { cutoff } }));
 }
+/**
+ * Mark read the caller's unread entries about one subject, among the newest page of unread ones: opening that page
+ * from an email link reads them as following the entry in the bell does (T-365). Nothing unread there marks nothing.
+ */
+export async function markSubjectRead(raw: unknown): Promise<Outcome<Marked>> {
+	const subject = feedSubject.safeParse(raw);
+	if (!subject.success) return { status: "refused", code: "invalid_input" };
+	return mark(async (m, actor) => {
+		const page = await m.producer.readFeedPage(m.db, actor, { unread: true });
+		if (page.status !== "ok") return page;
+		const noticeIds = page.value.feed.items
+			.filter((i) => i.subject?.kind === subject.data.kind && i.subject.id === subject.data.id)
+			.map((i) => i.id);
+		if (!noticeIds.length) return { status: "ok", value: { markedIds: [] } };
+		return m.producer.markSelectedRead(m.db, actor, {
+			requestKey: newRequestKey(),
+			expectedRevision: page.value.revision,
+			input: { noticeIds },
+		});
+	});
+}
+
 // Email opt-out (REQ-NTF-012): the signed token is the only authority, so these need no session. Opening the page
 // only describes the token; these explicit posts change the choice.
 

@@ -172,6 +172,43 @@ export async function listDuplicatePairs(tx: Tx, ctx: Context) {
 	});
 }
 
+const organizationPairRows = pairRows.extend({
+	pairs: z.array(pairRows.shape.pairs.element.extend({ shared: z.array(z.enum(["email", "phone"])) })),
+});
+/**
+ * orgPeople.listDuplicatePairs (REQ-MUL-017): every pair of the organization's live, unremoved people who share a
+ * normalized email or phone, each pair once, oldest first, the first 100. Suggestions for an Owner or Admin to review;
+ * nothing here merges anyone or picks the record that stays. One statement, with the live Owner or Admin check inside.
+ */
+export async function listOrganizationDuplicatePairs(tx: Tx, ctx: Context) {
+	return readReply(async () => {
+		if (ctx.selected.kind !== "organization") deny();
+		const org = ctx.selected.id;
+		const r = await tx.execute(sql`WITH g AS (SELECT ${adminRead(ctx)} AS allowed),
+live AS (SELECT p.id,p.display_name,p.created_at,
+  CASE WHEN strpos(${personEmail},'@')>0 THEN ${personEmail} END AS email,
+  CASE WHEN length(${personPhone})>=7 THEN ${personPhone} END AS phone
+ FROM person p JOIN g ON g.allowed WHERE p.tenant_id=${org}::uuid AND p.state='live'
+  AND NOT EXISTS(SELECT FROM organization_person_removal w WHERE w.person_record_id=p.id AND w.organization_id=p.tenant_id)),
+x AS (SELECT a.id,a.display_name,b.id AS with_id,b.display_name AS with_name,
+  array_remove(ARRAY[CASE WHEN a.email=b.email THEN 'email' END,CASE WHEN a.phone=b.phone THEN 'phone' END],NULL) AS shared,
+  least(a.created_at,b.created_at) AS at
+ FROM live a JOIN live b ON (a.email=b.email OR a.phone=b.phone)
+  AND (a.created_at,a.id)<(b.created_at,b.id)
+ ORDER BY at,a.id,b.id LIMIT ${PAIRS + 1})
+SELECT g.allowed,coalesce((SELECT jsonb_agg(jsonb_build_object(
+  'person',jsonb_build_object('id',x.id,'displayName',x.display_name),
+  'with',jsonb_build_object('id',x.with_id,'displayName',x.with_name),'shared',to_jsonb(x.shared))
+  ORDER BY x.at,x.id,x.with_id) FROM x),'[]'::jsonb) AS pairs FROM g`);
+		const row = organizationPairRows.parse(r.rows[0]);
+		if (!row.allowed) deny();
+		return c.organizationDuplicatePairs.parse({
+			items: row.pairs.slice(0, PAIRS),
+			completeness: row.pairs.length > PAIRS ? "partial" : "complete",
+		});
+	});
+}
+
 const listedRow = z.object({
 	allowed: z.boolean(),
 	listed: z.object({ personId: z.uuid(), withPersonId: z.uuid() }).nullable(),

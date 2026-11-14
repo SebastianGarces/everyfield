@@ -106,6 +106,16 @@ export const RULES = Object.fromEntries(RULE_IDS.map((id) => [id, ruleOf(id)])) 
 >;
 export const NEAR_LAUNCH_RULE = RULES["NIR-03"];
 export const RUBRIC_VERSION = `${rubric.rubric_id}/${rubric.version}`;
+export const RUBRIC_SOURCE = "docs/reference/network-rubric-v1.json";
+/**
+ * What a rule's pattern cites: the Everyfield network rubric, a source separate from the plant rubric, and the rule's
+ * own id. It names the rule and the file, never a plant assessment, so a pattern opens nothing a director could not
+ * otherwise read.
+ */
+export const citationOf = <R extends RuleId>(rule: R) =>
+	({ rubric: RUBRIC_VERSION, rule, source: RUBRIC_SOURCE }) as const;
+const citation = <R extends RuleId>(rule: R) =>
+	z.strictObject({ rubric: z.literal(RUBRIC_VERSION), rule: z.literal(rule), source: z.literal(RUBRIC_SOURCE) });
 /** "2 plants within 30 calendar days of an uncompleted launch have a recorded assignment or required-training gap." */
 export const nearLaunchSentence = (support: number) =>
 	NEAR_LAUNCH_RULE.template.replace("{support_count}", String(support));
@@ -177,10 +187,16 @@ const patternBase = {
 };
 /** One pattern: two or more distinct sharing plants in a group with the same rule theme, and the rule's sums. */
 export const intelligencePattern = z.discriminatedUnion("theme", [
-	z.strictObject({ ...patternBase, rule: z.literal("NIR-03"), theme: z.literal("near_launch") }),
+	z.strictObject({
+		...patternBase,
+		rule: z.literal("NIR-03"),
+		citation: citation("NIR-03"),
+		theme: z.literal("near_launch"),
+	}),
 	z.strictObject({
 		...patternBase,
 		rule: z.literal("NIR-04"),
+		citation: citation("NIR-04"),
 		theme: z.literal("overdue_followup"),
 		overdue: z.int().min(2),
 		/** The unowned subclaim, only when two distinct plants have overdue follow-ups with no owner. */
@@ -189,6 +205,7 @@ export const intelligencePattern = z.discriminatedUnion("theme", [
 	z.strictObject({
 		...patternBase,
 		rule: z.literal("NIR-05"),
+		citation: citation("NIR-05"),
 		theme: z.enum(["slowed", "stalled"]),
 		/** The run's date in the organization's time zone. */
 		asOf: localDate,
@@ -196,6 +213,7 @@ export const intelligencePattern = z.discriminatedUnion("theme", [
 	z.strictObject({
 		...patternBase,
 		rule: z.literal("NIR-06"),
+		citation: citation("NIR-06"),
 		theme: z.literal("required_training"),
 		outstanding: z.int().min(2),
 		/** Saved required obligations of the supporting plants, and how many of them are complete. */
