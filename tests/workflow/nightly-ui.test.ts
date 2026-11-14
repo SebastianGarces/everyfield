@@ -97,6 +97,15 @@ test("T-301 the nightly ui job runs webkit after a failed chromium run and uses 
 		assert.match(stepText, /if: \$\{\{ !cancelled\(\) && steps\.up\.outcome == 'success' \}\}/);
 		assert.match(stepText, new RegExp(`run: node scripts/nightly-ui\\.ts test ${engine} "\\$UI_DIR"`));
 	}
+	// Every step reads UI_DIR, which the job's first step writes to GITHUB_ENV under the runner's temp directory.
+	assert.match(
+		job,
+		/\n    steps:\n(?:\s+#.*\n)*      - name: tests\/ui directory\n        run: echo "UI_DIR=\$RUNNER_TEMP\/nightly-ui" >> "\$GITHUB_ENV"\n/,
+	);
+	assert.match(
+		job,
+		/path: \|\n\s+\$\{\{ runner\.temp \}\}\/nightly-ui\n\s+!\$\{\{ runner\.temp \}\}\/nightly-ui\/fixtures\n/,
+	);
 	assert.match(job, /- name: tests\/ui logs\n\s+if: failure\(\)[\s\S]*retention-days: \d+/);
 	assert.doesNotMatch(workflow, /pull_request/);
 });
