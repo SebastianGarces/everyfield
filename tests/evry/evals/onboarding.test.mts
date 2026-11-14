@@ -292,6 +292,9 @@ const SETTLED: Record<string, { before?: () => Promise<void>; after?: () => Prom
 			assert.deepEqual(await seatsOf("sender"), []);
 		},
 	},
+	// A Member answers no setup question, for themselves or for the Owner: the lead answer stays the Owner's own.
+	"ONB-30": { after: async () => assert.equal((await resume("setupOwner")).lead.answer, "yes") },
+	"ONB-31": { after: async () => assert.equal((await resume("setupOwner")).lead.answer, "yes") },
 	"ONB-28": {
 		before: async () => assert.deepEqual(await discoveryOf("sender"), [{ closed: false }]),
 		after: async () => {

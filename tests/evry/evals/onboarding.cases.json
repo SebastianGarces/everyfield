@@ -1,7 +1,7 @@
 {
 	"suite": "onboarding",
 	"model": "scripted",
-	"note": "T-345: setup and Discovery tools, asked on the scripted model with the real adapters, approvals and onboarding producer, on the setup fixture (setup-church.mts, America/Chicago), not Hope Fellowship. Cedar Creek Church is a new church whose Owner, Casey Rivera, has not finished setup; Jordan Lee is its Admin. Sam Ortiz, Erin Walsh and Riley Park have no seat; Alex Moreno is a former Member of Hope Fellowship. Dana Brooks has a Discovery space linked to Hill Country Network; Morgan Hale's is linked to Grace Austin and Hill Country Network. A Discovery link shares nothing; what each link shares is picked when the space becomes a church. Cases run in this order; each later case sees the earlier approved changes.",
+	"note": "T-345: setup and Discovery tools, asked on the scripted model with the real adapters, approvals and onboarding producer, on the setup fixture (setup-church.mts, America/Chicago), not Hope Fellowship. Cedar Creek Church is a new church whose Owner, Casey Rivera, has not finished setup; Jordan Lee is its Admin and Taylor Nguyen a Member invited to lead on its launch team. Sam Ortiz, Erin Walsh and Riley Park have no seat; Alex Moreno is a former Member of Hope Fellowship. Dana Brooks has a Discovery space linked to Hill Country Network; Morgan Hale's is linked to Grace Austin and Hill Country Network. A Discovery link shares nothing; what each link shares is picked when the space becomes a church. Cases run in this order; each later case sees the earlier approved changes.",
 	"cases": [
 		{
 			"id": "ONB-01",
@@ -498,6 +498,22 @@
 			"ask": "what happened to my Discovery space?",
 			"calls": ["onboarding.getResume"],
 			"answer": ["Your Discovery space closed on", "when it became Grace Point."]
+		},
+		{
+			"id": "ONB-30",
+			"criterion": 18,
+			"actor": "teamLead",
+			"ask": "I'm the lead pastor",
+			"calls": [],
+			"answer": ["Only the Owner who is setting up this church can answer its setup questions or finish its setup."]
+		},
+		{
+			"id": "ONB-31",
+			"criterion": 18,
+			"actor": "teamLead",
+			"ask": "someone else leads, not Casey",
+			"calls": [],
+			"answer": ["Only the Owner who is setting up this church can answer its setup questions or finish its setup."]
 		}
 	]
 }

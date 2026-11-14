@@ -1,10 +1,11 @@
 // The setup fixture (T-345), the acceptance fixture for the onboarding evals and the local preview, seeded next to Hope
 // Fellowship (golden-church.mts) but apart from it: Cedar Creek Church (America/Chicago), which its Owner (Casey Rivera)
-// created and has not finished setting up, with an Admin (Jordan Lee); three seatless accounts (Sam Ortiz, Erin Walsh
-// and Riley Park); a former Member of Hope Fellowship whose seat ended (Alex Moreno); a Discovery account (Dana Brooks)
-// linked to Hill Country Network; and a Discovery account (Morgan Hale) linked to Grace Austin and Hill Country Network.
-// A Discovery link shares nothing (affiliation_ck_2); what a link shares is chosen when the space becomes a church. The church and the Discovery spaces are made by the same
-// onboarding producer `/onboarding` calls.
+// created and has not finished setting up, with an Admin (Jordan Lee) and a Member invited to lead on its launch team
+// (Taylor Nguyen); three seatless accounts (Sam Ortiz, Erin Walsh and Riley Park); a former Member of Hope Fellowship
+// whose seat ended (Alex Moreno); a Discovery account (Dana Brooks) linked to Hill Country Network; and a Discovery
+// account (Morgan Hale) linked to Grace Austin and Hill Country Network. A Discovery link shares nothing
+// (affiliation_ck_2); what a link shares is chosen when the space becomes a church. The church and the Discovery spaces
+// are made by the same onboarding producer `/onboarding` calls.
 import { randomUUID } from "node:crypto";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import type { Database } from "../../../packages/db/src/client.ts";
@@ -28,6 +29,7 @@ export const SETUP_SPECS = {
 	starter: spec(6, "Riley Park"),
 	former: spec(7, "Alex Moreno"),
 	sender: spec(8, "Morgan Hale"),
+	teamLead: spec(9, "Taylor Nguyen"),
 } as const;
 export type SetupName = keyof typeof SETUP_SPECS;
 export const SETUP_CHURCH = "Cedar Creek Church";
@@ -64,7 +66,8 @@ export async function seedSetup(admin: Database, runtime: Database, native: Nati
 		),
 	);
 	await admin.execute(sql`INSERT INTO seat(account_id,plant_id,role,accepted_at)
-		VALUES(${SETUP_SPECS.setupAdmin.account},${created.plant.id},'admin',clock_timestamp()-interval '1 day')`);
+		VALUES(${SETUP_SPECS.setupAdmin.account},${created.plant.id},'admin',clock_timestamp()-interval '1 day'),
+			(${SETUP_SPECS.teamLead.account},${created.plant.id},'member',clock_timestamp()-interval '1 day')`);
 	// A Member of Hope Fellowship whose seat ended: an active account with no seat and no Discovery space.
 	await admin.execute(sql`INSERT INTO seat(account_id,plant_id,role,accepted_at,ended_at)
 		VALUES(${SETUP_SPECS.former.account},${PLANT},'member',clock_timestamp()-interval '30 days',clock_timestamp()-interval '2 days')`);
