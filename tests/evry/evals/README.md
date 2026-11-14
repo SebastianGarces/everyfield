@@ -11,12 +11,12 @@ Its `save()` writes the file on a recording run. Every call is keyed by `callKey
 (prompt, tools, tool choice, reasoning, output limit, response format, provider options). Every file has one shape:
 `model`, `recordedAt`, `spend` and `calls` (key to a recorded generate or stream call with its token usage).
 
-| Suite                 | Cases                                                                                                                   | What it scores                                                                        |
-| --------------------- | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| `golden.test.mts`     | `golden.cases.json` (the 95 approved golden cases), `adapters.cases.json` (98 extra per-adapter and catalog-tool cases) | Tool selection, answer facts, review cards, safety gates, alpha targets, judge grades |
-| `classify.test.mts`   | `classify.cases.json`                                                                                                   | `evry.classifyRequest` labels                                                         |
-| `households.test.mts` | `households.cases.json`                                                                                                 | Household tool selection and the household list answer                                |
-| `followups.test.mts`  | `followups.cases.json`                                                                                                  | Follow-up suggestions never name the signed-in user                                   |
+| Suite                 | Cases                                                                                                                    | What it scores                                                                        |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------- |
+| `golden.test.mts`     | `golden.cases.json` (the 95 approved golden cases), `adapters.cases.json` (118 extra per-adapter and catalog-tool cases) | Tool selection, answer facts, review cards, safety gates, alpha targets, judge grades |
+| `classify.test.mts`   | `classify.cases.json`                                                                                                    | `evry.classifyRequest` labels                                                         |
+| `households.test.mts` | `households.cases.json`                                                                                                  | Household tool selection and the household list answer                                |
+| `followups.test.mts`  | `followups.cases.json`                                                                                                   | Follow-up suggestions never name the signed-in user                                   |
 
 ## The household and follow-up suites
 
@@ -52,7 +52,7 @@ Each case is one turn, asked the way `runTurn` asks it (`golden-harness.mts`). F
 Then the real system prompt runs with the tools the turn gives the actor, built by the same function the turn uses
 (`modelTools` in `packages/evry/src/runtime/tools.ts`): the domain read tools, `select_returned_rows` and
 `propose_change`. Every read runs the real adapter through `invokeRead` against Hope Fellowship, which
-`golden-church.mts` seeds as real records into an isolated schema (`tests/support/test-database.mts`): 83 live people,
+`golden-church.mts` seeds as real records into an isolated schema (`tests/support/test-database.mts`): 84 live people,
 2 removed people, 8 households, tags, skills, notes, photos, open tasks, two import receipts (the earlier one left two
 open review pairs and one dismissed pair), five current ministries and one archived one with their roles, people,
 required training, a Playbook checklist and measured team meetings, and Owner, Admin, Member, organization-seat and empty-church actors with
@@ -61,10 +61,37 @@ live sessions and seats. A selection re-checks its rows with the real
 approved and no effect job runs.
 
 Replay is exact: every id the model can see is pinned in the seed; the prompt's clock is `NOW` (the turn's `deps.now`);
-the host clock runs in `NOW`'s frame, because the export's filename carries the host's date; a card's proposal id and
-expiry, which the database assigns, reach the model pinned; and one step's tool calls run in call order. Inactivity is
-the real board's comparison against the database clock, so each live person's last contact is seeded relative to it
-(2 days for level none, 10 for warning, none for alert) and reads the same on every day the suite runs.
+the host clock runs in `NOW`'s frame, because the export's filename carries the host's date; the database clock runs in
+`NOW`'s frame too (below); a card's proposal id and expiry, which the database assigns, reach the model pinned; and one
+step's tool calls run in call order. Inactivity is the real board's comparison against the database clock, so each live
+person's last contact is seeded relative to it (2 days for level none, 10 for warning, none for alert).
+
+### The pinned database clock
+
+The fixtures' times sit in `NOW`'s week (2026-11-09T15:00Z): the Friday volunteer email is scheduled for Friday
+2026-11-13 at 9:00 church time, and the schedule cases ask for that Friday. The real date passes them, so the clock
+every eval query reads is pinned in one place: `evalDatabase` in `golden-church.mts` creates each eval schema with
+`testDatabase({ clock: NOW })`, and `pinSchemaClock` (`tests/support/test-database.mts`) installs schema-local `now()`,
+`transaction_timestamp()`, `statement_timestamp()` and `clock_timestamp()` that add a fixed shift to `pg_catalog`'s,
+before the migrations run. Every pool's search_path puts the schema ahead of `pg_catalog`, so the adapters' SQL, the
+column defaults and the `SET search_path FROM CURRENT` functions read `NOW`'s frame, still advancing. The keywords
+`CURRENT_TIMESTAMP`, `CURRENT_DATE` and `LOCALTIMESTAMP` and `pg_catalog.`-qualified calls still read the real clock; no
+eval read uses them. The golden church and the small church (households, follow-ups) both seed through
+`evalDatabase`. The product keeps the real clock. `clock.test.mts` fails if the eval pool's clock leaves `NOW`'s frame.
+
+The cases whose result depends on the database clock, now pinned:
+
+- The schedule cases, whose times sit on the fixture Friday: ADP-M-03 and ADP-M-04 (`communication.scheduleReviewed`),
+  ADP-M-05 (`rescheduleReviewed`) and ADP-M-07 (`replaceScheduledReviewed`), which the review's schedule window
+  (`acceptedWindow` in `adapters/communication/commands`) compares with the clock, and ADP-M-06
+  (`cancelScheduledReviewed`) and ADP-M-08 (a draft for the fixture Friday), which act on the same scheduled send.
+  Unpinned, ADP-M-03, ADP-M-04 and ADP-M-07's review cards carried "That time has already passed" once real time
+  passed 2026-11-13.
+- Inactivity on the real pipeline board (`people.getPipelineData`): ADP-O-08, COM-06, GST-01, LCH-03, LCH-05, MON-01,
+  MON-03, MON-04, MON-05, PIP-01, PIP-02 and PIP-04. Fixed-date activity counts too: Maria Santos's note is dated before
+  her clock-relative last contact, so she reads her fixture's warning in `NOW`'s frame.
+- The whole follow-up suite (`followups.cases.json`), whose candidates are ranked by inactivity.
+- Every case's live session and accepted seat, seeded relative to the database clock.
 
 ### Run it
 
@@ -120,8 +147,8 @@ run limited with `EVRY_EVAL_CASES` keeps all the others. Never read or print the
 `OPENAI_API_KEY`. Changing a check never needs a recording, unless it makes a case newly pass: that case then needs
 its judge call recorded.
 
-**Cost.** Recording all 193 cases on `gpt-6-luna` from scratch is 856 calls, about $0.82
-(`spend.allMicroUsd` in `golden.recorded.json`). The household and follow-up files are 10 and 11 calls, under a cent
+**Cost.** Recording all 213 cases on `gpt-6-luna` from scratch is 950 calls, about $1.18
+(`spend.allMicroUsd` in `golden.recorded.json`). The household and follow-up files are 10 calls each, under a cent
 each (their `spend`); `classify.recorded.json` holds 26 calls of about 20 millionths of a dollar each, recorded before
 token usage was kept, so its `spend` reads 0 until it is next recorded. Re-recording only the changed cases costs a
 fraction of a cent per case. A full re-record sends about 2M tokens a minute at the harness's 6 parallel cases, past

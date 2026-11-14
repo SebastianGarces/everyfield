@@ -731,6 +731,12 @@ function cases(who) {
 			unavailable,
 		),
 		ppl(
+			"peopleCsv.getLatestImportReceipt",
+			// Church B has no import of its own; church A's latest import, with its request key, is never church B's answer.
+			() => reads((t, c) => peopleCsv.getLatestImportReceipt(t, c)),
+			{ value: { status: "none" } },
+		),
+		ppl(
 			"retryStoredImport",
 			// Church A's request key from church B names no import; church A's owner gets its complete receipt back.
 			() => retryStoredImport(f.db, storage, who.actor, { requestKey: a.importKey }),
