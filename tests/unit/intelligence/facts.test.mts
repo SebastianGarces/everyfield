@@ -187,11 +187,11 @@ test("AC:PI-TASK-CONTACT-001 four follow-ups read 2 of 3 on time with No longer 
 	const origin = hours(-72);
 	const f = facts({
 		followUps: [
-			{ originAt: origin as never, state: "complete", completion: hours(-60) as never, contacted: true },
+			{ originAt: origin as never, state: "complete", completion: hours(-60) as never, contacted: true, owned: true },
 			// Ticked through an administrative completion: on time, but not contact.
-			{ originAt: origin as never, state: "complete", completion: hours(-30) as never, contacted: false },
-			{ originAt: origin as never, state: "no_longer_needed", completion: null, contacted: false },
-			{ originAt: origin as never, state: "open", completion: null, contacted: false },
+			{ originAt: origin as never, state: "complete", completion: hours(-30) as never, contacted: false, owned: true },
+			{ originAt: origin as never, state: "no_longer_needed", completion: null, contacted: false, owned: true },
+			{ originAt: origin as never, state: "open", completion: null, contacted: false, owned: true },
 		],
 	});
 	assert.deepEqual(
@@ -201,8 +201,14 @@ test("AC:PI-TASK-CONTACT-001 four follow-ups read 2 of 3 on time with No longer 
 	// A follow-up younger than 48 hours is not yet measured; a completion after 48 hours is a miss.
 	const g = facts({
 		followUps: [
-			{ originAt: hours(-10) as never, state: "open", completion: null, contacted: false },
-			{ originAt: hours(-100) as never, state: "complete", completion: hours(-40) as never, contacted: false },
+			{ originAt: hours(-10) as never, state: "open", completion: null, contacted: false, owned: true },
+			{
+				originAt: hours(-100) as never,
+				state: "complete",
+				completion: hours(-40) as never,
+				contacted: false,
+				owned: true,
+			},
 		],
 	});
 	assert.deepEqual([g.followUps.onTime, g.followUps.measured, g.followUps.pending], [0, 1, 1]);

@@ -109,4 +109,6 @@ export const seatError = z.discriminatedUnion("code", [
 	...safeError.options,
 	defineSafeError("protected_owner", {}, "never"),
 	defineSafeError("removal_too_large", {}, "never"),
+	/** A required write failed and rolled back with the whole change: the same request may be sent again. */
+	defineSafeError("required_write_failed", {}, "same_request"),
 ]);

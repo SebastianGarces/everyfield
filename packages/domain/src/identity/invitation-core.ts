@@ -27,7 +27,10 @@ export function refuse(code = "invitation_unavailable", retryAt?: string): never
 			details: retryAt ? { retryAt } : {},
 			correlationId: randomUUID(),
 			retry:
-				code === "invitation_rate_limited" || code === "invitation_cooldown" || code === "temporary"
+				code === "invitation_rate_limited" ||
+				code === "invitation_cooldown" ||
+				code === "temporary" ||
+				code === "required_write_failed"
 					? "same_request"
 					: code === "conflict"
 						? "refresh"
