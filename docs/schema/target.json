@@ -70,9 +70,9 @@
   "contract_status": "Reviewed starting design; builders may change it through a reviewed migration.",
   "as_of": "2026-10-17",
   "implementation_authorized": false,
-  "table_count": 104,
-  "column_count": 1187,
-  "foreign_key_count": 356,
+  "table_count": 112,
+  "column_count": 1262,
+  "foreign_key_count": 375,
   "type_contracts": {
     "text": "UTF8; per-boundary bounded, sanitized only when rendered in rich context.",
     "date": "YYYY-MM-DD local calendar date, never UTC midnight instant.",
@@ -236,6 +236,25 @@
     "early_access_request.kind": [
       "planter",
       "network"
+    ],
+    "enrollment_milestone.source": [
+      "program_leader"
+    ],
+    "feedback.category": [
+      "bug",
+      "suggestion",
+      "question",
+      "other"
+    ],
+    "feedback.theme": [
+      "light",
+      "dark"
+    ],
+    "feedback.status": [
+      "new",
+      "reviewed",
+      "resolved",
+      "dismissed"
     ],
     "file_object.purpose": [
       "avatar",
@@ -1373,6 +1392,13 @@
       "communication.template_updated",
       "deletion.cancelled",
       "deletion.live_purge_completed",
+      "development.enrolled",
+      "development.feedback_recorded",
+      "development.milestone_recorded",
+      "development.plan_saved",
+      "development.program_created",
+      "development.version_applied",
+      "development.version_published",
       "documents.archived",
       "documents.church_archived",
       "documents.church_restored",
@@ -1400,6 +1426,7 @@
       "evry.turn_retried",
       "evry.turn_submitted",
       "feedback.received",
+      "feedback.status_changed",
       "files.finalized",
       "followup.corrected",
       "followup.recorded",
@@ -1931,6 +1958,11 @@
       "Pacific/Wake",
       "Pacific/Wallis",
       "UTC"
+    ],
+    "development_program_version.rhythm": [
+      "weekly",
+      "every_two_weeks",
+      "monthly"
     ],
     "digest_coverage.timezone": [
       "Africa/Abidjan",
@@ -9286,6 +9318,234 @@
       "rls": false
     },
     {
+      "name": "assignment_feedback",
+      "domain": "people",
+      "purpose": "Dated feedback from the program director on one hands-on assignment of an enrollment (REQ-MUL-012). Readable only by the linked resident, the current director and the organization's Owner and Admins; its body never enters central audit.",
+      "library_owned": false,
+      "jsonb_keys": {},
+      "capabilities": [
+        "CAP-A-057"
+      ],
+      "replaces": [],
+      "producer_work_packages": [
+        "WP-099"
+      ],
+      "producer_derivation": {
+        "old_target_tables": [],
+        "additional_producers": [
+          "WP-099"
+        ],
+        "rule": "WP-099 development programs own their plans, completions and feedback."
+      },
+      "feature_ids": [
+        "MUL-010",
+        "MUL-011",
+        "MUL-012",
+        "MUL-015"
+      ],
+      "acceptance_ids": [
+        "AC-MUL-010--MUL-010",
+        "AC-MUL-011--MUL-011",
+        "AC-MUL-012--MUL-012",
+        "AC-MUL-015--MUL-015"
+      ],
+      "future_case_ids": [
+        "ADR1-010",
+        "ADR1-011",
+        "ADR1-012",
+        "ADR1-015"
+      ],
+      "scope": "people",
+      "invariants": [
+        "The milestone is a hands-on assignment of the enrollment's own version.",
+        "No score, grade or judgment of calling.",
+        "The body never enters central audit or search."
+      ],
+      "revision": "Append-only; a row never changes.",
+      "idempotency": "The browser names the feedback ID, so a repeat writes nothing.",
+      "deletion": "Removed with the enrollment under REQ-MUL-005.",
+      "physical_verified": false,
+      "columns": [
+        {
+          "note": "",
+          "name": "id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "organization_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "enrollment_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "version_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "milestone_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "writer_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "written_at",
+          "type": "timestamptz",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "body",
+          "type": "text",
+          "nullable": false
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "unique_keys": [],
+      "foreign_keys": [
+        {
+          "deletion": {
+            "action": "restrict",
+            "policy": "Explicit dependency-ordered removal or authorized minimal-attribution detachment. Current grants and removal witnesses apply to retained facts and recovery; a foreign key grants no access."
+          },
+          "columns": [
+            "enrollment_id",
+            "organization_id"
+          ],
+          "references": {
+            "table": "development_enrollment",
+            "columns": [
+              "id",
+              "organization_id"
+            ]
+          },
+          "on_delete": "restrict"
+        },
+        {
+          "deletion": {
+            "action": "restrict",
+            "policy": "Explicit dependency-ordered removal or authorized minimal-attribution detachment. Current grants and removal witnesses apply to retained facts and recovery; a foreign key grants no access."
+          },
+          "columns": [
+            "milestone_id",
+            "version_id",
+            "organization_id"
+          ],
+          "references": {
+            "table": "development_milestone",
+            "columns": [
+              "id",
+              "version_id",
+              "organization_id"
+            ]
+          },
+          "on_delete": "restrict"
+        },
+        {
+          "deletion": {
+            "action": "restrict",
+            "policy": "Explicit dependency-ordered removal or authorized minimal-attribution detachment. Current grants and removal witnesses apply to retained facts and recovery; a foreign key grants no access."
+          },
+          "columns": [
+            "writer_id"
+          ],
+          "references": {
+            "table": "account",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "restrict"
+        }
+      ],
+      "checks": [
+        "((length(btrim(body)) >= 1) AND (length(body) <= 5000))"
+      ],
+      "indexes": {
+        "assignment_feedback_enrollment_idx": {
+          "name": "assignment_feedback_enrollment_idx",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "enrollment_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "assignment_feedback_milestone_idx": {
+          "name": "assignment_feedback_milestone_idx",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "milestone_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "version_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "constraint_names": {
+        "primary": [
+          "assignment_feedback_pkey"
+        ],
+        "unique": [],
+        "foreign": [
+          "assignment_feedback_enrollment",
+          "assignment_feedback_milestone",
+          "assignment_feedback_writer"
+        ],
+        "checks": [
+          "assignment_feedback_body"
+        ]
+      },
+      "policies": {},
+      "rls": false
+    },
+    {
       "name": "attestation",
       "domain": "phases",
       "purpose": "Current dated human testimony shared by phases, People and intelligence. Original recorder and corrections come from its immutable typed event stream.",
@@ -11760,7 +12020,7 @@
         }
       ],
       "checks": [
-        "action in ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','branding.changed','communication.draft_deleted','communication.draft_saved','communication.rescheduled','communication.scheduled','communication.send_intended','communication.template_archived','communication.template_created','communication.template_deleted','communication.template_forked','communication.template_updated','deletion.cancelled','deletion.live_purge_completed','documents.archived','documents.church_archived','documents.church_restored','documents.branding_changed','documents.copied','documents.created_from_template','documents.designated','documents.export_deleted','documents.exported','documents.generated','documents.imported','documents.purged','documents.saved','documents.template_deleted','documents.template_details_changed','documents.template_saved','documents.template_updated','evry.conversation_created','evry.proposal_approved','evry.proposal_cancelled','evry.proposal_prepared','evry.proposal_retried','evry.proposal_revised','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','feedback.received','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','organization.profile_changed','people.corrected','people.created','people.duplicate_dismissed','people.duplicate_restored','people.merged','people.recorded','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.bookmark_changed','wiki.hidden','wiki.published','wiki.reading_recorded','wiki.source_order_changed')",
+        "action in ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','branding.changed','communication.draft_deleted','communication.draft_saved','communication.rescheduled','communication.scheduled','communication.send_intended','communication.template_archived','communication.template_created','communication.template_deleted','communication.template_forked','communication.template_updated','deletion.cancelled','deletion.live_purge_completed','development.enrolled','development.feedback_recorded','development.milestone_recorded','development.plan_saved','development.program_created','development.version_applied','development.version_published','documents.archived','documents.church_archived','documents.church_restored','documents.branding_changed','documents.copied','documents.created_from_template','documents.designated','documents.export_deleted','documents.exported','documents.generated','documents.imported','documents.purged','documents.saved','documents.template_deleted','documents.template_details_changed','documents.template_saved','documents.template_updated','evry.conversation_created','evry.proposal_approved','evry.proposal_cancelled','evry.proposal_prepared','evry.proposal_retried','evry.proposal_revised','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','feedback.received','feedback.status_changed','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','organization.profile_changed','people.corrected','people.created','people.duplicate_dismissed','people.duplicate_restored','people.merged','people.recorded','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.bookmark_changed','wiki.hidden','wiki.published','wiki.reading_recorded','wiki.source_order_changed')",
         "num_nonnulls(actor_id,actor_token,system_cause)>=1",
         "kind in ('create','edit','correct','retire','restore','merge','unmerge','stage_change','classification_change','commitment_change','assign','remove','accept','revoke','resend','role_change','leader_change','tick','untick','archive','earn','revoke_credit','offer_answer','publish','hide','read','progress','complete','reopen','waive','supersede','finalize','reconcile','noop','triage','suppress','suppression_clear','preference','model_attempt','tool_attempt','effect_result','mail_member','outcome','declaration','movement')",
         "jsonb_typeof(metadata)='object' AND (metadata->'diff' IS NULL OR (jsonb_typeof(metadata->'diff')='object' AND octet_length(convert_to((metadata->'diff')::text,'UTF8'))<=2048))"
@@ -15420,6 +15680,168 @@
       "rls": false
     },
     {
+      "name": "development_milestone",
+      "domain": "people",
+      "purpose": "One milestone of a program version (REQ-MUL-010): its title, an optional description, and whether it is a hands-on assignment, which always has a description. lineage carries a milestone from one version to the next, so a later version can say what was added, removed or changed.",
+      "library_owned": false,
+      "jsonb_keys": {},
+      "capabilities": [
+        "CAP-A-057"
+      ],
+      "replaces": [],
+      "producer_work_packages": [
+        "WP-099"
+      ],
+      "producer_derivation": {
+        "old_target_tables": [],
+        "additional_producers": [
+          "WP-099"
+        ],
+        "rule": "WP-099 development programs own their plans, completions and feedback."
+      },
+      "feature_ids": [
+        "MUL-010",
+        "MUL-011",
+        "MUL-012",
+        "MUL-015"
+      ],
+      "acceptance_ids": [
+        "AC-MUL-010--MUL-010",
+        "AC-MUL-011--MUL-011",
+        "AC-MUL-012--MUL-012",
+        "AC-MUL-015--MUL-015"
+      ],
+      "future_case_ids": [
+        "ADR1-010",
+        "ADR1-011",
+        "ADR1-012",
+        "ADR1-015"
+      ],
+      "scope": "people",
+      "invariants": [
+        "Belongs to exactly one version of one organization's program.",
+        "A published version's milestones never change; a draft's are replaced whole on each save.",
+        "No score, grade or rating column (REQ-MUL-012)."
+      ],
+      "revision": "Rows of a published version are immutable; a draft's rows are replaced.",
+      "idempotency": "A draft save replaces its rows; a repeat writes the same plan.",
+      "deletion": "Removed with its program version under REQ-MUL-005.",
+      "physical_verified": false,
+      "columns": [
+        {
+          "note": "",
+          "name": "id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "organization_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "version_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "lineage",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "position",
+          "type": "integer",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "title",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "description",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "",
+          "name": "hands_on",
+          "type": "boolean",
+          "nullable": false
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "unique_keys": [
+        {
+          "columns": [
+            "id",
+            "version_id",
+            "organization_id"
+          ]
+        },
+        {
+          "columns": [
+            "version_id",
+            "lineage"
+          ]
+        }
+      ],
+      "foreign_keys": [
+        {
+          "deletion": {
+            "action": "restrict",
+            "policy": "Explicit dependency-ordered removal or authorized minimal-attribution detachment. Current grants and removal witnesses apply to retained facts and recovery; a foreign key grants no access."
+          },
+          "columns": [
+            "version_id",
+            "organization_id"
+          ],
+          "references": {
+            "table": "development_program_version",
+            "columns": [
+              "id",
+              "organization_id"
+            ]
+          },
+          "on_delete": "restrict"
+        }
+      ],
+      "checks": [
+        "((description IS NULL AND NOT hands_on) OR ((length(btrim(description)) >= 1) AND (length(description) <= 2000)))",
+        "(position >= 0)",
+        "((length(btrim(title)) >= 1) AND (length(title) <= 200))"
+      ],
+      "indexes": {},
+      "constraint_names": {
+        "primary": [
+          "development_milestone_pkey"
+        ],
+        "unique": [
+          "development_milestone_key",
+          "development_milestone_lineage"
+        ],
+        "foreign": [
+          "development_milestone_version"
+        ],
+        "checks": [
+          "development_milestone_position",
+          "development_milestone_title",
+          "development_milestone_description"
+        ]
+      },
+      "policies": {},
+      "rls": false
+    },
+    {
       "name": "development_program",
       "domain": "people",
       "purpose": "development program",
@@ -15598,7 +16020,8 @@
       ],
       "checks": [
         "(revision >= 1)",
-        "kind in ('apprenticeship', 'residency')"
+        "kind in ('apprenticeship', 'residency')",
+        "((length(btrim(name)) >= 1) AND (length(name) <= 120))"
       ],
       "indexes": {
         "development_program_ref_0": {
@@ -15674,7 +16097,8 @@
         ],
         "checks": [
           "development_program_ck_0",
-          "development_program_ck_1"
+          "development_program_ck_1",
+          "development_program_name"
         ]
       },
       "policies": {},
@@ -15801,6 +16225,12 @@
             "program_id",
             "organization_id"
           ]
+        },
+        {
+          "columns": [
+            "program_id"
+          ],
+          "where": "(published_at IS NULL)"
         }
       ],
       "foreign_keys": [
@@ -15860,9 +16290,26 @@
       "checks": [
         "(revision >= 1)",
         "(version_number >= 1)",
-        "(expected_months > 0)"
+        "(expected_months > 0)",
+        "rhythm in ('weekly', 'every_two_weeks', 'monthly')"
       ],
       "indexes": {
+        "development_program_version_draft": {
+          "name": "development_program_version_draft",
+          "isUnique": true,
+          "where": "(published_at IS NULL)",
+          "columns": [
+            {
+              "expression": "program_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
         "development_program_version_ref_0": {
           "name": "development_program_version_ref_0",
           "isUnique": false,
@@ -15917,7 +16364,203 @@
         "checks": [
           "development_program_version_ck_0",
           "development_program_version_ck_1",
-          "development_program_version_ck_2"
+          "development_program_version_ck_2",
+          "development_program_version_rhythm"
+        ]
+      },
+      "policies": {},
+      "rls": false
+    },
+    {
+      "name": "development_reading",
+      "domain": "people",
+      "purpose": "One Wiki article on a program version's reading list (REQ-MUL-010). It pins the article and the revision chosen, from the global library or the organization's own version, and copies the title so an item whose source is no longer published still reads as unavailable with its title.",
+      "library_owned": false,
+      "jsonb_keys": {},
+      "capabilities": [
+        "CAP-A-057"
+      ],
+      "replaces": [],
+      "producer_work_packages": [
+        "WP-099"
+      ],
+      "producer_derivation": {
+        "old_target_tables": [],
+        "additional_producers": [
+          "WP-099"
+        ],
+        "rule": "WP-099 development programs own their plans, completions and feedback."
+      },
+      "feature_ids": [
+        "MUL-010",
+        "MUL-011",
+        "MUL-012",
+        "MUL-015"
+      ],
+      "acceptance_ids": [
+        "AC-MUL-010--MUL-010",
+        "AC-MUL-011--MUL-011",
+        "AC-MUL-012--MUL-012",
+        "AC-MUL-015--MUL-015"
+      ],
+      "future_case_ids": [
+        "ADR1-010",
+        "ADR1-011",
+        "ADR1-012",
+        "ADR1-015"
+      ],
+      "scope": "people",
+      "invariants": [
+        "The pinned revision is global or the organization's own; never another organization's.",
+        "Availability is rechecked at every read; the row grants no library access."
+      ],
+      "revision": "Rows of a published version are immutable; a draft's are replaced.",
+      "idempotency": "A draft save replaces its rows.",
+      "deletion": "Removed with its program version under REQ-MUL-005.",
+      "physical_verified": false,
+      "columns": [
+        {
+          "note": "",
+          "name": "id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "organization_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "version_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "position",
+          "type": "integer",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "article_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "revision_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "title",
+          "type": "text",
+          "nullable": false
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "unique_keys": [
+        {
+          "columns": [
+            "version_id",
+            "article_id"
+          ]
+        }
+      ],
+      "foreign_keys": [
+        {
+          "deletion": {
+            "action": "restrict",
+            "policy": "Explicit dependency-ordered removal or authorized minimal-attribution detachment. Current grants and removal witnesses apply to retained facts and recovery; a foreign key grants no access."
+          },
+          "columns": [
+            "article_id"
+          ],
+          "references": {
+            "table": "reference_item",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "restrict"
+        },
+        {
+          "deletion": {
+            "action": "restrict",
+            "policy": "Explicit dependency-ordered removal or authorized minimal-attribution detachment. Current grants and removal witnesses apply to retained facts and recovery; a foreign key grants no access."
+          },
+          "columns": [
+            "revision_id"
+          ],
+          "references": {
+            "table": "article_revision",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "restrict"
+        },
+        {
+          "deletion": {
+            "action": "restrict",
+            "policy": "Explicit dependency-ordered removal or authorized minimal-attribution detachment. Current grants and removal witnesses apply to retained facts and recovery; a foreign key grants no access."
+          },
+          "columns": [
+            "version_id",
+            "organization_id"
+          ],
+          "references": {
+            "table": "development_program_version",
+            "columns": [
+              "id",
+              "organization_id"
+            ]
+          },
+          "on_delete": "restrict"
+        }
+      ],
+      "checks": [
+        "(position >= 0)",
+        "((length(btrim(title)) >= 1) AND (length(title) <= 500))"
+      ],
+      "indexes": {
+        "development_reading_revision_idx": {
+          "name": "development_reading_revision_idx",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "revision_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "constraint_names": {
+        "primary": [
+          "development_reading_pkey"
+        ],
+        "unique": [
+          "development_reading_article_once"
+        ],
+        "foreign": [
+          "development_reading_version",
+          "development_reading_article",
+          "development_reading_revision"
+        ],
+        "checks": [
+          "development_reading_position",
+          "development_reading_title"
         ]
       },
       "policies": {},
@@ -17786,6 +18429,552 @@
           "early_access_request_check",
           "early_access_request_email_check",
           "early_access_request_kind_check"
+        ]
+      },
+      "policies": {},
+      "rls": false
+    },
+    {
+      "name": "enrollment_milestone",
+      "domain": "people",
+      "purpose": "A finished milestone of one enrollment (REQ-MUL-012): the day it was finished, who recorded and who confirmed it, when it was confirmed, and its source. Today only the program director records and confirms an unlinked enrollee's milestone in one step (source program_leader).",
+      "library_owned": false,
+      "jsonb_keys": {},
+      "capabilities": [
+        "CAP-A-057"
+      ],
+      "replaces": [],
+      "producer_work_packages": [
+        "WP-099"
+      ],
+      "producer_derivation": {
+        "old_target_tables": [],
+        "additional_producers": [
+          "WP-099"
+        ],
+        "rule": "WP-099 development programs own their plans, completions and feedback."
+      },
+      "feature_ids": [
+        "MUL-010",
+        "MUL-011",
+        "MUL-012",
+        "MUL-015"
+      ],
+      "acceptance_ids": [
+        "AC-MUL-010--MUL-010",
+        "AC-MUL-011--MUL-011",
+        "AC-MUL-012--MUL-012",
+        "AC-MUL-015--MUL-015"
+      ],
+      "future_case_ids": [
+        "ADR1-010",
+        "ADR1-011",
+        "ADR1-012",
+        "ADR1-015"
+      ],
+      "scope": "people",
+      "invariants": [
+        "The milestone belongs to the enrollment's own version.",
+        "At most one row per enrollment and milestone.",
+        "Never commissions anyone or creates a plant."
+      ],
+      "revision": "Append-only; a row never changes.",
+      "idempotency": "A repeat for the same milestone writes nothing.",
+      "deletion": "Removed with the enrollment under REQ-MUL-005.",
+      "physical_verified": false,
+      "columns": [
+        {
+          "note": "",
+          "name": "id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "organization_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "enrollment_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "version_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "milestone_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "source",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "completed_on",
+          "type": "date",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "recorder_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "confirmer_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "confirmed_at",
+          "type": "timestamptz",
+          "nullable": false
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "unique_keys": [
+        {
+          "columns": [
+            "enrollment_id",
+            "milestone_id"
+          ]
+        }
+      ],
+      "foreign_keys": [
+        {
+          "deletion": {
+            "action": "restrict",
+            "policy": "Explicit dependency-ordered removal or authorized minimal-attribution detachment. Current grants and removal witnesses apply to retained facts and recovery; a foreign key grants no access."
+          },
+          "columns": [
+            "confirmer_id"
+          ],
+          "references": {
+            "table": "account",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "restrict"
+        },
+        {
+          "deletion": {
+            "action": "restrict",
+            "policy": "Explicit dependency-ordered removal or authorized minimal-attribution detachment. Current grants and removal witnesses apply to retained facts and recovery; a foreign key grants no access."
+          },
+          "columns": [
+            "enrollment_id",
+            "organization_id"
+          ],
+          "references": {
+            "table": "development_enrollment",
+            "columns": [
+              "id",
+              "organization_id"
+            ]
+          },
+          "on_delete": "restrict"
+        },
+        {
+          "deletion": {
+            "action": "restrict",
+            "policy": "Explicit dependency-ordered removal or authorized minimal-attribution detachment. Current grants and removal witnesses apply to retained facts and recovery; a foreign key grants no access."
+          },
+          "columns": [
+            "milestone_id",
+            "version_id",
+            "organization_id"
+          ],
+          "references": {
+            "table": "development_milestone",
+            "columns": [
+              "id",
+              "version_id",
+              "organization_id"
+            ]
+          },
+          "on_delete": "restrict"
+        },
+        {
+          "deletion": {
+            "action": "restrict",
+            "policy": "Explicit dependency-ordered removal or authorized minimal-attribution detachment. Current grants and removal witnesses apply to retained facts and recovery; a foreign key grants no access."
+          },
+          "columns": [
+            "recorder_id"
+          ],
+          "references": {
+            "table": "account",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "restrict"
+        }
+      ],
+      "checks": [
+        "(source = 'program_leader'::text)"
+      ],
+      "indexes": {
+        "enrollment_milestone_milestone_idx": {
+          "name": "enrollment_milestone_milestone_idx",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "milestone_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "version_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "constraint_names": {
+        "primary": [
+          "enrollment_milestone_pkey"
+        ],
+        "unique": [
+          "enrollment_milestone_once"
+        ],
+        "foreign": [
+          "enrollment_milestone_enrollment",
+          "enrollment_milestone_milestone",
+          "enrollment_milestone_recorder",
+          "enrollment_milestone_confirmer"
+        ],
+        "checks": [
+          "enrollment_milestone_source"
+        ]
+      },
+      "policies": {},
+      "rls": false
+    },
+    {
+      "name": "feedback",
+      "domain": "operations",
+      "purpose": "One piece of product feedback from the Send feedback dialog (WP-049A): its category, the author's words and the private page and device details, owned by the author's account. The author lists its status; a triager with the feedback_triage platform grant reads the private original and changes its status, and each change is an audit row.",
+      "library_owned": false,
+      "jsonb_keys": {},
+      "capabilities": [
+        "CAP-A-044",
+        "CAP-A-045"
+      ],
+      "replaces": [],
+      "producer_work_packages": [
+        "WP-049"
+      ],
+      "producer_derivation": {
+        "old_target_tables": [],
+        "additional_producers": [
+          "WP-049"
+        ],
+        "rule": "WP-049 feedback.submit stores it; feedback.admin.changeStatus moves its status."
+      },
+      "feature_ids": [
+        "ADM-001",
+        "ADM-002"
+      ],
+      "acceptance_ids": [
+        "AC-ADM-001--ADM-001",
+        "AC-ADM-002--ADM-002"
+      ],
+      "future_case_ids": [],
+      "scope": "identity",
+      "invariants": [
+        "The author, words and details never change after submission; only status and revision do.",
+        "At most one row per account and request key, so a resend saves once.",
+        "The address is an internal path with no query, fragment or token.",
+        "Church and role come from the author's seat on the server, never from the browser.",
+        "Each status change writes one feedback.status_changed audit row in the same statement; setting the current status writes nothing."
+      ],
+      "revision": "revision rises by one with each status change; a change names the revision it expects.",
+      "idempotency": "The same account and request key returns the saved feedback and writes nothing more.",
+      "deletion": "Account-owned private content. Personal account deletion hides it at once with the account, and the account purge removes it; recovery copies expire within seven days of the live purge.",
+      "physical_verified": false,
+      "columns": [
+        {
+          "note": "Feedback identity, bound to a record of kind feedback owned by the author's account.",
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "note": "The author's account, from the session; never changes.",
+          "name": "account_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "The dialog's send key; a resend with the same key returns the saved row.",
+          "name": "request_key",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "bug, suggestion, question or other.",
+          "name": "category",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "The author's words, trimmed, 1 to 5,000 characters. Private.",
+          "name": "description",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "The page name the author saw. Private.",
+          "name": "page_label",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "The internal path with query, fragment and tokens removed. Private.",
+          "name": "page_address",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "The church or organization of the author's seat when sent, from the server. Private.",
+          "name": "church_label",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "The author's seat role when sent, from the server. Private.",
+          "name": "role_label",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "Browser and system as the browser reports them, or null. Private.",
+          "name": "browser",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "Viewport width in CSS pixels, or null. Private.",
+          "name": "screen_width",
+          "type": "integer",
+          "nullable": true
+        },
+        {
+          "note": "Viewport height in CSS pixels, or null. Private.",
+          "name": "screen_height",
+          "type": "integer",
+          "nullable": true
+        },
+        {
+          "note": "light or dark, or null when the page did not say. Private.",
+          "name": "theme",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "The deployed app version from the server, or null. Private.",
+          "name": "app_version",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "When the server saved it.",
+          "name": "submitted_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "clock_timestamp()"
+        },
+        {
+          "note": "new, reviewed, resolved or dismissed; only a triager changes it.",
+          "name": "status",
+          "type": "text",
+          "nullable": false,
+          "default": "'new'"
+        },
+        {
+          "note": "Rises with each status change.",
+          "name": "revision",
+          "type": "bigint",
+          "nullable": false,
+          "default": "1"
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "unique_keys": [
+        {
+          "columns": [
+            "account_id",
+            "request_key"
+          ]
+        }
+      ],
+      "foreign_keys": [
+        {
+          "deletion": {
+            "action": "restrict",
+            "policy": "The account purge deletes the author's feedback before the account."
+          },
+          "columns": [
+            "account_id"
+          ],
+          "references": {
+            "table": "account",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "restrict"
+        },
+        {
+          "deletion": {
+            "action": "restrict",
+            "policy": "Deferred record binding; the record stays for the audit history."
+          },
+          "columns": [
+            "id",
+            "account_id"
+          ],
+          "references": {
+            "table": "record",
+            "columns": [
+              "id",
+              "tenant_id"
+            ]
+          },
+          "on_delete": "restrict"
+        }
+      ],
+      "checks": [
+        "((page_address IS NULL) OR ((length(page_address) <= 500) AND (page_address ~~ '/%'::text) AND (strpos(page_address, '?'::text) = 0) AND (strpos(page_address, '#'::text) = 0)))",
+        "category in ('bug', 'suggestion', 'question', 'other')",
+        "(length(btrim(description)) BETWEEN 1 AND 5000)",
+        "((length(page_label) <= 500) AND (length(church_label) <= 200) AND (length(role_label) <= 200) AND (length(browser) <= 500) AND (length(app_version) <= 100)) IS NOT FALSE",
+        "(revision >= 1)",
+        "((screen_width IS NULL) OR ((screen_width >= 1) AND (screen_width <= 100000))) AND ((screen_height IS NULL) OR ((screen_height >= 1) AND (screen_height <= 100000)))",
+        "status in ('new', 'reviewed', 'resolved', 'dismissed')",
+        "((theme IS NULL) OR (theme = ANY (ARRAY['light'::text, 'dark'::text])))"
+      ],
+      "indexes": {
+        "feedback_request": {
+          "name": "feedback_request",
+          "isUnique": true,
+          "columns": [
+            {
+              "expression": "account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "request_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "feedback_own": {
+          "name": "feedback_own",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "submitted_at",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "first"
+            },
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "first"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "feedback_triage": {
+          "name": "feedback_triage",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "submitted_at",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "first"
+            },
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "first"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "constraint_names": {
+        "primary": [
+          "feedback_pkey"
+        ],
+        "unique": [],
+        "foreign": [
+          "feedback_account",
+          "feedback_record"
+        ],
+        "checks": [
+          "feedback_revision",
+          "feedback_category",
+          "feedback_status",
+          "feedback_description",
+          "feedback_labels",
+          "feedback_address",
+          "feedback_theme",
+          "feedback_screen"
         ]
       },
       "policies": {},
@@ -21066,6 +22255,215 @@
         ],
         "checks": [
           "launch_milestone_ck_0"
+        ]
+      },
+      "policies": {},
+      "rls": false
+    },
+    {
+      "name": "leadership_conversation",
+      "domain": "people",
+      "purpose": "One leadership (ICNU) conversation of an organization pipeline person (REQ-MUL-009): which staff seat met them, the actual day, and an optional short note readable only by the Owner, Admins and the person's current responsible staff. Counts by month and quarter are read from the day.",
+      "library_owned": false,
+      "jsonb_keys": {},
+      "capabilities": [
+        "CAP-A-056"
+      ],
+      "replaces": [],
+      "producer_work_packages": [
+        "WP-098"
+      ],
+      "producer_derivation": {
+        "old_target_tables": [],
+        "additional_producers": [
+          "WP-098"
+        ],
+        "rule": "WP-098 records each human-logged leadership conversation."
+      },
+      "feature_ids": [
+        "MUL-007",
+        "MUL-008",
+        "MUL-009"
+      ],
+      "acceptance_ids": [
+        "AC-MUL-007--MUL-007",
+        "AC-MUL-008--MUL-008",
+        "AC-MUL-009--MUL-009"
+      ],
+      "future_case_ids": [
+        "ADR1-007",
+        "ADR1-008",
+        "ADR1-009"
+      ],
+      "scope": "people",
+      "invariants": [
+        "Logged only by a human with current duty for the person; never by Evry or a rule.",
+        "The day is a calendar day in the organization's time zone and is never after the day it was logged or corrected.",
+        "The note never enters central audit, search, exports or model input; a correction's audit row holds only the old and new day."
+      ],
+      "revision": "Expected revision fences corrections; each correction appends a people.corrected audit row with the old and new day.",
+      "idempotency": "The browser names the conversation id, so a repeated log writes one conversation.",
+      "deletion": "Removed with the pipeline person under REQ-MUL-005.",
+      "physical_verified": false,
+      "columns": [
+        {
+          "note": "",
+          "name": "id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "organization_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "pipeline_person_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "staff_seat_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "occurred_on",
+          "type": "date",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "note",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "",
+          "name": "revision",
+          "type": "bigint",
+          "nullable": false
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "unique_keys": [],
+      "foreign_keys": [
+        {
+          "deletion": {
+            "action": "restrict",
+            "policy": "Explicit dependency-ordered removal or authorized minimal-attribution detachment. Current grants and removal witnesses apply to retained facts and recovery; a foreign key grants no access."
+          },
+          "columns": [
+            "pipeline_person_id",
+            "organization_id"
+          ],
+          "references": {
+            "table": "pipeline_person",
+            "columns": [
+              "id",
+              "organization_id"
+            ]
+          },
+          "on_delete": "restrict"
+        },
+        {
+          "deletion": {
+            "action": "restrict",
+            "policy": "Explicit dependency-ordered removal or authorized minimal-attribution detachment. Current grants and removal witnesses apply to retained facts and recovery; a foreign key grants no access."
+          },
+          "columns": [
+            "staff_seat_id"
+          ],
+          "references": {
+            "table": "seat",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "restrict"
+        }
+      ],
+      "checks": [
+        "((note IS NULL) OR ((length(btrim(note)) >= 1) AND (length(note) <= 1000)))",
+        "(revision >= 1)"
+      ],
+      "indexes": {
+        "leadership_conversation_on_idx": {
+          "name": "leadership_conversation_on_idx",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "occurred_on",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "leadership_conversation_person_idx": {
+          "name": "leadership_conversation_person_idx",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "pipeline_person_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "leadership_conversation_staff_idx": {
+          "name": "leadership_conversation_staff_idx",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "staff_seat_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "constraint_names": {
+        "primary": [
+          "leadership_conversation_pkey"
+        ],
+        "unique": [],
+        "foreign": [
+          "leadership_conversation_person",
+          "leadership_conversation_staff"
+        ],
+        "checks": [
+          "leadership_conversation_revision",
+          "leadership_conversation_note"
         ]
       },
       "policies": {},
@@ -30353,6 +31751,236 @@
       "rls": false
     },
     {
+      "name": "pipeline_stage_move",
+      "domain": "people",
+      "purpose": "One stage placement or move of an organization pipeline person (REQ-MUL-008): the stages and their labels as they were at that moment, and the reason a person gave. Its id is the id of the move's audit event (written in the same statement), which holds who moved the person and when; the reason stays here and never enters central audit (REQ-MUL-002).",
+      "library_owned": false,
+      "jsonb_keys": {},
+      "capabilities": [
+        "CAP-A-056"
+      ],
+      "replaces": [],
+      "producer_work_packages": [
+        "WP-098"
+      ],
+      "producer_derivation": {
+        "old_target_tables": [],
+        "additional_producers": [
+          "WP-098"
+        ],
+        "rule": "WP-098 organization pipeline records each human stage move with its reason."
+      },
+      "feature_ids": [
+        "MUL-007",
+        "MUL-008",
+        "MUL-009"
+      ],
+      "acceptance_ids": [
+        "AC-MUL-007--MUL-007",
+        "AC-MUL-008--MUL-008",
+        "AC-MUL-009--MUL-009"
+      ],
+      "future_case_ids": [
+        "ADR1-007",
+        "ADR1-008",
+        "ADR1-009"
+      ],
+      "scope": "people",
+      "invariants": [
+        "Written only by a human placement or move, in the same statement as its audit event, which shares its id.",
+        "A move from a stage carries a non-empty reason; the first placement has no from stage and no reason.",
+        "Labels are copied at the time of the move, so a later rename never changes history."
+      ],
+      "revision": "Append-only; a row never changes.",
+      "idempotency": "One row per audit event; a repeated move to the current stage writes nothing.",
+      "deletion": "Removed with the pipeline person under REQ-MUL-005.",
+      "physical_verified": false,
+      "columns": [
+        {
+          "note": "",
+          "name": "id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "organization_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "pipeline_person_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "from_stage_id",
+          "type": "uuid",
+          "nullable": true
+        },
+        {
+          "note": "",
+          "name": "to_stage_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "from_label",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "",
+          "name": "to_label",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "reason",
+          "type": "text",
+          "nullable": true
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "unique_keys": [],
+      "foreign_keys": [
+        {
+          "deletion": {
+            "action": "restrict",
+            "policy": "Explicit dependency-ordered removal or authorized minimal-attribution detachment. Current grants and removal witnesses apply to retained facts and recovery; a foreign key grants no access."
+          },
+          "columns": [
+            "from_stage_id",
+            "organization_id"
+          ],
+          "references": {
+            "table": "pipeline_stage",
+            "columns": [
+              "id",
+              "organization_id"
+            ]
+          },
+          "on_delete": "restrict"
+        },
+        {
+          "deletion": {
+            "action": "restrict",
+            "policy": "Explicit dependency-ordered removal or authorized minimal-attribution detachment. Current grants and removal witnesses apply to retained facts and recovery; a foreign key grants no access."
+          },
+          "columns": [
+            "pipeline_person_id",
+            "organization_id"
+          ],
+          "references": {
+            "table": "pipeline_person",
+            "columns": [
+              "id",
+              "organization_id"
+            ]
+          },
+          "on_delete": "restrict"
+        },
+        {
+          "deletion": {
+            "action": "restrict",
+            "policy": "Explicit dependency-ordered removal or authorized minimal-attribution detachment. Current grants and removal witnesses apply to retained facts and recovery; a foreign key grants no access."
+          },
+          "columns": [
+            "to_stage_id",
+            "organization_id"
+          ],
+          "references": {
+            "table": "pipeline_stage",
+            "columns": [
+              "id",
+              "organization_id"
+            ]
+          },
+          "on_delete": "restrict"
+        }
+      ],
+      "checks": [
+        "((from_stage_id IS NULL) = (from_label IS NULL))",
+        "((reason IS NULL AND from_stage_id IS NULL) OR ((length(btrim(reason)) >= 1) AND (length(reason) <= 1000)))"
+      ],
+      "indexes": {
+        "pipeline_stage_move_person_idx": {
+          "name": "pipeline_stage_move_person_idx",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "pipeline_person_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "pipeline_stage_move_from_idx": {
+          "name": "pipeline_stage_move_from_idx",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "from_stage_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "pipeline_stage_move_to_idx": {
+          "name": "pipeline_stage_move_to_idx",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "to_stage_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "constraint_names": {
+        "primary": [
+          "pipeline_stage_move_pkey"
+        ],
+        "unique": [],
+        "foreign": [
+          "pipeline_stage_move_person",
+          "pipeline_stage_move_from",
+          "pipeline_stage_move_to"
+        ],
+        "checks": [
+          "pipeline_stage_move_from_label",
+          "pipeline_stage_move_reason"
+        ]
+      },
+      "policies": {},
+      "rls": false
+    },
+    {
       "name": "plant",
       "domain": "tenancy",
       "purpose": "Plant profile, current phase and durable onboarding answers.",
@@ -32991,6 +34619,7 @@
         "WP-046",
         "WP-047",
         "WP-048",
+        "WP-049",
         "WP-050",
         "WP-054",
         "WP-057",
@@ -33015,6 +34644,7 @@
           "discovery",
           "document",
           "document_revision",
+          "feedback",
           "file_object",
           "four_cs",
           "generated_document",
@@ -37247,6 +38877,193 @@
           "seat_ck_0",
           "seat_ck_1",
           "seat_ck_2"
+        ]
+      },
+      "policies": {},
+      "rls": false
+    },
+    {
+      "name": "sending_goal",
+      "domain": "people",
+      "purpose": "One sending goal of a sending church or network (REQ-MUL-007): nonnegative leader and plant targets, a target year, the organization's reason, the day it counts from and up to 4 named counts by fixed stage kind. Observed counts are read from the pipeline at a stated as-of day and are never stored here.",
+      "library_owned": false,
+      "jsonb_keys": {
+        "counts": [
+          "kind: a fixed pipeline stage kind, unique within the goal",
+          "label: the organization's name for the count, trimmed, 1-60 characters"
+        ]
+      },
+      "capabilities": [
+        "CAP-A-056"
+      ],
+      "replaces": [],
+      "producer_work_packages": [
+        "WP-098"
+      ],
+      "producer_derivation": {
+        "old_target_tables": [],
+        "additional_producers": [
+          "WP-098"
+        ],
+        "rule": "WP-098 records an organization's sending goals."
+      },
+      "feature_ids": [
+        "MUL-007",
+        "MUL-008",
+        "MUL-009"
+      ],
+      "acceptance_ids": [
+        "AC-MUL-007--MUL-007",
+        "AC-MUL-008--MUL-008",
+        "AC-MUL-009--MUL-009"
+      ],
+      "future_case_ids": [
+        "ADR1-007",
+        "ADR1-008",
+        "ADR1-009"
+      ],
+      "scope": "people",
+      "invariants": [
+        "Written only by an Owner or Admin of the same organization; body-free audit only.",
+        "A goal never moves a person, changes a stage, commissions an enrollment or creates a plant.",
+        "A chosen count is a number of distinct live same-organization people with a move or first placement into a stage of its kind from counting_from through today; it never forecasts or judges."
+      ],
+      "revision": "Expected revision fences changes.",
+      "idempotency": "The browser names the goal id, so a repeated add writes one goal.",
+      "deletion": "Retained with the organization; no fixed new period is introduced.",
+      "physical_verified": false,
+      "columns": [
+        {
+          "note": "",
+          "name": "id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "organization_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "leader_target",
+          "type": "integer",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "plant_target",
+          "type": "integer",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "target_year",
+          "type": "integer",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "rationale",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "clock_timestamp()"
+        },
+        {
+          "note": "",
+          "name": "revision",
+          "type": "bigint",
+          "nullable": false
+        },
+        {
+          "note": "The first day, in the organization's time zone, whose stage moves the goal's counts include; never after the day it was saved.",
+          "name": "counting_from",
+          "type": "date",
+          "nullable": false
+        },
+        {
+          "note": "The goal's chosen counts, in display order: at most 4, each a distinct fixed stage kind with a label.",
+          "name": "counts",
+          "type": "jsonb",
+          "nullable": false,
+          "default": "'[]'::jsonb"
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "unique_keys": [],
+      "foreign_keys": [
+        {
+          "deletion": {
+            "action": "restrict",
+            "policy": "Explicit dependency-ordered removal or authorized minimal-attribution detachment. Current grants and removal witnesses apply to retained facts and recovery; a foreign key grants no access."
+          },
+          "columns": [
+            "organization_id"
+          ],
+          "references": {
+            "table": "organization",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "restrict"
+        }
+      ],
+      "checks": [
+        "CASE WHEN (jsonb_typeof(counts) = 'array'::text) THEN (jsonb_array_length(counts) <= 4) ELSE false END",
+        "((leader_target >= 0) AND (leader_target <= 10000))",
+        "((plant_target >= 0) AND (plant_target <= 10000))",
+        "((length(btrim(rationale)) >= 1) AND (length(rationale) <= 1000))",
+        "(revision >= 1)",
+        "((target_year >= 2000) AND (target_year <= 2200))"
+      ],
+      "indexes": {
+        "sending_goal_organization_idx": {
+          "name": "sending_goal_organization_idx",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "constraint_names": {
+        "primary": [
+          "sending_goal_pkey"
+        ],
+        "unique": [],
+        "foreign": [
+          "sending_goal_organization"
+        ],
+        "checks": [
+          "sending_goal_revision",
+          "sending_goal_leader_target",
+          "sending_goal_plant_target",
+          "sending_goal_target_year",
+          "sending_goal_rationale",
+          "sending_goal_counts"
         ]
       },
       "policies": {},

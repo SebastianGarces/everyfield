@@ -26,7 +26,9 @@
 		"./communication/values": "./src/communication/values.ts",
 		"./wiki": "./src/wiki/index.ts",
 		"./phases": "./src/phases/index.ts",
-		"./intelligence": "./src/intelligence/index.ts"
+		"./intelligence": "./src/intelligence/index.ts",
+		"./feedback": "./src/feedback/index.ts",
+		"./oversight": "./src/oversight/index.ts"
 	},
 	"scripts": {
 		"test:unit": "node --test ${EVF_NODE_TEST_FLAGS:-} ../../tests/contracts/common/*.test.mts ../../tests/contracts/communication/*.test.mts ../../tests/contracts/wiki/*.test.mts && node --test ${EVF_NODE_TEST_FLAGS:-} src/identity/*.test.mts",

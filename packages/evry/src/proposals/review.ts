@@ -5,21 +5,41 @@ import type { EvryActor } from "../context/actor.ts";
 import { liveJob } from "../runtime/job.ts";
 import { mailReport } from "@everyfield/contracts/communication";
 import { COMMUNICATION_COMMANDS } from "../adapters/communication/commands/index.ts";
+import { NOTIFICATION_COMMANDS } from "../adapters/notifications/commands/index.ts";
 import { untouchedMail } from "../adapters/communication/reads/index.ts";
 import { PEOPLE_COMMANDS } from "../adapters/people/commands/index.ts";
-import type { ReviewedWrite } from "./types.ts";
+import { SETTINGS_COMMANDS } from "../adapters/settings/index.ts";
+import { ORGANIZATION_COMMANDS } from "../adapters/people-organization/commands/index.ts";
+import { TEAMS_COMMANDS } from "../adapters/teams/commands/index.ts";
+import { currentPerson, importOutcome, personOutcome, type ReviewedWrite } from "./types.ts";
 
 // The review read (evry.readReview): one projection and one access rule, used by readReview and by the conversation
 // page read, which brings every review card's review in its own statement. No conversation or run imports here, so the
 // conversation store can use it without an import cycle.
 
 /** Every installed reviewed write. A model may propose only these, and only when the actor may use them natively. */
-export const REVIEWED_WRITES = { ...PEOPLE_COMMANDS, ...COMMUNICATION_COMMANDS } as const;
+export const REVIEWED_WRITES = {
+	...PEOPLE_COMMANDS,
+	...ORGANIZATION_COMMANDS,
+	...COMMUNICATION_COMMANDS,
+	...NOTIFICATION_COMMANDS,
+	...TEAMS_COMMANDS,
+	...SETTINGS_COMMANDS,
+} as const;
 export type Operation = keyof typeof REVIEWED_WRITES;
 export const operation = z.enum(Object.keys(REVIEWED_WRITES) as [Operation]);
 
-export function allowedWrites(actor: EvryActor) {
-	return (Object.values(REVIEWED_WRITES) as ReviewedWrite<unknown>[]).filter((w) => w.allowed(actor));
+/**
+ * Which operations a caller offers the model. The turn offers every one; a recorded eval offers only the operations it
+ * was recorded with, so its provider calls stay the recorded ones.
+ */
+export type Offered = (operation: string) => boolean;
+export const everyOperation: Offered = () => true;
+
+export function allowedWrites(actor: EvryActor, offered: Offered = everyOperation) {
+	return (Object.values(REVIEWED_WRITES) as ReviewedWrite<unknown>[]).filter(
+		(w) => offered(w.operation) && w.allowed(actor),
+	);
 }
 
 /** The actor's own proposal in this exact context, for an operation the actor may still use natively. */
@@ -28,10 +48,11 @@ export const mine = (actor: EvryActor) =>
 		AND p.operation=ANY(${sql.param(allowedWrites(actor).map((w) => w.operation))}::text[])`;
 /**
  * The review read (C32): the actor's own proposal under the lock-free live check, so a sign-out or seat change never
- * waits for it. Reviewed writes need Owner or Admin, the same floor as the native command.
+ * waits for it. Each operation keeps its native command's role floor (or higher) through `mine`: church changes need an
+ * Owner or Admin, while anyone with a seat may review a change to their own account.
  */
 export const readable = (actor: EvryActor) =>
-	sql`${mine(actor)} AND ${liveRead({ session: actor.session, owner: actor.owner, seatId: actor.seatId ?? undefined }, true)}`;
+	sql`${mine(actor)} AND ${liveRead({ session: actor.session, owner: actor.owner, seatId: actor.seatId ?? undefined })}`;
 /**
  * A review of a message that is no longer what the review showed. An edit or a time change moves the revision. A cancel
  * or a sent email changes only its mail rows, so the review also saved how many recipients the email service held with
@@ -53,8 +74,15 @@ export const projection = (alias: string) =>
 		'revision',${alias}.revision,'digest',${alias}.digest,'expiresAt',${alias}.expires_at,'approvedAt',${alias}.approved_at,
 		'status',CASE WHEN ${alias}.state='pending' AND ${alias}.expires_at<=clock_timestamp() THEN 'expired' ELSE ${alias}.state END,
 		'review',CASE WHEN ${alias}.review->'target'='null'::jsonb
+			OR ${alias}.review->'target'->>'kind' NOT IN ('person','message','team','role','training','responsibility','household','tag')
 			OR (${alias}.review->'target'->>'kind'='person' AND EXISTS(SELECT FROM person t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.tenant_id=${alias}.tenant_id AND t.state='live'))
 			OR (${alias}.review->'target'->>'kind'='message' AND EXISTS(SELECT FROM communication t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.plant_id=${alias}.tenant_id))
+			OR (${alias}.review->'target'->>'kind'='household' AND EXISTS(SELECT FROM household t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.plant_id=${alias}.tenant_id))
+			OR (${alias}.review->'target'->>'kind'='tag' AND EXISTS(SELECT FROM tag t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.plant_id=${alias}.tenant_id))
+			OR (${alias}.review->'target'->>'kind'='team' AND EXISTS(SELECT FROM team t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.plant_id=${alias}.tenant_id))
+			OR (${alias}.review->'target'->>'kind'='role' AND EXISTS(SELECT FROM team_role t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.plant_id=${alias}.tenant_id))
+			OR (${alias}.review->'target'->>'kind'='training' AND EXISTS(SELECT FROM training_program t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.plant_id=${alias}.tenant_id))
+			OR (${alias}.review->'target'->>'kind'='responsibility' AND EXISTS(SELECT FROM responsibility t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.plant_id=${alias}.tenant_id AND t.removed_at IS NULL))
 			THEN ${alias}.review ELSE jsonb_build_object('target',NULL,'changes','[]'::jsonb,'withheld',true) END,
 		'outcome',coalesce(${alias}.outcome,(SELECT 'unknown' FROM job j WHERE j.id=${alias}.job_id AND ${alias}.state='approved'
 			AND NOT ${liveJob("j")})),
@@ -63,9 +91,50 @@ export const projection = (alias: string) =>
 		'stale',${alias}.state='pending' AND ${staleMessage(alias)},
 		'receipt',${alias}.receipt,'now',clock_timestamp())`);
 
+/**
+ * What a review is about. A person, message, team, role, training, responsibility, household or tag is withheld once it
+ * is no longer available; a church, seat, invitation, connection, organization or account review is checked again by
+ * its native command on approval.
+ */
+const targetKind = z.enum([
+	"person",
+	"message",
+	"team",
+	"role",
+	"training",
+	"responsibility",
+	"household",
+	"tag",
+	"church",
+	"seat",
+	"invitation",
+	"connection",
+	"organization",
+	"account",
+]);
+const change = z.object({ field: z.string(), before: z.unknown(), after: z.unknown() });
+/** One person a change reaches beyond the target, such as each member of a household or each person tagged. */
+export const reviewedPerson = z.object({
+	id: z.uuid(),
+	label: z.string(),
+	changes: z.array(change),
+	/** Why this person will not change, such as already having the tag. */
+	unchanged: z.string().optional(),
+});
+/** One row of a reviewed import: what will happen to it, and why for a row that fails or is skipped. */
+export const reviewedRow = z.object({
+	row: z.int(),
+	outcome: z.enum(["create", "create_and_review", "skip", "fail"]),
+	label: z.string().nullable(),
+	reason: z.string().nullable(),
+});
 const review = z.object({
-	target: z.object({ kind: z.enum(["person", "message"]), id: z.uuid(), label: z.string() }).nullable(),
-	changes: z.array(z.object({ field: z.string(), before: z.unknown(), after: z.unknown() })),
+	target: z.object({ kind: targetKind, id: z.uuid(), label: z.string() }).nullable(),
+	changes: z.array(change),
+	people: z.array(reviewedPerson).optional(),
+	rows: z.array(reviewedRow).optional(),
+	/** Plain facts the person should know before approving, such as what a time zone change moves. */
+	notes: z.array(z.string()).optional(),
 	/** A plain reason the change cannot be approved as asked (for example a send time outside the window). */
 	refusal: z.string().optional(),
 	withheld: z.literal(true).optional(),
@@ -91,6 +160,12 @@ export const proposalRow = z.object({
 			code: z.string().optional(),
 			/** What the email service confirmed, for a write that reaches it (adapters/communication). */
 			report: mailReport.optional(),
+			/** Each person a change reached and whether they changed (adapters/people-organization). */
+			people: z.array(personOutcome).optional(),
+			/** A reviewed import's saved receipt: its counts and each failed row's reason. */
+			import: importOutcome.optional(),
+			/** A refusal because a record changed: the records as they are now, so the card can show them. */
+			current: z.array(currentPerson).optional(),
 		})
 		.nullable(),
 	now: z.coerce.date(),

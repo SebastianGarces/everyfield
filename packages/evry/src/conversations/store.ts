@@ -22,7 +22,14 @@ const liveRun = (alias: string) =>
 const uuid = z.uuid();
 const text = z.string().trim().min(1).max(8_000);
 const requestKey = z.string().min(8).max(200);
-export const reference = z.strictObject({ kind: z.literal("person"), id: z.uuid() });
+/**
+ * A page reference (a person on the user's page) or a photo the user attached in Evry (their own staged account photo
+ * upload). Both are hints, read again under current authority before the model sees them.
+ */
+export const reference = z.discriminatedUnion("kind", [
+	z.strictObject({ kind: z.literal("person"), id: z.uuid() }),
+	z.strictObject({ kind: z.literal("photo"), id: z.uuid() }),
+]);
 const submitInput = z.strictObject({
 	requestKey,
 	text,

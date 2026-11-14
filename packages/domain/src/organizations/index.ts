@@ -31,3 +31,12 @@ export type { GeographyReference, OrganizationEffects, RelationshipNotice };
 
 export { idsIn, namesFor, pairOf, pendingFor, residencyLinks, subjectFacts, targetsFor } from "./reads.ts";
 export type { Kind, Viewer } from "./reads.ts";
+export { pipelineWriter, readPipelineBoard, readPipelineGoals, readPipelinePersonRecord } from "./pipeline.ts";
+export {
+	programWriter,
+	readEnrollment,
+	readProgram,
+	readPrograms,
+	readVersionReview,
+	searchReadings,
+} from "./programs.ts";

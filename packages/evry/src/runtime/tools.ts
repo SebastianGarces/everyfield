@@ -5,7 +5,7 @@ import type { ReadAdapter, SourceResult } from "../catalog/types.ts";
 import type { EvryActor } from "../context/actor.ts";
 import { scrub } from "../context/errors.ts";
 import { LIMITS } from "../context/limits.ts";
-import { allowedWrites, type Proposal } from "../proposals/store.ts";
+import { allowedWrites, everyOperation, type Offered, type Proposal } from "../proposals/store.ts";
 
 type ModelReply = Record<string, unknown>;
 
@@ -13,10 +13,12 @@ type ModelReply = Record<string, unknown>;
  * The model's read tools for this actor: one per domain, whose closed operation discriminator holds only the operations
  * the actor may use now. `run` executes one chosen operation.
  */
-export function readTools(actor: EvryActor, run: ToolHandlers["read"]): ToolSet {
+export function readTools(actor: EvryActor, run: ToolHandlers["read"], offered: Offered = everyOperation): ToolSet {
 	const tools: ToolSet = {};
 	for (const [domain, adapters] of Object.entries(READ_DOMAINS)) {
-		const allowed = (adapters as readonly ReadAdapter<unknown>[]).filter((a) => a.allowed(actor));
+		const allowed = (adapters as readonly ReadAdapter<unknown>[]).filter(
+			(a) => offered(a.operation) && a.allowed(actor),
+		);
 		if (!allowed.length) continue;
 		const options = allowed.map((a) => z.strictObject({ operation: z.literal(a.operation), input: a.input }));
 		tools[`${domain}_read`] = tool({
@@ -48,9 +50,9 @@ export type ToolHandlers = {
  * select_returned_rows when the actor has a read; propose_change when the actor has a reviewed write. Approvals,
  * execution, code, network, files and SQL are never model tools.
  */
-export function modelTools(actor: EvryActor, handlers: ToolHandlers): ToolSet {
-	const tools = readTools(actor, handlers.read);
-	if (readCatalog(actor).selection.length)
+export function modelTools(actor: EvryActor, handlers: ToolHandlers, offered: Offered = everyOperation): ToolSet {
+	const tools = readTools(actor, handlers.read, offered);
+	if (readCatalog(actor, offered).selection.length)
 		tools.select_returned_rows = tool({
 			description:
 				"Select people rows by id from a result this conversation already returned (its resultId). Selection never adds rows or ids.",
@@ -61,7 +63,7 @@ export function modelTools(actor: EvryActor, handlers: ToolHandlers): ToolSet {
 			execute: async (call) => handlers.select(call),
 		});
 	// A reviewed write is only proposed here: the review card is saved and a person approves it in the app.
-	const writes = allowedWrites(actor);
+	const writes = allowedWrites(actor, offered);
 	if (writes.length) {
 		const options = writes.map((w) => z.strictObject({ operation: z.literal(w.operation), input: w.input }));
 		tools.propose_change = tool({
@@ -86,9 +88,18 @@ export function resultForModel(resultId: number, result: SourceResult): ModelRep
 	return JSON.parse(scrub(JSON.stringify({ ...value, rows, truncatedRows: result.rows.length - rows.length })));
 }
 
-/** What the model reads back for a prepared review: the card's id, its expiry and the reviewed fields on their row. */
+/**
+ * What the model reads back for a prepared review: the card's id, its expiry, the reviewed fields on their row and each
+ * other person the change reaches with what changes for them.
+ */
 export function proposalForModel(proposal: Pick<Proposal, "id" | "expiresAt" | "review">): ModelReply {
 	const target = proposal.review.target;
+	const people = (proposal.review.people ?? []).map((p) => ({
+		kind: "person",
+		id: p.id,
+		label: p.label,
+		fields: { changes: p.changes, ...(p.unchanged && { unchanged: p.unchanged }) },
+	}));
 	return JSON.parse(
 		scrub(
 			JSON.stringify({
@@ -97,9 +108,22 @@ export function proposalForModel(proposal: Pick<Proposal, "id" | "expiresAt" | "
 				expiresAt: proposal.expiresAt,
 				// The reviewed fields live in their source row, so a later model call withholds them with the row once the
 				// target is no longer available (withLiveRows in turn.ts).
+				// A note's stored text stays out of what the model reads, as in every read (the card shows it).
 				rows: target
-					? [{ kind: target.kind, id: target.id, label: target.label, fields: { changes: proposal.review.changes } }]
-					: [],
+					? [
+							{
+								kind: target.kind,
+								id: target.id,
+								label: target.label,
+								fields: {
+									changes: proposal.review.changes.map((c) =>
+										c.field === "note" ? { ...c, before: c.before === null ? null : "(the current note)" } : c,
+									),
+								},
+							},
+							...people,
+						]
+					: people,
 			}),
 		),
 	) as ModelReply;

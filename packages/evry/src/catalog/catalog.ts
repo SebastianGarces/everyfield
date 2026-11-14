@@ -1,8 +1,11 @@
 import type { EvryActor } from "../context/actor.ts";
 import { COMMUNICATION_READS } from "../adapters/communication/reads/index.ts";
+import { NOTIFICATION_READS } from "../adapters/notifications/reads/index.ts";
 import { ORGANIZATION_READS } from "../adapters/people-organization/reads/index.ts";
 import { PEOPLE_READS } from "../adapters/people/reads/index.ts";
-import { allowedWrites } from "../proposals/store.ts";
+import { TEAMS_READS } from "../adapters/teams/reads/index.ts";
+import { allowedWrites, everyOperation, type Offered } from "../proposals/store.ts";
+import { SEAT_READS, SHARING_READS } from "../adapters/settings/index.ts";
 import type { ReadAdapter } from "./types.ts";
 
 /**
@@ -14,6 +17,10 @@ export const READ_DOMAINS = {
 	people: PEOPLE_READS,
 	peopleOrganization: ORGANIZATION_READS,
 	communication: COMMUNICATION_READS,
+	notifications: NOTIFICATION_READS,
+	teams: TEAMS_READS,
+	seats: SEAT_READS,
+	sharing: SHARING_READS,
 } as const satisfies Record<string, readonly Pick<ReadAdapter<unknown>, "operation" | "description" | "allowed">[]>;
 
 /** The runtime's own model tool: pick rows from a result this conversation already returned. */
@@ -23,12 +30,12 @@ export const SELECT_RETURNED_ROWS = "evry.selectReturnedRows";
  * evry.readCatalog: what this actor may use right now. Current authority filters every adapter, so a plant Owner and
  * an organization Member see different lists, and an account context sees none of the People reads.
  */
-export function readCatalog(actor: EvryActor) {
+export function readCatalog(actor: EvryActor, offered: Offered = everyOperation) {
 	const domains = Object.entries(READ_DOMAINS)
 		.map(([domain, adapters]) => ({
 			domain,
-			operations: adapters
-				.filter((a) => a.allowed(actor))
+			operations: (adapters as readonly Pick<ReadAdapter<unknown>, "operation" | "description" | "allowed">[])
+				.filter((a) => offered(a.operation) && a.allowed(actor))
 				.map((a) => ({ operation: a.operation, description: a.description })),
 		}))
 		.filter((d) => d.operations.length > 0);
@@ -38,7 +45,7 @@ export function readCatalog(actor: EvryActor) {
 		selection: domains.length > 0 ? [SELECT_RETURNED_ROWS] : [],
 		// A reviewed write is only proposed: a person approves the exact review before it runs. Approvals, code, network,
 		// files and SQL are never model tools.
-		reviewedWrites: allowedWrites(actor).map((w) => ({ operation: w.operation, description: w.description })),
+		reviewedWrites: allowedWrites(actor, offered).map((w) => ({ operation: w.operation, description: w.description })),
 	};
 }
 export type Catalog = ReturnType<typeof readCatalog>;

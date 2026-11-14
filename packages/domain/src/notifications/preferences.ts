@@ -1,4 +1,3 @@
-import type { Owner } from "@everyfield/contracts/common";
 import {
 	notificationCategory,
 	preferenceResult,
@@ -17,7 +16,18 @@ import type { Database } from "@everyfield/db/client";
 import { sql } from "@everyfield/db/query";
 import { z } from "zod";
 import { liveRead } from "../access/session.ts";
-import { RequestActor, accountOwner, audit, deny, jsonValue, readReply, runWrite, selfSql, type Tx } from "./core.ts";
+import {
+	RequestActor,
+	accountOwner,
+	audit,
+	deny,
+	jsonValue,
+	readReply,
+	runWrite,
+	selfSql,
+	type NotificationCommand,
+	type Tx,
+} from "./core.ts";
 
 const categories = notificationCategory.options;
 const storedRow = z.object({
@@ -85,7 +95,7 @@ export async function readPreferences(
 	};
 }
 
-export async function getPreferences(db: Database, authority: RequestActor) {
+export async function getPreferences(db: Pick<Database, "execute">, authority: RequestActor) {
 	return readReply(async () => {
 		const read = await readPreferences(db, authority);
 		if (!read) deny();
@@ -177,86 +187,59 @@ function choiceRows(choices: readonly { category: string; channel: string; enabl
 	return choices.map((choice) => ({ ...choice, cadence: null }));
 }
 
-export function setPreference(db: Database, authority: RequestActor, raw: unknown) {
-	const selected = accountOwner(authority.actor.accountId);
-	return runWrite(
-		db,
-		authority,
-		selected,
-		raw,
-		setPreferenceRequest,
-		"notifications.setPreference",
-		preferenceWriteResult,
-		async (tx, cmd, input) => {
-			const choice = input.input.choice;
-			const row = await save(
-				tx,
-				authority.session,
-				authority.actor.accountId,
-				input.expectedRevision,
-				selfSeat,
-				choiceRows([choice]),
-				false,
-			);
-			const field = `${choice.category}.${choice.channel}`;
-			audit(cmd, {
-				subjectId: authority.actor.accountId,
-				kind: row.changed ? "preference" : "noop",
-				fields: row.changed ? [field] : [],
-			});
-			return { revision: row.revision, changed: row.changed, cadence: null };
-		},
-	);
-}
+const preferenceCommand = <S extends typeof setPreferenceRequest | typeof setPreferencesRequest>(
+	schema: S,
+	operation: string,
+	choices: (input: z.output<S>) => readonly { category: string; channel: string; enabled: boolean }[],
+): NotificationCommand<S, z.output<typeof preferenceWriteResult>> => ({
+	schema,
+	operation,
+	result: preferenceWriteResult,
+	async body(tx, cmd, input, authority) {
+		const chosen = choices(input);
+		const row = await save(
+			tx,
+			authority.session,
+			authority.actor.accountId,
+			input.expectedRevision,
+			selfSeat,
+			choiceRows(chosen),
+			false,
+		);
+		audit(cmd, {
+			subjectId: authority.actor.accountId,
+			kind: row.changed ? "preference" : "noop",
+			fields: row.changed ? chosen.map((choice) => `${choice.category}.${choice.channel}`) : [],
+		});
+		return { revision: row.revision, changed: row.changed, cadence: null };
+	},
+});
+const setPreferenceCommand = preferenceCommand(setPreferenceRequest, "notifications.setPreference", (input) => [
+	input.input.choice,
+]);
+export const setPreferencesCommand = preferenceCommand(
+	setPreferencesRequest,
+	"notifications.setPreferences",
+	(input) => input.input.choices,
+);
 
-export function setPreferences(db: Database, authority: RequestActor, raw: unknown) {
-	const selected = accountOwner(authority.actor.accountId);
-	return runWrite(
-		db,
-		authority,
-		selected,
-		raw,
-		setPreferencesRequest,
-		"notifications.setPreferences",
-		preferenceWriteResult,
-		async (tx, cmd, input) => {
-			const row = await save(
-				tx,
-				authority.session,
-				authority.actor.accountId,
-				input.expectedRevision,
-				selfSeat,
-				choiceRows(input.input.choices),
-				false,
-			);
-			audit(cmd, {
-				subjectId: authority.actor.accountId,
-				kind: row.changed ? "preference" : "noop",
-				fields: row.changed ? input.input.choices.map((choice) => `${choice.category}.${choice.channel}`) : [],
-			});
-			return { revision: row.revision, changed: row.changed, cadence: null };
-		},
-	);
-}
-
-async function saveCadence(
-	db: Database,
-	authority: RequestActor,
-	selected: Owner,
-	raw: unknown,
-	schema: typeof setDigestCadenceRequest | typeof setOversightDigestCadenceRequest,
+const cadenceCommand = <S extends typeof setDigestCadenceRequest | typeof setOversightDigestCadenceRequest>(
+	schema: S,
 	operation: string,
 	category: "planter_digest" | "oversight_digest",
-	seat: ReturnType<typeof sql>,
-) {
-	return runWrite(db, authority, selected, raw, schema, operation, preferenceWriteResult, async (tx, cmd, input) => {
+	seat: (input: z.output<S>) => ReturnType<typeof sql>,
+): NotificationCommand<S, z.output<typeof preferenceWriteResult>> => ({
+	schema,
+	operation,
+	result: preferenceWriteResult,
+	async body(tx, cmd, input, authority) {
 		const cadence = input.input.cadence;
 		const row = await save(
 			tx,
 			authority.session,
 			authority.actor.accountId,
 			input.expectedRevision,
-			seat,
+			seat(input),
 			(["email", "in_app"] as const).map((channel) => ({
 				category,
 				channel,
@@ -271,39 +254,32 @@ async function saveCadence(
 			fields: row.changed ? [`${category}.cadence`] : [],
 		});
 		return { revision: row.revision, changed: row.changed, cadence };
-	});
-}
-
-export function setDigestCadence(db: Database, authority: RequestActor, raw: unknown) {
-	const parsed = setDigestCadenceRequest.safeParse(raw);
-	const plantId = parsed.success ? parsed.data.input.plantId : null;
-	return saveCadence(
-		db,
-		authority,
-		accountOwner(authority.actor.accountId),
-		raw,
-		setDigestCadenceRequest,
-		"notifications.digestCadence.set",
-		"planter_digest",
-		sql`SELECT 1 FROM seat s WHERE s.account_id = (SELECT account_id FROM me) AND s.plant_id = ${plantId}::uuid
+	},
+});
+export const setDigestCadenceCommand = cadenceCommand(
+	setDigestCadenceRequest,
+	"notifications.digestCadence.set",
+	"planter_digest",
+	(
+		input,
+	) => sql`SELECT 1 FROM seat s WHERE s.account_id = (SELECT account_id FROM me) AND s.plant_id = ${input.input.plantId}::uuid
+		AND s.role IN ('owner','admin') AND s.ended_at IS NULL AND s.accepted_at <= clock_timestamp()`,
+);
+const setOversightDigestCadenceCommand = cadenceCommand(
+	setOversightDigestCadenceRequest,
+	"notifications.oversightDigestCadence.set",
+	"oversight_digest",
+	(input) => sql`SELECT 1 FROM seat s JOIN organization o ON o.id = s.organization_id
+		WHERE s.account_id = (SELECT account_id FROM me) AND s.organization_id = ${input.input.organizationId}::uuid
+			AND o.kind = ${input.input.organizationKind}
 			AND s.role IN ('owner','admin') AND s.ended_at IS NULL AND s.accepted_at <= clock_timestamp()`,
-	);
-}
+);
 
-export function setOversightDigestCadence(db: Database, authority: RequestActor, raw: unknown) {
-	const parsed = setOversightDigestCadenceRequest.safeParse(raw);
-	const org = parsed.success ? parsed.data.input.organizationId : null;
-	const kind = parsed.success ? parsed.data.input.organizationKind : null;
-	return saveCadence(
-		db,
-		authority,
-		accountOwner(authority.actor.accountId),
-		raw,
-		setOversightDigestCadenceRequest,
-		"notifications.oversightDigestCadence.set",
-		"oversight_digest",
-		sql`SELECT 1 FROM seat s JOIN organization o ON o.id = s.organization_id
-			WHERE s.account_id = (SELECT account_id FROM me) AND s.organization_id = ${org}::uuid AND o.kind = ${kind}
-			AND s.role IN ('owner','admin') AND s.ended_at IS NULL AND s.accepted_at <= clock_timestamp()`,
-	);
-}
+export const setPreference = (db: Database, authority: RequestActor, raw: unknown) =>
+	runWrite(db, authority, accountOwner(authority.actor.accountId), raw, setPreferenceCommand);
+export const setPreferences = (db: Database, authority: RequestActor, raw: unknown) =>
+	runWrite(db, authority, accountOwner(authority.actor.accountId), raw, setPreferencesCommand);
+export const setDigestCadence = (db: Database, authority: RequestActor, raw: unknown) =>
+	runWrite(db, authority, accountOwner(authority.actor.accountId), raw, setDigestCadenceCommand);
+export const setOversightDigestCadence = (db: Database, authority: RequestActor, raw: unknown) =>
+	runWrite(db, authority, accountOwner(authority.actor.accountId), raw, setOversightDigestCadenceCommand);

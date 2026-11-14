@@ -138,6 +138,7 @@ function Elsewhere({
 		<section data-onboarding-step="elsewhere">
 			<StepHeading title={copy.title}>{copy.body}</StepHeading>
 			<div className="mx-auto mt-[30px] flex max-w-[620px] flex-col items-center gap-6">
+				{/* An organization seat never lands here: /onboarding sends it to its home at /network (WP-047a). */}
 				<Button variant="primary" onClick={onReload}>
 					{entry.kind === "confirm_email" ? "I’ve confirmed it" : "Try again"}
 				</Button>

@@ -60,11 +60,13 @@ If a step fails, the command removes what it made and prints the error with ever
 | Second Member           | `delivered+qa-member-2@resend.dev`          | `Everyfield-QA-preview-1` |
 | Sign-up                 | `delivered+qa-signup@resend.dev`            | `Everyfield-QA-preview-1` |
 | Riverside Owner         | `delivered+qa-riverside-owner@resend.dev`   | `Everyfield-QA-preview-1` |
+| Feedback triager        | `delivered+qa-triage@resend.dev`            | `Everyfield-QA-preview-1` |
 
 These accounts exist only on QA Neon branches, behind Vercel Deployment Protection. The Owner, Admin, Member and Second
 Member land on the test church "Harvest Point (QA)". The church has people, a household, three teams, two meetings,
 tasks, two follow-ups, a written document, a draft message, a sent message, the wiki and the Owner's private check-in
 history (below).
+The Feedback triager has no church seat. It holds the `feedback_triage` platform grant and opens `/feedback/triage`.
 
 The church is connected to three organizations. Two of them are sending churches with similar names. They are two
 different churches on purpose:

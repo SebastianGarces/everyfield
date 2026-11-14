@@ -1,7 +1,8 @@
 # Deterministic checks for every pull request and for main.
 # The required status check is the `ci` job. It passes only when every other job passed.
-# The database tests run against throwaway Postgres 17 service containers, one for the db job and one per domain
-# census part, with a synthetic password, never against Neon. CI uses no secrets.
+# The database tests run against throwaway PostgreSQL 18 service containers, the major version the shared development
+# database runs (D-861), one for the db job and one per domain census part, with a synthetic password, never against
+# Neon. CI uses no secrets.
 name: CI
 
 on:
@@ -171,13 +172,14 @@ jobs:
     # Every package with a test:db script except @everyfield/domain, one after another on one Postgres service. Each
     # suite makes its own random schema in everyfield_ci and drops it at the end, so the suites share the database as
     # they share the development one. A failed suite still lets the later ones run and report.
-    # `node tools/ci/ci-tests.ts` fails when a package with test:db runs in no CI step.
-    name: db (@everyfield/db, reference, evry)
+    # The reference database suites run in the domain census instead. `node tools/ci/ci-tests.ts` fails when a package
+    # with test:db runs in no CI step, or when one test file runs in two CI commands.
+    name: db (@everyfield/db, evry)
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     services:
       postgres:
-        image: pgvector/pgvector:0.8.7-pg17
+        image: pgvector/pgvector:0.8.7-pg18
         env:
           POSTGRES_USER: ci
           POSTGRES_PASSWORD: ci
@@ -213,15 +215,13 @@ jobs:
       - name: "@everyfield/db tests"
         if: ${{ !cancelled() && steps.migrate.outcome == 'success' }}
         run: pnpm --filter "@everyfield/db" test:db
-      - name: "@everyfield/reference tests"
-        if: ${{ !cancelled() && steps.migrate.outcome == 'success' }}
-        run: pnpm --filter "@everyfield/reference" test:db
       - name: "@everyfield/evry tests"
         if: ${{ !cancelled() && steps.migrate.outcome == 'success' }}
         run: pnpm --filter "@everyfield/evry" test:db
 
   domain:
-    # @everyfield/domain runs only the statement census, split into CENSUS_PARTS parts that run side by side, each on
+    # @everyfield/domain runs only the statement census (tests/integration/writes/suites.json, which includes the
+    # reference database suites), split into CENSUS_PARTS parts that run side by side, each on
     # its own Postgres service. The ci job checks their union.
     name: domain (census part ${{ matrix.part }})
     runs-on: ubuntu-24.04
@@ -237,7 +237,7 @@ jobs:
           - part: 3
     services:
       postgres:
-        image: pgvector/pgvector:0.8.7-pg17
+        image: pgvector/pgvector:0.8.7-pg18
         env:
           POSTGRES_USER: ci
           POSTGRES_PASSWORD: ci
