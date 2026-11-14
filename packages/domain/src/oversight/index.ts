@@ -1,4 +1,4 @@
-import { recordId, type Owner } from "@everyfield/contracts/common";
+import { recordId, type Clock, type Owner } from "@everyfield/contracts/common";
 import * as C from "@everyfield/contracts/oversight";
 import { sql, type SQL } from "@everyfield/db/query";
 import "server-only";
@@ -7,6 +7,8 @@ import { liveAccess, liveRead, liveRows, type RequestActor } from "../access/ses
 import { createLaunchReader } from "../launch/reads.ts";
 import { linkActive, type Reader } from "../organizations/core.ts";
 import { areaOf, latestGeography } from "../organizations/geography.ts";
+import { iso } from "../intelligence/assessment.ts";
+import { concernOf, concernsSql, releasedRun, storedConcern } from "../intelligence/views.ts";
 import { compatible } from "../teams/training/reads.ts";
 import { launchJson, plantLaunchOf, preparationJson } from "./launch.ts";
 export { requestIntelligenceRefresh, readIntelligence, submitIntelligenceFeedback } from "./intelligence.ts";
@@ -25,18 +27,25 @@ function organizationOf(authority: RequestActor): Organization | null {
 }
 const live = (authority: RequestActor) => liveRead(liveAccess(authority));
 
+/** The database's clock, or a test clock: the instant an assessment's release is judged at. */
+const nowOf = (clock?: Clock) => (clock ? sql`${clock.now()}::timestamptz` : sql`clock_timestamp()`);
+
 /**
  * The plants linked to organization `org` (a uuid parameter) by their own active link `k`, with `where` added. The
  * locality is the plant's latest reporting location when it saved one, else its profile's, never the street. Health
- * reads the launch preparation counts only while the link shares Plant Intelligence findings, and the gap counts only
- * while it also shares Ministry teams.
+ * reads the launch preparation counts and the released assessment's structured concerns only while the link shares
+ * Plant Intelligence findings, and the gap counts only while it also shares Ministry teams. The released assessment
+ * is the latest one its planter has opened or that became available 72 hours before `now` (PI-032).
  */
-const directory = (org: SQL, where: SQL) => sql`SELECT p.id AS plant_id, p.name,
+const directory = (org: SQL, where: SQL, now: SQL = nowOf()) => sql`SELECT p.id AS plant_id, p.name,
 	CASE WHEN g.plant_id IS NULL THEN p.city ELSE g.city END AS city,
 	CASE WHEN g.plant_id IS NULL THEN p.state_province ELSE g.state_province END AS state_province,
 	CASE WHEN g.plant_id IS NULL THEN p.country ELSE g.country END AS country,
 	ri.canonical_key AS region_key, k.shared_findings,
 	CASE WHEN k.shared_findings THEN ${preparationJson(sql`p.id`, sql`k.share_ministry_teams`)} END AS preparation,
+	CASE WHEN k.shared_findings THEN (SELECT json_build_object('runId',rr.id,'asOf',${iso("rr.as_of")},'phase',rr.phase,
+		'concerns',${concernsSql("rr")}) FROM ${releasedRun(sql`p.id`, now)} rr) END AS released,
+	k.share_people, k.share_meetings, k.share_tasks, k.share_ministry_teams,
 	p.phase, l.target_date::text AS launch_date,
 	(SELECT coalesce(json_agg(DISTINCT o.name), '[]'::json) FROM affiliation ps
 		JOIN organization o ON o.id=ps.organization_id AND o.kind='sending_church'
@@ -64,9 +73,56 @@ const directoryRow = z.object({
 	region_key: z.string().nullable(),
 	shared_findings: z.boolean(),
 	preparation: z.unknown().nullable(),
+	released: z
+		.object({ runId: z.string(), asOf: z.string(), phase: z.int(), concerns: z.array(storedConcern) })
+		.nullable(),
+	share_people: z.boolean(),
+	share_meetings: z.boolean(),
+	share_tasks: z.boolean(),
+	share_ministry_teams: z.boolean(),
 });
+type DirectoryRow = z.infer<typeof directoryRow>;
+
+/** The sharing categories a fact group is read from; a concern resting on one the link does not share is withheld. */
+const CATEGORIES: Record<string, readonly ("people" | "meetings" | "tasks" | "ministry")[]> = {
+	committedAdults: ["people"],
+	growth: ["people"],
+	humanRecords: ["people"],
+	vision: ["meetings"],
+	cohesion: ["meetings", "people"],
+	followUps: ["meetings", "tasks"],
+	coverage: ["ministry"],
+	training: ["ministry"],
+};
+/**
+ * The released assessment as this link may see it: its concerns whose every cited fact is read from categories the
+ * plant shares with this organization, and how many others are held back. Never a point's words or a passage.
+ */
+function releasedOf(r: DirectoryRow): C.ReleasedAssessment {
+	if (!r.shared_findings) return { status: "withheld" };
+	if (!r.released) return { status: "not_assessed" };
+	const shares = {
+		people: r.share_people,
+		meetings: r.share_meetings,
+		tasks: r.share_tasks,
+		ministry: r.share_ministry_teams,
+	};
+	const visible = (x: z.infer<typeof storedConcern>) =>
+		x.keys.every((k) => (CATEGORIES[k.split(".")[0]!] ?? []).every((category) => shares[category]));
+	const { runId, asOf, phase, concerns } = r.released;
+	return C.releasedAssessment.parse({
+		status: "released",
+		runId,
+		asOf,
+		phase,
+		concerns: concerns.filter(visible).map((x) => concernOf(runId, x)),
+		withheld: concerns.filter((x) => !visible(x)).length,
+	});
+}
+
 function plantRow(raw: unknown): C.PlantDirectoryRow {
 	const r = directoryRow.parse(raw);
+	const released = releasedOf(r);
 	return C.plantDirectoryRow.parse({
 		plantId: r.plant_id,
 		name: r.name,
@@ -78,7 +134,11 @@ function plantRow(raw: unknown): C.PlantDirectoryRow {
 		provenance: r.through.length ? { kind: "through", sendingChurches: [...r.through].sort() } : { kind: "direct" },
 		leadPlanter: r.lead_planter,
 		region: areaOf(r.region_key),
-		health: C.healthOf(r.shared_findings, r.preparation ? C.preparation.parse(r.preparation) : null),
+		health: C.healthOf(
+			r.shared_findings,
+			r.preparation ? C.preparation.parse(r.preparation) : null,
+			released.status === "released" ? { concerns: released.concerns.length, withheld: released.withheld > 0 } : null,
+		),
 	});
 }
 const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name);
@@ -92,14 +152,14 @@ const plantList = (raw: unknown) => z.array(z.unknown()).parse(raw).map(plantRow
  * oversight.listPlants: this organization's name and the plants linked to it, by name; null for an actor without a live
  * organization seat.
  */
-export async function listPlants(db: Reader, authority: RequestActor): Promise<C.PlantDirectory | null> {
+export async function listPlants(db: Reader, authority: RequestActor, clock?: Clock): Promise<C.PlantDirectory | null> {
 	const org = organizationOf(authority);
 	if (!org) return null;
 	const o = uuid(org.id);
 	const rows = await liveRows(
 		db,
 		live(authority),
-		sql`SELECT o.name, ${plantsJson(directory(o, sql`true`))} AS plants FROM organization o WHERE o.id=${o}`,
+		sql`SELECT o.name, ${plantsJson(directory(o, sql`true`, nowOf(clock)))} AS plants FROM organization o WHERE o.id=${o}`,
 	);
 	const row = rows?.[0];
 	return row ? C.plantDirectory.parse({ organizationName: row.name, plants: plantList(row.plants) }) : null;
@@ -224,15 +284,17 @@ async function readSection<K extends C.SectionKey>(
 
 const KEYS = Object.keys(SECTIONS) as C.SectionKey[];
 /**
- * oversight.getPlant: one linked plant's directory row and its five sharing sections. Null for a plant that is not
- * linked to this organization now, does not exist or is not an id, so the page cannot tell them apart. A section whose
- * read fails is `unavailable`, never a zero, and its error goes to `report`.
+ * oversight.getPlant: one linked plant's directory row, its five sharing sections and its released Plant Intelligence
+ * assessment (oversight.getHealth, intelligence.releaseAssessmentToOversight). Null for a plant that is not linked to
+ * this organization now, does not exist or is not an id, so the page cannot tell them apart. A section whose read fails
+ * is `unavailable`, never a zero, and its error goes to `report`.
  */
 export async function getPlant(
 	db: Reader,
 	authority: RequestActor,
 	plantId: string,
 	report: (section: C.SectionKey, error: unknown) => void = () => {},
+	clock?: Clock,
 ): Promise<C.PlantView | null> {
 	const org = organizationOf(authority);
 	if (!org || !recordId.safeParse(plantId).success) return null;
@@ -242,7 +304,7 @@ export async function getPlant(
 		live(authority),
 		sql`SELECT d.*, CASE WHEN d.shared_findings THEN ${launchJson(p)} END AS launch,
 			(SELECT timezone FROM plant WHERE id=${p}) AS timezone
-		FROM (${directory(uuid(org.id), sql`p.id=${p}`)}) d`,
+		FROM (${directory(uuid(org.id), sql`p.id=${p}`, nowOf(clock))}) d`,
 	);
 	if (!rows?.[0]) return null;
 	// One statement per section, so a section that fails leaves the others readable. A failed statement on the pool
@@ -259,7 +321,14 @@ export async function getPlant(
 	const row = rows[0];
 	const launch = row.launch ? plantLaunchOf(row.launch, row.preparation) : { status: "withheld" };
 	const summary = await createLaunchReader().readPublishedSummary(db, authority, plantId);
-	return C.plantView.parse({ plant: plantRow(row), timeZone: row.timezone, sections, launch, summary });
+	return C.plantView.parse({
+		plant: plantRow(row),
+		timeZone: row.timezone,
+		sections,
+		launch,
+		summary,
+		assessment: releasedOf(directoryRow.parse(row)),
+	});
 }
 
 /** The active link `sn` from sending church `church` (SQL) to network `net`. */

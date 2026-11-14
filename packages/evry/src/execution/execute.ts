@@ -63,8 +63,8 @@ const locked = z.object({
 });
 
 /**
- * The records a refusal because something changed shows as they are now, for the writes that name them (current), read
- * in the statement that saves the refusal.
+ * The records a refusal because something changed (revision_conflict, or stale_review when what the review was checked
+ * against changed) shows as they are now, for the writes that name them (current), read in the statement that saves it.
  */
 const currentState = (() => {
 	const writes = (Object.values(REVIEWED_WRITES) as ReviewedWrite<unknown>[]).filter((w) => w.current);
@@ -208,7 +208,7 @@ export async function executeProposal(
 			await holdPublicationLocks(tx, lease);
 			return tx.execute(sql`
 				UPDATE proposal SET outcome='refused',receipt=jsonb_strip_nulls(jsonb_build_object('code',${refused}::text,
-					'current',CASE WHEN ${refused}::text='revision_conflict' THEN ${currentState} END)),updated_at=clock_timestamp()
+					'current',CASE WHEN ${refused}::text IN ('revision_conflict','stale_review') THEN ${currentState} END)),updated_at=clock_timestamp()
 				WHERE job_id=${lease.jobId}::uuid AND tenant_id=${lease.tenantId}::uuid AND state='approved' AND outcome IS NULL AND ${fence(lease)}`);
 		});
 		return saved.rowCount ? "refused" : "lost";

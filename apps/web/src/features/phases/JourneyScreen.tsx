@@ -9,7 +9,15 @@ import {
 	type PhaseNumber,
 	type Readiness,
 } from "@everyfield/contracts/phases";
-import { Alert02Icon, ArrowRight01Icon, Flag02Icon, Route02Icon, StartUp02Icon } from "@hugeicons/core-free-icons";
+import type { HistoryEntry } from "@everyfield/contracts/launch";
+import {
+	Alert02Icon,
+	ArrowRight01Icon,
+	Calendar03Icon,
+	Flag02Icon,
+	Route02Icon,
+	StartUp02Icon,
+} from "@hugeicons/core-free-icons";
 import {
 	Button,
 	Card,
@@ -54,7 +62,15 @@ import {
 } from "./model.ts";
 
 type Viewer = { accountId: string; name: string };
-type Props = { history: HistoryResult; catalog: Catalog; readiness: Readiness[]; facts: PlantFacts; viewer: Viewer };
+type Props = {
+	history: HistoryResult;
+	catalog: Catalog;
+	readiness: Readiness[];
+	facts: PlantFacts;
+	/** Each time Launch Sunday was set, moved, postponed or rescheduled, newest first. */
+	launchDates: HistoryEntry[];
+	viewer: Viewer;
+};
 
 /** What the change dialog holds: the chosen phase, the typed reason, and why the last attempt did not go through. */
 type MoveDraft = { to: PhaseNumber; reason: string; error: string | null; changed: JourneyState | null };
@@ -71,7 +87,7 @@ const STATUS: Record<Readiness["criteria"][number]["status"], { status: Status; 
  * at once and is confirmed or rolled back from the server's answer; nothing reloads the page. Only Owners and Admins
  * reach this screen; the route shows Members a locked panel instead.
  */
-export function JourneyScreen({ history, catalog, readiness, facts, viewer }: Props) {
+export function JourneyScreen({ history, catalog, readiness, facts, launchDates, viewer }: Props) {
 	const toast = useToast();
 	const [journey, setJourney] = useState<Journey>({ state: history.state, entries: history.entries });
 	const [move, setMove] = useState<MoveDraft | null>(null);
@@ -139,7 +155,7 @@ export function JourneyScreen({ history, catalog, readiness, facts, viewer }: Pr
 				title="Plant Intelligence"
 				subtitle={`Where ${history.plantName} is on the Playbook journey. You decide when to move on.`}
 			/>
-			<IntelligenceTabs current="overview" />
+			<IntelligenceTabs current="journey" />
 			<div className="grid grid-cols-[minmax(0,1.9fr)_minmax(0,1.1fr)] items-start gap-5 max-app-md:grid-cols-1">
 				<Card>
 					<CardHeader>
@@ -172,7 +188,7 @@ export function JourneyScreen({ history, catalog, readiness, facts, viewer }: Pr
 					) : null}
 					<Signs readiness={readiness[journey.state.phase]!} />
 				</Card>
-				<Timeline entries={journey.entries} timeZone={history.timeZone} />
+				<Timeline entries={journey.entries} launchDates={launchDates} timeZone={history.timeZone} />
 			</div>
 			<FactsSection facts={facts} />
 			<Phases catalog={catalog} current={journey.state.phase} />
@@ -286,54 +302,98 @@ function PostLaunchMeasures() {
 	);
 }
 
-/** Every recorded step, newest first. Entries are never edited; a correction is a new entry. */
-function Timeline({ entries, timeZone }: { entries: JourneyEntry[]; timeZone: string }) {
+type Dated = { kind: "launch_date"; id: string; occurredAt: string; entry: HistoryEntry };
+/** "Launch Sunday set for Mar 7, 2027", "Launch Sunday moved from Mar 7 to Mar 14, 2027". */
+function launchDateTitle(e: HistoryEntry) {
+	if (e.change.kind !== "date") return "";
+	const { event, from, to } = e.change;
+	const day = (d: string | null) => (d ? entryDate(`${d}T12:00:00Z`, "UTC") : "no date");
+	if (event === "scheduled") return `Launch Sunday set for ${day(to)}`;
+	if (event === "postponed") return `Launch Sunday postponed from ${day(from)}`;
+	return `Launch Sunday ${event === "moved" ? "moved" : "rescheduled"} from ${day(from)} to ${day(to)}`;
+}
+
+/** Every recorded step and Launch date change, newest first. Entries are never edited; a correction is a new entry. */
+function Timeline({
+	entries,
+	launchDates,
+	timeZone,
+}: {
+	entries: JourneyEntry[];
+	launchDates: HistoryEntry[];
+	timeZone: string;
+}) {
+	const steps: (JourneyEntry | Dated)[] = [
+		...entries,
+		...launchDates.map((entry) => ({ kind: "launch_date" as const, id: entry.id, occurredAt: entry.at, entry })),
+	].sort((a, b) => a.occurredAt.localeCompare(b.occurredAt));
 	return (
 		<Card>
 			<CardHeader>
 				<CardHeading>
 					<CardTitle>Journey</CardTitle>
-					<CardDescription>Each change stays here as it happened.</CardDescription>
+					<CardDescription>Phase moves and Launch dates, each as it happened.</CardDescription>
 				</CardHeading>
 			</CardHeader>
 			<ol className="flex flex-col">
-				{entries.toReversed().map((e) => (
-					<li
-						key={e.id}
-						aria-busy={isPending(e) || undefined}
-						className={cn(
-							"flex gap-3 border-t border-line py-3.5 first:border-t-0 first:pt-0",
-							isPending(e) && "opacity-60",
-						)}
-					>
-						<span className="mt-0.5 flex size-7 flex-none items-center justify-center rounded-full bg-surface-2 text-ink-2">
-							<Icon
-								icon={
-									e.kind === "movement"
-										? Route02Icon
-										: e.kind === "creation"
-											? Flag02Icon
-											: e.kind === "launch_sunday" || e.kind === "gathering"
-												? StartUp02Icon
-												: ArrowRight01Icon
-								}
-								size={16}
-							/>
-						</span>
-						<div className="min-w-0 flex-1">
-							<p className="font-semibold text-ink">{entryTitle(e)}</p>
-							<p className="text-sm text-ink-2">{entryDetail(e)}</p>
-							{e.kind === "movement" ? (
-								<p className="mt-1 text-sm break-words whitespace-pre-line text-text-2">{e.reason}</p>
-							) : null}
-							<p className="mt-1 text-xs text-text-3">
-								{[e.actor?.displayName, isPending(e) ? "Saving" : entryDate(e.occurredAt, timeZone)]
-									.filter(Boolean)
-									.join(" · ")}
-							</p>
-						</div>
-					</li>
-				))}
+				{steps.toReversed().map((e) =>
+					e.kind === "launch_date" ? (
+						<li
+							key={e.id}
+							data-launch-date
+							className="flex gap-3 border-t border-line py-3.5 first:border-t-0 first:pt-0"
+						>
+							<span className="mt-0.5 flex size-7 flex-none items-center justify-center rounded-full bg-surface-2 text-ink-2">
+								<Icon icon={Calendar03Icon} size={16} />
+							</span>
+							<div className="min-w-0 flex-1">
+								<p className="font-semibold text-ink">{launchDateTitle(e.entry)}</p>
+								{e.entry.change.kind === "date" && e.entry.change.reason ? (
+									<p className="mt-1 text-sm break-words whitespace-pre-line text-text-2">{e.entry.change.reason}</p>
+								) : null}
+								<p className="mt-1 text-xs text-text-3">
+									{[e.entry.actor?.displayName, entryDate(e.occurredAt, timeZone)].filter(Boolean).join(" · ")}
+								</p>
+							</div>
+						</li>
+					) : (
+						<li
+							key={e.id}
+							aria-busy={isPending(e) || undefined}
+							className={cn(
+								"flex gap-3 border-t border-line py-3.5 first:border-t-0 first:pt-0",
+								isPending(e) && "opacity-60",
+							)}
+						>
+							<span className="mt-0.5 flex size-7 flex-none items-center justify-center rounded-full bg-surface-2 text-ink-2">
+								<Icon
+									icon={
+										e.kind === "movement"
+											? Route02Icon
+											: e.kind === "creation"
+												? Flag02Icon
+												: e.kind === "launch_sunday" || e.kind === "gathering"
+													? StartUp02Icon
+													: ArrowRight01Icon
+									}
+									size={16}
+								/>
+							</span>
+							<div className="min-w-0 flex-1">
+								<p className="font-semibold text-ink">{entryTitle(e)}</p>
+								<p className="text-sm text-ink-2">{entryDetail(e)}</p>
+								{e.kind === "movement" ? (
+									<p className="mt-1 text-sm break-words whitespace-pre-line text-text-2">{e.reason}</p>
+								) : null}
+								<p className="mt-1 text-xs text-text-3">
+									{[e.actor?.displayName, isPending(e) ? "Saving" : entryDate(e.occurredAt, timeZone)]
+										.filter(Boolean)
+										.join(" · ")}
+								</p>
+							</div>
+						</li>
+					),
+				)}
 			</ol>
 		</Card>
 	);

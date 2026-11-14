@@ -11,6 +11,10 @@
 //   Launch team holds 14 people: the golden church's two (Mark and Jen Thompson) and 12 more prospects moved there.
 // - `launched`: Launch Sunday set again to TODAY-2, before Launch Sunday's outcome is recorded through Evry.
 // - `guests`: three first-time guests named on the Launch plan by typed name (each a new Person, as natively).
+// - `milestones` (T-382): "Worship Center secured and rehearsed in", the venue milestone, reopened on the Launch plan,
+//   with two more linked prep tasks so it has four, and its first two completed in Tasks: two of four stay open.
+// - `needsReview` (T-382): the Admin completes the venue milestone on the Launch plan, and then the Owner reopens a task
+//   that was complete then in Tasks, so the Launch plan shows "Needs review".
 import { randomUUID } from "node:crypto";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import type { Database } from "../../../packages/db/src/client.ts";
@@ -18,6 +22,7 @@ import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { reviewedOf } from "../../../packages/contracts/src/launch/index.ts";
 import { createLaunchReader } from "../../../packages/domain/src/launch/reads.ts";
 import { createLaunchWriter } from "../../../packages/domain/src/launch/writes.ts";
+import { createTaskWriter, withTaskWrite } from "../../../packages/domain/src/tasks/index.ts";
 import { ACTOR_SPECS, PLANT, type ActorName } from "./golden-church.mts";
 
 export const ZONE = "America/Chicago";
@@ -57,6 +62,15 @@ export const COMPLETED = [
 	"promotion.plan",
 ] as const;
 export const GUESTS = ["Maya Brooks", "Owen Price", "Ruth Kim"] as const;
+/** The venue milestone (T-382) and its four linked prep tasks: the Playbook's two and the two the fixture adds. */
+export const VENUE = "operations.worship_center";
+export const VENUE_TITLE = "Worship Center secured and rehearsed in";
+export const VENUE_TASKS = [
+	"Confirm the Worship Center booking",
+	"Schedule three uses of the room before Launch Sunday",
+	"Walk the room with the set-up team",
+	"Rehearse the Launch Sunday service in the room",
+] as const;
 
 function ok<T>(reply: { status: string; value?: T; error?: unknown }): T {
 	if (reply.status !== "ok") throw Error(`launch fixture refused: ${JSON.stringify(reply.error)}`);
@@ -145,4 +159,47 @@ export async function seedOutcome(db: Database, attendance: number) {
 			input: { actualDate: plan.launch!.targetDate!, attendance, decisions: null, note: null },
 		}),
 	);
+}
+
+export const venueOf = async (db: Database) => (await planOf(db)).milestones.find((m) => m.templateKey === VENUE)!;
+const tasks = createTaskWriter({ reminders: async () => undefined });
+/** A venue prep task completed or reopened in Tasks, as `who`, by its place (0 to 3). */
+export async function setVenueTask(db: Database, who: LaunchName, n: number, op: "complete" | "reopen") {
+	const t = (await venueOf(db)).tasks.find((x) => x.title === VENUE_TASKS[n])!;
+	ok(
+		await withTaskWrite(db, await authorityOf(db, who), (tx, ctx) =>
+			tasks[op](tx, ctx, { requestKey: randomUUID(), expectedRevision: t.revision, input: { taskId: t.id } }),
+		),
+	);
+}
+/** The venue milestone completed or reopened on the Launch plan, as `who`. */
+export async function setVenue(db: Database, who: LaunchName, op: "complete" | "reopen") {
+	const m = await venueOf(db);
+	const authority = await authorityOf(db, who);
+	const q = { requestKey: randomUUID(), expectedRevision: m.revision };
+	ok(
+		op === "complete"
+			? await writer.completeMilestone(db, authority, {
+					...q,
+					input: { milestoneId: m.id, reviewed: reviewedOf(m.tasks) },
+				})
+			: await writer.reopenMilestone(db, authority, { ...q, input: { milestoneId: m.id } }),
+	);
+}
+
+/** The venue milestone open with four linked prep tasks, the first two complete. */
+export async function seedMilestones(admin: Database, db: Database) {
+	await setVenue(db, "owner", "reopen");
+	await admin.execute(sql`INSERT INTO task(plant_id,title,description,category,priority,status,creator_id,created_at,due_kind,launch_task_key)
+		SELECT ${PLANT}::uuid,r.title,'Launch readiness: part of the "Worship Center secured and rehearsed in" milestone on the Launch plan.',
+			'launch_prep','medium','not_started',${ACTOR_SPECS.owner.account}::uuid,clock_timestamp(),'undated',r.key
+		FROM (VALUES (${VENUE_TASKS[2]},${`${VENUE}/3`}),(${VENUE_TASKS[3]},${`${VENUE}/4`})) r(title,key)`);
+	await setVenueTask(db, "owner", 0, "complete");
+	await setVenueTask(db, "owner", 1, "complete");
+}
+
+/** The Admin completes the venue milestone on the Launch plan; the Owner then reopens a task that was complete then. */
+export async function seedNeedsReview(db: Database) {
+	await setVenue(db, "admin", "complete");
+	await setVenueTask(db, "owner", 0, "reopen");
 }

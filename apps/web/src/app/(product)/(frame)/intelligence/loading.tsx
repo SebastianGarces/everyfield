@@ -1,1 +1,1 @@
-export { IntelligenceLoading as default } from "@/features/phases/routes";
+export { PlantIntelligenceLoading as default } from "@/features/intelligence/routes";

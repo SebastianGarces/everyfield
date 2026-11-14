@@ -2,35 +2,62 @@
 
 import { requestDatabase } from "@/server/database";
 import { getViewer } from "@/server/request-context";
-import type { AssessmentError, RefreshReceipt } from "@everyfield/contracts/intelligence";
-import { createAssessments } from "@everyfield/domain/intelligence";
+import type {
+	AssessmentError,
+	AssessmentReply,
+	CitationView,
+	FeedbackReceipt,
+	RefreshReceipt,
+	SeenReceipt,
+} from "@everyfield/contracts/intelligence";
+import type { Database } from "@everyfield/db/client";
+import type { RequestActor } from "@everyfield/domain/access";
+import { createAssessments, type Assessments } from "@everyfield/domain/intelligence";
 
-// The browser boundary of a fresh Plant Intelligence assessment (intelligence.requestRefresh, WP-043). WP-044 places the
-// control. The plant and the requester come from the session's seat, never from the request; the domain refuses
-// anyone but the plant's Owner or Admin, and a repeated request id queues one run.
+// The browser boundary of Plant Intelligence assessments (WP-043, WP-044): a fresh assessment, the explicit open of the
+// current one, a point's own feedback and one citation. The plant and the reader come from the session's seat, never
+// from the request; the domain refuses anyone but the plant's Owner or Admin.
 
 const assessments = createAssessments();
 
-export type RefreshOutcome =
-	| { status: "ok"; value: RefreshReceipt }
-	| { status: "refused"; error: AssessmentError }
-	| { status: "signed_out" | "lost" };
+export type ActionOutcome<T> =
+	{ status: "ok"; value: T } | { status: "refused"; error: AssessmentError } | { status: "signed_out" | "lost" };
 
-export async function requestAssessmentRefresh(requestId: unknown): Promise<RefreshOutcome> {
+async function run<T>(
+	component: string,
+	body: (a: Assessments, db: Database, authority: RequestActor) => Promise<AssessmentReply<T>>,
+): Promise<ActionOutcome<T>> {
 	const viewer = await getViewer();
 	if (!viewer?.authority) return { status: "signed_out" };
 	const db = requestDatabase();
 	if (!db) return { status: "lost" };
 	try {
-		return await assessments.requestRefresh(db, viewer.authority, { requestId });
+		return await body(assessments, db, viewer.authority);
 	} catch (error) {
 		console.error(
 			JSON.stringify({
 				component: "assessment",
-				outcome: "refresh_failed",
+				outcome: `${component}_failed`,
 				code: (error as { code?: string })?.code ?? null,
 			}),
 		);
 		return { status: "lost" };
 	}
+}
+
+export async function requestAssessmentRefresh(requestId: unknown): Promise<ActionOutcome<RefreshReceipt>> {
+	return run("refresh", (a, db, actor) => a.requestRefresh(db, actor, { requestId }));
+}
+
+/** The Owner's or Admin's explicit open of the current assessment: it may release the run to their organizations. */
+export async function markAssessmentSeen(runId: unknown): Promise<ActionOutcome<SeenReceipt>> {
+	return run("seen", (a, db, actor) => a.markAssessmentSeen(db, actor, { runId }));
+}
+
+export async function submitAssessmentFeedback(input: unknown): Promise<ActionOutcome<FeedbackReceipt>> {
+	return run("feedback", (a, db, actor) => a.submitFeedback(db, actor, input));
+}
+
+export async function resolveAssessmentCitation(runId: unknown, key: unknown): Promise<ActionOutcome<CitationView>> {
+	return run("citation", (a, db, actor) => a.resolveCitation(db, actor, { runId, key }));
 }

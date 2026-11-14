@@ -19265,6 +19265,224 @@
 				}
 			}
 		},
+		"assessment_feedback": {
+			"table": {
+				"name": "assessment_feedback",
+				"domain": "intelligence",
+				"purpose": "A reader's own rating of one point of one published Plant Intelligence assessment (REQ-PI-033): useful or not useful with an optional comment, bound to the exact insight, run and rubric version.",
+				"library_owned": false,
+				"jsonb_keys": {},
+				"capabilities": ["CAP-C-020", "CAP-C-021", "CAP-C-026"],
+				"replaces": [],
+				"producer_work_packages": ["WP-044"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-044"],
+					"rule": "WP-044 writes it from intelligence.submitFeedback."
+				},
+				"feature_ids": [
+					"PI-016",
+					"PI-017",
+					"PI-018",
+					"PI-019",
+					"PI-020",
+					"PI-022",
+					"PI-023",
+					"PI-024",
+					"PI-025",
+					"PI-026",
+					"PI-027",
+					"PI-028",
+					"PI-029",
+					"PI-030",
+					"PI-031",
+					"PI-034",
+					"PI-035",
+					"PI-036",
+					"PI-042"
+				],
+				"acceptance_ids": [
+					"AC-PI-016--PI-016",
+					"AC-PI-017--PI-017",
+					"AC-PI-018--PI-018",
+					"AC-PI-019--PI-019",
+					"AC-PI-020--PI-020",
+					"AC-PI-022--PI-022",
+					"AC-PI-023--PI-023",
+					"AC-PI-024--PI-024",
+					"AC-PI-025--PI-025",
+					"AC-PI-026--PI-026",
+					"AC-PI-027--PI-027",
+					"AC-PI-028--PI-028",
+					"AC-PI-029--PI-029",
+					"AC-PI-030--PI-030",
+					"AC-PI-031--PI-031",
+					"AC-PI-034--PI-034",
+					"AC-PI-035--PI-035",
+					"AC-PI-036--PI-036",
+					"AC-PI-042--PI-042"
+				],
+				"future_case_ids": [],
+				"scope": "intelligence",
+				"invariants": [
+					"Only its author writes or reads it.",
+					"It never changes the run, its insights, scores or the rubric."
+				],
+				"revision": "The author's latest rating and comment replace the earlier ones; each change writes an intelligence.feedback_saved audit row.",
+				"idempotency": "Saving the same rating and comment again changes nothing and writes no audit row.",
+				"deletion": "Goes with its insight, run, plant or author account.",
+				"physical_verified": false
+			},
+			"columns": {
+				"run_id": {
+					"note": "The published run."
+				},
+				"ordinal": {
+					"note": "The rated point: its insight ordinal."
+				},
+				"plant_id": {
+					"note": "The assessed plant."
+				},
+				"account_id": {
+					"note": "The author: the only account that reads or changes it."
+				},
+				"rubric_version": {
+					"note": "The run's rubric version when the feedback was given."
+				},
+				"rating": {
+					"note": "useful or not_useful."
+				},
+				"comment": {
+					"note": "The optional comment, 1 to 1000 characters; null when blank."
+				},
+				"recorded_at": {
+					"note": "When the latest rating or comment was saved."
+				}
+			},
+			"foreignKeys": {
+				"run_id,plant_id->assessment_run(id,plant_id)": {
+					"deletion": {
+						"action": "cascade",
+						"policy": "Goes with its run."
+					}
+				},
+				"plant_id->plant(id)": {
+					"deletion": {
+						"action": "cascade",
+						"policy": "Goes with the plant in the church purge."
+					}
+				},
+				"account_id->account(id)": {
+					"deletion": {
+						"action": "cascade",
+						"policy": "Goes with its author's account."
+					}
+				}
+			}
+		},
+		"assessment_seen": {
+			"table": {
+				"name": "assessment_seen",
+				"domain": "intelligence",
+				"purpose": "An Owner's or Admin's explicit first open of one published Plant Intelligence assessment (REQ-PI-024, REQ-PI-032). The earliest open, or 72 hours after the run became available, releases it to the plant's organizations.",
+				"library_owned": false,
+				"jsonb_keys": {},
+				"capabilities": ["CAP-C-020", "CAP-C-021", "CAP-C-026"],
+				"replaces": [],
+				"producer_work_packages": ["WP-044"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-044"],
+					"rule": "WP-044 writes it from intelligence.markAssessmentSeen."
+				},
+				"feature_ids": [
+					"PI-016",
+					"PI-017",
+					"PI-018",
+					"PI-019",
+					"PI-020",
+					"PI-022",
+					"PI-023",
+					"PI-024",
+					"PI-025",
+					"PI-026",
+					"PI-027",
+					"PI-028",
+					"PI-029",
+					"PI-030",
+					"PI-031",
+					"PI-034",
+					"PI-035",
+					"PI-036",
+					"PI-042"
+				],
+				"acceptance_ids": [
+					"AC-PI-016--PI-016",
+					"AC-PI-017--PI-017",
+					"AC-PI-018--PI-018",
+					"AC-PI-019--PI-019",
+					"AC-PI-020--PI-020",
+					"AC-PI-022--PI-022",
+					"AC-PI-023--PI-023",
+					"AC-PI-024--PI-024",
+					"AC-PI-025--PI-025",
+					"AC-PI-026--PI-026",
+					"AC-PI-027--PI-027",
+					"AC-PI-028--PI-028",
+					"AC-PI-029--PI-029",
+					"AC-PI-030--PI-030",
+					"AC-PI-031--PI-031",
+					"AC-PI-034--PI-034",
+					"AC-PI-035--PI-035",
+					"AC-PI-036--PI-036",
+					"AC-PI-042--PI-042"
+				],
+				"future_case_ids": [],
+				"scope": "intelligence",
+				"invariants": [
+					"Written by an explicit open from an eligible Owner or Admin, never by rendering or by an organization seat.",
+					"Never changed after it is written."
+				],
+				"revision": "Immutable; no revision.",
+				"idempotency": "One row per run and account; a repeated open writes nothing.",
+				"deletion": "Goes with its run, plant or account.",
+				"physical_verified": false
+			},
+			"columns": {
+				"run_id": {
+					"note": "The opened run."
+				},
+				"account_id": {
+					"note": "The Owner or Admin who opened it."
+				},
+				"plant_id": {
+					"note": "The assessed plant."
+				},
+				"seen_at": {
+					"note": "When they first opened it."
+				}
+			},
+			"foreignKeys": {
+				"run_id,plant_id->assessment_run(id,plant_id)": {
+					"deletion": {
+						"action": "cascade",
+						"policy": "Goes with its run."
+					}
+				},
+				"plant_id->plant(id)": {
+					"deletion": {
+						"action": "cascade",
+						"policy": "Goes with the plant in the church purge."
+					}
+				},
+				"account_id->account(id)": {
+					"deletion": {
+						"action": "cascade",
+						"policy": "Goes with the account."
+					}
+				}
+			}
+		},
 		"assessment_insight": {
 			"table": {
 				"name": "assessment_insight",

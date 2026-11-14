@@ -309,6 +309,7 @@ export function buildFacts(inputs: FactInputs, asOf: Instant, today: string): c.
 		return a.value === "yes" ? "met" : a.value === "not_yet" ? "not_met" : "unknown";
 	};
 
+	const launch = launchCountdown(inputs.launch, today);
 	const criteria: Partial<Record<CriterionKey, CriterionStatus>> = {
 		committed_adults: committedAdults.status,
 		growth_trajectory: growth.status === "unknown" ? "unknown" : growth.status === "stalled" ? "not_met" : "met",
@@ -318,6 +319,7 @@ export function buildFacts(inputs: FactInputs, asOf: Instant, today: string): c.
 		all_team_leaders: coverage.status,
 		training_complete: training.status,
 		systems_tested: answer("systems_tested"),
+		...c.launchCriteria(launch),
 	};
 
 	return c.plantFacts.parse({
@@ -334,7 +336,7 @@ export function buildFacts(inputs: FactInputs, asOf: Instant, today: string): c.
 		training,
 		attestations,
 		humanRecords: { interviews: inputs.interviews, fourCs: inputs.fourCs },
-		launch: launchCountdown(inputs.launch, today),
+		launch,
 		criteria,
 	});
 }

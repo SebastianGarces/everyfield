@@ -3,6 +3,7 @@ import { defineSafeError, recordId, type Reply } from "../common/values.ts";
 import { instant, localDate } from "../common/time.ts";
 import { phaseNumber } from "../phases/index.ts";
 import { ADULT_TARGET, GROWTH_SLOWED_DAYS, GROWTH_STALLED_DAYS, VISION_TARGET_DAYS, type PlantFacts } from "./facts.ts";
+import { assessedCriterion, concern, lensTile, ownFeedback } from "./views.ts";
 
 // Plant Intelligence assessments (WP-041 and WP-042). A run captures the measured facts (WP-040), the methodology
 // passages a keyword search found for the plant's phase, and the exact reference and rubric versions, then asks the
@@ -288,6 +289,12 @@ export const assessment = z.strictObject({
 	insights: z.array(z.strictObject({ role: z.enum(["focus", "supporting", "positive"]), title: z.string(), severity })),
 	/** What moved since the previous published assessment; null for the first one. */
 	delta: snapshotDelta.nullable(),
+	/** The eight lens tiles, in rubric order, from this run's own snapshot and points (PI-027). */
+	lenses: z.array(lensTile).length(8),
+	/** The assessed phase's exit criteria as this run's snapshot measured them (PI-028); empty for Phase 6. */
+	criteria: z.array(assessedCriterion),
+	/** The points raised at watch or urgent, as an organization may see them once released (PI-032). */
+	concerns: z.array(concern),
 });
 export type Assessment = z.infer<typeof assessment>;
 
@@ -335,6 +342,12 @@ export const assessmentView = z.strictObject({
 	/** The latest published assessment, or null before the first. */
 	current: assessment.nullable(),
 	newest: newestRun.nullable(),
+	/** The plant's phase now. It can differ from the phase the current assessment was written for. */
+	currentPhase: phaseNumber,
+	/** Whether this reader has opened the current assessment (intelligence.markAssessmentSeen). */
+	seen: z.boolean(),
+	/** This reader's own feedback on the current assessment's points; never anyone else's. */
+	feedback: z.array(ownFeedback),
 });
 export type AssessmentView = z.infer<typeof assessmentView>;
 
@@ -372,6 +385,14 @@ export const citationView = z.union([
 		key: z.string(),
 		label: z.string(),
 		value: factEntry.shape.value,
+		/**
+		 * The people the snapshot counted for this fact. A person links only while the reader can still open their
+		 * record; anyone else is counted in `hidden`, with no name or link.
+		 */
+		people: z.strictObject({
+			shown: z.array(z.strictObject({ personId: recordId, name: z.string() })),
+			hidden: z.int().min(0),
+		}),
 		/** The run's as-of instant and the plant-local date the fact was measured on. */
 		asOf: instant,
 		measuredOn: localDate,

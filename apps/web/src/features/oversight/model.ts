@@ -90,11 +90,14 @@ type Status = "positive" | "measured" | "attention" | "risk" | "unknown";
 
 /**
  * The home's health value. Not yet assessed is never On track: On track and Watch come from released assessments
- * (WP-044), and a plant that shares nothing about it is Limited visibility.
+ * (WP-044), and a plant that shares nothing about it, or whose concern rests on a category it does not share, is
+ * Limited visibility.
  */
 export const HEALTH: Record<Health, { label: string; status: Status }> = {
 	limited_visibility: { label: "Limited visibility", status: "unknown" },
 	launch_readiness: { label: "Launch readiness", status: "attention" },
+	watch: { label: "Watch", status: "attention" },
+	on_track: { label: "On track", status: "positive" },
 	not_assessed: { label: "Not yet assessed", status: "measured" },
 };
 

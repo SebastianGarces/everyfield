@@ -108,13 +108,16 @@ test("AC:PI-CASE-018 every citation of a Phase 1 assessment opens the exact fact
 			assert.deepEqual([opened.slug, opened.section, opened.text], [stored.slug, stored.section, stored.text]);
 		}
 	}
-	// The exact values the facts recorded.
+	// The exact values the facts recorded, with the two people who fill the roles, each linked while still live.
+	const holders = await c.rows(sql`SELECT id AS "personId",display_name AS name FROM person WHERE plant_id=${H.id}
+		AND display_name IN ('Adult 04','Adult 05') ORDER BY display_name`);
 	assert.deepEqual(await cite(H, runId, "coverage.filled"), {
 		status: "verified",
 		kind: "fact",
 		key: "coverage.filled",
 		label: "Ministry responsibilities filled",
 		value: 2,
+		people: { shown: holders, hidden: 0 },
 		asOf: a.asOf,
 		measuredOn: today,
 		formulaVersion: "plant-facts/1",
