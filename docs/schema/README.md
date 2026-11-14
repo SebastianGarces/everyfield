@@ -2,7 +2,7 @@
 
 [target.json](target.json) is generated from the Drizzle declarations in [tables.ts](../../packages/db/src/schema/tables.ts). Those declarations own modeled structure; reviewed custom migrations and supplemental catalog expectations own triggers, functions and privileges. Applied SQL remains immutable.
 
-The schema has 105 tables, 1204 columns, 358 declared FKs and 27 JSONB columns. These are counts of definitions, including compound FKs as one constraint. They exclude indexes, triggers, packaged artifacts and external backups.
+The schema has 106 tables, 1212 columns, 361 declared FKs and 27 JSONB columns. These are counts of definitions, including compound FKs as one constraint. They exclude indexes, triggers, packaged artifacts and external backups.
 
 Run documentation/tooling checks from the repository root:
 
@@ -68,6 +68,7 @@ Each replaced table inherits the union of producer packages from its previous ta
 | `pipeline_person` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-098 |
 | `pipeline_sharing` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-007 |
 | `pipeline_stage` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-098 |
+| `pipeline_stage_move` | WP-098 organization pipeline records each human stage move with its reason. | WP-098 |
 | `private_calendar` | WP-039 stores one calendar per original author account and church plant. | WP-039 |
 | `private_week` | WP-039 materializes weeks in order when a save or zone change finds them due; a missing week has a row with no answer. | WP-039 |
 | `private_week_revision` | WP-039 appends a revision only when a save or correction changes the answer. | WP-039 |
