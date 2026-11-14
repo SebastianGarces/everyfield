@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { accountId, personId, recordId, revision } from "../common/values.ts";
-import { localDate } from "../common/time.ts";
+import { instant, localDate } from "../common/time.ts";
 import { normalizedEmail } from "../identity/requests.ts";
 
 // The organization pipeline (REQ-MUL-001, -002, -008, -009): the people a sending church or network develops toward
@@ -215,6 +215,25 @@ export const leadershipConversation = z.strictObject({
 		.max(50),
 });
 
+/**
+ * Whether the person's own Everyfield account is linked to this organization's residency (REQ-MUL-004). Owners and
+ * Admins also see a pending invitation to link, with what resending or revoking it needs.
+ */
+export const residencyLinkStatus = z.discriminatedUnion("status", [
+	z.strictObject({ status: z.literal("not_linked") }),
+	z.strictObject({ status: z.literal("linked") }),
+	z.strictObject({
+		status: z.literal("pending"),
+		invitationId: recordId,
+		revision,
+		recipientEmail: z.string(),
+		/** The day it was last sent, in the organization's time zone. */
+		sentOn: localDate,
+		resendAvailableAt: instant,
+	}),
+]);
+export type ResidencyLinkStatus = z.infer<typeof residencyLinkStatus>;
+
 export const pipelinePersonRecord = z.strictObject({
 	audience: pipelineAudience.exclude(["counts"]),
 	personId,
@@ -228,6 +247,9 @@ export const pipelinePersonRecord = z.strictObject({
 	history: z.array(pipelineHistoryEntry).max(200),
 	notes: z.array(pipelineNote).max(200),
 	conversations: z.array(leadershipConversation).max(200),
+	residency: residencyLinkStatus,
+	/** The organization's revision, which an invitation to link must carry. */
+	organizationRevision: revision,
 	asOf: localDate,
 	viewer: accountId,
 });

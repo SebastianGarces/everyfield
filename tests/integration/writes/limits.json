@@ -2016,6 +2016,10 @@
 		"limit": 4,
 		"retry": 4
 	},
+	"programs.confirmMilestone": {
+		"limit": 4,
+		"retry": 4
+	},
 	"programs.createProgram": {
 		"limit": 4,
 		"retry": 4
@@ -2033,6 +2037,10 @@
 		"retry": 4
 	},
 	"programs.savePlan": {
+		"limit": 5,
+		"retry": 5
+	},
+	"residency.markMilestone": {
 		"limit": 5,
 		"retry": 5
 	}

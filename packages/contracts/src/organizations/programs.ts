@@ -98,6 +98,8 @@ export const recordMilestoneRequest = z.strictObject({
 	milestoneId: recordId,
 	completedOn: localDate,
 });
+/** The director confirms a milestone a linked resident marked done (REQ-MUL-012). The current director only. */
+export const confirmMilestoneRequest = z.strictObject({ enrollmentId: recordId, milestoneId: recordId });
 /** Dated feedback on a hands-on assignment. The current director only; the browser names the feedback's ID. */
 export const addFeedbackRequest = z.strictObject({
 	feedbackId: recordId,
@@ -189,6 +191,27 @@ export const programDetail = z.strictObject({
 });
 export type ProgramDetail = z.infer<typeof programDetail>;
 
+/** Who recorded a milestone: the director in one step for an unlinked enrollee, or the linked resident (WP-100). */
+export const completionSource = z.enum(["program_leader", "resident"]);
+
+/**
+ * What the organization may see from the enrollee's own account (REQ-MUL-003, REQ-MUL-014): nothing without a live
+ * residency link; with one, the resident's own milestone marks only while they share milestone progress, and only a
+ * count of the six Discovery foundations while they share foundations. Never reading rows, reflections or documents.
+ */
+export const residentView = z.discriminatedUnion("status", [
+	z.strictObject({ status: z.literal("not_linked") }),
+	z.strictObject({
+		status: z.literal("linked"),
+		milestones: z.enum(["shared", "not_shared"]),
+		foundations: z.discriminatedUnion("status", [
+			z.strictObject({ status: z.literal("not_shared") }),
+			z.strictObject({ status: z.literal("shared"), completed: z.int().min(0).max(6), total: z.literal(6) }),
+		]),
+	}),
+]);
+export type ResidentView = z.infer<typeof residentView>;
+
 export const enrollmentMilestone = z.strictObject({
 	id: recordId,
 	title: z.string(),
@@ -197,10 +220,11 @@ export const enrollmentMilestone = z.strictObject({
 	completion: z
 		.strictObject({
 			completedOn: localDate,
-			confirmedOn: localDate,
+			/** Null while a resident's own mark waits for the director's confirmation. */
+			confirmedOn: localDate.nullable(),
 			recorder: z.string().nullable(),
 			confirmer: z.string().nullable(),
-			source: z.literal("program_leader"),
+			source: completionSource,
 		})
 		.nullable(),
 	/** The director's dated feedback; null for a viewer who may not read it (REQ-MUL-012). */
@@ -220,6 +244,7 @@ export const enrollmentDetail = z.strictObject({
 	stage: z.strictObject({ id: recordId, label: z.string() }),
 	nextMeeting: z.strictObject({ at: localDateTime, timezone: z.string() }).nullable(),
 	milestones: z.array(enrollmentMilestone),
+	resident: residentView,
 	viewer,
 	today: localDate,
 });

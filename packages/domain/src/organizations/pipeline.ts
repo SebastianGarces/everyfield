@@ -5,6 +5,7 @@ import { createHash, randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
 import type { RequestActor } from "../access/session.ts";
+import { liveResidency } from "../access/pipeline.ts";
 import { activeResidents, answer, one, parse, refuse, seatOf, write, type Executor, type Writer } from "./seat.ts";
 
 // The organization pipeline (REQ-MUL-001, -002, -008, -009). An Owner or Admin reads and changes everyone; a seat named
@@ -135,6 +136,17 @@ FROM g`);
 const recordRow = z.object({
 	allowed: z.boolean(),
 	as_of: z.string().nullable(),
+	organization_revision: z.string().nullable(),
+	residency: z
+		.object({
+			status: z.enum(["linked", "not_linked", "pending"]),
+			invitationId: z.string().optional(),
+			revision: z.string().optional(),
+			recipientEmail: z.string().optional(),
+			sentOn: z.string().optional(),
+			sentAt: z.coerce.date().optional(),
+		})
+		.nullable(),
 	person: z
 		.object({
 			personId: z.string(),
@@ -196,14 +208,23 @@ export async function readPipelinePersonRecord(db: Executor, authority: RequestA
 		const { personId } = parse(z.strictObject({ personId: z.uuid() }), raw);
 		const org = seat.organization;
 		const r = await db.execute(sql`WITH g AS (SELECT ${seat.live} AS allowed),
-o AS (SELECT o.timezone,(clock_timestamp() AT TIME ZONE o.timezone)::date AS today FROM organization o JOIN g ON g.allowed
- WHERE o.id=${org}::uuid),
+o AS (SELECT o.timezone,o.revision,(clock_timestamp() AT TIME ZONE o.timezone)::date AS today FROM organization o
+ JOIN g ON g.allowed WHERE o.id=${org}::uuid),
 x AS (SELECT pp.*,p.display_name,p.email,p.state FROM pipeline_person pp
  JOIN person p ON p.id=pp.person_id AND p.tenant_id=pp.organization_id
  WHERE EXISTS(SELECT FROM o) AND pp.organization_id=${org}::uuid AND pp.person_id=${personId}::uuid
   AND (p.state='live' OR (p.state='retired' AND ${seat.administrator}))
   AND (${seat.administrator} OR pp.responsible_seat_id=${seat.seatId}::uuid))
-SELECT g.allowed,(SELECT today::text FROM o) AS as_of,
+SELECT g.allowed,(SELECT today::text FROM o) AS as_of,(SELECT revision::text FROM o) AS organization_revision,
+ (SELECT CASE WHEN EXISTS(SELECT FROM residency_link l WHERE l.organization_id=${org}::uuid AND l.person_id=x.person_id
+    AND ${liveResidency}) THEN jsonb_build_object('status','linked')
+   WHEN ${seat.administrator} AND i.id IS NOT NULL THEN jsonb_build_object('status','pending','invitationId',i.id,
+    'revision',i.revision::text,'recipientEmail',i.recipient_email,
+    'sentOn',(coalesce(i.resent_at,i.created_at) AT TIME ZONE o.timezone)::date::text,'sentAt',coalesce(i.resent_at,i.created_at))
+   ELSE jsonb_build_object('status','not_linked') END
+  FROM x CROSS JOIN o LEFT JOIN LATERAL (SELECT * FROM invitation i WHERE i.tenant_id=${org}::uuid
+   AND i.purpose='residency_link' AND i.resident_person_id=x.person_id AND i.state='pending'
+   AND i.created_at>clock_timestamp()-interval '720 hours' ORDER BY i.created_at DESC LIMIT 1) i ON true) AS residency,
  (SELECT jsonb_build_object('personId',x.person_id,'name',x.display_name,'email',x.email,'state',x.state,
   'revision',x.revision::text,'assessedOn',x.assessed_on::text,'assessor',x.assessor_label,
   'stage',(SELECT jsonb_build_object('id',s.id,'label',s.label,'kind',s.stable_kind) FROM pipeline_stage s WHERE s.id=x.stage_id),
@@ -292,6 +313,19 @@ FROM g`);
 				loggedOn: c.logged_on,
 				corrections: c.corrections,
 			})),
+			residency:
+				row.residency?.status === "pending"
+					? {
+							status: "pending",
+							invitationId: row.residency.invitationId,
+							revision: row.residency.revision,
+							recipientEmail: row.residency.recipientEmail,
+							sentOn: row.residency.sentOn,
+							// The invitation service allows a resend one minute after the last send.
+							resendAvailableAt: new Date(row.residency.sentAt!.getTime() + 60000).toISOString(),
+						}
+					: { status: row.residency?.status ?? "not_linked" },
+			organizationRevision: row.organization_revision,
 			asOf: row.as_of,
 			viewer: seat.accountId,
 		});
