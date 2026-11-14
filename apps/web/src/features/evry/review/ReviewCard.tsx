@@ -19,6 +19,7 @@ import {
 	ImageNotFound01Icon,
 	Mortarboard01Icon,
 	SquareLock02Icon,
+	Task01Icon,
 	Tag01Icon,
 	Tick02Icon,
 	UserAdd01Icon,
@@ -48,7 +49,6 @@ import { NoticeChanges } from "./NoticeChanges.tsx";
 import { CurrentState, ImportResult, ImportRows, PeopleResult, ReviewedPeople } from "./PeopleChanges.tsx";
 import {
 	actionNotice,
-	addsOnly,
 	approvalLeft,
 	asksReason,
 	approvable,
@@ -68,10 +68,13 @@ import {
 	isNotification,
 	isTeams,
 	isRequired,
+	isTasks,
+	itemField,
 	MAIL_DISMISSED,
 	mailHead,
 	mailRefusalText,
 	missingRequired,
+	openAfter,
 	operationTitle,
 	peopleResult,
 	phaseOf,
@@ -90,7 +93,10 @@ import {
 	reviseInput,
 	seatsAccount,
 	SHARE_CHOICES,
+	savedText,
+	showsBefore,
 	shownChanges,
+	subjectName,
 	valueText,
 	type Change,
 	type Phase,
@@ -436,6 +442,8 @@ const HEAD_TONE: Record<Tone, string> = {
 function note(view: View, review: Review | null, lapsed: boolean, unknown?: Action): string | null {
 	const who = review?.review.target?.label ?? null;
 	const mail = !!review && isMail(review.operation);
+	const tasks = !!review && isTasks(review.operation);
+	const record = tasks && review.review.target?.kind !== "person" ? "task" : "person";
 	// A review the server can't approve as asked says why, in its own words, and offers no Approve.
 	if (review && view === "pending" && review.review.refusal) return review.review.refusal;
 	if (mail) {
@@ -470,11 +478,11 @@ function note(view: View, review: Review | null, lapsed: boolean, unknown?: Acti
 				? mailRefusalText(review.receipt?.code)
 				: review && isSettings(review.operation)
 					? settingsRefusalText(review.receipt?.code)
-					: refusalText(review?.receipt?.code, who, !!review && isMeetings(review.operation));
+					: refusalText(review?.receipt?.code, who, review?.operation);
 		case "unconfirmed":
 			return review && retryable(review, lapsed)
 				? "Evry can't confirm that this was saved. Try again. A change that was saved is not saved twice."
-				: "Evry can't confirm that this was saved, and the approval expired. Open the person to check.";
+				: `Evry can't confirm that this was saved, and the approval expired. ${tasks ? "Open Tasks" : "Open the person"} to check.`;
 		case "unknown":
 			return UNKNOWN_TEXT[unknown ?? "approve"];
 		case "photo_unavailable":
@@ -490,8 +498,8 @@ function note(view: View, review: Review | null, lapsed: boolean, unknown?: Acti
 		case "withheld":
 			// Nothing ran unless it was approved; after an approval the card can't see the result any more.
 			return review?.status === "approved"
-				? "The person in this change is no longer available to you, so Evry can't show this change or its result."
-				: "The person in this change is no longer available to you. Nothing was changed.";
+				? `The ${record} in this change is no longer available to you, so Evry can't show this change or its result.`
+				: `The ${record} in this change is no longer available to you. Nothing was changed.`;
 		case "unavailable":
 			// Access ended, so the card can't read the result: it says so and claims nothing about the change.
 			return "You can't see this change now, so Evry can't show its result. Changes like this need an Owner or Admin seat in this church.";
@@ -511,8 +519,7 @@ function announcement(view: View, review: Review | null, lapsed: boolean, unknow
 	if (view === "completed" && review && isMail(review.operation)) return mailHead(review, "completed")!.title;
 	if (view === "completed" && review && peopleResult(review)) return `${peopleResult(review)}.`;
 	if (view === "completed" && review?.receipt?.import) return "Import saved.";
-	if (view === "completed")
-		return review?.review.target ? `Saved. ${review.review.target.label} is updated.` : "Saved.";
+	if (view === "completed") return review ? savedText(review) : "Saved.";
 	return [head, note(view, review, lapsed, unknown)].filter(Boolean).join(". ");
 }
 
@@ -776,6 +783,7 @@ function Footer({
 	onRevise: () => void;
 }) {
 	const who = review.review.target;
+	const open = openAfter(review);
 	const other = (action: string) => r.busy !== null && r.busy !== action;
 	const cancel = (
 		<Button
@@ -911,10 +919,10 @@ function Footer({
 							<Icon icon={ArrowRight02Icon} size={16} />
 						</IntentLink>
 					</Button>
-				) : who?.kind === "person" && review.operation !== "people.deletePerson" && !review.review.withheld ? (
+				) : open ? (
 					<Button size="sm" variant="ghost" asChild>
-						<IntentLink href={`/people/${who.id}`}>
-							Open {who.label}
+						<IntentLink href={open.href}>
+							{open.label}
 							<Icon icon={ArrowRight02Icon} size={16} />
 						</IntentLink>
 					</Button>
@@ -993,6 +1001,7 @@ const NOTIFICATION_SUBJECT: Partial<Record<string, string>> = {
 const RECORD_GLYPH: Partial<Record<NonNullable<Review["review"]["target"]>["kind"], IconSvgElement>> = {
 	person: UserIcon,
 	message: Mail01Icon,
+	task: Task01Icon,
 	team: UserGroupIcon,
 	role: Briefcase01Icon,
 	training: Mortarboard01Icon,
@@ -1031,6 +1040,8 @@ function Affects({ review }: { review: Review }) {
 	const tag = !kind && review.review.changes.find((c) => c.field === "tag" || c.field === "createTag")?.after;
 	const imported = review.operation === "people.executeBulkImport";
 	const program = review.operation === "development.saveProgram";
+	// A task or follow-up review names its task, its person or how many items it lists; only a person shows initials.
+	const task = isTasks(review.operation) && kind !== "person";
 	// A ministry change names its ministry, role, program or responsibility; a new ministry or program its name.
 	const record = isTeams(review.operation) ? ((target && RECORD_GLYPH[target.kind]) ?? UserGroupIcon) : null;
 	const glyph = own
@@ -1040,28 +1051,32 @@ function Affects({ review }: { review: Review }) {
 				? Mortarboard01Icon
 				: imported
 					? FileImportIcon
-					: kind === "household"
-						? Home01Icon
-						: kind === "tag" || tag
-							? Tag01Icon
-							: mail
-								? Mail01Icon
-								: create
-									? UserAdd01Icon
-									: null));
+					: task
+						? Task01Icon
+						: kind === "household"
+							? Home01Icon
+							: kind === "tag" || tag
+								? Tag01Icon
+								: mail
+									? Mail01Icon
+									: create
+										? UserAdd01Icon
+										: null));
 	const name = own
 		? (NOTIFICATION_SUBJECT[review.operation] ?? "Your notifications")
 		: imported
 			? "People import"
-			: tag
-				? String(tag)
-				: mail
-					? String(review.review.changes.find((c) => c.field === "subject")?.after ?? target?.label ?? "Email")
-					: create
-						? String(review.review.changes.find((c) => c.field === "displayName")?.after ?? "New person")
-						: record && !target
-							? String(review.review.changes.find((c) => c.field === "name")?.after ?? "New ministries")
-							: (target?.label ?? "Not available");
+			: isTasks(review.operation)
+				? subjectName(review)
+				: tag
+					? String(tag)
+					: mail
+						? String(review.review.changes.find((c) => c.field === "subject")?.after ?? target?.label ?? "Email")
+						: create
+							? String(review.review.changes.find((c) => c.field === "displayName")?.after ?? "New person")
+							: record && !target
+								? String(review.review.changes.find((c) => c.field === "name")?.after ?? "New ministries")
+								: (target?.label ?? "Not available");
 	return (
 		<div className="flex items-center gap-3">
 			{glyph ? (
@@ -1251,30 +1266,37 @@ function Notes({ notes }: { notes: string[] }) {
 function Changes({ review, staged, onRetry }: { review: Review; staged: StagedPhoto; onRetry: () => void }) {
 	const changes = shownChanges(review);
 	if (!changes.length) return null;
-	const create = addsOnly(review.operation);
-	// A Meetings value with nothing before it is new: it shows only what it will be.
-	const fresh = (c: Change) => isMeetings(review.operation) && (c.before === null || c.before === undefined);
+	// A review of several items lists each by its name, on its own line, with the value it changes under it.
+	const item = itemField(review.operation);
+	const values = (c: Change, field: string) => (
+		<dd className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1">
+			{showsBefore(review, c) ? (
+				<>
+					<span className="sr-only">from </span>
+					<Value field={field} value={c.before} before />
+					<Icon icon={ArrowRight02Icon} size={16} className="text-text-3" />
+					<span className="sr-only"> to </span>
+				</>
+			) : null}
+			<Value field={field} value={c.after} />
+		</dd>
+	);
 	return (
 		<dl className="flex flex-col gap-2 rounded-md bg-surface-2 px-3 py-2.5 text-sm">
-			{changes.map((c: Change) =>
-				c.field === "photo" && review.review.target ? (
+			{changes.map((c: Change, n) =>
+				item ? (
+					<div key={n} className="flex min-w-0 flex-col gap-0.5">
+						<dt className="font-medium break-words text-ink">{c.field}</dt>
+						{values(c, item)}
+					</div>
+				) : c.field === "photo" && review.review.target ? (
 					<PhotoChange key={c.field} review={review} change={c} staged={staged} onRetry={onRetry} />
 				) : carryOver(c) ? (
 					<LinkChange key={c.field} change={c} />
 				) : (
 					<div key={c.field} className="grid grid-cols-[minmax(88px,auto)_minmax(0,1fr)] items-baseline gap-x-3">
 						<dt className="text-text-2">{fieldLabel(c.field, review.operation)}</dt>
-						<dd className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1">
-							{create || c.field === "reason" || fresh(c) ? null : (
-								<>
-									<span className="sr-only">from </span>
-									<Value field={c.field} value={c.before} before />
-									<Icon icon={ArrowRight02Icon} size={16} className="text-text-3" />
-									<span className="sr-only"> to </span>
-								</>
-							)}
-							<Value field={c.field} value={c.after} />
-						</dd>
+						{values(c, c.field)}
 					</div>
 				),
 			)}

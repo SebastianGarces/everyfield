@@ -8,8 +8,10 @@ import { COMMUNICATION_COMMANDS } from "../adapters/communication/commands/index
 import { MEETINGS_COMMANDS } from "../adapters/meetings/commands/index.ts";
 import { NOTIFICATION_COMMANDS } from "../adapters/notifications/commands/index.ts";
 import { untouchedMail } from "../adapters/communication/reads/index.ts";
+import { FOLLOWUP_COMMANDS } from "../adapters/followups/commands/index.ts";
 import { PEOPLE_COMMANDS } from "../adapters/people/commands/index.ts";
 import { SETTINGS_COMMANDS } from "../adapters/settings/index.ts";
+import { TASK_COMMANDS } from "../adapters/tasks/commands/index.ts";
 import { ORGANIZATION_COMMANDS } from "../adapters/people-organization/commands/index.ts";
 import { TEAMS_COMMANDS } from "../adapters/teams/commands/index.ts";
 import { ONBOARDING_COMMANDS } from "../adapters/onboarding/commands/index.ts";
@@ -35,6 +37,8 @@ export const REVIEWED_WRITES = {
 	...SETTINGS_COMMANDS,
 	...ONBOARDING_COMMANDS,
 	...PIPELINE_COMMANDS,
+	...TASK_COMMANDS,
+	...FOLLOWUP_COMMANDS,
 } as const;
 export type Operation = keyof typeof REVIEWED_WRITES;
 export const operation = z.enum(Object.keys(REVIEWED_WRITES) as [Operation]);
@@ -67,8 +71,8 @@ export const mine = (actor: EvryActor) =>
 /**
  * The review read (C32): the actor's own proposal under the lock-free live check, so a sign-out or seat change never
  * waits for it. Each operation keeps its native command's role floor (or higher) through `mine`: church changes need an
- * Owner or Admin, while anyone with a seat may review a change to their own account, and a Member may review a Meetings
- * write they may make natively (their own RSVP, their own ministry's team meeting).
+ * Owner or Admin, while anyone with a seat may review a change to their own account or their own task work, and a
+ * Member may review a Meetings write they may make natively (their own RSVP, their own ministry's team meeting).
  */
 export const readable = (actor: EvryActor) =>
 	sql`((${mine(actor)} AND ${liveRead({ session: actor.session, owner: actor.owner, seatId: actor.seatId ?? undefined })})
@@ -105,6 +109,7 @@ export const projection = (alias: string) =>
 			OR ${alias}.review->'target'->>'kind' NOT IN ('person','message','team','role','training','responsibility','household','tag')
 			OR (${alias}.review->'target'->>'kind'='person' AND EXISTS(SELECT FROM person t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.tenant_id=${alias}.tenant_id AND t.state='live'))
 			OR (${alias}.review->'target'->>'kind'='message' AND EXISTS(SELECT FROM communication t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.plant_id=${alias}.tenant_id))
+			OR (${alias}.review->'target'->>'kind'='task' AND EXISTS(SELECT FROM task t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.plant_id=${alias}.tenant_id AND t.deleted_at IS NULL))
 			OR (${alias}.review->'target'->>'kind'='household' AND EXISTS(SELECT FROM household t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.plant_id=${alias}.tenant_id))
 			OR (${alias}.review->'target'->>'kind'='tag' AND EXISTS(SELECT FROM tag t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.plant_id=${alias}.tenant_id))
 			OR (${alias}.review->'target'->>'kind'='team' AND EXISTS(SELECT FROM team t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.plant_id=${alias}.tenant_id))
@@ -130,6 +135,7 @@ export const projection = (alias: string) =>
 const targetKind = z.enum([
 	"person",
 	"message",
+	"task",
 	"team",
 	"role",
 	"training",

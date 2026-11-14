@@ -94,6 +94,22 @@ const RealDate = Date;
 /** EVRY_EVAL_RECORD=1 records the calls a file does not hold yet (a new or changed case) and drops unused ones. */
 export const recording = process.env.EVRY_EVAL_RECORD === "1";
 
+/**
+ * A recording run shares the provider's per-minute token cap with other work, so a call refused by the cap is asked
+ * again after a pause instead of failing its case. Replay never reaches the provider.
+ */
+async function capped<T>(call: () => PromiseLike<T>): Promise<T> {
+	for (let attempt = 0; ; attempt++) {
+		try {
+			return await call();
+		} catch (error) {
+			const status = (error as { statusCode?: number }).statusCode;
+			if (status !== 429 || attempt >= 8) throw error;
+			await new Promise((done) => setTimeout(done, 2_000 * (attempt + 1)));
+		}
+	}
+}
+
 /** What the provider observes of one call: a different value is a different call. */
 export const callKey = ({
 	prompt,
@@ -186,7 +202,7 @@ export function recorder(name: string) {
 				keys.push(key);
 				let call = known(key);
 				if (!call && recording) {
-					const out = await realModel().doGenerate(options);
+					const out = await capped(() => realModel().doGenerate(options));
 					call = { kind: "generate", content: out.content.filter((c) => c.type === "text"), usage: usageOf(out.usage) };
 					fresh.push(call.usage);
 				}
@@ -208,7 +224,7 @@ export function recorder(name: string) {
 					return { stream: new ReadableStream({ start: (c) => (call.parts.forEach((p) => c.enqueue(p)), c.close()) }) };
 				}
 				if (!recording) return missing(key);
-				const out = await realModel().doStream(options);
+				const out = await capped(() => realModel().doStream(options));
 				const parts: LanguageModelV4StreamPart[] = [];
 				const saved: Call = { kind: "stream", parts, usage: { input: 0, output: 0 } };
 				return {
@@ -217,7 +233,8 @@ export function recorder(name: string) {
 						new TransformStream({
 							transform(part, controller) {
 								parts.push(part);
-								if (part.type === "finish") {
+								// A stream the provider ended with an error (its token cap) is never saved as a recording.
+								if (part.type === "finish" && !parts.some((p) => p.type === "error")) {
 									saved.usage = usageOf(part.usage);
 									fresh.push(saved.usage);
 									used.set(key, saved);
@@ -527,9 +544,11 @@ export async function converse(
 				card.prepared = true;
 				card.review = proposal.review;
 				// The card's id and expiry come from the database. The model reads pinned ones, so a replay sends the
-				// recorded call; everything else on the card is the real review.
+				// recorded call; everything else on the card is the real review. A contact time taken from the database clock
+				// carries its minute, so the model reads NOW's instead.
 				return proposalForModel({
 					...proposal,
+					review: pinnedContactTime(proposal.review, call.input),
 					id: `5b6d1f0e-0000-4000-8000-${(0x7000 + number).toString(16).padStart(12, "0")}`,
 					expiresAt: new Date(NOW.getTime() + REVIEW_MINUTES * 60_000),
 				});
@@ -557,6 +576,35 @@ export async function converse(
 	}
 	if (failure) throw failure;
 	return { kind: "application", calls, proposals, answer, keys, ...(failed ? { failed } : {}) };
+}
+
+/**
+ * A contact log's time taken from the database clock, as NOW in the review's zone ("2026-11-09 09:00 America/Chicago");
+ * other reviews as they are. The review uses the clock for "now" and for any later time it is given (a date today is
+ * noon, so it is one), and the eval clock keeps running from NOW, so its minute depends on when the case runs. A time
+ * at or after NOW's minute can only be the clock's.
+ */
+function pinnedContactTime<R extends { changes: { field: string; after: unknown }[] }>(review: R, input: unknown): R {
+	if ((input as { occurred?: unknown } | null)?.occurred === undefined) return review;
+	const changes = review.changes.map((c) => {
+		const zone = c.field === "occurredAt" && typeof c.after === "string" ? c.after.split(" ").at(-1) : undefined;
+		if (!zone?.includes("/")) return c;
+		const part = (type: string) =>
+			new Intl.DateTimeFormat("en-US", {
+				timeZone: zone,
+				year: "numeric",
+				month: "2-digit",
+				day: "2-digit",
+				hour: "2-digit",
+				minute: "2-digit",
+				hourCycle: "h23",
+			})
+				.formatToParts(NOW)
+				.find((p) => p.type === type)!.value;
+		const now = `${part("year")}-${part("month")}-${part("day")} ${part("hour")}:${part("minute")} ${zone}`;
+		return String(c.after) >= now ? { ...c, after: now } : c;
+	});
+	return { ...review, changes };
 }
 
 /** The tone and usefulness rubric, graded by the same model after the hard checks pass. No weights, no score. */

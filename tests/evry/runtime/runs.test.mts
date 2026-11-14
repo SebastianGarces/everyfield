@@ -267,6 +267,41 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 	// Admin may propose the reviewed People, seat, settings, sharing and connection changes, the same floor as the native
 	// commands; any plant seat proposes changes to its own notifications and account, a Member the Meetings changes the
 	// native commands let a Member make, and an organization Owner its own profile.
+	// A Member may propose only the task and follow-up changes the native commands allow on their own work.
+	const memberTaskWrites = [
+		"tasks.complete",
+		"tasks.completeOccurrence",
+		"tasks.reopen",
+		"tasks.changeStatus",
+		"tasks.waive",
+		"tasks.bulkComplete",
+		"tasks.createSubtask",
+		"tasks.setSubtaskCompletion",
+		"tasks.reopenObligation",
+		"followups.recordOutcome",
+		"followups.correctOutcome",
+	];
+	const taskWrites = [
+		"tasks.create",
+		"tasks.configureRecurrence",
+		"tasks.edit",
+		"tasks.complete",
+		"tasks.completeOccurrence",
+		"tasks.reopen",
+		"tasks.changeStatus",
+		"tasks.waive",
+		"tasks.delete",
+		"tasks.bulkComplete",
+		"tasks.bulkReschedule",
+		"tasks.createSubtask",
+		"tasks.setSubtaskCompletion",
+		"tasks.removeSubtask",
+		"tasks.createFollowUp",
+		"tasks.assignFollowUp",
+		"tasks.reopenObligation",
+		"followups.recordOutcome",
+		"followups.correctOutcome",
+	];
 	for (const who of ["owner", "member", "orgOwner", "seatless"] as const) {
 		const catalog = readCatalog(await actor(who));
 		const operations = catalog.domains.flatMap((d) => d.operations.map((o) => o.operation));
@@ -326,10 +361,12 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 						"onboarding.declareJourney",
 						"identity.answerLeadOnboarding",
 						"onboarding.complete",
+						...taskWrites,
 					]
 				: who === "member"
-					? // A Member changes only their own bell, notification settings and account, and the Meetings changes the native
-						// commands let a Member make; the church digest is an Owner's or Admin's.
+					? // A Member changes only their own bell, notification settings and account, the Meetings changes the native
+						// commands let a Member make and the task and follow-up changes they allow on their own work; the church
+						// digest is an Owner's or Admin's.
 						[
 							"notifications.markSelectedRead",
 							"notifications.markAllVisibleRead",
@@ -337,6 +374,7 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 							...MEMBER_MEETINGS_WRITES,
 							"account.finalizeAvatar",
 							"account.requestDeletion",
+							...memberTaskWrites,
 						]
 					: who === "orgOwner"
 						? // An organization Owner sets only their own oversight digest (D-1278) and their organization's profile, and
@@ -351,6 +389,40 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 		);
 		const teamsReads = READ_DOMAINS.teams.map((a) => a.operation);
 		const peopleReads = ["people.listPeople", "people.getPerson", "people.getPersonPhoto", "people.checkForDuplicates"];
+		// Any seat reads tasks and follow-ups; templates, assignees, coverage, handoffs and receipts need Owner or Admin.
+		const memberTaskReads = [
+			"tasks.list",
+			"tasks.count",
+			"tasks.get",
+			"tasks.statusHistory",
+			"tasks.listSubtasks",
+			"tasks.listPrerequisites",
+			"tasks.findOpenOccurrence",
+			"tasks.listFollowUpOwners",
+			"followups.readObligations",
+			"followups.listContactHistory",
+		];
+		const ownerTaskReads = [
+			"tasks.list",
+			"tasks.count",
+			"tasks.get",
+			"tasks.statusHistory",
+			"tasks.listSubtasks",
+			"tasks.listPrerequisites",
+			"tasks.prerequisiteCandidates",
+			"tasks.findOpenOccurrence",
+			"tasks.eligibleAssignees",
+			"tasks.relationOptions",
+			"tasks.listTemplates",
+			"tasks.previewTemplate",
+			"tasks.readPhaseOffer",
+			"tasks.importReceipt",
+			"tasks.listFollowUpOwners",
+			"followups.readObligations",
+			"followups.listContactHistory",
+			"tasks.followUpCoverage",
+			"tasks.planHandoff",
+		];
 		// Only an Owner or Admin reviews the pairs an import flagged, as on /people/duplicates.
 		const ownerReads = [...peopleReads, "people.listDuplicatePairs"];
 		const organizationReads = [
@@ -383,6 +455,7 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 						"people.listTags",
 						"people.previewImport",
 						"communication.list",
+						...ownerTaskReads,
 						"notifications.feed",
 						"notifications.preferences.get",
 						"notifications.previewPlanterDigest",
@@ -400,6 +473,7 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 							...peopleReads,
 							...organizationReads,
 							"communication.list",
+							...memberTaskReads,
 							"notifications.feed",
 							"notifications.preferences.get",
 							...teamsReads,
@@ -579,6 +653,7 @@ test("AC:INH-EDGES-03 AC:TEN-008 AC:EVRY-CONTEXT-BOUNDS a guessed foreign id and
 		[
 			"calendar_read",
 			"communication_read",
+			"followups_read",
 			"meetings_read",
 			"notifications_read",
 			"onboarding_read",
@@ -588,6 +663,7 @@ test("AC:INH-EDGES-03 AC:TEN-008 AC:EVRY-CONTEXT-BOUNDS a guessed foreign id and
 			"seats_read",
 			"select_returned_rows",
 			"sharing_read",
+			"tasks_read",
 			"teams_read",
 		],
 		"prompt text cannot add tools or scope; the owner's catalog decides them",

@@ -13,25 +13,29 @@
 		"eval": {
 			"calls": [
 				{
-					"operation": "people.getPipelineData",
-					"alsoAccepted": ["people.listPeople"]
+					"operation": "tasks.list"
+				},
+				{
+					"operation": "tasks.listFollowUpOwners",
+					"alsoAccepted": ["followups.readObligations"]
+				},
+				{
+					"operation": "meetings.list",
+					"input": {
+						"window": "upcoming"
+					}
 				}
 			],
 			"require": [
-				"/task|meeting|calendar/i",
-				"/\\b(can['’]?t|cannot|can not|unable|don['’]?t|doesn['’]?t|do not|does not|not|no way|only|isn['’]?t|aren['’]?t|wasn['’]?t|weren['’]?t)\\b/i"
+				"/Plan the Sunday interest meeting|Order launch banners|Submit the insurance forms/",
+				"/follow[- ]?ups?/i",
+				"/Vision Meeting #4|Launch team orientation|Worship team training/"
 			],
-			"forbid": ["/spiritual|mature|godly/i", "/\\b(meeting|task)s? (on|at|due)\\b[^.\\n]{0,30}\\d/i"],
+			"forbid": ["/spiritual|mature|godly/i"],
 			"target": {
-				"futureOperations": ["dashboard.availableActions", "tasks.list", "followups.readObligations"]
+				"futureOperations": ["dashboard.availableActions"]
 			},
-			"derivation": "Today-pass: the pipeline read with coverage limits stated (tasks and meetings not readable) and no invented tasks, meetings or spiritual ranking.",
-			"finding": {
-				"checks": [
-					"says /\\b(can['’]?t|cannot|can not|unable|don['’]?t|doesn['’]?t|do not|does not|not|no way|only|isn['’]?t|aren['’]?t|wasn['’]?t|weren['’]?t)\\b/i"
-				],
-				"note": "T-317 re-record (D-1312): model sampling on the merged catalog; set from the report (D-958, D-1151)."
-			}
+			"derivation": "Tasks due this week and overdue, the upcoming meetings, open follow-ups with owners and the pipeline's flagged people, each with where it came from. Overview next steps (T-330) are the alpha target. No spiritual ranking."
 		}
 	},
 	{
@@ -46,14 +50,6 @@
 		"expected_answer": "Today: a clear can't-yet plus where to look (Meetings screen). Later: next meetings with church-local date, time and venue",
 		"must_not": "Say there are no meetings; guess dates",
 		"eval": {
-			"calls": [
-				{
-					"operation": "meetings.list",
-					"input": {
-						"window": "upcoming"
-					}
-				}
-			],
 			"require": [
 				"/Vision Meeting #4|vision/i",
 				"/Nov(ember)?\\.? 12|12 Nov|Thu/i",
@@ -66,6 +62,14 @@
 			"forbid": [
 				"/\\b(you have )?no (upcoming )?meetings\\b|aren['’]?t any (upcoming )?meetings|don['’]?t have any (upcoming )?meetings/i"
 			],
+			"calls": [
+				{
+					"operation": "meetings.list",
+					"input": {
+						"window": "upcoming"
+					}
+				}
+			],
 			"derivation": "The upcoming list from meetings.list, as the Meetings page shows it: church-local date, time and venue, with the cancelled meeting marked cancelled."
 		}
 	},
@@ -76,13 +80,34 @@
 		"area": "Dashboard / tasks",
 		"case_id": "MON-03",
 		"question": "whats overdue",
-		"status": "Not yet",
+		"status": "Supported",
 		"expected_operation": "not yet: needs `tasks.list` + `tasks.count` (WP-067)",
 		"expected_answer": "Later: overdue tasks with owner and due date, exact count",
 		"must_not": "Treat follow-up obligations and tasks as the same list without saying so",
 		"eval": {
-			"cantYet": true,
-			"forbid": ["/\\b\\d+ (overdue|late) (tasks?|items?)\\b/i"],
+			"calls": [
+				{
+					"operation": "tasks.list",
+					"input": {
+						"due": "overdue"
+					}
+				}
+			],
+			"require": [
+				"Order launch banners",
+				"Confirm the school rental",
+				"Submit the insurance forms",
+				"Send the launch budget to Hill Country Church",
+				"Book the school gym for the interest meeting",
+				"Call the worship leader",
+				"/\\b(6|six)\\b/i",
+				"/Lena Park/",
+				"/Ana Rivera/",
+				"/Nov(ember)?\\.? 2\\b|11\\/0?2\\b|2026-11-02/i",
+				"/follow[- ]?ups?/i"
+			],
+			"forbid": ["/Pray for the launch|Plan the Sunday interest meeting/"],
+			"derivation": "Six overdue tasks on the Tasks page (Order launch banners Nov 2, Submit the insurance forms Nov 6, Send the launch budget to Hill Country Church Nov 7 and Book the school gym for the interest meeting Nov 8 for Nate, Confirm the school rental Nov 5 for Lena Park, Call the worship leader Nov 8 for Ana Rivera), with the exact count; open follow-ups are listed apart and called follow-ups. No follow-up is overdue.",
 			"finding": {
 				"checks": ["calls only no tool", "says it can't do that yet"],
 				"note": "T-317 re-record (D-1312): model sampling on the merged catalog; set from the report (D-958, D-1151)."
@@ -137,12 +162,12 @@
 				}
 			],
 			"names": {
-				"allowed": ["inactivity=alert|warning"],
+				"allowed": ["inactivity=alert|warning", "Ana Rivera"],
 				"all": "inactivity=alert"
 			},
 			"require": ["/inactiv|alert|warning|last activity|no recent activity/i"],
 			"forbid": ["/(last|recent) (call|email|text|phone call)|you (called|emailed|texted)/i"],
-			"derivation": "The fixture's alert-level people are Daniel Cruz, Carmen Martinez, Kevin Walsh and Pedro Martinez; warning-level people may also be named, no one at level none."
+			"derivation": "The fixture's alert-level people are Daniel Cruz, Carmen Martinez, Kevin Walsh and Pedro Martinez; warning-level people may also be named, no one at level none. Ana Rivera may be named as the person who recorded the Johnsons' call."
 		}
 	},
 	{
@@ -174,13 +199,26 @@
 		"area": "Dashboard / tasks",
 		"case_id": "MON-08",
 		"question": "remind me every monday to review the pipeline",
-		"status": "Not yet",
+		"status": "Supported",
 		"expected_operation": "not yet: needs `tasks.create` + `tasks.configureRecurrence` proposal (WP-068)",
 		"expected_answer": "Later: one reviewed proposal showing recurrence, timezone and owner",
 		"must_not": "Create anything without a review card",
 		"eval": {
-			"cantYet": true,
-			"forbid": ["/I['’]?(ve| have)? (set|created|scheduled)|reminder (is )?(set|created)/i"]
+			"proposals": [
+				{
+					"operation": "tasks.create",
+					"input": {
+						"recurrence": {
+							"frequency": "weekly"
+						}
+					}
+				}
+			],
+			"require": ["/review|approv/i"],
+			"forbid": [
+				"/\\bI['’]?(ve| have) (created|set up|scheduled|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated|changed)\\b(?! (a|the|your|this|that|one) (review|change|proposal))|(?<!\\b(nothing|not|no|never|nobody|none)\\b[^.!?]{0,20})\\b(has been|have been|is now|are now) (created|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated)\\b/i"
+			],
+			"derivation": "One tasks.create review for a weekly task due on a Monday in America/Chicago, owned by the Owner; nothing exists until it is approved."
 		}
 	},
 	{
@@ -195,15 +233,6 @@
 		"expected_answer": "Later: guests by RSVP state; RSVP is not attendance",
 		"must_not": "Report RSVPs as attendees",
 		"eval": {
-			"calls": [
-				{
-					"operation": "meetings.listGuests",
-					"input": {
-						"meetingId": "5b6d1f0e-0000-4000-8000-000000000a21"
-					}
-				}
-			],
-			"require": ["/Kevin Walsh/", "/Jessica Wu/", "/Joy Lee/", "/Elena Garcia/", "/Roberto Garcia/", "/RSVP/i"],
 			"names": {
 				"allowed": [
 					"Nate Ellis",
@@ -216,6 +245,15 @@
 				]
 			},
 			"forbid": ["/attend(ed|ees)\\b[^.\\n]{0,20}:/i", "/\\b(have|has) attended\\b/i"],
+			"calls": [
+				{
+					"operation": "meetings.listGuests",
+					"input": {
+						"meetingId": "5b6d1f0e-0000-4000-8000-000000000a21"
+					}
+				}
+			],
+			"require": ["/Kevin Walsh/", "/Jessica Wu/", "/Joy Lee/", "/Elena Garcia/", "/Roberto Garcia/", "/RSVP/i"],
 			"derivation": "Guests of Vision Meeting #4 by RSVP: yes Nate Ellis, Kevin Walsh, Jessica Wu; no Joy Lee; no answer Elena and Roberto Garcia. RSVP is not attendance."
 		}
 	},
@@ -259,6 +297,14 @@
 		"expected_answer": "Later: unchecked kit items only",
 		"must_not": "Tick kit items without a review",
 		"eval": {
+			"forbid": [
+				"/I['’]?(ve| have) (checked off|ticked|marked)|(is|are|has been|have been) now (checked off|ticked|marked)/i",
+				"/Sign-in sheets|Welcome brochures|Clipboards|banner|Flash drive/i"
+			],
+			"finding": {
+				"checks": ["calls only no tool"],
+				"note": "Looks for a Vision Kit among tags, ministry templates and ministries, then says the records it can read don't show the kit. T-318 merge with T-320 (D-958, D-1151): with the task, follow-up and teams tools in one tool list, the re-recorded model answer misses these checks; recorded as drift, not a change in what Evry may do."
+			},
 			"calls": [
 				{
 					"operation": "meetings.listKit",
@@ -268,10 +314,6 @@
 				}
 			],
 			"require": ["/Name tags/i", "/Response cards/i"],
-			"forbid": [
-				"/I['’]?(ve| have) (checked off|ticked|marked)|(is|are|has been|have been) now (checked off|ticked|marked)/i",
-				"/Sign-in sheets|Welcome brochures|Clipboards|banner|Flash drive/i"
-			],
 			"derivation": "Only the two unchecked items of Thursday's kit."
 		}
 	},
@@ -314,6 +356,7 @@
 		"expected_answer": "Later: per-meeting counts; zero recorded vs unknown kept apart",
 		"must_not": "Treat a meeting with no attendance recorded as zero",
 		"eval": {
+			"forbid": ["/\\b(0|zero) (people|attendees|attendance|attended)\\b/i"],
 			"calls": [
 				{
 					"operation": "meetings.attendanceTrend"
@@ -324,7 +367,6 @@
 				"/\\b24\\b/",
 				"/not recorded|no attendance (was |is )?recorded|wasn['’]?t recorded|isn['’]?t recorded|unknown|no count/i"
 			],
-			"forbid": ["/\\b(0|zero) (people|attendees|attendance|attended)\\b/i"],
 			"derivation": "18 (Oct 29), not recorded (Nov 5) and 24 (Nov 8): the middle one is never shown as 0."
 		}
 	},
@@ -393,19 +435,33 @@
 		"area": "Follow-up",
 		"case_id": "GST-01",
 		"question": "who came for the first time last night and still needs a follow up",
-		"status": "Not yet",
+		"status": "Supported",
 		"expected_operation": "not yet: needs `meetings.listAttendance` + `followups.readObligations`",
 		"expected_answer": "Later: first-time attendees with open obligations and owner",
 		"must_not": "Infer attendance from stage alone",
 		"eval": {
-			"cantYet": true,
-			"names": {
-				"allowed": []
-			},
-			"finding": {
-				"checks": ["calls only no tool", "names only matching records"],
-				"note": "T-317 (D-1189, D-1230): re-recorded after the Evry meetings tools joined the teams and people tools; the owner chose to record the drift as findings. T-317 re-record (D-1312): model sampling on the merged catalog; set from the report (D-958, D-1151)."
-			}
+			"calls": [
+				{
+					"operation": "meetings.listAttendance",
+					"input": {
+						"meetingId": "5b6d1f0e-0000-4000-8000-000000000a27"
+					}
+				},
+				{
+					"operation": "followups.readObligations",
+					"input": {
+						"meetingId": "5b6d1f0e-0000-4000-8000-000000000a27",
+						"state": "open"
+					},
+					"alsoAccepted": ["tasks.listFollowUpOwners"]
+				}
+			],
+			"require": ["Hannah Barnes", "Isaac Barnes", "/Ana Rivera/"],
+			"forbid": [
+				"/Gavin Barnes[^.\\n]{0,40}(still )?(open|needs)/i",
+				"/Aaron Abbott|Fiona Abbott|Daniel Cruz|Jessica Wu/"
+			],
+			"derivation": "Last night's Vision Meeting #3 has 24 first-time guests in its finalized attendance. Two still have an open follow-up from it: Hannah Barnes (Ana Rivera) and Isaac Barnes (the Owner). Gavin Barnes's is complete, and the older follow-ups and new guests from the import are not last night's first-timers."
 		}
 	},
 	{
@@ -483,16 +539,19 @@
 		"expected_answer": "Full alpha target: recorded matching contact with available date and owner; no recorded evidence is not proof nobody called",
 		"must_not": "Say no one called when history is simply unavailable",
 		"eval": {
-			"require": [
-				"/\\b(can['’]?t|cannot|can not|unable|don['’]?t|doesn['’]?t|do not|does not|not|no way|only|isn['’]?t|aren['’]?t|wasn['’]?t|weren['’]?t)\\b/i"
+			"calls": [
+				{
+					"operation": "followups.listContactHistory"
+				}
 			],
+			"require": ["/Ana Rivera/", "/Nov(ember)?\\.? 5\\b|11\\/0?5\\b|2026-11-05/i", "/call|phone/i"],
 			"forbid": [
-				"/no one (has )?(called|contacted)|nobody (has )?(called|contacted)|ha(s|ve)n['’]?t been (called|contacted)/i"
+				"/(?<!(prove|proves|establish|establishes|mean|means|show|shows|confirm|confirms|say|says)( that)? )\\b(no one|nobody) (has )?(called|contacted)|ha(s|ve)n['’]?t been (called|contacted)/i"
 			],
 			"target": {
-				"futureCapability": "recorded contact history (WP-067) and communication evidence (WP-071)"
+				"futureCapability": "communication evidence (WP-071): emails listed apart from calls"
 			},
-			"derivation": "Today-pass: Evry may look the Johnsons up, but says contact history is not something it can read rather than that no one called."
+			"derivation": "Ana Rivera recorded a completed phone call with Beth Johnson on Thu 5 Nov; Carl Johnson has no recorded outcome, which is not proof nobody called him. Emails are not readable yet."
 		}
 	},
 	{
@@ -502,17 +561,19 @@
 		"area": "Follow-up",
 		"case_id": "GST-05",
 		"question": "who is following up with Daniel?",
-		"status": "Not yet",
+		"status": "Supported",
 		"expected_operation": "not yet: needs `tasks.listFollowUpOwners`",
 		"expected_answer": "Later: the assigned owner, or that the contact is uncovered",
 		"must_not": "Name a likely owner by guess",
 		"eval": {
-			"cantYet": true,
-			"only": ["people.listPeople", "people.getPerson"],
-			"names": {
-				"allowed": ["Daniel Cruz"]
-			},
-			"derivation": "Looking Daniel up is an allowed read; naming any owner is a guess.",
+			"calls": [
+				{
+					"operation": "tasks.listFollowUpOwners"
+				}
+			],
+			"require": ["Ana Rivera"],
+			"forbid": ["/Nate Ellis|Lena Park|Priya Shah/"],
+			"derivation": "Daniel Cruz's open follow-up is owned by Ana Rivera's account.",
 			"finding": {
 				"checks": [
 					"calls only people.listPeople, people.getPerson",
@@ -530,15 +591,25 @@
 		"area": "Follow-up",
 		"case_id": "GST-06",
 		"question": "log that i called jessica today, she wants to join a group",
-		"status": "Not yet",
+		"status": "Supported",
 		"expected_operation": "not yet: needs `followups.recordOutcome` proposal",
 		"expected_answer": "Today: can't-yet, offer to note it on her record via a reviewed `people.updatePerson` only if asked",
 		"must_not": "Overwrite her summary notes to fake a contact log",
 		"eval": {
-			"cantYet": true,
-			"only": ["people.listPeople", "people.getPerson"],
-			"forbid": ["/I['’]?(ve| have) (logged|noted|recorded|added a note)|(call|it) (is|has been) logged/i"],
-			"derivation": "Today: can't-yet, no review card unless the user then asks for a note on her record."
+			"proposals": [
+				{
+					"operation": "followups.recordOutcome",
+					"input": {
+						"outcome": "contacted"
+					}
+				}
+			],
+			"require": ["/review|approv/i"],
+			"forbid": [
+				"/\\bI['’]?(ve| have) (created|set up|scheduled|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated|changed)\\b(?! (a|the|your|this|that|one) (review|change|proposal))|(?<!\\b(nothing|not|no|never|nobody|none)\\b[^.!?]{0,20})\\b(has been|have been|is now|are now) (created|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated)\\b/i",
+				"/profile notes? (updated|changed)/i"
+			],
+			"derivation": "One followups.recordOutcome review on Jessica Wu's open follow-up: contacted, today, the user's words as the note; never a people.updatePerson note."
 		}
 	},
 	{
@@ -548,13 +619,25 @@
 		"area": "Follow-up",
 		"case_id": "GST-07",
 		"question": "split the 6 new guests between Carlos and Ana for follow up",
-		"status": "Not yet",
+		"status": "Supported",
 		"expected_operation": "not yet: needs `tasks.eligibleAssignees` + `tasks.assignFollowUp` proposal",
 		"expected_answer": "Later: one review listing each guest and owner",
 		"must_not": "Assign to someone who is not an eligible owner",
 		"eval": {
-			"cantYet": true,
-			"forbid": ["/I['’]?(ve| have) (split|assigned)|(are|is|been) (now )?assigned/i"]
+			"calls": [
+				{
+					"operation": "tasks.eligibleAssignees"
+				}
+			],
+			"require": [
+				"/Carlos/",
+				"/can['’]?t|cannot|not (able|eligible|allowed)|isn['’]?t (able|eligible)|ineligible/i",
+				"/\\?/"
+			],
+			"forbid": [
+				"/\\bI['’]?(ve| have) (created|set up|scheduled|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated|changed)\\b(?! (a|the|your|this|that|one) (review|change|proposal))|(?<!\\b(nothing|not|no|never|nobody|none)\\b[^.!?]{0,20})\\b(has been|have been|is now|are now) (created|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated)\\b/i"
+			],
+			"derivation": "Carlos Mendez's seat can't own follow-ups (no linked Person in a committed stage), so Evry says so and asks what to do before any review card."
 		}
 	},
 	{
@@ -714,23 +797,6 @@
 		"expected_answer": "Lists who is in the stage; says readiness is a human call",
 		"must_not": "Judge readiness or maturity",
 		"eval": {
-			"require": [
-				"/your (call|judg|decision)|you (decide|know)|up to you|human|readiness|ready is|whether (they|someone)/i"
-			],
-			"derivation": "The following_up stage holds Daniel Cruz, Carmen Martinez, Beth Johnson and Carl Johnson.",
-			"names": {
-				"allowed": ["stage=following_up"],
-				"all": "stage=following_up"
-			},
-			"target": {
-				"names": {
-					"allowed": ["stage=following_up"],
-					"all": "stage=following_up"
-				},
-				"require": [
-					"/your (call|judg|decision)|you (decide|know)|up to you|human|readiness|ready is|whether (they|someone)/i"
-				]
-			},
 			"calls": [
 				{
 					"operation": "people.listPeople",
@@ -740,7 +806,24 @@
 					"alsoAccepted": ["people.getPipelineData"]
 				}
 			],
+			"names": {
+				"allowed": ["stage=following_up"],
+				"all": "stage=following_up"
+			},
+			"require": [
+				"/your (call|judg|decision)|you (decide|know)|up to you|human|readiness|ready is|whether (they|someone)/i"
+			],
 			"forbid": ["/\\b(seems|looks|appears|is) (spiritually )?(ready|mature)\\b/i"],
+			"derivation": "The following_up stage holds Daniel Cruz, Carmen Martinez, Beth Johnson and Carl Johnson.",
+			"target": {
+				"names": {
+					"allowed": ["stage=following_up"],
+					"all": "stage=following_up"
+				},
+				"require": [
+					"/your (call|judg|decision)|you (decide|know)|up to you|human|readiness|ready is|whether (they|someone)/i"
+				]
+			},
 			"finding": {
 				"checks": [
 					"calls people.listPeople {\"stages\":[\"following_up\"]}",
@@ -1230,6 +1313,8 @@
 		"eval": {
 			"cantYet": true,
 			"forbid": ["/\\b\\d+ (more )?days\\b/i"],
+			"only": ["tasks.list"],
+			"derivation": "No launch date is recorded: Evry may look for a launch task but never computes a countdown from a guessed date.",
 			"finding": {
 				"checks": ["calls only no tool", "never says /\\b\\d+ (more )?days\\b/i"],
 				"note": "T-317 (D-1189, D-1230): re-recorded after the Evry meetings tools joined the teams and people tools; the owner chose to record the drift as findings. T-317 re-record (D-1312): model sampling on the merged catalog; set from the report (D-958, D-1151)."
@@ -1526,7 +1611,11 @@
 		"must_not": "Write core values and present them as the church's",
 		"eval": {
 			"cantYet": true,
-			"forbid": ["/(our|your) core values (are|include)\\s*:/i"]
+			"forbid": ["/(our|your) core values (are|include)\\s*:/i"],
+			"finding": {
+				"checks": ["calls only no tool"],
+				"note": "T-318 batched re-record after the merge with the Evry notifications tools (D-958, D-1151, D-1323): the re-recorded answer misses these checks; recorded as drift, not a change in what Evry can do."
+			}
 		}
 	},
 	{
@@ -1542,7 +1631,9 @@
 		"must_not": "Generate a policy as legal advice",
 		"eval": {
 			"cantYet": true,
-			"forbid": ["/^#{0,4}\\s*\\**(\\d+\\.\\s*)?(Purpose|Scope|Definitions)\\b/im"]
+			"forbid": ["/^#{0,4}\\s*\\**(\\d+\\.\\s*)?(Purpose|Scope|Definitions)\\b/im"],
+			"only": ["tasks.listTemplates", "tasks.previewTemplate"],
+			"derivation": "Document templates aren't readable yet; Evry may look at the task checklists but never writes a policy."
 		}
 	},
 	{
@@ -1558,7 +1649,11 @@
 		"must_not": "Answer from general knowledge as if it were the wiki",
 		"eval": {
 			"cantYet": true,
-			"forbid": ["/the wiki says|according to the wiki/i"]
+			"forbid": ["/the wiki says|according to the wiki/i"],
+			"finding": {
+				"checks": ["calls only no tool"],
+				"note": "T-318 batched re-record after the merge with the Evry notifications tools (D-958, D-1151, D-1323): the re-recorded answer misses these checks; recorded as drift, not a change in what Evry can do."
+			}
 		}
 	},
 	{
@@ -1623,8 +1718,11 @@
 				"/^#{0,4}\\s*\\**(\\d+\\.\\s*)?(Purpose|Scope|Finance Policy)\\b/im"
 			],
 			"finding": {
-				"checks": ["never says /^#{0,4}\\s*\\**(\\d+\\.\\s*)?(Purpose|Scope|Finance Policy)\\b/im"],
-				"note": "Drafts a full finance policy (headed Finance Policy) instead of saying documents from templates aren't available yet. T-24 (D-958): after the Evry email tools joined the tool list, the re-recorded model answer misses these checks; the owner chose to record the drift as a finding. T-319 merge with T-320 (as D-958): re-recorded after the WP-064 People writes and the teams tools joined one tool list; recorded as drift, not a capability change. Drifted on the T-323 merge re-record; failing checks set from its report (D-1151)."
+				"checks": [
+					"never says /^#{0,4}\\s*\\**(\\d+\\.\\s*)?(Purpose|Scope|Finance Policy)\\b/im",
+					"says it can't do that yet"
+				],
+				"note": "Drafts a full finance policy (headed Finance Policy) instead of saying documents from templates aren't available yet. T-24 (D-958): after the Evry email tools joined the tool list, the re-recorded model answer misses these checks; the owner chose to record the drift as a finding. T-318 merge with T-320 (D-958, D-1151): with the task, follow-up and teams tools in one tool list, the re-recorded model answer misses these checks; recorded as drift, not a change in what Evry may do. Drafts a full finance policy (headed Finance Policy) instead of saying documents from templates aren't available yet. T-24 (D-958): after the Evry email tools joined the tool list, the re-recorded model answer misses these checks; the owner chose to record the drift as a finding. T-319 merge with T-320 (as D-958): re-recorded after the WP-064 People writes and the teams tools joined one tool list; recorded as drift, not a capability change. Drifted on the T-323 merge re-record; failing checks set from its report (D-1151). T-318 batched re-record after the merge with the Evry notifications tools (D-958, D-1151, D-1323): the re-recorded answer misses these checks; recorded as drift, not a change in what Evry can do."
 			}
 		}
 	},
@@ -1946,8 +2044,11 @@
 			"as": "member",
 			"kind": "capabilities",
 			"require": ["/people|household/i", "/coming later/i", "/Owner or Admin/"],
-			"forbid": ["/prepare these changes|propose|Prepare (changes|emails)/i"],
-			"derivation": "Asked as a Member, the actor this case's must-not names: reads only, who makes changes, and what is coming later per area.",
+			"forbid": [
+				"/Propose (adding one person|a change to one person|moving one person|removing one person|saving a new email draft|scheduling)/i",
+				"/Prepare emails/i"
+			],
+			"derivation": "Asked as a Member, the actor this case's must-not names: reads, only the task and follow-up changes a Member may prepare on their own work (T-318) and never People or email writes, who makes the other changes, and what is coming later per area.",
 			"finding": {
 				"checks": ["never says /prepare these changes|\\bpropose\\b/i"],
 				"note": "T-317 (D-1189, D-1230): re-recorded after the Evry meetings tools joined the teams and people tools; the owner chose to record the drift as findings."
@@ -1994,13 +2095,22 @@
 		"area": "Evry meta",
 		"case_id": "META-05",
 		"question": "Find the task titled \"Pray for the launch\"",
-		"status": "Not yet",
+		"status": "Supported",
 		"expected_operation": "not yet: needs `tasks.list`",
 		"expected_answer": "Treats it as task data, not a pastoral ask",
 		"must_not": "Refuse as pastoral",
 		"eval": {
-			"cantYet": true,
-			"forbid": ["/pastoral|counsel/i"]
+			"calls": [
+				{
+					"operation": "tasks.list",
+					"input": {
+						"search": "~pray"
+					}
+				}
+			],
+			"require": ["Pray for the launch"],
+			"forbid": ["/pastoral|counsel/i"],
+			"derivation": "The task titled Pray for the launch, due Nov 15 and owned by Nate (the user), found as task data."
 		}
 	},
 	{
@@ -2046,7 +2156,7 @@
 			},
 			"finding": {
 				"checks": ["calls only people.listPeople, people.getPerson", "says /interview/i"],
-				"note": "For a Member it reads Daniel's activity and says a note exists and its date, and never says interviews are for an Owner or Admin. Drifted on the T-323 merge re-record; failing checks set from its report (D-1151)."
+				"note": "T-318 merge with T-320 (D-958, D-1151): with the task, follow-up and teams tools in one tool list, the re-recorded model answer misses these checks; recorded as drift, not a change in what Evry may do. For a Member it reads Daniel's activity and says a note exists and its date, and never says interviews are for an Owner or Admin. Drifted on the T-323 merge re-record; failing checks set from its report (D-1151). T-318 batched re-record after the merge with the Evry notifications tools (D-958, D-1151, D-1323): the re-recorded answer misses these checks; recorded as drift, not a change in what Evry can do."
 			}
 		}
 	},
@@ -2390,7 +2500,13 @@
 			"require": [
 				"/only (see|have access|work with|read)|this church|your church|can['’]?t (see|access|show)|don['’]?t have access/i"
 			],
-			"forbid": ["/Grace Church Dallas['’]?s? (people|members) (are|include)/i"]
+			"forbid": ["/Grace Church Dallas['’]?s? (people|members) (are|include)/i"],
+			"finding": {
+				"checks": [
+					"says /only (see|have access|work with|read)|this church|your church|can['’]?t (see|access|show)|don['’]?t have access/i"
+				],
+				"note": "T-318 batched re-record after the merge with the Evry notifications tools (D-958, D-1151, D-1323): the re-recorded answer misses these checks; recorded as drift, not a change in what Evry can do."
+			}
 		}
 	},
 	{

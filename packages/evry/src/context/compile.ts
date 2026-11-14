@@ -40,6 +40,27 @@ export async function classifyRequest(model: LanguageModelV4, text: string, sign
 	return { kind: output.kind, usage };
 }
 
+const AREA_NAMES: Record<string, string> = {
+	people: "people or households",
+	communication: "email",
+	teams: "teams",
+	tasks: "tasks",
+	followups: "follow-ups",
+	seats: "seats or invitations",
+	privacy: "sharing",
+};
+
+/**
+ * The record areas the actor reads but has no reviewed write for, named by an operation's namespace. The actor's own
+ * notifications are not church records, and the calendar helpers read no record, so neither is ever one.
+ */
+function readOnlyAreas(catalog: Catalog) {
+	const namespace = (operation: string) => operation.split(".")[0] ?? operation;
+	const written = new Set(catalog.reviewedWrites.map((w) => namespace(w.operation)));
+	const read = new Set(catalog.domains.flatMap((d) => d.operations.map((o) => namespace(o.operation))));
+	return [...read].filter((n) => n !== "notifications" && n !== "calendar" && !written.has(n)).map((n) => AREA_NAMES[n] ?? n);
+}
+
 /**
  * What Evry never does as a tool, each with the reply that points to where it is done (T-327). Sign-in, password, email
  * and session changes need the person's own confirmation in Settings, and only the Owner deletes the church, natively.
@@ -128,17 +149,25 @@ export function describeCatalog(catalog: Catalog) {
 	const writes = catalog.reviewedWrites.map((w) => w.description);
 	const lines = reads.length
 		? ["In this context I can:", ...reads.map((r) => "- " + r), "- Pick rows from a result I already showed you."]
-		: ["In this context I have no application reads available yet."];
+		: [
+				"In this context I have no application reads available yet: I can't read or change people, tasks, follow-ups or messages here.",
+			];
 	if (writes.length) lines.push("I can also prepare these changes for your review:", ...writes.map((w) => "- " + w));
 	// A seat that reads but may not change records (a church Member) is told who can, instead of a review it can't use.
-	// Its own notifications are not church records: a Member may change those and still no record. An organization
+	// Its own notifications are not church records: a Member may change those and still no record. A seat that may
+	// change some records (a Member's own tasks and follow-ups) is told which areas it can't change. An organization
 	// seat has no church records here, so it is told only what it may do.
 	const recordWrites = catalog.reviewedWrites.filter((w) => !w.operation.startsWith("notifications."));
+	const unchangeable = catalog.context === "plant" ? readOnlyAreas(catalog) : [];
 	if (catalog.context === "plant" && reads.length && !recordWrites.length)
 		lines.push(
 			writes.length
 				? "Your seat can't change church records here, so I prepare no record changes for you: an Owner or Admin of this church has to make them. Only your own notifications and notification settings are yours to change."
 				: "Your seat can't change records here, so I prepare no changes for you: an Owner or Admin of this church has to make them.",
+		);
+	else if (unchangeable.length)
+		lines.push(
+			`Your seat can't change ${unchangeable.join(", ")} here, so I prepare no such changes for you: an Owner or Admin of this church has to make them.`,
 		);
 	lines.push(
 		"Every change to your records needs your review and approval first. I can't give pastoral counsel, write prayers or judge anyone's spiritual readiness.",
@@ -243,6 +272,28 @@ export async function resolveReferences(
 			).rows.map((r) => ({ kind: "photo" as const, id: String(r.id), label: "Attached photo" }))
 		: [];
 	return [...people, ...attached];
+}
+
+/**
+ * The rules for tasks and follow-ups (WP-067, WP-068), only when their tools are in the catalog. A recorded outcome is
+ * what a person said happened (COM-011), and areas the catalog reads no tool for are named rather than guessed.
+ */
+function taskRules(catalog: Catalog) {
+	const has = (domain: string) => catalog.domains.some((d) => d.domain === domain);
+	if (!has("tasks") && !has("followups")) return [];
+	// Meetings reads (T-317) answer attendance and upcoming meetings; without them both are named as unreadable.
+	const meetings = has("meetings");
+	return [
+		"Tasks and follow-ups: a task row with followUp: true is a person follow-up. When you list tasks, list follow-ups apart and call them follow-ups; never merge them into one count without saying so. Report each task's owners and due date as the row gives them, and an exact total.",
+		'Follow-up owners are accounts. When a follow-up has no owner (needsOwner), say nobody is assigned; never guess or suggest who is following up. Assign only accounts that tasks.eligibleAssignees returns; for a follow-up, only accounts with canOwnFollowUps. If the user names someone who can\'t own follow-ups, say so and ask what to do before preparing any change. "me" names the signed-in user.',
+		"Contact history (followups.listContactHistory) holds only what people recorded. Name who recorded each outcome and when, in the church's time. Only an outcome with conversationHappened: true is a conversation that happened; say an attempt is an attempt and an administrative completion is not a conversation. With no recorded outcome, say that no call is recorded, never that nobody called. You can't read sent emails yet: say so when asked about emails or about who has heard from the church.",
+		meetings
+			? 'Never infer who attended or who came for the first time from pipeline stage. For first-time guests of a meeting, find the meeting (meetings.list window past), read its attendance (meetings.listAttendance: visit "first time"), then its follow-ups (followups.readObligations with its meetingId, state open), and list each first-time guest with an open follow-up and its owners.'
+			: "You can't read meeting attendance yet: never infer who attended or who came for the first time from pipeline stage; say attendance isn't readable yet. You can't read meetings or calendars yet either: name them as areas you couldn't read.",
+		"To log a call or visit the user describes, prepare followups.recordOutcome on their open follow-up with their words as the note; never edit the person's profile notes for it. Use contacted only when the user says a conversation happened.",
+		"A tool error not_assigned means a Member may change only tasks assigned to them; owner_ineligible means that account can't own follow-ups; assignee_ineligible means that person has no seat that can hold tasks. Say so plainly.",
+		`For what to focus on this week, read the tasks due this week (tasks.list due this_week), ${meetings ? "the upcoming meetings (meetings.list window upcoming), " : ""}the open follow-ups (tasks.listFollowUpOwners) and the pipeline board, then list items from each with where it came from and its owner and date where recorded${meetings ? "" : ", and name meetings as an area you couldn't read"}. Never rank people by spiritual judgment or invent priorities or items.`,
+	];
 }
 
 const estimate = (text: string) => Math.ceil(text.length / 4);
@@ -383,6 +434,7 @@ export function compileContext(input: {
 		ops.has("people.previewImport")
 			? "A file the user attached is listed below with its attachmentId. To check a People spreadsheet, call people.previewImport with its attachmentId; it writes nothing. To import it, propose people.executeBulkImport with that attachmentId and the fileDigest of its latest check. A file that is not listed, such as one attached in another conversation, on a computer or at a link, can't be used here: ask the user to attach it in this conversation."
 			: "",
+		...taskRules(input.catalog),
 		...guidance,
 		`Context: ${input.actor.contextKind}. Current time (trusted server clock): ${input.now.toISOString()}.`,
 		describeCatalog(input.catalog),
