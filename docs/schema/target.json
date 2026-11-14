@@ -71,7 +71,7 @@
   "as_of": "2026-10-17",
   "implementation_authorized": false,
   "table_count": 118,
-  "column_count": 1329,
+  "column_count": 1333,
   "foreign_key_count": 393,
   "type_contracts": {
     "text": "UTF8; per-boundary bounded, sanitized only when rendered in rich context.",
@@ -26978,6 +26978,26 @@
           "name": "country",
           "type": "text",
           "nullable": true
+        },
+        {
+          "name": "overdue_followups",
+          "type": "integer",
+          "nullable": true
+        },
+        {
+          "name": "unowned_followups",
+          "type": "integer",
+          "nullable": true
+        },
+        {
+          "name": "growth_days",
+          "type": "integer",
+          "nullable": true
+        },
+        {
+          "name": "required_training",
+          "type": "integer",
+          "nullable": true
         }
       ],
       "primary_key": [
@@ -27038,7 +27058,8 @@
         }
       ],
       "checks": [
-        "((unfilled_roles IS NULL) OR (unfilled_roles >= 0)) AND ((outstanding_training IS NULL) OR (outstanding_training >= 0))"
+        "((unfilled_roles IS NULL) OR (unfilled_roles >= 0)) AND ((outstanding_training IS NULL) OR (outstanding_training >= 0))",
+        "((overdue_followups IS NULL) = (unowned_followups IS NULL)) AND ((overdue_followups IS NULL) OR ((unowned_followups >= 0) AND (unowned_followups <= overdue_followups))) AND ((growth_days IS NULL) OR (growth_days >= 0)) AND ((required_training IS NULL) OR (required_training >= 1))"
       ],
       "indexes": {
         "network_intelligence_plant_plant_idx": {
@@ -27083,7 +27104,8 @@
           "network_intelligence_plant_region"
         ],
         "checks": [
-          "network_intelligence_plant_counts"
+          "network_intelligence_plant_counts",
+          "network_intelligence_plant_rule_counts"
         ]
       },
       "policies": {},
