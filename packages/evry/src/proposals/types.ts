@@ -39,8 +39,8 @@ export type ReviewContext = { db: Database; mail: MailPort | null; native: Nativ
 export type NativeContext = { authority: RequestActor; ports: NativePorts | null };
 
 /**
- * The owning domain write's saved receipt, or the domain's refusal code. A Wiki bookmark or vote has no receipt id of
- * its own. `report` is what the email service confirmed; only a write that reaches the email service has one.
+ * The owning domain write's saved receipt, or the domain's refusal code. `report` is what the email service confirmed;
+ * only a write that reaches the email service has one.
  */
 /** What became of one person a reviewed write reached: changed, or not changed and why. */
 export const personOutcome = z.object({
