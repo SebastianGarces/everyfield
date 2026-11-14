@@ -395,7 +395,7 @@ test("AC:LAUNCH46-008 AC:LAUNCH46-010 AC:LAUNCH46-009 AC:B02-020 Yes 3 is not me
 
 test("AC:LAUNCH46-021 AC:LAUNCH46-014 AC:CASE-LCH-004 a draft alone is unknown for both, and neither milestone can be completed or reopened by hand", async () => {
 	const c = await launched();
-	let p = ok(await debrief(c.owner, await plan(c.owner), { missingNames: "no", wentWell: "Draft only" })).plan;
+	const p = ok(await debrief(c.owner, await plan(c.owner), { missingNames: "no", wentWell: "Draft only" })).plan;
 	assert.deepEqual(p.evidence, {
 		guestNamesEntered: { status: "unknown", remaining: null },
 		debriefDone: { status: "unknown" },
@@ -719,7 +719,7 @@ test("AC:PERSONREF-LAUNCH-NAMED-GUEST-MERGE AC:PERSONREF-LAUNCH-NAMED-GUEST-UNME
 
 	// Both are guests: Alex-2 merges into Alex-1, the roster names Alex-1 once and Alex-2's link stays as history.
 	const merged = await merge(alex2, alex1);
-	let p = await plan(c.owner);
+	const p = await plan(c.owner);
 	assert.deepEqual(named(p), ["Alex Kim"]);
 	assert.equal(p.outcome.attendance, 40);
 	assert.deepEqual(p.evidence.guestNamesEntered, { status: "not_met", remaining: 3 });
