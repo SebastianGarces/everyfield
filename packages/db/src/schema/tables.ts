@@ -2078,6 +2078,20 @@ export const launch = pgTable(
 		/** When the actual Launch Sunday was first recorded, and by whom; a correction keeps both (LCH-007). */
 		outcome_recorded_at: timestamp("outcome_recorded_at", { withTimezone: true, mode: "date" }),
 		outcome_recorded_by: uuid("outcome_recorded_by"),
+		/**
+		 * How the church ends its gathering phase (T-296): Launch Sunday, or a milestone an organization it is affiliated
+		 * with offers. Choosing one never changes the date, the readiness milestones, the tasks or the phase.
+		 */
+		gathering_path: text("gathering_path", { enum: ["launch_sunday", "milestone"] })
+			.notNull()
+			.default("launch_sunday"),
+		/** The organization whose milestone the church uses; null on Launch Sunday, or once that organization is gone. */
+		gathering_organization_id: uuid("gathering_organization_id"),
+		/** The church-local day the milestone was reached, and its name then: a later rename never changes it. */
+		gathering_reached_on: date("gathering_reached_on", { mode: "string" }),
+		gathering_reached_name: text("gathering_reached_name"),
+		/** The planter's note on reaching it, at most 2,000 characters. */
+		gathering_note: text("gathering_note"),
 	},
 	(table): PgTableExtraConfigValue[] => [
 		foreignKey({ name: "launch_fk_0", columns: [table.plant_id], foreignColumns: [plant.id] })
@@ -2106,6 +2120,27 @@ export const launch = pgTable(
 			.onUpdate("no action"),
 		index("launch_ref_1").using("btree", table.reference_version_id.asc().nullsLast()),
 		index("launch_outcome_recorded_by_idx").using("btree", table.outcome_recorded_by.asc().nullsLast()),
+		check("launch_gathering_path", sql`(gathering_path = ANY (ARRAY['launch_sunday'::text, 'milestone'::text]))`),
+		check(
+			"launch_gathering_sunday",
+			sql`((gathering_path = 'milestone'::text) OR ((gathering_organization_id IS NULL) AND (gathering_reached_on IS NULL)))`,
+		),
+		check(
+			"launch_gathering_reached",
+			sql`(((gathering_reached_on IS NULL) = (gathering_reached_name IS NULL)) AND ((gathering_reached_on IS NOT NULL) OR (gathering_note IS NULL)))`,
+		),
+		check(
+			"launch_gathering_lengths",
+			sql`(((gathering_reached_name IS NULL) OR (length(gathering_reached_name) <= 120)) AND ((gathering_note IS NULL) OR (length(gathering_note) <= 2000)))`,
+		),
+		foreignKey({
+			name: "launch_gathering_organization",
+			columns: [table.gathering_organization_id],
+			foreignColumns: [organization.id],
+		})
+			.onDelete("set null")
+			.onUpdate("no action"),
+		index("launch_gathering_organization_idx").using("btree", table.gathering_organization_id.asc().nullsLast()),
 	],
 );
 export const launch_milestone = pgTable(
@@ -3056,6 +3091,13 @@ export const organization = pgTable(
 		pipeline_import_columns: jsonb("pipeline_import_columns")
 			.notNull()
 			.default(sql`'{}'::jsonb`),
+		/**
+		 * The milestone that ends the gathering phase for this organization's plants, instead of Launch Sunday (T-296).
+		 * Turning it off keeps the name and description for the next time it is turned on.
+		 */
+		gathering_milestone_offered: boolean("gathering_milestone_offered").notNull().default(false),
+		gathering_milestone_name: text("gathering_milestone_name"),
+		gathering_milestone_description: text("gathering_milestone_description"),
 	},
 	(table): PgTableExtraConfigValue[] => [
 		foreignKey({ name: "organization_fk_0", columns: [table.id], foreignColumns: [tenant.id] })
@@ -3076,6 +3118,10 @@ export const organization = pgTable(
 			sql`((statement_of_faith IS NULL) OR ((kind = 'sending_network'::text) AND (length(btrim(statement_of_faith)) > 0) AND (length(statement_of_faith) <= 10000)))`,
 		),
 		check("organization_pipeline_import_columns", sql`(jsonb_typeof(pipeline_import_columns) = 'object'::text)`),
+		check(
+			"organization_gathering_milestone",
+			sql`(((NOT gathering_milestone_offered) OR (gathering_milestone_name IS NOT NULL)) AND ((gathering_milestone_name IS NULL) OR ((length(btrim(gathering_milestone_name)) > 0) AND (length(gathering_milestone_name) <= 120))) AND ((gathering_milestone_description IS NULL) OR (length(gathering_milestone_description) <= 2000)))`,
+		),
 	],
 );
 export const organization_person_removal = pgTable(

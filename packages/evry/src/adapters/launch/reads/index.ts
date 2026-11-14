@@ -1,5 +1,5 @@
 import { localDate } from "@everyfield/contracts/common";
-import { countdown, type History, type Milestone, type Plan } from "@everyfield/contracts/launch";
+import { countdown, GUEST_NAME_MAX, type History, type Milestone, type Plan } from "@everyfield/contracts/launch";
 import type { Transaction } from "@everyfield/db/client";
 import { createLaunchReader } from "@everyfield/domain/launch";
 import { z } from "zod";
@@ -12,7 +12,8 @@ import { plantAdmin, plantSeat } from "../../native.ts";
 // the asker's live seat. The countdown is the plan's own, from the church-local date the read returns; Evry never
 // computes one from a date it guessed. A milestone's progress and overdue tasks come from its own linked prep tasks
 // only (INH-LAUNCH-02). History says what changed, who changed it and when, never how readiness stood at a time
-// (INH-LAUNCH-03). Nothing here completes a milestone or changes anything: only an approved card or the Launch plan does. Debrief answers and the outcome note are the
+// (INH-LAUNCH-03). Nothing here completes a milestone, names a guest or changes anything: only an approved card or the
+// Launch plan does. A guest name's matches are only offered (LCH-007). Debrief answers and the outcome note are the
 // planter's own words: they stay on the Launch plan.
 
 const reader = createLaunchReader();
@@ -255,6 +256,29 @@ function entryRow(e: History["entries"][number], timeZone: string): SourceRow {
 				label: `Summary published (version ${ch.version})`,
 				fields: { ...base, change: "summary" },
 			};
+		case "path":
+			return {
+				kind: "activity",
+				id: e.id,
+				label:
+					ch.to === "milestone"
+						? `Milestone chosen instead of Launch Sunday${ch.milestone ? `: ${ch.milestone}` : ""}`
+						: "Launch Sunday chosen again",
+				fields: { ...base, change: "path", milestone: ch.milestone, organization: ch.organization },
+			};
+		case "gathering":
+			return {
+				kind: "activity",
+				id: e.id,
+				label: `${ch.name} ${ch.event === "recorded" ? "reached" : ch.event === "corrected" ? "corrected" : "record cleared"}`,
+				fields: {
+					...base,
+					change: "gathering",
+					from: ch.from ? launchDay(ch.from) : null,
+					to: ch.to ? launchDay(ch.to) : null,
+					reason: ch.reason,
+				},
+			};
 	}
 }
 /** The church-local date of an instant. */
@@ -287,13 +311,23 @@ export const readJournal = {
 	},
 } satisfies ReadAdapter<z.infer<typeof journalInput>>;
 
+const debriefInput = z.strictObject({
+	/**
+	 * A guest's name as the user typed it: the read also lists the church's live People that name may be (person rows
+	 * with match), as the Launch plan's guest picker shows them, for an Owner or Admin. A match is only offered.
+	 */
+	guestName: z
+		.string()
+		.max(GUEST_NAME_MAX * 4)
+		.optional(),
+});
 export const readDebrief = {
 	operation: "launch.readDebrief",
 	description:
-		"What happened on Launch Sunday, as the Launch plan records it: the actual date, attendance and decisions as counted (null is Not recorded), the first-time guests named on the plan (person rows; an Owner or Admin sees names, a Member only the count), the debrief's answer on guests not entered by name and how many, whether the debrief is drafted or submitted, and the summary: its saved draft and the latest published text. Launch Sunday guests are only these; never use Vision Meeting or other meeting attendance in their place. Debrief answers and the outcome note stay on the Launch plan",
-	input: z.strictObject({}),
+		"What happened on Launch Sunday, as the Launch plan records it: the actual date, attendance and decisions as counted (null is Not recorded), the first-time guests named on the plan (person rows; an Owner or Admin sees names, a Member only the count), the debrief's answer on guests not entered by name and how many, whether the debrief is drafted or submitted, and the summary: its saved draft and the latest published text. guestName (a name the user typed) also lists the live People it may be (person rows with match, detail and alreadyGuest), for an Owner or Admin to pick from: a typed name never links to a Person by itself. Guests are named, and the recorded outcome is corrected, only by a person: on a review card they approve (launch.addGuestAttendance, launch.correctOutcome) or on the Launch plan. Launch Sunday guests are only these; never use Vision Meeting or other meeting attendance in their place. Debrief answers and the outcome note stay on the Launch plan",
+	input: debriefInput,
 	allowed: plantSeat,
-	async invoke(tx, actor): Promise<SourceResult> {
+	async invoke(tx, actor, input): Promise<SourceResult> {
 		const plan = await planOf(tx, actor);
 		if (!plan) return unloaded("launch.readDebrief");
 		const rows: SourceRow[] = (plan.guests.named ?? []).map((g) => ({
@@ -302,6 +336,18 @@ export const readDebrief = {
 			label: g.displayName,
 			fields: { guest: "Launch Sunday first-time guest" },
 		}));
+		// The guest picker's matches, for an Owner or Admin only, through the same read the Launch plan's picker calls.
+		const guestName = input.guestName?.trim() || null;
+		const picker = guestName !== null && plantAdmin(actor);
+		const matches = picker ? await loaded(tx, (t) => reader.suggestGuests(t, actor.authority, guestName)) : null;
+		if (picker && !matches) return unloaded("launch.readDebrief");
+		for (const m of matches ?? [])
+			rows.push({
+				kind: "person",
+				id: m.personId,
+				label: m.displayName,
+				fields: { match: guestName, detail: m.detail || null, alreadyGuest: m.alreadyGuest },
+			});
 		const latest = plan.debrief?.draft ?? plan.debrief?.submitted ?? null;
 		const answers = latest?.answers;
 		const o = plan.outcome;
@@ -334,16 +380,18 @@ export const readDebrief = {
 					debriefSubmitted: plan.evidence.submittedAt !== null,
 					summaryDraft: plan.summary?.draft?.body ?? null,
 					summaryPublished: plan.summary?.published[0]?.body ?? null,
+					...(guestName !== null && { guestName, matches: matches?.length ?? null }),
 				},
 				[
 					"debrief answers and the outcome note, which stay on the Launch plan",
 					...(plan.guests.named === null ? ["guest names, which only an Owner or Admin sees"] : []),
+					...(guestName !== null && !picker ? ["People matching a guest name, which only an Owner or Admin sees"] : []),
 				],
 			),
 			total: plan.guests.count,
 		};
 	},
-} satisfies ReadAdapter<Record<string, never>>;
+} satisfies ReadAdapter<z.infer<typeof debriefInput>>;
 
 /** The installed Launch reads. */
 export const LAUNCH_READS = [readCountdown, readWorkspace, readJournal, readDebrief] as const;

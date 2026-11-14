@@ -45,8 +45,13 @@ import {
 	planOf,
 	reader,
 	said,
+	correctOnPlan,
+	MATCH,
+	OUTCOME_NOTE,
+	seedGuestMatch,
 	seedGuests,
 	seedLaunched,
+	seedOutcomeNote,
 	seedMilestones,
 	seedNeedsReview,
 	seedScheduled,
@@ -62,16 +67,22 @@ import {
 } from "./launch-church.mts";
 
 type Change = { field: string; before: unknown; after: unknown };
+type Expected = { operation: string; target: string; changes?: Change[]; notes?: string[] };
 type Case = {
 	id: string;
 	criterion: number;
-	setup?: "scheduled" | "unloadable" | "launched" | "guests" | "milestones" | "needsReview";
+	setup?:
+		"scheduled" | "unloadable" | "launched" | "guests" | "milestones" | "needsReview" | "guestMatch" | "outcomeNote";
+	/** Asked in the previous case's conversation, as the user's reply to it. */
+	continue?: true;
 	actor: LaunchName;
 	ask: string;
 	calls: string[];
 	answer?: string[];
 	absent?: string[];
-	proposal?: { operation: string; target: string; changes?: Change[]; notes?: string[] };
+	proposal?: Expected;
+	/** Each card of a turn that makes several, in order; approved one at a time. */
+	proposals?: Expected[];
 	approve?: true;
 	outcome?: "completed" | "refused";
 };
@@ -92,9 +103,18 @@ const DATES: Record<string, string> = {
 	apr11: next(4, 11),
 	apr18: next(4, 18),
 };
-/** A case's text with its dates filled in: {said:N}, {day:N} and the named dates. */
+const monthDay = (d: string, year: boolean) =>
+	new Intl.DateTimeFormat("en-US", {
+		month: "short",
+		day: "numeric",
+		...(year && { year: "numeric" as const }),
+		timeZone: "UTC",
+	}).format(new Date(`${d}T12:00:00Z`));
+/** A case's text with its dates filled in: {said:N}, {day:N}, {md:N} ("Nov 9"), {mdy:N} and the named dates. */
 const fill = (text: string) =>
 	text
+		.replace(/\{md:(-?\d+)\}/g, (_, n) => monthDay(day(Number(n)), false))
+		.replace(/\{mdy:(-?\d+)\}/g, (_, n) => monthDay(day(Number(n)), true))
 		.replace(/\{said:(-?\d+)\}/g, (_, n) => said(day(Number(n))))
 		.replace(/\{day:(-?\d+)\}/g, (_, n) => day(Number(n)))
 		.replace(/\{(mar14|mar21|apr11|apr18)\}/g, (_, k: string) => said(DATES[k]!));
@@ -239,6 +259,116 @@ const venueNow = async (milestone: string, statuses: string[]) => {
 	];
 };
 
+/** What naming a guest or correcting the outcome must keep: the outcome, the named guests and the debrief's answers. */
+const outcomeNow = async () => {
+	const p = await planOf(db);
+	return {
+		outcome: p.outcome && {
+			actualDate: p.outcome.actualDate,
+			attendance: p.outcome.attendance,
+			decisions: p.outcome.decisions,
+			note: p.outcome.note,
+		},
+		guests: (p.guests.named ?? []).map((g) => g.personId).sort(),
+		submitted: p.debrief?.submitted?.answers ?? null,
+		draft: p.debrief?.draft?.answers ?? null,
+	};
+};
+const namedGuests = async () => ((await planOf(db)).guests.named ?? []).map((g) => g.displayName).sort();
+/** The guest and outcome history entries. Their times mix the eval clocks, so a case finds its entry by content. */
+const entriesOf = async (kind: "guest" | "outcome") =>
+	(await journal()).value.entries.filter((e) => e.change.kind === kind);
+/** The live People of a name, with what else is filled in on them. */
+const peopleNamed = async (name: string) =>
+	(
+		await admin.execute(sql`SELECT id,email,phone,street,city,birth_date FROM person WHERE plant_id=${PLANT}
+			AND state='live' AND display_name=${name} ORDER BY created_at,id`)
+	).rows;
+/** A card the Launch plan would refuse: it carries the refusal, and approving it is refused. */
+async function refused(operation: string, input: unknown, refusal: string) {
+	const owner = await actorOf("owner");
+	const card = await propose(owner, operation, input);
+	assert.ok(card, `${operation} ${JSON.stringify(input).slice(0, 80)}`);
+	assert.equal(card.review.refusal, refusal, JSON.stringify(input).slice(0, 80));
+	await assert.rejects(approveProposal(db, owner, card.id, { revision: card.revision, digest: card.digest }, null), {
+		code: "review_closed",
+	});
+}
+/** Before Launch Sunday is recorded, neither card can be approved (T-383 criteria 4 and 7). */
+async function notRecordedRefusals() {
+	const before = await outcomeNow();
+	await refused(
+		"launch.addGuestAttendance",
+		{ displayName: "Sam Ortiz" },
+		"Launch Sunday isn't recorded yet. Record it first, then name its guests.",
+	);
+	await refused(
+		"launch.correctOutcome",
+		{ attendance: 162, reason: "we miscounted the overflow room" },
+		"Launch Sunday isn't recorded yet, so there's nothing to correct. Record it first.",
+	);
+	assert.deepEqual(await outcomeNow(), before, "nothing changed");
+}
+/** A guest card the Launch plan would refuse: no name, a name over 255 characters, a Person already named (criterion 4). */
+async function guestRefusals() {
+	const before = await outcomeNow();
+	const people = await livePeople();
+	await refused("launch.addGuestAttendance", { displayName: "" }, "Type the guest's name. A first name is enough.");
+	await refused("launch.addGuestAttendance", { displayName: "   " }, "Type the guest's name. A first name is enough.");
+	await refused(
+		"launch.addGuestAttendance",
+		{ displayName: "y".repeat(256) },
+		"Keep the guest's name to 255 characters or fewer.",
+	);
+	const [sam] = await peopleNamed("Sam Ortiz");
+	await refused(
+		"launch.addGuestAttendance",
+		{ personId: sam!.id },
+		"Sam Ortiz is already named as a Launch Sunday guest.",
+	);
+	// A Person who isn't a live Person of this church gets no card at all.
+	assert.equal(await propose(await actorOf("owner"), "launch.addGuestAttendance", { personId: randomUUID() }), null);
+	assert.deepEqual([await outcomeNow(), await livePeople()], [before, people], "nothing changed");
+}
+/** Correction cards the Launch plan would refuse, each with its words (criterion 7). */
+async function correctionRefusals() {
+	const before = await outcomeNow();
+	const people = await livePeople();
+	const r = "we recounted";
+	await refused(
+		"launch.correctOutcome",
+		{ attendance: 170, reason: "" },
+		"A reason is needed. Tell Evry why, and it stays in the Launch history.",
+	);
+	await refused(
+		"launch.correctOutcome",
+		{ attendance: 170, reason: "z".repeat(NOTE_MAX + 1) },
+		"Keep the reason to 2,000 characters or fewer.",
+	);
+	await refused(
+		"launch.correctOutcome",
+		{ actualDate: day(3), reason: r },
+		"Launch Sunday can't be recorded for a date after today.",
+	);
+	await refused(
+		"launch.correctOutcome",
+		{ attendance: 1_000_001, reason: r },
+		"Counts are whole numbers from 0 to 1,000,000.",
+	);
+	await refused("launch.correctOutcome", { decisions: -1, reason: r }, "Counts are whole numbers from 0 to 1,000,000.");
+	await refused(
+		"launch.correctOutcome",
+		{ attendance: 162, reason: r },
+		"Launch Sunday already has attendance 162, so there's nothing to correct.",
+	);
+	await refused(
+		"launch.correctOutcome",
+		{ reason: r },
+		"Say what to correct: the date it was held, attendance or decisions.",
+	);
+	assert.deepEqual([await outcomeNow(), await livePeople()], [before, people], "nothing changed");
+}
+
 /** A running turn in a new conversation, the only place a proposal can be prepared, held while one is prepared. */
 async function propose(who: EvryActor, operation: string, input: unknown) {
 	const c = await createConversation(db, who, { requestKey: randomUUID() });
@@ -297,7 +427,15 @@ async function refusals() {
 }
 
 /** What each case shows or changes, read back as the Launch plan shows it. */
-const SETTLED: Record<string, { before?: (p?: Proposal) => Promise<void>; after?: (p?: Proposal) => Promise<void> }> = {
+const SETTLED: Record<
+	string,
+	{
+		before?: (p?: Proposal) => Promise<void>;
+		after?: (p?: Proposal) => Promise<void>;
+		/** After each card of a turn that makes several is approved, in order. */
+		each?: (n: number, p: Proposal) => Promise<void>;
+	}
+> = {
 	"LAU-02": {
 		// The same countdown the Launch plan shows, from its church-local date today.
 		after: async () => {
@@ -509,6 +647,153 @@ const SETTLED: Record<string, { before?: (p?: Proposal) => Promise<void>; after?
 			assert.deepEqual(await notices(), { owner: kept.notices!.owner + 1, admin: kept.notices!.admin });
 		},
 	},
+	"LAU-38": { after: notRecordedRefusals },
+	"LAU-39": {
+		before: async (p) => {
+			// Nothing changes before approval, and a Member's direct approval of the Owner's card is refused.
+			await assert.rejects(
+				approveProposal(db, await actorOf("member"), p!.id, { revision: p!.revision, digest: p!.digest }, null),
+				{ code: "not_found" },
+			);
+			assert.equal((await readReview(db, await actorOf("owner"), p!.id)).status, "pending");
+			assert.deepEqual(await peopleNamed("Sam Ortiz"), []);
+			kept.people = await livePeople();
+			kept.outcome = await outcomeNow();
+			kept.guests = await namedGuests();
+		},
+		after: async () => {
+			assert.deepEqual(await namedGuests(), [...kept.guests!, "Sam Ortiz"].sort());
+			assert.equal(await livePeople(), kept.people! + 1, "one new Person");
+			const [sam, ...more] = await peopleNamed("Sam Ortiz");
+			assert.deepEqual(
+				[sam, more],
+				[{ id: sam!.id, email: null, phone: null, street: null, city: null, birth_date: null }, []],
+			);
+			const entry = (await entriesOf("guest")).find((e) => e.change.name === "Sam Ortiz");
+			assert.deepEqual(
+				[entry?.actor?.displayName, entry?.change],
+				["Nate Ellis", { kind: "guest", name: "Sam Ortiz", added: true }],
+			);
+			const { guests: _g, ...now } = await outcomeNow();
+			const { guests: _k, ...was } = kept.outcome as Awaited<ReturnType<typeof outcomeNow>>;
+			assert.deepEqual(now, was, "attendance, decisions and the debrief's guest answer are unchanged");
+		},
+	},
+	"LAU-41": {
+		before: async () => {
+			kept.people = await livePeople();
+		},
+		after: async () => {
+			const [maria] = await peopleNamed(MATCH.name);
+			assert.ok((await outcomeNow()).guests.includes(String(maria!.id)), "the existing Maria Lopez is a guest");
+			assert.equal(await livePeople(), kept.people, "no Person is created");
+			assert.deepEqual(
+				(await entriesOf("guest")).filter((e) => e.change.name === MATCH.name).map((e) => e.change),
+				[{ kind: "guest", name: MATCH.name, added: false }],
+			);
+		},
+	},
+	"LAU-44": {
+		before: async () => {
+			kept.people = await livePeople();
+		},
+		after: async () => {
+			assert.equal(await livePeople(), kept.people! + 1, "a new Person, never a merge");
+			const marias = await peopleNamed(MATCH.name);
+			assert.deepEqual(
+				marias.map((m) => m.email),
+				[MATCH.email, null],
+			);
+			const guests = (await outcomeNow()).guests;
+			assert.ok(marias.every((m) => guests.includes(String(m.id))));
+		},
+	},
+	"LAU-45": {
+		before: async () => {
+			kept.guests = await namedGuests();
+		},
+		// Approving one card names only that guest.
+		each: async (n) =>
+			assert.deepEqual(await namedGuests(), [...kept.guests!, ...["Jo Kim", "Lee Park"].slice(0, n + 1)].sort()),
+	},
+	"LAU-47": { after: guestRefusals },
+	"LAU-49": {
+		after: async () => {
+			const entry = (await entriesOf("guest")).find((e) => e.change.name === "Ivy Chen");
+			assert.equal(entry?.actor?.displayName, "Lena Park");
+		},
+	},
+	"LAU-51": {
+		before: async (p) => {
+			await assert.rejects(
+				approveProposal(db, await actorOf("member"), p!.id, { revision: p!.revision, digest: p!.digest }, null),
+				{ code: "not_found" },
+			);
+			kept.outcome = await outcomeNow();
+			kept.people = await livePeople();
+			assert.deepEqual((kept.outcome as Awaited<ReturnType<typeof outcomeNow>>).outcome, {
+				actualDate: day(-2),
+				attendance: 150,
+				decisions: 4,
+				note: OUTCOME_NOTE,
+			});
+		},
+		after: async () => {
+			const was = kept.outcome as Awaited<ReturnType<typeof outcomeNow>>;
+			assert.deepEqual(await outcomeNow(), { ...was, outcome: { ...was.outcome!, attendance: 162 } });
+			const entry = (await entriesOf("outcome")).find((e) => e.change.reason === "we miscounted the overflow room");
+			assert.deepEqual(
+				[entry?.actor?.displayName, entry?.change],
+				[
+					"Nate Ellis",
+					{
+						kind: "outcome",
+						event: "corrected",
+						changes: [{ field: "attendance", before: 150, after: 162 }],
+						reason: "we miscounted the overflow room",
+					},
+				],
+			);
+		},
+	},
+	"LAU-52": {
+		after: async () => {
+			const o = (await outcomeNow()).outcome!;
+			assert.deepEqual([o.attendance, o.decisions, o.note], [162, null, OUTCOME_NOTE], "Not recorded, not 0");
+		},
+	},
+	"LAU-53": {
+		after: async () => assert.equal((await outcomeNow()).outcome?.actualDate, day(-3)),
+	},
+	"LAU-57": { after: correctionRefusals },
+	"LAU-58": {
+		// The Owner corrects attendance on the Launch plan in another session while the card waits.
+		before: async () => correctOnPlan(db, "owner", 158, "Recounted on the Launch plan."),
+		after: async (p) => {
+			const card = await readReview(db, await actorOf("owner"), p!.id);
+			assert.deepEqual(
+				[card.receipt?.code, card.receipt?.current?.map((x) => [x.label, x.value])],
+				[
+					"revision_conflict",
+					[
+						["Date held", said(day(-3))],
+						["Attendance", "158"],
+						["Decisions", "Not recorded"],
+					],
+				],
+			);
+			assert.equal((await outcomeNow()).outcome?.attendance, 158, "the card changed nothing");
+		},
+	},
+	"LAU-60": {
+		after: async () => {
+			const entry = (await entriesOf("outcome")).find((e) => e.change.reason === "one more from the nursery");
+			assert.equal(entry?.actor?.displayName, "Lena Park");
+			assert.equal((await outcomeNow()).outcome?.attendance, 166);
+			// No correction or count created a Person.
+			assert.equal(await livePeople(), kept.people);
+		},
+	},
 	"LAU-19": {
 		after: async (p) => {
 			// The published summary is the card's text, word for word.
@@ -517,7 +802,13 @@ const SETTLED: Record<string, { before?: (p?: Proposal) => Promise<void>; after?
 		},
 	},
 };
-const kept: { untouched?: unknown; people?: number; notices?: { owner: number; admin: number } } = {};
+const kept: {
+	untouched?: unknown;
+	people?: number;
+	notices?: { owner: number; admin: number };
+	outcome?: unknown;
+	guests?: string[];
+} = {};
 
 /** Makes the Launch plan unreadable for one case: its table is renamed and put back after. */
 async function unloadable(body: () => Promise<void>) {
@@ -530,6 +821,7 @@ async function unloadable(body: () => Promise<void>) {
 }
 
 test("INV-evry-launch: every Launch case passes on the scripted model, and each approved change reads back on the Launch plan", async () => {
+	let previous: string | null = null;
 	for (const raw of cases) {
 		const c = filled(raw);
 		if (c.setup === "scheduled") await seedScheduled(admin, db);
@@ -537,8 +829,13 @@ test("INV-evry-launch: every Launch case passes on the scripted model, and each 
 		if (c.setup === "guests") await seedGuests(db);
 		if (c.setup === "milestones") await seedMilestones(admin, db);
 		if (c.setup === "needsReview") await seedNeedsReview(db);
+		if (c.setup === "guestMatch") await seedGuestMatch(db);
+		if (c.setup === "outcomeNote") await seedOutcomeNote(db);
 		const actor = await actorOf(c.actor);
-		const conversation = (await createConversation(db, actor, { requestKey: randomUUID() })).id;
+		const conversation = c.continue
+			? previous!
+			: (await createConversation(db, actor, { requestKey: randomUUID() })).id;
+		previous = conversation;
 		let turn!: Awaited<ReturnType<typeof ask>>;
 		const run = async () => {
 			turn = await ask(actor, conversation, c.ask);
@@ -549,30 +846,35 @@ test("INV-evry-launch: every Launch case passes on the scripted model, and each 
 			assert.ok(turn.answer.includes(text), `${c.id} answer ${JSON.stringify(turn.answer)} has ${text}`);
 		for (const text of c.absent ?? [])
 			assert.ok(!turn.answer.includes(text), `${c.id} answer ${JSON.stringify(turn.answer)} leaves out ${text}`);
-		if (!c.proposal) {
+		const cards = c.proposals ?? (c.proposal ? [c.proposal] : []);
+		if (!cards.length) {
 			assert.equal(turn.proposals.length, 0, `${c.id} prepares no review`);
 			await SETTLED[c.id]?.after?.();
 			continue;
 		}
-		assert.equal(turn.proposals.length, 1, `${c.id} prepares one review: ${turn.answer}`);
-		const [proposal] = turn.proposals as [Proposal];
-		const expected = c.proposal;
-		assert.equal(proposal.operation, expected.operation, c.id);
-		assert.equal(proposal.status, "pending", `${c.id}: nothing runs before approval`);
-		assert.equal(proposal.review.target?.label, expected.target, `${c.id} target`);
-		assert.equal(proposal.review.refusal, undefined, `${c.id} refusal`);
-		if (expected.changes) assert.deepEqual(proposal.review.changes, expected.changes, `${c.id} changes`);
-		for (const line of expected.notes ?? [])
-			assert.ok(
-				proposal.review.notes?.some((n) => n.includes(line)),
-				`${c.id} notes ${JSON.stringify(proposal.review.notes)} have ${line}`,
-			);
-		await SETTLED[c.id]?.before?.(proposal);
+		assert.equal(turn.proposals.length, cards.length, `${c.id} prepares ${cards.length}: ${turn.answer}`);
+		for (const [n, expected] of cards.entries()) {
+			const proposal = turn.proposals[n]!;
+			assert.equal(proposal.operation, expected.operation, c.id);
+			assert.equal(proposal.status, "pending", `${c.id}: nothing runs before approval`);
+			assert.equal(proposal.review.target?.label, expected.target, `${c.id} target`);
+			assert.equal(proposal.review.refusal, undefined, `${c.id} refusal`);
+			if (expected.changes) assert.deepEqual(proposal.review.changes, expected.changes, `${c.id} changes`);
+			for (const line of expected.notes ?? [])
+				assert.ok(
+					proposal.review.notes?.some((x) => x.includes(line)),
+					`${c.id} notes ${JSON.stringify(proposal.review.notes)} have ${line}`,
+				);
+		}
+		await SETTLED[c.id]?.before?.(turn.proposals[0]);
 		if (!c.approve) continue;
-		assert.equal(await approveAndRun(actor, proposal), c.outcome, c.id);
-		const done = await readReview(db, actor, proposal.id);
-		assert.equal(done.outcome, c.outcome, `${c.id} outcome ${JSON.stringify(done.receipt)}`);
-		await SETTLED[c.id]?.after?.(proposal);
+		for (const [n, proposal] of turn.proposals.entries()) {
+			assert.equal(await approveAndRun(actor, proposal), c.outcome, c.id);
+			const done = await readReview(db, actor, proposal.id);
+			assert.equal(done.outcome, c.outcome, `${c.id} outcome ${JSON.stringify(done.receipt)}`);
+			await SETTLED[c.id]?.each?.(n, proposal);
+		}
+		await SETTLED[c.id]?.after?.(turn.proposals[0]);
 	}
 });
 
@@ -596,8 +898,23 @@ test("INV-evry-launch-tools: only an Owner or Admin may propose a Launch change,
 			assert.ok(!text.includes(op), `${who} has no ${op}`);
 		// A milestone is completed or reopened only on a card the person approves: never by a read.
 		const proposes = JSON.stringify(all.propose_change?.description ?? "");
-		for (const op of ["launch.completeMilestone", "launch.reopenMilestone"])
+		for (const op of [
+			"launch.completeMilestone",
+			"launch.reopenMilestone",
+			"launch.addGuestAttendance",
+			"launch.correctOutcome",
+		])
 			assert.equal(proposes.includes(op), who !== "member", `${who} ${op}`);
+		// Guests are named and the outcome corrected on a card the person approves or on the Launch plan (T-383), and
+		// recording counts still creates no person (INH-LAUNCH-05).
+		assert.match(
+			JSON.stringify(all.launch_read!.description),
+			/Guests are named, and the recorded outcome is corrected, only by a person: on a review card they approve \(launch.addGuestAttendance, launch.correctOutcome\) or on the Launch plan/,
+		);
+		if (who !== "member") {
+			assert.match(proposes, /It creates no person from any number/);
+			assert.match(proposes, /A typed name never links to or merges with an existing Person/);
+		}
 		assert.match(
 			JSON.stringify(all.launch_read!.description),
 			/This read never completes a milestone: only a person does, on a review card they approve \(launch.completeMilestone\) or on the Launch plan/,

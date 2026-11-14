@@ -54,8 +54,17 @@ import Link from "next/link";
 import { useId, useState } from "react";
 import { changeTaskStatus } from "../tasks/actions.ts";
 import { DoneBox } from "../tasks/parts.tsx";
-import { completeMilestone, postponeLaunch, reopenMilestone, setLaunchDate } from "./actions.ts";
+import {
+	chooseGatheringPath,
+	completeMilestone,
+	postponeLaunch,
+	readGatheringOffers,
+	reopenMilestone,
+	saveGathering,
+	setLaunchDate,
+} from "./actions.ts";
 import { DebriefCard, SummaryCard } from "./Debrief.tsx";
+import { GatheringCard, GatheringChoice, type Offers } from "./Gathering.tsx";
 import { LaunchHistory } from "./History.tsx";
 import { OutcomeCard } from "./Outcome.tsx";
 import { daysText, gapText } from "../oversight/model.ts";
@@ -77,6 +86,7 @@ import {
 type Viewer = { accountId: string; admin: boolean };
 type DateDraft = { mode: "set" | "move" | "postpone"; date: string; reason: string; error: string | null };
 const AREAS: Area[] = ["operations", "launch_team", "promotion"];
+const GATHERING = { choose: chooseGatheringPath, save: saveGathering, offers: readGatheringOffers };
 
 /**
  * The Launch plan (WP-045, prototype #/launch): Launch Sunday and its countdown in church-local days, and the nine
@@ -84,9 +94,20 @@ const AREAS: Area[] = ["operations", "launch_team", "promotion"];
  * milestones; anyone completes the prep tasks they hold. Every change shows at once and is confirmed or rolled back
  * from the server's answer; nothing reloads the page.
  */
-export function LaunchScreen({ plan: initial, viewer }: { plan: Plan; viewer: Viewer }) {
+export function LaunchScreen({
+	plan: initial,
+	offers: initialOffers,
+	viewer,
+}: {
+	plan: Plan;
+	offers: Offers;
+	viewer: Viewer;
+}) {
 	const toast = useToast();
 	const [plan, setPlan] = useState(initial);
+	const [offers, setOffers] = useState(initialOffers);
+	// On the milestone path (T-296) the milestone takes Launch Sunday's place: no date, countdown or Launch Sunday record.
+	const milestone = plan.path.kind === "milestone" ? plan.path : null;
 	const [draft, setDraft] = useState<DateDraft | null>(null);
 	const [saving, setSaving] = useState(false);
 	const [keys] = useState(() => requestKeys(() => crypto.randomUUID()));
@@ -121,27 +142,28 @@ export function LaunchScreen({ plan: initial, viewer }: { plan: Plan; viewer: Vi
 
 	const open = (mode: DateDraft["mode"]) =>
 		setDraft({ mode, date: mode === "postpone" ? "" : (plan.launch?.targetDate ?? ""), reason: "", error: null });
-	const actions = viewer.admin ? (
-		dated ? (
-			<>
-				<Button variant="secondary" onClick={() => open("move")}>
+	const actions =
+		viewer.admin && !milestone ? (
+			dated ? (
+				<>
+					<Button variant="secondary" onClick={() => open("move")}>
+						<Icon icon={Calendar03Icon} size={16} />
+						Move date
+					</Button>
+					<Button variant="ghost" onClick={() => open("postpone")}>
+						Postpone
+					</Button>
+				</>
+			) : shown.kind === "completed" ? null : (
+				<Button variant="primary" onClick={() => open("set")}>
 					<Icon icon={Calendar03Icon} size={16} />
-					Move date
+					Set Launch Sunday
 				</Button>
-				<Button variant="ghost" onClick={() => open("postpone")}>
-					Postpone
-				</Button>
-			</>
-		) : shown.kind === "completed" ? null : (
-			<Button variant="primary" onClick={() => open("set")}>
-				<Icon icon={Calendar03Icon} size={16} />
-				Set Launch Sunday
-			</Button>
-		)
-	) : null;
+			)
+		) : null;
 
 	// What happened on Launch Sunday (WP-046): first once it is recorded, after the milestones until then.
-	const after = (
+	const after = milestone ? null : (
 		<>
 			<OutcomeCard plan={plan} admin={viewer.admin} keys={keys} onPlan={setPlan} />
 			{plan.outcome ? <DebriefCard plan={plan} admin={viewer.admin} keys={keys} onPlan={setPlan} /> : null}
@@ -168,9 +190,22 @@ export function LaunchScreen({ plan: initial, viewer }: { plan: Plan; viewer: Vi
 			/>
 			<PreparationNotice plan={plan} />
 			<div className="grid grid-cols-[minmax(0,1.1fr)_minmax(0,1.9fr)] items-stretch gap-5 max-app-md:grid-cols-1">
-				<Countdown plan={plan} admin={viewer.admin} onSet={() => open("set")} />
+				{milestone ? (
+					<GatheringCard
+						act={GATHERING}
+						plan={plan}
+						path={milestone}
+						admin={viewer.admin}
+						keys={keys}
+						onPlan={setPlan}
+						onOffers={setOffers}
+					/>
+				) : (
+					<Countdown plan={plan} admin={viewer.admin} onSet={() => open("set")} />
+				)}
 				<Readiness plan={plan} />
 			</div>
+			<GatheringChoice act={GATHERING} plan={plan} offers={offers} keys={keys} onPlan={setPlan} onOffers={setOffers} />
 			{plan.outcome ? after : null}
 			{plan.milestones.length ? (
 				<Milestones
@@ -357,7 +392,9 @@ function Readiness({ plan }: { plan: Plan }) {
 				</div>
 			) : (
 				<p className="text-sm text-text-2">
-					The nine Playbook milestones and their 23 prep tasks appear here once Launch Sunday has a date.
+					{plan.path.kind === "milestone"
+						? "Your church ends its gathering phase with a milestone, so the Launch Sunday milestones and prep tasks aren't set up. They appear if you go back to Launch Sunday and set a date."
+						: "The nine Playbook milestones and their 23 prep tasks appear here once Launch Sunday has a date."}
 				</p>
 			)}
 		</Card>

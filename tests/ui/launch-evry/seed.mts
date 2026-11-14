@@ -1,5 +1,5 @@
 // Seeds the Evry Launch example (WP-075, WP-076) on the shared tests/ui seed environment (tests/ui/seed-env.mts), so
-// each Launch panel state can be viewed on a preview. Five churches, all America/Chicago, dated from today:
+// each Launch panel state can be viewed on a preview. Six churches, all America/Chicago, dated from today:
 //
 // - Cedar Hill Church (Owner Noah Hayes, Admin Grace Lin, Member Eli Ward): Launch Sunday 28 days out, set a month ago
 //   for 35 days out and moved three days ago ("The school asked us to start a week earlier."). Four milestones are
@@ -9,7 +9,8 @@
 //   the launch-team goal and what changed since last week; move or postpone the date as each seat.
 // - Westfield Church (Owner Ava Stone): no launch date.
 // - Riverbend Church (Owner Leo Grant): Launch Sunday two days ago, not recorded yet. Record its attendance, then submit
-//   the debrief and publish the summary.
+//   the debrief and publish the summary. Before that, "add Sam Ortiz as a launch guest" and "correct launch attendance
+//   to 162, we miscounted" are refused: Launch Sunday isn't recorded (T-383).
 // - Northgate Church (Owner Mia Cole): Launch Sunday three days ago, recorded with attendance 150 and three named
 //   first-time guests (Maya Brooks, Owen Price, Ruth Kim); a Vision meeting a month ago had two other people attend.
 // - Oakridge Church (Owner Isaac Moore, Admins Nina Shaw and Paul Kemp, Member Tess Young), for completing and
@@ -18,6 +19,13 @@
 //   "Prayer and fasting underway" needs review: Nina completed it with its first task done, and Isaac reopened that task
 //   in Tasks since. Ask "mark the venue milestone complete", "reopen the promotion plan chosen milestone" and "mark the
 //   fasting milestone complete" as each seat (the scripted model reads any "prayer" as a pastoral question).
+// - Lakeside Church (Owner Hugo Diaz, Admin Kara Bell, Member Omar Reed), for naming guests and correcting the outcome
+//   (T-383): Launch Sunday two days ago, recorded with attendance 150 and 4 decisions and three named guests (Ana Silva,
+//   Ben Cho, Cara Wells). People holds one live "Maria Lopez" (maria.lopez@example.test) and no "Sam Ortiz". Ask "add Sam
+//   Ortiz as a launch sunday guest", "add Maria Lopez as a launch guest" (then "the first one" or "add Maria Lopez as a
+//   new person"), "add Sam Ortiz, Jo Kim and Lee Park as launch guests", "correct launch attendance to 162, we miscounted
+//   the overflow room", "correct launch sunday: we don't actually know how many decisions" and "correct launch
+//   attendance to 170" (no reason) as each seat.
 //
 // Accounts sign up through the identity service, churches are created through the onboarding producer, people through
 // the People writer and every Launch change through the native Launch writer the Launch plan calls. Seats beyond the
@@ -300,6 +308,40 @@ export async function seedLaunchEvry(env: {
 	await complete(nina, "launch_team.prayer_and_fasting");
 	await setTask(isaac, "launch_team.prayer_and_fasting", fast, "reopen");
 
+	// Lakeside: Launch Sunday recorded with 150 and 4 decisions, three named guests and a Maria Lopez in People.
+	const hugo = await account("Hugo Diaz");
+	const kara = await account("Kara Bell");
+	const omar = await account("Omar Reed");
+	const lakeside = await plant(hugo, "Lakeside Church", "Cedar Park");
+	await seat(kara, lakeside, "admin");
+	await seat(omar, lakeside, "member");
+	await schedule(hugo, day(-2), null);
+	ok(
+		await writer.recordOutcome(runtime, await authority(hugo), {
+			requestKey: randomUUID(),
+			expectedRevision: (await planOf(hugo)).launch!.revision,
+			input: { actualDate: day(-2), attendance: 150, decisions: 4, note: null },
+		}),
+		"lakeside outcome",
+	);
+	for (const displayName of ["Ana Silva", "Ben Cho", "Cara Wells"])
+		ok(
+			await writer.addGuestAttendance(runtime, await authority(hugo), {
+				requestKey: randomUUID(),
+				input: { displayName },
+			}),
+			`guest ${displayName}`,
+		);
+	ok(
+		(await runtime.transaction((tx) =>
+			peopleWriter.createPerson(tx as never, ctx(hugo, lakeside), {
+				requestKey: randomUUID(),
+				input: { displayName: "Maria Lopez", email: "maria.lopez@example.test", stage: "prospect", source: "other" },
+			} as never),
+		)) as never,
+		"person Maria Lopez",
+	);
+
 	const signedIn = (a: Account) => ({ cookie: a.cookie, accountId: a.accountId, email: a.email });
 	return {
 		origin,
@@ -315,6 +357,9 @@ export async function seedLaunchEvry(env: {
 			oakridgeAdmin: signedIn(nina),
 			oakridgeSecondAdmin: signedIn(paul),
 			oakridgeMember: signedIn(tess),
+			lakesideOwner: signedIn(hugo),
+			lakesideAdmin: signedIn(kara),
+			lakesideMember: signedIn(omar),
 		},
 		plants: {
 			cedar: cedar.id,
@@ -322,6 +367,7 @@ export async function seedLaunchEvry(env: {
 			riverbend: riverbend.id,
 			northgate: northgate.id,
 			oakridge: oakridge.id,
+			lakeside: lakeside.id,
 		},
 	};
 }
