@@ -8485,7 +8485,7 @@
         "WP-037",
         "WP-015"
       ],
-      "estimate_engineer_days": 3.5,
+      "estimate_engineer_days": 4.0,
       "outputs": [
         "MUL-007: Sending goals and observed counts",
         "MUL-008: Configurable human pipeline stages",
@@ -8543,7 +8543,7 @@
       "depends_on": [
         "WP-098"
       ],
-      "estimate_engineer_days": 3.5,
+      "estimate_engineer_days": 4.0,
       "outputs": [
         "MUL-010: Apprenticeship and residency program definitions",
         "MUL-011: Enrollment, cohort and deliberate plan changes",
@@ -9062,7 +9062,7 @@
     "WP-058"
   ],
   "critical_path_unconstrained_days": 89.0,
-  "total_engineer_days": 232.0,
+  "total_engineer_days": 233.0,
   "contract_milestones": {
     "C0": [
       "WP-002"
