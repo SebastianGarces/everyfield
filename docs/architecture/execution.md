@@ -26,6 +26,7 @@ The inventory below defines ordinary work and the logical identity that must not
 | assistant_turn | The Evry turn worker | Resume the initiating account's authorized turn. Reconnect cannot approve or execute new effects. |
 | people_import | The People import worker | Write the reviewed People CSV rows from the frozen plan and saved upload. Each row's Person identity is fixed, so a resumed or repeated run never creates it twice; a failing row fails alone. |
 | evry_effect | The Evry effect worker | Run one approved Evry proposal revision once through its owning domain write, under the approver's live authority and before the review expires. A retry with the same effect key returns the saved receipt. |
+| feedback_publication | The feedback publication worker, in the scheduled runner | Publish one feedback as one public issue from the closed serializer, then queue its operator email. The intent, frozen payload and repository are saved before the call; a lost reply is reconciled by its reference in that saved repository before any new create, and a failed or ambiguous search holds it for triage. |
 
 The scheduled runner runs each worker in its own step, so one step that fails leaves the others to run in the same tick, and its response reports each step's status.
 

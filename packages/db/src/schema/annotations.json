@@ -4181,7 +4181,9 @@
 				"domain": "operations",
 				"purpose": "One piece of product feedback from the Send feedback dialog (WP-049A): its category, the author's words and the private page and device details, owned by the author's account. The author lists its status; a triager with the feedback_triage platform grant reads the private original and changes its status, and each change is an audit row.",
 				"library_owned": false,
-				"jsonb_keys": {},
+				"jsonb_keys": {
+					"publication_payload": ["title: the exact public issue title", "body: the exact public issue body"]
+				},
 				"capabilities": ["CAP-A-044", "CAP-A-045"],
 				"replaces": [],
 				"producer_work_packages": ["WP-049"],
@@ -4199,7 +4201,10 @@
 					"At most one row per account and request key, so a resend saves once.",
 					"The address is an internal path with no query, fragment or token.",
 					"Church and role come from the author's seat on the server, never from the browser.",
-					"Each status change writes one feedback.status_changed audit row in the same statement; setting the current status writes nothing."
+					"Each status change writes one feedback.status_changed audit row in the same statement; setting the current status writes nothing.",
+					"Publication never copies the words or details: the public title and body come from the category, an allowlisted area and the reference.",
+					"The publication intent, frozen payload and repository are saved before GitHub is called; a lost reply is reconciled in that same repository by the reference before any new create.",
+					"Publication never changes status or revision."
 				],
 				"revision": "revision rises by one with each status change; a change names the revision it expects.",
 				"idempotency": "The same account and request key returns the saved feedback and writes nothing more.",
@@ -4225,7 +4230,25 @@
 				"app_version": { "note": "The deployed app version from the server, or null. Private." },
 				"submitted_at": { "note": "When the server saved it." },
 				"status": { "note": "new, reviewed, resolved or dismissed; only a triager changes it." },
-				"revision": { "note": "Rises with each status change." }
+				"revision": { "note": "Rises with each status change." },
+				"reference": {
+					"note": "The opaque public marker the issue and the operator email carry (FB- and 12 random hex digits); never the feedback id."
+				},
+				"publication_state": {
+					"note": "pending, publishing (intent saved before the GitHub call), unknown (no answer), published or held for the triager. Only the publication worker changes it."
+				},
+				"held_reason": {
+					"note": "Why it is held: unsafe_fields, github_refused, search_failed, ambiguous or unresolved; null unless held."
+				},
+				"publication_payload": { "note": "The frozen public title and body, saved before the first GitHub call." },
+				"publication_hash": { "note": "SHA-256 of the frozen payload." },
+				"repository_id": { "note": "The numeric id of the repository the intent targets, frozen with the payload." },
+				"repository_name": {
+					"note": "That repository's owner/name when the intent was saved; reconciliation searches it, never today's configuration."
+				},
+				"issue_number": { "note": "The public issue's number, once published." },
+				"issue_url": { "note": "The public issue's address as GitHub returned it; links never rebuild it." },
+				"published_at": { "note": "When the issue was created or found." }
 			},
 			"foreignKeys": {
 				"account_id->account(id)": {
@@ -7068,6 +7091,9 @@
 				"launch_id": {
 					"note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
 				},
+				"launch_task_key": {
+					"note": "Launch readiness seed identity <milestone key>/<n>, unique per plant; a deleted task keeps it as the tombstone repair respects (LCH-009)."
+				},
 				"parent_id": {
 					"note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
 				},
@@ -8142,6 +8168,15 @@
 				"removed_at": {
 					"note": ""
 				},
+				"template_key": {
+					"note": "Seed identity: the fixed Playbook milestone key (launch.md), unique per plant, so repair never creates a milestone twice."
+				},
+				"completed_by": {
+					"note": "The account that completed the milestone; set null if the account is deleted, keeping the completion time."
+				},
+				"completed_task_ids": {
+					"note": "Linked tasks complete at completion; reopening one shows the milestone as Needs review (LCH-004)."
+				},
 				"revision": {
 					"note": ""
 				}
@@ -8163,6 +8198,12 @@
 					"deletion": {
 						"action": "restrict",
 						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
+					}
+				},
+				"completed_by->account(id)": {
+					"deletion": {
+						"action": "set_null",
+						"policy": "Deleting the account clears who completed the milestone; the completion time and its audit history stay."
 					}
 				}
 			}

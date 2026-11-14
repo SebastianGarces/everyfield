@@ -2565,7 +2565,7 @@
 			"table_name": "document_revision"
 		},
 		{
-			"definition": "CREATE TRIGGER immutable_source BEFORE UPDATE ON <schema>.feedback FOR EACH ROW EXECUTE FUNCTION freeze_fields('id,account_id,request_key,category,description,page_label,page_address,church_label,role_label,browser,screen_width,screen_height,theme,app_version,submitted_at')",
+			"definition": "CREATE TRIGGER immutable_source BEFORE UPDATE ON <schema>.feedback FOR EACH ROW EXECUTE FUNCTION freeze_fields('id,account_id,request_key,category,description,page_label,page_address,church_label,role_label,browser,screen_width,screen_height,theme,app_version,submitted_at,reference')",
 			"enabled": "O",
 			"name": "immutable_source",
 			"table_name": "feedback"

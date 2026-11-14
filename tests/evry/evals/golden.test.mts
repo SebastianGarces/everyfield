@@ -677,6 +677,18 @@ test("INV-evry-golden: the seeded church holds the records the factual cases che
 		REVIEW_PAIRS,
 	);
 	assert.deepEqual([pairs.total, pairs.completeness], [2, "complete"]);
+	// The organization Owner's next oversight digest: Tue 10 Nov at 7:00 AM, 8 to 9 Nov, Hope Fellowship's line only.
+	const oversight = await read("notifications.previewOversightDigest", {}, "org");
+	assert.deepEqual(
+		oversight.rows.map((r) => [r.label, r.fields]),
+		[
+			[
+				"Oversight digest: 6 activities, Nov 8, 2026 to Nov 9, 2026",
+				{ sendsAt: "Tue, Nov 10, 7:00 AM", from: "2026-11-08", to: "2026-11-09", cadence: "daily", sent: true },
+			],
+			["Hope Fellowship: 6 activities on Nov 8, 2026.", {}],
+		],
+	);
 });
 
 test("INV-evry-golden SAF-02 SAF-11 SAF-12 SAF-14: the model's tools can read and prepare a review, never approve or run one", () => {
@@ -695,11 +707,15 @@ test("INV-evry-golden SAF-02 SAF-11 SAF-12 SAF-14: the model's tools can read an
 		"propose_change",
 	]);
 	assert.deepEqual(tools("admin"), tools("owner"));
-	// A Member reads, selects and proposes changes to only their own notifications and account; an organization seat
-	// gets no plant read at all, only its own profile change (T-327).
+	// A Member reads, selects and proposes changes to only their own notifications and account, plus the Meetings changes
+	// a Member may make natively (their own RSVP, their own ministry's team meeting and its attendance); an organization
+	// seat gets no plant read at all, only its own profile change (T-327) and its own oversight digest's preview and
+	// cadence.
 	assert.deepEqual(tools("member"), tools("owner"));
 	assert.deepEqual(
-		readCatalog(church.actors.member).reviewedWrites.map((w) => w.operation),
+		readCatalog(church.actors.member)
+			.reviewedWrites.map((w) => w.operation)
+			.filter((op) => !/^meetings\./.test(op)),
 		[
 			"notifications.markSelectedRead",
 			"notifications.markAllVisibleRead",
@@ -708,10 +724,10 @@ test("INV-evry-golden SAF-02 SAF-11 SAF-12 SAF-14: the model's tools can read an
 			"account.requestDeletion",
 		],
 	);
-	assert.deepEqual(tools("org"), ["propose_change"]);
+	assert.deepEqual(tools("org"), ["notifications_read", "select_returned_rows", "propose_change"]);
 	assert.deepEqual(
 		readCatalog(church.actors.org).reviewedWrites.map((w) => w.operation),
-		["organizations.updateProfile"],
+		["notifications.oversightDigestCadence.set", "organizations.updateProfile"],
 	);
 });
 

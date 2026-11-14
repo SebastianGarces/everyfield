@@ -21,10 +21,45 @@ export type Operation =
 	| "communication.rescheduleReviewed"
 	| "communication.cancelScheduledReviewed"
 	| "communication.replaceScheduledReviewed"
+	| "meetings.schedule"
+	| "meetings.edit"
+	| "meetings.changeStatus"
+	| "meetings.delete"
+	| "meetings.completePractice"
+	| "meetings.correctPracticeOccurrence"
+	| "meetings.correctOccurrence"
+	| "meetings.replaceAgenda"
+	| "meetings.populateKit"
+	| "meetings.updateKitItem"
+	| "meetings.inviteGuest"
+	| "meetings.removeGuest"
+	| "meetings.setInviter"
+	| "meetings.correctRsvp"
+	| "meetings.saveOwnRsvp"
+	| "meetings.createGuestContact"
+	| "meetings.createWalkInContact"
+	| "meetings.recordCard"
+	| "meetings.clearCard"
+	| "meetings.copyTeamRoster"
+	| "meetings.setAttendance"
+	| "meetings.checkIn"
+	| "meetings.clearAttendance"
+	| "meetings.captureAttendanceBatch"
+	| "meetings.finalizeAttendance"
+	| "meetings.reconcileAttendance"
+	| "meetings.recordEvaluation"
+	| "meetings.correctEvaluation"
+	| "meetings.addAttendeeNote"
+	| "venues.create"
+	| "venues.edit"
+	| "venues.correct"
+	| "venues.archive"
+	| "venues.restore"
 	| "notifications.markSelectedRead"
 	| "notifications.markAllVisibleRead"
 	| "notifications.setPreferences"
 	| "notifications.digestCadence.set"
+	| "notifications.oversightDigestCadence.set"
 	| TeamsOperation
 	| SettingsOperation;
 
@@ -137,6 +172,8 @@ export type Review = {
 				| "responsibility"
 				| "household"
 				| "tag"
+				| "meeting"
+				| "venue"
 				| "church"
 				| "seat"
 				| "invitation"
@@ -269,6 +306,51 @@ const FIELD_LABEL: Record<string, string> = {
 	completedOn: "Completed on",
 	completedAgainOn: "Completed again on",
 	completion: "Completion",
+	// Meetings and venues: the review already says each value in the church's own words and zone.
+	type: "Type",
+	when: "When",
+	venue: "Venue",
+	status: "Status",
+	held: "Held",
+	voided: "Counts",
+	meetingNotes: "Notes",
+	kitNote: "Note",
+	evaluationNotes: "Notes",
+	venueNotes: "Notes",
+	removed: "Meetings",
+	team: "Ministry",
+	guests: "Guests",
+	agenda: "Agenda",
+	kit: "Vision kit",
+	guest: "Guest",
+	rsvp: "RSVP",
+	invitedBy: "Invited by",
+	yourRsvp: "Your RSVP",
+	newPerson: "New person",
+	attendance: "Attendance",
+	possibleDuplicates: "Possible duplicates",
+	card: "Response card",
+	cardNote: "Card note",
+	add: "Adds",
+	remove: "Removes",
+	attended: "Attended",
+	noLongerAttended: "No longer attended",
+	finalized: "Finalize",
+	item: "Kit item",
+	checked: "Checked",
+	bringer: "Who brings it",
+	average: "Average",
+	attendanceScore: "Attendance",
+	locationScore: "Location",
+	logisticsScore: "Logistics",
+	agendaScore: "Agenda",
+	vibeScore: "Vibe",
+	messageScore: "Message",
+	closeScore: "Close",
+	nextStepsScore: "Next steps",
+	capacity: "Capacity",
+	costDescription: "Cost",
+	active: "Status",
 	// Seats, church settings, sharing, connections and account (T-327)
 	contactEmail: "Contact email",
 	contactPhone: "Contact phone",
@@ -282,7 +364,13 @@ const FIELD_LABEL: Record<string, string> = {
 	account: "Your login",
 	...SHARING_CATEGORY_LABEL,
 };
-export const fieldLabel = (field: string) => FIELD_LABEL[field] ?? field;
+/** Meetings words for a field another card also uses: a finalize's "tasks" are the tasks it creates, not a sharing category. */
+const MEETINGS_LABEL: Record<string, string> = { tasks: "Tasks it creates" };
+/** A presence change names its person: "presence:Maria Santos" reads "Maria Santos". */
+export const fieldLabel = (field: string, operation?: string) =>
+	field.startsWith("presence:")
+		? field.slice("presence:".length)
+		: ((operation?.startsWith("meetings.") ? MEETINGS_LABEL[field] : undefined) ?? FIELD_LABEL[field] ?? field);
 
 const TEAM_STATE: Record<string, string> = { forming: "Forming", active: "Active", paused: "Paused" };
 const DATE_FIELDS = new Set(["birthDate", "date", "completedOn", "completedAgainOn"]);
@@ -300,6 +388,8 @@ const dateFormat = new Intl.DateTimeFormat(undefined, {
 /** A reviewed value as text. Empty values say so; an id (a photo upload) is never shown. */
 export function valueText(field: string, value: unknown): string | null {
 	if (value === null || value === undefined || value === "") return null;
+	// A list (the tasks a finalize creates, an agenda's sections) reads one entry per line on the card.
+	if (Array.isArray(value)) return value.length ? value.map(String).join("\n") : null;
 	// A photo is a stored file: its short reference tells two uploads apart. The card shows the image where People allows it.
 	if (field === "photo") return `Photo ${photoRef(value)}`;
 	if (typeof value === "boolean" && SHARED.has(field)) return value ? "Shared" : "Not shared";
@@ -422,6 +512,7 @@ const TITLE: Record<Operation, string> = {
 	"notifications.markAllVisibleRead": "Mark all notifications read",
 	"notifications.setPreferences": "Change notification settings",
 	"notifications.digestCadence.set": "Change how often your digest comes",
+	"notifications.oversightDigestCadence.set": "Change how often your oversight digest comes",
 	"people.addToHousehold": "Add to a household",
 	"people.createHouseholdWithHead": "Create a household",
 	"people.updateHousehold": "Update a household",
@@ -441,6 +532,40 @@ const TITLE: Record<Operation, string> = {
 	"people.editNote": "Edit a note",
 	"people.deleteNote": "Delete a note",
 	"people.executeBulkImport": "Import people",
+	"meetings.schedule": "Schedule a meeting",
+	"meetings.edit": "Change a meeting",
+	"meetings.changeStatus": "Change a meeting's status",
+	"meetings.delete": "Delete a meeting",
+	"meetings.completePractice": "Record a practice as held",
+	"meetings.correctPracticeOccurrence": "Correct a practice",
+	"meetings.correctOccurrence": "Correct whether it counts",
+	"meetings.replaceAgenda": "Replace the agenda",
+	"meetings.populateKit": "Add the Vision kit",
+	"meetings.updateKitItem": "Update a kit item",
+	"meetings.inviteGuest": "Add a guest",
+	"meetings.removeGuest": "Remove a guest",
+	"meetings.setInviter": "Set who invited a guest",
+	"meetings.correctRsvp": "Correct an RSVP",
+	"meetings.saveOwnRsvp": "Save your RSVP",
+	"meetings.createGuestContact": "Add a new guest",
+	"meetings.createWalkInContact": "Add a walk-in",
+	"meetings.recordCard": "Record a response card",
+	"meetings.clearCard": "Clear a response card",
+	"meetings.copyTeamRoster": "Update guests from the ministry",
+	"meetings.setAttendance": "Mark attendance",
+	"meetings.checkIn": "Check someone in",
+	"meetings.clearAttendance": "Clear attendance",
+	"meetings.captureAttendanceBatch": "Mark attendance",
+	"meetings.finalizeAttendance": "Finalize attendance",
+	"meetings.reconcileAttendance": "Correct attendance",
+	"meetings.recordEvaluation": "Record your evaluation",
+	"meetings.correctEvaluation": "Correct your evaluation",
+	"meetings.addAttendeeNote": "Add an attendee note",
+	"venues.create": "Save a venue",
+	"venues.edit": "Change a venue",
+	"venues.correct": "Correct a venue",
+	"venues.archive": "Archive a venue",
+	"venues.restore": "Restore a venue",
 };
 export const operationTitle = (operation: Operation) => TITLE[operation];
 
@@ -448,6 +573,9 @@ export const operationTitle = (operation: Operation) => TITLE[operation];
 // Email: the five reviewed Communication writes (MAIL51-009). The email service is the only source of "confirmed".
 
 export const isMail = (operation: Operation) => operation.startsWith("communication.");
+/** A Meetings or venue write: its review states each value as the card shows it, and it is revised by asking Evry. */
+export const isMeetings = (operation: Operation) =>
+	operation.startsWith("meetings.") || operation.startsWith("venues.");
 type SendTime = { at: string; zone: string };
 const asTime = (value: unknown): SendTime | null =>
 	value && typeof value === "object" && "at" in value && "zone" in value ? (value as SendTime) : null;
@@ -631,6 +759,9 @@ export function consequence(review: Review): string | null {
 	const tasks = handedBack(review.review.changes);
 	const owner =
 		tasks > 0 ? `${tasks.toLocaleString()} open ${tasks === 1 ? "task" : "tasks"} will need a new owner.` : null;
+	if (review.operation === "meetings.delete") return "It leaves Meetings. Its history stays.";
+	if (review.operation === "meetings.finalizeAttendance")
+		return "Approving finalizes attendance and creates exactly the tasks listed.";
 	if (review.operation === "people.deletePerson")
 		return ["They leave the current people list. Their history stays.", owner].filter(Boolean).join(" ");
 	const created = review.review.changes.find((c) => c.field === "createTag")?.after;
@@ -844,8 +975,23 @@ export function settingsRefusalText(code: string | undefined): string {
 }
 
 /** Why a run was refused, from the saved receipt code. Nothing was changed in each case. */
-export function refusalText(code: string | undefined, target: string | null): string {
-	const who = target ?? "this person";
+export function refusalText(code: string | undefined, target: string | null, meetings = false): string {
+	const who = target ?? (meetings ? "This meeting" : "this person");
+	if (meetings)
+		switch (code) {
+			case "revision_conflict":
+			case "conflict":
+				return `${who} changed after Evry prepared this, so nothing was saved. Ask Evry to prepare it again.`;
+			case "access_denied":
+				return "Your seat no longer allows this change, so nothing was saved.";
+			case "status_transition":
+				return "The meeting's status no longer allows this change, so nothing was saved.";
+			case "not_found":
+			case "source_unavailable":
+				return `${who} is no longer in Meetings, so nothing was saved.`;
+			default:
+				return "Meetings refused this change, so nothing was saved.";
+		}
 	switch (code) {
 		case "revision_conflict":
 		case "conflict":
@@ -987,7 +1133,7 @@ const isSlot = (value: unknown): value is DigestSlot =>
 	!!value && typeof value === "object" && "cadence" in value && "weekday" in value && "hour" in value;
 const WEEKDAY = ["Sundays", "Mondays", "Tuesdays", "Wednesdays", "Thursdays", "Fridays", "Saturdays"];
 const hourText = (hour: number) => `${hour % 12 || 12}:00 ${hour < 12 ? "AM" : "PM"}`;
-/** "Weekly on Mondays at 8:00 AM" or "Daily at 8:00 AM": the church digest's schedule for this account. */
+/** "Weekly on Mondays at 8:00 AM" or "Daily at 8:00 AM": a digest's schedule for this account. */
 export const digestSchedule = (value: unknown) =>
 	isSlot(value)
 		? value.cadence === "daily"

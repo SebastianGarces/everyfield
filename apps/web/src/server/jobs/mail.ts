@@ -784,6 +784,8 @@ export const MAIL_PASSES = {
 	notice: ["notice/"],
 	/** Planter and oversight digests. */
 	digest: ["digest/"],
+	/** The operator email for each piece of product feedback. */
+	feedback: ["feedback/"],
 } as const satisfies Record<string, readonly `${string}/`[]>;
 export type MailPassName = keyof typeof MAIL_PASSES;
 
