@@ -48,9 +48,13 @@ export function describeCatalog(catalog: Catalog) {
 		: ["In this context I have no application reads available yet."];
 	if (writes.length) lines.push("I can also prepare these changes for your review:", ...writes.map((w) => "- " + w));
 	// A seat that reads but may not change records (a church Member) is told who can, instead of a review it can't use.
-	else if (reads.length)
+	// Its own notifications are not church records: a Member may change those and still no record.
+	const recordWrites = catalog.reviewedWrites.filter((w) => !w.operation.startsWith("notifications."));
+	if (reads.length && !recordWrites.length)
 		lines.push(
-			"Your seat can't change records here, so I prepare no changes for you: an Owner or Admin of this church has to make them.",
+			writes.length
+				? "Your seat can't change church records here, so I prepare no record changes for you: an Owner or Admin of this church has to make them. Only your own notifications and notification settings are yours to change."
+				: "Your seat can't change records here, so I prepare no changes for you: an Owner or Admin of this church has to make them.",
 		);
 	lines.push(...catalog.withheld);
 	lines.push(

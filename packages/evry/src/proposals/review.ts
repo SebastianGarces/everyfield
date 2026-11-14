@@ -5,6 +5,7 @@ import type { EvryActor } from "../context/actor.ts";
 import { liveJob } from "../runtime/job.ts";
 import { mailReport } from "@everyfield/contracts/communication";
 import { COMMUNICATION_COMMANDS } from "../adapters/communication/commands/index.ts";
+import { NOTIFICATION_COMMANDS } from "../adapters/notifications/commands/index.ts";
 import { untouchedMail } from "../adapters/communication/reads/index.ts";
 import { INTELLIGENCE_COMMANDS } from "../adapters/intelligence/commands/index.ts";
 import { PEOPLE_COMMANDS } from "../adapters/people/commands/index.ts";
@@ -21,6 +22,7 @@ export const REVIEWED_WRITES = {
 	...PEOPLE_COMMANDS,
 	...ORGANIZATION_COMMANDS,
 	...COMMUNICATION_COMMANDS,
+	...NOTIFICATION_COMMANDS,
 	...TEAMS_COMMANDS,
 	...INTELLIGENCE_COMMANDS,
 } as const;

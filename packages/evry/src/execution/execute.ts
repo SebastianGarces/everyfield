@@ -150,7 +150,7 @@ export async function executeProposal(
 			if ("refused" in result) throw new Refused(refusalCode(result.refused));
 			// The email service is called after this transaction commits, never inside it. The saved mark tells a retry that
 			// this effect started.
-			if (reach && mail) {
+			if (reach && mail && "receiptId" in result) {
 				await tx.execute(sql`UPDATE proposal SET receipt='{"reached":true}'::jsonb WHERE id=${p.id}::uuid`);
 				return { id: p.id, reach: () => reach(db, claimed.authority, p.input, effectKey, result, mail) };
 			}

@@ -20,6 +20,10 @@ export type Operation =
 	| "communication.rescheduleReviewed"
 	| "communication.cancelScheduledReviewed"
 	| "communication.replaceScheduledReviewed"
+	| "notifications.markSelectedRead"
+	| "notifications.markAllVisibleRead"
+	| "notifications.setPreferences"
+	| "notifications.digestCadence.set"
 	| TeamsOperation
 	| "phases.declare"
 	| "phases.transition"
@@ -355,6 +359,10 @@ const TITLE: Record<Operation, string> = {
 	"people.deletePerson": "Remove a person",
 	"people.setPersonPhoto": "Set a photo",
 	"people.removePersonPhoto": "Remove a photo",
+	"notifications.markSelectedRead": "Mark notifications read",
+	"notifications.markAllVisibleRead": "Mark all notifications read",
+	"notifications.setPreferences": "Change notification settings",
+	"notifications.digestCadence.set": "Change how often your digest comes",
 	"phases.declare": "Record the starting phase",
 	"phases.transition": "Move the phase",
 	"signals.attest": "Record a signal",
@@ -576,6 +584,9 @@ export const RECIPIENT_OUTCOME: Record<RecipientOutcome, string> = {
 
 /** The one sentence under the target that says what happens to them beyond the listed fields. */
 export function consequence(review: Review): string | null {
+	// NTF-003: read is only read.
+	if (review.operation === "notifications.markSelectedRead" || review.operation === "notifications.markAllVisibleRead")
+		return "Marking read doesn't complete or change any task.";
 	const tasks = handedBack(review.review.changes);
 	const owner =
 		tasks > 0 ? `${tasks.toLocaleString()} open ${tasks === 1 ? "task" : "tasks"} will need a new owner.` : null;
@@ -914,3 +925,53 @@ export const clock = (iso: string) => time.format(new Date(iso));
  * read every 2 seconds.
  */
 export const pollDelay = (attempt: number) => [350, 50, 50, 50, 50, 800, 1200][attempt] ?? 2000;
+
+// ---------------------------------------------------------------------------------------------------------------
+// Notifications: the account's own bell and settings (WP-082). Nothing here names another person.
+
+export const isNotification = (operation: Operation) => operation.startsWith("notifications.");
+
+export type ReviewedNotice = { id: string; title: string; category: string; at: string; zone: string };
+const isNotice = (value: unknown): value is ReviewedNotice =>
+	!!value && typeof value === "object" && "id" in value && "title" in value && "at" in value;
+/** The notices a mark-selected review will mark read, newest first, as the review listed them. */
+export const reviewedNotices = (review: Review) =>
+	review.review.changes.flatMap((c) => (c.field === "notice" && isNotice(c.before) ? [c.before] : []));
+/** "Sat, Nov 7, 9:15 AM": when the notice arrived, in the church's zone. */
+export const noticeWhen = ({ at, zone }: ReviewedNotice) =>
+	new Intl.DateTimeFormat("en-US", {
+		timeZone: zone,
+		weekday: "short",
+		month: "short",
+		day: "numeric",
+		hour: "numeric",
+		minute: "2-digit",
+	}).format(new Date(at));
+
+const CHANNEL_LABEL: Record<string, string> = { email: "Email", in_app: "In-app" };
+/** Each category a settings review touches, with every channel's value before and after, in the review's order. */
+export function settingChanges(review: Review) {
+	const groups = new Map<string, { channel: string; before: boolean; after: boolean }[]>();
+	for (const c of review.review.changes) {
+		const [category, channel] = c.field.split(".");
+		if (!category || !channel || typeof c.before !== "boolean" || typeof c.after !== "boolean") continue;
+		groups.set(category, [
+			...(groups.get(category) ?? []),
+			{ channel: CHANNEL_LABEL[channel] ?? channel, before: c.before, after: c.after },
+		]);
+	}
+	return [...groups].map(([category, channels]) => ({ category, channels }));
+}
+
+type DigestSlot = { cadence: string; weekday: number; hour: number };
+const isSlot = (value: unknown): value is DigestSlot =>
+	!!value && typeof value === "object" && "cadence" in value && "weekday" in value && "hour" in value;
+const WEEKDAY = ["Sundays", "Mondays", "Tuesdays", "Wednesdays", "Thursdays", "Fridays", "Saturdays"];
+const hourText = (hour: number) => `${hour % 12 || 12}:00 ${hour < 12 ? "AM" : "PM"}`;
+/** "Weekly on Mondays at 8:00 AM" or "Daily at 8:00 AM": the church digest's schedule for this account. */
+export const digestSchedule = (value: unknown) =>
+	isSlot(value)
+		? value.cadence === "daily"
+			? `Daily at ${hourText(value.hour)}`
+			: `Weekly on ${WEEKDAY[value.weekday] ?? "Sundays"} at ${hourText(value.hour)}`
+		: null;

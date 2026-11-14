@@ -41,6 +41,9 @@ test("AC:INH-REGRESSION-CAPABILITIES INV-catalog: every installed model tool is 
 		"people.listTags",
 		"people.previewImport",
 		"communication.list",
+		"notifications.feed",
+		"notifications.preferences.get",
+		"notifications.previewPlanterDigest",
 		"teams.list",
 		"teams.get",
 		"teams.searchMembers",
@@ -159,4 +162,21 @@ test("INV-catalog: the phase and signal tools follow the context: Owner and Admi
 		const catalog = readCatalog(actor);
 		assert.deepEqual([catalog.domains, catalog.reviewedWrites, catalog.withheld], [[], [], []], actor.contextKind);
 	}
+});
+
+test("INV-member-capabilities: a Member who may change only their own notifications is still told an Owner or Admin changes records", async () => {
+	const { describeCatalog } = await import("../../../packages/evry/src/context/compile.ts");
+	const catalog = (writes: string[]) =>
+		({
+			context: "plant",
+			domains: [{ domain: "people", operations: [{ operation: "people.listPeople", description: "List people" }] }],
+			selection: [SELECT_RETURNED_ROWS],
+			reviewedWrites: writes.map((operation) => ({ operation, description: operation })),
+			withheld: [],
+		}) as unknown as Parameters<typeof describeCatalog>[0];
+	const member = describeCatalog(catalog(["notifications.markSelectedRead", "notifications.setPreferences"]));
+	assert.match(member, /an Owner or Admin of this church has to make them/);
+	assert.match(member, /your own notifications/);
+	assert.match(describeCatalog(catalog([])), /an Owner or Admin of this church has to make them/);
+	assert.doesNotMatch(describeCatalog(catalog(["people.updatePerson"])), /Owner or Admin/);
 });

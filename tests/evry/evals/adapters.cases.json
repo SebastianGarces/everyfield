@@ -463,7 +463,7 @@
 				"checks": [
 					"says /\\b(can['’]?t|cannot|can not|not able|unable|don['’]?t (yet )?have|do not (yet )?have|isn['’]?t (yet )?(available|something|possible)|not (yet )?(available|supported|possible|connected|something)|no (way|access|tool)|aren['’]?t (yet )?available|not set up|doesn['’]?t (yet )?(let|give|include|have)|outside what|beyond what)\\b/i"
 				],
-				"note": "T-326 merge with main (as D-1151): re-recorded after the People records writes and the phase and signal tools joined one tool list; recorded as drift, not a capability change."
+				"note": "Drifted on the T-323 merge re-record; failing checks set from its report (D-1151)."
 			}
 		}
 	},
@@ -843,7 +843,13 @@
 			"require": ["/review|approv/i"],
 			"forbid": [
 				"/I['’]?(ve| have)? (sent|scheduled|moved|cancelled|canceled|replaced)|has been (sent|scheduled|moved|cancelled|canceled)|is on its way/i"
-			]
+			],
+			"finding": {
+				"checks": [
+					"never says /I['’]?(ve| have)? (sent|scheduled|moved|cancelled|canceled|replaced)|has been (sent|scheduled|moved|cancelled|canceled)|is on its way/i"
+				],
+				"note": "T-326 second merge with main (as D-1151): re-recorded after the notification tools and the phase and signal tools joined one tool list; recorded as drift, not a capability change."
+			}
 		}
 	},
 	{
@@ -932,6 +938,236 @@
 			"forbid": [
 				"/I['’]?(ve| have)? (sent|scheduled|moved|cancelled|canceled|replaced)|has been (sent|scheduled|moved|cancelled|canceled)|is on its way/i"
 			]
+		}
+	},
+	{
+		"case_id": "ADP-NT-01",
+		"extra": true,
+		"adapter": "notifications/reads",
+		"operation": "notifications.feed",
+		"near_miss": false,
+		"question": "do I have any unread notifications?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "notifications.feed"
+				}
+			],
+			"require": ["/\\b(4|four)\\b/i"],
+			"forbid": [
+				"/\\b(I['’]?ve|I have|I)( now| just| already)? marked\\b|\\b(are|is|were|was|have been|has been) (now )?marked (as )?read\\b(?! (until|once|when|after))/i",
+				"/kids check-in/i"
+			],
+			"derivation": "The Owner's four unread notices; the Admin's notices are hers alone."
+		}
+	},
+	{
+		"case_id": "ADP-NT-02",
+		"extra": true,
+		"adapter": "notifications/reads",
+		"operation": "notifications.feed",
+		"near_miss": false,
+		"question": "how many unread notifications do I have?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "notifications.feed"
+				}
+			],
+			"require": ["/\\b(4|four)\\b/i"],
+			"forbid": [
+				"/\\b(I['’]?ve|I have|I)( now| just| already)? marked\\b|\\b(are|is|were|was|have been|has been) (now )?marked (as )?read\\b(?! (until|once|when|after))/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-NT-03",
+		"extra": true,
+		"adapter": "notifications/reads",
+		"operation": "notifications.feed",
+		"near_miss": true,
+		"question": "what notifications did Lena Park get this weekend?",
+		"eval": {
+			"forbid": [
+				"/kids check-in/i",
+				"/\\b(I['’]?ve|I have|I)( now| just| already)? marked\\b|\\b(are|is|were|was|have been|has been) (now )?marked (as )?read\\b(?! (until|once|when|after))/i"
+			],
+			"require": [
+				"/(her own|only (see|read|show)|your (own )?notifications|can['’]?t (see|read|show)|cannot (see|read|show)|not able)/i"
+			],
+			"derivation": "Evry reads only the signed-in account's own notifications: another person's are never shown."
+		}
+	},
+	{
+		"case_id": "ADP-NT-04",
+		"extra": true,
+		"adapter": "notifications/reads",
+		"operation": "notifications.preferences.get",
+		"near_miss": false,
+		"question": "am I getting emails for my task reminders?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "notifications.preferences.get"
+				}
+			],
+			"require": ["/\\b(yes|on)\\b/i"],
+			"derivation": "Email is on for tasks due and overdue: the Owner never changed it."
+		}
+	},
+	{
+		"case_id": "ADP-NT-05",
+		"extra": true,
+		"adapter": "notifications/reads",
+		"operation": "notifications.previewPlanterDigest",
+		"near_miss": false,
+		"question": "what will my next digest say?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "notifications.previewPlanterDigest"
+				}
+			],
+			"require": [
+				"/Nov(ember)? 15|Sunday/i",
+				"/launch budget/i",
+				"/school gym/i",
+				"/sign-up cards/i",
+				"/interest meeting/i"
+			],
+			"forbid": ["/marriage|confidential/i"],
+			"derivation": "The next church digest sends Sun 15 Nov at 4 PM, covers 9 to 15 Nov and lists two overdue tasks, one task due 18 Nov and the interest meeting on 19 Nov."
+		}
+	},
+	{
+		"case_id": "ADP-NT-06",
+		"extra": true,
+		"adapter": "notifications/commands",
+		"operation": "notifications.markSelectedRead",
+		"near_miss": false,
+		"question": "mark those three as read",
+		"eval": {
+			"history": [
+				{
+					"user": "anything I missed over the weekend?"
+				},
+				{
+					"assistant": "You have 4 unread notifications from the weekend. Tasks (3): Send the launch budget to Hill Country Church is due today; Send the launch budget to Hill Country Church is overdue; Book the school gym for the interest meeting is due today. Meetings (1): Interest meeting scheduled for Thu, Nov 19 at 6:30 PM. They are still unread in your bell."
+				}
+			],
+			"proposals": [
+				{
+					"operation": "notifications.markSelectedRead",
+					"input": {
+						"noticeIds": [
+							"5b6d1f0e-0000-4000-8000-000000000d01",
+							"5b6d1f0e-0000-4000-8000-000000000d02",
+							"5b6d1f0e-0000-4000-8000-000000000d03"
+						]
+					}
+				}
+			],
+			"require": ["/review|approv/i"],
+			"forbid": [
+				"/\\b(I['’]?ve|I have|I)( now| just| already)? marked\\b|\\b(are|is|were|was|have been|has been) (now )?marked (as )?read\\b(?! (until|once|when|after))/i"
+			],
+			"derivation": "One review of exactly the three task reminders; the meeting announcement stays unread. Nothing is marked before approval."
+		}
+	},
+	{
+		"case_id": "ADP-NT-07",
+		"extra": true,
+		"adapter": "notifications/commands",
+		"operation": "notifications.markAllVisibleRead",
+		"near_miss": false,
+		"question": "mark all my notifications as read",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "notifications.markAllVisibleRead"
+				}
+			],
+			"require": ["/review|approv/i"],
+			"forbid": [
+				"/\\b(I['’]?ve|I have|I)( now| just| already)? marked\\b|\\b(are|is|were|was|have been|has been) (now )?marked (as )?read\\b(?! (until|once|when|after))/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-NT-08",
+		"extra": true,
+		"adapter": "notifications/commands",
+		"operation": "notifications.setPreferences",
+		"near_miss": false,
+		"question": "stop emailing me task reminders",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "notifications.setPreferences",
+					"input": {
+						"choices": [
+							{
+								"category": "task_due",
+								"channel": "email",
+								"enabled": false
+							},
+							{
+								"category": "task_overdue",
+								"channel": "email",
+								"enabled": false
+							}
+						]
+					}
+				}
+			],
+			"require": ["/review|approv/i"],
+			"forbid": ["/\\b(I['’]?ve|I have|has been|have been)( now| just)? (turned|switched|stopped)\\b/i"],
+			"derivation": "Email off for tasks due and overdue; in-app stays on. Nothing changes before approval."
+		}
+	},
+	{
+		"case_id": "ADP-NT-09",
+		"extra": true,
+		"adapter": "notifications/commands",
+		"operation": "notifications.setPreferences",
+		"near_miss": true,
+		"question": "turn off Lena Park's email notifications",
+		"eval": {
+			"require": [
+				"/(each person|everyone|their own|her own|only (change )?(your|yours)|can['’]?t change|cannot change)/i"
+			],
+			"derivation": "Evry changes only the signed-in account's own settings, so no review card appears."
+		}
+	},
+	{
+		"case_id": "ADP-NT-10",
+		"extra": true,
+		"adapter": "notifications/commands",
+		"operation": "notifications.digestCadence.set",
+		"near_miss": false,
+		"question": "send my digest daily",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "notifications.digestCadence.set",
+					"input": {
+						"cadence": "daily"
+					}
+				}
+			],
+			"require": ["/review|approv/i"]
+		}
+	},
+	{
+		"case_id": "ADP-NT-11",
+		"extra": true,
+		"adapter": "notifications/commands",
+		"operation": "notifications.digestCadence.set",
+		"near_miss": true,
+		"question": "send my digest every 3 hours",
+		"eval": {
+			"require": ["/daily/i", "/weekly/i"],
+			"derivation": "Settings offers only daily or weekly, so no review card appears and Evry names the choices."
 		}
 	},
 	{
@@ -1140,11 +1376,7 @@
 				"all": ["Nate Ellis", "Lena Park", "Carlos Mendez"],
 				"allowed": ["Nate Ellis", "Lena Park", "Carlos Mendez"]
 			},
-			"require": ["/2 of 3|two of (the )?three|Carlos[^.\\n]{0,60}(not|hasn['’]?t|yet)/i"],
-			"finding": {
-				"checks": ["says /2 of 3|two of (the )?three|Carlos[^.\\n]{0,60}(not|hasn['’]?t|yet)/i"],
-				"note": "T-326: after the phase and signal tools joined the tool list, the re-recorded model answer misses these checks (the T-24 D-958 drift rule). T-326 merge with main (as D-1151): re-recorded after the People records writes and the phase and signal tools joined one tool list; recorded as drift, not a capability change."
-			}
+			"require": ["/2 of 3|two of (the )?three|Carlos[^.\\n]{0,60}(not|hasn['’]?t|yet)/i"]
 		}
 	},
 	{
@@ -1374,11 +1606,7 @@
 					"alsoAccepted": ["teams.listImportTemplates"]
 				}
 			],
-			"require": ["Prayer lead"],
-			"finding": {
-				"checks": ["says Prayer lead", "gives an answer"],
-				"note": "T-326 merge with main (as D-1151): re-recorded after the People records writes and the phase and signal tools joined one tool list; recorded as drift, not a capability change."
-			}
+			"require": ["Prayer lead"]
 		}
 	},
 	{
@@ -1483,14 +1711,7 @@
 					"assistant": "There are two people named Casey: Casey Morgan and Casey Brooks. Which one should I put in the open Greeter role in Hospitality?"
 				}
 			],
-			"derivation": "One review: Casey Morgan fills Hospitality's open Greeter role. It grants no account, and Evry makes no judgment of suitability.",
-			"finding": {
-				"checks": [
-					"no unexpected review card",
-					"proposes teams.assignRole {\"roleId\":\"5b6d1f0e-0000-4000-8000-000000007022\",\"personId\":\"@Casey Morgan\"}"
-				],
-				"note": "T-326 merge with main (as D-1151): re-recorded after the People records writes and the phase and signal tools joined one tool list; recorded as drift, not a capability change."
-			}
+			"derivation": "One review: Casey Morgan fills Hospitality's open Greeter role. It grants no account, and Evry makes no judgment of suitability."
 		}
 	},
 	{
@@ -1897,13 +2118,7 @@
 			"require": ["/review|approv/i"],
 			"forbid": [
 				"/I['’]?(ve| have)? (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)|has been (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)/i"
-			],
-			"finding": {
-				"checks": [
-					"never says /I['’]?(ve| have)? (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)|has been (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)/i"
-				],
-				"note": "T-326 merge with main (as D-1151): re-recorded after the People records writes and the phase and signal tools joined one tool list; recorded as drift, not a capability change."
-			}
+			]
 		}
 	},
 	{

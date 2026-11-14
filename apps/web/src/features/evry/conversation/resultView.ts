@@ -1,5 +1,6 @@
 import { sendTimeShort } from "../review/model.ts";
 import { STAGE_LABEL, type StageValue } from "../../people/model.ts";
+import { CATEGORY_TEXT } from "../../settings/model.ts";
 import type { SourceResult, SourceRow } from "./model.ts";
 
 // What a result card says, as plain data: the title, the count, the notes under the rows and, per row, its name, a short
@@ -19,6 +20,8 @@ type OpView = {
 	counts: Kind;
 	/** The total counts something other than the counted rows, so the summary never says "N of M". */
 	shownOnly?: true;
+	/** The first row heads the card (a digest's title and dates) and is not one of the counted rows. */
+	headed?: true;
 	/** Said when nothing came back. */
 	empty: string;
 	/** A count answer: the summary is the total and the rows stay hidden, with this note instead. */
@@ -157,6 +160,29 @@ const VIEWS: Record<string, OpView> = {
 		icon: "message",
 		counts: "message",
 		empty: "No draft or scheduled message in this church matches.",
+	},
+	"notifications.feed": {
+		title: "Notifications",
+		noun: ["notification", "notifications"],
+		icon: "notice",
+		counts: "notice",
+		empty: "You have no notifications that match.",
+	},
+	"notifications.preferences.get": {
+		title: "Notification settings",
+		noun: ["category", "categories"],
+		icon: "setting",
+		counts: "setting",
+		empty: "Your notification settings are not available.",
+	},
+	// The digest's own row heads the card; each line under it is one item the digest will list.
+	"notifications.previewPlanterDigest": {
+		title: "Next church digest",
+		noun: ["open item", "open items"],
+		icon: "digest",
+		counts: "digest",
+		headed: true,
+		empty: "Your church digest is turned off, so no digest is coming.",
 	},
 };
 // The Ministries reads (WP-069). A ministry row opens its Ministries page; a person row opens the person.
@@ -359,6 +385,8 @@ const SIGNAL_KIND: Record<string, string> = {
 	reaffirmed: "Still true",
 };
 const ANSWER: Record<string, string> = { yes: "Yes", not_yet: "Not yet" };
+const categoryText = (value: unknown) =>
+	typeof value === "string" ? (CATEGORY_TEXT[value as keyof typeof CATEGORY_TEXT]?.label ?? words(value)) : null;
 const day = (value: unknown) => {
 	const at = typeof value === "string" ? new Date(value) : null;
 	return at && !Number.isNaN(at.getTime())
@@ -709,6 +737,38 @@ function rowView(operation: string, row: SourceRow): RowView {
 				line: joined(text(fields.description), fields.reaffirms === true ? "Renew every 30 days" : null),
 				avatar: "signal",
 			};
+		case "notice":
+			// A bell notification: its area and church-local time. A card never marks it read.
+			return {
+				...plain,
+				name: row.label,
+				line: joined(categoryText(fields.category), text(fields.at)),
+				mark: fields.read === false ? { kind: "status", text: "Unread", warn: false } : null,
+				avatar: "notice",
+			};
+		case "setting": {
+			const cadence = text(fields.cadence);
+			return {
+				...plain,
+				name: categoryText(row.id) ?? row.label,
+				line: joined(
+					fields.email ? `Email ${String(fields.email)}` : null,
+					fields.inApp ? `In-app ${String(fields.inApp)}` : null,
+					cadence ? (cadence === "daily" ? "Daily" : "Weekly") : null,
+				),
+				avatar: "setting",
+			};
+		}
+		case "digest":
+			// The digest's head says when it sends and the dates it covers; each other row is one line of it.
+			return row.id === "next"
+				? {
+						...plain,
+						name: row.label,
+						line: joined(text(fields.sendsAt) ? `Sends ${String(fields.sendsAt)}` : null),
+						avatar: "digest",
+					}
+				: { ...plain, name: row.label, line: null, avatar: null };
 		case "person":
 			break;
 	}
@@ -811,7 +871,9 @@ export function cardView(operation: string, result: SourceResult, originalTotal:
 	const view = VIEWS[operation] ?? fallback;
 	const [one, many] = view.noun;
 	const rows = shownRows(operation, view, result);
-	const counted = view.countAnswer ? 0 : rows.filter((r) => r.kind === view.counts).length;
+	const counted = view.countAnswer
+		? 0
+		: rows.filter((r, n) => r.kind === view.counts && !(view.headed && n === 0)).length;
 	const photo = operation === "people.getPersonPhoto";
 	const missing = result.status === "not_found" || (photo && !rows.length);
 	const summary = missing

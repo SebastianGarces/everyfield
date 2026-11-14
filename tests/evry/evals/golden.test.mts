@@ -752,14 +752,16 @@ test("INV-evry-golden SAF-02 SAF-11 SAF-12 SAF-14: the model's tools can read an
 		"propose_change",
 	]);
 	assert.deepEqual(tools("admin"), tools("owner"));
-	// A Member reads People and Messages and selects, but proposes nothing and gets no phase or signal read; an
+	// A Member reads, selects and proposes changes to only their own notifications, and gets no phase or signal read; an
 	// organization seat gets no plant read at all.
-	assert.deepEqual(tools("member"), [
-		...Object.keys(READ_DOMAINS)
-			.filter((d) => d !== "phases" && d !== "signals")
-			.map((d) => `${d}_read`),
-		"select_returned_rows",
-	]);
+	assert.deepEqual(
+		tools("member"),
+		tools("owner").filter((t) => t !== "phases_read" && t !== "signals_read"),
+	);
+	assert.deepEqual(
+		readCatalog(church.actors.member).reviewedWrites.map((w) => w.operation),
+		["notifications.markSelectedRead", "notifications.markAllVisibleRead", "notifications.setPreferences"],
+	);
 	assert.deepEqual(tools("org"), []);
 });
 
