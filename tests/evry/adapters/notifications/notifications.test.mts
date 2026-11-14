@@ -202,13 +202,9 @@ test("AC:NOTIFY47-001 mark all states the visible unread count, marks them all a
 	const proposal = await propose("notifications.markAllVisibleRead", {});
 	assert.ok(proposal);
 	assert.deepEqual(proposal.review.changes, [{ field: "unread", before: 12, after: 0 }]);
-	// One that arrives after the review is not part of it.
-	const later = await notice(
-		accounts.owner.id,
-		"meeting_reminder",
-		"Arrived after the review",
-		new Date().toISOString(),
-	);
+	// One that arrives after the review is not part of it. It is newer than every counted notice (half a day old), and
+	// a few minutes old so a host clock ahead of the database's still shows it as eligible.
+	const later = await notice(accounts.owner.id, "meeting_reminder", "Arrived after the review", ago(0.005));
 	const done = await approve(owner, proposal);
 	assert.equal(done.outcome, "completed");
 	assert.deepEqual(await unreadIds(accounts.owner.id), [later]);
