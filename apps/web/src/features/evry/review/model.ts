@@ -414,12 +414,6 @@ const TITLE: Record<Operation, string> = {
 export const operationTitle = (operation: Operation) => TITLE[operation];
 
 /** A new record and the facts of a merge have no value before: the card shows only the value they will have. */
-const RECORDS = new Set<Operation>([
-	"people.createPerson",
-	"people.createInterview",
-	"people.createAssessment",
-	"people.createCommitment",
-]);
 const MERGE_FACTS = new Set([
 	"keeps",
 	"keptDetails",
@@ -431,9 +425,7 @@ const MERGE_FACTS = new Set([
 	"detailsGoBack",
 ]);
 export const afterOnly = (review: Pick<Review, "operation">, field: string) =>
-	field === "reason" ||
-	MERGE_FACTS.has(field) ||
-	((RECORDS.has(review.operation) || addsOnly(review.operation)) && field !== "stage");
+	field === "reason" || MERGE_FACTS.has(field) || (ADDS.has(review.operation) && field !== "stage");
 
 // ---------------------------------------------------------------------------------------------------------------
 // Email: the five reviewed Communication writes (MAIL51-009). The email service is the only source of "confirmed".
@@ -726,8 +718,15 @@ export function hasBirthDate(review: Review, edits: Record<string, string>) {
 }
 
 /** Writes that only add something: their review shows the new values without an empty "before". */
-const ADDS = new Set<Operation>(["people.createPerson", "people.addNote", "people.addSkill", "people.createTag"]);
-export const addsOnly = (operation: Operation) => ADDS.has(operation);
+const ADDS = new Set<Operation>([
+	"people.createPerson",
+	"people.addNote",
+	"people.addSkill",
+	"people.createTag",
+	"people.createInterview",
+	"people.createAssessment",
+	"people.createCommitment",
+]);
 
 /** The People writes whose review can be revised field by field on the card. */
 const REVISABLE = new Set<Operation>([
@@ -782,16 +781,6 @@ export function reviseInput(review: Review, edits: Record<string, string> = {}):
 		}
 		case "communication.cancelScheduledReviewed":
 			return { communicationId: target.id };
-		case "people.createInterview":
-		case "people.createAssessment":
-		case "people.createCommitment":
-		case "people.withdrawCommitment":
-		case "people.reactivateCommitment":
-		case "people.correctCommitmentLifecycle":
-		case "people.correctPersonRecord":
-		case "people.mergePeople":
-		case "people.unmergePeople":
-			return null;
 		case "communication.replaceScheduledReviewed": {
 			const audience = audienceArgs(after("audience"));
 			const body = after("body");

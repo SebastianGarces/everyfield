@@ -205,12 +205,12 @@ function interviewText(person: string, r: Row) {
 export function assessmentStep(
 	text: string,
 	prompt: Prompt,
-	tools: { people: boolean; records: boolean; propose: boolean },
+	records: boolean,
 	toolCall: Call,
 ): LanguageModelV4Content[] | null {
 	const intent = intentOf(text, prompt);
 	if (!intent) return null;
-	if (!tools.records)
+	if (!records)
 		return say(
 			"Interviews, 4 C's assessments and commitments are for the church's Owners and Admins, so I can't show or change them for you.",
 		);

@@ -396,7 +396,7 @@ function respond(options: LanguageModelV4CallOptions): LanguageModelV4Content[] 
 	const result = lastToolOutput(options.prompt);
 	const canReadMail = options.tools?.some((t) => t.name === "communication_read") ?? false;
 	const records = options.tools?.some((t) => t.name === "peopleAssessments_read") ?? false;
-	const assessed = assessmentStep(text, options.prompt, { people: hasPeople, records, propose: canPropose }, toolCall);
+	const assessed = assessmentStep(text, options.prompt, records, toolCall);
 	if (assessed) return assessed;
 	const canReadNotices = options.tools?.some((t) => t.name === "notifications_read") ?? false;
 	const notices = notificationStep(text, { read: canReadNotices, propose: canPropose }, result);
