@@ -1,7 +1,5 @@
 import {
 	addCivilDays,
-	calendarContext,
-	frozenClock,
 	instant,
 	localDate,
 	localDateTime,
@@ -31,25 +29,4 @@ export function taskReminderTimes(
 		{ slot: "due" as const, at: automatic(`${date}T09:00:00`, due.zone) },
 		{ slot: "overdue" as const, at: automatic(`${addCivilDays(date, 1)}T09:00:00`, due.zone) },
 	];
-}
-export function owedPeriod(
-	config: { zone: string; cadence: "daily" | "weekly"; weekday: number; hour: number; completedDaysOnly?: boolean },
-	asOf: string,
-	coveredThrough: string | null,
-) {
-	const now = instant.parse(asOf),
-		zone = timeZone.parse(config.zone);
-	const today = calendarContext(zone, frozenClock(now)).localDate;
-	let end = today;
-	if (automatic(`${end}T${String(config.hour).padStart(2, "0")}:00:00`, zone) > now) end = addCivilDays(end, -1);
-	if (config.cadence === "weekly") {
-		const weekday = new Date(`${end}T00:00:00Z`).getUTCDay();
-		end = addCivilDays(end, -((weekday - config.weekday + 7) % 7));
-	}
-	if (config.completedDaysOnly) end = addCivilDays(end, -1);
-	const start = coveredThrough
-		? addCivilDays(localDate.parse(coveredThrough), 1)
-		: addCivilDays(end, config.cadence === "weekly" ? -6 : 0);
-	if (start > end) return null;
-	return { start, end, next: addCivilDays(end, config.cadence === "weekly" ? 7 : 1), zone, today };
 }

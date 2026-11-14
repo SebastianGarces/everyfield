@@ -898,16 +898,28 @@ export const churchWriter = {
 				}
 			}
 			// The same request key finished first: answer with its record when it is the same export.
-			// It runs as the retry of this write, so the statement budgets count it as one.
+			// It runs as the retry of this write, so the statement budgets count it as one. One statement reads the rival's
+			// row, its stored file and the gate, as the history does: the later caller of a race may have already claimed
+			// and finalized the shared file above, and this keeps that run within its retry budget (#758).
 			return rerun(db, async (bound) => {
-				const raced = await rowsOf<{ id: string; same: boolean }>(
+				const [raced] = await rowsOf<
+					Parameters<typeof generatedFrom>[0] & { ok: boolean; template_id: string; ready: boolean; same: boolean }
+				>(
 					bound,
-					sql`SELECT gd.id, (gd.source_document_id = ${row.id}::uuid AND gd.source_revision_id = ${row.revision_id}::uuid
-						AND gd.format = ${input.format}) AS same
-					FROM generated_document gd WHERE gd.tenant_id = ${scope.tenantId}::uuid AND gd.request_key = ${input.requestKey}`,
+					sql`SELECT ${gateSql(scope, false)} AS ok, gd.id, gd.template_id, gd.template_version, gd.saved_template_name,
+						gd.format, gd.download_name, gd.generated_at, gd.creator_account_id, gd.revision::text AS revision,
+						f.sha256, f.byte_count, gd.source_document_id, gd.source_revision_id, gd.theme_kind, gd.theme_primary,
+						sr.version_number AS source_number, f.id IS NOT NULL AS ready,
+						(gd.source_document_id = ${row.id}::uuid AND gd.source_revision_id = ${row.revision_id}::uuid
+							AND gd.format = ${input.format}) AS same
+					FROM generated_document gd
+					LEFT JOIN file_object f ON f.id = gd.object_id AND f.tenant_id = gd.tenant_id AND f.state = 'ready'
+					LEFT JOIN document_revision sr ON sr.id = gd.source_revision_id AND sr.tenant_id = gd.tenant_id
+					WHERE gd.tenant_id = ${scope.tenantId}::uuid AND gd.request_key = ${input.requestKey}`,
 				);
-				if (raced[0]?.same) return exportRecord(bound, scope, raced[0].id);
-				deny("conflict");
+				if (!raced?.same) deny("conflict");
+				if (!raced.ok || !raced.ready) deny("unavailable");
+				return generatedFrom(raced, scope.tenantId, raced.template_id);
 			});
 		});
 	},

@@ -145,14 +145,14 @@ test("AC:GAP-EVR-422 the import review is built from the conversation's own chec
 	const imported = await say(owner, here, "import it");
 	const card = imported.reviews.find((r) => r?.operation === "people.executeBulkImport")!;
 	assert.equal(card.status, "pending");
+	// The card is the People import review (T-319) of this exact file: each row's planned outcome, as the check showed.
+	const rows = (card.review as { rows?: { row: number; outcome: string; label: string | null }[] }).rows ?? [];
 	assert.deepEqual(
-		card.review.changes.map((c) => [c.field, c.after]),
+		rows.map((r) => [r.row, r.outcome, r.label]),
 		[
-			["file", "launch-interest.csv"],
-			["rows", 3],
-			["create", 1],
-			["skip", 1],
-			["invalid", 1],
+			[1, "create", "Jordan Lee"],
+			[2, "skip", "Alex Rivera"],
+			[3, "fail", null],
 		],
 	);
 	assert.match(imported.text, /People stays as it is until you approve it/);

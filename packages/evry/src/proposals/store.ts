@@ -9,7 +9,7 @@ import { currentAuthority } from "../context/authority.ts";
 import { EvryRefusal } from "../context/errors.ts";
 import { liveJob } from "../runtime/job.ts";
 import { fence, type RunLease } from "../runtime/run-store.ts";
-import type { MailPort, ReviewedWrite } from "./types.ts";
+import type { MailPort, ReviewContext, ReviewedWrite } from "./types.ts";
 import {
 	currentReview,
 	mine,
@@ -77,11 +77,12 @@ export async function prepareProposal(
 	conversationId: string,
 	raw: unknown,
 	mail: MailPort | null = null,
+	files: ReviewContext["files"] = null,
 ): Promise<Proposal | null> {
 	const call = parse(proposeInput, raw);
 	const write = adapter(actor, call.operation);
 	const input = parse(write.input, call.input);
-	const reviewSql = await write.review(actor, input, { db, mail, conversationId });
+	const reviewSql = await write.review(actor, input, { db, mail, conversationId, files });
 	if (!reviewSql) return null;
 	const r = await db.execute(sql`
 		WITH r AS (${reviewSql}),

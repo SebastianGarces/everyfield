@@ -345,7 +345,11 @@ async function run(
 				if (++cards > LIMITS.reviewCards) return { error: "review_limit" };
 				const fresh = await admit();
 				if (!fresh) return { error: stop === "tool_budget" ? "tool_budget" : "access_denied" };
-				const proposal = await prepareProposal(db, fresh, lease, turn.conversation_id, call, deps.mail).catch(
+				// An import reads the file attached in this very conversation, like a read does.
+				const files = {
+					read: (id: string) => readAttachment(db, deps.storage ?? null, fresh, turn.conversation_id, id),
+				};
+				const proposal = await prepareProposal(db, fresh, lease, turn.conversation_id, call, deps.mail, files).catch(
 					(error) => (error instanceof EvryRefusal ? error.code : "unknown"),
 				);
 				if (typeof proposal === "string") return { error: proposal };

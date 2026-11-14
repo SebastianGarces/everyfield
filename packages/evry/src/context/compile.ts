@@ -47,6 +47,15 @@ export function describeCatalog(catalog: Catalog) {
 		? ["In this context I can:", ...reads.map((r) => "- " + r), "- Pick rows from a result I already showed you."]
 		: ["In this context I have no application reads available yet."];
 	if (writes.length) lines.push("I can also prepare these changes for your review:", ...writes.map((w) => "- " + w));
+	// A seat that reads but may not change records (a church Member) is told who can, instead of a review it can't use.
+	// Its own notifications are not church records: a Member may change those and still no record.
+	const recordWrites = catalog.reviewedWrites.filter((w) => !w.operation.startsWith("notifications."));
+	if (reads.length && !recordWrites.length)
+		lines.push(
+			writes.length
+				? "Your seat can't change church records here, so I prepare no record changes for you: an Owner or Admin of this church has to make them. Only your own notifications and notification settings are yours to change."
+				: "Your seat can't change records here, so I prepare no changes for you: an Owner or Admin of this church has to make them.",
+		);
 	lines.push(
 		"Every change to your records needs your review and approval first. I can't give pastoral counsel, write prayers or judge anyone's spiritual readiness.",
 	);
@@ -70,6 +79,14 @@ const WRITE_AREAS: { prefix: string; text: string }[] = [
 	{
 		prefix: "communication.",
 		text: "Prepare emails for your review: save a draft, then schedule, move, cancel or change a scheduled email.",
+	},
+	{
+		prefix: "teams.",
+		text: "Prepare ministry changes for your review: ministries, roles, members and leaders, meetings, responsibilities and training.",
+	},
+	{
+		prefix: "notifications.",
+		text: "Change your own notifications for your review: mark them read, and choose what you get and how often.",
 	},
 ];
 /**
@@ -103,7 +120,8 @@ export function capabilitiesAnswer(catalog: Catalog, actor: Pick<EvryActor, "rol
 		? ["Here is what I can do for you here:", ...reads.map((r) => "- " + r), ...writes.map((w) => "- " + w.text)]
 		: ["I don't have anything to read in this context yet."];
 	if (writes.length) lines.push("", "Nothing changes until you review and approve it in the app.");
-	else if (actor.role === "member")
+	// A Member's only changes are to their own notifications: changes in the church are an Owner's or Admin's.
+	if (actor.role === "member" && !writes.some((w) => w.prefix !== "notifications."))
 		lines.push(
 			"",
 			`You're ${ROLE_NAME.member} here, so changes to people, emails and imports are made by an Owner or Admin of this church. I can't prepare them for you, but I can help you find what to ask them.`,
@@ -216,6 +234,8 @@ export function compileContext(input: {
 	const refs = input.references.slice(0, LIMITS.references);
 	const { role } = input.actor;
 	const writes = input.catalog.reviewedWrites.length > 0;
+	// A Member may change their own notification settings, and nothing in the church.
+	const churchWrites = input.catalog.reviewedWrites.some((w) => !w.operation.startsWith("notifications."));
 	const ops = new Set(input.catalog.domains.flatMap((d) => d.operations.map((o) => o.operation)));
 	// Tasks stay off this list: who needs a follow-up is answered today from the pipeline board, and naming tasks as
 	// unavailable made the model refuse that question.
@@ -228,7 +248,7 @@ export function compileContext(input: {
 		"You cannot change records yourself. propose_change only prepares an exact review card; nothing changes until the user approves it in the app. Never say a change was saved.",
 		"A person row marked you: true is the signed-in user. Never suggest the user as someone to follow up with, contact, visit or invite; still count and list the user's row when asked for people or totals. When the user's own row matters to an answer, call it \"you\", never a third person.",
 		role
-			? `The user is ${ROLE_NAME[role]} of this church.${writes ? "" : " Only an Owner or Admin of this church can change people, emails or imports. When the user asks for such a change, tell them an Owner or Admin has to make it, and prepare nothing."}`
+			? `The user is ${ROLE_NAME[role]} of this church.${churchWrites ? "" : " Only an Owner or Admin of this church can change people, emails or imports. When the user asks for such a change, tell them an Owner or Admin has to make it, and prepare nothing."}`
 			: "",
 		`${NOT_TRACKED} When asked about something Everyfield does not track, say plainly that Everyfield doesn't track it, and call no tool for it.`,
 		unavailable.length

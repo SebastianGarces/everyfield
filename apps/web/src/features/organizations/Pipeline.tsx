@@ -149,6 +149,9 @@ function ConsentSwitch({
 					aria-label={`Share pipeline totals with ${networkName}`}
 				/>
 			</div>
+			<p className="text-sm text-text-2">
+				Networks can&apos;t see pipeline totals yet. Your choice is saved for when they can.
+			</p>
 			{canManage ? null : <p className="text-sm text-text-3">Owners and Admins choose this.</p>}
 			<ProblemLine
 				problem={save.problem}

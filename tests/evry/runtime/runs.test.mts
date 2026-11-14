@@ -200,7 +200,8 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 	assert.equal(await work(), "succeeded");
 	assert.match((await events(seatless, none)).text, /don't have anything to read in this context yet/);
 	// No catalog offers direct writes, approvals, code, private care or coach tools to any context. Only a plant Owner or
-	// Admin may propose the reviewed People changes, the same floor as the native commands.
+	// Admin may propose the reviewed People changes, the same floor as the native commands; any plant seat proposes changes
+	// to its own notifications.
 	for (const who of ["owner", "member", "orgOwner", "seatless"] as const) {
 		const catalog = readCatalog(await actor(who));
 		const operations = catalog.domains.flatMap((d) => d.operations.map((o) => o.operation));
@@ -214,15 +215,40 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 						"people.deletePerson",
 						"people.setPersonPhoto",
 						"people.removePersonPhoto",
+						"people.addToHousehold",
+						"people.createHouseholdWithHead",
+						"people.updateHousehold",
+						"people.deleteHousehold",
+						"people.removeFromHousehold",
+						"people.setHouseholdRole",
+						"people.propagateAddress",
+						"people.createTag",
+						"people.updateTag",
+						"people.deleteTag",
+						"people.assignTag",
+						"people.removeTag",
+						"people.addSkill",
+						"people.updateSkill",
+						"people.removeSkill",
+						"people.addNote",
+						"people.editNote",
+						"people.deleteNote",
 						"people.executeBulkImport",
 						"communication.saveDraft",
 						"communication.scheduleReviewed",
 						"communication.rescheduleReviewed",
 						"communication.cancelScheduledReviewed",
 						"communication.replaceScheduledReviewed",
+						"notifications.markSelectedRead",
+						"notifications.markAllVisibleRead",
+						"notifications.setPreferences",
+						"notifications.digestCadence.set",
 						...Object.keys(REVIEWED_WRITES).filter((op) => op.startsWith("teams.")),
 					]
-				: [],
+				: who === "member"
+					? // A Member changes only their own bell and notification settings; the church digest is an Owner's or Admin's.
+						["notifications.markSelectedRead", "notifications.markAllVisibleRead", "notifications.setPreferences"]
+					: [],
 		);
 		const teamsReads = READ_DOMAINS.teams.map((a) => a.operation);
 		const peopleReads = ["people.listPeople", "people.getPerson", "people.getPersonPhoto", "people.checkForDuplicates"];
@@ -258,6 +284,9 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 						"people.listTags",
 						"people.previewImport",
 						"communication.list",
+						"notifications.feed",
+						"notifications.preferences.get",
+						"notifications.previewPlanterDigest",
 						...teamsReads,
 						"calendar.getContext",
 						"calendar.resolve",
@@ -267,6 +296,8 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 							...peopleReads,
 							...organizationReads,
 							"communication.list",
+							"notifications.feed",
+							"notifications.preferences.get",
 							...teamsReads,
 							"calendar.getContext",
 							"calendar.resolve",
@@ -437,6 +468,7 @@ test("AC:INH-EDGES-03 AC:TEN-008 AC:EVRY-CONTEXT-BOUNDS a guessed foreign id and
 		[
 			"calendar_read",
 			"communication_read",
+			"notifications_read",
 			"peopleOrganization_read",
 			"people_read",
 			"propose_change",
