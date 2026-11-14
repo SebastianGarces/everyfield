@@ -17,10 +17,10 @@
 	],
 	"section_id": "c28e2f03-1c8f-43a8-b477-35fb493a8bfb",
 	"slug": "administrative/financial/church-insurance-basics",
-	"sort_order": 8,
+	"sort_order": 10,
 	"status": "draft",
 	"title": "Church Insurance Basics",
-	"updated_at": "2026-11-09T12:00:00Z",
+	"updated_at": "2026-11-13T13:00:00Z",
 	"draft": {
 		"backlog_id": "T-12",
 		"tier": "F",
@@ -35,7 +35,8 @@
 		},
 		"rulings": [
 			"F53: bare 'plant' becomes 'church plant'.",
-			"F55 orphans: related_article_slugs gains administrative/technology/setting-up-the-church-office so that article has an inbound link from a related slice article."
+			"F55 orphans: related_article_slugs gains administrative/technology/setting-up-the-church-office so that article has an inbound link from a related slice article.",
+			"Maya (Head of Growth) Nov 13 2026 copy audit: sort_order 8 → 10, the next unused order in its section, so it does not collide with a leftover seed row after promotion."
 		]
 	}
 }

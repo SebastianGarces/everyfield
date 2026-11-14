@@ -10,7 +10,7 @@ import { sql, type SQL } from "@everyfield/db/query";
 import { randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
-import { RequestActor } from "../access/session.ts";
+import { RequestActor, requestWrite } from "../access/session.ts";
 import { hash } from "../operations/canonical.ts";
 import {
 	declareWrite,
@@ -186,23 +186,49 @@ export function overdueSql(asOf: string): SQL {
 export function jsonValue(value: unknown): unknown {
 	return typeof value === "string" ? JSON.parse(value) : value;
 }
+/** One notification write: its request schema, its operation name, its result and its body. */
+export type NotificationCommand<S extends z.ZodType<{ requestKey: string }>, T> = {
+	schema: S;
+	operation: string;
+	result: z.ZodType<T>;
+	body(tx: Tx, cmd: Command, input: z.output<S>, authority: RequestActor): Promise<T>;
+};
+/** The write as its own native write (D70), for the selected owner. */
 export async function runWrite<S extends z.ZodType<{ requestKey: string }>, T>(
 	db: Database,
 	authority: RequestActor,
 	selected: Owner,
 	raw: unknown,
-	schema: S,
-	operation: string,
-	result: z.ZodType<T>,
-	body: (tx: Tx, cmd: Command, input: z.output<S>) => Promise<T>,
+	spec: NotificationCommand<S, T>,
 ): Promise<NotificationReply<T>> {
 	try {
-		const input = parse(schema, raw);
+		const input = parse(spec.schema, raw);
 		return await withNotificationWrite(db, authority, selected, (tx) =>
-			command(tx, authority, selected, operation, input, result, (cmd) => body(tx, cmd, input)),
+			command(tx, authority, selected, spec.operation, input, spec.result, (cmd) =>
+				spec.body(tx, cmd, input, authority),
+			),
 		);
 	} catch (error) {
 		return refusal(error);
 	}
+}
+/**
+ * The same write inside a caller's transaction whose write gate already holds the approving session's account and seat
+ * (RequestActor.claimWrite): an approved Evry review. The account is the gate's own, never one the caller names.
+ */
+export async function runLockedWrite<S extends z.ZodType<{ requestKey: string }>, T>(
+	tx: Tx,
+	raw: unknown,
+	spec: NotificationCommand<S, T>,
+): Promise<NotificationReply<T>> {
+	return readReply(async () => {
+		const authority = requestWrite(tx)?.authority;
+		if (!authority) deny();
+		const input = parse(spec.schema, raw);
+		const selected = accountOwner(authority.actor.accountId);
+		return command(tx, authority, selected, spec.operation, input, spec.result, (cmd) =>
+			spec.body(tx, cmd, input, authority),
+		);
+	});
 }
 export { RequestActor };
