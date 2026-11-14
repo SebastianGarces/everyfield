@@ -6778,8 +6778,8 @@ export const assessment_insight = pgTable(
 );
 /**
  * A reader's own rating of one point of one published assessment (PI-033): useful or not useful, with an optional
- * comment. It belongs to its author only, is bound to the exact insight, run and rubric version, and never changes the
- * run, its scores or the rubric.
+ * comment. It belongs to its author only, is bound to the exact insight (checked when it is written), run and rubric
+ * version, and never changes the run, its scores or the rubric.
  */
 export const assessment_feedback = pgTable(
 	"assessment_feedback",
@@ -6796,17 +6796,13 @@ export const assessment_feedback = pgTable(
 	(t): PgTableExtraConfigValue[] => [
 		primaryKey({ name: "assessment_feedback_pkey", columns: [t.run_id, t.ordinal, t.account_id] }),
 		foreignKey({
-			name: "assessment_feedback_insight",
-			columns: [t.run_id, t.ordinal],
-			foreignColumns: [assessment_insight.run_id, assessment_insight.ordinal],
-		})
-			.onDelete("cascade")
-			.onUpdate("no action"),
-		foreignKey({
 			name: "assessment_feedback_run",
 			columns: [t.run_id, t.plant_id],
 			foreignColumns: [assessment_run.id, assessment_run.plant_id],
 		})
+			.onDelete("cascade")
+			.onUpdate("no action"),
+		foreignKey({ name: "assessment_feedback_plant", columns: [t.plant_id], foreignColumns: [plant.id] })
 			.onDelete("cascade")
 			.onUpdate("no action"),
 		foreignKey({ name: "assessment_feedback_account", columns: [t.account_id], foreignColumns: [account.id] })
@@ -6840,6 +6836,9 @@ export const assessment_seen = pgTable(
 			columns: [t.run_id, t.plant_id],
 			foreignColumns: [assessment_run.id, assessment_run.plant_id],
 		})
+			.onDelete("cascade")
+			.onUpdate("no action"),
+		foreignKey({ name: "assessment_seen_plant", columns: [t.plant_id], foreignColumns: [plant.id] })
 			.onDelete("cascade")
 			.onUpdate("no action"),
 		foreignKey({ name: "assessment_seen_account", columns: [t.account_id], foreignColumns: [account.id] })

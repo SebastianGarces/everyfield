@@ -1317,21 +1317,6 @@
         }
       },
       "foreignKeys": {
-        "assessment_feedback_insight": {
-          "name": "assessment_feedback_insight",
-          "tableFrom": "assessment_feedback",
-          "tableTo": "assessment_insight",
-          "columnsFrom": [
-            "run_id",
-            "ordinal"
-          ],
-          "columnsTo": [
-            "run_id",
-            "ordinal"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
         "assessment_feedback_run": {
           "name": "assessment_feedback_run",
           "tableFrom": "assessment_feedback",
@@ -1343,6 +1328,19 @@
           "columnsTo": [
             "id",
             "plant_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "assessment_feedback_plant": {
+          "name": "assessment_feedback_plant",
+          "tableFrom": "assessment_feedback",
+          "tableTo": "plant",
+          "columnsFrom": [
+            "plant_id"
+          ],
+          "columnsTo": [
+            "id"
           ],
           "onDelete": "cascade",
           "onUpdate": "no action"
@@ -1914,6 +1912,19 @@
           "columnsTo": [
             "id",
             "plant_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "assessment_seen_plant": {
+          "name": "assessment_seen_plant",
+          "tableFrom": "assessment_seen",
+          "tableTo": "plant",
+          "columnsFrom": [
+            "plant_id"
+          ],
+          "columnsTo": [
+            "id"
           ],
           "onDelete": "cascade",
           "onUpdate": "no action"

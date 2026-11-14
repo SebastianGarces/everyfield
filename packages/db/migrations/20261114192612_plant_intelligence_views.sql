@@ -21,10 +21,11 @@ CREATE TABLE "assessment_seen" (
 );
 --> statement-breakpoint
 ALTER TABLE "audit_event" DROP CONSTRAINT "audit_action";--> statement-breakpoint
-ALTER TABLE "assessment_feedback" ADD CONSTRAINT "assessment_feedback_insight" FOREIGN KEY ("run_id","ordinal") REFERENCES "assessment_insight"("run_id","ordinal") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "assessment_feedback" ADD CONSTRAINT "assessment_feedback_run" FOREIGN KEY ("run_id","plant_id") REFERENCES "assessment_run"("id","plant_id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "assessment_feedback" ADD CONSTRAINT "assessment_feedback_plant" FOREIGN KEY ("plant_id") REFERENCES "plant"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "assessment_feedback" ADD CONSTRAINT "assessment_feedback_account" FOREIGN KEY ("account_id") REFERENCES "account"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "assessment_seen" ADD CONSTRAINT "assessment_seen_run" FOREIGN KEY ("run_id","plant_id") REFERENCES "assessment_run"("id","plant_id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "assessment_seen" ADD CONSTRAINT "assessment_seen_plant" FOREIGN KEY ("plant_id") REFERENCES "plant"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "assessment_seen" ADD CONSTRAINT "assessment_seen_account" FOREIGN KEY ("account_id") REFERENCES "account"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "assessment_feedback_plant_idx" ON "assessment_feedback" USING btree ("plant_id");--> statement-breakpoint
 CREATE INDEX "assessment_feedback_account_idx" ON "assessment_feedback" USING btree ("account_id");--> statement-breakpoint

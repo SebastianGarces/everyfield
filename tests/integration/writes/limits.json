@@ -53,6 +53,12 @@
 	"GET /intelligence": {
 		"limit": 3
 	},
+	"GET /intelligence/trends": {
+		"limit": 2
+	},
+	"GET /intelligence/journey": {
+		"limit": 4
+	},
 	"GET /intelligence/attestations": {
 		"limit": 2
 	},
@@ -75,7 +81,7 @@
 		"limit": 2
 	},
 	"GET /overview": {
-		"limit": 6
+		"limit": 7
 	},
 	"GET /overview (member)": {
 		"limit": 6
@@ -2093,6 +2099,15 @@
 		"limit": 1
 	},
 	"assessments.resolveCitation": {
+		"limit": 1
+	},
+	"assessments.markAssessmentSeen": {
+		"limit": 1
+	},
+	"assessments.submitFeedback": {
+		"limit": 1
+	},
+	"assessments.readHistory": {
 		"limit": 1
 	},
 	"phases.transition": {
