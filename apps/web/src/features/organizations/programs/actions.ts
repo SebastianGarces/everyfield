@@ -28,6 +28,9 @@ export async function enroll(input: unknown) {
 export async function recordMilestone(input: unknown) {
 	return programCall((db, authority) => programWriter.recordMilestone(db, authority, input));
 }
+export async function confirmMilestone(input: unknown) {
+	return programCall((db, authority) => programWriter.confirmMilestone(db, authority, input));
+}
 export async function addFeedback(input: unknown) {
 	return programCall((db, authority) => programWriter.addFeedback(db, authority, input));
 }

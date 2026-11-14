@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@everyfield/ui/controls";
+import Link from "next/link";
 import { useState, type ReactNode } from "react";
 import { stepDone, type Entry, type StepKey } from "./model";
 import { OnboardingFrame, StepHeading, StepPills } from "./parts";
@@ -22,6 +23,7 @@ export function OnboardingFlow({
 	articles,
 	signIn,
 	account,
+	residency = null,
 }: {
 	port: OnboardingPort;
 	entry: Entry;
@@ -29,15 +31,25 @@ export function OnboardingFlow({
 	articles: Article[];
 	signIn: () => void;
 	account?: ReactNode;
+	/** The account's live residency link (WP-100); the Discovery home then links to My residency. */
+	residency?: { organizationName: string } | null;
 }) {
 	return (
 		<OnboardingProvider port={port} entry={entry} step={step} signIn={signIn}>
-			<Screens articles={articles} account={account} />
+			<Screens articles={articles} account={account} residency={residency} />
 		</OnboardingProvider>
 	);
 }
 
-function Screens({ articles, account }: { articles: Article[]; account?: ReactNode }) {
+function Screens({
+	articles,
+	account,
+	residency,
+}: {
+	articles: Article[];
+	account?: ReactNode;
+	residency: { organizationName: string } | null;
+}) {
 	const { state, actions } = useOnboarding();
 	const [paused, setPaused] = useState(false);
 	const { entry } = state;
@@ -65,6 +77,19 @@ function Screens({ articles, account }: { articles: Article[]; account?: ReactNo
 	if (entry.kind === "discovery")
 		return (
 			<OnboardingFrame>
+				{residency ? (
+					<div className="mx-auto mb-6 flex max-w-[820px] flex-wrap items-center gap-x-4 gap-y-3 rounded-card border border-line bg-surface-raised p-5 shadow-card">
+						<div className="min-w-[220px] flex-1">
+							<h2 className="font-sans text-md font-semibold tracking-normal text-ink">
+								Your residency with {residency.organizationName}
+							</h2>
+							<p className="mt-1 text-sm text-text-2">Your program, next meeting, milestones and reading.</p>
+						</div>
+						<Button asChild variant="primary">
+							<Link href="/my-residency">Open My residency</Link>
+						</Button>
+					</div>
+				) : null}
 				<DiscoveryHome state={state} actions={actions} articles={articles} />
 				{account ? <div className="mx-auto mt-10 flex max-w-[820px] justify-end">{account}</div> : null}
 			</OnboardingFrame>
