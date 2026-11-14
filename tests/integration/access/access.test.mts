@@ -78,7 +78,7 @@ test("AC:ADR1-002 INV-pipeline: exact organization duties and no resident intern
 		querySql`INSERT INTO development_program(id,organization_id,kind,name,director_seat_id,revision) VALUES(${program},${o.id},'residency','Synthetic',${directorSeat},1)`,
 	);
 	await db.admin.execute(
-		querySql`INSERT INTO development_program_version(id,organization_id,program_id,version_number,rhythm,expected_months,revision) VALUES(${version},${o.id},${program},1,'Monthly',12,1)`,
+		querySql`INSERT INTO development_program_version(id,organization_id,program_id,version_number,rhythm,expected_months,revision) VALUES(${version},${o.id},${program},1,'monthly',12,1)`,
 	);
 	await db.admin.execute(
 		querySql`INSERT INTO development_stage(id,organization_id,version_id,label,position,min_months,max_months,revision) VALUES(${developmentStage},${o.id},${version},'Private stage',0,1,2,1)`,

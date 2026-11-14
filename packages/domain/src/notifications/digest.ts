@@ -1,5 +1,9 @@
 import {
 	MEETING_TYPE_TITLE,
+	addCivilDays,
+	calendarContext,
+	frozenClock,
+	instant,
 	localDate,
 	localDateTime,
 	resolveCalendar,
@@ -17,6 +21,38 @@ import type { Database } from "@everyfield/db/client";
 import { sql } from "@everyfield/db/query";
 import { z } from "zod";
 import { RequestActor, deny, jsonValue, parse, readReply, seatAccess } from "./core.ts";
+
+function automatic(wall: string, zone: TimeZone): Instant {
+	const resolved = resolveCalendar(localDateTime.parse(wall), zone, "automatic");
+	if (resolved.kind !== "resolved") throw Error("calendar_unresolved");
+	return resolved.occurrence.instant;
+}
+/**
+ * The period a digest sent at `asOf` covers: from the day after its coverage (or one period back for a first digest)
+ * to the last slot that has passed, in the tenant's zone, and `next`, the day the following period ends. Null when
+ * nothing is owed. Pure.
+ */
+export function owedPeriod(
+	config: { zone: string; cadence: "daily" | "weekly"; weekday: number; hour: number; completedDaysOnly?: boolean },
+	asOf: string,
+	coveredThrough: string | null,
+) {
+	const now = instant.parse(asOf),
+		zone = timeZone.parse(config.zone);
+	const today = calendarContext(zone, frozenClock(now)).localDate;
+	let end = today;
+	if (automatic(`${end}T${String(config.hour).padStart(2, "0")}:00:00`, zone) > now) end = addCivilDays(end, -1);
+	if (config.cadence === "weekly") {
+		const weekday = new Date(`${end}T00:00:00Z`).getUTCDay();
+		end = addCivilDays(end, -((weekday - config.weekday + 7) % 7));
+	}
+	if (config.completedDaysOnly) end = addCivilDays(end, -1);
+	const start = coveredThrough
+		? addCivilDays(localDate.parse(coveredThrough), 1)
+		: addCivilDays(end, config.cadence === "weekly" ? -6 : 0);
+	if (start > end) return null;
+	return { start, end, next: addCivilDays(end, config.cadence === "weekly" ? 7 : 1), zone, today };
+}
 
 const oversightRow = z.object({
 	allowed: z.boolean(),
@@ -288,4 +324,58 @@ export function renderOversightDigest(input: {
 				: []),
 		],
 	};
+}
+
+const previewRequest = z.strictObject({ plantId: z.uuid() });
+const previewRow = z.object({
+	allowed: z.boolean(),
+	timezone: z.string(),
+	church_cadence: z.enum(["off", "daily", "weekly"]),
+	weekday: z.number().int(),
+	hour: z.number().int(),
+	cadence: z.enum(["daily", "weekly"]).nullable(),
+	covered_through: z.string().nullable(),
+});
+
+/**
+ * notifications.previewPlanterDigest: the church digest the signed-in Owner or Admin gets next, from current facts.
+ * The scheduled runner's own rules decide it: the church's schedule, the account's cadence and how far its coverage
+ * reaches give the send time and the period, and the same compile and text as the delivered digest give its items.
+ * Two statements, each with the live access check. Null `next` when the church turned its digest off.
+ */
+export async function previewPlanterDigest(db: Execute, authority: RequestActor, raw: unknown, now: () => Date) {
+	return readReply(async () => {
+		const input = parse(previewRequest, raw);
+		const me = authority.actor.accountId;
+		const r = await db.execute(sql`SELECT p.timezone, p.digest_cadence AS church_cadence,
+				p.digest_weekday::int AS weekday, p.digest_hour::int AS hour,
+				(SELECT cadence FROM notification_preference WHERE account_id = ${me}::uuid AND category = 'planter_digest'
+					AND cadence IS NOT NULL LIMIT 1) AS cadence,
+				(SELECT covered_through::text FROM digest_coverage WHERE tenant_id = p.id AND recipient_id = ${me}::uuid
+					AND purpose = 'planter') AS covered_through,
+				${seatAccess({ session: authority.session, account: me, tenant: input.plantId, admin: true })} AS allowed
+			FROM plant p WHERE p.id = ${input.plantId}::uuid`);
+		const row = r.rows[0] ? previewRow.parse(r.rows[0]) : null;
+		if (!row?.allowed) deny("access_denied");
+		const zone = timeZone.parse(row.timezone);
+		const cadence = row.cadence ?? "weekly";
+		if (row.church_cadence === "off") return { zone, cadence, next: null };
+		const slot = { weekday: row.weekday, hour: row.hour };
+		const sendAt = nextDigestInstant(zone, cadence, now(), slot);
+		const period = owedPeriod({ zone, cadence, ...slot }, sendAt, row.covered_through);
+		if (!period) return { zone, cadence, next: null };
+		const digest = await compilePlanterDigest(db, {
+			plant: input.plantId,
+			recipient: me,
+			asOf: sendAt,
+			through: period.next,
+		});
+		if (!digest.live) deny("access_denied");
+		const text = renderPlanterDigest({ ...period, ...digest });
+		return {
+			zone,
+			cadence,
+			next: { sendAt, start: period.start, end: period.end, total: digest.total, items: digest.lines, ...text },
+		};
+	});
 }
