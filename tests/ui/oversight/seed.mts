@@ -589,7 +589,7 @@ export async function seedOversight(env: {
 		await admin.execute(sql`INSERT INTO network_intelligence_plant(run_id,plant_id,launched,days_to_launch,unfilled_roles,
 			outstanding_training,region_item_id,state_province,country)
 			SELECT ${run},g.plant_id,false,x.days,x.unfilled,x.training,g.region_item_id,'TX','US' FROM plant_geography g
-			JOIN (VALUES (${hp.id}::uuid,31,1,0),(${ec.id}::uuid,11,0,0),(${oc.id}::uuid,21,0,1)) x(plant,days,unfilled,training)
+			JOIN (VALUES (${hp.id}::uuid,29,1,0),(${ec.id}::uuid,11,0,0),(${oc.id}::uuid,21,0,1)) x(plant,days,unfilled,training)
 			ON x.plant=g.plant_id`);
 	}
 
