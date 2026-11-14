@@ -6,6 +6,7 @@ import type { ReadAdapter, SourceResult, SourceRow } from "../../../catalog/type
 import type { EvryActor } from "../../../context/actor.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
 import { plantAdmin } from "../../native.ts";
+import { dayText } from "../../pipeline/reads/index.ts";
 
 // Plant Intelligence as Evry reads it (WP-073): the same domain reads /intelligence makes (WP-040, WP-044), under the
 // asker's live Owner or Admin seat. Evry quotes the saved assessment and the measured facts; it never scores health or
@@ -52,9 +53,6 @@ const noAssessment = (operation: string): SourceResult => ({
 	facts: { assessed: false, screen: SCREEN },
 });
 
-const dayFormat = new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeZone: "UTC" });
-/** "Oct 13, 2026" for a plant-local date, as the Plant Intelligence screen says it. */
-export const dayText = (d: string) => dayFormat.format(new Date(`${d}T12:00:00Z`));
 /** A fact value in words, as the screen says it: Unknown for null, Yes or No, a date, or the number. */
 function factText(value: c.EvidenceFact["value"]): string | number {
 	if (value === null) return "Unknown";

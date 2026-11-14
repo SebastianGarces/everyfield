@@ -6,7 +6,7 @@ import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
 import type { EffectResult, ReviewContext, ReviewedWrite } from "../../../proposals/types.ts";
 import { plantAdmin } from "../../native.ts";
-import { dayText } from "../reads/assessment.ts";
+import { dayText } from "../../pipeline/reads/index.ts";
 
 // The Plant Intelligence reviewed writes (WP-074). The model only proposes; a person approves the exact card. Each runs
 // the screen's own command (assessment-actions.ts) once in the executor's transaction under the approving session's

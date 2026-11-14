@@ -4,6 +4,7 @@ import { z } from "zod";
 import type { ReadAdapter, SourceResult, SourceRow } from "../../../catalog/types.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
 import { organizationSeat } from "../../native.ts";
+import { dayText } from "../../pipeline/reads/index.ts";
 
 // Organization oversight as Evry reads it (WP-073: oversight.listPlants, oversight.getPlant with its Launch readiness
 // and published summary, organizationIntelligence.read). Each calls the read the network's own pages make (/network,
@@ -29,8 +30,6 @@ const LAUNCH: Record<C.LaunchState, string> = {
 	overdue: "Overdue",
 	completed: "Launched",
 };
-const dayFormat = new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeZone: "UTC" });
-const dayText = (d: string) => dayFormat.format(new Date(`${d}T12:00:00Z`));
 const place = (p: C.PlantDirectoryRow) => [p.city, p.stateProvince].filter(Boolean).join(", ") || null;
 /** What oversight never holds, said in every result so the answer can say it too. */
 const AGGREGATES_ONLY = "names, notes, interviews, private care and assessment text, which oversight never shows";
