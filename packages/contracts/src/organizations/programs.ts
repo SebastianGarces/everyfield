@@ -107,6 +107,16 @@ export const addFeedbackRequest = z.strictObject({
 	milestoneId: recordId,
 	body: z.string().trim().min(1).max(5000),
 });
+/**
+ * Moves an active enrollment to the program's current published version, at a stage of that version. The current
+ * director only, after a review: `basis` names the state the review showed, and a change since refuses the apply.
+ */
+export const applyVersionRequest = z.strictObject({
+	enrollmentId: recordId,
+	versionId: recordId,
+	stageId: recordId,
+	basis: z.string().regex(/^[0-9a-f]{32}$/),
+});
 /** Wiki articles the organization may put on a reading list, by title. */
 export const readingSearchRequest = z.strictObject({ q: z.string().trim().max(100) });
 
@@ -231,6 +241,8 @@ export const enrollmentMilestone = z.strictObject({
 		.array(z.strictObject({ id: recordId, writtenOn: localDate, writer: z.string().nullable(), body: z.string() }))
 		.nullable(),
 });
+/** A milestone that is no longer in the enrollment's plan but holds a record from an earlier version, kept as recorded. */
+export const earlierMilestone = enrollmentMilestone.extend({ versionNumber: z.int().min(1) });
 export const enrollmentDetail = z.strictObject({
 	id: recordId,
 	person: z.strictObject({ personId, name: z.string() }),
@@ -244,10 +256,42 @@ export const enrollmentDetail = z.strictObject({
 	nextMeeting: z.strictObject({ at: localDateTime, timezone: z.string() }).nullable(),
 	milestones: z.array(enrollmentMilestone),
 	resident: residentView,
+	/** Records on milestones that a later version removed (REQ-MUL-011). */
+	earlier: z.array(earlierMilestone),
+	/** The program's current published version, when it is newer than the enrollment's. */
+	newerVersion: z.strictObject({ id: recordId, number: z.int().min(1) }).nullable(),
 	viewer,
 	today: localDate,
 });
 export type EnrollmentDetail = z.infer<typeof enrollmentDetail>;
+
+const reviewedMilestone = z.strictObject({
+	title: z.string(),
+	description: z.string().nullable(),
+	handsOn: z.boolean(),
+	/** The enrollee finished it; the finished record is kept whatever the new version does with it. */
+	finished: z.boolean(),
+});
+/**
+ * What applying the program's current version changes for one enrollment, matched by milestone lineage: milestones
+ * added, removed, and changed in title, description or kind, and the finished ones that carry over. Unchanged
+ * milestones are not listed. `stageId` is the preselected stage of the new version.
+ */
+export const versionReview = z.strictObject({
+	enrollmentId: recordId,
+	versionId: recordId,
+	fromNumber: z.int().min(1),
+	toNumber: z.int().min(1),
+	basis: z.string(),
+	added: z.array(reviewedMilestone),
+	removed: z.array(reviewedMilestone),
+	changed: z.array(z.strictObject({ before: reviewedMilestone, after: reviewedMilestone })),
+	carried: z.array(z.string()),
+	stage: z.string(),
+	stages: z.array(z.strictObject({ id: recordId, label: z.string() })),
+	stageId: recordId,
+});
+export type VersionReview = z.infer<typeof versionReview>;
 
 export const readingCandidates = z.array(
 	z.strictObject({ revisionId: recordId, title: z.string(), source: z.enum(["global", "organization"]) }),
@@ -266,6 +310,8 @@ export const programRefusal = z.discriminatedUnion("code", [
 	z.strictObject({ code: z.literal("no_stages") }),
 	/** The enrollee has a linked account, so they mark their own milestones (WP-100). */
 	z.strictObject({ code: z.literal("linked_resident") }),
+	/** The enrollment, its records or the program's current version changed since the director's review. */
+	z.strictObject({ code: z.literal("stale_review") }),
 ]);
 export type ProgramRefusal = z.infer<typeof programRefusal>;
 export type ProgramReply<T> = { status: "ok"; value: T } | { status: "refused"; refusal: ProgramRefusal };

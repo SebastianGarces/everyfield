@@ -16,7 +16,9 @@ import {
 	readResidencyLink,
 	readPipelineBoard,
 	readPipelinePersonRecord,
+	readProgram,
 	readResidentReading,
+	readVersionReview,
 	residentWriter,
 } from "../../../packages/domain/src/organizations/index.ts";
 
@@ -552,6 +554,76 @@ test("milestone sharing off hides Casey's own marks; the milestone Ana recorded 
 		).status,
 		"refused",
 	);
+});
+
+test("a new version keeps Casey's own marks on carried milestones, and shows them to Ana only while she shares", async () => {
+	// Milestone sharing is off. Ana publishes Version 2 with the same milestones and applies it to Casey.
+	const p = ok(await readProgram(f.db, await authority(ana), { programId: program }));
+	const v = p.published!;
+	const saved = ok(
+		await programWriter.savePlan(f.db, await authority(ana), {
+			programId: program,
+			expectedRevision: p.revision,
+			plan: {
+				rhythm: v.rhythm,
+				expectedMonths: v.expectedMonths,
+				stages: v.stages.map((s) => ({ label: s.label, minMonths: s.minMonths, maxMonths: s.maxMonths })),
+				milestones: v.milestones.map((m) => ({
+					lineage: m.lineage,
+					title: m.title,
+					description: m.description,
+					handsOn: m.handsOn,
+				})),
+				readings: v.readings.map((r) => ({ revisionId: r.revisionId })),
+			},
+		}),
+	);
+	ok(
+		await programWriter.publishVersion(f.db, await authority(ana), {
+			programId: program,
+			expectedRevision: saved.revision,
+		}),
+	);
+	// The review counts only what Grace Austin may see as finished: its own record, not Casey's hidden marks.
+	const r = ok(await readVersionReview(f.db, await authority(ana), { enrollmentId: caseyEnrollment }));
+	assert.deepEqual(r.carried, ["Preach on a Sunday"]);
+	ok(
+		await programWriter.applyVersion(f.db, await authority(ana), {
+			enrollmentId: caseyEnrollment,
+			versionId: r.versionId,
+			stageId: r.stageId,
+			basis: r.basis,
+		}),
+	);
+	const view = await mine();
+	if (view.status !== "linked") throw Error("not linked");
+	const own = view.enrollments[0]!.milestones;
+	const vision = milestoneOf(own, "Present your vision to the sending church leadership");
+	const prospectus = milestoneOf(own, "Write a church planting prospectus");
+	assert.equal(vision.completion?.source, "resident");
+	assert.notEqual(vision.completion?.confirmedOn, null);
+	assert.deepEqual([prospectus.completion?.source, prospectus.completion?.confirmedOn], ["resident", null]);
+	assert.equal(milestoneOf(own, "Preach on a Sunday").completion?.source, "program_leader");
+	// Marking a milestone already marked on Version 1 changes nothing.
+	const mark = { enrollmentId: caseyEnrollment, milestoneId: vision.id };
+	assert.deepEqual(ok(await residentWriter.markMilestone(f.db, await authority(casey), mark)), { outcome: "noop" });
+	// Once she shares again, Ana sees both marks on Version 2 and confirms the waiting one.
+	await share({ shareFoundations: true, shareMilestones: true });
+	const shown = await enrollment(ana);
+	assert.equal(shown.versionNumber, 2);
+	assert.deepEqual(
+		shown.milestones.map((m) => [m.title, m.completion?.source ?? null, m.completion?.confirmedOn === null]),
+		[
+			["Present your vision to the sending church leadership", "resident", false],
+			["Write a church planting prospectus", "resident", true],
+			["Preach on a Sunday", "program_leader", false],
+		],
+	);
+	const confirm = { enrollmentId: caseyEnrollment, milestoneId: prospectus.id };
+	assert.deepEqual(ok(await programWriter.confirmMilestone(f.db, await authority(ana), confirm)), {
+		outcome: "changed",
+	});
+	assert.deepEqual(ok(await programWriter.confirmMilestone(f.db, await authority(ana), confirm)), { outcome: "noop" });
 });
 
 test("church reading opens only from Casey's own list; another church article does not; unpublished reads unavailable", async () => {

@@ -62,11 +62,14 @@ SELECT g.allowed,(SELECT jsonb_build_object('organizationName',o.name,'timezone'
     'handsOn',m.hands_on,
     'completion',(SELECT jsonb_build_object('completedOn',c.completed_on::text,
       'confirmedOn',(c.confirmed_at AT TIME ZONE o.church_tz)::date::text,'source',c.source)
-     FROM enrollment_milestone c WHERE c.enrollment_id=e.id AND c.milestone_id=m.id AND c.organization_id=e.organization_id),
+     FROM enrollment_milestone c JOIN development_milestone cm ON cm.id=c.milestone_id AND cm.organization_id=c.organization_id
+     WHERE c.enrollment_id=e.id AND c.organization_id=e.organization_id AND cm.lineage=m.lineage
+     ORDER BY c.confirmed_at,c.id LIMIT 1),
     'feedback',coalesce((SELECT jsonb_agg(jsonb_build_object('id',f.id,
       'writtenOn',(f.written_at AT TIME ZONE o.church_tz)::date::text,
       'writer',(SELECT i.display_name FROM seat_identity(f.writer_id) i),'body',f.body) ORDER BY f.written_at,f.id)
-     FROM assignment_feedback f WHERE f.enrollment_id=e.id AND f.milestone_id=m.id AND f.organization_id=e.organization_id),
+     FROM assignment_feedback f JOIN development_milestone fm ON fm.id=f.milestone_id AND fm.organization_id=f.organization_id
+     WHERE f.enrollment_id=e.id AND f.organization_id=e.organization_id AND fm.lineage=m.lineage),
      '[]'::jsonb)) ORDER BY m.position,m.id)
    FROM development_milestone m WHERE m.version_id=e.version_id AND m.organization_id=e.organization_id),'[]'::jsonb),
   'readings',coalesce((SELECT jsonb_agg(jsonb_build_object('id',r.id,'title',r.title,
@@ -140,7 +143,7 @@ SELECT (SELECT jsonb_build_object('title',c.title,'organizationName',o.name,'con
  * The resident marks one of their own milestones done today, in the church's time zone (REQ-MUL-012). It then waits
  * for the director's confirmation. The established path (C88): the first statement locks the enrollment and the live
  * link; the second writes the mark with its body-free audit row in the church's own audit. A milestone already
- * recorded or marked stays as it was.
+ * recorded or marked, on any version (matched by lineage), stays as it was.
  */
 async function markMilestone(db: Database, authority: RequestActor, raw: unknown) {
 	return answer<{ outcome: "changed" | "noop" }, C.ProgramRefusal>(async () => {
@@ -169,6 +172,10 @@ async function markMilestone(db: Database, authority: RequestActor, raw: unknown
  version_id,milestone_id,source,completed_on,recorder_id)
  SELECT ${randomUUID()}::uuid,${org}::uuid,${x.id}::uuid,${x.version_id}::uuid,${input.milestoneId}::uuid,'resident',
   (clock_timestamp() AT TIME ZONE o.timezone)::date,${actor}::uuid FROM organization o WHERE o.id=${org}::uuid
+  AND NOT EXISTS(SELECT FROM enrollment_milestone c JOIN development_milestone cm ON cm.id=c.milestone_id
+   AND cm.organization_id=c.organization_id JOIN development_milestone m ON m.id=${input.milestoneId}::uuid
+   AND m.organization_id=cm.organization_id AND m.lineage=cm.lineage
+   WHERE c.enrollment_id=${x.id}::uuid AND c.organization_id=${org}::uuid)
  ON CONFLICT (enrollment_id,milestone_id) DO NOTHING RETURNING id),
 a AS (INSERT INTO audit_event (id,tenant_id,actor_id,actor_token,action,kind,subject_type,subject_id,metadata)
  SELECT ${randomUUID()}::uuid,${org}::uuid,${actor}::uuid,${hash([org, actor])},'development.milestone_marked','complete',

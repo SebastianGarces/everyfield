@@ -2016,6 +2016,10 @@
 		"limit": 4,
 		"retry": 4
 	},
+	"programs.applyVersion": {
+		"limit": 4,
+		"retry": 4
+	},
 	"programs.confirmMilestone": {
 		"limit": 4,
 		"retry": 4
