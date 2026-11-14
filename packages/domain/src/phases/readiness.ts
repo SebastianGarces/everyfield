@@ -33,9 +33,9 @@ export function readinessOf(phase: c.CatalogPhase, results: CriterionResults): c
 }
 
 /**
- * phases.readReadiness for every phase of the catalog. No criterion has a measured source until WP-040 ships, so every
- * result is Unknown and the read sends no statement; WP-040 passes its measured facts here.
+ * phases.readReadiness for every phase of the catalog, from the criteria the plant's measured facts answer (WP-040,
+ * `PlantFacts.criteria`). A criterion the facts do not measure stays Unknown. Sends no statement of its own.
  */
-export function readReadiness(catalog: c.Catalog): c.Readiness[] {
-	return catalog.phases.map((phase) => readinessOf(phase, {}));
+export function readReadiness(catalog: c.Catalog, results: CriterionResults): c.Readiness[] {
+	return catalog.phases.map((phase) => readinessOf(phase, results));
 }
