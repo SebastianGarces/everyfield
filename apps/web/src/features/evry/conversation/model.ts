@@ -61,7 +61,9 @@ export type SourceRow = {
 		| "template"
 		| "seat"
 		| "invitation"
-		| "connection";
+		| "connection"
+		| "step"
+		| "relationship";
 	id: string;
 	label: string;
 	fields: Record<string, unknown>;

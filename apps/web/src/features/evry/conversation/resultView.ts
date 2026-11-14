@@ -134,6 +134,20 @@ const VIEWS: Record<string, OpView> = {
 		counts: "connection",
 		empty: "This church is not connected with that organization.",
 	},
+	"onboarding.getResume": {
+		title: "Setup",
+		noun: ["step", "steps"],
+		icon: "step",
+		counts: "step",
+		empty: "This church has no setup in progress for you.",
+	},
+	"discovery.getProfile": {
+		title: "Discovery space",
+		noun: ["linked organization", "linked organizations"],
+		icon: "relationship",
+		counts: "relationship",
+		empty: "No sending church or network is linked yet.",
+	},
 	"communication.list": {
 		title: "Messages",
 		noun: ["message", "messages"],
@@ -667,6 +681,19 @@ function rowView(operation: string, row: SourceRow): RowView {
 						: "Owners and Admins choose what is shared",
 				avatar: null,
 			};
+		case "step":
+			// A setup step as `/onboarding` shows it: saved with its answer, or still open.
+			return {
+				...plain,
+				href: "/onboarding",
+				name: row.label,
+				line: text(fields.answer),
+				mark: { kind: "status", text: fields.status === "saved" ? "Saved" : "Open", warn: fields.status !== "saved" },
+				avatar: null,
+			};
+		case "relationship":
+			// A sending church or network a Discovery space is linked to.
+			return { ...plain, href: "/onboarding", name: row.label, line: text(fields.relationship), avatar: null };
 		case "notice":
 			// A bell notification: its area and church-local time. A card never marks it read.
 			return {
@@ -826,6 +853,12 @@ export function cardView(operation: string, result: SourceResult, originalTotal:
 				: "Only the first matches are shown.",
 		);
 	const totals = result.facts ?? {};
+	if (typeof totals.phase === "string")
+		facts.push(
+			`${String(totals.church ?? "Your church")} is in ${totals.phase}.${typeof totals.launchDate === "string" ? ` Launch date ${totals.launchDate}.` : ""}`,
+		);
+	if (typeof totals.foundationsRead === "number")
+		facts.push(`${totals.foundationsRead} of ${Number(totals.foundationsTotal)} foundation articles read.`);
 	if (typeof totals.roles === "number")
 		facts.push(
 			`${count(totals.roles, "role", "roles")} in all: ${totals.filledRoles} filled, ${totals.openRoles} open. ${Number(totals.peopleServing).toLocaleString()} serving, each counted once however many roles they hold.`,

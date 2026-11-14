@@ -66,14 +66,27 @@ const SETTINGS_ONLY = [
 	},
 ] as const;
 
+/**
+ * What an account with no church seat can't reach (T-345), with the reply that says so. The scripted model quotes it, so
+ * the evals test the words the real model gets.
+ */
+export const NEEDS_A_CHURCH =
+	"People, meetings, teams, tasks and other church records need a seat in a church, and this account has none yet. I can help you start a church, or set up a Discovery space to explore first.";
+/** Who may answer a church's setup (T-345): the native setup commands take only that Owner. */
+const SETUP_RULE = "Only the Owner who is setting up this church can answer its setup questions or finish its setup.";
+
 /** Who may make the changes a seat's tools leave out, so a refusal names the role instead of guessing. */
 function roleRule(actor: EvryActor) {
-	if (actor.role === null) return "";
+	if (actor.role === null)
+		return actor.contextKind === "account"
+			? `The user has no church seat. When the user asks about church records, prepare nothing and reply: ${NEEDS_A_CHURCH}`
+			: "";
 	const scope =
 		actor.contextKind === "plant"
 			? "invite people, change seats and invitations, or change this church's settings, sharing and connections"
 			: "invite people, change seats and invitations, or change this organization's profile";
-	return `The user's role here is ${actor.role}. When the user asks for a change none of your tools offers, prepare nothing and say who can make it: Only an Owner or Admin can ${scope}.`;
+	const setup = actor.contextKind === "plant" ? ` ${SETUP_RULE}` : "";
+	return `The user's role here is ${actor.role}. When the user asks for a change none of your tools offers, prepare nothing and say who can make it: Only an Owner or Admin can ${scope}.${setup}`;
 }
 
 /** Describes what the current catalog actually allows, so the answer follows authority rather than a fixed phrase. */

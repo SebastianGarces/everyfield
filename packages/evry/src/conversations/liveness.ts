@@ -49,6 +49,10 @@ const ROW_LIVENESS: Record<SourceRow["kind"], Rule> = {
 	seat: null,
 	invitation: null,
 	connection: null,
+	// Never withheld: a setup step is an answer the person gives themselves, and a Discovery relationship is the
+	// account's own link, read under its own access.
+	step: null,
+	relationship: null,
 	// Never withheld: a setting row is the account's own choice and a digest row a preview the tool computed.
 	setting: null,
 	digest: null,
@@ -77,8 +81,9 @@ export async function liveRowKeys(
 	rows: readonly { kind: string; id: string }[],
 ): Promise<Set<string>> {
 	// Any seat's rows are checked: a church seat's sources are rows of its church, and an organization seat's prepared
-	// review of its own profile is never withheld. An account context has no tenant rows.
-	if (!rows.length || actor.role === null) return new Set();
+	// review of its own profile is never withheld. An account context's rows are its own setup and Discovery rows, kept
+	// while its session is live.
+	if (!rows.length) return new Set();
 	const r = await db.execute(sql`
 		SELECT r.key FROM jsonb_to_recordset(${JSON.stringify(rows)}::jsonb) AS x(kind text,id text)
 		CROSS JOIN LATERAL (SELECT x.kind||':'||x.id AS key, jsonb_build_object('kind',x.kind,'id',x.id) AS j) r

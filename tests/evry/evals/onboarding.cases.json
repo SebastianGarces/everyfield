@@ -1,0 +1,250 @@
+{
+	"suite": "onboarding",
+	"model": "scripted",
+	"note": "T-345: setup and Discovery tools, asked on the scripted model with the real adapters, approvals and onboarding producer. Riverside Church (setup-church.mts) is a new church whose Owner, Casey Rivera, has not finished setup; Jordan Lee is its Admin. Sam Ortiz and Erin Walsh have no seat; Dana Brooks has a Discovery space linked to Hill Country Network. Cases run in this order; each later case sees the earlier approved changes.",
+	"cases": [
+		{
+			"id": "ONB-01",
+			"criterion": 1,
+			"actor": "setupOwner",
+			"ask": "where am I in setting up our church?",
+			"calls": ["onboarding.getResume"],
+			"answer": [
+				"Setup of Riverside Church: you are in Phase 1, Core group development.",
+				"Nothing is saved yet.",
+				"Still open: Where you are, Launch date, Your team, Finish setup."
+			]
+		},
+		{
+			"id": "ONB-02",
+			"criterion": 2,
+			"actor": "setupOwner",
+			"ask": "we're just getting started",
+			"calls": ["onboarding.getResume"],
+			"answer": ["I prepared a review. Nothing changes until you approve it."],
+			"proposal": {
+				"operation": "onboarding.declareJourney",
+				"target": "Riverside Church",
+				"changes": [
+					{ "field": "whereYouAre", "before": null, "after": "Still discerning. Nothing declared." },
+					{ "field": "launchDate", "before": null, "after": "Skipped" }
+				],
+				"notes": ["The church stays in the phase it is in now.", "Your launch date is saved as skipped."]
+			},
+			"approve": true
+		},
+		{
+			"id": "ONB-03",
+			"criterion": 1,
+			"actor": "setupOwner",
+			"ask": "where am I in setting up our church?",
+			"calls": ["onboarding.getResume"],
+			"answer": [
+				"Saved: Where you are (Still discerning. Nothing declared.), Launch date (Skipped).",
+				"Still open: Your team, Finish setup."
+			]
+		},
+		{
+			"id": "ONB-04",
+			"criterion": 2,
+			"actor": "setupOwner",
+			"ask": "actually we're already in phase 2",
+			"calls": ["onboarding.getResume"],
+			"proposal": {
+				"operation": "onboarding.declareJourney",
+				"target": "Riverside Church",
+				"changes": [
+					{
+						"field": "whereYouAre",
+						"before": "Still discerning. Nothing declared.",
+						"after": "Declared Phase 2, Launch team formation"
+					}
+				],
+				"notes": ["It can't be changed in setup afterwards.", "Your launch date stays as it is."]
+			},
+			"approve": true
+		},
+		{
+			"id": "ONB-05",
+			"criterion": 2,
+			"actor": "setupOwner",
+			"ask": "we're just getting started",
+			"calls": ["onboarding.getResume"],
+			"answer": [
+				"Where you are is already saved: Declared Phase 2, Launch team formation. It can't be changed in setup."
+			]
+		},
+		{
+			"id": "ONB-06",
+			"criterion": 5,
+			"actor": "setupAdmin",
+			"ask": "finish setting up our church",
+			"calls": [],
+			"answer": ["Only the Owner who is setting up this church can answer its setup questions or finish its setup."]
+		},
+		{
+			"id": "ONB-07",
+			"criterion": 5,
+			"actor": "setupAdmin",
+			"ask": "I'm the lead pastor",
+			"calls": [],
+			"answer": ["Only the Owner who is setting up this church can answer its setup questions or finish its setup."]
+		},
+		{
+			"id": "ONB-08",
+			"criterion": 3,
+			"actor": "setupOwner",
+			"ask": "skip the lead question",
+			"calls": ["onboarding.getResume"],
+			"proposal": {
+				"operation": "identity.answerLeadOnboarding",
+				"target": "Riverside Church",
+				"changes": [{ "field": "lead", "before": null, "after": "Skipped" }],
+				"notes": ["No role is assigned."]
+			},
+			"approve": true
+		},
+		{
+			"id": "ONB-09",
+			"criterion": 3,
+			"actor": "setupOwner",
+			"ask": "I'm the lead pastor",
+			"calls": ["onboarding.getResume"],
+			"proposal": {
+				"operation": "identity.answerLeadOnboarding",
+				"target": "Riverside Church",
+				"changes": [
+					{ "field": "lead", "before": "Skipped", "after": "You hold the lead role" },
+					{ "field": "role", "before": null, "after": "Lead pastor" },
+					{ "field": "team", "before": null, "after": "Leadership" }
+				],
+				"notes": ["We create the Lead pastor role in a new Leadership team and assign it to you."]
+			},
+			"approve": true
+		},
+		{
+			"id": "ONB-10",
+			"criterion": 3,
+			"actor": "setupOwner",
+			"ask": "I'm the lead pastor",
+			"calls": ["onboarding.getResume"],
+			"answer": ["A lead role is already assigned to you, so the lead question can't be answered again."]
+		},
+		{
+			"id": "ONB-11",
+			"criterion": 4,
+			"actor": "setupOwner",
+			"ask": "finish setting up our church",
+			"calls": ["onboarding.getResume"],
+			"proposal": {
+				"operation": "onboarding.complete",
+				"target": "Riverside Church",
+				"changes": [{ "field": "setup", "before": "Not finished", "after": "Finished" }],
+				"notes": ["After this, Home opens your church instead of setup."]
+			},
+			"approve": true
+		},
+		{
+			"id": "ONB-12",
+			"criterion": 4,
+			"actor": "setupOwner",
+			"ask": "finish setting up our church",
+			"calls": ["onboarding.getResume"],
+			"answer": ["Setup of Riverside Church is already finished, so there is nothing to finish again."]
+		},
+		{
+			"id": "ONB-13",
+			"criterion": 6,
+			"actor": "seatless",
+			"ask": "set up a church called Harvest Point",
+			"calls": [],
+			"proposal": {
+				"operation": "onboarding.createPlant",
+				"target": "Sam Ortiz",
+				"changes": [{ "field": "church", "before": null, "after": "Harvest Point" }],
+				"notes": [
+					"You become the Owner of Harvest Point. It starts in Phase 1, Core group development, from today.",
+					"Setup then goes on with: where you are, your launch date and your team."
+				],
+				"refusal": null
+			},
+			"approve": true
+		},
+		{
+			"id": "ONB-14",
+			"criterion": 6,
+			"actor": "seatless",
+			"ask": "where am I in setting up our church?",
+			"calls": ["onboarding.getResume"],
+			"answer": ["Setup of Harvest Point", "Still open: Where you are, Launch date, Your team, Finish setup."]
+		},
+		{
+			"id": "ONB-15",
+			"criterion": 7,
+			"actor": "explorer",
+			"ask": "I just want to explore first",
+			"calls": [],
+			"proposal": {
+				"operation": "discovery.create",
+				"target": "Erin Walsh",
+				"changes": [{ "field": "discovery", "before": null, "after": "Discovery space" }],
+				"notes": ["No church is created and nothing is shared.", "Everyfield emails you a receipt."]
+			},
+			"approve": true
+		},
+		{
+			"id": "ONB-16",
+			"criterion": 8,
+			"actor": "discovery",
+			"ask": "what's in my Discovery space?",
+			"calls": ["discovery.getProfile"],
+			"answer": [
+				"Your Discovery space: you have read 0 of 6 foundation articles.",
+				"Linked: Hill Country Network (Network)."
+			]
+		},
+		{
+			"id": "ONB-17",
+			"criterion": 10,
+			"actor": "discovery",
+			"ask": "show me our people",
+			"calls": [],
+			"answer": [
+				"People, meetings, teams, tasks and other church records need a seat in a church, and this account has none yet. I can help you start a church, or set up a Discovery space to explore first."
+			]
+		},
+		{
+			"id": "ONB-18",
+			"criterion": 10,
+			"actor": "discovery",
+			"ask": "what meetings do we have this week?",
+			"calls": [],
+			"answer": ["People, meetings, teams, tasks and other church records need a seat in a church"]
+		},
+		{
+			"id": "ONB-19",
+			"criterion": 9,
+			"actor": "discovery",
+			"ask": "turn my Discovery space into a church called Harvest Point",
+			"calls": [],
+			"proposal": {
+				"operation": "discovery.convertToPlant",
+				"target": "Dana Brooks",
+				"changes": [
+					{ "field": "church", "before": null, "after": "Harvest Point" },
+					{ "field": "staysLinked", "before": null, "after": ["Hill Country Network"] }
+				],
+				"notes": ["Your Discovery space becomes Harvest Point", "Each linked organization stays linked to the church"]
+			},
+			"approve": true
+		},
+		{
+			"id": "ONB-20",
+			"criterion": 9,
+			"actor": "discovery",
+			"ask": "turn my Discovery space into a church called Harvest Point",
+			"calls": ["onboarding.getResume"],
+			"answer": ["You already have a church in Everyfield, Harvest Point, so I won't start another."]
+		}
+	]
+}

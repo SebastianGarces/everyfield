@@ -11,6 +11,7 @@ import { PEOPLE_COMMANDS } from "../adapters/people/commands/index.ts";
 import { SETTINGS_COMMANDS } from "../adapters/settings/index.ts";
 import { ORGANIZATION_COMMANDS } from "../adapters/people-organization/commands/index.ts";
 import { TEAMS_COMMANDS } from "../adapters/teams/commands/index.ts";
+import { ONBOARDING_COMMANDS } from "../adapters/onboarding/commands/index.ts";
 import { currentPerson, importOutcome, personOutcome, type ReviewedWrite } from "./types.ts";
 
 // The review read (evry.readReview): one projection and one access rule, used by readReview and by the conversation
@@ -25,6 +26,7 @@ export const REVIEWED_WRITES = {
 	...NOTIFICATION_COMMANDS,
 	...TEAMS_COMMANDS,
 	...SETTINGS_COMMANDS,
+	...ONBOARDING_COMMANDS,
 } as const;
 export type Operation = keyof typeof REVIEWED_WRITES;
 export const operation = z.enum(Object.keys(REVIEWED_WRITES) as [Operation]);
@@ -52,7 +54,16 @@ export const mine = (actor: EvryActor) =>
  * Owner or Admin, while anyone with a seat may review a change to their own account.
  */
 export const readable = (actor: EvryActor) =>
-	sql`${mine(actor)} AND ${liveRead({ session: actor.session, owner: actor.owner, seatId: actor.seatId ?? undefined })}`;
+	sql`((${mine(actor)} AND ${liveRead({ session: actor.session, owner: actor.owner, seatId: actor.seatId ?? undefined })})
+		OR (${ownSeating(actor)}))`;
+/**
+ * The changes that give the account its first church seat. Once approved the account works in that church, so its
+ * own review of the change stays readable to it there: the card can show what happened.
+ */
+const SEATING = ["onboarding.createPlant", "discovery.convertToPlant"];
+const ownSeating = (actor: EvryActor) =>
+	sql`p.account_id=${actor.accountId}::uuid AND p.tenant_id=${actor.accountId}::uuid AND p.operation=ANY(${sql.param(SEATING)}::text[])
+		AND ${liveRead({ session: actor.session, owner: { kind: "account", id: actor.accountId } as never })}`;
 /**
  * A review of a message that is no longer what the review showed. An edit or a time change moves the revision. A cancel
  * or a sent email changes only its mail rows, so the review also saved how many recipients the email service held with

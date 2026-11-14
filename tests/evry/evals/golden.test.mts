@@ -694,10 +694,12 @@ test("INV-evry-golden SAF-02 SAF-11 SAF-12 SAF-14: the model's tools can read an
 		"select_returned_rows",
 		"propose_change",
 	]);
-	assert.deepEqual(tools("admin"), tools("owner"));
+	// Only the Owner reads where setup stands (T-345); an Admin gets every other read.
+	const churchTools = tools("owner").filter((t) => t !== "onboarding_read");
+	assert.deepEqual(tools("admin"), churchTools);
 	// A Member reads, selects and proposes changes to only their own notifications and account; an organization seat
 	// gets no plant read at all, only its own profile change (T-327).
-	assert.deepEqual(tools("member"), tools("owner"));
+	assert.deepEqual(tools("member"), churchTools);
 	assert.deepEqual(
 		readCatalog(church.actors.member).reviewedWrites.map((w) => w.operation),
 		[

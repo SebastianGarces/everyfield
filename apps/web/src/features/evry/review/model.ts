@@ -75,7 +75,16 @@ export type SettingsOperation =
 	| "associations.end"
 	| "account.finalizeAvatar"
 	| "account.requestDeletion"
-	| "organizations.updateProfile";
+	| "organizations.updateProfile"
+	| OnboardingOperation;
+/** The setup and Discovery changes (T-345): a church's setup answers, and starting a church or a Discovery space. */
+export type OnboardingOperation =
+	| "onboarding.declareJourney"
+	| "identity.answerLeadOnboarding"
+	| "onboarding.complete"
+	| "onboarding.createPlant"
+	| "discovery.create"
+	| "discovery.convertToPlant";
 /** The household, tag, skill, note and import writes (WP-064), whose reviews are not revised field by field. */
 export type OrganizationOperation =
 	| "people.addToHousehold"
@@ -280,6 +289,15 @@ const FIELD_LABEL: Record<string, string> = {
 	connection: "Connection",
 	recipientEmail: "Sent to",
 	account: "Your login",
+	// Setup and Discovery (T-345)
+	church: "Church",
+	whereYouAre: "Where you are",
+	launchDate: "Launch date",
+	lead: "Lead",
+	team: "Team",
+	setup: "Setup",
+	discovery: "Discovery",
+	staysLinked: "Stays linked",
 	...SHARING_CATEGORY_LABEL,
 };
 export const fieldLabel = (field: string) => FIELD_LABEL[field] ?? field;
@@ -316,6 +334,7 @@ export function valueText(field: string, value: unknown): string | null {
 				? "Removed"
 				: (TEAM_STATE[String(value)] ?? String(value));
 	if (typeof value === "boolean") return value ? "Yes" : "No";
+	if (Array.isArray(value)) return value.map(String).join(", ");
 	if (CAPITALIZED.has(field) && typeof value === "string") return value.charAt(0).toUpperCase() + value.slice(1);
 	if (DATE_FIELDS.has(field) && typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value))
 		return dateFormat.format(new Date(`${value}T00:00:00Z`));
@@ -340,12 +359,15 @@ const zoneText = (zone: string) => (ZONE_NAME[zone] ? `${ZONE_NAME[zone]} (${zon
 
 /** The changes Evry makes to seats, church settings, sharing, connections, your account and an organization. */
 export const isSettings = (operation: Operation): operation is SettingsOperation =>
-	/^(seats|plant|privacy|associations|account|organizations)\./.test(operation);
+	/^(seats|plant|privacy|associations|account|organizations|onboarding|discovery)\./.test(operation) ||
+	operation === "identity.answerLeadOnboarding";
 /** The Settings section where a seat, settings, sharing, connection, account or organization change shows. */
 export function settingsLink(operation: SettingsOperation): { href: string; label: string } {
 	if (operation.startsWith("seats.")) return { href: "/settings/seats", label: "Open Seats" };
 	if (operation.startsWith("plant.")) return { href: "/settings/church", label: "Open Church settings" };
 	if (operation.startsWith("account.")) return { href: "/settings/account", label: "Open your account" };
+	if (/^(onboarding|discovery)\./.test(operation) || operation === "identity.answerLeadOnboarding")
+		return { href: "/onboarding", label: "Open setup" };
 	if (operation.startsWith("organizations."))
 		return { href: "/settings/organization", label: "Open Organization profile" };
 	return { href: "/settings/sharing", label: "Open Sharing" };
@@ -418,6 +440,12 @@ const TITLE: Record<Operation, string> = {
 	"account.finalizeAvatar": "Change your photo",
 	"account.requestDeletion": "Delete your login",
 	"organizations.updateProfile": "Update the organization profile",
+	"onboarding.declareJourney": "Where your church is",
+	"identity.answerLeadOnboarding": "Who leads your church",
+	"onboarding.complete": "Finish setup",
+	"onboarding.createPlant": "Start a church",
+	"discovery.create": "Start a Discovery space",
+	"discovery.convertToPlant": "Turn Discovery into a church",
 	"notifications.markSelectedRead": "Mark notifications read",
 	"notifications.markAllVisibleRead": "Mark all notifications read",
 	"notifications.setPreferences": "Change notification settings",
@@ -730,6 +758,9 @@ const ADDS = new Set<Operation>([
 	"people.createTag",
 	"seats.invite",
 	"associations.invite",
+	"onboarding.createPlant",
+	"discovery.create",
+	"discovery.convertToPlant",
 ]);
 export const addsOnly = (operation: Operation) => ADDS.has(operation);
 
@@ -834,6 +865,14 @@ export function settingsRefusalText(code: string | undefined): string {
 		case "pending_invitation":
 		case "address_pending":
 			return "A request to this organization is already waiting, so nothing was sent.";
+		case "already_declared":
+			return "Where this church is was already declared, so nothing was saved. It can't be changed in setup.";
+		case "active_seat_conflict":
+			return "Your account already has a church seat, so no church was started.";
+		case "association_resolution_required":
+			return "You have a Discovery space, so nothing was started. Ask Evry to turn it into a church instead.";
+		case "idempotency_conflict":
+			return "A different change already used this review, so nothing was saved. Ask Evry to prepare it again.";
 		case "manual_owner_exception_required":
 			return "You are an Owner, so your church needs another Owner first. Nothing was changed.";
 		case "source_unavailable":
