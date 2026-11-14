@@ -74,7 +74,7 @@ const INTEREST_MEETING = id(0xd21);
  */
 export const DOCS = {
 	coreValues: {
-		id: id(0xd01),
+		id: id(0xdd1),
 		plant: PLANT,
 		kind: "core_values",
 		title: "Hope Fellowship Core Values",
@@ -82,7 +82,7 @@ export const DOCS = {
 		text: "We pray first. Every plan starts on our knees.\nWe make room at the table. Every guest is family by the second visit.\nWe serve North Austin. Our neighbors' good is our good.\nWe raise up leaders. Everyone is in training for something.",
 	},
 	septemberAgenda: {
-		id: id(0xd02),
+		id: id(0xdd2),
 		plant: PLANT,
 		kind: "native",
 		title: "Vision Meeting Agenda - September 14",
@@ -90,7 +90,7 @@ export const DOCS = {
 		text: "Vision meeting at the Rivera home, Sunday September 14\n6:30 PM Welcome and dinner\n7:00 PM Nate shares the story of Hope Fellowship\n7:20 PM Why North Austin needs a new church\n7:40 PM Questions and answers\n8:00 PM Invitation to GROW, PRAY and GIVE\nAsk each guest to bring a friend who does not go to church.",
 	},
 	octoberAgenda: {
-		id: id(0xd03),
+		id: id(0xdd3),
 		plant: PLANT,
 		kind: "native",
 		title: "Vision Meeting Agenda - October 12",
@@ -98,7 +98,7 @@ export const DOCS = {
 		text: "Vision meeting at the Thompson home, Sunday October 12\n6:00 PM Kids' activity in the backyard\n6:30 PM Welcome and tacos\n6:50 PM Worship led by Jen Thompson\n7:05 PM Nate shares the launch timeline for Easter 2027\n7:30 PM Testimony from Alex Rivera\n7:45 PM Invitation to join the core group\nGoal: 25 guests and 8 commitment cards.",
 	},
 	valuesDraft: {
-		id: id(0xd04),
+		id: id(0xdd4),
 		plant: PLANT,
 		kind: "native",
 		title: "Values Draft from the Fall Retreat",
@@ -106,7 +106,7 @@ export const DOCS = {
 		text: "Prayer comes before planning.\nEvery guest gets a seat and a name tag.\nWe say yes to North Austin.",
 	},
 	policy: {
-		id: id(0xd05),
+		id: id(0xdd5),
 		plant: PLANT,
 		kind: "church_document",
 		title: "Conflict of Interest Policy",
@@ -114,7 +114,7 @@ export const DOCS = {
 		text: null,
 	},
 	otherChurch: {
-		id: id(0xd06),
+		id: id(0xdd6),
 		plant: EMPTY_PLANT,
 		kind: "native",
 		title: "New Hope Vision Meeting Agenda - Draft",
