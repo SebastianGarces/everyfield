@@ -24,7 +24,7 @@ const refuse = (problem: SheetProblem): never => {
 export type Sheet = { header: string[]; rows: string[][] };
 
 /** The file's format from its name: only .csv and .xlsx are read. */
-export function sheetFormat(fileName: string): "csv" | "xlsx" | null {
+function sheetFormat(fileName: string): "csv" | "xlsx" | null {
 	const ext = /\.([^.]+)$/.exec(fileName.trim().toLowerCase())?.[1];
 	return ext === "csv" ? "csv" : ext === "xlsx" ? "xlsx" : null;
 }

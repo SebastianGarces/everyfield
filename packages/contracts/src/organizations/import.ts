@@ -122,4 +122,3 @@ export const pipelineImportRefusal = z.discriminatedUnion("code", [
 	z.strictObject({ code: z.literal("conflict") }),
 ]);
 export type PipelineImportRefusal = z.infer<typeof pipelineImportRefusal>;
-export type PipelineImportReply<T> = { status: "ok"; value: T } | { status: "refused"; refusal: PipelineImportRefusal };
