@@ -72,17 +72,15 @@ const valueOf = <T>(reply: DashboardReply<T>) => (reply.status === "ok" ? reply.
  */
 function nextSteps(frame: OverviewFrame, plantId: string): SourceRow[] {
 	if (frame.role === "member") return [];
-	const open = (s: SetupStep) => frame.setup.gaps.includes(s);
-	const prompt = (s: SetupStep) => PROMPT_OF[s];
 	const shown = SETUP_STEPS.filter((s) => {
-		const p = prompt(s);
+		const p = PROMPT_OF[s];
 		if (!frame.firstWeek) return p !== undefined && frame.prompts.includes(p);
-		return open(s) && !(p !== undefined && !frame.prompts.includes(p));
+		return frame.setup.gaps.includes(s) && (p === undefined || frame.prompts.includes(p));
 	});
 	return shown.map((s) => ({
 		kind: "step",
 		id: `${plantId}:${s}`,
-		label: !frame.firstWeek && prompt(s) ? PROMPT_TITLE[prompt(s)!] : STEP[s].title,
+		label: !frame.firstWeek && PROMPT_OF[s] ? PROMPT_TITLE[PROMPT_OF[s]] : STEP[s].title,
 		fields: { status: "open", source: "Overview", action: STEP[s].action, href: STEP[s].href },
 	}));
 }
