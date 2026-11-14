@@ -22,6 +22,7 @@
 	"tests/integration/documents/template-compare.test.mts",
 	"tests/integration/documents/word-compare.test.mts",
 	"tests/integration/branding/*.test.mts",
+	"tests/integration/dashboard/*.test.mts",
 	"tests/integration/identity/*.test.mts",
 	"tests/integration/organizations/*.test.mts",
 	"tests/integration/oversight/*.test.mts",

@@ -18,8 +18,8 @@ import { FormMessage, PasswordInput } from "./parts";
 import { SessionActions } from "./SessionActions";
 
 /**
- * A sign-in without a return path lands on the landing route, which decides on the server (landingFor). When Overview
- * (WP-048) ships, the dashboard home moves in DASHBOARD_HOME in packages/contracts/src/identity/navigation.ts, nowhere else.
+ * A sign-in without a return path lands on the landing route, which decides on the server (landingFor): Overview for a
+ * finished church, its setup step for an unfinished one. A return path to Overview decides the same way on its page.
  */
 export const AFTER_SIGN_IN = LANDING_ROUTE;
 

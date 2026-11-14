@@ -157,7 +157,7 @@ test("AC:CASE-ADM-005 four counts: recruited without the church's own logins, li
 
 	// Quick actions come from the live seat: every one for an Owner, none for a Member.
 	const owners = ok(await dashboardReader.readAvailableActions(db, await authority(owner)));
-	assert.deepEqual(owners.actions, ["add_person", "import_people", "plan_meeting", "set_launch_date"]);
+	assert.deepEqual(owners.actions, ["add_person", "import_people", "plan_meeting"]);
 	assert.equal(owners.role, "owner");
 	const members = ok(await dashboardReader.readAvailableActions(db, await authority(member)));
 	assert.deepEqual(members.actions, []);

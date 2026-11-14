@@ -59,6 +59,7 @@ import {
 	instantDate,
 	isOpen,
 	longDate,
+	milestonesDone,
 	NOTE_MESSAGE,
 	progressOf,
 	refusalMessage,
@@ -278,7 +279,7 @@ const addDays = (date: string, days: number) => {
 
 /** Milestones people marked complete, and the prep tasks done, from the live tasks. */
 function Readiness({ plan }: { plan: Plan }) {
-	const done = plan.milestones.filter((m) => m.completion && !m.needsReview).length;
+	const done = milestonesDone(plan);
 	const tasks = plan.milestones.reduce(
 		(sum, m) => {
 			const p = progressOf(m);

@@ -34,8 +34,11 @@ export type PromptState = z.infer<typeof promptState>;
 export const dismissPromptRequest = z.strictObject({ prompt: promptKey });
 export const dismissPromptResult = z.strictObject({ outcome: z.enum(["changed", "noop"]), prompt: promptKey });
 
-/** The quick actions a seat can use now: Owner and Admin write capability, read from the live seat. */
-export const QUICK_ACTIONS = ["add_person", "import_people", "plan_meeting", "set_launch_date"] as const;
+/**
+ * The quick actions a seat can use now: Owner and Admin write capability, read from the live seat. Setting Launch Sunday
+ * is the launch card's own link.
+ */
+export const QUICK_ACTIONS = ["add_person", "import_people", "plan_meeting"] as const;
 export const quickAction = z.enum(QUICK_ACTIONS);
 export type QuickAction = z.infer<typeof quickAction>;
 
