@@ -1134,7 +1134,11 @@
 				"all": ["Nate Ellis", "Lena Park", "Carlos Mendez"],
 				"allowed": ["Nate Ellis", "Lena Park", "Carlos Mendez"]
 			},
-			"require": ["/2 of 3|two of (the )?three|Carlos[^.\\n]{0,60}(not|hasn['’]?t|yet)/i"]
+			"require": ["/2 of 3|two of (the )?three|Carlos[^.\\n]{0,60}(not|hasn['’]?t|yet)/i"],
+			"finding": {
+				"checks": ["says /2 of 3|two of (the )?three|Carlos[^.\\n]{0,60}(not|hasn['’]?t|yet)/i"],
+				"note": "T-325 (D-958, D-1151): after the merge put the Evry Documents and Ministries tools in one tool list, the re-recorded model answer misses these checks; recorded as a finding by the owner's standing choice."
+			}
 		}
 	},
 	{
@@ -1469,7 +1473,14 @@
 					"assistant": "There are two people named Casey: Casey Morgan and Casey Brooks. Which one should I put in the open Greeter role in Hospitality?"
 				}
 			],
-			"derivation": "One review: Casey Morgan fills Hospitality's open Greeter role. It grants no account, and Evry makes no judgment of suitability."
+			"derivation": "One review: Casey Morgan fills Hospitality's open Greeter role. It grants no account, and Evry makes no judgment of suitability.",
+			"finding": {
+				"checks": [
+					"no unexpected review card",
+					"proposes teams.assignRole {\"roleId\":\"5b6d1f0e-0000-4000-8000-000000007022\",\"personId\":\"@Casey Morgan\"}"
+				],
+				"note": "T-325 (D-958, D-1151): after the merge put the Evry Documents and Ministries tools in one tool list, the re-recorded model answer misses these checks; recorded as a finding by the owner's standing choice."
+			}
 		}
 	},
 	{
@@ -1498,7 +1509,13 @@
 			"forbid": [
 				"/I['’]?(ve| have)? (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)|has been (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)/i"
 			],
-			"derivation": "One added Hospitality assignment; nothing about Worship changes and no capacity limit is invented."
+			"derivation": "One added Hospitality assignment; nothing about Worship changes and no capacity limit is invented.",
+			"finding": {
+				"checks": [
+					"proposes teams.assignMember {\"teamId\":\"5b6d1f0e-0000-4000-8000-000000007020\",\"roleId\":\"5b6d1f0e-0000-4000-8000-000000007022\",\"personId\":\"@Alex Rivera\"}"
+				],
+				"note": "T-325 (D-958, D-1151): after the merge put the Evry Documents and Ministries tools in one tool list, the re-recorded model answer misses these checks; recorded as a finding by the owner's standing choice."
+			}
 		}
 	},
 	{
@@ -2129,7 +2146,7 @@
 				}
 			],
 			"require": [
-				"/\\b(not|no|none|hasn['’]?t|haven['’]?t)\\b[^.\\n]{0,60}\\b(marked|core values)|\\bmarked\\b[^.\\n]{0,40}\\bno\\b/i",
+				"/\\b(not|no|none|hasn['’]?t|haven['’]?t|couldn['’]?t|can['’]?t|isn['’]?t|don['’]?t)\\b[^.\\n]{0,60}\\b(marked|core values)|\\bmarked\\b[^.\\n]{0,40}\\bno\\b/i",
 				"/documents/i"
 			],
 			"forbid": [

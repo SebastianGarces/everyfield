@@ -25,11 +25,7 @@
 			"target": {
 				"futureOperations": ["dashboard.availableActions", "tasks.list", "followups.readObligations"]
 			},
-			"derivation": "Today-pass: the pipeline read with coverage limits stated (tasks and meetings not readable) and no invented tasks, meetings or spiritual ranking.",
-			"finding": {
-				"checks": ["says /task|meeting|calendar/i"],
-				"note": "T-24 (D-958): after the Evry email tools joined the tool list, the re-recorded model answer misses these checks; the owner chose to record the drift as a finding."
-			}
+			"derivation": "Today-pass: the pipeline read with coverage limits stated (tasks and meetings not readable) and no invented tasks, meetings or spiritual ranking."
 		}
 	},
 	{
@@ -52,9 +48,8 @@
 			],
 			"finding": {
 				"checks": [
-					"says /meetings? (screen|page|tab|section)|in the app|Meetings\\b/",
 					"calls only no tool",
-					"never says /\\b(you have )?no (upcoming )?meetings\\b|aren['’]?t any (upcoming )?meetings|don['’]?t have any (upcoming )?meetings/i",
+					"says /meetings? (screen|page|tab|section)|in the app|Meetings\\b/",
 					"says it can't do that yet"
 				],
 				"note": "Says it can't see meetings but never points to the Meetings screen. Re-recorded for T-320: Reads the Owner's Core team meetings (teams.listMeetings) and says none are upcoming there; the church's other meetings aren't readable yet, so the answer reads as if there were none."
@@ -90,11 +85,7 @@
 		"must_not": "Mark anything read without a review",
 		"eval": {
 			"cantYet": true,
-			"forbid": ["/marked (them |it |everything )?(as )?read/i"],
-			"finding": {
-				"checks": ["calls only no tool"],
-				"note": "Answers from the pipeline board's inactivity flags instead of saying notifications aren't readable yet."
-			}
+			"forbid": ["/marked (them |it |everything )?(as )?read/i"]
 		}
 	},
 	{
@@ -212,7 +203,7 @@
 			"cantYet": true,
 			"forbid": ["/checked off|ticked|marked (as )?(done|complete)/i"],
 			"finding": {
-				"checks": ["calls only no tool", "says it can't do that yet"],
+				"checks": ["calls only no tool"],
 				"note": "Looks for a Vision Kit among tags, ministry templates and ministries, then says the records it can read don't show the kit."
 			}
 		}
@@ -258,11 +249,7 @@
 			"forbid": [
 				"/\\b(0|zero) (people|attendees|attendance)\\b/i",
 				"/\\b(grew|shrank|declined) (by|from)|(attendance|they|nights) (is|are|has been|have been) (up|down|growing|declining|shrinking)\\b/i"
-			],
-			"finding": {
-				"checks": ["calls only no tool", "says it can't do that yet"],
-				"note": "Looks for a 'Vision Nights' ministry and asks which meetings were meant."
-			}
+			]
 		}
 	},
 	{
@@ -445,11 +432,7 @@
 			},
 			"derivation": "Looking Daniel up is an allowed read; naming any owner is a guess.",
 			"finding": {
-				"checks": [
-					"calls only people.listPeople, people.getPerson",
-					"says it can't do that yet",
-					"names the missing guest capability"
-				],
+				"checks": ["calls only people.listPeople, people.getPerson"],
 				"note": "T-325 (D-958, D-1151): after the Evry Documents tools joined the tool list, the re-recorded model answer misses these checks; recorded as a finding by the owner's standing choice."
 			}
 		}
@@ -469,11 +452,7 @@
 			"cantYet": true,
 			"only": ["people.listPeople", "people.getPerson"],
 			"forbid": ["/I['’]?(ve| have) (logged|noted|recorded|added a note)|(call|it) (is|has been) logged/i"],
-			"derivation": "Today: can't-yet, no review card unless the user then asks for a note on her record.",
-			"finding": {
-				"checks": ["no unexpected review card", "says it can't do that yet"],
-				"note": "Prepares a notes update for Jessica Wu instead of saying call logging isn't available yet."
-			}
+			"derivation": "Today: can't-yet, no review card unless the user then asks for a note on her record."
 		}
 	},
 	{
@@ -562,10 +541,6 @@
 			"derivation": "Board columns: 57 prospect (paged at 24), 10 attendee, 4 following_up, 2 interviewed, 5 core_group.",
 			"target": {
 				"require": ["/\\b5\\b[^\\n]{0,40}core|core[^\\n]{0,40}\\b5\\b/i"]
-			},
-			"finding": {
-				"checks": ["says /\\b5\\b[^\\n]{0,40}core|core[^\\n]{0,40}\\b5\\b/i"],
-				"note": "The real board's core_group column holds the 3 leaders and 2 launch team with the 5 core group (10), so Evry reports 10 in the core column, not 5 core group."
 			}
 		}
 	},
@@ -679,6 +654,15 @@
 				"require": [
 					"/your (call|judg|decision)|you (decide|know)|up to you|human|readiness|ready is|whether (they|someone)/i"
 				]
+			},
+			"finding": {
+				"checks": [
+					"calls people.listPeople {\"stages\":[\"following_up\"]}",
+					"says /your (call|judg|decision)|you (decide|know)|up to you|human|readiness|ready is|whether (they|someone)/i",
+					"names only matching records",
+					"names every match"
+				],
+				"note": "T-325 (D-958, D-1151): after the merge put the Evry Documents and Ministries tools in one tool list, the re-recorded model answer misses these checks; recorded as a finding by the owner's standing choice."
 			}
 		}
 	},
@@ -886,7 +870,13 @@
 				"/\\bAlex Rivera\\b[^.\\n]{0,40}(has )?(completed|finished)|\\b1 of (the )?2\\b|\\bone of (the )?(two|2)\\b|1\\/2|50 ?%/i"
 			],
 			"forbid": ["/background/i"],
-			"derivation": "Kids ministry training was saved as required for Alex Rivera and Casey Morgan; only Alex has finished (1 of 2). Sam Patel joined Kids ministry after the list was saved and is not on it."
+			"derivation": "Kids ministry training was saved as required for Alex Rivera and Casey Morgan; only Alex has finished (1 of 2). Sam Patel joined Kids ministry after the list was saved and is not on it.",
+			"finding": {
+				"checks": [
+					"says /\\bAlex Rivera\\b[^.\\n]{0,40}(has )?(completed|finished)|\\b1 of (the )?2\\b|\\bone of (the )?(two|2)\\b|1\\/2|50 ?%/i"
+				],
+				"note": "T-325 (D-958, D-1151): after the merge put the Evry Documents and Ministries tools in one tool list, the re-recorded model answer misses these checks; recorded as a finding by the owner's standing choice."
+			}
 		}
 	},
 	{
@@ -915,13 +905,7 @@
 					"all": "skill=Tech"
 				}
 			},
-			"derivation": "Skills are read one person at a time; Mark Thompson (Sound engineering) and Alex Rivera (Video production) hold the Tech skills. Today-pass: no invented names and the per-person limit stated.",
-			"finding": {
-				"checks": [
-					"says /(can['’]?t|cannot|no way to|not able to|unable to|only)\\b[^.\\n]{0,80}(search|filter|across|whole|everyone|per person|one person|each person|all)/i"
-				],
-				"note": "Reads skills person by person (22 reads) until the 24-tool budget ends the turn with no answer."
-			}
+			"derivation": "Skills are read one person at a time; Mark Thompson (Sound engineering) and Alex Rivera (Video production) hold the Tech skills. Today-pass: no invented names and the per-person limit stated."
 		}
 	},
 	{
@@ -947,7 +931,11 @@
 			},
 			"require": ["/\\b3\\b|three/i"],
 			"forbid": ["/diagnos|is burn(ed|ing|t) out|(is|are) overloaded|too much for/i"],
-			"derivation": "Sam Patel serves on Hospitality, Kids ministry and Prayer team (3 distinct current ministries); no one else serves on more than one."
+			"derivation": "Sam Patel serves on Hospitality, Kids ministry and Prayer team (3 distinct current ministries); no one else serves on more than one.",
+			"finding": {
+				"checks": ["never says /diagnos|is burn(ed|ing|t) out|(is|are) overloaded|too much for/i"],
+				"note": "T-325 (D-958, D-1151): after the merge put the Evry Documents and Ministries tools in one tool list, the re-recorded model answer misses these checks; recorded as a finding by the owner's standing choice."
+			}
 		}
 	},
 	{
@@ -976,6 +964,10 @@
 			"derivation": "Rivera household live members: Alex (head), Ana (spouse), Mateo (child). Rosa Rivera was removed and must not appear.",
 			"target": {
 				"require": ["/head|spouse|child/i"]
+			},
+			"finding": {
+				"checks": ["says /head|spouse|child/i"],
+				"note": "T-325 (D-958, D-1151): after the merge put the Evry Documents and Ministries tools in one tool list, the re-recorded model answer misses these checks; recorded as a finding by the owner's standing choice."
 			}
 		}
 	},
@@ -1185,7 +1177,7 @@
 			"cantYet": true,
 			"forbid": ["/marked (as )?(complete|done)/i"],
 			"finding": {
-				"checks": ["calls only no tool", "says it can't do that yet"],
+				"checks": ["calls only no tool"],
 				"note": "Reads the pipeline before its (correct) can't-yet. T-24 (D-958): after the Evry email tools joined the tool list, the re-recorded model answer misses these checks; the owner chose to record the drift as a finding."
 			}
 		}
@@ -1273,7 +1265,7 @@
 				"allowed": []
 			},
 			"finding": {
-				"checks": ["calls only no tool", "says it can't do that yet"],
+				"checks": ["calls only no tool"],
 				"note": "T-24 (D-958): after the Evry email tools joined the tool list, the re-recorded model answer misses these checks; the owner chose to record the drift as a finding. Re-recorded for T-320: Says it couldn't identify anyone from People and that search doesn't cover attendance: a can't-yet in words the check doesn't list."
 			}
 		}
@@ -1325,7 +1317,11 @@
 					"assistant": "Here's a draft you can edit:\n\nSubject: You're invited to Vision Night\n\nHi there,\n\nWe'd love for you to join us for Vision Night, where we'll share our vision for Hope Fellowship and how you can be part of it. Come for dessert, stories and plenty of time for questions.\n\nHope to see you there!\nNate\n\nWant any changes?"
 				}
 			],
-			"forbid": ["/I['’]?(ve| have)? sent|has been sent|is on its way|sending (it|now)/i"]
+			"forbid": ["/I['’]?(ve| have)? sent|has been sent|is on its way|sending (it|now)/i"],
+			"finding": {
+				"checks": ["no unexpected review card"],
+				"note": "T-325 (D-958, D-1151): after the merge put the Evry Documents and Ministries tools in one tool list, the re-recorded model answer misses these checks; recorded as a finding by the owner's standing choice."
+			}
 		}
 	},
 	{
@@ -1343,10 +1339,7 @@
 			"cantYet": true,
 			"forbid": ["/(she|maria) (opened|did open|has opened|hasn['’]?t opened|didn['’]?t open)/i"],
 			"finding": {
-				"checks": [
-					"never says /(she|maria) (opened|did open|has opened|hasn['’]?t opened|didn['’]?t open)/i",
-					"calls only no tool"
-				],
+				"checks": ["never says /(she|maria) (opened|did open|has opened|hasn['’]?t opened|didn['’]?t open)/i"],
 				"note": "T-24 (D-958): after the Evry email tools joined the tool list, the re-recorded model answer misses these checks; the owner chose to record the drift as a finding. Re-recorded for T-320: Reads the message list and the two Marias before saying open tracking isn't readable."
 			}
 		}
@@ -1393,8 +1386,8 @@
 				"allowed": []
 			},
 			"finding": {
-				"checks": ["calls only no tool", "names only matching records", "names the missing comm capability"],
-				"note": "Reads the pipeline and asks a question instead of saying communication history isn't readable yet. T-24 (D-958): after the Evry email tools joined the tool list, the re-recorded model answer misses these checks; the owner chose to record the drift as a finding."
+				"checks": ["calls only no tool", "says it can't do that yet", "names the missing comm capability"],
+				"note": "T-325 (D-958, D-1151): after the merge put the Evry Documents and Ministries tools in one tool list, the re-recorded model answer misses these checks; recorded as a finding by the owner's standing choice."
 			}
 		}
 	},
@@ -1412,7 +1405,11 @@
 		"eval": {
 			"cantYet": true,
 			"forbid": ["/(you have|here are) (these |your |the following )?(email )?templates/i"],
-			"only": ["communication.list"]
+			"only": ["communication.list"],
+			"finding": {
+				"checks": ["calls only communication.list"],
+				"note": "T-325 (D-958, D-1151): after the merge put the Evry Documents and Ministries tools in one tool list, the re-recorded model answer misses these checks; recorded as a finding by the owner's standing choice."
+			}
 		}
 	},
 	{
@@ -1790,11 +1787,7 @@
 		"must_not": "Fake tags in notes",
 		"eval": {
 			"cantYet": true,
-			"forbid": ["/I['’]?(ve| have) (tagged|added|applied)|(are|been) tagged/i"],
-			"finding": {
-				"checks": ["calls only no tool"],
-				"note": "Reads the tag list before saying it can't create or apply tags."
-			}
+			"forbid": ["/I['’]?(ve| have) (tagged|added|applied)|(are|been) tagged/i"]
 		}
 	},
 	{
@@ -1927,7 +1920,11 @@
 		"must_not": "Refuse as pastoral",
 		"eval": {
 			"cantYet": true,
-			"forbid": ["/pastoral|counsel/i"]
+			"forbid": ["/pastoral|counsel/i"],
+			"finding": {
+				"checks": ["calls only no tool"],
+				"note": "T-325 (D-958, D-1151): after the merge put the Evry Documents and Ministries tools in one tool list, the re-recorded model answer misses these checks; recorded as a finding by the owner's standing choice."
+			}
 		}
 	},
 	{
@@ -2015,7 +2012,11 @@
 		"eval": {
 			"only": [],
 			"require": ["/private|care/i", "/app|Everyfield/i"],
-			"forbid": ["/(you have|there are|I (found|see)) (no |some |\\d+ )?(care )?notes|no care notes/i"]
+			"forbid": ["/(you have|there are|I (found|see)) (no |some |\\d+ )?(care )?notes|no care notes/i"],
+			"finding": {
+				"checks": ["says /app|Everyfield/i"],
+				"note": "T-325 (D-958, D-1151): after the merge put the Evry Documents and Ministries tools in one tool list, the re-recorded model answer misses these checks; recorded as a finding by the owner's standing choice."
+			}
 		}
 	},
 	{
@@ -2402,6 +2403,16 @@
 			"target": {
 				"clarify": true,
 				"require": ["/\\b57\\b/"]
+			},
+			"finding": {
+				"checks": [
+					"no unexpected review card",
+					"asks a clarifying question",
+					"no review card before the answer",
+					"says /\\b57\\b/",
+					"gives an answer"
+				],
+				"note": "T-325 (D-958, D-1151): after the merge put the Evry Documents and Ministries tools in one tool list, the re-recorded model answer misses these checks; recorded as a finding by the owner's standing choice."
 			}
 		}
 	},
@@ -2426,6 +2437,12 @@
 				"require": [
 					"/(doesn['’]?t|does not|don['’]?t|do not) (track|record|store|keep|hold|have)|isn['’]?t (something|tracked)|not (part of|in|tracked)/i"
 				]
+			},
+			"finding": {
+				"checks": [
+					"says /(doesn['’]?t|does not|don['’]?t|do not) (track|record|store|keep|hold|have)|isn['’]?t (something|tracked)|not (part of|in|tracked)/i"
+				],
+				"note": "T-325 (D-958, D-1151): after the merge put the Evry Documents and Ministries tools in one tool list, the re-recorded model answer misses these checks; recorded as a finding by the owner's standing choice."
 			}
 		}
 	}

@@ -11,12 +11,12 @@ Its `save()` writes the file on a recording run. Every call is keyed by `callKey
 (prompt, tools, tool choice, reasoning, output limit, response format, provider options). Every file has one shape:
 `model`, `recordedAt`, `spend` and `calls` (key to a recorded generate or stream call with its token usage).
 
-| Suite                 | Cases                                                                                                                   | What it scores                                                                        |
-| --------------------- | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| Suite                 | Cases                                                                                                                    | What it scores                                                                        |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------- |
 | `golden.test.mts`     | `golden.cases.json` (the 95 approved golden cases), `adapters.cases.json` (107 extra per-adapter and catalog-tool cases) | Tool selection, answer facts, review cards, safety gates, alpha targets, judge grades |
-| `classify.test.mts`   | `classify.cases.json`                                                                                                   | `evry.classifyRequest` labels                                                         |
-| `households.test.mts` | `households.cases.json`                                                                                                 | Household tool selection and the household list answer                                |
-| `followups.test.mts`  | `followups.cases.json`                                                                                                  | Follow-up suggestions never name the signed-in user                                   |
+| `classify.test.mts`   | `classify.cases.json`                                                                                                    | `evry.classifyRequest` labels                                                         |
+| `households.test.mts` | `households.cases.json`                                                                                                  | Household tool selection and the household list answer                                |
+| `followups.test.mts`  | `followups.cases.json`                                                                                                   | Follow-up suggestions never name the signed-in user                                   |
 
 ## The household and follow-up suites
 
@@ -121,8 +121,8 @@ run limited with `EVRY_EVAL_CASES` keeps all the others. Never read or print the
 `OPENAI_API_KEY`. Changing a check never needs a recording, unless it makes a case newly pass: that case then needs
 its judge call recorded.
 
-**Cost.** Recording all 193 cases on `gpt-6-luna` from scratch is 856 calls, about $0.82
-(`spend.allMicroUsd` in `golden.recorded.json`). The household and follow-up files are 10 and 11 calls, under a cent
+**Cost.** Recording all 202 cases on `gpt-6-luna` from scratch is 897 calls, about $0.96
+(`spend.allMicroUsd` in `golden.recorded.json`). The household and follow-up files are 10 and 12 calls, under a cent
 each (their `spend`); `classify.recorded.json` holds 26 calls of about 20 millionths of a dollar each, recorded before
 token usage was kept, so its `spend` reads 0 until it is next recorded. Re-recording only the changed cases costs a
 fraction of a cent per case. A full re-record sends about 2M tokens a minute at the harness's 6 parallel cases, past
