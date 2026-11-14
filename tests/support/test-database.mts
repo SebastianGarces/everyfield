@@ -16,11 +16,11 @@ export type Database = ReturnType<typeof createDatabase>;
 export type Capability = "runtime" | "auth" | "cleanup";
 
 /**
- * The guarded admin URL. `ci: false` refuses CI's local database too, for seeds that write a preview's env file.
- * Throws for every other endpoint and under NODE_ENV=production.
+ * The guarded admin URL: the shared development database, or CI's `everyfield_ci` on localhost with CI=true and
+ * EARLY_ACCESS_TEST_DATABASE=1. Throws for every other endpoint and under NODE_ENV=production.
  */
-export function testDatabaseUrl({ ci: allowCi = true }: { ci?: boolean } = {}): URL {
-	const refused = Error(`Approved shared development database${allowCi ? " or disposable CI database" : ""} required`);
+export function testDatabaseUrl(): URL {
+	const refused = Error("Approved shared development database or disposable CI database required");
 	let source: URL;
 	try {
 		source = assertDevelopmentDatabase(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL);
@@ -29,7 +29,7 @@ export function testDatabaseUrl({ ci: allowCi = true }: { ci?: boolean } = {}): 
 	}
 	// The guard accepts a localhost URL only under CI's flags; this helper also wants CI's own database by name.
 	const ci = !developmentHosts.has(source.hostname);
-	if (ci && (!allowCi || source.pathname !== "/everyfield_ci")) throw refused;
+	if (ci && source.pathname !== "/everyfield_ci") throw refused;
 	if (!ci) source.searchParams.set("sslmode", "verify-full");
 	return source;
 }
