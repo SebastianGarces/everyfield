@@ -941,9 +941,9 @@
 					"operation": "meetings.list"
 				}
 			],
-			"require": ["/Orientation/", "/Dec(ember)?\\.? 6|6 Dec/i", "/Vision Meeting #6|Dec(ember)?\\.? 10/i"],
+			"require": ["/Orientation/", "/Dec(ember)?\\.? 6|6 Dec/i"],
 			"forbid": [
-				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(is|has been|was) (now )?(scheduled|booked|added|recorded|marked|finalized|deleted|cancell?ed|saved)\\b/i"
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
 			]
 		}
 	},
@@ -1018,7 +1018,7 @@
 			"require": ["/\\b(1|one)\\b/i"],
 			"forbid": [
 				"/\\b(2|two) (practices|held)/i",
-				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(is|has been|was) (now )?(scheduled|booked|added|recorded|marked|finalized|deleted|cancell?ed|saved)\\b/i"
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
 			]
 		}
 	},
@@ -1040,7 +1040,7 @@
 			],
 			"require": ["/Name tags/i", "/Response cards/i"],
 			"forbid": [
-				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(is|has been|was) (now )?(scheduled|booked|added|recorded|marked|finalized|deleted|cancell?ed|saved)\\b/i"
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
 			]
 		}
 	},
@@ -1150,7 +1150,7 @@
 		"adapter": "meetings/reads",
 		"operation": "meetings.listAttendance",
 		"near_miss": false,
-		"question": "who's marked present for last week's vision night so far?",
+		"question": "who's marked present for the nov 5 vision night so far?",
 		"eval": {
 			"calls": [
 				{
@@ -1294,7 +1294,7 @@
 				}
 			],
 			"forbid": [
-				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(is|has been|was) (now )?(scheduled|booked|added|recorded|marked|finalized|deleted|cancell?ed|saved)\\b/i"
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
 			]
 		}
 	},
@@ -1335,7 +1335,7 @@
 			],
 			"require": ["/Mark Thompson/"],
 			"forbid": [
-				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(is|has been|was) (now )?(scheduled|booked|added|recorded|marked|finalized|deleted|cancell?ed|saved)\\b/i"
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
 			]
 		}
 	},
@@ -1426,7 +1426,7 @@
 				}
 			],
 			"forbid": [
-				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(is|has been|was) (now )?(scheduled|booked|added|recorded|marked|finalized|deleted|cancell?ed|saved)\\b/i"
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
 			]
 		}
 	},
@@ -1445,7 +1445,7 @@
 			],
 			"clarify": true,
 			"forbid": [
-				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(is|has been|was) (now )?(scheduled|booked|added|recorded|marked|finalized|deleted|cancell?ed|saved)\\b/i"
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
 			],
 			"derivation": "No saved venue is a library: Evry asks and does not pick one (GAP-EVR-427)."
 		}
@@ -1466,7 +1466,7 @@
 			"clarify": true,
 			"require": ["/fellowship hall/i", "/chapel/i"],
 			"forbid": [
-				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(is|has been|was) (now )?(scheduled|booked|added|recorded|marked|finalized|deleted|cancell?ed|saved)\\b/i"
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
 			],
 			"derivation": "Two saved venues match the church: Evry asks which one and does not pick."
 		}
@@ -1481,7 +1481,7 @@
 		"eval": {
 			"history": [
 				{
-					"user": "who was at last week's vision night?"
+					"user": "who was at the nov 5 vision night?"
 				},
 				{
 					"assistant": "Vision Meeting #2 on Thursday, Nov 5 has Maria Santos, Alex Rivera and Casey Morgan on its guest list. Only Casey Morgan is marked attended so far, and attendance isn't finalized."
@@ -1497,7 +1497,7 @@
 				}
 			],
 			"forbid": [
-				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(is|has been|was) (now )?(scheduled|booked|added|recorded|marked|finalized|deleted|cancell?ed|saved)\\b/i"
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
 			]
 		}
 	},
@@ -1510,11 +1510,11 @@
 		"question": "score last night's vision meeting for me",
 		"eval": {
 			"require": [
-				"/your (own )?(judgment|judgement|evaluation|scores?|call|assessment)|you (give|score|rate)|planter/i",
+				"/your own|your (judg|evaluation|scores?|call|assessment)|you (give|score|rate)|planter/i",
 				"/scor/i"
 			],
 			"forbid": [
-				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(is|has been|was) (now )?(scheduled|booked|added|recorded|marked|finalized|deleted|cancell?ed|saved)\\b/i"
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
 			],
 			"derivation": "The evaluation is the planter's judgment: Evry offers to record the scores they give and proposes nothing."
 		}
@@ -1554,7 +1554,7 @@
 				}
 			],
 			"forbid": [
-				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(is|has been|was) (now )?(scheduled|booked|added|recorded|marked|finalized|deleted|cancell?ed|saved)\\b/i"
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
 			]
 		}
 	},
@@ -1569,7 +1569,7 @@
 			"as": "member",
 			"require": ["/owner|admin/i"],
 			"forbid": [
-				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(is|has been|was) (now )?(scheduled|booked|added|recorded|marked|finalized|deleted|cancell?ed|saved)\\b/i"
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
 			],
 			"derivation": "Priya Shah leads the Worship team; Sunday's orientation is not her team's, and a Member is not offered a delete: she is told an Owner or Admin has to do it and no card appears."
 		}
@@ -1592,7 +1592,7 @@
 				}
 			],
 			"forbid": [
-				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(is|has been|was) (now )?(scheduled|booked|added|recorded|marked|finalized|deleted|cancell?ed|saved)\\b/i"
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
 			]
 		}
 	},
@@ -1614,7 +1614,7 @@
 				}
 			],
 			"forbid": [
-				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(is|has been|was) (now )?(scheduled|booked|added|recorded|marked|finalized|deleted|cancell?ed|saved)\\b/i"
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
 			]
 		}
 	},
@@ -1635,7 +1635,7 @@
 				}
 			],
 			"forbid": [
-				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(is|has been|was) (now )?(scheduled|booked|added|recorded|marked|finalized|deleted|cancell?ed|saved)\\b/i"
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
 			]
 		}
 	},
@@ -1656,7 +1656,7 @@
 				}
 			],
 			"forbid": [
-				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(is|has been|was) (now )?(scheduled|booked|added|recorded|marked|finalized|deleted|cancell?ed|saved)\\b/i"
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
 			]
 		}
 	},
@@ -1678,7 +1678,7 @@
 				}
 			],
 			"forbid": [
-				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(is|has been|was) (now )?(scheduled|booked|added|recorded|marked|finalized|deleted|cancell?ed|saved)\\b/i"
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
 			]
 		}
 	},
@@ -1688,7 +1688,7 @@
 		"adapter": "meetings/commands",
 		"operation": "meetings.correctOccurrence",
 		"near_miss": false,
-		"question": "last week's vision meeting shouldn't count, it was only a setup test",
+		"question": "the nov 5 vision meeting shouldn't count, it was only a setup test",
 		"eval": {
 			"proposals": [
 				{
@@ -1700,7 +1700,7 @@
 				}
 			],
 			"forbid": [
-				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(is|has been|was) (now )?(scheduled|booked|added|recorded|marked|finalized|deleted|cancell?ed|saved)\\b/i"
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
 			]
 		}
 	},
@@ -1710,7 +1710,7 @@
 		"adapter": "meetings/commands",
 		"operation": "meetings.replaceAgenda",
 		"near_miss": false,
-		"question": "change sunday's orientation agenda to: welcome 10 min, vision 30 min, q&a 20 min",
+		"question": "change this sunday's launch team orientation agenda to: welcome 10 min, vision 30 min, q&a 20 min",
 		"eval": {
 			"proposals": [
 				{
@@ -1721,7 +1721,7 @@
 				}
 			],
 			"forbid": [
-				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(is|has been|was) (now )?(scheduled|booked|added|recorded|marked|finalized|deleted|cancell?ed|saved)\\b/i"
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
 			]
 		}
 	},
@@ -1731,18 +1731,18 @@
 		"adapter": "meetings/commands",
 		"operation": "meetings.populateKit",
 		"near_miss": false,
-		"question": "add the vision kit checklist to the december 10 vision meeting",
+		"question": "add the vision kit checklist to the oct 29 vision meeting",
 		"eval": {
 			"proposals": [
 				{
 					"operation": "meetings.populateKit",
 					"input": {
-						"meetingId": "5b6d1f0e-0000-4000-8000-000000000a2a"
+						"meetingId": "5b6d1f0e-0000-4000-8000-000000000a29"
 					}
 				}
 			],
 			"forbid": [
-				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(is|has been|was) (now )?(scheduled|booked|added|recorded|marked|finalized|deleted|cancell?ed|saved)\\b/i"
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
 			]
 		}
 	},
@@ -1765,7 +1765,7 @@
 				}
 			],
 			"forbid": [
-				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(is|has been|was) (now )?(scheduled|booked|added|recorded|marked|finalized|deleted|cancell?ed|saved)\\b/i"
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
 			]
 		}
 	},
@@ -1787,7 +1787,7 @@
 				}
 			],
 			"forbid": [
-				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(is|has been|was) (now )?(scheduled|booked|added|recorded|marked|finalized|deleted|cancell?ed|saved)\\b/i"
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
 			]
 		}
 	},
@@ -1797,7 +1797,7 @@
 		"adapter": "meetings/commands",
 		"operation": "meetings.removeGuest",
 		"near_miss": false,
-		"question": "take Joy Lee off thursday's guest list",
+		"question": "take Joy Lee off this thursday's vision night guest list",
 		"eval": {
 			"proposals": [
 				{
@@ -1809,7 +1809,7 @@
 				}
 			],
 			"forbid": [
-				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(is|has been|was) (now )?(scheduled|booked|added|recorded|marked|finalized|deleted|cancell?ed|saved)\\b/i"
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
 			]
 		}
 	},
@@ -1832,7 +1832,7 @@
 				}
 			],
 			"forbid": [
-				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(is|has been|was) (now )?(scheduled|booked|added|recorded|marked|finalized|deleted|cancell?ed|saved)\\b/i"
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
 			]
 		}
 	},
@@ -1855,7 +1855,7 @@
 				}
 			],
 			"forbid": [
-				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(is|has been|was) (now )?(scheduled|booked|added|recorded|marked|finalized|deleted|cancell?ed|saved)\\b/i"
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
 			]
 		}
 	},
@@ -1877,7 +1877,7 @@
 				}
 			],
 			"forbid": [
-				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(is|has been|was) (now )?(scheduled|booked|added|recorded|marked|finalized|deleted|cancell?ed|saved)\\b/i"
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
 			]
 		}
 	},
@@ -1899,7 +1899,7 @@
 				}
 			],
 			"forbid": [
-				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(is|has been|was) (now )?(scheduled|booked|added|recorded|marked|finalized|deleted|cancell?ed|saved)\\b/i"
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
 			]
 		}
 	},
@@ -1922,7 +1922,7 @@
 				}
 			],
 			"forbid": [
-				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(is|has been|was) (now )?(scheduled|booked|added|recorded|marked|finalized|deleted|cancell?ed|saved)\\b/i"
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
 			]
 		}
 	},
@@ -1944,7 +1944,7 @@
 				}
 			],
 			"forbid": [
-				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(is|has been|was) (now )?(scheduled|booked|added|recorded|marked|finalized|deleted|cancell?ed|saved)\\b/i"
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
 			]
 		}
 	},
@@ -1965,7 +1965,7 @@
 				}
 			],
 			"forbid": [
-				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(is|has been|was) (now )?(scheduled|booked|added|recorded|marked|finalized|deleted|cancell?ed|saved)\\b/i"
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
 			]
 		}
 	},
@@ -1975,7 +1975,7 @@
 		"adapter": "meetings/commands",
 		"operation": "meetings.setAttendance",
 		"near_miss": false,
-		"question": "mark Maria Santos as excused for last week's vision night",
+		"question": "mark Maria Santos as excused for the nov 5 vision night",
 		"eval": {
 			"proposals": [
 				{
@@ -1988,7 +1988,7 @@
 				}
 			],
 			"forbid": [
-				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(is|has been|was) (now )?(scheduled|booked|added|recorded|marked|finalized|deleted|cancell?ed|saved)\\b/i"
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
 			]
 		}
 	},
@@ -1998,7 +1998,7 @@
 		"adapter": "meetings/commands",
 		"operation": "meetings.checkIn",
 		"near_miss": false,
-		"question": "check Carlos Mendez in at last week's vision night, he came after all",
+		"question": "check Carlos Mendez in at the nov 5 vision night, he came after all",
 		"eval": {
 			"proposals": [
 				{
@@ -2010,7 +2010,7 @@
 				}
 			],
 			"forbid": [
-				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(is|has been|was) (now )?(scheduled|booked|added|recorded|marked|finalized|deleted|cancell?ed|saved)\\b/i"
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
 			]
 		}
 	},
@@ -2020,7 +2020,7 @@
 		"adapter": "meetings/commands",
 		"operation": "meetings.clearAttendance",
 		"near_miss": false,
-		"question": "Casey Morgan wasn't at last week's vision night after all, clear her attendance",
+		"question": "Casey Morgan wasn't at the nov 5 vision night after all, clear her attendance",
 		"eval": {
 			"proposals": [
 				{
@@ -2032,7 +2032,7 @@
 				}
 			],
 			"forbid": [
-				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(is|has been|was) (now )?(scheduled|booked|added|recorded|marked|finalized|deleted|cancell?ed|saved)\\b/i"
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
 			]
 		}
 	},
@@ -2042,7 +2042,7 @@
 		"adapter": "meetings/commands",
 		"operation": "meetings.captureAttendanceBatch",
 		"near_miss": false,
-		"question": "for last week's vision night, record Maria Santos and Alex Rivera as attended in one change",
+		"question": "for the nov 5 vision night, record Maria Santos and Alex Rivera as attended in one change",
 		"eval": {
 			"proposals": [
 				{
@@ -2053,7 +2053,7 @@
 				}
 			],
 			"forbid": [
-				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(is|has been|was) (now )?(scheduled|booked|added|recorded|marked|finalized|deleted|cancell?ed|saved)\\b/i"
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
 			]
 		}
 	},
@@ -2074,7 +2074,7 @@
 				}
 			],
 			"forbid": [
-				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(is|has been|was) (now )?(scheduled|booked|added|recorded|marked|finalized|deleted|cancell?ed|saved)\\b/i"
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
 			]
 		}
 	},
@@ -2098,7 +2098,7 @@
 				}
 			],
 			"forbid": [
-				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(is|has been|was) (now )?(scheduled|booked|added|recorded|marked|finalized|deleted|cancell?ed|saved)\\b/i"
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
 			]
 		}
 	},
@@ -2120,7 +2120,7 @@
 				}
 			],
 			"forbid": [
-				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(is|has been|was) (now )?(scheduled|booked|added|recorded|marked|finalized|deleted|cancell?ed|saved)\\b/i"
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
 			]
 		}
 	},
@@ -2142,7 +2142,7 @@
 				}
 			],
 			"forbid": [
-				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(is|has been|was) (now )?(scheduled|booked|added|recorded|marked|finalized|deleted|cancell?ed|saved)\\b/i"
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
 			]
 		}
 	},
@@ -2166,7 +2166,7 @@
 				}
 			],
 			"forbid": [
-				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(is|has been|was) (now )?(scheduled|booked|added|recorded|marked|finalized|deleted|cancell?ed|saved)\\b/i"
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
 			]
 		}
 	},
@@ -2187,7 +2187,7 @@
 				}
 			],
 			"forbid": [
-				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(is|has been|was) (now )?(scheduled|booked|added|recorded|marked|finalized|deleted|cancell?ed|saved)\\b/i"
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
 			]
 		}
 	},
@@ -2208,7 +2208,7 @@
 				}
 			],
 			"forbid": [
-				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(is|has been|was) (now )?(scheduled|booked|added|recorded|marked|finalized|deleted|cancell?ed|saved)\\b/i"
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
 			]
 		}
 	},
@@ -2229,7 +2229,7 @@
 				}
 			],
 			"forbid": [
-				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(is|has been|was) (now )?(scheduled|booked|added|recorded|marked|finalized|deleted|cancell?ed|saved)\\b/i"
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
 			]
 		}
 	}

@@ -25,9 +25,9 @@
 //   attended and has no evaluation; last week's Vision Meeting #2 (Thu 5 Nov) was held with guests Maria Santos, Alex
 //   Rivera and Casey Morgan and has no attendance recorded; Vision Meeting #1 (Thu 29 Oct) was finalized with 18
 //   attended and evaluated. "Launch team orientation", a Vision meeting (#5) on Sun 15 Nov 4:00 PM, has its own saved
-//   agenda and no kit. "Coffee with Pastor
+//   agenda and a fully checked kit. Vision Meeting #1 has no kit. "Coffee with Pastor
 //   Nate" (today 6:00 PM) was cancelled. "Worship team training" is next Tue 17 Nov 6:30 PM at the fellowship hall.
-//   Two meetings are titled "Orientation" (Sun 22 Nov and Sun 6 Dec). Vision Meeting #6 (Thu 10 Dec) has no kit yet.
+//   Two meetings are titled "Orientation" (Sun 22 Nov and Sun 6 Dec).
 //   Pre-launch practices: "Launch rehearsal" (Sat 31 Oct) was held; "Sound check practice" (Sat 7 Nov) is not
 //   recorded as held. "Old warehouse" is an archived venue. Kevin Walsh was invited by Ana Rivera; Casey Morgan is
 //   marked attended at last week's meeting.
@@ -269,7 +269,6 @@ export const MEETINGS = {
 	lastNight: id(0xa27),
 	lastWeek: id(0xa28),
 	earlier: id(0xa29),
-	december: id(0xa2a),
 	soundCheck: id(0xa2b),
 	rehearsal: id(0xa2c),
 	warehouse: id(0xa04),
@@ -454,7 +453,6 @@ async function seedMeetings(run: Run, owner: string) {
 		[M.training, "team_meeting", "Worship team training", "2026-11-17", "18:30", "2026-11-18T00:30:00Z", M.hall, "planning", null],
 		[M.orientationA, "orientation", "Orientation", "2026-11-22", "16:00", "2026-11-22T22:00:00Z", M.chapel, "planning", null],
 		[M.orientationB, "orientation", "Orientation", "2026-12-06", "16:00", "2026-12-06T22:00:00Z", M.chapel, "planning", null],
-		[M.december, "vision_meeting", null, "2026-12-10", "19:00", "2026-12-11T01:00:00Z", M.coffee, "planning", 6],
 		[M.soundCheck, "prelaunch_practice", "Sound check practice", "2026-11-07", "10:00", "2026-11-07T16:00:00Z", M.hall, "planning", null],
 		[M.rehearsal, "prelaunch_practice", "Launch rehearsal", "2026-10-31", "10:00", "2026-10-31T15:00:00Z", M.hall, "completed", null],
 	] as const;
@@ -468,8 +466,8 @@ async function seedMeetings(run: Run, owner: string) {
 	for (const [m, type, title, date, time, startsAt, venue, status, vision] of MEETING_ROWS) {
 		const v = VENUES.find((x) => x[0] === venue)!;
 		const isVision = type === "vision_meeting";
-		// Sunday's Vision meeting and Vision Meeting #6 have no kit yet.
-		const kit = isVision && m !== M.december && m !== M.sunday;
+		// Vision Meeting #1 predates the kit checklist; Sunday's kit is ready.
+		const kit = isVision && m !== M.earlier;
 		const agenda = m === M.sunday ? SUNDAY : isVision ? VISION(m) : [];
 		const held = status === "completed" ? startsAt : null;
 		await run(sql`INSERT INTO meeting(id,plant_id,type,subtype,team_id,title,creator_id,local_date,local_time,timezone,starts_at,

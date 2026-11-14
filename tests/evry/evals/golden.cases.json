@@ -322,24 +322,24 @@
 		"eval": {
 			"history": [
 				{
-					"user": "who rsvp'd for thursday's vision night"
+					"user": "pull up thursday's vision night, the nov 5 one"
 				},
 				{
-					"assistant": "For Vision Meeting #4 on Thursday, Nov 12 at 7:00 PM CST at the Coffee shop: RSVP yes from Nate Ellis (you), Kevin Walsh and Jessica Wu; no from Joy Lee; no answer yet from Elena Garcia and Roberto Garcia. These are RSVPs, not attendance."
+					"assistant": "Vision Meeting #2 was on Thursday, Nov 5 at 7:00 PM CST at the Coffee shop. It was held; Casey Morgan is marked attended and attendance isn't finalized yet."
 				}
 			],
 			"proposals": [
 				{
 					"operation": "meetings.createWalkInContact",
 					"input": {
-						"meetingId": "5b6d1f0e-0000-4000-8000-000000000a21",
+						"meetingId": "5b6d1f0e-0000-4000-8000-000000000a28",
 						"displayName": "~Luis"
 					},
 					"absent": ["email", "phone"]
 				}
 			],
 			"forbid": ["/\\bLuis (?!\\(|has|is|was|with|and|to|in|as|for|or|first|didn|doesn|isn)[A-Z][a-z]{2,}/"],
-			"derivation": "With Thursday's Vision night selected: one walk-in review bound to that meeting, with the name Luis exactly, its duplicate hints and no invented surname, email or phone."
+			"derivation": "With Thursday's Vision night (Nov 5, held, not finalized) selected: one walk-in review bound to that meeting, with the name Luis exactly, its duplicate hints and no invented surname, email or phone."
 		}
 	},
 	{
