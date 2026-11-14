@@ -29,6 +29,9 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `article_revision(author_id)` | `account(id)` | restrict |  |
 | `article_revision(section_id)` | `reference_item(id)` | restrict | Canonical item is a global or entitled organization source identity; serialized boundary validates item kind, canonical identity and exact current source rights, without transferring ownership. |
 | `article_revision(id, tenant_id)` | `record(id, tenant_id)` | restrict |  |
+| `assignment_feedback(enrollment_id, version_id, organization_id)` | `development_enrollment(id, version_id, organization_id)` | restrict |  |
+| `assignment_feedback(milestone_id, version_id, organization_id)` | `development_milestone(id, version_id, organization_id)` | restrict |  |
+| `assignment_feedback(writer_id)` | `account(id)` | restrict |  |
 | `attestation(plant_id)` | `plant(id)` | restrict |  |
 | `attestation(reference_version_id)` | `reference_version(id)` | restrict |  |
 | `attestation(person_id, plant_id)` | `person(id, tenant_id)` | restrict |  |
@@ -82,6 +85,7 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `development_enrollment(program_id, organization_id)` | `development_program(id, organization_id)` | restrict |  |
 | `development_enrollment(version_id, program_id, organization_id)` | `development_program_version(id, program_id, organization_id)` | restrict |  |
 | `development_enrollment(current_stage_id, version_id, organization_id)` | `development_stage(id, version_id, organization_id)` | restrict |  |
+| `development_milestone(version_id, organization_id)` | `development_program_version(id, organization_id)` | restrict |  |
 | `development_program(organization_id)` | `organization(id)` | restrict |  |
 | `development_program(id, organization_id)` | `record(id, tenant_id)` | restrict |  |
 | `development_program(director_seat_id)` | `seat(id)` | restrict | Current eligible duty seat belongs to the exact organization. Serialized boundary checks seat tenant/kind and current authority; the relation grants no broader access. |
@@ -89,6 +93,9 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `development_program_version(organization_id)` | `organization(id)` | restrict |  |
 | `development_program_version(id, organization_id)` | `record(id, tenant_id)` | restrict |  |
 | `development_program_version(program_id, organization_id)` | `development_program(id, organization_id)` | restrict |  |
+| `development_reading(article_id)` | `reference_item(id)` | restrict |  |
+| `development_reading(revision_id)` | `article_revision(id)` | restrict |  |
+| `development_reading(version_id, organization_id)` | `development_program_version(id, organization_id)` | restrict |  |
 | `development_stage(organization_id)` | `organization(id)` | restrict |  |
 | `development_stage(id, organization_id)` | `record(id, tenant_id)` | restrict |  |
 | `development_stage(version_id, organization_id)` | `development_program_version(id, organization_id)` | restrict |  |
@@ -108,6 +115,10 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `document_revision(document_id, tenant_id)` | `document(id, tenant_id)` | restrict |  |
 | `document_revision(import_object_id, tenant_id)` | `file_object(id, tenant_id)` | restrict |  |
 | `document_revision(id, tenant_id)` | `record(id, tenant_id)` | restrict |  |
+| `enrollment_milestone(confirmer_id)` | `account(id)` | restrict |  |
+| `enrollment_milestone(enrollment_id, version_id, organization_id)` | `development_enrollment(id, version_id, organization_id)` | restrict |  |
+| `enrollment_milestone(milestone_id, version_id, organization_id)` | `development_milestone(id, version_id, organization_id)` | restrict |  |
+| `enrollment_milestone(recorder_id)` | `account(id)` | restrict |  |
 | `feedback(account_id)` | `account(id)` | restrict |  |
 | `feedback(id, account_id)` | `record(id, tenant_id)` | restrict |  |
 | `file_object(tenant_id)` | `tenant(id)` | restrict |  |
@@ -141,6 +152,8 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `launch_milestone(source_version_id)` | `reference_version(id)` | restrict |  |
 | `launch_milestone(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
 | `launch_milestone(plant_id)` | `launch(plant_id)` | restrict |  |
+| `leadership_conversation(pipeline_person_id, organization_id)` | `pipeline_person(id, organization_id)` | restrict |  |
+| `leadership_conversation(staff_seat_id)` | `seat(id)` | restrict |  |
 | `lifecycle_witness(account_id)` | `account(id)` | restrict |  |
 | `lifecycle_witness(plant_id)` | `plant(id)` | restrict |  |
 | `lifecycle_witness(requester_id)` | `account(id)` | restrict |  |
@@ -319,6 +332,7 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `seat(organization_id)` | `organization(id)` | restrict |  |
 | `seat(invitation_id)` | `invitation(id)` | restrict | Invitation owner is an endpoint, not always the plant. Serialized acceptance validates exact endpoints and tenant kind; consent cannot be inherited. |
 | `seat(id)` | `record(id)` | restrict | Subtype trigger binds actual record owner for a global/public or retained body-free variant whose live root pointer is nullable. |
+| `sending_goal(organization_id)` | `organization(id)` | restrict |  |
 | `settings_preview(account_id)` | `account(id)` | no_action |  |
 | `settings_preview(tenant_id)` | `tenant(id)` | no_action |  |
 | `suppression(source_event_id)` | `provider_event(id)` | restrict |  |

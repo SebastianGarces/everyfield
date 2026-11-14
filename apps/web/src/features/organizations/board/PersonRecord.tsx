@@ -31,6 +31,7 @@ import {
 	restorePerson,
 	retirePerson,
 } from "./actions";
+import { ConversationsCard } from "./Conversations";
 import { formatDay, PIPELINE_PATH, refusalText } from "./model";
 import { PersonDialog } from "./PersonDialog";
 import { Problem } from "./Problem";
@@ -128,7 +129,10 @@ export function PersonRecord({
 					</Card>
 					<History record={record} />
 				</div>
-				<Notes record={record} onChanged={reread} />
+				<div className="flex flex-col gap-5">
+					<ConversationsCard record={record} onChanged={reread} />
+					<Notes record={record} onChanged={reread} />
+				</div>
 			</div>
 
 			{admin ? (

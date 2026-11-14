@@ -1474,11 +1474,19 @@
 		"limit": 4,
 		"retry": 4
 	},
+	"pipeline.correctConversation": {
+		"limit": 4,
+		"retry": 4
+	},
 	"pipeline.editNote": {
 		"limit": 4,
 		"retry": 4
 	},
 	"pipeline.editPerson": {
+		"limit": 4,
+		"retry": 4
+	},
+	"pipeline.logConversation": {
 		"limit": 4,
 		"retry": 4
 	},
@@ -1500,6 +1508,10 @@
 	"pipeline.retirePerson": {
 		"limit": 4,
 		"retry": 3
+	},
+	"pipeline.saveGoal": {
+		"limit": 4,
+		"retry": 4
 	},
 	"pipeline.saveStages": {
 		"limit": 6,
@@ -1999,5 +2011,29 @@
 	},
 	"teams.readRequiredTrainingParticipants": {
 		"limit": 1
+	},
+	"programs.addFeedback": {
+		"limit": 4,
+		"retry": 4
+	},
+	"programs.createProgram": {
+		"limit": 4,
+		"retry": 4
+	},
+	"programs.enroll": {
+		"limit": 4,
+		"retry": 4
+	},
+	"programs.publishVersion": {
+		"limit": 4,
+		"retry": 4
+	},
+	"programs.recordMilestone": {
+		"limit": 4,
+		"retry": 4
+	},
+	"programs.savePlan": {
+		"limit": 5,
+		"retry": 5
 	}
 }

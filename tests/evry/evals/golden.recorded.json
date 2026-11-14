@@ -1,11 +1,11 @@
 {
 	"model": "gpt-6-luna",
-	"recordedAt": "2026-11-14T05:38:20.605Z",
+	"recordedAt": "2026-11-14T05:46:05.725Z",
 	"spend": {
 		"newCalls": 12,
-		"newMicroUsd": 23144,
+		"newMicroUsd": 17774,
 		"allCalls": 1034,
-		"allMicroUsd": 1535800
+		"allMicroUsd": 1535425
 	},
 	"calls": {
 		"00018f0b6ea273eb": {
@@ -1926,108 +1926,6 @@
 			"usage": {
 				"input": 119,
 				"output": 12
-			}
-		},
-		"0461e5d18efd60db": {
-			"kind": "stream",
-			"parts": [
-				{
-					"type": "stream-start",
-					"warnings": []
-				},
-				{
-					"type": "response-metadata",
-					"id": "resp_082d03db264a7c8d006af7e30b3b1887d1833f4d11b45bbe7f",
-					"timestamp": "2026-11-14T04:26:51.000Z",
-					"modelId": "gpt-6-luna"
-				},
-				{
-					"type": "reasoning-start",
-					"id": "rs_082d03db264a7c8d006af7e30c2b2087d1b17e42e5c38ea032:0",
-					"providerMetadata": {
-						"openai": {
-							"itemId": "rs_082d03db264a7c8d006af7e30c2b2087d1b17e42e5c38ea032",
-							"reasoningEncryptedContent": "gAAAAABq9-MMh2mu4GsiF-PJSlKeR0JgZ6vp6dOQtz0WCCt5-uuW6Cz9iAJANZoFpEFPCrXxHTTXHQrHmD52tpEzUvMmxJ68RliQaqAZXadJ8_C7Q0t2e5dFCnIsDfYvwCdIrgwYJiZ8wHdOnNeN3BI6xLabnjsLXAFLkVACiJrJcUoOUXlWbxvvYcJH5kwD-kRLNONumBBiuBL-421BIhxDIW9hphMJVVCtFSLCCmvJO6ucH4iPLxFIP1y8WSkg8ytj2mpIDlbzcBlg0qzDpF-FA0QyJPExiD_UPACsN18Z9ebJ4SKz1fP9eZtl9RFyF0b0WKa4nndjmSRpvboFFDV3NicfcrgjvZlxzQfr_uYNFwBPi_a9P7XsYSI5wjng-wxAR2O8a0fSeXHUqcQ19MDGDLU8LBQ-0fbUatHcgAgY8YJtHemw4AGIKJ1iLaWf_uVJRqtzxFSG6P1RFcHDFRma9JtEb2aPQh6sSvEhxEfIpT-BUgUBiIL4LA0gTprPQwck5oxBMxGf6uCxVODgBJtwVC3pHeRMhHU_cDrbZ8b3arTRkcRK5F0D5y6ba5idp2ShXgm-bSbDVQ2V0tm_NpIuJ2qQuPsXvjiZhF73sAN2qk30613FI_KOa3qOcBu5WD6jckle8Cnwwoodh-xZaMzr87DvQS9BzNId3k4pA4tr5Z-eUbK-YpMeBbk6l5Uau3Ua17CYXI73YG_6I7e981Tz69N5ZNRgoY2hPXflv1LdyJQflWJWCu4y2hCIL2JtvFuwn3-8QxYiqHbue91lKktq7EEbhx_6JOBSO-T3TdEDKniD4WkNspCEeQc-Zeza6w2_950ZrwTP2lMSEWbk3CndbCgpQ9Ooypx8S5c7y6KIjs6usCqsJsJrJwRHFfWJHamejc449TXeleiNU2KA_OrEdRHl9chv2pxdqV0jNPvb_tBuGJ3z6V2ScSdxth54z0T4f9EqOWXCT8yzKHRy3Nn1DiE3WTv19yRix49MqWrZP1R8wqyNyB92EYp0ybEK0ZM7e9HqOwUMjjOa-fW5UQOXrUsQx3Q5DkFvgSRnafphbjq6yuoRpBRD64BXAe09NEER32yrc8q1X7IEAzTyWIdVr8KM4Sl7juTinBvTXB29YB4UqfU4WIkLpGagM8dtf-ljtiZ2i1Q2WRCz2uMg8It-V5C69z0qWnRVPvytO7uF4D-m13hpp1OuCLFXYYbsC6Ura63JHOMSjMwLZp-21NDMM--KlRgyCuW2xn3N4nXFZdr6PUITGHi3ZeTNg758VdxLZ2C_SCTqnT_22pBSj7tLSywGtXbCXtMYEwkWjXRayzF7ZWlreQWOdzGMiCfbOxICK8hNJmo79UV5xbtEzkhaakMP0CouLSDvSe4xQvj5sUTSgVL5Sg8="
-						}
-					}
-				},
-				{
-					"type": "reasoning-end",
-					"id": "rs_082d03db264a7c8d006af7e30c2b2087d1b17e42e5c38ea032:0",
-					"providerMetadata": {
-						"openai": {
-							"itemId": "rs_082d03db264a7c8d006af7e30c2b2087d1b17e42e5c38ea032",
-							"reasoningEncryptedContent": "gAAAAABq9-MNYAVJQnWeu1EcXWu3EPk-nsBJd9VYdagXLzVpPvjPxZygdfFonHBA5mNVySYBDIt-aDeo6uRUYHs0Xnx1vJmmEqPcYxYLKNvqJDc1eNq0Wz9WkO-YM96NE7dmpUUHGrJH-aB-6aSYAavHfgwl79Ln1oVa1HpFSdL6eatfnkpiRiezowHNcN8PVT7LLx8wH-ykeFKnN0LtO1whMudT0_yevYVgitgHy9hFd6OM_q_14Fz9BTzQMkegvOBM5TtTEi2L26fr8qTg4O3ceicI7Ufu8hhte-7Y9fTcisU2pdhNVlMZdJOLm96wa0hxuVkC5y7fCMj1t4M7qufOaR_lJJHhBgN61wR1kAAkRwN53rNnmOxvklNKph9vA7JQ6YSOmD3umuDOOwElBmJbOWr-L_Rs2lQ59j_ws2biX7yxQbtPNVsxwhXxq5ptew3KXKljNe-DGA9843BaPak_BVgYUobC_MHCoU7IN85i5BduGJuSvGv-KXCmb9FAFNFogW9gd0xlo9Ag-75-yJp7FN4grWV6HYNR-36dbZ-BjFZtvSXQXXGTyIjl1nvO3Sb4FfnK_832YXO-QMAeGHwZ20YI_wlXosjxRY6O8mCieS1c0vwS9J-t20SjeafN4yW-OtgTPSMtGs1CQR_6fJAa_aDc_YxcKmDw_VhEhe-3NULhXTN1cc_-z-oQY6zgPANSkExvkfI4quMUCvhecac7-aIXHf_mnivCsGFl1NcjcA55KTr8evht8yVbjfohc7PF-L5HCxNygzrEP3nvB0lZBanl4rxSB3YCDGvFeYpb7A3rHtiMVdEKV5E5Fr0LBG2TTtaHEh9DRSuWudSGQ7_qcLGSwvpk4T8CWFHrkYmnwcc7knvIZxF2cxGvpWkH8iNHzDp08e1RJWkWsIFgDmO97F-q6loNiKKx1uKTejuwrmytXzVEZvasVlwDoKQ_7uedL8LAWkfzxkObPWSgxkFa1AOuPaNSG1621wY8TwHhgpVorFPTGsj2eqtf_1Jah-QEt6gNh6hp0WW9I9b8qv1oZKQiNkqZgH2k1HDmDXApwO5mhiPFy8v_rX5aGkgw4nhXTRLTHtxL7sC111sAgDN1fnvXJPjzdFinIPefIV2wXJe6LpOdeGfYxUmsVi2HT-9-XLUc4mDfLsidgrYVeBCYmywpoyWQCTPmMyc9APIlwihXAb9drndw-fgj9mjJy7UCqgaaU5THPc5cnv7_XRxKIx3mjHbUYpma2dv7dZsqai0Rs53OmzUAtWX-O8kqpAYrTdLO9_33YFbKJZfLwLK8KJ0u6RxoS3q5cf2LOrjdtL_je3q_sXkySKKHIiJNhlAEIiunR2lSwCfoP0Q-7wfGfeGmDUQUKRqZ2pUnRZ1u2hzp0WFi4xcp3GYtHy_Rk5A_dc4RZib-J-uRbyZW_3nfYpWkv3qYBt2IM6dCrQZNSsEcnd4k8YpituR6gorbhcf6jNAI0HYz8iJbyjzFNLMxeVxfP7SHJoK1A5Ra3n1j9LWUnQ5pDhrrvleip2Q7jQNdOALUKQ5x8ijWVsvAw_QEsAkVGcvTDeTLEKFtZvIy7AVJtsxRpUx_myOepvtSiz9dQ2V5U6rzs-Vfmo_nw2Ruxqm1Gu6yYTeXrANjAQ4uurcd3PGmEmrc5LF4Ia7sYbl6-BLkF6ajzHrJciAjU5pXBCPE-UqmRqnIrhBLk2g8ewCgHF4E8jriLRk4WP1IrTSSYU1y1XBRxtJ5JpIzomWwCzrTRC-nmyz9htBmz-sNqCsBnkubcETOyJb2ZB7p00QxUiqbpExDWSRuEIWgjqQT43z5wi4whxFu9J1uEPCW8Eocna39J9if0yS8S6_gLZzMG0WsDZLDa6lX9LSUlxklcIWONdJitwhmUDw_Q7u_XlIwd0JejmT7AV_0dWnUf3AOVcaLKJN5gF4GKrOP1_yGSxoj37-JjIu82_IgM2ahG7KFFKQqFJILJC4EYMtUpypuOG2O_K9JCmtNQVimMTmEnzldJEMa1dbbgZcfg4SteGQoDRiD_N_1gthFUlH2SuefOTFYMnV_80cduRqHmxd1uPNXPXCi4Agrif9lmnJUiwQs_rBSQPwWqmCuliEFVQcCg-X9iMshhDllKjc943Whv9kiG4t1kmsstLRTX64RDrrBRMgwAT9I5KpLHInbhunbZw0ZEr-8i_JdaQFOvHYPeGgaW0a_0lseLk_3jzR7xlBxO84Tj2kJ4ZMTcCTjTzrfXcMOA-StNc7tfUY8w7aQ-y8338mUfDi2cBFST1eQsEKIW5dSBu3qKYyJWiRINtWXidf-GHzRVvKD3Dn9mSHzOuu1W4a3RZO2uiW6b1TEp3zlm1CQkvVpJFkdTNi3rHPbTjh5ovRgTVRaCRW4mkY6t614M8vJQjad3l6XY1uR2RheWJLkNWkd1pVbM2QpJ8EvjLLxBSAXGv_RZ-WCXP4F4crj_Dq_T-dSjI57vojc5d8OQq-oh_3wERiXzYg8todNiXMPoyiA0IsiVDHeiu4rjleKg8voBmAJqNkTSZcEb0m3zKxeWxpUssLZMgE5BhK0YcRWRE_GR5Lt8A0qZixQs-xwgsS21JVMuGKWuRV55brfjvSoXnoxPNH2ZV_f0iQKeq_wFf0EoXZYn926ccASsmWCkB26ly-XyvYuwiLDHEKJEGmR45Yxow_9xP_2bkKhcZdcg6UBVHlAXeAn0JM--o5YblZEzrgDhtv2apvdN892ceOEisOSFxQrbGfsOOZRGKcV1YzSUkPgVhoeRd0kLgmPaiwDoZfhOcMsEjemjLmqeajNz8W3sHEc9PZmZ1jHthHf84F2-OGrUnJrs7Kilg_8qvE6M3gYJjfxTpMazSdXWj3EVA1WeWnK4ObqnWNIH2YM4NmXBN9D_zv3RT9_FmrEGrR9-UjR-Co5_ThDjSJ-kdiExvVI0szYVWeh9hUvETjsjpBJrWMiMMWntPhli6rz3mlSC5uKfFqdCbqTLpnJCMDI8yQQ-efpnNOT5KKhwnck-1NLSHX9tDkwRY1-zC8d2U2dhXymjbuh0FNZeCbuyl2bvvL6_LB121Ek_XRUgAkmztKvtiJzT6UU2enSKJI_t3Jg1oOW94-xNxu-ca4qJACmAw2KPaM3CY4O7iDAjKggIFJoflsWl328gu_qwaIW3wmOgY_sG41DGZmIp6pV29H1lGdsJQYdTT1hLU4t7fzn5hw3B1GWUDMNP_vJPf3Y5zjerUlYcPIBexOSLgACVmrXPM1P7ZeZUaLtYR52Uqv8p1BwlZCMt0Iy6C-jgHBtnS9HHha0ZkgR6d74gFyPcwSgbYJp7u55YOChPZrDcWBP58OPwyP1fu2QkMUbBixPCzO0tdaRs66czzF6-Eit0drvAb9fkJZrEl-RhPi2PhdAkgF_X6TNT9ESunLqi0NWbVl3DBHGeIyEnDeTNOHY00Azbm8AEjUqwXt17CbunA5sjAnn-GKXcH2FslfXp4UedH3V1J2yjYzcMESlSPgyy31Tlz4XdWA0x5cUa1Z_k_Xsaqaisxeji5yioLnff_8D22aG2A=="
-						}
-					}
-				},
-				{
-					"type": "text-start",
-					"id": "msg_082d03db264a7c8d006af7e30dba0887d1abb3d5c56f2cd4ae",
-					"providerMetadata": {
-						"openai": {
-							"itemId": "msg_082d03db264a7c8d006af7e30dba0887d1abb3d5c56f2cd4ae",
-							"phase": "final_answer"
-						}
-					}
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_082d03db264a7c8d006af7e30dba0887d1abb3d5c56f2cd4ae",
-					"delta": "The scheduling review refused Friday, November 13 at 9:00 a.m. as a past time, so the email is not scheduled. Choose a future date and time in the church’s time zone (America/Chicago), and I can prepare a new review."
-				},
-				{
-					"type": "text-end",
-					"id": "msg_082d03db264a7c8d006af7e30dba0887d1abb3d5c56f2cd4ae",
-					"providerMetadata": {
-						"openai": {
-							"itemId": "msg_082d03db264a7c8d006af7e30dba0887d1abb3d5c56f2cd4ae",
-							"phase": "final_answer"
-						}
-					}
-				},
-				{
-					"type": "finish",
-					"finishReason": {
-						"unified": "stop"
-					},
-					"usage": {
-						"inputTokens": {
-							"total": 24119,
-							"noCache": 3,
-							"cacheRead": 23785,
-							"cacheWrite": 331
-						},
-						"outputTokens": {
-							"total": 204,
-							"text": 60,
-							"reasoning": 144
-						},
-						"raw": {
-							"input_tokens": 24119,
-							"input_tokens_details": {
-								"cache_write_tokens": 331,
-								"cached_tokens": 23785
-							},
-							"output_tokens": 204,
-							"output_tokens_details": {
-								"reasoning_tokens": 144
-							},
-							"total_tokens": 24323
-						}
-					},
-					"providerMetadata": {
-						"openai": {
-							"responseId": "resp_082d03db264a7c8d006af7e30b3b1887d1833f4d11b45bbe7f",
-							"serviceTier": "default",
-							"reasoningContext": "all_turns"
-						}
-					}
-				}
-			],
-			"usage": {
-				"input": 24119,
-				"output": 204
 			}
 		},
 		"04667c76c0dedeba": {
@@ -4563,6 +4461,25 @@
 			"usage": {
 				"input": 518,
 				"output": 261
+			}
+		},
+		"0e43369f21e98fd0": {
+			"kind": "generate",
+			"content": [
+				{
+					"type": "text",
+					"text": "{\"tone\":{\"grade\":\"strong\",\"reason\":\"Clear, brief, and matter-of-fact without overclaiming.\"},\"usefulness\":{\"grade\":\"strong\",\"reason\":\"It explains that the note has not been deleted and gives the user a clear next step to confirm in the app.\"}}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0e12b496877714c2006af7f59b1fa087d181960c1e04b9aad6",
+							"phase": "final_answer"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 292,
+				"output": 126
 			}
 		},
 		"0ec303448557e8ab": {
@@ -8492,92 +8409,6 @@
 				"output": 60
 			}
 		},
-		"1ccc1dd4926d1e84": {
-			"kind": "stream",
-			"parts": [
-				{
-					"type": "stream-start",
-					"warnings": []
-				},
-				{
-					"type": "response-metadata",
-					"id": "resp_07e040bb5e91421b006af7e54c8da487d1aa7114b57a5edc69",
-					"timestamp": "2026-11-14T04:36:28.000Z",
-					"modelId": "gpt-6-luna"
-				},
-				{
-					"type": "text-start",
-					"id": "msg_07e040bb5e91421b006af7e54d992487d193749cb7a1b327f8",
-					"providerMetadata": {
-						"openai": {
-							"itemId": "msg_07e040bb5e91421b006af7e54d992487d193749cb7a1b327f8",
-							"phase": "final_answer"
-						}
-					}
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_07e040bb5e91421b006af7e54d992487d193749cb7a1b327f8",
-					"delta": "I’ve prepared the note change for your review. Nothing has changed yet; approve the review card in the app to apply it."
-				},
-				{
-					"type": "text-end",
-					"id": "msg_07e040bb5e91421b006af7e54d992487d193749cb7a1b327f8",
-					"providerMetadata": {
-						"openai": {
-							"itemId": "msg_07e040bb5e91421b006af7e54d992487d193749cb7a1b327f8",
-							"phase": "final_answer"
-						}
-					}
-				},
-				{
-					"type": "finish",
-					"finishReason": {
-						"unified": "stop"
-					},
-					"usage": {
-						"inputTokens": {
-							"total": 24264,
-							"noCache": 3,
-							"cacheRead": 23956,
-							"cacheWrite": 305
-						},
-						"outputTokens": {
-							"total": 30,
-							"text": 30,
-							"reasoning": 0
-						},
-						"raw": {
-							"input_tokens": 24264,
-							"input_tokens_details": {
-								"cache_write_tokens": 305,
-								"cache_write_tokens_details": {
-									"ttl_12h_tokens": 0,
-									"ttl_30m_tokens": 305
-								},
-								"cached_tokens": 23956
-							},
-							"output_tokens": 30,
-							"output_tokens_details": {
-								"reasoning_tokens": 0
-							},
-							"total_tokens": 24294
-						}
-					},
-					"providerMetadata": {
-						"openai": {
-							"responseId": "resp_07e040bb5e91421b006af7e54c8da487d1aa7114b57a5edc69",
-							"serviceTier": "default",
-							"reasoningContext": "all_turns"
-						}
-					}
-				}
-			],
-			"usage": {
-				"input": 24264,
-				"output": 30
-			}
-		},
 		"1cf06dcbb773a79c": {
 			"kind": "stream",
 			"parts": [
@@ -12291,6 +12122,25 @@
 			"usage": {
 				"input": 24293,
 				"output": 25
+			}
+		},
+		"2ad4833523a042ce": {
+			"kind": "generate",
+			"content": [
+				{
+					"type": "text",
+					"text": "{\"tone\":{\"grade\":\"strong\",\"reason\":\"The wording is clear, calm, and brief without adding unnecessary commentary.\"},\"usefulness\":{\"grade\":\"strong\",\"reason\":\"It confirms the schedule review, gives the time, recipients, and message, and clearly says approval in the app is still needed.\"}}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0913b9089563c1f6006af7f599d4dc87d19a3961c3fb5c905b",
+							"phase": "final_answer"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 365,
+				"output": 135
 			}
 		},
 		"2afb830a5e3296e7": {
@@ -16380,6 +16230,92 @@
 				"output": 28
 			}
 		},
+		"3ce57ab3ae7a5af5": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": []
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_076abc00b827097f006af7f595031487d19f4b23710fcfc56c",
+					"timestamp": "2026-11-14T05:45:57.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "text-start",
+					"id": "msg_076abc00b827097f006af7f596307487d1b7d6f4b684b5f4dc",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_076abc00b827097f006af7f596307487d1b7d6f4b684b5f4dc",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "text-delta",
+					"id": "msg_076abc00b827097f006af7f596307487d1b7d6f4b684b5f4dc",
+					"delta": "The review card is ready for the Friday volunteer email, scheduled for Fri, Nov 13 at 9:00 AM Central. It will replace the body with:\n\n> Thanks for volunteering. We now start at 5pm sharp, so please arrive by 4:45.\n\nThe review shows 2 recipients and none left out. Nothing changes until you approve the review card in the app."
+				},
+				{
+					"type": "text-end",
+					"id": "msg_076abc00b827097f006af7f596307487d1b7d6f4b684b5f4dc",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_076abc00b827097f006af7f596307487d1b7d6f4b684b5f4dc",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "stop"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 24045,
+							"noCache": 3,
+							"cacheRead": 23493,
+							"cacheWrite": 549
+						},
+						"outputTokens": {
+							"total": 83,
+							"text": 83,
+							"reasoning": 0
+						},
+						"raw": {
+							"input_tokens": 24045,
+							"input_tokens_details": {
+								"cache_write_tokens": 549,
+								"cache_write_tokens_details": {
+									"ttl_12h_tokens": 0,
+									"ttl_30m_tokens": 549
+								},
+								"cached_tokens": 23493
+							},
+							"output_tokens": 83,
+							"output_tokens_details": {
+								"reasoning_tokens": 0
+							},
+							"total_tokens": 24128
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_076abc00b827097f006af7f595031487d19f4b23710fcfc56c",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 24045,
+				"output": 83
+			}
+		},
 		"3d6b83b415c032b5": {
 			"kind": "stream",
 			"parts": [
@@ -17378,6 +17314,112 @@
 			"usage": {
 				"input": 292,
 				"output": 219
+			}
+		},
+		"4201c715fdf24652": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": []
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_082d03db264a7c8d006af7f595226887d1ad7fec3a54f0bf70",
+					"timestamp": "2026-11-14T05:45:57.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "reasoning-start",
+					"id": "rs_082d03db264a7c8d006af7f59621b087d1a23edd97a8c87bae:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_082d03db264a7c8d006af7f59621b087d1a23edd97a8c87bae",
+							"reasoningEncryptedContent": "gAAAAABq9_WWEPdXevDnQIZDW22RjBoNSTmPgzd2gkkaP0sV5IB5g9JpiWWm2fd3sVRMqfXJBTyG9CFbRV4IM2-90IdugnxgKlDrGTWNLusHkvJxFpAQ2rJcLcFRy6u3BVrB0zKY0SdBlb3pdNdV6uZOIrsQBAxW3A_zjdMUDkQBVvv_uV3FOemIzUlp3RWyFcwg0C9fqA-u1jiO7aXdgNsSnrYW6Gd2I4f5Jpn_Ak3hLSpUgWZ1v8EIaHFg0Rvvo2Ju-DZ1kwtspRcbtSTASt5QyaVt_Va5z-owZeBTxrHndO90zEFuATn9llhOS3hPjbhBAr9yhfrWU0MJWv2WWg5orhZgEUXx8LmJmnPYifyGxzSvsakcxBHb3KnngryrTTviu1Lc4YOdWs2Wyd58mwDqOHvqHd34Hhyv42Y6G9rCDkCb9F8wxphsiB_6tPSMWvxd2lK2S2UnlAhd5MrYy51cR-eQkU_VnUheRjqjR2SMX7FSrR3UzjiWo-54yyPdEzBKNGXHPq75cua3aAttDzSgnJ-fBOxbR8gM-Oz9svA1oKPM_GaeNyTVupnIiRmfVXmM83iPgROmTfClviNVWwIFFKOm_Tqm3tq7Q9s7BGGlLeh2GZt52QD_5ZMdhLBl04t7JATZslnBCpzvPbgzMEOEK4qX-k_3cAvmNXUhQ7CqDK9onLa4GMm7SnxIqzo9a2yQErx2GdzNqenNzqsCAIRTxRsodudbcPKmz9GfptnA5VeRJ2oas8xxY3Y1jwTRjIsyF9zSFRwf6KObQsFjHqd3HrZg_KVVNPXW_ZNjv9ziqvc4wiDbOnAmtK-z3HbpUNNtOjT3FQFKoBDDlb1AEQW8LLuzuSblOo5G5F9wqfH171K26FEeLWqENlphOm6Ayp3dP2EwapwpFHOqns2GmoW3CAWlUVUQwFYSekM3T4rASFukJwadi-MDOAcM8rJ-G7rv2_KZYDzTWpEoec-deG7XOxqUpw4Vws-6ywN_m3eP_LydLKvwEVDe0cEB8p_xSP0PLnBA4D8Z2K4J9G4MtG2rGegD-ACrE9W8dZiSaXLUO9uxhyioYIegpbaltTZZZlCgQoMyEYftxQOpVt3mNCyorLeWDVe1juW4Nncg7Vc-b-LF2v2SqZQyVnPEk4AKvcrP9g1NohWrci0tJihckEHgRsdUzvkWp_7QgOa3AqKPu-8PYMc_XvwnaXF3vplWzhiHSvHmgMu_75BiJNcd999tJ4T7y-EuzTzR9vK4HFVnOqUmeHH5EbBDwA_S2Xqhz4ko7qTXEZRXMHFkaYnNxUhPvfIm7T__hObzLpXERZ1cBpTwjZZZAl92NvigA4Luz7xxgfcA3z-gFPyH-ie1pZ8nvTQAtVgSJu7L6cO1q0jaaW3z4uZ_QDA="
+						}
+					}
+				},
+				{
+					"type": "reasoning-end",
+					"id": "rs_082d03db264a7c8d006af7f59621b087d1a23edd97a8c87bae:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_082d03db264a7c8d006af7f59621b087d1a23edd97a8c87bae",
+							"reasoningEncryptedContent": "gAAAAABq9_WWyG0djDb5bizjLerA2AGzfW4_QcVxrOdtadQQTs05Ncp0wLeB8BC_Dippt0Q5xd65245DTd2YS2xM941QfvU1NWH1sXL0sEfTKPw7UFFtB-wVQRVfDt4WomeC5_e3mpAXSHF3idvkmIfYJXeuwC2evy-U2pMNPzXU0c_lbPPImOafg5qOLsA2NzbXnSeWiQiX-JykPtjvR_j4iBMHsyTogPzJvhAAloAtnkEotcY1HU6S4SweDqOtmYpThgBrk4vVUcLV1CgRA4wnHIjzPKfXl4GW4vcojraN0FrwdjlFaWJ0-GjP9_m1iDirvmyJiivTm4mhXQ8GFzBps7niXD_cZ2MOKSvbJn2HdbrshovQlvhXeNd8_WkucJpjc83dss6Vbci1CzrI0hdvG9AhkKOEfZ_5oUdTemH2f_y7ON6Mx-NnEFn_CgnSrzWSQWC4FOHN5fIstAeumDenUzbGria7a-iQcmUE1GtpDgvOtX3UjIjjF9s30Mt4ph4IHNEb0uQb8x244lvots_JLq4XcPhjmSVS6aP116W4S7ea17GTmPLCMCBPjw3inyH8uaNHtq8RKFOeNJzsXHMMUNSlU31P_blwPmkjh7nHaR_3JSx2eiX9BWzsKYRem-hzf4dWp_HzOLe9CB-qn4U6XL542hWer3ZoRqm_c9rF1gWp36uw4ccQPAvP5wVDNYAOb5TV5QZwOMSTO52djuPrN6F8FQvcdNpF4YAVODSNlN1flLxp5eEedhKWYfL0jOGHwJezEUvADwsSLg82dUobMWyHS9PUluHdNO8XkVPYJxP0cImKgfCws0WKDwISqGeptGvIz7KNs34djH1moJhBJQBF6azxWdm-QMQLUbDTpEsuZfgFgUtkOrru98xkYsz2iS8QThw9yEjQMSf_9MNzkd2Z76CWE3RA0tQjca_0uC3urzpOoFasOKOboIisG_bc-rfRNHLJR7oXc9zW2NSQezX8oZ-BOGj0HAQjBTYjmB_-zofklXcgpQh__7jrwkHXp-KurNXIhG3L6hwZCtkLOVJisG3d4S1vdiPRaw5mDyZYns7C6gkP2vMOejC42rU-R4clunrSv-ZpUBvkLFYROp2yFRffvFTEHYq3vgPbTBaUgJHNcq3MH01zPwvxslI8dhyp24LH_vH601SoGINyHNgP3FAxclu5DNsUySpZrpW6zJ-tmOysFFqb9kAoQJMtykHyAvHwWCjIZsAg5NAyZNdQE6tXD6O22Q1J8WsxRz2EbiWwtJAgsGr3ilkm0NhLcDqnepBHnDOXeOOvefCs3-vxkl6LYwuZ9zCTH9wCWYGzrWEeZifz0Jw0g4Z19aTBy0olPUj8eU1eZDtyITVbFwaIorZ6a3wkCUlIu-oAGnkvPkmtsY_wJgzdV1VoSmMeNNXXdlNC_JXZvtDwyF1yaoFtxkSJzqSU4GLw_gJjWWMiiTIBJbliu_EWeOMKAdoRYxXpxqM8KFyfFDZzv8kXPIer3a2iW7VC63VIYLUBZg_HQGjlQNorX6PtBFn9xGp2OMlGnDDGQ_DhQUn3sOVBRpZVtQyqQLllRzI9-BZoy5cv_NXrYKPoX_Ei2CinyQ-9Cd0n7bQmO-jp5C1mZEoCig5sA1EKbb3_0irxh2oAUtvkAsM7uDJP5XoG0Eozf4KgCmgki-7O81PbkhLNmUdaQkRnexRjhkwLLXxdd5IGlxUUDxFHg93fVrraCgUI5JsyMYM5dOWf6gkbcOWuwHi-icdmAXxU_Se737ug9co9i0CdcBhHzZbCsverBLMGR9D_d8e3wPY8IGvBKNtANrWMF4WAeJKIWJ6RliU6IiMit1fnmjp50PauisD3oKfO2E0eN9zf8zZ85ETv2WA-dfCyQtJQV92WsEAxr7MW71o_FurM99HkC4K0QeQHth1nZmRVQIoKwxmeRIqB8CQHeIiknQy0t3pWwZEQfp0gnLiyECaw7EVcWMNqacaazubZ-RiPdDL3Ap6FBmw7C1G87GRQOHwE_uJbEzZwQ6VhX9PY9RKrbgsQeTn2l7cI8yQokkaNxHVBt3yzHLyOBE0H-Jfdod1mvRXvNzlRpvlJLppfObEZtpn7l4KKj-Tx7dMtgPSIQfK4TRo1fGj9HUnp-TqzCAkUcCvv4DQMqu0lMn3An2FEm1F_Oj8AukRNdl9iIcMHihn_PPDQDy5-ycNGIfDXUn8DFk3_5akor_WvI58lMGZfQczNnsC-rz8pYZiPtptQH-RceB1zVB8ViET8ZW6DKYxFU8cz88G1auS-l2tbeILo0q_cqMG8lv7eWetor-VQ6hua8h1M7BEwHuQTyB10gOzck05CnPnxAUdwKCXQgSP7LrE71T7JWkNFZMUH69Ip_1zBEtKlS48EUTq4P3Gvwm2VEVV2A6q94zO-CwFNVp9dBo5wTKg="
+						}
+					}
+				},
+				{
+					"type": "text-start",
+					"id": "msg_082d03db264a7c8d006af7f596dce487d19218442f6d380878",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_082d03db264a7c8d006af7f596dce487d19218442f6d380878",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "text-delta",
+					"id": "msg_082d03db264a7c8d006af7f596dce487d19218442f6d380878",
+					"delta": "The scheduling review is ready for approval: **Friday, November 13, 2026 at 9:00 AM** church time (America/Chicago).\n\nIt would send **“Sunday’s interest meeting”** to Jen Thompson and Mark Thompson. No one is left out. The email says: “We are holding an interest meeting on Sunday at 4 pm. Please come and bring a friend.”\n\nNothing is scheduled until you approve the review in the app."
+				},
+				{
+					"type": "text-end",
+					"id": "msg_082d03db264a7c8d006af7f596dce487d19218442f6d380878",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_082d03db264a7c8d006af7f596dce487d19218442f6d380878",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "stop"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 24124,
+							"noCache": 3,
+							"cacheRead": 23493,
+							"cacheWrite": 628
+						},
+						"outputTokens": {
+							"total": 162,
+							"text": 99,
+							"reasoning": 63
+						},
+						"raw": {
+							"input_tokens": 24124,
+							"input_tokens_details": {
+								"cache_write_tokens": 628,
+								"cache_write_tokens_details": {
+									"ttl_12h_tokens": 0,
+									"ttl_30m_tokens": 628
+								},
+								"cached_tokens": 23493
+							},
+							"output_tokens": 162,
+							"output_tokens_details": {
+								"reasoning_tokens": 63
+							},
+							"total_tokens": 24286
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_082d03db264a7c8d006af7f595226887d1ad7fec3a54f0bf70",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 24124,
+				"output": 162
 			}
 		},
 		"420467a7d236a583": {
@@ -25371,6 +25413,25 @@
 				"output": 12
 			}
 		},
+		"59ec8aab1e4f2f69": {
+			"kind": "generate",
+			"content": [
+				{
+					"type": "text",
+					"text": "{\"tone\":{\"grade\":\"strong\",\"reason\":\"It is brief, clear, and plainly states that the note has not changed yet.\"},\"usefulness\":{\"grade\":\"weak\",\"reason\":\"The user asked for the note to be changed, but the answer only says an approval card is ready and gives no clear next step.\"}}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0c19c2b8a3443f07006af7f59cb20c87d18356c33bc3ed1508",
+							"phase": "final_answer"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 302,
+				"output": 253
+			}
+		},
 		"5a06c06551bc2d2b": {
 			"kind": "generate",
 			"content": [
@@ -27104,25 +27165,6 @@
 				"output": 31
 			}
 		},
-		"60a69138d0423f29": {
-			"kind": "generate",
-			"content": [
-				{
-					"type": "text",
-					"text": "{\"tone\":{\"grade\":\"strong\",\"reason\":\"The reply is brief, plain, and careful not to overstate what caused the refusal.\"},\"usefulness\":{\"grade\":\"adequate\",\"reason\":\"It clearly says the email was not changed and identifies the schedule-time discrepancy, but it does not suggest a next step.\"}}",
-					"providerMetadata": {
-						"openai": {
-							"itemId": "msg_0d153aa9ea60e27a006af7e385edf087d1980131305fb4d7d2",
-							"phase": "final_answer"
-						}
-					}
-				}
-			],
-			"usage": {
-				"input": 334,
-				"output": 231
-			}
-		},
 		"60bb5e280c85dc62": {
 			"kind": "generate",
 			"content": [
@@ -27821,25 +27863,6 @@
 			"usage": {
 				"input": 280,
 				"output": 142
-			}
-		},
-		"64a92f84d5498752": {
-			"kind": "generate",
-			"content": [
-				{
-					"type": "text",
-					"text": "{\"tone\":{\"grade\":\"adequate\",\"reason\":\"It is clear and brief, though “Everyfield refused the scheduling review” sounds awkward and system-focused.\"},\"usefulness\":{\"grade\":\"strong\",\"reason\":\"It clearly says nothing was scheduled, explains the date issue and time zone, and asks for another send time.\"}}",
-					"providerMetadata": {
-						"openai": {
-							"itemId": "msg_0566df56b6e6fc4b006af7e5d7ccdc87d1a4c685a1dfae6ffc",
-							"phase": "final_answer"
-						}
-					}
-				}
-			],
-			"usage": {
-				"input": 316,
-				"output": 274
 			}
 		},
 		"657076fb193a10bb": {
@@ -34840,6 +34863,25 @@
 				"output": 58
 			}
 		},
+		"7df53e8ed598cddc": {
+			"kind": "generate",
+			"content": [
+				{
+					"type": "text",
+					"text": "{\"tone\":{\"grade\":\"strong\",\"reason\":\"The response is clear, brief, and matter-of-fact without unnecessary warmth or filler.\"},\"usefulness\":{\"grade\":\"strong\",\"reason\":\"It explains that the message has not been scheduled, identifies the review details, and gives the user a clear next step in the app.\"}}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0b6c15c936fce180006af7f5999fd087d18caec7c6dc63b70c",
+							"phase": "final_answer"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 331,
+				"output": 146
+			}
+		},
 		"7e1259756cdebd8e": {
 			"kind": "stream",
 			"parts": [
@@ -38788,6 +38830,92 @@
 				"output": 62
 			}
 		},
+		"8b8be75cccf45649": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": []
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_09818ac2b2d2069f006af7f59818d487d1894f141d64190c5f",
+					"timestamp": "2026-11-14T05:46:00.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "text-start",
+					"id": "msg_09818ac2b2d2069f006af7f5991a1487d182bc7e39a7309097",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_09818ac2b2d2069f006af7f5991a1487d182bc7e39a7309097",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "text-delta",
+					"id": "msg_09818ac2b2d2069f006af7f5991a1487d182bc7e39a7309097",
+					"delta": "I prepared a review to delete the note on Maria Santos, with the reason “Written on the wrong person.” It hasn’t been deleted; approve the review in the app to confirm."
+				},
+				{
+					"type": "text-end",
+					"id": "msg_09818ac2b2d2069f006af7f5991a1487d182bc7e39a7309097",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_09818ac2b2d2069f006af7f5991a1487d182bc7e39a7309097",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "stop"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 24147,
+							"noCache": 3,
+							"cacheRead": 23914,
+							"cacheWrite": 230
+						},
+						"outputTokens": {
+							"total": 41,
+							"text": 41,
+							"reasoning": 0
+						},
+						"raw": {
+							"input_tokens": 24147,
+							"input_tokens_details": {
+								"cache_write_tokens": 230,
+								"cache_write_tokens_details": {
+									"ttl_12h_tokens": 0,
+									"ttl_30m_tokens": 230
+								},
+								"cached_tokens": 23914
+							},
+							"output_tokens": 41,
+							"output_tokens_details": {
+								"reasoning_tokens": 0
+							},
+							"total_tokens": 24188
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_09818ac2b2d2069f006af7f59818d487d1894f141d64190c5f",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 24147,
+				"output": 41
+			}
+		},
 		"8b8f832951acc5f2": {
 			"kind": "stream",
 			"parts": [
@@ -39745,25 +39873,6 @@
 			"usage": {
 				"input": 121,
 				"output": 12
-			}
-		},
-		"8ee5b7558562751b": {
-			"kind": "generate",
-			"content": [
-				{
-					"type": "text",
-					"text": "{\"tone\":{\"grade\":\"strong\",\"reason\":\"The response is brief, clear, and professional.\"},\"usefulness\":{\"grade\":\"weak\",\"reason\":\"It does not prepare the requested scheduling review and instead directs the user to choose a different time.\"}}",
-					"providerMetadata": {
-						"openai": {
-							"itemId": "msg_074ca93925c48c2e006af7e311872887d1b5b81e3cfaf2f48a",
-							"phase": "final_answer"
-						}
-					}
-				}
-			],
-			"usage": {
-				"input": 321,
-				"output": 307
 			}
 		},
 		"8ef55b7dfb661226": {
@@ -45457,112 +45566,6 @@
 				"output": 156
 			}
 		},
-		"a6a96ac75fb721be": {
-			"kind": "stream",
-			"parts": [
-				{
-					"type": "stream-start",
-					"warnings": []
-				},
-				{
-					"type": "response-metadata",
-					"id": "resp_0182568dabf7f81d006af7e5d000a087d1a443f3d4623fe1e2",
-					"timestamp": "2026-11-14T04:38:40.000Z",
-					"modelId": "gpt-6-luna"
-				},
-				{
-					"type": "reasoning-start",
-					"id": "rs_0182568dabf7f81d006af7e5d10f3887d1ba2c689cc1b4a81b:0",
-					"providerMetadata": {
-						"openai": {
-							"itemId": "rs_0182568dabf7f81d006af7e5d10f3887d1ba2c689cc1b4a81b",
-							"reasoningEncryptedContent": "gAAAAABq9-XRMKgVGQkANCPQYS11zW0j1j44PStPtDdzyuWYWpjUlQAlKzSjsiCczxhf0hqf6CiMSMZrndqde6ERDHGqWDt8GF4cWs6VVWwAzFTMfCxcOfsxBSVAjvX8mZLyI7lJTrPGMmsJFTy8yjVcWPd9Oe0e5nfv9WhDBpOtu4t6HdJlczDUG0Zy_yhnuUotgxIsNAlQ4eOQuDVIrSMOj4NizDm_Z7m693Fw9NbZSkeDr_-MmMvnQV1vuKf8inElTRNdleNGYqWAWbcBRd-5tahgV9tEUWzTvmLA5Pp8HpDM2Rb3yIrsArq1fPT0-TjIXE5GSKEQj_4D3q13rVe2YEU5O2_2wF6I-TW0UDUeMu61Qhnkr3RoOWcT_f6t0U8nEbVwS4OFddc2dcLAe2DTfBUliICfq4RlNfxiWWp93agpGkY730rXhnYy53tBbXYD0nIV1UiIOF2s8NJY5yBioELjJtVdGllH91yv5eUGAIEXId5r9NfJt6zSSeVUNcSuE43nlD2ykWyN-jD4T_00yw4s6nH_qzblfmla8PNgIW5GBQepHUZAhq5clXw5G9Yg_SPAms-Ww0ytYRWbSKC6ZBYALzc7BlEeeP1eoYpvETD0GyTaZYdaJbXay7D_1S7GqcwGlqu1F3IoS6sOloLobPeflWSHkCqXfdE1ZkxAAEKIWZE_pspCWQ3uSPsoGxgJ0FAEEb_nyZRQuq4uShCmSe1U8OPe7Iepc7mong7wHOvt07ki2QRMeTuyyM_s8P7aG-X8x9q3JJRmNTIw1EIX8Jnp_WmrZpC8VURP1_sfELnbD584UZYF8YNORT2i32NR1ImpwFdEATSq2oVUNkuZSsfFCpesgXr73C0l158umYFCZr66-I3Fpv49Cyrb5x2FW0u2MKHFfexqOuaz9OuLeN5Wa9fYvoBK-27IYj5vGX0oRvFnELfDczKurmi7wt6yYukx15GlWyx4iuitkxJkIrRV-ZmhO5Sk8C4XuI5Abi1OTGSWIVTo0LX50B3sMIKRKE74n-cIrM_dXxBne8-FDv1Nf3Uyp73I7oYBBkAVhrBM5ljNJcaHZGLRo7y3Eyhkmnk2JHH0KCVxcBK80BSCIY34JZVvTgefivpz5G-8LdmiAkHT7YiWMIiIThv6d8xghrAr7Pv_0fEo8w3Q2diWs4o9Kg3tk4kQdTs9x7PgjuZ-s5hDEEHC4RIUk-rJy2hE90QcFa7VdifwHm91gYtY-KSlIzSo82GyYD_Ys6E7TlMksp7FtfGgceXCqbuh5Nm5bnNPSTKr_YtIL14OyTQ4FaDRFRydpdnc3E9BJJHGcBh_bpXKs8u6nHC79wC3E_EdBTKh9pIkJXYE_Rdgf1w7Os9hpkgHobSdt8EvQTtyEwY8XP5-BA8="
-						}
-					}
-				},
-				{
-					"type": "reasoning-end",
-					"id": "rs_0182568dabf7f81d006af7e5d10f3887d1ba2c689cc1b4a81b:0",
-					"providerMetadata": {
-						"openai": {
-							"itemId": "rs_0182568dabf7f81d006af7e5d10f3887d1ba2c689cc1b4a81b",
-							"reasoningEncryptedContent": "gAAAAABq9-XT6VhgprFMmto4b4GTaxwYl2PqRLE3PdJjRhZ3jXevj7qiOHEwurx6Jzm5ot4gE9jLYYPAWL2kcMXv0tjv2mKPsmKTNh3WiLFYT99P8df02Qdeuivrxit7Vrz92XK3Pn7xOdrbRiUnVQIeR4ayCqlyKSvXcBFryH1B_koRn7l37x0vFb9V1LQWqKmHKzyo1BeUe75x2E-dLR0R9oYl8Lck6hbkcYk0sm7vJwtW8gljoebZJaNbmBEOxzTiJTaqgE3o5lEMPpmYXdeu2ziBgdPMaQOOq-y9fp8h9mWxPjSEK6mtxs7g_jePu9ZOJ9VnC12Kng07_sTy67JA6Jsi71S8qeEUViuQ7ebEY358BnB1lQT9HoQWr87iiO4jTTnxcfe0MiJXxNKuMNmJaXkBUf9Tc66JNFEpOc_2d07VRAzr1UvVnk-nTCKh_oOmvI9uk1hhBsg4dZCTZImaXY1FfABYUgrEbhwHhswm-VKu5R-W2XJfBq3UZ8XqdOmseNpmH09eac5kw2EuE6H70wKLAGjOyT-tp5zV8b8GN5y1t27gRzV8ihyFoe6aaq0egLQXtFMAGyL2ZDdkxp5L-jtagIn70I2jylau3KXhhA2H6387uiPO7FtVYuvbY2qng5nBLca9kbJz3BNk7wLijZQf_QyZm339xogcz5Zc9uX8RMstNJiLaQuRpePeR_myhsMfSJMOtFVHoWexmuHROJ2zMLxh69MwAIR5tWLJZMqT_nemZgx4-aTLYps6-RlEHM3kaD_X8R6_3anYFQoyhcRXxxhRcM7jCRA3ESGqoaeJI0XIdVPWjElsrfa9PB-x841ZT7tiKJatnwaVeL4rVDvlcW7MyrwK2woqTssvSpqFwXyNK5LJXNFvZDJOWNykmxVX6rOYfQ200LQnwNPNhwD4JbVrKDMjDDgkrg5N8jcEpklVwUpQsG5JnnbL5bqJq3Ajv4wCoYeUBm-uxpJeTdz3fQGlo1BIvY1BIYAj-Hm2zBR3Moo-w-1SeF9pbYrOveKjoTOvLbCcJcJcm644yLKNHpImRoqde8bHa_YW1bfkY-rfGHJG9X4DwzmL4ucrP6jwXRkDcyUt0EJuZW3IWnns-WJe5AJOW7ONV5rVWkfv1wJLQCq8tn70h7GNQrUrVA_MtrGqYmxdRp2D6zPBA-zH76QMgLUQYyRDgH4BppdLgWhOG6wtxQ2hMQdKJV3okk4chvjhMaGZSHkJMifj-MepuBDE5qHR-mBqcbUCfFLaliXQjrARVgyKbEq1gRQpUn5e9a18MWMs-yVKYMz79GQH2LBFfG6hM5AzghT1vZQCZjUD1YIeDOiuHRXNl489r14nwEkOHHQLXbAsV_j66ABlNWraVlKUqVweQzHX0beCzE89Ic4diRbLYVTS9ZS-6l_9fRZ_MmY5edjvNsSIFebvz-f5NNXOTShKCmnyueXOw9PAKqrI2xXDaietoNNQcfDwlxspj166TwX5cVHF9Ika-dU4lkzEcTtHADyQSF6QPhBNKhdr66fCkWIn5sDr2-oU-nek25Vf9GQ4te_LkKNtB1Wy7dEDIu7AYRBhlTBhDKY2y4qZr6z6aSHjRg2i1Qm5r73N5HtK-uARjAdYuJ_mf_wycZoBHo__FtrAtrgy683SCv003trHP8KAAd5-9vTl-1Q-R8xZ5haTMO29BdtB9dEGUpd_v6iBQUVmZxI1NVQB6o9dVB3liLaHBJv5BcaWXh-0WHb9AaU8KoEtKZezOqdfpodBLXd6v9W-tYFYmeANO6UfXdd7k56pIdQ2o_09RnuMgwf13xUrpEDh53C-3gJSF1Xf80kwoeF8_EUVdda2GNHuaBdlvRprLmqp6pHjkWTDi37QvoRPk7xovQvIsXWH-zhrbOHWVIdQScOk8U4lsj2ysE9asNZrPA1D_Eh_Q3ijvzxVzr8TTtC8yKhNCZeWxRlIkKW2KxTiyjCls14pcR1n9HMPHqIKZsw7wOzc52mvm7KKCWN5Tv-okirolmIu_ktIeN2A7CVEawRltvedtAINxU2pmpJQ3SPB3e7BihBFHTgVXATlSZ0_gUyBf0SoIPEv1Axz2API7aGfE7j964mTxRYIQwbGyNiKBeV0S8YBKCgc_ZCWu3XLzVi9rOtMlM2FLrF2t6U70lzVYh04ZxPWEazeCMm_wri-7BJKS61eLk0vxPXg2JH0KP16kZ4Tpj6ug4XEeeA7TvXPxm2pp-QVmQjfXkd0quUwfU3d6GkWzqxmbr9D6e2dYa0pzdSDauqzvE4ttNRQ7pmid9TNOHlGWSIGUmrKDxAYD6oimSw9y4wtOMv6UGOnjj-HtYo1r8UWeiKeoSxDiuwYiUlIHH421s_Z-LjeikfAMVgM63XgK9lRfR9_t5PUcdmL8-pi_AHibhFsUviR7BB2T4jtGJ-Qfx4rHMOQENCndVO2ITgpeLU7ZdJtf0lD9E2aFvtBBc30ULLhNfhJubVVNTYm9NPtWIq3JywRluVQlIB9wR_l-8AXzBd4DGQatz3Lc8xqu7idhX3My_1yLHPyu_91oqhhJIH9YWPNuS9COjrZKh08TPxWtS8YK3ZewlvqrlCb1DQ70o-yYRqm_ktXHTeXHNXQzqzImRLRk3IYM2snTv9LATYc7vVG7T7jedxFkKzMlO1P-HkIGXefPDi2dWs-ftmBdmoPLDVhF_oTE1FbLR0RtaVhNSQD9c5Hs_ymN95YHeC4nWSovjhffmY-wOzeMN9AAE7YSllbcn07vTyGvMyCaLRlwlRpxQyo_b9SCQaI28RyOgW1o9kc94nnBKC7wc0usIA0-wNktsZksywjQp8pPYW6q45UJcX4Ghj0clyums-WBpndLgcMVB183C0A-8Tv3TIFYw-oEoKaCbVTCsT9-Am10DAFVYztkOQSm4EcuouUaRX1lpO2E7TEjiJU3YZMMeppUDCZQjw5Xsl0_qt8SLy8IsCXZUx5dRecI6PnGdVjcDEb_qewFQjDijynxUQKqA6NEmsydgIfkESYhsIpNEBoekTFfz1JZ6k-1C2DkK1I-wDugvD8dRJKkBmVkiocl3NojA-6UldVz9Cfz8EUlEuHs9vDugFs5iV82hPHzhm1N49cSH1PYCPEQXb8qYZKb0P9-8QEgYCsSWII5djHsLHDqH1bxDObdu2hbU6J9mNSCK3YVLsUBleJxm1BiJmIEs31_YLkPNZ_nkzbZFmsslyP2fB2MjRJZPg7Mtix5hm4yY13KM5_r12Rc0SZKeGL2Xa-1_VtrgQuq9ER8MBTdZszB1QC5Wpf4-BALVi4mmRF2k3UDP0tnJkNpm_T0JuhzTb6-pUB_OpBcybEXivH5gVsEzJqqMsMCbq0OKuE6EkSTKIpL3HN8iDNBExSTEGJmInKMWuWTAmPYVx60zV9Z8fLzyrtjhmkl1dlAfVwS3ioQLeigGxzv3X3hxJzVNXBVWW058_pYzlMtXoErB9nkwoFZvOi7Znc-N2yFOZT44oFxAR4LAkM3-QPzmwd7OcI7IlerwZD3folMC8FOwDwpfirTMqiPhG25JmljW_rntcuQ9UxERwAjes5Lp57i9wLdqnKsApF39y1F4hbakmG2346oajvSaX4jhac5x2gGBATzKzCTlZnn__QnzkFqt6V7Qh3wYUJbtnBh8KDvRhXAFTaY3Rrwn5u6_gmcMFah5WtzFhqGuyky5Ywxm16bhYNo23NprmUV8SCnZS7A6seAXzj1v0Vbuuc50Zf1TubpiWm-UE77F_WSoImP-QnPWemuspFxeOze-1BK0_7GuuLonr06fXoUlGDH1Z6_E6t_891C6TZu5h-wZtTXLXu7EU30s6-bIQ3L5hVEh-qy5rUX-jV37twVKNorwc665RlXXAze17_TbDLiMYSYkoW1UYsvWrL86e08xCKfxPnhT-atIiC8EsDJbH4cPkgbnBrPuGSFyIiZ3bYFOuPMt6jRy9FbFI5D_Yv2GZFaxoEBCI4qQSbVn19dFtjLeCyRR8ByqStOb5MJDrjK39vKRpKqn1oYyehVN4QWEEDSnNfuLDMh0MO2OoZV4O4v-240lAPhsqNsvziN7xMQO73XSbUzjDhMo-BMJjlCZOz0jjEexA0RAWWVvcPE8f9zHsoID3flMv2kz9VuQv8SKOb67zTvxO70OVhT96r2-TXguLmlF2QysHy2ztEMpiJygyKKbUaIRewt2iL5NF6wMq82Apy4AjM2NyEj1gUkqvge-vppYXQYj61E2PI7HHU8CnlxBPAqB5ODP7-ppPyuHgxSlyHLC5i5uOxzZNhxJ7mc52MXiDUvKzorsvuZQwNTU6oseZEg-b4OKIp_B6vusZRUB9MF0yOsfD_Uhkuzqy2g2QaTUGKSNOZDokWlTpOPZMGviR1DMLId1G_OI6vx4G4yCmR8QfTtL1t4DP8tzdH63jbnGA8iBpBIzeEAnVd-wOD-z-R9fpn2VmylKyLtVFm83tLPnvkDymCnqhiJkU4CiKVzyzuByIivd964MEGTgZHpVaLbISIscYfjptabiHSwZtT2z8qNxskLlq7_n3oZceJXJAaioyVmcIjaMpYJqPUfzirU5t1Ddu85493rp4i_Dx22aboRboYGSRexR-8QAdVGfPqIy-tXUx9Ls3qQ8fKYs9n8JdQo490iegGSGgkY9LOHNjZraVf9GL92rAfSoe8uqJamwEi61HnYUSyJIXZTUVuAAwVdjuP0uR8EnlDowl42cOr_r9GJpI30_qVbQIxLqRobIxxC7KkntsyqgvmlYe7Y-pTYYPZz2MyDlfjGiEXFDxi6XLFzN3XV4Vv2w5Q_TQZFowVmqWYNGAECoTIOTnZBU7mEHJ_VdfguJ_vUROM-cr_iUbjgEQNnJGpxnIGM1-jcJUVtYsa_0m8B0lMbBkykflnB018HnVCXE4Wz72vvsToER4JT9FJOLsFF0ymOLn9nRabXvXb5boKvQ4PkzbhTaWtC_SyOQdz0814CkwauIjwVXBimsEi4nkz3oc0E5EfEUok6UIkQgBLLRICQ0ph54VcOTjFiWs1JcPe8rrgd5kTUCKD8RAJRJURhbJ-IkVQLI5U2GfZTZcyOyFmUMpDJuMa06PppviJrXbvIJ5lmsuGe5HF4-5ybTYH31yTf2imCpmnajHM72r5aFDYyTVVfkfmesTg1wWyDtRMjyupeTi0hmfom9-HcNxPzVQLpFD-_kYEE6VQ4hB49b9kV94H3H7iPG1ooDMydGyzEfus2W1iURIMauMIa6KkYWvBfF2R896D3Oewnfrmfsc8nfl7_FlTzeXyamOEZ_qa4r64Qcs="
-						}
-					}
-				},
-				{
-					"type": "text-start",
-					"id": "msg_0182568dabf7f81d006af7e5d3c62c87d1b78e6a3e32cc8f13",
-					"providerMetadata": {
-						"openai": {
-							"itemId": "msg_0182568dabf7f81d006af7e5d3c62c87d1b78e6a3e32cc8f13",
-							"phase": "final_answer"
-						}
-					}
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0182568dabf7f81d006af7e5d3c62c87d1b78e6a3e32cc8f13",
-					"delta": "I found “Sunday’s interest meeting,” but Everyfield refused the scheduling review, saying Friday, November 13 at 9:00 a.m. is in the past. Nothing was scheduled. The app shows the church’s time zone as America/Chicago; please give me another send time to try."
-				},
-				{
-					"type": "text-end",
-					"id": "msg_0182568dabf7f81d006af7e5d3c62c87d1b78e6a3e32cc8f13",
-					"providerMetadata": {
-						"openai": {
-							"itemId": "msg_0182568dabf7f81d006af7e5d3c62c87d1b78e6a3e32cc8f13",
-							"phase": "final_answer"
-						}
-					}
-				},
-				{
-					"type": "finish",
-					"finishReason": {
-						"unified": "stop"
-					},
-					"usage": {
-						"inputTokens": {
-							"total": 24211,
-							"noCache": 3,
-							"cacheRead": 23875,
-							"cacheWrite": 333
-						},
-						"outputTokens": {
-							"total": 363,
-							"text": 67,
-							"reasoning": 296
-						},
-						"raw": {
-							"input_tokens": 24211,
-							"input_tokens_details": {
-								"cache_write_tokens": 333,
-								"cache_write_tokens_details": {
-									"ttl_12h_tokens": 0,
-									"ttl_30m_tokens": 333
-								},
-								"cached_tokens": 23875
-							},
-							"output_tokens": 363,
-							"output_tokens_details": {
-								"reasoning_tokens": 296
-							},
-							"total_tokens": 24574
-						}
-					},
-					"providerMetadata": {
-						"openai": {
-							"responseId": "resp_0182568dabf7f81d006af7e5d000a087d1a443f3d4623fe1e2",
-							"serviceTier": "default",
-							"reasoningContext": "all_turns"
-						}
-					}
-				}
-			],
-			"usage": {
-				"input": 24211,
-				"output": 363
-			}
-		},
 		"a6b8a32567bdc207": {
 			"kind": "stream",
 			"parts": [
@@ -46306,112 +46309,6 @@
 				"output": 96
 			}
 		},
-		"aaf3598266b38f87": {
-			"kind": "stream",
-			"parts": [
-				{
-					"type": "stream-start",
-					"warnings": []
-				},
-				{
-					"type": "response-metadata",
-					"id": "resp_07e040bb5e91421b006af7e5490c2c87d18045a8a74fb4ad4b",
-					"timestamp": "2026-11-14T04:36:25.000Z",
-					"modelId": "gpt-6-luna"
-				},
-				{
-					"type": "reasoning-start",
-					"id": "rs_07e040bb5e91421b006af7e54ac2e887d1b6bfe48fb2dd65d1:0",
-					"providerMetadata": {
-						"openai": {
-							"itemId": "rs_07e040bb5e91421b006af7e54ac2e887d1b6bfe48fb2dd65d1",
-							"reasoningEncryptedContent": "gAAAAABq9-VKouy6V7UtprTjA-yfFF9QD7zDBA3UN-KmE5W5Zr91oGhZ9TJZRXVfSQ6X9ItozyfNP110go5uijGRI1CFG69UznJ7OY-9o0vLlWRKxRW5UPksYfVcEqEaAFPcqUYZ1RZPUnRDETNNlRsSEIMG4w61Qa3Jv8dr0ifERMlO-WAvRtLd_13P9UKhSKqaBN5BpAZZNrxBv6ngbaSCIjulR2rTupre_4BdPyKmiA6deMB0f1BfcNcKtxaubkSxM0tsSFLwAbet-HraO09aCjAqF9NbzVgGGWGCVaNUu2M531UrA3d5VNeWWmFFkYiij3WrNmfJQoSdJgp1UF_qPwjjfzPqsNwZksFmTux5ogERKUr2xqzJAos2rY7s49OrU95sb1X2nw2Yw1GS0VVmq0LktApW4FrXSGFnPXh9C8ALRnrMefVARDYsDqHZD-w2tGY9JjAWk2crd5nruAXZvoOisEpxuT3y2ccCYoShSiy5DpI6C-pE9t1b4kcEUL1LbBi7_qe__1DxxhoBkkXpmOKk3rezXFcW98Fq9Tgcj2De5lEMQQ0YFiEuj2nDWwl42NpJuE9aHJqC2pFbDr-YjO8FeW5Y_Fd7VXNPUb5GkJCG7AAVXTtxtj8YDyzZ3CxMWdAsc2siDqAlyf4voxcnKZXuPve2pl_s5l4QyqPtzvkYSzuGAkPTFqNmxauU66jZfluOdYw_FEnzC2F-rZHiell-_PFhYksrVPA2pbbGfzOcFqNK4TKRBqTRAXub0ZWgiFyvVEXgOFzHc1GYsx8GW-0i7Y0-lLSahd6NGZl3p5gYYrnlsPgzS6QDD9KCamI0V_ao9pso8J5kY3OM79bDuFY2E42vI54h8kbO3pw7EwooASf8kZfSoDz0qqJ2c3Ho8YpPwomyCuergEyzlA04lUX9O-t1PtDBOF41llFrmEflovdj3ZAp5ObNTb8riiBeOncAp6CbUFHdG1GVW2Es0h2US6-lminxqWLYTYYf2h8XzRE8KaqY2xIbar-QdiIGwEtyDc8aN0sDuqSsG8Not5x45l-FpZK2uFGE0j1MKvgpr9WxTfZCcyjCisHd4Y_xyv_lwJ5rCWkp9SLnfEhPPI-vPWtInkbeu4XcYGVyocTY8w2Car6MFqyqSjWMKOjlhvvlZ7Z0QuRTud4OpP1eZd7TCgbvhMzYWSD8PcH8mGbm3jMaobEs92YbHOxC2j4efqb26KC4-A5lpbB_6SAZX4yZqZvzWQObj5qZkmJ4NCOX2WtHIoTJYBMDtVxKnhKq7_nLCrCR6gsrel7VbMyLAuqSkivWW9u-RGfpN2T4zyUCieIW87wNxim3N-JCUM5pB2pZku8NI5FhTHxrdzRPCvxpFWQVmgEwhd6CBEaoZb-ZMctWCro="
-						}
-					}
-				},
-				{
-					"type": "reasoning-end",
-					"id": "rs_07e040bb5e91421b006af7e54ac2e887d1b6bfe48fb2dd65d1:0",
-					"providerMetadata": {
-						"openai": {
-							"itemId": "rs_07e040bb5e91421b006af7e54ac2e887d1b6bfe48fb2dd65d1",
-							"reasoningEncryptedContent": "gAAAAABq9-VLz0X2otIfcP4FFm81cLGnA9KvCsQNm5t3CHkGWEatnH0HybCwKYjV-SuDAJQWiBUmPw966pgIr7S9GkOp7PtZgeu3A6x59SVaJK-TYzGGGRcdFqEkih6E7ryLWW6RyCrpBeeZCXFvkpx9aOA7-XFSWIEdgI44xxGPYCDKle3ZJzeli8pBUgxzwBQ2VTJkmmHakJDKoQ37gVK5WsQoii7zYHH2HgzkBaItiRm9d8Uld8wKgCzRmRLasulloaUYBI55LR6uSstavWsMaXh76N9LKffIaqBmR42flVTpApH74ktt-iIf5hsQjoDOPmgXLP35iXsEAr1wwR9pR9DAFu5fvWy-B7REL0lnO8LJFrIiko3-0sptb3k9Aw9GU0DE-DpvBTBPsTTmU1Gcf3777CDWgMrZQuz1_mxFjeAmBo2Eq4k-jHLRkJ-MS0yUHsolZh3n3k5gm7_ylxk2lTdQRHM5qFqvowU4reDlMKWo9YsspfUwbWcy9Y5xzWdBl5mTtWymGC-CeW5g5Pv13hX5FpiGcqMsNfGieAWcoNMfcXZeklNJrQEqRAB9GSAA2KEWeo2Pt8oHVuzkjFKeCkKg1wQg4Zk4dzNoWroHI-39fls18dkv3AbqPNtPf4IgRW6BAZPXOmeTzBCYBu1AOrmBOkQFEEXRnQ20QUomul28x44WnBvZ5H4JwxDca1CU6YuxMUTV4ugjglmYs2r7Cy2TP_iecb8FBeWECnk4O3esUYzjxFLQ1ocT6-wUmsYITllki4bmH8IH0VZWuwiKEsmZ6fYf6q5A9HYYqmUnG_kcV3vCZel8WUIwVdTrqxjbaFrTldzrS8Dc_WAJ66KtUjqXxs4lxxFMPnvIPO1kKJSypM0B1Fo8bDRzQopn-kSzfh95ZQiiSVxaMXsi3rIVOnfs4H4ki4Lx8yIu_FWG8rplAqUAXa13dQ7S70Nb2N97sP84yyeERaXz-TSKfLgps19f45kNcJL2A-CzuJYZIX4TL1MBuVzq23E9Ii4-H1VGQA2UXIqzpADs9N3ntI7EQhrAQAsECDijA_HgpKrGLqzcpk72YDVq2laymOumAoIFhWPgHzC1pQ9r3SSLzsn4znlkrzKkKRkz5wJ3ujT8igFhTY-sAU9fyRSOMNnvyCSiKiI7AOqATwrrKdN6eRbh8T-xIu61gpfUYErTNMUfkdzFe4tBCicFVZxeQbyIBVW9BSEcvfJ7KP0Wqo6xfPtNPKbyhtjSR9nawVAFxeA2s75ByMn_bTvdpvdjx_NTnGm49Ww6C-i2cZAvH8S9lflsgXWrvKKjRXGuhrVlDxByuaFa4dOYP3kv4TvaaJM9qkvRlDVBeCttnau6pXWIA3xKIYXnMFNgFdp7byebFkrPdZsSlWsi1YT6xkD0JsLR3l8s6x34bcEKhC1yKYJYjaSFx9XDfB1Hq3ipEjWtX0yli9Jcw9V_oFkgnmBD7tzC2fSNMS3xSrO5Z_xWQROqSWgzmBcAYmdWlQFXmYa4hI8Q-c5oixCOYXMIddSHOU0JoZYFXziNmZRSIS8HND0pB7zdHMoToS4jg1WqXEPHt4ubHwNIk5FXNd-2iIA8Qj4HTbHJYOe9Ynqc7t82pXE7oFu0Vun8Y1vJHFlktgCaT-h7iO6SvKe7T_emu0ON0vUdu312XPj6RSZKyCESoaJC0TXt1Vi5Y_OK6lbza3XZXr7xvrj-kuykcHXfN7SVg1xhYw9T_J_DpuDKkzoIUu2bc1s1is2zr5e7IgP09gP6X7jfLMJmDM92erdtn4546StGVfG8oVlggXtH9n3b1H9Q9jbxSD3hoSbSd0iDSMMCNmGcSMSYsMYmO9Td338lnMipY2PMa5HtEq0E0HLKn6BFgsckSA5VHBrO3kMLScDfXUqHn8zxNqUK-vOgq3QQGvyOuclPanKCEQOF20-8WRZIDf5MJc4gYY8L0EOMz70TMcRWNmeBeFh2xbZAIcO8_Rq-W_tqZUpiL8dFo7-G2RdalO5Olyf-y4P5SNW3LkxHgkV27rA7VnRaaEvoRuOkg0A28O2zuwQPJXlaYDSp8jxGzB7D_mM1mT7u-9CaU1R5cRr91YiVvs-W7OI_uH43e42quL9kxQj8HQiLV2q9Xq8CjCtuMjc-uZFN_3xNs6LlWW00tKbp1exjsSA5bT8gwi2MyOUP1HU6QSQ69MezFWwuXOqwoyPDTlPraOJWOdlfeWr8zAc2xkMaoJ1jT4p6ahzoLaHRwc7dRxs5tGk2Eqlho12_UwXs7SQ3r5mt324x16gK7iUHVLE2iPqPr1mktyuupammBeCZnzbwSyr2J9OMeJUJXClkqEWSoW2WoMm7IJTypjXCyyS64OilViw--jD8rRZTJsmuzTOC1oz_YQOS0otPDsQLv2tKFozAmnQOesOzZOFU-MX3I-QhnbFX4CUOSsM0IdLzmK_l"
-						}
-					}
-				},
-				{
-					"type": "tool-input-start",
-					"id": "call_y8YLeyIUFRvckDAstzkIg1mO",
-					"toolName": "propose_change"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_y8YLeyIUFRvckDAstzkIg1mO",
-					"delta": "{\"operation\":\"people.editNote\",\"input\":{\"noteId\":\"5b6d1f0e-0000-4000-8000-000000009900\",\"body\":\"Met us at the fall picnic and wants to join the Tuesday small group.\",\"reason\":\"You asked to change your note on Maria Santos.\"}}"
-				},
-				{
-					"type": "tool-input-end",
-					"id": "call_y8YLeyIUFRvckDAstzkIg1mO"
-				},
-				{
-					"type": "tool-call",
-					"toolCallId": "call_y8YLeyIUFRvckDAstzkIg1mO",
-					"toolName": "propose_change",
-					"input": "{\"operation\":\"people.editNote\",\"input\":{\"noteId\":\"5b6d1f0e-0000-4000-8000-000000009900\",\"body\":\"Met us at the fall picnic and wants to join the Tuesday small group.\",\"reason\":\"You asked to change your note on Maria Santos.\"}}",
-					"providerMetadata": {
-						"openai": {
-							"itemId": "fc_07e040bb5e91421b006af7e54b76b087d18a86e16291d2865f"
-						}
-					}
-				},
-				{
-					"type": "finish",
-					"finishReason": {
-						"unified": "tool-calls"
-					},
-					"usage": {
-						"inputTokens": {
-							"total": 23959,
-							"noCache": 3,
-							"cacheRead": 23724,
-							"cacheWrite": 232
-						},
-						"outputTokens": {
-							"total": 144,
-							"text": 81,
-							"reasoning": 63
-						},
-						"raw": {
-							"input_tokens": 23959,
-							"input_tokens_details": {
-								"cache_write_tokens": 232,
-								"cache_write_tokens_details": {
-									"ttl_12h_tokens": 0,
-									"ttl_30m_tokens": 232
-								},
-								"cached_tokens": 23724
-							},
-							"output_tokens": 144,
-							"output_tokens_details": {
-								"reasoning_tokens": 63
-							},
-							"total_tokens": 24103
-						}
-					},
-					"providerMetadata": {
-						"openai": {
-							"responseId": "resp_07e040bb5e91421b006af7e5490c2c87d18045a8a74fb4ad4b",
-							"serviceTier": "default",
-							"reasoningContext": "all_turns"
-						}
-					}
-				}
-			],
-			"usage": {
-				"input": 23959,
-				"output": 144
-			}
-		},
 		"aafb1f4899cf9b4f": {
 			"kind": "generate",
 			"content": [
@@ -46907,6 +46804,25 @@
 			"usage": {
 				"input": 23640,
 				"output": 92
+			}
+		},
+		"abf5231c1fca3e41": {
+			"kind": "generate",
+			"content": [
+				{
+					"type": "text",
+					"text": "{\"tone\":{\"grade\":\"strong\",\"reason\":\"Clear, brief, and matter-of-fact, with no unnecessary filler.\"},\"usefulness\":{\"grade\":\"strong\",\"reason\":\"It confirms the exact replacement and review details, and explains that the change takes effect only after approval in the app.\"}}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_089558cb1988bf6a006af7f598d2f487d190b24fe8c7cca99a",
+							"phase": "final_answer"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 356,
+				"output": 121
 			}
 		},
 		"ac0d03f0b930fdcb": {
@@ -48813,88 +48729,6 @@
 			"usage": {
 				"input": 23899,
 				"output": 26
-			}
-		},
-		"b467206b13d8d095": {
-			"kind": "stream",
-			"parts": [
-				{
-					"type": "stream-start",
-					"warnings": []
-				},
-				{
-					"type": "response-metadata",
-					"id": "resp_09818ac2b2d2069f006af7df8123e487d1a444ec3f410e4adf",
-					"timestamp": "2026-11-14T04:11:45.000Z",
-					"modelId": "gpt-6-luna"
-				},
-				{
-					"type": "text-start",
-					"id": "msg_09818ac2b2d2069f006af7df82238887d1ad0b60b5780d1186",
-					"providerMetadata": {
-						"openai": {
-							"itemId": "msg_09818ac2b2d2069f006af7df82238887d1ad0b60b5780d1186",
-							"phase": "final_answer"
-						}
-					}
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_09818ac2b2d2069f006af7df82238887d1ad0b60b5780d1186",
-					"delta": "I prepared a review to delete your note on Maria Santos, with the reason “I wrote it on the wrong person.” Nothing has been deleted yet; approve the review in the app if it’s correct."
-				},
-				{
-					"type": "text-end",
-					"id": "msg_09818ac2b2d2069f006af7df82238887d1ad0b60b5780d1186",
-					"providerMetadata": {
-						"openai": {
-							"itemId": "msg_09818ac2b2d2069f006af7df82238887d1ad0b60b5780d1186",
-							"phase": "final_answer"
-						}
-					}
-				},
-				{
-					"type": "finish",
-					"finishReason": {
-						"unified": "stop"
-					},
-					"usage": {
-						"inputTokens": {
-							"total": 24173,
-							"noCache": 3,
-							"cacheRead": 23914,
-							"cacheWrite": 256
-						},
-						"outputTokens": {
-							"total": 45,
-							"text": 45,
-							"reasoning": 0
-						},
-						"raw": {
-							"input_tokens": 24173,
-							"input_tokens_details": {
-								"cache_write_tokens": 256,
-								"cached_tokens": 23914
-							},
-							"output_tokens": 45,
-							"output_tokens_details": {
-								"reasoning_tokens": 0
-							},
-							"total_tokens": 24218
-						}
-					},
-					"providerMetadata": {
-						"openai": {
-							"responseId": "resp_09818ac2b2d2069f006af7df8123e487d1a444ec3f410e4adf",
-							"serviceTier": "default",
-							"reasoningContext": "all_turns"
-						}
-					}
-				}
-			],
-			"usage": {
-				"input": 24173,
-				"output": 45
 			}
 		},
 		"b473af4132e1b26e": {
@@ -52623,108 +52457,6 @@
 				"output": 420
 			}
 		},
-		"c27008de9bbacb9e": {
-			"kind": "stream",
-			"parts": [
-				{
-					"type": "stream-start",
-					"warnings": []
-				},
-				{
-					"type": "response-metadata",
-					"id": "resp_076abc00b827097f006af7e3806b8087d1a9e4085092ddac39",
-					"timestamp": "2026-11-14T04:28:48.000Z",
-					"modelId": "gpt-6-luna"
-				},
-				{
-					"type": "reasoning-start",
-					"id": "rs_076abc00b827097f006af7e381c57887d1b261af8f8608e9b0:0",
-					"providerMetadata": {
-						"openai": {
-							"itemId": "rs_076abc00b827097f006af7e381c57887d1b261af8f8608e9b0",
-							"reasoningEncryptedContent": "gAAAAABq9-OBWjKEuIhBq3J0fQboXEPmQXdqVB2vS-LoijPHTS7UYZJgjunGG7ZvfqLy-FLfOFr_Bm_9jCtGVf_E0yxszymOZkDoVDAGUl5GG2E3wEqwAeBMtJZNqrDgHYKFflcFbHVpNFvjePx2YvQPBn5SfhEJRVyO7l3XCmf8WPAjQQkYIbshUTvk2mrOwKjJtxq8sfV5uxj1mSFQQn4oBqB4iBiZGdlQ3GHAiuQtbe0jUN0euxlxoD3y-KBf5pWBuMmPh1AWkP_QFzBR86inqHM_zsF5E_7bY6mYrVkolAFJEYML1aWU3Ma-qwHcKOFADi8vWYbAq77W4S1TPWAAtlO6Msa0-1k8bnu4FCKzixKG4OY0mmdIS7waojgqht6tQDtC8_6ImJNN1zR3tn-zKVmb_eXTGZ5f7xo25G1l0rPG8DKYjgC69jhWSiK3HomSV77DEZ1nMGXv2xnLHDQKyAKqYZzi2hKW4NFSJAKskrXsvpkFGmTMvPFrNE2Mjadg84b-6g3_qJbaqBHV2jKhUhhdgmI8oq-d_B3sNt9kW7mr2FG43zMySO36d3M41fQZt_CtHBf_w-zuq3ZyOG8Gom_awUevt2um7OqMKke_2BWc0PWOoZ5-4nDSWuijU-rih42JFBtw83disQ5kinkCdI-gydR2WMnNAfzd7-FO3dDNBLxIZOJnO3KMX41_v6Jj-TDNO9AToIR1wNIgkys5Lzq8x8uZ0VEJykm7eovIUpbI-wbVKsK1L8tZCsP9wZwZEUHAXulwnlK66XS4YezyE3cEh4h644BYQ0Ikx_bMtlxYkWUJLbQv60rZa1HA7xoGeu6H4zzm4rgDqY42XMWVl5Og2tkj5AJwPrVV2eAsXn2XXZmEz1RiycLOeYVkEMxhzxCeh5lUt9FQKqBYQjXSbnhGwpGQvx30OSrLYKB9pRk0MpNgnASuBX03__IAwOvTvDmYr9IQeZxfxPuSRTR-1YA45LqqslHVl4gwmZg-rREJ6uls7JSUuWGXiHZt0r0iY9rkIPOlY_RmdcIpHEJEGVd2XSy1hNzrllUzE6zonizRvO_gyVyOfGewG4l1aDDnNSISwjaj8TvuL74XziWxeKKxFASkTs54dX-TsQSDJI6TFHcOxT9GNTrGD8I5FXPVo-fNhx9-coxvgze3teZ9BJYzj1ANz91QUF0NqUrwpOCgpz_kRxilwN0eShX8kbAhZNqAr9ZLTnTFDPW003noMqxkhgQUEOn4gTMrd6Ae982GSekkn2mQdEXh7_dhEdZ62hdqBv8BhdlTAfsU_BdU1-H9nI7_r0RE8inWxRTA2eJ1pISpX-AOO405q8neTcSMVNUbqsVxve6iNAx__Fx1zID78EokS0CDLo7WZipKheRnsQu6Gvc="
-						}
-					}
-				},
-				{
-					"type": "reasoning-end",
-					"id": "rs_076abc00b827097f006af7e381c57887d1b261af8f8608e9b0:0",
-					"providerMetadata": {
-						"openai": {
-							"itemId": "rs_076abc00b827097f006af7e381c57887d1b261af8f8608e9b0",
-							"reasoningEncryptedContent": "gAAAAABq9-OC644DsSilDayMP3fBTwFFC0pnshUQ3xZiQUm3rZNQEnEr9h7AWS5LT8i2LIm3NTmFLHoQWIBXBWu6HfTuQP402aHynS47YW7BoqizN2ngzKRynBrIZuDH_UtuZwHCNLp7ntdqHqKS-952YXCN-3LJzKbCZzB1mxrP6ZJyIgDP4DQu6WryzdXRnvpRfT2mlCTFitnPmJ_p5ZK3JO7cspSIwC_MExVyU9GjZ1yAkwwWQYI35PPm4IK1zTi3EzbtwqAx0ckHMlL6zYXqCd6qg-H_mwlrzMJRZINiL-CERXMyjjQete-qJVMqqciJjwjA_pH_9h6EznaMIT7zEiCJce7FQEEYWLNC1EL23yUAIjHqfr8dnd4p24SyiIg2ZOIQE-krjAlSs0ZO2tlBVVnK1-j5qSWIMmkYLUw8C6NvOOf-dL6Yl_jnsFxsRWHWN0OgxKDrBxlVwF3aMLBMhsAkTmtlWlMPESldtiwSLxh3SelFUA0glSdwT1iN8Q9pD9XCvzRI0MmGTtpoO5s6xl0D9fo8Z11-uE-KT-xj_SIJIbQo-wAKQ0bVc6S0-qVbWJRgPrB_2tiBWX3CdGPjb520kGRl_tgxECx0ExaSk-tiPZY-5dKiHeGuXJFQujdgiF0QDREfPDO4_330pSDo0f1GSE2sY1yJZ_Scq71Cga8gjST84MGlIa8vf8luVvYj7UsI1fXSTBievbBysIG1Zn4wgtbdghFKsYkJVf2ZeKxhbafP3Fqbp9U6IRDnvi_sVQ0hbGTt8VmAiFD8Q6jUksuLTKhHdT4muKxFE9rHsc3kS9-i1d8NH1SFmHW-8dGmqXmO8Osn3Qv14RHN49rImdRxqmV5jdHS_V_vewDOF6WcRhSlHBtKyQIZXhggWFQVj5lMbXsKPfYFqhtm4NMs-1aLhXMMYyOmKFaISg4_5iCFb3g-VYiq0zOxl0hD0l6j8O3Md-7Y5aI2aZJJwLJGESRKLSbbg6Q3-9YbIi8pZpsq-YIbYeJn2BX4N-Shf4rTP6GAbmnkFQNVD8GMF30WEIRytfDBTDpNZQhTeOKLIi64yeAESVTEjcr-1ahH6G7wg0bq-8BpJMzsIb4_Myz6SmMxKHmOzjaOs1K5s0Ml7L97yY6EC1M8UaLTL5wMELkrC4Eb9gRl1VkuAWAiSVBZSXnQGPkdJQzAl_b2qtnKPct3ayqUYTULaHBgOmGVYOJcAsttulgQekriKSQcFmAHgZmW06uBWVawGvsG0tmzcqBzxsa92wRK3i9-kqhUab3_jXf-d5bvj3KVNrGVlgM71UP6R9jHgi23S1KUIwtPg7WNAIomgL_EX40AjkciiIOOziGLUrNsb7IzOqkTT2zOJ9N5lMZdTQsXo40hCPI8hKRfIaCrlw2QHycfBD1jUi2x7rDKiiqdFWt1e56b43i0EjG8AJL9V5OyXKM2BZShBvIKTHHF0Gu1DGW-_31ylOcaNneKWajnmqVPQ1j7L_oflwDJhIyeP-E-UqUL8dc9Df58PKnCN4Pen1Ntk_5u6Fb1Qqqu32b0qQNAeznsgFIAMQUB-1kWrXQ--6qavpDPPHfwkZY8pOI8nqmMFxxAk6E7fJxdnAk8qB-YLXVzTC7S3ebJFWEYdcZhBjOmPYmzTtyr6CESX5Ms8mDEXOVqjSuBKtx_6vco07_JQuih3yjbsGAnPPCFeD87_-YFzAU8u0JHuppx1UpOm2aJxoLKBd3fxUZWAhCEWEFNhPN1UdgPD83sfiop08iv3g2TiJI-oUjJB0O2S4DHvq_wQC7TOw8XJ3fKq0ZSseTUD98-J6xnX066RSrThmqC8uEYAZayphSsk_KxtfdArNfl4s7sKPGDE7kBw9sSa5fHjiE7uHMJpU4tX_9OFFsI9VbsU-QsPMpgn_azl6tgB7rAVd5Z9dPNzYYhiJhKbRDSLcZ_JV8RTMYVly22PjoQIL4w6cF7yyaUXKlvF7u-q4AadTCZ_RHDo3JXHj_4hn4Al_PHyDdpL1CKJUfl684yw6W2erO2r9VPXrlrcaMMGQuT8unQE5EYVPCzR4lkSu5DwpCWQ2PkTxa00HJ1pg1_cVwy6vJXJr8Dl81pp__D3hJ6a46aaiHOjDDQaCTi1l1Hf8dBVW7FUWRe1RAJ9hkbq6dQq9xlZPM2kisAGyYQLBokbkEwj6h6PCecbuWBM3_iJZSAnXe26YzD3IhPZl6Z9aq3ryTDM9a9txCqAKRY-7B4zqXDtGz0FXVKG3HQPCjY4VYSDSS1N61EgCsWU3ajssgb0x90ZJdLlXW_IYiXXFm8gO2AfpeNrFznd55aOANeRBA1AwtZtChGFfm8luj6GluGD-LNpok4MksZBrIq5L1NXEjPgVfOgF87PR8t7kr0kgqiqbJJX5gMq6CCWefi_VCcThFhSPYNFi03BSVM7Remy8qVQmZB8_wla-QplVo8ujY3evA-DVbTmEY8zs7DtfZq_RGUCupuHaNNQ9aEXjvLSX_OP5nNgppzPFHUWkynoSAAXLxIQRNOQYOA8thAuPGm3O_PHnySqj_O5_3cPm23ylkhn0pA6eAEDOkXX-m3aRNBj-tL3Nn0YC1Z_qM9dLyAoZWE42omqtiUpv9mde2x-zC54yQj-iHT1ZVMfB6S-NW-t0o5r_eSjG4vsaM-QWDrggjR3TFw8vNgkPHPthCAeJDB_MAxh5EIA6itk9MnX3mNoRtKsqKiQ9rOkEtSURQzaLaj3i8Ht4c2Gl5rgDqDEQ0mGonE5s6s4PorWcoG3i7auRCAQD0ifIST3xByo8ReEEXWzJ0D-Lv5OSaXz8PuavtJILRRIPERdnrtQdJ6_4xEyaIJkVaQrjm-ww8PU6s9dwxSS1nVEHwu8D_22g6_Uz4XbARMOX_QQUhm7JcwiGMLMhmnvO8SJUtUMP-HGaK_m5ZyqFM8JiiS658sqoL1X-jNXES8tvgHfsS3WY5zWEm-xkSuoYM6CbWMLNikYFjQ5hbVkRNxcALr4ubDLFcpgVH7OUiYGvgh-m2kTXzjnsCeJpIGBnQ5APFjKEpqAfo1bu7ZG86KCIeCViv6DajqEvmiCnUzdo0-AKccpxEdIxszCXgbgEf8bKpZ7Etz0qoeUHq_3sfCRWHHqx4="
-						}
-					}
-				},
-				{
-					"type": "text-start",
-					"id": "msg_076abc00b827097f006af7e382da5c87d1a223c0cb1474d25a",
-					"providerMetadata": {
-						"openai": {
-							"itemId": "msg_076abc00b827097f006af7e382da5c87d1a223c0cb1474d25a",
-							"phase": "final_answer"
-						}
-					}
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_076abc00b827097f006af7e382da5c87d1a223c0cb1474d25a",
-					"delta": "I couldn’t prepare the change for approval: the app refused it, saying the scheduled send time has already passed. The email body hasn’t changed. The listing shows it scheduled for Friday, Nov 13 at 9:00 a.m. Central, so that refusal appears inconsistent with the scheduled time."
-				},
-				{
-					"type": "text-end",
-					"id": "msg_076abc00b827097f006af7e382da5c87d1a223c0cb1474d25a",
-					"providerMetadata": {
-						"openai": {
-							"itemId": "msg_076abc00b827097f006af7e382da5c87d1a223c0cb1474d25a",
-							"phase": "final_answer"
-						}
-					}
-				},
-				{
-					"type": "finish",
-					"finishReason": {
-						"unified": "stop"
-					},
-					"usage": {
-						"inputTokens": {
-							"total": 24040,
-							"noCache": 3,
-							"cacheRead": 23714,
-							"cacheWrite": 323
-						},
-						"outputTokens": {
-							"total": 177,
-							"text": 67,
-							"reasoning": 110
-						},
-						"raw": {
-							"input_tokens": 24040,
-							"input_tokens_details": {
-								"cache_write_tokens": 323,
-								"cached_tokens": 23714
-							},
-							"output_tokens": 177,
-							"output_tokens_details": {
-								"reasoning_tokens": 110
-							},
-							"total_tokens": 24217
-						}
-					},
-					"providerMetadata": {
-						"openai": {
-							"responseId": "resp_076abc00b827097f006af7e3806b8087d1a9e4085092ddac39",
-							"serviceTier": "default",
-							"reasoningContext": "all_turns"
-						}
-					}
-				}
-			],
-			"usage": {
-				"input": 24040,
-				"output": 177
-			}
-		},
 		"c2843f232d1496b1": {
 			"kind": "stream",
 			"parts": [
@@ -53544,25 +53276,6 @@
 				"output": 12
 			}
 		},
-		"c453eb12d6e4bca2": {
-			"kind": "generate",
-			"content": [
-				{
-					"type": "text",
-					"text": "{\"tone\":{\"grade\":\"strong\",\"reason\":\"Clear, brief, and straightforward without sounding overly formal or falsely claiming the change is complete.\"},\"usefulness\":{\"grade\":\"strong\",\"reason\":\"It explains that the note is awaiting approval and gives the user a clear next step in the app.\"}}",
-					"providerMetadata": {
-						"openai": {
-							"itemId": "msg_04a399b45aa9f6cb006af7e5510cc087d1a70ea2c218dde54c",
-							"phase": "final_answer"
-						}
-					}
-				}
-			],
-			"usage": {
-				"input": 290,
-				"output": 231
-			}
-		},
 		"c488b3208c85f159": {
 			"kind": "generate",
 			"content": [
@@ -53580,25 +53293,6 @@
 			"usage": {
 				"input": 119,
 				"output": 12
-			}
-		},
-		"c49360746ded8ac3": {
-			"kind": "generate",
-			"content": [
-				{
-					"type": "text",
-					"text": "{\"tone\":{\"grade\":\"strong\",\"reason\":\"The response is brief, clear, and matter-of-fact.\"},\"usefulness\":{\"grade\":\"strong\",\"reason\":\"It explains that the note has not been deleted yet and tells the user how to approve the review in the app.\"}}",
-					"providerMetadata": {
-						"openai": {
-							"itemId": "msg_089905554e81858a006af7df840f8487d181e842eb02ff2eab",
-							"phase": "final_answer"
-						}
-					}
-				}
-			],
-			"usage": {
-				"input": 296,
-				"output": 124
 			}
 		},
 		"c4ba253db1f338bd": {
@@ -61823,6 +61517,218 @@
 				"output": 12
 			}
 		},
+		"e589dcc3897ab9e7": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": []
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_09818ac2b2d2069f006af7f595071887d1845182012a77bdf2",
+					"timestamp": "2026-11-14T05:45:57.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "reasoning-start",
+					"id": "rs_09818ac2b2d2069f006af7f5964e2487d19e22ca2774317cfd:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_09818ac2b2d2069f006af7f5964e2487d19e22ca2774317cfd",
+							"reasoningEncryptedContent": "gAAAAABq9_WWmebbJfGk6A_wLBOiHLLKLiwUlT3JKYYEW5W5u_YFg8KLIFwCS6GgRQ62XVMAfRY2hloQd58Fd293NLKDfs6qHD2IKBGvjH5PX1ibybYirfrBLLWg2kXARZkVy5vEqjBgSeoHQCOoZLxy4_bkw4SmiD6wLRQ00_Qf8z8L0XqJm5OyvuZhkeNtGajVIftgtPTAN1Q-ls3kSwpu0yrbncugaH-C1RyCtL0T5G2MsQjva6FMPiRk-2HakXfDKN2pE4uPt4Iz2iqL6y6SypjtWvYXdBu1TbSf51LhmDrac_IeGpaYUc7rWmBALADcxPtguYFQu0t8L6LGGA2_gHzi9sQEDiAneaR1HufcCtENDTUsHLgoLiviTYUnSIBwciA6gAmLhuI51sjL-P1INiWLcLQ23Klg0Z2h38rkY7wtdJrh78yjmeKlXfSoOqu4t6VCaoPuNwex7-lKzZAHiZ6eXC98nJjFxeCVTAOUXiwBbLMbdITPVqmVy9eOwAHsi8_FrHLHDvP14ab_sDLhnF6M9_7MjqSk5kStMEspCEQFWWuhTsnVcaPh5vTnwbH0vp28jcFA8xWTLDyv2L9ol17B_RA5q9CinWm2_SU6Fls4NeJdCLLMa79ANzWbIAq38guKhEL84Cm9WZqyJPTkYLeroQ8xXoAodNjVDdLa6fSxVvBzTH1wLLMHEBUy1nH0yYyRQEdQiJo_2w1Ghpeny3Uhncvf0Q-bu_n-CnEf1R2VD-GjoWz7n-_OMxp9SylmRO36sQwcBdpMmoEvapCLnq4RnJcJjQFER0nnR0oN6f0o4rSQvWlhOWWjN8LsUZyMGl2Tohn1B7djrYmfGpPAAGDggVSZexN2vUMJV_SI6Z-wvTjpJ2ynwpg45LSjpSMFmS4alsj2Y9Xm-dnYiwvrzL2lN_TAXwHO7egC-cV4wHI3LYAPsIfMcxKIeBnV21OvD789SyPU-K3pP1zSR-u1XEkK0uYpPQuJZycCwaODmPZZk8aNJ7XveGbFRaiGy2ivdmJ_RY9nRwzZdTXcXnTsPfzcc8sL-D073zK3Og4gzqN0DG6Xv-4S5n7ZX1zH7Bh91cX_sPcKRFNnyCqX1aBthKueU9YjugSm9lNkpfCP-6o60WHlvGrxmjEOTabfaY1CPKmB0vffwQumoVGhOspKRlQ2fiACay96dA28sZx7JCVzwzDHdmqtP5UBrn7X6TtRtxE5JYq7EI_ZOJAEin_w4ja2RRH1Hzf-Ww-LIbnWkQlosn9jp0ndbjQZL1dLCn7exbWJgGlLoGPNbpaBSGTe4v9UjR42PfstB8gLiiylkRqX-z4QfcebccBvweklExF_080P42tBauK4K8lrQbSiEBaMOyUkKYsUaO8bmxZoS6UxYXzQluU="
+						}
+					}
+				},
+				{
+					"type": "reasoning-end",
+					"id": "rs_09818ac2b2d2069f006af7f5964e2487d19e22ca2774317cfd:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_09818ac2b2d2069f006af7f5964e2487d19e22ca2774317cfd",
+							"reasoningEncryptedContent": "gAAAAABq9_WWitRFXjq_AyX-li11vj6EZWwf9yZW3c9iYY1najsDlfwuLdB5vnNdrAo_3xr2AIFhY7JOPeQSK855WpCxvZJYpfhw-9sRSb3JPaxSlg4U9lNjtv0v5GN1cfczh-OUXjFleVdz_XdBNN2fNlyQzTfY3c4KxMdQ58fJT4HmKMmRQ6sG5-fth35AaPr3t-okvspW_Do9wVyfZk_zE9eWwXSwbsS9_VLOPR7EktCb-FcL3eRg-Fb0vgz8trLAGINTTHUj1O09E9XeMDYsLJtyyXP01jtRar7AQPYvVGwB4ds9Tfd4-pOo6d7CXCV5a4FpG6mWcbShO_9Gazy6F_CAlevHyvVJVIAN9pTLXdcezENBSYoLMVxffIbe5JmU6Dce97qL5CtvFfWhiQHJr55-wOwiFUpigtmesEMCO5L92yDuhNir4ufH2nj4-EOWUHl_dUe2VPu7E4jrNEorJ-v2HgSzXpAp8HMlXONG1XwrM9ug2yBG8XxM4aiQUoJGEocyCDZpHu6S0UuMU8kAu6c-XNpPAU70sbS91emKDyVeqaV_mCVoWlaPVwgodKn4rocyYxT9xJm2bdFsK2-z-xsDzBkZenYnmjO0SdIwnTCIzVM18j0586afCpJ0BRM1Aa-MEhJTQAp8DtcTcRGqFnJaeeuaiVX7A750dGwzNEtMJ32Jtav2IRBrDu2y6Jdl3tkdOE_AquMNHnYV3aZF2Rn5LBv_n-3vN-cNAboA6VaxIR0k7-3udbhdfVOo3lIaD4uwYsLDA6BcOyMWHNmRwsSDjXhR6Y0mHS2_l-tH610pPhUFF4e1wrqdBJgcn63iHrOD00reC6cAv0PQ70QlIPk4SI9_du_CAk80LdUD4M1uY0_mxW5zKp9cXm_SLCIOcpniDkAsq0eEb0p75kdTs8TbMYzr0dW36BMcSC1EtogLr6JHMVHmTvfl-_jMuSfuQg02wyKpYbs6BkzuH0L3UUejIr5YfJKzfajnxLM0LdVmTZW2yqkGdaDHNn3xKk6M3q228ie8bcFI-oTVZEpcebZfc6CetOdB2NbXyS5Mkzk1MCOop4muSwEV-0x11OqSN6gLhKjjuv-__PK8e2SzuJ5VnJaGCVteM77EFidEtdTm7vHUj30eCmu0lRL3McBD_YrIFG-Hy0Tjm9PJUAaXFWDbLsp-nvWJBk71rNghl-6fbzk9D8EMHF77VS3Eu1vc-kYBVhFsnI0tw6Nc231nkQ6EK-SGM6sQENiEnmE6jzptDUGPM1XuorRXOIcitsegNQMLjmiIJNF-HrQdDrQC4w9IW-Ih4GRpFdY82w1PKQgZuxIeGNApMpqMK2Wif3zCxbDxRzWFbnbHwd_ILcYFxdUoIV8g55q6O0ng0ntcOKFchQg-HfWMXa_lkV5Ddg7sgT8bmpio89Mje_sNi9St6Z2j57VCKgrfGQsYfA0zl1bCeZNi3bMLTxCeVq2Xa99RM3R4_puRB3rsOq1VxIPEHQdDxxLSabbgNcI0NJSXIAzUcu5AZOMnaCG3hD6egbgRNmyKtLv9FRtnd-rfCtSEycS14gCycNKNtGSBtinS8rekRIdYiF6Qy7B9GbsFpSUxhMWm5bdDq-2VPmFLI2iXp4LijX4k_FAydQRs738sQq5zpuS6Qe20PR85M5H7icENhjB6sRq67FSmrvGQ3IIver3svuethh5We5cDG0Z_FLX0Lraw_ovcTKIWzbCE-66VzMpT3RRBx9Uf7ApHP0JNY1Lmgoyh5CdyhAepisHe3gjEIvkkypoBy5I6nodAOqiLiIx0Gl9dQU5ivXwZ8W8WjRXkVlW24PrhZJSjYbba3Tc-qPrVCHGN1J2VWlFdVGs_sQf4nHByGxGXREJ9LdIqVagBgieNeBlopN3bmsVjFSqULWJtqGDeSrejNBQdPM6LrjbUnvc1GebyN1PNxn3GyUm0x8WsEFnmGWqxrJocgcfFgFUuMv4="
+						}
+					}
+				},
+				{
+					"type": "tool-input-start",
+					"id": "call_BzS5HEDVVrc0wRMkP2hBHqie",
+					"toolName": "propose_change"
+				},
+				{
+					"type": "tool-input-delta",
+					"id": "call_BzS5HEDVVrc0wRMkP2hBHqie",
+					"delta": "{\"operation\":\"people.deleteNote\",\"input\":{\"noteId\":\"5b6d1f0e-0000-4000-8000-000000009900\",\"reason\":\"Written on the wrong person.\"}}"
+				},
+				{
+					"type": "tool-input-end",
+					"id": "call_BzS5HEDVVrc0wRMkP2hBHqie"
+				},
+				{
+					"type": "tool-call",
+					"toolCallId": "call_BzS5HEDVVrc0wRMkP2hBHqie",
+					"toolName": "propose_change",
+					"input": "{\"operation\":\"people.deleteNote\",\"input\":{\"noteId\":\"5b6d1f0e-0000-4000-8000-000000009900\",\"reason\":\"Written on the wrong person.\"}}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "fc_09818ac2b2d2069f006af7f596c0d487d1a8fc45ebebedd5b2"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "tool-calls"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 23917,
+							"noCache": 3,
+							"cacheRead": 23493,
+							"cacheWrite": 421
+						},
+						"outputTokens": {
+							"total": 87,
+							"text": 60,
+							"reasoning": 27
+						},
+						"raw": {
+							"input_tokens": 23917,
+							"input_tokens_details": {
+								"cache_write_tokens": 421,
+								"cache_write_tokens_details": {
+									"ttl_12h_tokens": 0,
+									"ttl_30m_tokens": 421
+								},
+								"cached_tokens": 23493
+							},
+							"output_tokens": 87,
+							"output_tokens_details": {
+								"reasoning_tokens": 27
+							},
+							"total_tokens": 24004
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_09818ac2b2d2069f006af7f595071887d1845182012a77bdf2",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 23917,
+				"output": 87
+			}
+		},
+		"e5dce06ccdcff8d3": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": []
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_07e040bb5e91421b006af7f595260087d1b10b1645119a41ca",
+					"timestamp": "2026-11-14T05:45:57.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "reasoning-start",
+					"id": "rs_07e040bb5e91421b006af7f596502c87d1a1cca611e64ff0a9:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_07e040bb5e91421b006af7f596502c87d1a1cca611e64ff0a9",
+							"reasoningEncryptedContent": "gAAAAABq9_WW4GElvd0rNnKx1LQCun1QR42Z1Ao52tTq_9yNw1jlaHRXu5qLWsrIaf_Ae3sJcZI-awtshK5AXpvj63dw9ai-19gLNYAAQXjB9asBcvkfARAZRLM2wEQbywyuFgMDnqzWDI0vZDeylXquvHzdgI-m1eiArAMs3XYCKfbk1y4h3-hipoeOcXXqwLsXNCKmfE2HKK23Ce5w48XDkXBmohFHOoP3k3ctlQr-8F_Szu5skMr3i6N6zfA9IcAQLf7oJkW4i1CEFOwd44NRYiU4GBUBPVSsoSZkfiaweCXS6sxgy1cqY1lV7f4WOiBLf0c-v1a57PbiQwFUUtgOBuI54y-mCNGrTjeZ3u8mhqNrGpLWxy_qHFMTDlOwIafsZrqKJrwojpKPXczh-e6M1Z6H1VcHrTlfqd9FLvF2kf06T4taHCZ58zm0xeFPjoeh67iw-Z3e0z63l_-yndipfZOJJtz6mWlilTBqQtceVS-FMbNfZvzUDaxcBzbV48VdmJHSB6vLxm3Zkg_751r-Bn0ooVnd_mSZY7TMcqIWivfky_ocX0Oo12QWSgRLTCEridLMDQucP17b9RMykDd34JkKd-qOeMivSaary4JLf1Uw3rfHsxezojHTH8MYAbCFwJtM1L7ojwM4WhQUbAbg8oaAM-tszyuvJRfwZOZUN7ZTkjPHbCxl0MI9DaPwtTN6rVqG403mqecbEo05n2hcwupdBsZSpNU_Co5hkHJhhEOm8P5FweEuvSuD-B57XBjAGu-RJ2jjTrECkbcdneJ8HolLQVzrkOVMDpikY17_J1rT8N2Mdeg1C63tqMnRQI6D6B_nupEC-_8zcdqSh_3lCDpT-EobXqnwOYsO-YZk0qIDbW5sKK-FTQHKgnFgLYsGjUkX6HXDMhOhI7sRXVfcp6DiBcxRTRm0NqrpST6NDy1wrK8vqoOR9tzO6qZogvPDnQWzhC_SaFVeOheXNUCzxVDJcfkDM4WsbH1rh6gyKDDPU0nPpwPl6a627GPZbi9dJXML5dbtGMh5yh9M3evb0KAloYPHbBJjXx60nAzBNW99lBq3Ad6gwxPVANqLePU-IJWlrFPQ9lmqLaCdLAxIcH9rqTLIOMz60G2P-FQC2s4B3Z15CjheouhaO2ucGNKIsV_zADWRt370bi3JfURAGzbE-sTtoZum1C39UBB92QB-6buPBwr7QQt8givualpbKKXzc8-Wn4h3vJJ2CXqvRwF6c8fpI1wa3FNkc4UA3cU-c_vSl0GmJaOHHg7PNZ3898QODr1aGM2lq_cLD0bsziX3sLY_itURuNpmDbTWEmOYXlDu2byWouTpeulVrEoyCKd5077n2pv-soeCQ7fOJuJqRVKMwEjz5zTjRHTxwkP37AyidWM="
+						}
+					}
+				},
+				{
+					"type": "reasoning-end",
+					"id": "rs_07e040bb5e91421b006af7f596502c87d1a1cca611e64ff0a9:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_07e040bb5e91421b006af7f596502c87d1a1cca611e64ff0a9",
+							"reasoningEncryptedContent": "gAAAAABq9_WXifPke-iOxM7Cvt_wn_VX8qTSBaemWW1EFngSyNwdTyUAxqG5eXID9SLSN4s3XFLUfgPhD67OsyoHwAI9Rsz53GdR3Ow_CEHbwSUq-8-2aseMOGEPH0Y-lFU9TlqJb2aGIP-LwqfcszczwCOxer-VQSZkEChRyk0Mv-9Hpnb5CamOzeP-yxV4DumT22fu6PGsvMRgETpb04fIDJ-b1deYGGKkVF8TavbCdlB5xdj0Rga85StpCFFG-MHtwwaUWacSQSOK7GNZdG8ZP9f_XuCxRaSCLERLMUyh8nbcIDpGWQQLvvJtwejI-3yFjzzH-YjVJpn-CS_7uGG9s5OnBpXT7AijUBGtjJ5PHUq1OSXBxmym846fHddHnlhP4mcVMJPNaQ2AAo_1kmljHEohMXqwSieosq_CaOuEto8CueLUcmBCIYJJqPM1-jCJxbDekp_7tTCld02BB6ELhIwvqjLghnvtMoL1C9YN4jBShwJsgJkHSmMNM07jgCy21TN9vxdoBeA1hc0goCZFbvPRy1TJ3eYarQd1daURcNs8Fr5s4CvlJkTBfoTEYQGhTtgoCTlzG3aYhXWAVCKLs7qTfw0om_Xr9oZhzDW3YeSqD1JGni0SoZsnzWDnjOCmyNlFEva-59ULfN-b89vc40-CdNea6zxNIdB-QEzNWWPANenwItO8HmWLHLiTgIcZq1MOhNvnK2aBKh7dUVAl126_tc7CNCPn4YYWlHkpH8SXXE2KQ9LVRkEiYlz-BLcefjZfO6R5eXJiv_kBSrjhdhoALEVAOmlz2hZm-EDoYdJDcWfVDUtDB3broZcm3D1dWEJSEE8wOSvZMYi9Vlja5AB4HLupD79vdIm8QPW_XhsASJ9YZ7pln9arc_kHJplBKCSHQ3zderVrwPH0QLdSiSeJblkIcxWGp49qZODWgQdfiGwc8jzS-Pbor1SL0H2pSulgwYm_ur8mCFp9xjM3KO50tXuQuZor_V9PJl_2DxlvxnkIs77-hnrQJIVRCfxF7UCZ-8q0jbxmYH3vx5yxHnKnM803iwp8HI-W-eKGpquEowfGCSwV6naatTChG-ifHdakU1-fTgNXPluXbYBjuTrkC8060ebbwXnUCXWITEDfSsBSIER0hupv5R4sY7ZN1L4CTxcmSUyQKmnXX1QC4h-5_NR09ldTLx88oimox-nW6JSn0RQl8TagqBHs3MNPDMfgP8TN-T1pzjyh6kY7UCB_MA7Puo7oYimeuF1fZSl0uQ4giv6JAau498qydDygCReeJSyYNEjgAmUs9ORU0BsdeyGzexXtQaBIFx_0lVE-pBfgwN529E_CfzogfbssHaQ1xyZJk_uYPx8ALrNrRKIOw_enkjqyxAfP0TmvqMGCgvh6FFuEb-9C1pK6XQN7oOQJUi7pyLkHJ9MHrHDCbs8Og7fwq-NwCbHsJAG-Clv0-SDlS71kB7BKkkgb3xBl1CP6DV0Ve_GLcZgYJenN_Qs1RaDin4S59IOTkFhCTt81isGfSq-ZJfZpUJLvf4E-RYPkxWLQ9Hlj345ft33ISq8c3oRLjfQYxqZxPkGu-wNcUnahcnuZajR7m7eMpBmO1THIKVXxGmoXVe00UPRX_Km-F_KlzaLi8FWTMpCPTnEG41-syjMFJ3-CCuoGlO97Fi7zv5v29taCokUfD1ums_5EXRdU8EOCpajLZlE90e3QS0U3fDWAhUPfGp3mHlh6kgDi1THjsh-Wgaq6A4kKViypg31IxV52WAIxWoOGRLRSTL3VmmySiaqmJyajBk--ty7eK-UBDyIArCN-9Qa1R6beWe52i_KvUBgOEL1O0KA7zNZOhoZuGJIAzp8AU6_S3l0DRXRd0wx_bRsooFD1226n5JFcJeJtXSb_lDL9UaQ1tbhN7cUKHmHUYotkuoyrUoq9UWDbDrldRqwUHKi8r-ZyxBiCzRXAyW-YxYey6rcCONpK7epAU1J-1JdjTRFsOyHd5RjgQzv_h5mjrCeEs0u1DpsXY2NJEpMGUgkTQHnbN-4nLgyedO_TRSw39vr456TrqShqEmOQNtfBdv8n-iLRlv4Qbl0yAkYXparrvc4-8Aa-32vD1yz3icESMzPCOy9PACOLCz6d2VTXJPuWi2gjszX_g1InZ55zITsyAs6ti3usEU4-t4_1ACeQJZDku3a7ZG2eI6VY5NVb8x75yxcePGhWEXvC0p1s2pmK6o3oc41D6436NOiVUa_2hJa57Ogk7enoLdF5xLAUroY6DvQnhhMznyKZTtPzviUnpjwYKKsloCl47ob8uc244SBl3ECOCG9bMEYHguGDuNmQwtuXvGMbPaBrPhpwTtYhVYHknRsgHZeqwPUANw9V891Sn6Y60II6m4Iwd2ydrVvrR6ZvBkqqjA=="
+						}
+					}
+				},
+				{
+					"type": "tool-input-start",
+					"id": "call_sRX2fZJ0V6hSj0flN8V8vJgf",
+					"toolName": "propose_change"
+				},
+				{
+					"type": "tool-input-delta",
+					"id": "call_sRX2fZJ0V6hSj0flN8V8vJgf",
+					"delta": "{\"operation\":\"people.editNote\",\"input\":{\"noteId\":\"5b6d1f0e-0000-4000-8000-000000009900\",\"body\":\"Met us at the fall picnic and wants to join the Tuesday small group.\",\"reason\":\"User requested changing their note to this wording.\"}}"
+				},
+				{
+					"type": "tool-input-end",
+					"id": "call_sRX2fZJ0V6hSj0flN8V8vJgf"
+				},
+				{
+					"type": "tool-call",
+					"toolCallId": "call_sRX2fZJ0V6hSj0flN8V8vJgf",
+					"toolName": "propose_change",
+					"input": "{\"operation\":\"people.editNote\",\"input\":{\"noteId\":\"5b6d1f0e-0000-4000-8000-000000009900\",\"body\":\"Met us at the fall picnic and wants to join the Tuesday small group.\",\"reason\":\"User requested changing their note to this wording.\"}}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "fc_07e040bb5e91421b006af7f5970a1087d18a94b69de86eadbc"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "tool-calls"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 23959,
+							"noCache": 3,
+							"cacheRead": 23493,
+							"cacheWrite": 463
+						},
+						"outputTokens": {
+							"total": 140,
+							"text": 80,
+							"reasoning": 60
+						},
+						"raw": {
+							"input_tokens": 23959,
+							"input_tokens_details": {
+								"cache_write_tokens": 463,
+								"cache_write_tokens_details": {
+									"ttl_12h_tokens": 0,
+									"ttl_30m_tokens": 463
+								},
+								"cached_tokens": 23493
+							},
+							"output_tokens": 140,
+							"output_tokens_details": {
+								"reasoning_tokens": 60
+							},
+							"total_tokens": 24099
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_07e040bb5e91421b006af7f595260087d1b10b1645119a41ca",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 23959,
+				"output": 140
+			}
+		},
 		"e5f1a30bab6f074e": {
 			"kind": "stream",
 			"parts": [
@@ -63058,6 +62964,112 @@
 				"output": 129
 			}
 		},
+		"ebf283a0e3170d5b": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": []
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_0182568dabf7f81d006af7f5951ae487d198bb847e306ef847",
+					"timestamp": "2026-11-14T05:45:57.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "reasoning-start",
+					"id": "rs_0182568dabf7f81d006af7f59634b887d18c49d8058599ba32:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_0182568dabf7f81d006af7f59634b887d18c49d8058599ba32",
+							"reasoningEncryptedContent": "gAAAAABq9_WWiH7pgyiTI9Q9EjdzrD-Rj-57vB-6MaCoqfMPTTUsP8sonlfbqub6rE6Vx-67hm-1pVj5Gm3_2Q2Mw6iZIeVU_vLQKnekMtAva9fSOdyXXgC8TVmp6WjNWk_xirBhBVSD0le2SlFHWnS5B3qabQwsLaO6LslcM6qfVMRvb_Tr1pm8kdH43U_Oh6mrZJHGEkEg-3pBji6hjl1-FXMWcpml25yraCcvDc2-9Si5bwr2NorMS7op2dEzVRFmA79e2QeCtlKgc5PfB_lyGwWXqPY_xsNYEZT5xX2DHBkfUcEWgxoHkdcyWVjYhCwONyUJdlwNcugp_Z0fNhVrbhR4EloqRE5b7blzJfow5tqDuOMSkidplgvcCl8PsznKQieupu80xU2cJUcSCURvdfqgXBdMOLaW3RoTsZCXD3Lgxl4cEhfz2PA_mtIBgpiYH8E3-9RedUr75T5lr8JZDrDYiJ_PXiZIBvGHghLAnM-XAaQMsFtEe38WcnM97HO2h4CYsMcss10yTHIqNNZyuPCar7042QvWCSCdXGM7AWi_8aVu7humbRFn8e_2lodBoKgmTL8Z3wsVm9LkvzZzlC3zppaQv8Zx8WUOB0qPeeZ7RG9heMelSkJ0zfiQQ4fBXZ84ziNW3tV9_e3JBUzZHlycX_AwiVEy9Dhwr07Qk4vPms5tIRLqH56d8KH9DsJvMwDuQFWDa8GwTPwcjiXaL9xyjdSpofouM8q-MKoO5_Xhs4Knk0SYffUEpwUY39UopwUmXD_f0NfuI8VMN8JMq6jEuKjsSUZ8fe3JsHP4-XHvdpgUp3THlfxmMFpZIQa3_mpbuvYqZVKgeD9ZKRTmZRggoWkBKTbjaz9y2_2MU-46GzGOAAfKoeB2uyGWGc8ri3r1_FyY5R3u8w75LUku4QQxoCaYQU4-6EEbEbM9JyTo0OlNMG2yhsrDh5QrdFuQbueoj0rEVQNlUZW_kiPWW0duTEeyDAh0a7M0aT8DDay90ae652wwjKk-1wYvvwWD6zdDQwT2ZjdaNtbJwMctumzjbSQTgPlqgFUScQkc4IcDrqhM6KQbwIapHE5cvvsmPtKCt_jUHLXgX-T-jXW4O2eMY0aLA7-8MJM0KdaS8eCLJlebBML2ejc70BaTuYB5tiR4iLviuj5NqX5NJhprCQvB_hy0ylzH31lQVpMBvBhpWjXo4UxxOQDH8qML1FmNutRfqDhO0IznpOt3WS4MsjbMtLZS41q5_9cu5mW94-OS6bSVi37s_ARSY_LQQC0RJTA7J-kurpLfO1SWxzIVhg0aMRNAIffFhrIeJgquMPPaZadqkhhJeiwgCk1VK2wQdDg8MsHuhukSWUvK83A8egHEDjq_MWDhjZ17fWPn6F21Mi7K6ow="
+						}
+					}
+				},
+				{
+					"type": "reasoning-end",
+					"id": "rs_0182568dabf7f81d006af7f59634b887d18c49d8058599ba32:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_0182568dabf7f81d006af7f59634b887d18c49d8058599ba32",
+							"reasoningEncryptedContent": "gAAAAABq9_WWsfWPbS4bFDejDpnMmEM3PP2Hbg-BQRy-B7ndptfMLwvrAAHILNQGaipcWQsEENvsi77syyZCI5DW4pkkhKbt8QnfdCSsAH5UdjECmMJRETKAB6wgR7hyeK3HfoEU8teZMsakI7LqcDUYmGYKNpraz_BXD7I7YPSHWoTHqfGQfBGnLFAheU6o-1fZFd5h0tOx4ms2OZPCOhXfdDHrbOm6j-m8pLXhe8bT0rW-4mpFZwdLHzYXLTM4p78o8jpwv_T_NECHepSlT9YaoV-lnizbCp8-TaRNlTYEjCfk269FZ8ntAyWY8-U0jCq7yaI0wnFoJcRMjdPObTWNw_qwb5MizCf19Gszvqfd_WKUYEUeMnggeDy0FDUBhoFiDY8SvPFCRdYGe6-FDkL6HZSsHQRqIJZRL0yhEO9clSrGcVm8mSBRmeWMiTYH3_8G4Op3J1lHx3H7NjmKlBjOstEopFK7ucMjTr1pTsZ8O2jVlp2S-iXl5wk7QjvsjRwCTO_qOVNDrtxuU4E0QcqL0eju8FcaKmT_XzveYCv-E2lDNRLs9LMOfjjMuvSEnQu2EhpwNHqyXagPZvK7MBTcxjvZq6KXOiNNwtg6mnqkhkRfMBbxoByKmSE2RV9xzdmD-l4KiQSsXAQV5pr5eKcusLNTSkkK2DKP3-OFgHdI5swS6Au9DgSCGkwTM1iAyzQx_XStBNSCE2wXciVBiTo9vKdOgYf2pmAxkBIzfjIWJiBrTEqMITw1O2snOecPSTj7SMBZVt74U2-HwEzaYy-S9L3eA4ErBpxSU4Cm7IBQBKpIr3ubicvIuUrCNXQnhGqEE0Ry06zb-CkU4j4DmS5t6goLROH4KFBRx963eFSygXN7sCzT1VdCZAMFDTqaqDa2jT1rtVmNQZTECaOzhBrZitQLNmpcDjTLVsDuqEaurxLYAc-pGl_FIDY4y369RuBKtgrcBMqIuxxjlE9fGu7ETW3r8IcM1d04vL81ky5G0F4cjQeuQuTbQPiGniQFs1xeJTsE22wlVeRFZxe3Y3A4SGYHqeQhFSC3ypBYh9WCf2TjS9vA0SaCaa5UeJ5TUj0snvktbPEC9cDYFeDg0_8IGQYZjAsnbdlGoa0LflvlFxJssLG0EP2FvcCyO9d17SxhiHtlUXillRSdII2A50k9B-03j-dmhjq_ik6CYR3A9bLZy9Awary9EVH2lSioAhCTiKZOz-4JllfE-Epnbr0jQivinvqapOny_HQ_P5hO9Puaffg_qZOPvXXuRQg0ivxvF2QQetKGkaeOE5MyR0jk0CmOYUWxo_BUtDi4HRe5rFvy41r2K9KPbaT1AdgZVayiNp1L4DCo5VNNvdrz690b8U6PUrjjVTVZrENCMomjc5nq28iqbYgJmFrTxdyCEza5d9flrgD5yeRTZ5Ivks-2mH8YZX0cd-FaBtii-oDUawRR-s71TB50u37hvXhvEvoPgXX7YFzr_JmBWX7pnadx5gQBTRfrkg6JVZGV_e-Y1coEKmE0UOVS44Bo8j-Vv283LTUVGYXGxSek-a7q2uXYtdPZ4JQLGs7c2ONJ0UmtqpDtrEr82ppiFW3dtbCEr4DcY40jH2n0-NBMCfNrqKY6_qAjkCrYAjzQv8T9zMml-B4ALpF3wHg9cnBzCkBmWzEh3ckjemIAeuOWKHucpGvrmiXGDmDRAsTGjBbXV55mBeJu4XfMPq5wF4PeIrt892yuqavZr7yRPl4zqhymS_CzLCrR7GddnAuV7RBNX-9OJ6a4N-mB1ENpdet6f9lQh0nz1edJfk5ZXBqbh4_ndTbhRKmr0yItH8ZLskotR0M49UrS8qT3QpGyf-ua6jwRDHybQv75JoJhadnGJgz5ueV2UuqveCyt1GrhmLPlheYsaTYXseEp1GpEpyfAgiXHY_Uwtk3QjA-ehedkr2GQySHCGdmOYyb5nNdcMYCN2sdloZ0TNlMUvIpXaRXRIDzGuUwabW-zZ7whlf9w88M6rR1Itb1UabE42daRHUKAqLNE33ZTNaPvPIDAhXzTbXav7ivfWGvP-xuIukOgsRhDicnTOYh-7zXFTZMvoLPc7p_s76o1s0e_QljtVNk9AN5EBQ2gEGsC1KNLRumHOwiCzWFxFQif8EWLsdAQtzG1D9hHDmesQcE2x5s1DtFdZ9gBVoWssAsAJE5sEvejT2jY2c6KiJ8_gkdHK4Ge1flsgsmFVQoCI7rlRMz3Ej4Yzt3VWeZkfSVjNE0lF3HZfkYhTRcCX26JOjY0lwqkXCoYl4yEgh5mS6yjwDFh--Ojb4d8RokqR-TvMYZxhIPI6ddA4QvdcZlvEqc1mhZxj6DSZr6N8CK9GRy0Gf_Y2eyHr1qj5CRgqQvJCHouHMdNN2cOzdE0qs4Ol05x4g=="
+						}
+					}
+				},
+				{
+					"type": "text-start",
+					"id": "msg_0182568dabf7f81d006af7f596d78887d193029c03cc93c7e1",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0182568dabf7f81d006af7f596d78887d193029c03cc93c7e1",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "text-delta",
+					"id": "msg_0182568dabf7f81d006af7f596d78887d193029c03cc93c7e1",
+					"delta": "The review is ready to schedule **“Sunday’s interest meeting”** for **Friday, November 13, 2026 at 9:00 a.m. church time (America/Chicago)**. It will go to Jen Thompson and Mark Thompson; no one is listed as left out.\n\nIt hasn’t been scheduled yet. Please approve the review in the app."
+				},
+				{
+					"type": "text-end",
+					"id": "msg_0182568dabf7f81d006af7f596d78887d193029c03cc93c7e1",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0182568dabf7f81d006af7f596d78887d193029c03cc93c7e1",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "stop"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 24216,
+							"noCache": 3,
+							"cacheRead": 23493,
+							"cacheWrite": 720
+						},
+						"outputTokens": {
+							"total": 137,
+							"text": 80,
+							"reasoning": 57
+						},
+						"raw": {
+							"input_tokens": 24216,
+							"input_tokens_details": {
+								"cache_write_tokens": 720,
+								"cache_write_tokens_details": {
+									"ttl_12h_tokens": 0,
+									"ttl_30m_tokens": 720
+								},
+								"cached_tokens": 23493
+							},
+							"output_tokens": 137,
+							"output_tokens_details": {
+								"reasoning_tokens": 57
+							},
+							"total_tokens": 24353
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_0182568dabf7f81d006af7f5951ae487d198bb847e306ef847",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 24216,
+				"output": 137
+			}
+		},
 		"ec307229028c7307": {
 			"kind": "stream",
 			"parts": [
@@ -63262,108 +63274,6 @@
 			"usage": {
 				"input": 24185,
 				"output": 104
-			}
-		},
-		"ed3e793a684ff4b9": {
-			"kind": "stream",
-			"parts": [
-				{
-					"type": "stream-start",
-					"warnings": []
-				},
-				{
-					"type": "response-metadata",
-					"id": "resp_09818ac2b2d2069f006af7df7bd7f487d19ea0b760208809af",
-					"timestamp": "2026-11-14T04:11:40.000Z",
-					"modelId": "gpt-6-luna"
-				},
-				{
-					"type": "reasoning-start",
-					"id": "rs_09818ac2b2d2069f006af7df7d2dd487d1b15b0ef1873fe2fa:0",
-					"providerMetadata": {
-						"openai": {
-							"itemId": "rs_09818ac2b2d2069f006af7df7d2dd487d1b15b0ef1873fe2fa",
-							"reasoningEncryptedContent": "gAAAAABq9999CpwKg_UVZSa2ex0A4VzP56dZHcYQ_M5qeokrHW6bGAqW-z0FohmZPzKF419dl-7LqaF7_ITvOy9EAm9JlDoSPfqbX1EbzXQGJhhyEku_oXK-rIorS0utQefatRSwx2jiuYIWe92gpdEXY6RNBZtWp3GfxUieD3hGgISnxDWAWtf-TVI4JZUrW_8ZCrqXdFtUx5rcuHLASWtJTXau3NtzznVd_LM9-j2gw-IoL3zA_4_Q7GV9RZQbW20M6lIYF4V1L82yGpmfDlKzUk6UkOXbZNc_eY6GGIgrz7UBLT2qMcbxkJe6wXWGO98cHn4U9dbibML3Cs9sYe-Hxg5S--B6W5bWtzW_zej4U7PpdZCFzL3_FIsfHAuB_Tb2iw4lZNA9mpbzF5ukuzjZT9Vpu892FAZ595zgRUH8hU5fkV92OS3ajv_JvdphjaZI81ROhZDOo71Mdl-C0c0JZ8r7UiHl4WsWZfqN9JzQbn0lqI7Dqx1pBXExdKKgprScpHTQQxRTlskDp31_U9nyaldyYlIUTL4X4gtjHtuChBXY-nX70KRpHbn0Nx6M2o1T9sRy2JfnLkea7PuIOjhgtaUdmARpqoEuVqyDT8Cgn3Tj4BDqZNV4Rzu2Db2TGt3q3FIHagAVKyG-4B1njpnj-96ABIn4fupNj4RWqVJohIbPdOeGl-yT36GElBp7E7gGwF1nZW-izS6LVjydlOS4Fe8GYh47x3660ziox3wHCllUPzIzHd5vqizsc3I-RApudt6J9WTpMGmJElApZ9_YCAEeyC_RAeQcTW0_zrCOmLhITHw3clt9VXnl0HSjB_-e50OSAfkIRusiuwYL5vl40fNKt9oDfoFYb38rlUZ_9OpUzb5y-YWoigTjhHFpcbl04ncGZpVuaw8_U3R2dqadPf7na6Mn8cDO9Q6zKLkDSK12a4q7nK07Y_RKM8Cqum7Rq7PQfsJtRLimdW-aMki9jN_GtTXUP1vHF_ltckbQgtspvg6YYw-9FT_pnWQ5cMW13RAV98CleMeh6JgMfAqkSSDLqWsVfxS-oeQAinWdicGcQ9aXOivfFCe2uy9GJuyMtzIOq3HF8DoStXAlAb0ZtYMgXRBkS2AhLr0s-prTft13wlR58Va6DpkaJcAvOamTjYULqGzCpPqZwkItJDZegnP-Gx13Ag_EgZ92AxM_BTAkqSJ5vlmXvNKc_v4peOqVDSiMwkslSIjg3uiL-tf6hmpVTHbGrBV_-53kD8IG9xw0nFAw-QTe5B-F6DAykSI0oqWhR8VmJYWZug4iytX37V3wiV4ldVOHe7mYTsBDOEl4LDDHExJOkN3GU5Q2FZ51gc3BJbsN3tkwaeDJmjk1tqu38-RZR3i6UZ4tOHOrv08ED1GuMi0="
-						}
-					}
-				},
-				{
-					"type": "reasoning-end",
-					"id": "rs_09818ac2b2d2069f006af7df7d2dd487d1b15b0ef1873fe2fa:0",
-					"providerMetadata": {
-						"openai": {
-							"itemId": "rs_09818ac2b2d2069f006af7df7d2dd487d1b15b0ef1873fe2fa",
-							"reasoningEncryptedContent": "gAAAAABq9999xLe4XL3LAUEcQBJxYcEzhgt3M9SvLjZuHRwarQAWUmQ45QYGdHTP-NOzKAwdFnqlf2kiIKiDZGDzInDilgQCfLRvsoF0zqzZ7B-fWmyGPeddUUIhtEFkqvL6a8m-A7OvvE_ICeN-IjlIDXDXMPKgL2x5G1hI8wCIBz6TWZ7CYCYzMRdFvjMsvDAeL5-HpMj3jJ21UQvnQ2nkrIOvFHrRnmp41GgOsXFkqp5YHkN7yVC1U46qHj9DwuMDxXRkEmZux6sy8-C-VvS4-KNQ3mQhTsqnZZdIn2elKXbKIVVp9Dnxa1fyaNwa63INyo04y-ZSe4kANhMb0E3C5Ryar99QsEMQmlWbxKCGl3BUGy4qnAJ-Ln9cSmAnNGgmgC35PwZFS0VwpxfO1JPs512PeA53N2ZZOytmJ_CQ2Pvjme0SHC3Pddph8BncpsFSIklThh0vMYpaiGkaweczbtFms6Cb38pZRuywC2A6A9bg93rD-l3IRVm9Zi-UewRGhvakpR-r8A6Wu43raJDphthDXsmeL2AXKvd9-l21FZEXq5c8MeCLj6K6N8_k7X3swidkcLV6GhWL7wK3_WyTQ2VaTKwI90HOO7XPBz6zALH0bbVILNFTf2fpkN3plFrhEBq7uAz7YD7OjFe2oHG8dQwB44I3ko7jOc19vwNeXD03C5pfMhNIRvUpd0QSxon3HZINgZDJDn0ZW27fiKNqiOtdFmpIlkUso1mYRueaKf0juf_Kq0L4o1zBHZn7NsRK1KRKuGNDrVIY2xiAbH3ADJdLBfatkvmcDDgOK1Q_w36kiDWUje8c6K03bQxovn9dPoJuUVfbbXvC_D-Vi6feQogmecjPsa5ruuY1BtiCnZ5e1d3GhlbZb-lOCnrSfwE56SfCzEIDrg7f66ef9o3bVAU2DHeAJ48Vgo3GwDkgXzG7RirBc9WBVwAh8ggaJlj39FKt1CXlah0dAruqX1fJxpWNDPlJN6Y9HV0TiQbdHgWAF2JivYKsaTaJ0Mp75M-v1gqoKZyqdV7JdFIrWCGArehncrNyPKuJ6wrGilv3FZoePtO_-dZ44F57g4VFGs1mig3Mz7qtprHDjjPI0T4uime8Mj419WwfLblOIiPPVazl_EmjDPQLKoJwJrAwp6Pz0F5xPQ8UPHcms12RYCHgihyrMlx0gfYCdlPXvmVUVDcZYjvatQAbWv_orOCTgavt14AlzeiHE_yIGC3UC101OtwD-yEPORVAm2OMtsqMvcI0pmJ-mq9DimbvDsTxcewGIRtptoNH7dIhqkZhyJ99WiTNcVfkc4t2y7k4x-S93P8SRZ6dCJ0REwZEZeOmHV37vfgCYZAj90FWgAVf2TMp7E7KQ67jd1A5F-r24tRit_ICGvZbQ7cYl1rWwAaQzyxZX0KyAuVqZ_oaBsYS_u0AD_tXB4dp8iMBdAnXBYMV7WEdJNTwE9qs96cz3qDio9nt6XtMo_ZuRUiKOsLfdf55S9K-_uyK6_wuogwz31uhOHFa4GEqJLKxRsOJq2x9ZRDDI42ed2dlyuvYGANav1tJDwLPDnNvj0_Gf1iY0fDCJGkYiuZz73KqngXMfEmAzhkfACNUwXxq5Wfyt7fmlUhUTVQdY4HMJ8KxyA-TS5qUWoPMSEbhpHvykO-z2EJpz6Ocm_gkwJ4XcKnigOmJYMpxGqW2yyLX8kBquGpaTiFRZFJ08s1eEDOvmtb52p4CndrPT2LyITCjsv6jov1JNJkvtCBuGhzgYb6vkERIEIiiXaF87HYT58UcD7RRUH8aCBasWI782UmLupxpsTua3bcPne1uJIzbXyHOwEwUFq-JGSUmtbM2qvgo9FiOcQV8hwxMN8guXurFj9hl8w3pTG1ATP24IfXmlLrCZW9YceYdvlUKxQPllmu9F5pqCqCwicKOaZtiXqmZjLRTSnNLWUhdwGlucsz0hesfh8E5aYkqf8wwudBAvm9eS8uYDUyRaSUBxRz4p6d_45-d3ln5ch7xRmPkq6LG0OEupXGgidpT5LmJAQX94aL_E66OIpmQrbmt9zEQd7irAtFRFyHg_8ME9kOBGVxN9KE2ZHXhuuUTWVu5w3sACPrlKk0yyFNNsOCeEQeaUKhjGV7Hbn-vdj6Mrt49IZU0AkNF0s55j9KgGDnUr0cRKwRb7BdlGBKQZBXfcV5n4rkmFqLcK6v2zIxfNK5Oxt7OnCRGmk5ab7lm88Q-iX3459nLUeJQy0WO66h7DGOhhYN98Ix4PxoS8QZQTacMQTkoeA=="
-						}
-					}
-				},
-				{
-					"type": "tool-input-start",
-					"id": "call_OUQ2Dt8fFOjdSpzHPqkHh56e",
-					"toolName": "propose_change"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_OUQ2Dt8fFOjdSpzHPqkHh56e",
-					"delta": "{\"operation\":\"people.deleteNote\",\"input\":{\"noteId\":\"5b6d1f0e-0000-4000-8000-000000009900\",\"reason\":\"I wrote it on the wrong person.\"}}"
-				},
-				{
-					"type": "tool-input-end",
-					"id": "call_OUQ2Dt8fFOjdSpzHPqkHh56e"
-				},
-				{
-					"type": "tool-call",
-					"toolCallId": "call_OUQ2Dt8fFOjdSpzHPqkHh56e",
-					"toolName": "propose_change",
-					"input": "{\"operation\":\"people.deleteNote\",\"input\":{\"noteId\":\"5b6d1f0e-0000-4000-8000-000000009900\",\"reason\":\"I wrote it on the wrong person.\"}}",
-					"providerMetadata": {
-						"openai": {
-							"itemId": "fc_09818ac2b2d2069f006af7df7df57487d193df32c7d193a2b0"
-						}
-					}
-				},
-				{
-					"type": "finish",
-					"finishReason": {
-						"unified": "tool-calls"
-					},
-					"usage": {
-						"inputTokens": {
-							"total": 23917,
-							"noCache": 3,
-							"cacheRead": 23673,
-							"cacheWrite": 241
-						},
-						"outputTokens": {
-							"total": 111,
-							"text": 62,
-							"reasoning": 49
-						},
-						"raw": {
-							"input_tokens": 23917,
-							"input_tokens_details": {
-								"cache_write_tokens": 241,
-								"cached_tokens": 23673
-							},
-							"output_tokens": 111,
-							"output_tokens_details": {
-								"reasoning_tokens": 49
-							},
-							"total_tokens": 24028
-						}
-					},
-					"providerMetadata": {
-						"openai": {
-							"responseId": "resp_09818ac2b2d2069f006af7df7bd7f487d19ea0b760208809af",
-							"serviceTier": "default",
-							"reasoningContext": "all_turns"
-						}
-					}
-				}
-			],
-			"usage": {
-				"input": 23917,
-				"output": 111
 			}
 		},
 		"ed5a49fac6fb37e2": {
@@ -67163,6 +67073,92 @@
 			"usage": {
 				"input": 24084,
 				"output": 133
+			}
+		},
+		"f9ad47ece335001c": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": []
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_07e040bb5e91421b006af7f598227087d1a7f7710293affe20",
+					"timestamp": "2026-11-14T05:46:00.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "text-start",
+					"id": "msg_07e040bb5e91421b006af7f5996b0c87d1ac4e3872523d0137",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_07e040bb5e91421b006af7f5996b0c87d1ac4e3872523d0137",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "text-delta",
+					"id": "msg_07e040bb5e91421b006af7f5996b0c87d1ac4e3872523d0137",
+					"delta": "The review card is ready for your approval: Maria Santos’s note will be changed to “Met us at the fall picnic and wants to join the Tuesday small group.” Nothing has changed yet."
+				},
+				{
+					"type": "text-end",
+					"id": "msg_07e040bb5e91421b006af7f5996b0c87d1ac4e3872523d0137",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_07e040bb5e91421b006af7f5996b0c87d1ac4e3872523d0137",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "stop"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 24259,
+							"noCache": 3,
+							"cacheRead": 23956,
+							"cacheWrite": 300
+						},
+						"outputTokens": {
+							"total": 42,
+							"text": 42,
+							"reasoning": 0
+						},
+						"raw": {
+							"input_tokens": 24259,
+							"input_tokens_details": {
+								"cache_write_tokens": 300,
+								"cache_write_tokens_details": {
+									"ttl_12h_tokens": 0,
+									"ttl_30m_tokens": 300
+								},
+								"cached_tokens": 23956
+							},
+							"output_tokens": 42,
+							"output_tokens_details": {
+								"reasoning_tokens": 0
+							},
+							"total_tokens": 24301
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_07e040bb5e91421b006af7f598227087d1a7f7710293affe20",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 24259,
+				"output": 42
 			}
 		},
 		"f9f5b9b762b9eacc": {
