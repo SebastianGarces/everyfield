@@ -903,16 +903,6 @@ export const reconcileAttendance = write({
 	revision: attendanceRevisionOf,
 });
 
-const FACTOR: Record<string, string> = {
-	attendanceScore: "Attendance",
-	locationScore: "Location",
-	logisticsScore: "Logistics",
-	agendaScore: "Agenda",
-	vibeScore: "Vibe",
-	messageScore: "Message",
-	closeScore: "Close",
-	nextStepsScore: "Next steps",
-};
 const score = z.int().min(1).max(5);
 const scoresInput = z.strictObject(
 	Object.fromEntries(c.evaluationFactors.map((f) => [f, score])) as Record<(typeof c.evaluationFactors)[number], typeof score>,
