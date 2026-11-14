@@ -71,8 +71,8 @@
   "as_of": "2026-10-17",
   "implementation_authorized": false,
   "table_count": 112,
-  "column_count": 1272,
-  "foreign_key_count": 375,
+  "column_count": 1276,
+  "foreign_key_count": 376,
   "type_contracts": {
     "text": "UTF8; per-boundary bounded, sanitized only when rendered in rich context.",
     "date": "YYYY-MM-DD local calendar date, never UTC midnight instant.",
@@ -377,6 +377,11 @@
       "scheduled",
       "postponed",
       "completed"
+    ],
+    "launch_milestone.area": [
+      "operations",
+      "launch_team",
+      "promotion"
     ],
     "lifecycle_witness.kind": [
       "account",
@@ -22231,7 +22236,7 @@
           "note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply.",
           "name": "source_version_id",
           "type": "uuid",
-          "nullable": false
+          "nullable": true
         },
         {
           "note": "",
@@ -22275,6 +22280,25 @@
           "type": "bigint",
           "nullable": false,
           "default": "1"
+        },
+        {
+          "note": "Seed identity: the fixed Playbook milestone key (launch.md), unique per plant, so repair never creates a milestone twice.",
+          "name": "template_key",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "The account that completed the milestone; set null if the account is deleted, keeping the completion time.",
+          "name": "completed_by",
+          "type": "uuid",
+          "nullable": true
+        },
+        {
+          "note": "Linked tasks complete at completion; reopening one shows the milestone as Needs review (LCH-004).",
+          "name": "completed_task_ids",
+          "type": "uuid[]",
+          "nullable": false,
+          "default": "'{}'::uuid[]"
         }
       ],
       "primary_key": [
@@ -22285,6 +22309,12 @@
           "columns": [
             "id",
             "plant_id"
+          ]
+        },
+        {
+          "columns": [
+            "plant_id",
+            "template_key"
           ]
         }
       ],
@@ -22338,10 +22368,28 @@
             ]
           },
           "on_delete": "restrict"
+        },
+        {
+          "deletion": {
+            "action": "set_null",
+            "policy": "Deleting the account clears who completed the milestone; the completion time and its audit history stay."
+          },
+          "columns": [
+            "completed_by"
+          ],
+          "references": {
+            "table": "account",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "set_null"
         }
       ],
       "checks": [
-        "(revision >= 1)"
+        "(revision >= 1)",
+        "area in ('operations', 'launch_team', 'promotion')",
+        "((completed_by IS NULL) OR (completed_at IS NOT NULL))"
       ],
       "indexes": {
         "launch_milestone_ref_0": {
@@ -22358,6 +22406,21 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "launch_milestone_ref_1": {
+          "name": "launch_milestone_ref_1",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "completed_by",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "constraint_names": {
@@ -22365,15 +22428,19 @@
           "launch_milestone_pkey"
         ],
         "unique": [
-          "launch_milestone_uq_0"
+          "launch_milestone_uq_0",
+          "launch_milestone_uq_1"
         ],
         "foreign": [
           "launch_milestone_fk_0",
           "launch_milestone_fk_1",
-          "launch_milestone_fk_2"
+          "launch_milestone_fk_2",
+          "launch_milestone_fk_3"
         ],
         "checks": [
-          "launch_milestone_ck_0"
+          "launch_milestone_ck_0",
+          "launch_milestone_ck_1",
+          "launch_milestone_ck_2"
         ]
       },
       "policies": {},
@@ -40011,6 +40078,12 @@
           "type": "uuid[]",
           "nullable": false,
           "default": "'{}'::uuid[]"
+        },
+        {
+          "note": "Launch readiness seed identity <milestone key>/<n>, unique per plant; a deleted task keeps it as the tombstone repair respects (LCH-009).",
+          "name": "launch_task_key",
+          "type": "text",
+          "nullable": true
         }
       ],
       "primary_key": [
@@ -40022,6 +40095,13 @@
             "id",
             "plant_id"
           ]
+        },
+        {
+          "columns": [
+            "plant_id",
+            "launch_task_key"
+          ],
+          "where": "(launch_task_key IS NOT NULL)"
         },
         {
           "columns": [
@@ -40444,6 +40524,28 @@
             },
             {
               "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "task_uq_5": {
+          "name": "task_uq_5",
+          "isUnique": true,
+          "where": "(launch_task_key IS NOT NULL)",
+          "columns": [
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "launch_task_key",
               "isExpression": false,
               "asc": true,
               "nulls": "last"

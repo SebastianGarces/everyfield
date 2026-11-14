@@ -140,10 +140,22 @@ before(async () => {
 });
 after(() => f?.close());
 
+/** Reference items the Launch plan's readiness tasks own instead (Sebastian, Nov 6, 2026; WP-045). */
+const OWNED_BY_LAUNCH = [
+	"promotion-campaign/invite-drop",
+	"promotion-campaign/press-release",
+	"pre-launch-services/book-preview-venue",
+];
+
 test("AC:TARGET-TSK-009 the catalog keeps the 20 reference checklists item by item under one version", () => {
-	const reference = referenceCatalog();
-	// Version 2 added the descriptions the reference lacks (decisions.md D87).
-	assert.equal(CATALOG.version, 2);
+	const reference = referenceCatalog().map((k) => ({
+		...k,
+		items: k.items.filter((i) => !OWNED_BY_LAUNCH.includes(`${k.key}/${i.key}`)),
+	}));
+	// Version 2 added the descriptions the reference lacks (decisions.md D87); version 3 dropped the three items
+	// launch readiness owns.
+	assert.equal(CATALOG.version, 3);
+	assert.equal(reference.flatMap((k) => k.items).length, 140);
 	// Every field but an item's description is the reference's own.
 	assert.deepEqual(
 		CATALOG.checklists.map((k) => ({ ...k, items: k.items.map(({ description: _, ...i }) => i) })),
@@ -171,11 +183,11 @@ test("AC:TARGET-TSK-009 the catalog keeps the 20 reference checklists item by it
 	assert.equal(described.length, 4);
 	for (const [list, item, text] of described)
 		assert.equal(CATALOG.checklists.find((k) => k.key === list).items.find((i) => i.key === item).description, text);
-	// Every one of the 143 items has its own short plain-text description, with the brand spelled Everyfield.
+	// Every one of the 140 items has its own short plain-text description, with the brand spelled Everyfield.
 	const items = CATALOG.checklists.flatMap((k) =>
 		k.items.map((i) => ({ at: `${k.key}/${i.key}`, text: i.description })),
 	);
-	assert.equal(items.length, 143);
+	assert.equal(items.length, 140);
 	for (const { at, text } of items) {
 		assert.equal(typeof text, "string", at);
 		assert.ok(text.trim().length > 0 && text.length <= 240, `${at}: ${text.length} characters`);

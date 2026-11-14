@@ -36,9 +36,11 @@ export function checkCiTests(root: string): void {
 		}
 		return { dir: dirname(file), name: "name" in pkg && typeof pkg.name === "string" ? pkg.name : "", scripts };
 	});
-	const covered = new Set<string>(),
+	// Each test file and the CI commands that run it: a package script, or a workflow step that runs node itself.
+	const runs = new Map<string, Set<string>>(),
 		visited = new Set<string>();
-	function follow(command: string, pkg: Package, matrix: Record<string, string[]> = {}): void {
+	const run = (file: string, label: string) => (runs.get(file) ?? runs.set(file, new Set()).get(file)!).add(label);
+	function follow(command: string, pkg: Package, label: string, matrix: Record<string, string[]> = {}): void {
 		for (const part of command.split(/\s*(?:&&|\|\||;|\n)\s*/)) {
 			const tokens = (part.match(/"[^"]*"|'[^']*'|[^\s]+/g) ?? []).map((t) => t.replace(/^(['"])(.*)\1$/, "$2"));
 			if (tokens[0] === "corepack") tokens.shift();
@@ -71,13 +73,13 @@ export function checkCiTests(root: string): void {
 					const key = `${target.dir}:${script}`;
 					if (!target.scripts[script] || visited.has(key)) continue;
 					visited.add(key);
-					follow(target.scripts[script], target);
+					follow(target.scripts[script], target, `${target.name || target.dir} ${script}`);
 				}
 			} else if (["node", "tsx"].includes(tokens[0] ?? "") && tokens.includes("--test")) {
 				for (const token of tokens.slice(tokens.indexOf("--test") + 1)) {
 					if (!/\.(?:test\.(?:mts|ts|mjs)|db\.mts)$/.test(token)) continue;
 					for (const file of globSync(token, { cwd: resolve(root, pkg.dir) })) {
-						covered.add(relative(root, resolve(root, pkg.dir, file)));
+						run(relative(root, resolve(root, pkg.dir, file)), label);
 						// The write budget harness executes exactly the same checked-in suite manifest.
 						if (relative(root, resolve(root, pkg.dir, file)) === "tests/integration/writes/statements.test.mts") {
 							const manifest: unknown = JSON.parse(
@@ -88,8 +90,7 @@ export function checkCiTests(root: string): void {
 								!manifest.every((p) => typeof p === "string" && !p.startsWith("/") && !p.includes(".."))
 							)
 								fail("Write census suite paths must stay inside the repository.");
-							for (const pattern of manifest)
-								for (const nested of globSync(pattern, { cwd: root })) covered.add(nested);
+							for (const pattern of manifest) for (const nested of globSync(pattern, { cwd: root })) run(nested, label);
 						}
 					}
 				}
@@ -100,6 +101,7 @@ export function checkCiTests(root: string): void {
 	if (!existsSync(workflow)) fail("CI test coverage requires .github/workflows/ci.yml.");
 	// Only CI's run steps count. Resolve each job's default directory and any step override.
 	for (const job of readFileSync(workflow, "utf8").split(/(?=^  [\w-]+:\s*$)/m)) {
+		const jobName = job.match(/^  ([\w-]+):/)?.[1] ?? "";
 		const defaultDir = job.match(/^    defaults:\n      run:\n        working-directory:\s*(.+)$/m)?.[1] ?? ".";
 		// Matrix values, from `key: value` lines (plain or `- key: value` include entries) under `matrix:`.
 		const matrix: Record<string, string[]> = {};
@@ -108,6 +110,8 @@ export function checkCiTests(root: string): void {
 		))
 			(matrix[key!] ??= []).push(value!);
 		for (const step of job.split(/(?=^      - )/m).slice(1)) {
+			// The census union rereads the parts' counts files and runs no suite, so it is not a second run of the census.
+			if (/^\s+EVF_CENSUS_UNION:/m.test(step)) continue;
 			const dir = step.match(/^        working-directory:\s*(.+)$/m)?.[1] ?? defaultDir;
 			const pkg = packages.find((p) => p.dir === dir) ?? { dir, name: "", scripts: {} };
 			const lines = step.split("\n");
@@ -120,7 +124,8 @@ export function checkCiTests(root: string): void {
 					while (i + 1 < lines.length && (!lines[i + 1]!.trim() || lines[i + 1]!.search(/\S/) > match[1]!.length))
 						command += lines[++i]!.trim() + "\n";
 				}
-				follow(command, pkg, matrix);
+				const name = step.match(/^      -? *name:\s*["']?(.*?)["']?\s*$/m)?.[1];
+				follow(command, pkg, `ci.yml ${jobName} step "${name ?? command.trim()}"`, matrix);
 			}
 		}
 	}
@@ -144,6 +149,11 @@ export function checkCiTests(root: string): void {
 		),
 		...globSync("tests/ui/**/*.test.{mjs,mts}", { cwd: root }).filter((file) => !browserSuite(file)),
 	].sort();
+	const twice = [...runs].filter(([, labels]) => labels.size > 1);
+	if (twice.length)
+		fail(
+			`Tests run by more than one CI command:\n${twice.map(([file, labels]) => `${file}: ${[...labels].join(" and ")}`).join("\n")}\nRun each file in exactly one command.`,
+		);
 	const exceptionFile = join(root, "tools/ci/ci-test-exceptions.json");
 	const exceptions = new Set<string>();
 	if (existsSync(exceptionFile)) {
@@ -163,12 +173,12 @@ export function checkCiTests(root: string): void {
 				!entry.command.trim()
 			)
 				fail(`CI exception ${file} needs a reason and local verification command.`);
-			if (!files.includes(file) || covered.has(file)) fail(`Remove stale CI exception: ${file}.`);
+			if (!files.includes(file) || runs.has(file)) fail(`Remove stale CI exception: ${file}.`);
 			exceptions.add(file);
 			console.log(`LOCAL ONLY ${file}: ${entry.reason} Run: ${entry.command}`);
 		}
 	}
-	const missing = files.filter((f) => !covered.has(f) && !exceptions.has(f));
+	const missing = files.filter((f) => !runs.has(f) && !exceptions.has(f));
 	if (missing.length)
 		fail(
 			`Tests missing from CI commands:\n${missing.join("\n")}\nAdd them to a CI test command or replace a fixed list with a glob.`,
