@@ -12,6 +12,7 @@ import { readBoard } from "./actions";
 import { GoalsArea } from "./GoalsArea";
 import { boardHref, formatDay, PIPELINE_PATH, plural } from "./model";
 import { PersonDialog, type Saved } from "./PersonDialog";
+import { PipelineTabs } from "./PipelineTabs";
 import { StageEditor } from "./StageEditor";
 
 type Stage = PipelineBoard["stages"][number];
@@ -91,6 +92,7 @@ export function PipelineScreen({ initial, goals }: { initial: PipelineBoard; goa
 					) : null
 				}
 			/>
+			<PipelineTabs current="people" />
 			{goals && !retiredView ? <GoalsArea initial={goals} /> : null}
 			{board.audience === "counts" ? (
 				<Counts board={board} />
