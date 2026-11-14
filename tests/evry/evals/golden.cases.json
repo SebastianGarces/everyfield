@@ -608,6 +608,10 @@
 			"derivation": "Board columns: 57 prospect (paged at 24), 11 attendee, 4 following_up, 2 interviewed, 5 core_group.",
 			"target": {
 				"require": ["/\\b5\\b[^\\n]{0,40}core|core[^\\n]{0,40}\\b5\\b/i"]
+			},
+			"finding": {
+				"checks": ["says /\\b5\\b[^\\n]{0,40}core|core[^\\n]{0,40}\\b5\\b/i"],
+				"note": "T-317 (D-1189, D-1230): re-recorded after the Evry meetings tools joined the teams and people tools; the owner chose to record the drift as findings."
 			}
 		}
 	},
