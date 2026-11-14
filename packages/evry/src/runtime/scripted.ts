@@ -7,6 +7,7 @@ import type {
 } from "@ai-sdk/provider";
 import { randomUUID } from "node:crypto";
 import { onboardingStep } from "./scripted-onboarding.ts";
+import { launchStep } from "./scripted-launch.ts";
 import { pipelineStep } from "./scripted-pipeline.ts";
 import { settingsStep } from "./scripted-settings.ts";
 
@@ -635,6 +636,8 @@ function respond(options: LanguageModelV4CallOptions): LanguageModelV4Content[] 
 	if (FORMATTING.test(text)) return [{ type: "text", text: FORMATTING_ANSWER }];
 	const pipeline = pipelineStep(options, text);
 	if (pipeline) return pipeline;
+	const launch = launchStep(options, text);
+	if (launch) return launch;
 	const onboarding = onboardingStep(options, text);
 	if (onboarding) return onboarding;
 	const settings = settingsStep(options, text);

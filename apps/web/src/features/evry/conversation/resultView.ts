@@ -181,6 +181,32 @@ const VIEWS: Record<string, OpView> = {
 		shownOnly: true,
 		empty: "This pipeline has no stages yet.",
 	},
+	// The Launch plan as Evry reads it (WP-075): Launch Sunday, the milestones with their open tasks, history, guests.
+	"launch.readCountdown": {
+		title: "Launch Sunday",
+		noun: ["date", "dates"],
+		icon: "item",
+		counts: "item",
+		shownOnly: true,
+		empty: "The Launch plan couldn't be loaded.",
+	},
+	"launch.readWorkspace": {
+		title: "Launch milestones",
+		noun: ["milestone", "milestones"],
+		icon: "milestone",
+		counts: "milestone",
+		empty: "No launch milestone matches.",
+	},
+	"launch.readJournal": {
+		title: "Launch history",
+		noun: ["change", "changes"],
+		icon: "activity",
+		counts: "activity",
+		empty: "No Launch changes in that time.",
+	},
+	"launch.readDebrief": people("Launch Sunday guests", {
+		empty: "No first-time guest names to show here.",
+	}),
 	"development.draftPlan": {
 		title: "Who can direct a program",
 		noun: ["staff member", "staff members"],
@@ -524,6 +550,18 @@ function rowView(operation: string, row: SourceRow): RowView {
 				avatar: "skill",
 			};
 		case "activity": {
+			// A Launch history entry: what changed, from and to, and who made it when. The reason is on the Launch plan.
+			if (operation === "launch.readJournal")
+				return {
+					...plain,
+					href: "/launch",
+					name: row.label,
+					line: joined(
+						fields.change === "date" ? `${text(fields.from) ?? "No date"} → ${text(fields.to) ?? "No date"}` : null,
+						joined(text(fields.by), text(fields.on)),
+					),
+					avatar: "activity",
+				};
 			// Note text never reaches the card: a note row says only that a note was added or removed, and when.
 			const kind = fields.kind;
 			const name =
@@ -827,6 +865,25 @@ function rowView(operation: string, row: SourceRow): RowView {
 				mark: { kind: "status", text: fields.status === "saved" ? "Saved" : "Open", warn: fields.status !== "saved" },
 				avatar: null,
 			};
+		case "milestone": {
+			// A Launch readiness milestone: its own linked tasks done, and how many are overdue.
+			const overdue = Number(fields.overdueTasks ?? 0);
+			return {
+				...plain,
+				href: "/launch",
+				name: row.label,
+				line: joined(
+					`${String(fields.done)} of ${count(Number(fields.total ?? 0), "task", "tasks")} done`,
+					overdue ? `${overdue} overdue` : null,
+				),
+				mark: fields.completed
+					? { kind: "status", text: "Complete", warn: false }
+					: fields.needsReview
+						? { kind: "status", text: "Needs review", warn: true }
+						: { kind: "status", text: "Open", warn: overdue > 0 },
+				avatar: null,
+			};
+		}
 		case "stage": {
 			// A pipeline stage: everyone in it, and how many of them this answer lists when a filter narrowed it.
 			const all = Number(fields.count ?? 0);
@@ -1041,6 +1098,19 @@ function itemLine(operation: string, f: Record<string, unknown>): string | null 
 			return typeof f.rsvp === "string" ? (RSVP_TEXT[f.rsvp] ?? f.rsvp) : null;
 		case "meetings.hasHistory":
 			return f.hasHistory ? "Meetings are on record" : "No meeting on record";
+		case "launch.readCountdown":
+			return joined(
+				text(f.status),
+				text(f.plannedDate),
+				typeof f.daysLeft === "number" ? count(f.daysLeft, "day left", "days left") : null,
+			);
+		case "launch.readWorkspace":
+			// An open prep task of the milestone above it: its due date, who has it, and whether it is overdue.
+			return joined(
+				text(f.milestone),
+				typeof f.dueDate === "string" ? `Due ${f.dueDate}` : "No due date",
+				text(f.assignees),
+			);
 		default: {
 			// A report line: its counts, in the words of its fields.
 			const parts = Object.entries(f)
@@ -1054,6 +1124,8 @@ function itemLine(operation: string, f: Record<string, unknown>): string | null 
 function itemMark(operation: string, f: Record<string, unknown>): RowMark {
 	if (operation === "meetings.listKit")
 		return { kind: "status", text: f.checked ? "Checked" : "Needed", warn: !f.checked };
+	if (operation === "launch.readWorkspace" && f.overdue === true)
+		return { kind: "status", text: "Overdue", warn: true };
 	if (operation === "meetings.attendanceTrend" && f.attended === "not recorded")
 		return { kind: "status", text: "Not recorded", warn: true };
 	return null;
@@ -1107,6 +1179,10 @@ export function cardView(operation: string, result: SourceResult, originalTotal:
 			typeof totals.measured === "string"
 				? `As of ${day(`${totals.asOf}T12:00:00Z`)}. ${totals.measured}`
 				: `As of ${day(`${totals.asOf}T12:00:00Z`)}.`,
+		);
+	if (operation === "launch.readDebrief" && totals.recorded === true)
+		facts.push(
+			`Launch Sunday ${String(totals.actualDate)}: attendance ${typeof totals.attendance === "number" ? totals.attendance.toLocaleString("en-US") : "not recorded"}.${typeof totals.guestsNotNamed === "number" && totals.guestsNotNamed > 0 ? ` The debrief says ${count(totals.guestsNotNamed, "guest isn't", "guests aren't")} entered by name.` : ""}`,
 		);
 	if (typeof totals.discoveryClosedOn === "string")
 		facts.push(`Your Discovery space closed on ${totals.discoveryClosedOn}, when it became this church.`);

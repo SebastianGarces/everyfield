@@ -318,6 +318,12 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 						"onboarding.declareJourney",
 						"identity.answerLeadOnboarding",
 						"onboarding.complete",
+						// The Launch plan's date, outcome, debrief and summary (WP-076).
+						"launch.schedule",
+						"launch.postpone",
+						"launch.recordOutcome",
+						"launch.submitDebrief",
+						"launch.publishDebriefSummary",
 					]
 				: who === "member"
 					? // A Member changes only their own bell, notification settings and account, and the Meetings changes the native
@@ -384,6 +390,11 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 						"seats.listInvitations",
 						"privacy.getSharing",
 						"onboarding.getResume",
+						// The Launch plan as it reads it (WP-075).
+						"launch.readCountdown",
+						"launch.readWorkspace",
+						"launch.readJournal",
+						"launch.readDebrief",
 					]
 				: who === "member"
 					? [
@@ -396,6 +407,10 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 							...MEMBER_MEETINGS_READS,
 							"seats.list",
 							"privacy.getSharing",
+							// A Member reads the Launch plan; its history is an Owner's or Admin's.
+							"launch.readCountdown",
+							"launch.readWorkspace",
+							"launch.readDebrief",
 						]
 					: who === "orgOwner"
 						? ["notifications.previewOversightDigest", "pipeline.listPeople", "development.draftPlan"]
@@ -566,6 +581,7 @@ test("AC:INH-EDGES-03 AC:TEN-008 AC:EVRY-CONTEXT-BOUNDS a guessed foreign id and
 		[...new Set(calls.flatMap((c) => c.tools?.map((t) => t.name) ?? []))].sort(),
 		[
 			"communication_read",
+			"launch_read",
 			"meetings_read",
 			"notifications_read",
 			"onboarding_read",

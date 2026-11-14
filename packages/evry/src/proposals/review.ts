@@ -14,6 +14,7 @@ import { ORGANIZATION_COMMANDS } from "../adapters/people-organization/commands/
 import { TEAMS_COMMANDS } from "../adapters/teams/commands/index.ts";
 import { ONBOARDING_COMMANDS } from "../adapters/onboarding/commands/index.ts";
 import { PIPELINE_COMMANDS } from "../adapters/pipeline/commands/index.ts";
+import { LAUNCH_COMMANDS } from "../adapters/launch/commands/index.ts";
 import { currentPerson, importOutcome, personOutcome, type ReviewedWrite } from "./types.ts";
 
 // The review read (evry.readReview): one projection and one access rule, used by readReview and by the conversation
@@ -35,6 +36,7 @@ export const REVIEWED_WRITES = {
 	...SETTINGS_COMMANDS,
 	...ONBOARDING_COMMANDS,
 	...PIPELINE_COMMANDS,
+	...LAUNCH_COMMANDS,
 } as const;
 export type Operation = keyof typeof REVIEWED_WRITES;
 export const operation = z.enum(Object.keys(REVIEWED_WRITES) as [Operation]);

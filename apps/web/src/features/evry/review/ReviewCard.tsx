@@ -79,6 +79,7 @@ import {
 	pollDelay,
 	refusalText,
 	isPhoto,
+	isLaunch,
 	isPipeline,
 	isSettings,
 	pipelineLink,
@@ -901,6 +902,13 @@ function Footer({
 					<Button size="sm" variant="ghost" asChild>
 						<IntentLink href={settingsLink(review.operation).href}>
 							{settingsLink(review.operation).label}
+							<Icon icon={ArrowRight02Icon} size={16} />
+						</IntentLink>
+					</Button>
+				) : isLaunch(review.operation) ? (
+					<Button size="sm" variant="ghost" asChild>
+						<IntentLink href="/launch">
+							Open Launch
 							<Icon icon={ArrowRight02Icon} size={16} />
 						</IntentLink>
 					</Button>

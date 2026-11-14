@@ -105,6 +105,36 @@ function pipelineRules() {
 	].join("\n");
 }
 
+/**
+ * What a church seat's Launch tools never do (WP-075, WP-076), with the reply for each. The scripted model quotes them,
+ * so the evals test the words the real model gets.
+ */
+export const LAUNCH_RULES = {
+	/** The date, the outcome, the debrief and the summary are an Owner's or Admin's, as on the Launch plan. */
+	ownerOnly:
+		"Only an Owner or Admin can change the Launch plan: move or postpone Launch Sunday, record its numbers, or submit the debrief or publish the summary. Nothing was prepared.",
+	/** Nothing in the app records a launch-team goal, and a network's sending goals are not the church's. */
+	noGoal:
+		"Your church hasn't recorded a launch-team goal in Everyfield, so I have no goal to compare it with. I don't use a sending church's or network's goals in its place.",
+	/** History is the only record of the past: it says what changed, not how readiness stood. */
+	historyOnly:
+		"Launch history records what changed, not how readiness stood at an earlier time, so I can't say more about last week than these changes.",
+	/** The plan could not be read: never say there is no launch. */
+	unloaded:
+		"I couldn't load the Launch plan just now, so I can't answer that. Try again in a moment, or open [Launch](/launch).",
+} as const;
+function launchRules() {
+	return [
+		"Launch counts and dates come only from the launch tools: say the countdown as launch.readCountdown gives it (daysLeft) and never count days from a date yourself. When a launch read says the plan couldn't be loaded, reply: " +
+			LAUNCH_RULES.unloaded,
+		"Never mark or call a launch milestone complete: only a person marks one complete, on the Launch plan. A milestone is blocked only by its own linked prep tasks, never by a task with similar wording.",
+		`When the user asks about a launch-team goal, give the launch_team count from People and reply: ${LAUNCH_RULES.noGoal} If you mention the Playbook's guidance, say it is the Playbook's guidance, not the church's goal.`,
+		"Launch Sunday guests are only the guests launch.readDebrief names; never use Vision Meeting or other meeting attendance in their place, and say so when the recorded attendance is higher than the guests named.",
+		`When the user asks how launch readiness changed, use launch.readJournal and add: ${LAUNCH_RULES.historyOnly}`,
+		"A launch date move or postponement needs the user's reason in their own words: ask for it when they gave none.",
+	].join("\n");
+}
+
 /** Who may make the changes a seat's tools leave out, so a refusal names the role instead of guessing. */
 function roleRule(actor: EvryActor) {
 	if (actor.role === null)
@@ -117,7 +147,7 @@ function roleRule(actor: EvryActor) {
 			: "invite people, change seats and invitations, change this organization's profile, move people between pipeline stages or create programs";
 	const setup =
 		actor.contextKind === "plant"
-			? ` ${SETUP_RULE} When the user asks to answer the lead question and no tool offers it, prepare nothing and reply: ${LEAD_RULE}`
+			? ` ${SETUP_RULE} When the user asks to answer the lead question and no tool offers it, prepare nothing and reply: ${LEAD_RULE}\nWhen the user asks to change the Launch plan and no tool offers it, prepare nothing and reply: ${LAUNCH_RULES.ownerOnly}\n${launchRules()}`
 			: `\n${pipelineRules()}`;
 	return `The user's role here is ${actor.role}. When the user asks for a change none of your tools offers, prepare nothing and say who can make it: Only an Owner or Admin can ${scope}.${setup}`;
 }

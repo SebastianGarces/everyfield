@@ -13,6 +13,7 @@ import { byName, goldenChurch, IMPORT_KEY, MEETINGS, programId, teamId } from ".
 import { nativePorts } from "../evals/settings-ports.mts";
 import { seedSetup, SETUP_SPECS } from "../evals/setup-church.mts";
 import { PIPELINE_SPECS, seedPipeline } from "../evals/pipeline-church.mts";
+import { seedGuests, seedLaunched, seedOutcome, seedScheduled } from "../evals/launch-church.mts";
 import { readViewer } from "../../../packages/domain/src/access/session.ts";
 import { evryActor } from "../../../packages/evry/src/context/actor.ts";
 
@@ -24,6 +25,11 @@ await seedSetup(church.admin, church.db, native);
 const setupActor = async (session: string) => evryActor((await readViewer(church.db, session as never))!.authority!);
 // Grace Austin's pipeline, for the pipeline and program reads (WP-101), read by its Owner.
 await seedPipeline(church.admin, church.db);
+// Hope Fellowship's Launch plan with its history, then a recorded Launch Sunday and named guests (WP-075).
+await seedScheduled(church.admin, church.db);
+await seedLaunched(church.db);
+await seedOutcome(church.db, 150);
+await seedGuests(church.db);
 const adapters = new Map<string, ReadAdapter<unknown>>(
 	Object.values(catalog.READ_DOMAINS)
 		.flat()
@@ -138,6 +144,10 @@ const PROBES: Record<string, Record<string, unknown> | (() => Promise<SourceResu
 			{},
 			native,
 		),
+	"launch.readCountdown": {},
+	"launch.readWorkspace": {},
+	"launch.readJournal": {},
+	"launch.readDebrief": {},
 	"pipeline.listPeople": async () =>
 		invokeRead(church.db, await setupActor(PIPELINE_SPECS.dana.session), adapters.get("pipeline.listPeople")!, {}),
 	"development.draftPlan": async () =>

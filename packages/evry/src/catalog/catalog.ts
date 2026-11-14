@@ -7,6 +7,7 @@ import { PEOPLE_READS } from "../adapters/people/reads/index.ts";
 import { TEAMS_READS } from "../adapters/teams/reads/index.ts";
 import { ONBOARDING_READS } from "../adapters/onboarding/reads/index.ts";
 import { PIPELINE_READS } from "../adapters/pipeline/reads/index.ts";
+import { LAUNCH_READS } from "../adapters/launch/reads/index.ts";
 import { allowedWrites, everyOperation, type Offered } from "../proposals/store.ts";
 import { SEAT_READS, SHARING_READS } from "../adapters/settings/index.ts";
 import type { ReadAdapter } from "./types.ts";
@@ -27,6 +28,7 @@ export const READ_DOMAINS = {
 	sharing: SHARING_READS,
 	onboarding: ONBOARDING_READS,
 	pipeline: PIPELINE_READS,
+	launch: LAUNCH_READS,
 } as const satisfies Record<string, readonly Pick<ReadAdapter<unknown>, "operation" | "description" | "allowed">[]>;
 
 /** The runtime's own model tool: pick rows from a result this conversation already returned. */
