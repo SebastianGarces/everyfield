@@ -1,7 +1,8 @@
 // The nightly full run behind selection (T-41, T-216). `node scripts/nightly.ts coverage-map <file>` is what the GitHub
 // nightly (.github/workflows/nightly.yml) runs on main: every selectable test file under coverage, writing the map
-// that `bin/dev check` downloads and selects through, and only when every test passed. `bin/dev nightly` is a manual
-// local run of the tests/ui browser set on a preview of origin/main, one engine at a time; no scheduler starts it. A
+// that `bin/dev check` downloads and selects through, and only when every test passed. `bin/dev nightly` is the
+// local run of the tests/ui browser set on a preview of origin/main, one engine at a time, by hand or from the launchd
+// agent `bin/dev nightly schedule install` sets up (scripts/nightly-schedule.ts, T-104; kept under D-1291). A
 // loaded machine or a full preview pool records `nightly_skipped` and starts nothing. Results go to nightly.jsonl
 // outside the repository; a failure opens or comments once on one GitHub issue.
 import { spawnSync } from "node:child_process";
