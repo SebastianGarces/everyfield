@@ -54,7 +54,7 @@
 			"area": "Dashboard / tasks",
 			"case_id": "MON-04",
 			"question": "anything I missed over the weekend?",
-			"status": "Not yet",
+			"status": "Supported",
 			"expected_operation": "not yet: needs `notifications.feed`, `notifications.unreadCount`",
 			"expected_answer": "Later: unread items grouped by type",
 			"must_not": "Mark anything read without a review"

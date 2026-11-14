@@ -90,17 +90,23 @@
 		"area": "Dashboard / tasks",
 		"case_id": "MON-04",
 		"question": "anything I missed over the weekend?",
-		"status": "Not yet",
+		"status": "Supported",
 		"expected_operation": "not yet: needs `notifications.feed`, `notifications.unreadCount`",
 		"expected_answer": "Later: unread items grouped by type",
 		"must_not": "Mark anything read without a review",
 		"eval": {
-			"cantYet": true,
-			"forbid": ["/marked (them |it |everything )?(as )?read/i"],
-			"finding": {
-				"checks": ["calls only no tool", "says it can't do that yet"],
-				"note": "T-317 (D-1189, D-1230): re-recorded after the Evry meetings tools joined the teams and people tools; the owner chose to record the drift as findings."
-			}
+			"calls": [
+				{
+					"operation": "notifications.feed"
+				}
+			],
+			"require": ["/\\b(4|four)\\b/i", "/task/i", "/meeting/i"],
+			"forbid": [
+				"/\\b(I['’]?ve|I have|I)( now| just| already)? marked\\b|\\b(are|is|were|was|have been|has been) (now )?marked (as )?read\\b(?! (until|once|when|after))/i",
+				"/kids check-in/i",
+				"/pipeline|inactiv/i"
+			],
+			"derivation": "Four unread notices from the weekend: three task reminders (the launch budget due and overdue, the school gym due) and one meeting announcement. The Admin's own notice is not the Owner's. Reading marks nothing read."
 		}
 	},
 	{
@@ -785,6 +791,10 @@
 			],
 			"target": {
 				"require": ["/(prospect[\\s\\S]*leader)|remov/i"]
+			},
+			"finding": {
+				"checks": ["says /(prospect[\\s\\S]*leader)|remov/i"],
+				"note": "Drifted on the T-323 merge re-record; failing checks set from its report (D-1151)."
 			}
 		}
 	},
@@ -870,18 +880,18 @@
 		"expected_answer": "Full alpha target: the actual authorized team roster, not tags treated as membership",
 		"must_not": "Present a tag as the official roster",
 		"eval": {
-			"derivation": "The Worship roster: Mark Thompson (Worship leader), Jen Thompson (Vocals), Ana Rivera (Keys) and Alex Rivera (Video). Ruth Allen carries the Worship team tag but is not on the ministry, so she is never named.",
-			"names": {
-				"all": ["Mark Thompson", "Jen Thompson", "Ana Rivera", "Alex Rivera"],
-				"allowed": ["Mark Thompson", "Jen Thompson", "Ana Rivera", "Alex Rivera"]
-			},
 			"calls": [
 				{
 					"operation": "teams.get",
 					"alsoAccepted": ["teams.searchMembers"]
 				}
 			],
-			"forbid": ["Ruth Allen"]
+			"names": {
+				"all": ["Mark Thompson", "Jen Thompson", "Ana Rivera", "Alex Rivera"],
+				"allowed": ["Mark Thompson", "Jen Thompson", "Ana Rivera", "Alex Rivera"]
+			},
+			"forbid": ["Ruth Allen"],
+			"derivation": "The Worship roster: Mark Thompson (Worship leader), Jen Thompson (Vocals), Ana Rivera (Keys) and Alex Rivera (Video). Ruth Allen carries the Worship team tag but is not on the ministry, so she is never named."
 		}
 	},
 	{
@@ -896,20 +906,20 @@
 		"expected_answer": "Later: teams with no appointed or fallback leader",
 		"must_not": "Assume no leader when data is unavailable",
 		"eval": {
-			"require": ["Hospitality"],
-			"derivation": "Hospitality alone has no appointed or fallback leader (its Hospitality lead role is open). Worship's leader is Mark Thompson by his Worship leader role; Core team, Kids ministry and Prayer team have appointed leaders. Youth ministry is archived.",
-			"names": {
-				"allowed": []
-			},
 			"calls": [
 				{
 					"operation": "teams.staffingSummary",
 					"alsoAccepted": ["teams.list"]
 				}
 			],
+			"require": ["Hospitality"],
+			"names": {
+				"allowed": []
+			},
 			"forbid": [
 				"/(Core team|Worship|Kids ministry|Prayer team|Youth ministry)[^.\\n]{0,40}(has no|have no|doesn['’]?t have a|without a?|missing a?|no) leader/i"
-			]
+			],
+			"derivation": "Hospitality alone has no appointed or fallback leader (its Hospitality lead role is open). Worship's leader is Mark Thompson by his Worship leader role; Core team, Kids ministry and Prayer team have appointed leaders. Youth ministry is archived."
 		}
 	},
 	{
@@ -1614,11 +1624,8 @@
 				"/^#{0,4}\\s*\\**(\\d+\\.\\s*)?(Purpose|Scope|Finance Policy)\\b/im"
 			],
 			"finding": {
-				"checks": [
-					"never says /^#{0,4}\\s*\\**(\\d+\\.\\s*)?(Purpose|Scope|Finance Policy)\\b/im",
-					"says it can't do that yet"
-				],
-				"note": "Drafts a full finance policy (headed Finance Policy) instead of saying documents from templates aren't available yet. T-24 (D-958): after the Evry email tools joined the tool list, the re-recorded model answer misses these checks; the owner chose to record the drift as a finding. T-319 merge with T-320 (as D-958): re-recorded after the WP-064 People writes and the teams tools joined one tool list; recorded as drift, not a capability change."
+				"checks": ["never says /^#{0,4}\\s*\\**(\\d+\\.\\s*)?(Purpose|Scope|Finance Policy)\\b/im"],
+				"note": "Drafts a full finance policy (headed Finance Policy) instead of saying documents from templates aren't available yet. T-24 (D-958): after the Evry email tools joined the tool list, the re-recorded model answer misses these checks; the owner chose to record the drift as a finding. T-319 merge with T-320 (as D-958): re-recorded after the WP-064 People writes and the teams tools joined one tool list; recorded as drift, not a capability change. Drifted on the T-323 merge re-record; failing checks set from its report (D-1151)."
 			}
 		}
 	},
@@ -2038,7 +2045,7 @@
 			},
 			"finding": {
 				"checks": ["calls only people.listPeople, people.getPerson", "says /interview/i"],
-				"note": "For a Member it reads Daniel's activity and says a note exists and its date, and never says interviews are for an Owner or Admin."
+				"note": "For a Member it reads Daniel's activity and says a note exists and its date, and never says interviews are for an Owner or Admin. Drifted on the T-323 merge re-record; failing checks set from its report (D-1151)."
 			}
 		}
 	},
@@ -2080,11 +2087,7 @@
 		"eval": {
 			"only": [],
 			"require": ["/private|care/i", "/app|Everyfield/i"],
-			"forbid": ["/(you have|there are|I (found|see)) (no |some |\\d+ )?(care )?notes|no care notes/i"],
-			"finding": {
-				"checks": ["says /app|Everyfield/i"],
-				"note": "T-319 merge with T-320 (as D-958): re-recorded after the WP-064 People writes and the teams tools joined one tool list; recorded as drift, not a capability change."
-			}
+			"forbid": ["/(you have|there are|I (found|see)) (no |some |\\d+ )?(care )?notes|no care notes/i"]
 		}
 	},
 	{
