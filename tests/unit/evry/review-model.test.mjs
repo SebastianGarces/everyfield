@@ -200,3 +200,24 @@ test("INV-meetings-review: a Meetings review is revised by asking Evry, and its 
 	assert.equal(fieldLabel("presence:Maria Santos"), "Maria Santos");
 	assert.equal(valueText("attended", review.review.changes[0].after), "Maria Santos (first Vision)\nAlex Rivera");
 });
+
+test("INV-church-digest-review a church digest schedule review reads as the church digest, opens Church settings and is revised only by asking Evry", async () => {
+	const { fieldLabel, isSettings, operationTitle, settingsLink, valueText } =
+		await import("../../../apps/web/src/features/evry/review/model.ts");
+	const schedule = review({
+		operation: "church.digestSchedule.set",
+		review: {
+			target: { kind: "church", id: "x", label: "Hope Fellowship" },
+			changes: [
+				{ field: "digestSchedule", before: "Weekly on Sundays at 4:00 PM", after: "Weekly on Mondays at 8:00 AM" },
+			],
+		},
+	});
+	assert.equal(isSettings(schedule.operation), true);
+	assert.deepEqual(settingsLink(schedule.operation), { href: "/settings/church", label: "Open Church settings" });
+	assert.equal(fieldLabel("digestSchedule", schedule.operation), "Church digest");
+	assert.equal(valueText("digestSchedule", "Off"), "Off");
+	assert.equal(valueText("digestSchedule", "Daily at 7:00 AM"), "Daily at 7:00 AM");
+	assert.deepEqual(editableChanges(schedule), []);
+	assert.equal(operationTitle(schedule.operation), "Change the church digest schedule");
+});

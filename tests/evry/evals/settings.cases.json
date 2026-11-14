@@ -1,7 +1,7 @@
 {
 	"suite": "settings",
 	"model": "scripted",
-	"note": "T-327: seats, church settings, sharing, connections, account and organization tools, asked in Hope Fellowship (golden-church.mts) on the scripted model with the real adapters, approvals and native commands. Cases run in this order on one church; each later case sees the earlier approved changes.",
+	"note": "T-327: seats, church settings, sharing, connections, account and organization tools, asked in Hope Fellowship (golden-church.mts) on the scripted model with the real adapters, approvals and native commands. Cases run in this order on one church; each later case sees the earlier approved changes. T-342 adds the church-wide digest schedule (church.digestSchedule.set): SET-23 runs before SET-08 makes the Member an Admin, and SET-24 to SET-31 run last, in Eastern time after SET-10.",
 	"cases": [
 		{
 			"id": "SET-01",
@@ -35,6 +35,16 @@
 			"operation": "seats.invite",
 			"calls": [],
 			"answer": ["Only an Owner or Admin can invite people"]
+		},
+		{
+			"id": "SET-23",
+			"task": "T-342",
+			"criterion": 4,
+			"actor": "member",
+			"ask": "change the church digest to Mondays at 8 AM",
+			"operation": "church.digestSchedule.set",
+			"calls": [],
+			"answer": ["Only an Owner or Admin can", "change this church's settings"]
 		},
 		{
 			"id": "SET-04",
@@ -377,6 +387,166 @@
 			},
 			"approve": true,
 			"answer": ["I prepared a review. Nothing changes until you approve it."]
+		},
+		{
+			"id": "SET-24",
+			"task": "T-342",
+			"criterion": 9,
+			"actor": "owner",
+			"ask": "send my digest daily",
+			"operation": "notifications.digestCadence.set",
+			"calls": [],
+			"proposal": {
+				"operation": "notifications.digestCadence.set",
+				"changes": [
+					{
+						"field": "planter_digest.cadence",
+						"before": {
+							"cadence": "weekly",
+							"weekday": 0,
+							"hour": 16
+						},
+						"after": {
+							"cadence": "daily",
+							"weekday": 0,
+							"hour": 16
+						}
+					}
+				]
+			}
+		},
+		{
+			"id": "SET-25",
+			"task": "T-342",
+			"criterion": 1,
+			"actor": "owner",
+			"ask": "send the church digest on Mondays at 8 AM",
+			"operation": "church.digestSchedule.set",
+			"calls": [],
+			"proposal": {
+				"operation": "church.digestSchedule.set",
+				"target": "Hope Fellowship",
+				"changes": [
+					{
+						"field": "digestSchedule",
+						"before": "Weekly on Sundays at 4:00 PM",
+						"after": "Weekly on Mondays at 8:00 AM"
+					}
+				],
+				"notes": [
+					"Eastern time (America/New_York), the church's time zone",
+					"This changes the church digest for everyone who gets it."
+				],
+				"refusal": null
+			},
+			"approve": true
+		},
+		{
+			"id": "SET-26",
+			"task": "T-342",
+			"criterion": 2,
+			"actor": "owner",
+			"ask": "what will my next digest say?",
+			"operation": "notifications.previewPlanterDigest",
+			"calls": ["notifications.previewPlanterDigest"],
+			"answer": ["Mon"]
+		},
+		{
+			"id": "SET-27",
+			"task": "T-342",
+			"criterion": 5,
+			"actor": "owner",
+			"ask": "send the church digest every day at 7 AM",
+			"operation": "church.digestSchedule.set",
+			"calls": [],
+			"proposal": {
+				"operation": "church.digestSchedule.set",
+				"target": "Hope Fellowship",
+				"changes": [
+					{
+						"field": "digestSchedule",
+						"before": "Weekly on Mondays at 8:00 AM",
+						"after": "Daily at 7:00 AM"
+					}
+				],
+				"notes": [
+					"Eastern time (America/New_York), the church's time zone",
+					"This changes the church digest for everyone who gets it."
+				]
+			},
+			"approve": true
+		},
+		{
+			"id": "SET-28",
+			"task": "T-342",
+			"criterion": 5,
+			"actor": "owner",
+			"ask": "turn off the church digest",
+			"operation": "church.digestSchedule.set",
+			"calls": [],
+			"proposal": {
+				"operation": "church.digestSchedule.set",
+				"target": "Hope Fellowship",
+				"changes": [
+					{
+						"field": "digestSchedule",
+						"before": "Daily at 7:00 AM",
+						"after": "Off"
+					}
+				],
+				"notes": [
+					"Eastern time (America/New_York), the church's time zone",
+					"This changes the church digest for everyone who gets it."
+				]
+			},
+			"approve": true
+		},
+		{
+			"id": "SET-29",
+			"task": "T-342",
+			"criterion": 6,
+			"actor": "owner",
+			"ask": "send the church digest every 3 hours",
+			"operation": "church.digestSchedule.set",
+			"calls": [],
+			"answer": ["off, daily at a whole hour, or weekly on one day at a whole hour"],
+			"noReview": true
+		},
+		{
+			"id": "SET-30",
+			"task": "T-342",
+			"criterion": 6,
+			"actor": "owner",
+			"ask": "send the church digest on Sundays at 4:30 PM",
+			"operation": "church.digestSchedule.set",
+			"calls": [],
+			"answer": ["off, daily at a whole hour, or weekly on one day at a whole hour"],
+			"noReview": true
+		},
+		{
+			"id": "SET-31",
+			"task": "T-342",
+			"criterion": 7,
+			"actor": "owner",
+			"ask": "turn off the church digest",
+			"operation": "church.digestSchedule.set",
+			"calls": [],
+			"proposal": {
+				"operation": "church.digestSchedule.set",
+				"target": "Hope Fellowship",
+				"changes": [
+					{
+						"field": "digestSchedule",
+						"before": "Off",
+						"after": "Off"
+					}
+				],
+				"notes": [
+					"Eastern time (America/New_York), the church's time zone",
+					"This changes the church digest for everyone who gets it."
+				],
+				"refusal": "The church digest already goes out on this schedule, so nothing would change."
+			}
 		}
 	]
 }

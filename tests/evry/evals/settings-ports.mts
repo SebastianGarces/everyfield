@@ -90,6 +90,7 @@ export function nativePorts(mail: { to: string; purpose: string }[] = []): Nativ
 		organizations,
 		settings: {
 			updatePlantProfile: sections.updatePlantProfile,
+			setDigestSchedule: sections.setDigestSchedule,
 			previewPlantTimezone: timezones.previewPlantTimezone,
 			setPlantTimezone: timezones.setPlantTimezone,
 		},

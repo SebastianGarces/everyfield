@@ -1,7 +1,7 @@
 import { sql } from "@everyfield/db/query";
 import { withSettingsWrite } from "@everyfield/domain/settings";
 import { owner, timeZone as timeZoneValue } from "@everyfield/contracts/common";
-import { plantProfile } from "@everyfield/contracts/settings";
+import { digestSchedule as digestScheduleValue, plantProfile } from "@everyfield/contracts/settings";
 import { z } from "zod";
 import { EvryRefusal } from "../../../context/errors.ts";
 import { change, nativeWrite, patchChanges, plantAdmin, settled } from "../../native.ts";
@@ -109,8 +109,72 @@ export const setTimezone = nativeWrite({
 	},
 });
 
+type DigestSchedule = z.infer<typeof digestScheduleValue>;
+const WEEKDAYS = ["Sundays", "Mondays", "Tuesdays", "Wednesdays", "Thursdays", "Fridays", "Saturdays"];
+const hourText = (hour: number) => `${hour % 12 || 12}:00 ${hour < 12 ? "AM" : "PM"}`;
+/** "Off", "Daily at 7:00 AM" or "Weekly on Mondays at 8:00 AM", as Settings > Church reads it. */
+const scheduleText = (s: DigestSchedule) =>
+	s.cadence === "off"
+		? "Off"
+		: s.cadence === "daily"
+			? `Daily at ${hourText(s.hour)}`
+			: `Weekly on ${WEEKDAYS[s.weekday]} at ${hourText(s.hour)}`;
+
+// The church-wide planter digest schedule (T-342), through the Settings command the Church section runs, which audits
+// as church.digestSchedule.set and replans owed digest slots. The catalog's plant.setDigestSchedule names the same
+// command; Evry installs only this name (D-1372).
+export const setDigestSchedule = nativeWrite({
+	operation: "church.digestSchedule.set",
+	description:
+		"Propose when the church-wide planter digest goes out for everyone in this church who gets it, as Settings > Church sets it: off, daily at a whole hour, or weekly on one day (weekday 0 is Sunday, 6 is Saturday) at a whole hour (0-23), in the church's time zone. There are no other choices: no minutes, no several days a week. Use this when the user names the church digest's day or hour or turns the church digest off; how often the user's own digest comes (daily or weekly) is notifications.digestCadence.set. Owner or Admin. Nothing changes until the user approves the exact review.",
+	input: z.strictObject({ schedule: digestScheduleValue }),
+	allowed: plantAdmin,
+	async review(actor, value, { db }) {
+		const [pl] = (
+			await db.execute(
+				sql`SELECT name,timezone,revision::text AS revision,digest_cadence,digest_weekday,digest_hour FROM plant WHERE id=${actor.owner.id}::uuid`,
+			)
+		).rows as {
+			name: string;
+			timezone: string;
+			revision: string;
+			digest_cadence: string;
+			digest_weekday: number;
+			digest_hour: number;
+		}[];
+		if (!pl) return null;
+		const before = digestScheduleValue.parse(
+			pl.digest_cadence === "off"
+				? { cadence: "off" }
+				: pl.digest_cadence === "daily"
+					? { cadence: "daily", hour: pl.digest_hour }
+					: { cadence: "weekly", weekday: pl.digest_weekday, hour: pl.digest_hour },
+		);
+		const after = value.schedule;
+		const review: Record<string, unknown> = {
+			target: { kind: "church", id: actor.owner.id, label: pl.name },
+			changes: [{ field: "digestSchedule", before: scheduleText(before), after: scheduleText(after) }],
+			notes: [
+				`Times are in ${zoneName(pl.timezone)} time (${pl.timezone}), the church's time zone.`,
+				"This changes the church digest for everyone who gets it.",
+			],
+		};
+		if (scheduleText(before) === scheduleText(after))
+			review.refusal = "The church digest already goes out on this schedule, so nothing would change.";
+		const args = {
+			expectedRevision: pl.revision,
+			input: { plant: { kind: "plant", id: actor.owner.id }, schedule: after },
+		};
+		return sql`SELECT ${JSON.stringify(review)}::jsonb AS review, ${JSON.stringify(args)}::jsonb AS args`;
+	},
+	async run(tx, context, request, { ports }) {
+		settled(await ports.settings.setDigestSchedule(tx, context, request as never));
+	},
+});
+
 /** The installed church settings reviewed writes, keyed by operation. */
 export const CHURCH_COMMANDS = {
 	"plant.updateProfile": updateProfile,
 	"plant.setTimezone": setTimezone,
+	"church.digestSchedule.set": setDigestSchedule,
 } as const;

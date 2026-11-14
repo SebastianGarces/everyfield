@@ -1050,7 +1050,13 @@ function pinHostClock() {
  */
 export const evalDatabase = (options: { prefix: string; max?: number }) => testDatabase({ ...options, clock: NOW });
 
-export type GoldenChurch = { db: Database; actors: Record<ActorName, EvryActor>; close(): Promise<void> };
+export type GoldenChurch = {
+	db: Database;
+	/** The schema owner's connection, for checks of rows the runtime role can't read, such as audit events. */
+	admin: Database;
+	actors: Record<ActorName, EvryActor>;
+	close(): Promise<void>;
+};
 /** A fresh schema with Hope Fellowship seeded, the runtime pool the reads use and every eval actor. */
 /**
  * `seatNames` gives each seated account its person's name, as Settings > Seats shows it (settings.test.mts and the
@@ -1069,7 +1075,7 @@ export async function goldenChurch(options: SeedOptions = {}): Promise<GoldenChu
 		const actors = {} as Record<ActorName, EvryActor>;
 		for (const who of Object.keys(ACTOR_SPECS) as ActorName[]) actors[who] = await actorFor(db, who);
 		pinHostClock();
-		return { db, actors, close: database.close };
+		return { db, admin: database.admin, actors, close: database.close };
 	} catch (error) {
 		await database.close();
 		throw error;
