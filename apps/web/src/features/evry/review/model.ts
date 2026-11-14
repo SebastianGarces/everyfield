@@ -1106,7 +1106,6 @@ export function refusalText(code: string | undefined, target: string | null, mee
 export function intelligenceRefusalText(code: string | undefined): string {
 	switch (code) {
 		case "revision_conflict":
-		case "conflict":
 		case "not_current":
 			return "The phase or signal changed after Evry prepared this, so nothing was saved. Ask Evry to prepare it again.";
 		case "already_declared":
