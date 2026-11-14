@@ -1,5 +1,5 @@
 import * as c from "@everyfield/contracts/teams";
-import { sql } from "@everyfield/db/query";
+import { sql, type SQL } from "@everyfield/db/query";
 import "server-only";
 import { z } from "zod";
 import type { RequestActor } from "../../access/session.ts";
@@ -12,8 +12,8 @@ const compatible = sql`(SELECT c.kind = 'earned' AND c.version = g.version
 	ORDER BY c.recorded_at DESC, c.id DESC
 	LIMIT 1)`;
 
-function facts(plantId: string, teamId: string) {
-	return sql`SELECT (SELECT plant_id FROM team WHERE id = ${teamId}::uuid) AS owner,
+function facts(plantId: string, teamId: SQL) {
+	return sql`SELECT (SELECT plant_id FROM team WHERE id = ${teamId}) AS owner,
 		coalesce(fill.filled, 0) AS "filledSlots",
 		coalesce(roles.n, 0) - coalesce(fill.filled, 0) AS "openSlots",
 		coalesce(fill.people, 0) AS "distinctPeople",
@@ -32,17 +32,18 @@ function facts(plantId: string, teamId: string) {
 			ELSE ((train.numerator::float8 / train.denominator) * 40)
 				+ ((coalesce(fill.filled, 0)::float8 / roles.n) * 35)
 				+ ((CASE WHEN coalesce(att.roster, 0) = 0 THEN 0::float8 ELSE att.members::float8 / att.roster END) * 25)
-			END AS composite
+			END AS composite,
+		meetings.n AS "windowMeetings", meetings.first AS "windowFrom", meetings.last AS "windowTo"
 		FROM (SELECT count(*)::int AS n FROM team_role r
-			WHERE r.team_id = ${teamId}::uuid AND r.plant_id = ${plantId}::uuid AND r.retired_at IS NULL) roles
+			WHERE r.team_id = ${teamId} AND r.plant_id = ${plantId}::uuid AND r.retired_at IS NULL) roles
 		CROSS JOIN (SELECT count(*)::int AS filled, count(DISTINCT tn.person_id)::int AS people
 			FROM team_role r
 			JOIN team_tenure tn ON tn.role_id = r.id AND tn.ended_on IS NULL AND tn.plant_id = r.plant_id
 			JOIN person p ON p.id = tn.person_id AND p.tenant_id = r.plant_id AND p.state = 'live'
-			WHERE r.team_id = ${teamId}::uuid AND r.plant_id = ${plantId}::uuid AND r.retired_at IS NULL) fill
-		CROSS JOIN (SELECT count(*)::int AS n FROM (
-			SELECT m.id FROM meeting m
-			WHERE m.team_id = ${teamId}::uuid AND m.plant_id = ${plantId}::uuid AND m.type = 'team_meeting'
+			WHERE r.team_id = ${teamId} AND r.plant_id = ${plantId}::uuid AND r.retired_at IS NULL) fill
+		CROSS JOIN (SELECT count(*)::int AS n, min(recent.local_date) AS first, max(recent.local_date) AS last FROM (
+			SELECT m.id, m.local_date FROM meeting m
+			WHERE m.team_id = ${teamId} AND m.plant_id = ${plantId}::uuid AND m.type = 'team_meeting'
 				AND m.status = 'completed' AND m.retired_at IS NULL
 			ORDER BY m.starts_at DESC, m.id
 			LIMIT 4) recent) meetings
@@ -52,7 +53,7 @@ function facts(plantId: string, teamId: string) {
 			(count(DISTINCT pa.person_id) FILTER (WHERE pa.roster_member))::int AS roster
 			FROM participation pa
 			JOIN (SELECT m.id FROM meeting m
-				WHERE m.team_id = ${teamId}::uuid AND m.plant_id = ${plantId}::uuid AND m.type = 'team_meeting'
+				WHERE m.team_id = ${teamId} AND m.plant_id = ${plantId}::uuid AND m.type = 'team_meeting'
 					AND m.status = 'completed' AND m.retired_at IS NULL
 				ORDER BY m.starts_at DESC, m.id
 				LIMIT 4) recent ON recent.id = pa.meeting_id
@@ -61,10 +62,18 @@ function facts(plantId: string, teamId: string) {
 			(count(DISTINCT a.person_id) FILTER (WHERE ${compatible}))::int AS numerator
 			FROM training_assignment a
 			JOIN training_program g ON g.id = a.program_id AND g.plant_id = a.plant_id AND g.required
-				AND g.archived_at IS NULL AND g.team_id = ${teamId}::uuid
+				AND g.archived_at IS NULL AND g.team_id = ${teamId}
 			JOIN person p ON p.id = a.person_id AND p.tenant_id = a.plant_id AND p.state = 'live'
 			WHERE a.plant_id = ${plantId}::uuid AND a.state = 'active') train`;
 }
+
+/** The program `g`'s saved, active assignments of live people, as `a`. */
+const saved = sql`FROM training_assignment a
+	JOIN person p ON p.id = a.person_id AND p.tenant_id = a.plant_id AND p.state = 'live'
+	WHERE a.program_id = g.id AND a.plant_id = g.plant_id AND a.state = 'active'`;
+/** The program `g`'s saved people by name, each with a current compatible completion or not. */
+const participants = sql`coalesce((SELECT json_agg(json_build_object('personId', p.id, 'name', p.display_name,
+	'complete', coalesce(${compatible}, false)) ORDER BY p.display_name, p.id) ${saved}), '[]'::json)`;
 
 /** Without a ministry, every program; with one, that ministry's own and the church-wide ones (team_id null). */
 const ownOrChurchWide = (teamId: string | undefined) =>
@@ -130,15 +139,42 @@ export const trainingReader = {
 			const found = await row(
 				db,
 				viewer,
-				sql`SELECT coalesce((SELECT json_agg(json_build_object('id', g.id, 'name', g.name, 'personIds', coalesce((
-						SELECT json_agg(a.person_id ORDER BY a.person_id) FROM training_assignment a
-						JOIN person p ON p.id = a.person_id AND p.tenant_id = a.plant_id AND p.state = 'live'
-						WHERE a.program_id = g.id AND a.state = 'active'), '[]'::json)) ORDER BY g.name, g.id)
-					FROM (SELECT g.id, g.name FROM training_program g WHERE g.plant_id = ${viewer.plantId}::uuid AND ${ownOrChurchWide(input.teamId)}
+				sql`SELECT coalesce((SELECT json_agg(json_build_object('id', g.id, 'name', g.name, 'required', g.required,
+						'personIds', coalesce((SELECT json_agg(a.person_id ORDER BY a.person_id) ${saved}), '[]'::json),
+						'people', ${participants}) ORDER BY g.name, g.id)
+					FROM (SELECT * FROM training_program g WHERE g.plant_id = ${viewer.plantId}::uuid AND ${ownOrChurchWide(input.teamId)}
 						ORDER BY g.name, g.id LIMIT 100) g),
 					'[]'::json) AS programs`,
 			);
 			return c.trainingMatrix.parse({ programs: found.programs });
+		});
+	},
+	/**
+	 * A program's saved required people, each with whether they hold a current compatible completion. Only the saved
+	 * list counts: someone who joined the ministry after it was saved is not on it until a person adds them.
+	 */
+	async readRequiredTrainingParticipants(db: Reader, authority: RequestActor, raw: unknown) {
+		return read(authority, async (viewer) => {
+			const input = parse(c.requiredParticipantsRequest, raw);
+			const found = await row(
+				db,
+				viewer,
+				sql`SELECT g.plant_id AS owner, g.id AS "programId", g.name, g.team_id AS "teamId", g.required,
+					g.revision::text AS revision, ${participants} AS people
+					FROM training_program g WHERE g.id = ${input.programId}::uuid`,
+			);
+			owner(viewer.plantId, found.owner);
+			const people = z.array(z.object({ complete: z.boolean() })).parse(found.people);
+			return c.requiredParticipants.parse({
+				programId: found.programId,
+				name: found.name,
+				teamId: found.teamId,
+				required: found.required,
+				revision: found.revision,
+				people: found.people,
+				complete: people.filter((p) => p.complete).length,
+				total: people.length,
+			});
 		});
 	},
 	async readPersonTraining(db: Reader, authority: RequestActor, raw: unknown) {
@@ -206,10 +242,50 @@ export const trainingReader = {
 			return c.trainingHistory.parse({ personId: input.personId, credits: found.credits });
 		});
 	},
+	/** One ministry's measured health: its facts, the meeting window they cover and the bands the screen uses. */
+	async readHealth(db: Reader, authority: RequestActor, raw: unknown) {
+		return read(authority, async (viewer) => {
+			const input = parse(c.staffingFactsRequest, raw);
+			const found = await row(
+				db,
+				viewer,
+				sql`SELECT t.name, f.* FROM team t CROSS JOIN LATERAL (${facts(viewer.plantId, sql`t.id`)}) f WHERE t.id = ${input.teamId}::uuid`,
+			);
+			owner(viewer.plantId, found.owner);
+			return health(input.teamId, found);
+		});
+	},
+	/**
+	 * Every current (not archived) ministry's health, and the church's composite: the mean of the measured ministries
+	 * only, with their count. An Unknown ministry is never averaged in as zero.
+	 */
+	async readAggregateHealth(db: Reader, authority: RequestActor, raw: unknown) {
+		return read(authority, async (viewer) => {
+			parse(c.aggregateHealthRequest, raw ?? {});
+			const found = await row(
+				db,
+				viewer,
+				sql`SELECT coalesce((SELECT json_agg(to_json(x) ORDER BY x.sort_order, x.id) FROM (
+					SELECT t.id, t.sort_order, t.name, f.* FROM team t CROSS JOIN LATERAL (${facts(viewer.plantId, sql`t.id`)}) f
+					WHERE t.plant_id = ${viewer.plantId}::uuid AND t.archived_at IS NULL ORDER BY t.sort_order, t.id LIMIT 200) x), '[]'::json) AS teams`,
+			);
+			const teams = z
+				.array(z.record(z.string(), z.unknown()))
+				.parse(found.teams)
+				.map((t) => health(String(t.id), t));
+			const measured = teams.filter((t) => t.composite !== null);
+			return c.aggregateHealth.parse({
+				teams,
+				measuredTeams: measured.length,
+				totalTeams: teams.length,
+				composite: measured.length ? measured.reduce((sum, t) => sum + t.composite!, 0) / measured.length : null,
+			});
+		});
+	},
 	async readStaffingFacts(db: Reader, authority: RequestActor, raw: unknown) {
 		return read(authority, async (viewer) => {
 			const input = parse(c.staffingFactsRequest, raw);
-			const found = await row(db, viewer, facts(viewer.plantId, input.teamId));
+			const found = await row(db, viewer, facts(viewer.plantId, sql`${input.teamId}::uuid`));
 			owner(viewer.plantId, found.owner);
 			return c.teamFacts.parse({ teamId: input.teamId, ...picked(found) });
 		});
@@ -230,4 +306,21 @@ function picked(found: Record<string, unknown>) {
 		weights: found.weights,
 		composite: found.composite,
 	};
+}
+
+const band = (rate: number | null, red: number | null, yellow: number) =>
+	rate === null ? "unknown" : red !== null && rate < red ? "red" : rate < yellow ? "yellow" : "ok";
+const dateOf = z
+	.union([z.string(), z.date()])
+	.nullable()
+	.transform((v) => (v === null ? null : v instanceof Date ? v.toISOString().slice(0, 10) : v.slice(0, 10)));
+function health(teamId: string, found: Record<string, unknown>) {
+	const facts = c.teamFacts.parse({ teamId, ...picked(found) });
+	return c.teamHealth.parse({
+		...facts,
+		name: found.name,
+		window: { meetings: found.windowMeetings, from: dateOf.parse(found.windowFrom), to: dateOf.parse(found.windowTo) },
+		staffingBand: band(facts.staffingRate, 0.4, 0.6),
+		attendanceBand: band(facts.attendanceRate, null, 0.5),
+	});
 }
