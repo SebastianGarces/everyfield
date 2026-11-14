@@ -1,18 +1,12 @@
-import type { PipelineBoardQuery, PipelineRefusal } from "@everyfield/contracts/organizations";
+import { STARTER_STAGES, type PipelineBoardQuery, type PipelineRefusal } from "@everyfield/contracts/organizations";
 
 // Shared by the Pipeline page and a person's record: labels, dates, URL filters and refusal copy. No React and no
 // server code.
 
 export const PIPELINE_PATH = "/organization/pipeline";
 
-export const KIND_LABEL: Record<string, string> = {
-	potential_leader: "Potential leader",
-	apprentice: "Apprentice",
-	resident: "Resident",
-	commissioned: "Commissioned",
-	not_continuing: "Not continuing",
-	other: "Other",
-};
+/** Each stage kind's name: the starter stage's label, and "Other". */
+export const KIND_LABEL: Record<string, string> = Object.fromEntries([...STARTER_STAGES, ["other", "Other"]]);
 
 const day = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
 /** A calendar day (YYYY-MM-DD) as "Oct 17, 2026". The day is already the organization's own. */
