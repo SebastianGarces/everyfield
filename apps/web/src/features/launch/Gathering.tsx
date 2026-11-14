@@ -234,8 +234,8 @@ export function GatheringChoice({
 					Gathering milestones
 				</CalloutLabel>
 				<CalloutText className="text-md">
-					The milestones your network or sending church offer could not load. Your church&rsquo;s path is shown as it is.
-					Reload the page in a moment to see them.
+					The milestones your network or sending church offer could not load. Your church&rsquo;s path is shown as it
+					is. Reload the page in a moment to see them.
 				</CalloutText>
 			</Card>
 		);
