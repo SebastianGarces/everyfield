@@ -37,7 +37,41 @@ export type Operation =
 	| "communication.scheduleReviewed"
 	| "communication.rescheduleReviewed"
 	| "communication.cancelScheduledReviewed"
-	| "communication.replaceScheduledReviewed";
+	| "communication.replaceScheduledReviewed"
+	| TeamsOperation;
+
+/** The Ministries reviewed writes (WP-070): shown as before and after, never revised in place. */
+const TEAMS_TITLE = {
+	"teams.create": "Add a ministry",
+	"teams.edit": "Update a ministry",
+	"teams.archive": "Archive a ministry",
+	"teams.restore": "Restore a ministry",
+	"teams.createRole": "Add a role",
+	"teams.editRole": "Update a role",
+	"teams.retireRole": "Retire a role",
+	"teams.assignRole": "Fill a role",
+	"teams.assignMember": "Add to a ministry",
+	"teams.removeRole": "End a role",
+	"teams.endMembership": "Leave a ministry",
+	"teams.reactivateMembership": "Return to a role",
+	"teams.appointLeader": "Appoint a leader",
+	"teams.initialize": "Import ministries",
+	"teams.importRoles": "Import roles",
+	"teams.scheduleMeeting": "Schedule a team meeting",
+	"teams.offerResponsibilities": "Playbook responsibilities",
+	"teams.addResponsibility": "Add a responsibility",
+	"teams.editResponsibility": "Update a responsibility",
+	"teams.completeResponsibility": "Tick a responsibility",
+	"teams.deleteResponsibility": "Remove a responsibility",
+	"teams.createProgram": "Add a training program",
+	"teams.correctProgram": "Correct a training program",
+	"teams.setRequiredTrainingParticipants": "Set required training",
+	"teams.attestCompletion": "Record a training completion",
+	"teams.revokeCompletion": "Revoke a training completion",
+	"teams.recompleteTraining": "Record training again",
+} as const;
+type TeamsOperation = keyof typeof TEAMS_TITLE;
+export const isTeams = (operation: Operation): operation is TeamsOperation => operation in TEAMS_TITLE;
 
 export type Change = { field: string; before: unknown; after: unknown };
 
@@ -52,7 +86,11 @@ export type Review = {
 	approvedAt: string | null;
 	status: "pending" | "approved" | "cancelled" | "expired";
 	review: {
-		target: { kind: "person" | "message"; id: string; label: string } | null;
+		target: {
+			kind: "person" | "message" | "team" | "role" | "training" | "responsibility";
+			id: string;
+			label: string;
+		} | null;
 		changes: Change[];
 		/** A plain reason the change cannot be approved as asked; the card shows it and offers no Approve. */
 		refusal?: string;
@@ -144,12 +182,39 @@ const FIELD_LABEL: Record<string, string> = {
 	comesBack: "Comes back",
 	movesBack: "Moves back",
 	detailsGoBack: "Details back",
+	// Ministries
+	name: "Name",
+	description: "Description",
+	archived: "Archived",
+	leadership: "Leadership role",
+	timeCommitment: "Time commitment",
+	desiredSkills: "Desired skills",
+	retired: "Retired",
+	filledBy: "Filled by",
+	member: "Member",
+	leader: "Leader",
+	ministries: "Ministries",
+	roles: "Roles",
+	date: "Date",
+	time: "Time",
+	subtype: "Kind",
+	title: "Title",
+	offer: "Offer",
+	responsibilities: "Responsibilities",
+	responsibility: "Responsibility",
+	text: "Text",
+	done: "Done",
+	required: "Required",
+	requiredPeople: "Required people",
+	person: "Person",
+	completedOn: "Completed on",
+	completedAgainOn: "Completed again on",
+	completion: "Completion",
 };
 export const fieldLabel = (field: string) => FIELD_LABEL[field] ?? MERGE_FIELD_LABEL[field as MergeField] ?? field;
 
 const KIND_LABEL: Record<string, string> = { core_group: "Core group", launch_team: "Launch team" };
 const COMMITMENT_LABEL: Record<string, string> = { active: "Active", withdrawn: "Withdrawn", unknown: "Not recorded" };
-const DATED = new Set(["birthDate", "occurredOn", "effectiveOn"]);
 /** A rating or score with its notes: "Concern · Needs time with the team", "4 of 5". */
 function judgmentText(value: object): string | null {
 	const v = value as { rating?: unknown; score?: unknown; notes?: unknown };
@@ -163,6 +228,8 @@ function judgmentText(value: object): string | null {
 	return typeof v.notes === "string" && v.notes ? `${head} · ${v.notes}` : head;
 }
 
+const TEAM_STATE: Record<string, string> = { forming: "Forming", active: "Active", paused: "Paused" };
+const DATE_FIELDS = new Set(["birthDate", "date", "completedOn", "completedAgainOn", "occurredOn", "effectiveOn"]);
 const CLASSIFICATION_LABEL: Record<string, string> = { adult: "Adult", child: "Child", unknown: "Not recorded" };
 const dateFormat = new Intl.DateTimeFormat(undefined, {
 	month: "short",
@@ -179,13 +246,18 @@ export function valueText(field: string, value: unknown): string | null {
 	if (field === "stage") return STAGE_LABEL[value as StageValue] ?? String(value);
 	if (field === "source") return SOURCE_LABEL[value as SourceValue] ?? String(value);
 	if (field === "adultClassification") return CLASSIFICATION_LABEL[String(value)] ?? String(value);
-	if (field === "state") return value === "live" ? "Current" : value === "retired" ? "Removed" : String(value);
-	if (DATED.has(field) && typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value))
+	if (field === "state")
+		return value === "live"
+			? "Current"
+			: value === "retired"
+				? "Removed"
+				: (TEAM_STATE[String(value)] ?? String(value));
+	if (typeof value === "boolean") return value ? "Yes" : "No";
+	if (DATE_FIELDS.has(field) && typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value))
 		return dateFormat.format(new Date(`${value}T00:00:00Z`));
 	if (field === "result") return RESULT_LABEL[value as InterviewResult] ?? String(value);
 	if (field === "kind") return KIND_LABEL[String(value)] ?? String(value);
 	if (field === "commitment") return COMMITMENT_LABEL[String(value)] ?? String(value);
-	if (field === "voided") return value === true ? "Yes" : "No";
 	if (typeof value === "object") return judgmentText(value) ?? JSON.stringify(value);
 	return String(value);
 }
@@ -208,6 +280,7 @@ const handedBack = (changes: readonly Change[]) =>
 export const shownChanges = (changes: readonly Change[]) => changes.filter((c) => c.field !== "openTasksNeedingOwner");
 
 const TITLE: Record<Operation, string> = {
+	...TEAMS_TITLE,
 	"communication.saveDraft": "Save an email draft",
 	"communication.scheduleReviewed": "Schedule an email",
 	"communication.rescheduleReviewed": "Change the send time",

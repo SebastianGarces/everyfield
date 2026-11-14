@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "project_id": "everyfield-v3",
-  "revision": 166,
-  "updated_at": "2026-10-22T10:57:54.799Z",
+  "revision": 167,
+  "updated_at": "2026-11-13T21:06:03.735Z",
   "packages": {
     "WP-001": {
       "status": "in_progress",
@@ -978,28 +978,163 @@
       "retired_into": "WP-017"
     },
     "WP-017": {
-      "status": "not_started",
-      "evidence": [],
-      "notes": "",
+      "status": "in_progress",
+      "evidence": [
+        {
+          "path": "packages/domain/src/teams/",
+          "commit": "1ebc8abe7ed830aefaad5be3667fd76a510571e8",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-017/api merged in PR #272; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/272"
+        },
+        {
+          "path": "apps/web/src/features/teams/",
+          "commit": "fbc39837d131c721a783b8a2a3adf7310402e7cd",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-017/ui merged in PR #278; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/278"
+        },
+        {
+          "path": "apps/web/src/features/teams/",
+          "commit": "46e677ff3b7f9078c8530c81337bd777c4932c0a",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-017/ui merged in PR #340; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/340"
+        },
+        {
+          "path": "packages/domain/src/teams/",
+          "commit": "4e82dea97667d83a320f0985f288ad2d2c92c131",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-017 merged in PR #438; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/438"
+        }
+      ],
+      "notes": "Merged milestones recorded by T-290 on 2026-11-13; full package closure remains at integration.",
       "owner": null,
-      "revision": 0,
-      "updated_at": null
+      "revision": 1,
+      "updated_at": "2026-11-13T21:06:03.735Z",
+      "milestones": {
+        "WP-017/api": {
+          "task": "WP-017/api",
+          "merge_commit": "1ebc8abe7ed830aefaad5be3667fd76a510571e8",
+          "acknowledged": true,
+          "stage": "api",
+          "passed_case_portions": [],
+          "passed_gate_portions": [],
+          "deferred_case_portions": [],
+          "deferred_gate_portions": []
+        },
+        "WP-017/ui": {
+          "task": "WP-017/ui",
+          "merge_commit": "46e677ff3b7f9078c8530c81337bd777c4932c0a",
+          "acknowledged": true,
+          "stage": "ui",
+          "passed_case_portions": [],
+          "passed_gate_portions": [],
+          "deferred_case_portions": [],
+          "deferred_gate_portions": []
+        },
+        "WP-017": {
+          "task": "WP-017",
+          "merge_commit": "4e82dea97667d83a320f0985f288ad2d2c92c131",
+          "acknowledged": true,
+          "stage": "producer",
+          "passed_case_portions": [],
+          "passed_gate_portions": [],
+          "deferred_case_portions": [],
+          "deferred_gate_portions": []
+        }
+      }
     },
     "WP-018": {
-      "status": "not_started",
-      "evidence": [],
-      "notes": "",
+      "status": "in_progress",
+      "evidence": [
+        {
+          "path": "packages/domain/src/teams/responsibilities/",
+          "commit": "f7bba17f6c1ac58cfbda79b78f7c7b624b6d0b8c",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-018/api merged in PR #279; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/279"
+        },
+        {
+          "path": "apps/web/src/features/teams/responsibilities/",
+          "commit": "e898b204c812ccd5a2fd8b9df0989a074fc7bd87",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-018/ui merged in PR #292; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/292"
+        }
+      ],
+      "notes": "Merged milestones recorded by T-290 on 2026-11-13; full package closure remains at integration.",
       "owner": null,
-      "revision": 0,
-      "updated_at": null
+      "revision": 1,
+      "updated_at": "2026-11-13T21:06:03.735Z",
+      "milestones": {
+        "WP-018/api": {
+          "task": "WP-018/api",
+          "merge_commit": "f7bba17f6c1ac58cfbda79b78f7c7b624b6d0b8c",
+          "acknowledged": true,
+          "stage": "api",
+          "passed_case_portions": [],
+          "passed_gate_portions": [],
+          "deferred_case_portions": [],
+          "deferred_gate_portions": []
+        },
+        "WP-018/ui": {
+          "task": "WP-018/ui",
+          "merge_commit": "e898b204c812ccd5a2fd8b9df0989a074fc7bd87",
+          "acknowledged": true,
+          "stage": "ui",
+          "passed_case_portions": [],
+          "passed_gate_portions": [],
+          "deferred_case_portions": [],
+          "deferred_gate_portions": []
+        }
+      }
     },
     "WP-019": {
-      "status": "not_started",
-      "evidence": [],
-      "notes": "",
+      "status": "in_progress",
+      "evidence": [
+        {
+          "path": "packages/domain/src/teams/training/",
+          "commit": "d932cacd5e4ff866c28ba7b60704dc1d0fad6d60",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-019/api merged in PR #280; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/280"
+        },
+        {
+          "path": "apps/web/src/features/teams/training/",
+          "commit": "e3b980a66494b8b209ac51752f7bafd58aec27db",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-019/ui merged in PR #293; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/293"
+        }
+      ],
+      "notes": "Merged milestones recorded by T-290 on 2026-11-13; full package closure remains at integration.",
       "owner": null,
-      "revision": 0,
-      "updated_at": null
+      "revision": 1,
+      "updated_at": "2026-11-13T21:06:03.735Z",
+      "milestones": {
+        "WP-019/api": {
+          "task": "WP-019/api",
+          "merge_commit": "d932cacd5e4ff866c28ba7b60704dc1d0fad6d60",
+          "acknowledged": true,
+          "stage": "api",
+          "passed_case_portions": [],
+          "passed_gate_portions": [],
+          "deferred_case_portions": [],
+          "deferred_gate_portions": []
+        },
+        "WP-019/ui": {
+          "task": "WP-019/ui",
+          "merge_commit": "e3b980a66494b8b209ac51752f7bafd58aec27db",
+          "acknowledged": true,
+          "stage": "ui",
+          "passed_case_portions": [],
+          "passed_gate_portions": [],
+          "deferred_case_portions": [],
+          "deferred_gate_portions": []
+        }
+      }
     },
     "WP-020": {
       "status": "in_progress",
@@ -1024,16 +1159,58 @@
           "test": "GitHub required CI and openai approval",
           "result": "passed",
           "note": "WP-020/api merged in PR #224 after cross-model verification at 591e411afd. https://github.com/SebastianGarces/everyfield/pull/224#issuecomment-6330993536"
+        },
+        {
+          "path": "packages/domain/src/meetings/",
+          "commit": "e9e400a85bc54406ab2ba75f53bdcced0c258932",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-020/api merged in PR #238; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/238"
+        },
+        {
+          "path": "apps/web/src/features/meetings/",
+          "commit": "9e349acca5f60ea0d9313b192850e1f146f25af5",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-020/ui merged in PR #247; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/247"
+        },
+        {
+          "path": "packages/domain/src/meetings/",
+          "commit": "c0cd3c9e95ebb0e57cdc6179ace79a697b882a62",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-020/api merged in PR #345; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/345"
+        },
+        {
+          "path": "apps/web/src/features/meetings/",
+          "commit": "2e4f40e73381116d2b0ac72c909138bdbfd60345",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-020/ui merged in PR #344; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/344"
+        },
+        {
+          "path": "apps/web/src/features/meetings/",
+          "commit": "64fd8422189e64206c58809b7c2aa43c459a67b9",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-020/ui merged in PR #356; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/356"
+        },
+        {
+          "path": "apps/web/src/features/meetings/",
+          "commit": "de7d95e446973ccf313ea4330a01f029c9f613a9",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-020/ui merged in PR #398; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/398"
         }
       ],
       "notes": "Reviewed task milestones retained; full package closure remains at integration.",
       "owner": null,
-      "revision": 5,
-      "updated_at": "2026-10-22T02:11:29.408Z",
+      "revision": 6,
+      "updated_at": "2026-11-13T21:06:03.735Z",
       "milestones": {
         "WP-020/api": {
           "task": "WP-020/api",
-          "merge_commit": "ecafe8d019e73a09ce499e7628788430572fc663",
+          "merge_commit": "c0cd3c9e95ebb0e57cdc6179ace79a697b882a62",
           "acknowledged": true,
           "stage": "api",
           "passed_case_portions": [],
@@ -1043,7 +1220,7 @@
         },
         "WP-020/ui": {
           "task": "WP-020/ui",
-          "merge_commit": "172e21018f76816fede6e79a4b6f4b35234c2020",
+          "merge_commit": "de7d95e446973ccf313ea4330a01f029c9f613a9",
           "acknowledged": true,
           "stage": "ui",
           "passed_case_portions": [],
@@ -1078,16 +1255,44 @@
           "test": "GitHub required CI and openai approval",
           "result": "passed",
           "note": "WP-022/ui merged in PR #221 after cross-model verification at e6aa5b4155. https://github.com/SebastianGarces/everyfield/pull/221#issuecomment-6331913492"
+        },
+        {
+          "path": "apps/web/src/features/meetings/",
+          "commit": "0a61f7f1d1f0a3bcc8231bda7673ef97b506a8a9",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-022/ui merged in PR #338; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/338"
+        },
+        {
+          "path": "packages/domain/src/meetings/",
+          "commit": "01aca670756949cd65297406368c35982e9a8700",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-022/api merged in PR #357; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/357"
+        },
+        {
+          "path": "apps/web/src/features/meetings/",
+          "commit": "9fed785fc29900e2bcca17478e7c74385dae655c",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-022/ui merged in PR #365; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/365"
+        },
+        {
+          "path": "tests/integration/meetings/",
+          "commit": "cb98e56010c93c1a4942f73638af80c326c8ea11",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-022/api merged in PR #369; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/369"
         }
       ],
       "notes": "Reviewed task milestones retained; full package closure remains at integration.",
       "owner": null,
-      "revision": 3,
-      "updated_at": "2026-10-22T03:51:52.247Z",
+      "revision": 4,
+      "updated_at": "2026-11-13T21:06:03.735Z",
       "milestones": {
         "WP-022/api": {
           "task": "WP-022/api",
-          "merge_commit": "0ae5ade965d729f1937ba98ee4d66a43e77849cf",
+          "merge_commit": "cb98e56010c93c1a4942f73638af80c326c8ea11",
           "acknowledged": true,
           "stage": "api",
           "passed_case_portions": [],
@@ -1097,7 +1302,7 @@
         },
         "WP-022/ui": {
           "task": "WP-022/ui",
-          "merge_commit": "414e0c83b8ba51215cc66f4cdc7157e908f94f3d",
+          "merge_commit": "9fed785fc29900e2bcca17478e7c74385dae655c",
           "acknowledged": true,
           "stage": "ui",
           "passed_case_portions": [],
@@ -1123,16 +1328,37 @@
           "test": "GitHub required CI and openai approval",
           "result": "passed",
           "note": "WP-023/ui merged in PR #226 after cross-model verification at ad0c826121. https://github.com/SebastianGarces/everyfield/pull/226#issuecomment-6333621788"
+        },
+        {
+          "path": "packages/domain/src/followups/",
+          "commit": "1c4892b99a9626e800dd59e15f823fa57e763d35",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-023/api merged in PR #361; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/361"
+        },
+        {
+          "path": "packages/domain/src/followups/",
+          "commit": "d744aeacaa5fdee25646613ded72cc71c429604c",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-023/api merged in PR #380; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/380"
+        },
+        {
+          "path": "apps/web/src/features/followups/",
+          "commit": "8746ecc8a4bd7d15cea6c4622dd07fa380c22f7d",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-023/ui merged in PR #384; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/384"
         }
       ],
       "notes": "Reviewed task milestones retained; full package closure remains at integration.",
       "owner": null,
-      "revision": 2,
-      "updated_at": "2026-10-22T05:42:16.524Z",
+      "revision": 3,
+      "updated_at": "2026-11-13T21:06:03.735Z",
       "milestones": {
         "WP-023/api": {
           "task": "WP-023/api",
-          "merge_commit": "d6ff32f6aab71fd550e93b15c9906d06be7caed5",
+          "merge_commit": "d744aeacaa5fdee25646613ded72cc71c429604c",
           "acknowledged": true,
           "stage": "api",
           "passed_case_portions": [],
@@ -1142,7 +1368,7 @@
         },
         "WP-023/ui": {
           "task": "WP-023/ui",
-          "merge_commit": "48aff6264119432b3a1c28301c9a1352f2c3b62d",
+          "merge_commit": "8746ecc8a4bd7d15cea6c4622dd07fa380c22f7d",
           "acknowledged": true,
           "stage": "ui",
           "passed_case_portions": [],
@@ -1168,16 +1394,37 @@
           "test": "GitHub required CI and openai approval",
           "result": "passed",
           "note": "WP-024/ui merged in PR #189 after cross-model verification at 5f3ccdd337. https://github.com/SebastianGarces/everyfield/pull/189#issuecomment-6315612788"
+        },
+        {
+          "path": "apps/web/src/features/tasks/",
+          "commit": "e6b13b95f14ed9134847fc09283f919655e06feb",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-024/ui merged in PR #246; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/246"
+        },
+        {
+          "path": "packages/domain/src/tasks/",
+          "commit": "d2d26100fd6ce2768e1d0069a2c16d10387c4f07",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-024/api merged in PR #339; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/339"
+        },
+        {
+          "path": "apps/web/src/features/tasks/",
+          "commit": "45c1fbd244b57d5cbd510c7cdb0c301790baede9",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-024/ui merged in PR #341; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/341"
         }
       ],
       "notes": "Reviewed task milestones retained; full package closure remains at integration.",
       "owner": null,
-      "revision": 4,
-      "updated_at": "2026-10-21T12:15:07.764Z",
+      "revision": 5,
+      "updated_at": "2026-11-13T21:06:03.735Z",
       "milestones": {
         "WP-024/api": {
           "task": "WP-024/api",
-          "merge_commit": "8abf64fba57053cfed22585ed07dfc8e33295d10",
+          "merge_commit": "d2d26100fd6ce2768e1d0069a2c16d10387c4f07",
           "acknowledged": true,
           "stage": "api",
           "passed_case_portions": [],
@@ -1187,7 +1434,7 @@
         },
         "WP-024/ui": {
           "task": "WP-024/ui",
-          "merge_commit": "3b90ea9a7753717a4daf13e83f5b3dd7a88cc626",
+          "merge_commit": "45c1fbd244b57d5cbd510c7cdb0c301790baede9",
           "acknowledged": true,
           "stage": "ui",
           "passed_case_portions": [],
@@ -1213,16 +1460,23 @@
           "test": "GitHub required CI and openai approval",
           "result": "passed",
           "note": "WP-025/ui merged in PR #196 after cross-model verification at 4e0f7d51db. https://github.com/SebastianGarces/everyfield/pull/196#issuecomment-6322448924"
+        },
+        {
+          "path": "packages/domain/src/tasks/",
+          "commit": "16070106b375a64f96e87a9c47c377306592618a",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-025/api merged in PR #241; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/241"
         }
       ],
       "notes": "Reviewed task milestones retained; full package closure remains at integration.",
       "owner": null,
-      "revision": 3,
-      "updated_at": "2026-10-21T21:10:54.167Z",
+      "revision": 4,
+      "updated_at": "2026-11-13T21:06:03.735Z",
       "milestones": {
         "WP-025/api": {
           "task": "WP-025/api",
-          "merge_commit": "171b46412d7326f90e3fd412aec76fe7828799d7",
+          "merge_commit": "16070106b375a64f96e87a9c47c377306592618a",
           "acknowledged": true,
           "stage": "api",
           "passed_case_portions": [],
@@ -1243,44 +1497,322 @@
       }
     },
     "WP-026": {
-      "status": "not_started",
-      "evidence": [],
-      "notes": "",
+      "status": "in_progress",
+      "evidence": [
+        {
+          "path": "packages/domain/src/tasks/",
+          "commit": "0306112698d45481de6cd70216441b0873351f42",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-026 merged in PR #431; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/431"
+        },
+        {
+          "path": "packages/domain/src/tasks/",
+          "commit": "b296445d9a0953b1c4025f82a98edeff86d58dc6",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-026 merged in PR #501; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/501"
+        },
+        {
+          "path": "packages/contracts/src/tasks/",
+          "commit": "46cdbf345b2b3b9ec59dfe9d37de1e5794f28ad2",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-026 merged in PR #502; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/502"
+        },
+        {
+          "path": "apps/web/src/features/tasks/",
+          "commit": "573c40867de0d5cb01f5d396709fd606d46ed468",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-026 merged in PR #507; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/507"
+        }
+      ],
+      "notes": "Merged milestones recorded by T-290 on 2026-11-13; full package closure remains at integration.",
       "owner": null,
-      "revision": 0,
-      "updated_at": null
+      "revision": 1,
+      "updated_at": "2026-11-13T21:06:03.735Z",
+      "milestones": {
+        "WP-026": {
+          "task": "WP-026",
+          "merge_commit": "573c40867de0d5cb01f5d396709fd606d46ed468",
+          "acknowledged": true,
+          "stage": "producer",
+          "passed_case_portions": [],
+          "passed_gate_portions": [],
+          "deferred_case_portions": [],
+          "deferred_gate_portions": []
+        }
+      }
     },
     "WP-027": {
-      "status": "not_started",
-      "evidence": [],
-      "notes": "",
+      "status": "in_progress",
+      "evidence": [
+        {
+          "path": "packages/domain/src/communication/",
+          "commit": "e804f34b850e119bd92dd004874e5fff731670e5",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-027/api merged in PR #277; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/277"
+        },
+        {
+          "path": "apps/web/src/features/communication/",
+          "commit": "958505d21e1837bcd6ea394982e7a74243944f73",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-027/ui merged in PR #285; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/285"
+        },
+        {
+          "path": "packages/contracts/src/communication/",
+          "commit": "3c3a391354a9f7ba7391851f1ebf0cefcef4956c",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-027/api merged in PR #336; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/336"
+        },
+        {
+          "path": "apps/web/src/features/communication/",
+          "commit": "579fe36e85d82ba3a07521a5efbc5b3fa5df0273",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-027/ui merged in PR #347; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/347"
+        },
+        {
+          "path": "apps/web/src/features/communication/",
+          "commit": "882e2d8aae95452c5f79dc5a27ebc687dbf84709",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-027 merged in PR #423; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/423"
+        }
+      ],
+      "notes": "Merged milestones recorded by T-290 on 2026-11-13; full package closure remains at integration.",
       "owner": null,
-      "revision": 0,
-      "updated_at": null
+      "revision": 1,
+      "updated_at": "2026-11-13T21:06:03.735Z",
+      "milestones": {
+        "WP-027/api": {
+          "task": "WP-027/api",
+          "merge_commit": "3c3a391354a9f7ba7391851f1ebf0cefcef4956c",
+          "acknowledged": true,
+          "stage": "api",
+          "passed_case_portions": [],
+          "passed_gate_portions": [],
+          "deferred_case_portions": [],
+          "deferred_gate_portions": []
+        },
+        "WP-027/ui": {
+          "task": "WP-027/ui",
+          "merge_commit": "579fe36e85d82ba3a07521a5efbc5b3fa5df0273",
+          "acknowledged": true,
+          "stage": "ui",
+          "passed_case_portions": [],
+          "passed_gate_portions": [],
+          "deferred_case_portions": [],
+          "deferred_gate_portions": []
+        },
+        "WP-027": {
+          "task": "WP-027",
+          "merge_commit": "882e2d8aae95452c5f79dc5a27ebc687dbf84709",
+          "acknowledged": true,
+          "stage": "producer",
+          "passed_case_portions": [],
+          "passed_gate_portions": [],
+          "deferred_case_portions": [],
+          "deferred_gate_portions": []
+        }
+      }
     },
     "WP-028": {
-      "status": "not_started",
-      "evidence": [],
-      "notes": "",
+      "status": "in_progress",
+      "evidence": [
+        {
+          "path": "packages/domain/src/communication/",
+          "commit": "cad06919dd437d5e86287ef4c3cc0cf2e539ba17",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-028/api merged in PR #284; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/284"
+        },
+        {
+          "path": "apps/web/src/features/communication/",
+          "commit": "a27bdb41939f592f879c35015145d7be835f0cac",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-028/ui merged in PR #291; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/291"
+        },
+        {
+          "path": "packages/domain/src/communication/",
+          "commit": "11baf4c6856e91aca7ee3b02cd5e37dbd67bd008",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-028 merged in PR #437; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/437"
+        }
+      ],
+      "notes": "Merged milestones recorded by T-290 on 2026-11-13; full package closure remains at integration.",
       "owner": null,
-      "revision": 0,
-      "updated_at": null
+      "revision": 1,
+      "updated_at": "2026-11-13T21:06:03.735Z",
+      "milestones": {
+        "WP-028/api": {
+          "task": "WP-028/api",
+          "merge_commit": "cad06919dd437d5e86287ef4c3cc0cf2e539ba17",
+          "acknowledged": true,
+          "stage": "api",
+          "passed_case_portions": [],
+          "passed_gate_portions": [],
+          "deferred_case_portions": [],
+          "deferred_gate_portions": []
+        },
+        "WP-028/ui": {
+          "task": "WP-028/ui",
+          "merge_commit": "a27bdb41939f592f879c35015145d7be835f0cac",
+          "acknowledged": true,
+          "stage": "ui",
+          "passed_case_portions": [],
+          "passed_gate_portions": [],
+          "deferred_case_portions": [],
+          "deferred_gate_portions": []
+        },
+        "WP-028": {
+          "task": "WP-028",
+          "merge_commit": "11baf4c6856e91aca7ee3b02cd5e37dbd67bd008",
+          "acknowledged": true,
+          "stage": "producer",
+          "passed_case_portions": [],
+          "passed_gate_portions": [],
+          "deferred_case_portions": [],
+          "deferred_gate_portions": []
+        }
+      }
     },
     "WP-029": {
-      "status": "not_started",
-      "evidence": [],
-      "notes": "",
+      "status": "in_progress",
+      "evidence": [
+        {
+          "path": "packages/domain/src/communication/",
+          "commit": "6e95bb75d2e3a1ccb428fa045fddada1c6bd309f",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-029/api merged in PR #290; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/290"
+        },
+        {
+          "path": "apps/web/src/features/communication/",
+          "commit": "46c2caf17a524a6f714a4e5f3eff3165d6f547ab",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-029/ui merged in PR #296; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/296"
+        },
+        {
+          "path": "apps/web/src/features/communication/",
+          "commit": "66a622292f2d87d566a9fb673ac88bf9051481a3",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-029 merged in PR #463; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/463"
+        }
+      ],
+      "notes": "Merged milestones recorded by T-290 on 2026-11-13; full package closure remains at integration.",
       "owner": null,
-      "revision": 0,
-      "updated_at": null
+      "revision": 1,
+      "updated_at": "2026-11-13T21:06:03.735Z",
+      "milestones": {
+        "WP-029/api": {
+          "task": "WP-029/api",
+          "merge_commit": "6e95bb75d2e3a1ccb428fa045fddada1c6bd309f",
+          "acknowledged": true,
+          "stage": "api",
+          "passed_case_portions": [],
+          "passed_gate_portions": [],
+          "deferred_case_portions": [],
+          "deferred_gate_portions": []
+        },
+        "WP-029/ui": {
+          "task": "WP-029/ui",
+          "merge_commit": "46c2caf17a524a6f714a4e5f3eff3165d6f547ab",
+          "acknowledged": true,
+          "stage": "ui",
+          "passed_case_portions": [],
+          "passed_gate_portions": [],
+          "deferred_case_portions": [],
+          "deferred_gate_portions": []
+        },
+        "WP-029": {
+          "task": "WP-029",
+          "merge_commit": "66a622292f2d87d566a9fb673ac88bf9051481a3",
+          "acknowledged": true,
+          "stage": "producer",
+          "passed_case_portions": [],
+          "passed_gate_portions": [],
+          "deferred_case_portions": [],
+          "deferred_gate_portions": []
+        }
+      }
     },
     "WP-030": {
-      "status": "not_started",
-      "evidence": [],
-      "notes": "",
+      "status": "in_progress",
+      "evidence": [
+        {
+          "path": "packages/domain/src/notifications/",
+          "commit": "cfedd871fbc45a307503026f8debd40f2e9aeb9e",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-030/api merged in PR #271; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/271"
+        },
+        {
+          "path": "apps/web/src/features/notifications/",
+          "commit": "fe8677e5b210ef98b0c8f69c6730890fc7d43a3e",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-030/ui merged in PR #276; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/276"
+        },
+        {
+          "path": "tests/integration/notifications/",
+          "commit": "a05124771d5f3bca6972b89bb0af8435872e41e9",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-030/api merged in PR #299; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/299"
+        },
+        {
+          "path": "packages/domain/src/notifications/",
+          "commit": "38e06cbf975b507197167138bd2c0d4becd64300",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-030 merged in PR #439; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/439"
+        }
+      ],
+      "notes": "Merged milestones recorded by T-290 on 2026-11-13; full package closure remains at integration.",
       "owner": null,
-      "revision": 0,
-      "updated_at": null
+      "revision": 1,
+      "updated_at": "2026-11-13T21:06:03.735Z",
+      "milestones": {
+        "WP-030/api": {
+          "task": "WP-030/api",
+          "merge_commit": "a05124771d5f3bca6972b89bb0af8435872e41e9",
+          "acknowledged": true,
+          "stage": "api",
+          "passed_case_portions": [],
+          "passed_gate_portions": [],
+          "deferred_case_portions": [],
+          "deferred_gate_portions": []
+        },
+        "WP-030/ui": {
+          "task": "WP-030/ui",
+          "merge_commit": "fe8677e5b210ef98b0c8f69c6730890fc7d43a3e",
+          "acknowledged": true,
+          "stage": "ui",
+          "passed_case_portions": [],
+          "passed_gate_portions": [],
+          "deferred_case_portions": [],
+          "deferred_gate_portions": []
+        },
+        "WP-030": {
+          "task": "WP-030",
+          "merge_commit": "38e06cbf975b507197167138bd2c0d4becd64300",
+          "acknowledged": true,
+          "stage": "producer",
+          "passed_case_portions": [],
+          "passed_gate_portions": [],
+          "deferred_case_portions": [],
+          "deferred_gate_portions": []
+        }
+      }
     },
     "WP-031": {
       "status": "in_progress",
@@ -1291,16 +1823,30 @@
           "test": "GitHub required CI and anthropic approval",
           "result": "passed",
           "note": "WP-031 merged in PR #90 after cross-model verification at 91cddcaca7. https://github.com/SebastianGarces/everyfield/pull/90#issuecomment-6249454381"
+        },
+        {
+          "path": "apps/web/src/server/jobs/",
+          "commit": "a7e437affe06c3aae08b55aeff9ab2229efc84be",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-031 merged in PR #253; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/253"
+        },
+        {
+          "path": "apps/web/src/server/jobs/",
+          "commit": "121e266c88923da50099581e2240ec2753f08182",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-031 merged in PR #257; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/257"
         }
       ],
       "notes": "Reviewed task milestones retained; full package closure remains at integration.",
       "owner": null,
-      "revision": 2,
-      "updated_at": "2026-10-18T11:38:50.562Z",
+      "revision": 3,
+      "updated_at": "2026-11-13T21:06:03.735Z",
       "milestones": {
         "WP-031": {
           "task": "WP-031",
-          "merge_commit": "126de1fa9fbc0611e5ceda474048d34a674cf1a5",
+          "merge_commit": "121e266c88923da50099581e2240ec2753f08182",
           "acknowledged": true,
           "stage": "producer",
           "passed_case_portions": [],
@@ -1319,16 +1865,23 @@
           "test": "GitHub required CI and anthropic approval",
           "result": "passed",
           "note": "WP-032 merged in PR #89 after cross-model verification at fb0accbcca. https://github.com/SebastianGarces/everyfield/pull/89#issuecomment-6249577959"
+        },
+        {
+          "path": "packages/reference/src/",
+          "commit": "8a9e63278020b600821a23649a29d2555a250950",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-032 merged in PR #421; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/421"
         }
       ],
       "notes": "Reviewed task milestones retained; full package closure remains at integration.",
       "owner": null,
-      "revision": 2,
-      "updated_at": "2026-10-18T11:52:33.370Z",
+      "revision": 3,
+      "updated_at": "2026-11-13T21:06:03.735Z",
       "milestones": {
         "WP-032": {
           "task": "WP-032",
-          "merge_commit": "0d40609f16ee81f2960981a8ae4eab13f78c0e0f",
+          "merge_commit": "8a9e63278020b600821a23649a29d2555a250950",
           "acknowledged": true,
           "stage": "producer",
           "passed_case_portions": [],
@@ -1339,60 +1892,438 @@
       }
     },
     "WP-033": {
-      "status": "not_started",
-      "evidence": [],
-      "notes": "",
+      "status": "in_progress",
+      "evidence": [
+        {
+          "path": "packages/reference/src/starter/verify/",
+          "commit": "b9c39352c4013a15797f5e36b5f244e516de48d4",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-033 merged in PR #270; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/270"
+        },
+        {
+          "path": "packages/reference/src/starter/verify/",
+          "commit": "c29cf6af5479ef748aa7972f043fd50898e52cc9",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-033 merged in PR #414; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/414"
+        }
+      ],
+      "notes": "Merged milestones recorded by T-290 on 2026-11-13; full package closure remains at integration.",
       "owner": null,
-      "revision": 0,
-      "updated_at": null
+      "revision": 1,
+      "updated_at": "2026-11-13T21:06:03.735Z",
+      "milestones": {
+        "WP-033": {
+          "task": "WP-033",
+          "merge_commit": "c29cf6af5479ef748aa7972f043fd50898e52cc9",
+          "acknowledged": true,
+          "stage": "producer",
+          "passed_case_portions": [],
+          "passed_gate_portions": [],
+          "deferred_case_portions": [],
+          "deferred_gate_portions": []
+        }
+      }
     },
     "WP-034": {
-      "status": "not_started",
-      "evidence": [],
-      "notes": "",
+      "status": "in_progress",
+      "evidence": [
+        {
+          "path": "packages/domain/src/wiki/",
+          "commit": "4f0ffa8a92e85d8aad8f9a3b27435856aaccbec2",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-034/api merged in PR #281; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/281"
+        },
+        {
+          "path": "apps/web/src/features/wiki/",
+          "commit": "03ef8875877091e8ff09c42edf2fa68706206fdd",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-034/ui merged in PR #286; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/286"
+        },
+        {
+          "path": "apps/web/src/features/wiki/",
+          "commit": "63e46c87977fd087213e1c3d67eb80010bd6ed3f",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-034/ui merged in PR #335; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/335"
+        },
+        {
+          "path": "apps/web/src/features/wiki/",
+          "commit": "b861933b45ec3c154f3bde88031988797d925629",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-034/ui merged in PR #343; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/343"
+        },
+        {
+          "path": "apps/web/src/features/wiki/",
+          "commit": "8979baeb39d12bd03daf36358eacc70413f9bd23",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-034/ui merged in PR #399; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/399"
+        },
+        {
+          "path": "packages/domain/src/wiki/",
+          "commit": "a51eca35726672672abf8faebbbb0b30800543d7",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-034 merged in PR #436; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/436"
+        },
+        {
+          "path": "packages/domain/src/wiki/",
+          "commit": "25a79dbb8acca81f75499072e34b813946641b2e",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-034/api merged in PR #446; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/446"
+        },
+        {
+          "path": "packages/domain/src/wiki/",
+          "commit": "dc057316a6128dfe5b6c81e67b114e3d5c248768",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-034/ui merged in PR #451; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/451"
+        }
+      ],
+      "notes": "Merged milestones recorded by T-290 on 2026-11-13; full package closure remains at integration.",
       "owner": null,
-      "revision": 0,
-      "updated_at": null
+      "revision": 1,
+      "updated_at": "2026-11-13T21:06:03.735Z",
+      "milestones": {
+        "WP-034/api": {
+          "task": "WP-034/api",
+          "merge_commit": "25a79dbb8acca81f75499072e34b813946641b2e",
+          "acknowledged": true,
+          "stage": "api",
+          "passed_case_portions": [],
+          "passed_gate_portions": [],
+          "deferred_case_portions": [],
+          "deferred_gate_portions": []
+        },
+        "WP-034/ui": {
+          "task": "WP-034/ui",
+          "merge_commit": "dc057316a6128dfe5b6c81e67b114e3d5c248768",
+          "acknowledged": true,
+          "stage": "ui",
+          "passed_case_portions": [],
+          "passed_gate_portions": [],
+          "deferred_case_portions": [],
+          "deferred_gate_portions": []
+        },
+        "WP-034": {
+          "task": "WP-034",
+          "merge_commit": "a51eca35726672672abf8faebbbb0b30800543d7",
+          "acknowledged": true,
+          "stage": "producer",
+          "passed_case_portions": [],
+          "passed_gate_portions": [],
+          "deferred_case_portions": [],
+          "deferred_gate_portions": []
+        }
+      }
     },
     "WP-035": {
-      "status": "not_started",
-      "evidence": [],
-      "notes": "",
+      "status": "in_progress",
+      "evidence": [
+        {
+          "path": "packages/domain/src/wiki/",
+          "commit": "1c099833c4cb5fc4eb9a44ae2cfac9f68c979dde",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-035/api merged in PR #289; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/289"
+        },
+        {
+          "path": "apps/web/src/features/wiki/",
+          "commit": "69da914443de91893161b4d802739c5abe4ee88a",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-035/ui merged in PR #294; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/294"
+        }
+      ],
+      "notes": "Merged milestones recorded by T-290 on 2026-11-13; full package closure remains at integration.",
       "owner": null,
-      "revision": 0,
-      "updated_at": null
+      "revision": 1,
+      "updated_at": "2026-11-13T21:06:03.735Z",
+      "milestones": {
+        "WP-035/api": {
+          "task": "WP-035/api",
+          "merge_commit": "1c099833c4cb5fc4eb9a44ae2cfac9f68c979dde",
+          "acknowledged": true,
+          "stage": "api",
+          "passed_case_portions": [],
+          "passed_gate_portions": [],
+          "deferred_case_portions": [],
+          "deferred_gate_portions": []
+        },
+        "WP-035/ui": {
+          "task": "WP-035/ui",
+          "merge_commit": "69da914443de91893161b4d802739c5abe4ee88a",
+          "acknowledged": true,
+          "stage": "ui",
+          "passed_case_portions": [],
+          "passed_gate_portions": [],
+          "deferred_case_portions": [],
+          "deferred_gate_portions": []
+        }
+      }
     },
     "WP-036": {
-      "status": "not_started",
-      "evidence": [],
-      "notes": "",
+      "status": "in_progress",
+      "evidence": [
+        {
+          "path": "packages/domain/src/documents/",
+          "commit": "1ca93b6f9dd60c173556848e87f0883c05181862",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-036/api merged in PR #282; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/282"
+        },
+        {
+          "path": "apps/web/src/features/documents/",
+          "commit": "6a3ed4af34c7272b8e1c3db07912ee4730836e6c",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-036/ui merged in PR #287; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/287"
+        },
+        {
+          "path": "packages/domain/src/documents/",
+          "commit": "f728fa358a558433b2e63dcb3ed0490908ae322e",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-036/api merged in PR #375; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/375"
+        },
+        {
+          "path": "packages/domain/src/documents/",
+          "commit": "5d8e6caf90bfdbc6f3b8d5a76a8584b8f37432cc",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-036/api merged in PR #382; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/382"
+        },
+        {
+          "path": "apps/web/src/features/documents/",
+          "commit": "aa5951e374fbd92599a482bb75487b539aa7e342",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-036/ui merged in PR #383; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/383"
+        },
+        {
+          "path": "packages/domain/src/documents/",
+          "commit": "8e7e0d1b47e87996d85cc0fe0169755adc80e2e5",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-036 merged in PR #413; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/413"
+        },
+        {
+          "path": "packages/domain/src/documents/",
+          "commit": "8079a45009d80cf068be67f82562a2dfabc3d870",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-036 merged in PR #416; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/416"
+        },
+        {
+          "path": "packages/domain/src/documents/",
+          "commit": "07f81087eb77c170f6a2c9c0b7975dedea7467ff",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-036 merged in PR #420; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/420"
+        }
+      ],
+      "notes": "Merged milestones recorded by T-290 on 2026-11-13; full package closure remains at integration.",
       "owner": null,
-      "revision": 0,
-      "updated_at": null
+      "revision": 1,
+      "updated_at": "2026-11-13T21:06:03.735Z",
+      "milestones": {
+        "WP-036/api": {
+          "task": "WP-036/api",
+          "merge_commit": "5d8e6caf90bfdbc6f3b8d5a76a8584b8f37432cc",
+          "acknowledged": true,
+          "stage": "api",
+          "passed_case_portions": [],
+          "passed_gate_portions": [],
+          "deferred_case_portions": [],
+          "deferred_gate_portions": []
+        },
+        "WP-036/ui": {
+          "task": "WP-036/ui",
+          "merge_commit": "aa5951e374fbd92599a482bb75487b539aa7e342",
+          "acknowledged": true,
+          "stage": "ui",
+          "passed_case_portions": [],
+          "passed_gate_portions": [],
+          "deferred_case_portions": [],
+          "deferred_gate_portions": []
+        },
+        "WP-036": {
+          "task": "WP-036",
+          "merge_commit": "07f81087eb77c170f6a2c9c0b7975dedea7467ff",
+          "acknowledged": true,
+          "stage": "producer",
+          "passed_case_portions": [],
+          "passed_gate_portions": [],
+          "deferred_case_portions": [],
+          "deferred_gate_portions": []
+        }
+      }
     },
     "WP-037": {
-      "status": "not_started",
-      "evidence": [],
-      "notes": "",
+      "status": "in_progress",
+      "evidence": [
+        {
+          "path": "packages/domain/src/documents/",
+          "commit": "3c1f79f51168db771cbfb7744c0cb5a93dd65559",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-037/api merged in PR #288; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/288"
+        },
+        {
+          "path": "apps/web/src/features/documents/",
+          "commit": "6ab6148be976b758889783d1227037fdf8350ba9",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-037/ui merged in PR #295; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/295"
+        },
+        {
+          "path": "packages/domain/src/documents/",
+          "commit": "974ddd9b16f4cbaab068a78f554034499ecd7945",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-037 merged in PR #389; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/389"
+        }
+      ],
+      "notes": "Merged milestones recorded by T-290 on 2026-11-13; full package closure remains at integration.",
       "owner": null,
-      "revision": 0,
-      "updated_at": null
+      "revision": 1,
+      "updated_at": "2026-11-13T21:06:03.735Z",
+      "milestones": {
+        "WP-037/api": {
+          "task": "WP-037/api",
+          "merge_commit": "3c1f79f51168db771cbfb7744c0cb5a93dd65559",
+          "acknowledged": true,
+          "stage": "api",
+          "passed_case_portions": [],
+          "passed_gate_portions": [],
+          "deferred_case_portions": [],
+          "deferred_gate_portions": []
+        },
+        "WP-037/ui": {
+          "task": "WP-037/ui",
+          "merge_commit": "6ab6148be976b758889783d1227037fdf8350ba9",
+          "acknowledged": true,
+          "stage": "ui",
+          "passed_case_portions": [],
+          "passed_gate_portions": [],
+          "deferred_case_portions": [],
+          "deferred_gate_portions": []
+        },
+        "WP-037": {
+          "task": "WP-037",
+          "merge_commit": "974ddd9b16f4cbaab068a78f554034499ecd7945",
+          "acknowledged": true,
+          "stage": "producer",
+          "passed_case_portions": [],
+          "passed_gate_portions": [],
+          "deferred_case_portions": [],
+          "deferred_gate_portions": []
+        }
+      }
     },
     "WP-038": {
-      "status": "not_started",
-      "evidence": [],
-      "notes": "",
+      "status": "in_progress",
+      "evidence": [
+        {
+          "path": "packages/domain/src/phases/",
+          "commit": "97419974ece41d659a81bd419f1ddcfd544e1b55",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-038 merged in PR #426; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/426"
+        }
+      ],
+      "notes": "Merged milestones recorded by T-290 on 2026-11-13; full package closure remains at integration.",
       "owner": null,
-      "revision": 0,
-      "updated_at": null
+      "revision": 1,
+      "updated_at": "2026-11-13T21:06:03.735Z",
+      "milestones": {
+        "WP-038": {
+          "task": "WP-038",
+          "merge_commit": "97419974ece41d659a81bd419f1ddcfd544e1b55",
+          "acknowledged": true,
+          "stage": "producer",
+          "passed_case_portions": [],
+          "passed_gate_portions": [],
+          "deferred_case_portions": [],
+          "deferred_gate_portions": []
+        }
+      }
     },
     "WP-039": {
-      "status": "not_started",
-      "evidence": [],
-      "notes": "",
+      "status": "in_progress",
+      "evidence": [
+        {
+          "path": "packages/domain/src/intelligence/",
+          "commit": "f513defdef793774192bf4972fb7202c12659fb0",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-039 merged in PR #432; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/432"
+        },
+        {
+          "path": "packages/domain/src/intelligence/",
+          "commit": "f8b52e3fd4ae39ecafa96adb205c18e3cfdcfccb",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-039 merged in PR #434; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/434"
+        },
+        {
+          "path": "apps/web/src/features/intelligence/",
+          "commit": "df1d2d56b60a86760f216fd84894fe39e5a6a230",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-039 merged in PR #442; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/442"
+        },
+        {
+          "path": "apps/web/src/features/intelligence/",
+          "commit": "ca78760c0e0bacce22b76f9ed3760a97ebd53f63",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-039 merged in PR #450; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/450"
+        },
+        {
+          "path": "apps/web/src/features/intelligence/",
+          "commit": "e165479027c79dd53a99f3b44223369e8e2cfa84",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-039 merged in PR #504; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/504"
+        },
+        {
+          "path": "packages/domain/src/intelligence/",
+          "commit": "413677e4e390aa041a9e90aeecdf65b865b3d7e5",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-039 merged in PR #503; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/503"
+        },
+        {
+          "path": "apps/web/src/features/intelligence/",
+          "commit": "07b6b94f2915a00508ea154a6a8373830b01b800",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-039 merged in PR #505; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/505"
+        }
+      ],
+      "notes": "Merged milestones recorded by T-290 on 2026-11-13; full package closure remains at integration.",
       "owner": null,
-      "revision": 0,
-      "updated_at": null
+      "revision": 1,
+      "updated_at": "2026-11-13T21:06:03.735Z",
+      "milestones": {
+        "WP-039": {
+          "task": "WP-039",
+          "merge_commit": "07b6b94f2915a00508ea154a6a8373830b01b800",
+          "acknowledged": true,
+          "stage": "producer",
+          "passed_case_portions": [],
+          "passed_gate_portions": [],
+          "deferred_case_portions": [],
+          "deferred_gate_portions": []
+        }
+      }
     },
     "WP-040": {
       "status": "not_started",
@@ -1794,20 +2725,60 @@
       "updated_at": null
     },
     "WP-071": {
-      "status": "not_started",
-      "evidence": [],
-      "notes": "",
+      "status": "in_progress",
+      "evidence": [
+        {
+          "path": "packages/evry/src/adapters/communication/reads/",
+          "commit": "0ab66376344f2702969485aba5547800ef89cabc",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-071 merged as T-24 in PR #726; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/726"
+        }
+      ],
+      "notes": "Merged milestones recorded by T-290 on 2026-11-13; full package closure remains at integration.",
       "owner": null,
-      "revision": 0,
-      "updated_at": null
+      "revision": 1,
+      "updated_at": "2026-11-13T21:06:03.735Z",
+      "milestones": {
+        "WP-071": {
+          "task": "WP-071",
+          "merge_commit": "0ab66376344f2702969485aba5547800ef89cabc",
+          "acknowledged": true,
+          "stage": "producer",
+          "passed_case_portions": [],
+          "passed_gate_portions": [],
+          "deferred_case_portions": [],
+          "deferred_gate_portions": []
+        }
+      }
     },
     "WP-072": {
-      "status": "not_started",
-      "evidence": [],
-      "notes": "",
+      "status": "in_progress",
+      "evidence": [
+        {
+          "path": "packages/evry/src/adapters/communication/commands/",
+          "commit": "0ab66376344f2702969485aba5547800ef89cabc",
+          "test": "GitHub required CI and merge to main",
+          "result": "passed",
+          "note": "WP-072 merged as T-24 in PR #726; recorded by T-290 from the first-parent log of main on 2026-11-13. https://github.com/SebastianGarces/everyfield/pull/726"
+        }
+      ],
+      "notes": "Merged milestones recorded by T-290 on 2026-11-13; full package closure remains at integration.",
       "owner": null,
-      "revision": 0,
-      "updated_at": null
+      "revision": 1,
+      "updated_at": "2026-11-13T21:06:03.735Z",
+      "milestones": {
+        "WP-072": {
+          "task": "WP-072",
+          "merge_commit": "0ab66376344f2702969485aba5547800ef89cabc",
+          "acknowledged": true,
+          "stage": "producer",
+          "passed_case_portions": [],
+          "passed_gate_portions": [],
+          "deferred_case_portions": [],
+          "deferred_gate_portions": []
+        }
+      }
     },
     "WP-073": {
       "status": "not_started",

@@ -63,6 +63,7 @@ import { ok } from "../../support/fixture.mts";
 import { accessCases, seedAccess } from "./tenancy-access.mts";
 import { brandingCases, seedBranding } from "./tenancy-branding.mts";
 import { deletedDocumentCases, documentsCases, seedDocuments } from "./tenancy-documents.mts";
+import { feedbackCases, seedFeedback } from "./tenancy-feedback.mts";
 import { followUpsCases, seedFollowUps } from "./tenancy-followups.mts";
 import { meetingsCases, seedMeetings } from "./tenancy-meetings.mts";
 import { onboardingCases, seedOnboarding } from "./tenancy-onboarding.mts";
@@ -79,7 +80,7 @@ const WRITE_VERBS = new Set(
 	`accept add appoint archive assign attest cancel change clear complete copy correct create delete designate dismiss dispatch
 	edit end ensure execute finalize fork generate hand import initialize invite merge offer populate propagate
 	reactivate recomplete reconcile record remove reorder replace request reschedule reset restore retire revoke save schedule
-	send set sign unmerge update upload use with withdraw`.split(/\s+/),
+	send set sign submit unmerge update upload use with withdraw`.split(/\s+/),
 );
 
 /** Every public read that takes a RequestActor, by the rule in the header. */
@@ -760,6 +761,7 @@ function cases(who) {
 		...onboardingCases(t, who),
 		...brandingCases(t, who),
 		...settingsCases(t, who),
+		...feedbackCases(t, who),
 	]);
 }
 
@@ -787,6 +789,7 @@ before(async () => {
 	await seedOnboarding(t);
 	await seedBranding(t);
 	await seedSettings(t);
+	await seedFeedback(t);
 });
 after(() => f?.close());
 

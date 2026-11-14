@@ -2,7 +2,9 @@ import type { Database, Transaction } from "@everyfield/db/client";
 import { sql } from "@everyfield/db/query";
 import { RequestActor } from "@everyfield/domain/access";
 import { CommunicationRefusal } from "@everyfield/domain/communication";
+import { MeetingsRefusal } from "@everyfield/domain/meetings";
 import { Refusal } from "@everyfield/domain/people";
+import { TeamsRefusal } from "@everyfield/domain/teams";
 import type { TaskReminders } from "@everyfield/domain/tasks";
 import { owner, sessionId } from "@everyfield/contracts/common";
 import { z } from "zod";
@@ -178,7 +180,10 @@ export async function executeProposal(
 		const refused =
 			error instanceof Refused
 				? error.code
-				: error instanceof Refusal || error instanceof CommunicationRefusal
+				: error instanceof Refusal ||
+					  error instanceof CommunicationRefusal ||
+					  error instanceof TeamsRefusal ||
+					  error instanceof MeetingsRefusal
 					? refusalCode(error.code)
 					: error instanceof EvryRefusal
 						? error.code
