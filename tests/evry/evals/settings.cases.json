@@ -217,7 +217,7 @@
 			"criterion": 6,
 			"actor": "owner",
 			"conversation": "sharing",
-			"ask": "stop sharing meetings with them",
+			"ask": "stop sharing meetings with Hill Country Network",
 			"operation": "privacy.setSharing",
 			"calls": ["privacy.getSharing"],
 			"proposal": {

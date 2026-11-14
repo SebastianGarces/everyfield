@@ -1,3 +1,4 @@
+import { requestIdentity, type RequestIdentity } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/launch";
 import { sql, type SQL } from "@everyfield/db/query";
 import { randomUUID } from "node:crypto";
@@ -5,6 +6,7 @@ import "server-only";
 import { z } from "zod";
 import { liveRead, type RequestActor } from "../access/session.ts";
 import { plantViewer, type PlantViewer } from "../documents/access.ts";
+import { hash } from "../operations/canonical.ts";
 
 type Code = c.LaunchError["code"];
 class Refusal extends Error {
@@ -26,6 +28,11 @@ const RETRY: Record<Code, c.LaunchError["retry"]> = {
 	idempotency_conflict: "never",
 	conflict: "refresh",
 	stale_review: "refresh",
+	invalid_outcome: "never",
+	invalid_debrief: "never",
+	invalid_summary: "never",
+	not_ready: "refresh",
+	derived_evidence_only: "never",
 };
 export async function settle<T>(body: () => Promise<T>): Promise<c.LaunchReply<T>> {
 	try {
@@ -64,3 +71,48 @@ export function scopeOf(authority: RequestActor): Scope {
 		admin: viewer.access.role === "member" ? sql`false` : liveRead(viewer.access, true),
 	};
 }
+
+export type Operation =
+	| "launch.schedule"
+	| "launch.postpone"
+	| "launch.completeMilestone"
+	| "launch.reopenMilestone"
+	| "launch.recordOutcome"
+	| "launch.correctOutcome"
+	| "launch.addGuestAttendance"
+	| "launch.saveDebriefDraft"
+	| "launch.submitDebrief"
+	| "launch.saveDebriefSummaryDraft"
+	| "launch.publishDebriefSummary";
+export const priorRow = z.object({ request_identity: z.unknown(), result: z.unknown() }).nullable();
+/** The stored answer of an earlier request with this key, as a CTE named `prior`. */
+export const priorKey = (scope: Scope, key: string) =>
+	sql`prior AS (SELECT a.request_identity,a.result FROM audit_event a WHERE a.tenant_id=${scope.plantId}::uuid AND a.request_key=${key})`;
+export function identityOf(
+	scope: Scope,
+	operation: Operation,
+	q: { requestKey: string; expectedRevision: string; input: unknown },
+) {
+	return requestIdentity.parse({
+		owner: { kind: "plant", id: scope.plantId },
+		actorId: scope.accountId,
+		operation,
+		requestKey: q.requestKey,
+		digest: hash({ operation, expectedRevision: q.expectedRevision, input: q.input }),
+	});
+}
+/** The same request replays its stored answer; another request with the key is refused. */
+export function replay(prior: NonNullable<z.infer<typeof priorRow>>, identity: RequestIdentity) {
+	const stored = requestIdentity.safeParse(prior.request_identity);
+	if (
+		!stored.success ||
+		stored.data.actorId !== identity.actorId ||
+		stored.data.operation !== identity.operation ||
+		stored.data.digest !== identity.digest
+	)
+		deny("idempotency_conflict");
+	return prior.result;
+}
+/** The command's own audit columns: the request key, its identity and the stored answer. */
+export const keyed = (identity: RequestIdentity, result: unknown) =>
+	sql`${identity.requestKey},${JSON.stringify(identity)}::jsonb,${JSON.stringify(result)}::jsonb`;

@@ -6,6 +6,7 @@ import type {
 	LanguageModelV4StreamPart,
 } from "@ai-sdk/provider";
 import { randomUUID } from "node:crypto";
+import { onboardingStep } from "./scripted-onboarding.ts";
 import { settingsStep } from "./scripted-settings.ts";
 
 // A deterministic stand-in for a qualified model, for local previews and tests only (selectQualifiedModel never picks
@@ -139,17 +140,23 @@ const byArea = (rows: Notice[]) => {
 };
 function notificationStep(
 	text: string,
-	tools: { read: boolean; propose: boolean },
+	tools: { read: boolean; propose: boolean; oversight: boolean },
 	result: Record<string, unknown> | null,
 ): LanguageModelV4Content[] | null {
 	const missed = /\b(missed|unread notifications|what('|’)?s new)\b/i.test(text);
 	const those = /\bmark (?:those|these|the) (\w+) (?:as )?read\b/i.exec(text);
 	const all = /\bmark (?:all|everything)(?: (?:of them|notifications))? (?:as )?read\b/i.test(text);
 	const email = /\bstop emailing me(?: about)? task reminders\b/i.test(text);
-	const cadence = /\bsend my digest (daily|weekly)\b/i.exec(text);
-	const other = /\bdigest\b.*\b(every \d+ hours?|hourly|monthly|twice a \w+)\b/i.test(text);
-	const preview = /\bnext digest\b/i.test(text);
-	const someone = /\b(?:change|turn off|stop)\b.*\b([A-Z][a-z]+)'s notifications?\b/.exec(text);
+	const cadence = /\bsend my (?:oversight )?digest (daily|weekly)\b/i.exec(text);
+	const other =
+		/\bdigest\b.*\b(every \d+ hours?|hourly|monthly|twice a \w+|(?:mon|tues|wednes|thurs|fri|satur|sun)days?|at noon)\b/i.test(
+			text,
+		);
+	const preview = /\bnext (?:oversight )?digest\b/i.test(text);
+	const someone =
+		/\b(?:[Cc]hange|[Tt]urn off|[Ss]top)\b.*\b([A-Z][a-z]+)'s (?:notifications?|(?:oversight )?digest)\b/.exec(text);
+	// In an organization, the digest is the oversight digest.
+	const digest = tools.oversight ? "oversight digest" : "church digest";
 	if (!(missed || those || all || email || cadence || other || preview || someone)) return null;
 	const propose = (operation: string, input: unknown) => [toolCall("propose_change", { operation, input })];
 	const read = (operation: string, input: unknown) => [toolCall("notifications_read", { operation, input })];
@@ -157,14 +164,14 @@ function notificationStep(
 		return [
 			{
 				type: "text",
-				text: `Each person sets their own notifications, so I can't change ${someone[1]}'s. I can change yours.`,
+				text: `Each person sets their own notifications and digest, so I can't change ${someone[1]}'s. I can change yours.`,
 			},
 		];
 	if (other)
 		return [
 			{
 				type: "text",
-				text: "Your church digest can come daily or weekly. Those are the only choices Settings offers.",
+				text: `Your ${digest} can come daily or weekly. Those are the only choices Settings offers.`,
 			},
 		];
 	if (result && typeof result.proposalId === "string")
@@ -179,12 +186,30 @@ function notificationStep(
 			],
 		});
 	if (cadence && tools.propose)
-		return propose("notifications.digestCadence.set", { cadence: cadence[1]!.toLowerCase() });
+		return propose(tools.oversight ? "notifications.oversightDigestCadence.set" : "notifications.digestCadence.set", {
+			cadence: cadence[1]!.toLowerCase(),
+		});
 	if (!tools.read) return null;
 	if (preview) {
-		if (!result) return read("notifications.previewPlanterDigest", {});
+		if (!result)
+			return read(tools.oversight ? "notifications.previewOversightDigest" : "notifications.previewPlanterDigest", {});
 		const [head, ...lines] = (result.rows as { label: string; fields: Record<string, unknown> }[] | undefined) ?? [];
-		if (!head) return [{ type: "text", text: "Your church digest is turned off, so no digest is coming." }];
+		if (!head)
+			return [
+				{
+					type: "text",
+					text: tools.oversight
+						? "No oversight digest is owed yet."
+						: "Your church digest is turned off, so no digest is coming.",
+				},
+			];
+		if (head.fields.sent === false)
+			return [
+				{
+					type: "text",
+					text: `Your next ${digest} would not be sent: no linked plant shared activity from ${String(head.fields.from)} to ${String(head.fields.to)}, and an empty digest sends nothing.`,
+				},
+			];
 		return [
 			{
 				type: "text",
@@ -607,6 +632,8 @@ function respond(options: LanguageModelV4CallOptions): LanguageModelV4Content[] 
 		return [{ type: "text", text: JSON.stringify({ kind: classify(text) }) }];
 	// "Show a formatting demo": an answer with markdown, written slowly enough to watch it grow (local previews and tests).
 	if (FORMATTING.test(text)) return [{ type: "text", text: FORMATTING_ANSWER }];
+	const onboarding = onboardingStep(options, text);
+	if (onboarding) return onboarding;
 	const settings = settingsStep(options, text);
 	if (settings) return settings;
 	const hasPeople = options.tools?.some((t) => t.name === "people_read") ?? false;
@@ -622,7 +649,10 @@ function respond(options: LanguageModelV4CallOptions): LanguageModelV4Content[] 
 	const result = lastToolOutput(options.prompt);
 	const canReadMail = options.tools?.some((t) => t.name === "communication_read") ?? false;
 	const canReadNotices = options.tools?.some((t) => t.name === "notifications_read") ?? false;
-	const notices = notificationStep(text, { read: canReadNotices, propose: canPropose }, result);
+	const oversight = JSON.stringify(options.tools?.find((t) => t.name === "notifications_read") ?? {}).includes(
+		"notifications.previewOversightDigest",
+	);
+	const notices = notificationStep(text, { read: canReadNotices, propose: canPropose, oversight }, result);
 	if (notices) return notices;
 	const email = emailStep(text, canPropose, canReadMail, result);
 	if (email) return email;

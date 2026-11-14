@@ -52,6 +52,9 @@ import { useId, useState } from "react";
 import { changeTaskStatus } from "../tasks/actions.ts";
 import { DoneBox } from "../tasks/parts.tsx";
 import { completeMilestone, postponeLaunch, reopenMilestone, setLaunchDate } from "./actions.ts";
+import { DebriefCard, SummaryCard } from "./Debrief.tsx";
+import { LaunchHistory } from "./History.tsx";
+import { OutcomeCard } from "./Outcome.tsx";
 import {
 	instantDate,
 	isOpen,
@@ -132,6 +135,17 @@ export function LaunchScreen({ plan: initial, viewer }: { plan: Plan; viewer: Vi
 		)
 	) : null;
 
+	// What happened on Launch Sunday (WP-046): first once it is recorded, after the milestones until then.
+	const after = (
+		<>
+			<OutcomeCard plan={plan} admin={viewer.admin} keys={keys} onPlan={setPlan} />
+			{plan.outcome ? <DebriefCard plan={plan} admin={viewer.admin} keys={keys} onPlan={setPlan} /> : null}
+			{viewer.admin && plan.summary && plan.debrief?.submitted ? (
+				<SummaryCard plan={plan} keys={keys} onPlan={setPlan} />
+			) : null}
+		</>
+	);
+
 	return (
 		<>
 			<PageHeader
@@ -144,13 +158,14 @@ export function LaunchScreen({ plan: initial, viewer }: { plan: Plan; viewer: Vi
 						</StatusBadge>
 					</span>
 				}
-				subtitle="Launch Sunday, the nine Playbook milestones and the prep work behind them."
+				subtitle="Launch Sunday, the nine Playbook milestones, the prep work behind them and what happened on the day."
 				actions={actions}
 			/>
 			<div className="grid grid-cols-[minmax(0,1.1fr)_minmax(0,1.9fr)] items-stretch gap-5 max-app-md:grid-cols-1">
 				<Countdown plan={plan} admin={viewer.admin} onSet={() => open("set")} />
 				<Readiness plan={plan} />
 			</div>
+			{plan.outcome ? after : null}
 			{plan.milestones.length ? (
 				<Milestones
 					plan={plan}
@@ -167,6 +182,8 @@ export function LaunchScreen({ plan: initial, viewer }: { plan: Plan; viewer: Vi
 					}
 				/>
 			) : null}
+			{plan.outcome ? null : after}
+			{viewer.admin ? <LaunchHistory today={plan.today} /> : null}
 			{draft ? (
 				<DateDialog draft={draft} saving={saving} plan={plan} onChange={setDraft} onSubmit={submitDate} />
 			) : null}
@@ -209,7 +226,7 @@ function Countdown({ plan, admin, onSet }: { plan: Plan; admin: boolean; onSet: 
 					unit: c.days === 1 ? "day overdue" : "days overdue",
 					title: "Launch Sunday has passed, not launched",
 					text: admin
-						? "No launch has been recorded for this date. Move the date or postpone it."
+						? "No launch has been recorded for this date. If it was held, record it below; if not, move the date or postpone it."
 						: "No launch has been recorded for this date.",
 				};
 			case "ahead":
@@ -222,7 +239,13 @@ function Countdown({ plan, admin, onSet }: { plan: Plan; admin: boolean; onSet: 
 						: "The final four weeks start on " + longDate(addDays(date!, -28)) + ".",
 				};
 			case "completed":
-				return { metric: null, title: "Launched", text: "Launch Sunday is recorded." };
+				return {
+					metric: null,
+					title: "Launched",
+					text: plan.outcome
+						? `Held ${longDate(plan.outcome.actualDate)}${date && date !== plan.outcome.actualDate ? `, planned for ${longDate(date)}` : ""}.`
+						: "Launch Sunday is recorded.",
+				};
 		}
 	})();
 	return (

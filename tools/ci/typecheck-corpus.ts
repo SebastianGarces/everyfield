@@ -440,7 +440,7 @@ export function copyWorkspace(root: string, to: string, dirs: string[]): void {
 type Run = { outcome: Outcome; exit: number | null; diagnostics: Diagnostic[] };
 
 async function check(copy: string, dir: string, tool: "tsc" | "bun", scripts: Record<string, string>): Promise<Run> {
-	const script = tool === "tsc" ? `${scripts["typecheck:tsc"]} --pretty false` : scripts.typecheck!;
+	const script = tool === "tsc" ? `${scripts.typecheck} --pretty false` : scripts["typecheck:bun"]!;
 	const run = await runScript(script, join(copy, dir), 900_000);
 	return { outcome: run.outcome, exit: run.code, diagnostics: parseDiagnostics(run.output) };
 }
@@ -480,7 +480,7 @@ export type CorpusReport = {
 };
 
 export async function runCorpus(root: string): Promise<CorpusReport> {
-	const packages = typecheckPackages(root).filter((p) => p.scripts["typecheck:tsc"]);
+	const packages = typecheckPackages(root).filter((p) => p.scripts["typecheck:bun"]);
 	const dirs = packages.map((p) => p.dir);
 	const scriptsOf = (dir: string) => packages.find((p) => p.dir === dir)!.scripts;
 	const copy = mkdtempSync(join(tmpdir(), "typecheck-corpus-"));

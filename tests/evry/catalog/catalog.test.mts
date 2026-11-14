@@ -40,6 +40,7 @@ test("AC:INH-REGRESSION-CAPABILITIES INV-catalog: every installed model tool is 
 		"notifications.feed",
 		"notifications.preferences.get",
 		"notifications.previewPlanterDigest",
+		"notifications.previewOversightDigest",
 		"teams.list",
 		"teams.get",
 		"teams.searchMembers",
@@ -95,6 +96,8 @@ test("AC:INH-REGRESSION-CAPABILITIES INV-catalog: every installed model tool is 
 		"seats.list",
 		"seats.listInvitations",
 		"privacy.getSharing",
+		"onboarding.getResume",
+		"discovery.getProfile",
 		"evry.selectReturnedRows",
 	]);
 	for (const id of installed) {
@@ -210,4 +213,45 @@ test("INV-member-capabilities: a Member who may change only their own notificati
 	assert.match(member, /your own notifications/);
 	assert.match(describeCatalog(catalog([])), /an Owner or Admin of this church has to make them/);
 	assert.doesNotMatch(describeCatalog(catalog(["people.updatePerson"])), /Owner or Admin/);
+});
+
+test("INV-organization-catalog: only an organization Owner or Admin gets the two oversight digest tools, beside the organization profile change", () => {
+	const id = "00000000-0000-4000-8000-0000000000a1";
+	const actor = (owner: EvryActor["owner"], contextKind: EvryActor["contextKind"], role: EvryActor["role"]) =>
+		({
+			accountId: id,
+			session: id,
+			owner,
+			contextKind,
+			role,
+			seatId: role ? id : null,
+			selfPersonId: null,
+		}) as EvryActor;
+	const organization = { kind: "organization", id, organizationKind: "sending_church" } as EvryActor["owner"];
+	const tools = (a: EvryActor) => {
+		const c = readCatalog(a);
+		return [
+			...c.domains.flatMap((d) => d.operations.map((o) => o.operation)),
+			...c.reviewedWrites.map((w) => w.operation),
+		];
+	};
+	const oversight = ["notifications.previewOversightDigest", "notifications.oversightDigestCadence.set"];
+	// T-327's organization profile change is the only other organization tool; this task adds nothing beside it.
+	for (const role of ["owner", "admin"] as const)
+		assert.deepEqual(
+			tools(actor(organization, "sending_church", role)),
+			[...oversight, "organizations.updateProfile"],
+			role,
+		);
+	assert.deepEqual(tools(actor(organization, "sending_church", "member")), []);
+	// An account with no seat gets only its own setup and Discovery tools (T-345), never an oversight digest.
+	assert.deepEqual(tools(actor({ kind: "account", id } as EvryActor["owner"], "account", null)), [
+		"discovery.getProfile",
+		"onboarding.createPlant",
+		"discovery.create",
+		"discovery.convertToPlant",
+	]);
+	const plantOwner = tools(actor({ kind: "plant", id } as EvryActor["owner"], "plant", "owner"));
+	assert.ok(plantOwner.includes("notifications.previewPlanterDigest"));
+	for (const op of oversight) assert.equal(plantOwner.includes(op), false, op);
 });

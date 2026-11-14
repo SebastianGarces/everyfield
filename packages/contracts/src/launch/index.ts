@@ -1,8 +1,21 @@
 import { z } from "zod";
 import { accountId, defineSafeError, recordId, requestKey, revision, type Reply } from "../common/values.ts";
 import { instant, localDate, type LocalDate } from "../common/time.ts";
+import {
+	debrief,
+	debriefProblem,
+	derivedMilestone,
+	evidence,
+	guests,
+	outcome,
+	outcomeProblem,
+	summary,
+	summaryProblem,
+} from "./outcome.ts";
 
-// The Launch plan contract (WP-045: LCH-001, 003, 004, 005, 008, 009, IDN-015, NTF-009). The planned Launch Sunday is a
+export * from "./outcome.ts";
+
+// The Launch plan contract (WP-045: LCH-001, 003, 004, 005, 008, 009, IDN-015, NTF-009; WP-046 adds outcome.ts). The planned Launch Sunday is a
 // church-local date; the nine Playbook milestones and their 23 prep tasks are fixed content. Requests are strict, so a
 // caller never names a plant, an actor or a status.
 
@@ -81,12 +94,20 @@ export const scheduleRequest = z.strictObject({
 	input: z.strictObject({ date: localDate, reason: z.string().nullable() }),
 });
 export const postponeRequest = z.strictObject({ ...envelope, input: z.strictObject({ reason: z.string() }) });
+/**
+ * A milestone a person completes or reopens. The two evidence-governed milestones are named by key so the server can
+ * refuse them as derived (LCH-004): only a submitted debrief decides them.
+ */
+const milestoneRef = z.union([recordId, derivedMilestone]);
 /** Complete a milestone as reviewed: `reviewed` is reviewedOf the tasks the page showed (LCH-004). */
 export const completeMilestoneRequest = z.strictObject({
 	...envelope,
-	input: z.strictObject({ milestoneId: recordId, reviewed: z.string().max(2000) }),
+	input: z.strictObject({ milestoneId: milestoneRef, reviewed: z.string().max(2000) }),
 });
-export const reopenMilestoneRequest = z.strictObject({ ...envelope, input: z.strictObject({ milestoneId: recordId }) });
+export const reopenMilestoneRequest = z.strictObject({
+	...envelope,
+	input: z.strictObject({ milestoneId: milestoneRef }),
+});
 
 const person = z.strictObject({ accountId, displayName: z.string() });
 export const prepTask = z.strictObject({
@@ -122,10 +143,21 @@ export const plan = z.strictObject({
 	/** The revision a first schedule expects while the church has no launch row. */
 	revision,
 	milestones: z.array(milestone),
+	/** What actually happened on Launch Sunday; null until someone records it, whatever the planned date says. */
+	outcome: outcome.nullable(),
+	guests,
+	/** guest_data_entered and debrief_done, from the latest submitted debrief. */
+	evidence,
+	/** The debrief and summary, for Owners and Admins; null for a Member. */
+	debrief: debrief.nullable(),
+	summary: summary.nullable(),
 });
 export type Plan = z.infer<typeof plan>;
 
 export const scheduleResult = z.strictObject({ outcome: z.enum(["changed", "noop"]), plan });
+/** Every outcome, guest, debrief and summary write answers with the plan as saved. */
+export const planResult = scheduleResult;
+export type PlanResult = z.infer<typeof planResult>;
 export const milestoneResult = z.strictObject({ outcome: z.enum(["changed", "noop"]), milestone });
 
 export const launchError = z.discriminatedUnion("code", [
@@ -136,6 +168,13 @@ export const launchError = z.discriminatedUnion("code", [
 	defineSafeError("conflict", {}, "refresh"),
 	/** The milestone's linked tasks changed since the page was read: the current tasks, to review and confirm again. */
 	defineSafeError("stale_review", { milestone }, "refresh"),
+	defineSafeError("invalid_outcome", { problem: outcomeProblem }, "never"),
+	defineSafeError("invalid_debrief", { problem: debriefProblem }, "never"),
+	defineSafeError("invalid_summary", { problem: summaryProblem }, "never"),
+	/** Guests and the debrief need a recorded Launch Sunday; the summary needs a submitted debrief. */
+	defineSafeError("not_ready", { needs: z.enum(["outcome", "debrief"]) }, "refresh"),
+	/** guest_data_entered and debrief_done have no manual checkbox (LCH-004). */
+	defineSafeError("derived_evidence_only", {}, "never"),
 ]);
 export type LaunchError = z.infer<typeof launchError>;
 export type LaunchReply<T> = Reply<T, LaunchError>;
