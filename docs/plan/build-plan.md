@@ -120,7 +120,7 @@ The DAG estimates effort from owned clauses, operations, cases and referenced ta
 | WP-091 | Identity, people, meetings, tasks, teams, Evry and operations integration | 10 | 0 | 82 | 0 | 2.5 |
 | WP-092 | Knowledge, communication and reference integration | 9 | 0 | 12 | 0 | 1.5 |
 | WP-093 | Phases, intelligence and Launch integration | 6 | 0 | 34 | 0 | 2 |
-| WP-098 | Organization pipeline, goals and conversations | 3 | 13 | 3 | 5 | 4 |
+| WP-098 | Organization pipeline, goals and conversations | 3 | 13 | 3 | 7 | 4 |
 | WP-099 | Development programs and enrollment | 3 | 11 | 3 | 5 | 3.5 |
 | WP-100 | My residency and consented progress | 2 | 3 | 2 | 0 | 2.5 |
 | WP-101 | Pipeline and development Evry adapters | 1 | 15 | 1 | 0 | 3 |

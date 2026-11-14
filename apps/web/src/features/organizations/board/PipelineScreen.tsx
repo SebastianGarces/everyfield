@@ -1,6 +1,6 @@
 "use client";
 
-import type { PipelineBoard } from "@everyfield/contracts/organizations";
+import type { PipelineBoard, PipelineGoals } from "@everyfield/contracts/organizations";
 import { Edit02Icon, PlusSignIcon, UserMultipleIcon } from "@hugeicons/core-free-icons";
 import { Button, EmptyState, PageHeader, SearchInput } from "@everyfield/ui/controls";
 import { Avatar } from "@everyfield/ui/display";
@@ -9,6 +9,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type CSSProperties } from "react";
 import { readBoard } from "./actions";
+import { GoalsArea } from "./GoalsArea";
 import { boardHref, formatDay, PIPELINE_PATH, plural } from "./model";
 import { PersonDialog, type Saved } from "./PersonDialog";
 import { StageEditor } from "./StageEditor";
@@ -19,9 +20,10 @@ type Card = Stage["people"][number];
 /**
  * The organization's Pipeline (REQ-MUL-008): one column per stage in the organization's order. Owners and Admins see
  * everyone and add people and edit stages; responsible staff see their own people; any other seat sees counts only.
- * The filters live in the address (D67). Moving a person happens on their record, with a reason.
+ * The filters live in the address (D67). Moving a person happens on their record, with a reason. Above the board,
+ * every seat sees the sending goals and conversation counts.
  */
-export function PipelineScreen({ initial }: { initial: PipelineBoard }) {
+export function PipelineScreen({ initial, goals }: { initial: PipelineBoard; goals: PipelineGoals | null }) {
 	const [board, setBoard] = useState(initial);
 	const [seen, setSeen] = useState(initial);
 	// A new server read (another address) replaces local changes.
@@ -89,6 +91,7 @@ export function PipelineScreen({ initial }: { initial: PipelineBoard }) {
 					) : null
 				}
 			/>
+			{goals && !retiredView ? <GoalsArea initial={goals} /> : null}
 			{board.audience === "counts" ? (
 				<Counts board={board} />
 			) : (
