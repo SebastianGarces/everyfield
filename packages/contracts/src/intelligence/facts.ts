@@ -37,7 +37,7 @@ export const MINISTRY_RESPONSIBILITIES = [
 	{ key: "promotion", label: "Promotion" },
 	{ key: "technology", label: "Technology" },
 ] as const;
-export const ministryKey = z.enum(MINISTRY_RESPONSIBILITIES.map((r) => r.key) as [string, ...string[]]);
+const ministryKey = z.enum(MINISTRY_RESPONSIBILITIES.map((r) => r.key) as [string, ...string[]]);
 
 const personRef = z.strictObject({ id: recordId, name: z.string() });
 export type PersonRef = z.infer<typeof personRef>;
@@ -46,13 +46,12 @@ const commitmentKind = z.enum(["core_group", "launch_team"]);
 const measuredStatus = z.enum(["met", "not_met", "unknown"]);
 
 /** One counted adult and the commitment that counts them: the kinds they signed and the date they became active. */
-export const countedAdult = z.strictObject({
+const countedAdult = z.strictObject({
 	person: personRef,
 	kinds: z.array(commitmentKind).min(1),
 	committedSince: localDate,
 	adultFrom: z.enum(["birth_date", "recorded"]),
 });
-export type CountedAdult = z.infer<typeof countedAdult>;
 
 export const committedAdults = z.strictObject({
 	/** Met at 30 known adults; Unknown while unclassified people could change the result; Not met only when they cannot. */
@@ -150,7 +149,7 @@ export const training = z.strictObject({
 });
 export type Training = z.infer<typeof training>;
 
-export const attestationFact = z.strictObject({
+const attestationFact = z.strictObject({
 	key: signalKey,
 	state: z.enum(["answered", "retracted", "unanswered"]),
 	value: signalValue.nullable(),
@@ -158,11 +157,10 @@ export const attestationFact = z.strictObject({
 	ageDays: z.int().min(0).nullable(),
 	renewal,
 });
-export type AttestationFact = z.infer<typeof attestationFact>;
 
 /** Only how many human records exist and the latest date: never scores, notes, results or qualification. */
 const recordPresence = z.strictObject({ count: z.int().min(0), latestOn: localDate.nullable() });
-export const humanRecords = z.strictObject({ interviews: recordPresence, fourCs: recordPresence });
+const humanRecords = z.strictObject({ interviews: recordPresence, fourCs: recordPresence });
 
 export const plantFacts = z.strictObject({
 	asOf: instant,
