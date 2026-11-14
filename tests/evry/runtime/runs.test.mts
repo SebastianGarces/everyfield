@@ -252,7 +252,9 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 	const memberAnswer = (await events(member, asked)).text;
 	assert.match(memberAnswer, /Find and count the people/);
 	assert.match(memberAnswer, /made by an Owner or Admin of this church/);
-	assert.match(memberAnswer, /Coming later:\n- Tasks and reminders/);
+	// Tasks, meetings, teams, the Wiki and documents have their tools now; only launch planning is still to come.
+	assert.match(memberAnswer, /Coming later:\n- Launch planning/);
+	assert.doesNotMatch(memberAnswer, /Tasks and reminders|Documents and the wiki/);
 	assert.doesNotMatch(memberAnswer, /Prepare (changes|emails)|propose/i);
 	assert.notEqual(memberAnswer, owned);
 	const seatless = await actor("seatless");
@@ -513,12 +515,12 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 						"people.listRecordCorrections",
 						"people.mergedPersonDestination",
 						"communication.list",
-						...ownerTaskReads,
 						"communication.preview",
 						"communication.get",
 						"communication.forPerson",
 						"communication.templates.list",
 						"communication.resendCandidates",
+						...ownerTaskReads,
 						"notifications.feed",
 						"notifications.preferences.get",
 						"notifications.previewPlanterDigest",
@@ -725,9 +727,9 @@ test("AC:INH-EDGES-03 AC:TEN-008 AC:EVRY-CONTEXT-BOUNDS a guessed foreign id and
 		[
 			"calendar_read",
 			"communication_read",
+			"documents_read",
 			"followups_read",
 			"meetings_read",
-			"documents_read",
 			"notifications_read",
 			"onboarding_read",
 			"peopleAssessments_read",
@@ -738,8 +740,8 @@ test("AC:INH-EDGES-03 AC:TEN-008 AC:EVRY-CONTEXT-BOUNDS a guessed foreign id and
 			"seats_read",
 			"select_returned_rows",
 			"sharing_read",
-			"tasks_read",
 			"signals_read",
+			"tasks_read",
 			"teams_read",
 			"wiki_read",
 		],

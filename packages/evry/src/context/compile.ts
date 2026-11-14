@@ -184,8 +184,22 @@ const READ_AREAS: Record<string, string> = {
 	people: "Find and count the people in your church, and spot people who may be duplicates.",
 	peopleOrganization:
 		"Read households, tags, skills, the pipeline board and a person's history, and give you the People import template.",
-	communication: "Find your email drafts and scheduled emails.",
+	peopleAssessments: "Read the interviews, 4 C's assessments, commitment cards and merges recorded for people.",
+	communication: "Find your email drafts, scheduled and sent emails, and who each one reached.",
+	tasks: "Read your church's tasks, their checklists and their history.",
+	followups: "Read follow-ups, who owns each one, and the contact log.",
+	notifications: "Read your notifications and preview your digest.",
+	teams: "Read ministries, serving roles, members and training progress.",
+	phases: "Read your church's phase journey and the exit criteria of each phase.",
+	signals: "Read the manual signals your church has recorded.",
+	meetings: "Read meetings, RSVPs, attendance, evaluations and venues.",
+	seats: "Read who has a seat here and the open invitations.",
+	sharing: "Read what your church shares with each connection.",
+	onboarding: "See where setup stands, or your own Discovery space.",
+	pipeline: "Read your organization's pipeline and draft a program plan.",
 	calendar: "Work out dates and times in your church's time zone, including the daylight saving changes.",
+	wiki: "Find what the Wiki says, what to read next and where you left off.",
+	documents: "Find your church's documents and the Church Document templates.",
 };
 /** The reviewed changes, by area, in plain words. */
 const WRITE_AREAS: { prefix: string; text: string }[] = [
@@ -200,6 +214,34 @@ const WRITE_AREAS: { prefix: string; text: string }[] = [
 	{
 		prefix: "teams.",
 		text: "Prepare ministry changes for your review: ministries, roles, members and leaders, meetings, responsibilities and training.",
+	},
+	{
+		prefix: "tasks.",
+		text: "Prepare task and follow-up changes for your review, as your seat allows: new tasks, completing or reopening them, checklists, owners and logging a contact.",
+	},
+	{
+		prefix: "meetings.",
+		text: "Prepare meeting changes for your review, as your seat allows: scheduling, RSVPs, guests, kits and attendance.",
+	},
+	{ prefix: "phases.", text: "Prepare a phase move or a recorded signal for your review." },
+	{ prefix: "wiki.", text: "Bookmark or rate a Wiki article for your review." },
+	{
+		prefix: "documents.",
+		text: "Prepare Church Documents for your review: start one from a template, save a file, archive one or mark your core values.",
+	},
+	{
+		prefix: "seats.",
+		text: "Prepare seat, invitation, church settings, sharing and connection changes for your review.",
+	},
+	{ prefix: "pipeline.", text: "Prepare a pipeline stage move or a new program for your review." },
+	{
+		prefix: "onboarding.declareJourney",
+		text: "Prepare your church's setup answers for your review, and finish setup.",
+	},
+	{ prefix: "onboarding.createPlant", text: "Prepare starting a new church for your review, with you as its Owner." },
+	{
+		prefix: "discovery.create",
+		text: "Prepare a private Discovery space for your review, to explore church planting first.",
 	},
 	{
 		prefix: "notifications.",
@@ -237,8 +279,8 @@ export function capabilitiesAnswer(catalog: Catalog, actor: Pick<EvryActor, "rol
 		? ["Here is what I can do for you here:", ...reads.map((r) => "- " + r), ...writes.map((w) => "- " + w.text)]
 		: ["I don't have anything to read in this context yet."];
 	if (writes.length) lines.push("", "Nothing changes until you review and approve it in the app.");
-	// A Member's only changes are to their own notifications: changes in the church are an Owner's or Admin's.
-	if (actor.role === "member" && !writes.some((w) => w.prefix !== "notifications."))
+	// A Member changes only their own notifications and work: people, emails and imports are an Owner's or Admin's.
+	if (actor.role === "member")
 		lines.push(
 			"",
 			`You're ${ROLE_NAME.member} here, so changes to people, emails and imports are made by an Owner or Admin of this church. I can't prepare them for you, but I can help you find what to ask them.`,

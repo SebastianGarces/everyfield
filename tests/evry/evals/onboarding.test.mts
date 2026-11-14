@@ -122,7 +122,7 @@ async function approveAndRun(actor: EvryActor, proposal: Proposal) {
 	const outcome = await executeProposal(
 		db,
 		{ jobId: claim.id, tenantId: claim.tenant_id, leaseOwner: claim.lease_owner, generation: claim.claim_generation },
-		noReminders,
+		{ reminders: noReminders, phaseNotices: async () => undefined },
 		null,
 		native,
 	);

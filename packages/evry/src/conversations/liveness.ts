@@ -78,9 +78,10 @@ const ROW_LIVENESS: Record<SourceRow["kind"], Rule> = {
 			OR EXISTS(SELECT FROM obligation o WHERE o.id=${id} AND o.plant_id=${plant}))`,
 	// A recorded outcome stays in the log, corrected or withdrawn: it is live while it exists.
 	contact: (id, plant) => sql`EXISTS(SELECT FROM contact_outcome o WHERE o.id=${id} AND o.plant_id=${plant})`,
-	// An account is live while it holds a current seat in the church.
-	account: (id, plant) =>
-		sql`EXISTS(SELECT FROM seat s WHERE s.account_id=${id} AND s.plant_id=${plant} AND s.ended_at IS NULL)`,
+	// An account is live while it holds a current seat in the church (a task's owner, T-318), and the conversation's own
+	// account always is: an account context's setup and Discovery rows name it, and it has no seat.
+	account: (id, plant, account) =>
+		sql`(${id}=${account} OR EXISTS(SELECT FROM seat s WHERE s.account_id=${id} AND s.plant_id=${plant} AND s.ended_at IS NULL))`,
 	// A tally and a status change are computed or audit facts, never a source that can go.
 	tally: null,
 	history: null,

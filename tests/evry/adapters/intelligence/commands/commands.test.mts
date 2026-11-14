@@ -32,14 +32,16 @@ const ports = {
 };
 const CORE_GROUP = { phase: 1, name: "Core Group Development" };
 const PRAYER_RHYTHM = { key: "prayer_rhythm_established", label: "Corporate prayer rhythm established" };
-/** Core Group Development's exit criteria (docs/reference/phase-exit-criteria.ts); none has measured data yet. */
+/**
+ * Core Group Development's exit criteria (docs/reference/phase-exit-criteria.ts), with the status the church's measured
+ * facts (WP-040) give them: the church has fewer than 30 committed adults, and the rest have no data yet.
+ */
 const CORE_GROUP_CRITERIA = [
-	"30 committed adults",
-	"Growth still moving",
-	"Launch funding viable",
-	"Worship leader identified",
-	"Geographic area set",
-].map((label) => ({ label, status: "no data yet" }));
+	{ label: "30 committed adults", status: "not met" },
+	...["Growth still moving", "Launch funding viable", "Worship leader identified", "Geographic area set"].map(
+		(label) => ({ label, status: "no data yet" }),
+	),
+];
 
 /** A running turn in a new conversation: the only place a proposal can be prepared. */
 async function turn(who: EvryActor) {
@@ -217,13 +219,11 @@ test("a reported signal is recorded in the Owner's words only after approval; a 
 		sql`SELECT actor_id,action FROM audit_event WHERE tenant_id=${plant} AND action LIKE 'attestation.%'`,
 	);
 	assert.deepEqual(recorded.rows, [{ actor_id: owner.accountId, action: "attestation.recorded" }]);
-	// Recorded once: a second record is shown as already answered.
-	const again = await t.propose("signals.attest", {
-		key: "prayer_rhythm_established",
-		value: "yes",
-		asOf,
-		detail: words,
-	});
+	// Recorded once: the same conversation never prepares the applied change again (T-316), and another conversation
+	// shows a second record as already answered.
+	const same = { key: "prayer_rhythm_established", value: "yes", asOf, detail: words };
+	await assert.rejects(t.propose("signals.attest", same), { code: "already_applied" });
+	const again = await (await turn(owner)).propose("signals.attest", same);
 	assert.equal(again?.review.refusal, "This signal already has an answer. Ask Evry to correct or reaffirm it instead.");
 
 	const correction = "We stopped meeting to pray for now.";

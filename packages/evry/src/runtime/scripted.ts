@@ -187,9 +187,11 @@ function limitStep(text: string, system: string, result: Record<string, unknown>
 		);
 		return say(lines.length ? lines.join("\n") : "Nothing was sent from this conversation.");
 	}
+	// A person's own notifications and digest are always theirs: the notification step answers those.
 	if (
 		!canPropose &&
 		/\b(move|change|set|update|delete|remove|add)\b/i.test(text) &&
+		!/\b(notifications?|digest)\b/i.test(text) &&
 		/Only an Owner or Admin/.test(system)
 	)
 		return say("An Owner or Admin of this church has to make that change. I can't prepare it for you.");
@@ -340,6 +342,9 @@ function wikiStep(
 	result: Record<string, unknown> | null,
 ): LanguageModelV4Content[] | null {
 	if (!options.tools?.some((t) => t.name === "wiki_read")) return null;
+	// Only a Wiki request: another tool's result or error in the same turn is not the Wiki's.
+	if (![WIKI_ASK, WIKI_NEXT, WIKI_RESUME, WIKI_BOOKMARK, WIKI_VOTE, WIKI_PDF, WIKI_EDIT].some((ask) => ask.test(text)))
+		return null;
 	const read = (operation: string, input: unknown) => [toolCall("wiki_read", { operation, input })];
 	const say = (answer: string) => [{ type: "text" as const, text: answer }];
 	const rows = (result?.rows as WikiRow[] | undefined) ?? [];

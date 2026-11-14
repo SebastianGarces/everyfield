@@ -49,6 +49,11 @@ test("AC:INH-REGRESSION-CAPABILITIES INV-catalog: every installed model tool is 
 		"people.listRecordCorrections",
 		"people.mergedPersonDestination",
 		"communication.list",
+		"communication.preview",
+		"communication.get",
+		"communication.forPerson",
+		"communication.templates.list",
+		"communication.resendCandidates",
 		"tasks.list",
 		"tasks.count",
 		"tasks.get",
@@ -68,11 +73,6 @@ test("AC:INH-REGRESSION-CAPABILITIES INV-catalog: every installed model tool is 
 		"followups.listContactHistory",
 		"tasks.followUpCoverage",
 		"tasks.planHandoff",
-		"communication.preview",
-		"communication.get",
-		"communication.forPerson",
-		"communication.templates.list",
-		"communication.resendCandidates",
 		"notifications.feed",
 		"notifications.preferences.get",
 		"notifications.previewPlanterDigest",
@@ -243,7 +243,22 @@ test("INV-catalog: the phase and signal tools follow the context: Owner and Admi
 	// and T-327's profile change. An account has none either.
 	for (const actor of [as("sending_church", "owner"), as("sending_network", "admin"), as("account", null)]) {
 		assert.deepEqual(phaseTools(actor), { phases: [], signals: [], writes: [], withheld: [] }, actor.contextKind);
-		assert.deepEqual(readCatalog(actor).domains, [], actor.contextKind);
+		// What they read instead (the pipeline, the oversight digest, setup) is their own; no plant read is among it.
+		const plantDomains = [
+			"people",
+			"peopleOrganization",
+			"tasks",
+			"followups",
+			"meetings",
+			"teams",
+			"wiki",
+			"documents",
+		];
+		assert.deepEqual(
+			readCatalog(actor).domains.filter((d) => plantDomains.includes(d.domain)),
+			[],
+			actor.contextKind,
+		);
 	}
 });
 
