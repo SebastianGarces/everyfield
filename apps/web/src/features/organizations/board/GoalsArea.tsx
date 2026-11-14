@@ -126,9 +126,11 @@ function GoalItem({ goal, onEdit }: { goal: Goal; onEdit: (() => void) | null })
 				<Figure term="Churches to plant" value={String(goal.plantTarget)} />
 				<Figure term="By" value={String(goal.targetYear)} />
 			</dl>
-			<p className="text-sm text-text-2">
-				<span className="font-medium text-ink">Plants sent: Not available yet.</span> {PLANTS_UNAVAILABLE}
-			</p>
+			{goal.plantTarget ? (
+				<p className="text-sm text-text-2">
+					<span className="font-medium text-ink">Plants sent: Not available yet.</span> {PLANTS_UNAVAILABLE}
+				</p>
+			) : null}
 		</article>
 	);
 }
