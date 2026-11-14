@@ -134,6 +134,11 @@ test("AC:INH-REGRESSION-CAPABILITIES INV-catalog: every installed model tool is 
 		"development.draftPlan",
 		"calendar.getContext",
 		"calendar.resolve",
+		"wiki.search",
+		"wiki.referenceExcerpt",
+		"wiki.recommendForPhase",
+		"wiki.reading.resume",
+		"wiki.article.exportPdf",
 		"evry.selectReturnedRows",
 	]);
 	for (const id of installed) {

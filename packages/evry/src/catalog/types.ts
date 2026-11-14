@@ -8,7 +8,7 @@ import type { NativePorts } from "../proposals/types.ts";
  * Selection re-checks `person` rows only. A household, tag, skill, activity, file, import, message, notice, setting,
  * digest, date, record, merge or correction row is not a person. An organization pipeline person is a person of that
  * organization. A meeting or venue row names that record; an item row is a part of one (an agenda section, a kit item,
- * a report line).
+ * a report line). An `article` row's id is the exact Wiki revision it shows.
  */
 export type SourceRow = {
 	kind:
@@ -46,7 +46,8 @@ export type SourceRow = {
 		| "step"
 		| "relationship"
 		| "stage"
-		| "date";
+		| "date"
+		| "article";
 	id: string;
 	label: string;
 	/** `you: true` marks the signed-in user's own person row (see person-row.ts); no other row carries it. */

@@ -2,6 +2,7 @@
 
 import {
 	Award01Icon,
+	BookOpen01Icon,
 	Briefcase01Icon,
 	Calendar03Icon,
 	Call02Icon,
@@ -59,6 +60,7 @@ const GLYPH: Record<Glyph, IconSvgElement> = {
 	record: Note01Icon,
 	merge: GitMergeIcon,
 	correction: Edit02Icon,
+	article: BookOpen01Icon,
 	notice: Notification01Icon,
 	setting: Settings02Icon,
 	digest: CheckListIcon,
@@ -187,10 +189,24 @@ export function ResultCard({
 									>
 										{body}
 									</IntentLink>
+								) : view.file ? (
+									<a
+										href={view.file}
+										download
+										data-focus-inset=""
+										className={cn(rowClass, "cursor-pointer transition-[background-color] hover:bg-hover")}
+									>
+										{body}
+									</a>
 								) : (
 									<div className={rowClass}>{body}</div>
 								)}
 								{full}
+								{view.quote ? (
+									<blockquote className="mx-2 mb-2 border-l-2 border-line-2 pl-3 text-sm whitespace-pre-line text-ink-2">
+										{view.quote}
+									</blockquote>
+								) : null}
 							</li>
 						);
 					})}

@@ -3,6 +3,7 @@
 import {
 	Alert02Icon,
 	ArrowRight02Icon,
+	BookOpen01Icon,
 	Calendar03Icon,
 	Location01Icon,
 	Briefcase01Icon,
@@ -70,6 +71,7 @@ import {
 	isRequired,
 	isTasks,
 	itemField,
+	isWiki,
 	MAIL_DISMISSED,
 	mailHead,
 	mailRefusalText,
@@ -97,7 +99,9 @@ import {
 	showsBefore,
 	shownChanges,
 	subjectName,
+	targetHref,
 	valueText,
+	wikiRefusalText,
 	type Change,
 	type Phase,
 	type Review,
@@ -476,9 +480,11 @@ function note(view: View, review: Review | null, lapsed: boolean, unknown?: Acti
 				return `A record in the ${who ?? "change"} changed after Evry prepared this, so it couldn't be applied and nothing was changed for anyone. This is how they are now. Ask Evry to prepare it again.`;
 			return mail
 				? mailRefusalText(review.receipt?.code)
-				: review && isSettings(review.operation)
-					? settingsRefusalText(review.receipt?.code)
-					: refusalText(review?.receipt?.code, who, review?.operation);
+				: review && isWiki(review.operation)
+					? wikiRefusalText(review.receipt?.code)
+					: review && isSettings(review.operation)
+						? settingsRefusalText(review.receipt?.code)
+						: refusalText(review?.receipt?.code, who, review?.operation);
 		case "unconfirmed":
 			return review && retryable(review, lapsed)
 				? "Evry can't confirm that this was saved. Try again. A change that was saved is not saved twice."
@@ -495,11 +501,13 @@ function note(view: View, review: Review | null, lapsed: boolean, unknown?: Acti
 				: "This review expired, so nothing was changed. Prepare it again to check the current values.";
 		case "cancelled":
 			return "You cancelled this change. Nothing was changed.";
-		case "withheld":
+		case "withheld": {
 			// Nothing ran unless it was approved; after an approval the card can't see the result any more.
+			const what = review && isWiki(review.operation) ? "The article" : `The ${record}`;
 			return review?.status === "approved"
-				? `The ${record} in this change is no longer available to you, so Evry can't show this change or its result.`
-				: `The ${record} in this change is no longer available to you. Nothing was changed.`;
+				? `${what} in this change is no longer available to you, so Evry can't show this change or its result.`
+				: `${what} in this change is no longer available to you. Nothing was changed.`;
+		}
 		case "unavailable":
 			// Access ended, so the card can't read the result: it says so and claims nothing about the change.
 			return "You can't see this change now, so Evry can't show its result. Changes like this need an Owner or Admin seat in this church.";
@@ -864,7 +872,7 @@ function Footer({
 					</Button>
 				) : who ? (
 					<Button size="sm" variant="secondary" asChild>
-						<IntentLink href={`/people/${who.id}`}>Open {who.label}</IntentLink>
+						<IntentLink href={targetHref(who)}>Open {who.label}</IntentLink>
 					</Button>
 				) : null}
 				<span className="flex-1" />
@@ -1008,6 +1016,7 @@ const RECORD_GLYPH: Partial<Record<NonNullable<Review["review"]["target"]>["kind
 	responsibility: CheckListIcon,
 	household: Home01Icon,
 	tag: Tag01Icon,
+	article: BookOpen01Icon,
 	meeting: Calendar03Icon,
 	venue: Location01Icon,
 };
@@ -1053,8 +1062,8 @@ function Affects({ review }: { review: Review }) {
 					? FileImportIcon
 					: task
 						? Task01Icon
-						: kind === "household"
-							? Home01Icon
+						: kind === "household" || kind === "article"
+							? RECORD_GLYPH[kind]
 							: kind === "tag" || tag
 								? Tag01Icon
 								: mail

@@ -8,13 +8,25 @@ import {
 	updateProgressRequest,
 	type WikiReply,
 } from "@everyfield/contracts/wiki";
-import type { Database } from "@everyfield/db/client";
+import type { Database, Transaction } from "@everyfield/db/client";
 import { sql } from "@everyfield/db/query";
 import "server-only";
 import { z } from "zod";
 import type { RequestActor } from "../access/session.ts";
 import { corpusCtes } from "./corpus.ts";
-import { deny, meSql, runWrite, selectedOwner, WikiOutcome, parse } from "./core.ts";
+import {
+	accessDenied,
+	claimedWrite,
+	deny,
+	meSql,
+	ownWrite,
+	runWrite,
+	selectedOwner,
+	WikiOutcome,
+	parse,
+	type Runner,
+} from "./core.ts";
+import type { PeopleContext } from "@everyfield/contracts/people";
 
 type ReadingValue = z.infer<typeof readingResult>;
 type OrderValue = z.infer<typeof sourceOrderResult>;
@@ -45,7 +57,7 @@ function duplicates(ids: string[]): boolean {
 }
 
 async function saveReading(
-	db: Database,
+	run: Runner,
 	authority: RequestActor,
 	operation: string,
 	input: {
@@ -65,7 +77,7 @@ async function saveReading(
 	const expected = !input.expectedRevision || input.expectedRevision === "0" ? "1" : input.expectedRevision;
 	const fresh = mode === "bookmark" ? sql`COALESCE(e.revision, 1)::text = ${expected}` : sql`true`;
 	const current = mode === "bookmark" ? sql`reading.revision::text = ${expected}` : sql`true`;
-	return runWrite(db, authority, account, operation, input, readingResult, async (tx) => {
+	return run(account, operation, input, readingResult, async (tx) => {
 		const result = await tx.execute(sql`WITH ${corpusCtes({ authority, owner }, { kind: "current" })},
 			visible AS (
 				SELECT * FROM picked WHERE article_id = ${input.input.articleId}::uuid AND NOT hidden LIMIT 1
@@ -221,15 +233,22 @@ async function saveReading(
 
 export function updateProgress(db: Database, authority: RequestActor, raw: unknown) {
 	const input = parse(updateProgressRequest, raw);
-	return saveReading(db, authority, "wiki.reading.updateProgress", input, "progress");
+	return saveReading(ownWrite(db, authority), authority, "wiki.reading.updateProgress", input, "progress");
 }
 export function recordView(db: Database, authority: RequestActor, raw: unknown) {
 	const input = parse(recordViewRequest, raw);
-	return saveReading(db, authority, "wiki.reading.recordView", input, "view");
+	return saveReading(ownWrite(db, authority), authority, "wiki.reading.recordView", input, "view");
 }
 export function setBookmark(db: Database, authority: RequestActor, raw: unknown) {
 	const input = parse(setBookmarkRequest, raw);
-	return saveReading(db, authority, "wiki.bookmarks.set", input, "bookmark");
+	return saveReading(ownWrite(db, authority), authority, "wiki.bookmarks.set", input, "bookmark");
+}
+/** setBookmark inside an Evry effect's transaction, for the session that approved the review. */
+export async function setBookmarkIn(tx: Transaction, context: PeopleContext, raw: unknown) {
+	const input = parse(setBookmarkRequest, raw);
+	const claimed = await claimedWrite(tx, context.session, context.selected);
+	if (!claimed) return accessDenied();
+	return saveReading(claimed.run, claimed.authority, "wiki.bookmarks.set", input, "bookmark");
 }
 
 export async function setSourceOrder(

@@ -38,6 +38,9 @@
 //   none finished), Kids ministry (Linh leads it; Casey Morgan on check-in; Sam joined as Nursery helper after "Kids
 //   ministry training" was saved for Alex and Casey Morgan, and only Alex has finished) and Prayer team (Priya, the
 //   Member, leads it; Sam intercedes). Sam Patel serves on three ministries; no one else on more than one.
+// - A Wiki (tests/evry/adapters/wiki/corpus.mts): Hope Fellowship is in Launch Team Formation (phase 2) and shares its
+//   Wiki with Harvest Network, whose published version of "Running Your Vision Meeting" its Wiki shows; Harvest
+//   Network's draft and Other Network's version never show. The Owner was last reading "Launch Team Roles" (40%).
 // - Actors: the Owner (Nate Ellis, a leader linked to his account), an Admin (Lena Park), a Member (Priya Shah), an
 //   organization seat (the Owner of Hill Country Church, a sending church, which sees no plant People), the Owner of an
 //   empty church and the Owner of another church, Grace Point, which has its own Alex Rivera with a commitment of his
@@ -87,6 +90,7 @@ import { readViewer } from "../../../packages/domain/src/access/session.ts";
 import { evryActor, type EvryActor } from "../../../packages/evry/src/context/actor.ts";
 import { resolveSelf } from "../../../packages/evry/src/context/self.ts";
 import { testDatabase, type Database } from "../../support/test-database.mts";
+import { seedWiki, wikiIds } from "../adapters/wiki/corpus.mts";
 
 /** The trusted clock the prompt states (deps.now in the turn). */
 export const NOW = new Date("2026-11-09T15:00:00Z");
@@ -136,6 +140,9 @@ const BUDGET_TASK = id(0xd11);
 const GYM_TASK = id(0xd12);
 const SIGNUP_TASK = id(0xd13);
 const INTEREST_MEETING = id(0xd21);
+/** The Wiki's pinned ids, from 0x5000 (corpus.mts names them). */
+let wikiId = 0x5000;
+export const WIKI = wikiIds(() => id(wikiId++));
 
 type Stage = "prospect" | "attendee" | "following_up" | "interviewed" | "core_group" | "launch_team" | "leader";
 /** The inactivity level the seeded activity produces on the real pipeline board. */
@@ -445,7 +452,7 @@ export async function seedHope(admin: Database, options: SeedOptions = {}) {
 		[OTHER_PLANT, "Grace Point", 1, 8],
 	] as const)
 		await run(sql`INSERT INTO plant(id,name,timezone,warning_days,alert_days,digest_weekday,digest_hour,phase,material_revision,city,state_province,country)
-			VALUES(${plant},${name},'America/Chicago',7,14,${weekday},${hour},1,1,'Austin','TX','US')`);
+			VALUES(${plant},${name},'America/Chicago',7,14,${weekday},${hour},2,1,'Austin','TX','US')`);
 	await run(sql`INSERT INTO organization(id,kind,name,timezone,material_revision)
 		VALUES(${ORGANIZATION},'sending_church','Hill Country Church','America/Chicago',1)`);
 	await run(sql`INSERT INTO organization(id,kind,name,timezone,material_revision,description)
@@ -615,6 +622,11 @@ export async function seedHope(admin: Database, options: SeedOptions = {}) {
 			VALUES(${id(0xc10 + n)},${PLANT},'communication',${FRIDAY_EMAIL},${byName(name).id},
 			${`communication/${FRIDAY_EMAIL}/${byName(name).id}`},'seed','seed','scheduled','2026-11-13T15:00:00.000Z','2026-11-06T16:00:00.000Z')`);
 	await seedSent(run);
+	// The Wiki, and where the Owner left off: 40% through "Launch Team Roles", as the Wiki page records a read.
+	await seedWiki(run, PLANT, WIKI);
+	const roles = WIKI.phaseTwo[1]!;
+	await run(sql`INSERT INTO reading(id,account_id,article_id,last_revision_id,plant_context_id,observed_fraction,last_viewed_at,policy_version,last_read_meaningful_sequence,bookmarked,revision)
+		VALUES(${id(0x5100)},${owner},${roles.article},${roles.global},${PLANT},0.4,'2026-11-08T15:00:00.000Z','wiki-reading-v1',1,false,1)`);
 	await seedNotifications(run);
 	await seedOversight(run);
 }

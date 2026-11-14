@@ -1711,17 +1711,28 @@
 		"area": "Documents / wiki",
 		"case_id": "DOC-03",
 		"question": "what does the wiki say about running a vision meeting",
-		"status": "Not yet",
+		"status": "Supported",
 		"expected_operation": "not yet: needs `wiki.search`, `wiki.articles.get`",
 		"expected_answer": "Later: cited article excerpt",
 		"must_not": "Answer from general knowledge as if it were the wiki",
 		"eval": {
-			"cantYet": true,
-			"forbid": ["/the wiki says|according to the wiki/i"],
 			"finding": {
 				"checks": ["calls only no tool"],
 				"note": "T-318 batched re-record after the merge with the Evry notifications tools (D-958, D-1151, D-1323): the re-recorded answer misses these checks; recorded as drift, not a change in what Evry can do."
-			}
+			},
+			"calls": [
+				{
+					"operation": "wiki.search"
+				},
+				{
+					"operation": "wiki.referenceExcerpt",
+					"input": {
+						"articleId": "5b6d1f0e-0000-4000-8000-000000005005"
+					}
+				}
+			],
+			"require": ["Running Your Vision Meeting", "/\\/wiki\\/core-group\\/vision-meetings\\/running-the-meeting/"],
+			"derivation": "The vision meeting article as the Wiki page shows it (Harvest Network's version): an excerpt, its title and a link to it. Never general knowledge passed off as the Wiki."
 		}
 	},
 	{

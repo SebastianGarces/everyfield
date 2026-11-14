@@ -309,6 +309,15 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 		"communication.forPerson",
 		"communication.templates.list",
 	];
+	// Any plant seat also proposes its own Wiki bookmark or vote, as on the Wiki page.
+	const wikiWrites = ["wiki.bookmarks.set", "wiki.feedback.setMine"];
+	const wikiReads = [
+		"wiki.search",
+		"wiki.referenceExcerpt",
+		"wiki.recommendForPhase",
+		"wiki.reading.resume",
+		"wiki.article.exportPdf",
+	];
 	for (const who of ["owner", "member", "orgOwner", "seatless"] as const) {
 		const catalog = readCatalog(await actor(who));
 		const operations = catalog.domains.flatMap((d) => d.operations.map((o) => o.operation));
@@ -385,6 +394,7 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 						"identity.answerLeadOnboarding",
 						"onboarding.complete",
 						...taskWrites,
+						...wikiWrites,
 					]
 				: who === "member"
 					? // A Member changes only their own bell, notification settings and account, the Meetings changes the native
@@ -398,6 +408,7 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 							"account.finalizeAvatar",
 							"account.requestDeletion",
 							...memberTaskWrites,
+							...wikiWrites,
 						]
 					: who === "orgOwner"
 						? // An organization Owner sets only their own oversight digest (D-1278) and their organization's profile, and
@@ -503,6 +514,7 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 						"onboarding.getResume",
 						"calendar.getContext",
 						"calendar.resolve",
+						...wikiReads,
 					]
 				: who === "member"
 					? [
@@ -518,6 +530,7 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 							"privacy.getSharing",
 							"calendar.getContext",
 							"calendar.resolve",
+							...wikiReads,
 						]
 					: who === "orgOwner"
 						? ["notifications.previewOversightDigest", "pipeline.listPeople", "development.draftPlan"]
@@ -702,6 +715,7 @@ test("AC:INH-EDGES-03 AC:TEN-008 AC:EVRY-CONTEXT-BOUNDS a guessed foreign id and
 			"sharing_read",
 			"tasks_read",
 			"teams_read",
+			"wiki_read",
 		],
 		"prompt text cannot add tools or scope; the owner's catalog decides them",
 	);

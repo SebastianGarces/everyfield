@@ -115,6 +115,14 @@ const records = (
 	rest: Partial<OpView> = {},
 ): OpView => ({ title, noun, icon: "record", counts: "record", empty, ...rest });
 
+const wiki = (title: string, rest: Partial<OpView> & Pick<OpView, "empty">): OpView => ({
+	title,
+	noun: ["article", "articles"],
+	icon: "article",
+	counts: "article",
+	...rest,
+});
+
 const VIEWS: Record<string, OpView> = {
 	"people.listPeople": people("People"),
 	"people.getPerson": people("Person"),
@@ -463,6 +471,14 @@ const VIEWS: Record<string, OpView> = {
 	},
 	"calendar.getContext": calendar("Today"),
 	"calendar.resolve": calendar("Date check"),
+	"wiki.search": wiki("Wiki articles", { empty: "No Wiki article to show." }),
+	"wiki.referenceExcerpt": wiki("From the Wiki", { empty: "This article is not in your Wiki, or you can't read it." }),
+	"wiki.recommendForPhase": wiki("Suggested reading", { empty: "The Wiki has no suggestions for your phase." }),
+	"wiki.reading.resume": wiki("Where you left off", { empty: "You haven't opened a Wiki article yet." }),
+	"wiki.article.exportPdf": wiki("Wiki PDF", {
+		noun: ["file", "files"],
+		empty: "This article is not in your Wiki, or you can't read it.",
+	}),
 };
 /** With no person, communication.forPerson lists the people no email has gone out to. */
 const NEVER_EMAILED = people("No email recorded", {
@@ -767,8 +783,8 @@ export type RowView = {
 	/** The person whose initials the round mark shows, and whose current photo it shows when there is one. */
 	photoFor: string | null;
 	/**
-	 * A person (or a row that names its person: a created import row, a follow-up, a contact log entry) and a meeting
-	 * open their page; a top-level task opens in Tasks. A household or any other record has no page.
+	 * A person (or a row that names its person: a created import row, a follow-up, a contact log entry), a meeting and a
+	 * Wiki article open their page; a top-level task opens in Tasks. A household or any other record has no page.
 	 */
 	href: string | null;
 	/** A recorded judgment in full, field by field: every criterion, score, result and note, never clamped. */
@@ -777,6 +793,10 @@ export type RowView = {
 	download?: true;
 	/** The link opens a file the app makes (the agenda's print view) in a new tab. */
 	newTab?: true;
+	/** A file the row downloads (the Wiki's PDF): a plain link, never prefetched. */
+	file?: string;
+	/** The Wiki's own words, quoted under the row: an excerpt exactly as the article has it, markup aside. */
+	quote?: string;
 };
 export type CardView = {
 	title: string;
@@ -785,6 +805,15 @@ export type CardView = {
 	rows: RowView[];
 	facts: string[];
 };
+
+/** An excerpt's words without its markup: headings, emphasis marks and component tags go, line breaks stay. */
+const plainExcerpt = (excerpt: string) =>
+	excerpt
+		.replace(/<\/?[A-Za-z][^>]*>/g, "")
+		.replace(/^#{1,6}\s+/gm, "")
+		.replace(/\*\*|__|`/g, "")
+		.replace(/\n{3,}/g, "\n\n")
+		.trim();
 
 function activityLine(fields: Record<string, unknown>) {
 	const stageChange = fields.from && fields.to ? `${stage(fields.from)} → ${stage(fields.to)}` : null;
@@ -1414,6 +1443,36 @@ function rowView(operation: string, row: SourceRow): RowView {
 						avatar: "digest",
 					}
 				: { ...plain, name: row.label, line: null, avatar: null };
+		case "article": {
+			// A version other than the global one says whose it is, as the Wiki page does.
+			const whose =
+				fields.source === "network"
+					? "Your network's version"
+					: fields.source === "church"
+						? "Your sending church's version"
+						: null;
+			const line =
+				operation === "wiki.search"
+					? text(fields.snippet)
+					: operation === "wiki.reading.resume"
+						? joined(text(fields.read) && `${String(fields.read)} read`, fields.completed === true ? "Finished" : null)
+						: operation === "wiki.recommendForPhase"
+							? text(fields.phase)
+							: operation === "wiki.article.exportPdf"
+								? "Download the PDF"
+								: text(fields.section);
+			return {
+				...plain,
+				name: row.label,
+				line: joined(line, whose),
+				avatar: "article",
+				href: operation === "wiki.article.exportPdf" ? null : text(fields.href),
+				...(operation === "wiki.article.exportPdf" && text(fields.pdfHref) ? { file: text(fields.pdfHref)! } : {}),
+				...(operation === "wiki.referenceExcerpt" && text(fields.excerpt)
+					? { quote: plainExcerpt(text(fields.excerpt)!) }
+					: {}),
+			};
+		}
 		case "person":
 			break;
 	}

@@ -244,12 +244,18 @@ export function settingsStep(options: LanguageModelV4CallOptions, text: string):
 		const organization = /^them$/i.test(named) ? undefined : named;
 		if (!of("privacy.getSharing"))
 			return call("sharing_read", { operation: "privacy.getSharing", input: organization ? { organization } : {} });
-		const found = rows("privacy.getSharing");
+		const asked = CATEGORY.find(([pattern]) => pattern.test(change?.[2] ?? ""));
+		// "Stop sharing meetings with them": only a connection that shares meetings now can be meant.
+		const all = rows("privacy.getSharing");
+		const found =
+			change && asked && change[1]!.toLowerCase() === "stop" && all.length > 1
+				? all.filter((r) => asked[0].test(String(r.fields.shared ?? "")))
+				: all;
 		if (found.length !== 1)
 			return say(found.length ? "Which organization do you mean?" : "This church has no connection like that.");
 		const organizationId = String(found[0]!.fields.organizationId);
 		if (ending) return propose("associations.end", { organizationId });
-		const category = CATEGORY.find(([pattern]) => pattern.test(change![2]!))?.[1];
+		const category = asked?.[1];
 		if (!category) return say(`Which category do you mean? You can share meetings, people totals, tasks and more.`);
 		return propose("privacy.setSharing", { organizationId, category, enabled: change![1]!.toLowerCase() === "start" });
 	}

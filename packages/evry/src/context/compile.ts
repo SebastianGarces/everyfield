@@ -5,7 +5,8 @@ import { sql } from "@everyfield/db/query";
 import { z } from "zod";
 import type { Catalog } from "../catalog/catalog.ts";
 import { verifyPeople } from "../adapters/people/reads/index.ts";
-import type { ConversationEvent, ConversationState } from "../conversations/store.ts";
+import { verifyArticles } from "../adapters/wiki/reads/index.ts";
+import type { ConversationEvent, ConversationState, Reference } from "../conversations/store.ts";
 import type { EvryActor } from "./actor.ts";
 import { scrub } from "./errors.ts";
 import { LIMITS } from "./limits.ts";
@@ -246,26 +247,28 @@ export function capabilitiesAnswer(catalog: Catalog, actor: Pick<EvryActor, "rol
 	lines.push("", "I can't give pastoral counsel, write prayers or judge anyone's spiritual readiness.");
 	return lines.join("\n");
 }
+/** A page reference as the model may use it: read again under current authority, with the id a tool takes. */
+export type VerifiedReference = { kind: "person" | "photo" | "article"; id: string; label: string };
 
 /**
  * evry.resolveReferences: page context and entity references are hints. Each one is read again under the actor's
- * current authority in one statement; a stale, foreign, retired or guessed reference is dropped, never used as
- * permission. At most 64.
+ * current authority, people in one statement and Wiki articles in one more; a stale, foreign, retired or guessed
+ * reference is dropped, never used as permission. At most 64.
  */
 export async function resolveReferences(
 	db: Database,
 	actor: EvryActor,
-	references: readonly { kind: "person" | "photo"; id: string }[],
-): Promise<{ kind: "person" | "photo"; id: string; label: string }[]> {
+	references: readonly Reference[],
+): Promise<VerifiedReference[]> {
 	const bounded = references.slice(0, LIMITS.references);
-	const ids = [...new Set(bounded.filter((r) => r.kind === "person").map((r) => r.id))];
+	const ids = [...new Set(bounded.flatMap((r) => (r.kind === "person" ? [r.id] : [])))];
 	const people = (await verifyPeople(db, actor, ids)).map((r) => ({
 		kind: "person" as const,
 		id: r.id,
 		label: r.label,
 	}));
 	// An attached photo is the actor's own staged account photo upload that is still ready and unused.
-	const photos = [...new Set(bounded.filter((r) => r.kind === "photo").map((r) => r.id))];
+	const photos = [...new Set(bounded.flatMap((r) => (r.kind === "photo" ? [r.id] : [])))];
 	const attached = photos.length
 		? (
 				await db.execute(sql`SELECT f.id FROM file_object f WHERE f.id=ANY(${sql.param(photos)}::uuid[])
@@ -273,7 +276,8 @@ export async function resolveReferences(
 					AND NOT EXISTS(SELECT FROM account a WHERE a.avatar_object_id=f.id) ORDER BY f.id`)
 			).rows.map((r) => ({ kind: "photo" as const, id: String(r.id), label: "Attached photo" }))
 		: [];
-	return [...people, ...attached];
+	const slugs = [...new Set(bounded.flatMap((r) => (r.kind === "article" ? [r.slug] : [])))];
+	return [...people, ...attached, ...(await verifyArticles(db, actor, slugs))];
 }
 
 /**
@@ -309,6 +313,16 @@ function recordedJudgments(catalog: Catalog) {
 		? "Interviews, 4 C's assessments and commitments are recorded human judgments, for this church's Owners and Admins. Show them exactly as recorded and record exactly what the user says. Never rate, score, rank or judge anyone's maturity, calling or qualification, and never suggest a rating, score, result or date: when the user leaves one out, ask for it."
 		: "Interviews, 4 C's assessments and commitments are for the church's Owners and Admins, and this user cannot see them. If asked for one, say so plainly. Do not look for them in other records, and never hint whether any exist, when, or what they say.";
 }
+
+/**
+ * What Evry says about the Wiki (DOC-03, WIKI-008): only what a Wiki tool returned, quoted with its title and link, never
+ * general knowledge passed off as the Wiki. It points to existing articles and writes none of its own.
+ */
+const WIKI_RULE = [
+	"When the user asks what the Wiki says, answer only from Wiki tool results: quote the excerpt as the Wiki's words, with the article's title as a markdown link to its href.",
+	"When no Wiki article matches, say the Wiki has nothing on it. Never answer from general knowledge as if it were the Wiki.",
+	"No tool writes or edits Wiki content: the Wiki is shared reading. When asked to edit the Wiki or add the church's own writing to it, say churches keep their own writing in Church Documents, and offer no change.",
+].join(" ");
 
 const estimate = (text: string) => Math.ceil(text.length / 4);
 /** Estimated tokens of the read and selection tool definitions the model also receives. */
@@ -384,7 +398,7 @@ export function compileContext(input: {
 	catalog: Catalog;
 	history: readonly ConversationEvent[];
 	text: string;
-	references: readonly { kind: "person" | "photo"; id: string; label: string }[];
+	references: readonly VerifiedReference[];
 	now: Date;
 	state?: ConversationState | null;
 	/**
@@ -454,6 +468,7 @@ export function compileContext(input: {
 			: "",
 		...taskRules(input.catalog),
 		recordedJudgments(input.catalog),
+		input.catalog.domains.some((d) => d.domain === "wiki") ? WIKI_RULE : "",
 		...guidance,
 		`Context: ${input.actor.contextKind}. Current time (trusted server clock): ${input.now.toISOString()}.`,
 		describeCatalog(input.catalog),

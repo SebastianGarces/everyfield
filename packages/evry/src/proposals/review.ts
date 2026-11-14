@@ -18,6 +18,8 @@ import { TEAMS_COMMANDS } from "../adapters/teams/commands/index.ts";
 import { ONBOARDING_COMMANDS } from "../adapters/onboarding/commands/index.ts";
 import { PIPELINE_COMMANDS } from "../adapters/pipeline/commands/index.ts";
 import { currentPerson, importOutcome, personOutcome, type ReviewedWrite } from "./types.ts";
+import { WIKI_COMMANDS } from "../adapters/wiki/commands/index.ts";
+import { articleLive } from "../conversations/liveness.ts";
 
 // The review read (evry.readReview): one projection and one access rule, used by readReview and by the conversation
 // page read, which brings every review card's review in its own statement. No conversation or run imports here, so the
@@ -41,6 +43,7 @@ export const REVIEWED_WRITES = {
 	...PIPELINE_COMMANDS,
 	...TASK_COMMANDS,
 	...FOLLOWUP_COMMANDS,
+	...WIKI_COMMANDS,
 } as const;
 export type Operation = keyof typeof REVIEWED_WRITES;
 export const operation = z.enum(Object.keys(REVIEWED_WRITES) as [Operation]);
@@ -104,7 +107,7 @@ export const staleMessage = (alias: string) =>
  * at, so a card counts the approval down from the server's clock, never the browser's.
  */
 export const projection = (alias: string) =>
-	sql.raw(`jsonb_build_object('id',${alias}.id,'conversationId',${alias}.conversation_id,'operation',${alias}.operation,
+	sql`${sql.raw(`jsonb_build_object('id',${alias}.id,'conversationId',${alias}.conversation_id,'operation',${alias}.operation,
 		'revision',${alias}.revision,'digest',${alias}.digest,'expiresAt',${alias}.expires_at,'approvedAt',${alias}.approved_at,
 		'status',CASE WHEN ${alias}.state='pending' AND ${alias}.expires_at<=clock_timestamp() THEN 'expired' ELSE ${alias}.state END,
 		'review',CASE WHEN ${alias}.review->'target'='null'::jsonb
@@ -118,6 +121,7 @@ export const projection = (alias: string) =>
 			OR (${alias}.review->'target'->>'kind'='role' AND EXISTS(SELECT FROM team_role t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.plant_id=${alias}.tenant_id))
 			OR (${alias}.review->'target'->>'kind'='training' AND EXISTS(SELECT FROM training_program t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.plant_id=${alias}.tenant_id))
 			OR (${alias}.review->'target'->>'kind'='responsibility' AND EXISTS(SELECT FROM responsibility t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.plant_id=${alias}.tenant_id AND t.removed_at IS NULL))
+			OR (${alias}.review->'target'->>'kind'='article' AND `)}${articleLive(sql.raw(`(${alias}.review->'target'->>'id')::uuid`), sql.raw(`${alias}.tenant_id`))}${sql.raw(`)
 			OR (${alias}.review->'target'->>'kind'='meeting' AND EXISTS(SELECT FROM meeting t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.plant_id=${alias}.tenant_id AND t.retired_at IS NULL))
 			OR (${alias}.review->'target'->>'kind'='venue' AND EXISTS(SELECT FROM venue t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.plant_id=${alias}.tenant_id))
 			THEN ${alias}.review ELSE jsonb_build_object('target',NULL,'changes','[]'::jsonb,'withheld',true) END,
@@ -127,7 +131,7 @@ export const projection = (alias: string) =>
 		'executing',${alias}.state='approved' AND ${alias}.outcome IS NULL AND EXISTS(SELECT FROM job j WHERE j.id=${alias}.job_id
 			AND ${liveJob("j")}),
 		'stale',${alias}.state='pending' AND ${staleMessage(alias)},
-		'receipt',${alias}.receipt,'now',clock_timestamp())`);
+		'receipt',${alias}.receipt,'now',clock_timestamp())`)}`;
 
 /**
  * What a review is about. A person, message, team, role, training, responsibility, household or tag is withheld once it
@@ -152,6 +156,7 @@ const targetKind = z.enum([
 	"connection",
 	"organization",
 	"account",
+	"article",
 ]);
 const change = z.object({ field: z.string(), before: z.unknown(), after: z.unknown() });
 /** One person a change reaches beyond the target, such as each member of a household or each person tagged. */
@@ -170,7 +175,16 @@ export const reviewedRow = z.object({
 	reason: z.string().nullable(),
 });
 const review = z.object({
-	target: z.object({ kind: targetKind, id: z.uuid(), label: z.string() }).nullable(),
+	target: z
+		.object({
+			kind: targetKind,
+			id: z.uuid(),
+			label: z.string(),
+			/** A Wiki article's target: `id` is the exact version reviewed; these name its article and Wiki page. */
+			articleId: z.uuid().optional(),
+			href: z.string().optional(),
+		})
+		.nullable(),
 	changes: z.array(change),
 	people: z.array(reviewedPerson).optional(),
 	rows: z.array(reviewedRow).optional(),

@@ -216,16 +216,19 @@ const SETTLED: Record<string, { before?: (a: EvryActor) => Promise<void>; after:
 			assert.deepEqual(await row(sql`SELECT timezone FROM plant WHERE id=${PLANT}`), { timezone: "America/New_York" }),
 	},
 	"SET-12": {
-		// Hope Fellowship's affiliation with Hill Country Church shares activity for its oversight digest (T-341).
+		// Hope Fellowship's affiliation with Hill Country Church shares activity for its oversight digest (T-341); Harvest
+		// Network shares only the Wiki (the Wiki corpus, tests/evry/adapters/wiki/corpus.mts). Settings lists them by id.
 		before: async (a) =>
 			assert.deepEqual(await sharingScreen(a), [
 				["Hill Country Network", ["people", "meetings"]],
 				["Hill Country Church", ["activity"]],
+				["Harvest Network", ["wiki"]],
 			]),
 		after: async (a) =>
 			assert.deepEqual(await sharingScreen(a), [
 				["Hill Country Network", ["people"]],
 				["Hill Country Church", ["activity"]],
+				["Harvest Network", ["wiki"]],
 			]),
 	},
 	"SET-13": {
@@ -245,8 +248,12 @@ const SETTLED: Record<string, { before?: (a: EvryActor) => Promise<void>; after:
 		},
 	},
 	"SET-14": {
-		// Ending the network connection leaves Hope Fellowship's affiliation with Hill Country Church.
-		after: async (a) => assert.deepEqual(await sharingScreen(a), [["Hill Country Church", ["activity"]]]),
+		// Ending the network connection leaves Hope Fellowship's affiliations with Hill Country Church and Harvest Network.
+		after: async (a) =>
+			assert.deepEqual(await sharingScreen(a), [
+				["Hill Country Church", ["activity"]],
+				["Harvest Network", ["wiki"]],
+			]),
 	},
 	"SET-15": {
 		before: async (a) =>

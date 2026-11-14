@@ -79,6 +79,8 @@ type Checks = {
 type Eval = Checks & {
 	as?: ActorName;
 	text?: string;
+	/** The Wiki article on the user's page, by slug: the page reference the panel sends. */
+	page?: string;
 	history?: Turn[];
 	/** Files attached in the conversation before the question (golden-harness.mts). */
 	attachments?: CaseFile[];
@@ -483,6 +485,7 @@ async function runCase(item: GoldenCase | ExtraCase): Promise<Row> {
 			spec.history ?? [],
 			spec.attachments ?? [],
 			own ? scriptedModel : undefined,
+			spec.page,
 		);
 		row.conversation = c;
 		row.keys = c.keys;
@@ -792,9 +795,10 @@ test("INV-evry-golden SAF-02 SAF-11 SAF-12 SAF-14: the model's tools can read an
 	const churchTools = tools("owner").filter((t) => t !== "onboarding_read");
 	assert.deepEqual(tools("admin"), churchTools);
 	// A Member reads, selects and proposes changes to only their own notifications and account, the task and follow-up
-	// changes the native commands allow on their own work and the Meetings changes a Member may make natively (their own
-	// RSVP, their own ministry's team meeting and its attendance); an organization seat gets no plant read at all, only
-	// its own profile change (T-327, D-1120) and its own oversight digest's preview and cadence.
+	// changes the native commands allow on their own work, the Meetings changes a Member may make natively (their own
+	// RSVP, their own ministry's team meeting and its attendance) and their own Wiki bookmarks and votes; an organization
+	// seat gets no plant read at all, only its own profile change (T-327, D-1120) and its own oversight digest's preview
+	// and cadence.
 	// A Member gets no interview, 4 C's, commitment or merge read.
 	assert.deepEqual(
 		tools("member"),
@@ -810,6 +814,8 @@ test("INV-evry-golden SAF-02 SAF-11 SAF-12 SAF-14: the model's tools can read an
 			"notifications.setPreferences",
 			"account.finalizeAvatar",
 			"account.requestDeletion",
+			"wiki.bookmarks.set",
+			"wiki.feedback.setMine",
 		],
 	);
 	// It also reads its own pipeline and proposes stage moves and new programs (WP-101).

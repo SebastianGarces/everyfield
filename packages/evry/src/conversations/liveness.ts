@@ -20,6 +20,20 @@ const ownerOrAdmin = (plant: SQL, account: SQL) =>
 	sql`EXISTS(SELECT FROM seat live_s WHERE live_s.account_id=${account} AND live_s.plant_id=${plant} AND live_s.ended_at IS NULL
 		AND live_s.accepted_at<=clock_timestamp() AND live_s.role<>'member')`;
 
+/**
+ * A Wiki revision is live while the church's Wiki can still show it: a global revision of the active release, or the
+ * current published version of a sending church or network the church still shares its Wiki with. Once that
+ * connection ends, or the organization hides or replaces its version, the quoted text is withheld (GAP-EVR-418). Its
+ * aliases are its own: the replay query around it already names `r`, `e` and `t`.
+ */
+export const articleLive = (id: SQL, plant: SQL) =>
+	sql`EXISTS(SELECT FROM article_revision wiki_r WHERE wiki_r.id=${id} AND (
+		(wiki_r.tenant_id='00000000-0000-0000-0000-000000000000'::uuid
+			AND wiki_r.release_id=(SELECT wiki_a.release_id FROM reference_activation wiki_a ORDER BY wiki_a.activation_number DESC LIMIT 1))
+		OR EXISTS(SELECT FROM article_editor_state wiki_e JOIN affiliation wiki_f ON wiki_f.organization_id=wiki_e.organization_id
+			WHERE wiki_e.current_revision_id=wiki_r.id AND wiki_e.organization_id=wiki_r.tenant_id AND wiki_e.state='published'
+				AND wiki_f.plant_id=${plant} AND wiki_f.ended_at IS NULL AND wiki_f.share_wiki)))`;
+
 const ROW_LIVENESS: Record<SourceRow["kind"], Rule> = {
 	// The person is live in this church, or in this organization's pipeline.
 	person: (id, plant) =>
@@ -44,6 +58,7 @@ const ROW_LIVENESS: Record<SourceRow["kind"], Rule> = {
 		sql`EXISTS(SELECT FROM meeting lm WHERE lm.id=${id} AND lm.plant_id=${plant} AND lm.retired_at IS NULL)`,
 	responsibility: (id, plant) =>
 		sql`EXISTS(SELECT FROM responsibility ls WHERE ls.id=${id} AND ls.plant_id=${plant} AND ls.removed_at IS NULL)`,
+	article: articleLive,
 	// A venue is live while it exists in the church, archived or not.
 	venue: (id, plant) => sql`EXISTS(SELECT FROM venue lv WHERE lv.id=${id} AND lv.plant_id=${plant})`,
 	// Never withheld: an item row is a part of a meeting or venue read (an agenda section, a kit item, a report line).

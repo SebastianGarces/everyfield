@@ -12,6 +12,7 @@ import {
 	type ArticleVersion,
 	articlePath,
 	listed,
+	pdfFilename,
 	sourceInput,
 	sourceRows,
 	treeModel,
@@ -575,5 +576,43 @@ export async function progressRoute(request: Request): Promise<Response> {
 		// A malformed body fails the producer's parse.
 		console.error(JSON.stringify({ component: "wiki", outcome: "progress-beacon-failed", error: String(error) }));
 		return new Response(null, { status: 400 });
+	}
+}
+
+/**
+ * GET /api/wiki/pdf?article=<id>: the Wiki's own PDF of one article as the reader's Wiki shows it, the same export as the
+ * article's Download PDF button. Evry links here (wiki.article.exportPdf); nothing is saved. When the PDF font fails
+ * the print copy opens instead, as the button offers.
+ */
+export async function pdfRoute(request: Request): Promise<Response> {
+	const articleId = new URL(request.url).searchParams.get("article") ?? "";
+	if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(articleId))
+		return new Response(null, { status: 404 });
+	const actor = await wikiActor();
+	const mount = wikiMount();
+	if (actor === "down" || !mount) return new Response(null, { status: 503 });
+	if (!actor) return new Response(null, { status: 401 });
+	try {
+		const [shown, made] = await Promise.all([
+			mount.producer.getArticle(mount.db, actor, { articleId }),
+			mount.producer.exportPdf(mount.db, actor, { articleId }),
+		]);
+		const article = shown.status === "ok" ? shown.value.article : null;
+		if (!article || made.status !== "ok" || made.value.errorCode) return new Response(null, { status: 404 });
+		const headers = { "cache-control": "private, no-store" };
+		if (made.value.bytes)
+			return new Response(Buffer.from(made.value.bytes, "base64"), {
+				headers: {
+					...headers,
+					"content-type": "application/pdf",
+					"content-disposition": `attachment; filename="${pdfFilename(article.slug)}"`,
+				},
+			});
+		if (made.value.html)
+			return new Response(made.value.html, { headers: { ...headers, "content-type": "text/html; charset=utf-8" } });
+		return new Response(null, { status: 404 });
+	} catch (error) {
+		console.error(JSON.stringify({ component: "wiki", outcome: "pdf-route-failed", error: String(error) }));
+		return new Response(null, { status: 503 });
 	}
 }

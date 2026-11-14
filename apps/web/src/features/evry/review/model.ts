@@ -89,6 +89,8 @@ export type Operation =
 	| "notifications.setPreferences"
 	| "notifications.digestCadence.set"
 	| "notifications.oversightDigestCadence.set"
+	| "wiki.bookmarks.set"
+	| "wiki.feedback.setMine"
 	| TeamsOperation
 	| SettingsOperation
 	| PipelineOperation;
@@ -258,9 +260,13 @@ export type Review = {
 				| "invitation"
 				| "connection"
 				| "organization"
-				| "account";
+				| "account"
+				| "article";
 			id: string;
 			label: string;
+			/** A Wiki article's target names the exact version reviewed (id), its article and its Wiki page. */
+			articleId?: string;
+			href?: string;
 		} | null;
 		changes: Change[];
 		people?: ReviewedPerson[];
@@ -372,6 +378,8 @@ const FIELD_LABEL: Record<string, string> = {
 	comesBack: "Comes back",
 	movesBack: "Moves back",
 	detailsGoBack: "Details back",
+	bookmarked: "Bookmark",
+	feedback: "Your feedback",
 	household: "Household",
 	householdRole: "Role",
 	householdAddress: "Address",
@@ -620,6 +628,9 @@ export function valueText(field: string, value: unknown): string | null {
 			: value === "retired"
 				? "Removed"
 				: (TEAM_STATE[String(value)] ?? String(value));
+	if (field === "bookmarked") return value === true ? "Bookmarked" : "Not bookmarked";
+	if (field === "feedback")
+		return value === "helpful" ? "Helpful" : value === "unhelpful" ? "Not helpful" : String(value);
 	if (typeof value === "boolean") return value ? "Yes" : "No";
 	if (Array.isArray(value)) return value.map(String).join(", ");
 	// A task category has its Tasks label; a skill category is shown capitalized.
@@ -775,7 +786,7 @@ export function openAfter(review: Review): { href: string; label: string } | nul
 	if (review.review.withheld || isMail(review.operation)) return null;
 	if (!isTasks(review.operation))
 		return who?.kind === "person" && review.operation !== "people.deletePerson"
-			? { href: `/people/${who.id}`, label: `Open ${who.label}` }
+			? { href: targetHref(who), label: `Open ${who.label}` }
 			: null;
 	if (who?.kind === "person") return { href: `/people/${who.id}`, label: `Open ${who.label}` };
 	if (review.operation === "tasks.delete") return { href: "/tasks", label: "Open Tasks" };
@@ -794,6 +805,7 @@ export const approvable = (review: Pick<Review, "operation">, uploadShown: boole
 /** What an empty value is called: no household is "None", and a note, skill or tag that goes away is "Removed". */
 export function emptyText(field: string, after: boolean) {
 	if (field === "photo") return "No photo";
+	if (field === "feedback") return "No vote";
 	if (field === "household" || field === "householdRole") return "None";
 	if (after && ["note", "skill", "category", "proficiency", "tag"].includes(field)) return "Removed";
 	return "Empty";
@@ -866,6 +878,8 @@ const TITLE: Record<Operation, string> = {
 	"people.correctPersonRecord": "Correct a record",
 	"people.mergePeople": "Merge two people",
 	"people.unmergePeople": "Undo a merge",
+	"wiki.bookmarks.set": "Bookmark an article",
+	"wiki.feedback.setMine": "Rate an article",
 	"seats.invite": "Invite someone",
 	"seats.resendInvitation": "Resend an invitation",
 	"seats.revokeInvitation": "Revoke an invitation",
@@ -967,6 +981,10 @@ export const afterOnly = (review: Pick<Review, "operation">, field: string) =>
 // Email: the five reviewed Communication writes (MAIL51-009). The email service is the only source of "confirmed".
 
 export const isMail = (operation: Operation) => operation.startsWith("communication.");
+/** A Wiki bookmark or vote: the reader's own, with nothing to revise but the request itself. */
+export const isWiki = (operation: Operation) => operation.startsWith("wiki.");
+/** Where the card's target opens: a Wiki article's page, else the person's. */
+export const targetHref = (target: NonNullable<Review["review"]["target"]>) => target.href ?? `/people/${target.id}`;
 /** A Meetings or venue write: its review states each value as the card shows it, and it is revised by asking Evry. */
 export const isMeetings = (operation: Operation) =>
 	operation.startsWith("meetings.") || operation.startsWith("venues.");
@@ -1417,6 +1435,10 @@ export function reviseInput(review: Review, edits: Record<string, string> = {}):
 	if (!target) return null;
 	const personId = target.id;
 	switch (review.operation) {
+		case "wiki.bookmarks.set":
+			return target.articleId ? { articleId: target.articleId, desired: after("bookmarked") !== false } : null;
+		case "wiki.feedback.setMine":
+			return target.articleId ? { articleId: target.articleId, vote: after("feedback") } : null;
 		case "people.updatePerson":
 			return { personId, patch: Object.fromEntries(changes.map((c) => [c.field, value(c)])) };
 		case "people.changeStatus":
@@ -1608,6 +1630,18 @@ function taskRefusalText(code: string | undefined, target: string | null): strin
 			return `${target ?? "This task"} is no longer available, so nothing was saved.`;
 		default:
 			return "Tasks refused this change, so nothing was saved.";
+	}
+}
+
+/** Why a Wiki bookmark or vote was refused. Nothing was saved in each case. */
+export function wikiRefusalText(code: string | undefined): string {
+	switch (code) {
+		case "revision_conflict":
+			return "Your bookmark changed on the Wiki after Evry prepared this, so nothing was saved. Ask Evry to prepare it again.";
+		case "access_denied":
+			return "You can no longer read this article here, so nothing was saved.";
+		default:
+			return "The Wiki refused this change, so nothing was saved.";
 	}
 }
 

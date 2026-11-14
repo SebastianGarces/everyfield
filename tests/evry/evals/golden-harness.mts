@@ -29,6 +29,7 @@ import {
 	classifyRequest,
 	compileContext,
 	PASTORAL_BOUNDARY,
+	resolveReferences,
 } from "../../../packages/evry/src/context/compile.ts";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { ATTACHMENTS } from "../../../packages/evry/src/attachments/store.ts";
@@ -384,6 +385,8 @@ export async function converse(
 	attachments: CaseFile[] = [],
 	/** A model to ask instead of the recording, such as the scripted model (assessments.cases.json). */
 	override?: LanguageModelV4,
+	/** The Wiki article the user's page shows (its slug), offered as the turn offers a page reference. */
+	page?: string,
 ): Promise<Conversation> {
 	const { db } = church;
 	const actor = church.actors[as];
@@ -429,7 +432,7 @@ export async function converse(
 		catalog,
 		history: events,
 		text,
-		references: [],
+		references: await resolveReferences(db, actor, page ? [{ kind: "article", slug: page }] : []),
 		now: NOW,
 		state,
 		settingsGuidance: false,

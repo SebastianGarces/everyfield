@@ -13,12 +13,13 @@ import {
 	wikiError,
 	type WikiReply,
 } from "@everyfield/contracts/wiki";
-import type { Database } from "@everyfield/db/client";
+import type { PeopleContext } from "@everyfield/contracts/people";
+import type { Database, Transaction } from "@everyfield/db/client";
 import { sql } from "@everyfield/db/query";
 import "server-only";
 import { z } from "zod";
 import type { RequestActor } from "../access/session.ts";
-import { GLOBAL, deny, meSql, parse, runRead, runWrite } from "./core.ts";
+import { GLOBAL, claimedWrite, deny, meSql, ownWrite, parse, runRead, runWrite, type Runner } from "./core.ts";
 
 type OrgValue = z.infer<typeof organizationArticleResult>;
 type Mine = z.infer<typeof feedbackMine>;
@@ -102,11 +103,20 @@ export function getMine(db: Database, authority: RequestActor, raw: unknown) {
 }
 
 export function setMine(db: Database, authority: RequestActor, raw: unknown) {
+	return saveVote(ownWrite(db, authority), authority, raw);
+}
+/** setMine inside an Evry effect's transaction, for the session that approved the review. */
+export async function setMineIn(tx: Transaction, context: PeopleContext, raw: unknown) {
+	const claimed = await claimedWrite(tx, context.session, context.selected);
+	if (!claimed) return refuse();
+	return saveVote(claimed.run, claimed.authority, raw);
+}
+function saveVote(run: Runner, authority: RequestActor, raw: unknown) {
 	const input = parse(feedbackSetMineRequest, raw);
 	const context = authority.actor.context;
 	if (context.kind !== "seat" || context.owner.kind !== "plant") return Promise.resolve(refuse());
 	const owner = context.owner;
-	return runWrite(db, authority, owner, "wiki.feedback.setMine", input, feedbackMine, async (tx) => {
+	return run(owner, "wiki.feedback.setMine", input, feedbackMine, async (tx) => {
 		const result = await tx.execute(sql`
 			WITH ${meSql(authority, owner)},
 			prior AS (

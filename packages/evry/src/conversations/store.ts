@@ -30,7 +30,10 @@ const requestKey = z.string().min(8).max(200);
 export const reference = z.discriminatedUnion("kind", [
 	z.strictObject({ kind: z.literal("person"), id: z.uuid() }),
 	z.strictObject({ kind: z.literal("photo"), id: z.uuid() }),
+	// A Wiki article on the user's page, by its Wiki address (slug).
+	z.strictObject({ kind: z.literal("article"), slug: z.string().min(1).max(300) }),
 ]);
+export type Reference = z.infer<typeof reference>;
 const submitInput = z.strictObject({
 	requestKey,
 	text,
