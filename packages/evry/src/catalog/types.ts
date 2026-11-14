@@ -24,7 +24,10 @@ export type SourceRow = {
 		| "account"
 		| "template"
 		| "meeting"
-		| "team";
+		| "team"
+		| "role"
+		| "training"
+		| "responsibility";
 	id: string;
 	label: string;
 	/** `you: true` marks the signed-in user's own person row (see person-row.ts); no other row carries it. */
@@ -41,6 +44,8 @@ export type SourceResult = {
 	next: number | null;
 	completeness: "complete" | "partial";
 	exclusions: string[];
+	/** Totals over the rows as the domain counted them, such as roles and people serving church-wide. */
+	facts?: Record<string, string | number | boolean | null>;
 };
 
 /** A reviewed adapter from one model-tool read operation to its native domain read. */

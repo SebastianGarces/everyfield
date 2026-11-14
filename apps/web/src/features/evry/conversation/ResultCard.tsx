@@ -2,15 +2,19 @@
 
 import {
 	Award01Icon,
+	Briefcase01Icon,
 	Calendar03Icon,
 	Call02Icon,
 	CheckListIcon,
 	Clock01Icon,
 	File01Icon,
 	Home01Icon,
+	LayoutTemplateIcon,
 	Mail01Icon,
+	Mortarboard01Icon,
 	Tag01Icon,
 	Task01Icon,
+	UserGroupIcon,
 	UserIcon,
 	UserMultipleIcon,
 } from "@hugeicons/core-free-icons";
@@ -42,9 +46,12 @@ const GLYPH: Record<Glyph, IconSvgElement> = {
 	follow_up: Call02Icon,
 	contact: Call02Icon,
 	account: UserIcon,
-	template: CheckListIcon,
+	team: UserGroupIcon,
+	role: Briefcase01Icon,
+	training: Mortarboard01Icon,
 	meeting: Calendar03Icon,
-	team: UserMultipleIcon,
+	responsibility: CheckListIcon,
+	template: LayoutTemplateIcon,
 };
 
 function Mark({ mark }: { mark: RowView["mark"] }) {

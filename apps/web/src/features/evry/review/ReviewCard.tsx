@@ -3,6 +3,8 @@
 import {
 	Alert02Icon,
 	ArrowRight02Icon,
+	Briefcase01Icon,
+	CheckListIcon,
 	Cancel01Icon,
 	CheckmarkCircle02Icon,
 	Clock01Icon,
@@ -10,10 +12,13 @@ import {
 	Image01Icon,
 	Mail01Icon,
 	ImageNotFound01Icon,
+	Mortarboard01Icon,
 	SquareLock02Icon,
 	Task01Icon,
 	Tick02Icon,
 	UserAdd01Icon,
+	UserGroupIcon,
+	UserIcon,
 } from "@hugeicons/core-free-icons";
 import { Button, Field, Input, IntentLink, Select, Skeleton, Spinner, Textarea } from "@everyfield/ui/controls";
 import { Avatar, StageChip } from "@everyfield/ui/display";
@@ -36,6 +41,7 @@ import {
 	fieldLabel,
 	hasBirthDate,
 	isMail,
+	isTeams,
 	isRequired,
 	isTasks,
 	itemField,
@@ -833,32 +839,40 @@ function CardHead({
 	);
 }
 
+const RECORD_GLYPH: Record<NonNullable<Review["review"]["target"]>["kind"], IconSvgElement> = {
+	person: UserIcon,
+	message: Mail01Icon,
+	task: Task01Icon,
+	team: UserGroupIcon,
+	role: Briefcase01Icon,
+	training: Mortarboard01Icon,
+	responsibility: CheckListIcon,
+};
+
 /** Who the change affects: the person, or the new person a create adds. */
 function Affects({ review }: { review: Review }) {
 	const mail = isMail(review.operation);
 	const create = review.operation === "people.createPerson";
+	const target = review.review.target;
 	// A task or follow-up review names its task, its person or how many items it lists; only a person shows initials.
-	const task = isTasks(review.operation) && review.review.target?.kind !== "person";
+	const task = isTasks(review.operation) && target?.kind !== "person";
+	// A ministry change names its ministry, role, program or responsibility; a new ministry or program its name.
+	const record = isTeams(review.operation) ? (target ? RECORD_GLYPH[target.kind] : UserGroupIcon) : null;
+	const glyph = record ?? (task ? Task01Icon : mail ? Mail01Icon : create ? UserAdd01Icon : null);
 	const name = mail
-		? String(review.review.changes.find((c) => c.field === "subject")?.after ?? review.review.target?.label ?? "Email")
+		? String(review.review.changes.find((c) => c.field === "subject")?.after ?? target?.label ?? "Email")
 		: create
 			? String(review.review.changes.find((c) => c.field === "displayName")?.after ?? "New person")
 			: isTasks(review.operation)
 				? subjectName(review)
-				: (review.review.target?.label ?? "Not available");
+				: record && !target
+					? String(review.review.changes.find((c) => c.field === "name")?.after ?? "New ministries")
+					: (target?.label ?? "Not available");
 	return (
 		<div className="flex items-center gap-3">
-			{task ? (
+			{glyph ? (
 				<span className="grid size-8 flex-none place-items-center rounded-full bg-surface-2 text-text-2">
-					<Icon icon={Task01Icon} size={16} />
-				</span>
-			) : mail ? (
-				<span className="grid size-8 flex-none place-items-center rounded-full bg-surface-2 text-text-2">
-					<Icon icon={Mail01Icon} size={16} />
-				</span>
-			) : create ? (
-				<span className="grid size-8 flex-none place-items-center rounded-full bg-surface-2 text-text-2">
-					<Icon icon={UserAdd01Icon} size={16} />
+					<Icon icon={glyph} size={16} />
 				</span>
 			) : (
 				<Avatar name={name} size="sm" decorative />

@@ -54,6 +54,32 @@ test("AC:INH-REGRESSION-CAPABILITIES INV-catalog: every installed model tool is 
 		"followups.listContactHistory",
 		"tasks.followUpCoverage",
 		"tasks.planHandoff",
+		"teams.list",
+		"teams.get",
+		"teams.searchMembers",
+		"teams.staffingSummary",
+		"teams.personTeamCounts",
+		"teams.staffingFacts",
+		"teams.health",
+		"teams.aggregateHealth",
+		"teams.trainingMatrix",
+		"teams.readRequiredTrainingParticipants",
+		"teams.previewRequiredTrainingParticipants",
+		"teams.listTraining",
+		"teams.personTraining",
+		"teams.trainingHistory",
+		"teams.personAssignments",
+		"teams.membershipHistory",
+		"teams.history",
+		"teams.listRoles",
+		"teams.leaderCandidates",
+		"teams.orgChart",
+		"teams.exportOrgChart",
+		"teams.listImportTemplates",
+		"teams.previewTemplateImport",
+		"teams.listResponsibilities",
+		"teams.previewResponsibilities",
+		"teams.listMeetings",
 		"evry.selectReturnedRows",
 	]);
 	for (const id of installed) {
@@ -71,6 +97,18 @@ test("AC:INH-REGRESSION-CAPABILITIES INV-catalog: every installed model tool is 
 			id,
 		);
 	}
+	// Every model-tool operation of the teams packages (WP-069 reads, WP-070 reviewed writes) is installed.
+	const teams = [...operations.values()].filter(
+		(op) =>
+			op.model_tool === true && ((op.evry_packages as string[]) ?? []).some((p) => p === "WP-069" || p === "WP-070"),
+	);
+	assert.deepEqual(
+		teams.map((op) => op.id).sort(),
+		[
+			...installed.filter((id) => id.startsWith("teams.")),
+			...Object.keys(REVIEWED_WRITES).filter((id) => id.startsWith("teams.")),
+		].sort(),
+	);
 	// Runtime operations that are not model tools stay out of the model's reach.
 	for (const id of [
 		"evry.submitTurn",
