@@ -89,9 +89,20 @@ export type Reader = Pick<Transaction, "select" | "execute">;
  * the organization instead of deadlocking.
  */
 const organizationFirst = sql<boolean>`EXISTS(SELECT FROM organization o WHERE o.id=${tables.affiliation.organization_id} FOR NO KEY UPDATE)`;
+/**
+ * The affiliation row `a` (a table name or alias) is live: no lifecycle witness hides the link or any endpoint, and a
+ * Discovery subject is still open.
+ */
+const linkLive = (a: string) => {
+	const c = (column: string) => sql.raw(`${a}.${column}`);
+	return sql<boolean>`(NOT EXISTS(SELECT FROM lifecycle_witness w WHERE w.state NOT IN ('active','cancelled') AND (w.affiliation_id=${c("id")} OR (w.opaque_subject_id IN (${c("organization_id")},${c("plant_id")},${c("account_id")},${c("sending_church_id")}) AND w.kind IN ('account','plant','organization')))) AND (${c("account_id")} IS NULL OR EXISTS(SELECT FROM discovery d WHERE d.account_id=${c("account_id")} AND d.converted_at IS NULL)))`;
+};
+/** The affiliation row `a` is in force now: live, not ended and accepted (loadAffiliations' `active`). */
+export const linkActive = (a: string) =>
+	sql<boolean>`(${sql.raw(a)}.ended_at IS NULL AND ${sql.raw(a)}.accepted_at<=clock_timestamp() AND ${linkLive(a)})`;
 /** Affiliations with their names and a computed `active` flag. A write locks the rows; a read takes no lock. */
 export async function loadAffiliations(tx: Reader, predicate: SQL, write = false) {
-	const live = sql<boolean>`(NOT EXISTS(SELECT FROM lifecycle_witness w WHERE w.state NOT IN ('active','cancelled') AND (w.affiliation_id=${tables.affiliation.id} OR (w.opaque_subject_id IN (${tables.affiliation.organization_id},${tables.affiliation.plant_id},${tables.affiliation.account_id},${tables.affiliation.sending_church_id}) AND w.kind IN ('account','plant','organization')))) AND (${tables.affiliation.account_id} IS NULL OR EXISTS(SELECT FROM discovery d WHERE d.account_id=${tables.affiliation.account_id} AND d.converted_at IS NULL)))`;
+	const live = linkLive("affiliation");
 	const query = tx
 		.select({
 			...getTableColumns(tables.affiliation),

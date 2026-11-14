@@ -6,11 +6,15 @@ import {
 	Calendar03Icon,
 	ChartLineData01Icon,
 	File02Icon,
+	HierarchyIcon,
+	Link01Icon,
 	Mail01Icon,
 	Mortarboard01Icon,
+	Notification03Icon,
 	MessageEdit01Icon,
 	Route01Icon,
 	Settings02Icon,
+	ShieldUserIcon,
 	Task01Icon,
 	UserGroupIcon,
 	UserMultipleIcon,
@@ -88,6 +92,14 @@ const INTELLIGENCE = {
 	icon: ChartLineData01Icon,
 	prefetch: false,
 } as const;
+// A sending church or network seat (WP-047a): its plants, its connections and what it shares, its notifications and
+// Settings. No planter page appears. Connections and Sharing are the one /settings/sharing page (D-1097).
+const PLANTS = { kind: "link", key: "plants", label: "Plants", href: "/network", icon: HierarchyIcon } as const;
+const ORGANIZATION_PAGES = [
+	{ kind: "link", key: "connections", label: "Connections", href: "/settings/sharing#connections", icon: Link01Icon },
+	{ kind: "link", key: "sharing", label: "Sharing", href: "/settings/sharing", icon: ShieldUserIcon },
+	{ kind: "link", key: "notifications", label: "Notifications", href: "/notifications", icon: Notification03Icon },
+] as const;
 // An organization's Pipeline (WP-098a): the people a sending church or network develops toward planting.
 const PIPELINE = {
 	kind: "link",
@@ -187,47 +199,49 @@ function Frame({ name, photo, settings, seed = null, children }: FrameProps) {
 			</RoleBanner>
 		) : null;
 	// The rail's Settings opens the dialog over the current page, as the user menu does; /settings is its address.
-	const nav: ShellNav = {
-		main:
-			settings?.context === "organization"
-				? [PIPELINE, PEOPLE, MEETINGS, MESSAGES, TASKS, MINISTRIES, WIKI]
-				: account
+	const settingsLink = {
+		kind: "link",
+		key: "settings",
+		label: "Settings",
+		href: "/settings",
+		icon: Settings02Icon,
+		onNavigate: settings
+			? (event: { preventDefault: () => void }) => {
+					event.preventDefault();
+					dialog.open(firstSection(settings));
+				}
+			: undefined,
+	} as const;
+	const feedbackAction = {
+		kind: "action",
+		key: "feedback",
+		label: "Send feedback",
+		icon: MessageEdit01Icon,
+		onSelect: () => setFeedback(true),
+	} as const;
+	const organization = settings?.context === "organization";
+	const nav: ShellNav = organization
+		? { main: [PLANTS, PIPELINE], pages: ORGANIZATION_PAGES, tools: [feedbackAction, settingsLink] }
+		: {
+				main: account
 					? linked
 						? [MY_RESIDENCY, WIKI]
 						: [WIKI]
 					: [PEOPLE, MEETINGS, MESSAGES, TASKS, MINISTRIES, WIKI],
-		pages: settings?.context === "plant" && role !== "member" ? [INTELLIGENCE, DOCUMENTS] : account ? [] : [DOCUMENTS],
-		tools: [
-			{
-				kind: "action",
-				key: "feedback",
-				label: "Send feedback",
-				icon: MessageEdit01Icon,
-				onSelect: () => setFeedback(true),
-			},
-			{
-				kind: "action",
-				key: "guide",
-				label: "Guide",
-				icon: BookOpen02Icon,
-				onSelect: () => wiki?.toggleGuide(),
-				expanded: wiki?.guideOpen,
-			},
-			{
-				kind: "link",
-				key: "settings",
-				label: "Settings",
-				href: "/settings",
-				icon: Settings02Icon,
-				onNavigate: settings
-					? (event) => {
-							event.preventDefault();
-							dialog.open(firstSection(settings));
-						}
-					: undefined,
-			},
-		],
-	};
+				pages: settings?.context === "plant" && role !== "member" ? [INTELLIGENCE, DOCUMENTS] : account ? [] : [DOCUMENTS],
+				tools: [
+					feedbackAction,
+					{
+						kind: "action",
+						key: "guide",
+						label: "Guide",
+						icon: BookOpen02Icon,
+						onSelect: () => wiki?.toggleGuide(),
+						expanded: wiki?.guideOpen,
+					},
+					settingsLink,
+				],
+			};
 	const later = (what: string) => () => toast({ message: `${what} is not available yet.`, tone: "info" });
 	const seat = role ? `${ROLE[role]} seat` : "";
 	return (
@@ -242,7 +256,7 @@ function Frame({ name, photo, settings, seed = null, children }: FrameProps) {
 					checkIn={settings?.context === "plant" && role !== "member"}
 				/>
 			}
-			homeHref={account ? (linked ? "/my-residency" : "/home") : "/people"}
+			homeHref={organization ? "/network" : account ? (linked ? "/my-residency" : "/home") : "/people"}
 			unread={bell.unread}
 			width="wide"
 			onSearch={() => {

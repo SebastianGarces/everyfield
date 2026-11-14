@@ -163,16 +163,10 @@ function Elsewhere({
 		<section data-onboarding-step="elsewhere">
 			<StepHeading title={copy.title}>{copy.body}</StepHeading>
 			<div className="mx-auto mt-[30px] flex max-w-[620px] flex-col items-center gap-6">
-				{entry.kind === "elsewhere" && entry.reason === "organization" ? (
-					// Until the organization home ships (WP-047a), this screen is where an organization account lands.
-					<Button variant="primary" asChild>
-						<Link href="/organization/pipeline">Open Pipeline</Link>
-					</Button>
-				) : (
-					<Button variant="primary" onClick={onReload}>
-						{entry.kind === "confirm_email" ? "I’ve confirmed it" : "Try again"}
-					</Button>
-				)}
+				{/* An organization seat never lands here: /onboarding sends it to its home at /network (WP-047a). */}
+				<Button variant="primary" onClick={onReload}>
+					{entry.kind === "confirm_email" ? "I’ve confirmed it" : "Try again"}
+				</Button>
 				{account}
 			</div>
 		</section>
