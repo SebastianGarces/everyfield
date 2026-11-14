@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { accountId, defineSafeError, recordId, requestKey, revision, type Reply } from "../common/values.ts";
-import { instant } from "../common/time.ts";
+import { instant, localDate } from "../common/time.ts";
 
 // The phases contract (WP-038, PHASE-001 to PHASE-008). A phase is an integer 0 to 6 and nothing else: z.int refuses
 // -1, 7, 1.5, "2" and null alike (PHASE-CASE-009). Requests are strict, so a caller can never name a kind.
@@ -72,8 +72,8 @@ export const transitionRequest = z.strictObject({
 });
 
 const actor = z.strictObject({ accountId, displayName: z.string() }).nullable();
-/** One journey entry. Creation and declaration carry no direction; a move always does. Noop receipts are not entries. */
-export const journeyEntry = z.discriminatedUnion("kind", [
+/** One phase entry. Creation and declaration carry no direction; a move always does. Noop receipts are not entries. */
+export const phaseEntry = z.discriminatedUnion("kind", [
 	z.strictObject({
 		kind: z.literal("creation"),
 		id: recordId,
@@ -101,6 +101,18 @@ export const journeyEntry = z.discriminatedUnion("kind", [
 		occurredAt: instant,
 	}),
 ]);
+export type PhaseEntry = z.infer<typeof phaseEntry>;
+/** One journey entry: a phase entry, or Launch Sunday held (WP-046), which moves no phase. */
+export const journeyEntry = z.discriminatedUnion("kind", [
+	...phaseEntry.options,
+	z.strictObject({
+		kind: z.literal("launch_sunday"),
+		id: recordId,
+		actualDate: localDate,
+		actor,
+		occurredAt: instant,
+	}),
+]);
 export type JourneyEntry = z.infer<typeof journeyEntry>;
 
 /** The church's place on the journey: the current phase, the revision a change must name, and the declaration offer. */
@@ -116,16 +128,16 @@ export const historyResult = z.strictObject({
 	plantName: z.string(),
 	/** The plant's time zone, for the dates of its journey. */
 	timeZone: z.string(),
-	/** Creation, declaration and moves in the order they happened. */
+	/** Creation, declaration, moves and Launch Sunday in the order they happened. */
 	entries: z.array(journeyEntry),
 });
 export type HistoryResult = z.infer<typeof historyResult>;
 
-export const declareResult = z.strictObject({ state: journeyState, entry: journeyEntry });
+export const declareResult = z.strictObject({ state: journeyState, entry: phaseEntry });
 export type DeclareResult = z.infer<typeof declareResult>;
 /** A move returns its entry; the same phase returns a noop receipt with no entry and an unchanged state. */
 export const transitionResult = z.discriminatedUnion("outcome", [
-	z.strictObject({ outcome: z.literal("moved"), receiptId: recordId, state: journeyState, entry: journeyEntry }),
+	z.strictObject({ outcome: z.literal("moved"), receiptId: recordId, state: journeyState, entry: phaseEntry }),
 	z.strictObject({ outcome: z.literal("noop"), receiptId: recordId, state: journeyState }),
 ]);
 export type TransitionResult = z.infer<typeof transitionResult>;

@@ -1,4 +1,4 @@
-import { requestIdentity, type Clock, type RequestIdentity } from "@everyfield/contracts/common";
+import { type Clock, type RequestIdentity } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/launch";
 import type { Database, Transaction } from "@everyfield/db/client";
 import { sql, type SQL } from "@everyfield/db/query";
@@ -6,11 +6,11 @@ import { randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
 import { seatHeld, type RequestActor } from "../access/session.ts";
-import { hash } from "../operations/canonical.ts";
 import { auditTransaction } from "../operations/writes.ts";
 import { SEED } from "./catalog.ts";
-import { deny, parse, scopeOf, settle, type Scope } from "./core.ts";
-import { heldPractices, milestoneJson, milestoneOf, planColumns, planOf, systemClock } from "./reads.ts";
+import { deny, identityOf, keyed, parse, priorKey, priorRow, replay, scopeOf, settle, type Scope } from "./core.ts";
+import { heldPractices, milestoneJson, milestoneOf, planAfter, systemClock } from "./reads.ts";
+import { outcomeCommands } from "./outcome.ts";
 
 /** A milestone a person just completed, and the church's other current Owners and Admins to tell (NTF-009). */
 export type MilestoneCompleted = {
@@ -25,40 +25,6 @@ export type MilestoneCompleted = {
 };
 /** Queues the Launch notifications in the completion's transaction: the notification service's port. */
 export type LaunchNotices = (tx: Transaction, completed: MilestoneCompleted) => Promise<unknown>;
-
-type Operation = "launch.schedule" | "launch.postpone" | "launch.completeMilestone" | "launch.reopenMilestone";
-const priorRow = z.object({ request_identity: z.unknown(), result: z.unknown() }).nullable();
-/** The stored answer of an earlier request with this key, as a CTE named `prior`. */
-const priorKey = (scope: Scope, key: string) =>
-	sql`prior AS (SELECT a.request_identity,a.result FROM audit_event a WHERE a.tenant_id=${scope.plantId}::uuid AND a.request_key=${key})`;
-function identityOf(
-	scope: Scope,
-	operation: Operation,
-	q: { requestKey: string; expectedRevision: string; input: unknown },
-) {
-	return requestIdentity.parse({
-		owner: { kind: "plant", id: scope.plantId },
-		actorId: scope.accountId,
-		operation,
-		requestKey: q.requestKey,
-		digest: hash({ operation, expectedRevision: q.expectedRevision, input: q.input }),
-	});
-}
-/** The same request replays its stored answer; another request with the key is refused. */
-function replay(prior: NonNullable<z.infer<typeof priorRow>>, identity: RequestIdentity) {
-	const stored = requestIdentity.safeParse(prior.request_identity);
-	if (
-		!stored.success ||
-		stored.data.actorId !== identity.actorId ||
-		stored.data.operation !== identity.operation ||
-		stored.data.digest !== identity.digest
-	)
-		deny("idempotency_conflict");
-	return prior.result;
-}
-/** The command's own audit columns: the request key, its identity and the stored answer. */
-const keyed = (identity: RequestIdentity, result: unknown) =>
-	sql`${identity.requestKey},${JSON.stringify(identity)}::jsonb,${JSON.stringify(result)}::jsonb`;
 
 const SEED_ROWS = JSON.stringify(
 	SEED.map((m) => ({ key: m.key, area: m.area, title: m.title, description: m.description, position: m.position })),
@@ -118,11 +84,6 @@ async function lockLaunch(tx: Transaction, scope: Scope, key: string, create: bo
  })
  SELECT (SELECT ok FROM gate) AS ok,(SELECT to_jsonb(prior) FROM prior) AS prior,(SELECT to_jsonb(cur) FROM cur) AS launch`);
 	return lockRow.parse(rows[0]);
-}
-/** The plan after a write, in the write's transaction. */
-async function planAfter(tx: Transaction, scope: Scope, clock: Clock) {
-	const { rows } = await tx.execute(sql`SELECT ${planColumns(sql`${scope.plantId}::uuid`)}`);
-	return planOf(rows[0], clock).plan;
 }
 
 const dateAnswer = z.object({ outcome: z.enum(["changed", "noop"]) });
@@ -260,7 +221,14 @@ export function createLaunchWriter(config: { notices: LaunchNotices; clock?: Clo
 		return { op, result: { outcome: "changed" as const, milestone: saved } };
 	}
 
+	/** guest_data_entered and debrief_done follow the submitted debrief only: no person completes or reopens them. */
+	const manual = (id: string) => {
+		if (c.derivedMilestone.safeParse(id).success) deny("derived_evidence_only");
+		return id;
+	};
+
 	return {
+		...outcomeCommands(clock),
 		/**
 		 * launch.schedule (LCH-001, LCH-003): set, move or recommit Launch Sunday. The first date, and any date while
 		 * readiness is incomplete, also creates the missing milestones and prep tasks in the same change. The same date
@@ -334,6 +302,7 @@ export function createLaunchWriter(config: { notices: LaunchNotices; clock?: Clo
 		async completeMilestone(db: Database, authority: RequestActor, raw: unknown) {
 			return settle(async () => {
 				const q = parse(c.completeMilestoneRequest, raw);
+				manual(q.input.milestoneId);
 				return milestoneCommand(db, authority, "launch.completeMilestone", q, async (tx, scope, m, lock, identity) => {
 					if (c.reviewedOf(m.tasks) !== q.input.reviewed) deny("stale_review", { milestone: m });
 					if (m.completion && !m.needsReview) return { outcome: "noop", milestone: m };
@@ -363,6 +332,7 @@ export function createLaunchWriter(config: { notices: LaunchNotices; clock?: Clo
 		async reopenMilestone(db: Database, authority: RequestActor, raw: unknown) {
 			return settle(async () => {
 				const q = parse(c.reopenMilestoneRequest, raw);
+				manual(q.input.milestoneId);
 				return milestoneCommand(db, authority, "launch.reopenMilestone", q, async (tx, scope, m, _lock, identity) => {
 					if (!m.completion) return { outcome: "noop", milestone: m };
 					const { result } = await saveMilestone(tx, scope, m, identity, {

@@ -72,13 +72,13 @@ const entryRow = z.object({
 	occurredAt: z.string(),
 });
 /** A journey entry from entryJson: the direction comes from the phases, never from stored text. */
-export function entryOf(raw: unknown): c.JourneyEntry {
+export function entryOf(raw: unknown): c.PhaseEntry {
 	const r = entryRow.parse(raw);
 	const actor = r.actorId ? { accountId: accountIdSchema.parse(r.actorId), displayName: r.actorName ?? "" } : null;
 	const base = { id: r.id, fromPhase: r.fromPhase, toPhase: r.toPhase, actor, occurredAt: r.occurredAt };
-	if (r.kind !== "movement") return c.journeyEntry.parse({ ...base, kind: r.kind });
+	if (r.kind !== "movement") return c.phaseEntry.parse({ ...base, kind: r.kind });
 	const direction = c.classifyChange(r.fromPhase!, r.toPhase);
-	return c.journeyEntry.parse({ ...base, kind: r.kind, direction, reason: r.reason });
+	return c.phaseEntry.parse({ ...base, kind: r.kind, direction, reason: r.reason });
 }
 /** True while the plant has used neither its declaration slot nor an ordinary move: `plant` is an SQL id. */
 export const declarable = (plant: SQL) =>

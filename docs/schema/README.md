@@ -2,7 +2,7 @@
 
 [target.json](target.json) is generated from the Drizzle declarations in [tables.ts](../../packages/db/src/schema/tables.ts). Those declarations own modeled structure; reviewed custom migrations and supplemental catalog expectations own triggers, functions and privileges. Applied SQL remains immutable.
 
-The schema has 112 tables, 1266 columns, 376 declared FKs and 28 JSONB columns. These are counts of definitions, including compound FKs as one constraint. They exclude indexes, triggers, packaged artifacts and external backups.
+The schema has 115 tables, 1300 columns, 386 declared FKs and 28 JSONB columns. These are counts of definitions, including compound FKs as one constraint. They exclude indexes, triggers, packaged artifacts and external backups.
 
 Run documentation/tooling checks from the repository root:
 
@@ -58,6 +58,9 @@ Each replaced table inherits the union of producer packages from its previous ta
 | `feedback` | WP-049 feedback.submit stores it; feedback.admin.changeStatus moves its status. | WP-049 |
 | `generated_document` | WP-037 stores one saved catalog render. The plant owns the row. Creator attribution is not ownership. | WP-037 |
 | `identity_proof` | Application-owned email-change/cancellation proof splits from account/auth and deletion facts; password reset remains library-owned. | WP-004, WP-005, WP-010, WP-050, WP-057 |
+| `launch_debrief` | WP-046 Launch outcomes, guests, debrief and history. | WP-046 |
+| `launch_guest` | WP-046 Launch outcomes, guests, debrief and history. | WP-046 |
+| `launch_summary` | WP-046 Launch outcomes, guests, debrief and history. | WP-046 |
 | `leadership_conversation` | WP-098 records each human-logged leadership conversation. | WP-098 |
 | `mail_request` | Exact request/replay clock splits from the shared mail intent/attempt ledger. | WP-004, WP-028, WP-031 |
 | `mail_request_member` | Exact ordered membership splits from the shared mail intent/attempt ledger. | WP-004, WP-028, WP-031 |

@@ -35,8 +35,31 @@ const DIRECTION_LABEL: Record<Direction, string> = {
 export function entryTitle(entry: JourneyEntry): string {
 	if (entry.kind === "creation") return "Church created";
 	if (entry.kind === "initial_declaration") return "Declared at setup";
+	if (entry.kind === "launch_sunday") return "Launch Sunday held";
 	return DIRECTION_LABEL[entry.direction];
 }
+
+/** The line under a timeline entry's title: the phases it moved between, or the day Launch Sunday was held. */
+export function entryDetail(entry: JourneyEntry): string {
+	if (entry.kind === "launch_sunday")
+		return `Held ${new Intl.DateTimeFormat("en-US", { timeZone: "UTC", weekday: "short", month: "short", day: "numeric", year: "numeric" }).format(new Date(`${entry.actualDate}T12:00:00Z`))}. The phase stays as it is.`;
+	return entry.fromPhase === null
+		? `Started at Phase ${entry.toPhase}`
+		: `Phase ${entry.fromPhase} → Phase ${entry.toPhase}`;
+}
+
+/**
+ * What Post-launch would measure, shown as not measured (launch.md "Post-launch measurement and proof"). No approved
+ * post-launch source exists, so it is never met from Vision Meeting follow-ups before launch, the guest roster or the
+ * debrief's follow-up plan.
+ */
+export const POST_LAUNCH_MEASURES = [
+	{
+		key: "guest_follow_up_48h",
+		label: "Guests followed up within 48 hours",
+		note: "Not measured yet. Everyfield has no post-launch follow-up source, so Vision Meeting follow-ups from before launch don't count here.",
+	},
+] as const;
 
 export const REASON_MESSAGE: Record<ReasonProblem, string> = {
 	empty: "Write a short reason for the move.",

@@ -149,10 +149,20 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `job(id, tenant_id)` | `record(id, tenant_id)` | restrict |  |
 | `launch(plant_id)` | `plant(id)` | restrict |  |
 | `launch(reference_version_id)` | `reference_version(id)` | restrict |  |
+| `launch(outcome_recorded_by)` | `account(id)` | set_null |  |
+| `launch_debrief(plant_id)` | `launch(plant_id)` | cascade |  |
+| `launch_debrief(saved_by)` | `account(id)` | set_null |  |
+| `launch_debrief(submitted_by)` | `account(id)` | set_null |  |
+| `launch_guest(plant_id)` | `launch(plant_id)` | cascade |  |
+| `launch_guest(person_id, plant_id)` | `person(id, tenant_id)` | cascade |  |
+| `launch_guest(recorded_by)` | `account(id)` | set_null |  |
 | `launch_milestone(source_version_id)` | `reference_version(id)` | restrict |  |
 | `launch_milestone(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
 | `launch_milestone(plant_id)` | `launch(plant_id)` | restrict |  |
 | `launch_milestone(completed_by)` | `account(id)` | set_null |  |
+| `launch_summary(plant_id)` | `launch(plant_id)` | cascade |  |
+| `launch_summary(published_by)` | `account(id)` | set_null |  |
+| `launch_summary(saved_by)` | `account(id)` | set_null |  |
 | `leadership_conversation(pipeline_person_id, organization_id)` | `pipeline_person(id, organization_id)` | restrict |  |
 | `leadership_conversation(staff_seat_id)` | `seat(id)` | restrict |  |
 | `lifecycle_witness(account_id)` | `account(id)` | restrict |  |
