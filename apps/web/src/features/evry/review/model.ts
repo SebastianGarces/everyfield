@@ -759,13 +759,6 @@ export function reviseInput(review: Review, edits: Record<string, string> = {}):
 		}
 		case "communication.cancelScheduledReviewed":
 			return { communicationId: target.id };
-		case "documents.createFromTemplate":
-			return { templateId: target.id };
-		case "documents.exportNative":
-			return { documentId: target.id, format: after("format") === "Word" ? "docx" : "pdf" };
-		case "documents.archive":
-		case "documents.designateCoreValues":
-			return { documentId: target.id };
 		case "communication.replaceScheduledReviewed": {
 			const audience = audienceArgs(after("audience"));
 			const body = after("body");

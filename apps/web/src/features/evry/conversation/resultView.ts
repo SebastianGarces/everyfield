@@ -45,7 +45,7 @@ const documents = (title: string, rest: Partial<OpView> = {}): OpView => ({
 	noun: ["document", "documents"],
 	icon: "document",
 	counts: "document",
-	empty: "Nothing in this church matches, or you can't see it.",
+	empty: "No document in this church matches, or you can't see it.",
 	...rest,
 });
 const rows = (title: string, rest: Partial<OpView> = {}): OpView => ({
@@ -153,7 +153,7 @@ const VIEWS: Record<string, OpView> = {
 		headed: true,
 		empty: "Your church digest is turned off, so no digest is coming.",
 	},
-	"documents.listOwned": documents("Documents", { empty: "No document in this church matches, or you can't see it." }),
+	"documents.listOwned": documents("Documents"),
 	"documents.read": documents("Document", { empty: "That document is not in this church, or you can't see it." }),
 	"documents.readCoreValuesEvidence": documents("Core values", {
 		empty: "No document is marked as your core values yet. Mark one of your written documents in Documents.",
