@@ -100,17 +100,8 @@ function edited(base: Plan, ask: string): Plan | null {
 		plan.rhythm = /two|other/.test(r) ? "every_two_weeks" : /month/.test(r) ? "monthly" : "weekly";
 		changed = true;
 	}
-	const months = /\b(?:run|last|over|for) (\d{1,3}) months\b/i.exec(ask)?.[1];
-	if (months) {
-		plan.expectedMonths = Number(months);
-		changed = true;
-	}
 	for (const m of ask.matchAll(new RegExp(`\\brename (?:the )?milestone ${QUOTED} to ${QUOTED}`, "gi"))) {
 		plan.milestones = plan.milestones.map((x) => (x.title === m[1] ? { ...x, title: m[2]! } : x));
-		changed = true;
-	}
-	for (const m of ask.matchAll(new RegExp(`\\b(?:remove|drop) (?:the )?milestone ${QUOTED}`, "gi"))) {
-		plan.milestones = plan.milestones.filter((x) => x.title !== m[1]);
 		changed = true;
 	}
 	for (const m of ask.matchAll(new RegExp(`\\badd (?:a )?milestone ${QUOTED}`, "gi"))) {

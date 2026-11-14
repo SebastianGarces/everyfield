@@ -200,23 +200,18 @@ export const readProgram = {
 			);
 		}
 		const p = value(await readProgramDetail(tx, actor.authority, { programId: input.programId }));
-		const version = (v: ProgramVersion | null) =>
-			v ? { number: v.number, rhythm: v.rhythm, months: v.expectedMonths } : null;
-		const published = version(p.published);
-		const draft = version(p.draft);
 		return done([...(p.published ? planRows(p.published) : []), ...(p.draft ? planRows(p.draft) : [])], {
 			programId: p.id,
 			program: p.name,
 			kind: p.kind,
 			director: p.director.name,
 			directedByYou: p.viewer.director,
-			publishedVersion: published?.number ?? null,
-			publishedOn: p.published?.publishedOn ?? null,
-			publishedRhythm: published?.rhythm ?? null,
-			publishedMonths: published?.months ?? null,
-			draftVersion: draft?.number ?? null,
-			draftRhythm: draft?.rhythm ?? null,
-			draftMonths: draft?.months ?? null,
+			publishedVersion: p.published?.number ?? null,
+			publishedRhythm: p.published?.rhythm ?? null,
+			publishedMonths: p.published?.expectedMonths ?? null,
+			draftVersion: p.draft?.number ?? null,
+			draftRhythm: p.draft?.rhythm ?? null,
+			draftMonths: p.draft?.expectedMonths ?? null,
 		});
 	},
 } satisfies ReadAdapter<{ programId?: string }>;
