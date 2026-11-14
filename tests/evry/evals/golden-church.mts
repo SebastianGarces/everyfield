@@ -1083,7 +1083,10 @@ function pinHostClock() {
  */
 export const evalDatabase = (options: { prefix: string; max?: number }) => testDatabase({ ...options, clock: NOW });
 
-/** `admin` writes fixture rows a suite adds to the church, such as the setup accounts (setup-church.mts). */
+/**
+ * `admin` is the schema owner's connection. It writes fixture rows a suite adds to the church, such as the setup
+ * accounts (setup-church.mts), and checks rows the runtime role can't read, such as audit events.
+ */
 export type GoldenChurch = {
 	db: Database;
 	admin: Database;

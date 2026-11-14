@@ -214,6 +214,7 @@ export function settingsCommands() {
 	return {
 		settings: {
 			updatePlantProfile: ops.sections.updatePlantProfile,
+			setDigestSchedule: ops.sections.setDigestSchedule,
 			previewPlantTimezone: ops.timezones.previewPlantTimezone,
 			setPlantTimezone: ops.timezones.setPlantTimezone,
 		},
