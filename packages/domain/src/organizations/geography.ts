@@ -30,8 +30,6 @@ export function areaOf(key: string | null): RegionArea | null {
 	const a = code ? BY_CODE.get(code) : undefined;
 	return a ? { code: a.code, title: a.title, type: a.type as RegionArea["type"] } : null;
 }
-/** The states an area's counties lie in (a multistate area stays one Region). */
-export const statesOf = (code: string) => BY_CODE.get(code)?.states ?? [];
 
 const STATES: Record<string, string> = {
 	alabama: "AL",

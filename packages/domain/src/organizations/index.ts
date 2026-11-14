@@ -51,6 +51,5 @@ export {
 	readReportingLocation,
 	stateCode,
 	stateName,
-	statesOf,
 	suggestRegions,
 } from "./geography.ts";

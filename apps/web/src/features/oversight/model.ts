@@ -9,7 +9,7 @@ import type {
 	Preparation,
 	SectionKey,
 } from "@everyfield/contracts/oversight";
-import { NEAR_LAUNCH_DAYS, regionLabel } from "@everyfield/contracts/oversight";
+import { regionLabel } from "@everyfield/contracts/oversight";
 import type { Stage } from "@everyfield/ui/display";
 import { SHORT_NAME } from "../phases/model.ts";
 
@@ -123,7 +123,6 @@ export function daysText(days: number): string {
 	if (days === 1) return "Launch Sunday is tomorrow";
 	return `Launch Sunday is in ${days} days`;
 }
-export const NEAR_LAUNCH_WINDOW = NEAR_LAUNCH_DAYS;
 
 export const LEVEL_LABEL: Record<Level, string> = {
 	region: "Region",
