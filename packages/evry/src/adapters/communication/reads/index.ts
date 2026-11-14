@@ -1,4 +1,6 @@
 import type { Transaction } from "@everyfield/db/client";
+import { meetingTitle } from "@everyfield/contracts/common";
+import { meetingType } from "@everyfield/contracts/meetings";
 import { sql } from "@everyfield/db/query";
 import { liveRead } from "@everyfield/domain/access";
 import { communicationWriter, optedOutSql } from "@everyfield/domain/communication";
@@ -146,7 +148,13 @@ const resultRow = z.object({
 const recipientRow = (actor: EvryActor, r: z.infer<typeof resultRow>) =>
 	personRow(actor, r.id, r.name, { result: r.result, deliveredAt: r.delivered_at, openedAt: r.opened_at });
 
-const meetingRow = z.object({ id: z.uuid(), title: z.string(), type: z.string(), starts: z.string() });
+const meetingRow = z.object({
+	id: z.uuid(),
+	title: z.string().nullable(),
+	type: meetingType,
+	vision: z.number().int().nullable(),
+	starts: z.string(),
+});
 const previewInput = z.strictObject({
 	subject: z.string().trim().min(1).max(200).describe("The drafted subject"),
 	body: z.string().trim().min(1).max(20_000).describe("The drafted body, plain text"),
@@ -181,8 +189,8 @@ export const preview: ReadAdapter<z.infer<typeof previewInput>> = {
 		const wantMeeting = words.length > 0 || input.meetingOn !== undefined;
 		const r = await tx.execute(sql`WITH ${classifiedPeople(plant, input.audience, null)}
 			SELECT coalesce((SELECT jsonb_agg(jsonb_build_object('id',id,'name',name,'reason',reason) ORDER BY reason IS NULL,lower(name) COLLATE "C",id) FROM classified),'[]'::jsonb) AS people,
-				CASE WHEN ${wantMeeting} THEN coalesce((SELECT jsonb_agg(jsonb_build_object('id',x.id,'title',x.title,'type',x.type,'starts',x.starts) ORDER BY x.starts_at DESC)
-					FROM (SELECT mt.id,mt.title,mt.type,mt.starts_at,${sql.raw(local("mt.starts_at", "mt.timezone"))} AS starts
+				CASE WHEN ${wantMeeting} THEN coalesce((SELECT jsonb_agg(jsonb_build_object('id',x.id,'title',x.title,'type',x.type,'vision',x.vision_number,'starts',x.starts) ORDER BY x.starts_at DESC)
+					FROM (SELECT mt.id,mt.title,mt.type,mt.vision_number,mt.starts_at,${sql.raw(local("mt.starts_at", "mt.timezone"))} AS starts
 						FROM meeting mt WHERE mt.plant_id=${plant}::uuid AND mt.status<>'cancelled'
 							AND (${input.meetingOn ?? null}::date IS NULL OR mt.local_date=${input.meetingOn ?? null}::date)
 							AND (cardinality(${sql.param(words)}::text[])=0 OR EXISTS(SELECT FROM unnest(${sql.param(words)}::text[]) w(p)
@@ -200,7 +208,8 @@ export const preview: ReadAdapter<z.infer<typeof previewInput>> = {
 			...(found.meetings ?? []).map((m) => ({
 				kind: "meeting" as const,
 				id: m.id,
-				label: m.title,
+				// An untitled meeting reads as Meetings names it ("Vision Meeting #4").
+				label: meetingTitle({ title: m.title, type: m.type, visionNumber: m.vision }),
 				fields: { startsAt: m.starts, type: m.type },
 			})),
 			...found.people.map((p) => personRow(actor, p.id, p.name, { leftOut: p.reason })),

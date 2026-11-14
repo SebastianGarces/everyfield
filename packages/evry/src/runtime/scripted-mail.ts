@@ -60,6 +60,8 @@ const LEFT_OUT: Record<string, string> = {
 	duplicate_address: "the same address as someone who gets it, so it goes once",
 	blocked: "the address is blocked after a bounce",
 };
+/** The ask names Thursday's vision night: of the matching meetings the read found, Thursday's, else the newest. */
+const thursdays = (meetings: Row[]) => meetings.find((m) => /^Thu\b/.test(String(m.fields.startsAt))) ?? meetings[0];
 /** The vision night invitation, from the meeting the audience read found. */
 function invitation(meeting: Row | undefined) {
 	const when = meeting ? String(meeting.fields.startsAt) : "Thursday";
@@ -102,7 +104,7 @@ export function mailStep(options: LanguageModelV4CallOptions): LanguageModelV4Co
 	// COM-01: an unsaved draft, with exactly who it reaches and who is left out. Nothing is saved or sent.
 	if (INVITE.test(ask)) {
 		if (!last) return previewDraft();
-		const draft = invitation(rowsOf(last, "meeting")[0]);
+		const draft = invitation(thursdays(rowsOf(last, "meeting")));
 		const persons = rowsOf(last, "person");
 		const gets = persons.filter((p) => p.fields.leftOut === null).map((p) => p.label);
 		const out = persons.filter((p) => p.fields.leftOut !== null);
@@ -136,7 +138,7 @@ export function mailStep(options: LanguageModelV4CallOptions): LanguageModelV4Co
 		if (!last) return previewDraft();
 		if (last.proposalId)
 			return text("Here's the exact email and who gets it. Nothing is sent until you press Approve.");
-		const meeting = rowsOf(last, "meeting")[0];
+		const meeting = thursdays(rowsOf(last, "meeting"));
 		const draft = invitation(meeting);
 		return propose("communication.sendReviewed", {
 			subject: draft.subject,
@@ -254,7 +256,7 @@ export function mailStep(options: LanguageModelV4CallOptions): LanguageModelV4Co
 		if (!canPropose) return null;
 		if (!last) return previewDraft();
 		if (last.proposalId) return text("Here's the template to review. Nothing is saved until you press Approve.");
-		const draft = invitation(rowsOf(last, "meeting")[0]);
+		const draft = invitation(thursdays(rowsOf(last, "meeting")));
 		return propose("communication.templates.create", {
 			name: "Vision night invitation",
 			category: "meeting_invitation",

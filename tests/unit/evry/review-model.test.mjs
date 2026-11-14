@@ -180,3 +180,23 @@ test("AC:HH-05 INV-partial: a saved change that left anyone out counts who chang
 	// A change that reached nobody else has no count.
 	assert.equal(peopleResult(review({ status: "approved", outcome: "completed", receipt: {} })), null);
 });
+
+test("INV-meetings-review: a Meetings review is revised by asking Evry, and its lists read one entry per line", async () => {
+	const { editableChanges, fieldLabel, valueText } =
+		await import("../../../apps/web/src/features/evry/review/model.ts");
+	const review = {
+		operation: "meetings.finalizeAttendance",
+		review: {
+			target: { kind: "meeting", id: "x", label: "Vision Meeting #2" },
+			changes: [
+				{ field: "attended", before: null, after: ["Maria Santos (first Vision)", "Alex Rivera"] },
+				{ field: "tasks", before: null, after: ["Follow up with Maria Santos (needs an owner)"] },
+			],
+		},
+	};
+	assert.deepEqual(editableChanges(review), []);
+	assert.equal(fieldLabel("tasks", "meetings.finalizeAttendance"), "Tasks it creates");
+	assert.equal(fieldLabel("tasks", "privacy.setSharing"), "Tasks");
+	assert.equal(fieldLabel("presence:Maria Santos"), "Maria Santos");
+	assert.equal(valueText("attended", review.review.changes[0].after), "Maria Santos (first Vision)\nAlex Rivera");
+});

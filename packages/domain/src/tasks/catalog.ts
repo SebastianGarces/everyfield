@@ -8,7 +8,10 @@ import type { z } from "zod";
 // tasks already created keep their own copy. tests/integration/tasks/templates.test.mts compares this file with the
 // reference item by item. Two titles spell the brand "Everyfield" where the frozen reference keeps its legacy
 // spelling (decisions.md, 2026-10-23 brand spelling). Every item carries a description: the reference has one on
-// only 4 items, which are kept verbatim, and the rest are written here (decisions.md D87).
+// only 4 items, which are kept verbatim, and the rest are written here (decisions.md D87). Version 3 drops the three
+// items the Launch plan's readiness tasks own once a launch date is set: the invite drop and the press release of
+// Promotion Campaign and the venue booking of Pre-Launch Services (Sebastian, Nov 6, 2026; WP-045). Tasks already
+// created from them stay as they are.
 
 type Key = z.infer<typeof c.templateKey>;
 type ChecklistItem = {
@@ -29,7 +32,7 @@ export type Checklist = {
 export type Catalog = { version: number; checklists: readonly Checklist[] };
 
 export const CATALOG: Catalog = {
-	version: 2,
+	version: 3,
 	checklists: [
 		{
 			key: "discernment-and-preparation",
@@ -740,22 +743,6 @@ export const CATALOG: Catalog = {
 					offsetDays: 18,
 				},
 				{
-					key: "invite-drop",
-					title: "Run the neighbourhood invite drop",
-					description:
-						"Cover the streets around the venue in one co-ordinated push, with routes and pairs agreed beforehand.",
-					priority: "high",
-					offsetDays: 21,
-				},
-				{
-					key: "press-release",
-					title: "Send the local press release",
-					description:
-						"A short story about who you are and when you launch, with a contact name, to local papers and radio.",
-					priority: "low",
-					offsetDays: 21,
-				},
-				{
 					key: "final-reminder",
 					title: "Post the final week reminder",
 					description: "One last post and message in launch week, with the time, place and a reason to bring a friend.",
@@ -777,13 +764,6 @@ export const CATALOG: Catalog = {
 					description: "Space them so there is time to fix what each one shows before the next.",
 					priority: "high",
 					offsetDays: 2,
-				},
-				{
-					key: "book-preview-venue",
-					title: "Book the venue for each preview service",
-					description: "Book each date with the same access times you will have on launch day, so the run is real.",
-					priority: "high",
-					offsetDays: 4,
 				},
 				{
 					key: "preview-one",
