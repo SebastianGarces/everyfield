@@ -279,7 +279,13 @@ function activityLine(fields: Record<string, unknown>) {
 const corrected = z.array(z.object({ field: z.string(), old: z.unknown(), new: z.unknown() }));
 /** Each corrected field with its old and new value, in the People correction history's words. */
 function correctionDetails(value: unknown) {
-	const parsed = corrected.safeParse(typeof value === "string" ? JSON.parse(value) : null);
+	let raw: unknown = null;
+	try {
+		raw = typeof value === "string" ? JSON.parse(value) : null;
+	} catch {
+		// A saved row in another shape shows no details rather than breaking the conversation.
+	}
+	const parsed = corrected.safeParse(raw);
 	return parsed.success
 		? parsed.data.map((c) => ({
 				label: correctedFieldLabel(c.field),

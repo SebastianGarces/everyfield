@@ -270,16 +270,19 @@ export function assessmentStep(
 	if (intent.kind === "unmerge") {
 		const preview = of("people.previewUnmerge");
 		if (!preview) {
-			const found = of("people.listPeople");
-			if (!found) {
-				const into = assistantTexts(prompt)
-					.map((t) => /\binto ([A-Z][\w'-]+(?: [A-Z][\w'-]+)?)/.exec(t)?.[1])
-					.findLast(Boolean);
-				if (!into) return say("Which merge do you mean? Tell me who stayed.");
-				return [toolCall("people_read", { operation: "people.listPeople", input: { search: into } })];
+			// The people the conversation named: the survivor an earlier answer named, then each name the user asked
+			// about. An answer that used the merged person is withheld after the merge; the user's own words stay.
+			const into = assistantTexts(prompt)
+				.map((t) => /\binto ([A-Z][\w'-]+(?: [A-Z][\w'-]+)?)/.exec(t)?.[1])
+				.filter((n): n is string => Boolean(n));
+			const candidates = [...into.reverse(), ...userTexts(prompt).flatMap(nameList)];
+			const searched = outputs.filter((o) => o.operation === "people.listPeople");
+			const person = searched.flatMap((o) => o.rows ?? [])[0];
+			if (!person) {
+				const next = candidates[searched.length];
+				if (!next) return say("Which merge do you mean? Tell me who stayed.");
+				return [toolCall("people_read", { operation: "people.listPeople", input: { search: next } })];
 			}
-			const person = found.rows?.[0];
-			if (!person) return say("I can't find the person who stayed after that merge.");
 			return read("people.previewUnmerge", { personId: person.id });
 		}
 		const row = preview.rows?.[0];

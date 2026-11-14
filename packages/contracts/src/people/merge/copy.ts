@@ -92,7 +92,7 @@ export function unmergeBlockedText(conflicts: readonly InverseConflict[], names:
 	return [
 		"Cannot unmerge.",
 		...conflicts.map((c) => conflictText(c, names)),
-		`An Unmerge would lose those changes, so Everyfield will not run it. Correct ${names.survivor}'s details by hand instead; each change is kept in the history.`,
+		`An Unmerge would lose those changes, so Everyfield will not run it. Correct ${names.survivor.split(" ")[0]}’s details by hand instead; each change is kept in the history.`,
 	].join(" ");
 }
 

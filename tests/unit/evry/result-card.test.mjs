@@ -518,3 +518,31 @@ test("INV-result-card-duplicate-pairs: listDuplicatePairs is a Duplicates to rev
 		["0 people", ["No import has flagged a possible duplicate that still needs review."]],
 	);
 });
+
+test("INV-result-card-corrections: a correction row lists each field old to new, and a row in another shape breaks nothing", async () => {
+	const { cardView } = await import("../../../apps/web/src/features/evry/conversation/resultView.ts");
+	const row = (changes) => ({
+		kind: "correction",
+		id: "c1",
+		label: "interview corrected 2026-11-13",
+		fields: { recordType: "interview", correctedAt: "2026-11-13T18:00:00Z", reason: null, changes },
+	});
+	const result = (rows) => ({
+		operation: "people.listRecordCorrections",
+		status: "available",
+		rows,
+		total: rows.length,
+		page: 1,
+		next: null,
+		completeness: "complete",
+		exclusions: [],
+	});
+	const view = cardView(
+		"people.listRecordCorrections",
+		result([row(JSON.stringify([{ field: "occurredOn", old: "2026-11-12", new: "2026-10-02" }]))]),
+		null,
+	);
+	assert.deepEqual(view.rows[0].details, [{ label: "Date", value: "2026-11-12 → 2026-10-02" }]);
+	assert.equal(view.summary, "1 correction");
+	assert.equal(cardView("people.listRecordCorrections", result([row("occurredOn: a -> b")]), null).rows[0].details, undefined);
+});

@@ -11,12 +11,22 @@ Its `save()` writes the file on a recording run. Every call is keyed by `callKey
 (prompt, tools, tool choice, reasoning, output limit, response format, provider options). Every file has one shape:
 `model`, `recordedAt`, `spend` and `calls` (key to a recorded generate or stream call with its token usage).
 
-| Suite                 | Cases                                                                                                                   | What it scores                                                                        |
-| --------------------- | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| `golden.test.mts`     | `golden.cases.json` (the 95 approved golden cases), `adapters.cases.json` (33 extra per-adapter and catalog-tool cases) | Tool selection, answer facts, review cards, safety gates, alpha targets, judge grades |
-| `classify.test.mts`   | `classify.cases.json`                                                                                                   | `evry.classifyRequest` labels                                                         |
-| `households.test.mts` | `households.cases.json`                                                                                                 | Household tool selection and the household list answer                                |
-| `followups.test.mts`  | `followups.cases.json`                                                                                                  | Follow-up suggestions never name the signed-in user                                   |
+| Suite                 | Cases                                                                                                                   | What it scores                                                                          |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `golden.test.mts`     | `golden.cases.json` (the 95 approved golden cases), `adapters.cases.json` (33 extra per-adapter and catalog-tool cases) | Tool selection, answer facts, review cards, safety gates, alpha targets, judge grades   |
+| `golden.test.mts`     | `assessments.cases.json` (interviews, 4 C's, commitments, merges and corrections, on the scripted model)                | The same hard checks, plus each review card's facts and refusal; no recording, no judge |
+| `classify.test.mts`   | `classify.cases.json`                                                                                                   | `evry.classifyRequest` labels                                                           |
+| `households.test.mts` | `households.cases.json`                                                                                                 | Household tool selection and the household list answer                                  |
+| `followups.test.mts`  | `followups.cases.json`                                                                                                  | Follow-up suggestions never name the signed-in user                                     |
+
+## The scripted assessment cases
+
+`assessments.cases.json` (`"model": "scripted"`) asks the interview, 4 C's, commitment, merge, Unmerge and correction
+adapters (`packages/evry/src/adapters/people-assessments`) the prompts the S4 spec names, on the deterministic scripted
+model local previews use (`packages/evry/src/runtime/scripted-assessments.ts`). They need no recording and are never
+judged. They run one at a time after the recorded cases, because a case's `setup` merges or edits people through the
+native People commands first. A proposal spec may also check the review card itself: `changes` (`[field, after]` or
+`[field, after, before]`) and `refusal` (a pattern the card's refusal must match).
 
 ## The household and follow-up suites
 

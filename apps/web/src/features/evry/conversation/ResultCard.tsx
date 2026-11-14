@@ -109,10 +109,10 @@ export function ResultCard({
 							</>
 						);
 						const full = view.details?.length ? (
-							<dl className="mx-2 mb-2 grid grid-cols-[minmax(96px,auto)_1fr] gap-x-3 gap-y-1 rounded-md bg-surface-2 px-3 py-2 text-sm">
+							<dl className="mx-2 mb-2 grid grid-cols-[minmax(3rem,max-content)_minmax(0,1fr)] gap-x-3 gap-y-1 rounded-md bg-surface-2 px-3 py-2 text-sm">
 								{view.details.map((d) => (
 									<div key={d.label} className="contents">
-										<dt className="text-text-2">{d.label}</dt>
+										<dt className="max-w-32 text-text-2">{d.label}</dt>
 										<dd className="min-w-0 break-words text-ink">{d.value}</dd>
 									</div>
 								))}
