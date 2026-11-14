@@ -8,7 +8,7 @@ import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
 import type { EffectResult, ReviewedWrite } from "../../../proposals/types.ts";
-import { change, notes, organizationAdmin, target } from "../../native.ts";
+import { change, organizationAdmin, target } from "../../native.ts";
 
 // The pipeline and program reviewed writes (WP-101). The model proposes only identities and a plan; a person approves
 // the exact card. Each runs the native pipeline or program command the Pipeline and Programs pages run, once, in the
@@ -17,8 +17,9 @@ import { change, notes, organizationAdmin, target } from "../../native.ts";
 // enrolls (REQ-MUL-015).
 
 /** A native pipeline or program reply as an effect result: its new revision, or the domain's refusal code. */
-const settled = (reply: { status: "ok"; value: { revision: string } } | { status: "refused"; refusal: { code: string } }) =>
-	reply.status === "ok" ? { revision: reply.value.revision } : { refused: reply.refusal.code };
+const settled = (
+	reply: { status: "ok"; value: { revision: string } } | { status: "refused"; refusal: { code: string } },
+) => (reply.status === "ok" ? { revision: reply.value.revision } : { refused: reply.refusal.code });
 
 /** A reviewed write that runs in the approval request; the job path never reaches it. */
 function approvedNow<I>(spec: {
@@ -27,7 +28,12 @@ function approvedNow<I>(spec: {
 	input: z.ZodType<I>;
 	review(actor: EvryActor, input: I): SQL;
 	reason: boolean;
-	run(db: Database, authority: RequestActor, args: Record<string, unknown>, reason: string | null): Promise<EffectResult>;
+	run(
+		db: Database,
+		authority: RequestActor,
+		args: Record<string, unknown>,
+		reason: string | null,
+	): Promise<EffectResult>;
 	current?(p: SQL): SQL;
 }): ReviewedWrite<I> {
 	return {
@@ -55,10 +61,7 @@ export const proposeStageMove = approvedNow({
 		const refusal = sql`CASE WHEN fs.id=ds.id THEN jsonb_build_object('refusal',p.display_name||' is already in '||ds.label||'.')
 			ELSE '{}'::jsonb END`;
 		return sql`SELECT jsonb_build_object('target',${target("person", sql`p.id`, sql`p.display_name`)},
-				'changes',jsonb_build_array(jsonb_build_object('field','pipelineStage','before',fs.label,'after',ds.label)),
-				'notes',${notes([
-					"You type the reason for this move on this card. Evry doesn't write it or keep it: it is saved only in this person's pipeline history.",
-				])})||${refusal} AS review,
+				'changes',jsonb_build_array(jsonb_build_object('field','pipelineStage','before',fs.label,'after',ds.label)))||${refusal} AS review,
 			jsonb_build_object('personId',p.id,'stageId',ds.id,'expectedRevision',pp.revision::text) AS args
 			FROM pipeline_person pp JOIN person p ON p.id=pp.person_id AND p.tenant_id=pp.organization_id AND p.state='live'
 			JOIN pipeline_stage fs ON fs.id=pp.stage_id AND fs.organization_id=pp.organization_id

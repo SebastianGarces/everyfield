@@ -55,7 +55,8 @@ export async function seedPipeline(admin: Database, runtime: Database) {
 		await admin.execute(sql`INSERT INTO seat(account_id,organization_id,role,accepted_at)
 			VALUES(${a.account},${GRACE_AUSTIN},${a.role},clock_timestamp()-interval '1 day')`);
 	}
-	const authority = (who: PipelineName) => RequestActor.resolve(runtime, sessionOf(who) as never) as Promise<RequestActor>;
+	const authority = (who: PipelineName) =>
+		RequestActor.resolve(runtime, sessionOf(who) as never) as Promise<RequestActor>;
 	const seat = async (who: keyof typeof PIPELINE_SPECS) =>
 		String(
 			(
@@ -70,7 +71,13 @@ export async function seedPipeline(admin: Database, runtime: Database) {
 		) as Record<string, string>;
 	const grace = await stages("dana");
 	const hill = await stages("hill");
-	const add = async (who: PipelineName, personId: string, displayName: string, stageId: string, responsible: string | null) =>
+	const add = async (
+		who: PipelineName,
+		personId: string,
+		displayName: string,
+		stageId: string,
+		responsible: string | null,
+	) =>
 		ok(
 			await pipelineWriter.addPerson(runtime, await authority(who), {
 				personId,

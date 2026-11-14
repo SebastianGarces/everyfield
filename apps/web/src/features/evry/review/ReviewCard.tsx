@@ -1030,22 +1030,25 @@ function Affects({ review }: { review: Review }) {
 	const kind = target?.kind;
 	const tag = !kind && review.review.changes.find((c) => c.field === "tag" || c.field === "createTag")?.after;
 	const imported = review.operation === "people.executeBulkImport";
+	const program = review.operation === "development.saveProgram";
 	// A ministry change names its ministry, role, program or responsibility; a new ministry or program its name.
 	const record = isTeams(review.operation) ? ((target && RECORD_GLYPH[target.kind]) ?? UserGroupIcon) : null;
 	const glyph = own
 		? Notification01Icon
 		: (record ??
-			(imported
-				? FileImportIcon
-				: kind === "household"
-					? Home01Icon
-					: kind === "tag" || tag
-						? Tag01Icon
-						: mail
-							? Mail01Icon
-							: create
-								? UserAdd01Icon
-								: null));
+			(program
+				? Mortarboard01Icon
+				: imported
+					? FileImportIcon
+					: kind === "household"
+						? Home01Icon
+						: kind === "tag" || tag
+							? Tag01Icon
+							: mail
+								? Mail01Icon
+								: create
+									? UserAdd01Icon
+									: null));
 	const name = own
 		? (NOTIFICATION_SUBJECT[review.operation] ?? "Your notifications")
 		: imported

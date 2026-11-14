@@ -285,8 +285,11 @@ test("INV-evry-pipeline-read: the pipeline read takes no search text and answers
 	for (const who of ["dana", "luis", "ana", "ben"] as const) {
 		const actor = await actorOf(who);
 		// The model's tool schema has no search field: the Pipeline page's search also matches note text.
-		const tool = modelTools(actor, { read: async () => ({}), select: async () => ({}), propose: async () => ({}) })
-			.pipeline_read!;
+		const tool = modelTools(actor, {
+			read: async () => ({}),
+			select: async () => ({}),
+			propose: async () => ({}),
+		}).pipeline_read!;
 		const schema = (tool.inputSchema as { safeParse?: (v: unknown) => { success: boolean } }).safeParse
 			? (tool.inputSchema as unknown as { safeParse: (v: unknown) => { success: boolean } })
 			: null;

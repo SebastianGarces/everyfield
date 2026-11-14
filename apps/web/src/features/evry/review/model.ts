@@ -1092,7 +1092,11 @@ export function settingsRefusalText(code: string | undefined): string {
 }
 
 /** Why a pipeline or program change was refused. Nothing was changed. */
-export function pipelineRefusalText(code: string | undefined, operation: PipelineOperation, who: string | null): string {
+export function pipelineRefusalText(
+	code: string | undefined,
+	operation: PipelineOperation,
+	who: string | null,
+): string {
 	const area = operation === "development.saveProgram" ? "Programs" : "The Pipeline";
 	switch (code) {
 		case "revision_conflict":

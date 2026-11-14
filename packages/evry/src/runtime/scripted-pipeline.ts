@@ -1,5 +1,6 @@
 import type { LanguageModelV4CallOptions, LanguageModelV4Content } from "@ai-sdk/provider";
 import { randomUUID } from "node:crypto";
+import { dayText } from "../adapters/pipeline/reads/index.ts";
 import { PIPELINE_RULES } from "../context/compile.ts";
 
 // The scripted model's pipeline and program requests (WP-101), for local previews and tests only. It answers through
@@ -37,7 +38,8 @@ const OTHER_PIPELINE = /\b([A-Z][\w-]*(?: [A-Z][\w-]*)*)'s pipeline\b/;
 const NAMED = /\b(?:where is|where's|has|is|about|show me|find)\s+([A-Z][a-z]+)\b/;
 const STALE = /\b(?:hasn'?t|has not|haven'?t|have not|not) moved\b|\bno (?:stage )?move\b|\bsix months\b/i;
 const PIPELINE = /\bpipeline\b|\bby stage\b/i;
-const MOVE = /\bmove ([A-Z][\w'-]+(?: [A-Z][\w'-]+)?) to (?:the )?([A-Za-z][\w ]*?)(?: stage)?(?:\s+because\b.*)?[.!]?\s*$/i;
+const MOVE =
+	/\bmove ([A-Z][\w'-]+(?: [A-Z][\w'-]+)?) to (?:the )?([A-Za-z][\w ]*?)(?: stage)?(?:\s+because\b.*)?[.!]?\s*$/i;
 const DRAFT =
 	/\bdraft (?:a |an )?(\d{1,3})[- ]month (apprenticeship|residency)(?: program)? plan(?: with ([A-Z][a-z]+) as (?:the )?director)?/i;
 
@@ -49,14 +51,14 @@ function boardText(out: Output) {
 	const people = rows.filter((r) => r.kind === "person");
 	const org = String(facts.organization ?? "Your organization");
 	if (facts.audience === "counts")
-		return `${org}'s pipeline as of ${String(facts.asOf)}, as your Pipeline page shows it: counts per stage only. ${stages
+		return `${org}'s pipeline as of ${dayText(String(facts.asOf))}, as your Pipeline page shows it: counts per stage only. ${stages
 			.map((s) => `${s.label}: ${String(s.fields.count)}`)
 			.join(", ")}.`;
 	const byStage = stages.map((s) => {
 		const names = people.filter((p) => p.fields.stageId === s.id).map((p) => p.label);
 		return `${s.label}: ${names.length ? names.join(", ") : "no one"}`;
 	});
-	return `${org}'s pipeline as of ${String(facts.asOf)}: ${byStage.join("; ")}.`;
+	return `${org}'s pipeline as of ${dayText(String(facts.asOf))}: ${byStage.join("; ")}.`;
 }
 
 function staleText(out: Output) {
@@ -66,11 +68,12 @@ function staleText(out: Output) {
 		return `Your Pipeline page shows counts per stage only, so I can't list who hasn't moved. ${boardText(out)}`;
 	const people = (out.rows ?? []).filter((r) => r.kind === "person");
 	const list = people.map(
-		(p) => `${p.label} (${String(p.fields.stage)}, last moved ${String(p.fields.lastMovedOn ?? "never")})`,
+		(p) =>
+			`${p.label} (${String(p.fields.stage)}, last moved ${p.fields.lastMovedOn ? dayText(String(p.fields.lastMovedOn)) : "never"})`,
 	);
 	const head = people.length
-		? `As of ${String(facts.asOf)}, ${people.length === 1 ? "1 person" : `${people.length} people`} in ${org}'s pipeline ${people.length === 1 ? "hasn't" : "haven't"} moved in six months: ${list.join(", ")}.`
-		: `As of ${String(facts.asOf)}, everyone in ${org}'s pipeline you can see has moved in the last six months.`;
+		? `As of ${dayText(String(facts.asOf))}, ${people.length === 1 ? "1 person" : `${people.length} people`} in ${org}'s pipeline ${people.length === 1 ? "hasn't" : "haven't"} moved in six months: ${list.join(", ")}.`
+		: `As of ${dayText(String(facts.asOf))}, everyone in ${org}'s pipeline you can see has moved in the last six months.`;
 	return `${head} How it was measured: ${String(facts.measured)}`;
 }
 
@@ -123,7 +126,15 @@ export function pipelineStep(options: LanguageModelV4CallOptions, text: string):
 
 	const drafted = DRAFT.exec(text);
 	const move = MOVE.exec(text);
-	if (!(LOG.test(text) || JUDGE.test(text) || drafted || move || STALE.test(text) || PIPELINE.test(text) || NAMED.test(text)))
+	if (!(
+		LOG.test(text) ||
+		JUDGE.test(text) ||
+		drafted ||
+		move ||
+		STALE.test(text) ||
+		PIPELINE.test(text) ||
+		NAMED.test(text)
+	))
 		return null;
 	if (last?.error) return say(`I couldn't do that (${String(last.error)}).`);
 
@@ -147,7 +158,10 @@ export function pipelineStep(options: LanguageModelV4CallOptions, text: string):
 		const name = drafted[3];
 		const director = (plan.rows ?? []).find((r) => name && r.label.toLowerCase().startsWith(name.toLowerCase()));
 		if (!director) return say(`${draftText(p)}\n\nWho should direct it? Name one of your staff.`);
-		return call("propose_change", { operation: "development.saveProgram", input: { ...p, directorSeatId: director.id } });
+		return call("propose_change", {
+			operation: "development.saveProgram",
+			input: { ...p, directorSeatId: director.id },
+		});
 	}
 
 	if (move) {
@@ -162,7 +176,9 @@ export function pipelineStep(options: LanguageModelV4CallOptions, text: string):
 		if (!board) return readBoard();
 		const who = move[1]!.toLowerCase();
 		const person = (board.rows ?? []).find((r) => r.kind === "person" && r.label.toLowerCase().startsWith(who));
-		const stage = (board.rows ?? []).find((r) => r.kind === "stage" && r.label.toLowerCase() === move[2]!.trim().toLowerCase());
+		const stage = (board.rows ?? []).find(
+			(r) => r.kind === "stage" && r.label.toLowerCase() === move[2]!.trim().toLowerCase(),
+		);
 		if (!person) return say(`I can't find ${move[1]} in your pipeline.`);
 		if (!stage) return say(`Your pipeline has no stage called ${move[2]!.trim()}.`);
 		return call("propose_change", {
@@ -188,10 +204,16 @@ export function pipelineStep(options: LanguageModelV4CallOptions, text: string):
 	const named = NAMED.exec(text)?.[1];
 	if (named && !/^(?:Evry|Who|What)$/.test(named)) {
 		if (!board) return readBoard();
-		const person = (board.rows ?? []).find((r) => r.kind === "person" && r.label.toLowerCase().startsWith(named.toLowerCase()));
+		const person = (board.rows ?? []).find(
+			(r) => r.kind === "person" && r.label.toLowerCase().startsWith(named.toLowerCase()),
+		);
 		if (person)
-			return say(`${person.label} is in ${String(person.fields.stage)}, last moved ${String(person.fields.lastMovedOn ?? "never")}.`);
-		return say(`No one named ${named} is in ${String(board.facts?.organization ?? "your organization")}'s pipeline that you can see.`);
+			return say(
+				`${person.label} is in ${String(person.fields.stage)}, last moved ${person.fields.lastMovedOn ? dayText(String(person.fields.lastMovedOn)) : "never"}.`,
+			);
+		return say(
+			`No one named ${named} is in ${String(board.facts?.organization ?? "your organization")}'s pipeline that you can see.`,
+		);
 	}
 	if (PIPELINE.test(text)) {
 		if (!board) return readBoard();

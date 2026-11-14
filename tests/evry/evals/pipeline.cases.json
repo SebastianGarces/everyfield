@@ -195,13 +195,14 @@
 			"ask": "move Casey to Resident because she finished her apprenticeship",
 			"operation": "pipeline.proposeStageMove",
 			"calls": ["pipeline.listPeople"],
-			"answer": ["I prepared a review card to move Casey Lee to Resident. Type the reason for the move on the card yourself"],
+			"answer": [
+				"I prepared a review card to move Casey Lee to Resident. Type the reason for the move on the card yourself"
+			],
 			"absent": ["finished her apprenticeship"],
 			"proposal": {
 				"operation": "pipeline.proposeStageMove",
 				"target": "Casey Lee",
-				"changes": [{ "field": "pipelineStage", "before": "Apprentice", "after": "Resident" }],
-				"notes": ["You type the reason for this move on this card."]
+				"changes": [{ "field": "pipelineStage", "before": "Apprentice", "after": "Resident" }]
 			},
 			"approve": { "reason": "Completed every apprenticeship milestone with Ana; starting the residency in November." },
 			"outcome": "completed"

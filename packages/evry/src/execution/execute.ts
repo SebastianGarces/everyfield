@@ -62,7 +62,6 @@ const locked = z.object({
 	fenced: z.boolean(),
 });
 
-
 /**
  * The records a refusal because something changed shows as they are now, for the writes that name them (current), read
  * in the statement that saves the refusal.

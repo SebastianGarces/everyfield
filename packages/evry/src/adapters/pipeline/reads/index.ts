@@ -23,6 +23,15 @@ export function sixMonthsBefore(day: string) {
 	return `${year}-${String((month % 12) + 1).padStart(2, "0")}-${String(Math.min(d, last)).padStart(2, "0")}`;
 }
 
+const dayFormat = new Intl.DateTimeFormat("en-US", {
+	month: "short",
+	day: "numeric",
+	year: "numeric",
+	timeZone: "UTC",
+});
+/** A day (YYYY-MM-DD) as people read it: "May 14, 2026". */
+export const dayText = (day: string) => dayFormat.format(new Date(`${day}T12:00:00Z`));
+
 /** A native refusal reads as no tenant data: the seat no longer reads this pipeline. */
 const value = <T>(reply: { status: "ok"; value: T } | { status: "refused" }): T => {
 	if (reply.status !== "ok") throw new EvryRefusal("access_denied");
@@ -61,7 +70,12 @@ export const listPeople = {
 						kind: "person" as const,
 						id: p.personId,
 						label: p.name,
-						fields: { stage: s.label, stageId: s.id, lastMovedOn: p.lastMovedOn, responsible: p.responsible?.name ?? null },
+						fields: {
+							stage: s.label,
+							stageId: s.id,
+							lastMovedOn: p.lastMovedOn,
+							responsible: p.responsible?.name ?? null,
+						},
 					})),
 				);
 		const next = !counts && page < board.pages ? page + 1 : null;
@@ -83,7 +97,7 @@ export const listPeople = {
 				audience: board.audience,
 				stale,
 				measured: stale
-					? `No stage move or first placement since ${sixMonthsBefore(board.asOf)}, six months before ${board.asOf}, in ${board.organizationName}'s time zone.`
+					? `No stage move or first placement since ${dayText(sixMonthsBefore(board.asOf))}, six months before today, in ${board.organizationName}'s time zone.`
 					: null,
 			},
 		};
