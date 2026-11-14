@@ -1,4 +1,4 @@
-import type { RegionArea } from "@everyfield/contracts/oversight";
+import type { Placement, RegionArea } from "@everyfield/contracts/oversight";
 import type { Transaction } from "@everyfield/db/client";
 import { sql, type SQL } from "@everyfield/db/query";
 import { createHash } from "node:crypto";
@@ -128,10 +128,25 @@ function matchAreas(locality: {
 		.map((a) => ({ code: a.code, title: a.title, type: a.type as RegionArea["type"] }));
 }
 
-/** The validated dataset version of the OMB release, or null before it is installed. */
+/**
+ * Why a plant has no Region (REQ-PI-044), from the reporting location it saved (`saved`) or its profile's: outside the
+ * United States no Region standard applies; a saved place the official list names no area for is outside it; anything
+ * else, including a place with several candidate areas and nobody's choice, is unresolved. Never a guessed Region.
+ */
+export function unplacedRegion(
+	saved: boolean,
+	locality: Parameters<typeof matchAreas>[0],
+): Exclude<Placement, "placed" | "missing"> {
+	if (!inUnitedStates(locality.country)) return "unsupported_country";
+	if (saved && locality.city?.trim() && !matchAreas(locality).length) return "outside_reference";
+	return "unresolved";
+}
+
+/** The newest validated dataset version of the OMB areas, or null before one is installed. */
 const datasetVersion = sql`(SELECT v.id FROM reference_version v JOIN reference_item i ON i.id=v.item_id
 	JOIN reference_release r ON r.id=v.release_id WHERE i.kind='geography_dataset' AND i.canonical_key=${DATASET_KEY}
-	AND i.tenant_id=${GLOBAL}::uuid AND r.state='validated' AND r.validated_at IS NOT NULL LIMIT 1)`;
+	AND i.tenant_id=${GLOBAL}::uuid AND r.state='validated' AND r.validated_at IS NOT NULL
+	ORDER BY r.validated_at DESC, v.version_number DESC LIMIT 1)`;
 
 /**
  * The organizations adapter's candidate check for organizations.correctReportingLocation: the region item ids the

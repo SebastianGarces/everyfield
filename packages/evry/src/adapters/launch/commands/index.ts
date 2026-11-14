@@ -14,7 +14,8 @@ import { launchDay } from "../reads/index.ts";
 // the plan through the Launch plan's own read and saves the native command's request with the revision it showed. On
 // approval the executor runs that same command once, in its transaction, under the approving session's live seat, with
 // the effect key as the request key; a plan that changed since refuses (conflict) and the card shows Launch Sunday as it
-// is now. None of them moves a prep task, the church's phase, sends anything or creates a person (INH-LAUNCH-04/05).
+// is now. None of them moves a prep task, the church's phase or sends anything (INH-LAUNCH-04). Only naming a guest by a
+// typed name creates a Person, with only that name (T-383, LCH-007); no count ever creates one (INH-LAUNCH-05).
 // Owners and Admins only, as on the Launch plan. Completing a milestone (T-382) notifies the church's other Owners and
 // Admins through the deployment's Launch notices, as the Launch plan does; no other write here notifies anyone.
 
@@ -57,12 +58,14 @@ const UNCHANGED = "Prep task due dates, assignees and statuses stay as they are,
  * native command. The review is one SELECT of literal values: the plan was read just before, under the same live seat
  * that prepareProposal checks again in its own statement.
  */
-function launchWrite<I>(spec: {
+function launchWrite<I, L = undefined>(spec: {
 	operation: string;
 	description: string;
 	input: z.ZodType<I>;
+	/** A record the card names besides the plan, read first under the same seat; null when it is not available. */
+	lookup?(db: Database, actor: EvryActor, input: I): Promise<L | null>;
 	/** The card, or null when what it would change is not on the plan. */
-	prepare(plan: c.Plan, input: I): Prepared | null;
+	prepare(plan: c.Plan, input: I, found: L): Prepared | null;
 	run(
 		tx: Database,
 		authority: RequestActor,
@@ -82,7 +85,9 @@ function launchWrite<I>(spec: {
 			const reply = await reader.readPlan(context.db, actor.authority);
 			if (reply.status !== "ok") return null;
 			const plan = reply.value.plan;
-			const p = spec.prepare(plan, input);
+			const found = spec.lookup ? await spec.lookup(context.db, actor, input) : (undefined as L);
+			if (found === null) return null;
+			const p = spec.prepare(plan, input, found);
 			if (!p) return null;
 			const review = {
 				target: { kind: "church", id: actor.owner.id, label: p.label ?? TARGET_LABEL },
@@ -224,7 +229,7 @@ export const recordOutcome = launchWrite({
 						missingCount: guests > 0 ? guests : null,
 					};
 		const refusal = plan.outcome
-			? "Launch Sunday is already recorded. Correct it on the Launch plan."
+			? "Launch Sunday is already recorded. Ask Evry to correct it on a review card, or correct it on the Launch plan."
 			: !checked.ok
 				? OUTCOME_REFUSAL[checked.problem]
 				: null;
@@ -239,7 +244,7 @@ export const recordOutcome = launchWrite({
 		return {
 			changes,
 			notes: [
-				"No people are created from these numbers. Name guests on the Launch plan.",
+				"No people are created from these numbers. Name guests on a review card you approve, or on the Launch plan.",
 				...(answers ? [`The guest answer is saved in the debrief draft: ${c.GUEST_QUESTION}`] : []),
 				"The planned date, prep tasks and the church's phase stay as they are.",
 			],
@@ -442,6 +447,175 @@ export const reopenMilestone = launchWrite({
 	current: milestoneNow,
 });
 
+/** A count as the Launch plan says it: an empty one is Not recorded, and 0 is 0. */
+const countShown = (n: number | null) => (n === null ? "Not recorded" : n);
+const KEPT_COUNTS = "Attendance, decisions and the debrief's guest answer stay as they are.";
+const NOT_RECORDED = "Launch Sunday isn't recorded yet. Record it first, then name its guests.";
+
+/** A Person the user picked as a guest, as the Launch plan's guest picker shows them: their name and email or phone. */
+type Picked = { id: string; displayName: string; detail: string };
+const guestInput = z.union([
+	/** A live Person of the church the user picked from launch.readDebrief's guestName matches. */
+	z.strictObject({ personId: z.uuid() }),
+	/** A new Person with only this name. */
+	z.strictObject({ displayName: z.string().max(c.GUEST_NAME_MAX * 4) }),
+]);
+type GuestInput = z.infer<typeof guestInput>;
+export const addGuestAttendance = launchWrite<GuestInput, Picked | undefined>({
+	operation: "launch.addGuestAttendance",
+	description: `Propose naming one Launch Sunday first-time guest, after Launch Sunday is recorded: personId, a live Person the user picked from launch.readDebrief's guestName matches, or displayName, a new Person with only that name (at most ${c.GUEST_NAME_MAX} characters). A typed name never links to or merges with an existing Person: when the guestName read finds matches, list them and ask which one, or whether to add a new Person, and propose nothing for that name until the user says. One card per guest. Attendance, decisions and the debrief's guest answer never change. Nothing changes until the user approves`,
+	input: guestInput,
+	async lookup(db, actor, input) {
+		if (!("personId" in input)) return undefined;
+		const { rows } = await db.execute(sql`SELECT id,display_name,coalesce(email,phone,'') AS detail FROM person
+			WHERE id=${input.personId}::uuid AND tenant_id=${actor.owner.id}::uuid AND plant_id=${actor.owner.id}::uuid
+			AND state='live'`);
+		const r = rows[0];
+		return r ? { id: String(r.id), displayName: String(r.display_name), detail: String(r.detail) } : null;
+	},
+	prepare(plan, input, person) {
+		const recorded = plan.outcome !== null;
+		if (person) {
+			const already = (plan.guests.named ?? []).some((g) => g.personId === person.id);
+			return {
+				label: person.displayName,
+				changes: [
+					{
+						field: "guest",
+						before: null,
+						after: person.detail ? `${person.displayName} · ${person.detail}` : person.displayName,
+					},
+				],
+				notes: [
+					`${person.displayName} is already in People. This links that Person as a Launch Sunday guest; no new Person is added.`,
+					KEPT_COUNTS,
+				],
+				refusal: !recorded
+					? NOT_RECORDED
+					: already
+						? `${person.displayName} is already named as a Launch Sunday guest.`
+						: null,
+				args: { input: { personId: person.id } },
+			};
+		}
+		const name = "displayName" in input ? input.displayName.trim() : "";
+		return {
+			label: name || "New guest",
+			changes: [{ field: "guest", before: null, after: name || null }],
+			notes: [
+				"A new Person with only this name is added to People and listed as a Launch Sunday guest. Add an email, phone or anything else in People.",
+				KEPT_COUNTS,
+			],
+			refusal: !recorded
+				? NOT_RECORDED
+				: !name
+					? "Type the guest's name. A first name is enough."
+					: name.length > c.GUEST_NAME_MAX
+						? `Keep the guest's name to ${c.GUEST_NAME_MAX} characters or fewer.`
+						: null,
+			args: { input: { displayName: name } },
+		};
+	},
+	async run(db, authority, args, key) {
+		const { input } = args as { input: unknown };
+		return settled(await writer.addGuestAttendance(db, authority, { requestKey: key, input }));
+	},
+});
+
+const OUTCOME_FIELDS = ["actualDate", "attendance", "decisions"] as const;
+type OutcomeField = (typeof OUTCOME_FIELDS)[number];
+const FIELD_WORDS: Record<OutcomeField, string> = {
+	actualDate: "the date it was held",
+	attendance: "attendance",
+	decisions: "decisions",
+};
+const correctionInput = z.strictObject({
+	/** The church-local date Launch Sunday was actually held (YYYY-MM-DD). Left out keeps the recorded date. */
+	actualDate: localDate.optional(),
+	/** Left out keeps the recorded count; null is Not recorded, which is not 0. */
+	attendance: z.int().nullable().optional(),
+	decisions: z.int().nullable().optional(),
+	/** Why it is corrected, in the user's own words (needed, at most 2,000 characters). */
+	reason: z.string().max(4000),
+});
+/** A stable id for one outcome field of the church `x`, shaped as a version 4 uuid like every other card row. */
+const fieldId = (field: string) =>
+	sql.raw(`overlay(overlay(md5(x.id::text||':${field}') placing '4' from 13) placing '8' from 17)::uuid`);
+/** A recorded outcome as Launch Sunday's correction card shows it now: each field as the Launch plan says it. */
+const outcomeNow = (p: SQL) => sql`(SELECT jsonb_build_array(
+	jsonb_build_object('id',${fieldId("actualDate")},'label','Date held','value',
+		CASE WHEN l.actual_date IS NULL THEN 'Not recorded' ELSE trim(to_char(l.actual_date,'Dy, Mon FMDD, YYYY')) END),
+	jsonb_build_object('id',${fieldId("attendance")},'label','Attendance','value',
+		coalesce(trim(to_char(l.attendance,'FM9,999,990')),'Not recorded')),
+	jsonb_build_object('id',${fieldId("decisions")},'label','Decisions','value',
+		coalesce(trim(to_char(l.decisions,'FM9,999,990')),'Not recorded')))
+	FROM plant x LEFT JOIN launch l ON l.plant_id=x.id WHERE x.id=${p}.tenant_id)`;
+export const correctOutcome = launchWrite({
+	operation: "launch.correctOutcome",
+	description:
+		"Propose correcting Launch Sunday's recorded outcome, with the user's reason in their own words (needed, at most 2,000 characters). Give only the fields the user names: actualDate (a church-local date, not after today), attendance or decisions (whole numbers 0 to 1,000,000; null is Not recorded, which is not 0). A field left out keeps its recorded value, and so do the outcome note, the named guests and the debrief's guest answer. The earlier values stay in Launch history. Nothing changes until the user approves",
+	input: correctionInput,
+	prepare(plan, input) {
+		const o = plan.outcome;
+		const was = {
+			actualDate: o?.actualDate ?? null,
+			attendance: o?.attendance ?? null,
+			decisions: o?.decisions ?? null,
+		};
+		const now = {
+			actualDate: input.actualDate ?? was.actualDate,
+			attendance: input.attendance === undefined ? was.attendance : input.attendance,
+			decisions: input.decisions === undefined ? was.decisions : input.decisions,
+		};
+		const named = OUTCOME_FIELDS.filter((k) => input[k] !== undefined);
+		const changed = named.filter((k) => now[k] !== was[k]);
+		const shown = (k: OutcomeField, v: string | number | null) =>
+			k === "actualDate" ? (v === null ? null : launchDay(String(v))) : countShown(v as number | null);
+		const checked = o && c.checkOutcome({ ...now, actualDate: now.actualDate!, note: o.note }, plan.today);
+		const note = c.checkNote(input.reason, true);
+		const recordedAs = named.map((k) => `${FIELD_WORDS[k]} ${shown(k, was[k])}`).join(" and ");
+		const refusal = !o
+			? "Launch Sunday isn't recorded yet, so there's nothing to correct. Record it first."
+			: !named.length
+				? "Say what to correct: the date it was held, attendance or decisions."
+				: !changed.length
+					? `Launch Sunday already has ${recordedAs}, so there's nothing to correct.`
+					: checked && !checked.ok
+						? OUTCOME_REFUSAL[checked.problem]
+						: !note.ok
+							? NOTE_REFUSAL[note.problem]
+							: null;
+		return {
+			label: "Launch Sunday",
+			changes: [
+				...(changed.length ? changed : named).map((k) => ({
+					field: k,
+					before: shown(k, was[k]),
+					after: shown(k, now[k]),
+				})),
+				{ field: "reason", before: null, after: note.ok ? note.note : input.reason || null },
+			],
+			notes: [
+				"Anything you didn't name keeps its recorded value, and so do the outcome note, the named guests and the debrief's guest answer.",
+				"The earlier values stay in Launch history.",
+			],
+			refusal,
+			args: { expectedRevision: plan.launch?.revision ?? plan.revision, input: { ...now, reason: input.reason } },
+		};
+	},
+	async run(db, authority, args, key) {
+		const { expectedRevision, input } = args as { expectedRevision: string; input: Record<string, unknown> };
+		// The outcome note stays as recorded: it is read here, never through Evry, and a plan changed since is refused.
+		const plan = await reader.readPlan(db, authority);
+		if (plan.status !== "ok") return { refused: plan.error.code };
+		const note = plan.value.plan.outcome?.note ?? null;
+		return settled(
+			await writer.correctOutcome(db, authority, { requestKey: key, expectedRevision, input: { ...input, note } }),
+		);
+	},
+	current: outcomeNow,
+});
+
 /** The installed Launch reviewed writes, keyed by operation. */
 export const LAUNCH_COMMANDS = {
 	"launch.schedule": schedule,
@@ -451,4 +625,6 @@ export const LAUNCH_COMMANDS = {
 	"launch.publishDebriefSummary": publishDebriefSummary,
 	"launch.completeMilestone": completeMilestone,
 	"launch.reopenMilestone": reopenMilestone,
+	"launch.addGuestAttendance": addGuestAttendance,
+	"launch.correctOutcome": correctOutcome,
 } as const;

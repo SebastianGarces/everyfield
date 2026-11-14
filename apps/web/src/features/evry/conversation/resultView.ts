@@ -23,6 +23,8 @@ type OpView = {
 	shownOnly?: true;
 	/** The first row heads the card (a digest's title and dates) and is not one of the counted rows. */
 	headed?: true;
+	/** Rows of the counted kind listed beside the counted ones, such as the People a typed guest name may be. */
+	beside?: (row: SourceRow) => boolean;
 	/** Said when nothing came back. */
 	empty: string;
 	/** A count answer: the summary is the total and the rows stay hidden, with this note instead. */
@@ -251,6 +253,8 @@ const VIEWS: Record<string, OpView> = {
 	},
 	"launch.readDebrief": people("Launch Sunday outcome", {
 		noun: ["named guest", "named guests"],
+		// A guest name's People matches (T-383) are listed under the named guests, never counted as guests.
+		beside: (r) => r.fields.match !== undefined,
 		empty: "No first-time guest names to show here.",
 	}),
 	"development.draftPlan": {
@@ -1234,7 +1238,7 @@ export function cardView(operation: string, result: SourceResult, originalTotal:
 	const rows = shownRows(operation, view, result);
 	const counted = view.countAnswer
 		? 0
-		: rows.filter((r, n) => r.kind === view.counts && !(view.headed && n === 0)).length;
+		: rows.filter((r, n) => r.kind === view.counts && !(view.headed && n === 0) && !view.beside?.(r)).length;
 	const photo = operation === "people.getPersonPhoto";
 	const missing = result.status === "not_found" || (photo && !rows.length);
 	const summary = missing
