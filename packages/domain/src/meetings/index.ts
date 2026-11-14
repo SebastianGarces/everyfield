@@ -9,3 +9,4 @@ export { answerRsvpToken, describeRsvpToken, meetingOpenSql } from "./tokens.ts"
 export { venuesReader, venuesWriter } from "./venues.ts";
 export { attendanceReader } from "./analytics.ts";
 export { createAttendanceWriter, type AttendanceWriter } from "./attendance.ts";
+export { Refusal as MeetingsRefusal } from "./core.ts";
