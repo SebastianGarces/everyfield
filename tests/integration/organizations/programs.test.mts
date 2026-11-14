@@ -410,7 +410,7 @@ test("an unpublished church version reads as unavailable with its title; the oth
 	 WHERE organization_id=${grace.id} AND article_id=${articles.team}`);
 });
 
-let caseyResidency = randomUUID();
+const caseyResidency = randomUUID();
 test("an Owner enrolls Casey; the pipeline stage stays; a second active enrollment in the same program is refused", async () => {
 	const p = await program(dana, residency);
 	const assimilating = p.published!.stages[0]!.id;
