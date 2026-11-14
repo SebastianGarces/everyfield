@@ -4,8 +4,8 @@
 	"spend": {
 		"newCalls": 1,
 		"newMicroUsd": 124,
-		"allCalls": 1190,
-		"allMicroUsd": 2093248
+		"allCalls": 1188,
+		"allMicroUsd": 2090117
 	},
 	"calls": {
 		"001cdb7a40663ba5": {
@@ -42017,6 +42017,92 @@
 				"output": 122
 			}
 		},
+		"8c1ed457f601ecf3": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": []
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_07025753e4114c60006af7e7ace1c887d1bac31163f9933173",
+					"timestamp": "2026-11-14T04:46:37.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "text-start",
+					"id": "msg_07025753e4114c60006af7e7adeed487d18156a69a66291429",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_07025753e4114c60006af7e7adeed487d18156a69a66291429",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "text-delta",
+					"id": "msg_07025753e4114c60006af7e7adeed487d18156a69a66291429",
+					"delta": "I prepared a review to record a **phone attempt with no conversation** for Carl Johnson, dated this morning (Nov 9). It’s awaiting your approval in the app; nothing has been recorded yet."
+				},
+				{
+					"type": "text-end",
+					"id": "msg_07025753e4114c60006af7e7adeed487d18156a69a66291429",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_07025753e4114c60006af7e7adeed487d18156a69a66291429",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "stop"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 29689,
+							"noCache": 3,
+							"cacheRead": 29380,
+							"cacheWrite": 306
+						},
+						"outputTokens": {
+							"total": 45,
+							"text": 45,
+							"reasoning": 0
+						},
+						"raw": {
+							"input_tokens": 29689,
+							"input_tokens_details": {
+								"cache_write_tokens": 306,
+								"cache_write_tokens_details": {
+									"ttl_12h_tokens": 0,
+									"ttl_30m_tokens": 306
+								},
+								"cached_tokens": 29380
+							},
+							"output_tokens": 45,
+							"output_tokens_details": {
+								"reasoning_tokens": 0
+							},
+							"total_tokens": 29734
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_07025753e4114c60006af7e7ace1c887d1bac31163f9933173",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 29689,
+				"output": 45
+			}
+		},
 		"8c68dbaada11ea32": {
 			"kind": "stream",
 			"parts": [
@@ -51940,25 +52026,6 @@
 				"output": 996
 			}
 		},
-		"aac29107cb2524bc": {
-			"kind": "generate",
-			"content": [
-				{
-					"type": "text",
-					"text": "{\"tone\":{\"grade\":\"strong\",\"reason\":\"Clear, brief, and matter-of-fact.\"},\"usefulness\":{\"grade\":\"strong\",\"reason\":\"It explains that the call attempt is ready for approval and makes clear that it has not yet been recorded.\"}}",
-					"providerMetadata": {
-						"openai": {
-							"itemId": "msg_0a758f3d56988a7e006af7ef65fa3487d1831af67d7a3360eb",
-							"phase": "final_answer"
-						}
-					}
-				}
-			],
-			"usage": {
-				"input": 293,
-				"output": 220
-			}
-		},
 		"abb7e191717f8890": {
 			"kind": "generate",
 			"content": [
@@ -54450,92 +54517,6 @@
 			"usage": {
 				"input": 289,
 				"output": 369
-			}
-		},
-		"b551afaa5c472837": {
-			"kind": "stream",
-			"parts": [
-				{
-					"type": "stream-start",
-					"warnings": []
-				},
-				{
-					"type": "response-metadata",
-					"id": "resp_07025753e4114c60006af7ef61385c87d1a8430c8599ed9509",
-					"timestamp": "2026-11-14T05:19:29.000Z",
-					"modelId": "gpt-6-luna"
-				},
-				{
-					"type": "text-start",
-					"id": "msg_07025753e4114c60006af7ef627f8c87d19deb36c79d421813",
-					"providerMetadata": {
-						"openai": {
-							"itemId": "msg_07025753e4114c60006af7ef627f8c87d19deb36c79d421813",
-							"phase": "final_answer"
-						}
-					}
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_07025753e4114c60006af7ef627f8c87d19deb36c79d421813",
-					"delta": "I prepared a review to record a phone attempt with no conversation for Carl Johnson, dated this morning (Nov 9). It’s awaiting your approval in the app; nothing has been recorded yet."
-				},
-				{
-					"type": "text-end",
-					"id": "msg_07025753e4114c60006af7ef627f8c87d19deb36c79d421813",
-					"providerMetadata": {
-						"openai": {
-							"itemId": "msg_07025753e4114c60006af7ef627f8c87d19deb36c79d421813",
-							"phase": "final_answer"
-						}
-					}
-				},
-				{
-					"type": "finish",
-					"finishReason": {
-						"unified": "stop"
-					},
-					"usage": {
-						"inputTokens": {
-							"total": 29689,
-							"noCache": 3,
-							"cacheRead": 0,
-							"cacheWrite": 29686
-						},
-						"outputTokens": {
-							"total": 43,
-							"text": 43,
-							"reasoning": 0
-						},
-						"raw": {
-							"input_tokens": 29689,
-							"input_tokens_details": {
-								"cache_write_tokens": 29686,
-								"cache_write_tokens_details": {
-									"ttl_12h_tokens": 0,
-									"ttl_30m_tokens": 29686
-								},
-								"cached_tokens": 0
-							},
-							"output_tokens": 43,
-							"output_tokens_details": {
-								"reasoning_tokens": 0
-							},
-							"total_tokens": 29732
-						}
-					},
-					"providerMetadata": {
-						"openai": {
-							"responseId": "resp_07025753e4114c60006af7ef61385c87d1a8430c8599ed9509",
-							"serviceTier": "default",
-							"reasoningContext": "all_turns"
-						}
-					}
-				}
-			],
-			"usage": {
-				"input": 29689,
-				"output": 43
 			}
 		},
 		"b583f2afe525a14f": {
