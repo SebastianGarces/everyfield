@@ -100,7 +100,7 @@ export function stateCode(raw: string | null): string | null {
 	return STATES[f] ?? null;
 }
 /** Blank, "US", "USA" or "United States": the only country the official list covers. */
-export function inUnitedStates(country: string | null): boolean {
+function inUnitedStates(country: string | null): boolean {
 	const f = fold(country ?? "").replace(/\./g, "");
 	return ["", "us", "usa", "united states", "united states of america"].includes(f);
 }

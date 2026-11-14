@@ -37,7 +37,7 @@ export const preparation = z.strictObject({
 export type Preparation = z.infer<typeof preparation>;
 
 /** NIR-03 for one plant: it qualifies (gap), it is observed and does not (clear), or evidence is missing (unknown). */
-export type NearLaunch = "gap" | "clear" | "unknown";
+type NearLaunch = "gap" | "clear" | "unknown";
 export function nearLaunch(p: Preparation): NearLaunch {
 	if (p.launched) return "clear";
 	if (p.daysToLaunch === null) return "unknown";
@@ -58,7 +58,7 @@ export const healthOf = (sharesFindings: boolean, p: Preparation | null): Health
 	!sharesFindings || !p ? "limited_visibility" : nearLaunch(p) === "gap" ? "launch_readiness" : "not_assessed";
 
 /** Where Launch Sunday stands: not set, scheduled, moved to a new date, postponed, past with no outcome, or held. */
-export const launchState = z.enum(["not_set", "scheduled", "moved", "postponed", "overdue", "completed"]);
+const launchState = z.enum(["not_set", "scheduled", "moved", "postponed", "overdue", "completed"]);
 export type LaunchState = z.infer<typeof launchState>;
 
 /** Launch on the plant view: only while the plant shares Plant Intelligence findings with this organization. */
@@ -131,7 +131,7 @@ export const intelligenceGroup = z.strictObject({
 	unplaced: z.boolean(),
 });
 export type IntelligenceGroup = z.infer<typeof intelligenceGroup>;
-export const intelligenceRun = z.strictObject({ runId: tenantId, ranAt: instant });
+const intelligenceRun = z.strictObject({ runId: tenantId, ranAt: instant });
 export const intelligenceView = z.strictObject({
 	organizationName: z.string(),
 	/** The organization's time zone, for run times. */
