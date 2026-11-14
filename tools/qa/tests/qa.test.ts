@@ -936,7 +936,7 @@ test("INV-qa-runbook: the runbook's login table lists exactly the QA logins and 
 		"oversees Harvest Point (QA)",
 		"/settings/sharing",
 		"Connected churches",
-		"This account is for an organization",
+		"lands on the organization home at `/network`",
 		"check-ins",
 	])
 		assert.ok(section.replace(/\s+/g, " ").includes(words), words);

@@ -75,6 +75,7 @@ import { runDueImports } from "../../../apps/web/src/server/people/run-imports.t
 import { ok } from "../../support/fixture.mts";
 import { accessCases, seedAccess } from "./tenancy-access.mts";
 import { brandingCases, seedBranding } from "./tenancy-branding.mts";
+import { dashboardCases, seedDashboard } from "./tenancy-dashboard.mts";
 import { deletedDocumentCases, documentsCases, seedDocuments } from "./tenancy-documents.mts";
 import { feedbackCases, seedFeedback } from "./tenancy-feedback.mts";
 import { followUpsCases, seedFollowUps } from "./tenancy-followups.mts";
@@ -849,6 +850,7 @@ function cases(who) {
 		...settingsCases(t, who),
 		...feedbackCases(t, who),
 		...notificationsCases(t, who),
+		...dashboardCases(t, who),
 	]);
 }
 
@@ -878,6 +880,7 @@ before(async () => {
 	await seedSettings(t);
 	await seedFeedback(t);
 	await seedNotifications(t);
+	await seedDashboard(t);
 });
 after(() => f?.close());
 
