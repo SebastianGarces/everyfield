@@ -149,11 +149,11 @@ function plan(
 	const byKind = new Map<Kind, Reference[]>();
 	for (const ref of source.refs) byKind.set(ref.kind, [...(byKind.get(ref.kind) ?? []), ref]);
 	const held = new Set(survivor.refs.filter((x) => x.kind === "tag").map((x) => x.id));
-	// A Person has one current candidate attestation. When the survivor holds one, the source's stays on the source as
-	// history, and Unmerge finds it still there (WP-039).
-	const keptAttestations = survivor.refs.some((x) => x.kind === "attestation")
-		? (byKind.get("attestation") ?? []).map((x) => x.id)
-		: [];
+	// A Person has one current candidate attestation, and is a Launch Sunday guest once. When the survivor holds one, the
+	// source's stays on the source as history, and Unmerge finds it still there (WP-039, WP-046).
+	const keptOf = (k: Kind) => (survivor.refs.some((x) => x.kind === k) ? (byKind.get(k) ?? []).map((x) => x.id) : []);
+	const keptAttestations = keptOf("attestation");
+	const keptGuests = keptOf("launch_guest");
 	const blocked = [...byKind.keys()].filter((k) => treatmentOf(k) === "block");
 	const causes: z.infer<typeof c.mergeBlocker>[] = [];
 	if (source.linked_account_id && survivor.linked_account_id) causes.push("linked_account_collision");
@@ -164,7 +164,10 @@ function plan(
 	const references = [...byKind].map(([k, refs]) => ({
 		kind: k,
 		count: refs.length,
-		treatment: k === "attestation" && keptAttestations.length ? ("deduplicate" as const) : treatmentOf(k),
+		treatment:
+			(k === "attestation" && keptAttestations.length) || (k === "launch_guest" && keptGuests.length)
+				? ("deduplicate" as const)
+				: treatmentOf(k),
 	}));
 	return {
 		fields: differing.map((f) => ({
@@ -180,6 +183,7 @@ function plan(
 		// Tags the survivor already holds are dropped from the source instead of duplicated.
 		droppedTags: (byKind.get("tag") ?? []).filter((x) => held.has(x.id)).map((x) => x.id),
 		keptAttestations,
+		keptGuests,
 		references,
 		blockers: { causes, references: blocked },
 		reviewDigest: hash({
@@ -293,7 +297,8 @@ export const peopleMerge = {
 							.filter(
 								(id) =>
 									!(k === "tag" && p.droppedTags.includes(id)) &&
-									!(k === "attestation" && p.keptAttestations.includes(id)),
+									!(k === "attestation" && p.keptAttestations.includes(id)) &&
+									!(k === "launch_guest" && p.keptGuests.includes(id)),
 							);
 						moved[k] = ids;
 						if (ids.length) audit.writes.push(moveRefs(owner, k, ids, source.id, survivor.id));
@@ -334,7 +339,8 @@ export const peopleMerge = {
 							.filter(
 								(x) =>
 									!(x.kind === "tag" && p.droppedTags.includes(x.id)) &&
-									!(x.kind === "attestation" && p.keptAttestations.includes(x.id)),
+									!(x.kind === "attestation" && p.keptAttestations.includes(x.id)) &&
+									!(x.kind === "launch_guest" && p.keptGuests.includes(x.id)),
 							)
 							.map((x) => (x.revision === null ? x : { ...x, revision: String(BigInt(x.revision) + 1n) })),
 						{ kind: "merged_person" as const, id: source.id, revision: sourceRevision },

@@ -1833,10 +1833,28 @@
 			"table_name": "job"
 		},
 		{
+			"definition": "CREATE CONSTRAINT TRIGGER assert_record_binding AFTER INSERT OR UPDATE ON <schema>.launch_debrief DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION assert_record_binding('\"plant_id\"')",
+			"enabled": "O",
+			"name": "assert_record_binding",
+			"table_name": "launch_debrief"
+		},
+		{
+			"definition": "CREATE CONSTRAINT TRIGGER assert_record_binding AFTER INSERT OR UPDATE ON <schema>.launch_guest DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION assert_record_binding('\"plant_id\"')",
+			"enabled": "O",
+			"name": "assert_record_binding",
+			"table_name": "launch_guest"
+		},
+		{
 			"definition": "CREATE CONSTRAINT TRIGGER assert_record_binding AFTER INSERT OR UPDATE ON <schema>.launch_milestone DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION assert_record_binding('\"plant_id\"')",
 			"enabled": "O",
 			"name": "assert_record_binding",
 			"table_name": "launch_milestone"
+		},
+		{
+			"definition": "CREATE CONSTRAINT TRIGGER assert_record_binding AFTER INSERT OR UPDATE ON <schema>.launch_summary DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION assert_record_binding('\"plant_id\"')",
+			"enabled": "O",
+			"name": "assert_record_binding",
+			"table_name": "launch_summary"
 		},
 		{
 			"definition": "CREATE CONSTRAINT TRIGGER assert_record_binding AFTER INSERT OR UPDATE ON <schema>.lifecycle_witness DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION assert_record_binding('(SELECT tenant_id FROM record WHERE record.id=\"lifecycle_witness\".id)')",
@@ -2241,10 +2259,28 @@
 			"table_name": "job"
 		},
 		{
+			"definition": "CREATE TRIGGER bind_record AFTER INSERT OR UPDATE ON <schema>.launch_debrief FOR EACH ROW EXECUTE FUNCTION launch_debrief_bind_record()",
+			"enabled": "O",
+			"name": "bind_record",
+			"table_name": "launch_debrief"
+		},
+		{
+			"definition": "CREATE TRIGGER bind_record AFTER INSERT OR UPDATE ON <schema>.launch_guest FOR EACH ROW EXECUTE FUNCTION launch_guest_bind_record()",
+			"enabled": "O",
+			"name": "bind_record",
+			"table_name": "launch_guest"
+		},
+		{
 			"definition": "CREATE TRIGGER bind_record AFTER INSERT OR UPDATE ON <schema>.launch_milestone FOR EACH ROW EXECUTE FUNCTION launch_milestone_bind_record()",
 			"enabled": "O",
 			"name": "bind_record",
 			"table_name": "launch_milestone"
+		},
+		{
+			"definition": "CREATE TRIGGER bind_record AFTER INSERT OR UPDATE ON <schema>.launch_summary FOR EACH ROW EXECUTE FUNCTION launch_summary_bind_record()",
+			"enabled": "O",
+			"name": "bind_record",
+			"table_name": "launch_summary"
 		},
 		{
 			"definition": "CREATE TRIGGER bind_record AFTER INSERT OR UPDATE ON <schema>.lifecycle_witness FOR EACH ROW EXECUTE FUNCTION lifecycle_witness_bind_record()",
@@ -2883,8 +2919,23 @@
 		},
 		{
 			"arguments": "",
+			"definition": "CREATE OR REPLACE FUNCTION <schema>.launch_debrief_bind_record()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO '<schema>', 'pg_catalog', 'pg_temp'\nAS $function$\nDECLARE actual_owner uuid;\nBEGIN\n  actual_owner := NEW.plant_id;\n  \n  IF TG_OP='UPDATE' AND NEW.id <> OLD.id THEN RAISE EXCEPTION 'immutable_record_id' USING ERRCODE='23514'; END IF;\n  INSERT INTO record(id,kind,tenant_id) VALUES (NEW.id,'launch_debrief',actual_owner) ON CONFLICT DO NOTHING;\n  PERFORM 1 FROM record WHERE id=NEW.id AND kind='launch_debrief' AND tenant_id=actual_owner FOR KEY SHARE;\n  IF NOT FOUND THEN RAISE EXCEPTION 'record_subtype_owner_mismatch' USING ERRCODE='23514'; END IF;\n  RETURN NEW;\nEND $function$\n",
+			"name": "launch_debrief_bind_record"
+		},
+		{
+			"arguments": "",
+			"definition": "CREATE OR REPLACE FUNCTION <schema>.launch_guest_bind_record()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO '<schema>', 'pg_catalog', 'pg_temp'\nAS $function$\nDECLARE actual_owner uuid;\nBEGIN\n  actual_owner := NEW.plant_id;\n  \n  IF TG_OP='UPDATE' AND NEW.id <> OLD.id THEN RAISE EXCEPTION 'immutable_record_id' USING ERRCODE='23514'; END IF;\n  INSERT INTO record(id,kind,tenant_id) VALUES (NEW.id,'launch_guest',actual_owner) ON CONFLICT DO NOTHING;\n  PERFORM 1 FROM record WHERE id=NEW.id AND kind='launch_guest' AND tenant_id=actual_owner FOR KEY SHARE;\n  IF NOT FOUND THEN RAISE EXCEPTION 'record_subtype_owner_mismatch' USING ERRCODE='23514'; END IF;\n  RETURN NEW;\nEND $function$\n",
+			"name": "launch_guest_bind_record"
+		},
+		{
+			"arguments": "",
 			"definition": "CREATE OR REPLACE FUNCTION <schema>.launch_milestone_bind_record()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO '<schema>', 'pg_catalog', 'pg_temp'\nAS $function$\nDECLARE actual_owner uuid;\nBEGIN\n  actual_owner := NEW.plant_id;\n  \n  IF TG_OP='UPDATE' AND NEW.id <> OLD.id THEN RAISE EXCEPTION 'immutable_record_id' USING ERRCODE='23514'; END IF;\n  INSERT INTO record(id,kind,tenant_id) VALUES (NEW.id,'launch_milestone',actual_owner) ON CONFLICT DO NOTHING;\n  PERFORM 1 FROM record WHERE id=NEW.id AND kind='launch_milestone' AND tenant_id=actual_owner FOR KEY SHARE;\n  IF NOT FOUND THEN RAISE EXCEPTION 'record_subtype_owner_mismatch' USING ERRCODE='23514'; END IF;\n  RETURN NEW;\nEND $function$\n",
 			"name": "launch_milestone_bind_record"
+		},
+		{
+			"arguments": "",
+			"definition": "CREATE OR REPLACE FUNCTION <schema>.launch_summary_bind_record()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO '<schema>', 'pg_catalog', 'pg_temp'\nAS $function$\nDECLARE actual_owner uuid;\nBEGIN\n  actual_owner := NEW.plant_id;\n  \n  IF TG_OP='UPDATE' AND NEW.id <> OLD.id THEN RAISE EXCEPTION 'immutable_record_id' USING ERRCODE='23514'; END IF;\n  INSERT INTO record(id,kind,tenant_id) VALUES (NEW.id,'launch_summary',actual_owner) ON CONFLICT DO NOTHING;\n  PERFORM 1 FROM record WHERE id=NEW.id AND kind='launch_summary' AND tenant_id=actual_owner FOR KEY SHARE;\n  IF NOT FOUND THEN RAISE EXCEPTION 'record_subtype_owner_mismatch' USING ERRCODE='23514'; END IF;\n  RETURN NEW;\nEND $function$\n",
+			"name": "launch_summary_bind_record"
 		},
 		{
 			"arguments": "",
@@ -4117,6 +4168,34 @@
 			"grantee": "everyfield_cleanup",
 			"is_grantable": false,
 			"kind": "table",
+			"object": "launch_debrief",
+			"privilege_type": "DELETE"
+		},
+		{
+			"grantee": "everyfield_cleanup",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "launch_debrief",
+			"privilege_type": "SELECT"
+		},
+		{
+			"grantee": "everyfield_cleanup",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "launch_guest",
+			"privilege_type": "DELETE"
+		},
+		{
+			"grantee": "everyfield_cleanup",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "launch_guest",
+			"privilege_type": "SELECT"
+		},
+		{
+			"grantee": "everyfield_cleanup",
+			"is_grantable": false,
+			"kind": "table",
 			"object": "launch_milestone",
 			"privilege_type": "DELETE"
 		},
@@ -4133,6 +4212,20 @@
 			"kind": "table",
 			"object": "launch_milestone",
 			"privilege_type": "UPDATE"
+		},
+		{
+			"grantee": "everyfield_cleanup",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "launch_summary",
+			"privilege_type": "DELETE"
+		},
+		{
+			"grantee": "everyfield_cleanup",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "launch_summary",
+			"privilege_type": "SELECT"
 		},
 		{
 			"grantee": "everyfield_cleanup",
@@ -6427,6 +6520,48 @@
 			"grantee": "everyfield_runtime",
 			"is_grantable": false,
 			"kind": "table",
+			"object": "launch_debrief",
+			"privilege_type": "INSERT"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "launch_debrief",
+			"privilege_type": "SELECT"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "launch_debrief",
+			"privilege_type": "UPDATE"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "launch_guest",
+			"privilege_type": "INSERT"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "launch_guest",
+			"privilege_type": "SELECT"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "launch_guest",
+			"privilege_type": "UPDATE"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
 			"object": "launch_milestone",
 			"privilege_type": "DELETE"
 		},
@@ -6449,6 +6584,27 @@
 			"is_grantable": false,
 			"kind": "table",
 			"object": "launch_milestone",
+			"privilege_type": "UPDATE"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "launch_summary",
+			"privilege_type": "INSERT"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "launch_summary",
+			"privilege_type": "SELECT"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "launch_summary",
 			"privilege_type": "UPDATE"
 		},
 		{

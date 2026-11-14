@@ -25,9 +25,20 @@ import {
 	UserGroupIcon,
 	UserIcon,
 } from "@hugeicons/core-free-icons";
-import { Button, Field, Input, IntentLink, Select, Skeleton, Spinner, Textarea } from "@everyfield/ui/controls";
+import {
+	Button,
+	Checkbox,
+	Field,
+	Input,
+	IntentLink,
+	Select,
+	Skeleton,
+	Spinner,
+	Textarea,
+} from "@everyfield/ui/controls";
 import { Avatar, StageChip } from "@everyfield/ui/display";
 import { cn, Icon, type IconSvgElement } from "@everyfield/ui/foundations";
+import { useRouter } from "next/navigation";
 import { useEffect, useId, useLayoutEffect, useRef, useState, type FormEvent, type ReactNode, type Ref } from "react";
 import { STAGE_KEY, type StageValue } from "../../people/model.ts";
 import type { Reply } from "../conversation/api.ts";
@@ -45,6 +56,8 @@ import {
 	emptyText,
 	clock,
 	consequence,
+	carryOver,
+	carryOverText,
 	editableChanges,
 	fieldKind,
 	fieldLabel,
@@ -71,6 +84,8 @@ import {
 	settingsRefusalText,
 	retryable,
 	reviseInput,
+	seatsAccount,
+	SHARE_CHOICES,
 	shownChanges,
 	valueText,
 	type Change,
@@ -543,6 +558,20 @@ export function ReviewCard({
 	useEffect(() => {
 		if (notice?.tone === "error") noticeRef.current?.focus();
 	}, [notice]);
+	// Starting a church, or turning a Discovery space into one, moves the account into the new church as its Owner: once
+	// this card sees it go from waiting to saved, the page reads its context again, so the frame works in that church. A
+	// card that opens already saved changes nothing.
+	const router = useRouter();
+	const seating = review ? seatsAccount(review.operation) : false;
+	const awaiting = useRef(false);
+	useEffect(() => {
+		if (!seating) return;
+		if (view === "pending" || view === "running") awaiting.current = true;
+		else if (view === "completed" && awaiting.current) {
+			awaiting.current = false;
+			router.refresh();
+		}
+	}, [seating, view, router]);
 
 	const why = note(view, review, r.lapsed, unknown);
 	const base = view === "loading" || view === "lost" ? HEAD.pending : HEAD[view];
@@ -1186,6 +1215,8 @@ function Changes({ review, staged, onRetry }: { review: Review; staged: StagedPh
 			{changes.map((c: Change) =>
 				c.field === "photo" && review.review.target ? (
 					<PhotoChange key={c.field} review={review} change={c} staged={staged} onRetry={onRetry} />
+				) : carryOver(c) ? (
+					<LinkChange key={c.field} change={c} />
 				) : (
 					<div key={c.field} className="grid grid-cols-[minmax(88px,auto)_minmax(0,1fr)] items-baseline gap-x-3">
 						<dt className="text-text-2">{fieldLabel(c.field, review.operation)}</dt>
@@ -1204,6 +1235,70 @@ function Changes({ review, staged, onRetry }: { review: Review; staged: StagedPh
 				),
 			)}
 		</dl>
+	);
+}
+
+/** A Discovery link on a conversion review: the organization, and whether it carries over and what it will share. */
+function LinkChange({ change }: { change: Change }) {
+	const link = carryOver(change)!;
+	return (
+		<div className="grid grid-cols-[minmax(88px,auto)_minmax(0,1fr)] items-baseline gap-x-3">
+			<dt className="text-text-2">
+				{link.organization}
+				{link.kind ? <span className="block text-xs text-text-3">{link.kind}</span> : null}
+			</dt>
+			<dd className={cn("min-w-0 [overflow-wrap:anywhere]", link.carries ? "font-medium text-ink" : "text-text-2")}>
+				{carryOverText(link)}
+			</dd>
+		</div>
+	);
+}
+
+/** The picks for one Discovery link: carry it over or not, and what the church's link shares. */
+function LinkPicker({
+	change,
+	value,
+	onChange,
+	disabled,
+}: {
+	change: Change;
+	value: string;
+	onChange: (value: string) => void;
+	disabled: boolean;
+}) {
+	const link = carryOver(change)!;
+	const pick = JSON.parse(value) as { carries: boolean; share: string[] };
+	const set = (next: typeof pick) => onChange(JSON.stringify(next));
+	return (
+		<fieldset className="flex flex-col gap-1 rounded-md border border-line px-3 py-2.5">
+			<legend className="px-1 text-sm font-medium text-ink">{link.organization}</legend>
+			<Checkbox
+				label={`Keep the link to ${link.organization}`}
+				description={link.kind ? `${link.kind} relationship. If you leave it out, the link ends.` : undefined}
+				checked={pick.carries}
+				disabled={disabled}
+				onCheckedChange={(on) => set({ carries: on === true, share: on === true ? pick.share : [] })}
+			/>
+			{pick.carries ? (
+				<div className="flex flex-col gap-1 pl-7">
+					<p className="text-xs text-text-3">What your church shares with {link.organization}</p>
+					{SHARE_CHOICES.map((choice) => (
+						<Checkbox
+							key={choice.value}
+							label={choice.label}
+							checked={pick.share.includes(choice.value)}
+							disabled={disabled}
+							onCheckedChange={(on) =>
+								set({
+									carries: true,
+									share: on === true ? [...pick.share, choice.value] : pick.share.filter((k) => k !== choice.value),
+								})
+							}
+						/>
+					))}
+				</div>
+			) : null}
+		</fieldset>
 	);
 }
 
@@ -1231,14 +1326,22 @@ function ReviseForm({
 }) {
 	const fields = editableChanges(review);
 	const [edits, setEdits] = useState<Record<string, string>>(() =>
-		Object.fromEntries(fields.map((c) => [c.field, c.after === null || c.after === undefined ? "" : String(c.after)])),
+		Object.fromEntries(
+			fields.map((c) => {
+				const link = carryOver(c);
+				if (link) return [c.field, JSON.stringify({ carries: link.carries, share: link.share })];
+				return [c.field, c.after === null || c.after === undefined ? "" : String(c.after)];
+			}),
+		),
 	);
 	const [missing, setMissing] = useState<string | null>(null);
 	const form = useRef<HTMLFormElement>(null);
 	const focusField = (field?: string) =>
 		form.current
 			?.querySelector<HTMLElement>(
-				field ? `[data-field="${field}"] :is(input,textarea,button)` : ":is(input,textarea,button[role=combobox])",
+				field
+					? `[data-field="${field}"] :is(input,textarea,button)`
+					: ":is(input,textarea,button[role=combobox],button[role=checkbox])",
 			)
 			?.focus();
 	useEffect(() => focusField(), []);
@@ -1259,6 +1362,12 @@ function ReviseForm({
 				{fields.map((c) => {
 					const kind = fieldKind(c.field);
 					const set = (value: string) => setEdits((all) => ({ ...all, [c.field]: value }));
+					if (carryOver(c))
+						return (
+							<div key={c.field} data-field={c.field}>
+								<LinkPicker change={c} value={edits[c.field]!} onChange={set} disabled={locked} />
+							</div>
+						);
 					const now =
 						review.operation === "people.createPerson" || c.field === "reason"
 							? undefined
