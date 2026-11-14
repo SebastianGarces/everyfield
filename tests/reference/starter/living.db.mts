@@ -2,7 +2,7 @@
 // Only this test reads the bootstrap payload, to build that old generation (criterion 11).
 // fixtures/living-wiki is a synthetic living seed with a corrected 501(c)(3) article. It proves the install
 // path carries corrected text byte for byte apart from the real seed's content.
-import { testDatabase, testDatabaseUrl, type TestDatabase } from "../../support/test-database.mts";
+import { testDatabase, type TestDatabase } from "../../support/test-database.mts";
 import type { Database } from "../../../packages/db/src/client.ts";
 import { sql } from "../../../packages/db/src/query.ts";
 import test, { after } from "node:test";
@@ -68,8 +68,6 @@ async function seedContent(path: string, wanted: string): Promise<string> {
 	return row.content;
 }
 
-// The guard admits a local host only as CI's disposable database.
-const localCi = ["localhost", "127.0.0.1"].includes(testDatabaseUrl().hostname);
 const stores: TestDatabase<never>[] = [];
 after(async () => {
 	for (const store of stores) await store.close();
@@ -214,8 +212,7 @@ test("the real living generation replaces the bootstrap one, and rollback works 
 	);
 });
 
-test("the seed step's wiki:install activates the living seed on a seed schema, a rerun changes nothing, and every Guide opens at its section", async (t) => {
-	if (localCi) return t.skip("the command writes only the shared development database");
+test("the seed step's wiki:install activates the living seed on a seed schema, a rerun changes nothing, and every Guide opens at its section", async () => {
 	// The command accepts only tests/ui seed schema names, so this store borrows that shape.
 	const { db } = await emptyStore("ui_" + randomBytes(8).toString("hex"));
 	const schema = ((await db.execute(sql`SELECT current_schema() AS s`)).rows[0] as { s: string }).s;
