@@ -301,7 +301,6 @@ test("AC:MON-01 AC:CLN-10 AC:PUB57-006 INV-evry-overview: every Overview and fee
 				assert.deepEqual([c.ask, c.expected_answer, c.must_not], [g.question, g.expected_answer, g.must_not], c.id);
 			}
 			const actor = await actorOf(c.actor);
-			await SETTLED[c.id]?.before?.();
 			const turn = await ask(actor, c.ask);
 			assert.deepEqual(turn.reads, c.calls, `${c.id} reads`);
 			for (const text of c.answer)

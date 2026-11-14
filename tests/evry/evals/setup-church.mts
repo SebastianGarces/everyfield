@@ -105,7 +105,7 @@ export async function seedSetup(admin: Database, runtime: Database, native: Nati
 // so the suite and the local preview apply the same ones in the same order.
 
 /** Each fixture person, the days since they were added, and whether they had activity since (no inactivity mark). */
-export const OVERVIEW_PEOPLE = [
+const OVERVIEW_PEOPLE = [
 	["Grace Holt", 50, true],
 	["Marcus Webb", 45, true],
 	["Nina Patel", 40, false],

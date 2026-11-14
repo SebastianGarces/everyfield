@@ -14,7 +14,7 @@ import { CATEGORY_NAME } from "../reads/index.ts";
 // server, as the dialog's do; the page is Evry's own.
 
 /** The page a feedback sent through Evry names: there is no screen behind it. */
-export const EVRY_PAGE = "Evry";
+const EVRY_PAGE = "Evry";
 
 /** The signed-in account with its seat's church and role, as feedbackWriter stores them, as `a`, `s` and `n`. */
 const sender = (seatId: string | null, accountId: string) =>

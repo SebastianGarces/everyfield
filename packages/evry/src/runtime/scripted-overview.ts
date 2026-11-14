@@ -24,14 +24,6 @@ const call = (toolName: string, operation: string, input: unknown = {}): Languag
 	{ type: "tool-call", toolCallId: randomUUID(), toolName, input: JSON.stringify({ operation, input }) },
 ];
 const say = (...lines: string[]): LanguageModelV4Content[] => [{ type: "text", text: lines.join("\n") }];
-const propose = (operation: string, input: unknown): LanguageModelV4Content[] => [
-	{
-		type: "tool-call",
-		toolCallId: randomUUID(),
-		toolName: "propose_change",
-		input: JSON.stringify({ operation, input }),
-	},
-];
 
 /** The JSON tool results of the current turn, oldest first (everything after the last user message). */
 function turnOutputs(prompt: Prompt): Output[] {
@@ -238,7 +230,7 @@ export function overviewStep(options: LanguageModelV4CallOptions, text: string):
 			);
 		if (last?.error) return say(`I couldn't prepare that feedback (${String(last.error)}).`);
 		const words = sentence(send[1]!.trim());
-		return propose("feedback.submit", { category: categoryOf(words), description: words });
+		return call("propose_change", "feedback.submit", { category: categoryOf(words), description: words });
 	}
 	if ((SENT.test(text) || STATUS.test(text)) && offers("feedback.listOwn")) {
 		const id = UUID.exec(text)?.[1];
