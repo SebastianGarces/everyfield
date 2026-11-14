@@ -301,7 +301,8 @@
 				"reference_update",
 				"digest",
 				"launch",
-				"communication"
+				"communication",
+				"residency"
 			],
 			"notice.purpose": [
 				"communication_unsubscribed",
@@ -317,6 +318,8 @@
 				"reference_update",
 				"relationship_decision",
 				"relationship_invitation",
+				"residency_confirmation",
+				"residency_feedback",
 				"task_assignment",
 				"task_due"
 			],

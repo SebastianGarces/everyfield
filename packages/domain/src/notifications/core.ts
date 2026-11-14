@@ -5,11 +5,13 @@ import {
 	type NotificationError,
 	type NotificationReply,
 } from "@everyfield/contracts/notifications";
+import { residencyCategories } from "@everyfield/contracts/settings";
 import type { Database, Transaction } from "@everyfield/db/client";
 import { sql, type SQL } from "@everyfield/db/query";
 import { randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
+import { liveResidency } from "../access/pipeline.ts";
 import { RequestActor, requestWrite } from "../access/session.ts";
 import { hash } from "../operations/canonical.ts";
 import {
@@ -163,8 +165,14 @@ export function selfSql(session: string, accountId: string): SQL {
 		   AND w.kind = 'account' AND w.opaque_subject_id = i.account_id)
 	)`;
 }
-const categories = notificationCategory.options.map((category) => `'${category}'`).join(",");
-/** Rows the signed-in recipient may see in the feed, the bell, and mark. */
+const quoted = (list: readonly string[]) => list.map((category) => `'${category}'`).join(",");
+const categories = quoted(notificationCategory.options);
+const residency = quoted(residencyCategories);
+/**
+ * Rows the signed-in recipient may see in the feed, the bell, and mark. A residency notice shows only while the
+ * recipient's residency link to the organization that owns it is live (D-1416); every other notice only while they hold
+ * a current seat there.
+ */
 export function noticeVisible(eligible: SQL = sql`n.eligible_at <= clock_timestamp()`): SQL {
 	return sql`n.cancelled_at IS NULL AND n.archived_at IS NULL AND ${eligible}
 		AND n.recipient_id = (SELECT account_id FROM me)
@@ -172,11 +180,14 @@ export function noticeVisible(eligible: SQL = sql`n.eligible_at <= clock_timesta
 		AND coalesce((SELECT p.enabled FROM notification_preference p
 			WHERE p.account_id = n.recipient_id AND p.category = split_part(n.logical_key,'/',2) AND p.channel = 'in_app'),
 			split_part(n.logical_key,'/',2) <> 'planter_digest')
-		AND EXISTS (SELECT FROM seat s WHERE s.account_id = n.recipient_id AND s.ended_at IS NULL
+		AND CASE WHEN split_part(n.logical_key,'/',2) IN (${sql.raw(residency)})
+			THEN EXISTS (SELECT FROM residency_link l WHERE l.account_id = n.recipient_id AND l.organization_id = n.tenant_id
+				AND ${liveResidency})
+			ELSE EXISTS (SELECT FROM seat s WHERE s.account_id = n.recipient_id AND s.ended_at IS NULL
 			AND s.accepted_at <= clock_timestamp() AND (s.plant_id = n.tenant_id OR s.organization_id = n.tenant_id)
 			AND NOT EXISTS (SELECT FROM lifecycle_witness w WHERE w.state NOT IN ('active','cancelled') AND (
 				w.seat_id = s.id OR (w.kind = 'account' AND w.opaque_subject_id = s.account_id)
-				OR (w.kind IN ('plant','organization') AND w.opaque_subject_id = n.tenant_id))))`;
+				OR (w.kind IN ('plant','organization') AND w.opaque_subject_id = n.tenant_id)))) END`;
 }
 export function overdueSql(asOf: string): SQL {
 	return sql`(split_part(n.logical_key,'/',2) = 'task_overdue' OR (
