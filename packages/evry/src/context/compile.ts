@@ -156,6 +156,52 @@ function launchRules() {
 	].join("\n");
 }
 
+/**
+ * What a church seat's Plant Intelligence tools never do (WP-073, WP-074), with the reply for each. The scripted model
+ * quotes them, so the evals test the words the real model gets.
+ */
+export const INTELLIGENCE_RULES = {
+	/** A refresh is an Owner's or Admin's, as on the Plant Intelligence screen. */
+	ownerOnly:
+		"Only an Owner or Admin can ask for a fresh Plant Intelligence assessment or rate its findings, so I can't request one for you. Nothing was requested.",
+	/** Prayer, theology and spiritual matters stay with the church's leaders: Evry makes no task of them. */
+	noSpiritualTasks:
+		"I don't turn suggestions about prayer, theology or anyone's spiritual life into tasks. Those stay with your church's leaders.",
+	/** Committed adults while someone with a commitment is unclassified. */
+	unclassified: "Until they're classified I can't say whether you're at 30 committed adults.",
+} as const;
+function intelligenceRules() {
+	return [
+		`Committed adults come only from intelligence.readCommittedAdultCohort, the Plant Intelligence screen's own count: a People stage, core group included, is never a commitment. Give the known count and the date it was measured. When exact is null, say how many people with a commitment need an adult or child classification and add: ${INTELLIGENCE_RULES.unclassified} When the criterion is met, say so.`,
+		"For Plant Intelligence, quote the assessment: its standings, findings, the facts each finding cites and what changed, with the date it measured them and a link to [Plant Intelligence](/intelligence). Team health comes from teams.aggregateHealth with its dates. Never give your own opinion of health, never add a finding, and never judge anyone's spiritual maturity. Private weekly check-ins are never read or quoted.",
+		`To turn an assessment suggestion into tasks, read intelligence.readAssessment and then tasks.list with words from the suggestion. When an open task already covers it, name that task and propose nothing. Otherwise propose tasks.create for the practical step only. When the suggestion is about prayer, theology or anyone's spiritual life, propose nothing and reply: ${INTELLIGENCE_RULES.noSpiritualTasks}`,
+		`A refresh or feedback on a finding is a review card (intelligence.requestRefresh, intelligence.submitFeedback). When no tool offers it, prepare nothing and reply: ${INTELLIGENCE_RULES.ownerOnly}`,
+	].join("\n");
+}
+
+/**
+ * What an organization seat's oversight tools never do (WP-073, SAF-14, EVRY-ORG-CONTEXT), with the reply for each.
+ * The scripted model quotes them, so the evals test the words the real model gets.
+ */
+export const OVERSIGHT_RULES = {
+	/** Oversight sees each plant's shared totals, never its people. */
+	totalsOnly:
+		"Oversight shows totals only, so I can't list a plant's people, or read their notes, interviews or private care. Here is what that plant shares with you:",
+	/** Plants are never compared. */
+	noRanking: "I don't rank or score plants against each other.",
+	/** A plant's location and reporting Region are the plant's own (IDN-011, D-1529). */
+	plantRegion: (plant: string, region: string) =>
+		`I can't change that. Only ${plant}'s Owner or Admin can update its location and reporting Region, in their church settings. The Region I'm using now is ${region}. Nothing changed.`,
+} as const;
+function oversightRules() {
+	return [
+		"Plant oversight comes only from oversight.listPlants, oversight.getPlant and organizationIntelligence.read: what this organization's own pages show. A plant that doesn't share Plant Intelligence findings is Not shared, never zero or healthy.",
+		`When the user asks for a plant's people, notes, interviews, care or assessment text, read only that plant's totals with oversight.getPlant and reply first: ${OVERSIGHT_RULES.totalsOnly} Never name a person.`,
+		`Quote Network Intelligence patterns as organizationIntelligence.read gives them, with the plants they name. A pattern always has two or more plants: one plant alone is never a pattern. Never rank or score plants; when asked to, reply: ${OVERSIGHT_RULES.noRanking} Which plants are close to launch comes only from each plant's shared Launch readiness and published summary.`,
+		`A plant's location and reporting Region belong to that plant. When the user asks to change one, read oversight.listPlants, prepare nothing and reply: ${OVERSIGHT_RULES.plantRegion("<the plant>", "<its region from oversight.listPlants>")}`,
+	].join("\n");
+}
+
 function roleRule(actor: EvryActor) {
 	if (actor.role === null)
 		return actor.contextKind === "account"
@@ -167,8 +213,8 @@ function roleRule(actor: EvryActor) {
 			: "invite people, change seats and invitations, change this organization's profile, move people between pipeline stages or create programs";
 	const setup =
 		actor.contextKind === "plant"
-			? ` ${SETUP_RULE} When the user asks to answer the lead question and no tool offers it, prepare nothing and reply: ${LEAD_RULE}\nWhen the user asks to change the Launch plan and no tool offers it, prepare nothing and reply: ${LAUNCH_RULES.ownerOnly}\n${launchRules()}`
-			: `\n${pipelineRules()}\n${wikiEditorRules(actor.contextKind)}`;
+			? ` ${SETUP_RULE} When the user asks to answer the lead question and no tool offers it, prepare nothing and reply: ${LEAD_RULE}\nWhen the user asks to change the Launch plan and no tool offers it, prepare nothing and reply: ${LAUNCH_RULES.ownerOnly}\n${launchRules()}\n${intelligenceRules()}`
+			: `\n${pipelineRules()}\n${wikiEditorRules(actor.contextKind)}\n${oversightRules()}`;
 	return `The user's role here is ${actor.role}. When the user asks for a change none of your tools offers, prepare nothing and say who can make it: Only an Owner or Admin can ${scope}.${setup}`;
 }
 
@@ -223,6 +269,9 @@ const READ_AREAS: Record<string, string> = {
 	dashboard: "Read your church's overview: its numbers, recent activity and what setup still needs.",
 	feedback: "Read the feedback you sent about Everyfield and where each one stands.",
 	launch: "Read the Launch plan: the countdown, milestones, Launch history and Launch Sunday's guests.",
+	intelligence:
+		"Read your Plant Intelligence: committed adults, the scorecard, the latest assessment and what changed.",
+	oversight: "Read how your plants are doing, as your oversight pages show them, and Network Intelligence.",
 };
 const WRITE_AREAS: { prefix: string; text: string }[] = [
 	{
@@ -262,6 +311,10 @@ const WRITE_AREAS: { prefix: string; text: string }[] = [
 	{ prefix: "launch.", text: "Prepare Launch plan changes for your review, as your seat allows." },
 	{ prefix: "feedback.", text: "Send feedback about Everyfield after you review it." },
 	{ prefix: "pipeline.", text: "Prepare a pipeline stage move or a new program for your review." },
+	{
+		prefix: "intelligence.",
+		text: "Prepare a Plant Intelligence refresh, or your feedback on a finding, for your review.",
+	},
 	{
 		prefix: "onboarding.declareJourney",
 		text: "Prepare your church's setup answers for your review, and finish setup.",

@@ -15,6 +15,8 @@ import { ONBOARDING_READS } from "../adapters/onboarding/reads/index.ts";
 import { DASHBOARD_READS } from "../adapters/dashboard/reads/index.ts";
 import { FEEDBACK_READS } from "../adapters/feedback/reads/index.ts";
 import { PIPELINE_READS } from "../adapters/pipeline/reads/index.ts";
+import { ASSESSMENT_INTELLIGENCE_READS } from "../adapters/intelligence/reads/assessment.ts";
+import { OVERSIGHT_READS } from "../adapters/oversight/reads/index.ts";
 import { WIKI_READS } from "../adapters/wiki/reads/index.ts";
 import { LAUNCH_READS } from "../adapters/launch/reads/index.ts";
 import { allowedWrites, everyOperation, type Offered } from "../proposals/store.ts";
@@ -39,6 +41,8 @@ export const READ_DOMAINS = {
 	dashboard: DASHBOARD_READS,
 	feedback: FEEDBACK_READS,
 	pipeline: PIPELINE_READS,
+	intelligence: ASSESSMENT_INTELLIGENCE_READS,
+	oversight: OVERSIGHT_READS,
 	calendar: CALENDAR_READS,
 	wiki: WIKI_READS,
 	documents: DOCUMENTS_READS,
@@ -49,6 +53,9 @@ export const SELECT_RETURNED_ROWS = "evry.selectReturnedRows";
 
 export const MEMBER_PHASES =
 	"Your Member seat does not include the church's phase journey. Ask an Owner or Admin if you need it.";
+/** The /intelligence page's words to a Member, whose seat does not include Plant Intelligence or its refresh. */
+export const MEMBER_INTELLIGENCE =
+	"Your Member seat does not include the church's Plant Intelligence. Only an Owner or Admin can read it or ask for a refresh.";
 
 export function readCatalog(actor: EvryActor, offered: Offered = everyOperation) {
 	const domains = Object.entries(READ_DOMAINS)
@@ -64,7 +71,7 @@ export function readCatalog(actor: EvryActor, offered: Offered = everyOperation)
 		domains,
 		selection: domains.length > 0 ? [SELECT_RETURNED_ROWS] : [],
 		reviewedWrites: allowedWrites(actor, offered).map((w) => ({ operation: w.operation, description: w.description })),
-		withheld: actor.owner.kind === "plant" && actor.role === "member" ? [MEMBER_PHASES] : [],
+		withheld: actor.owner.kind === "plant" && actor.role === "member" ? [MEMBER_PHASES, MEMBER_INTELLIGENCE] : [],
 	};
 }
 export type Catalog = ReturnType<typeof readCatalog>;

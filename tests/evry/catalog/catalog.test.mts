@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
+	MEMBER_INTELLIGENCE,
 	MEMBER_PHASES,
 	READ_DOMAINS,
 	readCatalog,
@@ -148,6 +149,13 @@ test("AC:INH-REGRESSION-CAPABILITIES INV-catalog: every installed model tool is 
 		"pipeline.listPeople",
 		"development.draftPlan",
 		"development.readProgram",
+		"intelligence.readCommittedAdultCohort",
+		"intelligence.readScorecard",
+		"intelligence.readAssessment",
+		"intelligence.readAssessmentDelta",
+		"oversight.listPlants",
+		"oversight.getPlant",
+		"organizationIntelligence.read",
 		"calendar.getContext",
 		"calendar.resolve",
 		"wiki.search",
@@ -240,7 +248,7 @@ test("INV-catalog: the phase and signal tools follow the context: Owner and Admi
 		phases: [],
 		signals: [],
 		writes: [],
-		withheld: [MEMBER_PHASES],
+		withheld: [MEMBER_PHASES, MEMBER_INTELLIGENCE],
 	});
 	for (const actor of [as("sending_church", "owner"), as("sending_network", "admin"), as("account", null)]) {
 		assert.deepEqual(phaseTools(actor), { phases: [], signals: [], writes: [], withheld: [] }, actor.contextKind);
@@ -358,7 +366,14 @@ test("INV-organization-catalog: only an organization Owner or Admin gets the two
 		];
 	};
 	const oversight = ["notifications.previewOversightDigest", "notifications.oversightDigestCadence.set"];
-	const pipeline = ["pipeline.listPeople", "development.draftPlan", "development.readProgram"];
+	const pipeline = [
+		"pipeline.listPeople",
+		"development.draftPlan",
+		"development.readProgram",
+		"oversight.listPlants",
+		"oversight.getPlant",
+		"organizationIntelligence.read",
+	];
 	const orgWiki = [
 		"wiki.organizationArticles.add",
 		"wiki.organizationArticles.edit",
@@ -371,6 +386,7 @@ test("INV-organization-catalog: only an organization Owner or Admin gets the two
 			[
 				oversight[0],
 				...pipeline,
+				"notifications.setPreferences",
 				oversight[1],
 				"organizations.updateProfile",
 				"pipeline.proposeStageMove",

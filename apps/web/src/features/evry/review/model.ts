@@ -100,7 +100,11 @@ export type Operation =
 	| "signals.reaffirm"
 	| SettingsOperation
 	| PipelineOperation
-	| LaunchOperation;
+	| LaunchOperation
+	| IntelligenceOperation;
+
+/** Plant Intelligence's refresh and the reader's own rating of a finding (T-331), as the screen makes them. */
+export type IntelligenceOperation = "intelligence.requestRefresh" | "intelligence.submitFeedback";
 
 export type WikiEditorOperation =
 	| "wiki.organizationArticles.add"
@@ -516,6 +520,10 @@ const FIELD_LABEL: Record<string, string> = {
 	lead: "Lead",
 	setup: "Setup",
 	discovery: "Discovery",
+	// Plant Intelligence (T-331): the assessment a refresh replaces, and a finding's rating.
+	assessment: "Assessment",
+	rating: "Your rating",
+	comment: "Your comment",
 	yourRole: "Your role",
 	page: "Page",
 	...SHARING_CATEGORY_LABEL,
@@ -945,6 +953,8 @@ const TITLE: Record<Operation, string> = {
 	"launch.reopenMilestone": "Reopen a launch milestone",
 	"launch.addGuestAttendance": "Name a Launch Sunday guest",
 	"launch.correctOutcome": "Correct Launch Sunday",
+	"intelligence.requestRefresh": "Refresh Plant Intelligence",
+	"intelligence.submitFeedback": "Rate a finding",
 	"development.draftNextVersion": "Draft the next version",
 	"onboarding.declareJourney": "Where your church is",
 	"identity.answerLeadOnboarding": "Who leads your church",

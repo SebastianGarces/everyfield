@@ -21,6 +21,7 @@ import { ONBOARDING_COMMANDS } from "../adapters/onboarding/commands/index.ts";
 import { FEEDBACK_COMMANDS } from "../adapters/feedback/commands/index.ts";
 import { PIPELINE_COMMANDS } from "../adapters/pipeline/commands/index.ts";
 import { LAUNCH_COMMANDS } from "../adapters/launch/commands/index.ts";
+import { ASSESSMENT_INTELLIGENCE_COMMANDS } from "../adapters/intelligence/commands/assessment.ts";
 import { currentPerson, importOutcome, personOutcome, type ReviewedWrite } from "./types.ts";
 import { WIKI_COMMANDS } from "../adapters/wiki/commands/index.ts";
 import { articleLive } from "../conversations/liveness.ts";
@@ -41,6 +42,7 @@ export const REVIEWED_WRITES = {
 	...ONBOARDING_COMMANDS,
 	...FEEDBACK_COMMANDS,
 	...PIPELINE_COMMANDS,
+	...ASSESSMENT_INTELLIGENCE_COMMANDS,
 	...TASK_COMMANDS,
 	...FOLLOWUP_COMMANDS,
 	...WIKI_COMMANDS,
