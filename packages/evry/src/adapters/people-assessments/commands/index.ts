@@ -70,6 +70,8 @@ const receipt =
 			: reply;
 const personRevision = receipt<{ person: { revision: string } }>((v) => v.person.revision);
 const commitmentRevision = receipt<{ current: { personRevision: string } }>((v) => v.current.personRevision);
+const ownRevision = receipt<{ revision: string }>((v) => v.revision);
+const survivorRevision = receipt<{ survivorRevision: string }>((v) => v.survivorRevision);
 
 // Every value comes from the user (the descriptions say so once): a criterion or score's notes are plain text.
 const text = z.string().trim().min(1).max(5000).optional();
@@ -387,12 +389,7 @@ export const ASSESSMENT_COMMANDS = {
 				WHERE r.id=${v.recordId}::uuid AND r.plant_id=${actor.owner.id}::uuid`;
 		},
 		request: correctPersonRecordRequest,
-		run: async (tx, context, request) => {
-			const reply = await recordCorrections.correctPersonRecord(tx, context, request);
-			return reply.status === "ok"
-				? { status: "ok", value: { receiptId: reply.value.receiptId, revision: reply.value.revision } }
-				: reply;
-		},
+		run: async (tx, context, request) => ownRevision(await recordCorrections.correctPersonRecord(tx, context, request)),
 	}),
 	"people.mergePeople": reviewed({
 		operation: "people.mergePeople",
@@ -442,12 +439,7 @@ export const ASSESSMENT_COMMANDS = {
 				${target(actor, v.survivorId)}`;
 		},
 		request: mergePeopleRequest,
-		run: async (tx, context, request) => {
-			const reply = await peopleMerge.mergePeople(tx, context, request);
-			return reply.status === "ok"
-				? { status: "ok", value: { receiptId: reply.value.receiptId, revision: reply.value.survivorRevision } }
-				: reply;
-		},
+		run: async (tx, context, request) => survivorRevision(await peopleMerge.mergePeople(tx, context, request)),
 	}),
 	"people.unmergePeople": reviewed({
 		operation: "people.unmergePeople",
@@ -468,11 +460,6 @@ export const ASSESSMENT_COMMANDS = {
 				${target(actor, u.survivorId)}`;
 		},
 		request: unmergePeopleRequest,
-		run: async (tx, context, request) => {
-			const reply = await peopleUnmerge.unmergePeople(tx, context, request);
-			return reply.status === "ok"
-				? { status: "ok", value: { receiptId: reply.value.receiptId, revision: reply.value.survivorRevision } }
-				: reply;
-		},
+		run: async (tx, context, request) => survivorRevision(await peopleUnmerge.unmergePeople(tx, context, request)),
 	}),
 } as const;

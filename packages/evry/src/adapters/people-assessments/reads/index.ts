@@ -12,6 +12,7 @@ import {
 } from "@everyfield/domain/people";
 import {
 	counted,
+	fourCs,
 	interviewCriteria,
 	listText,
 	mergeBlockedText,
@@ -109,7 +110,7 @@ export const getAssessments: ReadAdapter<z.infer<typeof history>> = {
 				personId: a.personId,
 				occurredOn: a.occurredOn,
 				...Object.fromEntries(
-					(["committed", "compelled", "contagious", "courageous"] as const).flatMap((k) => [
+					fourCs.flatMap((k) => [
 						[k, String(a[k].score)],
 						[`${k}Notes`, a[k].notes],
 					]),
@@ -160,7 +161,7 @@ export const getCommitments: ReadAdapter<z.infer<typeof history>> = {
 				voided: k.voidedAt !== null,
 			},
 		}));
-		return { ...paged("people.getCommitments", [current, ...cards], v, input.page ?? 1), total: v.total };
+		return paged("people.getCommitments", [current, ...cards], v, input.page ?? 1);
 	},
 };
 

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { fourCs, interviewCriteria } from "@everyfield/contracts/people";
 import { correctedFieldLabel, correctedValueText } from "../../people/corrections/model.ts";
 import { fieldLabel, sendTimeShort, valueText } from "../review/model.ts";
 import { STAGE_LABEL, type StageValue } from "../../people/model.ts";
@@ -293,8 +294,6 @@ function correctionDetails(value: unknown) {
 			}))
 		: undefined;
 }
-const CRITERIA = ["maturity", "gifted", "chemistry", "rightReasons", "season"] as const;
-const LENSES = ["committed", "compelled", "contagious", "courageous"] as const;
 /** One field of a record row, in the review card's words: "Team chemistry: Concern · Needs time". */
 const detail = (field: string, value: unknown) => {
 	const v = valueText(field, value);
@@ -317,7 +316,7 @@ function recordRow(row: SourceRow, plain: Pick<RowView, "key" | "mark" | "href" 
 				line: valueText("result", f.result),
 				avatar: "record",
 				details: details(
-					...CRITERIA.map((k) => judged(k, false)),
+					...interviewCriteria.map((k) => judged(k, false)),
 					detail("result", f.result),
 					detail("nextSteps", f.nextSteps),
 				),
@@ -328,7 +327,7 @@ function recordRow(row: SourceRow, plain: Pick<RowView, "key" | "mark" | "href" 
 				name: `4 C's on ${valueText("occurredOn", f.occurredOn) ?? "an unknown date"}`,
 				line: typeof f.total === "string" ? `Total ${f.total} of 20` : null,
 				avatar: "record",
-				details: details(...LENSES.map((k) => judged(k, true)), detail("total", f.total)),
+				details: details(...fourCs.map((k) => judged(k, true)), detail("total", f.total)),
 			};
 		case "commitment_status":
 			return {
