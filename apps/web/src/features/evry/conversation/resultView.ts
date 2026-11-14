@@ -46,6 +46,14 @@ const rows = (title: string, rest: Partial<OpView> = {}): OpView => ({
 	empty: "This file has no rows to show.",
 	...rest,
 });
+// The calendar helpers (WP-085): one row, the church's today or the one local date and time checked.
+const calendar = (title: string): OpView => ({
+	title,
+	noun: ["date", "dates"],
+	icon: "date",
+	counts: "date",
+	empty: "This church's calendar is not available.",
+});
 
 const VIEWS: Record<string, OpView> = {
 	"people.listPeople": people("People"),
@@ -164,21 +172,8 @@ const VIEWS: Record<string, OpView> = {
 		headed: true,
 		empty: "Your church digest is turned off, so no digest is coming.",
 	},
-	// The calendar helpers (WP-085): one row, the church's today or the one local date and time checked.
-	"calendar.getContext": {
-		title: "Today",
-		noun: ["date", "dates"],
-		icon: "date",
-		counts: "date",
-		empty: "This church's calendar is not available.",
-	},
-	"calendar.resolve": {
-		title: "Date check",
-		noun: ["date", "dates"],
-		icon: "date",
-		counts: "date",
-		empty: "This church's calendar is not available.",
-	},
+	"calendar.getContext": calendar("Today"),
+	"calendar.resolve": calendar("Date check"),
 };
 // The Ministries reads (WP-069). A ministry row opens its Ministries page; a person row opens the person.
 const ministries = (title: string, rest: Partial<OpView> = {}): OpView => ({

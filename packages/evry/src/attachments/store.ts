@@ -71,17 +71,12 @@ export async function stageAttachment(
 			SELECT tenant_id,'object_cleanup',id,'evry-attachment/'||id,'ready',expires_at,0,4,0 FROM upload
 			ON CONFLICT DO NOTHING
 		)
-		SELECT id,expires_at FROM upload`);
-	const row = r.rows[0] as { id: string; expires_at: string | Date } | undefined;
-	if (!row) throw new EvryRefusal("not_found");
+		SELECT id FROM upload`);
+	if (!r.rows.length) throw new EvryRefusal("not_found");
 	const signed = await signPrivatePut(storage, key, "text/csv", input.byteLength).catch(() => {
 		throw new EvryRefusal("source_unavailable");
 	});
-	return {
-		attachment: { id, name: input.name },
-		upload: signed,
-		stagedUntil: new Date(row.expires_at).toISOString(),
-	};
+	return { attachment: { id, name: input.name }, upload: signed };
 }
 
 /**

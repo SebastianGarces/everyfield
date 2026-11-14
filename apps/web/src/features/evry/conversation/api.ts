@@ -45,7 +45,7 @@ export const submitTurn = (
 	call<Submitted>(`conversations/${id}/turns`, { method: "POST", body: { requestKey, text, references, attachments } });
 /** Signs one write-once upload of a CSV into this conversation; the browser then puts the bytes to `upload.url`. */
 export const stageAttachment = (id: string, name: string, byteLength: number) =>
-	call<{ attachment: Attachment; upload: { url: string; headers: Record<string, string> }; stagedUntil: string }>(
+	call<{ attachment: Attachment; upload: { url: string; headers: Record<string, string> } }>(
 		`conversations/${id}/attachments`,
 		{ method: "POST", body: { name, byteLength } },
 	);

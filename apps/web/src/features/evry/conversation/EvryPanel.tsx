@@ -35,6 +35,7 @@ import {
 	resendable,
 	retryable,
 	sendNotice,
+	type Attachment,
 	type Conversation,
 	type Reference,
 	type Send,
@@ -547,11 +548,7 @@ function Composer({
 	conversationId: string | null;
 	/** Gives the conversation to stage a file in; null when the viewer cannot attach files. */
 	attach: (() => Promise<{ id: string } | null>) | null;
-	onSend: (
-		text: string,
-		references: Reference[],
-		attachments: ReturnType<ReturnType<typeof useAttachments>["ready"]>,
-	) => void;
+	onSend: (text: string, references: Reference[], attachments: Attachment[]) => void;
 	onStop: () => void;
 	suggestions: string[];
 }) {
