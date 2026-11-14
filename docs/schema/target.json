@@ -71,7 +71,7 @@
   "as_of": "2026-10-17",
   "implementation_authorized": false,
   "table_count": 112,
-  "column_count": 1260,
+  "column_count": 1262,
   "foreign_key_count": 375,
   "type_contracts": {
     "text": "UTF8; per-boundary bounded, sanitized only when rendered in rich context.",
@@ -38894,9 +38894,14 @@
     {
       "name": "sending_goal",
       "domain": "people",
-      "purpose": "One sending goal of a sending church or network (REQ-MUL-007): nonnegative leader and plant targets, a target year and the organization's reason. Observed counts are read from the pipeline at a stated as-of day and are never stored here.",
+      "purpose": "One sending goal of a sending church or network (REQ-MUL-007): nonnegative leader and plant targets, a target year, the organization's reason, the day it counts from and up to 4 named counts by fixed stage kind. Observed counts are read from the pipeline at a stated as-of day and are never stored here.",
       "library_owned": false,
-      "jsonb_keys": {},
+      "jsonb_keys": {
+        "counts": [
+          "kind: a fixed pipeline stage kind, unique within the goal",
+          "label: the organization's name for the count, trimmed, 1-60 characters"
+        ]
+      },
       "capabilities": [
         "CAP-A-056"
       ],
@@ -38929,7 +38934,8 @@
       "scope": "people",
       "invariants": [
         "Written only by an Owner or Admin of the same organization; body-free audit only.",
-        "A goal never moves a person, changes a stage, commissions an enrollment or creates a plant."
+        "A goal never moves a person, changes a stage, commissions an enrollment or creates a plant.",
+        "A chosen count is a number of distinct live same-organization people with a move or first placement into a stage of its kind from counting_from through today; it never forecasts or judges."
       ],
       "revision": "Expected revision fences changes.",
       "idempotency": "The browser names the goal id, so a repeated add writes one goal.",
@@ -38984,6 +38990,19 @@
           "name": "revision",
           "type": "bigint",
           "nullable": false
+        },
+        {
+          "note": "The first day, in the organization's time zone, whose stage moves the goal's counts include; never after the day it was saved.",
+          "name": "counting_from",
+          "type": "date",
+          "nullable": false
+        },
+        {
+          "note": "The goal's chosen counts, in display order: at most 4, each a distinct fixed stage kind with a label.",
+          "name": "counts",
+          "type": "jsonb",
+          "nullable": false,
+          "default": "'[]'::jsonb"
         }
       ],
       "primary_key": [
@@ -39009,6 +39028,7 @@
         }
       ],
       "checks": [
+        "CASE WHEN (jsonb_typeof(counts) = 'array'::text) THEN (jsonb_array_length(counts) <= 4) ELSE false END",
         "((leader_target >= 0) AND (leader_target <= 10000))",
         "((plant_target >= 0) AND (plant_target <= 10000))",
         "((length(btrim(rationale)) >= 1) AND (length(rationale) <= 1000))",
@@ -39051,7 +39071,8 @@
           "sending_goal_leader_target",
           "sending_goal_plant_target",
           "sending_goal_target_year",
-          "sending_goal_rationale"
+          "sending_goal_rationale",
+          "sending_goal_counts"
         ]
       },
       "policies": {},
