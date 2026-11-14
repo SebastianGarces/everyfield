@@ -10,7 +10,7 @@ import { localDate } from "../common/time.ts";
 /** A question title of a kept-answers note, as the import wrote it. */
 const question = z.string().min(1).max(500);
 /** What the sender calls the chosen questions, such as "Credentialing questions". */
-export const reviewGroupName = z.string().trim().min(1).max(120);
+const reviewGroupName = z.string().trim().min(1).max(120);
 
 /** The browser names the send's ID, so a repeated send (a double click or a retry) writes one send. */
 export const sendAnswersRequest = z.strictObject({
@@ -24,9 +24,7 @@ export const sendAnswersRequest = z.strictObject({
 		.refine((q) => new Set(q).size === q.length, "Each question once."),
 	reviewerSeatId: recordId,
 });
-export type SendAnswersRequest = z.infer<typeof sendAnswersRequest>;
 export const withdrawReviewRequest = z.strictObject({ reviewId: recordId });
-export const reviewWriteResult = z.strictObject({ reviewId: recordId });
 
 /** A send as the note's readers see it on the note: who it went to, under what name, when, and which questions. */
 export const noteReview = z.strictObject({
@@ -47,7 +45,7 @@ const sendBase = {
 	sentOn: localDate,
 };
 /** One row of the reviewer's Sent for review page. A send that is no longer shared shows no question. */
-export const reviewListItem = z.strictObject({ ...sendBase, shared: z.boolean() });
+const reviewListItem = z.strictObject({ ...sendBase, shared: z.boolean() });
 export const reviewList = z.strictObject({ items: z.array(reviewListItem).max(200) });
 export type ReviewList = z.infer<typeof reviewList>;
 

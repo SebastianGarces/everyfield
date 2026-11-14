@@ -19,7 +19,7 @@ import { answer, one, parse, refuse, seatOf, write, type Executor } from "./seat
  * title on its own line after a blank line, with its answer below) and as its author may have edited it since. A
  * question whose title line the note no longer holds, or whose answer is now empty, has none.
  */
-export function keptAnswers(body: string, questions: readonly string[]): Map<string, string> {
+function keptAnswers(body: string, questions: readonly string[]): Map<string, string> {
 	const titles = new Set(questions);
 	const lines = body.split("\n");
 	const answers = new Map<string, string>();
@@ -122,7 +122,7 @@ u AS (UPDATE answer_review t SET withdrawn_at=clock_timestamp(),revision=t.revis
  WHERE t.id=x.id AND x.withdrawn_at IS NULL RETURNING t.person_id,t.revision),
 a AS (${w.audit({ action: "people.updated", kind: "remove", subject: sql`u.person_id`, before: sql`u.revision-1`, after: sql`u.revision`, metadata: { category: "answer_review", reviewId: input.reviewId } })}
  FROM u RETURNING id)
-SELECT EXISTS(SELECT FROM x) AS found,(SELECT count(*) FROM a) AS audited`,
+SELECT EXISTS(SELECT FROM x) AS found`,
 		);
 		if (!r.found) refuse();
 		return { reviewId: input.reviewId };
