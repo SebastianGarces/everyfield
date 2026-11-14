@@ -311,6 +311,22 @@ test("INV-tenancy: a Member with no duty and a program director are refused expo
 	assert.equal((await rows(sql`SELECT state FROM person WHERE id=${caseyL}`))[0]!.state, "live");
 });
 
+test("INV-tenancy: another organization's Owner exports, lists pairs and removes none of Grace Austin's people", async () => {
+	const hope = await database.organization("sending_church", { name: "Hope Dallas", timezone: "America/Chicago" });
+	const owner = await database.actor(hope as never, "owner", { user: { name: "Hope Owner" } });
+	const text = ok(await readPipelineExport(db, await authority(owner))).text;
+	for (const value of [casey, jordan, caseyL, "Casey", "Jordan", "Grace Austin"]) assert.ok(!text.includes(value), value);
+	const own = { session: owner.session, selected: hope };
+	assert.deepEqual(ok(await tx((t) => listOrganizationDuplicatePairs(t, own as never))).items, []);
+	// Naming Grace Austin as the selected organization does not lend Hope's Owner a seat there.
+	assert.equal((await tx((t) => listOrganizationDuplicatePairs(t, ctx(owner) as never))).status, "refused");
+	refusedWith(
+		await pipelineDataWriter.removePerson(db, await authority(owner), { personId: jordan, expectedRevision: "1" }),
+		"unavailable",
+	);
+	assert.equal((await rows(sql`SELECT state FROM person WHERE id=${jordan}`))[0]!.state, "live");
+});
+
 /** Both records as their record pages, the person rows and the enrollment owners show them. */
 async function snapshot() {
 	const pages = await Promise.all([casey, caseyL].map(record));

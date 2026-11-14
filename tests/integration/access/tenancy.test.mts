@@ -32,6 +32,7 @@ import {
 	interviews,
 	listDismissedDuplicatePairs,
 	listDuplicatePairs,
+	listOrganizationDuplicatePairs,
 	listedDuplicatePair,
 	peopleCsv,
 	peopleMerge,
@@ -61,6 +62,7 @@ import {
 	readEnrollment,
 	readPipelineBoard,
 	readPipelineConsents,
+	readPipelineExport,
 	readPipelineGoals,
 	readPipelinePersonRecord,
 	readProgram,
@@ -785,6 +787,20 @@ function cases(who) {
 				expected: { value: { status: "refused", refusal: { code: "unavailable" } }, control: null },
 			},
 		],
+		// The pipeline export and the organization duplicate pairs read only under the organization's own Owner or Admin
+		// seat, so a church's owner gets their refusal; tests/integration/organizations/data.test.mts holds the
+		// organization boundary, including another organization's Owner.
+		[
+			"organizations:readPipelineExport",
+			{
+				run: () => plain(() => readPipelineExport(f.db, who.actor)),
+				expected: { value: { status: "refused", refusal: { code: "unavailable" } }, control: null },
+			},
+		],
+		ppl("listOrganizationDuplicatePairs", () => reads((t, c) => listOrganizationDuplicatePairs(t, c)), {
+			refused: "unavailable",
+			control: null,
+		}),
 		// Development programs read only under an organization seat, like the pipeline; church A holds none for the
 		// control to read. The organization boundary itself is tests/integration/organizations/programs.test.mts.
 		...(
