@@ -3961,6 +3961,15 @@
 				},
 				"pipeline_import_columns": {
 					"note": "The pipeline import's remembered column choices (T-363): normalized column title to the field, answer or skip an Owner or Admin last chose for it. Titles only, never an answer."
+				},
+				"gathering_milestone_offered": {
+					"note": "Whether the organization's plants may end the gathering phase with its milestone instead of Launch Sunday (T-296). Turning it off keeps the name and description."
+				},
+				"gathering_milestone_name": {
+					"note": "The milestone's name, at most 120 characters; required while it is offered."
+				},
+				"gathering_milestone_description": {
+					"note": "What the milestone means, at most 2,000 characters, shown on its plants' Launch plans."
 				}
 			},
 			"foreignKeys": {
@@ -8108,7 +8117,20 @@
 				},
 				"outcome_note": { "note": "The planter's note on what happened on Launch Sunday, at most 10,000 characters." },
 				"outcome_recorded_at": { "note": "When the actual Launch Sunday was first recorded; a correction keeps it." },
-				"outcome_recorded_by": { "note": "The account that first recorded the actual Launch Sunday." }
+				"outcome_recorded_by": { "note": "The account that first recorded the actual Launch Sunday." },
+				"gathering_path": {
+					"note": "How the church ends its gathering phase (T-296): launch_sunday, or milestone, a milestone an organization it is affiliated with offers. Choosing never changes the date, readiness, tasks or phase."
+				},
+				"gathering_organization_id": {
+					"note": "The organization whose milestone the church uses. Null on Launch Sunday, or once that organization is gone."
+				},
+				"gathering_reached_on": {
+					"note": "The church-local day the milestone was reached; null until recorded or once cleared."
+				},
+				"gathering_reached_name": {
+					"note": "The milestone's name when it was reached, at most 120 characters. A later rename by the organization never changes it."
+				},
+				"gathering_note": { "note": "The planter's note on reaching the milestone, at most 2,000 characters." }
 			},
 			"foreignKeys": {
 				"plant_id->plant(id)": {
@@ -8127,6 +8149,12 @@
 					"deletion": {
 						"action": "set_null",
 						"policy": "Deleting the account clears who recorded the outcome; the fact, its time and its audit history stay."
+					}
+				},
+				"gathering_organization_id->organization(id)": {
+					"deletion": {
+						"action": "set_null",
+						"policy": "Removing the organization leaves the church on the milestone path with no offer, which reads as no longer offered; a reached record and its audit history stay."
 					}
 				}
 			}

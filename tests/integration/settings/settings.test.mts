@@ -2198,3 +2198,98 @@ test("INV-account-revision people/peo-3: Your account and notifications share on
 	);
 	assert.equal(ok(await section(a, { section: "account" })).name, "Shared Revision");
 });
+
+test("an organization's Owner offers its plants a gathering milestone in its profile; a Member reads it and is refused a save with nothing written", async () => {
+	const org = await organization();
+	const member = await actor();
+	await admin
+		.insert(t.seat)
+		.values({ account_id: member.id, organization_id: org.o.id, role: "member", accepted_at: new Date() });
+	const milestone = (value) => ({ section: "organization", organization: org.o, patch: { gatheringMilestone: value } });
+	const stored = async () =>
+		(
+			await admin.execute(
+				sql`SELECT gathering_milestone_offered AS offered,gathering_milestone_name AS name,
+				gathering_milestone_description AS description,revision::text AS revision FROM organization WHERE id=${org.o.id}`,
+			)
+		).rows[0];
+	assert.deepEqual(
+		ok(await section(org.a, { section: "organization", organization: org.o })).values.profile.gatheringMilestone,
+		{
+			offered: false,
+			name: null,
+			description: null,
+		},
+	);
+
+	const saved = ok(
+		await call(
+			"saveSection",
+			org.a,
+			command(
+				milestone({ offered: true, name: " Constituted as a church ", description: "Adopts its constitution.\r\n" }),
+			),
+			org.o,
+		),
+	);
+	const value = { offered: true, name: "Constituted as a church", description: "Adopts its constitution." };
+	assert.deepEqual(saved.current.values.profile.gatheringMilestone, value);
+	// It is still there when they come back, and an organization Member reads the same.
+	assert.deepEqual(
+		ok(await section(org.a, { section: "organization", organization: org.o })).values.profile.gatheringMilestone,
+		value,
+	);
+	assert.deepEqual(
+		ok(await section(member, { section: "organization", organization: org.o })).values.profile.gatheringMilestone,
+		value,
+	);
+	const audit = (
+		await admin.execute(
+			sql`SELECT after_value FROM audit_event WHERE subject_id=${org.o.id} AND action='organization.profile_changed' ORDER BY recorded_at DESC LIMIT 1`,
+		)
+	).rows[0].after_value;
+	assert.deepEqual(audit, {
+		gathering_milestone_offered: true,
+		gathering_milestone_name: "Constituted as a church",
+		gathering_milestone_description: "Adopts its constitution.",
+	});
+
+	// A Member's save is refused with nothing written.
+	const before = await stored();
+	denied(
+		await call(
+			"saveSection",
+			member,
+			command(milestone({ offered: false, name: null, description: null }), "2"),
+			org.o,
+		),
+	);
+	assert.deepEqual(await stored(), before);
+
+	// The name is required to offer it and is at most 120 characters; the description at most 2,000.
+	for (const bad of [
+		{ offered: true, name: "  ", description: null },
+		{ offered: true, name: "a".repeat(121), description: null },
+		{ offered: true, name: "Constituted", description: "a".repeat(2001) },
+	])
+		denied(await call("saveSection", org.a, command(milestone(bad), "2"), org.o), "invalid_input");
+	assert.deepEqual(await stored(), before);
+	ok(
+		await call(
+			"saveSection",
+			org.a,
+			command(milestone({ offered: true, name: "a".repeat(120), description: "a".repeat(2000) }), "2"),
+			org.o,
+		),
+	);
+	// Turning it off keeps the name and description for the next time.
+	ok(
+		await call(
+			"saveSection",
+			org.a,
+			command(milestone({ offered: false, name: "a".repeat(120), description: null }), "3"),
+			org.o,
+		),
+	);
+	assert.deepEqual(await stored(), { offered: false, name: "a".repeat(120), description: null, revision: "4" });
+});

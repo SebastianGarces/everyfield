@@ -36,13 +36,22 @@ export function entryTitle(entry: JourneyEntry): string {
 	if (entry.kind === "creation") return "Church created";
 	if (entry.kind === "initial_declaration") return "Declared at setup";
 	if (entry.kind === "launch_sunday") return "Launch Sunday held";
+	if (entry.kind === "gathering") return `${entry.name} reached`;
 	return DIRECTION_LABEL[entry.direction];
 }
 
-/** The line under a timeline entry's title: the phases it moved between, or the day Launch Sunday was held. */
+/** The line under a timeline entry's title: the phases it moved between, or the day Launch Sunday or the milestone was. */
 export function entryDetail(entry: JourneyEntry): string {
-	if (entry.kind === "launch_sunday")
-		return `Held ${new Intl.DateTimeFormat("en-US", { timeZone: "UTC", weekday: "short", month: "short", day: "numeric", year: "numeric" }).format(new Date(`${entry.actualDate}T12:00:00Z`))}. The phase stays as it is.`;
+	const day = (date: string) =>
+		new Intl.DateTimeFormat("en-US", {
+			timeZone: "UTC",
+			weekday: "short",
+			month: "short",
+			day: "numeric",
+			year: "numeric",
+		}).format(new Date(`${date}T12:00:00Z`));
+	if (entry.kind === "launch_sunday") return `Held ${day(entry.actualDate)}. The phase stays as it is.`;
+	if (entry.kind === "gathering") return `Reached ${day(entry.reachedOn)}. The phase stays as it is.`;
 	return entry.fromPhase === null
 		? `Started at Phase ${entry.toPhase}`
 		: `Phase ${entry.fromPhase} → Phase ${entry.toPhase}`;

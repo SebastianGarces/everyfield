@@ -65,6 +65,7 @@ const plan = (launch, outcome = null) => ({
 	today: "2026-10-13",
 	timeZone: "America/Chicago",
 	launch: launch && { revision: "2", ...launch },
+	path: { kind: "launch_sunday" },
 	revision: "2",
 	milestones: [1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => milestone(i, i <= 4)),
 	outcome,

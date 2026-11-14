@@ -102,13 +102,22 @@ export const phaseEntry = z.discriminatedUnion("kind", [
 	}),
 ]);
 export type PhaseEntry = z.infer<typeof phaseEntry>;
-/** One journey entry: a phase entry, or Launch Sunday held (WP-046), which moves no phase. */
+/** One journey entry: a phase entry, or Launch Sunday held (WP-046) or a gathering milestone reached, which move no phase. */
 export const journeyEntry = z.discriminatedUnion("kind", [
 	...phaseEntry.options,
 	z.strictObject({
 		kind: z.literal("launch_sunday"),
 		id: recordId,
 		actualDate: localDate,
+		actor,
+		occurredAt: instant,
+	}),
+	/** The milestone an organization offers, reached instead of Launch Sunday (T-296). It moves no phase either. */
+	z.strictObject({
+		kind: z.literal("gathering"),
+		id: recordId,
+		name: z.string(),
+		reachedOn: localDate,
 		actor,
 		occurredAt: instant,
 	}),
