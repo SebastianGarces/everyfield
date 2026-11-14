@@ -614,7 +614,7 @@ test("INV-qa-seed: the QA seed fills a fresh database, and a second run changes 
 	);
 });
 
-test("INV-qa-seed: eight QA logins; the seed makes both organization logins verified and active, and each signs in", async () => {
+test("INV-qa-seed: nine QA logins; the seed makes both organization logins verified and active, and each signs in", async () => {
 	assert.deepEqual(QA_LOGINS, {
 		owner: "delivered+qa-owner@resend.dev",
 		admin: "delivered+qa-admin@resend.dev",
@@ -624,6 +624,7 @@ test("INV-qa-seed: eight QA logins; the seed makes both organization logins veri
 		member2: "delivered+qa-member-2@resend.dev",
 		signup: "delivered+qa-signup@resend.dev",
 		riverside: "delivered+qa-riverside-owner@resend.dev",
+		triage: "delivered+qa-triage@resend.dev",
 	});
 	const { first, query, seen } = await fresh();
 	for (const email of [QA_LOGINS.network, QA_LOGINS.sending]) assert.ok(first.includes(`login ${email},`), first);
@@ -843,7 +844,8 @@ test("INV-qa-seed: the seed stays idempotent, and a branch seeded before the org
 		.split(/wiki copies of [^,]+, wiki revision of [^,]+, wiki reading, wiki church versions of [^,]+/);
 	assert.deepEqual(upgrade, [
 		`QA seed wrote: login ${QA_LOGINS.network}, login ${QA_LOGINS.sending}, login ${QA_LOGINS.member2}, ` +
-			`login ${QA_LOGINS.signup}, spare member seat Owen Price, ${NOV4_MAIL}, ` +
+			`login ${QA_LOGINS.signup}, login ${QA_LOGINS.triage}, feedback triage grant, spare member seat Owen Price, ` +
+			`${NOV4_MAIL}, ` +
 			`${ORGS.network}, ${ORGS.network} admin seat, ` +
 			`connection ${ORGS.network}, ${ORGS.sending}, ${ORGS.sending} owner seat, connection ${ORGS.sending}, ` +
 			`login ${QA_LOGINS.riverside}, church Riverside (QA), onboarding Riverside (QA), person Ana Lee in Riverside (QA), ` +
@@ -856,7 +858,14 @@ test("INV-qa-seed: the seed stays idempotent, and a branch seeded before the org
 		(await logins()).filter(
 			(l) =>
 				!(
-					[QA_LOGINS.network, QA_LOGINS.sending, QA_LOGINS.member2, QA_LOGINS.signup, QA_LOGINS.riverside] as string[]
+					[
+						QA_LOGINS.network,
+						QA_LOGINS.sending,
+						QA_LOGINS.member2,
+						QA_LOGINS.signup,
+						QA_LOGINS.riverside,
+						QA_LOGINS.triage,
+					] as string[]
 				).includes(String(l.email)),
 		),
 		beforeLogins,
@@ -903,6 +912,7 @@ test("INV-qa-runbook: the runbook's login table lists exactly the QA logins and 
 			"Second Member",
 			"Sign-up",
 			"Riverside Owner",
+			"Feedback triager",
 		],
 	);
 	for (const words of [
