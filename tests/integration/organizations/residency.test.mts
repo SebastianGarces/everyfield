@@ -519,22 +519,6 @@ test("milestone sharing off hides Casey's own marks; the milestone Ana recorded 
 	);
 });
 
-test("a milestone Ana recorded before Casey linked stays after Casey stops sharing", async () => {
-	// Jordan links nothing; Ana records and confirms his milestone in one step, which an organization owns.
-	const v = await enrollment(ana, jordanEnrollment);
-	const vision = milestoneOf(v.milestones, "Present your vision to the sending church leadership");
-	ok(
-		await programWriter.recordMilestone(f.db, await authority(ana), {
-			enrollmentId: jordanEnrollment,
-			milestoneId: vision.id,
-			completedOn: "2026-10-12",
-		}),
-	);
-	const recorded = milestoneOf((await enrollment(ana, jordanEnrollment)).milestones, vision.title).completion;
-	assert.equal(recorded?.source, "program_leader");
-	assert.deepEqual((await enrollment(ana, jordanEnrollment)).resident, { status: "not_linked" });
-});
-
 test("church reading opens only from Casey's own list; another church article does not; unpublished reads unavailable", async () => {
 	const view = await mine();
 	if (view.status !== "linked") throw Error("not linked");

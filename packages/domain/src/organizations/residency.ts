@@ -48,7 +48,7 @@ o AS (SELECT o.name,coalesce(acc.personal_timezone,o.timezone) AS tz,
 e AS (SELECT e.*,p.name AS program_name,p.kind,p.director_seat_id FROM l JOIN development_enrollment e
  ON e.person_id=l.person_id AND e.organization_id=l.organization_id AND e.status='active'
  JOIN development_program p ON p.id=e.program_id AND p.organization_id=e.organization_id)
-SELECT g.allowed,(SELECT jsonb_build_object('linkId',l.id,'organizationName',o.name,'timezone',o.tz,'today',o.today::text,
+SELECT g.allowed,(SELECT jsonb_build_object('organizationName',o.name,'timezone',o.tz,'today',o.today::text,
   'sharing',jsonb_build_object('shareMilestones',l.share_milestones,'shareFoundations',l.share_foundations)) FROM l,o) AS link,
  coalesce((SELECT jsonb_agg(jsonb_build_object('id',e.id,
   'program',jsonb_build_object('name',e.program_name,'kind',e.kind,'director',(SELECT coalesce(i.display_name,'Your director')
@@ -94,15 +94,15 @@ FROM g`);
 }
 
 /**
- * The account's live residency link, for its navigation: the link and the church's name, or null. One statement; null
+ * The account's live residency link, for its navigation: the church's name, or null. One statement; null
  * for a seat, a lost session or once the link ends.
  */
 export async function readResidencyLink(db: Executor, authority: RequestActor) {
 	const me = residentOf(authority);
 	if (!me) return null;
 	const r = await db.execute(sql`WITH g AS (SELECT ${me.live} AS allowed), ${linkCte(me.accountId)}
-SELECT l.id AS "linkId",o.name AS "organizationName" FROM l JOIN organization o ON o.id=l.organization_id`);
-	return z.object({ linkId: z.string(), organizationName: z.string() }).nullable().parse(r.rows[0] ?? null);
+SELECT o.name AS "organizationName" FROM l JOIN organization o ON o.id=l.organization_id`);
+	return z.object({ organizationName: z.string() }).nullable().parse(r.rows[0] ?? null);
 }
 
 /**

@@ -62,7 +62,6 @@ export const myResidency = z.discriminatedUnion("status", [
 	z.strictObject({ status: z.literal("not_linked") }),
 	z.strictObject({
 		status: z.literal("linked"),
-		linkId: recordId,
 		organizationName: z.string(),
 		/** The resident's own time zone, from their personal settings or else the church's. */
 		timezone: z.string(),

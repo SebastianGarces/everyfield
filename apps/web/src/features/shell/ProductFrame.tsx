@@ -107,7 +107,6 @@ const MY_RESIDENCY = {
 } as const;
 const ROLE: Record<Role, string> = { owner: "Owner", admin: "Admin", member: "Member" };
 
-
 type FrameProps = {
 	name: string;
 	/** The app's own route for the viewer's current photo, when there is one. */
