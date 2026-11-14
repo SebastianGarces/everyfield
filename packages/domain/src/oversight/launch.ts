@@ -22,8 +22,9 @@ export const requiredTrainingCount = (plant: SQL) =>
 
 /**
  * Plant `p`'s preparation counts as one JSON value (C.preparation). A plant on a chosen milestone's path has no Launch
- * Sunday to count down to, even with a date kept, so it is never near launch (D-1548). `teams` is the SQL condition under which the gap
- * counts may be read (Ministry teams shared, or true for the plant's own seat); without it both are null.
+ * Sunday to count down to, even with a date kept, so it is never near launch (D-1548). `teams` is the SQL condition
+ * under which the gap counts may be read (Ministry teams shared, or true for the plant's own seat); without it both are
+ * null.
  * - unfilledRoles: live roles on live teams that carry a Playbook responsibility and have no current live occupant;
  *   null when no role carries one.
  * - outstandingTraining: active assignments of live people to live required programs with no current compatible

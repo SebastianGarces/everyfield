@@ -394,6 +394,7 @@ const PROGRESS_STATUS = {
 	reached: "positive",
 	not_reached: "measured",
 	withdrawn: "unknown",
+	withheld: "unknown",
 } as const;
 /**
  * The milestone a plant uses instead of Launch Sunday (T-388), in Launch Sunday's place: its name, who chose it and
@@ -402,7 +403,6 @@ const PROGRESS_STATUS = {
  */
 function MilestoneCard({ plantName, path }: { plantName: string; path: Extract<PlantPath, { kind: "milestone" }> }) {
 	const { progress } = path;
-	const shown = progressText(progress);
 	return (
 		<Card as="section" aria-label="Gathering milestone" className="mb-5" data-milestone={progress.status}>
 			<div className="flex flex-wrap items-center gap-x-8 gap-y-4">
@@ -416,15 +416,9 @@ function MilestoneCard({ plantName, path }: { plantName: string; path: Extract<P
 						</p>
 					</div>
 				</div>
-				{progress.status === "withheld" ? (
-					<StatusBadge status="unknown" size="sm">
-						Limited visibility
-					</StatusBadge>
-				) : (
-					<StatusBadge status={PROGRESS_STATUS[progress.status]} size="sm">
-						{shown}
-					</StatusBadge>
-				)}
+				<StatusBadge status={PROGRESS_STATUS[progress.status]} size="sm">
+					{progressText(progress) ?? "Limited visibility"}
+				</StatusBadge>
 			</div>
 			{progress.status === "withheld" ? (
 				<p className="mt-3 text-md text-text-2 text-pretty">
