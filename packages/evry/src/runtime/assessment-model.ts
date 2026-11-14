@@ -1,4 +1,4 @@
-import type { LanguageModelV4, SharedV4Headers } from "@ai-sdk/provider";
+import type { LanguageModelV4 } from "@ai-sdk/provider";
 import * as c from "@everyfield/contracts/intelligence";
 import type { Database } from "@everyfield/db/client";
 import { ModelUnavailable, ProviderBusy, type Drafter } from "@everyfield/domain/intelligence";
@@ -44,7 +44,7 @@ export type LanguageJudge = (draft: c.DraftOutput, signal?: AbortSignal) => Prom
 const JUDGE_OUTPUT_TOKENS = 2000;
 const JUDGE_MS = c.ASSESSMENT_BUDGET.callMs;
 
-function retryAfterMs(headers: SharedV4Headers | Record<string, string | undefined> | undefined) {
+function retryAfterMs(headers: Record<string, string> | undefined) {
 	const seconds = Number(headers?.["retry-after"]);
 	return Number.isFinite(seconds) && seconds >= 0 ? seconds * 1000 : null;
 }

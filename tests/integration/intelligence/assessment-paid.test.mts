@@ -63,6 +63,8 @@ const grounded = (params: LanguageModelV4CallOptions) => scriptedDraft(sent(para
 
 const CAP = 20_000_000;
 const { spend } = paidModel({ EVRY_MODEL: "gpt-6-luna", OPENAI_API_KEY: "sk-test-not-a-key" })!;
+const metered = (model: LanguageModelV4) =>
+	meteredAssessment(c.db, model, "gpt-6-luna", { ...spend, capMicroUsd: CAP });
 
 let c: Church;
 const assessments = createAssessments();
@@ -98,7 +100,7 @@ test("INV-spend: each paid draft call reserves its worst case in the month's cou
 		(params) => ({ text: JSON.stringify(grounded(params)), usage }),
 		async () => void seen.push(await counter()),
 	);
-	const paid = meteredAssessment(c.db, fake.model, "gpt-6-luna", { ...spend, capMicroUsd: CAP });
+	const paid = metered(fake.model);
 	const first = await run(p, paid.drafter);
 	assert.deepEqual([first.outcome, first.model, fake.requests.length], ["published", "gpt-6-luna", 1]);
 	const settled = callCostMicroUsd(spend.price, 1000, 500);
@@ -120,7 +122,7 @@ test("AC:PI-CASE-013 when the month's counter would pass the cap no call is sent
 	const previous = (await view(p)).current;
 	await setCounter(CAP - 1);
 	const fake = fakeProvider((params) => ({ text: JSON.stringify(grounded(params)), usage: { input: 1, output: 1 } }));
-	const paid = meteredAssessment(c.db, fake.model, "gpt-6-luna", { ...spend, capMicroUsd: CAP });
+	const paid = metered(fake.model);
 	const r = await run(p, paid.drafter);
 	assert.equal(fake.requests.length, 0, "no provider call");
 	assert.deepEqual([r.outcome, r.reason, r.drafts, r.result], ["failed", "model_unavailable", [], null]);
@@ -140,7 +142,7 @@ test("AC:PI-CASE-013 a real draft that invents a number is rejected and its viol
 		text: n === 1 ? invent(params) : JSON.stringify(grounded(params)),
 		usage: { input: 900, output: 400 },
 	}));
-	const r = await run(p, meteredAssessment(c.db, fake.model, "gpt-6-luna", { ...spend, capMicroUsd: CAP }).drafter);
+	const r = await run(p, metered(fake.model).drafter);
 	assert.equal(r.outcome, "published");
 	assert.deepEqual(
 		r.drafts.map((d) => [d.ordinal, [...new Set(d.violations.map((v) => v.rule))]]),
@@ -156,20 +158,14 @@ test("AC:PI-CASE-013 a real draft that invents a number is rejected and its viol
 	// Three drafts that all invent: nothing publishes, and the earlier assessment stays current.
 	const before = (await view(p)).current;
 	const always = fakeProvider((params) => ({ text: invent(params), usage: { input: 900, output: 400 } }));
-	const failed = await run(
-		p,
-		meteredAssessment(c.db, always.model, "gpt-6-luna", { ...spend, capMicroUsd: CAP }).drafter,
-	);
+	const failed = await run(p, metered(always.model).drafter);
 	assert.deepEqual([failed.outcome, failed.reason, failed.drafts.length], ["failed", "invalid_drafts", 3]);
 	assert.deepEqual((await view(p)).current, before);
 	// A reply that is not JSON is a draft of the wrong shape, checked like any other.
 	const prose = fakeProvider((params, n) => ({
 		text: n === 1 ? "Here is your assessment." : JSON.stringify(grounded(params)),
 	}));
-	const shaped = await run(
-		p,
-		meteredAssessment(c.db, prose.model, "gpt-6-luna", { ...spend, capMicroUsd: CAP }).drafter,
-	);
+	const shaped = await run(p, metered(prose.model).drafter);
 	assert.deepEqual(
 		shaped.drafts.map((d) => d.violations.map((v) => v.rule)),
 		[["shape"], []],
@@ -180,7 +176,7 @@ test("AC:PI-CASE-013 a paid draft keeps the run budget: four uncertain attempts 
 	const p = await c.harvest("Budget Bible");
 	await setCounter(0);
 	const down = fakeProvider(() => Error("connection reset"));
-	const r = await run(p, meteredAssessment(c.db, down.model, "gpt-6-luna", { ...spend, capMicroUsd: CAP }).drafter);
+	const r = await run(p, metered(down.model).drafter);
 	assert.deepEqual([r.outcome, r.reason, r.attempts, down.requests.length], ["failed", "attempts", 4, 4]);
 	assert.ok(r.input_tokens <= 60_000 && r.output_tokens <= 12_000);
 
@@ -194,10 +190,7 @@ test("AC:PI-CASE-013 a paid draft keeps the run budget: four uncertain attempts 
 				responseHeaders: { "retry-after": "30" },
 			}),
 	);
-	const deferred = await run(
-		p,
-		meteredAssessment(c.db, busy.model, "gpt-6-luna", { ...spend, capMicroUsd: CAP }).drafter,
-	);
+	const deferred = await run(p, metered(busy.model).drafter);
 	assert.deepEqual([deferred.outcome, deferred.reason, busy.requests.length], ["deferred", "busy", 1]);
 });
 
@@ -208,7 +201,7 @@ test("AC:PI-PURPOSE-001 the provider request holds only the run's facts, passage
 		text: n === 1 ? JSON.stringify({ summary: "Short." }) : JSON.stringify(grounded(params)),
 		usage: { input: 900, output: 400 },
 	}));
-	const r = await run(p, meteredAssessment(c.db, fake.model, "gpt-6-luna", { ...spend, capMicroUsd: CAP }).drafter);
+	const r = await run(p, metered(fake.model).drafter);
 	assert.equal(fake.requests.length, 2);
 	for (const request of fake.requests) {
 		const text = JSON.stringify(request);
@@ -234,7 +227,7 @@ test("AC:PI-CASE-027 the paid judge grades plain, warm and useful wording, lists
 		JSON.stringify({ plain: 9, warm: 4, useful: 4, failures: [] }),
 	];
 	const fake = fakeProvider((_, n) => ({ text: replies[n - 1]!, usage: { input: 700, output: 60 } }));
-	const paid = meteredAssessment(c.db, fake.model, "gpt-6-luna", { ...spend, capMicroUsd: CAP });
+	const paid = metered(fake.model);
 	const graded = await paid.judge(draft);
 	assert.deepEqual(graded, { status: "graded", grade: { plain: 5, warm: 4, useful: 4, failures: [] } });
 	const hype = await paid.judge(draft);

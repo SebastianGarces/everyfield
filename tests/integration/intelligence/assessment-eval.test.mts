@@ -34,8 +34,7 @@ import {
 	scriptedAssessmentDrafter,
 	scriptedLanguageJudge,
 } from "../../../packages/evry/src/runtime/scripted-assessment.ts";
-import { meteredAssessment, type JudgeResult } from "../../../packages/evry/src/runtime/assessment-model.ts";
-import { paidModel } from "../../../packages/evry/src/runtime/model.ts";
+import { paidAssessment, type JudgeResult } from "../../../packages/evry/src/runtime/assessment-model.ts";
 import { ok } from "../../support/fixture.mts";
 import { church, type Church } from "./assessment-church.mts";
 import { realModelOptIn } from "./real-model.mts";
@@ -192,8 +191,7 @@ const real = realModelOptIn(process.env);
 // The paid drafter and judge charge the shared development database's own model_spend row (public schema), the
 // counter Evry chat charges there, never the throwaway test schema's.
 const meterDb = real && createDatabase({ connectionString: real.meterUrl.toString(), max: 2 });
-const paid =
-	meterDb && (({ model, id, spend }) => meteredAssessment(meterDb, model, id, spend))(paidModel(process.env)!);
+const paid = meterDb && paidAssessment(meterDb);
 const judge = async (d: Draft): Promise<JudgeResult> =>
 	paid ? paid.judge(d) : { status: "graded", grade: scriptedLanguageJudge(d) };
 const monthCounter = async () =>
