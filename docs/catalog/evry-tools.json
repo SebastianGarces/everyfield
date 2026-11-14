@@ -58,6 +58,7 @@
     "development.applyVersion",
     "development.completeMilestone",
     "development.confirmMilestone",
+    "development.draftNextVersion",
     "development.draftPlan",
     "development.enroll",
     "development.publishVersion",

@@ -1,7 +1,8 @@
 import { programKind, programRhythm } from "@everyfield/contracts/organizations";
 import type { Database } from "@everyfield/db/client";
 import { sql } from "@everyfield/db/query";
-import { readPipelineBoard, readPrograms } from "@everyfield/domain/organizations";
+import { readPipelineBoard, readProgram as readProgramDetail, readPrograms } from "@everyfield/domain/organizations";
+import type { ProgramVersion } from "@everyfield/contracts/organizations";
 import { z } from "zod";
 import type { ReadAdapter, SourceResult, SourceRow } from "../../../catalog/types.ts";
 import type { EvryActor } from "../../../context/actor.ts";
@@ -130,8 +131,93 @@ export const draftPlan = {
 	},
 } satisfies ReadAdapter<Record<string, never>>;
 
+/** One version's plan as rows: its stages, its milestones with their ids and lineages, and its reading list. */
+const planRows = (v: ProgramVersion): SourceRow[] => [
+	...v.stages.map((s) => ({
+		kind: "item" as const,
+		id: s.id,
+		label: s.label,
+		fields: { part: "stage", version: v.number, minMonths: s.minMonths, maxMonths: s.maxMonths },
+	})),
+	...v.milestones.map((m) => ({
+		kind: "item" as const,
+		id: m.id,
+		label: m.title,
+		fields: {
+			part: "milestone",
+			version: v.number,
+			lineage: m.lineage,
+			description: m.description,
+			handsOn: m.handsOn,
+		},
+	})),
+	...v.readings.map((r) => ({
+		kind: "item" as const,
+		id: r.id,
+		label: r.title,
+		fields: { part: "reading", version: v.number },
+	})),
+];
+
+export const readProgram = {
+	operation: "development.readProgram",
+	description:
+		"This organization's development programs as Programs shows them. Without programId: each program with its kind, director, whether the user directs it, its published version number and whether a draft is in progress. With programId (a program row's id): its published version and its draft, each with rhythm and expected length in facts and, as rows, its stages, its milestones (each with its lineage, which carries it across versions) and its reading list, and whether the user directs it. Only the program's current director edits its plan, through development.draftNextVersion. It never returns who is enrolled, completions, feedback, notes or reasons",
+	input: z.strictObject({
+		/** A program row's id from an earlier development.readProgram result; every program when left out. */
+		programId: z.uuid().optional(),
+	}),
+	allowed: organizationSeat,
+	async invoke(tx, actor, input): Promise<SourceResult> {
+		const done = (rows: SourceRow[], facts: SourceResult["facts"]): SourceResult => ({
+			operation: "development.readProgram",
+			status: "available",
+			rows,
+			total: rows.length,
+			page: 1,
+			next: null,
+			completeness: "complete",
+			exclusions: ["who is enrolled, completions, feedback and notes, which stay in Programs"],
+			facts,
+		});
+		if (!input.programId) {
+			const list = value(await readPrograms(tx, actor.authority));
+			return done(
+				list.programs.map((p) => ({
+					kind: "item",
+					id: p.id,
+					label: p.name,
+					fields: {
+						part: "program",
+						kind: p.kind,
+						director: p.director.name,
+						directedByYou: p.director.seatId === actor.seatId,
+						publishedVersion: p.publishedNumber,
+						draft: p.draft,
+					},
+				})),
+				{ organization: list.organizationName },
+			);
+		}
+		const p = value(await readProgramDetail(tx, actor.authority, { programId: input.programId }));
+		return done([...(p.published ? planRows(p.published) : []), ...(p.draft ? planRows(p.draft) : [])], {
+			programId: p.id,
+			program: p.name,
+			kind: p.kind,
+			director: p.director.name,
+			directedByYou: p.viewer.director,
+			publishedVersion: p.published?.number ?? null,
+			publishedRhythm: p.published?.rhythm ?? null,
+			publishedMonths: p.published?.expectedMonths ?? null,
+			draftVersion: p.draft?.number ?? null,
+			draftRhythm: p.draft?.rhythm ?? null,
+			draftMonths: p.draft?.expectedMonths ?? null,
+		});
+	},
+} satisfies ReadAdapter<{ programId?: string }>;
+
 /** The installed pipeline and program reads. */
-export const PIPELINE_READS = [listPeople, draftPlan] as const;
+export const PIPELINE_READS = [listPeople, draftPlan, readProgram] as const;
 
 /**
  * Whether this organization seat's Pipeline page lists people: an Owner's or Admin's does, and a Member's does while

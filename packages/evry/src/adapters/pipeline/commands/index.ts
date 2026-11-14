@@ -1,20 +1,20 @@
 import type { Database } from "@everyfield/db/client";
 import { sql, type SQL } from "@everyfield/db/query";
-import { programKind, programPlan, programRhythm } from "@everyfield/contracts/organizations";
+import { programKind, programPlan, programRhythm, type ProgramDetail } from "@everyfield/contracts/organizations";
 import type { RequestActor } from "@everyfield/domain/access";
-import { pipelineWriter, programWriter } from "@everyfield/domain/organizations";
+import { pipelineWriter, programWriter, readProgram } from "@everyfield/domain/organizations";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
 import type { EffectResult, ReviewedWrite } from "../../../proposals/types.ts";
-import { change, organizationAdmin, target } from "../../native.ts";
+import { change, organizationAdmin, organizationSeat, target } from "../../native.ts";
 
 // The pipeline and program reviewed writes (WP-101). The model proposes only identities and a plan; a person approves
 // the exact card. Each runs the native pipeline or program command the Pipeline and Programs pages run, once, in the
 // approval request (approveNow): those commands take the organization's write gate themselves. Both are an Owner's or
-// Admin's, as natively. Evry never logs a conversation, writes a note or a reason, records a milestone, publishes or
-// enrolls (REQ-MUL-015).
+// Admin's, as natively, except a program's next version, which only its current director drafts, whatever their role.
+// Evry never logs a conversation, writes a note or a reason, records a milestone, publishes or enrolls (REQ-MUL-015).
 
 /** A native pipeline or program reply as an effect result: its new revision, or the domain's refusal code. */
 const settled = (
@@ -26,7 +26,9 @@ function approvedNow<I>(spec: {
 	operation: string;
 	description: string;
 	input: z.ZodType<I>;
-	review(actor: EvryActor, input: I): SQL;
+	/** Who may propose it: an Owner or Admin unless set. */
+	allowed?: (actor: EvryActor) => boolean;
+	review: ReviewedWrite<I>["review"];
 	reason: boolean;
 	run(
 		db: Database,
@@ -40,7 +42,7 @@ function approvedNow<I>(spec: {
 		operation: spec.operation,
 		description: spec.description,
 		input: spec.input,
-		allowed: organizationAdmin,
+		allowed: spec.allowed ?? organizationAdmin,
 		review: spec.review,
 		execute: async () => ({ refused: "review_closed" }),
 		approveNow: {
@@ -155,8 +157,163 @@ export const saveProgram = approvedNow({
 	run: async (db, authority, args) => settled(await programWriter.createProgram(db, authority, args)),
 });
 
+const nextPlanInput = z.strictObject({
+	/** A program row's id from development.readProgram. */
+	programId: z.uuid(),
+	plan: z.strictObject({
+		rhythm: programRhythm,
+		expectedMonths: z.int().min(1).max(120),
+		stages: planInput.shape.stages,
+		milestones: z
+			.array(
+				z.strictObject({
+					/** A milestone the plan keeps names its lineage from development.readProgram; a new one has none. */
+					lineage: z.uuid().optional(),
+					title: z.string().trim().min(1).max(200),
+					description: z.string().trim().min(1).max(2000).nullable().optional(),
+					handsOn: z.boolean().optional(),
+				}),
+			)
+			.max(100),
+	}),
+});
+type NextPlan = z.infer<typeof nextPlanInput>;
+type Version = NonNullable<ProgramDetail["published"]>;
+const stageText = (s: { label: string; minMonths: number; maxMonths: number }) =>
+	`${s.label}, ${rangeText(s.minMonths, s.maxMonths)}`;
+const list = (items: string[]) => (items.length ? items.join("; ") : "none");
+
+/**
+ * The review of a director's next plan against the plan it starts from (the draft in progress, else the published
+ * version): each change, then what stays. Pure, so the eval and unit tests read the same card the panel shows.
+ */
+export function nextVersionReview(program: ProgramDetail, value: NextPlan) {
+	const base = (program.draft ?? program.published) as Version;
+	const number = program.draft ? program.draft.number : base.number + 1;
+	const from = program.draft ? `the Draft of Version ${number}` : `Version ${base.number}`;
+	const byLineage = new Map(base.milestones.map((m) => [m.lineage, m]));
+	const milestones = value.plan.milestones.map((m) => {
+		const was = m.lineage ? byLineage.get(m.lineage) : undefined;
+		if (m.lineage && !was) throw new EvryRefusal("invalid_input");
+		return {
+			lineage: was?.lineage ?? randomUUID(),
+			title: m.title,
+			description: m.description === undefined ? (was?.description ?? null) : m.description,
+			handsOn: m.handsOn ?? was?.handsOn ?? false,
+		};
+	});
+	const plan = programPlan.safeParse({
+		rhythm: value.plan.rhythm,
+		expectedMonths: value.plan.expectedMonths,
+		stages: value.plan.stages,
+		milestones,
+		// The draft keeps the reading list of the plan it starts from: Evry never edits a reading list.
+		readings: base.readings.map((r) => ({ revisionId: r.revisionId })),
+	});
+	if (!plan.success) throw new EvryRefusal("invalid_input");
+	const kept = milestones.filter((m) => byLineage.has(m.lineage));
+	const edited = kept.filter((m) => {
+		const was = byLineage.get(m.lineage)!;
+		return was.title !== m.title || was.description !== m.description || was.handsOn !== m.handsOn;
+	});
+	const added = milestones.filter((m) => !byLineage.has(m.lineage));
+	const removed = base.milestones.filter((m) => !milestones.some((x) => x.lineage === m.lineage));
+	const sameStages = JSON.stringify(base.stages.map(stageText)) === JSON.stringify(value.plan.stages.map(stageText));
+	const keptOrder = base.milestones.filter((m) => kept.some((k) => k.lineage === m.lineage)).map((m) => m.lineage);
+	const reordered = JSON.stringify(keptOrder) !== JSON.stringify(kept.map((m) => m.lineage));
+	const changes = [
+		...(base.rhythm !== value.plan.rhythm
+			? [{ field: "rhythm", before: RHYTHM_TEXT[base.rhythm], after: RHYTHM_TEXT[value.plan.rhythm] }]
+			: []),
+		...(base.expectedMonths !== value.plan.expectedMonths
+			? [
+					{
+						field: "expectedLength",
+						before: monthsText(base.expectedMonths),
+						after: monthsText(value.plan.expectedMonths),
+					},
+				]
+			: []),
+		...(sameStages
+			? []
+			: [{ field: "stages", before: base.stages.map(stageText), after: value.plan.stages.map(stageText) }]),
+		...(added.length ? [{ field: "addedMilestones", before: null, after: added.map((m) => m.title) }] : []),
+		...(edited.length
+			? [
+					{
+						field: "changedMilestones",
+						before: edited.map((m) => byLineage.get(m.lineage)!.title),
+						after: edited.map((m) => m.title),
+					},
+				]
+			: []),
+		...(removed.length ? [{ field: "removedMilestones", before: removed.map((m) => m.title), after: null }] : []),
+		...(reordered
+			? [
+					{
+						field: "milestoneOrder",
+						before: keptOrder.map((l) => byLineage.get(l)!.title),
+						after: kept.map((m) => m.title),
+					},
+				]
+			: []),
+	];
+	const same = kept.filter((m) => !edited.includes(m)).map((m) => m.title);
+	const stays = [
+		...(base.rhythm === value.plan.rhythm ? [`Meets: ${RHYTHM_TEXT[base.rhythm]}`] : []),
+		...(base.expectedMonths === value.plan.expectedMonths
+			? [`Expected length: ${monthsText(base.expectedMonths)}`]
+			: []),
+		...(sameStages ? [`Stages: ${list(base.stages.map(stageText))}`] : []),
+		...(same.length
+			? [`${added.length || edited.length || removed.length ? "Other milestones" : "Milestones"}: ${list(same)}`]
+			: []),
+		`Reading list: ${list(base.readings.map((r) => r.title))}`,
+	];
+	const director = program.director.name;
+	const closing = [
+		...(program.draft ? [`Approving replaces the current Draft of Version ${number}.`] : []),
+		...(program.published
+			? [
+					`Version ${program.published.number} stays as it is, and people enrolled keep Version ${program.published.number}.`,
+				]
+			: ["Nothing is published."]),
+		`Only ${director}, the director, publishes Version ${number}, from Programs.`,
+	].join(" ");
+	return {
+		label: `Draft of Version ${number}`,
+		from,
+		changes,
+		notes: [`What stays the same as ${from}:`, ...stays, closing],
+		refusal: changes.length ? undefined : `This plan is the same as ${from}, so there is nothing to save.`,
+		args: { programId: program.id, expectedRevision: program.revision, plan: plan.data },
+	};
+}
+
+export const draftNextVersion = approvedNow({
+	operation: "development.draftNextVersion",
+	description:
+		"Propose the next version's draft of one program the user directs: only the program (programId from development.readProgram) and the whole changed plan, starting from the draft in progress or else the published version. Keep each kept or renamed milestone's lineage from development.readProgram, and leave lineage out for a new milestone. The reading list stays as it is. It saves the draft only: nothing is published, no one enrolled changes version, and only the director publishes it from Programs. Nothing changes until the user approves",
+	input: nextPlanInput,
+	// Natively only the current director saves a plan, whatever their role: the review refuses anyone else.
+	allowed: organizationSeat,
+	async review(actor, value, { db }) {
+		const read = await readProgram(db, actor.authority, { programId: value.programId });
+		if (read.status !== "ok") throw new EvryRefusal("not_found");
+		if (!read.value.viewer.director) throw new EvryRefusal("access_denied");
+		const r = nextVersionReview(read.value, value);
+		return sql`SELECT jsonb_build_object('target',${target("program", sql`${value.programId}::uuid`, sql`${r.label}::text`)},
+				'changes',${JSON.stringify(r.changes)}::jsonb,'notes',${JSON.stringify(r.notes)}::jsonb)
+				||${r.refusal ? sql`jsonb_build_object('refusal',${r.refusal}::text)` : sql`'{}'::jsonb`} AS review,
+			${JSON.stringify(r.args)}::jsonb AS args`;
+	},
+	reason: false,
+	run: async (db, authority, args) => settled(await programWriter.savePlan(db, authority, args)),
+});
+
 /** The installed pipeline and program reviewed writes, keyed by operation. */
 export const PIPELINE_COMMANDS = {
 	"pipeline.proposeStageMove": proposeStageMove,
 	"development.saveProgram": saveProgram,
+	"development.draftNextVersion": draftNextVersion,
 } as const;

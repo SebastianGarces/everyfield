@@ -11143,7 +11143,8 @@
       "REQ-MUL-015"
     ],
     "operations": [
-      "development.draftPlan"
+      "development.draftPlan",
+      "development.draftNextVersion"
     ],
     "acceptance_ids": [
       "AC-MUL-015--MUL-015"
