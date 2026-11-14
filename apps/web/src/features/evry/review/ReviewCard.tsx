@@ -71,6 +71,7 @@ import {
 	isRequired,
 	MAIL_DISMISSED,
 	mailHead,
+	launchRefusalText,
 	mailRefusalText,
 	missingRequired,
 	operationTitle,
@@ -466,6 +467,7 @@ function note(view: View, review: Review | null, lapsed: boolean, unknown?: Acti
 		case "refused":
 			if (review && isPipeline(review.operation))
 				return pipelineRefusalText(review.receipt?.code, review.operation, who);
+			if (review && isLaunch(review.operation)) return launchRefusalText(review.receipt?.code);
 			if (review?.receipt?.current?.length)
 				return `A record in the ${who ?? "change"} changed after Evry prepared this, so it couldn't be applied and nothing was changed for anyone. This is how they are now. Ask Evry to prepare it again.`;
 			return mail

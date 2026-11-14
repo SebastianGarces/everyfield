@@ -12,7 +12,7 @@ import { plantAdmin, plantSeat } from "../../native.ts";
 // the asker's live seat. The countdown is the plan's own, from the church-local date the read returns; Evry never
 // computes one from a date it guessed. A milestone's progress and overdue tasks come from its own linked prep tasks
 // only (INH-LAUNCH-02). History says what changed, who changed it and when, never how readiness stood at a time
-// (INH-LAUNCH-03). Nothing here completes a milestone or changes anything. Debrief answers and the outcome note are the
+// (INH-LAUNCH-03). Nothing here completes a milestone or changes anything: only an approved card or the Launch plan does. Debrief answers and the outcome note are the
 // planter's own words: they stay on the Launch plan.
 
 const reader = createLaunchReader();
@@ -131,7 +131,7 @@ const workspaceInput = z.strictObject({
 export const readWorkspace = {
 	operation: "launch.readWorkspace",
 	description:
-		'The Launch plan\'s nine readiness milestones (milestone rows) with progress from their own linked prep tasks (done of total), and each listed milestone\'s open prep tasks (item rows: status, due date, assignees, overdue). filter "open" (default) lists milestones not yet done; "blocked" lists only open milestones with an overdue linked prep task; "all" lists all nine. A task is linked to a milestone only when the plan lists it there, never by similar wording. Only a person marks a milestone complete, on the Launch plan',
+		'The Launch plan\'s nine readiness milestones (milestone rows) with progress from their own linked prep tasks (done of total), and each listed milestone\'s open prep tasks (item rows: status, due date, assignees, overdue). filter "open" (default) lists milestones not yet done; "blocked" lists only open milestones with an overdue linked prep task; "all" lists all nine. A task is linked to a milestone only when the plan lists it there, never by similar wording. This read never completes a milestone: only a person does, on a review card they approve (launch.completeMilestone) or on the Launch plan',
 	input: workspaceInput,
 	allowed: plantSeat,
 	async invoke(tx, actor, input): Promise<SourceResult> {

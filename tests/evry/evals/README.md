@@ -87,7 +87,12 @@ writer, with dates relative to the church-local date the Launch read returns. A 
 the card approves it and its effect runs once through the WP-031 queue; its check reads the result back through the
 Launch plan's own reads. The suite also holds the refusals the Launch plan makes (no reason, or one over 2,000
 characters), a Member's direct approval, a card made stale by a change on the Launch plan, and a plan that can't be
-read. The recorded suites leave these tools out too.
+read. LAU-21 to LAU-36 (T-382) complete and reopen the venue milestone on a card (`launch.completeMilestone`,
+`launch.reopenMilestone`): open linked tasks stay open, a card refused because a linked task changed in Tasks
+(`stale_review`) or because the milestone changed on the Launch plan shows them as they are now, a needs-review
+completion is confirmed, and the Launch notifications reach the other Owners and Admins only. Already complete, not
+complete, the two milestones the debrief decides, and a name that matches none or several make no card. The recorded
+suites leave these tools out too.
 
 ## The household and follow-up suites
 

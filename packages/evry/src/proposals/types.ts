@@ -8,6 +8,7 @@ import type { DeletionProducer, NativeAccountProducer, SettingsProducer } from "
 import type { DeliveryKeys, DeliveryTransport } from "@everyfield/domain/communication";
 import type { MailReport } from "@everyfield/contracts/communication";
 import type { PeopleContext } from "@everyfield/contracts/people";
+import type { LaunchNotices } from "@everyfield/domain/launch";
 import type { TaskReminders } from "@everyfield/domain/tasks";
 import { z } from "zod";
 import type { EvryActor } from "../context/actor.ts";
@@ -38,6 +39,12 @@ export type NativePorts = {
 	onboarding: OnboardingProducer<Transaction>;
 	/** The deployed app version the feedback dialog saves with feedback, or null when the host does not say. */
 	appVersion: string | null;
+	/**
+	 * The Launch notifications the Launch plan queues when a person completes a milestone (NTF-009), through the
+	 * deployment's notification service. Left out when the deployment has no mail configuration: a milestone completion
+	 * is then refused rather than saved without telling anyone.
+	 */
+	launchNotices?: LaunchNotices;
 };
 
 /** What a review may read besides the proposal statement itself. */
@@ -122,7 +129,7 @@ export type ReviewedWrite<I> = {
 	 */
 	recheck?(tx: Transaction, context: PeopleContext, args: unknown): Promise<string | null>;
 	/**
-	 * The records a revision_conflict refusal shows as they are now: a jsonb array of {id, label, value} read from the
+	 * The records a revision_conflict or stale_review refusal shows as they are now: a jsonb array of {id, label, value} read from the
 	 * proposal row `p` (its tenant_id and input), in the same statement that saves the refusal.
 	 */
 	current?(p: SQL): SQL;
