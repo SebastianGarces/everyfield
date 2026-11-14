@@ -69,15 +69,14 @@ export function lensesOf(facts: unknown, draft: c.DraftOutput): c.LensTile[] {
 
 /**
  * The exit criteria of the phase the run assessed (PI-028), as its snapshot measured them, each with the snapshot
- * facts behind it. The launch-date criteria read the snapshot's own launch date and countdown; every other criterion
- * the facts do not measure stays Unknown. Phase 6 has none.
+ * facts behind it. Every criterion the facts do not measure stays Unknown. Phase 6 has none.
  */
 export function criteriaOf(catalog: Catalog, phase: number, facts: unknown): c.AssessedCriterion[] {
 	const { facts: f, entries } = catalogOf(facts);
-	const results: Partial<Record<CriterionKey, CriterionStatus>> = { ...f?.criteria };
-	if (f?.launch.targetOn) results.launch_date_set ??= "met";
-	const days = f?.launch.daysToLaunch;
-	if (typeof days === "number") results.launch_window ??= days >= 0 && days <= 28 ? "met" : "not_met";
+	// A snapshot from before the facts measured the launch-date criteria reads them from its own countdown.
+	const results: Partial<Record<CriterionKey, CriterionStatus>> = f
+		? { ...c.launchCriteria(f.launch), ...f.criteria }
+		: {};
 	const assessed = catalog.phases[phase];
 	if (!assessed || assessed.terminal) return [];
 	return readinessOf(assessed, results).criteria.map((x) =>

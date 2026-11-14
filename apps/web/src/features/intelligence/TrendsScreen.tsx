@@ -32,7 +32,7 @@ export function TrendsScreen({ history, catalog }: { history: AssessmentHistory;
 						<CardTitle id="trends-heading">Trends</CardTitle>
 						<CardDescription>
 							{history.runs.length
-								? `The latest ${history.runs.length === 1 ? "assessment" : `${history.runs.length} assessments`}, up to twelve, newest first. Each keeps the numbers it measured then.`
+								? `${history.runs.length === 1 ? "Your assessment" : `Your latest ${history.runs.length} assessments`}, newest first (up to twelve). Each keeps the numbers it measured then.`
 								: "Trends start with your first assessment."}
 						</CardDescription>
 					</CardHeading>

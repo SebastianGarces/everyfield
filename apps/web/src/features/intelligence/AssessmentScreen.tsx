@@ -271,7 +271,7 @@ function ConcernNote({ ordinal, runId, light }: { ordinal: number; runId: string
 			data-concern={`${runId}:${ordinal}`}
 			className={cn("mt-3 text-xs", light ? "text-[var(--on-3)]" : "text-text-3")}
 		>
-			Shared as a concern, counts only, with organizations you share Plant Intelligence findings with.
+			A concern: an organization you share Plant Intelligence findings with sees it too, as counts only.
 		</p>
 	);
 }
