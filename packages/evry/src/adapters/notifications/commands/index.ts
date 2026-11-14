@@ -1,13 +1,13 @@
 import type { Transaction } from "@everyfield/db/client";
 import { sql, type SQL } from "@everyfield/db/query";
 import { digestCadence, notificationCategory, type NotificationReply } from "@everyfield/contracts/notifications";
-import { defaultChannelEnabled, notificationChannels } from "@everyfield/contracts/settings";
-import { lockedNotificationWrites, noticeVisible, selfSql } from "@everyfield/domain/notifications";
+import { defaultChannelEnabled, defaultDigestCadence, notificationChannels } from "@everyfield/contracts/settings";
+import { OVERSIGHT_SLOT, lockedNotificationWrites, noticeVisible, selfSql } from "@everyfield/domain/notifications";
 import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
 import type { EffectResult, ReviewedWrite } from "../../../proposals/types.ts";
 import { ownerOrAdmin } from "../../people/commands/index.ts";
-import { inPlant } from "../reads/index.ts";
+import { inPlant, organizationOwnerOrAdmin } from "../reads/index.ts";
 
 // The Notifications reviewed writes (WP-082). Each one changes only the signed-in account's own bell or settings: no
 // input names an account, and the native command runs for the approving session's own account. Each review is one
@@ -156,5 +156,27 @@ export const NOTIFICATION_COMMANDS = {
 			FROM x CROSS JOIN plant pl WHERE pl.id=${actor.owner.id}::uuid AND EXISTS(SELECT FROM me)`;
 		},
 		run: lockedNotificationWrites.setDigestCadence,
+	}),
+	"notifications.oversightDigestCadence.set": reviewed({
+		operation: "notifications.oversightDigestCadence.set",
+		description:
+			"Propose how often the user's own oversight digest comes: daily or weekly, the only choices Settings offers. It always goes out at 07:00 in the organization's zone, on Mondays when weekly. Owner or Admin. Each person sets only their own. Nothing changes until the user approves the exact review.",
+		input: z.strictObject({ cadence: digestCadence.describe("daily or weekly; there is no other choice") }),
+		allowed: organizationOwnerOrAdmin,
+		review(actor, value) {
+			const slot = (cadence: SQL) =>
+				sql`jsonb_build_object('cadence',${cadence},'weekday',${OVERSIGHT_SLOT.weekday}::int,'hour',${OVERSIGHT_SLOT.hour}::int)`;
+			return sql`WITH ${me(actor)}, x AS (
+				SELECT coalesce((SELECT p.cadence FROM notification_preference p WHERE p.account_id=(SELECT account_id FROM me)
+					AND p.category='oversight_digest' AND p.cadence IS NOT NULL LIMIT 1),${defaultDigestCadence.oversight_digest}::text) AS before)
+			SELECT jsonb_build_object('target','null'::jsonb,'changes',jsonb_build_array(jsonb_build_object('field','oversight_digest.cadence',
+					'before',${slot(sql`x.before`)},'after',${slot(sql`${value.cadence}::text`)})))
+				|| CASE WHEN x.before<>${value.cadence}::text THEN '{}'::jsonb
+					ELSE jsonb_build_object('refusal','Your oversight digest already comes this often, so nothing would change.') END AS review,
+				jsonb_build_object('expectedRevision',${revision},'input',jsonb_build_object('organizationId',o.id,
+					'organizationKind',o.kind,'cadence',${value.cadence}::text)) AS args
+			FROM x CROSS JOIN organization o WHERE o.id=${actor.owner.id}::uuid AND EXISTS(SELECT FROM me)`;
+		},
+		run: lockedNotificationWrites.setOversightDigestCadence,
 	}),
 } as const;

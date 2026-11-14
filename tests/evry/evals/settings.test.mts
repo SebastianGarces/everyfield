@@ -206,8 +206,17 @@ const SETTLED: Record<string, { before?: (a: EvryActor) => Promise<void>; after:
 			assert.deepEqual(await row(sql`SELECT timezone FROM plant WHERE id=${PLANT}`), { timezone: "America/New_York" }),
 	},
 	"SET-12": {
-		before: async (a) => assert.deepEqual(await sharingScreen(a), [["Hill Country Network", ["people", "meetings"]]]),
-		after: async (a) => assert.deepEqual(await sharingScreen(a), [["Hill Country Network", ["people"]]]),
+		// Hope Fellowship's affiliation with Hill Country Church shares activity for its oversight digest (T-341).
+		before: async (a) =>
+			assert.deepEqual(await sharingScreen(a), [
+				["Hill Country Network", ["people", "meetings"]],
+				["Hill Country Church", ["activity"]],
+			]),
+		after: async (a) =>
+			assert.deepEqual(await sharingScreen(a), [
+				["Hill Country Network", ["people"]],
+				["Hill Country Church", ["activity"]],
+			]),
 	},
 	"SET-13": {
 		before: async () =>
@@ -226,7 +235,8 @@ const SETTLED: Record<string, { before?: (a: EvryActor) => Promise<void>; after:
 		},
 	},
 	"SET-14": {
-		after: async (a) => assert.deepEqual(await sharingScreen(a), []),
+		// Ending the network connection leaves Hope Fellowship's affiliation with Hill Country Church.
+		after: async (a) => assert.deepEqual(await sharingScreen(a), [["Hill Country Church", ["activity"]]]),
 	},
 	"SET-15": {
 		before: async (a) =>

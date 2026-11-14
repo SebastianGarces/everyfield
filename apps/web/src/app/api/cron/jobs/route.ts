@@ -8,6 +8,8 @@ import { identityMailPass } from "@/server/identity";
 import { organizationMailPass } from "@/server/organizations";
 import { onboardingMailPass } from "@/server/onboarding";
 import { settingsMailPass } from "@/features/settings/mail";
+import { feedbackMailPass } from "@/features/feedback/mail";
+import { feedbackPublicationMount } from "@/features/feedback/publication";
 import { deliveryTransport, mailReady, queuedMailTransport } from "@/features/communication/mail";
 import { scheduledJobs, scheduledMessages } from "@/server/jobs/scheduled";
 
@@ -28,6 +30,7 @@ export function GET(request: Request): Promise<Response> {
 		reminders: tasksMount()?.reminders ?? null,
 		digests: digestsMount(db),
 		notifications: notificationsMount(db),
+		feedbackPublication: feedbackPublicationMount(db),
 		mail: ready ? (limit, until) => runDueInvitationMail(queuedMailTransport(ready), limit, until) : null,
 		messages: ready && db ? scheduledMessages(db, deliveryTransport(ready), ready.keys) : null,
 		mountMail: ready
@@ -38,6 +41,7 @@ export function GET(request: Request): Promise<Response> {
 					onboarding: onboardingMailPass(queuedMailTransport(ready)),
 					notice: noticeMailPass(db, queuedMailTransport(ready)),
 					digest: digestMailPass(db, queuedMailTransport(ready)),
+					feedback: feedbackMailPass(queuedMailTransport(ready)),
 				}
 			: undefined,
 	})(request);

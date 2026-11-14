@@ -265,7 +265,7 @@ export const setDigestCadenceCommand = cadenceCommand(
 	) => sql`SELECT 1 FROM seat s WHERE s.account_id = (SELECT account_id FROM me) AND s.plant_id = ${input.input.plantId}::uuid
 		AND s.role IN ('owner','admin') AND s.ended_at IS NULL AND s.accepted_at <= clock_timestamp()`,
 );
-const setOversightDigestCadenceCommand = cadenceCommand(
+export const setOversightDigestCadenceCommand = cadenceCommand(
 	setOversightDigestCadenceRequest,
 	"notifications.oversightDigestCadence.set",
 	"oversight_digest",

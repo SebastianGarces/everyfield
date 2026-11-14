@@ -27,6 +27,7 @@ Audit records changed fields and their permitted before/after values, safe statu
 | communication.draft_saved, communication.draft_deleted, communication.scheduled, communication.rescheduled, communication.template_created, communication.template_forked, communication.template_updated, communication.template_archived, communication.template_deleted | state, subject, audience ids, meeting, template, schedule time, review digest, body hash | One action per write. Body text and addresses stay out. Send handoff stays communication.send_intended |
 | development.program_created, development.plan_saved, development.version_published, development.enrolled, development.milestone_recorded, development.feedback_recorded, development.version_applied | program, version or enrollment ID; version number; milestone ID; before/after revisions; for an applied version, the from and to version numbers | No plan text, milestone titles, reading titles, cohort labels or feedback bodies |
 | feedback.received, feedback.status_changed | feedback ID; for a status change the before and after status and revision | Private original/body/identity/screenshots/logs omitted |
+| feedback.publication_intended, feedback.published, feedback.publication_unknown, feedback.publication_held | feedback ID, publication state, public issue number or held reason | System cause feedback_publication; the public title/body, repository and words stay out |
 | evry.conversation_created, evry.turn_submitted, evry.turn_cancelled, evry.turn_retried | conversation and turn IDs, message sequence | The initiating account's private Evry activity; no message text, read results or model output |
 | evry.proposal_prepared, evry.proposal_revised, evry.proposal_approved, evry.proposal_cancelled, evry.proposal_retried | proposal ID, revision and review digest | The initiating account's review decisions; the executed change writes its own domain audit row with the change, keyed by the proposal and revision |
 | account.deletion_requested, plant.deletion_requested, deletion.cancelled, deletion.live_purge_completed, recovery.copy_expired, recovery.restored | request revision/deadline/completion/copy expiry and manifest hash | No private-care subject/count metadata; no new org-deletion product |
@@ -34,7 +35,6 @@ Audit records changed fields and their permitted before/after values, safe statu
 Planned packages add their own actions when they are built (D72):
 
 - Intelligence publication (WP-043, WP-044) adds the intelligence request, publication, supersession and feedback actions.
-- Feedback publication (WP-049) adds publication intent, publication and reconciliation actions to the feedback family.
 
 
 Each action has its own safe field projection. Raw interviews/four Cs, notes, photos, contact/address values, model prompts, mail bodies/attachments, secrets, headers and signed URLs are excluded from platform audit. Action/resource types cannot come from a URL or untrusted user/model instruction.

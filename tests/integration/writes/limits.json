@@ -2084,6 +2084,10 @@
 		"limit": 4,
 		"retry": 4
 	},
+	"programs.applyVersions": {
+		"limit": 4,
+		"retry": 4
+	},
 	"programs.createProgram": {
 		"limit": 4,
 		"retry": 4
