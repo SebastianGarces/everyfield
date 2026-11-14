@@ -3,6 +3,7 @@ import rubric from "../../../../docs/reference/network-rubric-v1.json" with { ty
 import { instant, localDate } from "../common/time.ts";
 import { tenantId } from "../common/values.ts";
 import { GROWTH_SLOWED_DAYS, GROWTH_STALLED_DAYS } from "../intelligence/facts.ts";
+import { concern } from "../intelligence/views.ts";
 
 // Plant health, launch and Network Intelligence as an organization sees them (WP-047b: REQ-PI-031, REQ-PI-043,
 // REQ-PI-044). Everything is a count, a date, a fixed rule result or a plant's name and link: no person, note,
@@ -49,14 +50,43 @@ export function nearLaunch(p: Preparation): NearLaunch {
 }
 
 /**
- * The home's health value. A plant that does not share Plant Intelligence findings is Limited visibility; one inside
- * the near-launch window with a recorded gap is Launch readiness. Anything else is not yet assessed: silence is never
- * On track, and Watch and On track come from released assessments (WP-044).
+ * The home's health value (PI-031). A plant that does not share Plant Intelligence findings is Limited visibility; one
+ * inside the near-launch window with a recorded gap is Launch readiness. Watch and On track come only from the plant's
+ * released assessment (PI-032): Watch when it raised a concern, On track when it raised none. With no released
+ * assessment the plant is not yet assessed: silence is never On track. A concern this organization may not see (it
+ * rests on a category the plant does not share with it) makes the plant Limited visibility, never On track.
  */
-export const health = z.enum(["limited_visibility", "launch_readiness", "not_assessed"]);
+export const health = z.enum(["limited_visibility", "launch_readiness", "watch", "on_track", "not_assessed"]);
 export type Health = z.infer<typeof health>;
-export const healthOf = (sharesFindings: boolean, p: Preparation | null): Health =>
-	!sharesFindings || !p ? "limited_visibility" : nearLaunch(p) === "gap" ? "launch_readiness" : "not_assessed";
+/** What a released assessment says about health: its concerns this organization may see, and whether any is held back. */
+export type Released = { concerns: number; withheld: boolean } | null;
+export function healthOf(sharesFindings: boolean, p: Preparation | null, released: Released = null): Health {
+	if (!sharesFindings || !p) return "limited_visibility";
+	if (nearLaunch(p) === "gap") return "launch_readiness";
+	if (!released) return "not_assessed";
+	if (released.withheld) return "limited_visibility";
+	return released.concerns ? "watch" : "on_track";
+}
+
+/**
+ * The plant's released assessment as this organization sees it: withheld when the plant does not share findings, not
+ * yet assessed before any release, or the released run's date, phase and structured concerns. Never the assessment's
+ * words, its citations' passages, a person, a check-in or growth-source detail.
+ */
+export const releasedAssessment = z.discriminatedUnion("status", [
+	z.strictObject({ status: z.literal("withheld") }),
+	z.strictObject({ status: z.literal("not_assessed") }),
+	z.strictObject({
+		status: z.literal("released"),
+		runId: tenantId,
+		asOf: instant,
+		phase: z.int().min(0).max(6),
+		concerns: z.array(concern),
+		/** Concerns resting on a category the plant does not share with this organization: counted, never shown. */
+		withheld: count,
+	}),
+]);
+export type ReleasedAssessment = z.infer<typeof releasedAssessment>;
 
 /** Where Launch Sunday stands: not set, scheduled, moved to a new date, postponed, past with no outcome, or held. */
 const launchState = z.enum(["not_set", "scheduled", "moved", "postponed", "overdue", "completed"]);

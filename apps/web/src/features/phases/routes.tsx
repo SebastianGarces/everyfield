@@ -6,16 +6,17 @@ import { JourneyScreen } from "./JourneyScreen.tsx";
 import { NoChurchPlantSeat, PlantIntelligenceBlocked } from "./PlantIntelligenceBlocked.tsx";
 import { administers, loadJourney, phaseViewer } from "./server.ts";
 
-// The /intelligence route (WP-038 builds its phase card, journey and timeline; WP-044 adds the rest of Plant
-// Intelligence). apps/web/src/app/(product)/(frame)/intelligence/ only re-exports these.
+// The /intelligence/journey route (WP-038 builds its phase card, journey and timeline; WP-044 adds the Launch dates to
+// the timeline). apps/web/src/app/(product)/(frame)/intelligence/journey/ only re-exports these.
 
-export const intelligenceMetadata: Metadata = { title: "Plant Intelligence", robots: { index: false, follow: false } };
+export const journeyMetadata: Metadata = { title: "Journey", robots: { index: false, follow: false } };
 
-export async function IntelligencePage() {
+export async function JourneyPage() {
 	const viewer = await phaseViewer();
 	if (!viewer) {
 		const v = await getViewer();
-		if (!v || v.status === "unauthenticated") redirect(`/signin?returnTo=${encodeURIComponent("/intelligence")}`);
+		if (!v || v.status === "unauthenticated")
+			redirect(`/signin?returnTo=${encodeURIComponent("/intelligence/journey")}`);
 		return <NoChurchPlantSeat />;
 	}
 	// The journey and its phase controls are for Owners and Admins (phases.readHistory authority).
