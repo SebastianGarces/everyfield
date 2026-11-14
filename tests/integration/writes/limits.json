@@ -74,6 +74,12 @@
 	"GET /notifications/read?what=count": {
 		"limit": 2
 	},
+	"GET /overview": {
+		"limit": 6
+	},
+	"GET /overview (member)": {
+		"limit": 6
+	},
 	"GET /people": {
 		"limit": 6
 	},
@@ -1960,6 +1966,9 @@
 		"limit": 1
 	},
 	"launch.readPlan": {
+		"limit": 1
+	},
+	"dashboard.dismissPrompt": {
 		"limit": 1
 	},
 	"launch.schedule": {

@@ -34,22 +34,27 @@ test("INV-identity: safe navigation rejects authority changes and expired-sessio
 		assert.equal(invalidSessionReturn(value), "/signin");
 });
 
-test("AC:TARGET-IDN-028 landingFor sends a signed-in person to a safe returnTo, else onboarding, else the dashboard home", () => {
-	assert.equal(DASHBOARD_HOME, "/people");
+test("AC:TARGET-IDN-028 AC:CASE-ADM-004 landingFor sends a finished seat to a safe returnTo, else its home, and setup never skips", () => {
+	assert.equal(DASHBOARD_HOME, "/overview");
 	const done = { status: "active", plant: "complete" } as const;
 	assert.equal(landingFor({ ...done, returnTo: "/settings/sharing" }), "/settings/sharing");
 	assert.equal(landingFor({ ...done, returnTo: "/documents" }), "/documents");
-	assert.equal(landingFor({ status: "pending_domain", plant: "none", returnTo: "/documents" }), "/documents");
+	assert.equal(landingFor({ status: "active", plant: "none", returnTo: "/documents" }), "/documents");
 	assert.equal(landingFor({ status: "pending_domain", plant: "none" }), "/onboarding");
 	assert.equal(landingFor({ status: "active", plant: "incomplete" }), "/onboarding");
 	assert.equal(landingFor({ status: "active", plant: "none" }), "/onboarding");
-	assert.equal(landingFor(done), "/people");
+	assert.equal(landingFor(done), "/overview");
+	// An unfinished church or account goes back to setup whatever the address asks for (ADM-004).
+	for (const returnTo of ["/overview", "/overview?setup=done", "/people", "/home"]) {
+		assert.equal(landingFor({ status: "active", plant: "incomplete", returnTo }), "/onboarding", returnTo);
+		assert.equal(landingFor({ status: "pending_domain", plant: "none", returnTo }), "/onboarding", returnTo);
+	}
 	// An organization seat lands on its plants, not on church setup (WP-047a); a returnTo still wins.
 	assert.equal(landingFor({ status: "active", plant: "organization" }), "/network");
 	assert.equal(landingFor({ status: "active", plant: "organization", returnTo: "/notifications" }), "/notifications");
-	assert.equal(landingFor({ ...done, returnTo: null }), "/people");
+	assert.equal(landingFor({ ...done, returnTo: null }), "/overview");
 	for (const returnTo of ["https://evil.example", "//evil.example", "/\\evil.example", "javascript:alert(1)"]) {
-		assert.equal(landingFor({ ...done, returnTo }), "/people", returnTo);
+		assert.equal(landingFor({ ...done, returnTo }), "/overview", returnTo);
 		assert.equal(landingFor({ status: "active", plant: "incomplete", returnTo }), "/onboarding", returnTo);
 		assert.equal(landingFor({ status: "pending_domain", plant: "none", returnTo }), "/onboarding", returnTo);
 	}

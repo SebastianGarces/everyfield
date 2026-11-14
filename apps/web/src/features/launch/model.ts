@@ -68,6 +68,10 @@ export function shownOf(plan: Plan): Shown {
 	}
 }
 
+/** Milestones complete and not waiting for review: the Launch plan's readiness count, and Overview's. */
+export const milestonesDone = (plan: Pick<Plan, "milestones">) =>
+	plan.milestones.filter((m) => m.completion && !m.needsReview).length;
+
 export const isOpen = (status: Milestone["tasks"][number]["status"]) =>
 	status !== "complete" && status !== "no_longer_needed";
 /** Done tasks of a milestone, from its live tasks: nothing is cached. */
