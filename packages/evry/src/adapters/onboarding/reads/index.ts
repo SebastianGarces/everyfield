@@ -71,7 +71,9 @@ export const JOURNEY_TEXT = {
 function journeyAnswer(r: Resume) {
 	if (r.journey.status !== "saved") return null;
 	const j = r.journey.value;
-	return j.answer === "existing" ? `Declared ${phaseText(j.phase)}. It can't be changed in setup.` : JOURNEY_TEXT[j.answer];
+	return j.answer === "existing"
+		? `Declared ${phaseText(j.phase)}. It can't be changed in setup.`
+		: JOURNEY_TEXT[j.answer];
 }
 function launchAnswer(r: Resume) {
 	if (r.launch.status !== "saved") return null;
