@@ -33,6 +33,7 @@ import {
 	retryable,
 	sendNotice,
 	type Conversation,
+	type Reference,
 	type Send,
 	type State,
 	type Turn,
@@ -42,6 +43,7 @@ import { renderMarkdown } from "./view.ts";
 import { ResultCard } from "./ResultCard.tsx";
 import { useConversation } from "./useConversation.ts";
 import { useRowPhotos } from "./useRowPhotos.ts";
+import { AttachButton, AttachedPhoto, useAttachedPhoto } from "./PhotoAttach.tsx";
 
 // The Evry panel (WP-051/ui; design/everyfield-ui.html, Evry panel): one private conversation beside any product page,
 // opened from Ask Evry or with Cmd+J (Ctrl+J). It is non-modal, so the page stays usable and the conversation stays the
@@ -520,7 +522,7 @@ function Composer({
 	busy: boolean;
 	stopping: boolean;
 	disabled: boolean;
-	onSend: (text: string, references: ReturnType<typeof pageReferences>) => void;
+	onSend: (text: string, references: Reference[]) => void;
 	onStop: () => void;
 	suggestions: string[];
 }) {
@@ -530,12 +532,17 @@ function Composer({
 	const hint = useId();
 	const text = draft.trim();
 	const tooLong = draft.length > MAX_MESSAGE;
-	const canSend = !disabled && !busy && text.length > 0 && !tooLong;
+	const attached = useAttachedPhoto();
+	const photo = attached.photo;
+	// A photo still uploading holds the message, so "use this as my photo" never goes without it.
+	const canSend = !disabled && !busy && text.length > 0 && !tooLong && photo?.status !== "uploading";
 
 	const submit = (value = text) => {
-		if (disabled || busy || !value || value.length > MAX_MESSAGE) return;
-		onSend(value, usePage ? page : []);
+		if (disabled || busy || !value || value.length > MAX_MESSAGE || photo?.status === "uploading") return;
+		const photos = photo?.status === "ready" ? [{ kind: "photo" as const, id: photo.id }] : [];
+		onSend(value, [...(usePage ? page : []), ...photos]);
 		setDraft("");
+		attached.clear();
 	};
 	const onSubmit = (e: FormEvent) => {
 		e.preventDefault();
@@ -587,6 +594,7 @@ function Composer({
 						: "focus-within:shadow-[0_0_0_1px_var(--ef-ink),0_0_0_4px_color-mix(in_srgb,var(--ef-focus)_28%,transparent)]",
 				)}
 			>
+				{photo ? <AttachedPhoto photo={photo} onRemove={attached.clear} /> : null}
 				<label className="sr-only" htmlFor={`${hint}-input`}>
 					Message Evry
 				</label>
@@ -615,16 +623,19 @@ function Composer({
 							Stop
 						</Button>
 					) : (
-						<Button
-							type="submit"
-							size="sm"
-							variant="primary"
-							icon={SentIcon}
-							disabled={!canSend}
-							className="w-[34px] px-0"
-						>
-							<span className="sr-only">Send</span>
-						</Button>
+						<div className="flex flex-none items-center gap-1">
+							<AttachButton disabled={disabled} onFile={(file) => void attached.attach(file)} />
+							<Button
+								type="submit"
+								size="sm"
+								variant="primary"
+								icon={SentIcon}
+								disabled={!canSend}
+								className="w-[34px] px-0"
+							>
+								<span className="sr-only">Send</span>
+							</Button>
+						</div>
 					)}
 				</div>
 			</div>

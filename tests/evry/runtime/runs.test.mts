@@ -18,6 +18,7 @@ import {
 import { PASTORAL_BOUNDARY, compileContext, resolveReferences } from "../../../packages/evry/src/context/compile.ts";
 import { READ_DOMAINS, readCatalog } from "../../../packages/evry/src/catalog/catalog.ts";
 import { REVIEWED_WRITES } from "../../../packages/evry/src/proposals/store.ts";
+import { MEETINGS_COMMANDS } from "../../../packages/evry/src/adapters/meetings/commands/index.ts";
 import { getPerson, listPeople, verifyPeople } from "../../../packages/evry/src/adapters/people/reads/index.ts";
 import { invokeRead } from "../../../packages/evry/src/catalog/invoke.ts";
 import { scriptedModel } from "../../../packages/evry/src/runtime/scripted.ts";
@@ -168,6 +169,65 @@ test("AC:INH-CROSS-06 AC:INH-REGRESSION-BUDGET AC:EVRY-RETRY-CANCEL bounded page
 	assert.deepEqual([last.total, last.completeness, last.next], [all, "partial", 25], "no false exhaustive answer");
 });
 
+/** The Meetings tools (WP-065/066), in catalog order. Reports and most changes are Owner or Admin, as natively. */
+const MEMBER_MEETINGS_READS = [
+	"meetings.list",
+	"meetings.get",
+	"meetings.hasHistory",
+	"meetings.readAgenda",
+	"meetings.listKit",
+	"meetings.listGuests",
+	"meetings.listCards",
+	"meetings.cardBreakdown",
+	"meetings.invitationAttribution",
+	"meetings.listCompletedPreLaunchPractices",
+	"meetings.getOwnRsvp",
+	"meetings.listAttendance",
+	"meetings.getEvaluation",
+	"venues.list",
+	"venues.get",
+	"venues.history",
+];
+const MEETINGS_READS = [
+	"meetings.list",
+	"meetings.get",
+	"meetings.hasHistory",
+	"meetings.readAgenda",
+	"meetings.listKit",
+	"meetings.listGuests",
+	"meetings.listCards",
+	"meetings.cardBreakdown",
+	"meetings.invitationAttribution",
+	"meetings.communicationContext",
+	"meetings.listCompletedPreLaunchPractices",
+	"meetings.getOwnRsvp",
+	"meetings.listAttendance",
+	"meetings.attendanceSummary",
+	"meetings.getEvaluation",
+	"meetings.evaluationHistory",
+	"meetings.evaluationTrend",
+	"meetings.compareEvaluation",
+	"meetings.attendanceTrend",
+	"meetings.summaryStats",
+	"meetings.linkedTaskProgress",
+	"meetings.readAnalytics",
+	"meetings.previewRosterImport",
+	"venues.list",
+	"venues.get",
+	"venues.history",
+];
+const MEMBER_MEETINGS_WRITES = [
+	"meetings.schedule",
+	"meetings.saveOwnRsvp",
+	"meetings.setAttendance",
+	"meetings.checkIn",
+	"meetings.clearAttendance",
+	"meetings.captureAttendanceBatch",
+	"meetings.finalizeAttendance",
+	"meetings.reconcileAttendance",
+];
+const MEETINGS_WRITES = Object.keys(MEETINGS_COMMANDS);
+
 test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral requests get the fixed boundary before any tool; capabilities follow the current catalog", async () => {
 	const owner = await actor("owner");
 	const pastoral = await ask(
@@ -192,8 +252,9 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 	assert.equal(await work(), "succeeded");
 	assert.match((await events(seatless, none)).text, /no application reads available/);
 	// No catalog offers direct writes, approvals, code, private care or coach tools to any context. Only a plant Owner or
-	// Admin may propose the reviewed People changes, the same floor as the native commands; any plant seat proposes changes
-	// to its own notifications.
+	// Admin may propose the reviewed People, seat, settings, sharing and connection changes, the same floor as the native
+	// commands; any plant seat proposes changes to its own notifications and account, a Member the Meetings changes the
+	// native commands let a Member make, and an organization Owner its own profile.
 	for (const who of ["owner", "member", "orgOwner", "seatless"] as const) {
 		const catalog = readCatalog(await actor(who));
 		const operations = catalog.domains.flatMap((d) => d.operations.map((o) => o.operation));
@@ -236,11 +297,34 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 						"notifications.setPreferences",
 						"notifications.digestCadence.set",
 						...Object.keys(REVIEWED_WRITES).filter((op) => op.startsWith("teams.")),
+						...MEETINGS_WRITES,
+						"seats.invite",
+						"seats.resendInvitation",
+						"seats.revokeInvitation",
+						"seats.changeOrdinaryRole",
+						"seats.remove",
+						"plant.updateProfile",
+						"plant.setTimezone",
+						"privacy.setSharing",
+						"associations.invite",
+						"associations.end",
+						"account.finalizeAvatar",
+						"account.requestDeletion",
 					]
 				: who === "member"
-					? // A Member changes only their own bell and notification settings; the church digest is an Owner's or Admin's.
-						["notifications.markSelectedRead", "notifications.markAllVisibleRead", "notifications.setPreferences"]
-					: [],
+					? // A Member changes only their own bell, notification settings and account, and the Meetings changes the native
+						// commands let a Member make; the church digest is an Owner's or Admin's.
+						[
+							"notifications.markSelectedRead",
+							"notifications.markAllVisibleRead",
+							"notifications.setPreferences",
+							...MEMBER_MEETINGS_WRITES,
+							"account.finalizeAvatar",
+							"account.requestDeletion",
+						]
+					: who === "orgOwner"
+						? ["organizations.updateProfile"]
+						: [],
 		);
 		const teamsReads = READ_DOMAINS.teams.map((a) => a.operation);
 		const peopleReads = ["people.listPeople", "people.getPerson", "people.getPersonPhoto", "people.checkForDuplicates"];
@@ -280,6 +364,10 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 						"notifications.preferences.get",
 						"notifications.previewPlanterDigest",
 						...teamsReads,
+						...MEETINGS_READS,
+						"seats.list",
+						"seats.listInvitations",
+						"privacy.getSharing",
 					]
 				: who === "member"
 					? [
@@ -289,6 +377,9 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 							"notifications.feed",
 							"notifications.preferences.get",
 							...teamsReads,
+							...MEMBER_MEETINGS_READS,
+							"seats.list",
+							"privacy.getSharing",
 						]
 					: [],
 		);
@@ -455,11 +546,14 @@ test("AC:INH-EDGES-03 AC:TEN-008 AC:EVRY-CONTEXT-BOUNDS a guessed foreign id and
 		[...new Set(calls.flatMap((c) => c.tools?.map((t) => t.name) ?? []))].sort(),
 		[
 			"communication_read",
+			"meetings_read",
 			"notifications_read",
 			"peopleOrganization_read",
 			"people_read",
 			"propose_change",
+			"seats_read",
 			"select_returned_rows",
+			"sharing_read",
 			"teams_read",
 		],
 		"prompt text cannot add tools or scope; the owner's catalog decides them",

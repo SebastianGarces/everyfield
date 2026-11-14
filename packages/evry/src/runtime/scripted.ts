@@ -6,6 +6,7 @@ import type {
 	LanguageModelV4StreamPart,
 } from "@ai-sdk/provider";
 import { randomUUID } from "node:crypto";
+import { settingsStep } from "./scripted-settings.ts";
 
 // A deterministic stand-in for a qualified model, for local previews and tests only (selectQualifiedModel never picks
 // it on Vercel). It reads the conversation the way a model would see it and answers through the same tools, so the
@@ -357,6 +358,233 @@ function peopleOrganizationStep(
 		case "import":
 			return propose("people.executeBulkImport", { file: m[1]!.trim() });
 	}
+}
+
+// Meetings requests (WP-065/066), each through the same tools a model uses: read the meetings, then answer from the rows
+// or propose the reviewed change. "what are my upcoming meetings?", "who rsvp'd for thursday's vision night",
+// "print the agenda for sunday", "what do I still need from the vision kit?", "are vision nights growing? last 3",
+// "set up a vision meeting next thursday 7pm at the coffee shop" (then "the 22nd"), "add a walk-in, Luis, no last name",
+// "mark Maria, Alex and Casey as attended and finalize it", "score last night's vision meeting for me" (then the eight
+// scores) and "delete the <meeting>".
+/** The user's earlier messages in this conversation, oldest first, without the last one. */
+function earlierUserTexts(prompt: Prompt) {
+	const texts = prompt
+		.filter((m) => m.role === "user")
+		.map((m) => (m.content as { type: string; text?: string }[]).map((p) => p.text ?? "").join(" "));
+	return texts.slice(0, -1);
+}
+const read = (operation: string, input: unknown) => [toolCall("meetings_read", { operation, input })];
+const propose = (operation: string, input: unknown) => [toolCall("propose_change", { operation, input })];
+const say = (text: string): LanguageModelV4Content[] => [{ type: "text", text }];
+const zone = "America/Chicago";
+const localToday = () =>
+	new Intl.DateTimeFormat("en-CA", { timeZone: zone, year: "numeric", month: "2-digit", day: "2-digit" }).format(
+		new Date(),
+	);
+const addDays = (date: string, n: number) =>
+	new Date(Date.parse(`${date}T12:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
+const weekday = (date: string) => new Date(`${date}T12:00:00Z`).getUTCDay();
+const dayName = (date: string) =>
+	new Intl.DateTimeFormat("en-US", { weekday: "long", month: "short", day: "numeric", timeZone: "UTC" }).format(
+		new Date(`${date}T12:00:00Z`),
+	);
+/** The next `day` (0 = Sunday) on or after tomorrow, church-local. */
+const nextWeekday = (day: number, from = localToday()) => addDays(from, (day - weekday(from) + 7) % 7 || 7);
+const RSVP_GROUPS = [
+	["yes", "RSVP yes"],
+	["no", "RSVP no"],
+	["no answer", "No answer yet"],
+] as const;
+const SCORE_WORDS = ["attendance", "location", "logistics", "agenda", "vibe", "message", "close", "next steps"];
+const FACTORS = [
+	"attendanceScore",
+	"locationScore",
+	"logisticsScore",
+	"agendaScore",
+	"vibeScore",
+	"messageScore",
+	"closeScore",
+	"nextStepsScore",
+];
+const meetingLine = (r: Row) =>
+	`${r.label}: ${String(r.fields.when)}${r.fields.venue ? ` at ${String(r.fields.venue)}` : ""}${r.fields.status === "cancelled" ? " (cancelled)" : ""}`;
+const MEETINGS_INTENT =
+	/\bupcoming meetings\b|\brsvp'?d for\b|\bagenda for \w+|\bvision kit\b|\bvision nights? growing\b|\bset up a vision meeting\b|\badd a walk-in\b|\bas attended and finalize\b|\bscore last night'?s vision meeting\b/i;
+const SET_UP = /\bset up a vision meeting next thursday (\d{1,2})\s*(am|pm) at the (.+?)\.?$/i;
+
+function meetingsStep(
+	text: string,
+	prompt: Prompt,
+	tools: LanguageModelV4CallOptions["tools"],
+): LanguageModelV4Content[] | null {
+	const canRead = tools?.some((t) => t.name === "meetings_read") ?? false;
+	if (!canRead) return null;
+	const proposeTool = tools?.find((t) => t.name === "propose_change");
+	const can = (op: string) => !!proposeTool && JSON.stringify(proposeTool).includes(op);
+	const earlierTexts = earlierUserTexts(prompt);
+	const earlier = earlierTexts.join("\n");
+	const pickedDay = /^(?:the )?(\d{1,2})(?:st|nd|rd|th)?\.?$|\bthursday,? (\w+ \d{1,2})\b/i.exec(text.trim());
+	// The latest earlier request to set one up, so a reply such as "the 19th" answers the question just asked.
+	const asked =
+		earlierTexts
+			.reverse()
+			.map((t) => SET_UP.exec(t))
+			.find(Boolean) ?? null;
+	const scores = SCORE_WORDS.map((w) => Number(new RegExp(`\\b${w}\\s*(\\d)\\b`, "i").exec(text)?.[1]));
+	const scored = scores.every((n) => n >= 1 && n <= 5) && /\bscore last night'?s vision meeting\b/i.test(earlier);
+	const deleting = /\bdelete\b/i.test(text) && !can("meetings.delete");
+	if (!MEETINGS_INTENT.test(text) && !(pickedDay && asked) && !scored && !deleting) return null;
+	const outputs = turnOutputs(prompt);
+	const last = outputs.at(-1);
+	if (typeof last?.proposalId === "string") return say("I prepared a review. Nothing changes until you approve it.");
+	if (last?.error) return say(`I could not finish that (${last.error}).`);
+
+	if (/\bupcoming meetings\b/i.test(text)) {
+		if (!outputs.length) return read("meetings.list", { window: "upcoming" });
+		const rows = rowsOf(last, "meeting");
+		if (!rows.length) return say("You have no upcoming meetings in Meetings.");
+		return say(
+			`Your upcoming meetings, as Meetings lists them:\n\n${rows.map((r) => `- ${meetingLine(r)}`).join("\n")}`,
+		);
+	}
+	const rsvp = /\brsvp'?d for (.+?)\??$/i.exec(text);
+	if (rsvp) {
+		if (!outputs.length) return read("meetings.list", { window: "upcoming" });
+		const wanted = rsvp[1]!.replace(/'s\b/g, "").toLowerCase();
+		if (outputs.length === 1) {
+			const rows = rowsOf(last, "meeting");
+			const day = DAYS.find((d) => wanted.includes(d));
+			const matches = rows.filter((r) =>
+				day
+					? weekday(String(r.fields.date)) === DAYS.indexOf(day) &&
+						/vision/i.test(`${r.label} ${String(r.fields.type)}`)
+					: r.label.toLowerCase().includes(wanted.replace(/^the /, "")),
+			);
+			if (matches.length > 1)
+				return say(
+					`${matches.length} meetings are called ${matches[0]!.label}: ${matches.map((m) => String(m.fields.when)).join(" and ")}. Which one do you mean?`,
+				);
+			if (!matches.length) return say("I can't find that meeting in Meetings.");
+			return read("meetings.listGuests", { meetingId: matches[0]!.id });
+		}
+		const guests = rowsOf(last, "person");
+		const groups = RSVP_GROUPS.map(([value, title]) => {
+			const names = guests.filter((g) => g.fields.rsvp === value).map((g) => g.label);
+			return `- ${title}: ${names.length ? names.join(", ") : "nobody"}`;
+		});
+		return say(`RSVPs (answers to the invitation, not attendance):\n\n${groups.join("\n")}`);
+	}
+	if (/\bagenda for (\w+)/i.test(text)) {
+		if (!outputs.length) return read("meetings.list", { window: "upcoming" });
+		if (outputs.length === 1) {
+			const day = /\bagenda for (\w+)/i.exec(text)![1]!.toLowerCase();
+			const m = rowsOf(last, "meeting").find((r) => weekday(String(r.fields.date)) === DAYS.indexOf(day));
+			return m
+				? read("meetings.readAgenda", { meetingId: m.id })
+				: say(`I can't find a meeting on ${day} in Meetings.`);
+		}
+		const [meeting, ...sections] = rowsOf(last);
+		if (!sections.length) return say("That meeting has no saved agenda.");
+		return say(
+			`The saved agenda for ${meeting!.label}:\n\n${sections.map((s) => `${String(s.fields.order)}. ${s.label} (${String(s.fields.starts)}, ${String(s.fields.minutes)} min)`).join("\n")}\n\n[Print the agenda](${String(meeting!.fields.print)}) from the app.`,
+		);
+	}
+	if (/\bvision kit\b/i.test(text)) {
+		if (!outputs.length) return read("meetings.list", { window: "upcoming", types: ["vision_meeting"] });
+		if (outputs.length === 1) {
+			const m = rowsOf(last, "meeting")[0];
+			return m
+				? read("meetings.listKit", { meetingId: m.id, only: "unchecked" })
+				: say("No Vision meeting is coming up.");
+		}
+		const items = rowsOf(last, "item");
+		return say(
+			items.length
+				? `Still unchecked in the kit:\n\n${items.map((i) => `- ${i.label}`).join("\n")}`
+				: "Every kit item is checked.",
+		);
+	}
+	const trend = /\bvision nights? growing\b.*?(\d+)?\s*$/i.exec(text);
+	if (trend) {
+		if (!outputs.length) return read("meetings.attendanceTrend", { limit: Number(/\d+/.exec(text)?.[0] ?? 3) });
+		const points = rowsOf(last, "item");
+		return say(
+			`Attendance at the last ${points.length} Vision nights, oldest first:\n\n${points.map((p) => `- ${dayName(String(p.fields.date))}: ${p.fields.attended === "not recorded" ? "not recorded" : `${String(p.fields.attended)} attended`}`).join("\n")}\n\nA night with no attendance recorded is not counted as zero.`,
+		);
+	}
+	const setUp = SET_UP.exec(text);
+	if (setUp || (pickedDay && asked)) {
+		const [, hour, ampm, place] = (setUp ?? asked)!;
+		if (!outputs.length) return read("venues.list", { search: place!.split(" ")[0] });
+		const venues = rowsOf(outputs[0], "venue");
+		if (venues.length !== 1)
+			return say(
+				venues.length
+					? `More than one saved venue matches "${place}": ${venues.map((v) => v.label).join(", ")}. Which one?`
+					: `I can't find a saved venue called "${place}". Which venue should it be, or should I save a new one?`,
+			);
+		const first = nextWeekday(4),
+			second = addDays(first, 7);
+		if (setUp)
+			return say(
+				`Do you mean ${dayName(first)} or ${dayName(second)}? I'll set it for ${hour} ${ampm!.toUpperCase()} Central at ${venues[0]!.label}.`,
+			);
+		const day = Number(pickedDay![1] ?? /\d+/.exec(pickedDay![2] ?? "")?.[0]);
+		const date = [first, second].find((d) => Number(d.slice(8)) === day);
+		if (!date) return say(`Do you mean ${dayName(first)} or ${dayName(second)}?`);
+		return can("meetings.schedule")
+			? propose("meetings.schedule", {
+					type: "vision_meeting",
+					date,
+					time: clock(hour!, ampm!),
+					venueId: venues[0]!.id,
+				})
+			: say("An Owner or Admin has to schedule that meeting.");
+	}
+	const walkIn = /\badd a walk-in,? ([A-Z][\w'-]+)/i.exec(text);
+	if (walkIn) {
+		if (!outputs.length) return read("meetings.list", { window: "upcoming", types: ["vision_meeting"] });
+		const m = rowsOf(last, "meeting")[0];
+		if (!m) return say("Which meeting should the walk-in be recorded at?");
+		return can("meetings.createWalkInContact")
+			? propose("meetings.createWalkInContact", { meetingId: m.id, displayName: walkIn[1] })
+			: say("An Owner or Admin has to record a walk-in.");
+	}
+	const finalize = /\bmark (.+?) as attended and finalize\b/i.exec(text);
+	if (finalize) {
+		const names = finalize[1]!.split(/,\s*|\s+and\s+/).filter(Boolean);
+		if (!outputs.length) return read("meetings.list", { window: "past", types: ["vision_meeting"] });
+		if (outputs.length === 1) {
+			const target = addDays(localToday(), -7);
+			const m = [...rowsOf(last, "meeting")].sort(
+				(a, b) =>
+					Math.abs(Date.parse(String(a.fields.date)) - Date.parse(target)) -
+					Math.abs(Date.parse(String(b.fields.date)) - Date.parse(target)),
+			)[0];
+			return m ? read("meetings.listAttendance", { meetingId: m.id }) : say("I can't find last week's Vision meeting.");
+		}
+		const [head, ...people] = rowsOf(last);
+		const chosen = people.filter((p) => names.some((n) => p.label.toLowerCase().startsWith(n.toLowerCase())));
+		const already = people.filter((p) => p.fields.presence === "attended");
+		const ids = [...new Set([...already, ...chosen].map((p) => p.id))];
+		if (chosen.length !== names.length)
+			return say(`I can't find all of ${names.join(", ")} on that meeting's guest list.`);
+		return propose("meetings.finalizeAttendance", { meetingId: head!.id, attendeeIds: ids });
+	}
+	if (/\bscore last night'?s vision meeting\b/i.test(text))
+		return say(
+			"The evaluation is your judgment, so I won't score it myself. Give me your 1-5 score for each factor (attendance, location, logistics, agenda, vibe, message, close and next steps) and I'll prepare it for you to approve.",
+		);
+	if (scored) {
+		if (!outputs.length) return read("meetings.list", { window: "past", types: ["vision_meeting"], limit: 1 });
+		const m = rowsOf(last, "meeting")[0];
+		if (!m) return say("I can't find last night's Vision meeting.");
+		return propose("meetings.recordEvaluation", {
+			meetingId: m.id,
+			scores: Object.fromEntries(FACTORS.map((f, i) => [f, scores[i]])),
+		});
+	}
+	if (deleting) return say("Deleting a meeting needs an Owner or Admin. Ask one of them to delete it from Meetings.");
 	return null;
 }
 
@@ -379,6 +607,8 @@ function respond(options: LanguageModelV4CallOptions): LanguageModelV4Content[] 
 		return [{ type: "text", text: JSON.stringify({ kind: classify(text) }) }];
 	// "Show a formatting demo": an answer with markdown, written slowly enough to watch it grow (local previews and tests).
 	if (FORMATTING.test(text)) return [{ type: "text", text: FORMATTING_ANSWER }];
+	const settings = settingsStep(options, text);
+	if (settings) return settings;
 	const hasPeople = options.tools?.some((t) => t.name === "people_read") ?? false;
 	const canPropose = options.tools?.some((t) => t.name === "propose_change") ?? false;
 	// A Member proposes changes to their own notifications only; the People reviews are an Owner's or Admin's.
@@ -404,6 +634,8 @@ function respond(options: LanguageModelV4CallOptions): LanguageModelV4Content[] 
 		const organization = peopleOrganizationStep(text, canProposePeople, imports, turnOutputs(options.prompt));
 		if (organization) return organization;
 	}
+	const meetings = meetingsStep(text, options.prompt, options.tools);
+	if (meetings) return meetings;
 	if (result && typeof result.proposalId === "string" && (DRAFT.test(text) || EMAIL_REVIEW.test(text)))
 		return [{ type: "text", text: "I prepared a review. Nothing is saved or sent until you approve it." }];
 	if (result) {

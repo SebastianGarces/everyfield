@@ -4,6 +4,7 @@
 // approval has left on the server's clock; the browser's clock is never read.
 
 import type { MailReport, RecipientOutcome } from "@everyfield/contracts/communication";
+import { ROLE_LABEL, SHARING_CATEGORIES, SHARING_CATEGORY_LABEL, ZONE_NAME } from "@everyfield/evry/labels";
 import { SOURCE_LABEL, STAGE_LABEL, type SourceValue, type StageValue } from "../../people/model.ts";
 import type { ProjectedError } from "../conversation/model.ts";
 
@@ -20,11 +21,46 @@ export type Operation =
 	| "communication.rescheduleReviewed"
 	| "communication.cancelScheduledReviewed"
 	| "communication.replaceScheduledReviewed"
+	| "meetings.schedule"
+	| "meetings.edit"
+	| "meetings.changeStatus"
+	| "meetings.delete"
+	| "meetings.completePractice"
+	| "meetings.correctPracticeOccurrence"
+	| "meetings.correctOccurrence"
+	| "meetings.replaceAgenda"
+	| "meetings.populateKit"
+	| "meetings.updateKitItem"
+	| "meetings.inviteGuest"
+	| "meetings.removeGuest"
+	| "meetings.setInviter"
+	| "meetings.correctRsvp"
+	| "meetings.saveOwnRsvp"
+	| "meetings.createGuestContact"
+	| "meetings.createWalkInContact"
+	| "meetings.recordCard"
+	| "meetings.clearCard"
+	| "meetings.copyTeamRoster"
+	| "meetings.setAttendance"
+	| "meetings.checkIn"
+	| "meetings.clearAttendance"
+	| "meetings.captureAttendanceBatch"
+	| "meetings.finalizeAttendance"
+	| "meetings.reconcileAttendance"
+	| "meetings.recordEvaluation"
+	| "meetings.correctEvaluation"
+	| "meetings.addAttendeeNote"
+	| "venues.create"
+	| "venues.edit"
+	| "venues.correct"
+	| "venues.archive"
+	| "venues.restore"
 	| "notifications.markSelectedRead"
 	| "notifications.markAllVisibleRead"
 	| "notifications.setPreferences"
 	| "notifications.digestCadence.set"
-	| TeamsOperation;
+	| TeamsOperation
+	| SettingsOperation;
 
 /** The Ministries reviewed writes (WP-070): shown as before and after, never revised in place. */
 const TEAMS_TITLE = {
@@ -59,6 +95,21 @@ const TEAMS_TITLE = {
 type TeamsOperation = keyof typeof TEAMS_TITLE;
 export const isTeams = (operation: Operation): operation is TeamsOperation => operation in TEAMS_TITLE;
 
+/** The seat, church settings, sharing, connection, account and organization changes (T-327). */
+export type SettingsOperation =
+	| "seats.invite"
+	| "seats.resendInvitation"
+	| "seats.revokeInvitation"
+	| "seats.changeOrdinaryRole"
+	| "seats.remove"
+	| "plant.updateProfile"
+	| "plant.setTimezone"
+	| "privacy.setSharing"
+	| "associations.invite"
+	| "associations.end"
+	| "account.finalizeAvatar"
+	| "account.requestDeletion"
+	| "organizations.updateProfile";
 /** The household, tag, skill, note and import writes (WP-064), whose reviews are not revised field by field. */
 export type OrganizationOperation =
 	| "people.addToHousehold"
@@ -111,13 +162,31 @@ export type Review = {
 	status: "pending" | "approved" | "cancelled" | "expired";
 	review: {
 		target: {
-			kind: "person" | "message" | "team" | "role" | "training" | "responsibility" | "household" | "tag";
+			kind:
+				| "person"
+				| "message"
+				| "team"
+				| "role"
+				| "training"
+				| "responsibility"
+				| "household"
+				| "tag"
+				| "meeting"
+				| "venue"
+				| "church"
+				| "seat"
+				| "invitation"
+				| "connection"
+				| "organization"
+				| "account";
 			id: string;
 			label: string;
 		} | null;
 		changes: Change[];
 		people?: ReviewedPerson[];
 		rows?: ReviewedRow[];
+		/** Plain facts to know before approving, such as what a time zone change moves. */
+		notes?: string[];
 		/** A plain reason the change cannot be approved as asked; the card shows it and offers no Approve. */
 		refusal?: string;
 		withheld?: true;
@@ -236,8 +305,71 @@ const FIELD_LABEL: Record<string, string> = {
 	completedOn: "Completed on",
 	completedAgainOn: "Completed again on",
 	completion: "Completion",
+	// Meetings and venues: the review already says each value in the church's own words and zone.
+	type: "Type",
+	when: "When",
+	venue: "Venue",
+	status: "Status",
+	held: "Held",
+	voided: "Counts",
+	meetingNotes: "Notes",
+	kitNote: "Note",
+	evaluationNotes: "Notes",
+	venueNotes: "Notes",
+	removed: "Meetings",
+	team: "Ministry",
+	guests: "Guests",
+	agenda: "Agenda",
+	kit: "Vision kit",
+	guest: "Guest",
+	rsvp: "RSVP",
+	invitedBy: "Invited by",
+	yourRsvp: "Your RSVP",
+	newPerson: "New person",
+	attendance: "Attendance",
+	possibleDuplicates: "Possible duplicates",
+	card: "Response card",
+	cardNote: "Card note",
+	add: "Adds",
+	remove: "Removes",
+	attended: "Attended",
+	noLongerAttended: "No longer attended",
+	finalized: "Finalize",
+	item: "Kit item",
+	checked: "Checked",
+	bringer: "Who brings it",
+	average: "Average",
+	attendanceScore: "Attendance",
+	locationScore: "Location",
+	logisticsScore: "Logistics",
+	agendaScore: "Agenda",
+	vibeScore: "Vibe",
+	messageScore: "Message",
+	closeScore: "Close",
+	nextStepsScore: "Next steps",
+	capacity: "Capacity",
+	costDescription: "Cost",
+	active: "Status",
+	// Seats, church settings, sharing, connections and account (T-327)
+	contactEmail: "Contact email",
+	contactPhone: "Contact phone",
+	statementOfFaith: "Statement of faith",
+	invitation: "Invitation",
+	role: "Role",
+	access: "Access",
+	timeZone: "Time zone",
+	connection: "Connection",
+	recipientEmail: "Sent to",
+	account: "Your login",
+	...SHARING_CATEGORY_LABEL,
 };
-export const fieldLabel = (field: string) => FIELD_LABEL[field] ?? field;
+/** Meetings words for a field another card also uses: a finalize's "tasks" are the tasks it creates, not a sharing category. */
+const MEETINGS_LABEL: Record<string, string> = { tasks: "Tasks it creates" };
+/** A presence change names its person: "presence:Maria Santos" reads "Maria Santos". */
+export const fieldLabel = (field: string, operation?: string) =>
+	field.startsWith("presence:")
+		? field.slice("presence:".length)
+		: ((operation?.startsWith("meetings.") ? MEETINGS_LABEL[field] : undefined) ?? FIELD_LABEL[field] ?? field);
 
 const TEAM_STATE: Record<string, string> = { forming: "Forming", active: "Active", paused: "Paused" };
 const DATE_FIELDS = new Set(["birthDate", "date", "completedOn", "completedAgainOn"]);
@@ -255,8 +387,14 @@ const dateFormat = new Intl.DateTimeFormat(undefined, {
 /** A reviewed value as text. Empty values say so; an id (a photo upload) is never shown. */
 export function valueText(field: string, value: unknown): string | null {
 	if (value === null || value === undefined || value === "") return null;
+	// A list (the tasks a finalize creates, an agenda's sections) reads one entry per line on the card.
+	if (Array.isArray(value)) return value.length ? value.map(String).join("\n") : null;
 	// A photo is a stored file: its short reference tells two uploads apart. The card shows the image where People allows it.
 	if (field === "photo") return `Photo ${photoRef(value)}`;
+	if (typeof value === "boolean" && SHARED.has(field)) return value ? "Shared" : "Not shared";
+	const word = WORDS[field]?.[String(value)];
+	if (word) return word;
+	if (field === "timeZone") return zoneText(String(value));
 	if (field === "stage") return STAGE_LABEL[value as StageValue] ?? String(value);
 	if (field === "source") return SOURCE_LABEL[value as SourceValue] ?? String(value);
 	if (field === "adultClassification") return CLASSIFICATION_LABEL[String(value)] ?? String(value);
@@ -273,12 +411,48 @@ export function valueText(field: string, value: unknown): string | null {
 	return String(value);
 }
 
+const SHARED = new Set<string>(SHARING_CATEGORIES);
+/** The words a reviewed state reads as on the card. */
+const WORDS: Record<string, Record<string, string>> = {
+	role: ROLE_LABEL,
+	access: { ...ROLE_LABEL, removed: "Removed" },
+	invitation: { pending: "Waiting", sent_again: "Sent again", revoked: "Revoked" },
+	connection: {
+		connected: "Connected",
+		ended: "Ended",
+		"sending church": "Asked to be your sending church",
+		network: "Asked to connect as your network",
+	},
+	account: { active: "Active", deletion_requested: "Deletion requested" },
+};
+const zoneText = (zone: string) => (ZONE_NAME[zone] ? `${ZONE_NAME[zone]} (${zone})` : zone);
+
+/** The changes Evry makes to seats, church settings, sharing, connections, your account and an organization. */
+export const isSettings = (operation: Operation): operation is SettingsOperation =>
+	/^(seats|plant|privacy|associations|account|organizations)\./.test(operation);
+/** The Settings section where a seat, settings, sharing, connection, account or organization change shows. */
+export function settingsLink(operation: SettingsOperation): { href: string; label: string } {
+	if (operation.startsWith("seats.")) return { href: "/settings/seats", label: "Open Seats" };
+	if (operation.startsWith("plant.")) return { href: "/settings/church", label: "Open Church settings" };
+	if (operation.startsWith("account.")) return { href: "/settings/account", label: "Open your account" };
+	if (operation.startsWith("organizations."))
+		return { href: "/settings/organization", label: "Open Organization profile" };
+	return { href: "/settings/sharing", label: "Open Sharing" };
+}
+
+/** A photo review: the card shows the exact upload before it can be approved. */
+export const isPhoto = (operation: Operation) =>
+	operation === "people.setPersonPhoto" || operation === "account.finalizeAvatar";
+/** Where a saved photo of the review's target is read: a person's photo, or the signed-in account's own photo. */
+export const savedPhotoSrc = (target: { kind: string; id: string }, version: string) =>
+	target.kind === "account" ? `/api/accounts/${target.id}/avatar/${version}` : `/people/${target.id}/photo/${version}`;
+
 /**
  * REQ-EVR-011: approval applies only to content the person could inspect. A new photo is approvable once the card
  * shows its exact upload (GET /api/evry/proposals/{id}/photo); until then, or when the upload is gone, it is not.
  */
 export const approvable = (review: Pick<Review, "operation">, uploadShown: boolean) =>
-	review.operation !== "people.setPersonPhoto" || uploadShown;
+	!isPhoto(review.operation) || uploadShown;
 
 /** What an empty value is called: no household is "None", and a note, skill or tag that goes away is "Removed". */
 export function emptyText(field: string, after: boolean) {
@@ -320,6 +494,19 @@ const TITLE: Record<Operation, string> = {
 	"people.deletePerson": "Remove a person",
 	"people.setPersonPhoto": "Set a photo",
 	"people.removePersonPhoto": "Remove a photo",
+	"seats.invite": "Invite someone",
+	"seats.resendInvitation": "Resend an invitation",
+	"seats.revokeInvitation": "Revoke an invitation",
+	"seats.changeOrdinaryRole": "Change a role",
+	"seats.remove": "Remove a seat",
+	"plant.updateProfile": "Update the church profile",
+	"plant.setTimezone": "Change the church time zone",
+	"privacy.setSharing": "Change what you share",
+	"associations.invite": "Ask to connect",
+	"associations.end": "End a connection",
+	"account.finalizeAvatar": "Change your photo",
+	"account.requestDeletion": "Delete your login",
+	"organizations.updateProfile": "Update the organization profile",
 	"notifications.markSelectedRead": "Mark notifications read",
 	"notifications.markAllVisibleRead": "Mark all notifications read",
 	"notifications.setPreferences": "Change notification settings",
@@ -343,6 +530,40 @@ const TITLE: Record<Operation, string> = {
 	"people.editNote": "Edit a note",
 	"people.deleteNote": "Delete a note",
 	"people.executeBulkImport": "Import people",
+	"meetings.schedule": "Schedule a meeting",
+	"meetings.edit": "Change a meeting",
+	"meetings.changeStatus": "Change a meeting's status",
+	"meetings.delete": "Delete a meeting",
+	"meetings.completePractice": "Record a practice as held",
+	"meetings.correctPracticeOccurrence": "Correct a practice",
+	"meetings.correctOccurrence": "Correct whether it counts",
+	"meetings.replaceAgenda": "Replace the agenda",
+	"meetings.populateKit": "Add the Vision kit",
+	"meetings.updateKitItem": "Update a kit item",
+	"meetings.inviteGuest": "Add a guest",
+	"meetings.removeGuest": "Remove a guest",
+	"meetings.setInviter": "Set who invited a guest",
+	"meetings.correctRsvp": "Correct an RSVP",
+	"meetings.saveOwnRsvp": "Save your RSVP",
+	"meetings.createGuestContact": "Add a new guest",
+	"meetings.createWalkInContact": "Add a walk-in",
+	"meetings.recordCard": "Record a response card",
+	"meetings.clearCard": "Clear a response card",
+	"meetings.copyTeamRoster": "Update guests from the ministry",
+	"meetings.setAttendance": "Mark attendance",
+	"meetings.checkIn": "Check someone in",
+	"meetings.clearAttendance": "Clear attendance",
+	"meetings.captureAttendanceBatch": "Mark attendance",
+	"meetings.finalizeAttendance": "Finalize attendance",
+	"meetings.reconcileAttendance": "Correct attendance",
+	"meetings.recordEvaluation": "Record your evaluation",
+	"meetings.correctEvaluation": "Correct your evaluation",
+	"meetings.addAttendeeNote": "Add an attendee note",
+	"venues.create": "Save a venue",
+	"venues.edit": "Change a venue",
+	"venues.correct": "Correct a venue",
+	"venues.archive": "Archive a venue",
+	"venues.restore": "Restore a venue",
 };
 export const operationTitle = (operation: Operation) => TITLE[operation];
 
@@ -350,6 +571,9 @@ export const operationTitle = (operation: Operation) => TITLE[operation];
 // Email: the five reviewed Communication writes (MAIL51-009). The email service is the only source of "confirmed".
 
 export const isMail = (operation: Operation) => operation.startsWith("communication.");
+/** A Meetings or venue write: its review states each value as the card shows it, and it is revised by asking Evry. */
+export const isMeetings = (operation: Operation) =>
+	operation.startsWith("meetings.") || operation.startsWith("venues.");
 type SendTime = { at: string; zone: string };
 const asTime = (value: unknown): SendTime | null =>
 	value && typeof value === "object" && "at" in value && "zone" in value ? (value as SendTime) : null;
@@ -533,6 +757,9 @@ export function consequence(review: Review): string | null {
 	const tasks = handedBack(review.review.changes);
 	const owner =
 		tasks > 0 ? `${tasks.toLocaleString()} open ${tasks === 1 ? "task" : "tasks"} will need a new owner.` : null;
+	if (review.operation === "meetings.delete") return "It leaves Meetings. Its history stays.";
+	if (review.operation === "meetings.finalizeAttendance")
+		return "Approving finalizes attendance and creates exactly the tasks listed.";
 	if (review.operation === "people.deletePerson")
 		return ["They leave the current people list. Their history stays.", owner].filter(Boolean).join(" ");
 	const created = review.review.changes.find((c) => c.field === "createTag")?.after;
@@ -625,7 +852,14 @@ export function hasBirthDate(review: Review, edits: Record<string, string>) {
 }
 
 /** Writes that only add something: their review shows the new values without an empty "before". */
-const ADDS = new Set<Operation>(["people.createPerson", "people.addNote", "people.addSkill", "people.createTag"]);
+const ADDS = new Set<Operation>([
+	"people.createPerson",
+	"people.addNote",
+	"people.addSkill",
+	"people.createTag",
+	"seats.invite",
+	"associations.invite",
+]);
 export const addsOnly = (operation: Operation) => ADDS.has(operation);
 
 /** The People writes whose review can be revised field by field on the card. */
@@ -704,9 +938,58 @@ export function missingRequired(review: Review, edits: Record<string, string>) {
 // ---------------------------------------------------------------------------------------------------------------
 // Words: refusals and notices say what happened and what to do next, and never more than the server said.
 
+/** Why a seat, Settings, sharing, connection, account or organization change was refused. Nothing changed. */
+export function settingsRefusalText(code: string | undefined): string {
+	switch (code) {
+		case "revision_conflict":
+		case "conflict":
+		case "stale_preview":
+			return "This changed after Evry prepared the review, so nothing was saved. Ask Evry to prepare it again.";
+		case "access_denied":
+		case "unavailable":
+		case "invitation_unavailable":
+			return "Your seat no longer allows this change, or what it changes is gone, so nothing was saved.";
+		case "protected_owner":
+			return "The Owner's seat can't be changed here, so nothing was saved.";
+		case "invitation_cooldown":
+			return "An invitation can go again one minute after the last one, so nothing was sent. Ask again in a minute.";
+		case "invitation_rate_limited":
+		case "invitation_limit":
+			return "This address already had 3 invitations in 30 days, so nothing was sent.";
+		case "address_blocked":
+			return "Email to this address bounced before, so nothing was sent.";
+		case "already_active":
+			return "You are already connected with this organization, so nothing was sent.";
+		case "pending_invitation":
+		case "address_pending":
+			return "A request to this organization is already waiting, so nothing was sent.";
+		case "manual_owner_exception_required":
+			return "You are an Owner, so your church needs another Owner first. Nothing was changed.";
+		case "source_unavailable":
+			return "Settings are not available right now, so nothing was saved. Try again later.";
+		default:
+			return "Settings refused this change, so nothing was saved.";
+	}
+}
+
 /** Why a run was refused, from the saved receipt code. Nothing was changed in each case. */
-export function refusalText(code: string | undefined, target: string | null): string {
-	const who = target ?? "this person";
+export function refusalText(code: string | undefined, target: string | null, meetings = false): string {
+	const who = target ?? (meetings ? "This meeting" : "this person");
+	if (meetings)
+		switch (code) {
+			case "revision_conflict":
+			case "conflict":
+				return `${who} changed after Evry prepared this, so nothing was saved. Ask Evry to prepare it again.`;
+			case "access_denied":
+				return "Your seat no longer allows this change, so nothing was saved.";
+			case "status_transition":
+				return "The meeting's status no longer allows this change, so nothing was saved.";
+			case "not_found":
+			case "source_unavailable":
+				return `${who} is no longer in Meetings, so nothing was saved.`;
+			default:
+				return "Meetings refused this change, so nothing was saved.";
+		}
 	switch (code) {
 		case "revision_conflict":
 		case "conflict":
