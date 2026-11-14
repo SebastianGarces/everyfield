@@ -3586,6 +3586,20 @@
 			"grantee": "everyfield_cleanup",
 			"is_grantable": false,
 			"kind": "table",
+			"object": "assessment_feedback",
+			"privilege_type": "DELETE"
+		},
+		{
+			"grantee": "everyfield_cleanup",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "assessment_feedback",
+			"privilege_type": "SELECT"
+		},
+		{
+			"grantee": "everyfield_cleanup",
+			"is_grantable": false,
+			"kind": "table",
 			"object": "assessment_insight",
 			"privilege_type": "DELETE"
 		},
@@ -3608,6 +3622,20 @@
 			"is_grantable": false,
 			"kind": "table",
 			"object": "assessment_run",
+			"privilege_type": "SELECT"
+		},
+		{
+			"grantee": "everyfield_cleanup",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "assessment_seen",
+			"privilege_type": "DELETE"
+		},
+		{
+			"grantee": "everyfield_cleanup",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "assessment_seen",
 			"privilege_type": "SELECT"
 		},
 		{
@@ -5854,6 +5882,27 @@
 			"grantee": "everyfield_runtime",
 			"is_grantable": false,
 			"kind": "table",
+			"object": "assessment_feedback",
+			"privilege_type": "INSERT"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "assessment_feedback",
+			"privilege_type": "SELECT"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "assessment_feedback",
+			"privilege_type": "UPDATE"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
 			"object": "assessment_insight",
 			"privilege_type": "INSERT"
 		},
@@ -5884,6 +5933,20 @@
 			"kind": "table",
 			"object": "assessment_run",
 			"privilege_type": "UPDATE"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "assessment_seen",
+			"privilege_type": "INSERT"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "assessment_seen",
+			"privilege_type": "SELECT"
 		},
 		{
 			"grantee": "everyfield_runtime",

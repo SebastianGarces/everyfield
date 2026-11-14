@@ -2078,6 +2078,20 @@ export const launch = pgTable(
 		/** When the actual Launch Sunday was first recorded, and by whom; a correction keeps both (LCH-007). */
 		outcome_recorded_at: timestamp("outcome_recorded_at", { withTimezone: true, mode: "date" }),
 		outcome_recorded_by: uuid("outcome_recorded_by"),
+		/**
+		 * How the church ends its gathering phase (T-296): Launch Sunday, or a milestone an organization it is affiliated
+		 * with offers. Choosing one never changes the date, the readiness milestones, the tasks or the phase.
+		 */
+		gathering_path: text("gathering_path", { enum: ["launch_sunday", "milestone"] })
+			.notNull()
+			.default("launch_sunday"),
+		/** The organization whose milestone the church uses; null on Launch Sunday, or once that organization is gone. */
+		gathering_organization_id: uuid("gathering_organization_id"),
+		/** The church-local day the milestone was reached, and its name then: a later rename never changes it. */
+		gathering_reached_on: date("gathering_reached_on", { mode: "string" }),
+		gathering_reached_name: text("gathering_reached_name"),
+		/** The planter's note on reaching it, at most 2,000 characters. */
+		gathering_note: text("gathering_note"),
 	},
 	(table): PgTableExtraConfigValue[] => [
 		foreignKey({ name: "launch_fk_0", columns: [table.plant_id], foreignColumns: [plant.id] })
@@ -2106,6 +2120,27 @@ export const launch = pgTable(
 			.onUpdate("no action"),
 		index("launch_ref_1").using("btree", table.reference_version_id.asc().nullsLast()),
 		index("launch_outcome_recorded_by_idx").using("btree", table.outcome_recorded_by.asc().nullsLast()),
+		check("launch_gathering_path", sql`(gathering_path = ANY (ARRAY['launch_sunday'::text, 'milestone'::text]))`),
+		check(
+			"launch_gathering_sunday",
+			sql`((gathering_path = 'milestone'::text) OR ((gathering_organization_id IS NULL) AND (gathering_reached_on IS NULL)))`,
+		),
+		check(
+			"launch_gathering_reached",
+			sql`(((gathering_reached_on IS NULL) = (gathering_reached_name IS NULL)) AND ((gathering_reached_on IS NOT NULL) OR (gathering_note IS NULL)))`,
+		),
+		check(
+			"launch_gathering_lengths",
+			sql`(((gathering_reached_name IS NULL) OR (length(gathering_reached_name) <= 120)) AND ((gathering_note IS NULL) OR (length(gathering_note) <= 2000)))`,
+		),
+		foreignKey({
+			name: "launch_gathering_organization",
+			columns: [table.gathering_organization_id],
+			foreignColumns: [organization.id],
+		})
+			.onDelete("set null")
+			.onUpdate("no action"),
+		index("launch_gathering_organization_idx").using("btree", table.gathering_organization_id.asc().nullsLast()),
 	],
 );
 export const launch_milestone = pgTable(
@@ -3056,6 +3091,13 @@ export const organization = pgTable(
 		pipeline_import_columns: jsonb("pipeline_import_columns")
 			.notNull()
 			.default(sql`'{}'::jsonb`),
+		/**
+		 * The milestone that ends the gathering phase for this organization's plants, instead of Launch Sunday (T-296).
+		 * Turning it off keeps the name and description for the next time it is turned on.
+		 */
+		gathering_milestone_offered: boolean("gathering_milestone_offered").notNull().default(false),
+		gathering_milestone_name: text("gathering_milestone_name"),
+		gathering_milestone_description: text("gathering_milestone_description"),
 	},
 	(table): PgTableExtraConfigValue[] => [
 		foreignKey({ name: "organization_fk_0", columns: [table.id], foreignColumns: [tenant.id] })
@@ -3076,6 +3118,10 @@ export const organization = pgTable(
 			sql`((statement_of_faith IS NULL) OR ((kind = 'sending_network'::text) AND (length(btrim(statement_of_faith)) > 0) AND (length(statement_of_faith) <= 10000)))`,
 		),
 		check("organization_pipeline_import_columns", sql`(jsonb_typeof(pipeline_import_columns) = 'object'::text)`),
+		check(
+			"organization_gathering_milestone",
+			sql`(((NOT gathering_milestone_offered) OR (gathering_milestone_name IS NOT NULL)) AND ((gathering_milestone_name IS NULL) OR ((length(btrim(gathering_milestone_name)) > 0) AND (length(gathering_milestone_name) <= 120))) AND ((gathering_milestone_description IS NULL) OR (length(gathering_milestone_description) <= 2000)))`,
+		),
 	],
 );
 export const organization_person_removal = pgTable(
@@ -5891,7 +5937,7 @@ export const audit_event = pgTable(
 		check(
 			"audit_action",
 			sql.raw(
-				"(action IN ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','branding.changed','communication.draft_deleted','communication.draft_saved','communication.rescheduled','communication.scheduled','communication.send_intended','communication.template_archived','communication.template_created','communication.template_deleted','communication.template_forked','communication.template_updated','deletion.cancelled','deletion.live_purge_completed','development.enrolled','development.feedback_recorded','development.milestone_confirmed','development.milestone_marked','development.milestone_recorded','development.plan_saved','development.program_created','development.version_applied','development.version_published','documents.archived','documents.church_archived','documents.church_restored','documents.branding_changed','documents.copied','documents.created_from_template','documents.designated','documents.export_deleted','documents.exported','documents.generated','documents.imported','documents.purged','documents.saved','documents.template_deleted','documents.template_details_changed','documents.template_saved','documents.template_updated','evry.conversation_created','evry.proposal_approved','evry.proposal_cancelled','evry.proposal_prepared','evry.proposal_retried','evry.proposal_revised','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','feedback.publication_held','feedback.publication_intended','feedback.publication_unknown','feedback.published','feedback.received','feedback.status_changed','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','intelligence.assessed','intelligence.refresh_requested','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','launch.corrected','launch.debrief_submitted','launch.outcome_recorded','launch.summary_published','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','organization.profile_changed','people.corrected','people.created','people.duplicate_dismissed','people.duplicate_restored','people.merged','people.recorded','people.removed','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.bookmark_changed','wiki.hidden','wiki.published','wiki.reading_recorded','wiki.source_order_changed'))",
+				"(action IN ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','branding.changed','communication.draft_deleted','communication.draft_saved','communication.rescheduled','communication.scheduled','communication.send_intended','communication.template_archived','communication.template_created','communication.template_deleted','communication.template_forked','communication.template_updated','deletion.cancelled','deletion.live_purge_completed','development.enrolled','development.feedback_recorded','development.milestone_confirmed','development.milestone_marked','development.milestone_recorded','development.plan_saved','development.program_created','development.version_applied','development.version_published','documents.archived','documents.church_archived','documents.church_restored','documents.branding_changed','documents.copied','documents.created_from_template','documents.designated','documents.export_deleted','documents.exported','documents.generated','documents.imported','documents.purged','documents.saved','documents.template_deleted','documents.template_details_changed','documents.template_saved','documents.template_updated','evry.conversation_created','evry.proposal_approved','evry.proposal_cancelled','evry.proposal_prepared','evry.proposal_retried','evry.proposal_revised','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','feedback.publication_held','feedback.publication_intended','feedback.publication_unknown','feedback.published','feedback.received','feedback.status_changed','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','intelligence.assessed','intelligence.assessment_opened','intelligence.feedback_saved','intelligence.refresh_requested','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','launch.corrected','launch.debrief_submitted','launch.outcome_recorded','launch.summary_published','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','organization.profile_changed','people.corrected','people.created','people.duplicate_dismissed','people.duplicate_restored','people.merged','people.recorded','people.removed','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.bookmark_changed','wiki.hidden','wiki.published','wiki.reading_recorded','wiki.source_order_changed'))",
 			),
 		),
 		check(
@@ -6778,5 +6824,77 @@ export const assessment_insight = pgTable(
 			sql`(severity = ANY (ARRAY['info'::text, 'low'::text, 'medium'::text, 'high'::text]))`,
 		),
 		index("assessment_insight_plant_idx").on(t.plant_id),
+	],
+);
+/**
+ * A reader's own rating of one point of one published assessment (PI-033): useful or not useful, with an optional
+ * comment. It belongs to its author only, is bound to the exact insight (checked when it is written), run and rubric
+ * version, and never changes the run, its scores or the rubric.
+ */
+export const assessment_feedback = pgTable(
+	"assessment_feedback",
+	{
+		run_id: uuid("run_id").notNull(),
+		ordinal: integer("ordinal").notNull(),
+		plant_id: uuid("plant_id").notNull(),
+		account_id: uuid("account_id").notNull(),
+		rubric_version: text("rubric_version").notNull(),
+		rating: text("rating").notNull(),
+		comment: text("comment"),
+		recorded_at: timestamp("recorded_at", { withTimezone: true, mode: "date" }).notNull(),
+	},
+	(t): PgTableExtraConfigValue[] => [
+		primaryKey({ name: "assessment_feedback_pkey", columns: [t.run_id, t.ordinal, t.account_id] }),
+		foreignKey({
+			name: "assessment_feedback_run",
+			columns: [t.run_id, t.plant_id],
+			foreignColumns: [assessment_run.id, assessment_run.plant_id],
+		})
+			.onDelete("cascade")
+			.onUpdate("no action"),
+		foreignKey({ name: "assessment_feedback_plant", columns: [t.plant_id], foreignColumns: [plant.id] })
+			.onDelete("cascade")
+			.onUpdate("no action"),
+		foreignKey({ name: "assessment_feedback_account", columns: [t.account_id], foreignColumns: [account.id] })
+			.onDelete("cascade")
+			.onUpdate("no action"),
+		check("assessment_feedback_rating", sql`(rating = ANY (ARRAY['useful'::text, 'not_useful'::text]))`),
+		check(
+			"assessment_feedback_comment",
+			sql`((comment IS NULL) OR ((char_length(comment) >= 1) AND (char_length(comment) <= 1000)))`,
+		),
+		index("assessment_feedback_plant_idx").on(t.plant_id),
+		index("assessment_feedback_account_idx").on(t.account_id),
+	],
+);
+/**
+ * An Owner's or Admin's explicit first open of one published assessment (PI-024). The earliest open, or 72 hours
+ * after the run became available, releases the run to the plant's organizations (PI-032). Rendering writes nothing.
+ */
+export const assessment_seen = pgTable(
+	"assessment_seen",
+	{
+		run_id: uuid("run_id").notNull(),
+		account_id: uuid("account_id").notNull(),
+		plant_id: uuid("plant_id").notNull(),
+		seen_at: timestamp("seen_at", { withTimezone: true, mode: "date" }).notNull(),
+	},
+	(t): PgTableExtraConfigValue[] => [
+		primaryKey({ name: "assessment_seen_pkey", columns: [t.run_id, t.account_id] }),
+		foreignKey({
+			name: "assessment_seen_run",
+			columns: [t.run_id, t.plant_id],
+			foreignColumns: [assessment_run.id, assessment_run.plant_id],
+		})
+			.onDelete("cascade")
+			.onUpdate("no action"),
+		foreignKey({ name: "assessment_seen_plant", columns: [t.plant_id], foreignColumns: [plant.id] })
+			.onDelete("cascade")
+			.onUpdate("no action"),
+		foreignKey({ name: "assessment_seen_account", columns: [t.account_id], foreignColumns: [account.id] })
+			.onDelete("cascade")
+			.onUpdate("no action"),
+		index("assessment_seen_plant_idx").on(t.plant_id),
+		index("assessment_seen_account_idx").on(t.account_id),
 	],
 );

@@ -136,6 +136,18 @@ test("not sharing findings is Limited visibility, and silence is never On track"
 	assert.equal(healthOf(true, prep({ daysToLaunch: null })), "not_assessed");
 });
 
+test("Watch and On track come only from a released assessment; a concern the organization may not see is Limited visibility", () => {
+	assert.equal(healthOf(true, prep({}), { concerns: 1, withheld: false }), "watch");
+	assert.equal(healthOf(true, prep({}), { concerns: 0, withheld: false }), "on_track");
+	assert.equal(healthOf(true, prep({}), { concerns: 0, withheld: true }), "limited_visibility");
+	assert.equal(healthOf(true, prep({}), null), "not_assessed");
+	assert.equal(healthOf(false, prep({}), { concerns: 0, withheld: false }), "limited_visibility");
+	assert.equal(
+		healthOf(true, prep({ daysToLaunch: 10, unfilledRoles: 1 }), { concerns: 0, withheld: false }),
+		"launch_readiness",
+	);
+});
+
 test("the pattern uses the rubric's NIR-03 wording, and a Not shared row says nothing else", () => {
 	assert.equal(
 		nearLaunchSentence(2),

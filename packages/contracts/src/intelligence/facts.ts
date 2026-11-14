@@ -187,6 +187,23 @@ export const plantFacts = z.strictObject({
 });
 export type PlantFacts = z.infer<typeof plantFacts>;
 
+/** Launch Sunday is inside the final launch window this many plant-local days before it (Phase 3 criterion). */
+export const LAUNCH_WINDOW_DAYS = 28;
+/**
+ * The two launch-date criteria from the countdown: a scheduled date is set (Met), and it is 0 to 28 days away (Met) or
+ * farther (Not met). With no scheduled date, or one already held, both stay Unknown: no date is never a No.
+ */
+export function launchCriteria(launch: {
+	targetOn: string | null;
+	daysToLaunch: number | null;
+}): Partial<Record<z.infer<typeof criterionKey>, z.infer<typeof criterionStatus>>> {
+	if (!launch.targetOn || launch.daysToLaunch === null) return {};
+	return {
+		launch_date_set: "met",
+		launch_window: launch.daysToLaunch >= 0 && launch.daysToLaunch <= LAUNCH_WINDOW_DAYS ? "met" : "not_met",
+	};
+}
+
 export const readFactsRequest = z.strictObject({});
 
 export const factsError = z.discriminatedUnion("code", [

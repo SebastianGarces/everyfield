@@ -256,6 +256,29 @@ function entryRow(e: History["entries"][number], timeZone: string): SourceRow {
 				label: `Summary published (version ${ch.version})`,
 				fields: { ...base, change: "summary" },
 			};
+		case "path":
+			return {
+				kind: "activity",
+				id: e.id,
+				label:
+					ch.to === "milestone"
+						? `Milestone chosen instead of Launch Sunday${ch.milestone ? `: ${ch.milestone}` : ""}`
+						: "Launch Sunday chosen again",
+				fields: { ...base, change: "path", milestone: ch.milestone, organization: ch.organization },
+			};
+		case "gathering":
+			return {
+				kind: "activity",
+				id: e.id,
+				label: `${ch.name} ${ch.event === "recorded" ? "reached" : ch.event === "corrected" ? "corrected" : "record cleared"}`,
+				fields: {
+					...base,
+					change: "gathering",
+					from: ch.from ? launchDay(ch.from) : null,
+					to: ch.to ? launchDay(ch.to) : null,
+					reason: ch.reason,
+				},
+			};
 	}
 }
 /** The church-local date of an instant. */

@@ -1231,6 +1231,158 @@
       },
       "isRLSEnabled": false
     },
+    "public.assessment_feedback": {
+      "name": "assessment_feedback",
+      "schema": "",
+      "columns": {
+        "run_id": {
+          "name": "run_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ordinal": {
+          "name": "ordinal",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "plant_id": {
+          "name": "plant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "account_id": {
+          "name": "account_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "rubric_version": {
+          "name": "rubric_version",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "rating": {
+          "name": "rating",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "comment": {
+          "name": "comment",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "recorded_at": {
+          "name": "recorded_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "assessment_feedback_plant_idx": {
+          "name": "assessment_feedback_plant_idx",
+          "columns": [
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "assessment_feedback_account_idx": {
+          "name": "assessment_feedback_account_idx",
+          "columns": [
+            {
+              "expression": "account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "assessment_feedback_run": {
+          "name": "assessment_feedback_run",
+          "tableFrom": "assessment_feedback",
+          "tableTo": "assessment_run",
+          "columnsFrom": [
+            "run_id",
+            "plant_id"
+          ],
+          "columnsTo": [
+            "id",
+            "plant_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "assessment_feedback_plant": {
+          "name": "assessment_feedback_plant",
+          "tableFrom": "assessment_feedback",
+          "tableTo": "plant",
+          "columnsFrom": [
+            "plant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "assessment_feedback_account": {
+          "name": "assessment_feedback_account",
+          "tableFrom": "assessment_feedback",
+          "tableTo": "account",
+          "columnsFrom": [
+            "account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "assessment_feedback_pkey": {
+          "name": "assessment_feedback_pkey",
+          "columns": [
+            "run_id",
+            "ordinal",
+            "account_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "assessment_feedback_rating": {
+          "name": "assessment_feedback_rating",
+          "value": "(rating = ANY (ARRAY['useful'::text, 'not_useful'::text]))"
+        },
+        "assessment_feedback_comment": {
+          "name": "assessment_feedback_comment",
+          "value": "((comment IS NULL) OR ((char_length(comment) >= 1) AND (char_length(comment) <= 1000)))"
+        }
+      },
+      "isRLSEnabled": false
+    },
     "public.assessment_insight": {
       "name": "assessment_insight",
       "schema": "",
@@ -1685,6 +1837,124 @@
           "value": "((attempts >= 0) AND (attempts <= 12) AND (input_tokens >= 0) AND (output_tokens >= 0))"
         }
       },
+      "isRLSEnabled": false
+    },
+    "public.assessment_seen": {
+      "name": "assessment_seen",
+      "schema": "",
+      "columns": {
+        "run_id": {
+          "name": "run_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "account_id": {
+          "name": "account_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "plant_id": {
+          "name": "plant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "seen_at": {
+          "name": "seen_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "assessment_seen_plant_idx": {
+          "name": "assessment_seen_plant_idx",
+          "columns": [
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "assessment_seen_account_idx": {
+          "name": "assessment_seen_account_idx",
+          "columns": [
+            {
+              "expression": "account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "assessment_seen_run": {
+          "name": "assessment_seen_run",
+          "tableFrom": "assessment_seen",
+          "tableTo": "assessment_run",
+          "columnsFrom": [
+            "run_id",
+            "plant_id"
+          ],
+          "columnsTo": [
+            "id",
+            "plant_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "assessment_seen_plant": {
+          "name": "assessment_seen_plant",
+          "tableFrom": "assessment_seen",
+          "tableTo": "plant",
+          "columnsFrom": [
+            "plant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "assessment_seen_account": {
+          "name": "assessment_seen_account",
+          "tableFrom": "assessment_seen",
+          "tableTo": "account",
+          "columnsFrom": [
+            "account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "assessment_seen_pkey": {
+          "name": "assessment_seen_pkey",
+          "columns": [
+            "run_id",
+            "account_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
       "isRLSEnabled": false
     },
     "public.assignment_feedback": {
@@ -2804,7 +3074,7 @@
       "checkConstraints": {
         "audit_action": {
           "name": "audit_action",
-          "value": "(action IN ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','branding.changed','communication.draft_deleted','communication.draft_saved','communication.rescheduled','communication.scheduled','communication.send_intended','communication.template_archived','communication.template_created','communication.template_deleted','communication.template_forked','communication.template_updated','deletion.cancelled','deletion.live_purge_completed','development.enrolled','development.feedback_recorded','development.milestone_confirmed','development.milestone_marked','development.milestone_recorded','development.plan_saved','development.program_created','development.version_applied','development.version_published','documents.archived','documents.church_archived','documents.church_restored','documents.branding_changed','documents.copied','documents.created_from_template','documents.designated','documents.export_deleted','documents.exported','documents.generated','documents.imported','documents.purged','documents.saved','documents.template_deleted','documents.template_details_changed','documents.template_saved','documents.template_updated','evry.conversation_created','evry.proposal_approved','evry.proposal_cancelled','evry.proposal_prepared','evry.proposal_retried','evry.proposal_revised','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','feedback.publication_held','feedback.publication_intended','feedback.publication_unknown','feedback.published','feedback.received','feedback.status_changed','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','intelligence.assessed','intelligence.refresh_requested','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','launch.corrected','launch.debrief_submitted','launch.outcome_recorded','launch.summary_published','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','organization.profile_changed','people.corrected','people.created','people.duplicate_dismissed','people.duplicate_restored','people.merged','people.recorded','people.removed','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.bookmark_changed','wiki.hidden','wiki.published','wiki.reading_recorded','wiki.source_order_changed'))"
+          "value": "(action IN ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','branding.changed','communication.draft_deleted','communication.draft_saved','communication.rescheduled','communication.scheduled','communication.send_intended','communication.template_archived','communication.template_created','communication.template_deleted','communication.template_forked','communication.template_updated','deletion.cancelled','deletion.live_purge_completed','development.enrolled','development.feedback_recorded','development.milestone_confirmed','development.milestone_marked','development.milestone_recorded','development.plan_saved','development.program_created','development.version_applied','development.version_published','documents.archived','documents.church_archived','documents.church_restored','documents.branding_changed','documents.copied','documents.created_from_template','documents.designated','documents.export_deleted','documents.exported','documents.generated','documents.imported','documents.purged','documents.saved','documents.template_deleted','documents.template_details_changed','documents.template_saved','documents.template_updated','evry.conversation_created','evry.proposal_approved','evry.proposal_cancelled','evry.proposal_prepared','evry.proposal_retried','evry.proposal_revised','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','feedback.publication_held','feedback.publication_intended','feedback.publication_unknown','feedback.published','feedback.received','feedback.status_changed','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','intelligence.assessed','intelligence.assessment_opened','intelligence.feedback_saved','intelligence.refresh_requested','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','launch.corrected','launch.debrief_submitted','launch.outcome_recorded','launch.summary_published','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','organization.profile_changed','people.corrected','people.created','people.duplicate_dismissed','people.duplicate_restored','people.merged','people.recorded','people.removed','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.bookmark_changed','wiki.hidden','wiki.published','wiki.reading_recorded','wiki.source_order_changed'))"
         },
         "audit_kind": {
           "name": "audit_kind",
@@ -9870,6 +10140,37 @@
           "type": "uuid",
           "primaryKey": false,
           "notNull": false
+        },
+        "gathering_path": {
+          "name": "gathering_path",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'launch_sunday'"
+        },
+        "gathering_organization_id": {
+          "name": "gathering_organization_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "gathering_reached_on": {
+          "name": "gathering_reached_on",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "gathering_reached_name": {
+          "name": "gathering_reached_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "gathering_note": {
+          "name": "gathering_note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {
@@ -9893,6 +10194,21 @@
           "columns": [
             {
               "expression": "outcome_recorded_by",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "launch_gathering_organization_idx": {
+          "name": "launch_gathering_organization_idx",
+          "columns": [
+            {
+              "expression": "gathering_organization_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -9943,6 +10259,19 @@
           ],
           "onDelete": "set null",
           "onUpdate": "no action"
+        },
+        "launch_gathering_organization": {
+          "name": "launch_gathering_organization",
+          "tableFrom": "launch",
+          "tableTo": "organization",
+          "columnsFrom": [
+            "gathering_organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
@@ -9983,6 +10312,22 @@
         "launch_outcome_recorded": {
           "name": "launch_outcome_recorded",
           "value": "((actual_date IS NULL) = (outcome_recorded_at IS NULL))"
+        },
+        "launch_gathering_path": {
+          "name": "launch_gathering_path",
+          "value": "(gathering_path = ANY (ARRAY['launch_sunday'::text, 'milestone'::text]))"
+        },
+        "launch_gathering_sunday": {
+          "name": "launch_gathering_sunday",
+          "value": "((gathering_path = 'milestone'::text) OR ((gathering_organization_id IS NULL) AND (gathering_reached_on IS NULL)))"
+        },
+        "launch_gathering_reached": {
+          "name": "launch_gathering_reached",
+          "value": "(((gathering_reached_on IS NULL) = (gathering_reached_name IS NULL)) AND ((gathering_reached_on IS NOT NULL) OR (gathering_note IS NULL)))"
+        },
+        "launch_gathering_lengths": {
+          "name": "launch_gathering_lengths",
+          "value": "(((gathering_reached_name IS NULL) OR (length(gathering_reached_name) <= 120)) AND ((gathering_note IS NULL) OR (length(gathering_note) <= 2000)))"
         }
       },
       "isRLSEnabled": false
@@ -14598,6 +14943,25 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'{}'::jsonb"
+        },
+        "gathering_milestone_offered": {
+          "name": "gathering_milestone_offered",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "gathering_milestone_name": {
+          "name": "gathering_milestone_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "gathering_milestone_description": {
+          "name": "gathering_milestone_description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {},
@@ -14676,6 +15040,10 @@
         "organization_pipeline_import_columns": {
           "name": "organization_pipeline_import_columns",
           "value": "(jsonb_typeof(pipeline_import_columns) = 'object'::text)"
+        },
+        "organization_gathering_milestone": {
+          "name": "organization_gathering_milestone",
+          "value": "(((NOT gathering_milestone_offered) OR (gathering_milestone_name IS NOT NULL)) AND ((gathering_milestone_name IS NULL) OR ((length(btrim(gathering_milestone_name)) > 0) AND (length(gathering_milestone_name) <= 120))) AND ((gathering_milestone_description IS NULL) OR (length(gathering_milestone_description) <= 2000)))"
         }
       },
       "isRLSEnabled": false

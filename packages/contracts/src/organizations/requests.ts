@@ -63,6 +63,31 @@ export const setSharingRequest = commandEnvelope(
 /** The longest statement of faith a network stores, in characters. */
 export const STATEMENT_OF_FAITH_MAX = 10_000;
 const boundedText = z.string().trim().max(200).nullable();
+/** The longest name and description of the milestone an organization offers its plants (T-296), in characters. */
+export const GATHERING_NAME_MAX = 120;
+export const GATHERING_DESCRIPTION_MAX = 2000;
+/**
+ * The milestone that ends the gathering phase for the organization's plants instead of Launch Sunday (T-296). Blank
+ * text is a clear. Offering it needs a name; turning it off keeps the name and description for later.
+ */
+export const gatheringMilestone = z
+	.strictObject({
+		offered: z.boolean(),
+		name: z
+			.string()
+			.trim()
+			.max(GATHERING_NAME_MAX)
+			.transform((text) => text || null)
+			.nullable(),
+		description: z
+			.string()
+			.transform((text) => text.replace(/\r\n?/g, "\n").trim())
+			.pipe(z.string().max(GATHERING_DESCRIPTION_MAX))
+			.transform((text) => text || null)
+			.nullable(),
+	})
+	.refine((v) => !v.offered || v.name !== null, { path: ["name"], message: "name_required" });
+export type GatheringMilestone = z.infer<typeof gatheringMilestone>;
 export const profileFields = z.strictObject({
 	name: z.string().trim().min(1).max(200),
 	city: boundedText,
@@ -82,6 +107,7 @@ export const profileFields = z.strictObject({
 		.pipe(z.string().max(STATEMENT_OF_FAITH_MAX))
 		.transform((text) => text || null)
 		.nullable(),
+	gatheringMilestone,
 });
 export const organizationProfileRequest = z.strictObject({ organization: organizationOwner });
 export const updateOrganizationProfileRequest = commandEnvelope(

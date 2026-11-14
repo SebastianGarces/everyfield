@@ -17,6 +17,7 @@ import {
 	ChurchIcon,
 	LockKeyIcon,
 	News01Icon,
+	Pulse02Icon,
 	StartUp02Icon,
 	ShieldUserIcon,
 	Task01Icon,
@@ -37,6 +38,8 @@ import { STAGE_DOT, STAGE_LABEL, StatusBadge, Tag } from "@everyfield/ui/display
 import { cn, Icon, type IconSvgElement } from "@everyfield/ui/foundations";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { LENSES } from "@everyfield/contracts/intelligence";
+import { factText } from "../intelligence/assessment-model.ts";
 import { IntelligenceBody } from "./Intelligence.tsx";
 import {
 	dayOf,
@@ -268,6 +271,7 @@ export function PlantScreen({ view }: { view: PlantView }) {
 				}
 			/>
 			<LaunchCard view={view} />
+			<HealthCard view={view} />
 			{view.summary ? <SummaryCard view={view} summary={view.summary} /> : null}
 			<div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
 				<h2 className="font-title text-title-sm tracking-[-0.02em] text-ink">What {plant.name} shares with you</h2>
@@ -367,6 +371,74 @@ function LaunchCard({ view }: { view: PlantView }) {
 					</CalloutText>
 				</Card>
 			) : null}
+		</Card>
+	);
+}
+
+const LENS_LABEL = Object.fromEntries(LENSES.map((l) => [l.key, l.label])) as Record<string, string>;
+/**
+ * Plant health from the plant's released Plant Intelligence assessment: its rollup, the phase and date it was assessed
+ * for, and each concern as counts only, the same concern the planter sees. Never the assessment's words or a person.
+ */
+function HealthCard({ view }: { view: PlantView }) {
+	const { plant, assessment } = view;
+	const health = HEALTH[plant.health];
+	return (
+		<Card as="section" aria-labelledby="health-title" size="sm" className="mb-5" data-assessment={assessment.status}>
+			<div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+				<CardIcon icon={Pulse02Icon} tone="green" size={36} />
+				<div className="min-w-0 flex-1">
+					<h2 id="health-title" className="text-sm text-text-3">
+						Plant health
+					</h2>
+					<p className="font-medium text-ink">
+						{assessment.status === "withheld"
+							? "Plant Intelligence findings are not shared with you"
+							: assessment.status === "not_assessed"
+								? "No assessment has been released to you yet"
+								: `Phase ${assessment.phase} assessment, as of ${dayOf(assessment.asOf, view.timeZone)}`}
+					</p>
+				</div>
+				<StatusBadge status={health.status} data-health={plant.health}>
+					{health.label}
+				</StatusBadge>
+			</div>
+			{assessment.status === "released" ? (
+				assessment.concerns.length || assessment.withheld ? (
+					<ul className="mt-4 flex flex-col gap-2.5">
+						{assessment.concerns.map((c) => (
+							<li key={c.id} data-concern={c.id} className="rounded-md bg-surface-2 px-3.5 py-3">
+								<p className="flex flex-wrap items-center justify-between gap-2">
+									<span className="font-medium text-ink">{c.lens ? LENS_LABEL[c.lens] : "Launch progress"}</span>
+									<StatusBadge size="sm" status={c.severity === "high" ? "risk" : "attention"}>
+										{c.severity === "high" ? "Attention" : "Watch"}
+									</StatusBadge>
+								</p>
+								{c.evidence.length ? (
+									<ul className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-sm text-text-2">
+										{c.evidence.map((e) => (
+											<li key={e.key}>
+												{e.label}: <b className="font-semibold text-ink">{factText(e.value)}</b>
+											</li>
+										))}
+									</ul>
+								) : null}
+							</li>
+						))}
+						{assessment.withheld ? (
+							<li className="text-sm text-text-3">
+								{assessment.withheld === 1 ? "1 more concern rests" : `${assessment.withheld} more concerns rest`} on
+								records {plant.name} doesn&apos;t share with you.
+							</li>
+						) : null}
+					</ul>
+				) : (
+					<p className="mt-3 text-sm text-text-2">This assessment raised no concern.</p>
+				)
+			) : null}
+			<p className="mt-3 text-xs text-text-3">
+				{plant.name} sees each assessment first. You see it once they open it, or 72 hours after it is ready.
+			</p>
 		</Card>
 	);
 }

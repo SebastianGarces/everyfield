@@ -42,6 +42,27 @@ function changeOf(r: Row): z.input<typeof c.historyChange> | null {
 	const action: Action = r.action;
 	switch (r.subjectType) {
 		case "launch": {
+			if (event === "path_changed") {
+				const to = r.after?.path === "milestone" ? "milestone" : "launch_sunday";
+				const side = to === "milestone" ? r.after : r.before;
+				return {
+					kind: "path",
+					to,
+					milestone: value(side?.milestone) as string | null,
+					organization: value(side?.organization) as string | null,
+				};
+			}
+			if (event === "gathering_recorded" || event === "gathering_corrected" || event === "gathering_cleared")
+				return {
+					kind: "gathering",
+					event:
+						event === "gathering_recorded" ? "recorded" : event === "gathering_corrected" ? "corrected" : "cleared",
+					name: String(r.after?.name ?? r.before?.name ?? ""),
+					from: value(r.before?.reachedOn) as string | null,
+					to: value(r.after?.reachedOn) as string | null,
+					noteChanged: r.metadata.noteChanged === true,
+					reason: r.reason,
+				};
 			if (action === "launch.outcome_recorded" || action === "launch.corrected") {
 				const changes = OUTCOME_FIELDS.filter((f) => r.after && f in r.after).map((field) => ({
 					field,
