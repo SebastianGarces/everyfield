@@ -69,8 +69,10 @@ export function scheduledMessages(db: Database, transport: DeliveryTransport, ke
  * pass per mount, each claiming only its own logical-key prefixes (`MAIL_PASSES` in mail.ts) and rechecking every mail
  * under that mount's own rule just before the handoff: church invitations (`mail`), identity (`identity-mail`),
  * organization connections (`organization-mail`), settings (`settings-mail`), onboarding and association receipts
- * (`onboarding-mail`), notice email from tasks, phases, meetings and milestones (`notice-mail`) and digests
- * (`digest-mail`). Each pass first replays its mail whose handoff answered unknown on an earlier tick, under the same
+ * (`onboarding-mail`), notice email from tasks, phases, meetings and milestones (`notice-mail`), digests
+ * (`digest-mail`) and the operator email for product feedback (`feedback-mail`). Just before the mail, feedback is
+ * published as public issues (`feedback-publication`, skipped without a configured feedback repository), so its
+ * operator email goes in the same tick. Each pass first replays its mail whose handoff answered unknown on an earlier tick, under the same
  * stored request and idempotency key, while the email service's 23 h 55 min window holds (`claimUnknownMail`).
  * Scheduled Messages email goes through `messages`. Last, `mail-callbacks` applies stored provider callbacks whose
  * email now has its provider id (`replayStoredCallbacks`).
@@ -108,6 +110,11 @@ export function scheduledJobs(config: {
 	digests: DigestWorker | null;
 	/** Writes the notices of due meeting announcement and reminder jobs; null without mail configuration. */
 	notifications?: NotificationWorker | null;
+	/**
+	 * Publishes one bounded batch of feedback as public issues and queues each operator email (WP-049B). Null when the
+	 * deployment names no feedback repository: feedback then waits, unpublished, until one is configured.
+	 */
+	feedbackPublication?: ((limit: number, until: number) => Promise<number>) | null;
 	/** The clock digests are planned and compiled at. Tests move it; the route uses the real time. */
 	now?: () => Date;
 }) {
@@ -124,6 +131,7 @@ export function scheduledJobs(config: {
 		const { storage, cleanup, reminders, digests, mail } = config;
 		const messages = config.messages ?? null;
 		const notifications = config.notifications ?? null;
+		const feedbackPublication = config.feedbackPublication ?? null;
 		const pass = (name: keyof NonNullable<typeof config.mountMail>): Step => {
 			const run = config.mountMail?.[name] ?? null;
 			return [`${name}-mail`, null, run && (() => run(20, until))];
@@ -140,6 +148,7 @@ export function scheduledJobs(config: {
 			["digest-planning", "planned", digests && (() => planDigests(db, asOf))],
 			["digest-delivery", "digests", digests && (() => digests.run(db, asOf, undefined, until))],
 			["notification", "notified", notifications && (() => notifications.run(db, asOf, undefined, until))],
+			["feedback-publication", null, feedbackPublication && (() => feedbackPublication(10, until))],
 			["mail-expiry", null, () => expireStaleMail(db)],
 			["mail", "mailed", mail && (() => mail(20, until))],
 			pass("identity"),
@@ -148,6 +157,7 @@ export function scheduledJobs(config: {
 			pass("onboarding"),
 			pass("notice"),
 			pass("digest"),
+			pass("feedback"),
 			["messages", "messages", messages && (() => messages(20, until))],
 			["mail-callbacks", null, () => replayStoredCallbacks(db)],
 		];

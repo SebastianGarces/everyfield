@@ -92,7 +92,26 @@ function page<T>(found: Record<string, unknown>[], item: (row: Record<string, un
 const AT = sql`to_char(f.submitted_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`;
 
 const ownItem = (row: Record<string, unknown>) =>
-	c.ownFeedback.parse({ id: row.id, category: row.category, submittedAt: row.at, status: row.status, publicUrl: null });
+	c.ownFeedback.parse({
+		id: row.id,
+		category: row.category,
+		submittedAt: row.at,
+		status: row.status,
+		publicUrl: row.issue_url ?? null,
+	});
+
+/** The operator email's ledger state as a triager reads it, or null when none is queued. */
+const MAIL_STATE: Record<string, c.OperatorMailState> = {
+	pending: "sending",
+	scheduled: "sending",
+	dispatched: "sending",
+	accepted: "sent",
+	sent: "sent",
+	refused: "failed",
+	failed: "failed",
+	cancelled: "failed",
+	unknown: "unknown",
+};
 
 function triageItem(row: Record<string, unknown>) {
 	return c.triageFeedback.parse({
@@ -114,12 +133,17 @@ function triageItem(row: Record<string, unknown>) {
 			theme: row.theme,
 			appVersion: row.app_version,
 		},
+		reference: row.reference,
+		publication: { state: row.publication_state, heldReason: row.held_reason ?? null, url: row.issue_url ?? null },
+		operatorMail: typeof row.mail_state === "string" ? (MAIL_STATE[row.mail_state] ?? null) : null,
 	});
 }
 const TRIAGE_COLUMNS = sql`f.id, f.category, f.description, f.status, f.revision::text AS revision, ${AT} AS at,
  f.page_label, f.page_address, f.church_label, f.role_label, f.browser, f.screen_width, f.screen_height, f.theme,
  f.app_version, (SELECT display_name FROM seat_identity(f.account_id)) AS author_name,
- (SELECT email FROM access_account_contact(f.account_id)) AS author_email`;
+ (SELECT email FROM access_account_contact(f.account_id)) AS author_email, f.reference, f.publication_state,
+ f.held_reason, f.issue_url, (SELECT m.state FROM mail m WHERE m.tenant_id=f.account_id
+  AND m.logical_key='feedback/'||f.id::text) AS mail_state`;
 
 /** The feedback a request key already saved for the caller, read once after a lost race. */
 async function replay(db: Database, authority: RequestActor, requestKey: string) {
@@ -145,7 +169,8 @@ export const feedbackWriter = {
 	/**
 	 * feedback.submit: saves one piece of feedback for the caller's own live account. The church and role come from the
 	 * caller's current seat and the app version from the server, never from the request. A resend with the same request
-	 * key returns the saved feedback and writes nothing more. One statement with its feedback.received audit row.
+	 * key returns the saved feedback and writes nothing more. One statement with its feedback.received audit row and the
+	 * feedback_publication job the scheduled runner publishes it from.
 	 */
 	async submit(db: Database, authority: RequestActor, raw: unknown, server: { appVersion: string | null }) {
 		return settle(async () => {
@@ -163,6 +188,11 @@ ins AS (
  FROM gate WHERE gate.ok
  ON CONFLICT (account_id, request_key) DO NOTHING
  RETURNING id, category, page_label, submitted_at
+), job AS (
+ INSERT INTO job (tenant_id, kind, subject_record_id, producer_key, state, eligible_at, attempt_count, max_attempts,
+  claim_generation)
+ SELECT ${account}::uuid, 'feedback_publication', id, 'feedback/' || id::text, 'ready', clock_timestamp(), 0, 4, 0 FROM ins
+ RETURNING 1
 ), aud AS (
  INSERT INTO audit_event (tenant_id, actor_id, action, kind, subject_id)
  SELECT ${account}::uuid, ${account}::uuid, 'feedback.received', 'create', id FROM ins RETURNING 1
@@ -209,7 +239,7 @@ FROM (SELECT 1) one LEFT JOIN LATERAL (SELECT * FROM saved LIMIT 1) f ON true`,
 			const found = await rows(
 				db,
 				sql`SELECT g.ok, f.* FROM (SELECT ${ownAccount(authority)} AS ok) g LEFT JOIN LATERAL (
- SELECT f.id, f.category, f.status, ${AT} AS at FROM feedback f
+ SELECT f.id, f.category, f.status, f.issue_url, ${AT} AS at FROM feedback f
  WHERE g.ok AND f.account_id=${authority.actor.accountId}::uuid AND ${keyset(input.cursor)}
  ORDER BY f.submitted_at DESC, f.id DESC LIMIT ${c.PAGE_SIZE + 1}) f ON true`,
 			);
@@ -229,7 +259,7 @@ FROM (SELECT 1) one LEFT JOIN LATERAL (SELECT * FROM saved LIMIT 1) f ON true`,
 			const input = parse(c.getOwnStatusRequest, raw);
 			const [row] = await rows(
 				db,
-				sql`SELECT f.id, f.category, f.status, ${AT} AS at FROM feedback f
+				sql`SELECT f.id, f.category, f.status, f.issue_url, ${AT} AS at FROM feedback f
  WHERE ${ownAccount(authority)} AND f.id=${input.feedbackId}::uuid AND f.account_id=${authority.actor.accountId}::uuid`,
 			);
 			return row ? ownItem(row) : deny("unavailable");

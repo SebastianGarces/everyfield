@@ -4,6 +4,9 @@ import {
 	descriptionProblem,
 	type FeedbackCategory,
 	type FeedbackStatus,
+	type HeldReason,
+	type OperatorMailState,
+	type PublicationState,
 } from "@everyfield/contracts/feedback";
 
 // The words and the page details of the feedback dialog and lists. Pure, so the browser and tests share them.
@@ -36,6 +39,40 @@ export const STATUS_NAME: Record<FeedbackStatus, string> = {
 	dismissed: "Dismissed",
 };
 export const STATUS_TONE = { new: "blue", reviewed: "amber", resolved: "green", dismissed: "ink" } as const;
+
+/** Whether this deployment names a feedback repository and an operator inbox. */
+export type PublicationSetup = { publication: boolean; mail: boolean };
+type Shown = { text: string; tone: "blue" | "amber" | "green" | "magenta" | "ink" };
+
+/** The public issue's state as a triager reads it. Waiting feedback on a deployment with no repository is "Not configured". */
+export function publicationShown(state: PublicationState, setup: PublicationSetup): Shown {
+	if (state === "pending" && !setup.publication) return { text: "Not configured", tone: "ink" };
+	return {
+		pending: { text: "Pending", tone: "blue" },
+		publishing: { text: "Publishing", tone: "blue" },
+		unknown: { text: "Unknown", tone: "amber" },
+		published: { text: "Published", tone: "green" },
+		held: { text: "Held", tone: "magenta" },
+	}[state] as Shown;
+}
+/** Why a feedback is held, for the triager. */
+export const HELD_REASON: Record<HeldReason, string> = {
+	unsafe_fields: "Its type or page is not on the approved public list, so nothing was published.",
+	github_refused: "GitHub refused the issue, so nothing was published.",
+	search_failed: "GitHub's answer was lost, and the search for its reference did not answer. Check the repository.",
+	ambiguous: "More than one issue carries its reference. Check the repository.",
+	unresolved: "GitHub never answered clearly. Check the repository for its reference.",
+};
+/** The operator email's state. None queued yet is "Waiting", or "Not configured" with no operator inbox. */
+export function operatorMailShown(state: OperatorMailState | null, setup: PublicationSetup): Shown {
+	if (state === null) return setup.mail ? { text: "Waiting", tone: "blue" } : { text: "Not configured", tone: "ink" };
+	return {
+		sending: { text: "Sending", tone: "blue" },
+		sent: { text: "Sent", tone: "green" },
+		failed: { text: "Failed", tone: "magenta" },
+		unknown: { text: "Unknown", tone: "amber" },
+	}[state] as Shown;
+}
 
 /** The counter under the text field and whether Send is allowed. */
 export function counter(text: string): { text: string; problem: string | null } {

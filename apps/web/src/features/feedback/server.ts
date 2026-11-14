@@ -4,12 +4,21 @@ import type { Database } from "@everyfield/db/client";
 import type { RequestActor } from "@everyfield/domain/access";
 import { feedbackWriter } from "@everyfield/domain/feedback";
 import { requestDatabase } from "@/server/database";
+import { githubConfig } from "@/server/jobs/github";
 import { getViewer } from "@/server/request-context";
+import type { PublicationSetup } from "./model.ts";
+import { operatorMailConfigured } from "./mail.ts";
 
 // The feedback reads and writes run as the request's own signed-in account. The domain checks access in each statement.
 
 /** The deployed version, from the host's build, or null when it does not say (a local build). */
 export const appVersion = () => process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? null;
+
+/** Whether this deployment names a feedback repository and an operator inbox; the triage pages say so when not. */
+export const publicationSetup = (): PublicationSetup => ({
+	publication: githubConfig() !== null,
+	mail: operatorMailConfigured(),
+});
 
 export type Run<T> =
 	{ status: "ok"; value: T } | { status: "refused"; code: string } | { status: "signed_out" | "lost" };
