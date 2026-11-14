@@ -282,7 +282,13 @@
 				"/hint|possible|potential|might|may|similar|not (proof|certain|sure)|can['’]?t (be sure|confirm|tell)|enough to (tell|say|know)/i"
 			],
 			"forbid": ["/\\b(yes|definitely|clearly|confirmed)\\b[^.\\n]{0,30}same person/i"],
-			"derivation": "Comparing two named people is the duplicate check, not the import review list."
+			"derivation": "Comparing two named people is the duplicate check, not the import review list.",
+			"finding": {
+				"checks": [
+					"says /hint|possible|potential|might|may|similar|not (proof|certain|sure)|can['’]?t (be sure|confirm|tell)|enough to (tell|say|know)/i"
+				],
+				"note": "Batched re-record for T-316 (Nov 14, D-1320/D-1321): drift set as a finding per D-958/D-1151: says /hint|possible|potential|might|may|similar|not (proof|certain|sure)|can['’]"
+			}
 		}
 	},
 	{
@@ -791,14 +797,7 @@
 			"require": ["/review|approv/i"],
 			"forbid": [
 				"/I['’]?(ve| have)? (sent|scheduled|moved|cancelled|canceled|replaced)|(?<!(nothing|not) )has been (sent|scheduled|moved|cancelled|canceled)|is on its way/i"
-			],
-			"finding": {
-				"checks": [
-					"proposes communication.scheduleReviewed {\"communicationId\":\"5b6d1f0e-0000-4000-8000-000000000c01\",\"sendAt\":\"~2026-11-13T09:00\"}",
-					"says /review|approv/i"
-				],
-				"note": "Drifted on the T-323 merge re-record; failing checks set from its report (D-1151)."
-			}
+			]
 		}
 	},
 	{
@@ -1035,7 +1034,11 @@
 				}
 			],
 			"forbid": ["/I['’]?(ve| have) imported|have been (added|imported)|were (added|imported)/i"],
-			"derivation": "The form was checked in this conversation: the import is one review card bound to that check; nothing changes until approval."
+			"derivation": "The form was checked in this conversation: the import is one review card bound to that check; nothing changes until approval.",
+			"finding": {
+				"checks": ["proposes people.executeBulkImport {\"attachmentId\":\"5b6d1f0e-0000-4000-8000-00000000a002\"}"],
+				"note": "Batched re-record for T-316 (Nov 14, D-1320/D-1321): drift set as a finding per D-958/D-1151: proposes people.executeBulkImport {\"attachmentId\":\"5b6d1f0e-0000-4000-8000-00000 The eval harness gave the import review no attached files (attachment_elsewhere); fixed, and its follow-up call waits for the next batched re-record (D-1321)."
+			}
 		}
 	},
 	{
@@ -1267,7 +1270,13 @@
 			"require": [
 				"/(each person|everyone|their own|her own|only (change )?(your|yours)|can['’]?t change|cannot change)/i"
 			],
-			"derivation": "Evry changes only the signed-in account's own settings, so no review card appears."
+			"derivation": "Evry changes only the signed-in account's own settings, so no review card appears.",
+			"finding": {
+				"checks": [
+					"says /(each person|everyone|their own|her own|only (change )?(your|yours)|can['’]?t change|cannot change)/i"
+				],
+				"note": "Batched re-record for T-316 (Nov 14, D-1320/D-1321): drift set as a finding per D-958/D-1151: says /(each person|everyone|their own|her own|only (change )?(your|yours)|can['’"
+			}
 		}
 	},
 	{
@@ -1507,11 +1516,7 @@
 				"all": ["Nate Ellis", "Lena Park", "Carlos Mendez"],
 				"allowed": ["Nate Ellis", "Lena Park", "Carlos Mendez"]
 			},
-			"require": ["/2 of 3|two of (the )?three|Carlos[^.\\n]{0,60}(not|hasn['’]?t|yet)/i"],
-			"finding": {
-				"checks": ["names every match"],
-				"note": "Recorded for T-316 (Nov 14) after merging the Evry teams tools and one re-sample (D-958, D-1151): names every match"
-			}
+			"require": ["/2 of 3|two of (the )?three|Carlos[^.\\n]{0,60}(not|hasn['’]?t|yet)/i"]
 		}
 	},
 	{
@@ -2229,7 +2234,13 @@
 			"require": ["/review|approv/i"],
 			"forbid": [
 				"/I['’]?(ve| have)? (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)|has been (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)/i"
-			]
+			],
+			"finding": {
+				"checks": [
+					"proposes teams.importRoles {\"teamId\":\"5b6d1f0e-0000-4000-8000-000000007010\",\"teamKey\":\"worship\",\"roleKeys\":[\"worship_lead\"]}"
+				],
+				"note": "Batched re-record for T-316 (Nov 14, D-1320/D-1321): drift set as a finding per D-958/D-1151: proposes teams.importRoles {\"teamId\":\"5b6d1f0e-0000-4000-8000-000000007010\",\"tea"
+			}
 		}
 	},
 	{
@@ -2391,7 +2402,13 @@
 			"require": ["/review|approv/i"],
 			"forbid": [
 				"/I['’]?(ve| have)? (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)|has been (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)/i"
-			]
+			],
+			"finding": {
+				"checks": [
+					"never says /I['’]?(ve| have)? (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)|has been (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)/i"
+				],
+				"note": "Batched re-record for T-316 (Nov 14, D-1320/D-1321): drift set as a finding per D-958/D-1151: never says /I['’]?(ve| have)? (added|assigned|appointed|recorded|archived|remove"
+			}
 		}
 	},
 	{
@@ -2677,7 +2694,11 @@
 					}
 				}
 			],
-			"require": ["/review|approv/i"]
+			"require": ["/review|approv/i"],
+			"finding": {
+				"checks": ["proposes people.deleteTag {\"tagId\":\"5b6d1f0e-0000-4000-8000-0000000000d2\"}"],
+				"note": "Batched re-record for T-316 (Nov 14, D-1320/D-1321): drift set as a finding per D-958/D-1151: proposes people.deleteTag {\"tagId\":\"5b6d1f0e-0000-4000-8000-0000000000d2\"}"
+			}
 		}
 	},
 	{
@@ -2709,7 +2730,13 @@
 			],
 			"require": ["/review|approv/i"],
 			"forbid": ["/I['’]?(ve| have) (tagged|added|applied)|(are|been) tagged/i"],
-			"derivation": "One assignTag review naming all eight and saying the coffee-oct tag will be created; no note stands in for the tag."
+			"derivation": "One assignTag review naming all eight and saying the coffee-oct tag will be created; no note stands in for the tag.",
+			"finding": {
+				"checks": [
+					"proposes people.assignTag {\"personIds\":[\"@Ana Rivera\",\"@Mark Thompson\",\"@Jen Thompson\",\"@Sam Patel\",\"@Priya Shah\",\"@Daniel Cruz\",\"@Kevin Walsh\",\"@Jessica Wu\"],\"tagName\":\"~coffee-oct\"}"
+				],
+				"note": "Batched re-record for T-316 (Nov 14, D-1320/D-1321): drift set as a finding per D-958/D-1151: proposes people.assignTag {\"personIds\":[\"@Ana Rivera\",\"@Mark Thompson\",\"@Jen Tho"
+			}
 		}
 	},
 	{
