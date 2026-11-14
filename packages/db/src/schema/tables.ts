@@ -956,6 +956,7 @@ export const development_program = pgTable(
 		unique("development_program_uq_0").on(table.id, table.organization_id),
 		check("development_program_ck_0", sql`(revision >= 1)`),
 		check("development_program_ck_1", sql`(kind = ANY (ARRAY['apprenticeship'::text, 'residency'::text]))`),
+		check("development_program_name", sql`((length(btrim(name)) >= 1) AND (length(name) <= 120))`),
 		index("development_program_ref_0").using("btree", table.organization_id.asc().nullsLast()),
 		index("development_program_ref_2").using("btree", table.director_seat_id.asc().nullsLast()),
 		index("development_program_ref_3").using(
@@ -1007,6 +1008,13 @@ export const development_program_version = pgTable(
 		check("development_program_version_ck_0", sql`(revision >= 1)`),
 		check("development_program_version_ck_1", sql`(version_number >= 1)`),
 		check("development_program_version_ck_2", sql`(expected_months > 0)`),
+		check(
+			"development_program_version_rhythm",
+			sql`(rhythm = ANY (ARRAY['weekly'::text, 'every_two_weeks'::text, 'monthly'::text]))`,
+		),
+		uniqueIndex("development_program_version_draft")
+			.using("btree", table.program_id.asc().nullsLast())
+			.where(sql`(published_at IS NULL)`),
 		index("development_program_version_ref_0").using("btree", table.organization_id.asc().nullsLast()),
 		index("development_program_version_ref_2").using(
 			"btree",
@@ -1055,6 +1063,189 @@ export const development_stage = pgTable(
 		index("development_stage_ref_0").using("btree", table.organization_id.asc().nullsLast()),
 		index("development_stage_ref_2").using(
 			"btree",
+			table.version_id.asc().nullsLast(),
+			table.organization_id.asc().nullsLast(),
+		),
+	],
+);
+export const development_milestone = pgTable(
+	"development_milestone",
+	{
+		id: uuid("id").notNull(),
+		organization_id: uuid("organization_id").notNull(),
+		version_id: uuid("version_id").notNull(),
+		lineage: uuid("lineage").notNull(),
+		position: integer("position").notNull(),
+		title: text("title").notNull(),
+		description: text("description"),
+		hands_on: boolean("hands_on").notNull(),
+	},
+	(table): PgTableExtraConfigValue[] => [
+		foreignKey({
+			name: "development_milestone_version",
+			columns: [table.version_id, table.organization_id],
+			foreignColumns: [development_program_version.id, development_program_version.organization_id],
+		})
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		primaryKey({ name: "development_milestone_pkey", columns: [table.id] }),
+		unique("development_milestone_key").on(table.id, table.version_id, table.organization_id),
+		unique("development_milestone_lineage").on(table.version_id, table.lineage),
+		check("development_milestone_position", sql`(position >= 0)`),
+		check("development_milestone_title", sql`((length(btrim(title)) >= 1) AND (length(title) <= 200))`),
+		check(
+			"development_milestone_description",
+			sql`((description IS NULL AND NOT hands_on) OR ((length(btrim(description)) >= 1) AND (length(description) <= 2000)))`,
+		),
+	],
+);
+export const development_reading = pgTable(
+	"development_reading",
+	{
+		id: uuid("id").notNull(),
+		organization_id: uuid("organization_id").notNull(),
+		version_id: uuid("version_id").notNull(),
+		position: integer("position").notNull(),
+		article_id: uuid("article_id").notNull(),
+		revision_id: uuid("revision_id").notNull(),
+		title: text("title").notNull(),
+	},
+	(table): PgTableExtraConfigValue[] => [
+		foreignKey({
+			name: "development_reading_version",
+			columns: [table.version_id, table.organization_id],
+			foreignColumns: [development_program_version.id, development_program_version.organization_id],
+		})
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		foreignKey({
+			name: "development_reading_article",
+			columns: [table.article_id],
+			foreignColumns: [reference_item.id],
+		})
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		foreignKey({
+			name: "development_reading_revision",
+			columns: [table.revision_id],
+			foreignColumns: [article_revision.id],
+		})
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		primaryKey({ name: "development_reading_pkey", columns: [table.id] }),
+		unique("development_reading_article_once").on(table.version_id, table.article_id),
+		check("development_reading_position", sql`(position >= 0)`),
+		check("development_reading_title", sql`((length(btrim(title)) >= 1) AND (length(title) <= 500))`),
+		index("development_reading_revision_idx").using("btree", table.revision_id.asc().nullsLast()),
+	],
+);
+export const enrollment_milestone = pgTable(
+	"enrollment_milestone",
+	{
+		id: uuid("id").notNull(),
+		organization_id: uuid("organization_id").notNull(),
+		enrollment_id: uuid("enrollment_id").notNull(),
+		version_id: uuid("version_id").notNull(),
+		milestone_id: uuid("milestone_id").notNull(),
+		source: text("source", { enum: ["program_leader"] }).notNull(),
+		completed_on: date("completed_on", { mode: "string" }).notNull(),
+		recorder_id: uuid("recorder_id").notNull(),
+		confirmer_id: uuid("confirmer_id").notNull(),
+		confirmed_at: timestamp("confirmed_at", { withTimezone: true, mode: "date" }).notNull(),
+	},
+	(table): PgTableExtraConfigValue[] => [
+		foreignKey({
+			name: "enrollment_milestone_enrollment",
+			columns: [table.enrollment_id, table.version_id, table.organization_id],
+			foreignColumns: [
+				development_enrollment.id,
+				development_enrollment.version_id,
+				development_enrollment.organization_id,
+			],
+		})
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		foreignKey({
+			name: "enrollment_milestone_milestone",
+			columns: [table.milestone_id, table.version_id, table.organization_id],
+			foreignColumns: [
+				development_milestone.id,
+				development_milestone.version_id,
+				development_milestone.organization_id,
+			],
+		})
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		foreignKey({ name: "enrollment_milestone_recorder", columns: [table.recorder_id], foreignColumns: [account.id] })
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		foreignKey({
+			name: "enrollment_milestone_confirmer",
+			columns: [table.confirmer_id],
+			foreignColumns: [account.id],
+		})
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		primaryKey({ name: "enrollment_milestone_pkey", columns: [table.id] }),
+		unique("enrollment_milestone_once").on(table.enrollment_id, table.milestone_id),
+		check("enrollment_milestone_source", sql`(source = 'program_leader'::text)`),
+		index("enrollment_milestone_milestone_idx").using(
+			"btree",
+			table.milestone_id.asc().nullsLast(),
+			table.version_id.asc().nullsLast(),
+			table.organization_id.asc().nullsLast(),
+		),
+	],
+);
+export const assignment_feedback = pgTable(
+	"assignment_feedback",
+	{
+		id: uuid("id").notNull(),
+		organization_id: uuid("organization_id").notNull(),
+		enrollment_id: uuid("enrollment_id").notNull(),
+		version_id: uuid("version_id").notNull(),
+		milestone_id: uuid("milestone_id").notNull(),
+		writer_id: uuid("writer_id").notNull(),
+		written_at: timestamp("written_at", { withTimezone: true, mode: "date" }).notNull(),
+		body: text("body").notNull(),
+	},
+	(table): PgTableExtraConfigValue[] => [
+		foreignKey({
+			name: "assignment_feedback_enrollment",
+			columns: [table.enrollment_id, table.version_id, table.organization_id],
+			foreignColumns: [
+				development_enrollment.id,
+				development_enrollment.version_id,
+				development_enrollment.organization_id,
+			],
+		})
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		foreignKey({
+			name: "assignment_feedback_milestone",
+			columns: [table.milestone_id, table.version_id, table.organization_id],
+			foreignColumns: [
+				development_milestone.id,
+				development_milestone.version_id,
+				development_milestone.organization_id,
+			],
+		})
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		foreignKey({ name: "assignment_feedback_writer", columns: [table.writer_id], foreignColumns: [account.id] })
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		primaryKey({ name: "assignment_feedback_pkey", columns: [table.id] }),
+		check("assignment_feedback_body", sql`((length(btrim(body)) >= 1) AND (length(body) <= 5000))`),
+		index("assignment_feedback_enrollment_idx").using(
+			"btree",
+			table.enrollment_id.asc().nullsLast(),
+			table.version_id.asc().nullsLast(),
+			table.organization_id.asc().nullsLast(),
+		),
+		index("assignment_feedback_milestone_idx").using(
+			"btree",
+			table.milestone_id.asc().nullsLast(),
 			table.version_id.asc().nullsLast(),
 			table.organization_id.asc().nullsLast(),
 		),
@@ -3428,6 +3619,131 @@ export const pipeline_stage = pgTable(
 		index("pipeline_stage_ref_0").using("btree", table.organization_id.asc().nullsLast()),
 	],
 );
+export const pipeline_stage_move = pgTable(
+	"pipeline_stage_move",
+	{
+		id: uuid("id").notNull(),
+		organization_id: uuid("organization_id").notNull(),
+		pipeline_person_id: uuid("pipeline_person_id").notNull(),
+		from_stage_id: uuid("from_stage_id"),
+		to_stage_id: uuid("to_stage_id").notNull(),
+		from_label: text("from_label"),
+		to_label: text("to_label").notNull(),
+		reason: text("reason"),
+	},
+	(table): PgTableExtraConfigValue[] => [
+		foreignKey({
+			name: "pipeline_stage_move_person",
+			columns: [table.pipeline_person_id, table.organization_id],
+			foreignColumns: [pipeline_person.id, pipeline_person.organization_id],
+		})
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		foreignKey({
+			name: "pipeline_stage_move_from",
+			columns: [table.from_stage_id, table.organization_id],
+			foreignColumns: [pipeline_stage.id, pipeline_stage.organization_id],
+		})
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		foreignKey({
+			name: "pipeline_stage_move_to",
+			columns: [table.to_stage_id, table.organization_id],
+			foreignColumns: [pipeline_stage.id, pipeline_stage.organization_id],
+		})
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		primaryKey({ name: "pipeline_stage_move_pkey", columns: [table.id] }),
+		check("pipeline_stage_move_from_label", sql`((from_stage_id IS NULL) = (from_label IS NULL))`),
+		check(
+			"pipeline_stage_move_reason",
+			sql`((reason IS NULL AND from_stage_id IS NULL) OR ((length(btrim(reason)) >= 1) AND (length(reason) <= 1000)))`,
+		),
+		index("pipeline_stage_move_person_idx").using(
+			"btree",
+			table.pipeline_person_id.asc().nullsLast(),
+			table.organization_id.asc().nullsLast(),
+		),
+		index("pipeline_stage_move_from_idx").using("btree", table.from_stage_id.asc().nullsLast()),
+		index("pipeline_stage_move_to_idx").using("btree", table.to_stage_id.asc().nullsLast()),
+	],
+);
+export const sending_goal = pgTable(
+	"sending_goal",
+	{
+		id: uuid("id").notNull(),
+		organization_id: uuid("organization_id").notNull(),
+		leader_target: integer("leader_target").notNull(),
+		plant_target: integer("plant_target").notNull(),
+		target_year: integer("target_year").notNull(),
+		rationale: text("rationale").notNull(),
+		created_at: timestamp("created_at", { withTimezone: true, mode: "date" })
+			.notNull()
+			.default(sql`clock_timestamp()`),
+		revision: int64("revision").notNull(),
+	},
+	(table): PgTableExtraConfigValue[] => [
+		foreignKey({
+			name: "sending_goal_organization",
+			columns: [table.organization_id],
+			foreignColumns: [organization.id],
+		})
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		primaryKey({ name: "sending_goal_pkey", columns: [table.id] }),
+		check("sending_goal_revision", sql`(revision >= 1)`),
+		check("sending_goal_leader_target", sql`((leader_target >= 0) AND (leader_target <= 10000))`),
+		check("sending_goal_plant_target", sql`((plant_target >= 0) AND (plant_target <= 10000))`),
+		check("sending_goal_target_year", sql`((target_year >= 2000) AND (target_year <= 2200))`),
+		check("sending_goal_rationale", sql`((length(btrim(rationale)) >= 1) AND (length(rationale) <= 1000))`),
+		index("sending_goal_organization_idx").using(
+			"btree",
+			table.organization_id.asc().nullsLast(),
+			table.created_at.asc().nullsLast(),
+		),
+	],
+);
+export const leadership_conversation = pgTable(
+	"leadership_conversation",
+	{
+		id: uuid("id").notNull(),
+		organization_id: uuid("organization_id").notNull(),
+		pipeline_person_id: uuid("pipeline_person_id").notNull(),
+		staff_seat_id: uuid("staff_seat_id").notNull(),
+		occurred_on: date("occurred_on", { mode: "string" }).notNull(),
+		note: text("note"),
+		revision: int64("revision").notNull(),
+	},
+	(table): PgTableExtraConfigValue[] => [
+		foreignKey({
+			name: "leadership_conversation_person",
+			columns: [table.pipeline_person_id, table.organization_id],
+			foreignColumns: [pipeline_person.id, pipeline_person.organization_id],
+		})
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		foreignKey({ name: "leadership_conversation_staff", columns: [table.staff_seat_id], foreignColumns: [seat.id] })
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		primaryKey({ name: "leadership_conversation_pkey", columns: [table.id] }),
+		check("leadership_conversation_revision", sql`(revision >= 1)`),
+		check(
+			"leadership_conversation_note",
+			sql`((note IS NULL) OR ((length(btrim(note)) >= 1) AND (length(note) <= 1000)))`,
+		),
+		index("leadership_conversation_on_idx").using(
+			"btree",
+			table.organization_id.asc().nullsLast(),
+			table.occurred_on.asc().nullsLast(),
+		),
+		index("leadership_conversation_person_idx").using(
+			"btree",
+			table.pipeline_person_id.asc().nullsLast(),
+			table.organization_id.asc().nullsLast(),
+		),
+		index("leadership_conversation_staff_idx").using("btree", table.staff_seat_id.asc().nullsLast()),
+	],
+);
 export const plant = pgTable(
 	"plant",
 	{
@@ -5349,7 +5665,7 @@ export const audit_event = pgTable(
 		check(
 			"audit_action",
 			sql.raw(
-				"(action IN ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','branding.changed','communication.draft_deleted','communication.draft_saved','communication.rescheduled','communication.scheduled','communication.send_intended','communication.template_archived','communication.template_created','communication.template_deleted','communication.template_forked','communication.template_updated','deletion.cancelled','deletion.live_purge_completed','documents.archived','documents.church_archived','documents.church_restored','documents.branding_changed','documents.copied','documents.created_from_template','documents.designated','documents.export_deleted','documents.exported','documents.generated','documents.imported','documents.purged','documents.saved','documents.template_deleted','documents.template_details_changed','documents.template_saved','documents.template_updated','evry.conversation_created','evry.proposal_approved','evry.proposal_cancelled','evry.proposal_prepared','evry.proposal_retried','evry.proposal_revised','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','feedback.received','feedback.status_changed','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','organization.profile_changed','people.corrected','people.created','people.duplicate_dismissed','people.duplicate_restored','people.merged','people.recorded','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.bookmark_changed','wiki.hidden','wiki.published','wiki.reading_recorded','wiki.source_order_changed'))",
+				"(action IN ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','branding.changed','communication.draft_deleted','communication.draft_saved','communication.rescheduled','communication.scheduled','communication.send_intended','communication.template_archived','communication.template_created','communication.template_deleted','communication.template_forked','communication.template_updated','deletion.cancelled','deletion.live_purge_completed','development.enrolled','development.feedback_recorded','development.milestone_recorded','development.plan_saved','development.program_created','development.version_published','documents.archived','documents.church_archived','documents.church_restored','documents.branding_changed','documents.copied','documents.created_from_template','documents.designated','documents.export_deleted','documents.exported','documents.generated','documents.imported','documents.purged','documents.saved','documents.template_deleted','documents.template_details_changed','documents.template_saved','documents.template_updated','evry.conversation_created','evry.proposal_approved','evry.proposal_cancelled','evry.proposal_prepared','evry.proposal_retried','evry.proposal_revised','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','feedback.received','feedback.status_changed','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','organization.profile_changed','people.corrected','people.created','people.duplicate_dismissed','people.duplicate_restored','people.merged','people.recorded','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.bookmark_changed','wiki.hidden','wiki.published','wiki.reading_recorded','wiki.source_order_changed'))",
 			),
 		),
 		check(
