@@ -20,10 +20,10 @@ export const CAUSE: Record<FailureCause, { label: string; detail: string }> = {
 	guidance: { label: "Guidance", detail: "The methodology could not be read, or no reference is activated." },
 };
 export const DEMAND: Record<DemandKind, string> = {
-	change: "A changed record or reference",
-	time: "Seven days without a new assessment",
+	change: "A record or reference changed",
+	time: "Seven days passed",
 	manual: "An Owner or Admin asked",
-	followup: "A newer run after an input changed",
+	followup: "An input changed mid-run",
 };
 export const RULE: Record<DraftRule, string> = {
 	shape: "Wrong shape",

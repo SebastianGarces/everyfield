@@ -1,7 +1,7 @@
 import type { Clock } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/intelligence";
 import type { Database } from "@everyfield/db/client";
-import { sql, type SQL } from "@everyfield/db/query";
+import { sql } from "@everyfield/db/query";
 import { randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";

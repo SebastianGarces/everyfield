@@ -1,5 +1,5 @@
 import type { ReviewRun } from "@everyfield/contracts/intelligence";
-import { Card, CardHeader, CardTitle, EmptyState, PageHeader, StatePanel } from "@everyfield/ui/controls";
+import { Card, CardHeader, CardHeading, CardTitle, EmptyState, PageHeader, StatePanel } from "@everyfield/ui/controls";
 import { KeyValue, KeyValueList, List, ListRow, Tag } from "@everyfield/ui/display";
 import { CheckmarkCircle02Icon } from "@hugeicons/core-free-icons";
 import type { Metadata } from "next";
@@ -57,7 +57,7 @@ export async function ReviewListPage() {
 									href={`/assessment-review/${item.runId}`}
 									linkAs={Link}
 									title={item.plantName}
-									subtitle={`${CAUSE[item.cause].label} · ${timeLabel(item.settledAt)}`}
+									subtitle={`Last failed ${timeLabel(item.settledAt)}`}
 									trailing={<CauseTag run={item} />}
 								/>
 							))}
@@ -113,12 +113,11 @@ function RunDetail({ run: item }: { run: ReviewRun }) {
 	return (
 		<div className="grid items-start gap-5 app-lg:grid-cols-[minmax(0,1fr)_360px]">
 			<Card className="gap-4">
-				<CardHeader>
-					<CardTitle>
-						<span className="flex flex-wrap items-center gap-2">
-							Cause <CauseTag run={item} />
-						</span>
-					</CardTitle>
+				<CardHeader className="mb-0 items-center">
+					<CardHeading>
+						<CardTitle>Cause</CardTitle>
+					</CardHeading>
+					<CauseTag run={item} />
 				</CardHeader>
 				<p className="m-0 text-md text-ink">{CAUSE[item.cause].detail}</p>
 				{item.violations.length ? (
@@ -135,7 +134,7 @@ function RunDetail({ run: item }: { run: ReviewRun }) {
 						<CardTitle>Run</CardTitle>
 					</CardHeader>
 					<KeyValueList>
-						<KeyValue size="sm" k="Asked by" value={DEMAND[item.demand]} />
+						<KeyValue size="sm" k="Why it ran" value={DEMAND[item.demand]} />
 						<KeyValue size="sm" k="As of" value={timeLabel(item.asOf)} />
 						<KeyValue size="sm" k="Ended" value={timeLabel(item.settledAt)} />
 						<KeyValue size="sm" k="Drafts" value={count(item.drafts)} />
