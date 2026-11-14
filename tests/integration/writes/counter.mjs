@@ -69,12 +69,12 @@ const standalone = {
 		"enqueueJob",
 		"enqueueJobs",
 		"claimDue",
-		"claimUnknownMail",
 		"finishClaim",
 		"recoverLease",
 		"checkpoint",
 		"scanPage",
 	],
+	"/apps/web/src/server/jobs/mail.ts": ["claimUnknownMail"],
 	"/apps/web/src/server/jobs/webhook.ts": ["applyMailCallback", "applyStoredCallback"],
 	"/apps/web/src/server/jobs/notifications.ts": ["sendDiscoveryAssociationReceipt", "sendOnboardingRelationships"],
 };
@@ -157,6 +157,104 @@ function measureWrapper(name, body) {
 }
 globalThis.__evfWriteCounts = { measure, measureWrapper, decorate, observeDatabase };
 
+/**
+ * Wraps the factories, standalone functions and writer objects of one source file in census frames. Throws when a
+ * standalone name listed for the file is not a function declared in it, so a stale manifest entry cannot go unmeasured.
+ */
+export function instrument(path, source, listed = standalone) {
+	const ast = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true),
+		edits = [];
+	const names = listed[path.slice(root.length)] ?? [],
+		declared = new Set();
+	const localAliases = path.endsWith("/jobs/notifications.ts") ? { enqueueMany: "notifications.enqueueMany" } : {};
+	function walk(n) {
+		if (ts.isReturnStatement(n) && n.expression) {
+			let ancestor = n.parent;
+			while (
+				ancestor &&
+				!ts.isFunctionDeclaration(ancestor) &&
+				!ts.isArrowFunction(ancestor) &&
+				!ts.isMethodDeclaration(ancestor) &&
+				!ts.isFunctionExpression(ancestor)
+			)
+				ancestor = ancestor.parent;
+			const name = ancestor?.name?.getText(ast),
+				prefix = factories[name];
+			if (prefix)
+				edits.push(
+					[n.expression.getStart(ast), ` (globalThis.__evfWriteCounts.decorate(${JSON.stringify(prefix)},`],
+					[n.expression.end, "))"],
+				);
+		}
+		if (
+			ts.isFunctionDeclaration(n) &&
+			n.name &&
+			n.body &&
+			(names.includes(n.name.getText(ast)) || localAliases[n.name.getText(ast)])
+		) {
+			const name =
+				localAliases[n.name.getText(ast)] ??
+				path
+					.slice(root.length + 1)
+					.replace(/^packages\/domain\/src\/|^apps\/web\/src\/server\//, "")
+					.replace(/\.ts$/, "") +
+					"." +
+					n.name.getText(ast);
+			edits.push(
+				[
+					n.body.getStart(ast) + 1,
+					`return await globalThis.__evfWriteCounts.measureWrapper(${JSON.stringify(name)},async()=>{`,
+				],
+				[n.body.end - 1, "});"],
+			);
+			emit({ kind: "declaration", name, write: true });
+			declared.add(n.name.getText(ast));
+		}
+		ts.forEachChild(n, walk);
+	}
+	walk(ast);
+	for (const [offset, text] of edits.sort((a, b) => b[0] - a[0]))
+		source = source.slice(0, offset) + text + source.slice(offset);
+	const objects = {
+		"/packages/domain/src/people/people.ts": { peopleWriter: "people", accountPersonProducer: "accountPerson" },
+		"/packages/domain/src/people/fields/index.ts": { personFields: "people" },
+		"/packages/domain/src/people/assessments/index.ts": { assessments: "people" },
+		"/packages/domain/src/people/interviews/index.ts": { interviews: "people" },
+		"/packages/domain/src/people/commitments/index.ts": { commitments: "people" },
+		"/packages/domain/src/people/merge/index.ts": { peopleMerge: "people" },
+		"/packages/domain/src/people/unmerge/index.ts": { peopleUnmerge: "people" },
+		"/packages/domain/src/people/corrections/index.ts": { recordCorrections: "people" },
+		"/packages/domain/src/meetings/meetings.ts": { meetingsWriter: "meetings" },
+		"/packages/domain/src/meetings/guests.ts": { guestsWriter: "meetings" },
+		"/packages/domain/src/meetings/venues.ts": { venuesWriter: "venues" },
+		"/packages/domain/src/meetings/analytics.ts": { attendanceReader: "meetings" },
+		"/packages/domain/src/teams/commands.ts": { teamsWriter: "teams" },
+		"/packages/domain/src/communication/writer.ts": { communicationWriter: "communication" },
+		"/packages/domain/src/teams/responsibilities/reads.ts": { responsibilityReader: "teams" },
+		"/packages/domain/src/documents/reads.ts": { documentsReader: "documents" },
+		"/packages/domain/src/documents/writes.ts": { documentsWriter: "documents" },
+		"/packages/domain/src/branding/reads.ts": { brandReader: "brand" },
+		"/packages/domain/src/branding/writes.ts": { brandWriter: "brand" },
+		"/packages/domain/src/teams/responsibilities/writes.ts": { responsibilityWriter: "teams" },
+		"/packages/domain/src/teams/training/commands.ts": { trainingWriter: "teams" },
+		"/packages/domain/src/teams/training/reads.ts": { trainingReader: "teams" },
+		"/packages/domain/src/meetings/roster.ts": { rosterWriter: "meetings" },
+		"/packages/domain/src/phases/reads.ts": { phaseReader: "phases" },
+		"/packages/domain/src/organizations/pipeline.ts": { pipelineWriter: "pipeline" },
+		"/packages/domain/src/organizations/programs.ts": { programWriter: "programs" },
+		"/packages/domain/src/organizations/residency.ts": { residentWriter: "residency" },
+		"/packages/domain/src/feedback/index.ts": { feedbackWriter: "feedback" },
+	};
+	for (const [name, prefix] of Object.entries(objects[path.slice(root.length)] ?? {}))
+		source += `\nglobalThis.__evfWriteCounts.decorate(${JSON.stringify(prefix)},${name});`;
+	const missing = names.filter((name) => !declared.has(name));
+	if (missing.length)
+		throw Error(
+			`Statement counter lists ${missing.join(", ")} for ${path.slice(root.length + 1)}, which declares no such function`,
+		);
+	return source;
+}
+
 registerHooks({
 	load(url, context, next) {
 		const loaded = next(url, context);
@@ -178,89 +276,7 @@ registerHooks({
 			path.includes("/apps/web/src/server/jobs/") ||
 			path === root + "/tests/integration/settings/settings-api.mts"
 		) {
-			const ast = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true),
-				edits = [];
-			const names = standalone[path.slice(root.length)] ?? [];
-			const localAliases = path.endsWith("/jobs/notifications.ts") ? { enqueueMany: "notifications.enqueueMany" } : {};
-			function walk(n) {
-				if (ts.isReturnStatement(n) && n.expression) {
-					let ancestor = n.parent;
-					while (
-						ancestor &&
-						!ts.isFunctionDeclaration(ancestor) &&
-						!ts.isArrowFunction(ancestor) &&
-						!ts.isMethodDeclaration(ancestor) &&
-						!ts.isFunctionExpression(ancestor)
-					)
-						ancestor = ancestor.parent;
-					const name = ancestor?.name?.getText(ast),
-						prefix = factories[name];
-					if (prefix)
-						edits.push(
-							[n.expression.getStart(ast), ` (globalThis.__evfWriteCounts.decorate(${JSON.stringify(prefix)},`],
-							[n.expression.end, "))"],
-						);
-				}
-				if (
-					ts.isFunctionDeclaration(n) &&
-					n.name &&
-					n.body &&
-					(names.includes(n.name.getText(ast)) || localAliases[n.name.getText(ast)])
-				) {
-					const name =
-						localAliases[n.name.getText(ast)] ??
-						path
-							.slice(root.length + 1)
-							.replace(/^packages\/domain\/src\/|^apps\/web\/src\/server\//, "")
-							.replace(/\.ts$/, "") +
-							"." +
-							n.name.getText(ast);
-					edits.push(
-						[
-							n.body.getStart(ast) + 1,
-							`return await globalThis.__evfWriteCounts.measureWrapper(${JSON.stringify(name)},async()=>{`,
-						],
-						[n.body.end - 1, "});"],
-					);
-					emit({ kind: "declaration", name, write: true });
-				}
-				ts.forEachChild(n, walk);
-			}
-			walk(ast);
-			for (const [offset, text] of edits.sort((a, b) => b[0] - a[0]))
-				source = source.slice(0, offset) + text + source.slice(offset);
-			const objects = {
-				"/packages/domain/src/people/people.ts": { peopleWriter: "people", accountPersonProducer: "accountPerson" },
-				"/packages/domain/src/people/fields/index.ts": { personFields: "people" },
-				"/packages/domain/src/people/assessments/index.ts": { assessments: "people" },
-				"/packages/domain/src/people/interviews/index.ts": { interviews: "people" },
-				"/packages/domain/src/people/commitments/index.ts": { commitments: "people" },
-				"/packages/domain/src/people/merge/index.ts": { peopleMerge: "people" },
-				"/packages/domain/src/people/unmerge/index.ts": { peopleUnmerge: "people" },
-				"/packages/domain/src/people/corrections/index.ts": { recordCorrections: "people" },
-				"/packages/domain/src/meetings/meetings.ts": { meetingsWriter: "meetings" },
-				"/packages/domain/src/meetings/guests.ts": { guestsWriter: "meetings" },
-				"/packages/domain/src/meetings/venues.ts": { venuesWriter: "venues" },
-				"/packages/domain/src/meetings/analytics.ts": { attendanceReader: "meetings" },
-				"/packages/domain/src/teams/commands.ts": { teamsWriter: "teams" },
-				"/packages/domain/src/communication/writer.ts": { communicationWriter: "communication" },
-				"/packages/domain/src/teams/responsibilities/reads.ts": { responsibilityReader: "teams" },
-				"/packages/domain/src/documents/reads.ts": { documentsReader: "documents" },
-				"/packages/domain/src/documents/writes.ts": { documentsWriter: "documents" },
-				"/packages/domain/src/branding/reads.ts": { brandReader: "brand" },
-				"/packages/domain/src/branding/writes.ts": { brandWriter: "brand" },
-				"/packages/domain/src/teams/responsibilities/writes.ts": { responsibilityWriter: "teams" },
-				"/packages/domain/src/teams/training/commands.ts": { trainingWriter: "teams" },
-				"/packages/domain/src/teams/training/reads.ts": { trainingReader: "teams" },
-				"/packages/domain/src/meetings/roster.ts": { rosterWriter: "meetings" },
-				"/packages/domain/src/phases/reads.ts": { phaseReader: "phases" },
-				"/packages/domain/src/organizations/pipeline.ts": { pipelineWriter: "pipeline" },
-				"/packages/domain/src/organizations/programs.ts": { programWriter: "programs" },
-				"/packages/domain/src/organizations/residency.ts": { residentWriter: "residency" },
-				"/packages/domain/src/feedback/index.ts": { feedbackWriter: "feedback" },
-			};
-			for (const [name, prefix] of Object.entries(objects[path.slice(root.length)] ?? {}))
-				source += `\nglobalThis.__evfWriteCounts.decorate(${JSON.stringify(prefix)},${name});`;
+			source = instrument(path, source);
 		}
 		return { ...loaded, source };
 	},
