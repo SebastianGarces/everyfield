@@ -103,8 +103,8 @@ export function relationshipMailGrants(input: SQLWrapper): SQLWrapper {
 // mount sends its email only while it is. The notice names the milestone and the organization, never the feedback.
 
 /** What the director did: confirmed the resident's milestone, or wrote feedback on it. */
-export const residencyOccurrence = z.enum(["confirmation", "feedback"]);
-export type ResidencyOccurrence = z.infer<typeof residencyOccurrence>;
+const residencyOccurrence = z.enum(["confirmation", "feedback"]);
+type ResidencyOccurrence = z.infer<typeof residencyOccurrence>;
 /** The notice category each residency occurrence writes. */
 export const residencyCategory = {
 	confirmation: "residency_confirmation",
@@ -147,7 +147,6 @@ const residencyRow = z.object({
 	recipient: z.uuid(),
 	milestone: z.string(),
 	holds: z.boolean(),
-	happened: z.boolean(),
 });
 
 /** What a residency notice says: the milestone and the organization, never the feedback's words (D-1414). */
@@ -168,8 +167,8 @@ function residencyNotice(occurrence: ResidencyOccurrence, organization: string, 
 
 /**
  * The residency notice as the worker sees it when the job runs: the organization, the link's account, whether that
- * link is still live (D-1416) and the notice text. Null when the enrollment, milestone, feedback or link is not this
- * organization's, or the confirmation is gone. One statement that holds the link, so leaving waits for this job's
+ * link is still live (D-1416) and the notice text. Null when the enrollment, milestone or link is not this
+ * organization's. One statement that holds the link, so leaving waits for this job's
  * notice and mail, and the mail check after it sees the leave. The caller is the trusted worker for the job's tenant.
  */
 export async function planResidencyNotice(
@@ -177,15 +176,8 @@ export async function planResidencyNotice(
 	org: string,
 	input: { enrollmentId: string } & ReturnType<typeof residencyJobOf>,
 ) {
-	const happened =
-		input.occurrence === "confirmation"
-			? sql`EXISTS(SELECT FROM enrollment_milestone c JOIN development_milestone cm ON cm.id=c.milestone_id
-				AND cm.organization_id=c.organization_id WHERE c.enrollment_id=e.id AND c.organization_id=e.organization_id
-				AND cm.lineage=m.lineage AND c.source='resident' AND c.confirmed_at IS NOT NULL)`
-			: sql`EXISTS(SELECT FROM assignment_feedback f WHERE f.id=${sql.param(input.feedbackId)}::uuid
-				AND f.enrollment_id=e.id AND f.organization_id=e.organization_id)`;
 	const r = await db.execute(sql`SELECT o.name AS organization, o.kind AS organization_kind, l.account_id AS recipient,
-			m.title AS milestone, ${liveResidency} AS holds, ${happened} AS happened
+			m.title AS milestone, ${liveResidency} AS holds
 		FROM development_enrollment e JOIN organization o ON o.id=e.organization_id
 		JOIN development_milestone m ON m.id=${sql.param(input.milestoneId)}::uuid AND m.organization_id=e.organization_id
 		JOIN residency_link l ON l.id=${sql.param(input.linkId)}::uuid AND l.organization_id=e.organization_id
@@ -194,7 +186,6 @@ export async function planResidencyNotice(
 		FOR SHARE OF l`);
 	if (!r.rows[0]) return null;
 	const row = residencyRow.parse(r.rows[0]);
-	if (!row.happened) return null;
 	return {
 		holds: row.holds,
 		recipient: row.recipient,
