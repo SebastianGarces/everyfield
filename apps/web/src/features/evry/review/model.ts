@@ -110,7 +110,16 @@ export type SettingsOperation =
 	| "associations.end"
 	| "account.finalizeAvatar"
 	| "account.requestDeletion"
-	| "organizations.updateProfile";
+	| "organizations.updateProfile"
+	| OnboardingOperation;
+/** The setup and Discovery changes (T-345): a church's setup answers, and starting a church or a Discovery space. */
+export type OnboardingOperation =
+	| "onboarding.declareJourney"
+	| "identity.answerLeadOnboarding"
+	| "onboarding.complete"
+	| "onboarding.createPlant"
+	| "discovery.create"
+	| "discovery.convertToPlant";
 /** The household, tag, skill, note and import writes (WP-064), whose reviews are not revised field by field. */
 export type OrganizationOperation =
 	| "people.addToHousehold"
@@ -362,6 +371,13 @@ const FIELD_LABEL: Record<string, string> = {
 	connection: "Connection",
 	recipientEmail: "Sent to",
 	account: "Your login",
+	// Setup and Discovery (T-345)
+	church: "Church",
+	whereYouAre: "Where you are",
+	launchDate: "Launch date",
+	lead: "Lead",
+	setup: "Setup",
+	discovery: "Discovery",
 	...SHARING_CATEGORY_LABEL,
 };
 /** Meetings words for a field another card also uses: a finalize's "tasks" are the tasks it creates, not a sharing category. */
@@ -406,6 +422,7 @@ export function valueText(field: string, value: unknown): string | null {
 				? "Removed"
 				: (TEAM_STATE[String(value)] ?? String(value));
 	if (typeof value === "boolean") return value ? "Yes" : "No";
+	if (Array.isArray(value)) return value.map(String).join(", ");
 	if (CAPITALIZED.has(field) && typeof value === "string") return value.charAt(0).toUpperCase() + value.slice(1);
 	if (DATE_FIELDS.has(field) && typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value))
 		return dateFormat.format(new Date(`${value}T00:00:00Z`));
@@ -430,12 +447,15 @@ const zoneText = (zone: string) => (ZONE_NAME[zone] ? `${ZONE_NAME[zone]} (${zon
 
 /** The changes Evry makes to seats, church settings, sharing, connections, your account and an organization. */
 export const isSettings = (operation: Operation): operation is SettingsOperation =>
-	/^(seats|plant|privacy|associations|account|organizations)\./.test(operation);
+	/^(seats|plant|privacy|associations|account|organizations|onboarding|discovery)\./.test(operation) ||
+	operation === "identity.answerLeadOnboarding";
 /** The Settings section where a seat, settings, sharing, connection, account or organization change shows. */
 export function settingsLink(operation: SettingsOperation): { href: string; label: string } {
 	if (operation.startsWith("seats.")) return { href: "/settings/seats", label: "Open Seats" };
 	if (operation.startsWith("plant.")) return { href: "/settings/church", label: "Open Church settings" };
 	if (operation.startsWith("account.")) return { href: "/settings/account", label: "Open your account" };
+	if (/^(onboarding|discovery)\./.test(operation) || operation === "identity.answerLeadOnboarding")
+		return { href: "/onboarding", label: "Open setup" };
 	if (operation.startsWith("organizations."))
 		return { href: "/settings/organization", label: "Open Organization profile" };
 	return { href: "/settings/sharing", label: "Open Sharing" };
@@ -508,6 +528,12 @@ const TITLE: Record<Operation, string> = {
 	"account.finalizeAvatar": "Change your photo",
 	"account.requestDeletion": "Delete your login",
 	"organizations.updateProfile": "Update the organization profile",
+	"onboarding.declareJourney": "Where your church is",
+	"identity.answerLeadOnboarding": "Who leads your church",
+	"onboarding.complete": "Finish setup",
+	"onboarding.createPlant": "Start a church",
+	"discovery.create": "Start a Discovery space",
+	"discovery.convertToPlant": "Turn Discovery into a church",
 	"notifications.markSelectedRead": "Mark notifications read",
 	"notifications.markAllVisibleRead": "Mark all notifications read",
 	"notifications.setPreferences": "Change notification settings",
@@ -861,10 +887,48 @@ const ADDS = new Set<Operation>([
 	"people.createTag",
 	"seats.invite",
 	"associations.invite",
+	"onboarding.createPlant",
+	"discovery.create",
+	"discovery.convertToPlant",
 ]);
 export const addsOnly = (operation: Operation) => ADDS.has(operation);
+/** The changes that give the account its first church seat, as its Owner. */
+export const seatsAccount = (operation: Operation) =>
+	operation === "onboarding.createPlant" || operation === "discovery.convertToPlant";
 
-/** The People writes whose review can be revised field by field on the card. */
+/**
+ * One Discovery link on a conversion review (field `link:<organization id>`): the organization, then whether it carries
+ * over to the church and what the church's link shares. Null for any other field.
+ */
+type CarryOver = {
+	organizationId: string;
+	organization: string;
+	kind: string;
+	carries: boolean;
+	share: string[];
+};
+export function carryOver(c: Change): CarryOver | null {
+	if (!c.field.startsWith("link:")) return null;
+	const before = (c.before ?? {}) as { organization?: string; kind?: string };
+	const after = (c.after ?? {}) as { carries?: boolean; share?: string[] };
+	return {
+		organizationId: c.field.slice("link:".length),
+		organization: before.organization ?? "Organization",
+		kind: before.kind ?? "",
+		carries: after.carries === true,
+		share: after.share ?? [],
+	};
+}
+/** "Carries over, sharing Meetings and Wiki", in the card's words. */
+export function carryOverText(link: Pick<CarryOver, "carries" | "share">) {
+	if (!link.carries) return "Doesn't carry over. The link ends.";
+	const shares = SHARING_CATEGORIES.filter((k) => link.share.includes(k)).map((k) => SHARING_CATEGORY_LABEL[k]);
+	return shares.length ? `Carries over, sharing ${shares.join(", ")}` : "Carries over, sharing nothing yet";
+}
+/** The sharing categories a church's link can share, in the Sharing screen's order and words. */
+export const SHARE_CHOICES = SHARING_CATEGORIES.map((k) => ({ value: k, label: SHARING_CATEGORY_LABEL[k] }));
+
+/** The People writes, and turning a Discovery space into a church, whose review can be revised on the card. */
 const REVISABLE = new Set<Operation>([
 	"people.createPerson",
 	"people.updatePerson",
@@ -872,11 +936,14 @@ const REVISABLE = new Set<Operation>([
 	"people.deletePerson",
 	"people.setPersonPhoto",
 	"people.removePersonPhoto",
+	"discovery.convertToPlant",
 ]);
 export const editableChanges = (review: Review) =>
 	review.review.withheld || !REVISABLE.has(review.operation)
 		? []
-		: review.review.changes.filter((c) => !FIXED.has(c.field));
+		: review.review.changes.filter((c) =>
+				review.operation === "discovery.convertToPlant" ? carryOver(c) !== null : !FIXED.has(c.field),
+			);
 
 /** The native command's input for this review with `edits` applied, or null when the review can't be rebuilt. */
 export function reviseInput(review: Review, edits: Record<string, string> = {}): unknown {
@@ -893,6 +960,19 @@ export function reviseInput(review: Review, edits: Record<string, string> = {}):
 	};
 	if (review.operation === "people.createPerson")
 		return Object.fromEntries(changes.map((c) => [c.field, value(c)]).filter(([, v]) => v !== null));
+	if (review.operation === "discovery.convertToPlant") {
+		// Each link as the card shows it, or as revised: a picked link keeps the categories ticked for it.
+		const picks = changes.flatMap((c) => {
+			const link = carryOver(c);
+			if (!link) return [];
+			const edited = c.field in edits ? (JSON.parse(edits[c.field]!) as Pick<CarryOver, "carries" | "share">) : link;
+			return edited.carries ? [{ organizationId: link.organizationId, share: edited.share }] : [];
+		});
+		const place = Object.fromEntries(
+			(["city", "stateProvince", "country"] as const).flatMap((f) => (after(f) ? [[f, after(f)]] : [])),
+		);
+		return { name: after("church"), ...place, carryOver: picks };
+	}
 	if (review.operation === "communication.saveDraft") {
 		const audience = audienceArgs(after("audience"));
 		return audience ? { subject: after("subject"), body: after("body"), audience } : null;
@@ -965,6 +1045,14 @@ export function settingsRefusalText(code: string | undefined): string {
 		case "pending_invitation":
 		case "address_pending":
 			return "A request to this organization is already waiting, so nothing was sent.";
+		case "already_declared":
+			return "Where this church is was already declared, so nothing was saved. It can't be changed in setup.";
+		case "active_seat_conflict":
+			return "Your account already has a church seat, so no church was started.";
+		case "association_resolution_required":
+			return "You have a Discovery space, so nothing was started. Ask Evry to turn it into a church instead.";
+		case "idempotency_conflict":
+			return "A different change already used this review, so nothing was saved. Ask Evry to prepare it again.";
 		case "manual_owner_exception_required":
 			return "You are an Owner, so your church needs another Owner first. Nothing was changed.";
 		case "source_unavailable":
