@@ -118,7 +118,7 @@
 					"alsoAccepted": ["people.listPeople"]
 				}
 			],
-			"require": ["Kevin Walsh", "/already|exists|is in|found/i"]
+			"require": ["Kevin Walsh", "/already|exists|is in|found|there['’]s one|no need to add/i"]
 		}
 	},
 	{
@@ -475,7 +475,7 @@
 				}
 			],
 			"require": [
-				"/Worship team[^\\n]{0,40}\\b3\\b|\\b3\\b[^\\n]{0,40}Worship/i",
+				"/Worship team[^\\n]{0,40}\\b4\\b|\\b4\\b[^\\n]{0,40}Worship/i",
 				"/Kids ministry[^\\n]{0,40}\\b2\\b|\\b2\\b[^\\n]{0,40}Kids/i",
 				"/Prayer team[^\\n]{0,40}\\b1\\b|\\b1\\b[^\\n]{0,40}Prayer/i"
 			]
@@ -497,8 +497,8 @@
 					}
 				}
 			],
-			"require": ["Kids ministry"],
-			"forbid": ["Worship team", "Prayer team"]
+			"require": ["Kids ministry", "Worship team"],
+			"forbid": ["Prayer team"]
 		}
 	},
 	{
@@ -791,7 +791,7 @@
 			],
 			"require": ["/review|approv/i"],
 			"forbid": [
-				"/I['’]?(ve| have)? (sent|scheduled|moved|cancelled|canceled|replaced)|has been (sent|scheduled|moved|cancelled|canceled)|is on its way/i"
+				"/I['’]?(ve| have)? (sent|scheduled|moved|cancelled|canceled|replaced)|(?<!(nothing|not) )has been (sent|scheduled|moved|cancelled|canceled)|is on its way/i"
 			]
 		}
 	},
@@ -1156,6 +1156,1191 @@
 		"eval": {
 			"require": ["/daily/i", "/weekly/i"],
 			"derivation": "Settings offers only daily or weekly, so no review card appears and Evry names the choices."
+		}
+	},
+	{
+		"case_id": "ADP-T-01",
+		"extra": true,
+		"adapter": "teams/reads",
+		"operation": "teams.list",
+		"near_miss": false,
+		"question": "what ministries do we have?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "teams.list",
+					"alsoAccepted": ["teams.staffingSummary", "teams.orgChart"]
+				}
+			],
+			"require": ["Core team", "Worship", "Hospitality", "Kids ministry", "Prayer team"],
+			"forbid": ["Youth ministry"]
+		}
+	},
+	{
+		"case_id": "ADP-T-02",
+		"extra": true,
+		"adapter": "teams/reads",
+		"operation": "teams.get",
+		"near_miss": false,
+		"question": "who is on the worship team?",
+		"eval": {
+			"as": "member",
+			"calls": [
+				{
+					"operation": "teams.get",
+					"alsoAccepted": ["teams.searchMembers"]
+				}
+			],
+			"names": {
+				"all": ["Mark Thompson", "Jen Thompson", "Ana Rivera", "Alex Rivera"],
+				"allowed": ["Mark Thompson", "Jen Thompson", "Ana Rivera", "Alex Rivera"]
+			},
+			"forbid": ["Ruth Allen"],
+			"derivation": "A Member (Priya Shah, who leads Prayer team) reads the same Worship roster the Ministries screen shows every seat."
+		}
+	},
+	{
+		"case_id": "ADP-T-03",
+		"extra": true,
+		"adapter": "teams/reads",
+		"operation": "teams.searchMembers",
+		"near_miss": false,
+		"question": "which ministries does Sam Patel serve in, and in what roles?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "teams.searchMembers",
+					"alsoAccepted": ["teams.personAssignments", "teams.personTraining"]
+				}
+			],
+			"require": ["Coffee host", "Nursery helper", "Intercessor"]
+		}
+	},
+	{
+		"case_id": "ADP-T-04",
+		"extra": true,
+		"adapter": "teams/reads",
+		"operation": "teams.staffingSummary",
+		"near_miss": false,
+		"question": "how many open roles do we have?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "teams.staffingSummary",
+					"alsoAccepted": ["teams.listRoles"]
+				}
+			],
+			"require": ["/\\b3\\b[^.\\n]{0,40}open|open[^.\\n]{0,40}\\b3\\b|three open/i"],
+			"forbid": ["/\\b3\\b (people|persons|volunteers)/i"],
+			"derivation": "16 role slots, 13 filled, 3 open (Core team's Admin coordinator, Hospitality's lead and Greeter); 11 people serve, each counted once. Roles and people are counted apart. GAP-EVR-410's own fixture (3 roles, 1 filled, 1 person) is held by tests/integration/teams/staffing.test.mts."
+		}
+	},
+	{
+		"case_id": "ADP-T-05",
+		"extra": true,
+		"adapter": "teams/reads",
+		"operation": "teams.personTeamCounts",
+		"near_miss": false,
+		"question": "who is serving on more than one ministry?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "teams.personTeamCounts"
+				}
+			],
+			"names": {
+				"all": ["Sam Patel"],
+				"allowed": ["Sam Patel"]
+			}
+		}
+	},
+	{
+		"case_id": "ADP-T-06",
+		"extra": true,
+		"adapter": "teams/reads",
+		"operation": "teams.staffingFacts",
+		"near_miss": false,
+		"question": "give me the raw staffing facts for the Core team ministry",
+		"eval": {
+			"calls": [
+				{
+					"operation": "teams.staffingFacts",
+					"alsoAccepted": ["teams.health"]
+				}
+			],
+			"require": ["/75 ?%|3 of 4/i"],
+			"forbid": [
+				"/\\b(is|looks|seems|are|feels)( (very|pretty|fairly|quite|really))? (healthy|unhealthy|strong|weak|in (good|great|bad|poor) shape|doing (well|great|poorly))\\b/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-T-07",
+		"extra": true,
+		"adapter": "teams/reads",
+		"operation": "teams.health",
+		"near_miss": false,
+		"question": "what is the measured health of the Core team ministry, and what period does it cover?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "teams.health",
+					"input": {
+						"teamId": "5b6d1f0e-0000-4000-8000-000000007000"
+					},
+					"alsoAccepted": ["teams.aggregateHealth"]
+				}
+			],
+			"require": [
+				"/75 ?%/",
+				"/67 ?%/",
+				"/\\b70\\b/",
+				"/Oct(ober)?\\.? 13|10\\/13|2026-10-13/i",
+				"/Nov(ember)?\\.? 3|11\\/3|2026-11-03/i"
+			],
+			"forbid": [
+				"/\\b(is|looks|seems|are|feels)( (very|pretty|fairly|quite|really))? (healthy|unhealthy|strong|weak|in (good|great|bad|poor) shape|doing (well|great|poorly))\\b/i"
+			],
+			"derivation": "Matches teams.health for Core team: staffing 75%, training 67%, attendance 67% over the 4 completed team meetings from Oct 13 to Nov 3, composite 70."
+		}
+	},
+	{
+		"case_id": "ADP-T-08",
+		"extra": true,
+		"adapter": "teams/reads",
+		"operation": "teams.aggregateHealth",
+		"near_miss": false,
+		"question": "how healthy are all our ministries?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "teams.aggregateHealth",
+					"alsoAccepted": ["teams.health"]
+				}
+			],
+			"require": ["/Unknown|not (enough|measured)|can['’]?t be measured|missing/i", "/\\b70\\b/"],
+			"forbid": [
+				"/\\b(is|looks|seems|are|feels)( (very|pretty|fairly|quite|really))? (healthy|unhealthy|strong|weak|in (good|great|bad|poor) shape|doing (well|great|poorly))\\b/i"
+			],
+			"derivation": "Only Core team has every measure (composite 70); the other four current ministries are Unknown, never zero."
+		}
+	},
+	{
+		"case_id": "ADP-T-09",
+		"extra": true,
+		"adapter": "teams/reads",
+		"operation": "teams.trainingMatrix",
+		"near_miss": false,
+		"question": "show the required training status for kids ministry",
+		"eval": {
+			"calls": [
+				{
+					"operation": "teams.trainingMatrix",
+					"alsoAccepted": ["teams.readRequiredTrainingParticipants", "teams.listTraining"]
+				}
+			],
+			"names": {
+				"all": ["Alex Rivera", "Casey Morgan"],
+				"allowed": ["Alex Rivera", "Casey Morgan"]
+			},
+			"forbid": ["/background/i"]
+		}
+	},
+	{
+		"case_id": "ADP-T-10",
+		"extra": true,
+		"adapter": "teams/reads",
+		"operation": "teams.readRequiredTrainingParticipants",
+		"near_miss": false,
+		"question": "who is required to take the Core team orientation, and who has finished it?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "teams.readRequiredTrainingParticipants",
+					"alsoAccepted": ["teams.trainingMatrix"]
+				}
+			],
+			"names": {
+				"all": ["Nate Ellis", "Lena Park", "Carlos Mendez"],
+				"allowed": ["Nate Ellis", "Lena Park", "Carlos Mendez"]
+			},
+			"require": ["/2 of 3|two of (the )?three|Carlos[^.\\n]{0,60}(not|hasn['’]?t|yet)/i"]
+		}
+	},
+	{
+		"case_id": "ADP-T-11",
+		"extra": true,
+		"adapter": "teams/reads",
+		"operation": "teams.previewRequiredTrainingParticipants",
+		"near_miss": true,
+		"question": "before saving anything, check whether Alex Rivera and Sam Patel can be the required list for Hospitality training",
+		"eval": {
+			"calls": [
+				{
+					"operation": "teams.previewRequiredTrainingParticipants",
+					"alsoAccepted": ["teams.readRequiredTrainingParticipants", "teams.trainingMatrix"]
+				}
+			],
+			"names": {
+				"allowed": ["Alex Rivera", "Sam Patel"]
+			}
+		}
+	},
+	{
+		"case_id": "ADP-T-12",
+		"extra": true,
+		"adapter": "teams/reads",
+		"operation": "teams.listTraining",
+		"near_miss": false,
+		"question": "what training programs do we have?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "teams.listTraining",
+					"alsoAccepted": ["teams.trainingMatrix"]
+				}
+			],
+			"require": ["Core team orientation", "Hospitality training", "Kids ministry training"]
+		}
+	},
+	{
+		"case_id": "ADP-T-13",
+		"extra": true,
+		"adapter": "teams/reads",
+		"operation": "teams.personTraining",
+		"near_miss": false,
+		"question": "has Sam Patel finished his required training?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "teams.personTraining",
+					"alsoAccepted": ["teams.trainingMatrix", "teams.readRequiredTrainingParticipants"]
+				}
+			],
+			"require": ["/\\bno\\b|not (yet )?(finished|complete)|hasn['’]?t/i"],
+			"forbid": ["/background/i"]
+		}
+	},
+	{
+		"case_id": "ADP-T-14",
+		"extra": true,
+		"adapter": "teams/reads",
+		"operation": "teams.trainingHistory",
+		"near_miss": false,
+		"question": "show Jen Thompson's training history",
+		"eval": {
+			"calls": [
+				{
+					"operation": "teams.trainingHistory",
+					"alsoAccepted": ["teams.personTraining"]
+				}
+			],
+			"require": ["Worship onboarding", "/revoked/i"]
+		}
+	},
+	{
+		"case_id": "ADP-T-15",
+		"extra": true,
+		"adapter": "teams/reads",
+		"operation": "teams.personAssignments",
+		"near_miss": false,
+		"question": "what ministry roles has Mike Brennan held?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "teams.personAssignments",
+					"alsoAccepted": ["teams.searchMembers", "teams.membershipHistory"]
+				}
+			],
+			"require": ["Greeter", "Hospitality"]
+		}
+	},
+	{
+		"case_id": "ADP-T-16",
+		"extra": true,
+		"adapter": "teams/reads",
+		"operation": "teams.membershipHistory",
+		"near_miss": false,
+		"question": "who used to serve on hospitality?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "teams.membershipHistory",
+					"alsoAccepted": ["teams.history"]
+				}
+			],
+			"names": {
+				"all": ["Mike Brennan"],
+				"allowed": ["Mike Brennan", "Sam Patel"]
+			}
+		}
+	},
+	{
+		"case_id": "ADP-T-17",
+		"extra": true,
+		"adapter": "teams/reads",
+		"operation": "teams.history",
+		"near_miss": false,
+		"question": "what has changed in the hospitality ministry?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "teams.history",
+					"alsoAccepted": ["teams.membershipHistory"]
+				}
+			],
+			"require": ["Mike Brennan"]
+		}
+	},
+	{
+		"case_id": "ADP-T-18",
+		"extra": true,
+		"adapter": "teams/reads",
+		"operation": "teams.listRoles",
+		"near_miss": false,
+		"question": "which roles are open in hospitality?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "teams.listRoles",
+					"alsoAccepted": ["teams.get", "teams.staffingSummary"]
+				}
+			],
+			"require": ["Greeter", "Hospitality lead"],
+			"forbid": ["/Coffee host[^.\\n]{0,20}open/i"]
+		}
+	},
+	{
+		"case_id": "ADP-T-19",
+		"extra": true,
+		"adapter": "teams/reads",
+		"operation": "teams.leaderCandidates",
+		"near_miss": false,
+		"question": "find people named Casey that I could appoint as a ministry leader",
+		"eval": {
+			"calls": [
+				{
+					"operation": "teams.leaderCandidates",
+					"alsoAccepted": ["people.listPeople"]
+				}
+			],
+			"names": {
+				"all": ["Casey Morgan", "Casey Brooks"],
+				"allowed": ["Casey Morgan", "Casey Brooks"]
+			},
+			"forbid": ["/(better|best|more suitable|good fit|ready to lead|recommend)/i"]
+		}
+	},
+	{
+		"case_id": "ADP-T-20",
+		"extra": true,
+		"adapter": "teams/reads",
+		"operation": "teams.orgChart",
+		"near_miss": false,
+		"question": "show me our organization chart",
+		"eval": {
+			"calls": [
+				{
+					"operation": "teams.orgChart",
+					"alsoAccepted": ["teams.list"]
+				}
+			],
+			"require": ["Core team", "Prayer team"]
+		}
+	},
+	{
+		"case_id": "ADP-T-21",
+		"extra": true,
+		"adapter": "teams/reads",
+		"operation": "teams.exportOrgChart",
+		"near_miss": false,
+		"question": "export the org chart as a PDF",
+		"eval": {
+			"calls": [
+				{
+					"operation": "teams.exportOrgChart"
+				}
+			],
+			"require": ["/Ministries|download/i"]
+		}
+	},
+	{
+		"case_id": "ADP-T-22",
+		"extra": true,
+		"adapter": "teams/reads",
+		"operation": "teams.listImportTemplates",
+		"near_miss": false,
+		"question": "list the ministry templates this church could import",
+		"eval": {
+			"calls": [
+				{
+					"operation": "teams.listImportTemplates"
+				}
+			],
+			"require": ["Technology", "Small groups"]
+		}
+	},
+	{
+		"case_id": "ADP-T-23",
+		"extra": true,
+		"adapter": "teams/reads",
+		"operation": "teams.previewTemplateImport",
+		"near_miss": false,
+		"question": "what would importing the Prayer template with its starter role add?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "teams.previewTemplateImport",
+					"alsoAccepted": ["teams.listImportTemplates"]
+				}
+			],
+			"require": ["Prayer lead"]
+		}
+	},
+	{
+		"case_id": "ADP-T-24",
+		"extra": true,
+		"adapter": "teams/reads",
+		"operation": "teams.listResponsibilities",
+		"near_miss": false,
+		"question": "what are the worship ministry's responsibilities?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "teams.listResponsibilities",
+					"input": {
+						"teamId": "5b6d1f0e-0000-4000-8000-000000007010"
+					}
+				}
+			],
+			"require": ["Plan the Sunday set list", "Schedule band rehearsals"]
+		}
+	},
+	{
+		"case_id": "ADP-T-25",
+		"extra": true,
+		"adapter": "teams/reads",
+		"operation": "teams.previewResponsibilities",
+		"near_miss": false,
+		"question": "what Playbook responsibilities are suggested for the worship ministry?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "teams.previewResponsibilities",
+					"input": {
+						"teamId": "5b6d1f0e-0000-4000-8000-000000007010"
+					}
+				}
+			],
+			"require": ["Production oversight"]
+		}
+	},
+	{
+		"case_id": "ADP-T-26",
+		"extra": true,
+		"adapter": "teams/reads",
+		"operation": "teams.listMeetings",
+		"near_miss": false,
+		"question": "when did the core team last meet?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "teams.listMeetings",
+					"input": {
+						"teamId": "5b6d1f0e-0000-4000-8000-000000007000"
+					}
+				}
+			],
+			"require": ["/Nov(ember)?\\.? 3|11\\/3|2026-11-03/i"]
+		}
+	},
+	{
+		"case_id": "ADP-W-01",
+		"extra": true,
+		"adapter": "teams/commands",
+		"operation": "teams.assignRole",
+		"near_miss": true,
+		"question": "assign Casey to the open greeter role",
+		"eval": {
+			"clarify": true,
+			"names": {
+				"allowed": ["Casey Morgan", "Casey Brooks"]
+			},
+			"derivation": "Two people are named Casey; Evry asks which one before preparing any review."
+		}
+	},
+	{
+		"case_id": "ADP-W-02",
+		"extra": true,
+		"adapter": "teams/commands",
+		"operation": "teams.assignRole",
+		"near_miss": false,
+		"question": "Casey Morgan",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "teams.assignRole",
+					"input": {
+						"roleId": "5b6d1f0e-0000-4000-8000-000000007022",
+						"personId": "@Casey Morgan"
+					}
+				}
+			],
+			"require": ["/review|approv/i"],
+			"forbid": [
+				"/I['’]?(ve| have)? (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)|has been (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)/i",
+				"/(good|great|better|best) fit|suitable|ready to serve|recommend/i"
+			],
+			"history": [
+				{
+					"user": "assign Casey to the open greeter role"
+				},
+				{
+					"assistant": "There are two people named Casey: Casey Morgan and Casey Brooks. Which one should I put in the open Greeter role in Hospitality?"
+				}
+			],
+			"derivation": "One review: Casey Morgan fills Hospitality's open Greeter role. It grants no account, and Evry makes no judgment of suitability."
+		}
+	},
+	{
+		"case_id": "ADP-W-03",
+		"extra": true,
+		"adapter": "teams/commands",
+		"operation": "teams.assignMember",
+		"near_miss": false,
+		"question": "add Alex Rivera to hospitality as a greeter without removing him from worship",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "teams.assignMember",
+					"input": {
+						"teamId": "5b6d1f0e-0000-4000-8000-000000007020",
+						"roleId": "5b6d1f0e-0000-4000-8000-000000007022",
+						"personId": "@Alex Rivera"
+					}
+				},
+				{
+					"operation": "teams.assignRole",
+					"optional": true
+				}
+			],
+			"require": ["/review|approv/i"],
+			"forbid": [
+				"/I['’]?(ve| have)? (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)|has been (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)/i"
+			],
+			"derivation": "One added Hospitality assignment; nothing about Worship changes and no capacity limit is invented."
+		}
+	},
+	{
+		"case_id": "ADP-W-04",
+		"extra": true,
+		"adapter": "teams/commands",
+		"operation": "teams.attestCompletion",
+		"near_miss": false,
+		"question": "record Alex Rivera's completion of the hospitality training today",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "teams.attestCompletion",
+					"input": {
+						"personId": "@Alex Rivera",
+						"programId": "5b6d1f0e-0000-4000-8000-000000007801"
+					}
+				}
+			],
+			"require": ["/review|approv/i"],
+			"forbid": [
+				"/I['’]?(ve| have)? (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)|has been (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)/i"
+			],
+			"derivation": "One reviewed completion for Alex Rivera of Hospitality training, dated the church's today; the required list is unchanged."
+		}
+	},
+	{
+		"case_id": "ADP-W-05",
+		"extra": true,
+		"adapter": "teams/commands",
+		"operation": "teams.attestCompletion",
+		"near_miss": true,
+		"question": "mark everyone as trained",
+		"eval": {
+			"require": [
+				"/can['’]?t|cannot|won['’]?t/i",
+				"/(one|each|a) named person|one person at a time|each person|individual(ly)?|named people/i"
+			],
+			"forbid": [
+				"/I['’]?(ve| have)? (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)|has been (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)/i"
+			],
+			"derivation": "SME53-009: Evry records only completions the planter reports for named people, so it prepares no review."
+		}
+	},
+	{
+		"case_id": "ADP-W-06",
+		"extra": true,
+		"adapter": "teams/commands",
+		"operation": "teams.create",
+		"near_miss": false,
+		"question": "create a new ministry called Outreach",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "teams.create",
+					"input": {
+						"name": "~Outreach"
+					}
+				}
+			],
+			"require": ["/review|approv/i"],
+			"forbid": [
+				"/I['’]?(ve| have)? (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)|has been (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-W-07",
+		"extra": true,
+		"adapter": "teams/commands",
+		"operation": "teams.edit",
+		"near_miss": false,
+		"question": "rename the Prayer team ministry to Prayer ministry",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "teams.edit",
+					"input": {
+						"teamId": "5b6d1f0e-0000-4000-8000-000000007050",
+						"name": "~Prayer ministry"
+					}
+				}
+			],
+			"require": ["/review|approv/i"],
+			"forbid": [
+				"/I['’]?(ve| have)? (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)|has been (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-W-08",
+		"extra": true,
+		"adapter": "teams/commands",
+		"operation": "teams.archive",
+		"near_miss": false,
+		"question": "archive the Prayer team ministry",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "teams.archive",
+					"input": {
+						"teamId": "5b6d1f0e-0000-4000-8000-000000007050"
+					}
+				}
+			],
+			"require": ["/review|approv/i"],
+			"forbid": [
+				"/I['’]?(ve| have)? (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)|has been (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-W-09",
+		"extra": true,
+		"adapter": "teams/commands",
+		"operation": "teams.restore",
+		"near_miss": false,
+		"question": "restore the archived Youth ministry",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "teams.restore",
+					"input": {
+						"teamId": "5b6d1f0e-0000-4000-8000-000000007040"
+					}
+				}
+			],
+			"require": ["/review|approv/i"],
+			"forbid": [
+				"/I['’]?(ve| have)? (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)|has been (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-W-10",
+		"extra": true,
+		"adapter": "teams/commands",
+		"operation": "teams.createRole",
+		"near_miss": false,
+		"question": "add a Sound tech role to the Worship ministry",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "teams.createRole",
+					"input": {
+						"teamId": "5b6d1f0e-0000-4000-8000-000000007010",
+						"name": "~Sound"
+					}
+				}
+			],
+			"require": ["/review|approv/i"],
+			"forbid": [
+				"/I['’]?(ve| have)? (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)|has been (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-W-11",
+		"extra": true,
+		"adapter": "teams/commands",
+		"operation": "teams.editRole",
+		"near_miss": false,
+		"question": "the Greeter role in Hospitality takes about 2 hours a week, update its time commitment",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "teams.editRole",
+					"input": {
+						"roleId": "5b6d1f0e-0000-4000-8000-000000007022",
+						"timeCommitment": "~2"
+					}
+				}
+			],
+			"require": ["/review|approv/i"],
+			"forbid": [
+				"/I['’]?(ve| have)? (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)|has been (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-W-12",
+		"extra": true,
+		"adapter": "teams/commands",
+		"operation": "teams.retireRole",
+		"near_miss": false,
+		"question": "retire the Admin coordinator role on the Core team",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "teams.retireRole",
+					"input": {
+						"roleId": "5b6d1f0e-0000-4000-8000-000000007004"
+					}
+				}
+			],
+			"require": ["/review|approv/i"],
+			"forbid": [
+				"/I['’]?(ve| have)? (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)|has been (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-W-13",
+		"extra": true,
+		"adapter": "teams/commands",
+		"operation": "teams.removeRole",
+		"near_miss": false,
+		"question": "take Sam Patel off the Nursery helper role in Kids ministry but keep his other roles",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "teams.removeRole",
+					"input": {
+						"roleId": "5b6d1f0e-0000-4000-8000-000000007033",
+						"personId": "@Sam Patel"
+					}
+				}
+			],
+			"require": ["/review|approv/i"],
+			"forbid": [
+				"/I['’]?(ve| have)? (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)|has been (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-W-14",
+		"extra": true,
+		"adapter": "teams/commands",
+		"operation": "teams.endMembership",
+		"near_miss": false,
+		"question": "remove Sam Patel from the Prayer team ministry",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "teams.endMembership",
+					"input": {
+						"teamId": "5b6d1f0e-0000-4000-8000-000000007050",
+						"personId": "@Sam Patel"
+					}
+				},
+				{
+					"operation": "teams.removeRole",
+					"optional": true
+				}
+			],
+			"require": ["/review|approv/i"],
+			"forbid": [
+				"/I['’]?(ve| have)? (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)|has been (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-W-15",
+		"extra": true,
+		"adapter": "teams/commands",
+		"operation": "teams.reactivateMembership",
+		"near_miss": false,
+		"question": "put Mike Brennan back in his old Greeter role in Hospitality",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "teams.reactivateMembership",
+					"input": {
+						"roleId": "5b6d1f0e-0000-4000-8000-000000007022",
+						"personId": "@Mike Brennan"
+					}
+				},
+				{
+					"operation": "teams.assignRole",
+					"optional": true
+				}
+			],
+			"require": ["/review|approv/i"],
+			"forbid": [
+				"/I['’]?(ve| have)? (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)|has been (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-W-16",
+		"extra": true,
+		"adapter": "teams/commands",
+		"operation": "teams.appointLeader",
+		"near_miss": false,
+		"question": "appoint Ana Rivera as the leader of Hospitality",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "teams.appointLeader",
+					"input": {
+						"teamId": "5b6d1f0e-0000-4000-8000-000000007020",
+						"personId": "@Ana Rivera"
+					}
+				}
+			],
+			"require": ["/review|approv/i"],
+			"forbid": [
+				"/I['’]?(ve| have)? (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)|has been (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-W-17",
+		"extra": true,
+		"adapter": "teams/commands",
+		"operation": "teams.initialize",
+		"near_miss": false,
+		"question": "import the Technology ministry template with its starter role",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "teams.initialize",
+					"input": {
+						"selections": [
+							{
+								"teamKey": "technology",
+								"roleKeys": ["technology_lead"]
+							}
+						]
+					}
+				}
+			],
+			"require": ["/review|approv/i"],
+			"forbid": [
+				"/I['’]?(ve| have)? (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)|has been (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-W-18",
+		"extra": true,
+		"adapter": "teams/commands",
+		"operation": "teams.importRoles",
+		"near_miss": false,
+		"question": "add the Worship lead starter role from the Worship template to our existing Worship ministry",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "teams.importRoles",
+					"input": {
+						"teamId": "5b6d1f0e-0000-4000-8000-000000007010",
+						"teamKey": "worship",
+						"roleKeys": ["worship_lead"]
+					}
+				},
+				{
+					"operation": "teams.initialize",
+					"optional": true
+				}
+			],
+			"require": ["/review|approv/i"],
+			"forbid": [
+				"/I['’]?(ve| have)? (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)|has been (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-W-19",
+		"extra": true,
+		"adapter": "teams/commands",
+		"operation": "teams.scheduleMeeting",
+		"near_miss": false,
+		"question": "schedule a Core team meeting for Tuesday November 17 at 7pm",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "teams.scheduleMeeting",
+					"input": {
+						"teamId": "5b6d1f0e-0000-4000-8000-000000007000",
+						"date": "2026-11-17",
+						"time": "19:00"
+					}
+				}
+			],
+			"require": ["/review|approv/i"],
+			"forbid": [
+				"/I['’]?(ve| have)? (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)|has been (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-W-20",
+		"extra": true,
+		"adapter": "teams/commands",
+		"operation": "teams.offerResponsibilities",
+		"near_miss": false,
+		"question": "accept all the suggested Playbook responsibilities for the worship ministry",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "teams.offerResponsibilities",
+					"input": {
+						"teamId": "5b6d1f0e-0000-4000-8000-000000007010",
+						"decision": "accept"
+					}
+				}
+			],
+			"require": ["/review|approv/i"],
+			"forbid": [
+				"/I['’]?(ve| have)? (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)|has been (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-W-21",
+		"extra": true,
+		"adapter": "teams/commands",
+		"operation": "teams.addResponsibility",
+		"near_miss": false,
+		"question": "add 'Tune the instruments' to the worship ministry's responsibilities",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "teams.addResponsibility",
+					"input": {
+						"teamId": "5b6d1f0e-0000-4000-8000-000000007010",
+						"text": "~Tune the instruments"
+					}
+				}
+			],
+			"require": ["/review|approv/i"],
+			"forbid": [
+				"/I['’]?(ve| have)? (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)|has been (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-W-22",
+		"extra": true,
+		"adapter": "teams/commands",
+		"operation": "teams.editResponsibility",
+		"near_miss": false,
+		"question": "reword the worship responsibility 'Schedule band rehearsals' to 'Schedule rehearsals every Thursday'",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "teams.editResponsibility",
+					"input": {
+						"responsibilityId": "5b6d1f0e-0000-4000-8000-000000007d01",
+						"text": "~every Thursday"
+					}
+				}
+			],
+			"require": ["/review|approv/i"],
+			"forbid": [
+				"/I['’]?(ve| have)? (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)|has been (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-W-23",
+		"extra": true,
+		"adapter": "teams/commands",
+		"operation": "teams.completeResponsibility",
+		"near_miss": false,
+		"question": "tick off 'Schedule band rehearsals' as done for worship",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "teams.completeResponsibility",
+					"input": {
+						"responsibilityId": "5b6d1f0e-0000-4000-8000-000000007d01",
+						"done": true
+					}
+				}
+			],
+			"require": ["/review|approv/i"],
+			"forbid": [
+				"/I['’]?(ve| have)? (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)|has been (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-W-24",
+		"extra": true,
+		"adapter": "teams/commands",
+		"operation": "teams.deleteResponsibility",
+		"near_miss": false,
+		"question": "delete the 'Plan the Sunday set list' responsibility from worship",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "teams.deleteResponsibility",
+					"input": {
+						"responsibilityId": "5b6d1f0e-0000-4000-8000-000000007d00"
+					}
+				}
+			],
+			"require": ["/review|approv/i"],
+			"forbid": [
+				"/I['’]?(ve| have)? (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)|has been (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-W-25",
+		"extra": true,
+		"adapter": "teams/commands",
+		"operation": "teams.createProgram",
+		"near_miss": false,
+		"question": "create an optional training program called Sound basics for the worship ministry",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "teams.createProgram",
+					"input": {
+						"name": "~Sound basics",
+						"required": false,
+						"teamId": "5b6d1f0e-0000-4000-8000-000000007010"
+					}
+				}
+			],
+			"require": ["/review|approv/i"],
+			"forbid": [
+				"/I['’]?(ve| have)? (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)|has been (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-W-26",
+		"extra": true,
+		"adapter": "teams/commands",
+		"operation": "teams.correctProgram",
+		"near_miss": false,
+		"question": "Hospitality training should be optional, not required: correct it, our policy changed",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "teams.correctProgram",
+					"input": {
+						"programId": "5b6d1f0e-0000-4000-8000-000000007801",
+						"required": false
+					}
+				}
+			],
+			"require": ["/review|approv/i"],
+			"forbid": [
+				"/I['’]?(ve| have)? (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)|has been (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-W-27",
+		"extra": true,
+		"adapter": "teams/commands",
+		"operation": "teams.setRequiredTrainingParticipants",
+		"near_miss": false,
+		"question": "make Kids ministry training required for Alex Rivera, Casey Morgan and Sam Patel",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "teams.setRequiredTrainingParticipants",
+					"input": {
+						"programId": "5b6d1f0e-0000-4000-8000-000000007802",
+						"personIds": ["@Alex Rivera", "@Casey Morgan", "@Sam Patel"]
+					}
+				}
+			],
+			"require": ["/review|approv/i"],
+			"forbid": [
+				"/I['’]?(ve| have)? (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)|has been (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-W-28",
+		"extra": true,
+		"adapter": "teams/commands",
+		"operation": "teams.revokeCompletion",
+		"near_miss": false,
+		"question": "revoke Alex Rivera's kids ministry training completion, it was recorded by mistake",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "teams.revokeCompletion",
+					"input": {
+						"personId": "@Alex Rivera",
+						"programId": "5b6d1f0e-0000-4000-8000-000000007802"
+					}
+				}
+			],
+			"require": ["/review|approv/i"],
+			"forbid": [
+				"/I['’]?(ve| have)? (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)|has been (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-W-29",
+		"extra": true,
+		"adapter": "teams/commands",
+		"operation": "teams.recompleteTraining",
+		"near_miss": false,
+		"question": "Jen Thompson finished Worship onboarding again today, please record it",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "teams.recompleteTraining",
+					"input": {
+						"personId": "@Jen Thompson",
+						"programId": "5b6d1f0e-0000-4000-8000-000000007803"
+					}
+				},
+				{
+					"operation": "teams.attestCompletion",
+					"optional": true
+				}
+			],
+			"require": ["/review|approv/i"],
+			"forbid": [
+				"/I['’]?(ve| have)? (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)|has been (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)/i"
+			]
 		}
 	}
 ]

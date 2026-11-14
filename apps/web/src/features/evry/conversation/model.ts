@@ -51,7 +51,13 @@ export type SourceRow = {
 		| "message"
 		| "notice"
 		| "setting"
-		| "digest";
+		| "digest"
+		| "team"
+		| "role"
+		| "training"
+		| "meeting"
+		| "responsibility"
+		| "template";
 	id: string;
 	label: string;
 	fields: Record<string, unknown>;
@@ -65,6 +71,8 @@ export type SourceResult = {
 	next: number | null;
 	completeness: "complete" | "partial";
 	exclusions: string[];
+	/** Totals the read counted over its rows, such as roles and people serving church-wide. */
+	facts?: Record<string, unknown>;
 	/** Rows whose source is no longer available, left out of this card when it was read again. */
 	withheldRows?: number;
 	/** Set on the result that holds a prepared change for review (WP-053). */

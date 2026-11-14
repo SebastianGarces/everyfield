@@ -7,7 +7,7 @@
 // - 83 live people: 3 leader, 2 launch_team, 5 core_group, 2 interviewed, 4 following_up, 10 attendee, 57 prospect
 //   (13 of the prospects in Austin). 2 removed people: Tom Baker and Rosa Rivera.
 // - 8 households: Rivera, Thompson, Nguyen, Okafor, Martinez, Garcia, Johnson, Lee.
-// - Tags Worship team (3), Kids ministry (2), Prayer team (1); skills on Mark Thompson, Alex Rivera, Jen Thompson.
+// - Tags Worship team (4, Ruth Allen's among them), Kids ministry (2), Prayer team (1); skills on Mark Thompson, Alex Rivera, Jen Thompson.
 // - Two Marias, two Caseys, Jon and John Smith, a test record "asdf" and a person whose name is an instruction.
 // - An import receipt (5 created, 1 skipped, 2 failed) and open tasks on Mark Thompson (2), Ana Rivera and Sam Patel.
 // - An earlier import that added John Smith, Casey Brooks and Maria Delgado with "Add, review later": the open review
@@ -20,6 +20,14 @@
 //   Thu 19 Nov), plus one read reminder from Thu 5 Nov. The Admin has two unread notices of her own. The church digest
 //   goes out weekly on Sundays at 4 PM; the next one (Sun 15 Nov) covers 9 to 15 Nov and lists the Owner's three open
 //   dated tasks (two overdue by then) and the interest meeting.
+// - Ministries (MINISTRIES below), read from the team roster, never from tags: Core team (led by Nate; 4 roles, the
+//   Admin coordinator open; 5 completed team meetings, the last 4 measured; required "Core team orientation" for Nate,
+//   Lena and Carlos, two finished), Worship (Mark leads it from the Worship leader role; Mark, Jen, Ana and Alex serve;
+//   Ruth Allen carries the Worship team tag but is not on it), Hospitality (no leader: the Hospitality lead and Greeter
+//   roles are open, Sam is the Coffee host, Mike's Greeter time ended; "Hospitality training" required for Alex and Sam,
+//   none finished), Kids ministry (Linh leads it; Casey Morgan on check-in; Sam joined as Nursery helper after "Kids
+//   ministry training" was saved for Alex and Casey Morgan, and only Alex has finished) and Prayer team (Priya, the
+//   Member, leads it; Sam intercedes). Sam Patel serves on three ministries; no one else on more than one.
 // - Actors: the Owner (Nate Ellis, a leader linked to his account), an Admin (Lena Park), a Member (Priya Shah), an
 //   organization seat (a sending church, which sees no plant People) and the Owner of an empty church.
 //
@@ -141,7 +149,7 @@ const named: Person[] = [
 	person("James Okafor", "Austin", "interviewed", { household: { id: home("Okafor"), role: "head" } }),
 	person("Ruth Allen", "Austin", "interviewed", {
 		household: { id: home("Okafor"), role: "spouse" },
-		tags: ["Kids ministry"],
+		tags: ["Kids ministry", "Worship team"],
 	}),
 	person("Daniel Cruz", "Austin", "following_up", {
 		inactivity: "alert",
@@ -499,6 +507,187 @@ async function seedNotifications(run: (q: ReturnType<typeof sql>) => Promise<unk
 	await run(sql`UPDATE notice SET read_at='2026-11-05T18:00:00Z' WHERE id=${READ_NOTICE}`);
 }
 
+type Seat = { role: string; person?: string; leads?: true; from?: string; ended?: string };
+type Ministry = {
+	name: string;
+	/** A ministry set up from a catalog template keeps its key, which names its Playbook responsibilities. */
+	templateKey?: string;
+	/** Archived: out of current lists, staffing and health, and restorable. */
+	archived?: true;
+	leader?: { person: string; source: "explicit" | "role_derived" };
+	roles: Seat[];
+};
+/** Hope Fellowship's ministries, in Ministries order. A role with no person is open. */
+export const MINISTRIES: Ministry[] = [
+	{
+		name: "Core team",
+		leader: { person: "Nate Ellis", source: "explicit" },
+		roles: [
+			{ role: "Lead pastor", person: "Nate Ellis", leads: true },
+			{ role: "Executive pastor", person: "Lena Park" },
+			{ role: "Outreach lead", person: "Carlos Mendez" },
+			{ role: "Admin coordinator" },
+		],
+	},
+	{
+		name: "Worship",
+		templateKey: "worship",
+		leader: { person: "Mark Thompson", source: "role_derived" },
+		roles: [
+			{ role: "Worship leader", person: "Mark Thompson", leads: true },
+			{ role: "Vocals", person: "Jen Thompson" },
+			{ role: "Keys", person: "Ana Rivera" },
+			{ role: "Video", person: "Alex Rivera" },
+		],
+	},
+	{
+		name: "Hospitality",
+		roles: [
+			{ role: "Hospitality lead", leads: true },
+			{ role: "Greeter", person: "Mike Brennan", from: "2026-06-01", ended: "2026-09-30" },
+			{ role: "Coffee host", person: "Sam Patel" },
+		],
+	},
+	{
+		name: "Kids ministry",
+		leader: { person: "Linh Nguyen", source: "explicit" },
+		roles: [
+			{ role: "Kids director", person: "Linh Nguyen", leads: true },
+			{ role: "Check-in", person: "Casey Morgan" },
+			{ role: "Nursery helper", person: "Sam Patel", from: "2026-10-20" },
+		],
+	},
+	{ name: "Youth ministry", archived: true, roles: [] },
+	{
+		name: "Prayer team",
+		leader: { person: "Priya Shah", source: "explicit" },
+		roles: [
+			{ role: "Prayer lead", person: "Priya Shah", leads: true },
+			{ role: "Intercessor", person: "Sam Patel" },
+		],
+	},
+];
+/** Required training: each program's saved list (as of its date) and who has finished it. */
+export const PROGRAMS = [
+	{
+		name: "Core team orientation",
+		team: "Core team",
+		saved: ["Nate Ellis", "Lena Park", "Carlos Mendez"],
+		done: ["Nate Ellis", "Lena Park"],
+	},
+	{ name: "Hospitality training", team: "Hospitality", saved: ["Alex Rivera", "Sam Patel"], done: [] },
+	{
+		name: "Kids ministry training",
+		team: "Kids ministry",
+		saved: ["Alex Rivera", "Casey Morgan"],
+		done: ["Alex Rivera"],
+	},
+	// Optional, so it never counts toward a ministry's required training. Jen's completion was revoked.
+	{
+		name: "Worship onboarding",
+		team: "Worship",
+		saved: [],
+		done: ["Jen Thompson"],
+		revoked: ["Jen Thompson"],
+		optional: true,
+	},
+] as const satisfies readonly {
+	name: string;
+	team: string;
+	saved: readonly string[];
+	done: readonly string[];
+	revoked?: readonly string[];
+	optional?: true;
+}[];
+/** Worship's responsibilities checklist: one done, one open. */
+export const RESPONSIBILITIES = [
+	{ text: "Plan the Sunday set list", done: "2026-11-01" },
+	{ text: "Schedule band rehearsals", done: null },
+] as const;
+/** Core team's completed team meetings (Tuesdays, 7 PM): who of its roster attended, and a guest at each. */
+const CORE_MEETINGS = [
+	{ on: "2026-10-06", attended: ["Nate Ellis", "Lena Park", "Carlos Mendez"] },
+	{ on: "2026-10-13", attended: ["Nate Ellis", "Lena Park"] },
+	{ on: "2026-10-20", attended: ["Nate Ellis"] },
+	{ on: "2026-10-27", attended: ["Nate Ellis", "Lena Park"] },
+	{ on: "2026-11-03", attended: ["Nate Ellis", "Lena Park"] },
+];
+export const teamId = (name: string) => id(0x7000 + MINISTRIES.findIndex((m) => m.name === name) * 0x10);
+export const roleId = (team: string, role: string) => {
+	const m = MINISTRIES.findIndex((x) => x.name === team);
+	return id(0x7000 + m * 0x10 + 1 + MINISTRIES[m]!.roles.findIndex((r) => r.role === role));
+};
+export const programId = (name: string) => id(0x7800 + PROGRAMS.findIndex((g) => g.name === name));
+
+/** The ministries, as the Ministries screens and the teams writes store them. */
+async function seedMinistries(admin: Database) {
+	const run = (q: ReturnType<typeof sql>) => admin.execute(q);
+	let tenure = 0x7400;
+	for (const [i, m] of MINISTRIES.entries()) {
+		const team = teamId(m.name);
+		const leader = m.leader ? byName(m.leader.person).id : null;
+		const leaderRole = m.leader?.source === "role_derived" ? roleId(m.name, m.roles.find((r) => r.leads)!.role) : null;
+		await run(sql`INSERT INTO team(id,plant_id,name,template_key,state,sort_order,archived_at)
+			VALUES(${team},${PLANT},${m.name},${m.templateKey ?? null},'active',${i + 1},${m.archived ? "2026-08-01T12:00:00.000Z" : null})`);
+		for (const [k, r] of m.roles.entries()) {
+			await run(sql`INSERT INTO team_role(id,plant_id,team_id,name,leadership,sort_order)
+				VALUES(${roleId(m.name, r.role)},${PLANT},${team},${r.role},${!!r.leads},${k + 1})`);
+			if (!r.person) continue;
+			await run(sql`INSERT INTO team_tenure(id,plant_id,role_id,person_id,started_on,ended_on)
+				VALUES(${id(++tenure)},${PLANT},${roleId(m.name, r.role)},${byName(r.person).id},${r.from ?? "2026-09-01"},${r.ended ?? null})`);
+			// An ended time in a role is in the ministry's history, as the teams writes file it.
+			if (r.ended)
+				await run(sql`INSERT INTO audit_event(id,tenant_id,actor_id,action,kind,subject_type,subject_id,occurred_at,recorded_at,before_value,after_value,metadata)
+					VALUES(${id(0x7300 + tenure)},${PLANT},${ACTOR_SPECS.owner.account},'teams.changed','remove','team_tenure',${id(tenure)},
+						${r.ended + "T17:00:00.000Z"},${r.ended + "T17:00:00.000Z"},'{"open":1}'::jsonb,'{"open":0}'::jsonb,'{}'::jsonb)`);
+		}
+		if (leader)
+			await run(sql`UPDATE team SET leader_person_id=${leader},leader_source=${m.leader!.source},leader_role_id=${leaderRole}
+				WHERE id=${team}`);
+	}
+	// The installed Playbook version Worship's checklist was accepted from, and its two lines.
+	const [release, item, version] = [id(0x7c00), id(0x7c01), id(0x7c02)];
+	const GLOBAL = "00000000-0000-0000-0000-000000000000";
+	await run(sql`INSERT INTO reference_release(id,release_key,artifact_locator,manifest_hash,state,chunker_version,embedding_profile,embedding_dimensions,tenant_id,expected_passages)
+		VALUES(${release},'golden','memory','golden','validated','0','none',1,${GLOBAL},0)`);
+	await run(
+		sql`INSERT INTO reference_item(id,kind,canonical_key,tenant_id) VALUES(${item},'ministry_template','worship',${GLOBAL})`,
+	);
+	await run(sql`INSERT INTO reference_version(id,item_id,release_id,version_number,artifact_path,content_hash,source_credit)
+		VALUES(${version},${item},${release},1,'lines','golden','golden')`);
+	for (const [k, line] of RESPONSIBILITIES.entries())
+		await run(sql`INSERT INTO responsibility(id,plant_id,team_id,source_version_id,source_line,text,sort_order,completed_on)
+			VALUES(${id(0x7d00 + k)},${PLANT},${teamId("Worship")},${version},${"custom:" + id(0x7d00 + k)},${line.text},${k + 1},${line.done})`);
+	let credit = 0x7900;
+	for (const g of PROGRAMS) {
+		await run(sql`INSERT INTO training_program(id,plant_id,team_id,name,required,version)
+			VALUES(${programId(g.name)},${PLANT},${teamId(g.team)},${g.name},${!("optional" in g)},1)`);
+		for (const name of g.saved)
+			await run(sql`INSERT INTO training_assignment(plant_id,program_id,person_id,version,state,effective_on)
+				VALUES(${PLANT},${programId(g.name)},${byName(name).id},1,'active','2026-10-01')`);
+		for (const name of g.done)
+			await run(sql`INSERT INTO training_credit(id,plant_id,person_id,program_id,kind,version,earned_on,verifier_account_id,recorded_at)
+				VALUES(${id(++credit)},${PLANT},${byName(name).id},${programId(g.name)},'earned',1,'2026-10-05',${ACTOR_SPECS.owner.account},'2026-10-05T18:00:00.000Z')`);
+		for (const name of "revoked" in g ? g.revoked : [])
+			await run(sql`INSERT INTO training_credit(id,plant_id,person_id,program_id,kind,version,verifier_account_id,recorded_at)
+				VALUES(${id(++credit)},${PLANT},${byName(name).id},${programId(g.name)},'revoked',1,${ACTOR_SPECS.owner.account},'2026-10-20T18:00:00.000Z')`);
+	}
+	const roster = MINISTRIES[0]!.roles.flatMap((r) => (r.person ? [r.person] : []));
+	for (const [k, meeting] of CORE_MEETINGS.entries()) {
+		const at = id(0x7a00 + k);
+		// 7 PM in Chicago: CDT (UTC-5) before Nov 1, CST (UTC-6) after.
+		const startsAt = `${meeting.on}T${meeting.on < "2026-11-01" ? "00" : "01"}:00:00.000Z`;
+		await run(sql`INSERT INTO meeting(id,plant_id,type,subtype,title,local_date,local_time,timezone,starts_at,resolver_version,status,attendance_revision,team_id)
+			VALUES(${at},${PLANT},'team_meeting','regular','Core team meeting',${meeting.on},'19:00','America/Chicago',
+				(${startsAt}::timestamptz + interval '1 day'),'1','completed',1,${teamId("Core team")})`);
+		for (const name of roster)
+			await run(sql`INSERT INTO participation(plant_id,meeting_id,person_id,roster_member,presence)
+				VALUES(${PLANT},${at},${byName(name).id},true,${meeting.attended.includes(name) ? "attended" : "absent"})`);
+		await run(sql`INSERT INTO participation(plant_id,meeting_id,person_id,roster_member,presence)
+			VALUES(${PLANT},${at},${byName("Mike Brennan").id},false,'attended')`);
+	}
+}
+
 /** The eval actor as the turn builds it: the session's live authority, with the user's own person row. */
 async function actorFor(db: Database, who: ActorName): Promise<EvryActor> {
 	const viewer = await readViewer(db, ACTOR_SPECS[who].session as never);
@@ -533,6 +722,7 @@ export async function goldenChurch(): Promise<GoldenChurch> {
 	const database = await testDatabase({ prefix: "evrygold", max: 10 });
 	try {
 		await seedHope(database.admin);
+		await seedMinistries(database.admin);
 		const db = database.pools.runtime;
 		const actors = {} as Record<ActorName, EvryActor>;
 		for (const who of Object.keys(ACTOR_SPECS) as ActorName[]) actors[who] = await actorFor(db, who);

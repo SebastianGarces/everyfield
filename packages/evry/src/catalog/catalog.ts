@@ -3,6 +3,7 @@ import { COMMUNICATION_READS } from "../adapters/communication/reads/index.ts";
 import { NOTIFICATION_READS } from "../adapters/notifications/reads/index.ts";
 import { ORGANIZATION_READS } from "../adapters/people-organization/reads/index.ts";
 import { PEOPLE_READS } from "../adapters/people/reads/index.ts";
+import { TEAMS_READS } from "../adapters/teams/reads/index.ts";
 import { allowedWrites } from "../proposals/store.ts";
 import type { ReadAdapter } from "./types.ts";
 
@@ -16,6 +17,7 @@ export const READ_DOMAINS = {
 	peopleOrganization: ORGANIZATION_READS,
 	communication: COMMUNICATION_READS,
 	notifications: NOTIFICATION_READS,
+	teams: TEAMS_READS,
 } as const satisfies Record<string, readonly Pick<ReadAdapter<unknown>, "operation" | "description" | "allowed">[]>;
 
 /** The runtime's own model tool: pick rows from a result this conversation already returned. */
