@@ -1978,6 +1978,43 @@
 		"limit": 4,
 		"retry": 3
 	},
+	"launch.readJournal": {
+		"limit": 1
+	},
+	"launch.suggestGuests": {
+		"limit": 1
+	},
+	"launch.readPublishedSummary": {
+		"limit": 1
+	},
+	"launch.recordOutcome": {
+		"limit": 5,
+		"retry": 4
+	},
+	"launch.correctOutcome": {
+		"limit": 5,
+		"retry": 4
+	},
+	"launch.addGuestAttendance": {
+		"limit": 5,
+		"retry": 4
+	},
+	"launch.saveDebriefDraft": {
+		"limit": 5,
+		"retry": 4
+	},
+	"launch.submitDebrief": {
+		"limit": 5,
+		"retry": 4
+	},
+	"launch.saveDebriefSummaryDraft": {
+		"limit": 5,
+		"retry": 4
+	},
+	"launch.publishDebriefSummary": {
+		"limit": 5,
+		"retry": 4
+	},
 	"launch.completeMilestone": {
 		"limit": 10,
 		"retry": 3,

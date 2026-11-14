@@ -50,21 +50,43 @@ export async function loadPlan(viewer: LaunchViewer): Promise<Outcome<Plan>> {
 	}
 }
 
+const denied = () =>
+	({
+		status: "refused",
+		error: launchError.parse({
+			code: "access_denied",
+			details: {},
+			correlationId: crypto.randomUUID(),
+			retry: "never",
+		}),
+	}) as const;
+
+/** One Launch read for the request's viewer, outside the page render (guest matches, Launch history). */
+export async function read<T>(
+	run: (
+		reader: ReturnType<typeof createLaunchReader>,
+		db: Database,
+		authority: RequestActor,
+	) => Promise<LaunchReply<T>>,
+): Promise<Outcome<T>> {
+	const viewer = await launchViewer();
+	if (!viewer) return denied();
+	const db = requestDatabase();
+	if (!db) return { status: "lost" };
+	try {
+		return await run(reader, db, viewer.authority);
+	} catch (error) {
+		console.error(JSON.stringify({ component: "launch", outcome: "read_failed", error: String(error) }));
+		return { status: "lost" };
+	}
+}
+
 /** One Launch write for the request's viewer. */
 export async function write<T>(
 	run: (writer: LaunchWriter, db: Database, authority: RequestActor) => Promise<LaunchReply<T>>,
 ): Promise<Outcome<T>> {
 	const viewer = await launchViewer();
-	if (!viewer)
-		return {
-			status: "refused",
-			error: launchError.parse({
-				code: "access_denied",
-				details: {},
-				correlationId: crypto.randomUUID(),
-				retry: "never",
-			}),
-		};
+	if (!viewer) return denied();
 	const mount = launchMount();
 	if (!mount) return { status: "lost" };
 	try {

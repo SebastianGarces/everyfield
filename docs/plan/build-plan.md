@@ -77,7 +77,7 @@ The DAG estimates effort from owned clauses, operations, cases and referenced ta
 | WP-037 | Generated files and native owned documents | 27 | 20 | 30 | 3 | 2.5 |
 | WP-039 | Check-ins manual signals and corrections | 15 | 11 | 41 | 6 | 2 |
 | WP-045 | Launch plan/readiness/milestones | 18 | 10 | 19 | 7 | 2 |
-| WP-046 | Launch outcomes/events/history | 43 | 11 | 45 | 5 | 3 |
+| WP-046 | Launch outcomes/events/history | 43 | 11 | 45 | 8 | 3 |
 | WP-040 | Assessment facts, metrics and their source history | 41 | 4 | 125 | 0 | 3 |
 | WP-041 | Rubric/reference retrieval and history C3a | 6 | 3 | 17 | 4 | 1.5 |
 | WP-047 | Oversight portfolio and health | 14 | 14 | 124 | 3 | 2.5 |
