@@ -14571,9 +14571,14 @@
 			"table": {
 				"name": "sending_goal",
 				"domain": "people",
-				"purpose": "One sending goal of a sending church or network (REQ-MUL-007): nonnegative leader and plant targets, a target year and the organization's reason. Observed counts are read from the pipeline at a stated as-of day and are never stored here.",
+				"purpose": "One sending goal of a sending church or network (REQ-MUL-007): nonnegative leader and plant targets, a target year, the organization's reason, the day it counts from and up to 4 named counts by fixed stage kind. Observed counts are read from the pipeline at a stated as-of day and are never stored here.",
 				"library_owned": false,
-				"jsonb_keys": {},
+				"jsonb_keys": {
+					"counts": [
+						"kind: a fixed pipeline stage kind, unique within the goal",
+						"label: the organization's name for the count, trimmed, 1-60 characters"
+					]
+				},
 				"capabilities": ["CAP-A-056"],
 				"replaces": [],
 				"producer_work_packages": ["WP-098"],
@@ -14588,7 +14593,8 @@
 				"scope": "people",
 				"invariants": [
 					"Written only by an Owner or Admin of the same organization; body-free audit only.",
-					"A goal never moves a person, changes a stage, commissions an enrollment or creates a plant."
+					"A goal never moves a person, changes a stage, commissions an enrollment or creates a plant.",
+					"A chosen count is a number of distinct live same-organization people with a move or first placement into a stage of its kind from counting_from through today; it never forecasts or judges."
 				],
 				"revision": "Expected revision fences changes.",
 				"idempotency": "The browser names the goal id, so a repeated add writes one goal.",
@@ -14619,6 +14625,12 @@
 				},
 				"revision": {
 					"note": ""
+				},
+				"counting_from": {
+					"note": "The first day, in the organization's time zone, whose stage moves the goal's counts include; never after the day it was saved."
+				},
+				"counts": {
+					"note": "The goal's chosen counts, in display order: at most 4, each a distinct fixed stage kind with a label."
 				}
 			},
 			"foreignKeys": {
