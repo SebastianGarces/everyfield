@@ -8,6 +8,7 @@
 			"criterion": 1,
 			"actor": "setupOwner",
 			"ask": "where am I in setting up our church?",
+			"operation": "onboarding.getResume",
 			"calls": ["onboarding.getResume"],
 			"answer": [
 				"Setup of Riverside Church: you are in Phase 1, Core group development.",
@@ -38,6 +39,7 @@
 			"criterion": 1,
 			"actor": "setupOwner",
 			"ask": "where am I in setting up our church?",
+			"operation": "onboarding.getResume",
 			"calls": ["onboarding.getResume"],
 			"answer": [
 				"Saved: Where you are (Still discerning. Nothing declared.), Launch date (Skipped).",
@@ -175,6 +177,7 @@
 			"criterion": 6,
 			"actor": "seatless",
 			"ask": "where am I in setting up our church?",
+			"operation": "onboarding.getResume",
 			"calls": ["onboarding.getResume"],
 			"answer": ["Setup of Harvest Point", "Still open: Where you are, Launch date, Your team, Finish setup."]
 		},
@@ -197,6 +200,7 @@
 			"criterion": 8,
 			"actor": "discovery",
 			"ask": "what's in my Discovery space?",
+			"operation": "discovery.getProfile",
 			"calls": ["discovery.getProfile"],
 			"answer": [
 				"Your Discovery space: you have read 0 of 6 foundation articles.",
