@@ -458,13 +458,7 @@
 				"/\\b(can['’]?t|cannot|can not|not able|unable|don['’]?t (yet )?have|do not (yet )?have|isn['’]?t (yet )?(available|something|possible)|not (yet )?(available|supported|possible|connected|something)|no (way|access|tool)|aren['’]?t (yet )?available|not set up|doesn['’]?t (yet )?(let|give|include|have)|outside what|beyond what)\\b/i"
 			],
 			"forbid": ["/I['’]?(ve| have) (deleted|removed)/i"],
-			"derivation": "There is no household delete command; removing both people would be a different request, so no review card.",
-			"finding": {
-				"checks": [
-					"says /\\b(can['’]?t|cannot|can not|not able|unable|don['’]?t (yet )?have|do not (yet )?have|isn['’]?t (yet )?(available|something|possible)|not (yet )?(available|supported|possible|connected|something)|no (way|access|tool)|aren['’]?t (yet )?available|not set up|doesn['’]?t (yet )?(let|give|include|have)|outside what|beyond what)\\b/i"
-				],
-				"note": "Drifted on the T-323 merge re-record; failing checks set from its report (D-1151)."
-			}
+			"derivation": "There is no household delete command; removing both people would be a different request, so no review card."
 		}
 	},
 	{
@@ -798,14 +792,7 @@
 			"require": ["/review|approv/i"],
 			"forbid": [
 				"/I['’]?(ve| have)? (sent|scheduled|moved|cancelled|canceled|replaced)|(?<!(nothing|not) )has been (sent|scheduled|moved|cancelled|canceled)|is on its way/i"
-			],
-			"finding": {
-				"checks": [
-					"proposes communication.scheduleReviewed {\"communicationId\":\"5b6d1f0e-0000-4000-8000-000000000c01\",\"sendAt\":\"~2026-11-13T09:00\"}",
-					"says /review|approv/i"
-				],
-				"note": "Drifted on the T-323 merge re-record; failing checks set from its report (D-1151)."
-			}
+			]
 		}
 	},
 	{
@@ -1377,7 +1364,11 @@
 				"all": ["Nate Ellis", "Lena Park", "Carlos Mendez"],
 				"allowed": ["Nate Ellis", "Lena Park", "Carlos Mendez"]
 			},
-			"require": ["/2 of 3|two of (the )?three|Carlos[^.\\n]{0,60}(not|hasn['’]?t|yet)/i"]
+			"require": ["/2 of 3|two of (the )?three|Carlos[^.\\n]{0,60}(not|hasn['’]?t|yet)/i"],
+			"finding": {
+				"checks": ["names every match"],
+				"note": "T-317 re-record (D-1312): model sampling on the merged catalog; set from the report (D-958, D-1151)."
+			}
 		}
 	},
 	{
@@ -2756,7 +2747,11 @@
 			"as": "member",
 			"proposals": [],
 			"require": ["/owner|admin/i"],
-			"derivation": "A Member has no reviewed People writes: no review is prepared, and Evry says an Owner or Admin has to make the change."
+			"derivation": "A Member has no reviewed People writes: no review is prepared, and Evry says an Owner or Admin has to make the change.",
+			"finding": {
+				"checks": ["says /owner|admin/i"],
+				"note": "T-317 (D-1189, D-1230): re-recorded after the Evry meetings tools joined the teams and people tools; the owner chose to record the drift as findings."
+			}
 		}
 	},
 	{
@@ -2772,6 +2767,1334 @@
 			"require": ["/can['’]?t|cannot|not able|unable/i"],
 			"derivation": "A Member has no import receipt read: Evry reads no receipt, and no receipt facts reach the answer.",
 			"only": []
+		}
+	},
+	{
+		"case_id": "ADP-MT-01",
+		"extra": true,
+		"adapter": "meetings/reads",
+		"operation": "meetings.list",
+		"near_miss": false,
+		"question": "what's on the calendar after thanksgiving?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "meetings.list"
+				}
+			],
+			"require": ["/Orientation/", "/Dec(ember)?\\.? 6|6 Dec/i"],
+			"forbid": [
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-MT-02",
+		"extra": true,
+		"adapter": "meetings/reads",
+		"operation": "meetings.list",
+		"near_miss": true,
+		"question": "who rsvp'd for orientation?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "meetings.list"
+				}
+			],
+			"clarify": true,
+			"require": ["/22/", "/Dec(ember)?\\.? 6|6 Dec|6th/i"],
+			"names": {
+				"allowed": []
+			},
+			"derivation": "Two meetings are titled Orientation (Sun 22 Nov and Sun 6 Dec): Evry asks which one before naming any guest (GAP-EVR-409)."
+		}
+	},
+	{
+		"case_id": "ADP-MT-03",
+		"extra": true,
+		"adapter": "meetings/reads",
+		"operation": "meetings.get",
+		"near_miss": false,
+		"question": "what's the status of the worship team training?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "meetings.get",
+					"alsoAccepted": ["meetings.list"]
+				}
+			],
+			"require": ["/plann/i", "/Nov(ember)?\\.? 17|17 Nov|Tue/i"],
+			"finding": {
+				"checks": ["calls meetings.get", "says /plann/i", "says /Nov(ember)?\\.? 17|17 Nov|Tue/i"],
+				"note": "T-317 (D-1189, D-1230): re-recorded after the Evry meetings tools joined the teams and people tools; the owner chose to record the drift as findings."
+			}
+		}
+	},
+	{
+		"case_id": "ADP-MT-04",
+		"extra": true,
+		"adapter": "meetings/reads",
+		"operation": "meetings.hasHistory",
+		"near_miss": false,
+		"question": "have we ever held a pre-launch practice?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "meetings.hasHistory",
+					"alsoAccepted": ["meetings.list", "meetings.listCompletedPreLaunchPractices"]
+				}
+			],
+			"require": ["/\\byes\\b|have|rehearsal/i"]
+		}
+	},
+	{
+		"case_id": "ADP-MT-05",
+		"extra": true,
+		"adapter": "meetings/reads",
+		"operation": "meetings.listCompletedPreLaunchPractices",
+		"near_miss": false,
+		"question": "how many pre-launch practices have we actually held?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "meetings.listCompletedPreLaunchPractices"
+				}
+			],
+			"require": ["/\\b(1|one)\\b/i"],
+			"forbid": [
+				"/\\b(2|two) (practices|held)/i",
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-MT-06",
+		"extra": true,
+		"adapter": "meetings/reads",
+		"operation": "meetings.listKit",
+		"near_miss": false,
+		"question": "is the kit for thursday ready?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "meetings.listKit",
+					"input": {
+						"meetingId": "5b6d1f0e-0000-4000-8000-000000000a21"
+					}
+				}
+			],
+			"require": ["/Name tags/i", "/Response cards/i"],
+			"forbid": [
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-MT-07",
+		"extra": true,
+		"adapter": "meetings/reads",
+		"operation": "meetings.listCards",
+		"near_miss": false,
+		"question": "what did the response cards say last night?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "meetings.listCards",
+					"input": {
+						"meetingId": "5b6d1f0e-0000-4000-8000-000000000a27"
+					},
+					"alsoAccepted": ["meetings.cardBreakdown"]
+				}
+			],
+			"require": ["/ready to commit|commit/i", "/interested/i"]
+		}
+	},
+	{
+		"case_id": "ADP-MT-08",
+		"extra": true,
+		"adapter": "meetings/reads",
+		"operation": "meetings.cardBreakdown",
+		"near_miss": false,
+		"question": "of the people who came last night, how many turned in a card?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "meetings.cardBreakdown",
+					"input": {
+						"meetingId": "5b6d1f0e-0000-4000-8000-000000000a27"
+					},
+					"alsoAccepted": ["meetings.listCards"]
+				}
+			],
+			"require": ["/\\b(2|two)\\b/i", "/24|22/"]
+		}
+	},
+	{
+		"case_id": "ADP-MT-09",
+		"extra": true,
+		"adapter": "meetings/reads",
+		"operation": "meetings.invitationAttribution",
+		"near_miss": false,
+		"question": "who invited the guests coming thursday?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "meetings.invitationAttribution",
+					"input": {
+						"meetingId": "5b6d1f0e-0000-4000-8000-000000000a21"
+					},
+					"alsoAccepted": ["meetings.listGuests"]
+				}
+			],
+			"require": ["/Ana Rivera/", "/Kevin Walsh/"]
+		}
+	},
+	{
+		"case_id": "ADP-MT-10",
+		"extra": true,
+		"adapter": "meetings/reads",
+		"operation": "meetings.communicationContext",
+		"near_miss": false,
+		"question": "if I email thursday's guests, does everyone have an email address?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "meetings.communicationContext",
+					"input": {
+						"meetingId": "5b6d1f0e-0000-4000-8000-000000000a21"
+					},
+					"alsoAccepted": ["meetings.listGuests"]
+				}
+			],
+			"forbid": ["/@example\\.org/", "/I['’]?(ve| have) (sent|emailed)/i"]
+		}
+	},
+	{
+		"case_id": "ADP-MT-11",
+		"extra": true,
+		"adapter": "meetings/reads",
+		"operation": "meetings.getOwnRsvp",
+		"near_miss": false,
+		"question": "did I RSVP for thursday's vision night?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "meetings.getOwnRsvp",
+					"input": {
+						"meetingId": "5b6d1f0e-0000-4000-8000-000000000a21"
+					},
+					"alsoAccepted": ["meetings.listGuests"]
+				}
+			],
+			"require": ["/\\byes\\b|confirmed|you('re| are) (going|coming)/i"]
+		}
+	},
+	{
+		"case_id": "ADP-MT-12",
+		"extra": true,
+		"adapter": "meetings/reads",
+		"operation": "meetings.listAttendance",
+		"near_miss": false,
+		"question": "who's marked present for the nov 5 vision night so far?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "meetings.listAttendance",
+					"input": {
+						"meetingId": "5b6d1f0e-0000-4000-8000-000000000a28"
+					}
+				}
+			],
+			"require": ["/Casey Morgan/"],
+			"forbid": ["/Maria Santos[^.\\n]{0,40}(attended|present)/i"]
+		}
+	},
+	{
+		"case_id": "ADP-MT-13",
+		"extra": true,
+		"adapter": "meetings/reads",
+		"operation": "meetings.attendanceSummary",
+		"near_miss": false,
+		"question": "how many came last night and how many were first-timers?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "meetings.attendanceSummary",
+					"input": {
+						"meetingId": "5b6d1f0e-0000-4000-8000-000000000a27"
+					},
+					"alsoAccepted": ["meetings.readAnalytics", "meetings.listAttendance"]
+				}
+			],
+			"require": ["/24/"]
+		}
+	},
+	{
+		"case_id": "ADP-MT-14",
+		"extra": true,
+		"adapter": "meetings/reads",
+		"operation": "meetings.getEvaluation",
+		"near_miss": false,
+		"question": "how did I score the october 29 vision meeting?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "meetings.getEvaluation",
+					"input": {
+						"meetingId": "5b6d1f0e-0000-4000-8000-000000000a29"
+					}
+				}
+			],
+			"require": ["/3\\.5/"]
+		}
+	},
+	{
+		"case_id": "ADP-MT-15",
+		"extra": true,
+		"adapter": "meetings/reads",
+		"operation": "meetings.evaluationHistory",
+		"near_miss": false,
+		"question": "has the october 29 vision meeting evaluation ever been corrected?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "meetings.evaluationHistory",
+					"input": {
+						"meetingId": "5b6d1f0e-0000-4000-8000-000000000a29"
+					},
+					"alsoAccepted": ["meetings.getEvaluation"]
+				}
+			],
+			"require": ["/\\bno\\b|not been|never|hasn['’]?t/i"]
+		}
+	},
+	{
+		"case_id": "ADP-MT-16",
+		"extra": true,
+		"adapter": "meetings/reads",
+		"operation": "meetings.evaluationTrend",
+		"near_miss": false,
+		"question": "how have my vision meeting evaluations trended?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "meetings.evaluationTrend",
+					"alsoAccepted": ["meetings.compareEvaluation"]
+				}
+			],
+			"require": ["/3\\.5/"]
+		}
+	},
+	{
+		"case_id": "ADP-MT-17",
+		"extra": true,
+		"adapter": "meetings/reads",
+		"operation": "meetings.compareEvaluation",
+		"near_miss": false,
+		"question": "how does the oct 29 vision night's evaluation compare with earlier ones?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "meetings.compareEvaluation",
+					"input": {
+						"meetingId": "5b6d1f0e-0000-4000-8000-000000000a29"
+					}
+				}
+			],
+			"require": ["/3\\.5/"]
+		}
+	},
+	{
+		"case_id": "ADP-MT-18",
+		"extra": true,
+		"adapter": "meetings/reads",
+		"operation": "meetings.summaryStats",
+		"near_miss": false,
+		"question": "totals for vision meetings this fall: how many held and how many people came?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "meetings.summaryStats",
+					"alsoAccepted": ["meetings.attendanceTrend"]
+				}
+			],
+			"require": ["/42/"]
+		}
+	},
+	{
+		"case_id": "ADP-MT-19",
+		"extra": true,
+		"adapter": "meetings/reads",
+		"operation": "meetings.linkedTaskProgress",
+		"near_miss": false,
+		"question": "how are the follow-up tasks from last night's vision meeting going?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "meetings.linkedTaskProgress",
+					"input": {
+						"meetingId": "5b6d1f0e-0000-4000-8000-000000000a27"
+					},
+					"alsoAccepted": ["meetings.readAnalytics"]
+				}
+			],
+			"forbid": [
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-MT-20",
+		"extra": true,
+		"adapter": "meetings/reads",
+		"operation": "meetings.readAnalytics",
+		"near_miss": false,
+		"question": "give me the report for last night's vision meeting",
+		"eval": {
+			"calls": [
+				{
+					"operation": "meetings.readAnalytics",
+					"input": {
+						"meetingId": "5b6d1f0e-0000-4000-8000-000000000a27"
+					}
+				}
+			],
+			"require": ["/24/"]
+		}
+	},
+	{
+		"case_id": "ADP-MT-21",
+		"extra": true,
+		"adapter": "meetings/reads",
+		"operation": "meetings.previewRosterImport",
+		"near_miss": false,
+		"question": "what would change if I update the worship team training guests from the ministry?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "meetings.previewRosterImport",
+					"input": {
+						"meetingId": "5b6d1f0e-0000-4000-8000-000000000a23"
+					}
+				}
+			],
+			"require": ["/Alex Rivera/", "/Ana Rivera/", "/Jen Thompson/"],
+			"forbid": [
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-MT-22",
+		"extra": true,
+		"adapter": "meetings/reads",
+		"operation": "venues.get",
+		"near_miss": false,
+		"question": "how many people does the fellowship hall hold?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "venues.get",
+					"alsoAccepted": ["venues.list"]
+				}
+			],
+			"require": ["/120/"]
+		}
+	},
+	{
+		"case_id": "ADP-MT-23",
+		"extra": true,
+		"adapter": "meetings/reads",
+		"operation": "venues.history",
+		"near_miss": false,
+		"question": "when was the coffee shop venue added?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "venues.history",
+					"input": {
+						"venueId": "5b6d1f0e-0000-4000-8000-000000000a01"
+					}
+				}
+			],
+			"require": ["/Sep(tember)?\\.? 1|1 Sep/i"]
+		}
+	},
+	{
+		"case_id": "ADP-MT-24",
+		"extra": true,
+		"adapter": "meetings/reads",
+		"operation": "venues.list",
+		"near_miss": false,
+		"question": "which venues hold at least 100 people?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "venues.list"
+				}
+			],
+			"require": ["/fellowship hall/i"],
+			"forbid": ["/Old warehouse/i"],
+			"derivation": "Only saved active venues: the archived Old warehouse is not offered (GAP-EVR-426)."
+		}
+	},
+	{
+		"case_id": "ADP-MT-25",
+		"extra": true,
+		"adapter": "meetings/commands",
+		"operation": "meetings.schedule",
+		"near_miss": false,
+		"question": "the 19th",
+		"eval": {
+			"history": [
+				{
+					"user": "set up a vision meeting next thursday 7pm at the coffee shop"
+				},
+				{
+					"assistant": "Do you mean Thursday, Nov 12 or Thursday, Nov 19? I'll set it at 7:00 PM Central at the Coffee shop."
+				}
+			],
+			"calls": [
+				{
+					"operation": "venues.list"
+				}
+			],
+			"proposals": [
+				{
+					"operation": "meetings.schedule",
+					"input": {
+						"type": "vision_meeting",
+						"date": "2026-11-19",
+						"time": "19:00",
+						"venueId": "5b6d1f0e-0000-4000-8000-000000000a01"
+					}
+				}
+			],
+			"forbid": [
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-MT-26",
+		"extra": true,
+		"adapter": "meetings/commands",
+		"operation": "meetings.schedule",
+		"near_miss": true,
+		"question": "set up a vision meeting on thursday nov 19 at 7pm at the library",
+		"eval": {
+			"calls": [
+				{
+					"operation": "venues.list"
+				}
+			],
+			"clarify": true,
+			"forbid": [
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
+			],
+			"derivation": "No saved venue is a library: Evry asks and does not pick one (GAP-EVR-427)."
+		}
+	},
+	{
+		"case_id": "ADP-MT-27",
+		"extra": true,
+		"adapter": "meetings/commands",
+		"operation": "meetings.schedule",
+		"near_miss": true,
+		"question": "set up a vision meeting on thursday nov 19 at 7pm at the church",
+		"eval": {
+			"calls": [
+				{
+					"operation": "venues.list"
+				}
+			],
+			"clarify": true,
+			"require": ["/fellowship hall/i", "/chapel/i"],
+			"forbid": [
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
+			],
+			"derivation": "Two saved venues match the church: Evry asks which one and does not pick."
+		}
+	},
+	{
+		"case_id": "ADP-MT-28",
+		"extra": true,
+		"adapter": "meetings/commands",
+		"operation": "meetings.finalizeAttendance",
+		"near_miss": false,
+		"question": "mark Maria, Alex and Casey as attended and finalize it",
+		"eval": {
+			"history": [
+				{
+					"user": "who was at the nov 5 vision night?"
+				},
+				{
+					"assistant": "Vision Meeting #2 on Thursday, Nov 5 has Maria Santos, Alex Rivera and Casey Morgan on its guest list. Only Casey Morgan is marked attended so far, and attendance isn't finalized."
+				}
+			],
+			"proposals": [
+				{
+					"operation": "meetings.finalizeAttendance",
+					"input": {
+						"meetingId": "5b6d1f0e-0000-4000-8000-000000000a28",
+						"attendeeIds": ["@Maria Santos", "@Alex Rivera", "@Casey Morgan"]
+					}
+				}
+			],
+			"forbid": [
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-MT-29",
+		"extra": true,
+		"adapter": "meetings/commands",
+		"operation": "meetings.recordEvaluation",
+		"near_miss": true,
+		"question": "score last night's vision meeting for me",
+		"eval": {
+			"require": [
+				"/your (own |1.?5 )?(judg|evaluation|scores?|call|assessment)|send (me )?your|you (give|score|rate)|planter/i",
+				"/scor/i"
+			],
+			"forbid": [
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
+			],
+			"derivation": "The evaluation is the planter's judgment: Evry offers to record the scores they give and proposes nothing."
+		}
+	},
+	{
+		"case_id": "ADP-MT-30",
+		"extra": true,
+		"adapter": "meetings/commands",
+		"operation": "meetings.recordEvaluation",
+		"near_miss": false,
+		"question": "attendance 4, location 5, logistics 3, agenda 4, vibe 5, message 4, close 3, next steps 4",
+		"eval": {
+			"history": [
+				{
+					"user": "score last night's vision meeting for me"
+				},
+				{
+					"assistant": "The evaluation is your judgment, so I won't score it myself. Give me your 1-5 score for each of the eight factors (attendance, location, logistics, agenda, vibe, message, close and next steps) and I'll prepare it for you to approve."
+				}
+			],
+			"proposals": [
+				{
+					"operation": "meetings.recordEvaluation",
+					"input": {
+						"meetingId": "5b6d1f0e-0000-4000-8000-000000000a27",
+						"scores": {
+							"attendanceScore": 4,
+							"locationScore": 5,
+							"logisticsScore": 3,
+							"agendaScore": 4,
+							"vibeScore": 5,
+							"messageScore": 4,
+							"closeScore": 3,
+							"nextStepsScore": 4
+						}
+					}
+				}
+			],
+			"forbid": [
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-MT-31",
+		"extra": true,
+		"adapter": "meetings/commands",
+		"operation": "meetings.delete",
+		"near_miss": true,
+		"question": "delete the launch team orientation on sunday",
+		"eval": {
+			"as": "member",
+			"require": ["/owner|admin/i"],
+			"forbid": [
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
+			],
+			"derivation": "Priya Shah leads the Worship team; Sunday's orientation is not her team's, and a Member is not offered a delete: she is told an Owner or Admin has to do it and no card appears."
+		}
+	},
+	{
+		"case_id": "ADP-MT-32",
+		"extra": true,
+		"adapter": "meetings/commands",
+		"operation": "meetings.edit",
+		"near_miss": false,
+		"question": "move this sunday's vision meeting, the launch team orientation, to 5pm",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "meetings.edit",
+					"input": {
+						"meetingId": "5b6d1f0e-0000-4000-8000-000000000a22",
+						"time": "17:00"
+					}
+				}
+			],
+			"forbid": [
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-MT-33",
+		"extra": true,
+		"adapter": "meetings/commands",
+		"operation": "meetings.changeStatus",
+		"near_miss": false,
+		"question": "cancel the worship team training",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "meetings.changeStatus",
+					"input": {
+						"meetingId": "5b6d1f0e-0000-4000-8000-000000000a23",
+						"to": "cancelled"
+					}
+				}
+			],
+			"forbid": [
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-MT-34",
+		"extra": true,
+		"adapter": "meetings/commands",
+		"operation": "meetings.delete",
+		"near_miss": false,
+		"question": "delete the december 6 orientation, we're not doing it",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "meetings.delete",
+					"input": {
+						"meetingId": "5b6d1f0e-0000-4000-8000-000000000a26"
+					}
+				}
+			],
+			"forbid": [
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-MT-35",
+		"extra": true,
+		"adapter": "meetings/commands",
+		"operation": "meetings.completePractice",
+		"near_miss": false,
+		"question": "the sound check practice on saturday happened as planned",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "meetings.completePractice",
+					"input": {
+						"meetingId": "5b6d1f0e-0000-4000-8000-000000000a2b"
+					}
+				}
+			],
+			"forbid": [
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-MT-36",
+		"extra": true,
+		"adapter": "meetings/commands",
+		"operation": "meetings.correctPracticeOccurrence",
+		"near_miss": false,
+		"question": "the october 31 launch rehearsal didn't actually happen, it got rained out",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "meetings.correctPracticeOccurrence",
+					"input": {
+						"meetingId": "5b6d1f0e-0000-4000-8000-000000000a2c",
+						"state": "not_completed"
+					}
+				}
+			],
+			"forbid": [
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-MT-37",
+		"extra": true,
+		"adapter": "meetings/commands",
+		"operation": "meetings.correctOccurrence",
+		"near_miss": false,
+		"question": "the nov 5 vision meeting shouldn't count, it was only a setup test",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "meetings.correctOccurrence",
+					"input": {
+						"meetingId": "5b6d1f0e-0000-4000-8000-000000000a28",
+						"voided": true
+					}
+				}
+			],
+			"forbid": [
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-MT-38",
+		"extra": true,
+		"adapter": "meetings/commands",
+		"operation": "meetings.replaceAgenda",
+		"near_miss": false,
+		"question": "change the agenda of this sunday's vision meeting (the launch team orientation) to: welcome 10 min, vision 30 min, q&a 20 min",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "meetings.replaceAgenda",
+					"input": {
+						"meetingId": "5b6d1f0e-0000-4000-8000-000000000a22"
+					}
+				}
+			],
+			"forbid": [
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-MT-39",
+		"extra": true,
+		"adapter": "meetings/commands",
+		"operation": "meetings.populateKit",
+		"near_miss": false,
+		"question": "add the vision kit checklist to the oct 29 vision meeting",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "meetings.populateKit",
+					"input": {
+						"meetingId": "5b6d1f0e-0000-4000-8000-000000000a29"
+					}
+				}
+			],
+			"forbid": [
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-MT-40",
+		"extra": true,
+		"adapter": "meetings/commands",
+		"operation": "meetings.updateKitItem",
+		"near_miss": false,
+		"question": "check off the name tags for thursday",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "meetings.updateKitItem",
+					"input": {
+						"meetingId": "5b6d1f0e-0000-4000-8000-000000000a21",
+						"itemId": "5b6d1f0e-0000-4000-8000-000000003101",
+						"checked": true
+					}
+				}
+			],
+			"forbid": [
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-MT-41",
+		"extra": true,
+		"adapter": "meetings/commands",
+		"operation": "meetings.inviteGuest",
+		"near_miss": false,
+		"question": "add Carlos Mendez to thursday's vision night guest list",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "meetings.inviteGuest",
+					"input": {
+						"meetingId": "5b6d1f0e-0000-4000-8000-000000000a21",
+						"personId": "@Carlos Mendez"
+					}
+				}
+			],
+			"forbid": [
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
+			],
+			"finding": {
+				"checks": [
+					"proposes meetings.inviteGuest {\"meetingId\":\"5b6d1f0e-0000-4000-8000-000000000a21\",\"personId\":\"@Carlos Mendez\"}"
+				],
+				"note": "T-317 re-record (D-1312): Evry asks which of the two Thursday meetings (Vision Meeting #4, Nov 12, or the Interest meeting, Nov 19) before preparing the invitation card."
+			}
+		}
+	},
+	{
+		"case_id": "ADP-MT-42",
+		"extra": true,
+		"adapter": "meetings/commands",
+		"operation": "meetings.removeGuest",
+		"near_miss": false,
+		"question": "take Joy Lee off this thursday's vision night guest list",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "meetings.removeGuest",
+					"input": {
+						"meetingId": "5b6d1f0e-0000-4000-8000-000000000a21",
+						"personId": "@Joy Lee"
+					}
+				}
+			],
+			"forbid": [
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-MT-43",
+		"extra": true,
+		"adapter": "meetings/commands",
+		"operation": "meetings.setInviter",
+		"near_miss": false,
+		"question": "Kevin Walsh is the one who invited Jessica Wu to thursday's vision night",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "meetings.setInviter",
+					"input": {
+						"meetingId": "5b6d1f0e-0000-4000-8000-000000000a21",
+						"personId": "@Jessica Wu",
+						"inviterPersonId": "@Kevin Walsh"
+					}
+				}
+			],
+			"forbid": [
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-MT-44",
+		"extra": true,
+		"adapter": "meetings/commands",
+		"operation": "meetings.correctRsvp",
+		"near_miss": false,
+		"question": "Elena Garcia told me she's coming thursday",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "meetings.correctRsvp",
+					"input": {
+						"meetingId": "5b6d1f0e-0000-4000-8000-000000000a21",
+						"personId": "@Elena Garcia",
+						"rsvp": "yes"
+					}
+				}
+			],
+			"forbid": [
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-MT-45",
+		"extra": true,
+		"adapter": "meetings/commands",
+		"operation": "meetings.saveOwnRsvp",
+		"near_miss": false,
+		"question": "RSVP yes for me to the orientation on november 22",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "meetings.saveOwnRsvp",
+					"input": {
+						"meetingId": "5b6d1f0e-0000-4000-8000-000000000a25",
+						"rsvp": "yes"
+					}
+				}
+			],
+			"forbid": [
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-MT-46",
+		"extra": true,
+		"adapter": "meetings/commands",
+		"operation": "meetings.createGuestContact",
+		"near_miss": false,
+		"question": "add Grace Kim to thursday's vision night, she's new to us",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "meetings.createGuestContact",
+					"input": {
+						"meetingId": "5b6d1f0e-0000-4000-8000-000000000a21",
+						"displayName": "~Grace Kim"
+					}
+				}
+			],
+			"forbid": [
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
+			],
+			"finding": {
+				"checks": [
+					"proposes meetings.createGuestContact {\"meetingId\":\"5b6d1f0e-0000-4000-8000-000000000a21\",\"displayName\":\"~Grace Kim\"}"
+				],
+				"note": "T-317 re-record (D-1312): Evry finds no Grace Kim and asks which of the two Thursday meetings before preparing the guest card."
+			}
+		}
+	},
+	{
+		"case_id": "ADP-MT-47",
+		"extra": true,
+		"adapter": "meetings/commands",
+		"operation": "meetings.recordCard",
+		"near_miss": false,
+		"question": "Isaac Barnes filled out a card last night: stay informed",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "meetings.recordCard",
+					"input": {
+						"meetingId": "5b6d1f0e-0000-4000-8000-000000000a27",
+						"personId": "@Isaac Barnes",
+						"response": "stay_informed"
+					}
+				}
+			],
+			"forbid": [
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-MT-48",
+		"extra": true,
+		"adapter": "meetings/commands",
+		"operation": "meetings.clearCard",
+		"near_miss": false,
+		"question": "clear Hannah Barnes's response card from last night, it was entered by mistake",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "meetings.clearCard",
+					"input": {
+						"meetingId": "5b6d1f0e-0000-4000-8000-000000000a27",
+						"personId": "@Hannah Barnes"
+					}
+				}
+			],
+			"forbid": [
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-MT-49",
+		"extra": true,
+		"adapter": "meetings/commands",
+		"operation": "meetings.copyTeamRoster",
+		"near_miss": false,
+		"question": "update the worship team training guest list from the ministry",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "meetings.copyTeamRoster",
+					"input": {
+						"meetingId": "5b6d1f0e-0000-4000-8000-000000000a23"
+					}
+				}
+			],
+			"forbid": [
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-MT-50",
+		"extra": true,
+		"adapter": "meetings/commands",
+		"operation": "meetings.setAttendance",
+		"near_miss": false,
+		"question": "mark Maria Santos as excused for the nov 5 vision night",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "meetings.setAttendance",
+					"input": {
+						"meetingId": "5b6d1f0e-0000-4000-8000-000000000a28",
+						"personId": "@Maria Santos",
+						"presence": "excused"
+					}
+				}
+			],
+			"forbid": [
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-MT-51",
+		"extra": true,
+		"adapter": "meetings/commands",
+		"operation": "meetings.checkIn",
+		"near_miss": false,
+		"question": "check Carlos Mendez in at the nov 5 vision night, he came after all",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "meetings.checkIn",
+					"input": {
+						"meetingId": "5b6d1f0e-0000-4000-8000-000000000a28",
+						"personId": "@Carlos Mendez"
+					}
+				}
+			],
+			"forbid": [
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-MT-52",
+		"extra": true,
+		"adapter": "meetings/commands",
+		"operation": "meetings.clearAttendance",
+		"near_miss": false,
+		"question": "Casey Morgan wasn't at the nov 5 vision night after all, clear her attendance",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "meetings.clearAttendance",
+					"input": {
+						"meetingId": "5b6d1f0e-0000-4000-8000-000000000a28",
+						"personId": "@Casey Morgan"
+					}
+				}
+			],
+			"forbid": [
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-MT-53",
+		"extra": true,
+		"adapter": "meetings/commands",
+		"operation": "meetings.captureAttendanceBatch",
+		"near_miss": false,
+		"question": "for the nov 5 vision night, record Maria Santos and Alex Rivera as attended in one change",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "meetings.captureAttendanceBatch",
+					"input": {
+						"meetingId": "5b6d1f0e-0000-4000-8000-000000000a28"
+					}
+				}
+			],
+			"forbid": [
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-MT-54",
+		"extra": true,
+		"adapter": "meetings/commands",
+		"operation": "meetings.reconcileAttendance",
+		"near_miss": false,
+		"question": "last night's finalized attendance is missing Kevin Walsh, he was there too",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "meetings.reconcileAttendance",
+					"input": {
+						"meetingId": "5b6d1f0e-0000-4000-8000-000000000a27"
+					}
+				}
+			],
+			"forbid": [
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-MT-55",
+		"extra": true,
+		"adapter": "meetings/commands",
+		"operation": "meetings.correctEvaluation",
+		"near_miss": false,
+		"question": "my oct 29 vision meeting evaluation is off: vibe should be 5, I mis-clicked",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "meetings.correctEvaluation",
+					"input": {
+						"meetingId": "5b6d1f0e-0000-4000-8000-000000000a29",
+						"changes": {
+							"vibeScore": 5
+						}
+					}
+				}
+			],
+			"forbid": [
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-MT-56",
+		"extra": true,
+		"adapter": "meetings/commands",
+		"operation": "meetings.addAttendeeNote",
+		"near_miss": false,
+		"question": "add a note for Gavin Barnes from last night: wants to join the worship team",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "meetings.addAttendeeNote",
+					"input": {
+						"meetingId": "5b6d1f0e-0000-4000-8000-000000000a27",
+						"personId": "@Gavin Barnes"
+					}
+				}
+			],
+			"forbid": [
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
+			],
+			"finding": {
+				"checks": [
+					"no unexpected review card",
+					"proposes meetings.addAttendeeNote {\"meetingId\":\"5b6d1f0e-0000-4000-8000-000000000a27\",\"personId\":\"@Gavin Barnes\"}"
+				],
+				"note": "T-317 (D-1189, D-1230): re-recorded after the Evry meetings tools joined the teams and people tools; the owner chose to record the drift as findings."
+			}
+		}
+	},
+	{
+		"case_id": "ADP-MT-57",
+		"extra": true,
+		"adapter": "meetings/commands",
+		"operation": "venues.create",
+		"near_miss": false,
+		"question": "save a new venue: Riverside Library, 600 River St, Austin, TX, holds 50",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "venues.create",
+					"input": {
+						"name": "~Riverside Library",
+						"capacity": 50
+					}
+				}
+			],
+			"forbid": [
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-MT-58",
+		"extra": true,
+		"adapter": "meetings/commands",
+		"operation": "venues.edit",
+		"near_miss": false,
+		"question": "the coffee shop actually holds 45 people",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "venues.edit",
+					"input": {
+						"venueId": "5b6d1f0e-0000-4000-8000-000000000a01",
+						"patch": {
+							"capacity": 45
+						}
+					}
+				}
+			],
+			"forbid": [
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-MT-59",
+		"extra": true,
+		"adapter": "meetings/commands",
+		"operation": "venues.correct",
+		"near_miss": false,
+		"question": "the chapel's address was recorded wrong; correct it to 2410 Manor Rd, Austin, TX",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "venues.correct",
+					"input": {
+						"venueId": "5b6d1f0e-0000-4000-8000-000000000a03"
+					}
+				}
+			],
+			"forbid": [
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-MT-60",
+		"extra": true,
+		"adapter": "meetings/commands",
+		"operation": "venues.archive",
+		"near_miss": false,
+		"question": "we can't use the chapel anymore, archive it",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "venues.archive",
+					"input": {
+						"venueId": "5b6d1f0e-0000-4000-8000-000000000a03"
+					}
+				}
+			],
+			"forbid": [
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-MT-61",
+		"extra": true,
+		"adapter": "meetings/commands",
+		"operation": "venues.restore",
+		"near_miss": false,
+		"question": "restore the old warehouse venue, we're using it again",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "venues.restore",
+					"input": {
+						"venueId": "5b6d1f0e-0000-4000-8000-000000000a04"
+					}
+				}
+			],
+			"forbid": [
+				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
+			]
 		}
 	}
 ]
