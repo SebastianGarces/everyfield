@@ -1,6 +1,8 @@
+import { instant } from "@everyfield/contracts/common";
 import type { Database } from "@everyfield/db/client";
 import type { PrivateStorage } from "@everyfield/db/schema";
 import { documentsWriter } from "@everyfield/domain/documents";
+import { createAssessmentJob, runAssessmentBatch, type Drafter } from "@everyfield/domain/intelligence";
 import { deleteExpiredImportFiles } from "@everyfield/domain/people";
 import type { TaskReminders } from "@everyfield/domain/tasks";
 import { closeLostJobs } from "@everyfield/evry";
@@ -83,6 +85,10 @@ export function scheduledMessages(db: Database, transport: DeliveryTransport, ke
  * deployment does not configure it, or `failed`; `failed` lists the failed components. A tick with a failed step answers
  * 500 with `status: "failed"`, so the cron log shows the run as failed while the body shows which work still ran; a tick
  * where every step ran answers 200 with `status: "ok"`.
+ *
+ * Plant Intelligence (WP-043): `assessment-demand` queues assessments that are owed (never assessed, seven days old,
+ * a changed input or reference) from durable state, so a skipped tick loses nothing, and `assessment` runs a small
+ * batch of them with the configured drafter. Both are skipped without one: only the scripted model exists (D77).
  */
 export function scheduledJobs(config: {
 	secret: string | undefined;
@@ -115,7 +121,9 @@ export function scheduledJobs(config: {
 	 * deployment names no feedback repository: feedback then waits, unpublished, until one is configured.
 	 */
 	feedbackPublication?: ((limit: number, until: number) => Promise<number>) | null;
-	/** The clock digests are planned and compiled at. Tests move it; the route uses the real time. */
+	/** The assessment drafter; null where no assessment model may run (every production deployment, D77). */
+	assessments?: { drafter: Drafter } | null;
+	/** The clock digests are planned and compiled at, and assessments are queued and run at. Tests move it. */
 	now?: () => Date;
 }) {
 	return async (request: Request): Promise<Response> => {
@@ -132,6 +140,9 @@ export function scheduledJobs(config: {
 		const messages = config.messages ?? null;
 		const notifications = config.notifications ?? null;
 		const feedbackPublication = config.feedbackPublication ?? null;
+		const assessments = config.assessments ?? null;
+		const now = config.now;
+		const assessing = createAssessmentJob(now ? { clock: { now: () => instant.parse(now().toISOString()) } } : {});
 		const pass = (name: keyof NonNullable<typeof config.mountMail>): Step => {
 			const run = config.mountMail?.[name] ?? null;
 			return [`${name}-mail`, null, run && (() => run(20, until))];
@@ -148,6 +159,8 @@ export function scheduledJobs(config: {
 			["digest-planning", "planned", digests && (() => planDigests(db, asOf))],
 			["digest-delivery", "digests", digests && (() => digests.run(db, asOf, undefined, until))],
 			["notification", "notified", notifications && (() => notifications.run(db, asOf, undefined, until))],
+			["assessment-demand", null, assessments && (() => assessing.scheduleAssessments(db))],
+			["assessment", null, assessments && (() => runAssessmentBatch(assessing, db, assessments.drafter, 2, until))],
 			["feedback-publication", null, feedbackPublication && (() => feedbackPublication(10, until))],
 			["mail-expiry", null, () => expireStaleMail(db)],
 			["mail", "mailed", mail && (() => mail(20, until))],

@@ -12,8 +12,10 @@ import { liveRead, type RequestActor } from "../access/session.ts";
 
 type Code = z.infer<typeof c.feedbackErrorCode>;
 class Refusal extends Error {
-	constructor(readonly code: Code) {
+	readonly code: Code;
+	constructor(code: Code) {
 		super(code);
+		this.code = code;
 	}
 }
 const deny = (code: Code): never => {

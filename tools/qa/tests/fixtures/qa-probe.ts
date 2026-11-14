@@ -11,7 +11,18 @@ import { liveAccess, RequestActor } from "../../../../packages/domain/src/access
 import { communicationWriter } from "../../../../packages/domain/src/communication/index.ts";
 import { createIdentityService } from "../../../../packages/domain/src/identity/index.ts";
 import { createPrivateCare } from "../../../../packages/domain/src/intelligence/index.ts";
-import { idsIn, namesFor, readHistory, type Viewer } from "../../../../packages/domain/src/organizations/index.ts";
+import {
+	createOrganizationAdapter,
+	idsIn,
+	namesFor,
+	readEnrollment,
+	readHistory,
+	readMyResidency,
+	readPipelineBoard,
+	readPipelineGoals,
+	readPipelinePersonRecord,
+	type Viewer,
+} from "../../../../packages/domain/src/organizations/index.ts";
 import { peopleReader, readPersonPage } from "../../../../packages/domain/src/people/index.ts";
 import { QA_LOGINS, QA_PASSWORD, QA_ROLES, roleUrl } from "../../qa-guard.ts";
 
@@ -163,6 +174,123 @@ try {
 			},
 		};
 	}
+	// T-312: the multiplication example's logins. Each one's session context, and what it reads of each pipeline.
+	const personNamed = async (name: string) =>
+		(await admin.execute(sql`SELECT id FROM person WHERE display_name=${name} AND plant_id IS NULL`)).rows[0]!
+			.id as string;
+	const pipelinePeople = {
+		casey: await personNamed("Casey Lee"),
+		jordan: await personNamed("Jordan Reyes"),
+		morgan: await personNamed("Morgan Diaz"),
+	};
+	const enrollmentId = (
+		await admin.execute(sql`SELECT id FROM development_enrollment WHERE person_id=${pipelinePeople.casey}`)
+	).rows[0]!.id as string;
+	type Read = { status: string; value?: any; refusal?: unknown };
+	const value = (r: Read, pick: (v: any) => unknown) => (r.status === "ok" ? pick(r.value) : { refused: r.refusal });
+	for (const login of [
+		"graceOwner",
+		"graceAdmin",
+		"graceDirector",
+		"graceStaff",
+		"graceMember",
+		"hillOwner",
+	] as const) {
+		const who = await signIn(QA_LOGINS[login]);
+		const context = who.authority.actor.context;
+		const owner = context.owner;
+		const organization =
+			owner.kind === "organization"
+				? ((await admin.execute(sql`SELECT name FROM organization WHERE id=${owner.id}`)).rows[0]!.name as string)
+				: null;
+		const records: Record<string, unknown> = {};
+		for (const [key, personId] of Object.entries(pipelinePeople))
+			records[key] = value((await readPipelinePersonRecord(runtime, who.authority, { personId })) as Read, (v) => ({
+				notes: v.notes.flatMap((n: { state: string; body?: string }) => (n.state === "current" ? [n.body] : [])),
+				conversations: v.conversations.length,
+				residency: v.residency.status,
+			}));
+		out[login] = {
+			signedIn: who.signedIn,
+			session: who.session.status,
+			context: { kind: context.kind, role: "role" in context ? context.role : null, organization },
+			board: value((await readPipelineBoard(runtime, who.authority, {})) as Read, (v) => ({
+				audience: v.audience,
+				count: v.stages.reduce((n: number, s: { count: number }) => n + s.count, 0),
+				people: v.stages.flatMap((s: { people: { name: string }[] }) => s.people.map((p) => p.name)).sort(),
+			})),
+			goals: value((await readPipelineGoals(runtime, who.authority)) as Read, (v) => ({
+				goals: v.goals.map((g: { rationale: string }) => g.rationale),
+				conversations: v.conversations.months.reduce((n: number, m: { count: number }) => n + m.count, 0),
+			})),
+			records,
+			enrollment: value((await readEnrollment(runtime, who.authority, { enrollmentId })) as Read, (v) => ({
+				resident: v.resident,
+				milestones: v.milestones.map(
+					(m: { title: string; completion: { source: string; confirmer: string } | null }) => [
+						m.title,
+						m.completion && { source: m.completion.source, confirmer: m.completion.confirmer },
+					],
+				),
+			})),
+		};
+	}
+	const casey = await signIn(QA_LOGINS.resident);
+	const residency = (await readMyResidency(runtime, casey.authority)) as Read;
+	out.resident = {
+		signedIn: casey.signedIn,
+		session: casey.session.status,
+		context: { kind: casey.authority.actor.context.kind, owner: casey.authority.actor.context.owner.kind },
+		residency: value(residency, (v) =>
+			v.status !== "linked"
+				? { status: v.status }
+				: {
+						status: v.status,
+						organizationName: v.organizationName,
+						sharing: v.sharing,
+						milestones: v.enrollments[0].milestones.map(
+							(m: {
+								title: string;
+								completion: { source: string; confirmedOn: string | null } | null;
+								feedback: { body: string }[];
+							}) => [
+								m.title,
+								m.completion && { source: m.completion.source, confirmed: m.completion.confirmedOn !== null },
+								m.feedback.map((f) => f.body),
+							],
+						),
+					},
+		),
+		board: value((await readPipelineBoard(runtime, casey.authority, {})) as Read, () => "read"),
+	};
+	// The network's aggregate check with Grace Austin's pipeline totals shared, and Harvest Point's planter's reads.
+	const adapter = createOrganizationAdapter(
+		{ invitation: async () => {}, invalidate: () => sql`SELECT 1` },
+		{ candidates: async () => [] },
+	);
+	const ruth = await signIn(QA_LOGINS.hillOwner);
+	const hill = ruth.authority.actor.context.owner;
+	(out.hillOwner as Record<string, unknown>).aggregate = await runtime.transaction((tx) =>
+		adapter["pipelineSharing.checkAggregateAccess"](
+			tx as never,
+			ruth.session.sessionId as never,
+			hill as never,
+			{
+				network: hill,
+			} as never,
+		),
+	);
+	const daniel = await signIn(QA_LOGINS.owner);
+	(out.owner as Record<string, unknown>).pipeline = {
+		board: value((await readPipelineBoard(runtime, daniel.authority, {})) as Read, () => "read"),
+		goals: value((await readPipelineGoals(runtime, daniel.authority)) as Read, () => "read"),
+		casey: value(
+			(await readPipelinePersonRecord(runtime, daniel.authority, { personId: pipelinePeople.casey })) as Read,
+			() => "read",
+		),
+		enrollment: value((await readEnrollment(runtime, daniel.authority, { enrollmentId })) as Read, () => "read"),
+		residency: value((await readMyResidency(runtime, daniel.authority)) as Read, (v) => v.status),
+	};
 	console.log(JSON.stringify(out));
 } finally {
 	await closeDatabase(runtime);

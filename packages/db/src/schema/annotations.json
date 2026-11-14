@@ -19058,14 +19058,15 @@
 					"facts": "The intelligence.readFacts result at the run's as-of instant (plant-facts/1), exactly as captured.",
 					"model_input": "The model-purpose input: phase, as-of, rubric, citable fact entries (counts, statuses and dates only) and the offered methodology passages. Null when guidance couldn't be read.",
 					"drafts": "Each draft in order: ordinal, provider attempts, the model's output and its violations (rule, where, detail).",
-					"result": "`draft`, the published draft (summary, focus, two supporting points, positives), and `citations`, each cited fact (key, label, value) or passage (article, revision, source, section, phase, text, text hash, version)."
+					"result": "`draft`, the published draft (summary, focus, two supporting points, positives), and `citations`, each cited fact (key, label, value) or passage (article, revision, source, section, phase, text, text hash, version).",
+					"delta": "`previousRunId`, `previousAsOf` and `changed`: each citable fact whose value moved since the previous published run (key, label, before, after)."
 				},
 				"capabilities": ["CAP-C-020", "CAP-C-021", "CAP-C-026"],
 				"replaces": [],
-				"producer_work_packages": ["WP-041", "WP-042"],
+				"producer_work_packages": ["WP-041", "WP-042", "WP-043"],
 				"producer_derivation": {
 					"old_target_tables": [],
-					"additional_producers": ["WP-041", "WP-042"],
+					"additional_producers": ["WP-041", "WP-042", "WP-043"],
 					"rule": "WP-041 and WP-042 record each assessment run with its captured input, versions, drafts, usage and published result."
 				},
 				"feature_ids": [
@@ -19113,12 +19114,13 @@
 				"future_case_ids": ["PI-CASE-011", "PI-CASE-018", "ASMT-011", "ASMT-012"],
 				"scope": "intelligence",
 				"invariants": [
-					"Written once, never changed; earlier runs stay readable with their own versions.",
-					"Only an outcome of published holds a result; a degraded run holds no model input or drafts.",
-					"The model input holds no person, name, note, score, interview result or private check-in."
+					"The captured snapshot (facts, model input, versions, demand) never changes after capture; only progress and outcome advance, and a settled run never changes again.",
+					"Only an outcome of published holds a result and an available_at; a degraded run holds no model input or drafts.",
+					"The model input holds no person, name, note, score, interview result or private check-in.",
+					"The current assessment is the latest published run by available_at and id; no pointer is stored."
 				],
-				"revision": "Immutable; no revision.",
-				"idempotency": "The caller names the run id, so a repeated request records one run.",
+				"revision": "The snapshot is frozen by trigger; the outcome moves from pending or deferred to one settled outcome, fenced on the job's current claim.",
+				"idempotency": "One run per plant and demand key (the job's producer key), so a retried or reclaimed job resumes the same run.",
 				"deletion": "Plant-owned derived facts. Runs go with the plant in the church purge; account deletion clears who requested a run.",
 				"physical_verified": false
 			},
@@ -19160,7 +19162,7 @@
 					"note": "The drafter id, such as assessment-scripted."
 				},
 				"outcome": {
-					"note": "published, failed (three rejected drafts), deferred (attempts or budget) or degraded (guidance couldn't be read)."
+					"note": "pending, deferred (waiting for the provider until retry_at), published, failed, degraded (guidance couldn't be read) or superseded (an input or the reference changed first)."
 				},
 				"grounding": {
 					"note": "grounded, or degraded when the methodology sources couldn't be read."
@@ -19190,7 +19192,34 @@
 					"note": "Output tokens counted against the run budget."
 				},
 				"recorded_at": {
-					"note": "When the run was stored."
+					"note": "When the run row was stored, at capture."
+				},
+				"demand": {
+					"note": "What asked for the run: change, time, manual or followup."
+				},
+				"demand_key": {
+					"note": "The demand identity, the job's producer key; unique per plant."
+				},
+				"captured_at": {
+					"note": "The snapshot's database instant; a write audited after it is a change the run did not see."
+				},
+				"deadline_at": {
+					"note": "When the run gives up; a deferral never waits past it."
+				},
+				"pending_attempts": {
+					"note": "Provider attempts spent on the draft in progress."
+				},
+				"retry_at": {
+					"note": "When a deferred run tries the provider again; set exactly when deferred."
+				},
+				"settled_at": {
+					"note": "When the run reached its final outcome; null while pending or deferred."
+				},
+				"available_at": {
+					"note": "When a published run became current; set exactly when published."
+				},
+				"delta": {
+					"note": "The facts that moved since the previous published run."
 				}
 			},
 			"foreignKeys": {
@@ -19204,6 +19233,109 @@
 					"deletion": {
 						"action": "set_null",
 						"policy": "Deleting the account clears who requested the run; the run stays."
+					}
+				}
+			}
+		},
+		"assessment_insight": {
+			"table": {
+				"name": "assessment_insight",
+				"domain": "intelligence",
+				"purpose": "The insights of a published Plant Intelligence assessment (REQ-PI-023): one per point (focus, supporting, positive) with the severity its model urgency maps to, written in the statement that publishes the run.",
+				"library_owned": false,
+				"jsonb_keys": {},
+				"capabilities": ["CAP-C-020", "CAP-C-021", "CAP-C-026"],
+				"replaces": [],
+				"producer_work_packages": ["WP-043"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-043"],
+					"rule": "WP-043 writes each published assessment's insights with its run."
+				},
+				"feature_ids": [
+					"PI-016",
+					"PI-017",
+					"PI-018",
+					"PI-019",
+					"PI-020",
+					"PI-022",
+					"PI-023",
+					"PI-024",
+					"PI-025",
+					"PI-026",
+					"PI-027",
+					"PI-028",
+					"PI-029",
+					"PI-030",
+					"PI-031",
+					"PI-034",
+					"PI-035",
+					"PI-036",
+					"PI-042"
+				],
+				"acceptance_ids": [
+					"AC-PI-016--PI-016",
+					"AC-PI-017--PI-017",
+					"AC-PI-018--PI-018",
+					"AC-PI-019--PI-019",
+					"AC-PI-020--PI-020",
+					"AC-PI-022--PI-022",
+					"AC-PI-023--PI-023",
+					"AC-PI-024--PI-024",
+					"AC-PI-025--PI-025",
+					"AC-PI-026--PI-026",
+					"AC-PI-027--PI-027",
+					"AC-PI-028--PI-028",
+					"AC-PI-029--PI-029",
+					"AC-PI-030--PI-030",
+					"AC-PI-031--PI-031",
+					"AC-PI-034--PI-034",
+					"AC-PI-035--PI-035",
+					"AC-PI-036--PI-036",
+					"AC-PI-042--PI-042"
+				],
+				"future_case_ids": ["ASMT-006"],
+				"scope": "intelligence",
+				"invariants": [
+					"Written with its published run in one statement, never changed.",
+					"Severity is info, low, medium or high; critical is never produced."
+				],
+				"revision": "Immutable; no revision.",
+				"idempotency": "Written once with its run.",
+				"deletion": "Goes with its run and its plant.",
+				"physical_verified": false
+			},
+			"columns": {
+				"run_id": {
+					"note": "The published run."
+				},
+				"ordinal": {
+					"note": "The point's order: focus, the supporting points, then positives."
+				},
+				"plant_id": {
+					"note": "The assessed plant."
+				},
+				"role": {
+					"note": "focus, supporting or positive."
+				},
+				"severity": {
+					"note": "info, low, medium or high, from the model urgency positive, info, watch or urgent."
+				},
+				"title": {
+					"note": "The point's title as published."
+				}
+			},
+			"foreignKeys": {
+				"run_id,plant_id->assessment_run(id,plant_id)": {
+					"deletion": {
+						"action": "cascade",
+						"policy": "Goes with its run."
+					}
+				},
+				"plant_id->plant(id)": {
+					"deletion": {
+						"action": "cascade",
+						"policy": "Goes with the plant in the church purge."
 					}
 				}
 			}

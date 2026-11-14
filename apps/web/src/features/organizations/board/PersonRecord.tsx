@@ -32,7 +32,7 @@ import {
 	retirePerson,
 } from "./actions";
 import { ConversationsCard } from "./Conversations";
-import { formatDay, PIPELINE_PATH, refusalText } from "./model";
+import { changedText, formatDay, PIPELINE_PATH, refusalText } from "./model";
 import { PersonDialog } from "./PersonDialog";
 import { Problem } from "./Problem";
 import { RemoveDialog } from "../data/RemoveDialog";
@@ -63,13 +63,26 @@ export function PersonRecord({
 	const [notice, setNotice] = useState<string | null>(null);
 	const admin = record.audience === "administrator";
 
-	async function reread() {
+	/** Reads the record again and shows it; the fresh record, or null when the read failed. */
+	async function latest() {
 		const answer = await readPerson(record.personId).catch(() => null);
-		if (answer?.status === "ok") setRecord(answer.value);
+		if (answer?.status !== "ok") return null;
+		setRecord(answer.value);
+		return answer.value;
 	}
-	/** Runs a change; on success closes its dialog and reads the record again. A failure is returned for the form. */
+	async function reread() {
+		await latest();
+	}
+	/**
+	 * Runs a change; on success closes its dialog and reads the record again. A failure is returned for the form. When
+	 * someone else changed the person first, the record is read again and the answer names their stage now.
+	 */
 	async function change(run: () => Promise<Answer | Failure>): Promise<string | null> {
 		const answer = await run().catch((): Failure => ({ status: "lost" }));
+		if (answer.status === "refused" && answer.refusal.code === "conflict") {
+			const now = await latest();
+			if (now) return changedText(now.name, now.stage.label);
+		}
 		if (answer.status !== "ok") return refusalText(answer);
 		setDialog(null);
 		await reread();

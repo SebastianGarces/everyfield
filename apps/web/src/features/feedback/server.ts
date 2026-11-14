@@ -11,8 +11,7 @@ import { operatorMailConfigured } from "./mail.ts";
 
 // The feedback reads and writes run as the request's own signed-in account. The domain checks access in each statement.
 
-/** The deployed version, from the host's build, or null when it does not say (a local build). */
-export const appVersion = () => process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? null;
+export { appVersion } from "../../server/app-version.ts";
 
 /** Whether this deployment names a feedback repository and an operator inbox; the triage pages say so when not. */
 export const publicationSetup = (): PublicationSetup => ({

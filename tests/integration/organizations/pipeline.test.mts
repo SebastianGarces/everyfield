@@ -98,7 +98,7 @@ test("an empty pipeline shows the five starter stages in order and nobody in the
 	assert.deepEqual(b.staff.map((s) => s.name).sort(), ["Ana", "Ben", "Dana", "Luis"]);
 });
 
-test("an Owner adds a person with an email and responsible staff; nobody outside the organization sees them", async () => {
+test("AC:ADR1-001 AC:ADR1-002 an Owner adds a person with an email and responsible staff; nobody outside the organization sees them", async () => {
 	const b = await board(dana);
 	const added = ok(
 		await addPipelinePerson(db, await authority(dana), {
@@ -162,7 +162,7 @@ test("an Owner adds a person with an email and responsible staff; nobody outside
 	assert.equal((plant as { value: { items: unknown[] } }).value.items.length, 0);
 });
 
-test("an Owner edits a person's name, email and responsible staff", async () => {
+test("AC:ADR1-001 an Owner edits a person's name, email and responsible staff", async () => {
 	const before = ok(await record(dana, casey));
 	const edited = ok(
 		await editPipelinePerson(db, await authority(dana), {
@@ -200,7 +200,7 @@ test("an Owner edits a person's name, email and responsible staff", async () => 
 	);
 });
 
-test("a move needs a reason, and the history shows who moved the person, when and why", async () => {
+test("AC:ADR1-008 a move needs a reason, and the history shows who moved the person, when and why", async () => {
 	const b = await board(luis);
 	const r = ok(await record(luis, casey));
 	refusedWith(
@@ -242,7 +242,7 @@ test("a move needs a reason, and the history shows who moved the person, when an
 	assert.equal(audit.rows[0]!.n, 0);
 });
 
-test("stage edits rename, add and reorder; history keeps the label of the time; occupied stages are not removed", async () => {
+test("AC:ADR1-008 stage edits rename, add and reorder; history keeps the label of the time; occupied stages are not removed", async () => {
 	const b = await board(dana);
 	const stages = b.stages.map((s) => ({ id: s.id, label: s.label, kind: s.kind, expectedRevision: s.revision }));
 	const intern = randomUUID();
@@ -291,7 +291,7 @@ test("stage edits rename, add and reorder; history keeps the label of the time; 
 	);
 });
 
-test("Not continuing is an ordinary move", async () => {
+test("AC:ADR1-008 Not continuing is an ordinary move", async () => {
 	const b = await board(dana);
 	const person = randomUUID();
 	ok(
@@ -314,7 +314,7 @@ test("Not continuing is an ordinary move", async () => {
 	assert.deepEqual(names(await board(dana))["Not continuing"], ["Riley Fox"]);
 });
 
-test("an outside assessment records only that it happened, when and by whom", async () => {
+test("AC:ADR1-008 an outside assessment records only that it happened, when and by whom", async () => {
 	const r = ok(await record(luis, casey));
 	// No result, score or rating field exists.
 	refusedWith(
@@ -351,7 +351,7 @@ test("an outside assessment records only that it happened, when and by whom", as
 	});
 });
 
-test("the six-month filter finds people with no stage move since, as of today", async () => {
+test("AC:ADR1-008 the six-month filter finds people with no stage move since, as of today", async () => {
 	const b = await board(dana);
 	ok(
 		await addPipelinePerson(db, await authority(dana), {
@@ -375,7 +375,7 @@ test("the six-month filter finds people with no stage move since, as of today", 
 	assert.equal(stale.asOf, today);
 });
 
-test("a Member with no pipeline duty sees counts only and cannot change anything", async () => {
+test("AC:ADR1-002 a Member with no pipeline duty sees counts only and cannot change anything", async () => {
 	const b = await board(ben, { q: "Casey", stale: true });
 	assert.equal(b.audience, "counts");
 	assert.equal(
@@ -416,7 +416,7 @@ test("a Member with no pipeline duty sees counts only and cannot change anything
 	);
 });
 
-test("responsible staff see their own people and notes, and nothing of anyone else's", async () => {
+test("AC:ADR1-002 AC:ADR1-009 responsible staff see their own people and notes, and nothing of anyone else's", async () => {
 	const b = await board(ana);
 	assert.equal(b.audience, "responsible");
 	assert.deepEqual(
@@ -440,7 +440,7 @@ test("responsible staff see their own people and notes, and nothing of anyone el
 	);
 });
 
-test("a note is read by Owner, Admin and responsible staff only, and only its author edits or removes it", async () => {
+test("AC:ADR1-009 a note is read by Owner, Admin and responsible staff only, and only its author edits or removes it", async () => {
 	const noteId = randomUUID();
 	ok(
 		await addPipelineNote(db, await authority(ana), {
@@ -491,7 +491,7 @@ test("a note is read by Owner, Admin and responsible staff only, and only its au
 	assert.equal(audit.rows[0]!.n, 0);
 });
 
-test("retiring takes a person off the board and counts; restoring puts them back in the same stage", async () => {
+test("AC:ADR1-001 retiring takes a person off the board and counts; restoring puts them back in the same stage", async () => {
 	const before = await board(dana);
 	const resident = before.stages.find((s) => s.label === "Resident")!;
 	const j = ok(await record(dana, jordan));

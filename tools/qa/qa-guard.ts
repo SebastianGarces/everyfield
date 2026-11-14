@@ -20,7 +20,10 @@ export const FULL_ADDRESS = /^[^\s@*,]+@[^\s@*,.]+(\.[^\s@*,.]+)+$/;
  * The known QA logins. They exist only on QA Neon branches, behind Vercel Deployment Protection (OPS-106 decision).
  * The plant's Owner, Admin and Member, then the network Admin and the sending-church director (OPS-126), then a second
  * Member whose seat a tester may remove and a fresh sign-up with no church yet (Nora QA 2026-11-04), then the Owner of
- * the second church, Riverside (QA) (T-255).
+ * the second church, Riverside (QA) (T-255), then the feedback triager (WP-049A). T-312 adds the multiplication example:
+ * the sending church Grace Austin (QA)'s Owner, Admin, residency director, a Member responsible for one person and a
+ * Member with no pipeline duty, the linked resident Casey Lee, who holds no seat, and the Owner of Hill Country Network
+ * (QA).
  */
 export const QA_PASSWORD = "Everyfield-QA-preview-1";
 export const QA_LOGINS = {
@@ -33,6 +36,13 @@ export const QA_LOGINS = {
 	signup: "delivered+qa-signup@resend.dev",
 	riverside: "delivered+qa-riverside-owner@resend.dev",
 	triage: "delivered+qa-triage@resend.dev",
+	graceOwner: "delivered+qa-grace-owner@resend.dev",
+	graceAdmin: "delivered+qa-grace-admin@resend.dev",
+	graceDirector: "delivered+qa-grace-director@resend.dev",
+	graceStaff: "delivered+qa-grace-staff@resend.dev",
+	graceMember: "delivered+qa-grace-member@resend.dev",
+	resident: "delivered+qa-resident@resend.dev",
+	hillOwner: "delivered+qa-hill-owner@resend.dev",
 } as const;
 
 /** The two app logins the QA seed creates on a QA branch, one for each app database role. */

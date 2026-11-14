@@ -407,7 +407,11 @@ function Enrollments({
 					</ul>
 				) : (
 					<p className="text-sm text-text-3">
-						{program.published ? "Nobody is enrolled yet." : "Enrollment opens when the director publishes the plan."}
+						{!program.published
+							? "Enrollment opens when the director publishes the plan."
+							: program.viewer.administrator || program.viewer.director
+								? "Nobody is enrolled yet."
+								: "You see only the people you’re responsible for, and none of them is enrolled."}
 					</p>
 				)}
 			</CardBody>

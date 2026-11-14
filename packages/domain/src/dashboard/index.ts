@@ -16,8 +16,10 @@ type Db = Pick<Database, "execute">;
 type Scope = { plantId: string; accountId: string; seatId: string; live: SQL; admin: SQL; member: boolean };
 
 class Refusal extends Error {
-	constructor(readonly code: c.DashboardError["code"]) {
+	readonly code: c.DashboardError["code"];
+	constructor(code: c.DashboardError["code"]) {
 		super(code);
+		this.code = code;
 	}
 }
 const deny = (code: c.DashboardError["code"] = "access_denied"): never => {

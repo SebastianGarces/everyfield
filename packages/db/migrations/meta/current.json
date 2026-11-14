@@ -1231,6 +1231,117 @@
       },
       "isRLSEnabled": false
     },
+    "public.assessment_insight": {
+      "name": "assessment_insight",
+      "schema": "",
+      "columns": {
+        "run_id": {
+          "name": "run_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ordinal": {
+          "name": "ordinal",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "plant_id": {
+          "name": "plant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "role": {
+          "name": "role",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "severity": {
+          "name": "severity",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "assessment_insight_plant_idx": {
+          "name": "assessment_insight_plant_idx",
+          "columns": [
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "assessment_insight_run": {
+          "name": "assessment_insight_run",
+          "tableFrom": "assessment_insight",
+          "tableTo": "assessment_run",
+          "columnsFrom": [
+            "run_id",
+            "plant_id"
+          ],
+          "columnsTo": [
+            "id",
+            "plant_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "assessment_insight_plant": {
+          "name": "assessment_insight_plant",
+          "tableFrom": "assessment_insight",
+          "tableTo": "plant",
+          "columnsFrom": [
+            "plant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "assessment_insight_pkey": {
+          "name": "assessment_insight_pkey",
+          "columns": [
+            "run_id",
+            "ordinal"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "assessment_insight_role": {
+          "name": "assessment_insight_role",
+          "value": "(role = ANY (ARRAY['focus'::text, 'supporting'::text, 'positive'::text]))"
+        },
+        "assessment_insight_severity": {
+          "name": "assessment_insight_severity",
+          "value": "(severity = ANY (ARRAY['info'::text, 'low'::text, 'medium'::text, 'high'::text]))"
+        }
+      },
+      "isRLSEnabled": false
+    },
     "public.assessment_run": {
       "name": "assessment_run",
       "schema": "",
@@ -1373,6 +1484,61 @@
           "primaryKey": false,
           "notNull": true,
           "default": "clock_timestamp()"
+        },
+        "demand": {
+          "name": "demand",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "demand_key": {
+          "name": "demand_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "captured_at": {
+          "name": "captured_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "deadline_at": {
+          "name": "deadline_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "pending_attempts": {
+          "name": "pending_attempts",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "retry_at": {
+          "name": "retry_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "settled_at": {
+          "name": "settled_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "available_at": {
+          "name": "available_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "delta": {
+          "name": "delta",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {
@@ -1402,6 +1568,27 @@
           "columns": [
             {
               "expression": "requested_by",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "assessment_run_current_idx": {
+          "name": "assessment_run_current_idx",
+          "columns": [
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "available_at",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1449,7 +1636,24 @@
           ]
         }
       },
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "assessment_run_demand": {
+          "name": "assessment_run_demand",
+          "nullsNotDistinct": false,
+          "columns": [
+            "plant_id",
+            "demand_key"
+          ]
+        },
+        "assessment_run_owner": {
+          "name": "assessment_run_owner",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "plant_id"
+          ]
+        }
+      },
       "policies": {},
       "checkConstraints": {
         "assessment_run_phase": {
@@ -1462,15 +1666,19 @@
         },
         "assessment_run_outcome": {
           "name": "assessment_run_outcome",
-          "value": "(outcome = ANY (ARRAY['published'::text, 'failed'::text, 'deferred'::text, 'degraded'::text]))"
+          "value": "(outcome = ANY (ARRAY['pending'::text, 'deferred'::text, 'published'::text, 'failed'::text, 'degraded'::text, 'superseded'::text]))"
         },
         "assessment_run_grounding": {
           "name": "assessment_run_grounding",
           "value": "(grounding = ANY (ARRAY['grounded'::text, 'degraded'::text]))"
         },
+        "assessment_run_demand_kind": {
+          "name": "assessment_run_demand_kind",
+          "value": "(demand = ANY (ARRAY['change'::text, 'time'::text, 'manual'::text, 'followup'::text]))"
+        },
         "assessment_run_published": {
           "name": "assessment_run_published",
-          "value": "(((outcome = 'published'::text) = (result IS NOT NULL)) AND ((grounding = 'degraded'::text) = (model_input IS NULL)) AND ((grounding = 'degraded'::text) = (outcome = 'degraded'::text)) AND ((reference_release IS NULL) = (reference_activation IS NULL)))"
+          "value": "(((outcome = 'published'::text) = (result IS NOT NULL)) AND ((outcome = 'published'::text) = (available_at IS NOT NULL)) AND ((grounding = 'degraded'::text) = (model_input IS NULL)) AND ((grounding = 'degraded'::text) = (outcome = 'degraded'::text)) AND ((reference_release IS NULL) = (reference_activation IS NULL)) AND ((outcome = 'deferred'::text) = (retry_at IS NOT NULL)) AND ((outcome = ANY (ARRAY['pending'::text, 'deferred'::text])) = (settled_at IS NULL)))"
         },
         "assessment_run_budget": {
           "name": "assessment_run_budget",
@@ -2596,7 +2804,7 @@
       "checkConstraints": {
         "audit_action": {
           "name": "audit_action",
-          "value": "(action IN ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','branding.changed','communication.draft_deleted','communication.draft_saved','communication.rescheduled','communication.scheduled','communication.send_intended','communication.template_archived','communication.template_created','communication.template_deleted','communication.template_forked','communication.template_updated','deletion.cancelled','deletion.live_purge_completed','development.enrolled','development.feedback_recorded','development.milestone_confirmed','development.milestone_marked','development.milestone_recorded','development.plan_saved','development.program_created','development.version_applied','development.version_published','documents.archived','documents.church_archived','documents.church_restored','documents.branding_changed','documents.copied','documents.created_from_template','documents.designated','documents.export_deleted','documents.exported','documents.generated','documents.imported','documents.purged','documents.saved','documents.template_deleted','documents.template_details_changed','documents.template_saved','documents.template_updated','evry.conversation_created','evry.proposal_approved','evry.proposal_cancelled','evry.proposal_prepared','evry.proposal_retried','evry.proposal_revised','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','feedback.publication_held','feedback.publication_intended','feedback.publication_unknown','feedback.published','feedback.received','feedback.status_changed','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','intelligence.assessed','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','launch.corrected','launch.debrief_submitted','launch.outcome_recorded','launch.summary_published','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','organization.profile_changed','people.corrected','people.created','people.duplicate_dismissed','people.duplicate_restored','people.merged','people.recorded','people.removed','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.bookmark_changed','wiki.hidden','wiki.published','wiki.reading_recorded','wiki.source_order_changed'))"
+          "value": "(action IN ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','branding.changed','communication.draft_deleted','communication.draft_saved','communication.rescheduled','communication.scheduled','communication.send_intended','communication.template_archived','communication.template_created','communication.template_deleted','communication.template_forked','communication.template_updated','deletion.cancelled','deletion.live_purge_completed','development.enrolled','development.feedback_recorded','development.milestone_confirmed','development.milestone_marked','development.milestone_recorded','development.plan_saved','development.program_created','development.version_applied','development.version_published','documents.archived','documents.church_archived','documents.church_restored','documents.branding_changed','documents.copied','documents.created_from_template','documents.designated','documents.export_deleted','documents.exported','documents.generated','documents.imported','documents.purged','documents.saved','documents.template_deleted','documents.template_details_changed','documents.template_saved','documents.template_updated','evry.conversation_created','evry.proposal_approved','evry.proposal_cancelled','evry.proposal_prepared','evry.proposal_retried','evry.proposal_revised','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','feedback.publication_held','feedback.publication_intended','feedback.publication_unknown','feedback.published','feedback.received','feedback.status_changed','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','intelligence.assessed','intelligence.refresh_requested','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','launch.corrected','launch.debrief_submitted','launch.outcome_recorded','launch.summary_published','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','organization.profile_changed','people.corrected','people.created','people.duplicate_dismissed','people.duplicate_restored','people.merged','people.recorded','people.removed','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.bookmark_changed','wiki.hidden','wiki.published','wiki.reading_recorded','wiki.source_order_changed'))"
         },
         "audit_kind": {
           "name": "audit_kind",
@@ -9563,7 +9771,7 @@
         },
         "job_ck_1": {
           "name": "job_ck_1",
-          "value": "(kind = ANY (ARRAY['mail'::text, 'notification'::text, 'digest'::text, 'object_cleanup'::text, 'lifecycle_purge'::text, 'assistant_turn'::text, 'people_import'::text, 'evry_effect'::text, 'feedback_publication'::text]))"
+          "value": "(kind = ANY (ARRAY['mail'::text, 'notification'::text, 'digest'::text, 'object_cleanup'::text, 'lifecycle_purge'::text, 'assistant_turn'::text, 'people_import'::text, 'evry_effect'::text, 'feedback_publication'::text, 'assessment'::text]))"
         },
         "job_ck_2": {
           "name": "job_ck_2",
@@ -18674,7 +18882,7 @@
         },
         "platform_grant_ck_1": {
           "name": "platform_grant_ck_1",
-          "value": "(capability = ANY (ARRAY['feedback_triage'::text, 'reference_publish'::text, 'recovery_operator'::text]))"
+          "value": "(capability = ANY (ARRAY['feedback_triage'::text, 'reference_publish'::text, 'recovery_operator'::text, 'assessment_operator'::text]))"
         }
       },
       "isRLSEnabled": false

@@ -16,6 +16,7 @@ const jobKind = z.enum([
 	"people_import",
 	"evry_effect",
 	"feedback_publication",
+	"assessment",
 ]);
 export type JobKind = z.infer<typeof jobKind>;
 export const DEFAULT_LEASE_SECONDS = 300;

@@ -558,7 +558,63 @@ async function seedFresh() {
 	return { ...q, before, first, seeded, second, after: await q.counts(), seen: probe(q.env) };
 }
 
-const ORGS = { network: "Harvest Network (QA)", sending: "Grace Church (QA)" };
+const ORGS = {
+	network: "Harvest Network (QA)",
+	sending: "Grace Church (QA)",
+	grace: "Grace Austin (QA)",
+	hill: "Hill Country Network (QA)",
+};
+/** Each organization the church's Owner connected, and the login that accepted. */
+const ACCEPTED_BY: Record<string, string> = {
+	[ORGS.grace]: QA_LOGINS.graceOwner,
+	[ORGS.sending]: QA_LOGINS.sending,
+	[ORGS.network]: QA_LOGINS.network,
+	[ORGS.hill]: QA_LOGINS.hillOwner,
+};
+/** T-312's logins, in QA_LOGINS order. */
+const T312_LOGINS = [
+	QA_LOGINS.graceOwner,
+	QA_LOGINS.graceAdmin,
+	QA_LOGINS.graceDirector,
+	QA_LOGINS.graceStaff,
+	QA_LOGINS.graceMember,
+	QA_LOGINS.resident,
+	QA_LOGINS.hillOwner,
+];
+/** The parts of T-312's multiplication example, in the order the seed names them. */
+const MULTIPLICATION = [
+	...T312_LOGINS.map((login) => `login ${login}`),
+	ORGS.grace,
+	`${ORGS.grace} owner seat Dana Brooks`,
+	`${ORGS.grace} admin seat Luis Ortega`,
+	`${ORGS.grace} member seat Ana Ruiz`,
+	`${ORGS.grace} member seat Dee Walker`,
+	`${ORGS.grace} member seat Ben Carter`,
+	ORGS.hill,
+	`${ORGS.hill} owner seat Ruth Calder`,
+	"pipeline person Casey Lee",
+	"pipeline person Jordan Reyes",
+	"pipeline person Morgan Diaz",
+	"stage move Casey Lee",
+	"note by Ana Ruiz on Casey Lee",
+	"note by Dee Walker on Jordan Reyes",
+	"note by Dana Brooks on Jordan Reyes",
+	"program Church planting residency",
+	"published Church planting residency",
+	"enrollment Casey Lee",
+	"milestone Preach on a Sunday",
+	"feedback on Preach on a Sunday",
+	"residency link Casey Lee",
+	"marked Present your vision to the sending church leadership",
+	"confirmed Present your vision to the sending church leadership",
+	"sending goal",
+	"conversation with Casey Lee",
+	"conversation with Jordan Reyes",
+	`connection ${ORGS.grace} to ${ORGS.hill}`,
+	`pipeline totals shared with ${ORGS.hill}`,
+	`connection ${ORGS.grace}`,
+	`connection ${ORGS.hill}`,
+].join(", ");
 /** The mail parts of the 2026-11-04 cases, in the order the seed names them. */
 const NOV4_MAIL =
 	"suppressed address of Leo Pratt, message QA delivery check, suppressed admin address, past restore of the admin address";
@@ -629,7 +685,7 @@ test("INV-qa-seed: the QA seed fills a fresh database, and a second run changes 
 	);
 });
 
-test("INV-qa-seed: nine QA logins; the seed makes both organization logins verified and active, and each signs in", async () => {
+test("INV-qa-seed: sixteen QA logins; the seed makes both organization logins verified and active, and each signs in", async () => {
 	assert.deepEqual(QA_LOGINS, {
 		owner: "delivered+qa-owner@resend.dev",
 		admin: "delivered+qa-admin@resend.dev",
@@ -640,6 +696,13 @@ test("INV-qa-seed: nine QA logins; the seed makes both organization logins verif
 		signup: "delivered+qa-signup@resend.dev",
 		riverside: "delivered+qa-riverside-owner@resend.dev",
 		triage: "delivered+qa-triage@resend.dev",
+		graceOwner: "delivered+qa-grace-owner@resend.dev",
+		graceAdmin: "delivered+qa-grace-admin@resend.dev",
+		graceDirector: "delivered+qa-grace-director@resend.dev",
+		graceStaff: "delivered+qa-grace-staff@resend.dev",
+		graceMember: "delivered+qa-grace-member@resend.dev",
+		resident: "delivered+qa-resident@resend.dev",
+		hillOwner: "delivered+qa-hill-owner@resend.dev",
 	});
 	const { first, query, seen } = await fresh();
 	for (const email of [QA_LOGINS.network, QA_LOGINS.sending]) assert.ok(first.includes(`login ${email},`), first);
@@ -692,11 +755,13 @@ test("INV-qa-seed: the network login holds an admin seat and the sending-church 
 			},
 		],
 	);
-	// OPS-127's Grace Fellowship (QA) shares the wiki and has no login.
+	// OPS-127's Grace Fellowship (QA) shares the wiki and has no login. T-312 adds Grace Austin (QA) and Hill Country.
 	assert.deepEqual(await query("SELECT name, kind FROM organization WHERE name LIKE '%(QA)' ORDER BY name"), [
+		{ name: ORGS.grace, kind: "sending_church" },
 		{ name: ORGS.sending, kind: "sending_church" },
 		{ name: "Grace Fellowship (QA)", kind: "sending_church" },
 		{ name: ORGS.network, kind: "sending_network" },
+		{ name: ORGS.hill, kind: "sending_network" },
 	]);
 	// The session each login gets selects its organization seat.
 	assert.deepEqual(seen.network.context, {
@@ -725,14 +790,14 @@ test("INV-qa-seed: each organization has one active connection to the church, ma
 			JOIN invitation i ON i.id = f.invitation_id JOIN account a ON a.id = i.accepted_account_id
 			JOIN auth_user u ON u.id = a.auth_user_id
 			WHERE p.name = 'Harvest Point (QA)' AND f.ended_at IS NULL ORDER BY o.name`),
-		[ORGS.sending, ORGS.network].map((name) => {
-			const network = name === ORGS.network;
+		[ORGS.grace, ORGS.sending, ORGS.network, ORGS.hill].map((name) => {
+			const network = name === ORGS.network || name === ORGS.hill;
 			return {
 				name,
 				purpose: network ? "plant_network" : "plant_church",
 				state: "accepted",
-				recipient_email: network ? QA_LOGINS.network : QA_LOGINS.sending,
-				accepted_by: network ? QA_LOGINS.network : QA_LOGINS.sending,
+				recipient_email: ACCEPTED_BY[name],
+				accepted_by: ACCEPTED_BY[name],
 				revision: "1",
 				consent_revision: "1",
 				share_people: true,
@@ -751,7 +816,7 @@ test("INV-qa-seed: each organization has one active connection to the church, ma
 		await query(`SELECT u.email, count(*)::int AS n FROM audit_event e JOIN account a ON a.id = e.actor_id
 			JOIN auth_user u ON u.id = a.auth_user_id JOIN invitation i ON i.id = e.subject_id
 			WHERE i.purpose IN ('plant_network', 'plant_church') AND e.kind = 'create' GROUP BY 1`),
-		[{ email: QA_LOGINS.owner, n: 2 }],
+		[{ email: QA_LOGINS.owner, n: 4 }],
 	);
 });
 
@@ -864,6 +929,7 @@ test("INV-qa-seed: the seed stays idempotent, and a branch seeded before the org
 			`${ORGS.network}, ${ORGS.network} admin seat, ` +
 			`connection ${ORGS.network}, ${ORGS.sending}, ${ORGS.sending} owner seat, connection ${ORGS.sending}, ` +
 			`login ${QA_LOGINS.riverside}, church Riverside (QA), onboarding Riverside (QA), person Ana Lee in Riverside (QA), ` +
+			`${MULTIPLICATION}, ` +
 			"sending church Grace Fellowship (QA), affiliation with Grace Fellowship (QA), ",
 		", owner timezone, 13 check-in weeks.",
 	]);
@@ -880,6 +946,7 @@ test("INV-qa-seed: the seed stays idempotent, and a branch seeded before the org
 						QA_LOGINS.signup,
 						QA_LOGINS.riverside,
 						QA_LOGINS.triage,
+						...T312_LOGINS,
 					] as string[]
 				).includes(String(l.email)),
 		),
@@ -928,6 +995,13 @@ test("INV-qa-runbook: the runbook's login table lists exactly the QA logins and 
 			"Sign-up",
 			"Riverside Owner",
 			"Feedback triager",
+			"Grace Austin Owner",
+			"Grace Austin Admin",
+			"Residency director",
+			"Responsible Member",
+			"Counts-only Member",
+			"Linked resident",
+			"Hill Country Owner",
 		],
 	);
 	for (const words of [
@@ -1469,4 +1543,192 @@ test("INV-qa-seed: given test recipients, Ana Lee has the first address in both 
 		],
 	);
 	assert.deepEqual([seen.owner.other, seen.riverside.other], [{ refused: "unavailable" }, { refused: "unavailable" }]);
+});
+
+// T-312: the multiplication example. Grace Austin (QA)'s staff, its linked resident Casey Lee, Hill Country Network
+// (QA)'s Owner and Harvest Point (QA)'s planter, each through the domain reads the screens use (fixtures/qa-probe.ts).
+
+const CASEY_NOTE = "Casey is steady with the youth group. We talked through the Austin plant timeline.";
+const JORDAN_NOTES = [
+	"Jordan's family is open to a move. Revisit at the fall elders meeting.",
+	"Jordan asked about leading a launch team next spring. Follow up after Easter.",
+];
+const GOAL = "Send two new churches from Grace Austin by 2028.";
+const FEEDBACK = "Clear outline and a warm close. Next time, slow down in the second point.";
+const VISION = "Present your vision to the sending church leadership";
+const PREACH = "Preach on a Sunday";
+const refused = { refused: { code: "unavailable" } };
+
+test("INV-qa-seed: the multiplication example's parts are written once, and the second run writes none", async () => {
+	const { first, second } = await fresh();
+	assert.ok(first.includes(`person Ana Lee in Riverside (QA), ${MULTIPLICATION}, `), first);
+	assert.equal(second, "QA seed: the branch is already complete.");
+});
+
+test("INV-qa-seed: each Grace Austin (QA) and Hill Country login holds its seat and signs in to it; Casey holds none", async () => {
+	const { query, seen } = await fresh();
+	assert.deepEqual(
+		await query(`SELECT u.email, u.email_verified, a.registration_state, a.registration_kind, o.name, s.role,
+			s.id IS NOT NULL AND s.ended_at IS NULL AS live FROM auth_user u JOIN account a ON a.auth_user_id = u.id
+			LEFT JOIN seat s ON s.account_id = a.id LEFT JOIN organization o ON o.id = s.organization_id
+			WHERE u.email IN (${T312_LOGINS.map((l) => `'${l}'`).join(", ")}) ORDER BY 1`),
+		[
+			[QA_LOGINS.graceAdmin, "sending_church", ORGS.grace, "admin"],
+			[QA_LOGINS.graceDirector, "sending_church", ORGS.grace, "member"],
+			[QA_LOGINS.graceMember, "sending_church", ORGS.grace, "member"],
+			[QA_LOGINS.graceOwner, "sending_church", ORGS.grace, "owner"],
+			[QA_LOGINS.graceStaff, "sending_church", ORGS.grace, "member"],
+			[QA_LOGINS.hillOwner, "network", ORGS.hill, "owner"],
+			[QA_LOGINS.resident, "discovery", null, null],
+		].map(([email, kind, name, role]) => ({
+			email,
+			email_verified: true,
+			registration_state: "active",
+			registration_kind: kind,
+			name,
+			role,
+			live: role !== null,
+		})),
+	);
+	for (const [login, role, organization] of [
+		["graceOwner", "owner", ORGS.grace],
+		["graceAdmin", "admin", ORGS.grace],
+		["graceDirector", "member", ORGS.grace],
+		["graceStaff", "member", ORGS.grace],
+		["graceMember", "member", ORGS.grace],
+		["hillOwner", "owner", ORGS.hill],
+	] as const) {
+		assert.equal(seen[login].signedIn, "signed_in", login);
+		assert.equal(seen[login].session, "active", login);
+		assert.deepEqual(seen[login].context, { kind: "seat", role, organization }, login);
+	}
+	assert.deepEqual([seen.resident.signedIn, seen.resident.session], ["signed_in", "active"]);
+	assert.deepEqual(seen.resident.context, { kind: "account", owner: "account" });
+});
+
+test("INV-qa-seed: Casey linked through the residency invitation and shares milestone progress, not foundations", async () => {
+	const { query, seen } = await fresh();
+	// Luis invited her; she accepted with her own login. The link is live and names Casey's pipeline person.
+	assert.deepEqual(
+		await query(`SELECT i.state, inviter.email AS invited_by, accepter.email AS accepted_by, l.share_milestones,
+			l.share_foundations, l.ended_at IS NULL AS live, p.display_name
+			FROM residency_link l JOIN organization o ON o.id = l.organization_id
+			JOIN person p ON p.id = l.person_id JOIN invitation i ON i.resident_person_id = l.person_id AND i.purpose = 'residency_link'
+			JOIN account ia ON ia.id = i.inviter_id JOIN auth_user inviter ON inviter.id = ia.auth_user_id
+			JOIN account aa ON aa.id = i.accepted_account_id JOIN auth_user accepter ON accepter.id = aa.auth_user_id
+			WHERE o.name = '${ORGS.grace}'`),
+		[
+			{
+				state: "accepted",
+				invited_by: QA_LOGINS.graceAdmin,
+				accepted_by: QA_LOGINS.resident,
+				share_milestones: true,
+				share_foundations: false,
+				live: true,
+				display_name: "Casey Lee",
+			},
+		],
+	);
+	// My residency: Ana recorded the hands-on milestone before the link, Casey marked the vision one after it, and Ana
+	// confirmed it. Casey reads Ana's feedback and no pipeline board.
+	assert.deepEqual(seen.resident.residency, {
+		status: "linked",
+		organizationName: ORGS.grace,
+		sharing: { shareMilestones: true, shareFoundations: false },
+		milestones: [
+			["Start a small group and raise a replacement", null, []],
+			[VISION, { source: "resident", confirmed: true }, []],
+			["Write a church planting prospectus", null, []],
+			[PREACH, { source: "program_leader", confirmed: true }, [FEEDBACK]],
+		],
+	});
+	assert.deepEqual(seen.resident.board, refused);
+	assert.deepEqual(
+		await query(`SELECT d.title, c.source, c.confirmed_at > l.accepted_at AS confirmed_after_link
+			FROM enrollment_milestone c JOIN development_milestone d ON d.id = c.milestone_id
+			JOIN development_enrollment e ON e.id = c.enrollment_id
+			JOIN residency_link l ON l.person_id = e.person_id ORDER BY d.title`),
+		[
+			{ title: PREACH, source: "program_leader", confirmed_after_link: false },
+			{ title: VISION, source: "resident", confirmed_after_link: true },
+		],
+	);
+});
+
+test("INV-privacy: each Grace Austin (QA) login reads only the pipeline its role and duty allow", async () => {
+	const { seen } = await fresh();
+	const enrollment = {
+		resident: { status: "linked", milestones: "shared", foundations: { status: "not_shared" } },
+		milestones: [
+			["Start a small group and raise a replacement", null],
+			[VISION, { source: "resident", confirmer: "Ana Ruiz" }],
+			["Write a church planting prospectus", null],
+			[PREACH, { source: "program_leader", confirmer: "Ana Ruiz" }],
+		],
+	};
+	const casey = { notes: [CASEY_NOTE], conversations: 1, residency: "linked" };
+	const jordan = { notes: JORDAN_NOTES, conversations: 1, residency: "not_linked" };
+	const goals = { goals: [GOAL], conversations: 2 };
+	// Dana and Luis: everyone, every note, the feedback and Casey's shared progress.
+	for (const login of ["graceOwner", "graceAdmin"])
+		assert.deepEqual(
+			{ ...seen[login], signedIn: undefined, session: undefined, context: undefined },
+			{
+				signedIn: undefined,
+				session: undefined,
+				context: undefined,
+				board: { audience: "administrator", count: 2, people: ["Casey Lee", "Jordan Reyes"] },
+				goals,
+				records: { casey, jordan, morgan: refused },
+				enrollment,
+			},
+			login,
+		);
+	// Ana: Casey only, her own note and Casey's shared milestones; no Jordan, no Dee's or Dana's notes.
+	assert.deepEqual(seen.graceDirector.board, { audience: "responsible", count: 2, people: ["Casey Lee"] });
+	assert.deepEqual(seen.graceDirector.records, { casey, jordan: refused, morgan: refused });
+	assert.deepEqual(seen.graceDirector.enrollment, enrollment);
+	// Dee: Jordan and Jordan's notes only.
+	assert.deepEqual(seen.graceStaff.board, { audience: "responsible", count: 2, people: ["Jordan Reyes"] });
+	assert.deepEqual(seen.graceStaff.records, { casey: refused, jordan, morgan: refused });
+	assert.deepEqual(seen.graceStaff.enrollment, refused);
+	// Ben: counts only.
+	assert.deepEqual(seen.graceMember.board, { audience: "counts", count: 2, people: [] });
+	assert.deepEqual(seen.graceMember.goals, goals);
+	assert.deepEqual(seen.graceMember.records, { casey: refused, jordan: refused, morgan: refused });
+	assert.deepEqual(seen.graceMember.enrollment, refused);
+});
+
+test("INV-privacy: Hill Country's Owner sees none of Grace Austin's pipeline with totals shared, and Harvest Point's planter sees neither", async () => {
+	const { query, seen } = await fresh();
+	// Grace Austin is connected to Hill Country Network by Dana's request and Ruth's acceptance, and shares totals.
+	assert.deepEqual(
+		await query(`SELECT i.purpose, i.recipient_email, s.share_pipeline_totals, f.ended_at IS NULL AS live
+			FROM affiliation f JOIN organization c ON c.id = f.sending_church_id JOIN organization n ON n.id = f.organization_id
+			JOIN invitation i ON i.id = f.invitation_id JOIN pipeline_sharing s ON s.relationship_id = f.id
+			WHERE c.name = '${ORGS.grace}' AND n.name = '${ORGS.hill}'`),
+		[{ purpose: "church_network", recipient_email: QA_LOGINS.hillOwner, share_pipeline_totals: true, live: true }],
+	);
+	const hill = seen.hillOwner;
+	assert.deepEqual(hill.board, { audience: "administrator", count: 1, people: ["Morgan Diaz"] });
+	assert.deepEqual(hill.goals, { goals: [], conversations: 0 });
+	assert.deepEqual(hill.records, {
+		casey: refused,
+		jordan: refused,
+		morgan: { notes: [], conversations: 0, residency: "not_linked" },
+	});
+	assert.deepEqual(hill.enrollment, refused);
+	// One sharing church is below the two-church minimum, so the network gets no totals either.
+	assert.deepEqual(hill.aggregate, { allowed: false, minimumContributors: 2 });
+	const shown = JSON.stringify(hill);
+	for (const part of ["Casey Lee", "Jordan Reyes", GOAL, CASEY_NOTE, ...JORDAN_NOTES, FEEDBACK])
+		assert.ok(!shown.includes(part), part);
+	// Daniel Reyes, Harvest Point (QA)'s planter, is connected to both and reads neither pipeline nor the residency.
+	assert.deepEqual(seen.owner.pipeline, {
+		board: refused,
+		goals: refused,
+		casey: refused,
+		enrollment: refused,
+		residency: "not_linked",
+	});
 });

@@ -12,6 +12,7 @@ import { feedbackMailPass } from "@/features/feedback/mail";
 import { feedbackPublicationMount } from "@/features/feedback/publication";
 import { deliveryTransport, mailReady, queuedMailTransport } from "@/features/communication/mail";
 import { scheduledJobs, scheduledMessages } from "@/server/jobs/scheduled";
+import { assessmentsMount } from "@/server/jobs/assessment";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -31,6 +32,7 @@ export function GET(request: Request): Promise<Response> {
 		digests: digestsMount(db),
 		notifications: notificationsMount(db),
 		feedbackPublication: feedbackPublicationMount(db),
+		assessments: assessmentsMount(),
 		mail: ready ? (limit, until) => runDueInvitationMail(queuedMailTransport(ready), limit, until) : null,
 		messages: ready && db ? scheduledMessages(db, deliveryTransport(ready), ready.keys) : null,
 		mountMail: ready

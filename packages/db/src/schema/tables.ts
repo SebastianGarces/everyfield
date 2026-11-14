@@ -1997,6 +1997,7 @@ export const job = pgTable(
 				"people_import",
 				"evry_effect",
 				"feedback_publication",
+				"assessment",
 			],
 		}).notNull(),
 		subject_record_id: uuid("subject_record_id"),
@@ -2039,7 +2040,7 @@ export const job = pgTable(
 		check("job_ck_0", sql`(revision >= 1)`),
 		check(
 			"job_ck_1",
-			sql`(kind = ANY (ARRAY['mail'::text, 'notification'::text, 'digest'::text, 'object_cleanup'::text, 'lifecycle_purge'::text, 'assistant_turn'::text, 'people_import'::text, 'evry_effect'::text, 'feedback_publication'::text]))`,
+			sql`(kind = ANY (ARRAY['mail'::text, 'notification'::text, 'digest'::text, 'object_cleanup'::text, 'lifecycle_purge'::text, 'assistant_turn'::text, 'people_import'::text, 'evry_effect'::text, 'feedback_publication'::text, 'assessment'::text]))`,
 		),
 		check(
 			"job_ck_2",
@@ -4051,7 +4052,9 @@ export const platform_grant = pgTable(
 			.notNull()
 			.default(sql`gen_random_uuid()`),
 		account_id: uuid("account_id").notNull(),
-		capability: text("capability", { enum: ["feedback_triage", "reference_publish", "recovery_operator"] }).notNull(),
+		capability: text("capability", {
+			enum: ["feedback_triage", "reference_publish", "recovery_operator", "assessment_operator"],
+		}).notNull(),
 		expires_at: timestamp("expires_at", { withTimezone: true, mode: "date" }),
 		revoked_at: timestamp("revoked_at", { withTimezone: true, mode: "date" }),
 		revision: int64("revision")
@@ -4074,7 +4077,7 @@ export const platform_grant = pgTable(
 		check("platform_grant_ck_0", sql`(revision >= 1)`),
 		check(
 			"platform_grant_ck_1",
-			sql`(capability = ANY (ARRAY['feedback_triage'::text, 'reference_publish'::text, 'recovery_operator'::text]))`,
+			sql`(capability = ANY (ARRAY['feedback_triage'::text, 'reference_publish'::text, 'recovery_operator'::text, 'assessment_operator'::text]))`,
 		),
 		uniqueIndex("platform_grant_uq_1")
 			.using("btree", table.account_id.asc().nullsLast(), table.capability.asc().nullsLast())
@@ -5888,7 +5891,7 @@ export const audit_event = pgTable(
 		check(
 			"audit_action",
 			sql.raw(
-				"(action IN ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','branding.changed','communication.draft_deleted','communication.draft_saved','communication.rescheduled','communication.scheduled','communication.send_intended','communication.template_archived','communication.template_created','communication.template_deleted','communication.template_forked','communication.template_updated','deletion.cancelled','deletion.live_purge_completed','development.enrolled','development.feedback_recorded','development.milestone_confirmed','development.milestone_marked','development.milestone_recorded','development.plan_saved','development.program_created','development.version_applied','development.version_published','documents.archived','documents.church_archived','documents.church_restored','documents.branding_changed','documents.copied','documents.created_from_template','documents.designated','documents.export_deleted','documents.exported','documents.generated','documents.imported','documents.purged','documents.saved','documents.template_deleted','documents.template_details_changed','documents.template_saved','documents.template_updated','evry.conversation_created','evry.proposal_approved','evry.proposal_cancelled','evry.proposal_prepared','evry.proposal_retried','evry.proposal_revised','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','feedback.publication_held','feedback.publication_intended','feedback.publication_unknown','feedback.published','feedback.received','feedback.status_changed','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','intelligence.assessed','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','launch.corrected','launch.debrief_submitted','launch.outcome_recorded','launch.summary_published','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','organization.profile_changed','people.corrected','people.created','people.duplicate_dismissed','people.duplicate_restored','people.merged','people.recorded','people.removed','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.bookmark_changed','wiki.hidden','wiki.published','wiki.reading_recorded','wiki.source_order_changed'))",
+				"(action IN ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','branding.changed','communication.draft_deleted','communication.draft_saved','communication.rescheduled','communication.scheduled','communication.send_intended','communication.template_archived','communication.template_created','communication.template_deleted','communication.template_forked','communication.template_updated','deletion.cancelled','deletion.live_purge_completed','development.enrolled','development.feedback_recorded','development.milestone_confirmed','development.milestone_marked','development.milestone_recorded','development.plan_saved','development.program_created','development.version_applied','development.version_published','documents.archived','documents.church_archived','documents.church_restored','documents.branding_changed','documents.copied','documents.created_from_template','documents.designated','documents.export_deleted','documents.exported','documents.generated','documents.imported','documents.purged','documents.saved','documents.template_deleted','documents.template_details_changed','documents.template_saved','documents.template_updated','evry.conversation_created','evry.proposal_approved','evry.proposal_cancelled','evry.proposal_prepared','evry.proposal_retried','evry.proposal_revised','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','feedback.publication_held','feedback.publication_intended','feedback.publication_unknown','feedback.published','feedback.received','feedback.status_changed','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','intelligence.assessed','intelligence.refresh_requested','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','launch.corrected','launch.debrief_submitted','launch.outcome_recorded','launch.summary_published','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','organization.profile_changed','people.corrected','people.created','people.duplicate_dismissed','people.duplicate_restored','people.merged','people.recorded','people.removed','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.bookmark_changed','wiki.hidden','wiki.published','wiki.reading_recorded','wiki.source_order_changed'))",
 			),
 		),
 		check(
@@ -6692,9 +6695,27 @@ export const assessment_run = pgTable(
 		recorded_at: timestamp("recorded_at", { withTimezone: true, mode: "date" })
 			.notNull()
 			.default(sql`clock_timestamp()`),
+		/** What asked for the run (change, time, manual, followup) and its demand identity: the job's producer key. */
+		demand: text("demand").notNull(),
+		demand_key: text("demand_key").notNull(),
+		/** The snapshot's own database instant: a committed write audited after it is a change the run did not see. */
+		captured_at: timestamp("captured_at", { withTimezone: true, mode: "date" }).notNull(),
+		/** The run gives up at this instant: a deferral never waits past it. */
+		deadline_at: timestamp("deadline_at", { withTimezone: true, mode: "date" }).notNull(),
+		/** Provider attempts spent on the draft in progress, so a resumed run continues within the same budget. */
+		pending_attempts: integer("pending_attempts").notNull().default(0),
+		/** When a deferred run tries the provider again. */
+		retry_at: timestamp("retry_at", { withTimezone: true, mode: "date" }),
+		/** When the run settled, and when a published one became the current assessment. */
+		settled_at: timestamp("settled_at", { withTimezone: true, mode: "date" }),
+		available_at: timestamp("available_at", { withTimezone: true, mode: "date" }),
+		/** The facts that moved since the previous published assessment (intelligence.computeSnapshotDelta). */
+		delta: jsonb("delta"),
 	},
 	(t): PgTableExtraConfigValue[] => [
 		primaryKey({ name: "assessment_run_pkey", columns: [t.id] }),
+		unique("assessment_run_demand").on(t.plant_id, t.demand_key),
+		unique("assessment_run_owner").on(t.id, t.plant_id),
 		foreignKey({ name: "assessment_run_plant", columns: [t.plant_id], foreignColumns: [plant.id] })
 			.onDelete("cascade")
 			.onUpdate("no action"),
@@ -6705,12 +6726,16 @@ export const assessment_run = pgTable(
 		check("assessment_run_rubric", sql`(rubric_version = ANY (ARRAY['v0'::text, 'v1'::text]))`),
 		check(
 			"assessment_run_outcome",
-			sql`(outcome = ANY (ARRAY['published'::text, 'failed'::text, 'deferred'::text, 'degraded'::text]))`,
+			sql`(outcome = ANY (ARRAY['pending'::text, 'deferred'::text, 'published'::text, 'failed'::text, 'degraded'::text, 'superseded'::text]))`,
 		),
 		check("assessment_run_grounding", sql`(grounding = ANY (ARRAY['grounded'::text, 'degraded'::text]))`),
 		check(
+			"assessment_run_demand_kind",
+			sql`(demand = ANY (ARRAY['change'::text, 'time'::text, 'manual'::text, 'followup'::text]))`,
+		),
+		check(
 			"assessment_run_published",
-			sql`(((outcome = 'published'::text) = (result IS NOT NULL)) AND ((grounding = 'degraded'::text) = (model_input IS NULL)) AND ((grounding = 'degraded'::text) = (outcome = 'degraded'::text)) AND ((reference_release IS NULL) = (reference_activation IS NULL)))`,
+			sql`(((outcome = 'published'::text) = (result IS NOT NULL)) AND ((outcome = 'published'::text) = (available_at IS NOT NULL)) AND ((grounding = 'degraded'::text) = (model_input IS NULL)) AND ((grounding = 'degraded'::text) = (outcome = 'degraded'::text)) AND ((reference_release IS NULL) = (reference_activation IS NULL)) AND ((outcome = 'deferred'::text) = (retry_at IS NOT NULL)) AND ((outcome = ANY (ARRAY['pending'::text, 'deferred'::text])) = (settled_at IS NULL)))`,
 		),
 		check(
 			"assessment_run_budget",
@@ -6718,5 +6743,40 @@ export const assessment_run = pgTable(
 		),
 		index("assessment_run_plant_idx").on(t.plant_id, t.recorded_at),
 		index("assessment_run_requester_idx").on(t.requested_by),
+		index("assessment_run_current_idx").on(t.plant_id, t.available_at),
+	],
+);
+/**
+ * The insights of a published assessment (PI-023), written in the statement that publishes it: one per point, with the
+ * severity its model urgency maps to. Severity orders insights only; it never ranks plants.
+ */
+export const assessment_insight = pgTable(
+	"assessment_insight",
+	{
+		run_id: uuid("run_id").notNull(),
+		ordinal: integer("ordinal").notNull(),
+		plant_id: uuid("plant_id").notNull(),
+		role: text("role").notNull(),
+		severity: text("severity").notNull(),
+		title: text("title").notNull(),
+	},
+	(t): PgTableExtraConfigValue[] => [
+		primaryKey({ name: "assessment_insight_pkey", columns: [t.run_id, t.ordinal] }),
+		foreignKey({
+			name: "assessment_insight_run",
+			columns: [t.run_id, t.plant_id],
+			foreignColumns: [assessment_run.id, assessment_run.plant_id],
+		})
+			.onDelete("cascade")
+			.onUpdate("no action"),
+		foreignKey({ name: "assessment_insight_plant", columns: [t.plant_id], foreignColumns: [plant.id] })
+			.onDelete("cascade")
+			.onUpdate("no action"),
+		check("assessment_insight_role", sql`(role = ANY (ARRAY['focus'::text, 'supporting'::text, 'positive'::text]))`),
+		check(
+			"assessment_insight_severity",
+			sql`(severity = ANY (ARRAY['info'::text, 'low'::text, 'medium'::text, 'high'::text]))`,
+		),
+		index("assessment_insight_plant_idx").on(t.plant_id),
 	],
 );
