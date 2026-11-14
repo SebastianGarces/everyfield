@@ -7,6 +7,7 @@ import type {
 } from "@ai-sdk/provider";
 import { randomUUID } from "node:crypto";
 import { onboardingStep } from "./scripted-onboarding.ts";
+import { overviewStep } from "./scripted-overview.ts";
 import { pipelineStep } from "./scripted-pipeline.ts";
 import { settingsStep } from "./scripted-settings.ts";
 
@@ -633,6 +634,8 @@ function respond(options: LanguageModelV4CallOptions): LanguageModelV4Content[] 
 		return [{ type: "text", text: JSON.stringify({ kind: classify(text) }) }];
 	// "Show a formatting demo": an answer with markdown, written slowly enough to watch it grow (local previews and tests).
 	if (FORMATTING.test(text)) return [{ type: "text", text: FORMATTING_ANSWER }];
+	const overview = overviewStep(options, text);
+	if (overview) return overview;
 	const pipeline = pipelineStep(options, text);
 	if (pipeline) return pipeline;
 	const onboarding = onboardingStep(options, text);

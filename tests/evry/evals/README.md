@@ -39,6 +39,19 @@ Owner has not finished setup (with an Admin), two seatless accounts and a Discov
 Network, through the same onboarding producer `/onboarding` calls. Each approved change is read back through
 `/onboarding`'s own read (`readOnboardingEntry`) and Home's landing rule. The recorded suites leave these tools out too.
 
+## The overview suite (scripted model)
+
+`overview.test.mts` scores the Overview and feedback tools (T-330: `dashboard.availableActions`, `dashboard.metrics`,
+`dashboard.activity`, `dashboard.readSetupGaps`, `feedback.listOwn`, `feedback.getOwnStatus` and the reviewed
+`feedback.submit`) on the scripted model (`packages/evry/src/runtime/scripted-overview.ts`): their ask allowed no new
+spend. It runs on the acceptance fixture church, Cedar Creek (`seedOverview` in `setup-church.mts`, America/Chicago),
+with the database clock pinned to Oct 13, 2026: the church in its first week with setup finished, people added over two
+months, the week's meetings and an overdue task. A case's `given` applies one later fixture change (a failing Meetings
+read, a planned Vision Meeting, a seated Member, a crowded activity feed). Each answer is held to what Overview itself
+shows, through its own reads and words (`apps/web/src/features/overview/model.ts`); MON-01 and CLN-10 carry their
+golden question word for word, with its expected answer and must-not. The approved feedback is read back through Sent
+feedback's own read. The recorded suites leave these tools out too.
+
 ## The pipeline suite (scripted model)
 
 `pipeline.test.mts` scores the organization pipeline and program tools (WP-101) the same way, on the scripted model
@@ -51,6 +64,15 @@ with `approve` is approved the way the card approves it: these writes run their 
 with the reason typed on the card for a stage move, and each result is read back through the Pipeline and Programs
 pages' own reads. Two more tests hold the boundaries: the read takes no search text and matches the native board for
 every seat, and a stage move proposal refuses any reason or text field. The recorded suites leave these tools out too.
+
+The same suite scores T-377: a program's current director has Evry draft its next version. `development.readProgram`
+reads the programs and one program's published plan and draft as Programs shows them, with no enrollee, completion or
+feedback, and `development.draftNextVersion` takes a program and a plan and saves the next version's draft through the
+Programs page's own save once approved. The fixture adds Grace Austin's "Church planting residency" (`seedResidency`):
+Version 1 published with one reading, and Casey Lee enrolled on it with one milestone finished. The PRG cases read
+each approved draft back on the program page, refuse the card to every seat but the director, refuse it after a native
+edit, and, after Ana publishes natively, read the native apply review for Casey: kept and renamed milestones keep
+their lineage.
 
 ## The household and follow-up suites
 

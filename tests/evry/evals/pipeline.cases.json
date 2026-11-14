@@ -1,15 +1,18 @@
 {
 	"suite": "pipeline",
 	"model": "scripted",
-	"note": "WP-101: the organization pipeline and program tools, asked on the scripted model with the real adapters, approvals and the native pipeline and program writers, on the pipeline fixture (pipeline-church.mts, America/Chicago). Grace Austin: Owner Dana Brooks, Admin Luis Ortega, Members Ana Ruiz (responsible for Casey Lee, directs the residency) and Ben Carter (responsible for no one). Its pipeline: Jordan Reyes (Potential leader, no move in 190 days), Sam Patel (Potential leader, placed 30 days ago) and Casey Lee (Apprentice, moved 14 days ago, with a note from Ana). Hill Country Network's own pipeline has only Morgan Diaz; Ruth Calder is its Owner. Cases run in this order; each later case sees the earlier approved changes.",
+	"note": "WP-101: the organization pipeline and program tools, asked on the scripted model with the real adapters, approvals and the native pipeline and program writers, on the pipeline fixture (pipeline-church.mts, America/Chicago). Grace Austin: Owner Dana Brooks, Admin Luis Ortega, Members Ana Ruiz (responsible for Casey Lee, directs the residency) and Ben Carter (responsible for no one). Its pipeline: Jordan Reyes (Potential leader, no move in 190 days), Sam Patel (Potential leader, placed 30 days ago) and Casey Lee (Apprentice, moved 14 days ago, with a note from Ana). Hill Country Network's own pipeline has only Morgan Diaz; Ruth Calder is its Owner. Cases run in this order; each later case sees the earlier approved changes. Ana also directs \"Church planting residency\": Version 1 is published (weekly, 18 months, the residency template's four stages and three milestones, the reading \"Planting a church that plants churches\"), and Casey Lee is enrolled on it and has finished \"Start a small group and raise a replacement\". The PRG cases (T-377) have Evry draft its next version; their criterion numbers are T-377's. T-312 Done 14: each case with `question` is one of the seven WP-101 questions (Done 1 to 7) asked by Dana, Ana or Ben; together they fill the asker x question matrix, and each is compared with that asker's own Pipeline page read (`page`) or native write (`native`).",
 	"cases": [
 		{
 			"id": "PIP-01",
 			"criterion": 1,
+			"question": 1,
+			"note": "T-312 Done 14, question 1, asker Dana (Owner)",
 			"actor": "dana",
 			"ask": "who in our pipeline hasn't moved in six months?",
 			"operation": "pipeline.listPeople",
 			"calls": ["pipeline.listPeople"],
+			"page": { "stale": true },
 			"answer": [
 				"1 person in Grace Austin's pipeline hasn't moved in six months: Jordan Reyes (Potential leader",
 				"How it was measured: No stage move or first placement since",
@@ -135,6 +138,8 @@
 		{
 			"id": "PIP-13",
 			"criterion": 3,
+			"question": 3,
+			"note": "T-312 Done 14, question 3, asker Dana (Owner)",
 			"actor": "dana",
 			"ask": "draft a 12-month apprenticeship plan with Ana as director",
 			"operation": "development.draftPlan",
@@ -178,6 +183,8 @@
 		{
 			"id": "PIP-14",
 			"criterion": 4,
+			"question": 4,
+			"note": "T-312 Done 14, question 4, asker Ana (Member, responsible for Casey, program director)",
 			"actor": "ana",
 			"ask": "draft a 12-month apprenticeship plan",
 			"operation": "development.draftPlan",
@@ -187,6 +194,25 @@
 				"Milestones:",
 				"Only an Owner or Admin of Grace Austin can create a program, so I can't prepare one for you to approve. Nothing was created."
 			]
+		},
+		{
+			"id": "PIP-17",
+			"criterion": 5,
+			"question": 5,
+			"note": "T-312 Done 14, question 5, asker Dana (Owner)",
+			"actor": "dana",
+			"ask": "move Casey to Resident because she finished her apprenticeship",
+			"operation": "pipeline.listPeople",
+			"calls": ["pipeline.listPeople"],
+			"answer": [
+				"I prepared a review card to move Casey Lee to Resident. Type the reason for the move on the card yourself"
+			],
+			"absent": ["finished her apprenticeship"],
+			"proposal": {
+				"operation": "pipeline.proposeStageMove",
+				"target": "Casey Lee",
+				"changes": [{ "field": "pipelineStage", "before": "Apprentice", "after": "Resident" }]
+			}
 		},
 		{
 			"id": "PIP-15",
@@ -221,6 +247,411 @@
 			},
 			"approve": { "reason": "Luis's reason that must never be saved." },
 			"outcome": "refused"
+		},
+		{
+			"id": "PIP-18",
+			"criterion": 1,
+			"question": 1,
+			"note": "T-312 Done 14, question 1, asker Ana (Member, responsible for Casey, program director)",
+			"actor": "ana",
+			"ask": "who in our pipeline hasn't moved in six months?",
+			"operation": "pipeline.listPeople",
+			"calls": ["pipeline.listPeople"],
+			"page": { "stale": true },
+			"answer": [
+				"everyone in Grace Austin's pipeline you can see has moved in the last six months.",
+				"How it was measured: No stage move or first placement since"
+			],
+			"absent": ["Jordan", "Sam", "youth group"]
+		},
+		{
+			"id": "PIP-19",
+			"criterion": 1,
+			"question": 1,
+			"note": "T-312 Done 14, question 1, asker Ben (Member, no duty)",
+			"actor": "ben",
+			"ask": "who in our pipeline hasn't moved in six months?",
+			"operation": "pipeline.listPeople",
+			"calls": ["pipeline.listPeople"],
+			"page": { "stale": true },
+			"answer": ["Your Pipeline page shows counts per stage only, so I can't list who hasn't moved."],
+			"absent": ["Jordan", "Casey", "Sam"]
+		},
+		{
+			"id": "PIP-20",
+			"criterion": 2,
+			"question": 2,
+			"note": "T-312 Done 14, question 2, asker Dana (Owner). The page's search also matches note text (Casey's note mentions the youth group); Evry's read takes no search, so the answer is this seat's whole board, never a note match.",
+			"actor": "dana",
+			"ask": "search the pipeline for youth group",
+			"operation": "pipeline.listPeople",
+			"calls": ["pipeline.listPeople"],
+			"page": {},
+			"answer": ["Grace Austin's pipeline as of"],
+			"absent": ["youth group"]
+		},
+		{
+			"id": "PIP-21",
+			"criterion": 2,
+			"question": 2,
+			"note": "T-312 Done 14, question 2, asker Ana (Member, responsible for Casey, program director). As PIP-20, for the seat that wrote the note.",
+			"actor": "ana",
+			"ask": "search the pipeline for youth group",
+			"operation": "pipeline.listPeople",
+			"calls": ["pipeline.listPeople"],
+			"page": {},
+			"answer": ["Grace Austin's pipeline as of"],
+			"absent": ["Jordan", "Sam", "youth group"]
+		},
+		{
+			"id": "PIP-22",
+			"criterion": 2,
+			"question": 2,
+			"note": "T-312 Done 14, question 2, asker Ben (Member, no duty). A counts-only seat's page has no search; the answer is the counts.",
+			"actor": "ben",
+			"ask": "search the pipeline for youth group",
+			"operation": "pipeline.listPeople",
+			"calls": ["pipeline.listPeople"],
+			"page": {},
+			"answer": ["counts per stage only."],
+			"absent": ["Jordan", "Casey", "Sam", "youth group"]
+		},
+		{
+			"id": "PIP-23",
+			"criterion": 3,
+			"question": 3,
+			"note": "T-312 Done 14, question 3, asker Ana (Member, responsible for Casey, program director)",
+			"actor": "ana",
+			"ask": "draft a 12-month apprenticeship plan with Ana as director",
+			"operation": "development.draftPlan",
+			"calls": ["development.draftPlan"],
+			"native": "createProgram",
+			"answer": [
+				"Here is a draft 12-month apprenticeship plan.",
+				"Only an Owner or Admin of Grace Austin can create a program, so I can't prepare one for you to approve. Nothing was created."
+			]
+		},
+		{
+			"id": "PIP-24",
+			"criterion": 3,
+			"question": 3,
+			"note": "T-312 Done 14, question 3, asker Ben (Member, no duty)",
+			"actor": "ben",
+			"ask": "draft a 12-month apprenticeship plan with Ana as director",
+			"operation": "development.draftPlan",
+			"calls": ["development.draftPlan"],
+			"native": "createProgram",
+			"answer": [
+				"Here is a draft 12-month apprenticeship plan.",
+				"Only an Owner or Admin of Grace Austin can create a program, so I can't prepare one for you to approve. Nothing was created."
+			]
+		},
+		{
+			"id": "PIP-25",
+			"criterion": 4,
+			"question": 4,
+			"note": "T-312 Done 14, question 4, asker Dana (Owner). The Owner's draft without a director: no card until a director is named; nothing is created.",
+			"actor": "dana",
+			"ask": "draft a 12-month apprenticeship plan",
+			"operation": "development.draftPlan",
+			"calls": ["development.draftPlan"],
+			"answer": ["Here is a draft 12-month apprenticeship plan.", "Who should direct it? Name one of your staff."]
+		},
+		{
+			"id": "PIP-26",
+			"criterion": 4,
+			"question": 4,
+			"note": "T-312 Done 14, question 4, asker Ben (Member, no duty)",
+			"actor": "ben",
+			"ask": "draft a 12-month apprenticeship plan",
+			"operation": "development.draftPlan",
+			"calls": ["development.draftPlan"],
+			"native": "createProgram",
+			"answer": [
+				"Here is a draft 12-month apprenticeship plan.",
+				"Only an Owner or Admin of Grace Austin can create a program, so I can't prepare one for you to approve. Nothing was created."
+			]
+		},
+		{
+			"id": "PIP-27",
+			"criterion": 5,
+			"question": 5,
+			"note": "T-312 Done 14, question 5, asker Ana (Member, responsible for Casey, program director)",
+			"actor": "ana",
+			"ask": "move Casey to Resident because she finished her apprenticeship",
+			"calls": [],
+			"native": "move",
+			"answer": [
+				"Only an Owner or Admin can invite people, change seats and invitations, change this organization's profile, move people between pipeline stages or create programs."
+			],
+			"absent": ["Casey", "finished her apprenticeship"]
+		},
+		{
+			"id": "PIP-28",
+			"criterion": 5,
+			"question": 5,
+			"note": "T-312 Done 14, question 5, asker Ben (Member, no duty)",
+			"actor": "ben",
+			"ask": "move Casey to Resident because she finished her apprenticeship",
+			"calls": [],
+			"native": "move",
+			"answer": [
+				"Only an Owner or Admin can invite people, change seats and invitations, change this organization's profile, move people between pipeline stages or create programs."
+			],
+			"absent": ["Casey", "finished her apprenticeship"]
+		},
+		{
+			"id": "PIP-29",
+			"criterion": 6,
+			"question": 6,
+			"note": "T-312 Done 14, question 6, asker Dana (Owner). Evry's card names only Jordan and Apprentice; the reason the user gave is never in the proposal, receipt or audit, and a proposal that tries to carry one is refused before dispatch.",
+			"actor": "dana",
+			"ask": "move Jordan to Apprentice because he led the youth retreat, and save that as the reason",
+			"operation": "pipeline.listPeople",
+			"calls": ["pipeline.listPeople"],
+			"answer": [
+				"I prepared a review card to move Jordan Reyes to Apprentice. Type the reason for the move on the card yourself"
+			],
+			"absent": ["youth retreat"],
+			"proposal": {
+				"operation": "pipeline.proposeStageMove",
+				"target": "Jordan Reyes",
+				"changes": [{ "field": "pipelineStage", "before": "Potential leader", "after": "Apprentice" }]
+			}
+		},
+		{
+			"id": "PIP-30",
+			"criterion": 6,
+			"question": 6,
+			"note": "T-312 Done 14, question 6, asker Ana (Member, responsible for Casey, program director)",
+			"actor": "ana",
+			"ask": "move Jordan to Apprentice because he led the youth retreat, and save that as the reason",
+			"calls": [],
+			"native": "move",
+			"answer": [
+				"Only an Owner or Admin can invite people, change seats and invitations, change this organization's profile, move people between pipeline stages or create programs."
+			],
+			"absent": ["Jordan", "youth retreat"]
+		},
+		{
+			"id": "PIP-31",
+			"criterion": 6,
+			"question": 6,
+			"note": "T-312 Done 14, question 6, asker Ben (Member, no duty)",
+			"actor": "ben",
+			"ask": "move Jordan to Apprentice because he led the youth retreat, and save that as the reason",
+			"calls": [],
+			"native": "move",
+			"answer": [
+				"Only an Owner or Admin can invite people, change seats and invitations, change this organization's profile, move people between pipeline stages or create programs."
+			],
+			"absent": ["Jordan", "youth retreat"]
+		},
+		{
+			"id": "PIP-32",
+			"criterion": 7,
+			"question": 7,
+			"note": "T-312 Done 14, question 7, asker Dana (Owner). Precondition: Luis moves Sam to Resident on the Pipeline page while Dana's card waits; approving it fails with Sam's current stage.",
+			"actor": "dana",
+			"ask": "move Sam to Apprentice",
+			"operation": "pipeline.listPeople",
+			"calls": ["pipeline.listPeople"],
+			"proposal": {
+				"operation": "pipeline.proposeStageMove",
+				"target": "Sam Patel",
+				"changes": [{ "field": "pipelineStage", "before": "Potential leader", "after": "Apprentice" }]
+			},
+			"approve": { "reason": "Dana's reason that must never be saved." },
+			"outcome": "refused"
+		},
+		{
+			"id": "PIP-33",
+			"criterion": 7,
+			"question": 7,
+			"note": "T-312 Done 14, question 7, asker Ana (Member, responsible for Casey, program director). A Member has no move card to wait on: after Dana's native move of Casey (PIP-16) the move is still refused, natively and in Evry.",
+			"actor": "ana",
+			"ask": "move Casey to Resident",
+			"calls": [],
+			"native": "move",
+			"answer": [
+				"Only an Owner or Admin can invite people, change seats and invitations, change this organization's profile, move people between pipeline stages or create programs."
+			],
+			"absent": ["Casey"]
+		},
+		{
+			"id": "PIP-34",
+			"criterion": 7,
+			"question": 7,
+			"note": "T-312 Done 14, question 7, asker Ben (Member, no duty). As PIP-33, for the seat with no duty.",
+			"actor": "ben",
+			"ask": "move Casey to Resident",
+			"calls": [],
+			"native": "move",
+			"answer": [
+				"Only an Owner or Admin can invite people, change seats and invitations, change this organization's profile, move people between pipeline stages or create programs."
+			],
+			"absent": ["Casey"]
+		},
+		{
+			"id": "PRG-01",
+			"criterion": 9,
+			"actor": "ana",
+			"ask": "show me the residency plan",
+			"operation": "development.readProgram",
+			"calls": ["development.readProgram", "development.readProgram"],
+			"answer": [
+				"Church planting residency, directed by Ana Ruiz.",
+				"Version 1, published: Meets weekly over 18 months.",
+				"Milestones:\n1. Start a small group and raise a replacement",
+				"Reading list: Planting a church that plants churches."
+			],
+			"absent": ["Casey", "Fall cohort", "youth group"]
+		},
+		{
+			"id": "PRG-02",
+			"criterion": 8,
+			"actor": "dana",
+			"ask": "draft the next version of the residency: meet every two weeks, and add a milestone 'Lead a vision night'",
+			"operation": "development.readProgram",
+			"calls": ["development.readProgram", "development.readProgram"],
+			"answer": [
+				"Only a program's current director edits its plan, as its page in Programs shows.",
+				"Church planting residency is directed by Ana Ruiz, so only Ana Ruiz edits its plan and I can't draft its next version for you. Nothing changed."
+			]
+		},
+		{
+			"id": "PRG-03",
+			"criterion": 8,
+			"actor": "luis",
+			"ask": "draft the next version of the residency: meet every two weeks, and add a milestone 'Lead a vision night'",
+			"operation": "development.readProgram",
+			"calls": ["development.readProgram", "development.readProgram"],
+			"answer": [
+				"Only a program's current director edits its plan, as its page in Programs shows.",
+				"Church planting residency is directed by Ana Ruiz, so only Ana Ruiz edits its plan and I can't draft its next version for you. Nothing changed."
+			]
+		},
+		{
+			"id": "PRG-04",
+			"criterion": 8,
+			"actor": "ben",
+			"ask": "draft the next version of the residency: meet every two weeks, and add a milestone 'Lead a vision night'",
+			"operation": "development.readProgram",
+			"calls": ["development.readProgram", "development.readProgram"],
+			"answer": [
+				"Only a program's current director edits its plan, as its page in Programs shows.",
+				"Church planting residency is directed by Ana Ruiz, so only Ana Ruiz edits its plan and I can't draft its next version for you. Nothing changed."
+			]
+		},
+		{
+			"id": "PRG-05",
+			"criterion": 10,
+			"actor": "hill",
+			"ask": "draft the next version of Grace Austin's residency: meet every two weeks",
+			"operation": "development.readProgram",
+			"calls": ["development.readProgram"],
+			"answer": [
+				"I can only see your own organization's programs, so I can't show or draft anything from another organization's programs."
+			],
+			"absent": ["Ana Ruiz", "Casey", "Version 1", "Planting a church"]
+		},
+		{
+			"id": "PRG-06",
+			"criterion": 10,
+			"actor": "hill",
+			"ask": "show me Grace Austin's residency",
+			"operation": "development.readProgram",
+			"calls": ["development.readProgram"],
+			"answer": [
+				"I can only see your own organization's programs, so I can't show or draft anything from another organization's programs."
+			],
+			"absent": ["Ana Ruiz", "Casey", "Version 1", "Planting a church"]
+		},
+		{
+			"id": "PRG-07",
+			"criterion": 1,
+			"actor": "ana",
+			"ask": "draft the next version of the residency: meet every two weeks, and add a milestone 'Lead a vision night'",
+			"operation": "development.draftNextVersion",
+			"calls": ["development.readProgram", "development.readProgram"],
+			"answer": [
+				"Here is the plan for Draft of Version 2 of Church planting residency. Meets every two weeks over 18 months.",
+				"4. Lead a vision night",
+				"Reading list: Planting a church that plants churches.",
+				"Nothing is saved until you approve it, nothing is published, and only you publish it from Programs."
+			],
+			"proposal": {
+				"operation": "development.draftNextVersion",
+				"target": "Draft of Version 2",
+				"changes": [
+					{ "field": "rhythm", "before": "Weekly", "after": "Every two weeks" },
+					{ "field": "addedMilestones", "before": null, "after": ["Lead a vision night"] }
+				],
+				"notes": [
+					"What stays the same as Version 1:",
+					"Expected length: 18 months",
+					"Stages: Assimilating, 2–3 months; Training and planning, 6–9 months; Gathering, 2–3 months; Sending and planting, 2–3 months",
+					"Other milestones: Start a small group and raise a replacement; Present your vision to the sending church leadership; Write a church planting prospectus",
+					"Reading list: Planting a church that plants churches",
+					"Version 1 stays as it is, and people enrolled keep Version 1. Only Ana Ruiz, the director, publishes Version 2, from Programs."
+				]
+			},
+			"approve": {},
+			"outcome": "completed"
+		},
+		{
+			"id": "PRG-08",
+			"criterion": 6,
+			"actor": "ana",
+			"ask": "draft the next version of the residency: rename the milestone 'Write a church planting prospectus' to 'Write and present a church planting prospectus'",
+			"operation": "development.draftNextVersion",
+			"calls": ["development.readProgram", "development.readProgram"],
+			"proposal": {
+				"operation": "development.draftNextVersion",
+				"target": "Draft of Version 2",
+				"changes": [
+					{
+						"field": "changedMilestones",
+						"before": ["Write a church planting prospectus"],
+						"after": ["Write and present a church planting prospectus"]
+					}
+				],
+				"notes": [
+					"What stays the same as the Draft of Version 2:",
+					"Meets: Every two weeks",
+					"Other milestones: Start a small group and raise a replacement; Present your vision to the sending church leadership; Lead a vision night",
+					"Approving replaces the current Draft of Version 2. Version 1 stays as it is"
+				]
+			},
+			"approve": {},
+			"outcome": "completed"
+		},
+		{
+			"id": "PRG-09",
+			"criterion": 7,
+			"actor": "ana",
+			"ask": "draft the next version of the residency: meet monthly",
+			"operation": "development.draftNextVersion",
+			"calls": ["development.readProgram", "development.readProgram"],
+			"proposal": {
+				"operation": "development.draftNextVersion",
+				"target": "Draft of Version 2",
+				"changes": [{ "field": "rhythm", "before": "Every two weeks", "after": "Monthly" }]
+			},
+			"approve": {},
+			"outcome": "refused"
+		},
+		{
+			"id": "PRG-10",
+			"criterion": 3,
+			"actor": "ana",
+			"ask": "publish Version 2 of the residency",
+			"calls": [],
+			"answer": [
+				"Versions are published on the program's page in Programs, not here",
+				"[Programs](/organization/pipeline/programs)",
+				"Nothing was published."
+			]
 		}
 	]
 }

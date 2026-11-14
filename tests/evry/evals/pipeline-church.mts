@@ -5,12 +5,18 @@
 // 190 days ago and never moved since; Casey Lee, placed 100 days ago and moved to Apprentice 14 days ago, with a note
 // from Ana; and Sam Patel, placed in Potential leader 30 days ago. Hill Country Network's own pipeline has only Morgan
 // Diaz, placed 200 days ago; its Owner is Ruth Calder (golden-church.mts). Every placement and move is made by the native
-// pipeline writer, then dated relative to the database clock, as the Pipeline page's own tests do.
+// pipeline writer, then dated relative to the database clock, as the Pipeline page's own tests do. Ana directs
+// "Church planting residency" (seedResidency): Version 1 is published, weekly over 18 months with the residency
+// template's four stages and three milestones and one Wiki reading, and Casey Lee is enrolled on it and has finished
+// "Start a small group and raise a replacement". The program, its publish, the enrollment and the milestone go through
+// the native program writer; only the reading's Wiki article is raw rows, as no public write creates one here.
 import { randomUUID } from "node:crypto";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import type { Database } from "../../../packages/db/src/client.ts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { pipelineWriter, readPipelineBoard } from "../../../packages/domain/src/organizations/pipeline.ts";
+import { programWriter, readProgram } from "../../../packages/domain/src/organizations/programs.ts";
+import { RESIDENCY_TEMPLATE } from "../../../packages/contracts/src/organizations/programs.ts";
 import { ACTOR_SPECS, GRACE_AUSTIN, NETWORK } from "./golden-church.mts";
 
 const id = (n: number) => `00000000-0000-4000-8000-${n.toString(16).padStart(12, "0")}`;
@@ -40,6 +46,89 @@ export const ANA_NOTE = "Casey is steady with the youth group; we talked through
 function ok<T>(reply: { status: string; value?: T; refusal?: unknown }): T {
 	if (reply.status !== "ok") throw Error(`pipeline fixture refused: ${JSON.stringify(reply.refusal)}`);
 	return reply.value as T;
+}
+
+/** The residency's one reading: an article Grace Austin publishes in its own Wiki. */
+export const RESIDENCY_READING = "Planting a church that plants churches";
+const GLOBAL = "00000000-0000-0000-0000-000000000000";
+type Executor = Pick<Database, "execute">;
+
+/**
+ * Seeds "Church planting residency" in organization `organization`, directed by the seat `director` signs in with:
+ * Version 1 published with one reading, and `enrollee` enrolled on it with its first milestone finished. `owner` and
+ * `director` resolve the Owner's and the director's authority. Returns the program's id.
+ */
+export async function seedResidency(
+	admin: Executor,
+	runtime: Database,
+	o: {
+		organization: string;
+		directorSeatId: string;
+		owner: () => Promise<RequestActor>;
+		director: () => Promise<RequestActor>;
+		enrollee: string;
+	},
+) {
+	// The reading: Grace Austin's own published version of an article.
+	const [section, article, revision] = [randomUUID(), randomUUID(), randomUUID()];
+	await admin.execute(
+		sql`INSERT INTO reference_item(id,kind,canonical_key,tenant_id) VALUES(${section},'section',${`residency/${section}`},${GLOBAL})`,
+	);
+	await admin.execute(
+		sql`INSERT INTO reference_item(id,kind,canonical_key,tenant_id) VALUES(${article},'article',${`residency/${article}`},${GLOBAL})`,
+	);
+	await admin.execute(sql`INSERT INTO article_revision(id,article_id,tenant_id,release_id,revision_number,title,slug,excerpt,
+		body,content_type,phase,position,content_hash,published_at,meaningful,meaningful_sequence,section_id)
+		VALUES(${revision},${article},${o.organization},NULL,1,${RESIDENCY_READING},'residency/planting-churches',${RESIDENCY_READING},
+		'[]','safe_nodes',1,1,md5(${revision}::text),clock_timestamp(),true,1,${section})`);
+	await admin.execute(sql`INSERT INTO article_editor_state(id,organization_id,article_id,state,current_revision_id,revision)
+		VALUES(${randomUUID()},${o.organization},${article},'published',${revision},1)`);
+	const programId = randomUUID();
+	ok(
+		await programWriter.createProgram(runtime, await o.owner(), {
+			programId,
+			kind: "residency",
+			name: "Church planting residency",
+			directorSeatId: o.directorSeatId,
+			plan: {
+				rhythm: "weekly",
+				expectedMonths: 18,
+				stages: RESIDENCY_TEMPLATE.stages,
+				milestones: RESIDENCY_TEMPLATE.milestones.map((title) => ({
+					lineage: randomUUID(),
+					title,
+					description: null,
+					handsOn: false,
+				})),
+				readings: [{ revisionId: revision }],
+			},
+		}),
+	);
+	const draft = ok(await readProgram(runtime, await o.director(), { programId }));
+	ok(await programWriter.publishVersion(runtime, await o.director(), { programId, expectedRevision: draft.revision }));
+	const v1 = ok(await readProgram(runtime, await o.owner(), { programId })).published!;
+	const enrollmentId = randomUUID();
+	const year = Number(v1.publishedOn!.slice(0, 4));
+	ok(
+		await programWriter.enroll(runtime, await o.owner(), {
+			enrollmentId,
+			programId,
+			personId: o.enrollee,
+			cohort: "Fall cohort",
+			startedOn: v1.publishedOn!,
+			expectedEndOn: `${year + 2}${v1.publishedOn!.slice(4)}`,
+			stageId: v1.stages[0]!.id,
+			nextMeetingAt: null,
+		}),
+	);
+	ok(
+		await programWriter.recordMilestone(runtime, await o.director(), {
+			enrollmentId,
+			milestoneId: v1.milestones[0]!.id,
+			completedOn: v1.publishedOn!,
+		}),
+	);
+	return { programId, enrollmentId };
 }
 
 /** Seeds the Grace Austin seats into the schema `admin` writes, then both pipelines through the native writer. */
@@ -116,5 +205,13 @@ export async function seedPipeline(admin: Database, runtime: Database) {
 	await age(PEOPLE.casey, GRACE_AUSTIN, 14, false);
 	await age(PEOPLE.sam, GRACE_AUSTIN, 30, true);
 	await age(PEOPLE.morgan, NETWORK, 200, true);
-	return { grace, hill, anaSeat: await seat("ana") };
+	const anaSeat = await seat("ana");
+	const residency = await seedResidency(admin, runtime, {
+		organization: GRACE_AUSTIN,
+		directorSeatId: anaSeat,
+		owner: () => authority("dana"),
+		director: () => authority("ana"),
+		enrollee: PEOPLE.casey,
+	});
+	return { grace, hill, anaSeat, residency };
 }

@@ -65,17 +65,22 @@ export type Operation =
 	| PipelineOperation;
 
 /** An organization's pipeline and program changes (WP-101). */
-export type PipelineOperation = "pipeline.proposeStageMove" | "development.saveProgram";
+export type PipelineOperation =
+	"pipeline.proposeStageMove" | "development.saveProgram" | "development.draftNextVersion";
 export const isPipeline = (operation: Operation): operation is PipelineOperation =>
-	operation === "pipeline.proposeStageMove" || operation === "development.saveProgram";
+	operation === "pipeline.proposeStageMove" ||
+	operation === "development.saveProgram" ||
+	operation === "development.draftNextVersion";
 /**
  * A card on which the person types the reason for the change themselves (REQ-MUL-015): Evry proposes only the person and
  * the stage, and the typed reason goes to the native move alone.
  */
 export const asksReason = (operation: Operation) => operation === "pipeline.proposeStageMove";
-/** Where an approved pipeline or program change shows: the person's pipeline record, or Programs. */
+/** Where an approved pipeline or program change shows: the person's pipeline record, the program's page, or Programs. */
 export function pipelineLink(review: Pick<Review, "operation" | "review">): { href: string; label: string } {
 	const who = review.review.target;
+	if (review.operation === "development.draftNextVersion" && who)
+		return { href: `/organization/pipeline/programs/${who.id}`, label: "Open the program" };
 	return review.operation === "pipeline.proposeStageMove" && who
 		? { href: `/organization/pipeline/${who.id}`, label: `Open ${who.label}` }
 		: { href: "/organization/pipeline/programs", label: "Open Programs" };
@@ -207,7 +212,8 @@ export type Review = {
 				| "invitation"
 				| "connection"
 				| "organization"
-				| "account";
+				| "account"
+				| "program";
 			id: string;
 			label: string;
 		} | null;
@@ -283,6 +289,10 @@ const FIELD_LABEL: Record<string, string> = {
 	rhythm: "Meets",
 	stages: "Stages",
 	milestones: "Milestones",
+	addedMilestones: "Milestones added",
+	changedMilestones: "Milestones changed",
+	removedMilestones: "Milestones removed",
+	milestoneOrder: "Milestone order",
 	firstName: "First name",
 	lastName: "Last name",
 	email: "Email",
@@ -406,6 +416,10 @@ const FIELD_LABEL: Record<string, string> = {
 	lead: "Lead",
 	setup: "Setup",
 	discovery: "Discovery",
+	// Feedback to the Everyfield team (T-330), as the feedback dialog lists its details
+	feedback: "Your feedback",
+	yourRole: "Your role",
+	page: "Page",
 	...SHARING_CATEGORY_LABEL,
 };
 /** Meetings words for a field another card also uses: a finalize's "tasks" are the tasks it creates, not a sharing category. */
@@ -508,7 +522,8 @@ export const approvable = (review: Pick<Review, "operation">, uploadShown: boole
 export function emptyText(field: string, after: boolean) {
 	if (field === "photo") return "No photo";
 	if (field === "household" || field === "householdRole") return "None";
-	if (after && ["note", "skill", "category", "proficiency", "tag"].includes(field)) return "Removed";
+	if (after && ["note", "skill", "category", "proficiency", "tag", "removedMilestones"].includes(field))
+		return "Removed";
 	return "Empty";
 }
 
@@ -560,6 +575,7 @@ const TITLE: Record<Operation, string> = {
 	"organizations.updateProfile": "Update the organization profile",
 	"pipeline.proposeStageMove": "Move to another stage",
 	"development.saveProgram": "Create a program",
+	"development.draftNextVersion": "Draft the next version",
 	"onboarding.declareJourney": "Where your church is",
 	"identity.answerLeadOnboarding": "Who leads your church",
 	"onboarding.complete": "Finish setup",
@@ -1101,9 +1117,11 @@ export function pipelineRefusalText(
 	operation: PipelineOperation,
 	who: string | null,
 ): string {
-	const area = operation === "development.saveProgram" ? "Programs" : "The Pipeline";
+	const area = operation === "pipeline.proposeStageMove" ? "The Pipeline" : "Programs";
 	switch (code) {
 		case "revision_conflict":
+			if (operation === "development.draftNextVersion")
+				return "The program changed since Evry prepared this, so nothing was saved over it. Open the program to see it as it is now, or ask Evry to prepare it again.";
 			return operation === "development.saveProgram"
 				? "Programs changed after Evry prepared this, so nothing was created. Ask Evry to prepare it again."
 				: `${who ?? "This person"}'s stage changed after Evry prepared this, so the move couldn't be applied and nothing moved. This is where they are now.`;

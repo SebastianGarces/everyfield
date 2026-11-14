@@ -1501,7 +1501,7 @@
 	},
 	"pipeline.movePerson": {
 		"limit": 4,
-		"retry": 3
+		"retry": 4
 	},
 	"pipeline.recordAssessment": {
 		"limit": 4,
