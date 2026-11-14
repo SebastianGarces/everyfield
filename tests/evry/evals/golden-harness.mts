@@ -56,14 +56,16 @@ import { FEEDBACK_READS } from "../../../packages/evry/src/adapters/feedback/rea
 import { FEEDBACK_COMMANDS } from "../../../packages/evry/src/adapters/feedback/commands/index.ts";
 import { PIPELINE_READS } from "../../../packages/evry/src/adapters/pipeline/reads/index.ts";
 import { PIPELINE_COMMANDS } from "../../../packages/evry/src/adapters/pipeline/commands/index.ts";
+import { LAUNCH_READS } from "../../../packages/evry/src/adapters/launch/reads/index.ts";
+import { LAUNCH_COMMANDS } from "../../../packages/evry/src/adapters/launch/commands/index.ts";
 
 /**
  * The operations these recordings offer the model: every installed one except the seat, Settings, sharing, connection,
  * account and organization tools T-327 added, the setup and Discovery tools T-345 added, the Overview and feedback
- * tools T-330 added and the pipeline and program tools WP-101 added after they were recorded. Offering those would
- * change every recorded provider call, and Nora's asks for T-327 (13 Nov 2026), T-345, T-330 and WP-101 allow no new
- * spend, so settings.test.mts, onboarding.test.mts, overview.test.mts and pipeline.test.mts score them on the scripted
- * model instead. The next recording
+ * tools T-330 added, the pipeline and program tools WP-101 added and the Launch tools WP-075 and WP-076 added after they
+ * were recorded. Offering those would change every recorded provider call, and Nora's asks for T-327 (13 Nov 2026),
+ * T-345, T-330, WP-101 and T-295 allow no new spend, so settings.test.mts, onboarding.test.mts, overview.test.mts,
+ * pipeline.test.mts and launch.test.mts score them on the scripted model instead. The next recording
  * drops this filter (rulings D-1137, D-1292).
  */
 const LATER = new Set<string>([
@@ -77,6 +79,8 @@ const LATER = new Set<string>([
 	...Object.keys(FEEDBACK_COMMANDS),
 	...PIPELINE_READS.map((a) => a.operation),
 	...Object.keys(PIPELINE_COMMANDS),
+	...LAUNCH_READS.map((a) => a.operation),
+	...Object.keys(LAUNCH_COMMANDS),
 ]);
 export const RECORDED = (operation: string) => !LATER.has(operation);
 

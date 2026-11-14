@@ -66,7 +66,8 @@ export type SourceRow = {
 		| "connection"
 		| "step"
 		| "relationship"
-		| "stage";
+		| "stage"
+		| "milestone";
 	id: string;
 	label: string;
 	fields: Record<string, unknown>;

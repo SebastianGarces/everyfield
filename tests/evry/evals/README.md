@@ -20,6 +20,7 @@ Its `save()` writes the file on a recording run. Every call is keyed by `callKey
 | `settings.test.mts`   | `settings.cases.json`                                                                                                    | Seat, Settings, sharing, connection, account and organization tools (scripted model)  |
 | `onboarding.test.mts` | `onboarding.cases.json`                                                                                                  | Setup and Discovery tools (scripted model)                                            |
 | `pipeline.test.mts`   | `pipeline.cases.json`                                                                                                    | Organization pipeline and program tools (scripted model)                              |
+| `launch.test.mts`     | `launch.cases.json`                                                                                                      | Launch plan reads and reviewed changes (scripted model)                               |
 
 ## The settings suite (scripted model)
 
@@ -73,6 +74,20 @@ Version 1 published with one reading, and Casey Lee enrolled on it with one mile
 each approved draft back on the program page, refuse the card to every seat but the director, refuse it after a native
 edit, and, after Ana publishes natively, read the native apply review for Casey: kept and renamed milestones keep
 their lineage.
+
+## The launch suite (scripted model)
+
+`launch.test.mts` scores the Launch tools (WP-075, WP-076) the same way, on the scripted model
+(`packages/evry/src/runtime/scripted-launch.ts`): the countdown, the open and blocked milestones, Launch history and
+Launch Sunday's guests as the Launch plan reads them, and five review cards: setting or moving Launch Sunday
+(`launch.schedule`), postponing it (`launch.postpone`), recording Launch Sunday with the debrief's guest answer
+(`launch.recordOutcome`), submitting the debrief (`launch.submitDebrief`) and publishing the summary
+(`launch.publishDebriefSummary`). `launch-church.mts` sets Hope Fellowship's Launch plan through the native Launch
+writer, with dates relative to the church-local date the Launch read returns. A case with `approve` is approved the way
+the card approves it and its effect runs once through the WP-031 queue; its check reads the result back through the
+Launch plan's own reads. The suite also holds the refusals the Launch plan makes (no reason, or one over 2,000
+characters), a Member's direct approval, a card made stale by a change on the Launch plan, and a plan that can't be
+read. The recorded suites leave these tools out too.
 
 ## The household and follow-up suites
 

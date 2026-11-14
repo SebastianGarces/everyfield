@@ -107,6 +107,10 @@ test("AC:INH-REGRESSION-CAPABILITIES INV-catalog: every installed model tool is 
 		"pipeline.listPeople",
 		"development.draftPlan",
 		"development.readProgram",
+		"launch.readCountdown",
+		"launch.readWorkspace",
+		"launch.readJournal",
+		"launch.readDebrief",
 		"evry.selectReturnedRows",
 	]);
 	for (const id of installed) {

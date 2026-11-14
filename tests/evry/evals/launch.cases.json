@@ -1,0 +1,287 @@
+{
+	"suite": "launch",
+	"model": "scripted",
+	"note": "WP-075 and WP-076: the Launch tools, asked on the scripted model with the real adapters, approvals, effect executor and the native Launch writer, on Hope Fellowship (golden-church.mts, America/Chicago) with the Launch fixture (launch-church.mts). Owner Nate Ellis, Admin Lena Park, Member Priya Shah. Dates are relative to the church-local date the Launch read returns: {day:N} is N days from today and {said:N} that date as the cards say it. Cases run in this order; `setup` names the fixture step that runs before a case, and each later case sees the earlier approved changes.",
+	"cases": [
+		{
+			"id": "LAU-01",
+			"operation": "launch.readCountdown",
+			"criterion": 2,
+			"actor": "owner",
+			"ask": "how many days till launch",
+			"calls": ["launch.readCountdown"],
+			"answer": ["No launch date is set yet, so there's no countdown."],
+			"absent": ["days until"]
+		},
+		{
+			"id": "LAU-02",
+			"operation": "launch.readCountdown",
+			"criterion": 1,
+			"setup": "scheduled",
+			"actor": "owner",
+			"ask": "how many days till launch",
+			"calls": ["launch.readCountdown"],
+			"answer": ["28 days until Launch Sunday, {said:28}, as the Launch plan counts it from today in America/Chicago."]
+		},
+		{
+			"id": "LAU-03",
+			"operation": "launch.readWorkspace",
+			"criterion": 3,
+			"actor": "owner",
+			"ask": "what launch milestones are left",
+			"calls": ["launch.readWorkspace"],
+			"answer": [
+				"5 of 9 launch milestones are still open",
+				"**Set-up and tear-down training held**: 0 of 3 tasks done. Open: Book the full-Saturday in-service training",
+				"**Promotion plan implemented**: 0 of 3 tasks done. Open: Send the press release to local media (due {said:-2}, overdue)"
+			],
+			"absent": ["marked complete", "Worship Center secured", "Promotion plan chosen", "outlets"]
+		},
+		{
+			"id": "LAU-04",
+			"operation": "launch.readWorkspace",
+			"criterion": 4,
+			"actor": "owner",
+			"ask": "which milestones are blocked by overdue tasks?",
+			"calls": ["launch.readWorkspace"],
+			"answer": [
+				"1 launch milestone has an overdue prep task linked to it on the Launch plan:\n- **Promotion plan implemented**: Send the press release to local media (due {said:-2}, overdue)",
+				"Only a milestone's own linked prep tasks count."
+			],
+			"absent": ["outlets", "Set-up and tear-down", "marked complete"]
+		},
+		{
+			"id": "LAU-05",
+			"criterion": 8,
+			"actor": "owner",
+			"ask": "how many on launch team vs our goal",
+			"calls": ["people.listPeople"],
+			"answer": [
+				"14 people are in Launch team.",
+				"Your church hasn't recorded a launch-team goal in Everyfield, so I have no goal to compare it with."
+			],
+			"absent": ["goal of", "goal is", "30"]
+		},
+		{
+			"id": "LAU-06",
+			"operation": "launch.readJournal",
+			"criterion": 12,
+			"actor": "owner",
+			"ask": "what changed in our launch readiness since last week?",
+			"calls": ["launch.readCountdown", "launch.readJournal"],
+			"answer": [
+				"Launch Sunday moved from {said:35} to {said:28}, by Nate Ellis on",
+				"(reason: \"The school asked us to start a week earlier.\")",
+				"Launch history records what changed, not how readiness stood at an earlier time"
+			],
+			"absent": ["Launch Sunday set,", "readiness was"]
+		},
+		{
+			"id": "LAU-07",
+			"criterion": 7,
+			"actor": "member",
+			"ask": "push launch to march 14, venue fell through",
+			"calls": [],
+			"answer": ["Only an Owner or Admin can change the Launch plan"]
+		},
+		{
+			"id": "LAU-08",
+			"criterion": 7,
+			"actor": "member",
+			"ask": "postpone the launch because the venue fell through",
+			"calls": [],
+			"answer": ["Only an Owner or Admin can change the Launch plan"]
+		},
+		{
+			"id": "LAU-09",
+			"criterion": 5,
+			"actor": "owner",
+			"ask": "push launch to march 14, venue fell through",
+			"calls": ["launch.readCountdown"],
+			"answer": [
+				"I prepared a review card to move Launch Sunday from {said:28} to {mar14}",
+				"Nothing changes until you approve it."
+			],
+			"proposal": {
+				"operation": "launch.schedule",
+				"target": "Launch plan",
+				"changes": [
+					{ "field": "launchDate", "before": "{said:28}", "after": "{mar14}" },
+					{ "field": "reason", "before": null, "after": "venue fell through" }
+				],
+				"notes": ["Prep task due dates, assignees and statuses stay as they are, and so does the church's phase."]
+			},
+			"approve": true,
+			"outcome": "completed"
+		},
+		{
+			"id": "LAU-10",
+			"criterion": 7,
+			"actor": "admin",
+			"ask": "move launch to march 21 because the gym is booked on the 14th",
+			"calls": ["launch.readCountdown"],
+			"proposal": {
+				"operation": "launch.schedule",
+				"target": "Launch plan",
+				"changes": [
+					{ "field": "launchDate", "before": "{mar14}", "after": "{mar21}" },
+					{ "field": "reason", "before": null, "after": "the gym is booked on the 14th" }
+				]
+			},
+			"approve": true,
+			"outcome": "completed"
+		},
+		{
+			"id": "LAU-11",
+			"criterion": 13,
+			"actor": "owner",
+			"ask": "push launch to april 11, the venue changed again",
+			"calls": ["launch.readCountdown"],
+			"proposal": {
+				"operation": "launch.schedule",
+				"target": "Launch plan",
+				"changes": [
+					{ "field": "launchDate", "before": "{mar21}", "after": "{apr11}" },
+					{ "field": "reason", "before": null, "after": "the venue changed again" }
+				]
+			},
+			"approve": true,
+			"outcome": "refused"
+		},
+		{
+			"id": "LAU-12",
+			"criterion": 6,
+			"actor": "owner",
+			"ask": "postpone the launch because our lead pastor is on medical leave",
+			"calls": [],
+			"answer": ["I prepared a review card to postpone the launch, with your reason."],
+			"proposal": {
+				"operation": "launch.postpone",
+				"target": "Launch plan",
+				"changes": [
+					{ "field": "launchDate", "before": "{apr18}", "after": "Postponed" },
+					{ "field": "reason", "before": null, "after": "our lead pastor is on medical leave" }
+				]
+			},
+			"approve": true,
+			"outcome": "completed"
+		},
+		{
+			"id": "LAU-13",
+			"criterion": 2,
+			"actor": "owner",
+			"ask": "how many days till launch",
+			"calls": ["launch.readCountdown"],
+			"answer": ["The launch is postponed, so there's no countdown until a new Launch Sunday is set."],
+			"absent": ["days until"]
+		},
+		{
+			"id": "LAU-14",
+			"operation": "launch.readCountdown",
+			"criterion": 2,
+			"setup": "unloadable",
+			"actor": "owner",
+			"ask": "how many days till launch",
+			"calls": ["launch.readCountdown"],
+			"answer": ["I couldn't load the Launch plan just now, so I can't answer that."],
+			"absent": ["No launch date", "postponed"]
+		},
+		{
+			"id": "LAU-15",
+			"criterion": 10,
+			"setup": "launched",
+			"actor": "owner",
+			"ask": "record launch attendance: 150 people, 12 guests we didn't get names for",
+			"calls": [],
+			"answer": [
+				"I prepared a review card to record Launch Sunday with attendance 150 and the debrief's guest answer \"Yes, 12\"."
+			],
+			"proposal": {
+				"operation": "launch.recordOutcome",
+				"target": "Launch plan",
+				"changes": [
+					{ "field": "actualDate", "before": null, "after": "{said:-2}" },
+					{ "field": "attendance", "before": null, "after": 150 },
+					{ "field": "guestAnswer", "before": null, "after": "Yes, 12" }
+				],
+				"notes": ["No people are created from these numbers."]
+			},
+			"approve": true,
+			"outcome": "completed"
+		},
+		{
+			"id": "LAU-16",
+			"operation": "launch.readDebrief",
+			"criterion": 9,
+			"setup": "guests",
+			"actor": "owner",
+			"ask": "who came to launch sunday as a first time guest",
+			"calls": ["launch.readDebrief"],
+			"answer": [
+				"3 first-time guests are named on the Launch plan for {said:-2}: Maya Brooks, Owen Price, Ruth Kim.",
+				"The recorded attendance was 150, so not everyone who came is named.",
+				"The debrief says 12 guests weren't entered by name."
+			],
+			"absent": ["Maria Santos", "Alex Rivera", "Casey Morgan", "Vision"]
+		},
+		{
+			"id": "LAU-17",
+			"operation": "launch.readDebrief",
+			"criterion": 9,
+			"actor": "member",
+			"ask": "who came to launch sunday as a first time guest",
+			"calls": ["launch.readDebrief"],
+			"answer": [
+				"3 first-time guests are named on the Launch plan for {said:-2}. Only an Owner or Admin sees their names."
+			],
+			"absent": ["Maya Brooks", "Maria Santos"]
+		},
+		{
+			"id": "LAU-18",
+			"criterion": 11,
+			"actor": "owner",
+			"ask": "submit our launch debrief",
+			"calls": [],
+			"answer": ["I prepared a review card to submit the Launch debrief. Submitting publishes nothing."],
+			"proposal": {
+				"operation": "launch.submitDebrief",
+				"target": "Launch plan",
+				"notes": ["Submitting publishes nothing. Your sending church and network see only a summary you publish."]
+			},
+			"approve": true,
+			"outcome": "completed"
+		},
+		{
+			"id": "LAU-19",
+			"criterion": 11,
+			"actor": "owner",
+			"ask": "draft and publish a launch summary for our sending church and network",
+			"calls": ["launch.readDebrief"],
+			"answer": [
+				"I prepared a review card to publish this summary, exactly as your sending church and network will see it:\n\n> We launched on {said:-2}. 150 people attended. Thank you for praying for us and sending us."
+			],
+			"proposal": {
+				"operation": "launch.publishDebriefSummary",
+				"target": "Launch plan",
+				"changes": [
+					{
+						"field": "summary",
+						"before": null,
+						"after": "We launched on {said:-2}. 150 people attended. Thank you for praying for us and sending us."
+					}
+				],
+				"notes": ["This is the exact text your sending church and network will see."]
+			},
+			"approve": true,
+			"outcome": "completed"
+		},
+		{
+			"id": "LAU-20",
+			"criterion": 7,
+			"actor": "member",
+			"ask": "record launch attendance: 140 people",
+			"calls": [],
+			"answer": ["Only an Owner or Admin can change the Launch plan"]
+		}
+	]
+}
