@@ -255,6 +255,57 @@ test("INV-ci-db-steps: each package with test:db needs a CI step, and the domain
 	}
 });
 
+test("INV-ci-tests: a test file run by two CI commands fails and names both; the census union step is no second run", () => {
+	const f = fixture();
+	try {
+		mkdirSync(join(f.root, ".github/workflows"), { recursive: true });
+		mkdirSync(join(f.root, "packages/domain"), { recursive: true });
+		mkdirSync(join(f.root, "tests/integration/writes"), { recursive: true });
+		mkdirSync(join(f.root, "tests/integration/documents"), { recursive: true });
+		writeFileSync(join(f.root, "package.json"), JSON.stringify({ scripts: {} }));
+		writeFileSync(
+			join(f.root, "packages/domain/package.json"),
+			JSON.stringify({
+				name: "@everyfield/domain",
+				scripts: {
+					"test:unit": "node --test ../../tests/integration/documents/engine.test.mts",
+					"test:db": "pnpm test:writes",
+					"test:writes": "node --test ../../tests/integration/writes/statements.test.mts",
+				},
+			}),
+		);
+		writeFileSync(join(f.root, "tests/integration/writes/statements.test.mts"), "");
+		writeFileSync(join(f.root, "tests/integration/writes/suites.json"), '["tests/integration/documents/*.test.mts"]');
+		writeFileSync(join(f.root, "tests/integration/documents/engine.test.mts"), "");
+		writeFileSync(join(f.root, "tests/integration/documents/owned.test.mts"), "");
+		writeFileSync(
+			join(f.root, ".github/workflows/ci.yml"),
+			"jobs:\n  app:\n    steps:\n      - run: pnpm -r --if-present test:unit\n" +
+				'  domain:\n    steps:\n      - run: pnpm --filter "@everyfield/domain" test:db\n' +
+				"  ci:\n    steps:\n      - name: Statement budgets over the union of the parts\n" +
+				"        run: node --test tests/integration/writes/statements.test.mts\n" +
+				"        env:\n          EVF_CENSUS_UNION: ${{ runner.temp }}/census\n",
+		);
+		let result = cli(f.root);
+		assert.equal(result.status, 1);
+		assert.equal(
+			result.stderr,
+			"ci-tests: Tests run by more than one CI command:\n" +
+				"tests/integration/documents/engine.test.mts: @everyfield/domain test:unit and @everyfield/domain test:writes\n" +
+				"Run each file in exactly one command.\n",
+		);
+		writeFileSync(
+			join(f.root, "tests/integration/writes/suites.json"),
+			'["tests/integration/documents/owned.test.mts"]',
+		);
+		result = cli(f.root);
+		assert.equal(result.status, 0, result.stderr);
+		assert.match(result.stdout, /CI includes all 3 test files/);
+	} finally {
+		f.close();
+	}
+});
+
 test("INV-ci-tests: CI runs this check on its own, in the tooling job the required ci check needs", () => {
 	const workflow = readFileSync(resolve(import.meta.dirname, "../../../.github/workflows/ci.yml"), "utf8");
 	const job = workflow.split(/(?=^  [\w-]+:\s*$)/m).find((part) => part.startsWith("  tooling:"));
