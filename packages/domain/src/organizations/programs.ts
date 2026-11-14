@@ -859,9 +859,9 @@ SELECT (SELECT count(*) FROM x) AS found,
 		if (row.found < n) refuse();
 		// A repeat of an apply that already moved every one of them to the current version.
 		if (row.already === n) return { outcome: "noop" as const };
-		if (!row.current)
-			refuse({ code: "stale_review", enrollmentIds: input.enrollments.map((e) => e.enrollmentId) });
-		if (row.stale.length) refuse({ code: "stale_review", enrollmentIds: row.stale });
+		if (!row.current) refuse({ code: "stale_review", enrollmentIds: input.enrollments.map((e) => e.enrollmentId) });
+		const stale = input.enrollments.map((e) => e.enrollmentId).filter((id) => row.stale.includes(id));
+		if (stale.length) refuse({ code: "stale_review", enrollmentIds: stale });
 		return refuse({ code: "invalid_input", field: "enrollments.stageId" });
 	});
 }

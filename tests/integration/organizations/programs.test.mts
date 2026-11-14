@@ -1090,7 +1090,12 @@ test("the director reviews several enrollments: one section per person, with the
 	const preach = { title: "Preach on a Sunday", description: null, handsOn: false, finished: false };
 	const wording = (finished: boolean) => ({
 		before: { title: PROSPECTUS, description: null, handsOn: false, finished },
-		after: { title: PROSPECTUS, description: "Vision, values, strategy and a first-year budget", handsOn: false, finished },
+		after: {
+			title: PROSPECTUS,
+			description: "Vision, values, strategy and a first-year budget",
+			handsOn: false,
+			finished,
+		},
 	});
 	assert.deepEqual([c!.added, c!.removed, c!.changed, c!.carried], [[preach], [], [wording(false)], [GROUP]]);
 	assert.deepEqual([j!.added, j!.removed, j!.changed, j!.carried], [[preach], [], [wording(true)], [PROSPECTUS]]);
@@ -1131,7 +1136,10 @@ test("a batch apply is refused whole for anyone but the director and for any bad
 		.version_id as string;
 	const stale = await applyVersions(db, await authority(ana), { ...input, versionId: v1 });
 	refusedWith(stale, "stale_review");
-	assert.deepEqual((stale as { refusal: { enrollmentIds: string[] } }).refusal.enrollmentIds, [batch.casey, batch.jordan]);
+	assert.deepEqual((stale as { refusal: { enrollmentIds: string[] } }).refusal.enrollmentIds, [
+		batch.casey,
+		batch.jordan,
+	]);
 	// An enrollment of another program, of another organization, or one already on Version 2 or withdrawn.
 	const hillProgram = (await admin.execute(sql`SELECT id FROM development_program WHERE organization_id=${hill.id}`))
 		.rows[0]!.id as string;
@@ -1157,8 +1165,8 @@ test("a batch apply is refused whole for anyone but the director and for any bad
 			cohort: "Hill 2027",
 			startedOn: "2026-09-01",
 			expectedEndOn: "2027-12-31",
-			stageId: ok(await readProgram(db, await authority(hillOwner), { programId: hillProgram })).published!
-				.stages[0]!.id,
+			stageId: ok(await readProgram(db, await authority(hillOwner), { programId: hillProgram })).published!.stages[0]!
+				.id,
 			nextMeetingAt: null,
 		}),
 	);
@@ -1198,7 +1206,9 @@ test("a batch apply is refused whole for anyone but the director and for any bad
 test("one person's review going out of date refuses the whole apply, names them, and moves nobody", async () => {
 	const rs = ok(await reviews(ana, [batch.casey, batch.jordan]));
 	// Another session records a milestone for Jordan.
-	const vision = (await enrollment(ana, batch.jordan)).milestones.find((m) => m.title.startsWith("Present your vision"))!;
+	const vision = (await enrollment(ana, batch.jordan)).milestones.find((m) =>
+		m.title.startsWith("Present your vision"),
+	)!;
 	ok(
 		await recordMilestone(db, await authority(ana), {
 			enrollmentId: batch.jordan,
@@ -1224,8 +1234,11 @@ test("Ana applies Version 2 to Casey and Jordan, each at their own stage; finish
 	const ids = [batch.casey, batch.jordan];
 	const before = { casey: await enrollment(dana, batch.casey), jordan: await enrollment(dana, batch.jordan) };
 	const rows = await storedRows(ids);
-	const records = async () => (await admin.execute(sql`SELECT revision FROM pipeline_person
-	 WHERE person_id IN (${casey}::uuid,${jordan}::uuid) ORDER BY person_id`)).rows;
+	const records = async () =>
+		(
+			await admin.execute(sql`SELECT revision FROM pipeline_person
+	 WHERE person_id IN (${casey}::uuid,${jordan}::uuid) ORDER BY person_id`)
+		).rows;
 	const pipeline = await records();
 	const [c, j] = ok(await reviews(ana, ids));
 	// Only Jordan's stage changes from the preselection.
@@ -1315,10 +1328,7 @@ test("a version that drops a finished milestone keeps each person's record; a pe
 	// Ana removes Riley from the review: only Casey and Jordan move.
 	const rows = await storedRows(ids);
 	ok(await applyVersions(db, await authority(ana), confirmAll([c!, j!])));
-	assert.deepEqual(
-		await Promise.all(ids.map(async (id) => (await enrollment(ana, id)).versionNumber)),
-		[3, 3, 2],
-	);
+	assert.deepEqual(await Promise.all(ids.map(async (id) => (await enrollment(ana, id)).versionNumber)), [3, 3, 2]);
 	const e = await enrollment(dana, batch.casey);
 	assert.ok(!e.milestones.some((m) => m.title === GROUP));
 	assert.deepEqual(
@@ -1342,7 +1352,11 @@ test("ten people move in one apply, the same single statement as two", async () 
 		}),
 	);
 	ok(await publishVersion(db, await authority(ana), { programId: tenProgram, expectedRevision: p.revision }));
-	const people = Array.from({ length: 10 }, (_, i) => ({ person: randomUUID(), id: randomUUID(), name: `Intern ${i}` }));
+	const people = Array.from({ length: 10 }, (_, i) => ({
+		person: randomUUID(),
+		id: randomUUID(),
+		name: `Intern ${i}`,
+	}));
 	for (const x of people) await enrollNew(tenProgram, x.person, x.id, x.name, "Assimilating");
 	const v1 = (await program(ana, tenProgram)).published!;
 	const saved = ok(
@@ -1353,7 +1367,13 @@ test("ten people move in one apply, the same single statement as two", async () 
 		}),
 	);
 	ok(await publishVersion(db, await authority(ana), { programId: tenProgram, expectedRevision: saved.revision }));
-	const rs = ok(await reviews(ana, people.map((x) => x.id), tenProgram));
+	const rs = ok(
+		await reviews(
+			ana,
+			people.map((x) => x.id),
+			tenProgram,
+		),
+	);
 	assert.equal(rs.length, 10);
 	assert.equal(
 		ok(await applyVersions(db, await authority(ana), { ...confirmAll(rs), programId: tenProgram })).outcome,

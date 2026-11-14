@@ -1,13 +1,15 @@
 "use client";
 
-import type { ProgramDetail, ProgramVersion } from "@everyfield/contracts/organizations";
+import { APPLY_VERSION_LIMIT, type ProgramDetail, type ProgramVersion } from "@everyfield/contracts/organizations";
 import { Edit02Icon, PlusSignIcon } from "@hugeicons/core-free-icons";
 import {
 	Button,
 	Card,
 	CardBody,
 	CardHeader,
+	CardHeading,
 	CardTitle,
+	Checkbox,
 	ConfirmDialog,
 	Dialog,
 	DialogBody,
@@ -26,6 +28,7 @@ import { useState, type FormEvent, type ReactNode } from "react";
 import { formatDay, PIPELINE_PATH } from "../board/model";
 import { Problem } from "../board/Problem";
 import { enroll, publishVersion, rereadProgram, savePlan } from "./actions";
+import { ApplyVersionsDialog } from "./ApplyVersions";
 import { enrollmentHref, KIND, monthRange, programProblem, PROGRAMS_PATH, readingHref, RHYTHM } from "./model";
 import { draftFrom, PlanEditor, planFrom, type PlanDraft } from "./PlanEditor";
 
@@ -40,7 +43,8 @@ export function ProgramScreen({ initial, organizationId }: { initial: ProgramDet
 	const [program, setProgram] = useState(initial);
 	const [view, setView] = useState<"published" | "draft">(initial.published ? "published" : "draft");
 	const [editing, setEditing] = useState<PlanDraft | null>(null);
-	const [dialog, setDialog] = useState<"publish" | "enroll" | null>(null);
+	const [dialog, setDialog] = useState<"publish" | "enroll" | "apply" | null>(null);
+	const [selected, setSelected] = useState<string[]>([]);
 	const [problem, setProblem] = useState<string | null>(null);
 	const [saving, setSaving] = useState(false);
 	const { viewer, published, draft } = program;
@@ -171,7 +175,12 @@ export function ProgramScreen({ initial, organizationId }: { initial: ProgramDet
 						)}
 					</CardBody>
 				</Card>
-				<Enrollments program={program} />
+				<Enrollments
+					program={program}
+					selected={selected}
+					onSelectedChange={setSelected}
+					onApply={() => setDialog("apply")}
+				/>
 			</div>
 
 			{viewer.director && draft ? (
@@ -194,6 +203,20 @@ export function ProgramScreen({ initial, organizationId }: { initial: ProgramDet
 						setProblem(null);
 						await reread();
 						setView("published");
+					}}
+				/>
+			) : null}
+			{viewer.director && published ? (
+				<ApplyVersionsDialog
+					open={dialog === "apply"}
+					programId={program.id}
+					toNumber={published.number}
+					enrollmentIds={selected}
+					onClose={() => setDialog(null)}
+					onApplied={async () => {
+						setDialog(null);
+						setSelected([]);
+						await reread();
 					}}
 				/>
 			) : null}
@@ -297,28 +320,88 @@ export function Detail({ term, children }: { term: string; children: ReactNode }
 	);
 }
 
-function Enrollments({ program }: { program: ProgramDetail }) {
+/**
+ * Who is enrolled. The director selects active enrollments on an earlier version and applies the current version to
+ * them together (D-1329); an enrollment already on it, or no longer active, can't be selected.
+ */
+function Enrollments({
+	program,
+	selected,
+	onSelectedChange,
+	onApply,
+}: {
+	program: ProgramDetail;
+	selected: string[];
+	onSelectedChange: (ids: string[]) => void;
+	onApply: () => void;
+}) {
+	const current = program.published?.number ?? null;
+	const movable = (e: ProgramDetail["enrollments"][number]) =>
+		program.viewer.director && current !== null && e.status === "active" && e.versionNumber < current;
+	const selecting = program.enrollments.some(movable);
+	const chosen = selected.filter((id) => program.enrollments.some((e) => e.id === id && movable(e)));
+	const tooMany = chosen.length > APPLY_VERSION_LIMIT;
 	return (
 		<Card>
-			<CardHeader>
-				<CardTitle>Enrolled</CardTitle>
+			<CardHeader className={selecting ? "mb-4 flex-wrap" : undefined}>
+				<CardHeading>
+					<CardTitle>Enrolled</CardTitle>
+				</CardHeading>
+				{selecting ? (
+					<Button
+						variant="primary"
+						size="sm"
+						className="flex-none"
+						disabled={!chosen.length || tooMany}
+						onClick={onApply}
+					>
+						{chosen.length
+							? `Apply Version ${current} to ${chosen.length === 1 ? "1 person" : `${chosen.length} people`}`
+							: `Apply Version ${current}`}
+					</Button>
+				) : null}
 			</CardHeader>
-			<CardBody>
+			<CardBody className="flex flex-col gap-3">
+				{selecting ? (
+					<p className="text-sm text-text-2" aria-live="polite">
+						{tooMany
+							? `Select up to ${APPLY_VERSION_LIMIT} people at a time.`
+							: chosen.length
+								? "You’ll review what changes for each person before anything is saved."
+								: `Select people on an earlier version to move them to Version ${current}.`}
+					</p>
+				) : null}
 				{program.enrollments.length ? (
 					<ul className="flex flex-col gap-2">
 						{program.enrollments.map((e) => (
-							<li key={e.id} className="relative rounded-md bg-surface-2 px-3 py-2.5 text-sm">
-								<Link
-									href={enrollmentHref(e.id)}
-									className="cursor-pointer font-semibold text-ink after:absolute after:inset-0 after:rounded-md hover:underline"
-								>
-									{e.name}
-								</Link>
-								<p className="text-text-2">
-									{[e.cohort, e.stage, `Version ${e.versionNumber}`, e.status === "active" ? null : e.status]
-										.filter(Boolean)
-										.join(" · ")}
-								</p>
+							<li key={e.id} className="relative flex items-start gap-3 rounded-md bg-surface-2 px-3 py-2.5 text-sm">
+								{selecting ? (
+									movable(e) ? (
+										<Checkbox
+											className="relative z-10 mt-0.5"
+											aria-label={`Select ${e.name} to apply Version ${current}`}
+											checked={chosen.includes(e.id)}
+											onCheckedChange={(on) =>
+												onSelectedChange(on === true ? [...chosen, e.id] : chosen.filter((id) => id !== e.id))
+											}
+										/>
+									) : (
+										<span className="size-5 flex-none" aria-hidden />
+									)
+								) : null}
+								<div className="min-w-0 flex-1">
+									<Link
+										href={enrollmentHref(e.id)}
+										className="cursor-pointer font-semibold [overflow-wrap:anywhere] text-ink after:absolute after:inset-0 after:rounded-md hover:underline"
+									>
+										{e.name}
+									</Link>
+									<p className="text-text-2">
+										{[e.cohort, e.stage, `Version ${e.versionNumber}`, e.status === "active" ? null : e.status]
+											.filter(Boolean)
+											.join(" · ")}
+									</p>
+								</div>
 							</li>
 						))}
 					</ul>
