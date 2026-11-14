@@ -30,7 +30,6 @@ import {
 	db,
 	people,
 	plant,
-	otherPlant,
 	queries,
 	setup,
 	statements,
@@ -111,7 +110,6 @@ test("AC:INH-CROSS-06 AC:INH-REGRESSION-BUDGET AC:EVRY-RETRY-CANCEL bounded page
 
 	// Every page of 100 rows: the cumulative input budget is the first limit reached.
 	const foreign = await actor("foreign");
-	const all = (await admin.execute(sql`SELECT count(*)::int n FROM person WHERE plant_id=${otherPlant}`)).rows[0]!.n;
 	const wide = await ask(foreign, "Read every detail for all people.");
 	assert.equal(await work(), "succeeded");
 	const input = await events(foreign, wide);
