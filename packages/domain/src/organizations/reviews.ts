@@ -55,14 +55,21 @@ async function sendAnswers(db: Database, authority: RequestActor, raw: unknown) 
 		const questions = sql.param(input.questions);
 		const r = await one(
 			w,
-			z.object({ found: z.boolean(), valid: z.boolean(), added: z.boolean(), prior: prior.nullable() }),
+			z.object({
+				found: z.boolean(),
+				questions: z.boolean(),
+				seat: z.boolean(),
+				added: z.boolean(),
+				prior: prior.nullable(),
+			}),
 			sql`WITH n AS (SELECT n.id,n.person_id,n.questions FROM person_note n
  JOIN person p ON p.id=n.person_id AND p.tenant_id=n.tenant_id
  JOIN pipeline_person pp ON pp.person_id=p.id AND pp.organization_id=n.tenant_id
  WHERE n.id=${input.noteId}::uuid AND n.tenant_id=${o}::uuid AND n.plant_id IS NULL AND n.removed_at IS NULL
   AND n.questions IS NOT NULL AND p.state='live'
   AND NOT EXISTS(SELECT FROM organization_person_removal x WHERE x.person_record_id=p.id AND x.organization_id=p.tenant_id)),
-ok AS (SELECT n.* FROM n WHERE ${questions}::text[] <@ n.questions AND ${eligibleSeat(w, input.reviewerSeatId)}),
+q AS (SELECT n.* FROM n WHERE ${questions}::text[] <@ n.questions),
+ok AS (SELECT q.* FROM q WHERE ${eligibleSeat(w, input.reviewerSeatId)}),
 r AS (INSERT INTO answer_review (id,organization_id,person_id,note_id,reviewer_seat_id,sender_id,group_name,questions,sent_at,revision)
  SELECT ${input.reviewId}::uuid,${o}::uuid,ok.person_id,ok.id,${input.reviewerSeatId}::uuid,${w.actor}::uuid,${input.groupName},
   ARRAY(SELECT u.q FROM unnest(ok.questions) WITH ORDINALITY u(q,i) WHERE u.q=ANY(${questions}::text[]) ORDER BY u.i),
@@ -73,7 +80,7 @@ j AS (INSERT INTO job (tenant_id,kind,subject_record_id,producer_key,source_revi
   claim_generation)
  SELECT ${o}::uuid,'notification',r.id,'review/'||r.id::text,1,'ready',clock_timestamp(),0,4,0 FROM r
  ON CONFLICT (kind,subject_record_id,producer_key) DO NOTHING RETURNING id)
-SELECT EXISTS(SELECT FROM n) AS found,EXISTS(SELECT FROM ok) AS valid,EXISTS(SELECT FROM a) AND EXISTS(SELECT FROM j) AS added,
+SELECT EXISTS(SELECT FROM n) AS found,EXISTS(SELECT FROM q) AS questions,${eligibleSeat(w, input.reviewerSeatId)} AS seat,EXISTS(SELECT FROM a) AND EXISTS(SELECT FROM j) AS added,
  (SELECT jsonb_build_object('note',x.note_id,'seat',x.reviewer_seat_id,'group',x.group_name,'questions',x.questions)
   FROM answer_review x WHERE x.id=${input.reviewId}::uuid AND x.organization_id=${o}::uuid) AS prior`,
 		);
@@ -87,7 +94,8 @@ SELECT EXISTS(SELECT FROM n) AS found,EXISTS(SELECT FROM ok) AS valid,EXISTS(SEL
 			return { reviewId: input.reviewId };
 		}
 		if (!r.found) refuse();
-		if (!r.valid) refuse({ code: "invalid_input", field: "questions" });
+		if (!r.questions) refuse({ code: "invalid_input", field: "questions" });
+		if (!r.seat) refuse({ code: "invalid_input", field: "reviewerSeatId" });
 		if (!r.added) refuse({ code: "conflict" });
 		return { reviewId: input.reviewId };
 	});
