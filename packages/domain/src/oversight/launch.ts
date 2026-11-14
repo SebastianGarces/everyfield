@@ -21,7 +21,8 @@ export const requiredTrainingCount = (plant: SQL) =>
 	sql`(SELECT nullif(count(*), 0)::int FROM ${requiredObligations(plant)})`;
 
 /**
- * Plant `p`'s preparation counts as one JSON value (C.preparation). `teams` is the SQL condition under which the gap
+ * Plant `p`'s preparation counts as one JSON value (C.preparation). A plant on a chosen milestone's path has no Launch
+ * Sunday to count down to, even with a date kept, so it is never near launch (D-1548). `teams` is the SQL condition under which the gap
  * counts may be read (Ministry teams shared, or true for the plant's own seat); without it both are null.
  * - unfilledRoles: live roles on live teams that carry a Playbook responsibility and have no current live occupant;
  *   null when no role carries one.
@@ -31,7 +32,7 @@ export const requiredTrainingCount = (plant: SQL) =>
 export const preparationJson = (p: SQL, teams: SQL) => sql`(SELECT json_build_object(
 	'launched', coalesce(l.actual_date IS NOT NULL OR l.status='completed', false),
 	'daysToLaunch', CASE WHEN l.actual_date IS NULL AND l.status='scheduled' AND l.target_date IS NOT NULL
-		THEN l.target_date - ${today("pl")} END,
+		AND l.gathering_path='launch_sunday' THEN l.target_date - ${today("pl")} END,
 	'unfilledRoles', CASE WHEN ${teams} THEN (SELECT CASE WHEN count(*) > 0 THEN (count(*) FILTER (WHERE NOT x.filled))::int END
 		FROM (SELECT EXISTS(SELECT FROM team_tenure tn JOIN person pe ON pe.id=tn.person_id AND pe.plant_id=tn.plant_id
 			AND pe.state='live' WHERE tn.role_id=r.id AND tn.plant_id=r.plant_id AND tn.ended_on IS NULL) AS filled

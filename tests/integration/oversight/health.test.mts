@@ -188,7 +188,8 @@ test("the plant view shows Launch status and readiness, then the recorded outcom
 	assert.equal(launch.status, "shared");
 	if (launch.status !== "shared") return;
 	assert.equal(launch.state, "scheduled");
-	assert.equal(launch.plannedDate, view!.plant.launchDate);
+	const planned = view!.plant.path.kind === "launch_sunday" ? view!.plant.path.date : null;
+	assert.equal(launch.plannedDate, planned);
 	assert.deepEqual(launch.milestones, { completed: 2, total: 9 });
 	assert.equal(launch.outcome, null);
 	assert.deepEqual(launch.preparation, { launched: false, daysToLaunch: 30, unfilledRoles: 1, outstandingTraining: 0 });
@@ -204,7 +205,7 @@ test("the plant view shows Launch status and readiness, then the recorded outcom
 	const done = (await getPlant(S.runtime, await as(networkAdmin), HP.id))!;
 	assert.equal(done.launch.status === "shared" && done.launch.state, "completed");
 	assert.deepEqual(done.launch.status === "shared" && done.launch.outcome, {
-		actualDate: done.plant.launchDate && shiftDays(done.plant.launchDate, -30),
+		actualDate: planned && shiftDays(planned, -30),
 		attendance: 212,
 		decisions: 9,
 	});
@@ -223,7 +224,8 @@ test("a plant that does not share findings shows only the directory's planned da
 	assert.deepEqual(view.launch, { status: "withheld" });
 	assert.equal(view.summary, null);
 	const row = (await listPlants(S.runtime, await as(networkAdmin)))!.plants.find((p) => p.plantId === MF.id)!;
-	assert.equal(view.plant.launchDate, row.launchDate);
+	assert.deepEqual(view.plant.path, row.path);
+	assert.equal(row.path.kind === "launch_sunday" && row.path.date !== null, true);
 	assert.equal(view.plant.health, "limited_visibility");
 });
 

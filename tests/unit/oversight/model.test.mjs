@@ -3,17 +3,51 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+	chosenText,
 	HOME_HEADING,
 	intelligenceWords,
 	launchLabel,
 	leadLabel,
 	linkedLabel,
 	locality,
+	pathText,
 	phaseLabel,
 	provenanceLabel,
 	sharedCount,
 	VIEWS,
 } from "../../../apps/web/src/features/oversight/model.ts";
+
+test("a milestone-path row is labelled Milestone with its progress, never read as a Launch Sunday date", () => {
+	assert.deepEqual(pathText({ kind: "launch_sunday", date: "2026-11-08" }), {
+		label: "Launch Sunday",
+		value: "Nov 8, 2026",
+		detail: null,
+		set: true,
+	});
+	assert.equal(pathText({ kind: "launch_sunday", date: null }).value, "Not set");
+	const milestone = (progress, chosenBy = "Hill Country Network") => ({
+		kind: "milestone",
+		name: "Constituted as a church",
+		chosenBy,
+		progress,
+	});
+	assert.deepEqual(pathText(milestone({ status: "reached", date: "2026-10-11" })), {
+		label: "Milestone",
+		value: "Constituted as a church",
+		detail: "Reached Oct 11, 2026",
+		set: true,
+	});
+	assert.equal(pathText(milestone({ status: "not_reached" })).detail, "Not reached yet");
+	assert.equal(pathText(milestone({ status: "withdrawn" })).detail, "No longer offered");
+	// Without findings shared, neither a date nor "Not reached yet".
+	assert.equal(pathText(milestone({ status: "withheld" })).detail, null);
+
+	assert.equal(chosenText(milestone({ status: "not_reached" }), "Harvest Point"), "chosen by Hill Country Network");
+	assert.equal(
+		chosenText(milestone({ status: "reached", date: "2026-10-11" }, null), "Harvest Point"),
+		"chosen by another organization Harvest Point is linked with",
+	);
+});
 
 test("AC:ORG55-004 a plant with no lead planter says so and never falls back to another name", () => {
 	assert.equal(leadLabel({ leadPlanter: "Marcus Hill" }), "Marcus Hill");

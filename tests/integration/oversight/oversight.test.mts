@@ -180,7 +180,7 @@ test("AC:TARGET-IDN-023 AC:ORG55-004 AC:ORG55-005 AC:AF-039 the directory lists 
 			stateProvince: "TX",
 			country: "US",
 			phase: 1,
-			launchDate: null,
+			path: { kind: "launch_sunday", date: null },
 			provenance: { kind: "through", sendingChurches: ["Grace Austin"] },
 			leadPlanter: null,
 			region: null,
@@ -193,7 +193,7 @@ test("AC:TARGET-IDN-023 AC:ORG55-004 AC:ORG55-005 AC:AF-039 the directory lists 
 			stateProvince: "TX",
 			country: "US",
 			phase: 1,
-			launchDate: null,
+			path: { kind: "launch_sunday", date: null },
 			provenance: { kind: "through", sendingChurches: ["Grace Austin"] },
 			leadPlanter: "Marcus Hill",
 			region: null,
@@ -206,7 +206,7 @@ test("AC:TARGET-IDN-023 AC:ORG55-004 AC:ORG55-005 AC:AF-039 the directory lists 
 			stateProvince: "TX",
 			country: "US",
 			phase: 1,
-			launchDate: null,
+			path: { kind: "launch_sunday", date: null },
 			provenance: { kind: "direct" },
 			leadPlanter: null,
 			region: null,
@@ -219,7 +219,7 @@ test("AC:TARGET-IDN-023 AC:ORG55-004 AC:ORG55-005 AC:AF-039 the directory lists 
 			stateProvince: "TX",
 			country: "US",
 			phase: 1,
-			launchDate: null,
+			path: { kind: "launch_sunday", date: null },
 			provenance: { kind: "direct" },
 			leadPlanter: null,
 			region: null,
@@ -245,7 +245,7 @@ test("AC:TARGET-IDN-023 AC:ORG55-004 AC:ORG55-005 AC:AF-039 the directory lists 
 	// A launch date appears once the plant sets one.
 	await S.db.execute(sql`INSERT INTO launch(plant_id,target_date,status) VALUES(${OC.id},'2027-03-14','scheduled')`);
 	const oc = (await listPlants(S.runtime, await as(networkOwner)))!.plants.find((r) => r.plantId === OC.id);
-	assert.equal(oc!.launchDate, "2027-03-14");
+	assert.deepEqual(oc!.path, { kind: "launch_sunday", date: "2027-03-14" });
 });
 
 test("AC:TARGET-IDN-023 AC:AF-028 AC:AF-035 Harvest Point's sections: shared counts, shared but empty and not shared", async () => {
