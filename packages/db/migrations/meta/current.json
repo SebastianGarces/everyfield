@@ -15624,6 +15624,181 @@
       },
       "isRLSEnabled": false
     },
+    "public.pipeline_stage_move": {
+      "name": "pipeline_stage_move",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "pipeline_person_id": {
+          "name": "pipeline_person_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "from_stage_id": {
+          "name": "from_stage_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "to_stage_id": {
+          "name": "to_stage_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "from_label": {
+          "name": "from_label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "to_label": {
+          "name": "to_label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reason": {
+          "name": "reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "pipeline_stage_move_person_idx": {
+          "name": "pipeline_stage_move_person_idx",
+          "columns": [
+            {
+              "expression": "pipeline_person_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "pipeline_stage_move_from_idx": {
+          "name": "pipeline_stage_move_from_idx",
+          "columns": [
+            {
+              "expression": "from_stage_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "pipeline_stage_move_to_idx": {
+          "name": "pipeline_stage_move_to_idx",
+          "columns": [
+            {
+              "expression": "to_stage_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "pipeline_stage_move_person": {
+          "name": "pipeline_stage_move_person",
+          "tableFrom": "pipeline_stage_move",
+          "tableTo": "pipeline_person",
+          "columnsFrom": [
+            "pipeline_person_id",
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id",
+            "organization_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "pipeline_stage_move_from": {
+          "name": "pipeline_stage_move_from",
+          "tableFrom": "pipeline_stage_move",
+          "tableTo": "pipeline_stage",
+          "columnsFrom": [
+            "from_stage_id",
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id",
+            "organization_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "pipeline_stage_move_to": {
+          "name": "pipeline_stage_move_to",
+          "tableFrom": "pipeline_stage_move",
+          "tableTo": "pipeline_stage",
+          "columnsFrom": [
+            "to_stage_id",
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id",
+            "organization_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "pipeline_stage_move_pkey": {
+          "name": "pipeline_stage_move_pkey",
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "pipeline_stage_move_from_label": {
+          "name": "pipeline_stage_move_from_label",
+          "value": "((from_stage_id IS NULL) = (from_label IS NULL))"
+        },
+        "pipeline_stage_move_reason": {
+          "name": "pipeline_stage_move_reason",
+          "value": "((reason IS NULL AND from_stage_id IS NULL) OR ((length(btrim(reason)) >= 1) AND (length(reason) <= 1000)))"
+        }
+      },
+      "isRLSEnabled": false
+    },
     "public.plant": {
       "name": "plant",
       "schema": "",

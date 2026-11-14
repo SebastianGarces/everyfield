@@ -266,7 +266,7 @@ test("INV-contact-log: a logged call goes in the contact log after approval, nev
 	const changes = Object.fromEntries(proposal.review.changes.map((c) => [c.field, c.after]));
 	assert.equal(changes.outcome, "contacted");
 	assert.equal(changes.channel, "phone");
-	assert.equal(changes.notes, "She wants to join a group.");
+	assert.equal(changes.contactNote, "She wants to join a group.");
 	assert.equal(changes.followUp, "complete");
 	assert.equal((await read(owner, "followups.listContactHistory", { personId: jess })).status, "not_found");
 

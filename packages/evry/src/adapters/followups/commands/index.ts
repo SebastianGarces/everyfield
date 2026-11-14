@@ -82,7 +82,7 @@ export const recordOutcome = reviewed<Record>({
 			${change("outcome", null, json(v.outcome))},
 			${change("occurredAt", null, local)},
 			${change("channel", null, json(v.channel ?? null))},
-			${change("notes", null, json(v.notes ?? null))}
+			${change("contactNote", null, json(v.notes ?? null))}
 			${closes ? sql`,${change("followUp", sql`to_jsonb(t.status)`, json(v.outcome === "no_longer_needed" ? "no_longer_needed" : "complete"))}` : sql``})`;
 		const native = (target: ReturnType<typeof sql>) =>
 			sql`jsonb_build_object('input',jsonb_build_object('target',${target},'outcome',${v.outcome}::text,'occurredAt',${iso(sql`x.at`)},

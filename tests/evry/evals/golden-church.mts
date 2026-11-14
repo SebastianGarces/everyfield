@@ -4,9 +4,11 @@
 // sends exactly the recorded provider calls.
 //
 // Known records the factual cases check (golden.test.mts reads them back through the real reads):
-// - 83 live people: 3 leader, 2 launch_team, 5 core_group, 2 interviewed, 4 following_up, 10 attendee, 57 prospect
+// - 84 live people: 3 leader, 2 launch_team, 5 core_group, 2 interviewed, 4 following_up, 11 attendee, 57 prospect
 //   (13 of the prospects in Austin). 2 removed people: Tom Baker and Rosa Rivera.
-// - 8 households: Rivera, Thompson, Nguyen, Okafor, Martinez, Garcia, Johnson, Lee.
+// - 8 households: Rivera, Thompson, Nguyen, Okafor, Martinez, Garcia, Johnson, Lee. The Nguyen household has four
+//   people (Minh, Linh, Bao and Thao), all at 2200 Pecan Dr, Austin; Pedro Martinez is in no household.
+// - A note on Maria Santos that the Admin wrote (MARIA_NOTE), for the note edit and delete cases.
 // - Tags Worship team (4, Ruth Allen's among them), Kids ministry (2), Prayer team (1); skills on Mark Thompson, Alex Rivera, Jen Thompson.
 // - Two Marias, two Caseys, Jon and John Smith, a test record "asdf" and a person whose name is an instruction.
 // - An import receipt (5 created, 1 skipped, 2 failed) and open tasks on Mark Thompson (2), Ana Rivera and Sam Patel.
@@ -70,6 +72,7 @@ export type Person = {
 	phone: string | null;
 	state: "live" | "retired";
 	household?: { id: string; role: "head" | "spouse" | "child" | "other" };
+	street?: string;
 	tags?: string[];
 	skills?: { name: string; category: "tech" | "worship"; proficiency: "intermediate" | "advanced" }[];
 	photo?: boolean;
@@ -80,10 +83,11 @@ export type Person = {
 	createdAt: string;
 };
 
+const NGUYEN_STREET = "2200 Pecan Dr";
 export const HOUSEHOLDS = [
 	{ id: id(0xa1), name: "Rivera household", city: "Austin" },
 	{ id: id(0xa2), name: "Thompson household", city: "Pflugerville", street: "418 Maple Ave" },
-	{ id: id(0xa3), name: "Nguyen household", city: "Austin" },
+	{ id: id(0xa3), name: "Nguyen household", city: "Austin", street: NGUYEN_STREET },
 	{ id: id(0xa4), name: "Okafor household", city: "Austin" },
 	{ id: id(0xa5), name: "Martinez household", city: "San Marcos" },
 	{ id: id(0xa6), name: "Garcia household", city: "Austin" },
@@ -162,12 +166,19 @@ const named: Person[] = [
 	}),
 	person("Carl Johnson", "Cedar Park", "following_up", { household: { id: home("Johnson"), role: "spouse" } }),
 	person("Mateo Rivera", "Austin", "attendee", { household: { id: home("Rivera"), role: "child" } }),
-	person("Minh Nguyen", "Austin", "attendee", { household: { id: home("Nguyen"), role: "head" } }),
+	person("Minh Nguyen", "Austin", "attendee", {
+		household: { id: home("Nguyen"), role: "head" },
+		street: NGUYEN_STREET,
+	}),
 	person("Linh Nguyen", "Austin", "attendee", {
 		household: { id: home("Nguyen"), role: "spouse" },
 		tags: ["Kids ministry"],
+		street: NGUYEN_STREET,
 	}),
-	person("Bao Nguyen", "Austin", "attendee", { household: { id: home("Nguyen"), role: "child" } }),
+	person("Bao Nguyen", "Austin", "attendee", {
+		household: { id: home("Nguyen"), role: "child" },
+		street: NGUYEN_STREET,
+	}),
 	person("Casey Morgan", "Austin", "attendee", { inactivity: "warning" }),
 	person("Kevin Walsh", "Austin", "attendee", {
 		inactivity: "alert",
@@ -213,7 +224,15 @@ const generated = LAST.flatMap((last) => FIRST.map((first) => `${first} ${last}`
 	person(name, CITIES[i % CITIES.length]!, "prospect"),
 );
 
-export const PEOPLE: readonly Person[] = [...named, ...generated];
+// Added after the generated prospects, so every id above stays pinned: the fourth Nguyen (HH-05).
+const later = [
+	person("Thao Nguyen", "Austin", "attendee", {
+		household: { id: home("Nguyen"), role: "child" },
+		street: NGUYEN_STREET,
+	}),
+];
+
+export const PEOPLE: readonly Person[] = [...named, ...generated, ...later];
 export const live = () => PEOPLE.filter((p) => p.state === "live");
 export const byName = (name: string) => {
 	const found = PEOPLE.find((p) => p.name === name);
@@ -221,6 +240,8 @@ export const byName = (name: string) => {
 	return found;
 };
 
+/** The Admin's note on Maria Santos. */
+export const MARIA_NOTE = id(0x9900);
 /** A people import whose receipt the receipt read returns, and the request key that names it. */
 export const IMPORT_KEY = "import-2026-11-08-launch-interest";
 const IMPORT = { id: id(0xe1), job: id(0xe2), at: "2026-11-08T17:00:00.000Z", people: generated.slice(0, 5) };
@@ -280,7 +301,7 @@ const LINKED: Partial<Record<ActorName, string>> = {
  * Seeds the church into the schema `admin` is pinned to. Every row a read returns has a pinned id and a pinned time,
  * except each live person's last contact, which is placed relative to the database clock (see the header).
  */
-async function seedHope(admin: Database, options: SeedOptions) {
+export async function seedHope(admin: Database, options: SeedOptions = {}) {
 	const run = (q: ReturnType<typeof sql>) => admin.execute(q);
 	for (const [plant, name] of [
 		[PLANT, "Hope Fellowship"],
@@ -332,9 +353,9 @@ async function seedHope(admin: Database, options: SeedOptions) {
 		task = 0x8000,
 		photo = 0xc000;
 	for (const [i, p] of PEOPLE.entries()) {
-		await run(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,email,phone,city,source,created_at,stage,
+		await run(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,email,phone,street,city,source,created_at,stage,
 				adult_classification,commitment_state,pipeline_position,state,retired_at,household_id,household_role,linked_account_id)
-			VALUES(${p.id},${PLANT},${PLANT},${p.name},${p.email},${p.phone},${p.city},'other',${p.createdAt},${p.stage},'unknown',
+			VALUES(${p.id},${PLANT},${PLANT},${p.name},${p.email},${p.phone},${p.street ?? null},${p.city},'other',${p.createdAt},${p.stage},'unknown',
 				'unknown',${i + 1},${p.state},${p.state === "retired" ? "2026-10-01T12:00:00.000Z" : null},
 				${p.household?.id ?? null},${p.household?.role ?? null},${linked.get(p.id) ?? null})`);
 		if (p.photo) {
@@ -365,6 +386,11 @@ async function seedHope(admin: Database, options: SeedOptions) {
 				SELECT ${PLANT},${owner},'followup.recorded','outcome','person',${p.id},t,t,1
 				FROM (SELECT clock_timestamp()-make_interval(days=>${p.inactivity === "warning" ? 10 : 2}) AS t) x`);
 	}
+
+	// A note the Admin wrote on Maria Santos: only its author may edit or delete it.
+	await run(sql`INSERT INTO person_note(id,tenant_id,plant_id,person_id,author_id,body,occurred_at,recorded_at)
+		VALUES(${MARIA_NOTE},${PLANT},${PLANT},${byName("Maria Santos").id},${ACTOR_SPECS.admin.account},
+			'Met us at the fall picnic and asked about small groups.','2026-11-02T18:00:00.000Z','2026-11-02T18:00:00.000Z')`);
 
 	// The import: its saved plan, its finished job and the people.created audit rows of the five people it created.
 	const plan = {
