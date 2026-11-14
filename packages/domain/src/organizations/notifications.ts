@@ -241,7 +241,8 @@ function reviewNotice(person: string, group: string, sender: string | null) {
  * reviewer's seat, so a withdrawal or a seat end waits for this job's notice. The caller is the trusted worker.
  */
 export async function planReviewNotice(db: Reader, org: string, reviewId: string) {
-	const r = await db.execute(sql`SELECT o.kind AS organization_kind, s.account_id AS recipient, p.display_name AS person,
+	const r =
+		await db.execute(sql`SELECT o.kind AS organization_kind, s.account_id AS recipient, p.display_name AS person,
 			r.group_name, (SELECT i.display_name FROM seat_identity(r.sender_id) i) AS sender, ${reviewShared} AS holds
 		FROM answer_review r JOIN organization o ON o.id=r.organization_id
 		JOIN seat s ON s.id=r.reviewer_seat_id AND s.organization_id=r.organization_id

@@ -3985,14 +3985,8 @@ export const answer_review = pgTable(
 			"set null",
 		),
 		check("answer_review_revision", sql`(revision >= 1)`),
-		check(
-			"answer_review_group_name",
-			sql`((length(btrim(group_name)) >= 1) AND (length(group_name) <= 120))`,
-		),
-		check(
-			"answer_review_questions",
-			sql`((cardinality(questions) >= 1) AND (cardinality(questions) <= 200))`,
-		),
+		check("answer_review_group_name", sql`((length(btrim(group_name)) >= 1) AND (length(group_name) <= 120))`),
+		check("answer_review_questions", sql`((cardinality(questions) >= 1) AND (cardinality(questions) <= 200))`),
 		index("answer_review_note_idx").on(t.note_id),
 		index("answer_review_person_idx").on(t.person_id, t.organization_id),
 		index("answer_review_reviewer_idx").on(t.reviewer_seat_id),

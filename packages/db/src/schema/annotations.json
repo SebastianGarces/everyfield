@@ -14880,7 +14880,7 @@
 					"additional_producers": ["WP-102"],
 					"rule": "WP-102 (T-385) sends chosen kept answers for review."
 				},
-				"feature_ids": ["MUL-009"],
+				"feature_ids": ["MUL-007", "MUL-008", "MUL-009"],
 				"acceptance_ids": ["AC-MUL-009--MUL-009"],
 				"future_case_ids": ["ADR1-009"],
 				"scope": "people",
@@ -14944,12 +14944,14 @@
 					}
 				},
 				"note_id->person_note(id)": {
+					"scope_exception": "The send's note is a person_note of the same organization: the send's write reads it by note, organization and live pipeline person in the same statement. Deleting the note leaves the send with no note, so it reads as no longer shared.",
 					"deletion": {
 						"action": "set null",
 						"policy": "Removing or deleting the note leaves the send with no note: the reviewer sees it as no longer shared."
 					}
 				},
 				"reviewer_seat_id->seat(id)": {
+					"scope_exception": "Current reviewer seat belongs to the exact organization. The send's write checks the seat's organization and that it is current; each read checks it again and grants nothing beyond the send.",
 					"deletion": {
 						"action": "restrict",
 						"policy": "Explicit dependency-ordered removal or authorized minimal-attribution detachment. Current grants and removal witnesses apply to retained facts and recovery; a foreign key grants no access."

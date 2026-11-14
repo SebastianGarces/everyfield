@@ -403,6 +403,8 @@ Each name identifies one exact FK. The checker requires this list whenever `targ
 ## Additional scope exceptions
 
 - `affiliation(recognition_operation_id) -> audit_event(id)`: D70 command identity correlation; the producer validates the actual owner, exact source and current authority in its transaction. Retained evidence grants no access.
+- `answer_review(note_id) -> person_note(id)`: The send's note is a person_note of the same organization: the send's write reads it by note, organization and live pipeline person in the same statement. Deleting the note leaves the send with no note, so it reads as no longer shared.
+- `answer_review(reviewer_seat_id) -> seat(id)`: Current reviewer seat belongs to the exact organization. The send's write checks the seat's organization and that it is current; each read checks it again and grants nothing beyond the send.
 - `audit_event(command_id) -> audit_event(id)`: Original command correlation may cross the owned endpoint of a reviewed conversion. Cleanup may sever correlation while retaining only independently owned facts.
 - `audit_event(subject_id) -> record(id)`: D70 audit subject or original-command correlation may name an authorized bilateral endpoint or retained identity; pair/source checks and current authority remain mandatory. Operator projections omit protected history and retry content.
 - `communication(meeting_id) -> meeting(id)`: A meeting can be removed while a draft still names it. The pointer clears. The draft stays in its plant. The app checks the meeting belongs to the plant before it saves the pointer.

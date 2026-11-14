@@ -40,7 +40,12 @@ export function keptAnswers(body: string, questions: readonly string[]): Map<str
 	return answers;
 }
 
-const prior = z.object({ note: z.string().nullable(), seat: z.string(), group: z.string(), questions: z.array(z.string()) });
+const prior = z.object({
+	note: z.string().nullable(),
+	seat: z.string(),
+	group: z.string(),
+	questions: z.array(z.string()),
+});
 
 /**
  * Sends the chosen questions of a kept-answers note to a current seat of the organization, under a group name. The

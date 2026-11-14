@@ -52,6 +52,8 @@ test("AC:CASE-NTF-003 each subject opens its page", () => {
 
 test("AC:CASE-NTF-003 a residency entry opens My residency at its milestone, which reads it", () => {
 	assert.equal(subjectHref({ kind: "residency_milestone", id }), `/my-residency?milestone=${id}#milestone-${id}`);
+	// Answers sent for review open the send on the reviewer's Sent for review page (T-385).
+	assert.equal(subjectHref({ kind: "answer_review", id }), `/organization/reviews/${id}`);
 	const entry = html({
 		...base,
 		category: "residency_confirmation",

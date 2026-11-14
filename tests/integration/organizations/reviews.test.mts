@@ -145,7 +145,11 @@ before(async () => {
 	// Jordan and Sam come from applications.xlsx with Pat as their responsible staff.
 	const bytes = new Uint8Array(readFileSync(new URL("./import-files/applications.xlsx", import.meta.url)));
 	const p = ok(
-		await previewPipelineImport(db, await authority(dana), { fileName: "applications.xlsx", file: bytes, columns: null }),
+		await previewPipelineImport(db, await authority(dana), {
+			fileName: "applications.xlsx",
+			file: bytes,
+			columns: null,
+		}),
 	) as { fileDigest: string; reviewDigest: string; columns: { choice: string }[]; rows: { row: number }[] };
 	const result = ok(
 		await pipelineImportWriter.importPeople(db, await authority(dana), {
@@ -164,7 +168,13 @@ before(async () => {
 	sam = result.added.find((a) => a.row === 2)!.personId;
 	noteId = (await record(dana)).notes[0]!.id;
 	ordinaryNote = randomUUID();
-	ok(await pipelineWriter.addNote(db, await authority(dana), { personId: jordan, noteId: ordinaryNote, body: "Met for coffee" }));
+	ok(
+		await pipelineWriter.addNote(db, await authority(dana), {
+			personId: jordan,
+			noteId: ordinaryNote,
+			body: "Met for coffee",
+		}),
+	);
 });
 
 test("only an Owner or Admin sends kept answers, and only from a kept-answers note", async () => {
@@ -194,7 +204,9 @@ test("only an Owner or Admin sends kept answers, and only from a kept-answers no
 		code: "invalid_input",
 		field: "reviewerSeatId",
 	});
-	const count = await admin.execute(sql`SELECT count(*)::int AS n FROM answer_review WHERE organization_id=${grace.id}::uuid`);
+	const count = await admin.execute(
+		sql`SELECT count(*)::int AS n FROM answer_review WHERE organization_id=${grace.id}::uuid`,
+	);
 	assert.equal(count.rows[0]!.n, 0);
 });
 
@@ -211,7 +223,9 @@ test("sending twice with one ID makes one send, shown on the note", async () => 
 	assert.deepEqual(await sendsOf(reviewId), { sends: 1, audits: 1, jobs: 1 });
 	const kept = await keptNote(luis);
 	const asOf = (await record(dana)).asOf;
-	assert.deepEqual(kept.reviews, [{ id: reviewId, reviewer: "Ben", groupName: GROUP, sentOn: asOf, questions: CHOSEN }]);
+	assert.deepEqual(kept.reviews, [
+		{ id: reviewId, reviewer: "Ben", groupName: GROUP, sentOn: asOf, questions: CHOSEN },
+	]);
 });
 
 test("Ben gets one notice and one email naming Jordan, the group and Dana, with no answer text", async () => {
@@ -261,7 +275,8 @@ test("only Ben reads the send: the chosen questions with their answers and nothi
 		[[reviewId, "Jordan Reyes", GROUP, "Dana", true]],
 	);
 	// Luis (not the reviewer), Ana, Pat and Hill Country Network's Owner cannot read it.
-	for (const a of [luis, ana, pat, hillOwner]) assert.deepEqual(refusal(await open(a, reviewId)), { code: "unavailable" });
+	for (const a of [luis, ana, pat, hillOwner])
+		assert.deepEqual(refusal(await open(a, reviewId)), { code: "unavailable" });
 	for (const a of [luis, ana, pat, hillOwner]) assert.deepEqual((await list(a)).items, []);
 	// Ben still has no access to Jordan's record.
 	assert.deepEqual(refusal(await readPipelinePersonRecord(db, await authority(ben), { personId: jordan })), {
@@ -272,7 +287,9 @@ test("only Ben reads the send: the chosen questions with their answers and nothi
 test("Ben reads the note's answers as edited, and a question taken out as no longer available", async () => {
 	const kept = await keptNote(dana);
 	const edited = kept.body.replace(FAITH, "I affirm the Nicene Creed.");
-	ok(await pipelineWriter.editNote(db, await authority(dana), { noteId, expectedRevision: kept.revision, body: edited }));
+	ok(
+		await pipelineWriter.editNote(db, await authority(dana), { noteId, expectedRevision: kept.revision, body: edited }),
+	);
 	assert.deepEqual((ok(await open(ben, reviewId)) as { answers: unknown }).answers, [
 		{ question: "Statement of faith", answer: "I affirm the Nicene Creed." },
 		{ question: "Ordination history", answer: ORDINATION },
@@ -280,7 +297,13 @@ test("Ben reads the note's answers as edited, and a question taken out as no lon
 	const again = await keptNote(dana);
 	const without = again.body.replace(`\n\nOrdination history\n${ORDINATION}`, "");
 	assert.notEqual(without, again.body);
-	ok(await pipelineWriter.editNote(db, await authority(dana), { noteId, expectedRevision: again.revision, body: without }));
+	ok(
+		await pipelineWriter.editNote(db, await authority(dana), {
+			noteId,
+			expectedRevision: again.revision,
+			body: without,
+		}),
+	);
 	const read = ok(await open(ben, reviewId));
 	assert.deepEqual((read as { answers: unknown }).answers, [
 		{ question: "Statement of faith", answer: "I affirm the Nicene Creed." },
@@ -354,7 +377,12 @@ test("an ended seat, the note's removal and Jordan's removal on request each sto
 		{ question: "Statement of faith", answer: "The Nicene Creed" },
 	]);
 	const samRecord = await record(dana, sam);
-	ok(await pipelineDataWriter.removePerson(db, await authority(dana), { personId: sam, expectedRevision: samRecord.revision }));
+	ok(
+		await pipelineDataWriter.removePerson(db, await authority(dana), {
+			personId: sam,
+			expectedRevision: samRecord.revision,
+		}),
+	);
 	const read = ok(await open(ben, samReview));
 	assert.deepEqual(read, { ...read, person: "Former participant", shared: false });
 	assert.ok(!JSON.stringify(await list(ben)).includes("Nicene"));
