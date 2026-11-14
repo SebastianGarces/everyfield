@@ -120,6 +120,8 @@ export async function openSeedEnvironment(origin: string): Promise<SeedEnvironme
 				`IDENTITY_MAIL_KEY=${env.mailKey}`,
 				`IDENTITY_ADDRESS_KEY=${env.addressKey}`,
 				`IDENTITY_MAIL_FROM=security@example.test`,
+				// The Evry UI tests drive the scripted model, never a real one; the model reads it off Vercel only.
+				"EVRY_SCRIPTED_MODEL=1",
 				...devStorage(),
 				"",
 			].join("\n"),

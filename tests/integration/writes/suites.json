@@ -29,6 +29,7 @@
 	"tests/integration/settings/*.test.mts",
 	"tests/integration/tasks/*.test.mts",
 	"tests/integration/phases/*.test.mts",
+	"tests/integration/launch/*.test.mts",
 	"tests/integration/intelligence/*.test.mts",
 	"tests/integration/communication/*.test.mts",
 	"tests/integration/followups/*.test.mts",
