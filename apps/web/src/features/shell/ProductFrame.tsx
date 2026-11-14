@@ -7,6 +7,7 @@ import {
 	ChartLineData01Icon,
 	File02Icon,
 	Mail01Icon,
+	MessageEdit01Icon,
 	Route01Icon,
 	Settings02Icon,
 	Task01Icon,
@@ -19,6 +20,7 @@ import { AppShell, RoleBanner, type ShellNav } from "@everyfield/ui/shell";
 import { usePathname } from "next/navigation";
 import { createContext, use, useState, type ReactNode } from "react";
 import { useEvryPanel } from "../evry/conversation/EvryPanel.tsx";
+import { FeedbackDialog } from "../feedback/FeedbackDialog.tsx";
 import { evryOff } from "../intelligence/path.ts";
 import { useNotificationBell } from "../notifications/Bell.tsx";
 import { NotificationsProvider } from "../notifications/feed.tsx";
@@ -33,8 +35,8 @@ import { useWikiChrome, WikiChrome } from "../wiki/client.tsx";
 // The product frame around People, Meetings, Messages, Tasks, Ministries, Wiki, Documents and Settings. Only destinations that
 // exist are in the navigation. The full product navigation and command palette come from their own packages and
 // replace these when they ship. The bell
-// opens the notification drop-down (WP-030). Settings sits at the bottom of the rail and in the user menu behind the
-// name button (screens.md, Overlays).
+// opens the notification drop-down (WP-030). Send feedback (WP-049) opens its dialog over the current page. Settings sits
+// at the bottom of the rail and in the user menu behind the name button (screens.md, Overlays).
 
 const PEOPLE = { kind: "link", key: "people", label: "People", href: "/people", icon: UserMultipleIcon } as const;
 // Meetings is a dynamic page; it loads when chosen, not whenever the frame renders.
@@ -149,6 +151,7 @@ function Frame({ name, photo, settings, seed = null, children }: FrameProps) {
 	const evry = useEvryPanel({ inPlant: settings?.context === "plant", off: privatePage });
 	const bell = useNotificationBell();
 	const wiki = useWikiChrome();
+	const [feedback, setFeedback] = useState(false);
 	const role = settings && settings.context !== "account" ? settings.role : null;
 	// A plant Member reads People and Tasks and works on their own tasks; organization seats have neither.
 	const banner =
@@ -166,6 +169,13 @@ function Frame({ name, photo, settings, seed = null, children }: FrameProps) {
 				: [PEOPLE, MEETINGS, MESSAGES, TASKS, MINISTRIES, WIKI],
 		pages: settings?.context === "plant" && role !== "member" ? [INTELLIGENCE, DOCUMENTS] : [DOCUMENTS],
 		tools: [
+			{
+				kind: "action",
+				key: "feedback",
+				label: "Send feedback",
+				icon: MessageEdit01Icon,
+				onSelect: () => setFeedback(true),
+			},
 			{
 				kind: "action",
 				key: "guide",
@@ -224,6 +234,7 @@ function Frame({ name, photo, settings, seed = null, children }: FrameProps) {
 			{dialog.element}
 			{evry.element}
 			{bell.element}
+			<FeedbackDialog open={feedback} onOpenChange={setFeedback} name={name} />
 		</AppShell>
 	);
 }

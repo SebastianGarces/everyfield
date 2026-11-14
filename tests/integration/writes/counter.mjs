@@ -255,6 +255,7 @@ registerHooks({
 				"/packages/domain/src/meetings/roster.ts": { rosterWriter: "meetings" },
 				"/packages/domain/src/phases/reads.ts": { phaseReader: "phases" },
 				"/packages/domain/src/organizations/pipeline.ts": { pipelineWriter: "pipeline" },
+				"/packages/domain/src/feedback/index.ts": { feedbackWriter: "feedback" },
 			};
 			for (const [name, prefix] of Object.entries(objects[path.slice(root.length)] ?? {}))
 				source += `\nglobalThis.__evfWriteCounts.decorate(${JSON.stringify(prefix)},${name});`;

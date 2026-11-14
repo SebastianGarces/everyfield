@@ -2675,6 +2675,7 @@
         "conversation_event",
         "early_access_attempt",
         "early_access_request",
+        "feedback",
         "generated_document",
         "message_template",
         "model_spend",
@@ -16950,7 +16951,10 @@
         "WP-089",
         "WP-090"
       ],
-      "producer_table_names": [],
+      "producer_table_names": [
+        "feedback",
+        "record"
+      ],
       "consumer_table_names": [
         "audit_event",
         "platform_grant",
@@ -26314,6 +26318,7 @@
         "document_revision",
         "early_access_attempt",
         "early_access_request",
+        "feedback",
         "file_object",
         "four_cs",
         "generated_document",
@@ -32450,6 +32455,7 @@
         "document_revision",
         "early_access_attempt",
         "early_access_request",
+        "feedback",
         "file_object",
         "four_cs",
         "generated_document",
