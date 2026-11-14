@@ -64,6 +64,7 @@ import {
 	readResidentReading,
 	readPipelineBoard,
 	readPipelineConsents,
+	previewPipelineImport,
 	readPipelineExport,
 	readPipelineGoals,
 	readPipelinePersonRecord,
@@ -797,6 +798,22 @@ function cases(who) {
 			"organizations:readPipelineExport",
 			{
 				run: () => plain(() => readPipelineExport(f.db, who.actor)),
+				expected: { value: { status: "refused", refusal: { code: "unavailable" } }, control: null },
+			},
+		],
+		// The pipeline import preview runs only under an organization's Owner or Admin seat, so a church's owner gets the
+		// refusal before the file is read; tests/integration/organizations/import.test.mts holds the organization boundary.
+		[
+			"organizations:previewPipelineImport",
+			{
+				run: () =>
+					plain(() =>
+						previewPipelineImport(f.db, who.actor, {
+							fileName: "applications.csv",
+							file: new TextEncoder().encode("Full name\r\nAvery\r\n"),
+							columns: null,
+						}),
+					),
 				expected: { value: { status: "refused", refusal: { code: "unavailable" } }, control: null },
 			},
 		],

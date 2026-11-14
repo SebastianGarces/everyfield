@@ -14,7 +14,7 @@ import { declareWrite, lockedWrite, nativeWrite, WriteUnavailable } from "../ope
 export type Executor = Pick<Transaction, "execute">;
 
 /** Any organization refusal: the pipeline's or a program's. Each module's replies name their own. */
-type Refusal = C.PipelineRefusal | C.ProgramRefusal;
+type Refusal = C.PipelineRefusal | C.ProgramRefusal | C.PipelineImportRefusal;
 
 class Refused extends Error {
 	readonly refusal: Refusal;

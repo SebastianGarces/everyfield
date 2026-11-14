@@ -28,9 +28,9 @@ function starterStages(organizationId: string) {
 		return { id, kind, label, position };
 	});
 }
-const startersJson = (organizationId: string) => JSON.stringify(starterStages(organizationId));
+export const startersJson = (organizationId: string) => JSON.stringify(starterStages(organizationId));
 /** Inserts the starter stages for an organization that has none saved yet; a repeat inserts nothing. */
-const insertStarters = (
+export const insertStarters = (
 	o: string,
 ) => sql`INSERT INTO pipeline_stage (id,organization_id,stable_kind,label,position,revision)
  SELECT x.id,${o}::uuid,x.kind,x.label,x.position,1 FROM jsonb_to_recordset(${startersJson(o)}::jsonb) x(id uuid,kind text,label text,position int)
@@ -169,6 +169,7 @@ const recordRow = z.object({
 			to_label: z.string().nullable(),
 			reason: z.string().nullable(),
 			moved: z.boolean(),
+			category: z.string().nullable(),
 		}),
 	),
 	notes: z.array(
@@ -236,7 +237,7 @@ SELECT g.allowed,(SELECT today::text FROM o) AS as_of,(SELECT revision::text FRO
  coalesce((SELECT jsonb_agg(h ORDER BY h.at DESC,h.id DESC) FROM (
   SELECT a.id,a.occurred_at AS at,(a.occurred_at AT TIME ZONE o.timezone)::date::text AS on,
    (SELECT i.display_name FROM seat_identity(a.actor_id) i) AS actor,a.action,m.from_label,m.to_label,m.reason,
-   (m.id IS NOT NULL) AS moved
+   (m.id IS NOT NULL) AS moved,a.metadata->>'category' AS category
   FROM x CROSS JOIN o JOIN audit_event a ON a.tenant_id=${org}::uuid AND a.subject_id IN (SELECT id FROM lin)
   LEFT JOIN pipeline_stage_move m ON m.id=a.id AND m.organization_id=a.tenant_id
   WHERE a.action IN ('people.created','people.stage_changed','people.recorded','people.retired','people.restored','people.updated')
@@ -281,7 +282,8 @@ FROM g`);
 			assessment: p.assessedOn && p.assessor ? { on: p.assessedOn, by: p.assessor } : null,
 			history: row.history.map((h) => {
 				const base = { id: h.id, on: h.on, actor: h.actor };
-				if (h.moved && h.from_label === null) return { ...base, kind: "placed", to: h.to_label };
+				if (h.moved && h.from_label === null)
+					return { ...base, kind: h.category === "pipeline_import" ? "imported" : "placed", to: h.to_label };
 				if (h.moved) return { ...base, kind: "moved", from: h.from_label, to: h.to_label, reason: h.reason };
 				const kind =
 					h.action === "people.recorded"
@@ -413,7 +415,7 @@ FROM g`);
 }
 
 /** A seat that may be named responsible: current in this organization (REQ-MUL-002). */
-const eligibleSeat = (w: Writer, seat: string | null) =>
+export const eligibleSeat = (w: Writer, seat: string | null) =>
 	sql`(${seat}::uuid IS NULL OR EXISTS(SELECT FROM seat s WHERE s.id=${seat}::uuid AND s.organization_id=${w.organization}::uuid
  AND s.ended_at IS NULL AND s.accepted_at<=clock_timestamp()))`;
 
