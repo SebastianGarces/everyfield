@@ -2,6 +2,9 @@ import { z } from "zod";
 import { localDate } from "../common/time.ts";
 import { tenantId } from "../common/values.ts";
 import { phaseNumber } from "../phases/index.ts";
+import { health, plantLaunch, publishedSummary, regionArea } from "./health.ts";
+
+export * from "./health.ts";
 
 // Organization oversight (REQ-IDN-023, REQ-IDN-024): what a sending church or network seat reads about the plants that
 // link to it. Every shape here is a name, a locality without street, a phase, a date or a count. No person but the
@@ -27,6 +30,10 @@ export const plantDirectoryRow = z.strictObject({
 	provenance: plantProvenance,
 	/** The display name of the Person holding the recorded lead role now, or null when there is none. */
 	leadPlanter: z.string().nullable(),
+	/** The official metro or micro area the plant chose as its reporting Region, or null when unresolved. */
+	region: regionArea.nullable(),
+	/** Limited visibility, Launch readiness or not yet assessed (oversight.getHealth). */
+	health,
 });
 export type PlantDirectoryRow = z.infer<typeof plantDirectoryRow>;
 /** The organization's own name and the plants linked to it, by name (oversight.listPlants). */
@@ -101,7 +108,14 @@ export type SectionKey = keyof PlantSections;
 export type Section<K extends SectionKey> = PlantSections[K];
 
 /** One plant as this organization sees it (oversight.getPlant). */
-export const plantView = z.strictObject({ plant: plantDirectoryRow, sections: plantSections });
+export const plantView = z.strictObject({
+	plant: plantDirectoryRow,
+	sections: plantSections,
+	/** Launch status, readiness and outcome (oversight.readLaunchReadiness). */
+	launch: plantLaunch,
+	/** The latest published launch summary (organizationLaunchSummary.readPublished), or null. */
+	summary: publishedSummary.nullable(),
+});
 export type PlantView = z.infer<typeof plantView>;
 
 /** One sending church on a network's roster (oversight.listSendingChurches). */

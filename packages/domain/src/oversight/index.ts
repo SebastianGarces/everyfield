@@ -4,8 +4,12 @@ import { sql, type SQL } from "@everyfield/db/query";
 import "server-only";
 import { z } from "zod";
 import { liveAccess, liveRead, liveRows, type RequestActor } from "../access/session.ts";
+import { createLaunchReader } from "../launch/reads.ts";
 import { linkActive, type Reader } from "../organizations/core.ts";
+import { areaOf, latestGeography } from "../organizations/geography.ts";
 import { compatible } from "../teams/training/reads.ts";
+import { launchJson, parsePreparation, plantLaunchOf, preparationJson } from "./launch.ts";
+export { runIntelligence, readIntelligence, rateIntelligence } from "./intelligence.ts";
 
 // Organization oversight reads (REQ-IDN-023, REQ-IDN-024): oversight.listPlants, oversight.getPlant,
 // oversight.listSendingChurches and oversight.getSendingChurch. Each statement checks the seat's live access (C13), the
@@ -21,8 +25,18 @@ function organizationOf(authority: RequestActor): Organization | null {
 }
 const live = (authority: RequestActor) => liveRead(liveAccess(authority));
 
-/** The plants linked to organization `org` (a uuid parameter) by their own active link `k`, with `where` added. */
-const directory = (org: SQL, where: SQL) => sql`SELECT p.id AS plant_id, p.name, p.city, p.state_province, p.country,
+/**
+ * The plants linked to organization `org` (a uuid parameter) by their own active link `k`, with `where` added. The
+ * locality is the plant's latest reporting location when it saved one, else its profile's, never the street. Health
+ * reads the launch preparation counts only while the link shares Plant Intelligence findings, and the gap counts only
+ * while it also shares Ministry teams.
+ */
+const directory = (org: SQL, where: SQL) => sql`SELECT p.id AS plant_id, p.name,
+	CASE WHEN g.plant_id IS NULL THEN p.city ELSE g.city END AS city,
+	CASE WHEN g.plant_id IS NULL THEN p.state_province ELSE g.state_province END AS state_province,
+	CASE WHEN g.plant_id IS NULL THEN p.country ELSE g.country END AS country,
+	ri.canonical_key AS region_key, k.shared_findings,
+	CASE WHEN k.shared_findings THEN ${preparationJson(sql`p.id`, sql`k.share_ministry_teams`)} END AS preparation,
 	p.phase, l.target_date::text AS launch_date,
 	(SELECT coalesce(json_agg(DISTINCT o.name), '[]'::json) FROM affiliation ps
 		JOIN organization o ON o.id=ps.organization_id AND o.kind='sending_church'
@@ -34,6 +48,8 @@ const directory = (org: SQL, where: SQL) => sql`SELECT p.id AS plant_id, p.name,
 		JOIN person pe ON pe.id=tn.person_id AND pe.plant_id=r.plant_id AND pe.state='live'
 		WHERE s.plant_id=p.id AND s.lead->>'answer'='yes') AS lead_planter
 	FROM affiliation k JOIN plant p ON p.id=k.plant_id LEFT JOIN launch l ON l.plant_id=p.id
+	LEFT JOIN LATERAL ${latestGeography(sql`p.id`)} g ON true
+	LEFT JOIN reference_item ri ON ri.id=g.region_item_id AND ri.kind='geography_region'
 	WHERE k.organization_id=${org} AND k.plant_id IS NOT NULL AND ${linkActive("k")} AND ${where}`;
 const directoryRow = z.object({
 	plant_id: z.string(),
@@ -45,6 +61,9 @@ const directoryRow = z.object({
 	launch_date: z.string().nullable(),
 	through: z.array(z.string()),
 	lead_planter: z.string().nullable(),
+	region_key: z.string().nullable(),
+	shared_findings: z.boolean(),
+	preparation: z.unknown().nullable(),
 });
 function plantRow(raw: unknown): C.PlantDirectoryRow {
 	const r = directoryRow.parse(raw);
@@ -58,6 +77,8 @@ function plantRow(raw: unknown): C.PlantDirectoryRow {
 		launchDate: r.launch_date,
 		provenance: r.through.length ? { kind: "through", sendingChurches: [...r.through].sort() } : { kind: "direct" },
 		leadPlanter: r.lead_planter,
+		region: areaOf(r.region_key),
+		health: C.healthOf(r.shared_findings, r.preparation ? parsePreparation(r.preparation) : null),
 	});
 }
 const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name);
@@ -215,7 +236,13 @@ export async function getPlant(
 ): Promise<C.PlantView | null> {
 	const org = organizationOf(authority);
 	if (!org || !recordId.safeParse(plantId).success) return null;
-	const rows = await liveRows(db, live(authority), directory(uuid(org.id), sql`p.id=${uuid(plantId)}`));
+	const p = uuid(plantId);
+	const rows = await liveRows(
+		db,
+		live(authority),
+		sql`SELECT d.*, CASE WHEN d.shared_findings THEN ${launchJson(p)} END AS launch
+		FROM (${directory(uuid(org.id), sql`p.id=${p}`)}) d`,
+	);
 	if (!rows?.[0]) return null;
 	// One statement per section, so a section that fails leaves the others readable. A failed statement on the pool
 	// ends no transaction.
@@ -228,7 +255,10 @@ export async function getPlant(
 			sections[key] = { status: "unavailable" };
 		}
 	}
-	return C.plantView.parse({ plant: plantRow(rows[0]), sections });
+	const row = rows[0];
+	const launch = row.launch ? plantLaunchOf(row.launch, row.preparation) : { status: "withheld" };
+	const summary = await createLaunchReader().readPublishedSummary(db, authority, plantId);
+	return C.plantView.parse({ plant: plantRow(row), sections, launch, summary });
 }
 
 /** The active link `sn` from sending church `church` (SQL) to network `net`. */

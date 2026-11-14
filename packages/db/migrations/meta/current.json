@@ -12802,6 +12802,382 @@
       },
       "isRLSEnabled": false
     },
+    "public.network_intelligence_feedback": {
+      "name": "network_intelligence_feedback",
+      "schema": "",
+      "columns": {
+        "run_id": {
+          "name": "run_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "account_id": {
+          "name": "account_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "pattern_key": {
+          "name": "pattern_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "rating": {
+          "name": "rating",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "recorded_at": {
+          "name": "recorded_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "clock_timestamp()"
+        }
+      },
+      "indexes": {
+        "network_intelligence_feedback_account_idx": {
+          "name": "network_intelligence_feedback_account_idx",
+          "columns": [
+            {
+              "expression": "account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "network_intelligence_feedback_run": {
+          "name": "network_intelligence_feedback_run",
+          "tableFrom": "network_intelligence_feedback",
+          "tableTo": "network_intelligence_run",
+          "columnsFrom": [
+            "run_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "network_intelligence_feedback_account": {
+          "name": "network_intelligence_feedback_account",
+          "tableFrom": "network_intelligence_feedback",
+          "tableTo": "account",
+          "columnsFrom": [
+            "account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "network_intelligence_feedback_pkey": {
+          "name": "network_intelligence_feedback_pkey",
+          "columns": [
+            "run_id",
+            "account_id",
+            "pattern_key"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "network_intelligence_feedback_rating": {
+          "name": "network_intelligence_feedback_rating",
+          "value": "(rating = ANY (ARRAY['useful'::text, 'not_useful'::text]))"
+        },
+        "network_intelligence_feedback_key": {
+          "name": "network_intelligence_feedback_key",
+          "value": "((length(pattern_key) >= 1) AND (length(pattern_key) <= 200))"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.network_intelligence_plant": {
+      "name": "network_intelligence_plant",
+      "schema": "",
+      "columns": {
+        "run_id": {
+          "name": "run_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "plant_id": {
+          "name": "plant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "launched": {
+          "name": "launched",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "days_to_launch": {
+          "name": "days_to_launch",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "unfilled_roles": {
+          "name": "unfilled_roles",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "outstanding_training": {
+          "name": "outstanding_training",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "region_item_id": {
+          "name": "region_item_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "state_province": {
+          "name": "state_province",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "country": {
+          "name": "country",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "network_intelligence_plant_plant_idx": {
+          "name": "network_intelligence_plant_plant_idx",
+          "columns": [
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "network_intelligence_plant_region_idx": {
+          "name": "network_intelligence_plant_region_idx",
+          "columns": [
+            {
+              "expression": "region_item_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "network_intelligence_plant_run": {
+          "name": "network_intelligence_plant_run",
+          "tableFrom": "network_intelligence_plant",
+          "tableTo": "network_intelligence_run",
+          "columnsFrom": [
+            "run_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "network_intelligence_plant_plant": {
+          "name": "network_intelligence_plant_plant",
+          "tableFrom": "network_intelligence_plant",
+          "tableTo": "plant",
+          "columnsFrom": [
+            "plant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "network_intelligence_plant_region": {
+          "name": "network_intelligence_plant_region",
+          "tableFrom": "network_intelligence_plant",
+          "tableTo": "reference_item",
+          "columnsFrom": [
+            "region_item_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "network_intelligence_plant_pkey": {
+          "name": "network_intelligence_plant_pkey",
+          "columns": [
+            "run_id",
+            "plant_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "network_intelligence_plant_counts": {
+          "name": "network_intelligence_plant_counts",
+          "value": "((unfilled_roles IS NULL) OR (unfilled_roles >= 0)) AND ((outstanding_training IS NULL) OR (outstanding_training >= 0))"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.network_intelligence_run": {
+      "name": "network_intelligence_run",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "requested_by": {
+          "name": "requested_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ran_at": {
+          "name": "ran_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "clock_timestamp()"
+        },
+        "rubric_version": {
+          "name": "rubric_version",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "network_intelligence_run_organization_idx": {
+          "name": "network_intelligence_run_organization_idx",
+          "columns": [
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "ran_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "network_intelligence_run_requester_idx": {
+          "name": "network_intelligence_run_requester_idx",
+          "columns": [
+            {
+              "expression": "requested_by",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "network_intelligence_run_organization": {
+          "name": "network_intelligence_run_organization",
+          "tableFrom": "network_intelligence_run",
+          "tableTo": "organization",
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "network_intelligence_run_requester": {
+          "name": "network_intelligence_run_requester",
+          "tableFrom": "network_intelligence_run",
+          "tableTo": "account",
+          "columnsFrom": [
+            "requested_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "network_intelligence_run_pkey": {
+          "name": "network_intelligence_run_pkey",
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "network_intelligence_run_rubric": {
+          "name": "network_intelligence_run_rubric",
+          "value": "(rubric_version = 'everyfield-network/v1'::text)"
+        }
+      },
+      "isRLSEnabled": false
+    },
     "public.notice": {
       "name": "notice",
       "schema": "",

@@ -41,3 +41,16 @@ export {
 	readVersionReviews,
 	searchReadings,
 } from "./programs.ts";
+export {
+	areaOf,
+	countryKey,
+	geographyReference,
+	installGeographyRelease,
+	latestGeography,
+	matchAreas,
+	readReportingLocation,
+	stateCode,
+	stateName,
+	statesOf,
+	suggestRegions,
+} from "./geography.ts";

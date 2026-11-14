@@ -6547,3 +6547,99 @@ export const church_brand_kit = pgTable(
 		index("church_brand_kit_signature_ref").using("btree", table.signature_object_id.asc().nullsLast()),
 	],
 );
+export const network_intelligence_run = pgTable(
+	"network_intelligence_run",
+	{
+		id: uuid("id").notNull(),
+		organization_id: uuid("organization_id").notNull(),
+		requested_by: uuid("requested_by"),
+		ran_at: timestamp("ran_at", { withTimezone: true, mode: "date" })
+			.notNull()
+			.default(sql`clock_timestamp()`),
+		rubric_version: text("rubric_version").notNull(),
+	},
+	(t): PgTableExtraConfigValue[] => [
+		primaryKey({ name: "network_intelligence_run_pkey", columns: [t.id] }),
+		foreignKey({
+			name: "network_intelligence_run_organization",
+			columns: [t.organization_id],
+			foreignColumns: [organization.id],
+		})
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		foreignKey({ name: "network_intelligence_run_requester", columns: [t.requested_by], foreignColumns: [account.id] })
+			.onDelete("set null")
+			.onUpdate("no action"),
+		check("network_intelligence_run_rubric", sql`(rubric_version = 'everyfield-network/v1'::text)`),
+		index("network_intelligence_run_organization_idx").on(t.organization_id, t.ran_at),
+		index("network_intelligence_run_requester_idx").on(t.requested_by),
+	],
+);
+export const network_intelligence_plant = pgTable(
+	"network_intelligence_plant",
+	{
+		run_id: uuid("run_id").notNull(),
+		plant_id: uuid("plant_id").notNull(),
+		launched: boolean("launched").notNull(),
+		days_to_launch: integer("days_to_launch"),
+		unfilled_roles: integer("unfilled_roles"),
+		outstanding_training: integer("outstanding_training"),
+		region_item_id: uuid("region_item_id"),
+		state_province: text("state_province"),
+		country: text("country"),
+	},
+	(t): PgTableExtraConfigValue[] => [
+		primaryKey({ name: "network_intelligence_plant_pkey", columns: [t.run_id, t.plant_id] }),
+		foreignKey({
+			name: "network_intelligence_plant_run",
+			columns: [t.run_id],
+			foreignColumns: [network_intelligence_run.id],
+		})
+			.onDelete("cascade")
+			.onUpdate("no action"),
+		foreignKey({ name: "network_intelligence_plant_plant", columns: [t.plant_id], foreignColumns: [plant.id] })
+			.onDelete("cascade")
+			.onUpdate("no action"),
+		foreignKey({
+			name: "network_intelligence_plant_region",
+			columns: [t.region_item_id],
+			foreignColumns: [reference_item.id],
+		})
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		check(
+			"network_intelligence_plant_counts",
+			sql`((unfilled_roles IS NULL) OR (unfilled_roles >= 0)) AND ((outstanding_training IS NULL) OR (outstanding_training >= 0))`,
+		),
+		index("network_intelligence_plant_plant_idx").on(t.plant_id),
+		index("network_intelligence_plant_region_idx").on(t.region_item_id),
+	],
+);
+export const network_intelligence_feedback = pgTable(
+	"network_intelligence_feedback",
+	{
+		run_id: uuid("run_id").notNull(),
+		account_id: uuid("account_id").notNull(),
+		pattern_key: text("pattern_key").notNull(),
+		rating: text("rating").notNull(),
+		recorded_at: timestamp("recorded_at", { withTimezone: true, mode: "date" })
+			.notNull()
+			.default(sql`clock_timestamp()`),
+	},
+	(t): PgTableExtraConfigValue[] => [
+		primaryKey({ name: "network_intelligence_feedback_pkey", columns: [t.run_id, t.account_id, t.pattern_key] }),
+		foreignKey({
+			name: "network_intelligence_feedback_run",
+			columns: [t.run_id],
+			foreignColumns: [network_intelligence_run.id],
+		})
+			.onDelete("cascade")
+			.onUpdate("no action"),
+		foreignKey({ name: "network_intelligence_feedback_account", columns: [t.account_id], foreignColumns: [account.id] })
+			.onDelete("cascade")
+			.onUpdate("no action"),
+		check("network_intelligence_feedback_rating", sql`(rating = ANY (ARRAY['useful'::text, 'not_useful'::text]))`),
+		check("network_intelligence_feedback_key", sql`((length(pattern_key) >= 1) AND (length(pattern_key) <= 200))`),
+		index("network_intelligence_feedback_account_idx").on(t.account_id),
+	],
+);
