@@ -210,7 +210,7 @@ export const teamDetail = z.strictObject({
 	members: z.array(memberRow).max(500),
 });
 /** One current ministry role a person holds. */
-export const memberMatch = z.strictObject({
+const memberMatch = z.strictObject({
 	personId,
 	name: z.string().min(1).max(200),
 	teamId: recordId,
@@ -248,7 +248,7 @@ export const staffingSummary = z.strictObject({
 	openRoles: z.int().min(0),
 	people: z.int().min(0),
 });
-export const personTeamCount = z.strictObject({
+const personTeamCount = z.strictObject({
 	personId,
 	name: z.string().min(1).max(200),
 	teams: z.int().min(1),
