@@ -87,8 +87,9 @@ The cases whose result depends on the database clock, now pinned:
   (`cancelScheduledReviewed`) and ADP-M-08 (a draft for the fixture Friday), which act on the same scheduled send.
   Unpinned, ADP-M-03, ADP-M-04 and ADP-M-07's review cards carried "That time has already passed" once real time
   passed 2026-11-13.
-- Inactivity on the real pipeline board (`people.getPipelineData`): ADP-O-08, COM-06, GST-01, LCH-06, MON-01, MON-05,
-  PIP-01, PIP-02, PIP-04, PIP-05 and PREP-05.
+- Inactivity on the real pipeline board (`people.getPipelineData`): ADP-O-08, COM-06, GST-01, LCH-03, LCH-05, MON-01,
+  MON-03, MON-04, MON-05, PIP-01, PIP-02 and PIP-04. Fixed-date activity counts too: Maria Santos's note is dated before
+  her clock-relative last contact, so she reads her fixture's warning in `NOW`'s frame.
 - The whole follow-up suite (`followups.cases.json`), whose candidates are ranked by inactivity.
 - Every case's live session and accepted seat, seeded relative to the database clock.
 

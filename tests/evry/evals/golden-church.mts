@@ -342,10 +342,11 @@ export async function seedHope(admin: Database) {
 				FROM (SELECT clock_timestamp()-make_interval(days=>${p.inactivity === "warning" ? 10 : 2}) AS t) x`);
 	}
 
-	// A note the Admin wrote on Maria Santos: only its author may edit or delete it.
+	// A note the Admin wrote on Maria Santos: only its author may edit or delete it. A note is activity, so it is dated
+	// before her last contact (10 days before NOW): she keeps her inactivity warning in NOW's frame.
 	await run(sql`INSERT INTO person_note(id,tenant_id,plant_id,person_id,author_id,body,occurred_at,recorded_at)
 		VALUES(${MARIA_NOTE},${PLANT},${PLANT},${byName("Maria Santos").id},${ACTOR_SPECS.admin.account},
-			'Met us at the fall picnic and asked about small groups.','2026-11-02T18:00:00.000Z','2026-11-02T18:00:00.000Z')`);
+			'Met us at the fall picnic and asked about small groups.','2026-10-28T18:00:00.000Z','2026-10-28T18:00:00.000Z')`);
 
 	// The import: its saved plan, its finished job and the people.created audit rows of the five people it created.
 	const plan = {
