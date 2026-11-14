@@ -64,7 +64,6 @@ export async function pinSchemaClock(admin: Database, schema: string, at: Date) 
 		sql`SELECT (${at.toISOString()}::timestamptz - pg_catalog.clock_timestamp())::text AS shift`,
 	);
 	const shift = rows[0]!.shift;
-	if (!/^[-+0-9a-z :.]+$/.test(shift)) throw Error(`Not an interval: ${shift}`);
 	for (const [fn, volatility] of [
 		["clock_timestamp", "VOLATILE"],
 		["statement_timestamp", "STABLE"],

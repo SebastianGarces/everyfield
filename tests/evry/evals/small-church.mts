@@ -7,7 +7,8 @@
 // Inactivity is the real board's comparison of each person's latest activity with the church's 7 and 14 inactivity
 // days, against the database clock, which evalDatabase (golden-church.mts) pins to golden NOW's frame. So that it
 // reads the same on every run, a person at level none or warning has a last contact (a follow-up outcome) 2 or 10
-// days before the seed runs; an alert-level person has no contact and was created months ago. Coverage is whether a person has an open task.
+// days before the seed runs; an alert-level person has no contact and was created months ago. Coverage is whether a
+// person has an open task.
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { stepCountIs, streamText } from "../../../packages/evry/node_modules/ai/dist/index.js";
 import type { LanguageModelV4 } from "@ai-sdk/provider";
