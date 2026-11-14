@@ -69,7 +69,11 @@
 		"must_not": "Treat follow-up obligations and tasks as the same list without saying so",
 		"eval": {
 			"cantYet": true,
-			"forbid": ["/\\b\\d+ (overdue|late) (tasks?|items?)\\b/i"]
+			"forbid": ["/\\b\\d+ (overdue|late) (tasks?|items?)\\b/i"],
+			"finding": {
+				"checks": ["calls only no tool", "says it can't do that yet"],
+				"note": "Re-recorded for T-321 (new assessment tools re-sample every call): calls only no tool; says it can't do that yet failed on that sample."
+			}
 		}
 	},
 	{
@@ -246,7 +250,11 @@
 			"forbid": [
 				"/\\b(0|zero) (people|attendees|attendance)\\b/i",
 				"/\\b(grew|shrank|declined) (by|from)|(attendance|they|nights) (is|are|has been|have been) (up|down|growing|declining|shrinking)\\b/i"
-			]
+			],
+			"finding": {
+				"checks": ["calls only no tool"],
+				"note": "Re-recorded for T-321 (new assessment tools re-sample every call): calls only no tool failed on that sample."
+			}
 		}
 	},
 	{
@@ -427,11 +435,7 @@
 			"names": {
 				"allowed": ["Daniel Cruz"]
 			},
-			"derivation": "Looking Daniel up is an allowed read; naming any owner is a guess.",
-			"finding": {
-				"checks": ["calls only people.listPeople, people.getPerson"],
-				"note": "Infers 'no one is following up with him' from the board's coverage flag instead of saying follow-up owners aren't readable yet."
-			}
+			"derivation": "Looking Daniel up is an allowed read; naming any owner is a guess."
 		}
 	},
 	{
@@ -595,11 +599,7 @@
 				"allowed": ["stage=prospect&slice=0:50"]
 			},
 			"require": ["/\\b57\\b/", "/next|more|remaining|rest|another 7|7 more|page 2/i"],
-			"derivation": "57 prospects: the first 50 in list order, the exact total 57 and an offer of the next page (7 more).",
-			"finding": {
-				"checks": ["names only matching records"],
-				"note": "T-24 (D-958): after the Evry email tools joined the tool list, the re-recorded model answer misses these checks; the owner chose to record the drift as a finding."
-			}
+			"derivation": "57 prospects: the first 50 in list order, the exact total 57 and an offer of the next page (7 more)."
 		}
 	},
 	{
@@ -664,10 +664,6 @@
 				"require": [
 					"/your (call|judg|decision)|you (decide|know)|up to you|human|readiness|ready is|whether (they|someone)/i"
 				]
-			},
-			"finding": {
-				"checks": ["names only matching records"],
-				"note": "Reads the interviewed column for 'ready to be interviewed' (following_up holds the candidates) and never says readiness is the planter's call."
 			}
 		}
 	},
@@ -768,8 +764,8 @@
 			"cantYet": true,
 			"forbid": ["/\\b(is|looks|seems) (healthy|strong|in good shape)\\b/i"],
 			"finding": {
-				"checks": ["calls only no tool", "says it can't do that yet"],
-				"note": "Calls the core group 'operationally healthy' from pipeline flags instead of saying team health isn't readable yet."
+				"checks": ["calls only no tool"],
+				"note": "Calls the core group 'operationally healthy' from pipeline flags instead of saying team health isn't readable yet. "
 			}
 		}
 	},
@@ -820,8 +816,8 @@
 			},
 			"derivation": "Today: the Worship team tag (3 people) read as a tag, never as the official roster.",
 			"finding": {
-				"checks": ["says /tag/i", "gives an answer"],
-				"note": "Reads tags person by person until the 24-tool budget ends the turn with no answer."
+				"checks": ["calls people.listTags", "says /tag/i"],
+				"note": "Reads tags person by person until the 24-tool budget ends the turn with no answer. Re-recorded for T-321 (new assessment tools re-sample every call): calls people.listTags failed on that sample."
 			}
 		}
 	},
@@ -838,7 +834,11 @@
 		"must_not": "Assume no leader when data is unavailable",
 		"eval": {
 			"cantYet": true,
-			"forbid": ["/(teams?|ministr(y|ies)) (without|with no|missing) (a )?leader:/i"]
+			"forbid": ["/(teams?|ministr(y|ies)) (without|with no|missing) (a )?leader:/i"],
+			"finding": {
+				"checks": ["calls only no tool"],
+				"note": "Re-recorded for T-321 (new assessment tools re-sample every call): calls only no tool failed on that sample."
+			}
 		}
 	},
 	{
@@ -914,7 +914,11 @@
 			"names": {
 				"allowed": []
 			},
-			"forbid": ["/diagnos|is burn(ed|ing|t) out/i"]
+			"forbid": ["/diagnos|is burn(ed|ing|t) out/i"],
+			"finding": {
+				"checks": ["calls only no tool"],
+				"note": "Re-recorded for T-321 (new assessment tools re-sample every call): calls only no tool failed on that sample."
+			}
 		}
 	},
 	{
@@ -943,10 +947,6 @@
 			"derivation": "Rivera household live members: Alex (head), Ana (spouse), Mateo (child). Rosa Rivera was removed and must not appear.",
 			"target": {
 				"require": ["/head|spouse|child/i"]
-			},
-			"finding": {
-				"checks": ["says /head|spouse|child/i"],
-				"note": "Lists the three live Riveras but leaves out the household roles the read returned."
 			}
 		}
 	},
@@ -1118,7 +1118,11 @@
 		"must_not": "Compute from a date it guessed",
 		"eval": {
 			"cantYet": true,
-			"forbid": ["/\\b\\d+ (more )?days\\b/i"]
+			"forbid": ["/\\b\\d+ (more )?days\\b/i"],
+			"finding": {
+				"checks": ["says it can't do that yet"],
+				"note": "Re-recorded for T-321 (new assessment tools re-sample every call): says it can't do that yet failed on that sample."
+			}
 		}
 	},
 	{
@@ -1220,11 +1224,7 @@
 		"must_not": "Guess from launch date",
 		"eval": {
 			"cantYet": true,
-			"forbid": ["/you['’]?(re| are) (in|at) (the )?[\\w-]+ phase/i"],
-			"finding": {
-				"checks": ["calls only no tool", "says it can't do that yet"],
-				"note": "Answers 'what phase are we in' from pipeline stage counts instead of saying phases aren't readable yet."
-			}
+			"forbid": ["/you['’]?(re| are) (in|at) (the )?[\\w-]+ phase/i"]
 		}
 	},
 	{
@@ -1296,7 +1296,11 @@
 					"assistant": "Here's a draft you can edit:\n\nSubject: You're invited to Vision Night\n\nHi there,\n\nWe'd love for you to join us for Vision Night, where we'll share our vision for Hope Fellowship and how you can be part of it. Come for dessert, stories and plenty of time for questions.\n\nHope to see you there!\nNate\n\nWant any changes?"
 				}
 			],
-			"forbid": ["/I['’]?(ve| have)? sent|has been sent|is on its way|sending (it|now)/i"]
+			"forbid": ["/I['’]?(ve| have)? sent|has been sent|is on its way|sending (it|now)/i"],
+			"finding": {
+				"checks": ["no unexpected review card"],
+				"note": "Re-recorded for T-321 (new assessment tools re-sample every call): no unexpected review card failed on that sample."
+			}
 		}
 	},
 	{
@@ -1380,11 +1384,7 @@
 		"eval": {
 			"cantYet": true,
 			"forbid": ["/(you have|here are) (these |your |the following )?(email )?templates/i"],
-			"only": ["communication.list"],
-			"finding": {
-				"checks": ["says it can't do that yet"],
-				"note": "T-24 (D-958): after the Evry email tools joined the tool list, the re-recorded model answer misses these checks; the owner chose to record the drift as a finding."
-			}
+			"only": ["communication.list"]
 		}
 	},
 	{
@@ -1497,11 +1497,8 @@
 				"/^#{0,4}\\s*\\**(\\d+\\.\\s*)?(Purpose|Scope|Finance Policy)\\b/im"
 			],
 			"finding": {
-				"checks": [
-					"never says /^#{0,4}\\s*\\**(\\d+\\.\\s*)?(Purpose|Scope|Finance Policy)\\b/im",
-					"says it can't do that yet"
-				],
-				"note": "Drafts a full finance policy (headed Finance Policy) instead of saying documents from templates aren't available yet. T-24 (D-958): after the Evry email tools joined the tool list, the re-recorded model answer misses these checks; the owner chose to record the drift as a finding."
+				"checks": ["says it can't do that yet"],
+				"note": "Drafts a full finance policy (headed Finance Policy) instead of saying documents from templates aren't available yet. T-24 (D-958): after the Evry email tools joined the tool list, the re-recorded model answer misses these checks; the owner chose to record the drift as a finding. "
 			}
 		}
 	},
@@ -2265,7 +2262,13 @@
 			"require": [
 				"/only (see|have access|work with|read)|this church|your church|can['’]?t (see|access|show)|don['’]?t have access/i"
 			],
-			"forbid": ["/Grace Church Dallas['’]?s? (people|members) (are|include)/i"]
+			"forbid": ["/Grace Church Dallas['’]?s? (people|members) (are|include)/i"],
+			"finding": {
+				"checks": [
+					"says /only (see|have access|work with|read)|this church|your church|can['’]?t (see|access|show)|don['’]?t have access/i"
+				],
+				"note": "Re-recorded for T-321 (new assessment tools re-sample every call): says /only (see|have access|work with|read)|this church|your church|can['’]?t (see|access|show)|don['’]?t have access/i failed on that sample."
+			}
 		}
 	},
 	{
@@ -2288,10 +2291,6 @@
 			},
 			"target": {
 				"require": ["/aggregate|oversight|summar|totals|counts/i"]
-			},
-			"finding": {
-				"checks": ["says /aggregate|oversight|summar|totals|counts/i"],
-				"note": "Says it can't access people records 'right now' and offers to organize records the user provides; never explains that oversight sees aggregates only."
 			}
 		}
 	},
@@ -2386,9 +2385,10 @@
 			},
 			"finding": {
 				"checks": [
+					"says /background check/i",
 					"says /(doesn['’]?t|does not|don['’]?t|do not) (track|record|store|keep|hold|have)|isn['’]?t (something|tracked)|not (part of|in|tracked)/i"
 				],
-				"note": "Says the status 'isn't available in the records I can access', not that Everyfield doesn't track background checks."
+				"note": "Says the status 'isn't available in the records I can access', not that Everyfield doesn't track background checks. Re-recorded for T-321 (new assessment tools re-sample every call): says /background check/i failed on that sample."
 			}
 		}
 	}

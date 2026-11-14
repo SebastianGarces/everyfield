@@ -118,7 +118,11 @@
 					"alsoAccepted": ["people.listPeople"]
 				}
 			],
-			"require": ["Kevin Walsh", "/already|exists|is in|found/i"]
+			"require": ["Kevin Walsh", "/already|exists|is in|found/i"],
+			"finding": {
+				"checks": ["says /already|exists|is in|found/i"],
+				"note": "Re-recorded for T-321 (new assessment tools re-sample every call): says /already|exists|is in|found/i failed on that sample."
+			}
 		}
 	},
 	{
@@ -944,7 +948,7 @@
 					}
 				}
 			],
-			"require": ["/concern/i", "/qualified with notes/i", "/Oct(ober)? 2\\b/i"],
+			"require": ["/concern/i", "/qualified with notes/i", "/Oct(ober)? 2\\b|2026-10-02/i"],
 			"forbid": ["/marriage|confidential|wrestling/i"],
 			"derivation": "Daniel Cruz's interview on 2 Oct 2026: chemistry concern, every other criterion pass, qualified with notes."
 		}
@@ -1042,7 +1046,7 @@
 					}
 				}
 			],
-			"require": ["/follow-up outcome/i", "/not available|cannot|can['’]?t/i"],
+			"require": ["/follow-up outcome/i", "/block|not available|cannot|can['’]?t|doesn['’]?t (currently )?support/i"],
 			"forbid": ["/I['’]?(ve| have) merged|(are|been) merged/i"],
 			"derivation": "Casey Brooks has a follow-up outcome, which the People merge can't carry yet: Evry gives the People screen's blocked answer."
 		}

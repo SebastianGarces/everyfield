@@ -319,8 +319,9 @@ test("INV-evry-assessments CLN-03: a merge review shows who stays and what moves
 		{ field: "keeps", before: null, after: "Jon Merge" },
 		{ field: "mergesIn", before: null, after: "John Merge" },
 		{ field: "moves", before: null, after: "1 note" },
-		// The People merge's default: the survivor's empty email takes the source's.
+		// The People merge's default: the survivor's empty email takes the source's; the name stays Jon's.
 		{ field: "email", before: null, after: "john.merge@example.org" },
+		{ field: "keptDetails", before: null, after: "Name" },
 	]);
 	assert.equal((await approveAndRun(owner, merge)).outcome, "completed");
 	const merged = await admin.execute(sql`SELECT state,merged_into_person_id FROM person WHERE id=${john}`);
@@ -394,7 +395,7 @@ test("INV-evry-assessments: correcting an interview's date shows the old and new
 	const history = await read(owner, "people.listRecordCorrections", { personId: person });
 	assert.deepEqual(
 		history.rows.map((r) => r.fields.changes),
-		["occurredOn: 2026-10-03 -> 2026-10-02"],
+		[JSON.stringify([{ field: "occurredOn", old: "2026-10-03", new: "2026-10-02" }])],
 	);
 	// A rating given without notes keeps the notes the criterion has.
 	const keep = await propose("people.correctPersonRecord", {

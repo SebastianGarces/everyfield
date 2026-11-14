@@ -450,6 +450,40 @@
 		}
 	},
 	{
+		"case_id": "ASM-23",
+		"extra": true,
+		"model": "scripted",
+		"adapter": "people-assessments",
+		"operation": "people.correctCommitmentLifecycle",
+		"near_miss": false,
+		"question": "Ana's card was signed Sep 21, not Sep 20",
+		"eval": {
+			"calls": [
+				{
+					"operation": "people.getCommitments",
+					"input": {
+						"personId": "@Ana Rivera"
+					}
+				}
+			],
+			"proposals": [
+				{
+					"operation": "people.correctCommitmentLifecycle",
+					"input": {
+						"commitmentId": "5b6d1f0e-0000-4000-8000-000000006002",
+						"correction": {
+							"action": "correct",
+							"occurredOn": "2026-09-21"
+						}
+					},
+					"changes": [["occurredOn", "2026-09-21", "2026-09-20"]]
+				}
+			],
+			"require": ["/review/i"],
+			"derivation": "The card's signed date is corrected through its own review, old and new date shown, with the user's words as the reason."
+		}
+	},
+	{
 		"case_id": "ASM-19",
 		"extra": true,
 		"model": "scripted",
@@ -558,6 +592,27 @@
 			],
 			"require": ["/Unmerge review for Jon Smith/"],
 			"derivation": "After the merge, nothing changed since: an Unmerge review."
+		}
+	},
+	{
+		"case_id": "ASM-24",
+		"extra": true,
+		"model": "scripted",
+		"adapter": "people-assessments",
+		"operation": "people.mergedPersonDestination",
+		"near_miss": false,
+		"question": "where does record 5b6d1f0e-0000-4000-8000-00000000011f lead?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "people.mergedPersonDestination",
+					"input": {
+						"personId": "@John Smith"
+					}
+				}
+			],
+			"require": ["/merged into another person \\(5b6d1f0e-0000-4000-8000-00000000011e\\)/"],
+			"derivation": "After the merge (ASM-21's setup), John Smith's record leads to Jon Smith."
 		}
 	},
 	{

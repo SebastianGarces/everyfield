@@ -107,12 +107,16 @@ type Intent =
 	| { kind: "record_commitment"; name: string; occurredOn: string | null; commitment: "core_group" | "launch_team" }
 	| { kind: "lifecycle"; name: string; to: "withdrawn" | "active"; on: string | null }
 	| { kind: "fix_interview_date"; name: string; occurredOn: string | null }
+	| { kind: "fix_card_date"; name: string; occurredOn: string | null; reason: string }
+	| { kind: "destination"; personId: string }
 	| { kind: "merge"; names: string[] }
 	| { kind: "unmerge" };
 
 function intentOf(text: string, prompt: Prompt): Intent | null {
 	const lower = text.toLowerCase();
 	if (/\bundo (that|the) merge\b|\bunmerge\b/.test(lower)) return { kind: "unmerge" };
+	const record = /\bwhere does (?:the )?record ([0-9a-f-]{36}) lead\b/i.exec(text);
+	if (record) return { kind: "destination", personId: record[1]! };
 	const merge = /\bmerge (them|([a-z][\w' ]+?) (?:and|with|into) ([a-z][\w' ]+?))\s*[.?!]?$/i.exec(text);
 	if (merge) return { kind: "merge", names: merge[2] ? [merge[2], merge[3]!] : userTexts(prompt).flatMap(nameList) };
 	const name = named(text);
@@ -120,6 +124,9 @@ function intentOf(text: string, prompt: Prompt): Intent | null {
 	if (/\bfix\b.*\binterview date\b/.test(lower))
 		return { kind: "fix_interview_date", name, occurredOn: dateIn(text.split(/\binterview date\b/i)[1] ?? "", prompt) };
 	if (/\bcorrection/.test(lower)) return { kind: "corrections", name };
+	// "Ana's card was signed Sep 21, not Sep 20": the date first named is the right one; the user's words are the reason.
+	const card = /\bcard was signed (.+?), not\b/i.exec(text);
+	if (card) return { kind: "fix_card_date", name, occurredOn: dateIn(card[1]!, prompt), reason: text.trim() };
 	if (/\brecord\b.*\binterview\b/.test(lower)) {
 		const ratings: Record<string, string> = {};
 		for (const [k, re] of CRITERIA) {
@@ -180,7 +187,8 @@ function missing(intent: Intent): string | null {
 	}
 	if (intent.kind === "record_commitment" && !intent.occurredOn) return "the date it was signed";
 	if (intent.kind === "lifecycle" && !intent.on) return "the date it takes effect";
-	if (intent.kind === "fix_interview_date" && !intent.occurredOn) return "the correct date";
+	if ((intent.kind === "fix_interview_date" || intent.kind === "fix_card_date") && !intent.occurredOn)
+		return "the correct date";
 	return null;
 }
 
@@ -245,6 +253,18 @@ export function assessmentStep(
 		if (typeof merge.fields.blocked === "string") return say(`${merge.fields.blocked} Nothing was merged.`);
 		const [survivor, source] = review.rows!;
 		return propose("people.mergePeople", { sourceId: source!.id, survivorId: survivor!.id });
+	}
+
+	if (intent.kind === "destination") {
+		const got = of("people.mergedPersonDestination");
+		if (!got) return read("people.mergedPersonDestination", { personId: intent.personId });
+		const row = got.rows?.[0];
+		if (!row) return say("I can't find that record in this church.");
+		return say(
+			row.fields.status === "merged"
+				? `That record was merged into another person (${String(row.fields.destinationId)}).`
+				: `That record is ${String(row.fields.status)}; it leads to itself.`,
+		);
 	}
 
 	if (intent.kind === "unmerge") {
@@ -322,7 +342,11 @@ export function assessmentStep(
 			if (!got) return read("people.listRecordCorrections", { personId });
 			const items = got.rows ?? [];
 			if (!items.length) return say(`No record of ${person.label} was corrected.`);
-			return say(items.map((c) => `${c.label}: ${String(c.fields.changes)}`).join("\n"));
+			const changed = (c: Row) =>
+				(JSON.parse(String(c.fields.changes)) as { field: string; old: unknown; new: unknown }[])
+					.map((x) => `${x.field} from ${JSON.stringify(x.old)} to ${JSON.stringify(x.new)}`)
+					.join(", ");
+			return say(items.map((c) => `${c.label}: ${changed(c)}`).join("\n"));
 		}
 		case "record_interview":
 			return propose("people.createInterview", {
@@ -344,6 +368,17 @@ export function assessmentStep(
 				personId,
 				effectiveOn: intent.on,
 			});
+		case "fix_card_date": {
+			const got = of("people.getCommitments");
+			if (!got) return read("people.getCommitments", { personId });
+			const card = got.rows?.find((r) => r.fields.record === "commitment" && r.fields.voided !== true);
+			if (!card) return say(`${person.label} has no commitment card to correct.`);
+			return propose("people.correctCommitmentLifecycle", {
+				commitmentId: card.id,
+				correction: { action: "correct", occurredOn: intent.occurredOn },
+				reason: intent.reason,
+			});
+		}
 		case "fix_interview_date": {
 			const got = of("people.getInterviews");
 			if (!got) return read("people.getInterviews", { personId });

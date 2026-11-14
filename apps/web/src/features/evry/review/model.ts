@@ -139,6 +139,7 @@ const FIELD_LABEL: Record<string, string> = {
 	keeps: "Stays",
 	mergesIn: "Merges in",
 	moves: "Moves over",
+	keptDetails: "Kept as is",
 	staysWithMergedRecord: "Stays behind",
 	comesBack: "Comes back",
 	movesBack: "Moves back",
@@ -239,6 +240,7 @@ const RECORDS = new Set<Operation>([
 ]);
 const MERGE_FACTS = new Set([
 	"keeps",
+	"keptDetails",
 	"mergesIn",
 	"moves",
 	"staysWithMergedRecord",

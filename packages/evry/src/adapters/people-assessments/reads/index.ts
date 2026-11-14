@@ -214,7 +214,7 @@ export async function mergeReviewOf(tx: Transaction, actor: EvryActor, pair: { s
 export const getMergeReview: ReadAdapter<{ sourceId: string; survivorId: string }> = {
 	operation: "people.getMergeReview",
 	description:
-		"Review a merge of two people in this church before proposing it: which record stays (survivorId), which merges into it (sourceId), the details that differ, what moves, the stage kept and anything that blocks the merge. For an import's possible duplicate pair, the person added first stays unless one has an Everyfield account. Owners and Admins only.",
+		"Review a merge of two people in this church before proposing it: which record stays (survivorId), which merges into it (sourceId), the details that differ, what moves, the stage kept and anything that blocks the merge. When the user does not say which stays, do not ask: for a pair from people.listDuplicatePairs the imported person merges into the person they may duplicate; otherwise keep either one and say which stays, since the review shows it. Owners and Admins only.",
 	input: z.strictObject({ sourceId: id, survivorId: id }),
 	allowed: ownerOrAdmin,
 	async invoke(tx, actor, input) {
@@ -322,8 +322,6 @@ export const listRecordCorrections: ReadAdapter<z.infer<typeof correctionsInput>
 			await recordCorrections.listRecordCorrections(tx, context(actor), { ...input, page: 1, limit: 24 }),
 		);
 		if (!v) return result("people.listRecordCorrections", [], PRIVATE);
-		const text = (x: unknown) =>
-			x === null || x === undefined ? "none" : typeof x === "string" ? x : JSON.stringify(x);
 		const rows = v.items.map((c): SourceRow => ({
 			kind: "correction",
 			id: c.id,
@@ -333,7 +331,8 @@ export const listRecordCorrections: ReadAdapter<z.infer<typeof correctionsInput>
 				recordId: c.recordId,
 				correctedAt: c.correctedAt,
 				reason: c.reason,
-				changes: c.changes.map((x) => `${x.field}: ${text(x.old)} -> ${text(x.new)}`).join("; "),
+				// Each corrected field with its old and new value, as the record held them.
+				changes: JSON.stringify(c.changes),
 			},
 		}));
 		return { ...result("people.listRecordCorrections", rows, PRIVATE, v.total), next: v.next };

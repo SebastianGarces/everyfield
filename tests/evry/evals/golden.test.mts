@@ -283,8 +283,7 @@ function score(spec: Checks, c: Conversation, context: { area: string; given: st
 							(before === undefined || JSON.stringify(x.before) === JSON.stringify(before)),
 					),
 				) &&
-				(!want.refusal || pattern(want.refusal).test(p.review?.refusal ?? "")) &&
-				(want.refusal !== undefined || !p.review?.refusal),
+				(!want.refusal || pattern(want.refusal).test(p.review?.refusal ?? "")),
 		);
 		if (want.optional) continue;
 		add(

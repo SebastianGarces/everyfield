@@ -1,5 +1,6 @@
 import type { z } from "zod";
 import type { inverseConflict, mergeBlocker, referenceKind } from "./errors.ts";
+import type { mergeField } from "./index.ts";
 
 // The words a merge or Unmerge refusal uses, shared by the People screens and Evry so both say the same thing.
 
@@ -94,3 +95,19 @@ export function unmergeBlockedText(conflicts: readonly InverseConflict[], names:
 		`An Unmerge would lose those changes, so Everyfield will not run it. Correct ${names.survivor}'s details by hand instead; each change is kept in the history.`,
 	].join(" ");
 }
+
+/** A merge review's person fields, as the People merge review names them. */
+export const MERGE_FIELD_LABEL: Record<z.infer<typeof mergeField>, string> = {
+	displayName: "Name",
+	firstName: "First name",
+	lastName: "Last name",
+	email: "Email",
+	phone: "Phone",
+	address: "Address",
+	source: "How you met",
+	summaryNotes: "Summary",
+	birthDate: "Birth date",
+	adultClassification: "Adult or child",
+	household: "Household",
+	photo: "Photo",
+};

@@ -21,21 +21,9 @@ const MERGE_FIELDS = [
 export type MergeField = (typeof MERGE_FIELDS)[number];
 export type Side = "source" | "survivor";
 
-export const FIELD_LABEL: Record<MergeField, string> = {
-	displayName: "Name",
-	firstName: "First name",
-	lastName: "Last name",
-	email: "Email",
-	phone: "Phone",
-	address: "Address",
-	source: "How you met",
-	summaryNotes: "Summary",
-	birthDate: "Birth date",
-	adultClassification: "Adult or child",
-	household: "Household",
-	photo: "Photo",
-};
+export const FIELD_LABEL: Record<MergeField, string> = MERGE_FIELD_LABEL;
 
+import { MERGE_FIELD_LABEL } from "@everyfield/contracts/people";
 export {
 	blockerText,
 	conflictText,

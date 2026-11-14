@@ -333,6 +333,12 @@ async function seedHope(admin: Database) {
 			await run(sql`INSERT INTO contact_outcome(plant_id,person_id,outcome,occurred_at,recorded_at,contact_channel)
 				SELECT ${PLANT},${p.id},'contacted',t,t,'phone'
 				FROM (SELECT clock_timestamp()-make_interval(days=>${p.inactivity === "warning" ? 10 : 2}) AS t) x`);
+		// A person with no follow-up outcome still has recent activity: an edit of their details, which the merge does not
+		// move (audit history stays where it is), placed the same way.
+		if (p.state === "live" && p.uncontacted)
+			await run(sql`INSERT INTO audit_event(tenant_id,actor_id,action,kind,subject_type,subject_id,occurred_at,recorded_at)
+				SELECT ${PLANT},${owner},'people.updated','edit','person',${p.id},t,t
+				FROM (SELECT clock_timestamp()-make_interval(days=>${p.inactivity === "warning" ? 10 : 2}) AS t) x`);
 	}
 
 	// The import: its saved plan, its finished job and the people.created audit rows of the five people it created.

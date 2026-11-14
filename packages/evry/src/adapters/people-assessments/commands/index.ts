@@ -20,6 +20,7 @@ import {
 	interviewCriteria,
 	interviewResult,
 	listText,
+	MERGE_FIELD_LABEL,
 	mergeBlockedText,
 	mergePeopleRequest,
 	reactivateCommitmentRequest,
@@ -409,12 +410,13 @@ export const ASSESSMENT_COMMANDS = {
 				(f) => empty(f.field, f.survivor as Columns) && !empty(f.field, f.source as Columns),
 			);
 			const fieldChoices = Object.fromEntries(fields.map((f) => [f.field, "source"]));
+			const kept = m.fields.filter((f) => !fields.includes(f));
 			const moves = m.references.filter((r) => r.treatment === "move" || r.treatment === "deduplicate");
 			const stays = m.references.filter((r) => r.treatment === "keep");
 			const list = [
 				change("keeps", who.survivor),
 				change("mergesIn", who.source),
-				...(moves.length ? [change("moves", listText(moves.map((r) => counted(r.kind, r.count))))] : []),
+				change("moves", listText(moves.map((r) => counted(r.kind, r.count))) || "Nothing else is on record"),
 				...(stays.length
 					? [change("staysWithMergedRecord", listText(stays.map((r) => counted(r.kind, r.count))))]
 					: []),
@@ -424,6 +426,8 @@ export const ASSESSMENT_COMMANDS = {
 				...fields.map((f) =>
 					change(f.field, columnsText(f.source as Columns), json(columnsText(f.survivor as Columns))),
 				),
+				// The other differing details keep the survivor's values, as the People merge review defaults them.
+				...(kept.length ? [change("keptDetails", listText(kept.map((f) => MERGE_FIELD_LABEL[f.field])))] : []),
 			];
 			const blocked = m.blockers.causes.length ? mergeBlockedText(m.blockers, who) : null;
 			const input = {

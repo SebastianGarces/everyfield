@@ -1,3 +1,5 @@
+import { z } from "zod";
+import { correctedFieldLabel, correctedValueText } from "../../people/corrections/model.ts";
 import { fieldLabel, sendTimeShort, valueText } from "../review/model.ts";
 import { STAGE_LABEL, type StageValue } from "../../people/model.ts";
 import type { SourceResult, SourceRow } from "./model.ts";
@@ -19,6 +21,8 @@ type OpView = {
 	counts: Kind;
 	/** The total counts something other than the counted rows, so the summary never says "N of M". */
 	shownOnly?: true;
+	/** Of the rows of the counted kind, only these count (a commitment's current state heads its cards). */
+	countIf?: (row: SourceRow) => boolean;
 	/** Said when nothing came back. */
 	empty: string;
 	/** A count answer: the summary is the total and the rows stay hidden, with this note instead. */
@@ -125,7 +129,7 @@ const VIEWS: Record<string, OpView> = {
 		"This person has no recorded 4 C's assessment.",
 	),
 	"people.getCommitments": records("Commitment", ["card", "cards"], "This person has no commitment recorded.", {
-		shownOnly: true,
+		countIf: (row) => row.fields.record === "commitment",
 	}),
 	"people.getCommitmentDownload": records(
 		"Signed document",
@@ -272,6 +276,17 @@ function activityLine(fields: Record<string, unknown>) {
 	return joined(stageChange, home, day(fields.occurredAt));
 }
 
+const corrected = z.array(z.object({ field: z.string(), old: z.unknown(), new: z.unknown() }));
+/** Each corrected field with its old and new value, in the People correction history's words. */
+function correctionDetails(value: unknown) {
+	const parsed = corrected.safeParse(typeof value === "string" ? JSON.parse(value) : null);
+	return parsed.success
+		? parsed.data.map((c) => ({
+				label: correctedFieldLabel(c.field),
+				value: `${correctedValueText(c.old)} → ${correctedValueText(c.new)}`,
+			}))
+		: undefined;
+}
 const CRITERIA = ["maturity", "gifted", "chemistry", "rightReasons", "season"] as const;
 const LENSES = ["committed", "compelled", "contagious", "courageous"] as const;
 /** One field of a record row, in the review card's words: "Team chemistry: Concern · Needs time". */
@@ -494,7 +509,7 @@ function rowView(operation: string, row: SourceRow): RowView {
 				name: `${words(String(fields.recordType ?? "Record"))} corrected ${day(fields.correctedAt) ?? ""}`.trim(),
 				line: text(fields.reason),
 				avatar: "correction",
-				details: text(fields.changes) ? [{ label: "Changes", value: String(fields.changes) }] : undefined,
+				details: correctionDetails(fields.changes),
 			};
 		case "person":
 			break;
@@ -573,7 +588,9 @@ export function cardView(operation: string, result: SourceResult, originalTotal:
 	const view = VIEWS[operation] ?? fallback;
 	const [one, many] = view.noun;
 	const rows = shownRows(operation, view, result);
-	const counted = view.countAnswer ? 0 : rows.filter((r) => r.kind === view.counts).length;
+	const counted = view.countAnswer
+		? 0
+		: rows.filter((r) => r.kind === view.counts && (!view.countIf || view.countIf(r))).length;
 	const photo = operation === "people.getPersonPhoto";
 	const missing = result.status === "not_found" || (photo && !rows.length);
 	const summary = missing
