@@ -18,7 +18,9 @@ const importInput = z.strictObject({
 	fileDigest: sha256.describe("The fileDigest of that file's latest people.previewImport check"),
 });
 const checked = z.object({
-	rows: z.array(z.object({ kind: z.string(), id: z.string(), label: z.string(), fields: z.record(z.string(), z.unknown()) })),
+	rows: z.array(
+		z.object({ kind: z.string(), id: z.string(), label: z.string(), fields: z.record(z.string(), z.unknown()) }),
+	),
 });
 
 export const executeBulkImport: ReviewedWrite<z.infer<typeof importInput>> = {
@@ -48,7 +50,10 @@ export const executeBulkImport: ReviewedWrite<z.infer<typeof importInput>> = {
 			throw new EvryRefusal("file_changed");
 		const rows = check.data!.rows.filter((x) => x.kind === "import");
 		const valid = rows.filter((x) => x.fields.status === "valid");
-		const choices = valid.map((x) => ({ row: Number(x.id), choice: x.fields.suggested === "skip" ? "skip" : "create" }));
+		const choices = valid.map((x) => ({
+			row: Number(x.id),
+			choice: x.fields.suggested === "skip" ? "skip" : "create",
+		}));
 		const count = (choice: string) => choices.filter((c) => c.choice === choice).length;
 		const changes = [
 			{ field: "file", before: null, after: file.name },

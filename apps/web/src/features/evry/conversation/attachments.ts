@@ -27,7 +27,8 @@ export const fileSize = (bytes: number) =>
 
 /** Why a picked file can't be attached, or null. */
 export function refusal(file: { name: string; size: number }, count: number): string | null {
-	if (!/\.csv$/i.test(file.name)) return "Evry can check CSV files only. Save the spreadsheet as CSV and attach it again.";
+	if (!/\.csv$/i.test(file.name))
+		return "Evry can check CSV files only. Save the spreadsheet as CSV and attach it again.";
 	if (file.size === 0) return `${file.name} is empty.`;
 	if (file.size > ATTACH.bytes) return `${file.name} is larger than 10 MB. Split it into smaller files.`;
 	if (count >= ATTACH.perMessage) return "You can attach up to 10 files to one message.";

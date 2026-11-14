@@ -75,7 +75,12 @@ async function attach(who: EvryActor, conversationId: string, name: string, text
 	files.objects.set(key, bytes);
 	return staged.attachment;
 }
-async function say(who: EvryActor, conversationId: string, text: string, attachments: { id: string; name: string }[] = []) {
+async function say(
+	who: EvryActor,
+	conversationId: string,
+	text: string,
+	attachments: { id: string; name: string }[] = [],
+) {
 	await submitTurn(db, who, conversationId, { requestKey: randomUUID(), text, attachments });
 	assert.equal(await work(undefined, { storage: files.storage }), "succeeded");
 	const page = await readConversation(db, who, conversationId);
@@ -102,14 +107,19 @@ test("AC:CLN-04 AC:GAP-EVR-422 an attached launch interest form is checked row b
 	const preview = checked.results.find((r) => r.operation === "people.previewImport")!;
 	assert.deepEqual(preview.input, { attachmentId: form.id });
 	assert.deepEqual(
-		preview.result.rows.filter((r: any) => r.kind === "import").map((r: any) => [r.label, r.fields.status, r.fields.problems]),
+		preview.result.rows
+			.filter((r: any) => r.kind === "import")
+			.map((r: any) => [r.label, r.fields.status, r.fields.problems]),
 		[
 			["Jordan Lee", "valid", null],
 			["Alex Rivera", "valid", null],
 			["Row 3", "invalid", "invalid_email"],
 		],
 	);
-	assert.match(checked.text, /Jordan Lee: valid[\s\S]*Alex Rivera: possible duplicate of Alex Rivera[\s\S]*Row 3: can't be imported \(invalid_email\)/);
+	assert.match(
+		checked.text,
+		/Jordan Lee: valid[\s\S]*Alex Rivera: possible duplicate of Alex Rivera[\s\S]*Row 3: can't be imported \(invalid_email\)/,
+	);
 	assert.match(checked.text, /Nothing is imported/);
 	// The model never sees the file's contact values.
 	assert.ok(!JSON.stringify(preview.result).includes("@example.test"));
@@ -162,7 +172,8 @@ test("AC:GAP-EVR-422 the import review is built from the conversation's own chec
 	);
 	assert.match(again.text, /changed since I checked it, so here is a fresh check[\s\S]*Riley Park: valid/);
 	assert.deepEqual(
-		(await admin.execute(sql`SELECT count(*)::int AS n FROM proposal WHERE conversation_id=${replaced}::uuid`)).rows[0]!.n,
+		(await admin.execute(sql`SELECT count(*)::int AS n FROM proposal WHERE conversation_id=${replaced}::uuid`)).rows[0]!
+			.n,
 		0,
 	);
 });
@@ -205,5 +216,8 @@ test("INV-attachment-expiry: an attached file unused for 24 hours is gone: Evry 
 	// A read naming the gone file is refused as gone, never served from anywhere else; another conversation's read of it
 	// is refused as not its own.
 	await assert.rejects(readAttachment(db, files.storage, owner, here, old), /attachment_gone/);
-	await assert.rejects(readAttachment(db, files.storage, owner, await conversation(owner), old), /attachment_elsewhere/);
+	await assert.rejects(
+		readAttachment(db, files.storage, owner, await conversation(owner), old),
+		/attachment_elsewhere/,
+	);
 });

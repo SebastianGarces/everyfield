@@ -46,7 +46,11 @@ async function say(
 	await submitTurn(db, who, id, { requestKey: randomUUID(), text, references });
 	assert.equal(await work(model), "succeeded");
 	const events = [];
-	for (let page = await readConversation(db, who, id); ; page = await readConversation(db, who, id, events.at(-1)!.sequence)) {
+	for (
+		let page = await readConversation(db, who, id);
+		;
+		page = await readConversation(db, who, id, events.at(-1)!.sequence)
+	) {
 		events.push(...page.events);
 		if (!page.more) break;
 	}
@@ -109,13 +113,19 @@ function bulkDeleter(): LanguageModelV4 {
 		doGenerate: async () => ({
 			content: [{ type: "text", text: JSON.stringify({ kind: "application" }) }],
 			finishReason: { unified: "stop", raw: undefined },
-			usage: { inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 }, outputTokens: { total: 1, text: 1, reasoning: 0 } },
+			usage: {
+				inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
+				outputTokens: { total: 1, text: 1, reasoning: 0 },
+			},
 			warnings: [],
 		}),
 		async doStream(options: LanguageModelV4CallOptions) {
 			const system = options.prompt.find((m) => m.role === "system")?.content as string;
 			const ids = [...system.matchAll(/"id":"([0-9a-f-]{36})"/g)].map((m) => m[1]!);
-			const usage = { inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 }, outputTokens: { total: 1, text: 1, reasoning: 0 } };
+			const usage = {
+				inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
+				outputTokens: { total: 1, text: 1, reasoning: 0 },
+			};
 			const parts: LanguageModelV4StreamPart[] =
 				step++ === 0
 					? [
@@ -206,7 +216,9 @@ test("AC:EVRY-CONTEXT-BOUNDS AC:GAP-EVR-429 past 24 messages and 64 references t
 	const owner = await actor("owner");
 	const id = await conversation(owner);
 	await say(owner, id, "change Casey's city to Austin");
-	const [card] = (await admin.execute(sql`SELECT id FROM proposal WHERE conversation_id=${id}::uuid`)).rows as { id: string }[];
+	const [card] = (await admin.execute(sql`SELECT id FROM proposal WHERE conversation_id=${id}::uuid`)).rows as {
+		id: string;
+	}[];
 	const review = await readReview(db, owner, card!.id);
 	await approveProposal(db, owner, card!.id, { revision: review.revision, digest: review.digest }, null);
 	assert.equal(await effect(), "completed");
@@ -228,7 +240,14 @@ test("AC:EVRY-CONTEXT-BOUNDS AC:GAP-EVR-429 past 24 messages and 64 references t
 	await admin.execute(sql`INSERT INTO proposal(tenant_id,account_id,conversation_id,operation,input,review,digest,state,expires_at)
 		VALUES(${plant}::uuid,${accounts.owner.id}::uuid,${id}::uuid,'communication.scheduleReviewed','{}'::jsonb,${target(waiting, "Sunday invite")}::jsonb,
 			${"0".repeat(64)},'pending',clock_timestamp()+interval '15 minutes')`);
-	const report = { kind: "schedule", confirmation: "confirmed", scheduledAt: "2026-11-20T15:00:00.000Z", accepted: 1, refused: 0, unknown: 0 };
+	const report = {
+		kind: "schedule",
+		confirmation: "confirmed",
+		scheduledAt: "2026-11-20T15:00:00.000Z",
+		accepted: 1,
+		refused: 0,
+		unknown: 0,
+	};
 	await admin.execute(sql`INSERT INTO proposal(tenant_id,account_id,conversation_id,operation,input,review,digest,state,expires_at,approved_at,outcome,receipt)
 		VALUES(${plant}::uuid,${accounts.owner.id}::uuid,${id}::uuid,'communication.scheduleReviewed','{}'::jsonb,${target(sent, "Volunteer thanks")}::jsonb,
 			${"1".repeat(64)},'approved',clock_timestamp()+interval '15 minutes',clock_timestamp(),'completed',
@@ -257,6 +276,9 @@ test("AC:EVRY-CONTEXT-BOUNDS AC:GAP-EVR-429 past 24 messages and 64 references t
 	const status = await say(owner, id, "did you send it?");
 	assert.equal(
 		status.text,
-		['- "Sunday invite": not sent, waiting for your review', '- "Volunteer thanks": sent, delivery not confirmed yet'].join("\n"),
+		[
+			'- "Sunday invite": not sent, waiting for your review',
+			'- "Volunteer thanks": sent, delivery not confirmed yet',
+		].join("\n"),
 	);
 });

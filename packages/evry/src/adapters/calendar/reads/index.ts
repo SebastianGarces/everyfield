@@ -16,7 +16,10 @@ const inPlant = (actor: EvryActor) => actor.owner.kind === "plant" && actor.role
 async function churchZone(tx: Transaction, actor: EvryActor) {
 	const r = await tx.execute(sql`SELECT pl.timezone FROM plant pl WHERE pl.id=${actor.owner.id}::uuid
 		AND ${liveRead({ session: actor.session, owner: actor.owner, seatId: actor.seatId ?? undefined })}`);
-	return z.string().nullable().parse(r.rows[0]?.timezone ?? null);
+	return z
+		.string()
+		.nullable()
+		.parse(r.rows[0]?.timezone ?? null);
 }
 const answer = (operation: string, id: string, label: string, fields: SourceResult["rows"][number]["fields"]) =>
 	({
@@ -83,7 +86,9 @@ export const resolve: ReadAdapter<z.infer<typeof resolveInput>> = {
 		const fields: Record<string, string | null> = { status: r.status, local: r.local, zone: r.zone };
 		if (r.status === "exact") Object.assign(fields, { instant: r.at.instant, offset: r.at.offset, shows: r.at.label });
 		if (r.status === "ambiguous")
-			r.options.forEach((o, n) => Object.assign(fields, { [`option${n + 1}`]: o.label, [`option${n + 1}Offset`]: o.offset }));
+			r.options.forEach((o, n) =>
+				Object.assign(fields, { [`option${n + 1}`]: o.label, [`option${n + 1}Offset`]: o.offset }),
+			);
 		if (r.status === "nonexistent") fields.clocksSkipMinutes = String(r.skippedMinutes);
 		return answer("calendar.resolve", r.local, r.local, fields);
 	},
