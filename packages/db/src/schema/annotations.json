@@ -3818,7 +3818,12 @@
 				"domain": "tenancy",
 				"purpose": "Immutable sending-church or network identity and editable contact profile.",
 				"library_owned": false,
-				"jsonb_keys": {},
+				"jsonb_keys": {
+					"pipeline_import_columns": [
+						"key: a column title with case, spacing and punctuation removed",
+						"value: name, first_name, last_name, email, stage, answer or skip"
+					]
+				},
 				"capabilities": ["CAP-A-004", "CAP-A-007"],
 				"replaces": ["organization"],
 				"producer_work_packages": ["WP-004", "WP-007"],
