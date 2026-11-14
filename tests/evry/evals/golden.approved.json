@@ -54,7 +54,7 @@
 			"area": "Dashboard / tasks",
 			"case_id": "MON-04",
 			"question": "anything I missed over the weekend?",
-			"status": "Not yet",
+			"status": "Supported",
 			"expected_operation": "not yet: needs `notifications.feed`, `notifications.unreadCount`",
 			"expected_answer": "Later: unread items grouped by type",
 			"must_not": "Mark anything read without a review"
@@ -378,7 +378,7 @@
 			"area": "Teams / intelligence",
 			"case_id": "TEAM-01",
 			"question": "how healthy is our core team right now?",
-			"status": "Not yet",
+			"status": "Partially",
 			"expected_operation": "not yet: needs `teams.aggregateHealth`, `intelligence.readScorecard`",
 			"expected_answer": "Later: the measured health facts with their window",
 			"must_not": "Give its own opinion of health"
@@ -402,7 +402,7 @@
 			"area": "Teams / intelligence",
 			"case_id": "TEAM-03",
 			"question": "who's on the worship team",
-			"status": "Partially",
+			"status": "Supported",
 			"expected_operation": "`people.listTags` / `people.getPersonTags` if teams are tagged; later `teams.get`, `teams.searchMembers`",
 			"expected_answer": "Full alpha target: the actual authorized team roster, not tags treated as membership",
 			"must_not": "Present a tag as the official roster"
@@ -414,7 +414,7 @@
 			"area": "Teams / intelligence",
 			"case_id": "TEAM-04",
 			"question": "which teams don't have a leader",
-			"status": "Not yet",
+			"status": "Supported",
 			"expected_operation": "not yet: needs `teams.staffingSummary`",
 			"expected_answer": "Later: teams with no appointed or fallback leader",
 			"must_not": "Assume no leader when data is unavailable"
@@ -426,7 +426,7 @@
 			"area": "Teams / intelligence",
 			"case_id": "TEAM-05",
 			"question": "who hasnt finished kids ministry training",
-			"status": "Not yet",
+			"status": "Supported",
 			"expected_operation": "not yet: needs `teams.trainingMatrix`",
 			"expected_answer": "Later: required participants not complete",
 			"must_not": "Mention background checks (excluded from the product)"
@@ -450,7 +450,7 @@
 			"area": "Teams / intelligence",
 			"case_id": "TEAM-07",
 			"question": "is anyone serving on 3+ teams? I'm worried about burnout",
-			"status": "Not yet",
+			"status": "Supported",
 			"expected_operation": "not yet: needs `teams.personTeamCounts`",
 			"expected_answer": "Later: names with counts; burnout framed as advisory",
 			"must_not": "Diagnose burnout"
@@ -498,7 +498,7 @@
 			"area": "Households",
 			"case_id": "HH-04",
 			"question": "add Pedro to the Martinez household",
-			"status": "Not yet",
+			"status": "Supported",
 			"expected_operation": "not yet: needs `people.addToHousehold` proposal (WP-064)",
 			"expected_answer": "Today: can't-yet; later a review with role",
 			"must_not": "Fake it by editing Pedro's notes"
@@ -510,7 +510,7 @@
 			"area": "Households",
 			"case_id": "HH-05",
 			"question": "the nguyens moved to 123 oak st, update everyone",
-			"status": "Partially",
+			"status": "Supported",
 			"expected_operation": "`people.updatePerson` proposals per person; later `people.propagateAddress`",
 			"expected_answer": "Full alpha target: exact per-person address review, approved household-wide changes and truthful per-person results",
 			"must_not": "Change only the head and claim the household is done"
@@ -822,7 +822,7 @@
 			"area": "People data",
 			"case_id": "CLN-05",
 			"question": "how did yesterday's import go",
-			"status": "Partially",
+			"status": "Supported",
 			"expected_operation": "`people.getImportReceipt` (Owner/Admin)",
 			"expected_answer": "Row outcomes from the receipt",
 			"must_not": "Report success when rows failed"
@@ -858,7 +858,7 @@
 			"area": "People data",
 			"case_id": "CLN-08",
 			"question": "tag everyone from the coffee shop event as coffee-oct",
-			"status": "Not yet",
+			"status": "Partially",
 			"expected_operation": "not yet: needs `people.assignTag` proposal",
 			"expected_answer": "Later: one review listing people and tag",
 			"must_not": "Fake tags in notes"
