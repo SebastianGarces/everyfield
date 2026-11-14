@@ -1,3 +1,4 @@
+import { LENSES } from "@everyfield/contracts/intelligence";
 import type {
 	Health,
 	IntelligenceRow,
@@ -7,6 +8,7 @@ import type {
 	PlantDirectoryRow,
 	PlantSections,
 	Preparation,
+	ReleasedAssessment,
 	RuleId,
 	SectionKey,
 } from "@everyfield/contracts/oversight";
@@ -167,7 +169,7 @@ export type IntelligenceWords = {
 	failed: string;
 };
 const PRIVACY = (rubric: string) =>
-	`${rubric} reads only counts and dates each plant shares with you: launch dates, unfilled roles, overdue follow-ups, when its newest committed adult signed and required training. It never names a person, ranks or scores plants. A plant that doesn't share counts as Not shared, never as zero.`;
+	`${rubric} reads only counts and dates each plant shares with you: launch dates, unfilled roles, overdue follow-ups, when its newest committed adult signed and required training, plus the concerns of its released Plant Intelligence assessment. It never names a person, ranks or scores plants. A plant that doesn't share counts as Not shared, never as zero.`;
 /**
  * A network keeps "Network Intelligence" and "Whole portfolio"; a sending church sees its own name ("Grace Austin
  * Intelligence"), "Your plants" for the whole portfolio, and never the word "network" (T-373). The rubric's own pattern
@@ -222,6 +224,14 @@ const RESULT: { [R in RuleId]: Record<Shared["results"][R], Label> } = {
 export function resultLabels(row: IntelligenceRow): Label[] {
 	if (row.status === "not_shared") return [{ label: "Not shared", status: "unknown" }];
 	return RULE_IDS.map((id) => (RESULT[id] as Record<string, Label>)[row.results[id]]!);
+}
+
+const LENS_LABEL = Object.fromEntries(LENSES.map((l) => [l.key, l.label])) as Record<string, string>;
+/** "Concerns: Vision Casting, Launch progress" from a released assessment, or null when it raised none. */
+export function concernLenses(a: ReleasedAssessment): string | null {
+	if (a.status !== "released" || !a.concerns.length) return null;
+	const names = [...new Set(a.concerns.map((c) => (c.lens ? LENS_LABEL[c.lens]! : "Launch progress")))];
+	return `${names.length === 1 ? "Concern" : "Concerns"}: ${names.join(", ")}`;
 }
 
 /** A run's time in the organization's time zone, to the second: "Nov 14, 2026, 8:03:12 AM". */

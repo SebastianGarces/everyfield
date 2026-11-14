@@ -3,7 +3,7 @@ import rubric from "../../../../docs/reference/network-rubric-v1.json" with { ty
 import { instant, localDate } from "../common/time.ts";
 import { tenantId } from "../common/values.ts";
 import { GROWTH_SLOWED_DAYS, GROWTH_STALLED_DAYS } from "../intelligence/facts.ts";
-import { concern } from "../intelligence/views.ts";
+import { concern, lensKey, LENSES } from "../intelligence/views.ts";
 
 // Plant health, launch and Network Intelligence as an organization sees them (WP-047b: REQ-PI-031, REQ-PI-043,
 // REQ-PI-044). Everything is a count, a date, a fixed rule result or a plant's name and link: no person, note,
@@ -121,17 +121,23 @@ export const LEVELS = ["region", "state", "country", "portfolio"] as const;
 export const level = z.enum(LEVELS);
 export type Level = z.infer<typeof level>;
 
-/** The rubric rules this page runs, in page order. Each keeps the rubric's own words (D-1423: other words are ours). */
+/** The count rules each plant row shows a result for, in page order. */
 export const RULE_IDS = ["NIR-03", "NIR-04", "NIR-05", "NIR-06"] as const;
 export type RuleId = (typeof RULE_IDS)[number];
-const ruleOf = (id: RuleId) => {
+/**
+ * Every rubric rule this page runs, in page order: NIR-01 reads the plants' released Plant Intelligence concerns, the
+ * rest their stored counts. Each keeps the rubric's own words (D-1423: other words are ours).
+ */
+export const PATTERN_RULE_IDS = ["NIR-01", ...RULE_IDS] as const;
+export type PatternRuleId = (typeof PATTERN_RULE_IDS)[number];
+const ruleOf = (id: PatternRuleId) => {
 	const r = rubric.rules.find((x) => x.id === id);
 	if (!r) throw new Error(`network rubric v1 has no ${id}`);
 	return { id, template: r.template, nextStep: r.next_step } as const;
 };
 /** The rubric's template and suggested next step of each rule, word for word (docs/reference/network-rubric-v1.json). */
-export const RULES = Object.fromEntries(RULE_IDS.map((id) => [id, ruleOf(id)])) as Record<
-	RuleId,
+export const RULES = Object.fromEntries(PATTERN_RULE_IDS.map((id) => [id, ruleOf(id)])) as Record<
+	PatternRuleId,
 	ReturnType<typeof ruleOf>
 >;
 export const NEAR_LAUNCH_RULE = RULES["NIR-03"];
@@ -142,9 +148,9 @@ export const RUBRIC_SOURCE = "docs/reference/network-rubric-v1.json";
  * own id. It names the rule and the file, never a plant assessment, so a pattern opens nothing a director could not
  * otherwise read.
  */
-export const citationOf = <R extends RuleId>(rule: R) =>
+export const citationOf = <R extends PatternRuleId>(rule: R) =>
 	({ rubric: RUBRIC_VERSION, rule, source: RUBRIC_SOURCE }) as const;
-const citation = <R extends RuleId>(rule: R) =>
+const citation = <R extends PatternRuleId>(rule: R) =>
 	z.strictObject({ rubric: z.literal(RUBRIC_VERSION), rule: z.literal(rule), source: z.literal(RUBRIC_SOURCE) });
 /** "2 plants within 30 calendar days of an uncompleted launch have a recorded assignment or required-training gap." */
 export const nearLaunchSentence = (support: number) =>
@@ -189,13 +195,19 @@ export const trainingResult = (c: RuleCounts): Result =>
 			? "gap"
 			: "clear";
 
-/** One plant row of a group: one short result per rule, or Not shared with no value at all. */
+/**
+ * One plant row of a group: its health and released assessment as the oversight plant view reads them, and one short
+ * result per count rule; or Not shared with no value at all.
+ */
 export const intelligenceRow = z.discriminatedUnion("status", [
 	z.strictObject({ status: z.literal("not_shared"), plantId: tenantId, name: z.string() }),
 	z.strictObject({
 		status: z.literal("shared"),
 		plantId: tenantId,
 		name: z.string(),
+		health,
+		/** The plant's released Plant Intelligence result: the same run, concern ids and evidence the planter sees. */
+		assessment: releasedAssessment,
 		results: z.strictObject({
 			"NIR-03": z.enum(["gap", "clear", "unknown"]),
 			"NIR-04": z.enum(["gap", "clear", "unknown"]),
@@ -205,6 +217,9 @@ export const intelligenceRow = z.discriminatedUnion("status", [
 	}),
 ]);
 export type IntelligenceRow = z.infer<typeof intelligenceRow>;
+
+/** "Vision Casting" for a lens key. */
+const lensLabel = (key: z.infer<typeof lensKey>) => LENSES.find((l) => l.key === key)!.label;
 
 const patternBase = {
 	key: z.string(),
@@ -217,6 +232,14 @@ const patternBase = {
 };
 /** One pattern: two or more distinct sharing plants in a group with the same rule theme, and the rule's sums. */
 export const intelligencePattern = z.discriminatedUnion("theme", [
+	z.strictObject({
+		...patternBase,
+		rule: z.literal("NIR-01"),
+		citation: citation("NIR-01"),
+		theme: z.literal("shared_concern"),
+		/** The lens every supporting plant's released concern rests on (the rubric's concern_key). */
+		lens: lensKey,
+	}),
 	z.strictObject({
 		...patternBase,
 		rule: z.literal("NIR-03"),
@@ -274,6 +297,13 @@ export function patternText(p: IntelligencePattern): {
 	const evidence = (what: string) => `From ${plants(p.observed)} with ${what} evidence available.`;
 	const base = { nextStep: rule.nextStep };
 	switch (p.theme) {
+		case "shared_concern":
+			return {
+				...base,
+				title: `Shared concern: ${lensLabel(p.lens)}`,
+				lines: [fill({ support_count: p.support, concern_key: lensLabel(p.lens), observed_lens_count: p.observed })],
+				evidence: evidence("released assessment"),
+			};
 		case "near_launch":
 			return {
 				...base,
@@ -316,18 +346,29 @@ export function patternText(p: IntelligencePattern): {
 	}
 }
 
+/**
+ * Where a group's plants stand at its level (REQ-PI-044). `placed` groups share a Region, state or province, country
+ * or the whole portfolio. The rest have no place at this level and still count at the larger ones: `missing` gave none,
+ * and at the Region level `unresolved` chose no Region (none saved, or a place the official list offers more than one
+ * area for), `outside_reference` saved a place the official list names no area for, and `unsupported_country` is outside
+ * the United States, where no Region standard applies. A Region is never guessed for any of them.
+ */
+export const PLACEMENTS = ["placed", "missing", "unresolved", "outside_reference", "unsupported_country"] as const;
+export const placement = z.enum(PLACEMENTS);
+export type Placement = z.infer<typeof placement>;
 export const intelligenceGroup = z.strictObject({
-	/** "US:TX", a CBSA code, "US", or "portfolio". */
+	/** "US:TX", a CBSA code, "US", "portfolio", or the placement of plants with no place at this level. */
 	key: z.string(),
 	label: z.string(),
 	rows: z.array(intelligenceRow),
 	/** Each rule theme where two distinct sharing plants qualify in this group, in rule order. */
 	patterns: z.array(intelligencePattern),
-	/** Plants with no reporting location at this level: they still count at the larger levels. */
-	unplaced: z.boolean(),
+	placement,
 });
 export type IntelligenceGroup = z.infer<typeof intelligenceGroup>;
 const intelligenceRun = z.strictObject({ runId: tenantId, ranAt: instant });
+/** An official geography release a run's Regions were read from, by its key and source credit. */
+export const geographyRelease = z.strictObject({ key: z.string(), credit: z.string() });
 export const intelligenceView = z.strictObject({
 	organizationName: z.string(),
 	/** The organization's time zone, for run times. */
@@ -338,6 +379,11 @@ export const intelligenceView = z.strictObject({
 	/** Every run, newest first. */
 	history: z.array(intelligenceRun),
 	groups: z.array(intelligenceGroup),
+	/**
+	 * The geography releases the shown run's saved Regions came from, as each plant's reporting location stood when the
+	 * run read it. A correction or a newer release changes later runs only.
+	 */
+	geographyReleases: z.array(geographyRelease),
 	/** Owners and Admins may refresh; Members read. */
 	canRefresh: z.boolean(),
 });

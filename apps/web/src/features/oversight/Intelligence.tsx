@@ -16,7 +16,7 @@ import { cn, Icon } from "@everyfield/ui/foundations";
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { ratePattern, refreshIntelligence } from "./actions.ts";
-import { type IntelligenceWords, plural, resultLabels, runLabel } from "./model.ts";
+import { concernLenses, HEALTH, type IntelligenceWords, plural, resultLabels, runLabel } from "./model.ts";
 
 // The body of /network/intelligence (WP-047b, T-372): the run shown and its history, the level switch, and each group's
 // plant rows with one short result per rule, and each rule pattern (NIR-03 to NIR-06) where two sharing plants qualify.
@@ -106,6 +106,14 @@ export function IntelligenceBody({ initial, words }: { initial: IntelligenceView
 							</Link>
 						))}
 					</nav>
+					{view.level === "region" && view.geographyReleases.length ? (
+						<p
+							className="-mt-2 text-sm text-text-3"
+							data-geography={view.geographyReleases.map((r) => r.key).join(" ")}
+						>
+							Regions from {view.geographyReleases.map((r) => r.credit).join("; ")}.
+						</p>
+					) : null}
 					{view.groups.length ? (
 						view.groups.map((g) => (
 							<Group
@@ -160,14 +168,25 @@ function Group({ group, rate, canRate }: { group: IntelligenceGroup; rate: Rate;
 				</div>
 			) : (
 				<p className="mb-3 text-md text-text-2 text-pretty">
-					{group.unplaced
+					{group.placement !== "placed"
 						? "These plants have no location at this level. They still count at the larger levels."
 						: "Not enough plants for a pattern here. A pattern needs at least 2 sharing plants with the same recorded result."}
 				</p>
 			)}
 			<ul aria-label={`Plants in ${group.label}`}>
 				{group.rows.map((r) => (
-					<li key={r.plantId} className="border-t border-line first:border-t-0" data-row={r.status}>
+					<li
+						key={r.plantId}
+						className="border-t border-line first:border-t-0"
+						data-row={r.status}
+						data-plant={r.plantId}
+						data-health={r.status === "shared" ? r.health : undefined}
+						data-concerns={
+							r.status === "shared" && r.assessment.status === "released"
+								? r.assessment.concerns.map((c) => c.id).join(" ")
+								: undefined
+						}
+					>
 						<Link
 							href={`/network/plants/${r.plantId}`}
 							data-focus-inset=""
@@ -177,12 +196,20 @@ function Group({ group, rate, canRate }: { group: IntelligenceGroup; rate: Rate;
 							<span className="flex min-w-0 flex-1 flex-col gap-1.5">
 								<span className="font-medium text-ink">{r.name}</span>
 								<span className="flex flex-wrap gap-1.5">
+									{r.status === "shared" ? (
+										<StatusBadge status={HEALTH[r.health].status} size="sm">
+											{HEALTH[r.health].label}
+										</StatusBadge>
+									) : null}
 									{resultLabels(r).map((tag) => (
 										<StatusBadge key={tag.label} status={tag.status} size="sm">
 											{tag.label}
 										</StatusBadge>
 									))}
 								</span>
+								{r.status === "shared" && concernLenses(r.assessment) ? (
+									<span className="text-sm text-text-2">{concernLenses(r.assessment)}</span>
+								) : null}
 							</span>
 							<Icon icon={ArrowRight01Icon} size={16} className="flex-none text-text-3" />
 						</Link>

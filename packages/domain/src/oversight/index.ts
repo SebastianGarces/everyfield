@@ -7,10 +7,9 @@ import { liveAccess, liveRead, liveRows, type RequestActor } from "../access/ses
 import { createLaunchReader } from "../launch/reads.ts";
 import { linkActive, type Reader } from "../organizations/core.ts";
 import { areaOf, latestGeography } from "../organizations/geography.ts";
-import { iso } from "../intelligence/assessment.ts";
-import { concernOf, concernsSql, releasedRun, storedConcern } from "../intelligence/views.ts";
 import { compatible } from "../teams/training/reads.ts";
 import { launchJson, plantLaunchOf, preparationJson } from "./launch.ts";
+import { released, releasedHealth, releasedJson, releasedOf } from "./released.ts";
 export { requestIntelligenceRefresh, readIntelligence, submitIntelligenceFeedback } from "./intelligence.ts";
 
 // Organization oversight reads (REQ-IDN-023, REQ-IDN-024): oversight.listPlants, oversight.getPlant,
@@ -43,8 +42,7 @@ const directory = (org: SQL, where: SQL, now: SQL = nowOf()) => sql`SELECT p.id 
 	CASE WHEN g.plant_id IS NULL THEN p.country ELSE g.country END AS country,
 	ri.canonical_key AS region_key, k.shared_findings,
 	CASE WHEN k.shared_findings THEN ${preparationJson(sql`p.id`, sql`k.share_ministry_teams`)} END AS preparation,
-	CASE WHEN k.shared_findings THEN (SELECT json_build_object('runId',rr.id,'asOf',${iso("rr.as_of")},'phase',rr.phase,
-		'concerns',${concernsSql("rr")}) FROM ${releasedRun(sql`p.id`, now)} rr) END AS released,
+	CASE WHEN k.shared_findings THEN ${releasedJson(sql`p.id`, now)} END AS released,
 	k.share_people, k.share_meetings, k.share_tasks, k.share_ministry_teams,
 	p.phase, l.target_date::text AS launch_date,
 	(SELECT coalesce(json_agg(DISTINCT o.name), '[]'::json) FROM affiliation ps
@@ -73,9 +71,7 @@ const directoryRow = z.object({
 	region_key: z.string().nullable(),
 	shared_findings: z.boolean(),
 	preparation: z.unknown().nullable(),
-	released: z
-		.object({ runId: z.string(), asOf: z.string(), phase: z.int(), concerns: z.array(storedConcern) })
-		.nullable(),
+	released,
 	share_people: z.boolean(),
 	share_meetings: z.boolean(),
 	share_tasks: z.boolean(),
@@ -83,46 +79,17 @@ const directoryRow = z.object({
 });
 type DirectoryRow = z.infer<typeof directoryRow>;
 
-/** The sharing categories a fact group is read from; a concern resting on one the link does not share is withheld. */
-const CATEGORIES: Record<string, readonly ("people" | "meetings" | "tasks" | "ministry")[]> = {
-	committedAdults: ["people"],
-	growth: ["people"],
-	humanRecords: ["people"],
-	vision: ["meetings"],
-	cohesion: ["meetings", "people"],
-	followUps: ["meetings", "tasks"],
-	coverage: ["ministry"],
-	training: ["ministry"],
-};
-/**
- * The released assessment as this link may see it: its concerns whose every cited fact is read from categories the
- * plant shares with this organization, and how many others are held back. Never a point's words or a passage.
- */
-function releasedOf(r: DirectoryRow): C.ReleasedAssessment {
-	if (!r.shared_findings) return { status: "withheld" };
-	if (!r.released) return { status: "not_assessed" };
-	const shares = {
-		people: r.share_people,
-		meetings: r.share_meetings,
-		tasks: r.share_tasks,
-		ministry: r.share_ministry_teams,
-	};
-	const visible = (x: z.infer<typeof storedConcern>) =>
-		x.keys.every((k) => (CATEGORIES[k.split(".")[0]!] ?? []).every((category) => shares[category]));
-	const { runId, asOf, phase, concerns } = r.released;
-	return C.releasedAssessment.parse({
-		status: "released",
-		runId,
-		asOf,
-		phase,
-		concerns: concerns.filter(visible).map((x) => concernOf(runId, x)),
-		withheld: concerns.filter((x) => !visible(x)).length,
-	});
-}
+/** The released assessment as this directory row's link may see it. */
+const assessmentOf = (r: DirectoryRow) =>
+	releasedOf(
+		r.shared_findings,
+		{ people: r.share_people, meetings: r.share_meetings, tasks: r.share_tasks, ministry: r.share_ministry_teams },
+		r.released,
+	);
 
 function plantRow(raw: unknown): C.PlantDirectoryRow {
 	const r = directoryRow.parse(raw);
-	const released = releasedOf(r);
+	const assessment = assessmentOf(r);
 	return C.plantDirectoryRow.parse({
 		plantId: r.plant_id,
 		name: r.name,
@@ -137,7 +104,7 @@ function plantRow(raw: unknown): C.PlantDirectoryRow {
 		health: C.healthOf(
 			r.shared_findings,
 			r.preparation ? C.preparation.parse(r.preparation) : null,
-			released.status === "released" ? { concerns: released.concerns.length, withheld: released.withheld > 0 } : null,
+			releasedHealth(assessment),
 		),
 	});
 }
@@ -327,7 +294,7 @@ export async function getPlant(
 		sections,
 		launch,
 		summary,
-		assessment: releasedOf(directoryRow.parse(row)),
+		assessment: assessmentOf(directoryRow.parse(row)),
 	});
 }
 
