@@ -23,6 +23,8 @@ import {
 	PEOPLE,
 	byName,
 	live,
+	programId,
+	teamId,
 	type ActorName,
 	type Person,
 } from "./golden-church.mts";
@@ -590,11 +592,11 @@ const labels = (r: SourceResult, kind = "person") => r.rows.filter((x) => x.kind
 
 test("INV-evry-golden: the seeded church holds the records the factual cases check, read back through the real reads", async () => {
 	const everyone = await read("people.listPeople", { limit: 100 });
-	assert.equal(everyone.total, 83);
+	assert.equal(everyone.total, 84);
 	const stages = ["leader", "launch_team", "core_group", "interviewed", "following_up", "attendee", "prospect"];
 	const totals = [];
 	for (const stage of stages) totals.push((await read("people.listPeople", { stages: [stage], limit: 100 })).total);
-	assert.deepEqual(totals, [3, 2, 5, 2, 4, 10, 57]);
+	assert.deepEqual(totals, [3, 2, 5, 2, 4, 11, 57]);
 	const prospects = await read("people.listPeople", { stages: ["prospect"], limit: 100 });
 	assert.equal(prospects.rows.filter((r) => r.fields.city === "Austin").length, 13);
 	assert.equal((await read("people.listHouseholds", { limit: 100 })).total, 8);
@@ -617,6 +619,35 @@ test("INV-evry-golden: the seeded church holds the records the factual cases che
 		if (skills.rows.some((s) => s.fields.category === "tech")) tech.push(p.label);
 	}
 	assert.deepEqual(tech, ["Mark Thompson", "Alex Rivera"]);
+	// The ministries, from the team roster: Worship's four (not Ruth, who only carries the tag), Hospitality alone with no
+	// leader, the staffing totals, Sam on three ministries, the saved Kids list and the Core team's measured health.
+	assert.deepEqual(labels(await read("teams.get", { teamId: teamId("Worship") })), [
+		"Alex Rivera",
+		"Ana Rivera",
+		"Jen Thompson",
+		"Mark Thompson",
+	]);
+	const staffing = await read("teams.staffingSummary", {});
+	assert.deepEqual(
+		staffing.rows.filter((r) => r.fields.leaderStatus === "none").map((r) => r.label),
+		["Hospitality"],
+	);
+	assert.deepEqual(staffing.facts, { roles: 16, filledRoles: 13, openRoles: 3, peopleServing: 11 });
+	assert.deepEqual(labels(await read("teams.personTeamCounts", { minTeams: 3 })), ["Sam Patel"]);
+	const kids = await read("teams.readRequiredTrainingParticipants", { programId: programId("Kids ministry training") });
+	assert.deepEqual(kids.facts, { complete: 1, of: 2 });
+	const core = (await read("teams.health", { teamId: teamId("Core team") })).rows[0]!.fields;
+	assert.deepEqual(
+		[
+			core.staffingPercent,
+			core.trainingPercent,
+			core.attendancePercent,
+			core.composite,
+			core.windowFrom,
+			core.windowTo,
+		],
+		[75, 67, 67, 70, "2026-10-13", "2026-11-03"],
+	);
 	// The two removed people are in the church but not among its live people.
 	for (const name of ["Tom Baker", "Rosa Rivera"]) assert.equal(labels(everyone).includes(name), false, name);
 	assert.equal(
@@ -663,8 +694,13 @@ test("INV-evry-golden SAF-02 SAF-11 SAF-12 SAF-14: the model's tools can read an
 		"propose_change",
 	]);
 	assert.deepEqual(tools("admin"), tools("owner"));
-	// A Member reads and selects but proposes nothing; an organization seat gets no plant People read at all.
-	assert.deepEqual(tools("member"), [...Object.keys(READ_DOMAINS).map((d) => `${d}_read`), "select_returned_rows"]);
+	// A Member reads, selects and proposes changes to only their own notifications; an organization seat gets no plant
+	// read at all.
+	assert.deepEqual(tools("member"), tools("owner"));
+	assert.deepEqual(
+		readCatalog(church.actors.member).reviewedWrites.map((w) => w.operation),
+		["notifications.markSelectedRead", "notifications.markAllVisibleRead", "notifications.setPreferences"],
+	);
 	assert.deepEqual(tools("org"), []);
 });
 

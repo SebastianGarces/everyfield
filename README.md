@@ -17,4 +17,4 @@ Start with [current orientation](docs/START-HERE.md). Requirement JSON in `docs/
 - [Explorer renderer](docs/render-build-explorer.py), generated outside the repository
 - [Feature review](everyfield-feature-review.html), checked against the feature catalog
 - [Build workflow, progress and merge rules](docs/build-agent-workflow.md)
-- [Frozen build progress](docs/build-progress.json), which stopped updating on 2026-10-22 at PR #235; evf v2's task records are the live state
+- [Build progress](docs/build-progress.json), frozen on 2026-10-22 at PR #235 except WP-017–039, WP-071 and WP-072, which T-290 refreshed on 2026-11-13; evf v2's task records are still the live state
