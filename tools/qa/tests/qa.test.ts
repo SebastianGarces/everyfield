@@ -189,7 +189,9 @@ else if ((a[0] === "alias" && a[1] === "rm") || a[0] === "remove") {
 			entries().flatMap(([at, kind, of, due]) =>
 				kind === "call" && of === id ? [{ at: +at!, due: due === "now" ? ("now" as const) : +due! }] : [],
 			);
-		return { child, exited, output: () => readFileSync(out, "utf8"), plans, ticks };
+		/** When each of the host's scan passes, a separate timer in the same process, started. */
+		const scans = () => entries().flatMap(([at, kind]) => (kind === "scan" ? [+at!] : []));
+		return { child, exited, output: () => readFileSync(out, "utf8"), plans, ticks, scans };
 	};
 	const calls = (name: string): string[][] => {
 		try {
@@ -1110,19 +1112,36 @@ async function until(ready: () => boolean, what = "not ready", ms = 10_000): Pro
 /**
  * Once a minute, on the host's own schedule: each minute it plans is the next minute's start plus the offset, a preview's
  * first call starts at once, and from then on it gets exactly one call for every planned minute, never before that
- * minute starts. Two calls in a minute, a skipped minute or a call ahead of its minute fail; a host that runs late does not.
+ * minute starts. A minute's calls may start late only because the host's process was not running: its scan timer, due
+ * every fifth of a minute, then passes at most once (in a timer batch that started before the minute was due) between
+ * the minute's due time and its calls, since any later batch runs the earlier-due minute first. Two calls in a minute,
+ * a planned minute without its call, a call ahead of its minute or a host whose timer waits past its minute while it
+ * keeps scanning fail; a starved host does not.
  */
 function assertOnceAMinute(
-	host: { plans: () => { at: number; due: number }[]; ticks: (id: string) => { at: number; due: number | "now" }[] },
+	host: {
+		plans: () => { at: number; due: number }[];
+		ticks: (id: string) => { at: number; due: number | "now" }[];
+		scans: () => number[];
+	},
 	id: string,
 ): void {
 	const plans = host.plans(),
+		scans = host.scans(),
 		[pickup, ...calls] = host.ticks(id);
 	for (const p of plans)
 		assert.ok(
 			(p.due - TEST_OFFSET) % TEST_MINUTE === 0 && p.at < p.due && p.due <= p.at + TEST_MINUTE,
 			`at ${p.at} the host planned its next minute for ${p.due}, not the next minute's start`,
 		);
+	// Each plan after the first is made when the minute before it fires.
+	for (const [p, fired] of plans.slice(0, -1).map((p, i) => [p, plans[i + 1]!.at] as const)) {
+		const waiting = scans.filter((at) => at > p.due && at < fired).length;
+		assert.ok(
+			waiting <= 1,
+			`the host's minute ${p.due} fired at ${fired}, though it scanned ${waiting} times while that minute was due`,
+		);
+	}
 	assert.equal(pickup?.due, "now", `${id}'s first call did not start at once`);
 	for (const c of calls)
 		// Timers may fire a millisecond before Date.now() reaches their due time, so the bound is the minute's start.
