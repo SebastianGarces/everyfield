@@ -51,12 +51,17 @@ import { NOW, type ActorName, type GoldenChurch } from "./golden-church.mts";
 import { SEAT_READS, SETTINGS_COMMANDS, SHARING_READS } from "../../../packages/evry/src/adapters/settings/index.ts";
 import { ONBOARDING_READS } from "../../../packages/evry/src/adapters/onboarding/reads/index.ts";
 import { ONBOARDING_COMMANDS } from "../../../packages/evry/src/adapters/onboarding/commands/index.ts";
+import { DASHBOARD_READS } from "../../../packages/evry/src/adapters/dashboard/reads/index.ts";
+import { FEEDBACK_READS } from "../../../packages/evry/src/adapters/feedback/reads/index.ts";
+import { FEEDBACK_COMMANDS } from "../../../packages/evry/src/adapters/feedback/commands/index.ts";
 
 /**
  * The operations these recordings offer the model: every installed one except the seat, Settings, sharing, connection,
- * account and organization tools T-327 added and the setup and Discovery tools T-345 added after they were recorded.
- * Offering those would change every recorded provider call, and Nora's asks for T-327 (13 Nov 2026) and T-345 allow no
- * new spend, so settings.test.mts and onboarding.test.mts score them on the scripted model instead. The next recording
+ * account and organization tools T-327 added, the setup and Discovery tools T-345 added and the Overview and feedback
+ * tools T-330 added after they were recorded.
+ * Offering those would change every recorded provider call, and Nora's asks for T-327 (13 Nov 2026), T-345 and T-330
+ * allow no new spend, so settings.test.mts, onboarding.test.mts and overview.test.mts score them on the scripted model
+ * instead. The next recording
  * drops this filter (rulings D-1137, D-1292).
  */
 const LATER = new Set<string>([
@@ -65,6 +70,9 @@ const LATER = new Set<string>([
 	...Object.keys(SETTINGS_COMMANDS),
 	...ONBOARDING_READS.map((a) => a.operation),
 	...Object.keys(ONBOARDING_COMMANDS),
+	...DASHBOARD_READS.map((a) => a.operation),
+	...FEEDBACK_READS.map((a) => a.operation),
+	...Object.keys(FEEDBACK_COMMANDS),
 ]);
 export const RECORDED = (operation: string) => !LATER.has(operation);
 

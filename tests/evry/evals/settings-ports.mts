@@ -108,5 +108,7 @@ export function nativePorts(mail: { to: string; purpose: string }[] = []): Nativ
 				});
 			},
 		}),
+		// A local build names no version, as the feedback dialog's server does then.
+		appVersion: null,
 	};
 }

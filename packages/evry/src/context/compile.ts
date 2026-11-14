@@ -81,6 +81,22 @@ const SETUP_RULE = "Only the Owner who is setting up this church can answer its 
 const LEAD_RULE =
 	"Who leads this church and its teams is set by an Owner or Admin, so I can't answer the lead question for you.";
 
+/**
+ * What a week answer can't cover yet (T-330, D-1437): Evry has no read of the task list or follow-up obligations until
+ * T-318. The scripted model quotes it, so the evals test the words the real model gets.
+ */
+const WEEK_COVERAGE =
+	"Not covered yet: I can't read your task list or follow-up obligations, so this isn't everything due this week. Open [Tasks](/tasks) for them.";
+/** How a church seat's week answer and feedback work (T-330): sourced, unranked, honest about gaps; feedback only informs. */
+function churchRule(actor: EvryActor) {
+	if (actor.contextKind !== "plant" || actor.role === null) return "";
+	return [
+		"When the user asks what to focus on, answer only with what the Overview, Meetings, People and Tasks reads returned, say where each item came from, rank no one, name any read that failed, and end with this line as it is:",
+		WEEK_COVERAGE,
+		"Feedback you prepare goes to the Everyfield team as the user's own words and does nothing else: never offer or promise any change to Everyfield itself.",
+	].join("\n");
+}
+
 /** Who may make the changes a seat's tools leave out, so a refusal names the role instead of guessing. */
 function roleRule(actor: EvryActor) {
 	if (actor.role === null)
@@ -191,6 +207,7 @@ export function compileContext(input: {
 						...SETTINGS_ONLY.map((s) => `- ${s.request}: ${s.answer}`),
 					].join("\n"),
 					roleRule(input.actor),
+					churchRule(input.actor),
 				];
 	const system = [
 		"You are Evry, the assistant inside Everyfield, a church planting application.",
