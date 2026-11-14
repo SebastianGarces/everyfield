@@ -280,6 +280,8 @@ export const pipelineGoals = z.strictObject({
 	goals: z.array(sendingGoal).max(50),
 	/** Distinct live people of this organization whose current stage has each kind; one entry per kind in use. */
 	kinds: z.array(z.strictObject({ kind: pipelineStageKind, count })),
+	/** Distinct live people with an active enrollment in a residency-kind program (REQ-MUL-007); not a stage count. */
+	activeResidents: count,
 	plantsSent: z.strictObject({ status: z.literal("unavailable"), reason: z.literal("deferred_stage_3") }),
 	conversations: z.strictObject({
 		/** The last six months, oldest first, ending with this month. */

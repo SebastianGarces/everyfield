@@ -58,10 +58,14 @@ import {
 	withMeetingsWrite,
 } from "../../../packages/domain/src/meetings/index.ts";
 import {
+	readEnrollment,
 	readPipelineBoard,
 	readPipelineConsents,
 	readPipelineGoals,
 	readPipelinePersonRecord,
+	readProgram,
+	readPrograms,
+	searchReadings,
 } from "../../../packages/domain/src/organizations/index.ts";
 import { runDueImports } from "../../../apps/web/src/server/people/run-imports.ts";
 import { ok } from "../../support/fixture.mts";
@@ -83,7 +87,7 @@ const baselinePath = fileURLToPath(new URL("./tenancy-baseline.json", import.met
 
 const WRITE_VERBS = new Set(
 	`accept add appoint archive assign attest cancel change clear complete copy correct create delete designate dismiss dispatch
-	edit end ensure execute finalize fork generate hand import initialize invite log merge move offer populate propagate
+	edit end enroll ensure execute finalize fork generate hand import initialize invite log merge move offer populate propagate publish
 	reactivate recomplete reconcile record remove reorder replace request reschedule reset restore retire revoke save schedule
 	send set sign submit unmerge update upload use with withdraw`.split(/\s+/),
 );
@@ -778,6 +782,25 @@ function cases(who) {
 				expected: { value: { status: "refused", refusal: { code: "unavailable" } }, control: null },
 			},
 		],
+		// Development programs read only under an organization seat, like the pipeline; church A holds none for the
+		// control to read. The organization boundary itself is tests/integration/organizations/programs.test.mts.
+		...(
+			[
+				["readPrograms", () => readPrograms(f.db, who.actor)],
+				["readProgram", () => readProgram(f.db, who.actor, { programId: a.avery })],
+				["readEnrollment", () => readEnrollment(f.db, who.actor, { enrollmentId: a.avery })],
+				["searchReadings", () => searchReadings(f.db, who.actor, { q: "" })],
+			] as const
+		).map(
+			([name, read]) =>
+				[
+					`organizations:${name}`,
+					{
+						run: () => plain(read),
+						expected: { value: { status: "refused", refusal: { code: "unavailable" } }, control: null },
+					},
+				] as const,
+		),
 		// Goals, their chosen counts and conversation counts too: tests/integration/organizations/goals.test.mts holds
 		// their organization boundary for reads and saves, including a network that a church shares pipeline totals with.
 		[
