@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { loadPage } from "../identity/api";
 import { readSourceOrder, saveSourceOrder } from "../wiki/actions";
+import { readRegion, saveRegion, suggestRegion } from "./region";
 import { SettingsGuide } from "../wiki/client.tsx";
 import {
 	finalizeAssetUpload,
@@ -61,6 +62,7 @@ const PORT: SettingsPort = {
 		assetSrc,
 	},
 	wiki: { read: readSourceOrder, save: saveSourceOrder },
+	region: { read: readRegion, suggest: suggestRegion, save: saveRegion },
 	flows: {
 		avatar: { requestAvatarUpload, uploadAvatarBytes, finalizeAvatar, removeAvatar, avatarSrc: avatarRoute },
 		requestEmailChange,

@@ -198,6 +198,13 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `meeting_kit_item(assignee_person_id, plant_id)` | `person(id, tenant_id)` | restrict |  |
 | `message_template(plant_id)` | `plant(id)` | cascade |  |
 | `message_template(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
+| `network_intelligence_feedback(account_id)` | `account(id)` | cascade |  |
+| `network_intelligence_feedback(run_id)` | `network_intelligence_run(id)` | cascade | A rating belongs to its author's account inside the run's organization. Reads and writes check the author's current seat in that organization; the relation grants no plant access. |
+| `network_intelligence_plant(plant_id)` | `plant(id)` | cascade |  |
+| `network_intelligence_plant(region_item_id)` | `reference_item(id)` | restrict | The Region is a global official reference item (OMB 23-01), not a tenant body; it grants nothing. |
+| `network_intelligence_plant(run_id)` | `network_intelligence_run(id)` | cascade | A run's plant rows and ratings belong to the run's organization. Each read joins the run on its organization and rechecks the plant's current link and sharing; the relation grants no plant access. |
+| `network_intelligence_run(organization_id)` | `organization(id)` | restrict |  |
+| `network_intelligence_run(requested_by)` | `account(id)` | set_null |  |
 | `notice(tenant_id)` | `tenant(id)` | restrict |  |
 | `notice(recipient_id)` | `account(id)` | restrict |  |
 | `notice(source_record_id)` | `record(id)` | restrict | Own inbox context may refer to an exact entitled source in another tenant; no inherited grant. |
