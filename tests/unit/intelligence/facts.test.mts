@@ -38,6 +38,7 @@ const empty = (): FactInputs => ({
 	attestations: [],
 	interviews: { count: 0, latestOn: null },
 	fourCs: { count: 0, latestOn: null },
+	launch: null,
 });
 const facts = (over: Partial<FactInputs>, today = TODAY, asOf = AS_OF) =>
 	buildFacts(factInputs.parse({ ...empty(), ...over }), asOf as never, today);
@@ -281,6 +282,7 @@ test("AC:PI-PURPOSE-001 the fact inputs hold no private care and only a count an
 		"followUps",
 		"fourCs",
 		"interviews",
+		"launch",
 		"nextVision",
 		"people",
 		"roles",
@@ -293,4 +295,14 @@ test("AC:PI-PURPOSE-001 the fact inputs hold no private care and only a count an
 	assert.throws(() =>
 		factInputs.parse({ ...empty(), interviews: { count: 1, latestOn: day(-1), result: "qualified" } }),
 	);
+});
+
+test("the launch countdown is the plant-local days to a scheduled launch that has not happened", () => {
+	const on = (target: string | null, status: "planning" | "scheduled" | "postponed" | "completed", actual = null) =>
+		facts({ launch: { target, actual, status } }).launch;
+	assert.deepEqual(facts({}).launch, { targetOn: null, daysToLaunch: null });
+	assert.deepEqual(on("2026-12-14", "scheduled"), { targetOn: "2026-12-14", daysToLaunch: 30 });
+	assert.deepEqual(on(TODAY, "scheduled"), { targetOn: TODAY, daysToLaunch: 0 });
+	assert.deepEqual(on("2026-12-14", "planning"), { targetOn: null, daysToLaunch: null });
+	assert.deepEqual(on(null, "postponed"), { targetOn: null, daysToLaunch: null });
 });

@@ -1,31 +1,43 @@
-import type { Clock } from "@everyfield/contracts/common";
+import { instant, type Clock } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/intelligence";
 import type { Database } from "@everyfield/db/client";
-import { sql } from "@everyfield/db/query";
+import { sql, type SQL } from "@everyfield/db/query";
 import { randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
 import { liveRead, type RequestActor } from "../access/session.ts";
 import { plantViewer } from "../documents/access.ts";
 import { checkDraft } from "./checks.ts";
-import { pgCode } from "../wiki/core.ts";
-import { createFacts } from "./facts.ts";
-import { retrieveMethodology, sectionsOf, textHash, type Retrieved } from "./retrieval.ts";
+import { sectionsOf, textHash } from "./retrieval.ts";
 
-// Plant Intelligence assessments (WP-041 and WP-042). A run (intelligence.evaluateAssessment) captures the measured facts,
-// the plant's phase and the keyword-retrieved methodology passages in one consistent read-only snapshot, stores that
-// exact input with the run, then asks the drafter for up to three drafts, outside any transaction. Each draft goes
-// through `checkDraft`; the first clean one is published with its citations. Retrieval that fails or finds no activated
-// reference publishes nothing: the run is stored as degraded, and the previous assessment stays current with its real
-// age. A run never writes a phase, task, message or notice. Reads call no model.
+// Plant Intelligence assessments (WP-041 to WP-043). Nobody runs an assessment by hand: a changed input or reference,
+// seven quiet days, or an Owner's or Admin's request (intelligence.requestRefresh) queues a demand, and the scheduled
+// job (assessment-job.ts) captures one consistent snapshot, drafts outside any transaction and publishes only while
+// its inputs, the reference activation and its own claim are still current. This file holds the drafting budget, the
+// published shape and the plant's reads. Reads call no model.
 
 /** One model call. `feedback` holds the previous draft's violations, so the next draft can correct them. */
 export type DraftCall = { input: c.ModelInput; feedback: c.Violation[]; ordinal: number; maxOutputTokens: number };
 export type DraftReply = { output: unknown; usage: { inputTokens: number; outputTokens: number } };
-/** The model port. Tests and CI use only the scripted drafter (D77); no paid drafter exists without spend approval. */
+/**
+ * The model port. Tests and CI use only the scripted drafter (D77); no paid drafter exists without spend approval. A
+ * drafter makes exactly one dispatch per call: any SDK of a real one sets its own retries to zero (PI-020), because the
+ * run's budget owns every dispatch. A busy provider (429 or 5xx) throws ProviderBusy; any other failure is an uncertain
+ * call that may still be charged.
+ */
 export interface Drafter {
 	readonly id: string;
 	draft(call: DraftCall, signal: AbortSignal): Promise<DraftReply>;
+}
+/** The provider said it is busy (429, or a 5xx), with its Retry-After when it sent one. */
+export class ProviderBusy extends Error {
+	readonly status: number;
+	readonly retryAfterMs: number | null;
+	constructor(status: number, retryAfterMs: number | null = null) {
+		super(`provider_busy_${status}`);
+		this.status = status;
+		this.retryAfterMs = retryAfterMs;
+	}
 }
 
 type Code = c.AssessmentError["code"];
@@ -55,7 +67,7 @@ function scopeOf(authority: RequestActor) {
 	if (!viewer || viewer.access.role === "member") deny("access_denied");
 	return { me: viewer.accountId, plant: viewer.plantId, ok: liveRead(viewer.access, true) };
 }
-const iso = (v: string) => sql`to_char(${sql.raw(v)} AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`;
+export const iso = (v: string) => sql`to_char(${sql.raw(v)} AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`;
 
 /** A bound on the input tokens of one call: a byte-level tokenizer never makes more tokens than the bytes it reads. */
 const inputBound = (call: Omit<DraftCall, "maxOutputTokens">) =>
@@ -63,54 +75,97 @@ const inputBound = (call: Omit<DraftCall, "maxOutputTokens">) =>
 /** Each call may write at most this much, so four uncertain attempts fit the run's 12,000 output tokens. */
 const OUTPUT_PER_CALL = 3000;
 
-type StoredDraft = { ordinal: number; attempts: number; output: unknown; violations: c.Violation[] };
-type Drafted = {
-	drafts: StoredDraft[];
+export type StoredDraft = { ordinal: number; attempts: number; output: unknown; violations: c.Violation[] };
+export type Usage = { attempts: number; inputTokens: number; outputTokens: number };
+/** A run's drafting so far, as stored with it: a resumed run continues from here within the same budget. */
+export type DraftProgress = { drafts: StoredDraft[]; usage: Usage; pendingAttempts: number };
+export const NO_PROGRESS: DraftProgress = {
+	drafts: [],
+	usage: { attempts: 0, inputTokens: 0, outputTokens: 0 },
+	pendingAttempts: 0,
+};
+export type Drafted = {
+	progress: DraftProgress;
 	published: c.DraftOutput | null;
-	reason: c.RunResult["reason"];
-	usage: c.RunResult["usage"];
+	/** Why drafting stopped without a clean draft; `busy` waits and resumes, `lost_claim` leaves the run to its new owner. */
+	reason: "invalid_drafts" | "attempts" | "budget" | "busy" | "lost_claim" | null;
+	retryAfterMs: number | null;
 };
 
-/** Up to three drafts, four provider attempts each, inside the run's token budget. Pure apart from the drafter. */
-export async function draftWithin(drafter: Drafter, input: c.ModelInput): Promise<Drafted> {
+/**
+ * Up to three drafts, four provider dispatches each, inside the run's 60,000 input and 12,000 output tokens, resuming
+ * from `progress`. Every dispatch is counted before it is sent: `reserve` stores the counters with the dispatch charged
+ * in full (the most an uncertain call can cost), and a refused reservation (the claim was lost) sends nothing. A busy
+ * provider stops drafting so the run can wait; the dispatch it cost stays counted. Pure apart from the two ports.
+ */
+export async function draftWithin(
+	drafter: Drafter,
+	input: c.ModelInput,
+	from: DraftProgress = NO_PROGRESS,
+	reserve: (progress: DraftProgress) => Promise<boolean> = async () => true,
+	callMs: number = c.ASSESSMENT_BUDGET.callMs,
+): Promise<Drafted> {
 	const B = c.ASSESSMENT_BUDGET;
-	const usage = { attempts: 0, inputTokens: 0, outputTokens: 0 };
-	const drafts: StoredDraft[] = [];
-	let feedback: c.Violation[] = [];
-	for (let ordinal = 1; ordinal <= B.drafts; ordinal++) {
+	let p: DraftProgress = { ...from, usage: { ...from.usage }, drafts: [...from.drafts] };
+	const stop = (reason: Drafted["reason"], retryAfterMs: number | null = null): Drafted => ({
+		progress: p,
+		published: null,
+		reason,
+		retryAfterMs,
+	});
+	while (p.drafts.length < B.drafts) {
+		const ordinal = p.drafts.length + 1;
+		const feedback = p.drafts.at(-1)?.violations ?? [];
 		let reply: DraftReply | null = null;
-		let attempts = 0;
-		while (!reply && attempts < B.attemptsPerDraft) {
+		while (!reply) {
+			if (p.pendingAttempts >= B.attemptsPerDraft) return stop("attempts");
 			const bound = inputBound({ input, feedback, ordinal });
-			const outputLeft = B.outputTokens - usage.outputTokens;
-			if (usage.inputTokens + bound > B.inputTokens || outputLeft <= 0)
-				return { drafts, published: null, reason: "budget", usage };
-			attempts++;
-			usage.attempts++;
+			const outputLeft = B.outputTokens - p.usage.outputTokens;
+			if (p.usage.inputTokens + bound > B.inputTokens || outputLeft <= 0) return stop("budget");
+			const allowance = Math.min(OUTPUT_PER_CALL, outputLeft);
+			const before = p.usage;
+			p = {
+				...p,
+				pendingAttempts: p.pendingAttempts + 1,
+				usage: {
+					attempts: before.attempts + 1,
+					inputTokens: before.inputTokens + bound,
+					outputTokens: before.outputTokens + allowance,
+				},
+			};
+			if (!(await reserve(p))) return stop("lost_claim");
 			try {
 				reply = await drafter.draft(
-					{ input, feedback, ordinal, maxOutputTokens: Math.min(OUTPUT_PER_CALL, outputLeft) },
-					AbortSignal.timeout(B.callMs),
+					{ input, feedback, ordinal, maxOutputTokens: allowance },
+					AbortSignal.timeout(Math.min(callMs, B.callMs)),
 				);
-				usage.inputTokens += Math.max(0, Math.round(reply.usage.inputTokens));
-				usage.outputTokens += Math.max(0, Math.round(reply.usage.outputTokens));
-			} catch {
-				// An uncertain call may still be charged: count its whole input bound and output allowance.
-				usage.inputTokens += bound;
-				usage.outputTokens += Math.min(OUTPUT_PER_CALL, outputLeft);
+				p = {
+					...p,
+					usage: {
+						attempts: p.usage.attempts,
+						inputTokens: before.inputTokens + Math.max(0, Math.round(reply.usage.inputTokens)),
+						outputTokens: before.outputTokens + Math.max(0, Math.round(reply.usage.outputTokens)),
+					},
+				};
+			} catch (error) {
+				// The reservation stands: an uncertain call may still be charged.
+				if (error instanceof ProviderBusy) return stop("busy", error.retryAfterMs);
 			}
 		}
-		if (!reply) return { drafts, published: null, reason: "attempts", usage };
 		const violations = checkDraft(reply.output, input);
-		drafts.push({ ordinal, attempts, output: reply.output, violations });
-		if (!violations.length) return { drafts, published: c.draftOutput.parse(reply.output), reason: null, usage };
-		feedback = violations;
+		p = {
+			...p,
+			pendingAttempts: 0,
+			drafts: [...p.drafts, { ordinal, attempts: p.pendingAttempts, output: reply.output, violations }],
+		};
+		if (!violations.length)
+			return { progress: p, published: c.draftOutput.parse(reply.output), reason: null, retryAfterMs: null };
 	}
-	return { drafts, published: null, reason: "invalid_drafts", usage };
+	return stop("invalid_drafts");
 }
 
 /** The published assessment as stored: the draft plus every citation it uses, resolved from the run input. */
-function publication(draft: c.DraftOutput, input: c.ModelInput) {
+export function publication(draft: c.DraftOutput, input: c.ModelInput) {
 	const facts = new Map(input.facts.map((f) => [f.key, f]));
 	const passages = new Map(input.passages.map((p) => [p.key, p]));
 	const keys = new Set([draft.focus, ...draft.supporting, ...draft.positives].flatMap((p) => p.citations));
@@ -124,105 +179,79 @@ function publication(draft: c.DraftOutput, input: c.ModelInput) {
 	);
 	return { draft, citations };
 }
+/** The insights a published draft writes (PI-023): one per point, in order, with its urgency's stored severity. */
+export function insightsOf(draft: c.DraftOutput) {
+	const points = [
+		{ role: "focus" as const, p: draft.focus },
+		...draft.supporting.map((p) => ({ role: "supporting" as const, p })),
+		...draft.positives.map((p) => ({ role: "positive" as const, p })),
+	];
+	return points.map(({ role, p }, ordinal) => ({ ordinal, role, severity: c.SEVERITY[p.urgency], title: p.title }));
+}
+
+/**
+ * The plant's scheduled runs that failed in a row, newest first: held for an operator once three did (PI-042). A
+ * manual run or any other settled outcome ends the streak. One lateral row: `held` and the streak's run ids.
+ */
+export const heldSql = (plant: SQL) => sql`(SELECT count(*)=${c.HELD_AFTER_FAILURES}::int
+	AND coalesce(bool_and(x.outcome IN ('failed','degraded') AND x.demand<>'manual'),false) AS held
+	FROM (SELECT r.outcome,r.demand FROM assessment_run r WHERE r.plant_id=${plant}
+		AND r.outcome NOT IN ('superseded','pending','deferred') ORDER BY r.captured_at DESC,r.id DESC
+		LIMIT ${c.HELD_AFTER_FAILURES}::int) x)`;
+/** A plant whose account or deletion hides it: no demand, run or publication for it. */
+export const plantHidden = (plant: SQL) => sql`EXISTS(SELECT FROM lifecycle_witness w WHERE w.opaque_subject_id=${plant}
+	AND w.kind='plant' AND w.state NOT IN ('active','cancelled'))`;
+const openJob = (plant: SQL) => sql`EXISTS(SELECT FROM job j WHERE j.kind='assessment' AND j.subject_record_id=${plant}
+	AND j.state IN ('ready','claimed','retry_wait'))`;
+
+/** The newest work since the current assessment, as the planter reads it. */
+function newestOf(r: z.infer<typeof readRow>): c.NewestRun | null {
+	const n = r.newest && r.newest.newer ? r.newest : null;
+	if (r.open)
+		return {
+			state: n?.outcome === "deferred" ? "deferred" : "preparing",
+			retryAt: n?.outcome === "deferred" ? n.retryAt : null,
+			grounding: n?.grounding ?? null,
+		};
+	if (n && (n.outcome === "failed" || n.outcome === "degraded"))
+		return { state: r.held ? "needs_review" : "failed", retryAt: null, grounding: n.grounding };
+	return null;
+}
 
 export function createAssessments(config: { clock?: Clock } = {}) {
-	const facts = createFacts(config);
+	const now = () =>
+		config.clock ? sql`${new Date(config.clock.now()).toISOString()}::timestamptz` : sql`clock_timestamp()`;
 	return {
 		/**
-		 * intelligence.evaluateAssessment: one assessment run of the actor's plant, by its Owner or Admin. The browser or the
-		 * scheduler names the run id, so a repeated request records one run. Statements: the read-only snapshot
-		 * transaction (facts, then retrieval under a savepoint) and one write with its audit row.
+		 * intelligence.requestRefresh: an Owner or Admin asks for a fresh assessment of their plant. It queues one demand
+		 * for the scheduled job with its audit row, in one statement; the browser names the request id, so a repeated
+		 * request queues one run. A refused request queues nothing.
 		 */
-		async evaluateAssessment(db: Database, authority: RequestActor, raw: unknown, drafter: Drafter) {
+		async requestRefresh(db: Pick<Database, "execute">, authority: RequestActor, raw: unknown) {
 			return settle(async () => {
-				const request = c.evaluateAssessmentRequest.safeParse(raw);
-				if (!request.success) deny("invalid_input");
-				const runId = request.data.runId;
+				const q = c.requestRefreshRequest.safeParse(raw);
+				if (!q.success) deny("invalid_input");
 				const s = scopeOf(authority);
-				const captured = await db.transaction(
-					async (tx) => {
-						await tx.execute(sql`SELECT set_config('lock_timeout','1s',true)`);
-						const read = await facts.readFacts(tx, authority, {});
-						if (read.status !== "ok") deny("access_denied");
-						const f = read.value;
-						let retrieved: Retrieved;
-						try {
-							retrieved = await tx.transaction((t) => retrieveMethodology(t, authority));
-						} catch (error) {
-							// The savepoint rolls back and keeps the facts: the run is degraded, never ungrounded.
-							const code = pgCode(error);
-							if (code !== "55P03" && code !== "57014") throw error;
-							retrieved = { status: "unavailable", phase: null };
-						}
-						return { facts: f, retrieved };
-					},
-					{ isolationLevel: "repeatable read", accessMode: "read only" },
-				);
-				const { facts: f, retrieved } = captured;
-				let input: c.ModelInput | null = null;
-				let drafted: Drafted = {
-					drafts: [],
-					published: null,
-					reason: null,
-					usage: { attempts: 0, inputTokens: 0, outputTokens: 0 },
-				};
-				if (retrieved.status === "ok") {
-					input = c.modelInput.parse({
-						phase: retrieved.phase,
-						asOf: f.asOf,
-						today: f.today,
-						rubric: c.ACTIVE_PLANT_RUBRIC,
-						facts: c.factCatalog(f),
-						passages: retrieved.passages,
-					});
-					drafted = await draftWithin(drafter, input);
-				} else drafted.reason = retrieved.status === "unavailable" ? "guidance_unavailable" : "reference_missing";
-				const outcome: c.RunOutcome = drafted.published
-					? "published"
-					: retrieved.status !== "ok"
-						? "degraded"
-						: drafted.reason === "invalid_drafts"
-							? "failed"
-							: "deferred";
-				const grounding = retrieved.status === "ok" ? "grounded" : "degraded";
-				const result = drafted.published && input ? publication(drafted.published, input) : null;
-				const activation = retrieved.status === "ok" ? retrieved.activation : null;
-				const rubric = c.PLANT_RUBRICS[c.ACTIVE_PLANT_RUBRIC];
-				const { rows } = await db.execute(sql`WITH gate AS (SELECT ${s.ok} AS ok),
-r AS (INSERT INTO assessment_run(id,plant_id,requested_by,as_of,phase,source_revision,formula_version,rubric_version,
-	rubric_sha256,reference_release,reference_activation,model,outcome,grounding,reason,facts,model_input,drafts,result,
-	attempts,input_tokens,output_tokens)
-	SELECT ${runId}::uuid,pl.id,${s.me}::uuid,${f.asOf}::timestamptz,coalesce(${retrieved.phase}::int,pl.phase),
-		${f.sourceRevision},${f.formulaVersion},${c.ACTIVE_PLANT_RUBRIC},${rubric.sha256},${activation?.release ?? null},
-		${activation?.number ?? null}::bigint,${drafter.id},${outcome},${grounding},${drafted.reason},${JSON.stringify(f)}::jsonb,
-		${input && JSON.stringify(input)}::jsonb,${JSON.stringify(drafted.drafts)}::jsonb,${result && JSON.stringify(result)}::jsonb,
-		${drafted.usage.attempts},${drafted.usage.inputTokens},${drafted.usage.outputTokens}
-	FROM plant pl WHERE pl.id=${s.plant}::uuid AND (SELECT ok FROM gate)
-	ON CONFLICT (id) DO NOTHING RETURNING id,plant_id),
-a AS (INSERT INTO audit_event(tenant_id,actor_id,action,kind,subject_type,subject_id,event_key,metadata)
-	SELECT r.plant_id,${s.me}::uuid,'intelligence.assessed','create','plant',r.plant_id,'assessment:'||r.id,
-		jsonb_build_object('runId',r.id,'outcome',${outcome}::text,'grounding',${grounding}::text,
-			'drafts',${drafted.drafts.length}::int,'model',${drafter.id}::text) FROM r RETURNING 1)
-SELECT (SELECT ok FROM gate) AS ok, EXISTS(SELECT FROM r) AS added,
-	EXISTS(SELECT FROM assessment_run WHERE id=${runId}::uuid AND plant_id=${s.plant}::uuid) AS existing`);
-				const w = z.object({ ok: z.boolean(), added: z.boolean(), existing: z.boolean() }).parse(rows[0]);
-				if (!w.ok) deny("access_denied");
-				if (!w.added && !w.existing) deny("not_found");
-				return c.runResult.parse({
-					runId,
-					outcome,
-					grounding,
-					reason: drafted.reason,
-					drafts: drafted.drafts.map((d) => ({ ordinal: d.ordinal, violations: d.violations })),
-					usage: drafted.usage,
-				});
+				const id = q.data.requestId;
+				const { rows } =
+					await db.execute(sql`WITH gate AS (SELECT ${s.ok} AND NOT ${plantHidden(sql`${s.plant}::uuid`)} AS ok),
+j AS (INSERT INTO job(tenant_id,kind,subject_record_id,producer_key,state,eligible_at,attempt_count,max_attempts,claim_generation)
+	SELECT ${s.plant}::uuid,'assessment',${s.plant}::uuid,${"manual/" + id},'ready',${now()},0,10,0 WHERE (SELECT ok FROM gate)
+	ON CONFLICT DO NOTHING RETURNING id),
+a AS (INSERT INTO audit_event(tenant_id,actor_id,action,kind,subject_type,subject_id,event_key,request_key,metadata)
+	SELECT ${s.plant}::uuid,${s.me}::uuid,'intelligence.refresh_requested','create','plant',${s.plant}::uuid,
+		${"assessment-refresh:" + id},${id},jsonb_build_object('requestId',${id}::text) FROM j RETURNING 1)
+SELECT (SELECT ok FROM gate) AS ok`);
+				if (!z.object({ ok: z.boolean() }).parse(rows[0]).ok) deny("access_denied");
+				return c.refreshReceipt.parse({ requestId: id, state: "preparing" });
 			});
 		},
 
 		/**
-		 * intelligence.readAssessment: the latest published assessment with its real age, and the latest run's outcome
-		 * (degraded when guidance couldn't be checked). The measured facts are read separately (intelligence.readFacts)
-		 * and stay readable whatever a run did. One statement, no model call.
+		 * intelligence.readAssessment: the latest published assessment (by publication instant and id) with its insights,
+		 * its delta and its real age, and the state of any newer work: being prepared, waiting for the provider, couldn't
+		 * be finished, or held for an operator. Pending, deferred, failed or superseded work never replaces it. The
+		 * measured facts are read separately (intelligence.readFacts). One statement, no model call.
 		 */
 		async readAssessment(db: Pick<Database, "execute">, authority: RequestActor, raw: unknown = {}) {
 			return settle(async () => {
@@ -231,19 +260,25 @@ SELECT (SELECT ok FROM gate) AS ok, EXISTS(SELECT FROM r) AS added,
 				const { rows } = await db.execute(sql`WITH gate AS (SELECT ${s.ok} AS ok),
 x AS (SELECT pl.id,pl.timezone FROM plant pl WHERE pl.id=${s.plant}::uuid AND (SELECT ok FROM gate)),
 cur AS (SELECT r.* FROM assessment_run r JOIN x ON x.id=r.plant_id WHERE r.outcome='published'
-	ORDER BY r.as_of DESC,r.recorded_at DESC,r.id DESC LIMIT 1),
-last AS (SELECT r.* FROM assessment_run r JOIN x ON x.id=r.plant_id ORDER BY r.recorded_at DESC,r.id DESC LIMIT 1)
+	ORDER BY r.available_at DESC,r.id DESC LIMIT 1),
+nw AS (SELECT r.* FROM assessment_run r JOIN x ON x.id=r.plant_id WHERE r.outcome<>'superseded'
+	ORDER BY r.captured_at DESC,r.id DESC LIMIT 1)
 SELECT (SELECT ok FROM gate) AS ok,
 	(SELECT json_build_object('runId',cur.id,'asOf',${iso("cur.as_of")},'phase',cur.phase,'rubricVersion',cur.rubric_version,
-		'release',cur.reference_release,'activation',cur.reference_activation,'result',cur.result,
-		'ageDays',((clock_timestamp() AT TIME ZONE x.timezone)::date-(cur.as_of AT TIME ZONE x.timezone)::date))
+		'release',cur.reference_release,'activation',cur.reference_activation,'result',cur.result,'delta',cur.delta,
+		'measuredOn',cur.facts->>'today','daysToLaunch',cur.facts->'launch'->'daysToLaunch',
+		'ageDays',((${now()} AT TIME ZONE x.timezone)::date-(cur.as_of AT TIME ZONE x.timezone)::date),
+		'insights',(SELECT coalesce(json_agg(json_build_object('role',i.role,'title',i.title,'severity',i.severity)
+			ORDER BY array_position(ARRAY['high','medium','low','info'],i.severity),i.ordinal),'[]'::json)
+			FROM assessment_insight i WHERE i.run_id=cur.id))
 		FROM cur,x) AS current,
-	(SELECT json_build_object('runId',id,'asOf',${iso("as_of")},'outcome',outcome,'grounding',grounding) FROM last) AS latest`);
-				const r = z
-					.object({ ok: z.boolean(), current: storedCurrent.nullable(), latest: z.unknown().nullable() })
-					.parse(rows[0]);
+	(SELECT json_build_object('outcome',nw.outcome,'grounding',nw.grounding,'retryAt',${iso("nw.retry_at")},
+		'newer',NOT EXISTS(SELECT FROM cur WHERE cur.captured_at>=nw.captured_at)) FROM nw) AS newest,
+	(SELECT ${openJob(sql`x.id`)} FROM x) AS open,
+	(SELECT h.held FROM x, LATERAL ${heldSql(sql`x.id`)} h) AS held`);
+				const r = readRow.parse(rows[0]);
 				if (!r.ok) deny("access_denied");
-				return c.assessmentView.parse({ current: r.current && present(r.current), latest: r.latest });
+				return c.assessmentView.parse({ current: r.current && present(r.current), newest: newestOf(r) });
 			});
 		},
 
@@ -278,9 +313,111 @@ SELECT (SELECT ok FROM gate) AS ok,(SELECT cite FROM c) AS cite,(SELECT facts FR
 				return c.citationView.parse(checkCitation(key, r));
 			});
 		},
+
+		/**
+		 * intelligence.listRunsForReview: for a platform operator with a current assessment_operator grant, every plant
+		 * held after three failed scheduled runs, each with its newest failed run's cause, counters and final-draft rules.
+		 * Never the plant's facts, the model input or any draft's words. One statement.
+		 */
+		async listRunsForReview(db: Pick<Database, "execute">, authority: RequestActor, raw: unknown = {}) {
+			return settle(async () => {
+				if (!c.listRunsForReviewRequest.safeParse(raw).success) deny("invalid_input");
+				const { rows } = await db.execute(sql`WITH gate AS (SELECT ${operator(authority)} AS ok),
+h AS (SELECT p.id,p.name FROM plant p CROSS JOIN LATERAL ${heldSql(sql`p.id`)} hh WHERE (SELECT ok FROM gate) AND hh.held),
+r AS (SELECT DISTINCT ON (r.plant_id) r.*,h.name AS plant_name FROM assessment_run r JOIN h ON h.id=r.plant_id
+	WHERE r.outcome IN ('failed','degraded') ORDER BY r.plant_id,r.captured_at DESC,r.id DESC)
+SELECT (SELECT ok FROM gate) AS ok,
+	coalesce((SELECT json_agg(${reviewJson} ORDER BY r.settled_at DESC,r.id) FROM r),'[]'::json) AS runs`);
+				const row = z.object({ ok: z.boolean(), runs: z.array(storedReview) }).parse(rows[0]);
+				if (!row.ok) deny("access_denied");
+				return row.runs.map(presentReview);
+			});
+		},
+
+		/**
+		 * intelligence.describeRunFailure: one run that did not publish, for a platform operator: the real cause
+		 * (provider, output check with the final draft's rules, budget, persistence, deadline or guidance), its counters
+		 * and the plant's failed streak, and no raw plant data, model input or output. One statement.
+		 */
+		async describeRunFailure(db: Pick<Database, "execute">, authority: RequestActor, raw: unknown) {
+			return settle(async () => {
+				const q = c.describeRunFailureRequest.safeParse(raw);
+				if (!q.success) deny("invalid_input");
+				const { rows } = await db.execute(sql`WITH gate AS (SELECT ${operator(authority)} AS ok),
+r AS (SELECT r.*,p.name AS plant_name FROM assessment_run r JOIN plant p ON p.id=r.plant_id
+	WHERE r.id=${q.data.runId}::uuid AND r.outcome IN ('failed','degraded') AND (SELECT ok FROM gate))
+SELECT (SELECT ok FROM gate) AS ok,(SELECT ${reviewJson} FROM r) AS run`);
+				const row = z.object({ ok: z.boolean(), run: storedReview.nullable() }).parse(rows[0]);
+				if (!row.ok) deny("access_denied");
+				if (!row.run) deny("not_found");
+				return presentReview(row.run);
+			});
+		},
 	};
 }
 export type Assessments = ReturnType<typeof createAssessments>;
+
+/** platformAdmin.authorize for assessment review: the caller's own live account holds a current operator grant. */
+const operator = (authority: RequestActor): SQL =>
+	sql`(${liveRead({ session: authority.session, owner: { kind: "account", id: authority.actor.accountId } })}
+	AND EXISTS(SELECT FROM platform_grant g WHERE g.account_id=${authority.actor.accountId}::uuid
+	AND g.capability='assessment_operator' AND g.revoked_at IS NULL AND (g.expires_at IS NULL OR g.expires_at>clock_timestamp())))`;
+/** A run as the operator reads it: counters, reason and the final draft's rules only. `r` is the run, `r.plant_name`. */
+const reviewJson = sql`json_build_object('runId',r.id,'plantName',r.plant_name,'demand',r.demand,'asOf',${iso("r.as_of")},
+	'settledAt',${iso("r.settled_at")},'outcome',r.outcome,'reason',r.reason,
+	'violations',(SELECT coalesce(json_agg(json_build_object('rule',v->>'rule','where',v->>'where')),'[]'::json)
+		FROM jsonb_array_elements(coalesce(r.drafts->-1->'violations','[]'::jsonb)) v),
+	'drafts',jsonb_array_length(r.drafts),'attempts',r.attempts,'inputTokens',r.input_tokens,'outputTokens',r.output_tokens,
+	'streak',(SELECT json_agg(json_build_object('runId',s.id,'settledAt',${iso("s.settled_at")},'reason',s.reason)
+		ORDER BY s.captured_at DESC,s.id DESC) FROM (SELECT s.* FROM assessment_run s WHERE s.plant_id=r.plant_id
+		AND s.outcome NOT IN ('superseded','pending','deferred') ORDER BY s.captured_at DESC,s.id DESC
+		LIMIT ${c.HELD_AFTER_FAILURES}::int) s WHERE s.outcome IN ('failed','degraded')))`;
+const storedReview = z.object({
+	runId: z.string(),
+	plantName: z.string(),
+	demand: c.demandKind,
+	asOf: z.string(),
+	settledAt: z.string(),
+	outcome: c.runOutcome,
+	reason: c.runReason.nullable(),
+	violations: z.array(z.object({ rule: c.draftRule, where: z.string() })),
+	drafts: z.int(),
+	attempts: z.int(),
+	inputTokens: z.int(),
+	outputTokens: z.int(),
+	streak: z.array(z.object({ runId: z.string(), settledAt: z.string(), reason: c.runReason.nullable() })).nullable(),
+});
+const causeOrGuidance = (reason: c.RunReason | null) => c.causeOf(reason) ?? "guidance";
+function presentReview(r: z.infer<typeof storedReview>): c.ReviewRun {
+	return c.reviewRun.parse({
+		runId: r.runId,
+		plantName: r.plantName,
+		demand: r.demand,
+		asOf: r.asOf,
+		settledAt: r.settledAt,
+		outcome: r.outcome,
+		cause: causeOrGuidance(r.reason),
+		violations: r.reason === "invalid_drafts" ? r.violations : [],
+		drafts: r.drafts,
+		usage: { attempts: r.attempts, inputTokens: r.inputTokens, outputTokens: r.outputTokens },
+		streak: (r.streak ?? []).map((s) => ({ runId: s.runId, settledAt: s.settledAt, cause: causeOrGuidance(s.reason) })),
+	});
+}
+
+const readRow = z.object({
+	ok: z.boolean(),
+	current: z.lazy(() => storedCurrent).nullable(),
+	newest: z
+		.object({
+			outcome: c.runOutcome,
+			grounding: z.enum(["grounded", "degraded"]),
+			retryAt: instant.nullable(),
+			newer: z.boolean(),
+		})
+		.nullable(),
+	open: z.boolean().nullable(),
+	held: z.boolean().nullable(),
+});
 
 const storedCurrent = z.object({
 	runId: z.string(),
@@ -293,7 +430,11 @@ const storedCurrent = z.object({
 		draft: c.draftOutput,
 		citations: z.record(z.string(), z.object({ kind: z.enum(["fact", "passage"]) }).loose()),
 	}),
+	delta: c.snapshotDelta.nullable(),
+	measuredOn: z.string(),
+	daysToLaunch: z.int().nullable(),
 	ageDays: z.int(),
+	insights: c.assessment.shape.insights,
 });
 function present(row: z.infer<typeof storedCurrent>): c.Assessment {
 	const draft = row.result.draft;
@@ -310,11 +451,18 @@ function present(row: z.infer<typeof storedCurrent>): c.Assessment {
 			label: cite.kind === "fact" ? cite.label! : cite.section ? `${cite.title} — ${cite.section}` : cite.title!,
 		};
 	};
-	const point = (p: c.DraftPoint) => ({ title: p.title, body: p.body, citations: p.citations.map(label) });
+	const point = (p: c.DraftPoint) => ({
+		title: p.title,
+		body: p.body,
+		severity: c.SEVERITY[p.urgency],
+		citations: p.citations.map(label),
+	});
 	return c.assessment.parse({
 		runId: row.runId,
 		asOf: row.asOf,
 		ageDays: Math.max(0, row.ageDays),
+		measuredOn: row.measuredOn,
+		daysToLaunch: row.daysToLaunch,
 		phase: row.phase,
 		rubricVersion: row.rubricVersion,
 		reference: { release: row.release, activation: row.activation },
@@ -322,6 +470,8 @@ function present(row: z.infer<typeof storedCurrent>): c.Assessment {
 		focus: point(draft.focus),
 		supporting: draft.supporting.map(point),
 		positives: draft.positives.map(point),
+		insights: row.insights,
+		delta: row.delta,
 	});
 }
 

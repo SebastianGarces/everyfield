@@ -1,13 +1,12 @@
 import * as c from "@everyfield/contracts/intelligence";
+import { tenantId } from "@everyfield/contracts/common";
 import { wikiBlocks } from "@everyfield/contracts/wiki";
 import type { Database } from "@everyfield/db/client";
 import { sql } from "@everyfield/db/query";
 import { createHash } from "node:crypto";
 import "server-only";
 import { z } from "zod";
-import type { RequestActor } from "../access/session.ts";
 import { corpusCtes, visibleBodySql } from "../wiki/corpus.ts";
-import { selectedOwner } from "../wiki/core.ts";
 
 // Methodology retrieval for an assessment (WP-041, PI-017), by keyword only: Wiki full-text search over every article
 // the plant can read now (the activated global methodology plus its sending church's and network's own articles). The
@@ -82,13 +81,13 @@ export type Retrieved =
 	| { status: "unavailable"; phase: null };
 
 /**
- * intelligence.retrieveMethodology: the passages an assessment of the actor's plant may cite, for the plant's current
- * phase. One statement; the caller treats a lock or statement timeout as unavailable guidance. No activated reference
- * is a missing mandatory reference.
+ * intelligence.retrieveMethodology: the passages an assessment of the plant may cite, for the plant's current phase,
+ * from the Wiki sources the plant reads now. Only the assessment job calls it. One statement; the caller treats a lock
+ * or statement timeout as unavailable guidance. No activated reference is a missing mandatory reference.
  */
-export async function retrieveMethodology(db: Pick<Database, "execute">, authority: RequestActor): Promise<Retrieved> {
-	const owner = selectedOwner(authority);
-	const access = { authority, owner };
+export async function retrieveMethodology(db: Pick<Database, "execute">, plant: string): Promise<Retrieved> {
+	const owner = { kind: "plant" as const, id: tenantId.parse(plant) };
+	const access = { job: "assessment" as const, owner };
 	const phase = sql`(SELECT phase FROM ph)`;
 	const { rows } = await db.execute(sql`WITH ${corpusCtes(access, { kind: "current" })},
 	ph AS (SELECT pl.phase FROM plant pl WHERE pl.id=${owner.id}::uuid AND EXISTS(SELECT FROM me)),

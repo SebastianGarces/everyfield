@@ -86,6 +86,12 @@ export async function church(prefix: string) {
 			${activations - 1})`);
 		return { id, key, revisions };
 	}
+	/** Activates an earlier release again: a rollback, under a new activation identity. */
+	async function activate(releaseId: string) {
+		await admin.execute(sql`INSERT INTO reference_activation(id,release_id,activation_number,activated_at,actor_tombstone,
+			reason,expected_prior_number) VALUES(${randomUUID()},${releaseId},${++activations},clock_timestamp(),'synthetic',
+			'rollback',${activations - 1})`);
+	}
 
 	/** A sending network with its own published follow-up article (organization text, kept as markdown). */
 	async function network(name = "Hill Country Network") {
@@ -253,6 +259,23 @@ export async function church(prefix: string) {
 		return p;
 	}
 
-	return { database, admin, db, rows, one, today, day, release, network, plant, harvest, unknownCount, phaseThree };
+	return {
+		database,
+		admin,
+		db,
+		rows,
+		one,
+		today,
+		day,
+		release,
+		activate,
+		network,
+		plant,
+		person,
+		committed,
+		harvest,
+		unknownCount,
+		phaseThree,
+	};
 }
 export type Church = Awaited<ReturnType<typeof church>>;
