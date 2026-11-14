@@ -14299,7 +14299,7 @@
 				}
 			},
 			"foreignKeys": {
-				"enrollment_id,version_id,organization_id->development_enrollment(id,version_id,organization_id)": {
+				"enrollment_id,organization_id->development_enrollment(id,organization_id)": {
 					"deletion": {
 						"action": "restrict",
 						"policy": "Explicit dependency-ordered removal or authorized minimal-attribution detachment. Current grants and removal witnesses apply to retained facts and recovery; a foreign key grants no access."
@@ -14381,7 +14381,7 @@
 				}
 			},
 			"foreignKeys": {
-				"enrollment_id,version_id,organization_id->development_enrollment(id,version_id,organization_id)": {
+				"enrollment_id,organization_id->development_enrollment(id,organization_id)": {
 					"deletion": {
 						"action": "restrict",
 						"policy": "Explicit dependency-ordered removal or authorized minimal-attribution detachment. Current grants and removal witnesses apply to retained facts and recovery; a foreign key grants no access."

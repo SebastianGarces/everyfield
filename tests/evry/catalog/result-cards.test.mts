@@ -10,6 +10,7 @@ import { invokeRead } from "../../../packages/evry/src/catalog/invoke.ts";
 import type { ReadAdapter, SourceResult } from "../../../packages/evry/src/catalog/types.ts";
 import { cardView, FALLBACK } from "../../../apps/web/src/features/evry/conversation/resultView.ts";
 import { byName, goldenChurch, IMPORT_KEY, programId, teamId } from "../evals/golden-church.mts";
+import { nativePorts } from "../evals/settings-ports.mts";
 
 const church = await goldenChurch();
 after(church.close);
@@ -83,6 +84,10 @@ const PROBES: Record<string, Record<string, unknown> | (() => Promise<SourceResu
 	"phases.readReadiness": {},
 	"signals.listDefinitions": {},
 	"signals.getHistory": {},
+	"seats.list": {},
+	"seats.listInvitations": () =>
+		invokeRead(church.db, church.actors.owner, adapters.get("seats.listInvitations")!, {}, nativePorts()),
+	"privacy.getSharing": {},
 	[catalog.SELECT_RETURNED_ROWS]: async () => {
 		const list = await read("people.listPeople", {});
 		return { ...list, operation: catalog.SELECT_RETURNED_ROWS, rows: list.rows.slice(0, 2), total: 2 };

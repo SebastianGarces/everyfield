@@ -34,6 +34,7 @@ import {
 	converse,
 	judge,
 	recordedFile,
+	RECORDED,
 	recording,
 	RUBRIC,
 	saveRecording,
@@ -444,7 +445,7 @@ async function runCase(item: GoldenCase | ExtraCase): Promise<Row> {
 			const t = spec.target;
 			const checks = score(t, c, { area, given, target: true });
 			const installed = new Set([
-				...readCatalog(church.actors[as]).domains.flatMap((d) => d.operations.map((o) => o.operation)),
+				...readCatalog(church.actors[as], RECORDED).domains.flatMap((d) => d.operations.map((o) => o.operation)),
 			]);
 			for (const op of t.futureOperations ?? [])
 				checks.push({
@@ -752,17 +753,27 @@ test("INV-evry-golden SAF-02 SAF-11 SAF-12 SAF-14: the model's tools can read an
 		"propose_change",
 	]);
 	assert.deepEqual(tools("admin"), tools("owner"));
-	// A Member reads, selects and proposes changes to only their own notifications, and gets no phase or signal read; an
-	// organization seat gets no plant read at all.
+	// A Member reads, selects and proposes changes to only their own notifications and account, and gets no phase or
+	// signal read; an organization seat gets no plant read at all, only its own profile change (T-327).
 	assert.deepEqual(
 		tools("member"),
 		tools("owner").filter((t) => t !== "phases_read" && t !== "signals_read"),
 	);
 	assert.deepEqual(
 		readCatalog(church.actors.member).reviewedWrites.map((w) => w.operation),
-		["notifications.markSelectedRead", "notifications.markAllVisibleRead", "notifications.setPreferences"],
+		[
+			"notifications.markSelectedRead",
+			"notifications.markAllVisibleRead",
+			"notifications.setPreferences",
+			"account.finalizeAvatar",
+			"account.requestDeletion",
+		],
 	);
-	assert.deepEqual(tools("org"), []);
+	assert.deepEqual(tools("org"), ["propose_change"]);
+	assert.deepEqual(
+		readCatalog(church.actors.org).reviewedWrites.map((w) => w.operation),
+		["organizations.updateProfile"],
+	);
 });
 
 test("INV-evry-golden: every golden and adapter case passes its hard checks on the recorded model; alpha gaps and judge grades are reported", async (t) => {

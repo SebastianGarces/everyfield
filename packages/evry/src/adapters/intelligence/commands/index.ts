@@ -17,7 +17,7 @@ import { ownerOrAdmin, STATUS_WORDS } from "../reads/index.ts";
 // refuses instead of being overwritten. Evry never moves a phase or records a signal by itself.
 
 /** The church the change is about: every phase and signal review targets the selected plant, as `p`. */
-const plant = sql`jsonb_build_object('kind','plant','id',p.id,'label',p.name)`;
+const plant = sql`jsonb_build_object('kind','church','id',p.id,'label',p.name)`;
 const inPlant = (actor: EvryActor) => sql`FROM plant p WHERE p.id=${actor.owner.id}::uuid`;
 const change = (field: string, before: SQL, after: SQL) =>
 	sql`jsonb_build_object('field',${field}::text,'before',${before},'after',${after})`;
@@ -54,9 +54,9 @@ export const declarePhase: ReviewedWrite<z.infer<typeof declareInput>> = {
 			jsonb_build_object('expectedRevision',p.revision::text,'input',jsonb_build_object('phase',${value.phase}::int)) AS args
 			${inPlant(actor)} AND NOT EXISTS(SELECT FROM phase_transition x WHERE x.plant_id=p.id AND x.kind IN ('initial_declaration','movement'))`;
 	},
-	async execute(tx, _context, args, effectKey, run): Promise<EffectResult> {
-		const writer = createPhaseWriter({ notices: run.phaseNotices });
-		const reply = await writer.declare(tx as unknown as Database, run.authority, {
+	async execute(tx, _context, args, effectKey, ports, native): Promise<EffectResult> {
+		const writer = createPhaseWriter({ notices: ports.phaseNotices });
+		const reply = await writer.declare(tx as unknown as Database, native.authority, {
 			...z.object({}).loose().parse(args),
 			requestKey: effectKey,
 		});
@@ -94,9 +94,9 @@ export const transitionPhase: ReviewedWrite<z.infer<typeof transitionInput>> = {
 			jsonb_build_object('expectedRevision',p.revision::text,'input',jsonb_build_object('toPhase',${to},'reason',${value.reason.trim()}::text)) AS args
 			${inPlant(actor)}`;
 	},
-	async execute(tx, _context, args, effectKey, run): Promise<EffectResult> {
-		const writer = createPhaseWriter({ notices: run.phaseNotices });
-		const reply = await writer.transition(tx as unknown as Database, run.authority, {
+	async execute(tx, _context, args, effectKey, ports, native): Promise<EffectResult> {
+		const writer = createPhaseWriter({ notices: ports.phaseNotices });
+		const reply = await writer.transition(tx as unknown as Database, native.authority, {
 			...z.object({}).loose().parse(args),
 			requestKey: effectKey,
 		});
@@ -138,8 +138,8 @@ const FUTURE = "A signal can't be true as of a date after today.";
  */
 const runSignal =
 	(command: typeof signals.attest): ReviewedWrite<unknown>["execute"] =>
-	async (tx, context, args, effectKey, run) => {
-		const reply = await command(tx, run.authority, { ...z.object({}).loose().parse(args), requestKey: effectKey });
+	async (tx, context, args, effectKey, ports, native) => {
+		const reply = await command(tx, native.authority, { ...z.object({}).loose().parse(args), requestKey: effectKey });
 		if (reply.status !== "ok") return refused(reply);
 		const r = await tx.execute(
 			sql`SELECT id FROM attestation_revision WHERE plant_id=${context.selected.id}::uuid AND request_key=${effectKey}`,

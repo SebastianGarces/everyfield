@@ -75,6 +75,9 @@ test("AC:INH-REGRESSION-CAPABILITIES INV-catalog: every installed model tool is 
 		"phases.readReadiness",
 		"signals.listDefinitions",
 		"signals.getHistory",
+		"seats.list",
+		"seats.listInvitations",
+		"privacy.getSharing",
 		"evry.selectReturnedRows",
 	]);
 	for (const id of installed) {

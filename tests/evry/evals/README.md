@@ -17,6 +17,17 @@ Its `save()` writes the file on a recording run. Every call is keyed by `callKey
 | `classify.test.mts`   | `classify.cases.json`                                                                                                    | `evry.classifyRequest` labels                                                         |
 | `households.test.mts` | `households.cases.json`                                                                                                  | Household tool selection and the household list answer                                |
 | `followups.test.mts`  | `followups.cases.json`                                                                                                   | Follow-up suggestions never name the signed-in user                                   |
+| `settings.test.mts`   | `settings.cases.json`                                                                                                    | Seat, Settings, sharing, connection, account and organization tools (scripted model)  |
+
+## The settings suite (scripted model)
+
+`settings.test.mts` scores the seat, church settings, sharing, connection, account and organization tools (T-327) on the
+scripted model (`packages/evry/src/runtime/scripted-settings.ts`), not a recording: their ask allowed no new spend. Each
+case in `settings.cases.json` is a real turn (`runTurn`) in Hope Fellowship with the real catalog, reads and review
+cards; a case with `approve` is approved and its effect run with the native services the Settings screens use
+(`settings-ports.mts`), and the change is read back as Settings shows it. The golden, household and follow-up suites
+offer the model only the operations they were recorded with (`RECORDED` in `golden-harness.mts`, ruling D-1137), so
+their recordings stay valid until the next recording run adds these tools.
 
 ## The household and follow-up suites
 
