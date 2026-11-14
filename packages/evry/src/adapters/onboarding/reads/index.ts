@@ -7,7 +7,7 @@ import foundations from "../../../../../../docs/reference/discovery-foundations.
 import type { EvryActor } from "../../../context/actor.ts";
 import type { NativePorts } from "../../../proposals/types.ts";
 import type { ReadAdapter, SourceResult, SourceRow } from "../../../catalog/types.ts";
-import { phaseText } from "../../../catalog/labels.ts";
+import { phaseText, SHARING_CATEGORIES, SHARING_CATEGORY_LABEL } from "../../../catalog/labels.ts";
 import { liveAuthority } from "../../../context/authority.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
 import { accountContext, plantOwner } from "../../native.ts";
@@ -100,29 +100,44 @@ export function setupSteps(r: Resume): SourceRow[] {
 	];
 }
 
+/** Where a returning Owner picks up on `/onboarding`: the first open step, or Finish (model.ts resumeStep). */
+export function resumeAt(r: Resume) {
+	if (r.completion.status === "completed") return "Finish setup";
+	if (r.journey.status !== "saved" || r.launch.status !== "saved") return "Where you are";
+	return r.lead.answer === "pending" ? "Your team" : "Finish setup";
+}
+
 export const ONBOARDING_READS = [
 	{
 		operation: "onboarding.getResume",
 		description:
-			"Where setup of this church stands, for the Owner who is setting it up: each step (where you are, launch date, your team, finish) saved or open, the current phase and the launch date",
+			"Where setup of this church stands, for the Owner who is setting it up: each step (where you are, launch date, your team, finish) saved or open, the step setup picks up at, the current phase, the launch date, and when the user's Discovery space closed if it became this church",
 		input: z.strictObject({}),
 		allowed: plantOwner,
 		async invoke(tx, actor, _input, native): Promise<SourceResult> {
 			const found = await entry(tx, actor, native);
 			if (found.kind !== "plant") return none("onboarding.getResume", "This church has no setup in progress for you.");
 			const resume = found.resume as Resume;
+			// The user's own Discovery space that became this church, which closed when it did.
+			const [closed] = (
+				await tx.execute(sql`SELECT to_char(d.converted_at AT TIME ZONE pl.timezone,'YYYY-MM-DD') AS on
+					FROM discovery d JOIN plant pl ON pl.id=d.converted_plant_id
+					WHERE d.account_id=${actor.accountId}::uuid AND d.converted_plant_id=${actor.owner.id}::uuid AND ${liveAuthority(actor)}`)
+			).rows as { on: string }[];
 			return result("onboarding.getResume", setupSteps(resume), {
 				church: found.plantName,
 				phase: phaseText(resume.currentPhase),
 				launchDate: resume.scheduledLaunchDate,
+				resumeAt: resumeAt(resume),
 				finished: resume.completion.status === "completed",
+				discoveryClosedOn: closed?.on ?? null,
 			});
 		},
 	} satisfies ReadAdapter<Record<string, never>>,
 	{
 		operation: "discovery.getProfile",
 		description:
-			"The signed-in account's own Discovery space: the sending churches and networks it is linked to and how many foundation articles it has read",
+			"The signed-in account's own Discovery space: the sending churches and networks it is linked to, what each link shares, and how many foundation articles it has read. It never shows another account's space",
 		input: z.strictObject({}),
 		allowed: accountContext,
 		async invoke(tx, actor, _input, native): Promise<SourceResult> {
@@ -145,6 +160,11 @@ export const ONBOARDING_READS = [
 				fields: {
 					organizationId: r.organization.id,
 					relationship: r.organization.organizationKind === "sending_network" ? "Network" : "Sending church",
+					// What the link shares, in the Sharing screen's words, or null when it shares nothing.
+					shares:
+						SHARING_CATEGORIES.filter((k) => r.choices[k])
+							.map((k) => SHARING_CATEGORY_LABEL[k])
+							.join(", ") || null,
 				},
 			}));
 			return result("discovery.getProfile", rows, {

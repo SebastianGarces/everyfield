@@ -297,7 +297,6 @@ const FIELD_LABEL: Record<string, string> = {
 	team: "Team",
 	setup: "Setup",
 	discovery: "Discovery",
-	staysLinked: "Stays linked",
 	...SHARING_CATEGORY_LABEL,
 };
 export const fieldLabel = (field: string) => FIELD_LABEL[field] ?? field;
@@ -764,7 +763,41 @@ const ADDS = new Set<Operation>([
 ]);
 export const addsOnly = (operation: Operation) => ADDS.has(operation);
 
-/** The People writes whose review can be revised field by field on the card. */
+/**
+ * One Discovery link on a conversion review (field `link:<organization id>`): the organization and what it shares now,
+ * then whether it carries over to the church and what the church's link shares. Null for any other field.
+ */
+export type CarryOver = {
+	organizationId: string;
+	organization: string;
+	kind: string;
+	now: string[];
+	carries: boolean;
+	share: string[];
+};
+export function carryOver(c: Change): CarryOver | null {
+	if (!c.field.startsWith("link:")) return null;
+	const before = (c.before ?? {}) as { organization?: string; kind?: string; share?: string[] };
+	const after = (c.after ?? {}) as { carries?: boolean; share?: string[] };
+	return {
+		organizationId: c.field.slice("link:".length),
+		organization: before.organization ?? "Organization",
+		kind: before.kind ?? "",
+		now: before.share ?? [],
+		carries: after.carries === true,
+		share: after.share ?? [],
+	};
+}
+/** "Carries over, sharing Meetings and Wiki", in the card's words. */
+export function carryOverText(link: Pick<CarryOver, "carries" | "share">) {
+	if (!link.carries) return "Doesn't carry over. The link ends.";
+	const shares = SHARING_CATEGORIES.filter((k) => link.share.includes(k)).map((k) => SHARING_CATEGORY_LABEL[k]);
+	return shares.length ? `Carries over, sharing ${shares.join(", ")}` : "Carries over, sharing nothing yet";
+}
+/** The sharing categories a church's link can share, in the Sharing screen's order and words. */
+export const SHARE_CHOICES = SHARING_CATEGORIES.map((k) => ({ value: k, label: SHARING_CATEGORY_LABEL[k] }));
+
+/** The People writes, and turning a Discovery space into a church, whose review can be revised on the card. */
 const REVISABLE = new Set<Operation>([
 	"people.createPerson",
 	"people.updatePerson",
@@ -772,11 +805,14 @@ const REVISABLE = new Set<Operation>([
 	"people.deletePerson",
 	"people.setPersonPhoto",
 	"people.removePersonPhoto",
+	"discovery.convertToPlant",
 ]);
 export const editableChanges = (review: Review) =>
 	review.review.withheld || !REVISABLE.has(review.operation)
 		? []
-		: review.review.changes.filter((c) => !FIXED.has(c.field));
+		: review.review.changes.filter((c) =>
+				review.operation === "discovery.convertToPlant" ? carryOver(c) !== null : !FIXED.has(c.field),
+			);
 
 /** The native command's input for this review with `edits` applied, or null when the review can't be rebuilt. */
 export function reviseInput(review: Review, edits: Record<string, string> = {}): unknown {
@@ -793,6 +829,19 @@ export function reviseInput(review: Review, edits: Record<string, string> = {}):
 	};
 	if (review.operation === "people.createPerson")
 		return Object.fromEntries(changes.map((c) => [c.field, value(c)]).filter(([, v]) => v !== null));
+	if (review.operation === "discovery.convertToPlant") {
+		// Each link as the card shows it, or as revised: a picked link keeps the categories ticked for it.
+		const picks = changes.flatMap((c) => {
+			const link = carryOver(c);
+			if (!link) return [];
+			const edited = c.field in edits ? (JSON.parse(edits[c.field]!) as Pick<CarryOver, "carries" | "share">) : link;
+			return edited.carries ? [{ organizationId: link.organizationId, share: edited.share }] : [];
+		});
+		const place = Object.fromEntries(
+			(["city", "stateProvince", "country"] as const).flatMap((f) => (after(f) ? [[f, after(f)]] : [])),
+		);
+		return { name: after("church"), ...place, carryOver: picks };
+	}
 	if (review.operation === "communication.saveDraft") {
 		const audience = audienceArgs(after("audience"));
 		return audience ? { subject: after("subject"), body: after("body"), audience } : null;

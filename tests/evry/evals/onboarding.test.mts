@@ -20,6 +20,7 @@ import {
 	executeProposal,
 	readConversation,
 	readReview,
+	reviseProposal,
 	runTurn,
 	selectQualifiedModel,
 	submitTurn,
@@ -30,7 +31,7 @@ import {
 import { transaction } from "../../../apps/web/src/server/platform/database.ts";
 import { claimDue, finishClaim } from "../../../apps/web/src/server/jobs/queue.ts";
 import { nativePorts } from "./settings-ports.mts";
-import { evalDatabase, seedHope } from "./golden-church.mts";
+import { evalDatabase, GRACE_AUSTIN, NETWORK, seedHope } from "./golden-church.mts";
 import { seedSetup, SETUP_SPECS, type SetupName } from "./setup-church.mts";
 
 type Change = { field: string; before: unknown; after: unknown };
@@ -42,11 +43,18 @@ type Case = {
 	calls: string[];
 	answer?: string[];
 	proposal?: { operation: string; target: string; changes?: Change[]; notes?: string[]; refusal?: string | null };
+	/** The owner revises the card first (as its Update review does), and sees these changes. */
+	revise?: { input: unknown; changes: Change[] };
 	approve?: true;
+	/** After approval, the same card is approved again: nothing runs a second time. */
+	retry?: true;
 };
-const { cases } = JSON.parse(readFileSync(new URL("./onboarding.cases.json", import.meta.url), "utf8")) as {
-	cases: Case[];
-};
+// A case names a fixture organization by placeholder: its id carries this run's schema prefix.
+const { cases } = JSON.parse(
+	readFileSync(new URL("./onboarding.cases.json", import.meta.url), "utf8")
+		.replaceAll("{NETWORK}", NETWORK)
+		.replaceAll("{GRACE_AUSTIN}", GRACE_AUSTIN),
+) as { cases: Case[] };
 
 let close: () => Promise<void>;
 let db: Database;
@@ -148,6 +156,13 @@ async function home(who: SetupName) {
 	return landingFor({ status: "active", plant });
 }
 const rows = async (query: ReturnType<typeof sql>) => (await db.execute(query)).rows as Record<string, unknown>[];
+const discoveryOf = (who: SetupName) =>
+	rows(sql`SELECT (converted_at IS NOT NULL) AS closed FROM discovery WHERE account_id=${SETUP_SPECS[who].account}`);
+/** The church the account now holds, with its phase and the account's own person record there. */
+const churchOf = (who: SetupName) =>
+	rows(sql`SELECT p.name, p.phase, s.role, pe.display_name AS person FROM seat s JOIN plant p ON p.id=s.plant_id
+		LEFT JOIN person pe ON pe.tenant_id=p.id AND pe.linked_account_id=s.account_id
+		WHERE s.account_id=${SETUP_SPECS[who].account} AND s.ended_at IS NULL`);
 const seatsOf = (who: SetupName) =>
 	rows(
 		sql`SELECT p.name, s.role FROM seat s JOIN plant p ON p.id=s.plant_id WHERE s.account_id=${SETUP_SPECS[who].account} AND s.ended_at IS NULL`,
@@ -185,7 +200,9 @@ const SETTLED: Record<string, { before?: () => Promise<void>; after?: () => Prom
 		after: async () => {
 			assert.equal((await resume("setupOwner")).lead.answer, "skip");
 			assert.deepEqual(
-				await rows(sql`SELECT r.name FROM team_role r JOIN plant p ON p.id=r.plant_id WHERE p.name='Riverside Church'`),
+				await rows(
+					sql`SELECT r.name FROM team_role r JOIN plant p ON p.id=r.plant_id WHERE p.name='Cedar Creek Church'`,
+				),
 				[],
 			);
 		},
@@ -212,7 +229,7 @@ const SETTLED: Record<string, { before?: () => Promise<void>; after?: () => Prom
 		after: async () =>
 			assert.deepEqual(
 				await rows(
-					sql`SELECT count(*)::int AS n FROM audit_event a JOIN plant p ON p.id=a.tenant_id WHERE p.name='Riverside Church' AND a.kind='complete'`,
+					sql`SELECT count(*)::int AS n FROM audit_event a JOIN plant p ON p.id=a.tenant_id WHERE p.name='Cedar Creek Church' AND a.kind='complete'`,
 				),
 				[{ n: 1 }],
 			),
@@ -248,6 +265,55 @@ const SETTLED: Record<string, { before?: () => Promise<void>; after?: () => Prom
 		},
 	},
 	"ONB-20": { after: async () => assert.equal((await seatsOf("discovery")).length, 1) },
+	"ONB-21": { after: async () => assert.deepEqual(await seatsOf("starter"), []) },
+	"ONB-22": {
+		before: async () => assert.deepEqual(await seatsOf("starter"), []),
+		after: async () => {
+			assert.deepEqual(await churchOf("starter"), [
+				{ name: "Riverside Church", phase: 1, role: "owner", person: "Riley Park" },
+			]);
+			assert.deepEqual(await rows(sql`SELECT count(*)::int AS n FROM plant WHERE name='Riverside Church'`), [{ n: 1 }]);
+		},
+	},
+	"ONB-23": {
+		after: async () =>
+			assert.deepEqual(await rows(sql`SELECT count(*)::int AS n FROM plant WHERE name='Riverside Church'`), [{ n: 1 }]),
+	},
+	"ONB-24": {
+		before: async () => {
+			assert.notEqual((await onboardingScreen("former")).kind, "discovery");
+			assert.deepEqual(await discoveryOf("former"), []);
+		},
+		after: async () => assert.equal((await onboardingScreen("former")).kind, "discovery"),
+	},
+	"ONB-27": {
+		after: async () => {
+			assert.deepEqual(await discoveryOf("sender"), [{ closed: false }]);
+			assert.deepEqual(await seatsOf("sender"), []);
+		},
+	},
+	"ONB-28": {
+		before: async () => assert.deepEqual(await discoveryOf("sender"), [{ closed: false }]),
+		after: async () => {
+			assert.deepEqual(await churchOf("sender"), [
+				{ name: "Grace Point", phase: 1, role: "owner", person: "Morgan Hale" },
+			]);
+			// Only the picked link carries over, sharing only the picked categories; the Discovery space is closed.
+			assert.deepEqual(
+				await rows(sql`SELECT o.name, a.share_people AS people, a.share_meetings AS meetings FROM affiliation a
+					JOIN organization o ON o.id=a.organization_id JOIN plant p ON p.id=a.plant_id
+					WHERE p.name='Grace Point' AND a.ended_at IS NULL`),
+				[{ name: "Grace Austin", people: true, meetings: true }],
+			);
+			assert.deepEqual(
+				await rows(
+					sql`SELECT count(*)::int AS n FROM affiliation WHERE account_id=${SETUP_SPECS.sender.account} AND ended_at IS NULL`,
+				),
+				[{ n: 0 }],
+			);
+			assert.deepEqual(await discoveryOf("sender"), [{ closed: true }]);
+		},
+	},
 };
 
 test("INV-evry-onboarding: every setup and Discovery case passes on the scripted model, and each approved change reads back on /onboarding", async () => {
@@ -266,7 +332,7 @@ test("INV-evry-onboarding: every setup and Discovery case passes on the scripted
 			continue;
 		}
 		assert.equal(turn.proposals.length, 1, `${c.id} prepares one review: ${turn.answer}`);
-		const [proposal] = turn.proposals as [Proposal];
+		let [proposal] = turn.proposals as [Proposal];
 		const expected = c.proposal;
 		assert.equal(proposal.operation, expected.operation, c.id);
 		assert.equal(proposal.status, "pending", `${c.id}: nothing runs before approval`);
@@ -279,10 +345,32 @@ test("INV-evry-onboarding: every setup and Discovery case passes on the scripted
 			);
 		if (expected.refusal !== undefined)
 			assert.equal(proposal.review.refusal ?? null, expected.refusal, `${c.id} refusal`);
+		if (c.revise) {
+			proposal = await reviseProposal(
+				db,
+				actor,
+				proposal.id,
+				{ operation: proposal.operation, revision: proposal.revision, input: c.revise.input },
+				null,
+				native,
+			);
+			assert.deepEqual(proposal.review.changes, c.revise.changes, `${c.id} revised changes`);
+		}
 		// Still nothing changed: the review is only a card.
 		await SETTLED[c.id]?.before?.();
 		if (!c.approve) continue;
 		assert.equal(await approveAndRun(actor, proposal), "completed", `${c.id} runs once approved`);
+		if (c.retry) {
+			// Approving the same card again (a double click or a retried request) queues no second effect.
+			await approveProposal(
+				db,
+				actor,
+				proposal.id,
+				{ revision: proposal.revision, digest: proposal.digest },
+				null,
+			).catch(() => null);
+			assert.deepEqual(await claimDue(db, ["evry_effect"], 1, 60), [], `${c.id} runs only once`);
+		}
 		// The card still shows its outcome to the same account, even after the change gave it a church seat.
 		assert.equal((await readReview(db, await actorOf(c.actor), proposal.id)).outcome, "completed", `${c.id} card`);
 		await SETTLED[c.id]?.after?.();

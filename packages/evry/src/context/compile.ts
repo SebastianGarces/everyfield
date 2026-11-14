@@ -71,7 +71,10 @@ const SETTINGS_ONLY = [
  * the evals test the words the real model gets.
  */
 export const NEEDS_A_CHURCH =
-	"People, meetings, teams, tasks and other church records need a seat in a church, and this account has none yet. I can help you start a church, or set up a Discovery space to explore first.";
+	"Finish setup first: People, meetings, teams, tasks and other church records need a seat in a church, and this account has none yet. I can help you start a church, or set up a Discovery space to explore first.";
+/** What an account context never reaches (T-345): another account's setup or Discovery space, or a church's records. */
+export const OWN_SPACE_ONLY =
+	"I can only work with your own setup and Discovery space. I can't see or change another person's Discovery space or another church's records, so nothing changed.";
 /** Who may answer a church's setup (T-345): the native setup commands take only that Owner. */
 const SETUP_RULE = "Only the Owner who is setting up this church can answer its setup questions or finish its setup.";
 
@@ -79,7 +82,7 @@ const SETUP_RULE = "Only the Owner who is setting up this church can answer its 
 function roleRule(actor: EvryActor) {
 	if (actor.role === null)
 		return actor.contextKind === "account"
-			? `The user has no church seat. When the user asks about church records, prepare nothing and reply: ${NEEDS_A_CHURCH}`
+			? `The user has no church seat. When the user asks about church records, prepare nothing and reply: ${NEEDS_A_CHURCH}\nWhen the user asks about or for a change to another person's Discovery space or another church, prepare nothing and reply: ${OWN_SPACE_ONLY}`
 			: "";
 	const scope =
 		actor.contextKind === "plant"

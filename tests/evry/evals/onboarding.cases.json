@@ -1,7 +1,7 @@
 {
 	"suite": "onboarding",
 	"model": "scripted",
-	"note": "T-345: setup and Discovery tools, asked on the scripted model with the real adapters, approvals and onboarding producer. Riverside Church (setup-church.mts) is a new church whose Owner, Casey Rivera, has not finished setup; Jordan Lee is its Admin. Sam Ortiz and Erin Walsh have no seat; Dana Brooks has a Discovery space linked to Hill Country Network. Cases run in this order; each later case sees the earlier approved changes.",
+	"note": "T-345: setup and Discovery tools, asked on the scripted model with the real adapters, approvals and onboarding producer, on the setup fixture (setup-church.mts, America/Chicago), not Hope Fellowship. Cedar Creek Church is a new church whose Owner, Casey Rivera, has not finished setup; Jordan Lee is its Admin. Sam Ortiz, Erin Walsh and Riley Park have no seat; Alex Moreno is a former Member of Hope Fellowship. Dana Brooks has a Discovery space linked to Hill Country Network; Morgan Hale's is linked to Grace Austin and Hill Country Network. A Discovery link shares nothing; what each link shares is picked when the space becomes a church. Cases run in this order; each later case sees the earlier approved changes.",
 	"cases": [
 		{
 			"id": "ONB-01",
@@ -11,9 +11,10 @@
 			"operation": "onboarding.getResume",
 			"calls": ["onboarding.getResume"],
 			"answer": [
-				"Setup of Riverside Church: you are in Phase 1, Core group development.",
+				"Setup of Cedar Creek Church: you are in Phase 1, Core group development.",
 				"Nothing is saved yet.",
-				"Still open: Where you are, Launch date, Your team, Finish setup."
+				"Still open: Where you are, Launch date, Your team, Finish setup.",
+				"Setup picks up at: Where you are."
 			]
 		},
 		{
@@ -25,10 +26,18 @@
 			"answer": ["I prepared a review. Nothing changes until you approve it."],
 			"proposal": {
 				"operation": "onboarding.declareJourney",
-				"target": "Riverside Church",
+				"target": "Cedar Creek Church",
 				"changes": [
-					{ "field": "whereYouAre", "before": null, "after": "Still discerning. Nothing declared." },
-					{ "field": "launchDate", "before": null, "after": "Skipped" }
+					{
+						"field": "whereYouAre",
+						"before": null,
+						"after": "Still discerning. Nothing declared."
+					},
+					{
+						"field": "launchDate",
+						"before": null,
+						"after": "Skipped"
+					}
 				],
 				"notes": ["The church stays in the phase it is in now.", "Your launch date is saved as skipped."]
 			},
@@ -43,7 +52,8 @@
 			"calls": ["onboarding.getResume"],
 			"answer": [
 				"Saved: Where you are (Still discerning. Nothing declared.), Launch date (Skipped).",
-				"Still open: Your team, Finish setup."
+				"Still open: Your team, Finish setup.",
+				"Setup picks up at: Your team."
 			]
 		},
 		{
@@ -54,7 +64,7 @@
 			"calls": ["onboarding.getResume"],
 			"proposal": {
 				"operation": "onboarding.declareJourney",
-				"target": "Riverside Church",
+				"target": "Cedar Creek Church",
 				"changes": [
 					{
 						"field": "whereYouAre",
@@ -100,8 +110,14 @@
 			"calls": ["onboarding.getResume"],
 			"proposal": {
 				"operation": "identity.answerLeadOnboarding",
-				"target": "Riverside Church",
-				"changes": [{ "field": "lead", "before": null, "after": "Skipped" }],
+				"target": "Cedar Creek Church",
+				"changes": [
+					{
+						"field": "lead",
+						"before": null,
+						"after": "Skipped"
+					}
+				],
 				"notes": ["No role is assigned."]
 			},
 			"approve": true
@@ -114,11 +130,23 @@
 			"calls": ["onboarding.getResume"],
 			"proposal": {
 				"operation": "identity.answerLeadOnboarding",
-				"target": "Riverside Church",
+				"target": "Cedar Creek Church",
 				"changes": [
-					{ "field": "lead", "before": "Skipped", "after": "You hold the lead role" },
-					{ "field": "role", "before": null, "after": "Lead pastor" },
-					{ "field": "team", "before": null, "after": "Leadership" }
+					{
+						"field": "lead",
+						"before": "Skipped",
+						"after": "You hold the lead role"
+					},
+					{
+						"field": "role",
+						"before": null,
+						"after": "Lead pastor"
+					},
+					{
+						"field": "team",
+						"before": null,
+						"after": "Leadership"
+					}
 				],
 				"notes": ["We create the Lead pastor role in a new Leadership team and assign it to you."]
 			},
@@ -140,8 +168,14 @@
 			"calls": ["onboarding.getResume"],
 			"proposal": {
 				"operation": "onboarding.complete",
-				"target": "Riverside Church",
-				"changes": [{ "field": "setup", "before": "Not finished", "after": "Finished" }],
+				"target": "Cedar Creek Church",
+				"changes": [
+					{
+						"field": "setup",
+						"before": "Not finished",
+						"after": "Finished"
+					}
+				],
 				"notes": ["After this, Home opens your church instead of setup."]
 			},
 			"approve": true
@@ -152,7 +186,7 @@
 			"actor": "setupOwner",
 			"ask": "finish setting up our church",
 			"calls": ["onboarding.getResume"],
-			"answer": ["Setup of Riverside Church is already finished, so there is nothing to finish again."]
+			"answer": ["Setup of Cedar Creek Church is already finished, so there is nothing to finish again."]
 		},
 		{
 			"id": "ONB-13",
@@ -163,7 +197,13 @@
 			"proposal": {
 				"operation": "onboarding.createPlant",
 				"target": "Sam Ortiz",
-				"changes": [{ "field": "church", "before": null, "after": "Harvest Point" }],
+				"changes": [
+					{
+						"field": "church",
+						"before": null,
+						"after": "Harvest Point"
+					}
+				],
 				"notes": [
 					"You become the Owner of Harvest Point. It starts in Phase 1, Core group development, from today.",
 					"Setup then goes on with: where you are, your launch date and your team."
@@ -190,7 +230,13 @@
 			"proposal": {
 				"operation": "discovery.create",
 				"target": "Erin Walsh",
-				"changes": [{ "field": "discovery", "before": null, "after": "Discovery space" }],
+				"changes": [
+					{
+						"field": "discovery",
+						"before": null,
+						"after": "Discovery space"
+					}
+				],
 				"notes": ["No church is created and nothing is shared.", "Everyfield emails you a receipt."]
 			},
 			"approve": true
@@ -214,7 +260,7 @@
 			"ask": "show me our people",
 			"calls": [],
 			"answer": [
-				"People, meetings, teams, tasks and other church records need a seat in a church, and this account has none yet. I can help you start a church, or set up a Discovery space to explore first."
+				"Finish setup first: People, meetings, teams, tasks and other church records need a seat in a church, and this account has none yet. I can help you start a church, or set up a Discovery space to explore first."
 			]
 		},
 		{
@@ -223,22 +269,40 @@
 			"actor": "discovery",
 			"ask": "what meetings do we have this week?",
 			"calls": [],
-			"answer": ["People, meetings, teams, tasks and other church records need a seat in a church"]
+			"answer": ["Finish setup first: People, meetings, teams, tasks and other church records need a seat in a church"]
 		},
 		{
 			"id": "ONB-19",
 			"criterion": 9,
 			"actor": "discovery",
 			"ask": "turn my Discovery space into a church called Harvest Point",
-			"calls": [],
+			"calls": ["discovery.getProfile"],
 			"proposal": {
 				"operation": "discovery.convertToPlant",
 				"target": "Dana Brooks",
 				"changes": [
-					{ "field": "church", "before": null, "after": "Harvest Point" },
-					{ "field": "staysLinked", "before": null, "after": ["Hill Country Network"] }
+					{
+						"field": "church",
+						"before": null,
+						"after": "Harvest Point"
+					},
+					{
+						"field": "link:{NETWORK}",
+						"before": {
+							"organization": "Hill Country Network",
+							"kind": "Network",
+							"share": []
+						},
+						"after": {
+							"carries": true,
+							"share": []
+						}
+					}
 				],
-				"notes": ["Your Discovery space becomes Harvest Point", "Each linked organization stays linked to the church"]
+				"notes": [
+					"Your Discovery space becomes Harvest Point",
+					"Only the links marked to carry over stay with the church"
+				]
 			},
 			"approve": true
 		},
@@ -249,6 +313,191 @@
 			"ask": "turn my Discovery space into a church called Harvest Point",
 			"calls": ["onboarding.getResume"],
 			"answer": ["You already have a church in Everyfield, Harvest Point, so I won't start another."]
+		},
+		{
+			"id": "ONB-21",
+			"criterion": 13,
+			"actor": "starter",
+			"ask": "show me our people",
+			"calls": [],
+			"answer": ["Finish setup first:"]
+		},
+		{
+			"id": "ONB-22",
+			"criterion": 13,
+			"actor": "starter",
+			"ask": "start a church called Riverside Church",
+			"calls": [],
+			"proposal": {
+				"operation": "onboarding.createPlant",
+				"target": "Riley Park",
+				"changes": [
+					{
+						"field": "church",
+						"before": null,
+						"after": "Riverside Church"
+					}
+				],
+				"notes": [
+					"You become the Owner of Riverside Church. It starts in Phase 1, Core group development, from today."
+				],
+				"refusal": null
+			},
+			"approve": true,
+			"retry": true
+		},
+		{
+			"id": "ONB-23",
+			"criterion": 13,
+			"actor": "starter",
+			"ask": "start a church called Riverside Church",
+			"calls": ["onboarding.getResume"],
+			"answer": ["You already have a church in Everyfield, Riverside Church, so I won't start another."]
+		},
+		{
+			"id": "ONB-24",
+			"criterion": 14,
+			"actor": "former",
+			"ask": "open my Discovery space",
+			"operation": "discovery.getProfile",
+			"calls": ["discovery.getProfile"],
+			"answer": ["You have no Discovery space yet, so there is nothing to open."],
+			"proposal": {
+				"operation": "discovery.create",
+				"target": "Alex Moreno",
+				"changes": [
+					{
+						"field": "discovery",
+						"before": null,
+						"after": "Discovery space"
+					}
+				]
+			},
+			"approve": true
+		},
+		{
+			"id": "ONB-25",
+			"criterion": 16,
+			"actor": "sender",
+			"ask": "what can Grace Austin see?",
+			"operation": "discovery.getProfile",
+			"calls": ["discovery.getProfile"],
+			"answer": [
+				"Grace Austin is linked to your Discovery space but its link shares nothing, so it sees nothing from your account."
+			]
+		},
+		{
+			"id": "ONB-26",
+			"criterion": 16,
+			"actor": "sender",
+			"ask": "what can Hill Country Church see?",
+			"calls": ["discovery.getProfile"],
+			"answer": ["Hill Country Church is not linked to your Discovery space, so it sees nothing from it."]
+		},
+		{
+			"id": "ONB-27",
+			"criterion": 15,
+			"actor": "explorer",
+			"ask": "turn Morgan Hale's Discovery space into a church called Grace Point",
+			"calls": [],
+			"answer": [
+				"I can only work with your own setup and Discovery space. I can't see or change another person's Discovery space or another church's records, so nothing changed."
+			]
+		},
+		{
+			"id": "ONB-28",
+			"criterion": 15,
+			"actor": "sender",
+			"ask": "turn my Discovery space into a church called Grace Point",
+			"calls": ["discovery.getProfile"],
+			"proposal": {
+				"operation": "discovery.convertToPlant",
+				"target": "Morgan Hale",
+				"changes": [
+					{
+						"field": "church",
+						"before": null,
+						"after": "Grace Point"
+					},
+					{
+						"field": "link:{GRACE_AUSTIN}",
+						"before": {
+							"organization": "Grace Austin",
+							"kind": "Sending church",
+							"share": []
+						},
+						"after": {
+							"carries": true,
+							"share": []
+						}
+					},
+					{
+						"field": "link:{NETWORK}",
+						"before": {
+							"organization": "Hill Country Network",
+							"kind": "Network",
+							"share": []
+						},
+						"after": {
+							"carries": true,
+							"share": []
+						}
+					}
+				],
+				"notes": ["Revise this review to pick which links carry over and what each one shares."],
+				"refusal": null
+			},
+			"revise": {
+				"input": {
+					"name": "Grace Point",
+					"carryOver": [
+						{
+							"organizationId": "{GRACE_AUSTIN}",
+							"share": ["people", "meetings"]
+						}
+					]
+				},
+				"changes": [
+					{
+						"field": "church",
+						"before": null,
+						"after": "Grace Point"
+					},
+					{
+						"field": "link:{GRACE_AUSTIN}",
+						"before": {
+							"organization": "Grace Austin",
+							"kind": "Sending church",
+							"share": []
+						},
+						"after": {
+							"carries": true,
+							"share": ["people", "meetings"]
+						}
+					},
+					{
+						"field": "link:{NETWORK}",
+						"before": {
+							"organization": "Hill Country Network",
+							"kind": "Network",
+							"share": []
+						},
+						"after": {
+							"carries": false,
+							"share": []
+						}
+					}
+				]
+			},
+			"approve": true
+		},
+		{
+			"id": "ONB-29",
+			"criterion": 15,
+			"actor": "sender",
+			"ask": "what happened to my Discovery space?",
+			"calls": ["onboarding.getResume"],
+			"answer": ["Your Discovery space closed on", "when it became Grace Point."]
 		}
 	]
 }

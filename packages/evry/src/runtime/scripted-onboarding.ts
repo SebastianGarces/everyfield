@@ -60,6 +60,9 @@ const NEW_CHURCH = /\b(?:set up|start|create)\s+a\s+(?:new\s+)?church\s+called\s
 const CONVERT = /\b(?:turn|convert|make)\s+my\s+discovery\s+space\s+into\s+a\s+church(?:\s+called\s+(.+?))?[.!]?\s*$/i;
 const EXPLORE = /\b(?:explore first|just (?:want to )?explore|discovery space for me|set up a discovery space)\b/i;
 const PROFILE = /\bwhat(?:'s| is) in my discovery space\b|\bmy discovery space\b\??\s*$/i;
+const PRIVACY = /\bwhat (?:can|does) (.+?) see\b/i;
+const OTHERS_SPACE = /\b(?!my\b)\w+'s discovery space\b/i;
+const HISTORY = /\b(?:what happened to|where(?:'s| is)) my discovery space\b/i;
 const CHURCH_RECORDS = /\b(?:people|person|meetings?|teams?|ministr(?:y|ies)|tasks?|households?|messages?)\b/i;
 
 /** The setup steps as the user reads them: saved steps with their answers, then the open ones. */
@@ -72,6 +75,7 @@ function stepsText(out: Output) {
 		`Setup of ${church}: you are in ${String(out.facts?.phase)}.`,
 		saved.length ? `Saved: ${saved.join(", ")}.` : "Nothing is saved yet.",
 		open.length ? `Still open: ${open.join(", ")}.` : "Every step is saved.",
+		`Setup picks up at: ${String(out.facts?.resumeAt)}.`,
 	].join(" ");
 }
 
@@ -96,23 +100,59 @@ export function onboardingStep(options: LanguageModelV4CallOptions, text: string
 		? { answer: "existing", phase: Number(EXISTING.exec(text)![1]) }
 		: JOURNEY.find(([r]) => r.test(text))?.[1];
 	const lead = LEAD.find(([r]) => r.test(text));
-	const known = SETUP.test(text) || FINISH.test(text) || journey || lead || NEW_CHURCH.test(text) || CONVERT.test(text);
-	if (!known && !EXPLORE.test(text) && !PROFILE.test(text) && !(account && CHURCH_RECORDS.test(text))) return null;
+	const known =
+		SETUP.test(text) ||
+		FINISH.test(text) ||
+		journey ||
+		lead ||
+		NEW_CHURCH.test(text) ||
+		CONVERT.test(text) ||
+		HISTORY.test(text) ||
+		OTHERS_SPACE.test(text);
+	const accountAsk = account && (CHURCH_RECORDS.test(text) || PRIVACY.test(text));
+	if (!known && !EXPLORE.test(text) && !PROFILE.test(text) && !accountAsk) return null;
 	if (last?.error) return say(`I couldn't prepare that (${String(last.error)}).`);
 
 	// An account with no church seat: start a church, explore first, or read and convert its Discovery space.
 	if (account) {
+		const readProfile = () => call("onboarding_read", { operation: "discovery.getProfile", input: {} });
+		// Another person's space is never read or changed: every tool here works on the signed-in account's own.
+		if (OTHERS_SPACE.test(text)) return quote(options.prompt, "I can only work with your own setup", true);
 		const convert = CONVERT.exec(text);
 		if (convert && offers("discovery.convertToPlant")) {
+			if (!profile) return readProfile();
+			if (profile.status !== "available")
+				return say("You have no Discovery space to turn into a church. I can start a new church for you instead.");
 			if (!convert[1]) return say("What should the church be called?");
 			return propose("discovery.convertToPlant", { name: convert[1].trim() });
 		}
 		const named = NEW_CHURCH.exec(text);
 		if (named && offers("onboarding.createPlant")) return propose("onboarding.createPlant", { name: named[1]!.trim() });
+		const privacy = PRIVACY.exec(text);
+		if (privacy && offers("discovery.getProfile")) {
+			if (!profile) return readProfile();
+			const name = privacy[1]!.trim();
+			const link = (profile.rows ?? []).find((r) => r.label.toLowerCase() === name.toLowerCase());
+			if (!link) return say(`${name} is not linked to your Discovery space, so it sees nothing from it.`);
+			const shares = link.fields.shares;
+			return say(
+				typeof shares === "string"
+					? `${link.label} sees only what its link to your Discovery space shares: ${shares}. Nothing else from your account is shared.`
+					: `${link.label} is linked to your Discovery space but its link shares nothing, so it sees nothing from your account.`,
+			);
+		}
 		if (PROFILE.test(text) && offers("discovery.getProfile")) {
-			if (!profile) return call("onboarding_read", { operation: "discovery.getProfile", input: {} });
+			if (!profile) return readProfile();
+			// No Discovery space is inferred from a missing seat: an account without one is offered a new one.
 			if (profile.status !== "available")
-				return say("You have no Discovery space yet. I can set one up for you to explore first.");
+				return offers("discovery.create")
+					? [
+							...say(
+								"You have no Discovery space yet, so there is nothing to open. Here is one you can start to explore first.",
+							),
+							...propose("discovery.create", {}),
+						]
+					: say("You have no Discovery space yet.");
 			const linked = (profile.rows ?? []).map((r) => `${r.label} (${String(r.fields.relationship)})`);
 			return say(
 				[
@@ -122,7 +162,7 @@ export function onboardingStep(options: LanguageModelV4CallOptions, text: string
 			);
 		}
 		if (EXPLORE.test(text) && offers("discovery.create")) return propose("discovery.create", {});
-		if (CHURCH_RECORDS.test(text)) return quote(options.prompt, "People, meetings, teams, tasks", true);
+		if (CHURCH_RECORDS.test(text)) return quote(options.prompt, "Finish setup first:", true);
 		return null;
 	}
 
@@ -134,6 +174,17 @@ export function onboardingStep(options: LanguageModelV4CallOptions, text: string
 		const church = String(resume.facts?.church ?? "your church");
 		return say(
 			`You already have a church in Everyfield, ${church}, so I won't start another. Ask me where you are in setup.`,
+		);
+	}
+	if (HISTORY.test(text)) {
+		if (!offers("onboarding.getResume")) return setupRule();
+		if (!resume) return readResume();
+		const church = String(resume.facts?.church ?? "your church");
+		const on = resume.facts?.discoveryClosedOn;
+		return say(
+			typeof on === "string"
+				? `Your Discovery space closed on ${on}, when it became ${church}. Its links and sharing that carried over are now ${church}'s.`
+				: `You have no Discovery space that became ${church}.`,
 		);
 	}
 	if (SETUP.test(text)) {

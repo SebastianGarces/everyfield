@@ -692,8 +692,14 @@ function rowView(operation: string, row: SourceRow): RowView {
 				avatar: null,
 			};
 		case "relationship":
-			// A sending church or network a Discovery space is linked to.
-			return { ...plain, href: "/onboarding", name: row.label, line: text(fields.relationship), avatar: null };
+			// A sending church or network a Discovery space is linked to, and what that link shares.
+			return {
+				...plain,
+				href: "/onboarding",
+				name: row.label,
+				line: `${text(fields.relationship)} · ${typeof fields.shares === "string" ? `Shares ${fields.shares}` : "Shares nothing"}`,
+				avatar: null,
+			};
 		case "notice":
 			// A bell notification: its area and church-local time. A card never marks it read.
 			return {
@@ -855,8 +861,10 @@ export function cardView(operation: string, result: SourceResult, originalTotal:
 	const totals = result.facts ?? {};
 	if (typeof totals.phase === "string")
 		facts.push(
-			`${String(totals.church ?? "Your church")} is in ${totals.phase}.${typeof totals.launchDate === "string" ? ` Launch date ${totals.launchDate}.` : ""}`,
+			`${String(totals.church ?? "Your church")} is in ${totals.phase}.${typeof totals.launchDate === "string" ? ` Launch date ${totals.launchDate}.` : ""}${typeof totals.resumeAt === "string" && !totals.finished ? ` Setup picks up at ${totals.resumeAt}.` : ""}`,
 		);
+	if (typeof totals.discoveryClosedOn === "string")
+		facts.push(`Your Discovery space closed on ${totals.discoveryClosedOn}, when it became this church.`);
 	if (typeof totals.foundationsRead === "number")
 		facts.push(`${totals.foundationsRead} of ${Number(totals.foundationsTotal)} foundation articles read.`);
 	if (typeof totals.roles === "number")

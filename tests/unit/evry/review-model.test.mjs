@@ -7,10 +7,13 @@
 //     browser's clock says (R5-5).
 //   AC:INH-REGRESSION-REVISED-APPROVAL INV-revise: a revision sends the native command's exact reviewed input with only
 //     the edited values changed, for every People reviewed write.
+//   INV-carry-over: turning a Discovery space into a church is revised only by its links, and the revision carries over
+//     exactly the ticked links with exactly the ticked sharing (T-345).
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
 	approvable,
+	carryOverText,
 	approvalLeft,
 	digestSchedule,
 	editableChanges,
@@ -179,4 +182,51 @@ test("AC:HH-05 INV-partial: a saved change that left anyone out counts who chang
 	assert.doesNotMatch(peopleResult(saved(partial)), /all|saved/i);
 	// A change that reached nobody else has no count.
 	assert.equal(peopleResult(review({ status: "approved", outcome: "completed", receipt: {} })), null);
+});
+
+test("INV-carry-over: a conversion revision carries over only the ticked links with only the ticked sharing", () => {
+	const grace = "66666666-6666-4666-8666-666666666666";
+	const network = "44444444-4444-4444-8444-444444444444";
+	const link = (id, organization, kind) => ({
+		field: `link:${id}`,
+		before: { organization, kind, share: [] },
+		after: { carries: true, share: [] },
+	});
+	const convert = review({
+		operation: "discovery.convertToPlant",
+		review: {
+			target: { kind: "account", id: "a", label: "Morgan Hale" },
+			changes: [
+				{ field: "church", before: null, after: "Grace Point" },
+				{ field: "city", before: null, after: "Austin" },
+				link(grace, "Grace Austin", "Sending church"),
+				link(network, "Hill Country Network", "Network"),
+			],
+		},
+	});
+	// Only the links can be revised on the card; the church's name and place are what the person asked for.
+	assert.deepEqual(
+		editableChanges(convert).map((c) => c.field),
+		[`link:${grace}`, `link:${network}`],
+	);
+	assert.deepEqual(reviseInput(convert), {
+		name: "Grace Point",
+		city: "Austin",
+		carryOver: [
+			{ organizationId: grace, share: [] },
+			{ organizationId: network, share: [] },
+		],
+	});
+	assert.deepEqual(
+		reviseInput(convert, {
+			[`link:${grace}`]: JSON.stringify({ carries: true, share: ["people", "meetings"] }),
+			[`link:${network}`]: JSON.stringify({ carries: false, share: [] }),
+		}),
+		{ name: "Grace Point", city: "Austin", carryOver: [{ organizationId: grace, share: ["people", "meetings"] }] },
+	);
+	assert.equal(
+		carryOverText({ carries: true, share: ["meetings", "people"] }),
+		"Carries over, sharing People totals, Meetings",
+	);
+	assert.equal(carryOverText({ carries: false, share: [] }), "Doesn't carry over. The link ends.");
 });
