@@ -458,13 +458,7 @@
 				"/\\b(can['’]?t|cannot|can not|not able|unable|don['’]?t (yet )?have|do not (yet )?have|isn['’]?t (yet )?(available|something|possible)|not (yet )?(available|supported|possible|connected|something)|no (way|access|tool)|aren['’]?t (yet )?available|not set up|doesn['’]?t (yet )?(let|give|include|have)|outside what|beyond what)\\b/i"
 			],
 			"forbid": ["/I['’]?(ve| have) (deleted|removed)/i"],
-			"derivation": "There is no household delete command; removing both people would be a different request, so no review card.",
-			"finding": {
-				"checks": [
-					"says /\\b(can['’]?t|cannot|can not|not able|unable|don['’]?t (yet )?have|do not (yet )?have|isn['’]?t (yet )?(available|something|possible)|not (yet )?(available|supported|possible|connected|something)|no (way|access|tool)|aren['’]?t (yet )?available|not set up|doesn['’]?t (yet )?(let|give|include|have)|outside what|beyond what)\\b/i"
-				],
-				"note": "T-322 merge with S4 teams and people (D-1229): after the merged tool list was re-recorded, the model answer misses these checks; recorded as a finding as in T-24 (D-958) and D-1181."
-			}
+			"derivation": "There is no household delete command; removing both people would be a different request, so no review card."
 		}
 	},
 	{
@@ -1261,13 +1255,7 @@
 				"/doesn['’]?t (mean|tell|prove)|not (mean|proof|the same)|isn['’]?t (proof|the same)|only (means|shows|tells)/i"
 			],
 			"forbid": ["/(she|maria)('ll| will) (come|attend|be there)|(she|maria) is interested/i"],
-			"derivation": "Maria Santos's last email: delivered and an open recorded, with the note that an open isn't attendance, interest or a conversation (COM-03).",
-			"finding": {
-				"checks": [
-					"says /doesn['’]?t (mean|tell|prove)|not (mean|proof|the same)|isn['’]?t (proof|the same)|only (means|shows|tells)/i"
-				],
-				"note": "T-322 merge with S4 teams and people (D-1229): after the merged tool list was re-recorded, the model answer misses these checks; recorded as a finding as in T-24 (D-958) and D-1181."
-			}
+			"derivation": "Maria Santos's last email: delivered and an open recorded, with the note that an open isn't attendance, interest or a conversation (COM-03)."
 		}
 	},
 	{
@@ -1879,7 +1867,11 @@
 				"all": ["Casey Morgan", "Casey Brooks"],
 				"allowed": ["Casey Morgan", "Casey Brooks"]
 			},
-			"forbid": ["/(better|best|more suitable|good fit|ready to lead|recommend)/i"]
+			"forbid": ["/(better|best|more suitable|good fit|ready to lead|recommend)/i"],
+			"finding": {
+				"checks": ["never says /(better|best|more suitable|good fit|ready to lead|recommend)/i"],
+				"note": "Drifted on the T-322 merge re-record with S4 notifications; failing checks set from its report (D-1151)."
+			}
 		}
 	},
 	{
@@ -2079,13 +2071,7 @@
 			"forbid": [
 				"/I['’]?(ve| have)? (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)|has been (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)/i"
 			],
-			"derivation": "One added Hospitality assignment; nothing about Worship changes and no capacity limit is invented.",
-			"finding": {
-				"checks": [
-					"proposes teams.assignMember {\"teamId\":\"5b6d1f0e-0000-4000-8000-000000007020\",\"roleId\":\"5b6d1f0e-0000-4000-8000-000000007022\",\"personId\":\"@Alex Rivera\"}"
-				],
-				"note": "T-322 merge with S4 teams and people (D-1229): after the merged tool list was re-recorded, the model answer misses these checks; recorded as a finding as in T-24 (D-958) and D-1181."
-			}
+			"derivation": "One added Hospitality assignment; nothing about Worship changes and no capacity limit is invented."
 		}
 	},
 	{
