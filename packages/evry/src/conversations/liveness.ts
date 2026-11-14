@@ -21,6 +21,22 @@ const ROW_LIVENESS: Record<SourceRow["kind"], Rule> = {
 	tag: (id, plant) => sql`EXISTS(SELECT FROM tag t WHERE t.id=${id} AND t.plant_id=${plant})`,
 	// A message is live while it exists in the church.
 	message: (id, plant) => sql`EXISTS(SELECT FROM communication m WHERE m.id=${id} AND m.plant_id=${plant})`,
+	// A notice is live while the bell can still show it: not cancelled or archived. The read that returned it was the
+	// account's own, and the in-turn check repeats the live access check.
+	notice: (id) =>
+		sql`EXISTS(SELECT FROM notice n WHERE n.id=${id} AND n.cancelled_at IS NULL AND n.archived_at IS NULL)`,
+	// A ministry, role, training program, meeting or responsibility is live while it exists in the church (an archived
+	// ministry or a retired role still exists and is shown as such). Each alias is its own: the replay check names the
+	// row being checked `r`, so a rule's table alias must never shadow it.
+	team: (id, plant) => sql`EXISTS(SELECT FROM team lt WHERE lt.id=${id} AND lt.plant_id=${plant})`,
+	role: (id, plant) => sql`EXISTS(SELECT FROM team_role lr WHERE lr.id=${id} AND lr.plant_id=${plant})`,
+	training: (id, plant) => sql`EXISTS(SELECT FROM training_program lg WHERE lg.id=${id} AND lg.plant_id=${plant})`,
+	meeting: (id, plant) =>
+		sql`EXISTS(SELECT FROM meeting lm WHERE lm.id=${id} AND lm.plant_id=${plant} AND lm.retired_at IS NULL)`,
+	responsibility: (id, plant) =>
+		sql`EXISTS(SELECT FROM responsibility ls WHERE ls.id=${id} AND ls.plant_id=${plant} AND ls.removed_at IS NULL)`,
+	// A template row is a catalog key, not a stored record.
+	template: null,
 	// Never withheld: an import row is a CSV line number or a preview's own row, not a stored record. A file row is a
 	// digest, a receipt key or a name the tool computed, and an activity or skill row is a safe detail of a person that
 	// the tool read under that person's own access; none of them names a source that this check could find gone.
@@ -28,6 +44,14 @@ const ROW_LIVENESS: Record<SourceRow["kind"], Rule> = {
 	file: null,
 	skill: null,
 	activity: null,
+	// Never withheld: a seat, an invitation or a connection is the church's own access setting, which the person asking
+	// changes themselves through reviews; an answer that named one stays readable after the change.
+	seat: null,
+	invitation: null,
+	connection: null,
+	// Never withheld: a setting row is the account's own choice and a digest row a preview the tool computed.
+	setting: null,
+	digest: null,
 };
 
 /**
@@ -43,16 +67,18 @@ export function rowLive(row: SQL, plant: SQL): SQL {
 }
 
 /**
- * The `kind:id` keys of these rows that are live for the actor now: the in-turn form of the same rule. One statement
- * for every row of a model call, carrying the lock-free live access check (C27), so an actor who lost access since
- * the last tool call keeps no row, whatever its kind.
+ * The `kind:id` keys of these rows that are live for the actor now: the in-turn form of the same rule, for a seat in a
+ * church or an organization. One statement for every row of a model call, carrying the lock-free live access check
+ * (C27), so an actor who lost access since the last tool call keeps no row, whatever its kind.
  */
 export async function liveRowKeys(
 	db: Pick<Database, "execute">,
 	actor: EvryActor,
 	rows: readonly { kind: string; id: string }[],
 ): Promise<Set<string>> {
-	if (!rows.length || actor.owner.kind !== "plant" || actor.role === null) return new Set();
+	// Any seat's rows are checked: a church seat's sources are rows of its church, and an organization seat's prepared
+	// review of its own profile is never withheld. An account context has no tenant rows.
+	if (!rows.length || actor.role === null) return new Set();
 	const r = await db.execute(sql`
 		SELECT r.key FROM jsonb_to_recordset(${JSON.stringify(rows)}::jsonb) AS x(kind text,id text)
 		CROSS JOIN LATERAL (SELECT x.kind||':'||x.id AS key, jsonb_build_object('kind',x.kind,'id',x.id) AS j) r

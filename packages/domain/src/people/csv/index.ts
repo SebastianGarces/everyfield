@@ -763,6 +763,51 @@ export const peopleCsv = {
 		});
 	},
 	/**
+	 * The church's most recent import and its receipt, without its request key (CLN-05): the person who asks how the last
+	 * import went does not know the key. One statement, under the live Owner or Admin check.
+	 */
+	async getLatestImportReceipt(tx: Tx, ctx: Context) {
+		return readReply(async () => {
+			const plant = plantId(ctx);
+			const row = z
+				.object({
+					allowed: z.boolean(),
+					id: z.uuid().nullable(),
+					request_key: z.string().nullable(),
+					at: z.coerce.date().nullable(),
+					state: z.unknown(),
+				})
+				.parse(
+					(
+						await tx.execute(sql`SELECT g.allowed,a.id,a.request_key,a.occurred_at AS at,${importState(sql`a.id`)} AS state
+ FROM (SELECT ${access(ctx, true)} AS allowed) g LEFT JOIN LATERAL (SELECT e.id,e.request_key,e.occurred_at
+  FROM person_import pi JOIN audit_event e ON e.id=pi.id AND e.tenant_id=pi.tenant_id
+  WHERE g.allowed AND pi.tenant_id=${plant}::uuid ORDER BY e.occurred_at DESC,e.id DESC LIMIT 1) a ON true`)
+					).rows[0],
+				);
+			if (!row.allowed) deny();
+			if (!row.id || !row.state) return c.latestImportReceipt.parse({ status: "none" });
+			return c.latestImportReceipt.parse({
+				status: "available",
+				requestKey: row.request_key,
+				importedAt: row.at!.toISOString(),
+				receipt: receiptOf(row.id, loadState(row.state)),
+			});
+		});
+	},
+	/**
+	 * executeBulkImport inside the caller's transaction, for a reviewed Evry effect: the reviewed rows, the job that writes
+	 * them and the audit row commit with the effect's outcome. The job runs after that commit, as it does for the screen.
+	 */
+	async saveBulkImport(tx: Tx, ctx: WriteContext, raw: unknown) {
+		return reply(tx, async () => {
+			const input = parse(c.executeBulkImportRequest, raw);
+			const file = readFile(input.file);
+			if (file.fileDigest !== input.fileDigest) deny("file_changed");
+			return saveImport(tx, ctx, input, file);
+		});
+	},
+	/**
 	 * The directory's filtered people as formula-safe CSV, every matching row in one statement, with the exact filters and
 	 * counts. Members may export what the directory shows them. A person with neither stored name part exports the display
 	 * name's first word as first_name and the rest as last_name; nothing is written back (REQ-PPL-019).

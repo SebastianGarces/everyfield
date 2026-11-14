@@ -26,12 +26,12 @@ import { after } from "next/server";
 import { createHmac, randomUUID } from "node:crypto";
 import { z } from "zod";
 import { mailEnv } from "../../server/mail-env.ts";
-import { database } from "@/server/database";
-import { enqueueJob, queueJobs } from "@/server/jobs/queue";
-import { current as organizationMount } from "@/server/organizations";
-import { getViewer } from "@/server/request-context";
-import { settingsMail } from "./mail";
-import type { SettingsViewer } from "./port";
+import { database } from "../../server/database.ts";
+import { enqueueJob, queueJobs } from "../../server/jobs/queue.ts";
+import { current as organizationMount } from "../../server/organizations/index.ts";
+import { getViewer } from "../../server/request-context.ts";
+import { settingsMail } from "./mail.ts";
+import type { SettingsViewer } from "./port.ts";
 
 // The settings mount (WP-010): the one door from the settings server actions to the settings domain. The session and
 // actor come from the request's getViewer. A section read uses that viewer on the pool, without a transaction; every
@@ -202,6 +202,23 @@ function parseSetCookie(header: string) {
 		}
 	}
 	return cookie;
+}
+
+/**
+ * The Settings commands Evry's church and account tools call (T-327): the same producers this mount builds, with the
+ * same replan, cleanup and deletion effects. Null when the deployment has no identity configuration.
+ */
+export function settingsCommands() {
+	const ops = settingsMount();
+	if (!ops) return null;
+	return {
+		settings: {
+			updatePlantProfile: ops.sections.updatePlantProfile,
+			previewPlantTimezone: ops.timezones.previewPlantTimezone,
+			setPlantTimezone: ops.timezones.setPlantTimezone,
+		},
+		account: { finalizeAvatar: ops.avatar.finalizeAvatar, requestAccountDeletion: ops.deletion.requestAccountDeletion },
+	};
 }
 
 /** What the settings screens need to know about the viewer; null when signed out or without an active actor. */
