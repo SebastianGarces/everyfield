@@ -20,7 +20,7 @@ export function ReviewsScreen({ list }: { list: ReviewList }) {
 			/>
 			<Card>
 				{list.items.length ? (
-					<ul className="divide-y divide-line">
+					<ul className="-my-3 divide-y divide-line">
 						{list.items.map((item) => {
 							const body = (
 								<>
@@ -43,12 +43,12 @@ export function ReviewsScreen({ list }: { list: ReviewList }) {
 									{item.shared ? (
 										<IntentLink
 											href={reviewPath(item.id)}
-											className="flex cursor-pointer items-center justify-between gap-4 px-5 py-4 transition-colors hover:bg-surface-2 focus-visible:bg-surface-2"
+											className="-mx-3 flex cursor-pointer items-center justify-between gap-4 rounded-md px-3 py-3.5 transition-colors hover:bg-surface-2 focus-visible:bg-surface-2"
 										>
 											{body}
 										</IntentLink>
 									) : (
-										<div className="flex items-center justify-between gap-4 px-5 py-4">{body}</div>
+										<div className="flex items-center justify-between gap-4 py-3.5">{body}</div>
 									)}
 								</li>
 							);
