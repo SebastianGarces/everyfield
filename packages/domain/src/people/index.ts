@@ -8,6 +8,7 @@ export {
 	listDismissedDuplicatePairs,
 	listDuplicatePairs,
 	listedDuplicatePair,
+	listOrganizationDuplicatePairs,
 	restoreDuplicatePair,
 } from "./duplicates.ts";
 export { personSearchMatch, searchPeople, type PersonHit } from "./search.ts";

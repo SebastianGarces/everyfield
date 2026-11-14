@@ -40,7 +40,13 @@ export const referenceKind = z.enum([
 ]);
 export const referenceTreatment = z.enum(["move", "deduplicate", "keep", "block"]);
 
-export const mergeBlocker = z.enum(["linked_account_collision", "linked_source", "unregistered_reference"]);
+/** Why a merge cannot run. `enrollment_collision`: both organization people are enrolled in the same program. */
+export const mergeBlocker = z.enum([
+	"linked_account_collision",
+	"linked_source",
+	"unregistered_reference",
+	"enrollment_collision",
+]);
 export const inverseConflict = z.enum(["survivor_changed", "source_changed", "references_changed"]);
 export const mergeErrors = [
 	defineSafeError(

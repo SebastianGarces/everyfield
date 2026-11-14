@@ -257,6 +257,22 @@ export const duplicatePairs = z.strictObject({
 });
 const pairPerson = z.strictObject({ id: personId, displayName: z.string() });
 /**
+ * Possible duplicates among an organization's live people (REQ-MUL-017): pairs that share a normalized email or phone,
+ * with what they share. Suggestions only: nothing about a pair proves identity or picks the record that stays.
+ */
+export const organizationDuplicatePairs = z.strictObject({
+	items: z
+		.array(
+			z.strictObject({
+				person: pairPerson,
+				with: pairPerson,
+				shared: z.array(z.enum(["email", "phone"])).min(1).max(2),
+			}),
+		)
+		.max(100),
+	completeness: z.enum(["complete", "partial"]),
+});
+/**
  * people.listDismissedDuplicatePairs: the listed pairs an Owner or Admin marked "Not a duplicate" whose two people are
  * both still live, newest first, with who dismissed each one (null once that account is deleted) and when. `zone` is the
  * church's time zone, the one the dates show in.

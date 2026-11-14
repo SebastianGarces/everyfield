@@ -186,7 +186,8 @@ const recordRow = z.object({
 });
 
 /**
- * One pipeline person's record: details, history (with the stage labels as they were) and notes. An Owner or Admin
+ * One pipeline person's record: details, history (with the stage labels as they were) and notes. History and
+ * conversations include those of the records merged into this one (REQ-MUL-017), which keep them where they were. An Owner or Admin
  * reads anyone, live or retired; the responsible staff member reads the live people they are responsible for. Anyone
  * else gets `unavailable`, the same answer as for a person who does not exist. One statement.
  */
@@ -202,7 +203,10 @@ x AS (SELECT pp.*,p.display_name,p.email,p.state FROM pipeline_person pp
  JOIN person p ON p.id=pp.person_id AND p.tenant_id=pp.organization_id
  WHERE EXISTS(SELECT FROM o) AND pp.organization_id=${org}::uuid AND pp.person_id=${personId}::uuid
   AND (p.state='live' OR (p.state='retired' AND ${seat.administrator}))
-  AND (${seat.administrator} OR pp.responsible_seat_id=${seat.seatId}::uuid))
+  AND (${seat.administrator} OR pp.responsible_seat_id=${seat.seatId}::uuid)),
+lin AS (SELECT x.person_id AS id FROM x UNION ALL SELECT m.id FROM x JOIN person m ON m.merged_into_person_id=x.person_id
+ AND m.tenant_id=${org}::uuid),
+linpp AS (SELECT pp.id FROM pipeline_person pp WHERE pp.organization_id=${org}::uuid AND pp.person_id IN (SELECT id FROM lin))
 SELECT g.allowed,(SELECT today::text FROM o) AS as_of,
  (SELECT jsonb_build_object('personId',x.person_id,'name',x.display_name,'email',x.email,'state',x.state,
   'revision',x.revision::text,'assessedOn',x.assessed_on::text,'assessor',x.assessor_label,
@@ -213,7 +217,7 @@ SELECT g.allowed,(SELECT today::text FROM o) AS as_of,
   SELECT a.id,a.occurred_at AS at,(a.occurred_at AT TIME ZONE o.timezone)::date::text AS on,
    (SELECT i.display_name FROM seat_identity(a.actor_id) i) AS actor,a.action,m.from_label,m.to_label,m.reason,
    (m.id IS NOT NULL) AS moved
-  FROM x CROSS JOIN o JOIN audit_event a ON a.tenant_id=${org}::uuid AND a.subject_id=x.person_id
+  FROM x CROSS JOIN o JOIN audit_event a ON a.tenant_id=${org}::uuid AND a.subject_id IN (SELECT id FROM lin)
   LEFT JOIN pipeline_stage_move m ON m.id=a.id AND m.organization_id=a.tenant_id
   WHERE a.action IN ('people.created','people.stage_changed','people.recorded','people.retired','people.restored','people.updated')
    AND coalesce(a.metadata->>'category','') NOT IN ('note','leadership_conversation')
@@ -230,16 +234,16 @@ SELECT g.allowed,(SELECT today::text FROM o) AS as_of,
    (SELECT coalesce(i.display_name,'Staff') FROM seat s LEFT JOIN LATERAL seat_identity(s.account_id) i ON true
     WHERE s.id=c.staff_seat_id) AS met_by,
    (SELECT (a.occurred_at AT TIME ZONE o.timezone)::date::text FROM audit_event a WHERE a.tenant_id=${org}::uuid
-    AND a.subject_id=x.person_id AND a.action='people.recorded' AND a.metadata->>'conversationId'=c.id::text
+    AND a.subject_id IN (SELECT id FROM lin) AND a.action='people.recorded' AND a.metadata->>'conversationId'=c.id::text
     ORDER BY a.occurred_at LIMIT 1) AS logged_on,
    coalesce((SELECT jsonb_agg(jsonb_build_object('id',a.id,'on',(a.occurred_at AT TIME ZONE o.timezone)::date::text,
      'actor',(SELECT i.display_name FROM seat_identity(a.actor_id) i),'dateFrom',a.metadata#>>'{diff,occurredOn,before}',
      'dateTo',a.metadata#>>'{diff,occurredOn,after}','noteChanged',coalesce(a.metadata->'fields' ? 'note',false))
      ORDER BY a.occurred_at,a.id)
-    FROM audit_event a WHERE a.tenant_id=${org}::uuid AND a.subject_id=x.person_id AND a.action='people.corrected'
+    FROM audit_event a WHERE a.tenant_id=${org}::uuid AND a.subject_id IN (SELECT id FROM lin) AND a.action='people.corrected'
      AND a.metadata->>'conversationId'=c.id::text),
     '[]'::jsonb) AS corrections
-  FROM x CROSS JOIN o JOIN leadership_conversation c ON c.organization_id=${org}::uuid AND c.pipeline_person_id=x.id
+  FROM x CROSS JOIN o JOIN leadership_conversation c ON c.organization_id=${org}::uuid AND c.pipeline_person_id IN (SELECT id FROM linpp)
   ORDER BY c.occurred_on DESC,c.id DESC LIMIT 200) c),'[]'::jsonb) AS conversations
 FROM g`);
 		const row = recordRow.parse(r.rows[0]);
@@ -329,7 +333,7 @@ st AS (
 c AS (SELECT c.occurred_on FROM leadership_conversation c
  JOIN pipeline_person pp ON pp.id=c.pipeline_person_id AND pp.organization_id=c.organization_id
  JOIN person p ON p.id=pp.person_id AND p.tenant_id=pp.organization_id
- WHERE c.organization_id=${org}::uuid AND p.state IN ('live','retired') AND EXISTS(SELECT FROM o))
+ WHERE c.organization_id=${org}::uuid AND p.state IN ('live','retired','merged') AND EXISTS(SELECT FROM o))
 SELECT g.allowed,(SELECT today::text FROM o) AS as_of,
  coalesce((SELECT jsonb_agg(jsonb_build_object('id',s.id,'revision',s.revision::text,'leaderTarget',s.leader_target,
   'plantTarget',s.plant_target,'targetYear',s.target_year,'rationale',s.rationale) ORDER BY s.created_at,s.id)
