@@ -39,6 +39,16 @@ async function rows(db: Pick<Database, "execute">, query: SQL) {
 const ownAccount = (authority: RequestActor) =>
 	liveRead({ session: authority.session, owner: { kind: "account", id: authority.actor.accountId } });
 
+/** The church and role of the caller's current seat, as at most one row; none without a seat. */
+function seatLabels(authority: RequestActor): SQL {
+	const context = authority.actor.context;
+	return context.kind === "seat"
+		? sql`SELECT coalesce(p.name, o.name) AS church, initcap(s.role) AS role FROM seat s
+ LEFT JOIN plant p ON p.id=s.plant_id LEFT JOIN organization o ON o.id=s.organization_id
+ WHERE s.id=${context.seatId}::uuid AND s.account_id=${authority.actor.accountId}::uuid AND s.ended_at IS NULL`
+		: sql`SELECT NULL::text AS church, NULL::text AS role WHERE false`;
+}
+
 /**
  * platformAdmin.authorize for the feedback triage purpose, as one condition for the statement that reads or writes:
  * the caller's own live account holds an unrevoked, unexpired feedback_triage grant. Nothing else grants it.
@@ -141,16 +151,9 @@ export const feedbackWriter = {
 		return settle(async () => {
 			const input = parse(c.submitFeedbackRequest, raw);
 			const account = authority.actor.accountId;
-			const context = authority.actor.context;
-			const seat =
-				context.kind === "seat"
-					? sql`SELECT coalesce(p.name, o.name) AS church, initcap(s.role) AS role FROM seat s
- LEFT JOIN plant p ON p.id=s.plant_id LEFT JOIN organization o ON o.id=s.organization_id
- WHERE s.id=${context.seatId}::uuid AND s.account_id=${account}::uuid AND s.ended_at IS NULL`
-					: sql`SELECT NULL::text AS church, NULL::text AS role WHERE false`;
 			const [row] = await rows(
 				db,
-				sql`WITH gate AS (SELECT ${ownAccount(authority)} AS ok), seat AS (${seat}),
+				sql`WITH gate AS (SELECT ${ownAccount(authority)} AS ok), seat AS (${seatLabels(authority)}),
 ins AS (
  INSERT INTO feedback (account_id, request_key, category, description, page_label, page_address, church_label, role_label,
   browser, screen_width, screen_height, theme, app_version)
@@ -169,10 +172,8 @@ ins AS (
  SELECT f.id, f.category, f.page_label, f.submitted_at FROM feedback f JOIN gate ON gate.ok
  WHERE f.account_id=${account}::uuid AND f.request_key=${input.requestKey}::uuid
 )
-SELECT (SELECT ok FROM gate) AS ok, f.id, f.category, f.page_label,
- to_char(f.submitted_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS at,
- (SELECT email FROM access_account_contact(${account}::uuid)) AS email,
- (SELECT count(*) FROM aud) AS audited
+SELECT (SELECT ok FROM gate) AS ok, f.id, f.category, f.page_label, ${AT} AS at,
+ (SELECT email FROM access_account_contact(${account}::uuid)) AS email
 FROM (SELECT 1) one LEFT JOIN LATERAL (SELECT * FROM saved LIMIT 1) f ON true`,
 			);
 			if (row?.ok !== true) deny("access_denied");
@@ -188,18 +189,10 @@ FROM (SELECT 1) one LEFT JOIN LATERAL (SELECT * FROM saved LIMIT 1) f ON true`,
 	 */
 	async getSendContext(db: Database, authority: RequestActor) {
 		return settle(async () => {
-			const context = authority.actor.context;
-			const account = authority.actor.accountId;
 			const [row] = await rows(
 				db,
-				sql`SELECT (SELECT email FROM access_account_contact(${account}::uuid)) AS email, s.church, s.role
- FROM (SELECT 1) one LEFT JOIN LATERAL (${
-		context.kind === "seat"
-			? sql`SELECT coalesce(p.name, o.name) AS church, initcap(s.role) AS role FROM seat s
- LEFT JOIN plant p ON p.id=s.plant_id LEFT JOIN organization o ON o.id=s.organization_id
- WHERE s.id=${context.seatId}::uuid AND s.account_id=${account}::uuid AND s.ended_at IS NULL`
-			: sql`SELECT NULL::text AS church, NULL::text AS role`
-	}) s ON true WHERE ${ownAccount(authority)}`,
+				sql`SELECT (SELECT email FROM access_account_contact(${authority.actor.accountId}::uuid)) AS email, s.church, s.role
+ FROM (SELECT 1) one LEFT JOIN LATERAL (${seatLabels(authority)}) s ON true WHERE ${ownAccount(authority)}`,
 			);
 			if (!row) deny("access_denied");
 			return c.sendContext.parse({ church: row!.church ?? null, role: row!.role ?? null, replyTo: row!.email });
@@ -313,8 +306,7 @@ cur AS (
   jsonb_build_object('status', before), jsonb_build_object('status', ${input.status}::text), before_revision, revision
  FROM upd RETURNING 1
 )
-SELECT (SELECT ok FROM gate) AS ok, cur.status, cur.revision::text AS revision, upd.revision::text AS changed,
- (SELECT count(*) FROM aud) AS audited
+SELECT (SELECT ok FROM gate) AS ok, cur.status, cur.revision::text AS revision, upd.revision::text AS changed
 FROM (SELECT 1) one LEFT JOIN cur ON true LEFT JOIN upd ON true`,
 			);
 			if (row?.ok !== true) deny("access_denied");
