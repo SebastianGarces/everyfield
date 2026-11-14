@@ -203,7 +203,7 @@ test("AC:CA001 AC:CA003 30 committed adults on two teams count once each, childr
 	const both = a.evidence.find((e) => e.person.id === adults[0].id);
 	assert.deepEqual([both.kinds, both.committedSince], [["core_group", "launch_team"], day(-60)]);
 	assert.equal(r.criteria.committed_adults, "met");
-	assert.equal(r.formulaVersion, "plant-facts/1");
+	assert.equal(r.formulaVersion, "plant-facts/2");
 });
 
 test("AC:CA004 29 known adults and one unclassified person read Unknown with at least 29 and name that person", async () => {
@@ -446,6 +446,10 @@ test("AC:ASMT-006 every input the facts read changes the revision on the next re
 		launch: sql`INSERT INTO launch(plant_id,target_date,status) VALUES(${o.w.id},${day(40)},'scheduled')`,
 		"launch.target_date": sql`UPDATE launch SET target_date=${day(41)} WHERE plant_id=${o.w.id}`,
 		"launch.status": sql`UPDATE launch SET status='postponed',target_date=NULL WHERE plant_id=${o.w.id}`,
+		"launch.gathering_path": sql`UPDATE launch SET gathering_path='milestone' WHERE plant_id=${o.w.id}`,
+		"launch.gathering_reached_on": sql`UPDATE launch SET gathering_reached_on=${day(-1)},
+			gathering_reached_name='Constituted as a church' WHERE plant_id=${o.w.id}`,
+		"launch.gathering_reached_name": sql`UPDATE launch SET gathering_reached_name='Church constituted' WHERE plant_id=${o.w.id}`,
 	};
 	let last = (await read(o)).sourceRevision;
 	for (const [input, change] of Object.entries(changes)) {

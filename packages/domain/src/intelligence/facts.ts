@@ -71,12 +71,18 @@ export const factInputs = z.strictObject({
 	),
 	interviews: presence,
 	fourCs: presence,
-	/** The plant's launch: its target date and state, null before one is planned. */
+	/**
+	 * The plant's launch: its target date and state, and how it ends its gathering phase (T-296) with the milestone's
+	 * reached day and the name it was reached under. Null before one is planned.
+	 */
 	launch: z
 		.strictObject({
 			target: z.string().nullable(),
 			actual: z.string().nullable(),
 			status: z.enum(["planning", "scheduled", "postponed", "completed"]),
+			path: z.enum(["launch_sunday", "milestone"]),
+			reachedOn: z.string().nullable(),
+			reachedName: z.string().nullable(),
 		})
 		.nullable(),
 });
@@ -138,6 +144,20 @@ function launchCountdown(l: FactInputs["launch"], today: string) {
 		targetOn: scheduled,
 		daysToLaunch: scheduled ? Math.round((Date.parse(scheduled) - Date.parse(today)) / DAY) : null,
 	};
+}
+
+/**
+ * "First service held" at `today` (D-1532): a reached milestone on the milestone path, an actual Launch Sunday
+ * otherwise. A day after `today` has not happened yet, so it reads Unknown, as does no record at all (D-1533).
+ */
+function firstServiceOf(l: FactInputs["launch"], today: string): z.input<typeof c.firstService> {
+	const held = (on: string | null) => (on !== null && on <= today ? on : null);
+	if (l?.path === "milestone") {
+		const heldOn = held(l.reachedOn);
+		return { path: "milestone", status: heldOn ? "met" : "unknown", milestone: heldOn ? l.reachedName : null, heldOn };
+	}
+	const heldOn = l?.status === "completed" ? held(l.actual) : null;
+	return { path: "launch_sunday", status: heldOn ? "met" : "unknown", heldOn };
 }
 
 /** The facts of one plant at `asOf`, whose plant-local date is `today`. Pure: the same inputs give the same facts. */
@@ -310,6 +330,7 @@ export function buildFacts(inputs: FactInputs, asOf: Instant, today: string): c.
 	};
 
 	const launch = launchCountdown(inputs.launch, today);
+	const firstService = firstServiceOf(inputs.launch, today);
 	const criteria: Partial<Record<CriterionKey, CriterionStatus>> = {
 		committed_adults: committedAdults.status,
 		growth_trajectory: growth.status === "unknown" ? "unknown" : growth.status === "stalled" ? "not_met" : "met",
@@ -320,6 +341,7 @@ export function buildFacts(inputs: FactInputs, asOf: Instant, today: string): c.
 		training_complete: training.status,
 		systems_tested: answer("systems_tested"),
 		...c.launchCriteria(launch),
+		first_service_complete: firstService.status,
 	};
 
 	return c.plantFacts.parse({
@@ -337,6 +359,7 @@ export function buildFacts(inputs: FactInputs, asOf: Instant, today: string): c.
 		attestations,
 		humanRecords: { interviews: inputs.interviews, fourCs: inputs.fourCs },
 		launch,
+		firstService,
 		criteria,
 	});
 }
@@ -426,7 +449,8 @@ function statement(plant: string, ok: SQL, at: SQL) {
   FROM interview i JOIN person p ON p.id=i.person_id AND p.tenant_id=i.plant_id AND p.state='live' WHERE i.plant_id=x.plant),
  'fourCs',(SELECT jsonb_build_object('count',count(*)::int,'latestOn',max(f.assessed_on)::text)
   FROM four_cs f JOIN person p ON p.id=f.person_id AND p.tenant_id=f.plant_id AND p.state='live' WHERE f.plant_id=x.plant),
- 'launch',(SELECT jsonb_build_object('target',l.target_date::text,'actual',l.actual_date::text,'status',l.status)
+ 'launch',(SELECT jsonb_build_object('target',l.target_date::text,'actual',l.actual_date::text,'status',l.status,
+  'path',l.gathering_path,'reachedOn',l.gathering_reached_on::text,'reachedName',l.gathering_reached_name)
   FROM launch l WHERE l.plant_id=x.plant)
  ) AS inputs
  FROM gate LEFT JOIN x ON true`;
