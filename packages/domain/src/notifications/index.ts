@@ -8,7 +8,7 @@ import {
 	readAssociationReceipt,
 	readMeetingAudience,
 } from "./audience.ts";
-import { previewPlanterDigest, readOversightDigest, readPlanterDigest } from "./digest.ts";
+import { readOversightDigest, readPlanterDigest } from "./digest.ts";
 import {
 	markAllVisibleRead,
 	markAllVisibleReadCommand,
@@ -52,8 +52,6 @@ export function createNotificationProducer(config: NotificationConfig) {
 		readOversightDigest,
 		readPlanterDigest: (database: Database, authority: RequestActor, raw: unknown) =>
 			readPlanterDigest(database, authority, raw, now),
-		previewPlanterDigest: (database: Database, authority: RequestActor, raw: unknown) =>
-			previewPlanterDigest(database, authority, raw, now),
 		readAssociationReceipt,
 		readAssociationAudience,
 		readMeetingAudience,
