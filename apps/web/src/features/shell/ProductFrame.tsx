@@ -13,6 +13,7 @@ import {
 	MessageEdit01Icon,
 	Route01Icon,
 	Settings02Icon,
+	StartUp02Icon,
 	ShieldUserIcon,
 	Task01Icon,
 	UserGroupIcon,
@@ -88,6 +89,15 @@ const INTELLIGENCE = {
 	label: "Plant Intelligence",
 	href: "/intelligence",
 	icon: ChartLineData01Icon,
+	prefetch: false,
+} as const;
+// The Launch plan (WP-045) is for every seat of a church plant: Members read it and work their own prep tasks.
+const LAUNCH = {
+	kind: "link",
+	key: "launch",
+	label: "Launch",
+	href: "/launch",
+	icon: StartUp02Icon,
 	prefetch: false,
 } as const;
 // A sending church or network seat (WP-047a): its plants, its connections and what it shares, its notifications and
@@ -199,7 +209,12 @@ function Frame({ name, photo, settings, seed = null, children }: FrameProps) {
 		? { main: [PLANTS, PIPELINE], pages: ORGANIZATION_PAGES, tools: [feedbackAction, settingsLink] }
 		: {
 				main: [PEOPLE, MEETINGS, MESSAGES, TASKS, MINISTRIES, WIKI],
-				pages: settings?.context === "plant" && role !== "member" ? [INTELLIGENCE, DOCUMENTS] : [DOCUMENTS],
+				pages:
+					settings?.context !== "plant"
+						? [DOCUMENTS]
+						: role !== "member"
+							? [LAUNCH, INTELLIGENCE, DOCUMENTS]
+							: [LAUNCH, DOCUMENTS],
 				tools: [
 					feedbackAction,
 					{

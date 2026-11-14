@@ -8,6 +8,7 @@ import {
 	planMilestoneNotice,
 	relationshipMailGrants,
 } from "@everyfield/domain/organizations";
+import { authorizeLaunchNotices } from "@everyfield/domain/launch";
 import { authorizePhaseNotices } from "@everyfield/domain/phases";
 import { authorizeTaskReminders } from "@everyfield/domain/tasks";
 import "server-only";
@@ -187,12 +188,13 @@ export function notificationsMount(db: Database | null): NotificationWorker | nu
 
 /**
  * Which notice email may go out, each under its own source's rule: a task reminder (authorizeTaskReminders), a phase
- * advance (authorizePhaseNotices), a meeting notice or a milestone (authorizeNotificationMail). Each rule grants only
+ * advance (authorizePhaseNotices), a Launch milestone (authorizeLaunchNotices), a meeting notice or a relationship
+ * milestone (authorizeNotificationMail). Each rule grants only
  * notices of its own purposes, so a mail passes under at most one.
  */
 const authorizeNoticeMail: AuthorizeMail = async (tx, mail) => {
 	const granted = new Set<string>();
-	for (const rule of [authorizeTaskReminders, authorizePhaseNotices, authorizeNotificationMail])
+	for (const rule of [authorizeTaskReminders, authorizePhaseNotices, authorizeLaunchNotices, authorizeNotificationMail])
 		for (const id of await rule(tx, mail)) granted.add(id);
 	return granted;
 };

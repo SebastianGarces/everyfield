@@ -334,7 +334,7 @@ export const ASSESSMENT_COMMANDS = {
 			const c = v.correction;
 			const list =
 				c.action === "void"
-					? [change("voided", true, sql`to_jsonb(false)`)]
+					? [change("cardVoided", true, sql`to_jsonb(false)`)]
 					: [
 							...(c.occurredOn ? [change("occurredOn", c.occurredOn, sql`to_jsonb(k.signed_on::text)`)] : []),
 							...(c.kind ? [change("kind", c.kind, sql`to_jsonb(k.kind)`)] : []),
