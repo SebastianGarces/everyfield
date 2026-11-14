@@ -11,6 +11,7 @@ import {
 	type Plan,
 	type PrepTask,
 } from "@everyfield/contracts/launch";
+import { nearLaunch } from "@everyfield/contracts/oversight";
 import {
 	Alert02Icon,
 	ArrowDown01Icon,
@@ -21,6 +22,8 @@ import {
 } from "@hugeicons/core-free-icons";
 import {
 	Button,
+	CalloutLabel,
+	CalloutText,
 	Card,
 	CardDescription,
 	CardHeader,
@@ -55,6 +58,7 @@ import { completeMilestone, postponeLaunch, reopenMilestone, setLaunchDate } fro
 import { DebriefCard, SummaryCard } from "./Debrief.tsx";
 import { LaunchHistory } from "./History.tsx";
 import { OutcomeCard } from "./Outcome.tsx";
+import { daysText, gapText } from "../oversight/model.ts";
 import {
 	instantDate,
 	isOpen,
@@ -161,6 +165,7 @@ export function LaunchScreen({ plan: initial, viewer }: { plan: Plan; viewer: Vi
 				subtitle="Launch Sunday, the nine Playbook milestones, the prep work behind them and what happened on the day."
 				actions={actions}
 			/>
+			<PreparationNotice plan={plan} />
 			<div className="grid grid-cols-[minmax(0,1.1fr)_minmax(0,1.9fr)] items-stretch gap-5 max-app-md:grid-cols-1">
 				<Countdown plan={plan} admin={viewer.admin} onSet={() => open("set")} />
 				<Readiness plan={plan} />
@@ -188,6 +193,30 @@ export function LaunchScreen({ plan: initial, viewer }: { plan: Plan; viewer: Vi
 				<DateDialog draft={draft} saving={saving} plan={plan} onChange={setDraft} onSubmit={submitDate} />
 			) : null}
 		</>
+	);
+}
+
+/**
+ * Launch readiness (WP-047b, NIR-03): within 30 days of Launch Sunday with a required role unfilled or required training
+ * not done. A sending church or network that this church shares findings and Ministry teams with sees the same concern.
+ */
+function PreparationNotice({ plan }: { plan: Plan }) {
+	const p = plan.preparation;
+	const gap = gapText(p);
+	if (nearLaunch(p) !== "gap" || !gap || p.daysToLaunch === null) return null;
+	return (
+		<Card variant="callout" tone="amber" className="mb-5" data-concern="launch_readiness">
+			<CalloutLabel tone="amber" icon={StartUp02Icon}>
+				Launch readiness
+			</CalloutLabel>
+			<CalloutText className="text-md">
+				{daysText(p.daysToLaunch)}, with {gap}. A sending church or network you share Plant Intelligence findings and
+				Ministry teams with sees this too.{" "}
+				<Link href="/ministries" className="cursor-pointer font-medium text-ink underline underline-offset-[3px]">
+					Open Ministry teams
+				</Link>
+			</CalloutText>
+		</Card>
 	);
 }
 

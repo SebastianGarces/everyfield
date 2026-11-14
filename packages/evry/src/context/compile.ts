@@ -77,6 +77,9 @@ const OWN_SPACE_ONLY =
 	"I can only work with your own setup and Discovery space. I can't see or change another person's Discovery space or another church's records, so nothing changed.";
 /** Who may answer a church's setup (T-345): the native setup commands take only that Owner. */
 const SETUP_RULE = "Only the Owner who is setting up this church can answer its setup questions or finish its setup.";
+/** Who sets who leads a church and its teams (IDN-014, D-1395): the reply when a seat may not answer the lead question. */
+const LEAD_RULE =
+	"Who leads this church and its teams is set by an Owner or Admin, so I can't answer the lead question for you.";
 
 /** Who may make the changes a seat's tools leave out, so a refusal names the role instead of guessing. */
 function roleRule(actor: EvryActor) {
@@ -88,7 +91,10 @@ function roleRule(actor: EvryActor) {
 		actor.contextKind === "plant"
 			? "invite people, change seats and invitations, or change this church's settings, sharing and connections"
 			: "invite people, change seats and invitations, or change this organization's profile";
-	const setup = actor.contextKind === "plant" ? ` ${SETUP_RULE}` : "";
+	const setup =
+		actor.contextKind === "plant"
+			? ` ${SETUP_RULE} When the user asks to answer the lead question and no tool offers it, prepare nothing and reply: ${LEAD_RULE}`
+			: "";
 	return `The user's role here is ${actor.role}. When the user asks for a change none of your tools offers, prepare nothing and say who can make it: Only an Owner or Admin can ${scope}.${setup}`;
 }
 

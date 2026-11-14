@@ -2,7 +2,12 @@
 // Hill Country Network with Owner, Admin and Member seats; Grace Austin, its sending church, with an Owner seat;
 // Cedar Park Church, a sending church with an Owner seat and no plants; Gulf Coast Network with one plant of its own;
 // and four plants linked to Hill Country: Harvest Point (Round Rock, TX) and Eastside Commons (Austin, TX) also through
-// Grace Austin, Mueller Fellowship (Austin, TX) and Oak Cliff Church (Dallas, TX). Accounts sign up through the identity
+// Grace Austin, Mueller Fellowship (Austin, TX) and Oak Cliff Church (Dallas, TX). WP-047b adds health, Launch and
+// Regions: counting from today in each plant's time zone, Eastside is 10 days from Launch Sunday with its Worship
+// responsibility filled and training done, Harvest Point 30 days out with its Children's responsibility unfilled,
+// Oak Cliff 20 days out with one required training not done, and Mueller does not share Plant Intelligence findings.
+// Harvest Point has published a launch summary (and holds a newer draft); Harvest Point and Eastside chose the Austin
+// metro area and Oak Cliff the Dallas one, from the installed OMB 23-01 list. Accounts sign up through the identity
 // service, plants are created through the onboarding producer and every link is a real request and approval through
 // the organizations adapter. Organizations and their seats are raw rows, because no public write creates them.
 //
@@ -15,7 +20,12 @@ import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { createIdentityService } from "../../../packages/domain/src/identity/index.ts";
 import { createOnboardingProducer } from "../../../packages/domain/src/onboarding/index.ts";
-import { createOrganizationAdapter } from "../../../packages/domain/src/organizations/index.ts";
+import {
+	createOrganizationAdapter,
+	geographyReference,
+	installGeographyRelease,
+} from "../../../packages/domain/src/organizations/index.ts";
+import { SEED } from "../../../packages/domain/src/launch/catalog.ts";
 import { peopleWriter } from "../../../packages/domain/src/people/index.ts";
 import { randomUUID } from "node:crypto";
 import { dropSeed, openSeedEnvironment, writeFixture } from "../seed-env.mts";
@@ -191,7 +201,7 @@ export async function seedOversight(env: {
 				revision=revision+1,finished_at=clock_timestamp() WHERE subject_record_id=${v.sourceId} AND kind='digest'
 				AND state IN ('ready','retry_wait','claimed')`,
 		},
-		{ candidates: async () => [] },
+		geographyReference,
 	);
 	const write = (a: Account, selected: Owner, name: string, expectedRevision: string, input: unknown) =>
 		runtime.transaction(async (tx) => {
@@ -411,12 +421,12 @@ export async function seedOversight(env: {
 	const westlakeOwner = await account("Wes Hale", "plant_precreation");
 	const westlake = await plant(westlakeOwner, "Westlake Church", "Austin", "TX", { phase: 1, lead: false });
 	await link(grace, paul, network, ruth);
-	await link(hp, dana, network, ruth, ["people", "tasks", "meetings"]);
+	await link(hp, dana, network, ruth, ["people", "tasks", "meetings", "ministry_teams", "shared_findings"]);
 	await link(hp, dana, grace, paul);
 	await link(ec, priya, network, ruth);
 	await link(ec, priya, grace, paul);
 	await link(mf, ben, network, sam, ["people"]);
-	await link(oc, grace2, network, sam, ["tasks"]);
+	await link(oc, grace2, network, sam, ["tasks", "ministry_teams", "shared_findings"]);
 	await link(bayou, remy, gulf, gulfOwner);
 	await link(westlake, westlakeOwner, grace, paul);
 	await link(westlake, westlakeOwner, gulf, gulfOwner);
@@ -432,6 +442,71 @@ export async function seedOversight(env: {
 			inviter_description,subject_revision) VALUES(${invitation},${cedar.id},${network.id},'Cedar Park Church',1)`);
 	}
 
+	// A Member seat of Harvest Point, who reads the church settings' Region but cannot change it.
+	const mia = await account("Mia Torres", "plant_precreation");
+	await admin.execute(sql`INSERT INTO seat(account_id,plant_id,role,accepted_at)
+		VALUES(${mia.accountId},${hp.id},'member',clock_timestamp())`);
+	await seedLaunch();
+
+	/** WP-047b: Launch Sunday, responsibilities, training, a published summary and reporting Regions. */
+	async function seedLaunch() {
+		await installGeographyRelease(admin);
+		// Launch Sunday `days` from today in the plant's own time zone; the directory dates above are replaced.
+		const launchIn = async (p: Owner, days: number) => {
+			await admin.execute(sql`INSERT INTO launch(plant_id,status,target_date)
+				SELECT ${p.id},'scheduled',(clock_timestamp() AT TIME ZONE pl.timezone)::date + ${days}::int FROM plant pl
+				WHERE pl.id=${p.id} ON CONFLICT (plant_id) DO UPDATE SET status='scheduled', target_date=excluded.target_date`);
+			for (const [i, m] of SEED.entries())
+				await admin.execute(sql`INSERT INTO launch_milestone(plant_id,title,area,position,template_key,completed_at)
+					VALUES(${p.id},${m.title},${m.area},${i},${m.key},${p.id === hp.id && i < 4 ? sql`clock_timestamp()` : null})
+					ON CONFLICT DO NOTHING`);
+		};
+		await launchIn(ec, 10);
+		await launchIn(hp, 30);
+		await launchIn(oc, 20);
+		await launchIn(mf, 5);
+		/** A role on its own ministry carrying a Playbook responsibility, held by `holder` when given. */
+		const responsibility = async (p: Owner, team: string, key: string, holder: string | null) => {
+			const t = await admin.execute(
+				sql`INSERT INTO team(plant_id,name,state,sort_order) VALUES(${p.id},${team},'active',2) RETURNING id`,
+			);
+			const r = await admin.execute(sql`INSERT INTO team_role(plant_id,team_id,name,leadership,sort_order,
+				responsibility_key) VALUES(${p.id},${t.rows[0]!.id},${team + " lead"},true,0,${key}) RETURNING id`);
+			if (holder)
+				await admin.execute(sql`INSERT INTO team_tenure(plant_id,role_id,person_id,started_on)
+					VALUES(${p.id},${r.rows[0]!.id},${holder},current_date)`);
+		};
+		await responsibility(ec, "Sunday worship", "worship", ecPeople[1]!);
+		// Eastside's required training is done by everyone it is assigned to.
+		for (const who of ecPeople.slice(1, 3))
+			await admin.execute(sql`INSERT INTO training_credit(plant_id,person_id,program_id,kind,version,earned_on)
+				VALUES(${ec.id},${who},${programId},'earned',${version},current_date)`);
+		await responsibility(hp, "Sunday worship", "worship", hpPeople[2]!);
+		await responsibility(hp, "Children's ministry", "children", null);
+		const olive = await person(grace2, oc, "Olive Grant", "launch_team");
+		await responsibility(oc, "Sunday worship", "worship", olive);
+		const g = await admin.execute(
+			sql`INSERT INTO training_program(plant_id,name,required) VALUES(${oc.id},'Safe kids',true) RETURNING id, version`,
+		);
+		await admin.execute(sql`INSERT INTO training_assignment(plant_id,program_id,person_id,version,state,effective_on)
+			VALUES(${oc.id},${g.rows[0]!.id},${olive},${g.rows[0]!.version},'active',current_date)`);
+		await admin.execute(sql`INSERT INTO launch_summary(plant_id,version,body,saved_at,published_at) VALUES
+			(${hp.id},1,${"Our preview service drew 140 people. Thank you for praying with us as we head into Launch Sunday."},
+			clock_timestamp(),clock_timestamp()),
+			(${hp.id},2,${"Draft: guests Jane Doe and Carl Ruiz came with the Bensons."},clock_timestamp(),NULL)`);
+		for (const [p, city, code] of [
+			[hp, "Round Rock", "12420"],
+			[ec, "Austin", "12420"],
+			[oc, "Dallas", "19100"],
+		] as const)
+			await admin.execute(sql`INSERT INTO plant_geography(plant_id,city,state_province,country,region_item_id,
+				reference_version_id,committed_at,effective_at)
+				SELECT ${p.id},${city},'TX','US',i.id,v.id,clock_timestamp(),clock_timestamp()
+				FROM reference_item i, reference_version v JOIN reference_item d ON d.id=v.item_id
+				WHERE i.kind='geography_region' AND i.canonical_key=${"omb-23-01/" + code}
+				AND d.kind='geography_dataset' AND d.canonical_key='omb-23-01'`);
+	}
+
 	const seat = (a: Account) => ({ cookie: a.cookie, accountId: a.accountId, email: a.email });
 	return {
 		origin,
@@ -443,6 +518,8 @@ export async function seedOversight(env: {
 			graceOwner: seat(paul),
 			cedarOwner: seat(ann),
 			harvestPointOwner: seat(dana),
+			eastsideOwner: seat(priya),
+			harvestPointMember: seat(mia),
 		},
 		organizations: { network: network.id, grace: grace.id, cedar: cedar.id, gulf: gulf.id },
 		plants: {

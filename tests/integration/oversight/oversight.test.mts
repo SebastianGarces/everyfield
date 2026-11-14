@@ -183,6 +183,8 @@ test("AC:TARGET-IDN-023 AC:ORG55-004 AC:ORG55-005 AC:AF-039 the directory lists 
 			launchDate: null,
 			provenance: { kind: "through", sendingChurches: ["Grace Austin"] },
 			leadPlanter: null,
+			region: null,
+			health: "limited_visibility",
 		},
 		{
 			plantId: HP.id,
@@ -194,6 +196,8 @@ test("AC:TARGET-IDN-023 AC:ORG55-004 AC:ORG55-005 AC:AF-039 the directory lists 
 			launchDate: null,
 			provenance: { kind: "through", sendingChurches: ["Grace Austin"] },
 			leadPlanter: "Marcus Hill",
+			region: null,
+			health: "limited_visibility",
 		},
 		{
 			plantId: MF.id,
@@ -205,6 +209,8 @@ test("AC:TARGET-IDN-023 AC:ORG55-004 AC:ORG55-005 AC:AF-039 the directory lists 
 			launchDate: null,
 			provenance: { kind: "direct" },
 			leadPlanter: null,
+			region: null,
+			health: "limited_visibility",
 		},
 		{
 			plantId: OC.id,
@@ -216,6 +222,8 @@ test("AC:TARGET-IDN-023 AC:ORG55-004 AC:ORG55-005 AC:AF-039 the directory lists 
 			launchDate: null,
 			provenance: { kind: "direct" },
 			leadPlanter: null,
+			region: null,
+			health: "limited_visibility",
 		},
 	]);
 	// No street, email, phone or the Owner's name in anything the directory returns.

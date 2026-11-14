@@ -1147,11 +1147,11 @@ export const enrollment_milestone = pgTable(
 		enrollment_id: uuid("enrollment_id").notNull(),
 		version_id: uuid("version_id").notNull(),
 		milestone_id: uuid("milestone_id").notNull(),
-		source: text("source", { enum: ["program_leader"] }).notNull(),
+		source: text("source", { enum: ["program_leader", "resident"] }).notNull(),
 		completed_on: date("completed_on", { mode: "string" }).notNull(),
 		recorder_id: uuid("recorder_id").notNull(),
-		confirmer_id: uuid("confirmer_id").notNull(),
-		confirmed_at: timestamp("confirmed_at", { withTimezone: true, mode: "date" }).notNull(),
+		confirmer_id: uuid("confirmer_id"),
+		confirmed_at: timestamp("confirmed_at", { withTimezone: true, mode: "date" }),
 	},
 	(table): PgTableExtraConfigValue[] => [
 		foreignKey({
@@ -1184,7 +1184,11 @@ export const enrollment_milestone = pgTable(
 			.onUpdate("no action"),
 		primaryKey({ name: "enrollment_milestone_pkey", columns: [table.id] }),
 		unique("enrollment_milestone_once").on(table.enrollment_id, table.milestone_id),
-		check("enrollment_milestone_source", sql`(source = 'program_leader'::text)`),
+		check("enrollment_milestone_source", sql`(source = ANY (ARRAY['program_leader'::text, 'resident'::text]))`),
+		check(
+			"enrollment_milestone_confirmed",
+			sql`(((confirmer_id IS NULL) = (confirmed_at IS NULL)) AND ((source = 'resident'::text) OR (confirmed_at IS NOT NULL)))`,
+		),
 		index("enrollment_milestone_milestone_idx").using(
 			"btree",
 			table.milestone_id.asc().nullsLast(),
@@ -5875,7 +5879,7 @@ export const audit_event = pgTable(
 		check(
 			"audit_action",
 			sql.raw(
-				"(action IN ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','branding.changed','communication.draft_deleted','communication.draft_saved','communication.rescheduled','communication.scheduled','communication.send_intended','communication.template_archived','communication.template_created','communication.template_deleted','communication.template_forked','communication.template_updated','deletion.cancelled','deletion.live_purge_completed','development.enrolled','development.feedback_recorded','development.milestone_recorded','development.plan_saved','development.program_created','development.version_applied','development.version_published','documents.archived','documents.church_archived','documents.church_restored','documents.branding_changed','documents.copied','documents.created_from_template','documents.designated','documents.export_deleted','documents.exported','documents.generated','documents.imported','documents.purged','documents.saved','documents.template_deleted','documents.template_details_changed','documents.template_saved','documents.template_updated','evry.conversation_created','evry.proposal_approved','evry.proposal_cancelled','evry.proposal_prepared','evry.proposal_retried','evry.proposal_revised','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','feedback.publication_held','feedback.publication_intended','feedback.publication_unknown','feedback.published','feedback.received','feedback.status_changed','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','launch.corrected','launch.debrief_submitted','launch.outcome_recorded','launch.summary_published','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','organization.profile_changed','people.corrected','people.created','people.duplicate_dismissed','people.duplicate_restored','people.merged','people.recorded','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.bookmark_changed','wiki.hidden','wiki.published','wiki.reading_recorded','wiki.source_order_changed'))",
+				"(action IN ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','branding.changed','communication.draft_deleted','communication.draft_saved','communication.rescheduled','communication.scheduled','communication.send_intended','communication.template_archived','communication.template_created','communication.template_deleted','communication.template_forked','communication.template_updated','deletion.cancelled','deletion.live_purge_completed','development.enrolled','development.feedback_recorded','development.milestone_confirmed','development.milestone_marked','development.milestone_recorded','development.plan_saved','development.program_created','development.version_applied','development.version_published','documents.archived','documents.church_archived','documents.church_restored','documents.branding_changed','documents.copied','documents.created_from_template','documents.designated','documents.export_deleted','documents.exported','documents.generated','documents.imported','documents.purged','documents.saved','documents.template_deleted','documents.template_details_changed','documents.template_saved','documents.template_updated','evry.conversation_created','evry.proposal_approved','evry.proposal_cancelled','evry.proposal_prepared','evry.proposal_retried','evry.proposal_revised','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','feedback.publication_held','feedback.publication_intended','feedback.publication_unknown','feedback.published','feedback.received','feedback.status_changed','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','launch.corrected','launch.debrief_submitted','launch.outcome_recorded','launch.summary_published','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','organization.profile_changed','people.corrected','people.created','people.duplicate_dismissed','people.duplicate_restored','people.merged','people.recorded','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.bookmark_changed','wiki.hidden','wiki.published','wiki.reading_recorded','wiki.source_order_changed'))",
 			),
 		),
 		check(
@@ -6545,5 +6549,101 @@ export const church_brand_kit = pgTable(
 			sql`((signature_object_id IS NULL) = (signature_alt IS NULL)) AND ((signature_alt IS NULL) OR (char_length(btrim(signature_alt)) BETWEEN 1 AND 300))`,
 		),
 		index("church_brand_kit_signature_ref").using("btree", table.signature_object_id.asc().nullsLast()),
+	],
+);
+export const network_intelligence_run = pgTable(
+	"network_intelligence_run",
+	{
+		id: uuid("id").notNull(),
+		organization_id: uuid("organization_id").notNull(),
+		requested_by: uuid("requested_by"),
+		ran_at: timestamp("ran_at", { withTimezone: true, mode: "date" })
+			.notNull()
+			.default(sql`clock_timestamp()`),
+		rubric_version: text("rubric_version").notNull(),
+	},
+	(t): PgTableExtraConfigValue[] => [
+		primaryKey({ name: "network_intelligence_run_pkey", columns: [t.id] }),
+		foreignKey({
+			name: "network_intelligence_run_organization",
+			columns: [t.organization_id],
+			foreignColumns: [organization.id],
+		})
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		foreignKey({ name: "network_intelligence_run_requester", columns: [t.requested_by], foreignColumns: [account.id] })
+			.onDelete("set null")
+			.onUpdate("no action"),
+		check("network_intelligence_run_rubric", sql`(rubric_version = 'everyfield-network/v1'::text)`),
+		index("network_intelligence_run_organization_idx").on(t.organization_id, t.ran_at),
+		index("network_intelligence_run_requester_idx").on(t.requested_by),
+	],
+);
+export const network_intelligence_plant = pgTable(
+	"network_intelligence_plant",
+	{
+		run_id: uuid("run_id").notNull(),
+		plant_id: uuid("plant_id").notNull(),
+		launched: boolean("launched").notNull(),
+		days_to_launch: integer("days_to_launch"),
+		unfilled_roles: integer("unfilled_roles"),
+		outstanding_training: integer("outstanding_training"),
+		region_item_id: uuid("region_item_id"),
+		state_province: text("state_province"),
+		country: text("country"),
+	},
+	(t): PgTableExtraConfigValue[] => [
+		primaryKey({ name: "network_intelligence_plant_pkey", columns: [t.run_id, t.plant_id] }),
+		foreignKey({
+			name: "network_intelligence_plant_run",
+			columns: [t.run_id],
+			foreignColumns: [network_intelligence_run.id],
+		})
+			.onDelete("cascade")
+			.onUpdate("no action"),
+		foreignKey({ name: "network_intelligence_plant_plant", columns: [t.plant_id], foreignColumns: [plant.id] })
+			.onDelete("cascade")
+			.onUpdate("no action"),
+		foreignKey({
+			name: "network_intelligence_plant_region",
+			columns: [t.region_item_id],
+			foreignColumns: [reference_item.id],
+		})
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		check(
+			"network_intelligence_plant_counts",
+			sql`((unfilled_roles IS NULL) OR (unfilled_roles >= 0)) AND ((outstanding_training IS NULL) OR (outstanding_training >= 0))`,
+		),
+		index("network_intelligence_plant_plant_idx").on(t.plant_id),
+		index("network_intelligence_plant_region_idx").on(t.region_item_id),
+	],
+);
+export const network_intelligence_feedback = pgTable(
+	"network_intelligence_feedback",
+	{
+		run_id: uuid("run_id").notNull(),
+		account_id: uuid("account_id").notNull(),
+		pattern_key: text("pattern_key").notNull(),
+		rating: text("rating").notNull(),
+		recorded_at: timestamp("recorded_at", { withTimezone: true, mode: "date" })
+			.notNull()
+			.default(sql`clock_timestamp()`),
+	},
+	(t): PgTableExtraConfigValue[] => [
+		primaryKey({ name: "network_intelligence_feedback_pkey", columns: [t.run_id, t.account_id, t.pattern_key] }),
+		foreignKey({
+			name: "network_intelligence_feedback_run",
+			columns: [t.run_id],
+			foreignColumns: [network_intelligence_run.id],
+		})
+			.onDelete("cascade")
+			.onUpdate("no action"),
+		foreignKey({ name: "network_intelligence_feedback_account", columns: [t.account_id], foreignColumns: [account.id] })
+			.onDelete("cascade")
+			.onUpdate("no action"),
+		check("network_intelligence_feedback_rating", sql`(rating = ANY (ARRAY['useful'::text, 'not_useful'::text]))`),
+		check("network_intelligence_feedback_key", sql`((length(pattern_key) >= 1) AND (length(pattern_key) <= 200))`),
+		index("network_intelligence_feedback_account_idx").on(t.account_id),
 	],
 );
