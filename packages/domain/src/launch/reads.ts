@@ -164,8 +164,13 @@ const gatheringRow = z
 	.nullable()
 	.transform((g): c.GatheringPath => {
 		if (!g || g.path === "launch_sunday") return { kind: "launch_sunday" };
-		const { path: _path, ...milestone } = g;
-		return c.gatheringPath.parse({ kind: "milestone", ...milestone });
+		return c.gatheringPath.parse({
+			kind: "milestone",
+			organizationId: g.organizationId,
+			organizationName: g.organizationName,
+			offered: g.offered,
+			reached: g.reached,
+		});
 	});
 /** An account named on a row: null when the account has since been deleted. */
 const named = z
