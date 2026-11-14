@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { onboardingEntry } from "@/server/onboarding";
+import { getViewer } from "@/server/request-context";
+import { ORGANIZATION_HOME } from "@everyfield/contracts/identity";
 import { FOUNDATION_ARTICLES } from "./foundations";
 import { parseStep } from "./model";
 import { parseEntry } from "./port";
@@ -13,6 +15,10 @@ export const onboardingMetadata: Metadata = { title: "Set up your church", robot
 
 type Search = Promise<Record<string, string | string[] | undefined>>;
 export async function OnboardingPage({ searchParams }: { searchParams: Search }) {
+	// A sending church or network seat has its own home; church setup is for planters (WP-047a). An organization
+	// registration without a seat yet still sees the onboarding screen that says so.
+	const context = (await getViewer())?.authority?.actor.context;
+	if (context?.kind === "seat" && context.owner.kind === "organization") redirect(ORGANIZATION_HOME);
 	const load = parseEntry(await onboardingEntry());
 	if (load.kind === "signed_out") redirect("/signin?returnTo=%2Fonboarding");
 	const raw = (await searchParams).step;
