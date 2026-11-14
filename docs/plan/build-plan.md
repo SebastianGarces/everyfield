@@ -79,9 +79,9 @@ The DAG estimates effort from owned clauses, operations, cases and referenced ta
 | WP-045 | Launch plan/readiness/milestones | 18 | 10 | 19 | 7 | 2 |
 | WP-046 | Launch outcomes/events/history | 43 | 11 | 45 | 8 | 3 |
 | WP-040 | Assessment facts, metrics and their source history | 41 | 4 | 125 | 0 | 3 |
-| WP-041 | Rubric/reference retrieval and history C3a | 6 | 3 | 17 | 4 | 1.5 |
+| WP-041 | Rubric/reference retrieval and history C3a | 6 | 3 | 17 | 5 | 1.5 |
 | WP-047 | Oversight portfolio and health | 14 | 14 | 124 | 6 | 2.5 |
-| WP-042 | AI assessment results and quality evaluation | 8 | 2 | 92 | 0 | 2 |
+| WP-042 | AI assessment results and quality evaluation | 8 | 2 | 92 | 1 | 2 |
 | WP-043 | Assessment orchestration/retry/publication | 11 | 5 | 112 | 0 | 2.5 |
 | WP-044 | Plant Intelligence/oversight assessment UI | 41 | 25 | 167 | 0 | 3.5 |
 | WP-048 | Dashboard/navigation/settings integration | 3 | 7 | 5 | 2 | 1.5 |
@@ -123,7 +123,7 @@ The DAG estimates effort from owned clauses, operations, cases and referenced ta
 | WP-098 | Organization pipeline, goals and conversations | 3 | 13 | 3 | 7 | 4 |
 | WP-099 | Development programs and enrollment | 3 | 11 | 3 | 9 | 4 |
 | WP-100 | My residency and consented progress | 2 | 3 | 2 | 0 | 2.5 |
-| WP-101 | Pipeline and development Evry adapters | 1 | 15 | 1 | 0 | 3 |
+| WP-101 | Pipeline and development Evry adapters | 1 | 16 | 1 | 0 | 3 |
 | WP-102 | Multiplication privacy, race and parity integration | 17 | 0 | 17 | 0 | 4.5 |
 | WP-056 | Complete cross-feature privacy, concurrency and correction behavior | 0 | 0 | 1171 | 0 | 14.5 |
 | WP-094 | Core browser, file and native/Evry feature parity | 4 | 0 | 6 | 0 | 1.5 |

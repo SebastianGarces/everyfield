@@ -53,6 +53,15 @@ with the reason typed on the card for a stage move, and each result is read back
 pages' own reads. Two more tests hold the boundaries: the read takes no search text and matches the native board for
 every seat, and a stage move proposal refuses any reason or text field. The recorded suites leave these tools out too.
 
+The same suite scores T-377: a program's current director has Evry draft its next version. `development.readProgram`
+reads the programs and one program's published plan and draft as Programs shows them, with no enrollee, completion or
+feedback, and `development.draftNextVersion` takes a program and a plan and saves the next version's draft through the
+Programs page's own save once approved. The fixture adds Grace Austin's "Church planting residency" (`seedResidency`):
+Version 1 published with one reading, and Casey Lee enrolled on it with one milestone finished. The PRG cases read
+each approved draft back on the program page, refuse the card to every seat but the director, refuse it after a native
+edit, and, after Ana publishes natively, read the native apply review for Casey: kept and renamed milestones keep
+their lineage.
+
 ## The launch suite (scripted model)
 
 `launch.test.mts` scores the Launch tools (WP-075, WP-076) the same way, on the scripted model

@@ -4,6 +4,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
 	HOME_HEADING,
+	intelligenceWords,
 	launchLabel,
 	leadLabel,
 	linkedLabel,
@@ -11,6 +12,7 @@ import {
 	phaseLabel,
 	provenanceLabel,
 	sharedCount,
+	VIEWS,
 } from "../../../apps/web/src/features/oversight/model.ts";
 
 test("AC:ORG55-004 a plant with no lead planter says so and never falls back to another name", () => {
@@ -39,6 +41,51 @@ test("AC:TARGET-IDN-023 how a plant is linked, its locality, phase and Launch Su
 test("AC:TARGET-IDN-024 a sending church's home heading never says network", () => {
 	assert.equal(HOME_HEADING.sending_church, "Your plants");
 	assert.doesNotMatch(HOME_HEADING.sending_church, /network/i);
+});
+
+/** Every string a value holds, however deep. */
+const stringsOf = (value) => (typeof value === "string" ? [value] : Object.values(value).flatMap((v) => stringsOf(v)));
+
+test("a sending church's Intelligence page and view switch use its own name and never say network", () => {
+	const words = intelligenceWords("sending_church", "Grace Austin");
+	assert.equal(words.title, "Grace Austin Intelligence");
+	assert.deepEqual(words.levels, { region: "Region", state: "State", country: "Country", portfolio: "Your plants" });
+	assert.equal(words.notRun, "Grace Austin Intelligence hasn't run yet");
+	assert.equal(words.refused, "Only Owners and Admins can refresh Grace Austin Intelligence.");
+	assert.equal(words.failed, "We couldn't run Grace Austin Intelligence. Nothing was changed. Try again in a moment.");
+	// The callout still says what the rubric reads and that it never names a person or ranks plants.
+	assert.match(words.howItWorks, /^Everyfield's rubric v1 reads only counts and dates each plant shares with you/);
+	assert.match(words.howItWorks, /It never names a person, ranks or scores plants\./);
+	assert.deepEqual(
+		VIEWS.sending_church.tabs.map((t) => [t.label, t.href]),
+		[
+			["Your plants", "/network"],
+			["Intelligence", "/network/intelligence"],
+		],
+	);
+	for (const text of [
+		...stringsOf(words),
+		VIEWS.sending_church.label,
+		...VIEWS.sending_church.tabs.map((t) => t.label),
+	])
+		assert.doesNotMatch(text, /network/i, text);
+});
+
+test("a network's Intelligence page and view switch keep their wording", () => {
+	assert.deepEqual(intelligenceWords("sending_network", "Hill Country Network"), {
+		title: "Network Intelligence",
+		levels: { region: "Region", state: "State", country: "Country", portfolio: "Whole portfolio" },
+		howItWorks:
+			"Everyfield's network rubric v1 reads only counts and dates each plant shares with you: launch dates, unfilled roles, overdue follow-ups, when its newest committed adult signed and required training. It never names a person, ranks or scores plants. A plant that doesn't share counts as Not shared, never as zero.",
+		notRun: "Network Intelligence hasn't run yet",
+		refused: "Only Owners and Admins can refresh Network Intelligence.",
+		failed: "We couldn't run Network Intelligence. Nothing was changed. Try again in a moment.",
+	});
+	assert.equal(VIEWS.sending_network.label, "Network views");
+	assert.deepEqual(
+		VIEWS.sending_network.tabs.map((t) => t.label),
+		["Plants", "Sending churches", "Network Intelligence"],
+	);
 });
 
 test("AC:TARGET-IDN-023 a plant shares what it shares, empty included; not shared and unavailable never count", () => {

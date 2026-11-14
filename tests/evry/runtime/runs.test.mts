@@ -344,6 +344,7 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 								"organizations.updateProfile",
 								"pipeline.proposeStageMove",
 								"development.saveProgram",
+								"development.draftNextVersion",
 							]
 						: ["onboarding.createPlant", "discovery.create", "discovery.convertToPlant"],
 		);
@@ -413,7 +414,12 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 							"launch.readDebrief",
 						]
 					: who === "orgOwner"
-						? ["notifications.previewOversightDigest", "pipeline.listPeople", "development.draftPlan"]
+						? [
+								"notifications.previewOversightDigest",
+								"pipeline.listPeople",
+								"development.draftPlan",
+								"development.readProgram",
+							]
 						: who === "seatless"
 							? ["discovery.getProfile"]
 							: [],

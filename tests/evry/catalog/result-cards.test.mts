@@ -24,7 +24,7 @@ const native = nativePorts();
 await seedSetup(church.admin, church.db, native);
 const setupActor = async (session: string) => evryActor((await readViewer(church.db, session as never))!.authority!);
 // Grace Austin's pipeline, for the pipeline and program reads (WP-101), read by its Owner.
-await seedPipeline(church.admin, church.db);
+const pipeline = await seedPipeline(church.admin, church.db);
 // Hope Fellowship's Launch plan with its history, then a recorded Launch Sunday and named guests (WP-075).
 await seedScheduled(church.admin, church.db);
 await seedLaunched(church.db);
@@ -152,6 +152,10 @@ const PROBES: Record<string, Record<string, unknown> | (() => Promise<SourceResu
 		invokeRead(church.db, await setupActor(PIPELINE_SPECS.dana.session), adapters.get("pipeline.listPeople")!, {}),
 	"development.draftPlan": async () =>
 		invokeRead(church.db, await setupActor(PIPELINE_SPECS.dana.session), adapters.get("development.draftPlan")!, {}),
+	"development.readProgram": async () =>
+		invokeRead(church.db, await setupActor(PIPELINE_SPECS.dana.session), adapters.get("development.readProgram")!, {
+			programId: pipeline.residency.programId,
+		}),
 	[catalog.SELECT_RETURNED_ROWS]: async () => {
 		const list = await read("people.listPeople", {});
 		return { ...list, operation: catalog.SELECT_RETURNED_ROWS, rows: list.rows.slice(0, 2), total: 2 };

@@ -15,7 +15,12 @@ import {
 	readPipelineBoard,
 	readPipelinePersonRecord,
 } from "../../../packages/domain/src/organizations/pipeline.ts";
-import { readProgram, readPrograms } from "../../../packages/domain/src/organizations/programs.ts";
+import {
+	programWriter,
+	readProgram,
+	readPrograms,
+	readVersionReview,
+} from "../../../packages/domain/src/organizations/programs.ts";
 import {
 	approveProposal,
 	createConversation,
@@ -30,12 +35,13 @@ import {
 	type EvryActor,
 	type Proposal,
 } from "../../../packages/evry/src/index.ts";
-import { listPeople } from "../../../packages/evry/src/adapters/pipeline/reads/index.ts";
+import { listPeople, readProgram as programRead } from "../../../packages/evry/src/adapters/pipeline/reads/index.ts";
+import { readCatalog } from "../../../packages/evry/src/catalog/catalog.ts";
 import { modelTools } from "../../../packages/evry/src/runtime/tools.ts";
 import { transaction } from "../../../apps/web/src/server/platform/database.ts";
 import { claimDue, finishClaim } from "../../../apps/web/src/server/jobs/queue.ts";
 import { evalDatabase, seedHope } from "./golden-church.mts";
-import { ANA_NOTE, PEOPLE, seedPipeline, sessionOf, type PipelineName } from "./pipeline-church.mts";
+import { ANA_NOTE, PEOPLE, RESIDENCY_READING, seedPipeline, sessionOf, type PipelineName } from "./pipeline-church.mts";
 
 type Change = { field: string; before: unknown; after: unknown };
 type Case = {
@@ -79,6 +85,7 @@ before(async () => {
 	admin = database.admin;
 	await seedHope(database.admin, { seatNames: true });
 	stages = await seedPipeline(database.admin, db);
+	version1 = planOf((await residency()).published!);
 });
 after(() => close?.());
 
@@ -123,6 +130,29 @@ const caseyMoves = async () =>
 	ok(await readPipelinePersonRecord(db, await authority("dana"), { personId: PEOPLE.casey })).history.flatMap((h) =>
 		h.kind === "moved" ? [{ from: h.from, to: h.to, reason: h.reason, actor: h.actor }] : [],
 	);
+/** The residency as its program page shows it to `who`. */
+const residency = async (who: PipelineName = "ana") =>
+	ok(await readProgram(db, await authority(who), { programId: stages.residency.programId }));
+/** A version's plan as the program page lists it: rhythm, length, stages, milestones and readings. */
+const planOf = (v: NonNullable<Awaited<ReturnType<typeof residency>>["published"]>) => ({
+	number: v.number,
+	rhythm: v.rhythm,
+	expectedMonths: v.expectedMonths,
+	stages: v.stages.map((s) => [s.label, s.minMonths, s.maxMonths]),
+	milestones: v.milestones.map((m) => [m.lineage, m.title]),
+	readings: v.readings.map((r) => [r.revisionId, r.title]),
+});
+let version1: ReturnType<typeof planOf>;
+let draftBefore: ReturnType<typeof planOf>;
+/** Nothing changed on the program page: Version 1 as seeded, no draft, Casey still on Version 1. */
+const unchanged = async () => {
+	const p = await residency();
+	assert.deepEqual([planOf(p.published!), p.draft], [version1, null]);
+	assert.deepEqual(
+		p.enrollments.map((e) => [e.name, e.versionNumber]),
+		[["Casey Lee", 1]],
+	);
+};
 const programNamed = async (who: PipelineName, name: string) =>
 	ok(await readPrograms(db, await authority(who))).programs.find((p) => p.name === name);
 /** Every row Evry keeps for a conversation, proposal or receipt, as text, that holds `text`. */
@@ -175,7 +205,7 @@ const SETTLED: Record<string, { before?: (p?: Proposal) => Promise<void>; after?
 		after: async () =>
 			assert.deepEqual(
 				ok(await readPrograms(db, await authority("dana"))).programs.map((p) => p.name),
-				["12-month apprenticeship"],
+				["12-month apprenticeship", "Church planting residency"],
 			),
 	},
 	"PIP-15": {
@@ -225,6 +255,115 @@ const SETTLED: Record<string, { before?: (p?: Proposal) => Promise<void>; after?
 			});
 			assert.equal(moves.length, 3);
 			assert.deepEqual(await kept("Luis's reason that must never be saved."), { events: 0, proposals: 0, audit: 0 });
+		},
+	},
+	"PRG-01": { after: unchanged },
+	"PRG-02": { after: unchanged },
+	"PRG-03": { after: unchanged },
+	"PRG-04": { after: unchanged },
+	"PRG-05": { after: unchanged },
+	"PRG-06": { after: unchanged },
+	"PRG-07": {
+		// Nothing is saved before Ana approves.
+		before: unchanged,
+		after: async () => {
+			const p = await residency();
+			assert.deepEqual(planOf(p.published!), version1, "Version 1 stays as it is");
+			const [group, vision, prospectus] = version1.milestones;
+			// Exactly the plan on the card: the kept milestones keep their lineage, and the reading list is Version 1's.
+			const draft = planOf(p.draft!);
+			assert.deepEqual(
+				{ ...draft, milestones: draft.milestones.slice(0, 3) },
+				{ ...version1, number: 2, rhythm: "every_two_weeks", milestones: [group, vision, prospectus] },
+			);
+			assert.deepEqual(
+				draft.milestones.slice(3).map(([, title]) => title),
+				["Lead a vision night"],
+			);
+			assert.ok(!version1.milestones.some(([l]) => l === draft.milestones[3]![0]), "a new milestone has a new lineage");
+			assert.deepEqual(
+				[p.enrollments.map((e) => e.versionNumber), (await programNamed("ana", p.name))?.publishedNumber],
+				[[1], 1],
+			);
+			draftBefore = draft;
+		},
+	},
+	"PRG-08": {
+		after: async () => {
+			// The draft in progress is replaced, and a renamed milestone keeps its lineage, as every kept one does.
+			const draft = planOf((await residency()).draft!);
+			assert.deepEqual(draft, {
+				...draftBefore,
+				milestones: draftBefore.milestones.map(([l, t]) =>
+					t === "Write a church planting prospectus" ? [l, "Write and present a church planting prospectus"] : [l, t],
+				),
+			});
+			draftBefore = draft;
+		},
+	},
+	"PRG-09": {
+		// Ana edits the draft on the program page while the card waits.
+		before: async () => {
+			const p = await residency();
+			const d = p.draft!;
+			ok(
+				await programWriter.savePlan(db, await authority("ana"), {
+					programId: p.id,
+					expectedRevision: p.revision,
+					plan: {
+						rhythm: d.rhythm,
+						expectedMonths: 20,
+						stages: d.stages.map((s) => ({ label: s.label, minMonths: s.minMonths, maxMonths: s.maxMonths })),
+						milestones: d.milestones.map((m) => ({
+							lineage: m.lineage,
+							title: m.title,
+							description: m.description,
+							handsOn: m.handsOn,
+						})),
+						readings: d.readings.map((r) => ({ revisionId: r.revisionId })),
+					},
+				}),
+			);
+		},
+		after: async (p) => {
+			assert.equal((await readReview(db, await actorOf("ana"), p!.id)).receipt?.code, "revision_conflict");
+			// Nothing was saved over her edit.
+			assert.deepEqual(planOf((await residency()).draft!), { ...draftBefore, expectedMonths: 20 });
+		},
+	},
+	"PRG-10": {
+		after: async () => {
+			// Ana publishes Version 2 herself on the program page, then reads the apply review for Casey natively.
+			const p = await residency();
+			ok(
+				await programWriter.publishVersion(db, await authority("ana"), {
+					programId: p.id,
+					expectedRevision: p.revision,
+				}),
+			);
+			const published = await residency();
+			assert.deepEqual(
+				[published.published?.number, published.draft, published.enrollments[0]?.versionNumber],
+				[2, null, 1],
+			);
+			const review = ok(
+				await readVersionReview(db, await authority("ana"), { enrollmentId: stages.residency.enrollmentId }),
+			);
+			const titles = (ms: { title: string }[]) => ms.map((m) => m.title);
+			assert.deepEqual(
+				{
+					carried: review.carried,
+					added: titles(review.added),
+					removed: titles(review.removed),
+					changed: review.changed.map((c) => [c.before.title, c.after.title]),
+				},
+				{
+					carried: ["Start a small group and raise a replacement"],
+					added: ["Lead a vision night"],
+					removed: [],
+					changed: [["Write a church planting prospectus", "Write and present a church planting prospectus"]],
+				},
+			);
 		},
 	},
 };
@@ -329,13 +468,14 @@ test("INV-evry-pipeline-move: a stage move proposal takes a person and a stage o
 			{ code: "invalid_input" },
 			JSON.stringify(extra),
 		);
-	// A Member may not move anyone natively, so Evry offers her no move.
-	const ana = modelTools(await actorOf("ana"), {
-		read: async () => ({}),
-		select: async () => ({}),
-		propose: async () => ({}),
-	});
-	assert.equal(ana.propose_change, undefined);
+	// A Member may not move anyone or create a program natively, so Evry offers her neither: only her own programs'
+	// next version, which the review refuses to anyone but the program's director (T-377).
+	for (const who of ["ana", "ben"] as const)
+		assert.deepEqual(
+			readCatalog(await actorOf(who)).reviewedWrites.map((w) => w.operation),
+			["development.draftNextVersion"],
+			who,
+		);
 	// No tool logs a conversation, writes a note or records a milestone, for any seat.
 	for (const who of ["dana", "luis", "ana", "ben", "hill"] as const) {
 		const tools = JSON.stringify(
@@ -353,7 +493,62 @@ test("INV-evry-pipeline-move: a stage move proposal takes a person and a stage o
 			"development.recordFeedback",
 			"development.publishVersion",
 			"development.enroll",
+			"development.applyVersion",
+			"development.recordMilestone",
+			"development.addFeedback",
 		])
 			assert.ok(!tools.includes(op), `${who} has no ${op}`);
 	}
+});
+
+test("INV-evry-program-read: the program read returns plans and who directs them, never who is enrolled or their progress, and the draft write takes only a program and a plan", async () => {
+	for (const who of ["dana", "luis", "ana", "ben"] as const) {
+		const actor = await actorOf(who);
+		const list = await invokeRead(db, actor, programRead as never, {});
+		const row = list.rows.find((r) => r.label === "Church planting residency")!;
+		assert.equal(row.fields.directedByYou, who === "ana", who);
+		const read = await invokeRead(db, actor, programRead as never, { programId: row.id });
+		assert.equal(read.facts?.directedByYou, who === "ana", who);
+		// The plan with its milestones' ids and lineages, and the reading list, as the program page lists them.
+		const page = await residency(who);
+		const plans = [page.published, page.draft].flatMap((v) => (v ? [v] : []));
+		assert.deepEqual(
+			read.rows.filter((r) => r.fields.part === "milestone").map((r) => [r.id, r.fields.lineage, r.label]),
+			plans.flatMap((v) => v.milestones.map((m) => [m.id, m.lineage, m.title])),
+			who,
+		);
+		assert.ok(
+			read.rows.some((r) => r.fields.part === "reading" && r.label === RESIDENCY_READING),
+			who,
+		);
+		// No enrollee, completion, feedback or note: the enrolled person's name, cohort and completion date are nowhere.
+		const text = JSON.stringify([list, read]);
+		for (const absent of ["Casey", "Fall cohort", ANA_NOTE.slice(0, 20), page.enrollments[0]!.id, "completed"])
+			assert.ok(!text.includes(absent), `${who} reads no ${absent}`);
+	}
+	// Another organization's program reads as nothing.
+	await assert.rejects(
+		invokeRead(db, await actorOf("hill"), programRead as never, { programId: stages.residency.programId }),
+		{ code: "access_denied" },
+	);
+	// The draft write takes a program and a plan, nothing else: no reading list, name, director, publish or enrollment.
+	const actor = await actorOf("ana");
+	const conversation = (await createConversation(db, actor, { requestKey: randomUUID() })).id;
+	const lease = { turnId: randomUUID(), tenantId: actor.owner.id, leaseOwner: "test", generation: "0" };
+	const plan = { rhythm: "monthly", expectedMonths: 18, stages: [], milestones: [] };
+	for (const input of [
+		{ programId: stages.residency.programId, plan, name: "Renamed" },
+		{ programId: stages.residency.programId, plan, directorSeatId: stages.anaSeat },
+		{ programId: stages.residency.programId, plan, publish: true },
+		{ programId: stages.residency.programId, plan: { ...plan, readings: [] } },
+		{
+			programId: stages.residency.programId,
+			plan: { ...plan, milestones: [{ title: "x", enrollmentId: randomUUID() }] },
+		},
+	])
+		await assert.rejects(
+			prepareProposal(db, actor, lease, conversation, { operation: "development.draftNextVersion", input }),
+			{ code: "invalid_input" },
+			JSON.stringify(input),
+		);
 });

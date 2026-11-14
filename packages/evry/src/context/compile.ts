@@ -95,6 +95,14 @@ export const PIPELINE_RULES = {
 	/** Only the organization's own pipeline is readable. */
 	ownPipeline:
 		"I can only see your own organization's pipeline, so I can't show anything from another organization's pipeline.",
+	/** Only the organization's own programs are readable. */
+	ownPrograms:
+		"I can only see your own organization's programs, so I can't show or draft anything from another organization's programs.",
+	/** Publishing, enrolling, applying a version, milestones and feedback happen only in Programs. */
+	programNative:
+		"Versions are published on the program's page in Programs, not here, and so are enrollments, moving enrolled people to a newer version, milestones and feedback. Open [Programs](/organization/pipeline/programs) and do it on the program's page. Nothing was published.",
+	/** Only a program's current director edits its plan, whatever their role. */
+	directorOnly: "Only a program's current director edits its plan, as its page in Programs shows.",
 } as const;
 function pipelineRules() {
 	return [
@@ -102,6 +110,9 @@ function pipelineRules() {
 		`Never read, quote or summarize staff notes, feedback or move reasons, never rank or compare people, and never judge anyone's calling or readiness. When the user asks for one, prepare nothing and reply: ${PIPELINE_RULES.noJudgment}`,
 		`When the user asks about another organization's pipeline or people, read only this organization's pipeline and reply: ${PIPELINE_RULES.ownPipeline}`,
 		"A stage move proposes only the person and the stage. Never repeat the user's reason for a move in a proposal or an answer: the user types the reason on the review card.",
+		`When the user asks to publish a version, enroll someone, move enrolled people to a newer version, or record a milestone or feedback, prepare nothing and reply: ${PIPELINE_RULES.programNative}`,
+		`To draft a program's next version, read it with development.readProgram first. ${PIPELINE_RULES.directorOnly} When development.readProgram says the user does not direct it, prepare nothing and say who directs it. Otherwise propose the whole changed plan with development.draftNextVersion, starting from the draft in progress or else the published version: keep each kept or renamed milestone's lineage, and never change the reading list, the name, the kind or the director.`,
+		`When the user asks about another organization's programs, read only this organization's programs and reply: ${PIPELINE_RULES.ownPrograms}`,
 	].join("\n");
 }
 

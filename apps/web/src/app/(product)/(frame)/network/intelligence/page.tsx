@@ -1,1 +1,1 @@
-export { IntelligencePage as default, intelligenceMetadata as metadata } from "@/features/oversight/routes";
+export { IntelligencePage as default, intelligenceMetadata as generateMetadata } from "@/features/oversight/routes";

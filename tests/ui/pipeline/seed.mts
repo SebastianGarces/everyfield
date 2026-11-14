@@ -4,8 +4,9 @@
 // Ruth Calder and its own pipeline. Grace Austin's pipeline: Jordan Reyes, placed in Potential leader more than six
 // months ago and never moved; Casey Lee, moved to Apprentice two weeks ago, with a note from Ana; Sam Patel, placed a
 // month ago. Hill Country Network's: Morgan Diaz. Accounts sign up through the identity service; placements, the move,
-// the note and the residency program go through the native pipeline and program writers, then each placement and move
-// is dated relative to the database clock. Organizations and their seats are raw rows: no public write creates them.
+// the note and the residency go through the native pipeline and program writers (seedResidency: Version 1 published with
+// one reading, Casey enrolled on it with "Start a small group and raise a replacement" finished), then each placement
+// and move is dated relative to the database clock. Organizations and their seats are raw rows: no public write creates them.
 //
 //   up:   node --env-file=<home apps/web/.env.local> --conditions=react-server --import tsx tests/ui/pipeline/seed.mts up <preview-url>
 //   down: node --env-file=<home apps/web/.env.local> --conditions=react-server --import tsx tests/ui/pipeline/seed.mts down
@@ -16,8 +17,7 @@ import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { createIdentityService } from "../../../packages/domain/src/identity/index.ts";
 import { pipelineWriter, readPipelineBoard } from "../../../packages/domain/src/organizations/pipeline.ts";
-import { programWriter } from "../../../packages/domain/src/organizations/programs.ts";
-import { RESIDENCY_TEMPLATE } from "../../../packages/contracts/src/organizations/programs.ts";
+import { seedResidency } from "../../evry/evals/pipeline-church.mts";
 import { randomUUID } from "node:crypto";
 import { dropSeed, openSeedEnvironment, writeFixture } from "../seed-env.mts";
 
@@ -164,28 +164,14 @@ export async function seedPipelineExample(env: {
 		"note",
 	);
 	const morgan = await add(ruth, "Morgan Diaz", (await stages(ruth))["Potential leader"]!, null);
-	// Ana directs the residency: an unpublished draft of the residency template.
-	ok(
-		await programWriter.createProgram(runtime, await authority(dana), {
-			programId: randomUUID(),
-			kind: "residency",
-			name: "Church planting residency",
-			directorSeatId: grace.seatIds.get(ana.accountId)!,
-			plan: {
-				rhythm: "weekly",
-				expectedMonths: 18,
-				stages: RESIDENCY_TEMPLATE.stages,
-				milestones: RESIDENCY_TEMPLATE.milestones.map((title) => ({
-					lineage: randomUUID(),
-					title,
-					description: null,
-					handsOn: false,
-				})),
-				readings: [],
-			},
-		}),
-		"residency",
-	);
+	// Ana directs the residency: Version 1 published with one reading, and Casey enrolled on it with one milestone done.
+	const residency = await seedResidency(admin, runtime, {
+		organization: grace.id,
+		directorSeatId: grace.seatIds.get(ana.accountId)!,
+		owner: () => authority(dana),
+		director: () => authority(ana),
+		enrollee: casey,
+	});
 	// Each placement and move dated as the example has it, relative to the database clock.
 	const age = (person: string, days: number, first: boolean) =>
 		admin.execute(sql`UPDATE audit_event a SET occurred_at=clock_timestamp()-make_interval(days=>${days})
@@ -204,6 +190,7 @@ export async function seedPipelineExample(env: {
 		seats: { dana: seat(dana), luis: seat(luis), ana: seat(ana), ben: seat(ben), hill: seat(ruth) },
 		organizations: { grace: grace.id, hill: hill.id },
 		people: { jordan, casey, sam, morgan },
+		residency,
 	};
 }
 
