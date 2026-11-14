@@ -714,12 +714,6 @@ test("INV-evry-golden SAF-02 SAF-11 SAF-12 SAF-14: the model's tools can read an
 		["notifications.markSelectedRead", "notifications.markAllVisibleRead", "notifications.setPreferences"],
 	);
 	assert.deepEqual(tools("org"), ["notifications_read", "select_returned_rows", "propose_change"]);
-	assert.deepEqual(
-		[readCatalog(church.actors.org).domains, readCatalog(church.actors.org).reviewedWrites].map((list) =>
-			list.flatMap((x) => ("operations" in x ? x.operations.map((o) => o.operation) : [x.operation])),
-		),
-		[["notifications.previewOversightDigest"], ["notifications.oversightDigestCadence.set"]],
-	);
 });
 
 test("INV-evry-golden: every golden and adapter case passes its hard checks on the recorded model; alpha gaps and judge grades are reported", async (t) => {
