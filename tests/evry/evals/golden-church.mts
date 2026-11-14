@@ -260,7 +260,6 @@ export const SEATS = {
 	carlos: { account: ACCOUNT(7), user: id(0xf17), name: "Carlos Mendez", linked: false },
 	alex: { account: ACCOUNT(8), user: id(0xf18), name: "Alex Rivera", linked: true },
 } as const;
-export const accountOf = (who: ActorName) => ACTOR_SPECS[who].account;
 export type ActorName = keyof typeof ACTOR_SPECS;
 /** The person row linked to each plant seat's account: the signed-in user's own row. */
 const LINKED: Partial<Record<ActorName, string>> = {

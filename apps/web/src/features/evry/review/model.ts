@@ -190,7 +190,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
  * A church-local date, or date and time, as the reviews write it ("2026-11-16", "2026-11-13 14:05 America/Chicago" or
  * "2026-11-16T09:00"): "Mon, Nov 16, 2026" or "Fri, Nov 13, 2026, 2:05 PM (Chicago time)". The zone is the church's.
  */
-export function localWhen(value: string): string {
+function localWhen(value: string): string {
 	const m = /^(\d{4}-\d{2}-\d{2})(?:[ T](\d{2}):(\d{2}))?(?: (\S+))?$/.exec(value);
 	if (!m) return value;
 	const at = new Date(`${m[1]}T${m[2] ?? "00"}:${m[3] ?? "00"}:00Z`);
