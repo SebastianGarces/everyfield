@@ -307,28 +307,28 @@ test("the Region picker suggests official areas, makes an ambiguous place choose
 });
 
 /** The Dallas area for Oak Cliff and Austin for Eastside, saved by each plant's Owner. */
+/** Sets `p`'s reporting Region to the official area its Owner is offered for `city`, Texas. */
+async function placeIn(p: Owner, city: string) {
+	const owner = await S.identity(p, "owner");
+	const a = await as(owner);
+	const where = (await readReportingLocation(S.runtime, a))!;
+	const [c] = (await suggestRegions(S.runtime, a, { city, stateProvince: "TX", country: "US" }))!;
+	await S.write(owner, (tx) =>
+		api["organizations.correctReportingLocation"](tx, owner.session, owner.selected, {
+			requestKey: randomUUID(),
+			expectedRevision: where.revision,
+			input: {
+				plant: p,
+				locality: { city, stateProvince: "TX", country: "US" },
+				referenceVersionId: where.referenceVersionId,
+				regionItemId: c!.regionItemId,
+			},
+		} as never),
+	);
+}
 async function placeOthers() {
-	for (const [p, city] of [
-		[OC, "Dallas"],
-		[EC, "Austin"],
-	] as const) {
-		const owner = await S.identity(p, "owner");
-		const a = await as(owner);
-		const where = (await readReportingLocation(S.runtime, a))!;
-		const [c] = (await suggestRegions(S.runtime, a, { city, stateProvince: "TX", country: "US" }))!;
-		await S.write(owner, (tx) =>
-			api["organizations.correctReportingLocation"](tx, owner.session, owner.selected, {
-				requestKey: randomUUID(),
-				expectedRevision: where.revision,
-				input: {
-					plant: p,
-					locality: { city, stateProvince: "TX", country: "US" },
-					referenceVersionId: where.referenceVersionId,
-					regionItemId: c!.regionItemId,
-				},
-			} as never),
-		);
-	}
+	await placeIn(OC, "Dallas");
+	await placeIn(EC, "Austin");
 }
 
 test("Network Intelligence names the near-launch pattern only where two sharing plants qualify", async () => {
@@ -361,6 +361,7 @@ test("Network Intelligence names the near-launch pattern only where two sharing 
 			observed: 3,
 			plants: ["Harvest Point", "Oak Cliff Church"],
 			rating: null,
+			citation: { rubric: "everyfield-network/v1", rule: "NIR-03", source: "docs/reference/network-rubric-v1.json" },
 		},
 	);
 	assert.deepEqual(
@@ -394,6 +395,62 @@ test("Network Intelligence names the near-launch pattern only where two sharing 
 		"No Region set": null,
 	});
 	assert.doesNotMatch(JSON.stringify(whole), /Round Rock"|Private Lane|Hank|Olive|Ana Eastside/);
+});
+
+test("in one Region two sharing plants make a pattern citing the network rubric; the plant that doesn't share reads Not shared", async () => {
+	const region = await S.tenant("sending_network", "Capital Region Network");
+	const director = await as(await S.identity(region, "admin"));
+	const plants: Owner[] = [];
+	for (const [name, shares] of [
+		["North Austin Church", true],
+		["South Austin Church", true],
+		["Central Austin Church", false],
+	] as const) {
+		const p = await plant(name, "Austin");
+		await placeIn(p, "Austin");
+		await link(p, region, shares ? sharing : ["people"]);
+		await responsibility(p, "children", null);
+		await launch(p, 12);
+		plants.push(p);
+	}
+	await requestIntelligenceRefresh(S.runtime, director, { runId: randomUUID() });
+	const [g] = (await readIntelligence(S.runtime, director, { level: "region", runId: null }))!.groups;
+	assert.equal(g!.label, "Austin-Round Rock-San Marcos, TX (metro area)");
+	assert.deepEqual(
+		g!.rows.map((r) => [r.name, r.status === "shared" ? r.result : r.status]),
+		[
+			["Central Austin Church", "not_shared"],
+			["North Austin Church", "gap"],
+			["South Austin Church", "gap"],
+		],
+	);
+	assert.deepEqual(
+		{ ...g!.pattern, plants: g!.pattern!.plants.map((p) => p.name) },
+		{
+			key: `NIR-03:region:${g!.key}`,
+			support: 2,
+			observed: 2,
+			plants: ["North Austin Church", "South Austin Church"],
+			rating: null,
+			citation: { rubric: "everyfield-network/v1", rule: "NIR-03", source: "docs/reference/network-rubric-v1.json" },
+		},
+	);
+	// The pattern cites the rubric and names plants by id and name only: no person, count or assessment to open.
+	assert.deepEqual(Object.keys(g!.pattern!.plants[0]!).sort(), ["name", "plantId"]);
+	assert.doesNotMatch(JSON.stringify(g), /Private Lane|lead"|personId|assessment/);
+	// Not shared is a name and a link, never a zero or On track.
+	assert.deepEqual(
+		g!.rows.find((r) => r.name === "Central Austin Church"),
+		{
+			status: "not_shared",
+			plantId: plants[2]!.id,
+			name: "Central Austin Church",
+		},
+	);
+	// One qualifying plant alone is never called a pattern.
+	await S.db.execute(sql`UPDATE affiliation SET shared_findings=false WHERE plant_id=${plants[1]!.id}`);
+	const [single] = (await readIntelligence(S.runtime, director, { level: "region", runId: null }))!.groups;
+	assert.equal(single!.pattern, null);
 });
 
 test("a sharing plant with no launch date is Unknown, and one qualifying plant makes no pattern", async () => {

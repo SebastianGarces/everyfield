@@ -19023,6 +19023,166 @@
 					}
 				}
 			}
+		},
+		"assessment_run": {
+			"table": {
+				"name": "assessment_run",
+				"domain": "intelligence",
+				"purpose": "One Plant Intelligence assessment run of a plant (REQ-PI-016 to REQ-PI-019, REQ-PI-026): the exact captured fact snapshot and model input, the reference and rubric versions it read, each draft with the rules it broke, the usage, and the published assessment with its citations when a draft passed every check.",
+				"library_owned": false,
+				"jsonb_keys": {
+					"facts": "The intelligence.readFacts result at the run's as-of instant (plant-facts/1), exactly as captured.",
+					"model_input": "The model-purpose input: phase, as-of, rubric, citable fact entries (counts, statuses and dates only) and the offered methodology passages. Null when guidance couldn't be read.",
+					"drafts": "Each draft in order: ordinal, provider attempts, the model's output and its violations (rule, where, detail).",
+					"result": "`draft`, the published draft (summary, focus, two supporting points, positives), and `citations`, each cited fact (key, label, value) or passage (article, revision, source, section, phase, text, text hash, version)."
+				},
+				"capabilities": ["CAP-C-020", "CAP-C-021", "CAP-C-026"],
+				"replaces": [],
+				"producer_work_packages": ["WP-041", "WP-042"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-041", "WP-042"],
+					"rule": "WP-041 and WP-042 record each assessment run with its captured input, versions, drafts, usage and published result."
+				},
+				"feature_ids": [
+					"PI-016",
+					"PI-017",
+					"PI-018",
+					"PI-019",
+					"PI-020",
+					"PI-022",
+					"PI-023",
+					"PI-024",
+					"PI-025",
+					"PI-026",
+					"PI-027",
+					"PI-028",
+					"PI-029",
+					"PI-030",
+					"PI-031",
+					"PI-034",
+					"PI-035",
+					"PI-036",
+					"PI-042"
+				],
+				"acceptance_ids": [
+					"AC-PI-016--PI-016",
+					"AC-PI-017--PI-017",
+					"AC-PI-018--PI-018",
+					"AC-PI-019--PI-019",
+					"AC-PI-020--PI-020",
+					"AC-PI-022--PI-022",
+					"AC-PI-023--PI-023",
+					"AC-PI-024--PI-024",
+					"AC-PI-025--PI-025",
+					"AC-PI-026--PI-026",
+					"AC-PI-027--PI-027",
+					"AC-PI-028--PI-028",
+					"AC-PI-029--PI-029",
+					"AC-PI-030--PI-030",
+					"AC-PI-031--PI-031",
+					"AC-PI-034--PI-034",
+					"AC-PI-035--PI-035",
+					"AC-PI-036--PI-036",
+					"AC-PI-042--PI-042"
+				],
+				"future_case_ids": ["PI-CASE-011", "PI-CASE-018", "ASMT-011", "ASMT-012"],
+				"scope": "intelligence",
+				"invariants": [
+					"Written once, never changed; earlier runs stay readable with their own versions.",
+					"Only an outcome of published holds a result; a degraded run holds no model input or drafts.",
+					"The model input holds no person, name, note, score, interview result or private check-in."
+				],
+				"revision": "Immutable; no revision.",
+				"idempotency": "The caller names the run id, so a repeated request records one run.",
+				"deletion": "Plant-owned derived facts. Runs go with the plant in the church purge; account deletion clears who requested a run.",
+				"physical_verified": false
+			},
+			"columns": {
+				"id": {
+					"note": "Run identity."
+				},
+				"plant_id": {
+					"note": "The assessed plant."
+				},
+				"requested_by": {
+					"note": "The Owner or Admin who asked for the run; null after their account is deleted."
+				},
+				"as_of": {
+					"note": "The run's one as-of instant, the facts' own."
+				},
+				"phase": {
+					"note": "The plant's phase at the run; its methodology passages are for this phase or general."
+				},
+				"source_revision": {
+					"note": "The facts' source revision digest at capture."
+				},
+				"formula_version": {
+					"note": "The fact formula version (plant-facts/1)."
+				},
+				"rubric_version": {
+					"note": "The plant rubric version the run applies (v1)."
+				},
+				"rubric_sha256": {
+					"note": "SHA-256 of the rubric's preserved bytes."
+				},
+				"reference_release": {
+					"note": "The activated reference release the run read; null when none was readable."
+				},
+				"reference_activation": {
+					"note": "That activation's number; null when none was readable."
+				},
+				"model": {
+					"note": "The drafter id, such as assessment-scripted."
+				},
+				"outcome": {
+					"note": "published, failed (three rejected drafts), deferred (attempts or budget) or degraded (guidance couldn't be read)."
+				},
+				"grounding": {
+					"note": "grounded, or degraded when the methodology sources couldn't be read."
+				},
+				"reason": {
+					"note": "Why the run did not publish; null when it did."
+				},
+				"facts": {
+					"note": "The captured fact snapshot."
+				},
+				"model_input": {
+					"note": "The exact model input."
+				},
+				"drafts": {
+					"note": "Every draft with its violations."
+				},
+				"result": {
+					"note": "The published assessment and its citations."
+				},
+				"attempts": {
+					"note": "Provider attempts across drafts."
+				},
+				"input_tokens": {
+					"note": "Input tokens counted against the run budget."
+				},
+				"output_tokens": {
+					"note": "Output tokens counted against the run budget."
+				},
+				"recorded_at": {
+					"note": "When the run was stored."
+				}
+			},
+			"foreignKeys": {
+				"plant_id->plant(id)": {
+					"deletion": {
+						"action": "cascade",
+						"policy": "Goes with the plant in the church purge."
+					}
+				},
+				"requested_by->account(id)": {
+					"deletion": {
+						"action": "set_null",
+						"policy": "Deleting the account clears who requested the run; the run stays."
+					}
+				}
+			}
 		}
 	}
 }

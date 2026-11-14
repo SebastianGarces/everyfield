@@ -95,6 +95,15 @@ if (!rule) throw new Error("network rubric v1 has no NIR-03");
 /** The rubric's own words for NIR-03, word for word (docs/reference/network-rubric-v1.json). */
 export const NEAR_LAUNCH_RULE = { id: "NIR-03", template: rule.template, nextStep: rule.next_step } as const;
 export const RUBRIC_VERSION = `${rubric.rubric_id}/${rubric.version}`;
+/**
+ * What every NIR-03 pattern cites: the Everyfield network rubric, a source separate from the plant rubric. It names the
+ * rule and the file, never a plant assessment, so a pattern opens nothing a director could not otherwise read.
+ */
+export const NEAR_LAUNCH_CITATION = {
+	rubric: RUBRIC_VERSION,
+	rule: NEAR_LAUNCH_RULE.id,
+	source: "docs/reference/network-rubric-v1.json",
+} as const;
 /** "2 plants within 30 calendar days of an uncompleted launch have a recorded assignment or required-training gap." */
 export const nearLaunchSentence = (support: number) =>
 	NEAR_LAUNCH_RULE.template.replace("{support_count}", String(support));
@@ -125,6 +134,11 @@ export const intelligenceGroup = z.strictObject({
 			plants: z.array(z.strictObject({ plantId: tenantId, name: z.string() })),
 			/** This seat's own rating of the pattern in this run; nobody else's. */
 			rating: z.enum(["useful", "not_useful"]).nullable(),
+			citation: z.strictObject({
+				rubric: z.literal(RUBRIC_VERSION),
+				rule: z.literal(NEAR_LAUNCH_RULE.id),
+				source: z.literal(NEAR_LAUNCH_CITATION.source),
+			}),
 		})
 		.nullable(),
 	/** Plants with no reporting location at this level: they still count at the larger levels. */

@@ -2,7 +2,7 @@
 
 [target.json](target.json) is generated from the Drizzle declarations in [tables.ts](../../packages/db/src/schema/tables.ts). Those declarations own modeled structure; reviewed custom migrations and supplemental catalog expectations own triggers, functions and privileges. Applied SQL remains immutable.
 
-The schema has 118 tables, 1329 columns, 393 declared FKs and 29 JSONB columns. These are counts of definitions, including compound FKs as one constraint. They exclude indexes, triggers, packaged artifacts and external backups.
+The schema has 119 tables, 1352 columns, 395 declared FKs and 33 JSONB columns. These are counts of definitions, including compound FKs as one constraint. They exclude indexes, triggers, packaged artifacts and external backups.
 
 Run documentation/tooling checks from the repository root:
 
@@ -38,6 +38,7 @@ Each replaced table inherits the union of producer packages from its previous ta
 
 | New table | Ownership basis and ruling | Producers |
 |---|---|---|
+| `assessment_run` | WP-041 and WP-042 record each assessment run with its captured input, versions, drafts, usage and published result. | WP-041, WP-042 |
 | `assignment_feedback` | WP-099 development programs own their plans, completions and feedback. | WP-099 |
 | `attestation_revision` | WP-039 appends a revision when a signal or candidate attestation changes. | WP-039 |
 | `church_brand_kit` | WP-104 stores one brand kit for each church plant. The plant owns the row. | WP-104 |

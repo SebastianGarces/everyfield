@@ -21,6 +21,7 @@ Audit records changed fields and their permitted before/after values, safe statu
 | meetings.changed, meetings.finalized, meetings.corrected, meetings.rsvp_recorded, meetings.response_recorded | meeting type, participation revision, generated-effect manifest hash, bounded counts | Cards and RSVP remain distinct; token/body omitted |
 | tasks.changed, tasks.completed, tasks.waived, followup.recorded, followup.corrected | task/outcome type, successor or obligation IDs | Complete, no longer needed and actual contact remain distinct |
 | phase.created, phase.declared, phase.transitioned, attestation.recorded, attestation.corrected | phase/criterion/source version and type | Human ownership; no private-care or pastoral narrative |
+| intelligence.assessed | run ID, outcome, grounding, draft count and drafter ID | One Plant Intelligence assessment run (WP-041, WP-042). Facts, model input, draft text, citations and passage text stay on the immutable `assessment_run` row, never in audit |
 | launch.changed, launch.outcome_recorded, launch.corrected, launch.debrief_submitted, launch.summary_published | domain revision; old and new planned date and status; recorded counts and date with their corrections; guest Person ID; debrief version and its guest answer; summary version and source categories | Launch history reads these rows. Outcome notes, debrief answers and summary text stay on their own versioned rows, never in audit |
 | wiki.published, wiki.hidden, wiki.source_order_changed, wiki.reading_recorded, wiki.bookmark_changed, reference.activated, documents.generated, documents.saved, documents.imported, documents.designated, documents.archived, documents.church_archived, documents.church_restored, documents.copied, documents.created_from_template, documents.branding_changed, documents.exported, documents.export_deleted, documents.purged, documents.template_saved, documents.template_updated, documents.template_details_changed, documents.template_deleted, files.finalized | logical/source/version IDs, content hash, format/byte count where permitted | Body/attachment bytes and signed URL omitted; reading progress and bookmarks stay on the account |
 | communication.send_intended, mail.accepted, mail.delivered, mail.refused, mail.reconciled, mail.cancelled | payload/audience hash, provider receipt ID, safe result | Accepted is not delivered; addresses/body omitted; unknown remains unknown |
@@ -34,7 +35,7 @@ Audit records changed fields and their permitted before/after values, safe statu
 
 Planned packages add their own actions when they are built (D72):
 
-- Intelligence publication (WP-043, WP-044) adds the intelligence request, publication, supersession and feedback actions.
+- Intelligence publication (WP-043, WP-044) adds the intelligence request, publication, supersession and feedback actions. WP-041 and WP-042 added intelligence.assessed for one assessment run.
 
 
 Each action has its own safe field projection. Raw interviews/four Cs, notes, photos, contact/address values, model prompts, mail bodies/attachments, secrets, headers and signed URLs are excluded from platform audit. Action/resource types cannot come from a URL or untrusted user/model instruction.

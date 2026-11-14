@@ -273,6 +273,7 @@ function groupsOf(
 								observed,
 								plants: qualifying,
 								rating: ratings[patternKey] ?? null,
+								citation: C.NEAR_LAUNCH_CITATION,
 							}
 						: null,
 			};
