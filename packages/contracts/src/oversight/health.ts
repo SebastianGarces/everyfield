@@ -118,15 +118,14 @@ export const nearLaunchSentence = (support: number) =>
  * growth as Unknown. `requiredTraining` is the saved required person/program obligations, null when none is assigned.
  * A run from before these were stored holds null for every one (D-1424).
  */
-export const ruleCounts = z.strictObject({
-	overdueFollowUps: count.nullable(),
-	unownedFollowUps: count.nullable(),
-	growthDays: count.nullable(),
-	requiredTraining: z.int().min(1).nullable(),
+export type RuleCounts = {
+	overdueFollowUps: number | null;
+	unownedFollowUps: number | null;
+	growthDays: number | null;
+	requiredTraining: number | null;
 	/** Of `requiredTraining`, those with no current compatible completion (the preparation count). */
-	outstandingTraining: count.nullable(),
-});
-export type RuleCounts = z.infer<typeof ruleCounts>;
+	outstandingTraining: number | null;
+};
 
 /** A rule's result for one plant: it qualifies (gap), it is observed and does not (clear), or Unknown. */
 type Result = "gap" | "clear" | "unknown";
