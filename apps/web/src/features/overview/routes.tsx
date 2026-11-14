@@ -59,7 +59,7 @@ export async function OverviewPage() {
 				<Suspense fallback={<CardLoading label="recent changes" height={520} />}>
 					<RecentChanges />
 				</Suspense>
-				<div className="flex flex-col gap-5">
+				<div className="flex flex-col gap-5 max-app-md:order-first">
 					<Suspense fallback={<CardLoading label="Launch Sunday" />}>
 						<Launch admin={ready ? ready.role !== "member" : false} />
 					</Suspense>

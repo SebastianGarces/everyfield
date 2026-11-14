@@ -108,7 +108,7 @@ export function GetStarted({ frame }: { frame: OverviewFrame }) {
 								{isDone ? null : <p className="mt-0.5 text-md text-text-3">{text.detail}</p>}
 							</div>
 							{!isDone && admin ? (
-								<CardActions className="max-app-sm:ml-12">
+								<CardActions className="max-app-sm:w-full max-app-sm:pl-12">
 									<IntentLink href={text.action.href} className={buttonVariants({ variant: "secondary", size: "sm" })}>
 										{text.action.label}
 									</IntentLink>

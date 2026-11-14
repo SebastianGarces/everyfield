@@ -298,9 +298,12 @@ test("AC:CASE-ADM-005 a dismissed prompt stays dismissed for that person and cha
 	const other = await database.actor(w, "admin");
 	const member = await database.actor(w, "member");
 	await person(w.id, { stage: "core_group", linked: owner.id });
-	// A church created today is in its first week.
-	await run(sql`INSERT INTO audit_event(tenant_id,actor_id,action,kind,subject_type,subject_id)
-		VALUES(${w.id},${owner.id},'plant.created','create','plant',${w.id})`);
+	// A church created today is in its first week: its phase journey starts with today's creation.
+	const op = randomUUID();
+	await run(sql`INSERT INTO audit_event(id,tenant_id,actor_id,action,kind,subject_type,subject_id)
+		VALUES(${op},${w.id},${owner.id},'phase.created','create','plant',${w.id})`);
+	await run(sql`INSERT INTO phase_transition(plant_id,kind,to_phase,reason,occurred_at,recorded_at,operation_id)
+		VALUES(${w.id},'creation',1,'Created',clock_timestamp(),clock_timestamp(),${op})`);
 	const before = ok(await dashboardReader.readAvailableActions(db, await authority(owner)));
 	assert.equal(before.firstWeek, true);
 	assert.equal(before.createdOn, before.today);

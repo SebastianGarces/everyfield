@@ -158,7 +158,7 @@ export const dashboardReader = {
 			const p = sql`${scope.plantId}::uuid`;
 			const { rows } = await db.execute(sql`SELECT g.ok,g.admin,pl.name,pl.phase,pl.timezone,
 	to_char((clock_timestamp() AT TIME ZONE pl.timezone)::date,'YYYY-MM-DD') AS today,
-	to_char(((SELECT min(a.occurred_at) FROM audit_event a WHERE a.tenant_id=pl.id AND a.action='plant.created')
+	to_char(((SELECT min(t.occurred_at) FROM phase_transition t WHERE t.plant_id=pl.id AND t.kind='creation')
 		AT TIME ZONE pl.timezone)::date,'YYYY-MM-DD') AS created_on,
 	${dismissedColumn(scope)}, q.*
  FROM (SELECT ${scope.live} AS ok, ${scope.admin} AS admin) g
