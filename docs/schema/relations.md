@@ -108,6 +108,8 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `document_revision(document_id, tenant_id)` | `document(id, tenant_id)` | restrict |  |
 | `document_revision(import_object_id, tenant_id)` | `file_object(id, tenant_id)` | restrict |  |
 | `document_revision(id, tenant_id)` | `record(id, tenant_id)` | restrict |  |
+| `feedback(account_id)` | `account(id)` | restrict |  |
+| `feedback(id, account_id)` | `record(id, tenant_id)` | restrict |  |
 | `file_object(tenant_id)` | `tenant(id)` | restrict |  |
 | `file_object(id, tenant_id)` | `record(id, tenant_id)` | restrict |  |
 | `four_cs(plant_id)` | `plant(id)` | restrict |  |
