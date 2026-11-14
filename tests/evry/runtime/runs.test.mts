@@ -192,7 +192,8 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 	assert.equal(await work(), "succeeded");
 	assert.match((await events(seatless, none)).text, /no application reads available/);
 	// No catalog offers direct writes, approvals, code, private care or coach tools to any context. Only a plant Owner or
-	// Admin may propose the reviewed People changes, the same floor as the native commands.
+	// Admin may propose the reviewed People changes, the same floor as the native commands; any plant seat proposes changes
+	// to its own notifications.
 	const mailReads = [
 		"communication.list",
 		"communication.preview",
@@ -244,9 +245,16 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 						"communication.templates.create",
 						"communication.templates.fork",
 						"communication.templates.update",
+						"notifications.markSelectedRead",
+						"notifications.markAllVisibleRead",
+						"notifications.setPreferences",
+						"notifications.digestCadence.set",
 						...Object.keys(REVIEWED_WRITES).filter((op) => op.startsWith("teams.")),
 					]
-				: [],
+				: who === "member"
+					? // A Member changes only their own bell and notification settings; the church digest is an Owner's or Admin's.
+						["notifications.markSelectedRead", "notifications.markAllVisibleRead", "notifications.setPreferences"]
+					: [],
 		);
 		const teamsReads = READ_DOMAINS.teams.map((a) => a.operation);
 		const peopleReads = ["people.listPeople", "people.getPerson", "people.getPersonPhoto", "people.checkForDuplicates"];
@@ -287,10 +295,20 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 						"communication.forPerson",
 						"communication.templates.list",
 						"communication.resendCandidates",
+						"notifications.feed",
+						"notifications.preferences.get",
+						"notifications.previewPlanterDigest",
 						...teamsReads,
 					]
 				: who === "member"
-					? [...peopleReads, ...organizationReads, ...mailReads, ...teamsReads]
+					? [
+							...peopleReads,
+							...organizationReads,
+							...mailReads,
+							"notifications.feed",
+							"notifications.preferences.get",
+							...teamsReads,
+						]
 					: [],
 		);
 	}
@@ -456,6 +474,7 @@ test("AC:INH-EDGES-03 AC:TEN-008 AC:EVRY-CONTEXT-BOUNDS a guessed foreign id and
 		[...new Set(calls.flatMap((c) => c.tools?.map((t) => t.name) ?? []))].sort(),
 		[
 			"communication_read",
+			"notifications_read",
 			"peopleOrganization_read",
 			"people_read",
 			"propose_change",
