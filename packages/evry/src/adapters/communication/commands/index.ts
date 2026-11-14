@@ -663,12 +663,14 @@ async function scheduleNow(
 async function sendNow(
 	db: Database,
 	authority: RequestActor,
-	first: { receiptId: string; revision: string },
+	first: { receiptId?: string; revision: string },
 	requestKey: string,
 	leftOut: string[],
 	held: number,
 	mail: MailPort,
 ): Promise<EffectResult> {
+	// The schedule step always saves the message it schedules; without one there is nothing to hand off.
+	if (!first.receiptId) return { refused: "not_found" };
 	const sent = await communicationWriter.sendReviewed(
 		db,
 		authority,
@@ -899,7 +901,7 @@ function resendWrite({
 		async review(actor, value, context) {
 			// The same facts the resendCandidates read gives the model: Messages' own rule decides who is in.
 			const read = await context.db.transaction((tx) =>
-				resendCandidates.invoke(tx, actor, { communicationId: value.communicationId, selection }),
+				resendCandidates.invoke(tx, actor, { communicationId: value.communicationId, selection }, context.native),
 			);
 			const people = read.rows.filter((r) => r.kind === "person");
 			const eligible = people.filter((r) => r.fields.leftOut === null);

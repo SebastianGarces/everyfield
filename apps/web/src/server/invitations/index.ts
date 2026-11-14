@@ -4,7 +4,8 @@ import { z } from "zod";
 import { mailEnv } from "../mail-env.ts";
 import { sql } from "@everyfield/db/query";
 import { database } from "../database";
-import { authorizeInvitationMail, createInvitationService } from "@everyfield/domain/identity";
+import type { Database, Transaction } from "@everyfield/db/client";
+import { authorizeInvitationMail, createInvitationService, type InvitationConfig } from "@everyfield/domain/identity";
 import { accountPersonProducer } from "@everyfield/domain/people";
 import { createMailService, MAIL_PASSES, runDueMail, type MailTransport } from "../jobs/mail";
 
@@ -58,13 +59,31 @@ let service: ReturnType<typeof createInvitationService> | undefined;
 /** The invitation service, or null when the deployment has no identity configuration. */
 export function invitationService(): ReturnType<typeof createInvitationService> | null {
 	if (service) return service;
+	const config = invitationConfig();
+	if (!config) return null;
+	service = createInvitationService(config);
+	return service;
+}
+
+/**
+ * The same invitation service on another connection: Evry's executor passes its own transaction, so an approved
+ * invitation, its audit row and its email commit with the proposal outcome. Null without identity configuration.
+ */
+export function invitationServiceOn(db: Database | Transaction): ReturnType<typeof createInvitationService> | null {
+	const config = invitationConfig();
+	return config && createInvitationService({ ...config, db: db as Database });
+}
+
+let configured: InvitationConfig | undefined;
+function invitationConfig(): InvitationConfig | null {
+	if (configured) return configured;
 	const parsed = env.safeParse(process.env);
 	if (!parsed.success) return null;
 	const v = parsed.data;
 	const db = database(v.IDENTITY_DATABASE_URL);
 	const addressKey = Buffer.from(v.IDENTITY_ADDRESS_KEY, "hex");
 	const mail = invitationMail(v);
-	service = createInvitationService({
+	configured = {
 		db,
 		origin: v.IDENTITY_ORIGIN,
 		// The per-address invitation budget key. It is derived from the identity secret, so it never leaves the server.
@@ -94,6 +113,6 @@ export function invitationService(): ReturnType<typeof createInvitationService> 
 				command.writes,
 			);
 		},
-	});
-	return service;
+	};
+	return configured;
 }
