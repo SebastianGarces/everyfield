@@ -544,5 +544,8 @@ test("INV-result-card-corrections: a correction row lists each field old to new,
 	);
 	assert.deepEqual(view.rows[0].details, [{ label: "Date", value: "2026-11-12 → 2026-10-02" }]);
 	assert.equal(view.summary, "1 correction");
-	assert.equal(cardView("people.listRecordCorrections", result([row("occurredOn: a -> b")]), null).rows[0].details, undefined);
+	assert.equal(
+		cardView("people.listRecordCorrections", result([row("occurredOn: a -> b")]), null).rows[0].details,
+		undefined,
+	);
 });
