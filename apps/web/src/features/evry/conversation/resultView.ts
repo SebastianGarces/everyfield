@@ -191,7 +191,7 @@ const VIEWS: Record<string, OpView> = {
 	// A program's plan as Programs shows it, or the organization's programs: never who is enrolled.
 	"development.readProgram": items("Programs", {
 		noun: ["item", "items"],
-		icon: "stage",
+		icon: "training",
 		empty: "This organization has no program yet.",
 	}),
 	"communication.list": {
