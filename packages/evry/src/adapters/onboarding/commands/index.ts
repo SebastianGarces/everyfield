@@ -1,12 +1,12 @@
-import type { Database } from "@everyfield/db/client";
 import { sql, type SQL } from "@everyfield/db/query";
 import { journeyAnswer } from "@everyfield/contracts/onboarding";
-import { readOnboardingEntry } from "@everyfield/domain/onboarding";
+import type { OnboardingWriteContext } from "@everyfield/contracts/onboarding/server";
+import type { PeopleContext } from "@everyfield/contracts/people";
 import { z } from "zod";
 import { phaseText, SHARING_CATEGORIES, type SharingCategory } from "../../../catalog/labels.ts";
 import type { EvryActor } from "../../../context/actor.ts";
 import { accountContext, change, nativeWrite, notes, plantOwner, settled, target } from "../../native.ts";
-import { JOURNEY_TEXT } from "../reads/index.ts";
+import { JOURNEY_TEXT, onboardingEntry } from "../reads/index.ts";
 
 // The setup reviewed writes (T-345): the Owner setting up a church answers where it is, who leads it and finishes
 // setup; a seatless account starts a church or a Discovery space; a Discovery account turns its space into a church.
@@ -25,12 +25,15 @@ const seatless = (actor: EvryActor) =>
 		AND NOT EXISTS(SELECT FROM seat s WHERE s.account_id=a.id AND s.ended_at IS NULL)
 		AND NOT EXISTS(SELECT FROM onboarding_setup x WHERE x.account_id=a.id)`;
 const you = sql`jsonb_build_object('kind','account','id',a.id,'label',n.display_name)`;
+/**
+ * The executor's context for an onboarding command. Every setup write is allowed only to a church Owner (plantOwner) or
+ * an account context (accountContext), never an organization seat, so its scope is one onboarding accepts.
+ */
+const onboardingContext = (context: PeopleContext) => context as OnboardingWriteContext;
 
 /** A saved journey answer (os.journey) as `/onboarding` words it, or null while it is open. */
 const journeyText = sql`CASE WHEN os.journey->>'status'<>'saved' THEN NULL
-	WHEN os.journey->'value'->>'answer'='unsure' THEN 'Not sure yet. Nothing declared.'
-	WHEN os.journey->'value'->>'answer'='discerning' THEN 'Still discerning. Nothing declared.'
-	WHEN os.journey->'value'->>'answer'='skip' THEN 'Skipped' END`;
+	ELSE (${JSON.stringify(JOURNEY_TEXT)}::jsonb)->>(os.journey->'value'->>'answer') END`;
 const answerText = (j: z.infer<typeof journeyAnswer>) =>
 	j.answer === "existing" ? `Declared ${phaseText(j.phase)}` : JOURNEY_TEXT[j.answer];
 /**
@@ -67,7 +70,7 @@ export const declareJourney = nativeWrite({
 			${setup(actor)} AND coalesce(os.journey->'value'->>'answer','')<>'existing'`;
 	},
 	async run(tx, context, request, { ports }) {
-		const r = settled(await ports.onboarding.declareJourney(tx, context as never, request as never));
+		const r = settled(await ports.onboarding.declareJourney(tx, onboardingContext(context), request as never));
 		return { revision: r.revision };
 	},
 });
@@ -119,7 +122,7 @@ export const answerLead = nativeWrite({
 			${setup(actor)} AND os.lead->>'answer'<>'yes'`;
 	},
 	async run(tx, context, request, { ports }) {
-		const r = settled(await ports.onboarding.answerLead(tx, context as never, request as never));
+		const r = settled(await ports.onboarding.answerLead(tx, onboardingContext(context), request as never));
 		return { revision: r.revision };
 	},
 });
@@ -140,7 +143,7 @@ export const complete = nativeWrite({
 			${setup(actor)} AND pl.onboarding_completed_at IS NULL`;
 	},
 	async run(tx, context, request, { ports }) {
-		const r = settled(await ports.onboarding.complete(tx, context as never, request as never));
+		const r = settled(await ports.onboarding.complete(tx, onboardingContext(context), request as never));
 		return { revision: r.revision };
 	},
 });
@@ -186,7 +189,7 @@ export const createPlant = nativeWrite({
 			${seatless(actor)}`;
 	},
 	async run(tx, context, request, { ports }) {
-		const r = settled(await ports.onboarding.createPlant(tx, context as never, request as never));
+		const r = settled(await ports.onboarding.createPlant(tx, onboardingContext(context), request as never));
 		return { receiptId: r.plant.id, revision: r.revision };
 	},
 });
@@ -207,7 +210,7 @@ export const createDiscovery = nativeWrite({
 			${seatless(actor)} AND NOT EXISTS(SELECT FROM discovery d WHERE d.account_id=a.id)`;
 	},
 	async run(tx, context, request, { ports }) {
-		const r = settled(await ports.onboarding.createDiscovery(tx, context as never, request as never));
+		const r = settled(await ports.onboarding.createDiscovery(tx, onboardingContext(context), request as never));
 		return { receiptId: r.profile.discoveryId, revision: r.profile.revision };
 	},
 });
@@ -225,8 +228,7 @@ export const convertToPlant = nativeWrite({
 	async review(actor, value, { db, native }) {
 		if (!native) return null;
 		// The profile `/onboarding` reads, so the relationships carried over are the ones it shows, at their revisions.
-		const session = { status: "active", accountId: actor.accountId, sessionId: actor.session };
-		const entry = await readOnboardingEntry(db as Database, native.onboarding, session as never, actor.authority, true);
+		const entry = await onboardingEntry(db, actor, native);
 		if (entry.kind !== "discovery") return null;
 		const profile = entry.profile as {
 			discoveryId: string;
@@ -295,7 +297,7 @@ export const convertToPlant = nativeWrite({
 				AND d.revision=${profile.revision}::bigint AND NOT EXISTS(SELECT FROM seat s WHERE s.account_id=a.id AND s.ended_at IS NULL)`;
 	},
 	async run(tx, context, request, { ports }) {
-		const r = settled(await ports.onboarding.convertDiscovery(tx, context as never, request as never));
+		const r = settled(await ports.onboarding.convertDiscovery(tx, onboardingContext(context), request as never));
 		return { receiptId: r.plant.id, revision: r.revision };
 	},
 });

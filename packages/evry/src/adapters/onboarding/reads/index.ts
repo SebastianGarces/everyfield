@@ -44,7 +44,7 @@ const none = (operation: string, why: string): SourceResult => ({
  * Where this account stands, from the one read `/onboarding` makes (readOnboardingEntry): a church's setup for the Owner
  * setting it up, or the account's own Discovery space. The read takes no lock and checks live access itself.
  */
-async function entry(tx: Transaction, actor: EvryActor, native: NativePorts | null) {
+export async function onboardingEntry(tx: Database | Transaction, actor: EvryActor, native: NativePorts | null) {
 	if (!native) throw new EvryRefusal("source_unavailable");
 	const session = {
 		status: "active" as const,
@@ -52,7 +52,7 @@ async function entry(tx: Transaction, actor: EvryActor, native: NativePorts | nu
 		sessionId: actor.session,
 		expiresAt: new Date(Date.now() + 60_000).toISOString(),
 	};
-	return readOnboardingEntry(tx as unknown as Database, native.onboarding, session as never, actor.authority, true);
+	return readOnboardingEntry(tx as Database, native.onboarding, session as never, actor.authority, true);
 }
 
 const step = (id: string, label: string, saved: boolean, answer: string | null): SourceRow => ({
@@ -118,7 +118,7 @@ export const ONBOARDING_READS = [
 		input: z.strictObject({}),
 		allowed: plantOwner,
 		async invoke(tx, actor, _input, native): Promise<SourceResult> {
-			const found = await entry(tx, actor, native);
+			const found = await onboardingEntry(tx, actor, native);
 			if (found.kind !== "plant") return none("onboarding.getResume", "This church has no setup in progress for you.");
 			const resume = found.resume as Resume;
 			// The user's own Discovery space that became this church, which closed when it did.
@@ -144,7 +144,7 @@ export const ONBOARDING_READS = [
 		input: z.strictObject({}),
 		allowed: accountContext,
 		async invoke(tx, actor, _input, native): Promise<SourceResult> {
-			const found = await entry(tx, actor, native);
+			const found = await onboardingEntry(tx, actor, native);
 			if (found.kind !== "discovery") return none("discovery.getProfile", "This account has no Discovery space.");
 			const profile = found.profile as Profile;
 			const ids = profile.relationships.map((r) => r.organization.id);
