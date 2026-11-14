@@ -1,5 +1,6 @@
 import "server-only";
 import { requestDatabase } from "@/server/database";
+import { boundedBytes, Refusal } from "@/server/platform/boundary";
 import { pipelineActor } from "@/server/organizations/pipeline";
 import { pipelineImportLimits } from "@everyfield/contracts/organizations";
 import { pipelineImportWriter, previewPipelineImport } from "@everyfield/domain/organizations";
@@ -15,25 +16,6 @@ const tooLarge = () => reply({ status: "refused", refusal: { code: "file_refused
 /** The file plus the form's envelope and the request JSON. */
 const BODY_MAX = pipelineImportLimits.bytes + 256 * 1024;
 
-/** The body's bytes, or null once it passes `max`: a body with no length header is counted as it arrives. */
-async function readCapped(request: Request, max: number): Promise<Uint8Array | null> {
-	if (!request.body) return new Uint8Array();
-	const chunks: Uint8Array[] = [];
-	let size = 0;
-	const reader = request.body.getReader();
-	for (;;) {
-		const { done, value } = await reader.read();
-		if (done) break;
-		size += value.length;
-		if (size > max) {
-			await reader.cancel();
-			return null;
-		}
-		chunks.push(value);
-	}
-	return new Uint8Array(Buffer.concat(chunks));
-}
-
 async function handle(request: Request, step: "preview" | "save") {
 	const site = request.headers.get("sec-fetch-site");
 	if (site !== null && site !== "same-origin") return new Response(null, { status: 403, headers: NO_STORE });
@@ -44,7 +26,10 @@ async function handle(request: Request, step: "preview" | "save") {
 	if (!db) return reply({ status: "lost" });
 	let input: Record<string, unknown>;
 	try {
-		const bytes = await readCapped(request, BODY_MAX);
+		const bytes = await boundedBytes(request, BODY_MAX).catch((error: unknown) => {
+			if (error instanceof Refusal) return null;
+			throw error;
+		});
 		if (!bytes) return tooLarge();
 		const form = await new Response(bytes as BodyInit, {
 			headers: { "Content-Type": request.headers.get("content-type") ?? "" },
