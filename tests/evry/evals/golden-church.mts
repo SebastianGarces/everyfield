@@ -72,8 +72,6 @@ export const PLANT = id(1);
 export const DRAFT = id(0xc01);
 const FRIDAY_EMAIL = id(0xc02);
 export const EMPTY_PLANT = id(2);
-/** Thursday's vision night, Thu 12 Nov 7:00 PM church time: the Meetings seed's Vision Meeting #4 (MEETINGS.thursday). */
-export const VISION_NIGHT = id(0xa21);
 /** "Welcome to Hope Fellowship", sent Mon 2 Nov to every live person with an address except NEVER_EMAILED. */
 export const WELCOME = id(0xc06);
 /** "Volunteer night reminder", sent Tue 3 Nov (not a Friday, so "the Friday email" stays one email): Ana Rivera's bounced and Sam Patel's was refused. */
