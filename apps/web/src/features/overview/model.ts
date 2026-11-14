@@ -83,18 +83,9 @@ export function launchShown(plan: Plan): LaunchShown {
 	if (plan.outcome) return { kind: "held", date: plan.outcome.actualDate, attendance: plan.outcome.attendance };
 	const c = countdown(plan.launch, plan.today);
 	const date = plan.launch?.targetDate ?? "";
-	switch (c.kind) {
-		case "ahead":
-			return { kind: "ahead", days: c.days, date };
-		case "today":
-			return { kind: "today", date };
-		case "overdue":
-			return { kind: "overdue", date };
-		case "postponed":
-			return { kind: "postponed" };
-		default:
-			return { kind: "none" };
-	}
+	if (c.kind === "ahead") return { kind: "ahead", days: c.days, date };
+	if (c.kind === "today" || c.kind === "overdue") return { kind: c.kind, date };
+	return { kind: c.kind === "postponed" ? "postponed" : "none" };
 }
 export const daysText = (days: number) => `${days} ${days === 1 ? "day" : "days"}`;
 

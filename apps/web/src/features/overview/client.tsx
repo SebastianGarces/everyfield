@@ -1,6 +1,8 @@
 "use client";
 
 import {
+	PROMPT_STEP,
+	PROMPTS,
 	SETUP_STEPS,
 	type OverviewFrame,
 	type PromptKey,
@@ -30,7 +32,7 @@ import { AddPersonDialog } from "../people/AddPersonDialog.tsx";
 import { dismissPrompt } from "./actions.ts";
 import { PROMPT_TEXT, STEP_TEXT } from "./model.ts";
 
-const PROMPT_OF: Partial<Record<SetupStep, PromptKey>> = { add_people: "import_people", invite_team: "invite_team" };
+const PROMPT_OF: Partial<Record<SetupStep, PromptKey>> = Object.fromEntries(PROMPTS.map((p) => [PROMPT_STEP[p], p]));
 
 /**
  * The first week's checklist, or the optional prompts after it (ADM-005). A step is done from what the church recorded;

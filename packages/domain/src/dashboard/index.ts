@@ -94,9 +94,6 @@ const dismissedColumn = (scope: Scope) => sql`(SELECT coalesce(jsonb_agg(DISTINC
 	AND a.tenant_id=${scope.plantId}::uuid AND a.metadata->>'section'=${PROMPT_SECTION}) AS dismissed`;
 const dismissedOf = (raw: unknown) => z.array(c.promptKey).parse(raw);
 
-/** The step each optional prompt answers: it shows only while that step is open. */
-const PROMPT_STEP: Record<c.PromptKey, c.SetupStep> = { import_people: "add_people", invite_team: "invite_team" };
-
 const frameRow = z.object({
 	ok: z.boolean(),
 	admin: z.boolean().nullable(),
@@ -179,7 +176,7 @@ export const dashboardReader = {
 				role: authority.actor.context.kind === "seat" ? authority.actor.context.role : "member",
 				actions: admin ? c.QUICK_ACTIONS : [],
 				setup,
-				prompts: admin ? c.PROMPTS.filter((k) => setup.gaps.includes(PROMPT_STEP[k]) && !dismissed.has(k)) : [],
+				prompts: admin ? c.PROMPTS.filter((k) => setup.gaps.includes(c.PROMPT_STEP[k]) && !dismissed.has(k)) : [],
 			});
 		});
 	},

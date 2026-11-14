@@ -29,6 +29,8 @@ export type SetupGaps = z.infer<typeof setupGaps>;
 export const PROMPTS = ["import_people", "invite_team"] as const;
 export const promptKey = z.enum(PROMPTS);
 export type PromptKey = z.infer<typeof promptKey>;
+/** The setup step each optional prompt answers: it shows only while that step is open. */
+export const PROMPT_STEP: Record<PromptKey, SetupStep> = { import_people: "add_people", invite_team: "invite_team" };
 export const promptState = z.strictObject({ dismissed: z.array(promptKey) });
 export type PromptState = z.infer<typeof promptState>;
 export const dismissPromptRequest = z.strictObject({ prompt: promptKey });
