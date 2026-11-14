@@ -29,7 +29,8 @@ import { Problem } from "../organizations/board/Problem";
 import { programProblem, KIND } from "../organizations/programs/model";
 import { useResidency } from "../shell/residency.ts";
 import { markMilestone } from "./actions";
-import { meetingDay, meetingTime, readingPath, wikiPath, zoneName } from "./model";
+import { articlePath } from "../wiki/model";
+import { meetingDay, meetingTime, readingPath, zoneName } from "./model";
 
 type Linked = Extract<MyResidency, { status: "linked" }>;
 type Enrollment = Linked["enrollments"][number];
@@ -321,7 +322,7 @@ function Reading({ readings, church }: { readings: Enrollment["readings"]; churc
 				{readings.length ? (
 					<ul className="flex flex-col divide-y divide-line">
 						{readings.map((r) => {
-							const href = !r.available ? null : r.source === "organization" ? readingPath(r.id) : wikiPath(r.slug!);
+							const href = !r.available ? null : r.source === "organization" ? readingPath(r.id) : articlePath(r.slug!);
 							const label = (
 								<>
 									<Icon icon={BookOpen01Icon} size={18} className="mt-0.5 flex-none text-text-2" />

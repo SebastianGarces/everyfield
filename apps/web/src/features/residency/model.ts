@@ -2,12 +2,6 @@
 
 export const MY_RESIDENCY_PATH = "/my-residency";
 export const readingPath = (id: string) => `${MY_RESIDENCY_PATH}/reading/${id}`;
-/** A global reading list article in the Wiki every account reads. */
-export const wikiPath = (slug: string) =>
-	`/wiki/${slug
-		.split("/")
-		.map((part) => encodeURIComponent(part))
-		.join("/")}`;
 
 const day = new Intl.DateTimeFormat("en-US", {
 	weekday: "short",
