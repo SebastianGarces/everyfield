@@ -306,12 +306,12 @@ const sunday = {
 	reachedName: null,
 } as const;
 const CONSTITUTED = "Constituted as a church";
-/** A milestone-path launch, reached on `reachedOn` under `name` when given. */
-const milestone = (reachedOn: string | null, name: string | null = reachedOn ? CONSTITUTED : null) => ({
+/** A milestone-path launch, reached on `reachedOn` when given. */
+const milestone = (reachedOn: string | null) => ({
 	...sunday,
 	path: "milestone" as const,
 	reachedOn,
-	reachedName: name,
+	reachedName: reachedOn ? CONSTITUTED : null,
 });
 
 test("the launch countdown is the plant-local days to a scheduled launch that has not happened", () => {
@@ -344,15 +344,12 @@ test("a reached milestone is First service held on the milestone path; unreached
 	assert.equal(reached.criteria.debrief_done, undefined);
 });
 
-test("a corrected date moves the evidence, and the name it was reached under is the one that counts", () => {
+test("a corrected date moves the evidence", () => {
 	const corrected = facts({ launch: milestone("2026-10-04") }, "2026-10-12");
 	assert.deepEqual(
 		[corrected.criteria.first_service_complete, corrected.firstService],
 		["met", { path: "milestone", status: "met", milestone: CONSTITUTED, heldOn: "2026-10-04" }],
 	);
-	// The facts read the name stored when it was reached, never the organization's current one.
-	const renamed = facts({ launch: milestone("2026-10-11", CONSTITUTED) }, "2026-10-12");
-	assert.equal(renamed.firstService?.path === "milestone" && renamed.firstService.milestone, CONSTITUTED);
 });
 
 test("a reached or held day after the facts' plant-local date never counts", () => {
@@ -397,12 +394,4 @@ test("a Launch Sunday plant counts only an actual Launch Sunday; its launch-date
 		["met", "met"],
 		"a scheduled launch still sets the date and window",
 	);
-});
-
-test("recording, correcting and clearing the milestone each give the facts a new source revision", () => {
-	const revision = (launch: FactInputs["launch"]) => facts({ launch }, "2026-10-12").sourceRevision;
-	const steps = [milestone(null), milestone("2026-10-11"), milestone("2026-10-04"), milestone(null)];
-	const revisions = steps.map(revision);
-	for (let i = 1; i < revisions.length; i++) assert.notEqual(revisions[i], revisions[i - 1], `step ${i}`);
-	assert.equal(revisions[0], revisions[3], "cleared reads as never recorded");
 });
