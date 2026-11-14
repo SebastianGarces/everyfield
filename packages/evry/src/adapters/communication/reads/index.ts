@@ -372,14 +372,12 @@ export const forPerson: ReadAdapter<z.infer<typeof forPersonInput>> = {
 			.optional()
 			.parse(r.rows[0]);
 		if (!found?.found) return notFound("communication.forPerson", ["email addresses", "message bodies"]);
-		const rows: SourceRow[] = [
-			...found.emails.map((e) => ({
-				kind: "message" as const,
-				id: e.id,
-				label: e.subject,
-				fields: { sentAt: e.sent_at, result: e.result, deliveredAt: e.delivered_at, openedAt: e.opened_at },
-			})),
-		];
+		const rows: SourceRow[] = found.emails.map((e) => ({
+			kind: "message",
+			id: e.id,
+			label: e.subject,
+			fields: { sentAt: e.sent_at, result: e.result, deliveredAt: e.delivered_at, openedAt: e.opened_at },
+		}));
 		return {
 			operation: "communication.forPerson",
 			status: "available",

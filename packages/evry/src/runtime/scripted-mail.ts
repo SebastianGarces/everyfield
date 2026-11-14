@@ -68,10 +68,15 @@ function invitation(meeting: Row | undefined) {
 	};
 }
 
-/** The draft before the meeting is known: what the preview checks. */
-function firstDraft() {
+/** The preview read of the draft before the meeting is known. */
+function previewDraft() {
 	const { subject, body } = invitation(undefined);
-	return { subject, body };
+	return read("communication.preview", {
+		subject,
+		body,
+		audience: { groups: ["prospects"] },
+		meetingWords: "vision night",
+	});
 }
 
 /** One step of an email conversation, or null when the ask is not one of these. */
@@ -92,12 +97,7 @@ export function mailStep(options: LanguageModelV4CallOptions): LanguageModelV4Co
 
 	// COM-01: an unsaved draft, with exactly who it reaches and who is left out. Nothing is saved or sent.
 	if (INVITE.test(ask)) {
-		if (!last)
-			return read("communication.preview", {
-				...firstDraft(),
-				audience: { groups: ["prospects"] },
-				meetingWords: "vision night",
-			});
+		if (!last) return previewDraft();
 		const draft = invitation(rowsOf(last, "meeting")[0]);
 		const persons = rowsOf(last, "person");
 		const gets = persons.filter((p) => p.fields.leftOut === null).map((p) => p.label);
@@ -129,12 +129,7 @@ export function mailStep(options: LanguageModelV4CallOptions): LanguageModelV4Co
 		return text("Nothing has been sent. Approval happens only on the review card: press Approve there to send it.");
 	if (/^\s*(ok |okay )?send it\b(?! again)/i.test(ask) && INVITE.test(earlier)) {
 		if (!canPropose) return null;
-		if (!last)
-			return read("communication.preview", {
-				...firstDraft(),
-				audience: { groups: ["prospects"] },
-				meetingWords: "vision night",
-			});
+		if (!last) return previewDraft();
 		if (last.proposalId)
 			return text("Here's the exact email and who gets it. Nothing is sent until you press Approve.");
 		const meeting = rowsOf(last, "meeting")[0];
@@ -253,12 +248,7 @@ export function mailStep(options: LanguageModelV4CallOptions): LanguageModelV4Co
 	}
 	if (/\bmake a template from this draft\b/i.test(ask) && INVITE.test(earlier)) {
 		if (!canPropose) return null;
-		if (!last)
-			return read("communication.preview", {
-				...firstDraft(),
-				audience: { groups: ["prospects"] },
-				meetingWords: "vision night",
-			});
+		if (!last) return previewDraft();
 		if (last.proposalId) return text("Here's the template to review. Nothing is saved until you press Approve.");
 		const draft = invitation(rowsOf(last, "meeting")[0]);
 		return propose("communication.templates.create", {
