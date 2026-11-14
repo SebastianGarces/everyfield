@@ -105,6 +105,7 @@ export type SettingsOperation =
 	| "seats.remove"
 	| "plant.updateProfile"
 	| "plant.setTimezone"
+	| "church.digestSchedule.set"
 	| "privacy.setSharing"
 	| "associations.invite"
 	| "associations.end"
@@ -368,6 +369,7 @@ const FIELD_LABEL: Record<string, string> = {
 	role: "Role",
 	access: "Access",
 	timeZone: "Time zone",
+	digestSchedule: "Church digest",
 	connection: "Connection",
 	recipientEmail: "Sent to",
 	account: "Your login",
@@ -447,12 +449,13 @@ const zoneText = (zone: string) => (ZONE_NAME[zone] ? `${ZONE_NAME[zone]} (${zon
 
 /** The changes Evry makes to seats, church settings, sharing, connections, your account and an organization. */
 export const isSettings = (operation: Operation): operation is SettingsOperation =>
-	/^(seats|plant|privacy|associations|account|organizations|onboarding|discovery)\./.test(operation) ||
+	/^(seats|plant|church|privacy|associations|account|organizations|onboarding|discovery)\./.test(operation) ||
 	operation === "identity.answerLeadOnboarding";
 /** The Settings section where a seat, settings, sharing, connection, account or organization change shows. */
 export function settingsLink(operation: SettingsOperation): { href: string; label: string } {
 	if (operation.startsWith("seats.")) return { href: "/settings/seats", label: "Open Seats" };
-	if (operation.startsWith("plant.")) return { href: "/settings/church", label: "Open Church settings" };
+	if (operation.startsWith("plant.") || operation.startsWith("church."))
+		return { href: "/settings/church", label: "Open Church settings" };
 	if (operation.startsWith("account.")) return { href: "/settings/account", label: "Open your account" };
 	if (/^(onboarding|discovery)\./.test(operation) || operation === "identity.answerLeadOnboarding")
 		return { href: "/onboarding", label: "Open setup" };
@@ -522,6 +525,7 @@ const TITLE: Record<Operation, string> = {
 	"seats.remove": "Remove a seat",
 	"plant.updateProfile": "Update the church profile",
 	"plant.setTimezone": "Change the church time zone",
+	"church.digestSchedule.set": "Change the church digest schedule",
 	"privacy.setSharing": "Change what you share",
 	"associations.invite": "Ask to connect",
 	"associations.end": "End a connection",

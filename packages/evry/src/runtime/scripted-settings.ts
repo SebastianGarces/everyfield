@@ -93,12 +93,26 @@ const REQUESTS = [
 	/\b(?:role|seat)\b/i,
 	/\bremove\s+[A-Z][\w'-]+.*\bfrom\s+(?:our|the|this)\s+church\b/i,
 	/\btime ?zone\b/i,
+	/\bchurch digest\b/i,
 	/\bchurch'?s\s+(?:name|street|city|state|province|country|description)\b/i,
 	/\bshar(?:e|ing)\b/i,
 	/\bconnection\b/i,
 	/\bmy\s+(?:profile\s+)?(?:photo|picture)\b/i,
 	/\bdescription\b/i,
 ];
+const WEEKDAY = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+const DIGEST_CHOICES =
+	"The church digest can be off, daily at a whole hour, or weekly on one day at a whole hour, in the church's time zone. Those are the only choices Settings offers.";
+/** The church digest schedule a request asks for, or null when it asks for one Settings doesn't offer. */
+function churchDigest(text: string) {
+	if (/\bturn off\b/i.test(text)) return { cadence: "off" };
+	const at = /\bat\s+(\d{1,2})(?::(\d{2}))?\s*([ap])m\b/i.exec(text);
+	if (!at || (at[2] && at[2] !== "00")) return null;
+	const hour = (Number(at[1]) % 12) + (at[3]!.toLowerCase() === "p" ? 12 : 0);
+	if (/\bevery day\b/i.test(text)) return { cadence: "daily", hour };
+	const day = new RegExp(String.raw`\bon\s+(${WEEKDAY.join("|")})s?\b`, "i").exec(text);
+	return day ? { cadence: "weekly", weekday: WEEKDAY.indexOf(day[1]!.toLowerCase()), hour } : null;
+}
 const EMAIL = String.raw`([^\s@]+@[^\s@]+\.[A-Za-z]{2,})`;
 const NAME = String.raw`([A-Z][\w'-]+(?: [A-Z][\w'-]+)?)`;
 
@@ -183,6 +197,13 @@ export function settingsStep(options: LanguageModelV4CallOptions, text: string):
 		return role
 			? propose(operation, { seatId: found[0]!.id, role: role[2]!.toLowerCase() })
 			: propose(operation, { seatId: found[0]!.id });
+	}
+
+	// The church-wide digest schedule: off, daily at a whole hour, or weekly on a day at a whole hour.
+	if (/\bchurch digest\b/i.test(text)) {
+		if (!offers("church.digestSchedule.set")) return notOffered(options.prompt);
+		const schedule = churchDigest(text);
+		return schedule ? propose("church.digestSchedule.set", { schedule }) : say(DIGEST_CHOICES);
 	}
 
 	// The church's time zone and profile.
