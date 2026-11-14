@@ -117,6 +117,8 @@ export function useConversation(open: boolean) {
 		latest.current = state;
 	});
 
+	// The seat's Pipeline page lists people, so the empty panel suggests a pipeline question (from the open read).
+	const [pipeline, setPipeline] = useState(false);
 	const openState = (next: State) => {
 		latest.current = next;
 		dispatch({ type: "open", state: next });
@@ -127,6 +129,7 @@ export function useConversation(open: boolean) {
 		const mine = ++shown.current;
 		setLoad("loading");
 		const latest = await api.openLatest();
+		if (latest.status === "ok") setPipeline(latest.value.pipeline === true);
 		// A long conversation answers in pages; the rest are read before it shows, so its newest messages are there.
 		const r =
 			latest.status === "ok" && latest.value.conversation
@@ -327,6 +330,7 @@ export function useConversation(open: boolean) {
 		state,
 		turns,
 		load,
+		pipeline,
 		stream,
 		retrying,
 		problem,

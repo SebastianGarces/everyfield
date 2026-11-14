@@ -50,6 +50,7 @@ import {
 	actionNotice,
 	addsOnly,
 	approvalLeft,
+	asksReason,
 	approvable,
 	CHOICES,
 	checkable,
@@ -78,7 +79,10 @@ import {
 	pollDelay,
 	refusalText,
 	isPhoto,
+	isPipeline,
 	isSettings,
+	pipelineLink,
+	pipelineRefusalText,
 	savedPhotoSrc,
 	settingsLink,
 	settingsRefusalText,
@@ -257,14 +261,18 @@ function useReview(proposalId: string, seed: Review | null | undefined, onSeen: 
 		return false;
 	}
 
-	const approve = () =>
-		act(
+	// The reason typed on a card that asks for one, kept only for a Check again after a lost reply.
+	const typed = useRef<string | undefined>(undefined);
+	const approve = (reason = typed.current) => {
+		typed.current = reason;
+		return act(
 			"approve",
 			// The witness is the request key: the same revision and digest, sent once more after a lost reply.
-			(r) => api.approve(r),
+			(r) => api.approve(r, reason),
 			(v) => v.proposal,
 			(now, before) => now.revision === before.revision && now.status === "approved",
 		);
+	};
 
 	/**
 	 * Check again after an unknown result. An approval sends the same request and key again, which the server
@@ -454,6 +462,8 @@ function note(view: View, review: Review | null, lapsed: boolean, unknown?: Acti
 		case "running":
 			return "Saving in the background. You can keep working. This card shows the result.";
 		case "refused":
+			if (review && isPipeline(review.operation))
+				return pipelineRefusalText(review.receipt?.code, review.operation, who);
 			if (review?.receipt?.current?.length)
 				return `A record in the ${who ?? "change"} changed after Evry prepared this, so it couldn't be applied and nothing was changed for anyone. This is how they are now. Ask Evry to prepare it again.`;
 			return mail
@@ -518,6 +528,8 @@ export function ReviewCard({
 	onSeen: (proposalId: string) => void;
 }) {
 	const r = useReview(proposalId, seed, onSeen);
+	// The reason the person types on a card that asks for one. It stays in this card: Evry never saves it.
+	const [reason, setReason] = useState("");
 	// The revision being revised: a new revision, or a change of state, closes the form on its own.
 	const [editing, setEditing] = useState<number | null>(null);
 	const headId = useId();
@@ -689,6 +701,20 @@ export function ReviewCard({
 									<p className="text-sm text-text-2">{consequence(review)}</p>
 								) : null}
 								{review.review.notes?.length ? <Notes notes={review.review.notes} /> : null}
+								{view === "pending" && asksReason(review.operation) && !review.review.refusal ? (
+									<Field
+										label="Reason for this move"
+										hint={`Only you write this. It's saved in ${review.review.target?.label ?? "the person"}'s pipeline history, not in Evry.`}
+									>
+										<Textarea
+											value={reason}
+											onChange={(e) => setReason(e.target.value)}
+											rows={3}
+											maxLength={1000}
+											disabled={r.busy !== null}
+										/>
+									</Field>
+								) : null}
 							</>
 						)}
 						{view === "pending" && !review.review.refusal && !review.stale ? (
@@ -713,6 +739,7 @@ export function ReviewCard({
 						view={view}
 						review={review}
 						canApprove={approvable(review, staged.photo.status === "ready")}
+						reason={asksReason(review.operation) ? reason.trim() : null}
 						r={r}
 						reviseButton={reviseButton}
 						onRevise={() => {
@@ -733,6 +760,7 @@ function Footer({
 	view,
 	review,
 	canApprove,
+	reason,
 	r,
 	reviseButton,
 	onRevise,
@@ -741,6 +769,8 @@ function Footer({
 	review: Review;
 	/** False while a new photo is not shown yet: the owner approves only what the card shows. */
 	canApprove: boolean;
+	/** The typed reason on a card that asks for one (empty until typed); null on any other card. */
+	reason: string | null;
 	r: ReturnType<typeof useReview>;
 	reviseButton: Ref<HTMLButtonElement>;
 	onRevise: () => void;
@@ -769,8 +799,8 @@ function Footer({
 						variant="primary"
 						icon={Tick02Icon}
 						loading={r.busy === "approve"}
-						disabled={other("approve") || !canApprove || review.stale}
-						onClick={() => void r.approve()}
+						disabled={other("approve") || !canApprove || review.stale || reason === ""}
+						onClick={() => void r.approve(reason ?? undefined)}
 					>
 						Approve
 					</Button>
@@ -787,7 +817,11 @@ function Footer({
 				) : null}
 				<span className="flex-1" />
 				{cancel}
-				{r.busy ? <Hint>One change at a time. Wait for this one to finish.</Hint> : null}
+				{r.busy ? (
+					<Hint>One change at a time. Wait for this one to finish.</Hint>
+				) : reason === "" && !review.review.refusal ? (
+					<Hint>Type the reason for this move to approve it.</Hint>
+				) : null}
 			</>
 		);
 	else if (view === "unknown")
@@ -867,6 +901,13 @@ function Footer({
 					<Button size="sm" variant="ghost" asChild>
 						<IntentLink href={settingsLink(review.operation).href}>
 							{settingsLink(review.operation).label}
+							<Icon icon={ArrowRight02Icon} size={16} />
+						</IntentLink>
+					</Button>
+				) : isPipeline(review.operation) ? (
+					<Button size="sm" variant="ghost" asChild>
+						<IntentLink href={pipelineLink(review).href}>
+							{pipelineLink(review).label}
 							<Icon icon={ArrowRight02Icon} size={16} />
 						</IntentLink>
 					</Button>

@@ -1,7 +1,11 @@
 import { programKind, programRhythm } from "@everyfield/contracts/organizations";
+import type { Database } from "@everyfield/db/client";
+import { sql } from "@everyfield/db/query";
 import { readPipelineBoard, readPrograms } from "@everyfield/domain/organizations";
 import { z } from "zod";
 import type { ReadAdapter, SourceResult, SourceRow } from "../../../catalog/types.ts";
+import type { EvryActor } from "../../../context/actor.ts";
+import { liveAuthority } from "../../../context/authority.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
 import { organizationSeat } from "../../native.ts";
 
@@ -71,8 +75,8 @@ export const listPeople = {
 			next,
 			completeness: next ? "partial" : "complete",
 			exclusions: counts
-				? ["This seat's Pipeline page shows counts per stage only: no names, notes or feedback."]
-				: ["Notes, move reasons, feedback and assessment details stay on the Pipeline page."],
+				? ["names, notes and feedback, because this seat's Pipeline page shows counts per stage only"]
+				: ["notes, move reasons, feedback and assessment details, which stay on the Pipeline page"],
 			facts: {
 				organization: board.organizationName,
 				asOf: board.asOf,
@@ -102,7 +106,7 @@ export const draftPlan = {
 			page: 1,
 			next: null,
 			completeness: "complete",
-			exclusions: list.administrator ? [] : ["Only an Owner or Admin sees who may direct a program."],
+			exclusions: list.administrator ? [] : ["who may direct a program, which only an Owner or Admin sees"],
 			facts: {
 				organization: list.organizationName,
 				canCreate: list.administrator,
@@ -114,3 +118,16 @@ export const draftPlan = {
 
 /** The installed pipeline and program reads. */
 export const PIPELINE_READS = [listPeople, draftPlan] as const;
+
+/**
+ * Whether this organization seat's Pipeline page lists people: an Owner's or Admin's does, and a Member's does while
+ * they are responsible for someone live in it. The empty Evry panel then suggests a pipeline question. One lock-free
+ * statement with the live check (C13), sent only for an organization seat.
+ */
+export async function pipelineListsPeople(db: Pick<Database, "execute">, actor: EvryActor) {
+	if (!organizationSeat(actor) || !actor.seatId) return false;
+	const r = await db.execute(sql`SELECT ${liveAuthority(actor)} AND (${actor.role !== "member"} OR EXISTS(
+		SELECT FROM pipeline_person pp JOIN person p ON p.id=pp.person_id AND p.tenant_id=pp.organization_id AND p.state='live'
+		WHERE pp.organization_id=${actor.owner.id}::uuid AND pp.responsible_seat_id=${actor.seatId}::uuid)) AS lists`);
+	return r.rows[0]?.lists === true;
+}
