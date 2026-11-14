@@ -130,6 +130,8 @@ export const residentInvitationDecisionResult = z.union([
 export const invitationError = z.discriminatedUnion("code", [
 	...safeError.options,
 	defineSafeError("invitation_unavailable", {}, "never"),
+	/** The signed-in account already accepted this residency invitation, in another tab, and its link is current. */
+	defineSafeError("already_linked", {}, "never"),
 	defineSafeError("invitation_rate_limited", { retryAt: instant }, "same_request"),
 	defineSafeError("invitation_cooldown", { retryAt: instant }, "same_request"),
 	defineSafeError("idempotency_conflict", {}, "never"),

@@ -67,6 +67,14 @@ const staffJson = (org: string) => sql`coalesce((SELECT jsonb_agg(jsonb_build_ob
  FROM seat s LEFT JOIN LATERAL seat_identity(s.account_id) i ON true
  WHERE s.organization_id=${org}::uuid AND s.ended_at IS NULL AND s.accepted_at<=clock_timestamp()),'[]'::jsonb)`;
 
+/**
+ * Whether `seat` may read enrollment `e` of a program directed by `director`: an Owner or Admin, the program's
+ * director, or the person's responsible staff. Any other seat reads no enrollment (REQ-MUL-002: named duties only).
+ */
+const readsEnrollment = (seat: NonNullable<ReturnType<typeof seatOf>>, director: SQL) =>
+	sql`(${seat.administrator} OR ${director}=${seat.seatId}::uuid OR EXISTS(SELECT FROM pipeline_person rp
+ WHERE rp.organization_id=e.organization_id AND rp.person_id=e.person_id AND rp.responsible_seat_id=${seat.seatId}::uuid))`;
+
 const orgCte = (
 	org: string,
 ) => sql`o AS (SELECT o.name,o.timezone,(clock_timestamp() AT TIME ZONE o.timezone)::date AS today
@@ -114,7 +122,7 @@ FROM g`);
 	});
 }
 
-/** One program: its published version, its draft, its enrollments and, for an Owner or Admin, who can be enrolled. */
+/** One program: its published version, its draft, the enrollments the viewer may read and, for an Owner or Admin, who can be enrolled. */
 export async function readProgram(
 	db: Executor,
 	authority: RequestActor,
@@ -139,7 +147,8 @@ SELECT g.allowed,(SELECT timezone FROM o) AS timezone,(SELECT today::text FROM o
    ORDER BY e.status<>'active',lower(pn.display_name),e.id)
   FROM x JOIN development_enrollment e ON e.program_id=x.id AND e.organization_id=x.organization_id
   JOIN person pn ON pn.id=e.person_id AND pn.tenant_id=e.organization_id AND pn.state='live'
-  JOIN development_stage s ON s.id=e.current_stage_id JOIN development_program_version ev ON ev.id=e.version_id),
+  JOIN development_stage s ON s.id=e.current_stage_id JOIN development_program_version ev ON ev.id=e.version_id
+  WHERE ${readsEnrollment(seat, sql`x.director_seat_id`)}),
   '[]'::jsonb) AS enrollments,
  coalesce((SELECT jsonb_agg(jsonb_build_object('personId',pp.person_id,'name',pn.display_name)
    ORDER BY lower(pn.display_name),pp.person_id)
@@ -219,8 +228,8 @@ const progressJson = sql`jsonb_build_object('id',m.id,'title',m.title,'descripti
  * One enrollment: the person, the program, the version it is on with that version's stages and milestones, each
  * milestone's completion, and the director's feedback for a viewer who may read it: the current director, or an
  * Owner or Admin (REQ-MUL-012). Records on milestones a later version removed are listed as earlier, kept as they
- * were recorded, and a newer published version is named. Anyone else of the organization reads the rest; feedback
- * reads as null. One statement. A linked resident's own marks show only while they share milestone progress, and
+ * were recorded, and a newer published version is named. The person's responsible staff read the rest; feedback
+ * reads as null. Any other seat reads it as unavailable, as an enrollment that does not exist. One statement. A linked resident's own marks show only while they share milestone progress, and
  * their foundations only as a count while they share foundations; what the organization recorded itself always shows
  * (REQ-MUL-003, REQ-MUL-014).
  */
@@ -239,7 +248,8 @@ x AS (SELECT e.*,p.name AS program_name,p.kind,p.director_seat_id,p.current_vers
  FROM development_enrollment e JOIN development_program p ON p.id=e.program_id AND p.organization_id=e.organization_id
  JOIN development_program_version v ON v.id=e.version_id AND v.organization_id=e.organization_id
  JOIN person pn ON pn.id=e.person_id AND pn.tenant_id=e.organization_id
- WHERE EXISTS(SELECT FROM o) AND e.id=${enrollmentId}::uuid AND e.organization_id=${org}::uuid AND pn.state='live'),
+ WHERE EXISTS(SELECT FROM o) AND e.id=${enrollmentId}::uuid AND e.organization_id=${org}::uuid AND pn.state='live'
+  AND ${readsEnrollment(seat, sql`p.director_seat_id`)}),
 ${linkOf(org)}
 SELECT g.allowed,(SELECT today::text FROM o) AS today,(SELECT jsonb_build_object('id',x.id,
   'person',jsonb_build_object('personId',x.person_id,'name',x.display_name),

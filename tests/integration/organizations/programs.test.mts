@@ -187,7 +187,7 @@ test("an organization with no programs lists none and counts no active residents
 	assert.deepEqual(ok(await readPrograms(db, await authority(ben))).staff, []);
 });
 
-test("an Owner starts a residency from the template with Ana as director; a Member cannot create one", async () => {
+test("AC:ADR1-010 an Owner starts a residency from the template with Ana as director; a Member cannot create one", async () => {
 	refusedWith(
 		await createProgram(db, await authority(ana), {
 			programId: randomUUID(),
@@ -241,7 +241,7 @@ test("an Owner starts a residency from the template with Ana as director; a Memb
 	);
 });
 
-test("a blank apprenticeship, and each organization sees only its own programs", async () => {
+test("AC:ADR1-010 a blank apprenticeship, and each organization sees only its own programs", async () => {
 	ok(
 		await createProgram(db, await authority(dana), {
 			programId: apprenticeship,
@@ -275,7 +275,7 @@ test("a blank apprenticeship, and each organization sees only its own programs",
 	refusedWith(await readProgram(db, await authority(dana), { programId: hillProgram }), "unavailable");
 });
 
-test("the director edits the draft and its reading list; nobody else edits it and nobody enrolls in a draft", async () => {
+test("AC:ADR1-010 the director edits the draft and its reading list; nobody else edits it and nobody enrolls in a draft", async () => {
 	const p = await program(ana, residency);
 	assert.equal(p.viewer.director, true);
 	const found = ok(await searchReadings(db, await authority(ana), { q: "launch team" }));
@@ -376,7 +376,7 @@ test("the director edits the draft and its reading list; nobody else edits it an
 	);
 });
 
-test("only the current director publishes; Version 1 is published today", async () => {
+test("AC:ADR1-010 only the current director publishes; Version 1 is published today", async () => {
 	const p = await program(ana, residency);
 	for (const who of [dana, luis, ben])
 		refusedWith(
@@ -419,7 +419,7 @@ test("an unpublished church version reads as unavailable with its title; the oth
 });
 
 const caseyResidency = randomUUID();
-test("an Owner enrolls Casey; the pipeline stage stays; a second active enrollment in the same program is refused", async () => {
+test("AC:ADR1-011 an Owner enrolls Casey; the pipeline stage stays; a second active enrollment in the same program is refused", async () => {
 	const p = await program(dana, residency);
 	const assimilating = p.published!.stages[0]!.id;
 	const input = {
@@ -513,7 +513,7 @@ test("Active residents counts distinct people in residencies, never an apprentic
 	assert.equal(list.programs.find((p) => p.id === apprenticeship)!.activeEnrollments, 2);
 });
 
-test("Version 2 leaves Casey on Version 1 with its milestones; Version 1 never changes", async () => {
+test("AC:ADR1-010 AC:ADR1-011 Version 2 leaves Casey on Version 1 with its milestones; Version 1 never changes", async () => {
 	const p = await program(ana, residency);
 	const v1 = p.published!;
 	const plan = {
@@ -550,7 +550,7 @@ test("Version 2 leaves Casey on Version 1 with its milestones; Version 1 never c
 	assert.equal(after.enrollments.find((x) => x.id === caseyResidency)?.versionNumber, 1);
 });
 
-test("the director records and confirms Casey's milestone in one step; nothing else changes", async () => {
+test("AC:ADR1-012 the director records and confirms Casey's milestone in one step; nothing else changes", async () => {
 	const before = await enrollment(ana, caseyResidency);
 	const group = before.milestones.find((m) => m.title === "Start a small group and raise a replacement")!;
 	const input = { enrollmentId: caseyResidency, milestoneId: group.id, completedOn: "2026-10-12" };
@@ -582,7 +582,7 @@ test("the director records and confirms Casey's milestone in one step; nothing e
 	assert.equal(record.stage.label, "Potential leader");
 });
 
-test("feedback on a hands-on assignment: the director, Owner and Admin read it; Dee and Ben never do", async () => {
+test("AC:ADR1-012 feedback on a hands-on assignment: the director, Owner and Admin read it; Dee and Ben never do", async () => {
 	// Casey is on Version 1, whose plan has "Preach on a Sunday" as a hands-on assignment.
 	const e = await enrollment(ana, caseyResidency);
 	const preach = e.milestones.find((m) => m.title === "Preach on a Sunday")!;
@@ -606,11 +606,11 @@ test("feedback on a hands-on assignment: the director, Owner and Admin read it; 
 			[["Ana", input.body, e.today]],
 		);
 	}
-	for (const who of [dee, ben]) {
-		const read = await enrollment(who, caseyResidency);
-		assert.ok(read.milestones.every((m) => m.feedback === null));
-		assert.ok(!JSON.stringify(read).includes("slow down"));
-	}
+	// Dee, Casey's responsible staff, reads her enrollment without feedback; Ben, with no duty, reads none of it.
+	const read = await enrollment(dee, caseyResidency);
+	assert.ok(read.milestones.every((m) => m.feedback === null));
+	assert.ok(!JSON.stringify(read).includes("slow down"));
+	refusedWith(await readEnrollment(db, await authority(ben), { enrollmentId: caseyResidency }), "unavailable");
 	// Central audit holds no feedback body.
 	const audit = await admin.execute(
 		sql`SELECT metadata::text AS m FROM audit_event WHERE action='development.feedback_recorded' AND tenant_id=${grace.id}`,
@@ -619,18 +619,23 @@ test("feedback on a hands-on assignment: the director, Owner and Admin read it; 
 	assert.ok(!String(audit.rows[0]!.m).includes("slow down"));
 });
 
-test("directing a program does not let Ana read Dee's pipeline notes on Casey", async () => {
+test("AC:ADR1-002 directing a program does not let Ana read Dee's pipeline notes on Casey", async () => {
 	refusedWith(await readPipelinePersonRecord(db, await authority(ana), { personId: casey }), "unavailable");
 	const deeView = ok(await readPipelinePersonRecord(db, await authority(dee), { personId: casey }));
 	assert.equal(deeView.notes.length, 1);
 });
 
-test("Ben reads programs and enrollments and every write he sends is refused", async () => {
+test("AC:ADR1-002 Ben reads the programs but no one's enrollment, and every write he sends is refused", async () => {
 	const p = await program(ben, residency);
 	assert.deepEqual(p.viewer, { administrator: false, director: false });
 	assert.deepEqual(p.people, []);
-	const e = await enrollment(ben, caseyResidency);
-	assert.deepEqual(e.viewer, { administrator: false, director: false });
+	// No pipeline duty: the program lists no one, and an enrollment reads as one that does not exist.
+	assert.deepEqual(p.enrollments, []);
+	assert.ok((await program(dana, residency)).enrollments.length > 0);
+	const hidden = await readEnrollment(db, await authority(ben), { enrollmentId: caseyResidency });
+	assert.deepEqual(hidden, await readEnrollment(db, await authority(ben), { enrollmentId: randomUUID() }));
+	refusedWith(hidden, "unavailable");
+	const e = await enrollment(dana, caseyResidency);
 	const auth = await authority(ben);
 	refusedWith(
 		await createProgram(db, auth, {
@@ -804,7 +809,7 @@ test("a review that went out of date is refused and changes nothing; the fresh o
 	assert.deepEqual(fresh.carried, ["Start a small group and raise a replacement", "Present your vision to the elders"]);
 });
 
-test("only the program's current director applies, only the current version, only in their organization", async () => {
+test("AC:ADR1-011 only the program's current director applies, only the current version, only in their organization", async () => {
 	const r = await review(ana);
 	const v1Stage = (await enrollment(ana, caseyResidency)).stage.id;
 	const input = { enrollmentId: caseyResidency, versionId: r.versionId, stageId: r.stageId, basis: r.basis };
@@ -825,7 +830,7 @@ test("only the program's current director applies, only the current version, onl
 	assert.deepEqual(await applied(), []);
 });
 
-test("Ana applies Version 2 at a stage she picks; finished work keeps its attribution and feedback its readers", async () => {
+test("AC:ADR1-011 Ana applies Version 2 at a stage she picks; finished work keeps its attribution and feedback its readers", async () => {
 	const before = await enrollment(dana, caseyResidency);
 	const rows = await completions();
 	const r = await review(ana);
@@ -873,11 +878,9 @@ test("Ana applies Version 2 at a stage she picks; finished work keeps its attrib
 			(await enrollment(who, caseyResidency)).milestones.find((m) => m.title === "Preach on a Sunday")!.feedback,
 			v1Feedback,
 		);
-	for (const who of [dee, ben]) {
-		const read = await enrollment(who, caseyResidency);
-		assert.ok(read.milestones.every((m) => m.feedback === null));
-		assert.ok(!JSON.stringify(read).includes("slow down"));
-	}
+	const deeRead = await enrollment(dee, caseyResidency);
+	assert.ok(deeRead.milestones.every((m) => m.feedback === null));
+	assert.ok(!JSON.stringify(deeRead).includes("slow down"));
 	const listed = (await program(dana, residency)).enrollments.find((x) => x.id === caseyResidency)!;
 	assert.deepEqual([listed.versionNumber, listed.stage], [2, "Gathering"]);
 	const record = ok(await readPipelinePersonRecord(db, await authority(dana), { personId: casey }));
