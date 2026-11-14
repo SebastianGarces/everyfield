@@ -135,6 +135,26 @@ test("BUG-PR193: a pooled query counts in the request that issued it", { skip: c
 	assert.deepEqual(Object.fromEntries(counts), { a: 1, b: 1, c: 1 });
 });
 
+// A listed standalone name its file does not declare would never be measured, so loading that file fails instead.
+test(
+	"INV-census: the load hook refuses a listed standalone name its file does not declare",
+	{ skip: census.kind === "union" },
+	async () => {
+		const { instrument } = await import("./counter.mjs");
+		const path = join(root, "apps/web/src/server/jobs/mail.ts");
+		const source = await readFile(path, "utf8");
+		const listed = (names: string[]) => ({ "/apps/web/src/server/jobs/mail.ts": names });
+		assert.match(
+			instrument(path, source, listed(["claimUnknownMail"])),
+			/measureWrapper\("jobs\/mail\.claimUnknownMail"/,
+		);
+		assert.throws(() => instrument(path, source, listed(["claimUnknownMail", "claimUnknownMailX"])), {
+			message:
+				"Statement counter lists claimUnknownMailX for apps/web/src/server/jobs/mail.ts, which declares no such function",
+		});
+	},
+);
+
 // The budget rules themselves: growth, slack, a write above the pattern without a reason and a page that grows.
 test("INV-census: a budget fails on growth, slack, an unexplained write above six and a growing page", () => {
 	const sample = (name: string, count: number, writes = 1, rollbacks = 0) => ({
