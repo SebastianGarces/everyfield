@@ -7,6 +7,14 @@
 // every next/font/google stylesheet and font file from Google with a 3 s timeout; on a loaded machine one font file
 // missed it, the page failed to compile and the action never ran (D-678). Next's NEXT_FONT_GOOGLE_MOCKED_RESPONSES now
 // answers the stylesheets, and their font files come from a server this run owns on an ephemeral port.
+//
+// T-357: "fetch failed / SocketError: other side closed" in full checks came from an earlier run of this test, not from
+// load. A run killed before its `finally` left its detached `next dev` alive and idle, still holding the checkout's
+// .next/dev/lock (evf check slot s4 held one from Nov 13). Every later run there printed "Ready in", took the first
+// request, failed to get the lock, printed "Another next dev server is already running" and exited, closing the
+// socket; elsewhere, and alone, the test passed. Now a watcher holding a pipe from this process stops the server's
+// process group however this process ends, and a failed request reports the server log, which names any other lock
+// holder.
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { globSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -114,6 +122,24 @@ test("BUG-PR199: the dev server log never shows a password sent to a server acti
 	});
 	server.stdout.on("data", (chunk) => (log += chunk));
 	server.stderr.on("data", (chunk) => (log += chunk));
+	const stop = () => {
+		try {
+			process.kill(-server.pid, "SIGTERM");
+		} catch {}
+	};
+	// The watcher's stdin is this process's pipe: when this process ends, however it ends, `cat` reads end of file and
+	// the server's process group is stopped. Unreferenced, it never keeps this process alive.
+	const watcher = spawn("/bin/sh", ["-c", 'cat >/dev/null; kill -TERM -"$0" 2>/dev/null', String(server.pid)], {
+		stdio: ["pipe", "ignore", "ignore"],
+		detached: true,
+	});
+	watcher.unref();
+	watcher.stdin.unref();
+	/** `fetch`, failing with the server log: a server that quit mid-request says why (e.g. another holds the lock). */
+	const send = (url, init) =>
+		fetch(url, init).catch((error) => {
+			assert.fail(`${init?.method ?? "GET"} ${url} failed (${error.cause?.message ?? error.message}):\n${log}`);
+		});
 	try {
 		const deadline = Date.now() + 120_000;
 		while (!/Ready in/.test(log)) {
@@ -122,7 +148,7 @@ test("BUG-PR199: the dev server log never shows a password sent to a server acti
 			await new Promise((r) => setTimeout(r, 250));
 		}
 		// The first render compiles the page and with it the settings actions.
-		await fetch(origin + PAGE, { headers: { cookie: COOKIE }, redirect: "manual" });
+		await send(origin + PAGE, { headers: { cookie: COOKIE }, redirect: "manual" });
 
 		const secrets = { current: "Synthetic-current-7Qx!", next: "Synthetic-new-3Vb!", proof: "Synthetic-proof-9Lm!" };
 		const calls = [
@@ -130,7 +156,7 @@ test("BUG-PR199: the dev server log never shows a password sent to a server acti
 			["openAccountDeletion", { email: "synthetic@example.test", password: secrets.proof }],
 		];
 		for (const [name, request] of calls) {
-			const response = await fetch(origin + PAGE, {
+			const response = await send(origin + PAGE, {
 				method: "POST",
 				headers: {
 					cookie: COOKIE,
@@ -147,7 +173,7 @@ test("BUG-PR199: the dev server log never shows a password sent to a server acti
 		}
 		// Next.js logs a request, then its action arguments, after the response finishes. One more page request is the
 		// barrier: once its line is in the log, every line the action requests wrote is in too.
-		await fetch(origin + PAGE, { headers: { cookie: COOKIE }, redirect: "manual" });
+		await send(origin + PAGE, { headers: { cookie: COOKIE }, redirect: "manual" });
 		await logged((text) => text.split(`GET ${PAGE}`).length > 2);
 		assert.equal(log.split(`POST ${PAGE}`).length - 1, calls.length, "the dev server logged each action request");
 		assert.ok(fontRequests > 0, "the page's fonts came from this run's font server, not from Google");
@@ -155,9 +181,8 @@ test("BUG-PR199: the dev server log never shows a password sent to a server acti
 		const masked = Object.values(secrets).reduce((text, secret) => text.replaceAll(secret, "<password>"), log);
 		assert.deepEqual(shown, [], `the dev server log shows synthetic passwords:\n${masked}`);
 	} finally {
-		try {
-			process.kill(-server.pid, "SIGTERM");
-		} catch {}
+		stop();
+		watcher.kill();
 		fonts.close();
 		rmSync(dir, { recursive: true, force: true });
 	}
