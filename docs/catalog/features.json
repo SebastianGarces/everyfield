@@ -37,7 +37,7 @@
       "WP-005"
     ],
     "routes": [
-      "/sign-in"
+      "/signin"
     ]
   },
   {
@@ -74,7 +74,7 @@
       "WP-008"
     ],
     "routes": [
-      "/sign-in"
+      "/signin"
     ]
   },
   {
@@ -103,7 +103,7 @@
       "WP-009"
     ],
     "routes": [
-      "/sign-in"
+      "/signin"
     ]
   },
   {
@@ -128,7 +128,7 @@
       "WP-050"
     ],
     "routes": [
-      "/sign-in"
+      "/signin"
     ]
   },
   {
@@ -277,8 +277,7 @@
     ],
     "routes": [
       "/settings/account",
-      "/verify-email?token=\u2026",
-      "/verify-email/confirmed"
+      "/confirm-email?token=\u2026"
     ]
   },
   {
@@ -337,7 +336,7 @@
       "WP-005"
     ],
     "routes": [
-      "/forgot-password",
+      "/recover-password",
       "/reset-password?token=\u2026"
     ]
   },
@@ -648,8 +647,8 @@
     ],
     "routes": [
       "/settings/seats",
-      "/invite/[token]",
-      "/sign-in"
+      "/invitation",
+      "/signin"
     ]
   },
   {
@@ -762,7 +761,7 @@
     "routes": [
       "/network",
       "/settings/sharing",
-      "/sign-in"
+      "/signin"
     ]
   },
   {
@@ -1100,7 +1099,7 @@
       "WP-050"
     ],
     "routes": [
-      "/sign-in",
+      "/signin",
       "/",
       "/network",
       "/wiki/[...slug]",
@@ -10911,7 +10910,7 @@
     "id": "MUL-007",
     "title": "Sending goals and observed counts",
     "module": "people",
-    "behavior": "Both sending churches and sending networks may record multiple goals with nonnegative leader and plant targets, target year and rationale. At a stated as-of instant in the organization timezone, show own-pipeline counts by each fixed stage kind: count distinct live same-organization people whose current pipeline stage has that kind. A person appears once; retired or merged people and foreign organizations do not count. Also show active residents: distinct live same-organization people with at least one active enrollment in a residency-kind program; apprenticeship enrollment and the editable pipeline label alone do not qualify. Multiple active residency programs still count the person once. These are current observations, not forecasts, readiness scores or an undefined total of leaders. Plant targets may be stored, but observed plants sent is unavailable with reason deferred_stage_3 until commissioning/lineage arrives in stage 3; do not substitute zero or count Commissioned-kind people as plants. Aggregate church/network sharing remains stage 4. A goal never moves a person, commissions an enrollment or creates a plant.",
+    "behavior": "Both sending churches and sending networks may record multiple goals with nonnegative leader and plant targets, target year and rationale. At a stated as-of instant in the organization timezone, show own-pipeline counts by each fixed stage kind: count distinct live same-organization people whose current pipeline stage has that kind. A person appears once; retired or merged people and foreign organizations do not count. Also show active residents: distinct live same-organization people with at least one active enrollment in a residency-kind program; apprenticeship enrollment and the editable pipeline label alone do not qualify. Multiple active residency programs still count the person once. These are current observations, not forecasts, readiness scores or an undefined total of leaders. Each goal also has a counting-from date, never after today in the organization timezone, that defaults to the day the goal was added. An Owner or Admin may name up to 4 counts on a goal, each a label of 1 to 60 characters for one fixed stage kind, such as \"Apprentices activated\" for apprentice or \"Leaders sent\" for commissioned; a goal counts each kind at most once. A named count is the number of distinct live same-organization people with at least one stage move or first placement into a stage of that kind, dated by the move in the organization timezone, from the goal's counting-from date through the as-of date. A person who has since moved on still counts, repeat moves count once, retired or merged people and foreign organizations do not count, and renaming a stage changes neither a count nor its label. Every seat of the organization sees the named counts, without names. Like the current counts, they are observations: no forecasts, rates, percentages, progress against targets, readiness scores or verdicts. Plant targets may be stored, but observed plants sent is unavailable with reason deferred_stage_3 until commissioning/lineage arrives in stage 3; do not substitute zero or count Commissioned-kind people as plants. Aggregate church/network sharing remains stage 4. A goal never moves a person, commissions an enrollment or creates a plant.",
     "spec_file": "docs/product/people.md#req-mul-007",
     "requirement_ids": [
       "REQ-MUL-007"
