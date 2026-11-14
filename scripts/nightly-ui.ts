@@ -10,7 +10,7 @@
 // fixtures (session cookies), which the artifact leaves out. The preview runs the scripted Evry model (the seeds' env
 // file sets it) and the dev mail capture (no provider key, no VERCEL_ENV), as `bin/dev nightly`'s preview does.
 import { spawn, spawnSync } from "node:child_process";
-import { appendFileSync, createWriteStream, existsSync, mkdirSync, openSync, readFileSync, rmSync } from "node:fs";
+import { createWriteStream, existsSync, mkdirSync, openSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ENGINES, type Engine, seedsOf, TSX, uiTestFiles } from "./nightly.ts";
@@ -85,7 +85,7 @@ const fixtureEnv = (dir: string) =>
 /** The settings the server, the seeds and the tests share: one fixture folder and one mail outbox. */
 const shared = (dir: string): NodeJS.ProcessEnv => {
 	const { NODE_TEST_CONTEXT: _, ...env } = process.env;
-	return { ...env, ...fixtureEnv(dir), EVERYFIELD_DEV_OUTBOX: join(dir, "outbox"), NEXT_TELEMETRY_DISABLED: "1" };
+	return { ...env, ...fixtureEnv(dir), EVERYFIELD_DEV_OUTBOX: join(dir, "outbox") };
 };
 
 function seed(dir: string, action: "up" | "down") {
@@ -119,7 +119,7 @@ async function startServer(dir: string) {
 	let exited: number | null | undefined;
 	server.once("exit", (code) => (exited = code));
 	server.unref();
-	appendFileSync(pidFile(dir), `${server.pid}\n`);
+	writeFileSync(pidFile(dir), String(server.pid));
 	const deadline = Date.now() + 120_000;
 	while (Date.now() < deadline) {
 		if (exited !== undefined) throw Error(`next start exited ${exited}; see ${join(dir, "server.log")}`);
@@ -136,12 +136,11 @@ async function startServer(dir: string) {
 
 function stopServer(dir: string) {
 	if (!existsSync(pidFile(dir))) return;
-	for (const pid of readFileSync(pidFile(dir), "utf8").split("\n").filter(Boolean).map(Number))
-		try {
-			process.kill(-pid, "SIGTERM");
-		} catch {
-			// Already gone.
-		}
+	try {
+		process.kill(-Number(readFileSync(pidFile(dir), "utf8")), "SIGTERM");
+	} catch {
+		// Already gone.
+	}
 	rmSync(pidFile(dir));
 }
 
@@ -191,10 +190,7 @@ export async function nightlyUiCommand(args: string[]): Promise<number> {
 	return uiTest(engine, {
 		files: () => uiTestFiles(root),
 		test: (files, e) => runTests(dir, files, e),
-		log: (line) => {
-			console.log(line);
-			if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${line}\n`);
-		},
+		log: console.log,
 	});
 }
 
