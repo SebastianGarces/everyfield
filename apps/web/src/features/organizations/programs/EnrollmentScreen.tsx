@@ -1,9 +1,11 @@
 "use client";
 
-import type { EnrollmentDetail } from "@everyfield/contracts/organizations";
-import { CheckmarkCircle02Icon } from "@hugeicons/core-free-icons";
+import type { EnrollmentDetail, VersionReview } from "@everyfield/contracts/organizations";
+import { CheckmarkCircle02Icon, Layers01Icon } from "@hugeicons/core-free-icons";
 import {
 	Button,
+	CalloutLabel,
+	CalloutText,
 	Card,
 	CardBody,
 	CardHeader,
@@ -16,28 +18,32 @@ import {
 	Field,
 	Input,
 	PageHeader,
+	Select,
 	Textarea,
 } from "@everyfield/ui/controls";
 import { Icon } from "@everyfield/ui/foundations";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { formatDay, PIPELINE_PATH } from "../board/model";
 import { Problem } from "../board/Problem";
-import { addFeedback, recordMilestone, rereadEnrollment } from "./actions";
+import { addFeedback, applyVersion, recordMilestone, rereadEnrollment, reviewVersion } from "./actions";
 import { formatMeeting, KIND, programHref, programProblem, PROGRAMS_PATH } from "./model";
 import { Detail } from "./ProgramScreen";
 
 type Milestone = EnrollmentDetail["milestones"][number];
+type Reviewed = VersionReview["added"][number];
 const lost = () => ({ status: "lost" as const });
 
 /**
  * One enrollment (REQ-MUL-011, -012): the person's cohort, dates, program stage and next meeting on the version they
  * were enrolled on, and each milestone of that version. The director records and confirms an unlinked enrollee's
  * milestone in one step and writes dated feedback on hands-on assignments, which only the director, the Owner and
- * Admins read.
+ * Admins read. When the program has a newer published version, the director reviews what changes for this person and
+ * applies it (REQ-MUL-011); records on milestones the new version drops stay listed under earlier versions.
  */
 export function EnrollmentScreen({ initial }: { initial: EnrollmentDetail }) {
 	const [enrollment, setEnrollment] = useState(initial);
 	const [recording, setRecording] = useState<Milestone | null>(null);
+	const [reviewing, setReviewing] = useState(false);
 	const director = enrollment.viewer.director && enrollment.status === "active";
 
 	async function reread() {
@@ -58,6 +64,32 @@ export function EnrollmentScreen({ initial }: { initial: EnrollmentDetail }) {
 				title={enrollment.person.name}
 				subtitle={`${enrollment.program.name} · ${KIND[enrollment.program.kind]} · Version ${enrollment.versionNumber}`}
 			/>
+			{enrollment.newerVersion && enrollment.status === "active" ? (
+				<Card
+					variant="callout"
+					tone="blue"
+					as="section"
+					aria-label={`Version ${enrollment.newerVersion.number} is available`}
+				>
+					<div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+						<div className="min-w-0 flex-1 basis-[320px]">
+							<CalloutLabel tone="blue" icon={Layers01Icon}>
+								Version {enrollment.newerVersion.number} is available
+							</CalloutLabel>
+							<CalloutText>
+								{enrollment.person.name} stays on Version {enrollment.versionNumber} until{" "}
+								{director ? "you apply" : `${enrollment.program.director.name}, the director, applies`} the new version.
+								{director ? " You’ll review what changes for them first." : ""}
+							</CalloutText>
+						</div>
+						{director ? (
+							<Button variant="primary" className="flex-none" onClick={() => setReviewing(true)}>
+								Apply Version {enrollment.newerVersion.number}
+							</Button>
+						) : null}
+					</div>
+				</Card>
+			) : null}
 			<div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] gap-5 max-app-md:grid-cols-1">
 				<Card>
 					<CardHeader>
@@ -106,6 +138,32 @@ export function EnrollmentScreen({ initial }: { initial: EnrollmentDetail }) {
 						) : (
 							<p className="text-sm text-text-3">This version has no milestones.</p>
 						)}
+						{enrollment.earlier.length ? (
+							<section
+								aria-label="From earlier versions"
+								className="mt-5 flex flex-col gap-3 border-t border-line pt-4"
+							>
+								<h3 className="text-sm font-semibold text-ink-2">
+									From earlier versions{" "}
+									<span className="font-normal text-text-3">
+										· Not in Version {enrollment.versionNumber}. Kept as recorded.
+									</span>
+								</h3>
+								<ol className="flex flex-col divide-y divide-line">
+									{enrollment.earlier.map((m) => (
+										<MilestoneRow
+											key={m.id}
+											milestone={m}
+											enrollment={enrollment}
+											director={false}
+											recordedOn={m.versionNumber}
+											onRecord={() => undefined}
+											onChanged={reread}
+										/>
+									))}
+								</ol>
+							</section>
+						) : null}
 					</CardBody>
 				</Card>
 			</div>
@@ -120,6 +178,17 @@ export function EnrollmentScreen({ initial }: { initial: EnrollmentDetail }) {
 					}}
 				/>
 			) : null}
+			{director && enrollment.newerVersion ? (
+				<ApplyDialog
+					open={reviewing}
+					enrollment={enrollment}
+					onClose={() => setReviewing(false)}
+					onApplied={async () => {
+						setReviewing(false);
+						await reread();
+					}}
+				/>
+			) : null}
 		</div>
 	);
 }
@@ -128,12 +197,15 @@ function MilestoneRow({
 	milestone: m,
 	enrollment,
 	director,
+	recordedOn,
 	onRecord,
 	onChanged,
 }: {
 	milestone: Milestone;
 	enrollment: EnrollmentDetail;
 	director: boolean;
+	/** For a milestone a later version removed: the version its record is on. */
+	recordedOn?: number;
 	onRecord: () => void;
 	onChanged: () => Promise<void>;
 }) {
@@ -156,7 +228,8 @@ function MilestoneRow({
 					{c ? (
 						<>
 							<span className="text-ink">
-								Completed {formatDay(c.completedOn)} · Confirmed {formatDay(c.confirmedOn)}
+								{recordedOn ? `Finished on Version ${recordedOn} · ` : ""}Completed {formatDay(c.completedOn)} ·
+								Confirmed {formatDay(c.confirmedOn)}
 							</span>
 							<span className="text-text-2">
 								{c.recorder === c.confirmer
@@ -165,6 +238,8 @@ function MilestoneRow({
 								· Recorded by the program leader
 							</span>
 						</>
+					) : recordedOn ? (
+						<span className="text-text-3">Not finished on Version {recordedOn}</span>
 					) : (
 						<span className="text-text-3">Not finished</span>
 					)}
@@ -175,8 +250,8 @@ function MilestoneRow({
 					</Button>
 				) : null}
 			</div>
-			{m.handsOn && m.feedback ? (
-				<Feedback milestone={m} enrollment={enrollment} director={director} onChanged={onChanged} />
+			{m.feedback && (m.handsOn || m.feedback.length) ? (
+				<Feedback milestone={m} enrollment={enrollment} director={director && m.handsOn} onChanged={onChanged} />
 			) : null}
 		</li>
 	);
@@ -342,5 +417,210 @@ function RecordForm({
 				</Button>
 			</DialogFooter>
 		</form>
+	);
+}
+
+/**
+ * The director's review before applying the program's current version to this enrollment (REQ-MUL-011): what is added,
+ * removed and changed for this person, the finished milestones that carry over, and their stage on the new version.
+ * Nothing is saved until they confirm. A review that went out of date is refused and replaced with a fresh one.
+ */
+function ApplyDialog({
+	open,
+	enrollment,
+	onClose,
+	onApplied,
+}: {
+	open: boolean;
+	enrollment: EnrollmentDetail;
+	onClose: () => void;
+	onApplied: () => Promise<void>;
+}) {
+	return (
+		<Dialog open={open} onOpenChange={(next) => (next ? null : onClose())}>
+			<DialogContent size="lg">
+				{open ? <ApplyReview enrollment={enrollment} onClose={onClose} onApplied={onApplied} /> : null}
+			</DialogContent>
+		</Dialog>
+	);
+}
+
+function ApplyReview({
+	enrollment,
+	onClose,
+	onApplied,
+}: {
+	enrollment: EnrollmentDetail;
+	onClose: () => void;
+	onApplied: () => Promise<void>;
+}) {
+	const [review, setReview] = useState<VersionReview | null>(null);
+	const [stageId, setStageId] = useState("");
+	const [attempt, setAttempt] = useState(0);
+	const [saving, setSaving] = useState(false);
+	const [problem, setProblem] = useState<string | null>(null);
+	const name = enrollment.person.name;
+	const number = review?.toNumber ?? enrollment.newerVersion!.number;
+
+	useEffect(() => {
+		let current = true;
+		void reviewVersion(enrollment.id)
+			.catch(lost)
+			.then((answer) => {
+				if (!current) return;
+				if (answer.status !== "ok") {
+					setReview(null);
+					return setProblem(programProblem(answer));
+				}
+				setReview(answer.value);
+				setStageId(answer.value.stageId);
+			});
+		return () => {
+			current = false;
+		};
+	}, [enrollment.id, attempt]);
+
+	async function submit(event: FormEvent) {
+		event.preventDefault();
+		if (!review) return;
+		setSaving(true);
+		setProblem(null);
+		const answer = await applyVersion({
+			enrollmentId: enrollment.id,
+			versionId: review.versionId,
+			stageId,
+			basis: review.basis,
+		}).catch(lost);
+		setSaving(false);
+		if (answer.status === "ok") return onApplied();
+		setProblem(programProblem(answer));
+		if (answer.status === "refused" && answer.refusal.code === "stale_review") setAttempt((n) => n + 1);
+	}
+
+	return (
+		<form onSubmit={submit} noValidate className="contents">
+			<DialogHeader
+				title={`Apply Version ${number} to ${name}`}
+				description={`Review what changes for ${name}. Nothing is saved until you confirm.`}
+			/>
+			<DialogBody className="flex flex-col gap-5">
+				<Problem text={problem} />
+				{review ? (
+					<>
+						<ReviewList
+							title="Added"
+							empty="Nothing added."
+							items={review.added.map((m, i) => (
+								<Wording key={i} m={m} />
+							))}
+						/>
+						<ReviewList
+							title="Removed"
+							empty="Nothing removed."
+							items={review.removed.map((m, i) => (
+								<Wording
+									key={i}
+									m={m}
+									note={m.finished ? `${name} finished this. The finished record is kept.` : undefined}
+								/>
+							))}
+						/>
+						<ReviewList
+							title="Changed"
+							empty="Nothing changed."
+							items={review.changed.map((c, i) => (
+								<div key={i} className="grid grid-cols-2 gap-3 max-app-sm:grid-cols-1">
+									<Wording m={c.before} label={`Version ${review.fromNumber}`} />
+									<Wording m={c.after} label={`Version ${review.toNumber}`} />
+									{c.before.finished ? (
+										<p className="col-span-full text-text-2">
+											{name} finished this. It stays finished with its original record.
+										</p>
+									) : null}
+								</div>
+							))}
+						/>
+						<ReviewList
+							title="Finished milestones that carry over"
+							empty={`${name} hasn’t finished any milestone that carries over.`}
+							hint="Each keeps who recorded and confirmed it, and when."
+							items={review.carried.map((title, i) => (
+								<span key={i} className="flex items-start gap-2">
+									<Icon icon={CheckmarkCircle02Icon} size={16} className="mt-0.5 flex-none text-green-700" />
+									<span className="[overflow-wrap:anywhere] text-ink">{title}</span>
+								</span>
+							))}
+						/>
+						<Field
+							label={`Program stage on Version ${review.toNumber}`}
+							hint={`On Version ${review.fromNumber}: ${review.stage}.`}
+						>
+							<Select
+								value={stageId}
+								onValueChange={(v) => setStageId(String(v))}
+								options={review.stages.map((s) => ({ value: s.id, label: s.label }))}
+							/>
+						</Field>
+					</>
+				) : problem ? null : (
+					<p className="text-sm text-text-3">Loading the review…</p>
+				)}
+			</DialogBody>
+			<DialogFooter>
+				<Button variant="ghost" onClick={onClose} disabled={saving}>
+					Cancel
+				</Button>
+				<Button type="submit" variant="primary" loading={saving} disabled={!review}>
+					Apply Version {number}
+				</Button>
+			</DialogFooter>
+		</form>
+	);
+}
+
+/** One part of the review: a heading with its count, then each item, or a line saying there is none. */
+function ReviewList({
+	title,
+	empty,
+	hint,
+	items,
+}: {
+	title: string;
+	empty: string;
+	hint?: string;
+	items: ReactNode[];
+}) {
+	return (
+		<section aria-label={title} className="flex flex-col gap-2">
+			<h3 className="text-sm font-semibold text-ink">
+				{title}
+				{items.length ? <span className="font-normal text-text-3"> · {items.length}</span> : null}
+			</h3>
+			{hint && items.length ? <p className="-mt-1 text-sm text-text-2">{hint}</p> : null}
+			{items.length ? (
+				<ul className="flex flex-col gap-2 text-sm">
+					{items.map((item, i) => (
+						<li key={i} className="rounded-md bg-surface-2 p-3">
+							{item}
+						</li>
+					))}
+				</ul>
+			) : (
+				<p className="text-sm text-text-3">{empty}</p>
+			)}
+		</section>
+	);
+}
+
+/** A milestone's wording in one version: its title, kind and description. */
+function Wording({ m, label, note }: { m: Reviewed; label?: string; note?: string }) {
+	return (
+		<div className="flex min-w-0 flex-col gap-0.5">
+			{label ? <span className="text-xs font-medium text-text-3">{label}</span> : null}
+			<span className="font-medium [overflow-wrap:anywhere] text-ink">{m.title}</span>
+			{m.handsOn ? <span className="text-xs font-medium text-blue-600">Hands-on assignment</span> : null}
+			{m.description ? <span className="[overflow-wrap:anywhere] text-text-2">{m.description}</span> : null}
+			{note ? <span className="text-text-2">{note}</span> : null}
+		</div>
 	);
 }
