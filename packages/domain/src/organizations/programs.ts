@@ -8,6 +8,7 @@ import type { RequestActor } from "../access/session.ts";
 import { liveResidency } from "../access/pipeline.ts";
 import { foundationArticles } from "../onboarding/reading.ts";
 import { GLOBAL } from "../wiki/core.ts";
+import { queueResidencyJob } from "./notifications.ts";
 import { activeResidents, answer, one, parse, refuse, seatOf, write, type Executor, type Writer } from "./seat.ts";
 
 // Development programs (REQ-MUL-010, -011, -012). Every seat of the organization reads its programs and enrollments.
@@ -180,7 +181,7 @@ FROM g`);
  */
 const linkOf = (
 	org: string,
-) => sql`lk AS (SELECT l.account_id,l.share_milestones,l.share_foundations FROM residency_link l
+) => sql`lk AS (SELECT l.id,l.account_id,l.share_milestones,l.share_foundations FROM residency_link l
  JOIN x ON l.person_id=x.person_id WHERE l.organization_id=${org}::uuid AND ${liveResidency} LIMIT 1)`;
 
 /** How many of the six Discovery foundations account `account` has completed on a published revision (REQ-MUL-014). */
@@ -777,7 +778,8 @@ SELECT EXISTS(SELECT FROM x) AS found,EXISTS(SELECT FROM m) AS milestone,coalesc
 
 /**
  * The director confirms a milestone the linked resident marked done (REQ-MUL-012), while the resident shares milestone
- * progress: the confirmer is the director and the confirmation is dated now. A confirmed milestone stays as it was.
+ * progress: the confirmer is the director and the confirmation is dated now, and the resident gets a notice (T-365).
+ * A confirmed milestone stays as it was.
  */
 function confirmMilestone(db: Database, authority: RequestActor, raw: unknown) {
 	return write<{ outcome: "changed" | "noop" }, C.ProgramRefusal>(db, authority, false, async (w) => {
@@ -802,7 +804,9 @@ c AS (UPDATE enrollment_milestone c SET confirmer_id=${w.actor}::uuid,confirmed_
  WHERE c.id=r.id AND c.enrollment_id=x.id AND c.organization_id=${org}::uuid AND c.confirmed_at IS NULL
   AND coalesce((SELECT share_milestones FROM lk),false) RETURNING c.id),
 a AS (${w.audit({ action: "development.milestone_confirmed", kind: "accept", subjectType: "development_enrollment", subject: sql`x.id`, metadata: { milestoneId: input.milestoneId, source: "resident" } })}
- FROM x,c RETURNING id)
+ FROM x,c RETURNING id),
+-- The linked resident hears of it (T-365): one notice job for this confirmation and link.
+j AS (${queueResidencyJob(org, sql`x,m,c,lk`)})
 SELECT EXISTS(SELECT FROM x) AS found,EXISTS(SELECT FROM m) AS milestone,
  coalesce((SELECT share_milestones FROM lk),false) AS shared,EXISTS(SELECT FROM c) AS confirmed,
  EXISTS(SELECT FROM r WHERE r.confirmed_at IS NOT NULL) AS already`,
@@ -817,7 +821,10 @@ SELECT EXISTS(SELECT FROM x) AS found,EXISTS(SELECT FROM m) AS milestone,
 	});
 }
 
-/** Dated feedback from the current director on a hands-on assignment of an active enrollment (REQ-MUL-012). */
+/**
+ * Dated feedback from the current director on a hands-on assignment of an active enrollment (REQ-MUL-012). A linked
+ * resident gets a notice that names the milestone (T-365).
+ */
 function addFeedback(db: Database, authority: RequestActor, raw: unknown) {
 	return write<{ feedbackId: string }, C.ProgramRefusal>(db, authority, false, async (w) => {
 		const input = parse(C.addFeedbackRequest, raw);
@@ -826,11 +833,14 @@ function addFeedback(db: Database, authority: RequestActor, raw: unknown) {
 			w,
 			z.object({ found: z.boolean(), assignment: z.boolean(), added: z.boolean(), existing: z.boolean() }),
 			sql`WITH ${directedEnrollment(w, input.enrollmentId, input.milestoneId)},
+${linkOf(org)},
 f AS (INSERT INTO assignment_feedback (id,organization_id,enrollment_id,version_id,milestone_id,writer_id,written_at,body)
  SELECT ${input.feedbackId}::uuid,${org}::uuid,x.id,x.version_id,m.id,${w.actor}::uuid,clock_timestamp(),${input.body}
  FROM x,m WHERE m.hands_on ON CONFLICT (id) DO NOTHING RETURNING id),
 a AS (${w.audit({ action: "development.feedback_recorded", kind: "create", subjectType: "development_enrollment", subject: sql`x.id`, metadata: { feedbackId: input.feedbackId, milestoneId: input.milestoneId } })}
- FROM x,f RETURNING id)
+ FROM x,f RETURNING id),
+-- A linked resident hears of new feedback, never its words (T-365, D-1414); an unlinked enrollee gets nothing.
+j AS (${queueResidencyJob(org, sql`x,m,f,lk`, input.feedbackId)})
 SELECT EXISTS(SELECT FROM x) AS found,EXISTS(SELECT FROM m WHERE m.hands_on) AS assignment,EXISTS(SELECT FROM f) AS added,
  EXISTS(SELECT FROM assignment_feedback f WHERE f.id=${input.feedbackId}::uuid AND f.organization_id=${org}::uuid
   AND f.writer_id=${w.actor}::uuid AND f.enrollment_id=${input.enrollmentId}::uuid) AS existing`,

@@ -2,6 +2,14 @@
 
 export const MY_RESIDENCY_PATH = "/my-residency";
 export const readingPath = (id: string) => `${MY_RESIDENCY_PATH}/reading/${id}`;
+/** The element id of one milestone's row on My residency. */
+export const milestoneAnchor = (id: string) => `milestone-${id}`;
+/**
+ * My residency at one milestone: a residency notice's link, from the bell and from its email. The fragment brings that
+ * row into view (PageScroll); the `milestone` parameter tells the page to read that milestone's notices.
+ */
+export const milestonePath = (id: string) =>
+	`${MY_RESIDENCY_PATH}?milestone=${encodeURIComponent(id)}#${milestoneAnchor(encodeURIComponent(id))}`;
 
 const day = new Intl.DateTimeFormat("en-US", {
 	weekday: "short",

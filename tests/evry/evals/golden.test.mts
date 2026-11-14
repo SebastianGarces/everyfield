@@ -740,6 +740,7 @@ test("INV-evry-golden SAF-02 SAF-11 SAF-12 SAF-14: the model's tools can read an
 			"organizations.updateProfile",
 			"pipeline.proposeStageMove",
 			"development.saveProgram",
+			"development.draftNextVersion",
 		],
 	);
 });
