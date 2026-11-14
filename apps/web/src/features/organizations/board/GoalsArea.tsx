@@ -476,13 +476,13 @@ function CountsEditor({
 								<div className="flex flex-wrap items-center gap-2">
 									<Input
 										aria-label={`Count ${index + 1} name`}
-										placeholder="Apprentices activated"
+										placeholder="Name, such as Leaders sent"
 										value={row.label}
 										invalid={Boolean(problem?.label)}
 										onChange={(e) => update(row.key, { label: e.target.value })}
-										boxClassName="flex-[1_1_12rem]"
+										boxClassName="flex-[1_1_10rem]"
 									/>
-									<div className="flex min-w-0 flex-[1_1_11rem] items-center gap-2">
+									<div className="flex min-w-0 flex-[1_1_13rem] items-center gap-2">
 										<Select
 											aria-label={`Count ${index + 1} counts people who reached`}
 											value={row.kind}
