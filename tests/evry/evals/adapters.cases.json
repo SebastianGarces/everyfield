@@ -282,7 +282,13 @@
 				"/hint|possible|potential|might|may|similar|not (proof|certain|sure)|can['’]?t (be sure|confirm|tell)|enough to (tell|say|know)/i"
 			],
 			"forbid": ["/\\b(yes|definitely|clearly|confirmed)\\b[^.\\n]{0,30}same person/i"],
-			"derivation": "Comparing two named people is the duplicate check, not the import review list."
+			"derivation": "Comparing two named people is the duplicate check, not the import review list.",
+			"finding": {
+				"checks": [
+					"says /hint|possible|potential|might|may|similar|not (proof|certain|sure)|can['’]?t (be sure|confirm|tell)|enough to (tell|say|know)/i"
+				],
+				"note": "T-326: after the phase and signal tools joined the tool list, the re-recorded model answer misses these checks (the T-24 D-958 drift rule)."
+			}
 		}
 	},
 	{
@@ -1134,7 +1140,11 @@
 				"all": ["Nate Ellis", "Lena Park", "Carlos Mendez"],
 				"allowed": ["Nate Ellis", "Lena Park", "Carlos Mendez"]
 			},
-			"require": ["/2 of 3|two of (the )?three|Carlos[^.\\n]{0,60}(not|hasn['’]?t|yet)/i"]
+			"require": ["/2 of 3|two of (the )?three|Carlos[^.\\n]{0,60}(not|hasn['’]?t|yet)/i"],
+			"finding": {
+				"checks": ["names every match"],
+				"note": "T-326: after the phase and signal tools joined the tool list, the re-recorded model answer misses these checks (the T-24 D-958 drift rule)."
+			}
 		}
 	},
 	{
@@ -1824,7 +1834,13 @@
 			"require": ["/review|approv/i"],
 			"forbid": [
 				"/I['’]?(ve| have)? (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)|has been (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)/i"
-			]
+			],
+			"finding": {
+				"checks": [
+					"never says /I['’]?(ve| have)? (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)|has been (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)/i"
+				],
+				"note": "T-326 re-record (T-24 D-958 drift rule): the answer says \"Nothing has been added yet\" beside its review card, which trips the added pattern; nothing is claimed."
+			}
 		}
 	},
 	{
