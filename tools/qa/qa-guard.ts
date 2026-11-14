@@ -32,6 +32,7 @@ export const QA_LOGINS = {
 	member2: "delivered+qa-member-2@resend.dev",
 	signup: "delivered+qa-signup@resend.dev",
 	riverside: "delivered+qa-riverside-owner@resend.dev",
+	triage: "delivered+qa-triage@resend.dev",
 } as const;
 
 /** The two app logins the QA seed creates on a QA branch, one for each app database role. */

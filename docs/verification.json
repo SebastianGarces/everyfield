@@ -95,7 +95,7 @@
   ],
   "provenance": "Detailed independent verdicts, exact baseline/source/field/case/approval/removal mappings and final installed-byte evidence remain in the external execution evidence directory. Default builder context consumes current contracts, not review chronology.",
   "metadata_delta": "The fix wave changed the reviewed inputs. Historical results are preserved as provenance and do not close current G-DESIGN.",
-  "local_baseline_integration": "Current fix-wave branch awaits independent re-review and owner merge. docs/build-progress.json stopped updating on 2026-10-22 at PR #235; evf v2's task records are the live state.",
+  "local_baseline_integration": "Current fix-wave branch awaits independent re-review and owner merge. docs/build-progress.json froze on 2026-10-22 at PR #235. T-290 refreshed WP-017–039, WP-071 and WP-072 on 2026-11-13; other packages stay as of 2026-10-22. evf v2's task records are still the live state.",
   "current_review": {
     "status": "re-review-required",
     "reason": "The 2026-10-14 fix wave changed schema, architecture, catalogs, acceptance cases, package scope, workflow and design handoff inputs. Prior fingerprints are historical provenance; review the corrected current inputs independently.",

@@ -1,6 +1,6 @@
 # Future build plan
 
-The approved target has 99 active single-owner packages. WP-086 is retired into WP-085; WP-016 is retired into WP-017; WP-021 is retired into WP-020; WP-052 is retired into WP-051; WP-060 is retired into WP-059; IDs are never reused. docs/build-progress.json stopped updating on 2026-10-22 at PR #235; evf v2's task records are the live state.
+The approved target has 99 active single-owner packages. WP-086 is retired into WP-085; WP-016 is retired into WP-017; WP-021 is retired into WP-020; WP-052 is retired into WP-051; WP-060 is retired into WP-059; IDs are never reused. docs/build-progress.json froze on 2026-10-22 at PR #235. T-290 refreshed WP-017–039, WP-071 and WP-072 on 2026-11-13; other packages stay as of 2026-10-22. evf v2's task records are still the live state.
 
 Start with a [short package brief](context.md). Read detailed requirements and cases on demand. The [DAG](dag.json) owns scope and dependencies; builders choose filenames and internal structures within the owned directories.
 
@@ -85,7 +85,7 @@ The DAG estimates effort from owned clauses, operations, cases and referenced ta
 | WP-043 | Assessment orchestration/retry/publication | 11 | 5 | 112 | 0 | 2.5 |
 | WP-044 | Plant Intelligence/oversight assessment UI | 41 | 25 | 167 | 0 | 3.5 |
 | WP-048 | Dashboard/navigation/settings integration | 3 | 6 | 5 | 2 | 1.5 |
-| WP-049 | Feedback and later public marketing | 19 | 10 | 12 | 0 | 2 |
+| WP-049 | Feedback and later public marketing | 19 | 10 | 12 | 2 | 2 |
 | WP-050 | Environment bootstrap/ops/observability | 37 | 35 | 69 | 9 | 3.5 |
 | WP-051 | Evry conversations, reads and runs | 21 | 17 | 57 | 3 | 2.5 |
 | WP-053 | Evry approval and execution | 27 | 9 | 37 | 2 | 2.5 |

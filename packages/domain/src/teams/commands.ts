@@ -714,6 +714,53 @@ export const teamsWriter = {
 			);
 		});
 	},
+	/**
+	 * Ends one role a person holds now, as of the church's date: they keep every other role, in this ministry and the
+	 * rest. A leader derived from this role leaves with it; an explicit appointment stays. Their People stage, training
+	 * and seat are untouched. The expected revision is the role's.
+	 */
+	async removeRole(tx: Tx, ctx: TeamsContext, raw: unknown) {
+		return reply(tx, async () => {
+			const input = parse(c.removeRoleRequest, raw);
+			return command(
+				tx,
+				ctx,
+				"teams.removeRole",
+				input,
+				async (w, audit) => {
+					const before = await lockRole(tx, w, input.input.roleId, input.input.personId);
+					expectRevision(before.revision, input.expectedRevision);
+					if (before.occupantPersonId !== input.input.personId)
+						return membershipNoop(audit, input.input.personId, before.stage ?? "prospect", before.teamId);
+					audit.writes.push(sql`UPDATE team_tenure SET ended_on = ${churchDate(w.plant.id)}, revision = revision + 1
+						WHERE role_id = ${before.id}::uuid AND person_id = ${input.input.personId}::uuid AND ended_on IS NULL
+							AND plant_id = ${w.plant.id}::uuid`);
+					audit.writes.push(sql`UPDATE team SET leader_person_id = NULL, leader_source = NULL, leader_role_id = NULL,
+						revision = revision + 1
+						WHERE id = ${before.teamId}::uuid AND leader_person_id = ${input.input.personId}::uuid
+							AND leader_source = 'role_derived' AND leader_role_id = ${before.id}::uuid`);
+					return {
+						value: c.membershipResult.parse({
+							receiptId: audit.id,
+							outcome: "changed",
+							tenureId: null,
+							roleId: before.id,
+							personId: input.input.personId,
+							stage: before.stage ?? "prospect",
+							warning: null,
+							teamCount: Math.max(before.teamCount - 1, 0),
+						}),
+						subject: before.id,
+						subjectType: "team_role",
+						kind: "remove",
+						before: { occupantPersonId: input.input.personId },
+						after: { occupantPersonId: null },
+					};
+				},
+				roleTeam(input.input.roleId),
+			);
+		});
+	},
 	async reactivateMembership(tx: Tx, ctx: TeamsContext, raw: unknown) {
 		return reply(tx, async () => {
 			const input = parse(c.reactivateMembershipRequest, raw);
