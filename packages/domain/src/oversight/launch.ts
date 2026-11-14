@@ -35,7 +35,6 @@ export const preparationJson = (p: SQL, teams: SQL) => sql`(SELECT json_build_ob
 		JOIN person pe ON pe.id=a.person_id AND pe.plant_id=a.plant_id AND pe.state='live'
 		WHERE a.plant_id=pl.id AND a.state='active') END)
 	FROM plant pl LEFT JOIN launch l ON l.plant_id=pl.id WHERE pl.id=${p})`;
-export const parsePreparation = (raw: unknown) => C.preparation.parse(raw);
 
 /**
  * Plant `p`'s Launch Sunday for the plant view, as one JSON value: status and dates, the latest date change, the
@@ -85,6 +84,6 @@ export function plantLaunchOf(raw: unknown, preparation: unknown): C.PlantLaunch
 		plannedDate: r.status === "postponed" ? null : r.targetDate,
 		milestones: { completed: r.completed, total: r.milestones },
 		outcome: r.actualDate ? { actualDate: r.actualDate, attendance: r.attendance, decisions: r.decisions } : null,
-		preparation: parsePreparation(preparation),
+		preparation: C.preparation.parse(preparation),
 	});
 }

@@ -18,7 +18,7 @@ import type { GeographyReference } from "./profile.ts";
 
 type Area = (typeof omb.areas)[number];
 const GLOBAL = "00000000-0000-0000-0000-000000000000";
-export const RELEASE_KEY = "geography/omb-23-01";
+const RELEASE_KEY = "geography/omb-23-01";
 const DATASET_KEY = "omb-23-01";
 const BY_CODE = new Map<string, Area>(omb.areas.map((a) => [a.code, a]));
 
@@ -114,7 +114,7 @@ export function countryKey(country: string | null): string | null {
  * The areas whose official principal cities include this place. With a state, only that state's place; without one,
  * every state's place of that name, so a name several states share makes the planter choose.
  */
-export function matchAreas(locality: {
+function matchAreas(locality: {
 	city: string | null;
 	stateProvince: string | null;
 	country: string | null;
@@ -129,7 +129,7 @@ export function matchAreas(locality: {
 }
 
 /** The validated dataset version of the OMB release, or null before it is installed. */
-export const datasetVersion = sql`(SELECT v.id FROM reference_version v JOIN reference_item i ON i.id=v.item_id
+const datasetVersion = sql`(SELECT v.id FROM reference_version v JOIN reference_item i ON i.id=v.item_id
 	JOIN reference_release r ON r.id=v.release_id WHERE i.kind='geography_dataset' AND i.canonical_key=${DATASET_KEY}
 	AND i.tenant_id=${GLOBAL}::uuid AND r.state='validated' AND r.validated_at IS NOT NULL LIMIT 1)`;
 

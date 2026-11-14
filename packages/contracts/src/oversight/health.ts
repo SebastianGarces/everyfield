@@ -21,7 +21,7 @@ export type RegionArea = z.infer<typeof regionArea>;
 export const regionLabel = (a: RegionArea) => `${a.title} (${a.type} area)`;
 
 /** The window of the near-launch rule (NIR-03): 0 to 30 plant-local calendar days before Launch Sunday. */
-export const NEAR_LAUNCH_DAYS = 30;
+const NEAR_LAUNCH_DAYS = 30;
 
 /**
  * A plant's launch preparation counts. `daysToLaunch` is plant-local days to an uncompleted, dated Launch Sunday (null

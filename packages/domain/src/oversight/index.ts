@@ -8,7 +8,7 @@ import { createLaunchReader } from "../launch/reads.ts";
 import { linkActive, type Reader } from "../organizations/core.ts";
 import { areaOf, latestGeography } from "../organizations/geography.ts";
 import { compatible } from "../teams/training/reads.ts";
-import { launchJson, parsePreparation, plantLaunchOf, preparationJson } from "./launch.ts";
+import { launchJson, plantLaunchOf, preparationJson } from "./launch.ts";
 export { requestIntelligenceRefresh, readIntelligence, submitIntelligenceFeedback } from "./intelligence.ts";
 
 // Organization oversight reads (REQ-IDN-023, REQ-IDN-024): oversight.listPlants, oversight.getPlant,
@@ -78,7 +78,7 @@ function plantRow(raw: unknown): C.PlantDirectoryRow {
 		provenance: r.through.length ? { kind: "through", sendingChurches: [...r.through].sort() } : { kind: "direct" },
 		leadPlanter: r.lead_planter,
 		region: areaOf(r.region_key),
-		health: C.healthOf(r.shared_findings, r.preparation ? parsePreparation(r.preparation) : null),
+		health: C.healthOf(r.shared_findings, r.preparation ? C.preparation.parse(r.preparation) : null),
 	});
 }
 const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name);
