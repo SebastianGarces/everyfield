@@ -51,7 +51,11 @@ export function dashboardCases(t, who) {
 						transition: { from: "prospect", to: "attendee" },
 					}),
 				expected: {
-					check: (v) => assert.equal(Object.values(v.currentStageCounts).reduce((a, b) => a + b, 0), 0),
+					check: (v) =>
+						assert.equal(
+							Object.values(v.currentStageCounts).reduce((a, b) => a + b, 0),
+							0,
+						),
 					control: (v) => assert.ok(Object.values(v.currentStageCounts).reduce((a, b) => a + b, 0) > 0),
 				},
 			},

@@ -180,9 +180,7 @@ export const dashboardReader = {
 				role: authority.actor.context.kind === "seat" ? authority.actor.context.role : "member",
 				actions: admin ? c.QUICK_ACTIONS : [],
 				setup,
-				prompts: admin
-					? c.PROMPTS.filter((k) => setup.gaps.includes(PROMPT_STEP[k]) && !dismissed.has(k))
-					: [],
+				prompts: admin ? c.PROMPTS.filter((k) => setup.gaps.includes(PROMPT_STEP[k]) && !dismissed.has(k)) : [],
 			});
 		});
 	},
@@ -265,7 +263,8 @@ export const dashboardReader = {
 							{
 								id: e.id,
 								at: e.at,
-								actor: e.actor_id && e.actor_name !== null ? { accountId: e.actor_id, displayName: e.actor_name } : null,
+								actor:
+									e.actor_id && e.actor_name !== null ? { accountId: e.actor_id, displayName: e.actor_name } : null,
 								change,
 							},
 						]
@@ -322,7 +321,9 @@ function changeOf(e: z.infer<typeof eventRow>): c.Change | null {
 			return c.change.parse({ kind: "task_completed", taskId: e.subject_id, title: e.task_title ?? "" });
 		case "launch.changed": {
 			const event = c.launchDateEvent.safeParse(e.event);
-			return event.success ? c.change.parse({ kind: "launch_date", event: event.data, date: date(after.targetDate) }) : null;
+			return event.success
+				? c.change.parse({ kind: "launch_date", event: event.data, date: date(after.targetDate) })
+				: null;
 		}
 		case "launch.outcome_recorded":
 			return c.change.parse({ kind: "launch_recorded", date: date(after.actualDate) });

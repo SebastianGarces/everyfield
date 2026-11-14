@@ -19,7 +19,8 @@ export const overviewMetadata: Metadata = { title: "Overview", robots: { index: 
 
 export async function OverviewPage() {
 	const viewer = await getViewer();
-	if (!viewer || viewer.status === "unauthenticated") redirect(`/signin?returnTo=${encodeURIComponent(DASHBOARD_HOME)}`);
+	if (!viewer || viewer.status === "unauthenticated")
+		redirect(`/signin?returnTo=${encodeURIComponent(DASHBOARD_HOME)}`);
 	const db = requestDatabase();
 	const plant =
 		viewer.status === "active" && db ? await dashboardReader.resolveHome(db, viewer.authority ?? null) : "none";
@@ -31,8 +32,8 @@ export async function OverviewPage() {
 	if (frame.status === "denied")
 		return (
 			<StatePanel tone="lock" title="You do not have access to this church">
-				Your seat in this church ended, or it changed while you were signed in. Reload the page, or ask one of its Owners
-				to invite you again.
+				Your seat in this church ended, or it changed while you were signed in. Reload the page, or ask one of its
+				Owners to invite you again.
 			</StatePanel>
 		);
 	const ready = frame.status === "ok" ? frame.value : null;

@@ -9,7 +9,9 @@ import { dashboardWriter } from "@everyfield/domain/dashboard";
 // rechecks the live seat inside its statement. Dismissing twice writes once.
 
 /** Hides an optional prompt for the signed-in person in this church, in every browser. */
-export async function dismissPrompt(prompt: unknown): Promise<{ status: "ok"; prompt: PromptKey } | { status: "failed" }> {
+export async function dismissPrompt(
+	prompt: unknown,
+): Promise<{ status: "ok"; prompt: PromptKey } | { status: "failed" }> {
 	const authority = (await getViewer())?.authority;
 	const db = requestDatabase();
 	if (!authority || !db) return { status: "failed" };

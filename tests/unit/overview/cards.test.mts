@@ -42,7 +42,9 @@ test("AC:CASE-ADM-005 a card whose read failed says so, with no zero or empty fe
 	assert.match(zeros, /Recruited 0 .* People 0 .* My overdue tasks 0 .* Vision Meetings 0/);
 	assert.doesNotMatch(zeros, /met|target|goal/i);
 	assert.match(
-		text(createElement(ActivityCard, { loaded: { status: "ok", value: { timeZone: "UTC", entries: [], more: false } } })),
+		text(
+			createElement(ActivityCard, { loaded: { status: "ok", value: { timeZone: "UTC", entries: [], more: false } } }),
+		),
 		/Nothing has changed yet/,
 	);
 });

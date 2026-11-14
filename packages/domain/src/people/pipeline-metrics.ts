@@ -49,7 +49,9 @@ export async function readPipelineMetrics(
 	db: Pick<Database, "execute">,
 	authority: RequestActor,
 	raw: unknown,
-): Promise<{ status: "ok"; value: PipelineMetrics } | { status: "refused"; error: { code: "access_denied" | "invalid_input" } }> {
+): Promise<
+	{ status: "ok"; value: PipelineMetrics } | { status: "refused"; error: { code: "access_denied" | "invalid_input" } }
+> {
 	const viewer = plantViewer(authority);
 	if (!viewer) return { status: "refused", error: { code: "access_denied" } };
 	const input = pipelineMetricsRequest.safeParse(raw);
@@ -75,7 +77,8 @@ SELECT g.ok, pl.timezone,
 		AND a.subject_type='person' AND a.occurred_at<=${q.asOf}::timestamptz) AS events
  FROM g LEFT JOIN pl ON true`);
 	const r = row.parse(rows[0]);
-	if (!r.ok || !r.timezone || !r.opens_at || !r.closes_at) return { status: "refused", error: { code: "access_denied" } };
+	if (!r.ok || !r.timezone || !r.opens_at || !r.closes_at)
+		return { status: "refused", error: { code: "access_denied" } };
 	return { status: "ok", value: pipelineMetrics.parse(measure(r, q)) };
 }
 

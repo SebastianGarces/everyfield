@@ -29,28 +29,29 @@ export const METRICS = [
 ] as const;
 
 /** The first-week steps as the checklist says them. `action` is what an Owner or Admin can do about an open step. */
-export const STEP_TEXT: Record<SetupStep, { title: string; detail: string; action: { label: string; href: string } }> = {
-	add_people: {
-		title: "Add the people you already know",
-		detail: "Import a spreadsheet or add them one by one.",
-		action: { label: "Import", href: "/people/import" },
-	},
-	plan_vision_meeting: {
-		title: "Plan your first Vision Meeting",
-		detail: "Pick a date, a place and who to invite.",
-		action: { label: "Plan", href: "/meetings" },
-	},
-	invite_team: {
-		title: "Invite your spouse or co-leader",
-		detail: "Seats are free for your planting team.",
-		action: { label: "Invite", href: "/settings/seats" },
-	},
-	set_launch_date: {
-		title: "Set Launch Sunday",
-		detail: "It starts the countdown and the readiness milestones.",
-		action: { label: "Set date", href: "/launch" },
-	},
-};
+export const STEP_TEXT: Record<SetupStep, { title: string; detail: string; action: { label: string; href: string } }> =
+	{
+		add_people: {
+			title: "Add the people you already know",
+			detail: "Import a spreadsheet or add them one by one.",
+			action: { label: "Import", href: "/people/import" },
+		},
+		plan_vision_meeting: {
+			title: "Plan your first Vision Meeting",
+			detail: "Pick a date, a place and who to invite.",
+			action: { label: "Plan", href: "/meetings" },
+		},
+		invite_team: {
+			title: "Invite your spouse or co-leader",
+			detail: "Seats are free for your planting team.",
+			action: { label: "Invite", href: "/settings/seats" },
+		},
+		set_launch_date: {
+			title: "Set Launch Sunday",
+			detail: "It starts the countdown and the readiness milestones.",
+			action: { label: "Set date", href: "/launch" },
+		},
+	};
 /** The optional prompt each step may show outside the first week. */
 export const PROMPT_TEXT: Record<PromptKey, { step: SetupStep; title: string }> = {
 	import_people: { step: "add_people", title: "Import your people" },
@@ -137,7 +138,10 @@ export function entryText(e: ActivityEntry): { title: string; href: string } {
 			return { title, href: "/launch" };
 		}
 		case "launch_recorded":
-			return { title: c.date ? `Launch Sunday recorded as held ${shortDate(c.date)}` : "Launch Sunday recorded", href: "/launch" };
+			return {
+				title: c.date ? `Launch Sunday recorded as held ${shortDate(c.date)}` : "Launch Sunday recorded",
+				href: "/launch",
+			};
 		case "phase_changed":
 			return { title: `Phase saved as ${phaseText(c.phase)}`, href: "/intelligence" };
 	}

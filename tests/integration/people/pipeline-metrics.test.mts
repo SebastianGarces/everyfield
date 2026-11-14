@@ -98,13 +98,23 @@ test("AC:GAP-PPL-023 distinct People per adjacent forward step in an October win
 	// Another church's seat reads its own church only, and an organization seat reads nothing.
 	const foreign = await database.actor(await database.plant({ timezone: "America/New_York" }), "member");
 	const theirs = ok(
-		await readPipelineMetrics(db, await authority(foreign), { asOf: AS_OF, from: "2026-10-01", through: "2026-10-13", transition }),
+		await readPipelineMetrics(db, await authority(foreign), {
+			asOf: AS_OF,
+			from: "2026-10-01",
+			through: "2026-10-13",
+			transition,
+		}),
 	);
 	assert.equal(theirs.distinctTransitionPeople, 0);
 	assert.equal(theirs.sourceRevision, 0);
 	const org = await database.actor(await database.organization("sending_network"), "owner");
 	refused(
-		await readPipelineMetrics(db, await authority(org), { asOf: AS_OF, from: "2026-10-01", through: "2026-10-13", transition }),
+		await readPipelineMetrics(db, await authority(org), {
+			asOf: AS_OF,
+			from: "2026-10-01",
+			through: "2026-10-13",
+			transition,
+		}),
 		"access_denied",
 	);
 });
@@ -129,7 +139,12 @@ test("AC:TARGET-PPL-023 a merged record's moves count for its survivor once, and
 		references_digest) VALUES(${randomUUID()},${w.id},${p3},${p1},'{}'::jsonb,'{}'::jsonb,1,1,'x')`);
 
 	const september = ok(
-		await readPipelineMetrics(db, await authority(a), { asOf: AS_OF, from: "2026-09-01", through: "2026-09-30", transition }),
+		await readPipelineMetrics(db, await authority(a), {
+			asOf: AS_OF,
+			from: "2026-09-01",
+			through: "2026-09-30",
+			transition,
+		}),
 	);
 	assert.equal(september.distinctTransitionPeople, 2);
 	assert.equal(september.denominator, null);

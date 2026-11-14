@@ -61,10 +61,12 @@ export function GetStarted({ frame }: { frame: OverviewFrame }) {
 		toast({ message: "That prompt could not be dismissed. Try again in a moment.", tone: "error" });
 	}
 
-	const steps = frame.firstWeek ? SETUP_STEPS.filter((s) => !dismissed(s)) : SETUP_STEPS.filter((s) => {
-		const p = PROMPT_OF[s];
-		return p !== undefined && prompts.includes(p);
-	});
+	const steps = frame.firstWeek
+		? SETUP_STEPS.filter((s) => !dismissed(s))
+		: SETUP_STEPS.filter((s) => {
+				const p = PROMPT_OF[s];
+				return p !== undefined && prompts.includes(p);
+			});
 	if (!steps.length) return null;
 	const done = SETUP_STEPS.filter((s) => !open(s)).length;
 	return (

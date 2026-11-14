@@ -24,15 +24,7 @@ import { formatCount, List, ListRow, StatusBadge, type Tone } from "@everyfield/
 import { cn, Icon, type IconSvgElement } from "@everyfield/ui/foundations";
 import Link from "next/link";
 import { milestonesDone } from "../launch/model.ts";
-import {
-	daysText,
-	entryByline,
-	entryText,
-	launchShown,
-	longDate,
-	METRICS,
-	type Loaded,
-} from "./model.ts";
+import { daysText, entryByline, entryText, launchShown, longDate, METRICS, type Loaded } from "./model.ts";
 
 // Overview's cards. Each takes its own read and shows its own loading and failure: a card whose read failed says so
 // and never shows a 0 or an empty list in its place (ADM-005, screens.md states).

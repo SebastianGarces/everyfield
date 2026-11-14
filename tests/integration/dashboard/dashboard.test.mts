@@ -30,7 +30,13 @@ const P = tenant.id;
 
 async function person(
 	plant: string,
-	columns: { stage?: string; state?: string; linked?: string | null; name?: string; created?: ReturnType<typeof sql> } = {},
+	columns: {
+		stage?: string;
+		state?: string;
+		linked?: string | null;
+		name?: string;
+		created?: ReturnType<typeof sql>;
+	} = {},
 ) {
 	const id = randomUUID();
 	await run(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,source,stage,adult_classification,commitment_state,
@@ -189,7 +195,14 @@ test("AC:CASE-ADM-005 the activity feed: 20 newest, who and when, corrections as
 			subject: await person(P, { name: `Old ${i}` }),
 			ago: 600 + i,
 		});
-	await audit({ actor: owner, action: "people.created", kind: "create", subjectType: "person", subject: maria, ago: 9 });
+	await audit({
+		actor: owner,
+		action: "people.created",
+		kind: "create",
+		subjectType: "person",
+		subject: maria,
+		ago: 9,
+	});
 	await audit({
 		actor: owner,
 		action: "meetings.finalized",
@@ -199,8 +212,22 @@ test("AC:CASE-ADM-005 the activity feed: 20 newest, who and when, corrections as
 		ago: 8,
 		metadata: { event: "attendance_finalized" },
 	});
-	await audit({ actor: owner, action: "tasks.completed", kind: "complete", subjectType: "task", subject: done, ago: 7 });
-	await audit({ actor: owner, action: "tasks.completed", kind: "complete", subjectType: "task", subject: removed, ago: 6 });
+	await audit({
+		actor: owner,
+		action: "tasks.completed",
+		kind: "complete",
+		subjectType: "task",
+		subject: done,
+		ago: 7,
+	});
+	await audit({
+		actor: owner,
+		action: "tasks.completed",
+		kind: "complete",
+		subjectType: "task",
+		subject: removed,
+		ago: 6,
+	});
 	await audit({
 		actor: owner,
 		action: "launch.changed",
@@ -251,7 +278,10 @@ test("AC:CASE-ADM-005 the activity feed: 20 newest, who and when, corrections as
 	);
 	assert.deepEqual(feed.entries[0].actor, { accountId: actors.admin.id, displayName: "Synthetic" });
 	const times = feed.entries.map((e) => Date.parse(e.at));
-	assert.deepEqual(times, [...times].sort((a, b) => b - a));
+	assert.deepEqual(
+		times,
+		[...times].sort((a, b) => b - a),
+	);
 
 	// A Member sees the same feed without the phase change, which only Owners and Admins can open.
 	const members = ok(await dashboardReader.readActivity(db, await authority(actors.member)));
