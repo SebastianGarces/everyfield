@@ -29,7 +29,7 @@ import {
 	useToast,
 } from "@everyfield/ui/controls";
 import { useState } from "react";
-import { chooseGatheringPath, readGatheringOffers, saveGathering } from "./actions.ts";
+import type { chooseGatheringPath, readGatheringOffers, saveGathering } from "./actions.ts";
 import {
 	GATHERING_MESSAGE,
 	longDate,
@@ -50,6 +50,12 @@ type Milestone = Extract<Plan["path"], { kind: "milestone" }>;
 type Mode = "record" | "correct" | "clear";
 type Draft = { mode: Mode; date: string; note: string; reason: string; error: string | null };
 export type Offers = Outcome<GatheringOffer[]> | null;
+/** The server actions these cards call; the Launch plan passes the real ones. */
+export type GatheringActions = {
+	choose: typeof chooseGatheringPath;
+	save: typeof saveGathering;
+	offers: typeof readGatheringOffers;
+};
 
 /** "Oct 11, 2026": a church-local date. */
 const dayText = (date: string) =>
@@ -58,19 +64,25 @@ const dayText = (date: string) =>
 	);
 
 /** Switch the church's path, answering with the plan as saved; a refusal says why and changes nothing. */
-function useSwitch(plan: Plan, keys: Keys, onPlan: (p: Plan) => void, onOffers: (o: Offers) => void) {
+function useSwitch(
+	act: GatheringActions,
+	plan: Plan,
+	keys: Keys,
+	onPlan: (p: Plan) => void,
+	onOffers: (o: Offers) => void,
+) {
 	const toast = useToast();
 	const [busy, setBusy] = useState<string | null>(null);
 	async function choose(organizationId: string | null) {
 		const input = organizationId ? { path: "milestone", organizationId } : { path: "launch_sunday" };
 		const intent = ["path", plan.revision, organizationId] as const;
 		setBusy(organizationId ?? "launch_sunday");
-		const r = await sent(() => chooseGatheringPath(keys.keyFor(intent), plan.revision, input));
+		const r = await sent(() => act.choose(keys.keyFor(intent), plan.revision, input));
 		setBusy(null);
 		if (r.status !== "lost") keys.settle(intent);
 		if (r.status === "ok") return onPlan(r.value.plan);
 		toast({ message: refusalMessage(r), tone: "error" });
-		if (r.status === "refused" && r.error.code === "gathering_unavailable") onOffers(await sent(readGatheringOffers));
+		if (r.status === "refused" && r.error.code === "gathering_unavailable") onOffers(await sent(act.offers));
 	}
 	return { busy, choose };
 }
@@ -80,6 +92,7 @@ function useSwitch(plan: Plan, keys: Keys, onPlan: (p: Plan) => void, onOffers: 
  * whether it was reached. A milestone no longer offered says so, and the church can go back to Launch Sunday.
  */
 export function GatheringCard({
+	act,
 	plan,
 	path,
 	admin,
@@ -87,6 +100,7 @@ export function GatheringCard({
 	onPlan,
 	onOffers,
 }: {
+	act: GatheringActions;
 	plan: Plan;
 	path: Milestone;
 	admin: boolean;
@@ -96,13 +110,19 @@ export function GatheringCard({
 }) {
 	const [draft, setDraft] = useState<Draft | null>(null);
 	const [saving, setSaving] = useState(false);
-	const { busy, choose } = useSwitch(plan, keys, onPlan, onOffers);
+	const { busy, choose } = useSwitch(act, plan, keys, onPlan, onOffers);
 	const r = path.reached;
 	const by = path.organizationName;
 	const gone = !path.offered;
 	const name = r?.name ?? path.offered?.name ?? null;
 	const open = (mode: Mode) =>
-		setDraft({ mode, date: mode === "record" ? plan.today : (r?.date ?? ""), note: r?.note ?? "", reason: "", error: null });
+		setDraft({
+			mode,
+			date: mode === "record" ? plan.today : (r?.date ?? ""),
+			note: r?.note ?? "",
+			reason: "",
+			error: null,
+		});
 
 	async function submit(d: Draft) {
 		if (d.mode !== "clear") {
@@ -116,7 +136,7 @@ export function GatheringCard({
 		const intent = ["gathering", d.mode, plan.revision, d.date, d.note, d.reason] as const;
 		setSaving(true);
 		const res = await sent(() =>
-			saveGathering(keys.keyFor(intent), plan.revision, d.mode, { date: d.date, note: d.note, reason: d.reason }),
+			act.save(keys.keyFor(intent), plan.revision, d.mode, { date: d.date, note: d.note, reason: d.reason }),
 		);
 		setSaving(false);
 		if (res.status !== "lost") keys.settle(intent);
@@ -127,7 +147,11 @@ export function GatheringCard({
 		setDraft({ ...d, error: refusalMessage(res) });
 	}
 
-	const title = r ? `${r.name} — reached ${dayText(r.date)}` : gone ? "Milestone no longer offered" : `${name} not reached yet`;
+	const title = r
+		? `${r.name} — reached ${dayText(r.date)}`
+		: gone
+			? "Milestone no longer offered"
+			: `${name} not reached yet`;
 	return (
 		<InsightCard tone="field" aria-labelledby="gathering-milestone">
 			<InsightTop>
@@ -144,7 +168,9 @@ export function GatheringCard({
 			</InsightText>
 			{r?.note ? <InsightText className="mt-2 whitespace-pre-line">{r.note}</InsightText> : null}
 			{r && gone ? (
-				<InsightText className="mt-2">No longer offered by {by ?? "the organization that chose it"}. The record stays.</InsightText>
+				<InsightText className="mt-2">
+					No longer offered by {by ?? "the organization that chose it"}. The record stays.
+				</InsightText>
 			) : null}
 			{admin ? (
 				<InsightFooter>
@@ -185,19 +211,21 @@ export function GatheringCard({
  * church's current path stays shown above it.
  */
 export function GatheringChoice({
+	act,
 	plan,
 	offers,
 	keys,
 	onPlan,
 	onOffers,
 }: {
+	act: GatheringActions;
 	plan: Plan;
 	offers: Offers;
 	keys: Keys;
 	onPlan: (p: Plan) => void;
 	onOffers: (o: Offers) => void;
 }) {
-	const { busy, choose } = useSwitch(plan, keys, onPlan, onOffers);
+	const { busy, choose } = useSwitch(act, plan, keys, onPlan, onOffers);
 	if (!offers) return null;
 	if (offers.status !== "ok")
 		return (
@@ -235,9 +263,7 @@ export function GatheringChoice({
 					>
 						<div className="min-w-0 flex-1">
 							<p className="font-medium text-ink">{offerLabel(o.name, o.organizationName)}</p>
-							{o.description ? (
-								<p className="mt-0.5 text-sm whitespace-pre-line text-text-2">{o.description}</p>
-							) : null}
+							{o.description ? <p className="mt-0.5 text-sm whitespace-pre-line text-text-2">{o.description}</p> : null}
 						</div>
 						<Button variant="secondary" size="sm" disabled={busy !== null} onClick={() => choose(o.organizationId)}>
 							{busy === o.organizationId ? "Switching" : "Use this milestone"}

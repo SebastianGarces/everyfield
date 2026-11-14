@@ -22801,27 +22801,32 @@
           "nullable": true
         },
         {
+          "note": "How the church ends its gathering phase (T-296): launch_sunday, or milestone, a milestone an organization it is affiliated with offers. Choosing never changes the date, readiness, tasks or phase.",
           "name": "gathering_path",
           "type": "text",
           "nullable": false,
           "default": "'launch_sunday'"
         },
         {
+          "note": "The organization whose milestone the church uses. Null on Launch Sunday, or once that organization is gone.",
           "name": "gathering_organization_id",
           "type": "uuid",
           "nullable": true
         },
         {
+          "note": "The church-local day the milestone was reached; null until recorded or once cleared.",
           "name": "gathering_reached_on",
           "type": "date",
           "nullable": true
         },
         {
+          "note": "The milestone's name when it was reached, at most 120 characters. A later rename by the organization never changes it.",
           "name": "gathering_reached_name",
           "type": "text",
           "nullable": true
         },
         {
+          "note": "The planter's note on reaching the milestone, at most 2,000 characters.",
           "name": "gathering_note",
           "type": "text",
           "nullable": true
@@ -22865,6 +22870,10 @@
           "on_delete": "restrict"
         },
         {
+          "deletion": {
+            "action": "set_null",
+            "policy": "Removing the organization leaves the church on the milestone path with no offer, which reads as no longer offered; a reached record and its audit history stay."
+          },
           "columns": [
             "gathering_organization_id"
           ],
@@ -29403,17 +29412,20 @@
           "nullable": true
         },
         {
+          "note": "Whether the organization's plants may end the gathering phase with its milestone instead of Launch Sunday (T-296). Turning it off keeps the name and description.",
           "name": "gathering_milestone_offered",
           "type": "boolean",
           "nullable": false,
           "default": false
         },
         {
+          "note": "The milestone's name, at most 120 characters; required while it is offered.",
           "name": "gathering_milestone_name",
           "type": "text",
           "nullable": true
         },
         {
+          "note": "What the milestone means, at most 2,000 characters, shown on its plants' Launch plans.",
           "name": "gathering_milestone_description",
           "type": "text",
           "nullable": true

@@ -54,7 +54,15 @@ import Link from "next/link";
 import { useId, useState } from "react";
 import { changeTaskStatus } from "../tasks/actions.ts";
 import { DoneBox } from "../tasks/parts.tsx";
-import { completeMilestone, postponeLaunch, reopenMilestone, setLaunchDate } from "./actions.ts";
+import {
+	chooseGatheringPath,
+	completeMilestone,
+	postponeLaunch,
+	readGatheringOffers,
+	reopenMilestone,
+	saveGathering,
+	setLaunchDate,
+} from "./actions.ts";
 import { DebriefCard, SummaryCard } from "./Debrief.tsx";
 import { GatheringCard, GatheringChoice, type Offers } from "./Gathering.tsx";
 import { LaunchHistory } from "./History.tsx";
@@ -78,6 +86,7 @@ import {
 type Viewer = { accountId: string; admin: boolean };
 type DateDraft = { mode: "set" | "move" | "postpone"; date: string; reason: string; error: string | null };
 const AREAS: Area[] = ["operations", "launch_team", "promotion"];
+const GATHERING = { choose: chooseGatheringPath, save: saveGathering, offers: readGatheringOffers };
 
 /**
  * The Launch plan (WP-045, prototype #/launch): Launch Sunday and its countdown in church-local days, and the nine
@@ -133,24 +142,25 @@ export function LaunchScreen({
 
 	const open = (mode: DateDraft["mode"]) =>
 		setDraft({ mode, date: mode === "postpone" ? "" : (plan.launch?.targetDate ?? ""), reason: "", error: null });
-	const actions = viewer.admin && !milestone ? (
-		dated ? (
-			<>
-				<Button variant="secondary" onClick={() => open("move")}>
+	const actions =
+		viewer.admin && !milestone ? (
+			dated ? (
+				<>
+					<Button variant="secondary" onClick={() => open("move")}>
+						<Icon icon={Calendar03Icon} size={16} />
+						Move date
+					</Button>
+					<Button variant="ghost" onClick={() => open("postpone")}>
+						Postpone
+					</Button>
+				</>
+			) : shown.kind === "completed" ? null : (
+				<Button variant="primary" onClick={() => open("set")}>
 					<Icon icon={Calendar03Icon} size={16} />
-					Move date
+					Set Launch Sunday
 				</Button>
-				<Button variant="ghost" onClick={() => open("postpone")}>
-					Postpone
-				</Button>
-			</>
-		) : shown.kind === "completed" ? null : (
-			<Button variant="primary" onClick={() => open("set")}>
-				<Icon icon={Calendar03Icon} size={16} />
-				Set Launch Sunday
-			</Button>
-		)
-	) : null;
+			)
+		) : null;
 
 	// What happened on Launch Sunday (WP-046): first once it is recorded, after the milestones until then.
 	const after = milestone ? null : (
@@ -182,6 +192,7 @@ export function LaunchScreen({
 			<div className="grid grid-cols-[minmax(0,1.1fr)_minmax(0,1.9fr)] items-stretch gap-5 max-app-md:grid-cols-1">
 				{milestone ? (
 					<GatheringCard
+						act={GATHERING}
 						plan={plan}
 						path={milestone}
 						admin={viewer.admin}
@@ -194,7 +205,7 @@ export function LaunchScreen({
 				)}
 				<Readiness plan={plan} />
 			</div>
-			<GatheringChoice plan={plan} offers={offers} keys={keys} onPlan={setPlan} onOffers={setOffers} />
+			<GatheringChoice act={GATHERING} plan={plan} offers={offers} keys={keys} onPlan={setPlan} onOffers={setOffers} />
 			{plan.outcome ? after : null}
 			{plan.milestones.length ? (
 				<Milestones

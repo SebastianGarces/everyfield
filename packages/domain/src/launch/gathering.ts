@@ -1,4 +1,10 @@
-import { calendarContext, timeZone, type Clock, type LocalDate, type RequestIdentity } from "@everyfield/contracts/common";
+import {
+	calendarContext,
+	timeZone,
+	type Clock,
+	type LocalDate,
+	type RequestIdentity,
+} from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/launch";
 import type { Database, Transaction } from "@everyfield/db/client";
 import { sql, type SQL } from "@everyfield/db/query";
@@ -7,7 +13,18 @@ import "server-only";
 import { z } from "zod";
 import type { RequestActor } from "../access/session.ts";
 import { auditTransaction } from "../operations/writes.ts";
-import { deny, identityOf, parse, priorKey, priorRow, replay, scopeOf, settle, type Operation, type Scope } from "./core.ts";
+import {
+	deny,
+	identityOf,
+	parse,
+	priorKey,
+	priorRow,
+	replay,
+	scopeOf,
+	settle,
+	type Operation,
+	type Scope,
+} from "./core.ts";
 import { auditCte } from "./outcome.ts";
 import { offersTo, planAfter } from "./reads.ts";
 
@@ -67,9 +84,12 @@ export function gatheringCommands(clock: Clock) {
 		operation: Operation,
 		q: { requestKey: string; expectedRevision: string; input: unknown },
 		organization: string | null,
-		decide: (tx: Transaction, scope: Scope, l: Locked & { today: LocalDate }, identity: RequestIdentity) => Promise<
-			"changed" | "noop"
-		>,
+		decide: (
+			tx: Transaction,
+			scope: Scope,
+			l: Locked & { today: LocalDate },
+			identity: RequestIdentity,
+		) => Promise<"changed" | "noop">,
 	) {
 		const scope = scopeOf(authority);
 		const identity = identityOf(scope, operation, q);
@@ -82,7 +102,12 @@ export function gatheringCommands(clock: Clock) {
 			if (!l.ok || !l.launch || !l.timezone) deny("access_denied");
 			if (l.launch.revision !== q.expectedRevision) deny("conflict");
 			const today = calendarContext(l.timezone, clock).localDate;
-			const outcome = await decide(tx, scope, { launch: l.launch, offer: l.offer, current: l.current, today }, identity);
+			const outcome = await decide(
+				tx,
+				scope,
+				{ launch: l.launch, offer: l.offer, current: l.current, today },
+				identity,
+			);
 			return c.planResult.parse({ outcome, plan: await planAfter(tx, scope, clock) });
 		});
 	}
@@ -144,16 +169,28 @@ export function gatheringCommands(clock: Clock) {
 						milestone: l.current?.name ?? null,
 						organization: l.current?.organizationName ?? null,
 					};
-					const after = l.offer && target
-						? { path: "milestone", organizationId: target, milestone: l.offer.name, organization: l.offer.organizationName }
-						: { path: "launch_sunday", organizationId: null, milestone: null, organization: null };
-					return save(tx, scope, identity, sql`gathering_path=${q.input.path},gathering_organization_id=${target}::uuid`, {
-						action: "launch.changed",
-						kind: "edit",
-						before,
-						after,
-						metadata: { event: "path_changed" },
-					});
+					const after =
+						l.offer && target
+							? {
+									path: "milestone",
+									organizationId: target,
+									milestone: l.offer.name,
+									organization: l.offer.organizationName,
+								}
+							: { path: "launch_sunday", organizationId: null, milestone: null, organization: null };
+					return save(
+						tx,
+						scope,
+						identity,
+						sql`gathering_path=${q.input.path},gathering_organization_id=${target}::uuid`,
+						{
+							action: "launch.changed",
+							kind: "edit",
+							before,
+							after,
+							metadata: { event: "path_changed" },
+						},
+					);
 				});
 			});
 		},

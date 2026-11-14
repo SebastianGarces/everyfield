@@ -306,7 +306,10 @@ function OrganizationView({ values }: { values: Available }) {
 			<SettingRow label="Name">
 				<span className="font-medium text-ink">{p.name}</span>
 			</SettingRow>
-			<SettingRow label="Gathering milestone" description="What this organization's plants may reach instead of Launch Sunday.">
+			<SettingRow
+				label="Gathering milestone"
+				description="What this organization's plants may reach instead of Launch Sunday."
+			>
 				{g.offered && g.name ? (
 					<div className="flex flex-col gap-1">
 						<span className="font-medium text-ink">{g.name}</span>

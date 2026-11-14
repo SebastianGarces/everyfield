@@ -97,7 +97,10 @@ const affiliate = (w, o) =>
 async function church({ planned = null, both = false } = {}) {
 	const w = await f.workspace("plant");
 	await f.admin.execute(sql`UPDATE plant SET name='Harvest Point', timezone='America/Chicago' WHERE id=${w.id}`);
-	const hill = await organization("sending_network", "Hill Country Network", { name: CONSTITUTED, description: MEANING });
+	const hill = await organization("sending_network", "Hill Country Network", {
+		name: CONSTITUTED,
+		description: MEANING,
+	});
 	const grace = await organization("sending_church", "Grace Austin", { name: "First gathering multiplied" });
 	await affiliate(w, hill);
 	if (both) await affiliate(w, grace);
@@ -230,7 +233,11 @@ test("the Owner records the milestone reached on Oct 11 with a note; a later or 
 	assert.equal((await launchRow(c.w)).reached_on, null);
 
 	const saved = ok(await record(c.owner, { date: "2026-10-11", note: "  Voted in by all 31 members.  " }));
-	assert.deepEqual(saved.plan.path.reached, { name: CONSTITUTED, date: "2026-10-11", note: "Voted in by all 31 members." });
+	assert.deepEqual(saved.plan.path.reached, {
+		name: CONSTITUTED,
+		date: "2026-10-11",
+		note: "Voted in by all 31 members.",
+	});
 	// Today itself, in the church's time zone, is allowed: Oct 12 in Chicago while it is already Oct 12 in UTC too.
 	const entries = (await journal(c.owner)).length;
 	assert.equal(ok(await record(c.owner, { date: "2026-10-11", note: "Voted in by all 31 members." })).outcome, "noop");
@@ -273,7 +280,15 @@ test("a correction needs a reason and keeps both dates; a reached milestone is c
 				noteChanged: false,
 				reason: "The vote was the Sunday before",
 			},
-			{ kind: "gathering", event: "recorded", name: CONSTITUTED, from: null, to: "2026-10-11", noteChanged: false, reason: null },
+			{
+				kind: "gathering",
+				event: "recorded",
+				name: CONSTITUTED,
+				from: null,
+				to: "2026-10-11",
+				noteChanged: false,
+				reason: null,
+			},
 		],
 	);
 	assert.deepEqual(history[0].actor, { accountId: c.owner.id, displayName: "Olivia Owner" });
@@ -313,7 +328,13 @@ test("recording, correcting and clearing move no phase and make nothing else; th
 	const c = await church({ planned: "2026-10-30" });
 	const journey = async () => ok(await phaseReader.readHistory(f.db, c.owner.actor));
 	let h = await journey();
-	ok(await phases.declare(f.db, c.owner.actor, { requestKey: key(), expectedRevision: h.state.revision, input: { phase: 3 } }));
+	ok(
+		await phases.declare(f.db, c.owner.actor, {
+			requestKey: key(),
+			expectedRevision: h.state.revision,
+			input: { phase: 3 },
+		}),
+	);
 	h = await journey();
 	ok(
 		await phases.transition(f.db, c.owner.actor, {
@@ -354,7 +375,9 @@ test("a rename keeps the reached name; a milestone turned off or an ended affili
 	const c = await church();
 	ok(await useMilestone(c.owner, c.hill));
 	ok(await record(c.owner, { date: "2026-10-11" }));
-	await f.admin.execute(sql`UPDATE organization SET gathering_milestone_name='Church constituted' WHERE id=${c.hill.id}`);
+	await f.admin.execute(
+		sql`UPDATE organization SET gathering_milestone_name='Church constituted' WHERE id=${c.hill.id}`,
+	);
 	let p = await plan(c.owner);
 	assert.equal(p.path.reached.name, CONSTITUTED, "reached under its old name");
 	assert.equal(p.path.offered.name, "Church constituted");
@@ -417,10 +440,17 @@ test("a Member and an organization account see the path but every switch, record
 test("a retry with the same request key replays the first answer and writes once", async () => {
 	const c = await church();
 	ok(await useMilestone(c.owner, c.hill));
-	const q = { requestKey: key(), expectedRevision: (await plan(c.owner)).revision, input: { date: "2026-10-11", note: null } };
+	const q = {
+		requestKey: key(),
+		expectedRevision: (await plan(c.owner)).revision,
+		input: { date: "2026-10-11", note: null },
+	};
 	assert.equal(ok(await writer.recordGathering(f.db, c.owner.actor, q)).outcome, "changed");
 	const n = await audits(c.w);
 	assert.equal(ok(await writer.recordGathering(f.db, c.owner.actor, q)).outcome, "changed");
 	assert.equal(await audits(c.w), n);
-	refused(await writer.recordGathering(f.db, c.owner.actor, { ...q, input: { ...q.input, note: "Other" } }), "idempotency_conflict");
+	refused(
+		await writer.recordGathering(f.db, c.owner.actor, { ...q, input: { ...q.input, note: "Other" } }),
+		"idempotency_conflict",
+	);
 });

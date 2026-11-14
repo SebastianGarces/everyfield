@@ -261,9 +261,7 @@ export async function applyOrganizationProfile(
 	);
 	const audit = c.events.find((e) => e.id === event);
 	if (!audit) throw Error("missing_audit_entry");
-	audit.before_value = Object.fromEntries(
-		Object.keys(patch).map((field) => [field, row[field as keyof typeof row]]),
-	);
+	audit.before_value = Object.fromEntries(Object.keys(patch).map((field) => [field, row[field as keyof typeof row]]));
 	audit.after_value = patch;
 
 	return {

@@ -208,7 +208,9 @@ export function historyText(e: HistoryEntry, today: string): { title: string; li
 						: c.event === "corrected"
 							? `Reached: ${day(c.from)} → ${day(c.to)}`
 							: `Was reached ${day(c.from)}`,
-					...(c.noteChanged ? [c.event === "recorded" ? "Note added" : c.event === "cleared" ? "Note removed" : "Note changed"] : []),
+					...(c.noteChanged
+						? [c.event === "recorded" ? "Note added" : c.event === "cleared" ? "Note removed" : "Note changed"]
+						: []),
 					...(c.reason ? [`Reason: ${c.reason}`] : []),
 				],
 			};

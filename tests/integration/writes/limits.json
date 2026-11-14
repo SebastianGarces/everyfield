@@ -1641,7 +1641,8 @@
 		"retry": 5
 	},
 	"settings.saveSection:organization": {
-		"limit": 5
+		"limit": 5,
+		"retry": 3
 	},
 	"settings.saveSection:plant": {
 		"limit": 5,
@@ -2027,6 +2028,25 @@
 	"launch.publishDebriefSummary": {
 		"limit": 5,
 		"retry": 4
+	},
+	"launch.readGatheringOffers": {
+		"limit": 1
+	},
+	"launch.choosePath": {
+		"limit": 5,
+		"retry": 3
+	},
+	"launch.recordGathering": {
+		"limit": 5,
+		"retry": 3
+	},
+	"launch.correctGathering": {
+		"limit": 5,
+		"retry": 3
+	},
+	"launch.clearGathering": {
+		"limit": 5,
+		"retry": 3
 	},
 	"launch.completeMilestone": {
 		"limit": 10,

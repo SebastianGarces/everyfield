@@ -55,7 +55,8 @@ function changeOf(r: Row): z.input<typeof c.historyChange> | null {
 			if (event === "gathering_recorded" || event === "gathering_corrected" || event === "gathering_cleared")
 				return {
 					kind: "gathering",
-					event: event === "gathering_recorded" ? "recorded" : event === "gathering_corrected" ? "corrected" : "cleared",
+					event:
+						event === "gathering_recorded" ? "recorded" : event === "gathering_corrected" ? "corrected" : "cleared",
 					name: String(r.after?.name ?? r.before?.name ?? ""),
 					from: value(r.before?.reachedOn) as string | null,
 					to: value(r.after?.reachedOn) as string | null,

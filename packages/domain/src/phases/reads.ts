@@ -96,9 +96,7 @@ export const phaseReader = {
 					...r.entries.map(entryOf),
 					...(r.launch ? [launchEntry(r.launch)] : []),
 					...(r.gathering ? [gatheringEntry(r.gathering)] : []),
-				].sort((a, b) =>
-					a.occurredAt.localeCompare(b.occurredAt),
-				),
+				].sort((a, b) => a.occurredAt.localeCompare(b.occurredAt)),
 			});
 		});
 	},

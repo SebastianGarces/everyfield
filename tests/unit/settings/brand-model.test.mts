@@ -107,6 +107,13 @@ test("INV-settings-sharing-link: a plant viewer is offered Sharing after Notific
 	assert.deepEqual(offeredSections(member, pages), ["seats", "notifications", "sharing", "account"]);
 	const organization = { context: "organization", accountId: "a", organization: ORG, role: "owner" } as const;
 	assert.deepEqual(offeredSections(organization, pages), ["organization", "seats", "notifications", "account"]);
+	// An organization Member reads the profile and the gathering milestone it offers its plants, with no controls.
+	assert.deepEqual(offeredSections({ ...organization, role: "member" }, pages), [
+		"organization",
+		"seats",
+		"notifications",
+		"account",
+	]);
 	const account = { context: "account", accountId: "a" } as const;
 	assert.deepEqual(offeredSections(account, pages), ["notifications", "account"]);
 });
