@@ -1243,7 +1243,8 @@
 				"/\\bI['’]?(ve| have) (created|set up|scheduled|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated|changed)\\b(?! (a|the|your|this|that|one) (review|change|proposal))|(?<!\\b(nothing|not|no|never|nobody|none)\\b[^.!?]{0,20})\\b(has been|have been|is now|are now) (created|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated)\\b/i",
 				"/Gavin Abbott[^.]{0,40}(still )?(open|needs)/i"
 			],
-			"derivation": "Vision night's one generated follow-up (Gavin Abbott) is complete; none is open."
+			"derivation": "Two meeting follow-ups are open, both from last night's Vision Meeting #3: Hannah Barnes (Ana Rivera) and Isaac Barnes (the Owner). Gavin Abbott's from Vision Meeting #2 and Gavin Barnes's from last night are complete.",
+			"require": ["Hannah Barnes", "Isaac Barnes"]
 		}
 	},
 	{

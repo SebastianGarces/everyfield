@@ -152,11 +152,35 @@ export function taskStep(
 		);
 	}
 
-	// "who came for the first time last night …": attendance is not readable yet; never guessed from stage.
-	if (/\b(first time|first-time|came|attended)\b.*\b(last night|yesterday|meeting)\b/i.test(text))
+	// "who came for the first time last night and still needs a follow up": the latest held meeting's first-time
+	// guests, from its recorded attendance, with that meeting's open follow-ups. Never guessed from stage.
+	if (/\b(first time|first-time|came|attended)\b.*\b(last night|yesterday|meeting)\b/i.test(text)) {
+		if (!has("meetings_read"))
+			return say(
+				"I can't read meeting attendance yet, so I can't tell who came for the first time. I won't guess it from pipeline stages. The Meetings page shows attendance.",
+			);
+		const past = last(out, "meetings.list");
+		if (!past) return read("meetings", "meetings.list", { window: "past", statuses: ["completed"], limit: 1 });
+		const meeting = rows(past).find((r) => r.kind === "meeting");
+		if (!meeting) return say("I can't find a held meeting in Meetings.");
+		const attendance = last(out, "meetings.listAttendance");
+		if (!attendance) return read("meetings", "meetings.listAttendance", { meetingId: meeting.id });
+		const firstTime = rows(attendance).filter((r) => r.kind === "person" && r.fields.visit === "first time");
+		if (!firstTime.length) return say(`No first-time guest is recorded at ${meeting.label}.`);
+		const open = last(out, "followups.readObligations");
+		if (!open)
+			return read("followups", "followups.readObligations", { meetingId: meeting.id, state: "open", limit: 100 });
+		const firsts = new Set(firstTime.map((r) => r.id));
+		const needs = rows(open).filter((r) => firsts.has(String(r.fields.personId)));
 		return say(
-			"I can't read meeting attendance yet, so I can't tell who came for the first time. I won't guess it from pipeline stages. The Meetings page shows attendance.",
+			[
+				`${firstTime.length} first-time ${firstTime.length === 1 ? "guest is" : "guests are"} recorded at ${meeting.label}.`,
+				needs.length
+					? `${needs.length === 1 ? "One still needs" : `${needs.length} still need`} a follow-up: ${needs.map(followUpLine).join("; ")}.`
+					: "None of them has an open follow-up.",
+			].join(" "),
 		);
+	}
 
 	// "log that i called jessica today, she wants to join a group": one recordOutcome review on her follow-up.
 	const logged = /\blog that i (called|texted|emailed|visited|met) ([a-z][\w'-]+)(?: today)?,?\s*(.*)$/i.exec(text);
@@ -234,6 +258,8 @@ export function taskStep(
 		if (!due) return read("tasks", "tasks.list", { due: "this_week", followUps: "exclude" });
 		const owners = last(out, "tasks.listFollowUpOwners");
 		if (!owners) return read("followups", "tasks.listFollowUpOwners", {});
+		const meetings = has("meetings_read") ? last(out, "meetings.list") : undefined;
+		if (has("meetings_read") && !meetings) return read("meetings", "meetings.list", { window: "upcoming", limit: 10 });
 		const board = last(out, "people.getPipelineData");
 		if (!board && has("peopleOrganization_read")) return read("peopleOrganization", "people.getPipelineData", {});
 		const flagged = rows(board).filter((r) => r.fields.inactivity === "alert" || r.fields.inactivity === "warning");
@@ -244,7 +270,14 @@ export function taskStep(
 				board
 					? `From the pipeline, people flagged for inactivity: ${flagged.map((r) => `${r.label} (${String(r.fields.inactivity)})`).join("; ") || "none"}.`
 					: "",
-				"I couldn't read meetings or your calendar: those aren't available to me yet.",
+				meetings
+					? `From Meetings, upcoming: ${
+							rows(meetings)
+								.filter((r) => r.kind === "meeting")
+								.map((r) => `${r.label} (${String(r.fields.when ?? "no time")})`)
+								.join("; ") || "none"
+						}.`
+					: "I couldn't read meetings or your calendar: those aren't available to me yet.",
 			]
 				.filter(Boolean)
 				.join("\n\n"),

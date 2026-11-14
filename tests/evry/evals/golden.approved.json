@@ -186,7 +186,7 @@
 			"area": "Follow-up",
 			"case_id": "GST-01",
 			"question": "who came for the first time last night and still needs a follow up",
-			"status": "Not yet",
+			"status": "Supported",
 			"expected_operation": "not yet: needs `meetings.listAttendance` + `followups.readObligations`",
 			"expected_answer": "Later: first-time attendees with open obligations and owner",
 			"must_not": "Infer attendance from stage alone"

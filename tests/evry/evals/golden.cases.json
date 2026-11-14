@@ -18,25 +18,24 @@
 				{
 					"operation": "tasks.listFollowUpOwners",
 					"alsoAccepted": ["followups.readObligations"]
+				},
+				{
+					"operation": "meetings.list",
+					"input": {
+						"window": "upcoming"
+					}
 				}
 			],
 			"require": [
 				"/Plan the Sunday interest meeting|Order launch banners|Submit the insurance forms/",
 				"/follow[- ]?ups?/i",
-				"/meeting|calendar/i",
-				"/\\b(can['’]?t|cannot|can not|unable|don['’]?t|doesn['’]?t|do not|does not|not|no way|only|isn['’]?t|aren['’]?t|wasn['’]?t|weren['’]?t)\\b/i"
+				"/Vision Meeting #4|Launch team orientation|Worship team training/"
 			],
 			"forbid": ["/spiritual|mature|godly/i"],
 			"target": {
-				"futureOperations": ["dashboard.availableActions", "meetings.list"]
+				"futureOperations": ["dashboard.availableActions"]
 			},
-			"derivation": "Tasks due this week and overdue, open follow-ups with owners and the pipeline's flagged people, each with where it came from; meetings and Overview next steps are named as not readable yet. No spiritual ranking.",
-			"finding": {
-				"checks": [
-					"says /\\b(can['’]?t|cannot|can not|unable|don['’]?t|doesn['’]?t|do not|does not|not|no way|only|isn['’]?t|aren['’]?t|wasn['’]?t|weren['’]?t)\\b/i"
-				],
-				"note": "T-317 re-record (D-1312): model sampling on the merged catalog; set from the report (D-958, D-1151)."
-			}
+			"derivation": "Tasks due this week and overdue, the upcoming meetings, open follow-ups with owners and the pipeline's flagged people, each with where it came from. Overview next steps (T-330) are the alpha target. No spiritual ranking."
 		}
 	},
 	{
@@ -436,33 +435,33 @@
 		"area": "Follow-up",
 		"case_id": "GST-01",
 		"question": "who came for the first time last night and still needs a follow up",
-		"status": "Not yet",
+		"status": "Supported",
 		"expected_operation": "not yet: needs `meetings.listAttendance` + `followups.readObligations`",
 		"expected_answer": "Later: first-time attendees with open obligations and owner",
 		"must_not": "Infer attendance from stage alone",
 		"eval": {
-			"cantYet": true,
-			"only": ["tasks.listFollowUpOwners", "followups.readObligations"],
-			"names": {
-				"allowed": [
-					"Mark Thompson",
-					"Ana Rivera",
-					"Sam Patel",
-					"Daniel Cruz",
-					"Jessica Wu",
-					"Aaron Abbott",
-					"Bianca Abbott",
-					"Caleb Abbott",
-					"Dana Abbott",
-					"Ethan Abbott",
-					"Fiona Abbott"
-				]
-			},
-			"derivation": "Attendance (T-317) is not readable yet: Evry says so and never guesses first-timers from stage. It may list the open follow-ups it can read, without calling anyone a first-time guest.",
-			"finding": {
-				"checks": ["calls only no tool", "names only matching records"],
-				"note": "T-317 (D-1189, D-1230): re-recorded after the Evry meetings tools joined the teams and people tools; the owner chose to record the drift as findings. T-317 re-record (D-1312): model sampling on the merged catalog; set from the report (D-958, D-1151)."
-			}
+			"calls": [
+				{
+					"operation": "meetings.listAttendance",
+					"input": {
+						"meetingId": "5b6d1f0e-0000-4000-8000-000000000a27"
+					}
+				},
+				{
+					"operation": "followups.readObligations",
+					"input": {
+						"meetingId": "5b6d1f0e-0000-4000-8000-000000000a27",
+						"state": "open"
+					},
+					"alsoAccepted": ["tasks.listFollowUpOwners"]
+				}
+			],
+			"require": ["Hannah Barnes", "Isaac Barnes", "/Ana Rivera/"],
+			"forbid": [
+				"/Gavin Barnes[^.\\n]{0,40}(still )?(open|needs)/i",
+				"/Aaron Abbott|Fiona Abbott|Daniel Cruz|Jessica Wu/"
+			],
+			"derivation": "Last night's Vision Meeting #3 has 24 first-time guests in its finalized attendance. Two still have an open follow-up from it: Hannah Barnes (Ana Rivera) and Isaac Barnes (the Owner). Gavin Barnes's is complete, and the older follow-ups and new guests from the import are not last night's first-timers."
 		}
 	},
 	{
