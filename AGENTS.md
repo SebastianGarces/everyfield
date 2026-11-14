@@ -119,7 +119,8 @@ by your role, then others when needed. These are verbatim upstream copies pinned
 
 ## Progress and context
 
-`docs/build-progress.json` stopped updating on 2026-10-22 at PR #235. evf v2's task records are the live state.
+`docs/build-progress.json` froze on 2026-10-22 at PR #235. T-290 refreshed WP-017–039, WP-071 and WP-072 on
+2026-11-13; other packages stay as of 2026-10-22. evf v2's task records are still the live state.
 Read `docs/build-agent-workflow.md` for milestone and integration closure.
 Generate the explorer outside the repo with
 `python3 docs/render-build-explorer.py --output /tmp/everyfield-build-explorer.html`.
