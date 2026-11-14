@@ -148,7 +148,7 @@ function MilestoneRow({
 	const c = m.completion;
 	return (
 		<li className="flex flex-col gap-2 py-3.5 first:pt-0 last:pb-0">
-			<div className="flex items-start gap-3">
+			<div className="flex flex-wrap items-start gap-x-3 gap-y-2">
 				<span
 					className={
 						c ? "mt-0.5 flex-none text-green-700" : "mt-0.5 size-[18px] flex-none rounded-full shadow-edge-inset"
@@ -157,7 +157,7 @@ function MilestoneRow({
 				>
 					{c ? <Icon icon={CheckmarkCircle02Icon} size={18} /> : null}
 				</span>
-				<div className="flex min-w-0 flex-1 flex-col gap-0.5 text-sm">
+				<div className="flex min-w-[220px] flex-1 basis-0 flex-col gap-0.5 text-sm">
 					<span className="font-medium [overflow-wrap:anywhere] text-ink">{m.title}</span>
 					{m.handsOn ? <span className="text-xs font-medium text-blue-600">Hands-on assignment</span> : null}
 					{m.description ? <span className="[overflow-wrap:anywhere] text-text-2">{m.description}</span> : null}
@@ -178,7 +178,7 @@ function MilestoneRow({
 					)}
 				</div>
 				{director && !c ? (
-					<Button size="sm" variant="secondary" className="flex-none" onClick={onRecord}>
+					<Button size="sm" variant="secondary" className="flex-none max-app-sm:ml-[30px]" onClick={onRecord}>
 						Record as finished
 					</Button>
 				) : null}

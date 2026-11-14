@@ -3,7 +3,7 @@
 import type { ProgramPlan, ProgramRhythm, ProgramVersion } from "@everyfield/contracts/organizations";
 import { ArrowDown01Icon, ArrowUp01Icon, Delete02Icon, PlusSignIcon } from "@hugeicons/core-free-icons";
 import { Button, Checkbox, Field, IconButton, Input, SearchInput, Select, Textarea } from "@everyfield/ui/controls";
-import { useState, type ReactNode } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { findReadings } from "./actions";
 import { RHYTHM } from "./model";
 
@@ -86,6 +86,8 @@ function move<T>(list: T[], index: number, by: -1 | 1) {
 /** Rhythm, expected length, stages with month ranges, milestones and the Wiki reading list (REQ-MUL-010). */
 export function PlanEditor({ value, onChange }: { value: PlanDraft; onChange: (next: PlanDraft) => void }) {
 	const set = (patch: Partial<PlanDraft>) => onChange({ ...value, ...patch });
+	// Row keys are random per render pass, so ids that reach the HTML come from React instead.
+	const base = useId();
 	return (
 		<div className="flex flex-col gap-6">
 			<div className="grid grid-cols-2 gap-4 max-app-sm:grid-cols-1">
@@ -120,25 +122,27 @@ export function PlanEditor({ value, onChange }: { value: PlanDraft; onChange: (n
 								boxClassName="min-w-[180px] flex-1"
 							/>
 							<span className="flex items-center gap-1.5 text-sm text-text-2">
-								<Input
-									aria-label={`${s.label || `Stage ${i + 1}`}: fewest months`}
-									inputMode="numeric"
-									value={s.min}
-									onChange={(e) =>
-										set({ stages: value.stages.map((x) => (x.key === s.key ? { ...x, min: e.target.value } : x)) })
-									}
-									boxClassName="w-16"
-								/>
+								<span className="w-16 flex-none">
+									<Input
+										aria-label={`${s.label || `Stage ${i + 1}`}: fewest months`}
+										inputMode="numeric"
+										value={s.min}
+										onChange={(e) =>
+											set({ stages: value.stages.map((x) => (x.key === s.key ? { ...x, min: e.target.value } : x)) })
+										}
+									/>
+								</span>
 								to
-								<Input
-									aria-label={`${s.label || `Stage ${i + 1}`}: most months`}
-									inputMode="numeric"
-									value={s.max}
-									onChange={(e) =>
-										set({ stages: value.stages.map((x) => (x.key === s.key ? { ...x, max: e.target.value } : x)) })
-									}
-									boxClassName="w-16"
-								/>
+								<span className="w-16 flex-none">
+									<Input
+										aria-label={`${s.label || `Stage ${i + 1}`}: most months`}
+										inputMode="numeric"
+										value={s.max}
+										onChange={(e) =>
+											set({ stages: value.stages.map((x) => (x.key === s.key ? { ...x, max: e.target.value } : x)) })
+										}
+									/>
+								</span>
 								months
 							</span>
 							<Order
@@ -197,7 +201,7 @@ export function PlanEditor({ value, onChange }: { value: PlanDraft; onChange: (n
 									onChange={(e) => update({ description: e.target.value })}
 								/>
 								<Checkbox
-									id={`hands-on-${m.key}`}
+									id={`${base}-hands-on-${i}`}
 									label="Hands-on assignment"
 									checked={m.handsOn}
 									onCheckedChange={(checked) => update({ handsOn: checked === true })}
@@ -325,25 +329,24 @@ function Readings({
 			) : (
 				<p className="text-sm text-text-3">No readings yet.</p>
 			)}
-			<form
-				role="search"
-				className="flex gap-2"
-				onSubmit={(e) => {
-					e.preventDefault();
-					void search();
-				}}
-			>
+			{/* Not a form: the reading list sits inside the program's own form. Enter searches. */}
+			<div role="search" className="flex gap-2">
 				<SearchInput
 					aria-label="Search Wiki articles"
 					placeholder="Search Wiki articles by title"
 					value={q}
 					onChange={(e) => setQ(e.target.value)}
+					onKeyDown={(e) => {
+						if (e.key !== "Enter") return;
+						e.preventDefault();
+						void search();
+					}}
 					boxClassName="min-w-0 flex-1"
 				/>
-				<Button type="submit" variant="secondary" loading={searching}>
+				<Button variant="secondary" loading={searching} onClick={() => void search()}>
 					Search
 				</Button>
-			</form>
+			</div>
 			{problem ? <p className="text-sm text-magenta-600">{problem}</p> : null}
 			{found ? (
 				found.length ? (

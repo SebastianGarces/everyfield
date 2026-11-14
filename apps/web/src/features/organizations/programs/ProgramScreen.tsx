@@ -398,6 +398,12 @@ function EnrollForm({
 			nextMeetingAt: meetingDay && meetingTime ? `${meetingDay}T${meetingTime}:00` : null,
 		}).catch(lost);
 		setSaving(false);
+		if (answer.status === "refused" && answer.refusal.code === "already_enrolled") {
+			const name = program.people.find((p) => p.personId === personId)?.name ?? "This person";
+			return setProblem(
+				`${name} is already enrolled in ${program.name}. Each person can have one active enrollment per program.`,
+			);
+		}
 		if (answer.status !== "ok") return setProblem(programProblem(answer));
 		onEnrolled(enrollmentId);
 	}
