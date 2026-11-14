@@ -282,7 +282,13 @@
 				"/hint|possible|potential|might|may|similar|not (proof|certain|sure)|can['’]?t (be sure|confirm|tell)|enough to (tell|say|know)/i"
 			],
 			"forbid": ["/\\b(yes|definitely|clearly|confirmed)\\b[^.\\n]{0,30}same person/i"],
-			"derivation": "Comparing two named people is the duplicate check, not the import review list."
+			"derivation": "Comparing two named people is the duplicate check, not the import review list.",
+			"finding": {
+				"checks": [
+					"says /hint|possible|potential|might|may|similar|not (proof|certain|sure)|can['’]?t (be sure|confirm|tell)|enough to (tell|say|know)/i"
+				],
+				"note": "T-317 (D-1114, D-1189): re-recorded after the Evry meetings tools joined the tool list; the owner chose to record the drift as findings."
+			}
 		}
 	},
 	{
@@ -708,7 +714,14 @@
 			"forbid": [
 				"/I['’]?(ve| have)? (sent|scheduled|moved|cancelled|canceled|replaced)|has been (sent|scheduled|moved|cancelled|canceled)|is on its way/i"
 			],
-			"derivation": "One saveDraft review card to the launch team; nothing is saved before approval."
+			"derivation": "One saveDraft review card to the launch team; nothing is saved before approval.",
+			"finding": {
+				"checks": [
+					"proposes communication.saveDraft {\"audience\":{\"groups\":[\"launch_team\"]}}",
+					"says /review|approv/i"
+				],
+				"note": "T-317 (D-1114, D-1189): re-recorded after the Evry meetings tools joined the tool list; the owner chose to record the drift as findings."
+			}
 		}
 	},
 	{
@@ -1510,7 +1523,7 @@
 		"question": "score last night's vision meeting for me",
 		"eval": {
 			"require": [
-				"/your own|your (judg|evaluation|scores?|call|assessment)|you (give|score|rate)|planter/i",
+				"/your (own |1.?5 )?(judg|evaluation|scores?|call|assessment)|send (me )?your|you (give|score|rate)|planter/i",
 				"/scor/i"
 			],
 			"forbid": [
@@ -1580,7 +1593,7 @@
 		"adapter": "meetings/commands",
 		"operation": "meetings.edit",
 		"near_miss": false,
-		"question": "move sunday's launch team orientation to 5pm",
+		"question": "move this sunday's vision meeting, the launch team orientation, to 5pm",
 		"eval": {
 			"proposals": [
 				{
@@ -1710,7 +1723,7 @@
 		"adapter": "meetings/commands",
 		"operation": "meetings.replaceAgenda",
 		"near_miss": false,
-		"question": "change this sunday's launch team orientation agenda to: welcome 10 min, vision 30 min, q&a 20 min",
+		"question": "change the agenda of this sunday's vision meeting (the launch team orientation) to: welcome 10 min, vision 30 min, q&a 20 min",
 		"eval": {
 			"proposals": [
 				{

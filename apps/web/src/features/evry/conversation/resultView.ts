@@ -1,3 +1,4 @@
+import { timeText } from "@everyfield/contracts/common";
 import { sendTimeShort } from "../review/model.ts";
 import { STAGE_LABEL, type StageValue } from "../../people/model.ts";
 import type { SourceResult, SourceRow } from "./model.ts";
@@ -517,7 +518,10 @@ function personMark(operation: string, fields: Record<string, unknown>): RowMark
 function itemLine(operation: string, f: Record<string, unknown>): string | null {
 	switch (operation) {
 		case "meetings.readAgenda":
-			return joined(text(f.starts), text(f.minutes) ? `${f.minutes as string} min` : null);
+			return joined(
+				typeof f.starts === "string" ? timeText(f.starts) : null,
+				text(f.minutes) ? `${f.minutes as string} min` : null,
+			);
 		case "meetings.listKit":
 			return joined(typeof f.category === "string" ? words(f.category) : null, text(f.assignee));
 		case "meetings.attendanceTrend":

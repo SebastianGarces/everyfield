@@ -193,7 +193,12 @@ function meetingsStep(
 	const can = (op: string) => !!proposeTool && JSON.stringify(proposeTool).includes(op);
 	const earlier = earlierUserTexts(prompt).join("\n");
 	const pickedDay = /^(?:the )?(\d{1,2})(?:st|nd|rd|th)?\.?$|\bthursday,? (\w+ \d{1,2})\b/i.exec(text.trim());
-	const asked = /\bset up a vision meeting next thursday (\d{1,2})\s*(am|pm) at the (.+?)\.?$/im.exec(earlier);
+	// The latest earlier request to set one up, so a reply such as "the 19th" answers the question just asked.
+	const asked =
+		earlierUserTexts(prompt)
+			.reverse()
+			.map((t) => /\bset up a vision meeting next thursday (\d{1,2})\s*(am|pm) at the (.+?)\.?$/i.exec(t))
+			.find(Boolean) ?? null;
 	const scores = SCORE_WORDS.map((w) => Number(new RegExp(`\\b${w}\\s*(\\d)\\b`, "i").exec(text)?.[1]));
 	const scored = scores.every((n) => n >= 1 && n <= 5) && /\bscore last night'?s vision meeting\b/i.test(earlier);
 	const deleting = /\bdelete\b/i.test(text) && !can("meetings.delete");

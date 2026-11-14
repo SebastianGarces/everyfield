@@ -254,7 +254,7 @@ const scheduleInput = z.strictObject({
 export const schedule = write({
 	operation: "meetings.schedule",
 	description:
-		"A new meeting at a church-local date and 24-hour time, at a saved venue from venues.list. If a weekday could mean two dates, ask first.",
+		"A new meeting at a church-local date and 24-hour time, at a saved venue from venues.list. \"Next <weekday>\" can mean this week's or the following week's: ask which date (name both) before proposing.",
 	input: scheduleInput,
 	member: true,
 	async prepare(db, actor, i) {

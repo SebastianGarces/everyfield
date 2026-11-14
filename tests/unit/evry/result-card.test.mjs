@@ -601,8 +601,8 @@ test("the agenda card leads with the app's print link, opened in a new tab, then
 		view.rows.map((r) => [r.name, r.line, r.href, r.newTab ?? false]),
 		[
 			["Print agenda", "Launch team orientation", `/meetings/${M1}/agenda`, true],
-			["Welcome and coffee", "16:00 · 15 min", null, false],
-			["Our story and vision", "16:15 · 20 min", null, false],
+			["Welcome and coffee", "4:00 pm · 15 min", null, false],
+			["Our story and vision", "4:15 pm · 20 min", null, false],
 		],
 	);
 });
