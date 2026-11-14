@@ -117,6 +117,101 @@ function emailStep(text: string, canPropose: boolean, canRead: boolean, result: 
 	);
 }
 
+// Notification requests (WP-081, WP-082), with the same tools a model uses. "Anything I missed" reads the unread feed
+// and answers grouped by area with the count; reading never marks anything read. "Mark those three as read" marks the
+// group of that size from the unread feed, and "mark all as read", "stop emailing me task reminders" and "send my digest
+// daily" each propose their review. A digest choice Settings does not offer gets the choices that exist.
+const AREA: Record<string, string> = {
+	task_due: "Tasks",
+	task_overdue: "Tasks",
+	meeting_announcement: "Meetings",
+	meeting_reminder: "Meetings",
+};
+const NUMBER: Record<string, number> = { one: 1, two: 2, three: 3, four: 4, five: 5 };
+type Notice = { id: string; label: string; fields: { category?: string } };
+const byArea = (rows: Notice[]) => {
+	const groups = new Map<string, Notice[]>();
+	for (const r of rows) {
+		const area = AREA[r.fields.category ?? ""] ?? "Other";
+		groups.set(area, [...(groups.get(area) ?? []), r]);
+	}
+	return [...groups];
+};
+function notificationStep(
+	text: string,
+	tools: { read: boolean; propose: boolean },
+	result: Record<string, unknown> | null,
+): LanguageModelV4Content[] | null {
+	const missed = /\b(missed|unread notifications|what('|’)?s new)\b/i.test(text);
+	const those = /\bmark (?:those|these|the) (\w+) (?:as )?read\b/i.exec(text);
+	const all = /\bmark (?:all|everything)(?: (?:of them|notifications))? (?:as )?read\b/i.test(text);
+	const email = /\bstop emailing me(?: about)? task reminders\b/i.test(text);
+	const cadence = /\bsend my digest (daily|weekly)\b/i.exec(text);
+	const other = /\bdigest\b.*\b(every \d+ hours?|hourly|monthly|twice a \w+)\b/i.test(text);
+	const preview = /\bnext digest\b/i.test(text);
+	const someone = /\b(?:change|turn off|stop)\b.*\b([A-Z][a-z]+)'s notifications?\b/.exec(text);
+	if (!(missed || those || all || email || cadence || other || preview || someone)) return null;
+	const propose = (operation: string, input: unknown) => [toolCall("propose_change", { operation, input })];
+	const read = (operation: string, input: unknown) => [toolCall("notifications_read", { operation, input })];
+	if (someone)
+		return [
+			{
+				type: "text",
+				text: `Each person sets their own notifications, so I can't change ${someone[1]}'s. I can change yours.`,
+			},
+		];
+	if (other)
+		return [
+			{
+				type: "text",
+				text: "Your church digest can come daily or weekly. Those are the only choices Settings offers.",
+			},
+		];
+	if (result && typeof result.proposalId === "string")
+		return [{ type: "text", text: "I prepared a review. Nothing changes until you approve it." }];
+	if (result?.error) return [{ type: "text", text: "I could not prepare that review." }];
+	if (all && tools.propose) return propose("notifications.markAllVisibleRead", {});
+	if (email && tools.propose)
+		return propose("notifications.setPreferences", {
+			choices: [
+				{ category: "task_due", channel: "email", enabled: false },
+				{ category: "task_overdue", channel: "email", enabled: false },
+			],
+		});
+	if (cadence && tools.propose)
+		return propose("notifications.digestCadence.set", { cadence: cadence[1]!.toLowerCase() });
+	if (!tools.read) return null;
+	if (preview) {
+		if (!result) return read("notifications.previewPlanterDigest", {});
+		const [head, ...lines] = (result.rows as { label: string; fields: Record<string, unknown> }[] | undefined) ?? [];
+		if (!head) return [{ type: "text", text: "Your church digest is turned off, so no digest is coming." }];
+		return [
+			{
+				type: "text",
+				text: `${head.label}. It sends ${String(head.fields.sendsAt)} and covers ${String(head.fields.from)} to ${String(head.fields.to)}.\n\n${lines.map((l) => `- ${l.label}`).join("\n")}`,
+			},
+		];
+	}
+	if (!result) return read("notifications.feed", { unread: true });
+	const groups = byArea((result.rows as Notice[] | undefined) ?? []);
+	if (those && tools.propose) {
+		const size = NUMBER[those[1]!.toLowerCase()] ?? Number(those[1]);
+		const group = groups.find(([, rows]) => rows.length === size)?.[1];
+		if (!group) return [{ type: "text", text: `Which ${those[1]} do you mean?` }];
+		return propose("notifications.markSelectedRead", { noticeIds: group.map((r) => r.id) });
+	}
+	const total = Number(result.total ?? 0);
+	if (!total) return [{ type: "text", text: "You have no unread notifications. Nothing was marked read." }];
+	return [
+		{
+			type: "text",
+			text: `You have ${total} unread ${total === 1 ? "notification" : "notifications"}:\n\n${groups
+				.map(([area, rows]) => `- **${area} (${rows.length})**: ${rows.map((r) => r.label).join("; ")}`)
+				.join("\n")}\n\nThey are still unread in your bell.`,
+		},
+	];
+}
+
 // Household, tag, note, skill and import requests (WP-064): "add Pedro to the Martinez household", "the nguyens moved
 // to 123 oak st, update everyone", "tag Ana Rivera and Mark Thompson as coffee-oct", "add a note to Maria Santos: ...",
 // "change Maria Santos's note to: ...", "delete Maria Santos's note", "Sam does sound, advanced", "how did yesterday's
@@ -289,12 +384,19 @@ function respond(options: LanguageModelV4CallOptions): LanguageModelV4Content[] 
 	if (settings) return settings;
 	const hasPeople = options.tools?.some((t) => t.name === "people_read") ?? false;
 	const canPropose = options.tools?.some((t) => t.name === "propose_change") ?? false;
+	// A Member proposes changes to their own notifications only; the People reviews are an Owner's or Admin's.
+	const canProposePeople = JSON.stringify(options.tools?.find((t) => t.name === "propose_change") ?? {}).includes(
+		'"people.',
+	);
 	// "Change Maria's city to Austin": find the person, then propose the change for review.
 	const change = /\b(?:change|set|update)\s+([A-Z][\w'-]+?)(?:'s)?\s+(city|phone|email)\s+to\s+(.+?)\.?\s*$/i.exec(
 		text,
 	);
 	const result = lastToolOutput(options.prompt);
 	const canReadMail = options.tools?.some((t) => t.name === "communication_read") ?? false;
+	const canReadNotices = options.tools?.some((t) => t.name === "notifications_read") ?? false;
+	const notices = notificationStep(text, { read: canReadNotices, propose: canPropose }, result);
+	if (notices) return notices;
 	const email = emailStep(text, canPropose, canReadMail, result);
 	if (email) return email;
 	if (hasPeople) {
@@ -302,7 +404,7 @@ function respond(options: LanguageModelV4CallOptions): LanguageModelV4Content[] 
 		const imports = JSON.stringify(options.tools?.find((t) => t.name === "peopleOrganization_read") ?? {}).includes(
 			"people.getImportReceipt",
 		);
-		const organization = peopleOrganizationStep(text, canPropose, imports, turnOutputs(options.prompt));
+		const organization = peopleOrganizationStep(text, canProposePeople, imports, turnOutputs(options.prompt));
 		if (organization) return organization;
 	}
 	if (result && typeof result.proposalId === "string" && (DRAFT.test(text) || EMAIL_REVIEW.test(text)))

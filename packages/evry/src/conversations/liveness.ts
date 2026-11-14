@@ -21,6 +21,10 @@ const ROW_LIVENESS: Record<SourceRow["kind"], Rule> = {
 	tag: (id, plant) => sql`EXISTS(SELECT FROM tag t WHERE t.id=${id} AND t.plant_id=${plant})`,
 	// A message is live while it exists in the church.
 	message: (id, plant) => sql`EXISTS(SELECT FROM communication m WHERE m.id=${id} AND m.plant_id=${plant})`,
+	// A notice is live while the bell can still show it: not cancelled or archived. The read that returned it was the
+	// account's own, and the in-turn check repeats the live access check.
+	notice: (id) =>
+		sql`EXISTS(SELECT FROM notice n WHERE n.id=${id} AND n.cancelled_at IS NULL AND n.archived_at IS NULL)`,
 	// A ministry, role, training program, meeting or responsibility is live while it exists in the church (an archived
 	// ministry or a retired role still exists and is shown as such). Each alias is its own: the replay check names the
 	// row being checked `r`, so a rule's table alias must never shadow it.
@@ -45,6 +49,9 @@ const ROW_LIVENESS: Record<SourceRow["kind"], Rule> = {
 	seat: null,
 	invitation: null,
 	connection: null,
+	// Never withheld: a setting row is the account's own choice and a digest row a preview the tool computed.
+	setting: null,
+	digest: null,
 };
 
 /**

@@ -5,7 +5,8 @@ import type { NativePorts } from "../proposals/types.ts";
 
 /**
  * One returned row. Only these fields reach the model; the id lets a later read or selection name it again.
- * Selection re-checks `person` rows only. A household, tag, skill, activity, file or import row is not a person.
+ * Selection re-checks `person` rows only. A household, tag, skill, activity, file, import, message, notice, setting or
+ * digest row is not a person.
  */
 export type SourceRow = {
 	kind:
@@ -17,6 +18,9 @@ export type SourceRow = {
 		| "file"
 		| "import"
 		| "message"
+		| "notice"
+		| "setting"
+		| "digest"
 		| "team"
 		| "role"
 		| "training"

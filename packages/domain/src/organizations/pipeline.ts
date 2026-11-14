@@ -1,12 +1,11 @@
 import * as C from "@everyfield/contracts/organizations";
-import type { Database, Transaction } from "@everyfield/db/client";
-import { SQL, sql } from "@everyfield/db/query";
+import type { Database } from "@everyfield/db/client";
+import { sql, type SQL } from "@everyfield/db/query";
 import { createHash, randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
-import { liveAccess, liveRead, type RequestActor } from "../access/session.ts";
-import { hash } from "../operations/canonical.ts";
-import { declareWrite, lockedWrite, nativeWrite, WriteUnavailable } from "../operations/writes.ts";
+import type { RequestActor } from "../access/session.ts";
+import { activeResidents, answer, one, parse, refuse, seatOf, write, type Executor, type Writer } from "./seat.ts";
 
 // The organization pipeline (REQ-MUL-001, -002, -008, -009). An Owner or Admin reads and changes everyone; a seat named
 // responsible staff reads those people and their notes and writes notes; any other seat reads counts per stage only.
@@ -16,18 +15,6 @@ import { declareWrite, lockedWrite, nativeWrite, WriteUnavailable } from "../ope
 // audit event; central audit never holds a reason or a note body (REQ-MUL-002).
 
 const PAGE = 24;
-type Executor = Pick<Transaction, "execute">;
-
-class Refused extends Error {
-	readonly refusal: C.PipelineRefusal;
-	constructor(refusal: C.PipelineRefusal) {
-		super(refusal.code);
-		this.refusal = refusal;
-	}
-}
-function refuse(refusal: C.PipelineRefusal = { code: "unavailable" }): never {
-	throw new Refused(refusal);
-}
 
 /**
  * The starter stages (REQ-MUL-008) with IDs derived from the organization, so a board read can show them before
@@ -47,36 +34,6 @@ const insertStarters = (
 ) => sql`INSERT INTO pipeline_stage (id,organization_id,stable_kind,label,position,revision)
  SELECT x.id,${o}::uuid,x.kind,x.label,x.position,1 FROM jsonb_to_recordset(${startersJson(o)}::jsonb) x(id uuid,kind text,label text,position int)
  WHERE NOT EXISTS(SELECT FROM pipeline_stage s WHERE s.organization_id=${o}::uuid) ON CONFLICT (id) DO NOTHING`;
-
-/** The request actor's organization seat, or null for any other actor. */
-function seatOf(authority: RequestActor) {
-	const context = authority.actor.context;
-	if (context.kind !== "seat" || context.owner.kind !== "organization") return null;
-	return {
-		organization: context.owner.id,
-		seatId: context.seatId,
-		administrator: context.role !== "member",
-		accountId: authority.actor.accountId,
-		// The seat is still live with the same role: a role change after the request's lookup reads nothing (C13).
-		live: liveRead({ ...liveAccess(authority), role: context.role }),
-	};
-}
-
-type Reply<T> = C.PipelineReply<T>;
-async function answer<T>(body: () => Promise<T>): Promise<Reply<T>> {
-	try {
-		return { status: "ok", value: await body() };
-	} catch (error) {
-		if (error instanceof Refused) return { status: "refused", refusal: error.refusal };
-		if (error instanceof WriteUnavailable) return { status: "refused", refusal: { code: "unavailable" } };
-		throw error;
-	}
-}
-function parse<S extends z.ZodType>(schema: S, raw: unknown): z.output<S> {
-	const r = schema.safeParse(raw);
-	if (!r.success) refuse({ code: "invalid_input", field: r.error.issues[0]?.path.join(".") });
-	return r.data as z.output<S>;
-}
 
 const boardRow = z.object({
 	allowed: z.boolean(),
@@ -348,6 +305,7 @@ const goalsRow = z.object({
 	kinds: z.array(z.object({ kind: z.string(), count: z.coerce.number() })),
 	months: z.array(z.object({ month: z.string(), count: z.coerce.number() })),
 	quarters: z.array(z.object({ year: z.number(), quarter: z.number(), count: z.coerce.number() })),
+	residents: z.coerce.number(),
 });
 
 /**
@@ -388,7 +346,8 @@ SELECT g.allowed,(SELECT today::text FROM o) AS as_of,
  coalesce((SELECT jsonb_agg(jsonb_build_object('year',extract(year FROM q)::int,'quarter',extract(quarter FROM q)::int,
    'count',(SELECT count(*) FROM c WHERE date_trunc('quarter',c.occurred_on::timestamp)=q)) ORDER BY q)
   FROM o,generate_series(date_trunc('quarter',o.today::timestamp)-interval '9 months',date_trunc('quarter',o.today::timestamp),interval '3 months') q),
-  '[]'::jsonb) AS quarters
+  '[]'::jsonb) AS quarters,
+ CASE WHEN EXISTS(SELECT FROM o) THEN ${activeResidents(org)} ELSE 0 END AS residents
 FROM g`);
 		const row = goalsRow.parse(r.rows[0]);
 		if (!row.allowed || !row.as_of) refuse();
@@ -398,75 +357,11 @@ FROM g`);
 			canEdit: seat.administrator,
 			goals: row.goals,
 			kinds: row.kinds.sort((a, b) => order.indexOf(a.kind as never) - order.indexOf(b.kind as never)),
+			activeResidents: row.residents,
 			plantsSent: { status: "unavailable", reason: "deferred_stage_3" },
 			conversations: { months: row.months, quarters: row.quarters },
 		});
 	});
-}
-
-type Writer = {
-	tx: Transaction;
-	organization: string;
-	seatId: string;
-	administrator: boolean;
-	actor: string;
-	/** An audit row for this write: body-free, with IDs, actor, change kind and revisions only (REQ-MUL-002). */
-	audit: (a: {
-		id?: string;
-		action: string;
-		kind: string;
-		subject: SQL;
-		subjectType?: string;
-		before?: SQL;
-		after?: SQL;
-		/** Body-free metadata; SQL when it holds a value the statement reads, such as a corrected day's old value. */
-		metadata?: object | SQL;
-	}) => SQL;
-};
-
-/**
- * One pipeline write in the gate's transaction (C88, established): the gate locks the actor's seat and the
- * organization, so the command's reads see every committed write before it, and the command runs as that seat.
- */
-async function write<T>(
-	db: Database,
-	authority: RequestActor,
-	administratorOnly: boolean,
-	run: (w: Writer) => Promise<T>,
-): Promise<Reply<T>> {
-	const selected = authority.actor.context.owner;
-	if (selected.kind !== "organization") return { status: "refused", refusal: { code: "unavailable" } };
-	return answer(() =>
-		nativeWrite(db, authority, selected, async (tx) => {
-			await declareWrite(tx, "established");
-			const locked = await lockedWrite(tx);
-			const context = locked?.actor.context;
-			if (!locked || context?.kind !== "seat" || context.owner.id !== selected.id) refuse();
-			const seat = context as Extract<NonNullable<typeof context>, { kind: "seat" }>;
-			const administrator = seat.role !== "member";
-			if (administratorOnly && !administrator) refuse();
-			const organization = selected.id;
-			const actor = locked!.actor.accountId;
-			const token = hash([organization, actor]);
-			return run({
-				tx,
-				organization,
-				seatId: seat.seatId,
-				administrator,
-				actor,
-				audit: (a) =>
-					sql`INSERT INTO audit_event (id,tenant_id,actor_id,actor_token,action,kind,subject_type,subject_id,before_revision,
- after_revision,metadata) SELECT ${a.id ?? randomUUID()}::uuid,${organization}::uuid,${actor}::uuid,${token},${a.action},${a.kind},
- ${a.subjectType ?? "person"},${a.subject},${a.before ?? sql`NULL`}::bigint,${a.after ?? sql`NULL`}::bigint,
- ${a.metadata instanceof SQL ? a.metadata : sql`${JSON.stringify(a.metadata ?? {})}::jsonb`}`,
-			});
-		}),
-	);
-}
-
-/** One row of a write statement's answer. */
-async function one<S extends z.ZodType>(w: Writer, schema: S, statement: SQL): Promise<z.output<S>> {
-	return schema.parse((await w.tx.execute(statement)).rows[0]);
 }
 
 /** A seat that may be named responsible: current in this organization (REQ-MUL-002). */
