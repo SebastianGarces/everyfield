@@ -93,6 +93,37 @@ export const addPipelineNoteRequest = z.strictObject({ personId, noteId: recordI
 export const editPipelineNoteRequest = z.strictObject({ noteId: recordId, expectedRevision: revision, body: noteBody });
 export const removePipelineNoteRequest = z.strictObject({ noteId: recordId, expectedRevision: revision });
 
+/** A count target on a sending goal: never negative (REQ-MUL-007). */
+const goalTarget = z.int().min(0).max(10_000);
+/**
+ * A new sending goal (no revision, with the ID the browser gave it) or a change to one. Saving a goal never moves a
+ * person, changes a stage or creates a plant (REQ-MUL-007).
+ */
+export const saveGoalRequest = z.strictObject({
+	goalId: recordId,
+	expectedRevision: revision.nullable(),
+	leaderTarget: goalTarget,
+	plantTarget: goalTarget,
+	targetYear: z.int().min(2000).max(2200),
+	rationale: z.string().trim().min(1).max(1000),
+});
+/** A conversation's optional short note: readable only by the Owner, Admins and the current responsible staff. */
+const conversationNote = z.string().trim().min(1).max(1000).nullable();
+/** A leadership (ICNU) conversation a staff member had with a pipeline person, on its actual day (REQ-MUL-009). */
+export const logConversationRequest = z.strictObject({
+	conversationId: recordId,
+	personId,
+	occurredOn: localDate,
+	note: conversationNote,
+});
+/** A correction to a conversation's day or note. History keeps the old and new day, who changed it and when. */
+export const correctConversationRequest = z.strictObject({
+	conversationId: recordId,
+	expectedRevision: revision,
+	occurredOn: localDate,
+	note: conversationNote,
+});
+
 /** What the viewer may see: everyone (Owner, Admin), the people they are responsible for, or counts only. */
 export const pipelineAudience = z.enum(["administrator", "responsible", "counts"]);
 
@@ -160,6 +191,30 @@ export const pipelineNote = z.discriminatedUnion("state", [
 		removedOn: localDate,
 	}),
 ]);
+/** One leadership conversation on a person's record, readable only by the record's audience. */
+export const leadershipConversation = z.strictObject({
+	id: recordId,
+	revision,
+	on: localDate,
+	/** The staff member who met the person and logged it. */
+	metBy: z.string().nullable(),
+	note: z.string().nullable(),
+	loggedOn: localDate,
+	/** Each correction, oldest first: the old and new day when the day changed, who changed it and when. */
+	corrections: z
+		.array(
+			z.strictObject({
+				id: recordId,
+				on: localDate,
+				actor: z.string().nullable(),
+				dateFrom: localDate.nullable(),
+				dateTo: localDate.nullable(),
+				noteChanged: z.boolean(),
+			}),
+		)
+		.max(50),
+});
+
 export const pipelinePersonRecord = z.strictObject({
 	audience: pipelineAudience.exclude(["counts"]),
 	personId,
@@ -172,10 +227,40 @@ export const pipelinePersonRecord = z.strictObject({
 	assessment: z.strictObject({ on: localDate, by: z.string() }).nullable(),
 	history: z.array(pipelineHistoryEntry).max(200),
 	notes: z.array(pipelineNote).max(200),
+	conversations: z.array(leadershipConversation).max(200),
 	asOf: localDate,
 	viewer: accountId,
 });
 
+export const sendingGoal = z.strictObject({
+	id: recordId,
+	revision,
+	leaderTarget: goalTarget,
+	plantTarget: goalTarget,
+	targetYear: z.int(),
+	rationale: z.string(),
+});
+const count = z.int().min(0);
+/**
+ * The goals area of the Pipeline page, for every seat: the organization's goals, its own pipeline counted by fixed
+ * stage kind as of today, and leadership conversations counted by month and quarter. Counts and dates only: no rate,
+ * forecast or verdict (ADR-001). Plants sent is unavailable until commissioning arrives (ADR-001 stage 3).
+ */
+export const pipelineGoals = z.strictObject({
+	/** Today in the organization's time zone: the as-of day of every count. */
+	asOf: localDate,
+	canEdit: z.boolean(),
+	goals: z.array(sendingGoal).max(50),
+	/** Distinct live people of this organization whose current stage has each kind; one entry per kind in use. */
+	kinds: z.array(z.strictObject({ kind: pipelineStageKind, count })),
+	plantsSent: z.strictObject({ status: z.literal("unavailable"), reason: z.literal("deferred_stage_3") }),
+	conversations: z.strictObject({
+		/** The last six months, oldest first, ending with this month. */
+		months: z.array(z.strictObject({ month: z.string().regex(/^\d{4}-\d{2}$/), count })).length(6),
+		/** The last four quarters, oldest first, ending with this quarter. */
+		quarters: z.array(z.strictObject({ year: z.int(), quarter: z.int().min(1).max(4), count })).length(4),
+	}),
+});
 /** Why a pipeline request was refused. `stage_occupied` names how many people a stage still holds. */
 export const pipelineRefusal = z.discriminatedUnion("code", [
 	z.strictObject({ code: z.literal("unavailable") }),
@@ -188,3 +273,4 @@ export type PipelineReply<T> = { status: "ok"; value: T } | { status: "refused";
 export type PipelineBoard = z.infer<typeof pipelineBoard>;
 export type PipelinePersonRecord = z.infer<typeof pipelinePersonRecord>;
 export type PipelineBoardQuery = z.infer<typeof pipelineBoardQuery>;
+export type PipelineGoals = z.infer<typeof pipelineGoals>;

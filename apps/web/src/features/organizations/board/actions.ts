@@ -1,6 +1,12 @@
 "use server";
 
-import { loadPipelineBoard, loadPipelinePerson, pipelineActor, pipelineWrite } from "@/server/organizations/pipeline";
+import {
+	loadPipelineBoard,
+	loadPipelineGoals,
+	loadPipelinePerson,
+	pipelineActor,
+	pipelineWrite,
+} from "@/server/organizations/pipeline";
 import { pipelineWriter } from "@everyfield/domain/organizations";
 
 // Server actions behind the Pipeline page and a person's record. Each one rebuilds the request actor; the domain
@@ -36,6 +42,22 @@ export async function editNote(input: unknown) {
 }
 export async function removeNote(input: unknown) {
 	return pipelineWrite((db, authority) => pipelineWriter.removeNote(db, authority, input));
+}
+export async function saveGoal(input: unknown) {
+	return pipelineWrite((db, authority) => pipelineWriter.saveGoal(db, authority, input));
+}
+export async function logConversation(input: unknown) {
+	return pipelineWrite((db, authority) => pipelineWriter.logConversation(db, authority, input));
+}
+export async function correctConversation(input: unknown) {
+	return pipelineWrite((db, authority) => pipelineWriter.correctConversation(db, authority, input));
+}
+
+/** The goals area again, after a goal is saved. */
+export async function readGoals() {
+	const who = await pipelineActor();
+	if (who.kind !== "seat") return { status: "refused", refusal: { code: "unavailable" } } as const;
+	return loadPipelineGoals(who.authority);
 }
 
 /** The board again under the same filters, after a change that reshapes it. */
