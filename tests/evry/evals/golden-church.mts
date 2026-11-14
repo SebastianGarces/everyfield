@@ -313,9 +313,9 @@ export const ACTOR_SPECS = {
 		name: "Owen Brooks",
 	},
 	network: {
-		account: ACCOUNT(6),
-		user: id(0xf16),
-		session: id(0xf26),
+		account: ACCOUNT(9),
+		user: id(0xf19),
+		session: id(0xf29),
 		plant: null,
 		organization: NETWORK,
 		role: "owner",
@@ -324,9 +324,9 @@ export const ACTOR_SPECS = {
 } as const satisfies Record<string, ActorSpec>;
 /** Seats that hold tasks in Hope Fellowship but sign in to no eval, each with the person row its account links to. */
 export const SEATS = {
-	ana: { account: ACCOUNT(9), user: id(0xf19), name: "Ana Rivera", linked: true },
-	carlos: { account: ACCOUNT(10), user: id(0xf1a), name: "Carlos Mendez", linked: false },
-	alex: { account: ACCOUNT(11), user: id(0xf1b), name: "Alex Rivera", linked: true },
+	ana: { account: ACCOUNT(6), user: id(0xf16), name: "Ana Rivera", linked: true },
+	carlos: { account: ACCOUNT(7), user: id(0xf17), name: "Carlos Mendez", linked: false },
+	alex: { account: ACCOUNT(8), user: id(0xf18), name: "Alex Rivera", linked: true },
 } as const;
 export type ActorName = keyof typeof ACTOR_SPECS;
 /** The person row linked to each plant seat's account: the signed-in user's own row. */

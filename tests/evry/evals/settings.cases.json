@@ -11,10 +11,13 @@
 			"operation": "seats.list",
 			"calls": ["seats.list", "seats.listInvitations"],
 			"answer": [
-				"3 people have access",
+				"6 people have access",
 				"Nate Ellis (Owner, you)",
 				"Lena Park (Admin)",
 				"Priya Shah (Member)",
+				"Ana Rivera (Member)",
+				"Carlos Mendez (Member)",
+				"Alex Rivera (Member)",
 				"1 invitation is waiting: jordan@example.test as Member"
 			]
 		},
@@ -161,6 +164,11 @@
 						"field": "access",
 						"before": "admin",
 						"after": "removed"
+					},
+					{
+						"field": "openTasksNeedingOwner",
+						"before": null,
+						"after": 4
 					}
 				],
 				"notes": ["Lena Park loses access to Hope Fellowship right away"]
@@ -186,8 +194,9 @@
 				],
 				"notes": [
 					"These upcoming times move, shown in Eastern time:",
-					"Weekly digest email, Sun",
-					"5:00 PM → 4:00 PM Eastern time"
+					"Reminder for \"Review the volunteer schedule\", Tue, Nov 10: 10:00 AM → 9:00 AM Eastern time",
+					"And 8 more.",
+					"Task due dates keep their day."
 				]
 			},
 			"approve": true

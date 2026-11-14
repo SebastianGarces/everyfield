@@ -77,9 +77,9 @@ const freshActor = async (session: string) => {
 	const viewer = await readViewer(db, session as never);
 	return viewer?.authority ? evryActor(viewer.authority) : null;
 };
-const noReminders = async () => {
-	throw Error("unexpected task reminder replan");
-};
+// Removing Lena's seat hands her open tasks back as needing an owner, which replans their reminders; the reminder
+// jobs themselves are not under test here.
+const noReminders = async () => undefined;
 
 before(async () => {
 	church = await goldenChurch({ seatNames: true });
@@ -181,12 +181,18 @@ const SETTLED: Record<string, { before?: (a: EvryActor) => Promise<void>; after:
 	"SET-08": {
 		before: async (a) =>
 			assert.deepEqual(await seatsScreen(a), [
+				["Alex Rivera", "member"],
+				["Ana Rivera", "member"],
+				["Carlos Mendez", "member"],
 				["Lena Park", "admin"],
 				["Nate Ellis", "owner"],
 				["Priya Shah", "member"],
 			]),
 		after: async (a) =>
 			assert.deepEqual(await seatsScreen(a), [
+				["Alex Rivera", "member"],
+				["Ana Rivera", "member"],
+				["Carlos Mendez", "member"],
 				["Lena Park", "admin"],
 				["Nate Ellis", "owner"],
 				["Priya Shah", "admin"],
@@ -195,6 +201,9 @@ const SETTLED: Record<string, { before?: (a: EvryActor) => Promise<void>; after:
 	"SET-09": {
 		after: async (a) =>
 			assert.deepEqual(await seatsScreen(a), [
+				["Alex Rivera", "member"],
+				["Ana Rivera", "member"],
+				["Carlos Mendez", "member"],
 				["Nate Ellis", "owner"],
 				["Priya Shah", "admin"],
 			]),
