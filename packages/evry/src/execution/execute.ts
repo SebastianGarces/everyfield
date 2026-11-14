@@ -10,6 +10,7 @@ import { owner, sessionId } from "@everyfield/contracts/common";
 import { z } from "zod";
 import { EvryRefusal } from "../context/errors.ts";
 import { REVIEWED_WRITES, staleMessage } from "../proposals/store.ts";
+import { refusalCode } from "../proposals/review.ts";
 import type { EffectResult, MailPort, NativePorts, ReviewedWrite } from "../proposals/types.ts";
 
 /** The executor's claim on one evry_effect job, as the WP-031 queue issued it. Only the current claim may publish. */
@@ -60,10 +61,6 @@ const locked = z.object({
 	expired: z.boolean(),
 	fenced: z.boolean(),
 });
-
-/** The refusal code a person sees for a domain refusal; a changed target asks for a new review. */
-const refusalCode = (code: string) =>
-	code === "conflict" ? "revision_conflict" : code === "unavailable" ? "access_denied" : code;
 
 /**
  * The records a refusal because something changed shows as they are now, for the writes that name them (current), read
