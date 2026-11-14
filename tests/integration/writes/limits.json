@@ -1105,7 +1105,8 @@
 		"limit": 1
 	},
 	"notifications.enqueue": {
-		"limit": 5
+		"limit": 6,
+		"reason": "One notice through enqueueMany (6): the residency worker's recipient lookup reads the linked resident's account address, as the seated path reads seat addresses (T-365)."
 	},
 	"notifications.enqueueMany": {
 		"limit": 6
