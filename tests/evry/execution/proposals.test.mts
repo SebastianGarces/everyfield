@@ -46,6 +46,13 @@ import {
 const noReminders = async () => {
 	throw Error("unexpected task reminder replan");
 };
+/** The effect ports: no effect here hands a task on or moves a phase forward, so either call would be a bug. */
+const noPorts = {
+	reminders: noReminders,
+	phaseNotices: async () => {
+		throw Error("unexpected phase notice");
+	},
+};
 
 before(setup);
 after(teardown);
@@ -64,7 +71,7 @@ async function effects() {
 	const [claim] = await claimDue(db, ["evry_effect"], 1, 60);
 	if (!claim) return null;
 	const start = queries.length;
-	const outcome = await executeProposal(db, lease(claim), noReminders);
+	const outcome = await executeProposal(db, lease(claim), noPorts);
 	const statements = counted(start);
 	if (outcome !== "lost")
 		await transaction(db, (tx) => finishClaim(tx, claim, { state: outcome === "failed" ? "failed" : "succeeded" }));
@@ -81,7 +88,7 @@ async function stalledEffect(during: (claim: Claim) => Promise<void>, leaseSecon
 	let running: Promise<string> | undefined;
 	await admin.transaction(async (tx) => {
 		await tx.execute(sql`SELECT id FROM plant WHERE id=${plant} FOR UPDATE`);
-		running = executeProposal(db, lease(claim), noReminders);
+		running = executeProposal(db, lease(claim), noPorts);
 		for (let waiting = 0, deadline = Date.now() + 20_000; !waiting;) {
 			assert.ok(Date.now() < deadline, "the executor never waited for write authority");
 			const r = await admin.execute(
@@ -392,7 +399,7 @@ test("AC:EVRY-LEASE-FENCE AC:INH-REGRESSION-RETRY AC:INH-EDGES-12: an executor s
 	assert.equal((await retryUnresolvedEffects(db, owner, proposal.id)).retried, true);
 	assert.equal(counted(start), 1);
 	assert.equal((await effects())?.outcome, "completed");
-	assert.equal(await executeProposal(db, lease(stalled!), noReminders), "lost");
+	assert.equal(await executeProposal(db, lease(stalled!), noPorts), "lost");
 	const retry = await retryUnresolvedEffects(db, owner, proposal.id);
 	assert.deepEqual([retry.retried, retry.proposal.outcome], [false, "completed"]);
 	assert.equal(await effects(), null);
@@ -459,7 +466,7 @@ test("AC:EVRY-LEASE-FENCE an executor whose lease expires while it waits for the
 	// until the lease has passed.
 	await admin.transaction(async (tx) => {
 		await tx.execute(sql`SELECT id FROM job WHERE id=${claim.id} FOR UPDATE`);
-		running = executeProposal(db, lease(claim), noReminders);
+		running = executeProposal(db, lease(claim), noPorts);
 		// The executor's session (the test runtime role) waits on a lock; its query text is too long to match reliably.
 		for (let waiting = 0, deadline = Date.now() + 20_000; !waiting;) {
 			assert.ok(Date.now() < deadline, "the executor never waited for the job row");
@@ -511,7 +518,7 @@ test("INV-effect-recovery: an approved effect that no worker took within 60 s re
 	// The old job no worker took is superseded, so the next claim takes the new job at once, not the old one first.
 	assert.deepEqual(await effectJobs(proposal.id), ["superseded", "ready"]);
 	const [claim] = await claimDue(db, ["evry_effect"], 1, 60);
-	assert.equal(await executeProposal(db, lease(claim!), noReminders), "completed");
+	assert.equal(await executeProposal(db, lease(claim!), noPorts), "completed");
 	// The review reports the saved outcome before the job finishes: nothing the person sees waits for finishClaim.
 	const shown = await readReview(db, owner, proposal.id);
 	assert.deepEqual([shown.outcome, shown.executing], ["completed", false]);

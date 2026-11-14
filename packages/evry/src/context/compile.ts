@@ -172,6 +172,7 @@ export function describeCatalog(catalog: Catalog) {
 		lines.push(
 			`Your seat can't change ${unchangeable.join(", ")} here, so I prepare no such changes for you: an Owner or Admin of this church has to make them.`,
 		);
+	lines.push(...catalog.withheld);
 	lines.push(
 		"Every change to your records needs your review and approval first. I can't give pastoral counsel, write prayers or judge anyone's spiritual readiness.",
 	);
@@ -473,6 +474,9 @@ export function compileContext(input: {
 		`Context: ${input.actor.contextKind}. Current time (trusted server clock): ${input.now.toISOString()}.`,
 		describeCatalog(input.catalog),
 		savedFacts(input.state ?? null),
+		input.catalog.withheld.length
+			? "When asked about something this seat does not include, say that sentence as written and never answer it from other records."
+			: "",
 		refs.length ? "Verified references on the user's page: " + scrub(JSON.stringify(refs)) : "",
 	];
 	const join = (parts: string[]) => parts.filter(Boolean).join("\n\n");

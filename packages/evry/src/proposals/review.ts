@@ -9,6 +9,7 @@ import { MEETINGS_COMMANDS } from "../adapters/meetings/commands/index.ts";
 import { NOTIFICATION_COMMANDS } from "../adapters/notifications/commands/index.ts";
 import { untouchedMail } from "../adapters/communication/reads/index.ts";
 import { FOLLOWUP_COMMANDS } from "../adapters/followups/commands/index.ts";
+import { INTELLIGENCE_COMMANDS } from "../adapters/intelligence/commands/index.ts";
 import { PEOPLE_COMMANDS } from "../adapters/people/commands/index.ts";
 import { ASSESSMENT_COMMANDS } from "../adapters/people-assessments/commands/index.ts";
 import { SETTINGS_COMMANDS } from "../adapters/settings/index.ts";
@@ -37,6 +38,7 @@ export const REVIEWED_WRITES = {
 	...COMMUNICATION_COMMANDS,
 	...NOTIFICATION_COMMANDS,
 	...TEAMS_COMMANDS,
+	...INTELLIGENCE_COMMANDS,
 	...MEETINGS_COMMANDS,
 	...SETTINGS_COMMANDS,
 	...ONBOARDING_COMMANDS,
@@ -122,6 +124,7 @@ export const projection = (alias: string) =>
 			OR (${alias}.review->'target'->>'kind'='training' AND EXISTS(SELECT FROM training_program t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.plant_id=${alias}.tenant_id))
 			OR (${alias}.review->'target'->>'kind'='responsibility' AND EXISTS(SELECT FROM responsibility t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.plant_id=${alias}.tenant_id AND t.removed_at IS NULL))
 			OR (${alias}.review->'target'->>'kind'='article' AND `)}${articleLive(sql.raw(`(${alias}.review->'target'->>'id')::uuid`), sql.raw(`${alias}.tenant_id`))}${sql.raw(`)
+			OR (${alias}.review->'target'->>'kind'='plant' AND (${alias}.review->'target'->>'id')::uuid=${alias}.tenant_id)
 			OR (${alias}.review->'target'->>'kind'='meeting' AND EXISTS(SELECT FROM meeting t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.plant_id=${alias}.tenant_id AND t.retired_at IS NULL))
 			OR (${alias}.review->'target'->>'kind'='venue' AND EXISTS(SELECT FROM venue t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.plant_id=${alias}.tenant_id))
 			THEN ${alias}.review ELSE jsonb_build_object('target',NULL,'changes','[]'::jsonb,'withheld',true) END,
@@ -136,7 +139,7 @@ export const projection = (alias: string) =>
 /**
  * What a review is about. A person, message, team, role, training, responsibility, household or tag is withheld once it
  * is no longer available; a church, seat, invitation, connection, organization or account review is checked again by
- * its native command on approval.
+ * its native command on approval; so is a phase or signal review, which targets the church as `plant`.
  */
 const targetKind = z.enum([
 	"person",
@@ -151,6 +154,8 @@ const targetKind = z.enum([
 	"meeting",
 	"venue",
 	"church",
+	// A phase or signal review targets the church itself under its tenancy kind (adapters/intelligence).
+	"plant",
 	"seat",
 	"invitation",
 	"connection",

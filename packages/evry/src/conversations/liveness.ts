@@ -100,6 +100,11 @@ const ROW_LIVENESS: Record<SourceRow["kind"], Rule> = {
 	correction: (id, plant, account) =>
 		sql`(${ownerOrAdmin(plant, account)} AND (EXISTS(SELECT FROM record_correction live_r WHERE live_r.id=${id} AND live_r.plant_id=${plant})
 			OR EXISTS(SELECT FROM audit_event live_a WHERE live_a.id=${id} AND live_a.tenant_id=${plant})))`,
+	// A phase, criterion or signal row is reference metadata or an append-only journey or attestation entry of the
+	// church itself, read under the Owner or Admin floor (adapters/intelligence); none is ever removed.
+	phase: null,
+	criterion: null,
+	signal: null,
 	// Never withheld: a seat, an invitation or a connection is the church's own access setting, which the person asking
 	// changes themselves through reviews; an answer that named one stays readable after the change.
 	seat: null,

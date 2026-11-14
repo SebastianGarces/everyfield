@@ -1331,8 +1331,8 @@
 		"eval": {
 			"cantYet": true,
 			"forbid": ["/\\b\\d+ (more )?days\\b/i"],
-			"only": ["tasks.list"],
-			"derivation": "No launch date is recorded: Evry may look for a launch task but never computes a countdown from a guessed date.",
+			"only": ["tasks.list", "phases.readHistory", "phases.readCatalog", "phases.readReadiness"],
+			"derivation": "No launch date is recorded: Evry may look for a launch task or read the phase journey (T-326) to say so, but never computes a countdown from a guessed date and must still say it can't count the days.",
 			"finding": {
 				"checks": ["calls only no tool"],
 				"note": "Drifted on the T-322 merge re-record with S4 notifications; failing checks set from its report (D-1151)."
@@ -1436,17 +1436,24 @@
 		"area": "Launch / phases",
 		"case_id": "LCH-06",
 		"question": "what phase are we in",
-		"status": "Not yet",
+		"status": "Supported",
 		"expected_operation": "not yet: needs `phases.readHistory`",
 		"expected_answer": "Later: current phase and since when",
 		"must_not": "Guess from launch date",
 		"eval": {
-			"cantYet": true,
-			"forbid": ["/you['’]?(re| are) (in|at) (the )?[\\w-]+ phase/i"],
+			"forbid": ["/\\b(prospects?|attendees?|launch date)\\b/i"],
 			"finding": {
 				"checks": ["calls only no tool"],
 				"note": "T-322 merge with S4 teams and people (D-1229): after the merged tool list was re-recorded, the model answer misses these checks; recorded as a finding as in T-24 (D-958) and D-1181. Drifted on the T-322 merge re-record with S4 notifications; failing checks set from its report (D-1151)."
-			}
+			},
+			"calls": [
+				{
+					"operation": "phases.readHistory"
+				}
+			],
+			"only": ["phases.readHistory", "phases.readCatalog"],
+			"require": ["/Core Group Development/i", "/Aug(ust)?\\.? 3\\b/i"],
+			"derivation": "The phase journey: declared at Discovery on Apr 1, 2026, moved to Core Group Development on Aug 3, 2026 (golden-church.mts). The answer comes from phases.readHistory, never from People stage counts."
 		}
 	},
 	{

@@ -2,7 +2,7 @@ import { privateStorage } from "@everyfield/db/schema";
 import { cleanupDatabase, jobDatabase } from "@/server/database";
 import { digestMailPass, digestsMount } from "@/server/jobs/digest";
 import { noticeMailPass, notificationsMount } from "@/server/jobs/notification-worker";
-import { tasksMount } from "@/server/tasks";
+import { evryEffectPorts } from "@/server/evry";
 import { runDueInvitationMail } from "@/server/invitations";
 import { identityMailPass } from "@/server/identity";
 import { organizationMailPass } from "@/server/organizations";
@@ -27,7 +27,7 @@ export function GET(request: Request): Promise<Response> {
 		db,
 		storage: privateStorage(),
 		cleanup: cleanupDatabase(),
-		reminders: tasksMount()?.reminders ?? null,
+		effects: evryEffectPorts(),
 		digests: digestsMount(db),
 		notifications: notificationsMount(db),
 		feedbackPublication: feedbackPublicationMount(db),

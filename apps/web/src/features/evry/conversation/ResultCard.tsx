@@ -1,6 +1,7 @@
 "use client";
 
 import {
+	Activity01Icon,
 	Award01Icon,
 	BookOpen01Icon,
 	Briefcase01Icon,
@@ -14,6 +15,7 @@ import {
 	Note01Icon,
 	Location01Icon,
 	File01Icon,
+	Flag01Icon,
 	Home01Icon,
 	LayoutTemplateIcon,
 	Link01Icon,
@@ -70,6 +72,9 @@ const GLYPH: Record<Glyph, IconSvgElement> = {
 	meeting: Calendar03Icon,
 	responsibility: CheckListIcon,
 	template: LayoutTemplateIcon,
+	phase: Flag01Icon,
+	criterion: CheckListIcon,
+	signal: Activity01Icon,
 	venue: Location01Icon,
 	item: CheckListIcon,
 	seat: UserIcon,

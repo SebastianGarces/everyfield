@@ -185,8 +185,11 @@ export function recorder(name: string) {
 		return (real = selected.model);
 	}
 
-	/** The model for one conversation; each provider call's key is pushed to `keys`. */
-	function model(keys: string[] = []): LanguageModelV4 {
+	/**
+	 * The model for one conversation; each provider call's key is pushed to `keys`, and everything the provider
+	 * receives in it (the prompt, with the system text and every tool result, and the tool definitions) to `inputs`.
+	 */
+	function model(keys: string[] = [], inputs: string[] = []): LanguageModelV4 {
 		const known = (key: string) => used.get(key) ?? loaded?.calls[key];
 		const missing = (key: string): never => {
 			throw new MissingRecording(
@@ -201,6 +204,7 @@ export function recorder(name: string) {
 			async doGenerate(options) {
 				const key = callKey(options);
 				keys.push(key);
+				inputs.push(JSON.stringify({ prompt: options.prompt, tools: options.tools }));
 				let call = known(key);
 				if (!call && recording) {
 					const out = await capped(() => realModel().doGenerate(options));
@@ -219,6 +223,7 @@ export function recorder(name: string) {
 			async doStream(options) {
 				const key = callKey(options);
 				keys.push(key);
+				inputs.push(JSON.stringify({ prompt: options.prompt, tools: options.tools }));
 				const call = known(key);
 				if (call?.kind === "stream") {
 					used.set(key, call);
@@ -299,6 +304,8 @@ export type Conversation = {
 	proposals: Proposal[];
 	answer: string;
 	keys: string[];
+	/** Everything the model received in this conversation, one entry per provider call (recorder's `inputs`). */
+	inputs: string[];
 	/** The refusal that ended the turn, as runTurn ends it when a read fails. */
 	failed?: string;
 };
@@ -391,7 +398,8 @@ export async function converse(
 	const { db } = church;
 	const actor = church.actors[as];
 	const keys: string[] = [];
-	const model = override ?? golden.model(keys);
+	const inputs: string[] = [];
+	const model = override ?? golden.model(keys, inputs);
 	const catalog = readCatalog(actor, RECORDED);
 	const calls: ToolCall[] = [];
 	const proposals: Proposal[] = [];
@@ -402,6 +410,7 @@ export async function converse(
 			calls,
 			proposals,
 			keys,
+			inputs,
 			answer: classified.kind === "pastoral_boundary" ? PASTORAL_BOUNDARY : capabilitiesAnswer(catalog, actor),
 		};
 
@@ -580,7 +589,7 @@ export async function converse(
 		else if (part.type === "error" && !abort.signal.aborted) failure ??= part.error;
 	}
 	if (failure) throw failure;
-	return { kind: "application", calls, proposals, answer, keys, ...(failed ? { failed } : {}) };
+	return { kind: "application", calls, proposals, answer, keys, inputs, ...(failed ? { failed } : {}) };
 }
 
 /**

@@ -107,8 +107,8 @@ export function reviewed<I>(spec: {
 		input: spec.input,
 		allowed: spec.allowed,
 		review: spec.review,
-		execute: (tx, context, args, effectKey, reminders) =>
-			spec.run(tx, context, args, (step) => `${effectKey}:${step}`, reminders),
+		execute: (tx, context, args, effectKey, ports) =>
+			spec.run(tx, context, args, (step) => `${effectKey}:${step}`, ports.reminders),
 	};
 }
 const writer = (reminders: TaskReminders) => createTaskWriter({ reminders });

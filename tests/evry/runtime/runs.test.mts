@@ -264,9 +264,9 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 		/own Discovery space[\s\S]*starting a new church[\s\S]*private Discovery space/,
 	);
 	// No catalog offers direct writes, approvals, code, private care or coach tools to any context. Only a plant Owner or
-	// Admin may propose the reviewed People, seat, settings, sharing and connection changes, the same floor as the native
-	// commands; any plant seat proposes changes to its own notifications and account, a Member the Meetings changes the
-	// native commands let a Member make, and an organization Owner its own profile.
+	// Admin may propose the reviewed People, Messages, phase, signal, seat, settings, sharing and connection changes, the
+	// same floor as the native commands; any plant seat proposes changes to its own notifications and account, a Member
+	// the Meetings changes the native commands let a Member make, and an organization Owner its own profile.
 	// A Member may propose only the task and follow-up changes the native commands allow on their own work.
 	const memberTaskWrites = [
 		"tasks.complete",
@@ -376,6 +376,11 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 						"notifications.setPreferences",
 						"notifications.digestCadence.set",
 						...Object.keys(REVIEWED_WRITES).filter((op) => op.startsWith("teams.")),
+						"phases.declare",
+						"phases.transition",
+						"signals.attest",
+						"signals.correct",
+						"signals.reaffirm",
 						...MEETINGS_WRITES,
 						"seats.invite",
 						"seats.resendInvitation",
@@ -507,6 +512,11 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 						"notifications.preferences.get",
 						"notifications.previewPlanterDigest",
 						...teamsReads,
+						"phases.readCatalog",
+						"phases.readHistory",
+						"phases.readReadiness",
+						"signals.listDefinitions",
+						"signals.getHistory",
 						...MEETINGS_READS,
 						"seats.list",
 						"seats.listInvitations",
@@ -709,11 +719,13 @@ test("AC:INH-EDGES-03 AC:TEN-008 AC:EVRY-CONTEXT-BOUNDS a guessed foreign id and
 			"peopleAssessments_read",
 			"peopleOrganization_read",
 			"people_read",
+			"phases_read",
 			"propose_change",
 			"seats_read",
 			"select_returned_rows",
 			"sharing_read",
 			"tasks_read",
+			"signals_read",
 			"teams_read",
 			"wiki_read",
 		],

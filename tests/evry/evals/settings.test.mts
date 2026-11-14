@@ -80,6 +80,12 @@ const freshActor = async (session: string) => {
 // Removing Lena's seat hands her open tasks back as needing an owner, which replans their reminders; the reminder
 // jobs themselves are not under test here.
 const noReminders = async () => undefined;
+const noPorts = {
+	reminders: noReminders,
+	phaseNotices: async () => {
+		throw Error("unexpected phase notice");
+	},
+};
 
 before(async () => {
 	church = await goldenChurch({ seatNames: true });
@@ -127,7 +133,7 @@ async function approveAndRun(actor: EvryActor, proposal: Proposal) {
 	const outcome = await executeProposal(
 		db,
 		{ jobId: claim.id, tenantId: claim.tenant_id, leaseOwner: claim.lease_owner, generation: claim.claim_generation },
-		noReminders,
+		noPorts,
 		null,
 		native,
 	);

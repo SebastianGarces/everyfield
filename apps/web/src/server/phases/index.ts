@@ -27,7 +27,7 @@ function create(v: z.infer<typeof env>) {
 		authorize: authorizePhaseNotices,
 	});
 	const notices: PhaseNotices = phaseNotices((eligible) => createNotificationService({ mail, eligible }));
-	return { db, writer: createPhaseWriter({ notices }) };
+	return { db, notices, writer: createPhaseWriter({ notices }) };
 }
 /** The phase writer and its database, or null when the deployment has no identity and mail configuration. */
 export function phasesMount() {

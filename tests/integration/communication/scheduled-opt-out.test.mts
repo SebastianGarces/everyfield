@@ -368,7 +368,7 @@ test("AC:CASE-NTF-016 the every-minute cron call hands a due scheduled email off
 		db: f.db,
 		storage: null,
 		cleanup: null,
-		reminders: null,
+		effects: null,
 		digests: null,
 		mail: null,
 		messages: scheduledMessages(f.db, resend.transport, keys),

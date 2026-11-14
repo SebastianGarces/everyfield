@@ -64,7 +64,7 @@ test("INV-scheduled-steps: a throwing object cleanup step still lets digests and
 			},
 		} as never,
 		cleanup: null,
-		reminders: null,
+		effects: null,
 		digests: createDigestWorker({ mail, origin: "https://everyfield.test" }),
 		mail: (limit, until) => runDueMail(f.db, f.mail, INVITATION_MAIL, limit, until),
 		now: () => clock.at,
@@ -183,7 +183,7 @@ test("INV-scheduled-steps: a throwing notification step names itself and the lat
 		db: f.db,
 		storage: null,
 		cleanup: null,
-		reminders: null,
+		effects: null,
 		digests: null,
 		mail: null,
 		notifications: {
@@ -233,7 +233,7 @@ test("INV-scheduled-steps: each tick sweeps an unreferenced documents file whose
 			},
 		} as never,
 		cleanup: null,
-		reminders: null,
+		effects: null,
 		digests: null,
 		mail: null,
 	});
@@ -274,7 +274,7 @@ test("INV-scheduled-steps: each tick sweeps an unreferenced documents file whose
 		db: f.db,
 		storage: null,
 		cleanup: null,
-		reminders: null,
+		effects: null,
 		digests: null,
 		mail: null,
 	});

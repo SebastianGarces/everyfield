@@ -38,9 +38,15 @@
 //   none finished), Kids ministry (Linh leads it; Casey Morgan on check-in; Sam joined as Nursery helper after "Kids
 //   ministry training" was saved for Alex and Casey Morgan, and only Alex has finished) and Prayer team (Priya, the
 //   Member, leads it; Sam intercedes). Sam Patel serves on three ministries; no one else on more than one.
-// - A Wiki (tests/evry/adapters/wiki/corpus.mts): Hope Fellowship is in Launch Team Formation (phase 2) and shares its
-//   Wiki with Harvest Network, whose published version of "Running Your Vision Meeting" its Wiki shows; Harvest
+// - A Wiki (tests/evry/adapters/wiki/corpus.mts): Hope Fellowship shares its Wiki with Harvest Network, whose published version of "Running Your Vision Meeting" its Wiki shows; Harvest
 //   Network's draft and Other Network's version never show. The Owner was last reading "Launch Team Roles" (40%).
+// - Phases: declared at Discovery when it joined (Apr 1, 2026), then moved to Core Group Development on Aug 3, 2026,
+//   both written by the native phase writer; that move's phase 1 checklists are offered and nobody answered them yet.
+//   Grace Point declared Launch Team Formation (phase 2) when it joined, so its Wiki suggests that phase's articles.
+//   The empty church has never declared or moved.
+// - Signals: "Core group giving sacrificially" answered Yes as of Oct 20, 2026, in the Owner's words; the other six,
+//   "Corporate prayer rhythm established" among them, were never answered.
+// - The Owner's private weekly check-in for this week, answered Struggling with a note. No Evry read may reach it.
 // - Actors: the Owner (Nate Ellis, a leader linked to his account), an Admin (Lena Park), a Member (Priya Shah), an
 //   organization seat (the Owner of Hill Country Church, a sending church, which sees no plant People), the Owner of an
 //   empty church and the Owner of another church, Grace Point, which has its own Alex Rivera with a commitment of his
@@ -87,6 +93,8 @@
 // whether a person has an open task.
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { readViewer } from "../../../packages/domain/src/access/session.ts";
+import { createPrivateCare, createSignals } from "../../../packages/domain/src/intelligence/index.ts";
+import { createPhaseWriter } from "../../../packages/domain/src/phases/index.ts";
 import { evryActor, type EvryActor } from "../../../packages/evry/src/context/actor.ts";
 import { resolveSelf } from "../../../packages/evry/src/context/self.ts";
 import { testDatabase, type Database } from "../../support/test-database.mts";
@@ -330,6 +338,24 @@ export const byName = (name: string) => {
 	if (!found) throw Error(`No ${name} in the golden church`);
 	return found;
 };
+
+/** The church's phase journey: where it was when it joined, and its one move since, with the reason. */
+export const PHASES = {
+	declared: { phase: 0, at: "2026-04-01T15:00:00.000Z" },
+	moved: { phase: 1, at: "2026-08-03T15:00:00.000Z", reason: "Our core group started meeting every week." },
+} as const;
+/** The one answered signal, in the Owner's words. */
+export const GIVING = {
+	key: "core_group_giving",
+	asOf: "2026-10-20",
+	detail: "Most of our core group now gives every month.",
+	at: "2026-10-20T17:00:00.000Z",
+} as const;
+/** The Owner's private check-in for this week: its words and status must never reach Evry. */
+export const PRIVATE_CHECK_IN = {
+	answers: { spiritual: "struggling", family: "struggling", financial: "strained", pace: "struggling" },
+	note: "Running on empty; my marriage is strained and I am close to quitting.",
+} as const;
 
 /** The Admin's note on Maria Santos. */
 export const MARIA_NOTE = id(0x9900);
@@ -971,14 +997,13 @@ export const LAST_NIGHT_FOLLOW_UPS = (
 	due: "2026-11-10",
 	...(doneAt ? { doneAt } : {}),
 }));
-/** The church's phase move from 1 to 2 on Wed 4 Nov, whose checklist offer nobody answered yet. */
-const PHASE_MOVE = { creation: id(0x8f40), movement: id(0x8f41), created: id(0x8f42), moved: id(0x8f43) };
 /** A checklist import on Tue 3 Nov that added the banners and insurance tasks. */
 export const CHECKLIST_IMPORT = id(0x8f50);
 
 /**
  * The history the Tasks reads return: Lena's completion of the welcome packet, Prepare launch Sunday waiting on the
- * banners, the phase move's open offer, a checklist import receipt and the vision night's completed follow-up.
+ * banners, a checklist import receipt and the vision night's completed follow-up. The phase move whose checklists are
+ * offered is the phase journey's own (seedIntelligence).
  */
 async function seedHistory(admin: Database, at: (value: string) => string) {
 	const run = (q: ReturnType<typeof sql>) => admin.execute(q);
@@ -986,17 +1011,6 @@ async function seedHistory(admin: Database, at: (value: string) => string) {
 		VALUES(${id(0x8f60)},${PLANT},${ACCOUNT(2)},'tasks.completed','complete','task',${taskId("packet")},${at("2026-11-06T18:00:00.000Z")},
 			${at("2026-11-06T18:00:00.000Z")},'{"status":"not_started"}'::jsonb,'{"status":"complete"}'::jsonb,1,1)`);
 	await run(sql`UPDATE task SET prerequisite_ids=ARRAY[${taskId("banners")}]::uuid[] WHERE id=${taskId("launch")}`);
-	// Each phase change names the audit row of the command that made it.
-	for (const [operation, action, when] of [
-		[PHASE_MOVE.created, "phase.created", "2026-04-01T15:00:00.000Z"],
-		[PHASE_MOVE.moved, "phase.transitioned", "2026-11-04T15:00:00.000Z"],
-	] as const)
-		await run(sql`INSERT INTO audit_event(id,tenant_id,actor_id,action,kind,subject_type,subject_id,occurred_at,recorded_at)
-			VALUES(${operation},${PLANT},${ACCOUNT(1)},${action},'edit','plant',${PLANT},${at(when)},${at(when)})`);
-	await run(sql`INSERT INTO phase_transition(id,plant_id,kind,from_phase,to_phase,reason,occurred_at,recorded_at,operation_id)
-		VALUES(${PHASE_MOVE.creation},${PLANT},'creation',NULL,1,'created',${at("2026-04-01T15:00:00.000Z")},${at("2026-04-01T15:00:00.000Z")},${PHASE_MOVE.created}),
-			(${PHASE_MOVE.movement},${PLANT},'movement',1,2,'Core group formed',${at("2026-11-04T15:00:00.000Z")},${at("2026-11-04T15:00:00.000Z")},${PHASE_MOVE.moved})`);
-	await run(sql`UPDATE plant SET phase=2 WHERE id=${PLANT}`);
 	await run(sql`INSERT INTO audit_event(id,tenant_id,actor_id,action,kind,subject_type,subject_id,occurred_at,recorded_at,after_value)
 		VALUES(${CHECKLIST_IMPORT},${PLANT},${ACCOUNT(1)},'tasks.changed','create','checklist_import',${PLANT},${at("2026-11-03T15:00:00.000Z")},
 			${at("2026-11-03T15:00:00.000Z")},${JSON.stringify({ checklistKey: "launch-date-planning", catalogVersion: 2, taskIds: [taskId("banners"), taskId("insurance")] })}::jsonb)`);
@@ -1529,6 +1543,70 @@ function pinHostClock() {
 }
 
 /**
+ * The phase journey, the answered signal and the Owner's private check-in, each written by its own native command
+ * as the Owner. The writers stamp their own clock, so the journey's dates are then set to the pinned ones.
+ */
+async function seedIntelligence(admin: Database, db: Database, owner: EvryActor, other: EvryActor) {
+	const ok = <T,>(reply: { status: string; value?: T }) => {
+		if (reply.status !== "ok") throw Error(`seed refused: ${JSON.stringify(reply)}`);
+		return reply.value as T;
+	};
+	const writer = createPhaseWriter({ notices: async () => {} });
+	const revision = async () =>
+		String((await admin.execute(sql`SELECT revision FROM plant WHERE id=${PLANT}`)).rows[0]!.revision);
+	ok(
+		await writer.declare(db, owner.authority, {
+			requestKey: "golden-declare",
+			expectedRevision: await revision(),
+			input: { phase: PHASES.declared.phase },
+		}),
+	);
+	ok(
+		await writer.transition(db, owner.authority, {
+			requestKey: "golden-move",
+			expectedRevision: await revision(),
+			input: { toPhase: PHASES.moved.phase, reason: PHASES.moved.reason },
+		}),
+	);
+	// Grace Point joined in Launch Team Formation: its own Owner declared it.
+	ok(
+		await writer.declare(db, other.authority, {
+			requestKey: "golden-grace-declare",
+			expectedRevision: String(
+				(await admin.execute(sql`SELECT revision FROM plant WHERE id=${OTHER_PLANT}`)).rows[0]!.revision,
+			),
+			input: { phase: 2 },
+		}),
+	);
+	for (const [kind, at] of [
+		["initial_declaration", PHASES.declared.at],
+		["movement", PHASES.moved.at],
+	])
+		await admin.execute(
+			sql`UPDATE phase_transition SET occurred_at=${at}::timestamptz,recorded_at=${at}::timestamptz WHERE plant_id=${PLANT} AND kind=${kind}`,
+		);
+	ok(
+		await createSignals({ clock: { now: () => GIVING.at as never } }).attest(db, owner.authority, {
+			requestKey: "golden-giving",
+			expectedRevision: "0",
+			input: { key: GIVING.key, value: "yes", asOf: GIVING.asOf, detail: GIVING.detail },
+		}),
+	);
+	await admin.execute(
+		sql`UPDATE account SET personal_timezone='America/Chicago' WHERE id=${ACTOR_SPECS.owner.account}`,
+	);
+	const care = createPrivateCare();
+	const current = ok<{ revision: string }>(await care.readCurrent(db, owner.authority, {}));
+	ok(
+		await care.save(db, owner.authority, {
+			requestKey: "golden-check-in",
+			expectedRevision: current.revision,
+			input: { answers: PRIVATE_CHECK_IN.answers, note: PRIVATE_CHECK_IN.note },
+		}),
+	);
+}
+
+/**
  * The one eval schema every Postgres-backed eval suite seeds its church into: a fresh, migrated schema whose database
  * clock (`now()`, `clock_timestamp()` and the like, read by inactivity, the review's schedule window and every other
  * clock comparison) runs in NOW's frame, still advancing (pinSchemaClock in tests/support/test-database.mts). So a
@@ -1554,6 +1632,7 @@ export async function goldenChurch(options: SeedOptions = {}): Promise<GoldenChu
 		const db = database.pools.runtime;
 		const actors = {} as Record<ActorName, EvryActor>;
 		for (const who of Object.keys(ACTOR_SPECS) as ActorName[]) actors[who] = await actorFor(db, who);
+		await seedIntelligence(database.admin, db, actors.owner, actors.other);
 		pinHostClock();
 		return { db, admin: database.admin, actors, close: database.close };
 	} catch (error) {

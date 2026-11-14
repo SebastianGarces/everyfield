@@ -91,15 +91,15 @@ export function nativeWrite<I>(spec: {
 		input: spec.input,
 		allowed: spec.allowed,
 		review: spec.review,
-		async execute(tx, context, args, effectKey, reminders, native): Promise<EffectResult> {
-			const ports = native.ports;
-			if (!ports) return { refused: "source_unavailable" };
+		async execute(tx, context, args, effectKey, ports, native): Promise<EffectResult> {
+			const services = native.ports;
+			if (!services) return { refused: "source_unavailable" };
 			try {
 				const receipt = await spec.run(
 					tx,
 					context,
 					{ ...(args as Record<string, unknown>), requestKey: effectKey },
-					{ ...native, ports, reminders },
+					{ ...native, ports: services, reminders: ports.reminders },
 				);
 				return { ...receipt, revision: receipt?.revision ?? "1" };
 			} catch (error) {

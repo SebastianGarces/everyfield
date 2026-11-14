@@ -36,5 +36,5 @@ export {
 	REVIEW_MINUTES,
 	type Proposal,
 } from "./proposals/store.ts";
-export type { MailPort, NativePorts } from "./proposals/types.ts";
+export type { EffectPorts, MailPort, NativePorts } from "./proposals/types.ts";
 export { executeProposal, type EffectLease, type EffectOutcome } from "./execution/execute.ts";

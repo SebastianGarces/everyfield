@@ -8,6 +8,7 @@ import type { DeletionProducer, NativeAccountProducer, SettingsProducer } from "
 import type { DeliveryKeys, DeliveryTransport } from "@everyfield/domain/communication";
 import type { MailReport } from "@everyfield/contracts/communication";
 import type { PeopleContext } from "@everyfield/contracts/people";
+import type { PhaseNotices } from "@everyfield/domain/phases";
 import type { TaskReminders } from "@everyfield/domain/tasks";
 import { z } from "zod";
 import type { EvryActor } from "../context/actor.ts";
@@ -18,6 +19,12 @@ import type { ConversationFiles } from "../catalog/types.ts";
  * service uses it; the deployment passes null when it has no mail keys.
  */
 export type MailPort = { transport: DeliveryTransport; keys: DeliveryKeys };
+
+/**
+ * The domains' ports an effect may need: the task reminder port of a command that hands tasks to someone else, and the
+ * phase-advance notice port of a forward phase move (NTF-009).
+ */
+export type EffectPorts = { reminders: TaskReminders; phaseNotices: PhaseNotices };
 
 /**
  * The native services a Settings, seat or connection tool calls, built by the deployment with its own mail, job and
@@ -104,14 +111,15 @@ export type ReviewedWrite<I> = {
 	/**
 	 * The native command inside the executor's transaction, for the approving session in the proposal's exact context,
 	 * with the effect key as its request key. The command checks that session's live seat and role itself. A command that
-	 * hands tasks to someone else replans their reminders through `reminders`.
+	 * hands tasks to someone else replans their reminders through `ports.reminders`; a domain whose commands take the
+	 * request actor uses `native.authority`, and a native Settings, seat or connection command uses `native.ports`.
 	 */
 	execute(
 		tx: Transaction,
 		context: PeopleContext,
 		args: unknown,
 		effectKey: string,
-		reminders: TaskReminders,
+		ports: EffectPorts,
 		native: NativeContext,
 	): Promise<EffectResult>;
 	/**

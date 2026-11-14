@@ -157,10 +157,10 @@ function write<I, F, V>(spec: {
 				: sql`WHERE ${prepared.target.kind === "meeting" ? meetingLive(actor, prepared.target.id) : venueLive(actor, prepared.target.id)}`;
 			return sql`SELECT ${JSON.stringify(review)}::jsonb AS review, ${JSON.stringify(prepared.args)}::jsonb AS args ${live}`;
 		},
-		async execute(tx, context, args, effectKey, reminders): Promise<EffectResult> {
+		async execute(tx, context, args, effectKey, ports): Promise<EffectResult> {
 			const request = { ...z.object({}).loose().parse(args), requestKey: effectKey };
 			try {
-				const reply = await spec.run(writers(reminders), tx, context, request);
+				const reply = await spec.run(writers(ports.reminders), tx, context, request);
 				if (reply.status !== "ok") return { refused: reply.error.code };
 				const v = reply.value as V & { receiptId: string };
 				return { receiptId: v.receiptId, revision: spec.revision(v) };
