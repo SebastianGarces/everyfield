@@ -16,7 +16,7 @@ import { cn, Icon } from "@everyfield/ui/foundations";
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { ratePattern, refreshIntelligence } from "./actions.ts";
-import { LEVEL_LABEL, plural, resultLabels, runLabel } from "./model.ts";
+import { type IntelligenceWords, plural, resultLabels, runLabel } from "./model.ts";
 
 // The body of /network/intelligence (WP-047b, T-372): the run shown and its history, the level switch, and each group's
 // plant rows with one short result per rule, and each rule pattern (NIR-03 to NIR-06) where two sharing plants qualify.
@@ -26,7 +26,7 @@ import { LEVEL_LABEL, plural, resultLabels, runLabel } from "./model.ts";
 const href = (level: Level, runId: string | null) =>
 	`/network/intelligence?level=${level}${runId ? `&run=${runId}` : ""}`;
 
-export function IntelligenceBody({ initial }: { initial: IntelligenceView }) {
+export function IntelligenceBody({ initial, words }: { initial: IntelligenceView; words: IntelligenceWords }) {
 	const [view, setView] = useState(initial);
 	const [problem, setProblem] = useState<string | null>(null);
 	const [refreshing, startRefresh] = useTransition();
@@ -40,12 +40,7 @@ export function IntelligenceBody({ initial }: { initial: IntelligenceView }) {
 			if (answer.status === "ok") {
 				setView(answer.view);
 				window.history.replaceState(null, "", href(answer.view.level, null));
-			} else
-				setProblem(
-					answer.status === "refused"
-						? "Only Owners and Admins can refresh Network Intelligence."
-						: "We couldn't run Network Intelligence. Nothing was changed. Try again in a moment.",
-				);
+			} else setProblem(answer.status === "refused" ? words.refused : words.failed);
 		});
 
 	const rate = async (pattern: IntelligencePattern, rating: "useful" | "not_useful") => {
@@ -107,12 +102,19 @@ export function IntelligenceBody({ initial }: { initial: IntelligenceView }) {
 									view.level === l && "bg-surface-raised text-ink shadow-[var(--ef-shadow-raised)]",
 								)}
 							>
-								{LEVEL_LABEL[l]}
+								{words.levels[l]}
 							</Link>
 						))}
 					</nav>
 					{view.groups.length ? (
-						view.groups.map((g) => <Group key={g.key} group={g} rate={rate} canRate={view.canRefresh} />)
+						view.groups.map((g) => (
+							<Group
+								key={g.key}
+								group={g.key === "portfolio" ? { ...g, label: words.levels.portfolio } : g}
+								rate={rate}
+								canRate={view.canRefresh}
+							/>
+						))
 					) : (
 						<Card>
 							<EmptyState icon={UserGroupIcon} title="No plants in this run" headingLevel="h3">
@@ -124,7 +126,7 @@ export function IntelligenceBody({ initial }: { initial: IntelligenceView }) {
 				</>
 			) : (
 				<Card>
-					<EmptyState icon={UserGroupIcon} title="Network Intelligence hasn't run yet" headingLevel="h3">
+					<EmptyState icon={UserGroupIcon} title={words.notRun} headingLevel="h3">
 						{view.canRefresh
 							? "Press Refresh to read what your plants share now. Each run is kept, so you can look back at earlier ones."
 							: "An Owner or Admin of your organization can run it. Each run is kept, so you can look back at earlier ones."}

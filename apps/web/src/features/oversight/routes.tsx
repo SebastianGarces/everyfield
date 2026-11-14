@@ -11,9 +11,10 @@ import {
 import { Button, Card, StatePanel } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
-import type { ReactNode } from "react";
+import { cache, type ReactNode } from "react";
 import { NotAvailable } from "../access/AccessStates";
-import { level } from "@everyfield/contracts/oversight";
+import { level, type Level } from "@everyfield/contracts/oversight";
+import { intelligenceWords } from "./model.ts";
 import { DirectoryScreen, IntelligenceScreen, PlantScreen, RosterScreen, SendingChurchScreen } from "./screens.tsx";
 
 // The /network routes (WP-047a, WP-047b): the organization home, one plant, a network's sending churches and Network
@@ -27,13 +28,15 @@ export const networkMetadata: Metadata = { title: "Plants", ...hidden };
 export const plantMetadata: Metadata = { title: "Plant", ...hidden };
 export const rosterMetadata: Metadata = { title: "Sending churches", ...hidden };
 export const sendingChurchMetadata: Metadata = { title: "Sending church", ...hidden };
-export const intelligenceMetadata: Metadata = { title: "Network Intelligence", ...hidden };
+
+/** The request's one viewer read, so a page and its metadata share the same viewer object (and its cached reads). */
+const organizationViewer = cache(oversightViewer);
 
 type Params<K extends string> = { params: Promise<Record<K, string>> };
 
 /** The organization seat for this page; a sign-in for a signed-out reader, the refusal page for anyone else. */
 async function organizationOnly(path: string, page: (viewer: OversightViewer) => Promise<ReactNode>) {
-	const who = await oversightViewer();
+	const who = await organizationViewer();
 	if (who.kind === "signed_out") redirect(`/signin?returnTo=${encodeURIComponent(path)}`);
 	if (who.kind !== "organization")
 		return (
@@ -97,16 +100,35 @@ export async function SendingChurchPage({ params }: Params<"churchId">) {
 }
 
 type Search = { searchParams: Promise<Record<string, string | string[] | undefined>> };
+type SearchParams = Awaited<Search["searchParams"]>;
+const intelligenceQuery = (q: SearchParams) => ({
+	shownLevel: level.catch("portfolio").parse(typeof q.level === "string" ? q.level : undefined),
+	run: typeof q.run === "string" ? q.run : null,
+});
+/** One read per request, shared by the tab title and the page. */
+const intelligenceFor = cache(async (viewer: OversightViewer, shownLevel: Level, run: string | null) =>
+	loadIntelligence(viewer, shownLevel, run),
+);
+
+/** The tab title names the page as its heading does: "Network Intelligence", or "Grace Austin Intelligence". */
+export async function intelligenceMetadata({ searchParams }: Search): Promise<Metadata> {
+	const who = await organizationViewer();
+	if (who.kind !== "organization") return { title: "Intelligence", ...hidden };
+	const { shownLevel, run } = intelligenceQuery(await searchParams);
+	const loaded = await intelligenceFor(who.viewer, shownLevel, run);
+	const kind = who.viewer.organizationKind;
+	if (loaded.status === "ok") return { title: intelligenceWords(kind, loaded.value.organizationName).title, ...hidden };
+	return { title: kind === "sending_church" ? "Intelligence" : "Network Intelligence", ...hidden };
+}
+
 /**
- * Network Intelligence at one level (`?level=`, Whole portfolio by default) for the latest run or `?run=`. A run id
- * that is not this organization's is not found.
+ * Intelligence at one level (`?level=`, Whole portfolio by default) for the latest run or `?run=`. A run id that is not
+ * this organization's is not found.
  */
 export async function IntelligencePage({ searchParams }: Search) {
-	const q = await searchParams;
-	const shownLevel = level.catch("portfolio").parse(typeof q.level === "string" ? q.level : undefined);
-	const run = typeof q.run === "string" ? q.run : null;
+	const { shownLevel, run } = intelligenceQuery(await searchParams);
 	return organizationOnly("/network/intelligence", async (viewer) =>
-		shown(await loadIntelligence(viewer, shownLevel, run), (view) => (
+		shown(await intelligenceFor(viewer, shownLevel, run), (view) => (
 			<IntelligenceScreen key={`${view.level}:${view.run?.runId ?? ""}`} view={view} kind={viewer.organizationKind} />
 		)),
 	);
