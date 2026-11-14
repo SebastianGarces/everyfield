@@ -1,4 +1,4 @@
-import type { ActivityEntry, PromptKey, QuickAction, SetupStep } from "@everyfield/contracts/dashboard";
+import type { ActivityEntry, PromptKey, SetupStep } from "@everyfield/contracts/dashboard";
 import { countdown, type Plan } from "@everyfield/contracts/launch";
 import { TYPE_LABEL } from "../meetings/model.ts";
 import { SHORT_NAME } from "../phases/model.ts";
@@ -53,26 +53,12 @@ export const STEP_TEXT: Record<SetupStep, { title: string; detail: string; actio
 		},
 	};
 /** The optional prompt each step may show outside the first week. */
-export const PROMPT_TEXT: Record<PromptKey, { step: SetupStep; title: string }> = {
-	import_people: { step: "add_people", title: "Import your people" },
-	invite_team: { step: "invite_team", title: "Invite your team" },
-};
-export const QUICK_ACTION_LABEL: Record<QuickAction, string> = {
-	add_person: "Add person",
-	import_people: "Import people",
-	plan_meeting: "Plan a meeting",
+export const PROMPT_TEXT: Record<PromptKey, { title: string }> = {
+	import_people: { title: "Import your people" },
+	invite_team: { title: "Invite your team" },
 };
 
 const at = (date: string) => new Date(`${date}T12:00:00Z`);
-/** "Tue, Nov 10, 2026": a church-local date, never shifted by the browser's time zone. */
-export const longDate = (date: string) =>
-	new Intl.DateTimeFormat("en-US", {
-		timeZone: "UTC",
-		weekday: "short",
-		month: "short",
-		day: "numeric",
-		year: "numeric",
-	}).format(at(date));
 const shortDate = (date: string) =>
 	new Intl.DateTimeFormat("en-US", { timeZone: "UTC", month: "short", day: "numeric" }).format(at(date));
 /** "Oct 12, 4:05 PM" in the church's time zone. */

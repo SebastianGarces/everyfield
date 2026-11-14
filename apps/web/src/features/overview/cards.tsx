@@ -23,8 +23,8 @@ import {
 import { formatCount, List, ListRow, StatusBadge, type Tone } from "@everyfield/ui/display";
 import { cn, Icon, type IconSvgElement } from "@everyfield/ui/foundations";
 import Link from "next/link";
-import { milestonesDone } from "../launch/model.ts";
-import { daysText, entryByline, entryText, launchShown, longDate, METRICS, type Loaded } from "./model.ts";
+import { longDate, milestonesDone, shownOf } from "../launch/model.ts";
+import { daysText, entryByline, entryText, launchShown, METRICS, type Loaded } from "./model.ts";
 
 // Overview's cards. Each takes its own read and shows its own loading and failure: a card whose read failed says so
 // and never shows a 0 or an empty list in its place (ADM-005, screens.md states).
@@ -136,25 +136,16 @@ export function LaunchCard({ loaded, admin }: { loaded: Loaded<Plan>; admin: boo
 	const shown = launchShown(plan);
 	const done = milestonesDone(plan);
 	const total = plan.milestones.length;
-	const badge =
-		shown.kind === "held" ? (
-			<StatusBadge status="positive">Launched</StatusBadge>
-		) : shown.kind === "overdue" ? (
-			<StatusBadge status="risk">Overdue</StatusBadge>
-		) : shown.kind === "postponed" ? (
-			<StatusBadge status="attention">Postponed</StatusBadge>
-		) : shown.kind === "none" ? (
-			<StatusBadge status="unknown">No date</StatusBadge>
-		) : (
-			<StatusBadge status="positive">Scheduled</StatusBadge>
-		);
+	const { badge, tone } = shownOf(plan);
 	return (
 		<Card>
 			<CardHeader>
 				<CardHeading>
 					<CardTitle>Launch Sunday</CardTitle>
 				</CardHeading>
-				<CardActions>{badge}</CardActions>
+				<CardActions>
+					<StatusBadge status={tone}>{badge}</StatusBadge>
+				</CardActions>
 			</CardHeader>
 			<LaunchFigure shown={shown} />
 			{shown.kind === "none" ? (

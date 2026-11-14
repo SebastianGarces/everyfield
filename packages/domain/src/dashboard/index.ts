@@ -175,7 +175,6 @@ export const dashboardReader = {
 				phase: r.phase,
 				timeZone: r.timezone,
 				today: r.today,
-				createdOn: r.created_on,
 				firstWeek,
 				role: authority.actor.context.kind === "seat" ? authority.actor.context.role : "member",
 				actions: admin ? c.QUICK_ACTIONS : [],

@@ -52,8 +52,6 @@ export const overviewFrame = z.strictObject({
 	phase: phaseNumber,
 	timeZone: z.string(),
 	today: localDate,
-	/** The church-local day the church was created; null when no creation is recorded. */
-	createdOn: localDate.nullable(),
 	firstWeek: z.boolean(),
 	role,
 	actions: z.array(quickAction),

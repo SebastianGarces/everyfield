@@ -28,7 +28,7 @@ import { problemText } from "../meetings/model.ts";
 import { PlanMeetingDialog } from "../meetings/PlanMeetingDialog.tsx";
 import { AddPersonDialog } from "../people/AddPersonDialog.tsx";
 import { dismissPrompt } from "./actions.ts";
-import { PROMPT_TEXT, QUICK_ACTION_LABEL, STEP_TEXT } from "./model.ts";
+import { PROMPT_TEXT, STEP_TEXT } from "./model.ts";
 
 const PROMPT_OF: Partial<Record<SetupStep, PromptKey>> = { add_people: "import_people", invite_team: "invite_team" };
 
@@ -142,18 +142,18 @@ export function QuickActions({ actions }: { actions: readonly QuickAction[] }) {
 			<div className="flex flex-wrap gap-2.5">
 				{actions.includes("add_person") ? (
 					<Button variant="secondary" icon={UserAdd01Icon} onClick={() => setAdding(true)}>
-						{QUICK_ACTION_LABEL.add_person}
+						Add person
 					</Button>
 				) : null}
 				{actions.includes("import_people") ? (
 					<IntentLink href="/people/import" className={buttonVariants({ variant: "secondary" })}>
 						<Icon icon={FileImportIcon} size={18} />
-						{QUICK_ACTION_LABEL.import_people}
+						Import people
 					</IntentLink>
 				) : null}
 				{actions.includes("plan_meeting") ? (
 					<Button variant="secondary" icon={CalendarAdd01Icon} onClick={() => setPlanning(true)}>
-						{QUICK_ACTION_LABEL.plan_meeting}
+						Plan a meeting
 					</Button>
 				) : null}
 			</div>

@@ -306,7 +306,6 @@ test("AC:CASE-ADM-005 a dismissed prompt stays dismissed for that person and cha
 		VALUES(${w.id},'creation',1,'Created',clock_timestamp(),clock_timestamp(),${op})`);
 	const before = ok(await dashboardReader.readAvailableActions(db, await authority(owner)));
 	assert.equal(before.firstWeek, true);
-	assert.equal(before.createdOn, before.today);
 	assert.deepEqual(before.setup, {
 		setupComplete: false,
 		gaps: ["add_people", "plan_vision_meeting", "set_launch_date"],
