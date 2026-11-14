@@ -526,6 +526,27 @@
 		"retry": 5,
 		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 2 locked read, 3 read, 3 write."
 	},
+	"feedback.admin.changeStatus": {
+		"limit": 1
+	},
+	"feedback.admin.get": {
+		"limit": 1
+	},
+	"feedback.admin.list": {
+		"limit": 1
+	},
+	"feedback.getOwnStatus": {
+		"limit": 1
+	},
+	"feedback.getSendContext": {
+		"limit": 1
+	},
+	"feedback.listOwn": {
+		"limit": 1
+	},
+	"feedback.submit": {
+		"limit": 1
+	},
 	"followups.assignFollowUp": {
 		"limit": 3
 	},
