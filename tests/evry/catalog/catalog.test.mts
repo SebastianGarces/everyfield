@@ -92,6 +92,9 @@ test("AC:INH-REGRESSION-CAPABILITIES INV-catalog: every installed model tool is 
 		"venues.list",
 		"venues.get",
 		"venues.history",
+		"seats.list",
+		"seats.listInvitations",
+		"privacy.getSharing",
 		"evry.selectReturnedRows",
 	]);
 	for (const id of installed) {

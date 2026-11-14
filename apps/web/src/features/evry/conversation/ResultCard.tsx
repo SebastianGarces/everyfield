@@ -10,7 +10,9 @@ import {
 	File01Icon,
 	Home01Icon,
 	LayoutTemplateIcon,
+	Link01Icon,
 	Mail01Icon,
+	MailSend01Icon,
 	Notification01Icon,
 	Settings02Icon,
 	Mortarboard01Icon,
@@ -29,7 +31,7 @@ import { cardView, type Glyph, type RowView } from "./resultView.ts";
 
 // A source-bound result card (REQ-EVR-024): the rows Evry read, as they are now, with the count, whether more exist and
 // what the read leaves out. A person row links to the person, which loads on intent only. A household, tag, skill,
-// activity or file row has no page.
+// activity or file row has no page; a seat, invitation or connection row opens its Settings section.
 
 const isStage = (value: string): value is keyof typeof STAGE_KEY => value in STAGE_KEY;
 const GLYPH: Record<Glyph, IconSvgElement> = {
@@ -52,6 +54,9 @@ const GLYPH: Record<Glyph, IconSvgElement> = {
 	template: LayoutTemplateIcon,
 	venue: Location01Icon,
 	item: CheckListIcon,
+	seat: UserIcon,
+	invitation: MailSend01Icon,
+	connection: Link01Icon,
 };
 
 function Mark({ mark }: { mark: RowView["mark"] }) {

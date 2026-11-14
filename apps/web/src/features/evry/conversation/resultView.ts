@@ -137,6 +137,27 @@ const VIEWS: Record<string, OpView> = {
 		icon: "file",
 		countAnswer: "Download the file from the People page.",
 	}),
+	"seats.list": {
+		title: "Seats",
+		noun: ["seat", "seats"],
+		icon: "seat",
+		counts: "seat",
+		empty: "No one has a seat in this church.",
+	},
+	"seats.listInvitations": {
+		title: "Invitations",
+		noun: ["invitation", "invitations"],
+		icon: "invitation",
+		counts: "invitation",
+		empty: "No invitation is waiting.",
+	},
+	"privacy.getSharing": {
+		title: "Sharing",
+		noun: ["connection", "connections"],
+		icon: "connection",
+		counts: "connection",
+		empty: "This church is not connected with that organization.",
+	},
 	"communication.list": {
 		title: "Messages",
 		noun: ["message", "messages"],
@@ -720,6 +741,40 @@ function rowView(operation: string, row: SourceRow): RowView {
 				name: row.label,
 				line: itemLine(operation, fields),
 				mark: itemMark(operation, fields),
+				avatar: null,
+			};
+		case "seat":
+			// A seat: the person's name and role, as Settings > Seats lists it.
+			return {
+				...plain,
+				href: "/settings/seats",
+				name: row.label,
+				line: joined(text(fields.role), fields.you === true ? "You" : null),
+				avatar: null,
+			};
+		case "invitation":
+			return {
+				...plain,
+				href: "/settings/seats",
+				name: row.label,
+				line: joined(
+					text(fields.role),
+					typeof fields.expiresAt === "string" ? `Expires ${day(fields.expiresAt)}` : null,
+				),
+				avatar: null,
+			};
+		case "connection":
+			// A connection and what this church shares with it; a Member sees only that Owners and Admins choose.
+			return {
+				...plain,
+				href: "/settings/sharing",
+				name: row.label,
+				line:
+					typeof fields.shared === "string"
+						? fields.shared === "nothing"
+							? "Shares nothing"
+							: `Shares ${fields.shared}`
+						: "Owners and Admins choose what is shared",
 				avatar: null,
 			};
 		case "notice":

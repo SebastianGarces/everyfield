@@ -15,7 +15,6 @@ import { readCatalog, READ_DOMAINS } from "../../../packages/evry/src/catalog/ca
 import { invokeRead } from "../../../packages/evry/src/catalog/invoke.ts";
 import type { ReadAdapter, SourceResult } from "../../../packages/evry/src/catalog/types.ts";
 import { modelTools } from "../../../packages/evry/src/runtime/tools.ts";
-import { allowedWrites } from "../../../packages/evry/src/proposals/store.ts";
 import {
 	goldenChurch,
 	HOUSEHOLDS,
@@ -33,6 +32,7 @@ import {
 	converse,
 	judge,
 	recordedFile,
+	RECORDED,
 	recording,
 	RUBRIC,
 	saveRecording,
@@ -421,7 +421,7 @@ async function runCase(item: GoldenCase | ExtraCase): Promise<Row> {
 			const t = spec.target;
 			const checks = score(t, c, { area, given, target: true });
 			const installed = new Set([
-				...readCatalog(church.actors[as]).domains.flatMap((d) => d.operations.map((o) => o.operation)),
+				...readCatalog(church.actors[as], RECORDED).domains.flatMap((d) => d.operations.map((o) => o.operation)),
 			]);
 			for (const op of t.futureOperations ?? [])
 				checks.push({
@@ -695,16 +695,27 @@ test("INV-evry-golden SAF-02 SAF-11 SAF-12 SAF-14: the model's tools can read an
 		"propose_change",
 	]);
 	assert.deepEqual(tools("admin"), tools("owner"));
-	// A Member reads, selects and proposes changes to only their own notifications and the Meetings changes a Member
-	// may make natively (their own RSVP, their own ministry's team meeting and its attendance); an organization seat gets no plant read at all.
+	// A Member reads, selects and proposes changes to only their own notifications and account, plus the Meetings changes
+	// a Member may make natively (their own RSVP, their own ministry's team meeting and its attendance); an organization
+	// seat gets no plant read at all, only its own profile change (T-327).
 	assert.deepEqual(tools("member"), tools("owner"));
 	assert.deepEqual(
-		allowedWrites(church.actors.member)
-			.map((w) => w.operation)
+		readCatalog(church.actors.member)
+			.reviewedWrites.map((w) => w.operation)
 			.filter((op) => !/^meetings\./.test(op)),
-		["notifications.markSelectedRead", "notifications.markAllVisibleRead", "notifications.setPreferences"],
+		[
+			"notifications.markSelectedRead",
+			"notifications.markAllVisibleRead",
+			"notifications.setPreferences",
+			"account.finalizeAvatar",
+			"account.requestDeletion",
+		],
 	);
-	assert.deepEqual(tools("org"), []);
+	assert.deepEqual(tools("org"), ["propose_change"]);
+	assert.deepEqual(
+		readCatalog(church.actors.org).reviewedWrites.map((w) => w.operation),
+		["organizations.updateProfile"],
+	);
 });
 
 test("INV-evry-golden: every golden and adapter case passes its hard checks on the recorded model; alpha gaps and judge grades are reported", async (t) => {

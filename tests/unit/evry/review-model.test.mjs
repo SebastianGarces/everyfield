@@ -195,7 +195,8 @@ test("INV-meetings-review: a Meetings review is revised by asking Evry, and its 
 		},
 	};
 	assert.deepEqual(editableChanges(review), []);
-	assert.equal(fieldLabel("tasks"), "Tasks it creates");
+	assert.equal(fieldLabel("tasks", "meetings.finalizeAttendance"), "Tasks it creates");
+	assert.equal(fieldLabel("tasks", "privacy.setSharing"), "Tasks");
 	assert.equal(fieldLabel("presence:Maria Santos"), "Maria Santos");
 	assert.equal(valueText("attended", review.review.changes[0].after), "Maria Santos (first Vision)\nAlex Rivera");
 });
