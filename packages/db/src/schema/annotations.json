@@ -18941,6 +18941,18 @@
 				},
 				"country": {
 					"note": "US, or the country as written; null when blank."
+				},
+				"overdue_followups": {
+					"note": "Open follow-ups past due at the run (NIR-04); null when Meetings or Tasks was not shared, or the run predates it."
+				},
+				"unowned_followups": {
+					"note": "Of the overdue follow-ups, those with no eligible owner; null with overdue_followups."
+				},
+				"growth_days": {
+					"note": "Plant-local days since the newest first-time committed adult (NIR-05); null when growth reads Unknown or People was not shared."
+				},
+				"required_training": {
+					"note": "Saved required-training obligations (NIR-06); null when none is assigned or Ministry teams was not shared."
 				}
 			},
 			"foreignKeys": {
