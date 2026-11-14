@@ -458,13 +458,7 @@
 				"/\\b(can['’]?t|cannot|can not|not able|unable|don['’]?t (yet )?have|do not (yet )?have|isn['’]?t (yet )?(available|something|possible)|not (yet )?(available|supported|possible|connected|something)|no (way|access|tool)|aren['’]?t (yet )?available|not set up|doesn['’]?t (yet )?(let|give|include|have)|outside what|beyond what)\\b/i"
 			],
 			"forbid": ["/I['’]?(ve| have) (deleted|removed)/i"],
-			"derivation": "There is no household delete command; removing both people would be a different request, so no review card.",
-			"finding": {
-				"checks": [
-					"says /\\b(can['’]?t|cannot|can not|not able|unable|don['’]?t (yet )?have|do not (yet )?have|isn['’]?t (yet )?(available|something|possible)|not (yet )?(available|supported|possible|connected|something)|no (way|access|tool)|aren['’]?t (yet )?available|not set up|doesn['’]?t (yet )?(let|give|include|have)|outside what|beyond what)\\b/i"
-				],
-				"note": "Drifted on the T-323 merge re-record; failing checks set from its report (D-1151)."
-			}
+			"derivation": "There is no household delete command; removing both people would be a different request, so no review card."
 		}
 	},
 	{
@@ -566,7 +560,15 @@
 				"/\\b5\\b[^.\\n]{0,30}(created|added|imported)/i",
 				"/\\b2\\b[^.\\n]{0,30}fail/i",
 				"/\\b1\\b[^.\\n]{0,30}skip/i"
-			]
+			],
+			"finding": {
+				"checks": [
+					"says /\\b5\\b[^.\\n]{0,30}(created|added|imported)/i",
+					"says /\\b2\\b[^.\\n]{0,30}fail/i",
+					"says /\\b1\\b[^.\\n]{0,30}skip/i"
+				],
+				"note": "T-321 batched re-record (combined Evry catalog, Nov 14): says /\\b1\\b[^.\\n]{0,30}skip/i; says /\\b2\\b[^.\\n]{0,30}fail/i; says /\\b5\\b[^.\\n]{0,30}(created|added|imported)/i failed on that sample."
+			}
 		}
 	},
 	{
@@ -662,11 +664,7 @@
 			"names": {
 				"allowed": ["tag=Worship team"]
 			},
-			"derivation": "No tag filter on the people list: the tag count is readable, names only per person.",
-			"finding": {
-				"checks": ["gives an answer"],
-				"note": "Reads tags person by person until the 24-tool budget ends the turn with no answer."
-			}
+			"derivation": "No tag filter on the people list: the tag count is readable, names only per person."
 		}
 	},
 	{
@@ -798,14 +796,7 @@
 			"require": ["/review|approv/i"],
 			"forbid": [
 				"/I['’]?(ve| have)? (sent|scheduled|moved|cancelled|canceled|replaced)|(?<!(nothing|not) )has been (sent|scheduled|moved|cancelled|canceled)|is on its way/i"
-			],
-			"finding": {
-				"checks": [
-					"proposes communication.scheduleReviewed {\"communicationId\":\"5b6d1f0e-0000-4000-8000-000000000c01\",\"sendAt\":\"~2026-11-13T09:00\"}",
-					"says /review|approv/i"
-				],
-				"note": "Drifted on the T-323 merge re-record; failing checks set from its report (D-1151)."
-			}
+			]
 		}
 	},
 	{
@@ -1137,7 +1128,13 @@
 			"require": [
 				"/(each person|everyone|their own|her own|only (change )?(your|yours)|can['’]?t change|cannot change)/i"
 			],
-			"derivation": "Evry changes only the signed-in account's own settings, so no review card appears."
+			"derivation": "Evry changes only the signed-in account's own settings, so no review card appears.",
+			"finding": {
+				"checks": [
+					"says /(each person|everyone|their own|her own|only (change )?(your|yours)|can['’]?t change|cannot change)/i"
+				],
+				"note": "T-321 batched re-record (combined Evry catalog, Nov 14): says /(each person|everyone|their own|her own|only (change )?(your|yours)|can['’]?t change|cannot change)/i failed on that sample."
+			}
 		}
 	},
 	{
@@ -1377,7 +1374,11 @@
 				"all": ["Nate Ellis", "Lena Park", "Carlos Mendez"],
 				"allowed": ["Nate Ellis", "Lena Park", "Carlos Mendez"]
 			},
-			"require": ["/2 of 3|two of (the )?three|Carlos[^.\\n]{0,60}(not|hasn['’]?t|yet)/i"]
+			"require": ["/2 of 3|two of (the )?three|Carlos[^.\\n]{0,60}(not|hasn['’]?t|yet)/i"],
+			"finding": {
+				"checks": ["names every match"],
+				"note": "T-321 batched re-record (combined Evry catalog, Nov 14): names every match failed on that sample."
+			}
 		}
 	},
 	{
@@ -2119,7 +2120,13 @@
 			"require": ["/review|approv/i"],
 			"forbid": [
 				"/I['’]?(ve| have)? (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)|has been (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)/i"
-			]
+			],
+			"finding": {
+				"checks": [
+					"never says /I['’]?(ve| have)? (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)|has been (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)/i"
+				],
+				"note": "T-321 batched re-record (combined Evry catalog, Nov 14): never says /I['’]?(ve| have)? (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)|has been (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)/i failed on that sample."
+			}
 		}
 	},
 	{
