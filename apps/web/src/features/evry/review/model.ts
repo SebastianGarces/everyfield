@@ -762,6 +762,9 @@ const ADDS = new Set<Operation>([
 	"discovery.convertToPlant",
 ]);
 export const addsOnly = (operation: Operation) => ADDS.has(operation);
+/** The changes that give the account its first church seat, as its Owner. */
+export const seatsAccount = (operation: Operation) =>
+	operation === "onboarding.createPlant" || operation === "discovery.convertToPlant";
 
 /**
  * One Discovery link on a conversion review (field `link:<organization id>`): the organization and what it shares now,

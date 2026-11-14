@@ -148,7 +148,16 @@ function Frame({ name, photo, settings, seed = null, children }: FrameProps) {
 	const pathname = usePathname();
 	// Evry is off while the private check-in is open: its panel closes and Ask Evry says so (REQ-PI-038).
 	const privatePage = evryOff(pathname);
-	const evry = useEvryPanel({ inPlant: settings?.context === "plant", off: privatePage });
+	const evry = useEvryPanel({
+		inPlant: settings?.context === "plant",
+		off: privatePage,
+		context:
+			settings?.context === "plant"
+				? `plant:${settings.plant.id}`
+				: settings?.context === "organization"
+					? `organization:${settings.organization.id}`
+					: "account",
+	});
 	const bell = useNotificationBell();
 	const wiki = useWikiChrome();
 	const [feedback, setFeedback] = useState(false);

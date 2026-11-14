@@ -36,6 +36,7 @@ import {
 } from "@everyfield/ui/controls";
 import { Avatar, StageChip } from "@everyfield/ui/display";
 import { cn, Icon, type IconSvgElement } from "@everyfield/ui/foundations";
+import { useRouter } from "next/navigation";
 import { useEffect, useId, useLayoutEffect, useRef, useState, type FormEvent, type ReactNode, type Ref } from "react";
 import { STAGE_KEY, type StageValue } from "../../people/model.ts";
 import type { Reply } from "../conversation/api.ts";
@@ -80,6 +81,7 @@ import {
 	settingsRefusalText,
 	retryable,
 	reviseInput,
+	seatsAccount,
 	SHARE_CHOICES,
 	shownChanges,
 	valueText,
@@ -553,6 +555,20 @@ export function ReviewCard({
 	useEffect(() => {
 		if (notice?.tone === "error") noticeRef.current?.focus();
 	}, [notice]);
+	// Starting a church, or turning a Discovery space into one, moves the account into the new church as its Owner: once
+	// this card sees it go from waiting to saved, the page reads its context again, so the frame works in that church. A
+	// card that opens already saved changes nothing.
+	const router = useRouter();
+	const seating = review ? seatsAccount(review.operation) : false;
+	const awaiting = useRef(false);
+	useEffect(() => {
+		if (!seating) return;
+		if (view === "pending" || view === "running") awaiting.current = true;
+		else if (view === "completed" && awaiting.current) {
+			awaiting.current = false;
+			router.refresh();
+		}
+	}, [seating, view, router]);
 
 	const why = note(view, review, r.lapsed, unknown);
 	const base = view === "loading" || view === "lost" ? HEAD.pending : HEAD[view];
