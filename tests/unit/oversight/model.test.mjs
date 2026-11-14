@@ -76,7 +76,7 @@ test("a network's Intelligence page and view switch keep their wording", () => {
 		title: "Network Intelligence",
 		levels: { region: "Region", state: "State", country: "Country", portfolio: "Whole portfolio" },
 		howItWorks:
-			"Everyfield's network rubric v1 reads only counts and dates each plant shares with you: launch dates, unfilled roles, overdue follow-ups, when its newest committed adult signed and required training. It never names a person, ranks or scores plants. A plant that doesn't share counts as Not shared, never as zero.",
+			"Everyfield's network rubric v1 reads only counts and dates each plant shares with you: launch dates, unfilled roles, overdue follow-ups, when its newest committed adult signed and required training, plus the concerns of its released Plant Intelligence assessment. It never names a person, ranks or scores plants. A plant that doesn't share counts as Not shared, never as zero.",
 		notRun: "Network Intelligence hasn't run yet",
 		refused: "Only Owners and Admins can refresh Network Intelligence.",
 		failed: "We couldn't run Network Intelligence. Nothing was changed. Try again in a moment.",
