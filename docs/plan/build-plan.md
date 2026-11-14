@@ -124,7 +124,7 @@ The DAG estimates effort from owned clauses, operations, cases and referenced ta
 | WP-099 | Development programs and enrollment | 3 | 11 | 3 | 9 | 4 |
 | WP-100 | My residency and consented progress | 2 | 3 | 2 | 0 | 2.5 |
 | WP-101 | Pipeline and development Evry adapters | 1 | 16 | 1 | 0 | 3 |
-| WP-102 | Multiplication privacy, race and parity integration | 17 | 0 | 17 | 0 | 4.5 |
+| WP-102 | Multiplication privacy, race and parity integration | 17 | 0 | 17 | 1 | 4.5 |
 | WP-056 | Complete cross-feature privacy, concurrency and correction behavior | 0 | 0 | 1171 | 0 | 14.5 |
 | WP-094 | Core browser, file and native/Evry feature parity | 4 | 0 | 6 | 0 | 1.5 |
 | WP-095 | Knowledge browser, file and native/Evry feature parity | 7 | 0 | 8 | 0 | 1.5 |

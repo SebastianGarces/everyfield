@@ -3,6 +3,8 @@ import type { PeopleContext, PeopleReply, PeopleWriteContext } from "@everyfield
 import type { RequestActor } from "@everyfield/domain/access";
 import type { Database, Transaction } from "@everyfield/db/client";
 import {
+	readAnswerReview,
+	readAnswerReviews,
 	readPipelineBoard,
 	readPipelineExport,
 	readPipelineGoals,
@@ -56,6 +58,18 @@ export async function loadPipelinePerson(authority: RequestActor, personId: stri
 	const db = requestDatabase();
 	if (!db) return { status: "lost" } as const;
 	return guarded(() => readPipelinePersonRecord(db, authority, { personId }));
+}
+
+/** The answers sent to the viewer for review, and one of them (T-385). */
+export async function loadAnswerReviews(authority: RequestActor) {
+	const db = requestDatabase();
+	if (!db) return { status: "lost" } as const;
+	return guarded(() => readAnswerReviews(db, authority));
+}
+export async function loadAnswerReview(authority: RequestActor, reviewId: string) {
+	const db = requestDatabase();
+	if (!db) return { status: "lost" } as const;
+	return guarded(() => readAnswerReview(db, authority, { reviewId }));
 }
 
 /** One pipeline write as the request's actor. */

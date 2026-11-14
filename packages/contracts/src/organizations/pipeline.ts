@@ -2,6 +2,7 @@ import { z } from "zod";
 import { accountId, personId, recordId, revision } from "../common/values.ts";
 import { localDate } from "../common/time.ts";
 import { normalizedEmail } from "../identity/requests.ts";
+import { noteReview } from "./reviews.ts";
 
 // The organization pipeline (REQ-MUL-001, -002, -008, -009): the people a sending church or network develops toward
 // planting, their stages, moves, outside assessments and private notes. The organization, actor and clock come from the
@@ -195,6 +196,9 @@ export const pipelineHistoryEntry = z.discriminatedUnion("kind", [
 	z.strictObject({ ...historyBase, kind: z.literal("edited") }),
 	z.strictObject({ ...historyBase, kind: z.literal("retired") }),
 	z.strictObject({ ...historyBase, kind: z.literal("restored") }),
+	/** Kept answers sent for review (T-385): to whom and by whom (`actor`), never which questions or answers. */
+	z.strictObject({ ...historyBase, kind: z.literal("review_sent"), reviewer: z.string().nullable() }),
+	z.strictObject({ ...historyBase, kind: z.literal("review_withdrawn") }),
 ]);
 export const pipelineNote = z.discriminatedUnion("state", [
 	z.strictObject({
@@ -206,6 +210,10 @@ export const pipelineNote = z.discriminatedUnion("state", [
 		writtenOn: localDate,
 		editedOn: localDate.nullable(),
 		mine: z.boolean(),
+		/** A pipeline import's kept answers: their question titles in file order. Null on any other note (T-385). */
+		questions: z.array(z.string()).max(200).nullable(),
+		/** The note's sends for review that are not withdrawn, newest first. */
+		reviews: z.array(noteReview).max(200),
 	}),
 	z.strictObject({
 		state: z.literal("removed"),

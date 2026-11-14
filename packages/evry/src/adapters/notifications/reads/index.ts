@@ -57,8 +57,9 @@ const localTime = (at: string, zone: string) =>
 
 const feedInput = z.strictObject({
 	unread: z.boolean().optional().describe("true for unread notifications only"),
-	// A church's feed has no residency entries: those reach only a linked resident, who holds no seat (T-365).
-	category: notificationCategory.exclude(residencyCategories).optional(),
+	// A church's feed has no residency entries: those reach only a linked resident, who holds no seat (T-365). Nor
+	// answers to review, which reach only an organization seat (T-385).
+	category: notificationCategory.exclude([...residencyCategories, "answer_review"]).optional(),
 });
 export const feed: ReadAdapter<z.infer<typeof feedInput>> = {
 	operation: "notifications.feed",

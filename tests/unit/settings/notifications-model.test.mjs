@@ -26,6 +26,7 @@ test("INV-notification-rows: only categories with a producer are offered, in mat
 			"scheduled_email_unsubscribe",
 			"residency_confirmation",
 			"residency_feedback",
+			"answer_review",
 		],
 	);
 });

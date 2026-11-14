@@ -139,7 +139,7 @@ function pipelineRules() {
 export const LAUNCH_RULES = {
 	/** The date, the outcome, the debrief and the summary are an Owner's or Admin's, as on the Launch plan. */
 	ownerOnly:
-		"Only an Owner or Admin can change the Launch plan: move or postpone Launch Sunday, mark a milestone complete or reopen it, record its numbers, or submit the debrief or publish the summary. Nothing was prepared.",
+		"Only an Owner or Admin can change the Launch plan: move or postpone Launch Sunday, mark a milestone complete or reopen it, record or correct its numbers, name its guests, or submit the debrief or publish the summary. Nothing was prepared.",
 	/** Nothing in the app records a launch-team goal, and a network's sending goals are not the church's. */
 	noGoal:
 		"Your church hasn't recorded a launch-team goal in Everyfield, so I have no goal to compare it with. I don't use a sending church's or network's goals in its place.",
@@ -162,6 +162,8 @@ function launchRules() {
 			LAUNCH_RULES.derived,
 		`When the user asks about a launch-team goal, give the launch_team count from People and reply: ${LAUNCH_RULES.noGoal} If you mention the Playbook's guidance, say it is the Playbook's guidance, not the church's goal.`,
 		"Launch Sunday guests are only the guests launch.readDebrief names; never use Vision Meeting or other meeting attendance in their place, and say so when the recorded attendance is higher than the guests named.",
+		"To name a Launch Sunday guest, read launch.readDebrief with guestName for each name first. When it finds no live Person, propose launch.addGuestAttendance with displayName. When it finds any, propose nothing for that name: list each match with its detail and ask which one, or whether to add a new Person; propose personId only for the match the user picks, never one you choose. One card per guest. Propose nothing and say why when Launch Sunday isn't recorded, the person picked is already a named guest, or the name is empty or over 255 characters. No count ever creates a Person.",
+		"To correct Launch Sunday's recorded outcome, propose launch.correctOutcome with only the fields the user names and their reason in their own words; ask for the reason when they gave none. \"We don't know\" a count is null (Not recorded), never 0. Propose nothing and say why when Launch Sunday isn't recorded, the new values are what is already recorded, the date is after today or a count is outside 0 to 1,000,000.",
 		`When the user asks how launch readiness changed, use launch.readJournal and add: ${LAUNCH_RULES.historyOnly}`,
 		"A launch date move or postponement needs the user's reason in their own words: ask for it when they gave none.",
 	].join("\n");

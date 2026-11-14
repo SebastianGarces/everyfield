@@ -349,6 +349,7 @@ test("Network Intelligence names the near-launch pattern only where two sharing 
 			run: null,
 			history: [],
 			groups: [],
+			geographyReleases: [],
 			canRefresh: true,
 		},
 	);
@@ -397,7 +398,7 @@ test("Network Intelligence names the near-launch pattern only where two sharing 
 	assert.deepEqual(await at("region"), {
 		"Austin-Round Rock-San Marcos, TX (metro area)": null,
 		"Dallas-Fort Worth-Arlington, TX (metro area)": null,
-		"No Region set": null,
+		"Region unresolved": null,
 	});
 	assert.doesNotMatch(JSON.stringify(whole), /Round Rock"|Private Lane|Hank|Olive|Ana Eastside/);
 });
@@ -445,7 +446,7 @@ test("in one Region two sharing plants make a pattern citing the network rubric;
 	);
 	// The pattern cites the rubric and names plants by id and name only: no person, count or assessment to open.
 	assert.deepEqual(Object.keys(pattern.plants[0]!).sort(), ["name", "plantId"]);
-	assert.doesNotMatch(JSON.stringify(g), /Private Lane|lead"|personId|assessment/);
+	assert.doesNotMatch(JSON.stringify(g), /Private Lane|lead"|personId|"body"|"summary"|"title"/);
 	// Not shared is a name and a link, never a zero or On track.
 	assert.deepEqual(
 		g!.rows.find((r) => r.name === "Central Austin Church"),

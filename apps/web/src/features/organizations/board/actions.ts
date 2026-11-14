@@ -8,7 +8,7 @@ import {
 	pipelineWrite,
 } from "@/server/organizations/pipeline";
 import { invitationService } from "@/server/invitations";
-import { pipelineWriter } from "@everyfield/domain/organizations";
+import { pipelineWriter, reviewWriter } from "@everyfield/domain/organizations";
 import { answer, refused, type Reply } from "../../identity/server";
 
 // Server actions behind the Pipeline page and a person's record. Each one rebuilds the request actor; the domain
@@ -44,6 +44,13 @@ export async function editNote(input: unknown) {
 }
 export async function removeNote(input: unknown) {
 	return pipelineWrite((db, authority) => pipelineWriter.removeNote(db, authority, input));
+}
+/** Kept answers sent to a staff member for review, and withdrawn (T-385). Owner or Admin. */
+export async function sendAnswers(input: unknown) {
+	return pipelineWrite((db, authority) => reviewWriter.sendAnswers(db, authority, input));
+}
+export async function withdrawReview(input: unknown) {
+	return pipelineWrite((db, authority) => reviewWriter.withdrawReview(db, authority, input));
 }
 export async function saveGoal(input: unknown) {
 	return pipelineWrite((db, authority) => pipelineWriter.saveGoal(db, authority, input));

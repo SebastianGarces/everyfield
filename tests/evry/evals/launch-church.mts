@@ -15,6 +15,9 @@
 //   with two more linked prep tasks so it has four, and its first two completed in Tasks: two of four stay open.
 // - `needsReview` (T-382): the Admin completes the venue milestone on the Launch plan, and then the Owner reopens a task
 //   that was complete then in Tasks, so the Launch plan shows "Needs review".
+// - `guestMatch` (T-383): a live Person "Maria Lopez" (maria.lopez@example.test) added in People, for the guest picker.
+// - `outcomeNote` (T-383): Launch Sunday corrected on the Launch plan to 4 decisions with an outcome note, so an Evry
+//   correction can be seen to keep both.
 import { randomUUID } from "node:crypto";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import type { Database } from "../../../packages/db/src/client.ts";
@@ -23,6 +26,7 @@ import { reviewedOf } from "../../../packages/contracts/src/launch/index.ts";
 import { createLaunchReader } from "../../../packages/domain/src/launch/reads.ts";
 import { createLaunchWriter } from "../../../packages/domain/src/launch/writes.ts";
 import { createTaskWriter, withTaskWrite } from "../../../packages/domain/src/tasks/index.ts";
+import { peopleWriter } from "../../../packages/domain/src/people/index.ts";
 import { ACTOR_SPECS, PLANT, type ActorName } from "./golden-church.mts";
 
 export const ZONE = "America/Chicago";
@@ -202,4 +206,52 @@ export async function seedMilestones(admin: Database, db: Database) {
 export async function seedNeedsReview(db: Database) {
 	await setVenue(db, "admin", "complete");
 	await setVenueTask(db, "owner", 0, "reopen");
+}
+
+/** The live Person a typed guest name matches (T-383). */
+export const MATCH = { name: "Maria Lopez", email: "maria.lopez@example.test" } as const;
+export const OUTCOME_NOTE = "Rain in the morning, so the overflow room opened late.";
+/** Maria Lopez added in People by the Owner, as People adds anyone. */
+export async function seedGuestMatch(db: Database) {
+	const r = await db.transaction((tx) =>
+		peopleWriter.createPerson(
+			tx as never,
+			{ session: sessionOf("owner"), selected: { kind: "plant", id: PLANT } } as never,
+			{
+				requestKey: randomUUID(),
+				input: { displayName: MATCH.name, email: MATCH.email, stage: "prospect", source: "other" },
+			} as never,
+		),
+	);
+	ok(r as never);
+}
+/** Launch Sunday corrected on the Launch plan to 4 decisions, with an outcome note. */
+export async function seedOutcomeNote(db: Database) {
+	const plan = await planOf(db);
+	const o = plan.outcome!;
+	ok(
+		await writer.correctOutcome(db, await authorityOf(db, "owner"), {
+			requestKey: randomUUID(),
+			expectedRevision: plan.launch!.revision,
+			input: {
+				actualDate: o.actualDate,
+				attendance: o.attendance,
+				decisions: 4,
+				note: OUTCOME_NOTE,
+				reason: "Counted the response cards.",
+			},
+		}),
+	);
+}
+/** Launch Sunday's attendance corrected on the Launch plan in another session, as `who`. */
+export async function correctOnPlan(db: Database, who: LaunchName, attendance: number, reason: string) {
+	const plan = await planOf(db);
+	const o = plan.outcome!;
+	ok(
+		await writer.correctOutcome(db, await authorityOf(db, who), {
+			requestKey: randomUUID(),
+			expectedRevision: plan.launch!.revision,
+			input: { actualDate: o.actualDate, attendance, decisions: o.decisions, note: o.note, reason },
+		}),
+	);
 }

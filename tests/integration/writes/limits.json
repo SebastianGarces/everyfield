@@ -1540,6 +1540,14 @@
 		"limit": 6,
 		"retry": 5
 	},
+	"pipeline.sendAnswers": {
+		"limit": 4,
+		"retry": 4
+	},
+	"pipeline.withdrawReview": {
+		"limit": 4,
+		"retry": 4
+	},
 	"reference.exportApprovedWiki": {
 		"limit": 1
 	},

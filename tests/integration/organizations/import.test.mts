@@ -154,6 +154,8 @@ test("columns match fields by title; unmatched questions are kept as answers and
 			["Describe your calling", "answer", false],
 			["Spouse's name", "answer", false],
 			["Have you completed a background check?", "skip", true],
+			["Statement of faith", "answer", false],
+			["Ordination history", "answer", false],
 		],
 	);
 	const keep = p.columns.map((c) => c.choice);
@@ -300,6 +302,8 @@ test("Dana imports applications.xlsx: Jordan and Sam join the chosen stage, Case
 					"Phone number\n512-555-0101",
 					"Describe your calling\nEast Austin, among young families.\nWe have prayed about it for two years, together.",
 					"Spouse's name\nMaria Reyes",
+					"Statement of faith\nI hold to the Apostles' Creed and the network's statement of faith.",
+					"Ordination history\nLicensed at Grace Austin in 2022; ordination council planned for spring.",
 				].join("\n\n"),
 			],
 		],

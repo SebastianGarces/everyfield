@@ -64,3 +64,40 @@ test("AC:B01-005 the assessed phase's criteria as the snapshot measured them, wi
 	);
 	assert.deepEqual(criteriaOf(catalog, 6, facts), []);
 });
+
+test("Phase 5 shows First service held with the milestone it rests on; a snapshot stored before that fact reads Unknown", async () => {
+	const catalog = await readCatalog();
+	const reached = {
+		...facts,
+		formulaVersion: "plant-facts/2",
+		firstService: { path: "milestone", status: "met", milestone: "Constituted as a church", heldOn: "2026-10-11" },
+		criteria: { ...facts.criteria, first_service_complete: "met" },
+	};
+	const row = (snapshot: unknown) => criteriaOf(catalog, 5, snapshot).find((x) => x.key === "first_service_complete")!;
+	assert.deepEqual(row(reached), {
+		key: "first_service_complete",
+		label: "First service held",
+		status: "met",
+		evidence: [
+			{ key: "firstService.milestone", label: "Gathering milestone", value: "Constituted as a church" },
+			{ key: "firstService.heldOn", label: "Milestone reached", value: "2026-10-11" },
+		],
+	});
+	// A Launch Sunday plant's evidence is the day it was held.
+	const held = {
+		...reached,
+		firstService: { path: "launch_sunday", status: "met", heldOn: "2026-10-04" },
+	};
+	assert.deepEqual(row(held).evidence, [
+		{ key: "firstService.heldOn", label: "Launch Sunday held", value: "2026-10-04" },
+	]);
+	// The plant-facts/1 fixture has no firstService: still parsed, the criterion is Unknown with no evidence.
+	assert.equal(facts.formulaVersion, "plant-facts/1");
+	assert.deepEqual(row(facts), {
+		key: "first_service_complete",
+		label: "First service held",
+		status: "unknown",
+		evidence: [],
+	});
+	assert.equal(criteriaOf(catalog, 2, facts).find((x) => x.key === "launch_date_set")!.status, "met");
+});

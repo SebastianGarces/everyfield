@@ -11,6 +11,7 @@ import {
 	defaultChannelEnabled as defaultEnabled,
 	defaultDigestCadence,
 	notificationChannels as channels,
+	organizationCategories,
 	residencyCategories,
 } from "@everyfield/contracts/settings";
 import type { Database } from "@everyfield/db/client";
@@ -55,14 +56,16 @@ const writeRow = z.object({
 });
 
 const residency: readonly string[] = residencyCategories;
+const organizationOnly: readonly string[] = organizationCategories;
 /**
  * Whether the account can receive a category, so Settings offers it: a residency category while it has a live
- * residency link (T-365), any other only with a current seat, and the oversight digest only with an organization seat.
+ * residency link (T-365), any other only with a current seat, and the oversight digest and answers to review (T-385)
+ * only with an organization seat.
  * A seatless Discovery account is offered no seat category.
  */
 function offered(category: string, row: { organization: boolean; seated: boolean; resident: boolean }) {
 	if (residency.includes(category)) return row.resident;
-	return row.seated && (category !== "oversight_digest" || row.organization);
+	return row.seated && (!organizationOnly.includes(category) || row.organization);
 }
 /**
  * The account's notification choices, in one statement: its revision, its stored choices with the defaults filled in
