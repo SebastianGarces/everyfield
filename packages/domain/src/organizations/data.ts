@@ -280,7 +280,6 @@ SELECT f.r FROM f WHERE EXISTS(SELECT FROM a)`,
 				{ category: "removal_record", count: null },
 			],
 			attribution: NAME,
-			retentionDeadline: null,
 		});
 	});
 }

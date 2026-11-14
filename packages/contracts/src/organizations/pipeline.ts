@@ -297,7 +297,6 @@ export const pipelineRemovalReport = z.strictObject({
 		}),
 	),
 	attribution: z.literal("Former participant"),
-	retentionDeadline: z.null(),
 });
 export type PipelineRemovalReport = z.infer<typeof pipelineRemovalReport>;
 /** The pipeline as one plain CSV file (REQ-MUL-005): what it holds and when it was made are its first lines. */

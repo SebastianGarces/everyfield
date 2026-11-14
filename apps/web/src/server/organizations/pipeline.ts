@@ -31,7 +31,7 @@ export async function pipelineActor(): Promise<
 	return { kind: "seat", authority };
 }
 
-async function guarded<T>(run: () => Promise<PipelineReply<T>>): Promise<PipelineAnswer<T>> {
+async function guarded<R>(run: () => Promise<R>): Promise<R | { status: "lost" }> {
 	try {
 		return await run();
 	} catch (error) {
@@ -84,12 +84,7 @@ async function asSeat<T>(
 	if (who.kind !== "seat") return { status: "refused", error: { code: "unavailable" } } as PeopleReply<T>;
 	const db = requestDatabase();
 	if (!db) return { status: "lost" };
-	try {
-		return await run(db, who.authority);
-	} catch (error) {
-		console.error(JSON.stringify({ component: "pipeline", outcome: "failed", error: String(error) }));
-		return { status: "lost" };
-	}
+	return guarded(() => run(db, who.authority));
 }
 /** One People read on the organization's own people, in its own transaction (the duplicate review, REQ-MUL-017). */
 export const pipelinePeopleRead = <T>(run: (tx: Transaction, ctx: PeopleContext) => Promise<PeopleReply<T>>) =>

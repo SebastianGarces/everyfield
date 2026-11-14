@@ -441,7 +441,6 @@ test("AC:ADR1-005 INV-privacy: removing Jordan on request keeps only what Grace 
 			{ category: "removal_record", count: null },
 		],
 		attribution: "Former participant",
-		retentionDeadline: null,
 	});
 	// Gone from the board, search, his record, the enrollment picker, the goal counts and the next export.
 	const board = ok(await readPipelineBoard(db, await authority(dana), {}));
