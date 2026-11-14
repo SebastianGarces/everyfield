@@ -22129,12 +22129,6 @@
           "nullable": true
         },
         {
-          "note": "Seed identity: the fixed Playbook milestone key (launch.md), unique per plant, so repair never creates a milestone twice.",
-          "name": "template_key",
-          "type": "text",
-          "nullable": false
-        },
-        {
           "note": "",
           "name": "title",
           "type": "text",
@@ -22165,19 +22159,6 @@
           "nullable": true
         },
         {
-          "note": "The account that completed the milestone; set null if the account is deleted, keeping the completion time.",
-          "name": "completed_by",
-          "type": "uuid",
-          "nullable": true
-        },
-        {
-          "note": "Linked tasks complete at completion; reopening one shows the milestone as Needs review (LCH-004).",
-          "name": "completed_task_ids",
-          "type": "uuid[]",
-          "nullable": false,
-          "default": "'{}'::uuid[]"
-        },
-        {
           "note": "",
           "name": "removed_at",
           "type": "timestamptz",
@@ -22189,6 +22170,25 @@
           "type": "bigint",
           "nullable": false,
           "default": "1"
+        },
+        {
+          "note": "Seed identity: the fixed Playbook milestone key (launch.md), unique per plant, so repair never creates a milestone twice.",
+          "name": "template_key",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "The account that completed the milestone; set null if the account is deleted, keeping the completion time.",
+          "name": "completed_by",
+          "type": "uuid",
+          "nullable": true
+        },
+        {
+          "note": "Linked tasks complete at completion; reopening one shows the milestone as Needs review (LCH-004).",
+          "name": "completed_task_ids",
+          "type": "uuid[]",
+          "nullable": false,
+          "default": "'{}'::uuid[]"
         }
       ],
       "primary_key": [
@@ -39887,12 +39887,6 @@
           "nullable": true
         },
         {
-          "note": "Launch readiness seed identity <milestone key>/<n>, unique per plant; a deleted task keeps it as the tombstone repair respects (LCH-009).",
-          "name": "launch_task_key",
-          "type": "text",
-          "nullable": true
-        },
-        {
           "note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply.",
           "name": "parent_id",
           "type": "uuid",
@@ -39953,6 +39947,12 @@
           "type": "uuid[]",
           "nullable": false,
           "default": "'{}'::uuid[]"
+        },
+        {
+          "note": "Launch readiness seed identity <milestone key>/<n>, unique per plant; a deleted task keeps it as the tombstone repair respects (LCH-009).",
+          "name": "launch_task_key",
+          "type": "text",
+          "nullable": true
         }
       ],
       "primary_key": [

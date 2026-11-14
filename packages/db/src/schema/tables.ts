@@ -2104,23 +2104,23 @@ export const launch_milestone = pgTable(
 			.default(sql`gen_random_uuid()`),
 		plant_id: uuid("plant_id").notNull(),
 		source_version_id: uuid("source_version_id"),
-		/** The fixed Playbook milestone this row was seeded from (launch.md): its seed identity, one per plant. */
-		template_key: text("template_key").notNull(),
 		title: text("title").notNull(),
 		description: text("description"),
 		area: text("area", { enum: ["operations", "launch_team", "promotion"] }).notNull(),
 		position: integer("position").notNull(),
 		completed_at: timestamp("completed_at", { withTimezone: true, mode: "date" }),
+		removed_at: timestamp("removed_at", { withTimezone: true, mode: "date" }),
+		revision: int64("revision")
+			.notNull()
+			.default(sql`1`),
+		/** The fixed Playbook milestone this row was seeded from (launch.md): its seed identity, one per plant. */
+		template_key: text("template_key").notNull(),
 		completed_by: uuid("completed_by"),
 		/** The linked tasks that were complete when a person completed the milestone; reopening one asks for review. */
 		completed_task_ids: uuid("completed_task_ids")
 			.array()
 			.notNull()
 			.default(sql`'{}'::uuid[]`),
-		removed_at: timestamp("removed_at", { withTimezone: true, mode: "date" }),
-		revision: int64("revision")
-			.notNull()
-			.default(sql`1`),
 	},
 	(table): PgTableExtraConfigValue[] => [
 		foreignKey({
@@ -4921,8 +4921,6 @@ export const task = pgTable(
 		meeting_id: uuid("meeting_id"),
 		team_id: uuid("team_id"),
 		launch_id: uuid("launch_id"),
-		/** Launch readiness seed identity, `<milestone template key>/<n>`. A deleted task keeps it, so repair never resurrects it. */
-		launch_task_key: text("launch_task_key"),
 		parent_id: uuid("parent_id"),
 		position: integer("position"),
 		series_id: uuid("series_id"),
@@ -4938,6 +4936,8 @@ export const task = pgTable(
 			.array()
 			.notNull()
 			.default(sql`'{}'::uuid[]`),
+		/** Launch readiness seed identity, `<milestone template key>/<n>`. A deleted task keeps it, so repair never resurrects it. */
+		launch_task_key: text("launch_task_key"),
 	},
 	(table): PgTableExtraConfigValue[] => [
 		foreignKey({ name: "task_fk_0", columns: [table.plant_id], foreignColumns: [plant.id] })
