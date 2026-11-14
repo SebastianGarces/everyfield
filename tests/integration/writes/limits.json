@@ -2072,6 +2072,17 @@
 	"signals.reaffirm": {
 		"limit": 1
 	},
+	"assessments.evaluateAssessment": {
+		"limit": 8,
+		"retry": 8,
+		"reason": "One assessment run: a read-only repeatable-read snapshot (BEGIN, lock timeout, the facts statement, the retrieval statement under a savepoint, COMMIT) so the facts, phase and methodology are captured consistently, then the model calls outside any transaction, then one statement for the run row and its audit row. The retry is the same run when the methodology cannot be read and the savepoint rolls back."
+	},
+	"assessments.readAssessment": {
+		"limit": 1
+	},
+	"assessments.resolveCitation": {
+		"limit": 1
+	},
 	"phases.transition": {
 		"limit": 8,
 		"retry": 3,
