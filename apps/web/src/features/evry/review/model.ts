@@ -14,13 +14,90 @@ export type Operation =
 	| "people.deletePerson"
 	| "people.setPersonPhoto"
 	| "people.removePersonPhoto"
+	| OrganizationOperation
 	| "communication.saveDraft"
 	| "communication.scheduleReviewed"
 	| "communication.rescheduleReviewed"
 	| "communication.cancelScheduledReviewed"
-	| "communication.replaceScheduledReviewed";
+	| "communication.replaceScheduledReviewed"
+	| "notifications.markSelectedRead"
+	| "notifications.markAllVisibleRead"
+	| "notifications.setPreferences"
+	| "notifications.digestCadence.set"
+	| TeamsOperation;
+
+/** The Ministries reviewed writes (WP-070): shown as before and after, never revised in place. */
+const TEAMS_TITLE = {
+	"teams.create": "Add a ministry",
+	"teams.edit": "Update a ministry",
+	"teams.archive": "Archive a ministry",
+	"teams.restore": "Restore a ministry",
+	"teams.createRole": "Add a role",
+	"teams.editRole": "Update a role",
+	"teams.retireRole": "Retire a role",
+	"teams.assignRole": "Fill a role",
+	"teams.assignMember": "Add to a ministry",
+	"teams.removeRole": "End a role",
+	"teams.endMembership": "Leave a ministry",
+	"teams.reactivateMembership": "Return to a role",
+	"teams.appointLeader": "Appoint a leader",
+	"teams.initialize": "Import ministries",
+	"teams.importRoles": "Import roles",
+	"teams.scheduleMeeting": "Schedule a team meeting",
+	"teams.offerResponsibilities": "Playbook responsibilities",
+	"teams.addResponsibility": "Add a responsibility",
+	"teams.editResponsibility": "Update a responsibility",
+	"teams.completeResponsibility": "Tick a responsibility",
+	"teams.deleteResponsibility": "Remove a responsibility",
+	"teams.createProgram": "Add a training program",
+	"teams.correctProgram": "Correct a training program",
+	"teams.setRequiredTrainingParticipants": "Set required training",
+	"teams.attestCompletion": "Record a training completion",
+	"teams.revokeCompletion": "Revoke a training completion",
+	"teams.recompleteTraining": "Record training again",
+} as const;
+type TeamsOperation = keyof typeof TEAMS_TITLE;
+export const isTeams = (operation: Operation): operation is TeamsOperation => operation in TEAMS_TITLE;
+
+/** The household, tag, skill, note and import writes (WP-064), whose reviews are not revised field by field. */
+export type OrganizationOperation =
+	| "people.addToHousehold"
+	| "people.createHouseholdWithHead"
+	| "people.updateHousehold"
+	| "people.deleteHousehold"
+	| "people.removeFromHousehold"
+	| "people.setHouseholdRole"
+	| "people.propagateAddress"
+	| "people.createTag"
+	| "people.updateTag"
+	| "people.deleteTag"
+	| "people.assignTag"
+	| "people.removeTag"
+	| "people.addSkill"
+	| "people.updateSkill"
+	| "people.removeSkill"
+	| "people.addNote"
+	| "people.editNote"
+	| "people.deleteNote"
+	| "people.executeBulkImport";
 
 export type Change = { field: string; before: unknown; after: unknown };
+/** One person a change reaches beyond its target, such as a household member or a person being tagged. */
+export type ReviewedPerson = { id: string; label: string; changes: Change[]; unchanged?: string };
+/** One row of a reviewed import and its planned outcome. */
+export type ReviewedRow = {
+	row: number;
+	outcome: "create" | "create_and_review" | "skip" | "fail";
+	label: string | null;
+	reason: string | null;
+};
+/** What became of one person after approval: changed, or not and why. */
+export type PersonOutcome = { id: string; label: string; outcome: "changed" | "unchanged"; reason?: string };
+export type ImportOutcome = {
+	status: "in_progress" | "complete" | "partial";
+	counts: { created: number; skipped: number; failed: number; remaining: number };
+	failed: { row: number; reason: string }[];
+};
 
 /** evry.readReview, as the API sends it (packages/evry/src/proposals/review.ts, proposalRow). */
 export type Review = {
@@ -33,8 +110,14 @@ export type Review = {
 	approvedAt: string | null;
 	status: "pending" | "approved" | "cancelled" | "expired";
 	review: {
-		target: { kind: "person" | "message"; id: string; label: string } | null;
+		target: {
+			kind: "person" | "message" | "team" | "role" | "training" | "responsibility" | "household" | "tag";
+			id: string;
+			label: string;
+		} | null;
 		changes: Change[];
+		people?: ReviewedPerson[];
+		rows?: ReviewedRow[];
 		/** A plain reason the change cannot be approved as asked; the card shows it and offers no Approve. */
 		refusal?: string;
 		withheld?: true;
@@ -42,7 +125,16 @@ export type Review = {
 	/** "failed" is only on rows saved before PR 245, which said "nothing was changed" without proof (R5-3). */
 	outcome: "completed" | "failed" | "refused" | "unknown" | null;
 	executing: boolean;
-	receipt: { receiptId?: string; revision?: string; code?: string; report?: MailReport } | null;
+	receipt: {
+		receiptId?: string;
+		revision?: string;
+		code?: string;
+		report?: MailReport;
+		people?: PersonOutcome[];
+		import?: ImportOutcome;
+		/** A refusal because a record changed: the records as they are now. */
+		current?: { id: string; label: string; value: string | null }[];
+	} | null;
 	/** A pending message review whose message changed since: it can only be reviewed again. */
 	stale: boolean;
 	/** The server's time when it answered: the approval's time left is counted from it. */
@@ -103,9 +195,55 @@ const FIELD_LABEL: Record<string, string> = {
 	reason: "Reason",
 	photo: "Photo",
 	state: "Status",
+	household: "Household",
+	householdRole: "Role",
+	householdAddress: "Address",
+	address: "Address",
+	name: "Name",
+	tag: "Tag",
+	createTag: "New tag",
+	color: "Color",
+	taggedPeople: "People with it",
+	skill: "Skill",
+	category: "Category",
+	proficiency: "Level",
+	notes: "Skill notes",
+	note: "Note",
+	// Ministries
+	description: "Description",
+	archived: "Archived",
+	leadership: "Leadership role",
+	timeCommitment: "Time commitment",
+	desiredSkills: "Desired skills",
+	retired: "Retired",
+	filledBy: "Filled by",
+	member: "Member",
+	leader: "Leader",
+	ministries: "Ministries",
+	roles: "Roles",
+	date: "Date",
+	time: "Time",
+	subtype: "Kind",
+	title: "Title",
+	offer: "Offer",
+	responsibilities: "Responsibilities",
+	responsibility: "Responsibility",
+	text: "Text",
+	done: "Done",
+	required: "Required",
+	requiredPeople: "Required people",
+	person: "Person",
+	completedOn: "Completed on",
+	completedAgainOn: "Completed again on",
+	completion: "Completion",
 };
 export const fieldLabel = (field: string) => FIELD_LABEL[field] ?? field;
 
+const TEAM_STATE: Record<string, string> = { forming: "Forming", active: "Active", paused: "Paused" };
+const DATE_FIELDS = new Set(["birthDate", "date", "completedOn", "completedAgainOn"]);
+
+/** Values People shows capitalized: a household role, a skill's category and level, a tag color. */
+const CAPITALIZED = new Set(["householdRole", "category", "proficiency", "color"]);
 const CLASSIFICATION_LABEL: Record<string, string> = { adult: "Adult", child: "Child", unknown: "Not recorded" };
 const dateFormat = new Intl.DateTimeFormat(undefined, {
 	month: "short",
@@ -122,8 +260,15 @@ export function valueText(field: string, value: unknown): string | null {
 	if (field === "stage") return STAGE_LABEL[value as StageValue] ?? String(value);
 	if (field === "source") return SOURCE_LABEL[value as SourceValue] ?? String(value);
 	if (field === "adultClassification") return CLASSIFICATION_LABEL[String(value)] ?? String(value);
-	if (field === "state") return value === "live" ? "Current" : value === "retired" ? "Removed" : String(value);
-	if (field === "birthDate" && typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value))
+	if (field === "state")
+		return value === "live"
+			? "Current"
+			: value === "retired"
+				? "Removed"
+				: (TEAM_STATE[String(value)] ?? String(value));
+	if (typeof value === "boolean") return value ? "Yes" : "No";
+	if (CAPITALIZED.has(field) && typeof value === "string") return value.charAt(0).toUpperCase() + value.slice(1);
+	if (DATE_FIELDS.has(field) && typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value))
 		return dateFormat.format(new Date(`${value}T00:00:00Z`));
 	return String(value);
 }
@@ -135,6 +280,14 @@ export function valueText(field: string, value: unknown): string | null {
 export const approvable = (review: Pick<Review, "operation">, uploadShown: boolean) =>
 	review.operation !== "people.setPersonPhoto" || uploadShown;
 
+/** What an empty value is called: no household is "None", and a note, skill or tag that goes away is "Removed". */
+export function emptyText(field: string, after: boolean) {
+	if (field === "photo") return "No photo";
+	if (field === "household" || field === "householdRole") return "None";
+	if (after && ["note", "skill", "category", "proficiency", "tag"].includes(field)) return "Removed";
+	return "Empty";
+}
+
 /** The first 8 characters of a photo's file id, upper case, as people read a reference. */
 export const photoRef = (value: unknown) => String(value).slice(0, 8).toUpperCase();
 
@@ -142,10 +295,20 @@ export const photoRef = (value: unknown) => String(value).slice(0, 8).toUpperCas
 const handedBack = (changes: readonly Change[]) =>
 	Number(changes.find((c) => c.field === "openTasksNeedingOwner")?.after ?? 0);
 
-/** The changes the card lists as before and after; the task count is said once in words instead. */
-export const shownChanges = (changes: readonly Change[]) => changes.filter((c) => c.field !== "openTasksNeedingOwner");
+/**
+ * The changes the card lists as before and after. The task count and a new tag are said once in words instead, and a
+ * tag change on several people shows on each of them.
+ */
+export const shownChanges = (review: Pick<Review, "operation" | "review">) =>
+	review.review.changes.filter(
+		(c) =>
+			c.field !== "openTasksNeedingOwner" &&
+			c.field !== "createTag" &&
+			!(c.field === "tag" && (review.operation === "people.assignTag" || review.operation === "people.removeTag")),
+	);
 
 const TITLE: Record<Operation, string> = {
+	...TEAMS_TITLE,
 	"communication.saveDraft": "Save an email draft",
 	"communication.scheduleReviewed": "Schedule an email",
 	"communication.rescheduleReviewed": "Change the send time",
@@ -157,6 +320,29 @@ const TITLE: Record<Operation, string> = {
 	"people.deletePerson": "Remove a person",
 	"people.setPersonPhoto": "Set a photo",
 	"people.removePersonPhoto": "Remove a photo",
+	"notifications.markSelectedRead": "Mark notifications read",
+	"notifications.markAllVisibleRead": "Mark all notifications read",
+	"notifications.setPreferences": "Change notification settings",
+	"notifications.digestCadence.set": "Change how often your digest comes",
+	"people.addToHousehold": "Add to a household",
+	"people.createHouseholdWithHead": "Create a household",
+	"people.updateHousehold": "Update a household",
+	"people.deleteHousehold": "Delete a household",
+	"people.removeFromHousehold": "Take out of a household",
+	"people.setHouseholdRole": "Change a household role",
+	"people.propagateAddress": "Update a household's address",
+	"people.createTag": "Create a tag",
+	"people.updateTag": "Update a tag",
+	"people.deleteTag": "Delete a tag",
+	"people.assignTag": "Tag people",
+	"people.removeTag": "Take a tag off people",
+	"people.addSkill": "Add a skill",
+	"people.updateSkill": "Update a skill",
+	"people.removeSkill": "Remove a skill",
+	"people.addNote": "Add a note",
+	"people.editNote": "Edit a note",
+	"people.deleteNote": "Delete a note",
+	"people.executeBulkImport": "Import people",
 };
 export const operationTitle = (operation: Operation) => TITLE[operation];
 
@@ -341,12 +527,63 @@ export const RECIPIENT_OUTCOME: Record<RecipientOutcome, string> = {
 
 /** The one sentence under the target that says what happens to them beyond the listed fields. */
 export function consequence(review: Review): string | null {
+	// NTF-003: read is only read.
+	if (review.operation === "notifications.markSelectedRead" || review.operation === "notifications.markAllVisibleRead")
+		return "Marking read doesn't complete or change any task.";
 	const tasks = handedBack(review.review.changes);
 	const owner =
 		tasks > 0 ? `${tasks.toLocaleString()} open ${tasks === 1 ? "task" : "tasks"} will need a new owner.` : null;
 	if (review.operation === "people.deletePerson")
 		return ["They leave the current people list. Their history stays.", owner].filter(Boolean).join(" ");
+	const created = review.review.changes.find((c) => c.field === "createTag")?.after;
+	if (created) return `The tag ${String(created)} will be created.`;
+	switch (review.operation) {
+		case "people.updateHousehold":
+			return "Members keep their own addresses.";
+		case "people.removeFromHousehold":
+			return "They keep their own address.";
+		case "people.propagateAddress":
+			return "Everyone listed gets the household's address. If anyone's record changes before you approve, nothing is changed for anyone.";
+		case "people.deleteTag":
+			return "It comes off everyone who has it. Their history keeps it.";
+		case "people.executeBulkImport":
+			return importSummary(review.review.rows ?? []);
+	}
 	return owner;
+}
+
+/** "2 people will be added · 1 row skipped · 2 rows fail": the planned outcome of a reviewed import. */
+export function importSummary(rows: readonly ReviewedRow[]) {
+	const n = (outcome: ReviewedRow["outcome"][]) => rows.filter((r) => outcome.includes(r.outcome)).length;
+	const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
+	const add = n(["create", "create_and_review"]);
+	return [
+		`${plural(add, "person", "people")} will be added`,
+		n(["skip"]) ? `${plural(n(["skip"]), "row", "rows")} skipped` : null,
+		n(["fail"]) ? `${plural(n(["fail"]), "row fails", "rows fail")}` : null,
+	]
+		.filter(Boolean)
+		.join(" · ");
+}
+
+/** What the outcome of each planned import row is called on the card. */
+export const ROW_OUTCOME: Record<ReviewedRow["outcome"], string> = {
+	create: "Add",
+	create_and_review: "Add, review later",
+	skip: "Skip",
+	fail: "Fails",
+};
+
+/**
+ * The head of a saved change that reached several people: it counts who changed, so a change that left anyone out
+ * never reads as done for everyone.
+ */
+export function peopleResult(review: Review): string | null {
+	const people = review.receipt?.people;
+	if (!people?.length) return null;
+	const changed = people.filter((p) => p.outcome === "changed").length;
+	if (changed === people.length) return people.length === 1 ? "Saved" : `Saved for all ${people.length}`;
+	return `${changed} of ${people.length} changed`;
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -387,11 +624,27 @@ export function hasBirthDate(review: Review, edits: Record<string, string>) {
 	return c.field in edits ? (edits[c.field] ?? "").trim() !== "" : Boolean(c.after);
 }
 
+/** Writes that only add something: their review shows the new values without an empty "before". */
+const ADDS = new Set<Operation>(["people.createPerson", "people.addNote", "people.addSkill", "people.createTag"]);
+export const addsOnly = (operation: Operation) => ADDS.has(operation);
+
+/** The People writes whose review can be revised field by field on the card. */
+const REVISABLE = new Set<Operation>([
+	"people.createPerson",
+	"people.updatePerson",
+	"people.changeStatus",
+	"people.deletePerson",
+	"people.setPersonPhoto",
+	"people.removePersonPhoto",
+]);
 export const editableChanges = (review: Review) =>
-	review.review.withheld || isMail(review.operation) ? [] : review.review.changes.filter((c) => !FIXED.has(c.field));
+	review.review.withheld || !REVISABLE.has(review.operation)
+		? []
+		: review.review.changes.filter((c) => !FIXED.has(c.field));
 
 /** The native command's input for this review with `edits` applied, or null when the review can't be rebuilt. */
 export function reviseInput(review: Review, edits: Record<string, string> = {}): unknown {
+	if (!REVISABLE.has(review.operation) && !isMail(review.operation)) return null;
 	const { target, changes } = review.review;
 	const value = (c: Change) => {
 		if (!(c.field in edits)) return c.after;
@@ -467,6 +720,10 @@ export function refusalText(code: string | undefined, target: string | null): st
 		case "not_found":
 		case "source_unavailable":
 			return `${who} is no longer available, so nothing was saved.`;
+		case "review_stale":
+			return "People changed after Evry checked this file, so nothing was imported. Ask Evry to check it again.";
+		case "file_changed":
+			return "This file changed after Evry checked it, so nothing was imported. Ask Evry to check it again.";
 		default:
 			return "People refused this change, so nothing was saved.";
 	}
@@ -548,3 +805,53 @@ export const clock = (iso: string) => time.format(new Date(iso));
  * read every 2 seconds.
  */
 export const pollDelay = (attempt: number) => [350, 50, 50, 50, 50, 800, 1200][attempt] ?? 2000;
+
+// ---------------------------------------------------------------------------------------------------------------
+// Notifications: the account's own bell and settings (WP-082). Nothing here names another person.
+
+export const isNotification = (operation: Operation) => operation.startsWith("notifications.");
+
+export type ReviewedNotice = { id: string; title: string; category: string; at: string; zone: string };
+const isNotice = (value: unknown): value is ReviewedNotice =>
+	!!value && typeof value === "object" && "id" in value && "title" in value && "at" in value;
+/** The notices a mark-selected review will mark read, newest first, as the review listed them. */
+export const reviewedNotices = (review: Review) =>
+	review.review.changes.flatMap((c) => (c.field === "notice" && isNotice(c.before) ? [c.before] : []));
+/** "Sat, Nov 7, 9:15 AM": when the notice arrived, in the church's zone. */
+export const noticeWhen = ({ at, zone }: ReviewedNotice) =>
+	new Intl.DateTimeFormat("en-US", {
+		timeZone: zone,
+		weekday: "short",
+		month: "short",
+		day: "numeric",
+		hour: "numeric",
+		minute: "2-digit",
+	}).format(new Date(at));
+
+const CHANNEL_LABEL: Record<string, string> = { email: "Email", in_app: "In-app" };
+/** Each category a settings review touches, with every channel's value before and after, in the review's order. */
+export function settingChanges(review: Review) {
+	const groups = new Map<string, { channel: string; before: boolean; after: boolean }[]>();
+	for (const c of review.review.changes) {
+		const [category, channel] = c.field.split(".");
+		if (!category || !channel || typeof c.before !== "boolean" || typeof c.after !== "boolean") continue;
+		groups.set(category, [
+			...(groups.get(category) ?? []),
+			{ channel: CHANNEL_LABEL[channel] ?? channel, before: c.before, after: c.after },
+		]);
+	}
+	return [...groups].map(([category, channels]) => ({ category, channels }));
+}
+
+type DigestSlot = { cadence: string; weekday: number; hour: number };
+const isSlot = (value: unknown): value is DigestSlot =>
+	!!value && typeof value === "object" && "cadence" in value && "weekday" in value && "hour" in value;
+const WEEKDAY = ["Sundays", "Mondays", "Tuesdays", "Wednesdays", "Thursdays", "Fridays", "Saturdays"];
+const hourText = (hour: number) => `${hour % 12 || 12}:00 ${hour < 12 ? "AM" : "PM"}`;
+/** "Weekly on Mondays at 8:00 AM" or "Daily at 8:00 AM": the church digest's schedule for this account. */
+export const digestSchedule = (value: unknown) =>
+	isSlot(value)
+		? value.cadence === "daily"
+			? `Daily at ${hourText(value.hour)}`
+			: `Weekly on ${WEEKDAY[value.weekday] ?? "Sundays"} at ${hourText(value.hour)}`
+		: null;
