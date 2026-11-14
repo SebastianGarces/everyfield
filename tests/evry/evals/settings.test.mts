@@ -206,8 +206,17 @@ const SETTLED: Record<string, { before?: (a: EvryActor) => Promise<void>; after:
 			assert.deepEqual(await row(sql`SELECT timezone FROM plant WHERE id=${PLANT}`), { timezone: "America/New_York" }),
 	},
 	"SET-12": {
-		before: async (a) => assert.deepEqual(await sharingScreen(a), [["Hill Country Network", ["people", "meetings"]]]),
-		after: async (a) => assert.deepEqual(await sharingScreen(a), [["Hill Country Network", ["people"]]]),
+		// Harvest Network shares only the Wiki with Hope Fellowship (the Wiki corpus, tests/evry/adapters/wiki/corpus.mts).
+		before: async (a) =>
+			assert.deepEqual(await sharingScreen(a), [
+				["Hill Country Network", ["people", "meetings"]],
+				["Harvest Network", ["wiki"]],
+			]),
+		after: async (a) =>
+			assert.deepEqual(await sharingScreen(a), [
+				["Hill Country Network", ["people"]],
+				["Harvest Network", ["wiki"]],
+			]),
 	},
 	"SET-13": {
 		before: async () =>
@@ -226,7 +235,7 @@ const SETTLED: Record<string, { before?: (a: EvryActor) => Promise<void>; after:
 		},
 	},
 	"SET-14": {
-		after: async (a) => assert.deepEqual(await sharingScreen(a), []),
+		after: async (a) => assert.deepEqual(await sharingScreen(a), [["Harvest Network", ["wiki"]]]),
 	},
 	"SET-15": {
 		before: async (a) =>
