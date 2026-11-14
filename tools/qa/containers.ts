@@ -25,13 +25,13 @@ export function processStart(pid: number): string | null {
 }
 
 /** `docker run` label arguments naming this process as the owner. */
-export function ownerLabels(now = new Date()): string[] {
+export function ownerLabels(): string[] {
 	const start = processStart(process.pid);
 	if (!start) throw new Error(`ps cannot read this process's start time (pid ${process.pid}).`);
 	return [
 		["--label", `${LABELS.pid}=${process.pid}`],
 		["--label", `${LABELS.start}=${start}`],
-		["--label", `${LABELS.started}=${now.toISOString()}`],
+		["--label", `${LABELS.started}=${new Date().toISOString()}`],
 	].flat();
 }
 

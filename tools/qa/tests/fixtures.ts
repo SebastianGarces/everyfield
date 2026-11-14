@@ -2,7 +2,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import type { Socket } from "node:net";
 import { delimiter, dirname, join, resolve } from "node:path";
-import { ownerLabels } from "../containers.ts";
+import { ownerLabels, PREFIX } from "../containers.ts";
 
 export const source = resolve(import.meta.dirname, "../../..");
 
@@ -63,7 +63,7 @@ function removeWhenThisProcessEnds(container: string) {
  * labels name this process, so `bin/dev check`'s sweep (tools/qa/containers.ts) leaves it alone while it runs.
  */
 export function startQuietDatabase(checkout: string, tag: string): QuietDatabase {
-	const container = `qa-test-${tag}-${randomBytes(3).toString("hex")}`,
+	const container = `${PREFIX}${tag}-${randomBytes(3).toString("hex")}`,
 		password = randomBytes(18).toString("hex");
 	removeWhenThisProcessEnds(container);
 	docker(
