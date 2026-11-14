@@ -2,7 +2,7 @@
 
 [target.json](target.json) is generated from the Drizzle declarations in [tables.ts](../../packages/db/src/schema/tables.ts). Those declarations own modeled structure; reviewed custom migrations and supplemental catalog expectations own triggers, functions and privileges. Applied SQL remains immutable.
 
-The schema has 104 tables, 1187 columns, 356 declared FKs and 27 JSONB columns. These are counts of definitions, including compound FKs as one constraint. They exclude indexes, triggers, packaged artifacts and external backups.
+The schema has 112 tables, 1262 columns, 375 declared FKs and 28 JSONB columns. These are counts of definitions, including compound FKs as one constraint. They exclude indexes, triggers, packaged artifacts and external backups.
 
 Run documentation/tooling checks from the repository root:
 
@@ -38,6 +38,7 @@ Each replaced table inherits the union of producer packages from its previous ta
 
 | New table | Ownership basis and ruling | Producers |
 |---|---|---|
+| `assignment_feedback` | WP-099 development programs own their plans, completions and feedback. | WP-099 |
 | `attestation_revision` | WP-039 appends a revision when a signal or candidate attestation changes. | WP-039 |
 | `church_brand_kit` | WP-104 stores one brand kit for each church plant. The plant owns the row. | WP-104 |
 | `commitment_change` | WP-014 commitment lifecycle storage through Drizzle Kit (C100). | WP-014 |
@@ -45,14 +46,19 @@ Each replaced table inherits the union of producer packages from its previous ta
 | `conversation` | WP-051 Evry conversation storage through Drizzle Kit. | WP-051 |
 | `conversation_event` | WP-051 Evry conversation storage through Drizzle Kit. | WP-051 |
 | `development_enrollment` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-099 |
+| `development_milestone` | WP-099 development programs own their plans, completions and feedback. | WP-099 |
 | `development_program` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-099 |
 | `development_program_version` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-099 |
+| `development_reading` | WP-099 development programs own their plans, completions and feedback. | WP-099 |
 | `development_stage` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-099 |
 | `digest_coverage` | Recipient digest coverage splits from inbox notification production. | WP-004, WP-030 |
 | `early_access_attempt` | WP-097 owns the applied migration 0001 limiter table, without an invented primary key. | WP-097 |
 | `early_access_request` | WP-097 owns the applied early access migration 0001 request table; no product scaffold or tenant prerequisite. Field shape follows the approved E3 contract and receipt shape follows E4. | WP-097 |
+| `enrollment_milestone` | WP-099 development programs own their plans, completions and feedback. | WP-099 |
+| `feedback` | WP-049 feedback.submit stores it; feedback.admin.changeStatus moves its status. | WP-049 |
 | `generated_document` | WP-037 stores one saved catalog render. The plant owns the row. Creator attribution is not ownership. | WP-037 |
 | `identity_proof` | Application-owned email-change/cancellation proof splits from account/auth and deletion facts; password reset remains library-owned. | WP-004, WP-005, WP-010, WP-050, WP-057 |
+| `leadership_conversation` | WP-098 records each human-logged leadership conversation. | WP-098 |
 | `mail_request` | Exact request/replay clock splits from the shared mail intent/attempt ledger. | WP-004, WP-028, WP-031 |
 | `mail_request_member` | Exact ordered membership splits from the shared mail intent/attempt ledger. | WP-004, WP-028, WP-031 |
 | `message_template` | WP-027 template storage through Drizzle Kit (C100). | WP-027 |
@@ -67,16 +73,18 @@ Each replaced table inherits the union of producer packages from its previous ta
 | `pipeline_person` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-098 |
 | `pipeline_sharing` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-007 |
 | `pipeline_stage` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-098 |
+| `pipeline_stage_move` | WP-098 organization pipeline records each human stage move with its reason. | WP-098 |
 | `private_calendar` | WP-039 stores one calendar per original author account and church plant. | WP-039 |
 | `private_week` | WP-039 materializes weeks in order when a save or zone change finds them due; a missing week has a row with no answer. | WP-039 |
 | `private_week_revision` | WP-039 appends a revision only when a save or correction changes the answer. | WP-039 |
 | `proposal` | WP-053 Evry review and execution storage through Drizzle Kit. | WP-053 |
-| `record` | Referenceable subtype writers must bind their own actual identity and owner; inherit the union of those writers, with WP-004 owning trigger/DDL proof. | WP-003, WP-004, WP-005, WP-006, WP-007, WP-008, WP-009, WP-010, WP-011, WP-012, WP-013, WP-014, WP-017, WP-018, WP-020, WP-022, WP-023, WP-024, WP-026, WP-027, WP-028, WP-030, WP-031, WP-032, WP-033, WP-034, WP-035, WP-036, WP-037, WP-038, WP-039, WP-041, WP-045, WP-046, WP-047, WP-048, WP-050, WP-054, WP-057, WP-098, WP-099 |
+| `record` | Referenceable subtype writers must bind their own actual identity and owner; inherit the union of those writers, with WP-004 owning trigger/DDL proof. | WP-003, WP-004, WP-005, WP-006, WP-007, WP-008, WP-009, WP-010, WP-011, WP-012, WP-013, WP-014, WP-017, WP-018, WP-020, WP-022, WP-023, WP-024, WP-026, WP-027, WP-028, WP-030, WP-031, WP-032, WP-033, WP-034, WP-035, WP-036, WP-037, WP-038, WP-039, WP-041, WP-045, WP-046, WP-047, WP-048, WP-049, WP-050, WP-054, WP-057, WP-098, WP-099 |
 | `record_correction` | WP-015 People merge and record correction storage through Drizzle Kit. | WP-015 |
 | `relationship_invitation` | WP-007 native organization adapter storage introduced by forward migration 0005; D29/D32 current-catalog authority. | WP-007 |
 | `residency_link` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-008 |
 | `schema_backfill` | The migration runner ledger's backfill sibling (C102). | WP-097 |
 | `schema_migration` | WP-097 installs the migration runner ledger with its physical text primary key. | WP-097 |
+| `sending_goal` | WP-098 records an organization's sending goals. | WP-098 |
 | `settings_preview` | WP-010 settings storage through Drizzle Kit. | WP-010 |
 | `task_assignee` | WP-023 stores the assignee set of a task. The set replaces the single task and obligation assignee columns. | WP-023 |
 | `tenant` | Stable body-free ownership is shared by root and deletion producers; no independent access grant. | WP-004, WP-005, WP-007, WP-010, WP-050, WP-057 |
