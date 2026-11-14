@@ -73,6 +73,20 @@ const casey = randomUUID();
 const people: Record<string, string> = {};
 let stageIds: Record<string, string> = {};
 
+/** Grace Austin's board, move count and Casey's history, to show a goal save moved nobody. */
+const snapshot = async () => ({
+	board: (await board(dana)).stages.map((s) => [
+		s.id,
+		s.label,
+		s.revision,
+		s.people.map((p) => [p.personId, p.revision]),
+	]),
+	moves: (
+		await admin.execute(sql`SELECT count(*)::int AS n FROM pipeline_stage_move WHERE organization_id=${grace.id}::uuid`)
+	).rows[0]!.n,
+	history: ok(await record(dana, casey)).history,
+});
+
 before(async () => {
 	grace = (await database.organization("sending_church", {
 		name: "Grace Austin",
@@ -184,22 +198,6 @@ test("with no goals, every seat sees live people counted once by stage kind, and
 });
 
 test("an Owner adds and edits goals; a negative target is refused; saving a goal moves nobody", async () => {
-	const moves = async () =>
-		(
-			await admin.execute(
-				sql`SELECT count(*)::int AS n FROM pipeline_stage_move WHERE organization_id=${grace.id}::uuid`,
-			)
-		).rows[0]!.n;
-	const snapshot = async () => ({
-		board: (await board(dana)).stages.map((s) => [
-			s.id,
-			s.label,
-			s.revision,
-			s.people.map((p) => [p.personId, p.revision]),
-		]),
-		moves: await moves(),
-		history: ok(await record(dana, casey)).history,
-	});
 	const before = await snapshot();
 	const first = randomUUID();
 	const goal = {
@@ -738,22 +736,6 @@ test("a goal's chosen counts count each live person who reached the kind since i
 test("saving counts and a start date refuses bad input, moves nobody, is audited body-free and fences stale edits", async () => {
 	const tz = "America/Chicago";
 	const auth = await authority(dana);
-	const moves = async () =>
-		(
-			await admin.execute(
-				sql`SELECT count(*)::int AS n FROM pipeline_stage_move WHERE organization_id=${grace.id}::uuid`,
-			)
-		).rows[0]!.n;
-	const snapshot = async () => ({
-		board: (await board(dana)).stages.map((s) => [
-			s.id,
-			s.label,
-			s.revision,
-			s.people.map((p) => [p.personId, p.revision]),
-		]),
-		moves: await moves(),
-		history: ok(await record(dana, casey)).history,
-	});
 	const before = await snapshot();
 	const goalId = randomUUID();
 	const base = {
