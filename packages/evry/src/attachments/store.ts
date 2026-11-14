@@ -37,7 +37,7 @@ const staged = (f: string, c: string) =>
 	`${f}.purpose='assistant_staging' AND ${f}.upload_key='evry-attachment/'||${c}.id||'/'||${f}.id`;
 export const stagedIn = (f: string, c: string) => sql.raw(staged(f, c));
 /** May attach files: the Owner or Admin of the selected church, who may check a People spreadsheet with Evry. */
-export const canAttach = (actor: EvryActor) =>
+const canAttach = (actor: EvryActor) =>
 	actor.owner.kind === "plant" && (actor.role === "owner" || actor.role === "admin");
 
 /**

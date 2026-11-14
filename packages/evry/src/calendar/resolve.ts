@@ -5,7 +5,7 @@
 
 const pad = (n: number) => String(n).padStart(2, "0");
 /** "+05:30", "-04:00": an offset in minutes east of UTC. */
-export const offsetText = (minutes: number) =>
+const offsetText = (minutes: number) =>
 	`${minutes < 0 ? "-" : "+"}${pad(Math.floor(Math.abs(minutes) / 60))}:${pad(Math.abs(minutes) % 60)}`;
 
 const parts = (zone: string, at: Date) =>
@@ -34,7 +34,7 @@ const shortZone = (zone: string, at: Date) =>
 		.formatToParts(at)
 		.find((p) => p.type === "timeZoneName")!.value;
 /** "Sun, Nov 1, 2026, 1:30 AM EDT": the date, the time and the zone, as a review card shows it. */
-export const localLabel = (zone: string, at: Date) =>
+const localLabel = (zone: string, at: Date) =>
 	`${new Intl.DateTimeFormat("en-US", {
 		timeZone: zone,
 		weekday: "short",

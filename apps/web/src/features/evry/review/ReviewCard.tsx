@@ -5,7 +5,6 @@ import {
 	ArrowRight02Icon,
 	Briefcase01Icon,
 	CheckListIcon,
-	Csv01Icon,
 	Cancel01Icon,
 	CheckmarkCircle02Icon,
 	Clock01Icon,
@@ -911,7 +910,6 @@ function Affects({ review }: { review: Review }) {
 	const mail = isMail(review.operation);
 	const own = isNotification(review.operation);
 	const create = review.operation === "people.createPerson";
-	const file = review.operation === "people.executeBulkImport";
 	const target = review.review.target;
 	const kind = target?.kind;
 	const tag = !kind && review.review.changes.find((c) => c.field === "tag" || c.field === "createTag")?.after;

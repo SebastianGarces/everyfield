@@ -7,6 +7,7 @@ import type { PeopleContext } from "@everyfield/contracts/people";
 import type { TaskReminders } from "@everyfield/domain/tasks";
 import { z } from "zod";
 import type { EvryActor } from "../context/actor.ts";
+import type { ConversationFiles } from "../catalog/types.ts";
 
 /**
  * The email service and the keys that seal and hash its addresses. Only a reviewed write that reaches the email
@@ -23,7 +24,7 @@ export type ReviewContext = {
 	mail: MailPort | null;
 	conversationId: string | null;
 	/** The exact bytes of a file attached in this conversation, read outside any transaction (WP-054). */
-	files?: { read(attachmentId: string): Promise<Uint8Array> } | null;
+	files?: ConversationFiles | null;
 };
 
 /**

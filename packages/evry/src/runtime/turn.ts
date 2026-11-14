@@ -92,6 +92,10 @@ async function run(
 	let pending = "";
 	let toolCalls = 0;
 	let cards = 0;
+	// Only files attached in this very conversation can be read, by a read or an import review.
+	const filesOf = (fresh: EvryActor) => ({
+		read: (id: string) => readAttachment(db, deps.storage ?? null, fresh, turn.conversation_id, id),
+	});
 	const usage = { inputTokens: 0, outputTokens: 0 };
 	// A paid model reserves and settles each call in the month's spend counter (D77).
 	let meter: ReturnType<typeof meteredModel> | null = null;
@@ -292,11 +296,9 @@ async function run(
 			const fresh = await admit();
 			if (!fresh) return { error: stop === "tool_budget" ? "tool_budget" : "access_denied" };
 			let result: SourceResult | undefined;
-			// Only files attached in this very conversation can be read.
-			const files = { read: (id: string) => readAttachment(db, deps.storage ?? null, fresh, turn.conversation_id, id) };
 			for (let attempt = 0; result === undefined; attempt++) {
 				try {
-					result = await invokeRead(db, fresh, adapter, input, files);
+					result = await invokeRead(db, fresh, adapter, input, filesOf(fresh));
 				} catch (error) {
 					// A file from another conversation, or one whose 24 hours passed, is the model's to explain, not a failed turn.
 					if (error instanceof EvryRefusal && ATTACHMENT_REFUSALS.has(error.code)) return { error: error.code };
@@ -345,13 +347,15 @@ async function run(
 				if (++cards > LIMITS.reviewCards) return { error: "review_limit" };
 				const fresh = await admit();
 				if (!fresh) return { error: stop === "tool_budget" ? "tool_budget" : "access_denied" };
-				// An import reads the file attached in this very conversation, like a read does.
-				const files = {
-					read: (id: string) => readAttachment(db, deps.storage ?? null, fresh, turn.conversation_id, id),
-				};
-				const proposal = await prepareProposal(db, fresh, lease, turn.conversation_id, call, deps.mail, files).catch(
-					(error) => (error instanceof EvryRefusal ? error.code : "unknown"),
-				);
+				const proposal = await prepareProposal(
+					db,
+					fresh,
+					lease,
+					turn.conversation_id,
+					call,
+					deps.mail,
+					filesOf(fresh),
+				).catch((error) => (error instanceof EvryRefusal ? error.code : "unknown"));
 				if (typeof proposal === "string") return { error: proposal };
 				if (!proposal) return { error: "source_unavailable" };
 				const target = proposal.review.target;

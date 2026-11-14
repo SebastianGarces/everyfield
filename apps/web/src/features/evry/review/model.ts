@@ -609,8 +609,8 @@ export const CHOICES: Record<string, { value: string; label: string }[]> = {
 	adultClassification: Object.entries(CLASSIFICATION_LABEL).map(([value, label]) => ({ value, label })),
 };
 
-/** Fields a person may edit in a revision. Photos, the removal itself, the task count and an import's checked rows are fixed facts. */
-const FIXED = new Set(["photo", "state", "openTasksNeedingOwner", "file", "rows", "create", "skip", "invalid"]);
+/** Fields a person may edit in a revision. Photos, the removal itself and the task count are fixed facts. */
+const FIXED = new Set(["photo", "state", "openTasksNeedingOwner"]);
 /** Values that may be empty. A name and a reason are required. */
 const REQUIRED = new Set(["displayName", "reason", "stage", "source", "adultClassification"]);
 /** Adult or child is required until a birth date is entered: then it comes from the birth date (REQ-PPL-026). */
@@ -708,8 +708,6 @@ export function missingRequired(review: Review, edits: Record<string, string>) {
 export function refusalText(code: string | undefined, target: string | null): string {
 	const who = target ?? "this person";
 	switch (code) {
-		case "import_not_available":
-			return "Evry can't run the import yet, so nothing was imported. Import the file from People for now.";
 		case "revision_conflict":
 		case "conflict":
 			return `${who}'s record changed after Evry prepared this, so nothing was saved. Ask Evry to prepare it again.`;
