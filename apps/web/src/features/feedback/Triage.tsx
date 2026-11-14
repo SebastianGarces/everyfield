@@ -14,7 +14,18 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { changeFeedbackStatus, loadTriage } from "./actions.ts";
-import { CATEGORIES, CATEGORY_NAME, dateLabel, STATUS_NAME, STATUS_TONE, timeLabel } from "./model.ts";
+import {
+	CATEGORIES,
+	CATEGORY_NAME,
+	dateLabel,
+	HELD_REASON,
+	operatorMailShown,
+	publicationShown,
+	STATUS_NAME,
+	STATUS_TONE,
+	timeLabel,
+	type PublicationSetup,
+} from "./model.ts";
 
 const STATUSES: FeedbackStatus[] = ["new", "reviewed", "resolved", "dismissed"];
 type Filter = { status: FeedbackStatus | null; category: FeedbackCategory | null };
@@ -23,8 +34,29 @@ const StatusTag = ({ status }: { status: FeedbackStatus }) => (
 	<Tag tone={STATUS_TONE[status]}>{STATUS_NAME[status]}</Tag>
 );
 
+type Item = TriagePage["items"][number];
+/** "Issue published" and "Email sent": where the public issue and the operator email stand. */
+function Delivery({ item, setup }: { item: Item; setup: PublicationSetup }) {
+	const issue = publicationShown(item.publication.state, setup);
+	const mail = operatorMailShown(item.operatorMail, setup);
+	return (
+		<>
+			<Tag tone={issue.tone}>Issue {issue.text.toLowerCase()}</Tag>
+			<Tag tone={mail.tone}>Email {mail.text.toLowerCase()}</Tag>
+		</>
+	);
+}
+
 /** The triage list: filters by status and type in the address, 25 at a time with "Show more". */
-export function TriageList({ initial, filter }: { initial: TriagePage; filter: Filter }) {
+export function TriageList({
+	initial,
+	filter,
+	setup,
+}: {
+	initial: TriagePage;
+	filter: Filter;
+	setup: PublicationSetup;
+}) {
 	const router = useRouter();
 	const pathname = usePathname();
 	const [items, setItems] = useState(initial.items);
@@ -83,12 +115,19 @@ export function TriageList({ initial, filter }: { initial: TriagePage; filter: F
 								href={`/feedback/triage/${item.id}`}
 								linkAs={Link}
 								title={<span className="line-clamp-1">{item.description}</span>}
-								subtitle={[
-									CATEGORY_NAME[item.category],
-									item.details.page ?? "Unknown page",
-									item.author.name,
-									dateLabel(item.submittedAt),
-								].join(" · ")}
+								subtitle={
+									<>
+										{[
+											CATEGORY_NAME[item.category],
+											item.details.page ?? "Unknown page",
+											item.author.name,
+											dateLabel(item.submittedAt),
+										].join(" · ")}
+										<span className="mt-2 flex flex-wrap gap-2">
+											<Delivery item={item} setup={setup} />
+										</span>
+									</>
+								}
 								trailing={<StatusTag status={item.status} />}
 							/>
 						))}
@@ -123,7 +162,7 @@ type Notice = { tone: "info" | "error"; text: string } | null;
  * One feedback for a triager: the words, the private details, the status and its history. A status change shows at
  * once; when someone changed it first, nothing is overwritten and the current status comes back with a notice.
  */
-export function TriageItem({ initial }: { initial: TriageDetail }) {
+export function TriageItem({ initial, setup }: { initial: TriageDetail; setup: PublicationSetup }) {
 	const [status, setStatus] = useState(initial.status);
 	const [revision, setRevision] = useState(initial.revision);
 	const [history, setHistory] = useState<TriageChange[]>(initial.history);
@@ -209,6 +248,7 @@ export function TriageItem({ initial }: { initial: TriageDetail }) {
 						) : null}
 					</div>
 				</Card>
+				<PublicIssue item={initial} setup={setup} />
 				<Card className="gap-3">
 					<CardHeader>
 						<CardTitle>History</CardTitle>
@@ -230,5 +270,54 @@ export function TriageItem({ initial }: { initial: TriageDetail }) {
 				</Card>
 			</div>
 		</div>
+	);
+}
+
+/**
+ * The public issue and the operator email: the reference both carry, where each stands, and why it is held. The issue
+ * says only the type and area; its state on GitHub never changes the status here.
+ */
+function PublicIssue({ item, setup }: { item: TriageDetail; setup: PublicationSetup }) {
+	const issue = publicationShown(item.publication.state, setup);
+	const mail = operatorMailShown(item.operatorMail, setup);
+	const held = item.publication.heldReason;
+	return (
+		<Card className="gap-3">
+			<CardHeader>
+				<CardTitle>Public issue</CardTitle>
+			</CardHeader>
+			<KeyValueList>
+				<KeyValue size="sm" k="Reference" value={<span className="font-mono">{item.reference}</span>} />
+				<KeyValue size="sm" k="Issue" value={<Tag tone={issue.tone}>{issue.text}</Tag>} />
+				{item.publication.url ? (
+					<KeyValue
+						size="sm"
+						k="Link"
+						value={
+							<a
+								href={item.publication.url}
+								target="_blank"
+								rel="noreferrer"
+								className="cursor-pointer font-medium text-ink underline underline-offset-2 [overflow-wrap:anywhere]"
+							>
+								{item.publication.url.replace(/^https:\/\//, "")}
+							</a>
+						}
+					/>
+				) : null}
+				<KeyValue size="sm" k="Team email" value={<Tag tone={mail.tone}>{mail.text}</Tag>} />
+			</KeyValueList>
+			{held ? <p className="m-0 rounded-md bg-magenta-100 px-3 py-2.5 text-sm text-ink">{HELD_REASON[held]}</p> : null}
+			{item.operatorMail === "failed" || item.operatorMail === "unknown" ? (
+				<p className="m-0 rounded-md bg-amber-100 px-3 py-2.5 text-sm text-ink">
+					{item.operatorMail === "failed"
+						? "The team email was not sent. The feedback itself is saved."
+						: "The email service did not say whether the team email went. It is checked again on the next run."}
+				</p>
+			) : null}
+			<p className="m-0 text-sm text-text-3">
+				The issue says only the type and area. Closing it on GitHub does not change the status here.
+			</p>
+		</Card>
 	);
 }
