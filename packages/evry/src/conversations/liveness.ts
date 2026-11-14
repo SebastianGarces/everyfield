@@ -69,9 +69,7 @@ export function rowLive(row: SQL, plant: SQL): SQL {
 /**
  * The `kind:id` keys of these rows that are live for the actor now: the in-turn form of the same rule, for a seat in a
  * church or an organization. One statement for every row of a model call, carrying the lock-free live access check
- * (C27), so an actor who lost access since the last tool call keeps no row, whatever its kind. In an organization,
- * each church-record rule compares the row with the organization's own id and keeps nothing; only a never-withheld row
- * (a digest line, a profile review) stays.
+ * (C27), so an actor who lost access since the last tool call keeps no row, whatever its kind.
  */
 export async function liveRowKeys(
 	db: Pick<Database, "execute">,
@@ -80,7 +78,7 @@ export async function liveRowKeys(
 ): Promise<Set<string>> {
 	// Any seat's rows are checked: a church seat's sources are rows of its church, and an organization seat's prepared
 	// review of its own profile is never withheld. An account context has no tenant rows.
-	if (!rows.length || actor.owner.kind === "account" || actor.role === null) return new Set();
+	if (!rows.length || actor.role === null) return new Set();
 	const r = await db.execute(sql`
 		SELECT r.key FROM jsonb_to_recordset(${JSON.stringify(rows)}::jsonb) AS x(kind text,id text)
 		CROSS JOIN LATERAL (SELECT x.kind||':'||x.id AS key, jsonb_build_object('kind',x.kind,'id',x.id) AS j) r
