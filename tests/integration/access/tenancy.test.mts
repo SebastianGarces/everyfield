@@ -57,7 +57,11 @@ import {
 	meetingsWriter,
 	withMeetingsWrite,
 } from "../../../packages/domain/src/meetings/index.ts";
-import { readPipelineConsents } from "../../../packages/domain/src/organizations/index.ts";
+import {
+	readPipelineBoard,
+	readPipelineConsents,
+	readPipelinePersonRecord,
+} from "../../../packages/domain/src/organizations/index.ts";
 import { runDueImports } from "../../../apps/web/src/server/people/run-imports.ts";
 import { ok } from "../../support/fixture.mts";
 import { accessCases, seedAccess } from "./tenancy-access.mts";
@@ -77,7 +81,7 @@ const baselinePath = fileURLToPath(new URL("./tenancy-baseline.json", import.met
 
 const WRITE_VERBS = new Set(
 	`accept add appoint archive assign attest cancel change clear complete copy correct create delete designate dismiss dispatch
-	edit end ensure execute finalize fork generate hand import initialize invite merge offer populate propagate
+	edit end ensure execute finalize fork generate hand import initialize invite merge move offer populate propagate
 	reactivate recomplete reconcile record remove reorder replace request reschedule reset restore retire revoke save schedule
 	send set sign unmerge update upload use with withdraw`.split(/\s+/),
 );
@@ -747,6 +751,23 @@ function cases(who) {
 			{
 				run: () => plain(() => readPipelineConsents(f.db, who.actor, a.avery)),
 				expected: { value: [], control: null },
+			},
+		],
+		// The pipeline belongs to an organization and reads only under an organization seat, so a church's owner, naming
+		// a church A person, gets the pipeline's own refusal; church A holds no pipeline for the control to read. The
+		// organization boundary itself is tests/integration/organizations/pipeline.test.mts.
+		[
+			"organizations:readPipelineBoard",
+			{
+				run: () => plain(() => readPipelineBoard(f.db, who.actor, {})),
+				expected: { value: { status: "refused", refusal: { code: "unavailable" } }, control: null },
+			},
+		],
+		[
+			"organizations:readPipelinePersonRecord",
+			{
+				run: () => plain(() => readPipelinePersonRecord(f.db, who.actor, { personId: a.avery })),
+				expected: { value: { status: "refused", refusal: { code: "unavailable" } }, control: null },
 			},
 		],
 		...meetingsCases(t, who),
