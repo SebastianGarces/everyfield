@@ -42,6 +42,7 @@
 	"tests/integration/jobs/task-reminders.test.mts",
 	"tests/integration/notifications/*.test.mts",
 	"tests/integration/wiki/*.test.mts",
+	"tests/integration/feedback/*.test.mts",
 	"packages/domain/test/requests.test.ts",
 	"tests/reference/releases/*.db.mts",
 	"tests/reference/starter/*.db.mts"

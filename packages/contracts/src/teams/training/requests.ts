@@ -61,3 +61,7 @@ export const trainingMatrixRequest = z.strictObject({ teamId: recordId.optional(
 export const personTrainingRequest = z.strictObject({ personId });
 export const trainingHistoryRequest = z.strictObject({ personId });
 export const staffingFactsRequest = z.strictObject({ teamId: recordId });
+/** The church's current ministries' health, with the measured-team denominator. */
+export const aggregateHealthRequest = z.strictObject({});
+/** A program's saved required people and who of them has a current completion. */
+export const requiredParticipantsRequest = z.strictObject({ programId: recordId });

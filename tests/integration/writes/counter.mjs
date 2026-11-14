@@ -240,6 +240,9 @@ export function instrument(path, source, listed = standalone) {
 		"/packages/domain/src/teams/training/reads.ts": { trainingReader: "teams" },
 		"/packages/domain/src/meetings/roster.ts": { rosterWriter: "meetings" },
 		"/packages/domain/src/phases/reads.ts": { phaseReader: "phases" },
+		"/packages/domain/src/organizations/pipeline.ts": { pipelineWriter: "pipeline" },
+		"/packages/domain/src/organizations/programs.ts": { programWriter: "programs" },
+		"/packages/domain/src/feedback/index.ts": { feedbackWriter: "feedback" },
 	};
 	for (const [name, prefix] of Object.entries(objects[path.slice(root.length)] ?? {}))
 		source += `\nglobalThis.__evfWriteCounts.decorate(${JSON.stringify(prefix)},${name});`;
