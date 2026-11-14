@@ -84,7 +84,7 @@ const listInput = z.strictObject({
 export const list = read({
 	operation: "meetings.list",
 	description:
-		"This church's meetings: church-local date, time, venue, status (cancelled stays listed as cancelled). window upcoming is soonest first, past latest first. Same-title meetings: ask which one.",
+		"This church's meetings: church-local date, time, venue, status (cancelled stays listed as cancelled). window upcoming is soonest first, past latest first. Same-title meetings: ask which one. Deleting or changing one needs an Owner or Admin.",
 	input: listInput,
 	async run(tx, actor, input) {
 		const request = { ...input, limit: input.limit ?? 24, page: input.page ?? 1 };

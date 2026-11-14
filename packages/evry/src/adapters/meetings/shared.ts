@@ -66,7 +66,6 @@ export function meetingRow(m: Summary, extra: Record<string, string | boolean | 
 			date: m.localDate,
 			time: m.localTime,
 			zone: m.zone,
-			startsAt: m.startsAt,
 			venue: m.venue?.name ?? null,
 			team: m.team?.name ?? null,
 			guests: String(m.guestCount),

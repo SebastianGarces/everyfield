@@ -59,7 +59,7 @@ const count = async (query: ReturnType<typeof sql>) => Number((await admin.execu
 const audits = async (proposalId: string) =>
 	count(sql`SELECT count(*)::int n FROM audit_event WHERE request_key LIKE ${"evry:" + proposalId + ":%"}`);
 
-test("a meeting is scheduled at the reviewed church-local time and venue only after Approve, once", async () => {
+test("INV-meetings-schedule: a meeting is scheduled at the reviewed church-local time and venue only after Approve, once", async () => {
 	const propose = await turn(owner);
 	const meetings = () => count(sql`SELECT count(*)::int n FROM meeting WHERE plant_id=${plant}`);
 	const before = await meetings();
@@ -89,7 +89,7 @@ test("a meeting is scheduled at the reviewed church-local time and venue only af
 	assert.equal(await audits(proposal.id), 1, "the native command's own audit row, once");
 });
 
-test("a walk-in named only Luis is reviewed with the meeting and duplicate hints, and recorded as attended after Approve", async () => {
+test("INV-meetings-walk-in: a walk-in named only Luis is reviewed with the meeting and duplicate hints, and recorded as attended after Approve", async () => {
 	// Another Luis is already in People: the review names that possible duplicate (a same-name hint, never proof).
 	const earlier = randomUUID();
 	await admin.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,source,created_at,stage,adult_classification,commitment_state,pipeline_position,state)
@@ -125,7 +125,7 @@ test("a walk-in named only Luis is reviewed with the meeting and duplicate hints
 	assert.deepEqual(presence.rows, [{ presence: "attended" }]);
 });
 
-test("marking three attended and finalizing is one review listing every task it creates; after Approve exactly those exist", async () => {
+test("INV-meetings-finalize: marking three attended and finalizing is one review listing every task it creates; after Approve exactly those exist", async () => {
 	const propose = await turn(owner);
 	const meetingId = seeded.middle.id;
 	const { maria, alex, casey } = seeded.guests;
@@ -152,7 +152,7 @@ test("marking three attended and finalizing is one review listing every task it 
 	assert.deepEqual(made, [...listed].sort(), "the card's task list is exactly the tasks created");
 });
 
-test("an evaluation review shows exactly the planter's scores, and nothing is recorded before Approve", async () => {
+test("INV-meetings-evaluation: an evaluation review shows exactly the planter's scores, and nothing is recorded before Approve", async () => {
 	const propose = await turn(owner);
 	const scores = {
 		attendanceScore: 4,
@@ -177,7 +177,7 @@ test("an evaluation review shows exactly the planter's scores, and nothing is re
 	assert.deepEqual((await evaluated()).rows, [{ evaluation_scores: [4, 5, 3, 4, 5, 4, 3, 4] }]);
 });
 
-test("a review whose meeting changed since is refused at execution and overwrites nothing", async () => {
+test("INV-meetings-stale: a review whose meeting changed since is refused at execution and overwrites nothing", async () => {
 	const propose = await turn(owner);
 	const proposal = await propose("meetings.edit", { meetingId: seeded.training.id, title: "Team training night" });
 	assert.ok(proposal);
@@ -194,7 +194,7 @@ test("a review whose meeting changed since is refused at execution and overwrite
 	assert.equal(title, "Team training");
 });
 
-test("an approver who is no longer an Owner or Admin cannot approve a delete; a Member is never offered one", async () => {
+test("INV-meetings-authority: an approver who is no longer an Owner or Admin cannot approve a delete; a Member is never offered one", async () => {
 	const member = await actor("member");
 	assert.equal(
 		allowedWrites(member).some((w) => w.operation === "meetings.delete"),
@@ -220,7 +220,7 @@ test("an approver who is no longer an Owner or Admin cannot approve a delete; a 
 	}
 });
 
-test("a Member who is not the ministry's leader gets a review that says who can make the change, with no Approve", async () => {
+test("INV-meetings-member-floor: a Member who is not the ministry's leader gets a review that says who can make the change, with no Approve", async () => {
 	const member = await actor("member");
 	const proposal = await (await turn(member))("meetings.schedule", {
 		type: "vision_meeting",
@@ -232,4 +232,38 @@ test("a Member who is not the ministry's leader gets a review that says who can 
 	await assert.rejects(
 		approveProposal(db, member, proposal.id, { revision: proposal.revision, digest: proposal.digest }, null),
 	);
+});
+
+test("AC:B02-016 INV-meetings-practice: a reviewed practice is completed once; a review of a practice that changed since is refused", async () => {
+	const practice = (
+		await native<{ meeting: { id: string } }>(owner, meetingsWriter.schedule as never, {
+			input: { type: "prelaunch_practice", title: "Practice run", date: localDate(-2), time: "10:00" },
+		})
+	).meeting.id;
+	const completions = () =>
+		count(sql`SELECT count(*)::int n FROM meeting WHERE id=${practice} AND status='completed' AND actual_occurrence_at IS NOT NULL`);
+	const propose = await turn(owner);
+	const proposal = await propose("meetings.completePractice", { meetingId: practice });
+	assert.ok(proposal);
+	assert.deepEqual(proposal.review.changes.map((c) => c.field).sort(), ["held", "status"]);
+	assert.equal(await completions(), 0, "nothing changes before Approve");
+	const { outcome } = await approveAndRun(owner, proposal);
+	assert.equal(outcome, "completed");
+	assert.equal(await completions(), 1);
+	assert.equal(await audits(proposal.id), 1, "one completion receipt");
+	// A second review prepared before a correction is refused at execution and changes nothing.
+	const again = await (await turn(owner))("meetings.correctPracticeOccurrence", {
+		meetingId: practice,
+		state: "not_completed",
+		reason: "It was rained out",
+	});
+	assert.ok(again);
+	const rev = (await admin.execute(sql`SELECT revision::text AS r FROM meeting WHERE id=${practice}`)).rows[0]!.r;
+	await native(owner, meetingsWriter.edit as never, {
+		expectedRevision: rev,
+		input: { meetingId: practice, patch: { notes: "Moved indoors" } },
+	});
+	const stale = await approveAndRun(owner, again);
+	assert.deepEqual([stale.outcome, stale.review.receipt?.code], ["refused", "revision_conflict"]);
+	assert.equal(await completions(), 1);
 });
