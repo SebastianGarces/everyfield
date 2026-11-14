@@ -2,7 +2,10 @@
 
 import {
 	Award01Icon,
+	Calendar03Icon,
+	CheckListIcon,
 	Clock01Icon,
+	Location01Icon,
 	File01Icon,
 	Home01Icon,
 	Mail01Icon,
@@ -32,6 +35,9 @@ const GLYPH: Record<Glyph, IconSvgElement> = {
 	activity: Clock01Icon,
 	file: File01Icon,
 	message: Mail01Icon,
+	meeting: Calendar03Icon,
+	venue: Location01Icon,
+	item: CheckListIcon,
 };
 
 function Mark({ mark }: { mark: RowView["mark"] }) {
@@ -104,7 +110,17 @@ export function ResultCard({
 						);
 						return (
 							<li key={view.key}>
-								{view.href ? (
+								{view.href && view.newTab ? (
+									<a
+										href={view.href}
+										target="_blank"
+										rel="noopener noreferrer"
+										data-focus-inset=""
+										className={cn(rowClass, "cursor-pointer transition-[background-color] hover:bg-hover")}
+									>
+										{body}
+									</a>
+								) : view.href ? (
 									<IntentLink
 										href={view.href}
 										data-focus-inset=""
