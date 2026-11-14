@@ -458,13 +458,7 @@
 				"/\\b(can['’]?t|cannot|can not|not able|unable|don['’]?t (yet )?have|do not (yet )?have|isn['’]?t (yet )?(available|something|possible)|not (yet )?(available|supported|possible|connected|something)|no (way|access|tool)|aren['’]?t (yet )?available|not set up|doesn['’]?t (yet )?(let|give|include|have)|outside what|beyond what)\\b/i"
 			],
 			"forbid": ["/I['’]?(ve| have) (deleted|removed)/i"],
-			"derivation": "There is no household delete command; removing both people would be a different request, so no review card.",
-			"finding": {
-				"checks": [
-					"says /\\b(can['’]?t|cannot|can not|not able|unable|don['’]?t (yet )?have|do not (yet )?have|isn['’]?t (yet )?(available|something|possible)|not (yet )?(available|supported|possible|connected|something)|no (way|access|tool)|aren['’]?t (yet )?available|not set up|doesn['’]?t (yet )?(let|give|include|have)|outside what|beyond what)\\b/i"
-				],
-				"note": "T-317 (D-1189, D-1230): re-recorded after the Evry meetings tools joined the teams and people tools; the owner chose to record the drift as findings."
-			}
+			"derivation": "There is no household delete command; removing both people would be a different request, so no review card."
 		}
 	},
 	{
@@ -798,14 +792,7 @@
 			"require": ["/review|approv/i"],
 			"forbid": [
 				"/I['’]?(ve| have)? (sent|scheduled|moved|cancelled|canceled|replaced)|(?<!(nothing|not) )has been (sent|scheduled|moved|cancelled|canceled)|is on its way/i"
-			],
-			"finding": {
-				"checks": [
-					"proposes communication.scheduleReviewed {\"communicationId\":\"5b6d1f0e-0000-4000-8000-000000000c01\",\"sendAt\":\"~2026-11-13T09:00\"}",
-					"says /review|approv/i"
-				],
-				"note": "Drifted on the T-323 merge re-record; failing checks set from its report (D-1151)."
-			}
+			]
 		}
 	},
 	{
@@ -1377,7 +1364,11 @@
 				"all": ["Nate Ellis", "Lena Park", "Carlos Mendez"],
 				"allowed": ["Nate Ellis", "Lena Park", "Carlos Mendez"]
 			},
-			"require": ["/2 of 3|two of (the )?three|Carlos[^.\\n]{0,60}(not|hasn['’]?t|yet)/i"]
+			"require": ["/2 of 3|two of (the )?three|Carlos[^.\\n]{0,60}(not|hasn['’]?t|yet)/i"],
+			"finding": {
+				"checks": ["names every match"],
+				"note": "T-317 re-record (D-1312): model sampling on the merged catalog; set from the report (D-958, D-1151)."
+			}
 		}
 	},
 	{
@@ -1741,13 +1732,7 @@
 			"forbid": [
 				"/I['’]?(ve| have)? (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)|has been (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)/i"
 			],
-			"derivation": "One added Hospitality assignment; nothing about Worship changes and no capacity limit is invented.",
-			"finding": {
-				"checks": [
-					"proposes teams.assignMember {\"teamId\":\"5b6d1f0e-0000-4000-8000-000000007020\",\"roleId\":\"5b6d1f0e-0000-4000-8000-000000007022\",\"personId\":\"@Alex Rivera\"}"
-				],
-				"note": "T-317 (D-1189, D-1230): re-recorded after the Evry meetings tools joined the teams and people tools; the owner chose to record the drift as findings."
-			}
+			"derivation": "One added Hospitality assignment; nothing about Worship changes and no capacity limit is invented."
 		}
 	},
 	{
@@ -3648,7 +3633,13 @@
 			],
 			"forbid": [
 				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
-			]
+			],
+			"finding": {
+				"checks": [
+					"proposes meetings.inviteGuest {\"meetingId\":\"5b6d1f0e-0000-4000-8000-000000000a21\",\"personId\":\"@Carlos Mendez\"}"
+				],
+				"note": "T-317 re-record (D-1312): Evry asks which of the two Thursday meetings (Vision Meeting #4, Nov 12, or the Interest meeting, Nov 19) before preparing the invitation card."
+			}
 		}
 	},
 	{
@@ -3760,7 +3751,13 @@
 			],
 			"forbid": [
 				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
-			]
+			],
+			"finding": {
+				"checks": [
+					"proposes meetings.createGuestContact {\"meetingId\":\"5b6d1f0e-0000-4000-8000-000000000a21\",\"displayName\":\"~Grace Kim\"}"
+				],
+				"note": "T-317 re-record (D-1312): Evry finds no Grace Kim and asks which of the two Thursday meetings before preparing the guest card."
+			}
 		}
 	},
 	{
@@ -4034,14 +4031,7 @@
 			],
 			"forbid": [
 				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
-			],
-			"finding": {
-				"checks": [
-					"no unexpected review card",
-					"proposes venues.edit {\"venueId\":\"5b6d1f0e-0000-4000-8000-000000000a01\",\"patch\":{\"capacity\":45}}"
-				],
-				"note": "T-317 (D-1189, D-1230): re-recorded after the Evry meetings tools joined the teams and people tools; the owner chose to record the drift as findings."
-			}
+			]
 		}
 	},
 	{
@@ -4083,11 +4073,7 @@
 			],
 			"forbid": [
 				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
-			],
-			"finding": {
-				"checks": ["never claims rows were withheld"],
-				"note": "T-317 (D-1189, D-1230): re-recorded after the Evry meetings tools joined the teams and people tools; the owner chose to record the drift as findings."
-			}
+			]
 		}
 	},
 	{
