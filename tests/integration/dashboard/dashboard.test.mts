@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { sql } from "../../../packages/db/src/query.ts";
 import { fixture, ok, refused, type Actor } from "../../support/fixture.mts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
-import { landingFor } from "../../../packages/contracts/src/identity/navigation.ts";
+import { afterSignIn, landingFor } from "../../../packages/contracts/src/identity/navigation.ts";
 import { dashboardReader, dashboardWriter } from "../../../packages/domain/src/dashboard/index.ts";
 
 // Overview (ADM-004, ADM-005) against a migrated database. Harvest Point (America/Chicago) with its Owner, Admin and
@@ -102,8 +102,16 @@ test("AC:CASE-ADM-004 home comes from the seat and the saved setup, never from t
 	const planter = await database.actor(unfinished, "owner");
 	const home = await dashboardReader.resolveHome(db, await authority(planter));
 	assert.equal(home, "incomplete");
-	for (const returnTo of ["/overview", "/overview?setup=done", "/people"])
+	for (const returnTo of ["/overview", "/overview?setup=done", "/people", "/home?returnTo=%2Fpeople"])
 		assert.equal(landingFor({ status: "active", plant: home, returnTo }), "/onboarding");
+	// Only a proof the account itself holds comes first, such as its seat invitation.
+	assert.equal(landingFor({ status: "active", plant: home, returnTo: "/invitation" }), "/invitation");
+	// A finished church follows a safe returnTo, but never one back to the landing route, which would loop.
+	assert.equal(landingFor({ status: "active", plant: done, returnTo: "/people" }), "/people");
+	assert.equal(landingFor({ status: "active", plant: done, returnTo: "/home" }), "/overview");
+	// Sign-in always loads the landing route, carrying the returnTo for landingFor to decide.
+	assert.equal(afterSignIn("/people?x=1"), "/home?returnTo=%2Fpeople%3Fx%3D1");
+	assert.equal(afterSignIn("https://evil.example"), "/home");
 
 	// A sending church's seat goes to its organization home.
 	const church = await database.organization("sending_church");

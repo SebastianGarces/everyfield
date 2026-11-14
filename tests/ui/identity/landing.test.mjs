@@ -20,10 +20,10 @@ const at =
 		url.pathname === path && url.search === search;
 
 for (const [name, engine] of ENGINES) {
-	test(`AC:TARGET-IDN-001 (${name}): an owner whose setup is finished lands on /people`, { timeout: 90_000 }, () =>
+	test(`AC:TARGET-IDN-001 (${name}): an owner whose setup is finished lands on /overview`, { timeout: 90_000 }, () =>
 		withPage(engine, async (page) => {
 			await signInAs(page, seed().landing.finished);
-			await page.waitForURL(at("/people"), { timeout: 60_000 });
+			await page.waitForURL(at("/overview"), { timeout: 60_000 });
 		}),
 	);
 
@@ -35,6 +35,18 @@ for (const [name, engine] of ENGINES) {
 				await signInAs(page, seed().landing.unfinished);
 				await page.waitForURL(at("/onboarding"), { timeout: 60_000 });
 			}),
+	);
+
+	test(
+		`AC:CASE-ADM-004 (${name}): an owner whose setup is not finished still lands on /onboarding with a returnTo`,
+		{ timeout: 180_000 },
+		async () => {
+			for (const back of ["/people", "/tasks", "/overview?setup=done", "/home"])
+				await withPage(engine, async (page) => {
+					await signInAs(page, seed().landing.unfinished, "/signin?returnTo=" + encodeURIComponent(back));
+					await page.waitForURL(at("/onboarding"), { timeout: 60_000 });
+				});
+		},
 	);
 
 	test(`AC:TARGET-IDN-001 (${name}): a new account lands on /onboarding`, { timeout: 90_000 }, () =>
@@ -68,7 +80,7 @@ for (const [name, engine] of ENGINES) {
 			for (const value of ["https://evil.example", "//evil.example", "/\\evil.example", "javascript:alert(1)"]) {
 				await withPage(engine, async (page) => {
 					await signInAs(page, seed().landing.finished, "/signin?returnTo=" + encodeURIComponent(value));
-					await page.waitForURL(at("/people"), { timeout: 60_000 });
+					await page.waitForURL(at("/overview"), { timeout: 60_000 });
 					assert.equal(new URL(page.url()).origin, new URL(BASE).origin, value);
 				});
 			}
@@ -78,13 +90,13 @@ for (const [name, engine] of ENGINES) {
 	test(`AC:TARGET-IDN-001 (${name}): the signed-in screen's Continue follows the rule`, { timeout: 90_000 }, () =>
 		withPage(engine, async (page) => {
 			await signInAs(page, seed().landing.finished);
-			await page.waitForURL(at("/people"), { timeout: 60_000 });
+			await page.waitForURL(at("/overview"), { timeout: 60_000 });
 			await page.goto(BASE + "/signin");
 			const next = page.getByRole("link", { name: "Continue" });
 			await next.waitFor();
 			assert.equal(await next.getAttribute("href"), "/home");
 			await next.click();
-			await page.waitForURL(at("/people"), { timeout: 60_000 });
+			await page.waitForURL(at("/overview"), { timeout: 60_000 });
 		}),
 	);
 

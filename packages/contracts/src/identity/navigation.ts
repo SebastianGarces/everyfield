@@ -34,21 +34,35 @@ export const LANDING_ROUTE = "/home";
 export type PlantSetup = "complete" | "incomplete" | "organization" | "none";
 
 /**
- * Where a signed-in person lands (ADM-004). A new account or an unfinished plant always goes back to onboarding, where
- * setup resumes at its saved step: a returnTo never skips setup. Otherwise a safe returnTo, else the organization home
- * for an organization seat, onboarding (the account's Discovery page) for a viewer outside a plant or organization and
- * the dashboard home for a plant. An unsafe returnTo counts as none.
+ * Pages a sign-in may return to before setup is finished: each finishes a proof or response the account itself holds (a
+ * seat invitation, an email change, an organization connection, an account deletion), not a page of the plant.
+ */
+const BEFORE_SETUP = /^\/(?:invitation|confirm-email|connections\/respond|account-deletion)(?:[/?#]|$)/;
+
+/**
+ * Where a signed-in person lands (ADM-004). A new account or an unfinished plant goes back to onboarding, where setup
+ * resumes at its saved step; a returnTo skips that only to a BEFORE_SETUP page. Otherwise a safe returnTo, else the
+ * organization home for an organization seat, onboarding (the account's Discovery page) for a viewer outside a plant or
+ * organization and the dashboard home for a plant. An unsafe returnTo, or one back to the landing route, counts as none.
  */
 export function landingFor(input: {
 	returnTo?: string | null;
 	status: "pending_domain" | "active";
 	plant: PlantSetup;
 }): string {
-	if (input.status === "pending_domain" || input.plant === "incomplete") return ONBOARDING_HOME;
-	const back = safeReturn(input.returnTo);
+	const safe = safeReturn(input.returnTo);
+	const back = safe && !/^\/home(?:[/?#]|$)/.test(safe) ? safe : null;
+	if (input.status === "pending_domain" || input.plant === "incomplete")
+		return back && BEFORE_SETUP.test(back) ? back : ONBOARDING_HOME;
 	if (back) return back;
 	if (input.plant === "organization") return ORGANIZATION_HOME;
 	return input.plant === "complete" ? DASHBOARD_HOME : ONBOARDING_HOME;
+}
+
+/** The address a finished sign-in loads: the landing route, which applies landingFor to the returnTo on the server. */
+export function afterSignIn(returnTo: string | null | undefined): string {
+	const back = safeReturn(returnTo);
+	return back ? `${LANDING_ROUTE}?returnTo=${encodeURIComponent(back)}` : LANDING_ROUTE;
 }
 
 export function invalidSessionReturn(returnTo: string | null | undefined): string {

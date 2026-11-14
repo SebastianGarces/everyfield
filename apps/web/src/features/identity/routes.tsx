@@ -32,13 +32,14 @@ export async function SignInPage({ searchParams }: { searchParams: Search }) {
 // saved setup (dashboard.resolveHome, ADM-004). The cached viewer is the first statement; the second runs only for a
 // plant seat and reads that plant's setup state under the live check (C13).
 export const homeMetadata: Metadata = { title: "Home", robots: { index: false, follow: false } };
-export async function HomePage() {
+export async function HomePage({ searchParams }: { searchParams: Search }) {
+	const returnTo = one((await searchParams).returnTo);
 	const viewer = await getViewer();
 	if (!viewer || viewer.status === "unauthenticated") redirect("/signin");
 	const db = requestDatabase();
 	const plant =
 		viewer.status === "active" && db ? await dashboardReader.resolveHome(db, viewer.authority ?? null) : "none";
-	redirect(landingFor({ status: viewer.status, plant }));
+	redirect(landingFor({ status: viewer.status, plant, returnTo }));
 }
 
 export const registerMetadata: Metadata = { title: "Create your account" };
