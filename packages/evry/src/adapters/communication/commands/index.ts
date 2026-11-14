@@ -679,8 +679,8 @@ async function sendNow(
 	return { ...first, report: sendReport(sent, leftOut.length, held) };
 }
 /**
- * What the email service answered. The handoff also refuses, without asking it, each person the review left out who has
- * an address (`held` of them): those are counted as left out, never as refused by the email service.
+ * What the email service answered. The handoff also refuses, without asking it, each person the review left out as
+ * unsubscribed or blocked (`held` of them): those are counted as left out, never as refused by the email service.
  */
 function sendReport(sent: Handoff, leftOut: number, held: number): MailReport {
 	if (sent.status !== "ok")
@@ -823,7 +823,8 @@ export const send: ReviewedWrite<z.infer<typeof sendInput>> = {
 					${change("content", null, sql`to_jsonb(replace(${contentFor(draft.html)}::text,${SAMPLE_NAME}::text,${firstName}))`)}))`,
 			)} AS review,
 			jsonb_build_object('expectedRevision',${draft.revision}::text,'leftOut',${leftOutIds},'recipientsDigest',${facts.digest}::text,
-				'held',(SELECT count(*)::int FROM classified WHERE reason IS NOT NULL AND reason<>'no_address'),
+				-- The left out the handoff stores as refused rows; a skipped duplicate address gets no row.
+				'held',(SELECT count(*)::int FROM classified WHERE reason IS NOT NULL AND reason NOT IN ('no_address','duplicate_address')),
 				${draft.revision ? sql`'untouched',0,` : sql``}'input',${input}) AS args
 			FROM c`;
 	},

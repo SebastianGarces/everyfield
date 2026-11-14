@@ -1413,6 +1413,30 @@ test("a send review lists the exact recipients, the left out and the content; on
 	assert.equal(latest.rows[0]!.id, id);
 });
 
+test("a send the email service refuses counts every refused recipient; a skipped duplicate address is left out, not refused", async () => {
+	const owner = await actor("owner");
+	const service = emailService();
+	service.answers.send = "refused";
+	const extra = await twin();
+	const t = await turn(owner, service.port);
+	const proposal = await t.propose("communication.sendReviewed", {
+		subject: "Vision night",
+		body: BODY,
+		audience: audience([extra]),
+	});
+	assert.ok(proposal);
+	const done = await approve(owner, proposal, service.port);
+	// Alex Chen and Alex Rivera were refused by the email service; Alex Twin, Casey, Dana and Member 001 were left out.
+	assert.deepEqual(done.review.receipt!.report, {
+		kind: "send",
+		confirmation: "refused",
+		accepted: 0,
+		refused: 2,
+		unknown: 0,
+		leftOut: 4,
+	});
+});
+
 test("a resend goes to delivered non-openers only after 24 hours; a retry goes only to recipients that failed for certain", async () => {
 	const owner = await actor("owner");
 	const service = emailService();
