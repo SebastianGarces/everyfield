@@ -23,6 +23,8 @@ export const plantSeat = (actor: EvryActor) => actor.owner.kind === "plant" && a
 /** The Owner or Admin of the selected sending church or network. */
 export const organizationAdmin = (actor: EvryActor) =>
 	actor.owner.kind === "organization" && (actor.role === "owner" || actor.role === "admin");
+/** Any seat in the selected sending church or network. */
+export const organizationSeat = (actor: EvryActor) => actor.owner.kind === "organization" && actor.role !== null;
 
 /** One reviewed field: its value before and after, both as JSON. */
 export const change = (field: string, before: SQL, after: unknown) =>

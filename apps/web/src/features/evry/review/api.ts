@@ -11,11 +11,12 @@ export const readReview = (id: string) => call<Review>(`proposals/${id}`);
  * Approves the exact revision. The witness (revision and digest) is the request key, so after a lost reply the same
  * request is sent once more at once: the server replays a saved approval and queues nothing (C58).
  */
-export async function approve(review: Pick<Review, "id" | "revision" | "digest">) {
+export async function approve(review: Pick<Review, "id" | "revision" | "digest">, reason?: string) {
+	// A card that asks for a reason sends the person's own words with the approval, and nowhere else.
 	const send = () =>
 		call<{ proposal: Review; replayed: boolean }>(`proposals/${review.id}/approve`, {
 			method: "POST",
-			body: { revision: review.revision, digest: review.digest },
+			body: { revision: review.revision, digest: review.digest, ...(reason ? { reason } : {}) },
 		});
 	const first = await send();
 	return first.status === "lost" ? send() : first;
