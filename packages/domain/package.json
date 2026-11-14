@@ -22,6 +22,7 @@
 		"./notifications": "./src/notifications/index.ts",
 		"./communication": "./src/communication/index.ts",
 		"./wiki": "./src/wiki/index.ts",
+		"./feedback": "./src/feedback/index.ts",
 		"./documents": "./src/documents/index.ts",
 		"./documents/values": "./src/documents/doc-values.ts",
 		"./branding": "./src/branding/index.ts",
