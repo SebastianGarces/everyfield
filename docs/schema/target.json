@@ -70,9 +70,9 @@
   "contract_status": "Reviewed starting design; builders may change it through a reviewed migration.",
   "as_of": "2026-10-17",
   "implementation_authorized": false,
-  "table_count": 106,
-  "column_count": 1212,
-  "foreign_key_count": 361,
+  "table_count": 108,
+  "column_count": 1227,
+  "foreign_key_count": 364,
   "type_contracts": {
     "text": "UTF8; per-boundary bounded, sanitized only when rendered in rich context.",
     "date": "YYYY-MM-DD local calendar date, never UTC midnight instant.",
@@ -21390,6 +21390,215 @@
       "rls": false
     },
     {
+      "name": "leadership_conversation",
+      "domain": "people",
+      "purpose": "One leadership (ICNU) conversation of an organization pipeline person (REQ-MUL-009): which staff seat met them, the actual day, and an optional short note readable only by the Owner, Admins and the person's current responsible staff. Counts by month and quarter are read from the day.",
+      "library_owned": false,
+      "jsonb_keys": {},
+      "capabilities": [
+        "CAP-A-056"
+      ],
+      "replaces": [],
+      "producer_work_packages": [
+        "WP-098"
+      ],
+      "producer_derivation": {
+        "old_target_tables": [],
+        "additional_producers": [
+          "WP-098"
+        ],
+        "rule": "WP-098 records each human-logged leadership conversation."
+      },
+      "feature_ids": [
+        "MUL-007",
+        "MUL-008",
+        "MUL-009"
+      ],
+      "acceptance_ids": [
+        "AC-MUL-007--MUL-007",
+        "AC-MUL-008--MUL-008",
+        "AC-MUL-009--MUL-009"
+      ],
+      "future_case_ids": [
+        "ADR1-007",
+        "ADR1-008",
+        "ADR1-009"
+      ],
+      "scope": "people",
+      "invariants": [
+        "Logged only by a human with current duty for the person; never by Evry or a rule.",
+        "The day is a calendar day in the organization's time zone and is never after the day it was logged or corrected.",
+        "The note never enters central audit, search, exports or model input; a correction's audit row holds only the old and new day."
+      ],
+      "revision": "Expected revision fences corrections; each correction appends a people.corrected audit row with the old and new day.",
+      "idempotency": "The browser names the conversation id, so a repeated log writes one conversation.",
+      "deletion": "Removed with the pipeline person under REQ-MUL-005.",
+      "physical_verified": false,
+      "columns": [
+        {
+          "note": "",
+          "name": "id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "organization_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "pipeline_person_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "staff_seat_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "occurred_on",
+          "type": "date",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "note",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "",
+          "name": "revision",
+          "type": "bigint",
+          "nullable": false
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "unique_keys": [],
+      "foreign_keys": [
+        {
+          "deletion": {
+            "action": "restrict",
+            "policy": "Explicit dependency-ordered removal or authorized minimal-attribution detachment. Current grants and removal witnesses apply to retained facts and recovery; a foreign key grants no access."
+          },
+          "columns": [
+            "pipeline_person_id",
+            "organization_id"
+          ],
+          "references": {
+            "table": "pipeline_person",
+            "columns": [
+              "id",
+              "organization_id"
+            ]
+          },
+          "on_delete": "restrict"
+        },
+        {
+          "deletion": {
+            "action": "restrict",
+            "policy": "Explicit dependency-ordered removal or authorized minimal-attribution detachment. Current grants and removal witnesses apply to retained facts and recovery; a foreign key grants no access."
+          },
+          "columns": [
+            "staff_seat_id"
+          ],
+          "references": {
+            "table": "seat",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "restrict"
+        }
+      ],
+      "checks": [
+        "((note IS NULL) OR ((length(btrim(note)) >= 1) AND (length(note) <= 1000)))",
+        "(revision >= 1)"
+      ],
+      "indexes": {
+        "leadership_conversation_on_idx": {
+          "name": "leadership_conversation_on_idx",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "occurred_on",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "leadership_conversation_person_idx": {
+          "name": "leadership_conversation_person_idx",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "pipeline_person_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "leadership_conversation_staff_idx": {
+          "name": "leadership_conversation_staff_idx",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "staff_seat_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "constraint_names": {
+        "primary": [
+          "leadership_conversation_pkey"
+        ],
+        "unique": [],
+        "foreign": [
+          "leadership_conversation_person",
+          "leadership_conversation_staff"
+        ],
+        "checks": [
+          "leadership_conversation_revision",
+          "leadership_conversation_note"
+        ]
+      },
+      "policies": {},
+      "rls": false
+    },
+    {
       "name": "lifecycle_witness",
       "domain": "operations",
       "purpose": "Body-free independently synchronized deletion, credential and access witness with stable opaque subject key after live-root purge. A body-free affiliation witness may retain its independently legitimate organization counterparty. Restricted backup/restore inventory and checksummed receipts live solely in the external recovery artifact, not the live database.",
@@ -37797,6 +38006,172 @@
           "seat_ck_0",
           "seat_ck_1",
           "seat_ck_2"
+        ]
+      },
+      "policies": {},
+      "rls": false
+    },
+    {
+      "name": "sending_goal",
+      "domain": "people",
+      "purpose": "One sending goal of a sending church or network (REQ-MUL-007): nonnegative leader and plant targets, a target year and the organization's reason. Observed counts are read from the pipeline at a stated as-of day and are never stored here.",
+      "library_owned": false,
+      "jsonb_keys": {},
+      "capabilities": [
+        "CAP-A-056"
+      ],
+      "replaces": [],
+      "producer_work_packages": [
+        "WP-098"
+      ],
+      "producer_derivation": {
+        "old_target_tables": [],
+        "additional_producers": [
+          "WP-098"
+        ],
+        "rule": "WP-098 records an organization's sending goals."
+      },
+      "feature_ids": [
+        "MUL-007",
+        "MUL-008",
+        "MUL-009"
+      ],
+      "acceptance_ids": [
+        "AC-MUL-007--MUL-007",
+        "AC-MUL-008--MUL-008",
+        "AC-MUL-009--MUL-009"
+      ],
+      "future_case_ids": [
+        "ADR1-007",
+        "ADR1-008",
+        "ADR1-009"
+      ],
+      "scope": "people",
+      "invariants": [
+        "Written only by an Owner or Admin of the same organization; body-free audit only.",
+        "A goal never moves a person, changes a stage, commissions an enrollment or creates a plant."
+      ],
+      "revision": "Expected revision fences changes.",
+      "idempotency": "The browser names the goal id, so a repeated add writes one goal.",
+      "deletion": "Retained with the organization; no fixed new period is introduced.",
+      "physical_verified": false,
+      "columns": [
+        {
+          "note": "",
+          "name": "id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "organization_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "leader_target",
+          "type": "integer",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "plant_target",
+          "type": "integer",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "target_year",
+          "type": "integer",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "rationale",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "clock_timestamp()"
+        },
+        {
+          "note": "",
+          "name": "revision",
+          "type": "bigint",
+          "nullable": false
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "unique_keys": [],
+      "foreign_keys": [
+        {
+          "deletion": {
+            "action": "restrict",
+            "policy": "Explicit dependency-ordered removal or authorized minimal-attribution detachment. Current grants and removal witnesses apply to retained facts and recovery; a foreign key grants no access."
+          },
+          "columns": [
+            "organization_id"
+          ],
+          "references": {
+            "table": "organization",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "restrict"
+        }
+      ],
+      "checks": [
+        "((leader_target >= 0) AND (leader_target <= 10000))",
+        "((plant_target >= 0) AND (plant_target <= 10000))",
+        "((length(btrim(rationale)) >= 1) AND (length(rationale) <= 1000))",
+        "(revision >= 1)",
+        "((target_year >= 2000) AND (target_year <= 2200))"
+      ],
+      "indexes": {
+        "sending_goal_organization_idx": {
+          "name": "sending_goal_organization_idx",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "constraint_names": {
+        "primary": [
+          "sending_goal_pkey"
+        ],
+        "unique": [],
+        "foreign": [
+          "sending_goal_organization"
+        ],
+        "checks": [
+          "sending_goal_revision",
+          "sending_goal_leader_target",
+          "sending_goal_plant_target",
+          "sending_goal_target_year",
+          "sending_goal_rationale"
         ]
       },
       "policies": {},
