@@ -32,6 +32,8 @@ import {
 import { StatusBadge, type Status } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
 import { useState } from "react";
+import type { PlantFacts } from "@everyfield/contracts/intelligence";
+import { FactsSection } from "../intelligence/FactsSection.tsx";
 import { IntelligenceTabs } from "../intelligence/IntelligenceTabs.tsx";
 import { declarePhase, movePhase } from "./actions.ts";
 import {
@@ -52,7 +54,7 @@ import {
 } from "./model.ts";
 
 type Viewer = { accountId: string; name: string };
-type Props = { history: HistoryResult; catalog: Catalog; readiness: Readiness[]; viewer: Viewer };
+type Props = { history: HistoryResult; catalog: Catalog; readiness: Readiness[]; facts: PlantFacts; viewer: Viewer };
 
 /** What the change dialog holds: the chosen phase, the typed reason, and why the last attempt did not go through. */
 type MoveDraft = { to: PhaseNumber; reason: string; error: string | null; changed: JourneyState | null };
@@ -65,11 +67,11 @@ const STATUS: Record<Readiness["criteria"][number]["status"], { status: Status; 
 };
 
 /**
- * Plant Intelligence's phase card, journey and timeline (WP-038, prototype #/intelligence). A move or declaration shows
+ * Plant Intelligence's phase card, journey and timeline (WP-038, prototype #/intelligence) and the measured facts (WP-040). A move or declaration shows
  * at once and is confirmed or rolled back from the server's answer; nothing reloads the page. Only Owners and Admins
  * reach this screen; the route shows Members a locked panel instead.
  */
-export function JourneyScreen({ history, catalog, readiness, viewer }: Props) {
+export function JourneyScreen({ history, catalog, readiness, facts, viewer }: Props) {
 	const toast = useToast();
 	const [journey, setJourney] = useState<Journey>({ state: history.state, entries: history.entries });
 	const [move, setMove] = useState<MoveDraft | null>(null);
@@ -172,6 +174,7 @@ export function JourneyScreen({ history, catalog, readiness, viewer }: Props) {
 				</Card>
 				<Timeline entries={journey.entries} timeZone={history.timeZone} />
 			</div>
+			<FactsSection facts={facts} />
 			<Phases catalog={catalog} current={journey.state.phase} />
 			{move ? (
 				<MoveDialog
@@ -418,7 +421,6 @@ function MoveDialog({
 	onChange: (draft: MoveDraft | null) => void;
 	onSubmit: (draft: MoveDraft) => void;
 }) {
-	const open = readiness.criteria.filter((x) => x.status !== "met");
 	return (
 		<Dialog open onOpenChange={(next) => (next ? null : onChange(null))}>
 			<DialogContent>
@@ -456,7 +458,7 @@ function MoveDialog({
 									Advisory: Phase {current} is {readiness.measured ? "not ready yet" : "not measured yet"}
 								</p>
 								<ul className="mt-2 flex flex-col gap-1.5">
-									{open.map((x) => (
+									{readiness.criteria.map((x) => (
 										<li key={x.key} className="flex items-center justify-between gap-3 text-ink-2">
 											<span>{x.label}</span>
 											<StatusBadge size="sm" status={STATUS[x.status].status}>

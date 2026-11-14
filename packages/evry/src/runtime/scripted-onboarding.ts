@@ -201,7 +201,7 @@ export function onboardingStep(options: LanguageModelV4CallOptions, text: string
 		return propose("onboarding.complete", {});
 	}
 	if (lead) {
-		if (!offers("identity.answerLeadOnboarding")) return setupRule();
+		if (!offers("identity.answerLeadOnboarding")) return quote(options.prompt, "Who leads this church");
 		if (!resume) return readResume();
 		if (resume.status !== "available") return noSetup();
 		if (/^You hold the /.test(String(stepOf("team")?.fields.answer)))

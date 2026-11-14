@@ -152,6 +152,7 @@ const sharingScreen = async (actor: EvryActor) =>
 	]);
 const row = async (query: ReturnType<typeof sql>) =>
 	(await church.db.execute(query)).rows[0] as Record<string, unknown>;
+const digest = () => row(sql`SELECT digest_cadence,digest_weekday,digest_hour FROM plant WHERE id=${PLANT}`);
 
 /** What each approved case changes, read back as Settings shows it; `before` runs before approval. */
 const SETTLED: Record<string, { before?: (a: EvryActor) => Promise<void>; after: (a: EvryActor) => Promise<void> }> = {
@@ -252,6 +253,19 @@ const SETTLED: Record<string, { before?: (a: EvryActor) => Promise<void>; after:
 		before: async () => assert.deepEqual(await row(sql`SELECT city FROM plant WHERE id=${PLANT}`), { city: "Austin" }),
 		after: async () =>
 			assert.deepEqual(await row(sql`SELECT city FROM plant WHERE id=${PLANT}`), { city: "Round Rock" }),
+	},
+	// The church digest schedule as Settings > Church shows it: cadence, day and hour.
+	"SET-25": {
+		before: async () =>
+			assert.deepEqual(await digest(), { digest_cadence: "weekly", digest_weekday: 0, digest_hour: 16 }),
+		after: async () =>
+			assert.deepEqual(await digest(), { digest_cadence: "weekly", digest_weekday: 1, digest_hour: 8 }),
+	},
+	"SET-27": {
+		after: async () => assert.deepEqual(await digest(), { digest_cadence: "daily", digest_weekday: 1, digest_hour: 7 }),
+	},
+	"SET-28": {
+		after: async () => assert.deepEqual(await digest(), { digest_cadence: "off", digest_weekday: 1, digest_hour: 7 }),
 	},
 	"SET-22": {
 		after: async () =>
