@@ -1,6 +1,8 @@
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
+import type { Socket } from "node:net";
 import { delimiter, dirname, join, resolve } from "node:path";
+import { ownerLabels } from "../containers.ts";
 
 export const source = resolve(import.meta.dirname, "../../..");
 
@@ -33,17 +35,42 @@ function docker(...args: string[]): string {
 	return r.stdout.trim();
 }
 
+/** The containers this process started and has not stopped, removed on exit. */
+const live = new Set<string>();
+process.on("exit", () => live.forEach((container) => stopQuietDatabase({ container })));
+
+/**
+ * Removes the container once this process ends, however it ends (T-356). On a normal exit, a test that failed included,
+ * the exit handler removes it before the process is gone. Otherwise a detached watcher does: it reads a pipe whose only
+ * writer is this process, which closes when the process dies, even by SIGKILL or a kill of its process group. Signal
+ * handlers cannot promise that: a node:test child dies of SIGPIPE once its runner is gone, and a signal that arrives
+ * during a spawnSync can be dropped.
+ */
+function removeWhenThisProcessEnds(container: string) {
+	live.add(container);
+	const reap = 'cat >/dev/null; exec docker rm -f -v "$1" >/dev/null 2>&1';
+	const watcher = spawn("sh", ["-c", reap, "qa-test-reaper", container], {
+		detached: true,
+		stdio: ["pipe", "ignore", "ignore"],
+	});
+	watcher.unref();
+	(watcher.stdin as Socket).unref();
+}
+
 /**
  * CI's Postgres image in Docker, migrated by this checkout's own db:migrate, for one test file. No test touches a shared
- * database. The caller must call stopQuietDatabase, also on failure.
+ * database. The caller should call stopQuietDatabase when done; the container also goes when this process ends. Its
+ * labels name this process, so `bin/dev check`'s sweep (tools/qa/containers.ts) leaves it alone while it runs.
  */
 export function startQuietDatabase(checkout: string, tag: string): QuietDatabase {
 	const container = `qa-test-${tag}-${randomBytes(3).toString("hex")}`,
 		password = randomBytes(18).toString("hex");
+	removeWhenThisProcessEnds(container);
 	docker(
 		"run",
 		"-d",
 		"--rm",
+		...ownerLabels(),
 		"--name",
 		container,
 		"-e",
@@ -88,4 +115,5 @@ export function startQuietDatabase(checkout: string, tag: string): QuietDatabase
 
 export function stopQuietDatabase(db: Pick<QuietDatabase, "container">): void {
 	spawnSync("docker", ["rm", "-f", "-v", db.container]);
+	live.delete(db.container);
 }

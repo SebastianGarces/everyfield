@@ -15,6 +15,7 @@ import {
 	selectChecks,
 	suiteOf,
 } from "../tools/ci/select.ts";
+import { sweepCommand } from "../tools/qa/containers.ts";
 
 /** Runs one command to its end. Tests pass a fake; the real one is `spawnRunner`. */
 export type Runner = (
@@ -233,6 +234,8 @@ export function checkCommand(args: string[], root: string): number {
 		console.error("usage: dev check [--full]");
 		return 2;
 	}
+	// Orphaned QA databases from runs that died without cleaning up hold the Docker VM's memory (T-356).
+	sweepCommand();
 	const { record, recordPath } = check({ root, full });
 	const ran = record.checks.filter((c) => c.run).map((c) => c.id);
 	console.log(`check ${record.mode}: ${record.result}. Ran ${ran.join(", ") || "nothing"}.`);
