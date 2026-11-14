@@ -408,6 +408,10 @@ function rowView(operation: string, row: SourceRow): RowView {
 			};
 		case "meeting": {
 			const status = text(fields.status);
+			if (operation === "meetings.readAgenda")
+				return typeof fields.print === "string"
+					? { ...plain, name: "Print agenda", line: row.label, avatar: "meeting", href: fields.print, newTab: true }
+					: { ...plain, name: row.label, line: "Printing is for Vision meeting agendas", avatar: "meeting", href: `/meetings/${row.id}` };
 			if (typeof fields.print === "string")
 				return { ...plain, name: "Print agenda", line: row.label, avatar: "meeting", href: fields.print, newTab: true };
 			return {

@@ -941,7 +941,7 @@
 					"operation": "meetings.list"
 				}
 			],
-			"require": ["/Orientation/", "/Dec(ember)?\\.? 6|6 Dec/i", "/Vision Meeting #5|Dec(ember)?\\.? 10/i"],
+			"require": ["/Orientation/", "/Dec(ember)?\\.? 6|6 Dec/i", "/Vision Meeting #6|Dec(ember)?\\.? 10/i"],
 			"forbid": [
 				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(is|has been|was) (now )?(scheduled|booked|added|recorded|marked|finalized|deleted|cancell?ed|saved)\\b/i"
 			]

@@ -24,9 +24,10 @@
 //   "Name tags (50+)" and "Response cards (50+)". Last night's Vision Meeting #3 (Sun 8 Nov) was finalized with 24
 //   attended and has no evaluation; last week's Vision Meeting #2 (Thu 5 Nov) was held with guests Maria Santos, Alex
 //   Rivera and Casey Morgan and has no attendance recorded; Vision Meeting #1 (Thu 29 Oct) was finalized with 18
-//   attended and evaluated. "Launch team orientation" on Sun 15 Nov 4:00 PM has a saved agenda. "Coffee with Pastor
+//   attended and evaluated. "Launch team orientation", a Vision meeting (#5) on Sun 15 Nov 4:00 PM, has its own saved
+//   agenda and no kit. "Coffee with Pastor
 //   Nate" (today 6:00 PM) was cancelled. "Worship team training" is next Tue 17 Nov 6:30 PM at the fellowship hall.
-//   Two meetings are titled "Orientation" (Sun 22 Nov and Sun 6 Dec). Vision Meeting #5 (Thu 10 Dec) has no kit yet.
+//   Two meetings are titled "Orientation" (Sun 22 Nov and Sun 6 Dec). Vision Meeting #6 (Thu 10 Dec) has no kit yet.
 //   Pre-launch practices: "Launch rehearsal" (Sat 31 Oct) was held; "Sound check practice" (Sat 7 Nov) is not
 //   recorded as held. "Old warehouse" is an archived venue. Kevin Walsh was invited by Ana Rivera; Casey Morgan is
 //   marked attended at last week's meeting.
@@ -238,7 +239,7 @@ export const REVIEW_PAIRS = REVIEW_IMPORT.rows.filter((r) => !r.dismissed).map((
 
 type ActorSpec = { account: string; user: string; session: string; plant: string | null; role: string };
 const ACCOUNT = (k: number): ActorSpec["account"] => id(0xf00 + k);
-const ACTOR_SPECS = {
+export const ACTOR_SPECS = {
 	owner: { account: ACCOUNT(1), user: id(0xf11), session: id(0xf21), plant: PLANT, role: "owner" },
 	admin: { account: ACCOUNT(2), user: id(0xf12), session: id(0xf22), plant: PLANT, role: "admin" },
 	member: { account: ACCOUNT(3), user: id(0xf13), session: id(0xf23), plant: PLANT, role: "member" },
@@ -283,7 +284,7 @@ export const UNCHECKED_KIT = ["Name tags (50+)", "Response cards (50+)"];
  * Seeds the church into the schema `admin` is pinned to. Every row a read returns has a pinned id and a pinned time,
  * except each live person's last contact, which is placed relative to the database clock (see the header).
  */
-async function seedHope(admin: Database) {
+export async function seedHope(admin: Database) {
 	const run = (q: ReturnType<typeof sql>) => admin.execute(q);
 	for (const [plant, name] of [
 		[PLANT, "Hope Fellowship"],
@@ -449,11 +450,11 @@ async function seedMeetings(run: Run, owner: string) {
 		[M.lastNight, "vision_meeting", null, "2026-11-08", "18:00", "2026-11-09T00:00:00Z", M.coffee, "completed", 3],
 		[M.thursday, "vision_meeting", null, "2026-11-12", "19:00", "2026-11-13T01:00:00Z", M.coffee, "planning", 4],
 		[M.cancelled, "orientation", "Coffee with Pastor Nate", "2026-11-09", "18:00", "2026-11-10T00:00:00Z", M.coffee, "cancelled", null],
-		[M.sunday, "orientation", "Launch team orientation", "2026-11-15", "16:00", "2026-11-15T22:00:00Z", M.hall, "ready", null],
+		[M.sunday, "vision_meeting", "Launch team orientation", "2026-11-15", "16:00", "2026-11-15T22:00:00Z", M.hall, "ready", 5],
 		[M.training, "team_meeting", "Worship team training", "2026-11-17", "18:30", "2026-11-18T00:30:00Z", M.hall, "planning", null],
 		[M.orientationA, "orientation", "Orientation", "2026-11-22", "16:00", "2026-11-22T22:00:00Z", M.chapel, "planning", null],
 		[M.orientationB, "orientation", "Orientation", "2026-12-06", "16:00", "2026-12-06T22:00:00Z", M.chapel, "planning", null],
-		[M.december, "vision_meeting", null, "2026-12-10", "19:00", "2026-12-11T01:00:00Z", M.coffee, "planning", 5],
+		[M.december, "vision_meeting", null, "2026-12-10", "19:00", "2026-12-11T01:00:00Z", M.coffee, "planning", 6],
 		[M.soundCheck, "prelaunch_practice", "Sound check practice", "2026-11-07", "10:00", "2026-11-07T16:00:00Z", M.hall, "planning", null],
 		[M.rehearsal, "prelaunch_practice", "Launch rehearsal", "2026-10-31", "10:00", "2026-10-31T15:00:00Z", M.hall, "completed", null],
 	] as const;
@@ -467,9 +468,9 @@ async function seedMeetings(run: Run, owner: string) {
 	for (const [m, type, title, date, time, startsAt, venue, status, vision] of MEETING_ROWS) {
 		const v = VENUES.find((x) => x[0] === venue)!;
 		const isVision = type === "vision_meeting";
-		// Vision Meeting #5 has no kit yet.
-		const kit = isVision && m !== M.december;
-		const agenda = isVision ? VISION(m) : m === M.sunday ? SUNDAY : [];
+		// Sunday's Vision meeting and Vision Meeting #6 have no kit yet.
+		const kit = isVision && m !== M.december && m !== M.sunday;
+		const agenda = m === M.sunday ? SUNDAY : isVision ? VISION(m) : [];
 		const held = status === "completed" ? startsAt : null;
 		await run(sql`INSERT INTO meeting(id,plant_id,type,subtype,team_id,title,creator_id,local_date,local_time,timezone,starts_at,
 				resolver_version,venue_id,venue_name,venue_address,vision_number,status,attendance_revision,agenda,agenda_version,
@@ -590,7 +591,7 @@ function pinHostClock() {
  * clock_timestamp() comes first on its search_path (testDatabase pins schema, pg_catalog), so every statement and every
  * function the migrations created (SET search_path FROM CURRENT) reads it; column defaults keep the real clock.
  */
-async function frameDatabaseClock(admin: Database) {
+export async function frameDatabaseClock(admin: Database) {
 	// The real time from the database itself: the host clock may already be pinned.
 	const real = await admin.execute(sql`SELECT (extract(epoch FROM pg_catalog.clock_timestamp())*1000)::bigint AS ms`);
 	const shift = Number((real.rows[0] as { ms: string }).ms) - NOW.getTime();

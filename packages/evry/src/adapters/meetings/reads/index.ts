@@ -137,7 +137,7 @@ export const hasHistory = read({
 export const readAgenda = read({
 	operation: "meetings.readAgenda",
 	description:
-		"A meeting's saved agenda in order, with its print link in the app. Never write one yourself.",
+		"A meeting's saved agenda in order, with its print link in the app when it has one. Never write one yourself.",
 	input: one,
 	async run(tx, actor, input) {
 		const m = await meetingOf(tx, actor, input.meetingId);
@@ -152,7 +152,11 @@ export const readAgenda = read({
 		});
 		return {
 			...result("meetings.readAgenda", [
-				meetingRow(m, { print: `/meetings/${m.id}/agenda`, agendaMinutes: String(agenda.totalMinutes) }),
+				// The app prints a Vision meeting's agenda (its agenda template); other meetings have no print view.
+				meetingRow(m, {
+					print: m.type === "vision_meeting" ? `/meetings/${m.id}/agenda` : null,
+					agendaMinutes: String(agenda.totalMinutes),
+				}),
 				...sections,
 			]),
 			total: sections.length,
