@@ -2,16 +2,18 @@
 // it: a real turn (runTurn) with the real catalog, reads and review cards, for Hope Fellowship's Owner, Admin and Member
 // (golden-church.mts) with the Launch fixture (launch-church.mts). A case with `approve` is then approved the way the
 // card approves it and its effect runs once through the WP-031 queue with the native Launch writer; its check reads the
-// result back through the Launch plan's own reads. No paid model, network or recording.
+// result back through the Launch plan's own reads. Effects run with the Launch plan's own milestone notifications
+// (NTF-009), as the deployment passes them. No paid model, network or recording.
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import type { Database } from "../../../packages/db/src/client.ts";
 import { readViewer } from "../../../packages/domain/src/access/session.ts";
 import { countdown, NOTE_MAX } from "../../../packages/contracts/src/launch/index.ts";
 import type { TaskReminders } from "../../../packages/domain/src/tasks/index.ts";
+import { authorizeLaunchNotices } from "../../../packages/domain/src/launch/index.ts";
 import {
 	approveProposal,
 	createConversation,
@@ -24,13 +26,17 @@ import {
 	selectQualifiedModel,
 	submitTurn,
 	type EvryActor,
+	type NativePorts,
 	type Proposal,
 } from "../../../packages/evry/src/index.ts";
 import { modelTools } from "../../../packages/evry/src/runtime/tools.ts";
 import { LAUNCH_RULES } from "../../../packages/evry/src/context/compile.ts";
 import { transaction } from "../../../apps/web/src/server/platform/database.ts";
 import { claimDue, finishClaim } from "../../../apps/web/src/server/jobs/queue.ts";
-import { evalDatabase, PLANT, seedHope } from "./golden-church.mts";
+import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
+import { seatedNotificationService } from "../../../apps/web/src/server/jobs/seated-notifications.ts";
+import { launchNotices } from "../../../apps/web/src/server/launch/notices.ts";
+import { ACTOR_SPECS, evalDatabase, PLANT, seedHope } from "./golden-church.mts";
 import {
 	authorityOf,
 	COMPLETED,
@@ -41,9 +47,16 @@ import {
 	said,
 	seedGuests,
 	seedLaunched,
+	seedMilestones,
+	seedNeedsReview,
 	seedScheduled,
 	sessionOf,
+	setVenue,
+	setVenueTask,
 	today,
+	VENUE_TASKS,
+	VENUE_TITLE,
+	venueOf,
 	writer,
 	type LaunchName,
 } from "./launch-church.mts";
@@ -52,7 +65,7 @@ type Change = { field: string; before: unknown; after: unknown };
 type Case = {
 	id: string;
 	criterion: number;
-	setup?: "scheduled" | "unloadable" | "launched" | "guests";
+	setup?: "scheduled" | "unloadable" | "launched" | "guests" | "milestones" | "needsReview";
 	actor: LaunchName;
 	ask: string;
 	calls: string[];
@@ -90,6 +103,8 @@ const filled = <T,>(value: T): T => JSON.parse(fill(JSON.stringify(value))) as T
 let close: () => Promise<void>;
 let db: Database;
 let admin: Database;
+/** The native services an effect gets: only the Launch notifications, through WP-031's notification service. */
+let native: NativePorts;
 const model = selectQualifiedModel({ EVRY_SCRIPTED_MODEL: "1" });
 const noReminders: TaskReminders = async () => undefined;
 const freshActor = async (session: string) => {
@@ -104,6 +119,22 @@ before(async () => {
 	db = database.pools.runtime;
 	admin = database.admin;
 	await seedHope(database.admin, { seatNames: true });
+	const mail = createMailService({
+		db,
+		encryptionKey: randomBytes(32),
+		addressKey: randomBytes(32),
+		from: "launch@example.test",
+		authorize: authorizeLaunchNotices,
+		transport: {
+			async send() {
+				return { kind: "accepted", id: randomUUID() };
+			},
+			async lookup() {
+				return { kind: "unknown" };
+			},
+		},
+	});
+	native = { launchNotices: launchNotices(seatedNotificationService(mail)) } as unknown as NativePorts;
 });
 after(() => close?.());
 
@@ -149,7 +180,7 @@ async function approveAndRun(actor: EvryActor, proposal: Proposal) {
 		{ jobId: claim.id, tenantId: claim.tenant_id, leaseOwner: claim.lease_owner, generation: claim.claim_generation },
 		noReminders,
 		null,
-		null,
+		native,
 	);
 	await transaction(db, (tx) => finishClaim(tx, claim, { state: outcome === "failed" ? "failed" : "succeeded" }));
 	return outcome;
@@ -173,6 +204,40 @@ const journal = async () =>
 		value: { entries: { actor: { displayName: string } | null; change: Record<string, unknown> }[] };
 	};
 const doneCount = async () => (await planOf(db)).milestones.filter((m) => m.completion && !m.needsReview).length;
+/** The Launch milestone notifications each seat has: the Owner's and the Admin's (NTF-009). */
+const notices = async () => {
+	const n = async (who: "owner" | "admin") =>
+		Number(
+			(
+				await admin.execute(sql`SELECT count(*)::int AS n FROM notice WHERE tenant_id=${PLANT}
+					AND purpose='launch_milestone' AND recipient_id=${ACTOR_SPECS[who].account}::uuid`)
+			).rows[0]!.n,
+		);
+	return { owner: await n("owner"), admin: await n("admin") };
+};
+/** The venue milestone's completion as the Launch plan shows it: who, and whether it needs review. */
+const venueState = async () => {
+	const m = await venueOf(db);
+	return { by: m.completion?.by?.displayName ?? null, needsReview: m.needsReview };
+};
+/** The venue milestone's history entries, oldest first: each completion and reopening. */
+const venueHistory = async () =>
+	(await journal()).value.entries
+		.filter((e) => e.change.kind === "milestone" && e.change.title === VENUE_TITLE)
+		.map((e) => `${String(e.change.event)} by ${e.actor?.displayName}`)
+		.reverse();
+/** The venue milestone and its four tasks as a stale or changed card shows them now. */
+const venueNow = async (milestone: string, statuses: string[]) => {
+	const m = await venueOf(db);
+	return [
+		{ id: m.id, label: VENUE_TITLE, value: milestone },
+		...VENUE_TASKS.map((title, n) => ({
+			id: m.tasks.find((t) => t.title === title)!.id,
+			label: title,
+			value: statuses[n],
+		})),
+	];
+};
 
 /** A running turn in a new conversation, the only place a proposal can be prepared, held while one is prepared. */
 async function propose(who: EvryActor, operation: string, input: unknown) {
@@ -327,6 +392,123 @@ const SETTLED: Record<string, { before?: (p?: Proposal) => Promise<void>; after?
 			);
 		},
 	},
+	"LAU-21": {
+		before: async (p) => {
+			// Nothing changes before approval, and a Member's direct approval of the Owner's card is refused.
+			assert.deepEqual(await venueState(), { by: null, needsReview: false });
+			await assert.rejects(
+				approveProposal(db, await actorOf("member"), p!.id, { revision: p!.revision, digest: p!.digest }, null),
+				{ code: "not_found" },
+			);
+			assert.equal((await readReview(db, await actorOf("owner"), p!.id)).status, "pending");
+			kept.untouched = await untouched();
+			kept.notices = await notices();
+		},
+		after: async () => {
+			assert.deepEqual(await venueState(), { by: "Nate Ellis", needsReview: false });
+			assert.deepEqual(await untouched(), kept.untouched, "prep tasks are unchanged");
+			assert.deepEqual((await venueHistory()).slice(-1), ["completed by Nate Ellis"]);
+			// The other Owners and Admins are told once; the approving Owner is not.
+			const n = kept.notices!;
+			assert.deepEqual(await notices(), { owner: n.owner, admin: n.admin + 1 });
+		},
+	},
+	"LAU-22": {
+		after: async () => {
+			// A completion that changes nothing can't be approved, so no one is told again.
+			const card = (await propose(await actorOf("owner"), "launch.completeMilestone", {
+				milestoneId: (await venueOf(db)).id,
+			}))!;
+			assert.equal(card.review.refusal, "This milestone is already complete.");
+			await assert.rejects(
+				approveProposal(db, await actorOf("owner"), card.id, { revision: card.revision, digest: card.digest }, null),
+				{ code: "review_closed" },
+			);
+			assert.deepEqual(await notices(), { owner: kept.notices!.owner, admin: kept.notices!.admin + 1 });
+		},
+	},
+	"LAU-23": {
+		before: async () => {
+			kept.untouched = await untouched();
+			kept.notices = await notices();
+		},
+		after: async () => {
+			assert.deepEqual(await venueState(), { by: null, needsReview: false });
+			// The earlier completion stays in history, no task changes and a reopen tells no one.
+			assert.deepEqual((await venueHistory()).slice(-2), ["completed by Nate Ellis", "reopened by Nate Ellis"]);
+			assert.deepEqual(await untouched(), kept.untouched, "prep tasks are unchanged");
+			assert.deepEqual(await notices(), kept.notices);
+		},
+	},
+	"LAU-25": {
+		// The Admin completes a linked task in Tasks while the card waits.
+		before: async () => {
+			kept.notices = await notices();
+			await setVenueTask(db, "admin", 2, "complete");
+		},
+		after: async (p) => {
+			const card = await readReview(db, await actorOf("owner"), p!.id);
+			assert.deepEqual(
+				[card.receipt?.code, card.receipt?.current],
+				["stale_review", await venueNow("Not complete", ["Complete", "Complete", "Complete", "Not started"])],
+			);
+			assert.deepEqual(await venueState(), { by: null, needsReview: false }, "the card saved nothing");
+			assert.deepEqual(await notices(), kept.notices, "and told no one");
+		},
+	},
+	"LAU-26": {
+		after: async () => {
+			assert.deepEqual(await venueState(), { by: "Nate Ellis", needsReview: false });
+			assert.deepEqual(await notices(), { owner: kept.notices!.owner, admin: kept.notices!.admin + 1 });
+		},
+	},
+	"LAU-27": {
+		// The Owner reopens the milestone on the Launch plan in another session while the card waits.
+		before: async () => setVenue(db, "owner", "reopen"),
+		after: async (p) => {
+			const card = await readReview(db, await actorOf("owner"), p!.id);
+			assert.deepEqual(
+				[card.receipt?.code, card.receipt?.current],
+				["revision_conflict", await venueNow("Not complete", ["Complete", "Complete", "Complete", "Not started"])],
+			);
+			assert.deepEqual(await venueState(), { by: null, needsReview: false }, "the card changed nothing");
+		},
+	},
+	"LAU-28": {
+		before: async (p) => {
+			const m = await venueOf(db);
+			assert.deepEqual(await venueState(), { by: "Lena Park", needsReview: true });
+			const on = new Intl.DateTimeFormat("en-US", {
+				timeZone: "America/Chicago",
+				month: "short",
+				day: "numeric",
+				year: "numeric",
+			}).format(new Date(m.completion!.at));
+			assert.ok(
+				p!.review.notes?.includes(
+					`This confirms the earlier completion by Lena Park on ${on}. A prep task that was complete then has been reopened since.`,
+				),
+				JSON.stringify(p!.review.notes),
+			);
+		},
+		after: async () => assert.deepEqual(await venueState(), { by: "Nate Ellis", needsReview: false }),
+	},
+	"LAU-29": {
+		after: async () => {
+			assert.deepEqual(await venueState(), { by: null, needsReview: false });
+			assert.deepEqual((await venueHistory()).slice(-1), ["reopened by Lena Park"]);
+		},
+	},
+	"LAU-30": {
+		before: async () => {
+			kept.notices = await notices();
+		},
+		after: async () => {
+			assert.deepEqual(await venueState(), { by: "Lena Park", needsReview: false });
+			// The Admin approved it: the Owner is told, and the Admin is not.
+			assert.deepEqual(await notices(), { owner: kept.notices!.owner + 1, admin: kept.notices!.admin });
+		},
+	},
 	"LAU-19": {
 		after: async (p) => {
 			// The published summary is the card's text, word for word.
@@ -335,7 +517,7 @@ const SETTLED: Record<string, { before?: (p?: Proposal) => Promise<void>; after?
 		},
 	},
 };
-const kept: { untouched?: unknown; people?: number } = {};
+const kept: { untouched?: unknown; people?: number; notices?: { owner: number; admin: number } } = {};
 
 /** Makes the Launch plan unreadable for one case: its table is renamed and put back after. */
 async function unloadable(body: () => Promise<void>) {
@@ -353,6 +535,8 @@ test("INV-evry-launch: every Launch case passes on the scripted model, and each 
 		if (c.setup === "scheduled") await seedScheduled(admin, db);
 		if (c.setup === "launched") await seedLaunched(db);
 		if (c.setup === "guests") await seedGuests(db);
+		if (c.setup === "milestones") await seedMilestones(admin, db);
+		if (c.setup === "needsReview") await seedNeedsReview(db);
 		const actor = await actorOf(c.actor);
 		const conversation = (await createConversation(db, actor, { requestKey: randomUUID() })).id;
 		let turn!: Awaited<ReturnType<typeof ask>>;
@@ -392,7 +576,7 @@ test("INV-evry-launch: every Launch case passes on the scripted model, and each 
 	}
 });
 
-test("INV-evry-launch-tools: only an Owner or Admin may propose a Launch change, and no tool completes a milestone", async () => {
+test("INV-evry-launch-tools: only an Owner or Admin may propose a Launch change, and only an approved card completes a milestone", async () => {
 	const tools = async (who: LaunchName) =>
 		modelTools(await actorOf(who), { read: async () => ({}), select: async () => ({}), propose: async () => ({}) });
 	const member = await tools("member");
@@ -406,14 +590,23 @@ test("INV-evry-launch-tools: only an Owner or Admin may propose a Launch change,
 		"history is an Owner's or Admin's",
 	);
 	for (const who of ["owner", "admin", "member"] as const) {
-		const text = JSON.stringify(Object.values(await tools(who)).map((t) => t.description));
-		for (const op of [
-			"launch.completeMilestone",
-			"launch.reopenMilestone",
-			"launch.ensureReadiness",
-			"pipeline.readGoals",
-		])
+		const all = await tools(who);
+		const text = JSON.stringify(Object.values(all).map((t) => t.description));
+		for (const op of ["launch.ensureReadiness", "pipeline.readGoals"])
 			assert.ok(!text.includes(op), `${who} has no ${op}`);
+		// A milestone is completed or reopened only on a card the person approves: never by a read.
+		const proposes = JSON.stringify(all.propose_change?.description ?? "");
+		for (const op of ["launch.completeMilestone", "launch.reopenMilestone"])
+			assert.equal(proposes.includes(op), who !== "member", `${who} ${op}`);
+		assert.match(
+			JSON.stringify(all.launch_read!.description),
+			/This read never completes a milestone: only a person does, on a review card they approve \(launch.completeMilestone\) or on the Launch plan/,
+		);
+		assert.ok(
+			!JSON.stringify(all.launch_read!.description).includes(
+				"only a person marks a milestone complete, on the Launch plan",
+			),
+		);
 	}
 	// The system prompt's Launch replies are the ones the scripted model quotes.
 	assert.ok(LAUNCH_RULES.ownerOnly.startsWith("Only an Owner or Admin can change the Launch plan"));

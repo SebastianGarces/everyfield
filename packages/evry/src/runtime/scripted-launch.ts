@@ -5,7 +5,8 @@ import { LAUNCH_RULES } from "../context/compile.ts";
 
 // The scripted model's Launch requests (WP-075, WP-076), for local previews and tests only. It answers through the same
 // tools a model gets: the countdown, milestones, history and Launch Sunday as the Launch plan reads them, and review
-// cards for a date move, a postponement, Launch Sunday's numbers, the debrief and the summary. Every number it says is
+// cards for a date move, a postponement, Launch Sunday's numbers, the debrief and the summary, and for completing or
+// reopening a milestone it finds by name on the Launch plan (T-382). Every number it says is
 // one a launch read returned. A reply the tools never serve (a seat that may not change the plan, a launch-team goal
 // nothing records) is the product's own sentence from the system prompt (compile.ts), quoted only when the prompt
 // holds it, so the evals test the text the real model is given.
@@ -52,6 +53,33 @@ const POSTPONE = /\bpostpone\b.*\blaunch\b|\blaunch\b.*\bpostpone/i;
 const RECORD = /\brecord\b.*\b(?:launch|attendance)\b/i;
 const SUBMIT = /\bsubmit\b.*\bdebrief\b/i;
 const PUBLISH = /\b(?:publish|share)\b.*\bsummary\b/i;
+/** "mark the venue milestone complete", "complete the venue milestone": the milestone's name as the user said it. */
+const COMPLETE =
+	/^(?:please\s+)?(?:mark|check off|complete)\s+(?:the\s+|our\s+)?(.+?)(?:\s+milestone)?(?:\s+(?:as\s+)?(?:complete|completed|done))?\s*[.!?]?$/i;
+const REOPEN = /^(?:please\s+)?(?:reopen|re-open|uncheck)\s+(?:the\s+|our\s+)?(.+?)(?:\s+milestone)?\s*[.!?]?$/i;
+/** The two milestones a submitted debrief decides (LCH-004): named by the user as the Launch plan shows them. */
+const DERIVED = /\bguest data\b|\bdebrief\b/i;
+/** Words a user may call a milestone by that its title doesn't use. */
+const ALIASES: Record<string, string> = {
+	venue: "worship center",
+	room: "worship center",
+	fasting: "prayer and fasting",
+};
+
+/** The milestone rows of a workspace read whose title has every word of `name`, as the user said it. */
+function matching(out: Output, name: string) {
+	const said = name.toLowerCase().replace(/[^a-z0-9 ]/g, " ");
+	const words = said
+		.split(/\s+/)
+		.flatMap((w) => (ALIASES[w] ?? w).split(" "))
+		.filter((w) => w && !["the", "our", "a", "an", "launch", "milestone", "of", "and"].includes(w));
+	const rows = (out.rows ?? []).filter((r) => r.kind === "milestone");
+	if (!words.length) return [];
+	return rows.filter((r) => {
+		const title = r.label.toLowerCase().split(/[^a-z0-9]+/);
+		return words.every((w) => title.some((t) => t.startsWith(w)));
+	});
+}
 
 const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
 /** "march 14" or "Mar 14, 2027" as a church-local date: the next such day on or after `today` when no year is given. */
@@ -187,6 +215,9 @@ export function launchStep(options: LanguageModelV4CallOptions, text: string): L
 	const proposed = typeof last?.proposalId === "string";
 
 	const move = MOVE.exec(text);
+	const named = (MILESTONES.test(text) || DERIVED.test(text)) && !/\?\s*$/.test(text);
+	const complete = named ? COMPLETE.exec(text.trim()) : null;
+	const reopen = named ? REOPEN.exec(text.trim()) : null;
 	const asked = {
 		countdown: COUNTDOWN.test(text),
 		milestones: MILESTONES.test(text),
@@ -198,6 +229,8 @@ export function launchStep(options: LanguageModelV4CallOptions, text: string): L
 		record: RECORD.test(text) && /\d/.test(text),
 		submit: SUBMIT.test(text),
 		publish: PUBLISH.test(text),
+		complete: Boolean(complete),
+		reopen: Boolean(reopen),
 	};
 	if (!Object.values(asked).some(Boolean)) return null;
 	if (last?.error) return say(`I couldn't do that (${String(last.error)}).`);
@@ -205,6 +238,32 @@ export function launchStep(options: LanguageModelV4CallOptions, text: string): L
 	if (last?.facts?.loaded === false) return rule(LAUNCH_RULES.unloaded);
 	const writes = asked.move || asked.postpone || asked.record || asked.submit || asked.publish;
 	if (writes && !offers("launch.schedule")) return rule(LAUNCH_RULES.ownerOnly);
+	const toggle = complete ?? reopen;
+	if (toggle) {
+		const operation = complete ? "launch.completeMilestone" : "launch.reopenMilestone";
+		if (!offers(operation)) return rule(LAUNCH_RULES.ownerOnly);
+		const name = toggle[1]!.trim();
+		if (DERIVED.test(name)) return rule(LAUNCH_RULES.derived);
+		const workspace = found("launch.readWorkspace");
+		if (!workspace) return read("launch.readWorkspace", { filter: "all" });
+		const matches = matching(workspace, name);
+		if (proposed) return say(milestoneProposed(Boolean(complete), matches[0]));
+		if (!matches.length)
+			return say(
+				`No launch milestone on the Launch plan matches "${name}", so I prepared nothing. Ask me which launch milestones are left to see them by name.`,
+			);
+		if (matches.length > 1)
+			return say(
+				`More than one launch milestone matches "${name}":\n${matches.map((m) => `- **${m.label}**`).join("\n")}\n\nWhich one do you mean? I prepared nothing.`,
+			);
+		const m = matches[0]!;
+		const done = m.fields.completed === true;
+		const marked = done || m.fields.needsReview === true;
+		if (complete && done) return say(`**${m.label}** is already complete on the Launch plan, so I prepared nothing.`);
+		if (reopen && !marked)
+			return say(`**${m.label}** isn't complete, so there's nothing to reopen. I prepared nothing.`);
+		return propose(operation, { milestoneId: m.id });
+	}
 	if (proposed) return say(proposedText(asked, last!));
 
 	const countdown = found("launch.readCountdown");
@@ -278,6 +337,19 @@ export function launchStep(options: LanguageModelV4CallOptions, text: string): L
 		return say(countdownText(countdown.facts ?? {}));
 	}
 	return null;
+}
+
+/** What Evry says once a milestone card is prepared, from the workspace read it was found in. */
+function milestoneProposed(completing: boolean, m: Row | undefined) {
+	const wait = "Nothing changes until you approve it.";
+	const label = m?.label ?? "the milestone";
+	if (!completing) return `I prepared a review card to reopen **${label}**. Its prep tasks stay as they are. ${wait}`;
+	const open = Number(m?.fields.openTasks ?? 0);
+	const tasks = open
+		? ` ${open} of its ${String(m?.fields.total)} prep tasks ${open === 1 ? "is still open and stays" : "are still open and stay"} open.`
+		: "";
+	const review = m?.fields.needsReview === true ? " It confirms the earlier completion." : "";
+	return `I prepared a review card to mark **${label}** complete.${tasks}${review} ${wait}`;
 }
 
 /** What Evry says once a review card is prepared: what it shows, and that nothing changes before approval. */

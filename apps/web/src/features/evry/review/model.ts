@@ -65,13 +65,15 @@ export type Operation =
 	| PipelineOperation
 	| LaunchOperation;
 
-/** The Launch plan's date, Launch Sunday, the debrief and the summary (WP-076). */
+/** The Launch plan's date, Launch Sunday, the debrief and the summary (WP-076), and its milestones (T-382). */
 export type LaunchOperation =
 	| "launch.schedule"
 	| "launch.postpone"
 	| "launch.recordOutcome"
 	| "launch.submitDebrief"
-	| "launch.publishDebriefSummary";
+	| "launch.publishDebriefSummary"
+	| "launch.completeMilestone"
+	| "launch.reopenMilestone";
 export const isLaunch = (operation: Operation): operation is LaunchOperation => operation.startsWith("launch.");
 
 /** An organization's pipeline and program changes (WP-101). */
@@ -301,6 +303,7 @@ const FIELD_LABEL: Record<string, string> = {
 	milestones: "Milestones",
 	// The Launch plan (WP-076): each value is already in the Launch plan's words.
 	actualDate: "Launch Sunday",
+	milestone: "Milestone",
 	decisions: "Decisions",
 	guestAnswer: "Guests not entered by name",
 	wentWell: "What went well",
@@ -600,6 +603,8 @@ const TITLE: Record<Operation, string> = {
 	"launch.recordOutcome": "Record Launch Sunday",
 	"launch.submitDebrief": "Submit the Launch debrief",
 	"launch.publishDebriefSummary": "Publish the Launch summary",
+	"launch.completeMilestone": "Complete a launch milestone",
+	"launch.reopenMilestone": "Reopen a launch milestone",
 	"development.draftNextVersion": "Draft the next version",
 	"onboarding.declareJourney": "Where your church is",
 	"identity.answerLeadOnboarding": "Who leads your church",
@@ -1156,6 +1161,25 @@ export function pipelineRefusalText(
 			return `${area} didn't accept these values, so nothing was saved. Ask Evry to prepare it again.`;
 		default:
 			return `${area} refused this change, so nothing was saved.`;
+	}
+}
+
+/** Why a Launch plan change was refused, in the Launch plan's words. Nothing was saved in each case. */
+export function launchRefusalText(code: string | undefined): string {
+	switch (code) {
+		case "stale_review":
+			return "This milestone's prep tasks changed after Evry prepared this, so nothing was saved. This is how they are now. Ask Evry to prepare it again.";
+		case "revision_conflict":
+		case "conflict":
+			return "The Launch plan changed after Evry prepared this, so nothing was saved. This is how it is now. Ask Evry to prepare it again.";
+		case "derived_evidence_only":
+			return "This milestone follows the submitted debrief. It can't be checked off by hand.";
+		case "access_denied":
+			return "Your seat no longer allows this change, so nothing was saved.";
+		case "source_unavailable":
+			return "This server can't send Launch notifications, so nothing was saved. Mark it complete on the Launch plan.";
+		default:
+			return "The Launch plan refused this change, so nothing was saved.";
 	}
 }
 

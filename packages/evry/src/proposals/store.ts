@@ -293,7 +293,7 @@ async function runNow(db: Database, actor: EvryActor, proposal: Proposal, args: 
 	await db.execute(sql`
 		UPDATE proposal p SET outcome=${refused ? "refused" : "completed"},updated_at=clock_timestamp(),
 			receipt=CASE WHEN ${refused}::text IS NULL THEN ${refused ? null : JSON.stringify(result)}::jsonb
-				ELSE jsonb_strip_nulls(jsonb_build_object('code',${refused}::text,'current',CASE WHEN ${refused}::text='revision_conflict' THEN ${current} END)) END
+				ELSE jsonb_strip_nulls(jsonb_build_object('code',${refused}::text,'current',CASE WHEN ${refused}::text IN ('revision_conflict','stale_review') THEN ${current} END)) END
 		WHERE p.id=${proposal.id}::uuid AND p.tenant_id=${actor.owner.id}::uuid AND p.state='approved' AND p.outcome IS NULL`);
 	return { proposal: await readReview(db, actor, proposal.id), replayed: false };
 }
