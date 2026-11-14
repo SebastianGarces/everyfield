@@ -105,7 +105,7 @@ const VIEWS: Record<string, OpView> = {
 		empty: "The import template is not available.",
 	},
 	"people.previewImport": rows("Import preview"),
-	"people.getImportReceipt": rows("Import results", { empty: "No import with that request key, or you can't see it." }),
+	"people.getImportReceipt": rows("Import results", { empty: "No import found, or you can't see it." }),
 	"people.exportPeople": people("Directory export", {
 		icon: "file",
 		countAnswer: "Download the file from the People page.",
@@ -438,7 +438,8 @@ function rowView(operation: string, row: SourceRow): RowView {
 				return {
 					key,
 					name,
-					line: failed ? (fields.reason === "invalid" ? "Not valid" : "Could not be written") : null,
+					// The reason in words, as the receipt read gives it: each column and what is wrong with it.
+					line: failed ? (text(fields.reason) ?? "Not valid") : null,
 					mark: {
 						kind: "status",
 						text: failed ? "Failed" : (ROW_OUTCOME[String(fields.status)] ?? "Unknown"),

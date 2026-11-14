@@ -8,7 +8,7 @@ import type { DeliveryKeys, DeliveryTransport } from "@everyfield/domain/communi
 import type { MailReport } from "@everyfield/contracts/communication";
 import type { PeopleContext } from "@everyfield/contracts/people";
 import type { TaskReminders } from "@everyfield/domain/tasks";
-import type { z } from "zod";
+import { z } from "zod";
 import type { EvryActor } from "../context/actor.ts";
 
 /**
@@ -42,7 +42,28 @@ export type NativeContext = { authority: RequestActor; ports: NativePorts | null
  * The owning domain write's saved receipt, or the domain's refusal code. `report` is what the email service confirmed;
  * only a write that reaches the email service has one.
  */
-type EffectDone = { receiptId?: string; revision: string; report?: MailReport };
+/** What became of one person a reviewed write reached: changed, or not changed and why. */
+export const personOutcome = z.object({
+	id: z.uuid(),
+	label: z.string(),
+	outcome: z.enum(["changed", "unchanged"]),
+	reason: z.string().optional(),
+});
+/** A reviewed import's receipt when it was saved: the job then writes the rows in the background. */
+export const importOutcome = z.object({
+	status: z.enum(["in_progress", "complete", "partial"]),
+	counts: z.object({ created: z.int(), skipped: z.int(), failed: z.int(), remaining: z.int() }),
+	failed: z.array(z.object({ row: z.int(), reason: z.string() })),
+});
+/** One record as it is now, for a refusal because it changed since the review. */
+export const currentPerson = z.object({ id: z.uuid(), label: z.string(), value: z.string().nullable() });
+type EffectDone = {
+	receiptId?: string;
+	revision: string;
+	report?: MailReport;
+	people?: z.infer<typeof personOutcome>[];
+	import?: z.infer<typeof importOutcome>;
+};
 export type EffectResult = EffectDone | { refused: string };
 
 /**
@@ -79,6 +100,11 @@ export type ReviewedWrite<I> = {
 	 * effect's first run only, never on a retry of an effect that already started. Returns a refusal code, or null.
 	 */
 	recheck?(tx: Transaction, context: PeopleContext, args: unknown): Promise<string | null>;
+	/**
+	 * The records a revision_conflict refusal shows as they are now: a jsonb array of {id, label, value} read from the
+	 * proposal row `p` (its tenant_id and input), in the same statement that saves the refusal.
+	 */
+	current?(p: SQL): SQL;
 	/**
 	 * The second kind of effect: a step that calls the email service. The executor runs it after `execute` committed
 	 * and before it saves the outcome, never inside a transaction. It runs again, with the same keys, after a crash, so
