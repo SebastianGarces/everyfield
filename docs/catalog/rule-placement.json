@@ -4493,6 +4493,11 @@
       "reason": "ADR-001 behavior operation introduced with this requirement."
     },
     {
+      "requirement": "REQ-MUL-015",
+      "operation": "development.draftNextVersion",
+      "reason": "T-377: Evry drafts a program's next version for its current director, saved only after exact review."
+    },
+    {
       "requirement": "REQ-MUL-016",
       "operation": "pipelineSharing.setConsent",
       "reason": "ADR-001 behavior operation introduced with this requirement."
@@ -4990,6 +4995,11 @@
     {
       "id": "development.draftPlan",
       "reason": "Accepted ADR-001, owner rulings 2026-10-16/17; P2 contract reconciliation.",
+      "requirement": "REQ-MUL-015"
+    },
+    {
+      "id": "development.draftNextVersion",
+      "reason": "T-377: the director's reviewed next-version draft (REQ-MUL-015 program drafting).",
       "requirement": "REQ-MUL-015"
     },
     {
