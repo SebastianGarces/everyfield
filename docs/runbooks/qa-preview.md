@@ -85,7 +85,7 @@ and the organization's login accepted it.
 
 - To see the connection, sign in as one of these logins and open `/settings/sharing`. Harvest Point (QA) is in the
   "Connected churches" list.
-- `/home` shows "This account is for an organization". The app has no organization home page yet, so this is expected.
+- Signing in lands on the organization home at `/network`, which lists Harvest Point (QA) among its plants (#766).
 - These logins do not see planter-private data such as check-ins. They see the church only through what the
   connection shares.
 

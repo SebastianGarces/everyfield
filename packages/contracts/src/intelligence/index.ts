@@ -108,3 +108,4 @@ export type CareReply<T> = Reply<T, CareError>;
 /** The trimmed note, or null when it is blank. */
 export const noteOf = (raw: string) => raw.trim() || null;
 export * from "./signals.ts";
+export * from "./facts.ts";

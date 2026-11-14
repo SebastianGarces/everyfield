@@ -69,6 +69,9 @@ export const PREVIEW_RELATIONSHIPS: Relationship[] = [
 ];
 
 export type Operation =
+	| "readRegion"
+	| "suggestRegion"
+	| "saveRegion"
 	| "getSection"
 	| "saveSection"
 	| "previewPlantTimezone"
@@ -353,7 +356,36 @@ export function createFixturePort(
 				? { revision: "3", churches: [...WIKI_CHURCHES].reverse(), networks: WIKI_NETWORKS }
 				: { revision: "0", churches: WIKI_CHURCHES, networks: WIKI_NETWORKS };
 
+	// The design preview's reporting location: Round Rock, TX with no Region yet, and one official match.
+	let region: { revision: string; code: string | null } = { revision: "1", code: null };
+	const AUSTIN = { code: "12420", title: "Austin-Round Rock-San Marcos, TX", type: "metro" as const };
 	const port: SettingsPort = {
+		region: {
+			async read() {
+				if (await tick("readRegion")) return { status: "lost" };
+				return {
+					status: "ok",
+					revision: region.revision,
+					canEdit: canAdminPlant,
+					locality: { city: "Round Rock", stateProvince: "TX", country: "US" },
+					region: region.code ? AUSTIN : null,
+					referenceVersionId: "00000000-0000-4000-8000-000000000023",
+				};
+			},
+			async suggest(locality) {
+				if (await tick("suggestRegion")) return null;
+				return /round rock|austin/i.test(locality.city ?? "")
+					? [{ regionItemId: "00000000-0000-4000-8000-000000012420", area: AUSTIN }]
+					: [];
+			},
+			async save(input) {
+				if (await tick("saveRegion")) return { status: "refused", code: "unavailable" };
+				if (!canAdminPlant) return { status: "refused", code: "unavailable" };
+				if (input.expectedRevision !== region.revision) return { status: "conflict" };
+				region = { revision: bump(region.revision), code: input.regionItemId ? AUSTIN.code : null };
+				return { status: "ok" };
+			},
+		},
 		wiki: {
 			async read(): Promise<OrderRead> {
 				const fault = await tick("readWikiOrder");

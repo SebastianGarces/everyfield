@@ -1,4 +1,16 @@
-import type { PERSON_STAGES, PlantDirectoryRow, PlantSections, SectionKey } from "@everyfield/contracts/oversight";
+import type {
+	Health,
+	IntelligenceRow,
+	LaunchState,
+	Level,
+	PERSON_STAGES,
+	PlantDirectoryRow,
+	PlantSections,
+	Preparation,
+	RuleId,
+	SectionKey,
+} from "@everyfield/contracts/oversight";
+import { regionLabel, RULE_IDS } from "@everyfield/contracts/oversight";
 import type { Stage } from "@everyfield/ui/display";
 import { SHORT_NAME } from "../phases/model.ts";
 
@@ -73,3 +85,145 @@ export const STAGE_OF: Record<PersonStage, Stage> = {
 	launch_team: "launch",
 	leader: "leader",
 };
+
+type Status = "positive" | "measured" | "attention" | "risk" | "unknown";
+
+/**
+ * The home's health value. Not yet assessed is never On track: On track and Watch come from released assessments
+ * (WP-044), and a plant that shares nothing about it is Limited visibility.
+ */
+export const HEALTH: Record<Health, { label: string; status: Status }> = {
+	limited_visibility: { label: "Limited visibility", status: "unknown" },
+	launch_readiness: { label: "Launch readiness", status: "attention" },
+	not_assessed: { label: "Not yet assessed", status: "measured" },
+};
+
+/** The official reporting Region, "Austin-Round Rock-San Marcos, TX (metro area)", or null when unresolved. */
+export const regionText = (row: Pick<PlantDirectoryRow, "region">) => (row.region ? regionLabel(row.region) : null);
+
+export const LAUNCH_STATE: Record<LaunchState, { label: string; status: Status }> = {
+	not_set: { label: "Not set", status: "unknown" },
+	scheduled: { label: "Scheduled", status: "measured" },
+	moved: { label: "Moved", status: "measured" },
+	postponed: { label: "Postponed", status: "unknown" },
+	overdue: { label: "Overdue", status: "attention" },
+	completed: { label: "Launched", status: "positive" },
+};
+
+/** "1 required role unfilled and 2 required trainings not done", or null without a recorded gap. */
+export function gapText(p: Preparation): string | null {
+	const parts = [
+		p.unfilledRoles ? `${plural(p.unfilledRoles, "required role")} unfilled` : null,
+		p.outstandingTraining ? `${plural(p.outstandingTraining, "required training")} not done` : null,
+	].filter((x) => x !== null);
+	return parts.length ? parts.join(" and ") : null;
+}
+/** "Launch Sunday is in 30 days", "is tomorrow", "is today". */
+export function daysText(days: number): string {
+	if (days === 0) return "Launch Sunday is today";
+	if (days === 1) return "Launch Sunday is tomorrow";
+	return `Launch Sunday is in ${days} days`;
+}
+
+/** One of the organization's views, in the switch above its home and Intelligence pages. */
+export type OrganizationView = "plants" | "churches" | "intelligence";
+/**
+ * The view switch: a network has Plants, Sending churches and Network Intelligence; a sending church has no roster, so
+ * only "Your plants" and Intelligence, and never the word "network" (T-373).
+ */
+export const VIEWS: Record<
+	OrganizationKind,
+	{ label: string; tabs: { view: OrganizationView; href: string; label: string }[] }
+> = {
+	sending_network: {
+		label: "Network views",
+		tabs: [
+			{ view: "plants", href: "/network", label: "Plants" },
+			{ view: "churches", href: "/network/sending-churches", label: "Sending churches" },
+			{ view: "intelligence", href: "/network/intelligence", label: "Network Intelligence" },
+		],
+	},
+	sending_church: {
+		label: "Views",
+		tabs: [
+			{ view: "plants", href: "/network", label: HOME_HEADING.sending_church },
+			{ view: "intelligence", href: "/network/intelligence", label: "Intelligence" },
+		],
+	},
+};
+
+/** Every Intelligence page string that depends on who reads it. */
+export type IntelligenceWords = {
+	/** The heading and browser tab title. */
+	title: string;
+	levels: Record<Level, string>;
+	/** The "How this works" callout. */
+	howItWorks: string;
+	notRun: string;
+	refused: string;
+	failed: string;
+};
+const PRIVACY = (rubric: string) =>
+	`${rubric} reads only counts and dates each plant shares with you: launch dates, unfilled roles, overdue follow-ups, when its newest committed adult signed and required training. It never names a person, ranks or scores plants. A plant that doesn't share counts as Not shared, never as zero.`;
+/**
+ * A network keeps "Network Intelligence" and "Whole portfolio"; a sending church sees its own name ("Grace Austin
+ * Intelligence"), "Your plants" for the whole portfolio, and never the word "network" (T-373). The rubric's own pattern
+ * wording is the same for both.
+ */
+export function intelligenceWords(kind: OrganizationKind, organizationName: string): IntelligenceWords {
+	const church = kind === "sending_church";
+	const title = church ? `${organizationName} Intelligence` : "Network Intelligence";
+	return {
+		title,
+		levels: {
+			region: "Region",
+			state: "State",
+			country: "Country",
+			portfolio: church ? HOME_HEADING[kind] : "Whole portfolio",
+		},
+		howItWorks: PRIVACY(church ? "Everyfield's rubric v1" : "Everyfield's network rubric v1"),
+		notRun: `${title} hasn't run yet`,
+		refused: `Only Owners and Admins can refresh ${title}.`,
+		failed: `We couldn't run ${title}. Nothing was changed. Try again in a moment.`,
+	};
+}
+
+type Shared = Extract<IntelligenceRow, { status: "shared" }>;
+type Label = { label: string; status: Status };
+const UNKNOWN = (what: string): Label => ({ label: `${what} unknown`, status: "unknown" });
+/** Each rule's short result words, with no count, date or person (T-372). */
+const RESULT: { [R in RuleId]: Record<Shared["results"][R], Label> } = {
+	"NIR-03": {
+		gap: { label: "Gap near launch", status: "attention" },
+		clear: { label: "No near-launch gap", status: "measured" },
+		unknown: UNKNOWN("Launch"),
+	},
+	"NIR-04": {
+		gap: { label: "Overdue follow-ups", status: "attention" },
+		clear: { label: "No overdue follow-ups", status: "measured" },
+		unknown: UNKNOWN("Follow-ups"),
+	},
+	"NIR-05": {
+		slowed: { label: "Growth slowed", status: "attention" },
+		stalled: { label: "Growth stalled", status: "attention" },
+		clear: { label: "No growth slowdown", status: "measured" },
+		unknown: UNKNOWN("Growth"),
+	},
+	"NIR-06": {
+		gap: { label: "Training outstanding", status: "attention" },
+		clear: { label: "Required training complete", status: "measured" },
+		unknown: UNKNOWN("Training"),
+	},
+};
+/** A plant's row results, one per rule in rule order. Not shared says nothing else at all. */
+export function resultLabels(row: IntelligenceRow): Label[] {
+	if (row.status === "not_shared") return [{ label: "Not shared", status: "unknown" }];
+	return RULE_IDS.map((id) => (RESULT[id] as Record<string, Label>)[row.results[id]]!);
+}
+
+/** A run's time in the organization's time zone, to the second: "Nov 14, 2026, 8:03:12 AM". */
+export const runLabel = (instant: string, timeZone: string) =>
+	new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "medium", timeZone }).format(new Date(instant));
+/** A published instant as the plant's calendar day, "Nov 14, 2026". */
+export const dayOf = (instant: string, timeZone: string) =>
+	new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeZone }).format(new Date(instant));

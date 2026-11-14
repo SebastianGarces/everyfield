@@ -318,6 +318,44 @@ export const pipelineRefusal = z.discriminatedUnion("code", [
 	z.strictObject({ code: z.literal("stage_occupied"), stageId: recordId, people: z.int().min(1) }),
 ]);
 export type PipelineRefusal = z.infer<typeof pipelineRefusal>;
+
+/** Removal on request (REQ-MUL-005) names the person and the record revision the Owner or Admin confirmed against. */
+export const removePipelinePersonRequest = z.strictObject({ personId, expectedRevision: revision });
+/**
+ * What a removal took out and what the organization kept and why (REQ-MUL-005). A kept fact carries no name: the person
+ * reads as "Former participant", and nothing kept has a retention deadline.
+ */
+export const pipelineRemovalReport = z.strictObject({
+	personId,
+	removed: z.strictObject({
+		stageMoves: count,
+		notes: count,
+		conversations: count,
+		enrollments: count,
+		milestoneMarks: count,
+		feedback: count,
+		residencyLinkEnded: z.boolean(),
+		invitationsRevoked: count,
+		/** Duplicate records merged into this person earlier, removed with them. */
+		mergedRecords: count,
+	}),
+	kept: z.array(
+		z.strictObject({
+			category: z.enum(["program_completion_count", "activity_record", "removal_record"]),
+			count: count.nullable(),
+		}),
+	),
+	attribution: z.literal("Former participant"),
+});
+export type PipelineRemovalReport = z.infer<typeof pipelineRemovalReport>;
+/** The pipeline as one plain CSV file (REQ-MUL-005): what it holds and when it was made are its first lines. */
+export const pipelineExport = z.strictObject({
+	filename: z.string().regex(/^pipeline-\d{4}-\d{2}-\d{2}\.csv$/),
+	mediaType: z.literal("text/csv; charset=utf-8"),
+	text: z.string(),
+	people: count,
+});
+export type PipelineExport = z.infer<typeof pipelineExport>;
 export type PipelineReply<T> = { status: "ok"; value: T } | { status: "refused"; refusal: PipelineRefusal };
 export type PipelineBoard = z.infer<typeof pipelineBoard>;
 export type PipelinePersonRecord = z.infer<typeof pipelinePersonRecord>;

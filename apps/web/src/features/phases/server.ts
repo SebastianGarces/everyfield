@@ -4,6 +4,7 @@ import { getViewer } from "@/server/request-context";
 import { phasesError, type PhasesReply } from "@everyfield/contracts/phases";
 import type { Database } from "@everyfield/db/client";
 import type { RequestActor } from "@everyfield/domain/access";
+import { createFacts } from "@everyfield/domain/intelligence";
 import { phaseReader, readCatalog, readReadiness, type PhaseWriter } from "@everyfield/domain/phases";
 import "server-only";
 import type { Outcome } from "./model.ts";
@@ -29,17 +30,26 @@ export async function phaseViewer(): Promise<PhaseViewer | null> {
 }
 export const administers = (v: Pick<PhaseViewer, "role">) => v.role !== "member";
 
+const facts = createFacts();
+
 /**
- * The /intelligence page: the journey (one statement), the catalog and the advisory readiness of every phase (no
- * statement until WP-040 measures criteria). A database failure reads as lost, never as an empty journey.
+ * The /intelligence page: the journey (one statement), the catalog, the plant's measured facts (one statement) and the
+ * advisory readiness of every phase filled from those facts. A database failure reads as lost, never as an empty
+ * journey or as zero facts.
  */
 export async function loadJourney(viewer: PhaseViewer) {
 	const db = requestDatabase();
 	if (!db) return { status: "lost" } as const;
 	try {
-		const [history, catalog] = await Promise.all([phaseReader.readHistory(db, viewer.authority), readCatalog()]);
+		const [history, catalog, measured] = await Promise.all([
+			phaseReader.readHistory(db, viewer.authority),
+			readCatalog(),
+			facts.readFacts(db, viewer.authority),
+		]);
 		if (history.status !== "ok") return { status: "refused", error: history.error } as const;
-		return { status: "ok", value: { history: history.value, catalog, readiness: readReadiness(catalog) } } as const;
+		if (measured.status !== "ok") return { status: "refused", error: measured.error } as const;
+		const readiness = readReadiness(catalog, measured.value.criteria);
+		return { status: "ok", value: { history: history.value, catalog, readiness, facts: measured.value } } as const;
 	} catch (error) {
 		console.error(JSON.stringify({ component: "phases", outcome: "read_failed", error: String(error) }));
 		return { status: "lost" } as const;

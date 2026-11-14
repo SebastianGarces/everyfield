@@ -1,6 +1,13 @@
 import type { RequestActor } from "@everyfield/domain/access";
 import type { Database } from "@everyfield/db/client";
-import { getPlant, getSendingChurch, listPlants, listSendingChurches } from "@everyfield/domain/oversight";
+import type { Level } from "@everyfield/contracts/oversight";
+import {
+	getPlant,
+	getSendingChurch,
+	listPlants,
+	listSendingChurches,
+	readIntelligence,
+} from "@everyfield/domain/oversight";
 import "server-only";
 import { requestDatabase } from "../database";
 import { getViewer } from "../request-context";
@@ -55,3 +62,5 @@ export const loadPlant = (v: OversightViewer, plantId: string) =>
 export const loadRoster = (v: OversightViewer) => load((db) => listSendingChurches(db, v.authority));
 export const loadSendingChurch = (v: OversightViewer, churchId: string) =>
 	load((db) => getSendingChurch(db, v.authority, churchId));
+export const loadIntelligence = (v: OversightViewer, level: Level, runId: string | null) =>
+	load((db) => readIntelligence(db, v.authority, { level, runId }));

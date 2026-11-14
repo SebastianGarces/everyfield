@@ -2,6 +2,7 @@ import type * as B from "@everyfield/contracts/branding";
 import type * as S from "@everyfield/contracts/settings";
 import type * as N from "@everyfield/contracts/settings/native";
 import type { OrderRead, OrderSave } from "../wiki/actions";
+import type { Locality, RegionRead, RegionSave, RegionSuggestion } from "./region";
 import type { z } from "zod";
 
 // The door from the settings screens to the server. Every type comes from the settings contract in
@@ -98,6 +99,22 @@ export interface SettingsPort {
 	brand: BrandPort;
 	/** The church's Wiki source order (wiki.setSourceOrder): which sending church and network it reads first. */
 	wiki: WikiOrderPort;
+	/** The church's reporting Region from the official OMB 23-01 list (organizations.correctReportingLocation). */
+	region: RegionPort;
+}
+
+export type { Locality, RegionRead, RegionSave, RegionSuggestion } from "./region";
+/** The reporting location read, the official areas a place matches, and the save. */
+export interface RegionPort {
+	read(): Promise<RegionRead>;
+	suggest(locality: Locality): Promise<RegionSuggestion[] | null>;
+	save(input: {
+		requestKey: string;
+		expectedRevision: string;
+		locality: Locality;
+		referenceVersionId: string;
+		regionItemId: string | null;
+	}): Promise<RegionSave>;
 }
 
 export type { OrderRead, OrderRow, OrderSave } from "../wiki/actions";

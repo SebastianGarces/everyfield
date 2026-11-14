@@ -1642,6 +1642,7 @@
 				"people.updated",
 				"people.retired",
 				"people.restored",
+				"people.removed",
 				"people.stage_changed",
 				"people.merged",
 				"people.unmerged",
@@ -18825,6 +18826,217 @@
 				},
 				"verifier_account_id->account(id)": {
 					"deletion": { "action": "set_null", "policy": "Account deletion keeps the credit and clears the verifier." }
+				}
+			}
+		},
+		"network_intelligence_run": {
+			"table": {
+				"name": "network_intelligence_run",
+				"domain": "intelligence",
+				"purpose": "One Network Intelligence run of a sending church or network (REQ-PI-043): when an Owner or Admin pressed Refresh and under which rubric. Patterns are recomputed at read time from its plant rows that still share with the organization.",
+				"library_owned": false,
+				"jsonb_keys": {},
+				"capabilities": ["CAP-C-024"],
+				"replaces": [],
+				"producer_work_packages": ["WP-047"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-047"],
+					"rule": "WP-047 records each Network Intelligence run, its plant contributions and each seat's own pattern rating."
+				},
+				"feature_ids": ["PI-043"],
+				"acceptance_ids": ["AC-PI-043--PI-043"],
+				"future_case_ids": ["NEX-019", "NI-041", "NI-044"],
+				"scope": "intelligence",
+				"invariants": [
+					"Written once, never changed; earlier runs stay in history.",
+					"Holds no person, note, assessment text, street or coordinate."
+				],
+				"revision": "Immutable; no revision.",
+				"idempotency": "Each refresh names its run id and its audit row's request key, so a repeated press records one run.",
+				"deletion": "Organization-owned derived facts. A plant's rows go with the plant in the church purge; a run goes only with its organization. Account deletion clears who requested a run and removes that account's own ratings.",
+				"physical_verified": false
+			},
+			"columns": {
+				"id": {
+					"note": "Run identity."
+				},
+				"organization_id": {
+					"note": "The organization whose portfolio was read."
+				},
+				"requested_by": {
+					"note": "The Owner or Admin who pressed Refresh; null after their account is deleted."
+				},
+				"ran_at": {
+					"note": "When the run read the portfolio."
+				},
+				"rubric_version": {
+					"note": "The network rubric the run applies (everyfield-network/v1)."
+				}
+			},
+			"foreignKeys": {
+				"organization_id->organization(id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Explicit dependency-ordered removal with the organization; a foreign key grants no access."
+					}
+				},
+				"requested_by->account(id)": {
+					"deletion": {
+						"action": "set_null",
+						"policy": "Deleting the account clears who requested the run; the run stays."
+					}
+				}
+			}
+		},
+		"network_intelligence_plant": {
+			"table": {
+				"name": "network_intelligence_plant",
+				"domain": "intelligence",
+				"purpose": "One sharing plant's contribution to a Network Intelligence run (REQ-PI-043, REQ-PI-044): its launch preparation counts and reporting location as of the run. A read keeps a row only while the plant still shares Plant Intelligence findings and Ministry teams with the run's organization.",
+				"library_owned": false,
+				"jsonb_keys": {},
+				"capabilities": ["CAP-C-024", "CAP-C-025"],
+				"replaces": [],
+				"producer_work_packages": ["WP-047"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-047"],
+					"rule": "WP-047 records each Network Intelligence run, its plant contributions and each seat's own pattern rating."
+				},
+				"feature_ids": ["PI-043", "PI-044"],
+				"acceptance_ids": ["AC-PI-043--PI-043", "AC-PI-044--PI-044"],
+				"future_case_ids": ["NEX-019", "NI-041", "NI-044"],
+				"scope": "intelligence",
+				"invariants": [
+					"Only plants sharing findings and Ministry teams at the run contribute.",
+					"A missing count is null (Unknown), never 0.",
+					"City and street are never stored; only state, country and the official Region item."
+				],
+				"revision": "Immutable; no revision.",
+				"idempotency": "Written in the same statement as its run.",
+				"deletion": "Organization-owned derived facts. A plant's rows go with the plant in the church purge; a run goes only with its organization. Account deletion clears who requested a run and removes that account's own ratings.",
+				"physical_verified": false
+			},
+			"columns": {
+				"run_id": {
+					"note": "The run."
+				},
+				"plant_id": {
+					"note": "The contributing plant."
+				},
+				"launched": {
+					"note": "Launch Sunday was recorded at the run."
+				},
+				"days_to_launch": {
+					"note": "Plant-local days to an uncompleted dated Launch Sunday; null without one."
+				},
+				"unfilled_roles": {
+					"note": "Live roles with a Playbook responsibility and no current occupant; null when none is mapped."
+				},
+				"outstanding_training": {
+					"note": "Active required-training assignments not complete; null when none is assigned."
+				},
+				"region_item_id": {
+					"note": "The official OMB 23-01 area the plant chose as its reporting Region; null when unresolved."
+				},
+				"state_province": {
+					"note": "Two-letter US state, or the state or province as written; null when blank."
+				},
+				"country": {
+					"note": "US, or the country as written; null when blank."
+				},
+				"overdue_followups": {
+					"note": "Open follow-ups past due at the run (NIR-04); null when Meetings or Tasks was not shared, or the run predates it."
+				},
+				"unowned_followups": {
+					"note": "Of the overdue follow-ups, those with no eligible owner; null with overdue_followups."
+				},
+				"growth_days": {
+					"note": "Plant-local days since the newest first-time committed adult (NIR-05); null when growth reads Unknown or People was not shared."
+				},
+				"required_training": {
+					"note": "Saved required-training obligations (NIR-06); null when none is assigned or Ministry teams was not shared."
+				}
+			},
+			"foreignKeys": {
+				"run_id->network_intelligence_run(id)": {
+					"scope_exception": "A run's plant rows and ratings belong to the run's organization. Each read joins the run on its organization and rechecks the plant's current link and sharing; the relation grants no plant access.",
+					"deletion": {
+						"action": "cascade",
+						"policy": "Goes with its run."
+					}
+				},
+				"plant_id->plant(id)": {
+					"deletion": {
+						"action": "cascade",
+						"policy": "Goes with the plant in the church purge."
+					}
+				},
+				"region_item_id->reference_item(id)": {
+					"scope_exception": "The Region is a global official reference item (OMB 23-01), not a tenant body; it grants nothing.",
+					"deletion": {
+						"action": "restrict",
+						"policy": "Official reference rows are never removed while a run cites them."
+					}
+				}
+			}
+		},
+		"network_intelligence_feedback": {
+			"table": {
+				"name": "network_intelligence_feedback",
+				"domain": "intelligence",
+				"purpose": "One seat's own rating of one pattern in one Network Intelligence run (REQ-PI-043): useful or not useful. Only that account reads it; it never changes a pattern, a rule or a run.",
+				"library_owned": false,
+				"jsonb_keys": {},
+				"capabilities": ["CAP-C-023"],
+				"replaces": [],
+				"producer_work_packages": ["WP-047"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-047"],
+					"rule": "WP-047 records each Network Intelligence run, its plant contributions and each seat's own pattern rating."
+				},
+				"feature_ids": ["PI-033", "PI-043"],
+				"acceptance_ids": ["AC-PI-033--PI-033", "AC-PI-043--PI-043"],
+				"future_case_ids": ["NEX-019", "NI-041", "NI-044"],
+				"scope": "intelligence",
+				"invariants": ["Read only by the account that wrote it.", "Never changes any pattern, rule, run or plant."],
+				"revision": "The latest rating replaces the earlier one for the same run, account and pattern.",
+				"idempotency": "Setting the same rating again changes nothing.",
+				"deletion": "Organization-owned derived facts. A plant's rows go with the plant in the church purge; a run goes only with its organization. Account deletion clears who requested a run and removes that account's own ratings.",
+				"physical_verified": false
+			},
+			"columns": {
+				"run_id": {
+					"note": "The run."
+				},
+				"account_id": {
+					"note": "The rating's author, the only reader."
+				},
+				"pattern_key": {
+					"note": "The pattern: rule, level and group, such as NIR-03:state:US:TX."
+				},
+				"rating": {
+					"note": "useful or not_useful."
+				},
+				"recorded_at": {
+					"note": "When the rating was last set."
+				}
+			},
+			"foreignKeys": {
+				"run_id->network_intelligence_run(id)": {
+					"scope_exception": "A rating belongs to its author's account inside the run's organization. Reads and writes check the author's current seat in that organization; the relation grants no plant access.",
+					"deletion": {
+						"action": "cascade",
+						"policy": "Goes with its run."
+					}
+				},
+				"account_id->account(id)": {
+					"deletion": {
+						"action": "cascade",
+						"policy": "A deleted account's own ratings go with it."
+					}
 				}
 			}
 		}

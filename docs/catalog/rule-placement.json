@@ -4724,6 +4724,11 @@
       "reason": "T-232 (later slice 3 of T-161): Add guest's one write for everyone chosen proves the guest list and its new contacts."
     },
     {
+      "requirement": "REQ-ADM-005",
+      "operation": "dashboard.dismissPrompt",
+      "reason": "T-304 (WP-048): Overview's optional prompts, such as \"Import your people\", can be dismissed by the person who sees them. REQ-ADM-005 says scoped dismissal state hides optional prompts and never changes evidence; dashboard.promptState reads it and this write records it."
+    },
+    {
       "requirement": "REQ-NTF-006",
       "operation": "meetings.planNotifications",
       "reason": "T-229 (later slice 2 of T-152): meeting announcements and reminders are sent by the notification worker, which claims each slot's job, reads meetings.planNotifications and writes the notices through notifications.enqueue. Meeting writes queue and supersede the slot jobs; task reminders are replaced and cancelled by notifications.syncTaskReminders."
@@ -5107,6 +5112,12 @@
       "id": "documents.restoreChurch",
       "requirement": "REQ-DOC-022",
       "reason": "T-284 (later slice 2 of T-9): an Owner or Admin restores an archived Church Document from the archived list; it returns to the library with its revisions and saved exports unchanged. Owner/Admin only; not offered to Evry."
+    }
+,
+    {
+      "id": "dashboard.dismissPrompt",
+      "requirement": "REQ-ADM-005",
+      "reason": "T-304 (WP-048): Overview's optional prompts, such as \"Import your people\", can be dismissed by the person who sees them. REQ-ADM-005 says scoped dismissal state hides optional prompts and never changes evidence; dashboard.promptState reads it and this write records it."
     }
   ],
   "shared_rewrites": {

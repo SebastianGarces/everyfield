@@ -61,7 +61,25 @@ export type Operation =
 	| "notifications.digestCadence.set"
 	| "notifications.oversightDigestCadence.set"
 	| TeamsOperation
-	| SettingsOperation;
+	| SettingsOperation
+	| PipelineOperation;
+
+/** An organization's pipeline and program changes (WP-101). */
+export type PipelineOperation = "pipeline.proposeStageMove" | "development.saveProgram";
+export const isPipeline = (operation: Operation): operation is PipelineOperation =>
+	operation === "pipeline.proposeStageMove" || operation === "development.saveProgram";
+/**
+ * A card on which the person types the reason for the change themselves (REQ-MUL-015): Evry proposes only the person and
+ * the stage, and the typed reason goes to the native move alone.
+ */
+export const asksReason = (operation: Operation) => operation === "pipeline.proposeStageMove";
+/** Where an approved pipeline or program change shows: the person's pipeline record, or Programs. */
+export function pipelineLink(review: Pick<Review, "operation" | "review">): { href: string; label: string } {
+	const who = review.review.target;
+	return review.operation === "pipeline.proposeStageMove" && who
+		? { href: `/organization/pipeline/${who.id}`, label: `Open ${who.label}` }
+		: { href: "/organization/pipeline/programs", label: "Open Programs" };
+}
 
 /** The Ministries reviewed writes (WP-070): shown as before and after, never revised in place. */
 const TEAMS_TITLE = {
@@ -105,6 +123,7 @@ export type SettingsOperation =
 	| "seats.remove"
 	| "plant.updateProfile"
 	| "plant.setTimezone"
+	| "church.digestSchedule.set"
 	| "privacy.setSharing"
 	| "associations.invite"
 	| "associations.end"
@@ -256,6 +275,14 @@ export const retryable = (review: Review, lapsed: boolean) =>
 
 const FIELD_LABEL: Record<string, string> = {
 	displayName: "Name",
+	// The pipeline and programs (WP-101)
+	pipelineStage: "Stage",
+	programKind: "Kind",
+	director: "Director",
+	expectedLength: "Expected length",
+	rhythm: "Meets",
+	stages: "Stages",
+	milestones: "Milestones",
 	firstName: "First name",
 	lastName: "Last name",
 	email: "Email",
@@ -368,6 +395,7 @@ const FIELD_LABEL: Record<string, string> = {
 	role: "Role",
 	access: "Access",
 	timeZone: "Time zone",
+	digestSchedule: "Church digest",
 	connection: "Connection",
 	recipientEmail: "Sent to",
 	account: "Your login",
@@ -447,12 +475,13 @@ const zoneText = (zone: string) => (ZONE_NAME[zone] ? `${ZONE_NAME[zone]} (${zon
 
 /** The changes Evry makes to seats, church settings, sharing, connections, your account and an organization. */
 export const isSettings = (operation: Operation): operation is SettingsOperation =>
-	/^(seats|plant|privacy|associations|account|organizations|onboarding|discovery)\./.test(operation) ||
+	/^(seats|plant|church|privacy|associations|account|organizations|onboarding|discovery)\./.test(operation) ||
 	operation === "identity.answerLeadOnboarding";
 /** The Settings section where a seat, settings, sharing, connection, account or organization change shows. */
 export function settingsLink(operation: SettingsOperation): { href: string; label: string } {
 	if (operation.startsWith("seats.")) return { href: "/settings/seats", label: "Open Seats" };
-	if (operation.startsWith("plant.")) return { href: "/settings/church", label: "Open Church settings" };
+	if (operation.startsWith("plant.") || operation.startsWith("church."))
+		return { href: "/settings/church", label: "Open Church settings" };
 	if (operation.startsWith("account.")) return { href: "/settings/account", label: "Open your account" };
 	if (/^(onboarding|discovery)\./.test(operation) || operation === "identity.answerLeadOnboarding")
 		return { href: "/onboarding", label: "Open setup" };
@@ -522,12 +551,15 @@ const TITLE: Record<Operation, string> = {
 	"seats.remove": "Remove a seat",
 	"plant.updateProfile": "Update the church profile",
 	"plant.setTimezone": "Change the church time zone",
+	"church.digestSchedule.set": "Change the church digest schedule",
 	"privacy.setSharing": "Change what you share",
 	"associations.invite": "Ask to connect",
 	"associations.end": "End a connection",
 	"account.finalizeAvatar": "Change your photo",
 	"account.requestDeletion": "Delete your login",
 	"organizations.updateProfile": "Update the organization profile",
+	"pipeline.proposeStageMove": "Move to another stage",
+	"development.saveProgram": "Create a program",
 	"onboarding.declareJourney": "Where your church is",
 	"identity.answerLeadOnboarding": "Who leads your church",
 	"onboarding.complete": "Finish setup",
@@ -890,6 +922,7 @@ const ADDS = new Set<Operation>([
 	"onboarding.createPlant",
 	"discovery.create",
 	"discovery.convertToPlant",
+	"development.saveProgram",
 ]);
 export const addsOnly = (operation: Operation) => ADDS.has(operation);
 /** The changes that give the account its first church seat, as its Owner. */
@@ -1059,6 +1092,27 @@ export function settingsRefusalText(code: string | undefined): string {
 			return "Settings are not available right now, so nothing was saved. Try again later.";
 		default:
 			return "Settings refused this change, so nothing was saved.";
+	}
+}
+
+/** Why a pipeline or program change was refused. Nothing was changed. */
+export function pipelineRefusalText(
+	code: string | undefined,
+	operation: PipelineOperation,
+	who: string | null,
+): string {
+	const area = operation === "development.saveProgram" ? "Programs" : "The Pipeline";
+	switch (code) {
+		case "revision_conflict":
+			return operation === "development.saveProgram"
+				? "Programs changed after Evry prepared this, so nothing was created. Ask Evry to prepare it again."
+				: `${who ?? "This person"}'s stage changed after Evry prepared this, so the move couldn't be applied and nothing moved. This is where they are now.`;
+		case "access_denied":
+			return "Your seat no longer allows this change, or what it changes is gone, so nothing was saved.";
+		case "invalid_input":
+			return `${area} didn't accept these values, so nothing was saved. Ask Evry to prepare it again.`;
+		default:
+			return `${area} refused this change, so nothing was saved.`;
 	}
 }
 

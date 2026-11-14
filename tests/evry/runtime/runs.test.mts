@@ -309,6 +309,7 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 						"seats.remove",
 						"plant.updateProfile",
 						"plant.setTimezone",
+						"church.digestSchedule.set",
 						"privacy.setSharing",
 						"associations.invite",
 						"associations.end",
@@ -330,8 +331,14 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 							"account.requestDeletion",
 						]
 					: who === "orgOwner"
-						? // An organization Owner sets only their own oversight digest (D-1278) and their organization's profile.
-							["notifications.oversightDigestCadence.set", "organizations.updateProfile"]
+						? // An organization Owner sets only their own oversight digest (D-1278) and their organization's profile, and
+							// proposes pipeline stage moves and new programs (WP-101).
+							[
+								"notifications.oversightDigestCadence.set",
+								"organizations.updateProfile",
+								"pipeline.proposeStageMove",
+								"development.saveProgram",
+							]
 						: ["onboarding.createPlant", "discovery.create", "discovery.convertToPlant"],
 		);
 		const teamsReads = READ_DOMAINS.teams.map((a) => a.operation);
@@ -391,7 +398,7 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 							"privacy.getSharing",
 						]
 					: who === "orgOwner"
-						? ["notifications.previewOversightDigest"]
+						? ["notifications.previewOversightDigest", "pipeline.listPeople", "development.draftPlan"]
 						: who === "seatless"
 							? ["discovery.getProfile"]
 							: [],

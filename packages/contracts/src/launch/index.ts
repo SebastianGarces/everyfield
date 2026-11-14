@@ -12,6 +12,7 @@ import {
 	summary,
 	summaryProblem,
 } from "./outcome.ts";
+import { preparation } from "../oversight/health.ts";
 
 export * from "./outcome.ts";
 
@@ -151,6 +152,11 @@ export const plan = z.strictObject({
 	/** The debrief and summary, for Owners and Admins; null for a Member. */
 	debrief: debrief.nullable(),
 	summary: summary.nullable(),
+	/**
+	 * Role and training counts near Launch Sunday (WP-047b): the same counts a sending church or network reads under
+	 * Plant Intelligence findings and Ministry teams sharing, so a Launch readiness concern they see is one shown here.
+	 */
+	preparation,
 });
 export type Plan = z.infer<typeof plan>;
 

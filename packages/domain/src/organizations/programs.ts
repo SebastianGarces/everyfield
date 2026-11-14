@@ -195,7 +195,7 @@ const foundationsCompleted = (account: SQL) => sql`(SELECT count(DISTINCT r.arti
  * resident's own mark only while that person's live link shares milestone progress (REQ-MUL-003, REQ-MUL-014). Each
  * enrollment's own link decides, so it holds on a read over several enrollments.
  */
-const orgSees = sql`(c.source='program_leader' OR EXISTS(SELECT FROM residency_link l
+export const orgSees = sql`(c.source='program_leader' OR EXISTS(SELECT FROM residency_link l
  WHERE l.person_id=x.person_id AND l.organization_id=c.organization_id AND ${liveResidency} AND l.share_milestones))`;
 
 /**

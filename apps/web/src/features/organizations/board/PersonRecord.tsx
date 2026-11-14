@@ -35,6 +35,7 @@ import { ConversationsCard } from "./Conversations";
 import { formatDay, PIPELINE_PATH, refusalText } from "./model";
 import { PersonDialog } from "./PersonDialog";
 import { Problem } from "./Problem";
+import { RemoveDialog } from "../data/RemoveDialog";
 import { ResidencyLink } from "./ResidencyLink";
 
 type Record = PipelinePersonRecord;
@@ -50,13 +51,15 @@ export function PersonRecord({
 	initial,
 	stages,
 	staff,
+	organization,
 }: {
 	initial: Record;
 	stages: PipelineBoard["stages"];
 	staff: PipelineBoard["staff"];
+	organization: string;
 }) {
 	const [record, setRecord] = useState(initial);
-	const [dialog, setDialog] = useState<"edit" | "move" | "assessment" | "retire" | "restore" | null>(null);
+	const [dialog, setDialog] = useState<"edit" | "move" | "assessment" | "retire" | "restore" | "remove" | null>(null);
 	const [notice, setNotice] = useState<string | null>(null);
 	const admin = record.audience === "administrator";
 
@@ -116,13 +119,20 @@ export function PersonRecord({
 									? `Outside assessment: ${formatDay(record.assessment.on)}, ${record.assessment.by}`
 									: "No outside assessment recorded"}
 							</p>
-							{admin && !record.retired ? (
+							{admin ? (
 								<div className="mt-4 flex flex-wrap gap-2">
-									<Button variant="secondary" size="sm" onClick={() => setDialog("assessment")}>
-										Record outside assessment
-									</Button>
-									<Button variant="ghost" size="sm" onClick={() => setDialog("retire")}>
-										Retire
+									{record.retired ? null : (
+										<>
+											<Button variant="secondary" size="sm" onClick={() => setDialog("assessment")}>
+												Record outside assessment
+											</Button>
+											<Button variant="ghost" size="sm" onClick={() => setDialog("retire")}>
+												Retire
+											</Button>
+										</>
+									)}
+									<Button variant="ghost" size="sm" className="text-magenta-600" onClick={() => setDialog("remove")}>
+										Remove on request
 									</Button>
 								</div>
 							) : null}
@@ -182,6 +192,12 @@ export function PersonRecord({
 								}),
 							)
 						}
+					/>
+					<RemoveDialog
+						open={dialog === "remove"}
+						onOpenChange={(open) => setDialog(open ? "remove" : null)}
+						person={{ personId: record.personId, revision: record.revision, name: record.name }}
+						organization={organization}
 					/>
 					<ConfirmDialog
 						open={dialog === "retire" || dialog === "restore"}

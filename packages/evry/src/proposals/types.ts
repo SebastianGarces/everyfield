@@ -28,7 +28,10 @@ export type NativePorts = {
 		db: Database | Transaction,
 	): Pick<ReturnType<typeof createInvitationService>, "invite" | "resend" | "revoke" | "list">;
 	organizations: OrganizationAdapter<Transaction>;
-	settings: Pick<SettingsProducer<Transaction>, "updatePlantProfile" | "previewPlantTimezone" | "setPlantTimezone">;
+	settings: Pick<
+		SettingsProducer<Transaction>,
+		"updatePlantProfile" | "setDigestSchedule" | "previewPlantTimezone" | "setPlantTimezone"
+	>;
 	account: Pick<NativeAccountProducer<Transaction>, "finalizeAvatar"> &
 		Pick<DeletionProducer<Transaction>, "requestAccountDeletion">;
 	/** The onboarding producer `/onboarding` calls, with the deployment's own receipt mail (T-345). */
@@ -100,6 +103,17 @@ export type ReviewedWrite<I> = {
 		reminders: TaskReminders,
 		native: NativeContext,
 	): Promise<EffectResult>;
+	/**
+	 * Set for a write whose native command runs its own write on the pool, through the write gate (the organization
+	 * pipeline and programs, C88 established): it cannot run inside the executor's transaction, which already holds the
+	 * gate. It runs once, in the approval request, under the approving request's live authority, and `execute` is never
+	 * reached. `reason` marks a card on which the person types the reason themselves: the typed text goes to the native
+	 * command only, and Evry never saves it, in the proposal, its receipt or the conversation (REQ-MUL-015).
+	 */
+	approveNow?: {
+		reason: boolean;
+		run(db: Database, authority: RequestActor, args: unknown, reason: string | null): Promise<EffectResult>;
+	};
 	/**
 	 * A fact the review froze that the proposal cannot compare in SQL. The executor runs it inside its transaction on an
 	 * effect's first run only, never on a retry of an effect that already started. Returns a refusal code, or null.

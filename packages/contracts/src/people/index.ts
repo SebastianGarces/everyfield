@@ -7,3 +7,4 @@ export * from "./fields/index.ts";
 export * from "./assessments/index.ts";
 export * from "./csv/index.ts";
 export * from "./merge/index.ts";
+export * from "./pipeline-metrics.ts";

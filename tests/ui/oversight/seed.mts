@@ -2,7 +2,14 @@
 // Hill Country Network with Owner, Admin and Member seats; Grace Austin, its sending church, with an Owner seat;
 // Cedar Park Church, a sending church with an Owner seat and no plants; Gulf Coast Network with one plant of its own;
 // and four plants linked to Hill Country: Harvest Point (Round Rock, TX) and Eastside Commons (Austin, TX) also through
-// Grace Austin, Mueller Fellowship (Austin, TX) and Oak Cliff Church (Dallas, TX). Accounts sign up through the identity
+// Grace Austin, Mueller Fellowship (Austin, TX) and Oak Cliff Church (Dallas, TX). WP-047b adds health, Launch and
+// Regions: counting from today in each plant's time zone, Eastside is 10 days from Launch Sunday with its Worship
+// responsibility filled and training done, Harvest Point 30 days out with its Children's responsibility unfilled,
+// Oak Cliff 20 days out with one required training not done, and Mueller does not share Plant Intelligence findings.
+// Harvest Point has published a launch summary (and holds a newer draft); Harvest Point and Eastside chose the Austin
+// metro area and Oak Cliff the Dallas one, from the installed OMB 23-01 list. T-372 adds follow-ups, first-time
+// committed adults and required training for Network Intelligence's NIR-04 to NIR-06 (seedRules), and a run from before
+// those rules. Accounts sign up through the identity
 // service, plants are created through the onboarding producer and every link is a real request and approval through
 // the organizations adapter. Organizations and their seats are raw rows, because no public write creates them.
 //
@@ -15,7 +22,12 @@ import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { createIdentityService } from "../../../packages/domain/src/identity/index.ts";
 import { createOnboardingProducer } from "../../../packages/domain/src/onboarding/index.ts";
-import { createOrganizationAdapter } from "../../../packages/domain/src/organizations/index.ts";
+import {
+	createOrganizationAdapter,
+	geographyReference,
+	installGeographyRelease,
+} from "../../../packages/domain/src/organizations/index.ts";
+import { SEED } from "../../../packages/domain/src/launch/catalog.ts";
 import { peopleWriter } from "../../../packages/domain/src/people/index.ts";
 import { randomUUID } from "node:crypto";
 import { dropSeed, openSeedEnvironment, writeFixture } from "../seed-env.mts";
@@ -191,7 +203,7 @@ export async function seedOversight(env: {
 				revision=revision+1,finished_at=clock_timestamp() WHERE subject_record_id=${v.sourceId} AND kind='digest'
 				AND state IN ('ready','retry_wait','claimed')`,
 		},
-		{ candidates: async () => [] },
+		geographyReference,
 	);
 	const write = (a: Account, selected: Owner, name: string, expectedRevision: string, input: unknown) =>
 		runtime.transaction(async (tx) => {
@@ -406,17 +418,17 @@ export async function seedOversight(env: {
 			VALUES(${reader.accountId},${article},${ec.id},0.6,${done ? sql`clock_timestamp()` : null},
 			${done ? articleRevision : null},'v1',0,false)`);
 
-	// Links. Harvest Point shares People, Tasks and Meetings (none held) with Hill Country, not Ministry teams; Grace
+	// Links. Harvest Point and Oak Cliff share People, Meetings, Tasks, Ministry teams and findings with Hill Country; Grace
 	// Austin sees everything. Westlake is linked to Grace Austin and Gulf Coast only.
 	const westlakeOwner = await account("Wes Hale", "plant_precreation");
 	const westlake = await plant(westlakeOwner, "Westlake Church", "Austin", "TX", { phase: 1, lead: false });
 	await link(grace, paul, network, ruth);
-	await link(hp, dana, network, ruth, ["people", "tasks", "meetings"]);
+	await link(hp, dana, network, ruth, ["people", "tasks", "meetings", "ministry_teams", "shared_findings"]);
 	await link(hp, dana, grace, paul);
 	await link(ec, priya, network, ruth);
 	await link(ec, priya, grace, paul);
 	await link(mf, ben, network, sam, ["people"]);
-	await link(oc, grace2, network, sam, ["tasks"]);
+	await link(oc, grace2, network, sam, ["people", "meetings", "tasks", "ministry_teams", "shared_findings"]);
 	await link(bayou, remy, gulf, gulfOwner);
 	await link(westlake, westlakeOwner, grace, paul);
 	await link(westlake, westlakeOwner, gulf, gulfOwner);
@@ -432,6 +444,155 @@ export async function seedOversight(env: {
 			inviter_description,subject_revision) VALUES(${invitation},${cedar.id},${network.id},'Cedar Park Church',1)`);
 	}
 
+	// A Member seat of Harvest Point, who reads the church settings' Region but cannot change it.
+	const mia = await account("Mia Torres", "plant_precreation");
+	await admin.execute(sql`INSERT INTO seat(account_id,plant_id,role,accepted_at)
+		VALUES(${mia.accountId},${hp.id},'member',clock_timestamp())`);
+	await seedLaunch();
+	await seedRules();
+
+	/** WP-047b: Launch Sunday, responsibilities, training, a published summary and reporting Regions. */
+	async function seedLaunch() {
+		await installGeographyRelease(admin);
+		// Launch Sunday `days` from today in the plant's own time zone; the directory dates above are replaced.
+		const launchIn = async (p: Owner, days: number) => {
+			await admin.execute(sql`INSERT INTO launch(plant_id,status,target_date)
+				SELECT ${p.id},'scheduled',(clock_timestamp() AT TIME ZONE pl.timezone)::date + ${days}::int FROM plant pl
+				WHERE pl.id=${p.id} ON CONFLICT (plant_id) DO UPDATE SET status='scheduled', target_date=excluded.target_date`);
+			for (const [i, m] of SEED.entries())
+				await admin.execute(sql`INSERT INTO launch_milestone(plant_id,title,area,position,template_key,completed_at)
+					VALUES(${p.id},${m.title},${m.area},${i},${m.key},${p.id === hp.id && i < 4 ? sql`clock_timestamp()` : null})
+					ON CONFLICT DO NOTHING`);
+		};
+		await launchIn(ec, 10);
+		await launchIn(hp, 30);
+		await launchIn(oc, 20);
+		await launchIn(mf, 5);
+		/** A role on its own ministry carrying a Playbook responsibility, held by `holder` when given. */
+		const responsibility = async (p: Owner, team: string, key: string, holder: string | null) => {
+			const t = await admin.execute(
+				sql`INSERT INTO team(plant_id,name,state,sort_order) VALUES(${p.id},${team},'active',2) RETURNING id`,
+			);
+			const r = await admin.execute(sql`INSERT INTO team_role(plant_id,team_id,name,leadership,sort_order,
+				responsibility_key) VALUES(${p.id},${t.rows[0]!.id},${team + " lead"},true,0,${key}) RETURNING id`);
+			if (holder)
+				await admin.execute(sql`INSERT INTO team_tenure(plant_id,role_id,person_id,started_on)
+					VALUES(${p.id},${r.rows[0]!.id},${holder},current_date)`);
+		};
+		await responsibility(ec, "Sunday worship", "worship", ecPeople[1]!);
+		// Eastside's required training is done by everyone it is assigned to.
+		for (const who of ecPeople.slice(1, 3))
+			await admin.execute(sql`INSERT INTO training_credit(plant_id,person_id,program_id,kind,version,earned_on)
+				VALUES(${ec.id},${who},${programId},'earned',${version},current_date)`);
+		await responsibility(hp, "Sunday worship", "worship", hpPeople[2]!);
+		await responsibility(hp, "Children's ministry", "children", null);
+		const olive = await person(grace2, oc, "Olive Grant", "launch_team");
+		await responsibility(oc, "Sunday worship", "worship", olive);
+		const g = await admin.execute(
+			sql`INSERT INTO training_program(plant_id,name,required) VALUES(${oc.id},'Safe kids',true) RETURNING id, version`,
+		);
+		await admin.execute(sql`INSERT INTO training_assignment(plant_id,program_id,person_id,version,state,effective_on)
+			VALUES(${oc.id},${g.rows[0]!.id},${olive},${g.rows[0]!.version},'active',current_date)`);
+		await admin.execute(sql`INSERT INTO launch_summary(plant_id,version,body,saved_at,published_at) VALUES
+			(${hp.id},1,${"Our preview service drew 140 people. Thank you for praying with us as we head into Launch Sunday."},
+			clock_timestamp(),clock_timestamp()),
+			(${hp.id},2,${"Draft: guests Jane Doe and Carl Ruiz came with the Bensons."},clock_timestamp(),NULL)`);
+		for (const [p, city, code] of [
+			[hp, "Round Rock", "12420"],
+			[ec, "Austin", "12420"],
+			[oc, "Dallas", "19100"],
+		] as const)
+			await admin.execute(sql`INSERT INTO plant_geography(plant_id,city,state_province,country,region_item_id,
+				reference_version_id,committed_at,effective_at)
+				SELECT ${p.id},${city},'TX','US',i.id,v.id,clock_timestamp(),clock_timestamp()
+				FROM reference_item i, reference_version v JOIN reference_item d ON d.id=v.item_id
+				WHERE i.kind='geography_region' AND i.canonical_key=${"omb-23-01/" + code}
+				AND d.kind='geography_dataset' AND d.canonical_key='omb-23-01'`);
+	}
+
+	/**
+	 * T-372: the evidence of Network Intelligence's NIR-04 to NIR-06, plus one run as T-303 stored it, a day old. Harvest
+	 * Point has 2 overdue follow-ups (1 with no owner), its newest first-time committed adult signed 24 days ago and 3
+	 * saved required trainings with 1 complete; Oak Cliff has 3 overdue (2 with no owner), 26 days and 4 with 2 complete.
+	 */
+	async function seedRules() {
+		const day = (p: Owner, days: number) =>
+			sql`(SELECT (clock_timestamp() AT TIME ZONE timezone)::date + ${days}::int FROM plant WHERE id=${p.id})`;
+		/** The church Owner as a live, committed Person linked to their account, so they may own follow-ups. */
+		const ownerPerson = async (p: Owner, a: Account, name: string) => {
+			await admin.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,source,stage,adult_classification,
+				commitment_state,pipeline_position,state,created_at,linked_account_id)
+				SELECT ${randomUUID()},${p.id},${p.id},${name},'other','leader','adult','unknown','1','live',clock_timestamp(),
+				${a.accountId} WHERE NOT EXISTS(SELECT FROM person WHERE tenant_id=${p.id} AND linked_account_id=${a.accountId})`);
+			await admin.execute(
+				sql`UPDATE person SET stage='leader' WHERE tenant_id=${p.id} AND linked_account_id=${a.accountId}`,
+			);
+		};
+		const followUps = async (p: Owner, owner: Account, about: string, due: [number, boolean][]) => {
+			for (const [days, owned] of due) {
+				const id = randomUUID();
+				await admin.execute(sql`INSERT INTO task(id,plant_id,title,category,priority,status,created_at,due_kind,
+					due_date,person_id) VALUES(${id},${p.id},'Call after the Vision meeting','follow_up','medium','not_started',
+					clock_timestamp(),'date_only',${day(p, days)},${about})`);
+				if (owned)
+					await admin.execute(
+						sql`INSERT INTO task_assignee(plant_id,task_id,account_id) VALUES(${p.id},${id},${owner.accountId})`,
+					);
+			}
+		};
+		const adult = async (p: Owner, owner: Account, name: string, days: number) => {
+			const id = await person(owner, p, name, "launch_team");
+			await admin.execute(sql`UPDATE person SET adult_classification='adult' WHERE id=${id}`);
+			await admin.execute(sql`INSERT INTO commitment(id,plant_id,person_id,kind,signed_on,recorded_at)
+				VALUES(${randomUUID()},${p.id},${id},'launch_team',${day(p, -days)},clock_timestamp())`);
+			return id;
+		};
+		const training = async (p: Owner, people: string[], complete: number) => {
+			const g = await admin.execute(sql`INSERT INTO training_program(plant_id,name,required)
+				VALUES(${p.id},'Child safety',true) RETURNING id, version`);
+			const { id, version } = g.rows[0] as { id: string; version: number };
+			for (const [i, who] of people.entries()) {
+				await admin.execute(sql`INSERT INTO training_assignment(plant_id,program_id,person_id,version,state,effective_on)
+					VALUES(${p.id},${id},${who},${version},'active',current_date)`);
+				if (i < complete)
+					await admin.execute(sql`INSERT INTO training_credit(plant_id,person_id,program_id,kind,version,earned_on)
+						VALUES(${p.id},${who},${id},'earned',${version},current_date)`);
+			}
+		};
+		await ownerPerson(hp, dana, "Dana Ortiz");
+		await followUps(hp, dana, hpPeople[6]!, [
+			[-3, false],
+			[-1, true],
+			[2, false],
+		]);
+		const hpAdults = [await adult(hp, dana, "Nina Brooks", 60), await adult(hp, dana, "Owen Price", 24)];
+		await training(hp, [...hpAdults, hpPeople[1]!], 1);
+
+		await ownerPerson(oc, grace2, "Grace Kim");
+		const guest = await person(grace2, oc, "Luis Romero", "following_up");
+		await followUps(oc, grace2, guest, [
+			[-2, false],
+			[-6, false],
+			[-1, true],
+		]);
+		const withdrawn = await adult(oc, grace2, "Hana Mori", 26);
+		await admin.execute(sql`INSERT INTO commitment_change(id,plant_id,person_id,kind,effective_on)
+			VALUES(${randomUUID()},${oc.id},${withdrawn},'withdrawn',${day(oc, -3)})`);
+		const ocAdults = [withdrawn, await adult(oc, grace2, "Ivy Chen", 70)];
+		// Olive's Safe kids stays outstanding; Child safety adds 3 more, 2 complete.
+		await training(oc, [...ocAdults, guest], 2);
+
+		// A run from before these rules: preparation counts and location only, so NIR-04 to NIR-06 read Unknown.
+		const run = randomUUID();
+		await admin.execute(sql`INSERT INTO network_intelligence_run(id,organization_id,rubric_version,ran_at)
+			VALUES(${run},${network.id},'everyfield-network/v1',clock_timestamp()-interval '1 day')`);
+		await admin.execute(sql`INSERT INTO network_intelligence_plant(run_id,plant_id,launched,days_to_launch,unfilled_roles,
+			outstanding_training,region_item_id,state_province,country)
+			SELECT ${run},g.plant_id,false,x.days,x.unfilled,x.training,g.region_item_id,'TX','US' FROM plant_geography g
+			JOIN (VALUES (${hp.id}::uuid,29,1,0),(${ec.id}::uuid,11,0,0),(${oc.id}::uuid,21,0,1)) x(plant,days,unfilled,training)
+			ON x.plant=g.plant_id`);
+	}
+
 	const seat = (a: Account) => ({ cookie: a.cookie, accountId: a.accountId, email: a.email });
 	return {
 		origin,
@@ -443,6 +604,8 @@ export async function seedOversight(env: {
 			graceOwner: seat(paul),
 			cedarOwner: seat(ann),
 			harvestPointOwner: seat(dana),
+			eastsideOwner: seat(priya),
+			harvestPointMember: seat(mia),
 		},
 		organizations: { network: network.id, grace: grace.id, cedar: cedar.id, gulf: gulf.id },
 		plants: {
