@@ -810,17 +810,18 @@ test("INV-evry-golden: the seeded church holds the records the factual cases che
 			["movement", "Core Group Development", "2026-08-03"],
 		],
 	);
-	// No exit criterion has measured data yet: each says so, never "not met".
+	// The church's measured facts (WP-040) answer one criterion, short of 30 committed adults, as /intelligence shows it;
+	// the other four have no data yet and say so, never "not met".
 	const readiness = await read("phases.readReadiness", {});
 	assert.deepEqual(
 		readiness.rows.filter((r) => r.kind === "criterion").map((r) => [r.label, r.fields.status]),
 		[
-			"30 committed adults",
-			"Growth still moving",
-			"Launch funding viable",
-			"Worship leader identified",
-			"Geographic area set",
-		].map((label) => [label, "no data yet"]),
+			["30 committed adults", "not met"],
+			["Growth still moving", "no data yet"],
+			["Launch funding viable", "no data yet"],
+			["Worship leader identified", "no data yet"],
+			["Geographic area set", "no data yet"],
+		],
 	);
 	const signals = await read("signals.getHistory", {});
 	assert.deepEqual(

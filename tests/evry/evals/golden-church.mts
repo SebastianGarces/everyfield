@@ -632,6 +632,10 @@ export async function seedHope(admin: Database, options: SeedOptions = {}) {
 				SELECT ${PLANT},${owner},'people.updated','edit','person',${p.id},t,t
 				FROM (SELECT clock_timestamp()-make_interval(days=>${p.inactivity === "warning" ? 10 : 2}) AS t) x`);
 	}
+	// Casey Brooks's last contact is also a recorded follow-up outcome, which the People merge can't carry yet, so her
+	// merge with Casey Morgan is blocked (WP-091). Every other outcome above is only the activity row the contact left.
+	await run(sql`INSERT INTO contact_outcome(plant_id,person_id,outcome,occurred_at,recorded_at,contact_channel)
+		SELECT ${PLANT},${byName("Casey Brooks").id},'contacted',t,t,'phone' FROM (SELECT clock_timestamp()-interval '2 days' AS t) x`);
 
 	// A note the Admin wrote on Maria Santos: only its author may edit or delete it. A note is activity, so it is dated
 	// before her last contact (10 days before NOW): she keeps her inactivity warning in NOW's frame.
@@ -792,9 +796,10 @@ async function seedSent(run: (q: ReturnType<typeof sql>) => Promise<unknown>) {
 		for (const r of rows) {
 			const person = byName(r.name).id;
 			const failed = "failed" in r ? r.failed : undefined;
+			// The id is v4-shaped: the People merge (T-321) parses every reference id as a UUID.
 			await run(sql`INSERT INTO mail(id,tenant_id,purpose,communication_id,recipient_person_id,logical_key,payload_hash,audience_hash,
 				state,accepted_at,sent_at,delivered_at,opened_at,bounced_at,created_at)
-				VALUES(md5(${message + person})::uuid,${PLANT},'communication',${message},${person},${`communication/${message}/${person}`},'seed','seed',
+				VALUES(overlay(overlay(md5(${message + person}) placing '4' from 13) placing '8' from 17)::uuid,${PLANT},'communication',${message},${person},${`communication/${message}/${person}`},'seed','seed',
 				${failed === "refused" ? "refused" : "accepted"},${failed === "refused" ? null : at},${failed === "refused" ? null : at},
 				${r.delivered ?? null},${r.opened ?? null},${failed === "bounced" ? at : null},${at})`);
 		}

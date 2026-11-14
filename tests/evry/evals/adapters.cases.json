@@ -3900,14 +3900,14 @@
 				"/funding/i",
 				"/worship leader/i",
 				"/geographic area/i",
+				"/not met/i",
 				"/no data|not (been )?measured|no measured|isn['’]t (yet )?(any )?data|don['’]t have (any )?data/i"
 			],
 			"forbid": [
 				"/\\b(you['’]?re|you are|we['’]?re|we are|church is|it is|it['’]s) (now |already )?ready\\b/i",
-				"/\\bnot met\\b/i",
 				"/\\b\\d+ of 30\\b/i"
 			],
-			"derivation": "Core Group Development's five exit criteria, each with no measured data yet (no WP-040 reading). No People count stands in for a criterion, and Evry never says the church is ready."
+			"derivation": "Core Group Development's five exit criteria with their current status: the measured facts (WP-040, on main since T-326 was written) say 30 committed adults is not met, and the other four have no data yet. No People count stands in for a criterion, and Evry never says the church is ready."
 		}
 	},
 	{

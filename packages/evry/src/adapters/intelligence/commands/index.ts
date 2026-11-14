@@ -3,7 +3,7 @@ import { sql, type SQL } from "@everyfield/db/query";
 import * as s from "@everyfield/contracts/intelligence";
 import { localDate } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/phases";
-import { createSignals } from "@everyfield/domain/intelligence";
+import { createFacts, createSignals } from "@everyfield/domain/intelligence";
 import { createPhaseWriter, readCatalog, readReadiness } from "@everyfield/domain/phases";
 import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
@@ -65,6 +65,8 @@ export const declarePhase: ReviewedWrite<z.infer<typeof declareInput>> = {
 	},
 };
 
+const facts = createFacts();
+
 const reason = z
 	.string()
 	.refine((text) => c.checkReason(text).ok, "a reason of 1 to 2,000 characters")
@@ -76,12 +78,13 @@ export const transitionPhase: ReviewedWrite<z.infer<typeof transitionInput>> = {
 		"Propose moving this church to another phase (forward, skipping ahead or backward), with the reason. The review shows the move's direction and the exit criteria of the current phase not met or with no data yet. Nothing changes until the user approves the exact review.",
 	input: transitionInput,
 	allowed: ownerOrAdmin,
-	async review(actor, value) {
-		const catalog = await readCatalog();
+	async review(actor, value, context) {
+		const [catalog, measured] = await Promise.all([readCatalog(), facts.readFacts(context.db, actor.authority)]);
 		const phases = phaseValues(catalog);
-		// The exit criteria of each phase that are not met, with their status in words, indexed by phase number. The review
-		// is one statement with no read of the measured facts (WP-040), so each criterion reads as having no data yet.
-		const open = readReadiness(catalog, {}).map((r) =>
+		// The exit criteria of each phase that are not met, with their status in words, indexed by phase number, from the
+		// church's measured facts (WP-040) as phases.readReadiness and the /intelligence page read them.
+		const results = measured.status === "ok" ? measured.value.criteria : {};
+		const open = readReadiness(catalog, results).map((r) =>
 			r.criteria.filter((x) => x.status !== "met").map((x) => ({ label: x.label, status: STATUS_WORDS[x.status] })),
 		);
 		const to = sql`${value.toPhase}::int`;

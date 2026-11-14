@@ -545,10 +545,10 @@
 			],
 			"proposals": [],
 			"require": [
-				"This merge cannot run. Casey Brooks has follow-up outcomes on record. Merging people with this history is not available in Everyfield yet.",
+				"This merge cannot run. Casey Brooks has follow-up outcomes and emails on record. Merging people with this history is not available in Everyfield yet.",
 				"Nothing was merged"
 			],
-			"derivation": "Casey Brooks has a follow-up outcome, which the People merge can't carry yet (WP-091): the People screen's words."
+			"derivation": "Casey Brooks has a follow-up outcome and the welcome email (T-322's sent mail), which the People merge can't carry yet (WP-091): the People screen's words."
 		}
 	},
 	{
