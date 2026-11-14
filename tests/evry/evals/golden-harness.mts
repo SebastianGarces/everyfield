@@ -382,11 +382,13 @@ export async function converse(
 	text: string,
 	history: Turn[] = [],
 	attachments: CaseFile[] = [],
+	/** A model to ask instead of the recording, such as the scripted model (assessments.cases.json). */
+	override?: LanguageModelV4,
 ): Promise<Conversation> {
 	const { db } = church;
 	const actor = church.actors[as];
 	const keys: string[] = [];
-	const model = golden.model(keys);
+	const model = override ?? golden.model(keys);
 	const catalog = readCatalog(actor, RECORDED);
 	const calls: ToolCall[] = [];
 	const proposals: Proposal[] = [];

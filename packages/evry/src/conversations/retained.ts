@@ -2,7 +2,7 @@ import { sql, type SQL } from "@everyfield/db/query";
 
 import { rowLive } from "./liveness.ts";
 
-const live = (row: string) => rowLive(sql.raw(row), sql.raw("c.tenant_id"));
+const live = (row: string) => rowLive(sql.raw(row), sql.raw("c.tenant_id"), sql.raw("c.account_id"));
 
 /**
  * Saved events as they may be shown or sent to a model now. A result card keeps only rows whose source is still live

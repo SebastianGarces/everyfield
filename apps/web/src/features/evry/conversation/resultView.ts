@@ -1,5 +1,8 @@
+import { z } from "zod";
 import { timeText } from "@everyfield/contracts/common";
-import { sendTimeShort } from "../review/model.ts";
+import { fourCs, interviewCriteria } from "@everyfield/contracts/people";
+import { correctedFieldLabel, correctedValueText } from "../../people/corrections/model.ts";
+import { fieldLabel, sendTimeShort, valueText } from "../review/model.ts";
 import { CHANNEL_LABEL } from "../../followups/model.ts";
 import { STAGE_LABEL, type StageValue } from "../../people/model.ts";
 import { CATEGORY_LABEL } from "../../tasks/model.ts";
@@ -27,6 +30,8 @@ type OpView = {
 	totalOnly?: true;
 	/** One record read on its own: no count in the header, only "Not found" when it is gone. */
 	quiet?: true;
+	/** Of the rows of the counted kind, only these count (a commitment's current state heads its cards). */
+	countIf?: (row: SourceRow) => boolean;
 	/** The first row heads the card (a digest's title and dates) and is not one of the counted rows. */
 	headed?: true;
 	/** Said when nothing came back. */
@@ -102,6 +107,14 @@ const followUps = (title: string, rest: Partial<OpView> = {}): OpView => ({
 	...rest,
 });
 
+/** A card of recorded interviews, assessments, commitments, merges or corrections (Owners and Admins only). */
+const records = (
+	title: string,
+	noun: readonly [string, string],
+	empty: string,
+	rest: Partial<OpView> = {},
+): OpView => ({ title, noun, icon: "record", counts: "record", empty, ...rest });
+
 const VIEWS: Record<string, OpView> = {
 	"people.listPeople": people("People"),
 	"people.getPerson": people("Person"),
@@ -167,6 +180,45 @@ const VIEWS: Record<string, OpView> = {
 	"people.exportPeople": people("Directory export", {
 		icon: "file",
 		countAnswer: "Download the file from the People page.",
+	}),
+	"people.getInterviews": records("Interviews", ["interview", "interviews"], "This person has no recorded interview."),
+	"people.getAssessments": records(
+		"4 C's assessments",
+		["assessment", "assessments"],
+		"This person has no recorded 4 C's assessment.",
+	),
+	"people.getCommitments": records("Commitment", ["card", "cards"], "This person has no commitment recorded.", {
+		countIf: (row) => row.fields.record === "commitment",
+	}),
+	"people.getCommitmentDownload": records(
+		"Signed document",
+		["document", "documents"],
+		"This card has no signed document on file.",
+	),
+	"people.getMergeReview": {
+		title: "Merge review",
+		noun: ["person", "people"],
+		icon: "merge",
+		counts: "person",
+		shownOnly: true,
+		empty: NO_PERSON,
+	},
+	"people.previewUnmerge": records("Undo merge", ["merge", "merges"], "No merge in this church matches.", {
+		icon: "merge",
+		counts: "merge",
+	}),
+	"people.listRecordCorrections": records(
+		"Corrections",
+		["correction", "corrections"],
+		"No record of this person was corrected.",
+		{
+			icon: "correction",
+			counts: "correction",
+		},
+	),
+	"people.mergedPersonDestination": records("Where this record leads", ["record", "records"], NO_PERSON, {
+		icon: "merge",
+		counts: "merge",
 	}),
 	"seats.list": {
 		title: "Seats",
@@ -676,6 +728,10 @@ export type RowView = {
 	 * open their page; a top-level task opens in Tasks. A household or any other record has no page.
 	 */
 	href: string | null;
+	/** A recorded judgment in full, field by field: every criterion, score, result and note, never clamped. */
+	details?: { label: string; value: string }[];
+	/** The row opens a file through the People page's download route, which signs its link only when opened. */
+	download?: true;
 	/** The link opens a file the app makes (the agenda's print view) in a new tab. */
 	newTab?: true;
 };
@@ -694,6 +750,89 @@ function activityLine(fields: Record<string, unknown>) {
 			? `${text(fields.householdFrom) ?? "No household"} → ${text(fields.householdTo) ?? "No household"}`
 			: null;
 	return joined(stageChange, home, day(fields.occurredAt));
+}
+
+const corrected = z.array(z.object({ field: z.string(), old: z.unknown(), new: z.unknown() }));
+/** Each corrected field with its old and new value, in the People correction history's words. */
+function correctionDetails(value: unknown) {
+	let raw: unknown = null;
+	try {
+		raw = typeof value === "string" ? JSON.parse(value) : null;
+	} catch {
+		// A saved row in another shape shows no details rather than breaking the conversation.
+	}
+	const parsed = corrected.safeParse(raw);
+	return parsed.success
+		? parsed.data.map((c) => ({
+				label: correctedFieldLabel(c.field),
+				value: `${correctedValueText(c.old)} → ${correctedValueText(c.new)}`,
+			}))
+		: undefined;
+}
+/** One field of a record row, in the review card's words: "Team chemistry: Concern · Needs time". */
+const detail = (field: string, value: unknown) => {
+	const v = valueText(field, value);
+	return v ? { label: fieldLabel(field), value: v } : null;
+};
+const details = (...items: ({ label: string; value: string } | null)[]) =>
+	items.filter((x): x is { label: string; value: string } => x !== null);
+function recordRow(row: SourceRow, plain: Pick<RowView, "key" | "mark" | "href" | "photoFor">): RowView {
+	const f = row.fields;
+	const judged = (k: string, score: boolean) =>
+		detail(
+			k,
+			score ? { score: Number(f[k]), notes: f[`${k}Notes`] ?? null } : { rating: f[k], notes: f[`${k}Notes`] ?? null },
+		);
+	switch (f.record) {
+		case "interview":
+			return {
+				...plain,
+				name: `Interview on ${valueText("occurredOn", f.occurredOn) ?? "an unknown date"}`,
+				line: valueText("result", f.result),
+				avatar: "record",
+				details: details(
+					...interviewCriteria.map((k) => judged(k, false)),
+					detail("result", f.result),
+					detail("nextSteps", f.nextSteps),
+				),
+			};
+		case "assessment":
+			return {
+				...plain,
+				name: `4 C's on ${valueText("occurredOn", f.occurredOn) ?? "an unknown date"}`,
+				line: typeof f.total === "string" ? `Total ${f.total} of 20` : null,
+				avatar: "record",
+				details: details(...fourCs.map((k) => judged(k, true)), detail("total", f.total)),
+			};
+		case "commitment_status":
+			return {
+				...plain,
+				name: `Commitment: ${valueText("commitment", f.state) ?? "Not recorded"}`,
+				line: f.effectiveOn ? `Since ${valueText("effectiveOn", f.effectiveOn)}` : null,
+				avatar: "record",
+			};
+		case "commitment":
+			return {
+				...plain,
+				name: `${valueText("kind", f.kind) ?? "Commitment"} card, signed ${valueText("occurredOn", f.occurredOn) ?? ""}`.trim(),
+				line: joined(f.voided === true ? "Voided" : null, f.document === "attached" ? "Signed document on file" : null),
+				avatar: "record",
+				details: details(detail("witness", f.witness), detail("cardNotes", f.notes)),
+			};
+		case "commitment_document":
+			return {
+				...plain,
+				name: "Download the signed document",
+				line: joined(
+					text(f.mediaType) === "application/pdf" ? "PDF" : text(f.mediaType) ? "Image" : null,
+					num(f.byteCount) > 0 ? `${Math.max(1, Math.round(num(f.byteCount) / 1024))} KB` : null,
+				),
+				avatar: "file",
+				href: text(f.href),
+				download: true,
+			};
+	}
+	return { ...plain, name: row.label, line: null, avatar: "record" };
 }
 
 function rowView(operation: string, row: SourceRow): RowView {
@@ -1006,6 +1145,33 @@ function rowView(operation: string, row: SourceRow): RowView {
 				),
 				avatar: "person",
 			};
+		case "record":
+			return recordRow(row, plain);
+		case "merge": {
+			const blocked = text(fields.blocked);
+			return {
+				...plain,
+				name: row.label,
+				line: blocked
+					? null
+					: joined(
+							text(fields.moves) ? `Moves over: ${text(fields.moves)}` : null,
+							text(fields.movesBack) ? `Moves back: ${text(fields.movesBack)}` : null,
+							fields.status === "merged" ? "Merged into another person" : null,
+						),
+				mark: blocked ? { kind: "status", text: "Can't run", warn: true } : null,
+				avatar: "merge",
+				details: blocked ? [{ label: "Why", value: blocked }] : undefined,
+			};
+		}
+		case "correction":
+			return {
+				...plain,
+				name: `${words(String(fields.recordType ?? "Record"))} corrected ${day(fields.correctedAt) ?? ""}`.trim(),
+				line: text(fields.reason),
+				avatar: "correction",
+				details: correctionDetails(fields.changes),
+			};
 		case "meeting": {
 			// A meeting a task may be linked to (tasks.relationOptions): its name only.
 			if (operation === "tasks.relationOptions")
@@ -1220,6 +1386,16 @@ function rowView(operation: string, row: SourceRow): RowView {
 			mark: null,
 			avatar: null,
 			photoFor: null,
+			href,
+		};
+	if (operation === "people.getMergeReview")
+		return {
+			key,
+			name: row.label,
+			line: fields.role === "stays" ? "Stays" : "Merges in",
+			mark: null,
+			avatar: "person",
+			photoFor: row.id,
 			href,
 		};
 	if (operation === "people.listDuplicatePairs")
@@ -1501,7 +1677,12 @@ export function cardView(operation: string, result: SourceResult, originalTotal:
 	const rows = shownRows(operation, view, result);
 	const counted = view.countAnswer
 		? 0
-		: rows.filter((r, n) => (view.counts === "all" || r.kind === view.counts) && !(view.headed && n === 0)).length;
+		: rows.filter(
+				(r, n) =>
+					(view.counts === "all" || r.kind === view.counts) &&
+					!(view.headed && n === 0) &&
+					(!view.countIf || view.countIf(r)),
+			).length;
 	const photo = operation === "people.getPersonPhoto";
 	const missing = result.status === "not_found" || ((photo || view.quiet) && !rows.length);
 	const summary = missing

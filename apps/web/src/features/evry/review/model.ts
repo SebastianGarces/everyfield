@@ -9,6 +9,16 @@ import { ROLE_LABEL, SHARING_CATEGORIES, SHARING_CATEGORY_LABEL, ZONE_NAME } fro
 import { SOURCE_LABEL, STAGE_LABEL, type SourceValue, type StageValue } from "../../people/model.ts";
 import { CATEGORY_LABEL, PRIORITY_LABEL } from "../../tasks/model.ts";
 import { TASK_REFUSAL, type ProjectedError } from "../conversation/model.ts";
+import {
+	CRITERION_LABEL,
+	FIELD_LABEL as MERGE_FIELD_LABEL,
+	LENS_LABEL,
+	RATING_LABEL,
+	RESULT_LABEL,
+	type InterviewResult,
+	type MergeField,
+	type Rating,
+} from "../../people/corrections/model.ts";
 
 export type Operation =
 	| "people.createPerson"
@@ -17,6 +27,15 @@ export type Operation =
 	| "people.deletePerson"
 	| "people.setPersonPhoto"
 	| "people.removePersonPhoto"
+	| "people.createInterview"
+	| "people.createAssessment"
+	| "people.createCommitment"
+	| "people.withdrawCommitment"
+	| "people.reactivateCommitment"
+	| "people.correctCommitmentLifecycle"
+	| "people.correctPersonRecord"
+	| "people.mergePeople"
+	| "people.unmergePeople"
 	| OrganizationOperation
 	| "communication.saveDraft"
 	| "communication.scheduleReviewed"
@@ -326,6 +345,26 @@ const FIELD_LABEL: Record<string, string> = {
 	reason: "Reason",
 	photo: "Photo",
 	state: "Status",
+	occurredOn: "Date",
+	...CRITERION_LABEL,
+	result: "Result",
+	nextSteps: "Next steps",
+	...LENS_LABEL,
+	total: "Total",
+	kind: "Commitment",
+	witness: "Witness",
+	cardNotes: "Notes",
+	commitment: "Commitment",
+	effectiveOn: "From",
+	cardVoided: "Voided",
+	keeps: "Stays",
+	mergesIn: "Merges in",
+	moves: "Moves over",
+	keptDetails: "Kept as is",
+	staysWithMergedRecord: "Stays behind",
+	comesBack: "Comes back",
+	movesBack: "Moves back",
+	detailsGoBack: "Details back",
 	household: "Household",
 	householdRole: "Role",
 	householdAddress: "Address",
@@ -445,16 +484,33 @@ const FIELD_LABEL: Record<string, string> = {
 	discovery: "Discovery",
 	...SHARING_CATEGORY_LABEL,
 };
+const KIND_LABEL: Record<string, string> = { core_group: "Core group", launch_team: "Launch team" };
+const COMMITMENT_LABEL: Record<string, string> = { active: "Active", withdrawn: "Withdrawn", unknown: "Not recorded" };
+/** A rating or score with its notes: "Concern · Needs time with the team", "4 of 5". */
+function judgmentText(value: object): string | null {
+	const v = value as { rating?: unknown; score?: unknown; notes?: unknown };
+	const head =
+		typeof v.score === "number"
+			? `${v.score} of 5`
+			: typeof v.rating === "string"
+				? (RATING_LABEL[v.rating as Rating] ?? v.rating)
+				: null;
+	if (!head) return null;
+	return typeof v.notes === "string" && v.notes ? `${head} · ${v.notes}` : head;
+}
 /** Meetings words for a field another card also uses: a finalize's "tasks" are the tasks it creates, not a sharing category. */
 const MEETINGS_LABEL: Record<string, string> = { tasks: "Tasks it creates" };
 /** A presence change names its person: "presence:Maria Santos" reads "Maria Santos". */
 export const fieldLabel = (field: string, operation?: string) =>
 	field.startsWith("presence:")
 		? field.slice("presence:".length)
-		: ((operation?.startsWith("meetings.") ? MEETINGS_LABEL[field] : undefined) ?? FIELD_LABEL[field] ?? field);
+		: ((operation?.startsWith("meetings.") ? MEETINGS_LABEL[field] : undefined) ??
+			FIELD_LABEL[field] ??
+			MERGE_FIELD_LABEL[field as MergeField] ??
+			field);
 
 const TEAM_STATE: Record<string, string> = { forming: "Forming", active: "Active", paused: "Paused" };
-const DATE_FIELDS = new Set(["birthDate", "date", "completedOn", "completedAgainOn"]);
+const DATE_FIELDS = new Set(["birthDate", "date", "completedOn", "completedAgainOn", "occurredOn", "effectiveOn"]);
 
 /** Values People shows capitalized: a household role, a skill's category and level, a tag color. */
 const CAPITALIZED = new Set(["householdRole", "category", "proficiency", "color"]);
@@ -572,6 +628,10 @@ export function valueText(field: string, value: unknown): string | null {
 	if (field === "recurrence" && typeof value === "string") return repeats(value);
 	// A changed link names its record by id only; the card never shows an id.
 	if (field === "relatedTo" && typeof value === "string" && UUID.test(value)) return "A linked record";
+	if (field === "result") return RESULT_LABEL[value as InterviewResult] ?? String(value);
+	if (field === "kind") return KIND_LABEL[String(value)] ?? String(value);
+	if (field === "commitment") return COMMITMENT_LABEL[String(value)] ?? String(value);
+	if (typeof value === "object") return judgmentText(value) ?? JSON.stringify(value);
 	return String(value);
 }
 
@@ -637,7 +697,7 @@ const CREATES = new Set<Operation>([
 const NO_BEFORE = new Set(["reason", "contactNote", "nextOccurrence"]);
 /** A change shows its value now, then the new one; a new record, a new item, a reason or a note shows only the new. */
 export const showsBefore = (review: Pick<Review, "operation">, change: Change) =>
-	!addsOnly(review.operation) &&
+	!afterOnly(review, change.field) &&
 	!NO_BEFORE.has(change.field) &&
 	// A Meetings value with nothing before it is new: it shows only what it will be.
 	!(isMeetings(review.operation) && (change.before === null || change.before === undefined)) &&
@@ -783,6 +843,15 @@ const TITLE: Record<Operation, string> = {
 	"tasks.reopenObligation": "Reopen a follow-up",
 	"followups.recordOutcome": "Log a contact",
 	"followups.correctOutcome": "Correct a contact log entry",
+	"people.createInterview": "Record an interview",
+	"people.createAssessment": "Record a 4 C's assessment",
+	"people.createCommitment": "Record a commitment",
+	"people.withdrawCommitment": "Withdraw a commitment",
+	"people.reactivateCommitment": "Reactivate a commitment",
+	"people.correctCommitmentLifecycle": "Correct a commitment card",
+	"people.correctPersonRecord": "Correct a record",
+	"people.mergePeople": "Merge two people",
+	"people.unmergePeople": "Undo a merge",
 	"seats.invite": "Invite someone",
 	"seats.resendInvitation": "Resend an invitation",
 	"seats.revokeInvitation": "Revoke an invitation",
@@ -865,6 +934,20 @@ const TITLE: Record<Operation, string> = {
 	"venues.restore": "Restore a venue",
 };
 export const operationTitle = (operation: Operation) => TITLE[operation];
+
+/** A new record and the facts of a merge have no value before: the card shows only the value they will have. */
+const MERGE_FACTS = new Set([
+	"keeps",
+	"keptDetails",
+	"mergesIn",
+	"moves",
+	"staysWithMergedRecord",
+	"comesBack",
+	"movesBack",
+	"detailsGoBack",
+]);
+export const afterOnly = (review: Pick<Review, "operation">, field: string) =>
+	field === "reason" || MERGE_FACTS.has(field) || (ADDS.has(review.operation) && field !== "stage");
 
 // ---------------------------------------------------------------------------------------------------------------
 // Email: the five reviewed Communication writes (MAIL51-009). The email service is the only source of "confirmed".
@@ -1056,6 +1139,18 @@ export function consequence(review: Review): string | null {
 	const tasks = handedBack(review.review.changes);
 	const owner =
 		tasks > 0 ? `${tasks.toLocaleString()} open ${tasks === 1 ? "task" : "tasks"} will need a new owner.` : null;
+	switch (review.operation) {
+		case "people.createAssessment":
+		case "people.withdrawCommitment":
+		case "people.reactivateCommitment":
+		case "people.correctCommitmentLifecycle":
+		case "people.correctPersonRecord":
+			return "Their stage stays as it is.";
+		case "people.mergePeople":
+			return "The merged record joins the person who stays. You can undo the merge from People while nothing changes since.";
+		case "people.unmergePeople":
+			return "Both people are separate again, as they were before the merge.";
+	}
 	if (review.operation === "meetings.delete") return "It leaves Meetings. Its history stays.";
 	if (review.operation === "meetings.finalizeAttendance")
 		return "Approving finalizes attendance and creates exactly the tasks listed.";
@@ -1156,6 +1251,9 @@ const ADDS = new Set<Operation>([
 	"people.addNote",
 	"people.addSkill",
 	"people.createTag",
+	"people.createInterview",
+	"people.createAssessment",
+	"people.createCommitment",
 	"seats.invite",
 	"associations.invite",
 	"onboarding.createPlant",
@@ -1163,7 +1261,6 @@ const ADDS = new Set<Operation>([
 	"discovery.convertToPlant",
 	"development.saveProgram",
 ]);
-export const addsOnly = (operation: Operation) => ADDS.has(operation);
 /** The changes that give the account its first church seat, as its Owner. */
 export const seatsAccount = (operation: Operation) =>
 	operation === "onboarding.createPlant" || operation === "discovery.convertToPlant";
@@ -1402,6 +1499,10 @@ export function refusalText(code: string | undefined, target: string | null, ope
 		case "not_found":
 		case "source_unavailable":
 			return `${who} is no longer available, so nothing was saved.`;
+		case "merge_blocked":
+			return "This merge cannot run now, so nothing was merged. Ask Evry to review it again.";
+		case "inverse_conflict":
+			return "Something changed since the merge, so it was not undone. Ask Evry to review it again.";
 		case "review_stale":
 			return "People changed after Evry checked this file, so nothing was imported. Ask Evry to check it again.";
 		case "file_changed":

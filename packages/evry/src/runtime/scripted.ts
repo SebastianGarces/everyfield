@@ -9,6 +9,7 @@ import { randomUUID } from "node:crypto";
 import { onboardingStep } from "./scripted-onboarding.ts";
 import { pipelineStep } from "./scripted-pipeline.ts";
 import { TASK_DATA, taskStep } from "./scripted-tasks.ts";
+import { assessmentStep } from "./scripted-assessments.ts";
 import { settingsStep } from "./scripted-settings.ts";
 
 // A deterministic stand-in for a qualified model, for local previews and tests only (selectQualifiedModel never picks
@@ -49,6 +50,9 @@ const pageSize = (text: string) =>
 function classify(text: string) {
 	// A task titled "Pray for the launch" is task data, not a request for prayer.
 	if (!TASK_DATA.test(text) && /\b(pray|prayer|biblical|scripture|spiritual(ly)?|pastoral(ly)?|suitab)/i.test(text))
+		return "pastoral_boundary";
+	// A judgment of a person ("do you think Daniel is qualified?") is a human call, never Evry's.
+	if (/\b(do you think|would you say|in your opinion)\b.*\b(qualified|ready|mature|called)\b/i.test(text))
 		return "pastoral_boundary";
 	if (/what (can|are) you (able to )?(do|help)|capabilit/i.test(text)) return "capabilities";
 	return "application";
@@ -837,6 +841,9 @@ function respond(options: LanguageModelV4CallOptions): LanguageModelV4Content[] 
 	const result = lastToolOutput(options.prompt);
 	const system = systemText(options.prompt);
 	const canReadMail = options.tools?.some((t) => t.name === "communication_read") ?? false;
+	const records = options.tools?.some((t) => t.name === "peopleAssessments_read") ?? false;
+	const assessed = assessmentStep(text, options.prompt, records, toolCall);
+	if (assessed) return assessed;
 	const steps =
 		limitStep(text, system, result, canProposePeople) ??
 		fileStep(text, system, result, canProposePeople) ??

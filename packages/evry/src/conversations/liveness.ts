@@ -5,11 +5,20 @@ import type { EvryActor } from "../context/actor.ts";
 import type { SourceRow } from "../catalog/types.ts";
 
 /**
- * Whether a result row's source still exists, one rule per row kind. `id` is the row id as uuid text and `plant` the
- * conversation's plant (this product keeps tenant and plant equal). A rule is `null` when the kind is not a stored
- * source: such a row is never withheld. Replay (retained.ts) and the in-turn check (turn.ts) both build from this map.
+ * Whether a result row's source still exists, one rule per row kind. `id` is the row id as uuid text, `plant` the
+ * conversation's plant (this product keeps tenant and plant equal) and `account` the conversation's account. A rule is
+ * `null` when the kind is not a stored source: such a row is never withheld. Replay (retained.ts) and the in-turn check
+ * (turn.ts) both build from this map.
  */
-type Rule = ((id: SQL, plant: SQL) => SQL) | null;
+type Rule = ((id: SQL, plant: SQL, account: SQL) => SQL) | null;
+/**
+ * The assessment area (interviews, 4 C's, commitments, merges, corrections) is for the church's Owners and Admins: its
+ * rows stay only while the conversation's account still holds such a seat, so a seat moved to Member never sees them
+ * again, in replay or in a later model call. Its own aliases (live_*) never capture a caller's alias.
+ */
+const ownerOrAdmin = (plant: SQL, account: SQL) =>
+	sql`EXISTS(SELECT FROM seat live_s WHERE live_s.account_id=${account} AND live_s.plant_id=${plant} AND live_s.ended_at IS NULL
+		AND live_s.accepted_at<=clock_timestamp() AND live_s.role<>'member')`;
 
 const ROW_LIVENESS: Record<SourceRow["kind"], Rule> = {
 	// The person is live in this church, or in this organization's pipeline.
@@ -62,6 +71,20 @@ const ROW_LIVENESS: Record<SourceRow["kind"], Rule> = {
 	file: null,
 	skill: null,
 	activity: null,
+	// A recorded interview, 4 C's assessment or commitment card, or the person's current commitment.
+	record: (id, plant, account) =>
+		sql`(${ownerOrAdmin(plant, account)} AND (EXISTS(SELECT FROM interview live_r WHERE live_r.id=${id} AND live_r.plant_id=${plant})
+			OR EXISTS(SELECT FROM four_cs live_r WHERE live_r.id=${id} AND live_r.plant_id=${plant})
+			OR EXISTS(SELECT FROM commitment live_r WHERE live_r.id=${id} AND live_r.plant_id=${plant})
+			OR EXISTS(SELECT FROM person live_r WHERE live_r.id=${id} AND live_r.plant_id=${plant} AND live_r.state='live')))`,
+	// A merge review names a person (live or merged); an Unmerge preview names its merge.
+	merge: (id, plant, account) =>
+		sql`(${ownerOrAdmin(plant, account)} AND (EXISTS(SELECT FROM person_merge live_m WHERE live_m.id=${id} AND live_m.tenant_id=${plant})
+			OR EXISTS(SELECT FROM person live_r WHERE live_r.id=${id} AND live_r.plant_id=${plant})))`,
+	// A field correction is a plant history row; a card's date, kind or void correction is its audit row.
+	correction: (id, plant, account) =>
+		sql`(${ownerOrAdmin(plant, account)} AND (EXISTS(SELECT FROM record_correction live_r WHERE live_r.id=${id} AND live_r.plant_id=${plant})
+			OR EXISTS(SELECT FROM audit_event live_a WHERE live_a.id=${id} AND live_a.tenant_id=${plant})))`,
 	// Never withheld: a seat, an invitation or a connection is the church's own access setting, which the person asking
 	// changes themselves through reviews; an answer that named one stays readable after the change.
 	seat: null,
@@ -84,10 +107,10 @@ const ROW_LIVENESS: Record<SourceRow["kind"], Rule> = {
  * A SQL boolean for one result row, `row` being a jsonb `{kind,id,...}`. The uuid cast sits inside its kind's branch, so
  * a non-uuid id of a never-withheld kind (a CSV line, a digest) is never cast.
  */
-export function rowLive(row: SQL, plant: SQL): SQL {
+export function rowLive(row: SQL, plant: SQL, account: SQL): SQL {
 	const branches = (Object.keys(ROW_LIVENESS) as SourceRow["kind"][]).flatMap((kind) => {
 		const rule = ROW_LIVENESS[kind];
-		return rule ? [sql`WHEN ${kind} THEN ${rule(sql`(${row}->>'id')::uuid`, plant)}`] : [];
+		return rule ? [sql`WHEN ${kind} THEN ${rule(sql`(${row}->>'id')::uuid`, plant, account)}`] : [];
 	});
 	return sql`(CASE (${row}->>'kind') ${sql.join(branches, sql` `)} ELSE true END)`;
 }
@@ -109,7 +132,7 @@ export async function liveRowKeys(
 	const r = await db.execute(sql`
 		SELECT r.key FROM jsonb_to_recordset(${JSON.stringify(rows)}::jsonb) AS x(kind text,id text)
 		CROSS JOIN LATERAL (SELECT x.kind||':'||x.id AS key, jsonb_build_object('kind',x.kind,'id',x.id) AS j) r
-		WHERE ${rowLive(sql`r.j`, sql`${actor.owner.id}::uuid`)}
+		WHERE ${rowLive(sql`r.j`, sql`${actor.owner.id}::uuid`, sql`${actor.accountId}::uuid`)}
 			AND ${liveRead({ session: actor.session, owner: actor.owner, seatId: actor.seatId ?? undefined })}`);
 	return new Set(r.rows.map((raw) => String((raw as { key: string }).key)));
 }

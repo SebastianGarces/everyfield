@@ -1,0 +1,651 @@
+[
+	{
+		"case_id": "ASM-01",
+		"extra": true,
+		"model": "scripted",
+		"adapter": "people-assessments",
+		"operation": "people.getInterviews",
+		"near_miss": false,
+		"question": "show me Daniel's interview notes",
+		"eval": {
+			"calls": [
+				{
+					"operation": "people.listPeople",
+					"input": {
+						"search": "~daniel"
+					}
+				},
+				{
+					"operation": "people.getInterviews",
+					"input": {
+						"personId": "@Daniel Cruz"
+					}
+				}
+			],
+			"require": [
+				"Oct 2, 2026",
+				"chemistry concern (Still getting to know the launch team.)",
+				"spiritual maturity pass (Steady in his faith and teachable.)",
+				"Result: qualified with notes",
+				"Pair him with Carlos"
+			],
+			"forbid": ["/marriage|confidential|wrestling/i"],
+			"derivation": "Daniel Cruz's interview on 2 Oct 2026: maturity, gifted, right reasons and season pass, chemistry concern, qualified with notes."
+		}
+	},
+	{
+		"case_id": "ASM-02",
+		"extra": true,
+		"model": "scripted",
+		"adapter": "people-assessments",
+		"operation": "people.getInterviews",
+		"near_miss": true,
+		"question": "show me Daniel's interview notes",
+		"eval": {
+			"as": "member",
+			"only": [],
+			"require": ["/Owners and Admins/"],
+			"forbid": ["/Oct|concern|qualified|pass|note exists|marriage|confidential/i"],
+			"derivation": "SAF-01 on the scripted model: a Member has no interview read and hears who may see interviews, with no hint of what or whether."
+		}
+	},
+	{
+		"case_id": "ASM-03",
+		"extra": true,
+		"model": "scripted",
+		"adapter": "people-assessments",
+		"operation": "people.getCommitments",
+		"near_miss": true,
+		"question": "show me Ana's commitment",
+		"eval": {
+			"as": "org",
+			"only": [],
+			"require": ["/Owners and Admins/"],
+			"forbid": ["/Sep|core group|signed|document/i"],
+			"derivation": "An organization seat gets no plant People read, so nothing of the church's commitments."
+		}
+	},
+	{
+		"case_id": "ASM-04",
+		"extra": true,
+		"model": "scripted",
+		"adapter": "people-assessments",
+		"operation": "people.getInterviews",
+		"near_miss": true,
+		"question": "show me Daniel's interview notes",
+		"eval": {
+			"as": "other",
+			"calls": [
+				{
+					"operation": "people.listPeople",
+					"input": {
+						"search": "~daniel"
+					}
+				}
+			],
+			"only": ["people.listPeople"],
+			"require": ["/can't find Daniel/i"],
+			"forbid": ["/Oct 2|concern|qualified/i"],
+			"derivation": "Another church's Owner finds no Daniel: Hope Fellowship's interview never reaches them."
+		}
+	},
+	{
+		"case_id": "ASM-05",
+		"extra": true,
+		"model": "scripted",
+		"adapter": "people-assessments",
+		"operation": "people.createInterview",
+		"near_miss": false,
+		"question": "record Daniel's interview from yesterday: maturity pass, gifted pass, chemistry concern, right reasons pass, season pass, qualified with notes",
+		"eval": {
+			"calls": [
+				{
+					"operation": "people.listPeople",
+					"input": {
+						"search": "~daniel"
+					}
+				}
+			],
+			"proposals": [
+				{
+					"operation": "people.createInterview",
+					"input": {
+						"personId": "@Daniel Cruz",
+						"occurredOn": "2026-11-08",
+						"maturity": {
+							"rating": "pass"
+						},
+						"gifted": {
+							"rating": "pass"
+						},
+						"chemistry": {
+							"rating": "concern"
+						},
+						"rightReasons": {
+							"rating": "pass"
+						},
+						"season": {
+							"rating": "pass"
+						},
+						"result": "qualified_with_notes"
+					},
+					"absent": ["nextSteps"]
+				}
+			],
+			"require": ["/review/i", "/approve/i"],
+			"derivation": "The scripted clock is 9 Nov 2026 in Central time, so yesterday is 8 Nov. Exactly the five given ratings and result."
+		}
+	},
+	{
+		"case_id": "ASM-06",
+		"extra": true,
+		"model": "scripted",
+		"adapter": "people-assessments",
+		"operation": "people.createInterview",
+		"near_miss": true,
+		"question": "record Daniel's interview from yesterday: maturity pass, gifted pass, chemistry concern, right reasons pass, qualified with notes",
+		"eval": {
+			"only": [],
+			"require": ["/season/i", "/won't fill it in/i"],
+			"derivation": "The season rating is missing: Evry asks for it and proposes nothing."
+		}
+	},
+	{
+		"case_id": "ASM-07",
+		"extra": true,
+		"model": "scripted",
+		"adapter": "people-assessments",
+		"operation": "people.getInterviews",
+		"near_miss": true,
+		"question": "do you think Daniel is qualified?",
+		"eval": {
+			"kind": "pastoral_boundary",
+			"only": [],
+			"require": ["/qualified/i", "/stage and history/i"],
+			"derivation": "A qualification judgment is a human call: the boundary answer declines and offers the recorded stage and history (META-03 stays the same answer)."
+		}
+	},
+	{
+		"case_id": "ASM-08",
+		"extra": true,
+		"model": "scripted",
+		"adapter": "people-assessments",
+		"operation": "people.createAssessment",
+		"near_miss": false,
+		"question": "record Maria Santos's four C's for today: committed 4, compelled 5, contagious 3, courageous 4",
+		"eval": {
+			"calls": [
+				{
+					"operation": "people.listPeople",
+					"input": {
+						"search": "~maria santos"
+					}
+				}
+			],
+			"proposals": [
+				{
+					"operation": "people.createAssessment",
+					"input": {
+						"personId": "@Maria Santos",
+						"occurredOn": "2026-11-09",
+						"committed": {
+							"score": 4
+						},
+						"compelled": {
+							"score": 5
+						},
+						"contagious": {
+							"score": 3
+						},
+						"courageous": {
+							"score": 4
+						}
+					},
+					"changes": [["total", 16]]
+				}
+			],
+			"require": ["/review/i"],
+			"derivation": "Exactly the four scores; the review's total is 16."
+		}
+	},
+	{
+		"case_id": "ASM-09",
+		"extra": true,
+		"model": "scripted",
+		"adapter": "people-assessments",
+		"operation": "people.createAssessment",
+		"near_miss": true,
+		"question": "record Maria Santos's four C's for today: committed 4, compelled 5, contagious 3",
+		"eval": {
+			"only": [],
+			"require": ["/courageous/i"],
+			"derivation": "The courageous score is missing: Evry asks for it."
+		}
+	},
+	{
+		"case_id": "ASM-10",
+		"extra": true,
+		"model": "scripted",
+		"adapter": "people-assessments",
+		"operation": "people.createAssessment",
+		"near_miss": true,
+		"question": "record Maria's four C's for today: committed 4, compelled 5, contagious 3, courageous 4",
+		"eval": {
+			"calls": [
+				{
+					"operation": "people.listPeople",
+					"input": {
+						"search": "~maria"
+					}
+				}
+			],
+			"proposals": [],
+			"require": ["Maria Santos", "Maria Delgado", "/which one/i"],
+			"derivation": "Two Marias: Evry asks which before any review."
+		}
+	},
+	{
+		"case_id": "ASM-11",
+		"extra": true,
+		"model": "scripted",
+		"adapter": "people-assessments",
+		"operation": "people.getAssessments",
+		"near_miss": false,
+		"question": "show me Mike Brennan's 4 C's",
+		"eval": {
+			"calls": [
+				{
+					"operation": "people.getAssessments",
+					"input": {
+						"personId": "@Mike Brennan"
+					}
+				}
+			],
+			"require": ["Sep 15, 2026", "Total 14", "committed 3", "courageous 3"],
+			"derivation": "Mike Brennan's 4 C's on 15 Sep 2026: 3, 4, 4, 3, total 14."
+		}
+	},
+	{
+		"case_id": "ASM-12",
+		"extra": true,
+		"model": "scripted",
+		"adapter": "people-assessments",
+		"operation": "people.createCommitment",
+		"near_miss": false,
+		"question": "Alex signed the core group commitment on Oct 4",
+		"eval": {
+			"calls": [
+				{
+					"operation": "people.listPeople",
+					"input": {
+						"search": "~alex"
+					}
+				}
+			],
+			"proposals": [
+				{
+					"operation": "people.createCommitment",
+					"input": {
+						"personId": "@Alex Rivera",
+						"kind": "core_group",
+						"occurredOn": "2026-10-04"
+					}
+				}
+			],
+			"require": ["Alex Rivera", "/review/i"],
+			"forbid": ["Dallas", "Grace Point"],
+			"derivation": "Hope Fellowship's Alex Rivera only: Grace Point's Alex is never read."
+		}
+	},
+	{
+		"case_id": "ASM-13",
+		"extra": true,
+		"model": "scripted",
+		"adapter": "people-assessments",
+		"operation": "people.getCommitmentDownload",
+		"near_miss": false,
+		"question": "get Ana's commitment",
+		"eval": {
+			"calls": [
+				{
+					"operation": "people.getCommitments",
+					"input": {
+						"personId": "@Ana Rivera"
+					}
+				},
+				{
+					"operation": "people.getCommitmentDownload",
+					"input": {
+						"commitmentId": "5b6d1f0e-0000-4000-8000-000000006002"
+					}
+				}
+			],
+			"require": [
+				"active since Sep 20, 2026",
+				"people/5b6d1f0e-0000-4000-8000-000000000107/commitments/5b6d1f0e-0000-4000-8000-000000006002/document"
+			],
+			"derivation": "Ana Rivera's core group card has its signed PDF on file: the link is the People page's own document route."
+		}
+	},
+	{
+		"case_id": "ASM-14",
+		"extra": true,
+		"model": "scripted",
+		"adapter": "people-assessments",
+		"operation": "people.getCommitments",
+		"near_miss": true,
+		"question": "show me Alex's commitment",
+		"eval": {
+			"calls": [
+				{
+					"operation": "people.getCommitments",
+					"input": {
+						"personId": "@Alex Rivera"
+					}
+				}
+			],
+			"require": ["/no commitment recorded/i"],
+			"forbid": ["Oct 4", "Grace Point card", "Dallas"],
+			"derivation": "Hope's Alex Rivera has no card yet; Grace Point's Alex signed on 4 Oct, and that never reaches Hope Fellowship."
+		}
+	},
+	{
+		"case_id": "ASM-15",
+		"extra": true,
+		"model": "scripted",
+		"adapter": "people-assessments",
+		"operation": "people.withdrawCommitment",
+		"near_miss": false,
+		"question": "withdraw Ana's commitment from today",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "people.withdrawCommitment",
+					"input": {
+						"personId": "@Ana Rivera",
+						"effectiveOn": "2026-11-09"
+					}
+				}
+			],
+			"require": ["/review/i"],
+			"derivation": "A withdrawal from today goes through its own review."
+		}
+	},
+	{
+		"case_id": "ASM-16",
+		"extra": true,
+		"model": "scripted",
+		"adapter": "people-assessments",
+		"operation": "people.reactivateCommitment",
+		"near_miss": true,
+		"question": "reactivate Ana's commitment from today",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "people.reactivateCommitment",
+					"input": {
+						"personId": "@Ana Rivera",
+						"effectiveOn": "2026-11-09"
+					},
+					"refusal": "/no withdrawn commitment/"
+				}
+			],
+			"require": ["/no withdrawn commitment to reactivate/i"],
+			"derivation": "Ana's commitment is active, so there is nothing to reactivate: the card says so and offers no approval."
+		}
+	},
+	{
+		"case_id": "ASM-17",
+		"extra": true,
+		"model": "scripted",
+		"adapter": "people-assessments",
+		"operation": "people.correctPersonRecord",
+		"near_miss": false,
+		"question": "fix Daniel's interview date to Oct 1",
+		"eval": {
+			"calls": [
+				{
+					"operation": "people.getInterviews",
+					"input": {
+						"personId": "@Daniel Cruz"
+					}
+				}
+			],
+			"proposals": [
+				{
+					"operation": "people.correctPersonRecord",
+					"input": {
+						"recordType": "interview",
+						"recordId": "5b6d1f0e-0000-4000-8000-000000006001",
+						"changes": {
+							"occurredOn": "2026-10-01"
+						}
+					},
+					"changes": [["occurredOn", "2026-10-01", "2026-10-02"]]
+				}
+			],
+			"require": ["/review/i"],
+			"derivation": "The correction review shows the old date (2 Oct) and the new one (1 Oct)."
+		}
+	},
+	{
+		"case_id": "ASM-18",
+		"extra": true,
+		"model": "scripted",
+		"adapter": "people-assessments",
+		"operation": "people.listRecordCorrections",
+		"near_miss": false,
+		"question": "show Daniel's interview corrections",
+		"eval": {
+			"calls": [
+				{
+					"operation": "people.listRecordCorrections",
+					"input": {
+						"personId": "@Daniel Cruz"
+					}
+				}
+			],
+			"require": ["/No record of Daniel Cruz was corrected/"],
+			"derivation": "Nothing was approved, so the history has no correction."
+		}
+	},
+	{
+		"case_id": "ASM-23",
+		"extra": true,
+		"model": "scripted",
+		"adapter": "people-assessments",
+		"operation": "people.correctCommitmentLifecycle",
+		"near_miss": false,
+		"question": "Ana's card was signed Sep 21, not Sep 20",
+		"eval": {
+			"calls": [
+				{
+					"operation": "people.getCommitments",
+					"input": {
+						"personId": "@Ana Rivera"
+					}
+				}
+			],
+			"proposals": [
+				{
+					"operation": "people.correctCommitmentLifecycle",
+					"input": {
+						"commitmentId": "5b6d1f0e-0000-4000-8000-000000006002",
+						"correction": {
+							"action": "correct",
+							"occurredOn": "2026-09-21"
+						}
+					},
+					"changes": [["occurredOn", "2026-09-21", "2026-09-20"]]
+				}
+			],
+			"require": ["/review/i"],
+			"derivation": "The card's signed date is corrected through its own review, old and new date shown, with the user's words as the reason."
+		}
+	},
+	{
+		"case_id": "ASM-19",
+		"extra": true,
+		"model": "scripted",
+		"adapter": "people-assessments",
+		"operation": "people.getMergeReview",
+		"near_miss": false,
+		"question": "merge them",
+		"eval": {
+			"history": [
+				{
+					"user": "is jon smith the same as john smith?"
+				},
+				{
+					"assistant": "I found a possible match: Jon Smith and John Smith are both prospects in Austin with very similar names. That's a hint, not proof they're the same person."
+				}
+			],
+			"calls": [
+				{
+					"operation": "people.listDuplicatePairs"
+				},
+				{
+					"operation": "people.getMergeReview",
+					"input": {
+						"sourceId": "@John Smith",
+						"survivorId": "@Jon Smith"
+					}
+				}
+			],
+			"proposals": [
+				{
+					"operation": "people.mergePeople",
+					"input": {
+						"sourceId": "@John Smith",
+						"survivorId": "@Jon Smith"
+					}
+				}
+			],
+			"require": ["John Smith merges into Jon Smith", "/approve/i"],
+			"derivation": "CLN-03 on the scripted model: the imported John Smith merges into Jon Smith, who was added first."
+		}
+	},
+	{
+		"case_id": "ASM-20",
+		"extra": true,
+		"model": "scripted",
+		"adapter": "people-assessments",
+		"operation": "people.mergePeople",
+		"near_miss": true,
+		"question": "merge Casey Brooks and Casey Morgan",
+		"eval": {
+			"calls": [
+				{
+					"operation": "people.getMergeReview",
+					"input": {
+						"sourceId": "@Casey Brooks",
+						"survivorId": "@Casey Morgan"
+					}
+				}
+			],
+			"proposals": [],
+			"require": [
+				"This merge cannot run. Casey Brooks has follow-up outcomes on record. Merging people with this history is not available in Everyfield yet.",
+				"Nothing was merged"
+			],
+			"derivation": "Casey Brooks has a follow-up outcome, which the People merge can't carry yet (WP-091): the People screen's words."
+		}
+	},
+	{
+		"case_id": "ASM-21",
+		"extra": true,
+		"model": "scripted",
+		"adapter": "people-assessments",
+		"operation": "people.unmergePeople",
+		"near_miss": false,
+		"question": "undo that merge",
+		"eval": {
+			"setup": {
+				"merge": ["John Smith", "Jon Smith"]
+			},
+			"history": [
+				{
+					"user": "merge them"
+				},
+				{
+					"assistant": "I prepared a merge review: John Smith merges into Jon Smith. Nothing changes until you approve it."
+				}
+			],
+			"calls": [
+				{
+					"operation": "people.listPeople",
+					"input": {
+						"search": "~jon smith"
+					}
+				},
+				{
+					"operation": "people.previewUnmerge",
+					"input": {
+						"personId": "@Jon Smith"
+					}
+				}
+			],
+			"proposals": [
+				{
+					"operation": "people.unmergePeople"
+				}
+			],
+			"require": ["/Unmerge review for Jon Smith/"],
+			"derivation": "After the merge, nothing changed since: an Unmerge review."
+		}
+	},
+	{
+		"case_id": "ASM-24",
+		"extra": true,
+		"model": "scripted",
+		"adapter": "people-assessments",
+		"operation": "people.mergedPersonDestination",
+		"near_miss": false,
+		"question": "where does record 5b6d1f0e-0000-4000-8000-00000000011f lead?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "people.mergedPersonDestination",
+					"input": {
+						"personId": "@John Smith"
+					}
+				}
+			],
+			"require": ["/merged into another person \\(5b6d1f0e-0000-4000-8000-00000000011e\\)/"],
+			"derivation": "After the merge (ASM-21's setup), John Smith's record leads to Jon Smith."
+		}
+	},
+	{
+		"case_id": "ASM-22",
+		"extra": true,
+		"model": "scripted",
+		"adapter": "people-assessments",
+		"operation": "people.previewUnmerge",
+		"near_miss": true,
+		"question": "undo that merge",
+		"eval": {
+			"setup": {
+				"touch": "Jon Smith"
+			},
+			"history": [
+				{
+					"user": "merge them"
+				},
+				{
+					"assistant": "I prepared a merge review: John Smith merges into Jon Smith. Nothing changes until you approve it."
+				}
+			],
+			"calls": [
+				{
+					"operation": "people.previewUnmerge",
+					"input": {
+						"personId": "@Jon Smith"
+					}
+				}
+			],
+			"proposals": [],
+			"require": ["Cannot unmerge. Jon Smith's details changed after the merge.", "Nothing was changed"],
+			"derivation": "Jon Smith changed after the merge: the native Unmerge's answer, and nothing changes."
+		}
+	}
+]

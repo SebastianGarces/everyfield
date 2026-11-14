@@ -9,7 +9,21 @@ import * as catalog from "../../../packages/evry/src/catalog/catalog.ts";
 import { invokeRead } from "../../../packages/evry/src/catalog/invoke.ts";
 import type { ReadAdapter, SourceResult } from "../../../packages/evry/src/catalog/types.ts";
 import { cardView, FALLBACK } from "../../../apps/web/src/features/evry/conversation/resultView.ts";
-import { byName, goldenChurch, IMPORT_KEY, MEETINGS, programId, taskId, teamId } from "../evals/golden-church.mts";
+import { withPeopleWrite } from "../../../packages/domain/src/people/core.ts";
+import { peopleMerge } from "../../../packages/domain/src/people/merge/index.ts";
+import { recordCorrections } from "../../../packages/domain/src/people/corrections/index.ts";
+import { PeopleReadContext } from "../../../packages/domain/src/people/core.ts";
+import {
+	ANA_COMMITMENT,
+	byName,
+	DANIEL_INTERVIEW,
+	goldenChurch,
+	IMPORT_KEY,
+	MEETINGS,
+	programId,
+	taskId,
+	teamId,
+} from "../evals/golden-church.mts";
 import { nativePorts } from "../evals/settings-ports.mts";
 import { seedSetup, SETUP_SPECS } from "../evals/setup-church.mts";
 import { PIPELINE_SPECS, seedPipeline } from "../evals/pipeline-church.mts";
@@ -66,6 +80,46 @@ const PROBES: Record<string, Record<string, unknown> | (() => Promise<SourceResu
 	"people.listHouseholds": {},
 	"people.listTags": {},
 	"people.previewImport": { file: FILE },
+	"people.getInterviews": { personId: byName("Daniel Cruz").id },
+	"people.getAssessments": { personId: byName("Mike Brennan").id },
+	"people.getCommitments": { personId: byName("Ana Rivera").id },
+	"people.getCommitmentDownload": { commitmentId: ANA_COMMITMENT },
+	"people.getMergeReview": { sourceId: byName("John Smith").id, survivorId: byName("Jon Smith").id },
+	// A real merge through the native People command, then its Unmerge preview.
+	"people.previewUnmerge": async () => {
+		const pair = { sourceId: byName("John Smith").id, survivorId: byName("Jon Smith").id };
+		const authority = church.actors.owner.authority;
+		const review = await church.db.transaction((tx) =>
+			peopleMerge.getMergeReview(tx, new PeopleReadContext(authority), pair),
+		);
+		assert.equal(review.status, "ok");
+		const merged = await withPeopleWrite(church.db, authority, (tx, ctx) =>
+			peopleMerge.mergePeople(tx, ctx, {
+				requestKey: "result-card-merge",
+				input: { ...pair, reviewDigest: review.status === "ok" ? review.value.reviewDigest : "" },
+			}),
+		);
+		assert.equal(merged.status, "ok");
+		return read("people.previewUnmerge", { personId: pair.survivorId });
+	},
+	"people.listRecordCorrections": async () => {
+		const daniel = byName("Daniel Cruz").id;
+		const fixed = await withPeopleWrite(church.db, church.actors.owner.authority, (tx, ctx) =>
+			recordCorrections.correctPersonRecord(tx, ctx, {
+				requestKey: "result-card-correction",
+				expectedRevision: "1",
+				input: {
+					recordType: "interview",
+					personId: daniel,
+					recordId: DANIEL_INTERVIEW,
+					changes: { occurredOn: "2026-10-01" },
+				},
+			}),
+		);
+		assert.equal(fixed.status, "ok");
+		return read("people.listRecordCorrections", { personId: daniel });
+	},
+	"people.mergedPersonDestination": { personId: JAMES },
 	"communication.list": {},
 	"tasks.list": {},
 	"tasks.count": {},

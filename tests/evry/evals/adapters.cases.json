@@ -5277,5 +5277,183 @@
 				"/I['’]?(ve| have) (scheduled|booked|set up|added|recorded|marked|finalized|deleted|cancell?ed|saved|updated|changed)\\b|(?<!not |nothing |hasn['’]t |n't |not yet )(has been|was) (now )?(scheduled|booked|added|recorded|marked|deleted|cancell?ed|saved)\\b(?! yet)/i"
 			]
 		}
+	},
+	{
+		"case_id": "ADP-A-01",
+		"extra": true,
+		"adapter": "people-assessments",
+		"operation": "people.getInterviews",
+		"near_miss": false,
+		"question": "what did we record in Daniel Cruz's interview?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "people.getInterviews",
+					"input": {
+						"personId": "@Daniel Cruz"
+					}
+				}
+			],
+			"require": ["/concern/i", "/qualified with notes/i", "/Oct(ober)? 2\\b|2026-10-02/i"],
+			"forbid": ["/marriage|confidential|wrestling/i"],
+			"derivation": "Daniel Cruz's interview on 2 Oct 2026: chemistry concern, every other criterion pass, qualified with notes."
+		}
+	},
+	{
+		"case_id": "ADP-A-02",
+		"extra": true,
+		"adapter": "people-assessments",
+		"operation": "people.createInterview",
+		"near_miss": false,
+		"question": "record James Okafor's interview from today: maturity pass, gifted pass, chemistry pass, right reasons pass, season concern, result follow up",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "people.createInterview",
+					"input": {
+						"personId": "@James Okafor",
+						"occurredOn": "2026-11-09",
+						"maturity": {
+							"rating": "pass"
+						},
+						"gifted": {
+							"rating": "pass"
+						},
+						"chemistry": {
+							"rating": "pass"
+						},
+						"rightReasons": {
+							"rating": "pass"
+						},
+						"season": {
+							"rating": "concern"
+						},
+						"result": "follow_up"
+					}
+				}
+			],
+			"require": ["/review|approv/i"],
+			"derivation": "Exactly the given ratings and result, dated today (9 Nov 2026)."
+		}
+	},
+	{
+		"case_id": "ADP-A-03",
+		"extra": true,
+		"adapter": "people-assessments",
+		"operation": "people.createAssessment",
+		"near_miss": true,
+		"question": "record Sam Patel's four C's for today: committed 5, compelled 4, contagious 4",
+		"eval": {
+			"proposals": [],
+			"require": ["/courageous/i"],
+			"derivation": "The courageous score is missing: Evry asks for it and never fills it in."
+		}
+	},
+	{
+		"case_id": "ADP-A-04",
+		"extra": true,
+		"adapter": "people-assessments",
+		"operation": "people.getCommitmentDownload",
+		"near_miss": false,
+		"question": "can I download Ana Rivera's signed commitment card?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "people.getCommitments",
+					"input": {
+						"personId": "@Ana Rivera"
+					}
+				},
+				{
+					"operation": "people.getCommitmentDownload",
+					"input": {
+						"commitmentId": "5b6d1f0e-0000-4000-8000-000000006002"
+					}
+				}
+			],
+			"require": ["/download|link/i"],
+			"derivation": "Ana Rivera's core group card, signed 20 Sep 2026, has its signed PDF on file."
+		}
+	},
+	{
+		"case_id": "ADP-A-05",
+		"extra": true,
+		"adapter": "people-assessments",
+		"operation": "people.getMergeReview",
+		"near_miss": true,
+		"question": "merge Casey Brooks into Casey Morgan",
+		"eval": {
+			"calls": [
+				{
+					"operation": "people.getMergeReview",
+					"input": {
+						"sourceId": "@Casey Brooks",
+						"survivorId": "@Casey Morgan"
+					}
+				}
+			],
+			"require": ["/follow-up outcome/i", "/block|not available|cannot|can['’]?t|doesn['’]?t (currently )?support/i"],
+			"forbid": ["/I['’]?(ve| have) merged|(are|been) merged/i"],
+			"derivation": "Casey Brooks has a follow-up outcome, which the People merge can't carry yet: Evry gives the People screen's blocked answer."
+		}
+	},
+	{
+		"case_id": "ADP-A-06",
+		"extra": true,
+		"adapter": "people-assessments",
+		"operation": "people.correctPersonRecord",
+		"near_miss": false,
+		"question": "Daniel Cruz's interview was on Oct 1, not Oct 2. Please fix the date.",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "people.correctPersonRecord",
+					"input": {
+						"recordType": "interview",
+						"recordId": "5b6d1f0e-0000-4000-8000-000000006001",
+						"changes": {
+							"occurredOn": "2026-10-01"
+						}
+					}
+				}
+			],
+			"require": ["/review|approv/i"],
+			"derivation": "A correction review of the interview's date, 2 Oct to 1 Oct."
+		}
+	},
+	{
+		"case_id": "ADP-A-07",
+		"extra": true,
+		"adapter": "people-assessments",
+		"operation": "people.getAssessments",
+		"near_miss": false,
+		"question": "what were Mike Brennan's 4 C's scores?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "people.getAssessments",
+					"input": {
+						"personId": "@Mike Brennan"
+					}
+				}
+			],
+			"require": ["/\\b14\\b/"],
+			"derivation": "Mike Brennan's 4 C's on 15 Sep 2026: committed 3, compelled 4, contagious 4, courageous 3, total 14."
+		}
+	},
+	{
+		"case_id": "ADP-A-08",
+		"extra": true,
+		"adapter": "people-assessments",
+		"operation": "people.getCommitments",
+		"near_miss": true,
+		"question": "what's on Ana Rivera's commitment card?",
+		"eval": {
+			"as": "member",
+			"only": ["people.listPeople", "people.getPerson"],
+			"require": ["/\\bOwners?\\b.{0,12}\\bAdmins?\\b|\\bAdmins?\\b.{0,12}\\bOwners?\\b/i"],
+			"forbid": ["/\\bSep(tember)?\\b|signed|document on file/i"],
+			"derivation": "A Member has no commitment read and hears that commitments are for Owners and Admins."
+		}
 	}
 ]

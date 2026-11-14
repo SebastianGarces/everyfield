@@ -6,7 +6,9 @@ import type { NativePorts } from "../proposals/types.ts";
 /**
  * One returned row. Only these fields reach the model; the id lets a later read or selection name it again.
  * Selection re-checks `person` rows only. A household, tag, skill, activity, file, import, message, notice, setting,
- * digest or date row is not a person. An organization pipeline person is a person of that organization. A meeting or venue row names that record; an item row is a part of one (an agenda section, a kit item, a report line).
+ * digest, date, record, merge or correction row is not a person. An organization pipeline person is a person of that
+ * organization. A meeting or venue row names that record; an item row is a part of one (an agenda section, a kit item,
+ * a report line).
  */
 export type SourceRow = {
 	kind:
@@ -18,6 +20,9 @@ export type SourceRow = {
 		| "file"
 		| "import"
 		| "message"
+		| "record"
+		| "merge"
+		| "correction"
 		| "notice"
 		| "setting"
 		| "digest"

@@ -7,6 +7,7 @@ import { NOTIFICATION_READS } from "../adapters/notifications/reads/index.ts";
 import { ORGANIZATION_READS } from "../adapters/people-organization/reads/index.ts";
 import { PEOPLE_READS } from "../adapters/people/reads/index.ts";
 import { TASK_READS } from "../adapters/tasks/reads/index.ts";
+import { ASSESSMENT_READS } from "../adapters/people-assessments/reads/index.ts";
 import { TEAMS_READS } from "../adapters/teams/reads/index.ts";
 import { ONBOARDING_READS } from "../adapters/onboarding/reads/index.ts";
 import { PIPELINE_READS } from "../adapters/pipeline/reads/index.ts";
@@ -22,6 +23,7 @@ import type { ReadAdapter } from "./types.ts";
 export const READ_DOMAINS = {
 	people: PEOPLE_READS,
 	peopleOrganization: ORGANIZATION_READS,
+	peopleAssessments: ASSESSMENT_READS,
 	communication: COMMUNICATION_READS,
 	tasks: TASK_READS,
 	followups: FOLLOWUP_READS,

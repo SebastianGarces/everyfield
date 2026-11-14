@@ -10,6 +10,7 @@ import { NOTIFICATION_COMMANDS } from "../adapters/notifications/commands/index.
 import { untouchedMail } from "../adapters/communication/reads/index.ts";
 import { FOLLOWUP_COMMANDS } from "../adapters/followups/commands/index.ts";
 import { PEOPLE_COMMANDS } from "../adapters/people/commands/index.ts";
+import { ASSESSMENT_COMMANDS } from "../adapters/people-assessments/commands/index.ts";
 import { SETTINGS_COMMANDS } from "../adapters/settings/index.ts";
 import { TASK_COMMANDS } from "../adapters/tasks/commands/index.ts";
 import { ORGANIZATION_COMMANDS } from "../adapters/people-organization/commands/index.ts";
@@ -29,6 +30,7 @@ export const refusalCode = (code: string) =>
 /** Every installed reviewed write. A model may propose only these, and only when the actor may use them natively. */
 export const REVIEWED_WRITES = {
 	...PEOPLE_COMMANDS,
+	...ASSESSMENT_COMMANDS,
 	...ORGANIZATION_COMMANDS,
 	...COMMUNICATION_COMMANDS,
 	...NOTIFICATION_COMMANDS,

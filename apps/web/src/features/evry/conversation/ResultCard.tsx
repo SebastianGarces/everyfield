@@ -8,6 +8,9 @@ import {
 	CheckListIcon,
 	CheckmarkCircle02Icon,
 	Clock01Icon,
+	Edit02Icon,
+	GitMergeIcon,
+	Note01Icon,
 	Location01Icon,
 	File01Icon,
 	Home01Icon,
@@ -53,6 +56,9 @@ const GLYPH: Record<Glyph, IconSvgElement> = {
 	follow_up: Call02Icon,
 	contact: Call02Icon,
 	account: UserIcon,
+	record: Note01Icon,
+	merge: GitMergeIcon,
+	correction: Edit02Icon,
 	notice: Notification01Icon,
 	setting: Settings02Icon,
 	digest: CheckListIcon,
@@ -141,9 +147,29 @@ export function ResultCard({
 								<Mark mark={view.mark} />
 							</>
 						);
+						const full = view.details?.length ? (
+							<dl className="mx-2 mb-2 grid grid-cols-[minmax(3rem,max-content)_minmax(0,1fr)] gap-x-3 gap-y-1 rounded-md bg-surface-2 px-3 py-2 text-sm">
+								{view.details.map((d) => (
+									<div key={d.label} className="contents">
+										<dt className="max-w-32 text-text-2">{d.label}</dt>
+										<dd className="min-w-0 break-words text-ink">{d.value}</dd>
+									</div>
+								))}
+							</dl>
+						) : null;
 						return (
 							<li key={view.key}>
-								{view.href && view.newTab ? (
+								{view.href && view.download ? (
+									// A plain link: the People document route signs a five-minute link only when it is opened, so
+									// nothing may prefetch it.
+									<a
+										href={view.href}
+										data-focus-inset=""
+										className={cn(rowClass, "cursor-pointer transition-[background-color] hover:bg-hover")}
+									>
+										{body}
+									</a>
+								) : view.href && view.newTab ? (
 									<a
 										href={view.href}
 										target="_blank"
@@ -164,6 +190,7 @@ export function ResultCard({
 								) : (
 									<div className={rowClass}>{body}</div>
 								)}
+								{full}
 							</li>
 						);
 					})}
