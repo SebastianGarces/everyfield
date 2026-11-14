@@ -32,7 +32,7 @@ export const SETUP_SPECS = {
 	teamLead: spec(9, "Taylor Nguyen"),
 } as const;
 export type SetupName = keyof typeof SETUP_SPECS;
-export const SETUP_CHURCH = "Cedar Creek Church";
+const SETUP_CHURCH = "Cedar Creek Church";
 
 /** The command envelope the onboarding screens send. */
 const command = (input: unknown, expectedRevision = "1") => ({ requestKey: randomUUID(), expectedRevision, input });

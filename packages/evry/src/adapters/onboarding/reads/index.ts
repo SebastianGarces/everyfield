@@ -88,7 +88,7 @@ function leadAnswer(r: Resume) {
 	return lead.answer === "no" ? "Someone else leads" : "Skipped";
 }
 /** The setup steps of `/onboarding` in its order, each saved or open. */
-export function setupSteps(r: Resume): SourceRow[] {
+function setupSteps(r: Resume): SourceRow[] {
 	const plant = r.plant.id;
 	return [
 		step(`${plant}:journey`, "Where you are", r.journey.status === "saved", journeyAnswer(r)),
