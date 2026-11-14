@@ -38,5 +38,6 @@ export {
 	readProgram,
 	readPrograms,
 	readVersionReview,
+	readVersionReviews,
 	searchReadings,
 } from "./programs.ts";

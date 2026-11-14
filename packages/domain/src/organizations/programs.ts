@@ -300,6 +300,7 @@ const milestoneRow = z.object({
 });
 const reviewRow = z.object({
 	enrollmentId: z.string(),
+	name: z.string(),
 	versionId: z.string(),
 	fromNumber: z.number(),
 	toNumber: z.number(),
@@ -328,6 +329,7 @@ function versionReview(r: z.infer<typeof reviewRow>): C.VersionReview {
 	const label = r.stage.trim().toLowerCase();
 	return C.versionReview.parse({
 		enrollmentId: r.enrollmentId,
+		name: r.name,
 		versionId: r.versionId,
 		fromNumber: r.fromNumber,
 		toNumber: r.toNumber,
@@ -347,25 +349,25 @@ function versionReview(r: z.infer<typeof reviewRow>): C.VersionReview {
 }
 
 /**
- * The review the current director reads before applying the program's current published version to an active
- * enrollment on an older one (REQ-MUL-011, D-1271). Anyone else, or an enrollment with nothing newer, reads nothing.
- * One statement.
+ * The reviews of active enrollments `ids` on an older version than their program's current one, for its current
+ * director, each with the person's name, in name order. `programId` keeps them to one program. One statement.
  */
-export async function readVersionReview(
+async function reviewsOf(
 	db: Executor,
-	authority: RequestActor,
-	raw: unknown,
-): Promise<Reply<C.VersionReview>> {
-	return answer<C.VersionReview, C.ProgramRefusal>(async () => {
-		const seat = seatOf(authority) ?? refuse();
-		const { enrollmentId } = parse(z.strictObject({ enrollmentId: z.uuid() }), raw);
-		const org = seat.organization;
-		const r = await db.execute(sql`WITH g AS (SELECT ${seat.live} AS allowed), ${orgCte(org)},
-x AS (SELECT e.id,e.revision,e.version_id,e.current_stage_id,p.current_version_id FROM development_enrollment e
+	seat: NonNullable<ReturnType<typeof seatOf>>,
+	ids: string[],
+	programId: string | null,
+): Promise<C.VersionReview[]> {
+	const org = seat.organization;
+	const r = await db.execute(sql`WITH g AS (SELECT ${seat.live} AS allowed), ${orgCte(org)},
+x AS (SELECT e.id,e.revision,e.version_id,e.current_stage_id,p.current_version_id,pn.display_name FROM development_enrollment e
  JOIN development_program p ON p.id=e.program_id AND p.organization_id=e.organization_id
- WHERE EXISTS(SELECT FROM o) AND e.id=${enrollmentId}::uuid AND e.organization_id=${org}::uuid AND e.status='active'
-  AND p.director_seat_id=${seat.seatId}::uuid AND p.current_version_id<>e.version_id)
-SELECT g.allowed,(SELECT jsonb_build_object('enrollmentId',x.id,'versionId',x.current_version_id,
+ JOIN person pn ON pn.id=e.person_id AND pn.tenant_id=e.organization_id AND pn.state='live'
+ WHERE EXISTS(SELECT FROM o) AND e.id IN (SELECT value::uuid FROM jsonb_array_elements_text(${JSON.stringify(ids)}::jsonb))
+  AND e.organization_id=${org}::uuid AND e.status='active' AND p.director_seat_id=${seat.seatId}::uuid
+  AND p.current_version_id<>e.version_id ${programId ? sql`AND p.id=${programId}::uuid` : sql``})
+SELECT g.allowed,coalesce((SELECT jsonb_agg(jsonb_build_object('enrollmentId',x.id,'name',x.display_name,
+  'versionId',x.current_version_id,
   'fromNumber',(SELECT version_number FROM development_program_version WHERE id=x.version_id),
   'toNumber',(SELECT version_number FROM development_program_version WHERE id=x.current_version_id),
   'basis',${basisOf(org)},
@@ -378,11 +380,46 @@ SELECT g.allowed,(SELECT jsonb_build_object('enrollmentId',x.id,'versionId',x.cu
    FROM development_stage s WHERE s.version_id=x.current_version_id AND s.organization_id=${org}::uuid),'[]'::jsonb),
   'finished',coalesce((SELECT jsonb_agg(DISTINCT cm.lineage) FROM enrollment_milestone c JOIN development_milestone cm
    ON cm.id=c.milestone_id AND cm.organization_id=c.organization_id WHERE c.enrollment_id=x.id
-   AND c.organization_id=${org}::uuid),'[]'::jsonb)) FROM x) AS review
+   AND c.organization_id=${org}::uuid),'[]'::jsonb)) ORDER BY lower(x.display_name),x.id) FROM x),'[]'::jsonb) AS reviews
 FROM g`);
-		const row = z.object({ allowed: z.boolean(), review: reviewRow.nullable() }).parse(r.rows[0]);
-		if (!row.allowed || !row.review) refuse();
-		return versionReview(row.review!);
+	const row = z.object({ allowed: z.boolean(), reviews: z.array(reviewRow) }).parse(r.rows[0]);
+	if (!row.allowed) refuse();
+	return row.reviews.map(versionReview);
+}
+
+/**
+ * The review the current director reads before applying the program's current published version to an active
+ * enrollment on an older one (REQ-MUL-011). Anyone else, or an enrollment with nothing newer, reads nothing.
+ * One statement.
+ */
+export async function readVersionReview(
+	db: Executor,
+	authority: RequestActor,
+	raw: unknown,
+): Promise<Reply<C.VersionReview>> {
+	return answer<C.VersionReview, C.ProgramRefusal>(async () => {
+		const seat = seatOf(authority) ?? refuse();
+		const { enrollmentId } = parse(z.strictObject({ enrollmentId: z.uuid() }), raw);
+		return (await reviewsOf(db, seat, [enrollmentId], null))[0] ?? refuse();
+	});
+}
+
+/**
+ * The reviews the current director reads before applying the program's current published version to several of its
+ * enrollments at once (REQ-MUL-011, D-1329): one per person, as the single review shows it. Every named enrollment
+ * must be an active one of this program on an older version, or nothing is read. One statement.
+ */
+export async function readVersionReviews(
+	db: Executor,
+	authority: RequestActor,
+	raw: unknown,
+): Promise<Reply<C.VersionReview[]>> {
+	return answer<C.VersionReview[], C.ProgramRefusal>(async () => {
+		const seat = seatOf(authority) ?? refuse();
+		const { programId, enrollmentIds } = parse(C.versionReviewsRequest, raw);
+		const reviews = await reviewsOf(db, seat, enrollmentIds, programId);
+		if (reviews.length !== enrollmentIds.length) refuse();
+		return reviews;
 	});
 }
 
@@ -769,6 +806,65 @@ SELECT EXISTS(SELECT FROM x) AS found,EXISTS(SELECT FROM x WHERE x.version_id=${
 	});
 }
 
+/**
+ * The current director moves several active enrollments of one program to its current published version, each at a
+ * stage of that version, all or none (D-1328), after reviewing each (D-1329). Each person's completions and feedback
+ * keep what they were recorded with, as in a single apply. Any review that went out of date refuses the whole apply,
+ * naming those enrollments; the same apply repeated changes nothing. One statement whatever the number of people,
+ * with one body-free audit row per person moved (D-1330).
+ */
+function applyVersions(db: Database, authority: RequestActor, raw: unknown) {
+	return write<{ outcome: "changed" | "noop" }, C.ProgramRefusal>(db, authority, false, async (w) => {
+		const input = parse(C.applyVersionsRequest, raw);
+		const org = w.organization;
+		const n = input.enrollments.length;
+		const items = JSON.stringify(
+			input.enrollments.map((e) => ({ enrollment_id: e.enrollmentId, stage_id: e.stageId, basis: e.basis })),
+		);
+		const row = await one(
+			w,
+			z.object({
+				found: z.coerce.number(),
+				already: z.coerce.number(),
+				current: z.boolean(),
+				stale: z.array(z.string()),
+				applied: z.coerce.number(),
+			}),
+			sql`WITH i AS (SELECT * FROM jsonb_to_recordset(${items}::jsonb) AS i(enrollment_id uuid,stage_id uuid,basis text)),
+x AS (SELECT e.id,e.revision,e.version_id,e.current_stage_id,p.current_version_id,ev.version_number,i.stage_id,i.basis
+ FROM i JOIN development_enrollment e ON e.id=i.enrollment_id AND e.organization_id=${org}::uuid
+ JOIN development_program p ON p.id=e.program_id AND p.organization_id=e.organization_id
+ JOIN development_program_version ev ON ev.id=e.version_id AND ev.organization_id=e.organization_id
+ WHERE e.program_id=${input.programId}::uuid AND e.status='active' AND p.director_seat_id=${w.seatId}::uuid
+ FOR UPDATE OF e FOR SHARE OF p),
+t AS (SELECT v.id,v.version_number FROM development_program_version v WHERE v.id=${input.versionId}::uuid
+ AND v.organization_id=${org}::uuid AND v.id=(SELECT p.current_version_id FROM development_program p
+  WHERE p.id=${input.programId}::uuid AND p.organization_id=${org}::uuid)),
+s AS (SELECT x.id,(x.version_id<>t.id AND ${basisOf(org)}=x.basis) AS fresh,
+  EXISTS(SELECT FROM development_stage st WHERE st.id=x.stage_id AND st.version_id=t.id
+   AND st.organization_id=${org}::uuid) AS staged FROM x CROSS JOIN t),
+go AS (SELECT FROM s HAVING count(*)=${n} AND bool_and(s.fresh AND s.staged)),
+u AS (UPDATE development_enrollment e SET version_id=t.id,current_stage_id=x.stage_id,revision=e.revision+1
+ FROM x,t,go WHERE e.id=x.id AND e.organization_id=${org}::uuid RETURNING e.id,e.revision),
+a AS (${w.audit({ id: sql`gen_random_uuid()`, action: "development.version_applied", kind: "edit", subjectType: "development_enrollment", subject: sql`x.id`, before: sql`x.revision`, after: sql`u.revision`, metadata: sql`jsonb_build_object('fromVersion',x.version_number,'toVersion',t.version_number)` })}
+ FROM x JOIN u ON u.id=x.id CROSS JOIN t RETURNING id)
+SELECT (SELECT count(*) FROM x) AS found,
+ (SELECT count(*) FROM x WHERE x.version_id=${input.versionId}::uuid AND x.current_version_id=${input.versionId}::uuid) AS already,
+ EXISTS(SELECT FROM t) AS current,
+ coalesce((SELECT jsonb_agg(s.id ORDER BY s.id) FROM s WHERE NOT s.fresh),'[]'::jsonb) AS stale,
+ (SELECT count(*) FROM u) AS applied`,
+		);
+		if (row.applied === n) return { outcome: "changed" as const };
+		if (row.found < n) refuse();
+		// A repeat of an apply that already moved every one of them to the current version.
+		if (row.already === n) return { outcome: "noop" as const };
+		if (!row.current) refuse({ code: "stale_review", enrollmentIds: input.enrollments.map((e) => e.enrollmentId) });
+		const stale = input.enrollments.map((e) => e.enrollmentId).filter((id) => row.stale.includes(id));
+		if (stale.length) refuse({ code: "stale_review", enrollmentIds: stale });
+		return refuse({ code: "invalid_input", field: "enrollments.stageId" });
+	});
+}
+
 /** Every program write. The statement census measures each one as `programs.<name>`. */
 export const programWriter = {
 	createProgram,
@@ -778,4 +874,5 @@ export const programWriter = {
 	recordMilestone,
 	addFeedback,
 	applyVersion,
+	applyVersions,
 };
