@@ -1,4 +1,4 @@
-// The assessment draft check, the run budget and the scripted model selection (WP-042), with no database: the run's own
+// The assessment draft check, the run budget and the scripted judge (WP-042), with no database: the run's own
 // model input is the whole truth a draft is checked against.
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
@@ -10,7 +10,6 @@ import {
 	scriptedAssessmentDrafter,
 	scriptedDraft,
 	scriptedLanguageJudge,
-	selectAssessmentDrafter,
 } from "../../../packages/evry/src/runtime/scripted-assessment.ts";
 
 const root = new URL("../../../", import.meta.url);
@@ -191,17 +190,6 @@ test("AC:PI-CASE-013 a run stays within four attempts per draft, three drafts an
 	assert.deepEqual([spent.reason, sent, spent.drafts.length], ["budget", 2, 2]);
 	assert.ok(spent.usage.inputTokens <= c.ASSESSMENT_BUDGET.inputTokens, String(spent.usage.inputTokens));
 	assert.ok(spent.usage.outputTokens <= c.ASSESSMENT_BUDGET.outputTokens);
-});
-
-test("only the scripted model can run an assessment; no environment selects a paid one", () => {
-	assert.deepEqual(selectAssessmentDrafter({}), { status: "unavailable" });
-	const paid = { EVRY_MODEL: "gpt-6-luna", OPENAI_API_KEY: "test-key", EVRY_MONTHLY_CAP_USD: "20" };
-	assert.deepEqual(selectAssessmentDrafter(paid), { status: "unavailable" });
-	assert.deepEqual(selectAssessmentDrafter({ ...paid, EVRY_SCRIPTED_MODEL: "1", VERCEL_ENV: "production" }), {
-		status: "unavailable",
-	});
-	const scripted = selectAssessmentDrafter({ ...paid, EVRY_SCRIPTED_MODEL: "1" });
-	assert.equal(scripted.status === "qualified" && scripted.drafter.id, "assessment-scripted");
 });
 
 test("the scripted judge grades plain, warm and useful wording and lists hype and pressure as failures", () => {

@@ -50,7 +50,7 @@ export type DraftOutput = z.infer<typeof draftOutput>;
 export type DraftPoint = z.infer<typeof draftPoint>;
 
 /** Every rule a draft can break. Each failure names one, so a report never hides a failure behind an average. */
-export const DRAFT_RULES = [
+export const draftRule = z.enum([
 	"shape",
 	"missing_citation",
 	"invented_citation",
@@ -61,8 +61,7 @@ export const DRAFT_RULES = [
 	"judgment",
 	"readiness_verdict",
 	"action_claim",
-] as const;
-export const draftRule = z.enum(DRAFT_RULES);
+]);
 export type DraftRule = z.infer<typeof draftRule>;
 export const violation = z.strictObject({
 	rule: draftRule,
@@ -240,7 +239,6 @@ export type ModelInput = z.infer<typeof modelInput>;
 /** A cited fact or passage as the published assessment lists it; the citation read opens it. */
 const citationRef = z.strictObject({ key: z.string(), kind: z.enum(["fact", "passage"]), label: z.string() });
 const point = z.strictObject({ title: z.string(), body: z.string(), citations: z.array(citationRef).min(1) });
-export type AssessmentPoint = z.infer<typeof point>;
 export const assessment = z.strictObject({
 	runId: recordId,
 	asOf: instant,

@@ -191,18 +191,6 @@ export function scriptedAssessmentDrafter(
 	};
 }
 
-/**
- * The assessment model for this environment. Only the scripted drafter exists: off Vercel with EVRY_SCRIPTED_MODEL=1
- * it is selected, and everywhere else assessments are unavailable until Sebastian approves the spend (G-SPEND).
- */
-export function selectAssessmentDrafter(
-	env: Record<string, string | undefined> = process.env,
-): { status: "qualified"; drafter: Drafter } | { status: "unavailable" } {
-	return env.EVRY_SCRIPTED_MODEL === "1" && !env.VERCEL_ENV
-		? { status: "qualified", drafter: scriptedAssessmentDrafter() }
-		: { status: "unavailable" };
-}
-
 const HYPE =
 	/!|\b(amazing|incredible|explosive|skyrocket\w*|game[- ]chang\w*|crush\w*|massive|unstoppable|huge win)\b/gi;
 const PRESSURE =

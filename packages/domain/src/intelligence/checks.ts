@@ -50,7 +50,7 @@ const KNOWN_CLAIM = [
 type Where = { where: string; text: string; citations: readonly string[] };
 const sentences = (text: string) => text.split(/(?<=[.!?])\s+|\n+/).filter((s) => s.trim());
 
-/** The month and day of every date a fact value holds. */
+/** Every ISO date a fact value holds. */
 function datesOf(values: Iterable<c.FactEntry["value"]>) {
 	const out = new Set<string>();
 	for (const v of values) if (typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v)) out.add(v);
@@ -87,18 +87,15 @@ export function checkDraft(raw: unknown, input: c.ModelInput): c.Violation[] {
 		})),
 	];
 	const out: c.Violation[] = [];
-	const allCited: c.FactEntry["value"][] = [];
 	for (const p of points) {
 		if (!p.citations.length) out.push({ rule: "missing_citation", where: p.where, detail: "no citation" });
 		for (const key of p.citations)
 			if (!facts.has(key) && !passages.has(key)) out.push({ rule: "invented_citation", where: p.where, detail: key });
-		const cited = p.citations.flatMap((k) => (facts.has(k) ? [facts.get(k)!.value] : []));
-		allCited.push(...cited);
 	}
 	// The summary has no citations of its own: it may repeat what the points cite.
-	for (const p of [...points, { where: "summary", text: draft.summary, citations: [] }]) {
-		const values =
-			p.where === "summary" ? allCited : p.citations.flatMap((k) => (facts.has(k) ? [facts.get(k)!.value] : []));
+	const summary = { where: "summary", text: draft.summary, citations: points.flatMap((p) => p.citations) };
+	for (const p of [...points, summary]) {
+		const values = p.citations.flatMap((k) => (facts.has(k) ? [facts.get(k)!.value] : []));
 		out.push(...numbersAndDates(p, values, input), ...wording(p), ...unknowns(p, facts));
 	}
 	return out;
