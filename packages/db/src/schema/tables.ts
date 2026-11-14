@@ -2825,10 +2825,12 @@ export const notice = pgTable(
 				"launch",
 				"communication",
 				"residency",
+				"review",
 			],
 		}).notNull(),
 		purpose: text("purpose", {
 			enum: [
+				"answer_review",
 				"communication_unsubscribed",
 				"insight_available",
 				"launch_milestone",
@@ -2888,11 +2890,11 @@ export const notice = pgTable(
 		check("notice_ck_0", sql`(revision >= 1)`),
 		check(
 			"notice_ck_1",
-			sql`(category = ANY (ARRAY['task'::text, 'meeting'::text, 'phase'::text, 'insight'::text, 'relationship'::text, 'reference_update'::text, 'digest'::text, 'launch'::text, 'communication'::text, 'residency'::text]))`,
+			sql`(category = ANY (ARRAY['task'::text, 'meeting'::text, 'phase'::text, 'insight'::text, 'relationship'::text, 'reference_update'::text, 'digest'::text, 'launch'::text, 'communication'::text, 'residency'::text, 'review'::text]))`,
 		),
 		check(
 			"notice_ck_2",
-			sql`(purpose = ANY (ARRAY['communication_unsubscribed'::text, 'insight_available'::text, 'launch_milestone'::text, 'meeting_evaluation'::text, 'meeting_invitation'::text, 'meeting_reminder'::text, 'oversight_digest'::text, 'phase_offer'::text, 'phase_transition'::text, 'planter_digest'::text, 'reference_update'::text, 'relationship_decision'::text, 'relationship_invitation'::text, 'residency_confirmation'::text, 'residency_feedback'::text, 'task_assignment'::text, 'task_due'::text]))`,
+			sql`(purpose = ANY (ARRAY['answer_review'::text, 'communication_unsubscribed'::text, 'insight_available'::text, 'launch_milestone'::text, 'meeting_evaluation'::text, 'meeting_invitation'::text, 'meeting_reminder'::text, 'oversight_digest'::text, 'phase_offer'::text, 'phase_transition'::text, 'planter_digest'::text, 'reference_update'::text, 'relationship_decision'::text, 'relationship_invitation'::text, 'residency_confirmation'::text, 'residency_feedback'::text, 'task_assignment'::text, 'task_due'::text]))`,
 		),
 		check("notice_ck_3", sql`(tenant_id <> '00000000-0000-0000-0000-000000000000'::uuid)`),
 		check("notice_timezone_iana", sql`(timezone = ANY (${canonicalZones7}))`),
@@ -2923,6 +2925,7 @@ export const notification_preference = pgTable(
 				"scheduled_email_unsubscribe",
 				"residency_confirmation",
 				"residency_feedback",
+				"answer_review",
 			],
 		}).notNull(),
 		channel: text("channel", { enum: ["email", "in_app"] }).notNull(),
@@ -2952,7 +2955,7 @@ export const notification_preference = pgTable(
 		check("notification_preference_ck_0", sql`(revision >= 1)`),
 		check(
 			"notification_preference_ck_1",
-			sql`category IN ('task_due','task_overdue','meeting_announcement','meeting_reminder','planter_digest','oversight_digest','relationship_milestone','sharing_milestone','phase_milestone','launch_milestone','wiki_upstream_review','scheduled_email_unsubscribe','residency_confirmation','residency_feedback')`,
+			sql`category IN ('task_due','task_overdue','meeting_announcement','meeting_reminder','planter_digest','oversight_digest','relationship_milestone','sharing_milestone','phase_milestone','launch_milestone','wiki_upstream_review','scheduled_email_unsubscribe','residency_confirmation','residency_feedback','answer_review')`,
 		),
 		check("notification_preference_ck_2", sql`(channel = ANY (ARRAY['email'::text, 'in_app'::text]))`),
 		check("notification_preference_ck_3", sql`(cadence = ANY (ARRAY['daily'::text, 'weekly'::text]))`),
@@ -3476,6 +3479,8 @@ export const person_note = pgTable(
 		revision: int64("revision")
 			.notNull()
 			.default(sql`1`),
+		/** The question titles of a pipeline import's kept answers (T-385), in file order; null on any other note. */
+		questions: text("questions").array(),
 	},
 	(table): PgTableExtraConfigValue[] => [
 		foreignKey({ name: "person_note_fk_0", columns: [table.plant_id], foreignColumns: [plant.id] })
@@ -3518,6 +3523,10 @@ export const person_note = pgTable(
 		),
 		check("person_note_ck_2", sql`((plant_id IS NULL) OR (tenant_id = plant_id))`),
 		check("person_note_ck_3", sql`((participation_id IS NULL) OR (plant_id IS NOT NULL))`),
+		check(
+			"person_note_questions",
+			sql`((questions IS NULL) OR ((cardinality(questions) >= 1) AND (cardinality(questions) <= 200)))`,
+		),
 		index("person_note_ref_0").using("btree", table.plant_id.asc().nullsLast()),
 		index("person_note_ref_1").using("btree", table.person_id.asc().nullsLast(), table.tenant_id.asc().nullsLast()),
 		index("person_note_ref_2").using("btree", table.author_id.asc().nullsLast()),
@@ -3927,6 +3936,68 @@ export const leadership_conversation = pgTable(
 			table.organization_id.asc().nullsLast(),
 		),
 		index("leadership_conversation_staff_idx").using("btree", table.staff_seat_id.asc().nullsLast()),
+	],
+);
+/**
+ * Part of a pipeline person's kept answers sent to a named reviewer for review (T-385, D-1507): the chosen question
+ * titles of one kept-answers note under a group name. The reviewer reads the note's live answers to those questions,
+ * never a copy (D-1509), only while the send is shared: not withdrawn, the reviewer's seat current, the note not removed
+ * and the person not removed on request. No answer text is stored here.
+ */
+export const answer_review = pgTable(
+	"answer_review",
+	{
+		id: uuid("id").notNull(),
+		organization_id: uuid("organization_id").notNull(),
+		person_id: uuid("person_id").notNull(),
+		note_id: uuid("note_id"),
+		reviewer_seat_id: uuid("reviewer_seat_id").notNull(),
+		sender_id: uuid("sender_id"),
+		group_name: text("group_name").notNull(),
+		questions: text("questions").array().notNull(),
+		sent_at: timestamp("sent_at", { withTimezone: true, mode: "date" })
+			.notNull()
+			.default(sql`clock_timestamp()`),
+		withdrawn_at: timestamp("withdrawn_at", { withTimezone: true, mode: "date" }),
+		revision: int64("revision")
+			.notNull()
+			.default(sql`1`),
+	},
+	(t): PgTableExtraConfigValue[] => [
+		primaryKey({ name: "answer_review_pkey", columns: [t.id] }),
+		foreignKey({
+			name: "answer_review_organization",
+			columns: [t.organization_id],
+			foreignColumns: [organization.id],
+		}).onDelete("restrict"),
+		foreignKey({
+			name: "answer_review_person",
+			columns: [t.person_id, t.organization_id],
+			foreignColumns: [person.id, person.tenant_id],
+		}).onDelete("cascade"),
+		foreignKey({ name: "answer_review_note", columns: [t.note_id], foreignColumns: [person_note.id] }).onDelete(
+			"set null",
+		),
+		foreignKey({ name: "answer_review_reviewer", columns: [t.reviewer_seat_id], foreignColumns: [seat.id] }).onDelete(
+			"restrict",
+		),
+		foreignKey({ name: "answer_review_sender", columns: [t.sender_id], foreignColumns: [account.id] }).onDelete(
+			"set null",
+		),
+		check("answer_review_revision", sql`(revision >= 1)`),
+		check(
+			"answer_review_group_name",
+			sql`((length(btrim(group_name)) >= 1) AND (length(group_name) <= 120))`,
+		),
+		check(
+			"answer_review_questions",
+			sql`((cardinality(questions) >= 1) AND (cardinality(questions) <= 200))`,
+		),
+		index("answer_review_note_idx").on(t.note_id),
+		index("answer_review_person_idx").on(t.person_id, t.organization_id),
+		index("answer_review_reviewer_idx").on(t.reviewer_seat_id),
+		index("answer_review_sender_idx").on(t.sender_id),
+		index("answer_review_organization_idx").on(t.organization_id),
 	],
 );
 export const plant = pgTable(
@@ -4430,6 +4501,7 @@ export const record = pgTable(
 			enum: [
 				"account",
 				"affiliation",
+				"answer_review",
 				"article_editor_state",
 				"article_revision",
 				"assessment",
@@ -4538,7 +4610,7 @@ export const record = pgTable(
 		unique("record_uq_0").on(table.id, table.tenant_id),
 		check(
 			"record_ck_0",
-			sql`(kind = ANY (ARRAY['account'::text, 'affiliation'::text, 'article_editor_state'::text, 'article_revision'::text, 'assessment'::text, 'assessment_contributor'::text, 'assessment_fact'::text, 'assignment_feedback'::text, 'attestation'::text, 'commitment'::text, 'communication'::text, 'communication_recipient'::text, 'contact_outcome'::text, 'conversation'::text, 'conversation_entry'::text, 'development_enrollment'::text, 'development_milestone'::text, 'development_program'::text, 'development_program_version'::text, 'development_reading'::text, 'development_stage'::text, 'digest_coverage'::text, 'discovery'::text, 'document'::text, 'document_revision'::text, 'effect'::text, 'enrollment_milestone'::text, 'enrollment_plan'::text, 'feedback'::text, 'feedback_publication'::text, 'file_object'::text, 'finding'::text, 'four_cs'::text, 'generated_document'::text, 'household'::text, 'interview'::text, 'invitation'::text, 'job'::text, 'launch_debrief'::text, 'launch_guest'::text, 'launch_milestone'::text, 'launch_summary'::text, 'leadership_conversation'::text, 'lifecycle_witness'::text, 'mail'::text, 'mail_attempt'::text, 'mail_request'::text, 'meeting'::text, 'meeting_evaluation'::text, 'meeting_item'::text, 'message_template'::text, 'notice'::text, 'notification_preference'::text, 'obligation'::text, 'audit_event'::text, 'organization'::text, 'organization_person_removal'::text, 'participation'::text, 'passage'::text, 'person'::text, 'person_merge'::text, 'person_note'::text, 'person_skill'::text, 'phase_transition'::text, 'pipeline_person'::text, 'pipeline_sharing'::text, 'pipeline_stage'::text, 'pipeline_stage_move'::text, 'plant'::text, 'plant_geography'::text, 'platform_grant'::text, 'prompt_dismissal'::text, 'provider_event'::text, 'reader_feedback'::text, 'reading'::text, 'recurrence'::text, 'reference_activation'::text, 'reference_item'::text, 'reference_release'::text, 'reference_version'::text, 'residency_link'::text, 'responsibility'::text, 'review'::text, 'seat'::text, 'sending_goal'::text, 'suppression'::text, 'tag'::text, 'task'::text, 'team'::text, 'team_role'::text, 'team_tenure'::text, 'training_assignment'::text, 'training_credit'::text, 'training_program'::text, 'training_requirement'::text, 'training_version'::text, 'venue'::text, 'wiki_preference'::text]))`,
+			sql`(kind = ANY (ARRAY['account'::text, 'affiliation'::text, 'answer_review'::text, 'article_editor_state'::text, 'article_revision'::text, 'assessment'::text, 'assessment_contributor'::text, 'assessment_fact'::text, 'assignment_feedback'::text, 'attestation'::text, 'commitment'::text, 'communication'::text, 'communication_recipient'::text, 'contact_outcome'::text, 'conversation'::text, 'conversation_entry'::text, 'development_enrollment'::text, 'development_milestone'::text, 'development_program'::text, 'development_program_version'::text, 'development_reading'::text, 'development_stage'::text, 'digest_coverage'::text, 'discovery'::text, 'document'::text, 'document_revision'::text, 'effect'::text, 'enrollment_milestone'::text, 'enrollment_plan'::text, 'feedback'::text, 'feedback_publication'::text, 'file_object'::text, 'finding'::text, 'four_cs'::text, 'generated_document'::text, 'household'::text, 'interview'::text, 'invitation'::text, 'job'::text, 'launch_debrief'::text, 'launch_guest'::text, 'launch_milestone'::text, 'launch_summary'::text, 'leadership_conversation'::text, 'lifecycle_witness'::text, 'mail'::text, 'mail_attempt'::text, 'mail_request'::text, 'meeting'::text, 'meeting_evaluation'::text, 'meeting_item'::text, 'message_template'::text, 'notice'::text, 'notification_preference'::text, 'obligation'::text, 'audit_event'::text, 'organization'::text, 'organization_person_removal'::text, 'participation'::text, 'passage'::text, 'person'::text, 'person_merge'::text, 'person_note'::text, 'person_skill'::text, 'phase_transition'::text, 'pipeline_person'::text, 'pipeline_sharing'::text, 'pipeline_stage'::text, 'pipeline_stage_move'::text, 'plant'::text, 'plant_geography'::text, 'platform_grant'::text, 'prompt_dismissal'::text, 'provider_event'::text, 'reader_feedback'::text, 'reading'::text, 'recurrence'::text, 'reference_activation'::text, 'reference_item'::text, 'reference_release'::text, 'reference_version'::text, 'residency_link'::text, 'responsibility'::text, 'review'::text, 'seat'::text, 'sending_goal'::text, 'suppression'::text, 'tag'::text, 'task'::text, 'team'::text, 'team_role'::text, 'team_tenure'::text, 'training_assignment'::text, 'training_credit'::text, 'training_program'::text, 'training_requirement'::text, 'training_version'::text, 'venue'::text, 'wiki_preference'::text]))`,
 		),
 		check(
 			"record_ck_1",

@@ -302,9 +302,11 @@
 				"digest",
 				"launch",
 				"communication",
-				"residency"
+				"residency",
+				"review"
 			],
 			"notice.purpose": [
+				"answer_review",
 				"communication_unsubscribed",
 				"insight_available",
 				"launch_milestone",
@@ -1515,6 +1517,7 @@
 			"record.kind": [
 				"account",
 				"affiliation",
+				"answer_review",
 				"article_editor_state",
 				"article_revision",
 				"assessment",
@@ -2384,6 +2387,20 @@
 				"privacy_policy": "Credit evidence never transfers account grants, private care, or organization person evidence.",
 				"immutable_evidence_policy": "Verifier, earned date, and kind stay as written. Revoke and redo append rows.",
 				"future_case_ids": ["SCHEMA-009", "PERSONREF-TRAINING-APPLICABILITY-COMPLETION-MERGE"]
+			},
+			{
+				"table": "answer_review",
+				"columns": ["person_id", "organization_id"],
+				"target_columns": ["id", "tenant_id"],
+				"consumer_work_packages": ["WP-102"],
+				"meaning": "The pipeline person whose kept answers were sent for review (T-385).",
+				"lock_order": "Lock owner and live same-owner source/survivor Persons in UUID order, then consumer row; new references take the same lifecycle locks.",
+				"merge_policy": "Preserve original historical endpoints; refuse conflicting linked accounts, duplicate active same-program enrollments or cross-owner collisions. Never transfer consent, private content or authorship.",
+				"inverse_policy": "Guard exact prior/result revisions and refuse new reference, changed feedback/completion or irreversible disclosure; no partial inverse.",
+				"retirement_policy": "A retired person's sends stay shared; removal on request ends sharing and keeps the send with no note.",
+				"privacy_policy": "Names only the person; the reviewer reads the chosen live answers and nothing else of the person's record.",
+				"immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
+				"future_case_ids": ["ADR1-001", "ADR1-005", "ADR1-017"]
 			}
 		],
 		"person_snapshot_references": [
@@ -5462,6 +5479,9 @@
 				},
 				"revision": {
 					"note": ""
+				},
+				"questions": {
+					"note": "The kept question titles of a pipeline import's note (T-385), in file order; null on any other note. A send for review names some of them."
 				}
 			},
 			"foreignKeys": {
@@ -14841,6 +14861,104 @@
 					"deletion": {
 						"action": "restrict",
 						"policy": "Explicit dependency-ordered removal or authorized minimal-attribution detachment. Current grants and removal witnesses apply to retained facts and recovery; a foreign key grants no access."
+					}
+				}
+			}
+		},
+		"answer_review": {
+			"table": {
+				"name": "answer_review",
+				"domain": "people",
+				"purpose": "Part of an organization pipeline person's kept answers sent to a named reviewer (T-385, D-1507): one kept-answers note, the chosen question titles and a group name, sent by an Owner or Admin to a current seat of the same organization. The reviewer reads the note's live answers to those questions only (D-1509) and gets no other duty (D-1511).",
+				"library_owned": false,
+				"jsonb_keys": {},
+				"capabilities": ["CAP-A-056"],
+				"replaces": [],
+				"producer_work_packages": ["WP-102"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-102"],
+					"rule": "WP-102 (T-385) sends chosen kept answers for review."
+				},
+				"feature_ids": ["MUL-009"],
+				"acceptance_ids": ["AC-MUL-009--MUL-009"],
+				"future_case_ids": ["ADR1-009"],
+				"scope": "people",
+				"invariants": [
+					"Sent only by a current Owner or Admin, only to a current seat of the same organization, and only from a note that holds kept answers.",
+					"Holds question titles and a group name, never an answer: the reviewer reads the note's current answers, and a question the note no longer holds reads as no longer available.",
+					"Shared only while not withdrawn, the reviewer's seat is current, the note is not removed and the person is not removed on request; otherwise the reviewer sees no question or answer text.",
+					"Never enters Evry, model input, search or the pipeline export; its audit rows hold ids, actor and change kind only."
+				],
+				"revision": "Withdrawal advances it once; a repeated withdrawal changes nothing.",
+				"idempotency": "The browser names the send id, so a repeated send writes one send.",
+				"deletion": "Kept with no note when the note is removed or deleted with a removal on request (REQ-MUL-005), so the reviewer sees it as no longer shared; deleted with the person record.",
+				"physical_verified": false
+			},
+			"columns": {
+				"id": {
+					"note": ""
+				},
+				"organization_id": {
+					"note": ""
+				},
+				"person_id": {
+					"note": ""
+				},
+				"note_id": {
+					"note": ""
+				},
+				"reviewer_seat_id": {
+					"note": ""
+				},
+				"sender_id": {
+					"note": ""
+				},
+				"group_name": {
+					"note": ""
+				},
+				"questions": {
+					"note": ""
+				},
+				"sent_at": {
+					"note": ""
+				},
+				"withdrawn_at": {
+					"note": ""
+				},
+				"revision": {
+					"note": ""
+				}
+			},
+			"foreignKeys": {
+				"organization_id->organization(id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Explicit dependency-ordered removal or authorized minimal-attribution detachment. Current grants and removal witnesses apply to retained facts and recovery; a foreign key grants no access."
+					}
+				},
+				"person_id,organization_id->person(id,tenant_id)": {
+					"deletion": {
+						"action": "cascade",
+						"policy": "Explicit dependency-ordered removal or authorized minimal-attribution detachment. Current grants and removal witnesses apply to retained facts and recovery; a foreign key grants no access."
+					}
+				},
+				"note_id->person_note(id)": {
+					"deletion": {
+						"action": "set null",
+						"policy": "Removing or deleting the note leaves the send with no note: the reviewer sees it as no longer shared."
+					}
+				},
+				"reviewer_seat_id->seat(id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Explicit dependency-ordered removal or authorized minimal-attribution detachment. Current grants and removal witnesses apply to retained facts and recovery; a foreign key grants no access."
+					}
+				},
+				"sender_id->account(id)": {
+					"deletion": {
+						"action": "set null",
+						"policy": "Account deletion keeps the send with no sender attribution."
 					}
 				}
 			}

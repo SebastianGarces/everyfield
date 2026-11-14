@@ -7,6 +7,7 @@ import {
 	CheckmarkBadge01Icon,
 	Clock01Icon,
 	Comment01Icon,
+	FileSearchIcon,
 	Link01Icon,
 	MailRemove01Icon,
 	Rocket01Icon,
@@ -18,6 +19,7 @@ import type * as c from "@everyfield/contracts/notifications";
 import type { Tone } from "@everyfield/ui/controls";
 import type { IconSvgElement } from "@everyfield/ui/foundations";
 import type { z } from "zod";
+import { reviewPath } from "../organizations/reviews/model";
 import { milestonePath } from "../residency/model";
 import { CATEGORY_TEXT } from "../settings/model";
 
@@ -74,13 +76,14 @@ const AREA: Record<Category, { area: string; icon: IconSvgElement; tone: Tone }>
 	scheduled_email_unsubscribe: { area: "Messages", icon: MailRemove01Icon, tone: "magenta" },
 	residency_confirmation: { area: "My residency", icon: CheckmarkBadge01Icon, tone: "green" },
 	residency_feedback: { area: "My residency", icon: Comment01Icon, tone: "blue" },
+	answer_review: { area: "Sent for review", icon: FileSearchIcon, tone: "teal" },
 };
 export const areaOf = (category: Category) => AREA[category];
 export const categoryLabel = (category: Category) => CATEGORY_TEXT[category].label;
 
 /**
  * The page an entry opens (D-731): the scheduled email in Messages, the task in Tasks, the meeting's page, the
- * published article in the Wiki, or My residency at the resident's milestone. Null for an entry with no subject page; it stays a mark-read button or plain text.
+ * published article in the Wiki, My residency at the resident's milestone, or a send on Sent for review. Null for an entry with no subject page; it stays a mark-read button or plain text.
  */
 export function subjectHref(subject: FeedItem["subject"]): string | null {
 	if (!subject) return null;
@@ -95,6 +98,8 @@ export function subjectHref(subject: FeedItem["subject"]): string | null {
 			return `/wiki/${subject.slug.split("/").map(encodeURIComponent).join("/")}?source=global`;
 		case "residency_milestone":
 			return milestonePath(subject.id);
+		case "answer_review":
+			return reviewPath(subject.id);
 	}
 }
 

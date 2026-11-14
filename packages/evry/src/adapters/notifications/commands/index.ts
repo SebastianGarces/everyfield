@@ -5,6 +5,7 @@ import {
 	defaultChannelEnabled,
 	defaultDigestCadence,
 	notificationChannels,
+	organizationCategories,
 	residencyCategories,
 } from "@everyfield/contracts/settings";
 import { OVERSIGHT_SLOT, lockedNotificationWrites, noticeVisible, selfSql } from "@everyfield/domain/notifications";
@@ -56,10 +57,10 @@ const zone = (actor: EvryActor) => sql`(SELECT timezone FROM plant WHERE id=${ac
 
 /**
  * The categories Settings > Notifications offers in a church. Launch milestones send nothing yet (D-762), the
- * oversight digest belongs to organization Evry, and the residency categories reach only a linked resident, who holds
+ * oversight digest and answers to review (T-385) belong to an organization, and the residency categories reach only a linked resident, who holds
  * no seat in a church (T-365).
  */
-const settable = notificationCategory.exclude(["launch_milestone", "oversight_digest", ...residencyCategories]);
+const settable = notificationCategory.exclude(["launch_milestone", ...organizationCategories, ...residencyCategories]);
 const choice = z
 	.strictObject({ category: settable, channel: z.enum(["email", "in_app"]), enabled: z.boolean() })
 	.refine((c) => notificationChannels(c.category).includes(c.channel), "This category has no email channel.");
