@@ -302,6 +302,13 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 		"followups.recordOutcome",
 		"followups.correctOutcome",
 	];
+	const mailReads = [
+		"communication.list",
+		"communication.preview",
+		"communication.get",
+		"communication.forPerson",
+		"communication.templates.list",
+	];
 	for (const who of ["owner", "member", "orgOwner", "seatless"] as const) {
 		const catalog = readCatalog(await actor(who));
 		const operations = catalog.domains.flatMap((d) => d.operations.map((o) => o.operation));
@@ -348,6 +355,13 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 						"communication.rescheduleReviewed",
 						"communication.cancelScheduledReviewed",
 						"communication.replaceScheduledReviewed",
+						"communication.sendReviewed",
+						"communication.executeResend",
+						"communication.retryProvenFailed",
+						"communication.deleteDraft",
+						"communication.templates.create",
+						"communication.templates.fork",
+						"communication.templates.update",
 						"notifications.markSelectedRead",
 						"notifications.markAllVisibleRead",
 						"notifications.setPreferences",
@@ -473,6 +487,11 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 						"people.mergedPersonDestination",
 						"communication.list",
 						...ownerTaskReads,
+						"communication.preview",
+						"communication.get",
+						"communication.forPerson",
+						"communication.templates.list",
+						"communication.resendCandidates",
 						"notifications.feed",
 						"notifications.preferences.get",
 						"notifications.previewPlanterDigest",
@@ -489,7 +508,7 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 					? [
 							...peopleReads,
 							...organizationReads,
-							"communication.list",
+							...mailReads,
 							...memberTaskReads,
 							"notifications.feed",
 							"notifications.preferences.get",

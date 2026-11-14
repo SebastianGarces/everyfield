@@ -2,7 +2,7 @@ import { z } from "zod";
 import { timeText } from "@everyfield/contracts/common";
 import { fourCs, interviewCriteria } from "@everyfield/contracts/people";
 import { correctedFieldLabel, correctedValueText } from "../../people/corrections/model.ts";
-import { fieldLabel, sendTimeShort, valueText } from "../review/model.ts";
+import { fieldLabel, LEFT_OUT_REASON, sendTimeShort, valueText } from "../review/model.ts";
 import { CHANNEL_LABEL } from "../../followups/model.ts";
 import { STAGE_LABEL, type StageValue } from "../../people/model.ts";
 import { CATEGORY_LABEL } from "../../tasks/model.ts";
@@ -354,6 +354,33 @@ const VIEWS: Record<string, OpView> = {
 		empty: "Nothing is recorded in this contact log. That doesn't prove nobody reached out.",
 	},
 	"tasks.followUpCoverage": people("Follow-up coverage"),
+	"communication.preview": people("Who it reaches", {
+		empty: "Nobody in this church is in that audience, or you can't see them.",
+	}),
+	"communication.get": people("Email results", {
+		icon: "message",
+		empty: "No email in Messages matches, or you can't see it.",
+	}),
+	"communication.forPerson": {
+		title: "Emails",
+		noun: ["email", "emails"],
+		icon: "message",
+		counts: "message",
+		shownOnly: true,
+		empty: "Messages has no email to this person.",
+	},
+	"communication.templates.list": {
+		title: "Email templates",
+		noun: ["template", "templates"],
+		icon: "template",
+		counts: "template",
+		empty: "No email template is available.",
+	},
+	"communication.resendCandidates": people("Resend", {
+		icon: "message",
+		shownOnly: true,
+		empty: "That email is not in Messages, or you can't see it.",
+	}),
 	"meetings.list": meetings("Meetings", { empty: "No meeting in this church matches." }),
 	"meetings.get": meetings("Meeting"),
 	"meetings.hasHistory": items("Meeting history", { noun: ["answer", "answers"] }),
@@ -437,6 +464,10 @@ const VIEWS: Record<string, OpView> = {
 	"calendar.getContext": calendar("Today"),
 	"calendar.resolve": calendar("Date check"),
 };
+/** With no person, communication.forPerson lists the people no email has gone out to. */
+const NEVER_EMAILED = people("No email recorded", {
+	empty: "Every live person in this church has had an email from Messages.",
+});
 // The Ministries reads (WP-069). A ministry row opens its Ministries page; a person row opens the person.
 const ministries = (title: string, rest: Partial<OpView> = {}): OpView => ({
 	title,
@@ -574,6 +605,18 @@ const DATE_STATUS: Record<string, string> = {
 	ambiguous: "Happens twice",
 	nonexistent: "Skipped by the clocks",
 	invalid_date: "Not a date",
+};
+/** One recipient's recorded result. "Sent" is never "delivered": only the email service's report says that. */
+const RESULT: Record<string, string> = {
+	waiting: "Waiting for its send time",
+	checking: "Result still being checked",
+	sent: "Sent, delivery not confirmed yet",
+	delivered: "Delivered",
+	opened: "Delivered, open recorded",
+	bounced: "Bounced",
+	failed: "Not sent",
+	cancelled: "Cancelled",
+	unsubscribed: "Unsubscribed, not sent",
 };
 const HOUSEHOLD_DETAIL = new Set(["people.getHousehold", "people.getHouseholdMembers"]);
 const ROLE: Record<string, string> = { head: "Head", spouse: "Spouse", child: "Child", other: "Other" };
@@ -1064,13 +1107,35 @@ function rowView(operation: string, row: SourceRow): RowView {
 			return {
 				...plain,
 				name: row.label,
+				// An email template says where it comes from; a ministry template what importing it adds.
 				line:
-					fields.alreadyHere === true
-						? joined("Already here", text(fields.newRoles) ? `Adds ${fields.newRoles}` : "Nothing new")
-						: joined(text(fields.newRoles) ? `Adds ${fields.newRoles}` : null, text(fields.roles)),
+					"origin" in fields
+						? fields.origin === "system"
+							? "System template · copy it to edit"
+							: "Church template"
+						: fields.alreadyHere === true
+							? joined("Already here", text(fields.newRoles) ? `Adds ${fields.newRoles}` : "Nothing new")
+							: joined(text(fields.newRoles) ? `Adds ${fields.newRoles}` : null, text(fields.roles)),
 				avatar: "template",
 			};
 		case "message":
+			// What happened to a sent email, in the words of its recorded results.
+			if (typeof fields.result === "string")
+				return {
+					...plain,
+					name: row.label,
+					line: joined(RESULT[fields.result] ?? fields.result, text(fields.sentAt)),
+					avatar: null,
+				};
+			if (typeof fields.results === "string")
+				return { ...plain, name: row.label, line: joined(text(fields.sentAt), fields.results), avatar: null };
+			if ("tooSoon" in fields)
+				return {
+					...plain,
+					name: row.label,
+					line: fields.tooSoon ? `Can resend from ${text(fields.resendFrom)}` : joined("Sent", text(fields.sentAt)),
+					avatar: null,
+				};
 			// A draft or scheduled message: its send time in the church's zone, never its body or recipients.
 			return {
 				...plain,
@@ -1176,15 +1241,17 @@ function rowView(operation: string, row: SourceRow): RowView {
 			// A meeting a task may be linked to (tasks.relationOptions): its name only.
 			if (operation === "tasks.relationOptions")
 				return { ...plain, name: row.label, line: "Meeting", avatar: "meeting", href: `/meetings/${row.id}` };
-			// A ministry's team meetings (teams.listMeetings): the date and status.
+			// An email's meeting carries its start; a ministry's team meetings (teams.listMeetings) the date and status.
 			if (!operation.startsWith("meetings."))
 				return {
 					...plain,
 					name: row.label,
-					line: joined(
-						day(String(fields.date) + "T12:00:00Z"),
-						text(fields.status) ? words(String(fields.status)) : null,
-					),
+					line: text(fields.startsAt)
+						? text(fields.startsAt)
+						: joined(
+								day(String(fields.date) + "T12:00:00Z"),
+								text(fields.status) ? words(String(fields.status)) : null,
+							),
 					avatar: "meeting",
 					href: `/meetings/${row.id}`,
 				};
@@ -1433,6 +1500,24 @@ function rowView(operation: string, row: SourceRow): RowView {
 			photoFor: row.id,
 			href,
 		};
+	// A person in an email's audience or results: why they are left out, or what happened to their email.
+	if ("leftOut" in fields || "result" in fields || fields.email === "no email recorded")
+		return {
+			key,
+			name: row.label,
+			line:
+				typeof fields.leftOut === "string"
+					? `Left out: ${LEFT_OUT_REASON[fields.leftOut] ?? fields.leftOut}`
+					: typeof fields.result === "string"
+						? (RESULT[fields.result] ?? fields.result)
+						: fields.email === "no email recorded"
+							? "No email recorded"
+							: "Gets it",
+			mark: null,
+			avatar: "person",
+			photoFor: row.id,
+			href,
+		};
 	if (operation.startsWith("teams."))
 		return {
 			key,
@@ -1672,7 +1757,10 @@ function shownRows(operation: string, view: OpView, result: SourceResult) {
 }
 
 export function cardView(operation: string, result: SourceResult, originalTotal: number | null): CardView {
-	const view = VIEWS[operation] ?? fallback;
+	const view =
+		operation === "communication.forPerson" && result.rows.some((r) => r.kind === "person")
+			? NEVER_EMAILED
+			: (VIEWS[operation] ?? fallback);
 	const [one, many] = view.noun;
 	const rows = shownRows(operation, view, result);
 	const counted = view.countAnswer

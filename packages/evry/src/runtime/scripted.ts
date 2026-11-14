@@ -10,6 +10,7 @@ import { onboardingStep } from "./scripted-onboarding.ts";
 import { pipelineStep } from "./scripted-pipeline.ts";
 import { TASK_DATA, taskStep } from "./scripted-tasks.ts";
 import { assessmentStep } from "./scripted-assessments.ts";
+import { mailStep, proposesOn } from "./scripted-mail.ts";
 import { settingsStep } from "./scripted-settings.ts";
 
 // A deterministic stand-in for a qualified model, for local previews and tests only (selectQualifiedModel never picks
@@ -828,9 +829,7 @@ function respond(options: LanguageModelV4CallOptions): LanguageModelV4Content[] 
 	const hasPeople = options.tools?.some((t) => t.name === "people_read") ?? false;
 	const canPropose = options.tools?.some((t) => t.name === "propose_change") ?? false;
 	// A Member proposes changes to their own notifications only; the People reviews are an Owner's or Admin's.
-	const canProposePeople = JSON.stringify(options.tools?.find((t) => t.name === "propose_change") ?? {}).includes(
-		'"people.',
-	);
+	const canProposePeople = proposesOn(options, "people");
 	// "Change Maria's city to Austin": find the person, then propose the change for review.
 	const change = /\b(?:change|set|update)\s+([A-Z][\w'-]+?)(?:'s)?\s+(city|phone|email)\s+to\s+(.+?)\.?\s*$/i.exec(
 		text,
@@ -850,13 +849,15 @@ function respond(options: LanguageModelV4CallOptions): LanguageModelV4Content[] 
 		dateStep(text, result, options.tools?.some((t) => t.name === "calendar_read") ?? false) ??
 		historyStep(text, result);
 	if (steps) return steps;
+	const mail = mailStep(options);
+	if (mail) return mail;
 	const canReadNotices = options.tools?.some((t) => t.name === "notifications_read") ?? false;
 	const oversight = JSON.stringify(options.tools?.find((t) => t.name === "notifications_read") ?? {}).includes(
 		"notifications.previewOversightDigest",
 	);
 	const notices = notificationStep(text, { read: canReadNotices, propose: canPropose, oversight }, result);
 	if (notices) return notices;
-	const email = emailStep(text, canPropose, canReadMail, result);
+	const email = emailStep(text, proposesOn(options, "communication"), canReadMail, result);
 	if (email) return email;
 	if (hasPeople) {
 		// The import receipt read is one of the people-organization tool's operations only for an Owner or Admin.

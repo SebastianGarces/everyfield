@@ -44,8 +44,6 @@ const ROW_LIVENESS: Record<SourceRow["kind"], Rule> = {
 		sql`EXISTS(SELECT FROM meeting lm WHERE lm.id=${id} AND lm.plant_id=${plant} AND lm.retired_at IS NULL)`,
 	responsibility: (id, plant) =>
 		sql`EXISTS(SELECT FROM responsibility ls WHERE ls.id=${id} AND ls.plant_id=${plant} AND ls.removed_at IS NULL)`,
-	// A template row is a catalog key, not a stored record.
-	template: null,
 	// A venue is live while it exists in the church, archived or not.
 	venue: (id, plant) => sql`EXISTS(SELECT FROM venue lv WHERE lv.id=${id} AND lv.plant_id=${plant})`,
 	// Never withheld: an item row is a part of a meeting or venue read (an agenda section, a kit item, a report line).
@@ -69,6 +67,8 @@ const ROW_LIVENESS: Record<SourceRow["kind"], Rule> = {
 	history: null,
 	import: null,
 	file: null,
+	// A system template is not a stored row, and a church template's name and origin are all a row says.
+	template: null,
 	skill: null,
 	activity: null,
 	// A recorded interview, 4 C's assessment or commitment card, or the person's current commitment.

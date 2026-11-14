@@ -88,8 +88,77 @@ function People({ label, names }: { label: string; names: { name: string; note?:
 const leftOutNames = (rows: { name: string; reason: string }[]) =>
 	rows.map((r) => ({ name: r.name, note: LEFT_OUT_REASON[r.reason] ?? r.reason }));
 
+const SENDS = new Set([
+	"communication.scheduleReviewed",
+	"communication.sendReviewed",
+	"communication.executeResend",
+	"communication.retryProvenFailed",
+]);
+const CATEGORY: Record<string, string> = {
+	meeting_invitation: "Meeting invitation",
+	meeting_reminder: "Meeting reminder",
+	follow_up: "Follow-up",
+	announcement: "Announcement",
+};
+type Meeting = { title: string; at: string; zone: string };
+const asMeeting = (value: unknown): Meeting | null =>
+	value && typeof value === "object" && "title" in value ? (value as Meeting) : null;
+
+/** A template's reviewed facts: its name, kind, subject and body, before and after for a change. */
+function TemplateChanges({ review }: { review: Review }) {
+	const name = find(review, "name");
+	const subject = find(review, "subject");
+	const body = find(review, "body");
+	const kind = text(find(review, "category")?.after);
+	const copyOf = text(find(review, "copyOf")?.after);
+	const pair = (c: Change | undefined) =>
+		c?.before != null && c.before !== c.after ? (
+			<>
+				<Old>{text(c.before)}</Old>
+				<Then />
+				<New>{text(c.after)}</New>
+			</>
+		) : (
+			<New>{text(c?.after)}</New>
+		);
+	return (
+		<dl className="flex flex-col gap-3 rounded-md bg-surface-2 px-3 py-2.5 text-sm">
+			{copyOf ? (
+				<Row label="Copy of">
+					<New>{copyOf} (system)</New>
+				</Row>
+			) : null}
+			<Row label="Name">{pair(name)}</Row>
+			{kind ? (
+				<Row label="Kind">
+					<New>{CATEGORY[kind] ?? kind}</New>
+				</Row>
+			) : null}
+			{subject ? <Row label="Subject">{pair(subject)}</Row> : null}
+			{body?.before != null ? (
+				<Block label="Body now" muted>
+					{text(body.before)}
+				</Block>
+			) : null}
+			{body ? <Block label={body.before != null ? "Body after" : "Body"}>{text(body.after)}</Block> : null}
+		</dl>
+	);
+}
+
 /** The reviewed facts of one email change. */
 export function MailChanges({ review }: { review: Review }) {
+	if (review.operation.startsWith("communication.templates.")) return <TemplateChanges review={review} />;
+	if (review.operation === "communication.deleteDraft")
+		return (
+			<dl className="flex flex-col gap-3 rounded-md bg-surface-2 px-3 py-2.5 text-sm">
+				<Row label="Draft">
+					<New>{text(find(review, "draft")?.before)}</New>
+				</Row>
+				<Row label="Audience">
+					<New>{audienceText(find(review, "audience")?.after) ?? "Not chosen"}</New>
+				</Row>
+			</dl>
+		);
 	const subject = text(find(review, "subject")?.after);
 	const time = sendTimeOf(review, "after");
 	const was = sendTimeOf(review, "before");
@@ -99,6 +168,7 @@ export function MailChanges({ review }: { review: Review }) {
 	const recipients = find(review, "recipients")?.after;
 	const leftOut = find(review, "leftOut")?.after;
 	const content = find(review, "content")?.after;
+	const meeting = asMeeting(find(review, "meeting")?.after);
 	const op = review.operation;
 	return (
 		<dl className="flex flex-col gap-3 rounded-md bg-surface-2 px-3 py-2.5 text-sm">
@@ -113,7 +183,14 @@ export function MailChanges({ review }: { review: Review }) {
 					<Block label="Body">{text(body?.after)}</Block>
 				</>
 			) : null}
-			{op === "communication.scheduleReviewed" ? (
+			{meeting ? (
+				<Row label="About">
+					<New>
+						{meeting.title}, {sendTimeShort(meeting)}
+					</New>
+				</Row>
+			) : null}
+			{SENDS.has(op) ? (
 				<>
 					<People
 						label="Will get it"
@@ -182,6 +259,17 @@ export const MAIL_CONSEQUENCE: Record<string, string> = {
 	"communication.cancelScheduledReviewed": "It says Cancelled only once every recipient's send is confirmed cancelled.",
 	"communication.replaceScheduledReviewed":
 		"The old send is cancelled first. The new one is scheduled at the same time only after every cancel is confirmed. If any cancel is not confirmed or already sent, nothing new is scheduled.",
+	"communication.sendReviewed":
+		"It goes to the email service as soon as you approve, to exactly these people. Accepted is not delivered: Messages shows each delivery when the email service reports it.",
+	"communication.executeResend":
+		"A new copy goes to these people only. Open tracking isn't reliable: some people who read it show no open, and some opens are automatic.",
+	"communication.retryProvenFailed":
+		"A new copy goes only to these people, whose email the email service refused or bounced. Anyone still being checked is not sent again.",
+	"communication.deleteDraft": "The draft is removed from Messages. Nothing is sent.",
+	"communication.templates.create": "The template is saved as the church's own in Messages. Nothing is sent.",
+	"communication.templates.fork":
+		"A church copy is made that you can edit. The system template stays as it is. Nothing is sent.",
+	"communication.templates.update": "The church template changes in Messages. Nothing is sent.",
 };
 
 function Tally({ items }: { items: [string, number][] }) {
@@ -321,6 +409,29 @@ export function MailResult({ review }: { review: Review }) {
 							) : null}
 						</>
 					) : null}
+				</>
+			);
+			break;
+		case "send":
+			lines = (
+				<>
+					<Tally
+						items={[
+							["Accepted", report.accepted],
+							["Refused", report.refused],
+							["Unknown", report.unknown],
+							["Left out", report.leftOut],
+						]}
+					/>
+					<p className="text-text-2">
+						{report.confirmation === "confirmed"
+							? `The email service accepted ${report.accepted} ${noun(report.accepted)}. Accepted does not mean delivered: Messages shows each delivery when the email service reports it.`
+							: report.confirmation === "not_confirmed"
+								? `The email service has not answered for ${report.unknown} ${noun(report.unknown)}, so they may or may not get this email. Check again asks it again; nothing is sent twice.`
+								: report.code
+									? `No email went out. ${stoppedReason(report.code)}`
+									: "The email service refused every recipient, so no email went out. Messages shows what it refused."}
+					</p>
 				</>
 			);
 			break;

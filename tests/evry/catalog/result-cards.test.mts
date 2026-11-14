@@ -23,6 +23,7 @@ import {
 	programId,
 	taskId,
 	teamId,
+	WELCOME,
 } from "../evals/golden-church.mts";
 import { nativePorts } from "../evals/settings-ports.mts";
 import { seedSetup, SETUP_SPECS } from "../evals/setup-church.mts";
@@ -146,6 +147,16 @@ const PROBES: Record<string, Record<string, unknown> | (() => Promise<SourceResu
 	"followups.readObligations": {},
 	// Beth Johnson's follow-up was completed by a recorded call.
 	"followups.listContactHistory": { personId: byName("Beth Johnson").id },
+	"communication.preview": {
+		subject: "You're invited: Vision Night",
+		body: "Hi {{name}}, come to Vision Night.",
+		audience: { groups: ["prospects"], teamIds: [], personIds: [] },
+		meetingWords: "vision night",
+	},
+	"communication.get": {},
+	"communication.forPerson": { personId: byName("Maria Santos").id },
+	"communication.templates.list": {},
+	"communication.resendCandidates": { communicationId: WELCOME, selection: "delivered_nonopeners" },
 	"notifications.feed": { unread: true },
 	"notifications.preferences.get": {},
 	"notifications.previewPlanterDigest": {},

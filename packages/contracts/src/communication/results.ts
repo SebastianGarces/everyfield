@@ -419,6 +419,19 @@ export const mailReport = z.discriminatedUnion("kind", [
 		waiting: count.optional(),
 		leftOut: count.optional(),
 	}),
+	/**
+	 * A send now from Evry (a new email, a resend or a retry): what the email service answered for each recipient it was
+	 * handed. Accepted is not delivered. `code` is why Messages stopped before the email service was asked.
+	 */
+	z.object({
+		kind: z.literal("send"),
+		confirmation: z.enum(["confirmed", "not_confirmed", "refused"]),
+		accepted: count,
+		refused: count,
+		unknown: count,
+		leftOut: count,
+		code: z.string().optional(),
+	}),
 	/** No new send: a cancel is open or too late, or the new one was refused after the old one was cancelled. */
 	z.object({
 		kind: z.literal("replace_stopped"),
