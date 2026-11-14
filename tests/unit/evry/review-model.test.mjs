@@ -14,6 +14,7 @@ import {
 	approvalLeft,
 	isRequired,
 	missingRequired,
+	peopleResult,
 	phaseOf,
 	retryable,
 	reviseInput,
@@ -123,4 +124,22 @@ test("AC:REQ-PPL-026 INV-revise-adult: adult or child is required only until a b
 		missingRequired(dated, { ...edits, birthDate: "", adultClassification: "" })?.field,
 		"adultClassification",
 	);
+});
+
+test("AC:HH-05 INV-partial: a saved change that left anyone out counts who changed and never reads as done for everyone", () => {
+	const person = (n, outcome) => ({
+		id: `0000000${n}-1111-4111-8111-111111111111`,
+		label: `Nguyen ${n}`,
+		outcome,
+		...(outcome === "unchanged" && { reason: "Already at this address" }),
+	});
+	const saved = (people) =>
+		review({ status: "approved", outcome: "completed", operation: "people.propagateAddress", receipt: { people } });
+	const all = [1, 2, 3, 4].map((n) => person(n, "changed"));
+	assert.equal(peopleResult(saved(all)), "Saved for all 4");
+	const partial = [...all.slice(0, 3), person(4, "unchanged")];
+	assert.equal(peopleResult(saved(partial)), "3 of 4 changed");
+	assert.doesNotMatch(peopleResult(saved(partial)), /all|saved/i);
+	// A change that reached nobody else has no count.
+	assert.equal(peopleResult(review({ status: "approved", outcome: "completed", receipt: {} })), null);
 });
