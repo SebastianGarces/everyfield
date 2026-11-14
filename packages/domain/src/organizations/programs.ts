@@ -292,6 +292,12 @@ const basisOf = (org: string) => sql`md5(concat_ws('|',x.revision,x.version_id,x
   AND c.organization_id=${org}::uuid)))`;
 
 const milestoneJson = sql`jsonb_build_object('lineage',m.lineage,'title',m.title,'description',m.description,'handsOn',m.hands_on)`;
+const milestoneRow = z.object({
+	lineage: z.string(),
+	title: z.string(),
+	description: z.string().nullable(),
+	handsOn: z.boolean(),
+});
 const reviewRow = z.object({
 	enrollmentId: z.string(),
 	versionId: z.string(),
@@ -299,12 +305,8 @@ const reviewRow = z.object({
 	toNumber: z.number(),
 	basis: z.string(),
 	stage: z.string(),
-	from: z.array(
-		z.object({ lineage: z.string(), title: z.string(), description: z.string().nullable(), handsOn: z.boolean() }),
-	),
-	to: z.array(
-		z.object({ lineage: z.string(), title: z.string(), description: z.string().nullable(), handsOn: z.boolean() }),
-	),
+	from: z.array(milestoneRow),
+	to: z.array(milestoneRow),
 	stages: z.array(z.object({ id: z.string(), label: z.string() })),
 	finished: z.array(z.string()),
 });
@@ -738,7 +740,6 @@ function applyVersion(db: Database, authority: RequestActor, raw: unknown) {
 				found: z.boolean(),
 				already: z.boolean(),
 				fresh: z.boolean(),
-				stage: z.boolean(),
 				applied: z.boolean(),
 			}),
 			sql`WITH x AS (SELECT e.id,e.revision,e.version_id,e.current_stage_id,p.current_version_id,ev.version_number
@@ -757,7 +758,7 @@ a AS (${w.audit({ action: "development.version_applied", kind: "edit", subjectTy
  FROM x,t,u RETURNING id)
 SELECT EXISTS(SELECT FROM x) AS found,EXISTS(SELECT FROM x WHERE x.version_id=${input.versionId}::uuid
   AND x.current_version_id=${input.versionId}::uuid) AS already,
- EXISTS(SELECT FROM t) AS fresh,EXISTS(SELECT FROM st) AS stage,EXISTS(SELECT FROM u) AS applied`,
+ EXISTS(SELECT FROM t) AS fresh,EXISTS(SELECT FROM u) AS applied`,
 		);
 		if (row.applied) return { outcome: "changed" as const };
 		if (!row.found) refuse();
