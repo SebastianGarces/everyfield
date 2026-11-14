@@ -279,7 +279,6 @@ export function buildFacts(inputs: FactInputs, asOf: Instant, today: string): c.
 	return c.plantFacts.parse({
 		asOf,
 		today,
-		zone: inputs.zone,
 		formulaVersion: c.FACTS_FORMULA_VERSION,
 		sourceRevision: createHash("sha256").update(JSON.stringify(inputs)).digest("hex"),
 		committedAdults,
@@ -424,4 +423,3 @@ export function createFacts(config: { clock?: Clock } = {}) {
 		},
 	};
 }
-export type Facts = ReturnType<typeof createFacts>;

@@ -167,7 +167,6 @@ export const humanRecords = z.strictObject({ interviews: recordPresence, fourCs:
 export const plantFacts = z.strictObject({
 	asOf: instant,
 	today: localDate,
-	zone: z.string().min(1),
 	formulaVersion: z.literal(FACTS_FORMULA_VERSION),
 	/** A digest of every input the facts read. Assessment work captured at another revision is stale. */
 	sourceRevision: z.string().regex(/^[0-9a-f]{64}$/),
