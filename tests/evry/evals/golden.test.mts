@@ -698,13 +698,16 @@ test("INV-evry-golden SAF-02 SAF-11 SAF-12 SAF-14: the model's tools can read an
 	// A Member reads, selects and proposes changes to only their own notifications and account; an organization seat
 	// gets no plant read at all, only its own profile change (T-327).
 	assert.deepEqual(tools("member"), tools("owner"));
-	assert.deepEqual(readCatalog(church.actors.member).reviewedWrites.map((w) => w.operation), [
-		"notifications.markSelectedRead",
-		"notifications.markAllVisibleRead",
-		"notifications.setPreferences",
-		"account.finalizeAvatar",
-		"account.requestDeletion",
-	]);
+	assert.deepEqual(
+		readCatalog(church.actors.member).reviewedWrites.map((w) => w.operation),
+		[
+			"notifications.markSelectedRead",
+			"notifications.markAllVisibleRead",
+			"notifications.setPreferences",
+			"account.finalizeAvatar",
+			"account.requestDeletion",
+		],
+	);
 	assert.deepEqual(tools("org"), ["propose_change"]);
 	assert.deepEqual(
 		readCatalog(church.actors.org).reviewedWrites.map((w) => w.operation),
