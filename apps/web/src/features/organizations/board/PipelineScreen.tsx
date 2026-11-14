@@ -11,6 +11,7 @@ import { useState, type CSSProperties } from "react";
 import { readBoard } from "./actions";
 import { boardHref, formatDay, PIPELINE_PATH, plural } from "./model";
 import { PersonDialog, type Saved } from "./PersonDialog";
+import { PipelineTabs } from "./PipelineTabs";
 import { StageEditor } from "./StageEditor";
 
 type Stage = PipelineBoard["stages"][number];
@@ -89,6 +90,7 @@ export function PipelineScreen({ initial }: { initial: PipelineBoard }) {
 					) : null
 				}
 			/>
+			<PipelineTabs current="people" />
 			{board.audience === "counts" ? (
 				<Counts board={board} />
 			) : (
