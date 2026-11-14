@@ -19,6 +19,7 @@ import {
 } from "@everyfield/contracts/notifications";
 import type { Database } from "@everyfield/db/client";
 import { sql } from "@everyfield/db/query";
+import { defaultDigestCadence } from "@everyfield/contracts/settings";
 import { z } from "zod";
 import { RequestActor, deny, jsonValue, parse, readReply, seatAccess } from "./core.ts";
 
@@ -69,6 +70,12 @@ const planterRow = z.object({
 });
 const actions =
 	"'tasks.changed','tasks.completed','meetings.changed','meetings.finalized','people.updated','people.created','plant.profile_changed'";
+
+/**
+ * The oversight digest's slot: 07:00 in the organization's zone, on Mondays when weekly, covering completed days only
+ * (WP-030 decisions D-b, D-c). The scheduled runner and the preview both read it.
+ */
+export const OVERSIGHT_SLOT = { weekday: 1, hour: 7 } as const;
 
 const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
 
@@ -372,6 +379,60 @@ export async function previewPlanterDigest(db: Execute, authority: RequestActor,
 		});
 		if (!digest.live) deny("access_denied");
 		const text = renderPlanterDigest({ ...period, ...digest });
+		return {
+			zone,
+			cadence,
+			next: { sendAt, start: period.start, end: period.end, total: digest.total, items: digest.lines, ...text },
+		};
+	});
+}
+
+const oversightPreviewRequest = z.strictObject({ organizationId: z.uuid() });
+const oversightPreviewRow = z.object({
+	allowed: z.boolean(),
+	timezone: z.string(),
+	cadence: z.enum(["daily", "weekly"]).nullable(),
+	covered_through: z.string().nullable(),
+});
+
+/**
+ * notifications.previewOversightDigest: the oversight digest the signed-in Owner or Admin gets next, from current
+ * facts. The scheduled runner's own rules decide it: the fixed 07:00 slot in the organization's zone, the account's
+ * cadence and how far its coverage reaches give the send time and the period, and the same compile and text as the
+ * delivered digest give its lines: plant names, dates and counts only (REQ-NTF-008). A total of 0 means the runner
+ * would send nothing. Two statements, each with the live access check.
+ */
+export async function previewOversightDigest(db: Execute, authority: RequestActor, raw: unknown, now: () => Date) {
+	return readReply(async () => {
+		const input = parse(oversightPreviewRequest, raw);
+		const me = authority.actor.accountId;
+		const r = await db.execute(sql`SELECT o.timezone,
+				(SELECT cadence FROM notification_preference WHERE account_id = ${me}::uuid AND category = 'oversight_digest'
+					AND cadence IS NOT NULL LIMIT 1) AS cadence,
+				(SELECT covered_through::text FROM digest_coverage WHERE tenant_id = o.id AND recipient_id = ${me}::uuid
+					AND purpose = 'oversight') AS covered_through,
+				${seatAccess({ session: authority.session, account: me, tenant: input.organizationId, admin: true })} AS allowed
+			FROM organization o WHERE o.id = ${input.organizationId}::uuid`);
+		const row = r.rows[0] ? oversightPreviewRow.parse(r.rows[0]) : null;
+		if (!row?.allowed) deny("access_denied");
+		const zone = timeZone.parse(row.timezone);
+		const cadence = row.cadence ?? defaultDigestCadence.oversight_digest;
+		const sendAt = nextDigestInstant(zone, cadence, now(), OVERSIGHT_SLOT);
+		const period = owedPeriod(
+			{ zone, cadence, ...OVERSIGHT_SLOT, completedDaysOnly: true },
+			sendAt,
+			row.covered_through,
+		);
+		if (!period) return { zone, cadence, next: null };
+		const digest = await compileOversightDigest(db, {
+			organization: input.organizationId,
+			recipient: me,
+			start: period.start,
+			end: period.end,
+			zone,
+		});
+		if (!digest.live) deny("access_denied");
+		const text = renderOversightDigest({ ...period, ...digest });
 		return {
 			zone,
 			cadence,
