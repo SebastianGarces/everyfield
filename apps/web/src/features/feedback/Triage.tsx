@@ -115,18 +115,20 @@ export function TriageList({
 								href={`/feedback/triage/${item.id}`}
 								linkAs={Link}
 								title={<span className="line-clamp-1">{item.description}</span>}
-								subtitle={[
-									CATEGORY_NAME[item.category],
-									item.details.page ?? "Unknown page",
-									item.author.name,
-									dateLabel(item.submittedAt),
-								].join(" · ")}
-								trailing={
-									<span className="flex items-center gap-2">
-										<Delivery item={item} setup={setup} />
-										<StatusTag status={item.status} />
-									</span>
+								subtitle={
+									<>
+										{[
+											CATEGORY_NAME[item.category],
+											item.details.page ?? "Unknown page",
+											item.author.name,
+											dateLabel(item.submittedAt),
+										].join(" · ")}
+										<span className="mt-2 flex flex-wrap gap-2">
+											<Delivery item={item} setup={setup} />
+										</span>
+									</>
 								}
+								trailing={<StatusTag status={item.status} />}
 							/>
 						))}
 					</List>
