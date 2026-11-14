@@ -244,7 +244,7 @@ Retain the SME 60 days of unbroken attendance AND volunteering, described as ste
 
 ## Consumer closure and proof
 
-[Frozen build progress](../build-progress.json) records implementation milestones until it stopped updating on 2026-10-22 at PR #235; evf v2's task records are the live state. Execute the named future cases through real domain requests, disposable PostgreSQL constraints/races/fault injection and native/reviewed-Evry browser paths where surfaced. Prove current authorization again at execution; no test/source count or file presence is runtime proof. Include registered Person references, assessment freshness, exact partial/committed receipts, correction limits and failure outcomes at each owning consumer closure. Domain adapter files are owned by their specific feature packages; shared Evry runtime/catalog/review UI has one integration owner.
+[Build progress](../build-progress.json) records implementation milestones as of 2026-10-22 at PR #235, except WP-017–039, WP-071 and WP-072, which T-290 refreshed on 2026-11-13; evf v2's task records are still the live state. Execute the named future cases through real domain requests, disposable PostgreSQL constraints/races/fault injection and native/reviewed-Evry browser paths where surfaced. Prove current authorization again at execution; no test/source count or file presence is runtime proof. Include registered Person references, assessment freshness, exact partial/committed receipts, correction limits and failure outcomes at each owning consumer closure. Domain adapter files are owned by their specific feature packages; shared Evry runtime/catalog/review UI has one integration owner.
 
 ## Organization development programs
 
