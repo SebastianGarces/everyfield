@@ -1,8 +1,8 @@
 // Installs and activates the pinned Wiki (approved.ts) on one database. Rerunning it is a no-op once that version is active.
 //   development: corepack pnpm --filter @everyfield/reference wiki:install [--schema <ui_schema>]
 //   production (operator only): corepack pnpm --filter @everyfield/reference wiki:install --production --operator <account-id>
-// Development targets only the shared development database and provisions a synthetic publisher. Production requires
-// both flags and an operator account that already holds the reference_publish grant.
+// Development targets only the shared development database or the disposable CI one, and provisions a synthetic
+// publisher. Production requires both flags and an operator account that already holds the reference_publish grant.
 import { randomBytes, randomUUID } from "node:crypto";
 import { parseArgs } from "node:util";
 import { createDatabase, closeDatabase } from "@everyfield/db/client";
@@ -29,13 +29,20 @@ try {
 	fail("Set DATABASE_URL. No setting values are printed.");
 }
 const development = developmentHosts.has(target.hostname);
+// The disposable CI database, under the same guard tests/reference/starter/living.db.mts uses.
+const localCi =
+	process.env.CI === "true" &&
+	process.env.EARLY_ACCESS_TEST_DATABASE === "1" &&
+	["localhost", "127.0.0.1"].includes(target.hostname) &&
+	target.pathname === "/everyfield_ci";
 if (values.production) {
-	if (development) fail("--production names the production database, but DATABASE_URL is the development one.");
+	if (development || localCi)
+		fail("--production names the production database, but DATABASE_URL is a development or CI one.");
 	if (!values.operator) fail("--production requires --operator <account-id> with the reference_publish grant.");
 	if (values.schema) fail("--schema is for development seed schemas only.");
-} else if (!development || process.env.NODE_ENV === "production")
-	fail("Refused: without --production this command writes only the shared development database.");
-else target.searchParams.set("sslmode", "verify-full");
+} else if (!(development || localCi) || process.env.NODE_ENV === "production")
+	fail("Refused: without --production this command writes only the shared development or disposable CI database.");
+else if (development) target.searchParams.set("sslmode", "verify-full");
 if (values.schema && !/^ui_[a-f0-9]{16}$/.test(values.schema))
 	fail("--schema takes a tests/ui seed schema (ui_<hex>).");
 if (values.operator && !/^[0-9a-f-]{36}$/i.test(values.operator)) fail("--operator takes an account id.");
