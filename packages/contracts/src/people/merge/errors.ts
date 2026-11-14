@@ -25,6 +25,7 @@ export const referenceKind = z.enum([
 	"contact_outcome",
 	"development_enrollment",
 	"invitation",
+	"launch_guest",
 	"mail",
 	"meeting_kit_item",
 	"obligation",
