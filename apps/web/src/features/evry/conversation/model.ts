@@ -52,18 +52,18 @@ export type SourceRow = {
 		| "file"
 		| "import"
 		| "message"
+		| "team"
+		| "role"
+		| "training"
+		| "meeting"
+		| "responsibility"
+		| "template"
 		| "task"
 		| "tally"
 		| "history"
 		| "follow_up"
 		| "contact"
-		| "account"
-		| "template"
-		| "meeting"
-		| "team"
-		| "role"
-		| "training"
-		| "responsibility";
+		| "account";
 	id: string;
 	label: string;
 	fields: Record<string, unknown>;
