@@ -618,3 +618,23 @@ test("INV-meetings-agenda: the agenda card leads with the app's print link, open
 		],
 	);
 });
+
+test("INV-result-card-launch-guests: a guest name's People matches are listed under the named guests, never counted as guests", () => {
+	const guest = (id, label) => ({ kind: "person", id, label, fields: { guest: "Launch Sunday first-time guest" } });
+	const match = {
+		kind: "person",
+		id: P2,
+		label: "Maria Lopez",
+		fields: { match: "Maria Lopez", detail: null, alreadyGuest: false },
+	};
+	const view = cardView(
+		"launch.readDebrief",
+		result("launch.readDebrief", [guest(H, "Ana Silva"), guest(P1, "Ben Cho"), match], { total: 2 }),
+		null,
+	);
+	assert.equal(view.summary, "2 named guests");
+	assert.deepEqual(
+		view.rows.map((r) => r.name),
+		["Ana Silva", "Ben Cho", "Maria Lopez"],
+	);
+});
