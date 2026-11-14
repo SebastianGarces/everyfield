@@ -17709,7 +17709,8 @@
       "ADR1-015"
     ],
     "operations": [
-      "development.draftPlan"
+      "development.draftPlan",
+      "development.draftNextVersion"
     ],
     "work_packages": [
       "WP-101",

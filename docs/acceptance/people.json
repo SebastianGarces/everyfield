@@ -19814,6 +19814,39 @@
             "event": [],
             "error_code": "private_field_refused"
           }
+        },
+        {
+          "name": "An Admin who does not direct the program is refused its next-version draft",
+          "given": {
+            "staff": {
+              "fixture_type": "seat",
+              "account": "A",
+              "tenant": "O",
+              "role": "Admin",
+              "active": true
+            }
+          },
+          "actor": {
+            "account": "A",
+            "session": "S",
+            "context": "O"
+          },
+          "clock": {
+            "now": "2026-10-17T16:00:00Z",
+            "zone": "America/Chicago"
+          },
+          "action": {
+            "operation": "development.draftNextVersion",
+            "arguments": {
+              "program_id": "Program",
+              "plan": "next-version-plan"
+            }
+          },
+          "expected": {
+            "state": {},
+            "event": [],
+            "error_code": "access_denied"
+          }
         }
       ]
     },

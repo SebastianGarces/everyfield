@@ -100,6 +100,7 @@ test("AC:INH-REGRESSION-CAPABILITIES INV-catalog: every installed model tool is 
 		"discovery.getProfile",
 		"pipeline.listPeople",
 		"development.draftPlan",
+		"development.readProgram",
 		"evry.selectReturnedRows",
 	]);
 	for (const id of installed) {
@@ -222,7 +223,7 @@ test("INV-member-capabilities: a Member who may change only their own notificati
 	assert.doesNotMatch(describeCatalog(catalog(["people.updatePerson"])), /Owner or Admin/);
 });
 
-test("INV-organization-catalog: only an organization Owner or Admin gets the two oversight digest tools, the organization profile change, the stage move and the program create; every seat reads its pipeline", () => {
+test("INV-organization-catalog: only an organization Owner or Admin gets the two oversight digest tools, the organization profile change, the stage move and the program create; every seat reads its pipeline and programs and may propose a next version, which only a program's director gets a card for", () => {
 	const id = "00000000-0000-4000-8000-0000000000a1";
 	const actor = (owner: EvryActor["owner"], contextKind: EvryActor["contextKind"], role: EvryActor["role"]) =>
 		({
@@ -244,7 +245,8 @@ test("INV-organization-catalog: only an organization Owner or Admin gets the two
 	};
 	const oversight = ["notifications.previewOversightDigest", "notifications.oversightDigestCadence.set"];
 	// T-327's organization profile change, and WP-101's pipeline and program tools. Plant oversight stays out (WP-073).
-	const pipeline = ["pipeline.listPeople", "development.draftPlan"];
+	// T-377: every seat reads programs and proposes a next version; the review refuses anyone but the director.
+	const pipeline = ["pipeline.listPeople", "development.draftPlan", "development.readProgram"];
 	for (const role of ["owner", "admin"] as const)
 		assert.deepEqual(
 			tools(actor(organization, "sending_church", role)),
@@ -255,11 +257,15 @@ test("INV-organization-catalog: only an organization Owner or Admin gets the two
 				"organizations.updateProfile",
 				"pipeline.proposeStageMove",
 				"development.saveProgram",
+				"development.draftNextVersion",
 			],
 			role,
 		);
 	// A Member reads the pipeline as their Pipeline page shows it, and drafts a plan, but moves and creates nothing.
-	assert.deepEqual(tools(actor(organization, "sending_church", "member")), pipeline);
+	assert.deepEqual(tools(actor(organization, "sending_church", "member")), [
+		...pipeline,
+		"development.draftNextVersion",
+	]);
 	// An account with no seat gets only its own setup and Discovery tools (T-345), never an oversight digest.
 	assert.deepEqual(tools(actor({ kind: "account", id } as EvryActor["owner"], "account", null)), [
 		"discovery.getProfile",

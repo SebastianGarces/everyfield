@@ -1,7 +1,12 @@
 import type { Transaction } from "@everyfield/db/client";
 import { sql, type SQL } from "@everyfield/db/query";
 import { digestCadence, notificationCategory, type NotificationReply } from "@everyfield/contracts/notifications";
-import { defaultChannelEnabled, defaultDigestCadence, notificationChannels } from "@everyfield/contracts/settings";
+import {
+	defaultChannelEnabled,
+	defaultDigestCadence,
+	notificationChannels,
+	residencyCategories,
+} from "@everyfield/contracts/settings";
 import { OVERSIGHT_SLOT, lockedNotificationWrites, noticeVisible, selfSql } from "@everyfield/domain/notifications";
 import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
@@ -50,10 +55,11 @@ const unread = (ids: string[] | null) =>
 const zone = (actor: EvryActor) => sql`(SELECT timezone FROM plant WHERE id=${actor.owner.id}::uuid)`;
 
 /**
- * The categories Settings > Notifications offers in a church. Launch milestones send nothing yet (D-762), and the
- * oversight digest belongs to organization Evry.
+ * The categories Settings > Notifications offers in a church. Launch milestones send nothing yet (D-762), the
+ * oversight digest belongs to organization Evry, and the residency categories reach only a linked resident, who holds
+ * no seat in a church (T-365).
  */
-const settable = notificationCategory.exclude(["launch_milestone", "oversight_digest"]);
+const settable = notificationCategory.exclude(["launch_milestone", "oversight_digest", ...residencyCategories]);
 const choice = z
 	.strictObject({ category: settable, channel: z.enum(["email", "in_app"]), enabled: z.boolean() })
 	.refine((c) => notificationChannels(c.category).includes(c.channel), "This category has no email channel.");
