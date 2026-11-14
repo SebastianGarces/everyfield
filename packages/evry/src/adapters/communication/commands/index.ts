@@ -119,7 +119,7 @@ async function recipientOutcomes(db: Database, authority: RequestActor, communic
 			FROM mail m LEFT JOIN person p ON p.id=m.recipient_person_id
 			WHERE m.tenant_id=${plantId}::uuid AND m.logical_key LIKE ${"communication/" + communicationId + "/%"}
 				AND m.state NOT IN ('refused','failed')
-			ORDER BY p.display_name`,
+			ORDER BY lower(p.display_name) COLLATE "C",p.id`,
 	);
 	return z.array(z.object({ name: z.string(), outcome: recipientOutcome })).parse(r.rows);
 }
@@ -239,7 +239,7 @@ export const schedule: ReviewedWrite<z.infer<typeof scheduleInput>> = {
 					${change("subject", null, sql`to_jsonb(c.subject)`)},
 					${change("recipients", null, recipientNames)},
 					${change("leftOut", null, leftOutPeople)},
-					${change("content", null, sql`to_jsonb(replace(${content}::text, ${SAMPLE_NAME}::text, coalesce((SELECT name FROM classified WHERE reason IS NULL ORDER BY name, id LIMIT 1), '')))`)},
+					${change("content", null, sql`to_jsonb(replace(${content}::text, ${SAMPLE_NAME}::text, coalesce((SELECT name FROM classified WHERE reason IS NULL ORDER BY lower(name) COLLATE "C", id LIMIT 1), '')))`)},
 					${change("sendAt", null, instantAt(at))}))`,
 			)} AS review,
 			jsonb_build_object('expectedRevision',c.revision::text,'untouched',${untouched},'leftOut',${leftOutIds},
@@ -744,7 +744,7 @@ const savedSend = z.object({
 });
 /** The content one recipient will read, with the first recipient's name in place of the merge field. */
 const contentFor = (html: string) => readable(renderBody(html, { name: SAMPLE_NAME, rsvp_link: "" }));
-const firstName = sql`coalesce((SELECT name FROM classified WHERE reason IS NULL ORDER BY name,id LIMIT 1),'')`;
+const firstName = sql`coalesce((SELECT name FROM classified WHERE reason IS NULL ORDER BY lower(name) COLLATE "C",id LIMIT 1),'')`;
 const meetingFact = (meetingId: SQL) =>
 	sql`(SELECT jsonb_build_object('title',mt.title,'at',${iso(sql`mt.starts_at`)},'zone',mt.timezone) FROM meeting mt
 		WHERE mt.id=${meetingId} AND mt.plant_id=c.plant_id)`;

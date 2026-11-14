@@ -180,7 +180,7 @@ export const preview: ReadAdapter<z.infer<typeof previewInput>> = {
 			.map((w) => `%${w}%`);
 		const wantMeeting = words.length > 0 || input.meetingOn !== undefined;
 		const r = await tx.execute(sql`WITH ${classifiedPeople(plant, input.audience, null)}
-			SELECT coalesce((SELECT jsonb_agg(jsonb_build_object('id',id,'name',name,'reason',reason) ORDER BY reason IS NULL,name,id) FROM classified),'[]'::jsonb) AS people,
+			SELECT coalesce((SELECT jsonb_agg(jsonb_build_object('id',id,'name',name,'reason',reason) ORDER BY reason IS NULL,lower(name) COLLATE "C",id) FROM classified),'[]'::jsonb) AS people,
 				CASE WHEN ${wantMeeting} THEN coalesce((SELECT jsonb_agg(jsonb_build_object('id',x.id,'title',x.title,'type',x.type,'starts',x.starts) ORDER BY x.starts_at DESC)
 					FROM (SELECT mt.id,mt.title,mt.type,mt.starts_at,${sql.raw(local("mt.starts_at", "mt.timezone"))} AS starts
 						FROM meeting mt WHERE mt.plant_id=${plant}::uuid AND mt.status<>'cancelled'
@@ -262,7 +262,7 @@ export const getMessage: ReadAdapter<z.infer<typeof getInput>> = {
 		const r = await tx.execute(sql`
 			SELECT ${messageFacts} AS message,
 				coalesce((SELECT jsonb_agg(jsonb_build_object('id',p.id,'name',p.display_name,'result',${sql.raw(RESULT)},
-					'delivered_at',${sql.raw(local("m.delivered_at"))},'opened_at',${sql.raw(local("coalesce(m.opened_at,m.clicked_at)"))}) ORDER BY p.display_name,p.id)
+					'delivered_at',${sql.raw(local("m.delivered_at"))},'opened_at',${sql.raw(local("coalesce(m.opened_at,m.clicked_at)"))}) ORDER BY lower(p.display_name) COLLATE "C",p.id)
 					FROM mail m JOIN person p ON p.id=m.recipient_person_id AND p.tenant_id=m.tenant_id
 					WHERE m.tenant_id=c.plant_id AND m.communication_id=c.id),'[]'::jsonb) AS recipients
 			FROM communication c JOIN plant pl ON pl.id=c.plant_id
@@ -328,7 +328,7 @@ export const forPerson: ReadAdapter<z.infer<typeof forPersonInput>> = {
 				WHERE p.tenant_id=${plant}::uuid AND p.plant_id=${plant}::uuid AND p.state='live' AND ${live(actor)}
 					AND NOT EXISTS(SELECT FROM mail m WHERE m.tenant_id=p.tenant_id AND m.recipient_person_id=p.id
 						AND m.purpose='communication' AND ${sql.raw(WENT_OUT)})
-				ORDER BY p.display_name,p.id LIMIT ${limit}`);
+				ORDER BY lower(p.display_name) COLLATE "C",p.id LIMIT ${limit}`);
 			const rows = z.array(z.object({ id: z.uuid(), name: z.string(), total: z.number() })).parse(r.rows);
 			const total = rows[0]?.total ?? 0;
 			return {
@@ -457,8 +457,8 @@ export const resendCandidates: ReadAdapter<z.infer<typeof resendInput>> = {
 			SELECT coalesce(nullif(c.subject,''),'Untitled') AS subject,${sql.raw(local(sentAt("c")))} AS sent_at,
 				${sql.raw(local(`${sentAt("c")}+interval '24 hours'`))} AS resend_from,
 				coalesce(${sql.raw(sentAt("c"))}+interval '24 hours'>clock_timestamp(),true) AS too_soon,
-				coalesce((SELECT jsonb_agg(jsonb_build_object('id',z.id,'name',z.name,'result',z.result,'hard_reason',z.hard_reason) ORDER BY z.name,z.id)
-					FROM (SELECT y.id,y.name,y.result,coalesce(y.hard_reason,CASE WHEN row_number() OVER (PARTITION BY y.hard_reason IS NULL,coalesce(y.address_hash,y.id::text) ORDER BY y.name,y.id)>1
+				coalesce((SELECT jsonb_agg(jsonb_build_object('id',z.id,'name',z.name,'result',z.result,'hard_reason',z.hard_reason) ORDER BY lower(z.name) COLLATE "C",z.id)
+					FROM (SELECT y.id,y.name,y.result,coalesce(y.hard_reason,CASE WHEN row_number() OVER (PARTITION BY y.hard_reason IS NULL,coalesce(y.address_hash,y.id::text) ORDER BY lower(y.name) COLLATE "C",y.id)>1
 						THEN 'duplicate_address' END) AS hard_reason
 					FROM (SELECT DISTINCT ON (p.id) p.id,p.display_name AS name,m.address_hash,${sql.raw(RESULT)} AS result,
 						-- Who no resend may reach now, whatever the email service said before: the same rules as a send.
