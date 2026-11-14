@@ -1,4 +1,3 @@
-import { LENSES } from "@everyfield/contracts/intelligence";
 import type {
 	Health,
 	IntelligenceRow,
@@ -12,7 +11,7 @@ import type {
 	RuleId,
 	SectionKey,
 } from "@everyfield/contracts/oversight";
-import { regionLabel, RULE_IDS } from "@everyfield/contracts/oversight";
+import { lensLabel, regionLabel, RULE_IDS } from "@everyfield/contracts/oversight";
 import type { Stage } from "@everyfield/ui/display";
 import { SHORT_NAME } from "../phases/model.ts";
 
@@ -226,11 +225,10 @@ export function resultLabels(row: IntelligenceRow): Label[] {
 	return RULE_IDS.map((id) => (RESULT[id] as Record<string, Label>)[row.results[id]]!);
 }
 
-const LENS_LABEL = Object.fromEntries(LENSES.map((l) => [l.key, l.label])) as Record<string, string>;
 /** "Concerns: Vision Casting, Launch progress" from a released assessment, or null when it raised none. */
 export function concernLenses(a: ReleasedAssessment): string | null {
 	if (a.status !== "released" || !a.concerns.length) return null;
-	const names = [...new Set(a.concerns.map((c) => (c.lens ? LENS_LABEL[c.lens]! : "Launch progress")))];
+	const names = [...new Set(a.concerns.map((c) => (c.lens ? lensLabel(c.lens) : "Launch progress")))];
 	return `${names.length === 1 ? "Concern" : "Concerns"}: ${names.join(", ")}`;
 }
 

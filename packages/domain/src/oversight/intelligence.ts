@@ -1,4 +1,3 @@
-import type { Clock } from "@everyfield/contracts/common";
 import { LENSES } from "@everyfield/contracts/intelligence";
 import * as C from "@everyfield/contracts/oversight";
 import type { Database } from "@everyfield/db/client";
@@ -159,27 +158,24 @@ const iso = (v: string) => sql`to_char(${sql.raw(v)} AT TIME ZONE 'UTC','YYYY-MM
 /**
  * organizationIntelligence.read, .readLocations and .readHistory: one run of this organization (the latest without
  * `runId`) grouped at `level`, with every run's date. Null for an actor without a live seat of an organization, or a run
- * id that is not this organization's. One statement with the live seat check (C13). `clock` stands in for the database
- * clock that releases come at.
+ * id that is not this organization's. One statement with the live seat check (C13).
  */
 export async function readIntelligence(
 	db: Reader,
 	authority: RequestActor,
 	request: { level: C.Level; runId: string | null },
-	clock?: Clock,
 ): Promise<C.IntelligenceView | null> {
 	const seat = seatOf(authority);
 	if (!seat) return null;
 	if (request.runId !== null && !z.uuid().safeParse(request.runId).success) return null;
 	const o = sql`${seat.organization}::uuid`;
-	const now = clock ? sql`${clock.now()}::timestamptz` : sql`clock_timestamp()`;
 	const rows = await liveRows(
 		db,
 		seat.live,
 		sql`WITH runs AS (SELECT id, ran_at FROM network_intelligence_run WHERE organization_id=${o}),
 	shown AS (SELECT id, ran_at FROM runs WHERE ${request.runId === null ? sql`true` : sql`id=${request.runId}::uuid`}
 		ORDER BY ran_at DESC, id DESC LIMIT 1),
-	released_at AS (SELECT CASE WHEN s.id=(SELECT id FROM runs ORDER BY ran_at DESC, id DESC LIMIT 1) THEN ${now}
+	released_at AS (SELECT CASE WHEN s.id=(SELECT id FROM runs ORDER BY ran_at DESC, id DESC LIMIT 1) THEN clock_timestamp()
 		ELSE s.ran_at END AS at FROM shown s),
 	links AS (SELECT DISTINCT ON (k.plant_id) k.plant_id, k.shared_findings, k.share_ministry_teams, k.share_people,
 		k.share_meetings, k.share_tasks FROM affiliation k

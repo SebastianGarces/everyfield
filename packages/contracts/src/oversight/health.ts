@@ -219,7 +219,7 @@ export const intelligenceRow = z.discriminatedUnion("status", [
 export type IntelligenceRow = z.infer<typeof intelligenceRow>;
 
 /** "Vision Casting" for a lens key. */
-const lensLabel = (key: z.infer<typeof lensKey>) => LENSES.find((l) => l.key === key)!.label;
+export const lensLabel = (key: z.infer<typeof lensKey>) => LENSES.find((l) => l.key === key)!.label;
 
 const patternBase = {
 	key: z.string(),
