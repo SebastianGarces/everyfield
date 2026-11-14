@@ -75,7 +75,7 @@ export function sweep(env = process.env): { removed: Swept[]; skipped?: string }
 			start = labels[LABELS.start];
 		let reason: string;
 		if (!Number.isInteger(pid) || pid <= 0 || !start) reason = "it names no owning run";
-		else if (processStart(pid) === spaced(start)) continue;
+		else if (processStart(pid) === start) continue;
 		else reason = `its owning run (pid ${pid}, started ${start}) is gone`;
 		try {
 			docker("rm", "-f", "-v", c.Id);

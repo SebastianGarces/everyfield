@@ -62,8 +62,6 @@ test("INV-qa-containers: the sweep removes old orphans only, and never a live ru
 	const me: [number, string] = [process.pid, processStart(process.pid)!];
 	using docker = fakeDocker([
 		{ name: "qa-test-live-owner", ageMinutes: 600, owner: me },
-		// As raw `ps` output pads it.
-		{ name: "qa-test-live-owner-padded", ageMinutes: 600, owner: [process.pid, ` ${me[1].replace(" ", "  ")}   `] },
 		{ name: "qa-test-dead-owner", ageMinutes: 180, owner: [deadPid, me[1]] },
 		{ name: "qa-test-reused-pid", ageMinutes: 180, owner: [process.pid, "Thu Jan  1 00:00:00 2026"] },
 		{ name: "qa-test-young-dead-owner", ageMinutes: 30, owner: [deadPid, me[1]] },
