@@ -315,7 +315,8 @@ test("INV-tenancy: another organization's Owner exports, lists pairs and removes
 	const hope = await database.organization("sending_church", { name: "Hope Dallas", timezone: "America/Chicago" });
 	const owner = await database.actor(hope as never, "owner", { user: { name: "Hope Owner" } });
 	const text = ok(await readPipelineExport(db, await authority(owner))).text;
-	for (const value of [casey, jordan, caseyL, "Casey", "Jordan", "Grace Austin"]) assert.ok(!text.includes(value), value);
+	for (const value of [casey, jordan, caseyL, "Casey", "Jordan", "Grace Austin"])
+		assert.ok(!text.includes(value), value);
 	const own = { session: owner.session, selected: hope };
 	assert.deepEqual(ok(await tx((t) => listOrganizationDuplicatePairs(t, own as never))).items, []);
 	// Naming Grace Austin as the selected organization does not lend Hope's Owner a seat there.
