@@ -112,3 +112,70 @@ unhandled call. Both emails carried the `List-Unsubscribe` header.
 viewer were stopped by PID, the three agent-browser sessions (`t257-hp`, `t257-ana`, `t257-rv`) were closed, and the
 throwaway Postgres `t257-pg` was stopped and removed (`--rm`). The final checks printed "cron loop and viewer gone",
 "`t257-pg` gone" and "preview state: removed" (`teardown.txt`).
+
+## Hosted run (T-283)
+
+D1, D3, D4, D5 and D7 again, this time **on a hosted QA preview** made by `bin/qa up main --test-recipients <Nora's
+inbox>`. Ana Lee's address is Nora's real inbox; it is not written here because the repository is public. This section
+records what happened and does not judge pass or fail. That call is Nora's. The full report (screenshots at 390 and
+1440 px, page text, app delivery rows, cron log, timeline) is a folder on Sebastian's Mac, outside the repository:
+`~/qa-reports/T-283-hosted-qa-run/` (`README.md` first). Jonah carries it to Nora. No report was mailed from the preview.
+
+### Setup
+
+| Item | Value |
+|---|---|
+| Preview | `qa-main-c26f`, `https://everyfield-qa-main-c26f.vercel.app`, `main` at `142b53a4ab88` (contains T-241 and T-282) |
+| Made by | `bin/qa up main --test-recipients <Nora's inbox>`, run by Jonah on Nov 13, 2026 at 07:32 UTC from the T-283 branch, outside the agent seat (owner ruling D-1062). It printed `Scheduled sends: on` and that Ana Lee uses the given address in both churches |
+| Cron | The T-255 driver on Sebastian's Mac called `/api/cron/jobs` every minute; every run answered HTTP 200 |
+| Shared settings | No Vercel Preview or Production variable was added or changed. `EMAIL_TEST_RECIPIENTS` and the preview's `CRON_SECRET` are set on that one deployment by `bin/qa up`. The production `CRON_SECRET` was not read |
+| Browser access | Deployment Protection on. Each browser got Vercel's bypass cookie through `vercel curl` (the project's Protection Bypass for Automation); no secret was read or stored (ruling D-1058) |
+| Staff | Harvest Point (QA) Owner (Daniel Reyes); Riverside Owner (Rachel Moss) for D5 |
+| Ana's opt-out | The real Unsubscribe link from a Harvest Point email that reached her inbox (07:36:29 UTC). Sebastian copied the link from the inbox. It was opened in a separate, signed-out browser. Undo before D7 was pressed on the same page within its hour |
+| Browser time zone | America/New_York (the app shows ET, UTC−5). Times below are UTC on Nov 13, 2026 |
+
+### Results
+
+| Item | What was done | What was seen (word for word where quoted) | Timestamps | Evidence (report folder) |
+|---|---|---|---|---|
+| D1 | Staff scheduled "T-283 D1 scheduled (Ana + Tom)" to Ana Lee and Tom Baker for 07:46:00. Ana then unsubscribed. The cron driver sent it. | Tom's mail was handed to Resend (`accepted`, id below). Ana's only row for this email is `refused` with refusal `unsubscribed` and no Resend id. Cron: `07:46:03.408Z ok: HTTP 200 … "messages":2` (Tom's D1 mail and the D5 mail). Before the send, staff saw "It goes to 1 person then. Anyone who unsubscribes before then gets nothing. Unsubscribed 1." | Scheduled 07:39:34. Opt-out 07:40:26.233. Accepted 07:46:03.228 | `d1-a-*`, `00-ana-*`, `01-ana-*`, `delivery-rows/`, `logs/qa-main-c26f.cron.log` |
+| D3 | Staff opened the sent D1 email. | "The email service accepted it. Accepted 1. Refused 0. No answer 0. Unsubscribed 1." Tiles "1 Reachable", "0 Delivered", "0 Opened", "0 Not delivered". Not delivered: Bounced 0, Failed 0, Suppressed 0, Unknown 0. Skipped: Unsubscribed 1. Ana: "Skipped: unsubscribed". Tom: "Accepted". | 07:52 | `d3-d1-sent-staff-{1440,390}.png`, `-text.txt` |
+| D4 | Staff scheduled "T-283 D4 scheduled (Ana only)" for 07:46:00; Ana unsubscribed before it. | After the send time: "Not sent: unsubscribed", "0 recipients", "Every recipient unsubscribed from this church's email, so it does not go out. This is not an error." Attempted 0, Accepted 0; Bounced 0, Failed 0; Skipped: Unsubscribed 1. Ana "Skipped: unsubscribed". Her row: `refused`/`unsubscribed`, no Resend id. The same words showed at 07:41, before the send time. | Scheduled 07:39:50. Screens 07:41 and 07:52 | `d4-a-*`, `d4-b-after-send-time-{1440,390}.png`, `-text.txt`, `delivery-rows/` |
+| D5 | Ana stayed unsubscribed from Harvest Point (QA) only. The Riverside Owner scheduled "T-283 D5 Riverside scheduled (Ana)" to Ana for 07:46:00. | Before: "Scheduled for Nov 13, 2026, 2:46 AM", "It goes to 1 person then." Unsubscribed 0. After: "The email service accepted it. Accepted 1. Refused 0. No answer 0." Ana "Accepted". Her Riverside row is `accepted` with a Resend id. | Scheduled 07:40:14. Accepted 07:46:03.317 | `d5-a-*`, `d5-b-*`, `delivery-rows/` |
+| D7 | Ana pressed Undo. Staff scheduled "T-283 D7 scheduled (Ana + Maria)" to Ana Lee and Maria Santos for 07:57:00. Ana unsubscribed again 60 s before the send time. | Before the opt-out: "It goes to 2 people then." After the opt-out: "It goes to 1 person then. … Unsubscribed 1." Ana "Unsubscribed, won't receive this". After the send: "Accepted 1. Refused 0. No answer 0. Unsubscribed 1." Ana "Skipped: unsubscribed", Maria "Accepted". Maria's mail went to Resend; Ana's row is `refused`/`unsubscribed` with no Resend id. Cron `07:57:03.109Z ok: HTTP 200 … "messages":1`. | Undo 07:52:44.247. Scheduled 07:53:15. Opt-out 07:55:59.650 (60.35 s before 07:57:00). Accepted 07:57:03.069 | `d7-*`, `timeline.txt`, `delivery-rows/c26f-03-*`, `c26f-04-*` |
+
+On this preview the staff pages show "Sending" and "Accepted", and "Sent Not recorded", for every handed-over mail.
+The app records Sent and Delivered from Resend's webhooks, and none were recorded here. Likely cause, not checked:
+the webhooks cannot get past Deployment Protection on a preview. The Resend dashboard has each email's real status.
+
+### Resend message ids
+
+| Accepted (UTC) | To | Subject | Resend message id |
+|---|---|---|---|
+| 07:23:03.612 | Ana Lee (Nora's inbox), preview `qa-main-8998` | T-283 earlier Harvest Point email (Ana's unsubscribe link) | `01a1d3c9-da07-7494-bb8c-d5224f0d05bc` |
+| 07:27:54.977 | Ana Lee (Nora's inbox), preview `qa-main-abd1` | T-283 earlier Harvest Point email (Ana's unsubscribe link) | `01a1d3ce-4c2a-7280-8f6f-d98765c67ba9` |
+| 07:36:29.826 | Ana Lee (Nora's inbox) | T-283 earlier Harvest Point email (Ana's unsubscribe link) | `01a1d3d6-2748-7893-83cd-1dbfd7c0d357` |
+| 07:46:03.228 | Tom Baker, `delivered+qa-tom@resend.dev` | T-283 D1 scheduled (Ana + Tom) | `01a1d3de-e725-7ead-affb-1c1f63451b93` |
+| 07:46:03.317 | Ana Lee (Nora's inbox), from Riverside (QA) | T-283 D5 Riverside scheduled (Ana) | `01a1d3de-e784-7c56-a371-40268338ad0e` |
+| 07:57:03.069 | Maria Santos, `delivered+qa-maria@resend.dev` | T-283 D7 scheduled (Ana + Maria) | `01a1d3e8-f884-75c2-b874-a168b9198f04` |
+
+The first two rows come from two earlier previews of this run. Their cron drivers were stopped when the agent's turn
+ended, so a third preview was made outside the seat, and Ana needed a fresh Unsubscribe link each time. No other mail
+went to Ana's inbox. The preview's first cron run reported `"mailed":12`: these are notification mails to the staff
+login accounts, and none is to Ana.
+
+### Tooling found during the run
+
+- `bin/qa up` could not read the deployment URL from Vercel CLI 65, which prints JSON off a terminal. Fixed in T-283.
+- Every cron job failed on a QA preview because Neon's pooled endpoint refuses the job pool's `statement_timeout`
+  startup option ("unsupported startup parameter in options: statement_timeout", Postgres code `08P01`). Fixed in T-283: the preview's
+  runtime login uses the direct endpoint.
+- Open: `bin/qa down` fails on Vercel CLI 65, which refuses `--yes` from agents and asks for `--confirm-name`. Until it
+  is fixed, `bin/qa down qa-main-c26f` stops the driver and then fails. Previews `qa-main-8d08`, `qa-main-8998` and
+  `qa-main-abd1` from this run wait for that fix. Follow-up T-288 fixes `bin/qa down` and removes those three previews
+  and the orphan deployments from the failed `qa up` attempts.
+- Open: a cron driver started from an agent seat stops when the seat turn ends. Follow-up T-289.
+
+### Teardown
+
+After Nora finishes, Jonah runs `bin/qa down qa-main-c26f` from a checkout with the T-288 fix.
