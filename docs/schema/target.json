@@ -70,9 +70,9 @@
   "contract_status": "Reviewed starting design; builders may change it through a reviewed migration.",
   "as_of": "2026-10-17",
   "implementation_authorized": false,
-  "table_count": 104,
-  "column_count": 1191,
-  "foreign_key_count": 357,
+  "table_count": 105,
+  "column_count": 1208,
+  "foreign_key_count": 359,
   "type_contracts": {
     "text": "UTF8; per-boundary bounded, sanitized only when rendered in rich context.",
     "date": "YYYY-MM-DD local calendar date, never UTC midnight instant.",
@@ -236,6 +236,22 @@
     "early_access_request.kind": [
       "planter",
       "network"
+    ],
+    "feedback.category": [
+      "bug",
+      "suggestion",
+      "question",
+      "other"
+    ],
+    "feedback.theme": [
+      "light",
+      "dark"
+    ],
+    "feedback.status": [
+      "new",
+      "reviewed",
+      "resolved",
+      "dismissed"
     ],
     "file_object.purpose": [
       "avatar",
@@ -1405,6 +1421,7 @@
       "evry.turn_retried",
       "evry.turn_submitted",
       "feedback.received",
+      "feedback.status_changed",
       "files.finalized",
       "followup.corrected",
       "followup.recorded",
@@ -11765,7 +11782,7 @@
         }
       ],
       "checks": [
-        "action in ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','branding.changed','communication.draft_deleted','communication.draft_saved','communication.rescheduled','communication.scheduled','communication.send_intended','communication.template_archived','communication.template_created','communication.template_deleted','communication.template_forked','communication.template_updated','deletion.cancelled','deletion.live_purge_completed','documents.archived','documents.church_archived','documents.church_restored','documents.branding_changed','documents.copied','documents.created_from_template','documents.designated','documents.export_deleted','documents.exported','documents.generated','documents.imported','documents.purged','documents.saved','documents.template_deleted','documents.template_details_changed','documents.template_saved','documents.template_updated','evry.conversation_created','evry.proposal_approved','evry.proposal_cancelled','evry.proposal_prepared','evry.proposal_retried','evry.proposal_revised','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','feedback.received','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','organization.profile_changed','people.corrected','people.created','people.duplicate_dismissed','people.duplicate_restored','people.merged','people.recorded','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.bookmark_changed','wiki.hidden','wiki.published','wiki.reading_recorded','wiki.source_order_changed')",
+        "action in ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','branding.changed','communication.draft_deleted','communication.draft_saved','communication.rescheduled','communication.scheduled','communication.send_intended','communication.template_archived','communication.template_created','communication.template_deleted','communication.template_forked','communication.template_updated','deletion.cancelled','deletion.live_purge_completed','documents.archived','documents.church_archived','documents.church_restored','documents.branding_changed','documents.copied','documents.created_from_template','documents.designated','documents.export_deleted','documents.exported','documents.generated','documents.imported','documents.purged','documents.saved','documents.template_deleted','documents.template_details_changed','documents.template_saved','documents.template_updated','evry.conversation_created','evry.proposal_approved','evry.proposal_cancelled','evry.proposal_prepared','evry.proposal_retried','evry.proposal_revised','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','feedback.received','feedback.status_changed','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','organization.profile_changed','people.corrected','people.created','people.duplicate_dismissed','people.duplicate_restored','people.merged','people.recorded','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.bookmark_changed','wiki.hidden','wiki.published','wiki.reading_recorded','wiki.source_order_changed')",
         "num_nonnulls(actor_id,actor_token,system_cause)>=1",
         "kind in ('create','edit','correct','retire','restore','merge','unmerge','stage_change','classification_change','commitment_change','assign','remove','accept','revoke','resend','role_change','leader_change','tick','untick','archive','earn','revoke_credit','offer_answer','publish','hide','read','progress','complete','reopen','waive','supersede','finalize','reconcile','noop','triage','suppress','suppression_clear','preference','model_attempt','tool_attempt','effect_result','mail_member','outcome','declaration','movement')",
         "jsonb_typeof(metadata)='object' AND (metadata->'diff' IS NULL OR (jsonb_typeof(metadata->'diff')='object' AND octet_length(convert_to((metadata->'diff')::text,'UTF8'))<=2048))"
@@ -17791,6 +17808,307 @@
           "early_access_request_check",
           "early_access_request_email_check",
           "early_access_request_kind_check"
+        ]
+      },
+      "policies": {},
+      "rls": false
+    },
+    {
+      "name": "feedback",
+      "domain": "operations",
+      "purpose": "One piece of product feedback from the Send feedback dialog (WP-049A): its category, the author's words and the private page and device details, owned by the author's account. The author lists its status; a triager with the feedback_triage platform grant reads the private original and changes its status, and each change is an audit row.",
+      "library_owned": false,
+      "jsonb_keys": {},
+      "capabilities": [
+        "CAP-A-044",
+        "CAP-A-045"
+      ],
+      "replaces": [],
+      "producer_work_packages": [
+        "WP-049"
+      ],
+      "producer_derivation": {
+        "old_target_tables": [],
+        "additional_producers": [
+          "WP-049"
+        ],
+        "rule": "WP-049 feedback.submit stores it; feedback.admin.changeStatus moves its status."
+      },
+      "feature_ids": [
+        "ADM-001",
+        "ADM-002"
+      ],
+      "acceptance_ids": [
+        "AC-ADM-001--ADM-001",
+        "AC-ADM-002--ADM-002"
+      ],
+      "future_case_ids": [],
+      "scope": "identity",
+      "invariants": [
+        "The author, words and details never change after submission; only status and revision do.",
+        "At most one row per account and request key, so a resend saves once.",
+        "The address is an internal path with no query, fragment or token.",
+        "Church and role come from the author's seat on the server, never from the browser.",
+        "Each status change writes one feedback.status_changed audit row in the same statement; setting the current status writes nothing."
+      ],
+      "revision": "revision rises by one with each status change; a change names the revision it expects.",
+      "idempotency": "The same account and request key returns the saved feedback and writes nothing more.",
+      "deletion": "Account-owned private content. Personal account deletion hides it at once with the account, and the account purge removes it; recovery copies expire within seven days of the live purge.",
+      "physical_verified": false,
+      "columns": [
+        {
+          "note": "Feedback identity, bound to a record of kind feedback owned by the author's account.",
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "note": "The author's account, from the session; never changes.",
+          "name": "account_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "The dialog's send key; a resend with the same key returns the saved row.",
+          "name": "request_key",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "bug, suggestion, question or other.",
+          "name": "category",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "The author's words, trimmed, 1 to 5,000 characters. Private.",
+          "name": "description",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "The page name the author saw. Private.",
+          "name": "page_label",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "The internal path with query, fragment and tokens removed. Private.",
+          "name": "page_address",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "The church or organization of the author's seat when sent, from the server. Private.",
+          "name": "church_label",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "The author's seat role when sent, from the server. Private.",
+          "name": "role_label",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "Browser and system as the browser reports them, or null. Private.",
+          "name": "browser",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "Viewport width in CSS pixels, or null. Private.",
+          "name": "screen_width",
+          "type": "integer",
+          "nullable": true
+        },
+        {
+          "note": "Viewport height in CSS pixels, or null. Private.",
+          "name": "screen_height",
+          "type": "integer",
+          "nullable": true
+        },
+        {
+          "note": "light or dark, or null when the page did not say. Private.",
+          "name": "theme",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "The deployed app version from the server, or null. Private.",
+          "name": "app_version",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "When the server saved it.",
+          "name": "submitted_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "clock_timestamp()"
+        },
+        {
+          "note": "new, reviewed, resolved or dismissed; only a triager changes it.",
+          "name": "status",
+          "type": "text",
+          "nullable": false,
+          "default": "'new'"
+        },
+        {
+          "note": "Rises with each status change.",
+          "name": "revision",
+          "type": "bigint",
+          "nullable": false,
+          "default": "1"
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "unique_keys": [
+        {
+          "columns": [
+            "account_id",
+            "request_key"
+          ]
+        }
+      ],
+      "foreign_keys": [
+        {
+          "deletion": {
+            "action": "restrict",
+            "policy": "The account purge deletes the author's feedback before the account."
+          },
+          "columns": [
+            "account_id"
+          ],
+          "references": {
+            "table": "account",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "restrict"
+        },
+        {
+          "deletion": {
+            "action": "restrict",
+            "policy": "Deferred record binding; the record stays for the audit history."
+          },
+          "columns": [
+            "id",
+            "account_id"
+          ],
+          "references": {
+            "table": "record",
+            "columns": [
+              "id",
+              "tenant_id"
+            ]
+          },
+          "on_delete": "restrict"
+        }
+      ],
+      "checks": [
+        "((page_address IS NULL) OR ((length(page_address) <= 500) AND (page_address ~~ '/%'::text) AND (strpos(page_address, '?'::text) = 0) AND (strpos(page_address, '#'::text) = 0)))",
+        "category in ('bug', 'suggestion', 'question', 'other')",
+        "(length(btrim(description)) BETWEEN 1 AND 5000)",
+        "((length(page_label) <= 500) AND (length(church_label) <= 200) AND (length(role_label) <= 200) AND (length(browser) <= 500) AND (length(app_version) <= 100)) IS NOT FALSE",
+        "(revision >= 1)",
+        "((screen_width IS NULL) OR ((screen_width >= 1) AND (screen_width <= 100000))) AND ((screen_height IS NULL) OR ((screen_height >= 1) AND (screen_height <= 100000)))",
+        "status in ('new', 'reviewed', 'resolved', 'dismissed')",
+        "((theme IS NULL) OR (theme = ANY (ARRAY['light'::text, 'dark'::text])))"
+      ],
+      "indexes": {
+        "feedback_request": {
+          "name": "feedback_request",
+          "isUnique": true,
+          "columns": [
+            {
+              "expression": "account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "request_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "feedback_own": {
+          "name": "feedback_own",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "submitted_at",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "first"
+            },
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "first"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "feedback_triage": {
+          "name": "feedback_triage",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "submitted_at",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "first"
+            },
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "first"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "constraint_names": {
+        "primary": [
+          "feedback_pkey"
+        ],
+        "unique": [],
+        "foreign": [
+          "feedback_account",
+          "feedback_record"
+        ],
+        "checks": [
+          "feedback_revision",
+          "feedback_category",
+          "feedback_status",
+          "feedback_description",
+          "feedback_labels",
+          "feedback_address",
+          "feedback_theme",
+          "feedback_screen"
         ]
       },
       "policies": {},
@@ -33058,6 +33376,7 @@
         "WP-046",
         "WP-047",
         "WP-048",
+        "WP-049",
         "WP-050",
         "WP-054",
         "WP-057",
@@ -33082,6 +33401,7 @@
           "discovery",
           "document",
           "document_revision",
+          "feedback",
           "file_object",
           "four_cs",
           "generated_document",

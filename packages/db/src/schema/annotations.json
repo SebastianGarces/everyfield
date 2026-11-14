@@ -4175,6 +4175,73 @@
 				}
 			}
 		},
+		"feedback": {
+			"table": {
+				"name": "feedback",
+				"domain": "operations",
+				"purpose": "One piece of product feedback from the Send feedback dialog (WP-049A): its category, the author's words and the private page and device details, owned by the author's account. The author lists its status; a triager with the feedback_triage platform grant reads the private original and changes its status, and each change is an audit row.",
+				"library_owned": false,
+				"jsonb_keys": {},
+				"capabilities": ["CAP-A-044", "CAP-A-045"],
+				"replaces": [],
+				"producer_work_packages": ["WP-049"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-049"],
+					"rule": "WP-049 feedback.submit stores it; feedback.admin.changeStatus moves its status."
+				},
+				"feature_ids": ["ADM-001", "ADM-002"],
+				"acceptance_ids": ["AC-ADM-001--ADM-001", "AC-ADM-002--ADM-002"],
+				"future_case_ids": [],
+				"scope": "identity",
+				"invariants": [
+					"The author, words and details never change after submission; only status and revision do.",
+					"At most one row per account and request key, so a resend saves once.",
+					"The address is an internal path with no query, fragment or token.",
+					"Church and role come from the author's seat on the server, never from the browser.",
+					"Each status change writes one feedback.status_changed audit row in the same statement; setting the current status writes nothing."
+				],
+				"revision": "revision rises by one with each status change; a change names the revision it expects.",
+				"idempotency": "The same account and request key returns the saved feedback and writes nothing more.",
+				"deletion": "Account-owned private content. Personal account deletion hides it at once with the account, and the account purge removes it; recovery copies expire within seven days of the live purge.",
+				"physical_verified": false
+			},
+			"columns": {
+				"id": { "note": "Feedback identity, bound to a record of kind feedback owned by the author's account." },
+				"account_id": { "note": "The author's account, from the session; never changes." },
+				"request_key": { "note": "The dialog's send key; a resend with the same key returns the saved row." },
+				"category": { "note": "bug, suggestion, question or other." },
+				"description": { "note": "The author's words, trimmed, 1 to 5,000 characters. Private." },
+				"page_label": { "note": "The page name the author saw. Private." },
+				"page_address": { "note": "The internal path with query, fragment and tokens removed. Private." },
+				"church_label": {
+					"note": "The church or organization of the author's seat when sent, from the server. Private."
+				},
+				"role_label": { "note": "The author's seat role when sent, from the server. Private." },
+				"browser": { "note": "Browser and system as the browser reports them, or null. Private." },
+				"screen_width": { "note": "Viewport width in CSS pixels, or null. Private." },
+				"screen_height": { "note": "Viewport height in CSS pixels, or null. Private." },
+				"theme": { "note": "light or dark, or null when the page did not say. Private." },
+				"app_version": { "note": "The deployed app version from the server, or null. Private." },
+				"submitted_at": { "note": "When the server saved it." },
+				"status": { "note": "new, reviewed, resolved or dismissed; only a triager changes it." },
+				"revision": { "note": "Rises with each status change." }
+			},
+			"foreignKeys": {
+				"account_id->account(id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "The account purge deletes the author's feedback before the account."
+					}
+				},
+				"id,account_id->record(id,tenant_id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Deferred record binding; the record stays for the audit history."
+					}
+				}
+			}
+		},
 		"platform_grant": {
 			"table": {
 				"name": "platform_grant",
@@ -13141,6 +13208,7 @@
 					"WP-046",
 					"WP-047",
 					"WP-048",
+					"WP-049",
 					"WP-050",
 					"WP-054",
 					"WP-057",
@@ -13165,6 +13233,7 @@
 						"discovery",
 						"document",
 						"document_revision",
+						"feedback",
 						"file_object",
 						"four_cs",
 						"generated_document",
