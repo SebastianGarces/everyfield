@@ -91,7 +91,14 @@ read. LAU-21 to LAU-36 (T-382) complete and reopen the venue milestone on a card
 `launch.reopenMilestone`): open linked tasks stay open, a card refused because a linked task changed in Tasks
 (`stale_review`) or because the milestone changed on the Launch plan shows them as they are now, a needs-review
 completion is confirmed, and the Launch notifications reach the other Owners and Admins only. Already complete, not
-complete, the two milestones the debrief decides, and a name that matches none or several make no card. The recorded
+complete, the two milestones the debrief decides, and a name that matches none or several make no card. LAU-37 to
+LAU-61 (T-383) name Launch Sunday guests (`launch.addGuestAttendance`) and correct the recorded outcome
+(`launch.correctOutcome`). A typed name with no live match gets a card for a new Person with only that name; one with
+matches (`launch.readDebrief` with `guestName`) gets the list and a question, and a `continue` case answers it in the
+same conversation by picking a match or asking for a new Person. Three names make one card each, approved one at a
+time. A correction card changes only the fields named, keeps the outcome note, and one made stale on the Launch plan
+shows the outcome as it is now. Each refusal (not recorded, already a guest, no or long name, no or long reason, a date
+after today, a count out of range, the same values) makes no card, and the card itself refuses them too. The recorded
 suites leave these tools out too.
 
 ## The household and follow-up suites
