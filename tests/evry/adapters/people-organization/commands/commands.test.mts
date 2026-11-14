@@ -344,7 +344,7 @@ test("AC:TARGET-PPL-018 AC:CLN-05 an import's review lists each row's planned ou
 	);
 });
 
-test("INV-authority: a Member gets no review for any WP-064 change and no import receipt", async () => {
+test("INV-authority: a Member gets no review for any household, tag, note, skill or import change and no import receipt", async () => {
 	const member = await actor("member");
 	for (const operation of Object.keys(ORGANIZATION_COMMANDS))
 		await assert.rejects(
