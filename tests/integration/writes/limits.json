@@ -1501,6 +1501,10 @@
 		"limit": 4,
 		"retry": 4
 	},
+	"pipeline.importPeople": {
+		"limit": 5,
+		"retry": 4
+	},
 	"pipeline.logConversation": {
 		"limit": 4,
 		"retry": 4

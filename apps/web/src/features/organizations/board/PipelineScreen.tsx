@@ -1,10 +1,10 @@
 "use client";
 
 import type { PipelineBoard, PipelineGoals } from "@everyfield/contracts/organizations";
-import { Edit02Icon, FileExportIcon, PlusSignIcon, UserMultipleIcon } from "@hugeicons/core-free-icons";
+import { Edit02Icon, FileExportIcon, FileImportIcon, PlusSignIcon, UserMultipleIcon } from "@hugeicons/core-free-icons";
 import { Button, EmptyState, PageHeader, SearchInput } from "@everyfield/ui/controls";
 import { Avatar } from "@everyfield/ui/display";
-import { cn } from "@everyfield/ui/foundations";
+import { cn, Icon } from "@everyfield/ui/foundations";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type CSSProperties } from "react";
@@ -84,6 +84,12 @@ export function PipelineScreen({ initial, goals }: { initial: PipelineBoard; goa
 				actions={
 					admin ? (
 						<>
+							<Button variant="secondary" asChild>
+								<Link href={`${PIPELINE_PATH}/import`}>
+									<Icon icon={FileImportIcon} size={18} />
+									Import
+								</Link>
+							</Button>
 							<Button variant="secondary" icon={FileExportIcon} onClick={() => setExporting(true)}>
 								Export
 							</Button>
