@@ -454,7 +454,10 @@ test("a pattern rating is the rater's own and changes nothing else", async () =>
 	const view = (await readIntelligence(S.runtime, admin, { level: "state", runId: null }))!;
 	const key = view.groups[0]!.pattern!.key;
 	const runId = view.run!.runId;
-	assert.equal((await submitIntelligenceFeedback(S.runtime, admin, { runId, patternKey: key, rating: "useful" })).status, "ok");
+	assert.equal(
+		(await submitIntelligenceFeedback(S.runtime, admin, { runId, patternKey: key, rating: "useful" })).status,
+		"ok",
+	);
 	assert.deepEqual(
 		await submitIntelligenceFeedback(S.runtime, await as(networkMember), { runId, patternKey: key, rating: "useful" }),
 		{
