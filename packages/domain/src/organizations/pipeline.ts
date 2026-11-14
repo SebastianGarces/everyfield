@@ -304,7 +304,8 @@ const goalsRow = z.object({
 	goals: z.array(z.record(z.string(), z.unknown())),
 	kinds: z.array(z.object({ kind: z.string(), count: z.coerce.number() })),
 	months: z.array(z.object({ month: z.string(), count: z.coerce.number() })),
-	quarters: z.array(z.object({ year: z.number(), quarter: z.number(), count: z.coerce.number() })),	residents: z.coerce.number(),
+	quarters: z.array(z.object({ year: z.number(), quarter: z.number(), count: z.coerce.number() })),
+	residents: z.coerce.number(),
 });
 
 /**
