@@ -359,6 +359,47 @@ test("a schedule review names who gets it, who is left out and why, and refuses 
 	assert.equal((await rows(sql`SELECT state FROM communication WHERE id=${draft.id}`))[0]!.state, "draft");
 });
 
+test("AC:GAP-EVR-425 INV-dst: a send time the clocks skip or repeat is refused on the review, never guessed; a chosen offset picks one of the two", async () => {
+	const owner = await actor("owner");
+	const service = emailService();
+	const draft = await savedDraft(owner, service.port, "DST review");
+	const t = await turn(owner, service.port);
+	// The church's own zone decides: America/Chicago falls back on Nov 1, 2026 and springs forward on Mar 14, 2027.
+	const fold = await t.propose("communication.scheduleReviewed", {
+		communicationId: draft.id,
+		sendAt: "2026-11-01T01:30",
+	});
+	assert.equal(
+		fold!.review.refusal,
+		"That time happens twice that day as the clocks fall back. Say which one you mean.",
+	);
+	const gap = await t.propose("communication.scheduleReviewed", {
+		communicationId: draft.id,
+		sendAt: "2027-03-14T02:30",
+	});
+	assert.equal(
+		gap!.review.refusal,
+		"That time doesn't exist in the church's time zone that day: the clocks skip it. Pick another time.",
+	);
+	const second = await t.propose("communication.scheduleReviewed", {
+		communicationId: draft.id,
+		sendAt: "2026-11-01T01:30",
+		sendAtOffset: "-06:00",
+	});
+	assert.deepEqual(change(second!, "sendAt")!.after, { at: "2026-11-01T07:30:00.000Z", zone: "America/Chicago" });
+	const wrong = await t.propose("communication.scheduleReviewed", {
+		communicationId: draft.id,
+		sendAt: "2026-11-01T01:30",
+		sendAtOffset: "-04:00",
+	});
+	assert.match(wrong!.review.refusal!, /doesn't have that offset/);
+	for (const refused of [fold, gap, wrong])
+		await assert.rejects(
+			approveProposal(db, owner, refused!.id, { revision: refused!.revision, digest: refused!.digest }, null),
+			{ code: "review_closed" },
+		);
+});
+
 test("the review leaves out who the handoff refuses: an unsubscribe after one review shows on the next", async () => {
 	const owner = await actor("owner");
 	const service = emailService();

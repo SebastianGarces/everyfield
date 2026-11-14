@@ -62,6 +62,8 @@ const ROW_LIVENESS: Record<SourceRow["kind"], Rule> = {
 	// Never withheld: a setting row is the account's own choice and a digest row a preview the tool computed.
 	setting: null,
 	digest: null,
+	// A date row is the calendar's own answer about a local time, not a stored record.
+	date: null,
 };
 
 /**

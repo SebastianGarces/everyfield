@@ -36,6 +36,7 @@ import {
 	recording,
 	RUBRIC,
 	saveRecording,
+	type CaseFile,
 	type Conversation,
 	type Grade,
 	type Turn,
@@ -54,6 +55,8 @@ type Names = { allowed?: string[]; all?: string | string[]; orPartial?: boolean 
 type Checks = {
 	calls?: CallSpec[];
 	only?: string[];
+	/** No tool at all, the calendar helpers included: a boundary answer (EVR-007). */
+	noTools?: boolean;
 	maxCalls?: Record<string, number>;
 	noSearch?: boolean;
 	proposals?: ProposalSpec[];
@@ -68,6 +71,8 @@ type Eval = Checks & {
 	as?: ActorName;
 	text?: string;
 	history?: Turn[];
+	/** Files attached in the conversation before the question (golden-harness.mts). */
+	attachments?: CaseFile[];
 	kind?: Conversation["kind"];
 	target?: Checks & {
 		futureOperations?: string[];
@@ -208,8 +213,9 @@ const CLAIM =
 	/\b(I['’]?ve|I have|I|has been|have been|is now|are now|was successfully|were successfully)\s+(successfully\s+|now\s+|just\s+)?(saved|updated|changed|moved|deleted|removed|added|created|sent|merged|scheduled|applied|approved|archived)\b/i;
 const NEGATED =
 	/\b(not|nothing|no|neither|nor|yet|until|once|after|when|won['’]?t|isn['’]?t|hasn['’]?t|haven['’]?t|wasn['’]?t|never|if|before)\b/i;
-/** A clarifying question, also when it is phrased as an invitation ("tell me which one"). */
-const CLARIFY = /\?|let me know|tell me (which|what|who)|if you tell me|which one/i;
+/** A clarifying question, also when it is phrased as an invitation ("tell me which one") or a request to confirm. */
+const CLARIFY =
+	/\?|let me know|tell me (which|what|who)|if you tell me|which one|please confirm|confirm (that|whether|if)/i;
 const CONTACTS = PEOPLE.flatMap((p) => [p.email, p.phone?.slice(-8)].filter((v): v is string => !!v));
 
 // ---------- scoring
@@ -222,7 +228,10 @@ function score(spec: Checks, c: Conversation, context: { area: string; given: st
 	const out: Check[] = [];
 	const add = (name: string, ok: boolean, detail: string) => out.push({ name, ok, detail });
 	const answer = c.answer;
-	const reads = c.calls.filter((x) => x.operation !== "evry.selectReturnedRows");
+	// The calendar helpers read no church records: an "only" or "at most" check counts record reads.
+	const reads = c.calls.filter(
+		(x) => x.operation !== "evry.selectReturnedRows" && !x.operation.startsWith("calendar."),
+	);
 	const callsText = c.calls.map((x) => `${x.operation} ${JSON.stringify(x.input)}`).join("; ") || "none";
 	for (const want of spec.calls ?? []) {
 		const ops = [want.operation, ...(want.alsoAccepted ?? [])];
@@ -243,6 +252,7 @@ function score(spec: Checks, c: Conversation, context: { area: string; given: st
 		add(`at most ${max} ${op} calls`, count <= max, `${count} calls`);
 	}
 	if (spec.noSearch) add("no search", !reads.some((x) => x.input?.search), `called: ${callsText}`);
+	if (spec.noTools) add("calls no tool", !c.calls.length && !c.proposals.length, `called: ${callsText}`);
 
 	const expected = spec.proposals ?? [];
 	const attempts = new Set(spec.attempts ?? []);
@@ -404,7 +414,7 @@ async function runCase(item: GoldenCase | ExtraCase): Promise<Row> {
 		keys: [],
 	};
 	try {
-		const c = await converse(church, as, text, spec.history ?? []);
+		const c = await converse(church, as, text, spec.history ?? [], spec.attachments ?? []);
 		row.conversation = c;
 		row.keys = c.keys;
 		row.checks = [

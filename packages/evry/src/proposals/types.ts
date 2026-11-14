@@ -11,6 +11,7 @@ import type { PeopleContext } from "@everyfield/contracts/people";
 import type { TaskReminders } from "@everyfield/domain/tasks";
 import { z } from "zod";
 import type { EvryActor } from "../context/actor.ts";
+import type { ConversationFiles } from "../catalog/types.ts";
 
 /**
  * The email service and the keys that seal and hash its addresses. Only a reviewed write that reaches the email
@@ -38,8 +39,18 @@ export type NativePorts = {
 	onboarding: OnboardingProducer<Transaction>;
 };
 
-/** What a review may read besides the proposal statement itself. */
-export type ReviewContext = { db: Database; mail: MailPort | null; native: NativePorts | null };
+/**
+ * What a review may read besides the proposal statement itself: the database, the email service's keys, the native
+ * services, and the conversation the review is prepared in (null when a person revises a saved review).
+ */
+export type ReviewContext = {
+	db: Database;
+	mail: MailPort | null;
+	native: NativePorts | null;
+	conversationId: string | null;
+	/** The exact bytes of a file attached in this conversation, read outside any transaction (WP-054). */
+	files?: ConversationFiles | null;
+};
 
 /** What a native command needs besides the proposal: the approving session's authority and the native services. */
 export type NativeContext = { authority: RequestActor; ports: NativePorts | null };

@@ -203,8 +203,10 @@ function Frame({ name, photo, settings, seed = null, children }: FrameProps) {
 	const pathname = usePathname();
 	// Evry is off while the private check-in is open: its panel closes and Ask Evry says so (REQ-PI-038).
 	const privatePage = evryOff(pathname);
+	const role = settings && settings.context !== "account" ? settings.role : null;
 	const evry = useEvryPanel({
 		inPlant: settings?.context === "plant",
+		canAttach: settings?.context === "plant" && (role === "owner" || role === "admin"),
 		off: privatePage,
 		context:
 			settings?.context === "plant"
@@ -216,7 +218,6 @@ function Frame({ name, photo, settings, seed = null, children }: FrameProps) {
 	const bell = useNotificationBell();
 	const wiki = useWikiChrome();
 	const [feedback, setFeedback] = useState(false);
-	const role = settings && settings.context !== "account" ? settings.role : null;
 	const { linked } = useResidency();
 	// A seatless account has no People, Meetings, Messages, Tasks or Ministries; while linked, it has My residency.
 	const account = !settings || settings.context === "account";

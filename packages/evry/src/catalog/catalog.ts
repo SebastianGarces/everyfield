@@ -1,4 +1,5 @@
 import type { EvryActor } from "../context/actor.ts";
+import { CALENDAR_READS } from "../adapters/calendar/reads/index.ts";
 import { COMMUNICATION_READS } from "../adapters/communication/reads/index.ts";
 import { MEETINGS_READS } from "../adapters/meetings/reads/index.ts";
 import { NOTIFICATION_READS } from "../adapters/notifications/reads/index.ts";
@@ -27,6 +28,7 @@ export const READ_DOMAINS = {
 	sharing: SHARING_READS,
 	onboarding: ONBOARDING_READS,
 	pipeline: PIPELINE_READS,
+	calendar: CALENDAR_READS,
 } as const satisfies Record<string, readonly Pick<ReadAdapter<unknown>, "operation" | "description" | "allowed">[]>;
 
 /** The runtime's own model tool: pick rows from a result this conversation already returned. */

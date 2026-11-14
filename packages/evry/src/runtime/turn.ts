@@ -8,12 +8,15 @@ import type { ReadAdapter, SourceResult } from "../catalog/types.ts";
 import { sameContext, type EvryActor } from "../context/actor.ts";
 import { resolveSelf } from "../context/self.ts";
 import {
+	capabilitiesAnswer,
 	classifyRequest,
 	compileContext,
-	describeCatalog,
 	PASTORAL_BOUNDARY,
 	resolveReferences,
 } from "../context/compile.ts";
+import { readAttachment } from "../attachments/store.ts";
+import { conversationState } from "../conversations/store.ts";
+import type { PrivateStorage } from "@everyfield/db/schema";
 import { EvryRefusal, projectError, scrub } from "../context/errors.ts";
 import { LIMITS, type StopReason } from "../context/limits.ts";
 import { prepareProposal } from "../proposals/store.ts";
@@ -32,6 +35,8 @@ export type RunDeps = {
 	freshActor(session: string): Promise<EvryActor | null>;
 	/** The email service and keys a review that hashes addresses needs; null when the deployment has no mail keys. */
 	mail?: MailPort | null;
+	/** The private bucket attached files are staged in; null when the deployment has none. */
+	storage?: PrivateStorage | null;
 	/** The Settings, seat and connection services those tools call; null when the deployment has none. */
 	native?: NativePorts | null;
 	now?: () => Date;
@@ -41,6 +46,9 @@ const WITHHELD_TEXT = "[An earlier part of this answer used a source that is no 
 
 /** succeeded: the turn saved its final state. failed: it saved a failure. lost: it no longer owned the run. */
 export type RunOutcome = "succeeded" | "failed" | "lost";
+
+/** Refusals of an attached file that the model explains to the user; the turn goes on. */
+const ATTACHMENT_REFUSALS = new Set<string>(["attachment_elsewhere", "attachment_gone"]);
 
 const TRANSIENT_SQL = new Set(["40001", "40P01", "08000", "08003", "08006", "57P01", "53300"]);
 const transientRead = (error: unknown) => {
@@ -85,6 +93,11 @@ async function run(
 	let text = "";
 	let pending = "";
 	let toolCalls = 0;
+	let cards = 0;
+	// Only files attached in this very conversation can be read, by a read or an import review.
+	const filesOf = (fresh: EvryActor) => ({
+		read: (id: string) => readAttachment(db, deps.storage ?? null, fresh, turn.conversation_id, id),
+	});
 	const usage = { inputTokens: 0, outputTokens: 0 };
 	// A paid model reserves and settles each call in the month's spend counter (D77).
 	let meter: ReturnType<typeof meteredModel> | null = null;
@@ -185,7 +198,7 @@ async function run(
 		usage.outputTokens += classified.usage.outputTokens ?? 0;
 		if (classified.kind !== "application") {
 			stop = classified.kind === "pastoral_boundary" ? "policy_boundary" : "completed";
-			text = classified.kind === "pastoral_boundary" ? PASTORAL_BOUNDARY : describeCatalog(catalog);
+			text = classified.kind === "pastoral_boundary" ? PASTORAL_BOUNDARY : capabilitiesAnswer(catalog, actor);
 			await save("assistant_text", { text });
 			return await finish();
 		}
@@ -196,6 +209,8 @@ async function run(
 			const history = await loadHistory(db, lease, turn.conversation_id, actor);
 			if (!history) throw new EvryRefusal("access_denied");
 			const references = await resolveReferences(db, actor, turn.message.body.references);
+			const state = await conversationState(db, actor, turn.conversation_id);
+			if (!state) throw new EvryRefusal("access_denied");
 			return compileContext({
 				actor,
 				catalog,
@@ -203,6 +218,7 @@ async function run(
 				text: request,
 				references,
 				now: deps.now?.() ?? new Date(),
+				state,
 			});
 		};
 		const context = await compile();
@@ -284,8 +300,10 @@ async function run(
 			let result: SourceResult | undefined;
 			for (let attempt = 0; result === undefined; attempt++) {
 				try {
-					result = await invokeRead(db, fresh, adapter, input, deps.native ?? null);
+					result = await invokeRead(db, fresh, adapter, input, deps.native ?? null, filesOf(fresh));
 				} catch (error) {
+					// A file from another conversation, or one whose 24 hours passed, is the model's to explain, not a failed turn.
+					if (error instanceof EvryRefusal && ATTACHMENT_REFUSALS.has(error.code)) return { error: error.code };
 					if (attempt < LIMITS.readRetries && transientRead(error)) continue;
 					fail(error instanceof EvryRefusal ? error : new EvryRefusal("source_unavailable"));
 					return { error: "source_unavailable" };
@@ -327,6 +345,8 @@ async function run(
 			},
 			// A reviewed write is only proposed here: the review card is saved and a person approves it in the app.
 			propose: async (call) => {
+				// A turn never fills with review cards: a bulk change confirms its scope and count first (SAF-16).
+				if (++cards > LIMITS.reviewCards) return { error: "review_limit" };
 				const fresh = await admit();
 				if (!fresh) return { error: stop === "tool_budget" ? "tool_budget" : "access_denied" };
 				const proposal = await prepareProposal(
@@ -337,6 +357,7 @@ async function run(
 					call,
 					deps.mail,
 					deps.native ?? null,
+					filesOf(fresh),
 				).catch((error) => (error instanceof EvryRefusal ? error.code : "unknown"));
 				if (typeof proposal === "string") return { error: proposal };
 				if (!proposal) return { error: "source_unavailable" };

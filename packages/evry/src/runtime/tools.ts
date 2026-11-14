@@ -124,6 +124,8 @@ export function proposalForModel(proposal: Pick<Proposal, "id" | "expiresAt" | "
 							...people,
 						]
 					: people,
+				// A review with no stored target (a new person, an import) has nothing that can go away: its fields show as they are.
+				...(target ? {} : { changes: proposal.review.changes }),
 			}),
 		),
 	) as ModelReply;

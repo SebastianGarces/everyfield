@@ -7,7 +7,8 @@ import { currentAuthority, liveAuthority } from "../context/authority.ts";
 import { retainedEvents } from "./retained.ts";
 import { EvryRefusal, projectError } from "../context/errors.ts";
 import { liveJob } from "../runtime/job.ts";
-import { reviewMap, reviewsOf } from "../proposals/review.ts";
+import { projection, proposalRow, readable, reviewMap, reviewsOf } from "../proposals/review.ts";
+import { attachment, attachmentsOf, attachmentState, ATTACHMENTS, stagedIn } from "../attachments/store.ts";
 
 // Conversation commands are one statement each (D70): the current-authority check, the change, the run's job row and
 // one audit row commit together, and zero changed rows means refused or not found. Message bodies never enter audit.
@@ -35,6 +36,8 @@ const submitInput = z.strictObject({
 	text,
 	/** Visible page context: presentation hints only. Each is re-read under current authority before model use. */
 	references: z.array(reference).max(64).default([]),
+	/** Files staged in this conversation (attachments/store.ts), at most ten per turn. */
+	attachments: z.array(attachment).max(ATTACHMENTS.perTurn).default([]),
 });
 const createInput = z.strictObject({ requestKey, title: z.string().trim().min(1).max(120).optional() });
 const listInput = z.strictObject({
@@ -192,7 +195,13 @@ export async function submitTurn(
 	const id = parse(uuid, conversationId);
 	const input = parse(submitInput, raw);
 	const turnId = randomUUID();
-	const body = { text: input.text, references: input.references, ...(retryOf ? { retryOf } : {}) };
+	const body = {
+		text: input.text,
+		references: input.references,
+		...(input.attachments.length ? { attachments: input.attachments } : {}),
+		...(retryOf ? { retryOf } : {}),
+	};
+	const attached = input.attachments.map((a) => a.id);
 	const r = await db.execute(sql`
 		WITH known AS (
 			SELECT e.turn_id AS "turnId", e.sequence FROM conversation_event e JOIN conversation c ON c.id=e.conversation_id
@@ -203,6 +212,9 @@ export async function submitTurn(
 			WHERE c.id=${id}::uuid AND ${owned(actor, "c")} AND NOT EXISTS(SELECT FROM known)
 				AND NOT ${liveRun("c")}
 				AND ${currentAuthority(actor)}
+				-- Every attached file is still staged in this conversation and inside its 24 hours.
+				AND (SELECT count(*) FROM file_object f WHERE f.id=ANY(${sql.param(attached)}::uuid[]) AND f.tenant_id=c.tenant_id
+					AND ${stagedIn("f", "c")} AND f.state='pending' AND f.expires_at>clock_timestamp())=${attached.length}
 			RETURNING c.id,c.tenant_id,c.account_id,c.last_sequence
 		), run AS (
 			INSERT INTO job(id,tenant_id,kind,subject_record_id,producer_key,state,eligible_at,attempt_count,max_attempts,claim_generation)
@@ -222,6 +234,7 @@ export async function submitTurn(
 	if (row.submitted) return { ...submitted.parse(row.submitted), replayed: false };
 	if (row.known) return { ...submitted.parse(row.known), replayed: true };
 	if (row.active === null) throw new EvryRefusal("not_found");
+	if (!row.active && attached.length) throw new EvryRefusal("attachment_gone");
 	throw new EvryRefusal(row.active ? "run_active" : "access_denied");
 }
 
@@ -337,7 +350,11 @@ export async function retryTurn(db: Database, actor: EvryActor, conversationId: 
 	const last = z
 		.object({
 			sequence: z.coerce.number(),
-			body: z.object({ text: z.string(), references: z.array(reference).default([]) }),
+			body: z.object({
+				text: z.string(),
+				references: z.array(reference).default([]),
+				attachments: z.array(attachment).default([]),
+			}),
 			completed: z.boolean(),
 			known: submitted.nullable(),
 		})
@@ -349,7 +366,31 @@ export async function retryTurn(db: Database, actor: EvryActor, conversationId: 
 		db,
 		actor,
 		id,
-		{ requestKey: key, text: last.body.text, references: last.body.references },
+		{ requestKey: key, text: last.body.text, references: last.body.references, attachments: last.body.attachments },
 		last.sequence,
 	);
+}
+
+const stateRow = z.object({
+	attachments: z.array(attachmentState),
+	reviews: z.array(proposalRow.extend({ delivery: z.object({ delivered: z.number(), total: z.number() }).nullable() })),
+});
+export type ConversationState = z.infer<typeof stateRow>;
+/**
+ * The saved facts a turn keeps however long the conversation grows (evry.md, verified context): every file attached
+ * here with what is true of it now, and the last 24 reviews with their status, recorded outcome and, for an email,
+ * how many recipients the email service reported delivered. Exact app records, read again under current authority
+ * before every model call; never authority themselves. One lock-free statement. Null when the conversation is gone.
+ */
+export async function conversationState(db: Database, actor: EvryActor, conversationId: string) {
+	const r = await db.execute(sql`
+		SELECT ${attachmentsOf("c")} AS attachments,
+			coalesce((SELECT jsonb_agg(x.proposal || jsonb_build_object('delivery',x.delivery) ORDER BY x.created_at,x.id) FROM (
+				SELECT p.id,p.created_at,${projection("p")} AS proposal,
+					CASE WHEN p.review->'target'->>'kind'='message' THEN (SELECT jsonb_build_object('delivered',count(*) FILTER (WHERE m.delivered_at IS NOT NULL),'total',count(*))
+						FROM mail m WHERE m.tenant_id=p.tenant_id AND m.logical_key LIKE 'communication/'||(p.review->'target'->>'id')||'/%'
+							AND m.state NOT IN ('refused','failed','cancelled')) END AS delivery
+				FROM proposal p WHERE p.conversation_id=c.id AND ${readable(actor)} ORDER BY p.created_at DESC,p.id DESC LIMIT 24) x),'[]'::jsonb) AS reviews
+		FROM conversation c WHERE c.id=${conversationId}::uuid AND ${owned(actor, "c")} AND ${liveAuthority(actor)}`);
+	return r.rows.length ? stateRow.parse(r.rows[0]) : null;
 }

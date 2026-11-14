@@ -5,8 +5,8 @@ import type { NativePorts } from "../proposals/types.ts";
 
 /**
  * One returned row. Only these fields reach the model; the id lets a later read or selection name it again.
- * Selection re-checks `person` rows only. A household, tag, skill, activity, file, import, message, notice, setting or
- * digest row is not a person. An organization pipeline person is a person of that organization. A meeting or venue row names that record; an item row is a part of one (an agenda section, a kit item, a report line).
+ * Selection re-checks `person` rows only. A household, tag, skill, activity, file, import, message, notice, setting,
+ * digest or date row is not a person. An organization pipeline person is a person of that organization. A meeting or venue row names that record; an item row is a part of one (an agenda section, a kit item, a report line).
  */
 export type SourceRow = {
 	kind:
@@ -34,7 +34,8 @@ export type SourceRow = {
 		| "connection"
 		| "step"
 		| "relationship"
-		| "stage";
+		| "stage"
+		| "date";
 	id: string;
 	label: string;
 	/** `you: true` marks the signed-in user's own person row (see person-row.ts); no other row carries it. */
@@ -62,6 +63,20 @@ export type ReadAdapter<I> = {
 	input: z.ZodType<I>;
 	/** Current authority decides availability. Being in the catalog grants nothing. */
 	allowed(actor: EvryActor): boolean;
+	/**
+	 * Reads what the input names outside the read's transaction, such as a file attached in this conversation; its
+	 * answer reaches `invoke` as `loaded`. A read with no conversation's files refuses as attachment_elsewhere.
+	 */
+	load?(input: I, files: ConversationFiles): Promise<unknown>;
 	/** `native` holds the deployment's native services, for a read that needs one (null when it has none). */
-	invoke(tx: Transaction, actor: EvryActor, input: I, native: NativePorts | null): Promise<SourceResult>;
+	invoke(
+		tx: Transaction,
+		actor: EvryActor,
+		input: I,
+		native: NativePorts | null,
+		loaded?: unknown,
+	): Promise<SourceResult>;
 };
+
+/** The files attached in the turn's own conversation (attachments/store.ts): a file's exact bytes by its id. */
+export type ConversationFiles = { read(attachmentId: string): Promise<Uint8Array> };

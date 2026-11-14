@@ -100,6 +100,8 @@ test("AC:INH-REGRESSION-CAPABILITIES INV-catalog: every installed model tool is 
 		"discovery.getProfile",
 		"pipeline.listPeople",
 		"development.draftPlan",
+		"calendar.getContext",
+		"calendar.resolve",
 		"evry.selectReturnedRows",
 	]);
 	for (const id of installed) {

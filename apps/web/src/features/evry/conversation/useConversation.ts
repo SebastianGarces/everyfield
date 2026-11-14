@@ -13,6 +13,7 @@ import {
 	type ConversationEvent,
 	type ProjectedError,
 	type ReadConversation,
+	type Attachment,
 	type Reference,
 	type Send,
 	type State,
@@ -239,14 +240,17 @@ export function useConversation(open: boolean) {
 			const key = (createKey.current ??= crypto.randomUUID());
 			const created = await api.createConversation(key);
 			if (!here())
-				return void (created.status === "ok" && api.submitTurn(created.value.id, send.key, send.text, send.references));
+				return void (
+					created.status === "ok" &&
+					api.submitTurn(created.value.id, send.key, send.text, send.references, send.attachments)
+				);
 			if (created.status !== "ok") return fail(send, created);
 			if (createKey.current === key) createKey.current = null;
 			conversation = created.value;
 			latest.current = { ...latest.current, conversation };
 			dispatch({ type: "conversation", conversation });
 		}
-		const r = await api.submitTurn(conversation.id, send.key, send.text, send.references);
+		const r = await api.submitTurn(conversation.id, send.key, send.text, send.references, send.attachments);
 		if (!here()) return;
 		if (r.status !== "ok") return fail(send, r);
 		dispatch({ type: "sent", key: send.key, patch: { sequence: r.value.sequence } });
@@ -254,10 +258,32 @@ export function useConversation(open: boolean) {
 		if (!ended) dispatch({ type: "active", turnId: r.value.turnId });
 	};
 
-	const send = (text: string, references: Reference[]) => {
-		const s: Send = { key: crypto.randomUUID(), text, references, state: "sending", error: null, sequence: null };
+	const send = (text: string, references: Reference[], attachments: Attachment[]) => {
+		const s: Send = {
+			key: crypto.randomUUID(),
+			text,
+			references,
+			attachments,
+			state: "sending",
+			error: null,
+			sequence: null,
+		};
 		dispatch({ type: "send", send: s });
 		void deliver(s);
+	};
+
+	/** The open conversation, created now when the panel has none yet: an attached file belongs to one conversation. */
+	const ensureConversation = async () => {
+		const known = latest.current.conversation;
+		if (known) return known;
+		const view = shown.current;
+		const key = (createKey.current ??= crypto.randomUUID());
+		const created = await api.createConversation(key);
+		if (created.status !== "ok" || shown.current !== view) return null;
+		if (createKey.current === key) createKey.current = null;
+		latest.current = { ...latest.current, conversation: created.value };
+		dispatch({ type: "conversation", conversation: created.value });
+		return created.value;
 	};
 
 	const cancel = async () => {
@@ -337,6 +363,7 @@ export function useConversation(open: boolean) {
 		reload,
 		ensureLoaded,
 		send,
+		ensureConversation,
 		resend: (s: Send) => void deliver(s),
 		discard: (key: string) => dispatch({ type: "drop", key }),
 		seen,

@@ -2,7 +2,10 @@
 
 import {
 	Add01Icon,
+	Attachment01Icon,
+	Cancel01Icon,
 	Clock01Icon,
+	Csv01Icon,
 	Link01Icon,
 	SentIcon,
 	StopIcon,
@@ -32,6 +35,7 @@ import {
 	resendable,
 	retryable,
 	sendNotice,
+	type Attachment,
 	type Conversation,
 	type Reference,
 	type Send,
@@ -41,6 +45,7 @@ import {
 import { ReviewCard } from "../review/ReviewCard.tsx";
 import { renderMarkdown } from "./view.ts";
 import { ResultCard } from "./ResultCard.tsx";
+import { ATTACH, fileSize, useAttachments, type Picked } from "./attachments.ts";
 import { useConversation } from "./useConversation.ts";
 import { useRowPhotos } from "./useRowPhotos.ts";
 import { AttachButton, AttachedPhoto, useAttachedPhoto } from "./PhotoAttach.tsx";
@@ -58,7 +63,18 @@ import { AttachButton, AttachedPhoto, useAttachedPhoto } from "./PhotoAttach.tsx
  * (starting a church or turning a Discovery space into one moves the account into the new church), that conversation
  * stays on screen, and the next message starts a new chat there: the old one belongs to the context the account left.
  */
-export function useEvryPanel({ inPlant, off = false, context }: { inPlant: boolean; off?: boolean; context: string }) {
+export function useEvryPanel({
+	inPlant,
+	canAttach = false,
+	off = false,
+	context,
+}: {
+	inPlant: boolean;
+	/** The viewer may attach a People spreadsheet here: an Owner or Admin of the church. */
+	canAttach?: boolean;
+	off?: boolean;
+	context: string;
+}) {
 	const [open, setOpen] = useState(false);
 	const c = useConversation(open);
 	const [startedIn, setStartedIn] = useState(context);
@@ -89,6 +105,7 @@ export function useEvryPanel({ inPlant, off = false, context }: { inPlant: boole
 				open={open}
 				onOpenChange={show}
 				inPlant={inPlant}
+				canAttach={canAttach}
 				moved={startedIn !== context}
 				onMove={() => setStartedIn(context)}
 			/>
@@ -101,6 +118,7 @@ function EvryPanel({
 	open,
 	onOpenChange,
 	inPlant,
+	canAttach,
 	moved,
 	onMove,
 }: {
@@ -108,6 +126,7 @@ function EvryPanel({
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	inPlant: boolean;
+	canAttach: boolean;
 	/** The frame now works in another context than this conversation's: the next message starts a new chat. */
 	moved: boolean;
 	onMove: () => void;
@@ -162,12 +181,14 @@ function EvryPanel({
 						busy={c.state.activeTurnId !== null}
 						stopping={c.state.stopping}
 						disabled={c.load !== "ready"}
-						onSend={(text, references) => {
+						conversationId={c.state.conversation?.id ?? null}
+						attach={canAttach ? c.ensureConversation : null}
+						onSend={(text, references, attachments) => {
 							if (moved) {
 								onMove();
 								if (c.state.conversation) c.newChat();
 							}
-							c.send(text, references);
+							c.send(text, references, attachments);
 							composer.current?.focus();
 						}}
 						onStop={() => {
@@ -403,6 +424,7 @@ function TurnView({
 					<UserBubble>
 						<span className="sr-only">You: </span>
 						{turn.ask.text}
+						<SentFiles files={turn.ask.attachments} />
 					</UserBubble>
 				)
 			) : null}
@@ -480,6 +502,7 @@ function SendView({ send, onResend, onEdit }: { send: Send; onResend: () => void
 			<UserBubble muted={send.state === "sending"}>
 				<span className="sr-only">You: </span>
 				{send.text}
+				<SentFiles files={send.attachments} />
 			</UserBubble>
 			{notice ? (
 				<div role="alert" className="flex max-w-[85%] flex-col items-end gap-2 text-right text-sm text-magenta-600">
@@ -541,6 +564,8 @@ function Composer({
 	busy,
 	stopping,
 	disabled,
+	conversationId,
+	attach,
 	onSend,
 	onStop,
 	suggestions,
@@ -551,7 +576,11 @@ function Composer({
 	busy: boolean;
 	stopping: boolean;
 	disabled: boolean;
-	onSend: (text: string, references: Reference[]) => void;
+	/** The open conversation: attached files belong to it. */
+	conversationId: string | null;
+	/** Gives the conversation to stage a file in; null when the viewer cannot attach files. */
+	attach: (() => Promise<{ id: string } | null>) | null;
+	onSend: (text: string, references: Reference[], attachments: Attachment[]) => void;
 	onStop: () => void;
 	suggestions: string[];
 }) {
@@ -559,17 +588,24 @@ function Composer({
 	const [usePage, setUsePage] = useState(true);
 	const page = pageReferences(pathname);
 	const hint = useId();
+	const picker = useRef<HTMLInputElement>(null);
+	const files = useAttachments(attach ?? (async () => null));
+	// A file shows with the conversation it was staged in, or while it waits for its conversation to be created.
+	const shown = files.items.filter((p) => p.conversationId === null || p.conversationId === conversationId);
 	const text = draft.trim();
 	const tooLong = draft.length > MAX_MESSAGE;
 	const attached = useAttachedPhoto();
 	const photo = attached.photo;
-	// A photo still uploading holds the message, so "use this as my photo" never goes without it.
-	const canSend = !disabled && !busy && text.length > 0 && !tooLong && photo?.status !== "uploading";
+	// A file or photo still uploading holds the message, so "check it" or "use this as my photo" never goes without it.
+	const canSend =
+		!disabled && !busy && text.length > 0 && !tooLong && !files.uploading && photo?.status !== "uploading";
 
 	const submit = (value = text) => {
-		if (disabled || busy || !value || value.length > MAX_MESSAGE || photo?.status === "uploading") return;
+		if (disabled || busy || files.uploading || !value || value.length > MAX_MESSAGE || photo?.status === "uploading")
+			return;
 		const photos = photo?.status === "ready" ? [{ kind: "photo" as const, id: photo.id }] : [];
-		onSend(value, [...(usePage ? page : []), ...photos]);
+		onSend(value, [...(usePage ? page : []), ...photos], files.ready(conversationId));
+		files.clear();
 		setDraft("");
 		attached.clear();
 	};
@@ -623,6 +659,13 @@ function Composer({
 						: "focus-within:shadow-[0_0_0_1px_var(--ef-ink),0_0_0_4px_color-mix(in_srgb,var(--ef-focus)_28%,transparent)]",
 				)}
 			>
+				{shown.length ? (
+					<ul aria-label="Attached files" className="mb-2 flex flex-wrap gap-2">
+						{shown.map((p) => (
+							<FileChip key={p.key} file={p} onRemove={() => files.remove(p.key)} />
+						))}
+					</ul>
+				) : null}
 				{photo ? <AttachedPhoto photo={photo} onRemove={attached.clear} /> : null}
 				<label className="sr-only" htmlFor={`${hint}-input`}>
 					Message Evry
@@ -640,35 +683,111 @@ function Composer({
 					className="block max-h-40 min-h-12 w-full resize-none bg-transparent text-md text-ink outline-none [field-sizing:content] placeholder:text-text-3"
 				/>
 				<div className="mt-1 flex items-center justify-between gap-3">
-					<p id={hint} className={cn("text-xs", tooLong ? "text-magenta-600" : "text-text-3")}>
+					<p
+						id={hint}
+						role={files.notice ? "alert" : undefined}
+						className={cn("text-xs", tooLong || files.notice ? "text-magenta-600" : "text-text-3")}
+					>
 						{tooLong
 							? `Shorten this message to ${MAX_MESSAGE.toLocaleString()} characters (now ${draft.length.toLocaleString()}).`
-							: busy
-								? "Evry is answering. You can stop it."
-								: "Enter sends. Shift+Enter adds a line."}
+							: files.notice
+								? files.notice
+								: busy
+									? "Evry is answering. You can stop it."
+									: files.uploading
+										? "Attaching the file…"
+										: shown.length
+											? "Say what Evry should do with the file."
+											: "Enter sends. Shift+Enter adds a line."}
 					</p>
-					{busy ? (
-						<Button size="sm" variant="secondary" icon={StopIcon} loading={stopping} onClick={onStop}>
-							Stop
-						</Button>
-					) : (
-						<div className="flex flex-none items-center gap-1">
-							<AttachButton disabled={disabled} onFile={(file) => void attached.attach(file)} />
-							<Button
-								type="submit"
-								size="sm"
-								variant="primary"
-								icon={SentIcon}
-								disabled={!canSend}
-								className="w-[34px] px-0"
-							>
-								<span className="sr-only">Send</span>
+					<div className="flex flex-none items-center gap-1">
+						{attach ? (
+							<>
+								<input
+									ref={picker}
+									type="file"
+									accept={ATTACH.accept}
+									multiple
+									hidden
+									onChange={(e) => {
+										files.add([...(e.target.files ?? [])]);
+										e.target.value = "";
+									}}
+								/>
+								<Tooltip content="Attach a CSV">
+									<IconButton
+										icon={Attachment01Icon}
+										label="Attach a CSV file"
+										size="sm"
+										disabled={disabled || busy}
+										onClick={() => picker.current?.click()}
+									/>
+								</Tooltip>
+							</>
+						) : null}
+						{busy ? (
+							<Button size="sm" variant="secondary" icon={StopIcon} loading={stopping} onClick={onStop}>
+								Stop
 							</Button>
-						</div>
-					)}
+						) : (
+							<>
+								<AttachButton disabled={disabled} onFile={(file) => void attached.attach(file)} />
+								<Button
+									type="submit"
+									size="sm"
+									variant="primary"
+									icon={SentIcon}
+									disabled={!canSend}
+									className="w-[34px] px-0"
+								>
+									<span className="sr-only">Send</span>
+								</Button>
+							</>
+						)}
+					</div>
 				</div>
 			</div>
 		</form>
+	);
+}
+
+/** One picked file in the composer: its name, its size or upload state, and a way to take it off the message. */
+function FileChip({ file, onRemove }: { file: Picked; onRemove: () => void }) {
+	return (
+		<li
+			className={cn(
+				"flex h-[34px] max-w-full items-center gap-2 rounded-pill bg-surface-2 py-1 pr-1 pl-3 text-sm",
+				file.state === "failed" && "bg-magenta-50",
+			)}
+		>
+			<Icon icon={Csv01Icon} size={16} className="flex-none text-text-2" />
+			<span className="min-w-0 truncate text-ink">{file.name}</span>
+			<span className={cn("flex-none text-xs", file.state === "failed" ? "text-magenta-600" : "text-text-3")}>
+				{file.state === "uploading" ? "Attaching…" : file.state === "failed" ? "Couldn't attach" : fileSize(file.size)}
+			</span>
+			<IconButton
+				icon={Cancel01Icon}
+				label={`Remove ${file.name}`}
+				size="sm"
+				className="size-[26px]"
+				onClick={onRemove}
+			/>
+		</li>
+	);
+}
+
+/** The files a sent message carried, inside its bubble. */
+function SentFiles({ files }: { files: readonly { id: string; name: string }[] }) {
+	if (!files.length) return null;
+	return (
+		<ul aria-label="Attached files" className="mt-2 flex flex-wrap gap-1.5">
+			{files.map((f) => (
+				<li key={f.id} className="flex items-center gap-1.5 rounded-pill bg-white/12 px-2.5 py-1 text-sm">
+					<Icon icon={Csv01Icon} size={16} className="flex-none" />
+					<span className="min-w-0 truncate">{f.name}</span>
+				</li>
+			))}
+		</ul>
 	);
 }
 

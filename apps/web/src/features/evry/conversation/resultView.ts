@@ -70,6 +70,14 @@ const rows = (title: string, rest: Partial<OpView> = {}): OpView => ({
 	empty: "This file has no rows to show.",
 	...rest,
 });
+// The calendar helpers (WP-085): one row, the church's today or the one local date and time checked.
+const calendar = (title: string): OpView => ({
+	title,
+	noun: ["date", "dates"],
+	icon: "date",
+	counts: "date",
+	empty: "This church's calendar is not available.",
+});
 
 const VIEWS: Record<string, OpView> = {
 	"people.listPeople": people("People"),
@@ -275,6 +283,8 @@ const VIEWS: Record<string, OpView> = {
 		shownOnly: true,
 		empty: "Your oversight digest has nothing owed yet.",
 	},
+	"calendar.getContext": calendar("Today"),
+	"calendar.resolve": calendar("Date check"),
 };
 // The Ministries reads (WP-069). A ministry row opens its Ministries page; a person row opens the person.
 const ministries = (title: string, rest: Partial<OpView> = {}): OpView => ({
@@ -393,6 +403,26 @@ const fallback: OpView = {
 	icon: "file",
 	counts: "person",
 	empty: "Nothing in this church matches, or you can't see it.",
+};
+/** "2026-11-01T01:30", a church's local wall time, as "Sun, Nov 1, 2026, 1:30 AM". */
+function localName(local: string) {
+	const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(local);
+	if (!m) return local;
+	const wall = new Date(Date.UTC(+m[1]!, +m[2]! - 1, +m[3]!, +m[4]!, +m[5]!));
+	return new Intl.DateTimeFormat("en-US", {
+		timeZone: "UTC",
+		weekday: "short",
+		month: "short",
+		day: "numeric",
+		year: "numeric",
+		hour: "numeric",
+		minute: "2-digit",
+	}).format(wall);
+}
+const DATE_STATUS: Record<string, string> = {
+	ambiguous: "Happens twice",
+	nonexistent: "Skipped by the clocks",
+	invalid_date: "Not a date",
 };
 const HOUSEHOLD_DETAIL = new Set(["people.getHousehold", "people.getHouseholdMembers"]);
 const ROLE: Record<string, string> = { head: "Head", spouse: "Spouse", child: "Child", other: "Other" };
@@ -848,6 +878,28 @@ function rowView(operation: string, row: SourceRow): RowView {
 				line: `${text(fields.relationship)} · ${typeof fields.shares === "string" ? `Shares ${fields.shares}` : "Shares nothing"}`,
 				avatar: null,
 			};
+		case "date": {
+			// calendar.getContext names today; calendar.resolve says whether the local time exists once, twice or not at all.
+			if (operation === "calendar.getContext")
+				return {
+					...plain,
+					name: joined(text(fields.weekday), text(fields.today)) ?? row.label,
+					line: joined(text(fields.zone), text(fields.zoneName)),
+					avatar: "date",
+				};
+			const status = String(fields.status);
+			return {
+				...plain,
+				name: status === "invalid_date" ? row.label : localName(String(fields.local ?? row.label)),
+				// An exact time names its zone abbreviation ("EST", the end of "Sun, Nov 1, 2026, 1:30 AM EST"); the answer under
+				// the card lists both times of a fold. The status sits on the line, not in a tag, so the date keeps its width.
+				line: joined(
+					status === "exact" ? (text(fields.shows)?.split(" ").at(-1) ?? null) : (DATE_STATUS[status] ?? "Not a date"),
+					text(fields.zone),
+				),
+				avatar: "date",
+			};
+		}
 		case "notice":
 			// A bell notification: its area and church-local time. A card never marks it read.
 			return {

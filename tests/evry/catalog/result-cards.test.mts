@@ -142,6 +142,9 @@ const PROBES: Record<string, Record<string, unknown> | (() => Promise<SourceResu
 		invokeRead(church.db, await setupActor(PIPELINE_SPECS.dana.session), adapters.get("pipeline.listPeople")!, {}),
 	"development.draftPlan": async () =>
 		invokeRead(church.db, await setupActor(PIPELINE_SPECS.dana.session), adapters.get("development.draftPlan")!, {}),
+	"calendar.getContext": {},
+	// In a US time zone, 1:30am on Nov 1, 2026 happens twice as the clocks fall back.
+	"calendar.resolve": { date: "2026-11-01", time: "01:30" },
 	[catalog.SELECT_RETURNED_ROWS]: async () => {
 		const list = await read("people.listPeople", {});
 		return { ...list, operation: catalog.SELECT_RETURNED_ROWS, rows: list.rows.slice(0, 2), total: 2 };

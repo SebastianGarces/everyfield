@@ -61,6 +61,7 @@ const GLYPH: Record<Glyph, IconSvgElement> = {
 	step: CheckmarkCircle02Icon,
 	relationship: Link01Icon,
 	stage: UserMultipleIcon,
+	date: Calendar03Icon,
 };
 
 function Mark({ mark }: { mark: RowView["mark"] }) {

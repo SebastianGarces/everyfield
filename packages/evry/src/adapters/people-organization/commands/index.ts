@@ -20,7 +20,8 @@ import {
 import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
-import type { EffectResult, ReviewedWrite } from "../../../proposals/types.ts";
+import { attachmentState, attachmentsOf } from "../../../attachments/store.ts";
+import type { EffectResult, ReviewContext, ReviewedWrite } from "../../../proposals/types.ts";
 import { ownerOrAdmin } from "../../people/commands/index.ts";
 import { failure, problemText } from "../reads/index.ts";
 
@@ -640,20 +641,58 @@ function plan(preview: Preview, chosen: Map<number, Choice>) {
 	}
 	return { rows, choices, refusal };
 }
-export const executeBulkImport = reviewed({
-	operation: "people.executeBulkImport",
-	description:
-		"Propose importing a people CSV (the same text people.previewImport takes): the review shows each row's planned outcome, and rows that match someone are skipped unless the user chose otherwise. Nothing is imported until the user approves the exact review.",
-	input: z.strictObject({
-		file: z.string().min(1).max(importLimits.bytes).describe("CSV text that uses the import template columns"),
+const importInput = z
+	.strictObject({
+		file: z
+			.string()
+			.min(1)
+			.max(importLimits.bytes)
+			.optional()
+			.describe("CSV text that uses the import template columns, when the user pasted it"),
+		attachmentId: z
+			.uuid()
+			.optional()
+			.describe("The attachmentId of a file attached in this conversation, instead of file"),
+		fileDigest: z
+			.string()
+			.regex(/^[0-9a-f]{64}$/)
+			.optional()
+			.describe("With attachmentId: the fileDigest of that file's latest people.previewImport check here"),
 		choices: z
 			.array(z.strictObject({ row: z.int().min(1), choice: importChoice }))
 			.max(importLimits.rows)
 			.optional()
 			.describe("Only rows the user decided differently from the preview's suggestion"),
-	}),
+	})
+	.refine((v) => (v.file === undefined) !== (v.attachmentId === undefined || v.fileDigest === undefined), {
+		message: "Give file, or attachmentId with fileDigest",
+	});
+const attachedFiles = z.array(attachmentState);
+
+/**
+ * The CSV bytes an import reviews. Pasted text is the bytes. An attached file (WP-054) must be in this conversation, not
+ * gone and not replaced by a newer file of the same name, and must be the exact file its latest check read: a replaced
+ * file or a check of other bytes refuses as file_changed, so the model checks it afresh before any card.
+ */
+async function importBytes(actor: EvryActor, value: z.infer<typeof importInput>, context: ReviewContext) {
+	if (value.file !== undefined) return new TextEncoder().encode(value.file);
+	if (!context.conversationId || !context.files) throw new EvryRefusal("attachment_elsewhere");
+	const r = await context.db.execute(sql`SELECT ${attachmentsOf("c")} AS attachments FROM conversation c
+		WHERE c.id=${context.conversationId}::uuid AND c.account_id=${actor.accountId}::uuid AND c.tenant_id=${actor.owner.id}::uuid`);
+	const file = attachedFiles.parse(r.rows[0]?.attachments ?? []).find((a) => a.id === value.attachmentId);
+	if (!file) throw new EvryRefusal("attachment_elsewhere");
+	if (file.status === "gone") throw new EvryRefusal("attachment_gone");
+	if (file.status === "replaced" || file.checkedDigest !== value.fileDigest) throw new EvryRefusal("file_changed");
+	return context.files.read(value.attachmentId!);
+}
+
+export const executeBulkImport = reviewed({
+	operation: "people.executeBulkImport",
+	description:
+		"Propose importing a people CSV: pasted text (file, the same text people.previewImport takes) or a file attached in this conversation (attachmentId with the fileDigest of its latest people.previewImport check). The review shows each row's planned outcome, and rows that match someone are skipped unless the user chose otherwise. Nothing is imported until the user approves the exact review.",
+	input: importInput,
 	async review(actor, value, context) {
-		const bytes = new TextEncoder().encode(value.file);
+		const bytes = await importBytes(actor, value, context);
 		const preview = (await context.db.transaction((tx) =>
 			peopleCsv.previewImport(tx, new PeopleReadContext(actor.authority), { file: bytes }),
 		)) as Reply<Preview>;
@@ -662,9 +701,13 @@ export const executeBulkImport = reviewed({
 			if (preview.error.code === "unavailable") return null;
 			throw new EvryRefusal("invalid_input");
 		}
+		// The attached file read now must be the file the check read.
+		if (value.fileDigest !== undefined && preview.value.fileDigest !== value.fileDigest)
+			throw new EvryRefusal("file_changed");
 		const { rows, choices, refusal } = plan(preview.value, new Map(value.choices?.map((c) => [c.row, c.choice])));
 		const args: ImportArgs = {
-			file: value.file,
+			// Kept byte for byte (a leading BOM too), so the run's file digest is the one this review showed.
+			file: new TextDecoder("utf-8", { ignoreBOM: true }).decode(bytes),
 			fileDigest: preview.value.fileDigest,
 			reviewDigest: preview.value.reviewDigest,
 			choices,

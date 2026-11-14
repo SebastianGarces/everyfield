@@ -13,6 +13,11 @@ export type EvryErrorCode =
 	| "review_expired"
 	| "review_closed"
 	| "photo_unavailable"
+	| "attachment_elsewhere"
+	| "attachment_gone"
+	| "file_changed"
+	| "review_limit"
+	| "already_applied"
 	| "unknown";
 
 export class EvryRefusal extends Error {
@@ -37,6 +42,14 @@ const retry: Record<EvryErrorCode, "never" | "same_request" | "new_turn"> = {
 	review_closed: "never",
 	// The staged upload of a photo proposal is gone or no longer readable; a new upload needs a new review.
 	photo_unavailable: "never",
+	// A file attached in another conversation, or whose 24 hours passed: it must be attached again, here.
+	attachment_elsewhere: "never",
+	attachment_gone: "never",
+	// The attached file is not the one checked: it needs a fresh check first.
+	file_changed: "never",
+	// A turn prepares at most LIMITS.reviewCards review cards; a change already applied is never prepared again.
+	review_limit: "never",
+	already_applied: "never",
 	unknown: "new_turn",
 };
 

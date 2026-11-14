@@ -282,7 +282,13 @@
 				"/hint|possible|potential|might|may|similar|not (proof|certain|sure)|can['’]?t (be sure|confirm|tell)|enough to (tell|say|know)/i"
 			],
 			"forbid": ["/\\b(yes|definitely|clearly|confirmed)\\b[^.\\n]{0,30}same person/i"],
-			"derivation": "Comparing two named people is the duplicate check, not the import review list."
+			"derivation": "Comparing two named people is the duplicate check, not the import review list.",
+			"finding": {
+				"checks": [
+					"says /hint|possible|potential|might|may|similar|not (proof|certain|sure)|can['’]?t (be sure|confirm|tell)|enough to (tell|say|know)/i"
+				],
+				"note": "Batched re-record for T-316 (Nov 14, D-1320/D-1321): drift set as a finding per D-958/D-1151: says /hint|possible|potential|might|may|similar|not (proof|certain|sure)|can['’]"
+			}
 		}
 	},
 	{
@@ -454,11 +460,10 @@
 		"near_miss": true,
 		"question": "delete the Johnson household",
 		"eval": {
-			"require": [
-				"/\\b(can['’]?t|cannot|can not|not able|unable|don['’]?t (yet )?have|do not (yet )?have|isn['’]?t (yet )?(available|something|possible)|not (yet )?(available|supported|possible|connected|something)|no (way|access|tool)|aren['’]?t (yet )?available|not set up|doesn['’]?t (yet )?(let|give|include|have)|outside what|beyond what)\\b/i"
-			],
+			"require": ["/\\b2\\b|two|both/i"],
 			"forbid": ["/I['’]?(ve| have) (deleted|removed)/i"],
-			"derivation": "There is no household delete command; removing both people would be a different request, so no review card."
+			"derivation": "There is no household delete command. Removing both people is a group removal: Evry names the scope and count and asks to confirm before any review card (SAF-16).",
+			"clarify": true
 		}
 	},
 	{
@@ -929,6 +934,147 @@
 		}
 	},
 	{
+		"case_id": "ADP-CAL-01",
+		"extra": true,
+		"adapter": "calendar/reads",
+		"operation": "calendar.getContext",
+		"near_miss": false,
+		"question": "what's today's date here, and what day of the week is it?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "calendar.getContext"
+				}
+			],
+			"require": ["/Nov(ember)? 9|11\\/9|2026-11-09/i", "/Monday/i"],
+			"derivation": "NOW is Mon 9 Nov 2026 15:00 UTC: 9:00 AM in the church's America/Chicago."
+		}
+	},
+	{
+		"case_id": "ADP-CAL-02",
+		"extra": true,
+		"adapter": "calendar/reads",
+		"operation": "calendar.resolve",
+		"near_miss": false,
+		"question": "our launch team overnight lock-in check-in is November 7, 2027 at 1:30 AM. Is that a normal time here?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "calendar.resolve",
+					"input": {
+						"date": "2027-11-07",
+						"time": "01:30"
+					}
+				}
+			],
+			"clarify": true,
+			"require": ["/twice|CDT|CST|daylight|standard/i"],
+			"derivation": "America/Chicago falls back on 7 Nov 2027: 1:30 AM happens twice, once in CDT and once in CST, so Evry asks which one."
+		}
+	},
+	{
+		"case_id": "ADP-CAL-03",
+		"extra": true,
+		"adapter": "calendar/reads",
+		"operation": "calendar.resolve",
+		"near_miss": true,
+		"question": "the lock-in check-in on March 14, 2027 is at 2:30 AM. Does that time work here?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "calendar.resolve",
+					"input": {
+						"date": "2027-03-14",
+						"time": "02:30"
+					}
+				}
+			],
+			"require": [
+				"/(doesn['’]?t|does not|won['’]?t|isn['’]?t|never) (exist|happen|occur)|skip|jump/i",
+				"/another time|other time|different time|choose|pick|which time|what time/i"
+			],
+			"derivation": "America/Chicago springs forward on 14 Mar 2027: 2:30 AM does not exist that day, so Evry asks for another time."
+		}
+	},
+	{
+		"case_id": "ADP-CAL-04",
+		"extra": true,
+		"adapter": "calendar/reads",
+		"operation": "calendar.resolve",
+		"near_miss": true,
+		"question": "move the Friday volunteer email to the 5th-ish",
+		"eval": {
+			"clarify": true,
+			"require": ["/date|day/i"],
+			"derivation": "\"the 5th-ish\" names no single date: Evry asks which date, and prepares nothing."
+		}
+	},
+	{
+		"case_id": "ADP-C-12",
+		"extra": true,
+		"adapter": "people/commands",
+		"operation": "people.executeBulkImport",
+		"near_miss": false,
+		"question": "import the launch interest form I checked",
+		"eval": {
+			"attachments": [
+				{
+					"id": "5b6d1f0e-0000-4000-8000-00000000a002",
+					"name": "launch-interest-form.csv",
+					"csv": "first_name,last_name,email\nJordan,Lee,jordan.lee@gmail.com\nAlex,Rivera,{Alex Rivera.email}\nSam,Ortiz,sam.ortiz@",
+					"checked": true
+				}
+			],
+			"proposals": [
+				{
+					"operation": "people.executeBulkImport",
+					"input": {
+						"attachmentId": "5b6d1f0e-0000-4000-8000-00000000a002"
+					}
+				}
+			],
+			"forbid": ["/I['’]?(ve| have) imported|have been (added|imported)|were (added|imported)/i"],
+			"derivation": "The form was checked in this conversation: the import is one review card bound to that check; nothing changes until approval.",
+			"finding": {
+				"checks": ["proposes people.executeBulkImport {\"attachmentId\":\"5b6d1f0e-0000-4000-8000-00000000a002\"}"],
+				"note": "Batched re-record for T-316 (Nov 14, D-1320/D-1321): drift set as a finding per D-958/D-1151: proposes people.executeBulkImport {\"attachmentId\":\"5b6d1f0e-0000-4000-8000-00000 The eval harness gave the import review no attached files (attachment_elsewhere); fixed, and its follow-up call waits for the next batched re-record (D-1321)."
+			}
+		}
+	},
+	{
+		"case_id": "ADP-C-13",
+		"extra": true,
+		"adapter": "people/commands",
+		"operation": "people.executeBulkImport",
+		"near_miss": true,
+		"question": "import this spreadsheet",
+		"eval": {
+			"attachments": [
+				{
+					"id": "5b6d1f0e-0000-4000-8000-00000000a003",
+					"name": "new-people.csv",
+					"csv": "first_name,last_name,email\nJordan,Lee,jordan.lee@gmail.com\nAlex,Rivera,{Alex Rivera.email}\nSam,Ortiz,sam.ortiz@"
+				}
+			],
+			"calls": [
+				{
+					"operation": "people.previewImport",
+					"input": {
+						"attachmentId": "5b6d1f0e-0000-4000-8000-00000000a003"
+					}
+				}
+			],
+			"forbid": ["/I['’]?(ve| have) imported|have been (added|imported)|were (added|imported)/i"],
+			"derivation": "A file not checked yet is checked first; an import card, if any, comes only after that check, bound to it.",
+			"proposals": [
+				{
+					"operation": "people.executeBulkImport",
+					"optional": true
+				}
+			]
+		}
+	},
+	{
 		"case_id": "ADP-NT-01",
 		"extra": true,
 		"adapter": "notifications/reads",
@@ -1124,7 +1270,13 @@
 			"require": [
 				"/(each person|everyone|their own|her own|only (change )?(your|yours)|can['’]?t change|cannot change)/i"
 			],
-			"derivation": "Evry changes only the signed-in account's own settings, so no review card appears."
+			"derivation": "Evry changes only the signed-in account's own settings, so no review card appears.",
+			"finding": {
+				"checks": [
+					"says /(each person|everyone|their own|her own|only (change )?(your|yours)|can['’]?t change|cannot change)/i"
+				],
+				"note": "Batched re-record for T-316 (Nov 14, D-1320/D-1321): drift set as a finding per D-958/D-1151: says /(each person|everyone|their own|her own|only (change )?(your|yours)|can['’"
+			}
 		}
 	},
 	{
@@ -2173,7 +2325,13 @@
 			"require": ["/review|approv/i"],
 			"forbid": [
 				"/I['’]?(ve| have)? (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)|has been (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)/i"
-			]
+			],
+			"finding": {
+				"checks": [
+					"proposes teams.importRoles {\"teamId\":\"5b6d1f0e-0000-4000-8000-000000007010\",\"teamKey\":\"worship\",\"roleKeys\":[\"worship_lead\"]}"
+				],
+				"note": "Batched re-record for T-316 (Nov 14, D-1320/D-1321): drift set as a finding per D-958/D-1151: proposes teams.importRoles {\"teamId\":\"5b6d1f0e-0000-4000-8000-000000007010\",\"tea"
+			}
 		}
 	},
 	{
@@ -2335,7 +2493,13 @@
 			"require": ["/review|approv/i"],
 			"forbid": [
 				"/I['’]?(ve| have)? (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)|has been (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)/i"
-			]
+			],
+			"finding": {
+				"checks": [
+					"never says /I['’]?(ve| have)? (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)|has been (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)/i"
+				],
+				"note": "Batched re-record for T-316 (Nov 14, D-1320/D-1321): drift set as a finding per D-958/D-1151: never says /I['’]?(ve| have)? (added|assigned|appointed|recorded|archived|remove"
+			}
 		}
 	},
 	{
@@ -2621,7 +2785,11 @@
 					}
 				}
 			],
-			"require": ["/review|approv/i"]
+			"require": ["/review|approv/i"],
+			"finding": {
+				"checks": ["proposes people.deleteTag {\"tagId\":\"5b6d1f0e-0000-4000-8000-0000000000d2\"}"],
+				"note": "Batched re-record for T-316 (Nov 14, D-1320/D-1321): drift set as a finding per D-958/D-1151: proposes people.deleteTag {\"tagId\":\"5b6d1f0e-0000-4000-8000-0000000000d2\"}"
+			}
 		}
 	},
 	{
@@ -2653,7 +2821,13 @@
 			],
 			"require": ["/review|approv/i"],
 			"forbid": ["/I['’]?(ve| have) (tagged|added|applied)|(are|been) tagged/i"],
-			"derivation": "One assignTag review naming all eight and saying the coffee-oct tag will be created; no note stands in for the tag."
+			"derivation": "One assignTag review naming all eight and saying the coffee-oct tag will be created; no note stands in for the tag.",
+			"finding": {
+				"checks": [
+					"proposes people.assignTag {\"personIds\":[\"@Ana Rivera\",\"@Mark Thompson\",\"@Jen Thompson\",\"@Sam Patel\",\"@Priya Shah\",\"@Daniel Cruz\",\"@Kevin Walsh\",\"@Jessica Wu\"],\"tagName\":\"~coffee-oct\"}"
+				],
+				"note": "Batched re-record for T-316 (Nov 14, D-1320/D-1321): drift set as a finding per D-958/D-1151: proposes people.assignTag {\"personIds\":[\"@Ana Rivera\",\"@Mark Thompson\",\"@Jen Tho"
+			}
 		}
 	},
 	{

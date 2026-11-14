@@ -17,6 +17,7 @@ export {
 	type Conversation,
 	type ConversationEvent,
 } from "./conversations/store.ts";
+export { stageAttachment } from "./attachments/store.ts";
 export { CLAIM_SECONDS } from "./runtime/job.ts";
 export { observeConversation, observeRun, type LiveText, type Observed } from "./runtime/observe.ts";
 export { selectQualifiedModel, type QualifiedModel } from "./runtime/model.ts";

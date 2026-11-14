@@ -1,4 +1,4 @@
-import type { Conversation, ProjectedError, ReadConversation, Reference } from "./model.ts";
+import type { Attachment, Conversation, ProjectedError, ReadConversation, Reference } from "./model.ts";
 
 // The browser side of the WP-051 Evry API (apps/web/src/app/api/evry). Every call answers one of three ways: ok, refused
 // with the projected error, or lost. Lost means the outcome is not known (no answer, or the server says "unknown"), so
@@ -35,8 +35,20 @@ export const listConversations = (search: string, page: number) =>
 	);
 export const createConversation = (requestKey: string) =>
 	call<Conversation>("conversations", { method: "POST", body: { requestKey } });
-export const submitTurn = (id: string, requestKey: string, text: string, references: Reference[]) =>
-	call<Submitted>(`conversations/${id}/turns`, { method: "POST", body: { requestKey, text, references } });
+export const submitTurn = (
+	id: string,
+	requestKey: string,
+	text: string,
+	references: Reference[],
+	attachments: Attachment[],
+) =>
+	call<Submitted>(`conversations/${id}/turns`, { method: "POST", body: { requestKey, text, references, attachments } });
+/** Signs one write-once upload of a CSV into this conversation; the browser then puts the bytes to `upload.url`. */
+export const stageAttachment = (id: string, name: string, byteLength: number) =>
+	call<{ attachment: Attachment; upload: { url: string; headers: Record<string, string> } }>(
+		`conversations/${id}/attachments`,
+		{ method: "POST", body: { name, byteLength } },
+	);
 export const retryTurn = (id: string, requestKey: string) =>
 	call<Submitted>(`conversations/${id}/retry`, { method: "POST", body: { requestKey } });
 export const cancelTurn = (id: string) =>
