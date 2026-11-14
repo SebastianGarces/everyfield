@@ -4737,6 +4737,11 @@
       "requirement": "REQ-DOC-022",
       "operation": "documents.restoreChurch",
       "reason": "T-284 (later slice 2 of T-9): the restore write proves an archived Church Document returns to the library under the DOC-016 owner, revision and archive rules."
+    },
+    {
+      "requirement": "REQ-PI-042",
+      "operation": "intelligence.listRunsForReview",
+      "reason": "T-299 (WP-043): the operator page's list of held runs."
     }
   ],
   "rule_additions": [
@@ -5118,6 +5123,11 @@
       "id": "dashboard.dismissPrompt",
       "requirement": "REQ-ADM-005",
       "reason": "T-304 (WP-048): Overview's optional prompts, such as \"Import your people\", can be dismissed by the person who sees them. REQ-ADM-005 says scoped dismissal state hides optional prompts and never changes evidence; dashboard.promptState reads it and this write records it."
+    },
+    {
+      "id": "intelligence.listRunsForReview",
+      "requirement": "REQ-PI-042",
+      "reason": "T-299 (WP-043): a platform operator lists the plants held after three failed scheduled assessments, each with its newest failure's real cause and no plant data; intelligence.describeRunFailure opens one."
     }
   ],
   "shared_rewrites": {

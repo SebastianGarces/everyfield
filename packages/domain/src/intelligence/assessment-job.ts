@@ -188,12 +188,12 @@ ${finish(state, code)} SELECT 1`);
 				const { rows } = await tx.execute(sql`WITH ${lock(j)},
 r AS (INSERT INTO assessment_run(id,plant_id,requested_by,as_of,phase,source_revision,formula_version,rubric_version,
 	rubric_sha256,reference_release,reference_activation,model,outcome,grounding,reason,facts,model_input,drafts,result,
-	attempts,input_tokens,output_tokens,demand,demand_key,job_id,captured_at,deadline_at,settled_at)
+	attempts,input_tokens,output_tokens,demand,demand_key,captured_at,deadline_at,settled_at)
 	SELECT ${runId}::uuid,pl.id,${requested},${asOf}::timestamptz,coalesce(${retrieved.phase}::int,pl.phase),
 		${f.sourceRevision},${f.formulaVersion},${c.ACTIVE_PLANT_RUBRIC},${rubric.sha256},${activation?.release ?? null},
 		${activation?.number ?? null}::bigint,${model},${degraded ? "degraded" : "pending"},
 		${degraded ? "degraded" : "grounded"},${degraded ? reason : null},${json(f)},${input && JSON.stringify(input)}::jsonb,
-		'[]'::jsonb,NULL,0,0,0,${demand},${j.key},${j.id}::uuid,transaction_timestamp(),${new Date(deadline).toISOString()}::timestamptz,
+		'[]'::jsonb,NULL,0,0,0,${demand},${j.key},transaction_timestamp(),${new Date(deadline).toISOString()}::timestamptz,
 		${degraded ? sql`clock_timestamp()` : sql`NULL`}
 	FROM plant pl WHERE pl.id=${j.plant}::uuid AND EXISTS(SELECT FROM lk)
 	RETURNING id,plant_id,outcome,reason,demand,grounding,drafts,model)${

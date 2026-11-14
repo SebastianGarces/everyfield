@@ -19080,9 +19080,7 @@
 					"PI-034",
 					"PI-035",
 					"PI-036",
-					"PI-042",
-					"PI-021",
-					"PI-037"
+					"PI-042"
 				],
 				"acceptance_ids": [
 					"AC-PI-016--PI-016",
@@ -19194,9 +19192,6 @@
 				"demand_key": {
 					"note": "The demand identity, the job's producer key; unique per plant."
 				},
-				"job_id": {
-					"note": "The job whose current claim alone may advance or publish the run."
-				},
 				"captured_at": {
 					"note": "The snapshot's database instant; a write audited after it is a change the run did not see."
 				},
@@ -19249,8 +19244,48 @@
 					"additional_producers": ["WP-043"],
 					"rule": "WP-043 writes each published assessment's insights with its run."
 				},
-				"feature_ids": ["PI-023"],
-				"acceptance_ids": ["AC-PI-023--PI-023"],
+				"feature_ids": [
+					"PI-016",
+					"PI-017",
+					"PI-018",
+					"PI-019",
+					"PI-020",
+					"PI-022",
+					"PI-023",
+					"PI-024",
+					"PI-025",
+					"PI-026",
+					"PI-027",
+					"PI-028",
+					"PI-029",
+					"PI-030",
+					"PI-031",
+					"PI-034",
+					"PI-035",
+					"PI-036",
+					"PI-042"
+				],
+				"acceptance_ids": [
+					"AC-PI-016--PI-016",
+					"AC-PI-017--PI-017",
+					"AC-PI-018--PI-018",
+					"AC-PI-019--PI-019",
+					"AC-PI-020--PI-020",
+					"AC-PI-022--PI-022",
+					"AC-PI-023--PI-023",
+					"AC-PI-024--PI-024",
+					"AC-PI-025--PI-025",
+					"AC-PI-026--PI-026",
+					"AC-PI-027--PI-027",
+					"AC-PI-028--PI-028",
+					"AC-PI-029--PI-029",
+					"AC-PI-030--PI-030",
+					"AC-PI-031--PI-031",
+					"AC-PI-034--PI-034",
+					"AC-PI-035--PI-035",
+					"AC-PI-036--PI-036",
+					"AC-PI-042--PI-042"
+				],
 				"future_case_ids": ["ASMT-006"],
 				"scope": "intelligence",
 				"invariants": [
@@ -19283,7 +19318,7 @@
 				}
 			},
 			"foreignKeys": {
-				"run_id->assessment_run(id)": {
+				"run_id,plant_id->assessment_run(id,plant_id)": {
 					"deletion": {
 						"action": "cascade",
 						"policy": "Goes with its run."

@@ -6694,8 +6694,6 @@ export const assessment_run = pgTable(
 		/** What asked for the run (change, time, manual, followup) and its demand identity: the job's producer key. */
 		demand: text("demand").notNull(),
 		demand_key: text("demand_key").notNull(),
-		/** The job whose claim runs it. Only the job's current claim may advance or publish the run. */
-		job_id: uuid("job_id"),
 		/** The snapshot's own database instant: a committed write audited after it is a change the run did not see. */
 		captured_at: timestamp("captured_at", { withTimezone: true, mode: "date" }).notNull(),
 		/** The run gives up at this instant: a deferral never waits past it. */
@@ -6713,6 +6711,7 @@ export const assessment_run = pgTable(
 	(t): PgTableExtraConfigValue[] => [
 		primaryKey({ name: "assessment_run_pkey", columns: [t.id] }),
 		unique("assessment_run_demand").on(t.plant_id, t.demand_key),
+		unique("assessment_run_owner").on(t.id, t.plant_id),
 		foreignKey({ name: "assessment_run_plant", columns: [t.plant_id], foreignColumns: [plant.id] })
 			.onDelete("cascade")
 			.onUpdate("no action"),
@@ -6759,7 +6758,11 @@ export const assessment_insight = pgTable(
 	},
 	(t): PgTableExtraConfigValue[] => [
 		primaryKey({ name: "assessment_insight_pkey", columns: [t.run_id, t.ordinal] }),
-		foreignKey({ name: "assessment_insight_run", columns: [t.run_id], foreignColumns: [assessment_run.id] })
+		foreignKey({
+			name: "assessment_insight_run",
+			columns: [t.run_id, t.plant_id],
+			foreignColumns: [assessment_run.id, assessment_run.plant_id],
+		})
 			.onDelete("cascade")
 			.onUpdate("no action"),
 		foreignKey({ name: "assessment_insight_plant", columns: [t.plant_id], foreignColumns: [plant.id] })

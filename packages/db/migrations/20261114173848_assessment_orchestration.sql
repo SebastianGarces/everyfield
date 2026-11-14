@@ -17,7 +17,6 @@ ALTER TABLE "job" DROP CONSTRAINT "job_ck_1";--> statement-breakpoint
 ALTER TABLE "platform_grant" DROP CONSTRAINT "platform_grant_ck_1";--> statement-breakpoint
 ALTER TABLE "assessment_run" ADD COLUMN "demand" text;--> statement-breakpoint
 ALTER TABLE "assessment_run" ADD COLUMN "demand_key" text;--> statement-breakpoint
-ALTER TABLE "assessment_run" ADD COLUMN "job_id" uuid;--> statement-breakpoint
 ALTER TABLE "assessment_run" ADD COLUMN "captured_at" timestamp with time zone;--> statement-breakpoint
 ALTER TABLE "assessment_run" ADD COLUMN "deadline_at" timestamp with time zone;--> statement-breakpoint
 ALTER TABLE "assessment_run" ADD COLUMN "pending_attempts" integer DEFAULT 0 NOT NULL;--> statement-breakpoint
@@ -35,7 +34,8 @@ ALTER TABLE "assessment_run" ALTER COLUMN "demand" SET NOT NULL;--> statement-br
 ALTER TABLE "assessment_run" ALTER COLUMN "demand_key" SET NOT NULL;--> statement-breakpoint
 ALTER TABLE "assessment_run" ALTER COLUMN "captured_at" SET NOT NULL;--> statement-breakpoint
 ALTER TABLE "assessment_run" ALTER COLUMN "deadline_at" SET NOT NULL;--> statement-breakpoint
-ALTER TABLE "assessment_insight" ADD CONSTRAINT "assessment_insight_run" FOREIGN KEY ("run_id") REFERENCES "assessment_run"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "assessment_run" ADD CONSTRAINT "assessment_run_owner" UNIQUE("id","plant_id");--> statement-breakpoint
+ALTER TABLE "assessment_insight" ADD CONSTRAINT "assessment_insight_run" FOREIGN KEY ("run_id","plant_id") REFERENCES "assessment_run"("id","plant_id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "assessment_insight" ADD CONSTRAINT "assessment_insight_plant" FOREIGN KEY ("plant_id") REFERENCES "plant"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "assessment_insight_plant_idx" ON "assessment_insight" USING btree ("plant_id");--> statement-breakpoint
 CREATE INDEX "assessment_run_current_idx" ON "assessment_run" USING btree ("plant_id","available_at");--> statement-breakpoint
@@ -48,7 +48,7 @@ ALTER TABLE "job" ADD CONSTRAINT "job_ck_1" CHECK ((kind = ANY (ARRAY['mail'::te
 ALTER TABLE "platform_grant" ADD CONSTRAINT "platform_grant_ck_1" CHECK ((capability = ANY (ARRAY['feedback_triage'::text, 'reference_publish'::text, 'recovery_operator'::text, 'assessment_operator'::text])));
 --> statement-breakpoint
 -- A run's captured snapshot never changes; only its progress and outcome advance. Insights are written once.
-CREATE TRIGGER immutable_source BEFORE UPDATE ON "assessment_run" FOR EACH ROW EXECUTE FUNCTION freeze_fields('id,plant_id,as_of,phase,source_revision,formula_version,rubric_version,rubric_sha256,reference_release,reference_activation,model,grounding,facts,model_input,recorded_at,demand,demand_key,job_id,captured_at,deadline_at');
+CREATE TRIGGER immutable_source BEFORE UPDATE ON "assessment_run" FOR EACH ROW EXECUTE FUNCTION freeze_fields('id,plant_id,as_of,phase,source_revision,formula_version,rubric_version,rubric_sha256,reference_release,reference_activation,model,grounding,facts,model_input,recorded_at,demand,demand_key,captured_at,deadline_at');
 --> statement-breakpoint
 GRANT UPDATE ON "assessment_run" TO everyfield_runtime;
 --> statement-breakpoint

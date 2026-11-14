@@ -71,7 +71,7 @@
   "as_of": "2026-10-17",
   "implementation_authorized": false,
   "table_count": 120,
-  "column_count": 1372,
+  "column_count": 1371,
   "foreign_key_count": 397,
   "type_contracts": {
     "text": "UTF8; per-boundary bounded, sanitized only when rendered in rich context.",
@@ -9451,10 +9451,46 @@
         "rule": "WP-043 writes each published assessment's insights with its run."
       },
       "feature_ids": [
-        "PI-023"
+        "PI-016",
+        "PI-017",
+        "PI-018",
+        "PI-019",
+        "PI-020",
+        "PI-022",
+        "PI-023",
+        "PI-024",
+        "PI-025",
+        "PI-026",
+        "PI-027",
+        "PI-028",
+        "PI-029",
+        "PI-030",
+        "PI-031",
+        "PI-034",
+        "PI-035",
+        "PI-036",
+        "PI-042"
       ],
       "acceptance_ids": [
-        "AC-PI-023--PI-023"
+        "AC-PI-016--PI-016",
+        "AC-PI-017--PI-017",
+        "AC-PI-018--PI-018",
+        "AC-PI-019--PI-019",
+        "AC-PI-020--PI-020",
+        "AC-PI-022--PI-022",
+        "AC-PI-023--PI-023",
+        "AC-PI-024--PI-024",
+        "AC-PI-025--PI-025",
+        "AC-PI-026--PI-026",
+        "AC-PI-027--PI-027",
+        "AC-PI-028--PI-028",
+        "AC-PI-029--PI-029",
+        "AC-PI-030--PI-030",
+        "AC-PI-031--PI-031",
+        "AC-PI-034--PI-034",
+        "AC-PI-035--PI-035",
+        "AC-PI-036--PI-036",
+        "AC-PI-042--PI-042"
       ],
       "future_case_ids": [
         "ASMT-006"
@@ -9534,12 +9570,14 @@
             "policy": "Goes with its run."
           },
           "columns": [
-            "run_id"
+            "run_id",
+            "plant_id"
           ],
           "references": {
             "table": "assessment_run",
             "columns": [
-              "id"
+              "id",
+              "plant_id"
             ]
           },
           "on_delete": "cascade"
@@ -9634,9 +9672,7 @@
         "PI-034",
         "PI-035",
         "PI-036",
-        "PI-042",
-        "PI-021",
-        "PI-037"
+        "PI-042"
       ],
       "acceptance_ids": [
         "AC-PI-016--PI-016",
@@ -9829,12 +9865,6 @@
           "nullable": false
         },
         {
-          "note": "The job whose current claim alone may advance or publish the run.",
-          "name": "job_id",
-          "type": "uuid",
-          "nullable": true
-        },
-        {
           "note": "The snapshot's database instant; a write audited after it is a change the run did not see.",
           "name": "captured_at",
           "type": "timestamptz",
@@ -9886,6 +9916,12 @@
           "columns": [
             "plant_id",
             "demand_key"
+          ]
+        },
+        {
+          "columns": [
+            "id",
+            "plant_id"
           ]
         }
       ],
@@ -9996,7 +10032,8 @@
           "assessment_run_pkey"
         ],
         "unique": [
-          "assessment_run_demand"
+          "assessment_run_demand",
+          "assessment_run_owner"
         ],
         "foreign": [
           "assessment_run_plant",

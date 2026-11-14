@@ -262,7 +262,8 @@ test("AC:ASMT-005 a failed output check and a busy provider leave the previous a
 	v = await view(p);
 	assert.equal(v.current!.runId, prior.runId);
 	assert.deepEqual(v.newest, { state: "deferred", retryAt, grounding: "grounded" });
-	const waiting = await c0.one(sql`SELECT j.state,j.next_attempt_at FROM job j JOIN assessment_run r ON r.job_id=j.id
+	const waiting = await c0.one(sql`SELECT j.state,j.next_attempt_at FROM job j JOIN assessment_run r
+		ON j.kind='assessment' AND j.subject_record_id=r.plant_id AND j.producer_key=r.demand_key
 		WHERE r.plant_id=${p.id} AND r.outcome='deferred'`);
 	assert.deepEqual([waiting.state, new Date(waiting.next_attempt_at).toISOString()], ["retry_wait", retryAt]);
 	clockMs += 60_000;
