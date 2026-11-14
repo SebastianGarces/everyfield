@@ -70,4 +70,9 @@ test("a refused negative target or future conversation date says why in plain wo
 	const refused = (field: string) => refusalText({ status: "refused", refusal: { code: "invalid_input", field } });
 	assert.equal(refused("plantTarget"), "Targets can’t be less than 0.");
 	assert.equal(refused("occurredOn"), "The date can’t be after today.");
+	// A goal's chosen counts: the server names the count's position, which the copy does not need.
+	assert.equal(refused("countingFrom"), "The counting-from date can’t be after today.");
+	assert.equal(refused("counts"), "A goal can have up to 4 counts.");
+	assert.equal(refused("counts.1.kind"), "This goal already counts that stage kind. Choose another kind.");
+	assert.equal(refused("counts.0.label"), "Name each count in 1 to 60 characters.");
 });
