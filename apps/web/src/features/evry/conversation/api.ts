@@ -40,7 +40,7 @@ export const submitTurn = (
 	requestKey: string,
 	text: string,
 	references: Reference[],
-	attachments: Attachment[] = [],
+	attachments: Attachment[],
 ) =>
 	call<Submitted>(`conversations/${id}/turns`, { method: "POST", body: { requestKey, text, references, attachments } });
 /** Signs one write-once upload of a CSV into this conversation; the browser then puts the bytes to `upload.url`. */

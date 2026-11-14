@@ -29,7 +29,6 @@ const stageInput = z.strictObject({
 });
 /** An attachment as a message carries it: the staged file's id and the name the person chose. */
 export const attachment = z.strictObject({ id: z.uuid(), name: stageInput.shape.name });
-export type Attachment = z.infer<typeof attachment>;
 
 /** The staged file's upload key: the conversation it belongs to and the file. */
 const uploadKey = (conversationId: string, id: string) => `evry-attachment/${conversationId}/${id}`;
@@ -140,4 +139,3 @@ export const attachmentState = z.object({
 	/** The fileDigest of the file's latest people.previewImport check in this conversation, if it was checked. */
 	checkedDigest: z.string().nullable(),
 });
-export type AttachmentState = z.infer<typeof attachmentState>;

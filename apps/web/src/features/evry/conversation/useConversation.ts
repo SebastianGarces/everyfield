@@ -255,7 +255,7 @@ export function useConversation(open: boolean) {
 		if (!ended) dispatch({ type: "active", turnId: r.value.turnId });
 	};
 
-	const send = (text: string, references: Reference[], attachments: Attachment[] = []) => {
+	const send = (text: string, references: Reference[], attachments: Attachment[]) => {
 		const s: Send = {
 			key: crypto.randomUUID(),
 			text,

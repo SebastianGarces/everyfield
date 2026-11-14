@@ -486,8 +486,6 @@ export function refusalText(code: string | undefined, target: string | null): st
 /** Why an email effect was refused. The email service had not been asked unless the text says otherwise. */
 export function mailRefusalText(code: string | undefined): string {
 	switch (code) {
-		case "import_not_available":
-			return "Evry can't run the import yet, so nothing was imported. Import the file from People for now.";
 		case "revision_conflict":
 			return "This message changed since the review, so nothing was done and the email service was not asked. Ask Evry to review it again.";
 		case "stale_review":
