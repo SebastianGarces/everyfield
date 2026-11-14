@@ -63,7 +63,7 @@ export function OwnFeedbackList({ initial }: { initial: OwnFeedbackPage }) {
 								{CATEGORY_NAME[item.category]}
 							</Link>
 						}
-						subtitle={`Sent ${dateLabel(item.submittedAt)}`}
+						subtitle={`Sent ${dateLabel(item.submittedAt)}${item.publicUrl ? "" : " · Public issue: None yet"}`}
 						trailing={
 							<span className="flex items-center gap-4">
 								{item.publicUrl ? <PublicLink url={item.publicUrl} /> : null}

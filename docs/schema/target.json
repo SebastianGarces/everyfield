@@ -71,7 +71,7 @@
   "as_of": "2026-10-17",
   "implementation_authorized": false,
   "table_count": 112,
-  "column_count": 1266,
+  "column_count": 1276,
   "foreign_key_count": 376,
   "type_contracts": {
     "text": "UTF8; per-boundary bounded, sanitized only when rendered in rich context.",
@@ -256,6 +256,20 @@
       "resolved",
       "dismissed"
     ],
+    "feedback.publication_state": [
+      "pending",
+      "publishing",
+      "unknown",
+      "published",
+      "held"
+    ],
+    "feedback.held_reason": [
+      "unsafe_fields",
+      "github_refused",
+      "search_failed",
+      "ambiguous",
+      "unresolved"
+    ],
     "file_object.purpose": [
       "avatar",
       "person_photo",
@@ -345,7 +359,8 @@
       "lifecycle_purge",
       "assistant_turn",
       "people_import",
-      "evry_effect"
+      "evry_effect",
+      "feedback_publication"
     ],
     "job.state": [
       "ready",
@@ -1430,6 +1445,10 @@
       "evry.turn_cancelled",
       "evry.turn_retried",
       "evry.turn_submitted",
+      "feedback.publication_held",
+      "feedback.publication_intended",
+      "feedback.publication_unknown",
+      "feedback.published",
       "feedback.received",
       "feedback.status_changed",
       "files.finalized",
@@ -12025,7 +12044,7 @@
         }
       ],
       "checks": [
-        "action in ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','branding.changed','communication.draft_deleted','communication.draft_saved','communication.rescheduled','communication.scheduled','communication.send_intended','communication.template_archived','communication.template_created','communication.template_deleted','communication.template_forked','communication.template_updated','deletion.cancelled','deletion.live_purge_completed','development.enrolled','development.feedback_recorded','development.milestone_recorded','development.plan_saved','development.program_created','development.version_applied','development.version_published','documents.archived','documents.church_archived','documents.church_restored','documents.branding_changed','documents.copied','documents.created_from_template','documents.designated','documents.export_deleted','documents.exported','documents.generated','documents.imported','documents.purged','documents.saved','documents.template_deleted','documents.template_details_changed','documents.template_saved','documents.template_updated','evry.conversation_created','evry.proposal_approved','evry.proposal_cancelled','evry.proposal_prepared','evry.proposal_retried','evry.proposal_revised','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','feedback.received','feedback.status_changed','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','organization.profile_changed','people.corrected','people.created','people.duplicate_dismissed','people.duplicate_restored','people.merged','people.recorded','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.bookmark_changed','wiki.hidden','wiki.published','wiki.reading_recorded','wiki.source_order_changed')",
+        "action in ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','branding.changed','communication.draft_deleted','communication.draft_saved','communication.rescheduled','communication.scheduled','communication.send_intended','communication.template_archived','communication.template_created','communication.template_deleted','communication.template_forked','communication.template_updated','deletion.cancelled','deletion.live_purge_completed','development.enrolled','development.feedback_recorded','development.milestone_recorded','development.plan_saved','development.program_created','development.version_applied','development.version_published','documents.archived','documents.church_archived','documents.church_restored','documents.branding_changed','documents.copied','documents.created_from_template','documents.designated','documents.export_deleted','documents.exported','documents.generated','documents.imported','documents.purged','documents.saved','documents.template_deleted','documents.template_details_changed','documents.template_saved','documents.template_updated','evry.conversation_created','evry.proposal_approved','evry.proposal_cancelled','evry.proposal_prepared','evry.proposal_retried','evry.proposal_revised','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','feedback.publication_held','feedback.publication_intended','feedback.publication_unknown','feedback.published','feedback.received','feedback.status_changed','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','organization.profile_changed','people.corrected','people.created','people.duplicate_dismissed','people.duplicate_restored','people.merged','people.recorded','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.bookmark_changed','wiki.hidden','wiki.published','wiki.reading_recorded','wiki.source_order_changed')",
         "num_nonnulls(actor_id,actor_token,system_cause)>=1",
         "kind in ('create','edit','correct','retire','restore','merge','unmerge','stage_change','classification_change','commitment_change','assign','remove','accept','revoke','resend','role_change','leader_change','tick','untick','archive','earn','revoke_credit','offer_answer','publish','hide','read','progress','complete','reopen','waive','supersede','finalize','reconcile','noop','triage','suppress','suppression_clear','preference','model_attempt','tool_attempt','effect_result','mail_member','outcome','declaration','movement')",
         "jsonb_typeof(metadata)='object' AND (metadata->'diff' IS NULL OR (jsonb_typeof(metadata->'diff')='object' AND octet_length(convert_to((metadata->'diff')::text,'UTF8'))<=2048))"
@@ -18689,7 +18708,12 @@
       "domain": "operations",
       "purpose": "One piece of product feedback from the Send feedback dialog (WP-049A): its category, the author's words and the private page and device details, owned by the author's account. The author lists its status; a triager with the feedback_triage platform grant reads the private original and changes its status, and each change is an audit row.",
       "library_owned": false,
-      "jsonb_keys": {},
+      "jsonb_keys": {
+        "publication_payload": [
+          "title: the exact public issue title",
+          "body: the exact public issue body"
+        ]
+      },
       "capabilities": [
         "CAP-A-044",
         "CAP-A-045"
@@ -18720,7 +18744,10 @@
         "At most one row per account and request key, so a resend saves once.",
         "The address is an internal path with no query, fragment or token.",
         "Church and role come from the author's seat on the server, never from the browser.",
-        "Each status change writes one feedback.status_changed audit row in the same statement; setting the current status writes nothing."
+        "Each status change writes one feedback.status_changed audit row in the same statement; setting the current status writes nothing.",
+        "Publication never copies the words or details: the public title and body come from the category, an allowlisted area and the reference.",
+        "The publication intent, frozen payload and repository are saved before GitHub is called; a lost reply is reconciled in that same repository by the reference before any new create.",
+        "Publication never changes status or revision."
       ],
       "revision": "revision rises by one with each status change; a change names the revision it expects.",
       "idempotency": "The same account and request key returns the saved feedback and writes nothing more.",
@@ -18832,6 +18859,68 @@
           "type": "bigint",
           "nullable": false,
           "default": "1"
+        },
+        {
+          "note": "The opaque public marker the issue and the operator email carry (FB- and 12 random hex digits); never the feedback id.",
+          "name": "reference",
+          "type": "text",
+          "nullable": false,
+          "default": "('FB-'::text || upper(\"substring\"(replace((gen_random_uuid())::text, '-'::text, ''::text), 1, 12)))"
+        },
+        {
+          "note": "pending, publishing (intent saved before the GitHub call), unknown (no answer), published or held for the triager. Only the publication worker changes it.",
+          "name": "publication_state",
+          "type": "text",
+          "nullable": false,
+          "default": "'pending'"
+        },
+        {
+          "note": "Why it is held: unsafe_fields, github_refused, search_failed, ambiguous or unresolved; null unless held.",
+          "name": "held_reason",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "The frozen public title and body, saved before the first GitHub call.",
+          "name": "publication_payload",
+          "type": "jsonb",
+          "nullable": true
+        },
+        {
+          "note": "SHA-256 of the frozen payload.",
+          "name": "publication_hash",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "The numeric id of the repository the intent targets, frozen with the payload.",
+          "name": "repository_id",
+          "type": "bigint",
+          "nullable": true
+        },
+        {
+          "note": "That repository's owner/name when the intent was saved; reconciliation searches it, never today's configuration.",
+          "name": "repository_name",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "The public issue's number, once published.",
+          "name": "issue_number",
+          "type": "integer",
+          "nullable": true
+        },
+        {
+          "note": "The public issue's address as GitHub returned it; links never rebuild it.",
+          "name": "issue_url",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "When the issue was created or found.",
+          "name": "published_at",
+          "type": "timestamptz",
+          "nullable": true
         }
       ],
       "primary_key": [
@@ -18842,6 +18931,11 @@
           "columns": [
             "account_id",
             "request_key"
+          ]
+        },
+        {
+          "columns": [
+            "reference"
           ]
         }
       ],
@@ -18885,7 +18979,12 @@
         "((page_address IS NULL) OR ((length(page_address) <= 500) AND (page_address ~~ '/%'::text) AND (strpos(page_address, '?'::text) = 0) AND (strpos(page_address, '#'::text) = 0)))",
         "category in ('bug', 'suggestion', 'question', 'other')",
         "(length(btrim(description)) BETWEEN 1 AND 5000)",
+        "(((publication_state = 'held'::text) = (held_reason IS NOT NULL)) AND ((held_reason IS NULL) OR (held_reason = ANY (ARRAY['unsafe_fields'::text, 'github_refused'::text, 'search_failed'::text, 'ambiguous'::text, 'unresolved'::text]))))",
+        "((publication_state <> ALL (ARRAY['publishing'::text, 'unknown'::text, 'published'::text])) OR ((publication_payload IS NOT NULL) AND (publication_hash IS NOT NULL) AND (repository_id IS NOT NULL) AND (repository_name IS NOT NULL)))",
+        "((publication_state = 'published'::text) = ((issue_number IS NOT NULL) AND (issue_url IS NOT NULL) AND (published_at IS NOT NULL)))",
         "((length(page_label) <= 500) AND (length(church_label) <= 200) AND (length(role_label) <= 200) AND (length(browser) <= 500) AND (length(app_version) <= 100)) IS NOT FALSE",
+        "publication_state in ('pending', 'publishing', 'unknown', 'published', 'held')",
+        "(reference ~ '^FB-[0-9A-F]{12}$'::text)",
         "(revision >= 1)",
         "((screen_width IS NULL) OR ((screen_width >= 1) AND (screen_width <= 100000))) AND ((screen_height IS NULL) OR ((screen_height >= 1) AND (screen_height <= 100000)))",
         "status in ('new', 'reviewed', 'resolved', 'dismissed')",
@@ -18960,6 +19059,21 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "feedback_reference": {
+          "name": "feedback_reference",
+          "isUnique": true,
+          "columns": [
+            {
+              "expression": "reference",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "constraint_names": {
@@ -18972,6 +19086,11 @@
           "feedback_record"
         ],
         "checks": [
+          "feedback_reference_format",
+          "feedback_publication_state",
+          "feedback_held",
+          "feedback_intent",
+          "feedback_issue",
           "feedback_revision",
           "feedback_category",
           "feedback_status",
@@ -21719,7 +21838,7 @@
       ],
       "checks": [
         "(revision >= 1)",
-        "kind in ('mail', 'notification', 'digest', 'object_cleanup', 'lifecycle_purge', 'assistant_turn', 'people_import', 'evry_effect')",
+        "kind in ('mail', 'notification', 'digest', 'object_cleanup', 'lifecycle_purge', 'assistant_turn', 'people_import', 'evry_effect', 'feedback_publication')",
         "state in ('ready', 'claimed', 'retry_wait', 'reconcile', 'succeeded', 'failed', 'cancelled', 'superseded')",
         "((attempt_count >= 0) AND (max_attempts >= 1))",
         "(claim_generation >= 0)",
