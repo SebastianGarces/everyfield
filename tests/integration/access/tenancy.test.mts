@@ -65,6 +65,7 @@ import {
 	readPipelinePersonRecord,
 	readProgram,
 	readPrograms,
+	readVersionReview,
 	searchReadings,
 } from "../../../packages/domain/src/organizations/index.ts";
 import { runDueImports } from "../../../apps/web/src/server/people/run-imports.ts";
@@ -86,7 +87,7 @@ const root = fileURLToPath(new URL("../../../", import.meta.url));
 const baselinePath = fileURLToPath(new URL("./tenancy-baseline.json", import.meta.url));
 
 const WRITE_VERBS = new Set(
-	`accept add appoint archive assign attest cancel change clear complete copy correct create delete designate dismiss dispatch
+	`accept add apply appoint archive assign attest cancel change clear complete copy correct create delete designate dismiss dispatch
 	edit end enroll ensure execute finalize fork generate hand import initialize invite log merge move offer populate propagate publish
 	reactivate recomplete reconcile record remove reorder replace request reschedule reset restore retire revoke save schedule
 	send set sign submit unmerge update upload use with withdraw`.split(/\s+/),
@@ -789,6 +790,7 @@ function cases(who) {
 				["readPrograms", () => readPrograms(f.db, who.actor)],
 				["readProgram", () => readProgram(f.db, who.actor, { programId: a.avery })],
 				["readEnrollment", () => readEnrollment(f.db, who.actor, { enrollmentId: a.avery })],
+				["readVersionReview", () => readVersionReview(f.db, who.actor, { enrollmentId: a.avery })],
 				["searchReadings", () => searchReadings(f.db, who.actor, { q: "" })],
 			] as const
 		).map(
