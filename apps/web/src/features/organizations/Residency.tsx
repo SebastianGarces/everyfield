@@ -12,6 +12,7 @@ import { LoadableView, StatusBadge } from "@everyfield/ui/display";
 import { useCallback, useId, useState } from "react";
 import type { z } from "zod";
 import { NotAvailable } from "../access/AccessStates";
+import { useResidency } from "../shell/residency.ts";
 import { useIntent, useLoad } from "./intent";
 import { PrivateLine, ProblemLine } from "./parts";
 import type { Run } from "./port";
@@ -65,7 +66,10 @@ export function ResidencyDisclosure({
 					/>
 				))}
 			</div>
-			<PrivateLine>{PRIVATE}</PrivateLine>
+			<PrivateLine>
+				{organizationName} never sees your reading history, reflections or documents, and accepting gives you no seat
+				there. You see your program, meetings, milestones and reading in My residency.
+			</PrivateLine>
 			<div className="mt-6 flex justify-end">
 				<Button
 					variant="primary"
@@ -191,6 +195,7 @@ function ActiveResidency({
 }) {
 	// One intent for the switches and Leave: while one command is unconfirmed, nothing else is sent.
 	const save = useIntent<object>("residency");
+	const frame = useResidency();
 	const [busy, setBusy] = useState<{ key: Key; value: boolean } | null>(null);
 
 	const toggle = (key: Key) => async (value: boolean) => {
@@ -228,7 +233,11 @@ function ActiveResidency({
 			(command) => run("residency.leave", command),
 			(r) => r.status === "committed",
 		);
-		if (result.ok) return reload();
+		if (result.ok) {
+			// My residency leaves the navigation and its open page at once.
+			frame.left();
+			return reload();
+		}
 		throw new Error(
 			result.problem === "refused"
 				? "You did not leave. Your sharing changed somewhere else. Close this and check again."

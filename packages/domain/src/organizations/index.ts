@@ -33,4 +33,4 @@ export { idsIn, namesFor, pairOf, pendingFor, residencyLinks, subjectFacts, targ
 export type { Kind, Viewer } from "./reads.ts";
 export { pipelineWriter, readPipelineBoard, readPipelineGoals, readPipelinePersonRecord } from "./pipeline.ts";
 export { programWriter, readEnrollment, readProgram, readPrograms, searchReadings } from "./programs.ts";
-export { readMyResidency, readResidentReading, residentWriter } from "./residency.ts";
+export { readMyResidency, readResidencyLink, readResidentReading, residentWriter } from "./residency.ts";

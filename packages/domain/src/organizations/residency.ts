@@ -94,6 +94,18 @@ FROM g`);
 }
 
 /**
+ * The account's live residency link, for its navigation: the link and the church's name, or null. One statement; null
+ * for a seat, a lost session or once the link ends.
+ */
+export async function readResidencyLink(db: Executor, authority: RequestActor) {
+	const me = residentOf(authority);
+	if (!me) return null;
+	const r = await db.execute(sql`WITH g AS (SELECT ${me.live} AS allowed), ${linkCte(me.accountId)}
+SELECT l.id AS "linkId",o.name AS "organizationName" FROM l JOIN organization o ON o.id=l.organization_id`);
+	return z.object({ linkId: z.string(), organizationName: z.string() }).nullable().parse(r.rows[0] ?? null);
+}
+
+/**
  * One church-owned item of the resident's reading list: the church's current published version of that article,
  * only while it is on an active enrollment's version and the church still publishes it. Linking grants no other
  * access to the church's library (REQ-MUL-014). One statement.

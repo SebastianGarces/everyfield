@@ -7,6 +7,7 @@ import {
 	ChartLineData01Icon,
 	File02Icon,
 	Mail01Icon,
+	Mortarboard01Icon,
 	MessageEdit01Icon,
 	Route01Icon,
 	Settings02Icon,
@@ -27,6 +28,7 @@ import { NotificationsProvider } from "../notifications/feed.tsx";
 import { AccountMenu } from "../settings/AccountMenu";
 import { firstSection } from "../settings/model";
 import { SettingsOpener } from "../settings/opener";
+import { Residency, useResidency, type ResidencyState } from "./residency.ts";
 import type { SectionSeed, SettingsViewer } from "../settings/port";
 import { useProductSettings } from "../settings/ProductSettings";
 import type { Role } from "../people/server.ts";
@@ -95,7 +97,16 @@ const PIPELINE = {
 	icon: Route01Icon,
 	prefetch: false,
 } as const;
+// My residency (WP-100): a seatless account linked to a sending church's residency, only while the link is live.
+const MY_RESIDENCY = {
+	kind: "link",
+	key: "my-residency",
+	label: "My residency",
+	href: "/my-residency",
+	icon: Mortarboard01Icon,
+} as const;
 const ROLE: Record<Role, string> = { owner: "Owner", admin: "Admin", member: "Member" };
+
 
 type FrameProps = {
 	name: string;
@@ -105,6 +116,8 @@ type FrameProps = {
 	settings: SettingsViewer | null;
 	/** The settings section read the server started for this page's address, for the server's viewer only. */
 	seed?: SectionSeed | null;
+	/** A seatless account's live residency link, by the church's name; null without one. */
+	residency?: { organizationName: string } | null;
 	children: ReactNode;
 };
 
@@ -115,7 +128,15 @@ type FrameProps = {
 const OwnSeat = createContext<(role: Role | null) => void>(() => {});
 export const useOwnSeatChange = () => use(OwnSeat);
 
-export function ProductFrame({ settings: initial, seed, ...props }: FrameProps) {
+export function ProductFrame({ settings: initial, seed, residency = null, ...props }: FrameProps) {
+	// The server's link is the source until a page reports that the viewer left it.
+	const [left, setLeft] = useState<{ from: typeof residency } | null>(null);
+	const ended = left !== null && left.from === residency;
+	const residencyState: ResidencyState = {
+		linked: residency !== null && !ended,
+		ended,
+		left: () => setLeft({ from: residency }),
+	};
 	// The server's viewer is the source until a page reports a change to the viewer's own seat.
 	const [own, setOwn] = useState({ from: initial, settings: initial });
 	const settings = own.from === initial ? own.settings : initial;
@@ -132,11 +153,13 @@ export function ProductFrame({ settings: initial, seed, ...props }: FrameProps) 
 	return (
 		<ToastProvider>
 			<OwnSeat value={change}>
-				<NotificationsProvider>
-					<WikiChrome>
-						<Frame {...props} settings={settings} seed={settings === initial ? seed : null} />
-					</WikiChrome>
-				</NotificationsProvider>
+				<Residency value={residencyState}>
+					<NotificationsProvider>
+						<WikiChrome>
+							<Frame {...props} settings={settings} seed={settings === initial ? seed : null} />
+						</WikiChrome>
+					</NotificationsProvider>
+				</Residency>
 			</OwnSeat>
 		</ToastProvider>
 	);
@@ -153,6 +176,9 @@ function Frame({ name, photo, settings, seed = null, children }: FrameProps) {
 	const wiki = useWikiChrome();
 	const [feedback, setFeedback] = useState(false);
 	const role = settings && settings.context !== "account" ? settings.role : null;
+	const { linked } = useResidency();
+	// A seatless account has no People, Meetings, Messages, Tasks or Ministries; while linked, it has My residency.
+	const account = !settings || settings.context === "account";
 	// A plant Member reads People and Tasks and works on their own tasks; organization seats have neither.
 	const banner =
 		settings?.context === "plant" && role === "member" ? (
@@ -166,8 +192,12 @@ function Frame({ name, photo, settings, seed = null, children }: FrameProps) {
 		main:
 			settings?.context === "organization"
 				? [PIPELINE, PEOPLE, MEETINGS, MESSAGES, TASKS, MINISTRIES, WIKI]
-				: [PEOPLE, MEETINGS, MESSAGES, TASKS, MINISTRIES, WIKI],
-		pages: settings?.context === "plant" && role !== "member" ? [INTELLIGENCE, DOCUMENTS] : [DOCUMENTS],
+				: account
+					? linked
+						? [MY_RESIDENCY, WIKI]
+						: [WIKI]
+					: [PEOPLE, MEETINGS, MESSAGES, TASKS, MINISTRIES, WIKI],
+		pages: settings?.context === "plant" && role !== "member" ? [INTELLIGENCE, DOCUMENTS] : account ? [] : [DOCUMENTS],
 		tools: [
 			{
 				kind: "action",
@@ -213,7 +243,7 @@ function Frame({ name, photo, settings, seed = null, children }: FrameProps) {
 					checkIn={settings?.context === "plant" && role !== "member"}
 				/>
 			}
-			homeHref="/people"
+			homeHref={account ? (linked ? "/my-residency" : "/home") : "/people"}
 			unread={bell.unread}
 			width="wide"
 			onSearch={() => {
