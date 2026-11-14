@@ -204,7 +204,8 @@ const VIEWS: Record<string, OpView> = {
 		counts: "activity",
 		empty: "No Launch changes in that time.",
 	},
-	"launch.readDebrief": people("Launch Sunday guests", {
+	"launch.readDebrief": people("Launch Sunday outcome", {
+		noun: ["named guest", "named guests"],
 		empty: "No first-time guest names to show here.",
 	}),
 	"development.draftPlan": {

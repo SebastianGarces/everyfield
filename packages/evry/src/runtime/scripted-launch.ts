@@ -1,5 +1,6 @@
 import type { LanguageModelV4CallOptions, LanguageModelV4Content } from "@ai-sdk/provider";
 import { randomUUID } from "node:crypto";
+import { launchDay } from "../adapters/launch/reads/index.ts";
 import { LAUNCH_RULES } from "../context/compile.ts";
 
 // The scripted model's Launch requests (WP-075, WP-076), for local previews and tests only. It answers through the same
@@ -147,14 +148,15 @@ function journalText(out: Output, system: string) {
 	const rows = out.rows ?? [];
 	const since = out.facts?.since;
 	const quoted = system.includes(LAUNCH_RULES.historyOnly) ? ` ${LAUNCH_RULES.historyOnly}` : "";
-	if (!rows.length) return `Launch history shows no changes since ${String(since)}.${quoted}`;
+	if (!rows.length)
+		return `Launch history shows no changes since ${typeof since === "string" ? launchDay(since) : "then"}.${quoted}`;
 	const lines = rows.map((r) => {
 		const f = r.fields;
 		const what =
 			f.change === "date" ? `${r.label} from ${String(f.from ?? "no date")} to ${String(f.to ?? "no date")}` : r.label;
 		return `- ${what}, by ${String(f.by)} on ${String(f.on)}${typeof f.reason === "string" ? ` (reason: "${f.reason}")` : ""}`;
 	});
-	return `Since ${String(since)}, Launch history shows:\n${lines.join("\n")}\n\n${quoted.trim()}`.trim();
+	return `Since ${typeof since === "string" ? launchDay(since) : "then"}, Launch history shows:\n${lines.join("\n")}\n\n${quoted.trim()}`.trim();
 }
 
 /** The day `days` before a church-local date. */
