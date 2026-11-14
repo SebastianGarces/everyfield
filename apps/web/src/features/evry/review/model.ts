@@ -827,7 +827,6 @@ const ADDS = new Set<Operation>([
 	"seats.invite",
 	"associations.invite",
 ]);
-export const addsOnly = (operation: Operation) => ADDS.has(operation);
 
 /** The People writes whose review can be revised field by field on the card. */
 const REVISABLE = new Set<Operation>([
