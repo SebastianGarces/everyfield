@@ -44,6 +44,9 @@ test("AC:TARGET-IDN-028 landingFor sends a signed-in person to a safe returnTo, 
 	assert.equal(landingFor({ status: "active", plant: "incomplete" }), "/onboarding");
 	assert.equal(landingFor({ status: "active", plant: "none" }), "/onboarding");
 	assert.equal(landingFor(done), "/people");
+	// An organization seat lands on its plants, not on church setup (WP-047a); a returnTo still wins.
+	assert.equal(landingFor({ status: "active", plant: "organization" }), "/network");
+	assert.equal(landingFor({ status: "active", plant: "organization", returnTo: "/notifications" }), "/notifications");
 	assert.equal(landingFor({ ...done, returnTo: null }), "/people");
 	for (const returnTo of ["https://evil.example", "//evil.example", "/\\evil.example", "javascript:alert(1)"]) {
 		assert.equal(landingFor({ ...done, returnTo }), "/people", returnTo);
