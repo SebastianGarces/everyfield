@@ -5,9 +5,9 @@
 //
 // Derived facts come from their source rows, never from a stored label (the technique golden-church.mts documents).
 // Inactivity is the real board's comparison of each person's latest activity with the church's 7 and 14 inactivity
-// days, against the database clock. So that it reads the same on every day the suite runs, a person at level none or
-// warning has a last contact (a follow-up outcome) 2 or 10 days before the seed runs; an alert-level person has no
-// contact and was created months ago. Coverage is whether a person has an open task.
+// days, against the database clock, which evalDatabase (golden-church.mts) pins to golden NOW's frame. So that it
+// reads the same on every run, a person at level none or warning has a last contact (a follow-up outcome) 2 or 10
+// days before the seed runs; an alert-level person has no contact and was created months ago. Coverage is whether a person has an open task.
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { stepCountIs, streamText } from "../../../packages/evry/node_modules/ai/dist/index.js";
 import type { LanguageModelV4 } from "@ai-sdk/provider";
@@ -21,7 +21,8 @@ import { LIMITS } from "../../../packages/evry/src/context/limits.ts";
 import { invokeRead } from "../../../packages/evry/src/catalog/invoke.ts";
 import type { ReadAdapter, SourceResult } from "../../../packages/evry/src/catalog/types.ts";
 import { readTools, resultForModel, type ToolHandlers } from "../../../packages/evry/src/runtime/tools.ts";
-import { testDatabase, type Database } from "../../support/test-database.mts";
+import type { Database } from "../../support/test-database.mts";
+import { evalDatabase } from "./golden-church.mts";
 import type { ToolCall } from "./golden-harness.mts";
 
 /** A pinned id in the eval namespace, as golden-church.mts writes them. */
@@ -54,7 +55,7 @@ export type SmallChurch<A extends string> = { db: Database; actors: Record<A, Ev
 
 /** A fresh schema with the church seeded, the runtime pool the reads use and each actor as the turn builds it. */
 export async function smallChurch<A extends string>(spec: SmallChurchSpec<A>): Promise<SmallChurch<A>> {
-	const database = await testDatabase({ prefix: "evrysmall" });
+	const database = await evalDatabase({ prefix: "evrysmall" });
 	try {
 		const run = (q: ReturnType<typeof sql>) => database.admin.execute(q);
 		await run(sql`INSERT INTO plant(id,name,timezone,warning_days,alert_days,digest_weekday,digest_hour,phase,material_revision)

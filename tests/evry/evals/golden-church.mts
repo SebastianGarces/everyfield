@@ -579,7 +579,8 @@ async function actorFor(db: Database, who: ActorName): Promise<EvryActor> {
 
 /**
  * The host clock moved to NOW's frame, still advancing. A read stamps the host's date into what the model sees (the
- * export's filename, people-<date>.csv), so every run must see the same date. The database clock is left alone.
+ * export's filename, people-<date>.csv), so every run must see the same date. The database clock is pinned the same
+ * way, by evalDatabase.
  */
 function pinHostClock() {
 	const Real = Date;
@@ -597,10 +598,18 @@ function pinHostClock() {
 	} as unknown as DateConstructor;
 }
 
+/**
+ * The one eval schema every Postgres-backed eval suite seeds its church into: a fresh, migrated schema whose database
+ * clock (`now()`, `clock_timestamp()` and the like, read by inactivity, the review's schedule window and every other
+ * clock comparison) runs in NOW's frame, still advancing (pinSchemaClock in tests/support/test-database.mts). So a
+ * fixture time such as the Friday of NOW's week stays in the future on every real date the suite runs.
+ */
+export const evalDatabase = (options: { prefix: string; max?: number }) => testDatabase({ ...options, clock: NOW });
+
 export type GoldenChurch = { db: Database; actors: Record<ActorName, EvryActor>; close(): Promise<void> };
 /** A fresh schema with Hope Fellowship seeded, the runtime pool the reads use and every eval actor. */
 export async function goldenChurch(): Promise<GoldenChurch> {
-	const database = await testDatabase({ prefix: "evrygold", max: 10 });
+	const database = await evalDatabase({ prefix: "evrygold", max: 10 });
 	try {
 		await seedHope(database.admin);
 		await seedMinistries(database.admin);
