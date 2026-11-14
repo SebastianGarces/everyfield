@@ -109,3 +109,4 @@ export type CareReply<T> = Reply<T, CareError>;
 export const noteOf = (raw: string) => raw.trim() || null;
 export * from "./signals.ts";
 export * from "./facts.ts";
+export * from "./assessment.ts";

@@ -239,6 +239,7 @@ test("NIR-04, NIR-05 and NIR-06 name the two qualifying plants in the rubric's w
 			observed: 3,
 			plants: ["Harvest Point", "Oak Cliff Church"],
 			rating: null,
+			citation: { rubric: "everyfield-network/v1", rule: "NIR-04", source: "docs/reference/network-rubric-v1.json" },
 			overdue: 5,
 			unowned: { support: 2, overdue: 3 },
 		},
@@ -283,6 +284,16 @@ test("NIR-04, NIR-05 and NIR-06 name the two qualifying plants in the rubric's w
 		nextStep: RULES["NIR-06"].nextStep,
 		evidence: "From 3 plants with required-training evidence available.",
 	});
+
+	// Every rule's pattern cites the Everyfield network rubric with its own rule id, never the plant rubric.
+	assert.deepEqual(
+		g!.patterns.map((p) => p.citation),
+		(["NIR-04", "NIR-05", "NIR-06"] as const).map((rule) => ({
+			rubric: "everyfield-network/v1",
+			rule,
+			source: "docs/reference/network-rubric-v1.json",
+		})),
+	);
 
 	// One short result per rule and plant, in name order; Not shared carries nothing but its name and link.
 	assert.deepEqual(

@@ -2667,6 +2667,7 @@
       ],
       "consumer_table_names": [
         "admission_attempt",
+        "assessment_run",
         "assignment_feedback",
         "attestation_revision",
         "church_brand_kit",
@@ -12729,6 +12730,7 @@
       ],
       "consumer_table_names": [
         "account",
+        "assessment_run",
         "attestation",
         "attestation_revision",
         "audit_event",
@@ -13679,6 +13681,7 @@
       ],
       "producer_table_names": [],
       "consumer_table_names": [
+        "assessment_run",
         "attestation",
         "attestation_revision",
         "audit_event",
@@ -13937,6 +13940,7 @@
         "WP-090"
       ],
       "producer_table_names": [
+        "assessment_run",
         "passage",
         "record",
         "reference_activation",
@@ -14322,7 +14326,9 @@
         "WP-089",
         "WP-090"
       ],
-      "producer_table_names": [],
+      "producer_table_names": [
+        "assessment_run"
+      ],
       "consumer_table_names": [
         "audit_event",
         "job",
@@ -14796,6 +14802,7 @@
       ],
       "producer_table_names": [],
       "consumer_table_names": [
+        "assessment_run",
         "audit_event",
         "job",
         "network_intelligence_feedback",
@@ -15590,6 +15597,7 @@
       ],
       "producer_table_names": [],
       "consumer_table_names": [
+        "assessment_run",
         "audit_event",
         "network_intelligence_feedback",
         "network_intelligence_plant",
@@ -16304,6 +16312,7 @@
         "record"
       ],
       "consumer_table_names": [
+        "assessment_run",
         "launch_milestone"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
@@ -16730,6 +16739,7 @@
         "record"
       ],
       "consumer_table_names": [
+        "assessment_run",
         "audit_event",
         "plant_geography",
         "reference_item",
@@ -17469,6 +17479,7 @@
       ],
       "consumer_table_names": [
         "account",
+        "assessment_run",
         "auth_account",
         "auth_session",
         "auth_user",
@@ -26338,6 +26349,7 @@
         "affiliation",
         "article_editor_state",
         "article_revision",
+        "assessment_run",
         "assignment_feedback",
         "attestation",
         "attestation_revision",
@@ -32489,6 +32501,7 @@
         "affiliation",
         "article_editor_state",
         "article_revision",
+        "assessment_run",
         "assignment_feedback",
         "attestation",
         "attestation_revision",

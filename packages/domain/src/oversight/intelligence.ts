@@ -349,6 +349,7 @@ function patternsOf(
 			observed: observed.length,
 			plants: plants.map(({ plantId, name }) => ({ plantId, name })),
 			rating: ratings[key] ?? null,
+			citation: C.citationOf(rule),
 			...claims(plants),
 		} as z.input<typeof C.intelligencePattern>);
 	};
