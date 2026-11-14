@@ -23,6 +23,7 @@ import {
 import { StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { markSubjectRead } from "../notifications/actions";
 import { useAccount } from "../notifications/feed";
@@ -82,19 +83,17 @@ function NotLinked() {
  */
 function useOpenedNotice() {
 	const { remember, setCount } = useAccount();
-	const [opened, setOpened] = useState<string | null>(null);
+	const opened = useSearchParams().get("milestone");
 	useEffect(() => {
-		const id = new URLSearchParams(location.search).get("milestone");
-		setOpened(id);
-		if (!id) return;
-		void markSubjectRead({ kind: "residency_milestone", id })
+		if (!opened) return;
+		void markSubjectRead({ kind: "residency_milestone", id: opened })
 			.then((r) => {
 				if (r.status !== "ok" || !r.value.markedIds.length) return;
 				remember(new Set(r.value.markedIds), true);
 				return readUnreadCount().then((c) => c.status === "ok" && setCount(c.value.count));
 			})
 			.catch(() => undefined);
-	}, [remember, setCount]);
+	}, [opened, remember, setCount]);
 	return opened;
 }
 
