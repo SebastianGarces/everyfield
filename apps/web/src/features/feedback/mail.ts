@@ -52,7 +52,7 @@ function feedbackMailService(v: z.infer<typeof env>, transport?: MailTransport) 
 }
 
 /** The operator email's words: the public issue's title and sentence, and its link once it exists. */
-export function operatorContent(notice: Omit<OperatorNotice, "tenant" | "feedbackId">, origin: string) {
+function operatorContent(notice: Omit<OperatorNotice, "tenant" | "feedbackId">, origin: string) {
 	const triage = `Triage it in Everyfield: ${origin}/feedback/triage`;
 	if (!notice.issue)
 		return {

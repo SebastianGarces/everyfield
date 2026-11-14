@@ -47,7 +47,6 @@ const SECTIONS = new Set([
 	"me",
 ]);
 const APPLICATION = "Application";
-const AREAS = new Set([...Object.values(PUBLIC_AREAS), APPLICATION]);
 
 /** The fixed wording for each category: the title's kind and the body's opening. */
 const WORDING = {
@@ -57,10 +56,10 @@ const WORDING = {
 	other: { title: "Other feedback", sentence: "Other product feedback was submitted for" },
 } as const;
 
-export const REFERENCE = /^FB-[0-9A-F]{12}$/;
+const REFERENCE = /^FB-[0-9A-F]{12}$/;
 
 /** The approved public area for a stored address, or null when the address is outside the approved list. */
-export function publicArea(address: string | null): string | null {
+function publicArea(address: string | null): string | null {
 	if (address === null) return APPLICATION;
 	const named = PUBLIC_AREAS[address];
 	if (named) return named;
@@ -76,7 +75,7 @@ export type PublicIssue = { title: string; body: string };
 export function publicIssue(input: { category: unknown; address: string | null; reference: unknown }): PublicIssue | null {
 	const category = feedbackCategory.safeParse(input.category);
 	const area = publicArea(input.address);
-	if (!category.success || area === null || !AREAS.has(area)) return null;
+	if (!category.success || area === null) return null;
 	if (typeof input.reference !== "string" || !REFERENCE.test(input.reference)) return null;
 	const words = WORDING[category.data];
 	return {

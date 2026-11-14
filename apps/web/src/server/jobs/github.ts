@@ -5,7 +5,7 @@ import { z } from "zod";
 // pull requests or workflow triggers, is ever sent. The repository and token come from configuration. Each call ends
 // after 10 seconds. Relative imports and no "server-only", so node tests can import it by path.
 
-export const GITHUB_TIMEOUT_MS = 10_000;
+const GITHUB_TIMEOUT_MS = 10_000;
 const GITHUB_API = "https://api.github.com";
 
 export type IssueLink = { number: number; url: string };
@@ -19,7 +19,7 @@ export interface IssueClient {
 }
 
 /** "owner/name" as GitHub spells a repository. */
-export const repositoryName = z.string().regex(/^[A-Za-z0-9-]{1,39}\/[A-Za-z0-9._-]{1,100}$/);
+const repositoryName = z.string().regex(/^[A-Za-z0-9-]{1,39}\/[A-Za-z0-9._-]{1,100}$/);
 
 export type GitHubConfig = {
 	/** The repository the next new intent targets: its numeric id and owner/name. */
