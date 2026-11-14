@@ -51,7 +51,7 @@
 		"limit": 5
 	},
 	"GET /intelligence": {
-		"limit": 2
+		"limit": 3
 	},
 	"GET /intelligence/attestations": {
 		"limit": 2
