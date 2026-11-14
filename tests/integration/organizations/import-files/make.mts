@@ -12,6 +12,9 @@ async function xlsx(name: string, order: number[]) {
 	for (const row of APPLICATIONS) sheet.addRow(order.map((i) => row[i]));
 	writeFileSync(new URL(name, dir), new Uint8Array(await book.xlsx.writeBuffer()));
 }
-await xlsx("applications.xlsx", APPLICATIONS[0]!.map((_, i) => i));
+await xlsx(
+	"applications.xlsx",
+	APPLICATIONS[0]!.map((_, i) => i),
+);
 await xlsx("applications-v2.xlsx", V2_ORDER);
 writeFileSync(new URL("applications.csv", dir), csvOf(APPLICATIONS));

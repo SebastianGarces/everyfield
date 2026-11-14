@@ -70,8 +70,7 @@ function defaultChoices(header: string[], remembered: Record<string, unknown>): 
 		let best: number | null = null;
 		keys.forEach((k, i) => {
 			const rank = SYNONYMS[field].indexOf(k);
-			if (choices[i] === null && rank >= 0 && (best === null || rank < SYNONYMS[field].indexOf(keys[best]!)))
-				best = i;
+			if (choices[i] === null && rank >= 0 && (best === null || rank < SYNONYMS[field].indexOf(keys[best]!))) best = i;
 		});
 		if (best !== null) {
 			choices[best] = field;
@@ -150,7 +149,16 @@ function readRow(
 	});
 	const body = answers.length ? [title, ...answers].join("\n\n") : null;
 	if (body !== null && body.length > NOTE_MAX) problems.push("answers_too_long");
-	return { row, name, first, last, email: problems.includes("invalid_email") ? null : address, stageId, body, problems };
+	return {
+		row,
+		name,
+		first,
+		last,
+		email: problems.includes("invalid_email") ? null : address,
+		stageId,
+		body,
+		problems,
+	};
 }
 
 type Existing = { id: string; name: string; email: string };
@@ -196,7 +204,11 @@ const stateRow = z.object({
 	stages: z.array(z.object({ id: z.string(), label: z.string() })),
 	existing: z.array(z.object({ id: z.string(), name: z.string(), email: z.string() })),
 });
-const stateSql = (live: ReturnType<typeof sql>, org: string, emails: string[]) => sql`WITH g AS (SELECT ${live} AS allowed),
+const stateSql = (
+	live: ReturnType<typeof sql>,
+	org: string,
+	emails: string[],
+) => sql`WITH g AS (SELECT ${live} AS allowed),
 o AS (SELECT o.pipeline_import_columns AS remembered,
  to_char((clock_timestamp() AT TIME ZONE o.timezone)::date,'FMMon FMDD, YYYY') AS today FROM organization o JOIN g ON g.allowed
  WHERE o.id=${org}::uuid),
@@ -230,9 +242,7 @@ export async function previewPipelineImport(db: Executor, authority: RequestActo
 		if (!seat.administrator) refuse();
 		const input = parse(C.pipelineImportPreviewRequest, raw);
 		const sheet = await sheetOf(input.fileName, input.file);
-		const state = stateRow.parse(
-			(await db.execute(stateSql(seat.live, seat.organization, candidates(sheet)))).rows[0],
-		);
+		const state = stateRow.parse((await db.execute(stateSql(seat.live, seat.organization, candidates(sheet)))).rows[0]);
 		if (!state.allowed || state.today === null) refuse();
 		const choices = input.columns
 			? checkedChoices(sheet.header, input.columns)
@@ -304,8 +314,16 @@ async function importPeople(db: Database, authority: RequestActor, raw: unknown)
 		const o = w.organization;
 		const command = derivedId(`pipeline-import:${o}:${input.importId}`);
 		const choices = checkedChoices(sheet.header, input.columns);
-		const { file: _bytes, importId: _id, ...reviewed } = input;
-		const digest = hash({ ...reviewed, duplicates: [...input.duplicates].sort((a, b) => a.row - b.row) });
+		// The reviewed request without its bytes (the file digest names them): a repeat must match it exactly.
+		const digest = hash({
+			fileName: input.fileName,
+			fileDigest: input.fileDigest,
+			reviewDigest: input.reviewDigest,
+			columns: input.columns,
+			stageId: input.stageId,
+			responsibleSeatId: input.responsibleSeatId,
+			duplicates: [...input.duplicates].sort((a, b) => a.row - b.row),
+		});
 		const r = await one(
 			w,
 			stateRow.extend({ prior: z.unknown(), seat: z.boolean() }),

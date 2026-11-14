@@ -244,15 +244,17 @@ function History({ record }: { record: Record }) {
 							<span className="font-medium text-ink">
 								{h.kind === "placed"
 									? `Added to ${h.to}`
-									: h.kind === "moved"
-										? `Moved from ${h.from} to ${h.to}`
-										: h.kind === "assessment"
-											? "Outside assessment recorded"
-											: h.kind === "retired"
-												? "Retired"
-												: h.kind === "restored"
-													? "Restored"
-													: "Details edited"}
+									: h.kind === "imported"
+										? `Imported into ${h.to}`
+										: h.kind === "moved"
+											? `Moved from ${h.from} to ${h.to}`
+											: h.kind === "assessment"
+												? "Outside assessment recorded"
+												: h.kind === "retired"
+													? "Retired"
+													: h.kind === "restored"
+														? "Restored"
+														: "Details edited"}
 							</span>
 							<span className="text-text-2">{[h.actor ?? "Former staff", formatDay(h.on)].join(" · ")}</span>
 							{h.kind === "moved" ? <span className="text-ink-2">Reason: {h.reason}</span> : null}

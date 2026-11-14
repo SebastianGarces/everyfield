@@ -49,21 +49,42 @@ const named = (org: Org, role: "owner" | "admin" | "member", name: string) =>
 const board = async (a: Actor) => ok(await readPipelineBoard(db, await authority(a), {}));
 const stageId = async (label: string, a: Actor = dana) => (await board(a)).stages.find((s) => s.label === label)!.id;
 
-type Preview = { fileDigest: string; reviewDigest: string; columns: { title: string; choice: string; locked: boolean }[] };
+type Preview = {
+	fileDigest: string;
+	reviewDigest: string;
+	columns: { title: string; choice: string; locked: boolean }[];
+};
 type Previewed = Preview & {
-	rows: { row: number; status: string; name: string | null; problems: string[]; existing: { name: string }[]; sameAs: number[]; stageId: string | null }[];
+	rows: {
+		row: number;
+		status: string;
+		name: string | null;
+		problems: string[];
+		existing: { name: string }[];
+		sameAs: number[];
+		stageId: string | null;
+	}[];
 };
 const preview = async (a: Actor, fileName: string, bytes: Uint8Array, columns: string[] | null = null) =>
 	previewPipelineImport(db, await authority(a), { fileName, file: bytes, columns });
 const previewed = async (a: Actor, fileName: string, bytes: Uint8Array, columns: string[] | null = null) =>
 	ok(await preview(a, fileName, bytes, columns)) as Previewed;
-type Result = { added: { row: number; personId: string }[]; skipped: number[]; refused: { row: number; problems: string[] }[] };
+type Result = {
+	added: { row: number; personId: string }[];
+	skipped: number[];
+	refused: { row: number; problems: string[] }[];
+};
 const run = async (
 	a: Actor,
 	fileName: string,
 	bytes: Uint8Array,
 	p: Preview,
-	extra: { stageId: string; responsibleSeatId?: string | null; duplicates?: { row: number; choice: string }[]; importId?: string },
+	extra: {
+		stageId: string;
+		responsibleSeatId?: string | null;
+		duplicates?: { row: number; choice: string }[];
+		importId?: string;
+	},
 ) =>
 	pipelineImportWriter.importPeople(db, await authority(a), {
 		importId: extra.importId ?? randomUUID(),
@@ -78,7 +99,8 @@ const run = async (
 	});
 const livePeople = async (org: Org) =>
 	Number(
-		(await admin.execute(sql`SELECT count(*) AS n FROM pipeline_person WHERE organization_id=${org.id}::uuid`)).rows[0]!.n,
+		(await admin.execute(sql`SELECT count(*) AS n FROM pipeline_person WHERE organization_id=${org.id}::uuid`)).rows[0]!
+			.n,
 	);
 const notesOf = async (personId: string) =>
 	(
@@ -89,7 +111,10 @@ const notesOf = async (personId: string) =>
 const choiceByTitle = (p: Preview) => Object.fromEntries(p.columns.map((c) => [c.title, c.choice]));
 
 before(async () => {
-	grace = (await database.organization("sending_church", { name: "Grace Austin", timezone: "America/Chicago" })) as never;
+	grace = (await database.organization("sending_church", {
+		name: "Grace Austin",
+		timezone: "America/Chicago",
+	})) as never;
 	hill = (await database.organization("sending_network", { name: "Hill Country Network" })) as never;
 	dana = await named(grace, "owner", "Dana");
 	luis = await named(grace, "admin", "Luis");
@@ -97,7 +122,9 @@ before(async () => {
 	ben = await named(grace, "member", "Ben");
 	hillOwner = await named(hill, "owner", "Hana");
 	luisSeat = (
-		await admin.execute(sql`SELECT id FROM seat WHERE account_id=${luis.id}::uuid AND organization_id=${grace.id}::uuid`)
+		await admin.execute(
+			sql`SELECT id FROM seat WHERE account_id=${luis.id}::uuid AND organization_id=${grace.id}::uuid`,
+		)
 	).rows[0]!.id as string;
 	ok(
 		await pipelineWriter.addPerson(db, await authority(dana), {
@@ -145,7 +172,11 @@ test("columns match fields by title; unmatched questions are kept as answers and
 	const before = await livePeople(grace);
 	const kept = { ...p, columns: p.columns.map((c, i) => ({ ...c, choice: i === 10 ? "answer" : c.choice })) };
 	assert.deepEqual(
-		refusal(await run(dana, "applications.xlsx", file("applications.xlsx"), kept, { stageId: await stageId("Potential leader") })),
+		refusal(
+			await run(dana, "applications.xlsx", file("applications.xlsx"), kept, {
+				stageId: await stageId("Potential leader"),
+			}),
+		),
 		{ code: "invalid_input", field: "columns.10" },
 	);
 	assert.equal(await livePeople(grace), before);
@@ -191,10 +222,13 @@ test("rows are ready, invalid with a reason, or possible duplicates of the pipel
 	);
 	// Every possible duplicate is the person's to decide: an import without a choice for each one is refused.
 	const stage = await stageId("Potential leader");
-	assert.deepEqual(refusal(await run(dana, "rows.csv", csv, p, { stageId: stage, duplicates: [{ row: 3, choice: "add" }] })), {
-		code: "invalid_input",
-		field: "duplicates",
-	});
+	assert.deepEqual(
+		refusal(await run(dana, "rows.csv", csv, p, { stageId: stage, duplicates: [{ row: 3, choice: "add" }] })),
+		{
+			code: "invalid_input",
+			field: "duplicates",
+		},
+	);
 	const xlsx = await previewed(dana, "applications.xlsx", file("applications.xlsx"));
 	assert.deepEqual(
 		xlsx.rows.map((r) => [r.name, r.status, r.existing.map((e) => e.name)]),
@@ -248,9 +282,12 @@ test("Dana imports applications.xlsx: Jordan and Sam join the chosen stage, Case
 		record.history.map((h) => [h.kind, h.actor, h.on, "to" in h ? h.to : null]),
 		[["imported", "Dana", record.asOf, "Potential leader"]],
 	);
-	const today = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }).format(
-		new Date(`${record.asOf}T00:00:00Z`),
-	);
+	const today = new Intl.DateTimeFormat("en-US", {
+		month: "short",
+		day: "numeric",
+		year: "numeric",
+		timeZone: "UTC",
+	}).format(new Date(`${record.asOf}T00:00:00Z`));
 	assert.deepEqual(
 		record.notes.map((n) => (n.state === "current" ? [n.author, n.body] : null)),
 		[
@@ -339,7 +376,11 @@ test("an export with the same titles in another order lines up with Dana's choic
 	);
 	assert.deepEqual(choiceByTitle(v2), choiceByTitle(v1));
 	assert.equal(choiceByTitle(v2).ID, "skip");
-	const fresh = await previewed(dana, "v3.csv", text("Favorite verse,Full name,Email\r\nJohn 3:16,Ari Cole,ari@example.test\r\n"));
+	const fresh = await previewed(
+		dana,
+		"v3.csv",
+		text("Favorite verse,Full name,Email\r\nJohn 3:16,Ari Cole,ari@example.test\r\n"),
+	);
 	assert.deepEqual(
 		fresh.columns.map((c) => [c.title, c.choice]),
 		[
@@ -370,7 +411,10 @@ test("a Stage column places rows by label; an unknown label is a row error and a
 	assert.deepEqual(result.refused, [{ row: 2, problems: ["unknown_stage"] }]);
 	const b = await board(dana);
 	const where = (name: string) => b.stages.find((s) => s.people.some((x) => x.name === name))?.label;
-	assert.deepEqual([where("Avery Moss"), where("Blake Wren"), where("Cam Doyle")], ["Apprentice", undefined, "Resident"]);
+	assert.deepEqual(
+		[where("Avery Moss"), where("Blake Wren"), where("Cam Doyle")],
+		["Apprentice", undefined, "Resident"],
+	);
 });
 
 test("a value a spreadsheet would run as a formula is stored as text and neutralized in the export", async () => {
@@ -392,7 +436,9 @@ test("Ben, Ana and another organization's Owner cannot preview or import Grace A
 	for (const who of [ben, ana]) {
 		assert.deepEqual(refusal(await preview(who, "applications.xlsx", bytes)), { code: "unavailable" });
 		assert.deepEqual(
-			refusal(await run(who, "applications.xlsx", bytes, p, { stageId: stage, duplicates: [{ row: 3, choice: "add" }] })),
+			refusal(
+				await run(who, "applications.xlsx", bytes, p, { stageId: stage, duplicates: [{ row: 3, choice: "add" }] }),
+			),
 			{ code: "unavailable" },
 		);
 	}
@@ -408,17 +454,23 @@ test("Ben, Ana and another organization's Owner cannot preview or import Grace A
 		],
 	);
 	// Naming Grace's stage from Hill Country adds no one to Grace.
-	assert.deepEqual(
-		refusal(await run(hillOwner, "applications.xlsx", bytes, theirs, { stageId: stage })),
-		{ code: "invalid_input", field: "stageId" },
-	);
+	assert.deepEqual(refusal(await run(hillOwner, "applications.xlsx", bytes, theirs, { stageId: stage })), {
+		code: "invalid_input",
+		field: "stageId",
+	});
 	assert.equal(await livePeople(grace), count);
 	assert.equal(await livePeople(hill), 0);
 });
 
 test("a UTF-8 CSV with a BOM, CRLF, quoted commas and multi-line answers imports like the Excel file", async () => {
-	const csvOrg = (await database.organization("sending_church", { name: "CSV Church", timezone: "America/Chicago" })) as Org;
-	const xlsxOrg = (await database.organization("sending_church", { name: "XLSX Church", timezone: "America/Chicago" })) as Org;
+	const csvOrg = (await database.organization("sending_church", {
+		name: "CSV Church",
+		timezone: "America/Chicago",
+	})) as Org;
+	const xlsxOrg = (await database.organization("sending_church", {
+		name: "XLSX Church",
+		timezone: "America/Chicago",
+	})) as Org;
 	const imported = async (org: Org, fileName: string, bytes: Uint8Array) => {
 		const owner = await named(org, "owner", "Owner");
 		const p = await previewed(owner, fileName, bytes);
@@ -428,7 +480,11 @@ test("a UTF-8 CSV with a BOM, CRLF, quoted commas and multi-line answers imports
 		for (const a of result.added) {
 			const r = ok(await readPipelinePersonRecord(db, await authority(owner), { personId: a.personId }));
 			// The note's first line names the file; everything after it is the answers.
-			people.push([r.name, r.email, r.notes.map((n) => (n.state === "current" ? n.body.split("\n\n").slice(1) : null))]);
+			people.push([
+				r.name,
+				r.email,
+				r.notes.map((n) => (n.state === "current" ? n.body.split("\n\n").slice(1) : null)),
+			]);
 		}
 		return { columns: p.columns, people };
 	};
