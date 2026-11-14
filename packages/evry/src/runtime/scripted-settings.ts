@@ -105,13 +105,11 @@ const DIGEST_CHOICES =
 	"The church digest can be off, daily at a whole hour, or weekly on one day at a whole hour, in the church's time zone. Those are the only choices Settings offers.";
 /** The church digest schedule a request asks for, or null when it asks for one Settings doesn't offer. */
 function churchDigest(text: string) {
-	if (/\b(?:turn off|stop|pause)\b/i.test(text) || /\bdigest\s+off\b/i.test(text)) return { cadence: "off" };
-	const at = /\bat\s+(\d{1,2})(?::(\d{2}))?\s*([ap])\.?m\b/i.exec(text);
-	if (!at || (at[2] && at[2] !== "00") || /\bevery\s+\d+\s+hours?\b|\bhourly\b/i.test(text)) return null;
-	const twelve = Number(at[1]);
-	if (twelve < 1 || twelve > 12) return null;
-	const hour = (twelve % 12) + (at[3]!.toLowerCase() === "p" ? 12 : 0);
-	if (/\b(?:every day|daily)\b/i.test(text)) return { cadence: "daily", hour };
+	if (/\bturn off\b/i.test(text)) return { cadence: "off" };
+	const at = /\bat\s+(\d{1,2})(?::(\d{2}))?\s*([ap])m\b/i.exec(text);
+	if (!at || (at[2] && at[2] !== "00")) return null;
+	const hour = (Number(at[1]) % 12) + (at[3]!.toLowerCase() === "p" ? 12 : 0);
+	if (/\bevery day\b/i.test(text)) return { cadence: "daily", hour };
 	const day = new RegExp(String.raw`\bon\s+(${WEEKDAY.join("|")})s?\b`, "i").exec(text);
 	return day ? { cadence: "weekly", weekday: WEEKDAY.indexOf(day[1]!.toLowerCase()), hour } : null;
 }
