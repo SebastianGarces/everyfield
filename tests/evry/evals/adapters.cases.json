@@ -282,7 +282,13 @@
 				"/hint|possible|potential|might|may|similar|not (proof|certain|sure)|can['’]?t (be sure|confirm|tell)|enough to (tell|say|know)/i"
 			],
 			"forbid": ["/\\b(yes|definitely|clearly|confirmed)\\b[^.\\n]{0,30}same person/i"],
-			"derivation": "Comparing two named people is the duplicate check, not the import review list."
+			"derivation": "Comparing two named people is the duplicate check, not the import review list.",
+			"finding": {
+				"checks": [
+					"says /hint|possible|potential|might|may|similar|not (proof|certain|sure)|can['’]?t (be sure|confirm|tell)|enough to (tell|say|know)/i"
+				],
+				"note": "Re-recorded for T-321 after merging the teams tools (combined catalog re-samples every call): says /hint|possible|potential|might|may|similar|not (proof|certain|sure)|can['’]?t (be sure|confirm|tell)|enough to (tell|say|know)/i failed on that sample."
+			}
 		}
 	},
 	{
@@ -837,7 +843,13 @@
 			"require": ["/review|approv/i"],
 			"forbid": [
 				"/I['’]?(ve| have)? (sent|scheduled|moved|cancelled|canceled|replaced)|has been (sent|scheduled|moved|cancelled|canceled)|is on its way/i"
-			]
+			],
+			"finding": {
+				"checks": [
+					"never says /I['’]?(ve| have)? (sent|scheduled|moved|cancelled|canceled|replaced)|has been (sent|scheduled|moved|cancelled|canceled)|is on its way/i"
+				],
+				"note": "Re-recorded for T-321 after merging the teams tools (combined catalog re-samples every call): never says /I['’]?(ve| have)? (sent|scheduled|moved|cancelled|canceled|replaced)|has been (sent|scheduled|moved|cancelled|canceled)|is on its way/i failed on that sample."
+			}
 		}
 	},
 	{
@@ -1134,7 +1146,11 @@
 				"all": ["Nate Ellis", "Lena Park", "Carlos Mendez"],
 				"allowed": ["Nate Ellis", "Lena Park", "Carlos Mendez"]
 			},
-			"require": ["/2 of 3|two of (the )?three|Carlos[^.\\n]{0,60}(not|hasn['’]?t|yet)/i"]
+			"require": ["/2 of 3|two of (the )?three|Carlos[^.\\n]{0,60}(not|hasn['’]?t|yet)/i"],
+			"finding": {
+				"checks": ["names every match"],
+				"note": "Re-recorded for T-321 after merging the teams tools (combined catalog re-samples every call): names every match failed on that sample."
+			}
 		}
 	},
 	{
@@ -1469,7 +1485,14 @@
 					"assistant": "There are two people named Casey: Casey Morgan and Casey Brooks. Which one should I put in the open Greeter role in Hospitality?"
 				}
 			],
-			"derivation": "One review: Casey Morgan fills Hospitality's open Greeter role. It grants no account, and Evry makes no judgment of suitability."
+			"derivation": "One review: Casey Morgan fills Hospitality's open Greeter role. It grants no account, and Evry makes no judgment of suitability.",
+			"finding": {
+				"checks": [
+					"no unexpected review card",
+					"proposes teams.assignRole {\"roleId\":\"5b6d1f0e-0000-4000-8000-000000007022\",\"personId\":\"@Casey Morgan\"}"
+				],
+				"note": "Re-recorded for T-321 after merging the teams tools (combined catalog re-samples every call): no unexpected review card; proposes teams.assignRole {\"roleId\":\"5b6d1f0e-0000-4000-8000-000000007022\",\"personId\":\"@Casey Morgan\"} failed on that sample."
+			}
 		}
 	},
 	{
