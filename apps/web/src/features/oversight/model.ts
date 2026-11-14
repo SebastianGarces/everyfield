@@ -125,12 +125,68 @@ export function daysText(days: number): string {
 	return `Launch Sunday is in ${days} days`;
 }
 
-export const LEVEL_LABEL: Record<Level, string> = {
-	region: "Region",
-	state: "State",
-	country: "Country",
-	portfolio: "Whole portfolio",
+/** One of the organization's views, in the switch above its home and Intelligence pages. */
+export type OrganizationView = "plants" | "churches" | "intelligence";
+/**
+ * The view switch: a network has Plants, Sending churches and Network Intelligence; a sending church has no roster, so
+ * only "Your plants" and Intelligence, and never the word "network" (T-373).
+ */
+export const VIEWS: Record<
+	OrganizationKind,
+	{ label: string; tabs: { view: OrganizationView; href: string; label: string }[] }
+> = {
+	sending_network: {
+		label: "Network views",
+		tabs: [
+			{ view: "plants", href: "/network", label: "Plants" },
+			{ view: "churches", href: "/network/sending-churches", label: "Sending churches" },
+			{ view: "intelligence", href: "/network/intelligence", label: "Network Intelligence" },
+		],
+	},
+	sending_church: {
+		label: "Views",
+		tabs: [
+			{ view: "plants", href: "/network", label: HOME_HEADING.sending_church },
+			{ view: "intelligence", href: "/network/intelligence", label: "Intelligence" },
+		],
+	},
 };
+
+/** Every Intelligence page string that depends on who reads it. */
+export type IntelligenceWords = {
+	/** The heading and browser tab title. */
+	title: string;
+	levels: Record<Level, string>;
+	/** The "How this works" callout. */
+	howItWorks: string;
+	notRun: string;
+	refused: string;
+	failed: string;
+};
+const PRIVACY = (rubric: string) =>
+	`${rubric} reads only counts and dates each plant shares with you: launch dates, unfilled roles, overdue follow-ups, when its newest committed adult signed and required training. It never names a person, ranks or scores plants. A plant that doesn't share counts as Not shared, never as zero.`;
+/**
+ * A network keeps "Network Intelligence" and "Whole portfolio"; a sending church sees its own name ("Grace Austin
+ * Intelligence"), "Your plants" for the whole portfolio, and never the word "network" (T-373). The rubric's own pattern
+ * wording is the same for both.
+ */
+export function intelligenceWords(kind: OrganizationKind, organizationName: string): IntelligenceWords {
+	const church = kind === "sending_church";
+	const title = church ? `${organizationName} Intelligence` : "Network Intelligence";
+	return {
+		title,
+		levels: {
+			region: "Region",
+			state: "State",
+			country: "Country",
+			portfolio: church ? HOME_HEADING[kind] : "Whole portfolio",
+		},
+		howItWorks: PRIVACY(church ? "Everyfield's rubric v1" : "Everyfield's network rubric v1"),
+		notRun: `${title} hasn't run yet`,
+		refused: `Only Owners and Admins can refresh ${title}.`,
+		failed: `We couldn't run ${title}. Nothing was changed. Try again in a moment.`,
+	};
+}
 
 type Shared = Extract<IntelligenceRow, { status: "shared" }>;
 type Label = { label: string; status: Status };
