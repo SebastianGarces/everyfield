@@ -13,10 +13,11 @@ export const pipelineImportLimits = { bytes: 5 * 1024 * 1024, rows: 2000, column
  * What one column becomes: a pipeline field, an answer kept in the imported note, or nothing. A field takes at most one
  * column. `stage` names each row's stage by its label.
  */
-export const pipelineColumnChoice = z.enum(["name", "first_name", "last_name", "email", "stage", "answer", "skip"]);
+export const pipelineColumnChoice = z.enum(["name", "email", "stage", "answer", "skip"]);
 export type PipelineColumnChoice = z.infer<typeof pipelineColumnChoice>;
 
 /** Why a file was refused before any row was read. */
+export type PipelineImportFileProblem = z.infer<typeof pipelineImportFileProblem>;
 export const pipelineImportFileProblem = z.enum([
 	"file_type",
 	"file_empty",
@@ -84,8 +85,8 @@ export const pipelineImportPreview = z.strictObject({
 export type PipelineImportPreview = z.infer<typeof pipelineImportPreview>;
 
 /**
- * The reviewed import. The browser names `importId` once per press, so a repeat (a double click or a retry) adds no one
- * again. Every possible duplicate row is decided by the person: skip it or add it anyway (REQ-MUL-017).
+ * The reviewed import. The browser names `importId` once per reviewed import, so a repeat (a double click or a retry)
+ * adds no one again. Every possible duplicate row is decided by the person: skip it or add it anyway (REQ-MUL-017).
  */
 export const pipelineImportRequest = z.strictObject({
 	importId: z.uuid(),

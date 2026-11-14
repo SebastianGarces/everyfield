@@ -33,8 +33,6 @@ export const titleKey = (title: string) =>
 /** The titles each field matches, best first: "Full name" beats a form's own "Name" column. */
 const SYNONYMS: Record<Field, string[]> = {
 	name: ["fullname", "name", "yourfullname", "yourname", "applicantname", "applicantsname"],
-	first_name: ["firstname", "givenname", "yourfirstname"],
-	last_name: ["lastname", "surname", "familyname", "yourlastname"],
 	email: ["emailaddress", "email", "youremailaddress", "youremail"],
 	stage: ["stage", "pipelinestage"],
 };
@@ -99,8 +97,6 @@ type Stage = { id: string; label: string };
 type Read = {
 	row: number;
 	name: string | null;
-	first: string | null;
-	last: string | null;
 	email: string | null;
 	stageId: string | null;
 	body: string | null;
@@ -126,9 +122,7 @@ function readRow(
 		const v = i < 0 ? "" : (cells[i] ?? "").trim();
 		return v === "" ? null : v;
 	};
-	const first = cell("first_name"),
-		last = cell("last_name");
-	const name = cell("name") ?? ([first, last].filter((v) => v !== null).join(" ") || null);
+	const name = cell("name");
 	if (name === null) problems.push("name_required");
 	else if (name.length > 255) problems.push("name_too_long");
 	let address = cell("email");
@@ -152,8 +146,6 @@ function readRow(
 	return {
 		row,
 		name,
-		first,
-		last,
 		email: problems.includes("invalid_email") ? null : address,
 		stageId,
 		body,
@@ -358,8 +350,6 @@ SELECT s.*,(SELECT a.metadata FROM audit_event a WHERE a.id=${command}::uuid AND
 			event: id("event", x.row),
 			note: x.body === null ? null : id("note", x.row),
 			name: x.name,
-			first: x.first,
-			last: x.last,
 			email: x.email,
 			stage: x.stageId ?? input.stageId,
 			body: x.body,
@@ -379,9 +369,9 @@ SELECT s.*,(SELECT a.metadata FROM audit_event a WHERE a.id=${command}::uuid AND
 dest AS (SELECT id,label FROM pipeline_stage WHERE organization_id=${o}::uuid AND removed_at IS NULL
  UNION ALL SELECT id,label FROM starters),
 r AS (SELECT * FROM jsonb_to_recordset(${JSON.stringify(people)}::jsonb) r(row int,person uuid,entry uuid,event uuid,
- note uuid,name text,first text,last text,email text,stage uuid,body text)),
-p AS (INSERT INTO person (id,tenant_id,organization_id,display_name,first_name,last_name,email,source,created_at,state,revision)
- SELECT r.person,${o}::uuid,${o}::uuid,r.name,r.first,r.last,r.email,'other',clock_timestamp(),'live',1 FROM r RETURNING id),
+ note uuid,name text,email text,stage uuid,body text)),
+p AS (INSERT INTO person (id,tenant_id,organization_id,display_name,email,source,created_at,state,revision)
+ SELECT r.person,${o}::uuid,${o}::uuid,r.name,r.email,'other',clock_timestamp(),'live',1 FROM r RETURNING id),
 pp AS (INSERT INTO pipeline_person (id,organization_id,person_id,stage_id,responsible_seat_id,revision)
  SELECT r.entry,${o}::uuid,p.id,r.stage,${input.responsibleSeatId}::uuid,1 FROM r JOIN p ON p.id=r.person RETURNING id),
 a AS (${w.audit({ id: sql`r.event`, action: "people.created", kind: "create", subject: sql`r.person`, after: sql`1`, metadata: { category: "pipeline_import" } })}

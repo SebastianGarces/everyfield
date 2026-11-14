@@ -394,7 +394,7 @@ function RowItem({
 					</p>
 				) : null}
 			</div>
-			<div className={cn("min-w-0", "max-app-md:col-start-2")}>
+			<div className="min-w-0 max-app-md:col-start-2">
 				{row.status === "duplicate" ? (
 					<SegmentedControl<Decision>
 						label={`What to do with row ${row.row}, ${name}`}

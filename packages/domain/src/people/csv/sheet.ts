@@ -1,3 +1,4 @@
+import type { PipelineImportFileProblem } from "@everyfield/contracts/organizations";
 import ExcelJS from "exceljs";
 import { Refusal } from "../core.ts";
 import { parseCsv } from "./format.ts";
@@ -7,15 +8,7 @@ import { parseCsv } from "./format.ts";
 // its leading "=", never evaluated. Line ends inside a cell read as "\n" either way, so the same answers read the same.
 
 export type SheetLimits = { bytes: number; rows: number; columns: number };
-export type SheetProblem =
-	| "file_type"
-	| "file_empty"
-	| "file_too_large"
-	| "file_unreadable"
-	| "no_header"
-	| "no_rows"
-	| "row_limit"
-	| "column_limit";
+export type SheetProblem = PipelineImportFileProblem;
 export class SheetRefused extends Error {
 	readonly problem: SheetProblem;
 	constructor(problem: SheetProblem) {

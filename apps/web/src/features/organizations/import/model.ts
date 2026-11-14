@@ -56,8 +56,6 @@ export const afterImport = (review: Review, got: Answer<Result>) =>
 
 export const CHOICE_LABEL: Record<PipelineColumnChoice, string> = {
 	name: "Name",
-	first_name: "First name",
-	last_name: "Last name",
 	email: "Email",
 	stage: "Stage",
 	answer: "Keep as answer",
