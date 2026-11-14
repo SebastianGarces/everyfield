@@ -804,7 +804,7 @@ test("INV-evry-golden SAF-02 SAF-11 SAF-12 SAF-14: the model's tools can read an
 		);
 	assert.deepEqual(tools("owner"), [
 		...Object.keys(READ_DOMAINS)
-			.filter((d) => d !== "pipeline")
+			.filter((d) => d !== "pipeline" && d !== "oversight")
 			.map((d) => `${d}_read`),
 		"select_returned_rows",
 		"propose_change",
@@ -813,7 +813,9 @@ test("INV-evry-golden SAF-02 SAF-11 SAF-12 SAF-14: the model's tools can read an
 	assert.deepEqual(tools("admin"), churchTools);
 	assert.deepEqual(
 		tools("member"),
-		churchTools.filter((t) => t !== "peopleAssessments_read" && t !== "phases_read" && t !== "signals_read"),
+		churchTools.filter(
+			(t) => t !== "peopleAssessments_read" && t !== "phases_read" && t !== "signals_read" && t !== "intelligence_read",
+		),
 	);
 	assert.deepEqual(
 		readCatalog(church.actors.member)
@@ -830,10 +832,17 @@ test("INV-evry-golden SAF-02 SAF-11 SAF-12 SAF-14: the model's tools can read an
 			"wiki.feedback.setMine",
 		],
 	);
-	assert.deepEqual(tools("org"), ["notifications_read", "pipeline_read", "select_returned_rows", "propose_change"]);
+	assert.deepEqual(tools("org"), [
+		"notifications_read",
+		"pipeline_read",
+		"oversight_read",
+		"select_returned_rows",
+		"propose_change",
+	]);
 	assert.deepEqual(
 		readCatalog(church.actors.org).reviewedWrites.map((w) => w.operation),
 		[
+			"notifications.setPreferences",
 			"notifications.oversightDigestCadence.set",
 			"organizations.updateProfile",
 			"pipeline.proposeStageMove",
