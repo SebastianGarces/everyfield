@@ -44,6 +44,11 @@ const ROW_LIVENESS: Record<SourceRow["kind"], Rule> = {
 	file: null,
 	skill: null,
 	activity: null,
+	// A phase, criterion or signal row is reference metadata or an append-only journey or attestation entry of the
+	// church itself, read under the Owner or Admin floor (adapters/intelligence); none is ever removed.
+	phase: null,
+	criterion: null,
+	signal: null,
 	// Never withheld: a setting row is the account's own choice and a digest row a preview the tool computed.
 	setting: null,
 	digest: null,

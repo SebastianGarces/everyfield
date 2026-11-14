@@ -26,6 +26,8 @@ type OpView = {
 	empty: string;
 	/** A count answer: the summary is the total and the rows stay hidden, with this note instead. */
 	countAnswer?: string;
+	/** A summary of its own, for a card whose first row heads the others (the current phase). */
+	summary?: (result: SourceResult) => string;
 };
 
 const NO_PERSON = "No person in this church matches, or you can't see them.";
@@ -113,6 +115,45 @@ const VIEWS: Record<string, OpView> = {
 		icon: "file",
 		countAnswer: "Download the file from the People page.",
 	}),
+	// The church's phase journey: the current phase heads the card, then each entry oldest first.
+	"phases.readHistory": {
+		title: "Phase journey",
+		noun: ["entry", "entries"],
+		icon: "phase",
+		counts: "phase",
+		empty: "This church's phase journey is not available.",
+		summary: (result) => result.rows.find((r) => r.id === "current")?.label ?? "Not found",
+	},
+	"phases.readCatalog": {
+		title: "Phases",
+		noun: ["phase", "phases"],
+		icon: "phase",
+		counts: "phase",
+		empty: "The phases are not available.",
+	},
+	// The phase's exit criteria: the phase heads the card and each criterion says met, not met or no data yet.
+	"phases.readReadiness": {
+		title: "Exit criteria",
+		noun: ["criterion", "criteria"],
+		icon: "criterion",
+		counts: "criterion",
+		shownOnly: true,
+		empty: "This phase has no exit criteria.",
+	},
+	"signals.listDefinitions": {
+		title: "Signals",
+		noun: ["signal", "signals"],
+		icon: "signal",
+		counts: "signal",
+		empty: "The signals are not available.",
+	},
+	"signals.getHistory": {
+		title: "Signal history",
+		noun: ["entry", "entries"],
+		icon: "signal",
+		counts: "signal",
+		empty: "No signal has been recorded yet.",
+	},
 	"communication.list": {
 		title: "Messages",
 		noun: ["message", "messages"],
@@ -316,6 +357,34 @@ const words = (value: string) => {
 /** A stored value's label, or the value in words when the table has no label for it. */
 const label = (table: Record<string, string>, value: unknown) =>
 	typeof value === "string" && value ? (table[value] ?? words(value)) : null;
+/** A church-local date, "2026-08-03", as "Aug 3, 2026": a calendar day with no time zone of its own. */
+const localDay = (value: unknown) =>
+	typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)
+		? new Date(`${value}T00:00:00Z`).toLocaleDateString("en-US", {
+				month: "short",
+				day: "numeric",
+				year: "numeric",
+				timeZone: "UTC",
+			})
+		: null;
+const ENTRY: Record<string, string> = {
+	creation: "Started in",
+	initial_declaration: "Declared as",
+	movement: "Moved to",
+};
+const CRITERION: Record<string, string> = {
+	met: "Met",
+	"not met": "Not met",
+	"no data yet": "No data yet",
+	"not tracked": "Not tracked",
+};
+const SIGNAL_KIND: Record<string, string> = {
+	answered: "Recorded",
+	corrected: "Corrected",
+	retracted: "Retracted",
+	reaffirmed: "Still true",
+};
+const ANSWER: Record<string, string> = { yes: "Yes", not_yet: "Not yet" };
 const categoryText = (value: unknown) =>
 	typeof value === "string" ? (CATEGORY_TEXT[value as keyof typeof CATEGORY_TEXT]?.label ?? words(value)) : null;
 const day = (value: unknown) => {
@@ -612,6 +681,62 @@ function rowView(operation: string, row: SourceRow): RowView {
 						: "Draft",
 				avatar: null,
 			};
+		case "phase": {
+			if (fields.current === true && operation === "phases.readHistory")
+				return {
+					...plain,
+					name: row.label,
+					line: joined("Current phase", localDay(fields.since) ? `since ${localDay(fields.since)}` : null),
+					mark: { kind: "status", text: "Now", warn: false },
+					avatar: "phase",
+				};
+			if (typeof fields.entry === "string")
+				return {
+					...plain,
+					name: `${ENTRY[fields.entry] ?? words(fields.entry)} ${row.label}`,
+					line: joined(text(fields.reason), text(fields.by), localDay(fields.on)),
+					mark: fields.direction === "backward" ? { kind: "status", text: "Backward", warn: true } : null,
+					avatar: "phase",
+				};
+			if (operation === "phases.readReadiness")
+				return {
+					...plain,
+					name: row.label,
+					line: text(fields.next) ? `Before ${text(fields.next)}` : "Final phase",
+					avatar: "phase",
+				};
+			const criteria = text(fields.exitCriteria)?.split("; ").length ?? 0;
+			return {
+				...plain,
+				name: `${text(fields.phase) ?? ""} ${row.label}`.trim(),
+				line: criteria ? count(criteria, "exit criterion", "exit criteria") : "Final phase",
+				avatar: "phase",
+			};
+		}
+		case "criterion": {
+			// The status is the row's line, so a long criterion name is never cut short by a mark at phone width.
+			const status = CRITERION[String(fields.status)];
+			return { ...plain, name: row.label, line: status ?? null, avatar: "criterion" };
+		}
+		case "signal":
+			if (operation === "signals.getHistory")
+				return {
+					...plain,
+					name: row.label,
+					line: joined(
+						SIGNAL_KIND[String(fields.kind)] ?? null,
+						ANSWER[String(fields.value)] ?? null,
+						localDay(fields.asOf) ? `as of ${localDay(fields.asOf)}` : null,
+						text(fields.by),
+					),
+					avatar: "signal",
+				};
+			return {
+				...plain,
+				name: row.label,
+				line: joined(text(fields.description), fields.reaffirms === true ? "Renew every 30 days" : null),
+				avatar: "signal",
+			};
 		case "notice":
 			// A bell notification: its area and church-local time. A card never marks it read.
 			return {
@@ -753,13 +878,15 @@ export function cardView(operation: string, result: SourceResult, originalTotal:
 	const missing = result.status === "not_found" || (photo && !rows.length);
 	const summary = missing
 		? "Not found"
-		: photo
-			? ""
-			: view.countAnswer
-				? count(result.total ?? 0, one, many)
-				: view.shownOnly || result.total === null || result.total === counted
-					? count(counted, one, many)
-					: `${counted.toLocaleString()} of ${result.total.toLocaleString()}`;
+		: view.summary
+			? view.summary(result)
+			: photo
+				? ""
+				: view.countAnswer
+					? count(result.total ?? 0, one, many)
+					: view.shownOnly || result.total === null || result.total === counted
+						? count(counted, one, many)
+						: `${counted.toLocaleString()} of ${result.total.toLocaleString()}`;
 	const facts: string[] = [];
 	if (missing || !result.rows.length) facts.push(view.empty);
 	if (result.withheldRows)

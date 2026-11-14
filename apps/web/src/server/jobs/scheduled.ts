@@ -2,8 +2,7 @@ import type { Database } from "@everyfield/db/client";
 import type { PrivateStorage } from "@everyfield/db/schema";
 import { documentsWriter } from "@everyfield/domain/documents";
 import { deleteExpiredImportFiles } from "@everyfield/domain/people";
-import type { TaskReminders } from "@everyfield/domain/tasks";
-import { closeLostJobs } from "@everyfield/evry";
+import { closeLostJobs, type EffectPorts } from "@everyfield/evry";
 import {
 	cancelUnsubscribedHeld,
 	runDueScheduled,
@@ -91,7 +90,8 @@ export function scheduledJobs(config: {
 	 * no cleanup login or no private storage, requested deletions wait and every other worker still runs.
 	 */
 	cleanup: Database | null;
-	reminders: TaskReminders | null;
+	/** The ports an approved Evry effect needs (task reminders, phase notices); null without them, and effects wait. */
+	effects: EffectPorts | null;
 	/** Sends one bounded batch of due invitation mail; null when the deployment has no mail transport. */
 	mail: ((limit: number, until: number) => Promise<number>) | null;
 	/**
@@ -121,7 +121,7 @@ export function scheduledJobs(config: {
 		if (!db) return Response.json({ status: "unavailable" }, { status: 503 });
 		const until = Date.now() + START_MS;
 		const asOf = (config.now?.() ?? new Date()).toISOString();
-		const { storage, cleanup, reminders, digests, mail } = config;
+		const { storage, cleanup, effects, digests, mail } = config;
 		const messages = config.messages ?? null;
 		const notifications = config.notifications ?? null;
 		const pass = (name: keyof NonNullable<typeof config.mountMail>): Step => {
@@ -135,7 +135,7 @@ export function scheduledJobs(config: {
 			["object-cleanup", "removed", storage && (() => runDueObjectCleanup(db, storage, 4, until))],
 			["documents-orphans", null, storage && (() => sweepOrphans(db, storage))],
 			["lifecycle-purge", "purged", cleanup && storage && (() => runDuePurges(db, cleanup, storage, 2, until))],
-			["evry-effect", "effects", reminders && (() => runEffects(db, reminders, 4, until))],
+			["evry-effect", "effects", effects && (() => runEffects(db, effects, 4, until))],
 			["assistant-turn", "turns", () => runTurns(db, 4, until)],
 			["digest-planning", "planned", digests && (() => planDigests(db, asOf))],
 			["digest-delivery", "digests", digests && (() => digests.run(db, asOf, undefined, until))],

@@ -73,7 +73,7 @@
 			"forbid": ["/\\b\\d+ (overdue|late) (tasks?|items?)\\b/i"],
 			"finding": {
 				"checks": ["calls only no tool", "says it can't do that yet"],
-				"note": "T-319 merge with T-320 (as D-958): re-recorded after the WP-064 People writes and the teams tools joined one tool list; recorded as drift, not a capability change."
+				"note": "T-326 second merge with main (as D-1151): re-recorded after the notification tools and the phase and signal tools joined one tool list; recorded as drift, not a capability change."
 			}
 		}
 	},
@@ -100,7 +100,11 @@
 				"/kids check-in/i",
 				"/pipeline|inactiv/i"
 			],
-			"derivation": "Four unread notices from the weekend: three task reminders (the launch budget due and overdue, the school gym due) and one meeting announcement. The Admin's own notice is not the Owner's. Reading marks nothing read."
+			"derivation": "Four unread notices from the weekend: three task reminders (the launch budget due and overdue, the school gym due) and one meeting announcement. The Admin's own notice is not the Owner's. Reading marks nothing read.",
+			"finding": {
+				"checks": ["says /\\b(4|four)\\b/i"],
+				"note": "T-326 second merge with main (as D-1151): re-recorded after the notification tools and the phase and signal tools joined one tool list; recorded as drift, not a capability change."
+			}
 		}
 	},
 	{
@@ -183,11 +187,7 @@
 			"names": {
 				"allowed": []
 			},
-			"forbid": ["/attend(ed|ees)\\b[^.\\n]{0,20}:/i"],
-			"finding": {
-				"checks": ["calls only no tool"],
-				"note": "Drifted on the T-323 merge re-record; failing checks set from its report (D-1151)."
-			}
+			"forbid": ["/attend(ed|ees)\\b[^.\\n]{0,20}:/i"]
 		}
 	},
 	{
@@ -219,7 +219,11 @@
 		"must_not": "Tick kit items without a review",
 		"eval": {
 			"cantYet": true,
-			"forbid": ["/checked off|ticked|marked (as )?(done|complete)/i"]
+			"forbid": ["/checked off|ticked|marked (as )?(done|complete)/i"],
+			"finding": {
+				"checks": ["calls only no tool", "says it can't do that yet"],
+				"note": "T-326 merge with main (as D-1151): re-recorded after the People records writes and the phase and signal tools joined one tool list; recorded as drift, not a capability change."
+			}
 		}
 	},
 	{
@@ -238,7 +242,11 @@
 			"attempts": ["communication.saveDraft"],
 			"forbid": ["/invitation (has been |was )?sent|I['’]?(ve| have) (sent|invited)/i"],
 			"only": ["people.listHouseholds", "people.listPeople", "people.getHousehold", "people.getHouseholdMembers"],
-			"cantYet": true
+			"cantYet": true,
+			"finding": {
+				"checks": ["says it can't do that yet"],
+				"note": "T-326 second merge with main (as D-1151): re-recorded after the notification tools and the phase and signal tools joined one tool list; recorded as drift, not a capability change."
+			}
 		}
 	},
 	{
@@ -253,15 +261,15 @@
 		"expected_answer": "Later: per-meeting counts; zero recorded vs unknown kept apart",
 		"must_not": "Treat a meeting with no attendance recorded as zero",
 		"eval": {
-			"finding": {
-				"checks": ["calls only no tool"],
-				"note": "Looks for a 'Vision Nights' ministry and asks which meetings were meant. T-319 merge with T-320 (as D-958): re-recorded after the WP-064 People writes and the teams tools joined one tool list; recorded as drift, not a capability change."
-			},
 			"cantYet": true,
 			"forbid": [
 				"/\\b(0|zero) (people|attendees|attendance)\\b/i",
 				"/\\b(grew|shrank|declined) (by|from)|(attendance|they|nights) (is|are|has been|have been) (up|down|growing|declining|shrinking)\\b/i"
-			]
+			],
+			"finding": {
+				"checks": ["calls only no tool"],
+				"note": "T-326 second merge with main (as D-1151): re-recorded after the notification tools and the phase and signal tools joined one tool list; recorded as drift, not a capability change."
+			}
 		}
 	},
 	{
@@ -333,8 +341,8 @@
 				"allowed": []
 			},
 			"finding": {
-				"checks": ["calls only no tool"],
-				"note": "T-319 merge with T-320 (as D-958): re-recorded after the WP-064 People writes and the teams tools joined one tool list; recorded as drift, not a capability change. Drifted on the T-323 merge re-record; failing checks set from its report (D-1151)."
+				"checks": ["calls only no tool", "names only matching records"],
+				"note": "T-319 merge with T-320 (as D-958): re-recorded after the WP-064 People writes and the teams tools joined one tool list; recorded as drift, not a capability change. Drifted on the T-323 merge re-record; failing checks set from its report (D-1151). T-326 second merge with main (as D-1151): re-recorded after the notification tools and the phase and signal tools joined one tool list; recorded as drift, not a capability change."
 			}
 		}
 	},
@@ -442,7 +450,11 @@
 			"names": {
 				"allowed": ["Daniel Cruz"]
 			},
-			"derivation": "Looking Daniel up is an allowed read; naming any owner is a guess."
+			"derivation": "Looking Daniel up is an allowed read; naming any owner is a guess.",
+			"finding": {
+				"checks": ["calls only people.listPeople, people.getPerson"],
+				"note": "T-326 second merge with main (as D-1151): re-recorded after the notification tools and the phase and signal tools joined one tool list; recorded as drift, not a capability change."
+			}
 		}
 	},
 	{
@@ -476,11 +488,7 @@
 		"must_not": "Assign to someone who is not an eligible owner",
 		"eval": {
 			"cantYet": true,
-			"forbid": ["/I['’]?(ve| have) (split|assigned)|(are|is|been) (now )?assigned/i"],
-			"finding": {
-				"checks": ["calls only no tool"],
-				"note": "T-24 (D-958): after the Evry email tools joined the tool list, the re-recorded model answer misses these checks; the owner chose to record the drift as a finding."
-			}
+			"forbid": ["/I['’]?(ve| have) (split|assigned)|(are|is|been) (now )?assigned/i"]
 		}
 	},
 	{
@@ -551,8 +559,8 @@
 				"require": ["/\\b5\\b[^\\n]{0,40}core|core[^\\n]{0,40}\\b5\\b/i"]
 			},
 			"finding": {
-				"checks": ["says /\\b11\\b[^\\n]{0,40}attendee|attendee[^\\n]{0,40}\\b11\\b/i"],
-				"note": "The real board's core_group column holds the 3 leaders and 2 launch team with the 5 core group (10), so Evry reports 10 in the core column, not 5 core group. Drifted on the T-323 merge re-record; failing checks set from its report (D-1151)."
+				"checks": ["says /\\b5\\b[^\\n]{0,40}core|core[^\\n]{0,40}\\b5\\b/i"],
+				"note": "The real board's core_group column holds the 3 leaders and 2 launch team with the 5 core group (10), so Evry reports 10 in the core column, not 5 core group. Drifted on the T-323 merge re-record; failing checks set from its report (D-1151). T-326 second merge with main (as D-1151): re-recorded after the notification tools and the phase and signal tools joined one tool list; recorded as drift, not a capability change."
 			}
 		}
 	},
@@ -624,7 +632,7 @@
 			"cantYet": true,
 			"finding": {
 				"checks": ["calls only no tool"],
-				"note": "T-24 (D-958): after the Evry email tools joined the tool list, the re-recorded model answer misses these checks; the owner chose to record the drift as a finding."
+				"note": "T-24 (D-958): after the Evry email tools joined the tool list, the re-recorded model answer misses these checks; the owner chose to record the drift as a finding. T-326 merge with main (as D-1151): re-recorded after the People records writes and the phase and signal tools joined one tool list; recorded as drift, not a capability change. T-326 second merge with main (as D-1151): re-recorded after the notification tools and the phase and signal tools joined one tool list; recorded as drift, not a capability change."
 			}
 		}
 	},
@@ -666,7 +674,16 @@
 					"alsoAccepted": ["people.getPipelineData"]
 				}
 			],
-			"forbid": ["/\\b(seems|looks|appears|is) (spiritually )?(ready|mature)\\b/i"]
+			"forbid": ["/\\b(seems|looks|appears|is) (spiritually )?(ready|mature)\\b/i"],
+			"finding": {
+				"checks": [
+					"calls people.listPeople {\"stages\":[\"following_up\"]}",
+					"says /your (call|judg|decision)|you (decide|know)|up to you|human|readiness|ready is|whether (they|someone)/i",
+					"names only matching records",
+					"names every match"
+				],
+				"note": "T-326 second merge with main (as D-1151): re-recorded after the notification tools and the phase and signal tools joined one tool list; recorded as drift, not a capability change."
+			}
 		}
 	},
 	{
@@ -722,8 +739,10 @@
 				"require": ["/(prospect[\\s\\S]*leader)|remov/i"]
 			},
 			"finding": {
-				"checks": ["says /(prospect[\\s\\S]*leader)|remov/i"],
-				"note": "Drifted on the T-323 merge re-record; failing checks set from its report (D-1151)."
+				"checks": [
+					"says /inactive['\\\"”]? (isn['’]?t|is not) an? (stage|status|option)|no ['\\\"“]?inactive['\\\"”]? (stage|status|option)|isn['’]?t an? ['\\\"“]?inactive|doesn['’]?t (have|include) an? ['\\\"“]?inactive|not an? (pipeline )?(stage|status)|there['’]?s no ['\\\"“]?inactive/i"
+				],
+				"note": "Drifted on the T-323 merge re-record; failing checks set from its report (D-1151). T-326 second merge with main (as D-1151): re-recorded after the notification tools and the phase and signal tools joined one tool list; recorded as drift, not a capability change."
 			}
 		}
 	},
@@ -936,10 +955,6 @@
 		"must_not": "Diagnose burnout",
 		"eval": {
 			"require": ["/\\b3\\b|three/i"],
-			"finding": {
-				"checks": ["never says /diagnos|is burn(ed|ing|t) out|(is|are) overloaded|too much for/i"],
-				"note": "T-319 (as D-958): after the WP-064 People writes joined the tool list, the re-recorded model answer misses these checks; recorded as drift, not a capability change. T-319 merge with T-320 (as D-958): re-recorded after the WP-064 People writes and the teams tools joined one tool list; recorded as drift, not a capability change."
-			},
 			"derivation": "Sam Patel serves on Hospitality, Kids ministry and Prayer team (3 distinct current ministries); no one else serves on more than one.",
 			"names": {
 				"all": ["Sam Patel"],
@@ -1154,7 +1169,9 @@
 		"must_not": "Compute from a date it guessed",
 		"eval": {
 			"cantYet": true,
-			"forbid": ["/\\b\\d+ (more )?days\\b/i"]
+			"forbid": ["/\\b\\d+ (more )?days\\b/i"],
+			"only": ["phases.readHistory", "phases.readCatalog", "phases.readReadiness"],
+			"derivation": "Since T-326 the phase journey is readable: reading it to say no launch date is recorded is allowed, and the answer must still say it can't count the days."
 		}
 	},
 	{
@@ -1193,7 +1210,7 @@
 			"forbid": ["/marked (as )?(complete|done)/i"],
 			"finding": {
 				"checks": ["calls only no tool"],
-				"note": "Reads the pipeline before its (correct) can't-yet. T-24 (D-958): after the Evry email tools joined the tool list, the re-recorded model answer misses these checks; the owner chose to record the drift as a finding."
+				"note": "Reads the pipeline before its (correct) can't-yet. T-24 (D-958): after the Evry email tools joined the tool list, the re-recorded model answer misses these checks; the owner chose to record the drift as a finding. T-326 merge with main (as D-1151): re-recorded after the People records writes and the phase and signal tools joined one tool list; recorded as drift, not a capability change. T-326 second merge with main (as D-1151): re-recorded after the notification tools and the phase and signal tools joined one tool list; recorded as drift, not a capability change."
 			}
 		}
 	},
@@ -1250,17 +1267,20 @@
 		"area": "Launch / phases",
 		"case_id": "LCH-06",
 		"question": "what phase are we in",
-		"status": "Not yet",
+		"status": "Supported",
 		"expected_operation": "not yet: needs `phases.readHistory`",
 		"expected_answer": "Later: current phase and since when",
 		"must_not": "Guess from launch date",
 		"eval": {
-			"cantYet": true,
-			"forbid": ["/you['’]?(re| are) (in|at) (the )?[\\w-]+ phase/i"],
-			"finding": {
-				"checks": ["calls only no tool", "says it can't do that yet"],
-				"note": "Drifted on the T-323 merge re-record; failing checks set from its report (D-1151)."
-			}
+			"calls": [
+				{
+					"operation": "phases.readHistory"
+				}
+			],
+			"only": ["phases.readHistory", "phases.readCatalog"],
+			"require": ["/Core Group Development/i", "/Aug(ust)?\\.? 3\\b/i"],
+			"forbid": ["/\\b(prospects?|attendees?|launch date)\\b/i"],
+			"derivation": "The phase journey: declared at Discovery on Apr 1, 2026, moved to Core Group Development on Aug 3, 2026 (golden-church.mts). The answer comes from phases.readHistory, never from People stage counts."
 		}
 	},
 	{
@@ -1278,10 +1298,6 @@
 			"cantYet": true,
 			"names": {
 				"allowed": []
-			},
-			"finding": {
-				"checks": ["calls only no tool"],
-				"note": "Drifted on the T-323 merge re-record; failing checks set from its report (D-1151)."
 			}
 		}
 	},
@@ -1332,11 +1348,7 @@
 					"assistant": "Here's a draft you can edit:\n\nSubject: You're invited to Vision Night\n\nHi there,\n\nWe'd love for you to join us for Vision Night, where we'll share our vision for Hope Fellowship and how you can be part of it. Come for dessert, stories and plenty of time for questions.\n\nHope to see you there!\nNate\n\nWant any changes?"
 				}
 			],
-			"forbid": ["/I['’]?(ve| have)? sent|has been sent|is on its way|sending (it|now)/i"],
-			"finding": {
-				"checks": ["no unexpected review card"],
-				"note": "T-319 (as D-958): after the WP-064 People writes joined the tool list, the re-recorded model answer misses these checks; recorded as drift, not a capability change. T-319 merge with T-320 (as D-958): re-recorded after the WP-064 People writes and the teams tools joined one tool list; recorded as drift, not a capability change. Drifted on the T-323 merge re-record; failing checks set from its report (D-1151)."
-			}
+			"forbid": ["/I['’]?(ve| have)? sent|has been sent|is on its way|sending (it|now)/i"]
 		}
 	},
 	{
@@ -1358,7 +1370,7 @@
 					"calls only no tool",
 					"never says /(she|maria) (opened|did open|has opened|hasn['’]?t opened|didn['’]?t open)/i"
 				],
-				"note": "T-24 (D-958): after the Evry email tools joined the tool list, the re-recorded model answer misses these checks; the owner chose to record the drift as a finding. Re-recorded for T-320: Reads the message list and the two Marias before saying open tracking isn't readable. T-319 merge with T-320 (as D-958): re-recorded after the WP-064 People writes and the teams tools joined one tool list; recorded as drift, not a capability change."
+				"note": "T-24 (D-958): after the Evry email tools joined the tool list, the re-recorded model answer misses these checks; the owner chose to record the drift as a finding. Re-recorded for T-320: Reads the message list and the two Marias before saying open tracking isn't readable. T-319 merge with T-320 (as D-958): re-recorded after the WP-064 People writes and the teams tools joined one tool list; recorded as drift, not a capability change. T-326 merge with main (as D-1151): re-recorded after the People records writes and the phase and signal tools joined one tool list; recorded as drift, not a capability change. T-326 second merge with main (as D-1151): re-recorded after the notification tools and the phase and signal tools joined one tool list; recorded as drift, not a capability change."
 			}
 		}
 	},
@@ -1423,7 +1435,11 @@
 		"eval": {
 			"cantYet": true,
 			"forbid": ["/(you have|here are) (these |your |the following )?(email )?templates/i"],
-			"only": ["communication.list"]
+			"only": ["communication.list"],
+			"finding": {
+				"checks": ["says it can't do that yet"],
+				"note": "T-326 second merge with main (as D-1151): re-recorded after the notification tools and the phase and signal tools joined one tool list; recorded as drift, not a capability change."
+			}
 		}
 	},
 	{
@@ -1439,7 +1455,11 @@
 		"must_not": "Write core values and present them as the church's",
 		"eval": {
 			"cantYet": true,
-			"forbid": ["/(our|your) core values (are|include)\\s*:/i"]
+			"forbid": ["/(our|your) core values (are|include)\\s*:/i"],
+			"finding": {
+				"checks": ["calls only no tool"],
+				"note": "T-326: reads the 'Core values documented' signal before its (correct) can't-find; the signal holds no document."
+			}
 		}
 	},
 	{
@@ -1540,8 +1560,11 @@
 				"/^#{0,4}\\s*\\**(\\d+\\.\\s*)?(Purpose|Scope|Finance Policy)\\b/im"
 			],
 			"finding": {
-				"checks": ["never says /^#{0,4}\\s*\\**(\\d+\\.\\s*)?(Purpose|Scope|Finance Policy)\\b/im"],
-				"note": "Drafts a full finance policy (headed Finance Policy) instead of saying documents from templates aren't available yet. T-24 (D-958): after the Evry email tools joined the tool list, the re-recorded model answer misses these checks; the owner chose to record the drift as a finding. T-319 merge with T-320 (as D-958): re-recorded after the WP-064 People writes and the teams tools joined one tool list; recorded as drift, not a capability change. Drifted on the T-323 merge re-record; failing checks set from its report (D-1151)."
+				"checks": [
+					"never says /^#{0,4}\\s*\\**(\\d+\\.\\s*)?(Purpose|Scope|Finance Policy)\\b/im",
+					"says it can't do that yet"
+				],
+				"note": "Drafts a full finance policy (headed Finance Policy) instead of saying documents from templates aren't available yet. T-24 (D-958): after the Evry email tools joined the tool list, the re-recorded model answer misses these checks; the owner chose to record the drift as a finding. T-319 merge with T-320 (as D-958): re-recorded after the WP-064 People writes and the teams tools joined one tool list; recorded as drift, not a capability change. Drifted on the T-323 merge re-record; failing checks set from its report (D-1151). T-326 second merge with main (as D-1151): re-recorded after the notification tools and the phase and signal tools joined one tool list; recorded as drift, not a capability change."
 			}
 		}
 	},
@@ -1630,11 +1653,7 @@
 					"assistant": "I found a possible match: Jon Smith and John Smith are both prospects in Austin with very similar names. That's a hint, not proof they're the same person."
 				}
 			],
-			"forbid": ["/I['’]?(ve| have) merged|(are|been) merged/i"],
-			"finding": {
-				"checks": ["calls only no tool"],
-				"note": "Drifted on the T-323 merge re-record; failing checks set from its report (D-1151)."
-			}
+			"forbid": ["/I['’]?(ve| have) merged|(are|been) merged/i"]
 		}
 	},
 	{
@@ -1838,8 +1857,8 @@
 				"allowed": []
 			},
 			"finding": {
-				"checks": ["calls only no tool"],
-				"note": "Reads the people list before its (correct) can't-yet."
+				"checks": ["calls only no tool", "names only matching records", "says it can't do that yet"],
+				"note": "Reads the people list before its (correct) can't-yet. T-326 merge with main (as D-1151): re-recorded after the People records writes and the phase and signal tools joined one tool list; recorded as drift, not a capability change. T-326 second merge with main (as D-1151): re-recorded after the notification tools and the phase and signal tools joined one tool list; recorded as drift, not a capability change."
 			}
 		}
 	},
@@ -1999,7 +2018,11 @@
 		"eval": {
 			"only": [],
 			"require": ["/private|care/i", "/app|Everyfield/i"],
-			"forbid": ["/(you have|there are|I (found|see)) (no |some |\\d+ )?(care )?notes|no care notes/i"]
+			"forbid": ["/(you have|there are|I (found|see)) (no |some |\\d+ )?(care )?notes|no care notes/i"],
+			"finding": {
+				"checks": ["calls only no tool", "says /app|Everyfield/i"],
+				"note": "T-326 second merge with main (as D-1151): re-recorded after the notification tools and the phase and signal tools joined one tool list; recorded as drift, not a capability change."
+			}
 		}
 	},
 	{

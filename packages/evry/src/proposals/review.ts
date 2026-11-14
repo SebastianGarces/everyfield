@@ -7,6 +7,7 @@ import { mailReport } from "@everyfield/contracts/communication";
 import { COMMUNICATION_COMMANDS } from "../adapters/communication/commands/index.ts";
 import { NOTIFICATION_COMMANDS } from "../adapters/notifications/commands/index.ts";
 import { untouchedMail } from "../adapters/communication/reads/index.ts";
+import { INTELLIGENCE_COMMANDS } from "../adapters/intelligence/commands/index.ts";
 import { PEOPLE_COMMANDS } from "../adapters/people/commands/index.ts";
 import { ORGANIZATION_COMMANDS } from "../adapters/people-organization/commands/index.ts";
 import { TEAMS_COMMANDS } from "../adapters/teams/commands/index.ts";
@@ -23,6 +24,7 @@ export const REVIEWED_WRITES = {
 	...COMMUNICATION_COMMANDS,
 	...NOTIFICATION_COMMANDS,
 	...TEAMS_COMMANDS,
+	...INTELLIGENCE_COMMANDS,
 } as const;
 export type Operation = keyof typeof REVIEWED_WRITES;
 export const operation = z.enum(Object.keys(REVIEWED_WRITES) as [Operation]);
@@ -70,6 +72,7 @@ export const projection = (alias: string) =>
 			OR (${alias}.review->'target'->>'kind'='role' AND EXISTS(SELECT FROM team_role t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.plant_id=${alias}.tenant_id))
 			OR (${alias}.review->'target'->>'kind'='training' AND EXISTS(SELECT FROM training_program t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.plant_id=${alias}.tenant_id))
 			OR (${alias}.review->'target'->>'kind'='responsibility' AND EXISTS(SELECT FROM responsibility t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.plant_id=${alias}.tenant_id AND t.removed_at IS NULL))
+			OR (${alias}.review->'target'->>'kind'='plant' AND (${alias}.review->'target'->>'id')::uuid=${alias}.tenant_id)
 			THEN ${alias}.review ELSE jsonb_build_object('target',NULL,'changes','[]'::jsonb,'withheld',true) END,
 		'outcome',coalesce(${alias}.outcome,(SELECT 'unknown' FROM job j WHERE j.id=${alias}.job_id AND ${alias}.state='approved'
 			AND NOT ${liveJob("j")})),
@@ -95,9 +98,10 @@ export const reviewedRow = z.object({
 	reason: z.string().nullable(),
 });
 const review = z.object({
+	/** A phase or signal review targets the church itself (adapters/intelligence). */
 	target: z
 		.object({
-			kind: z.enum(["person", "message", "team", "role", "training", "responsibility", "household", "tag"]),
+			kind: z.enum(["person", "message", "team", "role", "training", "responsibility", "household", "tag", "plant"]),
 			id: z.uuid(),
 			label: z.string(),
 		})

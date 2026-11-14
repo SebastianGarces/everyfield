@@ -24,7 +24,12 @@ export type Operation =
 	| "notifications.markAllVisibleRead"
 	| "notifications.setPreferences"
 	| "notifications.digestCadence.set"
-	| TeamsOperation;
+	| TeamsOperation
+	| "phases.declare"
+	| "phases.transition"
+	| "signals.attest"
+	| "signals.correct"
+	| "signals.reaffirm";
 
 /** The Ministries reviewed writes (WP-070): shown as before and after, never revised in place. */
 const TEAMS_TITLE = {
@@ -111,7 +116,17 @@ export type Review = {
 	status: "pending" | "approved" | "cancelled" | "expired";
 	review: {
 		target: {
-			kind: "person" | "message" | "team" | "role" | "training" | "responsibility" | "household" | "tag";
+			kind:
+				| "person"
+				| "message"
+				| "team"
+				| "role"
+				| "training"
+				| "responsibility"
+				| "household"
+				| "tag"
+				/** A phase or signal change targets the church itself. */
+				| "plant";
 			id: string;
 			label: string;
 		} | null;
@@ -236,11 +251,19 @@ const FIELD_LABEL: Record<string, string> = {
 	completedOn: "Completed on",
 	completedAgainOn: "Completed again on",
 	completion: "Completion",
+	phase: "Phase",
+	direction: "Direction",
+	openCriteria: "Not met yet",
+	signal: "Signal",
+	value: "Answer",
+	asOf: "True as of",
+	detail: "In your words",
+	reference: "Written down in",
 };
 export const fieldLabel = (field: string) => FIELD_LABEL[field] ?? field;
 
 const TEAM_STATE: Record<string, string> = { forming: "Forming", active: "Active", paused: "Paused" };
-const DATE_FIELDS = new Set(["birthDate", "date", "completedOn", "completedAgainOn"]);
+const DATE_FIELDS = new Set(["birthDate", "date", "completedOn", "completedAgainOn", "asOf"]);
 
 /** Values People shows capitalized: a household role, a skill's category and level, a tag color. */
 const CAPITALIZED = new Set(["householdRole", "category", "proficiency", "color"]);
@@ -252,9 +275,25 @@ const dateFormat = new Intl.DateTimeFormat(undefined, {
 	timeZone: "UTC",
 });
 
+const DIRECTION_TEXT: Record<string, string> = {
+	forward: "Forward, to the next phase",
+	skip_forward: "Forward, skipping a phase",
+	backward: "Backward, to an earlier phase",
+};
+const ANSWER_TEXT: Record<string, string> = { yes: "Yes", not_yet: "Not yet", retracted: "Retracted" };
+/** A phase or a signal is reviewed as its number or key with its name: the card shows the name. */
+const named = (value: unknown, name: "name" | "label") =>
+	value && typeof value === "object" && name in value ? String((value as Record<string, unknown>)[name]) : null;
+
 /** A reviewed value as text. Empty values say so; an id (a photo upload) is never shown. */
 export function valueText(field: string, value: unknown): string | null {
 	if (value === null || value === undefined || value === "") return null;
+	if (field === "phase") return named(value, "name");
+	if (field === "signal") return named(value, "label");
+	if (field === "direction") return DIRECTION_TEXT[String(value)] ?? String(value);
+	if (field === "value") return ANSWER_TEXT[String(value)] ?? String(value);
+	// A reaffirmation dates the answer on the day it runs.
+	if (field === "asOf" && value === "today") return "Today, when you approve";
 	// A photo is a stored file: its short reference tells two uploads apart. The card shows the image where People allows it.
 	if (field === "photo") return `Photo ${photoRef(value)}`;
 	if (field === "stage") return STAGE_LABEL[value as StageValue] ?? String(value);
@@ -324,6 +363,11 @@ const TITLE: Record<Operation, string> = {
 	"notifications.markAllVisibleRead": "Mark all notifications read",
 	"notifications.setPreferences": "Change notification settings",
 	"notifications.digestCadence.set": "Change how often your digest comes",
+	"phases.declare": "Record the starting phase",
+	"phases.transition": "Move the phase",
+	"signals.attest": "Record a signal",
+	"signals.correct": "Correct a signal",
+	"signals.reaffirm": "Reaffirm a signal",
 	"people.addToHousehold": "Add to a household",
 	"people.createHouseholdWithHead": "Create a household",
 	"people.updateHousehold": "Update a household",
@@ -345,6 +389,19 @@ const TITLE: Record<Operation, string> = {
 	"people.executeBulkImport": "Import people",
 };
 export const operationTitle = (operation: Operation) => TITLE[operation];
+
+/** A phase or signal change: the church is its target and the phase journey or Attestations page shows the result. */
+export const isIntelligence = (operation: Operation) => /^(phases|signals)\./.test(operation);
+/** Where the result of a phase or signal change shows. */
+export const intelligencePage = (operation: Operation) =>
+	operation.startsWith("phases.")
+		? { href: "/intelligence", label: "Open the phase journey" }
+		: { href: "/intelligence/attestations", label: "Open attestations" };
+/** The exit criteria of the current phase a forward move leaves open, each with its status in words. */
+export const openCriteria = (review: Review) => {
+	const value = review.review.changes.find((c) => c.field === "openCriteria")?.after;
+	return Array.isArray(value) ? (value as { label: string; status: string }[]) : null;
+};
 
 // ---------------------------------------------------------------------------------------------------------------
 // Email: the five reviewed Communication writes (MAIL51-009). The email service is the only source of "confirmed".
@@ -535,6 +592,10 @@ export function consequence(review: Review): string | null {
 		tasks > 0 ? `${tasks.toLocaleString()} open ${tasks === 1 ? "task" : "tasks"} will need a new owner.` : null;
 	if (review.operation === "people.deletePerson")
 		return ["They leave the current people list. Their history stays.", owner].filter(Boolean).join(" ");
+	const direction = review.review.changes.find((c) => c.field === "direction")?.after;
+	if (direction === "backward") return "This is a move backward. The phase journey keeps every earlier move.";
+	if (review.operation === "phases.transition")
+		return "You decide when the church moves. The exit criteria are advisory.";
 	const created = review.review.changes.find((c) => c.field === "createTag")?.after;
 	if (created) return `The tag ${String(created)} will be created.`;
 	switch (review.operation) {
@@ -596,6 +657,8 @@ const KIND: Record<string, FieldKind> = {
 	sourceDetails: "long",
 	reason: "long",
 	birthDate: "date",
+	asOf: "date",
+	detail: "long",
 	email: "email",
 	stage: "choice",
 	source: "choice",
@@ -610,9 +673,18 @@ export const CHOICES: Record<string, { value: string; label: string }[]> = {
 };
 
 /** Fields a person may edit in a revision. Photos, the removal itself and the task count are fixed facts. */
-const FIXED = new Set(["photo", "state", "openTasksNeedingOwner"]);
-/** Values that may be empty. A name and a reason are required. */
-const REQUIRED = new Set(["displayName", "reason", "stage", "source", "adultClassification"]);
+const FIXED = new Set([
+	"photo",
+	"state",
+	"openTasksNeedingOwner",
+	"phase",
+	"direction",
+	"openCriteria",
+	"signal",
+	"value",
+]);
+/** Values that may be empty. A name and a reason are required, and a signal's date and words. */
+const REQUIRED = new Set(["displayName", "reason", "stage", "source", "adultClassification", "asOf", "detail"]);
 /** Adult or child is required until a birth date is entered: then it comes from the birth date (REQ-PPL-026). */
 export const isRequired = (field: string, birthDate = false) =>
 	field === "adultClassification" ? !birthDate : REQUIRED.has(field);
@@ -628,7 +700,7 @@ export function hasBirthDate(review: Review, edits: Record<string, string>) {
 const ADDS = new Set<Operation>(["people.createPerson", "people.addNote", "people.addSkill", "people.createTag"]);
 export const addsOnly = (operation: Operation) => ADDS.has(operation);
 
-/** The People writes whose review can be revised field by field on the card. */
+/** The People, phase and signal writes whose review can be rebuilt (and, but for a reaffirm, revised) on the card. */
 const REVISABLE = new Set<Operation>([
 	"people.createPerson",
 	"people.updatePerson",
@@ -636,9 +708,14 @@ const REVISABLE = new Set<Operation>([
 	"people.deletePerson",
 	"people.setPersonPhoto",
 	"people.removePersonPhoto",
+	"phases.declare",
+	"phases.transition",
+	"signals.attest",
+	"signals.correct",
+	"signals.reaffirm",
 ]);
 export const editableChanges = (review: Review) =>
-	review.review.withheld || !REVISABLE.has(review.operation)
+	review.review.withheld || !REVISABLE.has(review.operation) || review.operation === "signals.reaffirm"
 		? []
 		: review.review.changes.filter((c) => !FIXED.has(c.field));
 
@@ -660,6 +737,27 @@ export function reviseInput(review: Review, edits: Record<string, string> = {}):
 	if (review.operation === "communication.saveDraft") {
 		const audience = audienceArgs(after("audience"));
 		return audience ? { subject: after("subject"), body: after("body"), audience } : null;
+	}
+	const key = (after("signal") as { key?: string } | undefined)?.key;
+	const reference = after("reference");
+	const signalFacts = () => ({
+		key,
+		value: after("value"),
+		asOf: after("asOf"),
+		detail: after("detail"),
+		...(typeof reference === "string" ? { reference } : {}),
+	});
+	switch (review.operation) {
+		case "phases.declare":
+			return { phase: (after("phase") as { phase: number }).phase };
+		case "phases.transition":
+			return { toPhase: (after("phase") as { phase: number }).phase, reason: after("reason") };
+		case "signals.attest":
+			return signalFacts();
+		case "signals.correct":
+			return after("value") === "retracted" ? { action: "retract", key } : { action: "correct", ...signalFacts() };
+		case "signals.reaffirm":
+			return { key };
 	}
 	if (!target) return null;
 	const personId = target.id;
@@ -726,6 +824,28 @@ export function refusalText(code: string | undefined, target: string | null): st
 			return "This file changed after Evry checked it, so nothing was imported. Ask Evry to check it again.";
 		default:
 			return "People refused this change, so nothing was saved.";
+	}
+}
+
+/** Why a phase or signal change was refused. Nothing was saved in each case. */
+export function intelligenceRefusalText(code: string | undefined): string {
+	switch (code) {
+		case "revision_conflict":
+		case "conflict":
+		case "not_current":
+			return "The phase or signal changed after Evry prepared this, so nothing was saved. Ask Evry to prepare it again.";
+		case "already_declared":
+			return "This church already has its starting phase, so nothing was saved. Ask Evry to move the phase instead.";
+		case "no_change":
+			return "The signal already has that answer, so nothing was saved.";
+		case "access_denied":
+			return "Your seat no longer allows this change, so nothing was saved. Only an Owner or Admin can change it.";
+		case "invalid_input":
+		case "invalid_reason":
+		case "not_reaffirmable":
+			return "Everyfield did not accept these values, so nothing was saved. Ask Evry to prepare it again.";
+		default:
+			return "Everyfield refused this change, so nothing was saved.";
 	}
 }
 

@@ -61,7 +61,7 @@ async function tick(mountMail: Parameters<typeof scheduledJobs>[0]["mountMail"])
 		db,
 		storage: null,
 		cleanup: null,
-		reminders: null,
+		effects: null,
 		digests: null,
 		mail: null,
 		mountMail,

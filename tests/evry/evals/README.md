@@ -55,8 +55,9 @@ Then the real system prompt runs with the tools the turn gives the actor, built 
 `golden-church.mts` seeds as real records into an isolated schema (`tests/support/test-database.mts`): 84 live people,
 2 removed people, 8 households, tags, skills, notes, photos, open tasks, two import receipts (the earlier one left two
 open review pairs and one dismissed pair), five current ministries and one archived one with their roles, people,
-required training, a Playbook checklist and measured team meetings, and Owner, Admin, Member, organization-seat and empty-church actors with
-live sessions and seats. A selection re-checks its rows with the real
+required training, a Playbook checklist and measured team meetings, a phase journey (declared at Discovery, Core Group
+Development since Aug 3, 2026), one answered manual signal, the Owner's Struggling private check-in, and Owner, Admin,
+Member, organization-seat and empty-church actors with live sessions and seats. A selection re-checks its rows with the real
 `verifyPeople`. `propose_change` prepares a real review card with `prepareProposal` in an open conversation. Nothing is
 approved and no effect job runs.
 
@@ -114,8 +115,9 @@ target, the judge's grades and the recording keys. Keep reports outside the repo
 - **Hard failure (release-blocking).** A Supported, Not yet or extra case failed a hard check: a required name or
   number from the seeded church, a forbidden phrase or invented row, the expected tool, operation and key inputs, a review
   card instead of a write, or a global gate. The gates are: it gives an answer, never says a change was made, never
-  claims rows were withheld, and never prints contact values from the records. `test:db` fails and names the case
-  ID, the failed check, the observed answer, the tool calls and the recording keys.
+  claims rows were withheld, never prints contact values from the records, and never lets the Owner's private check-in
+  reach the model or the answer. `test:db` fails and names the case ID, the failed check, the observed answer, the
+  tool calls and the recording keys.
 - **Known finding.** A case marked `"finding": { "checks": [...], "note": "..." }` failed the named checks when it
   was recorded. Only those checks are excused: they are reported, not blocking. Any other failing check (a global gate
   included), an error such as a missing recording, or a named check that starts to pass still fails `test:db`, so

@@ -192,8 +192,8 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 	assert.equal(await work(), "succeeded");
 	assert.match((await events(seatless, none)).text, /no application reads available/);
 	// No catalog offers direct writes, approvals, code, private care or coach tools to any context. Only a plant Owner or
-	// Admin may propose the reviewed People changes, the same floor as the native commands; any plant seat proposes changes
-	// to its own notifications.
+	// Admin may propose the reviewed People, Messages, phase and signal changes, the same floor as the native commands; any
+	// plant seat proposes changes to its own notifications.
 	for (const who of ["owner", "member", "orgOwner", "seatless"] as const) {
 		const catalog = readCatalog(await actor(who));
 		const operations = catalog.domains.flatMap((d) => d.operations.map((o) => o.operation));
@@ -236,6 +236,11 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 						"notifications.setPreferences",
 						"notifications.digestCadence.set",
 						...Object.keys(REVIEWED_WRITES).filter((op) => op.startsWith("teams.")),
+						"phases.declare",
+						"phases.transition",
+						"signals.attest",
+						"signals.correct",
+						"signals.reaffirm",
 					]
 				: who === "member"
 					? // A Member changes only their own bell and notification settings; the church digest is an Owner's or Admin's.
@@ -280,6 +285,11 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 						"notifications.preferences.get",
 						"notifications.previewPlanterDigest",
 						...teamsReads,
+						"phases.readCatalog",
+						"phases.readHistory",
+						"phases.readReadiness",
+						"signals.listDefinitions",
+						"signals.getHistory",
 					]
 				: who === "member"
 					? [
@@ -458,8 +468,10 @@ test("AC:INH-EDGES-03 AC:TEN-008 AC:EVRY-CONTEXT-BOUNDS a guessed foreign id and
 			"notifications_read",
 			"peopleOrganization_read",
 			"people_read",
+			"phases_read",
 			"propose_change",
 			"select_returned_rows",
+			"signals_read",
 			"teams_read",
 		],
 		"prompt text cannot add tools or scope; the owner's catalog decides them",

@@ -57,7 +57,10 @@ export type SourceRow = {
 		| "training"
 		| "meeting"
 		| "responsibility"
-		| "template";
+		| "template"
+		| "phase"
+		| "criterion"
+		| "signal";
 	id: string;
 	label: string;
 	fields: Record<string, unknown>;

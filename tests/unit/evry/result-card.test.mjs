@@ -5,6 +5,8 @@
 //     role and link to the person; no household row links to /people/.
 //   INV-result-card-*: every non-person read has its own title, count noun and rows (T-160): tags, a person's tags and
 //     skills, history, the pipeline, the import template, preview and receipt, and the export as a count card.
+//   INV-result-card-phases: the phase journey card is headed by the current phase and the day it began, marks a move
+//     backward, and an exit criterion with no measured data says "No data yet", never "Not met".
 //   INV-result-card-duplicate-pairs: listDuplicatePairs lists each imported person with the person it may duplicate.
 import assert from "node:assert/strict";
 import { test } from "node:test";
@@ -521,5 +523,58 @@ test("INV-result-card-duplicate-pairs: listDuplicatePairs is a Duplicates to rev
 	assert.deepEqual(
 		[none.summary, none.facts],
 		["0 people", ["No import has flagged a possible duplicate that still needs review."]],
+	);
+});
+
+test("INV-result-card-phases: the journey names the current phase and its start, and a criterion without data says so", () => {
+	const journey = cardView(
+		"phases.readHistory",
+		result("phases.readHistory", [
+			{
+				kind: "phase",
+				id: "current",
+				label: "Core Group Development",
+				fields: { current: true, phase: "1", since: "2026-08-03", timeZone: "America/Chicago", declarable: false },
+			},
+			{
+				kind: "phase",
+				id: "entry:1",
+				label: "Discovery",
+				fields: {
+					entry: "movement",
+					direction: "backward",
+					reason: "Starting over",
+					by: "Nate Ellis",
+					on: "2026-04-01",
+				},
+			},
+		]),
+		null,
+	);
+	assert.deepEqual(
+		[journey.title, journey.summary, journey.icon],
+		["Phase journey", "Core Group Development", "phase"],
+	);
+	assert.equal(journey.rows[0].line, "Current phase · since Aug 3, 2026");
+	assert.deepEqual(journey.rows[1].mark, { kind: "status", text: "Backward", warn: true });
+	assert.ok(journey.rows.every((r) => r.href === null));
+
+	const readiness = cardView(
+		"phases.readReadiness",
+		result("phases.readReadiness", [
+			{ kind: "phase", id: "1", label: "Core Group Development", fields: { next: "Launch Team Formation" } },
+			{ kind: "criterion", id: "committed_adults", label: "30 committed adults", fields: { status: "no data yet" } },
+			{ kind: "criterion", id: "worship_leader", label: "Worship leader identified", fields: { status: "met" } },
+		]),
+		null,
+	);
+	assert.deepEqual([readiness.title, readiness.summary], ["Exit criteria", "2 criteria"]);
+	assert.deepEqual(
+		readiness.rows.map((r) => [r.name, r.line]),
+		[
+			["Core Group Development", "Before Launch Team Formation"],
+			["30 committed adults", "No data yet"],
+			["Worship leader identified", "Met"],
+		],
 	);
 });

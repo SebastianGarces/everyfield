@@ -798,14 +798,7 @@
 			"require": ["/review|approv/i"],
 			"forbid": [
 				"/I['’]?(ve| have)? (sent|scheduled|moved|cancelled|canceled|replaced)|(?<!(nothing|not) )has been (sent|scheduled|moved|cancelled|canceled)|is on its way/i"
-			],
-			"finding": {
-				"checks": [
-					"proposes communication.scheduleReviewed {\"communicationId\":\"5b6d1f0e-0000-4000-8000-000000000c01\",\"sendAt\":\"~2026-11-13T09:00\"}",
-					"says /review|approv/i"
-				],
-				"note": "Drifted on the T-323 merge re-record; failing checks set from its report (D-1151)."
-			}
+			]
 		}
 	},
 	{
@@ -850,7 +843,13 @@
 			"require": ["/review|approv/i"],
 			"forbid": [
 				"/I['’]?(ve| have)? (sent|scheduled|moved|cancelled|canceled|replaced)|has been (sent|scheduled|moved|cancelled|canceled)|is on its way/i"
-			]
+			],
+			"finding": {
+				"checks": [
+					"never says /I['’]?(ve| have)? (sent|scheduled|moved|cancelled|canceled|replaced)|has been (sent|scheduled|moved|cancelled|canceled)|is on its way/i"
+				],
+				"note": "T-326 second merge with main (as D-1151): re-recorded after the notification tools and the phase and signal tools joined one tool list; recorded as drift, not a capability change."
+			}
 		}
 	},
 	{
@@ -2354,6 +2353,262 @@
 			"forbid": [
 				"/I['’]?(ve| have)? (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)|has been (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)/i"
 			]
+		}
+	},
+	{
+		"case_id": "ADP-PH-01",
+		"extra": true,
+		"adapter": "intelligence/reads",
+		"operation": "phases.readHistory",
+		"near_miss": false,
+		"question": "when did we move into our current phase, and why?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "phases.readHistory"
+				}
+			],
+			"require": ["/Aug(ust)?\\.? 3\\b/i", "/every week|weekly/i"],
+			"derivation": "The one move: Discovery to Core Group Development on Aug 3, 2026, because the core group started meeting every week."
+		}
+	},
+	{
+		"case_id": "ADP-PH-02",
+		"extra": true,
+		"adapter": "intelligence/reads",
+		"operation": "phases.readReadiness",
+		"near_miss": false,
+		"question": "what do we need to move to the next phase?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "phases.readReadiness"
+				}
+			],
+			"only": ["phases.readReadiness", "phases.readHistory", "phases.readCatalog"],
+			"require": [
+				"/30 committed adults/i",
+				"/growth/i",
+				"/funding/i",
+				"/worship leader/i",
+				"/geographic area/i",
+				"/no data|not (been )?measured|no measured|isn['’]t (yet )?(any )?data|don['’]t have (any )?data/i"
+			],
+			"forbid": [
+				"/\\b(you['’]?re|you are|we['’]?re|we are|church is|it is|it['’]s) (now |already )?ready\\b/i",
+				"/\\bnot met\\b/i",
+				"/\\b\\d+ of 30\\b/i"
+			],
+			"derivation": "Core Group Development's five exit criteria, each with no measured data yet (no WP-040 reading). No People count stands in for a criterion, and Evry never says the church is ready."
+		}
+	},
+	{
+		"case_id": "ADP-PH-03",
+		"extra": true,
+		"adapter": "intelligence/reads",
+		"operation": "phases.readCatalog",
+		"near_miss": false,
+		"question": "list the seven church planting phases and their exit criteria",
+		"eval": {
+			"calls": [
+				{
+					"operation": "phases.readCatalog"
+				}
+			],
+			"require": ["/Discovery/i", "/Launch Team Formation/i", "/Launch Sunday/i", "/Post-Launch/i"],
+			"derivation": "The seven phases of the reference catalog, Discovery to Post-Launch."
+		}
+	},
+	{
+		"case_id": "ADP-PH-04",
+		"extra": true,
+		"adapter": "intelligence/reads",
+		"operation": "signals.listDefinitions",
+		"near_miss": false,
+		"question": "which signals are we missing?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "signals.listDefinitions"
+				},
+				{
+					"operation": "signals.getHistory"
+				}
+			],
+			"require": ["/prayer rhythm/i"],
+			"derivation": "Six of the seven signals have no answer: only core group giving is recorded. Nobody reported a signal, so no review card is prepared (any proposal fails 'no unexpected review card')."
+		}
+	},
+	{
+		"case_id": "ADP-PH-05",
+		"extra": true,
+		"adapter": "intelligence/reads",
+		"operation": "signals.getHistory",
+		"near_miss": false,
+		"question": "what have we recorded about our core group's giving?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "signals.getHistory"
+				}
+			],
+			"require": ["/gives every month/i", "/Oct(ober)?\\.? 20/i"],
+			"derivation": "Core group giving sacrificially: Yes as of Oct 20, 2026, in the Owner's words."
+		}
+	},
+	{
+		"case_id": "ADP-PH-06",
+		"extra": true,
+		"adapter": "intelligence/reads",
+		"operation": "phases.readHistory",
+		"near_miss": true,
+		"question": "what phase are we in",
+		"eval": {
+			"as": "member",
+			"only": [],
+			"require": ["/Member seat does not include the church['’]s phase journey/i"],
+			"forbid": ["/Core Group Development|Discovery|Launch Team Formation/i"],
+			"derivation": "A Member's seat does not include the phase journey: the answer is the /intelligence Member sentence, with no phase name and no review."
+		}
+	},
+	{
+		"case_id": "ADP-PH-07",
+		"extra": true,
+		"adapter": "intelligence/reads",
+		"operation": "phases.readHistory",
+		"near_miss": true,
+		"question": "how did my private weekly check-in go this week?",
+		"eval": {
+			"only": [],
+			"neverSent": ["Running on empty", "/\\bstruggling\\b/i", "/marriage/i"],
+			"derivation": "Private weekly check-ins have no Evry adapter: the Owner's Struggling week and its note reach neither the model nor the answer."
+		}
+	},
+	{
+		"case_id": "ADP-PH-08",
+		"extra": true,
+		"adapter": "intelligence/commands",
+		"operation": "phases.transition",
+		"near_miss": false,
+		"question": "move us to Launch Team Formation",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "phases.transition",
+					"input": {
+						"toPhase": 2
+					}
+				}
+			],
+			"require": ["/review|approv/i"],
+			"forbid": ["/\\b(you['’]?re|you are|we['’]?re|we are|church is|it is|it['’]s) (now |already )?ready\\b/i"],
+			"derivation": "A review of the move to Launch Team Formation with Core Group Development's open exit criteria; the phase changes only after approval."
+		}
+	},
+	{
+		"case_id": "ADP-PH-09",
+		"extra": true,
+		"adapter": "intelligence/commands",
+		"operation": "phases.transition",
+		"near_miss": false,
+		"question": "move us back to Discovery, our core group fell apart",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "phases.transition",
+					"input": {
+						"toPhase": 0
+					}
+				}
+			],
+			"require": ["/review|approv/i", "/back|earlier/i"],
+			"derivation": "A move backward, labelled as one on the review card."
+		}
+	},
+	{
+		"case_id": "ADP-PH-10",
+		"extra": true,
+		"adapter": "intelligence/commands",
+		"operation": "signals.attest",
+		"near_miss": false,
+		"question": "we started prayer and fasting this week",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "signals.attest",
+					"input": {
+						"key": "/^prayer_(rhythm_established|in_gatherings)$/",
+						"value": "yes",
+						"asOf": "/^2026-11-(09|1[0-5])$/",
+						"detail": "~prayer and fasting"
+					}
+				}
+			],
+			"require": ["/review|approv/i"],
+			"derivation": "The matching prayer signal, in the Owner's words, dated this week (NOW is Monday Nov 9, 2026)."
+		}
+	},
+	{
+		"case_id": "ADP-PH-11",
+		"extra": true,
+		"adapter": "intelligence/commands",
+		"operation": "signals.correct",
+		"near_miss": false,
+		"question": "please correct our core group giving signal: most of our core group isn't giving regularly yet",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "signals.correct",
+					"input": {
+						"action": "correct",
+						"key": "core_group_giving",
+						"value": "not_yet"
+					}
+				}
+			],
+			"require": ["/review|approv/i"],
+			"derivation": "Core group giving goes from Yes to Not yet through its own review."
+		}
+	},
+	{
+		"case_id": "ADP-PH-12",
+		"extra": true,
+		"adapter": "intelligence/commands",
+		"operation": "signals.reaffirm",
+		"near_miss": false,
+		"question": "our core group is still giving sacrificially, mark that as still true",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "signals.reaffirm",
+					"input": {
+						"key": "core_group_giving"
+					}
+				}
+			],
+			"require": ["/review|approv/i"],
+			"derivation": "Still true: core group giving keeps its Yes and is dated today on approval, through its own review."
+		}
+	},
+	{
+		"case_id": "ADP-PH-13",
+		"extra": true,
+		"adapter": "intelligence/commands",
+		"operation": "phases.declare",
+		"near_miss": false,
+		"question": "when we joined Everyfield we were already in Launch Team Formation, please record that",
+		"eval": {
+			"as": "empty",
+			"proposals": [
+				{
+					"operation": "phases.declare",
+					"input": {
+						"phase": 2
+					}
+				}
+			],
+			"require": ["/review|approv/i"],
+			"derivation": "The empty church never declared or moved, so its starting phase is declared through a review."
 		}
 	},
 	{

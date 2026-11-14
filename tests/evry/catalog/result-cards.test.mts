@@ -78,6 +78,11 @@ const PROBES: Record<string, Record<string, unknown> | (() => Promise<SourceResu
 	"teams.listResponsibilities": { teamId: teamId("Worship") },
 	"teams.previewResponsibilities": { teamId: teamId("Worship") },
 	"teams.listMeetings": { teamId: teamId("Core team") },
+	"phases.readCatalog": {},
+	"phases.readHistory": {},
+	"phases.readReadiness": {},
+	"signals.listDefinitions": {},
+	"signals.getHistory": {},
 	[catalog.SELECT_RETURNED_ROWS]: async () => {
 		const list = await read("people.listPeople", {});
 		return { ...list, operation: catalog.SELECT_RETURNED_ROWS, rows: list.rows.slice(0, 2), total: 2 };
