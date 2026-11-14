@@ -1,20 +1,22 @@
-// T-41: `bin/dev nightly` with fake probes, a fake preview and a fake gh, and the coverage map writer on a real
-// throwaway repository whose test reaches a source file only through a child process.
+// T-41, T-216: `bin/dev nightly` with fake probes, a fake preview and a fake gh, and the coverage map writer the GitHub
+// nightly runs, on a real throwaway repository whose test reaches a source file only through a child process.
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
+import { parseCoverageMap } from "../../tools/ci/select.ts";
 import {
 	counts,
 	coverageMap,
-	type Gh,
+	coverageMapCommand,
 	nightly,
 	type NightlyDeps,
 	nightlyLog,
 	reportFailure,
 } from "../../scripts/nightly.ts";
+import type { Gh } from "../../scripts/check.ts";
 
 const HEAD = "f".repeat(40);
 
@@ -39,10 +41,6 @@ function deps(dir: string, over: Partial<NightlyDeps> = {}) {
 		load: () => ({ load: 3, cores: 12 }),
 		slot: async (project) => (events.push(`slot ${project}`), null),
 		checkout: () => (events.push("checkout"), { head: HEAD, worktree: "/w", remove: () => events.push("remove") }),
-		coverage: () => (
-			events.push("coverage"),
-			{ passed: 40, failed: 0, tests: { "tests/workflow/dev.test.mjs": ["scripts/dev.ts"] } }
-		),
 		preview: async () => (
 			events.push("preview up"),
 			{ url: "https://n.localhost:1355", close: () => events.push("preview down") }
@@ -88,33 +86,15 @@ test("T-41 a loaded machine or a full preview pool records nightly_skipped and s
 			[["nightly_skipped", "all", "No free preview slot: 4/4 previews in use"]],
 		);
 	});
-	await t.test("the pool fills while coverage runs: no preview, no browser", async (t) => {
-		const dir = home(t);
-		let asked = 0;
-		const { d, events } = deps(dir, {
-			slot: async () => (++asked === 1 ? null : "No free preview slot: 4/4 previews in use"),
-		});
-		await nightly(d);
-		assert.deepEqual(events, ["checkout", "coverage", "remove"]);
-		assert.deepEqual(
-			lines(dir).map((l) => [l.type, l.suite]),
-			[
-				["nightly_result", "coverage"],
-				["nightly_skipped", "tests/ui"],
-			],
-		);
-	});
 });
 
-test("T-41 a nightly run writes the map, runs one engine at a time and closes its preview", async (t) => {
+test("T-216 a local nightly runs only tests/ui, one engine at a time, closes its preview and writes no coverage map", async (t) => {
 	const dir = home(t);
 	const { d, events } = deps(dir);
 	await nightly(d);
 	assert.deepEqual(events, [
 		"slot nightly",
 		"checkout",
-		"coverage",
-		"slot /w",
 		"preview up",
 		"ui chromium https://n.localhost:1355",
 		"ui webkit https://n.localhost:1355",
@@ -125,16 +105,7 @@ test("T-41 a nightly run writes the map, runs one engine at a time and closes it
 		// The fake clock ticks one second per read.
 		{
 			type: "nightly_result",
-			at: "1970-01-01T00:00:03.000Z",
-			head: HEAD,
-			suite: "coverage",
-			passed: 40,
-			failed: 0,
-			durationMs: 2000,
-		},
-		{
-			type: "nightly_result",
-			at: "1970-01-01T00:00:05.000Z",
+			at: "1970-01-01T00:00:02.000Z",
 			head: HEAD,
 			suite: "tests/ui chromium",
 			passed: 10,
@@ -143,7 +114,7 @@ test("T-41 a nightly run writes the map, runs one engine at a time and closes it
 		},
 		{
 			type: "nightly_result",
-			at: "1970-01-01T00:00:07.000Z",
+			at: "1970-01-01T00:00:04.000Z",
 			head: HEAD,
 			suite: "tests/ui webkit",
 			passed: 10,
@@ -151,26 +122,7 @@ test("T-41 a nightly run writes the map, runs one engine at a time and closes it
 			durationMs: 1000,
 		},
 	]);
-	assert.deepEqual(JSON.parse(readFileSync(join(dir, "coverage-map.json"), "utf8")), {
-		head: HEAD,
-		createdAt: "1970-01-01T00:00:02.000Z",
-		tests: { "tests/workflow/dev.test.mjs": ["scripts/dev.ts"] },
-	});
-});
-
-test("T-41 a coverage run with failures keeps the previous map", async (t) => {
-	const dir = home(t);
-	const previous = '{"head":"old","createdAt":"1970-01-01T00:00:00.000Z","tests":{}}\n';
-	writeFileSync(join(dir, "coverage-map.json"), previous);
-	const { d } = deps(dir, { gh: fakeGh().gh, coverage: () => ({ passed: 39, failed: 1, tests: {} }) });
-	await nightly(d);
-	assert.equal(readFileSync(join(dir, "coverage-map.json"), "utf8"), previous);
-	assert.deepEqual(
-		lines(dir)
-			.filter((l) => l.suite === "coverage")
-			.map((l) => [l.passed, l.failed]),
-		[[39, 1]],
-	);
+	assert.equal(existsSync(join(dir, "coverage-map.json")), false);
 });
 
 test("T-41 a browser run that throws still closes the preview and removes the worktree", async (t) => {
@@ -235,6 +187,59 @@ test("T-41 a failed nightly reports once per head and suite", async (t) => {
 	assert.equal(reportFailure(dir, gh, { ...entry, head: "e".repeat(40) }), "commented");
 	assert.equal(reportFailure(dir, gh, { ...entry, head: "e".repeat(40) }), "known");
 	assert.equal(issues[0].comments.length, 2);
+});
+
+/** A throwaway repository with selectable tests, committed so the coverage-map command can name its HEAD. */
+function coverageRepo(t: { after(fn: () => void): void }, files: Record<string, string>) {
+	const root = mkdtempSync(join(tmpdir(), "evf-coverage-repo-"));
+	t.after(() => rmSync(root, { recursive: true, force: true }));
+	for (const [path, text] of Object.entries(files)) {
+		mkdirSync(dirname(join(root, path)), { recursive: true });
+		writeFileSync(join(root, path), text);
+	}
+	const git = (...args: string[]) =>
+		execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t.invalid", ...args], {
+			cwd: root,
+			encoding: "utf8",
+		});
+	git("init", "-q");
+	git("add", ".");
+	git("commit", "-qm", "base");
+	return { root, head: git("rev-parse", "HEAD").trim() };
+}
+
+test("T-216 the GitHub nightly's coverage-map command writes a map parseCoverageMap accepts, and none when a test fails", (t) => {
+	const lib = "export const add = (a, b) => a + b;\n";
+	const passing = [
+		'import { test } from "node:test";',
+		'import assert from "node:assert/strict";',
+		'import { add } from "../../scripts/lib.mjs";',
+		'test("adds", () => assert.equal(add(1, 2), 3));',
+	].join("\n");
+	const { root, head } = coverageRepo(t, { "scripts/lib.mjs": lib, "tests/workflow/add.test.mjs": passing });
+	const out = join(home(t), "coverage-map.json");
+	const at = new Date("2026-11-13T07:30:00.000Z");
+	assert.equal(
+		coverageMapCommand([out], root, () => at),
+		0,
+	);
+	const map = parseCoverageMap(readFileSync(out, "utf8"));
+	assert.deepEqual(map, {
+		head,
+		createdAt: "2026-11-13T07:30:00.000Z",
+		tests: { "tests/workflow/add.test.mjs": ["scripts/lib.mjs"] },
+	});
+
+	const failing = coverageRepo(t, {
+		"scripts/lib.mjs": lib,
+		"tests/workflow/add.test.mjs": passing,
+		"tests/workflow/broken.test.mjs":
+			'import { test } from "node:test";\ntest("fails", () => { throw new Error("no"); });\n',
+	});
+	const none = join(home(t), "coverage-map.json");
+	assert.equal(coverageMapCommand([none], failing.root), 1);
+	assert.equal(existsSync(none), false, "a failing coverage run writes no map, so the workflow uploads none");
+	assert.equal(coverageMapCommand([], root), 2);
 });
 
 test("T-41 the coverage map records what each test ran or read, also through a child process", (t) => {

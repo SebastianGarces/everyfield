@@ -6,7 +6,7 @@ import { parseArgs } from "node:util";
 import { outcomeOf, parseDiagnostics, typecheckPackages, type Outcome } from "./typecheck.ts";
 
 /**
- * Time bun check (the `typecheck` scripts), TypeScript 7 (the `typecheck:tsc` scripts) and TypeScript 6 (each package's
+ * Time bun check (the `typecheck:bun` scripts), TypeScript 7 (the `typecheck` scripts) and TypeScript 6 (each package's
  * own `typescript`, which lint, Next and the reference build still need) on each typecheck package (T-53, T-252, T-110).
  * Each tool runs with the arguments of its package script, so apps/web reads tsconfig.typecheck.json.
  * `node tools/ci/typecheck-compare.ts [--runs 3] [--package packages/ui]...`
@@ -36,8 +36,8 @@ const argsOf = (script: string): string[] => script.trim().split(/\s+/).slice(1)
 
 function commands(root: string, dir: string): Record<Tool, string[]> {
 	const pkg = typecheckPackages(root).find((p) => p.dir === dir);
-	const [bunScript, tscScript] = [pkg?.scripts.typecheck, pkg?.scripts["typecheck:tsc"]];
-	if (!bunScript || !tscScript) throw new Error(`${dir} has no typecheck and typecheck:tsc scripts`);
+	const [bunScript, tscScript] = [pkg?.scripts["typecheck:bun"], pkg?.scripts.typecheck];
+	if (!bunScript || !tscScript) throw new Error(`${dir} has no typecheck:bun and typecheck scripts`);
 	const ts6 = join(root, dir, "node_modules/typescript/bin/tsc");
 	const ts7 = join(root, "node_modules/typescript-7/bin/tsc");
 	// The real binary behind the pinned shim, so its own start-up is what is timed.
@@ -182,7 +182,7 @@ if (import.meta.main) {
 	const packages = values.package?.length
 		? values.package
 		: typecheckPackages(root)
-				.filter((p) => p.scripts["typecheck:tsc"])
+				.filter((p) => p.scripts["typecheck:bun"])
 				.map((p) => p.dir);
 	const { rows, markdown } = await compare(root, packages, Number(values.runs));
 	process.stdout.write(markdown);
