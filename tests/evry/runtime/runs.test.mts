@@ -325,6 +325,9 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 						"launch.recordOutcome",
 						"launch.submitDebrief",
 						"launch.publishDebriefSummary",
+						// Its milestones (T-382).
+						"launch.completeMilestone",
+						"launch.reopenMilestone",
 					]
 				: who === "member"
 					? // A Member changes only their own bell, notification settings and account, and the Meetings changes the native
