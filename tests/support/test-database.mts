@@ -51,6 +51,31 @@ export async function dropSchema(admin: Database, name: string) {
 	await admin.execute(sql.raw(`DROP SCHEMA IF EXISTS ${identifier(name)} CASCADE`));
 }
 
+/**
+ * Moves the database clock that `schema`'s queries read to `at`'s frame, still advancing: schema-local `now()`,
+ * `transaction_timestamp()`, `statement_timestamp()` and `clock_timestamp()` add a fixed shift to pg_catalog's, and
+ * shadow them because every pool's search_path puts the schema ahead of pg_catalog. Installed before the migrations,
+ * so column defaults and `SET search_path FROM CURRENT` functions read it too. The SQL keywords (CURRENT_TIMESTAMP,
+ * CURRENT_DATE, LOCALTIMESTAMP) and `pg_catalog.`-qualified calls still read the real clock.
+ */
+export async function pinSchemaClock(admin: Database, schema: string, at: Date) {
+	const name = identifier(schema);
+	const { rows } = await admin.execute<{ shift: string }>(
+		sql`SELECT (${at.toISOString()}::timestamptz - pg_catalog.clock_timestamp())::text AS shift`,
+	);
+	const shift = rows[0]!.shift;
+	for (const [fn, volatility] of [
+		["clock_timestamp", "VOLATILE"],
+		["statement_timestamp", "STABLE"],
+		["transaction_timestamp", "STABLE"],
+		["now", "STABLE"],
+	])
+		await admin.execute(
+			sql.raw(`CREATE FUNCTION ${name}.${fn}() RETURNS timestamptz LANGUAGE sql ${volatility} PARALLEL SAFE
+				AS $$ SELECT pg_catalog.${fn}() + '${shift}'::interval $$`),
+		);
+}
+
 /** A login role with no privileges of its own, granted the given `everyfield_*` capabilities. */
 export async function createLoginRole(
 	admin: Database,
@@ -99,7 +124,8 @@ export type TestDatabase<Role extends string> = {
 /**
  * A fresh, migrated schema with its login roles. `roles` maps a name to its capabilities (default: one `runtime`
  * role); `migrate: false` leaves the schema empty for a suite that applies migrations itself. `schema` names the schema
- * instead of `prefix`, for a command that accepts only one shape of name.
+ * instead of `prefix`, for a command that accepts only one shape of name. `clock` pins the schema's database clock to
+ * that instant's frame (`pinSchemaClock`).
  */
 export async function testDatabase<Role extends string = "runtime">({
 	prefix,
@@ -107,12 +133,14 @@ export async function testDatabase<Role extends string = "runtime">({
 	migrate = true,
 	max = 4,
 	schema: name,
+	clock,
 }: {
 	prefix: string;
 	roles?: Record<Role, readonly Capability[]>;
 	migrate?: boolean;
 	max?: number;
 	schema?: string;
+	clock?: Date;
 }): Promise<TestDatabase<Role>> {
 	const source = testDatabaseUrl();
 	const schema = identifier(name ?? `${prefix}_${randomUUID().replaceAll("-", "")}`);
@@ -141,6 +169,7 @@ export async function testDatabase<Role extends string = "runtime">({
 	}
 	try {
 		await createSchema(admin, schema);
+		if (clock) await pinSchemaClock(admin, schema, clock);
 		if (migrate) await applyMigrations(admin, schema);
 		for (const [role, capabilities] of Object.entries(roles) as [Role, readonly Capability[]][]) {
 			const name = identifier(`${prefix}_${randomBytes(8).toString("hex")}`);
