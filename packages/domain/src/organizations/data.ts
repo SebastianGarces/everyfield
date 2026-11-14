@@ -5,12 +5,13 @@ import "server-only";
 import { z } from "zod";
 import type { RequestActor } from "../access/session.ts";
 import { csvLine } from "../people/csv/format.ts";
+import { orgSees } from "./programs.ts";
 import { answer, one, parse, refuse, seatOf, write, type Executor } from "./seat.ts";
 
 // Taking the pipeline out of Everyfield and removing a person on request (REQ-MUL-005). Only an exact-organization
 // Owner or Admin does either. The export is one statement with the live check inside it; it reads no note, move
-// reason, feedback body or conversation, nothing from a resident's own account, and a linked resident's milestone marks
-// only while they share milestone progress. Removal runs the established way (C88) and keeps only what the
+// reason, feedback body or conversation, nothing from a resident's own account, and a resident's own milestone marks
+// only while their live link shares milestone progress. Removal runs the established way (C88) and keeps only what the
 // organization needs without the person: completed enrollments as program completion counts, its activity record with
 // values, reasons and actors scrubbed, and the removal record itself.
 
@@ -96,11 +97,7 @@ export async function readPipelineExport(db: Executor, authority: RequestActor) 
 o AS (SELECT o.name,o.timezone,to_char(clock_timestamp() AT TIME ZONE o.timezone,'YYYY-MM-DD HH24:MI') AS made,
  (clock_timestamp() AT TIME ZONE o.timezone)::date::text AS day FROM organization o JOIN g ON g.allowed WHERE o.id=${org}::uuid),
 x AS (SELECT pp.person_id,p.display_name,p.first_name,p.last_name,p.email,p.phone,p.street,p.city,p.state_province,
-  p.postal_code,p.country,p.state,s.label AS stage,
-  -- A linked resident's milestone marks are their progress: they export only while a current link shares it.
-  (NOT EXISTS(SELECT FROM residency_link l WHERE l.person_id=pp.person_id AND l.organization_id=pp.organization_id)
-   OR EXISTS(SELECT FROM residency_link l WHERE l.person_id=pp.person_id AND l.organization_id=pp.organization_id
-    AND l.ended_at IS NULL AND l.share_milestones)) AS marks
+  p.postal_code,p.country,p.state,s.label AS stage
  FROM pipeline_person pp JOIN person p ON p.id=pp.person_id AND p.tenant_id=pp.organization_id
  JOIN pipeline_stage s ON s.id=pp.stage_id AND s.organization_id=pp.organization_id
  WHERE EXISTS(SELECT FROM o) AND pp.organization_id=${org}::uuid AND p.state IN ('live','retired')
@@ -119,10 +116,12 @@ SELECT g.allowed,(SELECT to_jsonb(o) FROM o) AS org,
    WHERE mp.organization_id=${org}::uuid AND (mpp.id=x.person_id OR mpp.merged_into_person_id=x.person_id)),'[]'::jsonb),
   'enrollments',coalesce((SELECT jsonb_agg(jsonb_build_object('program',dp.name,'kind',dp.kind,'cohort',e.cohort_label,
     'status',e.status,'started',e.started_on::text,'expected',e.expected_end_on::text,'stage',ds.label,
-    'milestones',coalesce((SELECT jsonb_agg(jsonb_build_object('title',dm.title,'on',em.completed_on::text)
-      ORDER BY em.completed_on,dm.position,dm.id)
-     FROM enrollment_milestone em JOIN development_milestone dm ON dm.id=em.milestone_id AND dm.organization_id=em.organization_id
-     WHERE x.marks AND em.enrollment_id=e.id AND em.organization_id=e.organization_id),'[]'::jsonb))
+    'milestones',coalesce((SELECT jsonb_agg(jsonb_build_object('title',dm.title,'on',c.completed_on::text)
+      ORDER BY c.completed_on,dm.position,dm.id)
+     FROM enrollment_milestone c JOIN development_milestone dm ON dm.id=c.milestone_id AND dm.organization_id=c.organization_id
+     -- Each mark exports as the organization sees it (orgSees): what it recorded itself always, a resident's own
+     -- mark only while their live link shares milestone progress.
+     WHERE c.enrollment_id=e.id AND c.organization_id=e.organization_id AND ${orgSees}),'[]'::jsonb))
     ORDER BY e.started_on,lower(dp.name),e.id)
    FROM development_enrollment e JOIN development_program dp ON dp.id=e.program_id AND dp.organization_id=e.organization_id
    LEFT JOIN development_stage ds ON ds.id=e.current_stage_id

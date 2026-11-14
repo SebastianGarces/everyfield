@@ -206,6 +206,10 @@ before(async () => {
 	 accepted_at,consent_revision,revision,share_foundations,share_milestones)
 	 VALUES(${link},${grace.id},${casey},${caseyAccount.id},${affiliation},${invitation},clock_timestamp(),1,1,false,true)`);
 	await admin.execute(sql`UPDATE person SET linked_account_id=${caseyAccount.id} WHERE id=${casey}`);
+	// Casey also marked "Lead a small group" done herself: a resident-sourced mark, unlike Ana's recorded one.
+	await admin.execute(sql`INSERT INTO enrollment_milestone(id,organization_id,enrollment_id,version_id,milestone_id,source,
+	 completed_on,recorder_id) SELECT ${randomUUID()},e.organization_id,e.id,e.version_id,${milestones[1]!.id},'resident',
+	 ${today}::date,${caseyAccount.id} FROM development_enrollment e WHERE e.id=${enrollments.casey}`);
 });
 
 test("AC:ADR1-005 INV-privacy: the export holds contact, stage history, programs, enrollments and completions, and says what and when", async () => {
@@ -252,6 +256,7 @@ test("AC:ADR1-005 INV-privacy: the export holds contact, stage history, programs
 		of("milestone_completed").map((r) => [r.name, r.milestone, r.date]),
 		[
 			["Casey Lee", "Write a church planting prospectus", today],
+			["Casey Lee", "Lead a small group", today],
 			["Jordan Reyes", "Write a church planting prospectus", today],
 		],
 	);
@@ -272,8 +277,20 @@ test("AC:ADR1-005 INV-privacy: after Casey stops sharing milestone progress the 
 	await admin.execute(sql`UPDATE residency_link SET share_milestones=false,consent_revision=consent_revision+1,
 	 revision=revision+1 WHERE id=${link}`);
 	const now = table((await exported()).text);
-	const marks = (t: typeof now) => t.filter((r) => r.record === "milestone_completed").map((r) => r.name);
-	assert.deepEqual([marks(before), marks(now)], [["Casey Lee", "Jordan Reyes"], ["Jordan Reyes"]]);
+	const marks = (t: typeof now) =>
+		t.filter((r) => r.record === "milestone_completed").map((r) => `${r.name}: ${r.milestone}`);
+	// Only Casey's own mark drops; the one Ana recorded for Grace Austin always exports.
+	assert.deepEqual(
+		[marks(before), marks(now)],
+		[
+			[
+				"Casey Lee: Write a church planting prospectus",
+				"Casey Lee: Lead a small group",
+				"Jordan Reyes: Write a church planting prospectus",
+			],
+			["Casey Lee: Write a church planting prospectus", "Jordan Reyes: Write a church planting prospectus"],
+		],
+	);
 	// Everything else Grace Austin recorded about Casey is still there.
 	const caseyRows = (t: typeof now) => t.filter((r) => r.person_id === casey && r.record !== "milestone_completed");
 	assert.deepEqual(caseyRows(now), caseyRows(before));
