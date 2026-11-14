@@ -471,8 +471,9 @@ export async function converse(
 					INSERT INTO conversation_event(conversation_id,sequence,turn_id,kind,body)
 					SELECT id,last_sequence,${open.lease.turnId}::uuid,'tool_result',${JSON.stringify({ operation: check.operation, input: check.input, result: check.result })}::jsonb FROM c`);
 			}
-			const proposal = await prepareProposal(db, actor, open.lease, open.id, call, MAIL).catch((error) =>
-				error instanceof EvryRefusal ? error.code : "unknown",
+			// An import reads the case's attached files, as a turn's review does (runtime/turn.ts).
+			const proposal = await prepareProposal(db, actor, open.lease, open.id, call, MAIL, conversationFiles).catch(
+				(error) => (error instanceof EvryRefusal ? error.code : "unknown"),
 			);
 			if (typeof proposal === "string" || !proposal) {
 				card.error = proposal || "source_unavailable";
