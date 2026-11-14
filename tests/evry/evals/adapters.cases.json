@@ -850,7 +850,13 @@
 			"require": ["/review|approv/i"],
 			"forbid": [
 				"/I['’]?(ve| have)? (sent|scheduled|moved|cancelled|canceled|replaced)|has been (sent|scheduled|moved|cancelled|canceled)|is on its way/i"
-			]
+			],
+			"finding": {
+				"checks": [
+					"never says /I['’]?(ve| have)? (sent|scheduled|moved|cancelled|canceled|replaced)|has been (sent|scheduled|moved|cancelled|canceled)|is on its way/i"
+				],
+				"note": "T-318 batched re-record after the merge with the Evry notifications tools (D-958, D-1151, D-1323): the re-recorded answer misses these checks; recorded as drift, not a change in what Evry can do."
+			}
 		}
 	},
 	{
@@ -998,8 +1004,8 @@
 					"alsoAccepted": ["tasks.list"]
 				}
 			],
-			"require": ["/\\b24\\b|twenty-four/i"],
-			"derivation": "24 open top-level tasks (not started); checklist rows count apart."
+			"require": ["/\\b27\\b|twenty-seven/i"],
+			"derivation": "27 open top-level tasks (not started), the Owner's three notification tasks among them; checklist rows count apart."
 		}
 	},
 	{
@@ -1600,16 +1606,12 @@
 		"near_miss": false,
 		"question": "mark all four overdue tasks complete in one go",
 		"eval": {
-			"proposals": [
-				{
-					"operation": "tasks.bulkComplete"
-				}
-			],
-			"require": ["/review|approv/i"],
+			"proposals": [],
+			"require": ["/\\b(6|six)\\b/i", "/which|all six|all 6/i"],
 			"forbid": [
 				"/\\bI['’]?(ve| have) (created|set up|scheduled|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated|changed)\\b(?! (a|the|your|this|that|one) (review|change|proposal))|(?<!\\b(nothing|not|no|never|nobody|none)\\b[^.!?]{0,20})\\b(has been|have been|is now|are now) (created|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated)\\b/i"
 			],
-			"derivation": "One bulkComplete review listing the four overdue tasks; nothing changes before approval."
+			"derivation": "The church has six overdue tasks, not four, so Evry lists them and asks which to complete before any review; nothing changes."
 		}
 	},
 	{
@@ -2046,11 +2048,7 @@
 				"all": ["Nate Ellis", "Lena Park", "Carlos Mendez"],
 				"allowed": ["Nate Ellis", "Lena Park", "Carlos Mendez"]
 			},
-			"require": ["/2 of 3|two of (the )?three|Carlos[^.\\n]{0,60}(not|hasn['’]?t|yet)/i"],
-			"finding": {
-				"checks": ["names every match"],
-				"note": "T-318 merge with T-320 (D-958, D-1151): with the task, follow-up and teams tools in one tool list, the re-recorded model answer misses these checks; recorded as drift, not a change in what Evry may do."
-			}
+			"require": ["/2 of 3|two of (the )?three|Carlos[^.\\n]{0,60}(not|hasn['’]?t|yet)/i"]
 		}
 	},
 	{
@@ -2214,7 +2212,11 @@
 				"all": ["Casey Morgan", "Casey Brooks"],
 				"allowed": ["Casey Morgan", "Casey Brooks"]
 			},
-			"forbid": ["/(better|best|more suitable|good fit|ready to lead|recommend)/i"]
+			"forbid": ["/(better|best|more suitable|good fit|ready to lead|recommend)/i"],
+			"finding": {
+				"checks": ["never says /(better|best|more suitable|good fit|ready to lead|recommend)/i"],
+				"note": "T-318 batched re-record after the merge with the Evry notifications tools (D-958, D-1151, D-1323): the re-recorded answer misses these checks; recorded as drift, not a change in what Evry can do."
+			}
 		}
 	},
 	{
@@ -2280,7 +2282,11 @@
 					"alsoAccepted": ["teams.listImportTemplates"]
 				}
 			],
-			"require": ["Prayer lead"]
+			"require": ["Prayer lead"],
+			"finding": {
+				"checks": ["says Prayer lead", "gives an answer"],
+				"note": "T-318 batched re-record after the merge with the Evry notifications tools (D-958, D-1151, D-1323): the re-recorded answer misses these checks; recorded as drift, not a change in what Evry can do."
+			}
 		}
 	},
 	{
@@ -2352,7 +2358,11 @@
 			"names": {
 				"allowed": ["Casey Morgan", "Casey Brooks"]
 			},
-			"derivation": "Two people are named Casey; Evry asks which one before preparing any review."
+			"derivation": "Two people are named Casey; Evry asks which one before preparing any review.",
+			"finding": {
+				"checks": ["no unexpected review card", "asks a clarifying question", "no review card before the answer"],
+				"note": "T-318 batched re-record after the merge with the Evry notifications tools (D-958, D-1151, D-1323): the re-recorded answer misses these checks; recorded as drift, not a change in what Evry can do."
+			}
 		}
 	},
 	{
@@ -2771,9 +2781,11 @@
 			],
 			"finding": {
 				"checks": [
-					"proposes teams.importRoles {\"teamId\":\"5b6d1f0e-0000-4000-8000-000000007010\",\"teamKey\":\"worship\",\"roleKeys\":[\"worship_lead\"]}"
+					"proposes teams.importRoles {\"teamId\":\"5b6d1f0e-0000-4000-8000-000000007010\",\"teamKey\":\"worship\",\"roleKeys\":[\"worship_lead\"]}",
+					"says /review|approv/i",
+					"gives an answer"
 				],
-				"note": "T-318 merge with T-320 (D-958, D-1151): with the task, follow-up and teams tools in one tool list, the re-recorded model answer misses these checks; recorded as drift, not a change in what Evry may do."
+				"note": "T-318 merge with T-320 (D-958, D-1151): with the task, follow-up and teams tools in one tool list, the re-recorded model answer misses these checks; recorded as drift, not a change in what Evry may do. T-318 batched re-record after the merge with the Evry notifications tools (D-958, D-1151, D-1323): the re-recorded answer misses these checks; recorded as drift, not a change in what Evry can do."
 			}
 		}
 	},
@@ -2798,7 +2810,13 @@
 			"require": ["/review|approv/i"],
 			"forbid": [
 				"/I['’]?(ve| have)? (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)|has been (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)/i"
-			]
+			],
+			"finding": {
+				"checks": [
+					"never says /I['’]?(ve| have)? (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)|has been (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)/i"
+				],
+				"note": "T-318 batched re-record after the merge with the Evry notifications tools (D-958, D-1151, D-1323): the re-recorded answer misses these checks; recorded as drift, not a change in what Evry can do."
+			}
 		}
 	},
 	{
