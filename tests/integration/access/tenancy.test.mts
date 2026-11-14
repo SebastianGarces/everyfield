@@ -76,6 +76,7 @@ import { deletedDocumentCases, documentsCases, seedDocuments } from "./tenancy-d
 import { feedbackCases, seedFeedback } from "./tenancy-feedback.mts";
 import { followUpsCases, seedFollowUps } from "./tenancy-followups.mts";
 import { meetingsCases, seedMeetings } from "./tenancy-meetings.mts";
+import { notificationsCases, seedNotifications } from "./tenancy-notifications.mts";
 import { onboardingCases, seedOnboarding } from "./tenancy-onboarding.mts";
 import { organizationsCases, seedOrganizations } from "./tenancy-organizations.mts";
 import { phasesCases, seedPhases } from "./tenancy-phases.mts";
@@ -803,8 +804,8 @@ function cases(who) {
 					},
 				] as const,
 		),
-		// Goals and conversation counts too: tests/integration/organizations/goals.test.mts holds their organization
-		// boundary, including a network that a church shares pipeline totals with.
+		// Goals, their chosen counts and conversation counts too: tests/integration/organizations/goals.test.mts holds
+		// their organization boundary for reads and saves, including a network that a church shares pipeline totals with.
 		[
 			"organizations:readPipelineGoals",
 			{
@@ -824,6 +825,7 @@ function cases(who) {
 		...brandingCases(t, who),
 		...settingsCases(t, who),
 		...feedbackCases(t, who),
+		...notificationsCases(t, who),
 	]);
 }
 
@@ -852,6 +854,7 @@ before(async () => {
 	await seedBranding(t);
 	await seedSettings(t);
 	await seedFeedback(t);
+	await seedNotifications(t);
 });
 after(() => f?.close());
 

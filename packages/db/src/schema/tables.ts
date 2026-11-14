@@ -3654,6 +3654,10 @@ export const sending_goal = pgTable(
 			.notNull()
 			.default(sql`clock_timestamp()`),
 		revision: int64("revision").notNull(),
+		counting_from: date("counting_from", { mode: "string" }).notNull(),
+		counts: jsonb("counts")
+			.notNull()
+			.default(sql`'[]'::jsonb`),
 	},
 	(table): PgTableExtraConfigValue[] => [
 		foreignKey({
@@ -3669,6 +3673,10 @@ export const sending_goal = pgTable(
 		check("sending_goal_plant_target", sql`((plant_target >= 0) AND (plant_target <= 10000))`),
 		check("sending_goal_target_year", sql`((target_year >= 2000) AND (target_year <= 2200))`),
 		check("sending_goal_rationale", sql`((length(btrim(rationale)) >= 1) AND (length(rationale) <= 1000))`),
+		check(
+			"sending_goal_counts",
+			sql`CASE WHEN (jsonb_typeof(counts) = 'array'::text) THEN (jsonb_array_length(counts) <= 4) ELSE false END`,
+		),
 		index("sending_goal_organization_idx").using(
 			"btree",
 			table.organization_id.asc().nullsLast(),

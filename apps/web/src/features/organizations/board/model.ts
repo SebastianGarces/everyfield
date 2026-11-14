@@ -35,7 +35,7 @@ export function boardHref(query: PipelineBoardQuery) {
 	return text ? `${PIPELINE_PATH}?${text}` : PIPELINE_PATH;
 }
 
-/** What an `invalid_input` refusal says, by the field it names. */
+/** What an `invalid_input` refusal says, by the field it names; a list item's position is dropped (`counts.2.label`). */
 const FIELD_PROBLEM: Record<string, string> = {
 	assessedOn: "The date can’t be after today.",
 	occurredOn: "The date can’t be after today.",
@@ -43,6 +43,10 @@ const FIELD_PROBLEM: Record<string, string> = {
 	plantTarget: "Targets can’t be less than 0.",
 	targetYear: "Enter a year between 2000 and 2200.",
 	goals: "You can keep up to 50 goals.",
+	countingFrom: "The counting-from date can’t be after today.",
+	counts: "A goal can have up to 4 counts.",
+	"counts.kind": "This goal already counts that stage kind. Choose another kind.",
+	"counts.label": "Name each count in 1 to 60 characters.",
 	label: "Two stages can’t have the same name.",
 	responsibleSeatId: "That staff member no longer has a seat here. Choose someone else.",
 };
@@ -55,7 +59,9 @@ export function refusalText(answer: { status: "refused"; refusal: PipelineRefusa
 		case "conflict":
 			return "Someone changed this while you were working. Reload the page to see the latest, then try again.";
 		case "invalid_input":
-			return FIELD_PROBLEM[r.field ?? ""] ?? "Check the highlighted fields and try again.";
+			return (
+				FIELD_PROBLEM[(r.field ?? "").replace(/\.\d+(?=\.|$)/g, "")] ?? "Check the highlighted fields and try again."
+			);
 		case "stage_occupied":
 			return `This stage still has ${r.people === 1 ? "1 person" : `${r.people} people`} in it. Move them to another stage first.`;
 		default:
