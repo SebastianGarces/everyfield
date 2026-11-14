@@ -72,7 +72,7 @@ type StopReason =
 
 type Saved<K extends string, B> = { sequence: number; turnId: string | null; kind: K; body: B; createdAt: string };
 export type ConversationEvent =
-	| Saved<"user_message", { text: string; references?: Reference[]; retryOf?: number }>
+	| Saved<"user_message", { text: string; references?: Reference[]; attachments?: Attachment[]; retryOf?: number }>
 	| Saved<"assistant_text", { text: string; withheld?: boolean }>
 	| Saved<"tool_result", { operation: string; result: SourceResult; originalTotal?: number | null }>
 	| Saved<
@@ -80,11 +80,15 @@ export type ConversationEvent =
 			{ state: "completed" | "stopped" | "failed"; reason: StopReason; error?: ProjectedError; withheld?: boolean }
 	  >;
 
+/** A file staged in this conversation: its id and the name the person chose. */
+export type Attachment = { id: string; name: string };
+
 /** A message on its way: shown at once, sent with one request key that a retry of the same message reuses. */
 export type Send = {
 	key: string;
 	text: string;
 	references: Reference[];
+	attachments: Attachment[];
 	state: "sending" | "unconfirmed" | "refused";
 	error: ProjectedError | null;
 	/** The saved message's sequence, once the server confirmed it. */
@@ -192,7 +196,7 @@ export type TurnEnd = { state: "completed" | "stopped" | "failed"; reason: StopR
 
 export type Turn = {
 	id: string;
-	ask: { sequence: number; text: string; retried: boolean } | null;
+	ask: { sequence: number; text: string; retried: boolean; attachments: Attachment[] } | null;
 	blocks: Block[];
 	end: TurnEnd | null;
 };
@@ -205,7 +209,12 @@ export function turnsOf(events: readonly ConversationEvent[], live: Readonly<Rec
 		if (!turn) turns.set(id, (turn = { id, ask: null, blocks: [], end: null }));
 		switch (e.kind) {
 			case "user_message":
-				turn.ask = { sequence: e.sequence, text: e.body.text, retried: e.body.retryOf !== undefined };
+				turn.ask = {
+					sequence: e.sequence,
+					text: e.body.text,
+					retried: e.body.retryOf !== undefined,
+					attachments: e.body.attachments ?? [],
+				};
 				break;
 			case "assistant_text": {
 				const last = turn.blocks.at(-1);

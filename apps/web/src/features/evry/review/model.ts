@@ -14,6 +14,7 @@ export type Operation =
 	| "people.deletePerson"
 	| "people.setPersonPhoto"
 	| "people.removePersonPhoto"
+	| "people.executeBulkImport"
 	| "communication.saveDraft"
 	| "communication.scheduleReviewed"
 	| "communication.rescheduleReviewed"
@@ -103,6 +104,11 @@ const FIELD_LABEL: Record<string, string> = {
 	reason: "Reason",
 	photo: "Photo",
 	state: "Status",
+	file: "File",
+	rows: "Rows in the file",
+	create: "New people to add",
+	skip: "Possible duplicates to skip",
+	invalid: "Rows that can't be imported",
 };
 export const fieldLabel = (field: string) => FIELD_LABEL[field] ?? field;
 
@@ -157,6 +163,7 @@ const TITLE: Record<Operation, string> = {
 	"people.deletePerson": "Remove a person",
 	"people.setPersonPhoto": "Set a photo",
 	"people.removePersonPhoto": "Remove a photo",
+	"people.executeBulkImport": "Import people",
 };
 export const operationTitle = (operation: Operation) => TITLE[operation];
 
@@ -346,6 +353,8 @@ export function consequence(review: Review): string | null {
 		tasks > 0 ? `${tasks.toLocaleString()} open ${tasks === 1 ? "task" : "tasks"} will need a new owner.` : null;
 	if (review.operation === "people.deletePerson")
 		return ["They leave the current people list. Their history stays.", owner].filter(Boolean).join(" ");
+	if (review.operation === "people.executeBulkImport")
+		return "Each row is added or skipped as the check showed. People stays as it is until you approve.";
 	return owner;
 }
 
@@ -372,8 +381,8 @@ export const CHOICES: Record<string, { value: string; label: string }[]> = {
 	adultClassification: Object.entries(CLASSIFICATION_LABEL).map(([value, label]) => ({ value, label })),
 };
 
-/** Fields a person may edit in a revision. Photos, the removal itself and the task count are fixed facts. */
-const FIXED = new Set(["photo", "state", "openTasksNeedingOwner"]);
+/** Fields a person may edit in a revision. Photos, the removal itself, the task count and an import's checked rows are fixed facts. */
+const FIXED = new Set(["photo", "state", "openTasksNeedingOwner", "file", "rows", "create", "skip", "invalid"]);
 /** Values that may be empty. A name and a reason are required. */
 const REQUIRED = new Set(["displayName", "reason", "stage", "source", "adultClassification"]);
 /** Adult or child is required until a birth date is entered: then it comes from the birth date (REQ-PPL-026). */
@@ -455,6 +464,8 @@ export function missingRequired(review: Review, edits: Record<string, string>) {
 export function refusalText(code: string | undefined, target: string | null): string {
 	const who = target ?? "this person";
 	switch (code) {
+		case "import_not_available":
+			return "Evry can't run the import yet, so nothing was imported. Import the file from People for now.";
 		case "revision_conflict":
 		case "conflict":
 			return `${who}'s record changed after Evry prepared this, so nothing was saved. Ask Evry to prepare it again.`;
@@ -475,6 +486,8 @@ export function refusalText(code: string | undefined, target: string | null): st
 /** Why an email effect was refused. The email service had not been asked unless the text says otherwise. */
 export function mailRefusalText(code: string | undefined): string {
 	switch (code) {
+		case "import_not_available":
+			return "Evry can't run the import yet, so nothing was imported. Import the file from People for now.";
 		case "revision_conflict":
 			return "This message changed since the review, so nothing was done and the email service was not asked. Ask Evry to review it again.";
 		case "stale_review":

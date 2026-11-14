@@ -100,6 +100,8 @@ export function proposalForModel(proposal: Pick<Proposal, "id" | "expiresAt" | "
 				rows: target
 					? [{ kind: target.kind, id: target.id, label: target.label, fields: { changes: proposal.review.changes } }]
 					: [],
+				// A review with no stored target (a new person, an import) has nothing that can go away: its fields show as they are.
+				...(target ? {} : { changes: proposal.review.changes }),
 			}),
 		),
 	) as ModelReply;

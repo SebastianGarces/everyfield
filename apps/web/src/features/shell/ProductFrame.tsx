@@ -136,10 +136,14 @@ function Frame({ name, photo, settings, seed = null, children }: FrameProps) {
 	const pathname = usePathname();
 	// Evry is off while the private check-in is open: its panel closes and Ask Evry says so (REQ-PI-038).
 	const privatePage = evryOff(pathname);
-	const evry = useEvryPanel({ inPlant: settings?.context === "plant", off: privatePage });
+	const role = settings && settings.context !== "account" ? settings.role : null;
+	const evry = useEvryPanel({
+		inPlant: settings?.context === "plant",
+		canAttach: settings?.context === "plant" && (role === "owner" || role === "admin"),
+		off: privatePage,
+	});
 	const bell = useNotificationBell();
 	const wiki = useWikiChrome();
-	const role = settings && settings.context !== "account" ? settings.role : null;
 	// A plant Member reads People and Tasks and works on their own tasks; organization seats have neither.
 	const banner =
 		settings?.context === "plant" && role === "member" ? (

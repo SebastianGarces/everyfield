@@ -35,7 +35,18 @@ const shortZone = (zone: string, at: Date) =>
 		.find((p) => p.type === "timeZoneName")!.value;
 /** "Sun, Nov 1, 2026, 1:30 AM EDT": the date, the time and the zone, as a review card shows it. */
 export const localLabel = (zone: string, at: Date) =>
-	`${new Intl.DateTimeFormat("en-US", { timeZone: zone, weekday: "short", month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" }).format(at)} ${shortZone(zone, at)}`;
+	`${new Intl.DateTimeFormat("en-US", {
+		timeZone: zone,
+		weekday: "short",
+		month: "short",
+		day: "numeric",
+		year: "numeric",
+		hour: "numeric",
+		minute: "2-digit",
+	})
+		.format(at)
+		// ICU puts a narrow no-break space before AM/PM; the model and the tests read a plain one.
+		.replace(/\u202f/g, " ")} ${shortZone(zone, at)}`;
 
 export type Moment = { instant: string; offset: string; label: string };
 export type Resolved =
@@ -77,14 +88,16 @@ export function resolveLocal(zone: string, date: string, time: string, offset?: 
 	return { status: "ambiguous", local, zone, options: [moments[0]!, moments[1]!] };
 }
 
-/** calendar.getContext: today in the church's zone, so "Friday" or "the 5th" are read against the church's own calendar. */
+/**
+ * calendar.getContext: today in the church's zone, so "Friday" or "the 5th" are read against the church's own calendar.
+ * The day, not the minute: the trusted clock in the system prompt gives the time.
+ */
 export function calendarContext(zone: string, now: Date) {
 	const p = parts(zone, now);
 	return {
 		zone,
 		today: `${p.year}-${p.month}-${p.day}`,
 		weekday: new Intl.DateTimeFormat("en-US", { timeZone: zone, weekday: "long" }).format(now),
-		localTime: `${p.hour}:${p.minute}`,
 		offset: offsetText(offsetAt(zone, now)),
 		zoneName: shortZone(zone, now),
 	};

@@ -3,6 +3,7 @@
 import {
 	Alert02Icon,
 	ArrowRight02Icon,
+	Csv01Icon,
 	Cancel01Icon,
 	CheckmarkCircle02Icon,
 	Clock01Icon,
@@ -828,11 +829,14 @@ function CardHead({
 function Affects({ review }: { review: Review }) {
 	const mail = isMail(review.operation);
 	const create = review.operation === "people.createPerson";
+	const file = review.operation === "people.executeBulkImport";
 	const name = mail
 		? String(review.review.changes.find((c) => c.field === "subject")?.after ?? review.review.target?.label ?? "Email")
 		: create
 			? String(review.review.changes.find((c) => c.field === "displayName")?.after ?? "New person")
-			: (review.review.target?.label ?? "Not available");
+			: file
+				? String(review.review.changes.find((c) => c.field === "file")?.after ?? "Attached file")
+				: (review.review.target?.label ?? "Not available");
 	return (
 		<div className="flex items-center gap-3">
 			{mail ? (
@@ -842,6 +846,10 @@ function Affects({ review }: { review: Review }) {
 			) : create ? (
 				<span className="grid size-8 flex-none place-items-center rounded-full bg-surface-2 text-text-2">
 					<Icon icon={UserAdd01Icon} size={16} />
+				</span>
+			) : file ? (
+				<span className="grid size-8 flex-none place-items-center rounded-full bg-surface-2 text-text-2">
+					<Icon icon={Csv01Icon} size={16} />
 				</span>
 			) : (
 				<Avatar name={name} size="sm" decorative />
@@ -980,9 +988,11 @@ function PhotoChange({
 
 /** Each changed field: its value now, then what it will be. A new person and a reason have no before. */
 function Changes({ review, staged, onRetry }: { review: Review; staged: StagedPhoto; onRetry: () => void }) {
-	const changes = shownChanges(review.review.changes);
+	const file = review.operation === "people.executeBulkImport";
+	// An import names its file in the header; its rows are counts, with nothing before them.
+	const changes = shownChanges(review.review.changes).filter((c) => !file || c.field !== "file");
 	if (!changes.length) return null;
-	const create = review.operation === "people.createPerson";
+	const create = review.operation === "people.createPerson" || file;
 	return (
 		<dl className="flex flex-col gap-2 rounded-md bg-surface-2 px-3 py-2.5 text-sm">
 			{changes.map((c: Change) =>

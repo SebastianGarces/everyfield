@@ -77,12 +77,15 @@ const WRITE_AREAS: { prefix: string; text: string }[] = [
  * answer stays true as areas land.
  */
 const COMING_LATER: { domain: string; text: string }[] = [
-	{ domain: "tasks", text: "Tasks and reminders: reading your tasks and preparing new ones." },
+	{ domain: "tasks", text: "Tasks and reminders: reading your task list and preparing new tasks." },
 	{ domain: "meetings", text: "Meetings: reading meetings, RSVPs and attendance, and preparing invitations." },
 	{ domain: "teams", text: "Teams and training: reading teams, serving roles and training progress." },
 	{ domain: "documents", text: "Documents and the wiki: finding church documents and wiki articles." },
-	{ domain: "launch", text: "Launch planning: phases, milestones and launch readiness." },
+	{ domain: "launch", text: "Launch planning: the launch date, phases, milestones and launch readiness." },
 ];
+/** The areas with no tools in this catalog yet. */
+const comingLater = (catalog: Catalog) =>
+	COMING_LATER.filter((c) => !catalog.domains.some((d) => d.domain === c.domain));
 const ROLE_NAME = { owner: "an Owner", admin: "an Admin", member: "a Member" } as const;
 
 /**
@@ -93,7 +96,8 @@ const ROLE_NAME = { owner: "an Owner", admin: "an Admin", member: "a Member" } a
 export function capabilitiesAnswer(catalog: Catalog, actor: Pick<EvryActor, "role">) {
 	const reads = catalog.domains.map((d) => READ_AREAS[d.domain]).filter((t): t is string => !!t);
 	const ops = new Set(catalog.domains.flatMap((d) => d.operations.map((o) => o.operation)));
-	if (ops.has("people.previewImport")) reads.push("Check a People spreadsheet you attach here, row by row, before anything is imported.");
+	if (ops.has("people.previewImport"))
+		reads.push("Check a People spreadsheet you attach here, row by row, before anything is imported.");
 	const writes = WRITE_AREAS.filter((a) => catalog.reviewedWrites.some((w) => w.operation.startsWith(a.prefix)));
 	const lines = reads.length
 		? ["Here is what I can do for you here:", ...reads.map((r) => "- " + r), ...writes.map((w) => "- " + w.text)]
@@ -104,7 +108,7 @@ export function capabilitiesAnswer(catalog: Catalog, actor: Pick<EvryActor, "rol
 			"",
 			`You're ${ROLE_NAME.member} here, so changes to people, emails and imports are made by an Owner or Admin of this church. I can't prepare them for you, but I can help you find what to ask them.`,
 		);
-	const later = COMING_LATER.filter((c) => !catalog.domains.some((d) => d.domain === c.domain));
+	const later = comingLater(catalog);
 	if (later.length && reads.length) lines.push("", "Coming later:", ...later.map((c) => "- " + c.text));
 	lines.push("", "I can't give pastoral counsel, write prayers or judge anyone's spiritual readiness.");
 	return lines.join("\n");
@@ -129,13 +133,15 @@ const estimate = (text: string) => Math.ceil(text.length / 4);
 const TOOL_ALLOWANCE = 1_000;
 
 /** Work Everyfield does not do at all: a truthful boundary, never a registered no-op tool (EVR-007). */
-const NOT_TRACKED = "Everyfield does not track background checks (REQ-TEAM-014).";
+// Background checks are excluded from the product (REQ-TEAM-014).
+const NOT_TRACKED = "Everyfield does not track background checks.";
 
 const when = (d: Date) => d.toISOString().slice(0, 16).replace("T", " ") + " UTC";
 /** What a review's state means for the person, in the words "did you send it?" needs (GAP-EVR-429). */
 function outcomeOf(r: ConversationState["reviews"][number]): string {
 	const email = r.operation.startsWith("communication.") && r.operation !== "communication.saveDraft";
-	if (r.status === "pending") return `waiting for the user's review: nothing changed${email ? " and nothing was sent" : ""} yet`;
+	if (r.status === "pending")
+		return `waiting for the user's review: nothing changed${email ? " and nothing was sent" : ""} yet`;
 	if (r.status === "expired") return "the review expired before approval: nothing changed";
 	if (r.status === "cancelled") return "cancelled: nothing changed";
 	if (r.executing) return "approved and running now";
@@ -149,7 +155,8 @@ function outcomeOf(r: ConversationState["reviews"][number]): string {
 		}
 		return `approved and applied${r.operation === "communication.saveDraft" ? ": the draft is saved, not sent" : ""}`;
 	}
-	if (r.outcome === "refused") return `approved, but it was not applied (${r.receipt?.code ?? "refused"}): nothing changed`;
+	if (r.outcome === "refused")
+		return `approved, but it was not applied (${r.receipt?.code ?? "refused"}): nothing changed`;
 	if (r.outcome === "unknown") return "approved; whether it was applied is not known yet";
 	return "approved and waiting to run";
 }
@@ -210,6 +217,9 @@ export function compileContext(input: {
 	const { role } = input.actor;
 	const writes = input.catalog.reviewedWrites.length > 0;
 	const ops = new Set(input.catalog.domains.flatMap((d) => d.operations.map((o) => o.operation)));
+	// Tasks stay off this list: who needs a follow-up is answered today from the pipeline board, and naming tasks as
+	// unavailable made the model refuse that question.
+	const unavailable = comingLater(input.catalog).filter((c) => c.domain !== "tasks");
 	const base = [
 		"You are Evry, the assistant inside Everyfield, a church planting application.",
 		"Help with application work and recorded evidence using only the tools provided. Never give pastoral or Biblical counsel, write prayers or judge spiritual suitability.",
@@ -221,14 +231,17 @@ export function compileContext(input: {
 			? `The user is ${ROLE_NAME[role]} of this church.${writes ? "" : " Only an Owner or Admin of this church can change people, emails or imports. When the user asks for such a change, tell them an Owner or Admin has to make it, and prepare nothing."}`
 			: "",
 		`${NOT_TRACKED} When asked about something Everyfield does not track, say plainly that Everyfield doesn't track it, and call no tool for it.`,
+		unavailable.length
+			? `Not in Evry yet: ${unavailable.map((c) => c.text).join(" ")} When asked for one of these, say plainly that you can't do it yet and name what is missing; don't search other records for it. You may offer what you can do instead, such as the tag or skill with the same name.`
+			: "",
 		ops.has("people.listPeople")
 			? "When the church has no people at all, say it has 0 people and offer the People import template (people.generateCsvTemplate) to bring them in from a spreadsheet."
 			: "",
 		writes
-			? `Before preparing changes for more than five people at once, such as removing a whole stage, read the exact scope, tell the user what it covers and how many people that is, and ask them to confirm before preparing anything. Never prepare more than ${LIMITS.reviewCards} review cards in one turn.`
+			? `Before removing people as a group (a stage, a household, a tag or everyone), or changing more than five people at once, read the exact scope, tell the user what it covers and how many people that is, and ask them to confirm before preparing anything. A change the user spelled out for a few people, such as a new address for everyone in one household, needs no confirmation: prepare it. Never prepare more than ${LIMITS.reviewCards} review cards in one turn.`
 			: "",
 		ops.has("calendar.resolve")
-			? "Read every date or time the user gives against the church's own calendar (calendar.getContext) and check it with calendar.resolve before using it. If it is ambiguous, ask which of the two times they mean, naming both; if it does not exist that day, say so and ask for another time; if you cannot tell which date they mean, such as \"the 5th\" or \"Friday-ish\", ask. Name the chosen local date, time and time zone in your answer."
+			? 'Before a local date and time goes into a review card, check it with calendar.resolve: if it is ambiguous, ask which of the two times the user means, naming both; if it does not exist that day, say so and ask for another time. Read words like today, Friday or next week against calendar.getContext, and when you can\'t tell which date the user means, such as "the 5th" or "Friday-ish", ask. Name the chosen local date, time and time zone.'
 			: "",
 		ops.has("people.getActivities")
 			? "For a person's history, read people.getActivities page by page, give each item with the date it happened (occurredAt), and offer the next page when more exist."

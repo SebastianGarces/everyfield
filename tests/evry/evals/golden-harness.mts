@@ -20,15 +20,18 @@ import type {
 } from "@ai-sdk/provider";
 import { readCatalog, SELECT_RETURNED_ROWS } from "../../../packages/evry/src/catalog/catalog.ts";
 import { invokeRead } from "../../../packages/evry/src/catalog/invoke.ts";
+import { previewImport } from "../../../packages/evry/src/adapters/people-organization/reads/index.ts";
 import type { ReadAdapter, SourceResult } from "../../../packages/evry/src/catalog/types.ts";
 import { verifyPeople } from "../../../packages/evry/src/adapters/people/reads/index.ts";
 import type { EvryActor } from "../../../packages/evry/src/context/actor.ts";
 import {
+	capabilitiesAnswer,
 	classifyRequest,
 	compileContext,
-	describeCatalog,
 	PASTORAL_BOUNDARY,
 } from "../../../packages/evry/src/context/compile.ts";
+import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
+import { ATTACHMENTS } from "../../../packages/evry/src/attachments/store.ts";
 import { EvryRefusal } from "../../../packages/evry/src/context/errors.ts";
 import { LIMITS } from "../../../packages/evry/src/context/limits.ts";
 import { selectQualifiedModel, type Price } from "../../../packages/evry/src/runtime/model.ts";
@@ -47,7 +50,7 @@ import {
 import type { RunLease } from "../../../packages/evry/src/runtime/run-store.ts";
 import type { MailPort } from "../../../packages/evry/src/proposals/types.ts";
 import { claimDue } from "../../../apps/web/src/server/jobs/queue.ts";
-import { NOW, type ActorName, type GoldenChurch } from "./golden-church.mts";
+import { byName, NOW, type ActorName, type GoldenChurch } from "./golden-church.mts";
 
 type Usage = { input: number; output: number };
 type Call =
@@ -284,10 +287,34 @@ let opening: Promise<unknown> = Promise.resolve();
  * The conversation a proposal is saved in, with the claim on its submitted turn, as the app worker holds it while the
  * turn runs. Its turn is never run: the eval itself is the turn.
  */
-function openConversation(db: GoldenChurch["db"], actor: EvryActor) {
+function openConversation(db: GoldenChurch["db"], actor: EvryActor, files: Attached[] = []) {
 	const opened = opening.then(async () => {
 		const c = await createConversation(db, actor, { requestKey: randomUUID() });
-		const submitted = await submitTurn(db, actor, c.id, { requestKey: randomUUID(), text: "Golden eval" });
+		// The case's attached files, staged in this conversation as the panel stages them.
+		for (const f of files)
+			await db.execute(sql`INSERT INTO file_object(id,tenant_id,purpose,opaque_key,media_type,max_bytes,state,upload_key,claim_generation,expires_at)
+				VALUES(${f.id}::uuid,${actor.owner.id}::uuid,'assistant_staging',${`private/${actor.owner.id}/${f.id}`},'text/csv',${f.bytes.length},
+					'pending',${`evry-attachment/${c.id}/${f.id}`},0,clock_timestamp()+make_interval(hours=>${ATTACHMENTS.stagingHours}))`);
+		const submitted = await submitTurn(db, actor, c.id, {
+			requestKey: randomUUID(),
+			text: "Golden eval",
+			attachments: files.map((f) => ({ id: f.id, name: f.name })),
+		});
+		// A file the case says was checked earlier carries that check, saved as the runtime saves a read's result.
+		for (const f of files.filter((x) => x.checked)) {
+			const result = await invokeRead(
+				db,
+				actor,
+				previewImport as ReadAdapter<unknown>,
+				{ attachmentId: f.id },
+				{
+					read: async () => f.bytes,
+				},
+			);
+			await db.execute(sql`WITH c AS (UPDATE conversation SET last_sequence=last_sequence+1 WHERE id=${c.id}::uuid RETURNING id,last_sequence)
+				INSERT INTO conversation_event(conversation_id,sequence,turn_id,kind,body)
+				SELECT id,last_sequence,${submitted.turnId}::uuid,'tool_result',${JSON.stringify({ operation: "people.previewImport", input: { attachmentId: f.id }, result })}::jsonb FROM c`);
+		}
 		const [claim] = await claimDue(db, ["assistant_turn"], 1, 240);
 		if (claim?.id !== submitted.turnId) throw Error("another assistant turn was due: the eval schema is not its own");
 		const lease: RunLease = {
@@ -302,11 +329,18 @@ function openConversation(db: GoldenChurch["db"], actor: EvryActor) {
 	return opened;
 }
 
+/** A file a case attached: a pinned id, its name, CSV text with {Name.email} filled from the church, and whether it was checked. */
+export type CaseFile = { id: string; name: string; csv: string; checked?: boolean };
+type Attached = CaseFile & { bytes: Uint8Array };
+const fill = (csv: string) =>
+	csv.replace(/\{([^}.]+)\.(email|phone)\}/g, (_, name: string, field: "email" | "phone") => byName(name)[field] ?? "");
+
 export async function converse(
 	church: GoldenChurch,
 	as: ActorName,
 	text: string,
 	history: Turn[] = [],
+	attachments: CaseFile[] = [],
 ): Promise<Conversation> {
 	const { db } = church;
 	const actor = church.actors[as];
@@ -322,7 +356,7 @@ export async function converse(
 			calls,
 			proposals,
 			keys,
-			answer: classified.kind === "pastoral_boundary" ? PASTORAL_BOUNDARY : describeCatalog(catalog),
+			answer: classified.kind === "pastoral_boundary" ? PASTORAL_BOUNDARY : capabilitiesAnswer(catalog, actor),
 		};
 
 	const events = history.map(
@@ -333,7 +367,30 @@ export async function converse(
 				body: { text: "user" in t ? t.user : t.assistant },
 			}) as unknown as ConversationEvent,
 	);
-	const context = compileContext({ actor, catalog, history: events, text, references: [], now: NOW });
+	const files: Attached[] = attachments.map((f) => ({ ...f, bytes: new TextEncoder().encode(fill(f.csv)) }));
+	// The conversation's saved facts as the runtime reads them, pinned: each file attached five minutes before NOW.
+	const attachedAt = new Date(NOW.getTime() - 5 * 60_000);
+	const state = {
+		attachments: files.map((f) => ({
+			id: f.id,
+			name: f.name,
+			attachedAt,
+			availableUntil: new Date(attachedAt.getTime() + ATTACHMENTS.stagingHours * 3_600_000),
+			status: "available" as const,
+			checkedDigest: f.checked ? createHash("sha256").update(f.bytes).digest("hex") : null,
+		})),
+		reviews: [],
+	};
+	const context = compileContext({ actor, catalog, history: events, text, references: [], now: NOW, state });
+	const conversationFiles = {
+		read: async (id: string) => {
+			const f = files.find((x) => x.id === id);
+			if (!f) throw new EvryRefusal("attachment_elsewhere");
+			return f.bytes;
+		},
+	};
+	let cards = 0;
+	const saved = new Set<ToolCall>();
 	const results = new Map<number, SourceResult>();
 	let sequence = 0;
 	let toolCalls = 0;
@@ -364,9 +421,12 @@ export async function converse(
 			calls.push(call);
 			const resultId = ++sequence;
 			try {
-				call.result = await invokeRead(db, actor, adapter, input);
+				call.result = await invokeRead(db, actor, adapter, input, conversationFiles);
 				return keep(resultId, call.result);
 			} catch (error) {
+				// A file from another conversation, or a gone one, is the model's to explain, as runTurn does.
+				if (error instanceof EvryRefusal && (error.code === "attachment_elsewhere" || error.code === "attachment_gone"))
+					return ((call.error = error.code), { error: error.code });
 				// A failed read ends the turn with its refusal, as runTurn does.
 				const code = error instanceof EvryRefusal ? error.code : "source_unavailable";
 				call.error = code;
@@ -396,11 +456,21 @@ export async function converse(
 			});
 		}),
 		propose: inOrder(async (call: { operation: string; input: unknown }) => {
+			// The turn's review card cap (runTurn): a bulk change confirms its scope first.
+			if (++cards > LIMITS.reviewCards) return { error: "review_limit" };
 			if (!admit()) return { error: "tool_budget" };
 			const card: Proposal = { operation: call.operation, input: call.input, prepared: false, review: null };
 			proposals.push(card);
 			const number = proposals.length;
-			const open = await (conversation ??= openConversation(db, actor));
+			const open = await (conversation ??= openConversation(db, actor, files));
+			// The checks this turn made are saved in the conversation before the review reads them, as runTurn saves each
+			// read's result as it ends.
+			for (const check of calls.filter((x) => x.operation === "people.previewImport" && x.result && !saved.has(x))) {
+				saved.add(check);
+				await db.execute(sql`WITH c AS (UPDATE conversation SET last_sequence=last_sequence+1 WHERE id=${open.id}::uuid RETURNING id,last_sequence)
+					INSERT INTO conversation_event(conversation_id,sequence,turn_id,kind,body)
+					SELECT id,last_sequence,${open.lease.turnId}::uuid,'tool_result',${JSON.stringify({ operation: check.operation, input: check.input, result: check.result })}::jsonb FROM c`);
+			}
 			const proposal = await prepareProposal(db, actor, open.lease, open.id, call, MAIL).catch((error) =>
 				error instanceof EvryRefusal ? error.code : "unknown",
 			);
