@@ -7,16 +7,13 @@ import { z } from "zod";
 // email service blocks, then a second person at an address someone earlier in the list already gets. A left-out person is
 // passed to the handoff as `leftOut`, so the email service gets one message per address and never one for them.
 
-export const GROUPS = ["all", "core_group", "launch_team", "leaders", "prospects"] as const;
+const GROUPS = ["all", "core_group", "launch_team", "leaders", "prospects"] as const;
 export const audienceInput = z.strictObject({
 	groups: z.array(z.enum(GROUPS)).max(GROUPS.length).default([]).describe("Named groups of people"),
 	teamIds: z.array(z.uuid()).max(50).default([]),
 	personIds: z.array(z.uuid()).max(200).default([]).describe("People ids from an earlier result"),
 });
 export type AudienceValue = z.infer<typeof audienceInput>;
-
-export const LEFT_OUT = ["no_address", "unsubscribed", "blocked", "duplicate_address"] as const;
-export type LeftOutReason = (typeof LEFT_OUT)[number];
 
 /**
  * The statement's `classified` table (id, name, reason): each person of the audience, with why they are left out or
