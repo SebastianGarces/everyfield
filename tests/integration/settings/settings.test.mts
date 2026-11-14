@@ -95,7 +95,9 @@ async function plant(a = undefined) {
 /** A member seat for `a` in another account's church: Settings offers seat categories only to an account with a seat. */
 async function seated(a) {
 	const { p } = await plant();
-	await admin.insert(t.seat).values({ plant_id: p.id, account_id: a.id, role: "member", accepted_at: new Date(), revision: "1" });
+	await admin
+		.insert(t.seat)
+		.values({ plant_id: p.id, account_id: a.id, role: "member", accepted_at: new Date(), revision: "1" });
 	return a;
 }
 async function seat(p, role = "admin") {

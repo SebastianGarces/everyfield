@@ -17,7 +17,12 @@ import {
 	readPipelinePersonRecord,
 	residentWriter,
 } from "../../../packages/domain/src/organizations/index.ts";
-import { createMailService, MAIL_PASSES, runDueMail, type MailPayload } from "../../../apps/web/src/server/jobs/mail.ts";
+import {
+	createMailService,
+	MAIL_PASSES,
+	runDueMail,
+	type MailPayload,
+} from "../../../apps/web/src/server/jobs/mail.ts";
 import {
 	authorizeNotificationMail,
 	createNotificationWorker,
