@@ -117,6 +117,21 @@ const VIEWS: Record<string, OpView> = {
 		counts: "message",
 		empty: "No draft or scheduled message in this church matches.",
 	},
+	// The calendar helpers (WP-085): one row, the church's today or the one local date and time checked.
+	"calendar.getContext": {
+		title: "Today",
+		noun: ["date", "dates"],
+		icon: "date",
+		counts: "date",
+		empty: "This church's calendar is not available.",
+	},
+	"calendar.resolve": {
+		title: "Date check",
+		noun: ["date", "dates"],
+		icon: "date",
+		counts: "date",
+		empty: "This church's calendar is not available.",
+	},
 };
 /** An operation with no view of its own. A test fails while any installed read falls back to it. */
 export const FALLBACK = { title: "Records", noun: ["record", "records"] } as const;
@@ -125,6 +140,26 @@ const fallback: OpView = {
 	icon: "file",
 	counts: "person",
 	empty: "Nothing in this church matches, or you can't see it.",
+};
+/** "2026-11-01T01:30", a church's local wall time, as "Sun, Nov 1, 2026, 1:30 AM". */
+function localName(local: string) {
+	const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(local);
+	if (!m) return local;
+	const wall = new Date(Date.UTC(+m[1]!, +m[2]! - 1, +m[3]!, +m[4]!, +m[5]!));
+	return new Intl.DateTimeFormat("en-US", {
+		timeZone: "UTC",
+		weekday: "short",
+		month: "short",
+		day: "numeric",
+		year: "numeric",
+		hour: "numeric",
+		minute: "2-digit",
+	}).format(wall);
+}
+const DATE_STATUS: Record<string, string> = {
+	ambiguous: "Happens twice",
+	nonexistent: "Skipped by the clocks",
+	invalid_date: "Not a date",
 };
 const HOUSEHOLD_DETAIL = new Set(["people.getHousehold", "people.getHouseholdMembers"]);
 const ROLE: Record<string, string> = { head: "Head", spouse: "Spouse", child: "Child", other: "Other" };
@@ -350,6 +385,28 @@ function rowView(operation: string, row: SourceRow): RowView {
 						: "Draft",
 				avatar: null,
 			};
+		case "date": {
+			// calendar.getContext names today; calendar.resolve says whether the local time exists once, twice or not at all.
+			if (operation === "calendar.getContext")
+				return {
+					...plain,
+					name: joined(text(fields.weekday), text(fields.today)) ?? row.label,
+					line: joined(text(fields.zone), text(fields.zoneName)),
+					avatar: "date",
+				};
+			const status = String(fields.status);
+			return {
+				...plain,
+				name: status === "invalid_date" ? row.label : localName(String(fields.local ?? row.label)),
+				// An exact time names its zone abbreviation ("EST", the end of "Sun, Nov 1, 2026, 1:30 AM EST"); the answer under
+				// the card lists both times of a fold. The status sits on the line, not in a tag, so the date keeps its width.
+				line: joined(
+					status === "exact" ? (text(fields.shows)?.split(" ").at(-1) ?? null) : (DATE_STATUS[status] ?? "Not a date"),
+					text(fields.zone),
+				),
+				avatar: "date",
+			};
+		}
 		case "person":
 			break;
 	}

@@ -6,6 +6,8 @@
 //   INV-result-card-*: every non-person read has its own title, count noun and rows (T-160): tags, a person's tags and
 //     skills, history, the pipeline, the import template, preview and receipt, and the export as a count card.
 //   INV-result-card-duplicate-pairs: listDuplicatePairs lists each imported person with the person it may duplicate.
+//   INV-result-card-dates: the calendar helpers' cards name the local date and time in words, the zone, and whether the
+//     clocks repeat or skip it.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { cardView } from "../../../apps/web/src/features/evry/conversation/resultView.ts";
@@ -516,5 +518,53 @@ test("INV-result-card-duplicate-pairs: listDuplicatePairs is a Duplicates to rev
 	assert.deepEqual(
 		[none.summary, none.facts],
 		["0 people", ["No import has flagged a possible duplicate that still needs review."]],
+	);
+});
+
+test("INV-result-card-dates: calendar cards name the local date and time, the zone and a repeated or skipped time", () => {
+	const date = (operation, fields) =>
+		cardView(
+			operation,
+			result(operation, [{ kind: "date", id: "d", label: String(fields.local ?? "d"), fields }]),
+			null,
+		);
+	const today = date("calendar.getContext", {
+		zone: "America/Chicago",
+		today: "2026-10-13",
+		weekday: "Tuesday",
+		offset: "-05:00",
+		zoneName: "CDT",
+	});
+	assert.deepEqual([today.title, today.summary, today.icon], ["Today", "1 date", "date"]);
+	assert.deepEqual(
+		today.rows.map((r) => [r.name, r.line, r.mark, r.href]),
+		[["Tuesday · 2026-10-13", "America/Chicago · CDT", null, null]],
+	);
+	const fold = date("calendar.resolve", {
+		status: "ambiguous",
+		local: "2026-11-01T01:30",
+		zone: "America/New_York",
+		option1: "Sun, Nov 1, 2026, 1:30 AM EDT",
+		option2: "Sun, Nov 1, 2026, 1:30 AM EST",
+	});
+	assert.equal(fold.title, "Date check");
+	assert.deepEqual(
+		fold.rows.map((r) => [r.name, r.line, r.mark]),
+		[["Sun, Nov 1, 2026, 1:30 AM", "Happens twice · America/New_York", null]],
+	);
+	const gap = date("calendar.resolve", { status: "nonexistent", local: "2027-03-14T02:30", zone: "America/New_York" });
+	assert.deepEqual(
+		[gap.rows[0].name, gap.rows[0].line],
+		["Sun, Mar 14, 2027, 2:30 AM", "Skipped by the clocks · America/New_York"],
+	);
+	const exact = date("calendar.resolve", {
+		status: "exact",
+		local: "2026-11-20T09:00",
+		zone: "America/New_York",
+		shows: "Fri, Nov 20, 2026, 9:00 AM EST",
+	});
+	assert.deepEqual(
+		exact.rows.map((r) => [r.name, r.line, r.mark]),
+		[["Fri, Nov 20, 2026, 9:00 AM", "EST · America/New_York", null]],
 	);
 });
