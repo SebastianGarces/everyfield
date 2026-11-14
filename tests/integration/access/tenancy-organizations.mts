@@ -9,6 +9,12 @@ import {
 	readHistory,
 	readPlantSharing,
 } from "../../../packages/domain/src/organizations/index.ts";
+import {
+	getPlant,
+	getSendingChurch,
+	listPlants,
+	listSendingChurches,
+} from "../../../packages/domain/src/oversight/index.ts";
 
 const proofs = new Map();
 // The adapter's effects as organizations/support.mts has them, except that the invitation proof is kept here instead
@@ -103,5 +109,15 @@ export function organizationsCases(t, who) {
 				},
 			},
 		],
+		// Oversight reads are for organization seats only: a church's owner, naming church A and its network, gets none.
+		// Church A's own owner holds a plant seat too, so there is no control to read.
+		...(
+			[
+				["oversight:listPlants", () => listPlants(t.f.db, who.actor)],
+				["oversight:getPlant", () => getPlant(t.f.db, who.actor, t.plantA.id)],
+				["oversight:listSendingChurches", () => listSendingChurches(t.f.db, who.actor)],
+				["oversight:getSendingChurch", () => getSendingChurch(t.f.db, who.actor, a.network)],
+			] as const
+		).map(([name, read]) => [name, { run: () => plain(read), expected: { value: null, control: null } }]),
 	];
 }
