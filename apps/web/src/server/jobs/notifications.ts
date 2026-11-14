@@ -10,7 +10,15 @@ import { z } from "zod";
 import { taskReminderTimes } from "./calendar.ts";
 import { createMailService, type MailIntent } from "./mail.ts";
 const sourceSchema = z.strictObject({
-	kind: z.enum(["task", "meeting", "affiliation", "phase_transition", "launch_milestone", "article_editor_state"]),
+	kind: z.enum([
+		"task",
+		"meeting",
+		"affiliation",
+		"phase_transition",
+		"launch_milestone",
+		"article_editor_state",
+		"development_enrollment",
+	]),
 	id: z.uuid(),
 	revision: z.string().regex(/^[1-9]\d*$/),
 });
@@ -30,6 +38,8 @@ const noticeInput = z.strictObject({
 	eligibleAt: z.iso.datetime(),
 	title: z.string().min(1).max(500),
 	text: z.string().max(10_000),
+	/** The email's text when it says more than the notice, such as the link to the page it is about. */
+	mailText: z.string().min(1).max(10_000).optional(),
 	operation: z.uuid().nullable(),
 });
 export type NoticeInput = z.infer<typeof noticeInput>;
@@ -73,6 +83,13 @@ const policy = {
 		purpose: "reference_update",
 		source: "article_editor_state",
 	},
+	// A linked resident's own residency (T-365): the source is the enrollment, the key names the milestone.
+	residency_confirmation: {
+		category: "residency",
+		purpose: "residency_confirmation",
+		source: "development_enrollment",
+	},
+	residency_feedback: { category: "residency", purpose: "residency_feedback", source: "development_enrollment" },
 	// Written with the Messages opt-out itself (T-242), never through this queue.
 	scheduled_email_unsubscribe: { category: "communication", purpose: "communication_unsubscribed", source: null },
 } as const;
@@ -84,7 +101,7 @@ export function createNotificationService(config: {
 	 * Writes each notice, with its email, once per recipient and logical key. A task, meeting or launch source must be at
 	 * the notice's revision. An affiliation notice names the revision its occurrence wrote, which a later change to the
 	 * connection (a sharing change after an approval) moves past without cancelling it; its worker checks that the
-	 * occurrence still holds.
+	 * occurrence still holds. A residency notice names its enrollment; its worker checks that the resident's link holds.
 	 */
 	async function enqueueMany(tx: Transaction, inputs: readonly NoticeInput[]) {
 		const values = inputs.map((input) => noticeInput.parse(input));
@@ -113,6 +130,7 @@ export function createNotificationService(config: {
  phases AS MATERIALIZED (SELECT p.* FROM phase_transition p WHERE p.id IN (SELECT source FROM input WHERE "sourceKind"='phase_transition') ORDER BY p.id FOR SHARE),
  launches AS MATERIALIZED (SELECT l.* FROM launch_milestone l WHERE l.id IN (SELECT source FROM input WHERE "sourceKind"='launch_milestone') ORDER BY l.id FOR SHARE),
  editors AS MATERIALIZED (SELECT e.* FROM article_editor_state e WHERE e.id IN (SELECT source FROM input WHERE "sourceKind"='article_editor_state') ORDER BY e.id FOR SHARE),
+ enrollments AS MATERIALIZED (SELECT e.id,e.organization_id FROM development_enrollment e WHERE e.id IN (SELECT source FROM input WHERE "sourceKind"='development_enrollment') ORDER BY e.id FOR SHARE),
  admins AS MATERIALIZED (SELECT s.* FROM seat s WHERE s.account_id IN (SELECT recipient FROM input WHERE category='wiki_upstream_review') AND s.role IN ('owner','admin') AND s.ended_at IS NULL FOR SHARE)
  SELECT i.n,t.kind,o.kind AS organization_kind,
  CASE i."sourceKind" WHEN 'task' THEN EXISTS(SELECT FROM tasks s WHERE s.id=i.source AND s.plant_id=i.owner AND s.revision=i.revision)
@@ -120,7 +138,8 @@ export function createNotificationService(config: {
  WHEN 'affiliation' THEN EXISTS(SELECT FROM affiliations s WHERE s.id=i.source AND i.owner IN(s.plant_id,s.organization_id) AND s.revision>=i.revision)
  WHEN 'phase_transition' THEN EXISTS(SELECT FROM phases s WHERE s.id=i.source AND (s.plant_id=i.owner OR EXISTS(SELECT FROM affiliation a WHERE a.plant_id=s.plant_id AND a.organization_id=i.owner AND a.ended_at IS NULL)) AND s.kind='movement' AND s.to_phase>s.from_phase AND i.revision=1)
  WHEN 'launch_milestone' THEN EXISTS(SELECT FROM launches s WHERE s.id=i.source AND s.plant_id=i.owner AND s.revision=i.revision)
- WHEN 'article_editor_state' THEN EXISTS(SELECT FROM editors s WHERE s.id=i.source AND s.organization_id=i.owner AND s.revision=i.revision) ELSE false END AS source_live,
+ WHEN 'article_editor_state' THEN EXISTS(SELECT FROM editors s WHERE s.id=i.source AND s.organization_id=i.owner AND s.revision=i.revision)
+ WHEN 'development_enrollment' THEN EXISTS(SELECT FROM enrollments s WHERE s.id=i.source AND s.organization_id=i.owner) ELSE false END AS source_live,
  CASE i."sourceKind" WHEN 'task' THEN EXISTS(SELECT FROM tasks s WHERE s.id=i.source AND EXISTS(SELECT FROM task_assignee ta WHERE ta.task_id=s.id AND ta.account_id=i.recipient) AND s.deleted_at IS NULL AND s.status NOT IN ('complete','no_longer_needed'))
  WHEN 'meeting' THEN EXISTS(SELECT FROM meetings s WHERE s.id=i.source AND s.status NOT IN ('cancelled','completed') AND s.starts_at>clock_timestamp())
  WHEN 'launch_milestone' THEN EXISTS(SELECT FROM launches s WHERE s.id=i.source AND s.completed_at IS NOT NULL AND s.removed_at IS NULL)
@@ -229,7 +248,7 @@ export function createNotificationService(config: {
 					notice: row.id,
 					operation: v.operation,
 					eligibleAt: v.eligibleAt,
-					content: { subject: v.title, text: v.text },
+					content: { subject: v.title, text: v.mailText ?? v.text },
 				});
 			}
 		}

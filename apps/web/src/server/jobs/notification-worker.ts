@@ -6,13 +6,18 @@ import {
 	milestone,
 	milestoneCategory,
 	planMilestoneNotice,
+	planResidencyNotice,
 	relationshipMailGrants,
+	residencyCategory,
+	residencyJobOf,
+	residencyMailGrants,
 } from "@everyfield/domain/organizations";
 import { authorizeLaunchNotices } from "@everyfield/domain/launch";
 import { authorizePhaseNotices } from "@everyfield/domain/phases";
 import { authorizeTaskReminders } from "@everyfield/domain/tasks";
 import "server-only";
 import { z } from "zod";
+import { milestonePath } from "../../features/residency/model.ts";
 import { mailEnv } from "../mail-env.ts";
 import { transaction } from "../platform/database.ts";
 import {
@@ -25,12 +30,13 @@ import {
 	type MailTransport,
 } from "./mail.ts";
 import { claimDue, finishClaim, finishJob, lockClaim, recoverLease, type Claim, type JobResult } from "./queue.ts";
-import { mountMailService, seatedNotificationService } from "./seated-notifications.ts";
+import { mountMailService, residentNotificationService, seatedNotificationService } from "./seated-notifications.ts";
 
 // The notification worker (NTF-006, NTF-009), run by the scheduled runner. Meeting writes queue one `notification` job
 // per announcement and reminder slot (syncReminderJobs in packages/domain/src/meetings); approving or ending a plant's
 // connection, and changing what it shares, queue one per occurrence (queueMilestoneJob in
-// packages/domain/src/organizations). Each due job reads its plan as of the run, and a planned slot or an occurrence
+// packages/domain/src/organizations); a director confirming a linked resident's milestone or writing feedback on one
+// queues one per occurrence and link (queueResidencyJob). Each due job reads its plan as of the run, and a planned slot or an occurrence
 // that still holds writes one notice per current recipient, with its email, through the notification service, in the
 // transaction that finishes the job.
 
@@ -50,13 +56,46 @@ const finish: Record<Exclude<Outcome, "lost">, JobResult> = {
 	suppressed: { state: "cancelled", code: "suppressed" },
 };
 
-export function createNotificationWorker(config: { mail: ReturnType<typeof createMailService> }) {
+export function createNotificationWorker(config: {
+	mail: ReturnType<typeof createMailService>;
+	/** The app's public origin for links in email, or null when the deployment has none: the email then has no link. */
+	origin?: string | null;
+}) {
 	const notifications = seatedNotificationService(config.mail);
+	const residents = residentNotificationService(config.mail);
 
 	/** One claimed job: write its notices when its plan still owes them, or nothing. */
 	async function deliver(tx: Transaction, claim: Claim, asOf: string): Promise<Outcome> {
 		if (!(await lockClaim(tx, claim))) return "lost";
+		if (claim.producer_key.startsWith("residency/")) return deliverResidency(tx, claim);
 		return claim.producer_key.startsWith("affiliation/") ? deliverMilestone(tx, claim) : deliverSlot(tx, claim, asOf);
+	}
+
+	/**
+	 * A residency confirmation or feedback: one notice owned by the organization to the linked resident, while the link
+	 * the job names is still live (D-1416). Its email links to My residency at that milestone.
+	 */
+	async function deliverResidency(tx: Transaction, claim: Claim): Promise<Outcome> {
+		const org = claim.tenant_id;
+		const enrollmentId = z.uuid().parse(claim.subject_record_id);
+		const job = residencyJobOf(claim.producer_key);
+		const plan = await planResidencyNotice(tx, org, { enrollmentId, ...job });
+		if (!plan) return "stale";
+		if (!plan.holds) return "suppressed";
+		const link = config.origin ? `\n\nOpen My residency: ${config.origin}${milestonePath(job.milestoneId)}` : "";
+		await residents.enqueue(tx, {
+			owner: { kind: "organization", id: org, organizationKind: plan.organizationKind },
+			source: { kind: "development_enrollment", id: enrollmentId, revision: "1" },
+			recipient: plan.recipient,
+			category: residencyCategory[job.occurrence],
+			occurrence: job.feedbackId ? `${job.milestoneId}/${job.feedbackId}` : job.milestoneId,
+			eligibleAt: new Date().toISOString(),
+			title: plan.title,
+			text: plan.text,
+			mailText: plan.text + link,
+			operation: null,
+		});
+		return "planned";
 	}
 
 	/**
@@ -156,7 +195,8 @@ export type NotificationWorker = ReturnType<typeof createNotificationWorker>;
 
 /**
  * Which notification mail may go out, checked at send time in one statement: a meeting notice under the meeting rule
- * (meetingMailGrants), a connection or sharing milestone under its own (relationshipMailGrants).
+ * (meetingMailGrants), a connection or sharing milestone under its own (relationshipMailGrants), a residency notice
+ * while its resident's link is live (residencyMailGrants).
  */
 export async function authorizeNotificationMail(
 	tx: Transaction,
@@ -164,9 +204,9 @@ export async function authorizeNotificationMail(
 ): Promise<ReadonlySet<string>> {
 	const rows = mail.map((m) => ({ id: m.id, recipient: m.recipient, notice: m.notice }));
 	const input = sql`jsonb_to_recordset(${JSON.stringify(rows)}::jsonb) i(id uuid,recipient uuid,notice uuid)`;
-	const r =
-		await tx.execute(sql`WITH meeting AS (${meetingMailGrants(input)}), relationship AS (${relationshipMailGrants(input)})
-		SELECT id FROM meeting UNION SELECT id FROM relationship`);
+	const r = await tx.execute(sql`WITH meeting AS (${meetingMailGrants(input)}),
+		relationship AS (${relationshipMailGrants(input)}), residency AS (${residencyMailGrants(input)})
+		SELECT id FROM meeting UNION SELECT id FROM relationship UNION SELECT id FROM residency`);
 	return new Set(
 		z
 			.array(z.object({ id: z.uuid() }))
@@ -180,8 +220,10 @@ let mounted: NotificationWorker | undefined;
 export function notificationsMount(db: Database | null): NotificationWorker | null {
 	const v = z.object(mailEnv).safeParse(process.env);
 	if (!db || !v.success) return null;
+	const origin = z.url().safeParse(process.env.IDENTITY_ORIGIN);
 	mounted ??= createNotificationWorker({
 		mail: mountMailService({ db, env: v.data, authorize: authorizeNotificationMail, unsubscribe: mailUnsubscribe() }),
+		origin: origin.success ? new URL(origin.data).origin : null,
 	});
 	return mounted;
 }

@@ -70,7 +70,14 @@ export const notificationCategory = z.enum([
 	"launch_milestone",
 	"wiki_upstream_review",
 	"scheduled_email_unsubscribe",
+	"residency_confirmation",
+	"residency_feedback",
 ]);
+/**
+ * Categories a linked resident receives from their sending church's residency (T-365, D-1415): the director confirmed a
+ * milestone they marked done, or wrote feedback on one of their milestones. Every other category needs a seat.
+ */
+export const residencyCategories = ["residency_confirmation", "residency_feedback"] as const;
 /**
  * Categories that live in the bell only: a Wiki review request, and a person who unsubscribed from a Messages email
  * the account scheduled (T-242, D-680). They have no email channel to choose.

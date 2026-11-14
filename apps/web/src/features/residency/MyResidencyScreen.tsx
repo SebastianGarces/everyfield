@@ -21,16 +21,19 @@ import {
 	PageHeader,
 } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
-import { Icon } from "@everyfield/ui/foundations";
+import { cn, Icon } from "@everyfield/ui/foundations";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { markSubjectRead } from "../notifications/actions";
+import { useAccount } from "../notifications/feed";
+import { readUnreadCount } from "../notifications/fetch";
 import { formatDay } from "../organizations/board/model";
 import { Problem } from "../organizations/board/Problem";
 import { programProblem, KIND } from "../organizations/programs/model";
 import { useResidency } from "../shell/residency.ts";
 import { markMilestone } from "./actions";
 import { articlePath } from "../wiki/model";
-import { meetingDay, meetingTime, readingPath, zoneName } from "./model";
+import { meetingDay, meetingTime, milestoneAnchor, readingPath, zoneName } from "./model";
 
 type Linked = Extract<MyResidency, { status: "linked" }>;
 type Enrollment = Linked["enrollments"][number];
@@ -72,7 +75,31 @@ function NotLinked() {
 	);
 }
 
+/**
+ * A residency notice opens this page at its milestone (`?milestone=`, from the bell or its email): the page shows that
+ * milestone as the one opened, its unread notices read as read and the bell's count follows. An entry already marked
+ * in the bell marks nothing more. Returns the opened milestone's id.
+ */
+function useOpenedNotice() {
+	const { remember, setCount } = useAccount();
+	const [opened, setOpened] = useState<string | null>(null);
+	useEffect(() => {
+		const id = new URLSearchParams(location.search).get("milestone");
+		setOpened(id);
+		if (!id) return;
+		void markSubjectRead({ kind: "residency_milestone", id })
+			.then((r) => {
+				if (r.status !== "ok" || !r.value.markedIds.length) return;
+				remember(new Set(r.value.markedIds), true);
+				return readUnreadCount().then((c) => c.status === "ok" && setCount(c.value.count));
+			})
+			.catch(() => undefined);
+	}, [remember, setCount]);
+	return opened;
+}
+
 function LinkedResidency({ residency }: { residency: Linked }) {
+	const opened = useOpenedNotice();
 	const church = residency.organizationName;
 	return (
 		<div className="flex flex-col gap-5">
@@ -87,13 +114,23 @@ function LinkedResidency({ residency }: { residency: Linked }) {
 					</EmptyState>
 				</Card>
 			) : (
-				residency.enrollments.map((e) => <EnrollmentView key={e.id} enrollment={e} residency={residency} />)
+				residency.enrollments.map((e) => (
+					<EnrollmentView key={e.id} enrollment={e} residency={residency} opened={opened} />
+				))
 			)}
 		</div>
 	);
 }
 
-function EnrollmentView({ enrollment: e, residency }: { enrollment: Enrollment; residency: Linked }) {
+function EnrollmentView({
+	enrollment: e,
+	residency,
+	opened,
+}: {
+	enrollment: Enrollment;
+	residency: Linked;
+	opened: string | null;
+}) {
 	const church = residency.organizationName;
 	const [marks, setMarks] = useState<Record<string, Milestone["completion"]>>({});
 	const milestones = e.milestones.map((m) => (m.id in marks ? { ...m, completion: marks[m.id]! } : m));
@@ -150,6 +187,7 @@ function EnrollmentView({ enrollment: e, residency }: { enrollment: Enrollment; 
 									<MilestoneRow
 										key={m.id}
 										milestone={m}
+										opened={m.id === opened}
 										enrollmentId={e.id}
 										director={e.program.director}
 										today={residency.today}
@@ -217,12 +255,15 @@ function NextMeeting({
 /** One milestone: open, marked and waiting, or confirmed, with the director's feedback on the resident's own work. */
 function MilestoneRow({
 	milestone: m,
+	opened,
 	enrollmentId,
 	director,
 	today,
 	onMarked,
 }: {
 	milestone: Milestone;
+	/** The milestone a notice opened: shown set apart so the reader finds it. */
+	opened: boolean;
 	enrollmentId: string;
 	director: string;
 	today: Linked["today"];
@@ -245,7 +286,14 @@ function MilestoneRow({
 		}
 	}
 	return (
-		<li className="flex flex-col gap-2 py-3.5 first:pt-0 last:pb-0">
+		<li
+			id={milestoneAnchor(m.id)}
+			aria-current={opened ? "location" : undefined}
+			className={cn(
+				"flex scroll-mt-24 flex-col gap-2 py-3.5",
+				opened ? "-mx-3 rounded-md bg-blue-50 px-3" : "first:pt-0 last:pb-0",
+			)}
+		>
 			<div className="flex flex-wrap items-start gap-x-3 gap-y-2">
 				<span
 					aria-hidden

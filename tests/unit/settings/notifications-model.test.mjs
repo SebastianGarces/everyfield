@@ -24,6 +24,23 @@ test("INV-notification-rows: only categories with a producer are offered, in mat
 			"phase_milestone",
 			"wiki_upstream_review",
 			"scheduled_email_unsubscribe",
+			"residency_confirmation",
+			"residency_feedback",
+		],
+	);
+});
+
+test("INV-notification-rows: a linked resident's choices make the Milestone confirmations and Feedback rows, both channels", () => {
+	const rows = preferenceRows(
+		["residency_confirmation", "residency_feedback"].flatMap((category) =>
+			["email", "in_app"].map((channel) => ({ category, channel, enabled: true })),
+		),
+	);
+	assert.deepEqual(
+		rows.map((row) => [row.label, row.inApp?.enabled, row.email?.enabled]),
+		[
+			["Milestone confirmations", true, true],
+			["Feedback", true, true],
 		],
 	);
 });

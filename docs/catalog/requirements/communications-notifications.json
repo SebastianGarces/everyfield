@@ -1140,7 +1140,7 @@
         },
         {
           "operation": "notifications.enqueue",
-          "rule": "Supported registered category values: task_due, task_overdue, meeting_announcement, meeting_reminder, planter_digest, oversight_digest, relationship_milestone, sharing_milestone, phase_milestone, launch_milestone, wiki_upstream_review, scheduled_email_unsubscribe."
+          "rule": "Supported registered category values: task_due, task_overdue, meeting_announcement, meeting_reminder, planter_digest, oversight_digest, relationship_milestone, sharing_milestone, phase_milestone, launch_milestone, wiki_upstream_review, scheduled_email_unsubscribe, residency_confirmation, residency_feedback."
         }
       ]
     },
@@ -1217,11 +1217,11 @@
         },
         {
           "operation": "notifications.feed",
-          "rule": "Supported categories values: task_due, task_overdue, meeting_announcement, meeting_reminder, planter_digest, oversight_digest, relationship_milestone, sharing_milestone, phase_milestone, launch_milestone, wiki_upstream_review, scheduled_email_unsubscribe."
+          "rule": "Supported categories values: task_due, task_overdue, meeting_announcement, meeting_reminder, planter_digest, oversight_digest, relationship_milestone, sharing_milestone, phase_milestone, launch_milestone, wiki_upstream_review, scheduled_email_unsubscribe, residency_confirmation, residency_feedback."
         },
         {
           "operation": "notifications.feed",
-          "rule": "Each entry names its subject from the notice the recipient already sees, under the same visibility predicate: scheduled_email_unsubscribe opens that scheduled email in Messages, task_due and task_overdue open the task in Tasks, meeting_announcement and meeting_reminder open the meeting page, wiki_upstream_review opens the published article in the Wiki. Other categories have no subject page; an unread one is a mark-read control and a read one is plain text. A linked entry stays a link once read, following it marks that entry read and nothing else, and a subject that is gone or outside the selected church shows that page's usual not-found or not-available state."
+          "rule": "Each entry names its subject from the notice the recipient already sees, under the same visibility predicate: scheduled_email_unsubscribe opens that scheduled email in Messages, task_due and task_overdue open the task in Tasks, meeting_announcement and meeting_reminder open the meeting page, wiki_upstream_review opens the published article in the Wiki, residency_confirmation and residency_feedback open My residency at that milestone. Other categories have no subject page; an unread one is a mark-read control and a read one is plain text. A linked entry stays a link once read, following it marks that entry read and nothing else, and a subject that is gone or outside the selected church shows that page's usual not-found or not-available state."
         },
         {
           "operation": "notifications.markAllVisibleRead",
@@ -1283,7 +1283,7 @@
         },
         {
           "operation": "notifications.preferences.get",
-          "rule": "Authenticated own actual producer choices incl explicit equal-default choices; no phantom seat and no custom rule builder."
+          "rule": "Authenticated own actual producer choices incl explicit equal-default choices; no phantom seat and no custom rule builder. Seat categories need a current seat; residency_confirmation and residency_feedback are offered only while the account has a current residency link, so a seatless Discovery account sees only those."
         },
         {
           "operation": "notifications.preferences.set",
@@ -1291,7 +1291,7 @@
         },
         {
           "operation": "notifications.preferences.set",
-          "rule": "Supported category values: task_due, task_overdue, meeting_announcement, meeting_reminder, planter_digest, oversight_digest, relationship_milestone, sharing_milestone, phase_milestone, launch_milestone, wiki_upstream_review, scheduled_email_unsubscribe."
+          "rule": "Supported category values: task_due, task_overdue, meeting_announcement, meeting_reminder, planter_digest, oversight_digest, relationship_milestone, sharing_milestone, phase_milestone, launch_milestone, wiki_upstream_review, scheduled_email_unsubscribe, residency_confirmation, residency_feedback."
         },
         {
           "operation": "notifications.preferences.set",
@@ -1447,7 +1447,7 @@
       "feature_ids": [
         "NTF-009"
       ],
-      "text": "Existing relationship/sharing facts and actual phase advance/launch milestones fan out once per occurrence. Declaration/backward phase movement is not advance. Relationship-ending notice can state its own committed event to the affected plant without reopening departed private data. Ordinary current Owner/Admin eligible notice audiences replace title-derived authority.",
+      "text": "Existing relationship/sharing facts and actual phase advance/launch milestones fan out once per occurrence. Declaration/backward phase movement is not advance. Relationship-ending notice can state its own committed event to the affected plant without reopening departed private data. Ordinary current Owner/Admin eligible notice audiences replace title-derived authority. A program director confirming a milestone a linked resident marked done, and writing new feedback on one of that resident's milestones, each send one in-app notice and one email to the currently linked resident only, never to staff or other residents and never adding a seat; the notice names the milestone and the organization and never carries the feedback text. A residency notice is visible and its email sendable only while the recipient's residency link to that organization is current, in place of the seat check; an unlinked enrollee gets none, and linking later sends none for earlier events (D-1414, D-1415, D-1416).",
       "spec": "docs/product/communications-notifications.md#notification-product",
       "operations": [
         "notifications.emitRelationshipMilestone",

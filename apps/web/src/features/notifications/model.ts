@@ -4,7 +4,9 @@ import {
 	CalendarCheckIn01Icon,
 	ChartLineData01Icon,
 	CheckListIcon,
+	CheckmarkBadge01Icon,
 	Clock01Icon,
+	Comment01Icon,
 	Link01Icon,
 	MailRemove01Icon,
 	Rocket01Icon,
@@ -16,6 +18,7 @@ import type * as c from "@everyfield/contracts/notifications";
 import type { Tone } from "@everyfield/ui/controls";
 import type { IconSvgElement } from "@everyfield/ui/foundations";
 import type { z } from "zod";
+import { milestonePath } from "../residency/model";
 import { CATEGORY_TEXT } from "../settings/model";
 
 // Pure rules for the notification feed, the bell and the email opt-out page: the words, the grouping and the local
@@ -69,13 +72,15 @@ const AREA: Record<Category, { area: string; icon: IconSvgElement; tone: Tone }>
 	launch_milestone: { area: "Launch", icon: Rocket01Icon, tone: "violet" },
 	wiki_upstream_review: { area: "Wiki", icon: BookOpen01Icon, tone: "teal" },
 	scheduled_email_unsubscribe: { area: "Messages", icon: MailRemove01Icon, tone: "magenta" },
+	residency_confirmation: { area: "My residency", icon: CheckmarkBadge01Icon, tone: "green" },
+	residency_feedback: { area: "My residency", icon: Comment01Icon, tone: "blue" },
 };
 export const areaOf = (category: Category) => AREA[category];
 export const categoryLabel = (category: Category) => CATEGORY_TEXT[category].label;
 
 /**
- * The page an entry opens (D-731): the scheduled email in Messages, the task in Tasks, the meeting's page or the
- * published article in the Wiki. Null for an entry with no subject page; it stays a mark-read button or plain text.
+ * The page an entry opens (D-731): the scheduled email in Messages, the task in Tasks, the meeting's page, the
+ * published article in the Wiki, or My residency at the resident's milestone. Null for an entry with no subject page; it stays a mark-read button or plain text.
  */
 export function subjectHref(subject: FeedItem["subject"]): string | null {
 	if (!subject) return null;
@@ -88,6 +93,8 @@ export function subjectHref(subject: FeedItem["subject"]): string | null {
 			return `/meetings/${encodeURIComponent(subject.id)}`;
 		case "article":
 			return `/wiki/${subject.slug.split("/").map(encodeURIComponent).join("/")}?source=global`;
+		case "residency_milestone":
+			return milestonePath(subject.id);
 	}
 }
 

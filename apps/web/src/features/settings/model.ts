@@ -147,6 +147,11 @@ export const CATEGORY_TEXT: Record<Category, { label: string; description: strin
 		label: "Unsubscribes from scheduled email",
 		description: "Someone on an email you scheduled unsubscribes",
 	},
+	residency_confirmation: {
+		label: "Milestone confirmations",
+		description: "Your director confirms a milestone you marked done",
+	},
+	residency_feedback: { label: "Feedback", description: "Your director writes feedback on one of your milestones" },
 };
 
 /**
@@ -165,6 +170,8 @@ const SENT: ReadonlySet<Category> = new Set([
 	"phase_milestone",
 	"wiki_upstream_review",
 	"scheduled_email_unsubscribe",
+	"residency_confirmation",
+	"residency_feedback",
 ]);
 
 /** The rows of the preference matrix, in the order of CATEGORY_TEXT, with only the sent pairs this audience has. */

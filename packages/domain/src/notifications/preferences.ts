@@ -11,10 +11,12 @@ import {
 	defaultChannelEnabled as defaultEnabled,
 	defaultDigestCadence,
 	notificationChannels as channels,
+	residencyCategories,
 } from "@everyfield/contracts/settings";
 import type { Database } from "@everyfield/db/client";
 import { sql } from "@everyfield/db/query";
 import { z } from "zod";
+import { liveResidency } from "../access/pipeline.ts";
 import { liveRead } from "../access/session.ts";
 import {
 	RequestActor,
@@ -41,6 +43,8 @@ const readRow = z.object({
 	revision: z.string(),
 	rows: z.array(storedRow),
 	organization: z.boolean(),
+	seated: z.boolean(),
+	resident: z.boolean(),
 });
 const writeRow = z.object({
 	me: z.uuid().nullable(),
@@ -50,10 +54,19 @@ const writeRow = z.object({
 	changed: z.boolean(),
 });
 
+const residency: readonly string[] = residencyCategories;
+/**
+ * Whether the account can receive a category, so Settings offers it: a residency category while it has a live
+ * residency link (T-365), any other only with a current seat, and the oversight digest only with an organization seat.
+ * A seatless Discovery account is offered no seat category.
+ */
+function offered(category: string, row: { organization: boolean; seated: boolean; resident: boolean }) {
+	if (residency.includes(category)) return row.resident;
+	return row.seated && (category !== "oversight_digest" || row.organization);
+}
 /**
  * The account's notification choices, in one statement: its revision, its stored choices with the defaults filled in
- * (defaultChannelEnabled, defaultDigestCadence) and whether it has a current organization seat. The oversight digest
- * applies only with one. The notifications feed and bell, and the Settings Notifications section, all read this.
+ * (defaultChannelEnabled, defaultDigestCadence), limited to the categories it can receive (`offered`). The notifications feed and bell, and the Settings Notifications section, all read this.
  * Null when the session is no longer live.
  */
 export async function readPreferences(
@@ -65,7 +78,9 @@ export async function readPreferences(
 			COALESCE((SELECT json_agg(json_build_object(
 				'category', p.category, 'channel', p.channel, 'enabled', p.enabled, 'cadence', p.cadence
 			)) FROM notification_preference p WHERE p.account_id = a.id), '[]'::json) AS rows,
-			EXISTS(SELECT FROM seat s WHERE s.account_id = a.id AND s.ended_at IS NULL AND s.organization_id IS NOT NULL) AS organization
+			EXISTS(SELECT FROM seat s WHERE s.account_id = a.id AND s.ended_at IS NULL AND s.organization_id IS NOT NULL) AS organization,
+			EXISTS(SELECT FROM seat s WHERE s.account_id = a.id AND s.ended_at IS NULL) AS seated,
+			EXISTS(SELECT FROM residency_link l WHERE l.account_id = a.id AND ${liveResidency}) AS resident
 		FROM account a
 		WHERE a.id = ${accountId}::uuid AND ${liveRead({ session: access.session, owner: { kind: "account", id: accountId } })}`);
 	if (!result.rows[0]) return null;
@@ -73,7 +88,7 @@ export async function readPreferences(
 	const stored = (category: string, channel?: string) =>
 		row.rows.find((r) => r.category === category && (channel ? r.channel === channel : r.cadence));
 	const choices = categories
-		.filter((category) => category !== "oversight_digest" || row.organization)
+		.filter((category) => offered(category, row))
 		.flatMap((category) =>
 			channels(category).map((channel) => ({
 				category,
