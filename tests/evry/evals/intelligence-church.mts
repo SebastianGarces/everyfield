@@ -32,7 +32,7 @@ import { CANARY, church, type Church } from "../../integration/intelligence/asse
 export const TODAY = new Date("2026-10-13T15:00:00Z");
 export { CANARY };
 export const FOLLOW_UP = "Finish guest follow-up from the Vision meeting";
-export const PRAYER = "Set a regular prayer rhythm";
+const PRAYER = "Set a regular prayer rhythm";
 
 /**
  * The assessment job judges its deadlines against its clock, so it runs on the pinned database clock: read from the
@@ -219,4 +219,3 @@ async function seed(ch: Church) {
 	};
 }
 export type IntelligenceChurch = Awaited<ReturnType<typeof seed>>;
-export type SeatName = keyof IntelligenceChurch["seats"];

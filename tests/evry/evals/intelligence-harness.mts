@@ -24,7 +24,7 @@ import { transaction } from "../../../apps/web/src/server/platform/database.ts";
 import { claimDue, finishClaim } from "../../../apps/web/src/server/jobs/queue.ts";
 
 type Change = { field: string; before: unknown; after: unknown };
-export type Case = {
+type Case = {
 	id: string;
 	operation?: string;
 	criterion: number | number[];

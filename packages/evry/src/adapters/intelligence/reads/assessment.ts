@@ -17,7 +17,7 @@ import { dayText } from "../../pipeline/reads/index.ts";
 const assessments = createAssessments();
 const facts = createFacts();
 /** Where the planter reads all of this. */
-export const SCREEN = "[Plant Intelligence](/intelligence)";
+const SCREEN = "[Plant Intelligence](/intelligence)";
 
 type Reply<T> = { status: "ok"; value: T } | { status: "refused"; error: { code: string } };
 function valueOf<T>(reply: Reply<T>): T {

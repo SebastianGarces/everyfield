@@ -278,7 +278,7 @@ function organizationStep(options: LanguageModelV4CallOptions, text: string, sys
 		);
 	}
 	const patterns = PATTERNS.exec(text);
-	if (patterns && /\bpatterns?\b/i.test(text)) {
+	if (patterns) {
 		const out = lastOf(outputs, "organizationIntelligence.read");
 		if (!out) return read("organizationIntelligence.read", { level: "state" });
 		const where = patterns[1]!.trim();
