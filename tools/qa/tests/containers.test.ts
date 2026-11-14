@@ -112,10 +112,13 @@ test("INV-qa-containers: without Docker or its daemon the sweep says it skipped,
 const exists = (name: string) =>
 	spawnSync("docker", ["ps", "-a", "-q", "--filter", `name=^/${name}$`], { encoding: "utf8" }).stdout.trim() !== "";
 
-/** Runs the child QA test process and resolves with it once its database is up and named. */
-function child(mode: "fail" | "wait") {
+/**
+ * Runs the child QA test process and resolves with it once its database is up and named. Its stdin is a pipe from this
+ * process, so a waiting child ends when this test process does.
+ */
+function child(mode: "fail" | "wait" | "parent") {
 	const p = spawn(process.execPath, [join(import.meta.dirname, "fixtures/quiet-database-child.ts"), mode], {
-		stdio: ["ignore", "pipe", "pipe"],
+		stdio: ["pipe", "pipe", "pipe"],
 		env: (({ NODE_TEST_CONTEXT: _, ...env }) => env)(process.env),
 	});
 	let out = "",
@@ -139,7 +142,7 @@ async function remains(name: string) {
 	return exists(name);
 }
 
-test("INV-qa-containers: a QA database goes when its test process fails, is interrupted or is killed", async (t) => {
+test("INV-qa-containers: a QA database goes when its test process fails, is interrupted or is killed, or its parent is", async (t) => {
 	await t.test("a failing test", async () => {
 		const run = child("fail");
 		const name = await run.container;
@@ -161,4 +164,12 @@ test("INV-qa-containers: a QA database goes when its test process fails, is inte
 			assert.equal(await run.exited, signal);
 			assert.equal(await remains(name), false);
 		});
+	// The orphan of an interrupted check: the test process that started the waiting child dies, by any signal.
+	await t.test("its parent killed", async () => {
+		const run = child("parent");
+		const name = await run.container;
+		run.p.kill("SIGKILL");
+		assert.equal(await run.exited, "SIGKILL");
+		assert.equal(await remains(name), false);
+	});
 });
