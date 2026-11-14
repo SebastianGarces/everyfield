@@ -303,7 +303,7 @@ test("AC:LAUNCH46-011 AC:B02-019 a partial debrief stays a draft; submitting wit
 	refused(await debrief(c.owner, p, { wentWell: "Early" }), "not_ready");
 	ok(await record(c.owner, { actualDate: "2026-10-11", attendance: 40 }, p.revision));
 	p = await plan(c.owner);
-	assert.deepEqual(p.debrief, { draft: null, submitted: null, submissions: 0 });
+	assert.deepEqual(p.debrief, { draft: null, submitted: null });
 
 	p = ok(await debrief(c.owner, p, { wentWell: "Worship", toChange: "  Parking  " })).plan;
 	assert.equal(p.debrief.draft.answers.wentWell, "Worship");
@@ -341,7 +341,6 @@ test("AC:LAUNCH46-011 AC:B02-019 a partial debrief stays a draft; submitting wit
 		),
 	).plan;
 	assert.equal(done.debrief.draft, null);
-	assert.equal(done.debrief.submissions, 1);
 	assert.equal(done.debrief.submitted.version, 1);
 	assert.deepEqual(done.debrief.submitted.submittedBy, { accountId: c.owner.id, displayName: "Olivia Owner" });
 	assert.ok(done.debrief.submitted.submittedAt);
@@ -370,7 +369,6 @@ test("AC:LAUNCH46-008 AC:LAUNCH46-010 AC:LAUNCH46-009 AC:B02-020 Yes 3 is not me
 	// Correcting the submitted answer to No is the next version; the first stays.
 	p = ok(await debrief(c.owner, p, { missingNames: "no" }, true)).plan;
 	assert.deepEqual(p.evidence.guestNamesEntered, { status: "met", remaining: null });
-	assert.equal(p.debrief.submissions, 2);
 	assert.equal(p.debrief.submitted.version, 2);
 	assert.deepEqual(
 		await rows(

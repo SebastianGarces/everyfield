@@ -60,19 +60,10 @@ const formOf = (a: DebriefAnswers | null): Form => ({
 	missingNames: a?.missingNames ?? null,
 	missingCount: a?.missingCount === null || !a ? "" : String(a.missingCount),
 });
+/** The form as answers; checkDebrief blanks empty areas and drops a count sent with No. */
 function answersOf(f: Form): DebriefAnswers | null {
 	const count = parseCount(f.missingCount);
-	if (!count.ok) return null;
-	const blank = (v: string) => (v.trim() ? v : null);
-	return {
-		wentWell: blank(f.wentWell),
-		toChange: blank(f.toChange),
-		operations: blank(f.operations),
-		followUpPlan: blank(f.followUpPlan),
-		supportNeeded: blank(f.supportNeeded),
-		missingNames: f.missingNames,
-		missingCount: f.missingNames === "yes" ? count.value : null,
-	};
+	return count.ok ? { ...f, missingCount: count.value } : null;
 }
 
 /**
@@ -168,7 +159,7 @@ function Submitted({ plan }: { plan: Plan }) {
 			<p className="text-sm text-ink">
 				<b className="font-semibold">Submitted</b> {instantDate(s.submittedAt!, plan.timeZone)}
 				{s.submittedBy ? ` by ${s.submittedBy.displayName}` : " by a former account"}
-				{plan.debrief!.submissions > 1 ? ` · version ${plan.debrief!.submissions}` : ""}
+				{s.version > 1 ? ` · version ${s.version}` : ""}
 			</p>
 			<dl className="mt-4 flex flex-col gap-4">
 				{AREAS.map((a) => (
@@ -398,7 +389,7 @@ export function SummaryCard({ plan, keys, onPlan }: { plan: Plan; keys: Keys; on
 		setError(refusalMessage(r));
 	}
 
-	const [current, ...earlier] = s.published;
+	const current = s.published[0];
 	return (
 		<Card className="mt-5" aria-labelledby="launch-summary">
 			<CardHeader>
@@ -471,7 +462,7 @@ export function SummaryCard({ plan, keys, onPlan }: { plan: Plan; keys: Keys; on
 						Published
 					</h3>
 					<ol className="mt-3 flex flex-col gap-4">
-						{[current, ...earlier].map((v, i) => (
+						{s.published.map((v, i) => (
 							<li key={v.id} className={i ? "opacity-75" : undefined}>
 								<p className="text-xs text-text-3">
 									Version {v.version} · {instantDate(v.publishedAt, plan.timeZone)}

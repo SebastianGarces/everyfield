@@ -114,7 +114,6 @@ const outcomeColumns = (plant: SQL, admin: SQL) => sql`${admin} AS admin,
 		FROM ${rosterOf(plant)}) END AS guests,
 	(SELECT ${debriefJson("d")} FROM launch_debrief d WHERE d.plant_id=${plant} AND d.submitted_at IS NOT NULL
 		ORDER BY d.version DESC LIMIT 1) AS submitted,
-	(SELECT count(*)::int FROM launch_debrief d WHERE d.plant_id=${plant} AND d.submitted_at IS NOT NULL) AS submissions,
 	CASE WHEN ${admin} THEN (SELECT ${debriefJson("d")} FROM launch_debrief d WHERE d.plant_id=${plant}
 		AND d.submitted_at IS NULL) END AS draft,
 	CASE WHEN ${admin} THEN (SELECT jsonb_build_object('id',s.id,'revision',s.revision::text,'body',s.body,
@@ -168,7 +167,6 @@ const planRow = z.object({
 	guest_count: z.int(),
 	guests: z.array(z.unknown()).nullable(),
 	submitted: debriefRow,
-	submissions: z.int(),
 	draft: debriefRow,
 	summary_draft: z.unknown().nullable(),
 	published: z.array(z.unknown()).nullable(),
@@ -191,7 +189,7 @@ export function planOf(raw: unknown, clock: Clock) {
 		outcome: r.outcome,
 		guests: { count: r.guest_count, named: r.admin ? r.guests : null },
 		evidence: c.evidenceOf(r.submitted),
-		debrief: r.admin ? { draft: r.draft, submitted: r.submitted, submissions: r.submissions } : null,
+		debrief: r.admin ? { draft: r.draft, submitted: r.submitted } : null,
 		summary: r.admin ? { draft: r.summary_draft, published: r.published ?? [] } : null,
 	});
 	const dated = r.launch !== null && r.launch.status !== "planning";

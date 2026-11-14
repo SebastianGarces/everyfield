@@ -164,7 +164,6 @@ export const debrief = z.strictObject({
 	draft: debriefVersion.nullable(),
 	/** The latest submitted version: the one evidence reads, whatever a later draft says. */
 	submitted: debriefVersion.nullable(),
-	submissions: z.int().min(0),
 });
 export type Debrief = z.infer<typeof debrief>;
 
