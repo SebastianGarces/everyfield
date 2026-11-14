@@ -14,7 +14,9 @@ import { activeResidents, answer, one, parse, refuse, seatOf, write, type Execut
 // only by the current director and the organization's Owner and Admins. Each read is one statement with the live
 // access check inside it (C13); each write runs in the organization's write gate (C88, established) with a body-free
 // audit row. A published version never changes: the director's next save starts the next version's draft, and an
-// enrollment keeps the version it was enrolled on.
+// enrollment keeps the version it was enrolled on until the director reviews and applies a newer one (REQ-MUL-011).
+// A milestone's `lineage` carries it across versions: an enrollment's completions and feedback keep the milestone and
+// version they were recorded on, and every read matches them to the enrollment's plan by lineage.
 
 type Reply<T> = C.ProgramReply<T>;
 
@@ -171,9 +173,28 @@ FROM g`);
 }
 
 /**
+ * Milestone `m` for enrollment `x` as the contract's enrollmentMilestone: its completion and feedback on any version,
+ * matched by lineage, with dates in `o.timezone`. Feedback is null unless `x.reads_feedback`.
+ */
+const progressJson = sql`jsonb_build_object('id',m.id,'title',m.title,'description',m.description,'handsOn',m.hands_on,
+ 'completion',(SELECT jsonb_build_object('completedOn',c.completed_on::text,
+   'confirmedOn',(c.confirmed_at AT TIME ZONE o.timezone)::date::text,'recorder',${nameOf(sql`c.recorder_id`)},
+   'confirmer',${nameOf(sql`c.confirmer_id`)},'source',c.source)
+  FROM enrollment_milestone c JOIN development_milestone cm ON cm.id=c.milestone_id AND cm.organization_id=c.organization_id
+  WHERE c.enrollment_id=x.id AND c.organization_id=x.organization_id AND cm.lineage=m.lineage
+  ORDER BY c.confirmed_at,c.id LIMIT 1),
+ 'feedback',CASE WHEN x.reads_feedback THEN coalesce((SELECT jsonb_agg(jsonb_build_object('id',f.id,
+   'writtenOn',(f.written_at AT TIME ZONE o.timezone)::date::text,'writer',${nameOf(sql`f.writer_id`)},'body',f.body)
+   ORDER BY f.written_at,f.id) FROM assignment_feedback f JOIN development_milestone fm ON fm.id=f.milestone_id
+   AND fm.organization_id=f.organization_id WHERE f.enrollment_id=x.id AND f.organization_id=x.organization_id
+   AND fm.lineage=m.lineage),'[]'::jsonb) END)`;
+
+/**
  * One enrollment: the person, the program, the version it is on with that version's stages and milestones, each
  * milestone's completion, and the director's feedback for a viewer who may read it: the current director, or an
- * Owner or Admin (REQ-MUL-012). Anyone else of the organization reads the rest; feedback reads as null. One statement.
+ * Owner or Admin (REQ-MUL-012). Records on milestones a later version removed are listed as earlier, kept as they
+ * were recorded, and a newer published version is named. Anyone else of the organization reads the rest; feedback
+ * reads as null. One statement.
  */
 export async function readEnrollment(
 	db: Executor,
@@ -185,7 +206,7 @@ export async function readEnrollment(
 		const { enrollmentId } = parse(z.strictObject({ enrollmentId: z.uuid() }), raw);
 		const org = seat.organization;
 		const r = await db.execute(sql`WITH g AS (SELECT ${seat.live} AS allowed), ${orgCte(org)},
-x AS (SELECT e.*,p.name AS program_name,p.kind,p.director_seat_id,pn.display_name,v.version_number,
+x AS (SELECT e.*,p.name AS program_name,p.kind,p.director_seat_id,p.current_version_id,pn.display_name,v.version_number,
   (${seat.administrator} OR p.director_seat_id=${seat.seatId}::uuid) AS reads_feedback
  FROM development_enrollment e JOIN development_program p ON p.id=e.program_id AND p.organization_id=e.organization_id
  JOIN development_program_version v ON v.id=e.version_id AND v.organization_id=e.organization_id
@@ -200,17 +221,20 @@ SELECT g.allowed,(SELECT today::text FROM o) AS today,(SELECT jsonb_build_object
   'stage',(SELECT jsonb_build_object('id',s.id,'label',s.label) FROM development_stage s WHERE s.id=x.current_stage_id),
   'nextMeeting',CASE WHEN x.next_meeting_at IS NOT NULL THEN jsonb_build_object(
    'at',to_char(x.next_meeting_at AT TIME ZONE x.meeting_timezone,'YYYY-MM-DD"T"HH24:MI:SS'),'timezone',x.meeting_timezone) END,
-  'milestones',coalesce((SELECT jsonb_agg(jsonb_build_object('id',m.id,'title',m.title,'description',m.description,
-    'handsOn',m.hands_on,
-    'completion',(SELECT jsonb_build_object('completedOn',c.completed_on::text,
-      'confirmedOn',(c.confirmed_at AT TIME ZONE o.timezone)::date::text,'recorder',${nameOf(sql`c.recorder_id`)},
-      'confirmer',${nameOf(sql`c.confirmer_id`)},'source',c.source)
-     FROM enrollment_milestone c WHERE c.enrollment_id=x.id AND c.milestone_id=m.id AND c.organization_id=x.organization_id),
-    'feedback',CASE WHEN x.reads_feedback AND m.hands_on THEN coalesce((SELECT jsonb_agg(jsonb_build_object('id',f.id,
-      'writtenOn',(f.written_at AT TIME ZONE o.timezone)::date::text,'writer',${nameOf(sql`f.writer_id`)},'body',f.body)
-      ORDER BY f.written_at,f.id) FROM assignment_feedback f WHERE f.enrollment_id=x.id AND f.milestone_id=m.id
-      AND f.organization_id=x.organization_id),'[]'::jsonb) END) ORDER BY m.position,m.id)
-   FROM development_milestone m WHERE m.version_id=x.version_id AND m.organization_id=x.organization_id),'[]'::jsonb))
+  'milestones',coalesce((SELECT jsonb_agg(${progressJson} ORDER BY m.position,m.id)
+   FROM development_milestone m WHERE m.version_id=x.version_id AND m.organization_id=x.organization_id),'[]'::jsonb),
+  'earlier',coalesce((SELECT jsonb_agg(${progressJson} || jsonb_build_object('versionNumber',m.version_number)
+    ORDER BY m.version_number,m.position,m.id)
+   FROM (SELECT DISTINCT ON (dm.lineage) dm.*,dv.version_number FROM development_milestone dm
+    JOIN development_program_version dv ON dv.id=dm.version_id AND dv.organization_id=dm.organization_id
+    WHERE dm.organization_id=x.organization_id AND dm.id IN (SELECT c.milestone_id FROM enrollment_milestone c
+      WHERE c.enrollment_id=x.id AND c.organization_id=x.organization_id UNION SELECT f.milestone_id FROM assignment_feedback f
+      WHERE x.reads_feedback AND f.enrollment_id=x.id AND f.organization_id=x.organization_id)
+     AND NOT EXISTS(SELECT FROM development_milestone cur WHERE cur.version_id=x.version_id
+      AND cur.organization_id=x.organization_id AND cur.lineage=dm.lineage)
+    ORDER BY dm.lineage,dv.version_number DESC) m),'[]'::jsonb),
+  'newerVersion',(SELECT jsonb_build_object('id',cv.id,'number',cv.version_number) FROM development_program_version cv
+   WHERE cv.id=x.current_version_id AND cv.organization_id=x.organization_id AND cv.id<>x.version_id))
  FROM x CROSS JOIN o) AS enrollment
 FROM g`);
 		const row = z
@@ -255,6 +279,110 @@ SELECT g.allowed,coalesce((SELECT jsonb_agg(jsonb_build_object('revisionId',t.id
 		const row = z.object({ allowed: z.boolean(), items: z.unknown() }).parse(r.rows[0]);
 		if (!row.allowed) refuse();
 		return C.readingCandidates.parse(row.items);
+	});
+}
+
+/**
+ * The state a version review shows for enrollment `x` (`id`, `revision`, `version_id`, `current_stage_id`,
+ * `current_version_id`): the enrollment, its program's current version and its completions. An apply names it, and
+ * any change since refuses the apply (REQ-MUL-011).
+ */
+const basisOf = (org: string) => sql`md5(concat_ws('|',x.revision,x.version_id,x.current_stage_id,x.current_version_id,
+ (SELECT string_agg(c.id::text,',' ORDER BY c.id) FROM enrollment_milestone c WHERE c.enrollment_id=x.id
+  AND c.organization_id=${org}::uuid)))`;
+
+const milestoneJson = sql`jsonb_build_object('lineage',m.lineage,'title',m.title,'description',m.description,'handsOn',m.hands_on)`;
+const milestoneRow = z.object({
+	lineage: z.string(),
+	title: z.string(),
+	description: z.string().nullable(),
+	handsOn: z.boolean(),
+});
+const reviewRow = z.object({
+	enrollmentId: z.string(),
+	versionId: z.string(),
+	fromNumber: z.number(),
+	toNumber: z.number(),
+	basis: z.string(),
+	stage: z.string(),
+	from: z.array(milestoneRow),
+	to: z.array(milestoneRow),
+	stages: z.array(z.object({ id: z.string(), label: z.string() })),
+	finished: z.array(z.string()),
+});
+
+/**
+ * What applying the current version changes for this enrollment, matched by lineage. The stage is preselected to the
+ * new version's stage with the same label, else its first stage (D-1272).
+ */
+function versionReview(r: z.infer<typeof reviewRow>): C.VersionReview {
+	const finished = new Set(r.finished);
+	const before = new Map(r.from.map((m) => [m.lineage, m]));
+	const after = new Set(r.to.map((m) => m.lineage));
+	const shown = (m: (typeof r.from)[number]) => ({
+		title: m.title,
+		description: m.description,
+		handsOn: m.handsOn,
+		finished: finished.has(m.lineage),
+	});
+	const label = r.stage.trim().toLowerCase();
+	return C.versionReview.parse({
+		enrollmentId: r.enrollmentId,
+		versionId: r.versionId,
+		fromNumber: r.fromNumber,
+		toNumber: r.toNumber,
+		basis: r.basis,
+		added: r.to.filter((m) => !before.has(m.lineage)).map(shown),
+		removed: r.from.filter((m) => !after.has(m.lineage)).map(shown),
+		changed: r.to.flatMap((m) => {
+			const was = before.get(m.lineage);
+			if (!was || (was.title === m.title && was.description === m.description && was.handsOn === m.handsOn)) return [];
+			return [{ before: shown(was), after: shown(m) }];
+		}),
+		carried: r.to.filter((m) => finished.has(m.lineage)).map((m) => m.title),
+		stage: r.stage,
+		stages: r.stages,
+		stageId: (r.stages.find((s) => s.label.trim().toLowerCase() === label) ?? r.stages[0]!).id,
+	});
+}
+
+/**
+ * The review the current director reads before applying the program's current published version to an active
+ * enrollment on an older one (REQ-MUL-011, D-1271). Anyone else, or an enrollment with nothing newer, reads nothing.
+ * One statement.
+ */
+export async function readVersionReview(
+	db: Executor,
+	authority: RequestActor,
+	raw: unknown,
+): Promise<Reply<C.VersionReview>> {
+	return answer<C.VersionReview, C.ProgramRefusal>(async () => {
+		const seat = seatOf(authority) ?? refuse();
+		const { enrollmentId } = parse(z.strictObject({ enrollmentId: z.uuid() }), raw);
+		const org = seat.organization;
+		const r = await db.execute(sql`WITH g AS (SELECT ${seat.live} AS allowed), ${orgCte(org)},
+x AS (SELECT e.id,e.revision,e.version_id,e.current_stage_id,p.current_version_id FROM development_enrollment e
+ JOIN development_program p ON p.id=e.program_id AND p.organization_id=e.organization_id
+ WHERE EXISTS(SELECT FROM o) AND e.id=${enrollmentId}::uuid AND e.organization_id=${org}::uuid AND e.status='active'
+  AND p.director_seat_id=${seat.seatId}::uuid AND p.current_version_id<>e.version_id)
+SELECT g.allowed,(SELECT jsonb_build_object('enrollmentId',x.id,'versionId',x.current_version_id,
+  'fromNumber',(SELECT version_number FROM development_program_version WHERE id=x.version_id),
+  'toNumber',(SELECT version_number FROM development_program_version WHERE id=x.current_version_id),
+  'basis',${basisOf(org)},
+  'stage',(SELECT s.label FROM development_stage s WHERE s.id=x.current_stage_id),
+  'from',coalesce((SELECT jsonb_agg(${milestoneJson} ORDER BY m.position,m.id) FROM development_milestone m
+   WHERE m.version_id=x.version_id AND m.organization_id=${org}::uuid),'[]'::jsonb),
+  'to',coalesce((SELECT jsonb_agg(${milestoneJson} ORDER BY m.position,m.id) FROM development_milestone m
+   WHERE m.version_id=x.current_version_id AND m.organization_id=${org}::uuid),'[]'::jsonb),
+  'stages',coalesce((SELECT jsonb_agg(jsonb_build_object('id',s.id,'label',s.label) ORDER BY s.position,s.id)
+   FROM development_stage s WHERE s.version_id=x.current_version_id AND s.organization_id=${org}::uuid),'[]'::jsonb),
+  'finished',coalesce((SELECT jsonb_agg(DISTINCT cm.lineage) FROM enrollment_milestone c JOIN development_milestone cm
+   ON cm.id=c.milestone_id AND cm.organization_id=c.organization_id WHERE c.enrollment_id=x.id
+   AND c.organization_id=${org}::uuid),'[]'::jsonb)) FROM x) AS review
+FROM g`);
+		const row = z.object({ allowed: z.boolean(), review: reviewRow.nullable() }).parse(r.rows[0]);
+		if (!row.allowed || !row.review) refuse();
+		return versionReview(row.review!);
 	});
 }
 
@@ -520,7 +648,7 @@ const directedEnrollment = (w: Writer, enrollmentId: string, milestoneId: string
  e.person_id,e.revision FROM development_enrollment e JOIN development_program p ON p.id=e.program_id
  AND p.organization_id=e.organization_id WHERE e.id=${enrollmentId}::uuid AND e.organization_id=${w.organization}::uuid
  AND e.status='active' AND p.director_seat_id=${w.seatId}::uuid FOR UPDATE OF e FOR SHARE OF p),
-m AS (SELECT m.id,m.hands_on FROM development_milestone m JOIN x ON m.version_id=x.version_id
+m AS (SELECT m.id,m.lineage,m.hands_on FROM development_milestone m JOIN x ON m.version_id=x.version_id
  WHERE m.id=${milestoneId}::uuid AND m.organization_id=${w.organization}::uuid)`;
 
 /**
@@ -547,17 +675,19 @@ linked AS (SELECT FROM residency_link l JOIN x ON l.person_id=x.person_id WHERE 
  AND l.ended_at IS NULL),
 d AS (SELECT ${input.completedOn}::date<=(clock_timestamp() AT TIME ZONE o.timezone)::date AS past FROM organization o
  WHERE o.id=${org}::uuid),
+-- The milestone as finished on any version, matched by lineage: one carried from an earlier version stays as recorded.
+done AS (SELECT FROM enrollment_milestone c JOIN development_milestone cm ON cm.id=c.milestone_id
+ AND cm.organization_id=c.organization_id JOIN m ON cm.lineage=m.lineage
+ WHERE c.enrollment_id=${input.enrollmentId}::uuid AND c.organization_id=${org}::uuid),
 c AS (INSERT INTO enrollment_milestone (id,organization_id,enrollment_id,version_id,milestone_id,source,completed_on,
  recorder_id,confirmer_id,confirmed_at)
  SELECT ${randomUUID()}::uuid,${org}::uuid,x.id,x.version_id,m.id,'program_leader',${input.completedOn}::date,${w.actor}::uuid,
-  ${w.actor}::uuid,clock_timestamp() FROM x,m,d WHERE d.past AND NOT EXISTS(SELECT FROM linked)
+  ${w.actor}::uuid,clock_timestamp() FROM x,m,d WHERE d.past AND NOT EXISTS(SELECT FROM linked) AND NOT EXISTS(SELECT FROM done)
  ON CONFLICT (enrollment_id,milestone_id) DO NOTHING RETURNING id),
 a AS (${w.audit({ action: "development.milestone_recorded", kind: "complete", subjectType: "development_enrollment", subject: sql`x.id`, metadata: { milestoneId: input.milestoneId, source: "program_leader" } })}
  FROM x,c RETURNING id)
 SELECT EXISTS(SELECT FROM x) AS found,EXISTS(SELECT FROM m) AS milestone,coalesce((SELECT past FROM d),false) AS past,
- EXISTS(SELECT FROM linked) AS linked,EXISTS(SELECT FROM c) AS added,
- EXISTS(SELECT FROM enrollment_milestone c WHERE c.enrollment_id=${input.enrollmentId}::uuid
-  AND c.milestone_id=${input.milestoneId}::uuid AND c.organization_id=${org}::uuid) AS existing`,
+ EXISTS(SELECT FROM linked) AS linked,EXISTS(SELECT FROM c) AS added,EXISTS(SELECT FROM done) AS existing`,
 		);
 		if (row.added) return { outcome: "changed" as const };
 		if (!row.found) refuse();
@@ -594,5 +724,58 @@ SELECT EXISTS(SELECT FROM x) AS found,EXISTS(SELECT FROM m WHERE m.hands_on) AS 
 	});
 }
 
+/**
+ * The current director moves an active enrollment to the program's current published version at one of its stages,
+ * after reviewing it (REQ-MUL-011, D-1271). Only the version and stage change: completions and feedback keep the
+ * milestone, version, recorder, confirmer and dates they were recorded with, and nobody is named as a new recorder.
+ * A review older than the enrollment's state is refused as stale; the same apply repeated changes nothing.
+ */
+function applyVersion(db: Database, authority: RequestActor, raw: unknown) {
+	return write<{ outcome: "changed" | "noop" }, C.ProgramRefusal>(db, authority, false, async (w) => {
+		const input = parse(C.applyVersionRequest, raw);
+		const org = w.organization;
+		const row = await one(
+			w,
+			z.object({
+				found: z.boolean(),
+				already: z.boolean(),
+				fresh: z.boolean(),
+				applied: z.boolean(),
+			}),
+			sql`WITH x AS (SELECT e.id,e.revision,e.version_id,e.current_stage_id,p.current_version_id,ev.version_number
+ FROM development_enrollment e JOIN development_program p ON p.id=e.program_id AND p.organization_id=e.organization_id
+ JOIN development_program_version ev ON ev.id=e.version_id AND ev.organization_id=e.organization_id
+ WHERE e.id=${input.enrollmentId}::uuid AND e.organization_id=${org}::uuid AND e.status='active'
+  AND p.director_seat_id=${w.seatId}::uuid FOR UPDATE OF e FOR SHARE OF p),
+t AS (SELECT v.id,v.version_number FROM development_program_version v JOIN x ON v.id=x.current_version_id
+ WHERE v.id=${input.versionId}::uuid AND v.organization_id=${org}::uuid AND v.id<>x.version_id
+  AND ${basisOf(org)}=${input.basis}),
+st AS (SELECT s.id FROM development_stage s JOIN t ON s.version_id=t.id WHERE s.id=${input.stageId}::uuid
+ AND s.organization_id=${org}::uuid),
+u AS (UPDATE development_enrollment e SET version_id=t.id,current_stage_id=st.id,revision=e.revision+1 FROM x,t,st
+ WHERE e.id=x.id AND e.organization_id=${org}::uuid RETURNING e.revision),
+a AS (${w.audit({ action: "development.version_applied", kind: "edit", subjectType: "development_enrollment", subject: sql`x.id`, before: sql`x.revision`, after: sql`u.revision`, metadata: sql`jsonb_build_object('fromVersion',x.version_number,'toVersion',t.version_number)` })}
+ FROM x,t,u RETURNING id)
+SELECT EXISTS(SELECT FROM x) AS found,EXISTS(SELECT FROM x WHERE x.version_id=${input.versionId}::uuid
+  AND x.current_version_id=${input.versionId}::uuid) AS already,
+ EXISTS(SELECT FROM t) AS fresh,EXISTS(SELECT FROM u) AS applied`,
+		);
+		if (row.applied) return { outcome: "changed" as const };
+		if (!row.found) refuse();
+		// A repeat of an apply that already moved the enrollment to the current version.
+		if (row.already) return { outcome: "noop" as const };
+		if (!row.fresh) refuse({ code: "stale_review" });
+		return refuse({ code: "invalid_input", field: "stageId" });
+	});
+}
+
 /** Every program write. The statement census measures each one as `programs.<name>`. */
-export const programWriter = { createProgram, savePlan, publishVersion, enroll, recordMilestone, addFeedback };
+export const programWriter = {
+	createProgram,
+	savePlan,
+	publishVersion,
+	enroll,
+	recordMilestone,
+	addFeedback,
+	applyVersion,
+};
