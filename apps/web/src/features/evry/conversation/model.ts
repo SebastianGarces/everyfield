@@ -28,6 +28,9 @@ type ErrorCode =
 	| "review_expired"
 	| "review_closed"
 	| "photo_unavailable"
+	| "not_assigned"
+	| "assignee_ineligible"
+	| "owner_ineligible"
 	| "unknown";
 
 /** The only error shape Evry sends: a code, a correlation id and whether a retry helps. */
@@ -49,12 +52,18 @@ export type SourceRow = {
 		| "file"
 		| "import"
 		| "message"
+		| "task"
+		| "tally"
+		| "history"
+		| "follow_up"
+		| "contact"
+		| "account"
+		| "template"
+		| "meeting"
 		| "team"
 		| "role"
 		| "training"
-		| "meeting"
-		| "responsibility"
-		| "template";
+		| "responsibility";
 	id: string;
 	label: string;
 	fields: Record<string, unknown>;
@@ -336,6 +345,14 @@ export function endNotice(end: TurnEnd | null): Notice | null {
 				title: "Evry could not read a record",
 				text: "A record Evry needed was not available. Nothing was changed. Try again.",
 			};
+		case "not_assigned":
+		case "owner_ineligible":
+		case "assignee_ineligible":
+			return {
+				tone: "error",
+				title: "Evry can't prepare this change",
+				text: `${TASK_REFUSAL[end.error.code]} Nothing was changed.`,
+			};
 		case "access_denied":
 		case "not_found":
 			return {
@@ -351,6 +368,13 @@ export function endNotice(end: TurnEnd | null): Notice | null {
 			};
 	}
 }
+
+/** Why Evry can't prepare a task or follow-up change, in the person's words. The review card says the same. */
+export const TASK_REFUSAL = {
+	not_assigned: "You can only change tasks assigned to you.",
+	owner_ineligible: "That person can't own follow-ups.",
+	assignee_ineligible: "That person has no seat that can hold tasks.",
+} as const satisfies Partial<Record<ErrorCode, string>>;
 
 export function sendNotice(send: Send): string | null {
 	if (send.state === "sending") return null;

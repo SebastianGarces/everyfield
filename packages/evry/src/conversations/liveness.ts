@@ -36,6 +36,20 @@ const ROW_LIVENESS: Record<SourceRow["kind"], Rule> = {
 	// Never withheld: an import row is a CSV line number or a preview's own row, not a stored record. A file row is a
 	// digest, a receipt key or a name the tool computed, and an activity or skill row is a safe detail of a person that
 	// the tool read under that person's own access; none of them names a source that this check could find gone.
+	// A task, or a follow-up named by its task or (with no task) its obligation, is live while it is not deleted.
+	task: (id, plant) =>
+		sql`EXISTS(SELECT FROM task t WHERE t.id=${id} AND t.plant_id=${plant} AND t.deleted_at IS NULL)`,
+	follow_up: (id, plant) =>
+		sql`(EXISTS(SELECT FROM task t WHERE t.id=${id} AND t.plant_id=${plant} AND t.deleted_at IS NULL)
+			OR EXISTS(SELECT FROM obligation o WHERE o.id=${id} AND o.plant_id=${plant}))`,
+	// A recorded outcome stays in the log, corrected or withdrawn: it is live while it exists.
+	contact: (id, plant) => sql`EXISTS(SELECT FROM contact_outcome o WHERE o.id=${id} AND o.plant_id=${plant})`,
+	// An account is live while it holds a current seat in the church.
+	account: (id, plant) =>
+		sql`EXISTS(SELECT FROM seat s WHERE s.account_id=${id} AND s.plant_id=${plant} AND s.ended_at IS NULL)`,
+	// A tally and a status change are computed or audit facts, never a source that can go.
+	tally: null,
+	history: null,
 	import: null,
 	file: null,
 	skill: null,

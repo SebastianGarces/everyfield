@@ -7,17 +7,29 @@
 //     browser's clock says (R5-5).
 //   AC:INH-REGRESSION-REVISED-APPROVAL INV-revise: a revision sends the native command's exact reviewed input with only
 //     the edited values changed, for every People reviewed write.
+//   INV-review-tasks: a Tasks or Follow-up review says statuses, outcomes, channels and dates in words, lists several
+//     items by name, opens the task or person once saved, and is approved or cancelled as prepared (no Revise).
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
 	approvable,
 	approvalLeft,
+	editableChanges,
+	fieldLabel,
 	isRequired,
+	itemField,
 	missingRequired,
+	openAfter,
+	operationTitle,
 	peopleResult,
 	phaseOf,
+	refusalText,
 	retryable,
 	reviseInput,
+	savedText,
+	showsBefore,
+	subjectName,
+	valueText,
 } from "../../../apps/web/src/features/evry/review/model.ts";
 
 const now = "2026-10-21T12:00:00Z";
@@ -124,6 +136,64 @@ test("AC:REQ-PPL-026 INV-revise-adult: adult or child is required only until a b
 		missingRequired(dated, { ...edits, birthDate: "", adultClassification: "" })?.field,
 		"adultClassification",
 	);
+});
+
+test("INV-review-tasks: task and follow-up reviews say their values in words and are approved as prepared", () => {
+	const task = { kind: "task", id: "44444444-4444-4444-8444-444444444444", label: "Order launch banners" };
+	const change = (field, before, after) => ({ field, before, after });
+	const of = (operation, target, changes) => review({ operation, review: { target, changes } });
+
+	assert.equal(valueText("status", "not_started"), "Not started");
+	assert.equal(valueText("status", "complete"), "Complete");
+	assert.equal(valueText("followUp", "no_longer_needed"), "No longer needed");
+	assert.equal(valueText("outcome", "contacted"), "Contacted (a conversation happened)");
+	assert.equal(valueText("outcome", "attempted_no_contact"), "Attempted, no conversation");
+	assert.equal(valueText("outcome", "administrative_completion"), "Administrative completion");
+	assert.equal(valueText("channel", "phone"), "Phone call");
+	assert.equal(valueText("due", "2026-11-16 America/Chicago"), "Mon, Nov 16, 2026");
+	assert.equal(
+		valueText("occurredAt", "2026-11-13 14:05 America/Chicago"),
+		"Fri, Nov 13, 2026, 2:05 PM (Chicago time)",
+	);
+	assert.equal(valueText("recurrence", "weekly on Mondays, America/Chicago"), "Weekly on Mondays (America/Chicago)");
+	assert.equal(valueText("recurrence", null), "Doesn't repeat");
+	assert.equal(valueText("owners", null), "Needs owner");
+	assert.equal(valueText("relatedTo", task.id), "A linked record", "an id is never shown");
+	assert.equal(fieldLabel("occurredAt"), "When");
+	assert.equal(operationTitle("followups.recordOutcome"), "Log a contact");
+
+	const complete = of("tasks.complete", task, [change("status", "not_started", "complete")]);
+	assert.equal(savedText(complete), "Saved. Order launch banners is complete.");
+	assert.deepEqual(openAfter(complete), { href: `/tasks?task=${task.id}`, label: "Open task" });
+	// New Tasks and Follow-up reviews are approved or cancelled as Evry prepared them; People stays revisable.
+	assert.deepEqual(editableChanges(complete), []);
+	assert.equal(editableChanges(review()).length, 1);
+	assert.equal(
+		refusalText("conflict", task.label, "tasks.complete"),
+		"Order launch banners changed after Evry prepared this, so nothing was saved. Ask Evry to prepare it again.",
+	);
+
+	const bulk = of("tasks.bulkComplete", null, [
+		change("Order launch banners", "not_started", "complete"),
+		change("Buy coffee", "in_progress", "complete"),
+	]);
+	assert.equal(itemField("tasks.bulkComplete"), "status");
+	assert.equal(subjectName(bulk), "2 tasks");
+	assert.equal(savedText(bulk), "Saved. 2 tasks are complete.");
+	assert.deepEqual(openAfter(bulk), { href: "/tasks", label: "Open Tasks" });
+	const checklist = of("tasks.createSubtask", task, [change("Print bulletins", null, "added")]);
+	assert.equal(showsBefore(checklist, checklist.review.changes[0]), false, "a new item has no before");
+
+	const log = of("followups.recordOutcome", maria, [
+		change("outcome", null, "contacted"),
+		change("followUp", "not_started", "complete"),
+	]);
+	assert.equal(showsBefore(log, log.review.changes[0]), false);
+	assert.equal(showsBefore(log, log.review.changes[1]), true, "the follow-up's status before is shown");
+	assert.equal(savedText(log), "Saved. The contact with Maria Santos is logged.");
+	assert.deepEqual(openAfter(log), { href: `/people/${maria.id}`, label: "Open Maria Santos" });
+	// People keeps its own wording.
+	assert.equal(savedText(review()), "Saved. Maria Santos is updated.");
 });
 
 test("AC:HH-05 INV-partial: a saved change that left anyone out counts who changed and never reads as done for everyone", () => {

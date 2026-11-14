@@ -4,8 +4,10 @@
 // approval has left on the server's clock; the browser's clock is never read.
 
 import type { MailReport, RecipientOutcome } from "@everyfield/contracts/communication";
+import { CHANNEL_LABEL } from "../../followups/model.ts";
 import { SOURCE_LABEL, STAGE_LABEL, type SourceValue, type StageValue } from "../../people/model.ts";
-import type { ProjectedError } from "../conversation/model.ts";
+import { CATEGORY_LABEL, PRIORITY_LABEL } from "../../tasks/model.ts";
+import { TASK_REFUSAL, type ProjectedError } from "../conversation/model.ts";
 
 export type Operation =
 	| "people.createPerson"
@@ -20,7 +22,29 @@ export type Operation =
 	| "communication.rescheduleReviewed"
 	| "communication.cancelScheduledReviewed"
 	| "communication.replaceScheduledReviewed"
+	| TaskOperation
 	| TeamsOperation;
+/** The Tasks and Follow-up reviewed writes (WP-068). They are approved or cancelled as Evry prepared them. */
+type TaskOperation =
+	| "tasks.create"
+	| "tasks.configureRecurrence"
+	| "tasks.edit"
+	| "tasks.complete"
+	| "tasks.completeOccurrence"
+	| "tasks.reopen"
+	| "tasks.changeStatus"
+	| "tasks.waive"
+	| "tasks.delete"
+	| "tasks.bulkComplete"
+	| "tasks.bulkReschedule"
+	| "tasks.createSubtask"
+	| "tasks.setSubtaskCompletion"
+	| "tasks.removeSubtask"
+	| "tasks.createFollowUp"
+	| "tasks.assignFollowUp"
+	| "tasks.reopenObligation"
+	| "followups.recordOutcome"
+	| "followups.correctOutcome";
 
 /** The Ministries reviewed writes (WP-070): shown as before and after, never revised in place. */
 const TEAMS_TITLE = {
@@ -107,7 +131,7 @@ export type Review = {
 	status: "pending" | "approved" | "cancelled" | "expired";
 	review: {
 		target: {
-			kind: "person" | "message" | "team" | "role" | "training" | "responsibility" | "household" | "tag";
+			kind: "person" | "message" | "task" | "team" | "role" | "training" | "responsibility" | "household" | "tag";
 			id: string;
 			label: string;
 		} | null;
@@ -205,6 +229,20 @@ const FIELD_LABEL: Record<string, string> = {
 	proficiency: "Level",
 	notes: "Skill notes",
 	note: "Note",
+	// Tasks and follow-ups
+	status: "Status",
+	title: "Title",
+	priority: "Priority",
+	due: "Due",
+	owners: "Owners",
+	recurrence: "Repeats",
+	relatedTo: "Related to",
+	nextOccurrence: "Next occurrence",
+	outcome: "Outcome",
+	occurredAt: "When",
+	channel: "How",
+	contactNote: "Note",
+	followUp: "Follow-up",
 	// Ministries
 	description: "Description",
 	archived: "Archived",
@@ -220,7 +258,6 @@ const FIELD_LABEL: Record<string, string> = {
 	date: "Date",
 	time: "Time",
 	subtype: "Kind",
-	title: "Title",
 	offer: "Offer",
 	responsibilities: "Responsibilities",
 	responsibility: "Responsibility",
@@ -248,9 +285,80 @@ const dateFormat = new Intl.DateTimeFormat(undefined, {
 	timeZone: "UTC",
 });
 
+const TASK_STATUS: Record<string, string> = {
+	not_started: "Not started",
+	in_progress: "In progress",
+	blocked: "Blocked",
+	complete: "Complete",
+	no_longer_needed: "No longer needed",
+	deleted: "Deleted",
+	// A checklist item a review adds or removes.
+	added: "Added",
+	removed: "Removed",
+};
+const OUTCOME: Record<string, string> = {
+	contacted: "Contacted (a conversation happened)",
+	attempted_no_contact: "Attempted, no conversation",
+	administrative_completion: "Administrative completion",
+	no_longer_needed: "No longer needed",
+	withdrawn: "Withdrawn",
+};
+const CHANNEL: Record<string, string> = CHANNEL_LABEL;
+const PRIORITY: Record<string, string> = PRIORITY_LABEL;
+const CATEGORY: Record<string, string> = CATEGORY_LABEL;
+const FREQUENCY: Record<string, string> = {
+	daily: "Daily",
+	weekly: "Weekly",
+	biweekly: "Every two weeks",
+	monthly: "Monthly",
+	quarterly: "Quarterly",
+	yearly: "Yearly",
+};
+/** What an empty value means for these fields, instead of "Empty". */
+const NONE: Record<string, string> = { owners: "Needs owner", due: "No due date", recurrence: "Doesn't repeat" };
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * A church-local date, or date and time, as the reviews write it ("2026-11-16", "2026-11-13 14:05 America/Chicago" or
+ * "2026-11-16T09:00"): "Mon, Nov 16, 2026" or "Fri, Nov 13, 2026, 2:05 PM (Chicago time)". The zone is the church's.
+ */
+function localWhen(value: string): string {
+	const m = /^(\d{4}-\d{2}-\d{2})(?:[ T](\d{2}):(\d{2}))?(?: (\S+))?$/.exec(value);
+	if (!m) return value;
+	const at = new Date(`${m[1]}T${m[2] ?? "00"}:${m[3] ?? "00"}:00Z`);
+	if (Number.isNaN(at.getTime())) return value;
+	const date = at.toLocaleDateString("en-US", {
+		weekday: "short",
+		month: "short",
+		day: "numeric",
+		year: "numeric",
+		timeZone: "UTC",
+	});
+	if (!m[2]) return date;
+	const time = at.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "UTC" });
+	const place = m[4]?.split("/").at(-1)?.replaceAll("_", " ");
+	return `${date}, ${time}${place ? ` (${place} time)` : ""}`;
+}
+/**
+ * "weekly on Mondays, until 2026-12-31, America/Chicago" as "Weekly on Mondays, until Thu, Dec 31, 2026
+ * (America/Chicago)": the series repeats in the church's zone, so the card names it.
+ */
+function repeats(value: string) {
+	if (value === "stopped") return "Stops repeating";
+	const all = value.split(", ");
+	const zone = all.find((p) => p.includes("/"));
+	const [rule = "", ...rest] = all.filter((p) => p !== zone);
+	const [frequency = "", ...tail] = rule.split(" ");
+	const head = [FREQUENCY[frequency] ?? frequency, ...tail].join(" ");
+	const text = [head, ...rest.map((p) => p.replace(/^until (\S+)$/, (_, d: string) => `until ${localWhen(d)}`))].join(
+		", ",
+	);
+	return zone ? `${text} (${zone})` : text;
+}
+
 /** A reviewed value as text. Empty values say so; an id (a photo upload) is never shown. */
 export function valueText(field: string, value: unknown): string | null {
-	if (value === null || value === undefined || value === "") return null;
+	if (value === null || value === undefined || value === "") return NONE[field] ?? null;
 	// A photo is a stored file: its short reference tells two uploads apart. The card shows the image where People allows it.
 	if (field === "photo") return `Photo ${photoRef(value)}`;
 	if (field === "stage") return STAGE_LABEL[value as StageValue] ?? String(value);
@@ -263,10 +371,120 @@ export function valueText(field: string, value: unknown): string | null {
 				? "Removed"
 				: (TEAM_STATE[String(value)] ?? String(value));
 	if (typeof value === "boolean") return value ? "Yes" : "No";
+	// A task category has its Tasks label; a skill category is shown capitalized.
+	if (field === "category" && String(value) in CATEGORY) return CATEGORY[String(value)] ?? String(value);
 	if (CAPITALIZED.has(field) && typeof value === "string") return value.charAt(0).toUpperCase() + value.slice(1);
 	if (DATE_FIELDS.has(field) && typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value))
 		return dateFormat.format(new Date(`${value}T00:00:00Z`));
+	if (field === "status" || field === "followUp") return TASK_STATUS[String(value)] ?? String(value);
+	if (field === "outcome") return OUTCOME[String(value)] ?? String(value);
+	if (field === "channel") return CHANNEL[String(value)] ?? String(value);
+	if (field === "priority") return PRIORITY[String(value)] ?? String(value);
+	if ((field === "due" || field === "occurredAt") && typeof value === "string") return localWhen(value);
+	if (field === "recurrence" && typeof value === "string") return repeats(value);
+	// A changed link names its record by id only; the card never shows an id.
+	if (field === "relatedTo" && typeof value === "string" && UUID.test(value)) return "A linked record";
 	return String(value);
+}
+
+/**
+ * Reviews that list one row per item (a task, a checklist item or a person's follow-up) under the item's name, with
+ * the value each row changes. Null for a review of named fields.
+ */
+const ITEM_FIELD: Partial<Record<Operation, string>> = {
+	"tasks.bulkComplete": "status",
+	"tasks.bulkReschedule": "due",
+	"tasks.createSubtask": "status",
+	"tasks.setSubtaskCompletion": "status",
+	"tasks.removeSubtask": "status",
+	"tasks.assignFollowUp": "owners",
+};
+export const itemField = (operation: Operation) => ITEM_FIELD[operation] ?? null;
+const CREATES = new Set<Operation>([
+	"people.createPerson",
+	"tasks.create",
+	"tasks.createFollowUp",
+	"followups.recordOutcome",
+]);
+const NO_BEFORE = new Set(["reason", "contactNote", "nextOccurrence"]);
+/** A change shows its value now, then the new one; a new record, a new item, a reason or a note shows only the new. */
+export const showsBefore = (review: Pick<Review, "operation">, change: Change) =>
+	!addsOnly(review.operation) &&
+	!NO_BEFORE.has(change.field) &&
+	(change.before !== null && change.before !== undefined
+		? true
+		: !CREATES.has(review.operation) && !itemField(review.operation));
+
+export const isTasks = (operation: Operation) => operation.startsWith("tasks.") || operation.startsWith("followups.");
+
+/** What the card names as changed: the target, a new task's title, or the number of items a review lists. */
+export function subjectName(review: Review): string {
+	const { target, changes } = review.review;
+	if (target) return target.label;
+	if (review.operation === "tasks.create") return String(changes.find((c) => c.field === "title")?.after ?? "New task");
+	const n = changes.length;
+	if (review.operation === "tasks.assignFollowUp")
+		return `${n.toLocaleString()} ${n === 1 ? "follow-up" : "follow-ups"}`;
+	return `${n.toLocaleString()} ${n === 1 ? "task" : "tasks"}`;
+}
+
+/** The sentence a screen reader hears when an approved change is saved. */
+export function savedText(review: Review): string {
+	const who = review.review.target?.label;
+	if (!isTasks(review.operation)) return who ? `Saved. ${who} is updated.` : "Saved.";
+	const name = subjectName(review);
+	const status = review.review.changes.find((c) => c.field === "status")?.after;
+	switch (review.operation) {
+		case "tasks.create":
+			return `Saved. ${name} is in Tasks.`;
+		case "tasks.complete":
+		case "tasks.completeOccurrence":
+			return `Saved. ${name} is complete.`;
+		case "tasks.reopen":
+		case "tasks.reopenObligation":
+			return `Saved. ${name} is open again.`;
+		case "tasks.waive":
+			return `Saved. ${name} is closed as no longer needed.`;
+		case "tasks.changeStatus":
+			return `Saved. ${name} is now ${(valueText("status", status) ?? "updated").toLowerCase()}.`;
+		case "tasks.delete":
+			return `Saved. ${name} is deleted.`;
+		case "tasks.bulkComplete":
+			return `Saved. ${name} ${review.review.changes.length === 1 ? "is" : "are"} complete.`;
+		case "tasks.bulkReschedule":
+			return `Saved. ${name} ${review.review.changes.length === 1 ? "has" : "have"} a new due date.`;
+		case "tasks.createSubtask":
+		case "tasks.setSubtaskCompletion":
+		case "tasks.removeSubtask":
+			return `Saved. The checklist of ${name} is updated.`;
+		case "tasks.configureRecurrence":
+			return `Saved. The schedule of ${name} is updated.`;
+		case "tasks.createFollowUp":
+			return `Saved. ${name} has a new follow-up.`;
+		case "tasks.assignFollowUp":
+			return "Saved. The follow-up owners are updated.";
+		case "followups.recordOutcome":
+			return `Saved. The contact with ${name} is logged.`;
+		case "followups.correctOutcome":
+			return `Saved. The contact log of ${name} is corrected.`;
+		default:
+			return `Saved. ${name} is updated.`;
+	}
+}
+
+/** Where the card's done state leads: the person, the task in Tasks, or Tasks. Null when there is nothing to open. */
+export function openAfter(review: Review): { href: string; label: string } | null {
+	const who = review.review.target;
+	if (review.review.withheld || isMail(review.operation)) return null;
+	if (!isTasks(review.operation))
+		return who?.kind === "person" && review.operation !== "people.deletePerson"
+			? { href: `/people/${who.id}`, label: `Open ${who.label}` }
+			: null;
+	if (who?.kind === "person") return { href: `/people/${who.id}`, label: `Open ${who.label}` };
+	if (review.operation === "tasks.delete") return { href: "/tasks", label: "Open Tasks" };
+	return who?.kind === "task"
+		? { href: `/tasks?task=${who.id}`, label: "Open task" }
+		: { href: "/tasks", label: "Open Tasks" };
 }
 
 /**
@@ -316,6 +534,25 @@ const TITLE: Record<Operation, string> = {
 	"people.deletePerson": "Remove a person",
 	"people.setPersonPhoto": "Set a photo",
 	"people.removePersonPhoto": "Remove a photo",
+	"tasks.create": "Create a task",
+	"tasks.configureRecurrence": "Repeat a task",
+	"tasks.edit": "Edit a task",
+	"tasks.complete": "Complete a task",
+	"tasks.completeOccurrence": "Complete this occurrence",
+	"tasks.reopen": "Reopen a task",
+	"tasks.changeStatus": "Change a task's status",
+	"tasks.waive": "Close as no longer needed",
+	"tasks.delete": "Delete a task",
+	"tasks.bulkComplete": "Complete tasks",
+	"tasks.bulkReschedule": "Reschedule tasks",
+	"tasks.createSubtask": "Update a checklist",
+	"tasks.setSubtaskCompletion": "Update a checklist",
+	"tasks.removeSubtask": "Update a checklist",
+	"tasks.createFollowUp": "Add a follow-up",
+	"tasks.assignFollowUp": "Assign follow-ups",
+	"tasks.reopenObligation": "Reopen a follow-up",
+	"followups.recordOutcome": "Log a contact",
+	"followups.correctOutcome": "Correct a contact log entry",
 	"people.addToHousehold": "Add to a household",
 	"people.createHouseholdWithHead": "Create a household",
 	"people.updateHousehold": "Update a household",
@@ -679,6 +916,20 @@ export function reviseInput(review: Review, edits: Record<string, string> = {}):
 				...(audience ? { audience } : {}),
 			};
 		}
+		// An expired review of one task's status is prepared again from its task; the others are asked of Evry again.
+		case "tasks.complete":
+		case "tasks.completeOccurrence":
+		case "tasks.reopen":
+		case "tasks.delete":
+			return target.kind === "task" ? { taskId: target.id } : null;
+		case "tasks.changeStatus":
+			return target.kind === "task" ? { taskId: target.id, status: after("status") } : null;
+		case "tasks.waive": {
+			const reason = after("reason");
+			return target.kind === "task" ? { taskId: target.id, ...(typeof reason === "string" ? { reason } : {}) } : null;
+		}
+		default:
+			return null;
 	}
 }
 
@@ -694,7 +945,8 @@ export function missingRequired(review: Review, edits: Record<string, string>) {
 // Words: refusals and notices say what happened and what to do next, and never more than the server said.
 
 /** Why a run was refused, from the saved receipt code. Nothing was changed in each case. */
-export function refusalText(code: string | undefined, target: string | null): string {
+export function refusalText(code: string | undefined, target: string | null, operation?: Operation): string {
+	if (operation && isTasks(operation)) return taskRefusalText(code, target);
 	const who = target ?? "this person";
 	switch (code) {
 		case "revision_conflict":
@@ -715,6 +967,37 @@ export function refusalText(code: string | undefined, target: string | null): st
 			return "This file changed after Evry checked it, so nothing was imported. Ask Evry to check it again.";
 		default:
 			return "People refused this change, so nothing was saved.";
+	}
+}
+
+/** Why a Tasks or Follow-up change was refused when it ran. */
+function taskRefusalText(code: string | undefined, target: string | null): string {
+	switch (code) {
+		case "revision_conflict":
+		case "conflict":
+		case "stale":
+			return `${target ?? "This"} changed after Evry prepared this, so nothing was saved. Ask Evry to prepare it again.`;
+		case "access_denied":
+		case "unauthorized":
+			return "Your seat no longer allows this change, so nothing was saved.";
+		case "not_assigned":
+		case "owner_ineligible":
+		case "assignee_ineligible":
+			return `${TASK_REFUSAL[code]} Nothing was saved.`;
+		case "open_successor":
+			return "Another occurrence of this task is open, so nothing was saved.";
+		case "protected_source":
+			return "A meeting made this task, so it can't be changed this way. Nothing was saved.";
+		case "nonexistent_local_time":
+		case "ambiguous_local_time":
+			return "A clock change makes that time skip or repeat in your church's time zone, so nothing was saved. Ask Evry for another time.";
+		case "invalid_input":
+			return "Tasks did not accept these values, so nothing was saved. Ask Evry to prepare it again.";
+		case "not_found":
+		case "source_unavailable":
+			return `${target ?? "This task"} is no longer available, so nothing was saved.`;
+		default:
+			return "Tasks refused this change, so nothing was saved.";
 	}
 }
 
@@ -771,6 +1054,10 @@ export function actionNotice(error: ProjectedError | "lost", mail: boolean): str
 			return "This review is already closed.";
 		case "photo_unavailable":
 			return "The uploaded photo is no longer available, so nothing was saved.";
+		case "not_assigned":
+		case "owner_ineligible":
+		case "assignee_ineligible":
+			return `${TASK_REFUSAL[error.code]} Nothing was changed.`;
 		case "invalid_input":
 			return "Some values are not valid. Check them, then update the review.";
 		case "not_found":

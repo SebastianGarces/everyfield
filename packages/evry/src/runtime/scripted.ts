@@ -6,6 +6,7 @@ import type {
 	LanguageModelV4StreamPart,
 } from "@ai-sdk/provider";
 import { randomUUID } from "node:crypto";
+import { TASK_DATA, taskStep } from "./scripted-tasks.ts";
 
 // A deterministic stand-in for a qualified model, for local previews and tests only (selectQualifiedModel never picks
 // it on Vercel). It reads the conversation the way a model would see it and answers through the same tools, so the
@@ -43,7 +44,9 @@ const pageSize = (text: string) =>
 	Number(/\b(\d{1,3}) at a time\b/.exec(text)?.[1] ?? (/\b(?:every|all)\b/i.test(text) ? 100 : 24));
 
 function classify(text: string) {
-	if (/\b(pray|prayer|biblical|scripture|spiritual(ly)?|pastoral(ly)?|suitab)/i.test(text)) return "pastoral_boundary";
+	// A task titled "Pray for the launch" is task data, not a request for prayer.
+	if (!TASK_DATA.test(text) && /\b(pray|prayer|biblical|scripture|spiritual(ly)?|pastoral(ly)?|suitab)/i.test(text))
+		return "pastoral_boundary";
 	if (/what can you (do|help)|capabilit/i.test(text)) return "capabilities";
 	return "application";
 }
@@ -290,6 +293,9 @@ function respond(options: LanguageModelV4CallOptions): LanguageModelV4Content[] 
 	const change = /\b(?:change|set|update)\s+([A-Z][\w'-]+?)(?:'s)?\s+(city|phone|email)\s+to\s+(.+?)\.?\s*$/i.exec(
 		text,
 	);
+	const has = (name: string) => options.tools?.some((t) => t.name === name) ?? false;
+	const task = taskStep(text, options.prompt, has);
+	if (task) return task;
 	const result = lastToolOutput(options.prompt);
 	const canReadMail = options.tools?.some((t) => t.name === "communication_read") ?? false;
 	const email = emailStep(text, canPropose, canReadMail, result);

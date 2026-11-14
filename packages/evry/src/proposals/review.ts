@@ -1,12 +1,14 @@
 import { sql, type SQL } from "@everyfield/db/query";
-import { liveRead } from "@everyfield/domain/access";
+import { liveAuthority } from "../context/authority.ts";
 import { z } from "zod";
 import type { EvryActor } from "../context/actor.ts";
 import { liveJob } from "../runtime/job.ts";
 import { mailReport } from "@everyfield/contracts/communication";
 import { COMMUNICATION_COMMANDS } from "../adapters/communication/commands/index.ts";
 import { untouchedMail } from "../adapters/communication/reads/index.ts";
+import { FOLLOWUP_COMMANDS } from "../adapters/followups/commands/index.ts";
 import { PEOPLE_COMMANDS } from "../adapters/people/commands/index.ts";
+import { TASK_COMMANDS } from "../adapters/tasks/commands/index.ts";
 import { ORGANIZATION_COMMANDS } from "../adapters/people-organization/commands/index.ts";
 import { TEAMS_COMMANDS } from "../adapters/teams/commands/index.ts";
 import { currentPerson, importOutcome, personOutcome, type ReviewedWrite } from "./types.ts";
@@ -21,6 +23,8 @@ export const REVIEWED_WRITES = {
 	...ORGANIZATION_COMMANDS,
 	...COMMUNICATION_COMMANDS,
 	...TEAMS_COMMANDS,
+	...TASK_COMMANDS,
+	...FOLLOWUP_COMMANDS,
 } as const;
 export type Operation = keyof typeof REVIEWED_WRITES;
 export const operation = z.enum(Object.keys(REVIEWED_WRITES) as [Operation]);
@@ -35,10 +39,10 @@ export const mine = (actor: EvryActor) =>
 		AND p.operation=ANY(${sql.param(allowedWrites(actor).map((w) => w.operation))}::text[])`;
 /**
  * The review read (C32): the actor's own proposal under the lock-free live check, so a sign-out or seat change never
- * waits for it. Reviewed writes need Owner or Admin, the same floor as the native command or higher.
+ * waits for it. The actor keeps the same seat and role: `mine` admits only the operations that role may use natively,
+ * so a Member reads their own task reviews and never a People, email or team review.
  */
-export const readable = (actor: EvryActor) =>
-	sql`${mine(actor)} AND ${liveRead({ session: actor.session, owner: actor.owner, seatId: actor.seatId ?? undefined }, true)}`;
+export const readable = (actor: EvryActor) => sql`${mine(actor)} AND ${liveAuthority(actor)}`;
 /**
  * A review of a message that is no longer what the review showed. An edit or a time change moves the revision. A cancel
  * or a sent email changes only its mail rows, so the review also saved how many recipients the email service held with
@@ -62,6 +66,7 @@ export const projection = (alias: string) =>
 		'review',CASE WHEN ${alias}.review->'target'='null'::jsonb
 			OR (${alias}.review->'target'->>'kind'='person' AND EXISTS(SELECT FROM person t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.tenant_id=${alias}.tenant_id AND t.state='live'))
 			OR (${alias}.review->'target'->>'kind'='message' AND EXISTS(SELECT FROM communication t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.plant_id=${alias}.tenant_id))
+			OR (${alias}.review->'target'->>'kind'='task' AND EXISTS(SELECT FROM task t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.plant_id=${alias}.tenant_id AND t.deleted_at IS NULL))
 			OR (${alias}.review->'target'->>'kind'='household' AND EXISTS(SELECT FROM household t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.plant_id=${alias}.tenant_id))
 			OR (${alias}.review->'target'->>'kind'='tag' AND EXISTS(SELECT FROM tag t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.plant_id=${alias}.tenant_id))
 			OR (${alias}.review->'target'->>'kind'='team' AND EXISTS(SELECT FROM team t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.plant_id=${alias}.tenant_id))
@@ -95,7 +100,7 @@ export const reviewedRow = z.object({
 const review = z.object({
 	target: z
 		.object({
-			kind: z.enum(["person", "message", "team", "role", "training", "responsibility", "household", "tag"]),
+			kind: z.enum(["person", "message", "task", "team", "role", "training", "responsibility", "household", "tag"]),
 			id: z.uuid(),
 			label: z.string(),
 		})

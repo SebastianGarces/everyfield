@@ -4,6 +4,7 @@ import {
 	Award01Icon,
 	Briefcase01Icon,
 	Calendar03Icon,
+	Call02Icon,
 	CheckListIcon,
 	Clock01Icon,
 	File01Icon,
@@ -12,6 +13,7 @@ import {
 	Mail01Icon,
 	Mortarboard01Icon,
 	Tag01Icon,
+	Task01Icon,
 	UserGroupIcon,
 	UserIcon,
 	UserMultipleIcon,
@@ -25,8 +27,8 @@ import type { SourceResult } from "./model.ts";
 import { cardView, type Glyph, type RowView } from "./resultView.ts";
 
 // A source-bound result card (REQ-EVR-024): the rows Evry read, as they are now, with the count, whether more exist and
-// what the read leaves out. A person row links to the person, which loads on intent only. A household, tag, skill,
-// activity or file row has no page.
+// what the read leaves out. A person row (and a follow-up or contact log row) links to the person, and a task row to
+// the task in Tasks; each loads on intent only. A household, tag, skill, activity, file or account row has no page.
 
 const isStage = (value: string): value is keyof typeof STAGE_KEY => value in STAGE_KEY;
 const GLYPH: Record<Glyph, IconSvgElement> = {
@@ -38,6 +40,12 @@ const GLYPH: Record<Glyph, IconSvgElement> = {
 	activity: Clock01Icon,
 	file: File01Icon,
 	message: Mail01Icon,
+	task: Task01Icon,
+	tally: Task01Icon,
+	history: Clock01Icon,
+	follow_up: Call02Icon,
+	contact: Call02Icon,
+	account: UserIcon,
 	team: UserGroupIcon,
 	role: Briefcase01Icon,
 	training: Mortarboard01Icon,

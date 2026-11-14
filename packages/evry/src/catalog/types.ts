@@ -16,12 +16,18 @@ export type SourceRow = {
 		| "file"
 		| "import"
 		| "message"
+		| "task"
+		| "tally"
+		| "history"
+		| "follow_up"
+		| "contact"
+		| "account"
+		| "template"
+		| "meeting"
 		| "team"
 		| "role"
 		| "training"
-		| "meeting"
-		| "responsibility"
-		| "template";
+		| "responsibility";
 	id: string;
 	label: string;
 	/** `you: true` marks the signed-in user's own person row (see person-row.ts); no other row carries it. */

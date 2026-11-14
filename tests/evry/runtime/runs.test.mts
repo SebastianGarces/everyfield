@@ -193,6 +193,41 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 	assert.match((await events(seatless, none)).text, /no application reads available/);
 	// No catalog offers direct writes, approvals, code, private care or coach tools to any context. Only a plant Owner or
 	// Admin may propose the reviewed People changes, the same floor as the native commands.
+	// A Member may propose only the task and follow-up changes the native commands allow on their own work.
+	const memberTaskWrites = [
+		"tasks.complete",
+		"tasks.completeOccurrence",
+		"tasks.reopen",
+		"tasks.changeStatus",
+		"tasks.waive",
+		"tasks.bulkComplete",
+		"tasks.createSubtask",
+		"tasks.setSubtaskCompletion",
+		"tasks.reopenObligation",
+		"followups.recordOutcome",
+		"followups.correctOutcome",
+	];
+	const taskWrites = [
+		"tasks.create",
+		"tasks.configureRecurrence",
+		"tasks.edit",
+		"tasks.complete",
+		"tasks.completeOccurrence",
+		"tasks.reopen",
+		"tasks.changeStatus",
+		"tasks.waive",
+		"tasks.delete",
+		"tasks.bulkComplete",
+		"tasks.bulkReschedule",
+		"tasks.createSubtask",
+		"tasks.setSubtaskCompletion",
+		"tasks.removeSubtask",
+		"tasks.createFollowUp",
+		"tasks.assignFollowUp",
+		"tasks.reopenObligation",
+		"followups.recordOutcome",
+		"followups.correctOutcome",
+	];
 	for (const who of ["owner", "member", "orgOwner", "seatless"] as const) {
 		const catalog = readCatalog(await actor(who));
 		const operations = catalog.domains.flatMap((d) => d.operations.map((o) => o.operation));
@@ -231,11 +266,48 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 						"communication.cancelScheduledReviewed",
 						"communication.replaceScheduledReviewed",
 						...Object.keys(REVIEWED_WRITES).filter((op) => op.startsWith("teams.")),
+						...taskWrites,
 					]
-				: [],
+				: who === "member"
+					? memberTaskWrites
+					: [],
 		);
 		const teamsReads = READ_DOMAINS.teams.map((a) => a.operation);
 		const peopleReads = ["people.listPeople", "people.getPerson", "people.getPersonPhoto", "people.checkForDuplicates"];
+		// Any seat reads tasks and follow-ups; templates, assignees, coverage, handoffs and receipts need Owner or Admin.
+		const memberTaskReads = [
+			"tasks.list",
+			"tasks.count",
+			"tasks.get",
+			"tasks.statusHistory",
+			"tasks.listSubtasks",
+			"tasks.listPrerequisites",
+			"tasks.findOpenOccurrence",
+			"tasks.listFollowUpOwners",
+			"followups.readObligations",
+			"followups.listContactHistory",
+		];
+		const ownerTaskReads = [
+			"tasks.list",
+			"tasks.count",
+			"tasks.get",
+			"tasks.statusHistory",
+			"tasks.listSubtasks",
+			"tasks.listPrerequisites",
+			"tasks.prerequisiteCandidates",
+			"tasks.findOpenOccurrence",
+			"tasks.eligibleAssignees",
+			"tasks.relationOptions",
+			"tasks.listTemplates",
+			"tasks.previewTemplate",
+			"tasks.readPhaseOffer",
+			"tasks.importReceipt",
+			"tasks.listFollowUpOwners",
+			"followups.readObligations",
+			"followups.listContactHistory",
+			"tasks.followUpCoverage",
+			"tasks.planHandoff",
+		];
 		// Only an Owner or Admin reviews the pairs an import flagged, as on /people/duplicates.
 		const ownerReads = [...peopleReads, "people.listDuplicatePairs"];
 		const organizationReads = [
@@ -268,10 +340,11 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 						"people.listTags",
 						"people.previewImport",
 						"communication.list",
+						...ownerTaskReads,
 						...teamsReads,
 					]
 				: who === "member"
-					? [...peopleReads, ...organizationReads, "communication.list", ...teamsReads]
+					? [...peopleReads, ...organizationReads, "communication.list", ...memberTaskReads, ...teamsReads]
 					: [],
 		);
 	}
@@ -437,10 +510,12 @@ test("AC:INH-EDGES-03 AC:TEN-008 AC:EVRY-CONTEXT-BOUNDS a guessed foreign id and
 		[...new Set(calls.flatMap((c) => c.tools?.map((t) => t.name) ?? []))].sort(),
 		[
 			"communication_read",
+			"followups_read",
 			"peopleOrganization_read",
 			"people_read",
 			"propose_change",
 			"select_returned_rows",
+			"tasks_read",
 			"teams_read",
 		],
 		"prompt text cannot add tools or scope; the owner's catalog decides them",

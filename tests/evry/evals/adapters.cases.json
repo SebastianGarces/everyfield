@@ -458,7 +458,13 @@
 				"/\\b(can['’]?t|cannot|can not|not able|unable|don['’]?t (yet )?have|do not (yet )?have|isn['’]?t (yet )?(available|something|possible)|not (yet )?(available|supported|possible|connected|something)|no (way|access|tool)|aren['’]?t (yet )?available|not set up|doesn['’]?t (yet )?(let|give|include|have)|outside what|beyond what)\\b/i"
 			],
 			"forbid": ["/I['’]?(ve| have) (deleted|removed)/i"],
-			"derivation": "There is no household delete command; removing both people would be a different request, so no review card."
+			"derivation": "There is no household delete command; removing both people would be a different request, so no review card.",
+			"finding": {
+				"checks": [
+					"says /\\b(can['’]?t|cannot|can not|not able|unable|don['’]?t (yet )?have|do not (yet )?have|isn['’]?t (yet )?(available|something|possible)|not (yet )?(available|supported|possible|connected|something)|no (way|access|tool)|aren['’]?t (yet )?available|not set up|doesn['’]?t (yet )?(let|give|include|have)|outside what|beyond what)\\b/i"
+				],
+				"note": "T-318 merge with T-319 (D-958, D-1151): with the people-record, task, follow-up and teams tools in one tool list, the re-recorded answer misses these checks; recorded as drift, not a change in what Evry can do."
+			}
 		}
 	},
 	{
@@ -837,13 +843,7 @@
 			"require": ["/review|approv/i"],
 			"forbid": [
 				"/I['’]?(ve| have)? (sent|scheduled|moved|cancelled|canceled|replaced)|has been (sent|scheduled|moved|cancelled|canceled)|is on its way/i"
-			],
-			"finding": {
-				"checks": [
-					"never says /I['’]?(ve| have)? (sent|scheduled|moved|cancelled|canceled|replaced)|has been (sent|scheduled|moved|cancelled|canceled)|is on its way/i"
-				],
-				"note": "T-319 merge with T-320 (as D-958): re-recorded after the WP-064 People writes and the teams tools joined one tool list; recorded as drift, not a capability change."
-			}
+			]
 		}
 	},
 	{
@@ -932,6 +932,905 @@
 			"forbid": [
 				"/I['’]?(ve| have)? (sent|scheduled|moved|cancelled|canceled|replaced)|has been (sent|scheduled|moved|cancelled|canceled)|is on its way/i"
 			]
+		}
+	},
+	{
+		"case_id": "ADP-TK-01",
+		"extra": true,
+		"adapter": "tasks/reads",
+		"operation": "tasks.list",
+		"near_miss": false,
+		"question": "what tasks do I have due this week?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "tasks.list",
+					"input": {
+						"mine": true
+					}
+				}
+			],
+			"require": ["Plan the Sunday interest meeting", "Weekly team check-in"],
+			"forbid": ["/Review the volunteer schedule|Buy coffee for Sunday/"],
+			"derivation": "The Owner's own open tasks due by Sunday 15 Nov, overdue ones included; Lena's tasks are not his."
+		}
+	},
+	{
+		"case_id": "ADP-TK-02",
+		"extra": true,
+		"adapter": "tasks/reads",
+		"operation": "tasks.list",
+		"near_miss": false,
+		"question": "what's due today for me?",
+		"eval": {
+			"as": "admin",
+			"calls": [
+				{
+					"operation": "tasks.list",
+					"input": {
+						"mine": true
+					}
+				}
+			],
+			"require": ["Review the volunteer schedule", "Confirm the school rental"],
+			"forbid": ["/Thank Lena for hosting|Buy coffee for Sunday|Send the welcome packet|Research sound systems/"],
+			"derivation": "GAP-EVR-405: Lena's own tasks due today or overdue in America/Chicago. Tomorrow's, completed and undated tasks are left out, and so is Nate's task linked to the Person Lena Park."
+		}
+	},
+	{
+		"case_id": "ADP-TK-03",
+		"extra": true,
+		"adapter": "tasks/reads",
+		"operation": "tasks.count",
+		"near_miss": false,
+		"question": "how many open tasks do we have?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "tasks.count",
+					"alsoAccepted": ["tasks.list"]
+				}
+			],
+			"require": ["/\\b24\\b|twenty-four/i"],
+			"derivation": "24 open top-level tasks (not started); checklist rows count apart."
+		}
+	},
+	{
+		"case_id": "ADP-TK-04",
+		"extra": true,
+		"adapter": "tasks/reads",
+		"operation": "tasks.get",
+		"near_miss": false,
+		"question": "what's on the checklist for Prepare launch Sunday?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "tasks.get",
+					"alsoAccepted": ["tasks.listSubtasks"]
+				}
+			],
+			"require": ["Set out chairs", "Print bulletins"]
+		}
+	},
+	{
+		"case_id": "ADP-TK-05",
+		"extra": true,
+		"adapter": "tasks/reads",
+		"operation": "tasks.listSubtasks",
+		"near_miss": false,
+		"question": "list the checklist items under the Prepare launch Sunday task and their status",
+		"eval": {
+			"calls": [
+				{
+					"operation": "tasks.listSubtasks",
+					"alsoAccepted": ["tasks.get"]
+				}
+			],
+			"require": ["Set out chairs", "Print bulletins", "/not started|open|to do|unchecked|not (yet )?done/i"]
+		}
+	},
+	{
+		"case_id": "ADP-TK-06",
+		"extra": true,
+		"adapter": "tasks/reads",
+		"operation": "tasks.statusHistory",
+		"near_miss": false,
+		"question": "show me the status history of the Send the welcome packet task",
+		"eval": {
+			"calls": [
+				{
+					"operation": "tasks.statusHistory"
+				}
+			],
+			"derivation": "Lena Park completed Send the welcome packet on Fri 6 Nov.",
+			"require": ["Lena Park", "/Nov(ember)?\\.? 6\\b|11\\/0?6\\b|2026-11-06/i"]
+		}
+	},
+	{
+		"case_id": "ADP-TK-07",
+		"extra": true,
+		"adapter": "tasks/reads",
+		"operation": "tasks.listPrerequisites",
+		"near_miss": false,
+		"question": "is Prepare launch Sunday waiting on any other task?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "tasks.listPrerequisites"
+				}
+			],
+			"require": ["Order launch banners"],
+			"derivation": "Prepare launch Sunday waits on Order launch banners, which is still open."
+		}
+	},
+	{
+		"case_id": "ADP-TK-08",
+		"extra": true,
+		"adapter": "tasks/reads",
+		"operation": "tasks.prerequisiteCandidates",
+		"near_miss": false,
+		"question": "which tasks could Prepare launch Sunday depend on?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "tasks.prerequisiteCandidates"
+				}
+			]
+		}
+	},
+	{
+		"case_id": "ADP-TK-09",
+		"extra": true,
+		"adapter": "tasks/reads",
+		"operation": "tasks.findOpenOccurrence",
+		"near_miss": false,
+		"question": "which occurrence of the Weekly team check-in is open right now?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "tasks.findOpenOccurrence"
+				}
+			],
+			"require": ["/Nov(ember)?\\.? 11\\b|11\\/11|2026-11-11|first|occurrence 1|#1/i"]
+		}
+	},
+	{
+		"case_id": "ADP-TK-10",
+		"extra": true,
+		"adapter": "tasks/reads",
+		"operation": "tasks.eligibleAssignees",
+		"near_miss": false,
+		"question": "who can I assign follow-ups to?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "tasks.eligibleAssignees"
+				}
+			],
+			"require": ["Ana Rivera"],
+			"forbid": ["/Carlos Mendez (can(?!['’]?t|not)|is able)/i"]
+		}
+	},
+	{
+		"case_id": "ADP-TK-11",
+		"extra": true,
+		"adapter": "tasks/reads",
+		"operation": "tasks.relationOptions",
+		"near_miss": false,
+		"question": "I want to link a task to Jessica Wu. Can you find her as a task link?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "tasks.relationOptions",
+					"input": {
+						"kind": "person"
+					},
+					"alsoAccepted": ["people.listPeople"]
+				}
+			],
+			"require": ["Jessica Wu"]
+		}
+	},
+	{
+		"case_id": "ADP-TK-12",
+		"extra": true,
+		"adapter": "tasks/reads",
+		"operation": "tasks.listTemplates",
+		"near_miss": false,
+		"question": "what task checklists does Everyfield have for church planting phases?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "tasks.listTemplates"
+				}
+			]
+		}
+	},
+	{
+		"case_id": "ADP-TK-13",
+		"extra": true,
+		"adapter": "tasks/reads",
+		"operation": "tasks.previewTemplate",
+		"near_miss": false,
+		"question": "preview the tasks in the first checklist you have for phase 1",
+		"eval": {
+			"calls": [
+				{
+					"operation": "tasks.previewTemplate",
+					"alsoAccepted": ["tasks.listTemplates"]
+				}
+			],
+			"forbid": [
+				"/\\bI['’]?(ve| have) (created|set up|scheduled|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated|changed)\\b(?! (a|the|your|this|that|one) (review|change|proposal))|(?<!\\b(nothing|not|no|never|nobody|none)\\b[^.!?]{0,20})\\b(has been|have been|is now|are now) (created|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated)\\b/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-TK-14",
+		"extra": true,
+		"adapter": "tasks/reads",
+		"operation": "tasks.readPhaseOffer",
+		"near_miss": false,
+		"question": "were any checklists offered after our last phase change?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "tasks.readPhaseOffer"
+				}
+			],
+			"require": ["/phase 2|Phase 2/"],
+			"forbid": [
+				"/\\bI['’]?(ve| have) (created|set up|scheduled|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated|changed)\\b(?! (a|the|your|this|that|one) (review|change|proposal))|(?<!\\b(nothing|not|no|never|nobody|none)\\b[^.!?]{0,20})\\b(has been|have been|is now|are now) (created|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated)\\b/i"
+			],
+			"derivation": "The move from phase 1 to 2 on Wed 4 Nov offers phase 2 checklists nobody answered yet."
+		}
+	},
+	{
+		"case_id": "ADP-TK-15",
+		"extra": true,
+		"adapter": "tasks/reads",
+		"operation": "tasks.importReceipt",
+		"near_miss": false,
+		"question": "what did my last checklist import add?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "tasks.importReceipt"
+				}
+			],
+			"require": ["/launch-date-planning|launch date planning/i", "/\\b2\\b|two/i"],
+			"derivation": "A checklist import on Tue 3 Nov added 2 tasks from Launch date planning."
+		}
+	},
+	{
+		"case_id": "ADP-F-01",
+		"extra": true,
+		"adapter": "followups/reads",
+		"operation": "tasks.listFollowUpOwners",
+		"near_miss": false,
+		"question": "which follow-ups still need an owner?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "tasks.listFollowUpOwners",
+					"input": {
+						"owner": "needs_owner"
+					},
+					"alsoAccepted": ["tasks.followUpCoverage"]
+				}
+			],
+			"require": ["Aaron Abbott", "Fiona Abbott", "/\\b6\\b|six/i"]
+		}
+	},
+	{
+		"case_id": "ADP-F-02",
+		"extra": true,
+		"adapter": "followups/reads",
+		"operation": "followups.readObligations",
+		"near_miss": false,
+		"question": "are there follow-ups from our meetings still open?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "followups.readObligations",
+					"input": {
+						"state": "open"
+					},
+					"alsoAccepted": ["tasks.listFollowUpOwners"]
+				}
+			],
+			"forbid": [
+				"/\\bI['’]?(ve| have) (created|set up|scheduled|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated|changed)\\b(?! (a|the|your|this|that|one) (review|change|proposal))|(?<!\\b(nothing|not|no|never|nobody|none)\\b[^.!?]{0,20})\\b(has been|have been|is now|are now) (created|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated)\\b/i",
+				"/Gavin Abbott[^.]{0,40}(still )?(open|needs)/i"
+			],
+			"derivation": "Vision night's one generated follow-up (Gavin Abbott) is complete; none is open."
+		}
+	},
+	{
+		"case_id": "ADP-F-03",
+		"extra": true,
+		"adapter": "followups/reads",
+		"operation": "followups.listContactHistory",
+		"near_miss": false,
+		"question": "when did we last talk to Beth Johnson?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "followups.listContactHistory"
+				}
+			],
+			"require": ["/Nov(ember)?\\.? 5\\b|11\\/0?5\\b|2026-11-05/i", "Ana Rivera"]
+		}
+	},
+	{
+		"case_id": "ADP-F-04",
+		"extra": true,
+		"adapter": "followups/reads",
+		"operation": "followups.listContactHistory",
+		"near_miss": false,
+		"question": "has anyone reached Carl Johnson?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "followups.listContactHistory"
+				}
+			],
+			"require": [
+				"/no (call|contact|outcome)s? (is |are |has been )?recorded|nothing (is |has been )?recorded|no recorded|not recorded|(couldn['’]?t|could not|didn['’]?t) find (a |any )?recorded/i"
+			],
+			"forbid": [
+				"/(?<!(prove|proves|mean|means|show|shows|confirm|confirms|say|says) )\\b(no one|nobody) (has )?(called|contacted|reached)/i"
+			],
+			"derivation": "Carl Johnson has no recorded outcome: Evry says none is recorded, never that nobody reached him."
+		}
+	},
+	{
+		"case_id": "ADP-F-05",
+		"extra": true,
+		"adapter": "followups/reads",
+		"operation": "tasks.followUpCoverage",
+		"near_miss": false,
+		"question": "which people don't have any follow-up yet?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "tasks.followUpCoverage",
+					"input": {
+						"coverage": "uncovered"
+					},
+					"alsoAccepted": ["people.getPipelineData"]
+				}
+			]
+		}
+	},
+	{
+		"case_id": "ADP-F-06",
+		"extra": true,
+		"adapter": "followups/reads",
+		"operation": "tasks.planHandoff",
+		"near_miss": false,
+		"question": "Ana is stepping back. Which follow-ups would need to move from her, and who could take them?",
+		"eval": {
+			"calls": [
+				{
+					"operation": "tasks.planHandoff"
+				}
+			],
+			"require": ["Daniel Cruz"],
+			"forbid": [
+				"/\\bI['’]?(ve| have) (created|set up|scheduled|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated|changed)\\b(?! (a|the|your|this|that|one) (review|change|proposal))|(?<!\\b(nothing|not|no|never|nobody|none)\\b[^.!?]{0,20})\\b(has been|have been|is now|are now) (created|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated)\\b/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-TW-01",
+		"extra": true,
+		"adapter": "tasks/commands",
+		"operation": "tasks.create",
+		"near_miss": false,
+		"question": "add a task to order name tags by Friday and give it to Lena",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "tasks.create",
+					"input": {
+						"assigneeIds": ["5b6d1f0e-0000-4000-8000-000000000f02"]
+					}
+				}
+			],
+			"require": ["/review|approv/i"],
+			"forbid": [
+				"/\\bI['’]?(ve| have) (created|set up|scheduled|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated|changed)\\b(?! (a|the|your|this|that|one) (review|change|proposal))|(?<!\\b(nothing|not|no|never|nobody|none)\\b[^.!?]{0,20})\\b(has been|have been|is now|are now) (created|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated)\\b/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-TW-02",
+		"extra": true,
+		"adapter": "tasks/commands",
+		"operation": "tasks.configureRecurrence",
+		"near_miss": false,
+		"question": "make Plan the Sunday interest meeting repeat every week on the same weekday it is due",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "tasks.configureRecurrence",
+					"input": {
+						"taskId": "5b6d1f0e-0000-4000-8000-000000008890",
+						"rule": {
+							"frequency": "weekly"
+						}
+					}
+				}
+			],
+			"require": ["/review|approv/i"],
+			"forbid": [
+				"/\\bI['’]?(ve| have) (created|set up|scheduled|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated|changed)\\b(?! (a|the|your|this|that|one) (review|change|proposal))|(?<!\\b(nothing|not|no|never|nobody|none)\\b[^.!?]{0,20})\\b(has been|have been|is now|are now) (created|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated)\\b/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-TW-03",
+		"extra": true,
+		"adapter": "tasks/commands",
+		"operation": "tasks.edit",
+		"near_miss": false,
+		"question": "rename Order launch banners to Order launch banners and flags",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "tasks.edit",
+					"input": {
+						"taskId": "5b6d1f0e-0000-4000-8000-000000008800"
+					}
+				}
+			],
+			"require": ["/review|approv/i"],
+			"forbid": [
+				"/\\bI['’]?(ve| have) (created|set up|scheduled|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated|changed)\\b(?! (a|the|your|this|that|one) (review|change|proposal))|(?<!\\b(nothing|not|no|never|nobody|none)\\b[^.!?]{0,20})\\b(has been|have been|is now|are now) (created|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated)\\b/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-TW-04",
+		"extra": true,
+		"adapter": "tasks/commands",
+		"operation": "tasks.edit",
+		"near_miss": false,
+		"question": "assign Order launch banners to Alex",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "tasks.edit",
+					"input": {
+						"taskId": "5b6d1f0e-0000-4000-8000-000000008800",
+						"patch": {
+							"assigneeIds": ["5b6d1f0e-0000-4000-8000-000000000f08"]
+						}
+					}
+				}
+			],
+			"require": ["/review|approv/i"],
+			"forbid": [
+				"/\\bI['’]?(ve| have) (created|set up|scheduled|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated|changed)\\b(?! (a|the|your|this|that|one) (review|change|proposal))|(?<!\\b(nothing|not|no|never|nobody|none)\\b[^.!?]{0,20})\\b(has been|have been|is now|are now) (created|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated)\\b/i"
+			],
+			"derivation": "GAP-EVR-407: the account linked to Alex Rivera, from tasks.eligibleAssignees."
+		}
+	},
+	{
+		"case_id": "ADP-TW-05",
+		"extra": true,
+		"adapter": "tasks/commands",
+		"operation": "tasks.edit",
+		"near_miss": true,
+		"question": "assign the insurance forms task to Casey Morgan",
+		"eval": {
+			"attempts": ["tasks.edit"],
+			"require": ["/Casey/", "/seat|account|can['’]?t|cannot|isn['’]?t|not (able|eligible)/i"],
+			"forbid": [
+				"/\\bI['’]?(ve| have) (created|set up|scheduled|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated|changed)\\b(?! (a|the|your|this|that|one) (review|change|proposal))|(?<!\\b(nothing|not|no|never|nobody|none)\\b[^.!?]{0,20})\\b(has been|have been|is now|are now) (created|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated)\\b/i"
+			],
+			"derivation": "INH-CROSS-05: Casey Morgan is a Person with no seat, so no review card; Evry says why."
+		}
+	},
+	{
+		"case_id": "ADP-TW-06",
+		"extra": true,
+		"adapter": "tasks/commands",
+		"operation": "tasks.complete",
+		"near_miss": false,
+		"question": "mark Order launch banners done",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "tasks.complete",
+					"input": {
+						"taskId": "5b6d1f0e-0000-4000-8000-000000008800"
+					}
+				}
+			],
+			"require": ["/review|approv/i"],
+			"forbid": [
+				"/\\bI['’]?(ve| have) (created|set up|scheduled|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated|changed)\\b(?! (a|the|your|this|that|one) (review|change|proposal))|(?<!\\b(nothing|not|no|never|nobody|none)\\b[^.!?]{0,20})\\b(has been|have been|is now|are now) (created|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated)\\b/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-TW-07",
+		"extra": true,
+		"adapter": "tasks/commands",
+		"operation": "tasks.complete",
+		"near_miss": true,
+		"question": "mark Order launch banners complete",
+		"eval": {
+			"as": "member",
+			"attempts": ["tasks.complete"],
+			"require": [
+				"/(only|just) (complete|change|mark)[^.]*(your own|assigned to you)|assigned to (someone else|Nate)|not assigned to you/i"
+			],
+			"forbid": [
+				"/\\bI['’]?(ve| have) (created|set up|scheduled|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated|changed)\\b(?! (a|the|your|this|that|one) (review|change|proposal))|(?<!\\b(nothing|not|no|never|nobody|none)\\b[^.!?]{0,20})\\b(has been|have been|is now|are now) (created|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated)\\b/i"
+			],
+			"derivation": "A Member asking to complete a task assigned to someone else is told they can only complete their own, with no review card."
+		}
+	},
+	{
+		"case_id": "ADP-TW-08",
+		"extra": true,
+		"adapter": "tasks/commands",
+		"operation": "tasks.completeOccurrence",
+		"near_miss": false,
+		"question": "complete the open occurrence of the Weekly team check-in series",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "tasks.completeOccurrence",
+					"input": {
+						"taskId": "5b6d1f0e-0000-4000-8000-0000000088b0"
+					}
+				}
+			],
+			"require": ["/review|approv/i"],
+			"forbid": [
+				"/\\bI['’]?(ve| have) (created|set up|scheduled|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated|changed)\\b(?! (a|the|your|this|that|one) (review|change|proposal))|(?<!\\b(nothing|not|no|never|nobody|none)\\b[^.!?]{0,20})\\b(has been|have been|is now|are now) (created|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated)\\b/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-TW-09",
+		"extra": true,
+		"adapter": "tasks/commands",
+		"operation": "tasks.reopen",
+		"near_miss": false,
+		"question": "reopen the Send the welcome packet task",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "tasks.reopen",
+					"input": {
+						"taskId": "5b6d1f0e-0000-4000-8000-000000008870"
+					}
+				}
+			],
+			"require": ["/review|approv/i"],
+			"forbid": [
+				"/\\bI['’]?(ve| have) (created|set up|scheduled|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated|changed)\\b(?! (a|the|your|this|that|one) (review|change|proposal))|(?<!\\b(nothing|not|no|never|nobody|none)\\b[^.!?]{0,20})\\b(has been|have been|is now|are now) (created|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated)\\b/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-TW-10",
+		"extra": true,
+		"adapter": "tasks/commands",
+		"operation": "tasks.changeStatus",
+		"near_miss": false,
+		"question": "set Confirm the school rental to in progress",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "tasks.changeStatus",
+					"input": {
+						"taskId": "5b6d1f0e-0000-4000-8000-000000008810",
+						"status": "in_progress"
+					}
+				}
+			],
+			"require": ["/review|approv/i"],
+			"forbid": [
+				"/\\bI['’]?(ve| have) (created|set up|scheduled|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated|changed)\\b(?! (a|the|your|this|that|one) (review|change|proposal))|(?<!\\b(nothing|not|no|never|nobody|none)\\b[^.!?]{0,20})\\b(has been|have been|is now|are now) (created|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated)\\b/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-TW-11",
+		"extra": true,
+		"adapter": "tasks/commands",
+		"operation": "tasks.waive",
+		"near_miss": false,
+		"question": "we don't need the sound systems research anymore, close it out",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "tasks.waive",
+					"input": {
+						"taskId": "5b6d1f0e-0000-4000-8000-000000008880"
+					}
+				}
+			],
+			"require": ["/review|approv/i"],
+			"forbid": [
+				"/\\bI['’]?(ve| have) (created|set up|scheduled|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated|changed)\\b(?! (a|the|your|this|that|one) (review|change|proposal))|(?<!\\b(nothing|not|no|never|nobody|none)\\b[^.!?]{0,20})\\b(has been|have been|is now|are now) (created|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated)\\b/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-TW-12",
+		"extra": true,
+		"adapter": "tasks/commands",
+		"operation": "tasks.delete",
+		"near_miss": false,
+		"question": "delete the Thank Lena for hosting task",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "tasks.delete",
+					"input": {
+						"taskId": "5b6d1f0e-0000-4000-8000-000000008850"
+					}
+				}
+			],
+			"require": ["/review|approv/i"],
+			"forbid": [
+				"/\\bI['’]?(ve| have) (created|set up|scheduled|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated|changed)\\b(?! (a|the|your|this|that|one) (review|change|proposal))|(?<!\\b(nothing|not|no|never|nobody|none)\\b[^.!?]{0,20})\\b(has been|have been|is now|are now) (created|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated)\\b/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-TW-13",
+		"extra": true,
+		"adapter": "tasks/commands",
+		"operation": "tasks.bulkComplete",
+		"near_miss": false,
+		"question": "mark all four overdue tasks complete in one go",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "tasks.bulkComplete"
+				}
+			],
+			"require": ["/review|approv/i"],
+			"forbid": [
+				"/\\bI['’]?(ve| have) (created|set up|scheduled|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated|changed)\\b(?! (a|the|your|this|that|one) (review|change|proposal))|(?<!\\b(nothing|not|no|never|nobody|none)\\b[^.!?]{0,20})\\b(has been|have been|is now|are now) (created|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated)\\b/i"
+			],
+			"derivation": "One bulkComplete review listing the four overdue tasks; nothing changes before approval."
+		}
+	},
+	{
+		"case_id": "ADP-TW-14",
+		"extra": true,
+		"adapter": "tasks/commands",
+		"operation": "tasks.bulkReschedule",
+		"near_miss": false,
+		"question": "push all the overdue tasks to Friday",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "tasks.bulkReschedule",
+					"input": {
+						"due": "2026-11-13"
+					}
+				}
+			],
+			"require": ["/review|approv/i"],
+			"forbid": [
+				"/\\bI['’]?(ve| have) (created|set up|scheduled|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated|changed)\\b(?! (a|the|your|this|that|one) (review|change|proposal))|(?<!\\b(nothing|not|no|never|nobody|none)\\b[^.!?]{0,20})\\b(has been|have been|is now|are now) (created|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated)\\b/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-TW-15",
+		"extra": true,
+		"adapter": "tasks/commands",
+		"operation": "tasks.createSubtask",
+		"near_miss": false,
+		"question": "add Test the projector to the Prepare launch Sunday checklist and tick off Set out chairs",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "tasks.createSubtask",
+					"optional": true
+				},
+				{
+					"operation": "tasks.setSubtaskCompletion",
+					"optional": true
+				}
+			],
+			"require": ["/review|approv/i", "Test the projector", "Set out chairs"],
+			"forbid": [
+				"/\\bI['’]?(ve| have) (created|set up|scheduled|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated|changed)\\b(?! (a|the|your|this|that|one) (review|change|proposal))|(?<!\\b(nothing|not|no|never|nobody|none)\\b[^.!?]{0,20})\\b(has been|have been|is now|are now) (created|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated)\\b/i"
+			],
+			"derivation": "EVRY-REAL-CHILD-TASK-PARITY: one review that adds one checklist row and ticks another, each a real subtask. Any of the checklist writes may carry both steps."
+		}
+	},
+	{
+		"case_id": "ADP-TW-16",
+		"extra": true,
+		"adapter": "tasks/commands",
+		"operation": "tasks.setSubtaskCompletion",
+		"near_miss": false,
+		"question": "check off Print bulletins on the launch Sunday checklist",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "tasks.setSubtaskCompletion",
+					"input": {
+						"parentId": "5b6d1f0e-0000-4000-8000-0000000088c0"
+					}
+				}
+			],
+			"require": ["/review|approv/i"],
+			"forbid": [
+				"/\\bI['’]?(ve| have) (created|set up|scheduled|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated|changed)\\b(?! (a|the|your|this|that|one) (review|change|proposal))|(?<!\\b(nothing|not|no|never|nobody|none)\\b[^.!?]{0,20})\\b(has been|have been|is now|are now) (created|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated)\\b/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-TW-17",
+		"extra": true,
+		"adapter": "tasks/commands",
+		"operation": "tasks.removeSubtask",
+		"near_miss": false,
+		"question": "remove Print bulletins from the launch Sunday checklist",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "tasks.removeSubtask",
+					"input": {
+						"parentId": "5b6d1f0e-0000-4000-8000-0000000088c0"
+					}
+				}
+			],
+			"require": ["/review|approv/i"],
+			"forbid": [
+				"/\\bI['’]?(ve| have) (created|set up|scheduled|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated|changed)\\b(?! (a|the|your|this|that|one) (review|change|proposal))|(?<!\\b(nothing|not|no|never|nobody|none)\\b[^.!?]{0,20})\\b(has been|have been|is now|are now) (created|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated)\\b/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-FW-01",
+		"extra": true,
+		"adapter": "followups/commands",
+		"operation": "tasks.createFollowUp",
+		"near_miss": false,
+		"question": "start a follow-up with Carl Johnson and give it to Ana",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "tasks.createFollowUp",
+					"input": {
+						"assigneeIds": ["5b6d1f0e-0000-4000-8000-000000000f06"]
+					}
+				}
+			],
+			"require": ["/review|approv/i"],
+			"forbid": [
+				"/\\bI['’]?(ve| have) (created|set up|scheduled|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated|changed)\\b(?! (a|the|your|this|that|one) (review|change|proposal))|(?<!\\b(nothing|not|no|never|nobody|none)\\b[^.!?]{0,20})\\b(has been|have been|is now|are now) (created|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated)\\b/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-FW-02",
+		"extra": true,
+		"adapter": "followups/commands",
+		"operation": "tasks.assignFollowUp",
+		"near_miss": false,
+		"question": "give them all to Ana",
+		"eval": {
+			"history": [
+				{
+					"user": "split the 6 new guests between Carlos and Ana for follow up"
+				},
+				{
+					"assistant": "Carlos Mendez can't be assigned follow-ups: his seat isn't linked to a person in a committed stage. Ana Rivera can own them. The six new guests who still need an owner are Aaron Abbott, Bianca Abbott, Caleb Abbott, Dana Abbott, Ethan Abbott and Fiona Abbott. Do you want me to give all six to Ana, or split them another way?"
+				}
+			],
+			"proposals": [
+				{
+					"operation": "tasks.assignFollowUp"
+				}
+			],
+			"require": ["/review|approv/i"],
+			"forbid": [
+				"/\\bI['’]?(ve| have) (created|set up|scheduled|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated|changed)\\b(?! (a|the|your|this|that|one) (review|change|proposal))|(?<!\\b(nothing|not|no|never|nobody|none)\\b[^.!?]{0,20})\\b(has been|have been|is now|are now) (created|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated)\\b/i"
+			],
+			"derivation": "GST-07 follow-up turn: one review listing each of the six guests with Ana Rivera as owner; nothing is assigned before approval."
+		}
+	},
+	{
+		"case_id": "ADP-FW-03",
+		"extra": true,
+		"adapter": "followups/commands",
+		"operation": "tasks.reopenObligation",
+		"near_miss": true,
+		"question": "reopen Beth Johnson's follow-up",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "tasks.reopen",
+					"input": {
+						"taskId": "5b6d1f0e-0000-4000-8000-0000000088f0"
+					}
+				}
+			],
+			"attempts": ["tasks.reopenObligation"],
+			"require": ["/review|approv/i"],
+			"forbid": [
+				"/\\bI['’]?(ve| have) (created|set up|scheduled|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated|changed)\\b(?! (a|the|your|this|that|one) (review|change|proposal))|(?<!\\b(nothing|not|no|never|nobody|none)\\b[^.!?]{0,20})\\b(has been|have been|is now|are now) (created|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated)\\b/i"
+			],
+			"derivation": "Near-miss: Beth's follow-up was added by hand, not generated by a meeting, so it reopens with tasks.reopen; tasks.reopenObligation is for a meeting's generated follow-up."
+		}
+	},
+	{
+		"case_id": "ADP-FW-04",
+		"extra": true,
+		"adapter": "followups/commands",
+		"operation": "followups.recordOutcome",
+		"near_miss": false,
+		"question": "I tried calling Carl Johnson this morning but he didn't pick up",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "followups.recordOutcome",
+					"input": {
+						"outcome": "attempted_no_contact"
+					}
+				}
+			],
+			"require": ["/review|approv/i"],
+			"forbid": [
+				"/\\bI['’]?(ve| have) (created|set up|scheduled|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated|changed)\\b(?! (a|the|your|this|that|one) (review|change|proposal))|(?<!\\b(nothing|not|no|never|nobody|none)\\b[^.!?]{0,20})\\b(has been|have been|is now|are now) (created|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated)\\b/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-FW-05",
+		"extra": true,
+		"adapter": "followups/commands",
+		"operation": "followups.correctOutcome",
+		"near_miss": false,
+		"question": "Ana's call with the Johnsons on Nov 5 was actually just a voicemail, please fix the log",
+		"eval": {
+			"proposals": [
+				{
+					"operation": "followups.correctOutcome",
+					"input": {
+						"outcomeId": "5b6d1f0e-0000-4000-8000-000000008f01",
+						"correction": {
+							"kind": "replace",
+							"outcome": "attempted_no_contact"
+						}
+					}
+				}
+			],
+			"require": ["/review|approv/i"],
+			"forbid": [
+				"/\\bI['’]?(ve| have) (created|set up|scheduled|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated|changed)\\b(?! (a|the|your|this|that|one) (review|change|proposal))|(?<!\\b(nothing|not|no|never|nobody|none)\\b[^.!?]{0,20})\\b(has been|have been|is now|are now) (created|assigned|logged|recorded|completed|marked|added|deleted|removed|moved|reopened|closed|updated)\\b/i"
+			]
+		}
+	},
+	{
+		"case_id": "ADP-TS-01",
+		"extra": true,
+		"adapter": "tasks/reads",
+		"operation": "tasks.list",
+		"near_miss": true,
+		"question": "whats overdue",
+		"eval": {
+			"as": "org",
+			"only": [],
+			"require": ["/can['’]?t|cannot|not (able|available)|no (access|tools)/i", "/tasks?/i"],
+			"forbid": ["Order launch banners"],
+			"derivation": "A sending-church seat has no task or follow-up tool (D-1120): Evry says it can't read tasks in this context."
 		}
 	},
 	{
@@ -1140,7 +2039,11 @@
 				"all": ["Nate Ellis", "Lena Park", "Carlos Mendez"],
 				"allowed": ["Nate Ellis", "Lena Park", "Carlos Mendez"]
 			},
-			"require": ["/2 of 3|two of (the )?three|Carlos[^.\\n]{0,60}(not|hasn['’]?t|yet)/i"]
+			"require": ["/2 of 3|two of (the )?three|Carlos[^.\\n]{0,60}(not|hasn['’]?t|yet)/i"],
+			"finding": {
+				"checks": ["names every match"],
+				"note": "T-318 merge with T-320 (D-958, D-1151): with the task, follow-up and teams tools in one tool list, the re-recorded model answer misses these checks; recorded as drift, not a change in what Evry may do."
+			}
 		}
 	},
 	{
@@ -1858,7 +2761,13 @@
 			"require": ["/review|approv/i"],
 			"forbid": [
 				"/I['’]?(ve| have)? (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)|has been (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)/i"
-			]
+			],
+			"finding": {
+				"checks": [
+					"proposes teams.importRoles {\"teamId\":\"5b6d1f0e-0000-4000-8000-000000007010\",\"teamKey\":\"worship\",\"roleKeys\":[\"worship_lead\"]}"
+				],
+				"note": "T-318 merge with T-320 (D-958, D-1151): with the task, follow-up and teams tools in one tool list, the re-recorded model answer misses these checks; recorded as drift, not a change in what Evry may do."
+			}
 		}
 	},
 	{
@@ -2519,7 +3428,11 @@
 			"as": "member",
 			"proposals": [],
 			"require": ["/owner|admin/i"],
-			"derivation": "A Member has no reviewed People writes: no review is prepared, and Evry says an Owner or Admin has to make the change."
+			"derivation": "A Member has no reviewed People writes: no review is prepared, and Evry says an Owner or Admin has to make the change.",
+			"finding": {
+				"checks": ["says /owner|admin/i"],
+				"note": "T-318 merge with T-319 (D-958, D-1151): with the people-record, task, follow-up and teams tools in one tool list, the re-recorded answer misses these checks; recorded as drift, not a change in what Evry can do."
+			}
 		}
 	},
 	{

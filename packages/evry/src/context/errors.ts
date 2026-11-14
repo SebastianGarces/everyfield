@@ -13,6 +13,9 @@ export type EvryErrorCode =
 	| "review_expired"
 	| "review_closed"
 	| "photo_unavailable"
+	| "not_assigned"
+	| "assignee_ineligible"
+	| "owner_ineligible"
 	| "unknown";
 
 export class EvryRefusal extends Error {
@@ -37,6 +40,12 @@ const retry: Record<EvryErrorCode, "never" | "same_request" | "new_turn"> = {
 	review_closed: "never",
 	// The staged upload of a photo proposal is gone or no longer readable; a new upload needs a new review.
 	photo_unavailable: "never",
+	// A Member asked to change a task that is not assigned to them: they may change only their own.
+	not_assigned: "never",
+	// A named account has no current seat in the church, so it can't hold a task.
+	assignee_ineligible: "never",
+	// A named account can't own a person follow-up (REQ-TSK-012).
+	owner_ineligible: "never",
 	unknown: "new_turn",
 };
 

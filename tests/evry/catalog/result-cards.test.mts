@@ -9,7 +9,7 @@ import * as catalog from "../../../packages/evry/src/catalog/catalog.ts";
 import { invokeRead } from "../../../packages/evry/src/catalog/invoke.ts";
 import type { ReadAdapter, SourceResult } from "../../../packages/evry/src/catalog/types.ts";
 import { cardView, FALLBACK } from "../../../apps/web/src/features/evry/conversation/resultView.ts";
-import { byName, goldenChurch, IMPORT_KEY, programId, teamId } from "../evals/golden-church.mts";
+import { byName, goldenChurch, IMPORT_KEY, programId, taskId, teamId } from "../evals/golden-church.mts";
 
 const church = await goldenChurch();
 after(church.close);
@@ -24,6 +24,16 @@ const JAMES = byName("James Okafor").id;
 /** Has a household, a tag and a skill. */
 const MARK = byName("Mark Thompson").id;
 const FILE = "first_name,last_name,email\r\nAda,Park,ada@example.test\r\n,,\r\nJames,Okafor,\r\n";
+/**
+ * The open task the Tasks list finds by `search` (the first open task when none is given), read with `operation` and
+ * the input `build` makes from its id.
+ */
+const withTask =
+	(operation: string, build: (taskId: string) => Record<string, unknown>, search?: string) => async () => {
+		const found = (await read("tasks.list", search ? { search } : {})).rows[0];
+		assert.ok(found, `the eval church has an open task${search ? ` "${search}"` : ""}`);
+		return read(operation, build(found.id));
+	};
 
 /** The input each operation is probed with. A catalog tool has a function that builds its result instead. */
 const PROBES: Record<string, Record<string, unknown> | (() => Promise<SourceResult>)> = {
@@ -46,6 +56,31 @@ const PROBES: Record<string, Record<string, unknown> | (() => Promise<SourceResu
 	"people.listTags": {},
 	"people.previewImport": { file: FILE },
 	"communication.list": {},
+	"tasks.list": {},
+	"tasks.count": {},
+	"tasks.get": withTask("tasks.get", (taskId) => ({ taskId })),
+	// Lena completed the welcome packet; a settled task is not in the open list, so the probe names it by id.
+	"tasks.statusHistory": { taskId: taskId("packet") },
+	"tasks.listSubtasks": withTask("tasks.listSubtasks", (parentId) => ({ parentId }), "Prepare launch Sunday"),
+	"tasks.listPrerequisites": withTask("tasks.listPrerequisites", (taskId) => ({ taskId }), "Prepare launch Sunday"),
+	"tasks.prerequisiteCandidates": withTask("tasks.prerequisiteCandidates", (taskId) => ({ taskId })),
+	"tasks.findOpenOccurrence": withTask("tasks.findOpenOccurrence", (taskId) => ({ taskId }), "Weekly team check-in"),
+	"tasks.eligibleAssignees": {},
+	"tasks.relationOptions": { kind: "person", search: "James" },
+	"tasks.listTemplates": {},
+	"tasks.previewTemplate": async () => {
+		const first = (await read("tasks.listTemplates", {})).rows[0];
+		assert.ok(first, "Everyfield has a phase checklist");
+		return read("tasks.previewTemplate", { checklistKey: first.id });
+	},
+	"tasks.readPhaseOffer": {},
+	"tasks.importReceipt": {},
+	"tasks.listFollowUpOwners": {},
+	"tasks.followUpCoverage": {},
+	"tasks.planHandoff": { fromAccountId: church.actors.owner.accountId },
+	"followups.readObligations": {},
+	// Beth Johnson's follow-up was completed by a recorded call.
+	"followups.listContactHistory": { personId: byName("Beth Johnson").id },
 	"teams.list": {},
 	"teams.get": { teamId: teamId("Worship") },
 	"teams.searchMembers": { q: "Sam" },
