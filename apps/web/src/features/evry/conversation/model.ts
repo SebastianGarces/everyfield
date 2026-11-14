@@ -68,6 +68,8 @@ export type SourceRow = {
 		| "follow_up"
 		| "contact"
 		| "account"
+		| "venue"
+		| "item"
 		| "seat"
 		| "invitation"
 		| "connection";

@@ -695,14 +695,15 @@ test("INV-evry-golden SAF-02 SAF-11 SAF-12 SAF-14: the model's tools can read an
 		"propose_change",
 	]);
 	assert.deepEqual(tools("admin"), tools("owner"));
-	// A Member reads, selects and proposes changes to only their own notifications and account and the task and
-	// follow-up changes the native commands allow on their own work; an organization seat gets no plant read at all, only
+	// A Member reads, selects and proposes changes to only their own notifications and account, the task and follow-up
+	// changes the native commands allow on their own work and the Meetings changes a Member may make natively (their own
+	// RSVP, their own ministry's team meeting and its attendance); an organization seat gets no plant read at all, only
 	// its own profile change (T-327, D-1120).
 	assert.deepEqual(tools("member"), tools("owner"));
 	assert.deepEqual(
 		readCatalog(church.actors.member)
 			.reviewedWrites.map((w) => w.operation)
-			.filter((op) => !op.startsWith("tasks.") && !op.startsWith("followups.")),
+			.filter((op) => !/^(meetings|tasks|followups)\./.test(op)),
 		[
 			"notifications.markSelectedRead",
 			"notifications.markAllVisibleRead",

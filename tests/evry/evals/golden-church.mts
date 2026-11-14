@@ -42,6 +42,25 @@
 // - Follow-ups (all undated, none overdue): Daniel Cruz owned by Ana, Jessica Wu owned by Nate, the four older open
 //   ones (Mark Thompson twice, Ana Rivera, Sam Patel) owned by Nate, and six new guests nobody owns (NEW_GUESTS). Beth
 //   Johnson's follow-up was completed by the one recorded call: Ana called the Johnsons on Thu 5 Nov (contacted, phone).
+//   Meeting follow-ups (obligations): Gavin Abbott's from Vision Meeting #2, which Nate completed on Fri 6 Nov, and
+//   three of last night's 24 first-time guests: Hannah Barnes (Ana) and Isaac Barnes (Nate) still open, due Tue 10 Nov,
+//   and Gavin Barnes's completed by Nate this morning (LAST_NIGHT_FOLLOW_UPS).
+// - Meetings (America/Chicago; today is Mon 9 Nov): saved venues "Coffee shop", "Hope Church fellowship hall" and
+//   "Hope Church chapel". Vision Meeting #4 on Thu 12 Nov 7:00 PM at the Coffee shop: RSVPs yes Nate Ellis, Kevin
+//   Walsh and Jessica Wu, no Joy Lee, no answer Elena Garcia and Roberto Garcia; its kit has every item checked but
+//   "Name tags (50+)" and "Response cards (50+)". Last night's Vision Meeting #3 (Sun 8 Nov) was finalized with 24
+//   attended and has no evaluation; last week's Vision Meeting #2 (Thu 5 Nov) was held with guests Maria Santos, Alex
+//   Rivera and Casey Morgan and has no attendance recorded; Vision Meeting #1 (Thu 29 Oct) was finalized with 18
+//   attended and evaluated. "Launch team orientation", a Vision meeting (#5) on Sun 15 Nov 4:00 PM, has its own saved
+//   agenda and a fully checked kit. Vision Meeting #1 has no kit. "Coffee with Pastor
+//   Nate" (today 6:00 PM) was cancelled. "Worship team training", a Worship team meeting, is next Tue 17 Nov 6:30 PM at the fellowship hall.
+//   Two meetings are titled "Orientation" (Sun 22 Nov and Sun 6 Dec).
+//   Pre-launch practices: "Launch rehearsal" (Sat 31 Oct) was held; "Sound check practice" (Sat 7 Nov) is not
+//   recorded as held. "Old warehouse" is an archived venue. Kevin Walsh was invited by Ana Rivera; Casey Morgan is
+//   marked attended at last week's meeting.
+//
+// The database clock runs in NOW's frame too (evalDatabase): every Meetings read that says upcoming or past
+// compares with it, so a replay reads the same meetings on every day the suite runs.
 //
 // Derived facts come from their source rows, never from a stored label. Inactivity is the real board's comparison of
 // each person's latest activity with the church's 7 and 14 inactivity days, against the database clock. So that it
@@ -335,6 +354,30 @@ const LINKED: Partial<Record<ActorName, string>> = {
 	admin: byName("Lena Park").id,
 	member: byName("Priya Shah").id,
 };
+
+/** The pinned meeting records: venues, the Worship team ministry and every meeting. */
+export const MEETINGS = {
+	coffee: id(0xa01),
+	hall: id(0xa02),
+	chapel: id(0xa03),
+	thursday: id(0xa21),
+	sunday: id(0xa22),
+	training: id(0xa23),
+	cancelled: id(0xa24),
+	orientationA: id(0xa25),
+	orientationB: id(0xa26),
+	lastNight: id(0xa27),
+	lastWeek: id(0xa28),
+	earlier: id(0xa29),
+	soundCheck: id(0xa2b),
+	rehearsal: id(0xa2c),
+	warehouse: id(0xa04),
+} as const;
+/** Thursday's kit item ids by text (the kit seed pins them). */
+export const kitItem = (text: string) =>
+	`5b6d1f0e-0000-4000-8000-${(0x3000 + 4 * 0x40 + KIT.findIndex((k) => k.text === text)).toString(16).padStart(12, "0")}`;
+/** Thursday's kit items still unchecked. */
+export const UNCHECKED_KIT = ["Name tags (50+)", "Response cards (50+)"];
 
 /**
  * Seeds the church into the schema `admin` is pinned to. Every row a read returns has a pinned id and a pinned time,
@@ -735,8 +778,50 @@ async function seedTasks(admin: Database, options: SeedOptions) {
 	await run(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,city,source,created_at,stage,adult_classification,commitment_state,pipeline_position,state)
 		VALUES(${PREVIEW.otherAlex},${PLANT},${PLANT},'Alex Rivera','Round Rock','other',${at("2026-11-02T15:00:00.000Z")},'prospect','unknown','unknown',900,'live')`);
 }
-/** Vision night on Thu 5 Nov, whose generated follow-up with Gavin Abbott Nate completed the next day. */
-export const VISION_NIGHT = { meeting: id(0x8f30), obligation: id(0x8f31), task: id(0x8f32), person: "Gavin Abbott" };
+type MeetingFollowUp = {
+	meeting: string;
+	obligation: string;
+	task: string;
+	person: string;
+	owner: Owner;
+	originAt: string;
+	originDate: string;
+	due: string;
+	doneAt?: string;
+};
+/** Vision Meeting #2 on Thu 5 Nov (MEETINGS.lastWeek), whose generated follow-up with Gavin Abbott Nate completed the next day. */
+export const VISION_NIGHT = {
+	meeting: MEETINGS.lastWeek,
+	obligation: id(0x8f31),
+	task: id(0x8f32),
+	person: "Gavin Abbott",
+	owner: "owner",
+	originAt: "2026-11-06T01:00:00.000Z",
+	originDate: "2026-11-05",
+	due: "2026-11-07",
+	doneAt: "2026-11-06T20:00:00.000Z",
+} as const satisfies MeetingFollowUp;
+/**
+ * Three of last night's first-time guests (Vision Meeting #3, MEETINGS.lastNight) with a generated follow-up: two still
+ * open (Hannah Barnes for Ana, Isaac Barnes for Nate) and Gavin Barnes's, which Nate completed this morning.
+ */
+export const LAST_NIGHT_FOLLOW_UPS = (
+	[
+		["Hannah Barnes", "ana", 0x8f33, undefined],
+		["Isaac Barnes", "owner", 0x8f35, undefined],
+		["Gavin Barnes", "owner", 0x8f37, "2026-11-09T14:30:00.000Z"],
+	] as const
+).map(([person, owner, n, doneAt]): MeetingFollowUp => ({
+	meeting: MEETINGS.lastNight,
+	obligation: id(n),
+	task: id(n + 1),
+	person,
+	owner,
+	originAt: "2026-11-09T00:00:00.000Z",
+	originDate: "2026-11-08",
+	due: "2026-11-10",
+	...(doneAt ? { doneAt } : {}),
+}));
 /** The church's phase move from 1 to 2 on Wed 4 Nov, whose checklist offer nobody answered yet. */
 const PHASE_MOVE = { creation: id(0x8f40), movement: id(0x8f41), created: id(0x8f42), moved: id(0x8f43) };
 /** A checklist import on Tue 3 Nov that added the banners and insurance tasks. */
@@ -766,16 +851,19 @@ async function seedHistory(admin: Database, at: (value: string) => string) {
 	await run(sql`INSERT INTO audit_event(id,tenant_id,actor_id,action,kind,subject_type,subject_id,occurred_at,recorded_at,after_value)
 		VALUES(${CHECKLIST_IMPORT},${PLANT},${ACCOUNT(1)},'tasks.changed','create','checklist_import',${PLANT},${at("2026-11-03T15:00:00.000Z")},
 			${at("2026-11-03T15:00:00.000Z")},${JSON.stringify({ checklistKey: "launch-date-planning", catalogVersion: 2, taskIds: [taskId("banners"), taskId("insurance")] })}::jsonb)`);
-	const v = VISION_NIGHT;
-	await run(sql`INSERT INTO meeting(id,plant_id,type,title,local_date,local_time,timezone,starts_at,resolver_version,status,attendance_revision)
-		VALUES(${v.meeting},${PLANT},'vision_meeting','Vision night',${at("2026-11-05")}::date,'18:00','America/Chicago',${at("2026-11-06T00:00:00.000Z")},'1','completed',1)`);
-	await run(sql`INSERT INTO obligation(id,plant_id,meeting_id,person_id,kind,origin_at,origin_date,timezone,formula_version,due_date)
-		VALUES(${v.obligation},${PLANT},${v.meeting},${byName(v.person).id},'follow_up',${at("2026-11-06T00:00:00.000Z")},${at("2026-11-05")}::date,
-			'America/Chicago','1',${at("2026-11-07")}::date)`);
-	await run(sql`INSERT INTO task(id,plant_id,title,category,priority,status,creator_id,created_at,due_kind,due_date,person_id,obligation_id,completed_at)
-		VALUES(${v.task},${PLANT},${`Follow up with ${v.person}`},'follow_up','medium','complete',NULL,${at("2026-11-06T00:00:00.000Z")},
-			'date_only',${at("2026-11-07")}::date,${byName(v.person).id},${v.obligation},${at("2026-11-06T20:00:00.000Z")})`);
-	await run(sql`INSERT INTO task_assignee(plant_id,task_id,account_id) VALUES(${PLANT},${v.task},${ACCOUNT(1)})`);
+	// Each meeting follow-up: its obligation from the meeting and the generated task that carries it.
+	for (const f of [VISION_NIGHT, ...LAST_NIGHT_FOLLOW_UPS]) {
+		const person = byName(f.person).id;
+		await run(sql`INSERT INTO obligation(id,plant_id,meeting_id,person_id,kind,origin_at,origin_date,timezone,formula_version,due_date)
+			VALUES(${f.obligation},${PLANT},${f.meeting},${person},'follow_up',${at(f.originAt)},${at(f.originDate)}::date,
+				'America/Chicago','1',${at(f.due)}::date)`);
+		await run(sql`INSERT INTO task(id,plant_id,title,category,priority,status,creator_id,created_at,due_kind,due_date,person_id,obligation_id,completed_at)
+			VALUES(${f.task},${PLANT},${`Follow up with ${f.person}`},'follow_up','medium',${f.doneAt ? "complete" : "not_started"},NULL,
+				${at(f.originAt)},'date_only',${at(f.due)}::date,${person},${f.obligation},${f.doneAt ? at(f.doneAt) : null}::timestamptz)`);
+		await run(
+			sql`INSERT INTO task_assignee(plant_id,task_id,account_id) VALUES(${PLANT},${f.task},${accountFor(f.owner)})`,
+		);
+	}
 }
 
 /** The rows only a preview seed adds (SeedOptions). */
@@ -784,10 +872,264 @@ export const PREVIEW = { memberTask: id(0x8f20), otherAlex: id(0x8f21) };
 /** Seeds Hope Fellowship into the schema `admin` is pinned to: the evals' church, or a preview's (SeedOptions). */
 export async function seedGolden(admin: Database, options: SeedOptions = {}) {
 	await seedHope(admin, options);
-	await seedTasks(admin, options);
 	await seedMinistries(admin);
+	// After the ministries: the Worship team training is a Worship team meeting. Before the tasks: the meeting
+	// follow-ups name their meetings.
+	await seedMeetings((q) => admin.execute(q), ACTOR_SPECS.owner.account, options.shiftDays);
+	await seedTasks(admin, options);
 }
 
+type Run = (q: ReturnType<typeof sql>) => Promise<unknown>;
+/** The meetings in the header, written as the native Meetings commands leave them. Every id and time is pinned. */
+export async function seedMeetings(run: Run, owner: string, shiftDays = 0) {
+	const M = MEETINGS;
+	// A preview moves every date by whole days, as the tasks seed does (SeedOptions).
+	const at = (value: string) => shifted(value, shiftDays);
+	const VENUES = [
+		[M.coffee, "Coffee shop", "1100 S Lamar Blvd, Austin, TX", 40],
+		[M.hall, "Hope Church fellowship hall", "2400 Manor Rd, Austin, TX", 120],
+		[M.chapel, "Hope Church chapel", "2400 Manor Rd, Austin, TX", 60],
+		[M.warehouse, "Old warehouse", "77 Industrial Blvd, Austin, TX", 200],
+	] as const;
+	for (const [v, name, address, capacity] of VENUES)
+		await run(sql`INSERT INTO venue(id,plant_id,name,address,capacity,archived_at)
+			VALUES(${v},${PLANT},${name},${address},${capacity},${v === M.warehouse ? at("2026-10-01T15:00:00Z") : null}::timestamptz)`);
+	await run(sql`INSERT INTO audit_event(id,tenant_id,actor_id,action,kind,subject_type,subject_id,occurred_at,recorded_at,after_value)
+		VALUES(${id(0xa0f)},${PLANT},${owner},'meetings.changed','create','venue',${M.coffee},${at("2026-09-01T15:00:00.000Z")},
+			${at("2026-09-01T15:00:00.000Z")},${JSON.stringify({ name: "Coffee shop", address: "1100 S Lamar Blvd, Austin, TX" })}::jsonb)`);
+	const VISION = visionAgenda();
+	// [id, type, title, local date, local time, UTC start, venue, status, vision number, held at, subtype, team]
+	const MEETING_ROWS = [
+		[
+			M.earlier,
+			"vision_meeting",
+			null,
+			at("2026-10-29"),
+			"19:00",
+			at("2026-10-30T00:00:00Z"),
+			M.coffee,
+			"completed",
+			1,
+		],
+		[
+			M.lastWeek,
+			"vision_meeting",
+			null,
+			at("2026-11-05"),
+			"19:00",
+			at("2026-11-06T01:00:00Z"),
+			M.coffee,
+			"completed",
+			2,
+		],
+		[
+			M.lastNight,
+			"vision_meeting",
+			null,
+			at("2026-11-08"),
+			"18:00",
+			at("2026-11-09T00:00:00Z"),
+			M.coffee,
+			"completed",
+			3,
+		],
+		[
+			M.thursday,
+			"vision_meeting",
+			null,
+			at("2026-11-12"),
+			"19:00",
+			at("2026-11-13T01:00:00Z"),
+			M.coffee,
+			"planning",
+			4,
+		],
+		[
+			M.cancelled,
+			"orientation",
+			"Coffee with Pastor Nate",
+			at("2026-11-09"),
+			"18:00",
+			at("2026-11-10T00:00:00Z"),
+			M.coffee,
+			"cancelled",
+			null,
+		],
+		[
+			M.sunday,
+			"vision_meeting",
+			"Launch team orientation",
+			at("2026-11-15"),
+			"16:00",
+			at("2026-11-15T22:00:00Z"),
+			M.hall,
+			"ready",
+			5,
+		],
+		[
+			M.training,
+			"team_meeting",
+			"Worship team training",
+			at("2026-11-17"),
+			"18:30",
+			at("2026-11-18T00:30:00Z"),
+			M.hall,
+			"planning",
+			null,
+		],
+		[
+			M.orientationA,
+			"orientation",
+			"Orientation",
+			at("2026-11-22"),
+			"16:00",
+			at("2026-11-22T22:00:00Z"),
+			M.chapel,
+			"planning",
+			null,
+		],
+		[
+			M.orientationB,
+			"orientation",
+			"Orientation",
+			at("2026-12-06"),
+			"16:00",
+			at("2026-12-06T22:00:00Z"),
+			M.chapel,
+			"planning",
+			null,
+		],
+		[
+			M.soundCheck,
+			"prelaunch_practice",
+			"Sound check practice",
+			at("2026-11-07"),
+			"10:00",
+			at("2026-11-07T16:00:00Z"),
+			M.hall,
+			"planning",
+			null,
+		],
+		[
+			M.rehearsal,
+			"prelaunch_practice",
+			"Launch rehearsal",
+			at("2026-10-31"),
+			"10:00",
+			at("2026-10-31T15:00:00Z"),
+			M.hall,
+			"completed",
+			null,
+		],
+	] as const;
+	const SUNDAY = [
+		{ id: id(0xa31), title: "Welcome and coffee", minutes: 15 },
+		{ id: id(0xa32), title: "Our story and vision", minutes: 20 },
+		{ id: id(0xa33), title: "Launch team roles", minutes: 25 },
+		{ id: id(0xa34), title: "Questions", minutes: 15 },
+		{ id: id(0xa35), title: "Prayer and next steps", minutes: 10 },
+	];
+	for (const [m, type, title, date, time, startsAt, venue, status, vision] of MEETING_ROWS) {
+		const v = VENUES.find((x) => x[0] === venue)!;
+		const isVision = type === "vision_meeting";
+		// Vision Meeting #1 predates the kit checklist; Sunday's kit is ready.
+		const kit = isVision && m !== M.earlier;
+		const agenda = m === M.sunday ? SUNDAY : isVision ? VISION(m) : [];
+		const held = status === "completed" ? startsAt : null;
+		await run(sql`INSERT INTO meeting(id,plant_id,type,subtype,team_id,title,creator_id,local_date,local_time,timezone,starts_at,
+				resolver_version,venue_id,venue_name,venue_address,vision_number,status,attendance_revision,agenda,agenda_version,
+				kit_version,actual_occurrence_at)
+			VALUES(${m},${PLANT},${type},${m === M.training ? "training" : null},${m === M.training ? teamId("Worship") : null},${title},${owner},
+				${date}::date,${time}::time,'America/Chicago',${startsAt}::timestamptz,'1',${venue},${v[1]},${v[2]},${vision}::int,${status},1,
+				${JSON.stringify(agenda)}::jsonb,${isVision ? 1 : null}::int,${kit ? 1 : null}::int,${held}::timestamptz)`);
+		if (kit)
+			await run(sql`INSERT INTO meeting_kit_item(id,plant_id,meeting_id,item_key,position,category,text,checked,checked_at)
+				SELECT x.id,${PLANT},${m},x.key,x.position,x.category,x.text,x.checked,
+					CASE WHEN x.checked THEN ${at("2026-11-06T15:00:00Z")}::timestamptz END
+				FROM (SELECT ('5b6d1f0e-0000-4000-8000-'||lpad(to_hex(${0x3000 + Number(vision) * 0x40}::int+i.position),12,'0'))::uuid AS id,
+					i.*,${m !== M.thursday}::boolean OR NOT (i.text = ANY(${sql.param(UNCHECKED_KIT)}::text[])) AS checked
+					FROM jsonb_to_recordset(${JSON.stringify(KIT)}::jsonb) i(key text,position int,category text,text text)) x`);
+	}
+	let guest = 0x2000;
+	const invite = async (
+		meeting: string,
+		name: string,
+		extra: Partial<Record<"rsvp" | "presence" | "card", string>> = {},
+	) =>
+		run(sql`INSERT INTO participation(id,plant_id,meeting_id,person_id,roster_member,rsvp,rsvp_source,rsvp_at,presence,card_response,
+				card_recorded_at,card_occurred_at)
+			VALUES(${id(++guest)},${PLANT},${meeting},${byName(name).id},false,${extra.rsvp ?? "pending"},
+				${extra.rsvp && extra.rsvp !== "pending" ? "admin" : null},${extra.rsvp && extra.rsvp !== "pending" ? at("2026-11-07T15:00:00Z") : null}::timestamptz,
+				${extra.presence ?? "absent"},${extra.card ?? null},${extra.card ? at("2026-11-09T01:30:00Z") : null}::timestamptz,
+				${extra.card ? at("2026-11-09T01:30:00Z") : null}::timestamptz)`);
+	for (const name of ["Nate Ellis", "Kevin Walsh", "Jessica Wu"]) await invite(M.thursday, name, { rsvp: "confirmed" });
+	await run(sql`UPDATE participation SET inviter_person_id=${byName("Ana Rivera").id}
+		WHERE meeting_id=${M.thursday} AND person_id=${byName("Kevin Walsh").id}`);
+	await invite(M.thursday, "Joy Lee", { rsvp: "declined" });
+	for (const name of ["Elena Garcia", "Roberto Garcia"]) await invite(M.thursday, name);
+	for (const name of ["Maria Santos", "Alex Rivera"]) await invite(M.lastWeek, name, { rsvp: "confirmed" });
+	// Casey Morgan was marked present at the door; nobody finalized last week's attendance.
+	await invite(M.lastWeek, "Casey Morgan", { rsvp: "confirmed", presence: "attended" });
+	await invite(M.training, "Mark Thompson");
+	await invite(M.orientationA, "Daniel Cruz", { rsvp: "confirmed" });
+	await invite(M.orientationA, "Nate Ellis");
+	await invite(M.orientationB, "Carmen Martinez");
+	await run(sql`UPDATE participation SET roster_member=true WHERE meeting_id=${M.training}`);
+	// The finalized nights: 24 attended last night (2 with a card), 18 on 29 Oct, from the generated prospects.
+	const crowd = PEOPLE.filter(
+		(p) => p.state === "live" && p.stage === "prospect" && /Abbott|Barnes|Coleman|Dawson/.test(p.name),
+	);
+	const finalize = async (meeting: string, at: string, people: readonly Person[]) => {
+		for (const [k, p] of people.entries())
+			await invite(meeting, p.name, {
+				presence: "attended",
+				...(k < 2 && meeting === M.lastNight ? { card: k ? "interested" : "ready_commit" } : {}),
+			});
+		await run(sql`UPDATE participation SET classification='first_time',classification_stage='prospect',classification_as_of=${at}::timestamptz,
+				actual_occurrence_at=${at}::timestamptz WHERE meeting_id=${meeting} AND presence='attended'`);
+		await run(sql`UPDATE meeting SET finalized_at=${at}::timestamptz,finalized_revision=1 WHERE id=${meeting}`);
+	};
+	await finalize(M.earlier, at("2026-10-30T03:00:00Z"), crowd.slice(0, 18));
+	await finalize(M.lastNight, at("2026-11-09T02:00:00Z"), crowd.slice(18, 42));
+	await run(sql`UPDATE meeting SET evaluation_scores=ARRAY[3,4,4,3,4,4,3,3],evaluated_on=${at("2026-10-30")},
+			evaluated_at=${at("2026-10-30T15:00:00Z")},evaluation_revision=1 WHERE id=${M.earlier}`);
+	await run(sql`INSERT INTO audit_event(id,tenant_id,actor_id,action,kind,subject_type,subject_id,occurred_at,recorded_at,after_value,metadata)
+		VALUES(${id(0xa0e)},${PLANT},${owner},'meetings.changed','create','meeting',${M.earlier},${at("2026-10-30T15:00:00Z")},${at("2026-10-30T15:00:00Z")},
+			${JSON.stringify({ attendanceScore: 3, locationScore: 4, logisticsScore: 4, agendaScore: 3, vibeScore: 4, messageScore: 4, closeScore: 3, nextStepsScore: 3, average: 3.5, notes: false, revision: "1" })}::jsonb,
+			${JSON.stringify({ event: "evaluation_recorded", meetingId: M.earlier })}::jsonb)`);
+}
+/** The reviewed Vision agenda with pinned section ids per meeting. */
+function visionAgenda() {
+	const sections = ["Welcome", "Worship", "Vision", "Q&A", "Response", "Fellowship"];
+	const minutes = [10, 15, 25, 15, 10, 15];
+	return (meeting: string) =>
+		sections.map((title, k) => ({ id: `${meeting.slice(-3)}-${k + 1}`, title, minutes: minutes[k]! }));
+}
+const KIT = [
+	["essential", "sign_in_sheets", "Sign-in sheets (3-5)"],
+	["essential", "name_tags", "Name tags (50+)"],
+	["essential", "welcome_brochures", "Welcome brochures (50+)"],
+	["essential", "constitution_brochures", "Constitution brochures (25+)"],
+	["essential", "response_cards", "Response cards (50+)"],
+	["essential", "business_cards", "Business cards (100+)"],
+	["materials", "pillars_banner", "4 Pillars banner with stand"],
+	["materials", "ministry_banner", "Worship/Walk/Work banner with stand"],
+	["materials", "mission_banner", "Mission Statement banner with stand"],
+	["materials", "yard_signs", "Yard signs with stakes"],
+	["av", "flash_drive", "Flash drive (loaded)"],
+	["av", "speakers", "Laptop speakers"],
+	["av", "extension_cord", "Extension cord (25+ ft)"],
+	["av", "hdmi_cables", "HDMI/adapter cables"],
+	["av", "clicker", "Presentation clicker (with batteries)"],
+	["setup", "pens", "Pens (20+)"],
+	["setup", "clipboards", "Clipboards (5-10)"],
+	["setup", "markers", "Black markers (5+)"],
+	["setup", "tape", "Tape (masking and clear)"],
+	["setup", "scissors", "Scissors"],
+	["organization", "rolling_case", "Everything in suitcase/case"],
+	["organization", "labeled_boxes", "Content boxes labeled"],
+	["organization", "checklist", "This checklist (laminated)"],
+].map(([category, key, text], position) => ({ category, key, text, position }));
 type Seat = { role: string; person?: string; leads?: true; from?: string; ended?: string };
 type Ministry = {
 	name: string;
