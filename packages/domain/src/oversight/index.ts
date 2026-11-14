@@ -240,7 +240,8 @@ export async function getPlant(
 	const rows = await liveRows(
 		db,
 		live(authority),
-		sql`SELECT d.*, CASE WHEN d.shared_findings THEN ${launchJson(p)} END AS launch
+		sql`SELECT d.*, CASE WHEN d.shared_findings THEN ${launchJson(p)} END AS launch,
+			(SELECT timezone FROM plant WHERE id=${p}) AS timezone
 		FROM (${directory(uuid(org.id), sql`p.id=${p}`)}) d`,
 	);
 	if (!rows?.[0]) return null;
@@ -258,7 +259,7 @@ export async function getPlant(
 	const row = rows[0];
 	const launch = row.launch ? plantLaunchOf(row.launch, row.preparation) : { status: "withheld" };
 	const summary = await createLaunchReader().readPublishedSummary(db, authority, plantId);
-	return C.plantView.parse({ plant: plantRow(row), sections, launch, summary });
+	return C.plantView.parse({ plant: plantRow(row), timeZone: row.timezone, sections, launch, summary });
 }
 
 /** The active link `sn` from sending church `church` (SQL) to network `net`. */

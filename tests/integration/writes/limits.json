@@ -1223,8 +1223,8 @@
 		"limit": 3
 	},
 	"organizations.organizations.correctReportingLocation": {
-		"limit": 8,
-		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 3 locked read, 1 read, 4 write."
+		"limit": 10,
+		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run, with an official Region chosen (WP-047b): 2 read, 4 locked read, 4 write. The official-list candidate check and the Region item lookup are the 2 reads."
 	},
 	"organizations.organizations.updateProfile": {
 		"limit": 2
@@ -2107,5 +2107,13 @@
 	"programs.savePlan": {
 		"limit": 5,
 		"retry": 5
+	},
+	"oversight/intelligence.runIntelligence": {
+		"limit": 4,
+		"retry": 3
+	},
+	"oversight/intelligence.rateIntelligence": {
+		"limit": 4,
+		"retry": 3
 	}
 }

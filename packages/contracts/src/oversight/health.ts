@@ -134,6 +134,8 @@ export type IntelligenceGroup = z.infer<typeof intelligenceGroup>;
 export const intelligenceRun = z.strictObject({ runId: tenantId, ranAt: instant });
 export const intelligenceView = z.strictObject({
 	organizationName: z.string(),
+	/** The organization's time zone, for run times. */
+	timeZone: z.string(),
 	level,
 	/** The run shown, or null before the first refresh. */
 	run: intelligenceRun.nullable(),

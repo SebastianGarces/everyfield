@@ -54,3 +54,52 @@ test("AC:TARGET-IDN-023 a plant shares what it shares, empty included; not share
 		3,
 	);
 });
+
+// WP-047b: the near-launch rule (network rubric NIR-03) and the home's health value, as every screen reads them.
+import {
+	healthOf,
+	nearLaunch,
+	nearLaunchSentence,
+	NEAR_LAUNCH_RULE,
+} from "../../../packages/contracts/src/oversight/index.ts";
+import { gapText, resultLabel } from "../../../apps/web/src/features/oversight/model.ts";
+
+const prep = (p) => ({ launched: false, daysToLaunch: 20, unfilledRoles: 0, outstandingTraining: 0, ...p });
+
+test("a near Launch Sunday alone is no concern; a recorded role or training gap inside 30 days is", () => {
+	assert.equal(nearLaunch(prep({ daysToLaunch: 10 })), "clear");
+	assert.equal(nearLaunch(prep({ daysToLaunch: 30, unfilledRoles: 1 })), "gap");
+	assert.equal(nearLaunch(prep({ daysToLaunch: 0, outstandingTraining: 2 })), "gap");
+	assert.equal(nearLaunch(prep({ daysToLaunch: 31, unfilledRoles: 1 })), "clear");
+	assert.equal(nearLaunch(prep({ daysToLaunch: -1, unfilledRoles: 1 })), "clear");
+	assert.equal(nearLaunch(prep({ launched: true, daysToLaunch: null, unfilledRoles: 3 })), "clear");
+	// Missing evidence is Unknown, never a zero.
+	assert.equal(nearLaunch(prep({ daysToLaunch: null })), "unknown");
+	assert.equal(nearLaunch(prep({ unfilledRoles: null })), "unknown");
+	assert.equal(nearLaunch(prep({ unfilledRoles: null, outstandingTraining: 1 })), "gap");
+});
+
+test("not sharing findings is Limited visibility, and silence is never On track", () => {
+	assert.equal(healthOf(false, prep({ unfilledRoles: 1 })), "limited_visibility");
+	assert.equal(healthOf(true, prep({ unfilledRoles: 1 })), "launch_readiness");
+	assert.equal(healthOf(true, prep({})), "not_assessed");
+	assert.equal(healthOf(true, prep({ daysToLaunch: null })), "not_assessed");
+});
+
+test("the pattern uses the rubric's NIR-03 wording, and a Not shared row says nothing else", () => {
+	assert.equal(
+		nearLaunchSentence(2),
+		"2 plants within 30 calendar days of an uncompleted launch have a recorded assignment or required-training gap.",
+	);
+	assert.match(NEAR_LAUNCH_RULE.nextStep, /^Coordinate a bounded preparation support conversation/);
+	assert.deepEqual(resultLabel({ status: "not_shared", plantId: "x", name: "Mueller" }), {
+		label: "Not shared",
+		status: "unknown",
+	});
+	assert.equal(resultLabel({ status: "shared", plantId: "x", name: "A", result: "unknown" }).label, "Unknown");
+	assert.equal(
+		gapText(prep({ unfilledRoles: 1, outstandingTraining: 2 })),
+		"1 required role unfilled and 2 required trainings not done",
+	);
+	assert.equal(gapText(prep({})), null);
+});

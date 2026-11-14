@@ -21,7 +21,7 @@ import { preparationJson } from "./launch.ts";
  * browser names the run id, so a repeated press records one run. Its audit row names the run and how many plants
  * contributed, nothing else.
  */
-export function runIntelligence(db: Database, authority: RequestActor, raw: unknown) {
+export async function runIntelligence(db: Database, authority: RequestActor, raw: unknown) {
 	return write(db, authority, true, async (w) => {
 		const input = parse(C.refreshRequest, raw);
 		const o = sql`${w.organization}::uuid`;
@@ -61,7 +61,7 @@ SELECT EXISTS(SELECT FROM r) AS added,
  * organization. Nobody else reads it, and it changes no pattern, rule or run. The audit row names the run, never the
  * rating.
  */
-export function rateIntelligence(db: Database, authority: RequestActor, raw: unknown) {
+export async function rateIntelligence(db: Database, authority: RequestActor, raw: unknown) {
 	return write(db, authority, true, async (w) => {
 		const input = parse(C.feedbackRequest, raw);
 		const row = await one(
@@ -132,6 +132,7 @@ export async function readIntelligence(
 	links AS (SELECT DISTINCT ON (k.plant_id) k.plant_id, k.shared_findings, k.share_ministry_teams FROM affiliation k
 		WHERE k.organization_id=${o} AND k.plant_id IS NOT NULL AND ${linkActive("k")} ORDER BY k.plant_id)
 	SELECT (SELECT name FROM organization WHERE id=${o}) AS organization_name,
+	(SELECT timezone FROM organization WHERE id=${o}) AS timezone,
 	(SELECT coalesce(json_agg(json_build_object('id', id, 'ran_at', ${iso("ran_at")}) ORDER BY ran_at DESC, id DESC), '[]')
 		FROM runs) AS history,
 	(SELECT id FROM shown) AS shown,
@@ -154,6 +155,7 @@ export async function readIntelligence(
 	const r = z
 		.object({
 			organization_name: z.string(),
+			timezone: z.string(),
 			history: z.array(runRow),
 			shown: z.string().nullable(),
 			rows: z.array(contribution),
@@ -166,6 +168,7 @@ export async function readIntelligence(
 	const run = history.find((h) => h.runId === r.shown) ?? null;
 	return C.intelligenceView.parse({
 		organizationName: r.organization_name,
+		timeZone: r.timezone,
 		level: request.level,
 		run,
 		history,

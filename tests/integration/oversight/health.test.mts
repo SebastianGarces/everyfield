@@ -334,14 +334,19 @@ async function placeOthers() {
 test("Network Intelligence names the near-launch pattern only where two sharing plants qualify", async () => {
 	await placeOthers();
 	const admin = await as(networkAdmin);
-	assert.deepEqual(await readIntelligence(S.runtime, admin, { level: "portfolio", runId: null }), {
-		organizationName: "Hill Country Network",
-		level: "portfolio",
-		run: null,
-		history: [],
-		groups: [],
-		canRefresh: true,
-	});
+	const empty = await readIntelligence(S.runtime, admin, { level: "portfolio", runId: null });
+	assert.deepEqual(
+		{ ...empty, timeZone: undefined },
+		{
+			organizationName: "Hill Country Network",
+			timeZone: undefined,
+			level: "portfolio",
+			run: null,
+			history: [],
+			groups: [],
+			canRefresh: true,
+		},
+	);
 	const run = await runIntelligence(S.runtime, admin, { runId: randomUUID() });
 	assert.equal(run.status, "ok");
 

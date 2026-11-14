@@ -67,6 +67,7 @@ const standalone = {
 		"saveCommitmentDocument",
 	],
 	"/packages/domain/src/settings/deletion.ts": ["issueRestrictedDeletionSession"],
+	"/packages/domain/src/oversight/intelligence.ts": ["runIntelligence", "rateIntelligence"],
 	"/apps/web/src/server/jobs/queue.ts": [
 		"enqueueJob",
 		"enqueueJobs",

@@ -110,6 +110,8 @@ export type Section<K extends SectionKey> = PlantSections[K];
 /** One plant as this organization sees it (oversight.getPlant). */
 export const plantView = z.strictObject({
 	plant: plantDirectoryRow,
+	/** The plant's own time zone, for the summary's published day. */
+	timeZone: z.string(),
 	sections: plantSections,
 	/** Launch status, readiness and outcome (oversight.readLaunchReadiness). */
 	launch: plantLaunch,
