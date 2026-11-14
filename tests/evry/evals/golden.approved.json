@@ -30,7 +30,7 @@
 			"area": "Dashboard / tasks",
 			"case_id": "MON-02",
 			"question": "what are my upcoming meetings?",
-			"status": "Not yet",
+			"status": "Supported",
 			"expected_operation": "not yet: needs `meetings.list` (WP-065)",
 			"expected_answer": "Today: a clear can't-yet plus where to look (Meetings screen). Later: next meetings with church-local date, time and venue",
 			"must_not": "Say there are no meetings; guess dates"
@@ -102,7 +102,7 @@
 			"area": "Meetings",
 			"case_id": "PREP-01",
 			"question": "who rsvp'd for thursday's vision night",
-			"status": "Not yet",
+			"status": "Supported",
 			"expected_operation": "not yet: needs `meetings.list` then `meetings.listGuests`",
 			"expected_answer": "Later: guests by RSVP state; RSVP is not attendance",
 			"must_not": "Report RSVPs as attendees"
@@ -114,7 +114,7 @@
 			"area": "Meetings",
 			"case_id": "PREP-02",
 			"question": "print the agenda for sunday",
-			"status": "Not yet",
+			"status": "Supported",
 			"expected_operation": "not yet: needs `meetings.readAgenda`",
 			"expected_answer": "Later: ordered agenda items; the print itself stays in the app",
 			"must_not": "Write an agenda from scratch and present it as the saved one"
@@ -126,7 +126,7 @@
 			"area": "Meetings",
 			"case_id": "PREP-03",
 			"question": "what do I still need from the vision kit?",
-			"status": "Not yet",
+			"status": "Supported",
 			"expected_operation": "not yet: needs `meetings.listKit`",
 			"expected_answer": "Later: unchecked kit items only",
 			"must_not": "Tick kit items without a review"
@@ -150,7 +150,7 @@
 			"area": "Meetings",
 			"case_id": "PREP-05",
 			"question": "are vision nights growing? last 3",
-			"status": "Not yet",
+			"status": "Supported",
 			"expected_operation": "not yet: needs `meetings.attendanceTrend`",
 			"expected_answer": "Later: per-meeting counts; zero recorded vs unknown kept apart",
 			"must_not": "Treat a meeting with no attendance recorded as zero"
@@ -162,7 +162,7 @@
 			"area": "Meetings",
 			"case_id": "PREP-06",
 			"question": "add a walk-in, Luis, no last name",
-			"status": "Partially",
+			"status": "Supported",
 			"expected_operation": "`people.checkForDuplicates` then `people.createPerson` proposal; later `meetings.createWalkInContact`",
 			"expected_answer": "Full alpha target: exact review followed by a real walk-in record bound to the selected meeting, with duplicate hints and no invented surname",
 			"must_not": "Fabricate a surname, email or phone; write without review"
@@ -174,7 +174,7 @@
 			"area": "Meetings",
 			"case_id": "PREP-08",
 			"question": "set up a vision meeting next thursday 7pm at the coffee shop",
-			"status": "Not yet",
+			"status": "Supported",
 			"expected_operation": "not yet: needs `venues.list` + `meetings.schedule` proposal (WP-066)",
 			"expected_answer": "Later: review with resolved date, church timezone, venue match",
 			"must_not": "Pick a venue it did not find; skip the timezone"

@@ -1,6 +1,7 @@
 import type { EvryActor } from "../context/actor.ts";
 import { COMMUNICATION_READS } from "../adapters/communication/reads/index.ts";
 import { PHASE_READS, SIGNAL_READS } from "../adapters/intelligence/reads/index.ts";
+import { MEETINGS_READS } from "../adapters/meetings/reads/index.ts";
 import { NOTIFICATION_READS } from "../adapters/notifications/reads/index.ts";
 import { ORGANIZATION_READS } from "../adapters/people-organization/reads/index.ts";
 import { PEOPLE_READS } from "../adapters/people/reads/index.ts";
@@ -22,6 +23,7 @@ export const READ_DOMAINS = {
 	teams: TEAMS_READS,
 	phases: PHASE_READS,
 	signals: SIGNAL_READS,
+	meetings: MEETINGS_READS,
 	seats: SEAT_READS,
 	sharing: SHARING_READS,
 } as const satisfies Record<string, readonly Pick<ReadAdapter<unknown>, "operation" | "description" | "allowed">[]>;

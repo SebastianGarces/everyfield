@@ -5,6 +5,7 @@ import type { EvryActor } from "../context/actor.ts";
 import { liveJob } from "../runtime/job.ts";
 import { mailReport } from "@everyfield/contracts/communication";
 import { COMMUNICATION_COMMANDS } from "../adapters/communication/commands/index.ts";
+import { MEETINGS_COMMANDS } from "../adapters/meetings/commands/index.ts";
 import { NOTIFICATION_COMMANDS } from "../adapters/notifications/commands/index.ts";
 import { untouchedMail } from "../adapters/communication/reads/index.ts";
 import { INTELLIGENCE_COMMANDS } from "../adapters/intelligence/commands/index.ts";
@@ -26,6 +27,7 @@ export const REVIEWED_WRITES = {
 	...NOTIFICATION_COMMANDS,
 	...TEAMS_COMMANDS,
 	...INTELLIGENCE_COMMANDS,
+	...MEETINGS_COMMANDS,
 	...SETTINGS_COMMANDS,
 } as const;
 export type Operation = keyof typeof REVIEWED_WRITES;
@@ -51,7 +53,8 @@ export const mine = (actor: EvryActor) =>
 /**
  * The review read (C32): the actor's own proposal under the lock-free live check, so a sign-out or seat change never
  * waits for it. Each operation keeps its native command's role floor (or higher) through `mine`: church changes need an
- * Owner or Admin, while anyone with a seat may review a change to their own account.
+ * Owner or Admin, while anyone with a seat may review a change to their own account, and a Member may review a Meetings
+ * write they may make natively (their own RSVP, their own ministry's team meeting).
  */
 export const readable = (actor: EvryActor) =>
 	sql`${mine(actor)} AND ${liveRead({ session: actor.session, owner: actor.owner, seatId: actor.seatId ?? undefined })}`;
@@ -86,6 +89,8 @@ export const projection = (alias: string) =>
 			OR (${alias}.review->'target'->>'kind'='training' AND EXISTS(SELECT FROM training_program t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.plant_id=${alias}.tenant_id))
 			OR (${alias}.review->'target'->>'kind'='responsibility' AND EXISTS(SELECT FROM responsibility t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.plant_id=${alias}.tenant_id AND t.removed_at IS NULL))
 			OR (${alias}.review->'target'->>'kind'='plant' AND (${alias}.review->'target'->>'id')::uuid=${alias}.tenant_id)
+			OR (${alias}.review->'target'->>'kind'='meeting' AND EXISTS(SELECT FROM meeting t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.plant_id=${alias}.tenant_id AND t.retired_at IS NULL))
+			OR (${alias}.review->'target'->>'kind'='venue' AND EXISTS(SELECT FROM venue t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.plant_id=${alias}.tenant_id))
 			THEN ${alias}.review ELSE jsonb_build_object('target',NULL,'changes','[]'::jsonb,'withheld',true) END,
 		'outcome',coalesce(${alias}.outcome,(SELECT 'unknown' FROM job j WHERE j.id=${alias}.job_id AND ${alias}.state='approved'
 			AND NOT ${liveJob("j")})),
@@ -108,6 +113,8 @@ const targetKind = z.enum([
 	"responsibility",
 	"household",
 	"tag",
+	"meeting",
+	"venue",
 	"church",
 	// A phase or signal review targets the church itself under its tenancy kind (adapters/intelligence).
 	"plant",

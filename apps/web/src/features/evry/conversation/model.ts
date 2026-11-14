@@ -62,6 +62,8 @@ export type SourceRow = {
 		| "phase"
 		| "criterion"
 		| "signal"
+		| "venue"
+		| "item"
 		| "seat"
 		| "invitation"
 		| "connection";
