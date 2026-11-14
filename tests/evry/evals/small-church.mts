@@ -25,7 +25,7 @@ import type { ReadAdapter, SourceResult } from "../../../packages/evry/src/catal
 import { readTools, resultForModel, type ToolHandlers } from "../../../packages/evry/src/runtime/tools.ts";
 import type { Database } from "../../support/test-database.mts";
 import { evalDatabase } from "./golden-church.mts";
-import type { ToolCall } from "./golden-harness.mts";
+import { RECORDED, type ToolCall } from "./golden-harness.mts";
 
 /** A pinned id in the eval namespace, as golden-church.mts writes them. */
 export const id = (n: number) => `5b6d1f0e-0000-4000-8000-${n.toString(16).padStart(12, "0")}`;
@@ -150,8 +150,16 @@ function realReads(db: Database, actor: EvryActor, calls: ToolCall[]): ToolHandl
 /** One request, as the runtime asks it: the real system prompt and read tools, up to four model steps. */
 export async function converse(model: LanguageModelV4, db: Database, actor: EvryActor, text: string, now: Date) {
 	const calls: ToolCall[] = [];
-	const tools = readTools(actor, realReads(db, actor, calls));
-	const context = compileContext({ actor, catalog: readCatalog(actor), history: [], text, references: [], now });
+	const tools = readTools(actor, realReads(db, actor, calls), RECORDED);
+	const context = compileContext({
+		actor,
+		catalog: readCatalog(actor, RECORDED),
+		history: [],
+		text,
+		references: [],
+		now,
+		settingsGuidance: false,
+	});
 	const run = streamText({
 		model,
 		system: context.system,

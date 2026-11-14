@@ -192,8 +192,9 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 	assert.equal(await work(), "succeeded");
 	assert.match((await events(seatless, none)).text, /no application reads available/);
 	// No catalog offers direct writes, approvals, code, private care or coach tools to any context. Only a plant Owner or
-	// Admin may propose the reviewed People changes, the same floor as the native commands; any plant seat proposes changes
-	// to its own notifications.
+	// Admin may propose the reviewed People, seat, settings, sharing and connection changes, the same floor as the native
+	// commands; any plant seat proposes changes to its own notifications and account, and an organization Owner its own
+	// profile.
 	// A Member may propose only the task and follow-up changes the native commands allow on their own work.
 	const memberTaskWrites = [
 		"tasks.complete",
@@ -271,18 +272,34 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 						"notifications.setPreferences",
 						"notifications.digestCadence.set",
 						...Object.keys(REVIEWED_WRITES).filter((op) => op.startsWith("teams.")),
+						"seats.invite",
+						"seats.resendInvitation",
+						"seats.revokeInvitation",
+						"seats.changeOrdinaryRole",
+						"seats.remove",
+						"plant.updateProfile",
+						"plant.setTimezone",
+						"privacy.setSharing",
+						"associations.invite",
+						"associations.end",
+						"account.finalizeAvatar",
+						"account.requestDeletion",
 						...taskWrites,
 					]
 				: who === "member"
-					? // A Member changes only their own bell and notification settings (the church digest is an Owner's or Admin's)
-						// and only the task and follow-up changes the native commands allow on their own work.
+					? // A Member changes only their own bell, notification settings and account (the church digest is an Owner's or
+						// Admin's) and only the task and follow-up changes the native commands allow on their own work.
 						[
 							"notifications.markSelectedRead",
 							"notifications.markAllVisibleRead",
 							"notifications.setPreferences",
+							"account.finalizeAvatar",
+							"account.requestDeletion",
 							...memberTaskWrites,
 						]
-					: [],
+					: who === "orgOwner"
+						? ["organizations.updateProfile"]
+						: [],
 		);
 		const teamsReads = READ_DOMAINS.teams.map((a) => a.operation);
 		const peopleReads = ["people.listPeople", "people.getPerson", "people.getPersonPhoto", "people.checkForDuplicates"];
@@ -357,6 +374,9 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 						"notifications.preferences.get",
 						"notifications.previewPlanterDigest",
 						...teamsReads,
+						"seats.list",
+						"seats.listInvitations",
+						"privacy.getSharing",
 					]
 				: who === "member"
 					? [
@@ -367,6 +387,8 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 							"notifications.feed",
 							"notifications.preferences.get",
 							...teamsReads,
+							"seats.list",
+							"privacy.getSharing",
 						]
 					: [],
 		);
@@ -538,7 +560,9 @@ test("AC:INH-EDGES-03 AC:TEN-008 AC:EVRY-CONTEXT-BOUNDS a guessed foreign id and
 			"peopleOrganization_read",
 			"people_read",
 			"propose_change",
+			"seats_read",
 			"select_returned_rows",
+			"sharing_read",
 			"tasks_read",
 			"teams_read",
 		],

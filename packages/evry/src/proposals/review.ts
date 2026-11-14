@@ -1,5 +1,5 @@
 import { sql, type SQL } from "@everyfield/db/query";
-import { liveAuthority } from "../context/authority.ts";
+import { liveRead } from "@everyfield/domain/access";
 import { z } from "zod";
 import type { EvryActor } from "../context/actor.ts";
 import { liveJob } from "../runtime/job.ts";
@@ -9,6 +9,7 @@ import { NOTIFICATION_COMMANDS } from "../adapters/notifications/commands/index.
 import { untouchedMail } from "../adapters/communication/reads/index.ts";
 import { FOLLOWUP_COMMANDS } from "../adapters/followups/commands/index.ts";
 import { PEOPLE_COMMANDS } from "../adapters/people/commands/index.ts";
+import { SETTINGS_COMMANDS } from "../adapters/settings/index.ts";
 import { TASK_COMMANDS } from "../adapters/tasks/commands/index.ts";
 import { ORGANIZATION_COMMANDS } from "../adapters/people-organization/commands/index.ts";
 import { TEAMS_COMMANDS } from "../adapters/teams/commands/index.ts";
@@ -25,14 +26,24 @@ export const REVIEWED_WRITES = {
 	...COMMUNICATION_COMMANDS,
 	...NOTIFICATION_COMMANDS,
 	...TEAMS_COMMANDS,
+	...SETTINGS_COMMANDS,
 	...TASK_COMMANDS,
 	...FOLLOWUP_COMMANDS,
 } as const;
 export type Operation = keyof typeof REVIEWED_WRITES;
 export const operation = z.enum(Object.keys(REVIEWED_WRITES) as [Operation]);
 
-export function allowedWrites(actor: EvryActor) {
-	return (Object.values(REVIEWED_WRITES) as ReviewedWrite<unknown>[]).filter((w) => w.allowed(actor));
+/**
+ * Which operations a caller offers the model. The turn offers every one; a recorded eval offers only the operations it
+ * was recorded with, so its provider calls stay the recorded ones.
+ */
+export type Offered = (operation: string) => boolean;
+export const everyOperation: Offered = () => true;
+
+export function allowedWrites(actor: EvryActor, offered: Offered = everyOperation) {
+	return (Object.values(REVIEWED_WRITES) as ReviewedWrite<unknown>[]).filter(
+		(w) => offered(w.operation) && w.allowed(actor),
+	);
 }
 
 /** The actor's own proposal in this exact context, for an operation the actor may still use natively. */
@@ -41,10 +52,11 @@ export const mine = (actor: EvryActor) =>
 		AND p.operation=ANY(${sql.param(allowedWrites(actor).map((w) => w.operation))}::text[])`;
 /**
  * The review read (C32): the actor's own proposal under the lock-free live check, so a sign-out or seat change never
- * waits for it. The actor keeps the same seat and role: `mine` admits only the operations that role may use natively,
- * so a Member reads their own task reviews and never a People, email or team review.
+ * waits for it. Each operation keeps its native command's role floor (or higher) through `mine`: church changes need an
+ * Owner or Admin, while anyone with a seat may review a change to their own account or their own task work.
  */
-export const readable = (actor: EvryActor) => sql`${mine(actor)} AND ${liveAuthority(actor)}`;
+export const readable = (actor: EvryActor) =>
+	sql`${mine(actor)} AND ${liveRead({ session: actor.session, owner: actor.owner, seatId: actor.seatId ?? undefined })}`;
 /**
  * A review of a message that is no longer what the review showed. An edit or a time change moves the revision. A cancel
  * or a sent email changes only its mail rows, so the review also saved how many recipients the email service held with
@@ -66,6 +78,7 @@ export const projection = (alias: string) =>
 		'revision',${alias}.revision,'digest',${alias}.digest,'expiresAt',${alias}.expires_at,'approvedAt',${alias}.approved_at,
 		'status',CASE WHEN ${alias}.state='pending' AND ${alias}.expires_at<=clock_timestamp() THEN 'expired' ELSE ${alias}.state END,
 		'review',CASE WHEN ${alias}.review->'target'='null'::jsonb
+			OR ${alias}.review->'target'->>'kind' NOT IN ('person','message','team','role','training','responsibility','household','tag')
 			OR (${alias}.review->'target'->>'kind'='person' AND EXISTS(SELECT FROM person t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.tenant_id=${alias}.tenant_id AND t.state='live'))
 			OR (${alias}.review->'target'->>'kind'='message' AND EXISTS(SELECT FROM communication t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.plant_id=${alias}.tenant_id))
 			OR (${alias}.review->'target'->>'kind'='task' AND EXISTS(SELECT FROM task t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.plant_id=${alias}.tenant_id AND t.deleted_at IS NULL))
@@ -83,6 +96,28 @@ export const projection = (alias: string) =>
 		'stale',${alias}.state='pending' AND ${staleMessage(alias)},
 		'receipt',${alias}.receipt,'now',clock_timestamp())`);
 
+/**
+ * What a review is about. A person, message, team, role, training, responsibility, household or tag is withheld once it
+ * is no longer available; a church, seat, invitation, connection, organization or account review is checked again by
+ * its native command on approval.
+ */
+const targetKind = z.enum([
+	"person",
+	"message",
+	"task",
+	"team",
+	"role",
+	"training",
+	"responsibility",
+	"household",
+	"tag",
+	"church",
+	"seat",
+	"invitation",
+	"connection",
+	"organization",
+	"account",
+]);
 const change = z.object({ field: z.string(), before: z.unknown(), after: z.unknown() });
 /** One person a change reaches beyond the target, such as each member of a household or each person tagged. */
 export const reviewedPerson = z.object({
@@ -100,16 +135,12 @@ export const reviewedRow = z.object({
 	reason: z.string().nullable(),
 });
 const review = z.object({
-	target: z
-		.object({
-			kind: z.enum(["person", "message", "task", "team", "role", "training", "responsibility", "household", "tag"]),
-			id: z.uuid(),
-			label: z.string(),
-		})
-		.nullable(),
+	target: z.object({ kind: targetKind, id: z.uuid(), label: z.string() }).nullable(),
 	changes: z.array(change),
 	people: z.array(reviewedPerson).optional(),
 	rows: z.array(reviewedRow).optional(),
+	/** Plain facts the person should know before approving, such as what a time zone change moves. */
+	notes: z.array(z.string()).optional(),
 	/** A plain reason the change cannot be approved as asked (for example a send time outside the window). */
 	refusal: z.string().optional(),
 	withheld: z.literal(true).optional(),
