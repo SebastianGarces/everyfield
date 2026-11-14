@@ -19887,6 +19887,19 @@
           "type": "bigint",
           "primaryKey": false,
           "notNull": true
+        },
+        "counting_from": {
+          "name": "counting_from",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "counts": {
+          "name": "counts",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
         }
       },
       "indexes": {
@@ -19957,6 +19970,10 @@
         "sending_goal_rationale": {
           "name": "sending_goal_rationale",
           "value": "((length(btrim(rationale)) >= 1) AND (length(rationale) <= 1000))"
+        },
+        "sending_goal_counts": {
+          "name": "sending_goal_counts",
+          "value": "CASE WHEN (jsonb_typeof(counts) = 'array'::text) THEN (jsonb_array_length(counts) <= 4) ELSE false END"
         }
       },
       "isRLSEnabled": false

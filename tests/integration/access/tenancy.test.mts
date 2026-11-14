@@ -778,8 +778,8 @@ function cases(who) {
 				expected: { value: { status: "refused", refusal: { code: "unavailable" } }, control: null },
 			},
 		],
-		// Goals and conversation counts too: tests/integration/organizations/goals.test.mts holds their organization
-		// boundary, including a network that a church shares pipeline totals with.
+		// Goals, their chosen counts and conversation counts too: tests/integration/organizations/goals.test.mts holds
+		// their organization boundary for reads and saves, including a network that a church shares pipeline totals with.
 		[
 			"organizations:readPipelineGoals",
 			{

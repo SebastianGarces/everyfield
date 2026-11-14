@@ -351,18 +351,27 @@ const goalsRow = z.object({
 });
 
 /**
- * The goals area of the Pipeline page for any seat of the organization (REQ-MUL-007, -009): its sending goals; its own
- * live people counted once each by the fixed kind of their current stage, so a rename never changes a count; and its
- * leadership conversations by month and quarter of their day, ending today in the organization's time zone. No name or
- * note is in it. Plants sent stays unavailable until commissioning arrives (ADR-001 stage 3). One statement.
+ * The goals area of the Pipeline page for any seat of the organization (REQ-MUL-007, -009): its sending goals, each with
+ * its chosen counts; its own live people counted once each by the fixed kind of their current stage, so a rename never
+ * changes a count; and its leadership conversations by month and quarter of their day, ending today in the
+ * organization's time zone. A chosen count is the distinct live people of this organization with a move or first
+ * placement into a stage of its kind, dated by the move's audit row in the organization's time zone, from the goal's
+ * counting-from day through today: a person who moved on still counts (D-1262). No name or note is in it. Plants sent
+ * stays unavailable until commissioning arrives (ADR-001 stage 3). One statement.
  */
 export async function readPipelineGoals(db: Executor, authority: RequestActor) {
 	return answer(async () => {
 		const seat = seatOf(authority) ?? refuse();
 		const org = seat.organization;
 		const r = await db.execute(sql`WITH g AS (SELECT ${seat.live} AS allowed),
-o AS (SELECT (clock_timestamp() AT TIME ZONE o.timezone)::date AS today FROM organization o JOIN g ON g.allowed
+o AS (SELECT o.timezone,(clock_timestamp() AT TIME ZONE o.timezone)::date AS today FROM organization o JOIN g ON g.allowed
  WHERE o.id=${org}::uuid),
+reached AS (SELECT pp.person_id,s.stable_kind AS kind,(a.occurred_at AT TIME ZONE o.timezone)::date AS day
+ FROM o CROSS JOIN pipeline_stage_move m JOIN pipeline_stage s ON s.id=m.to_stage_id AND s.organization_id=m.organization_id
+ JOIN audit_event a ON a.id=m.id AND a.tenant_id=m.organization_id
+ JOIN pipeline_person pp ON pp.id=m.pipeline_person_id AND pp.organization_id=m.organization_id
+ JOIN person p ON p.id=pp.person_id AND p.tenant_id=pp.organization_id
+ WHERE m.organization_id=${org}::uuid AND p.state='live'),
 st AS (
  SELECT s.stable_kind AS kind FROM pipeline_stage s WHERE s.organization_id=${org}::uuid AND s.removed_at IS NULL
   AND EXISTS(SELECT FROM o)
@@ -374,7 +383,11 @@ c AS (SELECT c.occurred_on FROM leadership_conversation c
  WHERE c.organization_id=${org}::uuid AND p.state IN ('live','retired') AND EXISTS(SELECT FROM o))
 SELECT g.allowed,(SELECT today::text FROM o) AS as_of,
  coalesce((SELECT jsonb_agg(jsonb_build_object('id',s.id,'revision',s.revision::text,'leaderTarget',s.leader_target,
-  'plantTarget',s.plant_target,'targetYear',s.target_year,'rationale',s.rationale) ORDER BY s.created_at,s.id)
+  'plantTarget',s.plant_target,'targetYear',s.target_year,'rationale',s.rationale,'countingFrom',s.counting_from::text,
+  'counts',(SELECT coalesce(jsonb_agg(jsonb_build_object('kind',k.c->>'kind','label',k.c->>'label',
+    'count',(SELECT count(DISTINCT r.person_id) FROM reached r,o WHERE r.kind=k.c->>'kind'
+     AND r.day BETWEEN s.counting_from AND o.today)) ORDER BY k.n),'[]'::jsonb)
+   FROM jsonb_array_elements(s.counts) WITH ORDINALITY k(c,n))) ORDER BY s.created_at,s.id)
   FROM (SELECT * FROM sending_goal s WHERE s.organization_id=${org}::uuid AND EXISTS(SELECT FROM o)
    ORDER BY s.created_at,s.id LIMIT 50) s),'[]'::jsonb) AS goals,
  coalesce((SELECT jsonb_agg(jsonb_build_object('kind',st.kind,'count',(SELECT count(DISTINCT pp.person_id)
@@ -771,34 +784,58 @@ SELECT EXISTS(SELECT FROM n,x WHERE ${noteDuty(w)}) AS found,(SELECT revision::t
 
 /**
  * Adds a sending goal (no expected revision; the browser names its ID, so a repeat adds no second goal) or changes one
- * (REQ-MUL-007). It touches only the goal: no person moves and no stage changes. Owner or Admin; at most 50 goals.
+ * (REQ-MUL-007), with its counting-from day and chosen counts (D-1263, D-1264). It touches only the goal: no person
+ * moves and no stage changes. The audit row holds IDs, the day and the counted kinds, never a label or the reason.
+ * Owner or Admin; at most 50 goals.
  */
 function saveGoal(db: Database, authority: RequestActor, raw: unknown) {
 	return write(db, authority, true, async (w) => {
 		const input = parse(C.saveGoalRequest, raw);
 		const o = w.organization;
 		const adding = input.expectedRevision === null;
+		const counts = JSON.stringify(input.counts);
+		const kinds = JSON.stringify(input.counts.map((c) => c.kind));
+		// Without a day, a new goal counts from today and a saved one keeps its day.
+		const from = (fallback: SQL) => sql`coalesce(${input.countingFrom}::date,${fallback})`;
+		const values = sql`(${input.leaderTarget}::int,${input.plantTarget}::int,${input.targetYear}::int,${input.rationale}::text,${from(sql`cur.counting_from`)},${counts}::jsonb)`;
+		const metadata = (fields: SQL) =>
+			sql`jsonb_build_object('category','sending_goal','goalId',${input.goalId}::text,'countingFrom',g.counting_from::text,
+ 'kinds',${kinds}::jsonb${fields})`;
 		const row = await one(
 			w,
-			z.object({ current: z.string().nullable(), revision: z.string().nullable(), room: z.boolean() }),
+			z.object({
+				current: z.string().nullable(),
+				revision: z.string().nullable(),
+				room: z.boolean(),
+				past: z.boolean(),
+			}),
 			sql`WITH cur AS (SELECT * FROM sending_goal WHERE id=${input.goalId}::uuid AND organization_id=${o}::uuid FOR UPDATE),
 room AS (SELECT count(*)<50 AS ok FROM sending_goal WHERE organization_id=${o}::uuid),
-ins AS (INSERT INTO sending_goal (id,organization_id,leader_target,plant_target,target_year,rationale,revision)
- SELECT ${input.goalId}::uuid,${o}::uuid,${input.leaderTarget},${input.plantTarget},${input.targetYear},${input.rationale},1
- FROM room WHERE ${adding} AND room.ok AND NOT EXISTS(SELECT FROM cur) ON CONFLICT (id) DO NOTHING RETURNING id,revision),
+d AS (SELECT (clock_timestamp() AT TIME ZONE o.timezone)::date AS today FROM organization o WHERE o.id=${o}::uuid),
+ok AS (SELECT coalesce(${input.countingFrom}::date<=d.today,true) AS past FROM d),
+ins AS (INSERT INTO sending_goal (id,organization_id,leader_target,plant_target,target_year,rationale,counting_from,counts,revision)
+ SELECT ${input.goalId}::uuid,${o}::uuid,${input.leaderTarget},${input.plantTarget},${input.targetYear},${input.rationale},${from(sql`d.today`)},
+  ${counts}::jsonb,1
+ FROM room,d,ok WHERE ${adding} AND room.ok AND ok.past AND NOT EXISTS(SELECT FROM cur) ON CONFLICT (id) DO NOTHING
+ RETURNING id,revision,counting_from),
 upd AS (UPDATE sending_goal s SET leader_target=${input.leaderTarget},plant_target=${input.plantTarget},
- target_year=${input.targetYear},rationale=${input.rationale},revision=s.revision+1 FROM cur
- WHERE s.id=cur.id AND NOT ${adding} AND cur.revision=${input.expectedRevision}::bigint
-  AND (cur.leader_target,cur.plant_target,cur.target_year,cur.rationale)
-   IS DISTINCT FROM (${input.leaderTarget},${input.plantTarget},${input.targetYear},${input.rationale}) RETURNING s.id,s.revision),
-ai AS (${w.audit({ action: "settings.changed", kind: "create", subjectType: "organization", subject: sql`${o}::uuid`, metadata: { category: "sending_goal", goalId: input.goalId } })}
- FROM ins RETURNING id),
-au AS (${w.audit({ action: "settings.changed", kind: "edit", subjectType: "organization", subject: sql`${o}::uuid`, metadata: { category: "sending_goal", goalId: input.goalId, fields: ["leaderTarget", "plantTarget", "targetYear", "rationale"] } })}
- FROM upd RETURNING id)
+ target_year=${input.targetYear},rationale=${input.rationale},counting_from=${from(sql`cur.counting_from`)},counts=${counts}::jsonb,revision=s.revision+1
+ FROM cur,d,ok WHERE s.id=cur.id AND NOT ${adding} AND ok.past AND cur.revision=${input.expectedRevision}::bigint
+  AND (cur.leader_target,cur.plant_target,cur.target_year,cur.rationale,cur.counting_from,cur.counts) IS DISTINCT FROM ${values}
+ RETURNING s.id,s.revision,s.counting_from,
+  to_jsonb(array_remove(ARRAY[CASE WHEN cur.leader_target<>s.leader_target THEN 'leaderTarget' END,
+   CASE WHEN cur.plant_target<>s.plant_target THEN 'plantTarget' END,CASE WHEN cur.target_year<>s.target_year THEN 'targetYear' END,
+   CASE WHEN cur.rationale<>s.rationale THEN 'rationale' END,CASE WHEN cur.counting_from<>s.counting_from THEN 'countingFrom' END,
+   CASE WHEN cur.counts<>s.counts THEN 'counts' END],NULL)) AS fields),
+ai AS (${w.audit({ action: "settings.changed", kind: "create", subjectType: "organization", subject: sql`${o}::uuid`, metadata: metadata(sql``) })}
+ FROM ins g RETURNING id),
+au AS (${w.audit({ action: "settings.changed", kind: "edit", subjectType: "organization", subject: sql`${o}::uuid`, metadata: metadata(sql`,'fields',g.fields`) })}
+ FROM upd g RETURNING id)
 SELECT (SELECT revision::text FROM cur) AS current,coalesce((SELECT revision::text FROM ins),(SELECT revision::text FROM upd)) AS revision,
- (SELECT ok FROM room) AS room`,
+ (SELECT ok FROM room) AS room,(SELECT past FROM ok) AS past`,
 		);
 		if (row.revision) return { goalId: input.goalId, revision: row.revision, outcome: "changed" as const };
+		if (!row.past) refuse({ code: "invalid_input", field: "countingFrom" });
 		// A repeated add, or a change to the values the goal already has, answers with the goal as it is.
 		if (row.current && (adding || row.current === input.expectedRevision))
 			return { goalId: input.goalId, revision: row.current, outcome: "noop" as const };

@@ -1,7 +1,7 @@
 "use client";
 
 import type { PipelineGoals } from "@everyfield/contracts/organizations";
-import { Edit02Icon, PlusSignIcon } from "@hugeicons/core-free-icons";
+import { Delete02Icon, Edit02Icon, PlusSignIcon } from "@hugeicons/core-free-icons";
 import {
 	Button,
 	Card,
@@ -16,7 +16,9 @@ import {
 	DialogFooter,
 	DialogHeader,
 	Field,
+	IconButton,
 	Input,
+	Select,
 	Textarea,
 } from "@everyfield/ui/controls";
 import { useState, type FormEvent } from "react";
@@ -25,6 +27,8 @@ import { formatDay, goalHeadline, KIND_LABEL, monthLabel, plural, refusalText } 
 import { Problem } from "./Problem";
 
 type Goal = PipelineGoals["goals"][number];
+/** A goal counts at most this many things (D-1264). */
+const MAX_COUNTS = 4;
 
 /** What "Plants sent" says until commissioning and plant lineage exist (ADR-001 stage 3). Never a zero. */
 const PLANTS_UNAVAILABLE = "Everyfield will count plants sent once churches are commissioned through it.";
@@ -72,7 +76,7 @@ export function GoalsArea({ initial }: { initial: PipelineGoals }) {
 					<ul className="flex flex-col divide-y divide-line">
 						{data.goals.map((goal) => (
 							<li key={goal.id} className="py-4 first:pt-0 last:pb-0">
-								<GoalItem goal={goal} onEdit={data.canEdit ? () => setEditing(goal) : null} />
+								<GoalItem goal={goal} asOf={data.asOf} onEdit={data.canEdit ? () => setEditing(goal) : null} />
 							</li>
 						))}
 					</ul>
@@ -100,6 +104,7 @@ export function GoalsArea({ initial }: { initial: PipelineGoals }) {
 					open={editing !== null}
 					onOpenChange={(open) => (open ? null : setEditing(null))}
 					goal={editing === "new" ? null : editing}
+					asOf={data.asOf}
 					onSaved={saved}
 				/>
 			) : null}
@@ -107,7 +112,7 @@ export function GoalsArea({ initial }: { initial: PipelineGoals }) {
 	);
 }
 
-function GoalItem({ goal, onEdit }: { goal: Goal; onEdit: (() => void) | null }) {
+function GoalItem({ goal, asOf, onEdit }: { goal: Goal; asOf: string; onEdit: (() => void) | null }) {
 	return (
 		<article className="flex flex-col gap-2">
 			<div className="flex items-start gap-3">
@@ -131,7 +136,45 @@ function GoalItem({ goal, onEdit }: { goal: Goal; onEdit: (() => void) | null })
 					<span className="font-medium text-ink">Plants sent: Not available yet.</span> {PLANTS_UNAVAILABLE}
 				</p>
 			) : null}
+			<ChosenCounts goal={goal} asOf={asOf} canEdit={Boolean(onEdit)} />
 		</article>
+	);
+}
+
+/**
+ * The counts the goal chose (D-1264): people who reached a stage of each kind since the goal's counting-from day, as of
+ * today. Plain counts and dates, never measured against a target.
+ */
+function ChosenCounts({ goal, asOf, canEdit }: { goal: Goal; asOf: string; canEdit: boolean }) {
+	const since = formatDay(goal.countingFrom);
+	return (
+		<section aria-label="What this goal counts" className="mt-1 flex flex-col gap-2">
+			<p className="text-xs text-text-3">
+				Counting from {since} · As of {formatDay(asOf)}
+			</p>
+			{goal.counts.length ? (
+				<dl className="grid grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] gap-2">
+					{goal.counts.map((c) => (
+						<div key={c.kind} className="flex min-w-0 flex-col gap-1 rounded-md bg-surface-2 px-3 py-2.5">
+							<dt className="text-xs font-medium text-text-2 [overflow-wrap:anywhere]">{c.label}</dt>
+							<dd className="text-lg leading-none font-semibold text-ink tabular-nums">
+								{c.count}
+								<span className="sr-only"> {c.count === 1 ? "person" : "people"}</span>
+							</dd>
+							<dd className="text-xs text-text-3">
+								Reached {KIND_LABEL[c.kind]} since {since}
+							</dd>
+						</div>
+					))}
+				</dl>
+			) : (
+				<p className="text-sm text-text-2">
+					{canEdit
+						? "No counts chosen yet. Edit the goal to count people who reach a stage, such as apprentices activated or leaders sent."
+						: "No counts chosen yet."}
+				</p>
+			)}
+		</section>
 	);
 }
 
@@ -226,21 +269,45 @@ function GoalDialog({
 	open,
 	onOpenChange,
 	goal,
+	asOf,
 	onSaved,
 }: {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	goal: Goal | null;
+	asOf: string;
 	onSaved: () => void;
 }) {
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent size="sm">{open ? <GoalForm goal={goal} onSaved={onSaved} /> : null}</DialogContent>
+			<DialogContent size="sm">{open ? <GoalForm goal={goal} asOf={asOf} onSaved={onSaved} /> : null}</DialogContent>
 		</Dialog>
 	);
 }
 
-type Errors = { leaders?: string; plants?: string; year?: string; reason?: string };
+type Errors = { leaders?: string; plants?: string; year?: string; reason?: string; from?: string };
+type CountRow = { key: string; kind: Goal["counts"][number]["kind"]; label: string };
+type CountErrors = Record<string, { label?: string; kind?: string }>;
+const KIND_OPTIONS = Object.entries(KIND_LABEL).map(([value, label]) => ({ value, label }));
+
+/** What is wrong with each count row, by its key: a missing or long name, or a kind an earlier row already counts. */
+function countProblems(rows: readonly CountRow[]): CountErrors {
+	const problems: CountErrors = {};
+	rows.forEach((row, i) => {
+		const name = row.label.trim();
+		const label = !name
+			? "Name this count."
+			: name.length > 60
+				? `Keep the name to 60 characters or fewer (now ${name.length}).`
+				: undefined;
+		const kind =
+			rows.findIndex((r) => r.kind === row.kind) < i
+				? `This goal already counts ${KIND_LABEL[row.kind]}. Choose another kind.`
+				: undefined;
+		if (label || kind) problems[row.key] = { label, kind };
+	});
+	return problems;
+}
 
 /** A whole number of 0 or more, or the message that says why not. */
 function target(text: string): number | string {
@@ -252,14 +319,22 @@ function target(text: string): number | string {
 	return n;
 }
 
-/** A goal's targets, year and reason. Adding names the goal's ID once per dialog, so a resend adds one goal. */
-function GoalForm({ goal, onSaved }: { goal: Goal | null; onSaved: () => void }) {
+/**
+ * A goal's targets, year, reason, counting-from day and chosen counts. Adding names the goal's ID once per dialog, so a
+ * resend adds one goal.
+ */
+function GoalForm({ goal, asOf, onSaved }: { goal: Goal | null; asOf: string; onSaved: () => void }) {
 	const [goalId] = useState(() => goal?.id ?? crypto.randomUUID());
 	const [leaders, setLeaders] = useState(goal ? String(goal.leaderTarget) : "");
 	const [plants, setPlants] = useState(goal ? String(goal.plantTarget) : "");
 	const [year, setYear] = useState(goal ? String(goal.targetYear) : "");
 	const [reason, setReason] = useState(goal?.rationale ?? "");
+	const [from, setFrom] = useState<string>(goal?.countingFrom ?? asOf);
+	const [counts, setCounts] = useState<CountRow[]>(() =>
+		(goal?.counts ?? []).map((c) => ({ key: crypto.randomUUID(), kind: c.kind, label: c.label })),
+	);
 	const [errors, setErrors] = useState<Errors>({});
+	const [countErrors, setCountErrors] = useState<CountErrors>({});
 	const [problem, setProblem] = useState<string | null>(null);
 	const [saving, setSaving] = useState(false);
 	const leaderTarget = target(leaders);
@@ -280,9 +355,12 @@ function GoalForm({ goal, onSaved }: { goal: Goal | null; onSaved: () => void })
 					? undefined
 					: "Enter a year between 2000 and 2200.",
 			reason: reason.trim() ? undefined : "Say briefly why this goal matters.",
+			from: !from ? "Enter the date." : from > asOf ? "The counting-from date can’t be after today." : undefined,
 		};
+		const rows = countProblems(counts);
 		setErrors(next);
-		if (Object.values(next).some(Boolean)) return;
+		setCountErrors(rows);
+		if (Object.values(next).some(Boolean) || Object.keys(rows).length) return;
 		setSaving(true);
 		const answer = await saveGoal({
 			goalId,
@@ -291,6 +369,8 @@ function GoalForm({ goal, onSaved }: { goal: Goal | null; onSaved: () => void })
 			plantTarget,
 			targetYear,
 			rationale: reason.trim(),
+			countingFrom: from,
+			counts: counts.map((c) => ({ kind: c.kind, label: c.label.trim() })),
 		}).catch(() => ({ status: "lost" as const }));
 		setSaving(false);
 		if (answer.status !== "ok") return setProblem(refusalText(answer));
@@ -339,6 +419,14 @@ function GoalForm({ goal, onSaved }: { goal: Goal | null; onSaved: () => void })
 				<Field label="Why this goal" error={errors.reason} hint="A sentence or two your staff will see with the goal.">
 					<Textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={3} maxLength={1000} />
 				</Field>
+				<Field
+					label="Counting from"
+					error={errors.from}
+					hint="The goal’s counts include stage moves on or after this day."
+				>
+					<Input type="date" value={from} max={asOf} onChange={(e) => setFrom(e.target.value)} />
+				</Field>
+				<CountsEditor rows={counts} errors={countErrors} onChange={setCounts} />
 				{preview ? (
 					<p className="rounded-md bg-surface-2 px-3 py-2.5 text-sm text-ink" aria-live="polite">
 						{preview}
@@ -352,5 +440,87 @@ function GoalForm({ goal, onSaved }: { goal: Goal | null; onSaved: () => void })
 				</Button>
 			</DialogFooter>
 		</form>
+	);
+}
+
+/**
+ * The goal's chosen counts (D-1264): up to 4 rows, each a name and the stage kind it counts. A count is the people who
+ * reached a stage of that kind since the counting-from day, so a person who moved on stays counted.
+ */
+function CountsEditor({
+	rows,
+	errors,
+	onChange,
+}: {
+	rows: CountRow[];
+	errors: CountErrors;
+	onChange: (rows: CountRow[]) => void;
+}) {
+	const update = (key: string, change: Partial<CountRow>) =>
+		onChange(rows.map((r) => (r.key === key ? { ...r, ...change } : r)));
+	const full = rows.length >= MAX_COUNTS;
+	const unused = KIND_OPTIONS.find((o) => !rows.some((r) => r.kind === o.value))?.value ?? "other";
+	return (
+		<fieldset className="flex min-w-0 flex-col gap-2">
+			<legend className="text-sm font-medium text-ink-2">What this goal counts</legend>
+			<p className="text-xs text-text-3">
+				Each count is the people who reached a stage of that kind since the counting-from day, even if they moved on.
+				For example, “Leaders sent” for Commissioned.
+			</p>
+			{rows.length ? (
+				<ol className="flex flex-col gap-3">
+					{rows.map((row, index) => {
+						const problem = errors[row.key];
+						return (
+							<li key={row.key} className="flex flex-col gap-1">
+								<div className="flex flex-wrap items-center gap-2">
+									<Input
+										aria-label={`Count ${index + 1} name`}
+										placeholder="Apprentices activated"
+										value={row.label}
+										invalid={Boolean(problem?.label)}
+										onChange={(e) => update(row.key, { label: e.target.value })}
+										boxClassName="flex-[1_1_12rem]"
+									/>
+									<div className="flex min-w-0 flex-[1_1_11rem] items-center gap-2">
+										<Select
+											aria-label={`Count ${index + 1} counts people who reached`}
+											value={row.kind}
+											invalid={Boolean(problem?.kind)}
+											onValueChange={(kind) => update(row.key, { kind: kind as CountRow["kind"] })}
+											options={KIND_OPTIONS}
+											className="min-w-0 flex-1"
+										/>
+										<IconButton
+											icon={Delete02Icon}
+											label={`Remove ${row.label.trim() || `count ${index + 1}`}`}
+											size="sm"
+											onClick={() => onChange(rows.filter((r) => r.key !== row.key))}
+										/>
+									</div>
+								</div>
+								<div aria-live="polite" className="empty:hidden">
+									{problem?.label || problem?.kind ? (
+										<p className="text-xs font-medium text-magenta-600">
+											{[problem.label, problem.kind].filter(Boolean).join(" ")}
+										</p>
+									) : null}
+								</div>
+							</li>
+						);
+					})}
+				</ol>
+			) : null}
+			<Button
+				variant="ghost"
+				icon={PlusSignIcon}
+				className="self-start"
+				disabled={full}
+				onClick={() => onChange([...rows, { key: crypto.randomUUID(), kind: unused as CountRow["kind"], label: "" }])}
+			>
+				Add a count
+			</Button>
+			{full ? <p className="text-xs text-text-3">A goal can have up to 4 counts.</p> : null}
+		</fieldset>
 	);
 }
