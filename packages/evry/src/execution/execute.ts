@@ -10,7 +10,7 @@ import { owner, sessionId } from "@everyfield/contracts/common";
 import { z } from "zod";
 import { EvryRefusal } from "../context/errors.ts";
 import { REVIEWED_WRITES, staleMessage } from "../proposals/store.ts";
-import type { EffectResult, MailPort, ReviewedWrite } from "../proposals/types.ts";
+import type { EffectResult, MailPort, NativePorts, ReviewedWrite } from "../proposals/types.ts";
 
 /** The executor's claim on one evry_effect job, as the WP-031 queue issued it. Only the current claim may publish. */
 export type EffectLease = { jobId: string; tenantId: string; leaseOwner: string; generation: string };
@@ -100,13 +100,15 @@ class Refused extends Error {
  * locks are held. The native command writes its own audit row with the change, so the effect, its audit record and the
  * saved outcome commit together or not at all. A refusal rolls everything back and then saves the refusal under the
  * same claim. Any other error saves nothing: only a server answer may say that nothing was changed (C58). `reminders`
- * is the task reminder port for a command that hands tasks to someone else.
+ * is the task reminder port for a command that hands tasks to someone else; `native` holds the Settings, seat and
+ * connection services a command of those areas calls.
  */
 export async function executeProposal(
 	db: Database,
 	lease: EffectLease,
 	reminders: TaskReminders,
 	mail: MailPort | null = null,
+	native: NativePorts | null = null,
 ): Promise<EffectOutcome> {
 	try {
 		const first = await db.transaction(async (tx): Promise<EffectOutcome | Reach> => {
@@ -147,11 +149,14 @@ export async function executeProposal(
 				const changed = await write.recheck?.(tx, context, p.input);
 				if (changed) throw new Refused(changed);
 			}
-			const result = await write.execute(tx, context, p.input, effectKey, reminders);
+			const result = await write.execute(tx, context, p.input, effectKey, reminders, {
+				authority: claimed.authority,
+				ports: native,
+			});
 			if ("refused" in result) throw new Refused(refusalCode(result.refused));
 			// The email service is called after this transaction commits, never inside it. The saved mark tells a retry that
 			// this effect started.
-			if (reach && mail) {
+			if (reach && mail && "receiptId" in result) {
 				await tx.execute(sql`UPDATE proposal SET receipt='{"reached":true}'::jsonb WHERE id=${p.id}::uuid`);
 				return { id: p.id, reach: () => reach(db, claimed.authority, p.input, effectKey, result, mail) };
 			}

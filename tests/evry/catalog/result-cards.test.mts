@@ -10,6 +10,7 @@ import { invokeRead } from "../../../packages/evry/src/catalog/invoke.ts";
 import type { ReadAdapter, SourceResult } from "../../../packages/evry/src/catalog/types.ts";
 import { cardView, FALLBACK } from "../../../apps/web/src/features/evry/conversation/resultView.ts";
 import { byName, goldenChurch, IMPORT_KEY, programId, teamId } from "../evals/golden-church.mts";
+import { nativePorts } from "../evals/settings-ports.mts";
 
 const church = await goldenChurch();
 after(church.close);
@@ -46,6 +47,9 @@ const PROBES: Record<string, Record<string, unknown> | (() => Promise<SourceResu
 	"people.listTags": {},
 	"people.previewImport": { file: FILE },
 	"communication.list": {},
+	"notifications.feed": { unread: true },
+	"notifications.preferences.get": {},
+	"notifications.previewPlanterDigest": {},
 	"teams.list": {},
 	"teams.get": { teamId: teamId("Worship") },
 	"teams.searchMembers": { q: "Sam" },
@@ -75,6 +79,10 @@ const PROBES: Record<string, Record<string, unknown> | (() => Promise<SourceResu
 	"teams.listResponsibilities": { teamId: teamId("Worship") },
 	"teams.previewResponsibilities": { teamId: teamId("Worship") },
 	"teams.listMeetings": { teamId: teamId("Core team") },
+	"seats.list": {},
+	"seats.listInvitations": () =>
+		invokeRead(church.db, church.actors.owner, adapters.get("seats.listInvitations")!, {}, nativePorts()),
+	"privacy.getSharing": {},
 	[catalog.SELECT_RETURNED_ROWS]: async () => {
 		const list = await read("people.listPeople", {});
 		return { ...list, operation: catalog.SELECT_RETURNED_ROWS, rows: list.rows.slice(0, 2), total: 2 };

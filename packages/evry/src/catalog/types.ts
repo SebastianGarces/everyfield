@@ -1,10 +1,12 @@
 import type { Transaction } from "@everyfield/db/client";
 import type { z } from "zod";
 import type { EvryActor } from "../context/actor.ts";
+import type { NativePorts } from "../proposals/types.ts";
 
 /**
  * One returned row. Only these fields reach the model; the id lets a later read or selection name it again.
- * Selection re-checks `person` rows only. A household, tag, skill, activity, file or import row is not a person.
+ * Selection re-checks `person` rows only. A household, tag, skill, activity, file, import, message, notice, setting or
+ * digest row is not a person.
  */
 export type SourceRow = {
 	kind:
@@ -16,12 +18,18 @@ export type SourceRow = {
 		| "file"
 		| "import"
 		| "message"
+		| "notice"
+		| "setting"
+		| "digest"
 		| "team"
 		| "role"
 		| "training"
 		| "meeting"
 		| "responsibility"
-		| "template";
+		| "template"
+		| "seat"
+		| "invitation"
+		| "connection";
 	id: string;
 	label: string;
 	/** `you: true` marks the signed-in user's own person row (see person-row.ts); no other row carries it. */
@@ -49,5 +57,6 @@ export type ReadAdapter<I> = {
 	input: z.ZodType<I>;
 	/** Current authority decides availability. Being in the catalog grants nothing. */
 	allowed(actor: EvryActor): boolean;
-	invoke(tx: Transaction, actor: EvryActor, input: I): Promise<SourceResult>;
+	/** `native` holds the deployment's native services, for a read that needs one (null when it has none). */
+	invoke(tx: Transaction, actor: EvryActor, input: I, native: NativePorts | null): Promise<SourceResult>;
 };

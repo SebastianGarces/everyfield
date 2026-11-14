@@ -17,6 +17,11 @@
 //   "Not a duplicate".
 // - Messages: the draft "Sunday's interest meeting" and "Friday volunteer email", scheduled for Fri 13 Nov 9:00 AM
 //   to Mark and Jen Thompson (the launch team), waiting in Everyfield.
+// - Notifications: the Owner has four unread from the weekend (Sat 7 and Sun 8 Nov): three task reminders (N1 to N3,
+//   the launch budget due and overdue and the school gym due) and one meeting announcement (N4, the interest meeting on
+//   Thu 19 Nov), plus one read reminder from Thu 5 Nov. The Admin has two unread notices of her own. The church digest
+//   goes out weekly on Sundays at 4 PM; the next one (Sun 15 Nov) covers 9 to 15 Nov and lists the Owner's three open
+//   dated tasks (two overdue by then) and the interest meeting.
 // - Ministries (MINISTRIES below), read from the team roster, never from tags: Core team (led by Nate; 4 roles, the
 //   Admin coordinator open; 5 completed team meetings, the last 4 measured; required "Core team orientation" for Nate,
 //   Lena and Carlos, two finished), Worship (Mark leads it from the Worship leader role; Mark, Jen, Ana and Alex serve;
@@ -48,6 +53,22 @@ export const DRAFT = id(0xc01);
 const FRIDAY_EMAIL = id(0xc02);
 export const EMPTY_PLANT = id(2);
 export const ORGANIZATION = id(3);
+/** The network Hope Fellowship is connected with, sharing meetings and People totals, and its connection. */
+export const NETWORK = id(4);
+export const CONNECTION = id(5);
+/** A sending church Hope Fellowship is not connected with, with a public contact address. */
+export const GRACE_AUSTIN = id(6);
+/** The one pending seat invitation, to jordan@example.test as a Member. */
+export const INVITATION = id(7);
+/** The Owner's four unread weekend notices, oldest first (three task reminders, then a meeting announcement). */
+export const NOTICES = [id(0xd01), id(0xd02), id(0xd03), id(0xd04)] as const;
+/** The Owner's read notice and the Admin's two unread ones. */
+const READ_NOTICE = id(0xd05);
+const ADMIN_NOTICES = [id(0xd06), id(0xd07)] as const;
+const BUDGET_TASK = id(0xd11);
+const GYM_TASK = id(0xd12);
+const SIGNUP_TASK = id(0xd13);
+const INTEREST_MEETING = id(0xd21);
 
 type Stage = "prospect" | "attendee" | "following_up" | "interviewed" | "core_group" | "launch_team" | "leader";
 /** The inactivity level the seeded activity produces on the real pipeline board. */
@@ -249,14 +270,46 @@ const REVIEW_IMPORT = {
 /** The open import review pairs, oldest imported person first, as people.listDuplicatePairs lists them. */
 export const REVIEW_PAIRS = REVIEW_IMPORT.rows.filter((r) => !r.dismissed).map((r) => [r.person, r.reviewWith]);
 
-type ActorSpec = { account: string; user: string; session: string; plant: string | null; role: string };
+type ActorSpec = {
+	account: string;
+	user: string;
+	session: string;
+	plant: string | null;
+	organization?: string;
+	role: string;
+	/** The account's sign-in name, which Settings > Seats shows. */
+	name: string;
+};
 const ACCOUNT = (k: number): ActorSpec["account"] => id(0xf00 + k);
-const ACTOR_SPECS = {
-	owner: { account: ACCOUNT(1), user: id(0xf11), session: id(0xf21), plant: PLANT, role: "owner" },
-	admin: { account: ACCOUNT(2), user: id(0xf12), session: id(0xf22), plant: PLANT, role: "admin" },
-	member: { account: ACCOUNT(3), user: id(0xf13), session: id(0xf23), plant: PLANT, role: "member" },
-	org: { account: ACCOUNT(4), user: id(0xf14), session: id(0xf24), plant: null, role: "owner" },
-	empty: { account: ACCOUNT(5), user: id(0xf15), session: id(0xf25), plant: EMPTY_PLANT, role: "owner" },
+export const ACTOR_SPECS = {
+	owner: { account: ACCOUNT(1), user: id(0xf11), session: id(0xf21), plant: PLANT, role: "owner", name: "Nate Ellis" },
+	admin: { account: ACCOUNT(2), user: id(0xf12), session: id(0xf22), plant: PLANT, role: "admin", name: "Lena Park" },
+	member: {
+		account: ACCOUNT(3),
+		user: id(0xf13),
+		session: id(0xf23),
+		plant: PLANT,
+		role: "member",
+		name: "Priya Shah",
+	},
+	org: { account: ACCOUNT(4), user: id(0xf14), session: id(0xf24), plant: null, role: "owner", name: "Synthetic" },
+	empty: {
+		account: ACCOUNT(5),
+		user: id(0xf15),
+		session: id(0xf25),
+		plant: EMPTY_PLANT,
+		role: "owner",
+		name: "Synthetic",
+	},
+	network: {
+		account: ACCOUNT(6),
+		user: id(0xf16),
+		session: id(0xf26),
+		plant: null,
+		organization: NETWORK,
+		role: "owner",
+		name: "Ruth Calder",
+	},
 } as const satisfies Record<string, ActorSpec>;
 export type ActorName = keyof typeof ACTOR_SPECS;
 /** The person row linked to each plant seat's account: the signed-in user's own row. */
@@ -270,19 +323,27 @@ const LINKED: Partial<Record<ActorName, string>> = {
  * Seeds the church into the schema `admin` is pinned to. Every row a read returns has a pinned id and a pinned time,
  * except each live person's last contact, which is placed relative to the database clock (see the header).
  */
-export async function seedHope(admin: Database) {
+export async function seedHope(admin: Database, { seatNames = false }: SeedOptions = {}) {
 	const run = (q: ReturnType<typeof sql>) => admin.execute(q);
-	for (const [plant, name] of [
-		[PLANT, "Hope Fellowship"],
-		[EMPTY_PLANT, "New Hope"],
-	])
-		await run(sql`INSERT INTO plant(id,name,timezone,warning_days,alert_days,digest_weekday,digest_hour,phase,material_revision)
-			VALUES(${plant},${name},'America/Chicago',7,14,1,8,1,1)`);
+	// Hope Fellowship's church digest goes out on Sundays at 4 PM, the default schedule.
+	for (const [plant, name, weekday, hour] of [
+		[PLANT, "Hope Fellowship", 0, 16],
+		[EMPTY_PLANT, "New Hope", 1, 8],
+	] as const)
+		await run(sql`INSERT INTO plant(id,name,timezone,warning_days,alert_days,digest_weekday,digest_hour,phase,material_revision,city,state_province,country)
+			VALUES(${plant},${name},'America/Chicago',7,14,${weekday},${hour},1,1,'Austin','TX','US')`);
 	await run(sql`INSERT INTO organization(id,kind,name,timezone,material_revision)
 		VALUES(${ORGANIZATION},'sending_church','Hill Country Church','America/Chicago',1)`);
+	await run(sql`INSERT INTO organization(id,kind,name,timezone,material_revision,description)
+		VALUES(${NETWORK},'sending_network','Hill Country Network','America/Chicago',1,'Churches planting churches across the Texas Hill Country.')`);
+	await run(sql`INSERT INTO organization(id,kind,name,timezone,material_revision,contact_email)
+		VALUES(${GRACE_AUSTIN},'sending_church','Grace Austin','America/Chicago',1,'connect@graceaustin.example.test')`);
+	// Hope Fellowship shares meetings and People totals with Hill Country Network, and nothing else.
+	await run(sql`INSERT INTO affiliation(id,plant_id,organization_id,accepted_at,share_people,share_meetings,share_tasks,share_ministry_teams,share_wiki,share_activity,shared_findings)
+		VALUES(${CONNECTION},${PLANT},${NETWORK},'2026-09-01T15:00:00Z',true,true,false,false,false,false,false)`);
 	for (const [who, a] of Object.entries(ACTOR_SPECS)) {
 		await run(
-			sql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${a.user},${`${who}@example.test`},true,'Synthetic')`,
+			sql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${a.user},${`${who}@example.test`},true,${seatNames ? a.name : "Synthetic"})`,
 		);
 		await run(sql`INSERT INTO account(id,auth_user_id,registration_state,registration_kind)
 			VALUES(${a.account},${a.user},'active','planter')`);
@@ -290,8 +351,11 @@ export async function seedHope(admin: Database) {
 			VALUES(${a.session},${a.user},${`golden-${who}`},clock_timestamp()+interval '1 day')`);
 		// Accepted by the database clock, so a host clock ahead of it never makes the seat look unaccepted.
 		await run(sql`INSERT INTO seat(account_id,plant_id,organization_id,role,accepted_at)
-			VALUES(${a.account},${a.plant},${a.plant ? null : ORGANIZATION},${a.role},clock_timestamp()-interval '1 day')`);
+			VALUES(${a.account},${a.plant},${a.plant ? null : "organization" in a ? a.organization : ORGANIZATION},${a.role},clock_timestamp()-interval '1 day')`);
 	}
+	// One pending seat invitation, sent by the Owner a day before the seed runs.
+	await run(sql`INSERT INTO invitation(id,tenant_id,purpose,recipient_email,inviter_id,role,token_hash,state,created_at,revision,inviter_description)
+		VALUES(${INVITATION},${PLANT},'seat','jordan@example.test',${ACCOUNT(1)},'member',${"0".repeat(64)},'pending',clock_timestamp()-interval '1 day',1,'Nate Ellis')`);
 	for (const h of HOUSEHOLDS)
 		await run(
 			sql`INSERT INTO household(id,plant_id,name,street,city) VALUES(${h.id},${PLANT},${h.name},${"street" in h ? h.street : null},${h.city})`,
@@ -413,6 +477,110 @@ export async function seedHope(admin: Database) {
 			state,scheduled_at,created_at)
 			VALUES(${id(0xc10 + n)},${PLANT},'communication',${FRIDAY_EMAIL},${byName(name).id},
 			${`communication/${FRIDAY_EMAIL}/${byName(name).id}`},'seed','seed','scheduled','2026-11-13T15:00:00.000Z','2026-11-06T16:00:00.000Z')`);
+	await seedNotifications(run);
+}
+
+/**
+ * The Owner's notifications and the work they are about: three open dated tasks assigned to the Owner with no person
+ * (so no person's coverage changes), the interest meeting, and the notices the bell shows, each at a pinned time.
+ */
+async function seedNotifications(run: (q: ReturnType<typeof sql>) => Promise<unknown>) {
+	const owner = ACTOR_SPECS.owner.account;
+	const admin = ACTOR_SPECS.admin.account;
+	for (const [task, title, due] of [
+		[BUDGET_TASK, "Send the launch budget to Hill Country Church", "2026-11-07"],
+		[GYM_TASK, "Book the school gym for the interest meeting", "2026-11-08"],
+		[SIGNUP_TASK, "Print the interest meeting sign-up cards", "2026-11-18"],
+	] as const) {
+		await run(sql`INSERT INTO task(id,plant_id,title,category,priority,status,creator_id,created_at,due_kind,due_date)
+			VALUES(${task},${PLANT},${title},'general','medium','not_started',${owner},'2026-11-02T15:00:00.000Z','date_only',${due})`);
+		await run(sql`INSERT INTO task_assignee(plant_id,task_id,account_id) VALUES(${PLANT},${task},${owner})`);
+	}
+	await run(sql`INSERT INTO meeting(id,plant_id,type,title,local_date,local_time,timezone,starts_at,resolver_version,status,attendance_revision)
+		VALUES(${INTEREST_MEETING},${PLANT},'vision_meeting','Interest meeting','2026-11-19','18:30','America/Chicago','2026-11-20T00:30:00Z','1','planning',1)`);
+	const notices = [
+		[
+			NOTICES[0],
+			owner,
+			"task",
+			"task_due",
+			"task_due",
+			BUDGET_TASK,
+			"Send the launch budget to Hill Country Church is due today",
+			"2026-11-07T15:00:00Z",
+			"2026-11-07",
+		],
+		[
+			NOTICES[1],
+			owner,
+			"task",
+			"task_due",
+			"task_overdue",
+			BUDGET_TASK,
+			"Send the launch budget to Hill Country Church is overdue",
+			"2026-11-08T15:00:00Z",
+			"2026-11-07",
+		],
+		[
+			NOTICES[2],
+			owner,
+			"task",
+			"task_due",
+			"task_due",
+			GYM_TASK,
+			"Book the school gym for the interest meeting is due today",
+			"2026-11-08T15:00:00Z",
+			"2026-11-08",
+		],
+		[
+			NOTICES[3],
+			owner,
+			"meeting",
+			"meeting_invitation",
+			"meeting_announcement",
+			INTEREST_MEETING,
+			"Interest meeting scheduled for Thu, Nov 19 at 6:30 PM",
+			"2026-11-09T00:30:00Z",
+			null,
+		],
+		[
+			READ_NOTICE,
+			owner,
+			"task",
+			"task_due",
+			"task_due",
+			SIGNUP_TASK,
+			"Print the interest meeting sign-up cards is coming up",
+			"2026-11-05T15:00:00Z",
+			null,
+		],
+		[
+			ADMIN_NOTICES[0],
+			admin,
+			"task",
+			"task_due",
+			"task_due",
+			SIGNUP_TASK,
+			"Order the kids check-in tags is due today",
+			"2026-11-07T15:00:00Z",
+			"2026-11-07",
+		],
+		[
+			ADMIN_NOTICES[1],
+			admin,
+			"meeting",
+			"meeting_invitation",
+			"meeting_announcement",
+			INTEREST_MEETING,
+			"Interest meeting scheduled for Thu, Nov 19 at 6:30 PM",
+			"2026-11-09T00:30:00Z",
+			null,
+		],
+	] as const;
+	for (const [notice, recipient, category, purpose, key, source, title, at, due] of notices)
+		await run(sql`INSERT INTO notice(id,tenant_id,recipient_id,category,purpose,logical_key,source_record_id,source_revision,title,eligible_at,created_at,schedule_date,timezone)
+			VALUES(${notice},${PLANT},${recipient},${category},${purpose},${`${PLANT}/${key}/${source}/${notice}`},${source},1,${title},${at},${at},${due},'America/Chicago')`);
+	await run(sql`UPDATE notice SET read_at='2026-11-05T18:00:00Z' WHERE id=${READ_NOTICE}`);
 }
 
 type Seat = { role: string; person?: string; leads?: true; from?: string; ended?: string };
@@ -635,10 +803,16 @@ export const evalDatabase = (options: { prefix: string; max?: number }) => testD
 
 export type GoldenChurch = { db: Database; actors: Record<ActorName, EvryActor>; close(): Promise<void> };
 /** A fresh schema with Hope Fellowship seeded, the runtime pool the reads use and every eval actor. */
-export async function goldenChurch(): Promise<GoldenChurch> {
+/**
+ * `seatNames` gives each seated account its person's name, as Settings > Seats shows it (settings.test.mts and the
+ * T-327 preview). The recorded suites keep every account named "Synthetic": a name a read returns is part of the
+ * recorded provider call (teams.history names who made each change).
+ */
+type SeedOptions = { seatNames?: boolean };
+export async function goldenChurch(options: SeedOptions = {}): Promise<GoldenChurch> {
 	const database = await evalDatabase({ prefix: "evrygold", max: 10 });
 	try {
-		await seedHope(database.admin);
+		await seedHope(database.admin, options);
 		await seedMinistries(database.admin);
 		const db = database.pools.runtime;
 		const actors = {} as Record<ActorName, EvryActor>;

@@ -13,6 +13,7 @@ import {
 	Home01Icon,
 	Image01Icon,
 	Mail01Icon,
+	Notification01Icon,
 	ImageNotFound01Icon,
 	Mortarboard01Icon,
 	SquareLock02Icon,
@@ -30,6 +31,7 @@ import { STAGE_KEY, type StageValue } from "../../people/model.ts";
 import type { Reply } from "../conversation/api.ts";
 import * as api from "./api.ts";
 import { MAIL_CONSEQUENCE, MailChanges, MailResult } from "./MailChanges.tsx";
+import { NoticeChanges } from "./NoticeChanges.tsx";
 import { CurrentState, ImportResult, ImportRows, PeopleResult, ReviewedPeople } from "./PeopleChanges.tsx";
 import {
 	actionNotice,
@@ -46,6 +48,7 @@ import {
 	fieldLabel,
 	hasBirthDate,
 	isMail,
+	isNotification,
 	isTeams,
 	isRequired,
 	MAIL_DISMISSED,
@@ -58,6 +61,11 @@ import {
 	photoRef,
 	pollDelay,
 	refusalText,
+	isPhoto,
+	isSettings,
+	savedPhotoSrc,
+	settingsLink,
+	settingsRefusalText,
 	retryable,
 	reviseInput,
 	shownChanges,
@@ -402,8 +410,9 @@ const HEAD_TONE: Record<Tone, string> = {
 function note(view: View, review: Review | null, lapsed: boolean, unknown?: Action): string | null {
 	const who = review?.review.target?.label ?? null;
 	const mail = !!review && isMail(review.operation);
+	// A review the server can't approve as asked says why, in its own words, and offers no Approve.
+	if (review && view === "pending" && review.review.refusal) return review.review.refusal;
 	if (mail) {
-		if (view === "pending" && review.review.refusal) return review.review.refusal;
 		if (view === "pending" && review.stale)
 			return "This message changed since the review. Nothing was changed. Review it again to see it as it is now.";
 		if (view === "expired") return "This review expired, so nothing was done. Review required: prepare it again.";
@@ -429,7 +438,11 @@ function note(view: View, review: Review | null, lapsed: boolean, unknown?: Acti
 		case "refused":
 			if (review?.receipt?.current?.length)
 				return `A record in the ${who ?? "change"} changed after Evry prepared this, so it couldn't be applied and nothing was changed for anyone. This is how they are now. Ask Evry to prepare it again.`;
-			return mail ? mailRefusalText(review.receipt?.code) : refusalText(review?.receipt?.code, who);
+			return mail
+				? mailRefusalText(review.receipt?.code)
+				: review && isSettings(review.operation)
+					? settingsRefusalText(review.receipt?.code)
+					: refusalText(review?.receipt?.code, who);
 		case "unconfirmed":
 			return review && retryable(review, lapsed)
 				? "Evry can't confirm that this was saved. Try again. A change that was saved is not saved twice."
@@ -437,7 +450,9 @@ function note(view: View, review: Review | null, lapsed: boolean, unknown?: Acti
 		case "unknown":
 			return UNKNOWN_TEXT[unknown ?? "approve"];
 		case "photo_unavailable":
-			return `The uploaded photo is no longer available, so you can't approve this change. Nothing was changed. Upload the photo again on ${who ?? "the person"}'s page.`;
+			return review?.operation === "account.finalizeAvatar"
+				? "The attached photo is no longer available, so you can't approve this change. Nothing was changed. Attach it again and ask Evry."
+				: `The uploaded photo is no longer available, so you can't approve this change. Nothing was changed. Upload the photo again on ${who ?? "the person"}'s page.`;
 		case "expired":
 			return review && reviseInput(review) === null
 				? "This review expired, so nothing was changed. Ask Evry to prepare it again."
@@ -495,9 +510,7 @@ export function ReviewCard({
 	const focusInside = useRef(false);
 	const { review, notice } = r;
 	const upload =
-		review?.operation === "people.setPersonPhoto"
-			? review.review.changes.find((c) => c.field === "photo")?.after
-			: null;
+		review && isPhoto(review.operation) ? review.review.changes.find((c) => c.field === "photo")?.after : null;
 	const staged = useStagedPhoto(proposalId, typeof upload === "string" ? upload : null, r.view === "pending");
 	const photoGone =
 		staged.photo.status === "gone" ||
@@ -617,6 +630,11 @@ export function ReviewCard({
 									<p className="text-sm text-text-2">{MAIL_CONSEQUENCE[review.operation]}</p>
 								) : null}
 							</>
+						) : isNotification(review.operation) ? (
+							<>
+								<NoticeChanges review={review} />
+								{consequence(review) ? <p className="text-sm text-text-2">{consequence(review)}</p> : null}
+							</>
 						) : (
 							<>
 								<Changes
@@ -638,6 +656,7 @@ export function ReviewCard({
 								{consequence(review) && (view === "pending" || view === "running") ? (
 									<p className="text-sm text-text-2">{consequence(review)}</p>
 								) : null}
+								{review.review.notes?.length ? <Notes notes={review.review.notes} /> : null}
 							</>
 						)}
 						{view === "pending" && !review.review.refusal && !review.stale ? (
@@ -765,7 +784,11 @@ function Footer({
 	else if (view === "photo_unavailable")
 		body = (
 			<>
-				{who ? (
+				{isSettings(review.operation) ? (
+					<Button size="sm" variant="secondary" asChild>
+						<IntentLink href={settingsLink(review.operation).href}>{settingsLink(review.operation).label}</IntentLink>
+					</Button>
+				) : who ? (
 					<Button size="sm" variant="secondary" asChild>
 						<IntentLink href={`/people/${who.id}`}>Open {who.label}</IntentLink>
 					</Button>
@@ -799,6 +822,22 @@ function Footer({
 							</IntentLink>
 						</Button>
 					</>
+				) : isNotification(review.operation) ? (
+					<Button size="sm" variant="ghost" asChild>
+						<IntentLink
+							href={review.operation.startsWith("notifications.mark") ? "/notifications" : "/settings/notifications"}
+						>
+							{review.operation.startsWith("notifications.mark") ? "Open notifications" : "Open settings"}
+							<Icon icon={ArrowRight02Icon} size={16} />
+						</IntentLink>
+					</Button>
+				) : isSettings(review.operation) ? (
+					<Button size="sm" variant="ghost" asChild>
+						<IntentLink href={settingsLink(review.operation).href}>
+							{settingsLink(review.operation).label}
+							<Icon icon={ArrowRight02Icon} size={16} />
+						</IntentLink>
+					</Button>
 				) : who?.kind === "person" && review.operation !== "people.deletePerson" && !review.review.withheld ? (
 					<Button size="sm" variant="ghost" asChild>
 						<IntentLink href={`/people/${who.id}`}>
@@ -868,7 +907,16 @@ function CardHead({
 	);
 }
 
-const RECORD_GLYPH: Record<NonNullable<Review["review"]["target"]>["kind"], IconSvgElement> = {
+/** A notifications review changes only the signed-in account's own bell or settings. */
+const NOTIFICATION_SUBJECT: Partial<Record<string, string>> = {
+	"notifications.markSelectedRead": "Your notifications",
+	"notifications.markAllVisibleRead": "Your notifications",
+	"notifications.setPreferences": "Your notification settings",
+	"notifications.digestCadence.set": "Your church digest",
+};
+
+/** The ministry records a Ministries change names. */
+const RECORD_GLYPH: Partial<Record<NonNullable<Review["review"]["target"]>["kind"], IconSvgElement>> = {
 	person: UserIcon,
 	message: Mail01Icon,
 	team: UserGroupIcon,
@@ -879,40 +927,45 @@ const RECORD_GLYPH: Record<NonNullable<Review["review"]["target"]>["kind"], Icon
 	tag: Tag01Icon,
 };
 
-/** Who the change affects: the person, or the new person a create adds. */
+/** Who the change affects: the person, the new person a create adds, a ministry record, or the account's own
+ * notifications. */
 function Affects({ review }: { review: Review }) {
 	const mail = isMail(review.operation);
+	const own = isNotification(review.operation);
 	const create = review.operation === "people.createPerson";
 	const target = review.review.target;
 	const kind = target?.kind;
 	const tag = !kind && review.review.changes.find((c) => c.field === "tag" || c.field === "createTag")?.after;
 	const imported = review.operation === "people.executeBulkImport";
 	// A ministry change names its ministry, role, program or responsibility; a new ministry or program its name.
-	const record = isTeams(review.operation) ? (target ? RECORD_GLYPH[target.kind] : UserGroupIcon) : null;
-	const glyph =
-		record ??
-		(imported
-			? FileImportIcon
-			: kind === "household"
-				? Home01Icon
-				: kind === "tag" || tag
-					? Tag01Icon
-					: mail
-						? Mail01Icon
-						: create
-							? UserAdd01Icon
-							: null);
-	const name = imported
-		? "People import"
-		: tag
-			? String(tag)
-			: mail
-				? String(review.review.changes.find((c) => c.field === "subject")?.after ?? target?.label ?? "Email")
-				: create
-					? String(review.review.changes.find((c) => c.field === "displayName")?.after ?? "New person")
-					: record && !target
-						? String(review.review.changes.find((c) => c.field === "name")?.after ?? "New ministries")
-						: (target?.label ?? "Not available");
+	const record = isTeams(review.operation) ? ((target && RECORD_GLYPH[target.kind]) ?? UserGroupIcon) : null;
+	const glyph = own
+		? Notification01Icon
+		: (record ??
+			(imported
+				? FileImportIcon
+				: kind === "household"
+					? Home01Icon
+					: kind === "tag" || tag
+						? Tag01Icon
+						: mail
+							? Mail01Icon
+							: create
+								? UserAdd01Icon
+								: null));
+	const name = own
+		? (NOTIFICATION_SUBJECT[review.operation] ?? "Your notifications")
+		: imported
+			? "People import"
+			: tag
+				? String(tag)
+				: mail
+					? String(review.review.changes.find((c) => c.field === "subject")?.after ?? target?.label ?? "Email")
+					: create
+						? String(review.review.changes.find((c) => c.field === "displayName")?.after ?? "New person")
+						: record && !target
+							? String(review.review.changes.find((c) => c.field === "name")?.after ?? "New ministries")
+							: (target?.label ?? "Not available");
 	return (
 		<div className="flex items-center gap-3">
 			{glyph ? (
@@ -935,7 +988,11 @@ function Value({ field, value, before }: { field: string; value: unknown; before
 	if (text === null) return <span className="text-text-3 italic">{emptyText(field, !before)}</span>;
 	if (field === "stage" && typeof value === "string" && value in STAGE_KEY)
 		return <StageChip stage={STAGE_KEY[value as StageValue]}>{text}</StageChip>;
-	return <span className={cn("break-words", before ? "text-text-2" : "font-medium text-ink")}>{text}</span>;
+	return (
+		<span className={cn("min-w-0 [overflow-wrap:anywhere]", before ? "text-text-2" : "font-medium text-ink")}>
+			{text}
+		</span>
+	);
 }
 
 type TileState = "image" | "none" | "loading" | "gone" | "lost" | "hidden";
@@ -1025,7 +1082,7 @@ function PhotoChange({
 			: staged.status === "ready"
 				? { state: "image", src: staged.src }
 				: saved
-					? { state: "image", src: `/people/${target.id}/photo/${String(change.after)}` }
+					? { state: "image", src: savedPhotoSrc(target, String(change.after)) }
 					: { state: staged.status === "idle" ? "hidden" : staged.status };
 	return (
 		<div className="flex flex-col gap-2">
@@ -1035,7 +1092,7 @@ function PhotoChange({
 				<PhotoTile
 					caption={saved ? "Before" : "Current"}
 					value={change.before}
-					src={change.before ? `/people/${target.id}/photo/${String(change.before)}` : undefined}
+					src={change.before ? savedPhotoSrc(target, String(change.before)) : undefined}
 					alt={`${saved ? "Previous" : "Current"} photo of ${target.label}`}
 					state={change.before ? "image" : "none"}
 				/>
@@ -1054,6 +1111,36 @@ function PhotoChange({
 	);
 }
 
+/**
+ * What else the change means, from the review itself: what a time zone change moves, what ending a connection stops,
+ * the 30 days before a login is deleted. The first line leads a list that follows it.
+ */
+function Notes({ notes }: { notes: string[] }) {
+	const [first, ...rest] = notes;
+	const list = first?.endsWith(":") ? rest : [];
+	const lines = list.length ? [] : notes;
+	return (
+		<div className="flex flex-col gap-1.5 text-sm text-text-2">
+			{lines.map((n) => (
+				<p key={n}>{n}</p>
+			))}
+			{list.length ? (
+				<>
+					<p>{first}</p>
+					<ul className="flex flex-col gap-1 rounded-md bg-surface-2 px-3 py-2.5 text-ink-2">
+						{list.slice(0, -1).map((n) => (
+							<li key={n} className="tabular-nums">
+								{n}
+							</li>
+						))}
+					</ul>
+					<p>{list.at(-1)}</p>
+				</>
+			) : null}
+		</div>
+	);
+}
+
 /** Each changed field: its value now, then what it will be. A new person and a reason have no before. */
 function Changes({ review, staged, onRetry }: { review: Review; staged: StagedPhoto; onRetry: () => void }) {
 	const changes = shownChanges(review);
@@ -1065,7 +1152,7 @@ function Changes({ review, staged, onRetry }: { review: Review; staged: StagedPh
 				c.field === "photo" && review.review.target ? (
 					<PhotoChange key={c.field} review={review} change={c} staged={staged} onRetry={onRetry} />
 				) : (
-					<div key={c.field} className="grid grid-cols-[minmax(88px,auto)_1fr] items-baseline gap-x-3">
+					<div key={c.field} className="grid grid-cols-[minmax(88px,auto)_minmax(0,1fr)] items-baseline gap-x-3">
 						<dt className="text-text-2">{fieldLabel(c.field)}</dt>
 						<dd className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1">
 							{create || c.field === "reason" ? null : (

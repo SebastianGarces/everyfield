@@ -38,7 +38,8 @@ export type ProjectedError = {
 	outcome: "unknown" | "refused";
 };
 
-export type Reference = { kind: "person"; id: string };
+/** A person on the page, or a photo the user attached in the panel (their own staged account photo upload). */
+export type Reference = { kind: "person" | "photo"; id: string };
 export type SourceRow = {
 	kind:
 		| "person"
@@ -49,12 +50,18 @@ export type SourceRow = {
 		| "file"
 		| "import"
 		| "message"
+		| "notice"
+		| "setting"
+		| "digest"
 		| "team"
 		| "role"
 		| "training"
 		| "meeting"
 		| "responsibility"
-		| "template";
+		| "template"
+		| "seat"
+		| "invitation"
+		| "connection";
 	id: string;
 	label: string;
 	fields: Record<string, unknown>;

@@ -71,7 +71,7 @@
   "as_of": "2026-10-17",
   "implementation_authorized": false,
   "table_count": 112,
-  "column_count": 1260,
+  "column_count": 1262,
   "foreign_key_count": 375,
   "type_contracts": {
     "text": "UTF8; per-boundary bounded, sanitized only when rendered in rich context.",
@@ -1397,6 +1397,7 @@
       "development.milestone_recorded",
       "development.plan_saved",
       "development.program_created",
+      "development.version_applied",
       "development.version_published",
       "documents.archived",
       "documents.church_archived",
@@ -9427,14 +9428,12 @@
           },
           "columns": [
             "enrollment_id",
-            "version_id",
             "organization_id"
           ],
           "references": {
             "table": "development_enrollment",
             "columns": [
               "id",
-              "version_id",
               "organization_id"
             ]
           },
@@ -9487,12 +9486,6 @@
           "columns": [
             {
               "expression": "enrollment_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "version_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -12028,7 +12021,7 @@
         }
       ],
       "checks": [
-        "action in ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','branding.changed','communication.draft_deleted','communication.draft_saved','communication.rescheduled','communication.scheduled','communication.send_intended','communication.template_archived','communication.template_created','communication.template_deleted','communication.template_forked','communication.template_updated','deletion.cancelled','deletion.live_purge_completed','development.enrolled','development.feedback_recorded','development.milestone_recorded','development.plan_saved','development.program_created','development.version_published','documents.archived','documents.church_archived','documents.church_restored','documents.branding_changed','documents.copied','documents.created_from_template','documents.designated','documents.export_deleted','documents.exported','documents.generated','documents.imported','documents.purged','documents.saved','documents.template_deleted','documents.template_details_changed','documents.template_saved','documents.template_updated','evry.conversation_created','evry.proposal_approved','evry.proposal_cancelled','evry.proposal_prepared','evry.proposal_retried','evry.proposal_revised','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','feedback.received','feedback.status_changed','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','organization.profile_changed','people.corrected','people.created','people.duplicate_dismissed','people.duplicate_restored','people.merged','people.recorded','people.removed','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.bookmark_changed','wiki.hidden','wiki.published','wiki.reading_recorded','wiki.source_order_changed')",
+        "action in ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','branding.changed','communication.draft_deleted','communication.draft_saved','communication.rescheduled','communication.scheduled','communication.send_intended','communication.template_archived','communication.template_created','communication.template_deleted','communication.template_forked','communication.template_updated','deletion.cancelled','deletion.live_purge_completed','development.enrolled','development.feedback_recorded','development.milestone_recorded','development.plan_saved','development.program_created','development.version_applied','development.version_published','documents.archived','documents.church_archived','documents.church_restored','documents.branding_changed','documents.copied','documents.created_from_template','documents.designated','documents.export_deleted','documents.exported','documents.generated','documents.imported','documents.purged','documents.saved','documents.template_deleted','documents.template_details_changed','documents.template_saved','documents.template_updated','evry.conversation_created','evry.proposal_approved','evry.proposal_cancelled','evry.proposal_prepared','evry.proposal_retried','evry.proposal_revised','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','feedback.received','feedback.status_changed','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','organization.profile_changed','people.corrected','people.created','people.duplicate_dismissed','people.duplicate_restored','people.merged','people.recorded','people.removed','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.bookmark_changed','wiki.hidden','wiki.published','wiki.reading_recorded','wiki.source_order_changed')",
         "num_nonnulls(actor_id,actor_token,system_cause)>=1",
         "kind in ('create','edit','correct','retire','restore','merge','unmerge','stage_change','classification_change','commitment_change','assign','remove','accept','revoke','resend','role_change','leader_change','tick','untick','archive','earn','revoke_credit','offer_answer','publish','hide','read','progress','complete','reopen','waive','supersede','finalize','reconcile','noop','triage','suppress','suppression_clear','preference','model_attempt','tool_attempt','effect_result','mail_member','outcome','declaration','movement')",
         "jsonb_typeof(metadata)='object' AND (metadata->'diff' IS NULL OR (jsonb_typeof(metadata->'diff')='object' AND octet_length(convert_to((metadata->'diff')::text,'UTF8'))<=2048))"
@@ -18587,14 +18580,12 @@
           },
           "columns": [
             "enrollment_id",
-            "version_id",
             "organization_id"
           ],
           "references": {
             "table": "development_enrollment",
             "columns": [
               "id",
-              "version_id",
               "organization_id"
             ]
           },
@@ -38895,9 +38886,14 @@
     {
       "name": "sending_goal",
       "domain": "people",
-      "purpose": "One sending goal of a sending church or network (REQ-MUL-007): nonnegative leader and plant targets, a target year and the organization's reason. Observed counts are read from the pipeline at a stated as-of day and are never stored here.",
+      "purpose": "One sending goal of a sending church or network (REQ-MUL-007): nonnegative leader and plant targets, a target year, the organization's reason, the day it counts from and up to 4 named counts by fixed stage kind. Observed counts are read from the pipeline at a stated as-of day and are never stored here.",
       "library_owned": false,
-      "jsonb_keys": {},
+      "jsonb_keys": {
+        "counts": [
+          "kind: a fixed pipeline stage kind, unique within the goal",
+          "label: the organization's name for the count, trimmed, 1-60 characters"
+        ]
+      },
       "capabilities": [
         "CAP-A-056"
       ],
@@ -38930,7 +38926,8 @@
       "scope": "people",
       "invariants": [
         "Written only by an Owner or Admin of the same organization; body-free audit only.",
-        "A goal never moves a person, changes a stage, commissions an enrollment or creates a plant."
+        "A goal never moves a person, changes a stage, commissions an enrollment or creates a plant.",
+        "A chosen count is a number of distinct live same-organization people with a move or first placement into a stage of its kind from counting_from through today; it never forecasts or judges."
       ],
       "revision": "Expected revision fences changes.",
       "idempotency": "The browser names the goal id, so a repeated add writes one goal.",
@@ -38985,6 +38982,19 @@
           "name": "revision",
           "type": "bigint",
           "nullable": false
+        },
+        {
+          "note": "The first day, in the organization's time zone, whose stage moves the goal's counts include; never after the day it was saved.",
+          "name": "counting_from",
+          "type": "date",
+          "nullable": false
+        },
+        {
+          "note": "The goal's chosen counts, in display order: at most 4, each a distinct fixed stage kind with a label.",
+          "name": "counts",
+          "type": "jsonb",
+          "nullable": false,
+          "default": "'[]'::jsonb"
         }
       ],
       "primary_key": [
@@ -39010,6 +39020,7 @@
         }
       ],
       "checks": [
+        "CASE WHEN (jsonb_typeof(counts) = 'array'::text) THEN (jsonb_array_length(counts) <= 4) ELSE false END",
         "((leader_target >= 0) AND (leader_target <= 10000))",
         "((plant_target >= 0) AND (plant_target <= 10000))",
         "((length(btrim(rationale)) >= 1) AND (length(rationale) <= 1000))",
@@ -39052,7 +39063,8 @@
           "sending_goal_leader_target",
           "sending_goal_plant_target",
           "sending_goal_target_year",
-          "sending_goal_rationale"
+          "sending_goal_rationale",
+          "sending_goal_counts"
         ]
       },
       "policies": {},

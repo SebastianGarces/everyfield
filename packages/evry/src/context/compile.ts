@@ -1,6 +1,7 @@
 import type { LanguageModelV4 } from "@ai-sdk/provider";
 import type { Database } from "@everyfield/db/client";
 import { generateText, Output, type ModelMessage } from "ai";
+import { sql } from "@everyfield/db/query";
 import { z } from "zod";
 import type { Catalog } from "../catalog/catalog.ts";
 import { verifyPeople } from "../adapters/people/reads/index.ts";
@@ -39,6 +40,42 @@ export async function classifyRequest(model: LanguageModelV4, text: string, sign
 	return { kind: output.kind, usage };
 }
 
+/**
+ * What Evry never does as a tool, each with the reply that points to where it is done (T-327). Sign-in, password, email
+ * and session changes need the person's own confirmation in Settings, and only the Owner deletes the church, natively.
+ */
+const SETTINGS_ONLY = [
+	{
+		request: "Change password",
+		answer:
+			"You change your password in Settings, not here. Open [Settings › Account](/settings/account) and choose Change password.",
+	},
+	{
+		request: "Change sign-in email",
+		answer:
+			"You change your sign-in email in Settings, not here. Open [Settings › Account](/settings/account) and choose Change email.",
+	},
+	{
+		request: "Sign in, sign out, sessions or registration",
+		answer: "You manage sign-in and your sessions in Settings, not here. Open [Settings › Account](/settings/account).",
+	},
+	{
+		request: "Delete the church",
+		answer:
+			"Only the church's Owner can delete the church, and only in Settings. Open [Settings › Church](/settings/church) to do it.",
+	},
+] as const;
+
+/** Who may make the changes a seat's tools leave out, so a refusal names the role instead of guessing. */
+function roleRule(actor: EvryActor) {
+	if (actor.role === null) return "";
+	const scope =
+		actor.contextKind === "plant"
+			? "invite people, change seats and invitations, or change this church's settings, sharing and connections"
+			: "invite people, change seats and invitations, or change this organization's profile";
+	return `The user's role here is ${actor.role}. When the user asks for a change none of your tools offers, prepare nothing and say who can make it: Only an Owner or Admin can ${scope}.`;
+}
+
 /** Describes what the current catalog actually allows, so the answer follows authority rather than a fixed phrase. */
 export function describeCatalog(catalog: Catalog) {
 	const reads = catalog.domains.flatMap((d) => d.operations.map((o) => o.description));
@@ -48,9 +85,13 @@ export function describeCatalog(catalog: Catalog) {
 		: ["In this context I have no application reads available yet."];
 	if (writes.length) lines.push("I can also prepare these changes for your review:", ...writes.map((w) => "- " + w));
 	// A seat that reads but may not change records (a church Member) is told who can, instead of a review it can't use.
-	else if (reads.length)
+	// Its own notifications are not church records: a Member may change those and still no record.
+	const recordWrites = catalog.reviewedWrites.filter((w) => !w.operation.startsWith("notifications."));
+	if (reads.length && !recordWrites.length)
 		lines.push(
-			"Your seat can't change records here, so I prepare no changes for you: an Owner or Admin of this church has to make them.",
+			writes.length
+				? "Your seat can't change church records here, so I prepare no record changes for you: an Owner or Admin of this church has to make them. Only your own notifications and notification settings are yours to change."
+				: "Your seat can't change records here, so I prepare no changes for you: an Owner or Admin of this church has to make them.",
 		);
 	lines.push(
 		"Every change to your records needs your review and approval first. I can't give pastoral counsel, write prayers or judge anyone's spiritual readiness.",
@@ -66,10 +107,25 @@ export function describeCatalog(catalog: Catalog) {
 export async function resolveReferences(
 	db: Database,
 	actor: EvryActor,
-	references: readonly { kind: "person"; id: string }[],
-) {
-	const ids = [...new Set(references.slice(0, LIMITS.references).map((r) => r.id))];
-	return (await verifyPeople(db, actor, ids)).map((r) => ({ kind: "person" as const, id: r.id, label: r.label }));
+	references: readonly { kind: "person" | "photo"; id: string }[],
+): Promise<{ kind: "person" | "photo"; id: string; label: string }[]> {
+	const bounded = references.slice(0, LIMITS.references);
+	const ids = [...new Set(bounded.filter((r) => r.kind === "person").map((r) => r.id))];
+	const people = (await verifyPeople(db, actor, ids)).map((r) => ({
+		kind: "person" as const,
+		id: r.id,
+		label: r.label,
+	}));
+	// An attached photo is the actor's own staged account photo upload that is still ready and unused.
+	const photos = [...new Set(bounded.filter((r) => r.kind === "photo").map((r) => r.id))];
+	const attached = photos.length
+		? (
+				await db.execute(sql`SELECT f.id FROM file_object f WHERE f.id=ANY(${sql.param(photos)}::uuid[])
+					AND f.tenant_id=${actor.accountId}::uuid AND f.purpose='avatar' AND f.state='ready' AND f.expires_at>clock_timestamp()
+					AND NOT EXISTS(SELECT FROM account a WHERE a.avatar_object_id=f.id) ORDER BY f.id`)
+			).rows.map((r) => ({ kind: "photo" as const, id: String(r.id), label: "Attached photo" }))
+		: [];
+	return [...people, ...attached];
 }
 
 const estimate = (text: string) => Math.ceil(text.length / 4);
@@ -87,8 +143,13 @@ export function compileContext(input: {
 	catalog: Catalog;
 	history: readonly ConversationEvent[];
 	text: string;
-	references: readonly { kind: "person"; id: string; label: string }[];
+	references: readonly { kind: "person" | "photo"; id: string; label: string }[];
 	now: Date;
+	/**
+	 * The Settings-only replies and the role rule (T-327). Only the recorded eval suites leave them out, with the T-327
+	 * tools, so their recorded provider calls stay unchanged until the next recording (ruling D-1137).
+	 */
+	settingsGuidance?: boolean;
 }) {
 	const turns: ModelMessage[] = [];
 	for (const e of input.history) {
@@ -98,6 +159,16 @@ export function compileContext(input: {
 			turns.push({ role: "assistant", content: scrub(e.body.text) });
 	}
 	const refs = input.references.slice(0, LIMITS.references);
+	const guidance =
+		input.settingsGuidance === false
+			? []
+			: [
+					[
+						"These are done only in Settings, never with a tool or a review card. When the user asks for one, reply with its answer, link included:",
+						...SETTINGS_ONLY.map((s) => `- ${s.request}: ${s.answer}`),
+					].join("\n"),
+					roleRule(input.actor),
+				];
 	const system = [
 		"You are Evry, the assistant inside Everyfield, a church planting application.",
 		"Help with application work and recorded evidence using only the tools provided. Never give pastoral or Biblical counsel, write prayers or judge spiritual suitability.",
@@ -105,6 +176,7 @@ export function compileContext(input: {
 		"Report exact totals and say when a result is partial; offer the next page instead of guessing. When a name matches more than one person, ask once which one, using only the returned fields.",
 		"You cannot change records yourself. propose_change only prepares an exact review card; nothing changes until the user approves it in the app. Never say a change was saved.",
 		"A person row marked you: true is the signed-in user. Never suggest the user as someone to follow up with, contact, visit or invite; still count and list the user's row when asked for people or totals. When the user's own row matters to an answer, call it \"you\", never a third person.",
+		...guidance,
 		`Context: ${input.actor.contextKind}. Current time (trusted server clock): ${input.now.toISOString()}.`,
 		describeCatalog(input.catalog),
 		refs.length ? "Verified references on the user's page: " + scrub(JSON.stringify(refs)) : "",
