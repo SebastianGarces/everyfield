@@ -125,7 +125,7 @@ FROM up`);
 	}
 
 	/** Ends a claim with no run to settle (the demand needed none, or the plant is gone). One statement. */
-	async function close(db: Database, j: Claim, state: "succeeded" | "cancelled", code: string) {
+	async function close(db: Pick<Database, "execute">, j: Claim, state: "succeeded" | "cancelled", code: string) {
 		await db.execute(sql`WITH ${lock(j)}, r AS (SELECT 1),
 ${finish(state, code)} SELECT 1`);
 	}
@@ -144,7 +144,7 @@ ${finish(state, code)} SELECT 1`);
 				await tx.execute(sql`SELECT set_config('lock_timeout','1s',true)`);
 				const f = await captureFacts(tx, j.plant, config.clock ? config.clock.now() : null);
 				if (!f) {
-					await tx.execute(sql`WITH ${lock(j)}, r AS (SELECT 1), ${finish("cancelled", "plant_removed")} SELECT 1`);
+					await close(tx, j, "cancelled", "plant_removed");
 					return "none" as const;
 				}
 				let retrieved: Retrieved;
@@ -162,7 +162,7 @@ ${finish(state, code)} SELECT 1`);
 					j.last?.source_revision === f.sourceRevision &&
 					(j.last.reference_activation ?? null) === (activation?.number ?? null)
 				) {
-					await tx.execute(sql`WITH ${lock(j)}, r AS (SELECT 1), ${finish("succeeded", "unchanged")} SELECT 1`);
+					await close(tx, j, "succeeded", "unchanged");
 					return "none" as const;
 				}
 				const input =

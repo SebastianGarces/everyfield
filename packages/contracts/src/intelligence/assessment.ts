@@ -318,20 +318,6 @@ export type DemandKind = z.infer<typeof demandKind>;
 /** The cause an operator reads for a run that did not publish (PI-042). */
 export const failureCause = z.enum(["provider", "output_check", "budget", "persistence", "deadline", "guidance"]);
 export type FailureCause = z.infer<typeof failureCause>;
-export const causeOf = (reason: RunReason | null): FailureCause | null =>
-	reason === "invalid_drafts"
-		? "output_check"
-		: reason === "attempts" || reason === "busy"
-			? "provider"
-			: reason === "budget"
-				? "budget"
-				: reason === "deadline"
-					? "deadline"
-					: reason === "persistence"
-						? "persistence"
-						: reason === "guidance_unavailable" || reason === "reference_missing"
-							? "guidance"
-							: null;
 
 /**
  * The newest work since the current assessment, as the planter reads it: being prepared (queued or drafting), waiting

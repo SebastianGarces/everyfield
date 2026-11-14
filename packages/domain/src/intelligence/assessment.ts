@@ -387,7 +387,16 @@ const storedReview = z.object({
 	outputTokens: z.int(),
 	streak: z.array(z.object({ runId: z.string(), settledAt: z.string(), reason: c.runReason.nullable() })).nullable(),
 });
-const causeOrGuidance = (reason: c.RunReason | null) => c.causeOf(reason) ?? "guidance";
+/** The cause an operator reads for each reason a run did not publish; guidance covers the rest. */
+const CAUSE: Partial<Record<c.RunReason, c.FailureCause>> = {
+	invalid_drafts: "output_check",
+	attempts: "provider",
+	busy: "provider",
+	budget: "budget",
+	deadline: "deadline",
+	persistence: "persistence",
+};
+const causeOrGuidance = (reason: c.RunReason | null) => (reason && CAUSE[reason]) ?? "guidance";
 function presentReview(r: z.infer<typeof storedReview>): c.ReviewRun {
 	return c.reviewRun.parse({
 		runId: r.runId,
