@@ -20,9 +20,11 @@ const HELP = `Browser runs, the local preview stack, its logs and the fast pre-p
         and owned by no live run
         GitHub CI also runs: format:check, test:logs, the statement census with the one build then server-trace,
         schema generate --check, wiki
-        The GitHub nightly also runs: every selectable test under coverage, typecheck:bun (bun check, until T-53)
+        The GitHub nightly also runs: every selectable test under coverage, typecheck:bun (bun check, until T-53),
+        and the tests/ui set in chromium and webkit on a seeded build over its own Postgres (scripts/nightly-ui.ts)
   dev nightly           runs tests/ui on a preview of origin/main, one engine at a time; skips when the machine is
-        loaded or no preview slot is free. The coverage map comes from the GitHub nightly, not from this
+        loaded or no preview slot is free. The GitHub nightly runs the same set too; this stays the local run until
+        it is retired. The coverage map comes from the GitHub nightly, not from this
   dev nightly schedule install     installs the launchd agent com.everyfield.nightly: bin/dev nightly from the main
         checkout at 03:30 local time every day; running it again replaces the one agent
   dev nightly schedule status      says whether the agent is installed and loaded, when it runs, its log and the last

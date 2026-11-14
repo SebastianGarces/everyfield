@@ -11,7 +11,17 @@ import { createPort } from "./port";
 const SIGN_IN = "/signin?returnTo=%2Fonboarding";
 
 /** /onboarding on the real API: the server actions behind the contract-parsing port. */
-export function RealOnboarding({ entry, step, articles }: { entry: Entry; step: StepKey | null; articles: Article[] }) {
+export function RealOnboarding({
+	entry,
+	step,
+	articles,
+	residency = null,
+}: {
+	entry: Entry;
+	step: StepKey | null;
+	articles: Article[];
+	residency?: { organizationName: string } | null;
+}) {
 	const port = useMemo(() => createPort({ entry: loadOnboardingEntry, command: runOnboardingCommand }), []);
 	return (
 		<OnboardingFlow
@@ -19,6 +29,7 @@ export function RealOnboarding({ entry, step, articles }: { entry: Entry; step: 
 			entry={entry}
 			step={step}
 			articles={articles}
+			residency={residency}
 			signIn={() => loadPage(SIGN_IN)}
 			account={<SessionActions />}
 		/>

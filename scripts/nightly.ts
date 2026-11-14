@@ -4,7 +4,8 @@
 // local run of the tests/ui browser set on a preview of origin/main, one engine at a time, by hand or from the launchd
 // agent `bin/dev nightly schedule install` sets up (scripts/nightly-schedule.ts, T-104; kept under D-1291). A
 // loaded machine or a full preview pool records `nightly_skipped` and starts nothing. Results go to nightly.jsonl
-// outside the repository; a failure opens or comments once on one GitHub issue.
+// outside the repository; a failure opens or comments once on one GitHub issue. The GitHub nightly now also runs the
+// same tests/ui set (scripts/nightly-ui.ts, T-301); `bin/dev nightly` stays the local run until it is retired (D-1377).
 import { spawnSync } from "node:child_process";
 import {
 	appendFileSync,
@@ -257,17 +258,23 @@ export function coverageMap(worktree: string, node = process.execPath): SuiteRun
 
 const SLOTS = join(root, ".agents/skills/verify-preview/scripts/preview-slots.mjs");
 const PREVIEW = join(root, ".agents/skills/verify-preview/scripts/preview.mjs");
-const TSX = "./packages/db/node_modules/tsx/dist/esm/index.mjs";
+export const TSX = "./packages/db/node_modules/tsx/dist/esm/index.mjs";
 
-/** The seeds tests/ui needs, with the fixture name each writes. */
-const seedsOf = (worktree: string) =>
+/**
+ * The seeds tests/ui needs, with the fixture name each writes. The People seed runs first: the Evry and Meetings seeds
+ * read its fixture.
+ */
+export const seedsOf = (worktree: string) =>
 	globSync("tests/ui/**/*seed.mts", { cwd: worktree })
 		.filter((f) => !f.endsWith("seed-env.mts"))
-		.sort()
 		.map((file) => ({
 			file,
 			name: basename(file) === "seed.mts" ? basename(dirname(file)) : basename(file).replace(/-seed\.mts$/, ""),
-		}));
+		}))
+		.sort((a, b) => Number(b.name === "people") - Number(a.name === "people") || a.file.localeCompare(b.file));
+
+/** The tests/ui browser set both nightlies run: every `tests/ui/**\/*.test.mjs`. */
+export const uiTestFiles = (worktree: string) => globSync("tests/ui/**/*.test.mjs", { cwd: worktree }).sort();
 
 function realDeps(): NightlyDeps {
 	const common = run("git", ["rev-parse", "--path-format=absolute", "--git-common-dir"]).stdout.trim();
@@ -364,7 +371,7 @@ function realDeps(): NightlyDeps {
 			};
 		},
 		ui: (worktree, url, engine) => {
-			const files = globSync("tests/ui/**/*.test.mjs", { cwd: worktree }).sort();
+			const files = uiTestFiles(worktree);
 			// bin/dev browser run gives the run its own process group and closes every browser it started.
 			const r = run(
 				join(worktree, "bin/dev"),
