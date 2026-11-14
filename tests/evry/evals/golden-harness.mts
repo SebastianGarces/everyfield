@@ -352,15 +352,9 @@ function openConversation(db: GoldenChurch["db"], actor: EvryActor, files: Attac
 		});
 		// A file the case says was checked earlier carries that check, saved as the runtime saves a read's result.
 		for (const f of files.filter((x) => x.checked)) {
-			const result = await invokeRead(
-				db,
-				actor,
-				previewImport as ReadAdapter<unknown>,
-				{ attachmentId: f.id },
-				{
-					read: async () => f.bytes,
-				},
-			);
+			const result = await invokeRead(db, actor, previewImport as ReadAdapter<unknown>, { attachmentId: f.id }, null, {
+				read: async () => f.bytes,
+			});
 			await db.execute(sql`WITH c AS (UPDATE conversation SET last_sequence=last_sequence+1 WHERE id=${c.id}::uuid RETURNING id,last_sequence)
 				INSERT INTO conversation_event(conversation_id,sequence,turn_id,kind,body)
 				SELECT id,last_sequence,${submitted.turnId}::uuid,'tool_result',${JSON.stringify({ operation: "people.previewImport", input: { attachmentId: f.id }, result })}::jsonb FROM c`);
