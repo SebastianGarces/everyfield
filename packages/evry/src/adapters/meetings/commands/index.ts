@@ -220,20 +220,24 @@ const guestRevision = (v: { guest: { revision: string } }) => v.guest.revision;
 const meetingRevision = (v: { meeting: { revision: string } }) => v.meeting.revision;
 
 /** A meeting command on the meeting's own revision: the target and the native request for this meeting now. */
-async function onMeeting(db: Reader, actor: EvryActor, id: string, input: Record<string, unknown> = {}) {
-	const m = await meeting(db, actor, id);
-	if (!m) return null;
-	return {
+const onDetail = (m: Detail, input: Record<string, unknown> = {}) =>
+	({
 		target: meetingTarget(m),
 		args: { expectedRevision: m.revision, input: { meetingId: m.id, ...input } },
 		facts: m,
-	} satisfies Prepared<Detail>;
+	}) satisfies Prepared<Detail>;
+async function onMeeting(db: Reader, actor: EvryActor, id: string, input: Record<string, unknown> = {}) {
+	const m = await meeting(db, actor, id);
+	return m && onDetail(m, input);
 }
 type MeetingResult = z.infer<typeof c.meetingMutationResult>;
 type AgendaResult = { receiptId: string; agenda: z.infer<typeof c.agendaResult> };
 type KitItem = z.infer<typeof c.kitItem>;
 const diffed = ({ prepared, value: v }: { prepared: Prepared<Detail>; value: MeetingResult }) =>
 	meetingDiff(prepared.facts, v.meeting);
+/** The reason the person gave, as the card's last row. */
+const reasonRow = (prepared: Prepared) => created("reason", (prepared.args.input as { reason: string }).reason);
+const diffedWithReason = (p: { prepared: Prepared<Detail>; value: MeetingResult }) => [...diffed(p), reasonRow(p.prepared)];
 const reason = c.reason;
 const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const clock = z.string().regex(/^\d{2}:\d{2}$/);
@@ -328,7 +332,7 @@ export const edit = write({
 				? { venue: i.venueId === null ? { kind: "none" } : { kind: "existing", venueId: i.venueId } }
 				: {}),
 		};
-		return { target: meetingTarget(m), args: { expectedRevision: m.revision, input: { meetingId: m.id, patch } }, facts: m };
+		return onDetail(m, { patch });
 	},
 	run: (w, tx, ctx, r) => w.meetings.edit(tx, ctx, r),
 	changes: diffed,
@@ -356,10 +360,7 @@ export const deleteMeeting = write({
 	input: z.strictObject({ meetingId, reason }),
 	prepare: (db, actor, i) => onMeeting(db, actor, i.meetingId, { reason: i.reason }),
 	run: (w, tx, ctx, r) => w.meetings.delete(tx, ctx, r),
-	changes: (p: { prepared: Prepared<Detail>; value: MeetingResult }) => [
-		...diffed(p),
-		created("reason", (p.prepared.args.input as { reason: string }).reason),
-	],
+	changes: diffedWithReason,
 	revision: meetingRevision,
 });
 
@@ -372,8 +373,7 @@ export const completePractice = write({
 	async prepare(db, actor, i) {
 		const m = await meeting(db, actor, i.meetingId);
 		if (!m) return null;
-		const occurredAt = i.heldAt ? instantOf(i.heldAt, m.zone) : m.startsAt;
-		return onMeeting(db, actor, i.meetingId, { occurredAt });
+		return onDetail(m, { occurredAt: i.heldAt ? instantOf(i.heldAt, m.zone) : m.startsAt });
 	},
 	run: (w, tx, ctx, r) => w.meetings.completePractice(tx, ctx, r),
 	changes: diffed,
@@ -390,17 +390,14 @@ export const correctPracticeOccurrence = write({
 		if (!m) return null;
 		const occurredAt =
 			i.state === "completed" ? (i.heldAt ? instantOf(i.heldAt, m.zone) : (m.occurrence.heldAt ?? m.startsAt)) : undefined;
-		return onMeeting(db, actor, i.meetingId, {
+		return onDetail(m, {
 			state: i.state,
 			...(occurredAt ? { occurredAt } : {}),
 			reason: i.reason,
 		});
 	},
 	run: (w, tx, ctx, r) => w.meetings.correctPracticeOccurrence(tx, ctx, r),
-	changes: (p: { prepared: Prepared<Detail>; value: MeetingResult }) => [
-		...diffed(p),
-		created("reason", (p.prepared.args.input as { reason: string }).reason),
-	],
+	changes: diffedWithReason,
 	revision: meetingRevision,
 });
 
@@ -411,10 +408,7 @@ export const correctOccurrence = write({
 	input: z.strictObject({ meetingId, voided: z.boolean(), reason }),
 	prepare: (db, actor, i) => onMeeting(db, actor, i.meetingId, { voided: i.voided, reason: i.reason }),
 	run: (w, tx, ctx, r) => w.meetings.correctOccurrence(tx, ctx, r),
-	changes: (p: { prepared: Prepared<Detail>; value: MeetingResult }) => [
-		...diffed(p),
-		created("reason", (p.prepared.args.input as { reason: string }).reason),
-	],
+	changes: diffedWithReason,
 	revision: meetingRevision,
 });
 
@@ -434,7 +428,7 @@ export const replaceAgenda = write({
 		// A section that keeps its title keeps its id; a new one gets a fresh id.
 		const ids = new Map(m.agenda.sections.map((s) => [s.title, s.id]));
 		const sections = i.sections.map((s) => ({ id: ids.get(s.title) ?? randomUUID(), ...s }));
-		return onMeeting(db, actor, i.meetingId, { sections });
+		return onDetail(m, { sections });
 	},
 	run: (w, tx, ctx, r) => w.meetings.replaceAgenda(tx, ctx, r),
 	changes: ({ prepared, value: v }: { prepared: Prepared<Detail>; value: AgendaResult }) => [
@@ -699,7 +693,7 @@ export const clearCard = write({
 	changes: ({ prepared }: { prepared: Prepared<Guest>; value: z.infer<typeof c.cardMutationResult> }) => [
 		created("guest", prepared.facts.person.displayName),
 		change("card", "Recorded", "Cleared"),
-		created("reason", (prepared.args.input as { reason: string }).reason),
+		reasonRow(prepared),
 	],
 	revision: () => "1",
 });
@@ -898,7 +892,7 @@ export const reconcileAttendance = write({
 	inspect: generatedTasks,
 	changes: (p: { prepared: Prepared<AttendanceFacts>; value: Finalization; seen: unknown }) => [
 		...settlementChanges(p).filter((x) => x.field !== "finalized"),
-		created("reason", (p.prepared.args.input as { reason: string }).reason),
+		reasonRow(p.prepared),
 	],
 	revision: attendanceRevisionOf,
 });
@@ -965,7 +959,7 @@ export const correctEvaluation = write({
 			.filter((f) => prepared.facts.scores[f] !== v.evaluation.scores[f])
 			.map((f) => change(f, String(prepared.facts.scores[f]), String(v.evaluation.scores[f]))),
 		change("average", String(prepared.facts.average), String(v.evaluation.average)),
-		created("reason", (prepared.args.input as { reason: string }).reason),
+		reasonRow(prepared),
 	],
 	revision: (v) => v.evaluation.revision,
 });
@@ -1059,7 +1053,7 @@ export const correctVenue = write({
 	run: (w, tx, ctx, r) => w.venues.correct(tx, ctx, r),
 	changes: (p: { prepared: Prepared<Venue>; value: VenueResult }) => [
 		...venueChanges(p),
-		created("reason", (p.prepared.args.input as { reason: string }).reason),
+		reasonRow(p.prepared),
 	],
 	revision: venueRevision,
 });

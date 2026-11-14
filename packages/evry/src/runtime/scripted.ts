@@ -180,6 +180,7 @@ const meetingLine = (r: Row) =>
 	`${r.label}: ${String(r.fields.when)}${r.fields.venue ? ` at ${String(r.fields.venue)}` : ""}${r.fields.status === "cancelled" ? " (cancelled)" : ""}`;
 const MEETINGS_INTENT =
 	/\bupcoming meetings\b|\brsvp'?d for\b|\bagenda for \w+|\bvision kit\b|\bvision nights? growing\b|\bset up a vision meeting\b|\badd a walk-in\b|\bas attended and finalize\b|\bscore last night'?s vision meeting\b/i;
+const SET_UP = /\bset up a vision meeting next thursday (\d{1,2})\s*(am|pm) at the (.+?)\.?$/i;
 const rowsOf = (o: Output | undefined, kind?: string) => (o?.rows ?? []).filter((r) => !kind || r.kind === kind);
 
 function meetingsStep(
@@ -191,13 +192,14 @@ function meetingsStep(
 	if (!canRead) return null;
 	const proposeTool = tools?.find((t) => t.name === "propose_change");
 	const can = (op: string) => !!proposeTool && JSON.stringify(proposeTool).includes(op);
-	const earlier = earlierUserTexts(prompt).join("\n");
+	const earlierTexts = earlierUserTexts(prompt);
+	const earlier = earlierTexts.join("\n");
 	const pickedDay = /^(?:the )?(\d{1,2})(?:st|nd|rd|th)?\.?$|\bthursday,? (\w+ \d{1,2})\b/i.exec(text.trim());
 	// The latest earlier request to set one up, so a reply such as "the 19th" answers the question just asked.
 	const asked =
-		earlierUserTexts(prompt)
+		earlierTexts
 			.reverse()
-			.map((t) => /\bset up a vision meeting next thursday (\d{1,2})\s*(am|pm) at the (.+?)\.?$/i.exec(t))
+			.map((t) => SET_UP.exec(t))
 			.find(Boolean) ?? null;
 	const scores = SCORE_WORDS.map((w) => Number(new RegExp(`\\b${w}\\s*(\\d)\\b`, "i").exec(text)?.[1]));
 	const scored = scores.every((n) => n >= 1 && n <= 5) && /\bscore last night'?s vision meeting\b/i.test(earlier);
@@ -281,7 +283,7 @@ function meetingsStep(
 			`Attendance at the last ${points.length} Vision nights, oldest first:\n\n${points.map((p) => `- ${dayName(String(p.fields.date))}: ${p.fields.attended === "not recorded" ? "not recorded" : `${String(p.fields.attended)} attended`}`).join("\n")}\n\nA night with no attendance recorded is not counted as zero.`,
 		);
 	}
-	const setUp = /\bset up a vision meeting next thursday (\d{1,2})\s*(am|pm) at the (.+?)\.?$/i.exec(text);
+	const setUp = SET_UP.exec(text);
 	if (setUp || (pickedDay && asked)) {
 		const [, hour, ampm, place] = (setUp ?? asked)!;
 		if (!outputs.length)

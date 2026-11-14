@@ -33,6 +33,9 @@ const found = (operation: string, rows: Row[], exclusions: string[] = []): Sourc
 	status: "available",
 });
 const s = (n: number | null | undefined) => (n === null || n === undefined ? null : String(n));
+const NOT_RECORDED = "not recorded";
+/** A report value the native read may not know: "not recorded", never 0. */
+const known = (k: { status: string; value?: number }) => (k.status === "known" ? String(k.value) : NOT_RECORDED);
 
 /** One read tool: `run` calls the native read and shapes its answer into rows. */
 function read<I>(spec: {
@@ -477,7 +480,6 @@ export const compareEvaluation = read({
 	async run(tx, actor, input) {
 		const x = value(await attendanceReader.compareEvaluation(tx, actor.authority, input));
 		if (!x) return notFound("meetings.compareEvaluation");
-		const known = (k: { status: string; value?: number }) => (k.status === "known" ? String(k.value) : "not recorded");
 		return result("meetings.compareEvaluation", [
 			item(x.meetingId, "Evaluation compared", {
 				current: known(x.current),
@@ -489,7 +491,6 @@ export const compareEvaluation = read({
 	},
 });
 
-const NOT_RECORDED = "not recorded";
 export const attendanceTrend = read({
 	operation: "meetings.attendanceTrend",
 	description:
@@ -542,7 +543,6 @@ export const summaryStats = read({
 	async run(tx, actor, input) {
 		const x = value(await attendanceReader.summaryStats(tx, actor.authority, reportRequest(input)));
 		if (!x) return notFound("meetings.summaryStats");
-		const known = (k: { status: string; value?: number }) => (k.status === "known" ? String(k.value) : NOT_RECORDED);
 		return result("meetings.summaryStats", [
 			item("summary", "Meetings summary", {
 				held: s(x.held),
@@ -588,7 +588,7 @@ export const readAnalytics = read({
 		if (!a) return notFound("meetings.readAnalytics");
 		return result("meetings.readAnalytics", [
 			item(a.meetingId, "Meeting report", {
-				attended: a.attended.status === "known" ? String(a.attended.value) : NOT_RECORDED,
+				attended: known(a.attended),
 				firstTime: s(a.classifications?.first_time),
 				returning: s(a.classifications?.returning),
 				growth: a.growth.status === "unknown" ? null : String(a.growth.difference),
