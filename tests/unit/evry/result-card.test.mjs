@@ -427,7 +427,12 @@ test("INV-result-card-import: the template, a preview and a receipt read as a fi
 				{ kind: "import", id: "2", label: "created", fields: { status: "created", personId: P1, reason: null } },
 				{ kind: "person", id: P1, label: "Imported person", fields: { row: "2" } },
 				{ kind: "import", id: "3", label: "skipped", fields: { status: "skipped", personId: null, reason: null } },
-				{ kind: "import", id: "4", label: "failed", fields: { status: "failed", personId: null, reason: "invalid" } },
+				{
+					kind: "import",
+					id: "4",
+					label: "failed",
+					fields: { status: "failed", personId: null, reason: "email: the email address is not valid" },
+				},
 			],
 			{ total: 3 },
 		),
@@ -440,7 +445,7 @@ test("INV-result-card-import: the template, a preview and a receipt read as a fi
 			["Import partly complete", "1 added · 1 skipped · 1 failed", null, null],
 			["Row 2", null, `/people/${P1}`, { kind: "status", text: "Added", warn: false }],
 			["Row 3", null, null, { kind: "status", text: "Skipped", warn: false }],
-			["Row 4", "Not valid", null, { kind: "status", text: "Failed", warn: true }],
+			["Row 4", "email: the email address is not valid", null, { kind: "status", text: "Failed", warn: true }],
 		],
 	);
 	for (const view of [template, preview, receipt]) assert.doesNotMatch(view.summary, /person|people/);

@@ -11,12 +11,12 @@ Its `save()` writes the file on a recording run. Every call is keyed by `callKey
 (prompt, tools, tool choice, reasoning, output limit, response format, provider options). Every file has one shape:
 `model`, `recordedAt`, `spend` and `calls` (key to a recorded generate or stream call with its token usage).
 
-| Suite                 | Cases                                                                                                                   | What it scores                                                                        |
-| --------------------- | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| `golden.test.mts`     | `golden.cases.json` (the 95 approved golden cases), `adapters.cases.json` (98 extra per-adapter and catalog-tool cases) | Tool selection, answer facts, review cards, safety gates, alpha targets, judge grades |
-| `classify.test.mts`   | `classify.cases.json`                                                                                                   | `evry.classifyRequest` labels                                                         |
-| `households.test.mts` | `households.cases.json`                                                                                                 | Household tool selection and the household list answer                                |
-| `followups.test.mts`  | `followups.cases.json`                                                                                                  | Follow-up suggestions never name the signed-in user                                   |
+| Suite                 | Cases                                                                                                                    | What it scores                                                                        |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------- |
+| `golden.test.mts`     | `golden.cases.json` (the 95 approved golden cases), `adapters.cases.json` (118 extra per-adapter and catalog-tool cases) | Tool selection, answer facts, review cards, safety gates, alpha targets, judge grades |
+| `classify.test.mts`   | `classify.cases.json`                                                                                                    | `evry.classifyRequest` labels                                                         |
+| `households.test.mts` | `households.cases.json`                                                                                                  | Household tool selection and the household list answer                                |
+| `followups.test.mts`  | `followups.cases.json`                                                                                                   | Follow-up suggestions never name the signed-in user                                   |
 
 ## The household and follow-up suites
 
@@ -52,7 +52,7 @@ Each case is one turn, asked the way `runTurn` asks it (`golden-harness.mts`). F
 Then the real system prompt runs with the tools the turn gives the actor, built by the same function the turn uses
 (`modelTools` in `packages/evry/src/runtime/tools.ts`): the domain read tools, `select_returned_rows` and
 `propose_change`. Every read runs the real adapter through `invokeRead` against Hope Fellowship, which
-`golden-church.mts` seeds as real records into an isolated schema (`tests/support/test-database.mts`): 83 live people,
+`golden-church.mts` seeds as real records into an isolated schema (`tests/support/test-database.mts`): 84 live people,
 2 removed people, 8 households, tags, skills, notes, photos, open tasks, two import receipts (the earlier one left two
 open review pairs and one dismissed pair), five current ministries and one archived one with their roles, people,
 required training, a Playbook checklist and measured team meetings, a phase journey (declared at Discovery, Core Group
@@ -122,8 +122,8 @@ run limited with `EVRY_EVAL_CASES` keeps all the others. Never read or print the
 `OPENAI_API_KEY`. Changing a check never needs a recording, unless it makes a case newly pass: that case then needs
 its judge call recorded.
 
-**Cost.** Recording all 193 cases on `gpt-6-luna` from scratch is 856 calls, about $0.82
-(`spend.allMicroUsd` in `golden.recorded.json`). The household and follow-up files are 10 and 11 calls, under a cent
+**Cost.** Recording all 213 cases on `gpt-6-luna` from scratch is 950 calls, about $1.18
+(`spend.allMicroUsd` in `golden.recorded.json`). The household and follow-up files are 10 calls each, under a cent
 each (their `spend`); `classify.recorded.json` holds 26 calls of about 20 millionths of a dollar each, recorded before
 token usage was kept, so its `spend` reads 0 until it is next recorded. Re-recording only the changed cases costs a
 fraction of a cent per case. A full re-record sends about 2M tokens a minute at the harness's 6 parallel cases, past

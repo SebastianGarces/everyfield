@@ -47,6 +47,11 @@ export function describeCatalog(catalog: Catalog) {
 		? ["In this context I can:", ...reads.map((r) => "- " + r), "- Pick rows from a result I already showed you."]
 		: ["In this context I have no application reads available yet."];
 	if (writes.length) lines.push("I can also prepare these changes for your review:", ...writes.map((w) => "- " + w));
+	// A seat that reads but may not change records (a church Member) is told who can, instead of a review it can't use.
+	else if (reads.length)
+		lines.push(
+			"Your seat can't change records here, so I prepare no changes for you: an Owner or Admin of this church has to make them.",
+		);
 	lines.push(...catalog.withheld);
 	lines.push(
 		"Every change to your records needs your review and approval first. I can't give pastoral counsel, write prayers or judge anyone's spiritual readiness.",

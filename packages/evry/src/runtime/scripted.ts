@@ -195,6 +195,155 @@ function phaseStep(
 	return propose("signals.reaffirm", { key: "core_group_giving" });
 }
 
+// Household, tag, note, skill and import requests (WP-064): "add Pedro to the Martinez household", "the nguyens moved
+// to 123 oak st, update everyone", "tag Ana Rivera and Mark Thompson as coffee-oct", "add a note to Maria Santos: ...",
+// "change Maria Santos's note to: ...", "delete Maria Santos's note", "Sam does sound, advanced", "how did yesterday's
+// import go" and "import this csv: ...". Each finds its records with reads, one step after another, then proposes the
+// reviewed change. A seat that may not propose is told who can make the change.
+type Row = { id: string; kind: string; label: string; fields: Record<string, unknown> };
+/** Every tool result since the user's last message, in order. */
+function turnOutputs(prompt: Prompt): Record<string, unknown>[] {
+	const out: Record<string, unknown>[] = [];
+	for (let i = prompt.length - 1; i >= 0 && prompt[i]!.role !== "user"; i--) {
+		const m = prompt[i]!;
+		if (m.role !== "tool") continue;
+		const parts = m.content.flatMap((p) =>
+			p.type === "tool-result" && p.output.type === "json" ? [p.output.value] : [],
+		);
+		out.unshift(...(parts as Record<string, unknown>[]));
+	}
+	return out;
+}
+const rowsOf = (result: Record<string, unknown> | undefined, kind?: string) =>
+	((result?.rows as Row[] | undefined) ?? []).filter((r) => !kind || r.kind === kind);
+const title = (text: string) => text.replace(/\b\w/g, (c) => c.toUpperCase());
+const SKILL_CATEGORY: Record<string, string> = {
+	sound: "tech",
+	video: "tech",
+	lights: "tech",
+	slides: "tech",
+	vocals: "worship",
+	guitar: "worship",
+	keys: "worship",
+	drums: "worship",
+	teaching: "teaching",
+	hospitality: "hospitality",
+};
+const ORGANIZATION = {
+	household:
+		/\badd ([A-Z][\w'-]+(?: [A-Z][\w'-]+)?) to the ([A-Z][\w'-]+) household(?: as (head|spouse|child|other))?/i,
+	move: /\bthe ([a-z'-]+?)s moved to (.+?),? update everyone\b/i,
+	tag: /\btag (.+?) as ([\w-]+)\s*$/i,
+	note: /\badd a note to (.+?):\s*(.+)$/is,
+	editNote: /\bchange (.+?)'s note to:\s*(.+)$/is,
+	deleteNote: /\bdelete (.+?)'s note\b/i,
+	skill: /\b([A-Z][\w'-]+) does (\w+), (beginner|intermediate|advanced|expert)\b/i,
+	receipt: /\bhow did (?:yesterday's|the|the last|our last) import go\b/i,
+	import: /\bimport this csv:\s*([\s\S]+)$/i,
+};
+function peopleOrganizationStep(
+	text: string,
+	canPropose: boolean,
+	canReadImports: boolean,
+	outputs: Record<string, unknown>[],
+) {
+	const matched = Object.entries(ORGANIZATION).find(([, re]) => re.test(text));
+	if (!matched) return null;
+	const [kind, re] = matched;
+	const m = re.exec(text)!;
+	if (outputs.some((o) => typeof o.proposalId === "string"))
+		return [{ type: "text" as const, text: "I prepared a review. Nothing changes until you approve it." }];
+	const done = outputs.find((o) => o.error);
+	if (done) return [{ type: "text" as const, text: `I could not finish that (${String(done.error)}).` }];
+	const people = (search: string) => toolCall("people_read", { operation: "people.listPeople", input: { search } });
+	const org = (operation: string, input: unknown) => toolCall("peopleOrganization_read", { operation, input });
+	const propose = (operation: string, input: unknown) => [toolCall("propose_change", { operation, input })];
+	if (kind === "receipt") {
+		if (!canReadImports)
+			return [{ type: "text" as const, text: "Only an Owner or Admin of this church can see how an import went." }];
+		if (!outputs.length) return [org("people.getImportReceipt", {})];
+		const file = rowsOf(outputs[0], "file")[0];
+		if (!file) return [{ type: "text" as const, text: "I can't find an import in this church." }];
+		const failed = rowsOf(outputs[0], "import").filter((r) => r.fields.status === "failed");
+		const f = file.fields;
+		const reasons = failed.map((r) => `row ${r.id}: ${String(r.fields.reason)}`).join("; ");
+		return [
+			{
+				type: "text" as const,
+				text: `The import on ${String(f.importedAt).slice(0, 10)}: ${String(f.created)} created, ${String(f.skipped)} skipped and ${String(f.failed)} failed.${reasons ? ` Failed rows: ${reasons}.` : ""}`,
+			},
+		];
+	}
+	if (!canPropose)
+		return [
+			{
+				type: "text" as const,
+				text: "An Owner or Admin of this church has to make that change. Your seat can't, so I didn't prepare it.",
+			},
+		];
+	const first = (n: number, k = "person") => rowsOf(outputs[n], k)[0];
+	switch (kind) {
+		case "household": {
+			if (outputs.length === 0) return [people(m[1]!)];
+			if (outputs.length === 1) return [org("people.listHouseholds", { search: m[2]! })];
+			const person = first(0),
+				home = first(1, "household");
+			if (!person || !home) return [{ type: "text" as const, text: "I can't find that person or household." }];
+			return propose("people.addToHousehold", {
+				personId: person.id,
+				householdId: home.id,
+				role: (m[3] ?? "other").toLowerCase(),
+			});
+		}
+		case "move": {
+			if (!outputs.length) return [org("people.listHouseholds", { search: m[1]! })];
+			const home = first(0, "household");
+			if (!home) return [{ type: "text" as const, text: "I can't find that household." }];
+			return propose("people.propagateAddress", { householdId: home.id, address: { street: title(m[2]!.trim()) } });
+		}
+		case "tag": {
+			const names = m[1]!.split(/,\s*|\s+and\s+/).filter(Boolean);
+			if (!outputs.length) return names.map(people);
+			const ids = outputs.map((o) => rowsOf(o, "person")[0]?.id).filter(Boolean);
+			if (ids.length !== names.length) return [{ type: "text" as const, text: "I can't find everyone you named." }];
+			return propose("people.assignTag", { personIds: ids, tagName: m[2]! });
+		}
+		case "note": {
+			if (!outputs.length) return [people(m[1]!)];
+			const person = first(0);
+			return person ? propose("people.addNote", { personId: person.id, body: m[2]!.trim() }) : null;
+		}
+		case "editNote":
+		case "deleteNote": {
+			if (!outputs.length) return [people(m[1]!)];
+			const person = first(0);
+			if (!person) return null;
+			if (outputs.length === 1) return [org("people.getActivities", { personId: person.id, kinds: ["note"] })];
+			const note = rowsOf(outputs[1], "activity").find((r) => r.fields.kind === "note");
+			if (!note) return [{ type: "text" as const, text: `${person.label} has no note I can change.` }];
+			return kind === "editNote"
+				? propose("people.editNote", { noteId: note.id, body: m[2]!.trim(), reason: "Updated in Evry" })
+				: propose("people.deleteNote", { noteId: note.id, reason: "Removed in Evry" });
+		}
+		case "skill": {
+			if (!outputs.length) return [people(m[1]!)];
+			const person = first(0);
+			const skill = m[2]!.toLowerCase();
+			return person
+				? propose("people.addSkill", {
+						personId: person.id,
+						name: title(skill),
+						category: SKILL_CATEGORY[skill] ?? "other",
+						proficiency: m[3]!.toLowerCase(),
+					})
+				: null;
+		}
+		case "import":
+			return propose("people.executeBulkImport", { file: m[1]!.trim() });
+	}
+	return null;
+}
+
 const FORMATTING = /\bformatting demo\b/i;
 const FORMATTING_ANSWER = [
 	"There are **19 prospects** in this church, and the *list is complete*.",
@@ -226,6 +375,14 @@ function respond(options: LanguageModelV4CallOptions): LanguageModelV4Content[] 
 	if (email) return email;
 	const phase = phaseStep(text, options, result);
 	if (phase) return phase;
+	if (hasPeople) {
+		// The import receipt read is one of the people-organization tool's operations only for an Owner or Admin.
+		const imports = JSON.stringify(options.tools?.find((t) => t.name === "peopleOrganization_read") ?? {}).includes(
+			"people.getImportReceipt",
+		);
+		const organization = peopleOrganizationStep(text, canPropose, imports, turnOutputs(options.prompt));
+		if (organization) return organization;
+	}
 	if (result && typeof result.proposalId === "string" && (DRAFT.test(text) || EMAIL_REVIEW.test(text)))
 		return [{ type: "text", text: "I prepared a review. Nothing is saved or sent until you approve it." }];
 	if (result) {

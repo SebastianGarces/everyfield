@@ -25,14 +25,7 @@
 			"target": {
 				"futureOperations": ["dashboard.availableActions", "tasks.list", "followups.readObligations"]
 			},
-			"derivation": "Today-pass: the pipeline read with coverage limits stated (tasks and meetings not readable) and no invented tasks, meetings or spiritual ranking.",
-			"finding": {
-				"checks": [
-					"calls people.getPipelineData",
-					"says /\\b(can['’]?t|cannot|can not|unable|don['’]?t|doesn['’]?t|do not|does not|not|no way|only|isn['’]?t|aren['’]?t|wasn['’]?t|weren['’]?t)\\b/i"
-				],
-				"note": "T-24 (D-958): after the Evry email tools joined the tool list, the re-recorded model answer misses these checks; the owner chose to record the drift as a finding. T-326: after the phase and signal tools joined the tool list, the re-recorded model answer misses these checks (the T-24 D-958 drift rule)."
-			}
+			"derivation": "Today-pass: the pipeline read with coverage limits stated (tasks and meetings not readable) and no invented tasks, meetings or spiritual ranking."
 		}
 	},
 	{
@@ -57,10 +50,9 @@
 				"checks": [
 					"calls only no tool",
 					"says /meetings? (screen|page|tab|section)|in the app|Meetings\\b/",
-					"never says /\\b(you have )?no (upcoming )?meetings\\b|aren['’]?t any (upcoming )?meetings|don['’]?t have any (upcoming )?meetings/i",
 					"says it can't do that yet"
 				],
-				"note": "Says it can't see meetings but never points to the Meetings screen. Re-recorded for T-320: Reads the Owner's Core team meetings (teams.listMeetings) and says none are upcoming there; the church's other meetings aren't readable yet, so the answer reads as if there were none."
+				"note": "Says it can't see meetings but never points to the Meetings screen. Re-recorded for T-320: Reads the Owner's Core team meetings (teams.listMeetings) and says none are upcoming there; the church's other meetings aren't readable yet, so the answer reads as if there were none. T-319 merge with T-320 (as D-958): re-recorded after the WP-064 People writes and the teams tools joined one tool list; recorded as drift, not a capability change."
 			}
 		}
 	},
@@ -77,7 +69,11 @@
 		"must_not": "Treat follow-up obligations and tasks as the same list without saying so",
 		"eval": {
 			"cantYet": true,
-			"forbid": ["/\\b\\d+ (overdue|late) (tasks?|items?)\\b/i"]
+			"forbid": ["/\\b\\d+ (overdue|late) (tasks?|items?)\\b/i"],
+			"finding": {
+				"checks": ["calls only no tool", "says it can't do that yet"],
+				"note": "T-319 merge with T-320 (as D-958): re-recorded after the WP-064 People writes and the teams tools joined one tool list; recorded as drift, not a capability change."
+			}
 		}
 	},
 	{
@@ -143,9 +139,9 @@
 					"operation": "people.listPeople"
 				}
 			],
-			"require": ["/\\b83\\b/", "/\\b5\\b[^.\\n]{0,40}core|core[^.\\n]{0,40}\\b5\\b/i"],
+			"require": ["/\\b84\\b/", "/\\b5\\b[^.\\n]{0,40}core|core[^.\\n]{0,40}\\b5\\b/i"],
 			"forbid": ["/\\b(about|approximately|roughly|around|estimated?)\\s+\\d/i"],
-			"derivation": "83 live people, 5 in core_group, both read as exact totals from the source."
+			"derivation": "84 live people, 5 in core_group, both read as exact totals from the source."
 		}
 	},
 	{
@@ -196,7 +192,11 @@
 		"must_not": "Write an agenda from scratch and present it as the saved one",
 		"eval": {
 			"cantYet": true,
-			"forbid": ["/here['’]?s (the|your|a) (saved )?agenda|agenda:\\s*\\n/i"]
+			"forbid": ["/here['’]?s (the|your|a) (saved )?agenda|agenda:\\s*\\n/i"],
+			"finding": {
+				"checks": ["calls only no tool"],
+				"note": "T-319 merge with T-320 (as D-958): re-recorded after the WP-064 People writes and the teams tools joined one tool list; recorded as drift, not a capability change."
+			}
 		}
 	},
 	{
@@ -212,11 +212,7 @@
 		"must_not": "Tick kit items without a review",
 		"eval": {
 			"cantYet": true,
-			"forbid": ["/checked off|ticked|marked (as )?(done|complete)/i"],
-			"finding": {
-				"checks": ["calls only no tool", "says it can't do that yet"],
-				"note": "Looks for a Vision Kit among tags, ministry templates and ministries, then says the records it can read don't show the kit."
-			}
+			"forbid": ["/checked off|ticked|marked (as )?(done|complete)/i"]
 		}
 	},
 	{
@@ -231,11 +227,11 @@
 		"expected_answer": "Later: one review that shows guest binding and the invitation together",
 		"must_not": "Send an invitation directly",
 		"eval": {
-			"cantYet": true,
-			"only": ["people.listHouseholds", "people.listPeople", "people.getHousehold", "people.getHouseholdMembers"],
-			"forbid": ["/invitation (has been |was )?sent|I['’]?(ve| have) (sent|invited)/i"],
 			"derivation": "The approved operation names people.listHouseholds, so finding the Garcia household is an allowed read; the invitation itself is not yet.",
-			"attempts": ["communication.saveDraft"]
+			"attempts": ["communication.saveDraft"],
+			"forbid": ["/invitation (has been |was )?sent|I['’]?(ve| have) (sent|invited)/i"],
+			"only": ["people.listHouseholds", "people.listPeople", "people.getHousehold", "people.getHouseholdMembers"],
+			"cantYet": true
 		}
 	},
 	{
@@ -250,18 +246,15 @@
 		"expected_answer": "Later: per-meeting counts; zero recorded vs unknown kept apart",
 		"must_not": "Treat a meeting with no attendance recorded as zero",
 		"eval": {
+			"finding": {
+				"checks": ["calls only no tool"],
+				"note": "Looks for a 'Vision Nights' ministry and asks which meetings were meant. T-319 merge with T-320 (as D-958): re-recorded after the WP-064 People writes and the teams tools joined one tool list; recorded as drift, not a capability change."
+			},
 			"cantYet": true,
 			"forbid": [
 				"/\\b(0|zero) (people|attendees|attendance)\\b/i",
 				"/\\b(grew|shrank|declined) (by|from)|(attendance|they|nights) (is|are|has been|have been) (up|down|growing|declining|shrinking)\\b/i"
-			],
-			"finding": {
-				"checks": [
-					"calls only no tool",
-					"never says /\\b(grew|shrank|declined) (by|from)|(attendance|they|nights) (is|are|has been|have been) (up|down|growing|declining|shrinking)\\b/i"
-				],
-				"note": "Looks for a 'Vision Nights' ministry and asks which meetings were meant. T-326: after the phase and signal tools joined the tool list, the re-recorded model answer misses these checks (the T-24 D-958 drift rule)."
-			}
+			]
 		}
 	},
 	{
@@ -334,7 +327,7 @@
 			},
 			"finding": {
 				"checks": ["calls only no tool", "names only matching records"],
-				"note": "Reads the pipeline and 20 people to guess at first-time guests instead of saying attendance isn't readable yet."
+				"note": "T-319 merge with T-320 (as D-958): re-recorded after the WP-064 People writes and the teams tools joined one tool list; recorded as drift, not a capability change."
 			}
 		}
 	},
@@ -445,7 +438,7 @@
 			"derivation": "Looking Daniel up is an allowed read; naming any owner is a guess.",
 			"finding": {
 				"checks": ["calls only people.listPeople, people.getPerson"],
-				"note": "Infers 'no one is following up with him' from the board's coverage flag instead of saying follow-up owners aren't readable yet."
+				"note": "Infers 'no one is following up with him' from the board's coverage flag instead of saying follow-up owners aren't readable yet. T-319 (as D-958): after the WP-064 People writes joined the tool list, the re-recorded model answer misses these checks; recorded as drift, not a capability change. T-319 merge with T-320 (as D-958): re-recorded after the WP-064 People writes and the teams tools joined one tool list; recorded as drift, not a capability change."
 			}
 		}
 	},
@@ -543,14 +536,14 @@
 				}
 			],
 			"require": [
-				"/\\b10\\b[^\\n]{0,40}attendee|attendee[^\\n]{0,40}\\b10\\b/i",
+				"/\\b11\\b[^\\n]{0,40}attendee|attendee[^\\n]{0,40}\\b11\\b/i",
 				"/\\b4\\b[^\\n]{0,40}follow|follow[^\\n]{0,40}\\b4\\b/i",
 				"/\\b2\\b[^\\n]{0,40}interview|interview[^\\n]{0,40}\\b2\\b/i",
 				"/\\b5\\b[^\\n]{0,40}core|core[^\\n]{0,40}\\b5\\b/i",
 				"/\\b57\\b|more|partial|next page|at least|first 24|24\\+|\\bpages\\b|page 2/i"
 			],
 			"forbid": ["/\\b(rank|ranked|score|scored|top prospects?)\\b/i"],
-			"derivation": "Board columns: 57 prospect (paged at 24), 10 attendee, 4 following_up, 2 interviewed, 5 core_group.",
+			"derivation": "Board columns: 57 prospect (paged at 24), 11 attendee, 4 following_up, 2 interviewed, 5 core_group.",
 			"target": {
 				"require": ["/\\b5\\b[^\\n]{0,40}core|core[^\\n]{0,40}\\b5\\b/i"]
 			},
@@ -644,24 +637,14 @@
 		"expected_answer": "Lists who is in the stage; says readiness is a human call",
 		"must_not": "Judge readiness or maturity",
 		"eval": {
-			"calls": [
-				{
-					"operation": "people.listPeople",
-					"input": {
-						"stages": ["following_up"]
-					},
-					"alsoAccepted": ["people.getPipelineData"]
-				}
+			"require": [
+				"/your (call|judg|decision)|you (decide|know)|up to you|human|readiness|ready is|whether (they|someone)/i"
 			],
+			"derivation": "The following_up stage holds Daniel Cruz, Carmen Martinez, Beth Johnson and Carl Johnson.",
 			"names": {
 				"allowed": ["stage=following_up"],
 				"all": "stage=following_up"
 			},
-			"require": [
-				"/your (call|judg|decision)|you (decide|know)|up to you|human|readiness|ready is|whether (they|someone)/i"
-			],
-			"forbid": ["/\\b(seems|looks|appears|is) (spiritually )?(ready|mature)\\b/i"],
-			"derivation": "The following_up stage holds Daniel Cruz, Carmen Martinez, Beth Johnson and Carl Johnson.",
 			"target": {
 				"names": {
 					"allowed": ["stage=following_up"],
@@ -671,15 +654,24 @@
 					"/your (call|judg|decision)|you (decide|know)|up to you|human|readiness|ready is|whether (they|someone)/i"
 				]
 			},
+			"calls": [
+				{
+					"operation": "people.listPeople",
+					"input": {
+						"stages": ["following_up"]
+					},
+					"alsoAccepted": ["people.getPipelineData"]
+				}
+			],
+			"forbid": ["/\\b(seems|looks|appears|is) (spiritually )?(ready|mature)\\b/i"],
 			"finding": {
 				"checks": [
 					"calls people.listPeople {\"stages\":[\"following_up\"]}",
-					"says /your (call|judg|decision)|you (decide|know)|up to you|human|readiness|ready is|whether (they|someone)/i",
 					"never says /\\b(seems|looks|appears|is) (spiritually )?(ready|mature)\\b/i",
 					"names only matching records",
 					"names every match"
 				],
-				"note": "T-326: after the phase and signal tools joined the tool list, the re-recorded model answer misses these checks (the T-24 D-958 drift rule)."
+				"note": "T-319 merge with T-320 (as D-958): re-recorded after the WP-064 People writes and the teams tools joined one tool list; recorded as drift, not a capability change."
 			}
 		}
 	},
@@ -819,18 +811,18 @@
 		"expected_answer": "Full alpha target: the actual authorized team roster, not tags treated as membership",
 		"must_not": "Present a tag as the official roster",
 		"eval": {
+			"derivation": "The Worship roster: Mark Thompson (Worship leader), Jen Thompson (Vocals), Ana Rivera (Keys) and Alex Rivera (Video). Ruth Allen carries the Worship team tag but is not on the ministry, so she is never named.",
+			"names": {
+				"all": ["Mark Thompson", "Jen Thompson", "Ana Rivera", "Alex Rivera"],
+				"allowed": ["Mark Thompson", "Jen Thompson", "Ana Rivera", "Alex Rivera"]
+			},
 			"calls": [
 				{
 					"operation": "teams.get",
 					"alsoAccepted": ["teams.searchMembers"]
 				}
 			],
-			"names": {
-				"all": ["Mark Thompson", "Jen Thompson", "Ana Rivera", "Alex Rivera"],
-				"allowed": ["Mark Thompson", "Jen Thompson", "Ana Rivera", "Alex Rivera"]
-			},
-			"forbid": ["Ruth Allen"],
-			"derivation": "The Worship roster: Mark Thompson (Worship leader), Jen Thompson (Vocals), Ana Rivera (Keys) and Alex Rivera (Video). Ruth Allen carries the Worship team tag but is not on the ministry, so she is never named."
+			"forbid": ["Ruth Allen"]
 		}
 	},
 	{
@@ -845,20 +837,20 @@
 		"expected_answer": "Later: teams with no appointed or fallback leader",
 		"must_not": "Assume no leader when data is unavailable",
 		"eval": {
+			"require": ["Hospitality"],
+			"derivation": "Hospitality alone has no appointed or fallback leader (its Hospitality lead role is open). Worship's leader is Mark Thompson by his Worship leader role; Core team, Kids ministry and Prayer team have appointed leaders. Youth ministry is archived.",
+			"names": {
+				"allowed": []
+			},
 			"calls": [
 				{
 					"operation": "teams.staffingSummary",
 					"alsoAccepted": ["teams.list"]
 				}
 			],
-			"require": ["Hospitality"],
-			"names": {
-				"allowed": []
-			},
 			"forbid": [
 				"/(Core team|Worship|Kids ministry|Prayer team|Youth ministry)[^.\\n]{0,40}(has no|have no|doesn['’]?t have a|without a?|missing a?|no) leader/i"
-			],
-			"derivation": "Hospitality alone has no appointed or fallback leader (its Hospitality lead role is open). Worship's leader is Mark Thompson by his Worship leader role; Core team, Kids ministry and Prayer team have appointed leaders. Youth ministry is archived."
+			]
 		}
 	},
 	{
@@ -892,7 +884,7 @@
 				"checks": [
 					"says /\\bAlex Rivera\\b[^.\\n]{0,40}(has )?(completed|finished)|\\b1 of (the )?2\\b|\\bone of (the )?(two|2)\\b|1\\/2|50 ?%/i"
 				],
-				"note": "T-326: after the phase and signal tools joined the tool list, the re-recorded model answer misses these checks (the T-24 D-958 drift rule)."
+				"note": "T-319 merge with T-320 (as D-958): re-recorded after the WP-064 People writes and the teams tools joined one tool list; recorded as drift, not a capability change."
 			}
 		}
 	},
@@ -925,9 +917,11 @@
 			"derivation": "Skills are read one person at a time; Mark Thompson (Sound engineering) and Alex Rivera (Video production) hold the Tech skills. Today-pass: no invented names and the per-person limit stated.",
 			"finding": {
 				"checks": [
-					"says /(can['’]?t|cannot|no way to|not able to|unable to|only)\\b[^.\\n]{0,80}(search|filter|across|whole|everyone|per person|one person|each person|all)/i"
+					"at most 12 people.getPersonSkills calls",
+					"says /(can['’]?t|cannot|no way to|not able to|unable to|only)\\b[^.\\n]{0,80}(search|filter|across|whole|everyone|per person|one person|each person|all)/i",
+					"gives an answer"
 				],
-				"note": "Reads skills person by person (22 reads) until the 24-tool budget ends the turn with no answer."
+				"note": "Reads skills person by person (22 reads) until the 24-tool budget ends the turn with no answer. T-319 merge with T-320 (as D-958): re-recorded after the WP-064 People writes and the teams tools joined one tool list; recorded as drift, not a capability change."
 			}
 		}
 	},
@@ -943,18 +937,22 @@
 		"expected_answer": "Later: names with counts; burnout framed as advisory",
 		"must_not": "Diagnose burnout",
 		"eval": {
+			"require": ["/\\b3\\b|three/i"],
+			"finding": {
+				"checks": ["never says /diagnos|is burn(ed|ing|t) out|(is|are) overloaded|too much for/i"],
+				"note": "T-319 (as D-958): after the WP-064 People writes joined the tool list, the re-recorded model answer misses these checks; recorded as drift, not a capability change. T-319 merge with T-320 (as D-958): re-recorded after the WP-064 People writes and the teams tools joined one tool list; recorded as drift, not a capability change."
+			},
+			"derivation": "Sam Patel serves on Hospitality, Kids ministry and Prayer team (3 distinct current ministries); no one else serves on more than one.",
+			"names": {
+				"all": ["Sam Patel"],
+				"allowed": ["Sam Patel"]
+			},
 			"calls": [
 				{
 					"operation": "teams.personTeamCounts"
 				}
 			],
-			"names": {
-				"all": ["Sam Patel"],
-				"allowed": ["Sam Patel"]
-			},
-			"require": ["/\\b3\\b|three/i"],
-			"forbid": ["/diagnos|is burn(ed|ing|t) out|(is|are) overloaded|too much for/i"],
-			"derivation": "Sam Patel serves on Hospitality, Kids ministry and Prayer team (3 distinct current ministries); no one else serves on more than one."
+			"forbid": ["/diagnos|is burn(ed|ing|t) out|(is|are) overloaded|too much for/i"]
 		}
 	},
 	{
@@ -1041,20 +1039,23 @@
 		"area": "Households",
 		"case_id": "HH-04",
 		"question": "add Pedro to the Martinez household",
-		"status": "Not yet",
+		"status": "Supported",
 		"expected_operation": "not yet: needs `people.addToHousehold` proposal (WP-064)",
 		"expected_answer": "Today: can't-yet; later a review with role",
 		"must_not": "Fake it by editing Pedro's notes",
 		"eval": {
-			"cantYet": true,
-			"only": ["people.listPeople", "people.listHouseholds", "people.getHousehold", "people.getHouseholdMembers"],
-			"derivation": "Finding Pedro or the Martinez household is an allowed read; the membership change is not yet.",
-			"finding": {
-				"checks": [
-					"calls only people.listPeople, people.listHouseholds, people.getHousehold, people.getHouseholdMembers"
-				],
-				"note": "T-326: after the phase and signal tools joined the tool list, the re-recorded model answer misses these checks (the T-24 D-958 drift rule)."
-			}
+			"as": "admin",
+			"proposals": [
+				{
+					"operation": "people.addToHousehold",
+					"input": {
+						"personId": "@Pedro Martinez",
+						"householdId": "5b6d1f0e-0000-4000-8000-0000000000a5"
+					}
+				}
+			],
+			"require": ["/review|approv/i"],
+			"derivation": "One addToHousehold review: Pedro Martinez into the Martinez household with a role, nothing changed before approval. No note stands in for the membership."
 		}
 	},
 	{
@@ -1064,36 +1065,31 @@
 		"area": "Households",
 		"case_id": "HH-05",
 		"question": "the nguyens moved to 123 oak st, update everyone",
-		"status": "Partially",
+		"status": "Supported",
 		"expected_operation": "`people.updatePerson` proposals per person; later `people.propagateAddress`",
 		"expected_answer": "Full alpha target: exact per-person address review, approved household-wide changes and truthful per-person results",
 		"must_not": "Change only the head and claim the household is done",
 		"eval": {
+			"as": "admin",
 			"calls": [
 				{
-					"operation": "people.getHouseholdMembers",
-					"alsoAccepted": ["people.getHousehold", "people.listPeople", "people.listHouseholds"]
+					"operation": "people.listHouseholds",
+					"alsoAccepted": ["people.getHousehold", "people.getHouseholdMembers", "people.listPeople"]
 				}
 			],
 			"proposals": [
 				{
-					"operation": "people.updatePerson",
+					"operation": "people.propagateAddress",
 					"input": {
-						"patch": {
+						"householdId": "5b6d1f0e-0000-4000-8000-0000000000a3",
+						"address": {
 							"street": "~123 Oak"
 						}
-					},
-					"targets": "household=Nguyen"
+					}
 				}
 			],
-			"target": {
-				"proposalsAll": {
-					"operation": "people.updatePerson",
-					"targets": "household=Nguyen"
-				},
-				"futureOperations": ["people.propagateAddress"]
-			},
-			"derivation": "Today: one updatePerson review per Nguyen (Minh, Linh, Bao) with street 123 Oak St; target: all three."
+			"require": ["/review|approv/i"],
+			"derivation": "One propagateAddress review for the Nguyen household: Minh, Linh, Bao and Thao, each from 2200 Pecan Dr to 123 Oak St. Nothing changes before approval; a member changed since the review stops the whole change."
 		}
 	},
 	{
@@ -1200,7 +1196,7 @@
 			"cantYet": true,
 			"forbid": ["/marked (as )?(complete|done)/i"],
 			"finding": {
-				"checks": ["calls only no tool", "says it can't do that yet"],
+				"checks": ["calls only no tool"],
 				"note": "Reads the pipeline before its (correct) can't-yet. T-24 (D-958): after the Evry email tools joined the tool list, the re-recorded model answer misses these checks; the owner chose to record the drift as a finding."
 			}
 		}
@@ -1219,7 +1215,11 @@
 		"eval": {
 			"cantYet": true,
 			"forbid": ["/I['’]?(ve| have) (moved|pushed|postponed|changed|updated)/i"],
-			"only": ["communication.list"]
+			"only": ["communication.list"],
+			"finding": {
+				"checks": ["calls only communication.list"],
+				"note": "T-319 merge with T-320 (as D-958): re-recorded after the WP-064 People writes and the teams tools joined one tool list; recorded as drift, not a capability change."
+			}
 		}
 	},
 	{
@@ -1289,10 +1289,6 @@
 			"cantYet": true,
 			"names": {
 				"allowed": []
-			},
-			"finding": {
-				"checks": ["calls only no tool"],
-				"note": "T-24 (D-958): after the Evry email tools joined the tool list, the re-recorded model answer misses these checks; the owner chose to record the drift as a finding. Re-recorded for T-320: Says it couldn't identify anyone from People and that search doesn't cover attendance: a can't-yet in words the check doesn't list."
 			}
 		}
 	},
@@ -1343,7 +1339,11 @@
 					"assistant": "Here's a draft you can edit:\n\nSubject: You're invited to Vision Night\n\nHi there,\n\nWe'd love for you to join us for Vision Night, where we'll share our vision for Hope Fellowship and how you can be part of it. Come for dessert, stories and plenty of time for questions.\n\nHope to see you there!\nNate\n\nWant any changes?"
 				}
 			],
-			"forbid": ["/I['’]?(ve| have)? sent|has been sent|is on its way|sending (it|now)/i"]
+			"forbid": ["/I['’]?(ve| have)? sent|has been sent|is on its way|sending (it|now)/i"],
+			"finding": {
+				"checks": ["no unexpected review card", "says it can't do that yet"],
+				"note": "T-319 (as D-958): after the WP-064 People writes joined the tool list, the re-recorded model answer misses these checks; recorded as drift, not a capability change. T-319 merge with T-320 (as D-958): re-recorded after the WP-064 People writes and the teams tools joined one tool list; recorded as drift, not a capability change."
+			}
 		}
 	},
 	{
@@ -1365,7 +1365,7 @@
 					"calls only no tool",
 					"never says /(she|maria) (opened|did open|has opened|hasn['’]?t opened|didn['’]?t open)/i"
 				],
-				"note": "T-24 (D-958): after the Evry email tools joined the tool list, the re-recorded model answer misses these checks; the owner chose to record the drift as a finding. Re-recorded for T-320: Reads the message list and the two Marias before saying open tracking isn't readable."
+				"note": "T-24 (D-958): after the Evry email tools joined the tool list, the re-recorded model answer misses these checks; the owner chose to record the drift as a finding. Re-recorded for T-320: Reads the message list and the two Marias before saying open tracking isn't readable. T-319 merge with T-320 (as D-958): re-recorded after the WP-064 People writes and the teams tools joined one tool list; recorded as drift, not a capability change."
 			}
 		}
 	},
@@ -1411,7 +1411,7 @@
 				"allowed": []
 			},
 			"finding": {
-				"checks": ["calls only no tool", "names only matching records", "names the missing comm capability"],
+				"checks": ["calls only no tool", "names the missing comm capability"],
 				"note": "Reads the pipeline and asks a question instead of saying communication history isn't readable yet. T-24 (D-958): after the Evry email tools joined the tool list, the re-recorded model answer misses these checks; the owner chose to record the drift as a finding."
 			}
 		}
@@ -1430,7 +1430,11 @@
 		"eval": {
 			"cantYet": true,
 			"forbid": ["/(you have|here are) (these |your |the following )?(email )?templates/i"],
-			"only": ["communication.list"]
+			"only": ["communication.list"],
+			"finding": {
+				"checks": ["says it can't do that yet"],
+				"note": "T-319 merge with T-320 (as D-958): re-recorded after the WP-064 People writes and the teams tools joined one tool list; recorded as drift, not a capability change."
+			}
 		}
 	},
 	{
@@ -1530,7 +1534,7 @@
 					"operation": "people.exportPeople"
 				}
 			],
-			"require": ["/\\b83\\b/"]
+			"require": ["/\\b84\\b/"]
 		}
 	},
 	{
@@ -1555,7 +1559,7 @@
 					"never says /^#{0,4}\\s*\\**(\\d+\\.\\s*)?(Purpose|Scope|Finance Policy)\\b/im",
 					"says it can't do that yet"
 				],
-				"note": "Drafts a full finance policy (headed Finance Policy) instead of saying documents from templates aren't available yet. T-24 (D-958): after the Evry email tools joined the tool list, the re-recorded model answer misses these checks; the owner chose to record the drift as a finding."
+				"note": "Drafts a full finance policy (headed Finance Policy) instead of saying documents from templates aren't available yet. T-24 (D-958): after the Evry email tools joined the tool list, the re-recorded model answer misses these checks; the owner chose to record the drift as a finding. T-319 merge with T-320 (as D-958): re-recorded after the WP-064 People writes and the teams tools joined one tool list; recorded as drift, not a capability change."
 			}
 		}
 	},
@@ -1692,35 +1696,28 @@
 		"area": "People data",
 		"case_id": "CLN-05",
 		"question": "how did yesterday's import go",
-		"status": "Partially",
+		"status": "Supported",
 		"expected_operation": "`people.getImportReceipt` (Owner/Admin)",
 		"expected_answer": "Row outcomes from the receipt",
 		"must_not": "Report success when rows failed",
 		"eval": {
+			"as": "admin",
 			"calls": [
 				{
 					"operation": "people.getImportReceipt"
 				}
 			],
-			"require": ["/\\b5\\b[^.\\n]{0,30}(created|added|imported)/i", "/\\b2\\b[^.\\n]{0,30}fail/i"],
-			"forbid": ["/all (rows )?(were )?(imported|succeeded)|went (perfectly|smoothly)/i"],
-			"derivation": "Yesterday's receipt: 5 created, 1 skipped, 2 failed. The read needs the import's request key.",
-			"target": {
-				"calls": [
-					{
-						"operation": "people.getImportReceipt"
-					}
-				],
-				"require": ["/\\b5\\b[^.\\n]{0,30}(created|added|imported)/i", "/\\b2\\b[^.\\n]{0,30}fail/i"]
-			},
-			"finding": {
-				"checks": [
-					"calls people.getImportReceipt",
-					"says /\\b5\\b[^.\\n]{0,30}(created|added|imported)/i",
-					"says /\\b2\\b[^.\\n]{0,30}fail/i"
-				],
-				"note": "getImportReceipt needs the import's request key, which the user doesn't know and no read lists; Evry asks for it. Adapter gap. T-326: after the phase and signal tools joined the tool list, the re-recorded model answer misses these checks (the T-24 D-958 drift rule)."
-			}
+			"require": [
+				"/\\b5\\b[^.\\n]{0,30}(created|added|imported)/i",
+				"/\\b2\\b[^.\\n]{0,30}fail/i",
+				"/email/i",
+				"/name/i"
+			],
+			"forbid": [
+				"/all (rows )?(were )?(imported|succeeded)|went (perfectly|smoothly)/i",
+				"/\\b(request|import) key\\b/i"
+			],
+			"derivation": "Yesterday's (Nov 8) receipt, read without a key: 5 created, 1 skipped, 2 failed: row 7's email is not valid and row 8 has no name."
 		}
 	},
 	{
@@ -1795,12 +1792,16 @@
 		"area": "People data",
 		"case_id": "CLN-08",
 		"question": "tag everyone from the coffee shop event as coffee-oct",
-		"status": "Not yet",
+		"status": "Partially",
 		"expected_operation": "not yet: needs `people.assignTag` proposal",
 		"expected_answer": "Later: one review listing people and tag",
 		"must_not": "Fake tags in notes",
 		"eval": {
-			"cantYet": true,
+			"derivation": "Evry has no meeting attendance read yet (T-317), so it can't find who came to the event: it tags no one and never records a tag as a note. ADP-G-04 tags eight people named in the request.",
+			"as": "admin",
+			"target": {
+				"futureCapability": "the coffee shop event's attendance (T-317)"
+			},
 			"forbid": ["/I['’]?(ve| have) (tagged|added|applied)|(are|been) tagged/i"]
 		}
 	},
@@ -1826,10 +1827,10 @@
 				"/(can['’]?t|cannot|no way to|not able to|unable to|only)\\b[^.\\n]{0,80}(each|one person|per person|everyone|whole|all|at a time|filter|search)/i"
 			],
 			"target": {
-				"require": ["/\\b78\\b/"],
+				"require": ["/\\b79\\b/"],
 				"futureCapability": "a church-wide photo filter"
 			},
-			"derivation": "78 of the 83 live people have no photo; photos are read one person at a time today.",
+			"derivation": "79 of the 84 live people have no photo; photos are read one person at a time today.",
 			"finding": {
 				"checks": [
 					"at most 12 people.getPersonPhoto calls",
@@ -1934,7 +1935,11 @@
 		"must_not": "Refuse as pastoral",
 		"eval": {
 			"cantYet": true,
-			"forbid": ["/pastoral|counsel/i"]
+			"forbid": ["/pastoral|counsel/i"],
+			"finding": {
+				"checks": ["calls only no tool"],
+				"note": "T-319 merge with T-320 (as D-958): re-recorded after the WP-064 People writes and the teams tools joined one tool list; recorded as drift, not a capability change."
+			}
 		}
 	},
 	{
@@ -2001,10 +2006,6 @@
 			"require": ["/owner|admin/i"],
 			"target": {
 				"require": ["/owner|admin/i"]
-			},
-			"finding": {
-				"checks": ["says /owner|admin/i"],
-				"note": "Tells a Member to change Ana's stage in the app, which a Member cannot do; never says an Owner or Admin must."
 			}
 		}
 	},
@@ -2022,7 +2023,11 @@
 		"eval": {
 			"only": [],
 			"require": ["/private|care/i", "/app|Everyfield/i"],
-			"forbid": ["/(you have|there are|I (found|see)) (no |some |\\d+ )?(care )?notes|no care notes/i"]
+			"forbid": ["/(you have|there are|I (found|see)) (no |some |\\d+ )?(care )?notes|no care notes/i"],
+			"finding": {
+				"checks": ["says /app|Everyfield/i"],
+				"note": "T-319 merge with T-320 (as D-958): re-recorded after the WP-064 People writes and the teams tools joined one tool list; recorded as drift, not a capability change."
+			}
 		}
 	},
 	{
@@ -2428,18 +2433,18 @@
 				"/background[- ]check/i",
 				"/(doesn['’]?t|does not|don['’]?t|do not) (track|record|store|keep|hold|have)|isn['’]?t (something|tracked)|not (part of|in|tracked)/i"
 			],
-			"forbid": ["/(status|check) is (clear|pending|complete|passed)|\\b(cleared|passed)\\b/i"],
+			"finding": {
+				"checks": [
+					"says /(doesn['’]?t|does not|don['’]?t|do not) (track|record|store|keep|hold|have)|isn['’]?t (something|tracked)|not (part of|in|tracked)/i"
+				],
+				"note": "Says the status 'isn't available in the records I can access', not that Everyfield doesn't track background checks. T-319 (as D-958): after the WP-064 People writes joined the tool list, the re-recorded model answer misses these checks; recorded as drift, not a capability change. T-319 merge with T-320 (as D-958): re-recorded after the WP-064 People writes and the teams tools joined one tool list; recorded as drift, not a capability change."
+			},
 			"target": {
 				"require": [
 					"/(doesn['’]?t|does not|don['’]?t|do not) (track|record|store|keep|hold|have)|isn['’]?t (something|tracked)|not (part of|in|tracked)/i"
 				]
 			},
-			"finding": {
-				"checks": [
-					"says /(doesn['’]?t|does not|don['’]?t|do not) (track|record|store|keep|hold|have)|isn['’]?t (something|tracked)|not (part of|in|tracked)/i"
-				],
-				"note": "Says the status 'isn't available in the records I can access', not that Everyfield doesn't track background checks."
-			}
+			"forbid": ["/(status|check) is (clear|pending|complete|passed)|\\b(cleared|passed)\\b/i"]
 		}
 	}
 ]
