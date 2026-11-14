@@ -191,15 +191,11 @@ const foundationsCompleted = (account: SQL) => sql`(SELECT count(DISTINCT r.arti
 
 /**
  * Whether completion `c` of enrollment `x` shows to the organization: what it recorded itself, and a linked
- * resident's own mark only while live link `lk` shares milestone progress (REQ-MUL-003, REQ-MUL-014).
+ * resident's own mark only while that person's live link shares milestone progress (REQ-MUL-003, REQ-MUL-014). Each
+ * enrollment's own link decides, so it holds on a read over several enrollments.
  */
-const orgSees = sql`(c.source='program_leader' OR coalesce((SELECT share_milestones FROM lk),false))`;
-
-/**
- * `orgSees` for a read over several enrollments `x`: each one's own live link decides, not one shared `lk`.
- */
-const orgSeesPer = (org: string) => sql`(c.source='program_leader' OR EXISTS(SELECT FROM residency_link l
- WHERE l.person_id=x.person_id AND l.organization_id=${org}::uuid AND ${liveResidency} AND l.share_milestones))`;
+const orgSees = sql`(c.source='program_leader' OR EXISTS(SELECT FROM residency_link l
+ WHERE l.person_id=x.person_id AND l.organization_id=c.organization_id AND ${liveResidency} AND l.share_milestones))`;
 
 /**
  * Milestone `m` for enrollment `x` as the contract's enrollmentMilestone: its completion and feedback on any version,
@@ -418,7 +414,7 @@ SELECT g.allowed,coalesce((SELECT jsonb_agg(jsonb_build_object('enrollmentId',x.
    FROM development_stage s WHERE s.version_id=x.current_version_id AND s.organization_id=${org}::uuid),'[]'::jsonb),
   'finished',coalesce((SELECT jsonb_agg(DISTINCT cm.lineage) FROM enrollment_milestone c JOIN development_milestone cm
    ON cm.id=c.milestone_id AND cm.organization_id=c.organization_id WHERE c.enrollment_id=x.id
-   AND c.organization_id=${org}::uuid AND ${orgSeesPer(org)}),'[]'::jsonb)) ORDER BY lower(x.display_name),x.id) FROM x),'[]'::jsonb) AS reviews
+   AND c.organization_id=${org}::uuid AND ${orgSees}),'[]'::jsonb)) ORDER BY lower(x.display_name),x.id) FROM x),'[]'::jsonb) AS reviews
 FROM g`);
 	const row = z.object({ allowed: z.boolean(), reviews: z.array(reviewRow) }).parse(r.rows[0]);
 	if (!row.allowed) refuse();

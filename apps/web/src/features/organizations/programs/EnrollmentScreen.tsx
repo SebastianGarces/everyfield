@@ -163,8 +163,6 @@ export function EnrollmentScreen({ initial }: { initial: EnrollmentDetail }) {
 										milestone={m}
 										enrollment={enrollment}
 										director={director}
-										linked={resident.status === "linked"}
-										hidden={resident.status === "linked" && resident.milestones === "not_shared"}
 										onRecord={() => setRecording(m)}
 										onChanged={reread}
 									/>
@@ -191,8 +189,6 @@ export function EnrollmentScreen({ initial }: { initial: EnrollmentDetail }) {
 											milestone={m}
 											enrollment={enrollment}
 											director={false}
-											linked={resident.status === "linked"}
-											hidden={resident.status === "linked" && resident.milestones === "not_shared"}
 											recordedOn={m.versionNumber}
 											onRecord={() => undefined}
 											onChanged={reread}
@@ -234,8 +230,6 @@ function MilestoneRow({
 	milestone: m,
 	enrollment,
 	director,
-	linked,
-	hidden,
 	recordedOn,
 	onRecord,
 	onChanged,
@@ -243,16 +237,16 @@ function MilestoneRow({
 	milestone: Milestone;
 	enrollment: EnrollmentDetail;
 	director: boolean;
-	/** The enrollee has a live linked account: they mark their own milestones, so there is no one-step record. */
-	linked: boolean;
-	/** The resident does not share milestone progress, so an empty row says nothing about whether it is done. */
-	hidden: boolean;
 	/** For a milestone a later version removed: the version its record is on. */
 	recordedOn?: number;
 	onRecord: () => void;
 	onChanged: () => Promise<void>;
 }) {
 	const c = m.completion;
+	// A linked enrollee marks their own milestones, so there is no one-step record; while they don't share milestone
+	// progress, an empty row says nothing about whether it is done.
+	const linked = enrollment.resident.status === "linked";
+	const hidden = enrollment.resident.status === "linked" && enrollment.resident.milestones === "not_shared";
 	const waiting = c !== null && c.confirmedOn === null;
 	const [confirming, setConfirming] = useState(false);
 	const [problem, setProblem] = useState<string | null>(null);
