@@ -3,6 +3,8 @@
 import {
 	Alert02Icon,
 	ArrowRight02Icon,
+	Briefcase01Icon,
+	CheckListIcon,
 	Cancel01Icon,
 	CheckmarkCircle02Icon,
 	Clock01Icon,
@@ -10,9 +12,12 @@ import {
 	Image01Icon,
 	Mail01Icon,
 	ImageNotFound01Icon,
+	Mortarboard01Icon,
 	SquareLock02Icon,
 	Tick02Icon,
 	UserAdd01Icon,
+	UserGroupIcon,
+	UserIcon,
 } from "@hugeicons/core-free-icons";
 import { Button, Field, Input, IntentLink, Select, Skeleton, Spinner, Textarea } from "@everyfield/ui/controls";
 import { Avatar, StageChip } from "@everyfield/ui/display";
@@ -38,6 +43,7 @@ import {
 	intelligenceRefusalText,
 	isIntelligence,
 	isMail,
+	isTeams,
 	isRequired,
 	MAIL_DISMISSED,
 	mailHead,
@@ -841,24 +847,37 @@ function CardHead({
 	);
 }
 
+const RECORD_GLYPH: Record<NonNullable<Review["review"]["target"]>["kind"], IconSvgElement> = {
+	person: UserIcon,
+	message: Mail01Icon,
+	team: UserGroupIcon,
+	role: Briefcase01Icon,
+	training: Mortarboard01Icon,
+	responsibility: CheckListIcon,
+	// A phase or signal card shows the church's initials instead (Affects); the glyph is only the type's completeness.
+	plant: UserGroupIcon,
+};
+
 /** Who the change affects: the person, or the new person a create adds. */
 function Affects({ review }: { review: Review }) {
 	const mail = isMail(review.operation);
 	const create = review.operation === "people.createPerson";
+	const target = review.review.target;
+	// A ministry change names its ministry, role, program or responsibility; a new ministry or program its name.
+	const record = isTeams(review.operation) ? (target ? RECORD_GLYPH[target.kind] : UserGroupIcon) : null;
+	const glyph = record ?? (mail ? Mail01Icon : create ? UserAdd01Icon : null);
 	const name = mail
-		? String(review.review.changes.find((c) => c.field === "subject")?.after ?? review.review.target?.label ?? "Email")
+		? String(review.review.changes.find((c) => c.field === "subject")?.after ?? target?.label ?? "Email")
 		: create
 			? String(review.review.changes.find((c) => c.field === "displayName")?.after ?? "New person")
-			: (review.review.target?.label ?? "Not available");
+			: record && !target
+				? String(review.review.changes.find((c) => c.field === "name")?.after ?? "New ministries")
+				: (target?.label ?? "Not available");
 	return (
 		<div className="flex items-center gap-3">
-			{mail ? (
+			{glyph ? (
 				<span className="grid size-8 flex-none place-items-center rounded-full bg-surface-2 text-text-2">
-					<Icon icon={Mail01Icon} size={16} />
-				</span>
-			) : create ? (
-				<span className="grid size-8 flex-none place-items-center rounded-full bg-surface-2 text-text-2">
-					<Icon icon={UserAdd01Icon} size={16} />
+					<Icon icon={glyph} size={16} />
 				</span>
 			) : (
 				<Avatar name={name} size="sm" decorative />
