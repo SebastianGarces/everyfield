@@ -1266,7 +1266,9 @@ function Changes({ review, staged, onRetry }: { review: Review; staged: StagedPh
 	// A Meetings or Launch value with nothing before it is new: it shows only what it will be.
 	// So is a milestone a program's next version adds.
 	const fresh = (c: Change) =>
-		(isMeetings(review.operation) || isLaunch(review.operation) || review.operation === "development.draftNextVersion") &&
+		(isMeetings(review.operation) ||
+			isLaunch(review.operation) ||
+			review.operation === "development.draftNextVersion") &&
 		(c.before === null || c.before === undefined);
 	return (
 		<dl className="flex flex-col gap-2 rounded-md bg-surface-2 px-3 py-2.5 text-sm">
