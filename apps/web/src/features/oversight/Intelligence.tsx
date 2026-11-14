@@ -93,14 +93,17 @@ export function IntelligenceBody({ initial }: { initial: IntelligenceView }) {
 
 			{view.run ? (
 				<>
-					<nav aria-label="Group by" className="flex w-max max-w-full flex-wrap gap-1 rounded-md bg-surface-2 p-1">
+					<nav
+						aria-label="Group by"
+						className="flex w-max max-w-full gap-1 overflow-x-auto rounded-md bg-surface-2 p-1"
+					>
 						{LEVELS.map((l) => (
 							<Link
 								key={l}
 								href={href(l, viewingLatest ? null : view.run!.runId)}
 								aria-current={view.level === l ? "page" : undefined}
 								className={cn(
-									"inline-flex cursor-pointer items-center rounded-md px-3.5 py-2 font-medium text-ink-2 transition-colors duration-150 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ef-focus)]",
+									"inline-flex flex-none cursor-pointer items-center rounded-md px-3.5 py-2 font-medium whitespace-nowrap text-ink-2 transition-colors duration-150 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ef-focus)]",
 									view.level === l && "bg-surface-raised text-ink shadow-[var(--ef-shadow-raised)]",
 								)}
 							>

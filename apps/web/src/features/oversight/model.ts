@@ -140,9 +140,9 @@ export function resultLabel(row: IntelligenceRow): { label: string; status: Stat
 	return { label: "Unknown", status: "unknown" };
 }
 
-/** A run's time in the organization's time zone, "Nov 14, 2026, 8:03 AM". */
+/** A run's time in the organization's time zone, to the second: "Nov 14, 2026, 8:03:12 AM". */
 export const runLabel = (instant: string, timeZone: string) =>
-	new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short", timeZone }).format(new Date(instant));
+	new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "medium", timeZone }).format(new Date(instant));
 /** A published instant as the plant's calendar day, "Nov 14, 2026". */
 export const dayOf = (instant: string, timeZone: string) =>
 	new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeZone }).format(new Date(instant));
