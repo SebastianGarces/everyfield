@@ -164,6 +164,16 @@ function Today({ data }: { data: PipelineGoals }) {
 						</dd>
 					</div>
 				))}
+				<div className="flex flex-col gap-0.5 border-b border-line py-2">
+					<div className="flex items-baseline justify-between gap-3">
+						<dt className="text-text-2">Active residents</dt>
+						<dd className="font-semibold text-ink tabular-nums">
+							{data.activeResidents}
+							<span className="sr-only"> {data.activeResidents === 1 ? "person" : "people"}</span>
+						</dd>
+					</div>
+					<p className="text-xs text-text-3">In a residency program now. Apprenticeships don’t count.</p>
+				</div>
 				<div className="flex flex-col gap-0.5 pt-2">
 					<div className="flex items-baseline justify-between gap-3">
 						<dt className="text-text-2">Plants sent</dt>

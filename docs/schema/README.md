@@ -2,7 +2,7 @@
 
 [target.json](target.json) is generated from the Drizzle declarations in [tables.ts](../../packages/db/src/schema/tables.ts). Those declarations own modeled structure; reviewed custom migrations and supplemental catalog expectations own triggers, functions and privileges. Applied SQL remains immutable.
 
-The schema has 108 tables, 1227 columns, 364 declared FKs and 27 JSONB columns. These are counts of definitions, including compound FKs as one constraint. They exclude indexes, triggers, packaged artifacts and external backups.
+The schema has 112 tables, 1260 columns, 375 declared FKs and 27 JSONB columns. These are counts of definitions, including compound FKs as one constraint. They exclude indexes, triggers, packaged artifacts and external backups.
 
 Run documentation/tooling checks from the repository root:
 
@@ -38,6 +38,7 @@ Each replaced table inherits the union of producer packages from its previous ta
 
 | New table | Ownership basis and ruling | Producers |
 |---|---|---|
+| `assignment_feedback` | WP-099 development programs own their plans, completions and feedback. | WP-099 |
 | `attestation_revision` | WP-039 appends a revision when a signal or candidate attestation changes. | WP-039 |
 | `church_brand_kit` | WP-104 stores one brand kit for each church plant. The plant owns the row. | WP-104 |
 | `commitment_change` | WP-014 commitment lifecycle storage through Drizzle Kit (C100). | WP-014 |
@@ -45,12 +46,15 @@ Each replaced table inherits the union of producer packages from its previous ta
 | `conversation` | WP-051 Evry conversation storage through Drizzle Kit. | WP-051 |
 | `conversation_event` | WP-051 Evry conversation storage through Drizzle Kit. | WP-051 |
 | `development_enrollment` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-099 |
+| `development_milestone` | WP-099 development programs own their plans, completions and feedback. | WP-099 |
 | `development_program` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-099 |
 | `development_program_version` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-099 |
+| `development_reading` | WP-099 development programs own their plans, completions and feedback. | WP-099 |
 | `development_stage` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-099 |
 | `digest_coverage` | Recipient digest coverage splits from inbox notification production. | WP-004, WP-030 |
 | `early_access_attempt` | WP-097 owns the applied migration 0001 limiter table, without an invented primary key. | WP-097 |
 | `early_access_request` | WP-097 owns the applied early access migration 0001 request table; no product scaffold or tenant prerequisite. Field shape follows the approved E3 contract and receipt shape follows E4. | WP-097 |
+| `enrollment_milestone` | WP-099 development programs own their plans, completions and feedback. | WP-099 |
 | `feedback` | WP-049 feedback.submit stores it; feedback.admin.changeStatus moves its status. | WP-049 |
 | `generated_document` | WP-037 stores one saved catalog render. The plant owns the row. Creator attribution is not ownership. | WP-037 |
 | `identity_proof` | Application-owned email-change/cancellation proof splits from account/auth and deletion facts; password reset remains library-owned. | WP-004, WP-005, WP-010, WP-050, WP-057 |

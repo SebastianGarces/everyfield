@@ -4,7 +4,7 @@ The approved target has 99 active single-owner packages. WP-086 is retired into 
 
 Start with a [short package brief](context.md). Read detailed requirements and cases on demand. The [DAG](dag.json) owns scope and dependencies; builders choose filenames and internal structures within the owned directories.
 
-Rough scope-based effort is 232.5 engineer-days. The weighted prerequisite lower bound with unconstrained capacity is 89 working days. These are planning estimates, not autonomous-agent throughput or a delivery date. Reviews, real scheduling and external setup add time. Re-estimate after the local runtime and first integrated slice.
+Rough scope-based effort is 233 engineer-days. The weighted prerequisite lower bound with unconstrained capacity is 89 working days. These are planning estimates, not autonomous-agent throughput or a delivery date. Reviews, real scheduling and external setup add time. Re-estimate after the local runtime and first integrated slice.
 
 ## Foundation and shared UI
 
@@ -121,7 +121,7 @@ The DAG estimates effort from owned clauses, operations, cases and referenced ta
 | WP-092 | Knowledge, communication and reference integration | 9 | 0 | 12 | 0 | 1.5 |
 | WP-093 | Phases, intelligence and Launch integration | 6 | 0 | 34 | 0 | 2 |
 | WP-098 | Organization pipeline, goals and conversations | 3 | 13 | 3 | 7 | 4 |
-| WP-099 | Development programs and enrollment | 3 | 11 | 3 | 5 | 3.5 |
+| WP-099 | Development programs and enrollment | 3 | 11 | 3 | 9 | 4 |
 | WP-100 | My residency and consented progress | 2 | 3 | 2 | 0 | 2.5 |
 | WP-101 | Pipeline and development Evry adapters | 1 | 15 | 1 | 0 | 3 |
 | WP-102 | Multiplication privacy, race and parity integration | 17 | 0 | 17 | 0 | 4.5 |
