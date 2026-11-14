@@ -190,7 +190,7 @@ const shown = (m: Facts) => ({
 	when: localWhen(m.startsAt, m.zone),
 	venue: venueText(m.venue),
 	status: STATUS[m.status] ?? m.status,
-	notes: m.notes,
+	meetingNotes: m.notes,
 	held: m.occurrence.heldAt ? localWhen(m.occurrence.heldAt, m.zone) : null,
 	voided: m.occurrence.voidedAt ? "Voided" : null,
 	removed: m.retiredAt ? "Removed from Meetings" : null,
@@ -302,7 +302,7 @@ export const schedule = write({
 				? [created("agenda", m.agenda.sections.map((s) => `${s.title} (${s.minutes} min)`))]
 				: []),
 			...(m.kit ? [created("kit", `${m.kit.total} checklist items to prepare`)] : []),
-			...(m.notes ? [created("notes", m.notes)] : []),
+			...(m.notes ? [created("meetingNotes", m.notes)] : []),
 		];
 	},
 	revision: meetingRevision,
@@ -491,7 +491,7 @@ export const updateKitItem = write({
 			...(before.assignee?.personId !== after.assignee?.personId
 				? [change("bringer", before.assignee?.displayName, after.assignee?.displayName)]
 				: []),
-			...(before.notes !== after.notes ? [change("notes", before.notes, after.notes)] : []),
+			...(before.notes !== after.notes ? [change("kitNote", before.notes, after.notes)] : []),
 		];
 	},
 	revision: (v) => v.items[0]?.revision ?? "1",
@@ -919,7 +919,7 @@ export const recordEvaluation = write({
 	changes: ({ value: v }: { value: z.infer<typeof c.evaluationMutationResult> }) => [
 		...c.evaluationFactors.map((f) => created(f, String(v.evaluation.scores[f]))),
 		created("average", String(v.evaluation.average)),
-		...(v.evaluation.notes ? [created("notes", v.evaluation.notes)] : []),
+		...(v.evaluation.notes ? [created("evaluationNotes", v.evaluation.notes)] : []),
 		...(v.taskCompleted ? [created("tasks", ["The meeting's evaluation task is marked complete"])] : []),
 	],
 	asked: ({ args }) =>
@@ -1002,7 +1002,7 @@ const venueDiff = (before: Venue | null, after: Venue) => {
 	const a = before ? venueShown(before) : null,
 		b = venueShown(after);
 	return VENUE_FIELDS.filter((k) => (a ? a[k] !== b[k] : b[k] !== null && k !== "active")).map((k) =>
-		change(k, a?.[k], b[k]),
+		change(k === "notes" ? "venueNotes" : k, a?.[k], b[k]),
 	);
 };
 const venueTarget = (v: Venue): Target => ({ kind: "venue", id: v.id, label: v.name });

@@ -425,7 +425,12 @@ test("INV-result-card-import: the template, a preview and a receipt read as a fi
 				{ kind: "import", id: "2", label: "created", fields: { status: "created", personId: P1, reason: null } },
 				{ kind: "person", id: P1, label: "Imported person", fields: { row: "2" } },
 				{ kind: "import", id: "3", label: "skipped", fields: { status: "skipped", personId: null, reason: null } },
-				{ kind: "import", id: "4", label: "failed", fields: { status: "failed", personId: null, reason: "invalid" } },
+				{
+					kind: "import",
+					id: "4",
+					label: "failed",
+					fields: { status: "failed", personId: null, reason: "email: the email address is not valid" },
+				},
 			],
 			{ total: 3 },
 		),
@@ -438,7 +443,7 @@ test("INV-result-card-import: the template, a preview and a receipt read as a fi
 			["Import partly complete", "1 added · 1 skipped · 1 failed", null, null],
 			["Row 2", null, `/people/${P1}`, { kind: "status", text: "Added", warn: false }],
 			["Row 3", null, null, { kind: "status", text: "Skipped", warn: false }],
-			["Row 4", "Not valid", null, { kind: "status", text: "Failed", warn: true }],
+			["Row 4", "email: the email address is not valid", null, { kind: "status", text: "Failed", warn: true }],
 		],
 	);
 	for (const view of [template, preview, receipt]) assert.doesNotMatch(view.summary, /person|people/);
@@ -523,7 +528,7 @@ const M1 = "44444444-4444-4444-8444-444444444444";
 const M2 = "55555555-5555-4555-8555-555555555555";
 const M3 = "66666666-6666-4666-8666-666666666666";
 
-test("a Vision night with no attendance recorded says not recorded on the trend card, never 0 attended", () => {
+test("INV-meetings-not-recorded: a Vision night with no attendance recorded says not recorded on the trend card, never 0 attended", () => {
 	const point = (id, date, attended) => ({ kind: "item", id, label: "Vision Meeting", fields: { date, attended } });
 	const view = cardView(
 		"meetings.attendanceTrend",
@@ -546,11 +551,15 @@ test("a Vision night with no attendance recorded says not recorded on the trend 
 	assert.equal(JSON.stringify(view).includes("0 attended"), false);
 });
 
-test("guests on an RSVP card are marked by their answer, never as attended, and link to their person", () => {
+test("INV-meetings-rsvp: guests on an RSVP card are marked by their answer, never as attended, and link to their person", () => {
 	const guest = (id, label, rsvp) => ({ kind: "person", id, label, fields: { rsvp, invitedBy: null } });
 	const view = cardView(
 		"meetings.listGuests",
-		result("meetings.listGuests", [guest(P1, "Kevin Walsh", "yes"), guest(P2, "Joy Lee", "no"), guest(H, "Elena Garcia", "no answer")]),
+		result("meetings.listGuests", [
+			guest(P1, "Kevin Walsh", "yes"),
+			guest(P2, "Joy Lee", "no"),
+			guest(H, "Elena Garcia", "no answer"),
+		]),
 		null,
 	);
 	assert.equal(view.title, "RSVPs");
@@ -565,7 +574,7 @@ test("guests on an RSVP card are marked by their answer, never as attended, and 
 	assert.equal(/attend/i.test(JSON.stringify(view)), false);
 });
 
-test("a meetings list row says when and where in the church's words, marks a cancelled one and opens the meeting", () => {
+test("INV-meetings-list: a meetings list row says when and where in the church's words, marks a cancelled one and opens the meeting", () => {
 	const meeting = (id, label, status) => ({
 		kind: "meeting",
 		id,
@@ -574,7 +583,10 @@ test("a meetings list row says when and where in the church's words, marks a can
 	});
 	const view = cardView(
 		"meetings.list",
-		result("meetings.list", [meeting(M1, "Coffee with Pastor Nate", "cancelled"), meeting(M2, "Vision Meeting #4", "planning")]),
+		result("meetings.list", [
+			meeting(M1, "Coffee with Pastor Nate", "cancelled"),
+			meeting(M2, "Vision Meeting #4", "planning"),
+		]),
 		null,
 	);
 	assert.deepEqual([view.title, view.summary], ["Meetings", "2 meetings"]);
@@ -587,7 +599,7 @@ test("a meetings list row says when and where in the church's words, marks a can
 	);
 });
 
-test("the agenda card leads with the app's print link, opened in a new tab, then the saved sections in order", () => {
+test("INV-meetings-agenda: the agenda card leads with the app's print link, opened in a new tab, then the saved sections in order", () => {
 	const view = cardView(
 		"meetings.readAgenda",
 		result("meetings.readAgenda", [
