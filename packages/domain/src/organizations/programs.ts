@@ -176,7 +176,9 @@ FROM g`);
  * The live residency link `lk` of enrollment `x`'s person, with what its resident shares (REQ-MUL-003). No row
  * without a live link: never linked, left, or ended.
  */
-const linkOf = (org: string) => sql`lk AS (SELECT l.account_id,l.share_milestones,l.share_foundations FROM residency_link l
+const linkOf = (
+	org: string,
+) => sql`lk AS (SELECT l.account_id,l.share_milestones,l.share_foundations FROM residency_link l
  JOIN x ON l.person_id=x.person_id WHERE l.organization_id=${org}::uuid AND ${liveResidency} LIMIT 1)`;
 
 /** How many of the six Discovery foundations account `account` has completed on a published revision (REQ-MUL-014). */

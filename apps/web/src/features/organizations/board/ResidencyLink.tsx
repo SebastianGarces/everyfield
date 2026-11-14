@@ -17,7 +17,8 @@ const PROBLEM: { [code: string]: string } = {
 	invitation_cooldown: "It was just sent. Wait a minute before sending it again.",
 	conflict: "Something changed while you were working. Reload the page, then try again.",
 };
-const problemText = (code: string) => PROBLEM[code] ?? "This invitation couldn’t be changed. Reload the page and try again.";
+const problemText = (code: string) =>
+	PROBLEM[code] ?? "This invitation couldn’t be changed. Reload the page and try again.";
 
 /**
  * Whether the person's own Everyfield account is linked to the residency (REQ-MUL-004). An Owner or Admin invites the
@@ -87,8 +88,8 @@ export function ResidencyLink({ record, onChanged }: { record: Record; onChanged
 				) : link.status === "pending" ? (
 					<>
 						<p className="text-ink-2">
-							Sent {formatDay(link.sentOn)} to <span className="text-ink [overflow-wrap:anywhere]">{link.recipientEmail}</span>.
-							It works for 30 days.
+							Sent {formatDay(link.sentOn)} to{" "}
+							<span className="text-ink [overflow-wrap:anywhere]">{link.recipientEmail}</span>. It works for 30 days.
 						</p>
 						<div className="flex flex-wrap gap-2">
 							<Button

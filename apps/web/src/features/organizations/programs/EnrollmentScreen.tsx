@@ -95,8 +95,8 @@ export function EnrollmentScreen({ initial }: { initial: EnrollmentDetail }) {
 						</dl>
 						{resident.status === "linked" ? (
 							<p className="mt-4 text-sm text-text-2">
-								{firstName} chooses what you see from their own account. Their reading, reflections and documents
-								are never shared.
+								{firstName} chooses what you see from their own account. Their reading, reflections and documents are
+								never shared.
 							</p>
 						) : null}
 					</CardBody>

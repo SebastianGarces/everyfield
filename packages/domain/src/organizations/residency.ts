@@ -102,7 +102,10 @@ export async function readResidencyLink(db: Executor, authority: RequestActor) {
 	if (!me) return null;
 	const r = await db.execute(sql`WITH g AS (SELECT ${me.live} AS allowed), ${linkCte(me.accountId)}
 SELECT o.name AS "organizationName" FROM l JOIN organization o ON o.id=l.organization_id`);
-	return z.object({ organizationName: z.string() }).nullable().parse(r.rows[0] ?? null);
+	return z
+		.object({ organizationName: z.string() })
+		.nullable()
+		.parse(r.rows[0] ?? null);
 }
 
 /**

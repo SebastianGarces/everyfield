@@ -75,7 +75,10 @@ function LinkedResidency({ residency }: { residency: Linked }) {
 	const church = residency.organizationName;
 	return (
 		<div className="flex flex-col gap-5">
-			<PageHeader title="My residency" subtitle={`With ${church}. Your progress stays yours; you choose what they see.`} />
+			<PageHeader
+				title="My residency"
+				subtitle={`With ${church}. Your progress stays yours; you choose what they see.`}
+			/>
 			{residency.enrollments.length === 0 ? (
 				<Card>
 					<EmptyState icon={Mortarboard01Icon} headingLevel="h2" title="No program yet">
@@ -197,8 +200,8 @@ function NextMeeting({
 							<p className="text-text-2">{zoneName(timezone)}</p>
 						) : (
 							<p className="text-text-2">
-								Your time ({zoneName(timezone)}). That’s {meetingTime(meeting.churchAt)} {zoneName(meeting.churchTimezone)}{" "}
-								for {church}.
+								Your time ({zoneName(timezone)}). That’s {meetingTime(meeting.churchAt)}{" "}
+								{zoneName(meeting.churchTimezone)} for {church}.
 							</p>
 						)}
 					</>

@@ -109,8 +109,16 @@ const claim = (i: { invitationId: string; proof: string }, rest: object) => ({
 	input: { invitationId: i.invitationId, proof: i.proof, ...rest },
 });
 
-async function revision(id: string, article: string, tenant: string, title: string, slug: string, release: string | null) {
-	await f.admin.execute(sql`INSERT INTO article_revision(id,article_id,tenant_id,release_id,revision_number,title,slug,excerpt,
+async function revision(
+	id: string,
+	article: string,
+	tenant: string,
+	title: string,
+	slug: string,
+	release: string | null,
+) {
+	await f.admin
+		.execute(sql`INSERT INTO article_revision(id,article_id,tenant_id,release_id,revision_number,title,slug,excerpt,
 	 body,content_type,phase,position,content_hash,published_at,meaningful,meaningful_sequence,section_id)
 	 VALUES(${id},${article},${tenant},${release},1,${title},${slug},${title},${tenant === GLOBAL ? "Body" : "[]"},
 	  ${tenant === GLOBAL ? "safe_mdx" : "safe_nodes"},1,1,${randomBytes(32).toString("hex")},clock_timestamp(),true,1,
@@ -135,7 +143,9 @@ before(async () => {
 	casey = await discovery("casey@example.test", "Casey Lee");
 	rae = await discovery("rae@example.test", "Rae");
 	const anaSeat = (
-		await f.admin.execute(sql`SELECT id FROM seat WHERE account_id=${ana.id}::uuid AND organization_id=${grace.id}::uuid`)
+		await f.admin.execute(
+			sql`SELECT id FROM seat WHERE account_id=${ana.id}::uuid AND organization_id=${grace.id}::uuid`,
+		)
 	).rows[0]!.id as string;
 
 	// Wiki: one global article, and two of Grace Austin's own published versions.
@@ -147,7 +157,8 @@ before(async () => {
 		await f.admin.execute(
 			sql`INSERT INTO reference_item(id,kind,canonical_key,tenant_id) VALUES(${article},'article',${"residency/" + name},${GLOBAL})`,
 		);
-	await f.admin.execute(sql`INSERT INTO reference_release(id,release_key,artifact_locator,manifest_hash,state,complete_at,validated_at,
+	await f.admin
+		.execute(sql`INSERT INTO reference_release(id,release_key,artifact_locator,manifest_hash,state,complete_at,validated_at,
 	 approval_locator,approval_hash,chunker_version,embedding_profile,embedding_dimensions,tenant_id,expected_passages)
 	 VALUES(${release},${"release-" + release},'memory://synthetic',${randomBytes(32).toString("hex")},'validated',clock_timestamp(),
 	  clock_timestamp(),'memory://approval',${randomBytes(32).toString("hex")},'v','profile',1,${GLOBAL},0)`);
@@ -158,9 +169,11 @@ before(async () => {
 		[articles.team, revisions.teamGrace],
 		[articles.other, revisions.otherGrace],
 	])
-		await f.admin.execute(sql`INSERT INTO article_editor_state(id,organization_id,article_id,state,current_revision_id,revision)
+		await f.admin
+			.execute(sql`INSERT INTO article_editor_state(id,organization_id,article_id,state,current_revision_id,revision)
 	 VALUES(${randomUUID()},${grace.id},${article},'published',${rev},1)`);
-	await f.admin.execute(sql`INSERT INTO reference_activation(id,release_id,activation_number,activated_at,actor_tombstone,reason,expected_prior_number)
+	await f.admin
+		.execute(sql`INSERT INTO reference_activation(id,release_id,activation_number,activated_at,actor_tombstone,reason,expected_prior_number)
 	 VALUES(${randomUUID()},${release},1,clock_timestamp(),'synthetic','test',0)`);
 
 	// The pipeline: Casey with her email and no linked account, Jordan without one.
@@ -203,11 +216,13 @@ before(async () => {
 			},
 		}),
 	);
-	const draft = (await f.admin.execute(sql`SELECT revision::text AS r FROM development_program WHERE id=${program}::uuid`))
-		.rows[0]!.r as string;
+	const draft = (
+		await f.admin.execute(sql`SELECT revision::text AS r FROM development_program WHERE id=${program}::uuid`)
+	).rows[0]!.r as string;
 	ok(await programWriter.publishVersion(f.db, await authority(ana), { programId: program, expectedRevision: draft }));
 	const stage = (
-		await f.admin.execute(sql`SELECT s.id FROM development_stage s JOIN development_program p ON p.current_version_id=s.version_id
+		await f.admin
+			.execute(sql`SELECT s.id FROM development_stage s JOIN development_program p ON p.current_version_id=s.version_id
 	 WHERE p.id=${program}::uuid AND s.label='Assimilating'`)
 	).rows[0]!.id as string;
 	for (const [enrollmentId, personId] of [
@@ -228,7 +243,8 @@ before(async () => {
 		);
 	// Before Casey links, Ana records and confirms one of her milestones in one step: a fact Grace Austin owns.
 	const preach = (
-		await f.admin.execute(sql`SELECT m.id FROM development_milestone m JOIN development_program p ON p.current_version_id=m.version_id
+		await f.admin
+			.execute(sql`SELECT m.id FROM development_milestone m JOIN development_program p ON p.current_version_id=m.version_id
 	 WHERE p.id=${program}::uuid AND m.title='Preach on a Sunday'`)
 	).rows[0]!.id as string;
 	ok(
@@ -278,7 +294,9 @@ test("an Admin invites Casey to link; the record shows it pending with its date;
 	assert.equal(pending.recipientEmail, "casey@example.test");
 	assert.match(pending.sentOn, /^\d{4}-\d{2}-\d{2}$/);
 	// The email reached Casey's address.
-	assert.ok(f.effects.some((e) => e.to === "casey@example.test" && e.text.includes("link your account to Grace Austin")));
+	assert.ok(
+		f.effects.some((e) => e.to === "casey@example.test" && e.text.includes("link your account to Grace Austin")),
+	);
 	assert.equal((await f.invitations.describe({ proof: sent.proof })).status, "pending");
 
 	await f.invitations.revoke(await authority(luis), {
@@ -351,7 +369,10 @@ test("My residency shows the program, program stage, next meeting in Casey's zon
 		[
 			["Present your vision to the sending church leadership", null],
 			["Write a church planting prospectus", null],
-			["Preach on a Sunday", { completedOn: "2026-10-12", confirmedOn: e!.milestones[2]!.completion?.confirmedOn, source: "program_leader" }],
+			[
+				"Preach on a Sunday",
+				{ completedOn: "2026-10-12", confirmedOn: e!.milestones[2]!.completion?.confirmedOn, source: "program_leader" },
+			],
 		],
 	);
 	assert.deepEqual(
@@ -363,7 +384,13 @@ test("My residency shows the program, program stage, next meeting in Casey's zon
 	);
 	// Nothing the staff record about Casey is in the payload.
 	const text = JSON.stringify(view);
-	for (const hidden of ["Resident", "Potential leader", "Secret stage move reason", "Private staff note", "Assessment Partners"])
+	for (const hidden of [
+		"Resident",
+		"Potential leader",
+		"Secret stage move reason",
+		"Private staff note",
+		"Assessment Partners",
+	])
 		assert.ok(!text.includes(hidden), hidden);
 
 	// In another zone, the meeting moves to her own time and still names the church's.
@@ -506,8 +533,16 @@ test("milestone sharing off hides Casey's own marks; the milestone Ana recorded 
 		"resident",
 	);
 	// Confirming what she does not share is refused.
-	const prospectus = view.status === "linked" ? milestoneOf(view.enrollments[0]!.milestones, "Write a church planting prospectus") : null;
-	ok(await residentWriter.markMilestone(f.db, await authority(casey), { enrollmentId: caseyEnrollment, milestoneId: prospectus!.id }));
+	const prospectus =
+		view.status === "linked"
+			? milestoneOf(view.enrollments[0]!.milestones, "Write a church planting prospectus")
+			: null;
+	ok(
+		await residentWriter.markMilestone(f.db, await authority(casey), {
+			enrollmentId: caseyEnrollment,
+			milestoneId: prospectus!.id,
+		}),
+	);
 	assert.equal(
 		(
 			await programWriter.confirmMilestone(f.db, await authority(ana), {
@@ -524,10 +559,10 @@ test("church reading opens only from Casey's own list; another church article do
 	if (view.status !== "linked") throw Error("not linked");
 	const team = view.enrollments[0]!.readings.find((r) => r.source === "organization")!;
 	const opened = ok(await readResidentReading(f.db, await authority(casey), { readingId: team.id }));
-	assert.deepEqual(
-		opened.status === "available" && [opened.title, opened.organizationName],
-		["Building a launch team at Grace", "Grace Austin"],
-	);
+	assert.deepEqual(opened.status === "available" && [opened.title, opened.organizationName], [
+		"Building a launch team at Grace",
+		"Grace Austin",
+	]);
 	// A reading of a list Casey is not on, or any ID that is not one, opens nothing.
 	assert.deepEqual(ok(await readResidentReading(f.db, await authority(casey), { readingId: randomUUID() })), {
 		status: "unavailable",

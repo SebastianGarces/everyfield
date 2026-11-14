@@ -33,7 +33,9 @@ export const residentMilestone = z.strictObject({
 		})
 		.nullable(),
 	/** The director's dated feedback on this resident's assignment. */
-	feedback: z.array(z.strictObject({ id: recordId, writtenOn: localDate, writer: z.string().nullable(), body: z.string() })),
+	feedback: z.array(
+		z.strictObject({ id: recordId, writtenOn: localDate, writer: z.string().nullable(), body: z.string() }),
+	),
 });
 
 export const residentEnrollment = z.strictObject({

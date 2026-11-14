@@ -9,7 +9,13 @@ export const wikiPath = (slug: string) =>
 		.map((part) => encodeURIComponent(part))
 		.join("/")}`;
 
-const day = new Intl.DateTimeFormat("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+const day = new Intl.DateTimeFormat("en-US", {
+	weekday: "short",
+	month: "short",
+	day: "numeric",
+	year: "numeric",
+	timeZone: "UTC",
+});
 const time = new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", timeZone: "UTC" });
 
 /** A wall-clock time (YYYY-MM-DDTHH:MM:SS) in its own zone, as "Tue, Oct 20, 2026 · 7:00 PM". */
