@@ -19,11 +19,12 @@ import {
 	Textarea,
 } from "@everyfield/ui/controls";
 import { Icon } from "@everyfield/ui/foundations";
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useState, type FormEvent } from "react";
 import { formatDay, PIPELINE_PATH } from "../board/model";
 import { Problem } from "../board/Problem";
 import { addFeedback, recordMilestone, rereadEnrollment } from "./actions";
 import { formatMeeting, KIND, programHref, programProblem, PROGRAMS_PATH } from "./model";
+import { Detail } from "./ProgramScreen";
 
 type Milestone = EnrollmentDetail["milestones"][number];
 const lost = () => ({ status: "lost" as const });
@@ -120,15 +121,6 @@ export function EnrollmentScreen({ initial }: { initial: EnrollmentDetail }) {
 				/>
 			) : null}
 		</div>
-	);
-}
-
-function Detail({ term, children }: { term: string; children: ReactNode }) {
-	return (
-		<>
-			<dt className="text-text-2">{term}</dt>
-			<dd className="min-w-0 text-ink [overflow-wrap:anywhere]">{children}</dd>
-		</>
 	);
 }
 

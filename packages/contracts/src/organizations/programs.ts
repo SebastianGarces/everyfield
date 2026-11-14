@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { accountId, personId, recordId, revision } from "../common/values.ts";
+import { personId, recordId, revision } from "../common/values.ts";
 import { localDate, localDateTime } from "../common/time.ts";
 
 // Development programs (REQ-MUL-010, -011, -012): an organization's apprenticeships and residencies, each a numbered
@@ -218,12 +218,10 @@ export const enrollmentDetail = z.strictObject({
 	expectedEndOn: localDate,
 	status: z.enum(["active", "completed", "withdrawn"]),
 	stage: z.strictObject({ id: recordId, label: z.string() }),
-	stages: z.array(z.strictObject({ id: recordId, label: z.string() })),
 	nextMeeting: z.strictObject({ at: localDateTime, timezone: z.string() }).nullable(),
 	milestones: z.array(enrollmentMilestone),
 	viewer,
 	today: localDate,
-	actor: accountId,
 });
 export type EnrollmentDetail = z.infer<typeof enrollmentDetail>;
 

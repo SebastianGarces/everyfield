@@ -201,8 +201,6 @@ SELECT g.allowed,(SELECT today::text FROM o) AS today,(SELECT jsonb_build_object
   'directorSeatId',x.director_seat_id,'versionNumber',x.version_number,'cohort',x.cohort_label,
   'startedOn',x.started_on::text,'expectedEndOn',x.expected_end_on::text,'status',x.status,
   'stage',(SELECT jsonb_build_object('id',s.id,'label',s.label) FROM development_stage s WHERE s.id=x.current_stage_id),
-  'stages',coalesce((SELECT jsonb_agg(jsonb_build_object('id',s.id,'label',s.label) ORDER BY s.position,s.id)
-   FROM development_stage s WHERE s.version_id=x.version_id AND s.organization_id=x.organization_id),'[]'::jsonb),
   'nextMeeting',CASE WHEN x.next_meeting_at IS NOT NULL THEN jsonb_build_object(
    'at',to_char(x.next_meeting_at AT TIME ZONE x.meeting_timezone,'YYYY-MM-DD"T"HH24:MI:SS'),'timezone',x.meeting_timezone) END,
   'milestones',coalesce((SELECT jsonb_agg(jsonb_build_object('id',m.id,'title',m.title,'description',m.description,
@@ -231,7 +229,6 @@ FROM g`);
 			...enrollment,
 			viewer: { administrator: seat.administrator, director: directorSeatId === seat.seatId },
 			today: row.today,
-			actor: seat.accountId,
 		});
 	});
 }
@@ -268,7 +265,7 @@ type Plan = C.ProgramPlan;
 
 /**
  * The statement that writes a plan into version `version` (inserted when `next` names its number, updated otherwise)
- * and bumps the program, all only when `allowed` holds and every reading is a published revision of the global
+ * and bumps the program, all only when every reading is a published revision of the global
  * library or of this organization. Rows get fresh IDs: a draft's plan is replaced whole, and nothing points at a
  * draft's rows. `program` is the CTE that inserts or locks the program (`id`, `revision`).
  */
@@ -279,7 +276,6 @@ function planStatement(
 		version: string;
 		next: number | null;
 		plan: Plan;
-		allowed: SQL;
 		action: string;
 		kind: string;
 		bump: boolean;
@@ -320,8 +316,7 @@ function planStatement(
 rr AS (SELECT x.id,x.position,rv.id AS revision_id,rv.article_id,rv.title FROM jsonb_to_recordset(${readings}::jsonb)
  x(id uuid,revision_id uuid,position int) JOIN article_revision rv ON rv.id=x.revision_id
  AND rv.tenant_id IN (${GLOBAL}::uuid,${org}::uuid) AND rv.published_at IS NOT NULL),
-ok AS (SELECT (${o.allowed}) AND (SELECT count(DISTINCT article_id) FROM rr)=${plan.readings.length} AS ok,
- (SELECT count(DISTINCT article_id) FROM rr)=${plan.readings.length} AS readings FROM p),
+ok AS (SELECT (SELECT count(DISTINCT article_id) FROM rr)=${plan.readings.length} AS ok FROM p),
 v AS (${version}),
 s AS (INSERT INTO development_stage (id,organization_id,version_id,label,position,min_months,max_months,revision)
  SELECT x.id,${org}::uuid,v.id,x.label,x.position,x.min,x.max,1 FROM v,jsonb_to_recordset(${stages}::jsonb)
@@ -334,9 +329,9 @@ r AS (INSERT INTO development_reading (id,organization_id,version_id,position,ar
 u AS (${o.bump ? sql`UPDATE development_program x SET revision=x.revision+1 FROM v WHERE x.id=(SELECT id FROM p) AND x.organization_id=${org}::uuid RETURNING x.revision` : sql`SELECT p.revision FROM p,v`}),
 a AS (${w.audit({ action: o.action, kind: o.kind, subjectType: "development_program", subject: sql`(SELECT id FROM p)`, before: o.bump ? sql`(SELECT revision FROM p)` : undefined, after: sql`(SELECT revision FROM u)`, metadata: { versionId: o.version } })}
  WHERE EXISTS(SELECT FROM u) RETURNING id)
-SELECT (SELECT ok FROM ok) AS ok,coalesce((SELECT readings FROM ok),false) AS readings,(SELECT revision::text FROM u) AS revision`;
+SELECT coalesce((SELECT ok FROM ok),false) AS readings,(SELECT revision::text FROM u) AS revision`;
 }
-const planAnswer = z.object({ ok: z.boolean().nullable(), readings: z.boolean(), revision: z.string().nullable() });
+const planAnswer = z.object({ readings: z.boolean(), revision: z.string().nullable() });
 
 /** A seat that may direct a program: current in this organization. */
 const eligibleDirector = (w: Writer, seat: string) =>
@@ -358,7 +353,6 @@ function createProgram(db: Database, authority: RequestActor, raw: unknown): Pro
 				version: randomUUID(),
 				next: 1,
 				plan: input.plan,
-				allowed: sql`true`,
 				action: "development.program_created",
 				kind: "create",
 				bump: false,
@@ -427,7 +421,6 @@ SELECT EXISTS(SELECT FROM x) AS found,coalesce((SELECT director_seat_id=${w.seat
 				version: locked.draft ?? randomUUID(),
 				next: locked.draft ? null : (locked.last ?? 0) + 1,
 				plan: input.plan,
-				allowed: sql`true`,
 				action: "development.plan_saved",
 				kind: "edit",
 				bump: true,

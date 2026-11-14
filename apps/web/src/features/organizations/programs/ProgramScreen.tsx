@@ -288,7 +288,7 @@ function Part({ title, empty, count, children }: { title: string; empty: string;
 	);
 }
 
-function Detail({ term, children }: { term: string; children: ReactNode }) {
+export function Detail({ term, children }: { term: string; children: ReactNode }) {
 	return (
 		<>
 			<dt className="text-text-2">{term}</dt>

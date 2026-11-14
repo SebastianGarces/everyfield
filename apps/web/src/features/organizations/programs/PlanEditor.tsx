@@ -110,50 +110,48 @@ export function PlanEditor({ value, onChange }: { value: PlanDraft; onChange: (n
 
 			<Section title="Stages" hint="In order. Each has a month range; enrollments move through them.">
 				<ol className="flex flex-col gap-2" aria-label="Stages">
-					{value.stages.map((s, i) => (
-						<li key={s.key} className="flex flex-wrap items-center gap-2 rounded-md bg-surface-2 p-2.5">
-							<Input
-								aria-label={`Stage ${i + 1} name`}
-								value={s.label}
-								maxLength={80}
-								onChange={(e) =>
-									set({ stages: value.stages.map((x) => (x.key === s.key ? { ...x, label: e.target.value } : x)) })
-								}
-								boxClassName="min-w-[180px] flex-1"
-							/>
-							<span className="flex items-center gap-1.5 text-sm text-text-2">
-								<span className="w-16 flex-none">
-									<Input
-										aria-label={`${s.label || `Stage ${i + 1}`}: fewest months`}
-										inputMode="numeric"
-										value={s.min}
-										onChange={(e) =>
-											set({ stages: value.stages.map((x) => (x.key === s.key ? { ...x, min: e.target.value } : x)) })
-										}
-									/>
+					{value.stages.map((s, i) => {
+						const update = (patch: Partial<PlanDraft["stages"][number]>) =>
+							set({ stages: value.stages.map((x) => (x.key === s.key ? { ...x, ...patch } : x)) });
+						return (
+							<li key={s.key} className="flex flex-wrap items-center gap-2 rounded-md bg-surface-2 p-2.5">
+								<Input
+									aria-label={`Stage ${i + 1} name`}
+									value={s.label}
+									maxLength={80}
+									onChange={(e) => update({ label: e.target.value })}
+									boxClassName="min-w-[180px] flex-1"
+								/>
+								<span className="flex items-center gap-1.5 text-sm text-text-2">
+									<span className="w-16 flex-none">
+										<Input
+											aria-label={`${s.label || `Stage ${i + 1}`}: fewest months`}
+											inputMode="numeric"
+											value={s.min}
+											onChange={(e) => update({ min: e.target.value })}
+										/>
+									</span>
+									to
+									<span className="w-16 flex-none">
+										<Input
+											aria-label={`${s.label || `Stage ${i + 1}`}: most months`}
+											inputMode="numeric"
+											value={s.max}
+											onChange={(e) => update({ max: e.target.value })}
+										/>
+									</span>
+									months
 								</span>
-								to
-								<span className="w-16 flex-none">
-									<Input
-										aria-label={`${s.label || `Stage ${i + 1}`}: most months`}
-										inputMode="numeric"
-										value={s.max}
-										onChange={(e) =>
-											set({ stages: value.stages.map((x) => (x.key === s.key ? { ...x, max: e.target.value } : x)) })
-										}
-									/>
-								</span>
-								months
-							</span>
-							<Order
-								name={s.label || "stage"}
-								index={i}
-								count={value.stages.length}
-								onMove={(by) => set({ stages: move(value.stages, i, by) })}
-								onRemove={() => set({ stages: value.stages.filter((x) => x.key !== s.key) })}
-							/>
-						</li>
-					))}
+								<Order
+									name={s.label || "stage"}
+									index={i}
+									count={value.stages.length}
+									onMove={(by) => set({ stages: move(value.stages, i, by) })}
+									onRemove={() => set({ stages: value.stages.filter((x) => x.key !== s.key) })}
+								/>
+							</li>
+						);
+					})}
 				</ol>
 				<Button
 					variant="secondary"
