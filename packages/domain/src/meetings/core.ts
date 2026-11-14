@@ -25,7 +25,7 @@ export type Reader = Pick<Transaction, "execute">;
 export type MeetingsContext = { session: z.infer<typeof sessionId>; selected: Owner };
 
 type Code = MeetingsError["code"];
-/** A meetings refusal thrown inside a bound request write, where the request transaction owns rollback (reply). */
+/** A refusal inside a bound write; its reply carries the same code. */
 export class Refusal extends Error {
 	readonly code: Code;
 	readonly details: object;
