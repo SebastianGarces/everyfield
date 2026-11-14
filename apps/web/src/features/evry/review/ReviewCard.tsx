@@ -945,6 +945,7 @@ const NOTIFICATION_SUBJECT: Partial<Record<string, string>> = {
 	"notifications.markAllVisibleRead": "Your notifications",
 	"notifications.setPreferences": "Your notification settings",
 	"notifications.digestCadence.set": "Your church digest",
+	"notifications.oversightDigestCadence.set": "Your oversight digest",
 };
 
 /** The ministry records a Ministries change names. */

@@ -6,6 +6,7 @@ import {
 	compileOversightDigest,
 	compilePlanterDigest,
 	digestRecipientLive,
+	OVERSIGHT_SLOT,
 	owedPeriod,
 	renderOversightDigest,
 	renderPlanterDigest,
@@ -33,7 +34,6 @@ import { mountMailService } from "./seated-notifications.ts";
 // The church schedule (Settings → Church) sets the church digest's weekday and hour; the oversight digest goes out at
 // 07:00 in the organization's zone and covers completed days only (WP-030 decisions D-b, D-c).
 
-const OVERSIGHT_SLOT = { weekday: 1, hour: 7 } as const;
 /** Coverage starts and jobs queued by one planner statement, and digests one runner tick delivers. */
 const PLAN_LIMIT = 500;
 const DIGESTS_PER_RUN = 20;

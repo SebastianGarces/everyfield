@@ -31,7 +31,13 @@
 //   ministry training" was saved for Alex and Casey Morgan, and only Alex has finished) and Prayer team (Priya, the
 //   Member, leads it; Sam intercedes). Sam Patel serves on three ministries; no one else on more than one.
 // - Actors: the Owner (Nate Ellis, a leader linked to his account), an Admin (Lena Park), a Member (Priya Shah), an
-//   organization seat (a sending church, which sees no plant People) and the Owner of an empty church.
+//   organization seat (the Owner of Hill Country Church, a sending church, which sees no plant People) and the Owner of
+//   an empty church.
+// - Oversight: Hope Fellowship is affiliated with Hill Country Church with activity sharing on; Cedar Creek Church is
+//   affiliated with sharing off and has three changes of its own on Sun 8 Nov. The organization Owner's oversight
+//   digest is daily (the default) and its coverage reaches Sat 7 Nov, so the next one goes out Tue 10 Nov at 7:00 AM,
+//   covers 8 to 9 Nov and has one line: Hope Fellowship, 6 activities on Nov 8 (the import). Daniel Okafor's interview
+//   note is the private care it never shows.
 // - Meetings (America/Chicago; today is Mon 9 Nov): saved venues "Coffee shop", "Hope Church fellowship hall" and
 //   "Hope Church chapel". Vision Meeting #4 on Thu 12 Nov 7:00 PM at the Coffee shop: RSVPs yes Nate Ellis, Kevin
 //   Walsh and Jessica Wu, no Joy Lee, no answer Elena Garcia and Roberto Garcia; its kit has every item checked but
@@ -76,6 +82,8 @@ export const CONNECTION = id(5);
 export const GRACE_AUSTIN = id(6);
 /** The one pending seat invitation, to jordan@example.test as a Member. */
 export const INVITATION = id(7);
+/** A plant affiliated with Hill Country Church that shares no activity. */
+const CEDAR_CREEK = id(8);
 /** The Owner's four unread weekend notices, oldest first (three task reminders, then a meeting announcement). */
 export const NOTICES = [id(0xd01), id(0xd02), id(0xd03), id(0xd04)] as const;
 /** The Owner's read notice and the Admin's two unread ones. */
@@ -518,6 +526,31 @@ export async function seedHope(admin: Database, { seatNames = false }: SeedOptio
 			VALUES(${id(0xc10 + n)},${PLANT},'communication',${FRIDAY_EMAIL},${byName(name).id},
 			${`communication/${FRIDAY_EMAIL}/${byName(name).id}`},'seed','seed','scheduled','2026-11-13T15:00:00.000Z','2026-11-06T16:00:00.000Z')`);
 	await seedNotifications(run);
+	await seedOversight(run);
+}
+
+/**
+ * Hill Country Church's oversight of its plants: Hope Fellowship shares its activity, Cedar Creek Church shares none
+ * and has activity of its own, and the organization Owner's oversight coverage reaches Sat 7 Nov.
+ */
+async function seedOversight(run: (q: ReturnType<typeof sql>) => Promise<unknown>) {
+	await run(sql`INSERT INTO plant(id,name,timezone,warning_days,alert_days,digest_weekday,digest_hour,phase,material_revision)
+		VALUES(${CEDAR_CREEK},'Cedar Creek Church','America/Chicago',7,14,0,16,1,1)`);
+	for (const [n, [plant, share]] of (
+		[
+			[PLANT, true],
+			[CEDAR_CREEK, false],
+		] as const
+	).entries())
+		await run(sql`INSERT INTO affiliation(id,plant_id,organization_id,accepted_at,share_people,share_meetings,share_tasks,
+				share_ministry_teams,share_wiki,share_activity,shared_findings)
+			VALUES(${id(0xe50 + n)},${plant},${ORGANIZATION},'2026-09-01T15:00:00.000Z',false,false,false,false,false,${share},false)`);
+	for (let n = 0; n < 3; n++)
+		await run(sql`INSERT INTO audit_event(id,tenant_id,actor_id,action,kind,subject_type,subject_id,occurred_at,recorded_at)
+			VALUES(${id(0xe58 + n)},${CEDAR_CREEK},${ACTOR_SPECS.org.account},'people.updated','edit','command',${CEDAR_CREEK},
+				'2026-11-08T18:00:00.000Z','2026-11-08T18:00:00.000Z')`);
+	await run(sql`INSERT INTO digest_coverage(tenant_id,recipient_id,purpose,cadence,timezone,covered_through)
+		VALUES(${ORGANIZATION},${ACTOR_SPECS.org.account},'oversight','daily','America/Chicago','2026-11-07')`);
 }
 
 /**

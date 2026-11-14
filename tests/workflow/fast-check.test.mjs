@@ -3,6 +3,7 @@ import { spawnSync } from "node:child_process";
 import {
 	copyFileSync,
 	cpSync,
+	existsSync,
 	mkdirSync,
 	mkdtempSync,
 	readFileSync,
@@ -95,15 +96,24 @@ function fixture({ tools = true } = {}) {
 	});
 	const eslintConfig = (ignores) =>
 		`import prettier from "eslint-config-prettier/flat";\nimport tseslint from "typescript-eslint";\nexport default tseslint.config({ ignores: ${JSON.stringify(ignores)} }, ...tseslint.configs.recommended, prettier);\n`;
-	const bunCheck = "../../node_modules/.bin/bun check --no-script --no-pretty --all";
+	// The real package typecheck scripts run TypeScript 7 (T-216).
+	const tscCheck = "../../node_modules/typescript-7/bin/tsc --noEmit";
 	const manifest = (name, scripts, dependencies = {}) =>
 		JSON.stringify({ name, private: true, type: "module", scripts, dependencies }, null, "\t") + "\n";
-	write("packages/demo/package.json", manifest("@fx/demo", { lint: "eslint --max-warnings=0 .", typecheck: bunCheck }));
+	write(
+		"packages/demo/package.json",
+		manifest("@fx/demo", {
+			lint: "eslint --max-warnings=0 .",
+			typecheck: tscCheck,
+			// The bun shadow is never part of fast-check: it would leave this marker and fail.
+			"typecheck:bun": "touch ../../bun-ran; exit 1",
+		}),
+	);
 	write("packages/demo/eslint.config.mjs", eslintConfig(["src/ignored.ts"]));
 	write("packages/demo/tsconfig.json", tsconfig);
 	write("packages/demo/src/index.ts", "export const n: number = 1;\n");
 	write("packages/demo/src/old.ts", "const   stale = {a:1}\nexport {};\n");
-	write("packages/app/package.json", manifest("@fx/app", { typecheck: bunCheck }, { "@fx/demo": "workspace:*" }));
+	write("packages/app/package.json", manifest("@fx/app", { typecheck: tscCheck }, { "@fx/demo": "workspace:*" }));
 	write("packages/app/tsconfig.json", tsconfig);
 	write("packages/app/src/index.ts", 'import { n } from "../../demo/src/index.ts";\nexport const m: number = n;\n');
 	write(
@@ -168,6 +178,7 @@ test("fast-check fails a changed file's format error, names it and prints the Pr
 	assert.equal(typeof step("format").ms, "number");
 	assert.equal(step("lint").status, "passed");
 	assert.equal(step("typecheck").status, "passed");
+	assert.equal(existsSync(join(fx.dir, "bun-ran")), false, "fast-check ran no typecheck:bun");
 
 	const human = fx.dev(["fast-check"]);
 	assert.equal(human.status, 1);

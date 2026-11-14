@@ -1,7 +1,12 @@
 import type { Transaction } from "@everyfield/db/client";
 import { sql } from "@everyfield/db/query";
 import { notificationCategory } from "@everyfield/contracts/notifications";
-import { getPreferences, previewPlanterDigest, readFeedPage } from "@everyfield/domain/notifications";
+import {
+	getPreferences,
+	previewOversightDigest,
+	previewPlanterDigest,
+	readFeedPage,
+} from "@everyfield/domain/notifications";
 import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
@@ -11,10 +16,14 @@ import { ownerOrAdmin } from "../../people/commands/index.ts";
 // The Notifications reads (WP-081): the signed-in account's own bell with its exact unread count, its own notification choices
 // and a preview of its next church digest. Each one calls the native read the bell and Settings use, under the
 // actor's live session, and never takes an account id: another person's notices or settings cannot be asked for.
-// Reading never marks anything read (GAP-EVR-421). Notices are offered in a plant context only.
+// Reading never marks anything read (GAP-EVR-421). Notices are offered in a plant context only. In an organization
+// context, an Owner or Admin gets only the preview of their own next oversight digest (D-1278).
 
 /** Any seat in the selected church: the bell and the notification settings are every account's own. */
 export const inPlant = (actor: EvryActor) => actor.owner.kind === "plant" && actor.role !== null;
+/** An Owner or Admin seat in the selected organization: only they get the oversight digest. */
+export const organizationOwnerOrAdmin = (actor: EvryActor) =>
+	actor.owner.kind === "organization" && (actor.role === "owner" || actor.role === "admin");
 
 const refused = (code: string): never => {
 	throw new EvryRefusal(code === "invalid_input" ? "invalid_input" : "source_unavailable");
@@ -131,5 +140,38 @@ export const planterDigest: ReadAdapter<Record<string, never>> = {
 	},
 };
 
+export const oversightDigest: ReadAdapter<Record<string, never>> = {
+	operation: "notifications.previewOversightDigest",
+	description:
+		"A preview of the user's own next oversight digest: when it sends (07:00 in the organization's zone, daily or on Mondays), the dates it covers and one line per linked plant and day with the activity count. Only plants that share activity count. Plant names, dates and counts only. When nothing was shared it is not sent. Owner or Admin.",
+	input: z.strictObject({}),
+	allowed: organizationOwnerOrAdmin,
+	async invoke(tx, actor) {
+		const reply = await previewOversightDigest(
+			tx,
+			actor.authority,
+			{ organizationId: actor.owner.id },
+			() => new Date(),
+		);
+		if (reply.status !== "ok") return refused(reply.error.code);
+		const { next, zone, cadence } = reply.value;
+		if (!next) return result("notifications.previewOversightDigest", [], 0);
+		const sends = next.total > 0;
+		const rows: SourceRow[] = [
+			{
+				kind: "digest",
+				id: "next",
+				label: sends
+					? next.title
+					: "No oversight digest: no linked plant shared activity in these dates, and an empty digest is not sent",
+				fields: { sendsAt: localTime(next.sendAt, zone), from: next.start, to: next.end, cadence, sent: sends },
+			},
+			...next.lines.map((line, n): SourceRow => ({ kind: "digest", id: `line-${n + 1}`, label: line, fields: {} })),
+		];
+		const shown = next.items.reduce((sum, item) => sum + item.count, 0);
+		return result("notifications.previewOversightDigest", rows, next.total, next.total > shown);
+	},
+};
+
 /** The installed Notifications read tools, in catalog order. */
-export const NOTIFICATION_READS = [feed, preferences, planterDigest] as const;
+export const NOTIFICATION_READS = [feed, preferences, planterDigest, oversightDigest] as const;

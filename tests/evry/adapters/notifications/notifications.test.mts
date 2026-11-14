@@ -333,13 +333,18 @@ test("INV-digest-preview the next church digest preview has its send time, date 
 	assert.equal(await readAs(member, "notifications.feed").then((r) => r.rows.length), 2);
 });
 
-test("INV-notification-tools an organization login is offered no notification tool, and a plant seat is offered them", async () => {
+test("INV-notification-tools an organization login is offered its oversight digest tools beside its profile change, and a plant seat is offered the church's", async () => {
 	const org = await actor("orgOwner");
 	const tools = modelTools(org, { read: async () => ({}), select: async () => ({}), propose: async () => ({}) });
-	assert.equal("notifications_read" in tools, false);
-	assert.equal(
-		readCatalog(org).reviewedWrites.some((w) => w.operation.startsWith("notifications.")),
-		false,
+	assert.ok("notifications_read" in tools);
+	assert.deepEqual(
+		readCatalog(org).domains.flatMap((d) => d.operations.map((o) => o.operation)),
+		["notifications.previewOversightDigest"],
+	);
+	assert.deepEqual(
+		readCatalog(org).reviewedWrites.map((w) => w.operation),
+		// T-327's organization profile change is the organization's only other reviewed write.
+		["notifications.oversightDigestCadence.set", "organizations.updateProfile"],
 	);
 	const plantTools = modelTools(owner, { read: async () => ({}), select: async () => ({}), propose: async () => ({}) });
 	assert.ok("notifications_read" in plantTools);

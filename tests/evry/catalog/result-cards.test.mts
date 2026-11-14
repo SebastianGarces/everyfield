@@ -57,6 +57,9 @@ const PROBES: Record<string, Record<string, unknown> | (() => Promise<SourceResu
 	"notifications.feed": { unread: true },
 	"notifications.preferences.get": {},
 	"notifications.previewPlanterDigest": {},
+	// The organization Owner's own oversight digest: the organization seat, not the church's.
+	"notifications.previewOversightDigest": () =>
+		invokeRead(church.db, church.actors.org, adapters.get("notifications.previewOversightDigest")!, {}),
 	"teams.list": {},
 	"teams.get": { teamId: teamId("Worship") },
 	"teams.searchMembers": { q: "Sam" },

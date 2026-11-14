@@ -249,6 +249,16 @@ const VIEWS: Record<string, OpView> = {
 		headed: true,
 		empty: "Your church digest is turned off, so no digest is coming.",
 	},
+	// One line per plant and day; the total counts activities, not lines.
+	"notifications.previewOversightDigest": {
+		title: "Next oversight digest",
+		noun: ["line", "lines"],
+		icon: "digest",
+		counts: "digest",
+		headed: true,
+		shownOnly: true,
+		empty: "Your oversight digest has nothing owed yet.",
+	},
 };
 // The Ministries reads (WP-069). A ministry row opens its Ministries page; a person row opens the person.
 const ministries = (title: string, rest: Partial<OpView> = {}): OpView => ({
@@ -838,7 +848,12 @@ function rowView(operation: string, row: SourceRow): RowView {
 				? {
 						...plain,
 						name: row.label,
-						line: joined(text(fields.sendsAt) ? `Sends ${String(fields.sendsAt)}` : null),
+						line: joined(
+							text(fields.sendsAt)
+								? `${fields.sent === false ? "Would send" : "Sends"} ${String(fields.sendsAt)}`
+								: null,
+							fields.sent === false ? "Not sent: nothing to report" : null,
+						),
 						avatar: "digest",
 					}
 				: { ...plain, name: row.label, line: null, avatar: null };
