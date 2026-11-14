@@ -118,8 +118,9 @@ test("AC:INH-CROSS-06 AC:INH-REGRESSION-BUDGET AC:EVRY-RETRY-CANCEL bounded page
 	assert.deepEqual([input.status.state, input.status.reason], ["stopped", "input_budget"]);
 	assert.ok(input.status.usage.inputTokens >= 128_000 && input.status.usage.toolCalls < 24);
 	assert.equal(input.cards.length, input.status.usage.toolCalls);
-	// Pages of 5 rows: the 24-tool budget is reached first, and the 25th read never runs.
-	const narrow = await ask(foreign, "Read every detail for all people, 5 at a time.");
+	// Pages of 2 rows: the 24-tool budget is reached first, and the 25th read never runs. (With the Owner and Admin
+	// catalog's descriptions in every prompt, pages of 5 rows reach the input budget at about 22 reads.)
+	const narrow = await ask(foreign, "Read every detail for all people, 2 at a time.");
 	assert.equal(await work(), "succeeded");
 	const budget = await events(foreign, narrow);
 	assert.equal(budget.cards.length, 24);
@@ -169,6 +170,15 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 						"people.deletePerson",
 						"people.setPersonPhoto",
 						"people.removePersonPhoto",
+						"people.createInterview",
+						"people.createAssessment",
+						"people.createCommitment",
+						"people.withdrawCommitment",
+						"people.reactivateCommitment",
+						"people.correctCommitmentLifecycle",
+						"people.correctPersonRecord",
+						"people.mergePeople",
+						"people.unmergePeople",
 						"communication.saveDraft",
 						"communication.scheduleReviewed",
 						"communication.rescheduleReviewed",
@@ -209,6 +219,14 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 						"people.listHouseholds",
 						"people.listTags",
 						"people.previewImport",
+						"people.getInterviews",
+						"people.getAssessments",
+						"people.getCommitments",
+						"people.getCommitmentDownload",
+						"people.getMergeReview",
+						"people.previewUnmerge",
+						"people.listRecordCorrections",
+						"people.mergedPersonDestination",
 						"communication.list",
 					]
 				: who === "member"
@@ -376,7 +394,14 @@ test("AC:INH-EDGES-03 AC:TEN-008 AC:EVRY-CONTEXT-BOUNDS a guessed foreign id and
 	assert.ok(seen.includes("Alex Rivera"), "an authorized page reference is verified");
 	assert.deepEqual(
 		[...new Set(calls.flatMap((c) => c.tools?.map((t) => t.name) ?? []))].sort(),
-		["communication_read", "peopleOrganization_read", "people_read", "propose_change", "select_returned_rows"],
+		[
+			"communication_read",
+			"peopleAssessments_read",
+			"peopleOrganization_read",
+			"people_read",
+			"propose_change",
+			"select_returned_rows",
+		],
 		"prompt text cannot add tools or scope; the owner's catalog decides them",
 	);
 });
