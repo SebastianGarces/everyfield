@@ -31,7 +31,9 @@ export type SourceRow = {
 		| "item"
 		| "seat"
 		| "invitation"
-		| "connection";
+		| "connection"
+		| "step"
+		| "relationship";
 	id: string;
 	label: string;
 	/** `you: true` marks the signed-in user's own person row (see person-row.ts); no other row carries it. */

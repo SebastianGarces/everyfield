@@ -14,6 +14,10 @@ import type { EffectResult, NativeContext, NativePorts, ReviewContext, ReviewedW
 /** The Owner or Admin of the selected church: who may change its seats, settings, sharing and connections. */
 export const plantAdmin = (actor: EvryActor) =>
 	actor.owner.kind === "plant" && (actor.role === "owner" || actor.role === "admin");
+/** The Owner of the selected church: the only one who may answer its setup questions (the native command checks it is the Owner setting it up). */
+export const plantOwner = (actor: EvryActor) => actor.owner.kind === "plant" && actor.role === "owner";
+/** The signed-in account's own context, with no seat: where a church or a Discovery space is started. */
+export const accountContext = (actor: EvryActor) => actor.owner.kind === "account" && actor.role === null;
 /** Any seat in the selected church. */
 export const plantSeat = (actor: EvryActor) => actor.owner.kind === "plant" && actor.role !== null;
 /** The Owner or Admin of the selected sending church or network. */

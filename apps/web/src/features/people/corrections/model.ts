@@ -56,6 +56,7 @@ export type ReferenceKind =
 	| "contact_outcome"
 	| "development_enrollment"
 	| "invitation"
+	| "launch_guest"
 	| "mail"
 	| "meeting_kit_item"
 	| "obligation"
@@ -96,6 +97,7 @@ const KIND_LABEL: Record<ReferenceKind, [one: string, many: string]> = {
 	participation_inviter: ["guest they invited", "guests they invited"],
 	pipeline_person: ["organization pipeline entry", "organization pipeline entries"],
 	residency_link: ["residency link", "residency links"],
+	launch_guest: ["Launch Sunday guest link", "Launch Sunday guest links"],
 	task: ["task", "tasks"],
 	team_leader: ["ministry leader role", "ministry leader roles"],
 	team_tenure: ["ministry role", "ministry roles"],
