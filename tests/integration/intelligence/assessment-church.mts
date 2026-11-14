@@ -319,7 +319,7 @@ export async function church(prefix: string, { cleanup = false } = {}) {
 		await admin.execute(
 			sql`INSERT INTO task_assignee(plant_id,task_id,account_id) VALUES(${p.id},${task},${seatB.id})`,
 		);
-		const b = await seated(q, await database.actor(q, "admin"));
+		const b = await database.actor(q, "admin");
 
 		await publish(p);
 		await publish(q);
@@ -333,7 +333,7 @@ export async function church(prefix: string, { cleanup = false } = {}) {
 			a,
 			b,
 			seatB: { ...seatB, leader, task },
-			records: { contact: contact.id, meeting, program: program.id, credit, milestone },
+			records: { contact: contact.id, meeting, credit, milestone },
 			runId,
 		};
 	}
