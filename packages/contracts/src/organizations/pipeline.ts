@@ -253,7 +253,6 @@ export const residencyLinkStatus = z.discriminatedUnion("status", [
 		resendAvailableAt: instant,
 	}),
 ]);
-export type ResidencyLinkStatus = z.infer<typeof residencyLinkStatus>;
 
 export const pipelinePersonRecord = z.strictObject({
 	audience: pipelineAudience.exclude(["counts"]),

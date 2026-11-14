@@ -210,7 +210,6 @@ export const residentView = z.discriminatedUnion("status", [
 		]),
 	}),
 ]);
-export type ResidentView = z.infer<typeof residentView>;
 
 export const enrollmentMilestone = z.strictObject({
 	id: recordId,
