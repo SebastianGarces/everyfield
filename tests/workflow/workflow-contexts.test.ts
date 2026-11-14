@@ -1,7 +1,6 @@
 // T-370: GitHub rejects a whole workflow file whose `${{ runner.* }}` sits where the runner context is unavailable
 // (a workflow's or job's `env`, `runs-on`, a job's `if`, ...), and then runs none of its jobs. This guard reads every
-// .github/workflows/*.yml and allows the runner context only where GitHub's context availability table does: inside
-// a step, a job's `outputs`, and the `env` of a job's container or of one of its services.
+// .github/workflows/*.yml and allows the runner context only inside a step, the one place these workflows use it.
 import assert from "node:assert/strict";
 import { globSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -10,15 +9,10 @@ import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("../..", import.meta.url));
 
-const RUNNER_ALLOWED = [
-	/^jobs\.[^.]+\.steps(\.|$)/,
-	/^jobs\.[^.]+\.outputs\.[^.]+$/,
-	/^jobs\.[^.]+\.container\.env\.[^.]+$/,
-	/^jobs\.[^.]+\.services\.[^.]+\.env\.[^.]+$/,
-];
+const RUNNER_ALLOWED = /^jobs\.[^.]+\.steps(\.|$)/;
 
 /** Each `${{ }}` expression that reads the runner context outside the places GitHub allows it, as "line N: key path". */
-export function runnerContextMisuse(text: string): string[] {
+function runnerContextMisuse(text: string): string[] {
 	const found: string[] = [];
 	// Open keys by indentation; a list item adds a "-" segment. Lines of a block scalar belong to its key.
 	const stack: { indent: number; key: string }[] = [];
@@ -49,7 +43,7 @@ export function runnerContextMisuse(text: string): string[] {
 			path = pathOf(stack);
 		}
 		for (const [expression] of line.matchAll(/\$\{\{[\s\S]*?\}\}/g))
-			if (/(?<![\w.-])runner\./.test(expression) && !RUNNER_ALLOWED.some((allowed) => allowed.test(path)))
+			if (/(?<![\w.-])runner\./.test(expression) && !RUNNER_ALLOWED.test(path))
 				found.push(`line ${i + 1}: ${path}`);
 	}
 	return found;
@@ -78,11 +72,6 @@ test("the guard flags the runner context in a workflow env, a job env, runs-on a
 		"  ui:",
 		"    if: ${{ runner.os == 'Linux' }}",
 		"    runs-on: ${{ runner.arch }}",
-		"    services:",
-		"      postgres:",
-		"        image: pg",
-		"        env:",
-		"          FINE: ${{ runner.temp }}",
 		"    env:",
 		'      NEXT_TELEMETRY_DISABLED: "1"',
 		"      UI_DIR: ${{ runner.temp }}/nightly-ui",
@@ -93,16 +82,14 @@ test("the guard flags the runner context in a workflow env, a job env, runs-on a
 		"line 2: env.TOP",
 		"line 5: jobs.ui.if",
 		"line 6: jobs.ui.runs-on",
-		"line 14: jobs.ui.env.UI_DIR",
+		"line 9: jobs.ui.env.UI_DIR",
 	]);
 });
 
-test("the guard allows the runner context in steps, block scalars and job outputs", () => {
+test("the guard allows the runner context in steps and block scalars", () => {
 	const workflow = [
 		"jobs:",
 		"  ui:",
-		"    outputs:",
-		"      dir: ${{ runner.temp }}",
 		"    steps:",
 		"      - name: logs",
 		"        env:",
