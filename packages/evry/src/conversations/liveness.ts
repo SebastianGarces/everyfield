@@ -21,6 +21,16 @@ const ROW_LIVENESS: Record<SourceRow["kind"], Rule> = {
 	tag: (id, plant) => sql`EXISTS(SELECT FROM tag t WHERE t.id=${id} AND t.plant_id=${plant})`,
 	// A message is live while it exists in the church.
 	message: (id, plant) => sql`EXISTS(SELECT FROM communication m WHERE m.id=${id} AND m.plant_id=${plant})`,
+	// A ministry, role, training program, meeting or responsibility is live while it exists in the church (an archived
+	// ministry or a retired role still exists and is shown as such). Each alias is its own: the replay check names the
+	// row being checked `r`, so a rule's table alias must never shadow it.
+	team: (id, plant) => sql`EXISTS(SELECT FROM team lt WHERE lt.id=${id} AND lt.plant_id=${plant})`,
+	role: (id, plant) => sql`EXISTS(SELECT FROM team_role lr WHERE lr.id=${id} AND lr.plant_id=${plant})`,
+	training: (id, plant) => sql`EXISTS(SELECT FROM training_program lg WHERE lg.id=${id} AND lg.plant_id=${plant})`,
+	meeting: (id, plant) =>
+		sql`EXISTS(SELECT FROM meeting lm WHERE lm.id=${id} AND lm.plant_id=${plant} AND lm.retired_at IS NULL)`,
+	responsibility: (id, plant) =>
+		sql`EXISTS(SELECT FROM responsibility ls WHERE ls.id=${id} AND ls.plant_id=${plant} AND ls.removed_at IS NULL)`,
 	// A document is live while it exists in the church and is not deleted. An archived one stays readable, as in the app.
 	document: (id, plant) =>
 		sql`EXISTS(SELECT FROM document d WHERE d.id=${id} AND d.tenant_id=${plant} AND d.kind IN ('native','core_values','church_document')

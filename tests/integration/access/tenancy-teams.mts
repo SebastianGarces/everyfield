@@ -153,6 +153,23 @@ export function teamsCases(t, who) {
 		tm("listPersonAssignments", { personId: a.blair }, denied),
 		tm("listLeaderCandidates", { q: MARK }, { value: { people: [] } }),
 		tm("readOrgChart", {}, { value: { nodes: [] } }),
+		tm("get", ministry, denied),
+		tm("searchMembers", { q: MARK }, { value: { items: [], completeness: "complete" } }),
+		tm("staffingSummary", {}, { value: { teams: [], roles: 0, filledRoles: 0, openRoles: 0, people: 0 } }),
+		tm("personTeamCounts", { minTeams: 1 }, { value: { minTeams: 1, people: [] } }),
+		tm(
+			"previewTemplateImport",
+			{ selections: [{ teamKey: "worship", roleKeys: [] }] },
+			{
+				// Church B has no Worship ministry yet; church A's own owner sees the one it imported.
+				value: {
+					teams: [{ key: "worship", name: "Worship", exists: false, newRoles: [], existingRoles: [] }],
+					newTeams: 1,
+					newRoles: 0,
+				},
+				control: (value) => assert.equal(value.teams[0].exists, true),
+			},
+		),
 		// The export also carries the generated PDF and SVG of the empty chart.
 		tm("readOrgChartExport", {}, { partial: { format: "pdf", lines: [], nodes: [] } }),
 
@@ -165,5 +182,8 @@ export function teamsCases(t, who) {
 		tr("readPersonTraining", { personId: a.avery }, denied),
 		tr("readTrainingHistory", { personId: a.avery }, denied),
 		tr("readStaffingFacts", ministry, denied),
+		tr("readHealth", ministry, denied),
+		tr("readAggregateHealth", {}, { value: { teams: [], measuredTeams: 0, totalTeams: 0, composite: null } }),
+		tr("readRequiredTrainingParticipants", { programId: a.program }, denied),
 	];
 }

@@ -8,11 +8,26 @@ import type { EvryActor } from "../context/actor.ts";
  * row is not a person.
  */
 export type SourceRow = {
-	kind: "person" | "household" | "tag" | "skill" | "activity" | "file" | "import" | "message" | "document" | "template";
+	kind:
+		| "person"
+		| "household"
+		| "tag"
+		| "skill"
+		| "activity"
+		| "file"
+		| "import"
+		| "message"
+		| "team"
+		| "role"
+		| "training"
+		| "meeting"
+		| "responsibility"
+		| "document"
+		| "template";
 	id: string;
 	label: string;
 	/** `you: true` marks the signed-in user's own person row (see person-row.ts); no other row carries it. */
-	fields: Record<string, string | boolean | null>;
+	fields: Record<string, string | number | boolean | null>;
 };
 
 /** A bounded, source-bound read result: the rows, the exact total, whether more exist and what was left out. */
@@ -25,6 +40,8 @@ export type SourceResult = {
 	next: number | null;
 	completeness: "complete" | "partial";
 	exclusions: string[];
+	/** Totals over the rows as the domain counted them, such as roles and people serving church-wide. */
+	facts?: Record<string, string | number | boolean | null>;
 };
 
 /** A reviewed adapter from one model-tool read operation to its native domain read. */

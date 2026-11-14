@@ -2,7 +2,7 @@
 
 [target.json](target.json) is generated from the Drizzle declarations in [tables.ts](../../packages/db/src/schema/tables.ts). Those declarations own modeled structure; reviewed custom migrations and supplemental catalog expectations own triggers, functions and privileges. Applied SQL remains immutable.
 
-The schema has 104 tables, 1187 columns, 356 declared FKs and 27 JSONB columns. These are counts of definitions, including compound FKs as one constraint. They exclude indexes, triggers, packaged artifacts and external backups.
+The schema has 105 tables, 1204 columns, 358 declared FKs and 27 JSONB columns. These are counts of definitions, including compound FKs as one constraint. They exclude indexes, triggers, packaged artifacts and external backups.
 
 Run documentation/tooling checks from the repository root:
 
@@ -51,6 +51,7 @@ Each replaced table inherits the union of producer packages from its previous ta
 | `digest_coverage` | Recipient digest coverage splits from inbox notification production. | WP-004, WP-030 |
 | `early_access_attempt` | WP-097 owns the applied migration 0001 limiter table, without an invented primary key. | WP-097 |
 | `early_access_request` | WP-097 owns the applied early access migration 0001 request table; no product scaffold or tenant prerequisite. Field shape follows the approved E3 contract and receipt shape follows E4. | WP-097 |
+| `feedback` | WP-049 feedback.submit stores it; feedback.admin.changeStatus moves its status. | WP-049 |
 | `generated_document` | WP-037 stores one saved catalog render. The plant owns the row. Creator attribution is not ownership. | WP-037 |
 | `identity_proof` | Application-owned email-change/cancellation proof splits from account/auth and deletion facts; password reset remains library-owned. | WP-004, WP-005, WP-010, WP-050, WP-057 |
 | `mail_request` | Exact request/replay clock splits from the shared mail intent/attempt ledger. | WP-004, WP-028, WP-031 |
@@ -71,7 +72,7 @@ Each replaced table inherits the union of producer packages from its previous ta
 | `private_week` | WP-039 materializes weeks in order when a save or zone change finds them due; a missing week has a row with no answer. | WP-039 |
 | `private_week_revision` | WP-039 appends a revision only when a save or correction changes the answer. | WP-039 |
 | `proposal` | WP-053 Evry review and execution storage through Drizzle Kit. | WP-053 |
-| `record` | Referenceable subtype writers must bind their own actual identity and owner; inherit the union of those writers, with WP-004 owning trigger/DDL proof. | WP-003, WP-004, WP-005, WP-006, WP-007, WP-008, WP-009, WP-010, WP-011, WP-012, WP-013, WP-014, WP-017, WP-018, WP-020, WP-022, WP-023, WP-024, WP-026, WP-027, WP-028, WP-030, WP-031, WP-032, WP-033, WP-034, WP-035, WP-036, WP-037, WP-038, WP-039, WP-041, WP-045, WP-046, WP-047, WP-048, WP-050, WP-054, WP-057, WP-098, WP-099 |
+| `record` | Referenceable subtype writers must bind their own actual identity and owner; inherit the union of those writers, with WP-004 owning trigger/DDL proof. | WP-003, WP-004, WP-005, WP-006, WP-007, WP-008, WP-009, WP-010, WP-011, WP-012, WP-013, WP-014, WP-017, WP-018, WP-020, WP-022, WP-023, WP-024, WP-026, WP-027, WP-028, WP-030, WP-031, WP-032, WP-033, WP-034, WP-035, WP-036, WP-037, WP-038, WP-039, WP-041, WP-045, WP-046, WP-047, WP-048, WP-049, WP-050, WP-054, WP-057, WP-098, WP-099 |
 | `record_correction` | WP-015 People merge and record correction storage through Drizzle Kit. | WP-015 |
 | `relationship_invitation` | WP-007 native organization adapter storage introduced by forward migration 0005; D29/D32 current-catalog authority. | WP-007 |
 | `residency_link` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-008 |
