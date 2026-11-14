@@ -13,7 +13,9 @@ import {
 	summaryProblem,
 } from "./outcome.ts";
 import { preparation } from "../oversight/health.ts";
+import { gatheringPath, gatheringProblem } from "./gathering.ts";
 
+export * from "./gathering.ts";
 export * from "./outcome.ts";
 
 // The Launch plan contract (WP-045: LCH-001, 003, 004, 005, 008, 009, IDN-015, NTF-009; WP-046 adds outcome.ts). The planned Launch Sunday is a
@@ -141,6 +143,8 @@ export const plan = z.strictObject({
 	today: localDate,
 	timeZone: z.string(),
 	launch: z.strictObject({ status: launchStatus, targetDate: localDate.nullable(), revision }).nullable(),
+	/** How the church ends its gathering phase (T-296): Launch Sunday, or a milestone an organization offers. */
+	path: gatheringPath,
 	/** The revision a first schedule expects while the church has no launch row. */
 	revision,
 	milestones: z.array(milestone),
@@ -181,6 +185,11 @@ export const launchError = z.discriminatedUnion("code", [
 	defineSafeError("not_ready", { needs: z.enum(["outcome", "debrief"]) }, "refresh"),
 	/** guest_data_entered and debrief_done have no manual checkbox (LCH-004). */
 	defineSafeError("derived_evidence_only", {}, "never"),
+	defineSafeError("invalid_gathering", { problem: gatheringProblem }, "never"),
+	/** The milestone is no longer offered to this church: turned off, or the affiliation ended. */
+	defineSafeError("gathering_unavailable", {}, "refresh"),
+	/** A reached milestone must be cleared, with a reason, before the church goes back to Launch Sunday. */
+	defineSafeError("gathering_reached", {}, "refresh"),
 ]);
 export type LaunchError = z.infer<typeof launchError>;
 export type LaunchReply<T> = Reply<T, LaunchError>;

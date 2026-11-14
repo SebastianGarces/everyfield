@@ -128,6 +128,7 @@ const outcomeColumns = (plant: SQL, admin: SQL) => sql`${admin} AS admin,
  * condition (a writer passes true: only Owners and Admins write).
  */
 export const planColumns = (plant: SQL, admin: SQL) => sql`${outcomeColumns(plant, admin)},
+	${gatheringJson(plant)} AS gathering,
 	(SELECT timezone FROM plant WHERE id=${plant}) AS timezone,
 	(SELECT jsonb_build_object('status',l.status,'targetDate',l.target_date::text,'revision',l.revision::text)
 		FROM launch l WHERE l.plant_id=${plant}) AS launch,
@@ -137,6 +138,35 @@ export const planColumns = (plant: SQL, admin: SQL) => sql`${outcomeColumns(plan
 	(SELECT count(*)::int FROM launch_milestone m WHERE m.plant_id=${plant}) AS seeded_milestones,
 	(SELECT count(*)::int FROM task k WHERE k.plant_id=${plant} AND k.launch_task_key IS NOT NULL) AS seeded_tasks,
 	${preparationJson(plant, sql`true`)} AS preparation`;
+/**
+ * Whether this organization offers its milestone to this church now: it is turned on and the church has a current
+ * affiliation with the organization (T-296). `o` is an organization row, `plant` an SQL plant id.
+ */
+export const offersTo = (o: string, plant: SQL) =>
+	sql`(${sql.raw(o)}.gathering_milestone_offered AND EXISTS(SELECT FROM affiliation k WHERE k.plant_id=${plant}
+		AND k.organization_id=${sql.raw(o)}.id AND ${linkActive("k")}))`;
+/** The church's gathering path as JSON (T-296): null without a launch row, which reads as Launch Sunday. */
+const gatheringJson = (plant: SQL) => sql`(SELECT jsonb_build_object('path',l.gathering_path,
+	'organizationId',l.gathering_organization_id,'organizationName',o.name,
+	'offered',CASE WHEN ${offersTo("o", plant)} THEN jsonb_build_object('name',o.gathering_milestone_name,
+		'description',o.gathering_milestone_description) END,
+	'reached',CASE WHEN l.gathering_reached_on IS NOT NULL THEN jsonb_build_object('name',l.gathering_reached_name,
+		'date',l.gathering_reached_on::text,'note',l.gathering_note) END)
+	FROM launch l LEFT JOIN organization o ON o.id=l.gathering_organization_id WHERE l.plant_id=${plant})`;
+const gatheringRow = z
+	.object({
+		path: z.enum(["launch_sunday", "milestone"]),
+		organizationId: z.uuid().nullable(),
+		organizationName: z.string().nullable(),
+		offered: z.unknown().nullable(),
+		reached: z.unknown().nullable(),
+	})
+	.nullable()
+	.transform((g): c.GatheringPath => {
+		if (!g || g.path === "launch_sunday") return { kind: "launch_sunday" };
+		const { path: _path, ...milestone } = g;
+		return c.gatheringPath.parse({ kind: "milestone", ...milestone });
+	});
 /** An account named on a row: null when the account has since been deleted. */
 const named = z
 	.object({ accountId: z.uuid(), displayName: z.string().nullable() })
@@ -173,6 +203,7 @@ const planRow = z.object({
 	summary_draft: z.unknown().nullable(),
 	published: z.array(z.unknown()).nullable(),
 	timezone: timeZone,
+	gathering: gatheringRow,
 	launch: z.object({ status: c.launchStatus, targetDate: z.string().nullable(), revision: z.string() }).nullable(),
 	milestones: z.array(z.unknown()),
 	practices: z.int(),
@@ -187,6 +218,7 @@ export function planOf(raw: unknown, clock: Clock) {
 		today: calendarContext(r.timezone, clock).localDate,
 		timeZone: r.timezone,
 		launch: r.launch,
+		path: r.gathering,
 		revision: r.launch?.revision ?? "1",
 		milestones: r.milestones.map((m) => milestoneOf(m, r.practices)),
 		outcome: r.outcome,
@@ -251,6 +283,33 @@ export function createLaunchReader(clock: Clock = systemClock) {
 					.parse(rows[0]);
 				if (!r.ok || !r.timezone) deny("access_denied");
 				return c.history.parse({ timeZone: r.timezone, entries: historyOf(r.entries ?? []) });
+			});
+		},
+		/**
+		 * launch.readGatheringOffers (T-296): the milestones the church's current affiliations offer instead of Launch
+		 * Sunday, each with its organization, for an Owner or Admin to choose from. One statement gated by their live seat.
+		 */
+		async readGatheringOffers(db: Pick<Database, "execute">, authority: RequestActor) {
+			return settle(async () => {
+				const scope = scopeOf(authority);
+				const p = sql`${scope.plantId}::uuid`;
+				const { rows } = await db.execute(sql`SELECT g.ok,x.* FROM (SELECT ${scope.admin} AS ok) g
+	LEFT JOIN LATERAL (SELECT o.id,o.name,o.gathering_milestone_name,o.gathering_milestone_description FROM organization o
+		WHERE g.ok AND o.gathering_milestone_offered AND o.id IN (SELECT k.organization_id FROM affiliation k
+			WHERE k.plant_id=${p} AND ${linkActive("k")}) ORDER BY o.name,o.id) x ON true`);
+				if (rows[0]?.ok !== true) deny("access_denied");
+				return rows.flatMap((r) =>
+					r.id
+						? [
+								c.gatheringOffer.parse({
+									organizationId: r.id,
+									organizationName: r.name,
+									name: r.gathering_milestone_name,
+									description: r.gathering_milestone_description,
+								}),
+							]
+						: [],
+				);
 			});
 		},
 		/**

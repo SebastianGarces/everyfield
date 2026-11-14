@@ -313,7 +313,7 @@ function Timeline({ entries, timeZone }: { entries: JourneyEntry[]; timeZone: st
 										? Route02Icon
 										: e.kind === "creation"
 											? Flag02Icon
-											: e.kind === "launch_sunday"
+											: e.kind === "launch_sunday" || e.kind === "gathering"
 												? StartUp02Icon
 												: ArrowRight01Icon
 								}

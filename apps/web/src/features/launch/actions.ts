@@ -1,6 +1,6 @@
 "use server";
 
-import type { DebriefAnswers, GuestMatch, History, Milestone, Plan } from "@everyfield/contracts/launch";
+import type { DebriefAnswers, GatheringOffer, GuestMatch, History, Milestone, Plan } from "@everyfield/contracts/launch";
 import type { Outcome } from "./model.ts";
 import { read, write } from "./server.ts";
 
@@ -102,6 +102,36 @@ export async function saveSummary(
 			input: { draftId, body },
 		}),
 	);
+}
+
+/** Use an offered milestone (`{ path: "milestone", organizationId }`) or Launch Sunday again (T-296). */
+export async function chooseGatheringPath(
+	requestKey: string,
+	expectedRevision: string,
+	input: unknown,
+): Promise<Outcome<DateResult>> {
+	return write((w, db, authority) => w.choosePath(db, authority, { requestKey, expectedRevision, input }));
+}
+
+/** Record the milestone reached, correct the record with a reason, or clear it with a reason. */
+export async function saveGathering(
+	requestKey: string,
+	expectedRevision: string,
+	mode: "record" | "correct" | "clear",
+	input: { date?: unknown; note?: unknown; reason?: unknown },
+): Promise<Outcome<DateResult>> {
+	return write((w, db, authority) => {
+		const q = { requestKey, expectedRevision };
+		if (mode === "record")
+			return w.recordGathering(db, authority, { ...q, input: { date: input.date, note: input.note } });
+		if (mode === "correct") return w.correctGathering(db, authority, { ...q, input });
+		return w.clearGathering(db, authority, { ...q, input: { reason: input.reason } });
+	});
+}
+
+/** The milestones the church's affiliations offer now, read again after a refused switch. */
+export async function readGatheringOffers(): Promise<Outcome<GatheringOffer[]>> {
+	return read((r, db, authority) => r.readGatheringOffers(db, authority));
 }
 
 /** People of the church a typed guest name may be. Offered only: nothing links until the planter picks one. */

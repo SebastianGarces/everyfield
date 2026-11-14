@@ -1,7 +1,7 @@
 import { requestDatabase } from "@/server/database";
 import { launchMount } from "@/server/launch";
 import { getViewer } from "@/server/request-context";
-import { launchError, type LaunchReply, type Plan } from "@everyfield/contracts/launch";
+import { launchError, type GatheringOffer, type LaunchReply, type Plan } from "@everyfield/contracts/launch";
 import type { Database } from "@everyfield/db/client";
 import type { RequestActor } from "@everyfield/domain/access";
 import { createLaunchReader, type LaunchWriter } from "@everyfield/domain/launch";
@@ -25,6 +25,23 @@ export async function launchViewer(): Promise<LaunchViewer | null> {
 export const administers = (v: Pick<LaunchViewer, "role">) => v.role !== "member";
 
 const reader = createLaunchReader();
+
+/**
+ * The milestones the church's affiliations offer instead of Launch Sunday (T-296), for an Owner or Admin; a Member
+ * chooses nothing, so reads none. Its own statement: a failure here says the offers could not load and never hides
+ * the church's current path, which the plan read carries.
+ */
+export async function loadOffers(viewer: LaunchViewer): Promise<Outcome<GatheringOffer[]> | null> {
+	if (!administers(viewer)) return null;
+	const db = requestDatabase();
+	if (!db) return { status: "lost" };
+	try {
+		return await reader.readGatheringOffers(db, viewer.authority);
+	} catch (error) {
+		console.error(JSON.stringify({ component: "launch", outcome: "offers_read_failed", error: String(error) }));
+		return { status: "lost" };
+	}
+}
 
 /**
  * The /launch page's plan: one statement. When an Owner or Admin opens a dated plan whose readiness is incomplete (a

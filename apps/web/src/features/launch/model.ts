@@ -3,6 +3,7 @@ import {
 	type Countdown,
 	type DebriefProblem,
 	type EvidenceStatus,
+	type GatheringProblem,
 	type HistoryEntry,
 	type LaunchError,
 	type Milestone,
@@ -51,8 +52,12 @@ export const instantDate = (instant: string, timeZone: string) =>
 	);
 
 export type Shown = { kind: Countdown["kind"]; badge: string; tone: "positive" | "attention" | "risk" | "unknown" };
-/** The plan's state as the header badge says it. */
+/** The plan's state as the header badge says it. On the milestone path (T-296) it says whether it was reached. */
 export function shownOf(plan: Plan): Shown {
+	if (plan.path.kind === "milestone")
+		return plan.path.reached
+			? { kind: "completed", badge: "Reached", tone: "positive" }
+			: { kind: "none", badge: "Not reached", tone: "unknown" };
 	const c = countdown(plan.launch, plan.today);
 	switch (c.kind) {
 		case "none":
@@ -92,6 +97,14 @@ export const OUTCOME_MESSAGE: Record<OutcomeProblem, string> = {
 	count_out_of_range: "Counts are whole numbers from 0 to 1,000,000. Leave one empty if you didn't count.",
 	note_too_long: "Keep the note to 10,000 characters or fewer.",
 };
+export const GATHERING_MESSAGE: Record<GatheringProblem, string> = {
+	invalid_date: "Choose the day it was reached.",
+	date_in_future: "It can't be recorded for a date after today.",
+	note_too_long: "Keep the note to 2,000 characters or fewer.",
+};
+/** "Constituted as a church (chosen by Hill Country Network)". */
+export const offerLabel = (name: string, organization: string | null) =>
+	organization ? `${name} (chosen by ${organization})` : name;
 export const DEBRIEF_MESSAGE: Record<DebriefProblem, string> = {
 	guest_answer_needed: "Answer the guest question to submit. Everything else can stay as short as you like.",
 	guest_count_needed: "Say how many guests aren't entered by name yet.",
@@ -174,6 +187,31 @@ export function historyText(e: HistoryEntry, today: string): { title: string; li
 			};
 		case "summary":
 			return { title: "Summary published", lines: [`Version ${c.version}`] };
+		case "path":
+			return c.to === "milestone"
+				? {
+						title: "Milestone chosen instead of Launch Sunday",
+						lines: [offerLabel(c.milestone ?? "A milestone", c.organization)],
+					}
+				: {
+						title: "Launch Sunday chosen again",
+						lines: c.milestone ? [`Was ${offerLabel(c.milestone, c.organization)}`] : [],
+					};
+		case "gathering":
+			return {
+				title: { recorded: `${c.name} reached`, corrected: `${c.name} corrected`, cleared: `${c.name} record cleared` }[
+					c.event
+				],
+				lines: [
+					c.event === "recorded"
+						? `Reached ${day(c.to)}`
+						: c.event === "corrected"
+							? `Reached: ${day(c.from)} → ${day(c.to)}`
+							: `Was reached ${day(c.from)}`,
+					...(c.noteChanged ? [c.event === "recorded" ? "Note added" : c.event === "cleared" ? "Note removed" : "Note changed"] : []),
+					...(c.reason ? [`Reason: ${c.reason}`] : []),
+				],
+			};
 	}
 }
 function historyValue(field: OutcomeField, v: string | number | null, today: string) {
@@ -209,6 +247,12 @@ export function refusalMessage(outcome: Exclude<Outcome<unknown>, { status: "ok"
 				: "Submit the debrief first. Reload the page to see it now.";
 		case "derived_evidence_only":
 			return "This milestone follows the submitted debrief. It can't be checked off by hand.";
+		case "invalid_gathering":
+			return GATHERING_MESSAGE[error.details.problem];
+		case "gathering_unavailable":
+			return "That milestone is no longer offered to your church. Reload the page to see what is offered now.";
+		case "gathering_reached":
+			return "Clear the reached record first. It stays in the Launch history.";
 		default:
 			return "Nothing changed. Reload the page and try again.";
 	}

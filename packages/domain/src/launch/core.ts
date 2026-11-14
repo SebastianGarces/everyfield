@@ -33,6 +33,9 @@ const RETRY: Record<Code, c.LaunchError["retry"]> = {
 	invalid_summary: "never",
 	not_ready: "refresh",
 	derived_evidence_only: "never",
+	invalid_gathering: "never",
+	gathering_unavailable: "refresh",
+	gathering_reached: "refresh",
 };
 export async function settle<T>(body: () => Promise<T>): Promise<c.LaunchReply<T>> {
 	try {
@@ -83,7 +86,11 @@ export type Operation =
 	| "launch.saveDebriefDraft"
 	| "launch.submitDebrief"
 	| "launch.saveDebriefSummaryDraft"
-	| "launch.publishDebriefSummary";
+	| "launch.publishDebriefSummary"
+	| "launch.choosePath"
+	| "launch.recordGathering"
+	| "launch.correctGathering"
+	| "launch.clearGathering";
 export const priorRow = z.object({ request_identity: z.unknown(), result: z.unknown() }).nullable();
 /** The stored answer of an earlier request with this key, as a CTE named `prior`. */
 export const priorKey = (scope: Scope, key: string) =>
