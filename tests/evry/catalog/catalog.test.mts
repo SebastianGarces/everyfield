@@ -66,6 +66,9 @@ test("AC:INH-REGRESSION-CAPABILITIES INV-catalog: every installed model tool is 
 		"teams.listResponsibilities",
 		"teams.previewResponsibilities",
 		"teams.listMeetings",
+		"seats.list",
+		"seats.listInvitations",
+		"privacy.getSharing",
 		"evry.selectReturnedRows",
 	]);
 	for (const id of installed) {
@@ -123,7 +126,7 @@ test("INV-member-capabilities: a Member who may change only their own notificati
 	assert.doesNotMatch(describeCatalog(catalog(["people.updatePerson"])), /Owner or Admin/);
 });
 
-test("INV-organization-catalog: only an organization Owner or Admin gets the two oversight digest tools, and nothing else", () => {
+test("INV-organization-catalog: only an organization Owner or Admin gets the two oversight digest tools, beside the organization profile change", () => {
 	const id = "00000000-0000-4000-8000-0000000000a1";
 	const actor = (owner: EvryActor["owner"], contextKind: EvryActor["contextKind"], role: EvryActor["role"]) =>
 		({
@@ -144,8 +147,13 @@ test("INV-organization-catalog: only an organization Owner or Admin gets the two
 		];
 	};
 	const oversight = ["notifications.previewOversightDigest", "notifications.oversightDigestCadence.set"];
+	// T-327's organization profile change is the only other organization tool; this task adds nothing beside it.
 	for (const role of ["owner", "admin"] as const)
-		assert.deepEqual(tools(actor(organization, "sending_church", role)), oversight, role);
+		assert.deepEqual(
+			tools(actor(organization, "sending_church", role)),
+			[...oversight, "organizations.updateProfile"],
+			role,
+		);
 	assert.deepEqual(tools(actor(organization, "sending_church", "member")), []);
 	assert.deepEqual(tools(actor({ kind: "account", id } as EvryActor["owner"], "account", null)), []);
 	const plantOwner = tools(actor({ kind: "plant", id } as EvryActor["owner"], "plant", "owner"));
