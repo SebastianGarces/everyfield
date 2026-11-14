@@ -22,6 +22,7 @@ import {
 	readIntelligence,
 	requestIntelligenceRefresh,
 } from "../../../packages/domain/src/oversight/index.ts";
+import type { IntelligencePattern } from "../../../packages/contracts/src/oversight/health.ts";
 
 const ALL = ["people", "meetings", "tasks", "ministry_teams", "wiki", "activity", "findings"] as const;
 type Category = (typeof ALL)[number];
@@ -331,6 +332,10 @@ async function placeOthers() {
 	}
 }
 
+/** A group's near-launch (NIR-03) pattern, or null. */
+const near = (g: { patterns: { rule: string }[] }) =>
+	(g.patterns.find((p) => p.rule === "NIR-03") as Extract<IntelligencePattern, { rule: "NIR-03" }> | undefined) ?? null;
+
 test("Network Intelligence names the near-launch pattern only where two sharing plants qualify", async () => {
 	await placeOthers();
 	const admin = await as(networkAdmin);
@@ -353,18 +358,18 @@ test("Network Intelligence names the near-launch pattern only where two sharing 
 	const whole = (await readIntelligence(S.runtime, admin, { level: "portfolio", runId: null }))!;
 	assert.equal(whole.groups.length, 1);
 	const [portfolio] = whole.groups;
+	const nir03 = near(portfolio!);
+	assert.deepEqual(nir03 && { ...nir03, plants: nir03.plants.map((p) => p.name) }, {
+		key: "NIR-03:portfolio:portfolio",
+		rule: "NIR-03",
+		theme: "near_launch",
+		support: 2,
+		observed: 3,
+		plants: ["Harvest Point", "Oak Cliff Church"],
+		rating: null,
+	});
 	assert.deepEqual(
-		portfolio!.pattern && { ...portfolio!.pattern, plants: portfolio!.pattern.plants.map((p) => p.name) },
-		{
-			key: "NIR-03:portfolio:portfolio",
-			support: 2,
-			observed: 3,
-			plants: ["Harvest Point", "Oak Cliff Church"],
-			rating: null,
-		},
-	);
-	assert.deepEqual(
-		portfolio!.rows.map((r) => [r.name, r.status === "shared" ? r.result : r.status]),
+		portfolio!.rows.map((r) => [r.name, r.status === "shared" ? r.results["NIR-03"] : r.status]),
 		[
 			["Eastside Commons", "clear"],
 			["Harvest Point", "gap"],
@@ -383,7 +388,7 @@ test("Network Intelligence names the near-launch pattern only where two sharing 
 		Object.fromEntries(
 			(await readIntelligence(S.runtime, admin, { level, runId: null }))!.groups.map((g) => [
 				g.label,
-				g.pattern?.support ?? null,
+				near(g)?.support ?? null,
 			]),
 		);
 	assert.deepEqual(await at("state"), { Texas: 2 });
@@ -404,9 +409,9 @@ test("a sharing plant with no launch date is Unknown, and one qualifying plant m
 	await link(unknown, lone, sharing);
 	await requestIntelligenceRefresh(S.runtime, loneAdmin, { runId: randomUUID() });
 	const [g] = (await readIntelligence(S.runtime, loneAdmin, { level: "portfolio", runId: null }))!.groups;
-	assert.equal(g!.pattern, null);
+	assert.equal(near(g!), null);
 	assert.deepEqual(
-		g!.rows.map((r) => [r.name, r.status === "shared" && r.result]),
+		g!.rows.map((r) => [r.name, r.status === "shared" && r.results["NIR-03"]]),
 		[
 			["No Date Yet", "unknown"],
 			["Oak Cliff Church", "gap"],
@@ -439,7 +444,7 @@ test("Refresh keeps history, a Member cannot refresh or rate, and turning sharin
 		const view = (await readIntelligence(S.runtime, admin, { level: "portfolio", runId: run.runId }))!;
 		const hp = view.groups[0]!.rows.find((r) => r.plantId === HP.id)!;
 		assert.equal(hp.status, "not_shared");
-		assert.equal(view.groups[0]!.pattern, null);
+		assert.equal(near(view.groups[0]!), null);
 	}
 	await share(hpToN, "findings", true);
 	// An organization's run id is not another organization's.
@@ -452,7 +457,7 @@ test("a pattern rating is the rater's own and changes nothing else", async () =>
 	const admin = await as(networkAdmin);
 	const owner = await as(networkOwner);
 	const view = (await readIntelligence(S.runtime, admin, { level: "state", runId: null }))!;
-	const key = view.groups[0]!.pattern!.key;
+	const key = near(view.groups[0]!)!.key;
 	const runId = view.run!.runId;
 	assert.equal(
 		(await submitIntelligenceFeedback(S.runtime, admin, { runId, patternKey: key, rating: "useful" })).status,
@@ -467,12 +472,12 @@ test("a pattern rating is the rater's own and changes nothing else", async () =>
 	);
 	const mine = (await readIntelligence(S.runtime, admin, { level: "state", runId: null }))!;
 	const theirs = (await readIntelligence(S.runtime, owner, { level: "state", runId: null }))!;
-	assert.equal(mine.groups[0]!.pattern!.rating, "useful");
-	assert.equal(theirs.groups[0]!.pattern!.rating, null);
-	assert.deepEqual({ ...mine.groups[0]!.pattern!, rating: null }, theirs.groups[0]!.pattern);
+	assert.equal(near(mine.groups[0]!)!.rating, "useful");
+	assert.equal(near(theirs.groups[0]!)!.rating, null);
+	assert.deepEqual({ ...near(mine.groups[0]!)!, rating: null }, near(theirs.groups[0]!));
 	await submitIntelligenceFeedback(S.runtime, admin, { runId, patternKey: key, rating: "not_useful" });
 	assert.equal(
-		(await readIntelligence(S.runtime, admin, { level: "state", runId: null }))!.groups[0]!.pattern!.rating,
+		near((await readIntelligence(S.runtime, admin, { level: "state", runId: null }))!.groups[0]!)!.rating,
 		"not_useful",
 	);
 	const audit = await S.db.execute(sql`SELECT metadata FROM audit_event WHERE tenant_id=${N.id}

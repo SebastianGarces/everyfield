@@ -7,14 +7,18 @@ import { liveRows, type RequestActor } from "../access/session.ts";
 import { linkActive, type Reader } from "../organizations/core.ts";
 import { areaOf, countryKey, latestGeography, stateCode, stateName } from "../organizations/geography.ts";
 import { one, parse, refuse, seatOf, write } from "../organizations/seat.ts";
-import { preparationJson } from "./launch.ts";
+import { overdueFollowUpsJson } from "../followups/queries.ts";
+import { factInputs, growthDays, peopleJson } from "../intelligence/facts.ts";
+import { preparationJson, requiredTrainingCount } from "./launch.ts";
 
-// The first Network Intelligence page (WP-047b: organizationIntelligence.read, .readHistory, .requestRefresh and
-// .submitFeedback) with the rubric's near-launch rule NIR-03 in its fixed wording. A run stores each plant that shares
-// Plant Intelligence findings at that moment: its preparation counts (gap counts only while it also shares Ministry
-// teams) and its reporting state, country and Region. Every read keeps only the rows of plants that share findings
-// with this organization now, so turning sharing off removes a plant from every run, past ones included. Patterns are
-// computed at read time from those rows: two distinct qualifying plants in a group, never a score or a ranking.
+// The Network Intelligence page (WP-047b, T-372: organizationIntelligence.read, .readHistory, .requestRefresh and
+// .submitFeedback) with the rubric's rule-based patterns NIR-03 to NIR-06 in their fixed wording. A run stores each
+// plant that shares Plant Intelligence findings at that moment, as counts only: its preparation counts, its overdue
+// and unowned follow-ups, its growth clock in days and its saved required-training obligations, each only while it
+// shares the categories that rule reads (D-1420), and its reporting state, country and Region. Every read keeps only
+// the rows of plants that share findings with this organization now, and each rule only while they still share its
+// categories, so turning sharing off removes a plant from every run, past ones included. Patterns are computed at read
+// time from those rows: two distinct qualifying plants per rule, theme and group, never a score or a ranking.
 
 /**
  * organizationIntelligence.requestRefresh: a new run of this organization's portfolio, by an Owner or Admin. The
@@ -25,21 +29,37 @@ export async function requestIntelligenceRefresh(db: Database, authority: Reques
 	return write(db, authority, true, async (w) => {
 		const input = parse(C.refreshRequest, raw);
 		const o = sql`${w.organization}::uuid`;
+		// The growth clock is the facts' own rule (NIR-05), so it is computed here from the same inputs and stored as days.
+		const people = await w.tx.execute(sql`SELECT DISTINCT ON (k.plant_id) k.plant_id,
+	(clock_timestamp() AT TIME ZONE pl.timezone)::date::text AS today, ${peopleJson(sql`k.plant_id`)} AS people
+	FROM affiliation k JOIN plant pl ON pl.id=k.plant_id
+	WHERE k.organization_id=${o} AND k.plant_id IS NOT NULL AND ${linkActive("k")} AND k.shared_findings AND k.share_people
+	AND NOT EXISTS(SELECT FROM network_intelligence_run WHERE id=${input.runId}::uuid) ORDER BY k.plant_id`);
+		const growth = Object.fromEntries(
+			z
+				.array(z.object({ plant_id: z.string(), today: z.string(), people: factInputs.shape.people }))
+				.parse(people.rows)
+				.map((r) => [r.plant_id, growthDays(r.people, r.today)]),
+		);
 		const row = await one(
 			w,
 			z.object({ added: z.boolean(), existing: z.boolean() }),
 			sql`WITH r AS (INSERT INTO network_intelligence_run (id,organization_id,requested_by,rubric_version)
 	VALUES (${input.runId}::uuid,${o},${w.actor}::uuid,${C.RUBRIC_VERSION}) ON CONFLICT (id) DO NOTHING RETURNING id),
 x AS (SELECT DISTINCT ON (k.plant_id) k.plant_id, ${preparationJson(sql`k.plant_id`, sql`k.share_ministry_teams`)} AS prep,
+	CASE WHEN k.share_meetings AND k.share_tasks THEN ${overdueFollowUpsJson(sql`k.plant_id`)} END AS followups,
+	CASE WHEN k.share_people THEN (${JSON.stringify(growth)}::jsonb->>k.plant_id::text)::int END AS growth_days,
+	CASE WHEN k.share_ministry_teams THEN ${requiredTrainingCount(sql`k.plant_id`)} END AS required_training,
 	g.region_item_id, CASE WHEN g.plant_id IS NULL THEN p.state_province ELSE g.state_province END AS state_province,
 	CASE WHEN g.plant_id IS NULL THEN p.country ELSE g.country END AS country
 	FROM affiliation k JOIN plant p ON p.id=k.plant_id LEFT JOIN LATERAL ${latestGeography(sql`p.id`)} g ON true
 	WHERE k.organization_id=${o} AND k.plant_id IS NOT NULL AND ${linkActive("k")} AND k.shared_findings
 	ORDER BY k.plant_id),
 c AS (INSERT INTO network_intelligence_plant (run_id,plant_id,launched,days_to_launch,unfilled_roles,outstanding_training,
-	region_item_id,state_province,country)
+	region_item_id,state_province,country,overdue_followups,unowned_followups,growth_days,required_training)
 	SELECT r.id,x.plant_id,(x.prep->>'launched')::boolean,(x.prep->>'daysToLaunch')::int,(x.prep->>'unfilledRoles')::int,
-		(x.prep->>'outstandingTraining')::int,x.region_item_id,x.state_province,x.country FROM r,x RETURNING plant_id),
+		(x.prep->>'outstandingTraining')::int,x.region_item_id,x.state_province,x.country,(x.followups->>'overdue')::int,
+		(x.followups->>'unowned')::int,x.growth_days,x.required_training FROM r,x RETURNING plant_id),
 a AS (${w.audit({
 				action: "settings.changed",
 				kind: "create",
@@ -95,7 +115,13 @@ const contribution = z.object({
 	days_to_launch: z.int().nullable(),
 	unfilled_roles: z.int().nullable(),
 	outstanding_training: z.int().nullable(),
+	overdue_followups: z.int().nullable(),
+	unowned_followups: z.int().nullable(),
+	growth_days: z.int().nullable(),
+	required_training: z.int().nullable(),
 	teams: z.boolean(),
+	people: z.boolean(),
+	followups: z.boolean(),
 	region_key: z.string().nullable(),
 	state_province: z.string().nullable(),
 	country: z.string().nullable(),
@@ -129,16 +155,21 @@ export async function readIntelligence(
 		sql`WITH runs AS (SELECT id, ran_at FROM network_intelligence_run WHERE organization_id=${o}),
 	shown AS (SELECT id FROM runs WHERE ${request.runId === null ? sql`true` : sql`id=${request.runId}::uuid`}
 		ORDER BY ran_at DESC, id DESC LIMIT 1),
-	links AS (SELECT DISTINCT ON (k.plant_id) k.plant_id, k.shared_findings, k.share_ministry_teams FROM affiliation k
+	links AS (SELECT DISTINCT ON (k.plant_id) k.plant_id, k.shared_findings, k.share_ministry_teams, k.share_people,
+		k.share_meetings AND k.share_tasks AS share_followups FROM affiliation k
 		WHERE k.organization_id=${o} AND k.plant_id IS NOT NULL AND ${linkActive("k")} ORDER BY k.plant_id)
 	SELECT (SELECT name FROM organization WHERE id=${o}) AS organization_name,
 	(SELECT timezone FROM organization WHERE id=${o}) AS timezone,
 	(SELECT coalesce(json_agg(json_build_object('id', id, 'ran_at', ${iso("ran_at")}) ORDER BY ran_at DESC, id DESC), '[]')
 		FROM runs) AS history,
 	(SELECT id FROM shown) AS shown,
+	(SELECT (r.ran_at AT TIME ZONE o.timezone)::date::text FROM runs r JOIN shown s ON s.id=r.id
+		JOIN organization o ON o.id=${o}) AS shown_on,
 	(SELECT coalesce(json_agg(json_build_object('plant_id', c.plant_id, 'name', p.name, 'launched', c.launched,
 		'days_to_launch', c.days_to_launch, 'unfilled_roles', c.unfilled_roles, 'outstanding_training', c.outstanding_training,
-		'teams', l.share_ministry_teams, 'region_key', ri.canonical_key, 'state_province', c.state_province,
+		'overdue_followups', c.overdue_followups, 'unowned_followups', c.unowned_followups, 'growth_days', c.growth_days,
+		'required_training', c.required_training, 'teams', l.share_ministry_teams, 'people', l.share_people,
+		'followups', l.share_followups, 'region_key', ri.canonical_key, 'state_province', c.state_province,
 		'country', c.country)), '[]')
 		FROM network_intelligence_plant c JOIN shown s ON s.id=c.run_id JOIN links l ON l.plant_id=c.plant_id AND l.shared_findings
 		JOIN plant p ON p.id=c.plant_id LEFT JOIN reference_item ri ON ri.id=c.region_item_id) AS rows,
@@ -158,6 +189,7 @@ export async function readIntelligence(
 			timezone: z.string(),
 			history: z.array(runRow),
 			shown: z.string().nullable(),
+			shown_on: z.string().nullable(),
 			rows: z.array(contribution),
 			unshared: z.array(unshared),
 			ratings: z.record(z.string(), z.enum(["useful", "not_useful"])),
@@ -172,7 +204,7 @@ export async function readIntelligence(
 		level: request.level,
 		run,
 		history,
-		groups: run ? groupsOf(request.level, r.rows, r.unshared, r.ratings) : [],
+		groups: run ? groupsOf(request.level, r.shown_on!, r.rows, r.unshared, r.ratings) : [],
 		canRefresh: seat.administrator,
 	});
 }
@@ -204,34 +236,50 @@ const UNPLACED: Record<C.Level, string> = {
 
 function groupsOf(
 	level: C.Level,
+	asOf: string,
 	contributions: z.infer<typeof contribution>[],
 	unsharedRows: z.infer<typeof unshared>[],
 	ratings: Record<string, "useful" | "not_useful">,
 ): z.input<typeof C.intelligenceGroup>[] {
 	type Row = z.input<typeof C.intelligenceRow>;
-	type Member = { place: Placed; row: Row };
+	type Member = { place: Placed; row: Row; counts: C.RuleCounts | null };
 	const members: Member[] = [
-		...contributions.map((c) => ({
-			place: {
-				plantId: c.plant_id,
-				name: c.name,
-				regionKey: c.region_key,
-				state: c.state_province,
-				country: c.country,
-			},
-			row: {
-				status: "shared" as const,
-				plantId: c.plant_id,
-				name: c.name,
-				// A plant that stopped sharing Ministry teams keeps no gap evidence: its counts read as Unknown.
-				result: C.nearLaunch({
-					launched: c.launched,
-					daysToLaunch: c.days_to_launch,
-					unfilledRoles: c.teams ? c.unfilled_roles : null,
-					outstandingTraining: c.teams ? c.outstanding_training : null,
-				}),
-			},
-		})),
+		...contributions.map((c) => {
+			// A plant that stopped sharing a rule's categories keeps no evidence for it: that rule reads as Unknown.
+			const counts: C.RuleCounts = {
+				overdueFollowUps: c.followups ? c.overdue_followups : null,
+				unownedFollowUps: c.followups ? c.unowned_followups : null,
+				growthDays: c.people ? c.growth_days : null,
+				requiredTraining: c.teams ? c.required_training : null,
+				outstandingTraining: c.teams ? c.outstanding_training : null,
+			};
+			return {
+				place: {
+					plantId: c.plant_id,
+					name: c.name,
+					regionKey: c.region_key,
+					state: c.state_province,
+					country: c.country,
+				},
+				counts,
+				row: {
+					status: "shared" as const,
+					plantId: c.plant_id,
+					name: c.name,
+					results: {
+						"NIR-03": C.nearLaunch({
+							launched: c.launched,
+							daysToLaunch: c.days_to_launch,
+							unfilledRoles: c.teams ? c.unfilled_roles : null,
+							outstandingTraining: counts.outstandingTraining,
+						}),
+						"NIR-04": C.followUpResult(counts),
+						"NIR-05": C.growthResult(counts),
+						"NIR-06": C.trainingResult(counts),
+					},
+				},
+			};
+		}),
 		...unsharedRows.map((u) => ({
 			place: {
 				plantId: u.plant_id,
@@ -240,42 +288,110 @@ function groupsOf(
 				state: u.state_province,
 				country: u.country,
 			},
+			counts: null,
 			row: { status: "not_shared" as const, plantId: u.plant_id, name: u.name },
 		})),
 	];
-	const groups = new Map<string, { label: string; unplaced: boolean; rows: Row[] }>();
+	const groups = new Map<string, { label: string; unplaced: boolean; members: Member[] }>();
 	for (const m of members) {
 		const place = placeOf(level, m.place);
 		const key = place?.key ?? "unplaced";
-		const group = groups.get(key) ?? { label: place?.label ?? UNPLACED[level], unplaced: !place, rows: [] };
-		group.rows.push(m.row);
+		const group = groups.get(key) ?? { label: place?.label ?? UNPLACED[level], unplaced: !place, members: [] };
+		group.members.push(m);
 		groups.set(key, group);
 	}
 	const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name);
 	return [...groups.entries()]
 		.map(([key, g]) => {
-			const rows = [...g.rows].sort(byName);
-			const qualifying = rows.flatMap((x) =>
-				x.status === "shared" && x.result === "gap" ? [{ plantId: x.plantId, name: x.name }] : [],
-			);
-			const observed = rows.filter((x) => x.status === "shared" && x.result !== "unknown").length;
-			const patternKey = `${C.NEAR_LAUNCH_RULE.id}:${level}:${key}`;
+			const members = [...g.members].sort((a, b) => byName(a.row, b.row));
 			return {
 				key,
 				label: g.label,
-				rows,
+				rows: members.map((m) => m.row),
 				unplaced: g.unplaced,
-				pattern:
-					!g.unplaced && qualifying.length >= 2
-						? {
-								key: patternKey,
-								support: qualifying.length,
-								observed,
-								plants: qualifying,
-								rating: ratings[patternKey] ?? null,
-							}
-						: null,
+				patterns: g.unplaced ? [] : patternsOf(`${level}:${key}`, asOf, members, ratings),
 			};
 		})
 		.sort((a, b) => Number(a.unplaced) - Number(b.unplaced) || a.label.localeCompare(b.label));
+}
+
+/** Each rule theme of one group where at least two distinct sharing plants qualify, in rule order. */
+function patternsOf(
+	place: string,
+	asOf: string,
+	members: { row: z.input<typeof C.intelligenceRow>; counts: C.RuleCounts | null }[],
+	ratings: Record<string, "useful" | "not_useful">,
+): z.input<typeof C.intelligencePattern>[] {
+	const shared = members.flatMap((m) =>
+		m.row.status === "shared" && m.counts
+			? [{ plantId: m.row.plantId, name: m.row.name, counts: m.counts, results: m.row.results }]
+			: [],
+	);
+	const sum = (plants: typeof shared, of: (c: C.RuleCounts) => number | null) =>
+		plants.reduce((n, p) => n + (of(p.counts) ?? 0), 0);
+	const out: z.input<typeof C.intelligencePattern>[] = [];
+	const add = <R extends C.RuleId>(
+		rule: R,
+		theme: string,
+		qualifies: (r: (typeof shared)[number]["results"][R]) => boolean,
+		claims: (plants: typeof shared) => object,
+	) => {
+		const observed = shared.filter((p) => p.results[rule] !== "unknown");
+		const plants = observed.filter((p) => qualifies(p.results[rule]));
+		if (plants.length < 2) return;
+		// NIR-03's key predates the themes, so ratings of earlier runs still find their pattern.
+		const key = rule === "NIR-03" ? `${rule}:${place}` : `${rule}:${theme}:${place}`;
+		out.push({
+			key,
+			rule,
+			theme,
+			support: plants.length,
+			observed: observed.length,
+			plants: plants.map(({ plantId, name }) => ({ plantId, name })),
+			rating: ratings[key] ?? null,
+			...claims(plants),
+		} as z.input<typeof C.intelligencePattern>);
+	};
+	add(
+		"NIR-03",
+		"near_launch",
+		(r) => r === "gap",
+		() => ({}),
+	);
+	add(
+		"NIR-04",
+		"overdue_followup",
+		(r) => r === "gap",
+		(plants) => {
+			const unowned = plants.filter((p) => (p.counts.unownedFollowUps ?? 0) > 0);
+			return {
+				overdue: sum(plants, (c) => c.overdueFollowUps),
+				unowned:
+					unowned.length >= 2 ? { support: unowned.length, overdue: sum(unowned, (c) => c.unownedFollowUps) } : null,
+			};
+		},
+	);
+	add(
+		"NIR-05",
+		"slowed",
+		(r) => r === "slowed",
+		() => ({ asOf }),
+	);
+	add(
+		"NIR-05",
+		"stalled",
+		(r) => r === "stalled",
+		() => ({ asOf }),
+	);
+	add(
+		"NIR-06",
+		"required_training",
+		(r) => r === "gap",
+		(plants) => {
+			const outstanding = sum(plants, (c) => c.outstandingTraining);
+			const applicable = sum(plants, (c) => c.requiredTraining);
+			return { outstanding, applicable, complete: applicable - outstanding };
+		},
+	);
+	return out;
 }

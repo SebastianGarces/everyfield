@@ -1,5 +1,5 @@
-import { landingFor, safeReturn, type PlantSetup } from "@everyfield/contracts/identity";
-import { readPlantSetupComplete } from "@everyfield/domain/identity";
+import { landingFor, safeReturn } from "@everyfield/contracts/identity";
+import { dashboardReader } from "@everyfield/domain/dashboard";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
@@ -28,20 +28,18 @@ export async function SignInPage({ searchParams }: { searchParams: Search }) {
 	return <SignInScreen returnTo={safeReturn(one((await searchParams).returnTo))} />;
 }
 
-// The landing route (/home). Every post-sign-in and "home" link points here; the rule is landingFor. The cached viewer is
-// the first statement; the second runs only for a plant seat and reads that plant's setup state under the live check (C13).
+// The landing route (/home). Every post-sign-in and "home" link points here; the rule is landingFor, from the seat and the
+// saved setup (dashboard.resolveHome, ADM-004). The cached viewer is the first statement; the second runs only for a
+// plant seat and reads that plant's setup state under the live check (C13).
 export const homeMetadata: Metadata = { title: "Home", robots: { index: false, follow: false } };
-export async function HomePage() {
+export async function HomePage({ searchParams }: { searchParams: Search }) {
+	const returnTo = one((await searchParams).returnTo);
 	const viewer = await getViewer();
 	if (!viewer || viewer.status === "unauthenticated") redirect("/signin");
-	let plant: PlantSetup = "none";
-	const context = viewer.authority?.actor.context;
 	const db = requestDatabase();
-	if (context?.kind === "seat" && context.owner.kind === "organization") plant = "organization";
-	else if (db && viewer.status === "active" && context?.kind === "seat" && context.owner.kind === "plant") {
-		plant = (await readPlantSetupComplete(db, viewer.sessionId, context.owner)) ? "complete" : "incomplete";
-	}
-	redirect(landingFor({ status: viewer.status, plant }));
+	const plant =
+		viewer.status === "active" && db ? await dashboardReader.resolveHome(db, viewer.authority ?? null) : "none";
+	redirect(landingFor({ status: viewer.status, plant, returnTo }));
 }
 
 export const registerMetadata: Metadata = { title: "Create your account" };

@@ -701,8 +701,11 @@ test("INV-evry-golden SAF-02 SAF-11 SAF-12 SAF-14: the model's tools can read an
 			}),
 		);
 	// The Owner's turn gets the domain reads, select_returned_rows and propose_change, which only prepares a review.
+	// The pipeline read is an organization seat's (WP-101).
 	assert.deepEqual(tools("owner"), [
-		...Object.keys(READ_DOMAINS).map((d) => `${d}_read`),
+		...Object.keys(READ_DOMAINS)
+			.filter((d) => d !== "pipeline")
+			.map((d) => `${d}_read`),
 		"select_returned_rows",
 		"propose_change",
 	]);
@@ -726,10 +729,16 @@ test("INV-evry-golden SAF-02 SAF-11 SAF-12 SAF-14: the model's tools can read an
 			"account.requestDeletion",
 		],
 	);
-	assert.deepEqual(tools("org"), ["notifications_read", "select_returned_rows", "propose_change"]);
+	// It also reads its own pipeline and proposes stage moves and new programs (WP-101).
+	assert.deepEqual(tools("org"), ["notifications_read", "pipeline_read", "select_returned_rows", "propose_change"]);
 	assert.deepEqual(
 		readCatalog(church.actors.org).reviewedWrites.map((w) => w.operation),
-		["notifications.oversightDigestCadence.set", "organizations.updateProfile"],
+		[
+			"notifications.oversightDigestCadence.set",
+			"organizations.updateProfile",
+			"pipeline.proposeStageMove",
+			"development.saveProgram",
+		],
 	);
 });
 

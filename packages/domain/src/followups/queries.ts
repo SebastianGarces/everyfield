@@ -32,7 +32,7 @@ function reader(authority: RequestActor, admin = false) {
  * eligible ones. A follow-up with no eligible assignee needs an owner in every tally and filter (D-a, REQ-TSK-012);
  * each ineligible assignee keeps its name and warning.
  */
-const duties = (plantId: string, where: SQL = sql`true`) => sql`SELECT d.*,
+const duties = (plant: SQL, where: SQL = sql`true`) => sql`SELECT d.*,
 	(SELECT coalesce(array_agg((o->>'accountId')::uuid),'{}') FROM jsonb_array_elements(d.owners) o) AS assignee_ids,
 	(SELECT coalesce(array_agg((o->>'accountId')::uuid),'{}') FROM jsonb_array_elements(d.owners) o
 		WHERE (o->>'eligible')='true') AS owner_ids FROM (SELECT t.id, t.revision::text AS revision,
@@ -50,7 +50,16 @@ const duties = (plantId: string, where: SQL = sql`true`) => sql`SELECT d.*,
 		ORDER BY x.occurred_at DESC, x.id DESC LIMIT 1) AS contacted
 	FROM task t JOIN plant pl ON pl.id=t.plant_id
 	JOIN person p ON p.id=t.person_id AND p.tenant_id=t.plant_id AND p.state='live'
-	WHERE t.plant_id=${plantId}::uuid AND ${followUpTask(sql`t`)} AND t.status IN ${OPEN} AND ${where}) d`;
+	WHERE t.plant_id=${plant} AND ${followUpTask(sql`t`)} AND t.status IN ${OPEN} AND ${where}) d`;
+/**
+ * Plant `plant`'s open follow-ups that are overdue now, and those of them that need an owner, as JSON
+ * `{ overdue, unowned }`: the Follow-ups screen's own Overdue (overdueAt) and Needs owner, read by Network
+ * Intelligence (NIR-04, D-1422). Undated follow-ups are never overdue; completed and no-longer-needed ones are not open.
+ */
+export const overdueFollowUpsJson = (plant: SQL) => sql`(SELECT json_build_object('overdue', count(*)::int,
+	'unowned', (count(*) FILTER (WHERE cardinality(d.owner_ids)=0))::int) FROM (${duties(plant)}) d
+	WHERE CASE d.due_kind WHEN 'timed' THEN clock_timestamp() > d.due_at
+		WHEN 'date_only' THEN clock_timestamp() >= d.due_key ELSE false END)`;
 /** A duty row as JSON, with its owner view and origin. Same statement, no extra round trip. */
 const dutyJson = (d: SQL) => sql`to_jsonb(${d})`;
 const dutyOrder = (d: SQL) => sql`${d}.due_key NULLS LAST, ${d}.id`;
@@ -338,7 +347,7 @@ export const followUpReader = {
 			const found = await gated(
 				tx,
 				viewer,
-				sql`WITH duty AS MATERIALIZED (${duties(viewer.plantId, onePerson(sql`t.person_id`))}),
+				sql`WITH duty AS MATERIALIZED (${duties(sql`${viewer.plantId}::uuid`, onePerson(sql`t.person_id`))}),
 				people AS MATERIALIZED (SELECT p.id, p.display_name, p.stage,
 					CASE WHEN NOT EXISTS(SELECT FROM duty d WHERE d.person_id=p.id) THEN 'uncovered'
 						WHEN EXISTS(SELECT FROM duty d WHERE d.person_id=p.id AND cardinality(d.owner_ids)=0) THEN 'needs_owner'
@@ -409,7 +418,7 @@ export const followUpReader = {
 			const found = await gated(
 				tx,
 				viewer,
-				sql`WITH duty AS MATERIALIZED (${duties(viewer.plantId, person)}),
+				sql`WITH duty AS MATERIALIZED (${duties(sql`${viewer.plantId}::uuid`, person)}),
 				matched AS MATERIALIZED (SELECT * FROM duty d WHERE ${owner})
 				SELECT 0::bigint AS ord, NULL::jsonb AS duty, (SELECT count(*)::int FROM matched) AS matched,
 					(SELECT count(*)::int FROM duty WHERE cardinality(owner_ids)=0) AS unassigned, ${ownerTally} AS owners
@@ -442,7 +451,7 @@ export const followUpReader = {
 			const found = await gated(
 				tx,
 				viewer,
-				sql`WITH duty AS MATERIALIZED (${duties(viewer.plantId, assignedTo("t", from))})
+				sql`WITH duty AS MATERIALIZED (${duties(sql`${viewer.plantId}::uuid`, assignedTo("t", from))})
 				SELECT 0::bigint AS ord, NULL::jsonb AS duty,
 					(SELECT display_name FROM seat_identity(${from})) AS name, ${eligibleOwner(from, plant)} AS eligible,
 					EXISTS(SELECT FROM seat s WHERE s.account_id=${from} AND s.plant_id=${plant} AND s.role='owner'

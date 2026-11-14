@@ -4,6 +4,7 @@ export { EvryRefusal, projectError, type ProjectedError } from "./context/errors
 export { LIMITS, type StopReason } from "./context/limits.ts";
 export { readCatalog, READ_DOMAINS, SELECT_RETURNED_ROWS, type Catalog } from "./catalog/catalog.ts";
 export { invokeRead } from "./catalog/invoke.ts";
+export { pipelineListsPeople } from "./adapters/pipeline/reads/index.ts";
 export {
 	cancelTurn,
 	closeLostJobs,

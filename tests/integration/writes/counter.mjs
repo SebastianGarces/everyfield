@@ -243,6 +243,7 @@ export function instrument(path, source, listed = standalone) {
 		"/packages/domain/src/teams/training/reads.ts": { trainingReader: "teams" },
 		"/packages/domain/src/meetings/roster.ts": { rosterWriter: "meetings" },
 		"/packages/domain/src/phases/reads.ts": { phaseReader: "phases" },
+		"/packages/domain/src/dashboard/index.ts": { dashboardWriter: "dashboard" },
 		"/packages/domain/src/organizations/pipeline.ts": { pipelineWriter: "pipeline" },
 		"/packages/domain/src/organizations/data.ts": { pipelineDataWriter: "pipeline" },
 		"/packages/domain/src/organizations/programs.ts": { programWriter: "programs" },

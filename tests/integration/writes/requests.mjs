@@ -460,7 +460,12 @@ try {
 	};
 	for (let i = 0; i < 2; i++) await reviewCard(`Census ${i}`);
 
+	// Overview is a finished church's home: an unfinished one goes back to setup (ADM-004).
+	await admin.execute(sql`UPDATE plant SET onboarding_completed_at=clock_timestamp() WHERE id=${plant.id}`);
 	const pages = [
+		// The church's name and phase, the four counts, the latest changes and the Launch plan, each one read.
+		["GET /overview", "/overview", owner.cookie],
+		["GET /overview (member)", "/overview", member.cookie],
 		["GET /people", "/people", owner.cookie],
 		["GET /people?view=pipeline", "/people?view=pipeline", owner.cookie],
 		["GET /people (member)", "/people", member.cookie],

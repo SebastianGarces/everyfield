@@ -174,7 +174,7 @@ function EvryPanel({
 							void c.cancel();
 							composer.current?.focus();
 						}}
-						suggestions={c.state.conversation || c.state.sends.length ? [] : suggestionsFor(inPlant)}
+						suggestions={c.state.conversation || c.state.sends.length ? [] : suggestionsFor(inPlant, c.pipeline)}
 					/>
 				) : undefined
 			}
@@ -206,8 +206,13 @@ function EvryPanel({
 	);
 }
 
-const suggestionsFor = (inPlant: boolean) =>
-	inPlant ? ["List the people in this church", "What can you help with?"] : ["What can you help with?"];
+/** An organization seat whose Pipeline page lists people is offered a pipeline question (WP-101). */
+const suggestionsFor = (inPlant: boolean, pipeline: boolean) =>
+	inPlant
+		? ["List the people in this church", "What can you help with?"]
+		: pipeline
+			? ["Who hasn't moved in six months?", "What can you help with?"]
+			: ["What can you help with?"];
 
 // ---------------------------------------------------------------------------------------------------------------
 // Chat

@@ -5,6 +5,7 @@ import {
 	BookOpen02Icon,
 	Calendar03Icon,
 	ChartLineData01Icon,
+	DashboardSquare01Icon,
 	File02Icon,
 	HierarchyIcon,
 	Link01Icon,
@@ -20,6 +21,7 @@ import {
 	UserGroupIcon,
 	UserMultipleIcon,
 } from "@hugeicons/core-free-icons";
+import { DASHBOARD_HOME, LANDING_ROUTE, ORGANIZATION_HOME } from "@everyfield/contracts/identity";
 import { ToastProvider, useToast } from "@everyfield/ui/controls";
 import { initials } from "@everyfield/ui/display";
 import { AppShell, RoleBanner, type ShellNav } from "@everyfield/ui/shell";
@@ -45,6 +47,15 @@ import { useWikiChrome, WikiChrome } from "../wiki/client.tsx";
 // opens the notification drop-down (WP-030). Send feedback (WP-049) opens its dialog over the current page. Settings sits
 // at the bottom of the rail and in the user menu behind the name button (screens.md, Overlays).
 
+// Overview (WP-048) is a church plant's home: every seat of a plant has it.
+const OVERVIEW = {
+	kind: "link",
+	key: "overview",
+	label: "Overview",
+	href: DASHBOARD_HOME,
+	icon: DashboardSquare01Icon,
+	prefetch: false,
+} as const;
 const PEOPLE = { kind: "link", key: "people", label: "People", href: "/people", icon: UserMultipleIcon } as const;
 // Meetings is a dynamic page; it loads when chosen, not whenever the frame renders.
 const MEETINGS = {
@@ -246,7 +257,7 @@ function Frame({ name, photo, settings, seed = null, children }: FrameProps) {
 					? linked
 						? [MY_RESIDENCY, WIKI]
 						: [WIKI]
-					: [PEOPLE, MEETINGS, MESSAGES, TASKS, MINISTRIES, WIKI],
+					: [OVERVIEW, PEOPLE, MEETINGS, MESSAGES, TASKS, MINISTRIES, WIKI],
 				pages:
 					settings?.context !== "plant"
 						? [DOCUMENTS]
@@ -280,7 +291,9 @@ function Frame({ name, photo, settings, seed = null, children }: FrameProps) {
 					checkIn={settings?.context === "plant" && role !== "member"}
 				/>
 			}
-			homeHref={organization ? "/network" : account ? (linked ? "/my-residency" : "/home") : "/people"}
+			homeHref={
+				organization ? ORGANIZATION_HOME : account ? (linked ? "/my-residency" : LANDING_ROUTE) : DASHBOARD_HOME
+			}
 			unread={bell.unread}
 			width="wide"
 			onSearch={() => {
