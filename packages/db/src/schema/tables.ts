@@ -5957,7 +5957,7 @@ export const audit_event = pgTable(
 		check(
 			"audit_action",
 			sql.raw(
-				"(action IN ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','branding.changed','communication.draft_deleted','communication.draft_saved','communication.rescheduled','communication.scheduled','communication.send_intended','communication.template_archived','communication.template_created','communication.template_deleted','communication.template_forked','communication.template_updated','deletion.cancelled','deletion.live_purge_completed','development.enrolled','development.feedback_recorded','development.milestone_confirmed','development.milestone_marked','development.milestone_recorded','development.plan_saved','development.program_created','development.version_applied','development.version_published','documents.archived','documents.church_archived','documents.church_restored','documents.branding_changed','documents.copied','documents.created_from_template','documents.designated','documents.export_deleted','documents.exported','documents.generated','documents.imported','documents.purged','documents.saved','documents.template_deleted','documents.template_details_changed','documents.template_saved','documents.template_updated','evry.conversation_created','evry.proposal_approved','evry.proposal_cancelled','evry.proposal_prepared','evry.proposal_retried','evry.proposal_revised','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','feedback.publication_held','feedback.publication_intended','feedback.publication_unknown','feedback.published','feedback.received','feedback.status_changed','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','intelligence.assessed','intelligence.refresh_requested','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','launch.corrected','launch.debrief_submitted','launch.outcome_recorded','launch.summary_published','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','organization.profile_changed','people.corrected','people.created','people.duplicate_dismissed','people.duplicate_restored','people.merged','people.recorded','people.removed','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.bookmark_changed','wiki.hidden','wiki.published','wiki.reading_recorded','wiki.source_order_changed'))",
+				"(action IN ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','branding.changed','communication.draft_deleted','communication.draft_saved','communication.rescheduled','communication.scheduled','communication.send_intended','communication.template_archived','communication.template_created','communication.template_deleted','communication.template_forked','communication.template_updated','deletion.cancelled','deletion.live_purge_completed','development.enrolled','development.feedback_recorded','development.milestone_confirmed','development.milestone_marked','development.milestone_recorded','development.plan_saved','development.program_created','development.version_applied','development.version_published','documents.archived','documents.church_archived','documents.church_restored','documents.branding_changed','documents.copied','documents.created_from_template','documents.designated','documents.export_deleted','documents.exported','documents.generated','documents.imported','documents.purged','documents.saved','documents.template_deleted','documents.template_details_changed','documents.template_saved','documents.template_updated','evry.conversation_created','evry.proposal_approved','evry.proposal_cancelled','evry.proposal_prepared','evry.proposal_retried','evry.proposal_revised','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','feedback.publication_held','feedback.publication_intended','feedback.publication_unknown','feedback.published','feedback.received','feedback.status_changed','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','intelligence.assessed','intelligence.assessment_opened','intelligence.feedback_saved','intelligence.refresh_requested','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','launch.corrected','launch.debrief_submitted','launch.outcome_recorded','launch.summary_published','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','organization.profile_changed','people.corrected','people.created','people.duplicate_dismissed','people.duplicate_restored','people.merged','people.recorded','people.removed','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.bookmark_changed','wiki.hidden','wiki.published','wiki.reading_recorded','wiki.source_order_changed'))",
 			),
 		),
 		check(
@@ -6844,5 +6844,77 @@ export const assessment_insight = pgTable(
 			sql`(severity = ANY (ARRAY['info'::text, 'low'::text, 'medium'::text, 'high'::text]))`,
 		),
 		index("assessment_insight_plant_idx").on(t.plant_id),
+	],
+);
+/**
+ * A reader's own rating of one point of one published assessment (PI-033): useful or not useful, with an optional
+ * comment. It belongs to its author only, is bound to the exact insight (checked when it is written), run and rubric
+ * version, and never changes the run, its scores or the rubric.
+ */
+export const assessment_feedback = pgTable(
+	"assessment_feedback",
+	{
+		run_id: uuid("run_id").notNull(),
+		ordinal: integer("ordinal").notNull(),
+		plant_id: uuid("plant_id").notNull(),
+		account_id: uuid("account_id").notNull(),
+		rubric_version: text("rubric_version").notNull(),
+		rating: text("rating").notNull(),
+		comment: text("comment"),
+		recorded_at: timestamp("recorded_at", { withTimezone: true, mode: "date" }).notNull(),
+	},
+	(t): PgTableExtraConfigValue[] => [
+		primaryKey({ name: "assessment_feedback_pkey", columns: [t.run_id, t.ordinal, t.account_id] }),
+		foreignKey({
+			name: "assessment_feedback_run",
+			columns: [t.run_id, t.plant_id],
+			foreignColumns: [assessment_run.id, assessment_run.plant_id],
+		})
+			.onDelete("cascade")
+			.onUpdate("no action"),
+		foreignKey({ name: "assessment_feedback_plant", columns: [t.plant_id], foreignColumns: [plant.id] })
+			.onDelete("cascade")
+			.onUpdate("no action"),
+		foreignKey({ name: "assessment_feedback_account", columns: [t.account_id], foreignColumns: [account.id] })
+			.onDelete("cascade")
+			.onUpdate("no action"),
+		check("assessment_feedback_rating", sql`(rating = ANY (ARRAY['useful'::text, 'not_useful'::text]))`),
+		check(
+			"assessment_feedback_comment",
+			sql`((comment IS NULL) OR ((char_length(comment) >= 1) AND (char_length(comment) <= 1000)))`,
+		),
+		index("assessment_feedback_plant_idx").on(t.plant_id),
+		index("assessment_feedback_account_idx").on(t.account_id),
+	],
+);
+/**
+ * An Owner's or Admin's explicit first open of one published assessment (PI-024). The earliest open, or 72 hours
+ * after the run became available, releases the run to the plant's organizations (PI-032). Rendering writes nothing.
+ */
+export const assessment_seen = pgTable(
+	"assessment_seen",
+	{
+		run_id: uuid("run_id").notNull(),
+		account_id: uuid("account_id").notNull(),
+		plant_id: uuid("plant_id").notNull(),
+		seen_at: timestamp("seen_at", { withTimezone: true, mode: "date" }).notNull(),
+	},
+	(t): PgTableExtraConfigValue[] => [
+		primaryKey({ name: "assessment_seen_pkey", columns: [t.run_id, t.account_id] }),
+		foreignKey({
+			name: "assessment_seen_run",
+			columns: [t.run_id, t.plant_id],
+			foreignColumns: [assessment_run.id, assessment_run.plant_id],
+		})
+			.onDelete("cascade")
+			.onUpdate("no action"),
+		foreignKey({ name: "assessment_seen_plant", columns: [t.plant_id], foreignColumns: [plant.id] })
+			.onDelete("cascade")
+			.onUpdate("no action"),
+		foreignKey({ name: "assessment_seen_account", columns: [t.account_id], foreignColumns: [account.id] })
+			.onDelete("cascade")
+			.onUpdate("no action"),
+		index("assessment_seen_plant_idx").on(t.plant_id),
+		index("assessment_seen_account_idx").on(t.account_id),
 	],
 );

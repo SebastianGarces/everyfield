@@ -6,7 +6,7 @@ import type { RequestActor } from "@everyfield/domain/access";
 import { createLaunchReader, createLaunchWriter } from "@everyfield/domain/launch";
 import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
-import type { EffectResult, ReviewContext, ReviewedWrite } from "../../../proposals/types.ts";
+import type { EffectResult, NativePorts, ReviewContext, ReviewedWrite } from "../../../proposals/types.ts";
 import { plantAdmin } from "../../native.ts";
 import { launchDay } from "../reads/index.ts";
 
@@ -15,14 +15,14 @@ import { launchDay } from "../reads/index.ts";
 // approval the executor runs that same command once, in its transaction, under the approving session's live seat, with
 // the effect key as the request key; a plan that changed since refuses (conflict) and the card shows Launch Sunday as it
 // is now. None of them moves a prep task, the church's phase, sends anything or creates a person (INH-LAUNCH-04/05).
-// Owners and Admins only, as on the Launch plan.
+// Owners and Admins only, as on the Launch plan. Completing a milestone (T-382) notifies the church's other Owners and
+// Admins through the deployment's Launch notices, as the Launch plan does; no other write here notifies anyone.
 
 const reader = createLaunchReader();
-// Milestone completions are a later slice: no Launch write here notifies anyone.
 const writer = createLaunchWriter({ notices: async () => undefined });
 
 type Change = { field: string; before: unknown; after: unknown };
-type Prepared = { changes: Change[]; notes?: string[]; refusal?: string | null; args: object };
+type Prepared = { label?: string; changes: Change[]; notes?: string[]; refusal?: string | null; args: object };
 const TARGET_LABEL = "Launch plan";
 
 /** The words the Launch plan uses for a refused reason (launch/model.ts NOTE_MESSAGE). */
@@ -61,8 +61,17 @@ function launchWrite<I>(spec: {
 	operation: string;
 	description: string;
 	input: z.ZodType<I>;
-	prepare(plan: c.Plan, input: I): Prepared;
-	run(tx: Database, authority: RequestActor, args: Record<string, unknown>, key: string): Promise<EffectResult>;
+	/** The card, or null when what it would change is not on the plan. */
+	prepare(plan: c.Plan, input: I): Prepared | null;
+	run(
+		tx: Database,
+		authority: RequestActor,
+		args: Record<string, unknown>,
+		key: string,
+		ports: NativePorts | null,
+	): Promise<EffectResult>;
+	/** The records a refusal shows as they are now: Launch Sunday unless the write names others. */
+	current?: (p: SQL) => SQL;
 }): ReviewedWrite<I> {
 	return {
 		operation: spec.operation,
@@ -74,8 +83,9 @@ function launchWrite<I>(spec: {
 			if (reply.status !== "ok") return null;
 			const plan = reply.value.plan;
 			const p = spec.prepare(plan, input);
+			if (!p) return null;
 			const review = {
-				target: { kind: "church", id: actor.owner.id, label: TARGET_LABEL },
+				target: { kind: "church", id: actor.owner.id, label: p.label ?? TARGET_LABEL },
 				changes: p.changes,
 				...(p.notes?.length && { notes: p.notes }),
 				...(p.refusal && { refusal: p.refusal }),
@@ -84,15 +94,24 @@ function launchWrite<I>(spec: {
 		},
 		async execute(tx, _context, args, effectKey, _reminders, native) {
 			// The Launch commands open their own transaction; inside the executor's it is a savepoint of it.
-			return spec.run(tx as unknown as Database, native.authority, args as Record<string, unknown>, effectKey);
+			return spec.run(
+				tx as unknown as Database,
+				native.authority,
+				args as Record<string, unknown>,
+				effectKey,
+				native.ports,
+			);
 		},
-		// A plan that changed since the review: Launch Sunday as it is now.
-		current: (p: SQL) => sql`(SELECT jsonb_build_array(jsonb_build_object('id',${p}.tenant_id,'label','Launch Sunday',
-			'value',CASE WHEN l.status='postponed' THEN 'Postponed' WHEN l.status='completed' THEN 'Launched'
-				WHEN l.target_date IS NULL THEN 'No date set' ELSE trim(to_char(l.target_date,'Dy, Mon FMDD, YYYY')) END))
-			FROM plant x LEFT JOIN launch l ON l.plant_id=x.id WHERE x.id=${p}.tenant_id)`,
+		current: spec.current ?? launchSundayNow,
 	};
 }
+/** A plan that changed since the review: Launch Sunday as it is now. */
+const launchSundayNow = (
+	p: SQL,
+) => sql`(SELECT jsonb_build_array(jsonb_build_object('id',${p}.tenant_id,'label','Launch Sunday',
+			'value',CASE WHEN l.status='postponed' THEN 'Postponed' WHEN l.status='completed' THEN 'Launched'
+				WHEN l.target_date IS NULL THEN 'No date set' ELSE trim(to_char(l.target_date,'Dy, Mon FMDD, YYYY')) END))
+			FROM plant x LEFT JOIN launch l ON l.plant_id=x.id WHERE x.id=${p}.tenant_id)`;
 
 /** A native Launch reply as an effect result: the plan's new revision, or the domain's refusal code. */
 const settled = (reply: c.LaunchReply<c.PlanResult>): EffectResult =>
@@ -332,6 +351,97 @@ export const publishDebriefSummary = launchWrite({
 	},
 });
 
+/** A milestone as the Launch plan marks it: complete, needs review (a task complete at completion was reopened), or not. */
+const milestoneState = (m: c.Milestone) =>
+	!m.completion ? "Not complete" : m.needsReview ? "Needs review" : "Complete";
+const OPEN_TASK = (t: c.PrepTask) => t.status !== "complete" && t.status !== "no_longer_needed";
+/** The day of an instant in the church's time zone, as the Launch plan's history says it: "Oct 10, 2026". */
+const dayIn = (at: string, timeZone: string) =>
+	new Intl.DateTimeFormat("en-US", { timeZone, month: "short", day: "numeric", year: "numeric" }).format(new Date(at));
+/**
+ * A milestone card refused because the milestone or its linked tasks changed since the review: the milestone and each
+ * of its live linked prep tasks as they are now, as the Launch plan lists them (LCH-004 stale_review).
+ */
+const milestoneNow = (p: SQL) => sql`(SELECT jsonb_build_array(jsonb_build_object('id',m.id,'label',m.title,'value',
+	CASE WHEN m.completed_at IS NULL THEN 'Not complete' WHEN EXISTS(SELECT FROM task r WHERE r.id=ANY(m.completed_task_ids)
+		AND r.plant_id=m.plant_id AND r.deleted_at IS NULL AND r.status NOT IN ('complete','no_longer_needed'))
+		THEN 'Needs review' ELSE 'Complete' END))
+	|| coalesce((SELECT jsonb_agg(jsonb_build_object('id',k.id,'label',k.title,'value',CASE k.status WHEN 'not_started' THEN 'Not started'
+		WHEN 'in_progress' THEN 'In progress' WHEN 'blocked' THEN 'Blocked' WHEN 'complete' THEN 'Complete'
+		ELSE 'No longer needed' END)
+		ORDER BY split_part(k.launch_task_key,'/',2)::int,k.id) FROM task k WHERE k.plant_id=m.plant_id
+		AND k.deleted_at IS NULL AND split_part(k.launch_task_key,'/',1)=m.template_key),'[]'::jsonb)
+	FROM launch_milestone m WHERE m.id=(${p}.input->'input'->>'milestoneId')::uuid AND m.plant_id=${p}.tenant_id)`;
+
+const milestoneInput = z.strictObject({
+	/** The milestone row's id from launch.readWorkspace. */
+	milestoneId: z.uuid(),
+});
+type MilestoneInput = z.infer<typeof milestoneInput>;
+const KEPT_TASKS = "Its prep tasks' statuses, due dates and assignees stay as they are.";
+
+export const completeMilestone = launchWrite({
+	operation: "launch.completeMilestone",
+	description:
+		"Propose marking one Launch readiness milestone complete, by its milestone row id from launch.readWorkspace. A milestone can be completed while linked prep tasks are still open: they stay open, and the card says how many. Completing a milestone that needs review confirms the earlier completion. Prep tasks never change. Guest data entered and Debrief done follow the submitted debrief and are never completed by hand. Nothing changes until the user approves",
+	input: milestoneInput,
+	prepare(plan, input: MilestoneInput) {
+		const m = plan.milestones.find((x) => x.id === input.milestoneId);
+		if (!m) return null;
+		const open = m.tasks.filter(OPEN_TASK);
+		const earlier = m.completion && m.needsReview ? m.completion : null;
+		return {
+			label: m.title,
+			changes: [{ field: "milestone", before: milestoneState(m), after: "Complete" }],
+			notes: [
+				open.length
+					? `${open.length} of its ${m.tasks.length} prep tasks ${open.length === 1 ? "is still open and stays" : "are still open and stay"} open: ${open.map((t) => t.title).join("; ")}.`
+					: "Every prep task linked to it is done.",
+				...(earlier
+					? [
+							`This confirms the earlier completion${earlier.by ? ` by ${earlier.by.displayName}` : ""} on ${dayIn(earlier.at, plan.timeZone)}. A prep task that was complete then has been reopened since.`,
+						]
+					: []),
+				KEPT_TASKS,
+			],
+			refusal: m.completion && !m.needsReview ? "This milestone is already complete." : null,
+			args: { expectedRevision: m.revision, input: { milestoneId: m.id, reviewed: c.reviewedOf(m.tasks) } },
+		};
+	},
+	async run(db, authority, args, key, ports) {
+		// The Launch plan tells the church's other Owners and Admins; a server that can't tell them saves nothing.
+		const notices = ports?.launchNotices;
+		if (!notices) return { refused: "source_unavailable" };
+		const w = createLaunchWriter({ notices });
+		const reply = await w.completeMilestone(db, authority, { ...args, requestKey: key });
+		return reply.status === "ok" ? { revision: reply.value.milestone.revision } : { refused: reply.error.code };
+	},
+	current: milestoneNow,
+});
+
+export const reopenMilestone = launchWrite({
+	operation: "launch.reopenMilestone",
+	description:
+		"Propose reopening one completed Launch readiness milestone, by its milestone row id from launch.readWorkspace. Its prep tasks stay as they are, and the earlier completion stays in Launch history. Guest data entered and Debrief done follow the submitted debrief and are never reopened by hand. Nothing changes until the user approves",
+	input: milestoneInput,
+	prepare(plan, input: MilestoneInput) {
+		const m = plan.milestones.find((x) => x.id === input.milestoneId);
+		if (!m) return null;
+		return {
+			label: m.title,
+			changes: [{ field: "milestone", before: milestoneState(m), after: "Not complete" }],
+			notes: [KEPT_TASKS, "The earlier completion stays in Launch history."],
+			refusal: m.completion ? null : "This milestone isn't complete, so there's nothing to reopen.",
+			args: { expectedRevision: m.revision, input: { milestoneId: m.id } },
+		};
+	},
+	async run(db, authority, args, key) {
+		const reply = await writer.reopenMilestone(db, authority, { ...args, requestKey: key });
+		return reply.status === "ok" ? { revision: reply.value.milestone.revision } : { refused: reply.error.code };
+	},
+	current: milestoneNow,
+});
+
 /** The installed Launch reviewed writes, keyed by operation. */
 export const LAUNCH_COMMANDS = {
 	"launch.schedule": schedule,
@@ -339,4 +449,6 @@ export const LAUNCH_COMMANDS = {
 	"launch.recordOutcome": recordOutcome,
 	"launch.submitDebrief": submitDebrief,
 	"launch.publishDebriefSummary": publishDebriefSummary,
+	"launch.completeMilestone": completeMilestone,
+	"launch.reopenMilestone": reopenMilestone,
 } as const;

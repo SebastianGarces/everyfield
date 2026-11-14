@@ -1,7 +1,7 @@
 {
 	"suite": "launch",
 	"model": "scripted",
-	"note": "WP-075 and WP-076: the Launch tools, asked on the scripted model with the real adapters, approvals, effect executor and the native Launch writer, on Hope Fellowship (golden-church.mts, America/Chicago) with the Launch fixture (launch-church.mts). Owner Nate Ellis, Admin Lena Park, Member Priya Shah. Dates are relative to the church-local date the Launch read returns: {day:N} is N days from today and {said:N} that date as the cards say it. Cases run in this order; `setup` names the fixture step that runs before a case, and each later case sees the earlier approved changes.",
+	"note": "WP-075 and WP-076: the Launch tools, asked on the scripted model with the real adapters, approvals, effect executor and the native Launch writer, on Hope Fellowship (golden-church.mts, America/Chicago) with the Launch fixture (launch-church.mts). Owner Nate Ellis, Admin Lena Park, Member Priya Shah. Dates are relative to the church-local date the Launch read returns: {day:N} is N days from today and {said:N} that date as the cards say it. Cases run in this order; `setup` names the fixture step that runs before a case, and each later case sees the earlier approved changes. T-382 adds LAU-21 to LAU-36: completing and reopening a milestone, whose `criterion` is 100 plus the T-382 Done criterion.",
 	"cases": [
 		{
 			"id": "LAU-01",
@@ -282,6 +282,218 @@
 			"ask": "record launch attendance: 140 people",
 			"calls": [],
 			"answer": ["Only an Owner or Admin can change the Launch plan"]
+		},
+		{
+			"id": "LAU-21",
+			"criterion": 101,
+			"setup": "milestones",
+			"actor": "owner",
+			"ask": "mark the venue milestone complete",
+			"calls": ["launch.readWorkspace"],
+			"answer": [
+				"I prepared a review card to mark **Worship Center secured and rehearsed in** complete. 2 of its 4 prep tasks are still open and stay open.",
+				"Nothing changes until you approve it."
+			],
+			"proposal": {
+				"operation": "launch.completeMilestone",
+				"target": "Worship Center secured and rehearsed in",
+				"changes": [{ "field": "milestone", "before": "Not complete", "after": "Complete" }],
+				"notes": [
+					"2 of its 4 prep tasks are still open and stay open: Walk the room with the set-up team; Rehearse the Launch Sunday service in the room.",
+					"Its prep tasks' statuses, due dates and assignees stay as they are."
+				]
+			},
+			"approve": true,
+			"outcome": "completed"
+		},
+		{
+			"id": "LAU-22",
+			"criterion": 105,
+			"actor": "owner",
+			"ask": "mark the venue milestone complete",
+			"calls": ["launch.readWorkspace"],
+			"answer": [
+				"**Worship Center secured and rehearsed in** is already complete on the Launch plan, so I prepared nothing."
+			]
+		},
+		{
+			"id": "LAU-23",
+			"criterion": 104,
+			"actor": "owner",
+			"ask": "reopen the venue milestone",
+			"calls": ["launch.readWorkspace"],
+			"answer": [
+				"I prepared a review card to reopen **Worship Center secured and rehearsed in**. Its prep tasks stay as they are."
+			],
+			"proposal": {
+				"operation": "launch.reopenMilestone",
+				"target": "Worship Center secured and rehearsed in",
+				"changes": [{ "field": "milestone", "before": "Complete", "after": "Not complete" }],
+				"notes": [
+					"Its prep tasks' statuses, due dates and assignees stay as they are.",
+					"The earlier completion stays in Launch history."
+				]
+			},
+			"approve": true,
+			"outcome": "completed"
+		},
+		{
+			"id": "LAU-24",
+			"criterion": 105,
+			"actor": "owner",
+			"ask": "reopen the venue milestone",
+			"calls": ["launch.readWorkspace"],
+			"answer": [
+				"**Worship Center secured and rehearsed in** isn't complete, so there's nothing to reopen. I prepared nothing."
+			]
+		},
+		{
+			"id": "LAU-25",
+			"criterion": 102,
+			"actor": "owner",
+			"ask": "mark the venue milestone complete",
+			"calls": ["launch.readWorkspace"],
+			"proposal": {
+				"operation": "launch.completeMilestone",
+				"target": "Worship Center secured and rehearsed in",
+				"changes": [{ "field": "milestone", "before": "Not complete", "after": "Complete" }]
+			},
+			"approve": true,
+			"outcome": "refused"
+		},
+		{
+			"id": "LAU-26",
+			"criterion": 102,
+			"actor": "owner",
+			"ask": "mark the venue milestone complete",
+			"calls": ["launch.readWorkspace"],
+			"answer": [
+				"I prepared a review card to mark **Worship Center secured and rehearsed in** complete. 1 of its 4 prep tasks is still open and stays open."
+			],
+			"proposal": {
+				"operation": "launch.completeMilestone",
+				"target": "Worship Center secured and rehearsed in",
+				"notes": ["1 of its 4 prep tasks is still open and stays open: Rehearse the Launch Sunday service in the room."]
+			},
+			"approve": true,
+			"outcome": "completed"
+		},
+		{
+			"id": "LAU-27",
+			"criterion": 108,
+			"actor": "owner",
+			"ask": "reopen the venue milestone",
+			"calls": ["launch.readWorkspace"],
+			"proposal": {
+				"operation": "launch.reopenMilestone",
+				"target": "Worship Center secured and rehearsed in",
+				"changes": [{ "field": "milestone", "before": "Complete", "after": "Not complete" }]
+			},
+			"approve": true,
+			"outcome": "refused"
+		},
+		{
+			"id": "LAU-28",
+			"criterion": 103,
+			"setup": "needsReview",
+			"actor": "owner",
+			"ask": "mark the venue milestone complete",
+			"calls": ["launch.readWorkspace"],
+			"answer": [
+				"I prepared a review card to mark **Worship Center secured and rehearsed in** complete. 2 of its 4 prep tasks are still open and stay open. It confirms the earlier completion."
+			],
+			"proposal": {
+				"operation": "launch.completeMilestone",
+				"target": "Worship Center secured and rehearsed in",
+				"changes": [{ "field": "milestone", "before": "Needs review", "after": "Complete" }],
+				"notes": ["This confirms the earlier completion by Lena Park on"]
+			},
+			"approve": true,
+			"outcome": "completed"
+		},
+		{
+			"id": "LAU-29",
+			"criterion": 107,
+			"actor": "admin",
+			"ask": "reopen the venue milestone",
+			"calls": ["launch.readWorkspace"],
+			"proposal": {
+				"operation": "launch.reopenMilestone",
+				"target": "Worship Center secured and rehearsed in",
+				"changes": [{ "field": "milestone", "before": "Complete", "after": "Not complete" }]
+			},
+			"approve": true,
+			"outcome": "completed"
+		},
+		{
+			"id": "LAU-30",
+			"criterion": 107,
+			"actor": "admin",
+			"ask": "complete the venue milestone",
+			"calls": ["launch.readWorkspace"],
+			"proposal": {
+				"operation": "launch.completeMilestone",
+				"target": "Worship Center secured and rehearsed in",
+				"changes": [{ "field": "milestone", "before": "Not complete", "after": "Complete" }]
+			},
+			"approve": true,
+			"outcome": "completed"
+		},
+		{
+			"id": "LAU-31",
+			"criterion": 107,
+			"actor": "member",
+			"ask": "mark the venue milestone complete",
+			"calls": [],
+			"answer": ["Only an Owner or Admin can change the Launch plan"]
+		},
+		{
+			"id": "LAU-32",
+			"criterion": 107,
+			"actor": "member",
+			"ask": "reopen the venue milestone",
+			"calls": [],
+			"answer": ["Only an Owner or Admin can change the Launch plan"]
+		},
+		{
+			"id": "LAU-33",
+			"criterion": 105,
+			"actor": "owner",
+			"ask": "mark the guest data entered milestone complete",
+			"calls": [],
+			"answer": [
+				"Guest data entered and Debrief done follow the submitted debrief, so they can't be checked off by hand."
+			]
+		},
+		{
+			"id": "LAU-34",
+			"criterion": 105,
+			"actor": "owner",
+			"ask": "reopen the debrief done milestone",
+			"calls": [],
+			"answer": [
+				"Guest data entered and Debrief done follow the submitted debrief, so they can't be checked off by hand."
+			]
+		},
+		{
+			"id": "LAU-35",
+			"criterion": 105,
+			"actor": "owner",
+			"ask": "complete the promotion milestone",
+			"calls": ["launch.readWorkspace"],
+			"answer": [
+				"More than one launch milestone matches \"promotion\":\n- **Promotion plan chosen**\n- **Promotion plan implemented**",
+				"Which one do you mean? I prepared nothing."
+			],
+			"absent": ["Partner churches"]
+		},
+		{
+			"id": "LAU-36",
+			"criterion": 105,
+			"actor": "owner",
+			"ask": "mark the parking milestone complete",
+			"calls": ["launch.readWorkspace"],
+			"answer": ["No launch milestone on the Launch plan matches \"parking\", so I prepared nothing."]
 		}
 	]
 }

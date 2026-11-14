@@ -8,8 +8,9 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { ActivityCard, CardFailed, CardLoading, LaunchCard, MetricsCards, MetricsLoading } from "./cards.tsx";
 import { GetStarted, QuickActions } from "./client.tsx";
+import { IntelligenceCard } from "./IntelligenceCard.tsx";
 import { phaseText } from "./model.ts";
-import { loadActivity, loadFrame, loadLaunch, loadMetrics } from "./server.ts";
+import { loadActivity, loadFrame, loadIntelligence, loadLaunch, loadMetrics } from "./server.ts";
 
 // The /overview route (WP-048), a church plant's home. apps/web/src/app/(product)/(frame)/overview/ only re-exports
 // these. The server decides who may see it from the seat and the saved setup (ADM-004); each card then reads on its
@@ -55,6 +56,11 @@ export async function OverviewPage() {
 			<Suspense fallback={<MetricsLoading />}>
 				<Metrics />
 			</Suspense>
+			{ready && ready.role !== "member" ? (
+				<Suspense fallback={<CardLoading label="Plant Intelligence" height={260} />}>
+					<Intelligence />
+				</Suspense>
+			) : null}
 			<div className="grid grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] items-start gap-5 max-app-md:grid-cols-1">
 				<Suspense fallback={<CardLoading label="recent changes" height={520} />}>
 					<RecentChanges />
@@ -72,6 +78,9 @@ export async function OverviewPage() {
 
 async function Metrics() {
 	return <MetricsCards loaded={await loadMetrics()} />;
+}
+async function Intelligence() {
+	return <IntelligenceCard loaded={await loadIntelligence()} />;
 }
 async function RecentChanges() {
 	return <ActivityCard loaded={await loadActivity()} />;

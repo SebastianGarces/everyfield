@@ -1,5 +1,5 @@
 // Seeds the Evry Launch example (WP-075, WP-076) on the shared tests/ui seed environment (tests/ui/seed-env.mts), so
-// each Launch panel state can be viewed on a preview. Four churches, all America/Chicago, dated from today:
+// each Launch panel state can be viewed on a preview. Five churches, all America/Chicago, dated from today:
 //
 // - Cedar Hill Church (Owner Noah Hayes, Admin Grace Lin, Member Eli Ward): Launch Sunday 28 days out, set a month ago
 //   for 35 days out and moved three days ago ("The school asked us to start a week earlier."). Four milestones are
@@ -12,6 +12,12 @@
 //   the debrief and publish the summary.
 // - Northgate Church (Owner Mia Cole): Launch Sunday three days ago, recorded with attendance 150 and three named
 //   first-time guests (Maya Brooks, Owen Price, Ruth Kim); a Vision meeting a month ago had two other people attend.
+// - Oakridge Church (Owner Isaac Moore, Admins Nina Shaw and Paul Kemp, Member Tess Young), for completing and
+//   reopening milestones (T-382): Launch Sunday 28 days out. "Worship Center secured and rehearsed in" (the venue
+//   milestone) is open with four linked prep tasks, two of them complete in Tasks. "Promotion plan chosen" is complete.
+//   "Prayer and fasting underway" needs review: Nina completed it with its first task done, and Isaac reopened that task
+//   in Tasks since. Ask "mark the venue milestone complete", "reopen the promotion plan chosen milestone" and "mark the
+//   fasting milestone complete" as each seat (the scripted model reads any "prayer" as a pastoral question).
 //
 // Accounts sign up through the identity service, churches are created through the onboarding producer, people through
 // the People writer and every Launch change through the native Launch writer the Launch plan calls. Seats beyond the
@@ -29,6 +35,7 @@ import { createIdentityService } from "../../../packages/domain/src/identity/ind
 import { createLaunchReader } from "../../../packages/domain/src/launch/reads.ts";
 import { createLaunchWriter } from "../../../packages/domain/src/launch/writes.ts";
 import { createOnboardingProducer } from "../../../packages/domain/src/onboarding/index.ts";
+import { createTaskWriter, withTaskWrite } from "../../../packages/domain/src/tasks/index.ts";
 import { peopleWriter } from "../../../packages/domain/src/people/index.ts";
 import { randomUUID } from "node:crypto";
 import { dropSeed, openSeedEnvironment, writeFixture } from "../seed-env.mts";
@@ -246,6 +253,53 @@ export async function seedLaunchEvry(env: {
 			VALUES(${northgate.id},${vision},${id},true,'attended')`);
 	}
 
+	// Oakridge: the venue milestone open with two of four prep tasks done, one milestone complete, one needing review.
+	const isaac = await account("Isaac Moore");
+	const nina = await account("Nina Shaw");
+	const paul = await account("Paul Kemp");
+	const tess = await account("Tess Young");
+	const oakridge = await plant(isaac, "Oakridge Church", "Leander");
+	await seat(nina, oakridge, "admin");
+	await seat(paul, oakridge, "admin");
+	await seat(tess, oakridge, "member");
+	await schedule(isaac, day(28), null);
+	const tasks = createTaskWriter({ reminders: async () => undefined });
+	const milestone = async (key: string) => (await planOf(isaac)).milestones.find((m) => m.templateKey === key)!;
+	/** A milestone's prep task completed or reopened in Tasks, by its title. */
+	const setTask = async (a: Account, key: string, title: string, op: "complete" | "reopen") => {
+		const t = (await milestone(key)).tasks.find((x) => x.title === title)!;
+		ok(
+			await withTaskWrite(runtime, await authority(a), (tx, c) =>
+				tasks[op](tx, c, { requestKey: randomUUID(), expectedRevision: t.revision, input: { taskId: t.id } }),
+			),
+			`${op} ${title}`,
+		);
+	};
+	const complete = async (a: Account, key: string) => {
+		const m = await milestone(key);
+		ok(
+			await writer.completeMilestone(runtime, await authority(a), {
+				requestKey: randomUUID(),
+				expectedRevision: m.revision,
+				input: { milestoneId: m.id, reviewed: reviewedOf(m.tasks) },
+			}),
+			`complete ${key}`,
+		);
+	};
+	// Two more prep tasks linked to the venue milestone, so it has four.
+	await admin.execute(sql`INSERT INTO task(plant_id,title,description,category,priority,status,creator_id,created_at,due_kind,launch_task_key)
+		SELECT ${oakridge.id}::uuid,r.title,'Launch readiness: part of the "Worship Center secured and rehearsed in" milestone on the Launch plan.',
+			'launch_prep','medium','not_started',${isaac.accountId}::uuid,clock_timestamp(),'undated',r.key
+		FROM (VALUES ('Walk the room with the set-up team','operations.worship_center/3'),
+			('Rehearse the Launch Sunday service in the room','operations.worship_center/4')) r(title,key)`);
+	await setTask(isaac, "operations.worship_center", "Confirm the Worship Center booking", "complete");
+	await setTask(isaac, "operations.worship_center", "Schedule three uses of the room before Launch Sunday", "complete");
+	await complete(isaac, "promotion.plan");
+	const fast = "Set the weekly fast day for the four weeks before launch";
+	await setTask(nina, "launch_team.prayer_and_fasting", fast, "complete");
+	await complete(nina, "launch_team.prayer_and_fasting");
+	await setTask(isaac, "launch_team.prayer_and_fasting", fast, "reopen");
+
 	const signedIn = (a: Account) => ({ cookie: a.cookie, accountId: a.accountId, email: a.email });
 	return {
 		origin,
@@ -257,8 +311,18 @@ export async function seedLaunchEvry(env: {
 			westfieldOwner: signedIn(ava),
 			riverbendOwner: signedIn(leo),
 			northgateOwner: signedIn(mia),
+			oakridgeOwner: signedIn(isaac),
+			oakridgeAdmin: signedIn(nina),
+			oakridgeSecondAdmin: signedIn(paul),
+			oakridgeMember: signedIn(tess),
 		},
-		plants: { cedar: cedar.id, westfield: westfield.id, riverbend: riverbend.id, northgate: northgate.id },
+		plants: {
+			cedar: cedar.id,
+			westfield: westfield.id,
+			riverbend: riverbend.id,
+			northgate: northgate.id,
+			oakridge: oakridge.id,
+		},
 	};
 }
 

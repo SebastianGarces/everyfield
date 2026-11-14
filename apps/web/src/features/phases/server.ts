@@ -5,6 +5,7 @@ import { phasesError, type PhasesReply } from "@everyfield/contracts/phases";
 import type { Database } from "@everyfield/db/client";
 import type { RequestActor } from "@everyfield/domain/access";
 import { createFacts } from "@everyfield/domain/intelligence";
+import { createLaunchReader } from "@everyfield/domain/launch";
 import { phaseReader, readCatalog, readReadiness, type PhaseWriter } from "@everyfield/domain/phases";
 import "server-only";
 import type { Outcome } from "./model.ts";
@@ -31,25 +32,33 @@ export async function phaseViewer(): Promise<PhaseViewer | null> {
 export const administers = (v: Pick<PhaseViewer, "role">) => v.role !== "member";
 
 const facts = createFacts();
+const launch = createLaunchReader();
 
 /**
- * The /intelligence page: the journey (one statement), the catalog, the plant's measured facts (one statement) and the
- * advisory readiness of every phase filled from those facts. A database failure reads as lost, never as an empty
- * journey or as zero facts.
+ * The /intelligence/journey page: the journey (one statement), the Launch date history (one statement), the catalog,
+ * the plant's measured facts (one statement) and the advisory readiness of every phase filled from those facts. A
+ * database failure reads as lost, never as an empty journey or as zero facts.
  */
 export async function loadJourney(viewer: PhaseViewer) {
 	const db = requestDatabase();
 	if (!db) return { status: "lost" } as const;
 	try {
-		const [history, catalog, measured] = await Promise.all([
+		const [history, catalog, measured, journal] = await Promise.all([
 			phaseReader.readHistory(db, viewer.authority),
 			readCatalog(),
 			facts.readFacts(db, viewer.authority),
+			launch.readJournal(db, viewer.authority),
 		]);
 		if (history.status !== "ok") return { status: "refused", error: history.error } as const;
 		if (measured.status !== "ok") return { status: "refused", error: measured.error } as const;
+		if (journal.status !== "ok") return { status: "refused", error: journal.error } as const;
 		const readiness = readReadiness(catalog, measured.value.criteria);
-		return { status: "ok", value: { history: history.value, catalog, readiness, facts: measured.value } } as const;
+		// The journey shows when Launch Sunday was set and each time it moved; milestones and guests stay on /launch.
+		const launchDates = journal.value.entries.filter((e) => e.change.kind === "date");
+		return {
+			status: "ok",
+			value: { history: history.value, catalog, readiness, facts: measured.value, launchDates },
+		} as const;
 	} catch (error) {
 		console.error(JSON.stringify({ component: "phases", outcome: "read_failed", error: String(error) }));
 		return { status: "lost" } as const;

@@ -5,10 +5,22 @@ import { sql, type SQL } from "@everyfield/db/query";
 import { randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
+import type { Catalog } from "@everyfield/contracts/phases";
 import { liveRead, type RequestActor } from "../access/session.ts";
 import { plantViewer } from "../documents/access.ts";
+import { readCatalog } from "../phases/catalog.ts";
 import { checkDraft } from "./checks.ts";
 import { sectionsOf, textHash } from "./retrieval.ts";
+import {
+	concernOf,
+	concernsSql,
+	criteriaOf,
+	lensesOf,
+	storedConcern,
+	trendCells,
+	trendCellsSql,
+	trendOf,
+} from "./views.ts";
 
 // Plant Intelligence assessments (WP-041 to WP-043). Nobody runs an assessment by hand: a changed input or reference,
 // seven quiet days, or an Owner's or Admin's request (intelligence.requestRefresh) queues a demand, and the scheduled
@@ -258,7 +270,7 @@ SELECT (SELECT ok FROM gate) AS ok`);
 				if (!c.readAssessmentRequest.safeParse(raw).success) deny("invalid_input");
 				const s = scopeOf(authority);
 				const { rows } = await db.execute(sql`WITH gate AS (SELECT ${s.ok} AS ok),
-x AS (SELECT pl.id,pl.timezone FROM plant pl WHERE pl.id=${s.plant}::uuid AND (SELECT ok FROM gate)),
+x AS (SELECT pl.id,pl.timezone,pl.phase FROM plant pl WHERE pl.id=${s.plant}::uuid AND (SELECT ok FROM gate)),
 cur AS (SELECT r.* FROM assessment_run r JOIN x ON x.id=r.plant_id WHERE r.outcome='published'
 	ORDER BY r.available_at DESC,r.id DESC LIMIT 1),
 nw AS (SELECT r.* FROM assessment_run r JOIN x ON x.id=r.plant_id WHERE r.outcome<>'superseded'
@@ -270,23 +282,159 @@ SELECT (SELECT ok FROM gate) AS ok,
 		'ageDays',((${now()} AT TIME ZONE x.timezone)::date-(cur.as_of AT TIME ZONE x.timezone)::date),
 		'insights',(SELECT coalesce(json_agg(json_build_object('role',i.role,'title',i.title,'severity',i.severity)
 			ORDER BY array_position(ARRAY['high','medium','low','info'],i.severity),i.ordinal),'[]'::json)
-			FROM assessment_insight i WHERE i.run_id=cur.id))
+			FROM assessment_insight i WHERE i.run_id=cur.id),
+		'facts',cur.facts,'concerns',${concernsSql("cur")})
 		FROM cur,x) AS current,
+	(SELECT x.phase FROM x) AS current_phase,
+	EXISTS(SELECT FROM assessment_seen v JOIN cur ON cur.id=v.run_id WHERE v.account_id=${s.me}::uuid) AS seen,
+	(SELECT coalesce(json_agg(json_build_object('ordinal',f.ordinal,'rating',f.rating,'comment',f.comment,
+		'recordedAt',${iso("f.recorded_at")}) ORDER BY f.ordinal),'[]'::json)
+		FROM assessment_feedback f JOIN cur ON cur.id=f.run_id WHERE f.account_id=${s.me}::uuid) AS feedback,
 	(SELECT json_build_object('outcome',nw.outcome,'grounding',nw.grounding,'retryAt',${iso("nw.retry_at")},
 		'newer',NOT EXISTS(SELECT FROM cur WHERE cur.captured_at>=nw.captured_at)) FROM nw) AS newest,
 	(SELECT ${openJob(sql`x.id`)} FROM x) AS open,
 	(SELECT h.held FROM x, LATERAL ${heldSql(sql`x.id`)} h) AS held`);
 				const r = readRow.parse(rows[0]);
+				if (!r.ok || r.current_phase === null) deny("access_denied");
+				const catalog = r.current ? await readCatalog() : null;
+				return c.assessmentView.parse({
+					current: r.current && present(r.current, catalog!),
+					newest: newestOf(r),
+					currentPhase: r.current_phase,
+					seen: r.seen,
+					feedback: r.feedback,
+				});
+			});
+		},
+
+		/**
+		 * intelligence.markAssessmentSeen: an Owner's or Admin's explicit open of one of the plant's published runs. Their
+		 * first open is recorded once, with its intelligence.assessment_opened audit row; the plant's earliest open
+		 * releases the run to its organizations before the 72 hours pass (PI-032). Rendering never calls this, and an
+		 * organization seat or a Member is refused. One statement.
+		 */
+		async markAssessmentSeen(db: Pick<Database, "execute">, authority: RequestActor, raw: unknown) {
+			return settle(async () => {
+				const q = c.markSeenRequest.safeParse(raw);
+				if (!q.success) deny("invalid_input");
+				const s = scopeOf(authority);
+				const { rows } =
+					await db.execute(sql`WITH gate AS (SELECT ${s.ok} AND NOT ${plantHidden(sql`${s.plant}::uuid`)} AS ok),
+r AS (SELECT r.id FROM assessment_run r WHERE r.id=${q.data.runId}::uuid AND r.plant_id=${s.plant}::uuid
+	AND r.outcome='published' AND (SELECT ok FROM gate)),
+v AS (INSERT INTO assessment_seen(run_id,account_id,plant_id,seen_at) SELECT r.id,${s.me}::uuid,${s.plant}::uuid,${now()}
+	FROM r ON CONFLICT DO NOTHING RETURNING run_id),
+a AS (INSERT INTO audit_event(tenant_id,actor_id,action,kind,subject_type,subject_id,event_key,metadata)
+	SELECT ${s.plant}::uuid,${s.me}::uuid,'intelligence.assessment_opened','create','plant',${s.plant}::uuid,
+		'assessment-opened:'||v.run_id||':'||${s.me}::text,jsonb_build_object('runId',v.run_id) FROM v RETURNING 1)
+SELECT (SELECT ok FROM gate) AS ok,EXISTS(SELECT FROM r) AS found,EXISTS(SELECT FROM v) AS recorded`);
+				const r = z.object({ ok: z.boolean(), found: z.boolean(), recorded: z.boolean() }).parse(rows[0]);
 				if (!r.ok) deny("access_denied");
-				return c.assessmentView.parse({ current: r.current && present(r.current), newest: newestOf(r) });
+				if (!r.found) deny("not_found");
+				return c.seenReceipt.parse({ outcome: r.recorded ? "recorded" : "already_seen" });
+			});
+		},
+
+		/**
+		 * intelligence.submitFeedback: the reader's own rating of one point of one of the plant's published runs, useful
+		 * or not useful, with an optional comment (blank means none). It replaces only the reader's own earlier rating of
+		 * that point, is bound to the run's rubric version, and never changes the run, its insights or the rubric. A
+		 * change writes one intelligence.feedback_saved audit row naming the changed fields, never the comment; the same
+		 * rating and comment again write nothing. One statement.
+		 */
+		async submitFeedback(db: Pick<Database, "execute">, authority: RequestActor, raw: unknown) {
+			return settle(async () => {
+				const q = c.submitFeedbackRequest.safeParse(raw);
+				if (!q.success) deny("invalid_input");
+				const s = scopeOf(authority);
+				const { runId, ordinal, rating } = q.data;
+				const comment = q.data.comment.trim() || null;
+				const me = sql`${s.me}::uuid`;
+				const { rows } = await db.execute(sql`WITH gate AS (SELECT ${s.ok} AS ok),
+i AS (SELECT i.run_id,i.ordinal,r.rubric_version FROM assessment_insight i JOIN assessment_run r ON r.id=i.run_id
+	AND r.plant_id=i.plant_id WHERE i.run_id=${runId}::uuid AND i.ordinal=${ordinal}::int AND r.plant_id=${s.plant}::uuid
+	AND r.outcome='published' AND (SELECT ok FROM gate)),
+old AS (SELECT f.ordinal,f.rating,f.comment,f.recorded_at FROM assessment_feedback f JOIN i ON i.run_id=f.run_id
+	AND i.ordinal=f.ordinal WHERE f.account_id=${me}),
+f AS (INSERT INTO assessment_feedback(run_id,ordinal,plant_id,account_id,rubric_version,rating,comment,recorded_at)
+	SELECT i.run_id,i.ordinal,${s.plant}::uuid,${me},i.rubric_version,${rating},${comment}::text,${now()} FROM i
+	ON CONFLICT (run_id,ordinal,account_id) DO UPDATE SET rating=excluded.rating,comment=excluded.comment,
+		rubric_version=excluded.rubric_version,recorded_at=excluded.recorded_at
+	WHERE (assessment_feedback.rating,assessment_feedback.comment) IS DISTINCT FROM (excluded.rating,excluded.comment)
+	RETURNING ordinal,rating,comment,recorded_at),
+a AS (INSERT INTO audit_event(tenant_id,actor_id,action,kind,subject_type,subject_id,metadata)
+	SELECT ${s.plant}::uuid,${me},'intelligence.feedback_saved',CASE WHEN EXISTS(SELECT FROM old) THEN 'edit' ELSE 'create' END,
+		'plant',${s.plant}::uuid,jsonb_build_object('runId',${runId}::text,'ordinal',${ordinal}::int,
+		'rubricVersion',(SELECT rubric_version FROM i),'fields',to_jsonb(array_remove(ARRAY[
+			CASE WHEN (SELECT rating FROM old) IS DISTINCT FROM ${rating}::text THEN 'rating' END,
+			CASE WHEN (SELECT comment FROM old) IS DISTINCT FROM ${comment}::text THEN 'comment' END],NULL)))
+	FROM f RETURNING 1)
+SELECT (SELECT ok FROM gate) AS ok,EXISTS(SELECT FROM i) AS found,
+	(SELECT json_build_object('ordinal',x.ordinal,'rating',x.rating,'comment',x.comment,'recordedAt',${iso("x.recorded_at")})
+		FROM f x) AS saved,
+	(SELECT json_build_object('ordinal',x.ordinal,'rating',x.rating,'comment',x.comment,'recordedAt',${iso("x.recorded_at")})
+		FROM old x) AS kept`);
+				const r = z
+					.object({
+						ok: z.boolean(),
+						found: z.boolean(),
+						saved: c.ownFeedback.nullable(),
+						kept: c.ownFeedback.nullable(),
+					})
+					.parse(rows[0]);
+				if (!r.ok) deny("access_denied");
+				if (!r.found) deny("not_found");
+				return c.feedbackReceipt.parse({
+					outcome: r.saved ? "saved" : "unchanged",
+					feedback: r.saved ?? r.kept,
+				});
+			});
+		},
+
+		/**
+		 * intelligence.readAssessmentHistory: the plant's latest twelve published runs, newest first, each with its as-of,
+		 * the date it was measured on, the phase it assessed and the trend facts its own original snapshot held. A fact
+		 * the snapshot did not have reads Not measured, never zero. One statement, no model call.
+		 */
+		async readHistory(db: Pick<Database, "execute">, authority: RequestActor, raw: unknown = {}) {
+			return settle(async () => {
+				if (!c.readAssessmentHistoryRequest.safeParse(raw).success) deny("invalid_input");
+				const s = scopeOf(authority);
+				const { rows } = await db.execute(sql`WITH gate AS (SELECT ${s.ok} AS ok),
+x AS (SELECT pl.id,pl.timezone FROM plant pl WHERE pl.id=${s.plant}::uuid AND (SELECT ok FROM gate)),
+r AS (SELECT r.*,x.timezone FROM assessment_run r JOIN x ON x.id=r.plant_id WHERE r.outcome='published'
+	ORDER BY r.available_at DESC,r.id DESC LIMIT ${c.TREND_RUNS}::int)
+SELECT (SELECT ok FROM gate) AS ok,(SELECT coalesce(json_agg(json_build_object('runId',r.id,'asOf',${iso("r.as_of")},
+	'measuredOn',coalesce(r.facts->>'today',(r.as_of AT TIME ZONE r.timezone)::date::text),'phase',r.phase,
+	'cells',${trendCellsSql("r")}) ORDER BY r.available_at DESC,r.id DESC),'[]'::json) FROM r) AS runs`);
+				const r = z
+					.object({
+						ok: z.boolean(),
+						runs: z.array(
+							z.object({
+								runId: z.string(),
+								asOf: z.string(),
+								measuredOn: z.string(),
+								phase: z.int(),
+								cells: trendCells,
+							}),
+						),
+					})
+					.parse(rows[0]);
+				if (!r.ok) deny("access_denied");
+				return c.assessmentHistory.parse({
+					runs: r.runs.map(({ cells, ...run }) => ({ ...run, values: trendOf(cells) })),
+				});
 			});
 		},
 
 		/**
 		 * intelligence.resolveCitation: one citation of one of the plant's runs. A fact resolves against the run's own fact
-		 * snapshot; a passage against the exact revision the run read, which must still hash to the cited text. A network's
-		 * or sending church's own article resolves only while the plant still shares the Wiki with that organization: its
-		 * text never leaves the statement otherwise. One statement, no model call.
+		 * snapshot, whether a point cited it or a tile or criterion shows it as evidence; a passage against the exact
+		 * revision the run read, which must still hash to the cited text. A network's or sending church's own article
+		 * resolves only while the plant still shares the Wiki with that organization: its text never leaves the statement
+		 * otherwise. The people a fact counted link only while they are still live in the plant: a removed or merged-away
+		 * person is counted without a name or link (PI-026). One statement, no model call.
 		 */
 		async resolveCitation(db: Pick<Database, "execute">, authority: RequestActor, raw: unknown) {
 			return settle(async () => {
@@ -299,18 +447,23 @@ SELECT (SELECT ok FROM gate) AS ok,
 r AS (SELECT r.* FROM assessment_run r WHERE r.id=${runId}::uuid AND r.plant_id=${s.plant}::uuid
 	AND r.outcome='published' AND (SELECT ok FROM gate)),
 c AS (SELECT ${cite} AS cite,r.facts FROM r),
+pr AS (SELECT DISTINCT x->>'id' AS id FROM c CROSS JOIN LATERAL jsonb_array_elements(${countedPeople(key)}) x),
+ppl AS (SELECT coalesce(json_agg(json_build_object('personId',pe.id,'name',pe.display_name) ORDER BY pe.display_name,pe.id)
+	FILTER (WHERE pe.id IS NOT NULL),'[]'::json) AS shown,(count(*) FILTER (WHERE pe.id IS NULL))::int AS hidden
+	FROM pr LEFT JOIN person pe ON pe.id::text=pr.id AND pe.plant_id=${s.plant}::uuid AND pe.state='live'),
 src AS (SELECT v.body,v.content_type FROM c JOIN article_revision v ON v.id=(c.cite->>'revisionId')::uuid
 	AND v.tenant_id=(c.cite->>'sourceId')::uuid
 	WHERE c.cite->>'kind'='passage' AND (c.cite->>'sourceKind'='global' OR EXISTS(SELECT FROM affiliation f
 		WHERE f.plant_id=${s.plant}::uuid AND f.organization_id=v.tenant_id AND f.ended_at IS NULL AND f.share_wiki)))
 SELECT (SELECT ok FROM gate) AS ok,(SELECT cite FROM c) AS cite,(SELECT facts FROM c) AS facts,
-	(SELECT row_to_json(src) FROM src) AS source,
+	(SELECT row_to_json(src) FROM src) AS source,(SELECT row_to_json(ppl) FROM ppl) AS people,
 	(SELECT r2.release_key FROM reference_activation a JOIN reference_release r2 ON r2.id=a.release_id
 		ORDER BY a.activation_number DESC LIMIT 1) AS current_release`);
 				const r = citationRow.parse(rows[0]);
 				if (!r.ok) deny("access_denied");
-				if (!r.cite) deny("not_found");
-				return c.citationView.parse(checkCitation(key, r));
+				const view = checkCitation(key, r);
+				if (!view) deny("not_found");
+				return c.citationView.parse(view);
 			});
 		},
 
@@ -426,6 +579,9 @@ const readRow = z.object({
 		.nullable(),
 	open: z.boolean().nullable(),
 	held: z.boolean().nullable(),
+	current_phase: z.int().nullable(),
+	seen: z.boolean(),
+	feedback: z.array(c.ownFeedback),
 });
 
 const storedCurrent = z.object({
@@ -444,8 +600,10 @@ const storedCurrent = z.object({
 	daysToLaunch: z.int().nullable(),
 	ageDays: z.int(),
 	insights: c.assessment.shape.insights,
+	facts: z.unknown(),
+	concerns: z.array(storedConcern),
 });
-function present(row: z.infer<typeof storedCurrent>): c.Assessment {
+function present(row: z.infer<typeof storedCurrent>, catalog: Catalog): c.Assessment {
 	const draft = row.result.draft;
 	const label = (k: string) => {
 		const cite = row.result.citations[k] as {
@@ -481,6 +639,9 @@ function present(row: z.infer<typeof storedCurrent>): c.Assessment {
 		positives: draft.positives.map(point),
 		insights: row.insights,
 		delta: row.delta,
+		lenses: lensesOf(row.facts, draft),
+		criteria: criteriaOf(catalog, row.phase, row.facts),
+		concerns: row.concerns.map((x) => concernOf(row.runId, x)),
 	});
 }
 
@@ -489,8 +650,26 @@ const citationRow = z.object({
 	cite: z.record(z.string(), z.unknown()).nullable(),
 	facts: z.unknown().nullable(),
 	source: z.object({ body: z.string(), content_type: z.string() }).nullable(),
+	people: c.citationView.options[0].shape.people.nullable(),
 	current_release: z.string().nullable(),
 });
+/**
+ * The people a fact counted, as a JSON array of person refs from snapshot `c.facts`: the counted adults, the people who
+ * need classifying, the disengaged, the prayer leaders or everyone across the ministry responsibilities. Other facts
+ * count no person.
+ */
+function countedPeople(key: string): SQL {
+	const f = sql`c.facts`;
+	if (["committedAdults.status", "committedAdults.count", "committedAdults.atLeast"].includes(key))
+		return sql`(SELECT coalesce(jsonb_agg(e->'person'),'[]'::jsonb) FROM jsonb_array_elements(${f}->'committedAdults'->'evidence') e)`;
+	if (key === "committedAdults.needsClassifying") return sql`${f}->'committedAdults'->'needsClassifying'`;
+	if (key === "cohesion.disengaged") return sql`${f}->'cohesion'->'disengaged'`;
+	if (key === "coverage.prayerLeader") return sql`${f}->'coverage'->'prayerLeader'`;
+	if (key === "coverage.filled" || key === "coverage.people")
+		return sql`(SELECT coalesce(jsonb_agg(p),'[]'::jsonb) FROM jsonb_array_elements(${f}->'coverage'->'responsibilities') x
+			CROSS JOIN LATERAL jsonb_array_elements(x->'people') p)`;
+	return sql`'[]'::jsonb`;
+}
 const storedPassage = c.passage.extend({ kind: z.literal("passage") });
 const storedFact = z.object({
 	kind: z.literal("fact"),
@@ -499,22 +678,29 @@ const storedFact = z.object({
 	value: c.factEntry.shape.value,
 });
 
-/** A stored citation checked against its source now: verified, can't be verified, or no longer available. */
-function checkCitation(key: string, r: z.infer<typeof citationRow>): c.CitationView {
-	if (r.cite?.kind === "fact") {
+/**
+ * A stored citation checked against its source now: verified, can't be verified, or no longer available. A key no
+ * point cited is any fact of the run's snapshot, or not found.
+ */
+function checkCitation(key: string, r: z.infer<typeof citationRow>): c.CitationView | null {
+	if (!r.cite || r.cite.kind === "fact") {
 		// A fact resolves against the run's own stored snapshot, not the live facts: the snapshot never changes, so
 		// "can't be verified" here means a corrupt or tampered row, never that the plant's facts moved on since.
-		const cite = storedFact.safeParse(r.cite);
 		const snapshot = c.plantFacts.safeParse(r.facts);
-		if (!cite.success || !snapshot.success) return { status: "unverifiable", key };
-		const fact = c.factCatalog(snapshot.data).find((f) => f.key === cite.data.key);
-		if (!fact || JSON.stringify(fact.value) !== JSON.stringify(cite.data.value)) return { status: "unverifiable", key };
+		const fact = snapshot.success ? c.factCatalog(snapshot.data).find((f) => f.key === key) : undefined;
+		if (!snapshot.success || !fact) return r.cite ? { status: "unverifiable", key } : null;
+		if (r.cite) {
+			const cite = storedFact.safeParse(r.cite);
+			if (!cite.success || JSON.stringify(fact.value) !== JSON.stringify(cite.data.value))
+				return { status: "unverifiable", key };
+		}
 		return {
 			status: "verified",
 			kind: "fact",
 			key,
 			label: fact.label,
 			value: fact.value,
+			people: r.people ?? { shown: [], hidden: 0 },
 			asOf: snapshot.data.asOf,
 			measuredOn: snapshot.data.today,
 			formulaVersion: snapshot.data.formulaVersion,

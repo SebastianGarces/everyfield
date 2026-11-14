@@ -83,7 +83,7 @@ The DAG estimates effort from owned clauses, operations, cases and referenced ta
 | WP-047 | Oversight portfolio and health | 14 | 14 | 124 | 6 | 2.5 |
 | WP-042 | AI assessment results and quality evaluation | 8 | 2 | 92 | 1 | 2 |
 | WP-043 | Assessment orchestration/retry/publication | 11 | 6 | 112 | 2 | 2.5 |
-| WP-044 | Plant Intelligence/oversight assessment UI | 41 | 25 | 167 | 0 | 3.5 |
+| WP-044 | Plant Intelligence/oversight assessment UI | 41 | 25 | 167 | 2 | 3.5 |
 | WP-048 | Dashboard/navigation/settings integration | 3 | 7 | 5 | 2 | 1.5 |
 | WP-049 | Feedback and later public marketing | 19 | 10 | 12 | 2 | 2 |
 | WP-050 | Environment bootstrap/ops/observability | 37 | 35 | 69 | 9 | 3.5 |

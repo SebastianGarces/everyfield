@@ -1,1 +1,1 @@
-export { IntelligencePage as default, intelligenceMetadata as metadata } from "@/features/phases/routes";
+export { PlantIntelligencePage as default, intelligenceMetadata as metadata } from "@/features/intelligence/routes";
