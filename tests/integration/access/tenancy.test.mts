@@ -66,6 +66,7 @@ import { deletedDocumentCases, documentsCases, seedDocuments } from "./tenancy-d
 import { feedbackCases, seedFeedback } from "./tenancy-feedback.mts";
 import { followUpsCases, seedFollowUps } from "./tenancy-followups.mts";
 import { meetingsCases, seedMeetings } from "./tenancy-meetings.mts";
+import { notificationsCases, seedNotifications } from "./tenancy-notifications.mts";
 import { onboardingCases, seedOnboarding } from "./tenancy-onboarding.mts";
 import { organizationsCases, seedOrganizations } from "./tenancy-organizations.mts";
 import { phasesCases, seedPhases } from "./tenancy-phases.mts";
@@ -762,6 +763,7 @@ function cases(who) {
 		...brandingCases(t, who),
 		...settingsCases(t, who),
 		...feedbackCases(t, who),
+		...notificationsCases(t, who),
 	]);
 }
 
@@ -790,6 +792,7 @@ before(async () => {
 	await seedBranding(t);
 	await seedSettings(t);
 	await seedFeedback(t);
+	await seedNotifications(t);
 });
 after(() => f?.close());
 
