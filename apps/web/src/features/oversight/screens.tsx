@@ -412,9 +412,9 @@ export function IntelligenceScreen({ view, kind }: { view: IntelligenceView; kin
 					How this works
 				</CalloutLabel>
 				<CalloutText className="text-md">
-					Everyfield&apos;s network rubric v1 reads only the launch dates and role and training counts each plant shares
-					with you. It never ranks or scores plants. A plant that doesn&apos;t share counts as Not shared, never as
-					zero.
+					Everyfield&apos;s network rubric v1 reads only counts and dates each plant shares with you: launch dates,
+					unfilled roles, overdue follow-ups, when its newest committed adult signed and required training. It never
+					names a person, ranks or scores plants. A plant that doesn&apos;t share counts as Not shared, never as zero.
 				</CalloutText>
 			</Card>
 			<IntelligenceBody initial={view} />

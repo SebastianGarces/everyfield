@@ -2133,7 +2133,7 @@
 		"retry": 5
 	},
 	"oversight/intelligence.requestIntelligenceRefresh": {
-		"limit": 4,
+		"limit": 5,
 		"retry": 3
 	},
 	"oversight/intelligence.submitIntelligenceFeedback": {

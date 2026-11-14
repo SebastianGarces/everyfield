@@ -10,10 +10,10 @@ import { corpusCtes, visibleBodySql } from "../wiki/corpus.ts";
 import { selectedOwner } from "../wiki/core.ts";
 
 // Methodology retrieval for an assessment (WP-041, PI-017), by keyword only: Wiki full-text search over every article
-// the plant can read now (the activated global methodology plus its sending church's and network's own articles), across
-// all phases with a boost for the plant's phase. Only passages tagged for the plant's phase or for no phase are offered
-// for citation, so a Phase 3 plant never cites Phase 1-only guidance as current. Embeddings and meaning-based search wait
-// for Sebastian's spend decision (G-SPEND); nothing here calls a provider.
+// the plant can read now (the activated global methodology plus its sending church's and network's own articles). The
+// search itself keeps only articles tagged for the plant's phase or for no phase, ranking its own phase first, so a
+// Phase 3 plant never cites Phase 1-only guidance as current and a higher-ranked other-phase hit never crowds one out.
+// Embeddings and meaning-based search wait for Sebastian's spend decision (G-SPEND); nothing here calls a provider.
 
 /** The keyword query of each fact topic, in `to_tsquery` syntax over the english configuration. */
 const QUERIES: Record<c.FactTopic | "coverage", string> = {
@@ -101,9 +101,9 @@ export async function retrieveMethodology(db: Pick<Database, "execute">, authori
 	hits AS (SELECT t.topic,h.* FROM topics t CROSS JOIN LATERAL (
 		SELECT p.article_id,p.revision_id,p.revision_number,p.source_kind,p.source_id,p.title,p.slug,p.phase,p.content_type,
 			${visibleBodySql()} AS body,
-			ts_rank(r.search_vector,t.q)*CASE WHEN p.phase=${phase} THEN 2 WHEN p.phase IS NULL THEN 1 ELSE 0.5 END AS score
+			ts_rank(r.search_vector,t.q)*CASE WHEN p.phase IS NULL THEN 1 ELSE 2 END AS score
 		FROM picked p JOIN article_revision r ON r.id=p.revision_id
-		WHERE NOT p.hidden AND r.search_vector @@ t.q ORDER BY score DESC,p.article_id LIMIT 4) h)
+		WHERE NOT p.hidden AND (p.phase IS NULL OR p.phase=${phase}) AND r.search_vector @@ t.q ORDER BY score DESC,p.article_id LIMIT 4) h)
 	SELECT EXISTS(SELECT FROM me) AS allowed,${phase} AS phase,
 	(SELECT json_build_object('number',activation_number,'release',release_key) FROM act) AS activation,
 	coalesce((SELECT json_agg(json_build_object('topic',topic,'article_id',article_id,'revision_id',revision_id,
@@ -119,8 +119,6 @@ export async function retrieveMethodology(db: Pick<Database, "execute">, authori
 		let taken = 0;
 		for (const h of r.hits) {
 			if (h.topic !== topic || h.body === null || taken >= PER_TOPIC) continue;
-			// Searched across every phase; offered only for the plant's own phase or for none.
-			if (h.phase !== null && h.phase !== phaseNow) continue;
 			const best = sectionsOf(h.content_type, h.body)
 				.map((s) => ({ ...s, score: STEMS[topic].filter((stem) => s.text.toLowerCase().includes(stem)).length }))
 				.filter((s) => s.score > 0)

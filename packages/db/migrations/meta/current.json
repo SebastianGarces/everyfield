@@ -13216,6 +13216,30 @@
           "type": "text",
           "primaryKey": false,
           "notNull": false
+        },
+        "overdue_followups": {
+          "name": "overdue_followups",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "unowned_followups": {
+          "name": "unowned_followups",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "growth_days": {
+          "name": "growth_days",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "required_training": {
+          "name": "required_training",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {
@@ -13306,6 +13330,10 @@
         "network_intelligence_plant_counts": {
           "name": "network_intelligence_plant_counts",
           "value": "((unfilled_roles IS NULL) OR (unfilled_roles >= 0)) AND ((outstanding_training IS NULL) OR (outstanding_training >= 0))"
+        },
+        "network_intelligence_plant_rule_counts": {
+          "name": "network_intelligence_plant_rule_counts",
+          "value": "((overdue_followups IS NULL) = (unowned_followups IS NULL)) AND ((overdue_followups IS NULL) OR ((unowned_followups >= 0) AND (unowned_followups <= overdue_followups))) AND ((growth_days IS NULL) OR (growth_days >= 0)) AND ((required_training IS NULL) OR (required_training >= 1))"
         }
       },
       "isRLSEnabled": false

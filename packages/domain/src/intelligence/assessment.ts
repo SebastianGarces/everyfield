@@ -343,6 +343,8 @@ const storedFact = z.object({
 /** A stored citation checked against its source now: verified, can't be verified, or no longer available. */
 function checkCitation(key: string, r: z.infer<typeof citationRow>): c.CitationView {
 	if (r.cite?.kind === "fact") {
+		// A fact resolves against the run's own stored snapshot, not the live facts: the snapshot never changes, so
+		// "can't be verified" here means a corrupt or tampered row, never that the plant's facts moved on since.
 		const cite = storedFact.safeParse(r.cite);
 		const snapshot = c.plantFacts.safeParse(r.facts);
 		if (!cite.success || !snapshot.success) return { status: "unverifiable", key };

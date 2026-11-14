@@ -6591,6 +6591,10 @@ export const network_intelligence_plant = pgTable(
 		region_item_id: uuid("region_item_id"),
 		state_province: text("state_province"),
 		country: text("country"),
+		overdue_followups: integer("overdue_followups"),
+		unowned_followups: integer("unowned_followups"),
+		growth_days: integer("growth_days"),
+		required_training: integer("required_training"),
 	},
 	(t): PgTableExtraConfigValue[] => [
 		primaryKey({ name: "network_intelligence_plant_pkey", columns: [t.run_id, t.plant_id] }),
@@ -6614,6 +6618,10 @@ export const network_intelligence_plant = pgTable(
 		check(
 			"network_intelligence_plant_counts",
 			sql`((unfilled_roles IS NULL) OR (unfilled_roles >= 0)) AND ((outstanding_training IS NULL) OR (outstanding_training >= 0))`,
+		),
+		check(
+			"network_intelligence_plant_rule_counts",
+			sql`((overdue_followups IS NULL) = (unowned_followups IS NULL)) AND ((overdue_followups IS NULL) OR ((unowned_followups >= 0) AND (unowned_followups <= overdue_followups))) AND ((growth_days IS NULL) OR (growth_days >= 0)) AND ((required_training IS NULL) OR (required_training >= 1))`,
 		),
 		index("network_intelligence_plant_plant_idx").on(t.plant_id),
 		index("network_intelligence_plant_region_idx").on(t.region_item_id),
