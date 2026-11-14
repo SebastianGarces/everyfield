@@ -23,7 +23,7 @@ export const runSeed = (env: Record<string, string | undefined>) => tsxRun(["too
 
 export type QuietDatabase = { container: string; adminUrl: string };
 
-const IMAGE = "pgvector/pgvector:0.8.7-pg17";
+const IMAGE = "pgvector/pgvector:0.8.7-pg18";
 const DATABASE = "everyfield_qa_test";
 
 function docker(...args: string[]): string {
