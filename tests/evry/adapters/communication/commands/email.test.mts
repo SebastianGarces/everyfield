@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import { communicationWriter } from "../../../../../packages/domain/src/communication/index.ts";
 import { runDueScheduled } from "../../../../../packages/domain/src/communication/delivery.ts";
+import { getDeliveryTotals } from "../../../../../packages/domain/src/communication/history.ts";
 import { readFileSync } from "node:fs";
 import {
 	approveProposal,
@@ -1394,7 +1395,6 @@ test("a send review lists the exact recipients, the left out and the content; on
 	assert.deepEqual(await asked(), [
 		"Alex Chen: sent",
 		"Alex Rivera: sent",
-		"Alex Twin: failed",
 		"Casey Reed: failed",
 		"Dana Off: unsubscribed",
 	]);
@@ -1402,6 +1402,12 @@ test("a send review lists the exact recipients, the left out and the content; on
 		sql`UPDATE mail SET delivered_at=clock_timestamp() WHERE communication_id=${id} AND recipient_person_id=${people.alexRivera!}`,
 	);
 	assert.deepEqual((await asked()).slice(0, 2), ["Alex Chen: sent", "Alex Rivera: delivered"]);
+	// Messages history agrees: the duplicate address was skipped, not failed; only Casey's blocked address failed.
+	const totals = await db.transaction((tx) => getDeliveryTotals(tx, owner.authority, { communicationId: id }));
+	assert.deepEqual(
+		{ reachable: totals.reachable, failed: totals.failed, unsubscribed: totals.unsubscribed },
+		{ reachable: 2, failed: 1, unsubscribed: 1 },
+	);
 	// The latest email handed off is the one "did you send it?" finds.
 	const latest = await db.transaction((tx) => getMessage.invoke(tx, owner, {}));
 	assert.equal(latest.rows[0]!.id, id);

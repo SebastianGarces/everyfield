@@ -450,12 +450,10 @@ export const resendCandidates: ReadAdapter<z.infer<typeof resendInput>> = {
 	allowed: (actor) => actor.owner.kind === "plant" && (actor.role === "owner" || actor.role === "admin"),
 	async invoke(tx, actor, input): Promise<SourceResult> {
 		const native = await communicationWriter.listResendCandidates(tx, actor.authority, input);
-		if (native.status !== "ok")
-			return native.error.code === "not_found"
-				? notFound("communication.resendCandidates", [])
-				: (() => {
-						throw new EvryRefusal(native.error.code === "access_denied" ? "access_denied" : "source_unavailable");
-					})();
+		if (native.status !== "ok") {
+			if (native.error.code === "not_found") return notFound("communication.resendCandidates", []);
+			throw new EvryRefusal(native.error.code === "access_denied" ? "access_denied" : "source_unavailable");
+		}
 		const eligible = new Set<string>(native.value.eligibleIds);
 		const r = await tx.execute(sql`
 			SELECT coalesce(nullif(c.subject,''),'Untitled') AS subject,${sql.raw(local(sentAt("c")))} AS sent_at,
