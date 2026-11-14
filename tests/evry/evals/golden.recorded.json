@@ -1,11 +1,11 @@
 {
 	"model": "gpt-6-luna",
-	"recordedAt": "2026-11-14T05:12:05.264Z",
+	"recordedAt": "2026-11-14T06:47:45.632Z",
 	"spend": {
-		"newCalls": 6,
-		"newMicroUsd": 8974,
-		"allCalls": 997,
-		"allMicroUsd": 1280593
+		"newCalls": 1,
+		"newMicroUsd": 279,
+		"allCalls": 1015,
+		"allMicroUsd": 1282567
 	},
 	"calls": {
 		"00828bcb2bb4f2ec": {
@@ -5710,6 +5710,25 @@
 				"output": 12
 			}
 		},
+		"1a6e55e120db9a80": {
+			"kind": "generate",
+			"content": [
+				{
+					"type": "text",
+					"text": "{\"tone\":{\"grade\":\"strong\",\"reason\":\"The response is direct, brief, and respectful.\"},\"usefulness\":{\"grade\":\"weak\",\"reason\":\"It correctly says it cannot change Pastor Ruth’s digest, but it offers to prepare a review change for the user’s digest rather than explaining that no review card will appear.\"}}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0ae1d1b8641135e8006af80410b5d887d196e1254a45f8bc33",
+							"phase": "final_answer"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 320,
+				"output": 493
+			}
+		},
 		"1a98c217de8aab7c": {
 			"kind": "stream",
 			"parts": [
@@ -10800,6 +10819,25 @@
 				"output": 115
 			}
 		},
+		"2c57955fe1ff51e9": {
+			"kind": "generate",
+			"content": [
+				{
+					"type": "text",
+					"text": "{\"kind\":\"application\"}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_046ce99f4da99792006af8031c4bf087d1b8963f749c84e00d",
+							"phase": "final_answer"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 114,
+				"output": 12
+			}
+		},
 		"2c7527d2f932367f": {
 			"kind": "generate",
 			"content": [
@@ -10836,6 +10874,112 @@
 			"usage": {
 				"input": 269,
 				"output": 187
+			}
+		},
+		"2cf045cd100a9482": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": []
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_0571d0616ebd04c7006af8031cb2fc87d1a56821dcaec0b052",
+					"timestamp": "2026-11-14T06:43:40.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "reasoning-start",
+					"id": "rs_0571d0616ebd04c7006af8031efdd887d1b888ed26f187177f:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_0571d0616ebd04c7006af8031efdd887d1b888ed26f187177f",
+							"reasoningEncryptedContent": "gAAAAABq-AMeUZGnTjnrQ7YmQTh6JQzaI9ws9nhKJ4Y-XKTNgsuiBchAs37uJvxwtJbXjCUIlWA8GnBiNJw8x_Kmr5i8G6yYSYkQ9FKJb5mDPPckf2CIFb6FxJMHNVmrR2Muev2bCpxGWBb90WCLb_ByyoEcv5ChAQGv-cxMOkkQruUuV6yaltlNmx00079GPd63jBN6wLYEoK-D82MOdTYwPmBAK6bIhT1fIflo3QCH-Y6U3gM_HMT2HAXGCbgXEoKYwUTKWJSAHVaLRYtQ6RoSFXftdyqXOCpx7hBUO9pLQOOBNmpG0z8Og2U8bU7BIcE6FBkkU8jDSST3XSC_kH-BPc20iBuV7S-rVyBA2q_oA6UTGdJmVHFKDmN_QmtWn1Saerm3TvZIT68z5lg-sHgdQU2ehgVTnJSosf7sPbBzvp_FAn8BCPiNQ9wFPSrfGhVz5XcZGZBRavgA4MiiFF37uJifhSW07cJQOBwK-LhZ4PzeK5GhuRc_qhkK4EuoXubKsC1sCqJXUKIi9a5SSOs-Yr3c-fgsergBPARz4vSZcz-QIdigWKgWV0wkSn0mjIt8AKvR08MiRhA0TBpoZ80LNf16Mq1EoI44nrzIcO7r07OaaiwP6OQCZsKRCqyeE3YGOiLlOZiUYkOnZ0qMUzOCLTWp9fkGIEJwlm9Cgd57VaYuWnuRcFHWu_jkq32OEVOXipJOUdKrFUIEE3u80RRIkuG6InX96A7MA9OGoWe7WiInXqKTrxvdV9DqO5YqVBd7IUDN-_6Jn4hJCE1EHJhhp5WKuQCfZY4M-JcrVXkF4kdItmnFfAx35n1-c9bXzHF4L1AwoMChJYiuOk1giGk0oUqRR46xLvYOpGPpGY0j4oddAni_WY14Blt3e4-Fu_JdTEihEXbIw9XG3HdjxjbXQWhgdqPBM_fK0NFnGLns8YMa1zze4plgcinx5fFdgNicft9uZn331hBxQvTFGc4ySNYmeiluOfIfbSYa4K1DLcyDGQ3RoGgYqWZu9lxyQxF4uTD2Axvgy5W1Qk4kppJUicGwsbCLLgaQPup3jdxCCYmnvsuDBdR720IKX87y08wSIqG03qgRAw21ovxbT8AYGO4YnlHlBajJTrJWBXzY06Gx_1n_Neh77Yape4sLha0u0J4V1wNPeL4G6dF8eGbmztV-mljBQN0aGXUAhq3ZKXOu6mtSjqte8B-Z8ZJ5KOy25AjB8E6SzDX-XzxRWJSfn1hL9r5AjLQBcnz1tHhNgyOvR3i4KSLYMC9EAc_1R_kDf-ERKOs6ciQVQzi4e-9YjRyxSpbFDgCwI04o3FA4Mptnc65NQ_CpUl-9a-9UvqA6mG3XlHFuiGFXXK2ZzYOmGPTUYobCN5jJ1r_lxiUrHPvKVgwVAQ0="
+						}
+					}
+				},
+				{
+					"type": "reasoning-end",
+					"id": "rs_0571d0616ebd04c7006af8031efdd887d1b888ed26f187177f:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_0571d0616ebd04c7006af8031efdd887d1b888ed26f187177f",
+							"reasoningEncryptedContent": "gAAAAABq-AMfMYlesANCWelI0fa0cJHazEgJ7mZUUEK_9g3IWcIyS2J-2qGajj72C83y0AefCG_u8ThkDirZDE2WUE90llWsktvCXMA7EwJRv6x9isRVbDu2D3wnm2TGaz052n9ABk8bYVSw1Qdb2PTzqR8BTYP8iTymxz8k_r903w1cFQ-M7xs4bOweIavEywOf1Ir3rLJxHdbK-F1SIp5RuVm7k6JRDFMoChZwIyBwYVSzHtuYDqmqpxofqNxEqCgFFCDTjPCdREsIWYtmZiiLdNKQqy_XALurMlhn92IeJ_WKn_MDdMuJVQh7izd0TQg9WV83UXXcQm1JGqxSm2apYZw4-vpdWBhwQvsvnxbk7qP_9nKDy3bWa_bvmG7ZOZaQHFhKulo5q6xQTfnYquW3LrVeUMWAug3ZoV1tyoAlS0-me0RWxATIBD5IXBU8gL8fnQtAjtr62Qspb2oBjNElaggueFiYw7SHXr6nIQkeyXrH2heukjar23rB8i1yj74Ere1MdnF4lGWs02DJztEuHCTUJJS41B7aVh1cgagBTrOpZj-W7wWgUjODQ9Km4IXukCnbQgP870vZDiK5J_FC-gHduB9ww25GCQDLE_JlgYB_K_vTeQHQWnKNjTtYWv8eRNQZ9XAzHt96ynRjPX4QNbLBwJkqg-cxI-Sn1zKqYuKB0vaCKpUeGfLFcDOTlZUS3quXqLLCY4FkBXc0xM0Fr6tMffZGCL4e1Uh2qLmG87GMvaJ8e1s5OyxfA_dC3ZYVcElUSUQ7X-hfiJVfGscO0FfalW55FQIPT9LCPk_bvtUlmeEJTeU2hvw0a0kzoYuCbHBwoVv_qeVhQZivH0yVFB3ZDIRNP4LHxoOLZc0Dve-imQXRracU6xoEa_nb461w49FcgfDDmObSXfuSWLuR9H2QmUqQjkhlWpPGsO_MmmNF6XV8yJgdUJf6bJe76R7qw4T_Zvrq_DEjY3M4qlGSyNhOns79lfhSxmlNpEcJ1pzBmhj6aJu7-SEdm7ajkL2bFFWqsy9o2ioerQoCCBZt0l1kcgJkgUe3Ergc9V9u9GxCFPVMXEu3hvnQaDSdMXkpSy7H0LDe-W8l69HfbWawwZ1-H-AxXaWh5oGeS45ZrPV5sPrt5PuRc5Y6nADHThGqUiKiVqNj94enRcJpoFLZCXuxxgs6urkC2yXWgrccqSUDczgu76bTC0G4rTYmTu9ZPaKzNGjNh52gQ-NI-B2SWZ-akzNjEN-1H2awAKJKJYrXqynY1tSqlxVyiPKNfBFm6bnR8MSse0ry2ZAOdIfqS8chZqmlxrMPxrmPyPhxq9mjLgGv7IQMbK3D1aF64JJh8tKzImC55x1fRkUHIA4C1S4yfRRzSsNZirPuUnoJ_NHrccWNXkcoB4sQNhVvhYlg9sc7KfaarXJhy5-E818Luk3RwyMq_-d_ZhFOsjclpTOsybzHk3ylBKsf9Pu2CRALlpIdVcQsa4qbMaycoTHr5GtVnR-FhATtRdPNSJpCz-VkjeAwVpvAy9u4XuoPOcL349EHqPrW139A1IK9Esd_lxJumOBz2eIvlF4cm_IoA5LydzWx30BTG-LXPwJrmpPPhHJDLSKewSVifHLAb_8VfBAw1YKMBKFhZZ6piKeTTzPYUkV-o2UoD3-o141vuKAiQ5obm8fK2LwIH-XMBtkTKwSOHLVNU4d8q5TRNA7fpNPNsBKmH80SWtkKvodEebYPB9TeUEv_CswPH940WjagEjpRQfdIGHRsNpTHguJ0c7ZNkAOdIYKNCQpnfwyX9UE-0rxo0D8B2t2MaI6s2hI9P2_3Xl6QFMWtioxmcGqir4aGIIcQkqV6IT2uX-qoDZbjDbD-orQFS50ywb-yoU1FvX03lFSOqGoxDoauInFAdHviG95px3-ntLXnPcTtOUsbY6DwTQlAx3qqAfyhEAzg2w62cXcWiQVGYlpkRI9UoRIkuI83quXZZH4NZcisoOs2xQ-eO3-7DxXECu4FRYfoBpmpkSIuVQF3QgxShj3wjLL-zUXmJMYdNuxfLOOGd_R5KY8p3zKZOQloP7ZMkBRepvqlvAM3pHm6IlCxI4T9KtXNogvoeHFxHuAXSu7AJxRGeMGUWA_-TdZhnKj_gxk6lDzJFAdOhg49aKrbKhpURhnam-CcnzqOwxUOxSx_5dPOtIdWcdJBGUisXPBR5Q8jn4sJdR_XcY3i8ColPz9zTGTDLVaWylUJ623LY7zxKG4H302DqUgIm1iFdykutKYdhj-BONpABaGt8xjLHuAK190_0OTPnFMPXf_N35ZiK2YNaCE7kJljkOVyzmUcDZKOc7BU26XTjYbycoI-6v7AZC9UHRyfaKSS-iGeejMOMVSU-tcaN3Ex_3fLYVrGrbVggaDelX6JJEZMssD39oOjCJgR9aP5Rf0h5_fAVw92xKiVZVkr0oMtGR3oGNJPHk7b4rLL8UIUJV7CIFWFfFSfTWJTrvgVTGeWfjow8cXfFl_X-NkHV6828Hu_zrmrEtk1HUnzcdoazVwqExEda6dlMVyEM8qHCATbZvmxcYxhGTew7aDQLD5JLRy0C1c7jIfU6vQCNUakrL0HM1vfLBYfGH1N1VPPSwsfurbsYWZMluqE0SmhXGK6JGw4MuEQygsc2f9X8hP-1cw53InMF91YysymDr4F8qM="
+						}
+					}
+				},
+				{
+					"type": "text-start",
+					"id": "msg_0571d0616ebd04c7006af8031fc27887d1bcf5b0974758faa6",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0571d0616ebd04c7006af8031fc27887d1bcf5b0974758faa6",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "text-delta",
+					"id": "msg_0571d0616ebd04c7006af8031fc27887d1bcf5b0974758faa6",
+					"delta": "I can only prepare a change to your own oversight digest, not Pastor Ruth’s. If you mean your own digest, I can prepare a weekly change for your review. It would send Mondays at 07:00 in your organization’s time zone; nothing changes until you approve it."
+				},
+				{
+					"type": "text-end",
+					"id": "msg_0571d0616ebd04c7006af8031fc27887d1bcf5b0974758faa6",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0571d0616ebd04c7006af8031fc27887d1bcf5b0974758faa6",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "stop"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 893,
+							"noCache": 893,
+							"cacheRead": 0,
+							"cacheWrite": 0
+						},
+						"outputTokens": {
+							"total": 143,
+							"text": 63,
+							"reasoning": 80
+						},
+						"raw": {
+							"input_tokens": 893,
+							"input_tokens_details": {
+								"cache_write_tokens": 0,
+								"cache_write_tokens_details": {
+									"ttl_12h_tokens": 0,
+									"ttl_30m_tokens": 0
+								},
+								"cached_tokens": 0
+							},
+							"output_tokens": 143,
+							"output_tokens_details": {
+								"reasoning_tokens": 80
+							},
+							"total_tokens": 1036
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_0571d0616ebd04c7006af8031cb2fc87d1a56821dcaec0b052",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 893,
+				"output": 143
 			}
 		},
 		"2d8c4d46e9426566": {
@@ -12540,6 +12684,112 @@
 			"usage": {
 				"input": 25028,
 				"output": 208
+			}
+		},
+		"3405536657f8fb19": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": []
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_06efda87d5d12278006af8031b967487d1bad1effdf026208f",
+					"timestamp": "2026-11-14T06:43:39.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "reasoning-start",
+					"id": "rs_06efda87d5d12278006af8031c215487d19431d813378f7cc7:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_06efda87d5d12278006af8031c215487d19431d813378f7cc7",
+							"reasoningEncryptedContent": "gAAAAABq-AMcDtNikj2igNV-28OocV7_BfV0_JZqEuIDQZCtGTVICdVTXNMIxut3myUQYHT5G2L7oNKyCNEO5lvS3-JkwhZlfA3N_1iftedl_zoSL-NTSRa1GjFYKZZANjOjyWtg0OqDeohBLJktm8OpnMxuGCPcxz8tZZ85D-Pj7ikRHuExmcqENFA_dpSGoKJTYKCiVSrhwlcqDYLcu8_Ss1DW0kh4X1coDvcjklZvCanB6ZRIyjkqzvMR0gX_Ko6M-v4jnaUt2OzcoH9PsDYvCs8VcbaqhmZ1rfAmMSqLMXpfy98lcerqMHWTcH7M90H8-_YHKAvonKMmwCezrDOo9xjBJY3tE48wh6J2zQyCwvBJ9Vt0GyVnXCMC4AUaBo3N0BcJZq4f3DHhAr11HXAf3eF30sUOjIjejc56HGsGzCSXkzbMIMrlT1dHftgXzdoh0TZ7U24FeKnAcruOxQSacC6KtP7oo5bcafgtTq-8T0O_OBN5N3Rekb1lRi9d-QSUH4uGwxsSO-dc3-oO7Ql_nSI2mpc4rjBqmtPl_sRewoof5Awehu8pIHT791ldiJExq_SIFTFTZDn-BU4U1qgLlTdgrp4bUy0mUcHlct2WRjdFao_T8qLJT6wSqtKl9qYemnxiNi9AgSFRYqZgNeO8pb4i7Ulk-hhxKUGIsUmov2IdKBUP72NkHJNwRdF4Z3GpnHa5aC55TXDdBWp8SUaz-hpIo0axkry8ssd_g4ce8ROh2tSGD4AC64kBppZHosq_Cgjzw1KCusbQfli1lxYx8wRLne2T3yQNVibHoixLzmnUEBn8CH1QbMiv_6P7bWFgUzfcbZEh6_AItSB3Xh1JUZaHvVohNxaYxDZrQtvbIDsvYYdE7UwmN0S889yNYra4eYXsHO-SmMbcHlwth-v-TBW-6KKNOwrlZTlHjc4yfWQ_6PuvYDBRar6Hv4RGylrq7wuFAcHLTDcok8Fok-aaD1NJQSeDFOTrcq69TnQwcarXoEaDrO5d6MPh0CEsgo5ZJ1l7mY6g8knPobHW6VqRO0Sg5oUK5AlW4R8R--4_YCY6ZdzHOOCQXPC1aLw_7d61vZw3ndcEYB0dtvRGsMZinwsUdkZuJL6-UU0sezwgwBSvD402ztOfJQztmg1k8IX_BhZmbe2nKaQYC9IVBWyuJPwW1RJNS63stSmXK1e37NWIXvZXpLM6qfuc5D0ivLB271DiVyeSYU_8qzepjvW893iYbe2GTUYqYzZ5ghp5HyZyXHu_3ABRfQTglBewei2nne5nnV3LrB8EIE542VLbDtfR4_1LKQsOfRPBhj7eeUM4bM6VPElNVXXfFQ8Jkfqgng5WzDRTyxzu4rYH_MlQcihXC9TTdEFkva1jRalN9mQ4ISbEe9c="
+						}
+					}
+				},
+				{
+					"type": "reasoning-end",
+					"id": "rs_06efda87d5d12278006af8031c215487d19431d813378f7cc7:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_06efda87d5d12278006af8031c215487d19431d813378f7cc7",
+							"reasoningEncryptedContent": "gAAAAABq-AMcYOBu6Jpim50ONVrkcIyEvjg9tHcMQE2uHkrMzBYeaS6NtDHi_9tlU2eS8xrXfLa0c4CH_9bKwmiYNgL-Cy1Hlmnx0IuCI3xkI1D2F--bPfnNM3nGHGS4QPGhRDqnO4DbVdRN1TdR8VQkZufp71DUnxQi4ELfIXBxHmiTPpcK-Tmxli1RU5BcaWTxExKpdTj3d-MXYHphqETYTQWE5pex3yl3C2d7DDFbfsSKuZs8HEHewPBnCGa7YFUqXqnl0NIomLQNJ32o7o55bJTmaS3UUpd2bN6Oev9GIxRhRiEKXx_MJSbML9c26mh-GNofRnwoGeNSM59oXpQOHYIDT_7bo6psx30YqQq1PP3NwuqdiGAfYCc5Cbf-mp7lyRkRVS7GTr2ifgvxiVQQuSusfEFKbNeraT-6kVeXRsZQnQxFJww1Wn4yd6LpHL8wdndKwXk_da5QXHZ4Z2bCFBtwUm9a3XZdNYcrqUb_-9q7c301RByWMTWy_OYnQ8xCkSrzBgCYNuhQmSlhSCe0qispP3JbIRhBad0n2PEgQdBxz63iS6W_TxbRh4--Lq9cEWBw_-WpAGLkTrBdXflGACLAACMO1cBxURgRA-ODVfGCvvJfABsCWbxO1MRf9_v2fWmzX8fwEo5tnqrdZvBoSbFXHmzaq0rPckthzyyyvrLfWG-sZlitvsfRXJc-uGGv9mYgxJHqp-_fRrFv9YvJLXsjd7WgvgvYdzMktiPSKi5WWaUQq_auCRR64FbjhBuSFaQc2E9DmPKLNN4Tg-eU0kRlyTdZj4fLoK6WVEBIRLzckQV6W3PgLzrGsUOoulDzgHGiWDr_zxAIwb80c_BJelibUTGLK7O8bWi9ZHqGyDnws6xvGxLSu2Z3v0nFh1cuM0LnF_ir29nGZQeGbgovVlufAcrQ8UNb5RV7SnOPakGPDhVntHsysFxoN34CrGFjbwkqCeX5zC51EUKhH4DQvISEWQ7xd2Yz6-bAZTOVcDjsX7YbGnOejIyWniS3P1_zMX9sxQ77hGPwatc_fE4br5fPq5JzDXqqQBDQLocXR-FBM7DdnsLiOjhv5lj6PRPDPBB2WlT73ySjr_-mzdwazJ_Jmd0lGrSNh8fptfRkIG5x4bEbrGjHYMSxRJrMJERzZD-u4CP8gjBeBB2Rk5qS2Br7EqWVNt_UmwmjpNX5Uar8wfM5CfBJBhcriv2Rx9H4_y0RADVFvvwLBT6HOtbaizrIr4DdVU_YeG9O_f0DCIWmVa6XLQ2gRT-aWPgA_OVQlGCD6xu0GIYrkC-hAlNPZFI7YVg9mMRVRDRLu4R8VrEIn36caDxiAPZys1826CBaStut6YZ3xH3UbT2PNCWxoPBhTrgRp_7w6HM8nRXublKg-QpXFRCaDvXLRtpOKNqdORZbqP4tQIEk4x3iMDSlzqMiuJ2TB-bf_MwiPlYqOyO_qrYUJRJ4jED94lJlu-l1iWSjCX-iRA4eVAtBeRtCkayQiV6YoiRRE1UDH_n3sphLd6LyES-49fyvWZAhDRIUz2u5OdgSJEbBq5bJukI3Rcj14Xd1eAU5cUefmxnld8zDCG656RhfEYDlzNJ7lD1pLK7vgbr6XyvT_yqQBstIsJKm6LP2AC-RZGpcp8jsHt7JSheOwA9UpHej4snQEGwswS1KluONgf3-9Sb0KCLdJx6wQpcdypqf5qEN5hgJexo4apsblPweL_x07bEIXoioJ5psbU84WzQeNf8nlx4wIIopIwCtjKiXO-njF6oWZ7hcTjMTuQPEHYfjFNJz-S4BKkCLMO7uReIVzRlRm03HunDpQm1R7z4Ux5z_6wGqsSxuRRZZLHd6vzuanR7uGBvOMIY-lUXGEWR7BzbGFs8WHJrkgvaFiNi9gUf8YLrMtkJxJ4_8GgAzSujemwRLacQHuWnAWBye4PNVrQZiGMTSZ4L0ZW4-C_pbvruY-NjKwu5F8y1rnKAL5gmvE7VO9JQnXbpNp0BbNBTmqszVJBqQSMenq6bv_CksWztYofjUpG4_LTgMQdtb_omsPTSAzD55lbrCNPgGlvXEwMRXFryetQagSLFaLPAJ7jh0LFl_mCWjmKO5yyKhBEOsnVjISMGUGUHfrcjutr9HJ5JpS6NrKv7ENBRkV5KAG4SzuUcizij4Z3WWxTLJTMQSR50UdR3bYoVULUTuF92dWzmVKJ_K7SOLeQOrjhfaYpiMWB0MMmvNrMrKz8K0Ymdnk2C6-a3OH3tRLuf3CPVXT8_aCqWHe38sSZR7gQs6BtYKXGoGmrMwtJXNnetlkqqgZvq9T-sYbV4X45kB3PbHmlIImmnrHjeKjGULt5_4xd6S0Pb_O72A8BqNSLZCjzdHH2u5FHkczFoEcwDMa1aip5fYjUO3VxnK4O11VvIEjfnvK8VnnVW4eoIuqmDX1QKQg0ASqTQMPW2wmVdMwYXIaVt74Lp6YCoZfIwZtFPqZTKxmtR3ujELN5M6QijlQTeQWSR3o0Fyr7V0qM_3CcyC60bM8dAeZGZPQXMxvQ=="
+						}
+					}
+				},
+				{
+					"type": "text-start",
+					"id": "msg_06efda87d5d12278006af8031cdc6887d19efa15b561861cc2",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_06efda87d5d12278006af8031cdc6887d19efa15b561861cc2",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "text-delta",
+					"id": "msg_06efda87d5d12278006af8031cdc6887d19efa15b561861cc2",
+					"delta": "I can’t look up people by plant with the tools available here, so I can’t list who’s at Redeemer."
+				},
+				{
+					"type": "text-end",
+					"id": "msg_06efda87d5d12278006af8031cdc6887d19efa15b561861cc2",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_06efda87d5d12278006af8031cdc6887d19efa15b561861cc2",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "stop"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 892,
+							"noCache": 892,
+							"cacheRead": 0,
+							"cacheWrite": 0
+						},
+						"outputTokens": {
+							"total": 98,
+							"text": 31,
+							"reasoning": 67
+						},
+						"raw": {
+							"input_tokens": 892,
+							"input_tokens_details": {
+								"cache_write_tokens": 0,
+								"cache_write_tokens_details": {
+									"ttl_12h_tokens": 0,
+									"ttl_30m_tokens": 0
+								},
+								"cached_tokens": 0
+							},
+							"output_tokens": 98,
+							"output_tokens_details": {
+								"reasoning_tokens": 67
+							},
+							"total_tokens": 990
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_06efda87d5d12278006af8031b967487d1bad1effdf026208f",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 892,
+				"output": 98
 			}
 		},
 		"341b05d29e4efba0": {
@@ -14880,6 +15130,92 @@
 			"usage": {
 				"input": 21217,
 				"output": 56
+			}
+		},
+		"3ed01fdb84226b16": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": []
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_07eaa94cec4f5ffe006af8031cb3cc87d19ef98c9a867fa304",
+					"timestamp": "2026-11-14T06:43:40.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "tool-input-start",
+					"id": "call_UsYZsJmXsZYpBrnlJf8sr2tH",
+					"toolName": "propose_change"
+				},
+				{
+					"type": "tool-input-delta",
+					"id": "call_UsYZsJmXsZYpBrnlJf8sr2tH",
+					"delta": "{\"operation\":\"notifications.oversightDigestCadence.set\",\"input\":{\"cadence\":\"weekly\"}}"
+				},
+				{
+					"type": "tool-input-end",
+					"id": "call_UsYZsJmXsZYpBrnlJf8sr2tH"
+				},
+				{
+					"type": "tool-call",
+					"toolCallId": "call_UsYZsJmXsZYpBrnlJf8sr2tH",
+					"toolName": "propose_change",
+					"input": "{\"operation\":\"notifications.oversightDigestCadence.set\",\"input\":{\"cadence\":\"weekly\"}}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "fc_07eaa94cec4f5ffe006af8031eac7c87d18df872a0aa7f5fb7"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "tool-calls"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 890,
+							"noCache": 890,
+							"cacheRead": 0,
+							"cacheWrite": 0
+						},
+						"outputTokens": {
+							"total": 33,
+							"text": 33,
+							"reasoning": 0
+						},
+						"raw": {
+							"input_tokens": 890,
+							"input_tokens_details": {
+								"cache_write_tokens": 0,
+								"cache_write_tokens_details": {
+									"ttl_12h_tokens": 0,
+									"ttl_30m_tokens": 0
+								},
+								"cached_tokens": 0
+							},
+							"output_tokens": 33,
+							"output_tokens_details": {
+								"reasoning_tokens": 0
+							},
+							"total_tokens": 923
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_07eaa94cec4f5ffe006af8031cb3cc87d19ef98c9a867fa304",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 890,
+				"output": 33
 			}
 		},
 		"3eeee09574c53126": {
@@ -17695,6 +18031,25 @@
 				"output": 12
 			}
 		},
+		"48cf8c30e73a3f04": {
+			"kind": "generate",
+			"content": [
+				{
+					"type": "text",
+					"text": "{\"kind\":\"application\"}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_05858d76ef5233f9006af8031c47c487d1a2eb7f79df9ffd58",
+							"phase": "final_answer"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 117,
+				"output": 12
+			}
+		},
 		"4907af3e984154b9": {
 			"kind": "generate",
 			"content": [
@@ -19027,6 +19382,25 @@
 			"usage": {
 				"input": 20784,
 				"output": 30
+			}
+		},
+		"4dbb51d0ca788d7a": {
+			"kind": "generate",
+			"content": [
+				{
+					"type": "text",
+					"text": "{\"tone\":{\"grade\":\"strong\",\"reason\":\"Clear, brief, and matter-of-fact without unnecessary filler.\"},\"usefulness\":{\"grade\":\"strong\",\"reason\":\"It explains that every three hours isn’t available, names the daily and weekly options, and asks which the user prefers.\"}}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_099e97ba8f5c243a006af80321871c87d186033292bb91cdfd",
+							"phase": "final_answer"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 310,
+				"output": 119
 			}
 		},
 		"4e165f07e2347ef1": {
@@ -25030,6 +25404,92 @@
 				"output": 32
 			}
 		},
+		"61cf2dcef1d65b0f": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": []
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_0b554ac7c476f407006af8031cea8887d1b1a1326b292405f8",
+					"timestamp": "2026-11-14T06:43:40.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "tool-input-start",
+					"id": "call_MLzwdRDch7OwBuxmB2ptkktW",
+					"toolName": "notifications_read"
+				},
+				{
+					"type": "tool-input-delta",
+					"id": "call_MLzwdRDch7OwBuxmB2ptkktW",
+					"delta": "{\"operation\":\"notifications.previewOversightDigest\",\"input\":{}}"
+				},
+				{
+					"type": "tool-input-end",
+					"id": "call_MLzwdRDch7OwBuxmB2ptkktW"
+				},
+				{
+					"type": "tool-call",
+					"toolCallId": "call_MLzwdRDch7OwBuxmB2ptkktW",
+					"toolName": "notifications_read",
+					"input": "{\"operation\":\"notifications.previewOversightDigest\",\"input\":{}}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "fc_0b554ac7c476f407006af8031e0cac87d18a1d0e87f9637ec3"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "tool-calls"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 893,
+							"noCache": 893,
+							"cacheRead": 0,
+							"cacheWrite": 0
+						},
+						"outputTokens": {
+							"total": 26,
+							"text": 26,
+							"reasoning": 0
+						},
+						"raw": {
+							"input_tokens": 893,
+							"input_tokens_details": {
+								"cache_write_tokens": 0,
+								"cache_write_tokens_details": {
+									"ttl_12h_tokens": 0,
+									"ttl_30m_tokens": 0
+								},
+								"cached_tokens": 0
+							},
+							"output_tokens": 26,
+							"output_tokens_details": {
+								"reasoning_tokens": 0
+							},
+							"total_tokens": 919
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_0b554ac7c476f407006af8031cea8887d1b1a1326b292405f8",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 893,
+				"output": 26
+			}
+		},
 		"61e15e2d936d526b": {
 			"kind": "generate",
 			"content": [
@@ -29552,6 +30012,25 @@
 			"usage": {
 				"input": 296,
 				"output": 80
+			}
+		},
+		"753cfe6c34b096a8": {
+			"kind": "generate",
+			"content": [
+				{
+					"type": "text",
+					"text": "{\"tone\":{\"grade\":\"strong\",\"reason\":\"The wording is plain, brief, and respectful.\"},\"usefulness\":{\"grade\":\"adequate\",\"reason\":\"It clearly says Friday at noon isn’t available and offers valid alternatives, but it suggests an approval review even though no review card appears.\"}}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0ea7a5d924531bb1006af80321bf8887d1915a9d25c033128a",
+							"phase": "final_answer"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 323,
+				"output": 327
 			}
 		},
 		"753ee8846dff3495": {
@@ -35395,6 +35874,112 @@
 				"output": 152
 			}
 		},
+		"86b1597538368cf7": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": []
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_0e56f12383578e57006af8031ec01c87d180a9562d85c4ccd7",
+					"timestamp": "2026-11-14T06:43:42.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "reasoning-start",
+					"id": "rs_0e56f12383578e57006af8031f666887d1897fba761f6ceefd:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_0e56f12383578e57006af8031f666887d1897fba761f6ceefd",
+							"reasoningEncryptedContent": "gAAAAABq-AMfCHHctnm6CrigjUrfGTEEihsPYxTfFdphdWPurL6zbY-Lkc5LUIzCtrCIrQyGXxkZfImOWAVtKvI4QdU2--LKPo11Fl0uTJPs5rtX4aFDqayx4-Tp8n2BD0ua5t6NrdtaBwNbQ2ZjNHsaY8-umSVRY6ogKVg_C16B41iJu0FqWhu87Pd3pLT9vp1-nCwiYN2UPDFHnKwktmmyfC1fPAS4ZbcmHEnYCF-iECjIGdjgPRXhqOanwokUVLQoGA03FP1WnOBJ_zsXpvIZ5NTpWdALGSktE6kGiO7tuOuSrP2dblVVNxx84QUv8RI_L-0tEHaJRga-nlFkM7Q10sZefN69E5bJBdUmH6fH8xu-KL6fayQlwFuVoO0A5G8S6oRoFtFlBC9u23gIBe1WqeMSOINI8p8dRDfj7bMD25uSC3q_X8Yfb0zdgDMJjQg3hDQp-yBYydyePNl5GqKK5ElGJF1g67zL-JPiobfYvZ1M09q_bbB4mbWm4931FNJcU76VUKjLMZNJdPsh04ubdM9iw2xNgl-1QhwypYmaEveNFMi_Q40JzQk4gocdRUeX8sfBk6wvdx_01S1A0dRRSjH2buz_AqQRp8P8ue3D4arhJ0AmZeiiFcqusMK0yIlNRRWe4aXmWM_zRsLD8k2Km-DiWPCEEMvnTwXLMXTmKfeJkYTBkVCxGMzny4jAUCqoAzsiOQg4-mZJq-D0_UiLYkmDdiRFBb0Dmpn7vxvVB-E2wiYNfRSzmBFpypY8gtUWabZ9l7WQVk0E2oD3vZpcL9CqGdb72GWXo-8cihk_MPOJnOSAvC16Jly88AgzeloHk_02egz9mPEC949Wbp5pa07tJobvcxF3O0C9IST76wP8PFc1Dfnzuiz0EV7saKoNSwBgWxFVrq8tnKRAS_wgBeOmaHX6ksr-rmaUGF8XtuIj8e9vfaMnLbKaxbhMH1hQQLCvqjNlerSTtnGum3mYYFDJJ9ICwE6Af2mPmvfMt9LuVu0a7MvG7lc1fb3Fnel7I2VWf8OAeiO24UKQ3xMP8n2r_j4nMjEeOhFO9Gl-ElS5pniAgMj7lqf5VTbWlDXHwaDXYMhzk5ototHsJuXarJeQzsHqMGRHVoZC-c3zmCsjYEarDNhSfpxdFwqo5JhifuhJumf8-XGoU9F1_ROJV4zPqvHdQsNTBX2AbpmmwjbZHBQu28SJrEdGQICE072qxfCV-1uP6F3X0LnDotOuG8wxNrXWwG8yf7Lpb4Ejknlv2LQWIMqTDrGxOkVaGJZxCNtm10VnMPze9yxooSwnsnDzYvVILcsdXzYkkyWwAw1Recx2MzFMvT67kJYAYMa0CyhHTxNLz92LMaIZpLT_5NiKZYJZJ7nHNy5yS-o1UqUFN2s8hrc="
+						}
+					}
+				},
+				{
+					"type": "reasoning-end",
+					"id": "rs_0e56f12383578e57006af8031f666887d1897fba761f6ceefd:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_0e56f12383578e57006af8031f666887d1897fba761f6ceefd",
+							"reasoningEncryptedContent": "gAAAAABq-AMgFmqqunyIry-7Ejsq6ya1jir3pN3w83XCjoLgcGbtf2C1D_YtMnnBoGv77vWPxle5DNLADNQpDAKFMsmxw21HswyWgdY9RRfrcl5STqUix-5FGj4Q_Ud4GDbZMmPSzOFiu_XQL6kID0u1XX2N3foIeAwDLWEhy-4YYfgOC7J_RaMhrLktzdAD9BMzJxXK8oDrApSvB_RC3PkzPX_7JhZasKd8z507TBEVcxbTPRl5s4zuIYCyQPAX41V9-bIkZ-P8nfNUFUuRTzPlB2Y8PjE8sXBD-NfnIEJ5R1TyXkyO9dYDRgegPax7U3vwfNyI1hZH-VfGG7M8kPSvTOswpSe7WBL06FsdVFidU5GX-W9XkP-9QCGUsFOE_ZR-aK1tbkIH4V-ZcQQwlzeAYxLnvvyTejVlpgauKZC6-BCSf978BG1WnIV9ci6KR_ke236Jf6fy9U9eAahFbQ3TMZ_QkiM-rRRVCC2fgQmBk7kF6_l6Xbgg0gsATq1ZRuHlMAr9zuZHlGO2ocx5hARl1RIus2r4Ap770vV15JR37RrAhlsNpJCO6Gosidcx_wKB5SRTbMOHIaXBgp3mZOdY88Ii6cBVB_YL4rGKi6gv7ioyvOFzFBKr99DrMGg-ufYXJAIpSVhn_XMwcBdFqhdVCJwSgfTPdnNa4gXc3BBT0U86SSSIQ96rd94BXcPXBeC1XDEslGa-k8EwdVzwp6qD1CtnFqV8gpk95vwVBnxed83M198LzCvGkZUVUrvNTFZNXf3x3mQEmFGG6YnWv_-jFH0zE-MRPKH0mPp4pEEuhchQ7okDosG-9T9Fcbw4YbDJ-5hElFXw59w1IycrSG7rEJwXQ0T47I3mOrNX89IXebEQIl3PUIM96h_TuHYSrNkwpWrp8Uyp-Vol7YPBA3hc2Dm2QJw3SHXL1R8PJfFyt_5AIUwynoWKjO1rbSwBlNXgdAbitQWGX7bZHR7S0kzqX2Q0XSpC2lQF3UziEMbz3ijKX8MeB-0sXlDkypvqXuga_1BPReCWZqUuR_z4qosuteUgw8M1JbesNH6TkCeyVMPZclzdqhcdJ5qB4-3orPYZQZ40EBJT6O-VkWfE6FXsLp1e4EKLDRtsVFeJ5El4VGDsEMVI2bkSb0SeF_X7rCcVlaFMOdPAHivmySDCVSumBldppDKBHXcxUwZHT6Of9Jhj3JbS82phbNLMV8y7Cu74YsaS1BQ6nCAlPFWSZSIGtg7DqTBXXdis2Za-0P__8rReb7WDRLNCes9eSZnttyRSYPBFUSAOj1tyjTJfiB8UAFCLheoYAmG6fEk54kDkZgXpFi9NI7sOqmhdsIP-66UatcQDPN9k0btp0chUQqf8T3fwPpWqVWq_np8HD_U-RzS07SWYXlpg6wao76eLvxgktVyIZgs9hAkCakZ8XFSSpspKC2sg0fCuPBobfckCAJQlgQjBaOSfCdDLJOL6jyIuFdRjKcelc2w_FWcVLcXl0bP-BRFmsOPdtG85xUw5q2mrcn1Gril2X44h6wClLD9Xa3zFotN_eBSrlKbOVAtN8HXHDLPtbYX1OjF69pVlbfWgp8E_hb2DTtZmLA_VJDJM_p3LsNGk0JNifFJpYmzRHro03lDoCK32OzDfMRyJx26xet_FyipZNZIcMy6XZl4Vc8nN0w9EmUIX7v5YIgtXMTT6yUnlznJMwaD4hEGdQ9PWNzSJ1KGN3M80VAy-T7ubWrtDpKhQV7zuJ3cwSuPruObO1ELMyV7lj0zczmVPNbLh2G30XWUq5tfKUi93LdXAx_QjIyAM-Bzi0HIiMY3SEieYkWe3FlL0zVoYqcqayN2ku3aywQcWxr57XQ9F2rzyvBCnzSFLfVk5XXxSmXxAly2jP3XOoUHsD7rY2bAcaRBsU9Ysol2micG0aC6r4PzscBZVogT0R6by5YFjSm-D8py4519y4feeUJ6M25Q3A0RTHGajJky4Vpb0HOV3-JGeJh09oRv5WPzWcXzQtOAY2TYe3p2soAqip2siKp0Ro-WkQAU_2LIYTztA3g7veBwQm8Ut0TDPMNuw-XJk917aKFsnACtg6SaJiz6Ptjlf45RdHf4t0xAQ5zCkAdZR1PGPM1PC7K23FobcMD4HcnHLGdrxsEILnQtWRN9v6l_b2jkjHlmn1Kz_ND8OR7AbF9rB3O11R8mKV7fepYG6X3ur0MeG0K8amSFBYP7mmwB4qvKNjFYWmgxii3-COC9xTuavtz48CAGtEPWxhobqshSV31MDya9DkcpIhefXESTJ7t9tszWXTxStqskUZovX-LiGvGpicyHDMiTz6B0BYCBUkYgoRjn26BMQto6BJdWxZSI9vN6b4XZveY2P78PsBFPpGLwX4Mro"
+						}
+					}
+				},
+				{
+					"type": "text-start",
+					"id": "msg_0e56f12383578e57006af8032018c887d1b27f422999bee310",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0e56f12383578e57006af8032018c887d1b27f422999bee310",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "text-delta",
+					"id": "msg_0e56f12383578e57006af8032018c887d1b27f422999bee310",
+					"delta": "Your next oversight digest is scheduled for **Tuesday, November 10, 2026, at 7:00 AM** in your organization’s time zone. It covers **November 8–9** and will say:\n\n- **Hope Fellowship:** 6 activities on November 8."
+				},
+				{
+					"type": "text-end",
+					"id": "msg_0e56f12383578e57006af8032018c887d1b27f422999bee310",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0e56f12383578e57006af8032018c887d1b27f422999bee310",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "stop"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 1085,
+							"noCache": 3,
+							"cacheRead": 0,
+							"cacheWrite": 1082
+						},
+						"outputTokens": {
+							"total": 132,
+							"text": 64,
+							"reasoning": 68
+						},
+						"raw": {
+							"input_tokens": 1085,
+							"input_tokens_details": {
+								"cache_write_tokens": 1082,
+								"cache_write_tokens_details": {
+									"ttl_12h_tokens": 0,
+									"ttl_30m_tokens": 1082
+								},
+								"cached_tokens": 0
+							},
+							"output_tokens": 132,
+							"output_tokens_details": {
+								"reasoning_tokens": 68
+							},
+							"total_tokens": 1217
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_0e56f12383578e57006af8031ec01c87d180a9562d85c4ccd7",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 1085,
+				"output": 132
+			}
+		},
 		"876aebc26814433d": {
 			"kind": "stream",
 			"parts": [
@@ -36974,6 +37559,25 @@
 				"output": 133
 			}
 		},
+		"8fdb71e09c99bab7": {
+			"kind": "generate",
+			"content": [
+				{
+					"type": "text",
+					"text": "{\"kind\":\"application\"}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0e99a608c3a020c7006af8031c39d487d1ab62eafb8f8ee8b6",
+							"phase": "final_answer"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 117,
+				"output": 12
+			}
+		},
 		"9019065d62030ff7": {
 			"kind": "stream",
 			"parts": [
@@ -37971,6 +38575,112 @@
 			"usage": {
 				"input": 21023,
 				"output": 170
+			}
+		},
+		"93caeb85a16795e0": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": []
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_02871e0ce56dfc1f006af8031cb4e887d1843d75f1f4f5720d",
+					"timestamp": "2026-11-14T06:43:40.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "reasoning-start",
+					"id": "rs_02871e0ce56dfc1f006af8031efbf087d1af184e3032b2d334:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_02871e0ce56dfc1f006af8031efbf087d1af184e3032b2d334",
+							"reasoningEncryptedContent": "gAAAAABq-AMe74t74BSrnVy1-0wwzfFU3zEf5LYc58P81tr0aTgYpIbQO_nnGAlGkuYDjbVmuPGguNeqbm54_Dji50Lmpja7JEMVedBLuOODcB2hpTOELaFc_OQvAGq8Oivnrx8SDJBdi6w9QpJmZL8CQOyOUHJncGoIYeLfeGdTLtCqdD_DU7ZM3nvV6GbIm6HyYH9yzW2lVc4FtF5tRqHhGxnt677dh8chjXE89e9GeUGrkyoNLwXy_9I3nfszMF8aIpRCkGY-o2qyspQaIpYnYu4zCGHLoLF8uL7ZT75eP-p4t8F4yJhq6YpHFAx1-pv83Y2gcIhXMs9bs75ml8k9FamxgsoXfQN23bTQI0sVRjHvffBbV5HrtFlfsPyQASxrAXJsgM6wcKSw3GQmF7zpltbmDvAkICvjJCM0tHf3zeocmISAyQt91BiZ2UeGl1i-APy_jCxS_J2guvH1ULV8uBJfExGte9reC6ysMhKvFc8nr9khdWluqm-0Mn4KUofRU2jPsjq36gfjuhYMd5SWwRFF9Wk0OVfXO2fhSiKdZeEuYKjOzw4GaTtqqUWW14fhXEW78cP8eBm5ralM0lvMmKj4OzSmRFsC2z_yGDXqBbjBpKxPBxy5VAcMu3206mATWWZypdB2oCzFDAOIxVUFTHj1UtFrJai_i3oNY78IZGknKKRvO5TW5hUt90yTb2p8KIR0TBVmKq4E5pyUOeB2Hh6LR67HE6YZehzPdoveEQOZINPYLyIV-TOf8eeIY1syvgX_5PbBZuPz7HugMZaTJ1dufg0LgWvm9EDFq1teaDAcKtrbjynDeGoxt7_zuOcekKOfs5WtrArQX0YFhq-CdCeLCovONX8ApQ-taPWXckE4eeMOo74ZvarpIAt9OfppdhSU7F4eDDfO_I1FOVhUCknaaayg2WhC8OygU1uCjfUoq5WpKQh_iuTl6lm-u1le3_7ookxZwh3P_CyRWuW1dCtwp_H3Jg7GIGDYpo6nE_iNiZ2A-QHS9pFnen21_VQfJSh7bHvmZAX__fT_3LhKjzlIM3J6ynZ8HQx9D9_eNGcj7sUR7PixnPsrPT3bHhE1IoTrpaFqnRKcA-NG9QxkmeYuTah1dSoU9I0RUuAMd1AUASjmVU1sUVpTTVE6XdaP3yswAHOxTFFm8tDdiaZpTuyBhJnpDjHjNmuryJHHjjSiNsV_97trrUAblC1ly0awGR8kHFIPHJioF0Bqcf8UNQurNDgvLFbDim6zrZGipFE9-2B8XQUnGl9ixZuluzsvIBV_ChUAhyl1gzQ-QvK3anZd96P6ce2hHMTy6mEXMJUtj2gqVVEJa090hLPyVb3c419OgTqRn61DE44tXyD_xHl6AktLaIKgSgw26Yq2im7h_OdZgPs="
+						}
+					}
+				},
+				{
+					"type": "reasoning-end",
+					"id": "rs_02871e0ce56dfc1f006af8031efbf087d1af184e3032b2d334:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_02871e0ce56dfc1f006af8031efbf087d1af184e3032b2d334",
+							"reasoningEncryptedContent": "gAAAAABq-AMfK2zbjzEVW0pEiwic97Zh5SyV61ib0PHX_Wf_q328lc4m4-mxBNyGKBgryvQmI-eZSs_c3tK0n0EA2AZ9MsKHjv2W2z_B-wYKGnHtHiGJLsB8ArI5zO2LuK5PvBd_2LPiXy6K-cX1HyZ481mXfgqzCAFmvyd7IQt5ZTdLN17gD0t_8KOTEdBwS1hUaZQxtFs9-QFcFPXtUzYqIRhsVKKR-fF9f7DO6Vg4Nl1AkNQuHMK1xVD6D4lkpMS3W1rsAUYTmCjEUjO8vjx2NVszS8d-uLHyM1zcMCDdUB8EF8lTcrkWxhGk9u1cbx74AyGOpt08QI87T2epnVjWhFRDzbgHDw9cxSZ5gC7tnCooWT9wzWokGBzlb67ZRds8cl45bKuVeB_XWu-E5eDIh8-iXK0zILSwfqGm-b0E2KT943ML4QzdwzY9hviyYAzt9wU9m1Hp1RyU7VkAiAXiBOIci-i4bv7mhLfMIrIl-5XtWCGYnPKn5_vv22_O7-xqnECfcHqxaO0O0qezey680moPO8YgDJxdL-E4yM8WdhKVYBrulg7jdH3YaN38NWJXsmiRrirMOhLBYpdN6FUgoozIqBL_jVdgksOHdMC-2tt9kGmOQpdu_5xZ01JTRqnRt2OfL9oJcZ3U-rFGSwplfHE3d_3jKLihJQ8lzWCvPfg3OFPiLYJ3W3Tqftah-S06QO6Hgx_DVDo6ByQd2FqhBXxa-mxsT0jujhlRT6ThgcBIE1uQBX3-RBR8TrMxscVLj1cgp6kvN7vz33hxhkPNmr5Sv-14fAQ1u_gDbQ3Ogl1-ifdQLD4zc_9bBkgRuGJ2R7-Y2AKQA6EeJVf1optWSTowrxfgtw1nSPp_4xhbMHNwoiXnl3USvfotss7RUckNokEiEciorxv1UWKpr9ye-Fs_QEMHApFCSy978xn9fllaoEZW0J6JzlthMwmt5ZLtjnzA7kxHFZMpDfeSEKw1d0qlP7aGu77unszmVjikcMQc5ubq0iuC7VgCfOH7FnCksR__TRmKeqR3sWuFSNDD3ABhZwHKKVTc7SVYeCfpUXR2C63y4oF7UgfhNl5_4e78GzOQCaA3Sb-EAwv5L4RaTWZUuheOALwG96h34kPrUKpTIyzLFauOg66Z6QnBgEVb5nnAlqq7k3w_nAcRf2BEgnTiS_rIvaNQqA6NzYL3OU9qekuZ7zK02b4slzA5wUrCay0XFXSBPmj-o1Ns59TXOyCKsTkIgJRSkIesSb4rKJJqstGTSbwJbhsNAUhW7QHltvGzMWn1sLNvTQwyODZD6nwjcFiZeCJMNRsOyDCNprxg6AAdf0QtjqUrqFBbomNEpcHy6Kigd2GwULEGPhnOJa5H4LcO49ir_CVu4CQFgwetELLE6BJt3UV-tLY1qL5cz2sMaKthKoN8YGeO_9-rcWWGbfGOyunNHd-N-Zke7rpUvLNYEv5AtuZr6-nx6Pnc2OqaNZkEEQHr9yN8K_CPJ6A0XAoZ0BV18tFomTGetm69FuO-o26fRE6hddutKdy6ScoRzRYRsN8iRYB3dAF2mNAqX_2ExvBQTtlH07VfbM6DXyPeT97zyNZUlXJjT4GDceSdKOTgIUEmqVwDqvCAhtUR7nvNV4F7YzlqN5C9huuVizvFcNY2xu-9g2RURCZVNCdBm5PqXgTIBeNdjlJgu8XVxp9LGlSdcug8Uvgyog1Nq3QhCG4MRlvYDyKK8fLo5IQtx5_v0zKUs6jWR43DA7Qs9RTkJChAr3KgnLi1JxsLDgDW-OfW7KAahbjHei2le1q8iMVlw0MPIiXQhAaVIFyjfciejfq4A-8X34preO3mBVtyagwq11WagZGKWTOzhEwAOtETQWQny0jsFMBhCynWmtq-mfR83Sj4YJxgi8jaA4qBbj0TZrzq1qC0h_PZrzNufiHPgT_WNCWOFaMYPX1F_6mqbqkFWkhuyvWs3XQ2nwCTpObEX0l7UFGi9i-7roQzbBfkgcG4Q-sJX_LasuluBhxr9ZgBdSSH9TaXWX5XXjJQK3k-TUfzWD88UkXziiyTCihY1s4fm_IVt_KNTrxKVzzMkfDSrXmKCURzf0btF2i4LUcZVM8VYGygq5b2ALDE2DJry08aiC1TJw5FH0vbIFsuE6p40DWwYj6lq7TWakmNcEXFziutewlKpaA9Twh3AWGcnjQcesNJPhq-1UQDBjBxidw-pjlijNRhro0WFZ5DDXKa8TP_DLpfb8buKGJdRGTvok-exHdFpf_v6qjR3bED8Q=="
+						}
+					}
+				},
+				{
+					"type": "text-start",
+					"id": "msg_02871e0ce56dfc1f006af8031f88f087d18c6a0399333de2dc",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_02871e0ce56dfc1f006af8031f88f087d18c6a0399333de2dc",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "text-delta",
+					"id": "msg_02871e0ce56dfc1f006af8031f88f087d18c6a0399333de2dc",
+					"delta": "The digest can only be set to **daily** or **weekly**—not every 3 hours. It goes out at 07:00 in your organization’s time zone; weekly delivery is on Mondays. Which would you like?"
+				},
+				{
+					"type": "text-end",
+					"id": "msg_02871e0ce56dfc1f006af8031f88f087d18c6a0399333de2dc",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_02871e0ce56dfc1f006af8031f88f087d18c6a0399333de2dc",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "stop"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 893,
+							"noCache": 893,
+							"cacheRead": 0,
+							"cacheWrite": 0
+						},
+						"outputTokens": {
+							"total": 102,
+							"text": 53,
+							"reasoning": 49
+						},
+						"raw": {
+							"input_tokens": 893,
+							"input_tokens_details": {
+								"cache_write_tokens": 0,
+								"cache_write_tokens_details": {
+									"ttl_12h_tokens": 0,
+									"ttl_30m_tokens": 0
+								},
+								"cached_tokens": 0
+							},
+							"output_tokens": 102,
+							"output_tokens_details": {
+								"reasoning_tokens": 49
+							},
+							"total_tokens": 995
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_02871e0ce56dfc1f006af8031cb4e887d1843d75f1f4f5720d",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 893,
+				"output": 102
 			}
 		},
 		"93f3bfcb25128d75": {
@@ -41816,6 +42526,25 @@
 				"output": 93
 			}
 		},
+		"a4e2d9f4dd9820b2": {
+			"kind": "generate",
+			"content": [
+				{
+					"type": "text",
+					"text": "{\"tone\":{\"grade\":\"strong\",\"reason\":\"The answer is clear, brief, and matter-of-fact.\"},\"usefulness\":{\"grade\":\"strong\",\"reason\":\"It gives the digest time, coverage dates, and the activity line that will appear.\"}}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_08e6ac2ec4c9ce21006af80322aee087d197c21977ecf62d6e",
+							"phase": "final_answer"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 360,
+				"output": 184
+			}
+		},
 		"a4e4f51c071322d7": {
 			"kind": "generate",
 			"content": [
@@ -44843,6 +45572,112 @@
 			"usage": {
 				"input": 20776,
 				"output": 32
+			}
+		},
+		"af2902e61c43731a": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": []
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_0e0da971def808c5006af8031ca27087d18a06071469c44008",
+					"timestamp": "2026-11-14T06:43:40.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "reasoning-start",
+					"id": "rs_0e0da971def808c5006af8031da42087d1b01c8dd84dc16858:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_0e0da971def808c5006af8031da42087d1b01c8dd84dc16858",
+							"reasoningEncryptedContent": "gAAAAABq-AMdc4xd4gsN0mwTlO3md77K9aJKVE2FQB-NyJhwElig_nHFGZnyiFceIrCzF9CPE3v2xLNCYH9PqV9uHVBi4YRm8eKnEfqk8r_UvHzYPQKBBK3xpgJf56bDvXpAz3-_o7jsqQz9t7dH6BVKEjXCB90SyaZS19hquu09af2gUr9sGXnC0xqYSShxyrSHe8dWvZyELPxtVFU2jOUKqZdrtNBl1FUnGc9peBIH_OCECVuLHpjLkUu04JRro_Wdtu_0fDHm9fJ03RiKzAHOnBluTcfW-M34tGa6QwXPGdPZv4vzGkRm_2Zdd_X43vWL2O9EoPC2EFWxRK7r2vPH4ZeRJoa70TtcGv2ahG7irBQTnebj-xtp_j2jfi-W9nSREAnprkZi6a6v-5GMxeQyyOXgvgfwUuAsAA4yZA-YZ5XMKeU-zO9m1EPAjUvhbTsz7iAGQ50oJuXgRHYOCZTpdn045Lo39QXVNrk0adfdT-5XDSbWvMrksv_K-QftnHuJ21wtzc9DqMR6B-Z5cHbP7s1og86pBpza1AAGIMANtunw5cf5AtMHf8xqkum32EPTutbGkZMRhjm6sUSdVDxxzdKRtIl0gBJxKrc8HcJ93UL0g5ANqGORVzQ1XlT-IuU7nTAVRgfrbcMhnhFUOoc7m3eN8F1EuvpB5fgKkRCiRJKsLl-gYKz3l6htu61wOcgAJ9NhD572RV9J1bf9ySciNoN7e7uT3CB5oGAlv7qk-SqGM-46PXnhROcLdA_rsx3e86xjnAmG0l_M6W-T2FyW9F3umbGUalJdkWxyu0AAUcFHC9yzZdJi6DlefcIDtdAXpqJ-pRApYJp7zsCAkjKI_Hl1SUaJw3NLyP_F7UhEtYyc037WU8kqOBgN1HJzWhfuB57MNLeI6UzIfo7vauozx6zSe7ZbNrNPyOQ5Rou3Ju12QoO4pLvBdcIRuTRxvvNcm5svFI81isbBRJGfsNbI2D2AgNWV48X3bwfySjVmAHoj9m8yK9mUejAzbjgbK9uH65qJNbfbnoEtNeJPYsJq2S5MzYpKfR1XDLNA6bLSyNk_O411qIMdFCDSgNwtUZXjafvj492NOZhhAL7dOalshDHUAxt_EkeyjoIpRdg2CFlBNXnQKxQVMiHPbxwMHdsjEuzhGudL26wEmuLo-sooObY9S-ITB3eQJpiXIlGTnOIwqH5n7xWO6arysmrF6qiih2h7QBXuYt5cQwwK3Lx9sUJiDke4N1BuyBdyfvVdVX3ASh6wCqz53u3mPi6jD6qjS1cBq4D4awXvCGkbx4ezP9axoFXIsNwg31BI5QvlYCZbLnGS_-5bEWFWPrk9gMl6MnOg9UtWzzv6mnLGAo87mE8PxPexyY4nR7siBlqpPavt26Df6oE="
+						}
+					}
+				},
+				{
+					"type": "reasoning-end",
+					"id": "rs_0e0da971def808c5006af8031da42087d1b01c8dd84dc16858:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_0e0da971def808c5006af8031da42087d1b01c8dd84dc16858",
+							"reasoningEncryptedContent": "gAAAAABq-AMe8aGUEoB2opUtcNLehfJzSC93KWX949tSpwdqPF8cN1GfX8Hur68_BqAtsKpPI2IJ31lGy2rMnSH6W05Sizin-qaLHWfRmDCHW9bLuf_D15iORKyH4Dz5OorrkM5PVjU-R9Vo2B33Y19DXN4TLGpgikJ2h3v7c4QKtkOrBgFzBCczu49Bi62qQcGl63pdMEQmgJhtlu67xpfrCSWOsESMNa6WySND73IsVwUJGShCCCcgCMZrXZxGt9Tfk7wbIrE6sHCSAU_tvw5IKSCDs2-I-iG0gD86HE6e6eO4cS0ehhBbKPX7qMyuvO19qwGB8HsbDA8XpbagGoYY2auupUCc12t_mFeRG3x1YpqPQUuc12e3jqWaFIXi_DNkPCMi2YAmqwFLENdA4QsILaY1EB7WL7btQuMbGx4T8hQj07Tv57vrdpvFt3JxVYBMDOUMeQSKXdyK99yzg1FqhevE-zlM8aaf1g2Zxft6VgNqux9cQHewRXQU09ytFWpiSA5XrK36DpvQAdRawjx-XovE7grBIwYIFeiinC54XW2N5C2Qdxof8QiplarMlbIk5oB_ClmNjREhv6hzGHSk4eLDLfYLr8d9z7Nf4H0lcj0SiZTWD3VSyJqdgxe_MdwS2p0D3SMzX-wjSAFeKU3sWlcWOokN1k5EVmpmKZCy4G5rFXXkTluuy3CkJhTknXPeYfwDCA6PiWTyMmlNjreVHJnWFEZGaYErr0eUNZEo9CqX59KJ-NbGUCR50j3pCNe9i4g_mb40KlDofEMptdGrDrJU4anUNq5bQLoq59PQ0EaTDl1ag0kqrSzSj3ujd91Xq5CfABur5jRNTQpAFoRz0WAh6rn4qy3dpmROW6lOMJJ_AlZDwRfnYP7VN9SJb4gymP0RLCBepOD1GxmdHYiT3eUb5mFPJCrhYAfPGpFtiWWRPUcz_EExSbWjjjpxZ_h47zL4i81sn56t5altLqSqP_6ptXypDeuijP3ossaytPKXaPEZCX8xk0BDVvhusx2cPaQ7IFN1jPeTtg07NbBQh1YPv9_gfBWbqXGBcSsmg6Qzf97zrKQrnzlxM1wkNZk6-3IFu3RfrqGq8BdkknsXl4UnTugU3fyzcwqhp49DL2pwwEL3sv-nm3YMUHiik6KMtCBEb12ZeF5tTYlFyAsqG4a78XuiVn4UZCfrBGtwHA5fX_1kvmkQC0vEXFg8KiJDuPmgUmve7o7TeCZM7lSQYJ2QresW2RRYwp25Skd9zZq-LE7-b5szGlQ2a8JwM0MazEJNzLsmrhpFnR8z5-1Unrh74n47qqm9jgHe02S8w5wjJEOjiGRALcSulO8zcnTYmAeB2da-N1hA0qwmk0R249BOUnwH4K85KWok0PQgSTXGiMJL-4f2lLR6iQdsI6TR8WdbFZO-1v0uOZrXrYD9m9mZzHq5pyFiSs9_jQA95pe0YKzhy4Vx3G4wAGijHrV9-_MQRwTWttLwozL6H1qIqYtlDjPd2jY-jl4x7XNBDIuerWvzC-JyFOwYsgLVagV1N0KuvtE9VpQDDeg11H1YBvt5vC0OcRwLeolRlJCkEDE4p_SqgQpocFUbZHVCuAKRbm9j1mfMvE65q1TrvDkKGpIaGRPvDQsMvpzP8F9f24_WMY28tVAIkmiy_rPg0crIPSbVTtkRHz5KLcnIFrCM2VozS0a7_049uowJhumE2YPrUIsbuQfe6kY6id-OggCc1ONtg1khkCiHXyck-06WPaL67ZZtgwgzgD1QSukuCqT9id9AJINl5Il0MXqyutYqLA6wtq3N9bTWOda9gVPVlT7rdwLxef_JjVtkMt8XDlGg6b31raLbdbC7xKh0dfs8-WLIOpIR55_fGCVnAk1tnDA7o_iiw31-kJzxtneCZd2qeoh41mctGwBq0JNuM6KXM7M4nbK93mMPDtZqSmTkq9S5nfOo9ylbeap0ped5VMP1jOpfKF2M5tZvH4_GYLdAMtlgsinWiVIVhFkH-vwFWJXpDyaBVpidQlAKP5kgGIwrxYXFFF4I1m5hFY-QP_zZoRbKkM-47jZiVJCsnnvpiBKGCI7XmfrZ7H2bffV2fRwsAG_xaGw_q7p2KFiKE38NATHkKgVZUrx87dohwZikhp_RSonCF8DDbASS76ec6SGw2DC4cSbj3EF-ek24v5X4NvcVUPOxF-mtcEMaeeysTw4_Lbta9YE-H9D1X6fmaP_JPe8tSPM_ejr8DPTuI-kW5iMfznhI6PovmG0BkC7PdsPEd1k91WLFM3yBDFQk6P5ZYN2HZCuiGfXRXxhTxe5dSn4rCjybL8KvsyN7b6Hzs4OX8nmFkIuOQWFwdwbIAq_ugMSiUfI="
+						}
+					}
+				},
+				{
+					"type": "text-start",
+					"id": "msg_0e0da971def808c5006af8031e2c9087d1b479915b4a6ae923",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0e0da971def808c5006af8031e2c9087d1b479915b4a6ae923",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "text-delta",
+					"id": "msg_0e0da971def808c5006af8031e2c9087d1b479915b4a6ae923",
+					"delta": "I can’t set Friday at noon. The available options are daily at 07:00 in your organization’s time zone, or weekly on Mondays at 07:00. Which would you like? Nothing changes until you approve the review."
+				},
+				{
+					"type": "text-end",
+					"id": "msg_0e0da971def808c5006af8031e2c9087d1b479915b4a6ae923",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0e0da971def808c5006af8031e2c9087d1b479915b4a6ae923",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "stop"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 893,
+							"noCache": 893,
+							"cacheRead": 0,
+							"cacheWrite": 0
+						},
+						"outputTokens": {
+							"total": 110,
+							"text": 54,
+							"reasoning": 56
+						},
+						"raw": {
+							"input_tokens": 893,
+							"input_tokens_details": {
+								"cache_write_tokens": 0,
+								"cache_write_tokens_details": {
+									"ttl_12h_tokens": 0,
+									"ttl_30m_tokens": 0
+								},
+								"cached_tokens": 0
+							},
+							"output_tokens": 110,
+							"output_tokens_details": {
+								"reasoning_tokens": 56
+							},
+							"total_tokens": 1003
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_0e0da971def808c5006af8031ca27087d18a06071469c44008",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 893,
+				"output": 110
 			}
 		},
 		"af5860eee0ad5465": {
@@ -48497,6 +49332,92 @@
 				"output": 58
 			}
 		},
+		"b8a1c95b5206b4eb": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": []
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_0704803fee224cc0006af8031f60a087d18fad2e451f2925ca",
+					"timestamp": "2026-11-14T06:43:43.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "text-start",
+					"id": "msg_0704803fee224cc0006af8031fe7bc87d18db176b9f99ee5eb",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0704803fee224cc0006af8031fe7bc87d18db176b9f99ee5eb",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "text-delta",
+					"id": "msg_0704803fee224cc0006af8031fe7bc87d18db176b9f99ee5eb",
+					"delta": "I’ve prepared a review to change your oversight digest to weekly. It would arrive Mondays at 07:00 in your organization’s time zone. Nothing changes unless you approve the review in the app."
+				},
+				{
+					"type": "text-end",
+					"id": "msg_0704803fee224cc0006af8031fe7bc87d18db176b9f99ee5eb",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0704803fee224cc0006af8031fe7bc87d18db176b9f99ee5eb",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "stop"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 991,
+							"noCache": 991,
+							"cacheRead": 0,
+							"cacheWrite": 0
+						},
+						"outputTokens": {
+							"total": 44,
+							"text": 44,
+							"reasoning": 0
+						},
+						"raw": {
+							"input_tokens": 991,
+							"input_tokens_details": {
+								"cache_write_tokens": 0,
+								"cache_write_tokens_details": {
+									"ttl_12h_tokens": 0,
+									"ttl_30m_tokens": 0
+								},
+								"cached_tokens": 0
+							},
+							"output_tokens": 44,
+							"output_tokens_details": {
+								"reasoning_tokens": 0
+							},
+							"total_tokens": 1035
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_0704803fee224cc0006af8031f60a087d18fad2e451f2925ca",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 991,
+				"output": 44
+			}
+		},
 		"b8bf8060cb2cf301": {
 			"kind": "generate",
 			"content": [
@@ -51580,6 +52501,25 @@
 			],
 			"usage": {
 				"input": 118,
+				"output": 12
+			}
+		},
+		"c908c7990df5930e": {
+			"kind": "generate",
+			"content": [
+				{
+					"type": "text",
+					"text": "{\"kind\":\"application\"}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0b27db00b7997c9f006af8031c733087d18d1bcc0bf795f27c",
+							"phase": "final_answer"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 117,
 				"output": 12
 			}
 		},
@@ -61812,6 +62752,25 @@
 				"output": 12
 			}
 		},
+		"f187e24d180ffbf5": {
+			"kind": "generate",
+			"content": [
+				{
+					"type": "text",
+					"text": "{\"kind\":\"application\"}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_033f5191a617d9ec006af8031c3f3c87d1b886cb9a670c22ab",
+							"phase": "final_answer"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 117,
+				"output": 12
+			}
+		},
 		"f22c7225f886135f": {
 			"kind": "stream",
 			"parts": [
@@ -63941,6 +64900,25 @@
 			"usage": {
 				"input": 20776,
 				"output": 33
+			}
+		},
+		"ff0411e01e440352": {
+			"kind": "generate",
+			"content": [
+				{
+					"type": "text",
+					"text": "{\"tone\":{\"grade\":\"strong\",\"reason\":\"The reply is brief, clear, and matter-of-fact.\"},\"usefulness\":{\"grade\":\"strong\",\"reason\":\"It states the proposed weekly schedule, clarifies that nothing changes until approval, and tells the user to approve the review in the app.\"}}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_08840ef7d626ab91006af80321f7e487d18fc9af02504dfef5",
+							"phase": "final_answer"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 309,
+				"output": 134
 			}
 		},
 		"ff84691af4906fbd": {

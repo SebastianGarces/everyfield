@@ -1253,7 +1253,7 @@
 		"eval": {
 			"as": "org",
 			"require": [
-				"/(each person|everyone|their own|her own|only (change )?(your|yours)|can['’]?t change|cannot change)/i"
+				"/(each person|everyone|their own|her own|only (change )?(your|yours)|your own|can['’]?t change|cannot change)/i"
 			],
 			"derivation": "Evry changes only the signed-in account's own oversight digest, so no review card appears."
 		}
