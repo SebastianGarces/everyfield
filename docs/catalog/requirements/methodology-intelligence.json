@@ -1886,7 +1886,8 @@
       "text": "Failed assessment diagnostic reports actual final draft violation and distinct provider/output/persistence/deadline cause; completed result cannot be demoted after callback failure, no raw payload leakage.",
       "spec": "docs/product/methodology-intelligence.md",
       "operations": [
-        "intelligence.describeRunFailure"
+        "intelligence.describeRunFailure",
+        "intelligence.listRunsForReview"
       ],
       "acceptance_ids": [
         "AC-PI-042--PI-042"

@@ -1,5 +1,5 @@
 import * as c from "@everyfield/contracts/intelligence";
-import type { DraftCall, Drafter, DraftReply } from "@everyfield/domain/intelligence";
+import { ProviderBusy, type DraftCall, type Drafter, type DraftReply } from "@everyfield/domain/intelligence";
 
 // The scripted assessment model (WP-042) and the scripted language judge (PI-036), for local previews, tests and CI
 // only (D77: automated tests make no paid calls). The drafter writes a grounded draft from the run's own input the way
@@ -151,7 +151,8 @@ export function scriptedDraft(input: c.ModelInput): c.DraftOutput {
 	const point = (l: Line): c.DraftPoint => {
 		const p = input.passages.find((x) => STEM[l.topic].test(x.text) && !used.has(x.key));
 		if (p) used.add(p.key);
-		return { title: l.title, body: l.body, citations: [...l.facts, ...(p ? [p.key] : [])] };
+		const urgency = l.state === "concern" ? "watch" : l.state === "neutral" ? "info" : "positive";
+		return { title: l.title, body: l.body, urgency, citations: [...l.facts, ...(p ? [p.key] : [])] };
 	};
 	const ordered = (["concern", "neutral", "good"] as const).flatMap((state) => all.filter((l) => l.state === state));
 	const [focus, a, b] = ordered;
@@ -166,20 +167,38 @@ export function scriptedDraft(input: c.ModelInput): c.DraftOutput {
 
 const tokens = (value: unknown) => Math.ceil(Buffer.byteLength(JSON.stringify(value)) / 4);
 
+/** A scripted provider reply before the draft: busy (429 with an optional Retry-After in seconds, or a 5xx). */
+export type ScriptedReply = { status: 429 | 500 | 502 | 503; retryAfterSeconds?: number };
+
 /**
  * The scripted drafter. `script(draft, call)` may return a changed draft (or anything at all, to test the shape check)
- * for any call; `failures` makes the first calls fail as a provider error would.
+ * for any call; `failures` makes the first calls fail as an uncertain provider error would; `busy` answers the first
+ * calls as a busy provider would, one reply per call; `during(call)` runs before each reply, so a test can change
+ * records while a draft is in flight. Every call is one dispatch: there is no hidden retry.
  */
 export function scriptedAssessmentDrafter(
-	options: { script?: (draft: c.DraftOutput, call: DraftCall) => unknown; failures?: number } = {},
+	options: {
+		script?: (draft: c.DraftOutput, call: DraftCall) => unknown;
+		failures?: number;
+		busy?: ScriptedReply[];
+		during?: (call: DraftCall) => Promise<void>;
+	} = {},
 ): Drafter & { calls: DraftCall[] } {
 	let failures = options.failures ?? 0;
+	const busy = [...(options.busy ?? [])];
 	const calls: DraftCall[] = [];
 	return {
 		id: "assessment-scripted",
 		calls,
 		async draft(call): Promise<DraftReply> {
 			calls.push(call);
+			await options.during?.(call);
+			const reply = busy.shift();
+			if (reply)
+				throw new ProviderBusy(
+					reply.status,
+					reply.retryAfterSeconds === undefined ? null : reply.retryAfterSeconds * 1000,
+				);
 			if (failures > 0) {
 				failures--;
 				throw new Error("scripted provider unavailable");

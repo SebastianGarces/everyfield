@@ -1,5 +1,5 @@
 // The assessment evaluation (WP-042, PI-036) on the synthetic test church, with the scripted model and the scripted
-// graded judge only: no paid call. Every case runs intelligence.evaluateAssessment and is listed one by one with each draft's
+// graded judge only: no paid call. Every case is one Owner's fresh-assessment request run by the assessment job, listed one by one with each draft's
 // text, the exact rules it broke, its language grade, and pass or fail against what the case expects. Nothing is
 // averaged. The report is written outside the repository:
 //
@@ -16,7 +16,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { draftOutput, languagePasses } from "../../../packages/contracts/src/intelligence/index.ts";
 import { sql } from "../../../packages/db/src/query.ts";
-import { createAssessments, draftText } from "../../../packages/domain/src/intelligence/index.ts";
+import {
+	createAssessmentJob,
+	createAssessments,
+	draftText,
+	runAssessmentBatch,
+} from "../../../packages/domain/src/intelligence/index.ts";
 import {
 	scriptedAssessmentDrafter,
 	scriptedLanguageJudge,
@@ -187,13 +192,16 @@ after(async () => {
 for (const k of CASES)
 	test(`AC:PI-CASE-027 assessment evaluation: ${k.id}`, async () => {
 		const p = plants[k.plant];
-		const runId = randomUUID();
+		const requestId = randomUUID();
 		const drafter = scriptedAssessmentDrafter({
 			script: (draft, call) =>
 				k.change && (k.change.on ?? [1, 2, 3]).includes(call.ordinal) ? k.change.edit(draft) : draft,
 		});
-		const result = ok(await assessments.evaluateAssessment(c.db, p.actor, { runId }, drafter));
-		const stored = await c.one(sql`SELECT drafts, model_input FROM assessment_run WHERE id=${runId}`);
+		ok(await assessments.requestRefresh(c.db, p.actor, { requestId }));
+		await runAssessmentBatch(createAssessmentJob(), c.db, drafter, 1);
+		const stored = await c.one(sql`SELECT outcome, drafts, model_input FROM assessment_run
+			WHERE plant_id=${p.id} AND demand_key=${"manual/" + requestId}`);
+		const result = { outcome: stored.outcome as string, drafts: stored.drafts as unknown[] };
 		const drafts = (stored.drafts as any[]).map((d) => {
 			const parsed = draftOutput.safeParse(d.output);
 			return {

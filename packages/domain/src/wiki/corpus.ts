@@ -5,7 +5,12 @@ import "server-only";
 import type { RequestActor } from "../access/session.ts";
 import { GLOBAL, meSql, PAGE } from "./core.ts";
 
-export type CorpusAccess = { authority: RequestActor; owner: Owner; admin?: boolean };
+/**
+ * Who reads the corpus: a request's actor, or the plant assessment job, which holds the current claim of one plant's
+ * job and reads only that plant's corpus (intelligence.retrieveMethodology). The job reads no account's bookmarks.
+ */
+export type CorpusAccess =
+	{ authority: RequestActor; owner: Owner; admin?: boolean } | { job: "assessment"; owner: Owner & { kind: "plant" } };
 
 function sourceSql(source: SourceView) {
 	const organizationId = source.kind === "organization" ? source.organizationId : GLOBAL;
@@ -21,7 +26,11 @@ export function corpusCtes(access: CorpusAccess, source: SourceView): SQL {
 	const pick = sourceSql(source);
 	const owner = access.owner;
 	return sql`
-		${meSql(access.authority, owner, access.admin ?? false)},
+		${
+			"job" in access
+				? sql`me AS (SELECT NULL::uuid AS account_id FROM plant WHERE id=${owner.id}::uuid)`
+				: meSql(access.authority, owner, access.admin ?? false)
+		},
 		release AS (
 			SELECT a.release_id FROM reference_activation a ORDER BY a.activation_number DESC LIMIT 1
 		),

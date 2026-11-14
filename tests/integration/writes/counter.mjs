@@ -39,6 +39,7 @@ const factories = {
 	createPrivateCare: "privateCare",
 	createSignals: "signals",
 	createAssessments: "assessments",
+	createAssessmentJob: "assessments.job",
 	createFollowUpWriter: "followups",
 	createAttendanceWriter: "meetings",
 	createWikiProducer: "wiki",

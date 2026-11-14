@@ -1501,7 +1501,7 @@
 	},
 	"pipeline.movePerson": {
 		"limit": 4,
-		"retry": 3
+		"retry": 4
 	},
 	"pipeline.recordAssessment": {
 		"limit": 4,
@@ -2072,10 +2072,22 @@
 	"signals.reaffirm": {
 		"limit": 1
 	},
-	"assessments.evaluateAssessment": {
-		"limit": 8,
-		"retry": 8,
-		"reason": "One assessment run: a read-only repeatable-read snapshot (BEGIN, lock timeout, the facts statement, the retrieval statement under a savepoint, COMMIT) so the facts, phase and methodology are captured consistently, then the model calls outside any transaction, then one statement for the run row and its audit row. The retry is the same run when the methodology cannot be read and the savepoint rolls back."
+	"assessments.requestRefresh": {
+		"limit": 1
+	},
+	"assessments.job.scheduleAssessments": {
+		"limit": 1
+	},
+	"assessments.job.runNext": {
+		"limit": 13,
+		"retry": 9,
+		"reason": "One assessment job claim run to its outcome, in the scheduled tick and never in a request: the claim with its stored run (1); for a new demand the repeatable-read snapshot transaction that stores the pending run (BEGIN, lock timeout, the facts statement, the retrieval statement under a savepoint, the run insert, COMMIT: 8); one fenced reservation before each provider dispatch (at most 12 across three drafts); then the source revision recheck and one statement that publishes or settles the run with its audit row and the job's end (2). The suites' longest run is 13: a capture and three rejected drafts. A resumed run skips the capture. The retry is a degraded run whose savepoint rolled back when the methodology could not be read."
+	},
+	"assessments.listRunsForReview": {
+		"limit": 1
+	},
+	"assessments.describeRunFailure": {
+		"limit": 1
 	},
 	"assessments.readAssessment": {
 		"limit": 1

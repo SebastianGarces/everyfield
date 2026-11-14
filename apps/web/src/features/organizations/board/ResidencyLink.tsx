@@ -50,7 +50,11 @@ export function ResidencyLink({ record, onChanged }: { record: Record; onChanged
 		if (!command) return;
 		const reply = await runLinkInvitation(operation, command).catch(() => null);
 		if (!reply) setProblem("We couldn’t reach Everyfield. Nothing was changed. Try again.");
-		else if (reply.status === "refused") setProblem(problemText(reply.code));
+		else if (reply.status === "refused" && operation !== "invite" && reply.code === "invitation_unavailable") {
+			// The invitation was answered or ended first, for example accepted while this was being revoked.
+			await onChanged();
+			setProblem(`This invitation was already answered or ended, so nothing changed. The status above is current.`);
+		} else if (reply.status === "refused") setProblem(problemText(reply.code));
 		else await onChanged();
 	}
 	const send = (operation: "invite" | "resend") => async () => {

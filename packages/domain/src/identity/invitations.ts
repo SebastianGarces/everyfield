@@ -139,12 +139,13 @@ export function createInvitationService(config: InvitationConfig) {
 		tx: Transaction,
 		source: Pick<d.Invitation, "purpose" | "tenant_id" | "resident_person_id">,
 	) {
+		// The organization root first, share-locked, then the Person: the order every organization write takes through
+		// its write gate (root, then Person), so an acceptance and a revoke or retirement at the same moment queue instead
+		// of deadlocking. The root lock is an InitPlan of the filter, which runs before the row lock above the scan.
 		if (source.purpose === "residency_link" && source.resident_person_id)
-			await tx
-				.select({ id: t.person.id })
-				.from(t.person)
-				.where(and(eq(t.person.id, source.resident_person_id), eq(t.person.tenant_id, source.tenant_id)))
-				.for("update");
+			await tx.execute(sql`WITH r AS MATERIALIZED (SELECT x.id FROM organization x WHERE x.id=${source.tenant_id}::uuid FOR SHARE)
+ SELECT p.id FROM person p WHERE p.id=${source.resident_person_id}::uuid AND p.tenant_id=${source.tenant_id}::uuid
+ AND EXISTS(SELECT FROM r) FOR UPDATE OF p`);
 	}
 	async function charge(tx: Transaction, selected: Owner, email: string, kind: "seat_invite" | "relationship_invite") {
 		const h = addressHash(email);
@@ -379,6 +380,21 @@ export function createInvitationService(config: InvitationConfig) {
 				return resident
 					? c.residentInvitationDecisionResult.parse(cmd.result)
 					: c.seatInvitationAcceptedResult.parse(cmd.result);
+			// A second tab of the account that accepted (another request key) learns it is linked, nothing more.
+			if (resident && i.state === "accepted" && i.accepted_account_id === a.account_id) {
+				const [live] = await tx
+					.select({ id: t.residency_link.id })
+					.from(t.residency_link)
+					.where(
+						and(
+							eq(t.residency_link.organization_id, selected.id),
+							eq(t.residency_link.account_id, a.account_id),
+							eq(t.residency_link.person_id, i.resident_person_id!),
+							isNull(t.residency_link.ended_at),
+						),
+					);
+				if (live) d.refuse("already_linked");
+			}
 			d.current(i, now, v.expectedRevision);
 			const events: string[] = [];
 

@@ -1,18 +1,25 @@
-// Plant Intelligence assessments through the operations the Plant Intelligence screen will call (WP-041, WP-042):
-// intelligence.evaluateAssessment with the scripted drafter only, intelligence.readAssessment and intelligence.resolveCitation.
+// Plant Intelligence assessments through the operations the Plant Intelligence screen will call (WP-041 to WP-043): an
+// Owner's intelligence.requestRefresh run by the assessment job with the scripted drafter only,
+// intelligence.readAssessment and intelligence.resolveCitation.
 // One synthetic church on a scratch schema; the tests run in order and share its plants and reference releases.
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { sql } from "../../../packages/db/src/query.ts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
-import { createAssessments, createFacts } from "../../../packages/domain/src/intelligence/index.ts";
+import {
+	createAssessmentJob,
+	createAssessments,
+	createFacts,
+	runAssessmentBatch,
+} from "../../../packages/domain/src/intelligence/index.ts";
 import { scriptedAssessmentDrafter, shortDate } from "../../../packages/evry/src/runtime/scripted-assessment.ts";
 import { ok } from "../../support/fixture.mts";
 import { CANARY, church, type Church } from "./assessment-church.mts";
 
 let c: Church, N, H, T, R2;
 const assessments = createAssessments();
+const job = createAssessmentJob();
 const facts = createFacts();
 let firstRun: string;
 
@@ -24,11 +31,22 @@ before(async () => {
 });
 after(() => c?.database.close());
 
-const run = async (p, drafter = scriptedAssessmentDrafter(), runId = randomUUID()) => ({
-	runId,
-	drafter,
-	result: ok(await assessments.evaluateAssessment(c.db, p.actor, { runId }, drafter)),
-});
+/** An Owner's fresh-assessment request, run by the job: the run as its outcome, reason and drafts. */
+async function run(p, drafter = scriptedAssessmentDrafter(), requestId = randomUUID()) {
+	ok(await assessments.requestRefresh(c.db, p.actor, { requestId }));
+	await runAssessmentBatch(job, c.db, drafter, 20);
+	const row = await c.one(
+		sql`SELECT * FROM assessment_run WHERE plant_id=${p.id} AND demand_key=${"manual/" + requestId}`,
+	);
+	const result = {
+		runId: row.id,
+		outcome: row.outcome,
+		grounding: row.grounding,
+		reason: row.reason,
+		drafts: row.drafts.map((d) => ({ ordinal: d.ordinal, violations: d.violations })),
+	};
+	return { runId: row.id as string, drafter, result };
+}
 const view = async (p) => ok(await assessments.readAssessment(c.db, p.actor, {}));
 const cite = async (p, runId, key) => ok(await assessments.resolveCitation(c.db, p.actor, { runId, key }));
 const stored = (runId) => c.one(sql`SELECT * FROM assessment_run WHERE id=${runId}`);
@@ -43,7 +61,7 @@ test("with no activated methodology reference a run publishes nothing and says g
 	assert.equal(drafter.calls.length, 0, "no model call without grounding");
 	const v = await view(H);
 	assert.equal(v.current, null);
-	assert.deepEqual([v.latest.runId, v.latest.outcome, v.latest.grounding], [runId, "degraded", "degraded"]);
+	assert.deepEqual(v.newest, { state: "failed", retryAt: null, grounding: "degraded" });
 	assert.equal(ok(await facts.readFacts(c.db, H.actor, {})).committedAdults.exact, 30);
 	const row = await stored(runId);
 	assert.deepEqual([row.result, row.model_input, row.reference_release], [null, null, null]);
@@ -60,7 +78,11 @@ test("AC:PI-CASE-018 every citation of a Phase 1 assessment opens the exact fact
 	const { runId, result } = await run(H);
 	firstRun = runId;
 	assert.deepEqual([result.outcome, result.grounding, result.reason], ["published", "grounded", null]);
-	assert.deepEqual(await counts(), before, "a run writes no task, phase, message or job");
+	assert.deepEqual(
+		await counts(),
+		{ ...before, jobs: before.jobs + 1 },
+		"a run writes no task, phase, message or notice; its one job is the request's",
+	);
 
 	const a = (await view(H)).current;
 	assert.deepEqual(
@@ -156,9 +178,13 @@ test("AC:PI-CASE-018 a citation whose stored passage or fact no longer matches r
 		await tx.execute(sql`UPDATE article_revision SET body=body||' Edited later.' WHERE id=${passage.revisionId}`);
 	});
 	assert.deepEqual(await cite(H, firstRun, key), { status: "unverifiable", key });
-	await c.admin.execute(
-		sql`UPDATE assessment_run SET facts=jsonb_set(facts,'{coverage,filled}','7') WHERE id=${firstRun}`,
-	);
+	// A run's snapshot is frozen by a trigger too; this edit goes around it the same way.
+	await c.admin.transaction(async (tx) => {
+		await tx.execute(sql`SET LOCAL session_replication_role = replica`);
+		await tx.execute(
+			sql`UPDATE assessment_run SET facts=jsonb_set(facts,'{coverage,filled}','7') WHERE id=${firstRun}`,
+		);
+	});
 	assert.deepEqual(await cite(H, firstRun, "coverage.filled"), { status: "unverifiable", key: "coverage.filled" });
 });
 
@@ -187,7 +213,8 @@ test("when the methodology can't be read the facts stay, the previous assessment
 	const v = await view(H);
 	assert.deepEqual(v.current, previous);
 	assert.equal(v.current.ageDays, 0);
-	assert.deepEqual([v.latest.runId, v.latest.outcome, v.latest.grounding], [result.runId, "degraded", "degraded"]);
+	assert.deepEqual(v.newest, { state: "failed", retryAt: null, grounding: "degraded" });
+	assert.equal((await stored(result.runId)).outcome, "degraded");
 	assert.equal(ok(await facts.readFacts(c.db, H.actor, {})).committedAdults.exact, 30);
 });
 
@@ -219,9 +246,7 @@ test("a network director cannot open a plant's assessment or its citations; a Me
 		"access_denied",
 	);
 	assert.equal(
-		refusedCode(
-			await assessments.evaluateAssessment(c.db, director, { runId: randomUUID() }, scriptedAssessmentDrafter()),
-		),
+		refusedCode(await assessments.requestRefresh(c.db, director, { requestId: randomUUID() })),
 		"access_denied",
 	);
 	const member = await c.database.actor(H, "member");
@@ -234,13 +259,16 @@ test("a network director cannot open a plant's assessment or its citations; a Me
 	);
 });
 
-test("a repeated run id records one run and one audit row, attributed to the Owner", async () => {
-	const runId = randomUUID();
-	await run(H, scriptedAssessmentDrafter(), runId);
-	await run(H, scriptedAssessmentDrafter(), runId);
-	const r = await c.one(sql`SELECT (SELECT count(*) FROM assessment_run WHERE id=${runId})::int AS runs,
+test("a repeated request id records one run, one request audit row attributed to the Owner and one run audit row", async () => {
+	const requestId = randomUUID();
+	const { runId } = await run(H, scriptedAssessmentDrafter(), requestId);
+	await run(H, scriptedAssessmentDrafter(), requestId);
+	const r = await c.one(sql`SELECT
+		(SELECT count(*) FROM assessment_run WHERE demand_key=${"manual/" + requestId})::int AS runs,
 		(SELECT count(*) FROM audit_event WHERE action='intelligence.assessed' AND event_key=${"assessment:" + runId})::int AS audits,
-		(SELECT actor_id FROM audit_event WHERE event_key=${"assessment:" + runId}) AS actor,
+		(SELECT actor_id FROM audit_event WHERE action='intelligence.refresh_requested'
+			AND event_key=${"assessment-refresh:" + requestId}) AS actor,
+		(SELECT requested_by FROM assessment_run WHERE id=${runId}) AS requester,
 		(SELECT model FROM assessment_run WHERE id=${runId}) AS model`);
-	assert.deepEqual(r, { runs: 1, audits: 1, actor: H.owner.id, model: "assessment-scripted" });
+	assert.deepEqual(r, { runs: 1, audits: 1, actor: H.owner.id, requester: H.owner.id, model: "assessment-scripted" });
 });

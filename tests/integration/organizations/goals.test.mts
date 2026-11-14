@@ -161,7 +161,7 @@ before(async () => {
 	);
 });
 
-test("with no goals, every seat sees live people counted once by stage kind, and plants sent unavailable", async () => {
+test("AC:ADR1-007 with no goals, every seat sees live people counted once by stage kind, and plants sent unavailable", async () => {
 	const today = await day("America/Chicago", "today");
 	for (const who of [dana, luis, ana, ben]) {
 		const g = await goals(who);
@@ -197,7 +197,7 @@ test("with no goals, every seat sees live people counted once by stage kind, and
 	assert.equal(kinds(await goals(hillOwner)).apprentice, 1);
 });
 
-test("an Owner adds and edits goals; a negative target is refused; saving a goal moves nobody", async () => {
+test("AC:ADR1-007 an Owner adds and edits goals; a negative target is refused; saving a goal moves nobody", async () => {
 	const before = await snapshot();
 	const first = randomUUID();
 	const goal = {
@@ -278,7 +278,7 @@ test("an Owner adds and edits goals; a negative target is refused; saving a goal
 	refusedWith(await saveGoal(db, await authority(hillOwner), { ...goal, expectedRevision: "2" }), "unavailable");
 });
 
-test("conversations count by month and quarter of their day; a future day is refused; a correction moves the count", async () => {
+test("AC:ADR1-009 conversations count by month and quarter of their day; a future day is refused; a correction moves the count", async () => {
 	const tz = "America/Chicago";
 	const thisMonth = await day(tz, "date_trunc('month', today)");
 	const lastQuarterEnd = await day(tz, "date_trunc('quarter', today) - interval '1 day'");
@@ -390,7 +390,7 @@ test("conversations count by month and quarter of their day; a future day is ref
 	);
 });
 
-test("today, months and quarters follow the organization's time zone", async () => {
+test("AC:ADR1-009 today, months and quarters follow the organization's time zone", async () => {
 	// Kiritimati is UTC+14, so its today is often a day after UTC's: a conversation on its today is not in the future.
 	const today = await day("Pacific/Kiritimati", "today");
 	const g = await goals(hillOwner);
@@ -417,7 +417,7 @@ test("today, months and quarters follow the organization's time zone", async () 
 	);
 });
 
-test("only the Owner, Admins and current responsible staff read a note; a correction keeps the old and new day", async () => {
+test("AC:ADR1-009 only the Owner, Admins and current responsible staff read a note; a correction keeps the old and new day", async () => {
 	const word = "east side group";
 	const noteOf = async (a: Actor) => {
 		const r = await record(a, casey);
@@ -482,7 +482,7 @@ test("only the Owner, Admins and current responsible staff read a note; a correc
 	);
 });
 
-test("sharing pipeline totals with a network shows the network none of Grace's goals, counts or conversations", async () => {
+test("AC:ADR1-007 AC:ADR1-016 sharing pipeline totals with a network shows the network none of Grace's goals, counts or conversations", async () => {
 	// Grace turns on "Share pipeline totals" for Hill Country.
 	const link = randomUUID();
 	await admin.execute(sql`INSERT INTO affiliation (id,sending_church_id,organization_id,accepted_at,share_people,share_meetings,
@@ -512,7 +512,7 @@ test("sharing pipeline totals with a network shows the network none of Grace's g
 	);
 });
 
-test("a goal's chosen counts count each live person who reached the kind since its start, once, even after moving on", async () => {
+test("AC:ADR1-007 a goal's chosen counts count each live person who reached the kind since its start, once, even after moving on", async () => {
 	// Hill Country Network (America/Chicago): Owner Hana, Admin Hugo, Member Mia. Grace Austin is a separate church.
 	const net = await database.organization("sending_network", {
 		name: "Hill Country Network",

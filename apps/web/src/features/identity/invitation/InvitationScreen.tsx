@@ -372,8 +372,10 @@ async function sendSeat(command: SeatCommand) {
 	return seatInvitationAcceptedResult.parse(reply.value);
 }
 
-async function sendResident(command: ResidentCommand) {
+/** The answer, or `already_linked` when this account accepted the invitation in another tab first. */
+async function sendResident(command: ResidentCommand): Promise<ResidentDone> {
 	const reply = await respondResidentInvitation(command);
+	if (reply.status === "refused" && reply.code === "already_linked") return { status: "already_linked" };
 	if (reply.status === "refused") throw new Refusal(reply.code);
 	return residentInvitationDecisionResult.parse(reply.value);
 }
@@ -600,7 +602,7 @@ function ConfirmHint({ email }: { email: string }) {
 	);
 }
 
-type ResidentDone = ReturnType<typeof residentInvitationDecisionResult.parse>;
+type ResidentDone = ReturnType<typeof residentInvitationDecisionResult.parse> | { status: "already_linked" };
 
 /**
  * A signed-in account answers a residency invitation (residency.respondInvitation, REQ-MUL-004). The WP-007/ui
@@ -682,6 +684,23 @@ function ResidentAnswer({ description, proof, refreshing, onRefused, onHeld }: A
 }
 
 function ResidentOutcome({ done, organizationName }: { done: ResidentDone; organizationName: string }) {
+	if (done.status === "already_linked")
+		return (
+			<Outcome
+				icon={CheckmarkCircle02Icon}
+				tone="green"
+				title={`You’re already linked to ${organizationName}`}
+				actions={
+					<Button asChild variant="primary" className="w-full">
+						{/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+						<a href="/my-residency">Open My residency</a>
+					</Button>
+				}
+			>
+				You accepted this invitation in another tab or window, so nothing changed here. Your sharing choices are the
+				ones you made there.
+			</Outcome>
+		);
 	if (done.status === "declined")
 		return (
 			<Outcome
