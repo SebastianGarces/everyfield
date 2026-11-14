@@ -1,7 +1,7 @@
 import type { PipelineReply } from "@everyfield/contracts/organizations";
 import type { RequestActor } from "@everyfield/domain/access";
 import type { Database } from "@everyfield/db/client";
-import { readPipelineBoard, readPipelinePersonRecord } from "@everyfield/domain/organizations";
+import { readPipelineBoard, readPipelineGoals, readPipelinePersonRecord } from "@everyfield/domain/organizations";
 import "server-only";
 import { requestDatabase } from "../database";
 import { getViewer } from "../request-context";
@@ -37,6 +37,12 @@ export async function loadPipelineBoard(authority: RequestActor, query: unknown)
 	const db = requestDatabase();
 	if (!db) return { status: "lost" } as const;
 	return guarded(() => readPipelineBoard(db, authority, query));
+}
+
+export async function loadPipelineGoals(authority: RequestActor) {
+	const db = requestDatabase();
+	if (!db) return { status: "lost" } as const;
+	return guarded(() => readPipelineGoals(db, authority));
 }
 
 export async function loadPipelinePerson(authority: RequestActor, personId: string) {

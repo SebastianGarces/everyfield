@@ -41,7 +41,7 @@
 //   recorded as held. "Old warehouse" is an archived venue. Kevin Walsh was invited by Ana Rivera; Casey Morgan is
 //   marked attended at last week's meeting.
 //
-// The database clock runs in NOW's frame too (frameDatabaseClock): every Meetings read that says upcoming or past
+// The database clock runs in NOW's frame too (evalDatabase): every Meetings read that says upcoming or past
 // compares with it, so a replay reads the same meetings on every day the suite runs.
 //
 // Derived facts come from their source rows, never from a stored label. Inactivity is the real board's comparison of
@@ -382,10 +382,11 @@ export async function seedHope(admin: Database) {
 				FROM (SELECT clock_timestamp()-make_interval(days=>${p.inactivity === "warning" ? 10 : 2}) AS t) x`);
 	}
 
-	// A note the Admin wrote on Maria Santos: only its author may edit or delete it.
+	// A note the Admin wrote on Maria Santos: only its author may edit or delete it. A note is activity, so it is dated
+	// before her last contact (10 days before NOW): she keeps her inactivity warning in NOW's frame.
 	await run(sql`INSERT INTO person_note(id,tenant_id,plant_id,person_id,author_id,body,occurred_at,recorded_at)
 		VALUES(${MARIA_NOTE},${PLANT},${PLANT},${byName("Maria Santos").id},${ACTOR_SPECS.admin.account},
-			'Met us at the fall picnic and asked about small groups.','2026-11-02T18:00:00.000Z','2026-11-02T18:00:00.000Z')`);
+			'Met us at the fall picnic and asked about small groups.','2026-10-28T18:00:00.000Z','2026-10-28T18:00:00.000Z')`);
 
 	// The import: its saved plan, its finished job and the people.created audit rows of the five people it created.
 	const plan = {
@@ -775,7 +776,8 @@ async function actorFor(db: Database, who: ActorName): Promise<EvryActor> {
 
 /**
  * The host clock moved to NOW's frame, still advancing. A read stamps the host's date into what the model sees (the
- * export's filename, people-<date>.csv), so every run must see the same date. The database clock is left alone.
+ * export's filename, people-<date>.csv), so every run must see the same date. The database clock is pinned the same
+ * way, by evalDatabase.
  */
 function pinHostClock() {
 	const Real = Date;
@@ -794,24 +796,18 @@ function pinHostClock() {
 }
 
 /**
- * The database clock moved to NOW's frame, still advancing, the way the host clock is (pinHostClock). The schema's own
- * clock_timestamp() comes first on its search_path (testDatabase pins schema, pg_catalog), so every statement and every
- * function the migrations created (SET search_path FROM CURRENT) reads it; column defaults keep the real clock.
+ * The one eval schema every Postgres-backed eval suite seeds its church into: a fresh, migrated schema whose database
+ * clock (`now()`, `clock_timestamp()` and the like, read by inactivity, the review's schedule window and every other
+ * clock comparison) runs in NOW's frame, still advancing (pinSchemaClock in tests/support/test-database.mts). So a
+ * fixture time such as the Friday of NOW's week stays in the future on every real date the suite runs.
  */
-export async function frameDatabaseClock(admin: Database) {
-	// The real time from the database itself: the host clock may already be pinned.
-	const real = await admin.execute(sql`SELECT (extract(epoch FROM pg_catalog.clock_timestamp())*1000)::bigint AS ms`);
-	const shift = Number((real.rows[0] as { ms: string }).ms) - NOW.getTime();
-	await admin.execute(sql.raw(`CREATE FUNCTION clock_timestamp() RETURNS timestamptz LANGUAGE sql VOLATILE PARALLEL SAFE
-		AS $$ SELECT pg_catalog.clock_timestamp() - interval '${shift} milliseconds' $$`));
-}
+export const evalDatabase = (options: { prefix: string; max?: number }) => testDatabase({ ...options, clock: NOW });
 
 export type GoldenChurch = { db: Database; actors: Record<ActorName, EvryActor>; close(): Promise<void> };
 /** A fresh schema with Hope Fellowship seeded, the runtime pool the reads use and every eval actor. */
 export async function goldenChurch(): Promise<GoldenChurch> {
-	const database = await testDatabase({ prefix: "evrygold", max: 10 });
+	const database = await evalDatabase({ prefix: "evrygold", max: 10 });
 	try {
-		await frameDatabaseClock(database.admin);
 		await seedHope(database.admin);
 		await seedMinistries(database.admin);
 		// After the ministries: the Worship team training is a Worship team meeting.
