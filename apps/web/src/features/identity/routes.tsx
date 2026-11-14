@@ -37,7 +37,8 @@ export async function HomePage() {
 	let plant: PlantSetup = "none";
 	const context = viewer.authority?.actor.context;
 	const db = requestDatabase();
-	if (db && viewer.status === "active" && context?.kind === "seat" && context.owner.kind === "plant") {
+	if (context?.kind === "seat" && context.owner.kind === "organization") plant = "organization";
+	else if (db && viewer.status === "active" && context?.kind === "seat" && context.owner.kind === "plant") {
 		plant = (await readPlantSetupComplete(db, viewer.sessionId, context.owner)) ? "complete" : "incomplete";
 	}
 	redirect(landingFor({ status: viewer.status, plant }));

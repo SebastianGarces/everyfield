@@ -1,5 +1,5 @@
 // WP-036 criteria 8 and 9: the Word file and the ledger workbook are tree walkers over the same document as the PDF.
-// LibreOffice headless opens each file independently of the writers; the tests skip that step when it is missing.
+// LibreOffice headless opens each file independently of the writers; those checks skip when it is missing unless REQUIRE_SOFFICE=1.
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
@@ -32,7 +32,7 @@ import {
 	removeRow,
 	setSign,
 } from "../../../apps/web/src/features/documents/church/editor/table-ops.ts";
-import { docxParts, hasSoffice, pdfOperators, pdfPages, sofficeToPdf, wordText } from "./fixtures/readers.mts";
+import { docxParts, pdfOperators, pdfPages, sofficeTest, sofficeToPdf, wordText } from "./fixtures/readers.mts";
 
 const THEME = {
 	render: NEUTRAL_THEME,
@@ -44,7 +44,6 @@ const SAVED = new Date("2026-11-01T12:00:00Z");
 const DATA = { church_name: "Harbor City Church", church_legal_name: "Harbor City Church, Inc." };
 const fork = async (id: string) => forkTemplate(docTemplateById(id)!, { data: DATA });
 const squash = (text: string) => text.replace(/\s+/g, " ").trim();
-const soffice = hasSoffice();
 
 /** The heading and paragraph texts of a body, with field values filled in, in reading order. */
 function proseOf(doc: DocDocument) {
@@ -78,14 +77,14 @@ const words = (text: string) =>
 		.replace(/[‐-―]/g, "-")
 		.replace(/ ([.,;:])/g, "$1");
 
-test(
+sofficeTest(
 	"AC:CASE-DOC-023 the Word file of the policy opens in LibreOffice with the PDF's headings and paragraph text",
-	{ skip: !soffice && "LibreOffice is not installed" },
 	async () => {
 		const doc = await fork("conflict-of-interest-policy");
 		const pdf = words((await pdfPages(await renderDocFile(doc, "pdf", THEME, SAVED))).join(" "));
 		const docx = await renderDocFile(doc, "docx", THEME, SAVED);
-		const converted = words((await pdfPages(sofficeToPdf(docx))).join(" "));
+		const pages = await pdfPages(sofficeToPdf(docx));
+		const converted = words(pages.join(" "));
 		const { headings, paragraphs } = proseOf(doc);
 		assert.equal(headings.length, 10);
 		assert.ok(paragraphs.length >= 15);
@@ -94,11 +93,15 @@ test(
 			assert.ok(converted.includes(words(line)), `the Word file has "${line}"`);
 		}
 		assert.match(converted, /01 Purpose/);
-		assert.match(converted, /Page 1 of 2/, "LibreOffice fills PAGE and NUMPAGES");
-		assert.equal(
-			converted.split("Template, not legal advice").length - 1,
-			2,
-			"the notice is in the footer of both pages",
+		// LibreOffice breaks pages a little differently from our PDF, so the count comes from its own output.
+		assert.ok(pages.length >= 2, "the policy runs past one page");
+		assert.match(converted, new RegExp(`Page 1 of ${pages.length}`), "LibreOffice fills PAGE and NUMPAGES");
+		pages.forEach((page, i) =>
+			assert.equal(
+				words(page).split("Template, not legal advice").length - 1,
+				1,
+				`the notice is in the footer of page ${i + 1}`,
+			),
 		);
 	},
 );
@@ -149,9 +152,8 @@ test("AC:CASE-DOC-023 AC:CASE-DOC-019 the Word file has heading styles, a footer
 	assert.deepEqual(again, await renderDocFile(await fork("conflict-of-interest-policy"), "docx", THEME, SAVED));
 });
 
-test(
+sofficeTest(
 	"AC:CASE-DOC-004 AC:CASE-DOC-006 the card sheet opens in LibreOffice as one sheet and the sign-in sheet with its headings",
-	{ skip: !soffice && "LibreOffice is not installed" },
 	async () => {
 		for (const id of ["commitment-card", "guest-sign-in-sheet"]) {
 			const doc = await fork(id);
@@ -223,9 +225,8 @@ test("AC:CASE-DOC-023 docFormats offers the export list as the body corrects it:
 	await assert.rejects(() => renderDocFile({ ...policy, exports: ["docx"] }, "pdf", THEME, SAVED), /render_failed/);
 });
 
-test(
+sofficeTest(
 	"AC:CASE-DOC-013 LibreOffice recalculates the seeded budget workbook to the totals computeTable gives",
-	{ skip: !soffice && "LibreOffice is not installed" },
 	async () => {
 		const { doc, table } = await seededBudget();
 		const xlsx = await renderDocFile(doc, "xlsx", THEME, SAVED);

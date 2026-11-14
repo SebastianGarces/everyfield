@@ -644,6 +644,9 @@
 		"limit": 9,
 		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 2 locked read, 3 read, 2 write."
 	},
+	"jobs/mail.claimUnknownMail": {
+		"limit": 1
+	},
 	"jobs/notifications.sendDiscoveryAssociationReceipt": {
 		"limit": 5
 	},
@@ -2013,6 +2016,10 @@
 		"limit": 1
 	},
 	"programs.addFeedback": {
+		"limit": 4,
+		"retry": 4
+	},
+	"programs.applyVersion": {
 		"limit": 4,
 		"retry": 4
 	},
