@@ -194,6 +194,13 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 	// No catalog offers direct writes, approvals, code, private care or coach tools to any context. Only a plant Owner or
 	// Admin may propose the reviewed People changes, the same floor as the native commands; any plant seat proposes changes
 	// to its own notifications.
+	const mailReads = [
+		"communication.list",
+		"communication.preview",
+		"communication.get",
+		"communication.forPerson",
+		"communication.templates.list",
+	];
 	for (const who of ["owner", "member", "orgOwner", "seatless"] as const) {
 		const catalog = readCatalog(await actor(who));
 		const operations = catalog.domains.flatMap((d) => d.operations.map((o) => o.operation));
@@ -231,6 +238,13 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 						"communication.rescheduleReviewed",
 						"communication.cancelScheduledReviewed",
 						"communication.replaceScheduledReviewed",
+						"communication.sendReviewed",
+						"communication.executeResend",
+						"communication.retryProvenFailed",
+						"communication.deleteDraft",
+						"communication.templates.create",
+						"communication.templates.fork",
+						"communication.templates.update",
 						"notifications.markSelectedRead",
 						"notifications.markAllVisibleRead",
 						"notifications.setPreferences",
@@ -276,6 +290,11 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 						"people.listTags",
 						"people.previewImport",
 						"communication.list",
+						"communication.preview",
+						"communication.get",
+						"communication.forPerson",
+						"communication.templates.list",
+						"communication.resendCandidates",
 						"notifications.feed",
 						"notifications.preferences.get",
 						"notifications.previewPlanterDigest",
@@ -285,7 +304,7 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 					? [
 							...peopleReads,
 							...organizationReads,
-							"communication.list",
+							...mailReads,
 							"notifications.feed",
 							"notifications.preferences.get",
 							...teamsReads,

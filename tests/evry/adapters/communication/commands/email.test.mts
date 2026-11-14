@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import { communicationWriter } from "../../../../../packages/domain/src/communication/index.ts";
 import { runDueScheduled } from "../../../../../packages/domain/src/communication/delivery.ts";
+import { getDeliveryTotals } from "../../../../../packages/domain/src/communication/history.ts";
 import { readFileSync } from "node:fs";
 import {
 	approveProposal,
@@ -1025,14 +1026,22 @@ test("Evry finds messages by subject and send time; a member reads but cannot wr
 	assert.deepEqual(writes(member), []);
 	assert.deepEqual(writes(owner).sort(), [
 		"communication.cancelScheduledReviewed",
+		"communication.deleteDraft",
+		"communication.executeResend",
 		"communication.replaceScheduledReviewed",
 		"communication.rescheduleReviewed",
+		"communication.retryProvenFailed",
 		"communication.saveDraft",
 		"communication.scheduleReviewed",
+		"communication.sendReviewed",
+		"communication.templates.create",
+		"communication.templates.fork",
+		"communication.templates.update",
 	]);
 	assert.ok(readCatalog(member).domains.some((d) => d.operations.some((o) => o.operation === "communication.list")));
 	const everything = JSON.stringify(readCatalog(owner));
-	assert.doesNotMatch(everything, /sendReviewed|dispatchAttempt|executeResend|retryProvenFailed/);
+	// Sending is only ever a reviewed write; the email service's own handoff and check are never model tools.
+	assert.doesNotMatch(everything, /dispatchAttempt|reconcileProviderOutcome|handOffScheduled/);
 	await assert.rejects(
 		(async () => {
 			const t = await turn(member, service.port);
@@ -1270,4 +1279,294 @@ test("each read and effect stays within its budget in limits.json and no transac
 	const cancel = await review("communication.cancelScheduledReviewed", { communicationId: replaced }, 1);
 	await effect(cancel, ["communication.cancelScheduledReviewed"]);
 	assert.equal(service.calls.cancel.at(-1)!.openTransactions, 0);
+});
+
+// T-322 (WP-071, WP-072): Evry shows who an email reaches before anything is saved, sends it only after one exact
+// review, says what happened to it, resends and retries by Messages' own rules, deletes drafts and keeps templates.
+
+/** A second person at Alex Rivera's address, the way an unmerged duplicate record shares it. */
+async function twin() {
+	const id = randomUUID();
+	await admin.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,email,source,created_at,stage,adult_classification,commitment_state,pipeline_position,state)
+		VALUES(${id},${plant},${plant},'Alex Twin','Alex.Rivera@example.test','other',clock_timestamp(),'prospect','unknown','unknown',10,'live')`);
+	return id;
+}
+const reads = async () => import("../../../../../packages/evry/src/adapters/communication/reads/index.ts");
+const sent = (service: ReturnType<typeof emailService>) => service.calls.send.flatMap((c) => c.to).sort();
+const leftOutOf = (proposal: Proposal) =>
+	(change(proposal, "leftOut")!.after as { name: string; reason: string }[]).map((p) => `${p.name}: ${p.reason}`);
+const namesOf = (proposal: Proposal) =>
+	(change(proposal, "recipients")!.after as { name: string }[]).map((p) => p.name);
+/** A new email sent now through its review, and the review's result. */
+async function sentEmail(
+	who: EvryActor,
+	service: ReturnType<typeof emailService>,
+	subject: string,
+	extra: string[] = [],
+) {
+	const t = await turn(who, service.port);
+	const proposal = await t.propose("communication.sendReviewed", { subject, body: BODY, audience: audience(extra) });
+	assert.ok(proposal);
+	const done = await approve(who, proposal, service.port);
+	assert.equal(done.outcome, "completed");
+	return { proposal, review: done.review, id: done.review.receipt!.receiptId! };
+}
+
+test("the preview read names who a drafted email reaches and who is left out and why, and saves and sends nothing", async () => {
+	const owner = await actor("owner");
+	const { preview } = await reads();
+	const extra = await twin();
+	const before = await rows(sql`SELECT (SELECT count(*)::int FROM communication) c,(SELECT count(*)::int FROM mail) m`);
+	const r = await db.transaction((tx) =>
+		preview.invoke(tx, owner, { subject: "Vision night", body: BODY, audience: audience([extra]) }),
+	);
+	assert.deepEqual(
+		r.rows.map((p) => `${p.label}: ${p.fields.leftOut ?? "gets it"}`),
+		[
+			"Alex Twin: duplicate_address",
+			"Dana Off: unsubscribed",
+			"Member 001: no_address",
+			"Alex Chen: gets it",
+			"Alex Rivera: gets it",
+			"Casey Reed: gets it",
+		],
+	);
+	assert.ok(
+		r.exclusions.some((e) => /blocks/.test(e)),
+		"the read says it cannot see blocked addresses",
+	);
+	assert.doesNotMatch(JSON.stringify(r), /example\.test/, "no address reaches the model");
+	assert.deepEqual(
+		await rows(sql`SELECT (SELECT count(*)::int FROM communication) c,(SELECT count(*)::int FROM mail) m`),
+		before,
+	);
+	await admin.execute(sql`DELETE FROM person WHERE id=${extra}`);
+});
+
+test("a send review lists the exact recipients, the left out and the content; only Approve sends, one email per address", async () => {
+	const owner = await actor("owner");
+	const service = emailService();
+	const extra = await twin();
+	const t = await turn(owner, service.port);
+	const before = await rows(sql`SELECT (SELECT count(*)::int FROM communication) c,(SELECT count(*)::int FROM mail) m`);
+	const proposal = await t.propose("communication.sendReviewed", {
+		subject: "Vision night",
+		body: BODY,
+		audience: audience([extra]),
+	});
+	assert.ok(proposal);
+	assert.deepEqual(namesOf(proposal), ["Alex Chen", "Alex Rivera"]);
+	assert.deepEqual(leftOutOf(proposal), [
+		"Alex Twin: duplicate_address",
+		"Casey Reed: blocked",
+		"Dana Off: unsubscribed",
+		"Member 001: no_address",
+	]);
+	assert.match(String(change(proposal, "content")!.after), /^Hi Alex Chen,\n\nCome to Sunday's interest meeting/);
+	// The review is all that exists: nothing saved, nothing handed to the email service.
+	assert.deepEqual(
+		await rows(sql`SELECT (SELECT count(*)::int FROM communication) c,(SELECT count(*)::int FROM mail) m`),
+		before,
+	);
+	assert.equal(service.calls.send.length, 0);
+	const done = await approve(owner, proposal, service.port);
+	assert.equal(done.outcome, "completed");
+	assert.deepEqual(done.review.receipt!.report, {
+		kind: "send",
+		confirmation: "confirmed",
+		accepted: 2,
+		refused: 0,
+		unknown: 0,
+		leftOut: 4,
+	});
+	assert.deepEqual(sent(service), ["alex.chen@example.test", "alex.rivera@example.test"]);
+	const id = done.review.receipt!.receiptId!;
+	// A crash after the email service answered: the retry replays every step and sends nothing again.
+	await loseOutcome(proposal.id);
+	await retryUnresolvedEffects(db, owner, proposal.id);
+	assert.equal(await runNext(service.port), "completed");
+	assert.equal(service.calls.send.length, 1, "one email service call, however often the effect runs");
+	// What happened to it: sent, and delivered only once the email service says so.
+	const { getMessage } = await reads();
+	const asked = async () =>
+		(await db.transaction((tx) => getMessage.invoke(tx, owner, { communicationId: id }))).rows
+			.filter((r) => r.kind === "person")
+			.map((r) => `${r.label}: ${r.fields.result}`);
+	assert.deepEqual(await asked(), [
+		"Alex Chen: sent",
+		"Alex Rivera: sent",
+		"Casey Reed: failed",
+		"Dana Off: unsubscribed",
+	]);
+	await admin.execute(
+		sql`UPDATE mail SET delivered_at=clock_timestamp() WHERE communication_id=${id} AND recipient_person_id=${people.alexRivera!}`,
+	);
+	assert.deepEqual((await asked()).slice(0, 2), ["Alex Chen: sent", "Alex Rivera: delivered"]);
+	// Messages history agrees: the duplicate address was skipped, not failed; only Casey's blocked address failed.
+	const totals = await db.transaction((tx) => getDeliveryTotals(tx, owner.authority, { communicationId: id }));
+	assert.deepEqual(
+		{ reachable: totals.reachable, failed: totals.failed, unsubscribed: totals.unsubscribed },
+		{ reachable: 2, failed: 1, unsubscribed: 1 },
+	);
+	// The latest email handed off is the one "did you send it?" finds.
+	const latest = await db.transaction((tx) => getMessage.invoke(tx, owner, {}));
+	assert.equal(latest.rows[0]!.id, id);
+});
+
+test("a send the email service refuses counts every refused recipient; a skipped duplicate address is left out, not refused", async () => {
+	const owner = await actor("owner");
+	const service = emailService();
+	service.answers.send = "refused";
+	const extra = await twin();
+	const t = await turn(owner, service.port);
+	const proposal = await t.propose("communication.sendReviewed", {
+		subject: "Vision night",
+		body: BODY,
+		audience: audience([extra]),
+	});
+	assert.ok(proposal);
+	const done = await approve(owner, proposal, service.port);
+	// Alex Chen and Alex Rivera were refused by the email service; Alex Twin, Casey, Dana and Member 001 were left out.
+	assert.deepEqual(done.review.receipt!.report, {
+		kind: "send",
+		confirmation: "refused",
+		accepted: 0,
+		refused: 2,
+		unknown: 0,
+		leftOut: 4,
+	});
+});
+
+test("a resend goes to delivered non-openers only after 24 hours; a retry goes only to recipients that failed for certain", async () => {
+	const owner = await actor("owner");
+	const service = emailService();
+	const { id } = await sentEmail(owner, service, "Resend me");
+	const { resendCandidates } = await reads();
+	const candidates = (selection: "delivered_nonopeners" | "proven_failed") =>
+		db.transaction((tx) => resendCandidates.invoke(tx, owner, { communicationId: id, selection }));
+	const at = (hours: number) =>
+		admin.execute(sql`UPDATE mail SET sent_at=clock_timestamp()-make_interval(hours=>${hours}),
+			delivered_at=CASE WHEN state='accepted' THEN clock_timestamp()-make_interval(hours=>${hours}) END
+			WHERE communication_id=${id}`);
+	await at(10);
+	const early = await candidates("delivered_nonopeners");
+	assert.equal(early.rows[0]!.fields.tooSoon, true);
+	assert.match(String(early.rows[0]!.fields.resendFrom), /^\w{3} \d{4}-\d{2}-\d{2} \d{2}:\d{2}$/);
+	const t = await turn(owner, service.port);
+	assert.equal(
+		await t.propose("communication.executeResend", { communicationId: id }),
+		null,
+		"no review before 24 hours",
+	);
+	await at(30);
+	await admin.execute(
+		sql`UPDATE mail SET opened_at=clock_timestamp() WHERE communication_id=${id} AND recipient_person_id=${people.alexChen!}`,
+	);
+	const proposal = await t.propose("communication.executeResend", { communicationId: id });
+	assert.ok(proposal);
+	assert.deepEqual(namesOf(proposal), ["Alex Rivera"]);
+	assert.deepEqual(leftOutOf(proposal), ["Alex Chen: opened", "Casey Reed: blocked", "Dana Off: unsubscribed"]);
+	const calls = service.calls.send.length;
+	const done = await approve(owner, proposal, service.port);
+	assert.equal(done.outcome, "completed");
+	assert.deepEqual(
+		service.calls.send.slice(calls).flatMap((c) => c.to),
+		["alex.rivera@example.test"],
+	);
+	// An email the email service never answered is still being checked: nothing to retry.
+	service.answers.send = "unknown";
+	const unknown = await sentEmail(owner, service, "Never answered");
+	const t2 = await turn(owner, service.port);
+	assert.equal(await t2.propose("communication.retryProvenFailed", { communicationId: unknown.id }), null);
+	// One the email service refused for certain is retried through its own review, to those recipients only.
+	service.answers.send = "refused";
+	const refused = await sentEmail(owner, service, "Refused once");
+	assert.equal(refused.review.receipt!.report!.confirmation, "refused");
+	service.answers.send = "ids";
+	const retry = await t2.propose("communication.retryProvenFailed", { communicationId: refused.id });
+	assert.ok(retry);
+	assert.deepEqual(namesOf(retry), ["Alex Chen", "Alex Rivera"]);
+	const before = service.calls.send.length;
+	assert.equal((await approve(owner, retry, service.port)).outcome, "completed");
+	assert.deepEqual(
+		service.calls.send
+			.slice(before)
+			.flatMap((c) => c.to)
+			.sort(),
+		["alex.chen@example.test", "alex.rivera@example.test"],
+	);
+});
+
+test("deleting a draft waits for Approve; templates list system and church, a system template is copied, never edited", async () => {
+	const owner = await actor("owner");
+	const service = emailService();
+	const draft = await savedDraft(owner, service.port, "Delete me");
+	const t = await turn(owner, service.port);
+	const del = await t.propose("communication.deleteDraft", { communicationId: draft.id });
+	assert.ok(del);
+	assert.equal(change(del, "draft")!.before, "Delete me");
+	assert.equal((await rows(sql`SELECT count(*)::int n FROM communication WHERE id=${draft.id}`))[0]!.n, 1);
+	assert.equal((await approve(owner, del, service.port)).outcome, "completed");
+	assert.equal((await rows(sql`SELECT count(*)::int n FROM communication WHERE id=${draft.id}`))[0]!.n, 0);
+
+	const { listTemplates } = await reads();
+	const listed = async () =>
+		(await db.transaction((tx) => listTemplates.invoke(tx, owner, {}))).rows.map(
+			(r) => `${r.label} (${String(r.fields.origin)})`,
+		);
+	assert.ok((await listed()).every((l) => l.endsWith("(system)")));
+	const create = await t.propose("communication.templates.create", {
+		name: "Vision night invite",
+		category: "meeting_invitation",
+		subject: "Vision night",
+		body: BODY,
+	});
+	assert.ok(create);
+	assert.equal((await approve(owner, create, service.port)).outcome, "completed");
+	assert.ok((await listed()).includes("Vision night invite (church)"));
+	const system = (await db.transaction((tx) => listTemplates.invoke(tx, owner, {}))).rows.find(
+		(r) => r.fields.origin === "system",
+	)!;
+	const edit = await t.propose("communication.templates.update", { templateId: system.id, subject: "Changed" });
+	assert.ok(edit);
+	assert.match(edit.review.refusal ?? "", /can't be edited\. Copy it/);
+	await assert.rejects(approveProposal(db, owner, edit.id, { revision: edit.revision, digest: edit.digest }, null), {
+		code: "review_closed",
+	});
+	const fork = await t.propose("communication.templates.fork", { sourceKey: String(system.fields.sourceKey) });
+	assert.ok(fork);
+	assert.equal((await approve(owner, fork, service.port)).outcome, "completed");
+	assert.ok((await listed()).includes(`${system.label} (church)`), "the copy is the church's own");
+	const copy = (await db.transaction((tx) => listTemplates.invoke(tx, owner, {}))).rows.find(
+		(r) => r.label === system.label,
+	)!;
+	const change2 = await t.propose("communication.templates.update", {
+		templateId: copy.id,
+		subject: "Our own subject",
+	});
+	assert.ok(change2 && !change2.review.refusal);
+	assert.equal((await approve(owner, change2, service.port)).outcome, "completed");
+	const [saved] = await rows(sql`SELECT subject FROM message_template WHERE id=${copy.id}`);
+	assert.equal(saved!.subject, "Our own subject");
+});
+
+test("one person's emails are listed with their results, and the never-emailed list says how it checked", async () => {
+	const owner = await actor("owner");
+	const service = emailService();
+	const { id } = await sentEmail(owner, service, "For one person");
+	const { forPerson } = await reads();
+	const mine = await db.transaction((tx) => forPerson.invoke(tx, owner, { personId: people.alexRivera! }));
+	const email = mine.rows.find((r) => r.kind === "message" && r.id === id)!;
+	assert.equal(email.fields.result, "sent");
+	assert.ok(
+		mine.rows.every((r) => r.kind === "message"),
+		"only emails: a recorded call is never in this read",
+	);
+	assert.ok(mine.exclusions.some((e) => /an email is never one/.test(e)));
+	const never = await db.transaction((tx) => forPerson.invoke(tx, owner, {}));
+	const names = never.rows.map((r) => r.label);
+	assert.ok(!names.includes("Alex Rivera") && !names.includes("Alex Chen"), "emailed people are not listed");
+	assert.ok(names.includes("Member 001"));
+	assert.ok(never.rows.every((r) => r.fields.email === "no email recorded"));
+	assert.match(never.exclusions.join(" "), /calls, texts, visits .*checked every live person against Messages history/);
 });

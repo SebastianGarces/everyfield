@@ -20,6 +20,13 @@ export type Operation =
 	| "communication.rescheduleReviewed"
 	| "communication.cancelScheduledReviewed"
 	| "communication.replaceScheduledReviewed"
+	| "communication.sendReviewed"
+	| "communication.executeResend"
+	| "communication.retryProvenFailed"
+	| "communication.deleteDraft"
+	| "communication.templates.create"
+	| "communication.templates.fork"
+	| "communication.templates.update"
 	| "notifications.markSelectedRead"
 	| "notifications.markAllVisibleRead"
 	| "notifications.setPreferences"
@@ -314,6 +321,13 @@ const TITLE: Record<Operation, string> = {
 	"communication.rescheduleReviewed": "Change the send time",
 	"communication.cancelScheduledReviewed": "Cancel a scheduled email",
 	"communication.replaceScheduledReviewed": "Replace a scheduled email",
+	"communication.sendReviewed": "Send an email",
+	"communication.executeResend": "Resend an email",
+	"communication.retryProvenFailed": "Retry a failed email",
+	"communication.deleteDraft": "Delete an email draft",
+	"communication.templates.create": "Save an email template",
+	"communication.templates.fork": "Copy a system template",
+	"communication.templates.update": "Change an email template",
 	"people.createPerson": "Add a person",
 	"people.updatePerson": "Update a person",
 	"people.changeStatus": "Change a stage",
@@ -433,6 +447,17 @@ export const LEFT_OUT_REASON: Record<string, string> = {
 	no_address: "No email address",
 	blocked: "Blocked after a bounce",
 	unsubscribed: "Unsubscribed",
+	duplicate_address: "Same address as someone who gets it",
+	cannot_be_emailed: "Can't be emailed now",
+	still_checking: "Result still being checked",
+	opened: "Opened it",
+	not_delivered: "Delivery not confirmed",
+	too_soon: "Sent less than 24 hours ago",
+	delivered: "Already delivered",
+	sent: "Sent, delivery not confirmed yet",
+	checking: "Result still being checked",
+	waiting: "Still waiting to send",
+	cancelled: "Cancelled",
 };
 
 /** The report is not confirmed and the email service can be asked again. */
@@ -445,12 +470,21 @@ const MAIL_PENDING: Record<string, string> = {
 	"communication.rescheduleReviewed": "Review the new time",
 	"communication.cancelScheduledReviewed": "Review before cancelling",
 	"communication.replaceScheduledReviewed": "Review the replacement",
+	"communication.sendReviewed": "Review before sending",
+	"communication.executeResend": "Review the resend",
+	"communication.retryProvenFailed": "Review the retry",
+	"communication.deleteDraft": "Review before deleting",
+	"communication.templates.create": "Review the new template",
+	"communication.templates.fork": "Review the copy",
+	"communication.templates.update": "Review the template change",
 };
 /** The head of a review the server refused on the card itself, such as a time outside the window it can hold. */
 const MAIL_REFUSED: Record<string, string> = {
 	"communication.scheduleReviewed": "Can't schedule this email",
 	"communication.rescheduleReviewed": "Can't move this email",
 	"communication.replaceScheduledReviewed": "Can't replace this email",
+	"communication.sendReviewed": "Can't send this email",
+	"communication.templates.update": "Can't edit this template",
 };
 /** The note on a review the Owner dismissed: what stays as it was. */
 export const MAIL_DISMISSED: Partial<Record<Operation, string>> = {
@@ -460,7 +494,22 @@ export const MAIL_DISMISSED: Partial<Record<Operation, string>> = {
 	"communication.cancelScheduledReviewed": "You closed this review. The message still sends at its set time.",
 	"communication.replaceScheduledReviewed":
 		"You closed this review. The message still sends as it was, at its set time.",
+	"communication.sendReviewed": "You closed this review. Nothing was sent or saved.",
+	"communication.executeResend": "You closed this review. Nothing was resent.",
+	"communication.retryProvenFailed": "You closed this review. Nothing was sent again.",
+	"communication.deleteDraft": "You closed this review. The draft stays saved.",
+	"communication.templates.create": "You closed this review. No template was saved.",
+	"communication.templates.fork": "You closed this review. No copy was made.",
+	"communication.templates.update": "You closed this review. The template stays as it was.",
 };
+/** A change that stays inside Messages: nothing is handed to the email service. */
+const LOCAL_ONLY = new Set<Operation>([
+	"communication.saveDraft",
+	"communication.deleteDraft",
+	"communication.templates.create",
+	"communication.templates.fork",
+	"communication.templates.update",
+]);
 /** The head of an email card once it has a saved outcome: only what the email service confirmed is called done. */
 export function mailHead(
 	review: Review,
@@ -478,7 +527,11 @@ export function mailHead(
 		};
 	if (phase === "running")
 		return {
-			title: review.operation === "communication.saveDraft" ? "Saving…" : "Working with the email service…",
+			title: !LOCAL_ONLY.has(review.operation)
+				? "Working with the email service…"
+				: review.operation === "communication.deleteDraft"
+					? "Deleting…"
+					: "Saving…",
 			tone: "amber",
 		};
 	if (phase === "refused") return { title: "Refused", tone: "magenta" };
@@ -486,7 +539,16 @@ export function mailHead(
 	if (phase === "cancelled") return { title: "Review closed", tone: "gray" };
 	if (phase !== "completed") return null;
 	const report = review.receipt?.report;
-	if (!report) return { title: "Saved", tone: "green" };
+	if (!report)
+		return {
+			title:
+				review.operation === "communication.deleteDraft"
+					? "Draft deleted"
+					: review.operation.startsWith("communication.templates.")
+						? "Template saved"
+						: "Saved",
+			tone: "green",
+		};
 	switch (report.kind) {
 		case "schedule":
 			if (report.confirmation === "confirmed")
@@ -511,6 +573,12 @@ export function mailHead(
 			return report.confirmation === "confirmed"
 				? { title: `Replacement scheduled for ${reportTime(report.scheduledAt, review)}`, tone: "green" }
 				: { title: "Replacement not confirmed", tone: "amber" };
+		case "send":
+			// Accepted by the email service is "sent", never "delivered": delivery is a later fact Messages records.
+			if (report.confirmation === "confirmed") return { title: "Sent", tone: "green" };
+			return report.confirmation === "not_confirmed"
+				? { title: "Send not confirmed", tone: "amber" }
+				: { title: "Not sent", tone: "magenta" };
 		case "replace_stopped":
 			return report.confirmation === "not_confirmed"
 				? { title: "Not replaced: cancel not confirmed", tone: "amber" }

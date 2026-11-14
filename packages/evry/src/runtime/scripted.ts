@@ -6,6 +6,7 @@ import type {
 	LanguageModelV4StreamPart,
 } from "@ai-sdk/provider";
 import { randomUUID } from "node:crypto";
+import { mailStep, proposesOn } from "./scripted-mail.ts";
 
 // A deterministic stand-in for a qualified model, for local previews and tests only (selectQualifiedModel never picks
 // it on Vercel). It reads the conversation the way a model would see it and answers through the same tools, so the
@@ -382,19 +383,19 @@ function respond(options: LanguageModelV4CallOptions): LanguageModelV4Content[] 
 	const hasPeople = options.tools?.some((t) => t.name === "people_read") ?? false;
 	const canPropose = options.tools?.some((t) => t.name === "propose_change") ?? false;
 	// A Member proposes changes to their own notifications only; the People reviews are an Owner's or Admin's.
-	const canProposePeople = JSON.stringify(options.tools?.find((t) => t.name === "propose_change") ?? {}).includes(
-		'"people.',
-	);
+	const canProposePeople = proposesOn(options, "people");
 	// "Change Maria's city to Austin": find the person, then propose the change for review.
 	const change = /\b(?:change|set|update)\s+([A-Z][\w'-]+?)(?:'s)?\s+(city|phone|email)\s+to\s+(.+?)\.?\s*$/i.exec(
 		text,
 	);
 	const result = lastToolOutput(options.prompt);
 	const canReadMail = options.tools?.some((t) => t.name === "communication_read") ?? false;
+	const mail = mailStep(options);
+	if (mail) return mail;
 	const canReadNotices = options.tools?.some((t) => t.name === "notifications_read") ?? false;
 	const notices = notificationStep(text, { read: canReadNotices, propose: canPropose }, result);
 	if (notices) return notices;
-	const email = emailStep(text, canPropose, canReadMail, result);
+	const email = emailStep(text, proposesOn(options, "communication"), canReadMail, result);
 	if (email) return email;
 	if (hasPeople) {
 		// The import receipt read is one of the people-organization tool's operations only for an Owner or Admin.

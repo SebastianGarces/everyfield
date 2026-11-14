@@ -35,13 +35,13 @@ const ROW_LIVENESS: Record<SourceRow["kind"], Rule> = {
 		sql`EXISTS(SELECT FROM meeting lm WHERE lm.id=${id} AND lm.plant_id=${plant} AND lm.retired_at IS NULL)`,
 	responsibility: (id, plant) =>
 		sql`EXISTS(SELECT FROM responsibility ls WHERE ls.id=${id} AND ls.plant_id=${plant} AND ls.removed_at IS NULL)`,
-	// A template row is a catalog key, not a stored record.
-	template: null,
 	// Never withheld: an import row is a CSV line number or a preview's own row, not a stored record. A file row is a
 	// digest, a receipt key or a name the tool computed, and an activity or skill row is a safe detail of a person that
 	// the tool read under that person's own access; none of them names a source that this check could find gone.
 	import: null,
 	file: null,
+	// A system template is not a stored row, and a church template's name and origin are all a row says.
+	template: null,
 	skill: null,
 	activity: null,
 	// Never withheld: a setting row is the account's own choice and a digest row a preview the tool computed.

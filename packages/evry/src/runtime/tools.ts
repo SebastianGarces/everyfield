@@ -102,8 +102,10 @@ export function proposalForModel(proposal: Pick<Proposal, "id" | "expiresAt" | "
 		scrub(
 			JSON.stringify({
 				proposalId: proposal.id,
-				status: "awaiting_approval",
-				expiresAt: proposal.expiresAt,
+				// A card the server refused can't be approved: the model hears why, so it never calls it ready.
+				...(proposal.review.refusal
+					? { status: "refused", refusal: proposal.review.refusal }
+					: { status: "awaiting_approval", expiresAt: proposal.expiresAt }),
 				// The reviewed fields live in their source row, so a later model call withholds them with the row once the
 				// target is no longer available (withLiveRows in turn.ts).
 				// A note's stored text stays out of what the model reads, as in every read (the card shows it).
