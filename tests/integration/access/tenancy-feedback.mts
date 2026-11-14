@@ -46,7 +46,10 @@ export function feedbackCases(t, who) {
 		// No church owner holds a triage grant, so church A's owner is refused too: there is no control.
 		[
 			name("admin.list"),
-			{ run: () => feedbackWriter["admin.list"](t.f.db, who.actor, {}), expected: { refused: "access_denied", control: null } },
+			{
+				run: () => feedbackWriter["admin.list"](t.f.db, who.actor, {}),
+				expected: { refused: "access_denied", control: null },
+			},
 		],
 		[
 			name("admin.get"),

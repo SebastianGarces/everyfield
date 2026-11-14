@@ -60,7 +60,9 @@ test("AC:CASE-ADM-001 the dialog saves its details, takes church and role from t
 	// The connection drops and the dialog sends the same feedback again: the same answer, one row, one audit row.
 	const again = ok(await feedbackWriter.submit(db, await authority(daniel), input, server));
 	assert.deepEqual(again, sent);
-	const saved = await rowsOf(sql`SELECT * FROM feedback WHERE account_id=${daniel.id}::uuid AND request_key=${key}::uuid`);
+	const saved = await rowsOf(
+		sql`SELECT * FROM feedback WHERE account_id=${daniel.id}::uuid AND request_key=${key}::uuid`,
+	);
 	assert.equal(saved.length, 1);
 	const row = saved[0]!;
 	assert.deepEqual(
@@ -101,12 +103,18 @@ test("AC:CASE-ADM-001 the dialog saves its details, takes church and role from t
 
 	// A token route's token never reaches the row either, and details the browser could not give stay null.
 	const bare = ok(await send(daniel, { description: "Link broke", address: "/invite/abcdefghijklmnopqrstuvwxyz0123" }));
-	const [stored] = await rowsOf(sql`SELECT page_label, page_address, browser, screen_width, theme FROM feedback WHERE id=${bare.id}::uuid`);
-	assert.deepEqual({ ...stored }, { page_label: null, page_address: "/invite/[token]", browser: null, screen_width: null, theme: null });
+	const [stored] = await rowsOf(
+		sql`SELECT page_label, page_address, browser, screen_width, theme FROM feedback WHERE id=${bare.id}::uuid`,
+	);
+	assert.deepEqual(
+		{ ...stored },
+		{ page_label: null, page_address: "/invite/[token]", browser: null, screen_width: null, theme: null },
+	);
 
 	// An empty, blank or over-long description is refused and nothing is saved.
 	const before = (await rowsOf(sql`SELECT count(*)::int AS n FROM feedback`))[0]!.n;
-	for (const description of ["", "     ", "x".repeat(5001)]) refused(await send(daniel, { description }), "invalid_input");
+	for (const description of ["", "     ", "x".repeat(5001)])
+		refused(await send(daniel, { description }), "invalid_input");
 	ok(await send(daniel, { description: "x".repeat(5000) }));
 	assert.equal((await rowsOf(sql`SELECT count(*)::int AS n FROM feedback`))[0]!.n, before + 1);
 });
@@ -152,7 +160,13 @@ test("AC:CASE-ADM-002 AC:PUB57-002 a triager filters, moves a status with histor
 	assert.equal(item.details.church, "Harvest Point");
 	assert.equal(item.author.email, daniel.email);
 
-	const moved = ok(await feedbackWriter["admin.changeStatus"](db, t, { feedbackId: sent.id, expectedRevision: "1", status: "reviewed" }));
+	const moved = ok(
+		await feedbackWriter["admin.changeStatus"](db, t, {
+			feedbackId: sent.id,
+			expectedRevision: "1",
+			status: "reviewed",
+		}),
+	);
 	assert.deepEqual(moved, { outcome: "changed", status: "reviewed", revision: "2" });
 	const detail = ok(await feedbackWriter["admin.get"](db, t, { feedbackId: sent.id }));
 	assert.equal(detail.history.length, 1);
@@ -160,26 +174,50 @@ test("AC:CASE-ADM-002 AC:PUB57-002 a triager filters, moves a status with histor
 	const [audit] = await rowsOf(
 		sql`SELECT actor_id, action, kind, before_value, after_value FROM audit_event WHERE subject_id=${sent.id}::uuid AND action='feedback.status_changed'`,
 	);
-	assert.deepEqual({ ...audit }, {
-		actor_id: triager.id,
-		action: "feedback.status_changed",
-		kind: "triage",
-		before_value: { status: "new" },
-		after_value: { status: "reviewed" },
-	});
+	assert.deepEqual(
+		{ ...audit },
+		{
+			actor_id: triager.id,
+			action: "feedback.status_changed",
+			kind: "triage",
+			before_value: { status: "new" },
+			after_value: { status: "reviewed" },
+		},
+	);
 	const own = ok(await feedbackWriter.getOwnStatus(db, await authority(daniel), { feedbackId: sent.id }));
 	assert.equal(own.status, "reviewed");
 
 	// Another triager's view from revision 1 is stale: nothing is overwritten and the answer names the current status.
-	const stale = ok(await feedbackWriter["admin.changeStatus"](db, t, { feedbackId: sent.id, expectedRevision: "1", status: "dismissed" }));
+	const stale = ok(
+		await feedbackWriter["admin.changeStatus"](db, t, {
+			feedbackId: sent.id,
+			expectedRevision: "1",
+			status: "dismissed",
+		}),
+	);
 	assert.deepEqual(stale, { outcome: "stale", status: "reviewed", revision: "2" });
 	// Setting the status it already has records nothing, even from a stale view.
-	const same = ok(await feedbackWriter["admin.changeStatus"](db, t, { feedbackId: sent.id, expectedRevision: "1", status: "reviewed" }));
+	const same = ok(
+		await feedbackWriter["admin.changeStatus"](db, t, {
+			feedbackId: sent.id,
+			expectedRevision: "1",
+			status: "reviewed",
+		}),
+	);
 	assert.deepEqual(same, { outcome: "unchanged", status: "reviewed", revision: "2" });
-	const history = await rowsOf(sql`SELECT count(*)::int AS n FROM audit_event WHERE subject_id=${sent.id}::uuid AND action='feedback.status_changed'`);
+	const history = await rowsOf(
+		sql`SELECT count(*)::int AS n FROM audit_event WHERE subject_id=${sent.id}::uuid AND action='feedback.status_changed'`,
+	);
 	assert.equal(history[0]!.n, 1);
 	assert.equal((await rowsOf(sql`SELECT status FROM feedback WHERE id=${sent.id}::uuid`))[0]!.status, "reviewed");
-	refused(await feedbackWriter["admin.changeStatus"](db, t, { feedbackId: randomUUID(), expectedRevision: "1", status: "new" }), "unavailable");
+	refused(
+		await feedbackWriter["admin.changeStatus"](db, t, {
+			feedbackId: randomUUID(),
+			expectedRevision: "1",
+			status: "new",
+		}),
+		"unavailable",
+	);
 });
 
 test("AC:CASE-ADM-002 INV-privacy: an Owner without a current triage grant reads and changes no one's feedback", async () => {
@@ -187,14 +225,22 @@ test("AC:CASE-ADM-002 INV-privacy: an Owner without a current triage grant reads
 	const owner = await authority(daniel);
 	const revokedAccount = await database.actor(null);
 	const expiredAccount = await database.actor(null);
-	await admin.execute(sql`INSERT INTO platform_grant (account_id, capability, revoked_at) VALUES (${revokedAccount.id}::uuid, 'feedback_triage', clock_timestamp())`);
-	await admin.execute(sql`INSERT INTO platform_grant (account_id, capability, expires_at) VALUES (${expiredAccount.id}::uuid, 'feedback_triage', clock_timestamp() - interval '1 day')`);
+	await admin.execute(
+		sql`INSERT INTO platform_grant (account_id, capability, revoked_at) VALUES (${revokedAccount.id}::uuid, 'feedback_triage', clock_timestamp())`,
+	);
+	await admin.execute(
+		sql`INSERT INTO platform_grant (account_id, capability, expires_at) VALUES (${expiredAccount.id}::uuid, 'feedback_triage', clock_timestamp() - interval '1 day')`,
+	);
 	for (const who of [owner, await authority(revokedAccount), await authority(expiredAccount)]) {
 		assert.equal(await authorizeTriage(db, who), false);
 		refused(await feedbackWriter["admin.list"](db, who, {}), "access_denied");
 		refused(await feedbackWriter["admin.get"](db, who, { feedbackId: sent.id }), "access_denied");
 		refused(
-			await feedbackWriter["admin.changeStatus"](db, who, { feedbackId: sent.id, expectedRevision: "1", status: "dismissed" }),
+			await feedbackWriter["admin.changeStatus"](db, who, {
+				feedbackId: sent.id,
+				expectedRevision: "1",
+				status: "dismissed",
+			}),
 			"access_denied",
 		);
 	}
@@ -207,8 +253,16 @@ test("AC:CASE-ADM-001 a suspended or deleted account cannot send feedback", asyn
 		const signedIn = await authority(who);
 		await admin.execute(sql`INSERT INTO lifecycle_witness(kind,opaque_subject_id,request_revision,state,witness_checkpoint,cleanup_state,request_id,requested_at,cancel_until)
  VALUES('account',${who.id}::uuid,1,${state},1,'not_started',${randomUUID()}::uuid,statement_timestamp(),statement_timestamp()+interval '720 hours')`);
-		const result = await feedbackWriter.submit(db, signedIn, { requestKey: randomUUID(), category: "bug", description: "Hello" }, server);
+		const result = await feedbackWriter.submit(
+			db,
+			signedIn,
+			{ requestKey: randomUUID(), category: "bug", description: "Hello" },
+			server,
+		);
 		refused(result, "access_denied");
-		assert.equal((await rowsOf(sql`SELECT count(*)::int AS n FROM feedback WHERE account_id=${who.id}::uuid`))[0]!.n, 0);
+		assert.equal(
+			(await rowsOf(sql`SELECT count(*)::int AS n FROM feedback WHERE account_id=${who.id}::uuid`))[0]!.n,
+			0,
+		);
 	}
 });

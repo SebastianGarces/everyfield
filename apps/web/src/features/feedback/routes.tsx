@@ -35,10 +35,7 @@ const LOAD_FAILED = "This is a loading problem, not an empty list. Nothing was c
 
 /** /feedback: what the signed-in account sent, newest first, 25 at a time, with each item's status. */
 export async function SentFeedbackPage() {
-	const r = settled(
-		await run((db, a) => feedbackWriter.listOwn(db, a, {})),
-		"/feedback",
-	);
+	const r = settled(await run((db, a) => feedbackWriter.listOwn(db, a, {})), "/feedback");
 	return (
 		<>
 			<PageHeader
@@ -101,10 +98,7 @@ export async function TriagePage({
 		status: feedbackStatus.safeParse(raw.status).data ?? null,
 		category: feedbackCategory.safeParse(raw.category).data ?? null,
 	};
-	const r = settled(
-		await run((db, a) => feedbackWriter["admin.list"](db, a, filter)),
-		"/feedback/triage",
-	);
+	const r = settled(await run((db, a) => feedbackWriter["admin.list"](db, a, filter)), "/feedback/triage");
 	return (
 		<>
 			<PageHeader title="Feedback triage" subtitle="Private feedback from every account. It never leaves Everyfield." />

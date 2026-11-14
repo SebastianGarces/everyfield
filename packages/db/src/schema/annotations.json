@@ -4214,7 +4214,9 @@
 				"description": { "note": "The author's words, trimmed, 1 to 5,000 characters. Private." },
 				"page_label": { "note": "The page name the author saw. Private." },
 				"page_address": { "note": "The internal path with query, fragment and tokens removed. Private." },
-				"church_label": { "note": "The church or organization of the author's seat when sent, from the server. Private." },
+				"church_label": {
+					"note": "The church or organization of the author's seat when sent, from the server. Private."
+				},
 				"role_label": { "note": "The author's seat role when sent, from the server. Private." },
 				"browser": { "note": "Browser and system as the browser reports them, or null. Private." },
 				"screen_width": { "note": "Viewport width in CSS pixels, or null. Private." },

@@ -75,7 +75,11 @@ export const submittedFeedback = z.object({
 export type SubmittedFeedback = z.infer<typeof submittedFeedback>;
 
 /** What the dialog shows before sending: the server's church, role and reply address for the signed-in account. */
-export const sendContext = z.object({ church: z.string().nullable(), role: z.string().nullable(), replyTo: z.string() });
+export const sendContext = z.object({
+	church: z.string().nullable(),
+	role: z.string().nullable(),
+	replyTo: z.string(),
+});
 export type SendContext = z.infer<typeof sendContext>;
 
 /** One item of the author's own list: no words, no private details and no triage history (REQ-KNOW-029). */
@@ -154,5 +158,4 @@ export type StatusChange = z.infer<typeof statusChange>;
 
 export const feedbackErrorCode = z.enum(["invalid_input", "access_denied", "unavailable"]);
 export type FeedbackReply<T> =
-	| { status: "ok"; value: T }
-	| { status: "refused"; error: { code: z.infer<typeof feedbackErrorCode> } };
+	{ status: "ok"; value: T } | { status: "refused"; error: { code: z.infer<typeof feedbackErrorCode> } };

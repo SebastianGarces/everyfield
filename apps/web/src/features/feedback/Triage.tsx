@@ -19,7 +19,9 @@ import { CATEGORIES, CATEGORY_NAME, dateLabel, STATUS_NAME, STATUS_TONE, timeLab
 const STATUSES: FeedbackStatus[] = ["new", "reviewed", "resolved", "dismissed"];
 type Filter = { status: FeedbackStatus | null; category: FeedbackCategory | null };
 
-const StatusTag = ({ status }: { status: FeedbackStatus }) => <Tag tone={STATUS_TONE[status]}>{STATUS_NAME[status]}</Tag>;
+const StatusTag = ({ status }: { status: FeedbackStatus }) => (
+	<Tag tone={STATUS_TONE[status]}>{STATUS_NAME[status]}</Tag>
+);
 
 /** The triage list: filters by status and type in the address, 25 at a time with "Show more". */
 export function TriageList({ initial, filter }: { initial: TriagePage; filter: Filter }) {
@@ -56,7 +58,10 @@ export function TriageList({ initial, filter }: { initial: TriagePage; filter: F
 					size="sm"
 					value={filter.status ?? "all"}
 					onValueChange={(v) => go({ status: v === "all" ? null : (v as FeedbackStatus) })}
-					options={[{ value: "all", label: "Any status" }, ...STATUSES.map((s) => ({ value: s, label: STATUS_NAME[s] }))]}
+					options={[
+						{ value: "all", label: "Any status" },
+						...STATUSES.map((s) => ({ value: s, label: STATUS_NAME[s] })),
+					]}
 				/>
 				<SegmentedControl
 					label="Type"

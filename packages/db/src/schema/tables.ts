@@ -3607,7 +3607,11 @@ export const feedback = pgTable(
 			.onDelete("restrict")
 			.onUpdate("no action"),
 		primaryKey({ name: "feedback_pkey", columns: [table.id] }),
-		uniqueIndex("feedback_request").using("btree", table.account_id.asc().nullsLast(), table.request_key.asc().nullsLast()),
+		uniqueIndex("feedback_request").using(
+			"btree",
+			table.account_id.asc().nullsLast(),
+			table.request_key.asc().nullsLast(),
+		),
 		index("feedback_own").using(
 			"btree",
 			table.account_id.asc().nullsLast(),
@@ -3616,7 +3620,10 @@ export const feedback = pgTable(
 		),
 		index("feedback_triage").using("btree", table.submitted_at.desc().nullsFirst(), table.id.desc().nullsFirst()),
 		check("feedback_revision", sql`(revision >= 1)`),
-		check("feedback_category", sql`(category = ANY (ARRAY['bug'::text, 'suggestion'::text, 'question'::text, 'other'::text]))`),
+		check(
+			"feedback_category",
+			sql`(category = ANY (ARRAY['bug'::text, 'suggestion'::text, 'question'::text, 'other'::text]))`,
+		),
 		check(
 			"feedback_status",
 			sql`(status = ANY (ARRAY['new'::text, 'reviewed'::text, 'resolved'::text, 'dismissed'::text]))`,

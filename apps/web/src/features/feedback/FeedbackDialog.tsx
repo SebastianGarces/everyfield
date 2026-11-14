@@ -10,7 +10,15 @@ import {
 	SentIcon,
 } from "@hugeicons/core-free-icons";
 import type { FeedbackCategory, SubmittedFeedback } from "@everyfield/contracts/feedback";
-import { Button, Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, Textarea } from "@everyfield/ui/controls";
+import {
+	Button,
+	Dialog,
+	DialogBody,
+	DialogContent,
+	DialogFooter,
+	DialogHeader,
+	Textarea,
+} from "@everyfield/ui/controls";
 import { cn, EvryBot, Icon, type IconSvgElement } from "@everyfield/ui/foundations";
 import { Dialog as DialogPrimitive } from "radix-ui";
 import { useEffect, useId, useState, useTransition, type ReactNode } from "react";
@@ -112,8 +120,8 @@ function FeedbackPanel({ name, onClose }: { name: string; onClose: () => void })
 					<EvryBot size="xl" mood="happy" />
 					<DialogTitleText>Thank you, {first}</DialogTitleText>
 					<p className="m-0 max-w-[380px] text-md text-text-2">
-						Your feedback is saved, together with the details from <b className="font-semibold text-ink">{page}</b>.
-						If we have a question, we reply to {sent.replyTo}.
+						Your feedback is saved, together with the details from <b className="font-semibold text-ink">{page}</b>. If
+						we have a question, we reply to {sent.replyTo}.
 					</p>
 					<div className="mt-3 flex gap-2">
 						<Button variant="secondary" onClick={again}>
@@ -236,13 +244,7 @@ function FeedbackPanel({ name, onClose }: { name: string; onClose: () => void })
 				<Button variant="ghost" onClick={onClose}>
 					Cancel
 				</Button>
-				<Button
-					variant="primary"
-					icon={SentIcon}
-					onClick={send}
-					disabled={count.problem !== null}
-					loading={pending}
-				>
+				<Button variant="primary" icon={SentIcon} onClick={send} disabled={count.problem !== null} loading={pending}>
 					Send
 				</Button>
 			</DialogFooter>

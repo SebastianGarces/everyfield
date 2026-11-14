@@ -11,7 +11,8 @@ import { getViewer } from "@/server/request-context";
 /** The deployed version, from the host's build, or null when it does not say (a local build). */
 export const appVersion = () => process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? null;
 
-export type Run<T> = { status: "ok"; value: T } | { status: "refused"; code: string } | { status: "signed_out" | "lost" };
+export type Run<T> =
+	{ status: "ok"; value: T } | { status: "refused"; code: string } | { status: "signed_out" | "lost" };
 
 /** Runs one feedback operation for the signed-in account. */
 export async function run<T>(

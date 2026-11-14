@@ -241,7 +241,12 @@ async function fill(
 	// the other church logins have none: a church role never grants triage.
 	const triager = await account("Tess Morgan", QA_LOGINS.triage);
 	if (
-		!(await rows(admin, sql`SELECT 1 FROM platform_grant WHERE account_id=${triager} AND capability='feedback_triage' AND revoked_at IS NULL`)).length
+		!(
+			await rows(
+				admin,
+				sql`SELECT 1 FROM platform_grant WHERE account_id=${triager} AND capability='feedback_triage' AND revoked_at IS NULL`,
+			)
+		).length
 	) {
 		await admin.execute(sql`INSERT INTO platform_grant(account_id,capability) VALUES(${triager},'feedback_triage')`);
 		done.push("feedback triage grant");
