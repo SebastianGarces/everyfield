@@ -16,6 +16,8 @@ import { PIPELINE_SPECS, seedPipeline } from "../evals/pipeline-church.mts";
 import { seedGuests, seedLaunched, seedOutcome, seedScheduled } from "../evals/launch-church.mts";
 import { readViewer } from "../../../packages/domain/src/access/session.ts";
 import { evryActor } from "../../../packages/evry/src/context/actor.ts";
+import { feedbackWriter } from "../../../packages/domain/src/feedback/index.ts";
+import { randomUUID } from "node:crypto";
 
 const church = await goldenChurch();
 after(church.close);
@@ -23,6 +25,22 @@ after(church.close);
 const native = nativePorts();
 await seedSetup(church.admin, church.db, native);
 const setupActor = async (session: string) => evryActor((await readViewer(church.db, session as never))!.authority!);
+/** One feedback the setup Owner sent, sent once however many probes ask for it. */
+let feedbackId: string | undefined;
+async function sentFeedback() {
+	if (feedbackId) return feedbackId;
+	const authority = (await setupActor(SETUP_SPECS.setupOwner.session)).authority;
+	const r = await church.db.transaction((tx) =>
+		feedbackWriter.submit(
+			tx as never,
+			authority,
+			{ requestKey: randomUUID(), category: "other", description: "Probe" },
+			{ appVersion: null },
+		),
+	);
+	assert.equal(r.status, "ok");
+	return (feedbackId = (r as { value: { id: string } }).value.id);
+}
 // Grace Austin's pipeline, for the pipeline and program reads (WP-101), read by its Owner.
 const pipeline = await seedPipeline(church.admin, church.db);
 // Hope Fellowship's Launch plan with its history, then a recorded Launch Sunday and named guests (WP-075).
@@ -148,6 +166,26 @@ const PROBES: Record<string, Record<string, unknown> | (() => Promise<SourceResu
 	"launch.readWorkspace": {},
 	"launch.readJournal": {},
 	"launch.readDebrief": {},
+	// Overview and feedback (T-330), for the setup fixture's Owner: a new church in its first week.
+	...Object.fromEntries(
+		["dashboard.availableActions", "dashboard.metrics", "dashboard.activity", "dashboard.readSetupGaps"].map((op) => [
+			op,
+			async () => invokeRead(church.db, await setupActor(SETUP_SPECS.setupOwner.session), adapters.get(op)!, {}),
+		]),
+	),
+	"feedback.listOwn": async () => {
+		await sentFeedback();
+		return invokeRead(
+			church.db,
+			await setupActor(SETUP_SPECS.setupOwner.session),
+			adapters.get("feedback.listOwn")!,
+			{},
+		);
+	},
+	"feedback.getOwnStatus": async () =>
+		invokeRead(church.db, await setupActor(SETUP_SPECS.setupOwner.session), adapters.get("feedback.getOwnStatus")!, {
+			feedbackId: await sentFeedback(),
+		}),
 	"pipeline.listPeople": async () =>
 		invokeRead(church.db, await setupActor(PIPELINE_SPECS.dana.session), adapters.get("pipeline.listPeople")!, {}),
 	"development.draftPlan": async () =>
