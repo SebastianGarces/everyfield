@@ -12,9 +12,9 @@ import type { SourceRow } from "../catalog/types.ts";
 type Rule = ((id: SQL, plant: SQL) => SQL) | null;
 
 const ROW_LIVENESS: Record<SourceRow["kind"], Rule> = {
-	// Unchanged: the person is live in this church.
+	// The person is live in this church, or in this organization's pipeline.
 	person: (id, plant) =>
-		sql`EXISTS(SELECT FROM person p WHERE p.id=${id} AND p.tenant_id=${plant} AND p.plant_id=${plant} AND p.state='live')`,
+		sql`EXISTS(SELECT FROM person p WHERE p.id=${id} AND p.tenant_id=${plant} AND coalesce(p.plant_id,p.organization_id)=${plant} AND p.state='live')`,
 	// A household table has no state column: the row existing in the plant is the test.
 	household: (id, plant) => sql`EXISTS(SELECT FROM household h WHERE h.id=${id} AND h.plant_id=${plant})`,
 	// A tag is live while it exists in the plant.
@@ -57,6 +57,8 @@ const ROW_LIVENESS: Record<SourceRow["kind"], Rule> = {
 	// account's own link, read under its own access.
 	step: null,
 	relationship: null,
+	// Never withheld: a pipeline stage row is a column of the board, with its count.
+	stage: null,
 	// Never withheld: a setting row is the account's own choice and a digest row a preview the tool computed.
 	setting: null,
 	digest: null,

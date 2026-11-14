@@ -78,6 +78,30 @@ const OWN_SPACE_ONLY =
 /** Who may answer a church's setup (T-345): the native setup commands take only that Owner. */
 const SETUP_RULE = "Only the Owner who is setting up this church can answer its setup questions or finish its setup.";
 
+/**
+ * What an organization seat's pipeline tools never do (WP-101, REQ-MUL-015), with the reply for each. The scripted
+ * model quotes them, so the evals test the words the real model gets.
+ */
+export const PIPELINE_RULES = {
+	/** Conversations, notes, assessments, milestones and move reasons are recorded only in the app. */
+	nativeOnly:
+		"Leadership conversations are logged on the Pipeline page, not here, and so are notes, assessments and milestone completions. Open [Pipeline](/organization/pipeline) and log it on the person's record. Nothing was logged.",
+	/** No note, feedback or reason reaches the model, and Evry judges no one. */
+	noJudgment:
+		"I can't read or summarize staff notes or feedback, rank people, or judge anyone's calling or readiness to plant. I can list the people in each stage, or show who hasn't moved in six months.",
+	/** Only the organization's own pipeline is readable. */
+	ownPipeline:
+		"I can only see your own organization's pipeline, so I can't show anything from another organization's pipeline.",
+} as const;
+function pipelineRules() {
+	return [
+		`When the user asks to log or record a leadership conversation, a note, an assessment or a milestone completion, prepare nothing and reply: ${PIPELINE_RULES.nativeOnly}`,
+		`Never read, quote or summarize staff notes, feedback or move reasons, never rank or compare people, and never judge anyone's calling or readiness. When the user asks for one, prepare nothing and reply: ${PIPELINE_RULES.noJudgment}`,
+		`When the user asks about another organization's pipeline or people, read only this organization's pipeline and reply: ${PIPELINE_RULES.ownPipeline}`,
+		"A stage move proposes only the person and the stage. Never repeat the user's reason for a move in a proposal or an answer: the user types the reason on the review card.",
+	].join("\n");
+}
+
 /** Who may make the changes a seat's tools leave out, so a refusal names the role instead of guessing. */
 function roleRule(actor: EvryActor) {
 	if (actor.role === null)
@@ -87,8 +111,8 @@ function roleRule(actor: EvryActor) {
 	const scope =
 		actor.contextKind === "plant"
 			? "invite people, change seats and invitations, or change this church's settings, sharing and connections"
-			: "invite people, change seats and invitations, or change this organization's profile";
-	const setup = actor.contextKind === "plant" ? ` ${SETUP_RULE}` : "";
+			: "invite people, change seats and invitations, change this organization's profile, move people between pipeline stages or create programs";
+	const setup = actor.contextKind === "plant" ? ` ${SETUP_RULE}` : `\n${pipelineRules()}`;
 	return `The user's role here is ${actor.role}. When the user asks for a change none of your tools offers, prepare nothing and say who can make it: Only an Owner or Admin can ${scope}.${setup}`;
 }
 
