@@ -96,6 +96,21 @@ export const removePipelineNoteRequest = z.strictObject({ noteId: recordId, expe
 /** A count target on a sending goal: never negative (REQ-MUL-007). */
 const goalTarget = z.int().min(0).max(10_000);
 /**
+ * A count a goal chooses (D-1264): people who reached a stage of one fixed kind since the goal's counting-from day,
+ * under the organization's own name for it, such as "Leaders sent" for Commissioned.
+ */
+export const goalCount = z.strictObject({ kind: pipelineStageKind, label: z.string().trim().min(1).max(60) });
+/** At most 4 counts per goal, each a different kind. A repeated kind is refused at that count's `kind`. */
+const goalCounts = z
+	.array(goalCount)
+	.max(4)
+	.superRefine((counts, ctx) =>
+		counts.forEach((c, i) => {
+			if (counts.findIndex((o) => o.kind === c.kind) !== i)
+				ctx.addIssue({ code: "custom", path: [i, "kind"], message: "This goal already counts that kind." });
+		}),
+	);
+/**
  * A new sending goal (no revision, with the ID the browser gave it) or a change to one. Saving a goal never moves a
  * person, changes a stage or creates a plant (REQ-MUL-007).
  */
@@ -106,6 +121,12 @@ export const saveGoalRequest = z.strictObject({
 	plantTarget: goalTarget,
 	targetYear: z.int().min(2000).max(2200),
 	rationale: z.string().trim().min(1).max(1000),
+	/**
+	 * The first day the goal's counts include, never after today in the organization's time zone (D-1263). Null counts
+	 * a new goal from today and keeps a saved goal's day.
+	 */
+	countingFrom: localDate.nullable(),
+	counts: goalCounts,
 });
 /** A conversation's optional short note: readable only by the Owner, Admins and the current responsible staff. */
 const conversationNote = z.string().trim().min(1).max(1000).nullable();
@@ -261,6 +282,12 @@ export const sendingGoal = z.strictObject({
 	plantTarget: goalTarget,
 	targetYear: z.int(),
 	rationale: z.string(),
+	countingFrom: localDate,
+	/**
+	 * Each chosen count in the goal's order: distinct live people of this organization with a move or first placement
+	 * into a stage of its kind dated from `countingFrom` through today. Counts only, no names (D-1265).
+	 */
+	counts: z.array(goalCount.extend({ count: z.int().min(0) })).max(4),
 });
 const count = z.int().min(0);
 /**
