@@ -2,7 +2,6 @@ import { localDate } from "@everyfield/contracts/common";
 import type {
 	AssessedCriterion,
 	Assessment,
-	AssessmentView,
 	LensTile,
 	NewestRun,
 	PlantFacts,
@@ -134,11 +133,6 @@ export function nextSteps(facts: PlantFacts): { title: string; detail: string; h
 	return steps;
 }
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
-
-/** The phase line: the assessment's phase, and the current phase separately when they differ. */
-export function phaseNote(view: Pick<AssessmentView, "currentPhase">, assessment: Pick<Assessment, "phase">) {
-	return view.currentPhase === assessment.phase ? null : view.currentPhase;
-}
 
 export const trendText = (v: TrendValue) =>
 	v.state === "measured" ? String(v.value) : v.state === "unknown" ? "Unknown" : "Not measured";

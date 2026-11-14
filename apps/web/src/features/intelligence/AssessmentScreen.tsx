@@ -4,6 +4,7 @@ import type {
 	Assessment,
 	AssessmentView,
 	CitationView,
+	EvidenceFact,
 	LensTile as Lens,
 	OwnFeedback,
 	PlantFacts,
@@ -440,7 +441,7 @@ function Lenses({ lenses, onCite }: { lenses: Lens[]; onCite: (key: string, labe
 	);
 }
 
-export function LensTile({ lens, onCite }: { lens: Lens; onCite?: (key: string, label: string) => void }) {
+function LensTile({ lens, onCite }: { lens: Lens; onCite: (key: string, label: string) => void }) {
 	const standing = STANDING[lens.standing];
 	const unknown = lens.quality === "unknown";
 	return (
@@ -489,7 +490,7 @@ export function LensTile({ lens, onCite }: { lens: Lens; onCite?: (key: string, 
 	);
 }
 
-function LensNote({ lens, onCite }: { lens: Lens; onCite?: (key: string, label: string) => void }) {
+function LensNote({ lens, onCite }: { lens: Lens; onCite: (key: string, label: string) => void }) {
 	if (lens.quality === "unknown")
 		return (
 			<p className="text-sm text-text-2">
@@ -508,20 +509,7 @@ function LensNote({ lens, onCite }: { lens: Lens; onCite?: (key: string, label: 
 		<ul className="flex flex-col gap-1 text-sm text-text-2">
 			{lens.evidence.map((e) => (
 				<li key={e.key}>
-					{onCite ? (
-						<button
-							type="button"
-							className="cursor-pointer text-left hover:text-ink"
-							data-citation={e.key}
-							onClick={() => onCite(e.key, e.label)}
-						>
-							{e.label}: <b className="font-semibold text-ink">{factText(e.value)}</b>
-						</button>
-					) : (
-						<span>
-							{e.label}: <b className="font-semibold text-ink">{factText(e.value)}</b>
-						</span>
-					)}
+					<FactButton fact={e} onCite={onCite} />
 				</li>
 			))}
 			{lens.attestations.map((s) => (
@@ -534,6 +522,20 @@ function LensNote({ lens, onCite }: { lens: Lens; onCite?: (key: string, label: 
 				</li>
 			))}
 		</ul>
+	);
+}
+
+/** One fact of a lens or criterion: its label and value, opening its citation. */
+function FactButton({ fact: e, onCite }: { fact: EvidenceFact; onCite: (key: string, label: string) => void }) {
+	return (
+		<button
+			type="button"
+			className="cursor-pointer text-left hover:text-ink"
+			data-citation={e.key}
+			onClick={() => onCite(e.key, e.label)}
+		>
+			{e.label}: <b className="font-semibold text-ink">{factText(e.value)}</b>
+		</button>
 	);
 }
 
@@ -572,14 +574,7 @@ function Criteria({
 									<ul aria-label="Evidence" className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-sm text-text-2">
 										{x.evidence.map((e) => (
 											<li key={e.key}>
-												<button
-													type="button"
-													className="cursor-pointer text-left hover:text-ink"
-													data-citation={e.key}
-													onClick={() => onCite(e.key, e.label)}
-												>
-													{e.label}: <b className="font-semibold text-ink">{factText(e.value)}</b>
-												</button>
+												<FactButton fact={e} onCite={onCite} />
 											</li>
 										))}
 									</ul>
