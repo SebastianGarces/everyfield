@@ -16,6 +16,7 @@ import {
 } from "../../../packages/evry/src/index.ts";
 import { PASTORAL_BOUNDARY, compileContext, resolveReferences } from "../../../packages/evry/src/context/compile.ts";
 import { readCatalog } from "../../../packages/evry/src/catalog/catalog.ts";
+import { MEETINGS_COMMANDS } from "../../../packages/evry/src/adapters/meetings/commands/index.ts";
 import { getPerson, listPeople, verifyPeople } from "../../../packages/evry/src/adapters/people/reads/index.ts";
 import { invokeRead } from "../../../packages/evry/src/catalog/invoke.ts";
 import { scriptedModel } from "../../../packages/evry/src/runtime/scripted.ts";
@@ -118,8 +119,8 @@ test("AC:INH-CROSS-06 AC:INH-REGRESSION-BUDGET AC:EVRY-RETRY-CANCEL bounded page
 	assert.deepEqual([input.status.state, input.status.reason], ["stopped", "input_budget"]);
 	assert.ok(input.status.usage.inputTokens >= 128_000 && input.status.usage.toolCalls < 24);
 	assert.equal(input.cards.length, input.status.usage.toolCalls);
-	// Pages of 5 rows: the 24-tool budget is reached first, and the 25th read never runs.
-	const narrow = await ask(foreign, "Read every detail for all people, 5 at a time.");
+	// Pages of 2 rows: the 24-tool budget is reached first, and the 25th read never runs.
+	const narrow = await ask(foreign, "Read every detail for all people, 2 at a time.");
 	assert.equal(await work(), "succeeded");
 	const budget = await events(foreign, narrow);
 	assert.equal(budget.cards.length, 24);
@@ -130,6 +131,65 @@ test("AC:INH-CROSS-06 AC:INH-REGRESSION-BUDGET AC:EVRY-RETRY-CANCEL bounded page
 	const last = budget.cards.at(-1)!.result;
 	assert.deepEqual([last.total, last.completeness, last.next], [all, "partial", 25], "no false exhaustive answer");
 });
+
+/** The Meetings tools (WP-065/066), in catalog order. Reports and most changes are Owner or Admin, as natively. */
+const MEMBER_MEETINGS_READS = [
+	"meetings.list",
+	"meetings.get",
+	"meetings.hasHistory",
+	"meetings.readAgenda",
+	"meetings.listKit",
+	"meetings.listGuests",
+	"meetings.listCards",
+	"meetings.cardBreakdown",
+	"meetings.invitationAttribution",
+	"meetings.listCompletedPreLaunchPractices",
+	"meetings.getOwnRsvp",
+	"meetings.listAttendance",
+	"meetings.getEvaluation",
+	"venues.list",
+	"venues.get",
+	"venues.history",
+];
+const MEETINGS_READS = [
+	"meetings.list",
+	"meetings.get",
+	"meetings.hasHistory",
+	"meetings.readAgenda",
+	"meetings.listKit",
+	"meetings.listGuests",
+	"meetings.listCards",
+	"meetings.cardBreakdown",
+	"meetings.invitationAttribution",
+	"meetings.communicationContext",
+	"meetings.listCompletedPreLaunchPractices",
+	"meetings.getOwnRsvp",
+	"meetings.listAttendance",
+	"meetings.attendanceSummary",
+	"meetings.getEvaluation",
+	"meetings.evaluationHistory",
+	"meetings.evaluationTrend",
+	"meetings.compareEvaluation",
+	"meetings.attendanceTrend",
+	"meetings.summaryStats",
+	"meetings.linkedTaskProgress",
+	"meetings.readAnalytics",
+	"meetings.previewRosterImport",
+	"venues.list",
+	"venues.get",
+	"venues.history",
+];
+const MEMBER_MEETINGS_WRITES = [
+	"meetings.schedule",
+	"meetings.saveOwnRsvp",
+	"meetings.setAttendance",
+	"meetings.checkIn",
+	"meetings.clearAttendance",
+	"meetings.captureAttendanceBatch",
+	"meetings.finalizeAttendance",
+	"meetings.reconcileAttendance",
+];
+const MEETINGS_WRITES = Object.keys(MEETINGS_COMMANDS);
 
 test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral requests get the fixed boundary before any tool; capabilities follow the current catalog", async () => {
 	const owner = await actor("owner");
@@ -155,7 +215,8 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 	assert.equal(await work(), "succeeded");
 	assert.match((await events(seatless, none)).text, /no application reads available/);
 	// No catalog offers direct writes, approvals, code, private care or coach tools to any context. Only a plant Owner or
-	// Admin may propose the reviewed People changes, the same floor as the native commands.
+	// Admin may propose the reviewed People changes, the same floor as the native commands; a Member may propose only
+	// the Meetings changes the native commands let a Member make.
 	for (const who of ["owner", "member", "orgOwner", "seatless"] as const) {
 		const catalog = readCatalog(await actor(who));
 		const operations = catalog.domains.flatMap((d) => d.operations.map((o) => o.operation));
@@ -174,8 +235,11 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 						"communication.rescheduleReviewed",
 						"communication.cancelScheduledReviewed",
 						"communication.replaceScheduledReviewed",
+						...MEETINGS_WRITES,
 					]
-				: [],
+				: who === "member"
+					? MEMBER_MEETINGS_WRITES
+					: [],
 		);
 		const peopleReads = ["people.listPeople", "people.getPerson", "people.getPersonPhoto", "people.checkForDuplicates"];
 		// Only an Owner or Admin reviews the pairs an import flagged, as on /people/duplicates.
@@ -210,9 +274,10 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 						"people.listTags",
 						"people.previewImport",
 						"communication.list",
+						...MEETINGS_READS,
 					]
 				: who === "member"
-					? [...peopleReads, ...organizationReads, "communication.list"]
+					? [...peopleReads, ...organizationReads, "communication.list", ...MEMBER_MEETINGS_READS]
 					: [],
 		);
 	}
@@ -376,7 +441,14 @@ test("AC:INH-EDGES-03 AC:TEN-008 AC:EVRY-CONTEXT-BOUNDS a guessed foreign id and
 	assert.ok(seen.includes("Alex Rivera"), "an authorized page reference is verified");
 	assert.deepEqual(
 		[...new Set(calls.flatMap((c) => c.tools?.map((t) => t.name) ?? []))].sort(),
-		["communication_read", "peopleOrganization_read", "people_read", "propose_change", "select_returned_rows"],
+		[
+			"communication_read",
+			"meetings_read",
+			"peopleOrganization_read",
+			"people_read",
+			"propose_change",
+			"select_returned_rows",
+		],
 		"prompt text cannot add tools or scope; the owner's catalog decides them",
 	);
 });
