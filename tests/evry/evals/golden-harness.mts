@@ -428,8 +428,8 @@ export async function converse(
 			card.prepared = true;
 			card.review = proposal.review;
 			// The card's id and expiry come from the database. The model reads pinned ones, so a replay sends the
-			// recorded call; everything else on the card is the real review. A contact logged "now" carries the database
-			// clock's minute, so the model reads NOW's instead.
+			// recorded call; everything else on the card is the real review. A contact time taken from the database clock
+			// carries its minute, so the model reads NOW's instead.
 			return proposalForModel({
 				...proposal,
 				review: pinnedContactTime(proposal.review, call.input),
@@ -460,9 +460,14 @@ export async function converse(
 	return { kind: "application", calls, proposals, answer, keys, ...(failed ? { failed } : {}) };
 }
 
-/** A "now" contact log's time as NOW in the review's zone ("2026-11-09 09:00 America/Chicago"); other reviews as they are. */
+/**
+ * A contact log's time taken from the database clock, as NOW in the review's zone ("2026-11-09 09:00 America/Chicago");
+ * other reviews as they are. The review uses the clock for "now" and for any later time it is given (a date today is
+ * noon, so it is one), and the eval clock keeps running from NOW, so its minute depends on when the case runs. A time
+ * at or after NOW's minute can only be the clock's.
+ */
 function pinnedContactTime<R extends { changes: { field: string; after: unknown }[] }>(review: R, input: unknown): R {
-	if ((input as { occurred?: unknown } | null)?.occurred !== "now") return review;
+	if ((input as { occurred?: unknown } | null)?.occurred === undefined) return review;
 	const changes = review.changes.map((c) => {
 		const zone = c.field === "occurredAt" && typeof c.after === "string" ? c.after.split(" ").at(-1) : undefined;
 		if (!zone?.includes("/")) return c;
@@ -478,7 +483,8 @@ function pinnedContactTime<R extends { changes: { field: string; after: unknown 
 			})
 				.formatToParts(NOW)
 				.find((p) => p.type === type)!.value;
-		return { ...c, after: `${part("year")}-${part("month")}-${part("day")} ${part("hour")}:${part("minute")} ${zone}` };
+		const now = `${part("year")}-${part("month")}-${part("day")} ${part("hour")}:${part("minute")} ${zone}`;
+		return String(c.after) >= now ? { ...c, after: now } : c;
 	});
 	return { ...review, changes };
 }

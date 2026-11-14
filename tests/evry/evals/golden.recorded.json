@@ -1,11 +1,11 @@
 {
 	"model": "gpt-6-luna",
-	"recordedAt": "2026-11-14T05:19:36.910Z",
+	"recordedAt": "2026-11-14T05:51:48.694Z",
 	"spend": {
-		"newCalls": 2,
-		"newMicroUsd": 3131,
-		"allCalls": 1188,
-		"allMicroUsd": 2090132
+		"newCalls": 1,
+		"newMicroUsd": 124,
+		"allCalls": 1190,
+		"allMicroUsd": 2093248
 	},
 	"calls": {
 		"001cdb7a40663ba5": {
@@ -18485,6 +18485,25 @@
 			"usage": {
 				"input": 29095,
 				"output": 39
+			}
+		},
+		"425c8d8acd2a174b": {
+			"kind": "generate",
+			"content": [
+				{
+					"type": "text",
+					"text": "{\"tone\":{\"grade\":\"strong\",\"reason\":\"The reply is brief, clear, and matter-of-fact without sounding cold or overconfident.\"},\"usefulness\":{\"grade\":\"strong\",\"reason\":\"It explains what will be recorded, clarifies that nothing has been saved yet, and points to approval in the app as the next step.\"}}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0ab1ba69d6df4bfa006af7f6f3884487d1bac8aa64fe608be1",
+							"phase": "final_answer"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 295,
+				"output": 188
 			}
 		},
 		"42cbfc0c4f6e5dee": {
@@ -41996,92 +42015,6 @@
 			"usage": {
 				"input": 28575,
 				"output": 122
-			}
-		},
-		"8c1ed457f601ecf3": {
-			"kind": "stream",
-			"parts": [
-				{
-					"type": "stream-start",
-					"warnings": []
-				},
-				{
-					"type": "response-metadata",
-					"id": "resp_07025753e4114c60006af7e7ace1c887d1bac31163f9933173",
-					"timestamp": "2026-11-14T04:46:37.000Z",
-					"modelId": "gpt-6-luna"
-				},
-				{
-					"type": "text-start",
-					"id": "msg_07025753e4114c60006af7e7adeed487d18156a69a66291429",
-					"providerMetadata": {
-						"openai": {
-							"itemId": "msg_07025753e4114c60006af7e7adeed487d18156a69a66291429",
-							"phase": "final_answer"
-						}
-					}
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_07025753e4114c60006af7e7adeed487d18156a69a66291429",
-					"delta": "I prepared a review to record a **phone attempt with no conversation** for Carl Johnson, dated this morning (Nov 9). It’s awaiting your approval in the app; nothing has been recorded yet."
-				},
-				{
-					"type": "text-end",
-					"id": "msg_07025753e4114c60006af7e7adeed487d18156a69a66291429",
-					"providerMetadata": {
-						"openai": {
-							"itemId": "msg_07025753e4114c60006af7e7adeed487d18156a69a66291429",
-							"phase": "final_answer"
-						}
-					}
-				},
-				{
-					"type": "finish",
-					"finishReason": {
-						"unified": "stop"
-					},
-					"usage": {
-						"inputTokens": {
-							"total": 29689,
-							"noCache": 3,
-							"cacheRead": 29380,
-							"cacheWrite": 306
-						},
-						"outputTokens": {
-							"total": 45,
-							"text": 45,
-							"reasoning": 0
-						},
-						"raw": {
-							"input_tokens": 29689,
-							"input_tokens_details": {
-								"cache_write_tokens": 306,
-								"cache_write_tokens_details": {
-									"ttl_12h_tokens": 0,
-									"ttl_30m_tokens": 306
-								},
-								"cached_tokens": 29380
-							},
-							"output_tokens": 45,
-							"output_tokens_details": {
-								"reasoning_tokens": 0
-							},
-							"total_tokens": 29734
-						}
-					},
-					"providerMetadata": {
-						"openai": {
-							"responseId": "resp_07025753e4114c60006af7e7ace1c887d1bac31163f9933173",
-							"serviceTier": "default",
-							"reasoningContext": "all_turns"
-						}
-					}
-				}
-			],
-			"usage": {
-				"input": 29689,
-				"output": 45
 			}
 		},
 		"8c68dbaada11ea32": {
