@@ -592,11 +592,11 @@ const labels = (r: SourceResult, kind = "person") => r.rows.filter((x) => x.kind
 
 test("INV-evry-golden: the seeded church holds the records the factual cases check, read back through the real reads", async () => {
 	const everyone = await read("people.listPeople", { limit: 100 });
-	assert.equal(everyone.total, 83);
+	assert.equal(everyone.total, 84);
 	const stages = ["leader", "launch_team", "core_group", "interviewed", "following_up", "attendee", "prospect"];
 	const totals = [];
 	for (const stage of stages) totals.push((await read("people.listPeople", { stages: [stage], limit: 100 })).total);
-	assert.deepEqual(totals, [3, 2, 5, 2, 4, 10, 57]);
+	assert.deepEqual(totals, [3, 2, 5, 2, 4, 11, 57]);
 	const prospects = await read("people.listPeople", { stages: ["prospect"], limit: 100 });
 	assert.equal(prospects.rows.filter((r) => r.fields.city === "Austin").length, 13);
 	assert.equal((await read("people.listHouseholds", { limit: 100 })).total, 8);
@@ -694,8 +694,13 @@ test("INV-evry-golden SAF-02 SAF-11 SAF-12 SAF-14: the model's tools can read an
 		"propose_change",
 	]);
 	assert.deepEqual(tools("admin"), tools("owner"));
-	// A Member reads and selects but proposes nothing; an organization seat gets no plant People read at all.
-	assert.deepEqual(tools("member"), [...Object.keys(READ_DOMAINS).map((d) => `${d}_read`), "select_returned_rows"]);
+	// A Member reads, selects and proposes changes to only their own notifications; an organization seat gets no plant
+	// read at all.
+	assert.deepEqual(tools("member"), tools("owner"));
+	assert.deepEqual(
+		readCatalog(church.actors.member).reviewedWrites.map((w) => w.operation),
+		["notifications.markSelectedRead", "notifications.markAllVisibleRead", "notifications.setPreferences"],
+	);
 	assert.deepEqual(tools("org"), []);
 });
 

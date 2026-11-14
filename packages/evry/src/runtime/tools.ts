@@ -86,9 +86,18 @@ export function resultForModel(resultId: number, result: SourceResult): ModelRep
 	return JSON.parse(scrub(JSON.stringify({ ...value, rows, truncatedRows: result.rows.length - rows.length })));
 }
 
-/** What the model reads back for a prepared review: the card's id, its expiry and the reviewed fields on their row. */
+/**
+ * What the model reads back for a prepared review: the card's id, its expiry, the reviewed fields on their row and each
+ * other person the change reaches with what changes for them.
+ */
 export function proposalForModel(proposal: Pick<Proposal, "id" | "expiresAt" | "review">): ModelReply {
 	const target = proposal.review.target;
+	const people = (proposal.review.people ?? []).map((p) => ({
+		kind: "person",
+		id: p.id,
+		label: p.label,
+		fields: { changes: p.changes, ...(p.unchanged && { unchanged: p.unchanged }) },
+	}));
 	return JSON.parse(
 		scrub(
 			JSON.stringify({
@@ -97,9 +106,22 @@ export function proposalForModel(proposal: Pick<Proposal, "id" | "expiresAt" | "
 				expiresAt: proposal.expiresAt,
 				// The reviewed fields live in their source row, so a later model call withholds them with the row once the
 				// target is no longer available (withLiveRows in turn.ts).
+				// A note's stored text stays out of what the model reads, as in every read (the card shows it).
 				rows: target
-					? [{ kind: target.kind, id: target.id, label: target.label, fields: { changes: proposal.review.changes } }]
-					: [],
+					? [
+							{
+								kind: target.kind,
+								id: target.id,
+								label: target.label,
+								fields: {
+									changes: proposal.review.changes.map((c) =>
+										c.field === "note" ? { ...c, before: c.before === null ? null : "(the current note)" } : c,
+									),
+								},
+							},
+							...people,
+						]
+					: people,
 			}),
 		),
 	) as ModelReply;
