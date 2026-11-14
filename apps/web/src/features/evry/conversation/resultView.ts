@@ -44,12 +44,11 @@ const rows = (title: string, rest: Partial<OpView> = {}): OpView => ({
 	...rest,
 });
 
-const wiki = (title: string, rest: Partial<OpView> = {}): OpView => ({
+const wiki = (title: string, rest: Partial<OpView> & Pick<OpView, "empty">): OpView => ({
 	title,
 	noun: ["article", "articles"],
 	icon: "article",
 	counts: "article",
-	empty: "Nothing in your Wiki matches.",
 	...rest,
 });
 

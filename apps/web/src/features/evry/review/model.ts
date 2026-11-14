@@ -502,10 +502,8 @@ export function refusalText(code: string | undefined, target: string | null): st
 export function wikiRefusalText(code: string | undefined): string {
 	switch (code) {
 		case "revision_conflict":
-		case "conflict":
 			return "Your bookmark changed on the Wiki after Evry prepared this, so nothing was saved. Ask Evry to prepare it again.";
 		case "access_denied":
-		case "unavailable":
 			return "You can no longer read this article here, so nothing was saved.";
 		default:
 			return "The Wiki refused this change, so nothing was saved.";
