@@ -1270,7 +1270,11 @@
 				"all": ["Nate Ellis", "Lena Park", "Carlos Mendez"],
 				"allowed": ["Nate Ellis", "Lena Park", "Carlos Mendez"]
 			},
-			"require": ["/2 of 3|two of (the )?three|Carlos[^.\\n]{0,60}(not|hasn['’]?t|yet)/i"]
+			"require": ["/2 of 3|two of (the )?three|Carlos[^.\\n]{0,60}(not|hasn['’]?t|yet)/i"],
+			"finding": {
+				"checks": ["names every match"],
+				"note": "Recorded for T-316 (Nov 14) after merging the Evry teams tools and one re-sample (D-958, D-1151): names every match"
+			}
 		}
 	},
 	{

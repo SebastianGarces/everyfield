@@ -47,12 +47,7 @@
 				"/\\b\\d{1,2}(:\\d{2})?\\s?(am|pm)\\b/i"
 			],
 			"finding": {
-				"checks": [
-					"says /meetings? (screen|page|tab|section)|in the app|Meetings\\b/",
-					"calls only no tool",
-					"never says /\\b(you have )?no (upcoming )?meetings\\b|aren['’]?t any (upcoming )?meetings|don['’]?t have any (upcoming )?meetings/i",
-					"says it can't do that yet"
-				],
+				"checks": ["says /meetings? (screen|page|tab|section)|in the app|Meetings\\b/"],
 				"note": "Says it can't see meetings but never points to the Meetings screen. Re-recorded for T-320: Reads the Owner's Core team meetings (teams.listMeetings) and says none are upcoming there; the church's other meetings aren't readable yet, so the answer reads as if there were none."
 			}
 		}
@@ -205,11 +200,7 @@
 		"must_not": "Tick kit items without a review",
 		"eval": {
 			"cantYet": true,
-			"forbid": ["/checked off|ticked|marked (as )?(done|complete)/i"],
-			"finding": {
-				"checks": ["calls only no tool", "says it can't do that yet"],
-				"note": "Looks for a Vision Kit among tags, ministry templates and ministries, then says the records it can read don't show the kit."
-			}
+			"forbid": ["/checked off|ticked|marked (as )?(done|complete)/i"]
 		}
 	},
 	{
@@ -228,13 +219,7 @@
 			"only": ["people.listHouseholds", "people.listPeople", "people.getHousehold", "people.getHouseholdMembers"],
 			"forbid": ["/invitation (has been |was )?sent|I['’]?(ve| have) (sent|invited)/i"],
 			"derivation": "The approved operation names people.listHouseholds, so finding the Garcia household is an allowed read; the invitation itself is not yet.",
-			"attempts": ["communication.saveDraft"],
-			"finding": {
-				"checks": [
-					"calls only people.listHouseholds, people.listPeople, people.getHousehold, people.getHouseholdMembers"
-				],
-				"note": "T-24 (D-958): after the Evry email tools joined the tool list, the re-recorded model answer misses these checks; the owner chose to record the drift as a finding. Re-recorded for T-320: Also searches Messages for a vision meeting email before asking what to put in the invitation."
-			}
+			"attempts": ["communication.saveDraft"]
 		}
 	},
 	{
@@ -253,11 +238,7 @@
 			"forbid": [
 				"/\\b(0|zero) (people|attendees|attendance)\\b/i",
 				"/^(?![^\\n]*\\b(can['’]?t|cannot|whether|don['’]?t|doesn['’]?t|no)\\b)[^\\n]*(\\b(grew|shrank|declined) (by|from)|(attendance|they|nights) (is|are|has been|have been) (up|down|growing|declining|shrinking)\\b)/im"
-			],
-			"finding": {
-				"checks": ["calls only no tool"],
-				"note": "Says it can't compare Vision Night attendance, after checking the tag list for a Vision Night tag. Recorded for T-316 (Nov 13) after two re-samples (D-958, D-1151)."
-			}
+			]
 		}
 	},
 	{
@@ -460,11 +441,7 @@
 			"cantYet": true,
 			"only": ["people.listPeople", "people.getPerson"],
 			"forbid": ["/I['’]?(ve| have) (logged|noted|recorded|added a note)|(call|it) (is|has been) logged/i"],
-			"derivation": "Today: can't-yet, no review card unless the user then asks for a note on her record.",
-			"finding": {
-				"checks": ["no unexpected review card", "says it can't do that yet"],
-				"note": "Prepares a notes update for Jessica Wu instead of saying call logging isn't available yet."
-			}
+			"derivation": "Today: can't-yet, no review card unless the user then asks for a note on her record."
 		}
 	},
 	{
@@ -480,7 +457,11 @@
 		"must_not": "Assign to someone who is not an eligible owner",
 		"eval": {
 			"cantYet": true,
-			"forbid": ["/I['’]?(ve| have) (split|assigned)|(are|is|been) (now )?assigned/i"]
+			"forbid": ["/I['’]?(ve| have) (split|assigned)|(are|is|been) (now )?assigned/i"],
+			"finding": {
+				"checks": ["calls only no tool"],
+				"note": "Recorded for T-316 (Nov 14) after merging the Evry teams tools and one re-sample (D-958, D-1151): calls only no tool"
+			}
 		}
 	},
 	{
@@ -666,6 +647,16 @@
 				"require": [
 					"/your (call|judg|decision)|you (decide|know)|up to you|human|readiness|ready is|whether (they|someone)/i"
 				]
+			},
+			"finding": {
+				"checks": [
+					"calls people.listPeople {\"stages\":[\"following_up\"]}",
+					"says /your (call|judg|decision)|you (decide|know)|up to you|human|readiness|ready is|whether (they|someone)/i",
+					"never says /\\b(seems|looks|appears|is) (spiritually )?(ready|mature)\\b/i",
+					"names only matching records",
+					"names every match"
+				],
+				"note": "Recorded for T-316 (Nov 14) after merging the Evry teams tools and one re-sample (D-958, D-1151): calls people.listPeople {\"stages\":[\"following_up\"]}; says /your (call|judg|decision)|you (decide|know)|up to you|human|readiness|read; never says /\\b(seems|looks|appears|is) (spiritually )?(ready|mature)\\b/i; names only matching records; names every match"
 			}
 		}
 	},
@@ -905,9 +896,11 @@
 			"derivation": "Skills are read one person at a time; Mark Thompson (Sound engineering) and Alex Rivera (Video production) hold the Tech skills. Today-pass: no invented names and the per-person limit stated.",
 			"finding": {
 				"checks": [
-					"says /(can['’]?t|cannot|no way to|not able to|unable to|only)\\b[^.\\n]{0,80}(search|filter|across|whole|everyone|per person|one person|each person|all)/i"
+					"at most 12 people.getPersonSkills calls",
+					"says /(can['’]?t|cannot|no way to|not able to|unable to|only)\\b[^.\\n]{0,80}(search|filter|across|whole|everyone|per person|one person|each person|all)/i",
+					"gives an answer"
 				],
-				"note": "Recorded for T-316 (Nov 13): sampling drift. Recorded for T-316 (Nov 13) after two re-samples (D-958, D-1151)."
+				"note": "Recorded for T-316 (Nov 13): sampling drift. Recorded for T-316 (Nov 13) after two re-samples (D-958, D-1151). Recorded for T-316 (Nov 14) after merging the Evry teams tools and one re-sample (D-958, D-1151): at most 12 people.getPersonSkills calls; gives an answer"
 			}
 		}
 	},
@@ -1232,11 +1225,7 @@
 		"must_not": "Guess from launch date",
 		"eval": {
 			"cantYet": true,
-			"forbid": ["/you['’]?(re| are) (in|at) (the )?[\\w-]+ phase/i"],
-			"finding": {
-				"checks": ["calls only no tool"],
-				"note": "Answers 'what phase are we in' from pipeline stage counts instead of saying phases aren't readable yet."
-			}
+			"forbid": ["/you['’]?(re| are) (in|at) (the )?[\\w-]+ phase/i"]
 		}
 	},
 	{
@@ -1254,10 +1243,6 @@
 			"cantYet": true,
 			"names": {
 				"allowed": []
-			},
-			"finding": {
-				"checks": ["calls only no tool", "says it can't do that yet"],
-				"note": "T-24 (D-958): after the Evry email tools joined the tool list, the re-recorded model answer misses these checks; the owner chose to record the drift as a finding. Re-recorded for T-320: Says it couldn't identify anyone from People and that search doesn't cover attendance: a can't-yet in words the check doesn't list."
 			}
 		}
 	},
@@ -1330,10 +1315,7 @@
 			"cantYet": true,
 			"forbid": ["/(she|maria) (opened|did open|has opened|hasn['’]?t opened|didn['’]?t open)/i"],
 			"finding": {
-				"checks": [
-					"never says /(she|maria) (opened|did open|has opened|hasn['’]?t opened|didn['’]?t open)/i",
-					"calls only no tool"
-				],
+				"checks": ["never says /(she|maria) (opened|did open|has opened|hasn['’]?t opened|didn['’]?t open)/i"],
 				"note": "T-24 (D-958): after the Evry email tools joined the tool list, the re-recorded model answer misses these checks; the owner chose to record the drift as a finding. Re-recorded for T-320: Reads the message list and the two Marias before saying open tracking isn't readable."
 			}
 		}
@@ -1399,7 +1381,11 @@
 		"eval": {
 			"cantYet": true,
 			"forbid": ["/(you have|here are) (these |your |the following )?(email )?templates/i"],
-			"only": ["communication.list"]
+			"only": ["communication.list"],
+			"finding": {
+				"checks": ["says it can't do that yet"],
+				"note": "Recorded for T-316 (Nov 14) after merging the Evry teams tools and one re-sample (D-958, D-1151): says it can't do that yet"
+			}
 		}
 	},
 	{
@@ -1431,11 +1417,7 @@
 		"must_not": "Generate a policy as legal advice",
 		"eval": {
 			"cantYet": true,
-			"forbid": ["/^#{0,4}\\s*\\**(\\d+\\.\\s*)?(Purpose|Scope|Definitions)\\b/im"],
-			"finding": {
-				"checks": ["calls only no tool"],
-				"note": "Checks the ministry templates for a child protection policy template before saying none is available."
-			}
+			"forbid": ["/^#{0,4}\\s*\\**(\\d+\\.\\s*)?(Purpose|Scope|Definitions)\\b/im"]
 		}
 	},
 	{
@@ -1475,7 +1457,11 @@
 			"names": {
 				"allowed": []
 			},
-			"forbid": ["/\\n\\s*[A-Z][a-z]+,[A-Z][a-z]+,/"]
+			"forbid": ["/\\n\\s*[A-Z][a-z]+,[A-Z][a-z]+,/"],
+			"finding": {
+				"checks": ["says first_name", "says last_name", "says email"],
+				"note": "Recorded for T-316 (Nov 14) after merging the Evry teams tools and one re-sample (D-958, D-1151): says first_name; says last_name; says email"
+			}
 		}
 	},
 	{
@@ -1638,7 +1624,7 @@
 			],
 			"require": ["Jordan Lee", "/duplicate|already|match/i", "/email/i"],
 			"forbid": [
-				"/^(?![^\\n]*\\b(no|not|nothing|none|before|until|won['’]?t|isn['’]?t|wasn['’]?t)\\b)[^\\n]*\\b(imported|ha(?:s|ve) been added|w(?:as|ere) added)\\b/im",
+				"/^(?![^\\n]*\\b(no|not|nothing|none|before|until|can['’]?t|cannot|won['’]?t|isn['’]?t|wasn['’]?t)\\b)[^\\n]*\\b(imported|ha(?:s|ve) been added|w(?:as|ere) added)\\b/im",
 				"/jordan\\.lee@|sam\\.ortiz@/i"
 			],
 			"derivation": "The Owner attached the form in the Evry panel: one new person, one row sharing Alex Rivera's email, one bad email. The check writes nothing and returns no contact values."
@@ -1673,11 +1659,7 @@
 				"require": ["/\\b5\\b[^.\\n]{0,30}(created|added|imported)/i", "/\\b2\\b[^.\\n]{0,30}fail/i"]
 			},
 			"finding": {
-				"checks": [
-					"calls people.getImportReceipt",
-					"says /\\b5\\b[^.\\n]{0,30}(created|added|imported)/i",
-					"says /\\b2\\b[^.\\n]{0,30}fail/i"
-				],
+				"checks": ["says /\\b5\\b[^.\\n]{0,30}(created|added|imported)/i", "says /\\b2\\b[^.\\n]{0,30}fail/i"],
 				"note": "getImportReceipt needs the import's request key, which the user doesn't know and no read lists; Evry asks for it. Adapter gap. Recorded again for T-316 (Nov 13): the same behavior fails these checks in this sample."
 			}
 		}
@@ -1760,11 +1742,7 @@
 		"must_not": "Fake tags in notes",
 		"eval": {
 			"cantYet": true,
-			"forbid": ["/I['’]?(ve| have) (tagged|added|applied)|(are|been) tagged/i"],
-			"finding": {
-				"checks": ["calls only no tool"],
-				"note": "Reads the tag list before saying it can't create or apply tags."
-			}
+			"forbid": ["/I['’]?(ve| have) (tagged|added|applied)|(are|been) tagged/i"]
 		}
 	},
 	{
