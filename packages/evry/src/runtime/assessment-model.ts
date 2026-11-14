@@ -1,11 +1,11 @@
-import type { LanguageModelV4 } from "@ai-sdk/provider";
+import type { LanguageModelV4, LanguageModelV4CallOptions } from "@ai-sdk/provider";
 import * as c from "@everyfield/contracts/intelligence";
 import type { Database } from "@everyfield/db/client";
 import { ModelUnavailable, ProviderBusy, type Drafter } from "@everyfield/domain/intelligence";
 import { APICallError } from "ai";
 import { EvryRefusal } from "../context/errors.ts";
 import { paidModel, type Spend } from "./model.ts";
-import { meteredModel } from "./spend.ts";
+import { inputTokenBound, meteredModel } from "./spend.ts";
 
 // The paid assessment drafter (WP-042) and the paid graded language judge (PI-036), on the approved paid model (D92:
 // gpt-6-luna under D77's monthly counter and cap). Every call reserves its worst case in model_spend before the provider
@@ -34,7 +34,10 @@ Grade three scales from 1 (poor) to 5 (excellent):
 - plain: short, clear sentences in everyday words, no jargon.
 - warm: speaks kindly and directly to the planter.
 - useful: each concern offers a concrete, gentle next step.
-List every hype phrase (exaggerated praise or excitement, exclamation marks) and every pressure phrase (urgency, guilt, commands, "you must", "falling behind") as a failure, quoting the exact words from the draft.
+List every hype phrase and every pressure phrase as a failure, quoting the exact words from the draft:
+- hype: exaggerated praise or excitement ("amazing", "incredible", "crushing it") and exclamation marks.
+- pressure: urgency, guilt, obligation or threat ("you must", "immediately", "urgent", "falling behind", "you are failing", a deadline used as a threat).
+A gentle suggested next step is not pressure, even when it is phrased as an imperative ("Review the remaining roles", "Fill the open responsibilities"). A plain statement of fact is not hype. List nothing that is not hype or pressure; an empty list is the right answer for a calm draft.
 Reply with exactly: {"plain": int, "warm": int, "useful": int, "failures": [{"rule": "hype"|"pressure", "quote": string}]}`;
 
 /** The judge's verdict on one draft: a grade in the languageGrade contract, or a judge failure, never a silent pass. */
@@ -58,7 +61,7 @@ async function dispatch(
 	signal: AbortSignal,
 ) {
 	try {
-		const r = await model.doGenerate({
+		const params: LanguageModelV4CallOptions = {
 			prompt: [
 				{ role: "system", content: system },
 				{ role: "user", content: [{ type: "text", text: JSON.stringify(payload) }] },
@@ -66,8 +69,10 @@ async function dispatch(
 			maxOutputTokens,
 			responseFormat: { type: "json" },
 			abortSignal: signal,
-		});
-		return { text: r.content.flatMap((p) => (p.type === "text" ? [p.text] : [])).join(""), usage: r.usage };
+		};
+		const r = await model.doGenerate(params);
+		const text = r.content.flatMap((p) => (p.type === "text" ? [p.text] : [])).join("");
+		return { text, usage: r.usage, inputBound: inputTokenBound(params) };
 	} catch (error) {
 		if (error instanceof EvryRefusal && error.code === "model_unavailable") throw new ModelUnavailable();
 		if (APICallError.isInstance(error) && error.statusCode !== undefined) {
@@ -92,12 +97,11 @@ export function assessmentDrafter(model: LanguageModelV4, id: string): Drafter {
 		id,
 		async draft(call, signal) {
 			const payload = { input: call.input, feedback: call.feedback };
-			const { text, usage } = await dispatch(model, DRAFT_SYSTEM, payload, call.maxOutputTokens, signal);
-			const bound = Buffer.byteLength(DRAFT_SYSTEM + JSON.stringify(payload)) + 512;
+			const { text, usage, inputBound } = await dispatch(model, DRAFT_SYSTEM, payload, call.maxOutputTokens, signal);
 			return {
 				output: parsed(text),
 				usage: {
-					inputTokens: usage.inputTokens.total ?? bound,
+					inputTokens: usage.inputTokens.total ?? inputBound,
 					outputTokens: usage.outputTokens.total ?? call.maxOutputTokens,
 				},
 			};
