@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { accountId, personId, recordId, revision } from "../common/values.ts";
-import { instant, localDate } from "../common/time.ts";
+import { localDate } from "../common/time.ts";
 import { normalizedEmail } from "../identity/requests.ts";
 
 // The organization pipeline (REQ-MUL-001, -002, -008, -009): the people a sending church or network develops toward
@@ -250,7 +250,6 @@ export const residencyLinkStatus = z.discriminatedUnion("status", [
 		recipientEmail: z.string(),
 		/** The day it was last sent, in the organization's time zone. */
 		sentOn: localDate,
-		resendAvailableAt: instant,
 	}),
 ]);
 

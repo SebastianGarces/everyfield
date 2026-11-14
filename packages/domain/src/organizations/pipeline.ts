@@ -144,7 +144,6 @@ const recordRow = z.object({
 			revision: z.string().optional(),
 			recipientEmail: z.string().optional(),
 			sentOn: z.string().optional(),
-			sentAt: z.coerce.date().optional(),
 		})
 		.nullable(),
 	person: z
@@ -220,7 +219,7 @@ SELECT g.allowed,(SELECT today::text FROM o) AS as_of,(SELECT revision::text FRO
     AND ${liveResidency}) THEN jsonb_build_object('status','linked')
    WHEN ${seat.administrator} AND i.id IS NOT NULL THEN jsonb_build_object('status','pending','invitationId',i.id,
     'revision',i.revision::text,'recipientEmail',i.recipient_email,
-    'sentOn',(coalesce(i.resent_at,i.created_at) AT TIME ZONE o.timezone)::date::text,'sentAt',coalesce(i.resent_at,i.created_at))
+    'sentOn',(coalesce(i.resent_at,i.created_at) AT TIME ZONE o.timezone)::date::text)
    ELSE jsonb_build_object('status','not_linked') END
   FROM x CROSS JOIN o LEFT JOIN LATERAL (SELECT * FROM invitation i WHERE i.tenant_id=${org}::uuid
    AND i.purpose='residency_link' AND i.resident_person_id=x.person_id AND i.state='pending'
@@ -321,8 +320,6 @@ FROM g`);
 							revision: row.residency.revision,
 							recipientEmail: row.residency.recipientEmail,
 							sentOn: row.residency.sentOn,
-							// The invitation service allows a resend one minute after the last send.
-							resendAvailableAt: new Date(row.residency.sentAt!.getTime() + 60000).toISOString(),
 						}
 					: { status: row.residency?.status ?? "not_linked" },
 			organizationRevision: row.organization_revision,

@@ -552,7 +552,9 @@ m AS (SELECT m.id,m.hands_on FROM development_milestone m JOIN x ON m.version_id
 /**
  * The director records that an unlinked enrollee finished a milestone on a day no later than today, and confirms it
  * in the same step: recorder and confirmer are the director, the source is the program leader (REQ-MUL-012). It is
- * refused while the person has a current resident link. Nothing else changes: no stage, no commissioning, no plant.
+ * refused while the person has a current resident link. A milestone the person marked while linked is hidden once the
+ * link ends, so the director's record replaces it; one the director recorded stays as recorded. Nothing else changes:
+ * no stage, no commissioning, no plant.
  */
 function recordMilestone(db: Database, authority: RequestActor, raw: unknown) {
 	return write<{ outcome: "changed" | "noop" }, C.ProgramRefusal>(db, authority, false, async (w) => {
@@ -570,14 +572,16 @@ function recordMilestone(db: Database, authority: RequestActor, raw: unknown) {
 			}),
 			sql`WITH ${directedEnrollment(w, input.enrollmentId, input.milestoneId)},
 linked AS (SELECT FROM residency_link l JOIN x ON l.person_id=x.person_id WHERE l.organization_id=${org}::uuid
- AND l.ended_at IS NULL),
+ AND ${liveResidency}),
 d AS (SELECT ${input.completedOn}::date<=(clock_timestamp() AT TIME ZONE o.timezone)::date AS past FROM organization o
  WHERE o.id=${org}::uuid),
 c AS (INSERT INTO enrollment_milestone (id,organization_id,enrollment_id,version_id,milestone_id,source,completed_on,
  recorder_id,confirmer_id,confirmed_at)
  SELECT ${randomUUID()}::uuid,${org}::uuid,x.id,x.version_id,m.id,'program_leader',${input.completedOn}::date,${w.actor}::uuid,
   ${w.actor}::uuid,clock_timestamp() FROM x,m,d WHERE d.past AND NOT EXISTS(SELECT FROM linked)
- ON CONFLICT (enrollment_id,milestone_id) DO NOTHING RETURNING id),
+ ON CONFLICT (enrollment_id,milestone_id) DO UPDATE SET source='program_leader',completed_on=EXCLUDED.completed_on,
+  recorder_id=EXCLUDED.recorder_id,confirmer_id=EXCLUDED.confirmer_id,confirmed_at=EXCLUDED.confirmed_at
+  WHERE enrollment_milestone.source='resident' RETURNING id),
 a AS (${w.audit({ action: "development.milestone_recorded", kind: "complete", subjectType: "development_enrollment", subject: sql`x.id`, metadata: { milestoneId: input.milestoneId, source: "program_leader" } })}
  FROM x,c RETURNING id)
 SELECT EXISTS(SELECT FROM x) AS found,EXISTS(SELECT FROM m) AS milestone,coalesce((SELECT past FROM d),false) AS past,

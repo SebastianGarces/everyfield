@@ -596,6 +596,26 @@ test("Casey leaves: My residency is gone at once and Grace Austin sees her as no
 	assert.deepEqual(shown.resident, { status: "not_linked" });
 	assert.equal(shown.status, "active");
 	assert.equal((await accountState()).seats, 0);
+	// Casey's own marks are hidden once she leaves, so Ana can record them in one step again; her own record stays.
+	const vision = milestoneOf(shown.milestones, "Present your vision to the sending church leadership");
+	assert.equal(vision.completion, null);
+	const recordAs = (milestoneId: string) =>
+		authority(ana).then((a) =>
+			programWriter.recordMilestone(f.db, a, { enrollmentId: caseyEnrollment, milestoneId, completedOn: "2026-10-16" }),
+		);
+	assert.deepEqual(ok(await recordAs(vision.id)), { outcome: "changed" });
+	assert.deepEqual(ok(await recordAs(vision.id)), { outcome: "noop" });
+	const recorded = await enrollment(ana);
+	assert.deepEqual(milestoneOf(recorded.milestones, vision.title).completion, {
+		completedOn: "2026-10-16",
+		confirmedOn: recorded.today,
+		recorder: "Ana",
+		confirmer: "Ana",
+		source: "program_leader",
+	});
+	const preach = milestoneOf(recorded.milestones, "Preach on a Sunday");
+	assert.deepEqual(ok(await recordAs(preach.id)), { outcome: "noop" });
+	assert.equal(milestoneOf((await enrollment(ana)).milestones, preach.title).completion?.completedOn, "2026-10-12");
 	// Without a live link, nothing of the residency opens and no mark is taken.
 	const reading = (await f.admin.execute(sql`SELECT id FROM development_reading LIMIT 1`)).rows[0]!.id as string;
 	assert.deepEqual(ok(await readResidentReading(f.db, await authority(casey), { readingId: reading })), {
