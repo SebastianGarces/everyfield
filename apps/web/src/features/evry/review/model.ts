@@ -65,7 +65,7 @@ export type Operation =
 	| PipelineOperation
 	| LaunchOperation;
 
-/** The Launch plan's date, Launch Sunday, the debrief and the summary (WP-076), and its milestones (T-382). */
+/** The Launch plan's date, Launch Sunday, the debrief and the summary (WP-076), its milestones (T-382), its named guests and a correction of Launch Sunday (T-383). */
 export type LaunchOperation =
 	| "launch.schedule"
 	| "launch.postpone"
@@ -73,7 +73,9 @@ export type LaunchOperation =
 	| "launch.submitDebrief"
 	| "launch.publishDebriefSummary"
 	| "launch.completeMilestone"
-	| "launch.reopenMilestone";
+	| "launch.reopenMilestone"
+	| "launch.addGuestAttendance"
+	| "launch.correctOutcome";
 export const isLaunch = (operation: Operation): operation is LaunchOperation => operation.startsWith("launch.");
 
 /** An organization's pipeline and program changes (WP-101). */
@@ -447,11 +449,19 @@ const FIELD_LABEL: Record<string, string> = {
 };
 /** Meetings words for a field another card also uses: a finalize's "tasks" are the tasks it creates, not a sharing category. */
 const MEETINGS_LABEL: Record<string, string> = { tasks: "Tasks it creates" };
+/** Launch words for a field a Meetings card also uses: a named guest is a Launch Sunday guest (T-383). */
+const LAUNCH_LABEL: Record<string, string> = { guest: "Launch Sunday guest" };
 /** A presence change names its person: "presence:Maria Santos" reads "Maria Santos". */
 export const fieldLabel = (field: string, operation?: string) =>
 	field.startsWith("presence:")
 		? field.slice("presence:".length)
-		: ((operation?.startsWith("meetings.") ? MEETINGS_LABEL[field] : undefined) ?? FIELD_LABEL[field] ?? field);
+		: ((operation?.startsWith("meetings.")
+				? MEETINGS_LABEL[field]
+				: operation?.startsWith("launch.")
+					? LAUNCH_LABEL[field]
+					: undefined) ??
+			FIELD_LABEL[field] ??
+			field);
 
 const TEAM_STATE: Record<string, string> = { forming: "Forming", active: "Active", paused: "Paused" };
 const DATE_FIELDS = new Set(["birthDate", "date", "completedOn", "completedAgainOn"]);
@@ -605,6 +615,8 @@ const TITLE: Record<Operation, string> = {
 	"launch.publishDebriefSummary": "Publish the Launch summary",
 	"launch.completeMilestone": "Complete a launch milestone",
 	"launch.reopenMilestone": "Reopen a launch milestone",
+	"launch.addGuestAttendance": "Name a Launch Sunday guest",
+	"launch.correctOutcome": "Correct Launch Sunday",
 	"development.draftNextVersion": "Draft the next version",
 	"onboarding.declareJourney": "Where your church is",
 	"identity.answerLeadOnboarding": "Who leads your church",

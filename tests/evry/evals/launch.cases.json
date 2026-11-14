@@ -1,7 +1,7 @@
 {
 	"suite": "launch",
 	"model": "scripted",
-	"note": "WP-075 and WP-076: the Launch tools, asked on the scripted model with the real adapters, approvals, effect executor and the native Launch writer, on Hope Fellowship (golden-church.mts, America/Chicago) with the Launch fixture (launch-church.mts). Owner Nate Ellis, Admin Lena Park, Member Priya Shah. Dates are relative to the church-local date the Launch read returns: {day:N} is N days from today and {said:N} that date as the cards say it. Cases run in this order; `setup` names the fixture step that runs before a case, and each later case sees the earlier approved changes. T-382 adds LAU-21 to LAU-36: completing and reopening a milestone, whose `criterion` is 100 plus the T-382 Done criterion.",
+	"note": "WP-075 and WP-076: the Launch tools, asked on the scripted model with the real adapters, approvals, effect executor and the native Launch writer, on Hope Fellowship (golden-church.mts, America/Chicago) with the Launch fixture (launch-church.mts). Owner Nate Ellis, Admin Lena Park, Member Priya Shah. Dates are relative to the church-local date the Launch read returns: {day:N} is N days from today and {said:N} that date as the cards say it. Cases run in this order; `setup` names the fixture step that runs before a case, and each later case sees the earlier approved changes. T-382 adds LAU-21 to LAU-36: completing and reopening a milestone, whose `criterion` is 100 plus the T-382 Done criterion. T-383 adds LAU-37 to LAU-61: naming guests and correcting Launch Sunday, whose `criterion` is 200 plus the T-383 Done criterion; LAU-37 and LAU-38 run before Launch Sunday is recorded. A case with `continue` is asked in the previous case's conversation, as a reply to it. {md:N} is the date N days from today as \"Nov 9\", {mdy:N} with its year, and `proposals` lists each card of a turn that makes several, approved one at a time.",
 	"cases": [
 		{
 			"id": "LAU-01",
@@ -185,6 +185,26 @@
 			"calls": ["launch.readCountdown"],
 			"answer": ["I couldn't load the Launch plan just now, so I can't answer that."],
 			"absent": ["No launch date", "postponed"]
+		},
+		{
+			"id": "LAU-37",
+			"criterion": 204,
+			"actor": "owner",
+			"ask": "add Sam Ortiz as a launch sunday guest",
+			"calls": ["launch.readDebrief"],
+			"answer": [
+				"Launch Sunday isn't recorded on the Launch plan yet, so no guests can be named. Record it first. I prepared nothing."
+			]
+		},
+		{
+			"id": "LAU-38",
+			"criterion": 207,
+			"actor": "owner",
+			"ask": "correct launch attendance to 162, we miscounted the overflow room",
+			"calls": ["launch.readDebrief"],
+			"answer": [
+				"Launch Sunday isn't recorded yet, so there's nothing to correct. Record it first. I prepared nothing."
+			]
 		},
 		{
 			"id": "LAU-15",
@@ -494,6 +514,415 @@
 			"ask": "mark the parking milestone complete",
 			"calls": ["launch.readWorkspace"],
 			"answer": ["No launch milestone on the Launch plan matches \"parking\", so I prepared nothing."]
+		},
+		{
+			"id": "LAU-39",
+			"criterion": 201,
+			"setup": "guestMatch",
+			"actor": "owner",
+			"ask": "add Sam Ortiz as a launch sunday guest",
+			"calls": ["launch.readDebrief"],
+			"answer": [
+				"I prepared a review card to add **Sam Ortiz** to People as a new Person with only that name, listed as a Launch Sunday guest.",
+				"Nothing changes until you approve it."
+			],
+			"proposal": {
+				"operation": "launch.addGuestAttendance",
+				"target": "Sam Ortiz",
+				"changes": [
+					{
+						"field": "guest",
+						"before": null,
+						"after": "Sam Ortiz"
+					}
+				],
+				"notes": [
+					"A new Person with only this name is added to People and listed as a Launch Sunday guest.",
+					"Attendance, decisions and the debrief's guest answer stay as they are."
+				]
+			},
+			"approve": true,
+			"outcome": "completed"
+		},
+		{
+			"id": "LAU-40",
+			"criterion": 202,
+			"actor": "owner",
+			"ask": "add Maria Lopez as a launch guest",
+			"calls": ["launch.readDebrief"],
+			"answer": [
+				"People already has a Person matching **Maria Lopez**:\n1. **Maria Lopez** · maria.lopez@example.test\n\nIs your guest one of them? Say which (like \"the first one\"), or say \"add Maria Lopez as a new person\". I prepared nothing for Maria Lopez yet."
+			],
+			"absent": ["review card"]
+		},
+		{
+			"id": "LAU-41",
+			"criterion": 202,
+			"continue": true,
+			"actor": "owner",
+			"ask": "the first one",
+			"calls": ["launch.readDebrief"],
+			"answer": [
+				"I prepared a review card to list **Maria Lopez**, already in People, as a Launch Sunday guest. No new Person is added."
+			],
+			"proposal": {
+				"operation": "launch.addGuestAttendance",
+				"target": "Maria Lopez",
+				"changes": [
+					{
+						"field": "guest",
+						"before": null,
+						"after": "Maria Lopez · maria.lopez@example.test"
+					}
+				],
+				"notes": [
+					"Maria Lopez is already in People. This links that Person as a Launch Sunday guest; no new Person is added.",
+					"Attendance, decisions and the debrief's guest answer stay as they are."
+				]
+			},
+			"approve": true,
+			"outcome": "completed"
+		},
+		{
+			"id": "LAU-42",
+			"criterion": 204,
+			"actor": "owner",
+			"ask": "add Maria Lopez as a launch guest",
+			"calls": ["launch.readDebrief"],
+			"answer": [
+				"1. **Maria Lopez** · maria.lopez@example.test (already a Launch Sunday guest)",
+				"I prepared nothing for Maria Lopez yet."
+			]
+		},
+		{
+			"id": "LAU-43",
+			"criterion": 204,
+			"continue": true,
+			"actor": "owner",
+			"ask": "the first one",
+			"calls": ["launch.readDebrief"],
+			"answer": ["**Maria Lopez** is already named as a Launch Sunday guest, so I prepared nothing."]
+		},
+		{
+			"id": "LAU-44",
+			"criterion": 202,
+			"continue": true,
+			"actor": "owner",
+			"ask": "add Maria Lopez as a new person",
+			"calls": ["launch.readDebrief"],
+			"answer": [
+				"I prepared a review card to add **Maria Lopez** to People as a new Person with only that name, listed as a Launch Sunday guest."
+			],
+			"proposal": {
+				"operation": "launch.addGuestAttendance",
+				"target": "Maria Lopez",
+				"changes": [
+					{
+						"field": "guest",
+						"before": null,
+						"after": "Maria Lopez"
+					}
+				],
+				"notes": ["A new Person with only this name is added to People and listed as a Launch Sunday guest."]
+			},
+			"approve": true,
+			"outcome": "completed"
+		},
+		{
+			"id": "LAU-45",
+			"criterion": 203,
+			"actor": "owner",
+			"ask": "add Jo Kim, Lee Park and Maria Lopez as launch guests",
+			"calls": ["launch.readDebrief", "launch.readDebrief", "launch.readDebrief"],
+			"answer": [
+				"I prepared a review card to add **Jo Kim** to People",
+				"I prepared a review card to add **Lee Park** to People",
+				"People already has 2 People matching **Maria Lopez**:"
+			],
+			"proposals": [
+				{
+					"operation": "launch.addGuestAttendance",
+					"target": "Jo Kim",
+					"changes": [
+						{
+							"field": "guest",
+							"before": null,
+							"after": "Jo Kim"
+						}
+					]
+				},
+				{
+					"operation": "launch.addGuestAttendance",
+					"target": "Lee Park",
+					"changes": [
+						{
+							"field": "guest",
+							"before": null,
+							"after": "Lee Park"
+						}
+					]
+				}
+			],
+			"approve": true,
+			"outcome": "completed"
+		},
+		{
+			"id": "LAU-46",
+			"criterion": 204,
+			"actor": "owner",
+			"ask": "add \"\" as a launch guest",
+			"calls": [],
+			"answer": ["A guest needs a name. A first name is enough. I prepared nothing for it."]
+		},
+		{
+			"id": "LAU-47",
+			"criterion": 204,
+			"actor": "owner",
+			"ask": "add xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx as a launch guest",
+			"calls": [],
+			"answer": ["Keep a guest's name to 255 characters or fewer. I prepared nothing for that name."]
+		},
+		{
+			"id": "LAU-48",
+			"criterion": 209,
+			"actor": "member",
+			"ask": "add Ivy Chen as a launch guest",
+			"calls": [],
+			"answer": ["Only an Owner or Admin can change the Launch plan"]
+		},
+		{
+			"id": "LAU-49",
+			"criterion": 209,
+			"actor": "admin",
+			"ask": "add Ivy Chen as a launch guest",
+			"calls": ["launch.readDebrief"],
+			"proposal": {
+				"operation": "launch.addGuestAttendance",
+				"target": "Ivy Chen",
+				"changes": [
+					{
+						"field": "guest",
+						"before": null,
+						"after": "Ivy Chen"
+					}
+				]
+			},
+			"approve": true,
+			"outcome": "completed"
+		},
+		{
+			"id": "LAU-50",
+			"criterion": 209,
+			"actor": "member",
+			"ask": "who came to launch sunday as a first time guest",
+			"calls": ["launch.readDebrief"],
+			"answer": [
+				"9 first-time guests are named on the Launch plan for {said:-2}. Only an Owner or Admin sees their names."
+			],
+			"absent": ["Sam Ortiz", "Maria Lopez", "Ivy Chen", "Jo Kim"]
+		},
+		{
+			"id": "LAU-51",
+			"criterion": 205,
+			"setup": "outcomeNote",
+			"actor": "owner",
+			"ask": "correct launch attendance to 162, we miscounted the overflow room",
+			"calls": ["launch.readDebrief"],
+			"answer": [
+				"I prepared a review card to correct Launch Sunday: attendance 150 → 162, with your reason.",
+				"Nothing changes until you approve it."
+			],
+			"proposal": {
+				"operation": "launch.correctOutcome",
+				"target": "Launch Sunday",
+				"changes": [
+					{
+						"field": "attendance",
+						"before": 150,
+						"after": 162
+					},
+					{
+						"field": "reason",
+						"before": null,
+						"after": "we miscounted the overflow room"
+					}
+				],
+				"notes": [
+					"Anything you didn't name keeps its recorded value, and so do the outcome note, the named guests and the debrief's guest answer."
+				]
+			},
+			"approve": true,
+			"outcome": "completed"
+		},
+		{
+			"id": "LAU-52",
+			"criterion": 206,
+			"actor": "owner",
+			"ask": "correct launch sunday: we don't actually know how many decisions",
+			"calls": ["launch.readDebrief"],
+			"answer": ["I prepared a review card to correct Launch Sunday: decisions 4 → Not recorded, with your reason."],
+			"proposal": {
+				"operation": "launch.correctOutcome",
+				"target": "Launch Sunday",
+				"changes": [
+					{
+						"field": "decisions",
+						"before": 4,
+						"after": "Not recorded"
+					},
+					{
+						"field": "reason",
+						"before": null,
+						"after": "we don't actually know how many decisions"
+					}
+				]
+			},
+			"approve": true,
+			"outcome": "completed"
+		},
+		{
+			"id": "LAU-53",
+			"criterion": 206,
+			"actor": "owner",
+			"ask": "correct the launch date to {md:-3}, we met a day early",
+			"calls": ["launch.readDebrief"],
+			"proposal": {
+				"operation": "launch.correctOutcome",
+				"target": "Launch Sunday",
+				"changes": [
+					{
+						"field": "actualDate",
+						"before": "{said:-2}",
+						"after": "{said:-3}"
+					},
+					{
+						"field": "reason",
+						"before": null,
+						"after": "we met a day early"
+					}
+				]
+			},
+			"approve": true,
+			"outcome": "completed"
+		},
+		{
+			"id": "LAU-54",
+			"criterion": 207,
+			"actor": "owner",
+			"ask": "correct launch attendance to 170",
+			"calls": ["launch.readDebrief"],
+			"answer": [
+				"Why is Launch Sunday's outcome being corrected? The reason stays in Launch history, so tell me in your own words."
+			]
+		},
+		{
+			"id": "LAU-55",
+			"criterion": 207,
+			"actor": "owner",
+			"ask": "correct the launch date to {mdy:5}, we got it wrong",
+			"calls": ["launch.readDebrief"],
+			"answer": ["Launch Sunday can't be recorded for a date after today. I prepared nothing."]
+		},
+		{
+			"id": "LAU-56",
+			"criterion": 207,
+			"actor": "owner",
+			"ask": "correct launch attendance to 2,000,000, we miscounted",
+			"calls": ["launch.readDebrief"],
+			"answer": ["Counts are whole numbers from 0 to 1,000,000. I prepared nothing."]
+		},
+		{
+			"id": "LAU-57",
+			"criterion": 207,
+			"actor": "owner",
+			"ask": "correct launch attendance to 162, we recounted",
+			"calls": ["launch.readDebrief"],
+			"answer": [
+				"Launch Sunday already has attendance 162 on the Launch plan, so there's nothing to correct. I prepared nothing."
+			]
+		},
+		{
+			"id": "LAU-58",
+			"criterion": 208,
+			"actor": "owner",
+			"ask": "correct launch attendance to 165, a late count from the nursery",
+			"calls": ["launch.readDebrief"],
+			"proposal": {
+				"operation": "launch.correctOutcome",
+				"target": "Launch Sunday",
+				"changes": [
+					{
+						"field": "attendance",
+						"before": 162,
+						"after": 165
+					},
+					{
+						"field": "reason",
+						"before": null,
+						"after": "a late count from the nursery"
+					}
+				]
+			},
+			"approve": true,
+			"outcome": "refused"
+		},
+		{
+			"id": "LAU-59",
+			"criterion": 208,
+			"actor": "owner",
+			"ask": "correct launch attendance to 165, a late count from the nursery",
+			"calls": ["launch.readDebrief"],
+			"proposal": {
+				"operation": "launch.correctOutcome",
+				"target": "Launch Sunday",
+				"changes": [
+					{
+						"field": "attendance",
+						"before": 158,
+						"after": 165
+					},
+					{
+						"field": "reason",
+						"before": null,
+						"after": "a late count from the nursery"
+					}
+				]
+			},
+			"approve": true,
+			"outcome": "completed"
+		},
+		{
+			"id": "LAU-60",
+			"criterion": 209,
+			"actor": "admin",
+			"ask": "correct launch attendance to 166, one more from the nursery",
+			"calls": ["launch.readDebrief"],
+			"proposal": {
+				"operation": "launch.correctOutcome",
+				"target": "Launch Sunday",
+				"changes": [
+					{
+						"field": "attendance",
+						"before": 165,
+						"after": 166
+					},
+					{
+						"field": "reason",
+						"before": null,
+						"after": "one more from the nursery"
+					}
+				]
+			},
+			"approve": true,
+			"outcome": "completed"
+		},
+		{
+			"id": "LAU-61",
+			"criterion": 209,
+			"actor": "member",
+			"ask": "correct launch attendance to 170, we miscounted",
+			"calls": [],
+			"answer": ["Only an Owner or Admin can change the Launch plan"]
 		}
 	]
 }
