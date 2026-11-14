@@ -7,9 +7,10 @@ import type {
 	PlantDirectoryRow,
 	PlantSections,
 	Preparation,
+	RuleId,
 	SectionKey,
 } from "@everyfield/contracts/oversight";
-import { regionLabel } from "@everyfield/contracts/oversight";
+import { regionLabel, RULE_IDS } from "@everyfield/contracts/oversight";
 import type { Stage } from "@everyfield/ui/display";
 import { SHORT_NAME } from "../phases/model.ts";
 
@@ -131,12 +132,37 @@ export const LEVEL_LABEL: Record<Level, string> = {
 	portfolio: "Whole portfolio",
 };
 
-/** A plant's NIR-03 result as its row says it. Not shared says nothing else at all. */
-export function resultLabel(row: IntelligenceRow): { label: string; status: Status } {
-	if (row.status === "not_shared") return { label: "Not shared", status: "unknown" };
-	if (row.result === "gap") return { label: "Gap near launch", status: "attention" };
-	if (row.result === "clear") return { label: "No near-launch gap", status: "measured" };
-	return { label: "Unknown", status: "unknown" };
+type Shared = Extract<IntelligenceRow, { status: "shared" }>;
+type Label = { label: string; status: Status };
+const UNKNOWN = (what: string): Label => ({ label: `${what} unknown`, status: "unknown" });
+/** Each rule's short result words, with no count, date or person (T-372). */
+const RESULT: { [R in RuleId]: Record<Shared["results"][R], Label> } = {
+	"NIR-03": {
+		gap: { label: "Gap near launch", status: "attention" },
+		clear: { label: "No near-launch gap", status: "measured" },
+		unknown: UNKNOWN("Launch"),
+	},
+	"NIR-04": {
+		gap: { label: "Overdue follow-ups", status: "attention" },
+		clear: { label: "No overdue follow-ups", status: "measured" },
+		unknown: UNKNOWN("Follow-ups"),
+	},
+	"NIR-05": {
+		slowed: { label: "Growth slowed", status: "attention" },
+		stalled: { label: "Growth stalled", status: "attention" },
+		clear: { label: "No growth slowdown", status: "measured" },
+		unknown: UNKNOWN("Growth"),
+	},
+	"NIR-06": {
+		gap: { label: "Training outstanding", status: "attention" },
+		clear: { label: "Required training complete", status: "measured" },
+		unknown: UNKNOWN("Training"),
+	},
+};
+/** A plant's row results, one per rule in rule order. Not shared says nothing else at all. */
+export function resultLabels(row: IntelligenceRow): Label[] {
+	if (row.status === "not_shared") return [{ label: "Not shared", status: "unknown" }];
+	return RULE_IDS.map((id) => (RESULT[id] as Record<string, Label>)[row.results[id]]!);
 }
 
 /** A run's time in the organization's time zone, to the second: "Nov 14, 2026, 8:03:12 AM". */
