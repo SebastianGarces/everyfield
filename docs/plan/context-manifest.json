@@ -2667,6 +2667,7 @@
       ],
       "consumer_table_names": [
         "admission_attempt",
+        "answer_review",
         "assessment_feedback",
         "assessment_insight",
         "assessment_run",
@@ -26387,6 +26388,7 @@
         "account",
         "admission_attempt",
         "affiliation",
+        "answer_review",
         "article_editor_state",
         "article_revision",
         "assessment_feedback",
@@ -32548,6 +32550,7 @@
         "account",
         "admission_attempt",
         "affiliation",
+        "answer_review",
         "article_editor_state",
         "article_revision",
         "assessment_feedback",
@@ -41694,7 +41697,9 @@
         "record",
         "sending_goal"
       ],
-      "consumer_table_names": [],
+      "consumer_table_names": [
+        "answer_review"
+      ],
       "proof_stage": "stages 1 and 2 producer; final whole-target integration admits no deferrals",
       "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
@@ -42321,7 +42326,9 @@
         "WP-089",
         "WP-090"
       ],
-      "producer_table_names": [],
+      "producer_table_names": [
+        "answer_review"
+      ],
       "consumer_table_names": [
         "affiliation",
         "assignment_feedback",

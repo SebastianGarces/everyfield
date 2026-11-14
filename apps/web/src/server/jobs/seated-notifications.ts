@@ -10,7 +10,8 @@ import { createNotificationService } from "./notifications.ts";
 // The mail and notification services the server mounts share. A request or worker that writes notices queues their
 // mail with a service that has no transport; the scheduled runner's pass for that mail sends it through the email
 // service. Notices reach a recipient only while they hold an accepted seat in the church, at that seat's address; a
-// residency notice reaches a linked resident, who holds no seat, at their account's address.
+// residency notice reaches a linked resident, who holds no seat, and a review notice an organization seat holder, each at
+// their account's address.
 
 /** A mount's mail service: without `transport` it only queues mail; the runner's pass gives it the email service. */
 export function mountMailService(config: {
@@ -50,10 +51,11 @@ export function seatedNotificationService(mail: ReturnType<typeof createMailServ
 }
 
 /**
- * The notification service for a linked resident's residency notices (T-365), sent to the account's own address: the
- * resident holds no seat (REQ-MUL-013). The caller has checked, under lock, that the resident's link is live (D-1416).
+ * The notification service for notices sent to the account's own address: a linked resident's residency notices
+ * (T-365), as the resident holds no seat (REQ-MUL-013), and an organization reviewer's answers to review (T-385). The
+ * caller has checked, under lock, that the resident's link is live (D-1416) or the send is shared with that seat.
  */
-export function residentNotificationService(mail: ReturnType<typeof createMailService>) {
+export function accountNotificationService(mail: ReturnType<typeof createMailService>) {
 	return createNotificationService({
 		mail,
 		async eligible(tx, inputs) {

@@ -170,6 +170,8 @@ const recordRow = z.object({
 			reason: z.string().nullable(),
 			moved: z.boolean(),
 			category: z.string().nullable(),
+			kind: z.string(),
+			reviewer: z.string().nullable(),
 		}),
 	),
 	notes: z.array(
@@ -182,6 +184,8 @@ const recordRow = z.object({
 			written: z.string(),
 			edited: z.string().nullable(),
 			removed: z.string().nullable(),
+			questions: z.array(z.string()).nullable(),
+			reviews: z.array(C.noteReview),
 		}),
 	),
 	conversations: z.array(
@@ -237,7 +241,10 @@ SELECT g.allowed,(SELECT today::text FROM o) AS as_of,(SELECT revision::text FRO
  coalesce((SELECT jsonb_agg(h ORDER BY h.at DESC,h.id DESC) FROM (
   SELECT a.id,a.occurred_at AS at,(a.occurred_at AT TIME ZONE o.timezone)::date::text AS on,
    (SELECT i.display_name FROM seat_identity(a.actor_id) i) AS actor,a.action,m.from_label,m.to_label,m.reason,
-   (m.id IS NOT NULL) AS moved,a.metadata->>'category' AS category
+   (m.id IS NOT NULL) AS moved,a.metadata->>'category' AS category,a.kind,
+   (SELECT coalesce(i.display_name,'Staff') FROM answer_review r JOIN seat s ON s.id=r.reviewer_seat_id
+    LEFT JOIN LATERAL seat_identity(s.account_id) i ON true
+    WHERE a.metadata->>'category'='answer_review' AND r.id=(a.metadata->>'reviewId')::uuid AND r.organization_id=a.tenant_id) AS reviewer
   FROM x CROSS JOIN o JOIN audit_event a ON a.tenant_id=${org}::uuid AND a.subject_id IN (SELECT id FROM lin)
   LEFT JOIN pipeline_stage_move m ON m.id=a.id AND m.organization_id=a.tenant_id
   WHERE a.action IN ('people.created','people.stage_changed','people.recorded','people.retired','people.restored','people.updated')
@@ -247,7 +254,13 @@ SELECT g.allowed,(SELECT today::text FROM o) AS as_of,(SELECT revision::text FRO
   SELECT n.id,n.occurred_at AS at,n.revision::text AS revision,n.body,n.author_id,
    (SELECT i.display_name FROM seat_identity(n.author_id) i) AS author,
    (n.occurred_at AT TIME ZONE o.timezone)::date::text AS written,(n.edited_at AT TIME ZONE o.timezone)::date::text AS edited,
-   (n.removed_at AT TIME ZONE o.timezone)::date::text AS removed
+   (n.removed_at AT TIME ZONE o.timezone)::date::text AS removed,n.questions,
+   coalesce((SELECT jsonb_agg(jsonb_build_object('id',r.id,'groupName',r.group_name,'questions',r.questions,
+     'sentOn',(r.sent_at AT TIME ZONE o.timezone)::date::text,
+     'reviewer',(SELECT coalesce(i.display_name,'Staff') FROM seat s LEFT JOIN LATERAL seat_identity(s.account_id) i ON true
+      WHERE s.id=r.reviewer_seat_id)) ORDER BY r.sent_at DESC,r.id DESC)
+    FROM answer_review r WHERE r.note_id=n.id AND r.organization_id=n.tenant_id AND r.withdrawn_at IS NULL
+     AND n.removed_at IS NULL),'[]'::jsonb) AS reviews
   FROM x CROSS JOIN o JOIN person_note n ON n.tenant_id=${org}::uuid AND n.plant_id IS NULL AND n.person_id=x.person_id
   ORDER BY n.occurred_at DESC,n.id DESC LIMIT 200) n),'[]'::jsonb) AS notes,
  coalesce((SELECT jsonb_agg(c ORDER BY c.on DESC,c.id DESC) FROM (
@@ -285,6 +298,10 @@ FROM g`);
 				if (h.moved && h.from_label === null)
 					return { ...base, kind: h.category === "pipeline_import" ? "imported" : "placed", to: h.to_label };
 				if (h.moved) return { ...base, kind: "moved", from: h.from_label, to: h.to_label, reason: h.reason };
+				if (h.category === "answer_review")
+					return h.kind === "create"
+						? { ...base, kind: "review_sent", reviewer: h.reviewer }
+						: { ...base, kind: "review_withdrawn" };
 				const kind =
 					h.action === "people.recorded"
 						? "assessment"
@@ -307,6 +324,8 @@ FROM g`);
 							writtenOn: n.written,
 							editedOn: n.edited,
 							mine: n.author_id === seat.accountId,
+							questions: n.questions,
+							reviews: n.reviews,
 						},
 			),
 			conversations: row.conversations.map((c) => ({

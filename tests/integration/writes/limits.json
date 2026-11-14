@@ -1540,6 +1540,14 @@
 		"limit": 6,
 		"retry": 5
 	},
+	"pipeline.sendAnswers": {
+		"limit": 4,
+		"retry": 4
+	},
+	"pipeline.withdrawReview": {
+		"limit": 4,
+		"retry": 4
+	},
 	"reference.exportApprovedWiki": {
 		"limit": 1
 	},
@@ -2109,9 +2117,9 @@
 		"limit": 1
 	},
 	"assessments.job.runNext": {
-		"limit": 13,
+		"limit": 19,
 		"retry": 9,
-		"reason": "One assessment job claim run to its outcome, in the scheduled tick and never in a request: the claim with its stored run (1); for a new demand the repeatable-read snapshot transaction that stores the pending run (BEGIN, lock timeout, the facts statement, the retrieval statement under a savepoint, the run insert, COMMIT: 8); one fenced reservation before each provider dispatch (at most 12 across three drafts); then the source revision recheck and one statement that publishes or settles the run with its audit row and the job's end (2). The suites' longest run is 13: a capture and three rejected drafts. A resumed run skips the capture. The retry is a degraded run whose savepoint rolled back when the methodology could not be read."
+		"reason": "One assessment job claim run to its outcome, in the scheduled tick and never in a request: the claim with its stored run (1); for a new demand the repeatable-read snapshot transaction that stores the pending run (BEGIN, lock timeout, the facts statement, the retrieval statement under a savepoint, the run insert, COMMIT: 8); one fenced reservation before each provider dispatch (at most 12 across three drafts); on the paid model (D92) each dispatch also reserves its worst case in model_spend and settles it (2 more, 1 when the call fails or reports its whole reservation); then the source revision recheck and one statement that publishes or settles the run with its audit row and the job's end (2). The suites' longest run is 19: a capture and three rejected paid drafts. A resumed run skips the capture. The retry is a degraded run whose savepoint rolled back when the methodology could not be read."
 	},
 	"assessments.listRunsForReview": {
 		"limit": 1

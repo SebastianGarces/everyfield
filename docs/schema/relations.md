@@ -15,6 +15,11 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `affiliation(invitation_id)` | `invitation(id)` | restrict | Invitation owner is an endpoint, not always the plant. Serialized acceptance validates exact endpoints and tenant kind; consent cannot be inherited. |
 | `affiliation(recognition_operation_id)` | `audit_event(id)` | restrict | D70 command identity correlation; the producer validates the actual owner, exact source and current authority in its transaction. Retained evidence grants no access. |
 | `affiliation(id)` | `record(id)` | restrict | Subtype trigger binds actual record owner for a global/public or retained body-free variant whose live root pointer is nullable. |
+| `answer_review(note_id)` | `person_note(id)` | set_null | The send's note is a person_note of the same organization: the send's write reads it by note, organization and live pipeline person in the same statement. Deleting the note leaves the send with no note, so it reads as no longer shared. |
+| `answer_review(organization_id)` | `organization(id)` | restrict |  |
+| `answer_review(person_id, organization_id)` | `person(id, tenant_id)` | cascade |  |
+| `answer_review(reviewer_seat_id)` | `seat(id)` | restrict | Current reviewer seat belongs to the exact organization. The send's write checks the seat's organization and that it is current; each read checks it again and grants nothing beyond the send. |
+| `answer_review(sender_id)` | `account(id)` | set_null |  |
 | `article_editor_state(organization_id)` | `organization(id)` | restrict |  |
 | `article_editor_state(article_id)` | `reference_item(id)` | restrict | Canonical item is a global or entitled organization source identity; serialized boundary validates item kind, canonical identity and exact current source rights, without transferring ownership. |
 | `article_editor_state(current_revision_id, organization_id)` | `article_revision(id, tenant_id)` | restrict |  |
@@ -448,3 +453,4 @@ Every declared Person FK has one registration in `target.json.person_references`
 | `commitment_change` | `person_id, plant_id` | WP-014 |
 | `training_assignment` | `person_id, plant_id` | WP-019 |
 | `training_credit` | `person_id, plant_id` | WP-019 |
+| `answer_review` | `person_id, organization_id` | WP-102 |

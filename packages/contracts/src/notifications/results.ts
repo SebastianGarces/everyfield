@@ -19,6 +19,8 @@ export const feedSubject = z.discriminatedUnion("kind", [
 	z.strictObject({ kind: z.literal("article"), id: z.uuid(), slug: z.string().min(1) }),
 	/** A milestone on the resident's own My residency page. */
 	z.strictObject({ kind: z.literal("residency_milestone"), id: z.uuid() }),
+	/** Kept answers sent to the recipient for review, on their Sent for review page (T-385). */
+	z.strictObject({ kind: z.literal("answer_review"), id: z.uuid() }),
 ]);
 export const feedItem = z.strictObject({
 	id: z.uuid(),

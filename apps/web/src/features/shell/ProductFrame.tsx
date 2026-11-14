@@ -7,6 +7,7 @@ import {
 	ChartLineData01Icon,
 	DashboardSquare01Icon,
 	File02Icon,
+	FileSearchIcon,
 	HierarchyIcon,
 	Link01Icon,
 	Mail01Icon,
@@ -130,6 +131,15 @@ const PIPELINE = {
 	icon: Route01Icon,
 	prefetch: false,
 } as const;
+// Sent for review (T-385): the kept answers an Owner or Admin sent this organization seat to read.
+const REVIEWS = {
+	kind: "link",
+	key: "reviews",
+	label: "Sent for review",
+	href: "/organization/reviews",
+	icon: FileSearchIcon,
+	prefetch: false,
+} as const;
 // My residency (WP-100): a seatless account linked to a sending church's residency, only while the link is live.
 const MY_RESIDENCY = {
 	kind: "link",
@@ -251,7 +261,7 @@ function Frame({ name, photo, settings, seed = null, children }: FrameProps) {
 	} as const;
 	const organization = settings?.context === "organization";
 	const nav: ShellNav = organization
-		? { main: [PLANTS, PIPELINE], pages: ORGANIZATION_PAGES, tools: [feedbackAction, settingsLink] }
+		? { main: [PLANTS, PIPELINE, REVIEWS], pages: ORGANIZATION_PAGES, tools: [feedbackAction, settingsLink] }
 		: {
 				main: account
 					? linked

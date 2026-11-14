@@ -100,6 +100,8 @@ type Read = {
 	email: string | null;
 	stageId: string | null;
 	body: string | null;
+	/** The kept questions' titles, in file order, as their lines in the body read (T-385). */
+	questions: string[];
 	problems: RowProblem[];
 };
 const email = normalizedEmail.pipe(z.string().max(320));
@@ -137,11 +139,11 @@ function readRow(
 		stageId = stages.find((s) => titleKey(s.label) === titleKey(label))?.id ?? null;
 		if (stageId === null) problems.push("unknown_stage");
 	}
-	const answers = choices.flatMap((c, i) => {
+	const kept = choices.flatMap((c, i) => {
 		const v = (cells[i] ?? "").trim();
-		return c === "answer" && v !== "" ? [`${header[i] || `Column ${i + 1}`}\n${v}`] : [];
+		return c === "answer" && v !== "" ? [{ question: (header[i] || `Column ${i + 1}`).trim(), answer: v }] : [];
 	});
-	const body = answers.length ? [title, ...answers].join("\n\n") : null;
+	const body = kept.length ? [title, ...kept.map((k) => `${k.question}\n${k.answer}`)].join("\n\n") : null;
 	if (body !== null && body.length > NOTE_MAX) problems.push("answers_too_long");
 	return {
 		row,
@@ -149,6 +151,7 @@ function readRow(
 		email: problems.includes("invalid_email") ? null : address,
 		stageId,
 		body,
+		questions: kept.map((k) => k.question),
 		problems,
 	};
 }
@@ -353,6 +356,8 @@ SELECT s.*,(SELECT a.metadata FROM audit_event a WHERE a.id=${command}::uuid AND
 			email: x.email,
 			stage: x.stageId ?? input.stageId,
 			body: x.body,
+			// A send for review names at most 200 questions of a note (T-385); a note with more cannot be sent.
+			questions: x.questions.length && x.questions.length <= 200 ? x.questions : null,
 		}));
 		const result = C.pipelineImportResult.parse({
 			added: people.map((p) => ({ row: p.row, personId: p.person })),
@@ -369,7 +374,7 @@ SELECT s.*,(SELECT a.metadata FROM audit_event a WHERE a.id=${command}::uuid AND
 dest AS (SELECT id,label FROM pipeline_stage WHERE organization_id=${o}::uuid AND removed_at IS NULL
  UNION ALL SELECT id,label FROM starters),
 r AS (SELECT * FROM jsonb_to_recordset(${JSON.stringify(people)}::jsonb) r(row int,person uuid,entry uuid,event uuid,
- note uuid,name text,email text,stage uuid,body text)),
+ note uuid,name text,email text,stage uuid,body text,questions text[])),
 p AS (INSERT INTO person (id,tenant_id,organization_id,display_name,email,source,created_at,state,revision)
  SELECT r.person,${o}::uuid,${o}::uuid,r.name,r.email,'other',clock_timestamp(),'live',1 FROM r RETURNING id),
 pp AS (INSERT INTO pipeline_person (id,organization_id,person_id,stage_id,responsible_seat_id,revision)
@@ -378,8 +383,8 @@ a AS (${w.audit({ id: sql`r.event`, action: "people.created", kind: "create", su
  FROM r JOIN p ON p.id=r.person RETURNING id),
 m AS (INSERT INTO pipeline_stage_move (id,organization_id,pipeline_person_id,to_stage_id,to_label)
  SELECT a.id,${o}::uuid,r.entry,dest.id,dest.label FROM a JOIN r ON r.event=a.id JOIN pp ON pp.id=r.entry JOIN dest ON dest.id=r.stage RETURNING id),
-n AS (INSERT INTO person_note (id,tenant_id,person_id,author_id,body,occurred_at,recorded_at,revision)
- SELECT r.note,${o}::uuid,p.id,${w.actor}::uuid,r.body,clock_timestamp(),clock_timestamp(),1 FROM r JOIN p ON p.id=r.person
+n AS (INSERT INTO person_note (id,tenant_id,person_id,author_id,body,occurred_at,recorded_at,revision,questions)
+ SELECT r.note,${o}::uuid,p.id,${w.actor}::uuid,r.body,clock_timestamp(),clock_timestamp(),1,r.questions FROM r JOIN p ON p.id=r.person
  WHERE r.note IS NOT NULL RETURNING id,person_id),
 na AS (${w.audit({ id: sql`gen_random_uuid()`, action: "people.updated", kind: "create", subject: sql`n.person_id`, metadata: sql`jsonb_build_object('category','note','noteId',n.id)` })}
  FROM n RETURNING id),

@@ -12,6 +12,7 @@ import { plantViewer } from "../documents/access.ts";
 import { effectiveAdult } from "../people/adult.ts";
 import { commitmentOf } from "../people/commitments/lifecycle.ts";
 import { compatible } from "../teams/training/reads.ts";
+import { eligibleOwner } from "../tasks/owner.ts";
 
 // Plant Intelligence measured facts (WP-040). One statement reads every input the facts use, under the live Owner or
 // Admin check of the exact plant (C13); `buildFacts` turns those inputs into facts with no I/O, so every counting rule
@@ -50,6 +51,8 @@ export const factInputs = z.strictObject({
 			state: z.enum(["open", "complete", "no_longer_needed", "superseded"]),
 			completion: instant.nullable(),
 			contacted: z.boolean(),
+			/** An assignee may own it now (tasks/owner.ts): a removed seat or an unlinked account leaves it unowned. */
+			owned: z.boolean(),
 		}),
 	),
 	/** Current holders of a role mapped to a methodology responsibility. */
@@ -424,7 +427,9 @@ function statement(plant: string, ok: SQL, at: SQL) {
    'completion',(SELECT ${iso(sql`e.occurred_at`)} FROM contact_outcome e WHERE e.plant_id=o.plant_id AND ${evidence}
     AND e.voided_at IS NULL AND e.completes_task ORDER BY e.occurred_at,e.id LIMIT 1),
    'contacted',EXISTS(SELECT FROM contact_outcome e WHERE e.plant_id=o.plant_id AND ${evidence}
-    AND e.voided_at IS NULL AND e.outcome='contacted')) ORDER BY o.origin_at,o.id)
+    AND e.voided_at IS NULL AND e.outcome='contacted'),
+   'owned',t.deleted_at IS NULL AND EXISTS(SELECT FROM task_assignee ta WHERE ta.task_id=t.id
+    AND ${eligibleOwner(sql`ta.account_id`, sql`t.plant_id`)})) ORDER BY o.origin_at,o.id)
   FROM obligation o LEFT JOIN LATERAL (SELECT k.* FROM task k WHERE k.obligation_id=o.id AND k.plant_id=o.plant_id
    ORDER BY k.deleted_at NULLS FIRST,k.created_at DESC LIMIT 1) t ON true
   WHERE o.plant_id=x.plant AND o.kind='follow_up'),'[]'::jsonb),

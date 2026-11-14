@@ -11,7 +11,7 @@ import { sql, type SQL } from "@everyfield/db/query";
 import { randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
-import { liveResidency } from "../access/pipeline.ts";
+import { liveResidency, reviewShared } from "../access/pipeline.ts";
 import { RequestActor, requestWrite } from "../access/session.ts";
 import { hash } from "../operations/canonical.ts";
 import {
@@ -171,7 +171,7 @@ const residency = quoted(residencyCategories);
 /**
  * Rows the signed-in recipient may see in the feed, the bell, and mark. A residency notice shows only while the
  * recipient's residency link to the organization that owns it is live (D-1416); every other notice only while they hold
- * a current seat there.
+ * a current seat there, and answers to review only while the send is still shared with them (T-385).
  */
 export function noticeVisible(eligible: SQL = sql`n.eligible_at <= clock_timestamp()`): SQL {
 	return sql`n.cancelled_at IS NULL AND n.archived_at IS NULL AND ${eligible}
@@ -187,7 +187,10 @@ export function noticeVisible(eligible: SQL = sql`n.eligible_at <= clock_timesta
 			AND s.accepted_at <= clock_timestamp() AND (s.plant_id = n.tenant_id OR s.organization_id = n.tenant_id)
 			AND NOT EXISTS (SELECT FROM lifecycle_witness w WHERE w.state NOT IN ('active','cancelled') AND (
 				w.seat_id = s.id OR (w.kind = 'account' AND w.opaque_subject_id = s.account_id)
-				OR (w.kind IN ('plant','organization') AND w.opaque_subject_id = n.tenant_id)))) END`;
+				OR (w.kind IN ('plant','organization') AND w.opaque_subject_id = n.tenant_id)))) END
+		AND (split_part(n.logical_key,'/',2) <> 'answer_review' OR EXISTS (SELECT FROM answer_review r
+			JOIN seat rv ON rv.id = r.reviewer_seat_id AND rv.account_id = n.recipient_id
+			WHERE r.id = n.source_record_id AND r.organization_id = n.tenant_id AND ${reviewShared}))`;
 }
 export function overdueSql(asOf: string): SQL {
 	return sql`(split_part(n.logical_key,'/',2) = 'task_overdue' OR (

@@ -72,12 +72,18 @@ export const notificationCategory = z.enum([
 	"scheduled_email_unsubscribe",
 	"residency_confirmation",
 	"residency_feedback",
+	"answer_review",
 ]);
 /**
  * Categories a linked resident receives from their sending church's residency (T-365, D-1415): the director confirmed a
  * milestone they marked done, or wrote feedback on one of their milestones. Every other category needs a seat.
  */
 export const residencyCategories = ["residency_confirmation", "residency_feedback"] as const;
+/**
+ * Categories only an organization seat receives: its own oversight digest, and kept answers an Owner or Admin sent the
+ * seat to review (T-385). A church never offers them.
+ */
+export const organizationCategories = ["oversight_digest", "answer_review"] as const;
 /**
  * Categories that live in the bell only: a Wiki review request, and a person who unsubscribed from a Messages email
  * the account scheduled (T-242, D-680). They have no email channel to choose.
