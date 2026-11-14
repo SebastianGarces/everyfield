@@ -60,6 +60,7 @@ import {
 import {
 	readPipelineBoard,
 	readPipelineConsents,
+	readPipelineGoals,
 	readPipelinePersonRecord,
 } from "../../../packages/domain/src/organizations/index.ts";
 import { runDueImports } from "../../../apps/web/src/server/people/run-imports.ts";
@@ -82,7 +83,7 @@ const baselinePath = fileURLToPath(new URL("./tenancy-baseline.json", import.met
 
 const WRITE_VERBS = new Set(
 	`accept add appoint archive assign attest cancel change clear complete copy correct create delete designate dismiss dispatch
-	edit end ensure execute finalize fork generate hand import initialize invite merge move offer populate propagate
+	edit end ensure execute finalize fork generate hand import initialize invite log merge move offer populate propagate
 	reactivate recomplete reconcile record remove reorder replace request reschedule reset restore retire revoke save schedule
 	send set sign submit unmerge update upload use with withdraw`.split(/\s+/),
 );
@@ -768,6 +769,15 @@ function cases(who) {
 			"organizations:readPipelinePersonRecord",
 			{
 				run: () => plain(() => readPipelinePersonRecord(f.db, who.actor, { personId: a.avery })),
+				expected: { value: { status: "refused", refusal: { code: "unavailable" } }, control: null },
+			},
+		],
+		// Goals and conversation counts too: tests/integration/organizations/goals.test.mts holds their organization
+		// boundary, including a network that a church shares pipeline totals with.
+		[
+			"organizations:readPipelineGoals",
+			{
+				run: () => plain(() => readPipelineGoals(f.db, who.actor, {})),
 				expected: { value: { status: "refused", refusal: { code: "unavailable" } }, control: null },
 			},
 		],
