@@ -4,6 +4,7 @@
 // (or the same job functions the tick calls), and moves a test clock instead of waiting.
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
+import { AsyncResource } from "node:async_hooks";
 import { randomUUID } from "node:crypto";
 import { sql } from "../../../packages/db/src/query.ts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
@@ -13,6 +14,7 @@ import {
 	createAssessmentJob,
 	createAssessments,
 	createPrivateCare,
+	runAssessmentBatch,
 } from "../../../packages/domain/src/intelligence/index.ts";
 import { commitments, peopleWriter } from "../../../packages/domain/src/people/index.ts";
 import { readIntelligence, requestIntelligenceRefresh } from "../../../packages/domain/src/oversight/intelligence.ts";
@@ -28,7 +30,12 @@ const clock = { now: () => new Date(clockMs).toISOString() as never };
 const job = createAssessmentJob({ clock });
 const assessments = createAssessments({ clock });
 const secret = "cron-" + randomUUID();
-const scripted = scriptedAssessmentDrafter;
+/**
+ * The scripted drafter. A `during` hook stands for another request that happens while the draft is in flight, so it runs
+ * in the test's own context, not inside the worker's (the statement census counts each separately).
+ */
+const scripted = (options: Parameters<typeof scriptedAssessmentDrafter>[0] = {}) =>
+	scriptedAssessmentDrafter(options.during ? { ...options, during: AsyncResource.bind(options.during) } : options);
 
 before(async () => {
 	c0 = await church("t299o");
@@ -70,13 +77,13 @@ async function assessed(name: string, options = {}) {
 	clockMs = Date.now();
 	const p = await c0.harvest(name, options);
 	await job.scheduleAssessments(c0.db);
-	await job.runAssessmentBatch(c0.db, scripted(), 20);
+	await runAssessmentBatch(job, c0.db, scripted(), 20);
 	assert.equal((await view(p)).current?.asOf !== undefined, true, "first assessment published");
 	return p;
 }
 const invalid = () => scripted({ script: (d) => ({ ...d, focus: { ...d.focus, citations: [] } }) });
 /** Every other plant's demand runs too; these keep each test's assertions to its own plant. */
-const drain = () => job.runAssessmentBatch(c0.db, scripted(), 50);
+const drain = () => runAssessmentBatch(job, c0.db, scripted(), 50);
 
 test("a never-assessed plant: the next tick queues its first assessment unasked; until it publishes the read says being prepared, then it shows the first assessment with its as-of", async () => {
 	clockMs = Date.now();
@@ -249,7 +256,7 @@ test("AC:ASMT-005 a failed output check and a busy provider leave the previous a
 	const prior = (await view(p)).current!;
 	clockMs += 2 * DAY;
 	ok(await assessments.requestRefresh(c0.db, p.actor, { requestId: randomUUID() }));
-	await job.runAssessmentBatch(c0.db, invalid(), 1);
+	await runAssessmentBatch(job, c0.db, invalid(), 1);
 	let v = await view(p);
 	assert.deepEqual([v.current!.runId, v.current!.asOf, v.current!.ageDays], [prior.runId, prior.asOf, 2]);
 	assert.deepEqual(v.newest, { state: "failed", retryAt: null, grounding: "grounded" });
@@ -257,7 +264,7 @@ test("AC:ASMT-005 a failed output check and a busy provider leave the previous a
 	// 429 with Retry-After 90 s: deferred to exactly that instant.
 	ok(await assessments.requestRefresh(c0.db, p.actor, { requestId: randomUUID() }));
 	const busy = scripted({ busy: [{ status: 429, retryAfterSeconds: 90 }] });
-	await job.runAssessmentBatch(c0.db, busy, 1);
+	await runAssessmentBatch(job, c0.db, busy, 1);
 	const retryAt = iso(clockMs + 90_000);
 	v = await view(p);
 	assert.equal(v.current!.runId, prior.runId);
@@ -267,16 +274,17 @@ test("AC:ASMT-005 a failed output check and a busy provider leave the previous a
 		WHERE r.plant_id=${p.id} AND r.outcome='deferred'`);
 	assert.deepEqual([waiting.state, new Date(waiting.next_attempt_at).toISOString()], ["retry_wait", retryAt]);
 	clockMs += 60_000;
-	assert.equal(await job.runAssessmentBatch(c0.db, busy, 1), 0, "nothing runs before the retry instant");
+	assert.equal(await runAssessmentBatch(job, c0.db, busy, 1), 0, "nothing runs before the retry instant");
 	clockMs += 31_000;
-	await job.runAssessmentBatch(c0.db, busy, 1);
+	await runAssessmentBatch(job, c0.db, busy, 1);
 	const resumed = (await runs(p)).at(-1)!;
 	assert.deepEqual([resumed.outcome, resumed.attempts], ["published", 2]);
 	assert.equal(busy.calls.length, 2, "one dispatch per call: the busy one and the one that published");
 
 	// A 503 whose wait would pass the run's deadline fails it as a deadline, never later.
 	ok(await assessments.requestRefresh(c0.db, p.actor, { requestId: randomUUID() }));
-	await job.runAssessmentBatch(
+	await runAssessmentBatch(
+		job,
 		c0.db,
 		scripted({ busy: [{ status: 503, retryAfterSeconds: ASSESSMENT_TIMING.deadlineMs / 1000 }] }),
 		1,
@@ -292,7 +300,7 @@ test("AC:PI-PROVIDER-001 replies 429, 503, 503 then 200 make four accounted disp
 	ok(await assessments.requestRefresh(c0.db, p.actor, { requestId: randomUUID() }));
 	const drafter = scripted({ busy: [{ status: 429 }, { status: 503 }, { status: 503 }] });
 	for (let i = 0; i < 4; i++) {
-		await job.runAssessmentBatch(c0.db, drafter, 1);
+		await runAssessmentBatch(job, c0.db, drafter, 1);
 		clockMs += 5 * 60_000;
 	}
 	const run = (await runs(p)).at(-1)!;
@@ -300,7 +308,7 @@ test("AC:PI-PROVIDER-001 replies 429, 503, 503 then 200 make four accounted disp
 	ok(await assessments.requestRefresh(c0.db, p.actor, { requestId: randomUUID() }));
 	const down = scripted({ busy: [{ status: 503 }, { status: 503 }, { status: 503 }, { status: 503 }] });
 	for (let i = 0; i < 5; i++) {
-		await job.runAssessmentBatch(c0.db, down, 1);
+		await runAssessmentBatch(job, c0.db, down, 1);
 		clockMs += 5 * 60_000;
 	}
 	const failed = (await runs(p)).at(-1)!;
@@ -320,11 +328,11 @@ test("AC:ASMT-003 a record changed while the draft is in flight supersedes that 
 		},
 	});
 	ok(await assessments.requestRefresh(c0.db, p.actor, { requestId: randomUUID() }));
-	await job.runAssessmentBatch(c0.db, racing, 1);
+	await runAssessmentBatch(job, c0.db, racing, 1);
 	const [, raced] = await runs(p);
 	assert.deepEqual([raced.outcome, raced.reason, raced.result], ["superseded", "changed_input", null]);
 	assert.equal((await view(p)).current!.runId, before.runId, "the superseded run is never current");
-	await job.runAssessmentBatch(c0.db, scripted(), 1);
+	await runAssessmentBatch(job, c0.db, scripted(), 1);
 	const newer = (await runs(p)).at(-1)!;
 	assert.deepEqual([newer.outcome, newer.demand], ["published", "followup"]);
 	assert.equal(newer.facts.committedAdults.exact, 31);
@@ -341,10 +349,10 @@ test("AC:ASMT-004 a worker whose claim expired and was taken over cannot publish
 			if (replaced) return;
 			replaced = true;
 			clockMs += ASSESSMENT_TIMING.leaseMs + 1000;
-			assert.equal(await job.runAssessmentBatch(c0.db, second, 1), 1, "the expired claim is taken over");
+			assert.equal(await runAssessmentBatch(job, c0.db, second, 1), 1, "the expired claim is taken over");
 		},
 	});
-	await job.runAssessmentBatch(c0.db, first, 1);
+	await runAssessmentBatch(job, c0.db, first, 1);
 	const all = await runs(p);
 	const run = all.at(-1)!;
 	assert.equal(all.length, 2, "one run for the demand");
@@ -363,7 +371,8 @@ test("AC:ASMT-007 a reference activation during drafting refuses publication, an
 	const activation = (await runs(p))[0].reference_activation;
 	ok(await assessments.requestRefresh(c0.db, p.actor, { requestId: randomUUID() }));
 	let activated = false;
-	await job.runAssessmentBatch(
+	await runAssessmentBatch(
+		job,
 		c0.db,
 		scripted({
 			during: async () => {
@@ -376,14 +385,15 @@ test("AC:ASMT-007 a reference activation during drafting refuses publication, an
 	);
 	const raced = (await runs(p)).at(-1)!;
 	assert.deepEqual([raced.outcome, raced.reason], ["superseded", "changed_reference"]);
-	await job.runAssessmentBatch(c0.db, scripted(), 1);
+	await runAssessmentBatch(job, c0.db, scripted(), 1);
 	const next = (await runs(p)).at(-1)!;
 	assert.equal(next.outcome, "published");
 	assert.equal(Number(next.reference_activation), Number(activation) + 1);
 
 	ok(await assessments.requestRefresh(c0.db, p.actor, { requestId: randomUUID() }));
 	let rolled = false;
-	await job.runAssessmentBatch(
+	await runAssessmentBatch(
+		job,
 		c0.db,
 		scripted({
 			during: async () => {
@@ -403,7 +413,8 @@ test("AC:ASMT-008 a plant that turned off sharing findings before its run finish
 	const network = await c0.network("Prairie Network");
 	const p = await assessed("Prairie Chapel", { network });
 	ok(await assessments.requestRefresh(c0.db, p.actor, { requestId: randomUUID() }));
-	await job.runAssessmentBatch(
+	await runAssessmentBatch(
+		job,
 		c0.db,
 		scripted({
 			during: async () => {
@@ -434,14 +445,14 @@ test("AC:PI-CASE-028 three scheduled failures in a row hold the plant for review
 	clockMs += 8 * DAY;
 	for (let i = 0; i < 3; i++) {
 		await tick(invalid());
-		await job.runAssessmentBatch(c0.db, invalid(), 50);
+		await runAssessmentBatch(job, c0.db, invalid(), 50);
 		clockMs += DAY;
 	}
 	const failed = (await runs(p)).filter((r) => r.outcome === "failed");
 	assert.equal(failed.length, 3);
 	const before = (await runs(p)).length;
 	await tick(invalid());
-	await job.runAssessmentBatch(c0.db, invalid(), 50);
+	await runAssessmentBatch(job, c0.db, invalid(), 50);
 	assert.equal((await runs(p)).length, before, "a held plant gets no more scheduled runs");
 	const v = await view(p);
 	assert.equal(v.current!.runId, good.runId);
@@ -536,7 +547,7 @@ test("publication writes the result, its insights by severity, the delta and the
 	];
 	for (let i = 0; i < 3; i++) {
 		ok(await assessments.requestRefresh(c0.db, p.actor, { requestId: randomUUID() }));
-		await job.runAssessmentBatch(c0.db, scripted(), 1);
+		await runAssessmentBatch(job, c0.db, scripted(), 1);
 		const run = (await runs(p)).at(-1)!;
 		assert.deepEqual([run.outcome, run.reason, run.result, run.delta], [...expected[i]!, null, null], `step ${i}`);
 		assert.equal((await c0.rows(sql`SELECT 1 FROM assessment_insight WHERE run_id=${run.id}`)).length, 0);
@@ -549,7 +560,8 @@ test("publication writes the result, its insights by severity, the delta and the
 	await c0.admin.execute(sql`DROP TRIGGER t299_fail ON job`);
 	await c0.admin.execute(sql`DROP FUNCTION t299_fail()`);
 	ok(await assessments.requestRefresh(c0.db, p.actor, { requestId: randomUUID() }));
-	await job.runAssessmentBatch(
+	await runAssessmentBatch(
+		job,
 		c0.db,
 		scripted({ script: (d) => ({ ...d, supporting: [{ ...d.supporting[0], urgency: "urgent" }, d.supporting[1]] }) }),
 		1,

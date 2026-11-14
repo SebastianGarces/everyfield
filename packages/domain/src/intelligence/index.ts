@@ -13,5 +13,5 @@ export {
 	type DraftProgress,
 	type DraftReply,
 } from "./assessment.ts";
-export { ASSESSMENT_TIMING, createAssessmentJob, type AssessmentJob } from "./assessment-job.ts";
+export { ASSESSMENT_TIMING, createAssessmentJob, runAssessmentBatch, type AssessmentJob } from "./assessment-job.ts";
 export { checkDraft, draftText } from "./checks.ts";

@@ -11,6 +11,7 @@ import {
 	createAssessmentJob,
 	createAssessments,
 	createFacts,
+	runAssessmentBatch,
 } from "../../../packages/domain/src/intelligence/index.ts";
 import { scriptedAssessmentDrafter, shortDate } from "../../../packages/evry/src/runtime/scripted-assessment.ts";
 import { ok } from "../../support/fixture.mts";
@@ -33,7 +34,7 @@ after(() => c?.database.close());
 /** An Owner's fresh-assessment request, run by the job: the run as its outcome, reason and drafts. */
 async function run(p, drafter = scriptedAssessmentDrafter(), requestId = randomUUID()) {
 	ok(await assessments.requestRefresh(c.db, p.actor, { requestId }));
-	await job.runAssessmentBatch(c.db, drafter, 20);
+	await runAssessmentBatch(job, c.db, drafter, 20);
 	const row = await c.one(
 		sql`SELECT * FROM assessment_run WHERE plant_id=${p.id} AND demand_key=${"manual/" + requestId}`,
 	);

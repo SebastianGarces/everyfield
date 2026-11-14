@@ -392,24 +392,36 @@ SELECT count(*)::int AS n FROM ins`);
 		},
 
 		/**
-		 * intelligence.runAssessmentBatch: claims and runs up to `limit` due jobs, one at a time, starting none after
-		 * `until` (epoch ms). Answers how many it ran.
+		 * intelligence.executeDemand for the next due job: claims one (taking over an expired lease) and runs it to its
+		 * settled outcome. Answers false when nothing was due. A failure leaves the run's stored progress for a later
+		 * claim within its deadline.
 		 */
-		async runAssessmentBatch(db: Database, drafter: Drafter, limit = 4, until = Infinity) {
-			let ran = 0;
-			while (ran < limit && Date.now() < until) {
-				const j = await claim(db);
-				if (!j) break;
-				try {
-					await execute(db, drafter, j);
-				} catch (error) {
-					// The run keeps its stored progress; the claim lapses and a later tick resumes it within its deadline.
-					console.error(JSON.stringify({ component: "assessment", outcome: "error", code: pgCode(error) ?? null }));
-				}
-				ran++;
+		async runNext(db: Database, drafter: Drafter) {
+			const j = await claim(db);
+			if (!j) return false;
+			try {
+				await execute(db, drafter, j);
+			} catch (error) {
+				console.error(JSON.stringify({ component: "assessment", outcome: "error", code: pgCode(error) ?? null }));
 			}
-			return ran;
+			return true;
 		},
 	};
 }
 export type AssessmentJob = ReturnType<typeof createAssessmentJob>;
+
+/**
+ * intelligence.runAssessmentBatch: runs up to `limit` due jobs one at a time, starting none after `until` (epoch ms).
+ * Answers how many it ran.
+ */
+export async function runAssessmentBatch(
+	job: AssessmentJob,
+	db: Database,
+	drafter: Drafter,
+	limit = 4,
+	until = Infinity,
+) {
+	let ran = 0;
+	while (ran < limit && Date.now() < until && (await job.runNext(db, drafter))) ran++;
+	return ran;
+}

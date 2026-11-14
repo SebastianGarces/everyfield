@@ -2,7 +2,7 @@ import { instant } from "@everyfield/contracts/common";
 import type { Database } from "@everyfield/db/client";
 import type { PrivateStorage } from "@everyfield/db/schema";
 import { documentsWriter } from "@everyfield/domain/documents";
-import { createAssessmentJob, type Drafter } from "@everyfield/domain/intelligence";
+import { createAssessmentJob, runAssessmentBatch, type Drafter } from "@everyfield/domain/intelligence";
 import { deleteExpiredImportFiles } from "@everyfield/domain/people";
 import type { TaskReminders } from "@everyfield/domain/tasks";
 import { closeLostJobs } from "@everyfield/evry";
@@ -160,7 +160,7 @@ export function scheduledJobs(config: {
 			["digest-delivery", "digests", digests && (() => digests.run(db, asOf, undefined, until))],
 			["notification", "notified", notifications && (() => notifications.run(db, asOf, undefined, until))],
 			["assessment-demand", null, assessments && (() => assessing.scheduleAssessments(db))],
-			["assessment", null, assessments && (() => assessing.runAssessmentBatch(db, assessments.drafter, 2, until))],
+			["assessment", null, assessments && (() => runAssessmentBatch(assessing, db, assessments.drafter, 2, until))],
 			["feedback-publication", null, feedbackPublication && (() => feedbackPublication(10, until))],
 			["mail-expiry", null, () => expireStaleMail(db)],
 			["mail", "mailed", mail && (() => mail(20, until))],

@@ -16,7 +16,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { draftOutput, languagePasses } from "../../../packages/contracts/src/intelligence/index.ts";
 import { sql } from "../../../packages/db/src/query.ts";
-import { createAssessmentJob, createAssessments, draftText } from "../../../packages/domain/src/intelligence/index.ts";
+import {
+	createAssessmentJob,
+	createAssessments,
+	draftText,
+	runAssessmentBatch,
+} from "../../../packages/domain/src/intelligence/index.ts";
 import {
 	scriptedAssessmentDrafter,
 	scriptedLanguageJudge,
@@ -193,7 +198,7 @@ for (const k of CASES)
 				k.change && (k.change.on ?? [1, 2, 3]).includes(call.ordinal) ? k.change.edit(draft) : draft,
 		});
 		ok(await assessments.requestRefresh(c.db, p.actor, { requestId }));
-		await createAssessmentJob().runAssessmentBatch(c.db, drafter, 1);
+		await runAssessmentBatch(createAssessmentJob(), c.db, drafter, 1);
 		const stored = await c.one(sql`SELECT outcome, drafts, model_input FROM assessment_run
 			WHERE plant_id=${p.id} AND demand_key=${"manual/" + requestId}`);
 		const result = { outcome: stored.outcome as string, drafts: stored.drafts as unknown[] };

@@ -1295,10 +1295,12 @@
           "tableFrom": "assessment_insight",
           "tableTo": "assessment_run",
           "columnsFrom": [
-            "run_id"
+            "run_id",
+            "plant_id"
           ],
           "columnsTo": [
-            "id"
+            "id",
+            "plant_id"
           ],
           "onDelete": "cascade",
           "onUpdate": "no action"
@@ -1495,12 +1497,6 @@
           "primaryKey": false,
           "notNull": true
         },
-        "job_id": {
-          "name": "job_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
         "captured_at": {
           "name": "captured_at",
           "type": "timestamp with time zone",
@@ -1647,6 +1643,14 @@
           "columns": [
             "plant_id",
             "demand_key"
+          ]
+        },
+        "assessment_run_owner": {
+          "name": "assessment_run_owner",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "plant_id"
           ]
         }
       },
