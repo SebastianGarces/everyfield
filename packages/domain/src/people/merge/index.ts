@@ -63,6 +63,8 @@ const factsRow = z.object({
 	commitment_effective_on: z.string().nullable(),
 	household_id: z.uuid().nullable(),
 	commitment_inputs: commitmentInputs,
+	/** The programs an organization person is enrolled in, in any status. */
+	enrollment_programs: z.array(z.uuid()),
 	refs: z.unknown(),
 });
 export type Facts = Omit<z.infer<typeof factsRow>, "refs" | "commitment_inputs"> & {
@@ -83,7 +85,9 @@ export function parseFacts(raw: unknown): Facts | null {
  */
 export const factsOf = (id: SQL, owner: string | SQL) =>
 	sql`(SELECT to_jsonb(p)||jsonb_build_object('revision',p.revision::text,'pipeline_position',p.pipeline_position::text,
- 'refs',${referencesOf(sql`p.id`, owner)},'commitment_inputs',${commitmentInputsJson(sql`p.id`, sql`${owner}::uuid`)}) FROM person p WHERE p.id=${id} AND p.tenant_id=${owner}::uuid
+ 'refs',${referencesOf(sql`p.id`, owner)},
+ 'enrollment_programs',(SELECT coalesce(jsonb_agg(e.program_id),'[]') FROM development_enrollment e
+  WHERE e.person_id=p.id AND e.organization_id=p.tenant_id),'commitment_inputs',${commitmentInputsJson(sql`p.id`, sql`${owner}::uuid`)}) FROM person p WHERE p.id=${id} AND p.tenant_id=${owner}::uuid
  AND NOT EXISTS(SELECT FROM organization_person_removal w WHERE w.person_record_id=p.id AND w.organization_id=p.tenant_id))`;
 
 /**
@@ -155,6 +159,8 @@ function plan(
 	if (source.linked_account_id && survivor.linked_account_id) causes.push("linked_account_collision");
 	else if (source.linked_account_id) causes.push("linked_source");
 	if (blocked.length) causes.push("unregistered_reference");
+	if (source.enrollment_programs.some((program) => survivor.enrollment_programs.includes(program)))
+		causes.push("enrollment_collision");
 	const references = [...byKind].map(([k, refs]) => ({
 		kind: k,
 		count: refs.length,

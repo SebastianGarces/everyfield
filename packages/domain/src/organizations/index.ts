@@ -42,4 +42,5 @@ export {
 	searchReadings,
 } from "./programs.ts";
 export { geographyReference, installGeographyRelease, readReportingLocation, suggestRegions } from "./geography.ts";
+export { pipelineDataWriter, readPipelineExport } from "./data.ts";
 export { readMyResidency, readResidentReading, residentWriter } from "./residency.ts";

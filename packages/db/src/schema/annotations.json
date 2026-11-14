@@ -1639,6 +1639,7 @@
 				"people.updated",
 				"people.retired",
 				"people.restored",
+				"people.removed",
 				"people.stage_changed",
 				"people.merged",
 				"people.unmerged",

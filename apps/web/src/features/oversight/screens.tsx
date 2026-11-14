@@ -44,6 +44,7 @@ import {
 	gapText,
 	HEALTH,
 	HOME_HEADING,
+	intelligenceWords,
 	LAUNCH_STATE,
 	launchLabel,
 	leadLabel,
@@ -57,45 +58,34 @@ import {
 	sharedCount,
 	STAGE_OF,
 	type OrganizationKind,
+	type OrganizationView,
+	VIEWS,
 } from "./model.ts";
 
 // The organization oversight pages (REQ-IDN-023, REQ-IDN-024; prototype #/network and #/network/plant). They show
 // names, localities, phases, dates and counts only, are read only for every organization role, and rank nothing:
 // plants are listed by name.
 
-/**
- * Plants, Sending churches and Network Intelligence, a network's views. A sending church has only its plants, so no
- * tabs; its Network Intelligence wording is a later slice.
- */
-function NetworkTabs({ current }: { current: "plants" | "churches" | "intelligence" }) {
+/** The organization's view switch (VIEWS): a network's three views, a sending church's two. */
+function ViewTabs({ kind, current }: { kind: OrganizationKind; current: OrganizationView }) {
 	const tab = (active: boolean) =>
 		cn(
 			"inline-flex cursor-pointer items-center gap-2 rounded-md px-3.5 py-2 font-medium text-ink-2 transition-colors duration-150 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ef-focus)]",
 			active && "bg-surface-raised text-ink shadow-[var(--ef-shadow-raised)]",
 		);
+	const { label, tabs } = VIEWS[kind];
 	return (
-		<nav aria-label="Network views" className="mb-5 flex w-max max-w-full gap-1 rounded-md bg-surface-2 p-1">
-			<Link
-				href="/network"
-				aria-current={current === "plants" ? "page" : undefined}
-				className={tab(current === "plants")}
-			>
-				Plants
-			</Link>
-			<Link
-				href="/network/sending-churches"
-				aria-current={current === "churches" ? "page" : undefined}
-				className={tab(current === "churches")}
-			>
-				Sending churches
-			</Link>
-			<Link
-				href="/network/intelligence"
-				aria-current={current === "intelligence" ? "page" : undefined}
-				className={tab(current === "intelligence")}
-			>
-				Network Intelligence
-			</Link>
+		<nav aria-label={label} className="mb-5 flex w-max max-w-full gap-1 rounded-md bg-surface-2 p-1">
+			{tabs.map((t) => (
+				<Link
+					key={t.view}
+					href={t.href}
+					aria-current={current === t.view ? "page" : undefined}
+					className={tab(current === t.view)}
+				>
+					{t.label}
+				</Link>
+			))}
 		</nav>
 	);
 }
@@ -207,7 +197,7 @@ export function DirectoryScreen({ directory, kind }: { directory: PlantDirectory
 						: "You only see what each plant chooses to share."
 				}
 			/>
-			{kind === "sending_network" ? <NetworkTabs current="plants" /> : null}
+			<ViewTabs kind={kind} current="plants" />
 			<Card as="section" aria-labelledby="plants-title">
 				<h2 id="plants-title" className="font-title text-title-sm tracking-[-0.02em] text-ink">
 					{HOME_HEADING[kind]}
@@ -400,24 +390,21 @@ function SummaryCard({ view, summary }: { view: PlantView; summary: NonNullable<
 
 /** /network/intelligence: patterns across the plants that share with this organization. */
 export function IntelligenceScreen({ view, kind }: { view: IntelligenceView; kind: OrganizationKind }) {
+	const words = intelligenceWords(kind, view.organizationName);
 	return (
 		<div className="flex flex-col">
 			<PageHeader
-				title="Network Intelligence"
+				title={words.title}
 				subtitle="Patterns across your plants, from what each one shares with you. A pattern needs at least 2 plants."
 			/>
-			{kind === "sending_network" ? <NetworkTabs current="intelligence" /> : null}
+			<ViewTabs kind={kind} current="intelligence" />
 			<Card variant="callout" tone="ink" className="mb-5">
 				<CalloutLabel tone="ink" icon={ShieldUserIcon}>
 					How this works
 				</CalloutLabel>
-				<CalloutText className="text-md">
-					Everyfield&apos;s network rubric v1 reads only counts and dates each plant shares with you: launch dates,
-					unfilled roles, overdue follow-ups, when its newest committed adult signed and required training. It never
-					names a person, ranks or scores plants. A plant that doesn&apos;t share counts as Not shared, never as zero.
-				</CalloutText>
+				<CalloutText className="text-md">{words.howItWorks}</CalloutText>
 			</Card>
-			<IntelligenceBody initial={view} />
+			<IntelligenceBody initial={view} words={words} />
 		</div>
 	);
 }
@@ -582,7 +569,7 @@ export function RosterScreen({ roster }: { roster: SendingChurchRoster }) {
 				title="Sending churches"
 				subtitle="Sending churches linked to your network. Their plants show here only when each plant links to you too."
 			/>
-			<NetworkTabs current="churches" />
+			<ViewTabs kind="sending_network" current="churches" />
 			<Card as="section" aria-labelledby="churches-title">
 				<div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
 					<h2 id="churches-title" className="font-title text-title-sm tracking-[-0.02em] text-ink">

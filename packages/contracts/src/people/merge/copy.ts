@@ -64,6 +64,8 @@ export function blockerText(cause: Blocker, names: { source: string; survivor: s
 				: `${names.source} has an Everyfield account, so ${names.source} must be the person you keep.`;
 		case "unregistered_reference":
 			return `${names.source} has ${kindList(kinds)} on record. Merging people with this history is not available in Everyfield yet.`;
+		case "enrollment_collision":
+			return `${names.source} and ${names.survivor} are both enrolled in the same program. One person can’t hold two enrollments in one program.`;
 	}
 }
 
