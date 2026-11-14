@@ -8,6 +8,7 @@ import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import {
 	pipelineWriter,
 	readPipelineBoard,
+	readPipelineGoals,
 	readPipelinePersonRecord,
 } from "../../../packages/domain/src/organizations/pipeline.ts";
 import {
@@ -54,7 +55,12 @@ const seatOf = async (account: string, organization: string) =>
 const program = async (a: Actor, programId: string) => ok(await readProgram(db, await authority(a), { programId }));
 const enrollment = async (a: Actor, enrollmentId: string) =>
 	ok(await readEnrollment(db, await authority(a), { enrollmentId }));
-const residents = async (a: Actor) => ok(await readPrograms(db, await authority(a))).activeResidents;
+/** Active residents as the Programs tab and the Pipeline goals card each show it; the two must agree. */
+const residents = async (a: Actor) => {
+	const tab = ok(await readPrograms(db, await authority(a))).activeResidents;
+	assert.equal(ok(await readPipelineGoals(db, await authority(a))).activeResidents, tab);
+	return tab;
+};
 
 const TEMPLATE_STAGES = [
 	{ label: "Assimilating", minMonths: 2, maxMonths: 3 },

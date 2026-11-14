@@ -6,7 +6,7 @@ import "server-only";
 import { z } from "zod";
 import type { RequestActor } from "../access/session.ts";
 import { GLOBAL } from "../wiki/core.ts";
-import { answer, one, parse, refuse, seatOf, write, type Executor, type Writer } from "./seat.ts";
+import { activeResidents, answer, one, parse, refuse, seatOf, write, type Executor, type Writer } from "./seat.ts";
 
 // Development programs (REQ-MUL-010, -011, -012). Every seat of the organization reads its programs and enrollments.
 // An Owner or Admin creates programs and enrolls people; the program's current director edits and publishes the plan,
@@ -87,10 +87,7 @@ SELECT g.allowed,(SELECT name FROM o) AS name,
     AND x.state='live')) ORDER BY lower(p.name),p.id)
   FROM development_program p CROSS JOIN o LEFT JOIN development_program_version v ON v.id=p.current_version_id
    AND v.organization_id=p.organization_id WHERE p.organization_id=${org}::uuid),'[]'::jsonb) AS programs,
- (SELECT count(DISTINCT e.person_id) FROM development_enrollment e JOIN development_program p ON p.id=e.program_id
-   AND p.organization_id=e.organization_id JOIN person x ON x.id=e.person_id AND x.tenant_id=e.organization_id
-  WHERE EXISTS(SELECT FROM o) AND e.organization_id=${org}::uuid AND e.status='active' AND p.kind='residency'
-   AND x.state='live') AS residents,
+ CASE WHEN EXISTS(SELECT FROM o) THEN ${activeResidents(org)} ELSE 0 END AS residents,
  CASE WHEN ${seat.administrator} AND EXISTS(SELECT FROM o) THEN ${staffJson(org)} ELSE '[]'::jsonb END AS staff
 FROM g`);
 		const row = z

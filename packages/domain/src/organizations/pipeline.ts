@@ -5,7 +5,7 @@ import { createHash, randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
 import type { RequestActor } from "../access/session.ts";
-import { answer, one, parse, refuse, seatOf, write, type Executor, type Writer } from "./seat.ts";
+import { activeResidents, answer, one, parse, refuse, seatOf, write, type Executor, type Writer } from "./seat.ts";
 
 // The organization pipeline (REQ-MUL-001, -002, -008, -009). An Owner or Admin reads and changes everyone; a seat named
 // responsible staff reads those people and their notes and writes notes; any other seat reads counts per stage only.
@@ -304,7 +304,7 @@ const goalsRow = z.object({
 	goals: z.array(z.record(z.string(), z.unknown())),
 	kinds: z.array(z.object({ kind: z.string(), count: z.coerce.number() })),
 	months: z.array(z.object({ month: z.string(), count: z.coerce.number() })),
-	quarters: z.array(z.object({ year: z.number(), quarter: z.number(), count: z.coerce.number() })),
+	quarters: z.array(z.object({ year: z.number(), quarter: z.number(), count: z.coerce.number() })),	residents: z.coerce.number(),
 });
 
 /**
@@ -345,7 +345,8 @@ SELECT g.allowed,(SELECT today::text FROM o) AS as_of,
  coalesce((SELECT jsonb_agg(jsonb_build_object('year',extract(year FROM q)::int,'quarter',extract(quarter FROM q)::int,
    'count',(SELECT count(*) FROM c WHERE date_trunc('quarter',c.occurred_on::timestamp)=q)) ORDER BY q)
   FROM o,generate_series(date_trunc('quarter',o.today::timestamp)-interval '9 months',date_trunc('quarter',o.today::timestamp),interval '3 months') q),
-  '[]'::jsonb) AS quarters
+  '[]'::jsonb) AS quarters,
+ CASE WHEN EXISTS(SELECT FROM o) THEN ${activeResidents(org)} ELSE 0 END AS residents
 FROM g`);
 		const row = goalsRow.parse(r.rows[0]);
 		if (!row.allowed || !row.as_of) refuse();
@@ -355,6 +356,7 @@ FROM g`);
 			canEdit: seat.administrator,
 			goals: row.goals,
 			kinds: row.kinds.sort((a, b) => order.indexOf(a.kind as never) - order.indexOf(b.kind as never)),
+			activeResidents: row.residents,
 			plantsSent: { status: "unavailable", reason: "deferred_stage_3" },
 			conversations: { months: row.months, quarters: row.quarters },
 		});

@@ -122,3 +122,12 @@ export async function write<T, R extends Refusal = C.PipelineRefusal>(
 export async function one<S extends z.ZodType>(w: Writer, schema: S, statement: SQL): Promise<z.output<S>> {
 	return schema.parse((await w.tx.execute(statement)).rows[0]);
 }
+
+/**
+ * Active residents (REQ-MUL-007): distinct live people of the organization with at least one active enrollment in a
+ * residency-kind program. An apprenticeship enrollment or a pipeline stage labeled Resident alone does not count.
+ */
+export const activeResidents = (org: string) =>
+	sql`(SELECT count(DISTINCT e.person_id) FROM development_enrollment e JOIN development_program p ON p.id=e.program_id
+   AND p.organization_id=e.organization_id JOIN person x ON x.id=e.person_id AND x.tenant_id=e.organization_id
+  WHERE e.organization_id=${org}::uuid AND e.status='active' AND p.kind='residency' AND x.state='live')`;
