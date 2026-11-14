@@ -188,6 +188,8 @@ export const pipelineBoard = z.strictObject({
 const historyBase = { id: recordId, on: localDate, actor: z.string().nullable() };
 export const pipelineHistoryEntry = z.discriminatedUnion("kind", [
 	z.strictObject({ ...historyBase, kind: z.literal("placed"), to: z.string() }),
+	/** Added from a file (T-363): who imported them, when, and the stage they were placed in. */
+	z.strictObject({ ...historyBase, kind: z.literal("imported"), to: z.string() }),
 	z.strictObject({ ...historyBase, kind: z.literal("moved"), from: z.string(), to: z.string(), reason: z.string() }),
 	z.strictObject({ ...historyBase, kind: z.literal("assessment") }),
 	z.strictObject({ ...historyBase, kind: z.literal("edited") }),

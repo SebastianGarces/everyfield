@@ -3950,6 +3950,9 @@
 				},
 				"statement_of_faith": {
 					"note": "A sending network's plain-text statement of faith. It fills the statement-of-faith slot of Church Documents its plants create from a template (DOC-020, D-107). Null on a sending church."
+				},
+				"pipeline_import_columns": {
+					"note": "The pipeline import's remembered column choices (T-363): normalized column title to the field, answer or skip an Owner or Admin last chose for it. Titles only, never an answer."
 				}
 			},
 			"foreignKeys": {

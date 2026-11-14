@@ -3047,6 +3047,9 @@ export const organization = pgTable(
 			.notNull()
 			.default(sql`1`),
 		statement_of_faith: text("statement_of_faith"),
+		pipeline_import_columns: jsonb("pipeline_import_columns")
+			.notNull()
+			.default(sql`'{}'::jsonb`),
 	},
 	(table): PgTableExtraConfigValue[] => [
 		foreignKey({ name: "organization_fk_0", columns: [table.id], foreignColumns: [tenant.id] })
@@ -3066,6 +3069,7 @@ export const organization = pgTable(
 			"organization_statement_of_faith",
 			sql`((statement_of_faith IS NULL) OR ((kind = 'sending_network'::text) AND (length(btrim(statement_of_faith)) > 0) AND (length(statement_of_faith) <= 10000)))`,
 		),
+		check("organization_pipeline_import_columns", sql`(jsonb_typeof(pipeline_import_columns) = 'object'::text)`),
 	],
 );
 export const organization_person_removal = pgTable(

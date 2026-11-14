@@ -5,3 +5,4 @@ export * from "./subjects.ts";
 export * from "./pipeline.ts";
 export * from "./programs.ts";
 export * from "./residency.ts";
+export * from "./import.ts";
