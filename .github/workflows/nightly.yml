@@ -1,0 +1,81 @@
+# The nightly full run behind local selection (T-41, T-216). `bin/dev check` skips the test files a diff cannot reach,
+# through the coverage map this workflow writes: every selectable test file runs here under coverage, and only a run
+# where all of them pass uploads its map. `bin/dev check` downloads the map of the latest successful run with gh.
+# The bun typecheck shadow runs here too, out of the pull request gate, until T-53 decides bun's fate.
+# GitHub runs a schedule on the default branch only. fail-forward reports a failed run on main as one incident.
+name: Nightly
+
+on:
+  schedule:
+    - cron: "17 7 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: "24.22.1"
+
+jobs:
+  coverage:
+    name: coverage map (every selectable test file)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # operation rule and rule placement checks read baseline commits
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      # pnpm comes from corepack at the packageManager version in package.json, installed once. The pnpm store
+      # cache below calls pnpm, so it comes after.
+      - name: pnpm from corepack (retries registry errors)
+        run: .github/scripts/corepack-install.sh
+      - name: pnpm store cache
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Git identity for test fixtures
+        run: |
+          git config --global user.name "evf ci"
+          git config --global user.email "ci@everyfield.invalid"
+          git config --global init.defaultBranch main
+      # Writes the map only when every test passed; otherwise it fails and no map is uploaded.
+      - name: Every selectable test file under coverage
+        run: node scripts/nightly.ts coverage-map "$RUNNER_TEMP/coverage-map.json"
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
+      - name: Coverage map
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-map
+          path: ${{ runner.temp }}/coverage-map.json
+          if-no-files-found: error
+          retention-days: 14
+
+  bun-shadow:
+    name: bun typecheck shadow (T-53)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: pnpm from corepack (retries registry errors)
+        run: .github/scripts/corepack-install.sh
+      - name: pnpm store cache
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: bun check over every package
+        run: pnpm typecheck:bun

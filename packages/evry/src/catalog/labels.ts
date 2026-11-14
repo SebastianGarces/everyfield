@@ -27,3 +27,16 @@ export const ZONE_NAME: Readonly<Record<string, string>> = {
 	"America/Anchorage": "Alaska",
 	"Pacific/Honolulu": "Hawaii",
 };
+
+/** The seven phases by the names `/onboarding` shows. */
+const PHASE_NAME = [
+	"Discovery",
+	"Core group development",
+	"Launch team formation",
+	"Training and preparation",
+	"Pre-launch",
+	"Launch Sunday",
+	"Post-launch",
+] as const;
+/** "Phase 1, Core group development". */
+export const phaseText = (phase: number) => `Phase ${phase}, ${PHASE_NAME[phase] ?? "unknown"}`;

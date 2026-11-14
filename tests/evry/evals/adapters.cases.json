@@ -1159,6 +1159,93 @@
 		}
 	},
 	{
+		"case_id": "ADP-NT-12",
+		"extra": true,
+		"adapter": "notifications/reads",
+		"operation": "notifications.previewOversightDigest",
+		"near_miss": false,
+		"question": "what will my next oversight digest say?",
+		"eval": {
+			"as": "org",
+			"calls": [
+				{
+					"operation": "notifications.previewOversightDigest"
+				}
+			],
+			"require": [
+				"/Hope Fellowship/",
+				"/\\b6\\b|six/i",
+				"/Nov(ember)? 8/i",
+				"/Nov(ember)? 10|Tuesday|tomorrow/i",
+				"/7(:00)?\\s?(AM|a\\.?m\\.?)/i"
+			],
+			"forbid": ["/Cedar Creek/i", "/Daniel|marriage|confidential/i"],
+			"derivation": "The organization Owner's next oversight digest goes out Tue 10 Nov at 7:00 AM, covers 8 to 9 Nov and has one line: Hope Fellowship, 6 activities on Nov 8. Cedar Creek Church shares no activity, so it has no line."
+		}
+	},
+	{
+		"case_id": "ADP-NT-13",
+		"extra": true,
+		"adapter": "notifications/commands",
+		"operation": "notifications.oversightDigestCadence.set",
+		"near_miss": false,
+		"question": "send my oversight digest weekly",
+		"eval": {
+			"as": "org",
+			"proposals": [
+				{
+					"operation": "notifications.oversightDigestCadence.set",
+					"input": {
+						"cadence": "weekly"
+					}
+				}
+			],
+			"require": ["/review|approv/i"],
+			"derivation": "The review shows the oversight digest going from daily to weekly (Mondays at 7:00 AM); nothing changes until the Owner approves."
+		}
+	},
+	{
+		"case_id": "ADP-NT-14",
+		"extra": true,
+		"adapter": "notifications/commands",
+		"operation": "notifications.oversightDigestCadence.set",
+		"near_miss": true,
+		"question": "send my oversight digest every 3 hours",
+		"eval": {
+			"as": "org",
+			"require": ["/daily/i", "/weekly/i"],
+			"derivation": "Settings offers only daily or weekly, so no review card appears and Evry names the choices."
+		}
+	},
+	{
+		"case_id": "ADP-NT-15",
+		"extra": true,
+		"adapter": "notifications/commands",
+		"operation": "notifications.oversightDigestCadence.set",
+		"near_miss": true,
+		"question": "send my oversight digest on Fridays at noon",
+		"eval": {
+			"as": "org",
+			"require": ["/daily/i", "/weekly/i"],
+			"derivation": "The oversight digest always goes out at 7:00 AM, daily or on Mondays; Settings offers no day or hour, so no review card appears."
+		}
+	},
+	{
+		"case_id": "ADP-NT-16",
+		"extra": true,
+		"adapter": "notifications/commands",
+		"operation": "notifications.oversightDigestCadence.set",
+		"near_miss": true,
+		"question": "change Pastor Ruth's oversight digest to weekly",
+		"eval": {
+			"as": "org",
+			"require": [
+				"/(each person|everyone|their own|her own|only (change )?(your|yours)|your own|can['’]?t change|cannot change)/i"
+			],
+			"derivation": "Evry changes only the signed-in account's own oversight digest, so no review card appears."
+		}
+	},
+	{
 		"case_id": "ADP-T-01",
 		"extra": true,
 		"adapter": "teams/reads",

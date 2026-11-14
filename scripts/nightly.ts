@@ -1,7 +1,10 @@
-// `bin/dev nightly`: everything selection may skip, on main, once a night on this Mac (T-41). It refreshes the coverage
-// map that `bin/dev check` selects through, then runs the tests/ui browser set on a preview of origin/main, one engine
-// at a time. A loaded machine or a full preview pool records `nightly_skipped` and starts nothing. Results go to
-// nightly.jsonl outside the repository; a failure opens or comments once on one GitHub issue.
+// The nightly full run behind selection (T-41, T-216). `node scripts/nightly.ts coverage-map <file>` is what the GitHub
+// nightly (.github/workflows/nightly.yml) runs on main: every selectable test file under coverage, writing the map
+// that `bin/dev check` downloads and selects through, and only when every test passed. `bin/dev nightly` is the
+// local run of the tests/ui browser set on a preview of origin/main, one engine at a time, by hand or from the launchd
+// agent `bin/dev nightly schedule install` sets up (scripts/nightly-schedule.ts, T-104; kept under D-1291). A
+// loaded machine or a full preview pool records `nightly_skipped` and starts nothing. Results go to nightly.jsonl
+// outside the repository; a failure opens or comments once on one GitHub issue.
 import { spawnSync } from "node:child_process";
 import {
 	appendFileSync,
@@ -20,13 +23,11 @@ import { availableParallelism, loadavg, tmpdir } from "node:os";
 import { basename, dirname, join, relative, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { type CoverageMap, suiteOf } from "../tools/ci/select.ts";
-import { ciHome } from "./check.ts";
+import { ciHome, type Gh, REPO } from "./check.ts";
 
 export type SuiteRun = { passed: number; failed: number };
 export type Engine = "chromium" | "webkit";
 export const ENGINES: readonly Engine[] = ["chromium", "webkit"];
-/** A command runner shaped like `gh`: tests pass a fake. */
-export type Gh = (args: readonly string[]) => { status: number; stdout: string };
 
 export type NightlyDeps = {
 	home: string;
@@ -37,8 +38,6 @@ export type NightlyDeps = {
 	slot: (project: string) => Promise<string | null>;
 	/** A clean worktree of origin/main. `remove` deletes it. */
 	checkout: () => { head: string; worktree: string; remove(): void };
-	/** Runs every selectable test file under coverage and says what each reached. */
-	coverage: (worktree: string) => SuiteRun & { tests: Record<string, string[]> };
 	/** Starts the seeded preview. `close` stops it and drops its seeds. */
 	preview: (worktree: string) => Promise<{ url: string; close(): void }>;
 	/** Runs tests/ui with one engine against `url`. */
@@ -54,7 +53,6 @@ type Entry =
 export const nightlyLog = (home: string) => join(home, "nightly.jsonl");
 
 const MARKER = "<!-- everyfield-nightly -->";
-const REPO = "SebastianGarces/everyfield";
 
 /**
  * Reports a failed suite at most once per head and suite: one open issue keyed by MARKER, opened on the first failure
@@ -107,7 +105,7 @@ export function reportFailure(
 	return outcome;
 }
 
-/** One nightly run. Every exit path closes the preview it started and removes its worktree. */
+/** One local tests/ui run. Every exit path closes the preview it started and removes its worktree. */
 export async function nightly(deps: NightlyDeps): Promise<Entry[]> {
 	mkdirSync(deps.home, { recursive: true });
 	const entries: Entry[] = [];
@@ -133,39 +131,21 @@ export async function nightly(deps: NightlyDeps): Promise<Entry[]> {
 		});
 	};
 
-	/** Why nothing may start now: a loaded machine, else no free preview slot. The slot is probed only when not loaded. */
-	const busy = async (project: string) => {
-		const { load, cores } = deps.load();
-		if (load > 2 * cores) return `the 1-minute load ${load.toFixed(1)} is above 2 × ${cores} cores`;
-		return deps.slot(project);
-	};
-	const busyNow = await busy("nightly");
-	if (busyNow !== null) {
-		skip(null, "all", busyNow);
+	// Why nothing may start now: a loaded machine, else no free preview slot. The slot is probed only when not loaded.
+	const { load, cores } = deps.load();
+	const busy =
+		load > 2 * cores ? `the 1-minute load ${load.toFixed(1)} is above 2 × ${cores} cores` : await deps.slot("nightly");
+	if (busy !== null) {
+		skip(null, "all", busy);
 		return entries;
 	}
 	const { head, worktree, remove } = deps.checkout();
 	let close: (() => void) | undefined;
 	try {
-		let t0 = deps.now();
-		const { tests, ...covered } = deps.coverage(worktree);
-		// A test that fails early reaches less than it would, so a map from a failing run would select too little. Keep the
-		// previous map; once it is over 7 days old, selection runs everything.
-		if (covered.failed === 0) {
-			const map: CoverageMap = { head, createdAt: at(), tests };
-			const file = join(deps.home, "coverage-map.json");
-			writeFileSync(file + ".tmp", JSON.stringify(map, null, 2) + "\n");
-			renameSync(file + ".tmp", file);
-		} else deps.log(`coverage had ${covered.failed} failures; the coverage map is not replaced`);
-		result(head, "coverage", t0, covered);
-
-		// The coverage run took minutes: ask again right before taking the slot.
-		const busyLater = await busy(worktree);
-		if (busyLater !== null) return (skip(head, "tests/ui", busyLater), entries);
 		const preview = await deps.preview(worktree);
 		close = preview.close;
 		for (const engine of ENGINES) {
-			t0 = deps.now();
+			const t0 = deps.now();
 			result(head, `tests/ui ${engine}`, t0, deps.ui(worktree, preview.url, engine));
 		}
 		return entries;
@@ -361,7 +341,6 @@ function realDeps(): NightlyDeps {
 			}
 			return { head, worktree, remove };
 		},
-		coverage: (worktree) => coverageMap(worktree),
 		preview: async (worktree) => {
 			let preview = startPreview(worktree);
 			const stop = () => run("portless", ["preview", "down", preview.id]);
@@ -400,6 +379,36 @@ function realDeps(): NightlyDeps {
 		gh: (args) => run("gh", args),
 		log: (line) => console.log(line),
 	};
+}
+
+/**
+ * `node scripts/nightly.ts coverage-map <file>`: the GitHub nightly's coverage run over this checkout. It writes the map
+ * for HEAD to `file` only when every test passed: a test that fails early reaches less than it would, so a map from a
+ * failing run would select too little. Exits 1 then, and the workflow uploads no map.
+ */
+export function coverageMapCommand(args: string[], checkout = root, now = () => new Date()): number {
+	if (args.length !== 1) {
+		console.error("usage: node scripts/nightly.ts coverage-map <file>");
+		return 2;
+	}
+	const head = must(run("git", ["-C", checkout, "rev-parse", "HEAD"]), "git rev-parse").stdout.trim();
+	const { tests, passed, failed } = coverageMap(checkout);
+	console.log(`coverage: ${passed} passed, ${failed} failed over ${Object.keys(tests).length} test files at ${head}`);
+	if (failed > 0) {
+		console.error("coverage had failures; no coverage map is written");
+		return 1;
+	}
+	const map: CoverageMap = { head, createdAt: now().toISOString(), tests };
+	const file = args[0]!;
+	writeFileSync(file + ".tmp", JSON.stringify(map, null, 2) + "\n");
+	renameSync(file + ".tmp", file);
+	console.log(`coverage map: ${file}`);
+	return 0;
+}
+
+if (import.meta.main) {
+	const [command, ...rest] = process.argv.slice(2);
+	process.exitCode = coverageMapCommand(command === "coverage-map" ? rest : []);
 }
 
 /** The `bin/dev nightly` command line. */

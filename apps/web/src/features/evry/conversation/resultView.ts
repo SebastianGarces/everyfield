@@ -158,6 +158,20 @@ const VIEWS: Record<string, OpView> = {
 		counts: "connection",
 		empty: "This church is not connected with that organization.",
 	},
+	"onboarding.getResume": {
+		title: "Setup",
+		noun: ["step", "steps"],
+		icon: "step",
+		counts: "step",
+		empty: "This church has no setup in progress for you.",
+	},
+	"discovery.getProfile": {
+		title: "Discovery space",
+		noun: ["linked organization", "linked organizations"],
+		icon: "relationship",
+		counts: "relationship",
+		empty: "No sending church or network is linked yet.",
+	},
 	"communication.list": {
 		title: "Messages",
 		noun: ["message", "messages"],
@@ -234,6 +248,16 @@ const VIEWS: Record<string, OpView> = {
 		counts: "digest",
 		headed: true,
 		empty: "Your church digest is turned off, so no digest is coming.",
+	},
+	// One line per plant and day; the total counts activities, not lines.
+	"notifications.previewOversightDigest": {
+		title: "Next oversight digest",
+		noun: ["line", "lines"],
+		icon: "digest",
+		counts: "digest",
+		headed: true,
+		shownOnly: true,
+		empty: "Your oversight digest has nothing owed yet.",
 	},
 };
 // The Ministries reads (WP-069). A ministry row opens its Ministries page; a person row opens the person.
@@ -777,6 +801,25 @@ function rowView(operation: string, row: SourceRow): RowView {
 						: "Owners and Admins choose what is shared",
 				avatar: null,
 			};
+		case "step":
+			// A setup step as `/onboarding` shows it: saved with its answer, or still open.
+			return {
+				...plain,
+				href: "/onboarding",
+				name: row.label,
+				line: text(fields.answer),
+				mark: { kind: "status", text: fields.status === "saved" ? "Saved" : "Open", warn: fields.status !== "saved" },
+				avatar: null,
+			};
+		case "relationship":
+			// A sending church or network a Discovery space is linked to, and what that link shares.
+			return {
+				...plain,
+				href: "/onboarding",
+				name: row.label,
+				line: `${text(fields.relationship)} · ${typeof fields.shares === "string" ? `Shares ${fields.shares}` : "Shares nothing"}`,
+				avatar: null,
+			};
 		case "notice":
 			// A bell notification: its area and church-local time. A card never marks it read.
 			return {
@@ -805,7 +848,12 @@ function rowView(operation: string, row: SourceRow): RowView {
 				? {
 						...plain,
 						name: row.label,
-						line: joined(text(fields.sendsAt) ? `Sends ${String(fields.sendsAt)}` : null),
+						line: joined(
+							text(fields.sendsAt)
+								? `${fields.sent === false ? "Would send" : "Sends"} ${String(fields.sendsAt)}`
+								: null,
+							fields.sent === false ? "Not sent: nothing to report" : null,
+						),
 						avatar: "digest",
 					}
 				: { ...plain, name: row.label, line: null, avatar: null };
@@ -1007,6 +1055,14 @@ export function cardView(operation: string, result: SourceResult, originalTotal:
 				: "Only the first matches are shown.",
 		);
 	const totals = result.facts ?? {};
+	if (typeof totals.phase === "string")
+		facts.push(
+			`${String(totals.church ?? "Your church")} is in ${totals.phase}.${typeof totals.launchDate === "string" ? ` Launch date ${totals.launchDate}.` : ""}${typeof totals.resumeAt === "string" && !totals.finished ? ` Setup picks up at ${totals.resumeAt}.` : ""}`,
+		);
+	if (typeof totals.discoveryClosedOn === "string")
+		facts.push(`Your Discovery space closed on ${totals.discoveryClosedOn}, when it became this church.`);
+	if (typeof totals.foundationsRead === "number")
+		facts.push(`${totals.foundationsRead} of ${Number(totals.foundationsTotal)} foundation articles read.`);
 	if (typeof totals.roles === "number")
 		facts.push(
 			`${count(totals.roles, "role", "roles")} in all: ${totals.filledRoles} filled, ${totals.openRoles} open. ${Number(totals.peopleServing).toLocaleString()} serving, each counted once however many roles they hold.`,

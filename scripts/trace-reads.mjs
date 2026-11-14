@@ -1,4 +1,4 @@
-// Preloaded by `bin/dev nightly`'s coverage run (scripts/nightly.ts, T-41) through NODE_OPTIONS, so every child
+// Preloaded by the GitHub nightly's coverage run (scripts/nightly.ts, T-41, T-216) through NODE_OPTIONS, so every child
 // process loads it too. V8 coverage sees only the modules a test executes; a test that reads a file as text, or lists a
 // directory, would look as if it never touched it, and selection would skip it. This records every path the process
 // reads or lists through node:fs into TRACE_READS_DIR/<pid>.txt, one absolute path per line, with directories ending

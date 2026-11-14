@@ -3,12 +3,12 @@ import { globSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
 /**
- * `pnpm typecheck`: each package's `typecheck` script, which runs the pinned `bun check` (T-110, D-961, on the T-109
- * shadow data). It prints every package's diagnostics and exits 1 when any package has type errors, or its bun check
- * is missing, crashes or times out. `pnpm typecheck:tsc` runs each package's `typecheck:tsc` (TypeScript 7), which
- * GitHub CI's `Types` step keeps as the backstop. After the packages, `pnpm typecheck` runs the root `typecheck:tools`
- * script over the tool folders (tsconfig.tools.json, T-176), and the run fails if either fails. The helpers below also
- * serve typecheck-compare.ts and typecheck-corpus.ts.
+ * `pnpm typecheck`: each package's `typecheck` script, which runs TypeScript 7 (`tsc --noEmit`), then the root
+ * `typecheck:tools` script over the tool folders (tsconfig.tools.json, T-176). It prints every package's diagnostics and
+ * exits 1 when any package has type errors, or its checker is missing, crashes or times out, or typecheck:tools fails.
+ * GitHub CI's `Types` step runs it on every pull request. `pnpm typecheck:bun` runs each package's `typecheck:bun` (the
+ * pinned `bun check`, T-110, D-961) the same way, without typecheck:tools: the GitHub nightly runs it as the bun shadow
+ * until T-53 decides bun's fate (T-216). The helpers below also serve typecheck-compare.ts and typecheck-corpus.ts.
  */
 
 export type Diagnostic = { file: string; line: number; code: string };
@@ -67,15 +67,15 @@ export function diffDiagnostics(tsc: Diagnostic[], bun: Diagnostic[]): Array<Dia
 
 export type WorkspacePackage = { dir: string; scripts: Record<string, string> };
 
-/** The workspace packages with a `typecheck` script, which is the set `pnpm -r --if-present typecheck` runs. */
-export function typecheckPackages(root: string): WorkspacePackage[] {
+/** The workspace packages with the named script (`typecheck` by default), the set `pnpm -r --if-present` runs. */
+export function typecheckPackages(root: string, script = "typecheck"): WorkspacePackage[] {
 	return globSync(["apps/*/package.json", "packages/*/package.json"], { cwd: root })
 		.sort()
 		.map((file) => {
 			const pkg: { scripts?: Record<string, string> } = JSON.parse(readFileSync(join(root, file), "utf8"));
 			return { dir: dirname(file), scripts: pkg.scripts ?? {} };
 		})
-		.filter((p) => typeof p.scripts.typecheck === "string");
+		.filter((p) => typeof p.scripts[script] === "string");
 }
 
 export type ScriptRun = {
@@ -133,32 +133,43 @@ function typecheckTools(root: string): Promise<number> {
 	});
 }
 
-/** Run every package's `typecheck` script in turn and resolve to the exit code: 0 only when every package passed. */
-export async function typecheck(root: string): Promise<number> {
-	const packages = typecheckPackages(root);
+/** The scripts this runner knows: `typecheck` (tsc, then typecheck:tools) and `typecheck:bun` (the bun shadow). */
+export type TypecheckScript = "typecheck" | "typecheck:bun";
+
+/** Run every package's `script` in turn and resolve to the exit code: 0 only when every package passed. */
+export async function typecheck(root: string, script: TypecheckScript = "typecheck"): Promise<number> {
+	const packages = typecheckPackages(root, script);
 	if (!packages.length) {
-		console.error("typecheck: no package has a typecheck script.");
+		console.error(`${script}: no package has a ${script} script.`);
 		return 1;
 	}
+	const checker = script === "typecheck" ? "tsc" : "bun check";
 	const timeoutMs = Number(process.env.TYPECHECK_TIMEOUT_MS) || 120_000;
 	const failed: string[] = [];
 	for (const pkg of packages) {
-		const run = await runScript(pkg.scripts.typecheck!, join(root, pkg.dir), timeoutMs);
-		for (const line of run.output.trimEnd().split(/\r?\n/)) if (line) console.log(`${pkg.dir} typecheck: ${line}`);
+		const run = await runScript(pkg.scripts[script]!, join(root, pkg.dir), timeoutMs);
+		for (const line of run.output.trimEnd().split(/\r?\n/)) if (line) console.log(`${pkg.dir} ${script}: ${line}`);
 		if (run.outcome === "pass") continue;
 		const why = {
 			errors: "type errors",
 			crash: `crashed (exit ${run.code})`,
 			timeout: `timed out after ${timeoutMs} ms`,
-			missing: "bun check is missing; run pnpm install",
+			missing: `${checker} is missing; run pnpm install`,
 		}[run.outcome];
 		failed.push(`${pkg.dir}: ${why}`);
 	}
 	if (failed.length)
-		console.error(`typecheck failed in ${failed.length} of ${packages.length} packages:\n  ${failed.join("\n  ")}`);
-	else console.error(`typecheck: bun check found no type errors in ${packages.length} packages.`);
+		console.error(`${script} failed in ${failed.length} of ${packages.length} packages:\n  ${failed.join("\n  ")}`);
+	else console.error(`${script}: ${checker} found no type errors in ${packages.length} packages.`);
+	if (script === "typecheck:bun") return failed.length ? 1 : 0;
 	const toolsExit = await typecheckTools(root);
 	return failed.length ? 1 : toolsExit;
 }
 
-if (import.meta.main) process.exitCode = await typecheck(process.cwd());
+if (import.meta.main) {
+	const [script = "typecheck", ...rest] = process.argv.slice(2);
+	if (rest.length || (script !== "typecheck" && script !== "typecheck:bun")) {
+		console.error("usage: node tools/ci/typecheck.ts [typecheck|typecheck:bun]");
+		process.exitCode = 2;
+	} else process.exitCode = await typecheck(process.cwd(), script);
+}

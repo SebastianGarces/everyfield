@@ -250,7 +250,11 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 	const seatless = await actor("seatless");
 	const none = await ask(seatless, "What can you do for me?");
 	assert.equal(await work(), "succeeded");
-	assert.match((await events(seatless, none)).text, /no application reads available/);
+	// An account with no seat reads only its own Discovery space and may start a church or a Discovery space (T-345).
+	assert.match(
+		(await events(seatless, none)).text,
+		/own Discovery space[\s\S]*starting a new church[\s\S]*private Discovery space/,
+	);
 	// No catalog offers direct writes, approvals, code, private care or coach tools to any context. Only a plant Owner or
 	// Admin may propose the reviewed People, seat, settings, sharing and connection changes, the same floor as the native
 	// commands; any plant seat proposes changes to its own notifications and account, a Member the Meetings changes the
@@ -310,6 +314,9 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 						"associations.end",
 						"account.finalizeAvatar",
 						"account.requestDeletion",
+						"onboarding.declareJourney",
+						"identity.answerLeadOnboarding",
+						"onboarding.complete",
 					]
 				: who === "member"
 					? // A Member changes only their own bell, notification settings and account, and the Meetings changes the native
@@ -323,8 +330,9 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 							"account.requestDeletion",
 						]
 					: who === "orgOwner"
-						? ["organizations.updateProfile"]
-						: [],
+						? // An organization Owner sets only their own oversight digest (D-1278) and their organization's profile.
+							["notifications.oversightDigestCadence.set", "organizations.updateProfile"]
+						: ["onboarding.createPlant", "discovery.create", "discovery.convertToPlant"],
 		);
 		const teamsReads = READ_DOMAINS.teams.map((a) => a.operation);
 		const peopleReads = ["people.listPeople", "people.getPerson", "people.getPersonPhoto", "people.checkForDuplicates"];
@@ -368,6 +376,7 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 						"seats.list",
 						"seats.listInvitations",
 						"privacy.getSharing",
+						"onboarding.getResume",
 					]
 				: who === "member"
 					? [
@@ -381,7 +390,11 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 							"seats.list",
 							"privacy.getSharing",
 						]
-					: [],
+					: who === "orgOwner"
+						? ["notifications.previewOversightDigest"]
+						: who === "seatless"
+							? ["discovery.getProfile"]
+							: [],
 		);
 	}
 });
@@ -548,6 +561,7 @@ test("AC:INH-EDGES-03 AC:TEN-008 AC:EVRY-CONTEXT-BOUNDS a guessed foreign id and
 			"communication_read",
 			"meetings_read",
 			"notifications_read",
+			"onboarding_read",
 			"peopleOrganization_read",
 			"people_read",
 			"propose_change",
