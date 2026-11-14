@@ -5,7 +5,7 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { sql } from "../../../packages/db/src/query.ts";
 import { fixture } from "../identity/invitations-support.mts";
 import { seeds } from "../../support/fixture.mts";
-import { RequestActor } from "../../../packages/domain/src/access/session.ts";
+import { liveAccess, RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { sessionId } from "../../../packages/contracts/src/common/index.ts";
 import {
 	createOrganizationAdapter,
@@ -20,6 +20,7 @@ import {
 	readResidentReading,
 	readVersionReview,
 	readVersionReviews,
+	residencyLinks,
 	residentWriter,
 } from "../../../packages/domain/src/organizations/index.ts";
 
@@ -51,6 +52,20 @@ const record = async (a: Actor, personId = caseyPerson) =>
 	ok(await readPipelinePersonRecord(f.db, await authority(a), { personId }));
 const enrollment = async (a: Actor, enrollmentId = caseyEnrollment) =>
 	ok(await readEnrollment(f.db, await authority(a), { enrollmentId }));
+// The product frame's My residency entry: the newest active card of the Sharing page's one residency read.
+const navLink = async (a: Actor) => {
+	const who = await authority(a);
+	const owner = who.actor.context.owner;
+	const links = await residencyLinks(f.db, {
+		kind: "discovery",
+		session: sessionId.parse(a.session),
+		accountId: owner.id,
+		selected: owner,
+		canManage: true,
+		access: liveAccess(who),
+	});
+	return links.find((l) => l.sharing.status === "active")?.organizationName ?? null;
+};
 const mine = async () => ok(await readMyResidency(f.db, await authority(casey)));
 const milestoneOf = <T extends { title: string }>(list: T[], title: string) => list.find((m) => m.title === title)!;
 
@@ -344,6 +359,8 @@ test("Casey accepts sharing milestone progress only: no seat, still a Discovery 
 	assert.deepEqual((await record(luis)).residency, { status: "linked" });
 	assert.equal((await readResidencyLink(f.db, await authority(casey)))?.organizationName, "Grace Austin");
 	assert.equal(await readResidencyLink(f.db, await authority(rae)), null);
+	assert.equal(await navLink(casey), "Grace Austin");
+	assert.equal(await navLink(rae), null);
 	assert.deepEqual((await enrollment(ana)).resident, {
 		status: "linked",
 		milestones: "shared",
@@ -678,6 +695,7 @@ test("Casey leaves: My residency is gone at once and Grace Austin sees her as no
 	});
 	assert.deepEqual(await mine(), { status: "not_linked" });
 	assert.equal(await readResidencyLink(f.db, await authority(casey)), null);
+	assert.equal(await navLink(casey), null);
 	assert.deepEqual((await record(luis)).residency, { status: "not_linked" });
 	const shown = await enrollment(ana);
 	assert.deepEqual(shown.resident, { status: "not_linked" });
