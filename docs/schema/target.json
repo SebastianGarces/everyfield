@@ -1492,6 +1492,7 @@
       "people.duplicate_restored",
       "people.merged",
       "people.recorded",
+      "people.removed",
       "people.restored",
       "people.retired",
       "people.stage_changed",
