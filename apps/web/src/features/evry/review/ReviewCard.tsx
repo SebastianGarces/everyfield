@@ -891,6 +891,7 @@ const NOTIFICATION_SUBJECT: Partial<Record<string, string>> = {
 	"notifications.markAllVisibleRead": "Your notifications",
 	"notifications.setPreferences": "Your notification settings",
 	"notifications.digestCadence.set": "Your church digest",
+	"notifications.oversightDigestCadence.set": "Your oversight digest",
 };
 
 const RECORD_GLYPH: Record<NonNullable<Review["review"]["target"]>["kind"], IconSvgElement> = {

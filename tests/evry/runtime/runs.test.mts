@@ -240,7 +240,10 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 				: who === "member"
 					? // A Member changes only their own bell and notification settings; the church digest is an Owner's or Admin's.
 						["notifications.markSelectedRead", "notifications.markAllVisibleRead", "notifications.setPreferences"]
-					: [],
+					: who === "orgOwner"
+						? // An organization Owner sets only their own oversight digest (D-1278).
+							["notifications.oversightDigestCadence.set"]
+						: [],
 		);
 		const teamsReads = READ_DOMAINS.teams.map((a) => a.operation);
 		const peopleReads = ["people.listPeople", "people.getPerson", "people.getPersonPhoto", "people.checkForDuplicates"];
@@ -290,7 +293,9 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 							"notifications.preferences.get",
 							...teamsReads,
 						]
-					: [],
+					: who === "orgOwner"
+						? ["notifications.previewOversightDigest"]
+						: [],
 		);
 	}
 });

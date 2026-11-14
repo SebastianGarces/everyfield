@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { READ_DOMAINS, SELECT_RETURNED_ROWS } from "../../../packages/evry/src/catalog/catalog.ts";
+import { READ_DOMAINS, SELECT_RETURNED_ROWS, readCatalog } from "../../../packages/evry/src/catalog/catalog.ts";
+import type { EvryActor } from "../../../packages/evry/src/context/actor.ts";
 import { REVIEWED_WRITES } from "../../../packages/evry/src/proposals/store.ts";
 
 const read = (path: string) =>
@@ -38,6 +39,7 @@ test("AC:INH-REGRESSION-CAPABILITIES INV-catalog: every installed model tool is 
 		"notifications.feed",
 		"notifications.preferences.get",
 		"notifications.previewPlanterDigest",
+		"notifications.previewOversightDigest",
 		"teams.list",
 		"teams.get",
 		"teams.searchMembers",
@@ -119,4 +121,34 @@ test("INV-member-capabilities: a Member who may change only their own notificati
 	assert.match(member, /your own notifications/);
 	assert.match(describeCatalog(catalog([])), /an Owner or Admin of this church has to make them/);
 	assert.doesNotMatch(describeCatalog(catalog(["people.updatePerson"])), /Owner or Admin/);
+});
+
+test("INV-organization-catalog: only an organization Owner or Admin gets the two oversight digest tools, and nothing else", () => {
+	const id = "00000000-0000-4000-8000-0000000000a1";
+	const actor = (owner: EvryActor["owner"], contextKind: EvryActor["contextKind"], role: EvryActor["role"]) =>
+		({
+			accountId: id,
+			session: id,
+			owner,
+			contextKind,
+			role,
+			seatId: role ? id : null,
+			selfPersonId: null,
+		}) as EvryActor;
+	const organization = { kind: "organization", id, organizationKind: "sending_church" } as EvryActor["owner"];
+	const tools = (a: EvryActor) => {
+		const c = readCatalog(a);
+		return [
+			...c.domains.flatMap((d) => d.operations.map((o) => o.operation)),
+			...c.reviewedWrites.map((w) => w.operation),
+		];
+	};
+	const oversight = ["notifications.previewOversightDigest", "notifications.oversightDigestCadence.set"];
+	for (const role of ["owner", "admin"] as const)
+		assert.deepEqual(tools(actor(organization, "sending_church", role)), oversight, role);
+	assert.deepEqual(tools(actor(organization, "sending_church", "member")), []);
+	assert.deepEqual(tools(actor({ kind: "account", id } as EvryActor["owner"], "account", null)), []);
+	const plantOwner = tools(actor({ kind: "plant", id } as EvryActor["owner"], "plant", "owner"));
+	assert.ok(plantOwner.includes("notifications.previewPlanterDigest"));
+	for (const op of oversight) assert.equal(plantOwner.includes(op), false, op);
 });

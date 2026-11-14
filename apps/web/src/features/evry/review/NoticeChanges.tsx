@@ -91,12 +91,13 @@ export function NoticeChanges({ review }: { review: Review }) {
 				))}
 			</Box>
 		);
-	if (operation === "notifications.digestCadence.set") {
-		const change = changes.find((c) => c.field === "planter_digest.cadence");
+	if (operation === "notifications.digestCadence.set" || operation === "notifications.oversightDigestCadence.set") {
+		const digest = operation === "notifications.digestCadence.set" ? "planter_digest" : "oversight_digest";
+		const change = changes.find((c) => c.field === `${digest}.cadence`);
 		return (
 			<Box>
 				<div className="flex flex-col gap-1">
-					<span className="font-medium text-ink">{category("planter_digest")}</span>
+					<span className="font-medium text-ink">{category(digest)}</span>
 					<Change before={digestSchedule(change?.before) ?? "Weekly"} after={digestSchedule(change?.after) ?? ""} />
 				</div>
 			</Box>

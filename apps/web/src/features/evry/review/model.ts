@@ -24,6 +24,7 @@ export type Operation =
 	| "notifications.markAllVisibleRead"
 	| "notifications.setPreferences"
 	| "notifications.digestCadence.set"
+	| "notifications.oversightDigestCadence.set"
 	| TeamsOperation;
 
 /** The Ministries reviewed writes (WP-070): shown as before and after, never revised in place. */
@@ -324,6 +325,7 @@ const TITLE: Record<Operation, string> = {
 	"notifications.markAllVisibleRead": "Mark all notifications read",
 	"notifications.setPreferences": "Change notification settings",
 	"notifications.digestCadence.set": "Change how often your digest comes",
+	"notifications.oversightDigestCadence.set": "Change how often your oversight digest comes",
 	"people.addToHousehold": "Add to a household",
 	"people.createHouseholdWithHead": "Create a household",
 	"people.updateHousehold": "Update a household",
@@ -848,7 +850,7 @@ const isSlot = (value: unknown): value is DigestSlot =>
 	!!value && typeof value === "object" && "cadence" in value && "weekday" in value && "hour" in value;
 const WEEKDAY = ["Sundays", "Mondays", "Tuesdays", "Wednesdays", "Thursdays", "Fridays", "Saturdays"];
 const hourText = (hour: number) => `${hour % 12 || 12}:00 ${hour < 12 ? "AM" : "PM"}`;
-/** "Weekly on Mondays at 8:00 AM" or "Daily at 8:00 AM": the church digest's schedule for this account. */
+/** "Weekly on Mondays at 8:00 AM" or "Daily at 8:00 AM": a digest's schedule for this account. */
 export const digestSchedule = (value: unknown) =>
 	isSlot(value)
 		? value.cadence === "daily"
