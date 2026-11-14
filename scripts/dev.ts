@@ -12,10 +12,20 @@ const HELP = `Browser runs, the local preview stack, its logs and the fast pre-p
   dev logs [--project <path>] [args...]    portless preview logs of this worktree's preview
   dev check [--full]    the local checks this change needs (authors), or every check (--full, verifiers); writes a
         checks.json record outside the repo and prints its path
-        checks: lint, typecheck, test:unit, docs, ci-coverage, workflow, tools-ci, tools-qa, github-scripts, ops-watch
-        GitHub CI also runs: format:check, build then server-trace, test:logs, db, census, wiki
+        checks: lint, typecheck, test:unit, test:db, docs, ci-coverage, workflow, tools-ci, tools-qa, github-scripts, ops-watch
+        test:db runs the selected packages' database tests on a throwaway local Postgres (CI's image in Docker,
+        removed when the run ends), so it needs Docker; it never uses the shared development database
+        check first removes orphaned qa-test-* containers: older than EVERYFIELD_QA_SWEEP_MINUTES (default 120)
+        and owned by no live run
+        GitHub CI also runs: format:check, build then server-trace, test:logs, the statement census, schema
+        generate --check, wiki
   dev nightly           refreshes the coverage map and runs tests/ui on a preview of origin/main, one engine at a
         time; skips when the machine is loaded or no preview slot is free
+  dev nightly schedule install     installs the launchd agent com.everyfield.nightly: bin/dev nightly from the main
+        checkout at 03:30 local time every day; running it again replaces the one agent
+  dev nightly schedule status      says whether the agent is installed and loaded, when it runs, its log and the last
+        nightly.jsonl record
+  dev nightly schedule uninstall   boots the agent out and deletes its plist
   dev fast-check [--base <ref>] [--json]   format, lint and typecheck of only the files changed since the merge base
         of origin/main (else main), in seconds, with no database, stack or network. Prints each fix command
   dev hooks install                        points this repo's core.hooksPath at tools/git-hooks (pnpm install does it)
