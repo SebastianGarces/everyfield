@@ -828,7 +828,6 @@ function applyVersions(db: Database, authority: RequestActor, raw: unknown) {
 				already: z.coerce.number(),
 				current: z.boolean(),
 				stale: z.array(z.string()),
-				staged: z.boolean().nullable(),
 				applied: z.coerce.number(),
 			}),
 			sql`WITH i AS (SELECT * FROM jsonb_to_recordset(${items}::jsonb) AS i(enrollment_id uuid,stage_id uuid,basis text)),
@@ -853,7 +852,7 @@ SELECT (SELECT count(*) FROM x) AS found,
  (SELECT count(*) FROM x WHERE x.version_id=${input.versionId}::uuid AND x.current_version_id=${input.versionId}::uuid) AS already,
  EXISTS(SELECT FROM t) AS current,
  coalesce((SELECT jsonb_agg(s.id ORDER BY s.id) FROM s WHERE NOT s.fresh),'[]'::jsonb) AS stale,
- (SELECT bool_and(s.staged) FROM s) AS staged,(SELECT count(*) FROM u) AS applied`,
+ (SELECT count(*) FROM u) AS applied`,
 		);
 		if (row.applied === n) return { outcome: "changed" as const };
 		if (row.found < n) refuse();
