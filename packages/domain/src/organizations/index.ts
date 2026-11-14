@@ -38,6 +38,7 @@ export {
 	readProgram,
 	readPrograms,
 	readVersionReview,
+	readVersionReviews,
 	searchReadings,
 } from "./programs.ts";
 export { readMyResidency, readResidencyLink, readResidentReading, residentWriter } from "./residency.ts";

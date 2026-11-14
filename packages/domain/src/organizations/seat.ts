@@ -66,7 +66,8 @@ export type Writer = {
 	actor: string;
 	/** An audit row for this write: body-free, with IDs, actor, change kind and revisions only (REQ-MUL-002). */
 	audit: (a: {
-		id?: string;
+		/** SQL when the statement writes one row per subject, such as `gen_random_uuid()`. */
+		id?: string | SQL;
 		action: string;
 		kind: string;
 		subject: SQL;

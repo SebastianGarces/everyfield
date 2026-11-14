@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { OwnFeedbackList, OwnFeedbackItem } from "./OwnFeedback.tsx";
-import { feedbackWriter, run, type Run } from "./server.ts";
+import { feedbackWriter, publicationSetup, run, type Run } from "./server.ts";
 import { TriageItem, TriageList } from "./Triage.tsx";
 
 // Sent feedback (the author's own list and status, REQ-KNOW-029) and feedback triage (REQ-ADM-002). Neither is drawn;
@@ -103,7 +103,12 @@ export async function TriagePage({
 		<>
 			<PageHeader title="Feedback triage" subtitle="Private feedback from every account. It never leaves Everyfield." />
 			{r.status === "ok" ? (
-				<TriageList key={`${filter.status}-${filter.category}`} initial={r.value} filter={filter} />
+				<TriageList
+					key={`${filter.status}-${filter.category}`}
+					initial={r.value}
+					filter={filter}
+					setup={publicationSetup()}
+				/>
 			) : r.status === "refused" ? (
 				<TriageClosed />
 			) : (
@@ -126,7 +131,7 @@ export async function TriageItemPage({ params }: { params: Promise<{ feedbackId:
 		<>
 			<PageHeader title="Feedback" breadcrumb={[...TRIAGE, { label: "Feedback" }]} />
 			{r.status === "ok" ? (
-				<TriageItem initial={r.value} />
+				<TriageItem initial={r.value} setup={publicationSetup()} />
 			) : r.status === "refused" && r.code === "access_denied" ? (
 				<TriageClosed />
 			) : r.status === "refused" ? (

@@ -117,6 +117,31 @@ export const applyVersionRequest = z.strictObject({
 	stageId: recordId,
 	basis: z.string().regex(/^[0-9a-f]{32}$/),
 });
+/** The most enrollments one review or apply covers (D-1329). */
+export const APPLY_VERSION_LIMIT = 50;
+const enrollmentIds = z
+	.array(recordId)
+	.min(1)
+	.max(APPLY_VERSION_LIMIT)
+	.refine((ids) => new Set(ids).size === ids.length);
+/** The reviews the director reads before applying the program's current version to several of its enrollments. */
+export const versionReviewsRequest = z.strictObject({ programId: recordId, enrollmentIds });
+/**
+ * Moves several active enrollments of one program to its current published version, each at its own stage, all or
+ * none (D-1328). Each names the `basis` of its review; a change to any of them since refuses the whole apply.
+ */
+export const applyVersionsRequest = z
+	.strictObject({
+		programId: recordId,
+		versionId: recordId,
+		enrollments: z
+			.array(z.strictObject({ enrollmentId: recordId, stageId: recordId, basis: applyVersionRequest.shape.basis }))
+			.min(1)
+			.max(APPLY_VERSION_LIMIT),
+	})
+	.refine((r) => new Set(r.enrollments.map((e) => e.enrollmentId)).size === r.enrollments.length, {
+		path: ["enrollments"],
+	});
 /** Wiki articles the organization may put on a reading list, by title. */
 export const readingSearchRequest = z.strictObject({ q: z.string().trim().max(100) });
 
@@ -279,6 +304,8 @@ const reviewedMilestone = z.strictObject({
  */
 export const versionReview = z.strictObject({
 	enrollmentId: recordId,
+	/** The enrolled person's name. */
+	name: z.string(),
 	versionId: recordId,
 	fromNumber: z.int().min(1),
 	toNumber: z.int().min(1),
@@ -311,7 +338,11 @@ export const programRefusal = z.discriminatedUnion("code", [
 	/** The enrollee has a linked account, so they mark their own milestones (WP-100). */
 	z.strictObject({ code: z.literal("linked_resident") }),
 	/** The enrollment, its records or the program's current version changed since the director's review. */
-	z.strictObject({ code: z.literal("stale_review") }),
+	z.strictObject({
+		code: z.literal("stale_review"),
+		/** In a batch apply, the enrollments whose review went out of date; all of them when the version did. */
+		enrollmentIds: z.array(recordId).optional(),
+	}),
 ]);
 export type ProgramRefusal = z.infer<typeof programRefusal>;
 export type ProgramReply<T> = { status: "ok"; value: T } | { status: "refused"; refusal: ProgramRefusal };

@@ -88,7 +88,7 @@ export const ownFeedback = z.object({
 	category: feedbackCategory,
 	submittedAt: z.string(),
 	status: feedbackStatus,
-	/** The public issue, once WP-049B publishes one. */
+	/** The public issue, once one is published. */
 	publicUrl: z.url().nullable(),
 });
 export type OwnFeedback = z.infer<typeof ownFeedback>;
@@ -97,6 +97,19 @@ export const ownFeedbackPage = z.object({ items: z.array(ownFeedback).max(PAGE_S
 export type OwnFeedbackPage = z.infer<typeof ownFeedbackPage>;
 export const listOwnRequest = z.object({ cursor: z.string().max(200).nullable().optional().default(null) });
 export const getOwnStatusRequest = z.object({ feedbackId: z.uuid() });
+
+/**
+ * Where the public issue stands. pending: waiting for its first run. publishing: the intent and frozen payload are saved
+ * and GitHub was called. unknown: GitHub did not answer; the next run looks for the issue by its reference before any
+ * new create. published: the issue exists. held: nothing was published, and only a triager can see why.
+ */
+export const publicationState = z.enum(["pending", "publishing", "unknown", "published", "held"]);
+export type PublicationState = z.infer<typeof publicationState>;
+export const heldReason = z.enum(["unsafe_fields", "github_refused", "search_failed", "ambiguous", "unresolved"]);
+export type HeldReason = z.infer<typeof heldReason>;
+/** The operator email in the shared mail ledger: queued or sending, sent, failed, or no answer from the email service. */
+export const operatorMailState = z.enum(["sending", "sent", "failed", "unknown"]);
+export type OperatorMailState = z.infer<typeof operatorMailState>;
 
 /** The private original a triager reads. */
 export const triageFeedback = z.object({
@@ -118,6 +131,11 @@ export const triageFeedback = z.object({
 		theme: z.enum(["light", "dark"]).nullable(),
 		appVersion: z.string().nullable(),
 	}),
+	/** The public marker the issue and the operator email carry. */
+	reference: z.string(),
+	publication: z.object({ state: publicationState, heldReason: heldReason.nullable(), url: z.url().nullable() }),
+	/** The operator email's state, or null when none is queued yet. */
+	operatorMail: operatorMailState.nullable(),
 });
 export const triagePage = z.object({ items: z.array(triageFeedback).max(PAGE_SIZE), next: z.string().nullable() });
 export type TriagePage = z.infer<typeof triagePage>;

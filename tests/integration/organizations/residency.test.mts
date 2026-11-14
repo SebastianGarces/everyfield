@@ -19,6 +19,7 @@ import {
 	readProgram,
 	readResidentReading,
 	readVersionReview,
+	readVersionReviews,
 	residentWriter,
 } from "../../../packages/domain/src/organizations/index.ts";
 
@@ -587,6 +588,20 @@ test("a new version keeps Casey's own marks on carried milestones, and shows the
 	// The review counts only what Grace Austin may see as finished: its own record, not Casey's hidden marks.
 	const r = ok(await readVersionReview(f.db, await authority(ana), { enrollmentId: caseyEnrollment }));
 	assert.deepEqual(r.carried, ["Preach on a Sunday"]);
+	// Reviewed with unlinked Jordan, each person's own link decides: Casey's unshared marks still don't count.
+	const both = ok(
+		await readVersionReviews(f.db, await authority(ana), {
+			programId: program,
+			enrollmentIds: [caseyEnrollment, jordanEnrollment],
+		}),
+	);
+	assert.deepEqual(
+		both.map((b) => [b.name, b.carried]),
+		[
+			["Casey Lee", ["Preach on a Sunday"]],
+			["Jordan Price", []],
+		],
+	);
 	ok(
 		await programWriter.applyVersion(f.db, await authority(ana), {
 			enrollmentId: caseyEnrollment,
