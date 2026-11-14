@@ -9,7 +9,7 @@ import * as catalog from "../../../packages/evry/src/catalog/catalog.ts";
 import { invokeRead } from "../../../packages/evry/src/catalog/invoke.ts";
 import type { ReadAdapter, SourceResult } from "../../../packages/evry/src/catalog/types.ts";
 import { cardView, FALLBACK } from "../../../apps/web/src/features/evry/conversation/resultView.ts";
-import { byName, goldenChurch, IMPORT_KEY, programId, teamId } from "../evals/golden-church.mts";
+import { byName, goldenChurch, IMPORT_KEY, MEETINGS, programId, teamId } from "../evals/golden-church.mts";
 import { nativePorts } from "../evals/settings-ports.mts";
 
 const church = await goldenChurch();
@@ -82,6 +82,32 @@ const PROBES: Record<string, Record<string, unknown> | (() => Promise<SourceResu
 	"teams.listResponsibilities": { teamId: teamId("Worship") },
 	"teams.previewResponsibilities": { teamId: teamId("Worship") },
 	"teams.listMeetings": { teamId: teamId("Core team") },
+	"meetings.list": { window: "upcoming" },
+	"meetings.get": { meetingId: MEETINGS.thursday },
+	"meetings.hasHistory": {},
+	"meetings.readAgenda": { meetingId: MEETINGS.sunday },
+	"meetings.listKit": { meetingId: MEETINGS.thursday, only: "unchecked" },
+	"meetings.listGuests": { meetingId: MEETINGS.thursday },
+	"meetings.listCards": { meetingId: MEETINGS.lastNight },
+	"meetings.cardBreakdown": { meetingId: MEETINGS.lastNight },
+	"meetings.invitationAttribution": { meetingId: MEETINGS.thursday },
+	"meetings.communicationContext": { meetingId: MEETINGS.thursday },
+	"meetings.listCompletedPreLaunchPractices": {},
+	"meetings.getOwnRsvp": { meetingId: MEETINGS.thursday },
+	"meetings.listAttendance": { meetingId: MEETINGS.lastWeek },
+	"meetings.attendanceSummary": { meetingId: MEETINGS.lastNight },
+	"meetings.getEvaluation": { meetingId: MEETINGS.earlier },
+	"meetings.evaluationHistory": { meetingId: MEETINGS.earlier },
+	"meetings.evaluationTrend": {},
+	"meetings.compareEvaluation": { meetingId: MEETINGS.earlier },
+	"meetings.attendanceTrend": { limit: 3 },
+	"meetings.summaryStats": {},
+	"meetings.linkedTaskProgress": { meetingId: MEETINGS.lastNight },
+	"meetings.readAnalytics": { meetingId: MEETINGS.lastNight },
+	"meetings.previewRosterImport": { meetingId: MEETINGS.training },
+	"venues.list": {},
+	"venues.get": { venueId: MEETINGS.coffee },
+	"venues.history": { venueId: MEETINGS.coffee },
 	"seats.list": {},
 	"seats.listInvitations": () =>
 		invokeRead(church.db, church.actors.owner, adapters.get("seats.listInvitations")!, {}, nativePorts()),

@@ -1,3 +1,4 @@
+import { timeText } from "@everyfield/contracts/common";
 import { sendTimeShort } from "../review/model.ts";
 import { STAGE_LABEL, type StageValue } from "../../people/model.ts";
 import { CATEGORY_TEXT } from "../../settings/model.ts";
@@ -37,6 +38,29 @@ const people = (title: string, rest: Partial<OpView> = {}): OpView => ({
 	counts: "person",
 	empty: NO_PERSON,
 	...rest,
+});
+const meetings = (title: string, rest: Partial<OpView> = {}): OpView => ({
+	title,
+	noun: ["meeting", "meetings"],
+	icon: "meeting",
+	counts: "meeting",
+	empty: "No meeting in this church matches, or you can't see it.",
+	...rest,
+});
+const items = (title: string, rest: Partial<OpView> = {}): OpView => ({
+	title,
+	noun: ["item", "items"],
+	icon: "meeting",
+	counts: "item",
+	empty: "Nothing to show for this meeting.",
+	...rest,
+});
+const venues = (title: string): OpView => ({
+	title,
+	noun: ["venue", "venues"],
+	icon: "venue",
+	counts: "venue",
+	empty: "No saved venue matches.",
 });
 const rows = (title: string, rest: Partial<OpView> = {}): OpView => ({
 	title,
@@ -141,6 +165,53 @@ const VIEWS: Record<string, OpView> = {
 		counts: "message",
 		empty: "No draft or scheduled message in this church matches.",
 	},
+	"meetings.list": meetings("Meetings", { empty: "No meeting in this church matches." }),
+	"meetings.get": meetings("Meeting"),
+	"meetings.hasHistory": items("Meeting history", { noun: ["answer", "answers"] }),
+	"meetings.readAgenda": items("Agenda", { noun: ["section", "sections"], empty: "This meeting has no saved agenda." }),
+	"meetings.listKit": items("Vision kit", { empty: "No kit item matches." }),
+	// RSVPs are the guests' answers to the invitation, never attendance.
+	"meetings.listGuests": people("RSVPs", { icon: "meeting", empty: "This meeting has no guests yet." }),
+	"meetings.listCards": people("Response cards", { icon: "meeting", empty: "No response card is recorded." }),
+	"meetings.cardBreakdown": items("Card responses", { noun: ["group", "groups"] }),
+	"meetings.invitationAttribution": people("Invited by", { icon: "meeting", empty: "This meeting has no guests yet." }),
+	"meetings.communicationContext": people("Invitation", { icon: "meeting", shownOnly: true }),
+	"meetings.listCompletedPreLaunchPractices": items("Practices held", { noun: ["answer", "answers"] }),
+	"meetings.getOwnRsvp": items("Your RSVP", {
+		noun: ["answer", "answers"],
+		empty: "You're not a guest of this meeting.",
+	}),
+	"meetings.listAttendance": people("Attendance", { icon: "meeting", shownOnly: true }),
+	"meetings.attendanceSummary": items("Attendance summary", { noun: ["summary", "summaries"] }),
+	"meetings.getEvaluation": items("Evaluation", { noun: ["evaluation", "evaluations"] }),
+	"meetings.evaluationHistory": items("Evaluation history", {
+		noun: ["entry", "entries"],
+		empty: "No evaluation is recorded.",
+	}),
+	"meetings.evaluationTrend": items("Evaluation trend", {
+		noun: ["meeting", "meetings"],
+		empty: "No meeting has an evaluation.",
+	}),
+	"meetings.compareEvaluation": items("Evaluation compared", { noun: ["comparison", "comparisons"] }),
+	// A held meeting with no attendance recorded says so; it is never counted as 0.
+	"meetings.attendanceTrend": items("Attendance trend", {
+		noun: ["meeting", "meetings"],
+		empty: "No held meeting matches.",
+	}),
+	"meetings.summaryStats": items("Meetings summary", { noun: ["summary", "summaries"] }),
+	"meetings.linkedTaskProgress": items("Meeting tasks", { noun: ["summary", "summaries"] }),
+	"meetings.readAnalytics": items("Meeting report", { noun: ["report", "reports"] }),
+	"meetings.previewRosterImport": people("Guest list update", {
+		icon: "meeting",
+		empty: "The guest list already matches the ministry.",
+	}),
+	"venues.list": venues("Venues"),
+	"venues.get": venues("Venue"),
+	"venues.history": items("Venue history", {
+		icon: "venue",
+		noun: ["change", "changes"],
+		empty: "No change is recorded.",
+	}),
 	"notifications.feed": {
 		title: "Notifications",
 		noun: ["notification", "notifications"],
@@ -370,8 +441,10 @@ export type RowView = {
 	avatar: Exclude<Kind, "import"> | null;
 	/** The person whose initials the round mark shows, and whose current photo it shows when there is one. */
 	photoFor: string | null;
-	/** Only a person (or a row that names the person it created) has a page. A household or any other record has none. */
+	/** A person and a meeting have a page; a household or any other record has none. */
 	href: string | null;
+	/** The link opens a file the app makes (the agenda's print view) in a new tab. */
+	newTab?: true;
 };
 export type CardView = {
 	title: string;
@@ -603,17 +676,6 @@ function rowView(operation: string, row: SourceRow): RowView {
 				mark: fields.required === false ? { kind: "status", text: "Optional", warn: false } : null,
 				avatar: "training",
 			};
-		case "meeting":
-			return {
-				...plain,
-				name: row.label,
-				line: joined(
-					day(String(fields.date) + "T12:00:00Z"),
-					text(fields.status) ? words(String(fields.status)) : null,
-				),
-				avatar: "meeting",
-				href: `/meetings/${row.id}`,
-			};
 		case "responsibility":
 			return {
 				...plain,
@@ -641,6 +703,54 @@ function rowView(operation: string, row: SourceRow): RowView {
 					typeof fields.sendsAtInstant === "string" && typeof fields.zone === "string"
 						? `Sends ${sendTimeShort({ at: fields.sendsAtInstant, zone: fields.zone })}`
 						: "Draft",
+				avatar: null,
+			};
+		case "meeting": {
+			// A ministry's team meetings (teams.listMeetings): the date and status.
+			if (!operation.startsWith("meetings."))
+				return {
+					...plain,
+					name: row.label,
+					line: joined(
+						day(String(fields.date) + "T12:00:00Z"),
+						text(fields.status) ? words(String(fields.status)) : null,
+					),
+					avatar: "meeting",
+					href: `/meetings/${row.id}`,
+				};
+			const status = text(fields.status);
+			if (typeof fields.print === "string")
+				return { ...plain, name: "Print agenda", line: row.label, avatar: "meeting", href: fields.print, newTab: true };
+			if (operation === "meetings.readAgenda")
+				return {
+					...plain,
+					name: row.label,
+					line: "Printing is for Vision meeting agendas",
+					avatar: "meeting",
+					href: `/meetings/${row.id}`,
+				};
+			return {
+				...plain,
+				name: row.label,
+				line: joined(text(fields.when), text(fields.venue)),
+				mark: status === "cancelled" ? { kind: "status", text: "Cancelled", warn: true } : null,
+				avatar: "meeting",
+				href: `/meetings/${row.id}`,
+			};
+		}
+		case "venue":
+			return {
+				...plain,
+				name: row.label,
+				line: joined(text(fields.address), fields.active === false ? "Archived" : null),
+				avatar: "venue",
+			};
+		case "item":
+			return {
+				...plain,
+				name: row.label,
+				line: itemLine(operation, fields),
+				mark: itemMark(operation, fields),
 				avatar: null,
 			};
 		case "seat":
@@ -717,6 +827,17 @@ function rowView(operation: string, row: SourceRow): RowView {
 		case "person":
 			break;
 	}
+	const meetingMark = personMark(operation, fields);
+	if (meetingMark !== undefined)
+		return {
+			key,
+			name: row.label,
+			line: typeof fields.invitedBy === "string" ? `Invited by ${fields.invitedBy}` : null,
+			mark: meetingMark,
+			avatar: "person",
+			photoFor: row.id,
+			href: `/people/${row.id}`,
+		};
 	const href = `/people/${row.id}`;
 	if (operation === "people.getPersonPhoto")
 		// The photo read names no person; the row says what it found and opens the person's page.
@@ -800,6 +921,66 @@ function rowView(operation: string, row: SourceRow): RowView {
 		photoFor: row.id,
 		href,
 	};
+}
+
+const RSVP_TEXT: Record<string, string> = { yes: "RSVP yes", no: "RSVP no", "no answer": "No answer" };
+const PRESENCE_TEXT: Record<string, string> = { attended: "Attended", absent: "Absent", excused: "Excused" };
+/** A person row of a meeting read: their RSVP, presence, card or roster change. Undefined for any other read. */
+function personMark(operation: string, fields: Record<string, unknown>): RowMark | undefined {
+	if (!operation.startsWith("meetings.")) return undefined;
+	const value = (table: Record<string, string>, key: unknown) =>
+		typeof key === "string" ? (table[key] ?? words(key)) : null;
+	const say = (t: string | null, warn = false): RowMark => (t ? { kind: "status", text: t, warn } : null);
+	if (operation === "meetings.listAttendance") return say(value(PRESENCE_TEXT, fields.presence));
+	if (operation === "meetings.listCards") return say(typeof fields.card === "string" ? words(fields.card) : null);
+	if (operation === "meetings.previewRosterImport")
+		return say(
+			fields.change === "add" ? "Adds" : fields.change === "remove" ? "Removes" : "Stays",
+			fields.change === "remove",
+		);
+	return say(value(RSVP_TEXT, fields.rsvp), fields.rsvp === "no");
+}
+/** The short line of an item row: an agenda section's start and length, a kit item's category, a trend point. */
+function itemLine(operation: string, f: Record<string, unknown>): string | null {
+	switch (operation) {
+		case "meetings.readAgenda":
+			return joined(
+				typeof f.starts === "string" ? timeText(f.starts) : null,
+				text(f.minutes) ? `${f.minutes as string} min` : null,
+			);
+		case "meetings.listKit":
+			return joined(typeof f.category === "string" ? words(f.category) : null, text(f.assignee));
+		case "meetings.attendanceTrend":
+			return joined(
+				day(`${String(f.date)}T12:00:00Z`),
+				f.attended === "not recorded" ? "Not recorded" : `${String(f.attended)} attended`,
+			);
+		case "meetings.evaluationTrend":
+			return joined(day(`${String(f.date)}T12:00:00Z`), `Average ${String(f.average)}`);
+		case "meetings.getEvaluation":
+			return f.recorded === false ? "No evaluation recorded yet" : `Average ${String(f.average)} of 5`;
+		case "meetings.listCompletedPreLaunchPractices":
+			return `${String(f.held)} held`;
+		case "meetings.getOwnRsvp":
+			return typeof f.rsvp === "string" ? (RSVP_TEXT[f.rsvp] ?? f.rsvp) : null;
+		case "meetings.hasHistory":
+			return f.hasHistory ? "Meetings are on record" : "No meeting on record";
+		default: {
+			// A report line: its counts, in the words of its fields.
+			const parts = Object.entries(f)
+				.filter(([, v]) => typeof v === "string" && v !== "")
+				.slice(0, 4)
+				.map(([k, v]) => `${words(k.replace(/([A-Z])/g, " $1").toLowerCase())} ${String(v)}`);
+			return parts.join(" · ") || null;
+		}
+	}
+}
+function itemMark(operation: string, f: Record<string, unknown>): RowMark {
+	if (operation === "meetings.listKit")
+		return { kind: "status", text: f.checked ? "Checked" : "Needed", warn: !f.checked };
+	if (operation === "meetings.attendanceTrend" && f.attended === "not recorded")
+		return { kind: "status", text: "Not recorded", warn: true };
+	return null;
 }
 
 /** The rows a card shows. A receipt's created import row links to its person, so the separate person row goes. */
