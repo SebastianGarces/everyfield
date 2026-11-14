@@ -282,13 +282,7 @@
 				"/hint|possible|potential|might|may|similar|not (proof|certain|sure)|can['’]?t (be sure|confirm|tell)|enough to (tell|say|know)/i"
 			],
 			"forbid": ["/\\b(yes|definitely|clearly|confirmed)\\b[^.\\n]{0,30}same person/i"],
-			"derivation": "Comparing two named people is the duplicate check, not the import review list.",
-			"finding": {
-				"checks": [
-					"says /hint|possible|potential|might|may|similar|not (proof|certain|sure)|can['’]?t (be sure|confirm|tell)|enough to (tell|say|know)/i"
-				],
-				"note": "T-326: after the phase and signal tools joined the tool list, the re-recorded model answer misses these checks (the T-24 D-958 drift rule)."
-			}
+			"derivation": "Comparing two named people is the duplicate check, not the import review list."
 		}
 	},
 	{
@@ -464,7 +458,13 @@
 				"/\\b(can['’]?t|cannot|can not|not able|unable|don['’]?t (yet )?have|do not (yet )?have|isn['’]?t (yet )?(available|something|possible)|not (yet )?(available|supported|possible|connected|something)|no (way|access|tool)|aren['’]?t (yet )?available|not set up|doesn['’]?t (yet )?(let|give|include|have)|outside what|beyond what)\\b/i"
 			],
 			"forbid": ["/I['’]?(ve| have) (deleted|removed)/i"],
-			"derivation": "There is no household delete command; removing both people would be a different request, so no review card."
+			"derivation": "There is no household delete command; removing both people would be a different request, so no review card.",
+			"finding": {
+				"checks": [
+					"says /\\b(can['’]?t|cannot|can not|not able|unable|don['’]?t (yet )?have|do not (yet )?have|isn['’]?t (yet )?(available|something|possible)|not (yet )?(available|supported|possible|connected|something)|no (way|access|tool)|aren['’]?t (yet )?available|not set up|doesn['’]?t (yet )?(let|give|include|have)|outside what|beyond what)\\b/i"
+				],
+				"note": "T-326 merge with main (as D-1151): re-recorded after the People records writes and the phase and signal tools joined one tool list; recorded as drift, not a capability change."
+			}
 		}
 	},
 	{
@@ -843,13 +843,7 @@
 			"require": ["/review|approv/i"],
 			"forbid": [
 				"/I['’]?(ve| have)? (sent|scheduled|moved|cancelled|canceled|replaced)|has been (sent|scheduled|moved|cancelled|canceled)|is on its way/i"
-			],
-			"finding": {
-				"checks": [
-					"never says /I['’]?(ve| have)? (sent|scheduled|moved|cancelled|canceled|replaced)|has been (sent|scheduled|moved|cancelled|canceled)|is on its way/i"
-				],
-				"note": "T-319 merge with T-320 (as D-958): re-recorded after the WP-064 People writes and the teams tools joined one tool list; recorded as drift, not a capability change."
-			}
+			]
 		}
 	},
 	{
@@ -1148,8 +1142,8 @@
 			},
 			"require": ["/2 of 3|two of (the )?three|Carlos[^.\\n]{0,60}(not|hasn['’]?t|yet)/i"],
 			"finding": {
-				"checks": ["names every match"],
-				"note": "T-326: after the phase and signal tools joined the tool list, the re-recorded model answer misses these checks (the T-24 D-958 drift rule)."
+				"checks": ["says /2 of 3|two of (the )?three|Carlos[^.\\n]{0,60}(not|hasn['’]?t|yet)/i"],
+				"note": "T-326: after the phase and signal tools joined the tool list, the re-recorded model answer misses these checks (the T-24 D-958 drift rule). T-326 merge with main (as D-1151): re-recorded after the People records writes and the phase and signal tools joined one tool list; recorded as drift, not a capability change."
 			}
 		}
 	},
@@ -1380,7 +1374,11 @@
 					"alsoAccepted": ["teams.listImportTemplates"]
 				}
 			],
-			"require": ["Prayer lead"]
+			"require": ["Prayer lead"],
+			"finding": {
+				"checks": ["says Prayer lead", "gives an answer"],
+				"note": "T-326 merge with main (as D-1151): re-recorded after the People records writes and the phase and signal tools joined one tool list; recorded as drift, not a capability change."
+			}
 		}
 	},
 	{
@@ -1485,7 +1483,14 @@
 					"assistant": "There are two people named Casey: Casey Morgan and Casey Brooks. Which one should I put in the open Greeter role in Hospitality?"
 				}
 			],
-			"derivation": "One review: Casey Morgan fills Hospitality's open Greeter role. It grants no account, and Evry makes no judgment of suitability."
+			"derivation": "One review: Casey Morgan fills Hospitality's open Greeter role. It grants no account, and Evry makes no judgment of suitability.",
+			"finding": {
+				"checks": [
+					"no unexpected review card",
+					"proposes teams.assignRole {\"roleId\":\"5b6d1f0e-0000-4000-8000-000000007022\",\"personId\":\"@Casey Morgan\"}"
+				],
+				"note": "T-326 merge with main (as D-1151): re-recorded after the People records writes and the phase and signal tools joined one tool list; recorded as drift, not a capability change."
+			}
 		}
 	},
 	{
@@ -1840,13 +1845,7 @@
 			"require": ["/review|approv/i"],
 			"forbid": [
 				"/I['’]?(ve| have)? (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)|has been (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)/i"
-			],
-			"finding": {
-				"checks": [
-					"never says /I['’]?(ve| have)? (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)|has been (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)/i"
-				],
-				"note": "T-326 re-record (T-24 D-958 drift rule): the answer says \"Nothing has been added yet\" beside its review card, which trips the added pattern; nothing is claimed."
-			}
+			]
 		}
 	},
 	{
@@ -1898,7 +1897,13 @@
 			"require": ["/review|approv/i"],
 			"forbid": [
 				"/I['’]?(ve| have)? (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)|has been (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)/i"
-			]
+			],
+			"finding": {
+				"checks": [
+					"never says /I['’]?(ve| have)? (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)|has been (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)/i"
+				],
+				"note": "T-326 merge with main (as D-1151): re-recorded after the People records writes and the phase and signal tools joined one tool list; recorded as drift, not a capability change."
+			}
 		}
 	},
 	{
