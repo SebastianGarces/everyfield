@@ -300,8 +300,7 @@ export function createLaunchReader(clock: Clock = systemClock) {
 				const p = sql`${scope.plantId}::uuid`;
 				const { rows } = await db.execute(sql`SELECT g.ok,x.* FROM (SELECT ${scope.admin} AS ok) g
 	LEFT JOIN LATERAL (SELECT o.id,o.name,o.gathering_milestone_name,o.gathering_milestone_description FROM organization o
-		WHERE g.ok AND o.gathering_milestone_offered AND o.id IN (SELECT k.organization_id FROM affiliation k
-			WHERE k.plant_id=${p} AND ${linkActive("k")}) ORDER BY o.name,o.id) x ON true`);
+		WHERE g.ok AND ${offersTo("o", p)} ORDER BY o.name,o.id) x ON true`);
 				if (rows[0]?.ok !== true) deny("access_denied");
 				return rows.flatMap((r) =>
 					r.id
