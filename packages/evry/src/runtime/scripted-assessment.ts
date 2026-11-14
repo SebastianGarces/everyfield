@@ -4,8 +4,8 @@ import { ProviderBusy, type DraftCall, type Drafter, type DraftReply } from "@ev
 // The scripted assessment model (WP-042) and the scripted language judge (PI-036), for local previews, tests and CI
 // only (D77: automated tests make no paid calls). The drafter writes a grounded draft from the run's own input the way
 // a careful model would: exact numbers from the cited facts, Unknown said as unknown, one passage per point where the
-// search found one. A test script can change any draft to prove the checks reject it. There is no paid assessment model:
-// a real one needs Sebastian's G-SPEND approval and a plan item first.
+// search found one. A test script can change any draft to prove the checks reject it. The paid gpt-6-luna drafter and
+// judge are in assessment-model.ts (D92).
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 /** "2026-10-03" as "Oct 3". */

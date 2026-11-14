@@ -333,6 +333,7 @@ export const runReason = z.enum([
 	"attempts",
 	"budget",
 	"busy",
+	"model_unavailable",
 	"deadline",
 	"persistence",
 	"guidance_unavailable",
@@ -452,7 +453,8 @@ export type AssessmentError = z.infer<typeof assessmentError>;
 export type AssessmentReply<T> = Reply<T, AssessmentError>;
 
 // The language evaluation (PI-036): a graded judge scores each draft for plain, warm and useful wording, and lists any
-// hype or pressure as a failure on that draft. Tests and CI use the scripted judge only.
+// hype or pressure as a failure on that draft. Tests and CI use the scripted judge only; the paid gpt-6-luna judge
+// runs only in the opt-in real-model evaluation (D92).
 const grade = z.int().min(1).max(5);
 export const languageGrade = z.strictObject({
 	plain: grade,

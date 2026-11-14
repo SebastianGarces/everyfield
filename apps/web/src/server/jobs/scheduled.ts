@@ -88,7 +88,7 @@ export function scheduledMessages(db: Database, transport: DeliveryTransport, ke
  *
  * Plant Intelligence (WP-043): `assessment-demand` queues assessments that are owed (never assessed, seven days old,
  * a changed input or reference) from durable state, so a skipped tick loses nothing, and `assessment` runs a small
- * batch of them with the configured drafter. Both are skipped without one: only the scripted model exists (D77).
+ * batch of them with the configured drafter. Both are skipped without one, as on production (D92).
  */
 export function scheduledJobs(config: {
 	secret: string | undefined;
