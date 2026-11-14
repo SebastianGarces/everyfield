@@ -9,7 +9,7 @@
 import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";
 import { sql } from "../../packages/db/src/query.ts";
-import { testDatabase, type Database, type TestDatabase } from "./test-database.mts";
+import { testDatabase, type Capability, type Database, type TestDatabase } from "./test-database.mts";
 
 /** A domain result: `{ status: "ok", value }` or `{ status: "refused", error }`. */
 type Result = { status: string; value?: unknown; error?: { code?: string; details?: unknown } };
@@ -208,7 +208,7 @@ type Fixture = TestDatabase<"runtime"> &
 
 /**
  * A migrated schema with one tenant plant and its owner, admin and member actors. `plant` overrides the tenant's
- * columns; the other options go to `testDatabase`.
+ * columns; the other options go to `testDatabase`, whose `roles` must keep a `runtime` login.
  */
 export async function fixture({
 	plant: columns,
@@ -217,6 +217,7 @@ export async function fixture({
 	prefix: string;
 	max?: number;
 	plant?: Row;
+	roles?: { runtime: readonly Capability[] } & Record<string, readonly Capability[]>;
 }): Promise<Fixture> {
 	const database = await testDatabase(options);
 	try {

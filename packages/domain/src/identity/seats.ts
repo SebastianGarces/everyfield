@@ -22,6 +22,20 @@ const seatListRow = z.object({
 	acted_at: z.coerce.date().nullable(),
 	avatar: z.uuid().nullable(),
 });
+/** A PostgreSQL error (SQLSTATE) that rolled back a seat change's transaction. */
+const databaseError = z.object({ cause: z.object({ code: z.string().regex(/^[0-9A-Z]{5}$/) }) });
+/**
+ * A seat change's reply, where a database failure of any required write (the seat, a moved duty, a team, a reminder or
+ * the audit row) is required_write_failed: its transaction rolled back, so nothing of the change remains.
+ */
+async function requiredWrites<T>(change: Promise<T>): Promise<T> {
+	try {
+		return await change;
+	} catch (error) {
+		if (databaseError.safeParse(error).success) d.refuse("required_write_failed");
+		throw error;
+	}
+}
 const inWorkspace = (selected: Owner) =>
 	selected.kind === "plant" ? eq(t.seat.plant_id, selected.id) : eq(t.seat.organization_id, selected.id);
 export function createSeatService(db: Database) {
@@ -479,10 +493,11 @@ export function createSeatService(db: Database) {
 		list,
 		readCurrentMembership: membership,
 		readRemoval,
-		changeOrdinaryRole: (s: RequestActor, o: Owner, v: unknown) => mutation(s, o, v, "role"),
-		appointAdmin: (s: RequestActor, o: Owner, v: unknown) => mutation(s, o, v, "appoint"),
-		demote: (s: RequestActor, o: Owner, v: unknown) => mutation(s, o, v, "demote"),
+		changeOrdinaryRole: (s: RequestActor, o: Owner, v: unknown) => requiredWrites(mutation(s, o, v, "role")),
+		appointAdmin: (s: RequestActor, o: Owner, v: unknown) => requiredWrites(mutation(s, o, v, "appoint")),
+		demote: (s: RequestActor, o: Owner, v: unknown) => requiredWrites(mutation(s, o, v, "demote")),
 		/** Moved tasks replan their owed reminders through `reminders` in the same transaction (REQ-TSK-014). */
-		remove: (s: RequestActor, o: Owner, v: unknown, reminders: TaskReminders) => mutation(s, o, v, "remove", reminders),
+		remove: (s: RequestActor, o: Owner, v: unknown, reminders: TaskReminders) =>
+			requiredWrites(mutation(s, o, v, "remove", reminders)),
 	};
 }

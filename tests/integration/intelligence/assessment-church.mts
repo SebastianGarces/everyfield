@@ -7,6 +7,7 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { sql } from "../../../packages/db/src/query.ts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { createPrivateCare } from "../../../packages/domain/src/intelligence/index.ts";
+import { requestIntelligenceRefresh } from "../../../packages/domain/src/oversight/intelligence.ts";
 import { commitments, peopleWriter } from "../../../packages/domain/src/people/index.ts";
 import { fixture, ok } from "../../support/fixture.mts";
 
@@ -39,8 +40,13 @@ export const METHODOLOGY = [
 	],
 ] as const;
 
-export async function church(prefix: string) {
-	const database = await fixture({ prefix, max: 6 });
+/** `cleanup: true` adds the cleanup login a live purge runs on, as `database.pools.cleanup`. */
+export async function church(prefix: string, { cleanup = false } = {}) {
+	const database = await fixture({
+		prefix,
+		max: 6,
+		...(cleanup ? { roles: { runtime: ["runtime"] as const, cleanup: ["cleanup"] as const } } : {}),
+	});
 	const { admin } = database;
 	const db = database.pools.runtime;
 	const care = createPrivateCare();
@@ -173,13 +179,15 @@ export async function church(prefix: string) {
 		const at = `${on}T18:00:00-06:00`;
 		await admin.execute(sql`INSERT INTO meeting(id,plant_id,type,local_date,local_time,timezone,starts_at,resolver_version,
 			status,attendance_revision,actual_occurrence_at,vision_number)
-			VALUES(${id},${p.id},'vision_meeting',${on},'18:00',${ZONE},${at}::timestamptz,'r1','completed',1,${at}::timestamptz,1)`);
+			VALUES(${id},${p.id},'vision_meeting',${on},'18:00',${ZONE},${at}::timestamptz,'r1','completed',1,${at}::timestamptz,
+			(SELECT coalesce(max(vision_number),0)+1 FROM meeting WHERE plant_id=${p.id}))`);
 		for (const who of people) {
 			const pa = randomUUID();
 			await record(pa, "participation", p.id);
 			await admin.execute(sql`INSERT INTO participation(id,plant_id,meeting_id,person_id,roster_member,presence)
 				VALUES(${pa},${p.id},${id},${who.id},true,'attended')`);
 		}
+		return id;
 	}
 	/** An interview and a 4 C's record with private notes and scores, `daysAgo` days ago. */
 	async function humanRecords(p: Plant, who: { id: string }, daysAgo: number) {
@@ -241,6 +249,94 @@ export async function church(prefix: string) {
 		await role(p, "children", adults[4]!);
 		return p;
 	}
+	/**
+	 * The lifecycle portfolio (TEN-007, SCHEMA-011, MW-CASE-023): plants P and Q with the Harvest Point records, both
+	 * sharing findings and every category with network S1, and S1's saved Network Intelligence run of both, after
+	 * `publish` gave each plant a published assessment its Owner opened. In P, account A is an Admin with a private
+	 * check-in and shared records it wrote (a Person, a training credit it verified, a Vision meeting it created and a
+	 * Launch milestone it completed), and Seat-B is a non-owner Admin seat whose account is linked to a Leader Person and
+	 * owns one open follow-up. B is an Admin of Q.
+	 */
+	async function portfolio(name: string, publish: (p: Plant) => Promise<unknown>) {
+		const s1 = await database.organization("sending_network", { name: `${name} Network`, timezone: ZONE });
+		const seat = await database.actor(s1, "admin");
+		const director = (await RequestActor.resolve(db, seat.session as never)) as RequestActor;
+		const p = await harvest(`${name} P`, { network: s1 });
+		const q = await harvest(`${name} Q`, { network: s1 });
+		for (const x of [p, q])
+			await admin.execute(sql`UPDATE affiliation SET share_people=true,share_meetings=true,share_tasks=true,
+				share_ministry_teams=true WHERE id=${x.affiliation}`);
+
+		const seated = async (w: { id: string }, account: { id: string; session: string }) => ({
+			...account,
+			seatId: (await one(sql`SELECT id FROM seat WHERE account_id=${account.id} AND plant_id=${w.id}`)).id as string,
+			actor: (await RequestActor.resolve(db, account.session as never)) as RequestActor,
+			ctx: { session: account.session, selected: { kind: "plant", id: w.id } },
+		});
+		const a = await seated(p, await database.actor(p, "admin", { account: { personal_timezone: ZONE } }));
+		const contact = await person({ ...p, ctx: a.ctx }, "Alex Contact");
+		const meeting = await vision(p, 3, [contact]);
+		await admin.execute(sql`UPDATE meeting SET creator_id=${a.id} WHERE id=${meeting}`);
+		const program = (await one(sql`INSERT INTO training_program(plant_id,name,required) VALUES(${p.id},'Safe kids',true)
+			RETURNING id,version`)) as { id: string; version: number };
+		await admin.execute(sql`INSERT INTO training_assignment(plant_id,program_id,person_id,version,state,effective_on)
+			VALUES(${p.id},${program.id},${contact.id},${program.version},'active',${day(-2)})`);
+		const credit = (
+			await one(sql`INSERT INTO training_credit(plant_id,person_id,program_id,kind,version,earned_on,
+			verifier_account_id) VALUES(${p.id},${contact.id},${program.id},'earned',${program.version},${day(-1)},${a.id})
+			RETURNING id`)
+		).id as string;
+		await admin.execute(sql`INSERT INTO launch(plant_id,status,target_date) VALUES(${p.id},'scheduled',${day(90)})`);
+		const milestone = (
+			await one(sql`INSERT INTO launch_milestone(plant_id,title,area,position,template_key,completed_at,
+			completed_by) VALUES(${p.id},'Book the venue','operations',0,'venue',clock_timestamp(),${a.id}) RETURNING id`)
+		).id as string;
+		const current = ok(await care.readCurrent(db, a.actor, {}));
+		const strained = { spiritual: "strained", family: "strained", financial: "strained", pace: "strained" };
+		ok(
+			await care.save(db, a.actor, {
+				requestKey: randomUUID(),
+				expectedRevision: current.revision,
+				input: { answers: strained, note: CANARY + "-alex-care" },
+			}),
+		);
+
+		const seatB = await seated(p, await database.actor(p, "admin"));
+		const leader = randomUUID();
+		await admin.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,email,source,stage,adult_classification,
+			commitment_state,pipeline_position,state,created_at,linked_account_id) VALUES(${leader},${p.id},${p.id},'Casey Leader',
+			${randomUUID() + "@example.test"},'other','leader','adult','unknown','1','live',clock_timestamp(),${seatB.id})`);
+		const obligation = randomUUID(),
+			task = randomUUID();
+		await record(obligation, "obligation", p.id);
+		await record(task, "task", p.id);
+		await admin.execute(sql`INSERT INTO obligation(id,plant_id,meeting_id,person_id,kind,origin_at,origin_date,timezone,
+			formula_version,due_date) VALUES(${obligation},${p.id},${meeting},${contact.id},'follow_up',
+			clock_timestamp()-interval '72 hours',${day(-3)},${ZONE},'f1',${day(-1)})`);
+		await admin.execute(sql`INSERT INTO task(id,plant_id,title,category,priority,status,created_at,due_kind,obligation_id,
+			person_id) VALUES(${task},${p.id},'Call Alex Contact','follow_up','medium','not_started',
+			clock_timestamp()-interval '72 hours','undated',${obligation},${contact.id})`);
+		await admin.execute(
+			sql`INSERT INTO task_assignee(plant_id,task_id,account_id) VALUES(${p.id},${task},${seatB.id})`,
+		);
+		const b = await seated(q, await database.actor(q, "admin"));
+
+		await publish(p);
+		await publish(q);
+		const runId = randomUUID();
+		ok(await requestIntelligenceRefresh(db, director, { runId }));
+		return {
+			s1,
+			director,
+			p,
+			q,
+			a,
+			b,
+			seatB: { ...seatB, leader, task },
+			records: { contact: contact.id, meeting, program: program.id, credit, milestone },
+			runId,
+		};
+	}
 	/** Phase 1 with 29 known adults and one person nobody has classified: the committed-adult count is Unknown. */
 	async function unknownCount(name = "Mueller Fellowship") {
 		const p = await plant(name);
@@ -274,6 +370,7 @@ export async function church(prefix: string) {
 		person,
 		committed,
 		harvest,
+		portfolio,
 		unknownCount,
 		phaseThree,
 	};
