@@ -182,7 +182,8 @@
         "dashboard.metrics",
         "dashboard.activity",
         "dashboard.availableActions",
-        "dashboard.promptState"
+        "dashboard.promptState",
+        "dashboard.dismissPrompt"
       ],
       "acceptance_ids": [
         "AC-ADM-005--ADM-005"

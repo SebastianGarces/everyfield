@@ -436,7 +436,7 @@ export function FinishStep({
 							Review answers
 						</Button>
 						<Button variant="primary" asChild>
-							<IntentLink href={DASHBOARD_HOME}>Go to dashboard</IntentLink>
+							<IntentLink href={DASHBOARD_HOME}>Go to Overview</IntentLink>
 						</Button>
 					</div>
 					{after ? <div className="mt-4 flex justify-end">{after}</div> : null}
