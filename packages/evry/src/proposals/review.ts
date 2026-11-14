@@ -8,6 +8,7 @@ import { COMMUNICATION_COMMANDS } from "../adapters/communication/commands/index
 import { untouchedMail } from "../adapters/communication/reads/index.ts";
 import { PEOPLE_COMMANDS } from "../adapters/people/commands/index.ts";
 import { SETTINGS_COMMANDS } from "../adapters/settings/index.ts";
+import { TEAMS_COMMANDS } from "../adapters/teams/commands/index.ts";
 import type { ReviewedWrite } from "./types.ts";
 
 // The review read (evry.readReview): one projection and one access rule, used by readReview and by the conversation
@@ -15,7 +16,12 @@ import type { ReviewedWrite } from "./types.ts";
 // conversation store can use it without an import cycle.
 
 /** Every installed reviewed write. A model may propose only these, and only when the actor may use them natively. */
-export const REVIEWED_WRITES = { ...PEOPLE_COMMANDS, ...COMMUNICATION_COMMANDS, ...SETTINGS_COMMANDS } as const;
+export const REVIEWED_WRITES = {
+	...PEOPLE_COMMANDS,
+	...COMMUNICATION_COMMANDS,
+	...TEAMS_COMMANDS,
+	...SETTINGS_COMMANDS,
+} as const;
 export type Operation = keyof typeof REVIEWED_WRITES;
 export const operation = z.enum(Object.keys(REVIEWED_WRITES) as [Operation]);
 
@@ -38,8 +44,8 @@ export const mine = (actor: EvryActor) =>
 		AND p.operation=ANY(${sql.param(allowedWrites(actor).map((w) => w.operation))}::text[])`;
 /**
  * The review read (C32): the actor's own proposal under the lock-free live check, so a sign-out or seat change never
- * waits for it. Each operation keeps its native command's role floor through `mine`: church changes need an Owner or
- * Admin, while anyone with a seat may review a change to their own account.
+ * waits for it. Each operation keeps its native command's role floor (or higher) through `mine`: church changes need an
+ * Owner or Admin, while anyone with a seat may review a change to their own account.
  */
 export const readable = (actor: EvryActor) =>
 	sql`${mine(actor)} AND ${liveRead({ session: actor.session, owner: actor.owner, seatId: actor.seatId ?? undefined })}`;
@@ -64,9 +70,13 @@ export const projection = (alias: string) =>
 		'revision',${alias}.revision,'digest',${alias}.digest,'expiresAt',${alias}.expires_at,'approvedAt',${alias}.approved_at,
 		'status',CASE WHEN ${alias}.state='pending' AND ${alias}.expires_at<=clock_timestamp() THEN 'expired' ELSE ${alias}.state END,
 		'review',CASE WHEN ${alias}.review->'target'='null'::jsonb
-			OR ${alias}.review->'target'->>'kind' NOT IN ('person','message')
+			OR ${alias}.review->'target'->>'kind' NOT IN ('person','message','team','role','training','responsibility')
 			OR (${alias}.review->'target'->>'kind'='person' AND EXISTS(SELECT FROM person t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.tenant_id=${alias}.tenant_id AND t.state='live'))
 			OR (${alias}.review->'target'->>'kind'='message' AND EXISTS(SELECT FROM communication t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.plant_id=${alias}.tenant_id))
+			OR (${alias}.review->'target'->>'kind'='team' AND EXISTS(SELECT FROM team t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.plant_id=${alias}.tenant_id))
+			OR (${alias}.review->'target'->>'kind'='role' AND EXISTS(SELECT FROM team_role t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.plant_id=${alias}.tenant_id))
+			OR (${alias}.review->'target'->>'kind'='training' AND EXISTS(SELECT FROM training_program t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.plant_id=${alias}.tenant_id))
+			OR (${alias}.review->'target'->>'kind'='responsibility' AND EXISTS(SELECT FROM responsibility t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.plant_id=${alias}.tenant_id AND t.removed_at IS NULL))
 			THEN ${alias}.review ELSE jsonb_build_object('target',NULL,'changes','[]'::jsonb,'withheld',true) END,
 		'outcome',coalesce(${alias}.outcome,(SELECT 'unknown' FROM job j WHERE j.id=${alias}.job_id AND ${alias}.state='approved'
 			AND NOT ${liveJob("j")})),
@@ -76,12 +86,17 @@ export const projection = (alias: string) =>
 		'receipt',${alias}.receipt,'now',clock_timestamp())`);
 
 /**
- * What a review is about. A person or a message is withheld once it is no longer available; a church, seat,
- * invitation, connection, organization or account review is checked again by its native command on approval.
+ * What a review is about. A person, message, team, role, training or responsibility is withheld once it is no longer
+ * available; a church, seat, invitation, connection, organization or account review is checked again by its native
+ * command on approval.
  */
 export const targetKind = z.enum([
 	"person",
 	"message",
+	"team",
+	"role",
+	"training",
+	"responsibility",
 	"church",
 	"seat",
 	"invitation",

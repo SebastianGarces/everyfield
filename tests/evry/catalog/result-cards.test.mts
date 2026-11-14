@@ -9,7 +9,7 @@ import * as catalog from "../../../packages/evry/src/catalog/catalog.ts";
 import { invokeRead } from "../../../packages/evry/src/catalog/invoke.ts";
 import type { ReadAdapter, SourceResult } from "../../../packages/evry/src/catalog/types.ts";
 import { cardView, FALLBACK } from "../../../apps/web/src/features/evry/conversation/resultView.ts";
-import { byName, goldenChurch, IMPORT_KEY } from "../evals/golden-church.mts";
+import { byName, goldenChurch, IMPORT_KEY, programId, teamId } from "../evals/golden-church.mts";
 import { nativePorts } from "../evals/settings-ports.mts";
 
 const church = await goldenChurch();
@@ -47,6 +47,35 @@ const PROBES: Record<string, Record<string, unknown> | (() => Promise<SourceResu
 	"people.listTags": {},
 	"people.previewImport": { file: FILE },
 	"communication.list": {},
+	"teams.list": {},
+	"teams.get": { teamId: teamId("Worship") },
+	"teams.searchMembers": { q: "Sam" },
+	"teams.staffingSummary": {},
+	"teams.personTeamCounts": { minTeams: 3 },
+	"teams.staffingFacts": { teamId: teamId("Core team") },
+	"teams.health": { teamId: teamId("Core team") },
+	"teams.aggregateHealth": {},
+	"teams.trainingMatrix": { teamId: teamId("Kids ministry") },
+	"teams.readRequiredTrainingParticipants": { programId: programId("Kids ministry training") },
+	"teams.previewRequiredTrainingParticipants": {
+		programId: programId("Hospitality training"),
+		personIds: [byName("Alex Rivera").id],
+	},
+	"teams.listTraining": {},
+	"teams.personTraining": { personId: byName("Sam Patel").id },
+	"teams.trainingHistory": { personId: byName("Alex Rivera").id },
+	"teams.personAssignments": { personId: byName("Sam Patel").id },
+	"teams.membershipHistory": { teamId: teamId("Hospitality") },
+	"teams.history": { teamId: teamId("Hospitality") },
+	"teams.listRoles": { teamId: teamId("Hospitality") },
+	"teams.leaderCandidates": { q: "Casey" },
+	"teams.orgChart": {},
+	"teams.exportOrgChart": {},
+	"teams.listImportTemplates": {},
+	"teams.previewTemplateImport": { selections: [{ teamKey: "prayer", roleKeys: ["prayer_lead"] }] },
+	"teams.listResponsibilities": { teamId: teamId("Worship") },
+	"teams.previewResponsibilities": { teamId: teamId("Worship") },
+	"teams.listMeetings": { teamId: teamId("Core team") },
 	"seats.list": {},
 	"seats.listInvitations": () =>
 		invokeRead(church.db, church.actors.owner, adapters.get("seats.listInvitations")!, {}, nativePorts()),

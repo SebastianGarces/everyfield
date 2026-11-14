@@ -82,7 +82,7 @@ const noReminders = async () => {
 };
 
 before(async () => {
-	church = await goldenChurch();
+	church = await goldenChurch({ seatNames: true });
 	db = church.db;
 });
 after(() => church?.close());
