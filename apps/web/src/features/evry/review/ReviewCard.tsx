@@ -452,7 +452,7 @@ function note(view: View, review: Review | null, lapsed: boolean, unknown?: Acti
 					? settingsRefusalText(review.receipt?.code)
 					: intelligence
 						? intelligenceRefusalText(review.receipt?.code)
-					: refusalText(review?.receipt?.code, who, !!review && isMeetings(review.operation));
+						: refusalText(review?.receipt?.code, who, !!review && isMeetings(review.operation));
 		case "unconfirmed":
 			return review && retryable(review, lapsed)
 				? "Evry can't confirm that this was saved. Try again. A change that was saved is not saved twice."
