@@ -126,6 +126,7 @@ export function EnrollmentScreen({ initial }: { initial: EnrollmentDetail }) {
 										enrollment={enrollment}
 										director={director}
 										linked={resident.status === "linked"}
+										hidden={resident.status === "linked" && resident.milestones === "not_shared"}
 										onRecord={() => setRecording(m)}
 										onChanged={reread}
 									/>
@@ -157,6 +158,7 @@ function MilestoneRow({
 	enrollment,
 	director,
 	linked,
+	hidden,
 	onRecord,
 	onChanged,
 }: {
@@ -165,6 +167,8 @@ function MilestoneRow({
 	director: boolean;
 	/** The enrollee has a live linked account: they mark their own milestones, so there is no one-step record. */
 	linked: boolean;
+	/** The resident does not share milestone progress, so an empty row says nothing about whether it is done. */
+	hidden: boolean;
 	onRecord: () => void;
 	onChanged: () => Promise<void>;
 }) {
@@ -222,7 +226,7 @@ function MilestoneRow({
 							</span>
 						</>
 					) : (
-						<span className="text-text-3">Not finished</span>
+						<span className="text-text-3">{hidden ? "Progress not shared" : "Not finished"}</span>
 					)}
 					<Problem text={problem} />
 				</div>
