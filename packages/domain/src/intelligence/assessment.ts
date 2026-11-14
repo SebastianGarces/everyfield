@@ -32,10 +32,11 @@ import {
 export type DraftCall = { input: c.ModelInput; feedback: c.Violation[]; ordinal: number; maxOutputTokens: number };
 export type DraftReply = { output: unknown; usage: { inputTokens: number; outputTokens: number } };
 /**
- * The model port. Tests and CI use only the scripted drafter (D77); no paid drafter exists without spend approval. A
- * drafter makes exactly one dispatch per call: any SDK of a real one sets its own retries to zero (PI-020), because the
- * run's budget owns every dispatch. A busy provider (429 or 5xx) throws ProviderBusy; any other failure is an uncertain
- * call that may still be charged.
+ * The model port. Tests and CI use only the scripted drafter (D77); the paid gpt-6-luna drafter runs off production
+ * under D77's monthly counter (D92). A drafter makes exactly one dispatch per call: any SDK of a real one sets its own
+ * retries to zero (PI-020), because the run's budget owns every dispatch. A busy provider (429 or 5xx) throws
+ * ProviderBusy; a refused spend reservation throws ModelUnavailable before the provider sees anything; any other
+ * failure is an uncertain call that may still be charged.
  */
 export interface Drafter {
 	readonly id: string;
@@ -49,6 +50,13 @@ export class ProviderBusy extends Error {
 		super(`provider_busy_${status}`);
 		this.status = status;
 		this.retryAfterMs = retryAfterMs;
+	}
+}
+
+/** The month's model spend would pass its cap (D77), so the call was never sent. */
+export class ModelUnavailable extends Error {
+	constructor() {
+		super("model_unavailable");
 	}
 }
 
@@ -100,7 +108,7 @@ export type Drafted = {
 	progress: DraftProgress;
 	published: c.DraftOutput | null;
 	/** Why drafting stopped without a clean draft; `busy` waits and resumes, `lost_claim` leaves the run to its new owner. */
-	reason: "invalid_drafts" | "attempts" | "budget" | "busy" | "lost_claim" | null;
+	reason: "invalid_drafts" | "attempts" | "budget" | "busy" | "model_unavailable" | "lost_claim" | null;
 	retryAfterMs: number | null;
 };
 
@@ -108,7 +116,8 @@ export type Drafted = {
  * Up to three drafts, four provider dispatches each, inside the run's 60,000 input and 12,000 output tokens, resuming
  * from `progress`. Every dispatch is counted before it is sent: `reserve` stores the counters with the dispatch charged
  * in full (the most an uncertain call can cost), and a refused reservation (the claim was lost) sends nothing. A busy
- * provider stops drafting so the run can wait; the dispatch it cost stays counted. Pure apart from the two ports.
+ * provider stops drafting so the run can wait; the dispatch it cost stays counted. A refused spend reservation stops
+ * drafting with nothing sent. Pure apart from the two ports.
  */
 export async function draftWithin(
 	drafter: Drafter,
@@ -162,6 +171,7 @@ export async function draftWithin(
 			} catch (error) {
 				// The reservation stands: an uncertain call may still be charged.
 				if (error instanceof ProviderBusy) return stop("busy", error.retryAfterMs);
+				if (error instanceof ModelUnavailable) return stop("model_unavailable");
 			}
 		}
 		const violations = checkDraft(reply.output, input);
@@ -546,6 +556,7 @@ const CAUSE: Partial<Record<c.RunReason, c.FailureCause>> = {
 	attempts: "provider",
 	busy: "provider",
 	budget: "budget",
+	model_unavailable: "provider",
 	deadline: "deadline",
 	persistence: "persistence",
 };

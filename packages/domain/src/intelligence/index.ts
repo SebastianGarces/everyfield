@@ -5,6 +5,7 @@ export { createSignals, type Signals } from "./signals.ts";
 export {
 	createAssessments,
 	draftWithin,
+	ModelUnavailable,
 	NO_PROGRESS,
 	ProviderBusy,
 	type Assessments,

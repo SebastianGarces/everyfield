@@ -30,14 +30,24 @@ export function selectQualifiedModel(env: Record<string, string | undefined> = p
 	// Vercel sets VERCEL_ENV on every deployment; local previews and test runs have none.
 	if (env.EVRY_SCRIPTED_MODEL === "1" && !env.VERCEL_ENV)
 		return { status: "qualified", id: "evry-scripted", model: withTransientRetry(scriptedModel()) };
+	const paid = paidModel(env);
+	return paid ? { status: "qualified", ...paid, model: withTransientRetry(paid.model) } : { status: "unavailable" };
+}
+
+/**
+ * The approved paid model the environment names (EVRY_MODEL and OPENAI_API_KEY), with its price and EVRY_MONTHLY_CAP_USD,
+ * or null. The model makes exactly one dispatch per call: no retry wraps it here.
+ */
+export function paidModel(
+	env: Record<string, string | undefined>,
+): { id: string; model: LanguageModelV4; spend: Spend } | null {
 	const id = env.EVRY_MODEL ?? "";
 	const price = Object.hasOwn(OPENAI, id) ? OPENAI[id] : undefined;
 	const cap = Number(env.EVRY_MONTHLY_CAP_USD || DEFAULT_CAP_USD);
-	if (!price || !env.OPENAI_API_KEY || !(cap >= 0)) return { status: "unavailable" };
+	if (!price || !env.OPENAI_API_KEY || !(cap >= 0)) return null;
 	return {
-		status: "qualified",
 		id,
-		model: withTransientRetry(createOpenAI({ apiKey: env.OPENAI_API_KEY })(id)),
+		model: createOpenAI({ apiKey: env.OPENAI_API_KEY })(id),
 		spend: { price, capMicroUsd: Math.round(cap * 1_000_000) },
 	};
 }

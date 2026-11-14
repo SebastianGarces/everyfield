@@ -303,12 +303,101 @@ test("AC:PI-PURPOSE-001 the fact inputs hold no private care and only a count an
 	);
 });
 
+const sunday = {
+	target: null,
+	actual: null,
+	status: "planning",
+	path: "launch_sunday",
+	reachedOn: null,
+	reachedName: null,
+} as const;
+const CONSTITUTED = "Constituted as a church";
+/** A milestone-path launch, reached on `reachedOn` when given. */
+const milestone = (reachedOn: string | null) => ({
+	...sunday,
+	path: "milestone" as const,
+	reachedOn,
+	reachedName: reachedOn ? CONSTITUTED : null,
+});
+
 test("the launch countdown is the plant-local days to a scheduled launch that has not happened", () => {
 	const on = (target: string | null, status: "planning" | "scheduled" | "postponed" | "completed", actual = null) =>
-		facts({ launch: { target, actual, status } }).launch;
+		facts({ launch: { ...sunday, target, actual, status } }).launch;
 	assert.deepEqual(facts({}).launch, { targetOn: null, daysToLaunch: null });
 	assert.deepEqual(on("2026-12-14", "scheduled"), { targetOn: "2026-12-14", daysToLaunch: 30 });
 	assert.deepEqual(on(TODAY, "scheduled"), { targetOn: TODAY, daysToLaunch: 0 });
 	assert.deepEqual(on("2026-12-14", "planning"), { targetOn: null, daysToLaunch: null });
 	assert.deepEqual(on(null, "postponed"), { targetOn: null, daysToLaunch: null });
+});
+
+test("a reached milestone is First service held on the milestone path; unreached or cleared is Unknown, never Not met", () => {
+	const reached = facts({ launch: milestone("2026-10-11") }, "2026-10-12");
+	assert.equal(reached.criteria.first_service_complete, "met");
+	assert.deepEqual(reached.firstService, {
+		path: "milestone",
+		status: "met",
+		milestone: CONSTITUTED,
+		heldOn: "2026-10-11",
+	});
+	// A milestone reached today counts today.
+	assert.equal(facts({ launch: milestone("2026-10-12") }, "2026-10-12").criteria.first_service_complete, "met");
+	// Chosen but not recorded, and recorded then cleared, read the same: Unknown with nothing behind it.
+	const open = facts({ launch: milestone(null) }, "2026-10-12");
+	assert.equal(open.criteria.first_service_complete, "unknown");
+	assert.deepEqual(open.firstService, { path: "milestone", status: "unknown", milestone: null, heldOn: null });
+	// The other Phase 5 criteria stay as they were: the facts do not measure guest data or the debrief.
+	assert.equal(reached.criteria.guest_data_entered, undefined);
+	assert.equal(reached.criteria.debrief_done, undefined);
+});
+
+test("a corrected date moves the evidence", () => {
+	const corrected = facts({ launch: milestone("2026-10-04") }, "2026-10-12");
+	assert.deepEqual(
+		[corrected.criteria.first_service_complete, corrected.firstService],
+		["met", { path: "milestone", status: "met", milestone: CONSTITUTED, heldOn: "2026-10-04" }],
+	);
+});
+
+test("a reached or held day after the facts' plant-local date never counts", () => {
+	const read = (launch: FactInputs["launch"], today: string) =>
+		facts({ launch }, today).criteria.first_service_complete;
+	assert.equal(read(milestone("2026-10-11"), "2026-10-10"), "unknown");
+	assert.equal(read(milestone("2026-10-11"), "2026-10-11"), "met");
+	const held = { ...sunday, status: "completed", actual: "2026-10-11" } as const;
+	assert.equal(read(held, "2026-10-10"), "unknown");
+	assert.equal(read(held, "2026-10-11"), "met");
+	assert.deepEqual(facts({ launch: milestone("2026-10-11") }, "2026-10-10").firstService, {
+		path: "milestone",
+		status: "unknown",
+		milestone: null,
+		heldOn: null,
+	});
+});
+
+test("a Launch Sunday plant counts only an actual Launch Sunday; its launch-date criteria do not change", () => {
+	const at = (launch: FactInputs["launch"]) => facts({ launch }, TODAY);
+	const held = at({ ...sunday, status: "completed", target: null, actual: day(-7) });
+	assert.deepEqual(
+		[held.criteria.first_service_complete, held.firstService],
+		["met", { path: "launch_sunday", status: "met", heldOn: day(-7) }],
+	);
+	assert.equal(held.criteria.launch_date_set, undefined);
+	assert.equal(held.criteria.launch_window, undefined);
+	const states = {
+		none: null,
+		planning: { ...sunday },
+		scheduled: { ...sunday, status: "scheduled", target: day(20) },
+		postponed: { ...sunday, status: "postponed" },
+	} as const;
+	for (const [state, launch] of Object.entries(states)) {
+		const f = at(launch);
+		assert.equal(f.criteria.first_service_complete, "unknown", state);
+		assert.deepEqual(f.firstService, { path: "launch_sunday", status: "unknown", heldOn: null }, state);
+	}
+	const scheduled = at(states.scheduled);
+	assert.deepEqual(
+		[scheduled.criteria.launch_date_set, scheduled.criteria.launch_window],
+		["met", "met"],
+		"a scheduled launch still sets the date and window",
+	);
 });

@@ -32,7 +32,7 @@ export function GET(request: Request): Promise<Response> {
 		digests: digestsMount(db),
 		notifications: notificationsMount(db),
 		feedbackPublication: feedbackPublicationMount(db),
-		assessments: assessmentsMount(),
+		assessments: assessmentsMount(db),
 		mail: ready ? (limit, until) => runDueInvitationMail(queuedMailTransport(ready), limit, until) : null,
 		messages: ready && db ? scheduledMessages(db, deliveryTransport(ready), ready.keys) : null,
 		mountMail: ready

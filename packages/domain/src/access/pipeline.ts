@@ -102,6 +102,18 @@ export const liveResidency = sql<boolean>`(l.ended_at IS NULL AND l.accepted_at<
  AND EXISTS(SELECT FROM person p WHERE p.id=l.person_id AND p.tenant_id=l.organization_id
   AND p.linked_account_id=l.account_id AND p.state='live'))`;
 
+/**
+ * The send for review `r` (an answer_review row in the statement) is still shared with its reviewer (T-385): not
+ * withdrawn, the reviewer's seat accepted and not ended, its kept-answers note there and not removed, and its person not
+ * removed on request. The reviewer's reads, their notice and its email all hold only while it is.
+ */
+export const reviewShared = sql<boolean>`(r.withdrawn_at IS NULL
+ AND EXISTS(SELECT FROM seat rs WHERE rs.id=r.reviewer_seat_id AND rs.organization_id=r.organization_id
+  AND rs.ended_at IS NULL AND rs.accepted_at<=clock_timestamp())
+ AND EXISTS(SELECT FROM person_note rn WHERE rn.id=r.note_id AND rn.tenant_id=r.organization_id AND rn.removed_at IS NULL)
+ AND NOT EXISTS(SELECT FROM organization_person_removal rw WHERE rw.person_record_id=r.person_id
+  AND rw.organization_id=r.organization_id))`;
+
 export async function readOwnResidency(
 	tx: Transaction,
 	session: z.infer<typeof sessionId>,

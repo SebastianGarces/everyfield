@@ -7,16 +7,20 @@ import {
 	milestoneCategory,
 	planMilestoneNotice,
 	planResidencyNotice,
+	planReviewNotice,
 	relationshipMailGrants,
 	residencyCategory,
 	residencyJobOf,
 	residencyMailGrants,
+	reviewJobOf,
+	reviewMailGrants,
 } from "@everyfield/domain/organizations";
 import { authorizeLaunchNotices } from "@everyfield/domain/launch";
 import { authorizePhaseNotices } from "@everyfield/domain/phases";
 import { authorizeTaskReminders } from "@everyfield/domain/tasks";
 import "server-only";
 import { z } from "zod";
+import { reviewPath } from "../../features/organizations/reviews/model.ts";
 import { milestonePath } from "../../features/residency/model.ts";
 import { mailEnv } from "../mail-env.ts";
 import { transaction } from "../platform/database.ts";
@@ -30,13 +34,14 @@ import {
 	type MailTransport,
 } from "./mail.ts";
 import { claimDue, finishClaim, finishJob, lockClaim, recoverLease, type Claim, type JobResult } from "./queue.ts";
-import { mountMailService, residentNotificationService, seatedNotificationService } from "./seated-notifications.ts";
+import { accountNotificationService, mountMailService, seatedNotificationService } from "./seated-notifications.ts";
 
 // The notification worker (NTF-006, NTF-009), run by the scheduled runner. Meeting writes queue one `notification` job
 // per announcement and reminder slot (syncReminderJobs in packages/domain/src/meetings); approving or ending a plant's
 // connection, and changing what it shares, queue one per occurrence (queueMilestoneJob in
 // packages/domain/src/organizations); a director confirming a linked resident's milestone or writing feedback on one
-// queues one per occurrence and link (queueResidencyJob). Each due job reads its plan as of the run, and a planned slot or an occurrence
+// queues one per occurrence and link (queueResidencyJob); sending kept answers for review queues one per send
+// (reviewWriter.sendAnswers). Each due job reads its plan as of the run, and a planned slot or an occurrence
 // that still holds writes one notice per current recipient, with its email, through the notification service, in the
 // transaction that finishes the job.
 
@@ -62,12 +67,13 @@ export function createNotificationWorker(config: {
 	origin?: string | null;
 }) {
 	const notifications = seatedNotificationService(config.mail);
-	const residents = residentNotificationService(config.mail);
+	const accounts = accountNotificationService(config.mail);
 
 	/** One claimed job: write its notices when its plan still owes them, or nothing. */
 	async function deliver(tx: Transaction, claim: Claim, asOf: string): Promise<Outcome> {
 		if (!(await lockClaim(tx, claim))) return "lost";
 		if (claim.producer_key.startsWith("residency/")) return deliverResidency(tx, claim);
+		if (claim.producer_key.startsWith("review/")) return deliverReview(tx, claim);
 		return claim.producer_key.startsWith("affiliation/") ? deliverMilestone(tx, claim) : deliverSlot(tx, claim, asOf);
 	}
 
@@ -83,12 +89,38 @@ export function createNotificationWorker(config: {
 		if (!plan) return "stale";
 		if (!plan.holds) return "suppressed";
 		const link = config.origin ? `\n\nOpen My residency: ${config.origin}${milestonePath(job.milestoneId)}` : "";
-		await residents.enqueue(tx, {
+		await accounts.enqueue(tx, {
 			owner: { kind: "organization", id: org, organizationKind: plan.organizationKind },
 			source: { kind: "development_enrollment", id: enrollmentId, revision: "1" },
 			recipient: plan.recipient,
 			category: residencyCategory[job.occurrence],
 			occurrence: job.feedbackId ? `${job.milestoneId}/${job.feedbackId}` : job.milestoneId,
+			eligibleAt: new Date().toISOString(),
+			title: plan.title,
+			text: plan.text,
+			mailText: plan.text + link,
+			operation: null,
+		});
+		return "planned";
+	}
+
+	/**
+	 * Kept answers sent for review (T-385): one notice owned by the organization to the reviewer while the send is
+	 * shared. Neither it nor its email holds a question or an answer; the email links to the send on Sent for review.
+	 */
+	async function deliverReview(tx: Transaction, claim: Claim): Promise<Outcome> {
+		const org = claim.tenant_id;
+		const reviewId = reviewJobOf(claim.producer_key);
+		const plan = await planReviewNotice(tx, org, reviewId);
+		if (!plan) return "stale";
+		if (!plan.holds) return "suppressed";
+		const link = config.origin ? `\n\nOpen it in Everyfield: ${config.origin}${reviewPath(reviewId)}` : "";
+		await accounts.enqueue(tx, {
+			owner: { kind: "organization", id: org, organizationKind: plan.organizationKind },
+			source: { kind: "answer_review", id: reviewId, revision: "1" },
+			recipient: plan.recipient,
+			category: "answer_review",
+			occurrence: reviewId,
 			eligibleAt: new Date().toISOString(),
 			title: plan.title,
 			text: plan.text,
@@ -196,7 +228,7 @@ export type NotificationWorker = ReturnType<typeof createNotificationWorker>;
 /**
  * Which notification mail may go out, checked at send time in one statement: a meeting notice under the meeting rule
  * (meetingMailGrants), a connection or sharing milestone under its own (relationshipMailGrants), a residency notice
- * while its resident's link is live (residencyMailGrants).
+ * while its resident's link is live (residencyMailGrants), answers to review while the send is shared (reviewMailGrants).
  */
 export async function authorizeNotificationMail(
 	tx: Transaction,
@@ -205,8 +237,9 @@ export async function authorizeNotificationMail(
 	const rows = mail.map((m) => ({ id: m.id, recipient: m.recipient, notice: m.notice }));
 	const input = sql`jsonb_to_recordset(${JSON.stringify(rows)}::jsonb) i(id uuid,recipient uuid,notice uuid)`;
 	const r = await tx.execute(sql`WITH meeting AS (${meetingMailGrants(input)}),
-		relationship AS (${relationshipMailGrants(input)}), residency AS (${residencyMailGrants(input)})
-		SELECT id FROM meeting UNION SELECT id FROM relationship UNION SELECT id FROM residency`);
+		relationship AS (${relationshipMailGrants(input)}), residency AS (${residencyMailGrants(input)}),
+		review AS (${reviewMailGrants(input)})
+		SELECT id FROM meeting UNION SELECT id FROM relationship UNION SELECT id FROM residency UNION SELECT id FROM review`);
 	return new Set(
 		z
 			.array(z.object({ id: z.uuid() }))

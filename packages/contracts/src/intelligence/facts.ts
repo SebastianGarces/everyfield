@@ -9,8 +9,12 @@ import { renewal, signalKey, signalValue } from "./signals.ts";
 // unanswered question apart. Facts are computed on each read from the records the planter keeps; nothing here is a
 // model's interpretation. Private care never reaches them, and interviews and 4 C's show only their count and date.
 
-/** The formula version every fact result names, so a later assessment can cite the rules it was built with. */
-export const FACTS_FORMULA_VERSION = "plant-facts/1";
+/**
+ * The formula version every fact result names, so a later assessment can cite the rules it was built with. Version 2
+ * added `firstService`; a stored plant-facts/1 snapshot still parses without it.
+ */
+export const FACTS_FORMULA_VERSION = "plant-facts/2";
+const formulaVersion = z.enum(["plant-facts/1", FACTS_FORMULA_VERSION]);
 /** The committed-adult criterion of Phase 1. */
 export const ADULT_TARGET = 30;
 /** Growth: below 21 days is on track, 21 to 27 "momentum has slowed", 28 or more "growth has stalled". */
@@ -158,6 +162,26 @@ const attestationFact = z.strictObject({
 	renewal,
 });
 
+/**
+ * The Phase 5 criterion "First service held" (D-1532): the day the plant ended its gathering phase, on or before
+ * `today`. On the milestone path it is the network- or church-chosen milestone, under the name it was reached under; on
+ * Launch Sunday it is the actual Launch Sunday recorded. Met with that day, else Unknown, never Not met (D-1533).
+ */
+export const firstService = z.discriminatedUnion("path", [
+	z.strictObject({
+		path: z.literal("milestone"),
+		status: z.enum(["met", "unknown"]),
+		/** The milestone's name when it was reached; null until it is. */
+		milestone: z.string().nullable(),
+		heldOn: localDate.nullable(),
+	}),
+	z.strictObject({
+		path: z.literal("launch_sunday"),
+		status: z.enum(["met", "unknown"]),
+		heldOn: localDate.nullable(),
+	}),
+]);
+
 /** Only how many human records exist and the latest date: never scores, notes, results or qualification. */
 const recordPresence = z.strictObject({ count: z.int().min(0), latestOn: localDate.nullable() });
 const humanRecords = z.strictObject({ interviews: recordPresence, fourCs: recordPresence });
@@ -165,7 +189,7 @@ const humanRecords = z.strictObject({ interviews: recordPresence, fourCs: record
 export const plantFacts = z.strictObject({
 	asOf: instant,
 	today: localDate,
-	formulaVersion: z.literal(FACTS_FORMULA_VERSION),
+	formulaVersion,
 	/** A digest of every input the facts read. Assessment work captured at another revision is stale. */
 	sourceRevision: z.string().regex(/^[0-9a-f]{64}$/),
 	committedAdults,
@@ -182,6 +206,8 @@ export const plantFacts = z.strictObject({
 	 * scheduled or it already happened.
 	 */
 	launch: z.strictObject({ targetOn: localDate.nullable(), daysToLaunch: z.int().nullable() }),
+	/** Absent only in a plant-facts/1 snapshot, stored before the facts measured it. */
+	firstService: firstService.optional(),
 	/** The exit criteria these facts measure. Every other criterion stays Unknown. */
 	criteria: z.partialRecord(criterionKey, criterionStatus),
 });

@@ -207,6 +207,28 @@ export function factCatalog(f: PlantFacts): FactEntry[] {
 		{ key: "launch.targetOn", label: "Scheduled launch date", value: f.launch.targetOn, status: null },
 		{ key: "launch.daysToLaunch", label: "Days to the launch date", value: f.launch.daysToLaunch, status: null },
 	];
+	const s = f.firstService;
+	if (s) {
+		entries.push({
+			key: "firstService.status",
+			label: "First service held (Phase 5 criterion)",
+			value: s.status,
+			status: s.status,
+		});
+		if (s.path === "milestone" && s.milestone !== null)
+			entries.push({
+				key: "firstService.milestone",
+				label: "Gathering milestone",
+				value: s.milestone,
+				status: s.status,
+			});
+		entries.push({
+			key: "firstService.heldOn",
+			label: s.path === "milestone" ? "Milestone reached" : "Launch Sunday held",
+			value: s.heldOn,
+			status: s.status,
+		});
+	}
 	for (const s of f.attestations)
 		entries.push(
 			{ key: `attestations.${s.key}`, label: `Answer: ${s.key}`, value: s.value, status: s.state },
@@ -311,6 +333,7 @@ export const runReason = z.enum([
 	"attempts",
 	"budget",
 	"busy",
+	"model_unavailable",
 	"deadline",
 	"persistence",
 	"guidance_unavailable",
@@ -430,7 +453,8 @@ export type AssessmentError = z.infer<typeof assessmentError>;
 export type AssessmentReply<T> = Reply<T, AssessmentError>;
 
 // The language evaluation (PI-036): a graded judge scores each draft for plain, warm and useful wording, and lists any
-// hype or pressure as a failure on that draft. Tests and CI use the scripted judge only.
+// hype or pressure as a failure on that draft. Tests and CI use the scripted judge only; the paid gpt-6-luna judge
+// runs only in the opt-in real-model evaluation (D92).
 const grade = z.int().min(1).max(5);
 export const languageGrade = z.strictObject({
 	plain: grade,

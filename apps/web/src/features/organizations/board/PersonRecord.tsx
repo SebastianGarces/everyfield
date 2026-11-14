@@ -37,6 +37,7 @@ import { PersonDialog } from "./PersonDialog";
 import { Problem } from "./Problem";
 import { RemoveDialog } from "../data/RemoveDialog";
 import { ResidencyLink } from "./ResidencyLink";
+import { NoteReviews, SendForReviewDialog } from "./SendForReview";
 
 type Record = PipelinePersonRecord;
 type Answer = Awaited<ReturnType<typeof movePerson>>;
@@ -156,7 +157,7 @@ export function PersonRecord({
 				</div>
 				<div className="flex flex-col gap-5">
 					<ConversationsCard record={record} onChanged={reread} />
-					<Notes record={record} onChanged={reread} />
+					<Notes record={record} staff={staff} onChanged={reread} />
 				</div>
 			</div>
 
@@ -243,6 +244,30 @@ function Detail({ term, children }: { term: string; children: ReactNode }) {
 	);
 }
 
+/** What a history entry says happened. A send for review names who sent it and to whom, never its questions. */
+function historyTitle(h: Record["history"][number]) {
+	switch (h.kind) {
+		case "placed":
+			return `Added to ${h.to}`;
+		case "imported":
+			return `Imported into ${h.to}`;
+		case "moved":
+			return `Moved from ${h.from} to ${h.to}`;
+		case "assessment":
+			return "Outside assessment recorded";
+		case "retired":
+			return "Retired";
+		case "restored":
+			return "Restored";
+		case "review_sent":
+			return `Answers sent for review to ${h.reviewer ?? "former staff"} by ${h.actor ?? "former staff"}`;
+		case "review_withdrawn":
+			return `Review withdrawn by ${h.actor ?? "former staff"}`;
+		case "edited":
+			return "Details edited";
+	}
+}
+
 /** Every move with who made it, the day and the reason, under the stage names of that day. */
 function History({ record }: { record: Record }) {
 	return (
@@ -254,22 +279,12 @@ function History({ record }: { record: Record }) {
 				<ol className="flex flex-col gap-3.5">
 					{record.history.map((h) => (
 						<li key={h.id} className="flex flex-col gap-0.5 text-sm">
-							<span className="font-medium text-ink">
-								{h.kind === "placed"
-									? `Added to ${h.to}`
-									: h.kind === "imported"
-										? `Imported into ${h.to}`
-										: h.kind === "moved"
-											? `Moved from ${h.from} to ${h.to}`
-											: h.kind === "assessment"
-												? "Outside assessment recorded"
-												: h.kind === "retired"
-													? "Retired"
-													: h.kind === "restored"
-														? "Restored"
-														: "Details edited"}
+							<span className="font-medium text-ink">{historyTitle(h)}</span>
+							<span className="text-text-2">
+								{h.kind === "review_sent" || h.kind === "review_withdrawn"
+									? formatDay(h.on)
+									: [h.actor ?? "Former staff", formatDay(h.on)].join(" · ")}
 							</span>
-							<span className="text-text-2">{[h.actor ?? "Former staff", formatDay(h.on)].join(" · ")}</span>
 							{h.kind === "moved" ? <span className="text-ink-2">Reason: {h.reason}</span> : null}
 						</li>
 					))}
@@ -412,7 +427,15 @@ function AssessmentDialog({
  * Private staff notes (REQ-MUL-009): read by Owners, Admins and the person's responsible staff. Only the author edits
  * or removes their note; a removed note shows who removed it and when, with no text.
  */
-function Notes({ record, onChanged }: { record: Record; onChanged: () => Promise<void> }) {
+function Notes({
+	record,
+	staff,
+	onChanged,
+}: {
+	record: Record;
+	staff: PipelineBoard["staff"];
+	onChanged: () => Promise<void>;
+}) {
 	const canWrite = !record.retired;
 	const [draft, setDraft] = useState("");
 	const [noteId, setNoteId] = useState(() => crypto.randomUUID());
@@ -471,7 +494,14 @@ function Notes({ record, onChanged }: { record: Record; onChanged: () => Promise
 										Note removed by {n.author ?? "former staff"}, {formatDay(n.removedOn)}
 									</p>
 								) : (
-									<NoteItem note={n} editable={canWrite && n.mine} onChanged={onChanged} />
+									<NoteItem
+										note={n}
+										editable={canWrite && n.mine}
+										// Only an Owner or Admin sends kept answers for review, and only while the person is live (T-385).
+										review={record.audience === "administrator" && canWrite ? { person: record.name, staff } : null}
+										canWithdraw={record.audience === "administrator"}
+										onChanged={onChanged}
+									/>
 								)}
 							</li>
 						))}
@@ -487,14 +517,22 @@ function Notes({ record, onChanged }: { record: Record; onChanged: () => Promise
 function NoteItem({
 	note,
 	editable,
+	review,
+	canWithdraw,
 	onChanged,
 }: {
 	note: Extract<Record["notes"][number], { state: "current" }>;
 	/** The author's own note on a live person: only then can it change (REQ-MUL-009). */
 	editable: boolean;
+	/** What sending kept answers for review needs, for an Owner or Admin on a live person; null otherwise. */
+	review: { person: string; staff: PipelineBoard["staff"] } | null;
+	/** An Owner or Admin withdraws a send, even from a retired person. */
+	canWithdraw: boolean;
 	onChanged: () => Promise<void>;
 }) {
 	const [editing, setEditing] = useState(false);
+	const [sending, setSending] = useState(false);
+	const sendable = review !== null && note.questions !== null;
 	const [text, setText] = useState(note.body);
 	const [removing, setRemoving] = useState(false);
 	const [problem, setProblem] = useState<string | null>(null);
@@ -537,17 +575,41 @@ function NoteItem({
 			)}
 			<div className="flex flex-wrap items-center gap-x-3 gap-y-1">
 				<span className="text-xs text-text-3">{meta}</span>
-				{editable && !editing ? (
-					<span className="ml-auto flex gap-1">
-						<Button variant="ghost" size="sm" onClick={() => setEditing(true)}>
-							Edit
-						</Button>
-						<Button variant="ghost" size="sm" onClick={() => setRemoving(true)}>
-							Remove
-						</Button>
+				{(editable || sendable) && !editing ? (
+					<span className="ml-auto flex flex-wrap gap-1">
+						{sendable ? (
+							<Button variant="ghost" size="sm" onClick={() => setSending(true)}>
+								Send for review
+							</Button>
+						) : null}
+						{editable ? (
+							<>
+								<Button variant="ghost" size="sm" onClick={() => setEditing(true)}>
+									Edit
+								</Button>
+								<Button variant="ghost" size="sm" onClick={() => setRemoving(true)}>
+									Remove
+								</Button>
+							</>
+						) : null}
 					</span>
 				) : null}
 			</div>
+			<NoteReviews reviews={note.reviews} canWithdraw={canWithdraw} onChanged={onChanged} />
+			{sendable ? (
+				<SendForReviewDialog
+					open={sending}
+					onOpenChange={setSending}
+					noteId={note.id}
+					person={review.person}
+					questions={note.questions!}
+					staff={review.staff}
+					onSent={async () => {
+						setSending(false);
+						await onChanged();
+					}}
+				/>
+			) : null}
 			{problem ? <p className="text-sm text-magenta-600">{problem}</p> : null}
 			<ConfirmDialog
 				open={removing}

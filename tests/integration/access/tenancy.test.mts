@@ -60,6 +60,8 @@ import {
 } from "../../../packages/domain/src/meetings/index.ts";
 import {
 	readEnrollment,
+	readAnswerReview,
+	readAnswerReviews,
 	readMyResidency,
 	readResidentReading,
 	readPipelineBoard,
@@ -798,6 +800,23 @@ function cases(who) {
 			"organizations:readPipelineExport",
 			{
 				run: () => plain(() => readPipelineExport(f.db, who.actor)),
+				expected: { value: { status: "refused", refusal: { code: "unavailable" } }, control: null },
+			},
+		],
+		// Answers sent for review read only under an organization seat, and only the reviewer's own sends, so a church's
+		// owner gets the refusal; tests/integration/organizations/reviews.test.mts holds the organization boundary,
+		// including another organization's Owner.
+		[
+			"organizations:readAnswerReviews",
+			{
+				run: () => plain(() => readAnswerReviews(f.db, who.actor)),
+				expected: { value: { status: "refused", refusal: { code: "unavailable" } }, control: null },
+			},
+		],
+		[
+			"organizations:readAnswerReview",
+			{
+				run: () => plain(() => readAnswerReview(f.db, who.actor, { reviewId: a.avery })),
 				expected: { value: { status: "refused", refusal: { code: "unavailable" } }, control: null },
 			},
 		],
