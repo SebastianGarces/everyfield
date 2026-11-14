@@ -767,26 +767,24 @@ export const seatsAccount = (operation: Operation) =>
 	operation === "onboarding.createPlant" || operation === "discovery.convertToPlant";
 
 /**
- * One Discovery link on a conversion review (field `link:<organization id>`): the organization and what it shares now,
- * then whether it carries over to the church and what the church's link shares. Null for any other field.
+ * One Discovery link on a conversion review (field `link:<organization id>`): the organization, then whether it carries
+ * over to the church and what the church's link shares. Null for any other field.
  */
 export type CarryOver = {
 	organizationId: string;
 	organization: string;
 	kind: string;
-	now: string[];
 	carries: boolean;
 	share: string[];
 };
 export function carryOver(c: Change): CarryOver | null {
 	if (!c.field.startsWith("link:")) return null;
-	const before = (c.before ?? {}) as { organization?: string; kind?: string; share?: string[] };
+	const before = (c.before ?? {}) as { organization?: string; kind?: string };
 	const after = (c.after ?? {}) as { carries?: boolean; share?: string[] };
 	return {
 		organizationId: c.field.slice("link:".length),
 		organization: before.organization ?? "Organization",
 		kind: before.kind ?? "",
-		now: before.share ?? [],
 		carries: after.carries === true,
 		share: after.share ?? [],
 	};

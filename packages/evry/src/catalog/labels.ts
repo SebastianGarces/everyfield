@@ -29,7 +29,7 @@ export const ZONE_NAME: Readonly<Record<string, string>> = {
 };
 
 /** The seven phases by the names `/onboarding` shows. */
-export const PHASE_NAME = [
+const PHASE_NAME = [
 	"Discovery",
 	"Core group development",
 	"Launch team formation",

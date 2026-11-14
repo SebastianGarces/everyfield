@@ -6,6 +6,7 @@ import { z } from "zod";
 import { phaseText, SHARING_CATEGORIES, type SharingCategory } from "../../../catalog/labels.ts";
 import type { EvryActor } from "../../../context/actor.ts";
 import { accountContext, change, nativeWrite, notes, plantOwner, settled, target } from "../../native.ts";
+import { JOURNEY_TEXT } from "../reads/index.ts";
 
 // The setup reviewed writes (T-345): the Owner setting up a church answers where it is, who leads it and finishes
 // setup; a seatless account starts a church or a Discovery space; a Discovery account turns its space into a church.
@@ -31,11 +32,7 @@ const journeyText = sql`CASE WHEN os.journey->>'status'<>'saved' THEN NULL
 	WHEN os.journey->'value'->>'answer'='discerning' THEN 'Still discerning. Nothing declared.'
 	WHEN os.journey->'value'->>'answer'='skip' THEN 'Skipped' END`;
 const answerText = (j: z.infer<typeof journeyAnswer>) =>
-	j.answer === "existing"
-		? `Declared ${phaseText(j.phase)}`
-		: { unsure: "Not sure yet. Nothing declared.", discerning: "Still discerning. Nothing declared.", skip: "Skipped" }[
-				j.answer
-			];
+	j.answer === "existing" ? `Declared ${phaseText(j.phase)}` : JOURNEY_TEXT[j.answer];
 /**
  * The launch answer that saves with the journey answer (they are one native request). Evry takes no launch date, so a
  * saved answer is sent again as it is now (a planned date with the schedule's current revision) and an open one is

@@ -61,16 +61,17 @@ const step = (id: string, label: string, saved: boolean, answer: string | null):
 	label,
 	fields: { status: saved ? "saved" : "open", answer },
 });
+/** A journey answer other than a declared phase, as `/onboarding` words it. */
+export const JOURNEY_TEXT = {
+	unsure: "Not sure yet. Nothing declared.",
+	discerning: "Still discerning. Nothing declared.",
+	skip: "Skipped",
+} as const;
 /** The answer each step shows on `/onboarding`, or null while it is open. */
 function journeyAnswer(r: Resume) {
 	if (r.journey.status !== "saved") return null;
 	const j = r.journey.value;
-	if (j.answer === "existing") return `Declared ${phaseText(j.phase)}. It can't be changed in setup.`;
-	return {
-		unsure: "Not sure yet. Nothing declared.",
-		discerning: "Still discerning. Nothing declared.",
-		skip: "Skipped",
-	}[j.answer];
+	return j.answer === "existing" ? `Declared ${phaseText(j.phase)}. It can't be changed in setup.` : JOURNEY_TEXT[j.answer];
 }
 function launchAnswer(r: Resume) {
 	if (r.launch.status !== "saved") return null;
@@ -168,7 +169,6 @@ export const ONBOARDING_READS = [
 				},
 			}));
 			return result("discovery.getProfile", rows, {
-				discoveryId: profile.discoveryId,
 				foundationsRead: profile.reading.articles.length,
 				foundationsTotal: foundations.article_count,
 			});

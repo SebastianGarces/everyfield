@@ -204,18 +204,11 @@ export function onboardingStep(options: LanguageModelV4CallOptions, text: string
 		if (!offers("identity.answerLeadOnboarding")) return setupRule();
 		if (!resume) return readResume();
 		if (resume.status !== "available") return noSetup();
-		if (
-			stepOf("team")?.fields.answer === "You hold the lead role" ||
-			/Senior pastor/.test(String(stepOf("team")?.fields.answer))
-		)
+		if (/^You hold the /.test(String(stepOf("team")?.fields.answer)))
 			return say(
 				"A lead role is already assigned to you, so the lead question can't be answered again. Change it from your ministry teams.",
 			);
-		const answer = lead[1] as { answer: string };
-		return propose(
-			"identity.answerLeadOnboarding",
-			answer.answer === "yes" && /\blead pastor\b/i.test(text) ? { answer: "yes", roleName: "Lead pastor" } : answer,
-		);
+		return propose("identity.answerLeadOnboarding", lead[1]);
 	}
 	if (journey) {
 		if (!offers("onboarding.declareJourney")) return setupRule();
