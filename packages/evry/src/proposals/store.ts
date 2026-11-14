@@ -149,7 +149,7 @@ const PHOTO_WRITES = ["people.setPersonPhoto", "account.finalizeAvatar"] as cons
  * upload is their own account's photo upload. Lock-free (C13, C27).
  */
 const staged = (actor: EvryActor, proposalId: string, uploadId: SQL) =>
-	sql`p.id=${proposalId}::uuid AND ${readable(actor)} AND p.operation IN ('people.setPersonPhoto','account.finalizeAvatar')
+	sql`p.id=${proposalId}::uuid AND ${readable(actor)} AND p.operation=ANY(${sql.param([...PHOTO_WRITES])}::text[])
 		AND p.state IN ('pending','approved') AND p.outcome IS NULL AND p.expires_at>clock_timestamp()
 		AND (p.input->'input'->>'uploadId')::uuid=${uploadId}
 		AND (p.operation<>'people.setPersonPhoto' OR (
@@ -231,7 +231,7 @@ export async function approveProposal(
 					job_id=${job}::uuid,updated_at=clock_timestamp()
 				WHERE p.id=${proposalId}::uuid AND ${owned(actor)} AND p.state='pending' AND p.revision=${witness.revision}
 					AND p.digest=${witness.digest} AND p.expires_at>clock_timestamp() AND NOT (p.review ? 'refusal') AND NOT ${sql.raw(staleMessage("p"))}
-					AND (p.operation NOT IN ('people.setPersonPhoto','account.finalizeAvatar') OR p.input->'input'->>'uploadId'=${shownUpload}::text)
+					AND (p.operation<>ALL(${sql.param([...PHOTO_WRITES])}::text[]) OR p.input->'input'->>'uploadId'=${shownUpload}::text)
 				RETURNING p.*
 			), run AS (${effectJob(job, "a")}),
 			audit AS (${audit("evry.proposal_approved", "accept", "a")})

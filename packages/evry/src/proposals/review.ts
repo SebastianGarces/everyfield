@@ -90,7 +90,7 @@ export const projection = (alias: string) =>
  * available; a church, seat, invitation, connection, organization or account review is checked again by its native
  * command on approval.
  */
-export const targetKind = z.enum([
+const targetKind = z.enum([
 	"person",
 	"message",
 	"team",

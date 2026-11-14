@@ -1,7 +1,7 @@
 import type { NativePorts } from "@everyfield/evry";
 import "server-only";
 import { settingsCommands } from "../../features/settings/server.ts";
-import { invitationServiceOn } from "../invitations/index.ts";
+import { invitationService, invitationServiceOn } from "../invitations/index.ts";
 import { current as organizationMount } from "../organizations/index.ts";
 
 /**
@@ -12,7 +12,7 @@ import { current as organizationMount } from "../organizations/index.ts";
 export function evryNative(): NativePorts | null {
 	const settings = settingsCommands();
 	const organizations = organizationMount();
-	if (!settings || !organizations || !invitationServiceOn(organizations.db)) return null;
+	if (!settings || !organizations || !invitationService()) return null;
 	return {
 		invitations: (db) => invitationServiceOn(db)!,
 		organizations: organizations.adapter,
