@@ -168,7 +168,7 @@ function addedAnswer(prompt: Prompt, activity: Output) {
 	const cut = activity.facts?.more === true && (!oldest || String(oldest.fields.date) >= since);
 	const lines = added.length
 		? [
-				`${added.length} ${added.length === 1 ? "person was" : "people were"} added to People in the last month (since ${short(since)}), as Overview's activity shows:`,
+				`${cut ? "At least " : ""}${added.length} ${added.length === 1 ? "person was" : "people were"} added to People in the last month (since ${short(since)}), as Overview's activity shows:`,
 				...added.map(
 					(e) =>
 						`- [${e.label.replace(/ added to People$/, "")}${e.fields.you === true ? " (you)" : ""}](${String(e.fields.href)}), added ${short(String(e.fields.date))}`,

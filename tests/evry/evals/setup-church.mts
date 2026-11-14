@@ -196,7 +196,7 @@ export async function seedOverview(admin: Database, runtime: Database, native: N
 	});
 	await schedule(admin, runtime, plant, {
 		type: "prelaunch_practice",
-		title: "Practice Sunday",
+		title: "Practice service",
 		date: await localDay(admin, plant, 9),
 	});
 	const task = randomUUID();

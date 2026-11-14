@@ -23,7 +23,7 @@
 			],
 			"forbid": [
 				"/spiritual|mature|godly/i",
-				"/Practice Sunday|Casey Rivera|Grace Holt|Marcus Webb|Ana Ruiz|Elena Brooks/",
+				"/Practice service|Casey Rivera|Grace Holt|Marcus Webb|Ana Ruiz|Elena Brooks/",
 				"/couldn't read/"
 			]
 		},
@@ -126,7 +126,7 @@
 			"must_not": "Guess from stage = prospect",
 			"calls": ["dashboard.activity"],
 			"answer": [
-				"people were added to People in the last month (since Sep 13), as Overview's activity shows:",
+				"At least 20 people were added to People in the last month (since Sep 13), as Overview's activity shows:",
 				"Overview's activity keeps only the latest 20 changes, so this list may be incomplete. Open [People](/people) to see everyone."
 			],
 			"forbid": ["/That is everyone/"]

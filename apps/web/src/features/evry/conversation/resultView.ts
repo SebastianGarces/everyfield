@@ -558,7 +558,7 @@ function rowView(operation: string, row: SourceRow): RowView {
 				return {
 					...plain,
 					href: text(fields.href),
-					name: fields.you === true ? `${row.label} (you)` : row.label,
+					name: row.label,
 					line: joined(text(fields.by), text(fields.when)),
 					avatar: "activity",
 				};
