@@ -1667,6 +1667,10 @@
 				"attestation.recorded",
 				"attestation.corrected",
 				"launch.changed",
+				"launch.corrected",
+				"launch.debrief_submitted",
+				"launch.outcome_recorded",
+				"launch.summary_published",
 				"wiki.published",
 				"wiki.hidden",
 				"wiki.source_order_changed",
@@ -1922,6 +1926,26 @@
 				"privacy_policy": "No transfer of account grants, private reading/documents/care or staff-note visibility.",
 				"immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
 				"future_case_ids": ["ADR1-001", "ADR1-005", "ADR1-017"]
+			},
+			{
+				"table": "launch_guest",
+				"columns": ["person_id", "plant_id"],
+				"target_columns": ["id", "tenant_id"],
+				"consumer_work_packages": ["WP-046"],
+				"meaning": "A Person of the church named as a Launch Sunday guest (LCH-007).",
+				"lock_order": "Lock the church's launch row first; the link reads the Person as live in the same statement. Merge and Unmerge lock both Persons in UUID order.",
+				"merge_policy": "Move the link to the survivor. When the survivor is already a guest, the source's link stays on the source as history, so the roster names the survivor once.",
+				"inverse_policy": "Unmerge moves back exactly the links the merge moved.",
+				"retirement_policy": "A retired Person leaves the current roster and cannot be named again; the link stays as history.",
+				"privacy_policy": "Names only the Person. Guest names show to the church's Owners and Admins and never reach an organization or the published summary.",
+				"immutable_evidence_policy": "The link keeps when and by whom it was named; the reported aggregate attendance and missing-guest count never change with it.",
+				"future_case_ids": [
+					"LAUNCH46-022",
+					"PERSONREF-LAUNCH-NAMED-GUEST-CONFLICT",
+					"PERSONREF-LAUNCH-NAMED-GUEST-MERGE",
+					"PERSONREF-LAUNCH-NAMED-GUEST-RETIRE",
+					"PERSONREF-LAUNCH-NAMED-GUEST-UNMERGE"
+				]
 			},
 			{
 				"table": "person",
@@ -8069,7 +8093,10 @@
 				},
 				"revision": {
 					"note": ""
-				}
+				},
+				"outcome_note": { "note": "The planter's note on what happened on Launch Sunday, at most 10,000 characters." },
+				"outcome_recorded_at": { "note": "When the actual Launch Sunday was first recorded; a correction keeps it." },
+				"outcome_recorded_by": { "note": "The account that first recorded the actual Launch Sunday." }
 			},
 			"foreignKeys": {
 				"plant_id->plant(id)": {
@@ -8082,6 +8109,294 @@
 					"deletion": {
 						"action": "restrict",
 						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
+					}
+				},
+				"outcome_recorded_by->account(id)": {
+					"deletion": {
+						"action": "set_null",
+						"policy": "Deleting the account clears who recorded the outcome; the fact, its time and its audit history stay."
+					}
+				}
+			}
+		},
+		"launch_debrief": {
+			"table": {
+				"name": "launch_debrief",
+				"domain": "launch",
+				"purpose": "One version of the six-area Launch debrief (LCH-010): five written areas and the single missing-guest answer. The first area is the recorded Launch Sunday on launch, never a copy.",
+				"library_owned": false,
+				"jsonb_keys": {},
+				"capabilities": ["CAP-B-025", "CAP-B-026"],
+				"replaces": [],
+				"producer_work_packages": ["WP-046"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-046"],
+					"rule": "WP-046 Launch outcomes, guests, debrief and history."
+				},
+				"feature_ids": ["LCH-006", "LCH-007", "LCH-008"],
+				"acceptance_ids": ["AC-LCH-006--LCH-006", "AC-LCH-007--LCH-007", "AC-LCH-008--LCH-008"],
+				"future_case_ids": [
+					"B02-019",
+					"B02-020",
+					"B02-021",
+					"B02-025",
+					"LAUNCH46-006",
+					"LAUNCH46-007",
+					"LAUNCH46-008",
+					"LAUNCH46-009",
+					"LAUNCH46-010",
+					"LAUNCH46-011",
+					"LAUNCH46-013",
+					"LAUNCH46-014",
+					"LAUNCH46-021"
+				],
+				"scope": "launch",
+				"invariants": [
+					"At most one draft per church.",
+					"A submitted version is never rewritten; a correction is the next submitted version.",
+					"The latest submitted version alone decides guest_data_entered and debrief_done; a later draft never replaces it.",
+					"No answer has a minimum length; Yes carries a positive count and No carries none."
+				],
+				"revision": "The draft's revision fences concurrent saves.",
+				"idempotency": "Saving or submitting the same answers again changes nothing; a replayed request key returns its stored answer.",
+				"deletion": "Plant-owned facts and history survive personal account deletion with minimum necessary attribution. Plant deletion hides them immediately, holds eligible content only for 30-day cancellation, then purges live content; recovery copies expire within seven days of coherent live purge. No additional fixed history limit is specified. Plant-owned operational records follow the plant deletion policy. Account deletion preserves legitimate shared history with minimal scrubbed actor attribution. Soft deletion, retirement and correction preserve performed evidence; history is not a retention exemption. Tenant-owned content survives creator-account deletion with minimal attribution. Workspace deletion follows immediate access suspension, private 30-day cancellation hold, eligible live purge and seven-day recovery-copy horizon; restore reapplies current deletion/access witnesses.",
+				"physical_verified": false
+			},
+			"columns": {
+				"id": {
+					"note": "Debrief version identity."
+				},
+				"plant_id": {
+					"note": "The church."
+				},
+				"version": {
+					"note": "1, 2, 3 in the order versions were started, unique per church."
+				},
+				"went_well": {
+					"note": "What went well."
+				},
+				"to_change": {
+					"note": "What to change."
+				},
+				"operations": {
+					"note": "Welcoming, children, worship and logistics."
+				},
+				"follow_up_plan": {
+					"note": "The guest follow-up plan; a plan, not contact."
+				},
+				"support_needed": {
+					"note": "Support needed from sending churches and networks."
+				},
+				"missing_names": {
+					"note": "Was there a guest not yet entered by name: yes or no; null while a draft leaves it unanswered."
+				},
+				"missing_count": {
+					"note": "How many guests are not entered by name, when the answer is yes."
+				},
+				"saved_at": {
+					"note": "When the version was last saved."
+				},
+				"saved_by": {
+					"note": "Who last saved it."
+				},
+				"submitted_at": {
+					"note": "When it was submitted; null for the draft."
+				},
+				"submitted_by": {
+					"note": "Who submitted it."
+				},
+				"revision": {
+					"note": "Advances on each draft save."
+				}
+			},
+			"foreignKeys": {
+				"plant_id->launch(plant_id)": {
+					"deletion": {
+						"action": "cascade",
+						"policy": "Goes with the church's launch row in the church purge."
+					}
+				},
+				"saved_by->account(id)": {
+					"deletion": {
+						"action": "set_null",
+						"policy": "Deleting the account clears who saved the version; the fact, its time and its audit history stay."
+					}
+				},
+				"submitted_by->account(id)": {
+					"deletion": {
+						"action": "set_null",
+						"policy": "Deleting the account clears who submitted the version; the fact, its time and its audit history stay."
+					}
+				}
+			}
+		},
+		"launch_guest": {
+			"table": {
+				"name": "launch_guest",
+				"domain": "launch",
+				"purpose": "A real Person of the church named as a Launch Sunday guest (LCH-007). Aggregate attendance on launch can count more people than are named; no placeholder Person fills the difference.",
+				"library_owned": false,
+				"jsonb_keys": {},
+				"capabilities": ["CAP-B-025", "CAP-B-026"],
+				"replaces": [],
+				"producer_work_packages": ["WP-046"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-046"],
+					"rule": "WP-046 Launch outcomes, guests, debrief and history."
+				},
+				"feature_ids": ["LCH-006", "LCH-007", "LCH-008"],
+				"acceptance_ids": ["AC-LCH-006--LCH-006", "AC-LCH-007--LCH-007", "AC-LCH-008--LCH-008"],
+				"future_case_ids": [
+					"LAUNCH46-002",
+					"LAUNCH46-003",
+					"LAUNCH46-004",
+					"LAUNCH46-005",
+					"LAUNCH46-022",
+					"PERSONREF-LAUNCH-NAMED-GUEST-CONFLICT",
+					"PERSONREF-LAUNCH-NAMED-GUEST-MERGE",
+					"PERSONREF-LAUNCH-NAMED-GUEST-RETIRE",
+					"PERSONREF-LAUNCH-NAMED-GUEST-UNMERGE"
+				],
+				"scope": "launch",
+				"invariants": [
+					"The guest is a live Person of the same church when linked; typing a name creates a new Person, never links by name.",
+					"One link per church and Person.",
+					"A merge moves the link to the survivor unless the survivor is already a guest; Unmerge moves it back; a retired Person leaves the current roster and keeps the link as history."
+				],
+				"revision": "A merge or Unmerge that moves the link advances it.",
+				"idempotency": "Linking a Person who is already a guest changes nothing; a replayed request key returns its stored answer.",
+				"deletion": "Plant-owned facts and history survive personal account deletion with minimum necessary attribution. Plant deletion hides them immediately, holds eligible content only for 30-day cancellation, then purges live content; recovery copies expire within seven days of coherent live purge. No additional fixed history limit is specified. Plant-owned operational records follow the plant deletion policy. Account deletion preserves legitimate shared history with minimal scrubbed actor attribution. Soft deletion, retirement and correction preserve performed evidence; history is not a retention exemption. Tenant-owned content survives creator-account deletion with minimal attribution. Workspace deletion follows immediate access suspension, private 30-day cancellation hold, eligible live purge and seven-day recovery-copy horizon; restore reapplies current deletion/access witnesses.",
+				"physical_verified": false
+			},
+			"columns": {
+				"id": {
+					"note": "Guest link identity."
+				},
+				"plant_id": {
+					"note": "The church whose Launch Sunday the guest attended."
+				},
+				"person_id": {
+					"note": "The named guest; moves with merge and Unmerge."
+				},
+				"recorded_at": {
+					"note": "When the guest was named."
+				},
+				"recorded_by": {
+					"note": "The account that named the guest."
+				},
+				"revision": {
+					"note": "Advances when a merge or Unmerge moves the link."
+				}
+			},
+			"foreignKeys": {
+				"plant_id->launch(plant_id)": {
+					"deletion": {
+						"action": "cascade",
+						"policy": "Goes with the church's launch row in the church purge."
+					}
+				},
+				"person_id,plant_id->person(id,tenant_id)": {
+					"deletion": {
+						"action": "cascade",
+						"policy": "The link goes with its Person in the church purge."
+					}
+				},
+				"recorded_by->account(id)": {
+					"deletion": {
+						"action": "set_null",
+						"policy": "Deleting the account clears who named the guest; the fact, its time and its audit history stay."
+					}
+				}
+			}
+		},
+		"launch_summary": {
+			"table": {
+				"name": "launch_summary",
+				"domain": "launch",
+				"purpose": "One version of the short summary a planter writes and publishes for their sending church or network (LCH-010, REQ-KNOW-112). Organizations read only the latest published version, under shared_findings and every source category.",
+				"library_owned": false,
+				"jsonb_keys": {},
+				"capabilities": ["CAP-B-025", "CAP-B-026"],
+				"replaces": [],
+				"producer_work_packages": ["WP-046"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-046"],
+					"rule": "WP-046 Launch outcomes, guests, debrief and history."
+				},
+				"feature_ids": ["LCH-006", "LCH-007", "LCH-008"],
+				"acceptance_ids": ["AC-LCH-006--LCH-006", "AC-LCH-007--LCH-007", "AC-LCH-008--LCH-008"],
+				"future_case_ids": [
+					"B02-030",
+					"B02-031",
+					"LAUNCH46-015",
+					"LAUNCH46-016",
+					"LAUNCH46-017",
+					"LAUNCH46-018",
+					"LAUNCH46-019"
+				],
+				"scope": "launch",
+				"invariants": [
+					"At most one draft per church; a published version is never rewritten and a later edit publishes the next version.",
+					"Submitting the debrief publishes nothing and copies nothing into the summary.",
+					"Source categories are explicit; a Launch-only summary has Meetings, and an unknown category denies the read."
+				],
+				"revision": "The draft's revision fences concurrent saves.",
+				"idempotency": "Publishing the same text again changes nothing; a replayed request key returns its stored answer.",
+				"deletion": "Plant-owned facts and history survive personal account deletion with minimum necessary attribution. Plant deletion hides them immediately, holds eligible content only for 30-day cancellation, then purges live content; recovery copies expire within seven days of coherent live purge. No additional fixed history limit is specified. Plant-owned operational records follow the plant deletion policy. Account deletion preserves legitimate shared history with minimal scrubbed actor attribution. Soft deletion, retirement and correction preserve performed evidence; history is not a retention exemption. Tenant-owned content survives creator-account deletion with minimal attribution. Workspace deletion follows immediate access suspension, private 30-day cancellation hold, eligible live purge and seven-day recovery-copy horizon; restore reapplies current deletion/access witnesses.",
+				"physical_verified": false
+			},
+			"columns": {
+				"id": {
+					"note": "Summary version identity."
+				},
+				"plant_id": {
+					"note": "The church."
+				},
+				"version": {
+					"note": "1, 2, 3 in the order versions were started, unique per church."
+				},
+				"body": {
+					"note": "The planter's own text, exactly as previewed."
+				},
+				"source_categories": {
+					"note": "The sharing categories an organization must hold to read this version."
+				},
+				"saved_at": {
+					"note": "When the version was last saved."
+				},
+				"saved_by": {
+					"note": "Who last saved it."
+				},
+				"published_at": {
+					"note": "When it was published; null for the draft."
+				},
+				"published_by": {
+					"note": "Who published it."
+				},
+				"revision": {
+					"note": "Advances on each draft save."
+				}
+			},
+			"foreignKeys": {
+				"plant_id->launch(plant_id)": {
+					"deletion": {
+						"action": "cascade",
+						"policy": "Goes with the church's launch row in the church purge."
+					}
+				},
+				"saved_by->account(id)": {
+					"deletion": {
+						"action": "set_null",
+						"policy": "Deleting the account clears who saved the version; the fact, its time and its audit history stay."
+					}
+				},
+				"published_by->account(id)": {
+					"deletion": {
+						"action": "set_null",
+						"policy": "Deleting the account clears who published the version; the fact, its time and its audit history stay."
 					}
 				}
 			}
@@ -14282,7 +14597,7 @@
 			"table": {
 				"name": "enrollment_milestone",
 				"domain": "people",
-				"purpose": "A finished milestone of one enrollment (REQ-MUL-012): the day it was finished, who recorded and who confirmed it, when it was confirmed, and its source. Today only the program director records and confirms an unlinked enrollee's milestone in one step (source program_leader).",
+				"purpose": "A finished milestone of one enrollment (REQ-MUL-012): the day it was finished, who recorded and who confirmed it, when it was confirmed, and its source. The program director records and confirms an unlinked enrollee's milestone in one step (source program_leader); a linked resident marks their own milestone done (source resident) and it waits for the director's confirmation.",
 				"library_owned": false,
 				"jsonb_keys": {},
 				"capabilities": ["CAP-A-057"],
@@ -14302,7 +14617,7 @@
 					"At most one row per enrollment and milestone.",
 					"Never commissions anyone or creates a plant."
 				],
-				"revision": "Append-only; a row never changes.",
+				"revision": "A row never changes, except that the director confirms a resident's waiting row once.",
 				"idempotency": "A repeat for the same milestone writes nothing.",
 				"deletion": "Removed with the enrollment under REQ-MUL-005.",
 				"physical_verified": false

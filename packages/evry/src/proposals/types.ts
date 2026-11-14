@@ -2,6 +2,7 @@ import type { Database, Transaction } from "@everyfield/db/client";
 import type { SQL } from "@everyfield/db/query";
 import type { RequestActor } from "@everyfield/domain/access";
 import type { createInvitationService } from "@everyfield/domain/identity";
+import type { OnboardingProducer } from "@everyfield/contracts/onboarding/server";
 import type { OrganizationAdapter } from "@everyfield/contracts/organizations";
 import type { DeletionProducer, NativeAccountProducer, SettingsProducer } from "@everyfield/contracts/settings/server";
 import type { DeliveryKeys, DeliveryTransport } from "@everyfield/domain/communication";
@@ -27,9 +28,14 @@ export type NativePorts = {
 		db: Database | Transaction,
 	): Pick<ReturnType<typeof createInvitationService>, "invite" | "resend" | "revoke" | "list">;
 	organizations: OrganizationAdapter<Transaction>;
-	settings: Pick<SettingsProducer<Transaction>, "updatePlantProfile" | "previewPlantTimezone" | "setPlantTimezone">;
+	settings: Pick<
+		SettingsProducer<Transaction>,
+		"updatePlantProfile" | "setDigestSchedule" | "previewPlantTimezone" | "setPlantTimezone"
+	>;
 	account: Pick<NativeAccountProducer<Transaction>, "finalizeAvatar"> &
 		Pick<DeletionProducer<Transaction>, "requestAccountDeletion">;
+	/** The onboarding producer `/onboarding` calls, with the deployment's own receipt mail (T-345). */
+	onboarding: OnboardingProducer<Transaction>;
 };
 
 /** What a review may read besides the proposal statement itself. */

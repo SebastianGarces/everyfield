@@ -1,4 +1,4 @@
-// The native services Evry's seat, Settings, sharing, connection, account and organization tools call, built the way
+// The native services Evry's seat, Settings, sharing, connection, account, organization and setup tools call, built the way
 // the web app's mounts build them (apps/web/src/server/evry/native.ts), for tests: the email outbox is a list, and
 // replan, cleanup and purge jobs go to the real queue.
 import { randomUUID } from "node:crypto";
@@ -6,6 +6,7 @@ import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import type { Database } from "../../../packages/db/src/client.ts";
 import { createInvitationService } from "../../../packages/domain/src/identity/index.ts";
 import type { InvitationMail } from "../../../packages/domain/src/identity/invitations.ts";
+import { createOnboardingProducer } from "../../../packages/domain/src/onboarding/index.ts";
 import { createOrganizationAdapter } from "../../../packages/domain/src/organizations/index.ts";
 import { accountPersonProducer } from "../../../packages/domain/src/people/index.ts";
 import {
@@ -90,9 +91,22 @@ export function nativePorts(mail: { to: string; purpose: string }[] = []): Nativ
 		organizations,
 		settings: {
 			updatePlantProfile: sections.updatePlantProfile,
+			setDigestSchedule: sections.setDigestSchedule,
 			previewPlantTimezone: timezones.previewPlantTimezone,
 			setPlantTimezone: timezones.setPlantTimezone,
 		},
 		account: { finalizeAvatar: avatar.finalizeAvatar, requestAccountDeletion: deletion.requestAccountDeletion },
+		// As the web app's onboarding mount (T-345): the receipt goes to the outbox with the change.
+		onboarding: createOnboardingProducer({
+			relationships: async (_tx, inputs) => {
+				for (const i of inputs) mail.push({ to: i.relationshipId, purpose: i.kind });
+			},
+			async enqueue(_tx, input) {
+				mail.push({
+					to: input.address,
+					purpose: input.kind === "discovery_created" ? "discovery_receipt" : "notification",
+				});
+			},
+		}),
 	};
 }

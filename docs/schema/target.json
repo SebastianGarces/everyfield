@@ -70,9 +70,9 @@
   "contract_status": "Reviewed starting design; builders may change it through a reviewed migration.",
   "as_of": "2026-10-17",
   "implementation_authorized": false,
-  "table_count": 112,
-  "column_count": 1276,
-  "foreign_key_count": 376,
+  "table_count": 115,
+  "column_count": 1310,
+  "foreign_key_count": 386,
   "type_contracts": {
     "text": "UTF8; per-boundary bounded, sanitized only when rendered in rich context.",
     "date": "YYYY-MM-DD local calendar date, never UTC midnight instant.",
@@ -238,7 +238,8 @@
       "network"
     ],
     "enrollment_milestone.source": [
-      "program_leader"
+      "program_leader",
+      "resident"
     ],
     "feedback.category": [
       "bug",
@@ -377,6 +378,10 @@
       "scheduled",
       "postponed",
       "completed"
+    ],
+    "launch_debrief.missing_names": [
+      "yes",
+      "no"
     ],
     "launch_milestone.area": [
       "operations",
@@ -783,6 +788,7 @@
       "launch_debrief",
       "launch_guest",
       "launch_milestone",
+      "launch_summary",
       "leadership_conversation",
       "lifecycle_witness",
       "mail",
@@ -1414,6 +1420,8 @@
       "deletion.live_purge_completed",
       "development.enrolled",
       "development.feedback_recorded",
+      "development.milestone_confirmed",
+      "development.milestone_marked",
       "development.milestone_recorded",
       "development.plan_saved",
       "development.program_created",
@@ -1463,6 +1471,10 @@
       "invitation.claimed",
       "invitation.revoked",
       "launch.changed",
+      "launch.corrected",
+      "launch.debrief_submitted",
+      "launch.outcome_recorded",
+      "launch.summary_published",
       "mail.accepted",
       "mail.cancelled",
       "mail.delivered",
@@ -6388,6 +6400,34 @@
         "ADR1-001",
         "ADR1-005",
         "ADR1-017"
+      ]
+    },
+    {
+      "table": "launch_guest",
+      "columns": [
+        "person_id",
+        "plant_id"
+      ],
+      "target_columns": [
+        "id",
+        "tenant_id"
+      ],
+      "consumer_work_packages": [
+        "WP-046"
+      ],
+      "meaning": "A Person of the church named as a Launch Sunday guest (LCH-007).",
+      "lock_order": "Lock the church's launch row first; the link reads the Person as live in the same statement. Merge and Unmerge lock both Persons in UUID order.",
+      "merge_policy": "Move the link to the survivor. When the survivor is already a guest, the source's link stays on the source as history, so the roster names the survivor once.",
+      "inverse_policy": "Unmerge moves back exactly the links the merge moved.",
+      "retirement_policy": "A retired Person leaves the current roster and cannot be named again; the link stays as history.",
+      "privacy_policy": "Names only the Person. Guest names show to the church's Owners and Admins and never reach an organization or the published summary.",
+      "immutable_evidence_policy": "The link keeps when and by whom it was named; the reported aggregate attendance and missing-guest count never change with it.",
+      "future_case_ids": [
+        "LAUNCH46-022",
+        "PERSONREF-LAUNCH-NAMED-GUEST-CONFLICT",
+        "PERSONREF-LAUNCH-NAMED-GUEST-MERGE",
+        "PERSONREF-LAUNCH-NAMED-GUEST-RETIRE",
+        "PERSONREF-LAUNCH-NAMED-GUEST-UNMERGE"
       ]
     },
     {
@@ -12044,7 +12084,7 @@
         }
       ],
       "checks": [
-        "action in ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','branding.changed','communication.draft_deleted','communication.draft_saved','communication.rescheduled','communication.scheduled','communication.send_intended','communication.template_archived','communication.template_created','communication.template_deleted','communication.template_forked','communication.template_updated','deletion.cancelled','deletion.live_purge_completed','development.enrolled','development.feedback_recorded','development.milestone_recorded','development.plan_saved','development.program_created','development.version_applied','development.version_published','documents.archived','documents.church_archived','documents.church_restored','documents.branding_changed','documents.copied','documents.created_from_template','documents.designated','documents.export_deleted','documents.exported','documents.generated','documents.imported','documents.purged','documents.saved','documents.template_deleted','documents.template_details_changed','documents.template_saved','documents.template_updated','evry.conversation_created','evry.proposal_approved','evry.proposal_cancelled','evry.proposal_prepared','evry.proposal_retried','evry.proposal_revised','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','feedback.publication_held','feedback.publication_intended','feedback.publication_unknown','feedback.published','feedback.received','feedback.status_changed','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','organization.profile_changed','people.corrected','people.created','people.duplicate_dismissed','people.duplicate_restored','people.merged','people.recorded','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.bookmark_changed','wiki.hidden','wiki.published','wiki.reading_recorded','wiki.source_order_changed')",
+        "action in ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','branding.changed','communication.draft_deleted','communication.draft_saved','communication.rescheduled','communication.scheduled','communication.send_intended','communication.template_archived','communication.template_created','communication.template_deleted','communication.template_forked','communication.template_updated','deletion.cancelled','deletion.live_purge_completed','development.enrolled','development.feedback_recorded','development.milestone_confirmed','development.milestone_marked','development.milestone_recorded','development.plan_saved','development.program_created','development.version_applied','development.version_published','documents.archived','documents.church_archived','documents.church_restored','documents.branding_changed','documents.copied','documents.created_from_template','documents.designated','documents.export_deleted','documents.exported','documents.generated','documents.imported','documents.purged','documents.saved','documents.template_deleted','documents.template_details_changed','documents.template_saved','documents.template_updated','evry.conversation_created','evry.proposal_approved','evry.proposal_cancelled','evry.proposal_prepared','evry.proposal_retried','evry.proposal_revised','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','feedback.publication_held','feedback.publication_intended','feedback.publication_unknown','feedback.published','feedback.received','feedback.status_changed','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','launch.corrected','launch.debrief_submitted','launch.outcome_recorded','launch.summary_published','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','organization.profile_changed','people.corrected','people.created','people.duplicate_dismissed','people.duplicate_restored','people.merged','people.recorded','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.bookmark_changed','wiki.hidden','wiki.published','wiki.reading_recorded','wiki.source_order_changed')",
         "num_nonnulls(actor_id,actor_token,system_cause)>=1",
         "kind in ('create','edit','correct','retire','restore','merge','unmerge','stage_change','classification_change','commitment_change','assign','remove','accept','revoke','resend','role_change','leader_change','tick','untick','archive','earn','revoke_credit','offer_answer','publish','hide','read','progress','complete','reopen','waive','supersede','finalize','reconcile','noop','triage','suppress','suppression_clear','preference','model_attempt','tool_attempt','effect_result','mail_member','outcome','declaration','movement')",
         "jsonb_typeof(metadata)='object' AND (metadata->'diff' IS NULL OR (jsonb_typeof(metadata->'diff')='object' AND octet_length(convert_to((metadata->'diff')::text,'UTF8'))<=2048))"
@@ -18461,7 +18501,7 @@
     {
       "name": "enrollment_milestone",
       "domain": "people",
-      "purpose": "A finished milestone of one enrollment (REQ-MUL-012): the day it was finished, who recorded and who confirmed it, when it was confirmed, and its source. Today only the program director records and confirms an unlinked enrollee's milestone in one step (source program_leader).",
+      "purpose": "A finished milestone of one enrollment (REQ-MUL-012): the day it was finished, who recorded and who confirmed it, when it was confirmed, and its source. The program director records and confirms an unlinked enrollee's milestone in one step (source program_leader); a linked resident marks their own milestone done (source resident) and it waits for the director's confirmation.",
       "library_owned": false,
       "jsonb_keys": {},
       "capabilities": [
@@ -18502,7 +18542,7 @@
         "At most one row per enrollment and milestone.",
         "Never commissions anyone or creates a plant."
       ],
-      "revision": "Append-only; a row never changes.",
+      "revision": "A row never changes, except that the director confirms a resident's waiting row once.",
       "idempotency": "A repeat for the same milestone writes nothing.",
       "deletion": "Removed with the enrollment under REQ-MUL-005.",
       "physical_verified": false,
@@ -18559,13 +18599,13 @@
           "note": "",
           "name": "confirmer_id",
           "type": "uuid",
-          "nullable": false
+          "nullable": true
         },
         {
           "note": "",
           "name": "confirmed_at",
           "type": "timestamptz",
-          "nullable": false
+          "nullable": true
         }
       ],
       "primary_key": [
@@ -18652,7 +18692,8 @@
         }
       ],
       "checks": [
-        "(source = 'program_leader'::text)"
+        "(((confirmer_id IS NULL) = (confirmed_at IS NULL)) AND ((source = 'resident'::text) OR (confirmed_at IS NOT NULL)))",
+        "source in ('program_leader', 'resident')"
       ],
       "indexes": {
         "enrollment_milestone_milestone_idx": {
@@ -18697,7 +18738,8 @@
           "enrollment_milestone_confirmer"
         ],
         "checks": [
-          "enrollment_milestone_source"
+          "enrollment_milestone_source",
+          "enrollment_milestone_confirmed"
         ]
       },
       "policies": {},
@@ -22064,6 +22106,24 @@
           "type": "bigint",
           "nullable": false,
           "default": "1"
+        },
+        {
+          "note": "The planter's note on what happened on Launch Sunday, at most 10,000 characters.",
+          "name": "outcome_note",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "When the actual Launch Sunday was first recorded; a correction keeps it.",
+          "name": "outcome_recorded_at",
+          "type": "timestamptz",
+          "nullable": true
+        },
+        {
+          "note": "The account that first recorded the actual Launch Sunday.",
+          "name": "outcome_recorded_by",
+          "type": "uuid",
+          "nullable": true
         }
       ],
       "primary_key": [
@@ -22102,6 +22162,22 @@
             ]
           },
           "on_delete": "restrict"
+        },
+        {
+          "deletion": {
+            "action": "set_null",
+            "policy": "Deleting the account clears who recorded the outcome; the fact, its time and its audit history stay."
+          },
+          "columns": [
+            "outcome_recorded_by"
+          ],
+          "references": {
+            "table": "account",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "set_null"
         }
       ],
       "checks": [
@@ -22109,7 +22185,9 @@
         "status in ('planning', 'scheduled', 'postponed', 'completed')",
         "((attendance IS NULL) OR ((attendance >= 0) AND (attendance <= 1000000)))",
         "((decisions IS NULL) OR ((decisions >= 0) AND (decisions <= 1000000)))",
-        "((status <> 'postponed'::text) OR (target_date IS NULL))"
+        "((status <> 'postponed'::text) OR (target_date IS NULL))",
+        "((outcome_note IS NULL) OR (length(outcome_note) <= 10000))",
+        "((actual_date IS NULL) = (outcome_recorded_at IS NULL))"
       ],
       "indexes": {
         "launch_ref_1": {
@@ -22118,6 +22196,21 @@
           "columns": [
             {
               "expression": "reference_version_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "launch_outcome_recorded_by_idx": {
+          "name": "launch_outcome_recorded_by_idx",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "outcome_recorded_by",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -22135,14 +22228,569 @@
         "unique": [],
         "foreign": [
           "launch_fk_0",
-          "launch_fk_1"
+          "launch_fk_1",
+          "launch_outcome_recorded_by"
         ],
         "checks": [
           "launch_ck_0",
           "launch_ck_1",
           "launch_ck_2",
           "launch_ck_3",
-          "launch_ck_4"
+          "launch_ck_4",
+          "launch_outcome_note",
+          "launch_outcome_recorded"
+        ]
+      },
+      "policies": {},
+      "rls": false
+    },
+    {
+      "name": "launch_debrief",
+      "domain": "launch",
+      "purpose": "One version of the six-area Launch debrief (LCH-010): five written areas and the single missing-guest answer. The first area is the recorded Launch Sunday on launch, never a copy.",
+      "library_owned": false,
+      "jsonb_keys": {},
+      "capabilities": [
+        "CAP-B-025",
+        "CAP-B-026"
+      ],
+      "replaces": [],
+      "producer_work_packages": [
+        "WP-046"
+      ],
+      "producer_derivation": {
+        "old_target_tables": [],
+        "additional_producers": [
+          "WP-046"
+        ],
+        "rule": "WP-046 Launch outcomes, guests, debrief and history."
+      },
+      "feature_ids": [
+        "LCH-006",
+        "LCH-007",
+        "LCH-008"
+      ],
+      "acceptance_ids": [
+        "AC-LCH-006--LCH-006",
+        "AC-LCH-007--LCH-007",
+        "AC-LCH-008--LCH-008"
+      ],
+      "future_case_ids": [
+        "B02-019",
+        "B02-020",
+        "B02-021",
+        "B02-025",
+        "LAUNCH46-006",
+        "LAUNCH46-007",
+        "LAUNCH46-008",
+        "LAUNCH46-009",
+        "LAUNCH46-010",
+        "LAUNCH46-011",
+        "LAUNCH46-013",
+        "LAUNCH46-014",
+        "LAUNCH46-021"
+      ],
+      "scope": "launch",
+      "invariants": [
+        "At most one draft per church.",
+        "A submitted version is never rewritten; a correction is the next submitted version.",
+        "The latest submitted version alone decides guest_data_entered and debrief_done; a later draft never replaces it.",
+        "No answer has a minimum length; Yes carries a positive count and No carries none."
+      ],
+      "revision": "The draft's revision fences concurrent saves.",
+      "idempotency": "Saving or submitting the same answers again changes nothing; a replayed request key returns its stored answer.",
+      "deletion": "Plant-owned facts and history survive personal account deletion with minimum necessary attribution. Plant deletion hides them immediately, holds eligible content only for 30-day cancellation, then purges live content; recovery copies expire within seven days of coherent live purge. No additional fixed history limit is specified. Plant-owned operational records follow the plant deletion policy. Account deletion preserves legitimate shared history with minimal scrubbed actor attribution. Soft deletion, retirement and correction preserve performed evidence; history is not a retention exemption. Tenant-owned content survives creator-account deletion with minimal attribution. Workspace deletion follows immediate access suspension, private 30-day cancellation hold, eligible live purge and seven-day recovery-copy horizon; restore reapplies current deletion/access witnesses.",
+      "physical_verified": false,
+      "columns": [
+        {
+          "note": "Debrief version identity.",
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "note": "The church.",
+          "name": "plant_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "1, 2, 3 in the order versions were started, unique per church.",
+          "name": "version",
+          "type": "integer",
+          "nullable": false
+        },
+        {
+          "note": "What went well.",
+          "name": "went_well",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "What to change.",
+          "name": "to_change",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "Welcoming, children, worship and logistics.",
+          "name": "operations",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "The guest follow-up plan; a plan, not contact.",
+          "name": "follow_up_plan",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "Support needed from sending churches and networks.",
+          "name": "support_needed",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "Was there a guest not yet entered by name: yes or no; null while a draft leaves it unanswered.",
+          "name": "missing_names",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "How many guests are not entered by name, when the answer is yes.",
+          "name": "missing_count",
+          "type": "integer",
+          "nullable": true
+        },
+        {
+          "note": "When the version was last saved.",
+          "name": "saved_at",
+          "type": "timestamptz",
+          "nullable": false
+        },
+        {
+          "note": "Who last saved it.",
+          "name": "saved_by",
+          "type": "uuid",
+          "nullable": true
+        },
+        {
+          "note": "When it was submitted; null for the draft.",
+          "name": "submitted_at",
+          "type": "timestamptz",
+          "nullable": true
+        },
+        {
+          "note": "Who submitted it.",
+          "name": "submitted_by",
+          "type": "uuid",
+          "nullable": true
+        },
+        {
+          "note": "Advances on each draft save.",
+          "name": "revision",
+          "type": "bigint",
+          "nullable": false,
+          "default": "1"
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "unique_keys": [
+        {
+          "columns": [
+            "plant_id",
+            "version"
+          ]
+        },
+        {
+          "columns": [
+            "plant_id"
+          ],
+          "where": "(submitted_at IS NULL)"
+        }
+      ],
+      "foreign_keys": [
+        {
+          "deletion": {
+            "action": "cascade",
+            "policy": "Goes with the church's launch row in the church purge."
+          },
+          "columns": [
+            "plant_id"
+          ],
+          "references": {
+            "table": "launch",
+            "columns": [
+              "plant_id"
+            ]
+          },
+          "on_delete": "cascade"
+        },
+        {
+          "deletion": {
+            "action": "set_null",
+            "policy": "Deleting the account clears who saved the version; the fact, its time and its audit history stay."
+          },
+          "columns": [
+            "saved_by"
+          ],
+          "references": {
+            "table": "account",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "set_null"
+        },
+        {
+          "deletion": {
+            "action": "set_null",
+            "policy": "Deleting the account clears who submitted the version; the fact, its time and its audit history stay."
+          },
+          "columns": [
+            "submitted_by"
+          ],
+          "references": {
+            "table": "account",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "set_null"
+        }
+      ],
+      "checks": [
+        "((length(coalesce(went_well, ''::text)) <= 10000) AND (length(coalesce(to_change, ''::text)) <= 10000) AND (length(coalesce(operations, ''::text)) <= 10000) AND (length(coalesce(follow_up_plan, ''::text)) <= 10000) AND (length(coalesce(support_needed, ''::text)) <= 10000))",
+        "(((missing_names = 'yes'::text) AND ((missing_count IS NULL) OR ((missing_count >= 1) AND (missing_count <= 1000000)))) OR ((missing_names IS DISTINCT FROM 'yes'::text) AND (missing_count IS NULL)))",
+        "missing_names in ('yes', 'no')",
+        "(revision >= 1)",
+        "((submitted_at IS NULL) OR (missing_names = 'no'::text) OR (missing_count IS NOT NULL))",
+        "(version >= 1)"
+      ],
+      "indexes": {
+        "launch_debrief_version_once": {
+          "name": "launch_debrief_version_once",
+          "isUnique": true,
+          "columns": [
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "version",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "launch_debrief_one_draft": {
+          "name": "launch_debrief_one_draft",
+          "isUnique": true,
+          "where": "(submitted_at IS NULL)",
+          "columns": [
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "launch_debrief_saver_idx": {
+          "name": "launch_debrief_saver_idx",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "saved_by",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "launch_debrief_submitter_idx": {
+          "name": "launch_debrief_submitter_idx",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "submitted_by",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "constraint_names": {
+        "primary": [
+          "launch_debrief_pkey"
+        ],
+        "unique": [],
+        "foreign": [
+          "launch_debrief_launch",
+          "launch_debrief_saver",
+          "launch_debrief_submitter"
+        ],
+        "checks": [
+          "launch_debrief_revision",
+          "launch_debrief_version",
+          "launch_debrief_missing_names",
+          "launch_debrief_missing_count",
+          "launch_debrief_submitted",
+          "launch_debrief_lengths"
+        ]
+      },
+      "policies": {},
+      "rls": false
+    },
+    {
+      "name": "launch_guest",
+      "domain": "launch",
+      "purpose": "A real Person of the church named as a Launch Sunday guest (LCH-007). Aggregate attendance on launch can count more people than are named; no placeholder Person fills the difference.",
+      "library_owned": false,
+      "jsonb_keys": {},
+      "capabilities": [
+        "CAP-B-025",
+        "CAP-B-026"
+      ],
+      "replaces": [],
+      "producer_work_packages": [
+        "WP-046"
+      ],
+      "producer_derivation": {
+        "old_target_tables": [],
+        "additional_producers": [
+          "WP-046"
+        ],
+        "rule": "WP-046 Launch outcomes, guests, debrief and history."
+      },
+      "feature_ids": [
+        "LCH-006",
+        "LCH-007",
+        "LCH-008"
+      ],
+      "acceptance_ids": [
+        "AC-LCH-006--LCH-006",
+        "AC-LCH-007--LCH-007",
+        "AC-LCH-008--LCH-008"
+      ],
+      "future_case_ids": [
+        "LAUNCH46-002",
+        "LAUNCH46-003",
+        "LAUNCH46-004",
+        "LAUNCH46-005",
+        "LAUNCH46-022",
+        "PERSONREF-LAUNCH-NAMED-GUEST-CONFLICT",
+        "PERSONREF-LAUNCH-NAMED-GUEST-MERGE",
+        "PERSONREF-LAUNCH-NAMED-GUEST-RETIRE",
+        "PERSONREF-LAUNCH-NAMED-GUEST-UNMERGE"
+      ],
+      "scope": "launch",
+      "invariants": [
+        "The guest is a live Person of the same church when linked; typing a name creates a new Person, never links by name.",
+        "One link per church and Person.",
+        "A merge moves the link to the survivor unless the survivor is already a guest; Unmerge moves it back; a retired Person leaves the current roster and keeps the link as history."
+      ],
+      "revision": "A merge or Unmerge that moves the link advances it.",
+      "idempotency": "Linking a Person who is already a guest changes nothing; a replayed request key returns its stored answer.",
+      "deletion": "Plant-owned facts and history survive personal account deletion with minimum necessary attribution. Plant deletion hides them immediately, holds eligible content only for 30-day cancellation, then purges live content; recovery copies expire within seven days of coherent live purge. No additional fixed history limit is specified. Plant-owned operational records follow the plant deletion policy. Account deletion preserves legitimate shared history with minimal scrubbed actor attribution. Soft deletion, retirement and correction preserve performed evidence; history is not a retention exemption. Tenant-owned content survives creator-account deletion with minimal attribution. Workspace deletion follows immediate access suspension, private 30-day cancellation hold, eligible live purge and seven-day recovery-copy horizon; restore reapplies current deletion/access witnesses.",
+      "physical_verified": false,
+      "columns": [
+        {
+          "note": "Guest link identity.",
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "note": "The church whose Launch Sunday the guest attended.",
+          "name": "plant_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "The named guest; moves with merge and Unmerge.",
+          "name": "person_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "When the guest was named.",
+          "name": "recorded_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "clock_timestamp()"
+        },
+        {
+          "note": "The account that named the guest.",
+          "name": "recorded_by",
+          "type": "uuid",
+          "nullable": true
+        },
+        {
+          "note": "Advances when a merge or Unmerge moves the link.",
+          "name": "revision",
+          "type": "bigint",
+          "nullable": false,
+          "default": "1"
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "unique_keys": [
+        {
+          "columns": [
+            "plant_id",
+            "person_id"
+          ]
+        }
+      ],
+      "foreign_keys": [
+        {
+          "deletion": {
+            "action": "cascade",
+            "policy": "Goes with the church's launch row in the church purge."
+          },
+          "columns": [
+            "plant_id"
+          ],
+          "references": {
+            "table": "launch",
+            "columns": [
+              "plant_id"
+            ]
+          },
+          "on_delete": "cascade"
+        },
+        {
+          "deletion": {
+            "action": "cascade",
+            "policy": "The link goes with its Person in the church purge."
+          },
+          "columns": [
+            "person_id",
+            "plant_id"
+          ],
+          "references": {
+            "table": "person",
+            "columns": [
+              "id",
+              "tenant_id"
+            ]
+          },
+          "on_delete": "cascade"
+        },
+        {
+          "deletion": {
+            "action": "set_null",
+            "policy": "Deleting the account clears who named the guest; the fact, its time and its audit history stay."
+          },
+          "columns": [
+            "recorded_by"
+          ],
+          "references": {
+            "table": "account",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "set_null"
+        }
+      ],
+      "checks": [
+        "(revision >= 1)"
+      ],
+      "indexes": {
+        "launch_guest_once": {
+          "name": "launch_guest_once",
+          "isUnique": true,
+          "columns": [
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "person_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "launch_guest_person_idx": {
+          "name": "launch_guest_person_idx",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "person_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "launch_guest_recorder_idx": {
+          "name": "launch_guest_recorder_idx",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "recorded_by",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "constraint_names": {
+        "primary": [
+          "launch_guest_pkey"
+        ],
+        "unique": [],
+        "foreign": [
+          "launch_guest_launch",
+          "launch_guest_person",
+          "launch_guest_recorder"
+        ],
+        "checks": [
+          "launch_guest_revision"
         ]
       },
       "policies": {},
@@ -22441,6 +23089,283 @@
           "launch_milestone_ck_0",
           "launch_milestone_ck_1",
           "launch_milestone_ck_2"
+        ]
+      },
+      "policies": {},
+      "rls": false
+    },
+    {
+      "name": "launch_summary",
+      "domain": "launch",
+      "purpose": "One version of the short summary a planter writes and publishes for their sending church or network (LCH-010, REQ-KNOW-112). Organizations read only the latest published version, under shared_findings and every source category.",
+      "library_owned": false,
+      "jsonb_keys": {},
+      "capabilities": [
+        "CAP-B-025",
+        "CAP-B-026"
+      ],
+      "replaces": [],
+      "producer_work_packages": [
+        "WP-046"
+      ],
+      "producer_derivation": {
+        "old_target_tables": [],
+        "additional_producers": [
+          "WP-046"
+        ],
+        "rule": "WP-046 Launch outcomes, guests, debrief and history."
+      },
+      "feature_ids": [
+        "LCH-006",
+        "LCH-007",
+        "LCH-008"
+      ],
+      "acceptance_ids": [
+        "AC-LCH-006--LCH-006",
+        "AC-LCH-007--LCH-007",
+        "AC-LCH-008--LCH-008"
+      ],
+      "future_case_ids": [
+        "B02-030",
+        "B02-031",
+        "LAUNCH46-015",
+        "LAUNCH46-016",
+        "LAUNCH46-017",
+        "LAUNCH46-018",
+        "LAUNCH46-019"
+      ],
+      "scope": "launch",
+      "invariants": [
+        "At most one draft per church; a published version is never rewritten and a later edit publishes the next version.",
+        "Submitting the debrief publishes nothing and copies nothing into the summary.",
+        "Source categories are explicit; a Launch-only summary has Meetings, and an unknown category denies the read."
+      ],
+      "revision": "The draft's revision fences concurrent saves.",
+      "idempotency": "Publishing the same text again changes nothing; a replayed request key returns its stored answer.",
+      "deletion": "Plant-owned facts and history survive personal account deletion with minimum necessary attribution. Plant deletion hides them immediately, holds eligible content only for 30-day cancellation, then purges live content; recovery copies expire within seven days of coherent live purge. No additional fixed history limit is specified. Plant-owned operational records follow the plant deletion policy. Account deletion preserves legitimate shared history with minimal scrubbed actor attribution. Soft deletion, retirement and correction preserve performed evidence; history is not a retention exemption. Tenant-owned content survives creator-account deletion with minimal attribution. Workspace deletion follows immediate access suspension, private 30-day cancellation hold, eligible live purge and seven-day recovery-copy horizon; restore reapplies current deletion/access witnesses.",
+      "physical_verified": false,
+      "columns": [
+        {
+          "note": "Summary version identity.",
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "note": "The church.",
+          "name": "plant_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "1, 2, 3 in the order versions were started, unique per church.",
+          "name": "version",
+          "type": "integer",
+          "nullable": false
+        },
+        {
+          "note": "The planter's own text, exactly as previewed.",
+          "name": "body",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "The sharing categories an organization must hold to read this version.",
+          "name": "source_categories",
+          "type": "text[]",
+          "nullable": false,
+          "default": "'{meetings}'::text[]"
+        },
+        {
+          "note": "When the version was last saved.",
+          "name": "saved_at",
+          "type": "timestamptz",
+          "nullable": false
+        },
+        {
+          "note": "Who last saved it.",
+          "name": "saved_by",
+          "type": "uuid",
+          "nullable": true
+        },
+        {
+          "note": "When it was published; null for the draft.",
+          "name": "published_at",
+          "type": "timestamptz",
+          "nullable": true
+        },
+        {
+          "note": "Who published it.",
+          "name": "published_by",
+          "type": "uuid",
+          "nullable": true
+        },
+        {
+          "note": "Advances on each draft save.",
+          "name": "revision",
+          "type": "bigint",
+          "nullable": false,
+          "default": "1"
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "unique_keys": [
+        {
+          "columns": [
+            "plant_id",
+            "version"
+          ]
+        },
+        {
+          "columns": [
+            "plant_id"
+          ],
+          "where": "(published_at IS NULL)"
+        }
+      ],
+      "foreign_keys": [
+        {
+          "deletion": {
+            "action": "cascade",
+            "policy": "Goes with the church's launch row in the church purge."
+          },
+          "columns": [
+            "plant_id"
+          ],
+          "references": {
+            "table": "launch",
+            "columns": [
+              "plant_id"
+            ]
+          },
+          "on_delete": "cascade"
+        },
+        {
+          "deletion": {
+            "action": "set_null",
+            "policy": "Deleting the account clears who published the version; the fact, its time and its audit history stay."
+          },
+          "columns": [
+            "published_by"
+          ],
+          "references": {
+            "table": "account",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "set_null"
+        },
+        {
+          "deletion": {
+            "action": "set_null",
+            "policy": "Deleting the account clears who saved the version; the fact, its time and its audit history stay."
+          },
+          "columns": [
+            "saved_by"
+          ],
+          "references": {
+            "table": "account",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "set_null"
+        }
+      ],
+      "checks": [
+        "((length(btrim(body)) >= 1) AND (length(body) <= 4000))",
+        "(revision >= 1)",
+        "((cardinality(source_categories) >= 1) AND (source_categories <@ ARRAY['meetings'::text, 'people'::text, 'tasks'::text, 'ministry'::text]))",
+        "(version >= 1)"
+      ],
+      "indexes": {
+        "launch_summary_version_once": {
+          "name": "launch_summary_version_once",
+          "isUnique": true,
+          "columns": [
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "version",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "launch_summary_one_draft": {
+          "name": "launch_summary_one_draft",
+          "isUnique": true,
+          "where": "(published_at IS NULL)",
+          "columns": [
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "launch_summary_saver_idx": {
+          "name": "launch_summary_saver_idx",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "saved_by",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "launch_summary_publisher_idx": {
+          "name": "launch_summary_publisher_idx",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "published_by",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "constraint_names": {
+        "primary": [
+          "launch_summary_pkey"
+        ],
+        "unique": [],
+        "foreign": [
+          "launch_summary_launch",
+          "launch_summary_saver",
+          "launch_summary_publisher"
+        ],
+        "checks": [
+          "launch_summary_revision",
+          "launch_summary_version",
+          "launch_summary_body",
+          "launch_summary_sources"
         ]
       },
       "policies": {},
@@ -35513,7 +36438,7 @@
         }
       ],
       "checks": [
-        "kind in ('account', 'affiliation', 'article_editor_state', 'article_revision', 'assessment', 'assessment_contributor', 'assessment_fact', 'assignment_feedback', 'attestation', 'commitment', 'communication', 'communication_recipient', 'contact_outcome', 'conversation', 'conversation_entry', 'development_enrollment', 'development_milestone', 'development_program', 'development_program_version', 'development_reading', 'development_stage', 'digest_coverage', 'discovery', 'document', 'document_revision', 'effect', 'enrollment_milestone', 'enrollment_plan', 'feedback', 'feedback_publication', 'file_object', 'finding', 'four_cs', 'generated_document', 'household', 'interview', 'invitation', 'job', 'launch_debrief', 'launch_guest', 'launch_milestone', 'leadership_conversation', 'lifecycle_witness', 'mail', 'mail_attempt', 'mail_request', 'meeting', 'meeting_evaluation', 'meeting_item', 'message_template', 'notice', 'notification_preference', 'obligation', 'audit_event', 'organization', 'organization_person_removal', 'participation', 'passage', 'person', 'person_merge', 'person_note', 'person_skill', 'phase_transition', 'pipeline_person', 'pipeline_sharing', 'pipeline_stage', 'pipeline_stage_move', 'plant', 'plant_geography', 'platform_grant', 'prompt_dismissal', 'provider_event', 'reader_feedback', 'reading', 'recurrence', 'reference_activation', 'reference_item', 'reference_release', 'reference_version', 'residency_link', 'responsibility', 'review', 'seat', 'sending_goal', 'suppression', 'tag', 'task', 'team', 'team_role', 'team_tenure', 'training_assignment', 'training_credit', 'training_program', 'training_requirement', 'training_version', 'venue', 'wiki_preference')",
+        "kind in ('account', 'affiliation', 'article_editor_state', 'article_revision', 'assessment', 'assessment_contributor', 'assessment_fact', 'assignment_feedback', 'attestation', 'commitment', 'communication', 'communication_recipient', 'contact_outcome', 'conversation', 'conversation_entry', 'development_enrollment', 'development_milestone', 'development_program', 'development_program_version', 'development_reading', 'development_stage', 'digest_coverage', 'discovery', 'document', 'document_revision', 'effect', 'enrollment_milestone', 'enrollment_plan', 'feedback', 'feedback_publication', 'file_object', 'finding', 'four_cs', 'generated_document', 'household', 'interview', 'invitation', 'job', 'launch_debrief', 'launch_guest', 'launch_milestone', 'launch_summary', 'leadership_conversation', 'lifecycle_witness', 'mail', 'mail_attempt', 'mail_request', 'meeting', 'meeting_evaluation', 'meeting_item', 'message_template', 'notice', 'notification_preference', 'obligation', 'audit_event', 'organization', 'organization_person_removal', 'participation', 'passage', 'person', 'person_merge', 'person_note', 'person_skill', 'phase_transition', 'pipeline_person', 'pipeline_sharing', 'pipeline_stage', 'pipeline_stage_move', 'plant', 'plant_geography', 'platform_grant', 'prompt_dismissal', 'provider_event', 'reader_feedback', 'reading', 'recurrence', 'reference_activation', 'reference_item', 'reference_release', 'reference_version', 'residency_link', 'responsibility', 'review', 'seat', 'sending_goal', 'suppression', 'tag', 'task', 'team', 'team_role', 'team_tenure', 'training_assignment', 'training_credit', 'training_program', 'training_requirement', 'training_version', 'venue', 'wiki_preference')",
         "((kind <> ALL (ARRAY['account'::text, 'plant'::text, 'organization'::text])) OR (tenant_id = id))"
       ],
       "indexes": {

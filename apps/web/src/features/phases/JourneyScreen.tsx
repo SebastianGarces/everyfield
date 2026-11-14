@@ -9,7 +9,7 @@ import {
 	type PhaseNumber,
 	type Readiness,
 } from "@everyfield/contracts/phases";
-import { Alert02Icon, ArrowRight01Icon, Flag02Icon, Route02Icon } from "@hugeicons/core-free-icons";
+import { Alert02Icon, ArrowRight01Icon, Flag02Icon, Route02Icon, StartUp02Icon } from "@hugeicons/core-free-icons";
 import {
 	Button,
 	Card,
@@ -38,10 +38,12 @@ import { IntelligenceTabs } from "../intelligence/IntelligenceTabs.tsx";
 import { declarePhase, movePhase } from "./actions.ts";
 import {
 	entryDate,
+	entryDetail,
 	entryTitle,
 	isPending,
 	pendingDeclaration,
 	pendingMove,
+	POST_LAUNCH_MEASURES,
 	REASON_MESSAGE,
 	refusalMessage,
 	requestKeys,
@@ -227,7 +229,14 @@ function Track({ current }: { current: PhaseNumber }) {
 /** The current phase's exit criteria with their advisory status. */
 function Signs({ readiness }: { readiness: Readiness }) {
 	if (readiness.verdict === "terminal")
-		return <p className="mt-7 text-sm text-text-3">Phase 6 is the last phase. It has no exit criteria.</p>;
+		return (
+			<section className="mt-7" aria-labelledby="signs-heading">
+				<h3 id="signs-heading" className="mb-3 text-sm text-text-3">
+					Phase 6 is the last phase. It has no exit criteria.
+				</h3>
+				<PostLaunchMeasures />
+			</section>
+		);
 	return (
 		<section className="mt-7" aria-labelledby="signs-heading">
 			<h3 id="signs-heading" className="mb-3 text-sm text-text-3">
@@ -255,6 +264,28 @@ function Signs({ readiness }: { readiness: Readiness }) {
 	);
 }
 
+/** Post-launch measures with no approved source yet: each reads Not measured, never met. */
+function PostLaunchMeasures() {
+	return (
+		<ul className="flex flex-col gap-2.5">
+			{POST_LAUNCH_MEASURES.map((m) => (
+				<li
+					key={m.key}
+					className="flex items-center justify-between gap-3 rounded-md bg-surface-2 px-3.5 py-3 max-app-sm:flex-col max-app-sm:items-start"
+				>
+					<span className="min-w-0">
+						<span className="block text-sm text-ink-2">{m.label}</span>
+						<span className="mt-0.5 block text-xs text-text-3">{m.note}</span>
+					</span>
+					<StatusBadge size="sm" status="unknown" className="shrink-0">
+						Not measured
+					</StatusBadge>
+				</li>
+			))}
+		</ul>
+	);
+}
+
 /** Every recorded step, newest first. Entries are never edited; a correction is a new entry. */
 function Timeline({ entries, timeZone }: { entries: JourneyEntry[]; timeZone: string }) {
 	return (
@@ -277,15 +308,21 @@ function Timeline({ entries, timeZone }: { entries: JourneyEntry[]; timeZone: st
 					>
 						<span className="mt-0.5 flex size-7 flex-none items-center justify-center rounded-full bg-surface-2 text-ink-2">
 							<Icon
-								icon={e.kind === "movement" ? Route02Icon : e.kind === "creation" ? Flag02Icon : ArrowRight01Icon}
+								icon={
+									e.kind === "movement"
+										? Route02Icon
+										: e.kind === "creation"
+											? Flag02Icon
+											: e.kind === "launch_sunday"
+												? StartUp02Icon
+												: ArrowRight01Icon
+								}
 								size={16}
 							/>
 						</span>
 						<div className="min-w-0 flex-1">
 							<p className="font-semibold text-ink">{entryTitle(e)}</p>
-							<p className="text-sm text-ink-2">
-								{e.fromPhase === null ? `Started at Phase ${e.toPhase}` : `Phase ${e.fromPhase} → Phase ${e.toPhase}`}
-							</p>
+							<p className="text-sm text-ink-2">{entryDetail(e)}</p>
 							{e.kind === "movement" ? (
 								<p className="mt-1 text-sm break-words whitespace-pre-line text-text-2">{e.reason}</p>
 							) : null}
@@ -329,7 +366,20 @@ function Phases({ catalog, current }: { catalog: Catalog; current: PhaseNumber }
 							{p.phase === current ? <span className="text-xs font-semibold text-green-700">Current</span> : null}
 						</p>
 						{p.terminal ? (
-							<p className="mt-2 text-sm text-text-3">The last phase. No exit criteria.</p>
+							<>
+								<p className="mt-2 text-sm text-text-3">The last phase. No exit criteria.</p>
+								<ul className="mt-2 flex flex-col gap-1 text-sm text-ink-2">
+									{POST_LAUNCH_MEASURES.map((m) => (
+										<li key={m.key} className="flex gap-2">
+											<span aria-hidden="true" className="mt-2 size-1 flex-none rounded-full bg-text-3" />
+											<span>
+												{m.label}
+												<span className="text-text-3"> · Not measured</span>
+											</span>
+										</li>
+									))}
+								</ul>
+							</>
 						) : (
 							<ul className="mt-2 flex flex-col gap-1 text-sm text-ink-2">
 								{p.criteria.map((x) => (

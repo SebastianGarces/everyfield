@@ -10,7 +10,7 @@ import {
 	readHistory,
 	readPipelineConsents,
 	readPlantSharing,
-	residencyLinks,
+	ownResidencyLinks,
 	scopeOf,
 	subjectFacts,
 	targetsFor,
@@ -43,7 +43,7 @@ export async function SharingPage() {
 	const listed = viewer.kind !== "account";
 	// One round: every read but the names needs nothing from another. The names wait for the history and requests.
 	const [residencies, facts, targets, pipeline, aggregate, history, pending, sharing] = await Promise.all([
-		residencyLinks(m.db, viewer),
+		ownResidencyLinks(),
 		listed ? subjectFacts(m.db, viewer) : { revision: "0", zone: "UTC" },
 		// Every organization this viewer may ask; the list hides the ones it is connected with now, from its own history,
 		// so an organization appears again right after a Leave without another read.

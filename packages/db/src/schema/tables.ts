@@ -1147,11 +1147,11 @@ export const enrollment_milestone = pgTable(
 		enrollment_id: uuid("enrollment_id").notNull(),
 		version_id: uuid("version_id").notNull(),
 		milestone_id: uuid("milestone_id").notNull(),
-		source: text("source", { enum: ["program_leader"] }).notNull(),
+		source: text("source", { enum: ["program_leader", "resident"] }).notNull(),
 		completed_on: date("completed_on", { mode: "string" }).notNull(),
 		recorder_id: uuid("recorder_id").notNull(),
-		confirmer_id: uuid("confirmer_id").notNull(),
-		confirmed_at: timestamp("confirmed_at", { withTimezone: true, mode: "date" }).notNull(),
+		confirmer_id: uuid("confirmer_id"),
+		confirmed_at: timestamp("confirmed_at", { withTimezone: true, mode: "date" }),
 	},
 	(table): PgTableExtraConfigValue[] => [
 		foreignKey({
@@ -1184,7 +1184,11 @@ export const enrollment_milestone = pgTable(
 			.onUpdate("no action"),
 		primaryKey({ name: "enrollment_milestone_pkey", columns: [table.id] }),
 		unique("enrollment_milestone_once").on(table.enrollment_id, table.milestone_id),
-		check("enrollment_milestone_source", sql`(source = 'program_leader'::text)`),
+		check("enrollment_milestone_source", sql`(source = ANY (ARRAY['program_leader'::text, 'resident'::text]))`),
+		check(
+			"enrollment_milestone_confirmed",
+			sql`(((confirmer_id IS NULL) = (confirmed_at IS NULL)) AND ((source = 'resident'::text) OR (confirmed_at IS NOT NULL)))`,
+		),
 		index("enrollment_milestone_milestone_idx").using(
 			"btree",
 			table.milestone_id.asc().nullsLast(),
@@ -2068,6 +2072,11 @@ export const launch = pgTable(
 		revision: int64("revision")
 			.notNull()
 			.default(sql`1`),
+		/** The planter's note on what happened on Launch Sunday (LCH-006), at most 10,000 characters. */
+		outcome_note: text("outcome_note"),
+		/** When the actual Launch Sunday was first recorded, and by whom; a correction keeps both (LCH-007). */
+		outcome_recorded_at: timestamp("outcome_recorded_at", { withTimezone: true, mode: "date" }),
+		outcome_recorded_by: uuid("outcome_recorded_by"),
 	},
 	(table): PgTableExtraConfigValue[] => [
 		foreignKey({ name: "launch_fk_0", columns: [table.plant_id], foreignColumns: [plant.id] })
@@ -2085,7 +2094,17 @@ export const launch = pgTable(
 		check("launch_ck_2", sql`((attendance IS NULL) OR ((attendance >= 0) AND (attendance <= 1000000)))`),
 		check("launch_ck_3", sql`((decisions IS NULL) OR ((decisions >= 0) AND (decisions <= 1000000)))`),
 		check("launch_ck_4", sql`((status <> 'postponed'::text) OR (target_date IS NULL))`),
+		check("launch_outcome_note", sql`((outcome_note IS NULL) OR (length(outcome_note) <= 10000))`),
+		check("launch_outcome_recorded", sql`((actual_date IS NULL) = (outcome_recorded_at IS NULL))`),
+		foreignKey({
+			name: "launch_outcome_recorded_by",
+			columns: [table.outcome_recorded_by],
+			foreignColumns: [account.id],
+		})
+			.onDelete("set null")
+			.onUpdate("no action"),
 		index("launch_ref_1").using("btree", table.reference_version_id.asc().nullsLast()),
+		index("launch_outcome_recorded_by_idx").using("btree", table.outcome_recorded_by.asc().nullsLast()),
 	],
 );
 export const launch_milestone = pgTable(
@@ -2146,6 +2165,162 @@ export const launch_milestone = pgTable(
 		check("launch_milestone_ck_2", sql`((completed_by IS NULL) OR (completed_at IS NOT NULL))`),
 		index("launch_milestone_ref_0").using("btree", table.source_version_id.asc().nullsLast()),
 		index("launch_milestone_ref_1").using("btree", table.completed_by.asc().nullsLast()),
+	],
+);
+/**
+ * A guest a planter named at Launch Sunday (LCH-007): a real Person of the church, linked once. The aggregate attendance
+ * on `launch` may count far more people than are named here; nothing fills the difference with placeholder people. A
+ * merge moves the link to the survivor unless the survivor is already a guest, Unmerge moves it back, and a retired
+ * Person's link stays as history but leaves the current roster.
+ */
+export const launch_guest = pgTable(
+	"launch_guest",
+	{
+		id: uuid("id")
+			.notNull()
+			.default(sql`gen_random_uuid()`),
+		plant_id: uuid("plant_id").notNull(),
+		person_id: uuid("person_id").notNull(),
+		recorded_at: timestamp("recorded_at", { withTimezone: true, mode: "date" })
+			.notNull()
+			.default(sql`clock_timestamp()`),
+		recorded_by: uuid("recorded_by"),
+		revision: int64("revision")
+			.notNull()
+			.default(sql`1`),
+	},
+	(t): PgTableExtraConfigValue[] => [
+		primaryKey({ name: "launch_guest_pkey", columns: [t.id] }),
+		foreignKey({ name: "launch_guest_launch", columns: [t.plant_id], foreignColumns: [launch.plant_id] }).onDelete(
+			"cascade",
+		),
+		foreignKey({
+			name: "launch_guest_person",
+			columns: [t.person_id, t.plant_id],
+			foreignColumns: [person.id, person.tenant_id],
+		}).onDelete("cascade"),
+		foreignKey({ name: "launch_guest_recorder", columns: [t.recorded_by], foreignColumns: [account.id] }).onDelete(
+			"set null",
+		),
+		check("launch_guest_revision", sql`(revision >= 1)`),
+		uniqueIndex("launch_guest_once").on(t.plant_id, t.person_id),
+		index("launch_guest_person_idx").on(t.person_id, t.plant_id),
+		index("launch_guest_recorder_idx").on(t.recorded_by),
+	],
+);
+/**
+ * One version of the Launch debrief (LCH-010): the five written areas and the single missing-guest answer. The first
+ * area is the recorded Launch Sunday on `launch`, never a copy. At most one draft per church; a submission is a
+ * version that never changes again, and a correction is the next submitted version.
+ */
+export const launch_debrief = pgTable(
+	"launch_debrief",
+	{
+		id: uuid("id")
+			.notNull()
+			.default(sql`gen_random_uuid()`),
+		plant_id: uuid("plant_id").notNull(),
+		version: integer("version").notNull(),
+		went_well: text("went_well"),
+		to_change: text("to_change"),
+		operations: text("operations"),
+		follow_up_plan: text("follow_up_plan"),
+		support_needed: text("support_needed"),
+		missing_names: text("missing_names", { enum: ["yes", "no"] }),
+		missing_count: integer("missing_count"),
+		saved_at: timestamp("saved_at", { withTimezone: true, mode: "date" }).notNull(),
+		saved_by: uuid("saved_by"),
+		submitted_at: timestamp("submitted_at", { withTimezone: true, mode: "date" }),
+		submitted_by: uuid("submitted_by"),
+		revision: int64("revision")
+			.notNull()
+			.default(sql`1`),
+	},
+	(t): PgTableExtraConfigValue[] => [
+		primaryKey({ name: "launch_debrief_pkey", columns: [t.id] }),
+		foreignKey({ name: "launch_debrief_launch", columns: [t.plant_id], foreignColumns: [launch.plant_id] }).onDelete(
+			"cascade",
+		),
+		foreignKey({ name: "launch_debrief_saver", columns: [t.saved_by], foreignColumns: [account.id] }).onDelete(
+			"set null",
+		),
+		foreignKey({ name: "launch_debrief_submitter", columns: [t.submitted_by], foreignColumns: [account.id] }).onDelete(
+			"set null",
+		),
+		check("launch_debrief_revision", sql`(revision >= 1)`),
+		check("launch_debrief_version", sql`(version >= 1)`),
+		check("launch_debrief_missing_names", sql`(missing_names = ANY (ARRAY['yes'::text, 'no'::text]))`),
+		check(
+			"launch_debrief_missing_count",
+			sql`(((missing_names = 'yes'::text) AND ((missing_count IS NULL) OR ((missing_count >= 1) AND (missing_count <= 1000000)))) OR ((missing_names IS DISTINCT FROM 'yes'::text) AND (missing_count IS NULL)))`,
+		),
+		check(
+			"launch_debrief_submitted",
+			sql`((submitted_at IS NULL) OR (missing_names = 'no'::text) OR (missing_count IS NOT NULL))`,
+		),
+		check(
+			"launch_debrief_lengths",
+			sql`((length(coalesce(went_well, ''::text)) <= 10000) AND (length(coalesce(to_change, ''::text)) <= 10000) AND (length(coalesce(operations, ''::text)) <= 10000) AND (length(coalesce(follow_up_plan, ''::text)) <= 10000) AND (length(coalesce(support_needed, ''::text)) <= 10000))`,
+		),
+		uniqueIndex("launch_debrief_version_once").on(t.plant_id, t.version),
+		uniqueIndex("launch_debrief_one_draft")
+			.on(t.plant_id)
+			.where(sql`(submitted_at IS NULL)`),
+		index("launch_debrief_saver_idx").on(t.saved_by),
+		index("launch_debrief_submitter_idx").on(t.submitted_by),
+	],
+);
+/**
+ * One version of the short summary a planter writes for their sending church or network (LCH-010, REQ-KNOW-112). At
+ * most one draft per church; a published version never changes, and a later edit publishes the next version. The
+ * source categories are the sharing categories an organization must hold to read it; a Launch-only summary has
+ * Meetings.
+ */
+export const launch_summary = pgTable(
+	"launch_summary",
+	{
+		id: uuid("id")
+			.notNull()
+			.default(sql`gen_random_uuid()`),
+		plant_id: uuid("plant_id").notNull(),
+		version: integer("version").notNull(),
+		body: text("body").notNull(),
+		source_categories: text("source_categories")
+			.array()
+			.notNull()
+			.default(sql`'{meetings}'::text[]`),
+		saved_at: timestamp("saved_at", { withTimezone: true, mode: "date" }).notNull(),
+		saved_by: uuid("saved_by"),
+		published_at: timestamp("published_at", { withTimezone: true, mode: "date" }),
+		published_by: uuid("published_by"),
+		revision: int64("revision")
+			.notNull()
+			.default(sql`1`),
+	},
+	(t): PgTableExtraConfigValue[] => [
+		primaryKey({ name: "launch_summary_pkey", columns: [t.id] }),
+		foreignKey({ name: "launch_summary_launch", columns: [t.plant_id], foreignColumns: [launch.plant_id] }).onDelete(
+			"cascade",
+		),
+		foreignKey({ name: "launch_summary_saver", columns: [t.saved_by], foreignColumns: [account.id] }).onDelete(
+			"set null",
+		),
+		foreignKey({ name: "launch_summary_publisher", columns: [t.published_by], foreignColumns: [account.id] }).onDelete(
+			"set null",
+		),
+		check("launch_summary_revision", sql`(revision >= 1)`),
+		check("launch_summary_version", sql`(version >= 1)`),
+		check("launch_summary_body", sql`((length(btrim(body)) >= 1) AND (length(body) <= 4000))`),
+		check(
+			"launch_summary_sources",
+			sql`((cardinality(source_categories) >= 1) AND (source_categories <@ ARRAY['meetings'::text, 'people'::text, 'tasks'::text, 'ministry'::text]))`,
+		),
+		uniqueIndex("launch_summary_version_once").on(t.plant_id, t.version),
+		uniqueIndex("launch_summary_one_draft")
+			.on(t.plant_id)
+			.where(sql`(published_at IS NULL)`),
+		index("launch_summary_saver_idx").on(t.saved_by),
+		index("launch_summary_publisher_idx").on(t.published_by),
 	],
 );
 export const lifecycle_witness = pgTable(
@@ -4282,6 +4457,7 @@ export const record = pgTable(
 				"launch_debrief",
 				"launch_guest",
 				"launch_milestone",
+				"launch_summary",
 				"leadership_conversation",
 				"lifecycle_witness",
 				"mail",
@@ -4350,7 +4526,7 @@ export const record = pgTable(
 		unique("record_uq_0").on(table.id, table.tenant_id),
 		check(
 			"record_ck_0",
-			sql`(kind = ANY (ARRAY['account'::text, 'affiliation'::text, 'article_editor_state'::text, 'article_revision'::text, 'assessment'::text, 'assessment_contributor'::text, 'assessment_fact'::text, 'assignment_feedback'::text, 'attestation'::text, 'commitment'::text, 'communication'::text, 'communication_recipient'::text, 'contact_outcome'::text, 'conversation'::text, 'conversation_entry'::text, 'development_enrollment'::text, 'development_milestone'::text, 'development_program'::text, 'development_program_version'::text, 'development_reading'::text, 'development_stage'::text, 'digest_coverage'::text, 'discovery'::text, 'document'::text, 'document_revision'::text, 'effect'::text, 'enrollment_milestone'::text, 'enrollment_plan'::text, 'feedback'::text, 'feedback_publication'::text, 'file_object'::text, 'finding'::text, 'four_cs'::text, 'generated_document'::text, 'household'::text, 'interview'::text, 'invitation'::text, 'job'::text, 'launch_debrief'::text, 'launch_guest'::text, 'launch_milestone'::text, 'leadership_conversation'::text, 'lifecycle_witness'::text, 'mail'::text, 'mail_attempt'::text, 'mail_request'::text, 'meeting'::text, 'meeting_evaluation'::text, 'meeting_item'::text, 'message_template'::text, 'notice'::text, 'notification_preference'::text, 'obligation'::text, 'audit_event'::text, 'organization'::text, 'organization_person_removal'::text, 'participation'::text, 'passage'::text, 'person'::text, 'person_merge'::text, 'person_note'::text, 'person_skill'::text, 'phase_transition'::text, 'pipeline_person'::text, 'pipeline_sharing'::text, 'pipeline_stage'::text, 'pipeline_stage_move'::text, 'plant'::text, 'plant_geography'::text, 'platform_grant'::text, 'prompt_dismissal'::text, 'provider_event'::text, 'reader_feedback'::text, 'reading'::text, 'recurrence'::text, 'reference_activation'::text, 'reference_item'::text, 'reference_release'::text, 'reference_version'::text, 'residency_link'::text, 'responsibility'::text, 'review'::text, 'seat'::text, 'sending_goal'::text, 'suppression'::text, 'tag'::text, 'task'::text, 'team'::text, 'team_role'::text, 'team_tenure'::text, 'training_assignment'::text, 'training_credit'::text, 'training_program'::text, 'training_requirement'::text, 'training_version'::text, 'venue'::text, 'wiki_preference'::text]))`,
+			sql`(kind = ANY (ARRAY['account'::text, 'affiliation'::text, 'article_editor_state'::text, 'article_revision'::text, 'assessment'::text, 'assessment_contributor'::text, 'assessment_fact'::text, 'assignment_feedback'::text, 'attestation'::text, 'commitment'::text, 'communication'::text, 'communication_recipient'::text, 'contact_outcome'::text, 'conversation'::text, 'conversation_entry'::text, 'development_enrollment'::text, 'development_milestone'::text, 'development_program'::text, 'development_program_version'::text, 'development_reading'::text, 'development_stage'::text, 'digest_coverage'::text, 'discovery'::text, 'document'::text, 'document_revision'::text, 'effect'::text, 'enrollment_milestone'::text, 'enrollment_plan'::text, 'feedback'::text, 'feedback_publication'::text, 'file_object'::text, 'finding'::text, 'four_cs'::text, 'generated_document'::text, 'household'::text, 'interview'::text, 'invitation'::text, 'job'::text, 'launch_debrief'::text, 'launch_guest'::text, 'launch_milestone'::text, 'launch_summary'::text, 'leadership_conversation'::text, 'lifecycle_witness'::text, 'mail'::text, 'mail_attempt'::text, 'mail_request'::text, 'meeting'::text, 'meeting_evaluation'::text, 'meeting_item'::text, 'message_template'::text, 'notice'::text, 'notification_preference'::text, 'obligation'::text, 'audit_event'::text, 'organization'::text, 'organization_person_removal'::text, 'participation'::text, 'passage'::text, 'person'::text, 'person_merge'::text, 'person_note'::text, 'person_skill'::text, 'phase_transition'::text, 'pipeline_person'::text, 'pipeline_sharing'::text, 'pipeline_stage'::text, 'pipeline_stage_move'::text, 'plant'::text, 'plant_geography'::text, 'platform_grant'::text, 'prompt_dismissal'::text, 'provider_event'::text, 'reader_feedback'::text, 'reading'::text, 'recurrence'::text, 'reference_activation'::text, 'reference_item'::text, 'reference_release'::text, 'reference_version'::text, 'residency_link'::text, 'responsibility'::text, 'review'::text, 'seat'::text, 'sending_goal'::text, 'suppression'::text, 'tag'::text, 'task'::text, 'team'::text, 'team_role'::text, 'team_tenure'::text, 'training_assignment'::text, 'training_credit'::text, 'training_program'::text, 'training_requirement'::text, 'training_version'::text, 'venue'::text, 'wiki_preference'::text]))`,
 		),
 		check(
 			"record_ck_1",
@@ -5703,7 +5879,7 @@ export const audit_event = pgTable(
 		check(
 			"audit_action",
 			sql.raw(
-				"(action IN ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','branding.changed','communication.draft_deleted','communication.draft_saved','communication.rescheduled','communication.scheduled','communication.send_intended','communication.template_archived','communication.template_created','communication.template_deleted','communication.template_forked','communication.template_updated','deletion.cancelled','deletion.live_purge_completed','development.enrolled','development.feedback_recorded','development.milestone_recorded','development.plan_saved','development.program_created','development.version_applied','development.version_published','documents.archived','documents.church_archived','documents.church_restored','documents.branding_changed','documents.copied','documents.created_from_template','documents.designated','documents.export_deleted','documents.exported','documents.generated','documents.imported','documents.purged','documents.saved','documents.template_deleted','documents.template_details_changed','documents.template_saved','documents.template_updated','evry.conversation_created','evry.proposal_approved','evry.proposal_cancelled','evry.proposal_prepared','evry.proposal_retried','evry.proposal_revised','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','feedback.publication_held','feedback.publication_intended','feedback.publication_unknown','feedback.published','feedback.received','feedback.status_changed','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','organization.profile_changed','people.corrected','people.created','people.duplicate_dismissed','people.duplicate_restored','people.merged','people.recorded','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.bookmark_changed','wiki.hidden','wiki.published','wiki.reading_recorded','wiki.source_order_changed'))",
+				"(action IN ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','branding.changed','communication.draft_deleted','communication.draft_saved','communication.rescheduled','communication.scheduled','communication.send_intended','communication.template_archived','communication.template_created','communication.template_deleted','communication.template_forked','communication.template_updated','deletion.cancelled','deletion.live_purge_completed','development.enrolled','development.feedback_recorded','development.milestone_confirmed','development.milestone_marked','development.milestone_recorded','development.plan_saved','development.program_created','development.version_applied','development.version_published','documents.archived','documents.church_archived','documents.church_restored','documents.branding_changed','documents.copied','documents.created_from_template','documents.designated','documents.export_deleted','documents.exported','documents.generated','documents.imported','documents.purged','documents.saved','documents.template_deleted','documents.template_details_changed','documents.template_saved','documents.template_updated','evry.conversation_created','evry.proposal_approved','evry.proposal_cancelled','evry.proposal_prepared','evry.proposal_retried','evry.proposal_revised','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','feedback.publication_held','feedback.publication_intended','feedback.publication_unknown','feedback.published','feedback.received','feedback.status_changed','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','launch.corrected','launch.debrief_submitted','launch.outcome_recorded','launch.summary_published','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','organization.profile_changed','people.corrected','people.created','people.duplicate_dismissed','people.duplicate_restored','people.merged','people.recorded','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.bookmark_changed','wiki.hidden','wiki.published','wiki.reading_recorded','wiki.source_order_changed'))",
 			),
 		),
 		check(

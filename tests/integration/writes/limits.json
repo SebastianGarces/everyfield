@@ -641,8 +641,8 @@
 		"reason": "RT-6a: invitations.accept found by its proof in the same first statement; the same 12 statements (was 29)."
 	},
 	"invitations.revoke": {
-		"limit": 9,
-		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 2 locked read, 3 read, 2 write."
+		"limit": 10,
+		"reason": "Above the pattern today; RT-6 reviews it. A residency link invitation also locks its resident person: 2 transaction, 3 locked read, 3 read, 2 write."
 	},
 	"jobs/mail.claimUnknownMail": {
 		"limit": 1
@@ -1978,6 +1978,43 @@
 		"limit": 4,
 		"retry": 3
 	},
+	"launch.readJournal": {
+		"limit": 1
+	},
+	"launch.suggestGuests": {
+		"limit": 1
+	},
+	"launch.readPublishedSummary": {
+		"limit": 1
+	},
+	"launch.recordOutcome": {
+		"limit": 5,
+		"retry": 4
+	},
+	"launch.correctOutcome": {
+		"limit": 5,
+		"retry": 4
+	},
+	"launch.addGuestAttendance": {
+		"limit": 5,
+		"retry": 4
+	},
+	"launch.saveDebriefDraft": {
+		"limit": 5,
+		"retry": 4
+	},
+	"launch.submitDebrief": {
+		"limit": 5,
+		"retry": 4
+	},
+	"launch.saveDebriefSummaryDraft": {
+		"limit": 5,
+		"retry": 4
+	},
+	"launch.publishDebriefSummary": {
+		"limit": 5,
+		"retry": 4
+	},
 	"launch.completeMilestone": {
 		"limit": 10,
 		"retry": 3,
@@ -2051,6 +2088,10 @@
 		"limit": 4,
 		"retry": 4
 	},
+	"programs.confirmMilestone": {
+		"limit": 4,
+		"retry": 4
+	},
 	"programs.createProgram": {
 		"limit": 4,
 		"retry": 4
@@ -2068,6 +2109,10 @@
 		"retry": 4
 	},
 	"programs.savePlan": {
+		"limit": 5,
+		"retry": 5
+	},
+	"residency.markMilestone": {
 		"limit": 5,
 		"retry": 5
 	}

@@ -49,17 +49,22 @@ import type { MailPort } from "../../../packages/evry/src/proposals/types.ts";
 import { claimDue } from "../../../apps/web/src/server/jobs/queue.ts";
 import { NOW, type ActorName, type GoldenChurch } from "./golden-church.mts";
 import { SEAT_READS, SETTINGS_COMMANDS, SHARING_READS } from "../../../packages/evry/src/adapters/settings/index.ts";
+import { ONBOARDING_READS } from "../../../packages/evry/src/adapters/onboarding/reads/index.ts";
+import { ONBOARDING_COMMANDS } from "../../../packages/evry/src/adapters/onboarding/commands/index.ts";
 
 /**
  * The operations these recordings offer the model: every installed one except the seat, Settings, sharing, connection,
- * account and organization tools T-327 added after they were recorded. Offering those would change every recorded
- * provider call, and Nora's ask for T-327 (13 Nov 2026) allows no new spend, so settings.test.mts scores them on the
- * scripted model instead. The next recording drops this filter (ruling D-1137).
+ * account and organization tools T-327 added and the setup and Discovery tools T-345 added after they were recorded.
+ * Offering those would change every recorded provider call, and Nora's asks for T-327 (13 Nov 2026) and T-345 allow no
+ * new spend, so settings.test.mts and onboarding.test.mts score them on the scripted model instead. The next recording
+ * drops this filter (rulings D-1137, D-1292).
  */
 const LATER = new Set<string>([
 	...SEAT_READS.map((a) => a.operation),
 	...SHARING_READS.map((a) => a.operation),
 	...Object.keys(SETTINGS_COMMANDS),
+	...ONBOARDING_READS.map((a) => a.operation),
+	...Object.keys(ONBOARDING_COMMANDS),
 ]);
 export const RECORDED = (operation: string) => !LATER.has(operation);
 
