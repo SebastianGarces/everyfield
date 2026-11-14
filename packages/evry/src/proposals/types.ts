@@ -27,7 +27,10 @@ export type NativePorts = {
 		db: Database | Transaction,
 	): Pick<ReturnType<typeof createInvitationService>, "invite" | "resend" | "revoke" | "list">;
 	organizations: OrganizationAdapter<Transaction>;
-	settings: Pick<SettingsProducer<Transaction>, "updatePlantProfile" | "setDigestSchedule" | "previewPlantTimezone" | "setPlantTimezone">;
+	settings: Pick<
+		SettingsProducer<Transaction>,
+		"updatePlantProfile" | "setDigestSchedule" | "previewPlantTimezone" | "setPlantTimezone"
+	>;
 	account: Pick<NativeAccountProducer<Transaction>, "finalizeAvatar"> &
 		Pick<DeletionProducer<Transaction>, "requestAccountDeletion">;
 };
