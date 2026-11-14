@@ -50,5 +50,12 @@ export async function PipelinePersonPage({ params }: { params: Promise<{ personI
 		loadPipelineBoard(who.authority, {}),
 	]);
 	if (record.status !== "ok" || board.status !== "ok") return refused;
-	return <PersonRecord initial={record.value} stages={board.value.stages} staff={board.value.staff} />;
+	return (
+		<PersonRecord
+			initial={record.value}
+			stages={board.value.stages}
+			staff={board.value.staff}
+			organization={board.value.organizationName}
+		/>
+	);
 }

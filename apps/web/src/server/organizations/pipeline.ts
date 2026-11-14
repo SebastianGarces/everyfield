@@ -1,7 +1,14 @@
 import type { PipelineReply } from "@everyfield/contracts/organizations";
+import type { PeopleContext, PeopleReply, PeopleWriteContext } from "@everyfield/contracts/people";
 import type { RequestActor } from "@everyfield/domain/access";
-import type { Database } from "@everyfield/db/client";
-import { readPipelineBoard, readPipelineGoals, readPipelinePersonRecord } from "@everyfield/domain/organizations";
+import type { Database, Transaction } from "@everyfield/db/client";
+import {
+	readPipelineBoard,
+	readPipelineExport,
+	readPipelineGoals,
+	readPipelinePersonRecord,
+} from "@everyfield/domain/organizations";
+import { PeopleReadContext, withPeopleWrite } from "@everyfield/domain/people";
 import "server-only";
 import { requestDatabase } from "../database";
 import { getViewer } from "../request-context";
@@ -61,3 +68,32 @@ export async function pipelineWrite<T>(
 	if (!db) return { status: "lost" };
 	return guarded(() => run(db, who.authority));
 }
+
+export async function loadPipelineExport(authority: RequestActor) {
+	const db = requestDatabase();
+	if (!db) return { status: "lost" } as const;
+	return guarded(() => readPipelineExport(db, authority));
+}
+
+type PeopleAnswer<T> = PeopleReply<T> | { status: "lost" };
+/** Runs `run` as the request's organization seat; a missing seat is refused, any thrown failure reads as "lost". */
+async function asSeat<T>(
+	run: (db: Database, authority: RequestActor) => Promise<PeopleReply<T>>,
+): Promise<PeopleAnswer<T>> {
+	const who = await pipelineActor();
+	if (who.kind !== "seat") return { status: "refused", error: { code: "unavailable" } } as PeopleReply<T>;
+	const db = requestDatabase();
+	if (!db) return { status: "lost" };
+	try {
+		return await run(db, who.authority);
+	} catch (error) {
+		console.error(JSON.stringify({ component: "pipeline", outcome: "failed", error: String(error) }));
+		return { status: "lost" };
+	}
+}
+/** One People read on the organization's own people, in its own transaction (the duplicate review, REQ-MUL-017). */
+export const pipelinePeopleRead = <T>(run: (tx: Transaction, ctx: PeopleContext) => Promise<PeopleReply<T>>) =>
+	asSeat((db, authority) => db.transaction((tx) => run(tx, new PeopleReadContext(authority))));
+/** One People write on the organization's own people: a merge or its undo, through the People producer. */
+export const pipelinePeopleWrite = <T>(run: (tx: Transaction, ctx: PeopleWriteContext) => Promise<PeopleReply<T>>) =>
+	asSeat((db, authority) => withPeopleWrite(db, authority, run));

@@ -54,8 +54,7 @@ const refusedWith = (r: { status: string; refusal?: { code: string }; error?: { 
 };
 const rows = async (q: ReturnType<typeof sql>) => (await admin.execute(q)).rows as Record<string, unknown>[];
 const exported = async (a: Actor = dana) => ok(await readPipelineExport(db, await authority(a)));
-const record = async (personId: string) =>
-	ok(await readPipelinePersonRecord(db, await authority(dana), { personId }));
+const record = async (personId: string) => ok(await readPipelinePersonRecord(db, await authority(dana), { personId }));
 const tx = <T,>(body: (t: Parameters<Parameters<typeof db.transaction>[0]>[0]) => Promise<T>) => db.transaction(body);
 /** The CSV's data rows after its header, as records of column to value. */
 function table(text: string) {
@@ -111,7 +110,13 @@ before(async () => {
 			reason: "REASON-SECRET ready for more",
 		}),
 	);
-	ok(await pipelineWriter.addNote(db, await authority(dana), { personId: casey, noteId: randomUUID(), body: "NOTE-SECRET" }));
+	ok(
+		await pipelineWriter.addNote(db, await authority(dana), {
+			personId: casey,
+			noteId: randomUUID(),
+			body: "NOTE-SECRET",
+		}),
+	);
 	for (const personId of [jordan, caseyL])
 		ok(
 			await pipelineWriter.logConversation(db, await authority(dana), {
@@ -201,7 +206,6 @@ before(async () => {
 	 accepted_at,consent_revision,revision,share_foundations,share_milestones)
 	 VALUES(${link},${grace.id},${casey},${caseyAccount.id},${affiliation},${invitation},clock_timestamp(),1,1,false,true)`);
 	await admin.execute(sql`UPDATE person SET linked_account_id=${caseyAccount.id} WHERE id=${casey}`);
-
 });
 
 test("AC:ADR1-005 INV-privacy: the export holds contact, stage history, programs, enrollments and completions, and says what and when", async () => {
@@ -240,8 +244,8 @@ test("AC:ADR1-005 INV-privacy: the export holds contact, stage history, programs
 	assert.deepEqual(
 		of("enrollment", jordan).map((r) => [r.program, r.status, r.cohort, r.started_on, r.program_stage]),
 		[
-			["Grace Residency", "active", "Fall 2026", "2026-10-01", "Assimilating"],
 			["Grace Apprenticeship", "active", "Fall 2026", "2026-10-01", "Assimilating"],
+			["Grace Residency", "active", "Fall 2026", "2026-10-01", "Assimilating"],
 		],
 	);
 	assert.deepEqual(
@@ -252,7 +256,14 @@ test("AC:ADR1-005 INV-privacy: the export holds contact, stage history, programs
 		],
 	);
 	// No note, move reason, conversation note or feedback body, and nothing from Casey's own account.
-	for (const secret of ["NOTE-SECRET", "REASON-SECRET", "CONVERSATION-SECRET", "FEEDBACK-SECRET", "Casey Own Account", caseyAccount.email])
+	for (const secret of [
+		"NOTE-SECRET",
+		"REASON-SECRET",
+		"CONVERSATION-SECRET",
+		"FEEDBACK-SECRET",
+		"Casey Own Account",
+		caseyAccount.email,
+	])
 		assert.equal(file.text.includes(secret!), false, secret);
 });
 
@@ -399,7 +410,9 @@ test("AC:ADR1-005 INV-privacy: removing Jordan on request keeps only what Grace 
 	const kind = (g: typeof goals, k: string) => g.kinds.find((x) => x.kind === k)?.count ?? 0;
 	const talks = (g: typeof goals) => g.conversations.months.reduce((n, m) => n + m.count, 0);
 	// His apprenticeship finished: that completion is a fact the church keeps, without his name.
-	await admin.execute(sql`UPDATE development_enrollment SET status='completed' WHERE id=${enrollments.jordanApprentice}`);
+	await admin.execute(
+		sql`UPDATE development_enrollment SET status='completed' WHERE id=${enrollments.jordanApprentice}`,
+	);
 	const revision = (await record(jordan)).revision;
 	refusedWith(
 		await pipelineDataWriter.removePerson(db, await authority(dana), { personId: jordan, expectedRevision: "99" }),
@@ -432,15 +445,24 @@ test("AC:ADR1-005 INV-privacy: removing Jordan on request keeps only what Grace 
 	});
 	// Gone from the board, search, his record, the enrollment picker, the goal counts and the next export.
 	const board = ok(await readPipelineBoard(db, await authority(dana), {}));
-	assert.equal(board.stages.flatMap((s) => s.people).some((p) => p.personId === jordan), false);
+	assert.equal(
+		board.stages.flatMap((s) => s.people).some((p) => p.personId === jordan),
+		false,
+	);
 	assert.equal(
 		ok(await readPipelineBoard(db, await authority(dana), { q: "jordan" })).stages.flatMap((s) => s.people).length,
 		0,
 	);
 	refusedWith(await readPipelinePersonRecord(db, await authority(dana), { personId: jordan }), "unavailable");
 	const program = ok(await readProgram(db, await authority(dana), { programId: residency }));
-	assert.equal(program.people.some((p) => p.personId === jordan), false);
-	assert.equal(program.enrollments.some((e) => e.personId === jordan), false);
+	assert.equal(
+		program.people.some((p) => p.personId === jordan),
+		false,
+	);
+	assert.equal(
+		program.enrollments.some((e) => e.personId === jordan),
+		false,
+	);
 	const after = ok(await readPipelineGoals(db, await authority(dana)));
 	assert.deepEqual(
 		[kind(after, "potential_leader"), talks(after)],
@@ -451,10 +473,9 @@ test("AC:ADR1-005 INV-privacy: removing Jordan on request keeps only what Grace 
 	assert.equal(file.text.includes(jordan), false);
 	assert.equal(file.people, 2);
 	// What stays: the scrubbed person row, the completed enrollment, a body-free audit trail and the removal record.
-	assert.deepEqual(
-		await rows(sql`SELECT display_name,email,state,linked_account_id FROM person WHERE id=${jordan}`),
-		[{ display_name: "Former participant", email: null, state: "retired", linked_account_id: null }],
-	);
+	assert.deepEqual(await rows(sql`SELECT display_name,email,state,linked_account_id FROM person WHERE id=${jordan}`), [
+		{ display_name: "Former participant", email: null, state: "retired", linked_account_id: null },
+	]);
 	assert.deepEqual(await rows(sql`SELECT status FROM development_enrollment WHERE person_id=${jordan}`), [
 		{ status: "completed" },
 	]);
@@ -491,7 +512,9 @@ test("AC:ADR1-005 INV-privacy: removing linked Casey ends her link at once and l
 	// My residency reads links by account: Casey has none now. Her account, sign-in and name are as they were.
 	assert.deepEqual(await residency(), []);
 	assert.deepEqual(
-		await rows(sql`SELECT ended_at IS NOT NULL AS ended,share_foundations,share_milestones FROM residency_link WHERE id=${link}`),
+		await rows(
+			sql`SELECT ended_at IS NOT NULL AS ended,share_foundations,share_milestones FROM residency_link WHERE id=${link}`,
+		),
 		[{ ended: true, share_foundations: false, share_milestones: false }],
 	);
 	assert.deepEqual(await account(), before);

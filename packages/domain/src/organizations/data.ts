@@ -123,7 +123,7 @@ SELECT g.allowed,(SELECT to_jsonb(o) FROM o) AS org,
       ORDER BY em.completed_on,dm.position,dm.id)
      FROM enrollment_milestone em JOIN development_milestone dm ON dm.id=em.milestone_id AND dm.organization_id=em.organization_id
      WHERE x.marks AND em.enrollment_id=e.id AND em.organization_id=e.organization_id),'[]'::jsonb))
-    ORDER BY e.started_on,e.id)
+    ORDER BY e.started_on,lower(dp.name),e.id)
    FROM development_enrollment e JOIN development_program dp ON dp.id=e.program_id AND dp.organization_id=e.organization_id
    LEFT JOIN development_stage ds ON ds.id=e.current_stage_id
    WHERE e.organization_id=${org}::uuid AND e.person_id=x.person_id),'[]'::jsonb))
@@ -168,7 +168,9 @@ FROM g`);
 					body += line({ record: "milestone_completed", ...who, ...program, date: m.on, milestone: m.title });
 			}
 		}
-		const programs = row.programs.map((p) => line({ record: "program", program: p.name, program_kind: p.kind })).join("");
+		const programs = row.programs
+			.map((p) => line({ record: "program", program: p.name, program_kind: p.kind }))
+			.join("");
 		const preamble =
 			csvLine([`${o.name} pipeline export`]) +
 			csvLine(["Made", `${o.made} ${o.timezone}`]) +

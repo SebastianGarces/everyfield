@@ -266,7 +266,10 @@ export const organizationDuplicatePairs = z.strictObject({
 			z.strictObject({
 				person: pairPerson,
 				with: pairPerson,
-				shared: z.array(z.enum(["email", "phone"])).min(1).max(2),
+				shared: z
+					.array(z.enum(["email", "phone"]))
+					.min(1)
+					.max(2),
 			}),
 		)
 		.max(100),
