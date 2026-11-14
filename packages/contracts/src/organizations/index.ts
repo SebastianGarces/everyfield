@@ -4,3 +4,4 @@ export type { OrganizationAdapter, OrganizationOperations } from "./server.ts";
 export * from "./subjects.ts";
 export * from "./pipeline.ts";
 export * from "./programs.ts";
+export * from "./residency.ts";

@@ -5,6 +5,8 @@ import { randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
 import type { RequestActor } from "../access/session.ts";
+import { liveResidency } from "../access/pipeline.ts";
+import { foundationArticles } from "../onboarding/reading.ts";
 import { GLOBAL } from "../wiki/core.ts";
 import { activeResidents, answer, one, parse, refuse, seatOf, write, type Executor, type Writer } from "./seat.ts";
 
@@ -173,15 +175,39 @@ FROM g`);
 }
 
 /**
+ * The live residency link `lk` of enrollment `x`'s person, with what its resident shares (REQ-MUL-003). No row
+ * without a live link: never linked, left, or ended.
+ */
+const linkOf = (
+	org: string,
+) => sql`lk AS (SELECT l.account_id,l.share_milestones,l.share_foundations FROM residency_link l
+ JOIN x ON l.person_id=x.person_id WHERE l.organization_id=${org}::uuid AND ${liveResidency} LIMIT 1)`;
+
+/** How many of the six Discovery foundations account `account` has completed on a published revision (REQ-MUL-014). */
+const foundationsCompleted = (account: SQL) => sql`(SELECT count(DISTINCT r.article_id)::int FROM reading r
+ JOIN article_revision v ON v.id=r.completed_revision_id AND v.article_id=r.article_id
+ WHERE r.account_id=${account} AND r.article_id=ANY(${sql.param(foundationArticles)}::uuid[]) AND r.completed_at IS NOT NULL
+  AND v.published_at IS NOT NULL)`;
+
+/**
+ * Whether completion `c` of enrollment `x` shows to the organization: what it recorded itself, and a linked
+ * resident's own mark only while that person's live link shares milestone progress (REQ-MUL-003, REQ-MUL-014). Each
+ * enrollment's own link decides, so it holds on a read over several enrollments.
+ */
+const orgSees = sql`(c.source='program_leader' OR EXISTS(SELECT FROM residency_link l
+ WHERE l.person_id=x.person_id AND l.organization_id=c.organization_id AND ${liveResidency} AND l.share_milestones))`;
+
+/**
  * Milestone `m` for enrollment `x` as the contract's enrollmentMilestone: its completion and feedback on any version,
- * matched by lineage, with dates in `o.timezone`. Feedback is null unless `x.reads_feedback`.
+ * matched by lineage, with dates in `o.timezone`. Feedback is null unless `x.reads_feedback`;
+ * a completion shows only as `orgSees`.
  */
 const progressJson = sql`jsonb_build_object('id',m.id,'title',m.title,'description',m.description,'handsOn',m.hands_on,
  'completion',(SELECT jsonb_build_object('completedOn',c.completed_on::text,
    'confirmedOn',(c.confirmed_at AT TIME ZONE o.timezone)::date::text,'recorder',${nameOf(sql`c.recorder_id`)},
    'confirmer',${nameOf(sql`c.confirmer_id`)},'source',c.source)
   FROM enrollment_milestone c JOIN development_milestone cm ON cm.id=c.milestone_id AND cm.organization_id=c.organization_id
-  WHERE c.enrollment_id=x.id AND c.organization_id=x.organization_id AND cm.lineage=m.lineage
+  WHERE c.enrollment_id=x.id AND c.organization_id=x.organization_id AND cm.lineage=m.lineage AND ${orgSees}
   ORDER BY c.confirmed_at,c.id LIMIT 1),
  'feedback',CASE WHEN x.reads_feedback THEN coalesce((SELECT jsonb_agg(jsonb_build_object('id',f.id,
    'writtenOn',(f.written_at AT TIME ZONE o.timezone)::date::text,'writer',${nameOf(sql`f.writer_id`)},'body',f.body)
@@ -194,7 +220,9 @@ const progressJson = sql`jsonb_build_object('id',m.id,'title',m.title,'descripti
  * milestone's completion, and the director's feedback for a viewer who may read it: the current director, or an
  * Owner or Admin (REQ-MUL-012). Records on milestones a later version removed are listed as earlier, kept as they
  * were recorded, and a newer published version is named. Anyone else of the organization reads the rest; feedback
- * reads as null. One statement.
+ * reads as null. One statement. A linked resident's own marks show only while they share milestone progress, and
+ * their foundations only as a count while they share foundations; what the organization recorded itself always shows
+ * (REQ-MUL-003, REQ-MUL-014).
  */
 export async function readEnrollment(
 	db: Executor,
@@ -211,7 +239,8 @@ x AS (SELECT e.*,p.name AS program_name,p.kind,p.director_seat_id,p.current_vers
  FROM development_enrollment e JOIN development_program p ON p.id=e.program_id AND p.organization_id=e.organization_id
  JOIN development_program_version v ON v.id=e.version_id AND v.organization_id=e.organization_id
  JOIN person pn ON pn.id=e.person_id AND pn.tenant_id=e.organization_id
- WHERE EXISTS(SELECT FROM o) AND e.id=${enrollmentId}::uuid AND e.organization_id=${org}::uuid AND pn.state='live')
+ WHERE EXISTS(SELECT FROM o) AND e.id=${enrollmentId}::uuid AND e.organization_id=${org}::uuid AND pn.state='live'),
+${linkOf(org)}
 SELECT g.allowed,(SELECT today::text FROM o) AS today,(SELECT jsonb_build_object('id',x.id,
   'person',jsonb_build_object('personId',x.person_id,'name',x.display_name),
   'program',jsonb_build_object('id',x.program_id,'name',x.program_name,'kind',x.kind,
@@ -228,13 +257,18 @@ SELECT g.allowed,(SELECT today::text FROM o) AS today,(SELECT jsonb_build_object
    FROM (SELECT DISTINCT ON (dm.lineage) dm.*,dv.version_number FROM development_milestone dm
     JOIN development_program_version dv ON dv.id=dm.version_id AND dv.organization_id=dm.organization_id
     WHERE dm.organization_id=x.organization_id AND dm.id IN (SELECT c.milestone_id FROM enrollment_milestone c
-      WHERE c.enrollment_id=x.id AND c.organization_id=x.organization_id UNION SELECT f.milestone_id FROM assignment_feedback f
+      WHERE c.enrollment_id=x.id AND c.organization_id=x.organization_id AND ${orgSees} UNION SELECT f.milestone_id FROM assignment_feedback f
       WHERE x.reads_feedback AND f.enrollment_id=x.id AND f.organization_id=x.organization_id)
      AND NOT EXISTS(SELECT FROM development_milestone cur WHERE cur.version_id=x.version_id
       AND cur.organization_id=x.organization_id AND cur.lineage=dm.lineage)
     ORDER BY dm.lineage,dv.version_number DESC) m),'[]'::jsonb),
   'newerVersion',(SELECT jsonb_build_object('id',cv.id,'number',cv.version_number) FROM development_program_version cv
-   WHERE cv.id=x.current_version_id AND cv.organization_id=x.organization_id AND cv.id<>x.version_id))
+   WHERE cv.id=x.current_version_id AND cv.organization_id=x.organization_id AND cv.id<>x.version_id),
+  'resident',coalesce((SELECT jsonb_build_object('status','linked',
+    'milestones',CASE WHEN lk.share_milestones THEN 'shared' ELSE 'not_shared' END,
+    'foundations',CASE WHEN lk.share_foundations THEN jsonb_build_object('status','shared',
+     'completed',${foundationsCompleted(sql`lk.account_id`)},'total',6) ELSE jsonb_build_object('status','not_shared') END)
+   FROM lk),jsonb_build_object('status','not_linked')))
  FROM x CROSS JOIN o) AS enrollment
 FROM g`);
 		const row = z
@@ -360,7 +394,7 @@ async function reviewsOf(
 ): Promise<C.VersionReview[]> {
 	const org = seat.organization;
 	const r = await db.execute(sql`WITH g AS (SELECT ${seat.live} AS allowed), ${orgCte(org)},
-x AS (SELECT e.id,e.revision,e.version_id,e.current_stage_id,p.current_version_id,pn.display_name FROM development_enrollment e
+x AS (SELECT e.id,e.person_id,e.revision,e.version_id,e.current_stage_id,p.current_version_id,pn.display_name FROM development_enrollment e
  JOIN development_program p ON p.id=e.program_id AND p.organization_id=e.organization_id
  JOIN person pn ON pn.id=e.person_id AND pn.tenant_id=e.organization_id AND pn.state='live'
  WHERE EXISTS(SELECT FROM o) AND e.id IN (SELECT value::uuid FROM jsonb_array_elements_text(${JSON.stringify(ids)}::jsonb))
@@ -380,7 +414,7 @@ SELECT g.allowed,coalesce((SELECT jsonb_agg(jsonb_build_object('enrollmentId',x.
    FROM development_stage s WHERE s.version_id=x.current_version_id AND s.organization_id=${org}::uuid),'[]'::jsonb),
   'finished',coalesce((SELECT jsonb_agg(DISTINCT cm.lineage) FROM enrollment_milestone c JOIN development_milestone cm
    ON cm.id=c.milestone_id AND cm.organization_id=c.organization_id WHERE c.enrollment_id=x.id
-   AND c.organization_id=${org}::uuid),'[]'::jsonb)) ORDER BY lower(x.display_name),x.id) FROM x),'[]'::jsonb) AS reviews
+   AND c.organization_id=${org}::uuid AND ${orgSees}),'[]'::jsonb)) ORDER BY lower(x.display_name),x.id) FROM x),'[]'::jsonb) AS reviews
 FROM g`);
 	const row = z.object({ allowed: z.boolean(), reviews: z.array(reviewRow) }).parse(r.rows[0]);
 	if (!row.allowed) refuse();
@@ -691,7 +725,9 @@ m AS (SELECT m.id,m.lineage,m.hands_on FROM development_milestone m JOIN x ON m.
 /**
  * The director records that an unlinked enrollee finished a milestone on a day no later than today, and confirms it
  * in the same step: recorder and confirmer are the director, the source is the program leader (REQ-MUL-012). It is
- * refused while the person has a current resident link. Nothing else changes: no stage, no commissioning, no plant.
+ * refused while the person has a current resident link. A milestone the person marked while linked is hidden once the
+ * link ends, so the director's record replaces it; one the director recorded stays as recorded. Nothing else changes:
+ * no stage, no commissioning, no plant.
  */
 function recordMilestone(db: Database, authority: RequestActor, raw: unknown) {
 	return write<{ outcome: "changed" | "noop" }, C.ProgramRefusal>(db, authority, false, async (w) => {
@@ -709,18 +745,21 @@ function recordMilestone(db: Database, authority: RequestActor, raw: unknown) {
 			}),
 			sql`WITH ${directedEnrollment(w, input.enrollmentId, input.milestoneId)},
 linked AS (SELECT FROM residency_link l JOIN x ON l.person_id=x.person_id WHERE l.organization_id=${org}::uuid
- AND l.ended_at IS NULL),
+ AND ${liveResidency}),
 d AS (SELECT ${input.completedOn}::date<=(clock_timestamp() AT TIME ZONE o.timezone)::date AS past FROM organization o
  WHERE o.id=${org}::uuid),
--- The milestone as finished on any version, matched by lineage: one carried from an earlier version stays as recorded.
+-- The milestone as the organization recorded it on any version, matched by lineage: one carried from an earlier version
+-- stays as recorded. A former resident's own mark no longer shows, so it does not count.
 done AS (SELECT FROM enrollment_milestone c JOIN development_milestone cm ON cm.id=c.milestone_id
  AND cm.organization_id=c.organization_id JOIN m ON cm.lineage=m.lineage
- WHERE c.enrollment_id=${input.enrollmentId}::uuid AND c.organization_id=${org}::uuid),
+ WHERE c.enrollment_id=${input.enrollmentId}::uuid AND c.organization_id=${org}::uuid AND c.source='program_leader'),
 c AS (INSERT INTO enrollment_milestone (id,organization_id,enrollment_id,version_id,milestone_id,source,completed_on,
  recorder_id,confirmer_id,confirmed_at)
  SELECT ${randomUUID()}::uuid,${org}::uuid,x.id,x.version_id,m.id,'program_leader',${input.completedOn}::date,${w.actor}::uuid,
   ${w.actor}::uuid,clock_timestamp() FROM x,m,d WHERE d.past AND NOT EXISTS(SELECT FROM linked) AND NOT EXISTS(SELECT FROM done)
- ON CONFLICT (enrollment_id,milestone_id) DO NOTHING RETURNING id),
+ ON CONFLICT (enrollment_id,milestone_id) DO UPDATE SET source='program_leader',completed_on=EXCLUDED.completed_on,
+  recorder_id=EXCLUDED.recorder_id,confirmer_id=EXCLUDED.confirmer_id,confirmed_at=EXCLUDED.confirmed_at
+  WHERE enrollment_milestone.source='resident' RETURNING id),
 a AS (${w.audit({ action: "development.milestone_recorded", kind: "complete", subjectType: "development_enrollment", subject: sql`x.id`, metadata: { milestoneId: input.milestoneId, source: "program_leader" } })}
  FROM x,c RETURNING id)
 SELECT EXISTS(SELECT FROM x) AS found,EXISTS(SELECT FROM m) AS milestone,coalesce((SELECT past FROM d),false) AS past,
@@ -733,6 +772,48 @@ SELECT EXISTS(SELECT FROM x) AS found,EXISTS(SELECT FROM m) AS milestone,coalesc
 		// A milestone already recorded stays as it was recorded.
 		if (row.existing) return { outcome: "noop" as const };
 		return refuse({ code: "invalid_input", field: "completedOn" });
+	});
+}
+
+/**
+ * The director confirms a milestone the linked resident marked done (REQ-MUL-012), while the resident shares milestone
+ * progress: the confirmer is the director and the confirmation is dated now. A confirmed milestone stays as it was.
+ */
+function confirmMilestone(db: Database, authority: RequestActor, raw: unknown) {
+	return write<{ outcome: "changed" | "noop" }, C.ProgramRefusal>(db, authority, false, async (w) => {
+		const input = parse(C.confirmMilestoneRequest, raw);
+		const org = w.organization;
+		const row = await one(
+			w,
+			z.object({
+				found: z.boolean(),
+				milestone: z.boolean(),
+				shared: z.boolean(),
+				confirmed: z.boolean(),
+				already: z.boolean(),
+			}),
+			sql`WITH ${directedEnrollment(w, input.enrollmentId, input.milestoneId)},
+${linkOf(org)},
+-- The resident's mark on this milestone, on any version, matched by lineage.
+r AS (SELECT c.id,c.confirmed_at FROM enrollment_milestone c JOIN development_milestone cm ON cm.id=c.milestone_id
+ AND cm.organization_id=c.organization_id JOIN m ON cm.lineage=m.lineage
+ WHERE c.enrollment_id=${input.enrollmentId}::uuid AND c.organization_id=${org}::uuid AND c.source='resident'),
+c AS (UPDATE enrollment_milestone c SET confirmer_id=${w.actor}::uuid,confirmed_at=clock_timestamp() FROM x,r
+ WHERE c.id=r.id AND c.enrollment_id=x.id AND c.organization_id=${org}::uuid AND c.confirmed_at IS NULL
+  AND coalesce((SELECT share_milestones FROM lk),false) RETURNING c.id),
+a AS (${w.audit({ action: "development.milestone_confirmed", kind: "accept", subjectType: "development_enrollment", subject: sql`x.id`, metadata: { milestoneId: input.milestoneId, source: "resident" } })}
+ FROM x,c RETURNING id)
+SELECT EXISTS(SELECT FROM x) AS found,EXISTS(SELECT FROM m) AS milestone,
+ coalesce((SELECT share_milestones FROM lk),false) AS shared,EXISTS(SELECT FROM c) AS confirmed,
+ EXISTS(SELECT FROM r WHERE r.confirmed_at IS NOT NULL) AS already`,
+		);
+		if (row.confirmed) return { outcome: "changed" as const };
+		if (!row.found) refuse();
+		if (!row.milestone) refuse({ code: "invalid_input", field: "milestoneId" });
+		// What the resident does not share is not the organization's to confirm.
+		if (!row.shared) refuse();
+		if (row.already) return { outcome: "noop" as const };
+		return refuse({ code: "conflict" });
 	});
 }
 
@@ -872,6 +953,7 @@ export const programWriter = {
 	publishVersion,
 	enroll,
 	recordMilestone,
+	confirmMilestone,
 	addFeedback,
 	applyVersion,
 	applyVersions,

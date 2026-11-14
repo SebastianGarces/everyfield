@@ -18,6 +18,7 @@ Its `save()` writes the file on a recording run. Every call is keyed by `callKey
 | `households.test.mts` | `households.cases.json`                                                                                                  | Household tool selection and the household list answer                                |
 | `followups.test.mts`  | `followups.cases.json`                                                                                                   | Follow-up suggestions never name the signed-in user                                   |
 | `settings.test.mts`   | `settings.cases.json`                                                                                                    | Seat, Settings, sharing, connection, account and organization tools (scripted model)  |
+| `onboarding.test.mts` | `onboarding.cases.json`                                                                                                  | Setup and Discovery tools (scripted model)                                            |
 
 ## The settings suite (scripted model)
 
@@ -28,6 +29,14 @@ cards; a case with `approve` is approved and its effect run with the native serv
 (`settings-ports.mts`), and the change is read back as Settings shows it. The golden, household and follow-up suites
 offer the model only the operations they were recorded with (`RECORDED` in `golden-harness.mts`, ruling D-1137), so
 their recordings stay valid until the next recording run adds these tools.
+
+## The onboarding suite (scripted model)
+
+`onboarding.test.mts` scores the setup and Discovery tools (T-345) the same way, on the scripted model
+(`packages/evry/src/runtime/scripted-onboarding.ts`). `setup-church.mts` seeds, beside Hope Fellowship, a church whose
+Owner has not finished setup (with an Admin), two seatless accounts and a Discovery account linked to Hill Country
+Network, through the same onboarding producer `/onboarding` calls. Each approved change is read back through
+`/onboarding`'s own read (`readOnboardingEntry`) and Home's landing rule. The recorded suites leave these tools out too.
 
 ## The household and follow-up suites
 

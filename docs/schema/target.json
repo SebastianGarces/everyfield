@@ -238,7 +238,8 @@
       "network"
     ],
     "enrollment_milestone.source": [
-      "program_leader"
+      "program_leader",
+      "resident"
     ],
     "feedback.category": [
       "bug",
@@ -1419,6 +1420,8 @@
       "deletion.live_purge_completed",
       "development.enrolled",
       "development.feedback_recorded",
+      "development.milestone_confirmed",
+      "development.milestone_marked",
       "development.milestone_recorded",
       "development.plan_saved",
       "development.program_created",
@@ -12081,7 +12084,7 @@
         }
       ],
       "checks": [
-        "action in ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','branding.changed','communication.draft_deleted','communication.draft_saved','communication.rescheduled','communication.scheduled','communication.send_intended','communication.template_archived','communication.template_created','communication.template_deleted','communication.template_forked','communication.template_updated','deletion.cancelled','deletion.live_purge_completed','development.enrolled','development.feedback_recorded','development.milestone_recorded','development.plan_saved','development.program_created','development.version_applied','development.version_published','documents.archived','documents.church_archived','documents.church_restored','documents.branding_changed','documents.copied','documents.created_from_template','documents.designated','documents.export_deleted','documents.exported','documents.generated','documents.imported','documents.purged','documents.saved','documents.template_deleted','documents.template_details_changed','documents.template_saved','documents.template_updated','evry.conversation_created','evry.proposal_approved','evry.proposal_cancelled','evry.proposal_prepared','evry.proposal_retried','evry.proposal_revised','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','feedback.publication_held','feedback.publication_intended','feedback.publication_unknown','feedback.published','feedback.received','feedback.status_changed','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','launch.corrected','launch.debrief_submitted','launch.outcome_recorded','launch.summary_published','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','organization.profile_changed','people.corrected','people.created','people.duplicate_dismissed','people.duplicate_restored','people.merged','people.recorded','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.bookmark_changed','wiki.hidden','wiki.published','wiki.reading_recorded','wiki.source_order_changed')",
+        "action in ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','branding.changed','communication.draft_deleted','communication.draft_saved','communication.rescheduled','communication.scheduled','communication.send_intended','communication.template_archived','communication.template_created','communication.template_deleted','communication.template_forked','communication.template_updated','deletion.cancelled','deletion.live_purge_completed','development.enrolled','development.feedback_recorded','development.milestone_confirmed','development.milestone_marked','development.milestone_recorded','development.plan_saved','development.program_created','development.version_applied','development.version_published','documents.archived','documents.church_archived','documents.church_restored','documents.branding_changed','documents.copied','documents.created_from_template','documents.designated','documents.export_deleted','documents.exported','documents.generated','documents.imported','documents.purged','documents.saved','documents.template_deleted','documents.template_details_changed','documents.template_saved','documents.template_updated','evry.conversation_created','evry.proposal_approved','evry.proposal_cancelled','evry.proposal_prepared','evry.proposal_retried','evry.proposal_revised','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','feedback.publication_held','feedback.publication_intended','feedback.publication_unknown','feedback.published','feedback.received','feedback.status_changed','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','launch.corrected','launch.debrief_submitted','launch.outcome_recorded','launch.summary_published','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','organization.profile_changed','people.corrected','people.created','people.duplicate_dismissed','people.duplicate_restored','people.merged','people.recorded','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.bookmark_changed','wiki.hidden','wiki.published','wiki.reading_recorded','wiki.source_order_changed')",
         "num_nonnulls(actor_id,actor_token,system_cause)>=1",
         "kind in ('create','edit','correct','retire','restore','merge','unmerge','stage_change','classification_change','commitment_change','assign','remove','accept','revoke','resend','role_change','leader_change','tick','untick','archive','earn','revoke_credit','offer_answer','publish','hide','read','progress','complete','reopen','waive','supersede','finalize','reconcile','noop','triage','suppress','suppression_clear','preference','model_attempt','tool_attempt','effect_result','mail_member','outcome','declaration','movement')",
         "jsonb_typeof(metadata)='object' AND (metadata->'diff' IS NULL OR (jsonb_typeof(metadata->'diff')='object' AND octet_length(convert_to((metadata->'diff')::text,'UTF8'))<=2048))"
@@ -18498,7 +18501,7 @@
     {
       "name": "enrollment_milestone",
       "domain": "people",
-      "purpose": "A finished milestone of one enrollment (REQ-MUL-012): the day it was finished, who recorded and who confirmed it, when it was confirmed, and its source. Today only the program director records and confirms an unlinked enrollee's milestone in one step (source program_leader).",
+      "purpose": "A finished milestone of one enrollment (REQ-MUL-012): the day it was finished, who recorded and who confirmed it, when it was confirmed, and its source. The program director records and confirms an unlinked enrollee's milestone in one step (source program_leader); a linked resident marks their own milestone done (source resident) and it waits for the director's confirmation.",
       "library_owned": false,
       "jsonb_keys": {},
       "capabilities": [
@@ -18539,7 +18542,7 @@
         "At most one row per enrollment and milestone.",
         "Never commissions anyone or creates a plant."
       ],
-      "revision": "Append-only; a row never changes.",
+      "revision": "A row never changes, except that the director confirms a resident's waiting row once.",
       "idempotency": "A repeat for the same milestone writes nothing.",
       "deletion": "Removed with the enrollment under REQ-MUL-005.",
       "physical_verified": false,
@@ -18596,13 +18599,13 @@
           "note": "",
           "name": "confirmer_id",
           "type": "uuid",
-          "nullable": false
+          "nullable": true
         },
         {
           "note": "",
           "name": "confirmed_at",
           "type": "timestamptz",
-          "nullable": false
+          "nullable": true
         }
       ],
       "primary_key": [
@@ -18689,7 +18692,8 @@
         }
       ],
       "checks": [
-        "(source = 'program_leader'::text)"
+        "(((confirmer_id IS NULL) = (confirmed_at IS NULL)) AND ((source = 'resident'::text) OR (confirmed_at IS NOT NULL)))",
+        "source in ('program_leader', 'resident')"
       ],
       "indexes": {
         "enrollment_milestone_milestone_idx": {
@@ -18734,7 +18738,8 @@
           "enrollment_milestone_confirmer"
         ],
         "checks": [
-          "enrollment_milestone_source"
+          "enrollment_milestone_source",
+          "enrollment_milestone_confirmed"
         ]
       },
       "policies": {},

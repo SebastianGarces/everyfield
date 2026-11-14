@@ -6,6 +6,7 @@ import type {
 	LanguageModelV4StreamPart,
 } from "@ai-sdk/provider";
 import { randomUUID } from "node:crypto";
+import { onboardingStep } from "./scripted-onboarding.ts";
 import { settingsStep } from "./scripted-settings.ts";
 
 // A deterministic stand-in for a qualified model, for local previews and tests only (selectQualifiedModel never picks
@@ -631,6 +632,8 @@ function respond(options: LanguageModelV4CallOptions): LanguageModelV4Content[] 
 		return [{ type: "text", text: JSON.stringify({ kind: classify(text) }) }];
 	// "Show a formatting demo": an answer with markdown, written slowly enough to watch it grow (local previews and tests).
 	if (FORMATTING.test(text)) return [{ type: "text", text: FORMATTING_ANSWER }];
+	const onboarding = onboardingStep(options, text);
+	if (onboarding) return onboarding;
 	const settings = settingsStep(options, text);
 	if (settings) return settings;
 	const hasPeople = options.tools?.some((t) => t.name === "people_read") ?? false;
