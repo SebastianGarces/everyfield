@@ -73,10 +73,8 @@ const ok = <T,>(r: { status: string; value?: T; refusal?: unknown }): T => {
 const unavailable = { status: "refused", refusal: { code: "unavailable" } };
 const board = async (a: Actor) => ok(await readPipelineBoard(f.db, await authority(a), {}));
 const names = (b: Awaited<ReturnType<typeof board>>) => b.stages.flatMap((s) => s.people.map((p) => p.name)).sort();
-const record = async (a: Actor, personId: string) =>
-	readPipelinePersonRecord(f.db, await authority(a), { personId });
-const enrollment = async (a: Actor, enrollmentId: string) =>
-	readEnrollment(f.db, await authority(a), { enrollmentId });
+const record = async (a: Actor, personId: string) => readPipelinePersonRecord(f.db, await authority(a), { personId });
+const enrollment = async (a: Actor, enrollmentId: string) => readEnrollment(f.db, await authority(a), { enrollmentId });
 const milestoneOf = <T extends { title: string }>(list: T[], title: string) => list.find((m) => m.title === title)!;
 /** The text an Evry pipeline read hands the model for this person. */
 async function evryRead(a: Actor) {
@@ -391,7 +389,10 @@ test("AC:ADR1-002 AC:ADR1-009 AC:ADR1-012 Dana and Luis see every pipeline perso
 			],
 		);
 		const jordan = ok(await enrollment(who, jordanEnrollment));
-		assert.deepEqual(milestoneOf(jordan.milestones, PREACH).feedback?.map((x) => x.body), [SECRET.jordanFeedback]);
+		assert.deepEqual(
+			milestoneOf(jordan.milestones, PREACH).feedback?.map((x) => x.body),
+			[SECRET.jordanFeedback],
+		);
 		assert.deepEqual(
 			ok(await readProgram(f.db, await authority(who), { programId: program })).enrollments.map((x) => x.name),
 			["Casey Lee", "Jordan Reyes"],
@@ -411,9 +412,10 @@ test("AC:ADR1-002 AC:ADR1-012 AC:ADR1-014 Ana sees Casey, the notes on her, the 
 	// As director, Ana reads both enrollments with the feedback she wrote; Casey's own mark shows while she shares.
 	const e = ok(await enrollment(ana, caseyEnrollment));
 	assert.deepEqual(milestoneOf(e.milestones, VISION).completion?.source, "resident");
-	assert.deepEqual(milestoneOf(e.milestones, PREACH).feedback?.map((x) => [x.writer, x.body]), [
-		["Ana", SECRET.caseyFeedback],
-	]);
+	assert.deepEqual(
+		milestoneOf(e.milestones, PREACH).feedback?.map((x) => [x.writer, x.body]),
+		[["Ana", SECRET.caseyFeedback]],
+	);
 	assert.deepEqual(e.resident, { status: "linked", milestones: "shared", foundations: { status: "not_shared" } });
 	const text = await everything(ana);
 	for (const secret of [SECRET.deeNote, SECRET.danaNote, SECRET.jordanTalk])
@@ -451,10 +453,13 @@ test("AC:ADR1-002 AC:ADR1-007 AC:ADR1-009 Ben sees stage counts and conversation
 	const b = await board(ben);
 	assert.equal(b.audience, "counts");
 	assert.deepEqual(names(b), []);
-	assert.deepEqual(
-		Object.fromEntries(b.stages.map((s) => [s.label, s.count])),
-		{ "Potential leader": 1, Apprentice: 1, Resident: 0, Commissioned: 0, "Not continuing": 0 },
-	);
+	assert.deepEqual(Object.fromEntries(b.stages.map((s) => [s.label, s.count])), {
+		"Potential leader": 1,
+		Apprentice: 1,
+		Resident: 0,
+		Commissioned: 0,
+		"Not continuing": 0,
+	});
 	const g = ok(await readPipelineGoals(f.db, await authority(ben)));
 	assert.equal(
 		g.conversations.quarters.reduce((n, q) => n + q.count, 0),
@@ -618,7 +623,11 @@ test("AC:ADR1-002 AC:ADR1-004 an address someone can't see answers exactly like 
 		[hillOwner, caseyPerson],
 	];
 	for (const [who, person] of people) {
-		await same(`person for ${who.email}`, () => record(who, person), () => record(who, missing));
+		await same(
+			`person for ${who.email}`,
+			() => record(who, person),
+			() => record(who, missing),
+		);
 		const auth = await authority(who);
 		const note = person === jordanPerson ? notes.deeOnJordan : notes.anaOnCasey;
 		await same(
@@ -648,7 +657,8 @@ test("AC:ADR1-002 AC:ADR1-004 an address someone can't see answers exactly like 
 
 test("AC:ADR1-008 Dana and Luis moving Casey at the same moment: one move saves, the other is told she changed", async () => {
 	const seen = ok(await record(dana, caseyPerson));
-	const moves = () => count(sql`SELECT count(*)::int AS n FROM pipeline_stage_move m JOIN pipeline_person pp
+	const moves = () =>
+		count(sql`SELECT count(*)::int AS n FROM pipeline_stage_move m JOIN pipeline_person pp
 	 ON pp.id=m.pipeline_person_id WHERE pp.person_id=${caseyPerson}::uuid`);
 	const before = await moves();
 	const [byDana, byLuis] = await atOnce(
@@ -675,7 +685,10 @@ test("AC:ADR1-008 Dana and Luis moving Casey at the same moment: one move saves,
 	assert.equal(now.stage.label, winner);
 	assert.equal(await moves(), before + 1);
 	assert.deepEqual(
-		now.history.filter((h) => h.kind === "moved").slice(0, 1).map((h) => h.to),
+		now.history
+			.filter((h) => h.kind === "moved")
+			.slice(0, 1)
+			.map((h) => h.to),
 		[winner],
 	);
 });
@@ -710,7 +723,12 @@ test("AC:ADR1-010 two windows saving the same program draft at the same moment: 
 	const draft = ok(await readProgram(f.db, await authority(ana), { programId: program })).draft!;
 	assert.equal(draft.milestones.filter((m) => /small group|replacement/.test(m.title)).length, 1);
 	const fresh = ok(await readProgram(f.db, await authority(ana), { programId: program }));
-	ok(await programWriter.publishVersion(f.db, await authority(ana), { programId: program, expectedRevision: fresh.revision }));
+	ok(
+		await programWriter.publishVersion(f.db, await authority(ana), {
+			programId: program,
+			expectedRevision: fresh.revision,
+		}),
+	);
 });
 
 test("AC:ADR1-011 applying the new version to the same person at the same moment applies it once", async () => {
@@ -725,10 +743,13 @@ test("AC:ADR1-011 applying the new version to the same person at the same moment
 		count(
 			sql`SELECT count(*)::int AS n FROM audit_event WHERE action='development.version_applied' AND subject_id=${jordanEnrollment}::uuid`,
 		);
-	const replies = await atOnce(sql`SELECT 1 FROM development_enrollment WHERE id=${jordanEnrollment}::uuid FOR UPDATE`, [
-		async () => programWriter.applyVersion(f.db, await authority(ana), input),
-		async () => programWriter.applyVersion(f.db, await authority(ana), input),
-	]);
+	const replies = await atOnce(
+		sql`SELECT 1 FROM development_enrollment WHERE id=${jordanEnrollment}::uuid FOR UPDATE`,
+		[
+			async () => programWriter.applyVersion(f.db, await authority(ana), input),
+			async () => programWriter.applyVersion(f.db, await authority(ana), input),
+		],
+	);
 	assert.deepEqual(replies.map((r) => (r.status === "ok" ? r.value.outcome : r.refusal.code)).sort(), [
 		"changed",
 		"noop",
@@ -787,7 +808,9 @@ test("AC:ADR1-004 accepting the same invitation in two tabs at once makes one li
 	]);
 	// One tab links; the other is told it is already linked (its screen says so), and nothing is written twice.
 	const outcomes = [one, two].map((x) =>
-		x && typeof x === "object" && "refused" in x ? (x as { refused: string }).refused : (x as { status: string }).status,
+		x && typeof x === "object" && "refused" in x
+			? (x as { refused: string }).refused
+			: (x as { status: string }).status,
 	);
 	assert.deepEqual(outcomes.sort(), ["accepted", "already_linked"]);
 	assert.equal(await links(r.personId), 1);
@@ -814,9 +837,8 @@ test("AC:ADR1-004 Luis revoking while Casey's invitation is being accepted leave
 	// Exactly one of the two lands; the other is told the invitation is no longer open (each screen words that code).
 	assert.notEqual(refused(accepted), refused(revoked));
 	assert.deepEqual([accepted, revoked].filter(refused), [{ refused: "invitation_unavailable" }]);
-	const state = (
-		await f.admin.execute(sql`SELECT state FROM invitation WHERE id=${r.invitation.invitationId}::uuid`)
-	).rows[0]!.state;
+	const state = (await f.admin.execute(sql`SELECT state FROM invitation WHERE id=${r.invitation.invitationId}::uuid`))
+		.rows[0]!.state;
 	if (refused(accepted)) {
 		assert.equal(state, "revoked");
 		assert.equal(await links(r.personId), 0);
