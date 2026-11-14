@@ -80,13 +80,17 @@ function launchAnswer(r: Resume) {
 	if (r.scheduledLaunchDate) return `Launch date ${r.scheduledLaunchDate}`;
 	return r.launch.value.answer === "skip" ? "Skipped" : "No date yet";
 }
+/** A lead answer as `/onboarding` words it. */
+export const LEAD_TEXT = { yes: "You hold the lead role", no: "Someone else leads", skip: "Skipped" } as const;
 function leadAnswer(r: Resume) {
 	const lead = r.lead;
 	if (lead.answer === "pending") return null;
-	if (lead.answer === "yes")
-		return lead.seniorPastor === "filled" ? "You hold the Senior pastor role" : "You hold the lead role";
-	return lead.answer === "no" ? "Someone else leads" : "Skipped";
+	return lead.answer === "yes" && lead.seniorPastor === "filled"
+		? "You hold the Senior pastor role"
+		: LEAD_TEXT[lead.answer];
 }
+/** A Discovery link's organization kind as `/onboarding` words it. */
+export const linkKind = (kind: string) => (kind === "sending_network" ? "Network" : "Sending church");
 /** The setup steps of `/onboarding` in its order, each saved or open. */
 function setupSteps(r: Resume): SourceRow[] {
 	const plant = r.plant.id;
@@ -104,7 +108,7 @@ function setupSteps(r: Resume): SourceRow[] {
 }
 
 /** Where a returning Owner picks up on `/onboarding`: the first open step, or Finish (model.ts resumeStep). */
-export function resumeAt(r: Resume) {
+function resumeAt(r: Resume) {
 	if (r.completion.status === "completed") return "Finish setup";
 	if (r.journey.status !== "saved" || r.launch.status !== "saved") return "Where you are";
 	return r.lead.answer === "pending" ? "Your team" : "Finish setup";
@@ -162,7 +166,7 @@ export const ONBOARDING_READS = [
 				label: names.get(r.organization.id) ?? "Organization",
 				fields: {
 					organizationId: r.organization.id,
-					relationship: r.organization.organizationKind === "sending_network" ? "Network" : "Sending church",
+					relationship: linkKind(r.organization.organizationKind),
 					// What the link shares, in the Sharing screen's words, or null when it shares nothing.
 					shares:
 						SHARING_CATEGORIES.filter((k) => r.choices[k])

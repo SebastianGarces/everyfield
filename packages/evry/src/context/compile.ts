@@ -70,10 +70,10 @@ const SETTINGS_ONLY = [
  * What an account with no church seat can't reach (T-345), with the reply that says so. The scripted model quotes it, so
  * the evals test the words the real model gets.
  */
-export const NEEDS_A_CHURCH =
+const NEEDS_A_CHURCH =
 	"Finish setup first: People, meetings, teams, tasks and other church records need a seat in a church, and this account has none yet. I can help you start a church, or set up a Discovery space to explore first.";
 /** What an account context never reaches (T-345): another account's setup or Discovery space, or a church's records. */
-export const OWN_SPACE_ONLY =
+const OWN_SPACE_ONLY =
 	"I can only work with your own setup and Discovery space. I can't see or change another person's Discovery space or another church's records, so nothing changed.";
 /** Who may answer a church's setup (T-345): the native setup commands take only that Owner. */
 const SETUP_RULE = "Only the Owner who is setting up this church can answer its setup questions or finish its setup.";

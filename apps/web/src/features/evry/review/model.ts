@@ -900,7 +900,7 @@ export const seatsAccount = (operation: Operation) =>
  * One Discovery link on a conversion review (field `link:<organization id>`): the organization, then whether it carries
  * over to the church and what the church's link shares. Null for any other field.
  */
-export type CarryOver = {
+type CarryOver = {
 	organizationId: string;
 	organization: string;
 	kind: string;

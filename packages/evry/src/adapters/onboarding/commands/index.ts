@@ -6,7 +6,7 @@ import { z } from "zod";
 import { phaseText, SHARING_CATEGORIES, type SharingCategory } from "../../../catalog/labels.ts";
 import type { EvryActor } from "../../../context/actor.ts";
 import { accountContext, change, nativeWrite, notes, plantOwner, settled, target } from "../../native.ts";
-import { JOURNEY_TEXT, onboardingEntry } from "../reads/index.ts";
+import { JOURNEY_TEXT, LEAD_TEXT, linkKind, onboardingEntry } from "../reads/index.ts";
 
 // The setup reviewed writes (T-345): the Owner setting up a church answers where it is, who leads it and finishes
 // setup; a seatless account starts a church or a Discovery space; a Discovery account turns its space into a church.
@@ -77,8 +77,8 @@ export const declareJourney = nativeWrite({
 
 const DEFAULT_LEAD = { roleName: "Lead pastor", teamName: "Leadership" } as const;
 const name = z.string().trim().min(1).max(200);
-const LEAD_TEXT = { yes: "You hold the lead role", no: "Someone else leads", skip: "Skipped" } as const;
-const leadText = sql`CASE os.lead->>'answer' WHEN 'no' THEN 'Someone else leads' WHEN 'skip' THEN 'Skipped' END`;
+/** A saved lead answer (os.lead) as `/onboarding` words it, or null while it is open. A "yes" answer has no review. */
+const leadText = sql`(${JSON.stringify(LEAD_TEXT)}::jsonb)->>(os.lead->>'answer')`;
 
 export const answerLead = nativeWrite({
 	operation: "identity.answerLeadOnboarding",
@@ -266,7 +266,7 @@ export const convertToPlant = nativeWrite({
 		const rows = JSON.stringify(
 			links.map((l) => ({
 				id: l.r.organization.id,
-				kind: l.r.organization.organizationKind === "sending_network" ? "Network" : "Sending church",
+				kind: linkKind(l.r.organization.organizationKind),
 				now: sharedNow(l.r.choices),
 				carries: l.carries,
 				share: l.carries ? sharedNow(l.choices) : [],
