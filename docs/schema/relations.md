@@ -251,6 +251,9 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `pipeline_sharing(changed_by)` | `account(id)` | restrict | Account identity is an attribution or explicitly accepted resident endpoint, not an organization seat. Revalidate exact link and consent; purge private originals and retain minimal scope-local attribution on account removal. |
 | `pipeline_stage(organization_id)` | `organization(id)` | restrict |  |
 | `pipeline_stage(id, organization_id)` | `record(id, tenant_id)` | restrict |  |
+| `pipeline_stage_move(from_stage_id, organization_id)` | `pipeline_stage(id, organization_id)` | restrict |  |
+| `pipeline_stage_move(pipeline_person_id, organization_id)` | `pipeline_person(id, organization_id)` | restrict |  |
+| `pipeline_stage_move(to_stage_id, organization_id)` | `pipeline_stage(id, organization_id)` | restrict |  |
 | `plant(id)` | `tenant(id)` | restrict |  |
 | `plant(id)` | `record(id)` | restrict | Root identity FK uses id as owner; record CHECK kind not in ('account','plant','organization') or tenant_id = id enforces equal ownership, and the trusted subtype trigger validates the exact root kind. |
 | `plant_geography(plant_id)` | `plant(id)` | restrict |  |

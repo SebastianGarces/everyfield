@@ -70,9 +70,9 @@
   "contract_status": "Reviewed starting design; builders may change it through a reviewed migration.",
   "as_of": "2026-10-17",
   "implementation_authorized": false,
-  "table_count": 105,
-  "column_count": 1204,
-  "foreign_key_count": 358,
+  "table_count": 106,
+  "column_count": 1212,
+  "foreign_key_count": 361,
   "type_contracts": {
     "text": "UTF8; per-boundary bounded, sanitized only when rendered in rich context.",
     "date": "YYYY-MM-DD local calendar date, never UTC midnight instant.",
@@ -30665,6 +30665,236 @@
           "pipeline_stage_ck_1",
           "pipeline_stage_ck_2",
           "pipeline_stage_ck_3"
+        ]
+      },
+      "policies": {},
+      "rls": false
+    },
+    {
+      "name": "pipeline_stage_move",
+      "domain": "people",
+      "purpose": "One stage placement or move of an organization pipeline person (REQ-MUL-008): the stages and their labels as they were at that moment, and the reason a person gave. Its id is the id of the move's audit event (written in the same statement), which holds who moved the person and when; the reason stays here and never enters central audit (REQ-MUL-002).",
+      "library_owned": false,
+      "jsonb_keys": {},
+      "capabilities": [
+        "CAP-A-056"
+      ],
+      "replaces": [],
+      "producer_work_packages": [
+        "WP-098"
+      ],
+      "producer_derivation": {
+        "old_target_tables": [],
+        "additional_producers": [
+          "WP-098"
+        ],
+        "rule": "WP-098 organization pipeline records each human stage move with its reason."
+      },
+      "feature_ids": [
+        "MUL-007",
+        "MUL-008",
+        "MUL-009"
+      ],
+      "acceptance_ids": [
+        "AC-MUL-007--MUL-007",
+        "AC-MUL-008--MUL-008",
+        "AC-MUL-009--MUL-009"
+      ],
+      "future_case_ids": [
+        "ADR1-007",
+        "ADR1-008",
+        "ADR1-009"
+      ],
+      "scope": "people",
+      "invariants": [
+        "Written only by a human placement or move, in the same statement as its audit event, which shares its id.",
+        "A move from a stage carries a non-empty reason; the first placement has no from stage and no reason.",
+        "Labels are copied at the time of the move, so a later rename never changes history."
+      ],
+      "revision": "Append-only; a row never changes.",
+      "idempotency": "One row per audit event; a repeated move to the current stage writes nothing.",
+      "deletion": "Removed with the pipeline person under REQ-MUL-005.",
+      "physical_verified": false,
+      "columns": [
+        {
+          "note": "",
+          "name": "id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "organization_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "pipeline_person_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "from_stage_id",
+          "type": "uuid",
+          "nullable": true
+        },
+        {
+          "note": "",
+          "name": "to_stage_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "from_label",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "",
+          "name": "to_label",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "reason",
+          "type": "text",
+          "nullable": true
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "unique_keys": [],
+      "foreign_keys": [
+        {
+          "deletion": {
+            "action": "restrict",
+            "policy": "Explicit dependency-ordered removal or authorized minimal-attribution detachment. Current grants and removal witnesses apply to retained facts and recovery; a foreign key grants no access."
+          },
+          "columns": [
+            "from_stage_id",
+            "organization_id"
+          ],
+          "references": {
+            "table": "pipeline_stage",
+            "columns": [
+              "id",
+              "organization_id"
+            ]
+          },
+          "on_delete": "restrict"
+        },
+        {
+          "deletion": {
+            "action": "restrict",
+            "policy": "Explicit dependency-ordered removal or authorized minimal-attribution detachment. Current grants and removal witnesses apply to retained facts and recovery; a foreign key grants no access."
+          },
+          "columns": [
+            "pipeline_person_id",
+            "organization_id"
+          ],
+          "references": {
+            "table": "pipeline_person",
+            "columns": [
+              "id",
+              "organization_id"
+            ]
+          },
+          "on_delete": "restrict"
+        },
+        {
+          "deletion": {
+            "action": "restrict",
+            "policy": "Explicit dependency-ordered removal or authorized minimal-attribution detachment. Current grants and removal witnesses apply to retained facts and recovery; a foreign key grants no access."
+          },
+          "columns": [
+            "to_stage_id",
+            "organization_id"
+          ],
+          "references": {
+            "table": "pipeline_stage",
+            "columns": [
+              "id",
+              "organization_id"
+            ]
+          },
+          "on_delete": "restrict"
+        }
+      ],
+      "checks": [
+        "((from_stage_id IS NULL) = (from_label IS NULL))",
+        "((reason IS NULL AND from_stage_id IS NULL) OR ((length(btrim(reason)) >= 1) AND (length(reason) <= 1000)))"
+      ],
+      "indexes": {
+        "pipeline_stage_move_person_idx": {
+          "name": "pipeline_stage_move_person_idx",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "pipeline_person_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "pipeline_stage_move_from_idx": {
+          "name": "pipeline_stage_move_from_idx",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "from_stage_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "pipeline_stage_move_to_idx": {
+          "name": "pipeline_stage_move_to_idx",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "to_stage_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "constraint_names": {
+        "primary": [
+          "pipeline_stage_move_pkey"
+        ],
+        "unique": [],
+        "foreign": [
+          "pipeline_stage_move_person",
+          "pipeline_stage_move_from",
+          "pipeline_stage_move_to"
+        ],
+        "checks": [
+          "pipeline_stage_move_from_label",
+          "pipeline_stage_move_reason"
         ]
       },
       "policies": {},
