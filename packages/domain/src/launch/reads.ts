@@ -11,6 +11,7 @@ import { assigneesOf } from "../tasks/assignees.ts";
 import { SEED } from "./catalog.ts";
 import { deny, scopeOf, settle, type Scope } from "./core.ts";
 import { historyOf, LAUNCH_ACTIONS } from "./history.ts";
+import { preparationJson } from "../oversight/launch.ts";
 
 export const systemClock: Clock = { now: () => instant.parse(new Date().toISOString()) };
 const iso = (value: SQL) => sql`to_char(${value} AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`;
@@ -134,7 +135,8 @@ export const planColumns = (plant: SQL, admin: SQL) => sql`${outcomeColumns(plan
 		WHERE m.plant_id=${plant} AND m.removed_at IS NULL) AS milestones,
 	${heldPractices(plant)} AS practices,
 	(SELECT count(*)::int FROM launch_milestone m WHERE m.plant_id=${plant}) AS seeded_milestones,
-	(SELECT count(*)::int FROM task k WHERE k.plant_id=${plant} AND k.launch_task_key IS NOT NULL) AS seeded_tasks`;
+	(SELECT count(*)::int FROM task k WHERE k.plant_id=${plant} AND k.launch_task_key IS NOT NULL) AS seeded_tasks,
+	${preparationJson(plant, sql`true`)} AS preparation`;
 /** An account named on a row: null when the account has since been deleted. */
 const named = z
 	.object({ accountId: z.uuid(), displayName: z.string().nullable() })
@@ -176,6 +178,7 @@ const planRow = z.object({
 	practices: z.int(),
 	seeded_milestones: z.int(),
 	seeded_tasks: z.int(),
+	preparation: z.unknown(),
 });
 /** The plan from planColumns, and whether readiness needs repair: a dated plan missing seeded milestones or tasks. */
 export function planOf(raw: unknown, clock: Clock) {
@@ -191,6 +194,7 @@ export function planOf(raw: unknown, clock: Clock) {
 		evidence: c.evidenceOf(r.submitted),
 		debrief: r.admin ? { draft: r.draft, submitted: r.submitted } : null,
 		summary: r.admin ? { draft: r.summary_draft, published: r.published ?? [] } : null,
+		preparation: r.preparation,
 	});
 	const dated = r.launch !== null && r.launch.status !== "planning";
 	const incomplete = r.seeded_milestones < SEED.length || r.seeded_tasks < TASK_COUNT;

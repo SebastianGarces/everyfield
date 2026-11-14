@@ -7,6 +7,7 @@ import { createSeatService } from "@everyfield/domain/identity";
 import { auditTransaction } from "@everyfield/domain/operations";
 import {
 	createOrganizationAdapter,
+	geographyReference,
 	readAnswerableInvitation,
 	residencyLinks,
 	readSharingDisclosure,
@@ -100,8 +101,9 @@ function create(v: z.infer<typeof env>) {
 			return sql`UPDATE job SET state='superseded',claim_generation=claim_generation+1,lease_owner=NULL,lease_until=NULL,revision=revision+1,finished_at=clock_timestamp() WHERE subject_record_id=${input.sourceId} AND kind='digest' AND state IN ('ready','retry_wait','claimed')`;
 		},
 	};
-	// No reporting-location screen here; the plant settings owner supplies the reference (WP-010).
-	const adapter = createOrganizationAdapter(effects, { candidates: async () => [] });
+	// The plant settings Region picker saves through organizations.correctReportingLocation; the official OMB 23-01
+	// list decides which areas a place may pick (WP-047b).
+	const adapter = createOrganizationAdapter(effects, geographyReference);
 	return { db, adapter, effects, seats: createSeatService(db), origin: v.IDENTITY_ORIGIN };
 }
 /** The organization adapter and effects, shared with the settings mount (WP-010). Null when the env is incomplete. */
