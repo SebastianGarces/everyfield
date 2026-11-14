@@ -67,15 +67,20 @@ export const registry: readonly Registration[] = [
 	r("launch_guest", "launch_guest", "person_id", "plant_id", "move"),
 	// Owned by later packages, which prove their own references after merge (WP-091 closes the set).
 	r("contact_outcome", "contact_outcome", "person_id", "plant_id", "block"),
-	r("development_enrollment", "development_enrollment", "person_id", "organization_id", "block"),
+	// An organization person's enrollments follow them, with their milestone marks and feedback. Two enrollments in one
+	// program refuse the merge (enrollment_collision, REQ-MUL-017).
+	r("development_enrollment", "development_enrollment", "person_id", "organization_id", "move"),
 	r("invitation", "invitation", "resident_person_id", "tenant_id", "block"),
 	r("mail", "mail", "recipient_person_id", "tenant_id", "block"),
 	r("meeting_kit_item", "meeting_kit_item", "assignee_person_id", "plant_id", "block"),
 	r("obligation", "obligation", "person_id", "plant_id", "block"),
 	r("participation", "participation", "person_id", "plant_id", "block"),
 	r("participation_inviter", "participation", "inviter_person_id", "plant_id", "block"),
-	r("pipeline_person", "pipeline_person", "person_id", "organization_id", "block"),
-	r("residency_link", "residency_link", "person_id", "organization_id", "block"),
+	// The source's place on the pipeline stays with its stage moves and conversations: the survivor's record reads them
+	// through the merge, and Unmerge finds them where they were. A current residency link means a linked account, which
+	// refuses the merge by itself; an ended one is history.
+	r("pipeline_person", "pipeline_person", "person_id", "organization_id", "keep"),
+	r("residency_link", "residency_link", "person_id", "organization_id", "keep"),
 	r("task", "task", "person_id", "plant_id", "block"),
 	r("team_leader", "team", "leader_person_id", "plant_id", "block"),
 	r("team_tenure", "team_tenure", "person_id", "plant_id", "block"),
