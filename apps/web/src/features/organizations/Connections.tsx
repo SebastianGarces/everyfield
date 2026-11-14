@@ -72,7 +72,7 @@ export function Connections({
 	const titleId = `${side}-connections-title`;
 
 	return (
-		<Card as="section" aria-labelledby={titleId}>
+		<Card as="section" id="connections" aria-labelledby={titleId} className="scroll-mt-24">
 			<div className="flex flex-wrap items-start gap-x-4 gap-y-3">
 				<div className="min-w-0 flex-1 basis-64">
 					<h2 id={titleId} className="font-title text-title-sm tracking-[-0.02em] text-ink">

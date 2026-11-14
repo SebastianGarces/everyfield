@@ -6,7 +6,8 @@ import type { RequestActor } from "../../access/session.ts";
 import { deny, parse, read, type Reader } from "../core.ts";
 import { owner, row, unique } from "../reads.ts";
 import { rosterDigest } from "./digest.ts";
-const compatible = sql`(SELECT c.kind = 'earned' AND c.version = g.version
+/** The latest credit of person `a.person_id` matches program `g` at its current version: that training is complete. */
+export const compatible = sql`(SELECT c.kind = 'earned' AND c.version = g.version
 	FROM training_credit c
 	WHERE c.plant_id = g.plant_id AND c.program_id = g.id AND c.person_id = a.person_id
 	ORDER BY c.recorded_at DESC, c.id DESC
