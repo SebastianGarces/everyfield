@@ -25,7 +25,18 @@ import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
 import type { EffectResult, ReviewedWrite } from "../../../proposals/types.ts";
-import { id, inPlant, localWhen, meetingId, ownerOrAdmin, personId, RSVP, TYPE_LABEL, value, venueId } from "../shared.ts";
+import {
+	id,
+	inPlant,
+	localWhen,
+	meetingId,
+	ownerOrAdmin,
+	personId,
+	RSVP,
+	TYPE_LABEL,
+	value,
+	venueId,
+} from "../shared.ts";
 
 // The Meetings reviewed writes (WP-066). The model only proposes. Each review reads the target through the native
 // Meetings reads, saves the native command's exact request (with the revision the review showed) and runs that same
@@ -237,7 +248,10 @@ const diffed = ({ prepared, value: v }: { prepared: Prepared<Detail>; value: Mee
 	meetingDiff(prepared.facts, v.meeting);
 /** The reason the person gave, as the card's last row. */
 const reasonRow = (prepared: Prepared) => created("reason", (prepared.args.input as { reason: string }).reason);
-const diffedWithReason = (p: { prepared: Prepared<Detail>; value: MeetingResult }) => [...diffed(p), reasonRow(p.prepared)];
+const diffedWithReason = (p: { prepared: Prepared<Detail>; value: MeetingResult }) => [
+	...diffed(p),
+	reasonRow(p.prepared),
+];
 const reason = c.reason;
 const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const clock = z.string().regex(/^\d{2}:\d{2}$/);
@@ -299,7 +313,12 @@ export const schedule = write({
 			created("status", STATUS[m.status]),
 			...(m.guestCount ? [created("guests", String(m.guestCount))] : []),
 			...(m.agenda.sections.length
-				? [created("agenda", m.agenda.sections.map((s) => `${s.title} (${s.minutes} min)`))]
+				? [
+						created(
+							"agenda",
+							m.agenda.sections.map((s) => `${s.title} (${s.minutes} min)`),
+						),
+					]
 				: []),
 			...(m.kit ? [created("kit", `${m.kit.total} checklist items to prepare`)] : []),
 			...(m.notes ? [created("meetingNotes", m.notes)] : []),
@@ -318,8 +337,7 @@ const editInput = z.strictObject({
 });
 export const edit = write({
 	operation: "meetings.edit",
-	description:
-		"Change a meeting's title, notes, date and time, or venue (null: none).",
+	description: "Change a meeting's title, notes, date and time, or venue (null: none).",
 	input: editInput,
 	async prepare(db, actor, i) {
 		const m = await meeting(db, actor, i.meetingId);
@@ -341,8 +359,7 @@ export const edit = write({
 
 export const changeStatus = write({
 	operation: "meetings.changeStatus",
-	description:
-		"Move a meeting to another status, such as cancelled.",
+	description: "Move a meeting to another status, such as cancelled.",
 	input: z.strictObject({ meetingId, to: c.meetingStatus }),
 	prepare: (db, actor, i) => onMeeting(db, actor, i.meetingId, { to: i.to }),
 	run: (w, tx, ctx, r) => w.meetings.changeStatus(tx, ctx, r),
@@ -355,8 +372,7 @@ export const changeStatus = write({
 
 export const deleteMeeting = write({
 	operation: "meetings.delete",
-	description:
-		"Delete a meeting from Meetings, with the reason. Owner or Admin only.",
+	description: "Delete a meeting from Meetings, with the reason. Owner or Admin only.",
 	input: z.strictObject({ meetingId, reason }),
 	prepare: (db, actor, i) => onMeeting(db, actor, i.meetingId, { reason: i.reason }),
 	run: (w, tx, ctx, r) => w.meetings.delete(tx, ctx, r),
@@ -367,8 +383,7 @@ export const deleteMeeting = write({
 const localStamp = z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/);
 export const completePractice = write({
 	operation: "meetings.completePractice",
-	description:
-		"Record a pre-launch practice as held, at a church-local time (default: as scheduled).",
+	description: "Record a pre-launch practice as held, at a church-local time (default: as scheduled).",
 	input: z.strictObject({ meetingId, heldAt: localStamp.optional() }),
 	async prepare(db, actor, i) {
 		const m = await meeting(db, actor, i.meetingId);
@@ -382,14 +397,22 @@ export const completePractice = write({
 
 export const correctPracticeOccurrence = write({
 	operation: "meetings.correctPracticeOccurrence",
-	description:
-		"Correct whether a pre-launch practice was held, with the reason.",
-	input: z.strictObject({ meetingId, state: z.enum(["completed", "not_completed"]), heldAt: localStamp.optional(), reason }),
+	description: "Correct whether a pre-launch practice was held, with the reason.",
+	input: z.strictObject({
+		meetingId,
+		state: z.enum(["completed", "not_completed"]),
+		heldAt: localStamp.optional(),
+		reason,
+	}),
 	async prepare(db, actor, i) {
 		const m = await meeting(db, actor, i.meetingId);
 		if (!m) return null;
 		const occurredAt =
-			i.state === "completed" ? (i.heldAt ? instantOf(i.heldAt, m.zone) : (m.occurrence.heldAt ?? m.startsAt)) : undefined;
+			i.state === "completed"
+				? i.heldAt
+					? instantOf(i.heldAt, m.zone)
+					: (m.occurrence.heldAt ?? m.startsAt)
+				: undefined;
 		return onDetail(m, {
 			state: i.state,
 			...(occurredAt ? { occurredAt } : {}),
@@ -403,8 +426,7 @@ export const correctPracticeOccurrence = write({
 
 export const correctOccurrence = write({
 	operation: "meetings.correctOccurrence",
-	description:
-		"Void a held meeting that should not count, or restore it, with the reason.",
+	description: "Void a held meeting that should not count, or restore it, with the reason.",
 	input: z.strictObject({ meetingId, voided: z.boolean(), reason }),
 	prepare: (db, actor, i) => onMeeting(db, actor, i.meetingId, { voided: i.voided, reason: i.reason }),
 	run: (w, tx, ctx, r) => w.meetings.correctOccurrence(tx, ctx, r),
@@ -414,8 +436,7 @@ export const correctOccurrence = write({
 
 export const replaceAgenda = write({
 	operation: "meetings.replaceAgenda",
-	description:
-		"Replace a meeting's agenda with the sections the person gives, in order.",
+	description: "Replace a meeting's agenda with the sections the person gives, in order.",
 	input: z.strictObject({
 		meetingId,
 		sections: z
@@ -455,8 +476,7 @@ export const populateKit = write({
 
 export const updateKitItem = write({
 	operation: "meetings.updateKitItem",
-	description:
-		"Check or uncheck a kit item from meetings.listKit, or set who brings it.",
+	description: "Check or uncheck a kit item from meetings.listKit, or set who brings it.",
 	input: z.strictObject({
 		meetingId,
 		itemId: id,
@@ -501,8 +521,7 @@ export const updateKitItem = write({
 
 export const inviteGuest = write({
 	operation: "meetings.inviteGuest",
-	description:
-		"Add a person in People to a meeting's guest list. Sends nothing.",
+	description: "Add a person in People to a meeting's guest list. Sends nothing.",
 	input: z.strictObject({ meetingId, personId, inviterPersonId: personId.optional() }),
 	async prepare(db, actor, i) {
 		const m = await meeting(db, actor, i.meetingId);
@@ -565,8 +584,7 @@ const answer = z.enum(["yes", "no", "no answer"]);
 const RSVP_VALUE = { yes: "confirmed", no: "declined", "no answer": null } as const;
 export const correctRsvp = write({
 	operation: "meetings.correctRsvp",
-	description:
-		"Correct a guest's RSVP as they told the planter.",
+	description: "Correct a guest's RSVP as they told the planter.",
 	input: z.strictObject({ meetingId, personId, rsvp: answer }),
 	prepare: (db, actor, i) => onGuest(db, actor, i.meetingId, i.personId, { rsvp: RSVP_VALUE[i.rsvp] }),
 	run: (w, tx, ctx, r) => w.guests.correctRsvp(tx, ctx, r),
@@ -645,13 +663,15 @@ const contactAsked = ({ prepared }: { prepared: Prepared<ContactFacts> }) => [
 
 export const createGuestContact = write({
 	operation: "meetings.createGuestContact",
-	description:
-		"Add a new person to People and to a meeting's guest list.",
+	description: "Add a new person to People and to a meeting's guest list.",
 	input: z.strictObject({ ...contactInput, attended: z.boolean().optional() }),
 	prepare: (db, actor, i) => onContact(db, actor, i, { attendance: i.attended ? "attended" : "not_recorded" }),
 	run: (w, tx, ctx, r) => w.guests.createGuestContact(tx, ctx, r),
 	changes: (p: { prepared: Prepared<ContactFacts>; value: ContactResult }) =>
-		contactChanges(p, (p.prepared.args.input as { attendance: string }).attendance === "attended" ? "attended" : "not recorded"),
+		contactChanges(
+			p,
+			(p.prepared.args.input as { attendance: string }).attendance === "attended" ? "attended" : "not recorded",
+		),
 	asked: (p) => contactAsked({ prepared: p }),
 	revision: guestRevision,
 });
@@ -700,8 +720,7 @@ export const clearCard = write({
 
 export const copyTeamRoster = write({
 	operation: "meetings.copyTeamRoster",
-	description:
-		"Update a team meeting's guests from its ministry.",
+	description: "Update a team meeting's guests from its ministry.",
 	input: z.strictObject({ meetingId }),
 	async prepare(db, actor, i) {
 		const m = await meeting(db, actor, i.meetingId);
@@ -716,9 +735,20 @@ export const copyTeamRoster = write({
 		};
 	},
 	run: (w, tx, ctx, r) => w.roster.copyTeamRoster(tx, ctx, r),
-	changes: ({ prepared }: { prepared: Prepared<z.infer<typeof c.rosterPreview>>; value: z.infer<typeof c.rosterUpdateResult> }) => [
-		created("add", prepared.facts.add.map((x) => x.displayName)),
-		created("remove", prepared.facts.remove.map((x) => x.displayName)),
+	changes: ({
+		prepared,
+	}: {
+		prepared: Prepared<z.infer<typeof c.rosterPreview>>;
+		value: z.infer<typeof c.rosterUpdateResult>;
+	}) => [
+		created(
+			"add",
+			prepared.facts.add.map((x) => x.displayName),
+		),
+		created(
+			"remove",
+			prepared.facts.remove.map((x) => x.displayName),
+		),
 	],
 	revision: () => "1",
 });
@@ -738,7 +768,11 @@ type AttendanceResult = z.infer<typeof c.attendanceMutationResult>;
 const presenceChanges = ({ prepared, value: v }: { prepared: Prepared<AttendanceFacts>; value: AttendanceResult }) =>
 	v.attendees.map((a) => {
 		const before = prepared.facts.list.items.find((g) => g.person.personId === a.person.personId);
-		return change(`presence:${a.person.displayName}`, before ? PRESENCE[before.presence] : "Not a guest yet", PRESENCE[a.presence]);
+		return change(
+			`presence:${a.person.displayName}`,
+			before ? PRESENCE[before.presence] : "Not a guest yet",
+			PRESENCE[a.presence],
+		);
 	});
 const attendanceRevisionOf = (v: { attendanceRevision: string }) => v.attendanceRevision;
 async function onAttendance(db: Reader, actor: EvryActor, meetingId: string, input: object) {
@@ -782,7 +816,10 @@ export const captureAttendanceBatch = write({
 	description: "Set several guests' presence at once.",
 	input: z.strictObject({
 		meetingId,
-		entries: z.array(z.strictObject({ personId, presence: c.presence })).min(1).max(500),
+		entries: z
+			.array(z.strictObject({ personId, presence: c.presence }))
+			.min(1)
+			.max(500),
 	}),
 	member: true,
 	prepare: (db, actor, i) => onAttendance(db, actor, i.meetingId, { entries: i.entries }),
@@ -806,11 +843,14 @@ async function generatedTasks(tx: Transaction, v: Finalization) {
 	const r = await tx.execute(
 		sql`SELECT id,title FROM task WHERE id=ANY(${sql.param(ids)}::uuid[]) ORDER BY array_position(${sql.param(ids)}::uuid[],id)`,
 	);
-	const titles = new Map(z.array(z.object({ id: z.string(), title: z.string() })).parse(r.rows).map((t) => [t.id, t.title]));
+	const titles = new Map(
+		z
+			.array(z.object({ id: z.string(), title: z.string() }))
+			.parse(r.rows)
+			.map((t) => [t.id, t.title]),
+	);
 	return v.work.flatMap((w) =>
-		w.taskId && titles.has(w.taskId)
-			? [`${titles.get(w.taskId)}${w.needsOwner ? " (needs an owner)" : ""}`]
-			: [],
+		w.taskId && titles.has(w.taskId) ? [`${titles.get(w.taskId)}${w.needsOwner ? " (needs an owner)" : ""}`] : [],
 	);
 }
 /** The finalize or correction card: every attendance mark, stage advance and task it creates. */
@@ -830,11 +870,18 @@ function settlementChanges({
 	return [
 		created(
 			"attended",
-			v.attendeeIds.map((p) => `${name(p)}${first.has(p) && prepared.facts.m.type === "vision_meeting" ? " (first Vision)" : ""}`),
+			v.attendeeIds.map(
+				(p) => `${name(p)}${first.has(p) && prepared.facts.m.type === "vision_meeting" ? " (first Vision)" : ""}`,
+			),
 		),
 		...(v.removed.length ? [created("noLongerAttended", v.removed.map(name))] : []),
 		...(v.stageChanges.length
-			? [created("stage", v.stageChanges.map((x) => `${name(x.personId)}: ${STAGE[x.from]} → ${STAGE[x.to]}`))]
+			? [
+					created(
+						"stage",
+						v.stageChanges.map((x) => `${name(x.personId)}: ${STAGE[x.from]} → ${STAGE[x.to]}`),
+					),
+				]
 			: []),
 		created("tasks", (seen as string[]).length ? seen : "No new tasks"),
 		created("finalized", "Attendance is final once approved"),
@@ -868,8 +915,7 @@ export const finalizeAttendance = write({
 });
 export const reconcileAttendance = write({
 	operation: "meetings.reconcileAttendance",
-	description:
-		"Correct a finalized meeting's attendance: the full corrected set and the reason.",
+	description: "Correct a finalized meeting's attendance: the full corrected set and the reason.",
 	input: z.strictObject({
 		meetingId,
 		attendeeIds: z.array(personId).max(500),
@@ -899,7 +945,10 @@ export const reconcileAttendance = write({
 
 const score = z.int().min(1).max(5);
 const scoresInput = z.strictObject(
-	Object.fromEntries(c.evaluationFactors.map((f) => [f, score])) as Record<(typeof c.evaluationFactors)[number], typeof score>,
+	Object.fromEntries(c.evaluationFactors.map((f) => [f, score])) as Record<
+		(typeof c.evaluationFactors)[number],
+		typeof score
+	>,
 );
 export const recordEvaluation = write({
 	operation: "meetings.recordEvaluation",
@@ -954,7 +1003,13 @@ export const correctEvaluation = write({
 		};
 	},
 	run: (w, tx, ctx, r) => w.attendance.correctEvaluation(tx, ctx, r),
-	changes: ({ prepared, value: v }: { prepared: Prepared<z.infer<typeof c.evaluation>>; value: z.infer<typeof c.evaluationMutationResult> }) => [
+	changes: ({
+		prepared,
+		value: v,
+	}: {
+		prepared: Prepared<z.infer<typeof c.evaluation>>;
+		value: z.infer<typeof c.evaluationMutationResult>;
+	}) => [
 		...c.evaluationFactors
 			.filter((f) => prepared.facts.scores[f] !== v.evaluation.scores[f])
 			.map((f) => change(f, String(prepared.facts.scores[f]), String(v.evaluation.scores[f]))),
@@ -978,10 +1033,13 @@ export const addAttendeeNote = write({
 		};
 	},
 	run: (w, tx, ctx, r) => w.attendance.addAttendeeNote(tx, ctx, r),
-	changes: ({ prepared, value: v }: { prepared: Prepared<string | null>; value: z.infer<typeof c.attendeeNoteResult> }) => [
-		created("person", prepared.facts),
-		created("note", v.text),
-	],
+	changes: ({
+		prepared,
+		value: v,
+	}: {
+		prepared: Prepared<string | null>;
+		value: z.infer<typeof c.attendeeNoteResult>;
+	}) => [created("person", prepared.facts), created("note", v.text)],
 	revision: () => "1",
 });
 
@@ -997,7 +1055,11 @@ const venueFields = {
 const venuePatch = z.strictObject(venueFields).partial();
 type Venue = z.infer<typeof c.venue>;
 const VENUE_FIELDS = ["name", "address", "capacity", "costDescription", "notes", "active"] as const;
-const venueShown = (v: Venue) => ({ ...v, capacity: v.capacity === null ? null : String(v.capacity), active: v.active ? "Active" : "Archived" });
+const venueShown = (v: Venue) => ({
+	...v,
+	capacity: v.capacity === null ? null : String(v.capacity),
+	active: v.active ? "Active" : "Archived",
+});
 const venueDiff = (before: Venue | null, after: Venue) => {
 	const a = before ? venueShown(before) : null,
 		b = venueShown(after);
@@ -1051,10 +1113,7 @@ export const correctVenue = write({
 	input: z.strictObject({ venueId, patch: venuePatch, reason }),
 	prepare: (db, actor, i) => onVenue(db, actor, i.venueId, { patch: i.patch, reason: i.reason }),
 	run: (w, tx, ctx, r) => w.venues.correct(tx, ctx, r),
-	changes: (p: { prepared: Prepared<Venue>; value: VenueResult }) => [
-		...venueChanges(p),
-		reasonRow(p.prepared),
-	],
+	changes: (p: { prepared: Prepared<Venue>; value: VenueResult }) => [...venueChanges(p), reasonRow(p.prepared)],
 	revision: venueRevision,
 });
 export const archiveVenue = write({

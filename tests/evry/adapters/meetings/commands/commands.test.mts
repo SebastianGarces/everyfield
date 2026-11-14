@@ -36,7 +36,12 @@ async function turn(who: EvryActor) {
 	await submitTurn(db, who, c.id, { requestKey: randomUUID(), text: "hold this turn" });
 	const [claim] = await claimDue(db, ["assistant_turn"], 1, 240);
 	assert.ok(claim);
-	const lease = { turnId: claim.id, tenantId: claim.tenant_id, leaseOwner: claim.lease_owner, generation: claim.claim_generation };
+	const lease = {
+		turnId: claim.id,
+		tenantId: claim.tenant_id,
+		leaseOwner: claim.lease_owner,
+		generation: claim.claim_generation,
+	};
 	return (operation: string, input: unknown) => prepareProposal(db, who, lease, c.id, { operation, input });
 }
 const reminders: unknown[] = [];
@@ -116,7 +121,12 @@ test("INV-meetings-walk-in: a walk-in named only Luis is reviewed with the meeti
 	const { outcome } = await approveAndRun(owner, proposal);
 	assert.equal(outcome, "completed");
 	assert.equal(await people(), peopleBefore + 1);
-	const [row] = (await luis()).rows as { id: string; last_name: string | null; email: string | null; phone: string | null }[];
+	const [row] = (await luis()).rows as {
+		id: string;
+		last_name: string | null;
+		email: string | null;
+		phone: string | null;
+	}[];
 	assert.ok(row);
 	assert.deepEqual([row.last_name, row.email, row.phone], [null, null, null]);
 	const presence = await admin.execute(
@@ -181,8 +191,11 @@ test("INV-meetings-stale: a review whose meeting changed since is refused at exe
 	const propose = await turn(owner);
 	const proposal = await propose("meetings.edit", { meetingId: seeded.training.id, title: "Team training night" });
 	assert.ok(proposal);
-	assert.deepEqual(proposal.review.changes, [{ field: "title", before: "Team training", after: "Team training night" }]);
-	const rev = (await admin.execute(sql`SELECT revision::text AS r FROM meeting WHERE id=${seeded.training.id}`)).rows[0]!.r;
+	assert.deepEqual(proposal.review.changes, [
+		{ field: "title", before: "Team training", after: "Team training night" },
+	]);
+	const rev = (await admin.execute(sql`SELECT revision::text AS r FROM meeting WHERE id=${seeded.training.id}`))
+		.rows[0]!.r;
 	await native(owner, meetingsWriter.edit as never, {
 		expectedRevision: rev,
 		input: { meetingId: seeded.training.id, patch: { notes: "Bring laptops" } },
@@ -222,7 +235,9 @@ test("INV-meetings-authority: an approver who is no longer an Owner or Admin can
 
 test("INV-meetings-member-floor: a Member who is not the ministry's leader gets a review that says who can make the change, with no Approve", async () => {
 	const member = await actor("member");
-	const proposal = await (await turn(member))("meetings.schedule", {
+	const proposal = await (
+		await turn(member)
+	)("meetings.schedule", {
 		type: "vision_meeting",
 		date: localDate(10),
 		time: "19:00",
@@ -241,7 +256,9 @@ test("AC:B02-016 INV-meetings-practice: a reviewed practice is completed once; a
 		})
 	).meeting.id;
 	const completions = () =>
-		count(sql`SELECT count(*)::int n FROM meeting WHERE id=${practice} AND status='completed' AND actual_occurrence_at IS NOT NULL`);
+		count(
+			sql`SELECT count(*)::int n FROM meeting WHERE id=${practice} AND status='completed' AND actual_occurrence_at IS NOT NULL`,
+		);
 	const propose = await turn(owner);
 	const proposal = await propose("meetings.completePractice", { meetingId: practice });
 	assert.ok(proposal);
@@ -252,7 +269,9 @@ test("AC:B02-016 INV-meetings-practice: a reviewed practice is completed once; a
 	assert.equal(await completions(), 1);
 	assert.equal(await audits(proposal.id), 1, "one completion receipt");
 	// A second review prepared before a correction is refused at execution and changes nothing.
-	const again = await (await turn(owner))("meetings.correctPracticeOccurrence", {
+	const again = await (
+		await turn(owner)
+	)("meetings.correctPracticeOccurrence", {
 		meetingId: practice,
 		state: "not_completed",
 		reason: "It was rained out",

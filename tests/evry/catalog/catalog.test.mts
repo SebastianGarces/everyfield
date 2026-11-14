@@ -147,15 +147,12 @@ test("Meetings tools follow the native floor: an organization seat and an accoun
 			.map((o) => String(o.id))
 			.sort();
 	const owner = meetings(actorAs(plant, "owner"));
+	assert.deepEqual(owner.filter((op) => operations.get(op)?.kind === "query").sort(), flagged("WP-065", "query"));
+	assert.deepEqual(owner.filter((op) => operations.get(op)?.kind === "command").sort(), flagged("WP-066", "command"));
 	assert.deepEqual(
-		owner.filter((op) => operations.get(op)?.kind === "query").sort(),
-		flagged("WP-065", "query"),
+		meetings(actorAs({ kind: "organization", id: plant.id, organizationKind: "sending_church" } as never, "owner")),
+		[],
 	);
-	assert.deepEqual(
-		owner.filter((op) => operations.get(op)?.kind === "command").sort(),
-		flagged("WP-066", "command"),
-	);
-	assert.deepEqual(meetings(actorAs({ kind: "organization", id: plant.id, organizationKind: "sending_church" } as never, "owner")), []);
 	assert.deepEqual(meetings(actorAs({ kind: "account", id: plant.id } as never, null)), []);
 	// The public RSVP token reads and commands and notification planning stay native.
 	for (const op of [

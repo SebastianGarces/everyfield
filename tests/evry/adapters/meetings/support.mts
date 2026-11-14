@@ -33,8 +33,10 @@ export async function native<T>(
 	run: (tx: never, ctx: never, request: unknown) => Promise<{ status: string; value?: T; error?: unknown }>,
 	request: Record<string, unknown>,
 ): Promise<T> {
-	const reply = await withMeetingsWrite(db, who.authority, (tx, ctx) =>
-		run(tx as never, ctx as never, { requestKey: randomUUID(), ...request }) as never,
+	const reply = await withMeetingsWrite(
+		db,
+		who.authority,
+		(tx, ctx) => run(tx as never, ctx as never, { requestKey: randomUUID(), ...request }) as never,
 	);
 	assert.equal(reply.status, "ok", JSON.stringify(reply));
 	return (reply as { value: T }).value;
@@ -102,7 +104,12 @@ export async function seedMeetings(owner: EvryActor) {
 	// Last week's guests, invited before the night and not yet marked.
 	for (const p of [guests.maria, guests.alex, guests.casey])
 		await native(owner, guestsWriter.inviteGuest as never, { input: { meetingId: middle.id, personId: p } });
-	const cancelled = await schedule(owner, { type: "orientation", title: "Newcomer lunch", date: localDate(1), time: "12:00" });
+	const cancelled = await schedule(owner, {
+		type: "orientation",
+		title: "Newcomer lunch",
+		date: localDate(1),
+		time: "12:00",
+	});
 	await native(owner, meetingsWriter.changeStatus as never, {
 		expectedRevision: cancelled.revision,
 		input: { meetingId: cancelled.id, to: "cancelled" },

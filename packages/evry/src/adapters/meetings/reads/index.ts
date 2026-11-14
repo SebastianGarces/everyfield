@@ -169,8 +169,7 @@ export const readAgenda = read({
 
 export const listKit = read({
 	operation: "meetings.listKit",
-	description:
-		"A Vision meeting's kit checklist. only=unchecked: what is still needed.",
+	description: "A Vision meeting's kit checklist. only=unchecked: what is still needed.",
 	input: z.strictObject({ meetingId, only: z.enum(["unchecked", "checked"]).optional() }),
 	async run(tx, actor, input) {
 		const kit = value(await meetingsReader.listKit(tx, actor.authority, { meetingId: input.meetingId }));
@@ -198,15 +197,15 @@ export const listKit = read({
 const rsvpOrder = ["confirmed", "declined", "pending"];
 export const listGuests = read({
 	operation: "meetings.listGuests",
-	description:
-		"A meeting's guests by RSVP (yes, no, no answer). An RSVP is not attendance.",
+	description: "A meeting's guests by RSVP (yes, no, no answer). An RSVP is not attendance.",
 	input: one,
 	async run(tx, actor, input) {
 		const list = value(await meetingsReader.listGuests(tx, actor.authority, input));
 		if (!list) return notFound("meetings.listGuests");
 		const guests = [...list.guests].sort(
 			(a, b) =>
-				rsvpOrder.indexOf(a.rsvp) - rsvpOrder.indexOf(b.rsvp) || a.person.displayName.localeCompare(b.person.displayName),
+				rsvpOrder.indexOf(a.rsvp) - rsvpOrder.indexOf(b.rsvp) ||
+				a.person.displayName.localeCompare(b.person.displayName),
 		);
 		return found(
 			"meetings.listGuests",
@@ -254,8 +253,7 @@ export const listCards = read({
 
 export const cardBreakdown = read({
 	operation: "meetings.cardBreakdown",
-	description:
-		"Card responses counted over attended guests; no card is unknown.",
+	description: "Card responses counted over attended guests; no card is unknown.",
 	input: one,
 	async run(tx, actor, input) {
 		const b = value(await meetingsReader.cardBreakdown(tx, actor.authority, input));
@@ -300,8 +298,7 @@ export const invitationAttribution = read({
 
 export const communicationContext = read({
 	operation: "meetings.communicationContext",
-	description:
-		"What an invitation would use: the meeting, agenda and guests with or without an email.",
+	description: "What an invitation would use: the meeting, agenda and guests with or without an email.",
 	input: one,
 	allowed: ownerOrAdmin,
 	async run(tx, actor, input) {
@@ -312,7 +309,10 @@ export const communicationContext = read({
 			[
 				meetingRow(x.meeting, { agenda: x.agenda.map((a) => a.title).join(", ") || null }),
 				...x.guests.map((g) =>
-					personRow(actor, g.personId, g.displayName, { hasEmail: g.hasEmail ? "yes" : "no", rsvp: RSVP[g.rsvp] ?? g.rsvp }),
+					personRow(actor, g.personId, g.displayName, {
+						hasEmail: g.hasEmail ? "yes" : "no",
+						rsvp: RSVP[g.rsvp] ?? g.rsvp,
+					}),
 				),
 			],
 			["email addresses"],
@@ -322,8 +322,7 @@ export const communicationContext = read({
 
 export const listCompletedPreLaunchPractices = read({
 	operation: "meetings.listCompletedPreLaunchPractices",
-	description:
-		"How many pre-launch practices were actually held; three meet the Launch criterion.",
+	description: "How many pre-launch practices were actually held; three meet the Launch criterion.",
 	input: z.strictObject({}),
 	async run(tx, actor) {
 		const p = value(await meetingsReader.listCompletedPreLaunchPractices(tx, actor.authority));
@@ -352,8 +351,7 @@ export const getOwnRsvp = read({
 const CLASS: Record<string, string> = { first_time: "first time", returning: "returning", core_group: "core group" };
 export const listAttendance = read({
 	operation: "meetings.listAttendance",
-	description:
-		"A meeting's recorded attendance per guest, and whether it is finalized.",
+	description: "A meeting's recorded attendance per guest, and whether it is finalized.",
 	input: one,
 	async run(tx, actor, input) {
 		const a = value(await attendanceReader.listAttendance(tx, actor.authority, { ...input, limit: 500 }));
@@ -493,8 +491,7 @@ export const compareEvaluation = read({
 
 export const attendanceTrend = read({
 	operation: "meetings.attendanceTrend",
-	description:
-		'Attendance of the latest held meetings (default Vision), oldest first. "not recorded" is never 0.',
+	description: 'Attendance of the latest held meetings (default Vision), oldest first. "not recorded" is never 0.',
 	input: report,
 	allowed: ownerOrAdmin,
 	async run(tx, actor, input) {
@@ -536,8 +533,7 @@ export const attendanceTrend = read({
 
 export const summaryStats = read({
 	operation: "meetings.summaryStats",
-	description:
-		"Totals over held meetings in a window.",
+	description: "Totals over held meetings in a window.",
 	input: report,
 	allowed: ownerOrAdmin,
 	async run(tx, actor, input) {
@@ -593,7 +589,11 @@ export const readAnalytics = read({
 				returning: s(a.classifications?.returning),
 				growth: a.growth.status === "unknown" ? null : String(a.growth.difference),
 				evaluation:
-					a.evaluation?.current.status === "known" ? String(a.evaluation.current.value) : a.evaluation ? NOT_RECORDED : null,
+					a.evaluation?.current.status === "known"
+						? String(a.evaluation.current.value)
+						: a.evaluation
+							? NOT_RECORDED
+							: null,
 				followUpsOpen: s(a.tasks.followUps.open),
 			}),
 		]);
@@ -628,8 +628,7 @@ const venueRow = (v: z.infer<typeof c.venue>): Row => ({
 });
 export const venuesList = read({
 	operation: "venues.list",
-	description:
-		"Saved venues. Search a named place; if several or none match, ask, never pick.",
+	description: "Saved venues. Search a named place; if several or none match, ask, never pick.",
 	input: z.strictObject({
 		search: z.string().trim().min(1).max(120).optional(),
 		archived: z.enum(["exclude", "include", "only"]).optional(),

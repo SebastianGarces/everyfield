@@ -478,13 +478,83 @@ export async function seedMeetings(run: Run, owner: string) {
 		[M.lastWeek, "vision_meeting", null, "2026-11-05", "19:00", "2026-11-06T01:00:00Z", M.coffee, "completed", 2],
 		[M.lastNight, "vision_meeting", null, "2026-11-08", "18:00", "2026-11-09T00:00:00Z", M.coffee, "completed", 3],
 		[M.thursday, "vision_meeting", null, "2026-11-12", "19:00", "2026-11-13T01:00:00Z", M.coffee, "planning", 4],
-		[M.cancelled, "orientation", "Coffee with Pastor Nate", "2026-11-09", "18:00", "2026-11-10T00:00:00Z", M.coffee, "cancelled", null],
-		[M.sunday, "vision_meeting", "Launch team orientation", "2026-11-15", "16:00", "2026-11-15T22:00:00Z", M.hall, "ready", 5],
-		[M.training, "team_meeting", "Worship team training", "2026-11-17", "18:30", "2026-11-18T00:30:00Z", M.hall, "planning", null],
-		[M.orientationA, "orientation", "Orientation", "2026-11-22", "16:00", "2026-11-22T22:00:00Z", M.chapel, "planning", null],
-		[M.orientationB, "orientation", "Orientation", "2026-12-06", "16:00", "2026-12-06T22:00:00Z", M.chapel, "planning", null],
-		[M.soundCheck, "prelaunch_practice", "Sound check practice", "2026-11-07", "10:00", "2026-11-07T16:00:00Z", M.hall, "planning", null],
-		[M.rehearsal, "prelaunch_practice", "Launch rehearsal", "2026-10-31", "10:00", "2026-10-31T15:00:00Z", M.hall, "completed", null],
+		[
+			M.cancelled,
+			"orientation",
+			"Coffee with Pastor Nate",
+			"2026-11-09",
+			"18:00",
+			"2026-11-10T00:00:00Z",
+			M.coffee,
+			"cancelled",
+			null,
+		],
+		[
+			M.sunday,
+			"vision_meeting",
+			"Launch team orientation",
+			"2026-11-15",
+			"16:00",
+			"2026-11-15T22:00:00Z",
+			M.hall,
+			"ready",
+			5,
+		],
+		[
+			M.training,
+			"team_meeting",
+			"Worship team training",
+			"2026-11-17",
+			"18:30",
+			"2026-11-18T00:30:00Z",
+			M.hall,
+			"planning",
+			null,
+		],
+		[
+			M.orientationA,
+			"orientation",
+			"Orientation",
+			"2026-11-22",
+			"16:00",
+			"2026-11-22T22:00:00Z",
+			M.chapel,
+			"planning",
+			null,
+		],
+		[
+			M.orientationB,
+			"orientation",
+			"Orientation",
+			"2026-12-06",
+			"16:00",
+			"2026-12-06T22:00:00Z",
+			M.chapel,
+			"planning",
+			null,
+		],
+		[
+			M.soundCheck,
+			"prelaunch_practice",
+			"Sound check practice",
+			"2026-11-07",
+			"10:00",
+			"2026-11-07T16:00:00Z",
+			M.hall,
+			"planning",
+			null,
+		],
+		[
+			M.rehearsal,
+			"prelaunch_practice",
+			"Launch rehearsal",
+			"2026-10-31",
+			"10:00",
+			"2026-10-31T15:00:00Z",
+			M.hall,
+			"completed",
+			null,
+		],
 	] as const;
 	const SUNDAY = [
 		{ id: id(0xa31), title: "Welcome and coffee", minutes: 15 },
@@ -515,7 +585,11 @@ export async function seedMeetings(run: Run, owner: string) {
 					FROM jsonb_to_recordset(${JSON.stringify(KIT)}::jsonb) i(key text,position int,category text,text text)) x`);
 	}
 	let guest = 0x2000;
-	const invite = async (meeting: string, name: string, extra: Partial<Record<"rsvp" | "presence" | "card", string>> = {}) =>
+	const invite = async (
+		meeting: string,
+		name: string,
+		extra: Partial<Record<"rsvp" | "presence" | "card", string>> = {},
+	) =>
 		run(sql`INSERT INTO participation(id,plant_id,meeting_id,person_id,roster_member,rsvp,rsvp_source,rsvp_at,presence,card_response,
 				card_recorded_at,card_occurred_at)
 			VALUES(${id(++guest)},${PLANT},${meeting},${byName(name).id},false,${extra.rsvp ?? "pending"},
@@ -536,10 +610,15 @@ export async function seedMeetings(run: Run, owner: string) {
 	await invite(M.orientationB, "Carmen Martinez");
 	await run(sql`UPDATE participation SET roster_member=true WHERE meeting_id=${M.training}`);
 	// The finalized nights: 24 attended last night (2 with a card), 18 on 29 Oct, from the generated prospects.
-	const crowd = PEOPLE.filter((p) => p.state === "live" && p.stage === "prospect" && /Abbott|Barnes|Coleman|Dawson/.test(p.name));
+	const crowd = PEOPLE.filter(
+		(p) => p.state === "live" && p.stage === "prospect" && /Abbott|Barnes|Coleman|Dawson/.test(p.name),
+	);
 	const finalize = async (meeting: string, at: string, people: readonly Person[]) => {
 		for (const [k, p] of people.entries())
-			await invite(meeting, p.name, { presence: "attended", ...(k < 2 && meeting === M.lastNight ? { card: k ? "interested" : "ready_commit" } : {}) });
+			await invite(meeting, p.name, {
+				presence: "attended",
+				...(k < 2 && meeting === M.lastNight ? { card: k ? "interested" : "ready_commit" } : {}),
+			});
 		await run(sql`UPDATE participation SET classification='first_time',classification_stage='prospect',classification_as_of=${at}::timestamptz,
 				actual_occurrence_at=${at}::timestamptz WHERE meeting_id=${meeting} AND presence='attended'`);
 		await run(sql`UPDATE meeting SET finalized_at=${at}::timestamptz,finalized_revision=1 WHERE id=${meeting}`);

@@ -113,7 +113,9 @@ test("AC:GAP-EVR-426 INV-venues-search: venues.list finds the one saved venue by
 
 test("INV-meetings-report-floor: reports stay with Owners and Admins; a Member is refused and is never offered them", async () => {
 	await assert.rejects(read(member, "meetings.attendanceTrend", { limit: 3 }), { code: "access_denied" });
-	const offered = readCatalog(member).domains.find((d) => d.domain === "meetings")!.operations.map((o) => o.operation);
+	const offered = readCatalog(member)
+		.domains.find((d) => d.domain === "meetings")!
+		.operations.map((o) => o.operation);
 	assert.equal(offered.includes("meetings.attendanceTrend"), false);
 	assert.ok(offered.includes("meetings.listGuests"));
 });
@@ -129,6 +131,9 @@ test("INV-meetings-foreign: a meeting of another church, or one that never exist
 test("INV-meetings-plant-only: an organization seat has no meetings tools", async () => {
 	const org = await actor("orgOwner");
 	assert.equal(org.contextKind, "sending_church");
-	assert.equal(readCatalog(org).domains.some((d) => d.domain === "meetings"), false);
+	assert.equal(
+		readCatalog(org).domains.some((d) => d.domain === "meetings"),
+		false,
+	);
 	await assert.rejects(invokeRead(db, org, adapter("meetings.list"), {}), { code: "access_denied" });
 });
