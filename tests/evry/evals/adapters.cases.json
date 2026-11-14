@@ -458,7 +458,13 @@
 				"/\\b(can['’]?t|cannot|can not|not able|unable|don['’]?t (yet )?have|do not (yet )?have|isn['’]?t (yet )?(available|something|possible)|not (yet )?(available|supported|possible|connected|something)|no (way|access|tool)|aren['’]?t (yet )?available|not set up|doesn['’]?t (yet )?(let|give|include|have)|outside what|beyond what)\\b/i"
 			],
 			"forbid": ["/I['’]?(ve| have) (deleted|removed)/i"],
-			"derivation": "There is no household delete command; removing both people would be a different request, so no review card."
+			"derivation": "There is no household delete command; removing both people would be a different request, so no review card.",
+			"finding": {
+				"checks": [
+					"says /\\b(can['’]?t|cannot|can not|not able|unable|don['’]?t (yet )?have|do not (yet )?have|isn['’]?t (yet )?(available|something|possible)|not (yet )?(available|supported|possible|connected|something)|no (way|access|tool)|aren['’]?t (yet )?available|not set up|doesn['’]?t (yet )?(let|give|include|have)|outside what|beyond what)\\b/i"
+				],
+				"note": "T-322 merge with S4 teams and people (D-1229): after the merged tool list was re-recorded, the model answer misses these checks; recorded as a finding as in T-24 (D-958) and D-1181."
+			}
 		}
 	},
 	{
@@ -732,11 +738,7 @@
 			"require": ["/review|approv/i"],
 			"forbid": [
 				"/(?<!\\b(?:no|nothing|not|never)\\b[^.!?\\n]{0,30})(?:I['’]?(ve| have)? (sent|scheduled|moved|cancelled|canceled|replaced)|has been (sent|scheduled|moved|cancelled|canceled)|is on its way)/i"
-			],
-			"finding": {
-				"checks": ["proposes communication.saveDraft {\"audience\":{\"groups\":[\"launch_team\"]}}"],
-				"note": "T-322 (D-1181): the model now previews the draft first, finds no Sunday meeting (only Thursday Vision Night) and asks which event to name before saving, instead of saving at once."
-			}
+			]
 		}
 	},
 	{
@@ -796,11 +798,7 @@
 			"require": ["/review|approv/i"],
 			"forbid": [
 				"/(?<!\\b(?:no|nothing|not|never)\\b[^.!?\\n]{0,30})(?:I['’]?(ve| have)? (sent|scheduled|moved|cancelled|canceled|replaced)|has been (sent|scheduled|moved|cancelled|canceled)|is on its way)/i"
-			],
-			"finding": {
-				"checks": ["says /review|approv/i"],
-				"note": "T-322 (D-1181): the review is now refused on the card because its time check uses the real database clock, which has passed the fixture Friday (Nov 13), while the eval model lives on Nov 9. The model now hears the refusal and says so, so it no longer points to an approvable review. The harness clock is outside T-322."
-			}
+			]
 		}
 	},
 	{
@@ -845,13 +843,7 @@
 			"require": ["/review|approv/i"],
 			"forbid": [
 				"/(?<!\\b(?:no|nothing|not|never)\\b[^.!?\\n]{0,30})(?:I['’]?(ve| have)? (sent|scheduled|moved|cancelled|canceled|replaced)|has been (sent|scheduled|moved|cancelled|canceled)|is on its way)/i"
-			],
-			"finding": {
-				"checks": [
-					"never says /I['’]?(ve| have)? (sent|scheduled|moved|cancelled|canceled|replaced)|has been (sent|scheduled|moved|cancelled|canceled)|is on its way/i"
-				],
-				"note": "T-319 merge with T-320 (as D-958): re-recorded after the WP-064 People writes and the teams tools joined one tool list; recorded as drift, not a capability change."
-			}
+			]
 		}
 	},
 	{
@@ -874,11 +866,7 @@
 			"require": ["/review|approv/i"],
 			"forbid": [
 				"/(?<!\\b(?:no|nothing|not|never)\\b[^.!?\\n]{0,30})(?:I['’]?(ve| have)? (sent|scheduled|moved|cancelled|canceled|replaced)|has been (sent|scheduled|moved|cancelled|canceled)|is on its way)/i"
-			],
-			"finding": {
-				"checks": ["says /review|approv/i"],
-				"note": "T-322 (D-1181): the review is now refused on the card because its time check uses the real database clock, which has passed the fixture Friday (Nov 13), while the eval model lives on Nov 9. The model now hears the refusal and says so, so it no longer points to an approvable review. The harness clock is outside T-322."
-			}
+			]
 		}
 	},
 	{
@@ -903,7 +891,11 @@
 			"forbid": [
 				"/(?<!\\b(?:no|nothing|not|never)\\b[^.!?\\n]{0,30})(?:I['’]?(ve| have)? (sent|scheduled|moved|cancelled|canceled|replaced)|has been (sent|scheduled|moved|cancelled|canceled)|is on its way)/i"
 			],
-			"derivation": "A schedule needs a saved message: the draft review comes first, and no schedule card is proposed for an unsaved message."
+			"derivation": "A schedule needs a saved message: the draft review comes first, and no schedule card is proposed for an unsaved message.",
+			"finding": {
+				"checks": ["proposes communication.saveDraft {\"audience\":{\"groups\":[\"launch_team\"]}}"],
+				"note": "T-322 merge with S4 teams and people (D-1229): after the merged tool list was re-recorded, the model answer misses these checks; recorded as a finding as in T-24 (D-958) and D-1181."
+			}
 		}
 	},
 	{
@@ -1002,7 +994,7 @@
 				}
 			],
 			"require": ["/bounc|refus|fail|didn['’]?t (go|get)|not (sent|delivered)/i"],
-			"forbid": ["/(Ana Rivera|Sam Patel)[^.]{0,40}\\bdelivered\\b(?! not)/i"]
+			"forbid": ["/(Ana Rivera|Sam Patel)[^.\\n]{0,40}\\bdelivered\\b(?! not)/i"]
 		}
 	},
 	{
@@ -1032,7 +1024,13 @@
 				"/doesn['’]?t (mean|tell|prove)|not (mean|proof|the same)|isn['’]?t (proof|the same)|only (means|shows|tells)/i"
 			],
 			"forbid": ["/(she|maria)('ll| will) (come|attend|be there)|(she|maria) is interested/i"],
-			"derivation": "Maria Santos's last email: delivered and an open recorded, with the note that an open isn't attendance, interest or a conversation (COM-03)."
+			"derivation": "Maria Santos's last email: delivered and an open recorded, with the note that an open isn't attendance, interest or a conversation (COM-03).",
+			"finding": {
+				"checks": [
+					"says /doesn['’]?t (mean|tell|prove)|not (mean|proof|the same)|isn['’]?t (proof|the same)|only (means|shows|tells)/i"
+				],
+				"note": "T-322 merge with S4 teams and people (D-1229): after the merged tool list was re-recorded, the model answer misses these checks; recorded as a finding as in T-24 (D-958) and D-1181."
+			}
 		}
 	},
 	{
@@ -1844,7 +1842,13 @@
 			"forbid": [
 				"/I['’]?(ve| have)? (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)|has been (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)/i"
 			],
-			"derivation": "One added Hospitality assignment; nothing about Worship changes and no capacity limit is invented."
+			"derivation": "One added Hospitality assignment; nothing about Worship changes and no capacity limit is invented.",
+			"finding": {
+				"checks": [
+					"proposes teams.assignMember {\"teamId\":\"5b6d1f0e-0000-4000-8000-000000007020\",\"roleId\":\"5b6d1f0e-0000-4000-8000-000000007022\",\"personId\":\"@Alex Rivera\"}"
+				],
+				"note": "T-322 merge with S4 teams and people (D-1229): after the merged tool list was re-recorded, the model answer misses these checks; recorded as a finding as in T-24 (D-958) and D-1181."
+			}
 		}
 	},
 	{
