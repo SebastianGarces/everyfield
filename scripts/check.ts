@@ -18,6 +18,15 @@ import {
 	selectChecks,
 	suiteOf,
 } from "../tools/ci/select.ts";
+import { sweepCommand } from "../tools/qa/containers.ts";
+import {
+	DatabaseError,
+	databaseEnv,
+	type PostgresOptions,
+	sleepSync,
+	startPostgres,
+	watchProcess,
+} from "./throwaway-postgres.ts";
 
 /** Runs one command to its end. Tests pass a fake; the real one is `spawnRunner`. */
 export type Runner = (
@@ -58,6 +67,12 @@ export type CheckRecord = {
 		result: Result;
 		tests: number | null;
 		durationMs: number;
+		/** Why a check that ran failed, when it says more than "failed". */
+		detail?: string;
+		/** test:db: one line per package, in the order they ran. */
+		packages?: { name: string; command: string; result: Result; tests: number | null }[];
+		/** test:db: the throwaway database the packages ran on. Never its password. */
+		database?: { throwaway: true; image: string; container: string };
 	}[];
 	tests: { file: string; check: CheckId; run: boolean; reason: string; result: Result; tests: number | null }[];
 };
@@ -179,7 +194,18 @@ function gather(root: string, home: string, full: boolean, gh: Gh) {
 	return { head, mergeBase, changed, packages, map, testFiles: files.filter((f) => suiteOf(f)).sort() };
 }
 
-export type CheckOptions = { root: string; full: boolean; home?: string; now?: Date; run?: Runner; gh?: Gh };
+/** The package whose test:db is the statement census. It runs in GitHub CI only, never in bin/dev check (T-105). */
+export const CENSUS_PACKAGE = "@everyfield/domain";
+
+export type CheckOptions = {
+	root: string;
+	full: boolean;
+	home?: string;
+	now?: Date;
+	run?: Runner;
+	gh?: Gh;
+	database?: Partial<Pick<PostgresOptions, "readyTimeoutMs" | "sleep" | "watch">>;
+};
 
 export function check({
 	root,
@@ -188,6 +214,7 @@ export function check({
 	now = new Date(),
 	run = spawnRunner,
 	gh = spawnGh,
+	database = {},
 }: CheckOptions) {
 	root = resolve(root);
 	if (!relative(root, resolve(home)).startsWith("..")) throw new Error(`The CI home ${home} must be outside ${root}.`);
@@ -247,9 +274,21 @@ export function check({
 				entry.reason += "; the pnpm filter selected no package";
 				continue;
 			}
-			if (!input.packages.some((p) => names.includes(p.name) && p.scripts[definition.script])) {
+			const defining = input.packages.filter((p) => names.includes(p.name) && p.scripts[definition.script]);
+			if (id === "test:db" && defining.length && defining.every((p) => p.name === CENSUS_PACKAGE)) {
+				entry.result = "skipped";
+				entry.reason += `; only ${CENSUS_PACKAGE} defines test:db, the statement census, which runs in GitHub CI only`;
+				continue;
+			}
+			if (!defining.length) {
 				entry.result = "skipped";
 				entry.reason += `; no selected package defines ${definition.script}`;
+				continue;
+			}
+			if (id === "test:db") {
+				const runnable = defining.map((p) => p.name).filter((name) => name !== CENSUS_PACKAGE);
+				databaseTests(entry, runnable.sort(), { root, env, run, ...database });
+				entry.durationMs = Date.now() - t0;
 				continue;
 			}
 			const r = exec("corepack", ["pnpm", ...filters, "--if-present", "run", definition.script]);
@@ -295,7 +334,10 @@ export function check({
 	if (selection.mode === "selected" && !checks.some((c) => c.run))
 		failures.push("the diff selected no checks, so nothing proves it; run bin/dev check --full");
 	for (const c of checks)
-		if (c.result === "failed") failures.push(c.tests === 0 ? `${c.id} reported 0 tests` : `${c.id} failed`);
+		if (c.result === "failed")
+			failures.push(
+				c.detail ? `${c.id} failed: ${c.detail}` : c.tests === 0 ? `${c.id} reported 0 tests` : `${c.id} failed`,
+			);
 	for (const t of testRecords) if (t.run && t.tests === 0) failures.push(`${t.file} reported 0 tests`);
 	const record: CheckRecord = {
 		head: input.head,
@@ -316,6 +358,61 @@ export function check({
 	return { record, recordPath };
 }
 
+/**
+ * Runs each package's test:db one after another on one throwaway Postgres, as GitHub CI's db job does, and removes the
+ * database on every path. A failed package still lets the later ones run. Any failure, 0 tests included, fails the check.
+ */
+function databaseTests(
+	entry: CheckRecord["checks"][number],
+	names: string[],
+	options: Omit<PostgresOptions, "readyTimeoutMs" | "sleep" | "watch"> & Partial<PostgresOptions>,
+) {
+	const { root, env, run } = options;
+	entry.packages = names.map((name) => ({
+		name,
+		command: `corepack pnpm --filter ${name} run test:db`,
+		result: "not run",
+		tests: null,
+	}));
+	entry.command = entry.packages.map((p) => p.command).join("; ");
+	const problems: string[] = [];
+	let db: ReturnType<typeof startPostgres>;
+	try {
+		db = startPostgres({
+			readyTimeoutMs: 60_000,
+			sleep: sleepSync,
+			watch: watchProcess,
+			...options,
+		});
+	} catch (error) {
+		if (!(error instanceof DatabaseError)) throw error;
+		entry.result = "failed";
+		entry.detail = error.message;
+		return;
+	}
+	try {
+		entry.database = { throwaway: true, image: db.image, container: db.container };
+		for (const p of entry.packages) {
+			console.error(`check test:db: ${p.command} on ${db.container}`);
+			const r = run("corepack", ["pnpm", "--filter", p.name, "run", "test:db"], {
+				cwd: root,
+				env: { ...env, ...databaseEnv(db.url) },
+			});
+			const output = r.output.replaceAll(db.password, "***");
+			process.stderr.write(output.endsWith("\n") || !output ? output : output + "\n");
+			p.tests = testCount(r.output);
+			p.result = r.status === 0 && p.tests > 0 ? "passed" : "failed";
+			if (p.result === "failed")
+				problems.push(r.status === 0 ? `${p.name} reported 0 tests` : `${p.name} test:db failed`);
+		}
+	} finally {
+		db.stop();
+	}
+	entry.tests = entry.packages.reduce((sum, p) => sum + (p.tests ?? 0), 0);
+	entry.result = problems.length ? "failed" : "passed";
+	if (problems.length) entry.detail = problems.join("; ");
+}
+
 /** The `bin/dev check` command line. */
 export function checkCommand(args: string[], root: string): number {
 	const full = args.includes("--full");
@@ -323,6 +420,8 @@ export function checkCommand(args: string[], root: string): number {
 		console.error("usage: dev check [--full]");
 		return 2;
 	}
+	// Orphaned QA databases from runs that died without cleaning up hold the Docker VM's memory (T-356).
+	sweepCommand();
 	const { record, recordPath } = check({ root, full });
 	const ran = record.checks.filter((c) => c.run).map((c) => c.id);
 	console.log(`check ${record.mode}: ${record.result}. Ran ${ran.join(", ") || "nothing"}.`);

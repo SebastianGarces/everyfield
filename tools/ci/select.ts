@@ -10,6 +10,9 @@ export const CHECKS = {
 	lint: { kind: "package", script: "lint" },
 	typecheck: { kind: "package", script: "typecheck" },
 	"test:unit": { kind: "package", script: "test:unit" },
+	// On a throwaway local Postgres (scripts/throwaway-postgres.ts), never @everyfield/domain's: its test:db is the
+	// statement census, which runs in GitHub CI only (T-105).
+	"test:db": { kind: "package", script: "test:db" },
 	docs: { kind: "command", command: ["python3", "docs/check-all.py"] },
 	"ci-coverage": { kind: "command", command: ["node", "tools/ci/ci-tests.ts"] },
 	workflow: { kind: "suite", root: "tests/workflow", files: "tests/workflow/*.test.{mjs,ts}" },
@@ -47,7 +50,7 @@ export type Rule = {
 	full?: true;
 };
 
-const PACKAGE_CHECKS = ["lint", "typecheck", "test:unit"] as const;
+const PACKAGE_CHECKS = ["lint", "typecheck", "test:unit", "test:db"] as const;
 
 export const RULES: readonly Rule[] = [
 	{
@@ -135,6 +138,7 @@ export const RULES: readonly Rule[] = [
 	{ name: "workflow test support", paths: ["tests/workflow/**"], suites: ["workflow"] },
 	{ name: "CI tool test support", paths: ["tools/ci/tests/**"], suites: ["tools-ci"] },
 	{ name: "QA tool test support", paths: ["tools/qa/tests/**"], suites: ["tools-qa"] },
+	{ name: "QA test containers and their sweep", paths: ["tools/qa/containers.ts"], suites: ["tools-qa"] },
 	// The watcher's tests read its README and plist as text, so every file under it runs the whole suite.
 	{ name: "actionable watcher", paths: ["ops/actionable-watch/**"], suites: ["ops-watch"] },
 	{

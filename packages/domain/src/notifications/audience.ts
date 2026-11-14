@@ -127,15 +127,11 @@ export function cancelTaskReminders(db: Database, authority: RequestActor, raw: 
 	const selected = parsed.success
 		? owner.parse({ kind: "plant", id: parsed.data.input.plantId })
 		: accountOwner(authority.actor.accountId);
-	return runWrite(
-		db,
-		authority,
-		selected,
-		raw,
-		cancelTaskRemindersRequest,
-		"notifications.cancelTaskReminders",
-		cancelRemindersResult,
-		async (tx, cmd, input) => {
+	return runWrite(db, authority, selected, raw, {
+		schema: cancelTaskRemindersRequest,
+		operation: "notifications.cancelTaskReminders",
+		result: cancelRemindersResult,
+		async body(tx, cmd, input) {
 			const result = await tx.execute(sql`UPDATE notice n
 				SET cancelled_at = clock_timestamp(), revision = n.revision + 1
 				WHERE n.tenant_id = ${input.input.plantId}::uuid AND n.source_record_id = ${input.input.taskId}::uuid
@@ -154,7 +150,7 @@ export function cancelTaskReminders(db: Database, authority: RequestActor, raw: 
 			});
 			return { cancelledIds: row.ids };
 		},
-	);
+	});
 }
 
 export function publishWikiUpstream(db: Database, authority: RequestActor, raw: unknown) {
@@ -166,15 +162,11 @@ export function publishWikiUpstream(db: Database, authority: RequestActor, raw: 
 				organizationKind: parsed.data.input.organizationKind,
 			})
 		: accountOwner(authority.actor.accountId);
-	return runWrite(
-		db,
-		authority,
-		selected,
-		raw,
-		publishWikiUpstreamRequest,
-		"notifications.publishWikiUpstream",
-		wikiPublishResult,
-		async (tx, cmd, input) => {
+	return runWrite(db, authority, selected, raw, {
+		schema: publishWikiUpstreamRequest,
+		operation: "notifications.publishWikiUpstream",
+		result: wikiPublishResult,
+		async body(tx, cmd, input) {
 			const org = input.input.organizationId;
 			const result = await tx.execute(sql`WITH seated AS (
 					SELECT s.account_id FROM seat s
@@ -229,5 +221,5 @@ export function publishWikiUpstream(db: Database, authority: RequestActor, raw: 
 				recipientIds: row.rows.map((item) => item.recipient),
 			};
 		},
-	);
+	});
 }

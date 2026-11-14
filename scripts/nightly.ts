@@ -412,8 +412,18 @@ if (import.meta.main) {
 
 /** The `bin/dev nightly` command line. */
 export async function nightlyCommand(args: string[]): Promise<number> {
+	if (args[0] === "schedule") {
+		const { scheduleCommand } = await import("./nightly-schedule.ts");
+		try {
+			const status = scheduleCommand(args.slice(1), root);
+			if (status !== null) return status;
+		} catch (error) {
+			console.error(`dev nightly schedule: ${(error as Error).message}`);
+			return 1;
+		}
+	}
 	if (args.length) {
-		console.error("usage: dev nightly");
+		console.error("usage: dev nightly [schedule install|status|uninstall]");
 		return 2;
 	}
 	const entries = await nightly(realDeps());
