@@ -197,9 +197,9 @@ FROM g`);
  * Removes a live or retired pipeline person on their request (REQ-MUL-005). The first statement locks the person at
  * the confirmed revision, writes the removal witness, replaces every contact field and sets the name to "Former
  * participant", unlinks the account, ends any residency link at once and severs it from the account, revokes pending
- * residency invitations and deletes staff notes. The second runs remove_organization_person, which deletes the
- * pipeline rows the runtime role may not, scrubs the person's audit trail, and appends one body-free removal audit row
- * after it. Not retirement: nothing here can be restored. Owner or Admin.
+ * residency invitations and deletes staff notes, for the person and every record merged into them. The second runs
+ * remove_organization_person, which deletes the pipeline rows the runtime role may not, scrubs the audit trails, and
+ * appends one body-free removal audit row after it. Not retirement: nothing here can be restored. Owner or Admin.
  */
 function removePerson(db: Database, authority: RequestActor, raw: unknown) {
 	return write(db, authority, true, async (w) => {
@@ -215,29 +215,32 @@ function removePerson(db: Database, authority: RequestActor, raw: unknown) {
 				link: z.boolean(),
 				invitations: z.coerce.number(),
 			}),
-			sql`WITH x AS (SELECT pp.person_id,pp.revision FROM pipeline_person pp JOIN person p ON p.id=pp.person_id
-  AND p.tenant_id=pp.organization_id WHERE pp.organization_id=${o}::uuid AND pp.person_id=${input.personId}::uuid
-  AND p.state IN ('live','retired')
-  AND NOT EXISTS(SELECT FROM organization_person_removal r WHERE r.person_record_id=p.id AND r.organization_id=p.tenant_id)
-  FOR UPDATE OF pp,p),
+			sql`WITH x AS (SELECT pp.person_id,pp.revision FROM pipeline_person pp JOIN person q ON q.id=pp.person_id
+  AND q.tenant_id=pp.organization_id WHERE pp.organization_id=${o}::uuid AND pp.person_id=${input.personId}::uuid
+  AND q.state IN ('live','retired')
+  AND NOT EXISTS(SELECT FROM organization_person_removal r WHERE r.person_record_id=q.id AND r.organization_id=q.tenant_id)
+  FOR UPDATE OF pp,q),
 ok AS (SELECT person_id FROM x WHERE x.revision=${input.expectedRevision}::bigint),
+g AS (SELECT q.id FROM person q WHERE q.tenant_id=${o}::uuid AND q.id IN (WITH RECURSIVE grp(id) AS (SELECT person_id FROM ok
+  UNION SELECT m.id FROM person m JOIN grp ON m.merged_into_person_id=grp.id WHERE m.tenant_id=${o}::uuid AND m.state='merged')
+  SELECT id FROM grp) FOR UPDATE OF q),
 wit AS (INSERT INTO organization_person_removal (id,organization_id,person_record_id,removed_at,requested_by,witness_checkpoint,revision)
- SELECT gen_random_uuid(),${o}::uuid,ok.person_id,clock_timestamp(),${w.actor}::uuid,1,1 FROM ok RETURNING person_record_id),
+ SELECT gen_random_uuid(),${o}::uuid,g.id,clock_timestamp(),${w.actor}::uuid,1,1 FROM g RETURNING person_record_id),
 p AS (UPDATE person SET display_name=${NAME},first_name=NULL,last_name=NULL,email=NULL,phone=NULL,street=NULL,city=NULL,
   state_province=NULL,postal_code=NULL,country=NULL,source_details=NULL,notes=NULL,birth_date=NULL,photo_object_id=NULL,
   linked_account_id=NULL,state='retired',retired_at=coalesce(retired_at,clock_timestamp()),revision=revision+1
  FROM wit WHERE person.id=wit.person_record_id AND person.tenant_id=${o}::uuid RETURNING person.id),
-cur AS (SELECT l.id,l.ended_at IS NULL AS active FROM residency_link l JOIN ok ON l.person_id=ok.person_id
+cur AS (SELECT l.id,l.ended_at IS NULL AS active FROM residency_link l JOIN g ON l.person_id=g.id
  WHERE l.organization_id=${o}::uuid AND (l.ended_at IS NULL OR l.account_id IS NOT NULL) FOR UPDATE OF l),
 l AS (UPDATE residency_link l SET ended_at=coalesce(l.ended_at,clock_timestamp()),account_id=NULL,share_foundations=false,
   share_milestones=false,consent_revision=l.consent_revision+1,revision=l.revision+1
  FROM cur WHERE l.id=cur.id RETURNING l.id),
 mat AS (UPDATE organization SET material_revision=material_revision+1 WHERE id=${o}::uuid AND EXISTS(SELECT FROM cur WHERE cur.active)
  RETURNING id),
-i AS (UPDATE invitation SET state='revoked',acted_at=clock_timestamp(),revision=revision+1 FROM ok
- WHERE invitation.tenant_id=${o}::uuid AND invitation.resident_person_id=ok.person_id AND invitation.state='pending'
+i AS (UPDATE invitation SET state='revoked',acted_at=clock_timestamp(),revision=revision+1 FROM g
+ WHERE invitation.tenant_id=${o}::uuid AND invitation.resident_person_id=g.id AND invitation.state='pending'
  RETURNING invitation.id),
-n AS (DELETE FROM person_note n USING ok WHERE n.tenant_id=${o}::uuid AND n.person_id=ok.person_id RETURNING n.id)
+n AS (DELETE FROM person_note n USING g WHERE n.tenant_id=${o}::uuid AND n.person_id=g.id RETURNING n.id)
 SELECT EXISTS(SELECT FROM x) AS found,(SELECT revision::text FROM x) AS current,EXISTS(SELECT FROM p) AS removed,
  (SELECT count(*) FROM n) AS notes,EXISTS(SELECT FROM cur WHERE cur.active) AND EXISTS(SELECT FROM l) AS link,
  (SELECT count(*) FROM i) AS invitations`,
@@ -254,6 +257,7 @@ SELECT EXISTS(SELECT FROM x) AS found,(SELECT revision::text FROM x) AS current,
 					feedback: z.number(),
 					enrollments: z.number(),
 					programCompletions: z.number(),
+					mergedRecords: z.number(),
 				}),
 			}),
 			sql`WITH f AS (SELECT remove_organization_person(${o}::uuid,${input.personId}::uuid) AS r),
@@ -273,6 +277,7 @@ SELECT f.r FROM f WHERE EXISTS(SELECT FROM a)`,
 				feedback: r.feedback,
 				residencyLinkEnded: first.link,
 				invitationsRevoked: first.invitations,
+				mergedRecords: r.mergedRecords,
 			},
 			kept: [
 				...(r.programCompletions ? [{ category: "program_completion_count", count: r.programCompletions }] : []),

@@ -316,6 +316,8 @@ export const pipelineRemovalReport = z.strictObject({
 		feedback: count,
 		residencyLinkEnded: z.boolean(),
 		invitationsRevoked: count,
+		/** Duplicate records merged into this person earlier, removed with them. */
+		mergedRecords: count,
 	}),
 	kept: z.array(
 		z.strictObject({

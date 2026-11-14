@@ -14,6 +14,7 @@ export function removedLines(report: PipelineRemovalReport): string[] {
 		[r.enrollments, "enrollment in progress", "enrollments in progress"],
 		[r.milestoneMarks, "milestone mark", "milestone marks"],
 		[r.feedback, "piece of feedback", "pieces of feedback"],
+		[r.mergedRecords, "duplicate record merged in earlier", "duplicate records merged in earlier"],
 		[r.invitationsRevoked, "pending residency invitation, now revoked", "pending residency invitations, now revoked"],
 	];
 	for (const [n, one, many] of counted)

@@ -434,6 +434,7 @@ test("AC:ADR1-005 INV-privacy: removing Jordan on request keeps only what Grace 
 			feedback: 0,
 			residencyLinkEnded: false,
 			invitationsRevoked: 0,
+			mergedRecords: 0,
 		},
 		kept: [
 			{ category: "program_completion_count", count: 1 },
@@ -523,4 +524,96 @@ test("AC:ADR1-005 INV-privacy: removing linked Casey ends her link at once and l
 	);
 	assert.deepEqual(await rows(sql`SELECT body FROM person_note WHERE person_id=${casey}`), []);
 	assert.deepEqual(await rows(sql`SELECT body FROM assignment_feedback WHERE enrollment_id=${enrollments.casey}`), []);
+});
+
+test("AC:ADR1-005 AC:ADR1-017 INV-privacy: removing a person also removes the duplicate merged into them", async () => {
+	const board = ok(await readPipelineBoard(db, await authority(dana), {}));
+	const stage = board.stages.find((s) => s.label === "Potential leader")!.id;
+	const riley = randomUUID(),
+		rileyP = randomUUID();
+	for (const [personId, displayName] of [
+		[riley, "Riley Park"],
+		[rileyP, "Riley P."],
+	] as const)
+		ok(
+			await pipelineWriter.addPerson(db, await authority(dana), {
+				personId,
+				displayName,
+				email: "riley@example.test",
+				responsibleSeatId: null,
+				stageId: stage,
+			}),
+		);
+	ok(
+		await pipelineWriter.logConversation(db, await authority(dana), {
+			conversationId: randomUUID(),
+			personId: rileyP,
+			occurredOn: today,
+			note: "MERGED-CONVERSATION-SECRET",
+		}),
+	);
+	const review = ok(
+		await tx((t) => peopleMerge.getMergeReview(t, ctx(dana) as never, { sourceId: rileyP, survivorId: riley })),
+	);
+	ok(
+		await tx((t) =>
+			peopleMerge.mergePeople(t, ctx(dana) as never, {
+				requestKey: randomUUID(),
+				input: {
+					sourceId: rileyP,
+					survivorId: riley,
+					reviewDigest: review.reviewDigest,
+					fieldChoices: { displayName: "survivor" },
+				},
+			}),
+		),
+	);
+	assert.equal((await record(riley)).conversations.length, 1);
+	const talks = async () =>
+		ok(await readPipelineGoals(db, await authority(dana))).conversations.months.reduce((n, m) => n + m.count, 0);
+	const talksBefore = await talks();
+
+	const report = ok(
+		await pipelineDataWriter.removePerson(db, await authority(dana), {
+			personId: riley,
+			expectedRevision: (await record(riley)).revision,
+		}),
+	);
+	assert.deepEqual([report.removed.mergedRecords, report.removed.conversations, report.removed.stageMoves], [1, 1, 2]);
+	// Both records are scrubbed and witnessed; nothing of either is left on the pipeline, in a merge or in the audit trail.
+	assert.deepEqual(
+		await rows(sql`SELECT display_name,email,state,merged_into_person_id FROM person WHERE id IN (${riley},${rileyP})`),
+		[0, 1].map(() => ({
+			display_name: "Former participant",
+			email: null,
+			state: "retired",
+			merged_into_person_id: null,
+		})),
+	);
+	assert.deepEqual(
+		await rows(
+			sql`SELECT count(*)::int AS n FROM organization_person_removal WHERE person_record_id IN (${riley},${rileyP})`,
+		),
+		[{ n: 2 }],
+	);
+	for (const q of [
+		sql`SELECT count(*)::int AS n FROM pipeline_person WHERE person_id IN (${riley},${rileyP})`,
+		sql`SELECT count(*)::int AS n FROM leadership_conversation WHERE note LIKE '%MERGED-CONVERSATION-SECRET%'`,
+		sql`SELECT count(*)::int AS n FROM person_merge WHERE source_id IN (${riley},${rileyP}) OR survivor_id IN (${riley},${rileyP})`,
+		sql`SELECT count(*)::int AS n FROM audit_event WHERE subject_id IN (${riley},${rileyP}) AND action<>'people.removed'
+		 AND (actor_id IS NOT NULL OR before_value IS NOT NULL OR after_value IS NOT NULL OR reason IS NOT NULL)`,
+	])
+		assert.deepEqual(await rows(q), [{ n: 0 }]);
+	// Out of the goal counts, the board, the duplicates list and the export.
+	assert.equal(await talks(), talksBefore - 1);
+	assert.equal(
+		ok(await readPipelineBoard(db, await authority(dana), { q: "riley" })).stages.flatMap((s) => s.people).length,
+		0,
+	);
+	const pairs = ok(await tx((t) => listOrganizationDuplicatePairs(t, ctx(dana) as never)));
+	assert.equal(
+		pairs.items.some((p) => [p.person.id, p.with.id].some((id) => id === riley || id === rileyP)),
+		false,
+	);
+	assert.equal((await exported()).text.includes("Riley"), false);
 });
