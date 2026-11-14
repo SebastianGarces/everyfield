@@ -2823,6 +2823,7 @@ export const notice = pgTable(
 				"digest",
 				"launch",
 				"communication",
+				"residency",
 			],
 		}).notNull(),
 		purpose: text("purpose", {
@@ -2840,6 +2841,8 @@ export const notice = pgTable(
 				"reference_update",
 				"relationship_decision",
 				"relationship_invitation",
+				"residency_confirmation",
+				"residency_feedback",
 				"task_assignment",
 				"task_due",
 			],
@@ -2884,11 +2887,11 @@ export const notice = pgTable(
 		check("notice_ck_0", sql`(revision >= 1)`),
 		check(
 			"notice_ck_1",
-			sql`(category = ANY (ARRAY['task'::text, 'meeting'::text, 'phase'::text, 'insight'::text, 'relationship'::text, 'reference_update'::text, 'digest'::text, 'launch'::text, 'communication'::text]))`,
+			sql`(category = ANY (ARRAY['task'::text, 'meeting'::text, 'phase'::text, 'insight'::text, 'relationship'::text, 'reference_update'::text, 'digest'::text, 'launch'::text, 'communication'::text, 'residency'::text]))`,
 		),
 		check(
 			"notice_ck_2",
-			sql`(purpose = ANY (ARRAY['communication_unsubscribed'::text, 'insight_available'::text, 'launch_milestone'::text, 'meeting_evaluation'::text, 'meeting_invitation'::text, 'meeting_reminder'::text, 'oversight_digest'::text, 'phase_offer'::text, 'phase_transition'::text, 'planter_digest'::text, 'reference_update'::text, 'relationship_decision'::text, 'relationship_invitation'::text, 'task_assignment'::text, 'task_due'::text]))`,
+			sql`(purpose = ANY (ARRAY['communication_unsubscribed'::text, 'insight_available'::text, 'launch_milestone'::text, 'meeting_evaluation'::text, 'meeting_invitation'::text, 'meeting_reminder'::text, 'oversight_digest'::text, 'phase_offer'::text, 'phase_transition'::text, 'planter_digest'::text, 'reference_update'::text, 'relationship_decision'::text, 'relationship_invitation'::text, 'residency_confirmation'::text, 'residency_feedback'::text, 'task_assignment'::text, 'task_due'::text]))`,
 		),
 		check("notice_ck_3", sql`(tenant_id <> '00000000-0000-0000-0000-000000000000'::uuid)`),
 		check("notice_timezone_iana", sql`(timezone = ANY (${canonicalZones7}))`),
@@ -2917,6 +2920,8 @@ export const notification_preference = pgTable(
 				"launch_milestone",
 				"wiki_upstream_review",
 				"scheduled_email_unsubscribe",
+				"residency_confirmation",
+				"residency_feedback",
 			],
 		}).notNull(),
 		channel: text("channel", { enum: ["email", "in_app"] }).notNull(),
@@ -2946,7 +2951,7 @@ export const notification_preference = pgTable(
 		check("notification_preference_ck_0", sql`(revision >= 1)`),
 		check(
 			"notification_preference_ck_1",
-			sql`category IN ('task_due','task_overdue','meeting_announcement','meeting_reminder','planter_digest','oversight_digest','relationship_milestone','sharing_milestone','phase_milestone','launch_milestone','wiki_upstream_review','scheduled_email_unsubscribe')`,
+			sql`category IN ('task_due','task_overdue','meeting_announcement','meeting_reminder','planter_digest','oversight_digest','relationship_milestone','sharing_milestone','phase_milestone','launch_milestone','wiki_upstream_review','scheduled_email_unsubscribe','residency_confirmation','residency_feedback')`,
 		),
 		check("notification_preference_ck_2", sql`(channel = ANY (ARRAY['email'::text, 'in_app'::text]))`),
 		check("notification_preference_ck_3", sql`(cadence = ANY (ARRAY['daily'::text, 'weekly'::text]))`),

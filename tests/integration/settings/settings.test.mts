@@ -92,6 +92,14 @@ async function plant(a = undefined) {
 	);
 	return { a, p: result.plant, result };
 }
+/** A member seat for `a` in another account's church: Settings offers seat categories only to an account with a seat. */
+async function seated(a) {
+	const { p } = await plant();
+	await admin
+		.insert(t.seat)
+		.values({ plant_id: p.id, account_id: a.id, role: "member", accepted_at: new Date(), revision: "1" });
+	return a;
+}
 async function seat(p, role = "admin") {
 	const a = await actor();
 	await admin.insert(t.seat).values({ plant_id: p.id, account_id: a.id, role, accepted_at: new Date(), revision: "1" });
@@ -282,7 +290,7 @@ test("AC:TARGET-IDN-010 AC:TARGET-IDN-011 AC:ROLE43-002 AC:ROLE43-005 scoped set
 });
 
 test("AC:TARGET-IDN-012 account preferences keep exact category/channel choices independent and scoped", async () => {
-	const a = await actor();
+	const a = await seated(await actor());
 	const current = ok(await section(a, { section: "notifications" }));
 	assert.equal(current.values.choices.length, 20);
 	// T-242: an unsubscribe from an email this account scheduled is a bell-only row, on by default.
@@ -2165,7 +2173,7 @@ test("AC:DEL58-002 INV-performance: a fresh password proof opens only the accoun
 });
 
 test("INV-account-revision people/peo-3: Your account and notifications share one revision; a save in one moves the other's and the old revision is refused", async () => {
-	const a = await actor();
+	const a = await seated(await actor());
 	const account = ok(await section(a, { section: "account" }));
 	const notifications = ok(await section(a, { section: "notifications" }));
 	assert.equal(notifications.revision, account.revision);

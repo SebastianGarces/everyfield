@@ -53,7 +53,8 @@ const markRow = z.object({
 /**
  * The record an entry is about, from what the notice already stores (D-733): the scheduled email, task or meeting is
  * its source record. A Wiki review names the published global revision in its key; the entry links to that article by
- * the revision's slug. Every other category, and a review whose revision is not a published global one, has none.
+ * the revision's slug. A residency notice names the resident's milestone in its key (`.../<milestone>`), which My
+ * residency shows. Every other category, and a review whose revision is not a published global one, has none.
  */
 const subjectSql = sql`CASE split_part(n.logical_key,'/',2)
 	WHEN 'scheduled_email_unsubscribe' THEN json_build_object('kind','communication','id',n.source_record_id)
@@ -61,6 +62,8 @@ const subjectSql = sql`CASE split_part(n.logical_key,'/',2)
 	WHEN 'task_overdue' THEN json_build_object('kind','task','id',n.source_record_id)
 	WHEN 'meeting_announcement' THEN json_build_object('kind','meeting','id',n.source_record_id)
 	WHEN 'meeting_reminder' THEN json_build_object('kind','meeting','id',n.source_record_id)
+	WHEN 'residency_confirmation' THEN json_build_object('kind','residency_milestone','id',split_part(n.logical_key,'/',5))
+	WHEN 'residency_feedback' THEN json_build_object('kind','residency_milestone','id',split_part(n.logical_key,'/',5))
 	WHEN 'wiki_upstream_review' THEN (
 		SELECT json_build_object('kind','article','id',r.article_id,'slug',r.slug) FROM article_revision r
 		WHERE r.id = CASE WHEN split_part(n.logical_key,'/',3) ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'

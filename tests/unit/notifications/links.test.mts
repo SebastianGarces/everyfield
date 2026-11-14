@@ -50,6 +50,18 @@ test("AC:CASE-NTF-003 each subject opens its page", () => {
 	assert.equal(subjectHref(null), null);
 });
 
+test("AC:CASE-NTF-003 a residency entry opens My residency at its milestone, which reads it", () => {
+	assert.equal(subjectHref({ kind: "residency_milestone", id }), `/my-residency?milestone=${id}#milestone-${id}`);
+	const entry = html({
+		...base,
+		category: "residency_confirmation",
+		title: "Grace Austin confirmed “Preach on a Sunday”",
+		subject: { kind: "residency_milestone", id },
+	});
+	assert.match(entry, new RegExp(`^<li><a [^>]*href="/my-residency\\?milestone=${id}#milestone-${id}"`));
+	assert.match(entry, /My residency/);
+});
+
 test("AC:CASE-NTF-003 a linked entry is one link read or unread; an unlinked one is a button, then text", () => {
 	const unreadLink = html(base);
 	assert.match(unreadLink, new RegExp(`^<li><a [^>]*href="/communication\\?message=${id}"`));

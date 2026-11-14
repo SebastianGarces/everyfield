@@ -1111,7 +1111,7 @@
 		"limit": 1
 	},
 	"notifications.enqueue": {
-		"limit": 5
+		"limit": 6
 	},
 	"notifications.enqueueMany": {
 		"limit": 6

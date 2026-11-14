@@ -26,7 +26,16 @@ export function createOrganizationAdapter(
 }
 export { readAnswerableInvitation } from "./relationships.ts";
 export { readPlantSharing, readSharingDisclosure } from "./sharing.ts";
-export { milestone, milestoneCategory, planMilestoneNotice, relationshipMailGrants } from "./notifications.ts";
+export {
+	milestone,
+	milestoneCategory,
+	planMilestoneNotice,
+	planResidencyNotice,
+	relationshipMailGrants,
+	residencyCategory,
+	residencyJobOf,
+	residencyMailGrants,
+} from "./notifications.ts";
 export type { GeographyReference, OrganizationEffects, RelationshipNotice };
 
 export { idsIn, namesFor, pairOf, pendingFor, residencyLinks, subjectFacts, targetsFor } from "./reads.ts";
