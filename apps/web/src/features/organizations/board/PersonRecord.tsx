@@ -36,6 +36,7 @@ import { formatDay, PIPELINE_PATH, refusalText } from "./model";
 import { PersonDialog } from "./PersonDialog";
 import { Problem } from "./Problem";
 import { RemoveDialog } from "../data/RemoveDialog";
+import { ResidencyLink } from "./ResidencyLink";
 
 type Record = PipelinePersonRecord;
 type Answer = Awaited<ReturnType<typeof movePerson>>;
@@ -137,6 +138,7 @@ export function PersonRecord({
 							) : null}
 						</CardBody>
 					</Card>
+					<ResidencyLink record={record} onChanged={reread} />
 					<History record={record} />
 				</div>
 				<div className="flex flex-col gap-5">

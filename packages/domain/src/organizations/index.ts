@@ -42,3 +42,4 @@ export {
 	searchReadings,
 } from "./programs.ts";
 export { pipelineDataWriter, readPipelineExport } from "./data.ts";
+export { readMyResidency, readResidentReading, residentWriter } from "./residency.ts";

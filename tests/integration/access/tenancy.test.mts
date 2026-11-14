@@ -60,6 +60,8 @@ import {
 } from "../../../packages/domain/src/meetings/index.ts";
 import {
 	readEnrollment,
+	readMyResidency,
+	readResidentReading,
 	readPipelineBoard,
 	readPipelineConsents,
 	readPipelineExport,
@@ -91,8 +93,8 @@ const root = fileURLToPath(new URL("../../../", import.meta.url));
 const baselinePath = fileURLToPath(new URL("./tenancy-baseline.json", import.meta.url));
 
 const WRITE_VERBS = new Set(
-	`accept add apply appoint archive assign attest cancel change clear complete copy correct create delete designate dismiss dispatch
-	edit end enroll ensure execute finalize fork generate hand import initialize invite log merge move offer populate propagate publish
+	`accept add apply appoint archive assign attest cancel change clear complete confirm copy correct create delete designate dismiss dispatch
+	edit end enroll ensure execute finalize fork generate hand import initialize invite log mark merge move offer populate propagate publish
 	reactivate recomplete reconcile record remove reorder replace request reschedule reset restore retire revoke save schedule
 	send set sign submit unmerge update upload use with withdraw`.split(/\s+/),
 );
@@ -825,6 +827,22 @@ function cases(who) {
 					},
 				] as const,
 		),
+		// My residency reads only the caller's own account and its live residency link; a seat has none, and naming a
+		// church A ID opens nothing. tests/integration/organizations/residency.test.mts holds the resident boundary.
+		[
+			"organizations:readMyResidency",
+			{
+				run: () => plain(() => readMyResidency(f.db, who.actor)),
+				expected: { value: { status: "ok", value: { status: "not_linked" } }, control: null },
+			},
+		],
+		[
+			"organizations:readResidentReading",
+			{
+				run: () => plain(() => readResidentReading(f.db, who.actor, { readingId: a.avery })),
+				expected: { value: { status: "ok", value: { status: "unavailable" } }, control: null },
+			},
+		],
 		// Goals, their chosen counts and conversation counts too: tests/integration/organizations/goals.test.mts holds
 		// their organization boundary for reads and saves, including a network that a church shares pipeline totals with.
 		[

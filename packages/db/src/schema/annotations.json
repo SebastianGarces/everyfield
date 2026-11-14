@@ -14598,7 +14598,7 @@
 			"table": {
 				"name": "enrollment_milestone",
 				"domain": "people",
-				"purpose": "A finished milestone of one enrollment (REQ-MUL-012): the day it was finished, who recorded and who confirmed it, when it was confirmed, and its source. Today only the program director records and confirms an unlinked enrollee's milestone in one step (source program_leader).",
+				"purpose": "A finished milestone of one enrollment (REQ-MUL-012): the day it was finished, who recorded and who confirmed it, when it was confirmed, and its source. The program director records and confirms an unlinked enrollee's milestone in one step (source program_leader); a linked resident marks their own milestone done (source resident) and it waits for the director's confirmation.",
 				"library_owned": false,
 				"jsonb_keys": {},
 				"capabilities": ["CAP-A-057"],
@@ -14618,7 +14618,7 @@
 					"At most one row per enrollment and milestone.",
 					"Never commissions anyone or creates a plant."
 				],
-				"revision": "Append-only; a row never changes.",
+				"revision": "A row never changes, except that the director confirms a resident's waiting row once.",
 				"idempotency": "A repeat for the same milestone writes nothing.",
 				"deletion": "Removed with the enrollment under REQ-MUL-005.",
 				"physical_verified": false

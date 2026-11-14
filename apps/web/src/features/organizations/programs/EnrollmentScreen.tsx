@@ -24,7 +24,14 @@ import { Icon } from "@everyfield/ui/foundations";
 import { useEffect, useState, type FormEvent } from "react";
 import { formatDay, PIPELINE_PATH } from "../board/model";
 import { Problem } from "../board/Problem";
-import { addFeedback, applyVersion, recordMilestone, rereadEnrollment, reviewVersion } from "./actions";
+import {
+	addFeedback,
+	applyVersion,
+	confirmMilestone,
+	recordMilestone,
+	rereadEnrollment,
+	reviewVersion,
+} from "./actions";
 import { formatMeeting, KIND, programHref, programProblem, PROGRAMS_PATH } from "./model";
 import { Detail } from "./ProgramScreen";
 import { ReviewParts } from "./VersionReview";
@@ -44,13 +51,15 @@ export function EnrollmentScreen({ initial }: { initial: EnrollmentDetail }) {
 	const [recording, setRecording] = useState<Milestone | null>(null);
 	const [reviewing, setReviewing] = useState(false);
 	const director = enrollment.viewer.director && enrollment.status === "active";
+	const resident = enrollment.resident;
+	const firstName = enrollment.person.name.split(" ")[0] ?? enrollment.person.name;
 
 	async function reread() {
 		const answer = await rereadEnrollment(enrollment.id).catch(() => null);
 		if (answer?.status === "ok") setEnrollment(answer.value);
 	}
 
-	const finished = enrollment.milestones.filter((m) => m.completion).length;
+	const finished = enrollment.milestones.filter((m) => m.completion?.confirmedOn).length;
 	return (
 		<div className="flex flex-col gap-5">
 			<PageHeader
@@ -108,7 +117,26 @@ export function EnrollmentScreen({ initial }: { initial: EnrollmentDetail }) {
 							<Detail term="Plan">{`Version ${enrollment.versionNumber}`}</Detail>
 							<Detail term="Status">{enrollment.status === "active" ? "Active" : enrollment.status}</Detail>
 							<Detail term="Director">{enrollment.program.director.name}</Detail>
+							<Detail term="Everyfield account">{resident.status === "linked" ? "Linked" : "Not linked"}</Detail>
+							{resident.status === "linked" ? (
+								<>
+									<Detail term="Milestone progress">
+										{resident.milestones === "shared" ? "Shared" : "Not shared"}
+									</Detail>
+									<Detail term="Foundations">
+										{resident.foundations.status === "shared"
+											? `${resident.foundations.completed} of ${resident.foundations.total} completed`
+											: "Not shared"}
+									</Detail>
+								</>
+							) : null}
 						</dl>
+						{resident.status === "linked" ? (
+							<p className="mt-4 text-sm text-text-2">
+								{firstName} chooses what you see from their own account. Their reading, reflections and documents are
+								never shared.
+							</p>
+						) : null}
 					</CardBody>
 				</Card>
 				<Card>
@@ -121,6 +149,12 @@ export function EnrollmentScreen({ initial }: { initial: EnrollmentDetail }) {
 						</CardTitle>
 					</CardHeader>
 					<CardBody>
+						{resident.status === "linked" && resident.milestones === "not_shared" ? (
+							<p className="mb-4 rounded-md bg-surface-2 p-3 text-sm text-ink-2">
+								Milestone progress: Not shared. {firstName} keeps their own progress private. Milestones you recorded
+								yourself still show here.
+							</p>
+						) : null}
 						{enrollment.milestones.length ? (
 							<ol className="flex flex-col divide-y divide-line">
 								{enrollment.milestones.map((m) => (
@@ -166,7 +200,7 @@ export function EnrollmentScreen({ initial }: { initial: EnrollmentDetail }) {
 					</CardBody>
 				</Card>
 			</div>
-			{director ? (
+			{director && resident.status === "not_linked" ? (
 				<RecordDialog
 					milestone={recording}
 					enrollment={enrollment}
@@ -209,41 +243,82 @@ function MilestoneRow({
 	onChanged: () => Promise<void>;
 }) {
 	const c = m.completion;
+	// A linked enrollee marks their own milestones, so there is no one-step record; while they don't share milestone
+	// progress, an empty row says nothing about whether it is done.
+	const linked = enrollment.resident.status === "linked";
+	const hidden = enrollment.resident.status === "linked" && enrollment.resident.milestones === "not_shared";
+	const waiting = c !== null && c.confirmedOn === null;
+	const [confirming, setConfirming] = useState(false);
+	const [problem, setProblem] = useState<string | null>(null);
+	async function confirm() {
+		setConfirming(true);
+		setProblem(null);
+		const answer = await confirmMilestone({ enrollmentId: enrollment.id, milestoneId: m.id }).catch(lost);
+		setConfirming(false);
+		if (answer.status !== "ok") return setProblem(programProblem(answer));
+		await onChanged();
+	}
 	return (
 		<li className="flex flex-col gap-2 py-3.5 first:pt-0 last:pb-0">
 			<div className="flex flex-wrap items-start gap-x-3 gap-y-2">
 				<span
 					className={
-						c ? "mt-0.5 flex-none text-green-700" : "mt-0.5 size-[18px] flex-none rounded-full shadow-edge-inset"
+						c && !waiting
+							? "mt-0.5 flex-none text-green-700"
+							: waiting
+								? "mt-0.5 size-[18px] flex-none rounded-full border-2 border-amber-500 border-dashed"
+								: "mt-0.5 size-[18px] flex-none rounded-full shadow-edge-inset"
 					}
 					aria-hidden
 				>
-					{c ? <Icon icon={CheckmarkCircle02Icon} size={18} /> : null}
+					{c && !waiting ? <Icon icon={CheckmarkCircle02Icon} size={18} /> : null}
 				</span>
 				<div className="flex min-w-[220px] flex-1 basis-0 flex-col gap-0.5 text-sm">
 					<span className="font-medium [overflow-wrap:anywhere] text-ink">{m.title}</span>
 					{m.handsOn ? <span className="text-xs font-medium text-blue-600">Hands-on assignment</span> : null}
 					{m.description ? <span className="[overflow-wrap:anywhere] text-text-2">{m.description}</span> : null}
-					{c ? (
+					{c && c.confirmedOn === null ? (
+						<>
+							<span className="font-medium text-amber-600">Waiting for confirmation</span>
+							<span className="text-text-2">
+								{c.recorder ?? enrollment.person.name} marked it done {formatDay(c.completedOn)}
+							</span>
+						</>
+					) : c ? (
 						<>
 							<span className="text-ink">
 								{recordedOn ? `Finished on Version ${recordedOn} · ` : ""}Completed {formatDay(c.completedOn)} ·
-								Confirmed {formatDay(c.confirmedOn)}
+								Confirmed {formatDay(c.confirmedOn!)}
 							</span>
 							<span className="text-text-2">
-								{c.recorder === c.confirmer
-									? `Recorded and confirmed by ${c.recorder ?? "former staff"}`
-									: `Recorded by ${c.recorder ?? "former staff"}, confirmed by ${c.confirmer ?? "former staff"}`}{" "}
-								· Recorded by the program leader
+								{c.source === "resident"
+									? `Marked done by ${c.recorder ?? enrollment.person.name}, confirmed by ${c.confirmer ?? "former staff"}`
+									: `${
+											c.recorder === c.confirmer
+												? `Recorded and confirmed by ${c.recorder ?? "former staff"}`
+												: `Recorded by ${c.recorder ?? "former staff"}, confirmed by ${c.confirmer ?? "former staff"}`
+										} · Recorded by the program leader`}
 							</span>
 						</>
 					) : recordedOn ? (
 						<span className="text-text-3">Not finished on Version {recordedOn}</span>
 					) : (
-						<span className="text-text-3">Not finished</span>
+						<span className="text-text-3">{hidden ? "Progress not shared" : "Not finished"}</span>
 					)}
+					<Problem text={problem} />
 				</div>
-				{director && !c ? (
+				{director && waiting ? (
+					<Button
+						size="sm"
+						variant="primary"
+						className="flex-none max-app-sm:ml-[30px]"
+						loading={confirming}
+						onClick={confirm}
+					>
+						Confirm
+					</Button>
+				) : null}
+				{director && !c && !linked ? (
 					<Button size="sm" variant="secondary" className="flex-none max-app-sm:ml-[30px]" onClick={onRecord}>
 						Record as finished
 					</Button>
@@ -300,7 +375,13 @@ function Feedback({
 			className="ml-[30px] flex flex-col gap-2 rounded-md bg-surface-2 p-3"
 		>
 			<h4 className="text-xs font-semibold tracking-normal text-ink-2">
-				Feedback <span className="font-normal text-text-3">· Seen by the director, Owner and Admins</span>
+				Feedback{" "}
+				<span className="font-normal text-text-3">
+					·{" "}
+					{enrollment.resident.status === "linked"
+						? `Seen by ${enrollment.person.name}, the director, Owner and Admins`
+						: "Seen by the director, Owner and Admins"}
+				</span>
 			</h4>
 			{items.length ? (
 				<ul className="flex flex-col gap-2.5">
