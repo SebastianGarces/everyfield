@@ -236,7 +236,7 @@ export const REVIEW_PAIRS = REVIEW_IMPORT.rows.filter((r) => !r.dismissed).map((
 
 type ActorSpec = { account: string; user: string; session: string; plant: string | null; role: string };
 const ACCOUNT = (k: number): ActorSpec["account"] => id(0xf00 + k);
-const ACTOR_SPECS = {
+export const ACTOR_SPECS = {
 	owner: { account: ACCOUNT(1), user: id(0xf11), session: id(0xf21), plant: PLANT, role: "owner" },
 	admin: { account: ACCOUNT(2), user: id(0xf12), session: id(0xf22), plant: PLANT, role: "admin" },
 	member: { account: ACCOUNT(3), user: id(0xf13), session: id(0xf23), plant: PLANT, role: "member" },
@@ -255,7 +255,7 @@ const LINKED: Partial<Record<ActorName, string>> = {
  * Seeds the church into the schema `admin` is pinned to. Every row a read returns has a pinned id and a pinned time,
  * except each live person's last contact, which is placed relative to the database clock (see the header).
  */
-async function seedHope(admin: Database) {
+export async function seedHope(admin: Database) {
 	const run = (q: ReturnType<typeof sql>) => admin.execute(q);
 	// Hope Fellowship's church digest goes out on Sundays at 4 PM, the default schedule.
 	for (const [plant, name, weekday, hour] of [

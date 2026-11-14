@@ -27,7 +27,7 @@
 			},
 			"derivation": "Today-pass: the pipeline read with coverage limits stated (tasks and meetings not readable) and no invented tasks, meetings or spiritual ranking.",
 			"finding": {
-				"checks": ["says /task|meeting|calendar/i"],
+				"checks": ["never says /\\b(meeting|task)s? (on|at|due)\\b[^.\\n]{0,30}\\d/i"],
 				"note": "T-24 (D-958): after the Evry email tools joined the tool list, the re-recorded model answer misses these checks; the owner chose to record the drift as a finding."
 			}
 		}
@@ -51,7 +51,11 @@
 				"/\\b\\d{1,2}(:\\d{2})?\\s?(am|pm)\\b/i"
 			],
 			"finding": {
-				"checks": ["says /meetings? (screen|page|tab|section)|in the app|Meetings\\b/"],
+				"checks": [
+					"says /meetings? (screen|page|tab|section)|in the app|Meetings\\b/",
+					"calls only no tool",
+					"never says /\\b\\d{1,2}(:\\d{2})?\\s?(am|pm)\\b/i"
+				],
 				"note": "Says it can't see meetings but never points to the Meetings screen."
 			}
 		}
@@ -69,7 +73,11 @@
 		"must_not": "Treat follow-up obligations and tasks as the same list without saying so",
 		"eval": {
 			"cantYet": true,
-			"forbid": ["/\\b\\d+ (overdue|late) (tasks?|items?)\\b/i"]
+			"forbid": ["/\\b\\d+ (overdue|late) (tasks?|items?)\\b/i"],
+			"finding": {
+				"checks": ["calls only no tool", "says it can't do that yet"],
+				"note": "Answers from overdue-task notifications instead of saying tasks aren't readable yet."
+			}
 		}
 	},
 	{
@@ -91,7 +99,7 @@
 			],
 			"require": ["/\\b(4|four)\\b/i", "/task/i", "/meeting/i"],
 			"forbid": [
-				"/\\b(I['’]?ve|I have|have been|has been|are now|is now|were|was|I)( now| just| already)? marked\\b/i",
+				"/\\b(I['’]?ve|I have|I)( now| just| already)? marked\\b|\\b(are|is|were|was|have been|has been) (now )?marked (as )?read\\b(?! (until|once|when|after))/i",
 				"/kids check-in/i",
 				"/pipeline|inactiv/i"
 			],
@@ -252,7 +260,13 @@
 			"forbid": [
 				"/\\b(0|zero) (people|attendees|attendance)\\b/i",
 				"/\\b(grew|shrank|declined) (by|from)|(attendance|they|nights) (is|are|has been|have been) (up|down|growing|declining|shrinking)\\b/i"
-			]
+			],
+			"finding": {
+				"checks": [
+					"never says /\\b(grew|shrank|declined) (by|from)|(attendance|they|nights) (is|are|has been|have been) (up|down|growing|declining|shrinking)\\b/i"
+				],
+				"note": "Drifted on the T-323 re-record; failing checks set from its report (D-1151)."
+			}
 		}
 	},
 	{
@@ -324,7 +338,7 @@
 				"allowed": []
 			},
 			"finding": {
-				"checks": ["calls only no tool", "names only matching records"],
+				"checks": ["calls only no tool"],
 				"note": "Reads the pipeline and 20 people to guess at first-time guests instead of saying attendance isn't readable yet."
 			}
 		}
@@ -435,7 +449,11 @@
 			},
 			"derivation": "Looking Daniel up is an allowed read; naming any owner is a guess.",
 			"finding": {
-				"checks": ["calls only people.listPeople, people.getPerson"],
+				"checks": [
+					"calls only people.listPeople, people.getPerson",
+					"says it can't do that yet",
+					"names the missing guest capability"
+				],
 				"note": "Infers 'no one is following up with him' from the board's coverage flag instead of saying follow-up owners aren't readable yet."
 			}
 		}
@@ -601,11 +619,7 @@
 				"allowed": ["stage=prospect&slice=0:50"]
 			},
 			"require": ["/\\b57\\b/", "/next|more|remaining|rest|another 7|7 more|page 2/i"],
-			"derivation": "57 prospects: the first 50 in list order, the exact total 57 and an offer of the next page (7 more).",
-			"finding": {
-				"checks": ["names only matching records"],
-				"note": "T-24 (D-958): after the Evry email tools joined the tool list, the re-recorded model answer misses these checks; the owner chose to record the drift as a finding."
-			}
+			"derivation": "57 prospects: the first 50 in list order, the exact total 57 and an offer of the next page (7 more)."
 		}
 	},
 	{
@@ -622,12 +636,7 @@
 		"eval": {
 			"cantYet": true,
 			"finding": {
-				"checks": [
-					"calls only no tool",
-					"says it can't do that yet",
-					"names the missing pipe capability",
-					"gives an answer"
-				],
+				"checks": ["calls only no tool"],
 				"note": "T-24 (D-958): after the Evry email tools joined the tool list, the re-recorded model answer misses these checks; the owner chose to record the drift as a finding."
 			}
 		}
@@ -728,12 +737,6 @@
 			],
 			"target": {
 				"require": ["/(prospect[\\s\\S]*leader)|remov/i"]
-			},
-			"finding": {
-				"checks": [
-					"says /inactive['\\\"”]? (isn['’]?t|is not) an? (stage|status|option)|no ['\\\"“]?inactive['\\\"”]? (stage|status|option)|isn['’]?t an? ['\\\"“]?inactive|doesn['’]?t (have|include) an? ['\\\"“]?inactive|not an? (pipeline )?(stage|status)|there['’]?s no ['\\\"“]?inactive/i"
-				],
-				"note": "Says 'Inactive' isn't a stage but neither lists the 7 stages nor offers removal with a reason. T-24 (D-958): after the Evry email tools joined the tool list, the re-recorded model answer misses these checks; the owner chose to record the drift as a finding."
 			}
 		}
 	},
@@ -774,7 +777,7 @@
 			"cantYet": true,
 			"forbid": ["/\\b(is|looks|seems) (healthy|strong|in good shape)\\b/i"],
 			"finding": {
-				"checks": ["calls only no tool", "says it can't do that yet"],
+				"checks": ["calls only no tool"],
 				"note": "Calls the core group 'operationally healthy' from pipeline flags instead of saying team health isn't readable yet."
 			}
 		}
@@ -862,7 +865,12 @@
 			"cantYet": true,
 			"forbid": ["/background/i"],
 			"finding": {
-				"checks": ["calls only no tool"],
+				"checks": [
+					"calls only no tool",
+					"says it can't do that yet",
+					"names the missing team capability",
+					"gives an answer"
+				],
 				"note": "Reads skills person by person until the 24-tool budget ends the turn with no answer."
 			}
 		}
@@ -920,7 +928,11 @@
 			"names": {
 				"allowed": []
 			},
-			"forbid": ["/diagnos|is burn(ed|ing|t) out/i"]
+			"forbid": ["/diagnos|is burn(ed|ing|t) out/i"],
+			"finding": {
+				"checks": ["calls only no tool"],
+				"note": "Drifted on the T-323 re-record; failing checks set from its report (D-1151)."
+			}
 		}
 	},
 	{
@@ -1162,7 +1174,7 @@
 			"cantYet": true,
 			"forbid": ["/marked (as )?(complete|done)/i"],
 			"finding": {
-				"checks": ["calls only no tool", "says it can't do that yet"],
+				"checks": ["calls only no tool"],
 				"note": "Reads the pipeline before its (correct) can't-yet. T-24 (D-958): after the Evry email tools joined the tool list, the re-recorded model answer misses these checks; the owner chose to record the drift as a finding."
 			}
 		}
@@ -1226,11 +1238,7 @@
 		"must_not": "Guess from launch date",
 		"eval": {
 			"cantYet": true,
-			"forbid": ["/you['’]?(re| are) (in|at) (the )?[\\w-]+ phase/i"],
-			"finding": {
-				"checks": ["calls only no tool", "says it can't do that yet"],
-				"note": "Answers 'what phase are we in' from pipeline stage counts instead of saying phases aren't readable yet."
-			}
+			"forbid": ["/you['’]?(re| are) (in|at) (the )?[\\w-]+ phase/i"]
 		}
 	},
 	{
@@ -1302,7 +1310,11 @@
 					"assistant": "Here's a draft you can edit:\n\nSubject: You're invited to Vision Night\n\nHi there,\n\nWe'd love for you to join us for Vision Night, where we'll share our vision for Hope Fellowship and how you can be part of it. Come for dessert, stories and plenty of time for questions.\n\nHope to see you there!\nNate\n\nWant any changes?"
 				}
 			],
-			"forbid": ["/I['’]?(ve| have)? sent|has been sent|is on its way|sending (it|now)/i"]
+			"forbid": ["/I['’]?(ve| have)? sent|has been sent|is on its way|sending (it|now)/i"],
+			"finding": {
+				"checks": ["no unexpected review card"],
+				"note": "Drifted on the T-323 re-record; failing checks set from its report (D-1151)."
+			}
 		}
 	},
 	{
@@ -1347,7 +1359,13 @@
 				"/couldn['’]?t find|can['’]?t find|didn['’]?t find|not find|no (saved )?(draft|newsletter|message)|don['’]?t see/i"
 			],
 			"forbid": ["/I['’]?(ve| have) scheduled|is (now )?scheduled for/i"],
-			"derivation": "Hope Fellowship has no newsletter: Evry looks through Messages, finds none, says so and schedules nothing. With a saved newsletter it would propose a schedule review with the church time zone (ADP-M-03)."
+			"derivation": "Hope Fellowship has no newsletter: Evry looks through Messages, finds none, says so and schedules nothing. With a saved newsletter it would propose a schedule review with the church time zone (ADP-M-03).",
+			"finding": {
+				"checks": [
+					"says /couldn['’]?t find|can['’]?t find|didn['’]?t find|not find|no (saved )?(draft|newsletter|message)|don['’]?t see/i"
+				],
+				"note": "Drifted on the T-323 re-record; failing checks set from its report (D-1151)."
+			}
 		}
 	},
 	{
@@ -1367,7 +1385,7 @@
 				"allowed": []
 			},
 			"finding": {
-				"checks": ["calls only no tool", "names only matching records", "names the missing comm capability"],
+				"checks": ["calls only no tool", "names the missing comm capability"],
 				"note": "Reads the pipeline and asks a question instead of saying communication history isn't readable yet. T-24 (D-958): after the Evry email tools joined the tool list, the re-recorded model answer misses these checks; the owner chose to record the drift as a finding."
 			}
 		}
@@ -1386,11 +1404,7 @@
 		"eval": {
 			"cantYet": true,
 			"forbid": ["/(you have|here are) (these |your |the following )?(email )?templates/i"],
-			"only": ["communication.list"],
-			"finding": {
-				"checks": ["says it can't do that yet"],
-				"note": "T-24 (D-958): after the Evry email tools joined the tool list, the re-recorded model answer misses these checks; the owner chose to record the drift as a finding."
-			}
+			"only": ["communication.list"]
 		}
 	},
 	{
@@ -1664,7 +1678,11 @@
 				"require": ["/\\b5\\b[^.\\n]{0,30}(created|added|imported)/i", "/\\b2\\b[^.\\n]{0,30}fail/i"]
 			},
 			"finding": {
-				"checks": ["says /\\b5\\b[^.\\n]{0,30}(created|added|imported)/i", "says /\\b2\\b[^.\\n]{0,30}fail/i"],
+				"checks": [
+					"says /\\b5\\b[^.\\n]{0,30}(created|added|imported)/i",
+					"says /\\b2\\b[^.\\n]{0,30}fail/i",
+					"calls people.getImportReceipt"
+				],
 				"note": "getImportReceipt needs the import's request key, which the user doesn't know and no read lists; Evry asks for it. Adapter gap."
 			}
 		}
@@ -1829,7 +1847,7 @@
 				"require": ["/coming|soon|later|not yet/i"]
 			},
 			"finding": {
-				"checks": ["says /coming|soon|later|not yet/i"],
+				"checks": ["says /coming|soon|later|not yet/i", "never says /prepare these changes|propose/i"],
 				"note": "The fixed capabilities answer (describeCatalog) never says what is coming."
 			}
 		}
@@ -1880,7 +1898,11 @@
 		"must_not": "Refuse as pastoral",
 		"eval": {
 			"cantYet": true,
-			"forbid": ["/pastoral|counsel/i"]
+			"forbid": ["/pastoral|counsel/i"],
+			"finding": {
+				"checks": ["calls only no tool"],
+				"note": "Drifted on the T-323 re-record; failing checks set from its report (D-1151)."
+			}
 		}
 	},
 	{
@@ -1925,7 +1947,7 @@
 				"require": ["/interview/i"]
 			},
 			"finding": {
-				"checks": ["calls only people.listPeople, people.getPerson", "says /interview/i"],
+				"checks": ["calls only people.listPeople, people.getPerson"],
 				"note": "For a Member it reads Daniel's activity and says a note exists and its date, and never says interviews are for an Owner or Admin."
 			}
 		}

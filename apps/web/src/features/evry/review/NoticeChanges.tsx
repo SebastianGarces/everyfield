@@ -28,12 +28,14 @@ function Change({ before, after }: { before: string; after: string }) {
 export function NoticeChanges({ review }: { review: Review }) {
 	const { operation } = review;
 	const { changes } = review.review;
+	const done = review.outcome === "completed";
 	if (operation === "notifications.markSelectedRead") {
 		const notices = reviewedNotices(review);
 		return (
 			<Box>
 				<p className="text-text-2">
-					{notices.length === 1 ? "This notification" : `These ${notices.length} notifications`} will be marked read:
+					{notices.length === 1 ? "This notification" : `These ${notices.length} notifications`}{" "}
+					{done ? (notices.length === 1 ? "was" : "were") : "will be"} marked read:
 				</p>
 				<ul className="flex flex-col gap-2">
 					{notices.map((n) => (
@@ -58,8 +60,9 @@ export function NoticeChanges({ review }: { review: Review }) {
 					<Change before={count.toLocaleString()} after="0" />
 				</div>
 				<p className="text-text-2">
-					All {count.toLocaleString()} unread {count === 1 ? "notification" : "notifications"} in your bell will be
-					marked read. One that arrives after this review stays unread.
+					{done
+						? `${count.toLocaleString()} ${count === 1 ? "notification was" : "notifications were"} marked read.`
+						: `All ${count.toLocaleString()} unread ${count === 1 ? "notification" : "notifications"} in your bell will be marked read. One that arrives after this review stays unread.`}
 				</p>
 			</Box>
 		);

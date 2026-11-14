@@ -1,14 +1,14 @@
 {
 	"model": "gpt-6-luna",
-	"recordedAt": "2026-11-12T17:00:39.185Z",
+	"recordedAt": "2026-11-13T23:59:57.463Z",
 	"spend": {
 		"newCalls": 10,
-		"newMicroUsd": 4191,
+		"newMicroUsd": 4739,
 		"allCalls": 10,
-		"allMicroUsd": 4191
+		"allMicroUsd": 4739
 	},
 	"calls": {
-		"0015b8d9c0355648": {
+		"345023c995b6b855": {
 			"kind": "stream",
 			"parts": [
 				{
@@ -17,31 +17,31 @@
 				},
 				{
 					"type": "response-metadata",
-					"id": "resp_0d19068fa61aedad006af5f0b616d487d28ce7484f7b58bcec",
-					"timestamp": "2026-11-12T17:00:38.000Z",
+					"id": "resp_0a17accf72fafba6006af7a46ed48c87d190508b1f9294bf71",
+					"timestamp": "2026-11-13T23:59:42.000Z",
 					"modelId": "gpt-6-luna"
 				},
 				{
 					"type": "text-start",
-					"id": "msg_0d19068fa61aedad006af5f0b6bd0087d29439c972f880085a",
+					"id": "msg_0a17accf72fafba6006af7a46f9d3487d1990cfdf660d1d9ec",
 					"providerMetadata": {
 						"openai": {
-							"itemId": "msg_0d19068fa61aedad006af5f0b6bd0087d29439c972f880085a",
+							"itemId": "msg_0a17accf72fafba6006af7a46f9d3487d1990cfdf660d1d9ec",
 							"phase": "final_answer"
 						}
 					}
 				},
 				{
 					"type": "text-delta",
-					"id": "msg_0d19068fa61aedad006af5f0b6bd0087d29439c972f880085a",
-					"delta": "James Okafor’s household has 2 members: James Okafor and Ruth Allen."
+					"id": "msg_0a17accf72fafba6006af7a46f9d3487d1990cfdf660d1d9ec",
+					"delta": "You have 1 household: **Okafor household** in North Ridgeville, with 2 members."
 				},
 				{
 					"type": "text-end",
-					"id": "msg_0d19068fa61aedad006af5f0b6bd0087d29439c972f880085a",
+					"id": "msg_0a17accf72fafba6006af7a46f9d3487d1990cfdf660d1d9ec",
 					"providerMetadata": {
 						"openai": {
-							"itemId": "msg_0d19068fa61aedad006af5f0b6bd0087d29439c972f880085a",
+							"itemId": "msg_0a17accf72fafba6006af7a46f9d3487d1990cfdf660d1d9ec",
 							"phase": "final_answer"
 						}
 					}
@@ -53,32 +53,32 @@
 					},
 					"usage": {
 						"inputTokens": {
-							"total": 4347,
+							"total": 4550,
 							"noCache": 3,
-							"cacheRead": 4001,
-							"cacheWrite": 343
+							"cacheRead": 4390,
+							"cacheWrite": 157
 						},
 						"outputTokens": {
-							"total": 23,
-							"text": 23,
+							"total": 26,
+							"text": 26,
 							"reasoning": 0
 						},
 						"raw": {
-							"input_tokens": 4347,
+							"input_tokens": 4550,
 							"input_tokens_details": {
-								"cache_write_tokens": 343,
-								"cached_tokens": 4001
+								"cache_write_tokens": 157,
+								"cached_tokens": 4390
 							},
-							"output_tokens": 23,
+							"output_tokens": 26,
 							"output_tokens_details": {
 								"reasoning_tokens": 0
 							},
-							"total_tokens": 4370
+							"total_tokens": 4576
 						}
 					},
 					"providerMetadata": {
 						"openai": {
-							"responseId": "resp_0d19068fa61aedad006af5f0b616d487d28ce7484f7b58bcec",
+							"responseId": "resp_0a17accf72fafba6006af7a46ed48c87d190508b1f9294bf71",
 							"serviceTier": "default",
 							"reasoningContext": "all_turns"
 						}
@@ -86,11 +86,11 @@
 				}
 			],
 			"usage": {
-				"input": 4347,
-				"output": 23
+				"input": 4550,
+				"output": 26
 			}
 		},
-		"2f180275aec47e67": {
+		"41b128c846dc72f3": {
 			"kind": "stream",
 			"parts": [
 				{
@@ -99,32 +99,32 @@
 				},
 				{
 					"type": "response-metadata",
-					"id": "resp_04d709903c950a4e006af5f0ad6ccc87d28fca713525185a65",
-					"timestamp": "2026-11-12T17:00:29.000Z",
+					"id": "resp_014b04979ccd95cf006af7a46d676487d1bd50bd6bfa96286a",
+					"timestamp": "2026-11-13T23:59:41.000Z",
 					"modelId": "gpt-6-luna"
 				},
 				{
 					"type": "tool-input-start",
-					"id": "call_CVaho4I8RHenJjN5wV33mI1Q",
-					"toolName": "people_read"
+					"id": "call_57yqMnRQouUssPZWxmJhTa2B",
+					"toolName": "peopleOrganization_read"
 				},
 				{
 					"type": "tool-input-delta",
-					"id": "call_CVaho4I8RHenJjN5wV33mI1Q",
-					"delta": "{\"operation\":\"people.listPeople\",\"input\":{\"search\":\"Okafor\",\"limit\":100}}"
+					"id": "call_57yqMnRQouUssPZWxmJhTa2B",
+					"delta": "{\"operation\":\"people.listHouseholds\",\"input\":{}}"
 				},
 				{
 					"type": "tool-input-end",
-					"id": "call_CVaho4I8RHenJjN5wV33mI1Q"
+					"id": "call_57yqMnRQouUssPZWxmJhTa2B"
 				},
 				{
 					"type": "tool-call",
-					"toolCallId": "call_CVaho4I8RHenJjN5wV33mI1Q",
-					"toolName": "people_read",
-					"input": "{\"operation\":\"people.listPeople\",\"input\":{\"search\":\"Okafor\",\"limit\":100}}",
+					"toolCallId": "call_57yqMnRQouUssPZWxmJhTa2B",
+					"toolName": "peopleOrganization_read",
+					"input": "{\"operation\":\"people.listHouseholds\",\"input\":{}}",
 					"providerMetadata": {
 						"openai": {
-							"itemId": "fc_04d709903c950a4e006af5f0ae492087d2b391c742123fcc5a"
+							"itemId": "fc_014b04979ccd95cf006af7a46e1d6487d19490a32deabf7251"
 						}
 					}
 				},
@@ -135,32 +135,114 @@
 					},
 					"usage": {
 						"inputTokens": {
-							"total": 3857,
+							"total": 4393,
 							"noCache": 3,
-							"cacheRead": 3843,
+							"cacheRead": 0,
+							"cacheWrite": 4390
+						},
+						"outputTokens": {
+							"total": 26,
+							"text": 26,
+							"reasoning": 0
+						},
+						"raw": {
+							"input_tokens": 4393,
+							"input_tokens_details": {
+								"cache_write_tokens": 4390,
+								"cached_tokens": 0
+							},
+							"output_tokens": 26,
+							"output_tokens_details": {
+								"reasoning_tokens": 0
+							},
+							"total_tokens": 4419
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_014b04979ccd95cf006af7a46d676487d1bd50bd6bfa96286a",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 4393,
+				"output": 26
+			}
+		},
+		"42aad11fc193bba8": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": []
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_0135fd163bf119b4006af7a4734b6087d1957c41b75b0381a5",
+					"timestamp": "2026-11-13T23:59:47.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "tool-input-start",
+					"id": "call_iYNseHSC1BMKmf3foLB8deON",
+					"toolName": "peopleOrganization_read"
+				},
+				{
+					"type": "tool-input-delta",
+					"id": "call_iYNseHSC1BMKmf3foLB8deON",
+					"delta": "{\"operation\":\"people.listHouseholds\",\"input\":{\"search\":\"Okafor\",\"limit\":100}}"
+				},
+				{
+					"type": "tool-input-end",
+					"id": "call_iYNseHSC1BMKmf3foLB8deON"
+				},
+				{
+					"type": "tool-call",
+					"toolCallId": "call_iYNseHSC1BMKmf3foLB8deON",
+					"toolName": "peopleOrganization_read",
+					"input": "{\"operation\":\"people.listHouseholds\",\"input\":{\"search\":\"Okafor\",\"limit\":100}}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "fc_0135fd163bf119b4006af7a474025887d186449d603685c296"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "tool-calls"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 4394,
+							"noCache": 3,
+							"cacheRead": 4380,
 							"cacheWrite": 11
 						},
 						"outputTokens": {
-							"total": 32,
-							"text": 32,
+							"total": 34,
+							"text": 34,
 							"reasoning": 0
 						},
 						"raw": {
-							"input_tokens": 3857,
+							"input_tokens": 4394,
 							"input_tokens_details": {
 								"cache_write_tokens": 11,
-								"cached_tokens": 3843
+								"cached_tokens": 4380
 							},
-							"output_tokens": 32,
+							"output_tokens": 34,
 							"output_tokens_details": {
 								"reasoning_tokens": 0
 							},
-							"total_tokens": 3889
+							"total_tokens": 4428
 						}
 					},
 					"providerMetadata": {
 						"openai": {
-							"responseId": "resp_04d709903c950a4e006af5f0ad6ccc87d28fca713525185a65",
+							"responseId": "resp_0135fd163bf119b4006af7a4734b6087d1957c41b75b0381a5",
 							"serviceTier": "default",
 							"reasoningContext": "all_turns"
 						}
@@ -168,11 +250,11 @@
 				}
 			],
 			"usage": {
-				"input": 3857,
-				"output": 32
+				"input": 4394,
+				"output": 34
 			}
 		},
-		"4627efde6bdddb7b": {
+		"520cb0c391705535": {
 			"kind": "stream",
 			"parts": [
 				{
@@ -181,605 +263,31 @@
 				},
 				{
 					"type": "response-metadata",
-					"id": "resp_05a345e743fa4b9a006af5f0b46cb087d2b1b15446f76b1a78",
-					"timestamp": "2026-11-12T17:00:36.000Z",
-					"modelId": "gpt-6-luna"
-				},
-				{
-					"type": "tool-input-start",
-					"id": "call_uoWVX6xTpdQbrhPF4I5LAgo4",
-					"toolName": "peopleOrganization_read"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_uoWVX6xTpdQbrhPF4I5LAgo4",
-					"delta": "{\"operation\":\"people.getHousehold\",\"input\":{\"personId\":\"5b6d1f0e-0000-4000-8000-0000000000b1\"}}"
-				},
-				{
-					"type": "tool-input-end",
-					"id": "call_uoWVX6xTpdQbrhPF4I5LAgo4"
-				},
-				{
-					"type": "tool-call",
-					"toolCallId": "call_uoWVX6xTpdQbrhPF4I5LAgo4",
-					"toolName": "peopleOrganization_read",
-					"input": "{\"operation\":\"people.getHousehold\",\"input\":{\"personId\":\"5b6d1f0e-0000-4000-8000-0000000000b1\"}}",
-					"providerMetadata": {
-						"openai": {
-							"itemId": "fc_05a345e743fa4b9a006af5f0b54f1887d2a43e0dea709a52b4"
-						}
-					}
-				},
-				{
-					"type": "finish",
-					"finishReason": {
-						"unified": "tool-calls"
-					},
-					"usage": {
-						"inputTokens": {
-							"total": 4004,
-							"noCache": 3,
-							"cacheRead": 3857,
-							"cacheWrite": 144
-						},
-						"outputTokens": {
-							"total": 52,
-							"text": 52,
-							"reasoning": 0
-						},
-						"raw": {
-							"input_tokens": 4004,
-							"input_tokens_details": {
-								"cache_write_tokens": 144,
-								"cached_tokens": 3857
-							},
-							"output_tokens": 52,
-							"output_tokens_details": {
-								"reasoning_tokens": 0
-							},
-							"total_tokens": 4056
-						}
-					},
-					"providerMetadata": {
-						"openai": {
-							"responseId": "resp_05a345e743fa4b9a006af5f0b46cb087d2b1b15446f76b1a78",
-							"serviceTier": "default",
-							"reasoningContext": "all_turns"
-						}
-					}
-				}
-			],
-			"usage": {
-				"input": 4004,
-				"output": 52
-			}
-		},
-		"5e624914b75905c7": {
-			"kind": "stream",
-			"parts": [
-				{
-					"type": "stream-start",
-					"warnings": []
-				},
-				{
-					"type": "response-metadata",
-					"id": "resp_084879d5b9c6c0d2006af5f0a7713c87d2ba58a85bb2a6d1d1",
-					"timestamp": "2026-11-12T17:00:23.000Z",
-					"modelId": "gpt-6-luna"
-				},
-				{
-					"type": "tool-input-start",
-					"id": "call_nS2Tk8XrCmHVS6CxuimsoJjm",
-					"toolName": "peopleOrganization_read"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_nS2Tk8XrCmHVS6CxuimsoJjm",
-					"delta": "{\"operation\":\"people.listHouseholds\",\"input\":{\"limit\":100}}"
-				},
-				{
-					"type": "tool-input-end",
-					"id": "call_nS2Tk8XrCmHVS6CxuimsoJjm"
-				},
-				{
-					"type": "tool-call",
-					"toolCallId": "call_nS2Tk8XrCmHVS6CxuimsoJjm",
-					"toolName": "peopleOrganization_read",
-					"input": "{\"operation\":\"people.listHouseholds\",\"input\":{\"limit\":100}}",
-					"providerMetadata": {
-						"openai": {
-							"itemId": "fc_084879d5b9c6c0d2006af5f0a84dd087d296b23e16f4ff0acc"
-						}
-					}
-				},
-				{
-					"type": "finish",
-					"finishReason": {
-						"unified": "tool-calls"
-					},
-					"usage": {
-						"inputTokens": {
-							"total": 3856,
-							"noCache": 3,
-							"cacheRead": 0,
-							"cacheWrite": 3853
-						},
-						"outputTokens": {
-							"total": 28,
-							"text": 28,
-							"reasoning": 0
-						},
-						"raw": {
-							"input_tokens": 3856,
-							"input_tokens_details": {
-								"cache_write_tokens": 3853,
-								"cached_tokens": 0
-							},
-							"output_tokens": 28,
-							"output_tokens_details": {
-								"reasoning_tokens": 0
-							},
-							"total_tokens": 3884
-						}
-					},
-					"providerMetadata": {
-						"openai": {
-							"responseId": "resp_084879d5b9c6c0d2006af5f0a7713c87d2ba58a85bb2a6d1d1",
-							"serviceTier": "default",
-							"reasoningContext": "all_turns"
-						}
-					}
-				}
-			],
-			"usage": {
-				"input": 3856,
-				"output": 28
-			}
-		},
-		"8f6fcf43ff22fd60": {
-			"kind": "stream",
-			"parts": [
-				{
-					"type": "stream-start",
-					"warnings": []
-				},
-				{
-					"type": "response-metadata",
-					"id": "resp_0549040391cd8531006af5f0a8e8c887d280df68ff91eefa1f",
-					"timestamp": "2026-11-12T17:00:24.000Z",
+					"id": "resp_0fcc3f3ecdb81e5a006af7a471de5887d1954519c272471aa7",
+					"timestamp": "2026-11-13T23:59:45.000Z",
 					"modelId": "gpt-6-luna"
 				},
 				{
 					"type": "text-start",
-					"id": "msg_0549040391cd8531006af5f0a9d6c087d2857ef3af01269114",
+					"id": "msg_0fcc3f3ecdb81e5a006af7a472905087d1b9f4a5205ab8720c",
 					"providerMetadata": {
 						"openai": {
-							"itemId": "msg_0549040391cd8531006af5f0a9d6c087d2857ef3af01269114",
+							"itemId": "msg_0fcc3f3ecdb81e5a006af7a472905087d1b9f4a5205ab8720c",
 							"phase": "final_answer"
 						}
 					}
 				},
 				{
 					"type": "text-delta",
-					"id": "msg_0549040391cd8531006af5f0a9d6c087d2857ef3af01269114",
-					"delta": "You have **1 household**: the **Okafor household** in North Ridgeville, with **2 members**."
-				},
-				{
-					"type": "text-end",
-					"id": "msg_0549040391cd8531006af5f0a9d6c087d2857ef3af01269114",
-					"providerMetadata": {
-						"openai": {
-							"itemId": "msg_0549040391cd8531006af5f0a9d6c087d2857ef3af01269114",
-							"phase": "final_answer"
-						}
-					}
-				},
-				{
-					"type": "finish",
-					"finishReason": {
-						"unified": "stop"
-					},
-					"usage": {
-						"inputTokens": {
-							"total": 4015,
-							"noCache": 3,
-							"cacheRead": 3853,
-							"cacheWrite": 159
-						},
-						"outputTokens": {
-							"total": 29,
-							"text": 29,
-							"reasoning": 0
-						},
-						"raw": {
-							"input_tokens": 4015,
-							"input_tokens_details": {
-								"cache_write_tokens": 159,
-								"cached_tokens": 3853
-							},
-							"output_tokens": 29,
-							"output_tokens_details": {
-								"reasoning_tokens": 0
-							},
-							"total_tokens": 4044
-						}
-					},
-					"providerMetadata": {
-						"openai": {
-							"responseId": "resp_0549040391cd8531006af5f0a8e8c887d280df68ff91eefa1f",
-							"serviceTier": "default",
-							"reasoningContext": "all_turns"
-						}
-					}
-				}
-			],
-			"usage": {
-				"input": 4015,
-				"output": 29
-			}
-		},
-		"9ddee802a6bf5e5b": {
-			"kind": "stream",
-			"parts": [
-				{
-					"type": "stream-start",
-					"warnings": []
-				},
-				{
-					"type": "response-metadata",
-					"id": "resp_0457652f6435ebe6006af5f0b25ce887d29ce7294200721268",
-					"timestamp": "2026-11-12T17:00:34.000Z",
-					"modelId": "gpt-6-luna"
-				},
-				{
-					"type": "tool-input-start",
-					"id": "call_zHHdyDXyTtJzEMttHKWAOpIu",
-					"toolName": "people_read"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_zHHdyDXyTtJzEMttHKWAOpIu",
-					"delta": "{\"operation\":\"people.listPeople\",\"input\":{\"search\":\"James Okafor\",\"limit\":100}}"
-				},
-				{
-					"type": "tool-input-end",
-					"id": "call_zHHdyDXyTtJzEMttHKWAOpIu"
-				},
-				{
-					"type": "tool-call",
-					"toolCallId": "call_zHHdyDXyTtJzEMttHKWAOpIu",
-					"toolName": "people_read",
-					"input": "{\"operation\":\"people.listPeople\",\"input\":{\"search\":\"James Okafor\",\"limit\":100}}",
-					"providerMetadata": {
-						"openai": {
-							"itemId": "fc_0457652f6435ebe6006af5f0b3490087d2b9dae7084a7ecbec"
-						}
-					}
-				},
-				{
-					"type": "finish",
-					"finishReason": {
-						"unified": "tool-calls"
-					},
-					"usage": {
-						"inputTokens": {
-							"total": 3860,
-							"noCache": 3,
-							"cacheRead": 3843,
-							"cacheWrite": 14
-						},
-						"outputTokens": {
-							"total": 33,
-							"text": 33,
-							"reasoning": 0
-						},
-						"raw": {
-							"input_tokens": 3860,
-							"input_tokens_details": {
-								"cache_write_tokens": 14,
-								"cached_tokens": 3843
-							},
-							"output_tokens": 33,
-							"output_tokens_details": {
-								"reasoning_tokens": 0
-							},
-							"total_tokens": 3893
-						}
-					},
-					"providerMetadata": {
-						"openai": {
-							"responseId": "resp_0457652f6435ebe6006af5f0b25ce887d29ce7294200721268",
-							"serviceTier": "default",
-							"reasoningContext": "all_turns"
-						}
-					}
-				}
-			],
-			"usage": {
-				"input": 3860,
-				"output": 33
-			}
-		},
-		"bd54dc0ba0680167": {
-			"kind": "stream",
-			"parts": [
-				{
-					"type": "stream-start",
-					"warnings": []
-				},
-				{
-					"type": "response-metadata",
-					"id": "resp_056a4f995e9f063f006af5f0aefae887d2b704b3088c26691e",
-					"timestamp": "2026-11-12T17:00:31.000Z",
-					"modelId": "gpt-6-luna"
-				},
-				{
-					"type": "tool-input-start",
-					"id": "call_Krm861zfBvpQ89p5z9p5pqBS",
-					"toolName": "peopleOrganization_read"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_Krm861zfBvpQ89p5z9p5pqBS",
-					"delta": "{\"operation\":\"people.getHousehold\",\"input\":{\"personId\":\"5b6d1f0e-0000-4000-8000-0000000000b1\"}}"
-				},
-				{
-					"type": "tool-input-end",
-					"id": "call_Krm861zfBvpQ89p5z9p5pqBS"
-				},
-				{
-					"type": "tool-call",
-					"toolCallId": "call_Krm861zfBvpQ89p5z9p5pqBS",
-					"toolName": "peopleOrganization_read",
-					"input": "{\"operation\":\"people.getHousehold\",\"input\":{\"personId\":\"5b6d1f0e-0000-4000-8000-0000000000b1\"}}",
-					"providerMetadata": {
-						"openai": {
-							"itemId": "fc_056a4f995e9f063f006af5f0afeee087d2875495a029118891"
-						}
-					}
-				},
-				{
-					"type": "finish",
-					"finishReason": {
-						"unified": "tool-calls"
-					},
-					"usage": {
-						"inputTokens": {
-							"total": 4000,
-							"noCache": 3,
-							"cacheRead": 3854,
-							"cacheWrite": 143
-						},
-						"outputTokens": {
-							"total": 52,
-							"text": 52,
-							"reasoning": 0
-						},
-						"raw": {
-							"input_tokens": 4000,
-							"input_tokens_details": {
-								"cache_write_tokens": 143,
-								"cached_tokens": 3854
-							},
-							"output_tokens": 52,
-							"output_tokens_details": {
-								"reasoning_tokens": 0
-							},
-							"total_tokens": 4052
-						}
-					},
-					"providerMetadata": {
-						"openai": {
-							"responseId": "resp_056a4f995e9f063f006af5f0aefae887d2b704b3088c26691e",
-							"serviceTier": "default",
-							"reasoningContext": "all_turns"
-						}
-					}
-				}
-			],
-			"usage": {
-				"input": 4000,
-				"output": 52
-			}
-		},
-		"d78dbee49158518c": {
-			"kind": "stream",
-			"parts": [
-				{
-					"type": "stream-start",
-					"warnings": []
-				},
-				{
-					"type": "response-metadata",
-					"id": "resp_0c5c0b772beb29f2006af5f0aa73d087d2bb83cd91eead5332",
-					"timestamp": "2026-11-12T17:00:26.000Z",
-					"modelId": "gpt-6-luna"
-				},
-				{
-					"type": "tool-input-start",
-					"id": "call_Gg8cOjpsCl3tMZ1rO3iBAtGB",
-					"toolName": "peopleOrganization_read"
-				},
-				{
-					"type": "tool-input-delta",
-					"id": "call_Gg8cOjpsCl3tMZ1rO3iBAtGB",
-					"delta": "{\"operation\":\"people.listHouseholds\",\"input\":{\"limit\":100}}"
-				},
-				{
-					"type": "tool-input-end",
-					"id": "call_Gg8cOjpsCl3tMZ1rO3iBAtGB"
-				},
-				{
-					"type": "tool-call",
-					"toolCallId": "call_Gg8cOjpsCl3tMZ1rO3iBAtGB",
-					"toolName": "peopleOrganization_read",
-					"input": "{\"operation\":\"people.listHouseholds\",\"input\":{\"limit\":100}}",
-					"providerMetadata": {
-						"openai": {
-							"itemId": "fc_0c5c0b772beb29f2006af5f0ab77dc87d29fe2f5b92c2392d8"
-						}
-					}
-				},
-				{
-					"type": "finish",
-					"finishReason": {
-						"unified": "tool-calls"
-					},
-					"usage": {
-						"inputTokens": {
-							"total": 3860,
-							"noCache": 3,
-							"cacheRead": 3843,
-							"cacheWrite": 14
-						},
-						"outputTokens": {
-							"total": 28,
-							"text": 28,
-							"reasoning": 0
-						},
-						"raw": {
-							"input_tokens": 3860,
-							"input_tokens_details": {
-								"cache_write_tokens": 14,
-								"cached_tokens": 3843
-							},
-							"output_tokens": 28,
-							"output_tokens_details": {
-								"reasoning_tokens": 0
-							},
-							"total_tokens": 3888
-						}
-					},
-					"providerMetadata": {
-						"openai": {
-							"responseId": "resp_0c5c0b772beb29f2006af5f0aa73d087d2bb83cd91eead5332",
-							"serviceTier": "default",
-							"reasoningContext": "all_turns"
-						}
-					}
-				}
-			],
-			"usage": {
-				"input": 3860,
-				"output": 28
-			}
-		},
-		"d8f34d9eeda812c8": {
-			"kind": "stream",
-			"parts": [
-				{
-					"type": "stream-start",
-					"warnings": []
-				},
-				{
-					"type": "response-metadata",
-					"id": "resp_0b5b3be2e1046ba3006af5f0b0c2d487d2b88f9a8437ef0a38",
-					"timestamp": "2026-11-12T17:00:32.000Z",
-					"modelId": "gpt-6-luna"
-				},
-				{
-					"type": "text-start",
-					"id": "msg_0b5b3be2e1046ba3006af5f0b199d487d2849a1cf35b1b3903",
-					"providerMetadata": {
-						"openai": {
-							"itemId": "msg_0b5b3be2e1046ba3006af5f0b199d487d2849a1cf35b1b3903",
-							"phase": "final_answer"
-						}
-					}
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_0b5b3be2e1046ba3006af5f0b199d487d2849a1cf35b1b3903",
-					"delta": "**Okafor household** — North Ridgeville  \n- James Okafor — head  \n- Ruth Allen — spouse  \n\nThe household has 2 members."
-				},
-				{
-					"type": "text-end",
-					"id": "msg_0b5b3be2e1046ba3006af5f0b199d487d2849a1cf35b1b3903",
-					"providerMetadata": {
-						"openai": {
-							"itemId": "msg_0b5b3be2e1046ba3006af5f0b199d487d2849a1cf35b1b3903",
-							"phase": "final_answer"
-						}
-					}
-				},
-				{
-					"type": "finish",
-					"finishReason": {
-						"unified": "stop"
-					},
-					"usage": {
-						"inputTokens": {
-							"total": 4343,
-							"noCache": 3,
-							"cacheRead": 3997,
-							"cacheWrite": 343
-						},
-						"outputTokens": {
-							"total": 36,
-							"text": 36,
-							"reasoning": 0
-						},
-						"raw": {
-							"input_tokens": 4343,
-							"input_tokens_details": {
-								"cache_write_tokens": 343,
-								"cached_tokens": 3997
-							},
-							"output_tokens": 36,
-							"output_tokens_details": {
-								"reasoning_tokens": 0
-							},
-							"total_tokens": 4379
-						}
-					},
-					"providerMetadata": {
-						"openai": {
-							"responseId": "resp_0b5b3be2e1046ba3006af5f0b0c2d487d2b88f9a8437ef0a38",
-							"serviceTier": "default",
-							"reasoningContext": "all_turns"
-						}
-					}
-				}
-			],
-			"usage": {
-				"input": 4343,
-				"output": 36
-			}
-		},
-		"fa8554445449d832": {
-			"kind": "stream",
-			"parts": [
-				{
-					"type": "stream-start",
-					"warnings": []
-				},
-				{
-					"type": "response-metadata",
-					"id": "resp_08c5f965b936ff47006af5f0ac220887d2b723357b7c38ca25",
-					"timestamp": "2026-11-12T17:00:28.000Z",
-					"modelId": "gpt-6-luna"
-				},
-				{
-					"type": "text-start",
-					"id": "msg_08c5f965b936ff47006af5f0aceed887d2aecb0bb183c76080",
-					"providerMetadata": {
-						"openai": {
-							"itemId": "msg_08c5f965b936ff47006af5f0aceed887d2aecb0bb183c76080",
-							"phase": "final_answer"
-						}
-					}
-				},
-				{
-					"type": "text-delta",
-					"id": "msg_08c5f965b936ff47006af5f0aceed887d2aecb0bb183c76080",
+					"id": "msg_0fcc3f3ecdb81e5a006af7a472905087d1b9f4a5205ab8720c",
 					"delta": "There’s **1 household** across your people:\n\n- **Okafor household** — North Ridgeville; 2 members."
 				},
 				{
 					"type": "text-end",
-					"id": "msg_08c5f965b936ff47006af5f0aceed887d2aecb0bb183c76080",
+					"id": "msg_0fcc3f3ecdb81e5a006af7a472905087d1b9f4a5205ab8720c",
 					"providerMetadata": {
 						"openai": {
-							"itemId": "msg_08c5f965b936ff47006af5f0aceed887d2aecb0bb183c76080",
+							"itemId": "msg_0fcc3f3ecdb81e5a006af7a472905087d1b9f4a5205ab8720c",
 							"phase": "final_answer"
 						}
 					}
@@ -791,9 +299,9 @@
 					},
 					"usage": {
 						"inputTokens": {
-							"total": 4019,
+							"total": 4556,
 							"noCache": 3,
-							"cacheRead": 3857,
+							"cacheRead": 4394,
 							"cacheWrite": 159
 						},
 						"outputTokens": {
@@ -802,21 +310,21 @@
 							"reasoning": 0
 						},
 						"raw": {
-							"input_tokens": 4019,
+							"input_tokens": 4556,
 							"input_tokens_details": {
 								"cache_write_tokens": 159,
-								"cached_tokens": 3857
+								"cached_tokens": 4394
 							},
 							"output_tokens": 30,
 							"output_tokens_details": {
 								"reasoning_tokens": 0
 							},
-							"total_tokens": 4049
+							"total_tokens": 4586
 						}
 					},
 					"providerMetadata": {
 						"openai": {
-							"responseId": "resp_08c5f965b936ff47006af5f0ac220887d2b723357b7c38ca25",
+							"responseId": "resp_0fcc3f3ecdb81e5a006af7a471de5887d1954519c272471aa7",
 							"serviceTier": "default",
 							"reasoningContext": "all_turns"
 						}
@@ -824,8 +332,500 @@
 				}
 			],
 			"usage": {
-				"input": 4019,
+				"input": 4556,
 				"output": 30
+			}
+		},
+		"566fa29cdf0c4a18": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": []
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_0ae76df4a6f01d90006af7a4784dc487d19bd08e9c05848860",
+					"timestamp": "2026-11-13T23:59:52.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "tool-input-start",
+					"id": "call_mm8tsFVOv9VYuzempUTEWrxq",
+					"toolName": "people_read"
+				},
+				{
+					"type": "tool-input-delta",
+					"id": "call_mm8tsFVOv9VYuzempUTEWrxq",
+					"delta": "{\"operation\":\"people.listPeople\",\"input\":{\"search\":\"James Okafor\",\"limit\":100}}"
+				},
+				{
+					"type": "tool-input-end",
+					"id": "call_mm8tsFVOv9VYuzempUTEWrxq"
+				},
+				{
+					"type": "tool-call",
+					"toolCallId": "call_mm8tsFVOv9VYuzempUTEWrxq",
+					"toolName": "people_read",
+					"input": "{\"operation\":\"people.listPeople\",\"input\":{\"search\":\"James Okafor\",\"limit\":100}}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "fc_0ae76df4a6f01d90006af7a47971dc87d1a44bb2df773b5034"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "tool-calls"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 4397,
+							"noCache": 3,
+							"cacheRead": 4380,
+							"cacheWrite": 14
+						},
+						"outputTokens": {
+							"total": 33,
+							"text": 33,
+							"reasoning": 0
+						},
+						"raw": {
+							"input_tokens": 4397,
+							"input_tokens_details": {
+								"cache_write_tokens": 14,
+								"cached_tokens": 4380
+							},
+							"output_tokens": 33,
+							"output_tokens_details": {
+								"reasoning_tokens": 0
+							},
+							"total_tokens": 4430
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_0ae76df4a6f01d90006af7a4784dc487d19bd08e9c05848860",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 4397,
+				"output": 33
+			}
+		},
+		"c1ddd762793a1b1b": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": []
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_0ee8bf61c3110912006af7a47a3d1087d19d9dddfc18289f69",
+					"timestamp": "2026-11-13T23:59:54.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "tool-input-start",
+					"id": "call_S0qlBFxcppXK4Dgm3E9Rz3Bb",
+					"toolName": "peopleOrganization_read"
+				},
+				{
+					"type": "tool-input-delta",
+					"id": "call_S0qlBFxcppXK4Dgm3E9Rz3Bb",
+					"delta": "{\"operation\":\"people.getHousehold\",\"input\":{\"personId\":\"5b6d1f0e-0000-4000-8000-0000000000b1\"}}"
+				},
+				{
+					"type": "tool-input-end",
+					"id": "call_S0qlBFxcppXK4Dgm3E9Rz3Bb"
+				},
+				{
+					"type": "tool-call",
+					"toolCallId": "call_S0qlBFxcppXK4Dgm3E9Rz3Bb",
+					"toolName": "peopleOrganization_read",
+					"input": "{\"operation\":\"people.getHousehold\",\"input\":{\"personId\":\"5b6d1f0e-0000-4000-8000-0000000000b1\"}}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "fc_0ee8bf61c3110912006af7a47b1fbc87d18635a3f58730a9f2"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "tool-calls"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 4541,
+							"noCache": 3,
+							"cacheRead": 4394,
+							"cacheWrite": 144
+						},
+						"outputTokens": {
+							"total": 52,
+							"text": 52,
+							"reasoning": 0
+						},
+						"raw": {
+							"input_tokens": 4541,
+							"input_tokens_details": {
+								"cache_write_tokens": 144,
+								"cached_tokens": 4394
+							},
+							"output_tokens": 52,
+							"output_tokens_details": {
+								"reasoning_tokens": 0
+							},
+							"total_tokens": 4593
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_0ee8bf61c3110912006af7a47a3d1087d19d9dddfc18289f69",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 4541,
+				"output": 52
+			}
+		},
+		"c284f0bd306078a0": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": []
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_0334fc3135076068006af7a476717087d1aefba87951ae1668",
+					"timestamp": "2026-11-13T23:59:50.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "text-start",
+					"id": "msg_0334fc3135076068006af7a4776d8087d1940d63a450a336c0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0334fc3135076068006af7a4776d8087d1940d63a450a336c0",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "text-delta",
+					"id": "msg_0334fc3135076068006af7a4776d8087d1940d63a450a336c0",
+					"delta": "**Okafor household** — North Ridgeville  \n- James Okafor (head)  \n- Ruth Allen (spouse)  \n\nThe household has 2 members. Contact and street-address details weren’t included."
+				},
+				{
+					"type": "text-end",
+					"id": "msg_0334fc3135076068006af7a4776d8087d1940d63a450a336c0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0334fc3135076068006af7a4776d8087d1940d63a450a336c0",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "stop"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 4903,
+							"noCache": 3,
+							"cacheRead": 4556,
+							"cacheWrite": 344
+						},
+						"outputTokens": {
+							"total": 48,
+							"text": 48,
+							"reasoning": 0
+						},
+						"raw": {
+							"input_tokens": 4903,
+							"input_tokens_details": {
+								"cache_write_tokens": 344,
+								"cached_tokens": 4556
+							},
+							"output_tokens": 48,
+							"output_tokens_details": {
+								"reasoning_tokens": 0
+							},
+							"total_tokens": 4951
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_0334fc3135076068006af7a476717087d1aefba87951ae1668",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 4903,
+				"output": 48
+			}
+		},
+		"c88ad0328b8ccf04": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": []
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_0fb199336a57cd7d006af7a47bff2887d1b1272435b8333571",
+					"timestamp": "2026-11-13T23:59:56.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "text-start",
+					"id": "msg_0fb199336a57cd7d006af7a47cfe7887d1acc79267cdff4188",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0fb199336a57cd7d006af7a47cfe7887d1acc79267cdff4188",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "text-delta",
+					"id": "msg_0fb199336a57cd7d006af7a47cfe7887d1acc79267cdff4188",
+					"delta": "James Okafor’s household has two members: James Okafor and Ruth Allen."
+				},
+				{
+					"type": "text-end",
+					"id": "msg_0fb199336a57cd7d006af7a47cfe7887d1acc79267cdff4188",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0fb199336a57cd7d006af7a47cfe7887d1acc79267cdff4188",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "stop"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 4884,
+							"noCache": 3,
+							"cacheRead": 4538,
+							"cacheWrite": 343
+						},
+						"outputTokens": {
+							"total": 22,
+							"text": 22,
+							"reasoning": 0
+						},
+						"raw": {
+							"input_tokens": 4884,
+							"input_tokens_details": {
+								"cache_write_tokens": 343,
+								"cached_tokens": 4538
+							},
+							"output_tokens": 22,
+							"output_tokens_details": {
+								"reasoning_tokens": 0
+							},
+							"total_tokens": 4906
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_0fb199336a57cd7d006af7a47bff2887d1b1272435b8333571",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 4884,
+				"output": 22
+			}
+		},
+		"cab45ab7ee7c477f": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": []
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_0f71027bd51767f4006af7a47032b087d18676359e4deb8fa5",
+					"timestamp": "2026-11-13T23:59:44.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "tool-input-start",
+					"id": "call_KG1SZOTc0o6i9rcXSIrgfxq8",
+					"toolName": "peopleOrganization_read"
+				},
+				{
+					"type": "tool-input-delta",
+					"id": "call_KG1SZOTc0o6i9rcXSIrgfxq8",
+					"delta": "{\"operation\":\"people.listHouseholds\",\"input\":{\"limit\":100}}"
+				},
+				{
+					"type": "tool-input-end",
+					"id": "call_KG1SZOTc0o6i9rcXSIrgfxq8"
+				},
+				{
+					"type": "tool-call",
+					"toolCallId": "call_KG1SZOTc0o6i9rcXSIrgfxq8",
+					"toolName": "peopleOrganization_read",
+					"input": "{\"operation\":\"people.listHouseholds\",\"input\":{\"limit\":100}}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "fc_0f71027bd51767f4006af7a4711ac487d1874de6df2697e14e"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "tool-calls"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 4397,
+							"noCache": 3,
+							"cacheRead": 4380,
+							"cacheWrite": 14
+						},
+						"outputTokens": {
+							"total": 28,
+							"text": 28,
+							"reasoning": 0
+						},
+						"raw": {
+							"input_tokens": 4397,
+							"input_tokens_details": {
+								"cache_write_tokens": 14,
+								"cached_tokens": 4380
+							},
+							"output_tokens": 28,
+							"output_tokens_details": {
+								"reasoning_tokens": 0
+							},
+							"total_tokens": 4425
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_0f71027bd51767f4006af7a47032b087d18676359e4deb8fa5",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 4397,
+				"output": 28
+			}
+		},
+		"dd34dfa85f8620d6": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": []
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_03774c5661008f8a006af7a474cfd887d188161153c59bdd71",
+					"timestamp": "2026-11-13T23:59:48.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "tool-input-start",
+					"id": "call_Vhq6oJ4KCD6hoXPbXMdnAW77",
+					"toolName": "peopleOrganization_read"
+				},
+				{
+					"type": "tool-input-delta",
+					"id": "call_Vhq6oJ4KCD6hoXPbXMdnAW77",
+					"delta": "{\"operation\":\"people.getHousehold\",\"input\":{\"householdId\":\"5b6d1f0e-0000-4000-8000-0000000000a1\"}}"
+				},
+				{
+					"type": "tool-input-end",
+					"id": "call_Vhq6oJ4KCD6hoXPbXMdnAW77"
+				},
+				{
+					"type": "tool-call",
+					"toolCallId": "call_Vhq6oJ4KCD6hoXPbXMdnAW77",
+					"toolName": "peopleOrganization_read",
+					"input": "{\"operation\":\"people.getHousehold\",\"input\":{\"householdId\":\"5b6d1f0e-0000-4000-8000-0000000000a1\"}}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "fc_03774c5661008f8a006af7a475a75887d1860a313f3e2897d6"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "tool-calls"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 4559,
+							"noCache": 3,
+							"cacheRead": 4391,
+							"cacheWrite": 165
+						},
+						"outputTokens": {
+							"total": 53,
+							"text": 53,
+							"reasoning": 0
+						},
+						"raw": {
+							"input_tokens": 4559,
+							"input_tokens_details": {
+								"cache_write_tokens": 165,
+								"cached_tokens": 4391
+							},
+							"output_tokens": 53,
+							"output_tokens_details": {
+								"reasoning_tokens": 0
+							},
+							"total_tokens": 4612
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_03774c5661008f8a006af7a474cfd887d188161153c59bdd71",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 4559,
+				"output": 53
 			}
 		}
 	}
