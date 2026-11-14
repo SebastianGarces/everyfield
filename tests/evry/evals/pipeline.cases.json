@@ -1,7 +1,7 @@
 {
 	"suite": "pipeline",
 	"model": "scripted",
-	"note": "WP-101: the organization pipeline and program tools, asked on the scripted model with the real adapters, approvals and the native pipeline and program writers, on the pipeline fixture (pipeline-church.mts, America/Chicago). Grace Austin: Owner Dana Brooks, Admin Luis Ortega, Members Ana Ruiz (responsible for Casey Lee, directs the residency) and Ben Carter (responsible for no one). Its pipeline: Jordan Reyes (Potential leader, no move in 190 days), Sam Patel (Potential leader, placed 30 days ago) and Casey Lee (Apprentice, moved 14 days ago, with a note from Ana). Hill Country Network's own pipeline has only Morgan Diaz; Ruth Calder is its Owner. Cases run in this order; each later case sees the earlier approved changes. T-312 Done 14: each case with `question` is one of the seven WP-101 questions (Done 1 to 7) asked by Dana, Ana or Ben; together they fill the asker x question matrix, and each is compared with that asker's own Pipeline page read (`page`) or native write (`native`).",
+	"note": "WP-101: the organization pipeline and program tools, asked on the scripted model with the real adapters, approvals and the native pipeline and program writers, on the pipeline fixture (pipeline-church.mts, America/Chicago). Grace Austin: Owner Dana Brooks, Admin Luis Ortega, Members Ana Ruiz (responsible for Casey Lee, directs the residency) and Ben Carter (responsible for no one). Its pipeline: Jordan Reyes (Potential leader, no move in 190 days), Sam Patel (Potential leader, placed 30 days ago) and Casey Lee (Apprentice, moved 14 days ago, with a note from Ana). Hill Country Network's own pipeline has only Morgan Diaz; Ruth Calder is its Owner. Cases run in this order; each later case sees the earlier approved changes. Ana also directs \"Church planting residency\": Version 1 is published (weekly, 18 months, the residency template's four stages and three milestones, the reading \"Planting a church that plants churches\"), and Casey Lee is enrolled on it and has finished \"Start a small group and raise a replacement\". The PRG cases (T-377) have Evry draft its next version; their criterion numbers are T-377's. T-312 Done 14: each case with `question` is one of the seven WP-101 questions (Done 1 to 7) asked by Dana, Ana or Ben; together they fill the asker x question matrix, and each is compared with that asker's own Pipeline page read (`page`) or native write (`native`).",
 	"cases": [
 		{
 			"id": "PIP-01",
@@ -491,6 +491,167 @@
 				"Only an Owner or Admin can invite people, change seats and invitations, change this organization's profile, move people between pipeline stages or create programs."
 			],
 			"absent": ["Casey"]
+		},
+		{
+			"id": "PRG-01",
+			"criterion": 9,
+			"actor": "ana",
+			"ask": "show me the residency plan",
+			"operation": "development.readProgram",
+			"calls": ["development.readProgram", "development.readProgram"],
+			"answer": [
+				"Church planting residency, directed by Ana Ruiz.",
+				"Version 1, published: Meets weekly over 18 months.",
+				"Milestones:\n1. Start a small group and raise a replacement",
+				"Reading list: Planting a church that plants churches."
+			],
+			"absent": ["Casey", "Fall cohort", "youth group"]
+		},
+		{
+			"id": "PRG-02",
+			"criterion": 8,
+			"actor": "dana",
+			"ask": "draft the next version of the residency: meet every two weeks, and add a milestone 'Lead a vision night'",
+			"operation": "development.readProgram",
+			"calls": ["development.readProgram", "development.readProgram"],
+			"answer": [
+				"Only a program's current director edits its plan, as its page in Programs shows.",
+				"Church planting residency is directed by Ana Ruiz, so only Ana Ruiz edits its plan and I can't draft its next version for you. Nothing changed."
+			]
+		},
+		{
+			"id": "PRG-03",
+			"criterion": 8,
+			"actor": "luis",
+			"ask": "draft the next version of the residency: meet every two weeks, and add a milestone 'Lead a vision night'",
+			"operation": "development.readProgram",
+			"calls": ["development.readProgram", "development.readProgram"],
+			"answer": [
+				"Only a program's current director edits its plan, as its page in Programs shows.",
+				"Church planting residency is directed by Ana Ruiz, so only Ana Ruiz edits its plan and I can't draft its next version for you. Nothing changed."
+			]
+		},
+		{
+			"id": "PRG-04",
+			"criterion": 8,
+			"actor": "ben",
+			"ask": "draft the next version of the residency: meet every two weeks, and add a milestone 'Lead a vision night'",
+			"operation": "development.readProgram",
+			"calls": ["development.readProgram", "development.readProgram"],
+			"answer": [
+				"Only a program's current director edits its plan, as its page in Programs shows.",
+				"Church planting residency is directed by Ana Ruiz, so only Ana Ruiz edits its plan and I can't draft its next version for you. Nothing changed."
+			]
+		},
+		{
+			"id": "PRG-05",
+			"criterion": 10,
+			"actor": "hill",
+			"ask": "draft the next version of Grace Austin's residency: meet every two weeks",
+			"operation": "development.readProgram",
+			"calls": ["development.readProgram"],
+			"answer": [
+				"I can only see your own organization's programs, so I can't show or draft anything from another organization's programs."
+			],
+			"absent": ["Ana Ruiz", "Casey", "Version 1", "Planting a church"]
+		},
+		{
+			"id": "PRG-06",
+			"criterion": 10,
+			"actor": "hill",
+			"ask": "show me Grace Austin's residency",
+			"operation": "development.readProgram",
+			"calls": ["development.readProgram"],
+			"answer": [
+				"I can only see your own organization's programs, so I can't show or draft anything from another organization's programs."
+			],
+			"absent": ["Ana Ruiz", "Casey", "Version 1", "Planting a church"]
+		},
+		{
+			"id": "PRG-07",
+			"criterion": 1,
+			"actor": "ana",
+			"ask": "draft the next version of the residency: meet every two weeks, and add a milestone 'Lead a vision night'",
+			"operation": "development.draftNextVersion",
+			"calls": ["development.readProgram", "development.readProgram"],
+			"answer": [
+				"Here is the plan for Draft of Version 2 of Church planting residency. Meets every two weeks over 18 months.",
+				"4. Lead a vision night",
+				"Reading list: Planting a church that plants churches.",
+				"Nothing is saved until you approve it, nothing is published, and only you publish it from Programs."
+			],
+			"proposal": {
+				"operation": "development.draftNextVersion",
+				"target": "Draft of Version 2",
+				"changes": [
+					{ "field": "rhythm", "before": "Weekly", "after": "Every two weeks" },
+					{ "field": "addedMilestones", "before": null, "after": ["Lead a vision night"] }
+				],
+				"notes": [
+					"What stays the same as Version 1:",
+					"Expected length: 18 months",
+					"Stages: Assimilating, 2–3 months; Training and planning, 6–9 months; Gathering, 2–3 months; Sending and planting, 2–3 months",
+					"Other milestones: Start a small group and raise a replacement; Present your vision to the sending church leadership; Write a church planting prospectus",
+					"Reading list: Planting a church that plants churches",
+					"Version 1 stays as it is, and people enrolled keep Version 1. Only Ana Ruiz, the director, publishes Version 2, from Programs."
+				]
+			},
+			"approve": {},
+			"outcome": "completed"
+		},
+		{
+			"id": "PRG-08",
+			"criterion": 6,
+			"actor": "ana",
+			"ask": "draft the next version of the residency: rename the milestone 'Write a church planting prospectus' to 'Write and present a church planting prospectus'",
+			"operation": "development.draftNextVersion",
+			"calls": ["development.readProgram", "development.readProgram"],
+			"proposal": {
+				"operation": "development.draftNextVersion",
+				"target": "Draft of Version 2",
+				"changes": [
+					{
+						"field": "changedMilestones",
+						"before": ["Write a church planting prospectus"],
+						"after": ["Write and present a church planting prospectus"]
+					}
+				],
+				"notes": [
+					"What stays the same as the Draft of Version 2:",
+					"Meets: Every two weeks",
+					"Other milestones: Start a small group and raise a replacement; Present your vision to the sending church leadership; Lead a vision night",
+					"Approving replaces the current Draft of Version 2. Version 1 stays as it is"
+				]
+			},
+			"approve": {},
+			"outcome": "completed"
+		},
+		{
+			"id": "PRG-09",
+			"criterion": 7,
+			"actor": "ana",
+			"ask": "draft the next version of the residency: meet monthly",
+			"operation": "development.draftNextVersion",
+			"calls": ["development.readProgram", "development.readProgram"],
+			"proposal": {
+				"operation": "development.draftNextVersion",
+				"target": "Draft of Version 2",
+				"changes": [{ "field": "rhythm", "before": "Every two weeks", "after": "Monthly" }]
+			},
+			"approve": {},
+			"outcome": "refused"
+		},
+		{
+			"id": "PRG-10",
+			"criterion": 3,
+			"actor": "ana",
+			"ask": "publish Version 2 of the residency",
+			"calls": [],
+			"answer": [
+				"Versions are published on the program's page in Programs, not here",
+				"[Programs](/organization/pipeline/programs)",
+				"Nothing was published."
+			]
 		}
 	]
 }

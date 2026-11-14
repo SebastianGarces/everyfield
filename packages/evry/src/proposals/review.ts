@@ -144,6 +144,7 @@ const targetKind = z.enum([
 	"connection",
 	"organization",
 	"account",
+	"program",
 ]);
 const change = z.object({ field: z.string(), before: z.unknown(), after: z.unknown() });
 /** One person a change reaches beyond the target, such as each member of a household or each person tagged. */

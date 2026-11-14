@@ -1030,7 +1030,7 @@ function Affects({ review }: { review: Review }) {
 	const kind = target?.kind;
 	const tag = !kind && review.review.changes.find((c) => c.field === "tag" || c.field === "createTag")?.after;
 	const imported = review.operation === "people.executeBulkImport";
-	const program = review.operation === "development.saveProgram";
+	const program = review.operation === "development.saveProgram" || review.operation === "development.draftNextVersion";
 	// A ministry change names its ministry, role, program or responsibility; a new ministry or program its name.
 	const record = isTeams(review.operation) ? ((target && RECORD_GLYPH[target.kind]) ?? UserGroupIcon) : null;
 	const glyph = own
@@ -1253,7 +1253,10 @@ function Changes({ review, staged, onRetry }: { review: Review; staged: StagedPh
 	if (!changes.length) return null;
 	const create = addsOnly(review.operation);
 	// A Meetings value with nothing before it is new: it shows only what it will be.
-	const fresh = (c: Change) => isMeetings(review.operation) && (c.before === null || c.before === undefined);
+	// So is a milestone a program's next version adds.
+	const fresh = (c: Change) =>
+		(isMeetings(review.operation) || review.operation === "development.draftNextVersion") &&
+		(c.before === null || c.before === undefined);
 	return (
 		<dl className="flex flex-col gap-2 rounded-md bg-surface-2 px-3 py-2.5 text-sm">
 			{changes.map((c: Change) =>

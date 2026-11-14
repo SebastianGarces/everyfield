@@ -188,6 +188,12 @@ const VIEWS: Record<string, OpView> = {
 		counts: "seat",
 		empty: "Only an Owner or Admin sees who may direct a program.",
 	},
+	// A program's plan as Programs shows it, or the organization's programs: never who is enrolled.
+	"development.readProgram": items("Programs", {
+		noun: ["item", "items"],
+		icon: "training",
+		empty: "This organization has no program yet.",
+	}),
 	"communication.list": {
 		title: "Messages",
 		noun: ["message", "messages"],
@@ -1041,6 +1047,22 @@ function itemLine(operation: string, f: Record<string, unknown>): string | null 
 			return typeof f.rsvp === "string" ? (RSVP_TEXT[f.rsvp] ?? f.rsvp) : null;
 		case "meetings.hasHistory":
 			return f.hasHistory ? "Meetings are on record" : "No meeting on record";
+		case "development.readProgram":
+			// A program: its director and versions. A plan part: its version and what it is.
+			if (f.part === "program")
+				return joined(
+					`Directed by ${String(f.director)}`,
+					typeof f.publishedVersion === "number" ? `Version ${f.publishedVersion} published` : "Not published",
+					f.draft ? "Draft in progress" : null,
+				);
+			return joined(
+				`Version ${String(f.version)}`,
+				f.part === "stage"
+					? `Stage, months ${String(f.minMonths)}–${String(f.maxMonths)}`
+					: f.part === "milestone"
+						? "Milestone"
+						: "Reading",
+			);
 		default: {
 			// A report line: its counts, in the words of its fields.
 			const parts = Object.entries(f)
