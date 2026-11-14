@@ -96,7 +96,7 @@ async function lock(tx: Transaction, scope: Scope, key: string) {
 
 const storedAnswer = z.object({ outcome: z.enum(["changed", "noop"]) });
 /** One history row with the command's stored answer, as the CTE `aud`. `from` names the CTE it runs once per row of. */
-function auditCte(
+export function auditCte(
 	scope: Scope,
 	identity: RequestIdentity,
 	op: string,

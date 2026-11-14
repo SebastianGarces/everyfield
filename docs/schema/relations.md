@@ -164,6 +164,7 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `job(id, tenant_id)` | `record(id, tenant_id)` | restrict |  |
 | `launch(plant_id)` | `plant(id)` | restrict |  |
 | `launch(reference_version_id)` | `reference_version(id)` | restrict |  |
+| `launch(gathering_organization_id)` | `organization(id)` | set_null |  |
 | `launch(outcome_recorded_by)` | `account(id)` | set_null |  |
 | `launch_debrief(plant_id)` | `launch(plant_id)` | cascade |  |
 | `launch_debrief(saved_by)` | `account(id)` | set_null |  |

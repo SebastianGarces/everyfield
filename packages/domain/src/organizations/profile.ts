@@ -33,6 +33,9 @@ const profileRow = z.object({
 	contact_email: z.string().nullable(),
 	contact_phone: z.string().nullable(),
 	statement_of_faith: z.string().nullable(),
+	gathering_milestone_offered: z.boolean(),
+	gathering_milestone_name: z.string().nullable(),
+	gathering_milestone_description: z.string().nullable(),
 	timezone: z.string(),
 	revision,
 });
@@ -208,7 +211,18 @@ export async function applyOrganizationProfile(
 		statementOfFaith: "statement_of_faith",
 	} as const;
 	const patch: Partial<typeof tables.organization.$inferInsert> = {};
-	for (const [raw, value] of Object.entries(input)) {
+	// The milestone the organization offers its plants (T-296) is one value stored in three columns.
+	const { gatheringMilestone: milestone, ...plain } = input;
+	if (milestone) {
+		const now = {
+			gathering_milestone_offered: milestone.offered,
+			gathering_milestone_name: milestone.name,
+			gathering_milestone_description: milestone.description,
+		} as const;
+		for (const [field, value] of Object.entries(now) as [keyof typeof now, never][])
+			if (row[field] !== value) patch[field] = value;
+	}
+	for (const [raw, value] of Object.entries(plain)) {
 		const key = z
 			.enum([
 				"name",
@@ -247,11 +261,7 @@ export async function applyOrganizationProfile(
 	);
 	const audit = c.events.find((e) => e.id === event);
 	if (!audit) throw Error("missing_audit_entry");
-	audit.before_value = Object.fromEntries(
-		Object.values(fields)
-			.filter((field) => Object.hasOwn(patch, field))
-			.map((field) => [field, row[field]]),
-	);
+	audit.before_value = Object.fromEntries(Object.keys(patch).map((field) => [field, row[field as keyof typeof row]]));
 	audit.after_value = patch;
 
 	return {
@@ -279,6 +289,11 @@ export function profileValue(row: z.infer<typeof profileRow>, organization: z.in
 			contactEmail: row.contact_email,
 			contactPhone: row.contact_phone,
 			statementOfFaith: row.statement_of_faith,
+			gatheringMilestone: {
+				offered: row.gathering_milestone_offered,
+				name: row.gathering_milestone_name,
+				description: row.gathering_milestone_description,
+			},
 		},
 	});
 }

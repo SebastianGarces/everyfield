@@ -249,6 +249,24 @@ export const historyChange = z.discriminatedUnion("kind", [
 	z.strictObject({ kind: z.literal("guest"), name: z.string().nullable(), added: z.boolean() }),
 	z.strictObject({ kind: z.literal("debrief"), event: z.enum(["submitted", "corrected"]), version: z.int() }),
 	z.strictObject({ kind: z.literal("summary"), version: z.int() }),
+	/** The church chose a milestone instead of Launch Sunday (T-296), or Launch Sunday again. */
+	z.strictObject({
+		kind: z.literal("path"),
+		to: z.enum(["launch_sunday", "milestone"]),
+		/** The milestone chosen, or the one left for Launch Sunday, with its organization's name at the time. */
+		milestone: z.string().nullable(),
+		organization: z.string().nullable(),
+	}),
+	/** The milestone recorded reached, its date corrected, or the record cleared. Notes are never repeated. */
+	z.strictObject({
+		kind: z.literal("gathering"),
+		event: z.enum(["recorded", "corrected", "cleared"]),
+		name: z.string(),
+		from: localDate.nullable(),
+		to: localDate.nullable(),
+		noteChanged: z.boolean(),
+		reason: z.string().nullable(),
+	}),
 ]);
 export type HistoryChange = z.infer<typeof historyChange>;
 export const historyEntry = z.strictObject({

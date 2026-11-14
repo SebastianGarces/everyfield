@@ -45,8 +45,8 @@ export function parseSectionKey(value: string | undefined): SectionKey | null {
 
 /**
  * The sections this viewer is offered. The server checks authority again on every read and save; this only keeps a
- * section out of the nav when the viewer cannot use it. Church and organization profiles need an Owner or Admin of
- * that exact context, and so do the church brand kit and the church's Wiki source order; notifications and your account are always yours. Seats needs a
+ * section out of the nav when the viewer cannot use it. The church profile needs an Owner or Admin of that exact context, and an organization's profile is read by any of its
+ * seats and changed by its Owner or Admin, and so do the church brand kit and the church's Wiki source order; notifications and your account are always yours. Seats needs a
  * workspace: without one its page only says it is not available. `slots` names the sections this surface can show, as
  * a section or as a link to their own page, so firstSection never lands on one.
  */
@@ -59,7 +59,8 @@ export function offeredSections(viewer: SettingsViewer, slots: readonly SectionK
 			case "wiki":
 				return viewer.context === "plant" && admin;
 			case "organization":
-				return viewer.context === "organization" && admin;
+				// A Member reads the profile and its gathering milestone (T-296); only an Owner or Admin changes them.
+				return viewer.context === "organization";
 			case "sharing":
 				return viewer.context === "plant" && slots.includes("sharing");
 			case "seats":

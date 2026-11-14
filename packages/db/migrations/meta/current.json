@@ -10391,6 +10391,37 @@
           "type": "uuid",
           "primaryKey": false,
           "notNull": false
+        },
+        "gathering_path": {
+          "name": "gathering_path",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'launch_sunday'"
+        },
+        "gathering_organization_id": {
+          "name": "gathering_organization_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "gathering_reached_on": {
+          "name": "gathering_reached_on",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "gathering_reached_name": {
+          "name": "gathering_reached_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "gathering_note": {
+          "name": "gathering_note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {
@@ -10414,6 +10445,21 @@
           "columns": [
             {
               "expression": "outcome_recorded_by",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "launch_gathering_organization_idx": {
+          "name": "launch_gathering_organization_idx",
+          "columns": [
+            {
+              "expression": "gathering_organization_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -10464,6 +10510,19 @@
           ],
           "onDelete": "set null",
           "onUpdate": "no action"
+        },
+        "launch_gathering_organization": {
+          "name": "launch_gathering_organization",
+          "tableFrom": "launch",
+          "tableTo": "organization",
+          "columnsFrom": [
+            "gathering_organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
@@ -10504,6 +10563,22 @@
         "launch_outcome_recorded": {
           "name": "launch_outcome_recorded",
           "value": "((actual_date IS NULL) = (outcome_recorded_at IS NULL))"
+        },
+        "launch_gathering_path": {
+          "name": "launch_gathering_path",
+          "value": "(gathering_path = ANY (ARRAY['launch_sunday'::text, 'milestone'::text]))"
+        },
+        "launch_gathering_sunday": {
+          "name": "launch_gathering_sunday",
+          "value": "((gathering_path = 'milestone'::text) OR ((gathering_organization_id IS NULL) AND (gathering_reached_on IS NULL)))"
+        },
+        "launch_gathering_reached": {
+          "name": "launch_gathering_reached",
+          "value": "(((gathering_reached_on IS NULL) = (gathering_reached_name IS NULL)) AND ((gathering_reached_on IS NOT NULL) OR (gathering_note IS NULL)))"
+        },
+        "launch_gathering_lengths": {
+          "name": "launch_gathering_lengths",
+          "value": "(((gathering_reached_name IS NULL) OR (length(gathering_reached_name) <= 120)) AND ((gathering_note IS NULL) OR (length(gathering_note) <= 2000)))"
         }
       },
       "isRLSEnabled": false
@@ -15119,6 +15194,25 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'{}'::jsonb"
+        },
+        "gathering_milestone_offered": {
+          "name": "gathering_milestone_offered",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "gathering_milestone_name": {
+          "name": "gathering_milestone_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "gathering_milestone_description": {
+          "name": "gathering_milestone_description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {},
@@ -15197,6 +15291,10 @@
         "organization_pipeline_import_columns": {
           "name": "organization_pipeline_import_columns",
           "value": "(jsonb_typeof(pipeline_import_columns) = 'object'::text)"
+        },
+        "organization_gathering_milestone": {
+          "name": "organization_gathering_milestone",
+          "value": "(((NOT gathering_milestone_offered) OR (gathering_milestone_name IS NOT NULL)) AND ((gathering_milestone_name IS NULL) OR ((length(btrim(gathering_milestone_name)) > 0) AND (length(gathering_milestone_name) <= 120))) AND ((gathering_milestone_description IS NULL) OR (length(gathering_milestone_description) <= 2000)))"
         }
       },
       "isRLSEnabled": false

@@ -10,6 +10,7 @@ import { auditTransaction } from "../operations/writes.ts";
 import { SEED } from "./catalog.ts";
 import { deny, identityOf, keyed, parse, priorKey, priorRow, replay, scopeOf, settle, type Scope } from "./core.ts";
 import { heldPractices, milestoneJson, milestoneOf, planAfter, systemClock } from "./reads.ts";
+import { gatheringCommands } from "./gathering.ts";
 import { outcomeCommands } from "./outcome.ts";
 
 /** A milestone a person just completed, and the church's other current Owners and Admins to tell (NTF-009). */
@@ -229,6 +230,7 @@ export function createLaunchWriter(config: { notices: LaunchNotices; clock?: Clo
 
 	return {
 		...outcomeCommands(clock),
+		...gatheringCommands(clock),
 		/**
 		 * launch.schedule (LCH-001, LCH-003): set, move or recommit Launch Sunday. The first date, and any date while
 		 * readiness is incomplete, also creates the missing milestones and prep tasks in the same change. The same date

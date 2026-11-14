@@ -3,7 +3,7 @@ import { Skeleton, StatePanel } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { LaunchScreen } from "./LaunchScreen.tsx";
-import { administers, launchViewer, loadPlan } from "./server.ts";
+import { administers, launchViewer, loadOffers, loadPlan } from "./server.ts";
 
 // The /launch route (WP-045). apps/web/src/app/(product)/(frame)/launch/ only re-exports these.
 
@@ -20,7 +20,7 @@ export async function LaunchPage() {
 			</StatePanel>
 		);
 	}
-	const loaded = await loadPlan(viewer);
+	const [loaded, offers] = await Promise.all([loadPlan(viewer), loadOffers(viewer)]);
 	// A failed load is never "no launch date": the page says it could not load (LCH-008).
 	if (loaded.status !== "ok")
 		return (
@@ -28,7 +28,13 @@ export async function LaunchPage() {
 				This is a loading problem. Your Launch plan is safe. Reload the page in a moment.
 			</StatePanel>
 		);
-	return <LaunchScreen plan={loaded.value} viewer={{ accountId: viewer.accountId, admin: administers(viewer) }} />;
+	return (
+		<LaunchScreen
+			plan={loaded.value}
+			offers={offers}
+			viewer={{ accountId: viewer.accountId, admin: administers(viewer) }}
+		/>
+	);
 }
 
 /** The first paint while the plan loads: its shape, not a spinner. */
