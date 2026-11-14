@@ -282,7 +282,13 @@
 				"/hint|possible|potential|might|may|similar|not (proof|certain|sure)|can['’]?t (be sure|confirm|tell)|enough to (tell|say|know)/i"
 			],
 			"forbid": ["/\\b(yes|definitely|clearly|confirmed)\\b[^.\\n]{0,30}same person/i"],
-			"derivation": "Comparing two named people is the duplicate check, not the import review list."
+			"derivation": "Comparing two named people is the duplicate check, not the import review list.",
+			"finding": {
+				"checks": [
+					"says /hint|possible|potential|might|may|similar|not (proof|certain|sure)|can['’]?t (be sure|confirm|tell)|enough to (tell|say|know)/i"
+				],
+				"note": "T-318 merge with T-320 (D-958, D-1151): with the task, follow-up and teams tools in one tool list, the re-recorded model answer misses these checks; recorded as drift, not a change in what Evry may do."
+			}
 		}
 	},
 	{
@@ -837,7 +843,13 @@
 			"require": ["/review|approv/i"],
 			"forbid": [
 				"/I['’]?(ve| have)? (sent|scheduled|moved|cancelled|canceled|replaced)|has been (sent|scheduled|moved|cancelled|canceled)|is on its way/i"
-			]
+			],
+			"finding": {
+				"checks": [
+					"never says /I['’]?(ve| have)? (sent|scheduled|moved|cancelled|canceled|replaced)|has been (sent|scheduled|moved|cancelled|canceled)|is on its way/i"
+				],
+				"note": "T-318 merge with T-320 (D-958, D-1151): with the task, follow-up and teams tools in one tool list, the re-recorded model answer misses these checks; recorded as drift, not a change in what Evry may do."
+			}
 		}
 	},
 	{
@@ -1037,7 +1049,15 @@
 				}
 			],
 			"derivation": "Lena Park completed Send the welcome packet on Fri 6 Nov.",
-			"require": ["Lena Park", "/Nov(ember)?\\.? 6\\b|11\\/0?6\\b|2026-11-06/i"]
+			"require": ["Lena Park", "/Nov(ember)?\\.? 6\\b|11\\/0?6\\b|2026-11-06/i"],
+			"finding": {
+				"checks": [
+					"calls tasks.statusHistory",
+					"says Lena Park",
+					"says /Nov(ember)?\\.? 6\\b|11\\/0?6\\b|2026-11-06/i"
+				],
+				"note": "T-318 merge with T-320 (D-958, D-1151): with the task, follow-up and teams tools in one tool list, the re-recorded model answer misses these checks; recorded as drift, not a change in what Evry may do."
+			}
 		}
 	},
 	{
@@ -1270,7 +1290,7 @@
 				}
 			],
 			"require": [
-				"/no (call|contact|outcome)s? (is |are |has been )?recorded|nothing (is |has been )?recorded|no recorded|not recorded/i"
+				"/no (call|contact|outcome)s? (is |are |has been )?recorded|nothing (is |has been )?recorded|no recorded|not recorded|(couldn['’]?t|could not|didn['’]?t) find (a |any )?recorded/i"
 			],
 			"forbid": [
 				"/(?<!(prove|proves|mean|means|show|shows|confirm|confirms|say|says) )\\b(no one|nobody) (has )?(called|contacted|reached)/i"
@@ -1991,7 +2011,13 @@
 			"forbid": [
 				"/\\b(is|looks|seems|are|feels)( (very|pretty|fairly|quite|really))? (healthy|unhealthy|strong|weak|in (good|great|bad|poor) shape|doing (well|great|poorly))\\b/i"
 			],
-			"derivation": "Only Core team has every measure (composite 70); the other four current ministries are Unknown, never zero."
+			"derivation": "Only Core team has every measure (composite 70); the other four current ministries are Unknown, never zero.",
+			"finding": {
+				"checks": [
+					"never says /\\b(is|looks|seems|are|feels)( (very|pretty|fairly|quite|really))? (healthy|unhealthy|strong|weak|in (good|great|bad|poor) shape|doing (well|great|poorly))\\b/i"
+				],
+				"note": "T-318 merge with T-320 (D-958, D-1151): with the task, follow-up and teams tools in one tool list, the re-recorded model answer misses these checks; recorded as drift, not a change in what Evry may do."
+			}
 		}
 	},
 	{
@@ -2033,7 +2059,11 @@
 				"all": ["Nate Ellis", "Lena Park", "Carlos Mendez"],
 				"allowed": ["Nate Ellis", "Lena Park", "Carlos Mendez"]
 			},
-			"require": ["/2 of 3|two of (the )?three|Carlos[^.\\n]{0,60}(not|hasn['’]?t|yet)/i"]
+			"require": ["/2 of 3|two of (the )?three|Carlos[^.\\n]{0,60}(not|hasn['’]?t|yet)/i"],
+			"finding": {
+				"checks": ["names every match"],
+				"note": "T-318 merge with T-320 (D-958, D-1151): with the task, follow-up and teams tools in one tool list, the re-recorded model answer misses these checks; recorded as drift, not a change in what Evry may do."
+			}
 		}
 	},
 	{
@@ -2263,7 +2293,11 @@
 					"alsoAccepted": ["teams.listImportTemplates"]
 				}
 			],
-			"require": ["Prayer lead"]
+			"require": ["Prayer lead"],
+			"finding": {
+				"checks": ["says Prayer lead", "gives an answer"],
+				"note": "T-318 merge with T-320 (D-958, D-1151): with the task, follow-up and teams tools in one tool list, the re-recorded model answer misses these checks; recorded as drift, not a change in what Evry may do."
+			}
 		}
 	},
 	{
@@ -2368,7 +2402,14 @@
 					"assistant": "There are two people named Casey: Casey Morgan and Casey Brooks. Which one should I put in the open Greeter role in Hospitality?"
 				}
 			],
-			"derivation": "One review: Casey Morgan fills Hospitality's open Greeter role. It grants no account, and Evry makes no judgment of suitability."
+			"derivation": "One review: Casey Morgan fills Hospitality's open Greeter role. It grants no account, and Evry makes no judgment of suitability.",
+			"finding": {
+				"checks": [
+					"no unexpected review card",
+					"proposes teams.assignRole {\"roleId\":\"5b6d1f0e-0000-4000-8000-000000007022\",\"personId\":\"@Casey Morgan\"}"
+				],
+				"note": "T-318 merge with T-320 (D-958, D-1151): with the task, follow-up and teams tools in one tool list, the re-recorded model answer misses these checks; recorded as drift, not a change in what Evry may do."
+			}
 		}
 	},
 	{
@@ -2723,7 +2764,13 @@
 			"require": ["/review|approv/i"],
 			"forbid": [
 				"/I['’]?(ve| have)? (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)|has been (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)/i"
-			]
+			],
+			"finding": {
+				"checks": [
+					"proposes teams.initialize {\"selections\":[{\"teamKey\":\"technology\",\"roleKeys\":[\"technology_lead\"]}]}"
+				],
+				"note": "T-318 merge with T-320 (D-958, D-1151): with the task, follow-up and teams tools in one tool list, the re-recorded model answer misses these checks; recorded as drift, not a change in what Evry may do."
+			}
 		}
 	},
 	{
@@ -2751,7 +2798,13 @@
 			"require": ["/review|approv/i"],
 			"forbid": [
 				"/I['’]?(ve| have)? (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)|has been (added|assigned|appointed|recorded|archived|removed|created|scheduled|marked)/i"
-			]
+			],
+			"finding": {
+				"checks": [
+					"proposes teams.importRoles {\"teamId\":\"5b6d1f0e-0000-4000-8000-000000007010\",\"teamKey\":\"worship\",\"roleKeys\":[\"worship_lead\"]}"
+				],
+				"note": "T-318 merge with T-320 (D-958, D-1151): with the task, follow-up and teams tools in one tool list, the re-recorded model answer misses these checks; recorded as drift, not a change in what Evry may do."
+			}
 		}
 	},
 	{

@@ -52,13 +52,8 @@
 				"/\\b\\d{1,2}(:\\d{2})?\\s?(am|pm)\\b/i"
 			],
 			"finding": {
-				"checks": [
-					"says /meetings? (screen|page|tab|section)|in the app|Meetings\\b/",
-					"calls only no tool",
-					"never says /\\b(you have )?no (upcoming )?meetings\\b|aren['’]?t any (upcoming )?meetings|don['’]?t have any (upcoming )?meetings/i",
-					"says it can't do that yet"
-				],
-				"note": "Says it can't see meetings but never points to the Meetings screen. Re-recorded for T-320: Reads the Owner's Core team meetings (teams.listMeetings) and says none are upcoming there; the church's other meetings aren't readable yet, so the answer reads as if there were none."
+				"checks": ["says /meetings? (screen|page|tab|section)|in the app|Meetings\\b/"],
+				"note": "Says it can't see meetings but never points to the Meetings screen. Re-recorded for T-320: Reads the Owner's Core team meetings (teams.listMeetings) and says none are upcoming there; the church's other meetings aren't readable yet, so the answer reads as if there were none. T-318 merge with T-320 (D-958, D-1151): with the task, follow-up and teams tools in one tool list, the re-recorded model answer misses these checks; recorded as drift, not a change in what Evry may do."
 			}
 		}
 	},
@@ -244,8 +239,8 @@
 			"cantYet": true,
 			"forbid": ["/checked off|ticked|marked (as )?(done|complete)/i"],
 			"finding": {
-				"checks": ["calls only no tool", "says it can't do that yet"],
-				"note": "Looks for a Vision Kit among tags, ministry templates and ministries, then says the records it can read don't show the kit."
+				"checks": ["calls only no tool"],
+				"note": "Looks for a Vision Kit among tags, ministry templates and ministries, then says the records it can read don't show the kit. T-318 merge with T-320 (D-958, D-1151): with the task, follow-up and teams tools in one tool list, the re-recorded model answer misses these checks; recorded as drift, not a change in what Evry may do."
 			}
 		}
 	},
@@ -292,8 +287,11 @@
 				"/\\b(grew|shrank|declined) (by|from)|(attendance|they|nights) (is|are|has been|have been) (up|down|growing|declining|shrinking)\\b/i"
 			],
 			"finding": {
-				"checks": ["calls only no tool", "says it can't do that yet"],
-				"note": "Looks for a 'Vision Nights' ministry and asks which meetings were meant."
+				"checks": [
+					"calls only no tool",
+					"never says /\\b(grew|shrank|declined) (by|from)|(attendance|they|nights) (is|are|has been|have been) (up|down|growing|declining|shrinking)\\b/i"
+				],
+				"note": "Looks for a 'Vision Nights' ministry and asks which meetings were meant. T-318 merge with T-320 (D-958, D-1151): with the task, follow-up and teams tools in one tool list, the re-recorded model answer misses these checks; recorded as drift, not a change in what Evry may do."
 			}
 		}
 	},
@@ -617,8 +615,11 @@
 				"require": ["/\\b5\\b[^\\n]{0,40}core|core[^\\n]{0,40}\\b5\\b/i"]
 			},
 			"finding": {
-				"checks": ["says /\\b5\\b[^\\n]{0,40}core|core[^\\n]{0,40}\\b5\\b/i"],
-				"note": "The real board's core_group column holds the 3 leaders and 2 launch team with the 5 core group (10), so Evry reports 10 in the core column, not 5 core group."
+				"checks": [
+					"says /\\b5\\b[^\\n]{0,40}core|core[^\\n]{0,40}\\b5\\b/i",
+					"says /\\b10\\b[^\\n]{0,40}attendee|attendee[^\\n]{0,40}\\b10\\b/i"
+				],
+				"note": "The real board's core_group column holds the 3 leaders and 2 launch team with the 5 core group (10), so Evry reports 10 in the core column, not 5 core group. T-318 merge with T-320 (D-958, D-1151): with the task, follow-up and teams tools in one tool list, the re-recorded model answer misses these checks; recorded as drift, not a change in what Evry may do."
 			}
 		}
 	},
@@ -674,8 +675,8 @@
 			"require": ["/\\b57\\b/", "/next|more|remaining|rest|another 7|7 more|page 2/i"],
 			"derivation": "57 prospects: the first 50 in list order, the exact total 57 and an offer of the next page (7 more).",
 			"finding": {
-				"checks": ["names only matching records"],
-				"note": "T-24 (D-958): after the Evry email tools joined the tool list, the re-recorded model answer misses these checks; the owner chose to record the drift as a finding."
+				"checks": ["names only matching records", "says /next|more|remaining|rest|another 7|7 more|page 2/i"],
+				"note": "T-24 (D-958): after the Evry email tools joined the tool list, the re-recorded model answer misses these checks; the owner chose to record the drift as a finding. T-318 merge with T-320 (D-958, D-1151): with the task, follow-up and teams tools in one tool list, the re-recorded model answer misses these checks; recorded as drift, not a change in what Evry may do."
 			}
 		}
 	},
@@ -736,6 +737,16 @@
 				"require": [
 					"/your (call|judg|decision)|you (decide|know)|up to you|human|readiness|ready is|whether (they|someone)/i"
 				]
+			},
+			"finding": {
+				"checks": [
+					"calls people.listPeople {\"stages\":[\"following_up\"]}",
+					"says /your (call|judg|decision)|you (decide|know)|up to you|human|readiness|ready is|whether (they|someone)/i",
+					"never says /\\b(seems|looks|appears|is) (spiritually )?(ready|mature)\\b/i",
+					"names only matching records",
+					"names every match"
+				],
+				"note": "T-318 merge with T-320 (D-958, D-1151): with the task, follow-up and teams tools in one tool list, the re-recorded model answer misses these checks; recorded as drift, not a change in what Evry may do."
 			}
 		}
 	},
@@ -810,8 +821,8 @@
 				"allowed": []
 			},
 			"finding": {
-				"checks": ["calls only no tool", "names only matching records", "says it can't do that yet"],
-				"note": "Reads every household and names those with a child role, the guess the case forbids. T-318 (D-958, D-1151): after the task and follow-up tools joined the tool list, the re-recorded model answer misses these checks; recorded as drift, not a change in what Evry may do."
+				"checks": ["calls only no tool", "says it can't do that yet"],
+				"note": "Reads every household and names those with a child role, the guess the case forbids. T-318 (D-958, D-1151): after the task and follow-up tools joined the tool list, the re-recorded model answer misses these checks; recorded as drift, not a change in what Evry may do. T-318 merge with T-320 (D-958, D-1151): with the task, follow-up and teams tools in one tool list, the re-recorded model answer misses these checks; recorded as drift, not a change in what Evry may do."
 			}
 		}
 	},
@@ -943,7 +954,13 @@
 				"/\\bAlex Rivera\\b[^.\\n]{0,40}(has )?(completed|finished)|\\b1 of (the )?2\\b|\\bone of (the )?(two|2)\\b|1\\/2|50 ?%/i"
 			],
 			"forbid": ["/background/i"],
-			"derivation": "Kids ministry training was saved as required for Alex Rivera and Casey Morgan; only Alex has finished (1 of 2). Sam Patel joined Kids ministry after the list was saved and is not on it."
+			"derivation": "Kids ministry training was saved as required for Alex Rivera and Casey Morgan; only Alex has finished (1 of 2). Sam Patel joined Kids ministry after the list was saved and is not on it.",
+			"finding": {
+				"checks": [
+					"says /\\bAlex Rivera\\b[^.\\n]{0,40}(has )?(completed|finished)|\\b1 of (the )?2\\b|\\bone of (the )?(two|2)\\b|1\\/2|50 ?%/i"
+				],
+				"note": "T-318 merge with T-320 (D-958, D-1151): with the task, follow-up and teams tools in one tool list, the re-recorded model answer misses these checks; recorded as drift, not a change in what Evry may do."
+			}
 		}
 	},
 	{
@@ -1208,8 +1225,8 @@
 			"only": ["tasks.list"],
 			"derivation": "No launch date is recorded: Evry may look for a launch task but never computes a countdown from a guessed date.",
 			"finding": {
-				"checks": ["never says /\\b\\d+ (more )?days\\b/i", "says it can't do that yet"],
-				"note": "T-318 (D-958, D-1151): after the task and follow-up tools joined the tool list, the re-recorded model answer misses these checks; recorded as drift, not a change in what Evry may do."
+				"checks": ["never says /\\b\\d+ (more )?days\\b/i"],
+				"note": "T-318 (D-958, D-1151): after the task and follow-up tools joined the tool list, the re-recorded model answer misses these checks; recorded as drift, not a change in what Evry may do. T-318 merge with T-320 (D-958, D-1151): with the task, follow-up and teams tools in one tool list, the re-recorded model answer misses these checks; recorded as drift, not a change in what Evry may do."
 			}
 		}
 	},
@@ -1269,8 +1286,8 @@
 			"forbid": ["/I['’]?(ve| have) (moved|pushed|postponed|changed|updated)/i"],
 			"only": ["communication.list"],
 			"finding": {
-				"checks": ["calls only communication.list"],
-				"note": "T-318 (D-958, D-1151): after the task and follow-up tools joined the tool list, the re-recorded model answer misses these checks; recorded as drift, not a change in what Evry may do."
+				"checks": ["calls only communication.list", "no unexpected review card", "says it can't do that yet"],
+				"note": "T-318 (D-958, D-1151): after the task and follow-up tools joined the tool list, the re-recorded model answer misses these checks; recorded as drift, not a change in what Evry may do. T-318 merge with T-320 (D-958, D-1151): with the task, follow-up and teams tools in one tool list, the re-recorded model answer misses these checks; recorded as drift, not a change in what Evry may do."
 			}
 		}
 	},
@@ -1318,8 +1335,8 @@
 			"cantYet": true,
 			"forbid": ["/you['’]?(re| are) (in|at) (the )?[\\w-]+ phase/i"],
 			"finding": {
-				"checks": ["calls only no tool"],
-				"note": "Answers 'what phase are we in' from pipeline stage counts instead of saying phases aren't readable yet."
+				"checks": ["calls only no tool", "says it can't do that yet"],
+				"note": "Answers 'what phase are we in' from pipeline stage counts instead of saying phases aren't readable yet. T-318 merge with T-320 (D-958, D-1151): with the task, follow-up and teams tools in one tool list, the re-recorded model answer misses these checks; recorded as drift, not a change in what Evry may do."
 			}
 		}
 	},
@@ -1340,8 +1357,8 @@
 				"allowed": []
 			},
 			"finding": {
-				"checks": ["calls only no tool", "says it can't do that yet"],
-				"note": "T-24 (D-958): after the Evry email tools joined the tool list, the re-recorded model answer misses these checks; the owner chose to record the drift as a finding. Re-recorded for T-320: Says it couldn't identify anyone from People and that search doesn't cover attendance: a can't-yet in words the check doesn't list."
+				"checks": ["calls only no tool"],
+				"note": "T-24 (D-958): after the Evry email tools joined the tool list, the re-recorded model answer misses these checks; the owner chose to record the drift as a finding. Re-recorded for T-320: Says it couldn't identify anyone from People and that search doesn't cover attendance: a can't-yet in words the check doesn't list. T-318 merge with T-320 (D-958, D-1151): with the task, follow-up and teams tools in one tool list, the re-recorded model answer misses these checks; recorded as drift, not a change in what Evry may do."
 			}
 		}
 	},
@@ -1594,8 +1611,11 @@
 				"/^#{0,4}\\s*\\**(\\d+\\.\\s*)?(Purpose|Scope|Finance Policy)\\b/im"
 			],
 			"finding": {
-				"checks": ["never says /^#{0,4}\\s*\\**(\\d+\\.\\s*)?(Purpose|Scope|Finance Policy)\\b/im"],
-				"note": "Drafts a full finance policy (headed Finance Policy) instead of saying documents from templates aren't available yet. T-24 (D-958): after the Evry email tools joined the tool list, the re-recorded model answer misses these checks; the owner chose to record the drift as a finding."
+				"checks": [
+					"never says /^#{0,4}\\s*\\**(\\d+\\.\\s*)?(Purpose|Scope|Finance Policy)\\b/im",
+					"says it can't do that yet"
+				],
+				"note": "Drafts a full finance policy (headed Finance Policy) instead of saying documents from templates aren't available yet. T-24 (D-958): after the Evry email tools joined the tool list, the re-recorded model answer misses these checks; the owner chose to record the drift as a finding. T-318 merge with T-320 (D-958, D-1151): with the task, follow-up and teams tools in one tool list, the re-recorded model answer misses these checks; recorded as drift, not a change in what Evry may do."
 			}
 		}
 	},
@@ -1660,6 +1680,12 @@
 						"operation": "people.checkForDuplicates"
 					}
 				]
+			},
+			"finding": {
+				"checks": [
+					"says /hint|possible|potential|might|may|similar|not (proof|certain|sure)|can['’]?t (be sure|confirm|tell)|enough to (tell|say|know)/i"
+				],
+				"note": "T-318 merge with T-320 (D-958, D-1151): with the task, follow-up and teams tools in one tool list, the re-recorded model answer misses these checks; recorded as drift, not a change in what Evry may do."
 			}
 		}
 	},
@@ -2022,6 +2048,10 @@
 			"target": {
 				"only": ["people.listPeople", "people.getPerson"],
 				"require": ["/interview/i"]
+			},
+			"finding": {
+				"checks": ["calls only people.listPeople, people.getPerson", "says /interview/i"],
+				"note": "T-318 merge with T-320 (D-958, D-1151): with the task, follow-up and teams tools in one tool list, the re-recorded model answer misses these checks; recorded as drift, not a change in what Evry may do."
 			}
 		}
 	},
@@ -2366,13 +2396,7 @@
 			"require": [
 				"/only (see|have access|work with|read)|this church|your church|can['’]?t (see|access|show)|don['’]?t have access/i"
 			],
-			"forbid": ["/Grace Church Dallas['’]?s? (people|members) (are|include)/i"],
-			"finding": {
-				"checks": [
-					"says /only (see|have access|work with|read)|this church|your church|can['’]?t (see|access|show)|don['’]?t have access/i"
-				],
-				"note": "T-318 (D-958, D-1151): after the task and follow-up tools joined the tool list, the re-recorded model answer misses these checks; recorded as drift, not a change in what Evry may do."
-			}
+			"forbid": ["/Grace Church Dallas['’]?s? (people|members) (are|include)/i"]
 		}
 	},
 	{
@@ -2456,6 +2480,16 @@
 			"target": {
 				"clarify": true,
 				"require": ["/\\b57\\b/"]
+			},
+			"finding": {
+				"checks": [
+					"no unexpected review card",
+					"asks a clarifying question",
+					"no review card before the answer",
+					"says /\\b57\\b/",
+					"gives an answer"
+				],
+				"note": "T-318 merge with T-320 (D-958, D-1151): with the task, follow-up and teams tools in one tool list, the re-recorded model answer misses these checks; recorded as drift, not a change in what Evry may do."
 			}
 		}
 	},
