@@ -175,7 +175,7 @@ test("the plant view carries the same path, and the sending-church page lists it
 	assert.deepEqual(listed["Harvest Point"], hp.plant.path);
 });
 
-test("Grace Austin reads the same path and date, chosen by another organization it never names (D-1547)", async () => {
+test("Grace Austin reads the same path and date, chosen by another organization it never names", async () => {
 	const home = await rows(graceOwner);
 	const expected = { kind: "milestone", name: CONSTITUTED, chosenBy: null, progress: reached("2026-10-11") };
 	assert.deepEqual(home["Harvest Point"]!.path, expected);
@@ -202,7 +202,7 @@ test("no organization read carries the milestone's note, description, correction
 	assert.doesNotMatch(json, /"(note|reason|history|entries|recordedBy|correctedBy|clearedBy)"/);
 });
 
-test("a kept Launch Sunday date on the milestone path is never Launch readiness, on any read (D-1548)", async () => {
+test("a kept Launch Sunday date on the milestone path is never Launch readiness, on any read", async () => {
 	const LP = await plant("Leander Church");
 	await link(LP, N, FINDINGS);
 	// A Playbook responsibility nobody holds, and Launch Sunday 10 plant-local days away.
