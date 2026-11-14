@@ -21,10 +21,8 @@ const MERGE_FIELDS = [
 export type MergeField = (typeof MERGE_FIELDS)[number];
 export type Side = "source" | "survivor";
 
-export const FIELD_LABEL: Record<MergeField, string> = MERGE_FIELD_LABEL;
-
-import { MERGE_FIELD_LABEL } from "@everyfield/contracts/people";
 export {
+	MERGE_FIELD_LABEL as FIELD_LABEL,
 	blockerText,
 	conflictText,
 	counted,
