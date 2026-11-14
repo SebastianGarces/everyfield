@@ -1,14 +1,21 @@
 "use client";
 
-import { LockKeyIcon, Logout01Icon, ShieldUserIcon, UserIcon, UserMultipleIcon } from "@hugeicons/core-free-icons";
+import {
+	LockKeyIcon,
+	Logout01Icon,
+	MessageEdit01Icon,
+	ShieldUserIcon,
+	UserIcon,
+	UserMultipleIcon,
+} from "@hugeicons/core-free-icons";
 import { MenuItem, MenuLabel, MenuSeparator, useToast } from "@everyfield/ui/controls";
 import { leavePage } from "../../components/save/leave.ts";
 import { identityApi, loadPage } from "../identity/api";
 import { SECTION_LABEL } from "./model";
 
 /**
- * The user menu (screens.md, Overlays: User menu): who you are, your account, the settings pages that exist, and
- * Sign out. The AppShell's name button opens it on every signed-in page. Seats and Sharing are offered to every seat:
+ * The user menu (screens.md, Overlays: User menu): who you are, your account, the feedback you sent (WP-049), the
+ * settings pages that exist, and Sign out. The AppShell's name button opens it on every signed-in page. Seats and Sharing are offered to every seat:
  * Members read them and the pages themselves hide every change a Member may not make.
  */
 export function AccountMenu({
@@ -41,6 +48,9 @@ export function AccountMenu({
 			<MenuLabel>Settings</MenuLabel>
 			<MenuItem icon={UserIcon} onSelect={onAccount}>
 				{SECTION_LABEL.account}
+			</MenuItem>
+			<MenuItem icon={MessageEdit01Icon} href="/feedback">
+				Sent feedback
 			</MenuItem>
 			<MenuItem icon={UserMultipleIcon} href="/settings/seats">
 				{SECTION_LABEL.seats}

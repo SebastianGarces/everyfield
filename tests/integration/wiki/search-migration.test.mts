@@ -129,7 +129,8 @@ test(
 	"a database that applied the first version of the migration migrates to head with the same vectors",
 	// The first version's backfill fails on any table with revisions (pending record-binding events block its ALTER),
 	// so a database applied it with none and wrote them later, through its SQL function, which PostgreSQL 18 cannot run
-	// on a plain-text body.
+	// on a plain-text body. Such a database can only exist on PostgreSQL 17, so this case skips on 18, which CI and
+	// shared dev run (T-276); there the test above covers a plain-text body migrating to head.
 	{ skip: server >= 180000 && "PostgreSQL 18 cannot write a plain-text body through the first version" },
 	async () => {
 		const upgraded = await database.createSchema("t275_upgraded_" + randomUUID().replaceAll("-", ""));
