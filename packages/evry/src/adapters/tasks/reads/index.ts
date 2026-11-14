@@ -452,8 +452,8 @@ export const listPrerequisites: ReadAdapter<z.infer<typeof taskInput>> = {
 	description: "List the tasks one task waits on, with whether each still blocks it. Prerequisites are advisory.",
 	input: taskInput,
 	allowed: inPlant,
-	async invoke(tx, _actor, input): Promise<SourceResult> {
-		const reply = await taskReader.listPrerequisites(tx, _actor.authority, listPrerequisitesRequest.parse(input));
+	async invoke(tx, actor, input): Promise<SourceResult> {
+		const reply = await taskReader.listPrerequisites(tx, actor.authority, listPrerequisitesRequest.parse(input));
 		if (reply.status !== "ok") return result("tasks.listPrerequisites", [], []);
 		return result(
 			"tasks.listPrerequisites",

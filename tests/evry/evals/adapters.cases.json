@@ -3428,11 +3428,7 @@
 			"as": "member",
 			"proposals": [],
 			"require": ["/owner|admin/i"],
-			"derivation": "A Member has no reviewed People writes: no review is prepared, and Evry says an Owner or Admin has to make the change.",
-			"finding": {
-				"checks": ["says /owner|admin/i"],
-				"note": "T-318 merge with T-319 (D-958, D-1151): with the people-record, task, follow-up and teams tools in one tool list, the re-recorded answer misses these checks; recorded as drift, not a change in what Evry can do."
-			}
+			"derivation": "A Member has no reviewed People writes: no review is prepared, and Evry says an Owner or Admin has to make the change."
 		}
 	},
 	{

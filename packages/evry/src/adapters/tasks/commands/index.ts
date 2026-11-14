@@ -49,25 +49,31 @@ export async function namedAccounts(
 	raw: readonly string[],
 	purpose: "any" | "committed_follow_up",
 ) {
-	const ids = me(actor, raw);
-	if (!ids.length) return { ids, names: [] as string[] };
+	return me(actor, raw).length ? (await accountNamer(context, actor, purpose))(raw) : { ids: [], names: [] };
+}
+
+/** Reads the eligible accounts once and checks any number of named lists against them, as namedAccounts does. */
+export async function accountNamer(context: ReviewContext, actor: EvryActor, purpose: "any" | "committed_follow_up") {
 	const seats = await context.db.transaction(async (tx) =>
 		value(await taskReader.eligibleAssignees(tx, actor.authority, { purpose })),
 	);
-	const names = ids.map((id) => seats.items.find((s) => s.accountId === id)?.displayName ?? null);
-	if (names.includes(null)) throw new EvryRefusal(purpose === "any" ? "assignee_ineligible" : "owner_ineligible");
-	return { ids, names: names as string[] };
+	return (raw: readonly string[]) => {
+		const ids = me(actor, raw);
+		const names = ids.map((id) => seats.items.find((s) => s.accountId === id)?.displayName ?? null);
+		if (names.includes(null)) throw new EvryRefusal(purpose === "any" ? "assignee_ineligible" : "owner_ineligible");
+		return { ids, names: names as string[] };
+	};
 }
 
 /**
- * A Member may change only a task assigned to them (or a checklist row of one): anything else refuses before any card,
- * with the reason. An Owner or Admin may change any task; the native command decides the rest when it runs.
+ * A Member may change only a task assigned to them: anything else refuses before any card, with the reason. An Owner
+ * or Admin may change any task; the native command decides the rest when it runs.
  */
 export async function ownDuty(context: ReviewContext, actor: EvryActor, taskId: string) {
 	if (actor.role !== "member") return;
 	const r = await context.db
 		.execute(sql`SELECT EXISTS(SELECT FROM task t WHERE t.id=${taskId}::uuid AND t.plant_id=${actor.owner.id}::uuid
-		AND EXISTS(SELECT FROM task_assignee a WHERE a.account_id=${actor.accountId}::uuid AND (a.task_id=t.id OR a.task_id=t.parent_id))) AS mine`);
+		AND EXISTS(SELECT FROM task_assignee a WHERE a.account_id=${actor.accountId}::uuid AND a.task_id=t.id)) AS mine`);
 	if (r.rows[0]?.mine !== true) throw new EvryRefusal("not_assigned");
 }
 
@@ -470,7 +476,13 @@ function checklistWrite({
 		input: checklistInput.refine((v) => v[main].length > 0, `${main} needs a row`),
 		allowed: main === "remove" ? ownerOrAdmin : inPlant,
 		async review(actor, v, context) {
-			await ownDuty(context, actor, v.parentId);
+			// Each step keeps its native floor for a Member: adding needs the parent assigned to them, ticking needs the
+			// row assigned to them, and only an Owner or Admin removes a row.
+			if (actor.role === "member") {
+				if (v.remove.length) throw new EvryRefusal("access_denied");
+				if (v.add.length) await ownDuty(context, actor, v.parentId);
+				for (const k of v.tick) await ownDuty(context, actor, k.taskId);
+			}
 			const steps = [
 				...v.tick.map((k) => ({ id: k.taskId, complete: k.complete })),
 				...v.remove.map((id) => ({ id, complete: null })),

@@ -2008,7 +2008,7 @@
 				"require": ["/interview/i"]
 			},
 			"finding": {
-				"checks": ["calls only people.listPeople, people.getPerson", "says /interview/i"],
+				"checks": ["calls only people.listPeople, people.getPerson"],
 				"note": "T-318 merge with T-320 (D-958, D-1151): with the task, follow-up and teams tools in one tool list, the re-recorded model answer misses these checks; recorded as drift, not a change in what Evry may do."
 			}
 		}
@@ -2030,10 +2030,6 @@
 			"require": ["/owner|admin/i"],
 			"target": {
 				"require": ["/owner|admin/i"]
-			},
-			"finding": {
-				"checks": ["says /owner|admin/i"],
-				"note": "T-318 merge with T-319 (D-958, D-1151): with the people-record, task, follow-up and teams tools in one tool list, the re-recorded answer misses these checks; recorded as drift, not a change in what Evry can do."
 			}
 		}
 	},

@@ -39,6 +39,22 @@ export async function classifyRequest(model: LanguageModelV4, text: string, sign
 	return { kind: output.kind, usage };
 }
 
+const AREA_NAMES: Record<string, string> = {
+	people: "people or households",
+	communication: "email",
+	teams: "teams",
+	tasks: "tasks",
+	followups: "follow-ups",
+};
+
+/** The areas the actor reads but has no reviewed write for, named by an operation's namespace. */
+function readOnlyAreas(catalog: Catalog) {
+	const namespace = (operation: string) => operation.split(".")[0] ?? operation;
+	const written = new Set(catalog.reviewedWrites.map((w) => namespace(w.operation)));
+	const read = new Set(catalog.domains.flatMap((d) => d.operations.map((o) => namespace(o.operation))));
+	return [...read].filter((n) => !written.has(n)).map((n) => AREA_NAMES[n] ?? n);
+}
+
 /** Describes what the current catalog actually allows, so the answer follows authority rather than a fixed phrase. */
 export function describeCatalog(catalog: Catalog) {
 	const reads = catalog.domains.flatMap((d) => d.operations.map((o) => o.description));
@@ -49,10 +65,14 @@ export function describeCatalog(catalog: Catalog) {
 				"In this context I have no application reads available yet: I can't read or change people, tasks, follow-ups or messages here.",
 			];
 	if (writes.length) lines.push("I can also prepare these changes for your review:", ...writes.map((w) => "- " + w));
-	// A seat that reads but may not change records (a church Member) is told who can, instead of a review it can't use.
-	else if (reads.length)
+	// A seat that reads an area but may not change it (a church Member, who changes only their own tasks and
+	// follow-ups) is told who can, instead of a review it can't use.
+	const unchangeable = readOnlyAreas(catalog);
+	if (unchangeable.length)
 		lines.push(
-			"Your seat can't change records here, so I prepare no changes for you: an Owner or Admin of this church has to make them.",
+			writes.length
+				? `Your seat can't change ${unchangeable.join(", ")} here, so I prepare no such changes for you: an Owner or Admin of this church has to make them.`
+				: "Your seat can't change records here, so I prepare no changes for you: an Owner or Admin of this church has to make them.",
 		);
 	lines.push(
 		"Every change to your records needs your review and approval first. I can't give pastoral counsel, write prayers or judge anyone's spiritual readiness.",

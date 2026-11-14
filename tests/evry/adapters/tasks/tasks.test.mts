@@ -326,6 +326,27 @@ test("AC:EVRY-REAL-CHILD-TASK-PARITY INV-checklist: adding one row and ticking a
 	);
 });
 
+test("INV-checklist-floor: a Member's checklist review keeps each native floor, step by step", async () => {
+	const member = await actor("member");
+	const propose = await turn(member);
+	// The parent is the Owner's; one row of it is the Member's own.
+	const parent = await task("Launch Sunday setup", { due: 5, owner: accounts.owner.id });
+	const mine = await task("Stack the hymnals", { parentId: parent, owner: accounts.member.id });
+	assert.equal(
+		await refusal(propose("tasks.createSubtask", { parentId: parent, add: ["Hang the banner"] })),
+		"not_assigned",
+	);
+	assert.equal(await refusal(propose("tasks.removeSubtask", { parentId: parent, remove: [mine] })), "access_denied");
+	const proposal = await propose("tasks.setSubtaskCompletion", {
+		parentId: parent,
+		tick: [{ taskId: mine, complete: true }],
+	});
+	assert.ok(proposal, "ticking their own row of someone else's task gets a review");
+	assert.equal((await approveAndRun(member, proposal)).outcome, "completed");
+	const status = await admin.execute(sql`SELECT status FROM task WHERE id=${mine}`);
+	assert.equal(status.rows[0]!.status, "complete");
+});
+
 test("INV-needs-owner: a follow-up nobody owns reads as needing an owner, with no owner guessed", async () => {
 	const owner = await actor("owner");
 	const dan = await person("Dan Unowned");

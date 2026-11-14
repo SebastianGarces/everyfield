@@ -9,6 +9,7 @@ import type { EvryActor } from "../../../context/actor.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
 import type { EffectResult, ReviewContext } from "../../../proposals/types.ts";
 import {
+	accountNamer,
 	assignee,
 	change,
 	done,
@@ -56,20 +57,20 @@ const recordInput = z
 	.refine((v) => (v.taskId === undefined) !== (v.personId === undefined), "name a follow-up task or a person")
 	.refine((v) => v.taskId !== undefined || (v.outcome !== "no_longer_needed" && !v.completeTask), "no task to close")
 	.refine((v) => v.outcome !== "no_longer_needed" || !v.completeTask, "no_longer_needed closes without completing");
-type Record = z.infer<typeof recordInput>;
+type OutcomeInput = z.infer<typeof recordInput>;
 
 /**
  * The instant the user's words name, in the church's time zone: a time they gave; for a date, noon that day; for today
  * or "now", the review's own time, so a call made "today" is never placed after the moment it is recorded.
  */
-const occurredAt = (actor: EvryActor, when: Record["occurred"]) => {
+const occurredAt = (actor: EvryActor, when: OutcomeInput["occurred"]) => {
 	const zone = sql`(SELECT timezone FROM plant WHERE id=${actor.owner.id}::uuid)`;
 	if (when === "now") return sql`clock_timestamp()`;
 	const local = when.length === 10 ? `${when}T12:00:00` : when;
 	return sql`least(clock_timestamp(),(${local}::timestamp AT TIME ZONE ${zone}))`;
 };
 const iso = (at: ReturnType<typeof sql>) => sql`to_char(${at} AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`;
-export const recordOutcome = reviewed<Record>({
+export const recordOutcome = reviewed<OutcomeInput>({
 	operation: "followups.recordOutcome",
 	description:
 		"Propose recording what happened on a person's follow-up: contacted (a conversation happened, as the user said), attempted_no_contact, administrative_completion or no_longer_needed, with when, how and the user's note. It goes in the contact log, never the person's profile notes.",
@@ -239,9 +240,10 @@ export const assignFollowUp = reviewed<z.infer<typeof assignInput>>({
 	input: assignInput,
 	allowed: ownerOrAdmin,
 	async review(actor, v, context: ReviewContext) {
+		const named = await accountNamer(context, actor, "committed_follow_up");
 		const items = [];
 		for (const item of v.items) {
-			const owners = await namedAccounts(context, actor, item.assigneeIds, "committed_follow_up");
+			const owners = named(item.assigneeIds);
 			items.push({ taskId: item.taskId, assigneeIds: owners.ids, names: owners.names.join(", ") || null });
 		}
 		return sql`WITH n AS (SELECT * FROM jsonb_to_recordset(${json(items.map((i, n) => ({ ...i, n })))}) n("taskId" uuid,"assigneeIds" jsonb,names text,n int))
