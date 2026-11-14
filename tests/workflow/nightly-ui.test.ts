@@ -83,7 +83,14 @@ test("T-301 an empty tests/ui file list fails the step without starting node:tes
 test("T-301 the People seed runs first, since the Evry and Meetings seeds read its fixture", () => {
 	const seeds = seedsOf(root);
 	assert.equal(seeds[0]!.name, "people");
-	assert.deepEqual(seeds.map((s) => s.name).sort(), ["evry", "invitation", "meetings", "oversight", "people"]);
+	assert.deepEqual(seeds.map((s) => s.name).sort(), [
+		"evry",
+		"invitation",
+		"meetings",
+		"oversight",
+		"people",
+		"pipeline",
+	]);
 });
 
 test("T-301 the nightly ui job runs webkit after a failed chromium run and uses no secret", () => {
