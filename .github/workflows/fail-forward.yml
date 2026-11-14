@@ -2,7 +2,8 @@ name: Fail forward
 
 on:
   workflow_run:
-    workflows: [CI]
+    # Push CI and the nightly full run (nightly.yml, T-216) each keep one incident.
+    workflows: [CI, Nightly]
     types: [completed]
     branches: [main]
   deployment_status:

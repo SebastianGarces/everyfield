@@ -50,8 +50,8 @@ refuse a missing or wrong secret.
 ## Checks
 
 ```sh
-corepack pnpm --filter @everyfield/web typecheck      # bun check, the typecheck (T-110)
-corepack pnpm --filter @everyfield/web typecheck:tsc  # tsc, which GitHub CI also runs as the backstop
+corepack pnpm --filter @everyfield/web typecheck      # tsc, which GitHub CI runs on every PR (T-216)
+corepack pnpm --filter @everyfield/web typecheck:bun  # bun check, the shadow the GitHub nightly runs until T-53
 corepack pnpm --filter @everyfield/web lint
 corepack pnpm --filter @everyfield/web test:unit
 corepack pnpm test:logs

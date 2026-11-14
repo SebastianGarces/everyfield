@@ -1,5 +1,6 @@
 # Deterministic checks for every pull request and for main.
-# The required status check is the `ci` job. It passes only when every other job passed.
+# The required status check is the `ci` job. It passes only when every other job passed. The nightly full run behind
+# local selection, and the bun typecheck shadow, live in nightly.yml (T-216).
 # The database tests run against throwaway PostgreSQL 18 service containers, the major version the shared development
 # database runs (D-861), one for the db job and one per domain census part, with a synthetic password, never against
 # Neon. CI uses no secrets.
@@ -11,10 +12,6 @@ on:
     branches: [main]
   # Dormant until this repository can use a merge queue (OPS-56): the `ci` check then also runs on the queue commit.
   merge_group:
-  # One full run on main every night (T-41): everything local selection may skip. GitHub runs a schedule on the
-  # default branch only, and fail-forward reports a failed scheduled run as it does a failed push.
-  schedule:
-    - cron: "17 7 * * *"
 
 permissions:
   contents: read
@@ -30,7 +27,8 @@ env:
 
 jobs:
   app:
-    name: app (lint, types, build)
+    # The production build runs once per CI run, in domain census part 1, with the server-trace test after it (T-216).
+    name: app (lint, types, logs, unit)
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -48,29 +46,17 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - uses: actions/cache@v6
-        with:
-          path: apps/web/.next/cache
-          key: next-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ hashFiles('apps/web/**/*.ts', 'apps/web/**/*.tsx', 'apps/web/**/*.css') }}
-          restore-keys: next-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-
       - name: Formatting (Prettier)
         run: pnpm format:check
       - name: Lint (ESLint, image locks, colour literals)
         run: pnpm lint
+      # TypeScript 7 over every package, then tsconfig.tools.json. The bun shadow (pnpm typecheck:bun) runs nightly.
       - name: Types
-        run: |
-          pnpm typecheck
-          pnpm typecheck:tsc
+        run: pnpm typecheck
       - name: Server log privacy (next dev with synthetic passwords)
         run: pnpm test:logs
         env:
           NEXT_TELEMETRY_DISABLED: "1"
-      - name: Production build
-        run: pnpm build
-        env:
-          NEXT_TELEMETRY_DISABLED: "1"
-      - name: Server traces hold the runtime reference files (WP-032)
-        run: node --test tests/reference/server-trace.test.mjs
       # The documents tests open the Word and Excel exports in LibreOffice, so they paginate with the fonts the files name.
       # Only the upright DM Sans files: the italic ones alone carry the legacy family name "DM Sans", and LibreOffice would
       # set all body text in italic.
@@ -231,7 +217,8 @@ jobs:
       matrix:
         include:
           - part: 1
-            # Part 1 counts real HTTP requests on the production build.
+            # Part 1 counts real HTTP requests on the production build, the one build of the run. It also checks the
+            # build's server traces and saves the Next cache.
             build: true
           - part: 2
           - part: 3
@@ -266,13 +253,14 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Migrate the throwaway database
         run: pnpm db:migrate
-      - uses: actions/cache/restore@v6
+      - uses: actions/cache@v6
         if: matrix.build
         with:
           path: apps/web/.next/cache
           key: next-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ hashFiles('apps/web/**/*.ts', 'apps/web/**/*.tsx', 'apps/web/**/*.css') }}
           restore-keys: next-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-
       - name: Production build for the per-request statement budgets
+        id: build
         if: matrix.build
         run: pnpm build
         env:
@@ -282,6 +270,10 @@ jobs:
         env:
           EVF_CENSUS_LOGS: ${{ runner.temp }}/census
           EVF_CENSUS_PART: ${{ format('{0}/{1}', matrix.part, env.CENSUS_PARTS) }}
+      # After the census, so a trace failure still lets the part report its counts.
+      - name: Server traces hold the runtime reference files (WP-032)
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: node --test tests/reference/server-trace.test.mjs
       # Each census part keeps its full logs (behaviors.log holds every inner assertion and its time) and its counts
       # file. The ci job reads the counts; a failed or timed-out part leaves its logs for reading. A rerun replaces its
       # part's artifact.
