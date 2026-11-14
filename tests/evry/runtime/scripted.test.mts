@@ -35,3 +35,36 @@ test("INV-scripted-model: the people words match whole words only", async () => 
 		false,
 	);
 });
+
+test("INV-scripted-model: a seat whose propose tool offers only notification changes is told an Owner or Admin sends email, and nothing is proposed", async () => {
+	const reply = (text: string, operations: string[]) =>
+		scriptedModel().doGenerate({
+			prompt: [{ role: "user", content: [{ type: "text", text }] }],
+			tools: [
+				{ type: "function", name: "communication_read", inputSchema: {} },
+				{
+					type: "function",
+					name: "propose_change",
+					inputSchema: { type: "object", properties: { operation: { type: "string", enum: operations } } },
+				},
+			],
+		} as never);
+	const member = ["notifications.markSelectedRead", "notifications.setPreferences"];
+	const send = await reply("send the welcome email again to everyone", member);
+	assert.deepEqual(send.content, [
+		{
+			type: "text",
+			text: "Sending or changing email needs an Owner or Admin of this church. Ask one of them to do it.",
+		},
+	]);
+	const draft = await reply("draft an email to the launch team", member);
+	assert.equal(
+		draft.content.some((c) => c.type === "tool-call" && c.toolName === "propose_change"),
+		false,
+	);
+	// An Owner's propose tool offers the email writes, so the same ask reads the email first.
+	const owner = await reply("send the welcome email again to everyone", [...member, "communication.retryProvenFailed"]);
+	const call = owner.content.find((c) => c.type === "tool-call");
+	assert.ok(call && call.type === "tool-call");
+	assert.deepEqual(JSON.parse(call.input), { operation: "communication.get", input: { subject: "welcome email" } });
+});

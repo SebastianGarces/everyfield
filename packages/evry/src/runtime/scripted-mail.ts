@@ -20,6 +20,10 @@ const call = (toolName: string, input: unknown): LanguageModelV4Content => ({
 const read = (operation: string, input: unknown) => [call("communication_read", { operation, input })];
 const propose = (operation: string, input: unknown) => [call("propose_change", { operation, input })];
 
+/** Whether the turn's propose tool offers `domain`'s reviewed writes: a Member proposes only their own notification changes. */
+export const proposesOn = (options: LanguageModelV4CallOptions, domain: string) =>
+	JSON.stringify(options.tools?.find((t) => t.name === "propose_change") ?? {}).includes(`"${domain}.`);
+
 /** Every user message, oldest first. */
 function userTexts(prompt: Prompt) {
 	return prompt
@@ -83,7 +87,7 @@ function previewDraft() {
 export function mailStep(options: LanguageModelV4CallOptions): LanguageModelV4Content[] | null {
 	const tools = new Set(options.tools?.map((t) => t.name) ?? []);
 	const canRead = tools.has("communication_read");
-	const canPropose = tools.has("propose_change");
+	const canPropose = proposesOn(options, "communication");
 	const asks = userTexts(options.prompt);
 	const ask = asks.at(-1) ?? "";
 	const earlier = asks.slice(0, -1).join("\n");
