@@ -243,7 +243,7 @@ function Coverage({ coverage }: { coverage: PlantFacts["coverage"] }) {
 				</StatusBadge>
 			</div>
 			<p className="mt-1.5 text-2xl font-semibold tabular-nums text-ink">{coverageValue(coverage)}</p>
-			<ul className="mt-2 grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-x-4 gap-y-1 text-sm">
+			<ul className="mt-2 grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-x-10 gap-y-1 text-sm">
 				{coverage.responsibilities.map((r) => (
 					<li key={r.key} className="flex justify-between gap-3">
 						<span className="text-ink-2">{r.label}</span>
