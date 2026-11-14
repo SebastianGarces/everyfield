@@ -517,6 +517,8 @@ try {
 		["GET /ministries?view=chart", "/ministries?view=chart", owner.cookie],
 		["GET /ministries/[teamId]", `/ministries/${ministry.id}`, owner.cookie],
 		["GET /intelligence", "/intelligence", owner.cookie],
+		["GET /intelligence/trends", "/intelligence/trends", owner.cookie],
+		["GET /intelligence/journey", "/intelligence/journey", owner.cookie],
 		["GET /intelligence/attestations", "/intelligence/attestations", owner.cookie],
 		["GET /intelligence/attestations (member)", "/intelligence/attestations", member.cookie],
 		["GET /me/check-in", "/me/check-in", owner.cookie],
@@ -835,13 +837,13 @@ try {
 	const phases = "apps/web/src/features/phases/actions.ts";
 	const plantRevision = async () =>
 		(await admin.execute(sql`SELECT revision::text AS r FROM plant WHERE id=${plant.id}`)).rows[0].r;
-	const declared = await act("POST phases.declarePhase", "/intelligence", phases, "declarePhase", [
+	const declared = await act("POST phases.declarePhase", "/intelligence/journey", phases, "declarePhase", [
 		randomUUID(),
 		await plantRevision(),
 		3,
 	]);
 	assert.equal(declared.status, "ok", JSON.stringify(declared));
-	const movedBack = await act("POST phases.movePhase", "/intelligence", phases, "movePhase", [
+	const movedBack = await act("POST phases.movePhase", "/intelligence/journey", phases, "movePhase", [
 		randomUUID(),
 		declared.value.state.revision,
 		2,
@@ -1034,7 +1036,7 @@ try {
 	for (let i = 0; i < 12; i++)
 		assert.equal(
 			(
-				await act(null, "/intelligence", phases, "movePhase", [
+				await act(null, "/intelligence/journey", phases, "movePhase", [
 					randomUUID(),
 					await plantRevision(),
 					i % 2 ? 2 : 1,
@@ -1101,7 +1103,7 @@ try {
 		[1, "POST tasks.declinePhaseOffer"],
 		[2, null],
 	]) {
-		const moved = await act(null, "/intelligence", phases, "movePhase", [
+		const moved = await act(null, "/intelligence/journey", phases, "movePhase", [
 			randomUUID(),
 			await plantRevision(),
 			toPhase,

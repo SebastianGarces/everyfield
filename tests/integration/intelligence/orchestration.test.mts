@@ -88,7 +88,7 @@ const drain = () => runAssessmentBatch(job, c0.db, scripted(), 50);
 test("a never-assessed plant: the next tick queues its first assessment unasked; until it publishes the read says being prepared, then it shows the first assessment with its as-of", async () => {
 	clockMs = Date.now();
 	const p = await c0.harvest("First Light");
-	assert.deepEqual(await view(p), { current: null, newest: null });
+	assert.deepEqual(await view(p), { current: null, newest: null, currentPhase: 1, seen: false, feedback: [] });
 	let during: c.AssessmentView | null = null;
 	const drafter = scripted({
 		during: async () => {
@@ -97,7 +97,13 @@ test("a never-assessed plant: the next tick queues its first assessment unasked;
 	});
 	await tick(drafter);
 	await drain();
-	assert.deepEqual(during, { current: null, newest: { state: "preparing", retryAt: null, grounding: "grounded" } });
+	assert.deepEqual(during, {
+		current: null,
+		newest: { state: "preparing", retryAt: null, grounding: "grounded" },
+		currentPhase: 1,
+		seen: false,
+		feedback: [],
+	});
 	const v = await view(p);
 	assert.equal(v.newest, null);
 	assert.equal(v.current!.asOf, iso(clockMs));

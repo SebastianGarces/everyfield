@@ -70,9 +70,9 @@
   "contract_status": "Reviewed starting design; builders may change it through a reviewed migration.",
   "as_of": "2026-10-17",
   "implementation_authorized": false,
-  "table_count": 120,
-  "column_count": 1372,
-  "foreign_key_count": 397,
+  "table_count": 122,
+  "column_count": 1384,
+  "foreign_key_count": 403,
   "type_contracts": {
     "text": "UTF8; per-boundary bounded, sanitized only when rendered in rich context.",
     "date": "YYYY-MM-DD local calendar date, never UTC midnight instant.",
@@ -1396,6 +1396,10 @@
       "Pacific/Wallis",
       "UTC"
     ],
+    "assessment_feedback.rating": [
+      "useful",
+      "not_useful"
+    ],
     "assessment_insight.role": [
       "focus",
       "supporting",
@@ -1508,6 +1512,8 @@
       "identity.email_changed",
       "identity.sessions_revoked",
       "intelligence.assessed",
+      "intelligence.assessment_opened",
+      "intelligence.feedback_saved",
       "intelligence.refresh_requested",
       "invitation.changed",
       "invitation.claimed",
@@ -9429,6 +9435,242 @@
       "rls": false
     },
     {
+      "name": "assessment_feedback",
+      "domain": "intelligence",
+      "purpose": "A reader's own rating of one point of one published Plant Intelligence assessment (REQ-PI-033): useful or not useful with an optional comment, bound to the exact insight, run and rubric version.",
+      "library_owned": false,
+      "jsonb_keys": {},
+      "capabilities": [
+        "CAP-C-020",
+        "CAP-C-021",
+        "CAP-C-026"
+      ],
+      "replaces": [],
+      "producer_work_packages": [
+        "WP-044"
+      ],
+      "producer_derivation": {
+        "old_target_tables": [],
+        "additional_producers": [
+          "WP-044"
+        ],
+        "rule": "WP-044 writes it from intelligence.submitFeedback."
+      },
+      "feature_ids": [
+        "PI-016",
+        "PI-017",
+        "PI-018",
+        "PI-019",
+        "PI-020",
+        "PI-022",
+        "PI-023",
+        "PI-024",
+        "PI-025",
+        "PI-026",
+        "PI-027",
+        "PI-028",
+        "PI-029",
+        "PI-030",
+        "PI-031",
+        "PI-034",
+        "PI-035",
+        "PI-036",
+        "PI-042"
+      ],
+      "acceptance_ids": [
+        "AC-PI-016--PI-016",
+        "AC-PI-017--PI-017",
+        "AC-PI-018--PI-018",
+        "AC-PI-019--PI-019",
+        "AC-PI-020--PI-020",
+        "AC-PI-022--PI-022",
+        "AC-PI-023--PI-023",
+        "AC-PI-024--PI-024",
+        "AC-PI-025--PI-025",
+        "AC-PI-026--PI-026",
+        "AC-PI-027--PI-027",
+        "AC-PI-028--PI-028",
+        "AC-PI-029--PI-029",
+        "AC-PI-030--PI-030",
+        "AC-PI-031--PI-031",
+        "AC-PI-034--PI-034",
+        "AC-PI-035--PI-035",
+        "AC-PI-036--PI-036",
+        "AC-PI-042--PI-042"
+      ],
+      "future_case_ids": [],
+      "scope": "intelligence",
+      "invariants": [
+        "Only its author writes or reads it.",
+        "It never changes the run, its insights, scores or the rubric."
+      ],
+      "revision": "The author's latest rating and comment replace the earlier ones; each change writes an intelligence.feedback_saved audit row.",
+      "idempotency": "Saving the same rating and comment again changes nothing and writes no audit row.",
+      "deletion": "Goes with its insight, run, plant or author account.",
+      "physical_verified": false,
+      "columns": [
+        {
+          "note": "The published run.",
+          "name": "run_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "The rated point: its insight ordinal.",
+          "name": "ordinal",
+          "type": "integer",
+          "nullable": false
+        },
+        {
+          "note": "The assessed plant.",
+          "name": "plant_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "The author: the only account that reads or changes it.",
+          "name": "account_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "The run's rubric version when the feedback was given.",
+          "name": "rubric_version",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "useful or not_useful.",
+          "name": "rating",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "The optional comment, 1 to 1000 characters; null when blank.",
+          "name": "comment",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "When the latest rating or comment was saved.",
+          "name": "recorded_at",
+          "type": "timestamptz",
+          "nullable": false
+        }
+      ],
+      "primary_key": [
+        "run_id",
+        "ordinal",
+        "account_id"
+      ],
+      "unique_keys": [],
+      "foreign_keys": [
+        {
+          "deletion": {
+            "action": "cascade",
+            "policy": "Goes with its author's account."
+          },
+          "columns": [
+            "account_id"
+          ],
+          "references": {
+            "table": "account",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "cascade"
+        },
+        {
+          "deletion": {
+            "action": "cascade",
+            "policy": "Goes with the plant in the church purge."
+          },
+          "columns": [
+            "plant_id"
+          ],
+          "references": {
+            "table": "plant",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "cascade"
+        },
+        {
+          "deletion": {
+            "action": "cascade",
+            "policy": "Goes with its run."
+          },
+          "columns": [
+            "run_id",
+            "plant_id"
+          ],
+          "references": {
+            "table": "assessment_run",
+            "columns": [
+              "id",
+              "plant_id"
+            ]
+          },
+          "on_delete": "cascade"
+        }
+      ],
+      "checks": [
+        "((comment IS NULL) OR ((char_length(comment) >= 1) AND (char_length(comment) <= 1000)))",
+        "rating in ('useful', 'not_useful')"
+      ],
+      "indexes": {
+        "assessment_feedback_plant_idx": {
+          "name": "assessment_feedback_plant_idx",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "assessment_feedback_account_idx": {
+          "name": "assessment_feedback_account_idx",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "constraint_names": {
+        "primary": [
+          "assessment_feedback_pkey"
+        ],
+        "unique": [],
+        "foreign": [
+          "assessment_feedback_run",
+          "assessment_feedback_plant",
+          "assessment_feedback_account"
+        ],
+        "checks": [
+          "assessment_feedback_rating",
+          "assessment_feedback_comment"
+        ]
+      },
+      "policies": {},
+      "rls": false
+    },
+    {
       "name": "assessment_insight",
       "domain": "intelligence",
       "purpose": "The insights of a published Plant Intelligence assessment (REQ-PI-023): one per point (focus, supporting, positive) with the severity its model urgency maps to, written in the statement that publishes the run.",
@@ -10048,6 +10290,211 @@
           "assessment_run_published",
           "assessment_run_budget"
         ]
+      },
+      "policies": {},
+      "rls": false
+    },
+    {
+      "name": "assessment_seen",
+      "domain": "intelligence",
+      "purpose": "An Owner's or Admin's explicit first open of one published Plant Intelligence assessment (REQ-PI-024, REQ-PI-032). The earliest open, or 72 hours after the run became available, releases it to the plant's organizations.",
+      "library_owned": false,
+      "jsonb_keys": {},
+      "capabilities": [
+        "CAP-C-020",
+        "CAP-C-021",
+        "CAP-C-026"
+      ],
+      "replaces": [],
+      "producer_work_packages": [
+        "WP-044"
+      ],
+      "producer_derivation": {
+        "old_target_tables": [],
+        "additional_producers": [
+          "WP-044"
+        ],
+        "rule": "WP-044 writes it from intelligence.markAssessmentSeen."
+      },
+      "feature_ids": [
+        "PI-016",
+        "PI-017",
+        "PI-018",
+        "PI-019",
+        "PI-020",
+        "PI-022",
+        "PI-023",
+        "PI-024",
+        "PI-025",
+        "PI-026",
+        "PI-027",
+        "PI-028",
+        "PI-029",
+        "PI-030",
+        "PI-031",
+        "PI-034",
+        "PI-035",
+        "PI-036",
+        "PI-042"
+      ],
+      "acceptance_ids": [
+        "AC-PI-016--PI-016",
+        "AC-PI-017--PI-017",
+        "AC-PI-018--PI-018",
+        "AC-PI-019--PI-019",
+        "AC-PI-020--PI-020",
+        "AC-PI-022--PI-022",
+        "AC-PI-023--PI-023",
+        "AC-PI-024--PI-024",
+        "AC-PI-025--PI-025",
+        "AC-PI-026--PI-026",
+        "AC-PI-027--PI-027",
+        "AC-PI-028--PI-028",
+        "AC-PI-029--PI-029",
+        "AC-PI-030--PI-030",
+        "AC-PI-031--PI-031",
+        "AC-PI-034--PI-034",
+        "AC-PI-035--PI-035",
+        "AC-PI-036--PI-036",
+        "AC-PI-042--PI-042"
+      ],
+      "future_case_ids": [],
+      "scope": "intelligence",
+      "invariants": [
+        "Written by an explicit open from an eligible Owner or Admin, never by rendering or by an organization seat.",
+        "Never changed after it is written."
+      ],
+      "revision": "Immutable; no revision.",
+      "idempotency": "One row per run and account; a repeated open writes nothing.",
+      "deletion": "Goes with its run, plant or account.",
+      "physical_verified": false,
+      "columns": [
+        {
+          "note": "The opened run.",
+          "name": "run_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "The Owner or Admin who opened it.",
+          "name": "account_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "The assessed plant.",
+          "name": "plant_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "When they first opened it.",
+          "name": "seen_at",
+          "type": "timestamptz",
+          "nullable": false
+        }
+      ],
+      "primary_key": [
+        "run_id",
+        "account_id"
+      ],
+      "unique_keys": [],
+      "foreign_keys": [
+        {
+          "deletion": {
+            "action": "cascade",
+            "policy": "Goes with the account."
+          },
+          "columns": [
+            "account_id"
+          ],
+          "references": {
+            "table": "account",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "cascade"
+        },
+        {
+          "deletion": {
+            "action": "cascade",
+            "policy": "Goes with the plant in the church purge."
+          },
+          "columns": [
+            "plant_id"
+          ],
+          "references": {
+            "table": "plant",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "cascade"
+        },
+        {
+          "deletion": {
+            "action": "cascade",
+            "policy": "Goes with its run."
+          },
+          "columns": [
+            "run_id",
+            "plant_id"
+          ],
+          "references": {
+            "table": "assessment_run",
+            "columns": [
+              "id",
+              "plant_id"
+            ]
+          },
+          "on_delete": "cascade"
+        }
+      ],
+      "checks": [],
+      "indexes": {
+        "assessment_seen_plant_idx": {
+          "name": "assessment_seen_plant_idx",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "assessment_seen_account_idx": {
+          "name": "assessment_seen_account_idx",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "constraint_names": {
+        "primary": [
+          "assessment_seen_pkey"
+        ],
+        "unique": [],
+        "foreign": [
+          "assessment_seen_run",
+          "assessment_seen_plant",
+          "assessment_seen_account"
+        ],
+        "checks": []
       },
       "policies": {},
       "rls": false
@@ -12755,7 +13202,7 @@
         }
       ],
       "checks": [
-        "action in ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','branding.changed','communication.draft_deleted','communication.draft_saved','communication.rescheduled','communication.scheduled','communication.send_intended','communication.template_archived','communication.template_created','communication.template_deleted','communication.template_forked','communication.template_updated','deletion.cancelled','deletion.live_purge_completed','development.enrolled','development.feedback_recorded','development.milestone_confirmed','development.milestone_marked','development.milestone_recorded','development.plan_saved','development.program_created','development.version_applied','development.version_published','documents.archived','documents.church_archived','documents.church_restored','documents.branding_changed','documents.copied','documents.created_from_template','documents.designated','documents.export_deleted','documents.exported','documents.generated','documents.imported','documents.purged','documents.saved','documents.template_deleted','documents.template_details_changed','documents.template_saved','documents.template_updated','evry.conversation_created','evry.proposal_approved','evry.proposal_cancelled','evry.proposal_prepared','evry.proposal_retried','evry.proposal_revised','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','feedback.publication_held','feedback.publication_intended','feedback.publication_unknown','feedback.published','feedback.received','feedback.status_changed','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','intelligence.assessed','intelligence.refresh_requested','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','launch.corrected','launch.debrief_submitted','launch.outcome_recorded','launch.summary_published','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','organization.profile_changed','people.corrected','people.created','people.duplicate_dismissed','people.duplicate_restored','people.merged','people.recorded','people.removed','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.bookmark_changed','wiki.hidden','wiki.published','wiki.reading_recorded','wiki.source_order_changed')",
+        "action in ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','branding.changed','communication.draft_deleted','communication.draft_saved','communication.rescheduled','communication.scheduled','communication.send_intended','communication.template_archived','communication.template_created','communication.template_deleted','communication.template_forked','communication.template_updated','deletion.cancelled','deletion.live_purge_completed','development.enrolled','development.feedback_recorded','development.milestone_confirmed','development.milestone_marked','development.milestone_recorded','development.plan_saved','development.program_created','development.version_applied','development.version_published','documents.archived','documents.church_archived','documents.church_restored','documents.branding_changed','documents.copied','documents.created_from_template','documents.designated','documents.export_deleted','documents.exported','documents.generated','documents.imported','documents.purged','documents.saved','documents.template_deleted','documents.template_details_changed','documents.template_saved','documents.template_updated','evry.conversation_created','evry.proposal_approved','evry.proposal_cancelled','evry.proposal_prepared','evry.proposal_retried','evry.proposal_revised','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','feedback.publication_held','feedback.publication_intended','feedback.publication_unknown','feedback.published','feedback.received','feedback.status_changed','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','intelligence.assessed','intelligence.assessment_opened','intelligence.feedback_saved','intelligence.refresh_requested','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','launch.corrected','launch.debrief_submitted','launch.outcome_recorded','launch.summary_published','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','organization.profile_changed','people.corrected','people.created','people.duplicate_dismissed','people.duplicate_restored','people.merged','people.recorded','people.removed','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.bookmark_changed','wiki.hidden','wiki.published','wiki.reading_recorded','wiki.source_order_changed')",
         "num_nonnulls(actor_id,actor_token,system_cause)>=1",
         "kind in ('create','edit','correct','retire','restore','merge','unmerge','stage_change','classification_change','commitment_change','assign','remove','accept','revoke','resend','role_change','leader_change','tick','untick','archive','earn','revoke_credit','offer_answer','publish','hide','read','progress','complete','reopen','waive','supersede','finalize','reconcile','noop','triage','suppress','suppression_clear','preference','model_attempt','tool_attempt','effect_result','mail_member','outcome','declaration','movement')",
         "jsonb_typeof(metadata)='object' AND (metadata->'diff' IS NULL OR (jsonb_typeof(metadata->'diff')='object' AND octet_length(convert_to((metadata->'diff')::text,'UTF8'))<=2048))"

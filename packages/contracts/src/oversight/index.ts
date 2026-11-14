@@ -2,7 +2,7 @@ import { z } from "zod";
 import { localDate } from "../common/time.ts";
 import { tenantId } from "../common/values.ts";
 import { phaseNumber } from "../phases/index.ts";
-import { health, plantLaunch, publishedSummary, regionArea } from "./health.ts";
+import { health, plantLaunch, publishedSummary, regionArea, releasedAssessment } from "./health.ts";
 
 export * from "./health.ts";
 
@@ -32,7 +32,7 @@ export const plantDirectoryRow = z.strictObject({
 	leadPlanter: z.string().nullable(),
 	/** The official metro or micro area the plant chose as its reporting Region, or null when unresolved. */
 	region: regionArea.nullable(),
-	/** Limited visibility, Launch readiness or not yet assessed (oversight.getHealth). */
+	/** Limited visibility, Launch readiness, Watch, On track or not yet assessed (oversight.getHealth). */
 	health,
 });
 export type PlantDirectoryRow = z.infer<typeof plantDirectoryRow>;
@@ -117,6 +117,8 @@ export const plantView = z.strictObject({
 	launch: plantLaunch,
 	/** The latest published launch summary (organizationLaunchSummary.readPublished), or null. */
 	summary: publishedSummary.nullable(),
+	/** The released Plant Intelligence assessment's structured result (intelligence.releaseAssessmentToOversight). */
+	assessment: releasedAssessment,
 });
 export type PlantView = z.infer<typeof plantView>;
 
