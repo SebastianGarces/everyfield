@@ -34,6 +34,8 @@ const factories = {
 	createTaskWriter: "tasks",
 	createTemplateReader: "tasks",
 	createPhaseWriter: "phases",
+	createLaunchWriter: "launch",
+	createLaunchReader: "launch",
 	createPrivateCare: "privateCare",
 	createSignals: "signals",
 	createFollowUpWriter: "followups",
