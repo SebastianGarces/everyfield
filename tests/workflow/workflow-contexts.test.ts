@@ -43,8 +43,7 @@ function runnerContextMisuse(text: string): string[] {
 			path = pathOf(stack);
 		}
 		for (const [expression] of line.matchAll(/\$\{\{[\s\S]*?\}\}/g))
-			if (/(?<![\w.-])runner\./.test(expression) && !RUNNER_ALLOWED.test(path))
-				found.push(`line ${i + 1}: ${path}`);
+			if (/(?<![\w.-])runner\./.test(expression) && !RUNNER_ALLOWED.test(path)) found.push(`line ${i + 1}: ${path}`);
 	}
 	return found;
 }
