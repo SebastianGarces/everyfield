@@ -313,7 +313,7 @@ export const ASSESSMENT_COMMANDS = {
 				change("occurredOn", v.occurredOn),
 				...(witness ? [sql`jsonb_build_object('field','witness','before',NULL,'after',${witness})`] : []),
 				...(v.witness && "external" in v.witness ? [change("witness", v.witness.external)] : []),
-				...(v.notes ? [change("notes", v.notes)] : []),
+				...(v.notes ? [change("cardNotes", v.notes)] : []),
 			];
 			return sql`SELECT jsonb_build_object('target',${person},'changes',${changes(list)}||${advance("core_group")})
 					||${refusal([future(v.occurredOn), ...(witness ? [[sql`${witness} IS NULL`, "That witness is not a current person in this church."] as [SQL, string]] : [])])} AS review,

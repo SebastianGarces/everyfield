@@ -4,9 +4,11 @@
 // sends exactly the recorded provider calls.
 //
 // Known records the factual cases check (golden.test.mts reads them back through the real reads):
-// - 83 live people: 3 leader, 2 launch_team, 5 core_group, 2 interviewed, 4 following_up, 10 attendee, 57 prospect
+// - 84 live people: 3 leader, 2 launch_team, 5 core_group, 2 interviewed, 4 following_up, 11 attendee, 57 prospect
 //   (13 of the prospects in Austin). 2 removed people: Tom Baker and Rosa Rivera.
-// - 8 households: Rivera, Thompson, Nguyen, Okafor, Martinez, Garcia, Johnson, Lee.
+// - 8 households: Rivera, Thompson, Nguyen, Okafor, Martinez, Garcia, Johnson, Lee. The Nguyen household has four
+//   people (Minh, Linh, Bao and Thao), all at 2200 Pecan Dr, Austin; Pedro Martinez is in no household.
+// - A note on Maria Santos that the Admin wrote (MARIA_NOTE), for the note edit and delete cases.
 // - Tags Worship team (4, Ruth Allen's among them), Kids ministry (2), Prayer team (1); skills on Mark Thompson, Alex Rivera, Jen Thompson.
 // - Two Marias, two Caseys, Jon and John Smith, a test record "asdf" and a person whose name is an instruction.
 // - An import receipt (5 created, 1 skipped, 2 failed) and open tasks on Mark Thompson (2), Ana Rivera and Sam Patel.
@@ -19,6 +21,11 @@
 //   2026 (3, 4, 4, 3), and Ana Rivera's core group
 //   commitment card signed 20 Sep 2026 with its signed PDF on file. John Smith has no follow-up outcome, so the open
 //   pair John Smith and Jon Smith can merge; Casey Brooks has one, so that pair's merge is blocked (WP-091).
+// - Notifications: the Owner has four unread from the weekend (Sat 7 and Sun 8 Nov): three task reminders (N1 to N3,
+//   the launch budget due and overdue and the school gym due) and one meeting announcement (N4, the interest meeting on
+//   Thu 19 Nov), plus one read reminder from Thu 5 Nov. The Admin has two unread notices of her own. The church digest
+//   goes out weekly on Sundays at 4 PM; the next one (Sun 15 Nov) covers 9 to 15 Nov and lists the Owner's three open
+//   dated tasks (two overdue by then) and the interest meeting.
 // - Ministries (MINISTRIES below), read from the team roster, never from tags: Core team (led by Nate; 4 roles, the
 //   Admin coordinator open; 5 completed team meetings, the last 4 measured; required "Core team orientation" for Nate,
 //   Lena and Carlos, two finished), Worship (Mark leads it from the Worship leader role; Mark, Jen, Ana and Alex serve;
@@ -59,6 +66,15 @@ export const DANIEL_INTERVIEW = id(0x6001);
 export const ANA_COMMITMENT = id(0x6002);
 export const ANA_DOCUMENT = id(0x6003);
 export const MIKE_ASSESSMENT = id(0x6004);
+/** The Owner's four unread weekend notices, oldest first (three task reminders, then a meeting announcement). */
+export const NOTICES = [id(0xd01), id(0xd02), id(0xd03), id(0xd04)] as const;
+/** The Owner's read notice and the Admin's two unread ones. */
+const READ_NOTICE = id(0xd05);
+const ADMIN_NOTICES = [id(0xd06), id(0xd07)] as const;
+const BUDGET_TASK = id(0xd11);
+const GYM_TASK = id(0xd12);
+const SIGNUP_TASK = id(0xd13);
+const INTEREST_MEETING = id(0xd21);
 
 type Stage = "prospect" | "attendee" | "following_up" | "interviewed" | "core_group" | "launch_team" | "leader";
 /** The inactivity level the seeded activity produces on the real pipeline board. */
@@ -72,6 +88,7 @@ export type Person = {
 	phone: string | null;
 	state: "live" | "retired";
 	household?: { id: string; role: "head" | "spouse" | "child" | "other" };
+	street?: string;
 	tags?: string[];
 	skills?: { name: string; category: "tech" | "worship"; proficiency: "intermediate" | "advanced" }[];
 	photo?: boolean;
@@ -84,10 +101,11 @@ export type Person = {
 	createdAt: string;
 };
 
+const NGUYEN_STREET = "2200 Pecan Dr";
 export const HOUSEHOLDS = [
 	{ id: id(0xa1), name: "Rivera household", city: "Austin" },
 	{ id: id(0xa2), name: "Thompson household", city: "Pflugerville", street: "418 Maple Ave" },
-	{ id: id(0xa3), name: "Nguyen household", city: "Austin" },
+	{ id: id(0xa3), name: "Nguyen household", city: "Austin", street: NGUYEN_STREET },
 	{ id: id(0xa4), name: "Okafor household", city: "Austin" },
 	{ id: id(0xa5), name: "Martinez household", city: "San Marcos" },
 	{ id: id(0xa6), name: "Garcia household", city: "Austin" },
@@ -166,12 +184,19 @@ const named: Person[] = [
 	}),
 	person("Carl Johnson", "Cedar Park", "following_up", { household: { id: home("Johnson"), role: "spouse" } }),
 	person("Mateo Rivera", "Austin", "attendee", { household: { id: home("Rivera"), role: "child" } }),
-	person("Minh Nguyen", "Austin", "attendee", { household: { id: home("Nguyen"), role: "head" } }),
+	person("Minh Nguyen", "Austin", "attendee", {
+		household: { id: home("Nguyen"), role: "head" },
+		street: NGUYEN_STREET,
+	}),
 	person("Linh Nguyen", "Austin", "attendee", {
 		household: { id: home("Nguyen"), role: "spouse" },
 		tags: ["Kids ministry"],
+		street: NGUYEN_STREET,
 	}),
-	person("Bao Nguyen", "Austin", "attendee", { household: { id: home("Nguyen"), role: "child" } }),
+	person("Bao Nguyen", "Austin", "attendee", {
+		household: { id: home("Nguyen"), role: "child" },
+		street: NGUYEN_STREET,
+	}),
 	person("Casey Morgan", "Austin", "attendee", { inactivity: "warning" }),
 	person("Kevin Walsh", "Austin", "attendee", {
 		inactivity: "alert",
@@ -222,7 +247,15 @@ const generated = LAST.flatMap((last) => FIRST.map((first) => `${first} ${last}`
 	person(name, CITIES[i % CITIES.length]!, "prospect"),
 );
 
-export const PEOPLE: readonly Person[] = [...named, ...generated];
+// Added after the generated prospects, so every id above stays pinned: the fourth Nguyen (HH-05).
+const later = [
+	person("Thao Nguyen", "Austin", "attendee", {
+		household: { id: home("Nguyen"), role: "child" },
+		street: NGUYEN_STREET,
+	}),
+];
+
+export const PEOPLE: readonly Person[] = [...named, ...generated, ...later];
 export const live = () => PEOPLE.filter((p) => p.state === "live");
 export const byName = (name: string) => {
 	const found = PEOPLE.find((p) => p.name === name);
@@ -230,6 +263,8 @@ export const byName = (name: string) => {
 	return found;
 };
 
+/** The Admin's note on Maria Santos. */
+export const MARIA_NOTE = id(0x9900);
 /** A people import whose receipt the receipt read returns, and the request key that names it. */
 export const IMPORT_KEY = "import-2026-11-08-launch-interest";
 const IMPORT = { id: id(0xe1), job: id(0xe2), at: "2026-11-08T17:00:00.000Z", people: generated.slice(0, 5) };
@@ -250,7 +285,7 @@ export const REVIEW_PAIRS = REVIEW_IMPORT.rows.filter((r) => !r.dismissed).map((
 
 type ActorSpec = { account: string; user: string; session: string; plant: string | null; role: string };
 const ACCOUNT = (k: number): ActorSpec["account"] => id(0xf00 + k);
-const ACTOR_SPECS = {
+export const ACTOR_SPECS = {
 	owner: { account: ACCOUNT(1), user: id(0xf11), session: id(0xf21), plant: PLANT, role: "owner" },
 	admin: { account: ACCOUNT(2), user: id(0xf12), session: id(0xf22), plant: PLANT, role: "admin" },
 	member: { account: ACCOUNT(3), user: id(0xf13), session: id(0xf23), plant: PLANT, role: "member" },
@@ -270,15 +305,16 @@ const LINKED: Partial<Record<ActorName, string>> = {
  * Seeds the church into the schema `admin` is pinned to. Every row a read returns has a pinned id and a pinned time,
  * except each live person's last contact, which is placed relative to the database clock (see the header).
  */
-async function seedHope(admin: Database) {
+export async function seedHope(admin: Database) {
 	const run = (q: ReturnType<typeof sql>) => admin.execute(q);
-	for (const [plant, name] of [
-		[PLANT, "Hope Fellowship"],
-		[EMPTY_PLANT, "New Hope"],
-		[OTHER_PLANT, "Grace Point"],
-	])
+	// Hope Fellowship's church digest goes out on Sundays at 4 PM, the default schedule.
+	for (const [plant, name, weekday, hour] of [
+		[PLANT, "Hope Fellowship", 0, 16],
+		[EMPTY_PLANT, "New Hope", 1, 8],
+		[OTHER_PLANT, "Grace Point", 1, 8],
+	] as const)
 		await run(sql`INSERT INTO plant(id,name,timezone,warning_days,alert_days,digest_weekday,digest_hour,phase,material_revision)
-			VALUES(${plant},${name},'America/Chicago',7,14,1,8,1,1)`);
+			VALUES(${plant},${name},'America/Chicago',7,14,${weekday},${hour},1,1)`);
 	await run(sql`INSERT INTO organization(id,kind,name,timezone,material_revision)
 		VALUES(${ORGANIZATION},'sending_church','Hill Country Church','America/Chicago',1)`);
 	for (const [who, a] of Object.entries(ACTOR_SPECS)) {
@@ -311,9 +347,9 @@ async function seedHope(admin: Database) {
 		task = 0x8000,
 		photo = 0xc000;
 	for (const [i, p] of PEOPLE.entries()) {
-		await run(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,email,phone,city,source,created_at,stage,
+		await run(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,email,phone,street,city,source,created_at,stage,
 				adult_classification,commitment_state,pipeline_position,state,retired_at,household_id,household_role,linked_account_id)
-			VALUES(${p.id},${PLANT},${PLANT},${p.name},${p.email},${p.phone},${p.city},'other',${p.createdAt},${p.stage},'unknown',
+			VALUES(${p.id},${PLANT},${PLANT},${p.name},${p.email},${p.phone},${p.street ?? null},${p.city},'other',${p.createdAt},${p.stage},'unknown',
 				'unknown',${i + 1},${p.state},${p.state === "retired" ? "2026-10-01T12:00:00.000Z" : null},
 				${p.household?.id ?? null},${p.household?.role ?? null},${linked.get(p.id) ?? null})`);
 		if (p.photo) {
@@ -348,6 +384,12 @@ async function seedHope(admin: Database) {
 				SELECT ${PLANT},${owner},'people.updated','edit','person',${p.id},t,t
 				FROM (SELECT clock_timestamp()-make_interval(days=>${p.inactivity === "warning" ? 10 : 2}) AS t) x`);
 	}
+
+	// A note the Admin wrote on Maria Santos: only its author may edit or delete it. A note is activity, so it is dated
+	// before her last contact (10 days before NOW): she keeps her inactivity warning in NOW's frame.
+	await run(sql`INSERT INTO person_note(id,tenant_id,plant_id,person_id,author_id,body,occurred_at,recorded_at)
+		VALUES(${MARIA_NOTE},${PLANT},${PLANT},${byName("Maria Santos").id},${ACTOR_SPECS.admin.account},
+			'Met us at the fall picnic and asked about small groups.','2026-10-28T18:00:00.000Z','2026-10-28T18:00:00.000Z')`);
 
 	// The import: its saved plan, its finished job and the people.created audit rows of the five people it created.
 	const plan = {
@@ -415,6 +457,110 @@ async function seedHope(admin: Database) {
 			state,scheduled_at,created_at)
 			VALUES(${id(0xc10 + n)},${PLANT},'communication',${FRIDAY_EMAIL},${byName(name).id},
 			${`communication/${FRIDAY_EMAIL}/${byName(name).id}`},'seed','seed','scheduled','2026-11-13T15:00:00.000Z','2026-11-06T16:00:00.000Z')`);
+	await seedNotifications(run);
+}
+
+/**
+ * The Owner's notifications and the work they are about: three open dated tasks assigned to the Owner with no person
+ * (so no person's coverage changes), the interest meeting, and the notices the bell shows, each at a pinned time.
+ */
+async function seedNotifications(run: (q: ReturnType<typeof sql>) => Promise<unknown>) {
+	const owner = ACTOR_SPECS.owner.account;
+	const admin = ACTOR_SPECS.admin.account;
+	for (const [task, title, due] of [
+		[BUDGET_TASK, "Send the launch budget to Hill Country Church", "2026-11-07"],
+		[GYM_TASK, "Book the school gym for the interest meeting", "2026-11-08"],
+		[SIGNUP_TASK, "Print the interest meeting sign-up cards", "2026-11-18"],
+	] as const) {
+		await run(sql`INSERT INTO task(id,plant_id,title,category,priority,status,creator_id,created_at,due_kind,due_date)
+			VALUES(${task},${PLANT},${title},'general','medium','not_started',${owner},'2026-11-02T15:00:00.000Z','date_only',${due})`);
+		await run(sql`INSERT INTO task_assignee(plant_id,task_id,account_id) VALUES(${PLANT},${task},${owner})`);
+	}
+	await run(sql`INSERT INTO meeting(id,plant_id,type,title,local_date,local_time,timezone,starts_at,resolver_version,status,attendance_revision)
+		VALUES(${INTEREST_MEETING},${PLANT},'vision_meeting','Interest meeting','2026-11-19','18:30','America/Chicago','2026-11-20T00:30:00Z','1','planning',1)`);
+	const notices = [
+		[
+			NOTICES[0],
+			owner,
+			"task",
+			"task_due",
+			"task_due",
+			BUDGET_TASK,
+			"Send the launch budget to Hill Country Church is due today",
+			"2026-11-07T15:00:00Z",
+			"2026-11-07",
+		],
+		[
+			NOTICES[1],
+			owner,
+			"task",
+			"task_due",
+			"task_overdue",
+			BUDGET_TASK,
+			"Send the launch budget to Hill Country Church is overdue",
+			"2026-11-08T15:00:00Z",
+			"2026-11-07",
+		],
+		[
+			NOTICES[2],
+			owner,
+			"task",
+			"task_due",
+			"task_due",
+			GYM_TASK,
+			"Book the school gym for the interest meeting is due today",
+			"2026-11-08T15:00:00Z",
+			"2026-11-08",
+		],
+		[
+			NOTICES[3],
+			owner,
+			"meeting",
+			"meeting_invitation",
+			"meeting_announcement",
+			INTEREST_MEETING,
+			"Interest meeting scheduled for Thu, Nov 19 at 6:30 PM",
+			"2026-11-09T00:30:00Z",
+			null,
+		],
+		[
+			READ_NOTICE,
+			owner,
+			"task",
+			"task_due",
+			"task_due",
+			SIGNUP_TASK,
+			"Print the interest meeting sign-up cards is coming up",
+			"2026-11-05T15:00:00Z",
+			null,
+		],
+		[
+			ADMIN_NOTICES[0],
+			admin,
+			"task",
+			"task_due",
+			"task_due",
+			SIGNUP_TASK,
+			"Order the kids check-in tags is due today",
+			"2026-11-07T15:00:00Z",
+			"2026-11-07",
+		],
+		[
+			ADMIN_NOTICES[1],
+			admin,
+			"meeting",
+			"meeting_invitation",
+			"meeting_announcement",
+			INTEREST_MEETING,
+			"Interest meeting scheduled for Thu, Nov 19 at 6:30 PM",
+			"2026-11-09T00:30:00Z",
+			null,
+		],
+	] as const;
+	for (const [notice, recipient, category, purpose, key, source, title, at, due] of notices)
+		await run(sql`INSERT INTO notice(id,tenant_id,recipient_id,category,purpose,logical_key,source_record_id,source_revision,title,eligible_at,created_at,schedule_date,timezone)
+			VALUES(${notice},${PLANT},${recipient},${category},${purpose},${`${PLANT}/${key}/${source}/${notice}`},${source},1,${title},${at},${at},${due},'America/Chicago')`);
+	await run(sql`UPDATE notice SET read_at='2026-11-05T18:00:00Z' WHERE id=${READ_NOTICE}`);
 }
 
 /**
@@ -647,7 +793,8 @@ async function actorFor(db: Database, who: ActorName): Promise<EvryActor> {
 
 /**
  * The host clock moved to NOW's frame, still advancing. A read stamps the host's date into what the model sees (the
- * export's filename, people-<date>.csv), so every run must see the same date. The database clock is left alone.
+ * export's filename, people-<date>.csv), so every run must see the same date. The database clock is pinned the same
+ * way, by evalDatabase.
  */
 function pinHostClock() {
 	const Real = Date;
@@ -665,10 +812,18 @@ function pinHostClock() {
 	} as unknown as DateConstructor;
 }
 
+/**
+ * The one eval schema every Postgres-backed eval suite seeds its church into: a fresh, migrated schema whose database
+ * clock (`now()`, `clock_timestamp()` and the like, read by inactivity, the review's schedule window and every other
+ * clock comparison) runs in NOW's frame, still advancing (pinSchemaClock in tests/support/test-database.mts). So a
+ * fixture time such as the Friday of NOW's week stays in the future on every real date the suite runs.
+ */
+export const evalDatabase = (options: { prefix: string; max?: number }) => testDatabase({ ...options, clock: NOW });
+
 export type GoldenChurch = { db: Database; actors: Record<ActorName, EvryActor>; close(): Promise<void> };
 /** A fresh schema with Hope Fellowship seeded, the runtime pool the reads use and every eval actor. */
 export async function goldenChurch(): Promise<GoldenChurch> {
-	const database = await testDatabase({ prefix: "evrygold", max: 10 });
+	const database = await evalDatabase({ prefix: "evrygold", max: 10 });
 	try {
 		await seedHope(database.admin);
 		await seedMinistries(database.admin);

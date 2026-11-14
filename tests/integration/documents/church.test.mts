@@ -34,6 +34,8 @@ const sha = (text) => createHash("sha256").update(text).digest("hex");
 
 class MemoryClient extends S3Client {
 	objects = new Map();
+	/** Runs before the next object write, once: a race test holds one export at the bucket here. */
+	beforePut = null;
 	constructor() {
 		super({
 			region: "us-east-1",
@@ -47,9 +49,13 @@ class MemoryClient extends S3Client {
 		switch (command.constructor.name) {
 			case "GetBucketAclCommand":
 				return { Grants: [{ Grantee: { ID: "private-owner" }, Permission: "FULL_CONTROL" }] };
-			case "PutObjectCommand":
+			case "PutObjectCommand": {
+				const hold = this.beforePut;
+				this.beforePut = null;
+				await hold?.();
 				this.objects.set(input.Key, Buffer.from(input.Body));
 				return {};
+			}
 			case "GetObjectCommand": {
 				const body = this.objects.get(input.Key);
 				if (!body) throw Object.assign(new Error("missing"), { name: "NoSuchKey" });
@@ -1049,6 +1055,35 @@ describe("AC:DOC-022 Church Documents on everyfield.doc/1", { concurrency: 1 }, 
 				patch: { primaryColor: kit.primaryColor },
 			}),
 		);
+	});
+
+	// The double click above races by timing alone. This one fixes the order CI met on #758, the most statements the
+	// later export can send: it claims the stored file first and waits at the bucket while its rival finalizes that
+	// file and saves the export. The census then measures that worst case on every run.
+	test("INV-idempotency: a double export whose later caller claimed the stored file first saves one export", async () => {
+		const doc = ok(await create(OWNER, "conflict-of-interest-policy", "race-claim-policy"));
+		const before = await counts();
+		let release, reached;
+		const held = new Promise((resolve) => (release = resolve));
+		const atBucket = new Promise((resolve) => (reached = resolve));
+		client.beforePut = () => (reached(), held);
+		const later = exportDoc(MEMBER, doc.id, 1, "pdf", "race-claim-pdf");
+		await atBucket;
+		const first = ok(await exportDoc(MEMBER, doc.id, 1, "pdf", "race-claim-pdf"));
+		release();
+		const second = ok(await later);
+		assert.deepEqual(second, first, "both callers get the one saved export");
+		const after = await counts();
+		assert.equal(after.generated, before.generated + 1, "one generated row");
+		assert.equal(after.files, before.files + 1, "one stored file");
+		assert.equal(after.audits, before.audits + 1, "one documents.exported audit");
+		const finalized = await countOf(
+			"audit_event a JOIN generated_document g ON g.object_id = a.subject_id",
+			`WHERE g.id = '${first.id}' AND a.action = 'files.finalized'`,
+		);
+		assert.equal(finalized, 1, "the file is finalized once");
+		assert.equal(sha256(await bytesOf(first)), first.digest);
+		refused(await exportDoc(MEMBER, doc.id, 1, "docx", "race-claim-pdf"), "conflict");
 	});
 
 	test("INV-privacy: each revision names its saver while they hold a seat here, else a former member", async () => {

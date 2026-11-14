@@ -6,6 +6,7 @@ import {
 	compileOversightDigest,
 	compilePlanterDigest,
 	digestRecipientLive,
+	owedPeriod,
 	renderOversightDigest,
 	renderPlanterDigest,
 } from "@everyfield/domain/notifications";
@@ -14,7 +15,6 @@ import "server-only";
 import { z } from "zod";
 import { mailEnv } from "../mail-env.ts";
 import { transaction } from "../platform/database.ts";
-import { owedPeriod } from "./calendar.ts";
 import {
 	MAIL_PASSES,
 	mailUnsubscribe,

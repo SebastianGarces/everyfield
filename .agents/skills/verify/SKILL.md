@@ -12,7 +12,10 @@ Include current main and commit. evf runs the repo's checks for the task in its 
 configured to run in parallel (evf runs 3 today, evf-v2 T-37), each an isolated checkout (`evf.toml`, `full-check`).
 Those checks do not replace green GitHub CI or independent real verification. In a seat, run only focused tests for the files you change,
 with the language's own runner (`node --test <files>`), or `bin/dev check`: it runs the checks and test files your
-diff touches, runs everything when in doubt, and prints the path of its checks.json record (T-41).
+diff touches, runs everything when in doubt, and prints the path of its checks.json record (T-41). It also runs the
+selected packages' database tests (`test:db`) on a throwaway local Postgres: CI's image in Docker, migrated by the
+head's own `pnpm db:migrate` and removed when the run ends, never the shared development database. So it needs Docker,
+and without it `test:db` fails. The statement census (`@everyfield/domain` `test:db`) stays in GitHub CI (T-105).
 
 Format, lint and typecheck fail fast on your own machine. `pnpm install` points this repo's `core.hooksPath` at
 `tools/git-hooks` (or run `bin/dev hooks install`). Its `pre-push` hook runs `bin/dev fast-check` on each push of a task

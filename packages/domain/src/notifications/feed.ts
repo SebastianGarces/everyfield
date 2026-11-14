@@ -24,6 +24,7 @@ import {
 	readReply,
 	runWrite,
 	selfSql,
+	type NotificationCommand,
 	type Tx,
 } from "./core.ts";
 
@@ -154,7 +155,7 @@ export async function readFeed(
  * statement (REQ-NTF-003). The feed page and the bell open read this.
  */
 export async function readFeedPage(
-	db: Database,
+	db: Pick<Database, "execute">,
 	authority: RequestActor,
 	raw: unknown,
 	now: () => Date = () => new Date(),
@@ -235,90 +236,82 @@ async function mark(
 	return row;
 }
 
-export function markRead(db: Database, authority: RequestActor, raw: unknown) {
-	const selected = accountOwner(authority.actor.accountId);
-	return runWrite(
-		db,
-		authority,
-		selected,
-		raw,
-		markReadRequest,
-		"notifications.markRead",
-		markResult,
-		async (tx, cmd, input) => {
-			const row = await mark(
-				tx,
-				authority.session,
-				authority.actor.accountId,
-				input.expectedRevision,
-				[input.input.noticeId],
-				null,
-			);
-			if (row.visible_ids.length !== 1) deny("access_denied");
-			audit(cmd, {
-				subjectId: input.input.noticeId,
-				kind: row.changed ? "read" : "noop",
-				fields: row.changed ? ["read"] : [],
-			});
-			return { markedIds: row.visible_ids };
-		},
-	);
-}
+const markReadCommand: NotificationCommand<typeof markReadRequest, z.output<typeof markResult>> = {
+	schema: markReadRequest,
+	operation: "notifications.markRead",
+	result: markResult,
+	async body(tx, cmd, input, authority) {
+		const row = await mark(
+			tx,
+			authority.session,
+			authority.actor.accountId,
+			input.expectedRevision,
+			[input.input.noticeId],
+			null,
+		);
+		if (row.visible_ids.length !== 1) deny("access_denied");
+		audit(cmd, {
+			subjectId: input.input.noticeId,
+			kind: row.changed ? "read" : "noop",
+			fields: row.changed ? ["read"] : [],
+		});
+		return { markedIds: row.visible_ids };
+	},
+};
 
-export function markSelectedRead(db: Database, authority: RequestActor, raw: unknown) {
-	const selected = accountOwner(authority.actor.accountId);
-	return runWrite(
-		db,
-		authority,
-		selected,
-		raw,
-		markSelectedReadRequest,
-		"notifications.markSelectedRead",
-		markResult,
-		async (tx, cmd, input) => {
-			const row = await mark(
-				tx,
-				authority.session,
-				authority.actor.accountId,
-				input.expectedRevision,
-				input.input.noticeIds,
-				null,
-			);
-			audit(cmd, {
-				subjectId: authority.actor.accountId,
-				kind: row.changed ? "read" : "noop",
-				fields: row.changed ? ["read"] : [],
-			});
-			return { markedIds: row.visible_ids };
-		},
-	);
-}
+export const markSelectedReadCommand: NotificationCommand<
+	typeof markSelectedReadRequest,
+	z.output<typeof markResult>
+> = {
+	schema: markSelectedReadRequest,
+	operation: "notifications.markSelectedRead",
+	result: markResult,
+	async body(tx, cmd, input, authority) {
+		const row = await mark(
+			tx,
+			authority.session,
+			authority.actor.accountId,
+			input.expectedRevision,
+			input.input.noticeIds,
+			null,
+		);
+		audit(cmd, {
+			subjectId: authority.actor.accountId,
+			kind: row.changed ? "read" : "noop",
+			fields: row.changed ? ["read"] : [],
+		});
+		return { markedIds: row.visible_ids };
+	},
+};
 
-export function markAllVisibleRead(db: Database, authority: RequestActor, raw: unknown) {
-	const selected = accountOwner(authority.actor.accountId);
-	return runWrite(
-		db,
-		authority,
-		selected,
-		raw,
-		markAllVisibleReadRequest,
-		"notifications.markAllVisibleRead",
-		markResult,
-		async (tx, cmd, input) => {
-			const row = await mark(
-				tx,
-				authority.session,
-				authority.actor.accountId,
-				input.expectedRevision,
-				null,
-				input.input.cutoff,
-			);
-			audit(cmd, {
-				subjectId: authority.actor.accountId,
-				kind: row.changed ? "read" : "noop",
-				fields: row.changed ? ["read"] : [],
-			});
-			return { markedIds: row.visible_ids };
-		},
-	);
-}
+export const markAllVisibleReadCommand: NotificationCommand<
+	typeof markAllVisibleReadRequest,
+	z.output<typeof markResult>
+> = {
+	schema: markAllVisibleReadRequest,
+	operation: "notifications.markAllVisibleRead",
+	result: markResult,
+	async body(tx, cmd, input, authority) {
+		const row = await mark(
+			tx,
+			authority.session,
+			authority.actor.accountId,
+			input.expectedRevision,
+			null,
+			input.input.cutoff,
+		);
+		audit(cmd, {
+			subjectId: authority.actor.accountId,
+			kind: row.changed ? "read" : "noop",
+			fields: row.changed ? ["read"] : [],
+		});
+		return { markedIds: row.visible_ids };
+	},
+};
+
+export const markRead = (db: Database, authority: RequestActor, raw: unknown) =>
+	runWrite(db, authority, accountOwner(authority.actor.accountId), raw, markReadCommand);
+export const markSelectedRead = (db: Database, authority: RequestActor, raw: unknown) =>
+	runWrite(db, authority, accountOwner(authority.actor.accountId), raw, markSelectedReadCommand);
+export const markAllVisibleRead = (db: Database, authority: RequestActor, raw: unknown) =>
+	runWrite(db, authority, accountOwner(authority.actor.accountId), raw, markAllVisibleReadCommand);

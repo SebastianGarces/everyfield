@@ -4,7 +4,8 @@ import type { EvryActor } from "../context/actor.ts";
 
 /**
  * One returned row. Only these fields reach the model; the id lets a later read or selection name it again.
- * Selection re-checks `person` rows only. A household, tag, skill, activity, file, import, record, merge or correction row is not a person.
+ * Selection re-checks `person` rows only. A household, tag, skill, activity, file, import, message, notice, setting,
+ * digest, record, merge or correction row is not a person.
  */
 export type SourceRow = {
 	kind:
@@ -19,6 +20,9 @@ export type SourceRow = {
 		| "record"
 		| "merge"
 		| "correction"
+		| "notice"
+		| "setting"
+		| "digest"
 		| "team"
 		| "role"
 		| "training"
