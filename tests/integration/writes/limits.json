@@ -74,6 +74,12 @@
 	"GET /notifications/read?what=count": {
 		"limit": 2
 	},
+	"GET /overview": {
+		"limit": 6
+	},
+	"GET /overview (member)": {
+		"limit": 6
+	},
 	"GET /people": {
 		"limit": 6
 	},
@@ -1962,6 +1968,9 @@
 	"launch.readPlan": {
 		"limit": 1
 	},
+	"dashboard.dismissPrompt": {
+		"limit": 1
+	},
 	"launch.schedule": {
 		"limit": 5,
 		"retry": 3
@@ -2113,7 +2122,7 @@
 		"retry": 5
 	},
 	"oversight/intelligence.requestIntelligenceRefresh": {
-		"limit": 4,
+		"limit": 5,
 		"retry": 3
 	},
 	"oversight/intelligence.submitIntelligenceFeedback": {

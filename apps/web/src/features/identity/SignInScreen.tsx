@@ -2,10 +2,10 @@
 
 import { Mail01Icon } from "@hugeicons/core-free-icons";
 import {
+	afterSignIn,
 	LANDING_ROUTE,
 	ONBOARDING_HOME,
 	normalizedEmail,
-	safeReturn,
 	type SessionResult,
 } from "@everyfield/contracts/identity";
 import { Button, Field, Input } from "@everyfield/ui/controls";
@@ -18,8 +18,8 @@ import { FormMessage, PasswordInput } from "./parts";
 import { SessionActions } from "./SessionActions";
 
 /**
- * A sign-in without a return path lands on the landing route, which decides on the server (landingFor). When Overview
- * (WP-048) ships, the dashboard home moves in DASHBOARD_HOME in packages/contracts/src/identity/navigation.ts, nowhere else.
+ * Every sign-in lands on the landing route, which decides on the server (landingFor): Overview for a finished church, its
+ * setup step for an unfinished one. A return path goes along as the route's returnTo, so it never skips setup.
  */
 export const AFTER_SIGN_IN = LANDING_ROUTE;
 
@@ -59,9 +59,7 @@ function SignedInState({ session, returnTo }: { session: SignedIn; returnTo: str
 					: "Continue where you left off, or sign out."}
 			</AuthHeading>
 			<Button asChild variant="primary" className="mt-6 w-full">
-				<a href={pending ? ONBOARDING_HOME : (returnTo ?? AFTER_SIGN_IN)}>
-					{pending ? "Set up your church" : "Continue"}
-				</a>
+				<a href={pending ? ONBOARDING_HOME : afterSignIn(returnTo)}>{pending ? "Set up your church" : "Continue"}</a>
 			</Button>
 			<SessionActions className="mt-6" />
 		</>
@@ -109,7 +107,7 @@ export function SignInForm({
 		});
 		if (result.ok) {
 			// A full load, so every server component reads the new session cookie.
-			loadPage(safeReturn(result.value.returnTo) ?? AFTER_SIGN_IN);
+			loadPage(afterSignIn(result.value.returnTo));
 			return;
 		}
 		setBusy(false);

@@ -1,7 +1,7 @@
 "use client";
 
-import type { IntelligenceGroup, IntelligenceView, Level } from "@everyfield/contracts/oversight";
-import { LEVELS, NEAR_LAUNCH_RULE, nearLaunchSentence } from "@everyfield/contracts/oversight";
+import type { IntelligenceGroup, IntelligencePattern, IntelligenceView, Level } from "@everyfield/contracts/oversight";
+import { LEVELS, patternText } from "@everyfield/contracts/oversight";
 import {
 	AlertCircleIcon,
 	ArrowRight01Icon,
@@ -16,11 +16,11 @@ import { cn, Icon } from "@everyfield/ui/foundations";
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { ratePattern, refreshIntelligence } from "./actions.ts";
-import { LEVEL_LABEL, plural, resultLabel, runLabel } from "./model.ts";
+import { LEVEL_LABEL, plural, resultLabels, runLabel } from "./model.ts";
 
-// The body of /network/intelligence (WP-047b): the run shown and its history, the level switch, and each group's plant
-// rows with the near-launch pattern where two sharing plants qualify. Plants are listed by name; nothing is ranked or
-// scored. Refresh (Owners and Admins) shows the new run from the action's answer; a rating shows at once and rolls back
+// The body of /network/intelligence (WP-047b, T-372): the run shown and its history, the level switch, and each group's
+// plant rows with one short result per rule, and each rule pattern (NIR-03 to NIR-06) where two sharing plants qualify.
+// Plants are listed by name; nothing is ranked or scored. Refresh (Owners and Admins) shows the new run from the action's answer; a rating shows at once and rolls back
 // if the server refuses it.
 
 const href = (level: Level, runId: string | null) =>
@@ -48,15 +48,15 @@ export function IntelligenceBody({ initial }: { initial: IntelligenceView }) {
 				);
 		});
 
-	const rate = async (group: IntelligenceGroup, rating: "useful" | "not_useful") => {
-		const pattern = group.pattern;
-		if (!pattern || !view.run) return;
-		const set = (value: typeof pattern.rating) =>
+	const rate = async (pattern: IntelligencePattern, rating: "useful" | "not_useful") => {
+		if (!view.run) return;
+		const set = (value: IntelligencePattern["rating"]) =>
 			setView((v) => ({
 				...v,
-				groups: v.groups.map((g) =>
-					g.key === group.key && g.pattern ? { ...g, pattern: { ...g.pattern, rating: value } } : g,
-				),
+				groups: v.groups.map((g) => ({
+					...g,
+					patterns: g.patterns.map((p) => (p.key === pattern.key ? { ...p, rating: value } : p)),
+				})),
 			}));
 		const before = pattern.rating;
 		set(rating);
@@ -135,15 +135,9 @@ export function IntelligenceBody({ initial }: { initial: IntelligenceView }) {
 	);
 }
 
-function Group({
-	group,
-	rate,
-	canRate,
-}: {
-	group: IntelligenceGroup;
-	rate: (group: IntelligenceGroup, rating: "useful" | "not_useful") => void;
-	canRate: boolean;
-}) {
+type Rate = (pattern: IntelligencePattern, rating: "useful" | "not_useful") => void;
+
+function Group({ group, rate, canRate }: { group: IntelligenceGroup; rate: Rate; canRate: boolean }) {
 	const shared = group.rows.filter((r) => r.status === "shared").length;
 	const id = `group-${group.key.replace(/\W/g, "-")}`;
 	return (
@@ -156,82 +150,98 @@ function Group({
 					{plural(group.rows.length, "plant")} · {shared} share findings
 				</p>
 			</div>
-			{group.pattern ? (
-				<Card variant="callout" tone="amber" className="mb-4" data-pattern={group.pattern.key}>
-					<CalloutLabel tone="amber" icon={UserGroupIcon}>
-						Near-launch preparation
-					</CalloutLabel>
-					<p className="mt-1 font-medium text-ink text-pretty">{nearLaunchSentence(group.pattern.support)}</p>
-					<ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
-						{group.pattern.plants.map((p) => (
-							<li key={p.plantId}>
-								<Link
-									href={`/network/plants/${p.plantId}`}
-									className="cursor-pointer font-medium text-ink underline underline-offset-[3px] hover:text-ink-2"
-								>
-									{p.name}
-								</Link>
-							</li>
-						))}
-					</ul>
-					<CalloutText className="mt-3 text-md">
-						<b className="font-semibold text-ink">Suggested next step.</b> {NEAR_LAUNCH_RULE.nextStep}
-					</CalloutText>
-					<p className="mt-1 text-sm text-text-3">
-						From {plural(group.pattern.observed, "plant")} with launch evidence available.
-					</p>
-					{canRate ? (
-						<div className="mt-3 flex flex-wrap items-center gap-2">
-							<span className="text-sm text-text-2">Was this useful? Only you see your answer.</span>
-							<Button
-								size="sm"
-								variant={group.pattern.rating === "useful" ? "primary" : "secondary"}
-								aria-pressed={group.pattern.rating === "useful"}
-								onClick={() => rate(group, "useful")}
-							>
-								<Icon icon={ThumbsUpIcon} size={16} />
-								Useful
-							</Button>
-							<Button
-								size="sm"
-								variant={group.pattern.rating === "not_useful" ? "primary" : "secondary"}
-								aria-pressed={group.pattern.rating === "not_useful"}
-								onClick={() => rate(group, "not_useful")}
-							>
-								<Icon icon={ThumbsDownIcon} size={16} />
-								Not useful
-							</Button>
-						</div>
-					) : null}
-				</Card>
+			{group.patterns.length ? (
+				<div className="mb-4 flex flex-col gap-3">
+					{group.patterns.map((p) => (
+						<Pattern key={p.key} pattern={p} rate={rate} canRate={canRate} />
+					))}
+				</div>
 			) : (
 				<p className="mb-3 text-md text-text-2 text-pretty">
 					{group.unplaced
 						? "These plants have no location at this level. They still count at the larger levels."
-						: "Not enough plants for a pattern here. A pattern needs at least 2 sharing plants with the same recorded gap."}
+						: "Not enough plants for a pattern here. A pattern needs at least 2 sharing plants with the same recorded result."}
 				</p>
 			)}
 			<ul aria-label={`Plants in ${group.label}`}>
-				{group.rows.map((r) => {
-					const tag = resultLabel(r);
-					return (
-						<li key={r.plantId} className="border-t border-line first:border-t-0" data-row={r.status}>
-							<Link
-								href={`/network/plants/${r.plantId}`}
-								data-focus-inset=""
-								className="-mx-2 flex cursor-pointer items-center gap-3 rounded-md px-2 py-3 transition-colors hover:bg-hover"
-							>
-								<CardIcon icon={UserGroupIcon} tone="green" size={36} />
-								<span className="min-w-0 flex-1 font-medium text-ink">{r.name}</span>
-								<StatusBadge status={tag.status} size="sm">
-									{tag.label}
-								</StatusBadge>
-								<Icon icon={ArrowRight01Icon} size={16} className="text-text-3" />
-							</Link>
-						</li>
-					);
-				})}
+				{group.rows.map((r) => (
+					<li key={r.plantId} className="border-t border-line first:border-t-0" data-row={r.status}>
+						<Link
+							href={`/network/plants/${r.plantId}`}
+							data-focus-inset=""
+							className="-mx-2 flex cursor-pointer items-center gap-3 rounded-md px-2 py-3 transition-colors hover:bg-hover"
+						>
+							<CardIcon icon={UserGroupIcon} tone="green" size={36} />
+							<span className="flex min-w-0 flex-1 flex-col gap-1.5">
+								<span className="font-medium text-ink">{r.name}</span>
+								<span className="flex flex-wrap gap-1.5">
+									{resultLabels(r).map((tag) => (
+										<StatusBadge key={tag.label} status={tag.status} size="sm">
+											{tag.label}
+										</StatusBadge>
+									))}
+								</span>
+							</span>
+							<Icon icon={ArrowRight01Icon} size={16} className="flex-none text-text-3" />
+						</Link>
+					</li>
+				))}
 			</ul>
+		</Card>
+	);
+}
+
+function Pattern({ pattern, rate, canRate }: { pattern: IntelligencePattern; rate: Rate; canRate: boolean }) {
+	const text = patternText(pattern);
+	return (
+		<Card variant="callout" tone="amber" data-pattern={pattern.key}>
+			<CalloutLabel tone="amber" icon={UserGroupIcon}>
+				{text.title}
+			</CalloutLabel>
+			{text.lines.map((line, i) => (
+				<p key={line} className={cn("text-pretty", i === 0 ? "mt-1 font-medium text-ink" : "mt-1 text-md text-ink-2")}>
+					{line}
+				</p>
+			))}
+			<ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+				{pattern.plants.map((p) => (
+					<li key={p.plantId}>
+						<Link
+							href={`/network/plants/${p.plantId}`}
+							className="cursor-pointer font-medium text-ink underline underline-offset-[3px] hover:text-ink-2"
+						>
+							{p.name}
+						</Link>
+					</li>
+				))}
+			</ul>
+			<CalloutText className="mt-3 text-md">
+				<b className="font-semibold text-ink">Suggested next step.</b> {text.nextStep}
+			</CalloutText>
+			<p className="mt-1 text-sm text-text-3">{text.evidence}</p>
+			{canRate ? (
+				<div className="mt-3 flex flex-wrap items-center gap-2">
+					<span className="text-sm text-text-2">Was this useful? Only you see your answer.</span>
+					<Button
+						size="sm"
+						variant={pattern.rating === "useful" ? "primary" : "secondary"}
+						aria-pressed={pattern.rating === "useful"}
+						onClick={() => rate(pattern, "useful")}
+					>
+						<Icon icon={ThumbsUpIcon} size={16} />
+						Useful
+					</Button>
+					<Button
+						size="sm"
+						variant={pattern.rating === "not_useful" ? "primary" : "secondary"}
+						aria-pressed={pattern.rating === "not_useful"}
+						onClick={() => rate(pattern, "not_useful")}
+					>
+						<Icon icon={ThumbsDownIcon} size={16} />
+						Not useful
+					</Button>
+				</div>
+			) : null}
 		</Card>
 	);
 }
