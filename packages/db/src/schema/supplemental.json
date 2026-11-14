@@ -4098,6 +4098,20 @@
 			"grantee": "everyfield_cleanup",
 			"is_grantable": false,
 			"kind": "table",
+			"object": "leadership_conversation",
+			"privilege_type": "DELETE"
+		},
+		{
+			"grantee": "everyfield_cleanup",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "leadership_conversation",
+			"privilege_type": "SELECT"
+		},
+		{
+			"grantee": "everyfield_cleanup",
+			"is_grantable": false,
+			"kind": "table",
 			"object": "lifecycle_witness",
 			"privilege_type": "SELECT"
 		},
@@ -5059,6 +5073,20 @@
 			"kind": "table",
 			"object": "seat",
 			"privilege_type": "UPDATE"
+		},
+		{
+			"grantee": "everyfield_cleanup",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "sending_goal",
+			"privilege_type": "DELETE"
+		},
+		{
+			"grantee": "everyfield_cleanup",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "sending_goal",
+			"privilege_type": "SELECT"
 		},
 		{
 			"grantee": "everyfield_cleanup",
@@ -6317,6 +6345,27 @@
 			"grantee": "everyfield_runtime",
 			"is_grantable": false,
 			"kind": "table",
+			"object": "leadership_conversation",
+			"privilege_type": "INSERT"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "leadership_conversation",
+			"privilege_type": "SELECT"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "leadership_conversation",
+			"privilege_type": "UPDATE"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
 			"object": "lifecycle_witness",
 			"privilege_type": "INSERT"
 		},
@@ -7592,6 +7641,27 @@
 			"is_grantable": false,
 			"kind": "table",
 			"object": "seat",
+			"privilege_type": "UPDATE"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "sending_goal",
+			"privilege_type": "INSERT"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "sending_goal",
+			"privilege_type": "SELECT"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "sending_goal",
 			"privilege_type": "UPDATE"
 		},
 		{
