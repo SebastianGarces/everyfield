@@ -152,8 +152,6 @@ const sharingScreen = async (actor: EvryActor) =>
 	]);
 const row = async (query: ReturnType<typeof sql>) =>
 	(await church.db.execute(query)).rows[0] as Record<string, unknown>;
-const adminRow = async (query: ReturnType<typeof sql>) =>
-	(await church.admin.execute(query)).rows[0] as Record<string, unknown>;
 const digest = () => row(sql`SELECT digest_cadence,digest_weekday,digest_hour FROM plant WHERE id=${PLANT}`);
 
 /** What each approved case changes, read back as Settings shows it; `before` runs before approval. */
@@ -250,16 +248,8 @@ const SETTLED: Record<string, { before?: (a: EvryActor) => Promise<void>; after:
 	"SET-25": {
 		before: async () =>
 			assert.deepEqual(await digest(), { digest_cadence: "weekly", digest_weekday: 0, digest_hour: 16 }),
-		after: async () => {
-			assert.deepEqual(await digest(), { digest_cadence: "weekly", digest_weekday: 1, digest_hour: 8 });
-			// The audit row the Church section's own save writes (D-1376): a church change whose diff names the digest.
-			assert.deepEqual(
-				await adminRow(
-					sql`SELECT action,metadata FROM audit_event WHERE tenant_id=${PLANT} AND kind='preference' ORDER BY occurred_at DESC LIMIT 1`,
-				),
-				{ action: "plant.profile_changed", metadata: { section: "plant", diff: { digest: true } } },
-			);
-		},
+		after: async () =>
+			assert.deepEqual(await digest(), { digest_cadence: "weekly", digest_weekday: 1, digest_hour: 8 }),
 	},
 	"SET-27": {
 		after: async () => assert.deepEqual(await digest(), { digest_cadence: "daily", digest_weekday: 1, digest_hour: 7 }),

@@ -143,27 +143,25 @@ export const setDigestSchedule = nativeWrite({
 			digest_hour: number;
 		}[];
 		if (!pl) return null;
-		const before = digestScheduleValue.parse(
-			pl.digest_cadence === "off"
-				? { cadence: "off" }
-				: pl.digest_cadence === "daily"
-					? { cadence: "daily", hour: pl.digest_hour }
-					: { cadence: "weekly", weekday: pl.digest_weekday, hour: pl.digest_hour },
-		);
-		const after = value.schedule;
+		const before = scheduleText({
+			cadence: pl.digest_cadence,
+			weekday: pl.digest_weekday,
+			hour: pl.digest_hour,
+		} as DigestSchedule);
+		const after = scheduleText(value.schedule);
 		const review: Record<string, unknown> = {
 			target: { kind: "church", id: actor.owner.id, label: pl.name },
-			changes: [{ field: "digestSchedule", before: scheduleText(before), after: scheduleText(after) }],
+			changes: [{ field: "digestSchedule", before, after }],
 			notes: [
 				`Times are in ${zoneName(pl.timezone)} time (${pl.timezone}), the church's time zone.`,
 				"This changes the church digest for everyone who gets it.",
 			],
 		};
-		if (scheduleText(before) === scheduleText(after))
+		if (before === after)
 			review.refusal = "The church digest already goes out on this schedule, so nothing would change.";
 		const args = {
 			expectedRevision: pl.revision,
-			input: { plant: { kind: "plant", id: actor.owner.id }, schedule: after },
+			input: { plant: { kind: "plant", id: actor.owner.id }, schedule: value.schedule },
 		};
 		return sql`SELECT ${JSON.stringify(review)}::jsonb AS review, ${JSON.stringify(args)}::jsonb AS args`;
 	},
