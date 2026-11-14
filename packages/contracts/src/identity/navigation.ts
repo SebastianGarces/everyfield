@@ -19,8 +19,8 @@ export function safeReturn(input: string | null | undefined): string | null {
 	}
 }
 
-/** The dashboard home. Change this one value to "/overview" when Overview (WP-048) ships. */
-export const DASHBOARD_HOME = "/people";
+/** A church plant's home: Overview (WP-048). */
+export const DASHBOARD_HOME = "/overview";
 export const ONBOARDING_HOME = "/onboarding";
 /** A sending church's or network's home: its plants (WP-047). */
 export const ORGANIZATION_HOME = "/network";
@@ -34,20 +34,21 @@ export const LANDING_ROUTE = "/home";
 export type PlantSetup = "complete" | "incomplete" | "organization" | "none";
 
 /**
- * Where a signed-in person lands: a safe returnTo, else onboarding for a new account, an unfinished plant or a viewer
- * outside a plant or organization, else the organization home for an organization seat and the dashboard home for a
- * plant. An unsafe returnTo counts as none.
+ * Where a signed-in person lands (ADM-004). A new account or an unfinished plant always goes back to onboarding, where
+ * setup resumes at its saved step: a returnTo never skips setup. Otherwise a safe returnTo, else the organization home
+ * for an organization seat, onboarding (the account's Discovery page) for a viewer outside a plant or organization and
+ * the dashboard home for a plant. An unsafe returnTo counts as none.
  */
 export function landingFor(input: {
 	returnTo?: string | null;
 	status: "pending_domain" | "active";
 	plant: PlantSetup;
 }): string {
+	if (input.status === "pending_domain" || input.plant === "incomplete") return ONBOARDING_HOME;
 	const back = safeReturn(input.returnTo);
 	if (back) return back;
-	if (input.status === "active" && input.plant === "organization") return ORGANIZATION_HOME;
-	if (input.status === "pending_domain" || input.plant !== "complete") return ONBOARDING_HOME;
-	return DASHBOARD_HOME;
+	if (input.plant === "organization") return ORGANIZATION_HOME;
+	return input.plant === "complete" ? DASHBOARD_HOME : ONBOARDING_HOME;
 }
 
 export function invalidSessionReturn(returnTo: string | null | undefined): string {
