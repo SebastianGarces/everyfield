@@ -8,12 +8,15 @@ import {
 	createOrganizationAdapter,
 	readHistory,
 	readPlantSharing,
+	readReportingLocation,
+	suggestRegions,
 } from "../../../packages/domain/src/organizations/index.ts";
 import {
 	getPlant,
 	getSendingChurch,
 	listPlants,
 	listSendingChurches,
+	readIntelligence,
 } from "../../../packages/domain/src/oversight/index.ts";
 
 const proofs = new Map();
@@ -117,7 +120,27 @@ export function organizationsCases(t, who) {
 				["oversight:getPlant", () => getPlant(t.f.db, who.actor, t.plantA.id)],
 				["oversight:listSendingChurches", () => listSendingChurches(t.f.db, who.actor)],
 				["oversight:getSendingChurch", () => getSendingChurch(t.f.db, who.actor, a.network)],
+				["oversight:readIntelligence", () => readIntelligence(t.f.db, who.actor, { level: "portfolio", runId: null })],
 			] as const
 		).map(([name, read]) => [name, { run: () => plain(read), expected: { value: null, control: null } }]),
+		// The church settings' reporting location reads only the caller's own plant: church B gets its own, never A's.
+		[
+			"organizations:readReportingLocation",
+			{
+				run: () => plain(() => readReportingLocation(t.f.db, who.actor)),
+				expected: {
+					check: (value) => assert.equal(value.region, null),
+					control: (value) => assert.equal(value.canEdit, true),
+				},
+			},
+		],
+		// Suggestions read only the global official list; naming church A's city returns no church A value.
+		[
+			"organizations:suggestRegions",
+			{
+				run: () => plain(() => suggestRegions(t.f.db, who.actor, { city: MARK, stateProvince: null, country: null })),
+				expected: { value: [], control: null },
+			},
+		],
 	];
 }

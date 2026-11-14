@@ -10,6 +10,7 @@ import { SaveError, SaveFooter, SectionBody, SettingRow } from "../SettingsDialo
 import { useDraft, useSection, useSettings } from "../store";
 import { hourLabel, WEEKDAYS, zoneLabel } from "../time";
 import { PlantTimezoneDialog } from "../flows/PlantTimezoneDialog";
+import { ReportingRegion } from "../flows/RegionPicker";
 import { WorkspaceDeletionDialog } from "../flows/DeletionDialogs";
 
 type PlantSection = Extract<SectionResult, { section: "plant" }>;
@@ -215,6 +216,12 @@ function ChurchForm({
 							</Field>
 						</div>
 					</div>
+				</SettingRow>
+				<SettingRow
+					label="Reporting Region"
+					description="The official metro or micro area sending churches and networks group you by. Never your street."
+				>
+					<ReportingRegion onSaved={reload} />
 				</SettingRow>
 				<SettingRow label="About" description="Optional. A few sentences for your church page.">
 					<Field label={<span className="sr-only">About your church</span>} error={visible.description}>
