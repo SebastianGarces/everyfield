@@ -356,10 +356,9 @@ const goalsRow = z.object({
  * leadership conversations by month and quarter of their day, ending today in the organization's time zone. No name or
  * note is in it. Plants sent stays unavailable until commissioning arrives (ADR-001 stage 3). One statement.
  */
-export async function readPipelineGoals(db: Executor, authority: RequestActor, raw: unknown) {
+export async function readPipelineGoals(db: Executor, authority: RequestActor) {
 	return answer(async () => {
 		const seat = seatOf(authority) ?? refuse();
-		parse(z.strictObject({}), raw ?? {});
 		const org = seat.organization;
 		const r = await db.execute(sql`WITH g AS (SELECT ${seat.live} AS allowed),
 o AS (SELECT (clock_timestamp() AT TIME ZONE o.timezone)::date AS today FROM organization o JOIN g ON g.allowed

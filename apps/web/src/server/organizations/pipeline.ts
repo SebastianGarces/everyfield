@@ -42,7 +42,7 @@ export async function loadPipelineBoard(authority: RequestActor, query: unknown)
 export async function loadPipelineGoals(authority: RequestActor) {
 	const db = requestDatabase();
 	if (!db) return { status: "lost" } as const;
-	return guarded(() => readPipelineGoals(db, authority, {}));
+	return guarded(() => readPipelineGoals(db, authority));
 }
 
 export async function loadPipelinePerson(authority: RequestActor, personId: string) {

@@ -777,7 +777,7 @@ function cases(who) {
 		[
 			"organizations:readPipelineGoals",
 			{
-				run: () => plain(() => readPipelineGoals(f.db, who.actor, {})),
+				run: () => plain(() => readPipelineGoals(f.db, who.actor)),
 				expected: { value: { status: "refused", refusal: { code: "unavailable" } }, control: null },
 			},
 		],

@@ -46,7 +46,7 @@ const refusedWith = (
 	assert.equal(r.refusal?.code, code);
 	if (field) assert.equal(r.refusal?.field, field);
 };
-const goals = async (a: Actor) => ok(await readPipelineGoals(db, await authority(a), {})) as Goals;
+const goals = async (a: Actor) => ok(await readPipelineGoals(db, await authority(a))) as Goals;
 const board = async (a: Actor, query: object = {}) => ok(await readPipelineBoard(db, await authority(a), query));
 const record = async (a: Actor, personId: string) => readPipelinePersonRecord(db, await authority(a), { personId });
 const kinds = (g: Goals) => Object.fromEntries(g.kinds.map((k) => [k.kind, k.count]));
