@@ -16,6 +16,7 @@ import {
 	Location01Icon,
 	File01Icon,
 	Flag01Icon,
+	File02Icon,
 	Home01Icon,
 	LayoutTemplateIcon,
 	Link01Icon,
@@ -71,6 +72,7 @@ const GLYPH: Record<Glyph, IconSvgElement> = {
 	training: Mortarboard01Icon,
 	meeting: Calendar03Icon,
 	responsibility: CheckListIcon,
+	document: File02Icon,
 	template: LayoutTemplateIcon,
 	phase: Flag01Icon,
 	criterion: CheckListIcon,
@@ -110,7 +112,7 @@ export function ResultCard({
 	photos: Readonly<Record<string, string>>;
 }) {
 	const [all, setAll] = useState(false);
-	const { title, summary, icon, rows, facts } = cardView(operation, result, originalTotal);
+	const { title, summary, icon, rows, facts, links } = cardView(operation, result, originalTotal);
 	const shown = rows.length;
 	const rowClass = "flex min-h-11 items-center gap-3 rounded-md px-2 py-2 text-ink";
 
@@ -234,6 +236,19 @@ export function ResultCard({
 					{facts.map((fact) => (
 						<p key={fact}>{fact}</p>
 					))}
+					{links.length ? (
+						<p className="flex flex-wrap gap-x-4 gap-y-1">
+							{links.map((link) => (
+								<IntentLink
+									key={link.href}
+									href={link.href}
+									className="font-medium text-ink underline underline-offset-2"
+								>
+									{link.label}
+								</IntentLink>
+							))}
+						</p>
+					) : null}
 				</div>
 			) : null}
 		</section>

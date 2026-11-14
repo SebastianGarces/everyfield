@@ -352,6 +352,9 @@ importers:
       oxlint:
         specifier: 1.92.0
         version: 1.92.0
+      tsx:
+        specifier: 4.23.15
+        version: 4.23.15
       typescript:
         specifier: 6.0.3
         version: 6.0.3

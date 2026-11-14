@@ -25,6 +25,8 @@
 //   2026 (3, 4, 4, 3), and Ana Rivera's core group
 //   commitment card signed 20 Sep 2026 with its signed PDF on file. John Smith has no follow-up outcome, so the open
 //   pair John Smith and Jon Smith can merge; Casey Brooks has one, so that pair's merge is blocked (WP-091).
+// - Documents (DOCS): Hope's core values, two vision meeting agendas (September 14 and October 12), an unmarked values
+//   draft and a Conflict of Interest Policy Church Document; New Hope's own agenda draft, which Hope never sees.
 // - Notifications: the Owner has four unread from the weekend (Sat 7 and Sun 8 Nov): three task reminders (N1 to N3,
 //   the launch budget due and overdue and the school gym due) and one meeting announcement (N4, the interest meeting on
 //   Thu 19 Nov), plus one read reminder from Thu 5 Nov. The Admin has two unread notices of her own. The church digest
@@ -99,6 +101,8 @@ import { evryActor, type EvryActor } from "../../../packages/evry/src/context/ac
 import { resolveSelf } from "../../../packages/evry/src/context/self.ts";
 import { testDatabase, type Database } from "../../support/test-database.mts";
 import { seedWiki, wikiIds } from "../adapters/wiki/corpus.mts";
+import { forkTemplate, nativeFromText } from "../../../packages/contracts/src/documents/index.ts";
+import { docTemplateById } from "../../../packages/domain/src/documents/doc-templates.ts";
 
 /** The trusted clock the prompt states (deps.now in the turn). */
 export const NOW = new Date("2026-11-09T15:00:00Z");
@@ -151,6 +155,62 @@ const INTEREST_MEETING = id(0xd21);
 /** The Wiki's pinned ids, from 0x5000 (corpus.mts names them). */
 let wikiId = 0x5000;
 export const WIKI = wikiIds(() => id(wikiId++));
+
+/**
+ * The documents. Hope Fellowship: its core values (a marked written document), two saved vision meeting agendas, a
+ * values draft that is not marked, and a Church Document made from the conflict-of-interest template. New Hope, the
+ * other church: one written agenda that Hope's reads must never return.
+ */
+export const DOCS = {
+	coreValues: {
+		id: id(0xdd1),
+		plant: PLANT,
+		kind: "core_values",
+		title: "Hope Fellowship Core Values",
+		at: "2026-09-02T15:00:00.000Z",
+		text: "We pray first. Every plan starts on our knees.\nWe make room at the table. Every guest is family by the second visit.\nWe serve North Austin. Our neighbors' good is our good.\nWe raise up leaders. Everyone is in training for something.",
+	},
+	septemberAgenda: {
+		id: id(0xdd2),
+		plant: PLANT,
+		kind: "native",
+		title: "Vision Meeting Agenda - September 14",
+		at: "2026-09-10T15:00:00.000Z",
+		text: "Vision meeting at the Rivera home, Sunday September 14\n6:30 PM Welcome and dinner\n7:00 PM Nate shares the story of Hope Fellowship\n7:20 PM Why North Austin needs a new church\n7:40 PM Questions and answers\n8:00 PM Invitation to GROW, PRAY and GIVE\nAsk each guest to bring a friend who does not go to church.",
+	},
+	octoberAgenda: {
+		id: id(0xdd3),
+		plant: PLANT,
+		kind: "native",
+		title: "Vision Meeting Agenda - October 12",
+		at: "2026-10-08T15:00:00.000Z",
+		text: "Vision meeting at the Thompson home, Sunday October 12\n6:00 PM Kids' activity in the backyard\n6:30 PM Welcome and tacos\n6:50 PM Worship led by Jen Thompson\n7:05 PM Nate shares the launch timeline for Easter 2027\n7:30 PM Testimony from Alex Rivera\n7:45 PM Invitation to join the core group\nGoal: 25 guests and 8 commitment cards.",
+	},
+	valuesDraft: {
+		id: id(0xdd4),
+		plant: PLANT,
+		kind: "native",
+		title: "Values Draft from the Fall Retreat",
+		at: "2026-10-20T15:00:00.000Z",
+		text: "Prayer comes before planning.\nEvery guest gets a seat and a name tag.\nWe say yes to North Austin.",
+	},
+	policy: {
+		id: id(0xdd5),
+		plant: PLANT,
+		kind: "church_document",
+		title: "Conflict of Interest Policy",
+		at: "2026-10-28T15:00:00.000Z",
+		text: null,
+	},
+	otherChurch: {
+		id: id(0xdd6),
+		plant: EMPTY_PLANT,
+		kind: "native",
+		title: "New Hope Vision Meeting Agenda - Draft",
+		at: "2026-10-05T15:00:00.000Z",
+		text: "New Hope vision night\n7:00 PM Welcome at the coffee shop\n7:30 PM The dream for South Austin",
+	},
+} as const;
 
 type Stage = "prospect" | "attendee" | "following_up" | "interviewed" | "core_group" | "launch_team" | "leader";
 /** The inactivity level the seeded activity produces on the real pipeline board. */
@@ -630,6 +690,28 @@ export async function seedHope(admin: Database, options: SeedOptions = {}) {
 				VALUES(${id(0xe30 + i)},${PLANT},${p.id},${byName(r.reviewWith).id},'2026-11-06T16:00:00.000Z')`);
 	}
 	await seedJudgments(admin, owner);
+	// Documents: written documents hold a native body; the Church Document is the template forked with Hope's details.
+	for (const [n, doc] of Object.values(DOCS).entries()) {
+		const policy = docTemplateById("conflict-of-interest-policy")!;
+		const body =
+			doc.kind === "church_document"
+				? JSON.stringify({
+						...(await forkTemplate(policy, {
+							id: `doc-${doc.id}`,
+							data: { church_name: "Hope Fellowship", church_legal_name: "Hope Fellowship" },
+						})),
+						title: doc.title,
+					})
+				: JSON.stringify(nativeFromText(doc.text!));
+		const revision = id(0xd80 + n);
+		await run(sql`INSERT INTO document(id,tenant_id,kind,title,revision,template_id,template_version,document_class,use_church_branding,input_provenance)
+			VALUES(${doc.id},${doc.plant},${doc.kind},${doc.title},1,${doc.kind === "church_document" ? policy.id : null},
+				${doc.kind === "church_document" ? policy.version : null},${doc.kind === "church_document" ? policy.class : null},
+				${doc.kind === "church_document" ? true : null},${doc.kind === "church_document" ? "[]" : null}::jsonb)`);
+		await run(sql`INSERT INTO document_revision(id,tenant_id,document_id,version_number,body,content_hash,published_at,recorded_at,author_account_id)
+			VALUES(${revision},${doc.plant},${doc.id},1,${body},${"0".repeat(64)},${doc.at},${doc.at},${doc.plant === PLANT ? owner : ACTOR_SPECS.empty.account})`);
+		await run(sql`UPDATE document SET current_revision_id=${revision} WHERE id=${doc.id}`);
+	}
 	// A preview seeds no messages: a scheduled email there would wait for a real send time.
 	if (options.preview) return;
 	// Messages: a saved draft, and an email scheduled for Friday 9:00 AM that waits in Everyfield for its send time.

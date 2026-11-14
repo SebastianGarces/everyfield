@@ -4,6 +4,7 @@ import { COMMUNICATION_READS } from "../adapters/communication/reads/index.ts";
 import { FOLLOWUP_READS } from "../adapters/followups/reads/index.ts";
 import { PHASE_READS, SIGNAL_READS } from "../adapters/intelligence/reads/index.ts";
 import { MEETINGS_READS } from "../adapters/meetings/reads/index.ts";
+import { DOCUMENTS_READS } from "../adapters/documents/reads/index.ts";
 import { NOTIFICATION_READS } from "../adapters/notifications/reads/index.ts";
 import { ORGANIZATION_READS } from "../adapters/people-organization/reads/index.ts";
 import { PEOPLE_READS } from "../adapters/people/reads/index.ts";
@@ -40,6 +41,7 @@ export const READ_DOMAINS = {
 	pipeline: PIPELINE_READS,
 	calendar: CALENDAR_READS,
 	wiki: WIKI_READS,
+	documents: DOCUMENTS_READS,
 } as const satisfies Record<string, readonly Pick<ReadAdapter<unknown>, "operation" | "description" | "allowed">[]>;
 
 /** The runtime's own model tool: pick rows from a result this conversation already returned. */

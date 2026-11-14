@@ -10,6 +10,7 @@ import {
 	CheckListIcon,
 	Cancel01Icon,
 	CheckmarkCircle02Icon,
+	File02Icon,
 	Clock01Icon,
 	Edit02Icon,
 	FileImportIcon,
@@ -60,6 +61,9 @@ import {
 	consequence,
 	carryOver,
 	carryOverText,
+	documentRefusalText,
+	documentResult,
+	isDocument,
 	editableChanges,
 	fieldKind,
 	fieldLabel,
@@ -472,7 +476,6 @@ function note(view: View, review: Review | null, lapsed: boolean, unknown?: Acti
 	const intelligence = !!review && isIntelligence(review.operation);
 	switch (view) {
 		case "pending":
-			if (review?.review.refusal) return review.review.refusal;
 			return review && review.revision > 1
 				? `You revised this change. Only revision ${review.revision} can be approved.`
 				: null;
@@ -487,11 +490,13 @@ function note(view: View, review: Review | null, lapsed: boolean, unknown?: Acti
 				? mailRefusalText(review.receipt?.code)
 				: review && isWiki(review.operation)
 					? wikiRefusalText(review.receipt?.code)
-					: review && isSettings(review.operation)
-						? settingsRefusalText(review.receipt?.code)
-						: intelligence
-							? intelligenceRefusalText(review.receipt?.code)
-							: refusalText(review?.receipt?.code, who, review?.operation);
+					: review && isDocument(review.operation)
+						? documentRefusalText(review.receipt?.code)
+						: review && isSettings(review.operation)
+							? settingsRefusalText(review.receipt?.code)
+							: intelligence
+								? intelligenceRefusalText(review.receipt?.code)
+								: refusalText(review?.receipt?.code, who, review?.operation);
 		case "unconfirmed":
 			return review && retryable(review, lapsed)
 				? "Evry can't confirm that this was saved. Try again. A change that was saved is not saved twice."
@@ -911,6 +916,8 @@ function Footer({
 							</IntentLink>
 						</Button>
 					</>
+				) : isDocument(review.operation) ? (
+					<DocumentLink review={review} />
 				) : isNotification(review.operation) ? (
 					<Button size="sm" variant="ghost" asChild>
 						<IntentLink
@@ -968,6 +975,19 @@ function Footer({
 		<div key={view} className="flex flex-wrap items-center gap-2 border-t border-line px-4 py-3">
 			{body}
 		</div>
+	) : null;
+}
+
+/** Where an approved document change shows in the app. */
+function DocumentLink({ review }: { review: Review }) {
+	const result = documentResult(review);
+	return result ? (
+		<Button size="sm" variant="ghost" asChild>
+			<IntentLink href={result.href}>
+				{result.label}
+				<Icon icon={ArrowRight02Icon} size={16} />
+			</IntentLink>
+		</Button>
 	) : null;
 }
 
@@ -1030,6 +1050,8 @@ const RECORD_GLYPH: Partial<Record<NonNullable<Review["review"]["target"]>["kind
 	responsibility: CheckListIcon,
 	// A phase or signal card shows the church's initials instead (Affects); the glyph is only the type's completeness.
 	plant: UserGroupIcon,
+	document: File02Icon,
+	template: File02Icon,
 	household: Home01Icon,
 	tag: Tag01Icon,
 	article: BookOpen01Icon,
@@ -1084,9 +1106,11 @@ function Affects({ review }: { review: Review }) {
 								? Tag01Icon
 								: mail
 									? Mail01Icon
-									: create
-										? UserAdd01Icon
-										: null));
+									: isDocument(review.operation)
+										? File02Icon
+										: create
+											? UserAdd01Icon
+											: null));
 	const name = own
 		? (NOTIFICATION_SUBJECT[review.operation] ?? "Your notifications")
 		: imported

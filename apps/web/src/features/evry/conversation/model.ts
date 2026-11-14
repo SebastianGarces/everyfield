@@ -83,7 +83,8 @@ export type SourceRow = {
 		| "relationship"
 		| "stage"
 		| "date"
-		| "article";
+		| "article"
+		| "document";
 	id: string;
 	label: string;
 	fields: Record<string, unknown>;

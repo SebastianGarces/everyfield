@@ -1,0 +1,559 @@
+{
+	"format": "everyfield.doc/1",
+	"kind": "template",
+	"id": "financial-controls-policy",
+	"version": 1,
+	"title": "Financial Controls Policy",
+	"description": "How the church receives, records and spends money, with two people on every step.",
+	"class": "formal/legal",
+	"exports": ["pdf", "docx"],
+	"fields": [
+		{
+			"key": "church_name",
+			"label": "Church name",
+			"type": "text",
+			"source": "church.name",
+			"required": true,
+			"sample": "Harbor City Church"
+		},
+		{
+			"key": "church_legal_name",
+			"label": "Legal name",
+			"type": "text",
+			"source": "brand.legalName",
+			"fallback": "{church_name}",
+			"sample": "Harbor City Church, Inc."
+		}
+	],
+	"page": {
+		"size": "letter",
+		"orientation": "portrait",
+		"margin": {
+			"top": 40,
+			"right": 40,
+			"bottom": 56,
+			"left": 40
+		},
+		"tile": null,
+		"header": null,
+		"footer": {
+			"pages": "all",
+			"content": [
+				{
+					"type": "columns",
+					"content": [
+						{
+							"type": "column",
+							"attrs": {
+								"width": 3
+							},
+							"content": [
+								{
+									"type": "paragraph",
+									"attrs": {
+										"style": "small"
+									},
+									"content": [
+										{
+											"type": "field",
+											"attrs": {
+												"key": "church_legal_name"
+											}
+										},
+										{
+											"type": "text",
+											"text": "  |  Financial Controls Policy"
+										}
+									]
+								}
+							]
+						},
+						{
+							"type": "column",
+							"attrs": {
+								"width": 1,
+								"align": "right"
+							},
+							"content": [
+								{
+									"type": "paragraph",
+									"attrs": {
+										"style": "small",
+										"align": "right"
+									},
+									"content": [
+										{
+											"type": "pageNumber",
+											"attrs": {
+												"format": "page-of-total"
+											}
+										}
+									]
+								}
+							]
+						}
+					]
+				}
+			]
+		}
+	},
+	"body": {
+		"type": "doc",
+		"content": [
+			{
+				"type": "columns",
+				"attrs": {
+					"valign": "center"
+				},
+				"content": [
+					{
+						"type": "column",
+						"attrs": {
+							"width": 1
+						},
+						"content": [
+							{
+								"type": "image",
+								"attrs": {
+									"source": "logo",
+									"width": 150,
+									"height": 34,
+									"align": "left",
+									"alt": "Church logo"
+								}
+							}
+						]
+					},
+					{
+						"type": "column",
+						"attrs": {
+							"width": 1,
+							"align": "right"
+						},
+						"content": [
+							{
+								"type": "paragraph",
+								"attrs": {
+									"style": "kicker",
+									"align": "right"
+								},
+								"content": [
+									{
+										"type": "text",
+										"text": "Finance policy"
+									}
+								]
+							}
+						]
+					}
+				]
+			},
+			{
+				"type": "divider",
+				"attrs": {
+					"weight": "rule",
+					"color": "primary"
+				}
+			},
+			{
+				"type": "heading",
+				"attrs": {
+					"level": 1
+				},
+				"content": [
+					{
+						"type": "text",
+						"text": "Financial Controls Policy"
+					}
+				]
+			},
+			{
+				"type": "paragraph",
+				"attrs": {
+					"style": "lead"
+				},
+				"content": [
+					{
+						"type": "text",
+						"text": "This policy says how "
+					},
+					{
+						"type": "field",
+						"attrs": {
+							"key": "church_name"
+						}
+					},
+					{
+						"type": "text",
+						"text": ", a church plant, receives, keeps and spends money. Read it with your board, your accountant and a lawyer in your state. Then change the words to fit your church plant."
+					}
+				]
+			},
+			{
+				"type": "heading",
+				"attrs": {
+					"level": 2,
+					"numbered": true
+				},
+				"content": [
+					{
+						"type": "text",
+						"text": "Purpose"
+					}
+				]
+			},
+			{
+				"type": "paragraph",
+				"content": [
+					{
+						"type": "text",
+						"text": "Clear controls protect the money people give to "
+					},
+					{
+						"type": "field",
+						"attrs": {
+							"key": "church_name"
+						}
+					},
+					{
+						"type": "text",
+						"text": ". They also protect each person who handles it from doubt and from honest mistakes."
+					}
+				]
+			},
+			{
+				"type": "heading",
+				"attrs": {
+					"level": 2,
+					"numbered": true
+				},
+				"content": [
+					{
+						"type": "text",
+						"text": "Who this policy covers"
+					}
+				]
+			},
+			{
+				"type": "paragraph",
+				"content": [
+					{
+						"type": "text",
+						"text": "This policy covers each board member, the pastor, staff and each volunteer who counts, records or spends the money of "
+					},
+					{
+						"type": "field",
+						"attrs": {
+							"key": "church_name"
+						}
+					},
+					{
+						"type": "text",
+						"text": "."
+					}
+				]
+			},
+			{
+				"type": "heading",
+				"attrs": {
+					"level": 2,
+					"numbered": true
+				},
+				"content": [
+					{
+						"type": "text",
+						"text": "Counting offerings"
+					}
+				]
+			},
+			{
+				"type": "paragraph",
+				"content": [
+					{
+						"type": "text",
+						"text": "Two people who are not related count each offering together. Both sign the count sheet."
+					}
+				]
+			},
+			{
+				"type": "bulletList",
+				"content": [
+					{
+						"type": "listItem",
+						"content": [
+							{
+								"type": "paragraph",
+								"content": [
+									{
+										"type": "text",
+										"text": "The counters put the money in a locked bag, and it goes to the bank by [day]."
+									}
+								]
+							}
+						]
+					},
+					{
+						"type": "listItem",
+						"content": [
+							{
+								"type": "paragraph",
+								"content": [
+									{
+										"type": "text",
+										"text": "A person who counts the offering does not also record the gifts in the books."
+									}
+								]
+							}
+						]
+					}
+				]
+			},
+			{
+				"type": "heading",
+				"attrs": {
+					"level": 2,
+					"numbered": true
+				},
+				"content": [
+					{
+						"type": "text",
+						"text": "Bank accounts"
+					}
+				]
+			},
+			{
+				"type": "paragraph",
+				"content": [
+					{
+						"type": "text",
+						"text": "Each account is in the name of "
+					},
+					{
+						"type": "field",
+						"attrs": {
+							"key": "church_legal_name"
+						}
+					},
+					{
+						"type": "text",
+						"text": ". The board approves each account and each person who may sign. At least two people may sign, and they are not related to each other."
+					}
+				]
+			},
+			{
+				"type": "heading",
+				"attrs": {
+					"level": 2,
+					"numbered": true
+				},
+				"content": [
+					{
+						"type": "text",
+						"text": "Spending"
+					}
+				]
+			},
+			{
+				"type": "paragraph",
+				"content": [
+					{
+						"type": "text",
+						"text": "The board approves a spending plan each year. Then:"
+					}
+				]
+			},
+			{
+				"type": "orderedList",
+				"content": [
+					{
+						"type": "listItem",
+						"content": [
+							{
+								"type": "paragraph",
+								"content": [
+									{
+										"type": "text",
+										"text": "A purchase over [amount] needs approval from [role] before it is made."
+									}
+								]
+							}
+						]
+					},
+					{
+						"type": "listItem",
+						"content": [
+							{
+								"type": "paragraph",
+								"content": [
+									{
+										"type": "text",
+										"text": "A check or payment over [amount] needs two signatures."
+									}
+								]
+							}
+						]
+					},
+					{
+						"type": "listItem",
+						"content": [
+							{
+								"type": "paragraph",
+								"content": [
+									{
+										"type": "text",
+										"text": "No one approves a payment to themselves or to a member of their family."
+									}
+								]
+							}
+						]
+					}
+				]
+			},
+			{
+				"type": "heading",
+				"attrs": {
+					"level": 2,
+					"numbered": true
+				},
+				"content": [
+					{
+						"type": "text",
+						"text": "Paying people back"
+					}
+				]
+			},
+			{
+				"type": "paragraph",
+				"content": [
+					{
+						"type": "text",
+						"text": "A person asks to be paid back in writing within [number] days of the purchase, with the receipt. Someone else approves it."
+					}
+				]
+			},
+			{
+				"type": "heading",
+				"attrs": {
+					"level": 2,
+					"numbered": true
+				},
+				"content": [
+					{
+						"type": "text",
+						"text": "Separate duties"
+					}
+				]
+			},
+			{
+				"type": "paragraph",
+				"content": [
+					{
+						"type": "text",
+						"text": "No one person handles a gift or a payment from start to finish. The person who writes checks does not also reconcile the bank statement."
+					}
+				]
+			},
+			{
+				"type": "heading",
+				"attrs": {
+					"level": 2,
+					"numbered": true
+				},
+				"content": [
+					{
+						"type": "text",
+						"text": "Monthly review"
+					}
+				]
+			},
+			{
+				"type": "paragraph",
+				"content": [
+					{
+						"type": "text",
+						"text": "Each month a person who does not sign checks reconciles each bank statement. The treasurer gives the board a report of the money received and spent."
+					}
+				]
+			},
+			{
+				"type": "heading",
+				"attrs": {
+					"level": 2,
+					"numbered": true
+				},
+				"content": [
+					{
+						"type": "text",
+						"text": "Yearly review"
+					}
+				]
+			},
+			{
+				"type": "paragraph",
+				"content": [
+					{
+						"type": "text",
+						"text": "Once each year a person or a committee outside the finance team reviews the books, or an accountant does."
+					}
+				]
+			},
+			{
+				"type": "paragraph",
+				"content": [
+					{
+						"type": "text",
+						"text": "The board of "
+					},
+					{
+						"type": "field",
+						"attrs": {
+							"key": "church_name"
+						}
+					},
+					{
+						"type": "text",
+						"text": " adopted this policy on [date]. Each board member signs and dates below."
+					}
+				]
+			},
+			{
+				"type": "table",
+				"attrs": {
+					"style": "grid",
+					"header": true,
+					"headerFill": "muted",
+					"zebra": false,
+					"writeInRows": 3,
+					"rowHeight": 30,
+					"columns": [
+						{
+							"id": "member",
+							"label": "Board member",
+							"type": "text",
+							"width": 150
+						},
+						{
+							"id": "role",
+							"label": "Role",
+							"type": "text",
+							"width": 110
+						},
+						{
+							"id": "signature",
+							"label": "Signature",
+							"type": "text",
+							"width": 150
+						},
+						{
+							"id": "date",
+							"label": "Date",
+							"type": "text",
+							"width": 0
+						}
+					]
+				},
+				"content": []
+			}
+		]
+	}
+}

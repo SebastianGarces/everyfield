@@ -14,6 +14,7 @@ import { PEOPLE_COMMANDS } from "../adapters/people/commands/index.ts";
 import { ASSESSMENT_COMMANDS } from "../adapters/people-assessments/commands/index.ts";
 import { SETTINGS_COMMANDS } from "../adapters/settings/index.ts";
 import { TASK_COMMANDS } from "../adapters/tasks/commands/index.ts";
+import { DOCUMENTS_COMMANDS } from "../adapters/documents/commands/index.ts";
 import { ORGANIZATION_COMMANDS } from "../adapters/people-organization/commands/index.ts";
 import { TEAMS_COMMANDS } from "../adapters/teams/commands/index.ts";
 import { ONBOARDING_COMMANDS } from "../adapters/onboarding/commands/index.ts";
@@ -46,6 +47,7 @@ export const REVIEWED_WRITES = {
 	...TASK_COMMANDS,
 	...FOLLOWUP_COMMANDS,
 	...WIKI_COMMANDS,
+	...DOCUMENTS_COMMANDS,
 } as const;
 export type Operation = keyof typeof REVIEWED_WRITES;
 export const operation = z.enum(Object.keys(REVIEWED_WRITES) as [Operation]);
@@ -127,6 +129,9 @@ export const projection = (alias: string) =>
 			OR (${alias}.review->'target'->>'kind'='plant' AND (${alias}.review->'target'->>'id')::uuid=${alias}.tenant_id)
 			OR (${alias}.review->'target'->>'kind'='meeting' AND EXISTS(SELECT FROM meeting t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.plant_id=${alias}.tenant_id AND t.retired_at IS NULL))
 			OR (${alias}.review->'target'->>'kind'='venue' AND EXISTS(SELECT FROM venue t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.plant_id=${alias}.tenant_id))
+			OR (${alias}.review->'target'->>'kind'='document' AND EXISTS(SELECT FROM document t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.tenant_id=${alias}.tenant_id
+				AND (t.kind<>'church_document' OR t.archived_at IS NULL)))
+			OR ${alias}.review->'target'->>'kind'='template'
 			THEN ${alias}.review ELSE jsonb_build_object('target',NULL,'changes','[]'::jsonb,'withheld',true) END,
 		'outcome',coalesce(${alias}.outcome,(SELECT 'unknown' FROM job j WHERE j.id=${alias}.job_id AND ${alias}.state='approved'
 			AND NOT ${liveJob("j")}),CASE WHEN ${alias}.state='approved' AND ${alias}.job_id IS NULL
@@ -162,6 +167,8 @@ const targetKind = z.enum([
 	"organization",
 	"account",
 	"article",
+	"document",
+	"template",
 ]);
 const change = z.object({ field: z.string(), before: z.unknown(), after: z.unknown() });
 /** One person a change reaches beyond the target, such as each member of a household or each person tagged. */
@@ -183,7 +190,8 @@ const review = z.object({
 	target: z
 		.object({
 			kind: targetKind,
-			id: z.uuid(),
+			// A system template is named by its catalog key, not a record id.
+			id: z.string(),
 			label: z.string(),
 			/** A Wiki article's target: `id` is the exact version reviewed; these name its article and Wiki page. */
 			articleId: z.uuid().optional(),

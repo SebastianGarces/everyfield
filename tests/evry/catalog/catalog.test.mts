@@ -148,6 +148,10 @@ test("AC:INH-REGRESSION-CAPABILITIES INV-catalog: every installed model tool is 
 		"wiki.recommendForPhase",
 		"wiki.reading.resume",
 		"wiki.article.exportPdf",
+		"documents.listOwned",
+		"documents.read",
+		"documents.readCoreValuesEvidence",
+		"documents.templates.list",
 		"evry.selectReturnedRows",
 	]);
 	for (const id of installed) {

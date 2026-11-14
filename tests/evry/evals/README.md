@@ -100,8 +100,10 @@ Then the real system prompt runs with the tools the turn gives the actor, built 
 2 removed people, 8 households, tags, skills, notes, photos, open tasks, two import receipts (the earlier one left two
 open review pairs and one dismissed pair), five current ministries and one archived one with their roles, people,
 required training, a Playbook checklist and measured team meetings, a phase journey (declared at Discovery, Core Group
-Development since Aug 3, 2026), one answered manual signal, the Owner's Struggling private check-in, and Owner, Admin,
-Member, organization-seat and empty-church actors with live sessions and seats. A selection re-checks its rows with the real
+Development since Aug 3, 2026), one answered manual signal, the Owner's Struggling private check-in, documents (its
+marked core values, two vision meeting agendas, a values draft and a Conflict of Interest Policy Church Document, plus
+the empty church's own agenda), and Owner, Admin, Member, organization-seat and empty-church actors with live sessions
+and seats. A selection re-checks its rows with the real
 `verifyPeople`. `propose_change` prepares a real review card with `prepareProposal` in an open conversation. Nothing is
 approved and no effect job runs.
 

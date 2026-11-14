@@ -295,7 +295,8 @@
 				"/Welcome and coffee[\\s\\S]*Our story and vision[\\s\\S]*Launch team roles[\\s\\S]*Questions[\\s\\S]*Prayer and next steps/i",
 				"/print/i"
 			],
-			"derivation": "The saved agenda of Sunday's Launch team orientation in order, with the print link in the app; no agenda written by Evry."
+			"derivation": "The saved agenda of Sunday's Launch team orientation in order, with the print link in the app; no agenda written by Evry.",
+			"only": ["documents.listOwned", "documents.read"]
 		}
 	},
 	{
@@ -1155,6 +1156,10 @@
 			"derivation": "Rivera household live members: Alex (head), Ana (spouse), Mateo (child). Rosa Rivera was removed and must not appear.",
 			"target": {
 				"require": ["/head|spouse|child/i"]
+			},
+			"finding": {
+				"checks": ["says /head|spouse|child/i"],
+				"note": "T-325 (D-958, D-1151): after the merge put the Evry Documents and Ministries tools in one tool list, the re-recorded model answer misses these checks; recorded as a finding by the owner's standing choice."
 			}
 		}
 	},
@@ -1676,17 +1681,27 @@
 		"area": "Documents / wiki",
 		"case_id": "DOC-01",
 		"question": "where's our core values doc",
-		"status": "Not yet",
+		"status": "Supported",
 		"expected_operation": "not yet: needs `documents.listOwned`",
 		"expected_answer": "Later: the document with a link into the app",
 		"must_not": "Write core values and present them as the church's",
 		"eval": {
-			"cantYet": true,
-			"forbid": ["/(our|your) core values (are|include)\\s*:/i"],
+			"forbid": ["/(our|your) core values (are|include)\\s*:/i", "New Hope"],
 			"finding": {
 				"checks": ["calls only no tool"],
 				"note": "T-318 batched re-record after the merge with the Evry notifications tools (D-958, D-1151, D-1323): the re-recorded answer misses these checks; recorded as drift, not a change in what Evry can do."
-			}
+			},
+			"calls": [
+				{
+					"operation": "documents.readCoreValuesEvidence",
+					"alsoAccepted": ["documents.listOwned"]
+				}
+			],
+			"require": ["Hope Fellowship Core Values"],
+			"names": {
+				"allowed": []
+			},
+			"derivation": "Hope Fellowship marked its written document \"Hope Fellowship Core Values\" as its core values; the read names it and its link opens it in Documents. Evry names the church's own document and never writes core values for it."
 		}
 	},
 	{
@@ -1696,19 +1711,22 @@
 		"area": "Documents / wiki",
 		"case_id": "DOC-02",
 		"question": "make us a child protection policy from the template",
-		"status": "Not yet",
+		"status": "Supported",
 		"expected_operation": "not yet: needs `documents.templates.list` + `documents.createFromTemplate` proposal",
 		"expected_answer": "Later: review of the template and fields",
 		"must_not": "Generate a policy as legal advice",
 		"eval": {
-			"cantYet": true,
+			"proposals": [
+				{
+					"operation": "documents.createFromTemplate",
+					"input": {
+						"templateId": "child-protection-policy"
+					}
+				}
+			],
+			"require": ["/review|approv/i", "/not legal advice/i"],
 			"forbid": ["/^#{0,4}\\s*\\**(\\d+\\.\\s*)?(Purpose|Scope|Definitions)\\b/im"],
-			"only": ["tasks.listTemplates", "tasks.previewTemplate"],
-			"derivation": "Document templates aren't readable yet; Evry may look at the task checklists but never writes a policy.",
-			"finding": {
-				"checks": ["calls only no tool"],
-				"note": "T-322 merge with S4 teams and people (D-1229): after the merged tool list was re-recorded, the model answer misses these checks; recorded as a finding as in T-24 (D-958) and D-1181. Drifted on the T-322 merge re-record with S4 notifications; failing checks set from its report (D-1151)."
-			}
+			"derivation": "The Child Protection Policy template (version 1) makes a new Church Document through one review card naming the template, its version and Hope Fellowship's details. Evry says the template is not legal advice and writes no policy text itself."
 		}
 	},
 	{
@@ -1793,12 +1811,11 @@
 		"area": "Documents / wiki",
 		"case_id": "DOC-06",
 		"question": "can you draft a finance policy for us?",
-		"status": "Not yet",
+		"status": "Supported",
 		"expected_operation": "not yet: finance policy is a document template (scope note 2026-10-30)",
 		"expected_answer": "Later: from template via review; finance features stay out",
 		"must_not": "Offer budgeting or giving features",
 		"eval": {
-			"cantYet": true,
 			"forbid": [
 				"/I can (help )?(set up|track|manage) (a |your )?(budget|giving|donations)/i",
 				"/^#{0,4}\\s*\\**(\\d+\\.\\s*)?(Purpose|Scope|Finance Policy)\\b/im"
@@ -1809,7 +1826,17 @@
 					"says it can't do that yet"
 				],
 				"note": "Drafts a full finance policy (headed Finance Policy) instead of saying documents from templates aren't available yet. T-24 (D-958): after the Evry email tools joined the tool list, the re-recorded model answer misses these checks; the owner chose to record the drift as a finding. T-318 merge with T-320 (D-958, D-1151): with the task, follow-up and teams tools in one tool list, the re-recorded model answer misses these checks; recorded as drift, not a change in what Evry may do. Drafts a full finance policy (headed Finance Policy) instead of saying documents from templates aren't available yet. T-24 (D-958): after the Evry email tools joined the tool list, the re-recorded model answer misses these checks; the owner chose to record the drift as a finding. T-319 merge with T-320 (as D-958): re-recorded after the WP-064 People writes and the teams tools joined one tool list; recorded as drift, not a capability change. Drifted on the T-323 merge re-record; failing checks set from its report (D-1151). T-318 batched re-record after the merge with the Evry notifications tools (D-958, D-1151, D-1323): the re-recorded answer misses these checks; recorded as drift, not a change in what Evry can do."
-			}
+			},
+			"proposals": [
+				{
+					"operation": "documents.createFromTemplate",
+					"input": {
+						"templateId": "financial-controls-policy"
+					}
+				}
+			],
+			"require": ["/review|approv/i", "Financial Controls Policy"],
+			"derivation": "A finance policy is the Financial Controls Policy template (scope note 2026-10-30): Evry offers it through the same review card as any template, writes no policy itself and offers no budgeting or giving features."
 		}
 	},
 	{
@@ -2207,7 +2234,11 @@
 			],
 			"require": ["Pray for the launch"],
 			"forbid": ["/pastoral|counsel/i"],
-			"derivation": "The task titled Pray for the launch, due Nov 15 and owned by Nate (the user), found as task data."
+			"derivation": "The task titled Pray for the launch, due Nov 15 and owned by Nate (the user), found as task data.",
+			"finding": {
+				"checks": ["calls only no tool"],
+				"note": "T-325 (D-958, D-1151): after the merge put the Evry Documents and Ministries tools in one tool list, the re-recorded model answer misses these checks; recorded as a finding by the owner's standing choice."
+			}
 		}
 	},
 	{

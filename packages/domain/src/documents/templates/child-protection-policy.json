@@ -1,0 +1,644 @@
+{
+	"format": "everyfield.doc/1",
+	"kind": "template",
+	"id": "child-protection-policy",
+	"version": 1,
+	"title": "Child Protection Policy",
+	"description": "How the church screens, trains and supervises the adults who serve children and youth, and how it reports a concern.",
+	"class": "formal/legal",
+	"exports": ["pdf", "docx"],
+	"fields": [
+		{
+			"key": "church_name",
+			"label": "Church name",
+			"type": "text",
+			"source": "church.name",
+			"required": true,
+			"sample": "Harbor City Church"
+		},
+		{
+			"key": "church_legal_name",
+			"label": "Legal name",
+			"type": "text",
+			"source": "brand.legalName",
+			"fallback": "{church_name}",
+			"sample": "Harbor City Church, Inc."
+		}
+	],
+	"page": {
+		"size": "letter",
+		"orientation": "portrait",
+		"margin": {
+			"top": 40,
+			"right": 40,
+			"bottom": 56,
+			"left": 40
+		},
+		"tile": null,
+		"header": null,
+		"footer": {
+			"pages": "all",
+			"content": [
+				{
+					"type": "columns",
+					"content": [
+						{
+							"type": "column",
+							"attrs": {
+								"width": 3
+							},
+							"content": [
+								{
+									"type": "paragraph",
+									"attrs": {
+										"style": "small"
+									},
+									"content": [
+										{
+											"type": "field",
+											"attrs": {
+												"key": "church_legal_name"
+											}
+										},
+										{
+											"type": "text",
+											"text": "  |  Child Protection Policy"
+										}
+									]
+								}
+							]
+						},
+						{
+							"type": "column",
+							"attrs": {
+								"width": 1,
+								"align": "right"
+							},
+							"content": [
+								{
+									"type": "paragraph",
+									"attrs": {
+										"style": "small",
+										"align": "right"
+									},
+									"content": [
+										{
+											"type": "pageNumber",
+											"attrs": {
+												"format": "page-of-total"
+											}
+										}
+									]
+								}
+							]
+						}
+					]
+				}
+			]
+		}
+	},
+	"body": {
+		"type": "doc",
+		"content": [
+			{
+				"type": "columns",
+				"attrs": {
+					"valign": "center"
+				},
+				"content": [
+					{
+						"type": "column",
+						"attrs": {
+							"width": 1
+						},
+						"content": [
+							{
+								"type": "image",
+								"attrs": {
+									"source": "logo",
+									"width": 150,
+									"height": 34,
+									"align": "left",
+									"alt": "Church logo"
+								}
+							}
+						]
+					},
+					{
+						"type": "column",
+						"attrs": {
+							"width": 1,
+							"align": "right"
+						},
+						"content": [
+							{
+								"type": "paragraph",
+								"attrs": {
+									"style": "kicker",
+									"align": "right"
+								},
+								"content": [
+									{
+										"type": "text",
+										"text": "Safety policy"
+									}
+								]
+							}
+						]
+					}
+				]
+			},
+			{
+				"type": "divider",
+				"attrs": {
+					"weight": "rule",
+					"color": "primary"
+				}
+			},
+			{
+				"type": "heading",
+				"attrs": {
+					"level": 1
+				},
+				"content": [
+					{
+						"type": "text",
+						"text": "Child Protection Policy"
+					}
+				]
+			},
+			{
+				"type": "paragraph",
+				"attrs": {
+					"style": "lead"
+				},
+				"content": [
+					{
+						"type": "text",
+						"text": "This policy says how "
+					},
+					{
+						"type": "field",
+						"attrs": {
+							"key": "church_name"
+						}
+					},
+					{
+						"type": "text",
+						"text": ", a church plant, keeps children and youth safe. Read it with your leaders, your insurance company and a lawyer in your state. Then change the words to fit your church plant and the laws where you meet."
+					}
+				]
+			},
+			{
+				"type": "heading",
+				"attrs": {
+					"level": 2,
+					"numbered": true
+				},
+				"content": [
+					{
+						"type": "text",
+						"text": "Purpose"
+					}
+				]
+			},
+			{
+				"type": "paragraph",
+				"content": [
+					{
+						"type": "field",
+						"attrs": {
+							"key": "church_name"
+						}
+					},
+					{
+						"type": "text",
+						"text": " welcomes children and youth. This policy protects them from abuse and neglect. It also protects the adults who serve them from false claims."
+					}
+				]
+			},
+			{
+				"type": "heading",
+				"attrs": {
+					"level": 2,
+					"numbered": true
+				},
+				"content": [
+					{
+						"type": "text",
+						"text": "Who this policy covers"
+					}
+				]
+			},
+			{
+				"type": "paragraph",
+				"content": [
+					{
+						"type": "text",
+						"text": "This policy covers each staff member and volunteer who serves anyone under 18 at an activity of "
+					},
+					{
+						"type": "field",
+						"attrs": {
+							"key": "church_name"
+						}
+					},
+					{
+						"type": "text",
+						"text": ". It applies at church, away from church and online."
+					}
+				]
+			},
+			{
+				"type": "heading",
+				"attrs": {
+					"level": 2,
+					"numbered": true
+				},
+				"content": [
+					{
+						"type": "text",
+						"text": "Screening"
+					}
+				]
+			},
+			{
+				"type": "paragraph",
+				"content": [
+					{
+						"type": "text",
+						"text": "Before a person serves with children or youth, the church plant does these things:"
+					}
+				]
+			},
+			{
+				"type": "orderedList",
+				"content": [
+					{
+						"type": "listItem",
+						"content": [
+							{
+								"type": "paragraph",
+								"content": [
+									{
+										"type": "text",
+										"text": "The person has attended "
+									},
+									{
+										"type": "field",
+										"attrs": {
+											"key": "church_name"
+										}
+									},
+									{
+										"type": "text",
+										"text": " for at least [number] months."
+									}
+								]
+							}
+						]
+					},
+					{
+						"type": "listItem",
+						"content": [
+							{
+								"type": "paragraph",
+								"content": [
+									{
+										"type": "text",
+										"text": "The person fills in an application and names [number] references who are not related to them."
+									}
+								]
+							}
+						]
+					},
+					{
+						"type": "listItem",
+						"content": [
+							{
+								"type": "paragraph",
+								"content": [
+									{
+										"type": "text",
+										"text": "The church plant runs a criminal background check, and runs it again every [number] years."
+									}
+								]
+							}
+						]
+					},
+					{
+						"type": "listItem",
+						"content": [
+							{
+								"type": "paragraph",
+								"content": [
+									{
+										"type": "text",
+										"text": "A ministry leader meets with the person and checks the references."
+									}
+								]
+							}
+						]
+					}
+				]
+			},
+			{
+				"type": "heading",
+				"attrs": {
+					"level": 2,
+					"numbered": true
+				},
+				"content": [
+					{
+						"type": "text",
+						"text": "Training"
+					}
+				]
+			},
+			{
+				"type": "paragraph",
+				"content": [
+					{
+						"type": "text",
+						"text": "Each person who serves completes child protection training before the first time they serve, and again each year. The training covers how to spot abuse, how to respond and how to report it."
+					}
+				]
+			},
+			{
+				"type": "heading",
+				"attrs": {
+					"level": 2,
+					"numbered": true
+				},
+				"content": [
+					{
+						"type": "text",
+						"text": "Two adults at all times"
+					}
+				]
+			},
+			{
+				"type": "paragraph",
+				"content": [
+					{
+						"type": "text",
+						"text": "At least two screened adults are present with children or youth at all times. When they can, the two adults are not related to each other. No adult is alone with a child out of sight of others."
+					}
+				]
+			},
+			{
+				"type": "bulletList",
+				"content": [
+					{
+						"type": "listItem",
+						"content": [
+							{
+								"type": "paragraph",
+								"content": [
+									{
+										"type": "text",
+										"text": "A classroom door stays open, or the room has a window in the door."
+									}
+								]
+							}
+						]
+					},
+					{
+						"type": "listItem",
+						"content": [
+							{
+								"type": "paragraph",
+								"content": [
+									{
+										"type": "text",
+										"text": "Online contact with a young person includes a parent or a second adult."
+									}
+								]
+							}
+						]
+					},
+					{
+						"type": "listItem",
+						"content": [
+							{
+								"type": "paragraph",
+								"content": [
+									{
+										"type": "text",
+										"text": "An adult does not drive a young person alone, unless a parent agreed in writing."
+									}
+								]
+							}
+						]
+					}
+				]
+			},
+			{
+				"type": "heading",
+				"attrs": {
+					"level": 2,
+					"numbered": true
+				},
+				"content": [
+					{
+						"type": "text",
+						"text": "Check-in and pick-up"
+					}
+				]
+			},
+			{
+				"type": "paragraph",
+				"content": [
+					{
+						"type": "text",
+						"text": "A parent or guardian checks in each child under [age]. The church plant releases the child only to that parent or guardian, or to a person the parent named."
+					}
+				]
+			},
+			{
+				"type": "heading",
+				"attrs": {
+					"level": 2,
+					"numbered": true
+				},
+				"content": [
+					{
+						"type": "text",
+						"text": "Reporting a concern"
+					}
+				]
+			},
+			{
+				"type": "paragraph",
+				"content": [
+					{
+						"type": "text",
+						"text": "A person who sees abuse or suspects it acts the same day."
+					}
+				]
+			},
+			{
+				"type": "orderedList",
+				"content": [
+					{
+						"type": "listItem",
+						"content": [
+							{
+								"type": "paragraph",
+								"content": [
+									{
+										"type": "text",
+										"text": "If a child is in danger now, call 911."
+									}
+								]
+							}
+						]
+					},
+					{
+						"type": "listItem",
+						"content": [
+							{
+								"type": "paragraph",
+								"content": [
+									{
+										"type": "text",
+										"text": "Tell [role] the same day. Write down what you saw or heard, in the words you heard it."
+									}
+								]
+							}
+						]
+					},
+					{
+						"type": "listItem",
+						"content": [
+							{
+								"type": "paragraph",
+								"content": [
+									{
+										"type": "text",
+										"text": "The church plant reports suspected abuse to the authorities as the law of your state requires. A person whom the law names as a mandated reporter also reports it themselves."
+									}
+								]
+							}
+						]
+					},
+					{
+						"type": "listItem",
+						"content": [
+							{
+								"type": "paragraph",
+								"content": [
+									{
+										"type": "text",
+										"text": "Do not question the child further or look into the matter on your own."
+									}
+								]
+							}
+						]
+					}
+				]
+			},
+			{
+				"type": "heading",
+				"attrs": {
+					"level": 2,
+					"numbered": true
+				},
+				"content": [
+					{
+						"type": "text",
+						"text": "When someone is accused"
+					}
+				]
+			},
+			{
+				"type": "paragraph",
+				"content": [
+					{
+						"type": "text",
+						"text": "The person named in a report steps away from any work with children or youth while the matter is reviewed. The church plant works with the authorities and keeps the matter private."
+					}
+				]
+			},
+			{
+				"type": "heading",
+				"attrs": {
+					"level": 2,
+					"numbered": true
+				},
+				"content": [
+					{
+						"type": "text",
+						"text": "Records"
+					}
+				]
+			},
+			{
+				"type": "paragraph",
+				"content": [
+					{
+						"type": "text",
+						"text": "[role] keeps applications, background checks, training records and incident reports in a locked or protected place for at least [number] years."
+					}
+				]
+			},
+			{
+				"type": "paragraph",
+				"content": [
+					{
+						"type": "text",
+						"text": "The leaders of "
+					},
+					{
+						"type": "field",
+						"attrs": {
+							"key": "church_name"
+						}
+					},
+					{
+						"type": "text",
+						"text": " adopted this policy on [date]. Each person who serves with children or youth signs and dates below."
+					}
+				]
+			},
+			{
+				"type": "table",
+				"attrs": {
+					"style": "grid",
+					"header": true,
+					"headerFill": "muted",
+					"zebra": false,
+					"writeInRows": 3,
+					"rowHeight": 30,
+					"columns": [
+						{
+							"id": "member",
+							"label": "Name",
+							"type": "text",
+							"width": 150
+						},
+						{
+							"id": "role",
+							"label": "Role",
+							"type": "text",
+							"width": 110
+						},
+						{
+							"id": "signature",
+							"label": "Signature",
+							"type": "text",
+							"width": 150
+						},
+						{
+							"id": "date",
+							"label": "Date",
+							"type": "text",
+							"width": 0
+						}
+					]
+				},
+				"content": []
+			}
+		]
+	}
+}

@@ -400,6 +400,10 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 						"onboarding.complete",
 						...taskWrites,
 						...wikiWrites,
+						"documents.createFromTemplate",
+						"documents.exportNative",
+						"documents.archive",
+						"documents.designateCoreValues",
 					]
 				: who === "member"
 					? // A Member changes only their own bell, notification settings and account, the Meetings changes the native
@@ -476,6 +480,13 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 			"people.listHouseholds",
 			"people.listTags",
 		];
+		// A Member finds and reads the church's documents as an Owner does; only the writes are Owner or Admin.
+		const documentsReads = [
+			"documents.listOwned",
+			"documents.read",
+			"documents.readCoreValuesEvidence",
+			"documents.templates.list",
+		];
 		assert.deepEqual(
 			operations,
 			who === "owner"
@@ -525,6 +536,7 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 						"calendar.getContext",
 						"calendar.resolve",
 						...wikiReads,
+						...documentsReads,
 					]
 				: who === "member"
 					? [
@@ -541,6 +553,7 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 							"calendar.getContext",
 							"calendar.resolve",
 							...wikiReads,
+							...documentsReads,
 						]
 					: who === "orgOwner"
 						? ["notifications.previewOversightDigest", "pipeline.listPeople", "development.draftPlan"]
@@ -714,6 +727,7 @@ test("AC:INH-EDGES-03 AC:TEN-008 AC:EVRY-CONTEXT-BOUNDS a guessed foreign id and
 			"communication_read",
 			"followups_read",
 			"meetings_read",
+			"documents_read",
 			"notifications_read",
 			"onboarding_read",
 			"peopleAssessments_read",

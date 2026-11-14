@@ -63,6 +63,10 @@ const ROW_LIVENESS: Record<SourceRow["kind"], Rule> = {
 	venue: (id, plant) => sql`EXISTS(SELECT FROM venue lv WHERE lv.id=${id} AND lv.plant_id=${plant})`,
 	// Never withheld: an item row is a part of a meeting or venue read (an agenda section, a kit item, a report line).
 	item: null,
+	// A document is live while it exists in the church and is not deleted. An archived one stays readable, as in the app.
+	document: (id, plant) =>
+		sql`EXISTS(SELECT FROM document d WHERE d.id=${id} AND d.tenant_id=${plant} AND d.kind IN ('native','core_values','church_document')
+			AND (d.kind<>'church_document' OR d.archived_at IS NULL))`,
 	// Never withheld: an import row is a CSV line number or a preview's own row, not a stored record. A file row is a
 	// digest, a receipt key or a name the tool computed, and an activity or skill row is a safe detail of a person that
 	// the tool read under that person's own access; none of them names a source that this check could find gone.
@@ -82,7 +86,8 @@ const ROW_LIVENESS: Record<SourceRow["kind"], Rule> = {
 	history: null,
 	import: null,
 	file: null,
-	// A system template is not a stored row, and a church template's name and origin are all a row says.
+	// A system or built-in document template is not a stored row, the same for every church, and a church template's name
+	// and origin are all a row says.
 	template: null,
 	skill: null,
 	activity: null,

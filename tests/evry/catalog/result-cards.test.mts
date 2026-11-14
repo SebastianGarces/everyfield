@@ -17,6 +17,7 @@ import {
 	ANA_COMMITMENT,
 	byName,
 	DANIEL_INTERVIEW,
+	DOCS,
 	goldenChurch,
 	IMPORT_KEY,
 	MEETINGS,
@@ -256,6 +257,10 @@ const PROBES: Record<string, Record<string, unknown> | (() => Promise<SourceResu
 	"wiki.recommendForPhase": {},
 	"wiki.reading.resume": {},
 	"wiki.article.exportPdf": { articleId: WIKI.vision.article },
+	"documents.listOwned": {},
+	"documents.read": { documentId: DOCS.septemberAgenda.id },
+	"documents.readCoreValuesEvidence": {},
+	"documents.templates.list": {},
 	[catalog.SELECT_RETURNED_ROWS]: async () => {
 		const list = await read("people.listPeople", {});
 		return { ...list, operation: catalog.SELECT_RETURNED_ROWS, rows: list.rows.slice(0, 2), total: 2 };

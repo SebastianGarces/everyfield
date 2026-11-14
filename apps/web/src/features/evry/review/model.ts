@@ -84,6 +84,10 @@ export type Operation =
 	| "venues.correct"
 	| "venues.archive"
 	| "venues.restore"
+	| "documents.createFromTemplate"
+	| "documents.exportNative"
+	| "documents.archive"
+	| "documents.designateCoreValues"
 	| "notifications.markSelectedRead"
 	| "notifications.markAllVisibleRead"
 	| "notifications.setPreferences"
@@ -268,7 +272,9 @@ export type Review = {
 				| "connection"
 				| "organization"
 				| "account"
-				| "article";
+				| "article"
+				| "document"
+				| "template";
 			id: string;
 			label: string;
 			/** A Wiki article's target names the exact version reviewed (id), its article and its Wiki page. */
@@ -513,6 +519,14 @@ const FIELD_LABEL: Record<string, string> = {
 	setup: "Setup",
 	discovery: "Discovery",
 	...SHARING_CATEGORY_LABEL,
+	// Documents
+	template: "Template",
+	templateVersion: "Version",
+	notice: "Notice",
+	format: "Format",
+	version: "Version",
+	list: "Leaves",
+	documentType: "Type",
 };
 const KIND_LABEL: Record<string, string> = { core_group: "Core group", launch_team: "Launch team" };
 const COMMITMENT_LABEL: Record<string, string> = { active: "Active", withdrawn: "Withdrawn", unknown: "Not recorded" };
@@ -758,6 +772,8 @@ export const showsBefore = (review: Pick<Review, "operation">, change: Change) =
 	!NO_BEFORE.has(change.field) &&
 	// A Meetings value with nothing before it is new: it shows only what it will be.
 	!(isMeetings(review.operation) && (change.before === null || change.before === undefined)) &&
+	// A document value with nothing before it is new: it shows only what it will be.
+	!(isDocument(review.operation) && change.before === null) &&
 	// A phase or signal fact (a signal's words, a move's direction) has nothing before it, and a value a reaffirmation
 	// keeps is said once.
 	!(
@@ -947,6 +963,10 @@ const TITLE: Record<Operation, string> = {
 	"onboarding.createPlant": "Start a church",
 	"discovery.create": "Start a Discovery space",
 	"discovery.convertToPlant": "Turn Discovery into a church",
+	"documents.createFromTemplate": "New Church Document from a template",
+	"documents.exportNative": "Save a file of this document",
+	"documents.archive": "Archive a document",
+	"documents.designateCoreValues": "Mark as your core values",
 	"notifications.markSelectedRead": "Mark notifications read",
 	"notifications.markAllVisibleRead": "Mark all notifications read",
 	"notifications.setPreferences": "Change notification settings",
@@ -1279,8 +1299,59 @@ export const RECIPIENT_OUTCOME: Record<RecipientOutcome, string> = {
 	open: "Cancel not confirmed",
 };
 
+// ---------------------------------------------------------------------------------------------------------------
+// Documents: the four reviewed Documents writes (WP-080). Each says what it does in the app and links to where it shows.
+
+export const isDocument = (operation: Operation) => operation.startsWith("documents.");
+
+const DOCUMENT_CONSEQUENCE: Partial<Record<Operation, string>> = {
+	"documents.createFromTemplate":
+		"The new document opens in Church Documents for your church to edit. A template is starting text, not legal advice.",
+	"documents.exportNative": "The file is saved with the document in Church Documents, where it downloads.",
+	"documents.archive": "It leaves its list and stays readable. Nothing is deleted.",
+	"documents.designateCoreValues": "Evry marks your own document. It never writes core values for your church.",
+};
+
+/** Where the result of an approved document change shows in the app, and the link's words. */
+export function documentResult(review: Review): { href: string; label: string } | null {
+	const target = review.review.target;
+	if (!target || review.review.withheld) return null;
+	switch (review.operation) {
+		case "documents.createFromTemplate":
+			return review.receipt?.receiptId
+				? { href: `/documents/church/${review.receipt.receiptId}`, label: "Open the new document" }
+				: null;
+		case "documents.exportNative":
+			return { href: `/documents/church/${target.id}`, label: "Open in Church Documents" };
+		case "documents.archive":
+			return review.review.changes.find((c) => c.field === "list")?.after === "Church Documents"
+				? { href: "/documents/church/archived", label: "Open archived documents" }
+				: { href: "/documents", label: "Open Documents" };
+		case "documents.designateCoreValues":
+			return { href: `/documents/written/${target.id}`, label: `Open ${target.label}` };
+		default:
+			return null;
+	}
+}
+
+/** Why a document change was refused, from the saved receipt code. Nothing was changed in each case. */
+export function documentRefusalText(code: string | undefined): string {
+	switch (code) {
+		case "revision_conflict":
+		case "conflict":
+			return "This changed after Evry prepared the review, so nothing was saved. Ask Evry to prepare it again.";
+		case "access_denied":
+			return "Your seat no longer allows this change, so nothing was saved.";
+		case "render_failed":
+			return "The file could not be made, so nothing was saved. Try again later.";
+		default:
+			return "Documents refused this change, so nothing was saved.";
+	}
+}
+
 /** The one sentence under the target that says what happens to them beyond the listed fields. */
 export function consequence(review: Review): string | null {
+	if (isDocument(review.operation)) return DOCUMENT_CONSEQUENCE[review.operation] ?? null;
 	// NTF-003: read is only read.
 	if (review.operation === "notifications.markSelectedRead" || review.operation === "notifications.markAllVisibleRead")
 		return "Marking read doesn't complete or change any task.";

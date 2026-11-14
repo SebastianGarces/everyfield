@@ -11,6 +11,12 @@
 			"hash": "sha256:bfe4c25a4bb79f75c6dca82a103235f01b7cb4e7911d27570bb3bf42657f528c"
 		}
 	],
+	"child-protection-policy": [
+		{
+			"version": 1,
+			"hash": "sha256:3e63f439a67f3e9b27affd9aa52abe5fddaa299fab620ec72a9303b5dd74b209"
+		}
+	],
 	"commitment-card": [
 		{
 			"version": 1,
@@ -25,6 +31,12 @@
 		{
 			"version": 1,
 			"hash": "sha256:b0809020005e1b2ead90e75820dd349b89639686a5b3375fdb3d2c9604899a07"
+		}
+	],
+	"financial-controls-policy": [
+		{
+			"version": 1,
+			"hash": "sha256:1df90f8d9655ae798dfbc9f50502c36fb364d62b66820f2f55188f5154f20b56"
 		}
 	],
 	"follow-up-letter": [

@@ -40,6 +40,8 @@ type OpView = {
 	countAnswer?: string;
 	/** A summary of its own, for a card whose first row heads the others (the current phase). */
 	summary?: (result: SourceResult) => string;
+	/** Where to go instead when nothing came back. */
+	emptyLinks?: readonly { href: string; label: string }[];
 };
 
 const NO_PERSON = "No person in this church matches, or you can't see them.";
@@ -74,6 +76,14 @@ const venues = (title: string): OpView => ({
 	icon: "venue",
 	counts: "venue",
 	empty: "No saved venue matches.",
+});
+const documents = (title: string, rest: Partial<OpView> = {}): OpView => ({
+	title,
+	noun: ["document", "documents"],
+	icon: "document",
+	counts: "document",
+	empty: "No document in this church matches, or you can't see it.",
+	...rest,
 });
 const rows = (title: string, rest: Partial<OpView> = {}): OpView => ({
 	title,
@@ -520,6 +530,22 @@ const VIEWS: Record<string, OpView> = {
 		noun: ["file", "files"],
 		empty: "This article is not in your Wiki, or you can't read it.",
 	}),
+	"documents.listOwned": documents("Documents"),
+	"documents.read": documents("Document", { empty: "That document is not in this church, or you can't see it." }),
+	"documents.readCoreValuesEvidence": documents("Core values", {
+		empty: "No document is marked as your core values yet. Mark one of your written documents in Documents.",
+		emptyLinks: [
+			{ href: "/documents", label: "Documents" },
+			{ href: "/documents/church", label: "Church Documents" },
+		],
+	}),
+	"documents.templates.list": {
+		title: "Templates",
+		noun: ["template", "templates"],
+		icon: "template",
+		counts: "template",
+		empty: "No template matches.",
+	},
 };
 /** With no person, communication.forPerson lists the people no email has gone out to. */
 const NEVER_EMAILED = people("No email recorded", {
@@ -875,6 +901,8 @@ export type CardView = {
 	icon: Glyph;
 	rows: RowView[];
 	facts: string[];
+	/** Links under the facts: where to go when the read found nothing. */
+	links: { href: string; label: string }[];
 };
 
 /** An excerpt's words without its markup: headings, emphasis marks and component tags go, line breaks stay. */
@@ -1533,6 +1561,26 @@ function rowView(operation: string, row: SourceRow): RowView {
 				avatar: "date",
 			};
 		}
+		case "document":
+			// A document's type and when it last changed; its text stays in the answer, never on the card.
+			return {
+				...plain,
+				name: row.label,
+				line: joined(
+					text(fields.type),
+					fields.archived === true ? "Archived" : null,
+					text(fields.updatedOn) ? `Changed ${day(`${fields.updatedOn}T12:00:00Z`)}` : null,
+				),
+				avatar: "document",
+				href: text(fields.link),
+			};
+		case "template":
+			return {
+				...plain,
+				name: row.label,
+				line: joined(typeof fields.version === "string" ? `Version ${fields.version}` : null, text(fields.notice)),
+				avatar: "template",
+			};
 		case "notice":
 			// A bell notification: its area and church-local time. A card never marks it read.
 			return {
@@ -2016,5 +2064,6 @@ export function cardView(operation: string, result: SourceResult, originalTotal:
 		icon: view.icon === "person" && rows.length > 1 ? "people" : view.icon,
 		rows: rows.map((row) => rowView(operation, row)),
 		facts,
+		links: missing || !result.rows.length ? [...(view.emptyLinks ?? [])] : [],
 	};
 }
