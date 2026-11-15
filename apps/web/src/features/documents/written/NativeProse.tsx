@@ -25,7 +25,7 @@ function marked(text: string, marks: Mark[] = []): ReactNode {
 			const href = typeof mark.attrs?.href === "string" ? safeLinkAddress(mark.attrs.href) : null;
 			if (href)
 				out = (
-					<a href={href} rel="noreferrer noopener" target="_blank" className="cursor-pointer">
+					<a href={href} rel="noreferrer noopener" target="_blank" className="">
 						{out}
 					</a>
 				);

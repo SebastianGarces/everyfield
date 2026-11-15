@@ -528,9 +528,7 @@ function RosterCard({
 			) : null}
 			{removed.length ? (
 				<details className="mt-4 border-t border-line pt-3">
-					<summary className="cursor-pointer rounded-sm text-sm font-medium text-text-2">
-						Removed seats ({removed.length})
-					</summary>
+					<summary className="rounded-sm text-sm font-medium text-text-2">Removed seats ({removed.length})</summary>
 					<ul className="mt-2 flex flex-col">
 						{removed.map((seat) => (
 							<li key={seat.seatId} className="flex items-center gap-3 py-2.5">

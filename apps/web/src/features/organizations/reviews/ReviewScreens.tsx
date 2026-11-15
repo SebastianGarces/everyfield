@@ -43,7 +43,7 @@ export function ReviewsScreen({ list }: { list: ReviewList }) {
 									{item.shared ? (
 										<IntentLink
 											href={reviewPath(item.id)}
-											className="-mx-3 flex cursor-pointer items-center justify-between gap-4 rounded-md px-3 py-3.5 transition-colors hover:bg-surface-2 focus-visible:bg-surface-2"
+											className="-mx-3 flex items-center justify-between gap-4 rounded-md px-3 py-3.5 transition-colors hover:bg-surface-2 focus-visible:bg-surface-2"
 										>
 											{body}
 										</IntentLink>

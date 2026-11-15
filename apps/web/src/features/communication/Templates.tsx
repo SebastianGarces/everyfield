@@ -134,7 +134,7 @@ function TemplateList({
 									<button
 										type="button"
 										onClick={() => onSelect(row.templateId)}
-										className="grid w-full cursor-pointer grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] items-baseline gap-4 px-5 py-3 text-left hover:bg-hover focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--ef-focus)]"
+										className="grid w-full grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] items-baseline gap-4 px-5 py-3 text-left hover:bg-hover focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--ef-focus)]"
 									>
 										<span className="truncate font-medium text-ink">{row.name}</span>
 										<span className="truncate text-sm text-text-2">{categoryLabel[row.category]}</span>
@@ -278,7 +278,7 @@ function Editor({
 				<button
 					type="button"
 					onClick={() => onSelect(null)}
-					className="inline-flex cursor-pointer items-center gap-1.5 rounded-sm text-md font-medium text-ink-2 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ef-focus)]"
+					className="inline-flex items-center gap-1.5 rounded-sm text-md font-medium text-ink-2 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ef-focus)]"
 				>
 					<Icon icon={ArrowLeft01Icon} size={16} />
 					Back to templates
