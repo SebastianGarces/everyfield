@@ -21,7 +21,7 @@ import {
 	Textarea,
 } from "@everyfield/ui/controls";
 import { Icon } from "@everyfield/ui/foundations";
-import { useState, useTransition, type FormEvent } from "react";
+import { useActionState, useState, useTransition, type FormEvent } from "react";
 import { createRead, useRead } from "../../../components/read.tsx";
 import { formatDay, PIPELINE_PATH } from "../board/model";
 import { Problem } from "../board/Problem";
@@ -50,7 +50,8 @@ const versionReview = createRead((enrollmentId: string) => reviewVersion(enrollm
  * applies it (REQ-MUL-011); records on milestones the new version drops stay listed under earlier versions.
  */
 export function EnrollmentScreen({ initial }: { initial: EnrollmentDetail }) {
-	const [enrollment, setEnrollment] = useState(initial);
+	const [local, setLocal] = useState<{ from: EnrollmentDetail; value: EnrollmentDetail } | null>(null);
+	const enrollment = local?.from === initial ? local.value : initial;
 	const [recording, setRecording] = useState<Milestone | null>(null);
 	const [reviewing, setReviewing] = useState(false);
 	const director = enrollment.viewer.director && enrollment.status === "active";
@@ -59,7 +60,7 @@ export function EnrollmentScreen({ initial }: { initial: EnrollmentDetail }) {
 
 	async function reread() {
 		const answer = await rereadEnrollment(enrollment.id).catch(() => null);
-		if (answer?.status === "ok") setEnrollment(answer.value);
+		if (answer?.status === "ok") setLocal({ from: initial, value: answer.value });
 	}
 
 	const finished = enrollment.milestones.filter((m) => m.completion?.confirmedOn).length;
@@ -356,28 +357,22 @@ function Feedback({
 	const [writing, setWriting] = useState(false);
 	const [body, setBody] = useState("");
 	const [feedbackId, setFeedbackId] = useState(() => crypto.randomUUID());
-	const [saving, setSaving] = useState(false);
-	const [problem, setProblem] = useState<string | null>(null);
 	const items = milestone.feedback ?? [];
-
-	async function submit(event: FormEvent) {
-		event.preventDefault();
-		if (!body.trim()) return setProblem("Write the feedback first.");
-		setSaving(true);
-		setProblem(null);
+	const [problem, submit, saving] = useActionState(async (): Promise<string | null> => {
+		if (!body.trim()) return "Write the feedback first.";
 		const answer = await addFeedback({
 			feedbackId,
 			enrollmentId: enrollment.id,
 			milestoneId: milestone.id,
 			body: body.trim(),
 		}).catch(lost);
-		setSaving(false);
-		if (answer.status !== "ok") return setProblem(programProblem(answer));
+		if (answer.status !== "ok") return programProblem(answer);
 		setBody("");
 		setWriting(false);
 		setFeedbackId(crypto.randomUUID());
 		await onChanged();
-	}
+		return null;
+	}, null);
 
 	return (
 		<section
@@ -409,7 +404,7 @@ function Feedback({
 			)}
 			{director ? (
 				writing ? (
-					<form onSubmit={submit} noValidate className="flex flex-col gap-2">
+					<form action={submit} noValidate className="flex flex-col gap-2">
 						<Textarea
 							aria-label={`Feedback on ${milestone.title}`}
 							value={body}
@@ -418,7 +413,7 @@ function Feedback({
 							rows={3}
 							placeholder="What went well, and what to work on next"
 						/>
-						<Problem text={problem} />
+						<Problem text={saving ? null : problem} />
 						<div className="flex justify-end gap-2">
 							<Button variant="ghost" size="sm" onClick={() => setWriting(false)} disabled={saving}>
 								Cancel

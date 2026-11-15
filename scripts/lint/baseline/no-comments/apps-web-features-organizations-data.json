@@ -1,5 +1,5 @@
 {
-	"apps/web/src/features/organizations/data/DuplicatesScreen.tsx": 5,
+	"apps/web/src/features/organizations/data/DuplicatesScreen.tsx": 4,
 	"apps/web/src/features/organizations/data/ExportDialog.tsx": 2,
 	"apps/web/src/features/organizations/data/RemoveDialog.tsx": 3,
 	"apps/web/src/features/organizations/data/actions.ts": 6,
