@@ -47,6 +47,7 @@ function sandbox(files = {}, lintData = {}) {
 	for (const data of ["exemptions.json", "boundaries/_layout.json"])
 		put(dir, `scripts/lint/${data}`, JSON.parse(readFileSync(join(repo, "scripts/lint", data), "utf8")));
 	put(dir, "package.json", { scripts: SCRIPTS });
+	put(dir, "scripts/lint/lint-scripts.json", { "package.json": SCRIPTS });
 	put(dir, "pnpm-workspace.yaml", "packages: []\n");
 	for (const root of ["packages/ui/src/index.ts", "tests/unit/index.ts", "tools/index.ts"])
 		put(dir, root, "export {};\n");
@@ -644,16 +645,90 @@ export { t, w };
 	);
 });
 
-test("INV-lint: a path-based rule new against the base is held to what it reports on the base tree", () => {
-	const page = "apps/web/src/app/x/page.tsx";
-	const dir = sandbox({ [page]: "export default function Page() {\n\treturn null;\n}\n" });
+test("INV-lint: an Oxlint config holds only known keys, so extends cannot pull in an override that turns rules off", () => {
+	configFails((config) => {
+		config.extends = ["../../tools/x.json"];
+	}, /apps\/web\/\.oxlintrc\.json: the key extends is not allowed/);
+	configFails((config) => {
+		config.overrides.push({ files: ["src/**"], extends: ["x.json"], rules: {} });
+	}, /the override for src\/\*\* may not set extends/);
+});
+
+test("INV-lint: ESLint configs carry no ignores beyond the expected ones and live only where expected", () => {
+	const fails = (files, pattern) => {
+		const dir = sandbox(files);
+		git(dir, "init", "-q");
+		const { status, out } = check(dir, ["--no-base"]);
+		assert.equal(status, 1, out);
+		assert.match(out, pattern);
+	};
+	fails(
+		{ "apps/web/eslint.config.mjs": 'export default [{ ignores: ["src/features/x/**"] }];\n' },
+		/apps\/web\/eslint\.config\.mjs:1: an ESLint ignore outside the expected ones/,
+	);
+	fails({ "lib/eslint.config.mjs": "export default [];\n" }, /lib\/eslint\.config\.mjs: an ESLint config outside/);
+});
+
+test("INV-lint: the lint scripts match their expected values exactly, so no step can be dropped, reordered or made optional", () => {
+	for (const lint of [
+		`${SCRIPTS.lint} || true`,
+		`${SCRIPTS.lint}; true`,
+		"pnpm -r --if-present lint && pnpm run lint:repo && pnpm run lint:web && pnpm run lint:tools",
+		"pnpm -r --if-present lint && pnpm run lint:web && pnpm run lint:repo",
+	]) {
+		const dir = sandbox();
+		put(dir, "package.json", { scripts: { ...SCRIPTS, lint } });
+		git(dir, "init", "-q");
+		const { status, out } = check(dir, ["--no-base"]);
+		assert.equal(status, 1, out);
+		assert.match(out, /package\.json: the lint script differs from scripts\/lint\/lint-scripts\.json/);
+	}
+	const step = " && node scripts/lint/check-comments.mjs";
+	const dir = sandbox();
+	put(dir, "scripts/lint/lint-scripts.json", {
+		"package.json": { ...SCRIPTS, "lint:repo": SCRIPTS["lint:repo"] + step },
+	});
+	git(dir, "init", "-q");
+	assert.match(check(dir, ["--no-base"]).out, /package\.json: the lint:repo script differs/);
+});
+
+test("INV-lint: the base tree is linted at its real path, so path exemptions hold on a symlinked TMPDIR", () => {
+	const dir = sandbox({
+		"packages/ui/src/a.ts": "// kept\nexport {};\n",
+		"apps/web/scripts/render-share-images.mjs": "// exempt bytes\nexport {};\n",
+	});
 	git(dir, "init", "-q", "-b", "main");
 	const base = commitAll(dir, "base");
-	put(dir, "scripts/lint/baseline/feature-boundaries/apps-web-app-x.json", { [page]: 1 });
-	commitAll(dir, "baseline the new rule");
-	const linkedTmp = `${dir}-tmp`;
-	symlinkSync(dir, linkedTmp);
-	temps.push(linkedTmp);
-	const { out } = check(dir, ["--base", base], { TMPDIR: linkedTmp });
-	assert.match(out, /check-comments: passed/);
+	put(dir, "scripts/lint/baseline/no-comments/packages-ui.json", { "packages/ui/src/a.ts": 1 });
+	commitAll(dir, "baseline");
+	const real = realpathSync(mkdtempSync(join(tmpdir(), "lint-tmp-")));
+	const linked = `${real}-link`;
+	symlinkSync(real, linked);
+	temps.push(real, linked);
+	assert.match(check(dir, ["--base", base], { TMPDIR: linked }).out, /check-comments: passed/);
+	put(dir, "scripts/lint/baseline/no-comments/apps-web.json", { "apps/web/scripts/render-share-images.mjs": 1 });
+	assert.match(
+		check(dir, ["--base", base], { TMPDIR: linked }).out,
+		/no-comments: apps\/web\/scripts\/render-share-images\.mjs is new to the baseline/,
+	);
+});
+
+test("INV-lint: comments inside SQL templates and query strings are reported, a listed marker is not", () => {
+	const source = `import { sql as q } from "drizzle-orm";
+export const sql = (s: TemplateStringsArray, ...v: unknown[]) => [s, v];
+export const a = sql\`SELECT 1 -- why
+ FROM x WHERE y = '-- not' /* also */\`;
+export const b = q\`SELECT \${1} -- aliased\`;
+export const run = (client: { query(text: string): void }) => {
+	client.query("BEGIN /* evf:retry */");
+	client.query(\`SELECT 2 -- in a query\`);
+	client.query("SELECT '/* text */'");
+};
+`;
+	assert.deepEqual(lint({ "packages/domain/src/q.ts": source }), [
+		"packages/domain/src/q.ts:3 no-sql-comments",
+		"packages/domain/src/q.ts:4 no-sql-comments",
+		"packages/domain/src/q.ts:5 no-sql-comments",
+		"packages/domain/src/q.ts:8 no-sql-comments",
+	]);
 });

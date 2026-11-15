@@ -141,6 +141,8 @@ paths = [
   ".claude/settings.json",
   "scripts/lint/survivors/",
   "scripts/lint/exemptions.json",
+  "scripts/lint/check-comments.mjs",
+  "scripts/lint/lint-scripts.json",
   "scripts/lint/boundaries/_layout.json",
 ]
 outcome = "owner"

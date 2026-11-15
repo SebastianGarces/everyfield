@@ -1,5 +1,5 @@
 import { fileProblems, importProblem, routeFeatures } from "./boundaries.mjs";
-import { area, commentsExempt, ratchet, repoPath } from "./ratchet.mjs";
+import { area, commentsExempt, ratchet, repoPath, sqlMarkers } from "./ratchet.mjs";
 
 const RESEND_PACKAGE = /^resend(?:\/|$)/;
 const RESEND_HOST = "api.resend.com";
@@ -531,6 +531,75 @@ const clickableHost = ratcheted("clickable-host", (context, push) => ({
 	},
 }));
 
+const QUERY_CALLS = new Set(["query", "execute", "unsafe"]);
+
+const isSqlTag = (tag, names) =>
+	(tag.type === "Identifier" && names.has(tag.name)) ||
+	(tag.type === "MemberExpression" && tag.object.type === "Identifier" && names.has(tag.object.name));
+
+function sqlComments(parts) {
+	const found = [];
+	let quote = null;
+	parts.forEach(({ text, node }) => {
+		for (let i = 0; i < text.length; i++) {
+			const c = text[i];
+			if (quote) {
+				if (c === quote) quote = null;
+				continue;
+			}
+			if (c === "'" || c === '"') quote = c;
+			else if (c === "-" && text[i + 1] === "-") {
+				const end = text.indexOf("\n", i);
+				found.push({ node, at: i, text: text.slice(i, end === -1 ? text.length : end) });
+				i = end === -1 ? text.length : end;
+			} else if (c === "/" && text[i + 1] === "*") {
+				const end = text.indexOf("*/", i + 2);
+				found.push({ node, at: i, text: text.slice(i, end === -1 ? text.length : end + 2) });
+				i = end === -1 ? text.length : end + 1;
+			}
+		}
+	});
+	return found;
+}
+
+const noSqlComments = ratcheted("no-sql-comments", (context, push) => {
+	const check = (parts) => {
+		for (const { node, at, text } of sqlComments(parts)) {
+			if (sqlMarkers.has(text)) continue;
+			const before = parts.find((part) => part.node === node).text.slice(0, at);
+			const line = node.loc.start.line + (before.match(/\n/g)?.length ?? 0);
+			push({
+				loc: { start: { line, column: 0 }, end: { line, column: 0 } },
+				fn: enclosingName(node),
+				message:
+					"A comment inside SQL ships to Postgres and is a comment all the same. Delete it; a marker that a tool reads is listed with its reason in scripts/lint/exemptions.json (sqlMarkers).",
+			});
+		}
+	};
+	const quasis = (template) => template.quasis.map((q) => ({ text: q.value.raw, node: q }));
+	let tags = new Set(["sql"]);
+	return {
+		Program(program) {
+			tags = new Set(["sql"]);
+			for (const s of program.body)
+				if (s.type === "ImportDeclaration")
+					for (const spec of s.specifiers)
+						if (spec.type === "ImportSpecifier" && nameOf(spec.imported) === "sql") tags.add(spec.local.name);
+		},
+		TaggedTemplateExpression(node) {
+			if (isSqlTag(node.tag, tags)) check(quasis(node.quasi));
+		},
+		CallExpression(node) {
+			const name = memberName(node.callee);
+			const first = node.arguments[0];
+			if (!QUERY_CALLS.has(name) && !(name === "raw" && isSqlTag(node.callee, tags))) return;
+			if (first?.type === "TemplateLiteral") check(quasis(first));
+			else if (first?.type === "Literal" && typeof first.value === "string")
+				check([{ text: first.value, node: first }]);
+		},
+	};
+});
+
 const noCursorUtility = ratcheted("no-cursor-utility", (context, push) => {
 	const check = (value, node) => {
 		if (typeof value !== "string") return;
@@ -582,5 +651,6 @@ export default {
 		"clickable-host": clickableHost,
 		"no-cursor-utility": noCursorUtility,
 		"feature-boundaries": featureBoundaries,
+		"no-sql-comments": noSqlComments,
 	},
 };
