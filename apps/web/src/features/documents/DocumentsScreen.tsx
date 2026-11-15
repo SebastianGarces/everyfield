@@ -107,15 +107,16 @@ type Job = {
 	edits: Edits;
 };
 
-const resolutions = createRead(
-	(...[templateId, format]: [templateId: string, format: Format, visit: string]) => resolveDocument(templateId, format),
-	{ failed: (): DocumentOutcome<Resolved> => ({ status: "lost" }), fresh: Infinity },
-);
+const resolutionsOfVisit = () =>
+	createRead((templateId: string, format: Format) => resolveDocument(templateId, format), {
+		failed: (): DocumentOutcome<Resolved> => ({ status: "lost" }),
+		fresh: Infinity,
+	});
 
 const previews = createRead(
 	(templateId: string, format: Format, overrides: Record<string, string>, key: string, alias: PreviewAlias | null) =>
 		sharedPreview(key, templateId, format, overrides, alias),
-	{ failed: (): PreviewReply => ({ status: "lost" }) },
+	{ failed: (): PreviewReply => ({ status: "lost" }), limit: 1 },
 );
 
 const signatureOf = (templateId: string, format: Format, overrides: Record<string, string>, resolved: Resolved) =>
@@ -161,9 +162,6 @@ function openingRequest(
 	return requestFor(template, format, overrides, version, resolved, opened);
 }
 
-const forgetPreview = (request: PreviewRequest | null) =>
-	request && previews.forget(request.templateId, request.format, request.overrides, request.key, request.alias);
-
 export function DocumentsScreen({
 	templates,
 	version,
@@ -181,16 +179,11 @@ export function DocumentsScreen({
 	const activeFormat = selected
 		? offeredFormat(selected, query.template === null || query.template === selected.id ? query.format : null)
 		: null;
-	const [{ church, visit }] = useState(() => {
-		const opened = { church: churchValues(context), visit: crypto.randomUUID() };
+	const [{ church, resolutions }] = useState(() => {
+		const opened = { church: churchValues(context), resolutions: resolutionsOfVisit() };
 		const template = context && templates.find((item) => item.id === context.templateId);
-		if (typeof window !== "undefined" && canPreview && context && template)
-			resolutions.seed(
-				{ status: "ok", value: context },
-				context.templateId,
-				offeredFormat(template, null),
-				opened.visit,
-			);
+		if (canPreview && context && template)
+			opened.resolutions.seed({ status: "ok", value: context }, context.templateId, offeredFormat(template, null));
 		return opened;
 	});
 	const [edits, setEdits] = useState<Edits>(() => ({ templateId: selected?.id ?? null, values: {} }));
@@ -209,7 +202,6 @@ export function DocumentsScreen({
 		canPreview && selected ? resolutions : null,
 		selected?.id ?? "",
 		selected ? offeredFormat(selected, null) : "pdf",
-		visit,
 	);
 	const resolvedNow =
 		resolution.value ??
@@ -301,13 +293,12 @@ export function DocumentsScreen({
 
 	function open(template: Template | null) {
 		setEdits({ templateId: template?.id ?? null, values: {} });
-		forgetPreview(request);
 		setRequest(null);
 		opening.current = template?.id ?? null;
 		if (!template || !canPreview) return;
 		const format = offeredFormat(template, null);
-		const before = resolutions.peek(template.id, format, visit)?.value;
-		void resolutions.refresh(template.id, format, visit).then((result) => {
+		const before = resolutions.peek(template.id, format)?.value;
+		void resolutions.refresh(template.id, format).then((result) => {
 			if (opening.current !== template.id) return;
 			if (result.status === "ok") {
 				const next = openingRequest(template, format, result.value, version, church);
@@ -315,7 +306,7 @@ export function DocumentsScreen({
 				return;
 			}
 			if (before?.status !== "ok") return;
-			resolutions.patch(() => before, template.id, format, visit);
+			resolutions.patch(() => before, template.id, format);
 			setRequest({ ...requestFor(template, format, {}, version, before.value, church), failed: problemText(result) });
 		});
 	}
@@ -342,7 +333,6 @@ export function DocumentsScreen({
 		if (!current) return;
 		const next = requestFor(selected, activeFormat, overrides, version, current, church);
 		if (!download) {
-			if (request?.key !== next.key) forgetPreview(request);
 			setRequest(next);
 			return;
 		}
@@ -350,10 +340,7 @@ export function DocumentsScreen({
 		startDownload(async () => {
 			const result = await sharedPreview(next.key, next.templateId, next.format, next.overrides, next.alias);
 			if (result.status === "ok" && result.value.artifact) downloadBytes(name, next.format, result.value.artifact);
-			else {
-				forgetPreview(request);
-				setRequest({ ...next, failed: result.status === "ok" ? RENDER_FAILED : problemText(result) });
-			}
+			else setRequest({ ...next, failed: result.status === "ok" ? RENDER_FAILED : problemText(result) });
 		});
 	}
 
