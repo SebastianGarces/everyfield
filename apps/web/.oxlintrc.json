@@ -1283,6 +1283,7 @@
 				"everyfield/no-raw-history": "error",
 				"everyfield/no-global-listeners": "error",
 				"everyfield/zustand-shape": "error",
+				"everyfield/read-loader": "error",
 				"everyfield/feature-boundaries": "error"
 			}
 		},
