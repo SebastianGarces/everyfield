@@ -23,7 +23,7 @@ export type Report = { ok: boolean; base: { ref: string; sha: string }; files: s
 
 export class FastCheckError extends Error {}
 
-type Linter = { tool: "oxlint" | "eslint"; bin: string; config?: string };
+type Linter = { tool: "oxlint" | "eslint"; bin: string; config?: string; args: string[] };
 /** A package's lint: Oxlint first, then ESLint for the rules Oxlint lacks (T-43), each one optional, over the same roots. */
 type Lint = { cwd: string; linters: Linter[]; roots: string[] };
 type Pkg = { name: string; dir: string; lint?: Lint; typecheck: boolean };
@@ -71,7 +71,11 @@ function parseLint(dir: string, script: string | undefined): Lint | undefined {
 		const [bin, ...args] = part.split(/\s+/);
 		const tool = /(^|\/)(oxlint|eslint)$/.exec(bin ?? "")?.[2] as Linter["tool"] | undefined;
 		if (!bin || !tool) break;
-		const linter: Linter = { tool, bin: bin === tool ? join(dir, "node_modules/.bin", tool) : resolve(cwd, bin) };
+		const linter: Linter = {
+			tool,
+			bin: bin === tool ? join(dir, "node_modules/.bin", tool) : resolve(cwd, bin),
+			args,
+		};
 		const roots: string[] = [];
 		for (let at = 0; at < args.length; at++) {
 			const arg = args[at]!;
@@ -123,13 +127,15 @@ function workspacePackages(root: string): Pkg[] {
 		});
 }
 
-export function oxlintRuns(root: string): { cwd: string; bin: string; config?: string; roots: string[] }[] {
-	return [...workspacePackages(root), ...rootLints(root)].flatMap(({ lint }) =>
-		(lint?.linters ?? [])
-			.filter((linter) => linter.tool === "oxlint")
-			.map((linter) => ({ cwd: lint!.cwd, bin: linter.bin, config: linter.config, roots: lint!.roots })),
+export type LintRun = Linter & { name: string; cwd: string; roots: string[] };
+
+export function lintRuns(root: string): LintRun[] {
+	return [...workspacePackages(root), ...rootLints(root)].flatMap(({ name, lint }) =>
+		(lint?.linters ?? []).map((linter) => ({ ...linter, name, cwd: lint!.cwd, roots: lint!.roots })),
 	);
 }
+
+export const oxlintRuns = (root: string) => lintRuns(root).filter((run) => run.tool === "oxlint");
 
 type Ran = { status: number | null; stdout: string; stderr: string; missing: boolean };
 const run = (cwd: string, bin: string, args: string[]) =>
