@@ -48,6 +48,8 @@ evf numbers tasks T-<n>. WP-NNN, FB-<n> and OPS-<n> stay as labels and in histor
   hook, no timers in product code (`scripts/lint/everyfield-plugin.mjs`). A real exception is a survivor in
   `scripts/lint/survivors/<area>.json` with its reason, and it waits for Sebastian. Never add to
   `scripts/lint/baseline/`; after cleaning a file run `node scripts/lint/baseline.mjs --shrink`.
+- A feature's code lives in `apps/web/src/features/<feature>/`. Import another feature only through a file its
+  `scripts/lint/boundaries/` list makes public; `everyfield/feature-boundaries` enforces the layers (D94).
 - Every clickable element shows the pointer cursor, and disabled controls `not-allowed`. The base rule in
   `packages/ui/src/controls/controls.css` sets it; `everyfield/clickable-host` refuses a click handler on an element
   that is not a control, and `everyfield/no-cursor-utility` refuses call-site cursor classes.
