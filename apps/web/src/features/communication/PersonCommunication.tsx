@@ -12,9 +12,9 @@ const previewContexts = createRead(() => readPreviewContext(), {
 
 export function PersonCommunication({ personId, canWrite }: { personId: string; canWrite: boolean }) {
 	const [saved, setSaved] = useState(false);
-	const { promise } = useRead(previewContexts);
+	const previews = useRead(previewContexts);
 	return (
-		<Await promise={promise} fallback={<p className="text-sm text-text-3">Loading messages.</p>}>
+		<Await state={previews} fallback={<p className="text-sm text-text-3">Loading messages.</p>}>
 			{(preview) =>
 				preview.status !== "ok" ? (
 					<p role="alert" className="text-sm font-medium text-magenta-600">

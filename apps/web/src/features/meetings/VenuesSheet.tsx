@@ -92,7 +92,7 @@ function Places({ canWrite, onOpen, onAdd }: { canWrite: boolean; onOpen: (id: s
 	const [archived, setArchived] = useState(false);
 	const [query, setQuery] = useState("");
 	const [{ run: afterPause, cancelOnDetach }] = useState(() => createDebouncer(PLACES_SEARCH_PAUSE_MS));
-	const { promise, retry } = useRead(places, archived, query);
+	const list = useRead(places, archived, query);
 
 	return (
 		<div className="flex flex-col gap-4">
@@ -119,7 +119,7 @@ function Places({ canWrite, onOpen, onAdd }: { canWrite: boolean; onOpen: (id: s
 			</div>
 			<Switch label="Show archived places" checked={archived} onCheckedChange={setArchived} />
 			<Await
-				promise={promise}
+				state={list}
 				fallback={
 					<div aria-busy="true" className="flex flex-col gap-3">
 						<span className="sr-only" role="status">
@@ -139,7 +139,7 @@ function Places({ canWrite, onOpen, onAdd }: { canWrite: boolean; onOpen: (id: s
 							headingLevel="h3"
 							className="py-8"
 							actions={
-								<Button variant="secondary" size="sm" onClick={retry}>
+								<Button variant="secondary" size="sm" onClick={list.retry}>
 									Try again
 								</Button>
 							}

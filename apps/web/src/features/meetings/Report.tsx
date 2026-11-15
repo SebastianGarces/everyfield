@@ -22,7 +22,7 @@ const visionReports = createRead(() => visionReport(), {
 });
 
 export function VisionReport({ thisYear }: { thisYear: number }) {
-	const { promise, retry } = useRead(visionReports);
+	const report = useRead(visionReports);
 	const card = (busy: boolean, body: ReactNode) => (
 		<Card as="section" aria-labelledby="vision-report" aria-busy={busy || undefined}>
 			<CardHeader className="mb-2">
@@ -39,7 +39,7 @@ export function VisionReport({ thisYear }: { thisYear: number }) {
 	);
 	return (
 		<Await
-			promise={promise}
+			state={report}
 			fallback={card(
 				true,
 				<div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)] gap-6 max-app-md:grid-cols-1">
@@ -59,7 +59,7 @@ export function VisionReport({ thisYear }: { thisYear: number }) {
 					) : (
 						<div role="alert" className="flex flex-wrap items-center justify-between gap-3 py-2">
 							<p className="text-md text-text-2">The report did not load. Nothing was changed.</p>
-							<Button variant="secondary" size="sm" onClick={retry}>
+							<Button variant="secondary" size="sm" onClick={report.retry}>
 								Try again
 							</Button>
 						</div>

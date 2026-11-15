@@ -13,7 +13,7 @@ import {
 } from "@everyfield/ui/controls";
 import { createDebouncer } from "@everyfield/ui/foundations";
 import { useId, useState, type ReactNode } from "react";
-import { Await, createRead, useRead } from "../../components/read.tsx";
+import { Await, createRead, useRead, type ReadState } from "../../components/read.tsx";
 import type { PersonHit } from "@everyfield/domain/people";
 import { searchPeople } from "./actions.ts";
 import type { Wait } from "../../components/save/model.ts";
@@ -91,12 +91,12 @@ function usePersonSearch() {
 	const [query, setQuery] = useState("");
 	const [pause] = useState(() => createDebouncer(PERSON_SEARCH_PAUSE_MS));
 	const idle = query === "";
-	const { promise } = useRead(idle ? null : people, query);
+	const hits = useRead(idle ? null : people, query);
 	const onChange = (next: string) => {
 		setSearch(next);
 		pause.run(() => setQuery(next.trim()));
 	};
-	return { search, onChange, idle, promise, cancelOnDetach: pause.cancelOnDetach };
+	return { search, onChange, idle, hits, cancelOnDetach: pause.cancelOnDetach };
 }
 
 function PersonSearchBox({
@@ -130,17 +130,17 @@ const emptyText = (idle: boolean) =>
 
 function SearchResults({
 	idle,
-	promise,
+	hits,
 	children,
 }: {
 	idle: boolean;
-	promise: Promise<Outcome<PersonHit[]>> | null;
+	hits: ReadState<Outcome<PersonHit[]>>;
 	children: (found: PersonHit[]) => ReactNode;
 }) {
 	if (idle) return children([]);
 	return (
 		<Await
-			promise={promise}
+			state={hits}
 			fallback={
 				<p role="status" className="flex items-center gap-2 px-2 py-3 text-sm text-text-2">
 					<Spinner size={14} /> Searching…
@@ -175,7 +175,7 @@ export function PersonPicker({
 	none?: string;
 	autoFocus?: boolean;
 }) {
-	const { search, onChange: setSearch, idle, promise, cancelOnDetach } = usePersonSearch();
+	const { search, onChange: setSearch, idle, hits, cancelOnDetach } = usePersonSearch();
 	return (
 		<div className="flex flex-col gap-2">
 			<PersonSearchBox
@@ -186,7 +186,7 @@ export function PersonPicker({
 				autoFocus={autoFocus}
 			/>
 			<div className="max-h-[232px] min-h-[120px] overflow-y-auto rounded-md px-1">
-				<SearchResults idle={idle} promise={promise}>
+				<SearchResults idle={idle} hits={hits}>
 					{(hits) => {
 						const found = hits.filter((p) => !exclude.includes(p.id));
 						const options =
@@ -230,7 +230,7 @@ export function PeoplePicker({
 	onChange: (people: PickedPerson[]) => void;
 	exclude?: string[];
 }) {
-	const { search, onChange: setSearch, idle, promise, cancelOnDetach } = usePersonSearch();
+	const { search, onChange: setSearch, idle, hits, cancelOnDetach } = usePersonSearch();
 	const chosen = new Set(value.map((p) => p.id));
 	const toggle = (p: PickedPerson, on: boolean) =>
 		onChange(
@@ -240,7 +240,7 @@ export function PeoplePicker({
 		<div className="flex flex-col gap-2">
 			<PersonSearchBox label={label} search={search} onChange={setSearch} cancelOnDetach={cancelOnDetach} />
 			<div className="h-[184px] overflow-y-auto rounded-md px-1">
-				<SearchResults idle={idle} promise={promise}>
+				<SearchResults idle={idle} hits={hits}>
 					{(hits) => {
 						const found = hits.filter((p) => !exclude.includes(p.id));
 						return (

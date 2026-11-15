@@ -1,17 +1,25 @@
 "use client";
 
 import { useHydrated } from "@everyfield/ui/foundations";
-import { Suspense, use, useState, useTransition, type ReactNode } from "react";
+import { useState, useSyncExternalStore, useTransition, type ReactNode } from "react";
 
-type Tracked<T> = Promise<T> & { status?: "pending" | "fulfilled" | "rejected"; value?: T };
+export type ReadSnapshot<T> = {
+	readonly status: "loading" | "ready";
+	readonly value: T | undefined;
+	readonly promise: Promise<T>;
+};
 
 export type Read<A extends unknown[], T> = {
 	key(...args: A): string;
 	get(...args: A): Promise<T>;
-	refresh(...args: A): Promise<T>;
+	peek(...args: A): ReadSnapshot<T> | null;
 	prefetch(...args: A): void;
-	seed(value: T, ...args: A): void;
-	forget(...args: A): void;
+	seed(value: T | Promise<T>, ...args: A): void;
+	refresh(...args: A): Promise<T>;
+	retry(...args: A): Promise<T>;
+	patch(change: (value: T) => T, ...args: A): void;
+	forget(...args: A | []): void;
+	subscribe(listener: () => void): () => void;
 };
 
 export type ReadOptions<T> = {
@@ -21,109 +29,125 @@ export type ReadOptions<T> = {
 };
 
 export type ReadState<T> = {
+	status: "idle" | "loading" | "ready";
+	value: T | undefined;
 	promise: Promise<T> | null;
+	reloading: boolean;
 	retry(): void;
 	reload(): void;
-	reloading: boolean;
 	patch(change: (value: T) => T): void;
 };
 
+type Entry<T> = ReadSnapshot<T> & { at: number; reusable: boolean };
+
 const outcomeOk = (value: unknown) =>
 	!(typeof value === "object" && value !== null && "status" in value && value.status !== "ok");
-
-function track<T>(promise: Promise<T>): Tracked<T> {
-	const tracked = promise as Tracked<T>;
-	void promise.then((value) => {
-		tracked.status = "fulfilled";
-		tracked.value = value;
-	});
-	return tracked;
-}
-
-export function settled<T>(value: T): Promise<T> {
-	const promise = Promise.resolve(value) as Tracked<T>;
-	promise.status = "fulfilled";
-	promise.value = value;
-	return promise;
-}
 
 export function createRead<A extends unknown[], T>(
 	load: (...args: A) => Promise<T>,
 	{ failed, fresh = 0, keep = outcomeOk }: ReadOptions<T>,
 ): Read<A, T> {
-	const entries = new Map<string, { at: number; promise: Tracked<T> }>();
+	const entries = new Map<string, Entry<T>>();
+	const listeners = new Set<() => void>();
+	const emit = () => {
+		for (const listener of listeners) listener();
+	};
 	const key = (...args: A) => JSON.stringify(args);
-	const current = (at: number, promise: Tracked<T>) => promise.status !== "fulfilled" || Date.now() - at < fresh;
-	const start = (k: string, args: A) => {
-		for (const [old, entry] of entries) if (!current(entry.at, entry.promise)) entries.delete(old);
-		const promise = track(new Promise<T>((resolve) => resolve(load(...args))).catch(failed));
-		const entry = { at: Date.now(), promise };
-		entries.set(k, entry);
+
+	const settle = (k: string, promise: Promise<T>) =>
 		void promise.then((value) => {
-			if (!keep(value) && entries.get(k) === entry) entries.delete(k);
+			if (entries.get(k)?.promise !== promise) return;
+			entries.set(k, { status: "ready", value, promise, at: Date.now(), reusable: keep(value) });
+			emit();
 		});
+	const start = (k: string, promise: Promise<T>, value: T | undefined) => {
+		entries.set(k, { status: "loading", value, promise, at: Date.now(), reusable: true });
+		settle(k, promise);
 		return promise;
 	};
+	const run = (args: A) => new Promise<T>((resolve) => resolve(load(...args))).catch(failed);
+	const usable = (entry: Entry<T> | undefined) =>
+		entry !== undefined && (entry.status === "loading" || (entry.reusable && Date.now() - entry.at < fresh));
+
 	const get = (...args: A) => {
 		const k = key(...args);
 		const entry = entries.get(k);
-		return entry && current(entry.at, entry.promise) ? entry.promise : start(k, args);
+		return usable(entry) ? entry!.promise : start(k, run(args), undefined);
+	};
+	const again = (args: A, keepValue: boolean) => {
+		const k = key(...args);
+		const promise = start(k, run(args), keepValue ? entries.get(k)?.value : undefined);
+		emit();
+		return promise;
 	};
 	return {
 		key,
 		get,
-		refresh: (...args) => start(key(...args), args),
+		peek: (...args) => entries.get(key(...args)) ?? null,
 		prefetch: (...args) => void get(...args),
-		seed: (value, ...args) => void entries.set(key(...args), { at: Date.now(), promise: settled(value) as Tracked<T> }),
-		forget: (...args) => void entries.delete(key(...args)),
-	};
-}
-
-export function useRead<A extends unknown[], T>(read: Read<A, T> | null, ...args: A): ReadState<T> {
-	const hydrated = useHydrated();
-	const key = read && hydrated ? read.key(...args) : null;
-	const [held, setHeld] = useState<{ key: string; promise: Promise<T> } | null>(null);
-	const [reloading, startReload] = useTransition();
-	let shown = key === null ? null : held;
-	if (read && key !== null && held?.key !== key) {
-		shown = { key, promise: read.get(...args) };
-		setHeld(shown);
-	}
-	const again = () => {
-		if (read && key !== null) setHeld({ key, promise: read.refresh(...args) });
-	};
-	return {
-		promise: shown?.promise ?? null,
-		retry: again,
-		reload: () => startReload(again),
-		reloading,
-		patch: (change) => {
-			const promise = shown?.promise as Tracked<T> | undefined;
-			if (!read || key === null || promise?.status !== "fulfilled") return;
-			const value = change(promise.value as T);
-			read.seed(value, ...args);
-			setHeld({ key, promise: settled(value) });
+		seed: (value, ...args) => {
+			const k = key(...args);
+			if (entries.has(k)) return;
+			if (value instanceof Promise) start(k, value.catch(failed), undefined);
+			else entries.set(k, { status: "ready", value, promise: Promise.resolve(value), at: Date.now(), reusable: true });
+		},
+		refresh: (...args) => again(args, true),
+		retry: (...args) => again(args, false),
+		patch: (change, ...args) => {
+			const k = key(...args);
+			const entry = entries.get(k);
+			if (entry?.status !== "ready" || entry.value === undefined) return;
+			const value = change(entry.value);
+			entries.set(k, { status: "ready", value, promise: Promise.resolve(value), at: Date.now(), reusable: true });
+			emit();
+		},
+		forget: (...args) => {
+			if (args.length === 0) entries.clear();
+			else entries.delete(key(...(args as A)));
+			emit();
+		},
+		subscribe: (listener) => {
+			listeners.add(listener);
+			return () => void listeners.delete(listener);
 		},
 	};
 }
 
+const none = () => () => {};
+
+export function useRead<A extends unknown[], T>(read: Read<A, T> | null, ...args: A): ReadState<T> {
+	const hydrated = useHydrated();
+	const key = read && hydrated ? read.key(...args) : null;
+	const [started, setStarted] = useState<string | null>(null);
+	const [reloading, startReload] = useTransition();
+	if (read && key !== null && (started !== key || read.peek(...args) === null)) {
+		read.get(...args);
+		if (started !== key) setStarted(key);
+	}
+	const snapshot = useSyncExternalStore(
+		read?.subscribe ?? none,
+		() => (read && key !== null ? read.peek(...args) : null),
+		() => null,
+	);
+	return {
+		status: snapshot === null ? "idle" : snapshot.status,
+		value: snapshot?.value,
+		promise: snapshot?.promise ?? null,
+		reloading: reloading || (snapshot?.status === "loading" && snapshot.value !== undefined),
+		retry: () => void (read && key !== null && read.retry(...args)),
+		reload: () => startReload(() => void (read && key !== null && read.refresh(...args))),
+		patch: (change) => void (read && key !== null && read.patch(change, ...args)),
+	};
+}
+
 export function Await<T>({
-	promise,
+	state,
 	fallback,
 	children,
 }: {
-	promise: Promise<T> | null;
+	state: Pick<ReadState<T>, "value">;
 	fallback: ReactNode;
 	children: (value: T) => ReactNode;
 }) {
-	if (!promise) return fallback;
-	return (
-		<Suspense fallback={fallback}>
-			<Resolved promise={promise}>{children}</Resolved>
-		</Suspense>
-	);
-}
-
-function Resolved<T>({ promise, children }: { promise: Promise<T>; children: (value: T) => ReactNode }) {
-	return children(use(promise));
+	return state.value === undefined ? fallback : children(state.value);
 }
