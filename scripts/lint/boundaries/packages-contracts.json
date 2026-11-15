@@ -1,0 +1,24 @@
+{
+	"kernel": {
+		"common": "shared values, time, write and link shapes every contract module builds on"
+	},
+	"entries": ["index.ts"],
+	"public": [
+		"access/results.ts",
+		"identity/requests.ts",
+		"identity/results.ts",
+		"intelligence/facts.ts",
+		"intelligence/views.ts",
+		"meetings/values.ts",
+		"organizations/requests.ts",
+		"organizations/results.ts",
+		"organizations/subjects.ts",
+		"oversight/health.ts",
+		"people/results.ts",
+		"people/values.ts",
+		"settings/results.ts",
+		"settings/values.ts",
+		"tasks/results.ts",
+		"tasks/values.ts"
+	]
+}

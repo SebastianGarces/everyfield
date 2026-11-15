@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node
 import { join, relative, resolve, sep } from "node:path";
 import { oxlintRuns } from "../fast-check.ts";
 import { RATCHETED } from "./everyfield-plugin.mjs";
+import { renamesSince, resolveBase } from "./check-comments.mjs";
 import { area, baselineDir, readBaseline, root, SCRIPT_RULES } from "./ratchet.mjs";
 import { commentScanner, directiveCount, inScope, JS, MIGRATIONS, repoFiles } from "./scan.mjs";
 
@@ -70,23 +71,33 @@ function write(rule, entries) {
 		writeFileSync(join(dir, `${name}.json`), `${JSON.stringify(files, null, "\t")}\n`);
 }
 
+function movedSinceBase(argv) {
+	const base = resolveBase(argv);
+	if (!base) return {};
+	return Object.fromEntries(Object.entries(renamesSince(base.ref)).map(([to, from]) => [from, to]));
+}
+
 if (import.meta.main) {
 	const mode = process.argv[2];
 	if (mode !== "--init" && mode !== "--shrink") {
 		console.error(
-			"usage: node scripts/lint/baseline.mjs --shrink | --init\n  --shrink lowers each baseline entry to the file's count now and deletes entries at zero; it never adds.\n  --init writes the baseline from scratch; only the commit that introduces a rule may do that, since CI refuses any entry new against main.",
+			"usage: node scripts/lint/baseline.mjs --shrink [--base <ref>] | --init\n  --shrink lowers each baseline entry to the file's count now and deletes entries at zero; it never adds. An entry whose file was renamed since the base (the merge base with main, or --base) moves to the new path and area first.\n  --init writes the baseline from scratch; only the commit that introduces a rule may do that, since CI refuses any entry new against main.",
 		);
 		process.exit(2);
 	}
 	const actual = actualCounts();
 	const before = readBaseline();
+	const moved = movedSinceBase(process.argv.slice(3));
 	for (const rule of [...RATCHETED, ...SCRIPT_RULES]) {
 		const now = actual[rule] ?? {};
 		const kept = {};
 		if (mode === "--init") Object.assign(kept, now);
 		else
-			for (const [path, allowed] of Object.entries(before[rule] ?? {}))
-				if (now[path]) kept[path] = Math.min(allowed, now[path]);
+			for (const [old, allowed] of Object.entries(before[rule] ?? {})) {
+				const path = moved[old] && !existsSync(join(root, old)) ? moved[old] : old;
+				if (path !== old) console.log(`${rule}: ${old} moved to ${path}; its entry moves with it`);
+				if (now[path]) kept[path] = Math.min(allowed, kept[path] ?? allowed, now[path]);
+			}
 		write(rule, kept);
 		const total = Object.values(kept).reduce((sum, n) => sum + n, 0);
 		console.log(`${rule}: ${Object.keys(kept).length} files, ${total} allowed`);

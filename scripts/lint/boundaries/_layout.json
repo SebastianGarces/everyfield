@@ -1,0 +1,43 @@
+{
+	"layers": {
+		"contracts": [],
+		"db": [],
+		"domain": ["contracts", "db", "reference"],
+		"evry": ["contracts", "db", "domain"],
+		"reference": ["contracts", "db"],
+		"ui": []
+	},
+	"compositionFeatures": {
+		"shell": "the product frame: it composes Evry, feedback, notifications, settings and wiki into every product page, so no feature imports it"
+	},
+	"compositionRoots": {
+		"apps/web/src/app/api/cron/jobs/route.ts": "the cron dispatcher runs every feature's scheduled job from one route",
+		"apps/web/src/server/evry/index.ts": "Evry runtime wiring: it mounts the feature reads Evry answers from",
+		"apps/web/src/server/evry/native.ts": "Evry's native port calls each feature's commands",
+		"apps/web/src/server/jobs/scheduled.ts": "the scheduler runs every feature's scheduled step"
+	},
+	"exceptions": [
+		{
+			"from": "apps/web/src/features/wiki/routes.tsx",
+			"to": "apps/web/src/features/shell/routes.tsx",
+			"reason": "the wiki route returns the crawler preview without the frame, so it wraps itself in ProductFrameLayout instead of using a layout"
+		}
+	],
+	"platformFolders": {
+		"evry": "the Evry runtime composition: HTTP wiring, native port and worker",
+		"identity": "Better Auth, which every request reads",
+		"invitations": "invitation tokens identity, organizations and Evry share",
+		"jobs": "the queue, mail, scheduler, webhook and purge jobs every feature uses",
+		"mail": "mail transport and capture every sender goes through",
+		"platform": "the HTTP boundary, database and webhook helpers every route uses"
+	},
+	"thickRoutes": {
+		"apps/web/src/app/access/": "a landing-marketing owner-class page that composes the marketing site",
+		"apps/web/src/app/global-error.tsx": "Next renders it without any layout, so it holds its own markup",
+		"apps/web/src/app/layout.tsx": "the root layout holds the document shell, fonts and metadata",
+		"apps/web/src/app/oversight/": "a landing-marketing owner-class page that composes the marketing site",
+		"apps/web/src/app/page.tsx": "a landing-marketing owner-class page that composes the marketing site",
+		"apps/web/src/app/privacy/": "a landing-marketing owner-class page that composes the marketing site",
+		"apps/web/src/app/terms/": "a landing-marketing owner-class page that composes the marketing site"
+	}
+}

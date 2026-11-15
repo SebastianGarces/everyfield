@@ -105,7 +105,8 @@
 		{
 			"files": ["packages/*/src/**"],
 			"rules": {
-				"everyfield/no-timers": "error"
+				"everyfield/no-timers": "error",
+				"everyfield/feature-boundaries": "error"
 			}
 		},
 		{

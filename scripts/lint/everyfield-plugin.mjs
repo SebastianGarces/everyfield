@@ -1,3 +1,4 @@
+import { fileProblems, importProblem, routeFeatures } from "./boundaries.mjs";
 import { area, commentsExempt, ratchet, repoPath } from "./ratchet.mjs";
 
 const RESEND_PACKAGE = /^resend(?:\/|$)/;
@@ -450,6 +451,26 @@ const noCursorUtility = ratcheted("no-cursor-utility", (context, push) => {
 	};
 });
 
+const featureBoundaries = ratcheted("feature-boundaries", (context, push) => {
+	const from = repoPath(context.filename);
+	const imports = [];
+	const found = (node, [, message]) => push({ node, fn: null, message });
+	return {
+		...moduleSources((node, spec) => {
+			imports.push([node, spec]);
+			const problem = importProblem(from, spec);
+			if (problem) found(node, problem);
+		}),
+		Program(program) {
+			for (const [node, ...problem] of fileProblems(from, program)) found(node, problem);
+		},
+		"Program:exit"() {
+			const [node, ...problem] = routeFeatures(from, imports) ?? [];
+			if (node) found(node, problem);
+		},
+	};
+});
+
 export default {
 	meta: { name: "everyfield" },
 	rules: {
@@ -463,5 +484,6 @@ export default {
 		"no-comments": noComments,
 		"clickable-host": clickableHost,
 		"no-cursor-utility": noCursorUtility,
+		"feature-boundaries": featureBoundaries,
 	},
 };
