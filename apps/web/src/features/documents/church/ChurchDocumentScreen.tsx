@@ -16,6 +16,7 @@ import { useRef, useState } from "react";
 import { ChurchBranding } from "./ChurchBranding.tsx";
 import { ChurchPdf } from "./ChurchPdf.tsx";
 import { ChurchRevisions } from "./ChurchRevisions.tsx";
+import { liveAssets } from "./editor/brand-assets.ts";
 import { SavedExports, savedExportHref } from "./SavedExports.tsx";
 import { VersionHistory } from "./VersionHistory.tsx";
 import { archiveChurchDocument, deleteChurchDocument, type ChurchActionResult } from "./actions.ts";
@@ -76,16 +77,15 @@ export function ChurchDocumentScreen({
 	viewerName: string | null;
 }) {
 	// A save moves the revision here, so the header, the downloads and the Revisions list follow without a page refresh.
-	const [revision, setShownRevision] = useState(doc.revision);
+	const [shown, setShown] = useState({ revision: doc.revision, formats: doc.formats as readonly ExportFormat[] });
+	const { revision, formats } = shown;
 	const [listed, setListed] = useState({ revisions: firstRevisions, truncated: revisionsTruncated });
 	const { revisions } = listed;
 	const [history, setHistory] = useState(false);
 	// Excel is offered while the body holds a budget table, so a save can add it or take it away. The header follows the
 	// shown revision; each Revisions row keeps the formats its own revision offers.
-	const [formats, setFormats] = useState<readonly ExportFormat[]>(doc.formats);
 	const setRevision = (next: string, offered: readonly ExportFormat[]) => {
-		setShownRevision(next);
-		setFormats(offered);
+		setShown({ revision: next, formats: offered });
 		// The save's own time is on the server; this one is within a second of it and a reload shows the stored one.
 		const row = { number: Number(next), recordedAt: new Date().toISOString(), savedBy: viewerName, formats: offered };
 		// The list keeps the server's bound: a save past it drops the oldest row, and the list then says it is cut short.
@@ -113,7 +113,9 @@ export function ChurchDocumentScreen({
 	const file = (format: string, at = revision) =>
 		`/documents/church/${doc.id}/file?format=${format}&revision=${at}&look=${branded ? "church" : "plain"}`;
 	const brands = editable?.brands;
-	const brand = brands ? (branded && brands.church ? brands.church : brands.plain) : null;
+	const brandOf = (church: boolean) => (brands ? (church && brands.church ? brands.church : brands.plain) : null);
+	const brand = brandOf(branded);
+	const [assets] = useState(() => liveAssets(brand?.assets ?? { logo: null, mark: null, photo: null }));
 	const [exports, setExports] = useState(firstExports);
 	// `at` is null for the header's downloads (the shown revision) and a revision number for a Revisions row, so the
 	// spinner and a failure show beside the button that was clicked.
@@ -260,7 +262,11 @@ export function ChurchDocumentScreen({
 				<ChurchBranding
 					documentId={doc.id}
 					stored={branded}
-					onSaved={setBranded}
+					onSaved={(next) => {
+						setBranded(next);
+						const nextBrand = brandOf(next);
+						if (nextBrand) assets.show(nextBrand.assets);
+					}}
 					access={!brands ? "member" : brands.church ? "kit" : "no-kit"}
 					className={editable ? undefined : "mx-auto w-full max-w-[880px]"}
 				/>
@@ -272,6 +278,7 @@ export function ChurchDocumentScreen({
 					title={doc.title}
 					document={current.document}
 					brand={brand}
+					assets={assets}
 					mergeValues={editable.mergeValues}
 					revision={current.revision}
 					onRevision={setRevision}

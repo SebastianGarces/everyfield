@@ -30,17 +30,18 @@ import {
 	MenuTrigger,
 	Tooltip,
 } from "@everyfield/ui/controls";
-import type { Node as PMNode } from "@tiptap/pm/model";
-import { Selection } from "@tiptap/pm/state";
 import { EditorContent, EditorContext, useEditor, useEditorState } from "@tiptap/react";
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties } from "react";
-import { SaveChain } from "../../save-chain.ts";
+import { useCallback, useId, useMemo, useState, type CSSProperties, type FormEvent } from "react";
+import { SAVE_SHORTCUT, shortcutMark } from "../../../../components/save/leave.ts";
+import { useLocalStore, useStore } from "../../../../components/store.ts";
 import { saveChurchDocument } from "../actions.ts";
 import { ChurchPdf } from "../ChurchPdf.tsx";
 import type { RevisionRow } from "../server.ts";
 import { VersionHistory } from "../VersionHistory.tsx";
 import { deleteAllContent } from "./blocks.ts";
-import { documentFrom, editorContent } from "./document-json.ts";
+import type { LiveAssets } from "./brand-assets.ts";
+import { createChurchEditorStore, sameAsSaved } from "./ChurchEditor.store.ts";
+import { editorContent } from "./document-json.ts";
 import "./editor.css";
 import { editorExtensions } from "./extensions.ts";
 import { BlockControls } from "./LayoutControls.tsx";
@@ -66,6 +67,7 @@ type Props = {
 	document: DocDocument;
 	/** The palette the PDF paints for this document and the brand-kit images it may show. */
 	brand: DocBrand;
+	assets: LiveAssets;
 	/** The church's current value of each merge field Insert offers, by key. */
 	mergeValues: Record<string, string>;
 	revision: string;
@@ -90,6 +92,7 @@ export default function ChurchEditor({
 	title,
 	document: stored,
 	brand,
+	assets,
 	mergeValues,
 	revision: initialRevision,
 	onRevision,
@@ -101,35 +104,18 @@ export default function ChurchEditor({
 	accepted = null,
 }: Props) {
 	const previewSrc = (at: string) => file("pdf", at);
-	const base = useRef(stored);
-	const revision = useRef(initialRevision);
-	const [shownRevision, setShownRevision] = useState(initialRevision);
-	const [status, setStatus] = useState<SaveStatus>({ kind: "saved" });
-	const [mode, setMode] = useState<"edit" | "preview" | "history" | "compare">("edit");
-	const savedDoc = useRef<PMNode | null>(null);
-	const [saves] = useState(() => new SaveChain());
-
-	// The image blocks read the brand-kit images through this one object, so the branding switch can change the images
-	// without a new editor: its content, cursor and undo history stay, and only the image views draw again (below).
-	const liveAssets = useRef(brand.assets);
-	const assets = useMemo<DocBrand["assets"]>(
-		() => ({
-			get logo() {
-				return liveAssets.current.logo;
-			},
-			get mark() {
-				return liveAssets.current.mark;
-			},
-			get photo() {
-				return liveAssets.current.photo;
-			},
-		}),
-		[],
+	const store = useLocalStore(() =>
+		createChurchEditorStore({ docId, revision: initialRevision, body: stored, port: { save: saveChurchDocument } }),
 	);
-	const extensions = useMemo(() => [...editorExtensions(assets), BlockShortcuts], [assets]);
-	// The editor reads its content once, when it starts. Options that keep their identity across renders also spare the
-	// editor an options update (and a view update) on every parent render.
-	const [content] = useState(() => editorContent(stored));
+	const actions = useStore(store, (state) => state.actions);
+	const saved = useStore(store, (state) => state.saved);
+	const phase = useStore(store, (state) => state.phase);
+	const refused = useStore(store, (state) => state.refused);
+	const shownRevision = saved.revision;
+	const [mode, setMode] = useState<"edit" | "preview" | "history" | "compare">("edit");
+
+	const extensions = useMemo(() => [...editorExtensions(assets.assets), BlockShortcuts], [assets]);
+	const content = useMemo(() => editorContent(stored), [stored]);
 	const editorProps = useMemo(
 		() => ({
 			attributes: {
@@ -145,118 +131,41 @@ export default function ChurchEditor({
 		extensions,
 		content,
 		immediatelyRender: true,
-		// Start with the cursor in the first line of text, not on a whole block.
 		onCreate: ({ editor: created }) => {
-			const first = Selection.findFrom(created.state.doc.resolve(0), 1, true);
-			if (first) created.view.dispatch(created.state.tr.setSelection(first).setMeta("addToHistory", false));
+			actions.began(created);
+			assets.drawIn(created);
 		},
+		onUpdate: ({ editor: changed }) => actions.edited(changed),
+		onSelectionUpdate: actions.moved,
 		editorProps,
 	});
 
-	useEffect(() => {
-		if (liveAssets.current === brand.assets) return;
-		liveAssets.current = brand.assets;
-		// New node view functions make ProseMirror draw the image blocks again, now with the new brand's images.
-		if (editor && !editor.isDestroyed) editor.createNodeViews();
-	}, [editor, brand.assets]);
+	const same =
+		useEditorState({
+			editor,
+			selector: ({ editor: current }) => !current || sameAsSaved(saved.doc, current.state.doc),
+		}) ?? true;
+	const status: SaveStatus =
+		phase.kind === "saving"
+			? { kind: "saving" }
+			: phase.kind === "failed"
+				? { kind: "failed", reason: phase.reason }
+				: same
+					? { kind: "saved" }
+					: { kind: "dirty" };
 
-	// "Unsaved changes" means the document differs from the last saved one, so Undo back to it reads "Saved" again.
-	// Tiptap can build the schema again after the first render; the saved document is read into the current schema
-	// first, because nodes of two schemas are never equal.
-	const isSaved = useCallback((doc: PMNode) => {
-		let saved = savedDoc.current;
-		if (!saved) return true;
-		if (saved.type.schema !== doc.type.schema) saved = savedDoc.current = doc.type.schema.nodeFromJSON(saved.toJSON());
-		return saved.eq(doc);
-	}, []);
-	// Read when a way out is taken, not from React state: a click straight after an edit can come before React renders.
-	const unsaved = useCallback(() => !!editor && (saves.busy || !isSaved(editor.state.doc)), [editor, isSaved, saves]);
-	useEffect(() => {
-		if (!editor) return;
-		savedDoc.current ??= editor.state.doc;
-		const sync = () => {
-			const same = isSaved(editor.state.doc);
-			// The status object stays the same while its kind does, so React skips the render: typing in a document that is
-			// already unsaved draws nothing here.
-			setStatus((current) => {
-				if (current.kind === "saving") return current;
-				if (same) return current.kind === "saved" ? current : { kind: "saved" };
-				return current.kind === "failed" || current.kind === "dirty" ? current : { kind: "dirty" };
-			});
-		};
-		editor.on("update", sync);
-		return () => void editor.off("update", sync);
-	}, [editor, isSaved]);
+	const unsaved = useCallback(() => !!editor && actions.unsaved(editor), [editor, actions]);
 
-	/** One save of the document as it is now. The caller has checked that no save is in flight. */
-	const saveNow = useCallback((): Promise<boolean> => {
-		if (!editor) return Promise.resolve(false);
-		const doc = editor.state.doc;
-		const body = documentFrom(base.current, doc.toJSON());
-		setStatus({ kind: "saving" });
-		return saves.start(async () => {
-			// A call that never reached the server (no connection, a refused body) reads as a lost answer, not a hang.
-			const result = await saveChurchDocument(docId, revision.current, body).catch(() => ({ status: "lost" }) as const);
-			if (result.status === "saved") {
-				revision.current = result.revision;
-				savedDoc.current = doc;
-				base.current = body;
-				setShownRevision(result.revision);
-				onRevision(result.revision, body.exports);
-				// Edits typed while the request ran keep the "Unsaved changes" status.
-				setStatus((editor.state.doc.eq(doc) ? { kind: "saved" } : { kind: "dirty" }) satisfies SaveStatus);
-				return true;
-			}
-			setStatus({
-				kind: "failed",
-				reason:
-					result.status === "refused"
-						? result.code === "conflict"
-							? "Someone saved a newer revision first. Your edits are still here. Copy them, reload the page, then paste them in."
-							: result.message
-						: "The connection dropped. Your edits are still here.",
-			});
-			return false;
-		});
-	}, [editor, docId, onRevision, saves]);
+	const save = useCallback(
+		async (): Promise<boolean> => (editor ? actions.save(editor, onRevision) : false),
+		[editor, actions, onRevision],
+	);
 
-	/** Saves the document on screen, after any save in flight (SaveChain.save). */
-	const save = useCallback(async (): Promise<boolean> => {
-		if (!editor) return false;
-		return saves.save(() => isSaved(editor.state.doc), saveNow);
-	}, [editor, isSaved, saveNow, saves]);
-
-	// Cmd/Ctrl+S saves from anywhere on the page, and the browser's own Save dialog stays closed.
-	useEffect(() => {
-		const onKey = (event: KeyboardEvent) => {
-			if ((event.metaKey || event.ctrlKey) && !event.altKey && event.key.toLowerCase() === "s") {
-				event.preventDefault();
-				void save();
-			}
-		};
-		window.addEventListener("keydown", onKey);
-		return () => window.removeEventListener("keydown", onKey);
-	}, [save]);
-
-	// A change that would break a table, or put conditional text where the format refuses it, does not happen. The note
-	// says why, until the next change or cursor move.
-	const [refused, setRefused] = useState<string | null>(null);
-	useEffect(() => {
-		if (!editor) return;
-		const table = () => setRefused(TABLE_REFUSED);
-		const condition = (reason: string) => setRefused(`${reason} Nothing changed.`);
-		const hide = () => setRefused(null);
-		editor.on("tableChangeRefused", table);
-		editor.on("conditionChangeRefused", condition);
-		editor.on("update", hide);
-		editor.on("selectionUpdate", hide);
-		return () => {
-			editor.off("tableChangeRefused", table);
-			editor.off("conditionChangeRefused", condition);
-			editor.off("update", hide);
-			editor.off("selectionUpdate", hide);
-		};
-	}, [editor]);
+	function submit(event: FormEvent<HTMLFormElement>) {
+		event.preventDefault();
+		const fromButton = (event.nativeEvent as SubmitEvent).submitter !== null;
+		void save().then((ok) => ok && fromButton && editor?.view.focus());
+	}
 
 	const leave = useLeaveGuard(editor, unsaved);
 
@@ -306,13 +215,18 @@ export default function ChurchEditor({
 	const [templateDialog, setTemplateDialog] = useState({ open: false, opening: 0 });
 	const [savedTemplate, setSavedTemplate] = useState<TemplateSaved | null>(null);
 
+	const editorContext = useMemo(() => ({ editor }), [editor]);
 	const empty = useEditorState({ editor, selector: ({ editor: e }) => (e ? e.state.doc.childCount === 0 : true) });
 	const legal = stored.class === "formal/legal";
 
 	return (
-		<EditorContext.Provider value={{ editor }}>
+		<EditorContext.Provider value={editorContext}>
 			<div className="flex flex-col gap-3">
-				<div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+				<form
+					className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2"
+					{...shortcutMark(SAVE_SHORTCUT)}
+					onSubmit={submit}
+				>
 					<SaveStatusText
 						status={status}
 						revision={shownRevision}
@@ -339,13 +253,7 @@ export default function ChurchEditor({
 								Back to editing
 							</Button>
 						)}
-						<Button
-							variant="primary"
-							size="sm"
-							icon={FloppyDiskIcon}
-							loading={status.kind === "saving"}
-							onClick={() => void save().then((saved) => saved && editor?.view.focus())}
-						>
+						<Button variant="primary" size="sm" icon={FloppyDiskIcon} loading={status.kind === "saving"} type="submit">
 							Save
 						</Button>
 						<ConfirmDialog
@@ -383,7 +291,7 @@ export default function ChurchEditor({
 							</MenuContent>
 						</Menu>
 					</div>
-				</div>
+				</form>
 				{savedTemplate ? (
 					<div className="flex items-start gap-3 rounded-md bg-surface-raised px-4 py-3 shadow-[0_0_0_1px_var(--ef-line)]">
 						<p role="status" className="min-w-0 flex-1 text-md text-text-2 text-pretty">
@@ -448,7 +356,7 @@ export default function ChurchEditor({
 					{setupOpen && editor ? (
 						<PageSetupPanel
 							editor={editor}
-							base={() => base.current}
+							base={() => store.getState().saved.body}
 							id={setupId}
 							onClose={() => setSetupOpen(false)}
 						/>

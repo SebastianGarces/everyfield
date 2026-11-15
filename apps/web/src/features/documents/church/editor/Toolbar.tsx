@@ -17,7 +17,7 @@ import {
 import { cn, Icon, type IconSvgElement } from "@everyfield/ui/foundations";
 import type { DocBrand, FieldDecl } from "@everyfield/contracts/documents";
 import type { Editor } from "@tiptap/react";
-import { Fragment, useEffect, useReducer } from "react";
+import { Fragment, useCallback, useSyncExternalStore } from "react";
 import { useEditorState } from "@tiptap/react";
 import {
 	canInsert,
@@ -185,16 +185,18 @@ export function EditorToolbar({
 		pageSetup: { open: boolean; controls: string; toggle: () => void };
 	};
 }) {
-	// The view mounts after the first render and `editor.isEditable` is false until then. Draw again when it mounts, so
-	// Bold, Italic, Underline and Link show on load, not after the first click.
-	const [, drawAgain] = useReducer((n: number) => n + 1, 0);
-	useEffect(() => {
-		editor.on("mount", drawAgain);
-		if (editor.isEditable) drawAgain();
-		return () => {
-			editor.off("mount", drawAgain);
-		};
-	}, [editor]);
+	const subscribeMount = useCallback(
+		(changed: () => void) => {
+			editor.on("mount", changed);
+			return () => void editor.off("mount", changed);
+		},
+		[editor],
+	);
+	const editable = useSyncExternalStore(
+		subscribeMount,
+		() => editor.isEditable,
+		() => false,
+	);
 	const s = useEditorState({
 		editor,
 		selector: ({ editor: e }) => {
@@ -230,7 +232,7 @@ export function EditorToolbar({
 	const noFields = noConditionReason(fields);
 	const styles = church ? TEXT_STYLES : TEXT_STYLES.filter((t) => NATIVE_STYLES.has(t.style));
 	return (
-		<Toolbar aria-label="Document formatting">
+		<Toolbar aria-label="Document formatting" data-editable={editable ? "" : undefined}>
 			<ToolbarGroup>
 				<UndoRedoButton editor={editor} action="undo" />
 				<UndoRedoButton editor={editor} action="redo" />
