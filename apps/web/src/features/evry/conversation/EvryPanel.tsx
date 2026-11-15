@@ -49,7 +49,7 @@ import { renderMarkdown } from "./view.ts";
 import { ResultCard } from "./ResultCard.tsx";
 import { useRowPhotos } from "./useRowPhotos.ts";
 import { AttachButton, AttachedPhoto, checkPhoto, stageAttached } from "./PhotoAttach.tsx";
-import { createEvryPanelStore, type EvryPanelState, type EvryPort } from "./EvryPanel.store.ts";
+import { createEvryPanelStore, type EvryPanelState, type EvryPort, type Stream } from "./EvryPanel.store.ts";
 
 const PORT: EvryPort = { ...api, checkPhoto, stagePhoto: stageAttached };
 const Panel = storeContext<EvryPanelState>("EvryPanel");
@@ -206,29 +206,34 @@ function EvryPanel({ inPlant, context }: { inPlant: boolean; context: string }) 
 				) : undefined
 			}
 		>
-			{view === "history" ? (
-				<History
-					current={chat.conversation?.id ?? null}
-					onNew={() => {
-						actions.newChat();
-						toChat();
-					}}
-					onSelect={(id) => {
-						toChat();
-						actions.select(id);
-					}}
-				/>
-			) : (
-				<Chat
-					turns={turns}
-					contentRef={content}
-					focusComposer={focusComposer}
-					onEdit={(s) => {
-						actions.edit(s);
-						focusComposer();
-					}}
-				/>
-			)}
+			<Following>
+				{(stream) =>
+					view === "history" ? (
+						<History
+							current={chat.conversation?.id ?? null}
+							onNew={() => {
+								actions.newChat();
+								toChat();
+							}}
+							onSelect={(id) => {
+								toChat();
+								actions.select(id);
+							}}
+						/>
+					) : (
+						<Chat
+							stream={stream}
+							turns={turns}
+							contentRef={content}
+							focusComposer={focusComposer}
+							onEdit={(s) => {
+								actions.edit(s);
+								focusComposer();
+							}}
+						/>
+					)
+				}
+			</Following>
 		</Sheet>
 	);
 }
@@ -240,12 +245,25 @@ const suggestionsFor = (inPlant: boolean, pipeline: boolean) =>
 			? ["Who hasn't moved in six months?", "What can you help with?"]
 			: ["What can you help with?"];
 
+function Following({ children }: { children: (stream: Stream) => ReactNode }) {
+	const actions = useActions();
+	const panel = Panel.useStoreApi();
+	const stream = useSyncExternalStore(
+		actions.followStream,
+		() => panel.getState().stream,
+		() => "idle" as const,
+	);
+	return children(stream);
+}
+
 function Chat({
+	stream,
 	turns,
 	contentRef,
 	onEdit,
 	focusComposer,
 }: {
+	stream: Stream;
 	turns: Turn[];
 	contentRef: (node: HTMLDivElement | null) => (() => void) | undefined;
 	onEdit: (send: Send) => void;
@@ -254,12 +272,6 @@ function Chat({
 	const actions = useActions();
 	const state = Panel.useSelect((s) => s.chat);
 	const load = Panel.useSelect((s) => s.load);
-	const panel = Panel.useStoreApi();
-	const stream = useSyncExternalStore(
-		actions.followStream,
-		() => panel.getState().stream,
-		() => "idle" as const,
-	);
 	const photos = useRowPhotos(turns);
 	const problem = Panel.useSelect((s) => s.problem);
 	const retrying = Panel.useSelect((s) => s.retrying);
