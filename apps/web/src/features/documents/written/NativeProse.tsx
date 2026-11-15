@@ -1,5 +1,15 @@
 import { safeLinkAddress } from "@everyfield/contracts/common";
-import { attrsOf, columnWidths, formatNumber, type DocNode, type TableNode } from "@everyfield/contracts/documents";
+import {
+	attrsOf,
+	columnWidths,
+	formatNumber,
+	type BlockNode,
+	type DocNode,
+	type InlineNode,
+	type ListItemNode,
+	type Mark,
+	type TableNode,
+} from "@everyfield/contracts/documents";
 import type { CSSProperties, ReactNode } from "react";
 import "../church/editor/editor.css";
 import { tableView } from "../church/editor/table-model.ts";
@@ -11,9 +21,6 @@ import { tableView } from "../church/editor/table-model.ts";
 
 /** The text width of the plain paper in points, as the editor lays a table out (table-extension.ts). */
 const PLAIN_TEXT_WIDTH = 480;
-
-type Node = { type: string; text?: string; attrs?: Record<string, unknown>; marks?: Mark[]; content?: Node[] };
-type Mark = { type: string; attrs?: { href?: unknown } };
 
 function marked(text: string, marks: Mark[] = []): ReactNode {
 	let out: ReactNode = text;
@@ -34,9 +41,13 @@ function marked(text: string, marks: Mark[] = []): ReactNode {
 	return out;
 }
 
-function inline(nodes: Node[] = []): ReactNode[] {
+function inline(nodes: readonly InlineNode[] = []): ReactNode[] {
 	return nodes.map((node, i) =>
-		node.type === "hardBreak" ? <br key={i} /> : <span key={i}>{marked(node.text ?? "", node.marks)}</span>,
+		node.type === "hardBreak" ? (
+			<br key={i} />
+		) : (
+			<span key={i}>{node.type === "text" ? marked(node.text, node.marks) : ""}</span>
+		),
 	);
 }
 
@@ -77,7 +88,7 @@ function table(node: TableNode, key: number): ReactNode {
 								if (c.type === "text")
 									return (
 										<div key={c.id} data-ef-node="cell" data-ef-cell="text" role="cell">
-											{inline(cell?.content as Node[] | undefined)}
+											{inline(cell?.content)}
 										</div>
 									);
 								const value = cell?.attrs?.value;
@@ -118,28 +129,29 @@ function table(node: TableNode, key: number): ReactNode {
 	);
 }
 
-function block(node: Node, key: number): ReactNode {
-	const children = node.content ?? [];
+function block(node: BlockNode | ListItemNode, key: number): ReactNode {
 	switch (node.type) {
 		case "table":
-			return table(node as unknown as TableNode, key);
+			return table(node, key);
 		case "heading": {
 			const level = node.attrs?.level === 1 ? 1 : node.attrs?.level === 3 ? 3 : 2;
 			const Tag = `h${level}` as "h1" | "h2" | "h3";
-			return <Tag key={key}>{inline(children)}</Tag>;
+			return <Tag key={key}>{inline(node.content)}</Tag>;
 		}
 		case "bulletList":
-			return <ul key={key}>{children.map(block)}</ul>;
+			return <ul key={key}>{node.content.map(block)}</ul>;
 		case "orderedList":
-			return <ol key={key}>{children.map(block)}</ol>;
+			return <ol key={key}>{node.content.map(block)}</ol>;
 		case "listItem":
-			return <li key={key}>{children.map(block)}</li>;
+			return <li key={key}>{node.content.map(block)}</li>;
 		case "quote":
-			return <blockquote key={key}>{children.map(block)}</blockquote>;
+			return <blockquote key={key}>{node.content.map(block)}</blockquote>;
 		case "divider":
 			return <hr key={key} data-ef-node="divider" />;
+		case "paragraph":
+			return <p key={key}>{inline(node.content)}</p>;
 		default:
-			return <p key={key}>{inline(children)}</p>;
+			return <p key={key} />;
 	}
 }
 
@@ -147,7 +159,7 @@ export function NativeProse({ body, label }: { body: DocNode; label: string }) {
 	return (
 		<div className="ef-sheet ef-native">
 			<article aria-label={label} className="ef-paper">
-				<div className="ProseMirror">{((body.content ?? []) as Node[]).map(block)}</div>
+				<div className="ProseMirror">{(body.content ?? []).map(block)}</div>
 			</article>
 		</div>
 	);

@@ -24,7 +24,7 @@ import { Tag } from "@everyfield/ui/display";
 import { focusOnMount } from "@everyfield/ui/foundations";
 import { EditorContent, EditorContext, useEditor, useEditorState } from "@tiptap/react";
 import { useRouter } from "next/navigation";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { writeAddress } from "../../../components/location.ts";
 import { SAVE_SHORTCUT, shortcutMark } from "../../../components/save/leave.ts";
 import { useLocalStore, useStore } from "../../../components/store.ts";
@@ -120,6 +120,7 @@ export default function NativeEditor({
 					: { kind: "saved" };
 
 	const save = useCallback(async () => (editor ? actions.save(editor) : false), [editor, actions]);
+	const editorContext = useMemo(() => ({ editor }), [editor]);
 	const unsaved = useCallback(() => !!editor && actions.unsaved(editor), [editor, actions]);
 	const leave = useLeaveGuard(editor, unsaved);
 
@@ -147,7 +148,7 @@ export default function NativeEditor({
 	const busy = phase.kind === "saving";
 	const conflict = phase.kind === "failed" && phase.conflict;
 	return (
-		<EditorContext.Provider value={{ editor }}>
+		<EditorContext.Provider value={editorContext}>
 			<div className="flex flex-col gap-4">
 				<PageHeader
 					breadcrumb={[{ label: "Documents", href: "/documents" }]}
