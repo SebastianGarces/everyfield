@@ -1,7 +1,7 @@
 "use client";
 
 import { observeSize, prefersReducedMotion } from "@everyfield/ui/foundations";
-import { animate, useMotionValue, type AnimationPlaybackControls } from "motion/react";
+import { useMotionValue } from "motion/react";
 import { useCallback, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { EvryBot } from "@/components/kit/EvryBot";
 import { createAutoplay, joinRefs } from "../playback";
@@ -39,7 +39,7 @@ export function JourneyPath({
 	const bubble = useRef<HTMLParagraphElement>(null);
 	const stops = useRef<(HTMLButtonElement | null)[]>([]);
 	const geo = useRef<Geo>({ c: [], at: [], len: 0, L: 0, wx: 0, k: 0 });
-	const walking = useRef<AnimationPlaybackControls>(undefined);
+	const raf = useRef(0);
 	const moodTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 	const mood = useMotionValue("idle");
 
@@ -111,7 +111,7 @@ export function JourneyPath({
 
 	const walk = useCallback(
 		(i: number) => {
-			walking.current?.stop();
+			cancelAnimationFrame(raf.current);
 			const g = geo.current,
 				from = g.L,
 				to = g.at[i]!,
@@ -121,19 +121,22 @@ export function JourneyPath({
 				arrive(i);
 				return;
 			}
-			const dur = Math.min(1700, Math.max(700, dist * 2.2));
+			const dur = Math.min(1700, Math.max(700, dist * 2.2)),
+				t0 = performance.now();
 			bubble.current!.setAttribute("data-swap", "");
 			mood.set("idle");
 			bot.current!.animate([{ translate: "0 0" }, { translate: "0 -16px", offset: 0.45 }, { translate: "0 0" }], {
 				duration: dur,
 				easing: "cubic-bezier(.4,0,.4,1)",
 			});
-			walking.current = animate(from, to, {
-				duration: dur / 1000,
-				ease,
-				onUpdate: put,
-				onComplete: () => arrive(i),
-			});
+			const frame = (now: number) => {
+				if (!walker.current) return;
+				const u = Math.min(1, (now - t0) / dur);
+				put(from + (to - from) * ease(u));
+				if (u < 1) raf.current = requestAnimationFrame(frame);
+				else arrive(i);
+			};
+			raf.current = requestAnimationFrame(frame);
 		},
 		[arrive, mood, put],
 	);
@@ -168,14 +171,14 @@ export function JourneyPath({
 				(node) => {
 					band.current = node;
 					return () => {
-						walking.current?.stop();
+						cancelAnimationFrame(raf.current);
 						clearTimeout(moodTimer.current);
 					};
 				},
 				observeSize(
 					() => {
 						layout();
-						walking.current?.stop();
+						cancelAnimationFrame(raf.current);
 						put(geo.current.at[geo.current.k]!);
 						place();
 						bubble.current!.removeAttribute("data-swap");
