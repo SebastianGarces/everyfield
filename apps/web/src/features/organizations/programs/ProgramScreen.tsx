@@ -28,7 +28,7 @@ import { useState, type FormEvent, type ReactNode } from "react";
 import { formatDay, PIPELINE_PATH } from "../board/model";
 import { Problem } from "../board/Problem";
 import { enroll, publishVersion, rereadProgram, savePlan } from "./actions";
-import { ApplyVersionsDialog } from "./ApplyVersions";
+import { ApplyVersionsDialog, versionReviews } from "./ApplyVersions";
 import { enrollmentHref, KIND, monthRange, programProblem, PROGRAMS_PATH, readingHref, RHYTHM } from "./model";
 import { draftFrom, PlanEditor, planFrom, type PlanDraft } from "./PlanEditor";
 
@@ -179,7 +179,10 @@ export function ProgramScreen({ initial, organizationId }: { initial: ProgramDet
 					program={program}
 					selected={selected}
 					onSelectedChange={setSelected}
-					onApply={() => setDialog("apply")}
+					onApply={() => {
+						versionReviews.prefetch(program.id, selected);
+						setDialog("apply");
+					}}
 				/>
 			</div>
 

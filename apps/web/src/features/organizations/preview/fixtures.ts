@@ -95,7 +95,6 @@ const READS = new Set<OperationName>([
 	"pipelineSharing.readConsent",
 ]);
 const days = (n: number) => new Date(Date.now() + n * 86_400_000).toISOString();
-const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 const item = (
 	p: RelationshipPair,
@@ -141,7 +140,6 @@ const DISCLOSURES: Record<string, unknown> = {
 	},
 };
 async function sampleDisclosure(p: RelationshipPair): Promise<Disclosure | null> {
-	await wait(300);
 	const raw = DISCLOSURES[p.organization.id];
 	return raw ? C.sharingDisclosure.parse(raw) : null;
 }
@@ -237,7 +235,6 @@ export function createBackend(side: "subject" | "organization", viewer: Viewer, 
 
 	const PAGE = 4;
 	async function read(after: string | null) {
-		await wait(350);
 		if (Date.now() < failUntil) throw new TypeError("Failed to fetch");
 		const start = after === null ? 0 : events.findIndex((e) => e.id === after) + 1;
 		const page = events.slice(start, start + PAGE);
@@ -299,7 +296,6 @@ export function createBackend(side: "subject" | "organization", viewer: Viewer, 
 	/** The address each request sent in this visit went to; a request leaves `pending` when it is answered or withdrawn. */
 	const addresses = new Map<string, string>();
 	const run = (async (operation: OperationName, input: unknown) => {
-		await wait(450);
 		if (READS.has(operation)) return answer(operation, input);
 		const key = `${operation}:${(input as { requestKey: string }).requestKey}`;
 		const body = JSON.stringify(input);
@@ -496,7 +492,6 @@ export function createBackend(side: "subject" | "organization", viewer: Viewer, 
 	const readDisclosure = async (p: RelationshipPair) => {
 		if (disclosureFails) {
 			disclosureFails = false;
-			await wait(300);
 			throw new TypeError("Failed to fetch");
 		}
 		return sampleDisclosure(p);

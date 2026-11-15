@@ -250,8 +250,7 @@ function BeforeJoining() {
 		<div className="flex flex-col gap-4 py-6">
 			<ResidencyDisclosure
 				organizationName={NAMES_FOR_PREVIEW.network}
-				onAccept={async (choices) => {
-					await new Promise((r) => setTimeout(r, 450));
+				onAccept={(choices) => {
 					const shared = [
 						choices.shareFoundations && "foundation progress",
 						choices.shareMilestones && "milestone progress",

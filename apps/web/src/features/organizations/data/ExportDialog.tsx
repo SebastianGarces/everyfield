@@ -21,7 +21,7 @@ import { PIPELINE_PATH, plural } from "../board/model";
 type State =
 	| { kind: "ready" }
 	| { kind: "exporting" }
-	| { kind: "done"; filename: string; people: number }
+	| { kind: "done"; filename: string; people: number; url: string }
 	| { kind: "failed"; denied: boolean };
 
 export function ExportDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
@@ -29,6 +29,7 @@ export function ExportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
 	const busy = state.kind === "exporting";
 
 	const download = async () => {
+		if (state.kind === "done") URL.revokeObjectURL(state.url);
 		setState({ kind: "exporting" });
 		try {
 			const res = await fetch(`${PIPELINE_PATH}/export`, { cache: "no-store" });
@@ -43,8 +44,7 @@ export function ExportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
 			a.href = url;
 			a.download = filename;
 			a.click();
-			setTimeout(() => URL.revokeObjectURL(url), 30_000);
-			setState({ kind: "done", filename, people: Number(res.headers.get("x-export-people") ?? 0) });
+			setState({ kind: "done", filename, people: Number(res.headers.get("x-export-people") ?? 0), url });
 		} catch {
 			setState({ kind: "failed", denied: false });
 		}
@@ -52,6 +52,7 @@ export function ExportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
 
 	const close = () => {
 		if (busy) return;
+		if (state.kind === "done") URL.revokeObjectURL(state.url);
 		onOpenChange(false);
 		setState({ kind: "ready" });
 	};

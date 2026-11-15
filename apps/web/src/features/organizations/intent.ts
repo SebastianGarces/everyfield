@@ -1,7 +1,8 @@
 "use client";
 
 import type { Loadable } from "@everyfield/ui/display";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
+import { createRead, useRead } from "../../components/read.tsx";
 import { newRequestKey } from "./port";
 
 /**
@@ -88,44 +89,26 @@ export function useIntent<C>(intent: string) {
  * save never blanks the list. Only the first load shows the skeleton, and an error offers Try again. `update` applies
  * a confirmed command's answer to the data on screen, so a change needs no second read.
  */
+type Loaded<T> = { data: T } | { failed: true };
+
 export function useLoad<T>(fetch: () => Promise<T>, errorTitle: string, initial?: T) {
-	const [attempt, setAttempt] = useState(0);
-	type Reply = { attempt: number; fetch: () => Promise<T>; data?: T; failed?: true };
-	// Data the server rendered with the page shows at once; the first fetch runs only after a command (reload).
-	const [reply, setReply] = useState<Reply | null>(initial === undefined ? null : { attempt: 0, fetch, data: initial });
-	const [shown, setShown] = useState<{ fetch: () => Promise<T>; data: T } | null>(
-		initial === undefined ? null : { fetch, data: initial },
-	);
-	useEffect(() => {
-		if (attempt === 0 && initial !== undefined) return;
-		let live = true;
-		fetch().then(
-			(data) => {
-				if (!live) return;
-				setReply({ attempt, fetch, data });
-				setShown({ fetch, data });
-			},
-			() => live && setReply({ attempt, fetch, failed: true }),
-		);
-		return () => {
-			live = false;
-		};
-	}, [fetch, attempt, initial]);
-	const reload = useCallback(() => setAttempt((n) => n + 1), []);
-	const update = useCallback((change: (data: T) => T) => {
-		setReply((r) => (r && r.data !== undefined ? { ...r, data: change(r.data) } : r));
-		setShown((s) => (s ? { ...s, data: change(s.data) } : s));
-	}, []);
-	const current = reply && reply.attempt === attempt && reply.fetch === fetch ? reply : null;
-	const last = shown && shown.fetch === fetch ? shown : null;
-	const state: Loadable<T> = current?.failed
-		? { status: "error", title: errorTitle, onRetry: reload }
-		: current
-			? { status: "ready", data: current.data as T }
-			: last
-				? { status: "ready", data: last.data }
-				: { status: "loading" };
-	/** True while a reload runs over data already on screen: commands built from that data would be stale. */
-	const refreshing = !current && last !== null;
-	return { state, reload, update, refreshing };
+	const [read] = useState(() => {
+		const instance = createRead((): Promise<Loaded<T>> => fetch().then((data) => ({ data })), {
+			failed: (): Loaded<T> => ({ failed: true }),
+			fresh: Infinity,
+			keep: (value) => "data" in value,
+		});
+		if (initial !== undefined) instance.seed({ data: initial });
+		return instance;
+	});
+	const loaded = useRead(read);
+	const value = loaded.status === "idle" && initial !== undefined ? { data: initial } : loaded.value;
+	const state: Loadable<T> = !value
+		? { status: "loading" }
+		: "failed" in value
+			? { status: "error", title: errorTitle, onRetry: loaded.retry }
+			: { status: "ready", data: value.data };
+	const update = (change: (data: T) => T) =>
+		loaded.patch((current) => ("data" in current ? { data: change(current.data) } : current));
+	return { state, reload: loaded.reload, update, refreshing: loaded.reloading };
 }

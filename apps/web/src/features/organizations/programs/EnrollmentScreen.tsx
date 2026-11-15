@@ -21,7 +21,8 @@ import {
 	Textarea,
 } from "@everyfield/ui/controls";
 import { Icon } from "@everyfield/ui/foundations";
-import { useEffect, useState, type FormEvent } from "react";
+import { useState, useTransition, type FormEvent } from "react";
+import { createRead, useRead } from "../../../components/read.tsx";
 import { formatDay, PIPELINE_PATH } from "../board/model";
 import { Problem } from "../board/Problem";
 import {
@@ -38,6 +39,8 @@ import { ReviewParts } from "./VersionReview";
 
 type Milestone = EnrollmentDetail["milestones"][number];
 const lost = () => ({ status: "lost" as const });
+
+const versionReview = createRead((enrollmentId: string) => reviewVersion(enrollmentId).catch(lost), { failed: lost });
 
 /**
  * One enrollment (REQ-MUL-011, -012): the person's cohort, dates, program stage and next meeting on the version they
@@ -91,7 +94,14 @@ export function EnrollmentScreen({ initial }: { initial: EnrollmentDetail }) {
 							</CalloutText>
 						</div>
 						{director ? (
-							<Button variant="primary" className="flex-none" onClick={() => setReviewing(true)}>
+							<Button
+								variant="primary"
+								className="flex-none"
+								onClick={() => {
+									versionReview.prefetch(enrollment.id);
+									setReviewing(true);
+								}}
+							>
 								Apply Version {enrollment.newerVersion.number}
 							</Button>
 						) : null}
@@ -534,48 +544,33 @@ function ApplyReview({
 	onClose: () => void;
 	onApplied: () => Promise<void>;
 }) {
-	const [review, setReview] = useState<VersionReview | null>(null);
-	const [stageId, setStageId] = useState("");
-	const [attempt, setAttempt] = useState(0);
-	const [saving, setSaving] = useState(false);
+	const [picked, setPicked] = useState<{ review: VersionReview; stageId: string } | null>(null);
 	const [problem, setProblem] = useState<string | null>(null);
+	const [saving, startSaving] = useTransition();
+	const answer = useRead(versionReview, enrollment.id).value;
+	const review = answer?.status === "ok" ? answer.value : null;
+	const loadProblem = answer && answer.status !== "ok" ? programProblem(answer) : null;
+	const stageId = review && picked?.review === review ? picked.stageId : (review?.stageId ?? "");
 	const name = enrollment.person.name;
 	const number = review?.toNumber ?? enrollment.newerVersion!.number;
 
-	useEffect(() => {
-		let current = true;
-		void reviewVersion(enrollment.id)
-			.catch(lost)
-			.then((answer) => {
-				if (!current) return;
-				if (answer.status !== "ok") {
-					setReview(null);
-					return setProblem(programProblem(answer));
-				}
-				setReview(answer.value);
-				setStageId(answer.value.stageId);
-			});
-		return () => {
-			current = false;
-		};
-	}, [enrollment.id, attempt]);
-
-	async function submit(event: FormEvent) {
+	const submit = (event: FormEvent) => {
 		event.preventDefault();
 		if (!review) return;
-		setSaving(true);
-		setProblem(null);
-		const answer = await applyVersion({
-			enrollmentId: enrollment.id,
-			versionId: review.versionId,
-			stageId,
-			basis: review.basis,
-		}).catch(lost);
-		setSaving(false);
-		if (answer.status === "ok") return onApplied();
-		setProblem(programProblem(answer));
-		if (answer.status === "refused" && answer.refusal.code === "stale_review") setAttempt((n) => n + 1);
-	}
+		startSaving(async () => {
+			setProblem(null);
+			const answer = await applyVersion({
+				enrollmentId: enrollment.id,
+				versionId: review.versionId,
+				stageId,
+				basis: review.basis,
+			}).catch(lost);
+			if (answer.status === "ok") return onApplied();
+			setProblem(programProblem(answer));
+			if (answer.status === "refused" && answer.refusal.code === "stale_review")
+				void versionReview.refresh(enrollment.id);
+		});
+	};
 
 	return (
 		<form onSubmit={submit} noValidate className="contents">
@@ -584,10 +579,10 @@ function ApplyReview({
 				description={`Review what changes for ${name}. Nothing is saved until you confirm.`}
 			/>
 			<DialogBody className="flex flex-col gap-5">
-				<Problem text={problem} />
+				<Problem text={loadProblem ?? problem} />
 				{review ? (
-					<ReviewParts review={review} stageId={stageId} onStageChange={setStageId} />
-				) : problem ? null : (
+					<ReviewParts review={review} stageId={stageId} onStageChange={(id) => setPicked({ review, stageId: id })} />
+				) : loadProblem || problem ? null : (
 					<p className="text-sm text-text-3">Loading the review…</p>
 				)}
 			</DialogBody>

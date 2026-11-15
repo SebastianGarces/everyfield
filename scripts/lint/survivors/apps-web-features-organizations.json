@@ -1,0 +1,11 @@
+{
+	"no-effects": {
+		"apps/web/src/features/organizations/RealRespond.tsx": [
+			{
+				"function": "RealRespond",
+				"count": 1,
+				"reason": "The emailed connection link carries its proof in the address fragment, which never reaches the server, so the page must move it into this tab's storage and remove it from the address bar as soon as the page has arrived. No event marks that arrival: the server cannot see a fragment, an address rule runs only on later writes and Back or Forward, a module-scope move runs once per tab rather than per visit, and a ref callback or subscription that did it would be this same mount hook in disguise."
+			}
+		]
+	}
+}
