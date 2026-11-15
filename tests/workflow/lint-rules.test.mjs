@@ -182,6 +182,8 @@ export function Row({ on }) {
 		"apps/web/src/features/x/Row.tsx:6 clickable-host",
 		"apps/web/src/features/x/Row.tsx:6 no-cursor-utility",
 		"apps/web/src/features/x/Row.tsx:9 clickable-host",
+		"packages/ui/src/Row.tsx:1 no-cursor-utility",
+		"packages/ui/src/Row.tsx:6 no-cursor-utility",
 	]);
 });
 
