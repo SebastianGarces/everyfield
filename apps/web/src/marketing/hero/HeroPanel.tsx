@@ -1,6 +1,6 @@
 import { ArrowRight02Icon } from "@hugeicons/core-free-icons";
 import type { ReactNode } from "react";
-import { cn } from "@/components/cn";
+import { cn } from "@everyfield/ui/foundations";
 import { ButtonLink } from "@/components/ButtonLink";
 import { Display } from "@/components/Display";
 import { Icon } from "@/components/Icon";

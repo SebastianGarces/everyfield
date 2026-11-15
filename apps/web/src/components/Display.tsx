@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { cn } from "./cn";
+import { cn } from "@everyfield/ui/foundations";
 
 type DisplaySize = "hero" | "h1" | "h2" | "h3";
 // Each size carries its serif: DM Serif Display at 24px and up, DM Serif Text below. h3 is 22px until mk-xl, then 28px.

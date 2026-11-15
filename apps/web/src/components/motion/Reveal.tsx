@@ -1,8 +1,7 @@
 "use client";
 
-import { prefersReducedMotion } from "@everyfield/ui/foundations";
+import { cn, prefersReducedMotion } from "@everyfield/ui/foundations";
 import { useEffect, useRef, type CSSProperties, type ReactNode, type RefObject } from "react";
-import { cn } from "../cn";
 
 /**
  * A block that rises 18 px and fades in once when it scrolls into view (transform and opacity, CSS transition).

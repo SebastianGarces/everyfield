@@ -1,5 +1,5 @@
 import { LOGO_SYMBOLS } from "@/marketing/logo-symbols";
-import { cn } from "./cn";
+import { cn } from "@everyfield/ui/foundations";
 
 // logo-symbols.ts stays the single source of the logo paths: the share-image renderer and the apple icon read it too.
 // It is parsed once, when the module loads, into typed symbols that render as JSX.

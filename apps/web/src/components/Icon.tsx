@@ -1,5 +1,5 @@
 import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react";
-import { cn } from "./cn";
+import { cn } from "@everyfield/ui/foundations";
 
 /**
  * A Hugeicons stroke-rounded icon. Decorative: the control that holds it carries the accessible name.

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { cn } from "./cn";
+import { cn } from "@everyfield/ui/foundations";
 
 export type ButtonVariant = "primary" | "secondary" | "inverse" | "photo" | "photo-secondary";
 export type ButtonSize = "md" | "nav" | "pill" | "footer";

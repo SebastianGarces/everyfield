@@ -13,7 +13,7 @@ import {
 	type ReactNode,
 } from "react";
 import { buttonClass } from "@/components/ButtonLink";
-import { cn } from "@/components/cn";
+import { cn } from "@everyfield/ui/foundations";
 import { Display } from "@/components/Display";
 import { Icon } from "@/components/Icon";
 import { revealProps, useReveal } from "@/components/motion/Reveal";

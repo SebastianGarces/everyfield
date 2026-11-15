@@ -1,9 +1,8 @@
 "use client";
 
-import { EvryBot as Evry, type EvryMood } from "@everyfield/ui/foundations";
+import { cn, EvryBot as Evry, type EvryMood } from "@everyfield/ui/foundations";
 import type { MotionValue } from "motion/react";
 import { useCallback, useEffect, useRef, useSyncExternalStore, type RefObject } from "react";
-import { cn } from "../cn";
 import { useDataAttr } from "../motion/scene";
 
 // Evry on the landing pages: the approved character (OPS-84) from @everyfield/ui/foundations, which owns the geometry

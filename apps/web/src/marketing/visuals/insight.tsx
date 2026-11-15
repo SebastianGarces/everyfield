@@ -1,6 +1,6 @@
 import type { IconSvgElement } from "@hugeicons/react";
 import type { ReactNode } from "react";
-import { cn } from "@/components/cn";
+import { cn } from "@everyfield/ui/foundations";
 import { Icon } from "@/components/Icon";
 import { NUM } from "@/components/kit/kit";
 

@@ -177,7 +177,7 @@ export function SettingsDialog({
 						e.preventDefault();
 						link.focus();
 					}}
-					className="h-[min(720px,calc(100dvh-24px))] max-w-[1040px]! overflow-hidden bg-surface!"
+					className="h-[min(720px,calc(100dvh-24px))] max-w-[1040px] overflow-hidden bg-surface"
 				>
 					<div
 						ref={panel}

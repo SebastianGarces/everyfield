@@ -2,7 +2,7 @@ import { Icon } from "@/components/Icon";
 import type { CSSProperties } from "react";
 import { Badge, StageChip, UiButton, type Tone } from "@/components/kit/kit";
 import { EvryBot } from "@/components/kit/EvryBot";
-import { cn } from "@/components/cn";
+import { cn } from "@everyfield/ui/foundations";
 import { ICONS } from "../icons";
 import { AppFrame, DashCard, DashHead, Delta, Kv, KV_V, ListRow, More } from "./dash";
 import { Insight } from "./insight";

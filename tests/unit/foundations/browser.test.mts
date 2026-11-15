@@ -70,3 +70,18 @@ test("INV-debounce: only the last call runs, once; cancel, flush and detaching i
 	mock.timers.tick(1000);
 	assert.deepEqual(ran, ["b", "c"]);
 });
+
+test("INV-cn: a call-site class wins over the primitive's conflicting class, and theme sizes never read as colours", async () => {
+	const { buttonVariants } = await import("../../../packages/ui/src/controls/index.ts");
+	const keepBoth = ui.cn(buttonVariants({ variant: "secondary" }), "flex-1").split(" ");
+	assert.ok(keepBoth.includes("flex-1") && !keepBoth.includes("flex-none"));
+	assert.equal(ui.cn("max-w-[720px] bg-surface-raised", "max-w-[1040px] bg-surface"), "max-w-[1040px] bg-surface");
+	assert.equal(ui.cn("gap-[26px] max-app-sm:gap-5", "gap-5 max-app-sm:gap-3"), "gap-5 max-app-sm:gap-3");
+	assert.equal(ui.cn("text-md text-ink", "text-text-2"), "text-md text-text-2");
+	assert.equal(ui.cn("text-title-sm text-ink", "text-[14px]"), "text-ink text-[14px]");
+	assert.equal(ui.cn("shadow-card rounded-card", "shadow-none rounded-full"), "shadow-none rounded-full");
+	assert.equal(
+		ui.cn("text-display-lg text-ink font-title", false, null, undefined),
+		"text-display-lg text-ink font-title",
+	);
+});
