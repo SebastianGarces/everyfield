@@ -58,13 +58,13 @@ agent-browser find role button text --name "Set Launch Sunday" --exact
 agent-browser find role button text --name "Record Launch Sunday" --exact
 ```
 
-- **member**: heading containing "Launch plan"; no text "Set Launch Sunday". As `member`, on the QA seed:
+- **member**: text containing "An Owner or Admin sets Launch Sunday"; no button "Set Launch Sunday". As `member`, on the QA seed:
 
 ```bash
 agent-browser open "$ORIGIN/launch"
 agent-browser wait --load networkidle
-agent-browser find role heading text --name "Launch plan"
-agent-browser wait --fn "!document.body.innerText.includes(\"Set Launch Sunday\")"
+agent-browser wait --text "An Owner or Admin sets Launch Sunday"
+! agent-browser find role button text --name "Set Launch Sunday" --exact
 ```
 
 - **signed-out**: URL `/signin?returnTo=%2Flaunch`. As `visitor`, on the QA seed:
@@ -85,6 +85,7 @@ Once the date arrives, Record Launch Sunday saves what happened, named guests be
 - Catalog: LCH-006, LCH-007
 - Cases: CASE-LCH-006, CASE-LCH-007
 - Test: `tests/integration/launch/outcome.test.mts`: `AC:LAUNCH46-001 AC:CASE-LCH-006 Launch Sunday held on Oct 11 sits beside the planned Oct 10, which stays, and no meeting is made`
+- Test: `tests/integration/launch/outcome.test.mts`: `AC:LAUNCH46-003 AC:CASE-LCH-006 typing only Mara adds a new Person named Mara, linked as a Launch Sunday guest, with nothing made up`
 - Test: `tests/integration/launch/outcome.test.mts`: `AC:CASE-LCH-007 AC:B02-021 correcting 40 to 50 with a reason is history once; the phase stays and no task is made`
 - Browser, presence proof only (the control is there; the tests prove the outcome), from state no-date:
 

@@ -59,6 +59,7 @@ flowchart LR
   end
   subgraph f9["wiki"]
     f9s0["wiki.reader"]
+    f9s1["wiki.article"]
   end
   f8s0 --> f0s0
   f0s0 --> f0s1
@@ -98,6 +99,7 @@ flowchart LR
   f8s0 --> f8s2
   rail -- "Wiki" --> f9s0
   links -.-> f9s0
+  f9s0 --> f9s1
 ```
 
 | Feature | Map | Surfaces | Routes | Behaviors | Browser behavior proofs | Browser presence proofs |
@@ -106,12 +108,12 @@ flowchart LR
 | [identity](identity.md) | [`apps/web/src/features/identity/feature-map.json`](../../apps/web/src/features/identity/feature-map.json) | 8 | 10 | 11 | 4 | 1 |
 | [launch](launch.md) | [`apps/web/src/features/launch/feature-map.json`](../../apps/web/src/features/launch/feature-map.json) | 2 | 1 | 5 | 3 | 1 |
 | [meetings](meetings.md) | [`apps/web/src/features/meetings/feature-map.json`](../../apps/web/src/features/meetings/feature-map.json) | 4 | 5 | 10 | 4 | 4 |
-| [notifications](notifications.md) | [`apps/web/src/features/notifications/feature-map.json`](../../apps/web/src/features/notifications/feature-map.json) | 2 | 4 | 5 | 1 | 0 |
+| [notifications](notifications.md) | [`apps/web/src/features/notifications/feature-map.json`](../../apps/web/src/features/notifications/feature-map.json) | 2 | 4 | 5 | 0 | 1 |
 | [overview](overview.md) | [`apps/web/src/features/overview/feature-map.json`](../../apps/web/src/features/overview/feature-map.json) | 1 | 1 | 4 | 1 | 1 |
 | [people](people.md) | [`apps/web/src/features/people/feature-map.json`](../../apps/web/src/features/people/feature-map.json) | 4 | 12 | 11 | 6 | 2 |
 | [phases](phases.md) | [`apps/web/src/features/phases/feature-map.json`](../../apps/web/src/features/phases/feature-map.json) | 1 | 1 | 4 | 1 | 2 |
 | [tasks](tasks.md) | [`apps/web/src/features/tasks/feature-map.json`](../../apps/web/src/features/tasks/feature-map.json) | 3 | 2 | 8 | 4 | 1 |
-| [wiki](wiki.md) | [`apps/web/src/features/wiki/feature-map.json`](../../apps/web/src/features/wiki/feature-map.json) | 1 | 2 | 6 | 3 | 1 |
+| [wiki](wiki.md) | [`apps/web/src/features/wiki/feature-map.json`](../../apps/web/src/features/wiki/feature-map.json) | 2 | 2 | 6 | 3 | 1 |
 
 ## Become a persona
 
@@ -122,7 +124,10 @@ local proof slot or a QA preview (`bin/qa`). Sign in at `/signin` with the perso
 In commands, `$ORIGIN` is the app's address, `$REPO` the checkout, and `<QA_LOGINS.x>` and `<QA_PASSWORD>` are
 values from that file. Each step that opens, clicks, presses or uploads is followed by a network-idle wait, so the page
 has hydrated and the next check sees the result.
-A state marked setup creates its own data first; run its setup once per fresh seed.
+A state marked setup creates its own data first; run its setup once per fresh seed. A setup and a behavior proof
+that perform the same action (for example setting Launch Sunday) use up each other's starting state: run each
+once per fresh seed, and after either has run, start the other state at its last `open`. A state marked known
+defect shows a bug that is not fixed yet: it passes while the bug is there, and its text says what is wrong.
 
 | Persona | Context | Who | Sign in with |
 |---|---|---|---|
@@ -155,7 +160,13 @@ It cannot catch, and only running the browser steps catches:
 - the wrong role for a name (a heading checked as a button);
 - whether a persona really has the access the map gives it, or a state's checks also pass on another screen;
 - whether the seed data the steps name is in the state the steps expect (each run needs a fresh seed);
-- a real test name that tests something other than the behavior it is listed under.
+- a real test name that tests something other than the behavior it is listed under;
+- an absent check that passes only because a modal dialog hides the page behind it.
+
+What a map cannot express: a state has one persona, and its setup can only open, click, type, press and upload,
+with names from its own feature, `packages/ui/src`, the shell and the QA seed. So a setup cannot switch persona
+or run another feature's action. A state that needs either stays manual, with its steps in words, and a
+behavior that needs either is proven by its tests only.
 
 A browser proof marked presence only shows that the control is there; the listed tests prove the outcome.
 

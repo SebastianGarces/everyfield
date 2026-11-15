@@ -5,10 +5,10 @@
 	"surfaces": [
 		{
 			"id": "wiki.reader",
-			"says": "The Playbook wiki: what to read next, articles and church versions, search, bookmarks, ratings, print and PDF.",
+			"says": "The Playbook wiki: a home with what to read next, search, and every article's address.",
 			"routes": ["/wiki/[[...slug]]"],
 			"endpoints": ["/api/wiki/progress"],
-			"catalog": ["WIKI-001", "WIKI-002", "WIKI-003", "WIKI-004", "WIKI-005", "WIKI-006", "WIKI-007", "WIKI-011"],
+			"catalog": ["WIKI-001", "WIKI-002", "WIKI-003", "WIKI-004", "WIKI-011"],
 			"reach": [
 				{
 					"rail": "Wiki",
@@ -51,43 +51,6 @@
 							"role": "link",
 							"name": "Updated since you read it",
 							"match": "contains"
-						}
-					]
-				},
-				{
-					"id": "article",
-					"reach": {
-						"persona": "owner",
-						"open": "/wiki",
-						"path": [
-							{
-								"click": {
-									"role": "link",
-									"name": "Grace Fellowship (QA)",
-									"match": "contains"
-								}
-							},
-							{
-								"expect": {
-									"url": "/wiki/{slug}"
-								}
-							}
-						],
-						"seed": "qa"
-					},
-					"expect": [
-						{
-							"role": "heading",
-							"name": "Grace Fellowship (QA)",
-							"match": "contains"
-						},
-						{
-							"role": "button",
-							"name": "Download PDF"
-						},
-						{
-							"role": "button",
-							"name": "Helpful"
 						}
 					]
 				},
@@ -143,12 +106,26 @@
 							"name": "We could not load the wiki"
 						}
 					]
+				},
+				{
+					"id": "signup-dead-end",
+					"defect": "a signed-in account with no church sees Wiki in the rail, but apps/web/src/features/wiki/server.ts:46 gives it no reader, so routes.tsx:57 sends it to sign-in, which says it is signed in",
+					"reach": {
+						"persona": "signup",
+						"open": "/wiki",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"url": "/signin?returnTo=%2Fwiki"
+						}
+					]
 				}
 			],
 			"behaviors": [
 				{
 					"id": "search",
-					"says": "Search finds articles by their words and marks each match in its snippet.",
+					"says": "Search finds articles by their words: a second query drops the church version the first one found.",
 					"catalog": ["WIKI-003"],
 					"operations": ["wiki.search"],
 					"proof": {
@@ -170,6 +147,20 @@
 									"click": {
 										"role": "searchbox",
 										"name": "Search the wiki"
+									}
+								},
+								{
+									"type": "cash",
+									"into": "Search words"
+								},
+								{
+									"press": "Enter"
+								},
+								{
+									"expect": {
+										"role": "link",
+										"name": "Grace Fellowship (QA)",
+										"match": "contains"
 									}
 								},
 								{
@@ -199,10 +190,98 @@
 					}
 				},
 				{
+					"id": "progress",
+					"says": "Reading records progress; the home resumes it and marks an article changed since it was read.",
+					"catalog": ["WIKI-004"],
+					"operations": ["wiki.reading.updateProgress", "wiki.reading.recordView"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/wiki/wiki.test.mts",
+								"name": "two tabs write progress and views from stale revisions without a conflict; bookmark still works"
+							}
+						]
+					}
+				}
+			]
+		},
+		{
+			"id": "wiki.article",
+			"says": "One article: its church versions and their order, rating, bookmark, print and PDF.",
+			"routes": [],
+			"catalog": ["WIKI-001", "WIKI-005", "WIKI-006", "WIKI-007"],
+			"reach": [
+				{
+					"from": "wiki.reader",
+					"persona": "owner",
+					"path": [
+						{
+							"click": {
+								"role": "link",
+								"name": "Grace Fellowship (QA)",
+								"match": "contains"
+							}
+						},
+						{
+							"expect": {
+								"url": "/wiki/{slug}"
+							}
+						}
+					]
+				}
+			],
+			"personas": {
+				"owner": "write",
+				"admin": "write",
+				"member": "write",
+				"resident": "write",
+				"triage": "write"
+			},
+			"states": [
+				{
+					"id": "article",
+					"reach": {
+						"persona": "owner",
+						"open": "/wiki",
+						"path": [
+							{
+								"click": {
+									"role": "link",
+									"name": "Grace Fellowship (QA)",
+									"match": "contains"
+								}
+							},
+							{
+								"expect": {
+									"url": "/wiki/{slug}"
+								}
+							}
+						],
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Grace Fellowship (QA)",
+							"match": "contains"
+						},
+						{
+							"role": "button",
+							"name": "Download PDF"
+						},
+						{
+							"role": "button",
+							"name": "Helpful"
+						}
+					]
+				}
+			],
+			"behaviors": [
+				{
 					"id": "rate",
 					"says": "Helpful or Unhelpful records the reader's one rating.",
 					"catalog": ["WIKI-006"],
-					"operations": ["wiki.feedback.setMine"],
+					"operations": ["wiki.feedback.setMine", "wiki.feedback.getMine"],
 					"proof": {
 						"tests": [
 							{
@@ -234,8 +313,7 @@
 					"id": "export",
 					"says": "Print and Download PDF render the visible text, diagrams as text, code verbatim, a human credit.",
 					"catalog": ["WIKI-007"],
-					"operations": [],
-					"noOperation": "the catalog's wiki.article.exportPdf and wiki.article.print are not quoted or declared in packages/*/src or apps/web/src/server",
+					"operations": ["wiki.article.exportPdf"],
 					"proof": {
 						"tests": [
 							{
@@ -263,20 +341,6 @@
 							],
 							"kind": "presence"
 						}
-					}
-				},
-				{
-					"id": "progress",
-					"says": "Reading records progress; the home resumes it and marks an article changed since it was read.",
-					"catalog": ["WIKI-004"],
-					"operations": ["wiki.reading.updateProgress", "wiki.reading.recordView"],
-					"proof": {
-						"tests": [
-							{
-								"file": "tests/integration/wiki/wiki.test.mts",
-								"name": "two tabs write progress and views from stale revisions without a conflict; bookmark still works"
-							}
-						]
 					}
 				},
 				{

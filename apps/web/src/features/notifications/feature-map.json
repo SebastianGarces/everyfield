@@ -111,7 +111,7 @@
 			"behaviors": [
 				{
 					"id": "unread-filter",
-					"says": "Unread shows only what is still unread, with its own empty state when nothing is.",
+					"says": "Unread switches the feed to unread entries only; on the seed's empty feed this shows only the view switching.",
 					"catalog": ["NTF-003"],
 					"operations": ["notifications.feed"],
 					"proof": {
@@ -145,7 +145,7 @@
 									}
 								}
 							],
-							"kind": "behavior"
+							"kind": "presence"
 						}
 					}
 				},

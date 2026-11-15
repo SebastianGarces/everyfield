@@ -80,12 +80,14 @@
 					},
 					"expect": [
 						{
-							"role": "heading",
-							"name": "Launch plan",
+							"text": "An Owner or Admin sets Launch Sunday",
 							"match": "contains"
 						},
 						{
-							"noText": "Set Launch Sunday"
+							"absent": {
+								"role": "button",
+								"name": "Set Launch Sunday"
+							}
 						}
 					]
 				},
@@ -126,6 +128,10 @@
 							{
 								"file": "tests/integration/launch/outcome.test.mts",
 								"name": "AC:LAUNCH46-001 AC:CASE-LCH-006 Launch Sunday held on Oct 11 sits beside the planned Oct 10, which stays, and no meeting is made"
+							},
+							{
+								"file": "tests/integration/launch/outcome.test.mts",
+								"name": "AC:LAUNCH46-003 AC:CASE-LCH-006 typing only Mara adds a new Person named Mara, linked as a Launch Sunday guest, with nothing made up"
 							},
 							{
 								"file": "tests/integration/launch/outcome.test.mts",

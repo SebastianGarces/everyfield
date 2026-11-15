@@ -15,7 +15,7 @@ flowchart LR
   s0 -.- s0_st1(("unread (manual)"))
   s0 -.- s0_st2(("signed-out"))
   s0 -.- s0_st3(("load-failed (manual)"))
-  s0 --- s0_b0["unread-filter<br/>tests + cases + browser behavior"]
+  s0 --- s0_b0["unread-filter<br/>tests + cases + browser presence"]
   s0 --- s0_b1["mark-read<br/>tests + cases"]
   s0 --- s0_b2["milestones<br/>tests + cases"]
   s0 --- s0_b3["digests<br/>tests + cases"]
@@ -74,13 +74,13 @@ agent-browser wait --url "**/signin?returnTo=%2Fnotifications"
 
 #### notifications.feed#unread-filter
 
-Unread shows only what is still unread, with its own empty state when nothing is.
+Unread switches the feed to unread entries only; on the seed's empty feed this shows only the view switching.
 
 - Operations: notifications.feed
 - Catalog: NTF-003
 - Cases: CASE-NTF-003
 - Test: `tests/integration/notifications/notifications.test.mts`: `AC:CASE-NTF-003 AC:NOTIFY47-001 AC:NOTIFY47-010 the feed and mark stay inside one recipient`
-- Browser, behavior proof (acts and checks the result), from state empty:
+- Browser, presence proof only (the control is there; the tests prove the outcome), from state empty:
 
 ```bash
 agent-browser find role radio click --name "Unread"

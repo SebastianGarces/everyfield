@@ -11,29 +11,32 @@ flowchart LR
   rail -- "Wiki" --> s0
   s0_link1 --> s0
   s0 -.- s0_st0(("home"))
-  s0 -.- s0_st1(("article"))
-  s0 -.- s0_st2(("unavailable"))
-  s0 -.- s0_st3(("account"))
-  s0 -.- s0_st4(("signed-out"))
-  s0 -.- s0_st5(("load-failed (manual)"))
+  s0 -.- s0_st1(("unavailable"))
+  s0 -.- s0_st2(("account"))
+  s0 -.- s0_st3(("signed-out"))
+  s0 -.- s0_st4(("load-failed (manual)"))
+  s0 -.- s0_st5(("signup-dead-end (known defect)"))
   s0 --- s0_b0["search<br/>tests + cases + browser behavior"]
-  s0 --- s0_b1["rate<br/>tests + cases + browser behavior"]
-  s0 --- s0_b2["export<br/>tests + cases + browser presence"]
-  s0 --- s0_b3["progress<br/>tests"]
-  s0 --- s0_b4["versions<br/>tests + cases"]
-  s0 --- s0_b5["bookmark<br/>tests + browser behavior"]
+  s0 --- s0_b1["progress<br/>tests"]
+  s1["wiki.article<br/>no page"]
+  s0 -- "link containing #quot;Grace Fellowship (QA)#quot;" --> s1
+  s1 -.- s1_st0(("article"))
+  s1 --- s1_b0["rate<br/>tests + cases + browser behavior"]
+  s1 --- s1_b1["export<br/>tests + cases + browser presence"]
+  s1 --- s1_b2["versions<br/>tests + cases"]
+  s1 --- s1_b3["bookmark<br/>tests + browser behavior"]
 ```
 
 ## Surfaces
 
 ### wiki.reader
 
-The Playbook wiki: what to read next, articles and church versions, search, bookmarks, ratings, print and PDF.
+The Playbook wiki: a home with what to read next, search, and every article's address.
 
 - Routes: `/wiki/[[...slug]]`
 - Endpoints: `/api/wiki/progress`
 - Personas: `owner` write, `admin` write, `member` write, `resident` write, `signup` write, `triage` write, `visitor` none
-- Catalog: WIKI-001, WIKI-002, WIKI-003, WIKI-004, WIKI-005, WIKI-006, WIKI-007, WIKI-011
+- Catalog: WIKI-001, WIKI-002, WIKI-003, WIKI-004, WIKI-011
 
 Reach:
 
@@ -50,19 +53,6 @@ agent-browser wait --load networkidle
 agent-browser find role heading text --name "Continue reading" --exact
 agent-browser find role heading text --name "Recent" --exact
 agent-browser find role link text --name "Updated since you read it"
-```
-
-- **article**: heading containing "Grace Fellowship (QA)"; button "Download PDF"; button "Helpful". As `owner`, on the QA seed:
-
-```bash
-agent-browser open "$ORIGIN/wiki"
-agent-browser wait --load networkidle
-agent-browser find role link click --name "Grace Fellowship (QA)"
-agent-browser wait --load networkidle
-agent-browser wait --url "**/wiki/*"
-agent-browser find role heading text --name "Grace Fellowship (QA)"
-agent-browser find role button text --name "Download PDF" --exact
-agent-browser find role button text --name "Helpful" --exact
 ```
 
 - **unavailable**: heading "This article is not available". As `owner`, on the QA seed:
@@ -90,10 +80,17 @@ agent-browser wait --url "**/signin?returnTo=%2Fwiki"
 ```
 
 - **load-failed**: heading "We could not load the wiki". Not scripted: renders only when the wiki read fails on the server.
+- **signup-dead-end**: URL `/signin?returnTo=%2Fwiki`. Known defect, so this state shows what is wrong: a signed-in account with no church sees Wiki in the rail, but apps/web/src/features/wiki/server.ts:46 gives it no reader, so routes.tsx:57 sends it to sign-in, which says it is signed in. As `signup`, on the QA seed:
+
+```bash
+agent-browser open "$ORIGIN/wiki"
+agent-browser wait --load networkidle
+agent-browser wait --url "**/signin?returnTo=%2Fwiki"
+```
 
 #### wiki.reader#search
 
-Search finds articles by their words and marks each match in its snippet.
+Search finds articles by their words: a second query drops the church version the first one found.
 
 - Operations: wiki.search
 - Catalog: WIKI-003
@@ -105,6 +102,10 @@ Search finds articles by their words and marks each match in its snippet.
 ```bash
 agent-browser find role searchbox click --name "Search the wiki" --exact
 agent-browser wait --load networkidle
+agent-browser find label "Search words" fill "cash"
+agent-browser press Enter
+agent-browser wait --load networkidle
+agent-browser find role link text --name "Grace Fellowship (QA)"
 agent-browser find label "Search words" fill "Designated"
 agent-browser press Enter
 agent-browser wait --load networkidle
@@ -112,11 +113,52 @@ agent-browser find role link text --name "Designated"
 ! agent-browser find role link text --name "Grace Fellowship (QA)"
 ```
 
-#### wiki.reader#rate
+#### wiki.reader#progress
+
+Reading records progress; the home resumes it and marks an article changed since it was read.
+
+- Operations: wiki.reading.updateProgress, wiki.reading.recordView
+- Catalog: WIKI-004
+- Test: `tests/integration/wiki/wiki.test.mts`: `two tabs write progress and views from stale revisions without a conflict; bookmark still works`
+
+### wiki.article
+
+One article: its church versions and their order, rating, bookmark, print and PDF.
+
+- Routes: none
+- Personas: `owner` write, `admin` write, `member` write, `resident` write, `triage` write
+- Catalog: WIKI-001, WIKI-005, WIKI-006, WIKI-007
+
+Reach:
+
+- From wiki.reader as `owner`:
+
+```bash
+agent-browser find role link click --name "Grace Fellowship (QA)"
+agent-browser wait --load networkidle
+agent-browser wait --url "**/wiki/*"
+```
+
+States:
+
+- **article**: heading containing "Grace Fellowship (QA)"; button "Download PDF"; button "Helpful". As `owner`, on the QA seed:
+
+```bash
+agent-browser open "$ORIGIN/wiki"
+agent-browser wait --load networkidle
+agent-browser find role link click --name "Grace Fellowship (QA)"
+agent-browser wait --load networkidle
+agent-browser wait --url "**/wiki/*"
+agent-browser find role heading text --name "Grace Fellowship (QA)"
+agent-browser find role button text --name "Download PDF" --exact
+agent-browser find role button text --name "Helpful" --exact
+```
+
+#### wiki.article#rate
 
 Helpful or Unhelpful records the reader's one rating.
 
-- Operations: wiki.feedback.setMine
+- Operations: wiki.feedback.setMine, wiki.feedback.getMine
 - Catalog: WIKI-006
 - Cases: CASE-WIKI-006
 - Test: `tests/integration/wiki/wiki.test.mts`: `AC:CASE-WIKI-006 own feedback reads only while the reader's plant seat and lifecycle are live, as setMine writes`
@@ -128,11 +170,11 @@ agent-browser wait --load networkidle
 agent-browser find text "Marked as helpful." text --exact
 ```
 
-#### wiki.reader#export
+#### wiki.article#export
 
 Print and Download PDF render the visible text, diagrams as text, code verbatim, a human credit.
 
-- No operation: the catalog's wiki.article.exportPdf and wiki.article.print are not quoted or declared in packages/*/src or apps/web/src/server
+- Operations: wiki.article.exportPdf
 - Catalog: WIKI-007
 - Cases: CASE-WIKI-007
 - Test: `tests/integration/wiki/wiki.test.mts`: `AC:CASE-WIKI-007 PDF and print export render diagrams as text and code fences verbatim in Courier`
@@ -144,15 +186,7 @@ agent-browser find role button text --name "Download PDF" --exact
 agent-browser find role button text --name "Print" --exact
 ```
 
-#### wiki.reader#progress
-
-Reading records progress; the home resumes it and marks an article changed since it was read.
-
-- Operations: wiki.reading.updateProgress, wiki.reading.recordView
-- Catalog: WIKI-004
-- Test: `tests/integration/wiki/wiki.test.mts`: `two tabs write progress and views from stale revisions without a conflict; bookmark still works`
-
-#### wiki.reader#versions
+#### wiki.article#versions
 
 Churches and networks sharing the wiki publish their own versions; the reader picks which comes first.
 
@@ -162,7 +196,7 @@ Churches and networks sharing the wiki publish their own versions; the reader pi
 - Test: `tests/integration/wiki/wiki.test.mts`: `AC:CASE-WIKI-001 organization draft edit and hide keep every prior revision`
 - Test: `tests/unit/wiki/preferred-source.test.mts`: `INV-wiki-prefer-head: setting church C preferred stores C, A, B and leaves the networks as they were`
 
-#### wiki.reader#bookmark
+#### wiki.article#bookmark
 
 Bookmark keeps an article in Bookmarks; Remove bookmark takes it out.
 
