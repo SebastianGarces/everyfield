@@ -103,9 +103,9 @@ function acceptedRows(
 	);
 }
 
-const pages = createRead((teamId: string, page: number) => listResponsibilities(teamId, page), {
-	failed: (): Outcome<Page> => ({ status: "lost" }),
-});
+const lostPage = (): Outcome<Page> => ({ status: "lost" });
+const loadPage = (teamId: string, page: number) => listResponsibilities(teamId, page);
+const pages = createRead(loadPage, { failed: lostPage });
 const previews = createRead((teamId: string) => previewResponsibilities(teamId), {
 	failed: (): Outcome<Preview> => ({ status: "lost" }),
 });
@@ -137,6 +137,7 @@ export function ResponsibilitiesPanel({
 	const [page, setPage] = useState(1);
 	const [shownPage, setShownPage] = useState(1);
 	const [drop, setDrop] = useState<Row | null>(null);
+	const [lastOffer, setLastOffer] = useState<OfferState | undefined>(undefined);
 	const asked = useRead(pages, teamId, page);
 	const list = useRead(pages, teamId, shownPage);
 	if (page !== shownPage && asked.value) {
@@ -145,7 +146,8 @@ export function ResponsibilitiesPanel({
 	}
 	const loaded = list.value;
 	const items = loaded?.status === "ok" ? loaded.value.items : null;
-	const offer = loaded?.status === "ok" ? loaded.value.offer : undefined;
+	if (loaded?.status === "ok" && loaded.value.offer !== lastOffer) setLastOffer(loaded.value.offer);
+	const offer = loaded?.status === "ok" ? loaded.value.offer : lastOffer;
 	const listPhase =
 		loaded === undefined || loaded.status === "ok" ? null : loaded.status === "lost" ? "lost" : "refused";
 	const [shown, project] = useOptimistic<Row[], RowChange>(items ?? [], applyRows);
@@ -159,9 +161,13 @@ export function ResponsibilitiesPanel({
 		);
 
 	const reload = () => {
-		void pages.refresh(teamId, page).then((result) => {
-			if (page > 1 && emptyPage(result)) setPage(page - 1);
-		});
+		const target = page;
+		void loadPage(teamId, target)
+			.catch(lostPage)
+			.then((result) => {
+				if (target > 1 && emptyPage(result)) setPage(target - 1);
+				else pages.patch(() => result, teamId, target);
+			});
 		if (canOffer) void previews.refresh(teamId);
 	};
 
