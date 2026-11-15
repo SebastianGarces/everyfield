@@ -9,7 +9,9 @@ import { errorReference, errorText } from "./model";
 import type { Refusal } from "./save";
 import type { GetSectionRequest, SectionKey, SectionResult, SectionSeed, SettingsPort, SettingsViewer } from "./port";
 import {
+	accountRevisionPartner,
 	createSettingsStore,
+	withAccountRevision,
 	selectDirtyKeys,
 	type SaveOutcome,
 	type SettingsReads,
@@ -115,6 +117,8 @@ export function useSection<S extends SectionResult["section"], F = unknown>(
 	const actions = Settings.useSelect((state) => state.actions);
 	const read = useRead(reads.section, request);
 	const reply = read.value;
+	const partner = accountRevisionPartner(request.section);
+	const partnerReply = partner ? reads.section.peek(partner)?.value : undefined;
 	const observe = (value: SectionResult) => {
 		if (!draft || value.section !== request.section) return;
 		const form = draft.formOf(value as Extract<SectionResult, { section: S }>);
@@ -124,7 +128,10 @@ export function useSection<S extends SectionResult["section"], F = unknown>(
 		reply === undefined
 			? { status: "loading" }
 			: reply.status === "ok"
-				? { status: "ready", data: reply.value as Extract<SectionResult, { section: S }> }
+				? {
+						status: "ready",
+						data: withAccountRevision(reply.value, partnerReply) as Extract<SectionResult, { section: S }>,
+					}
 				: {
 						status: "error",
 						title: "This section did not load",

@@ -47,7 +47,10 @@ export function ReportingRegion({ onSaved }: { onSaved: () => void }) {
 				<Button
 					size="sm"
 					variant="secondary"
-					onClick={() => setOpenWith(newRequestKey("region"))}
+					onClick={() => {
+						reads.regionMatches.prefetch(read.locality);
+						setOpenWith(newRequestKey("region"));
+					}}
 					disabled={!read.referenceVersionId}
 				>
 					{read.region ? "Change Region" : "Choose Region"}
@@ -105,7 +108,10 @@ function RegionDialog({
 		setProblem(null);
 		setChoice(undefined);
 		if (asked) matches.reload();
-		else setAsked(place);
+		else {
+			reads.regionMatches.prefetch(place);
+			setAsked(place);
+		}
 	};
 	const set = (k: keyof Locality) => (e: React.ChangeEvent<HTMLInputElement>) => {
 		setPlace({ ...place, [k]: e.target.value });

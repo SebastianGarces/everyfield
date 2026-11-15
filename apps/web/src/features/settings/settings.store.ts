@@ -58,7 +58,19 @@ const OFFLINE_SAVE: Refusal = {
 	code: "unknown",
 };
 
-const ACCOUNT_REVISION_SECTIONS = ["account", "notifications"] as const;
+const ACCOUNT_REVISION_PARTNER = { account: "notifications", notifications: "account" } as const;
+
+export function withAccountRevision(value: SectionResult, partner: SectionReply | undefined): SectionResult {
+	if (value.section !== "account" && value.section !== "notifications") return value;
+	if (partner?.status !== "ok" || partner.value.section !== ACCOUNT_REVISION_PARTNER[value.section]) return value;
+	return BigInt(partner.value.revision) > BigInt(value.revision)
+		? { ...value, revision: partner.value.revision }
+		: value;
+}
+
+export function accountRevisionPartner(section: SectionResult["section"]): GetSectionRequest | null {
+	return section === "account" || section === "notifications" ? { section: ACCOUNT_REVISION_PARTNER[section] } : null;
+}
 
 const settled = <T>(thenable: PromiseLike<T>) => new Promise<T>((resolve, reject) => thenable.then(resolve, reject));
 
@@ -70,28 +82,11 @@ export function selectDirtyKeys(state: Pick<SettingsState, "book" | "servers" | 
 }
 
 export function createSettingsStore({ port, seed }: { port: SettingsPort; seed: SectionSeed | null }): SettingsStore {
-	const shareAccountRevision = (value: SectionResult) => {
-		if (value.section !== "account" && value.section !== "notifications") return;
-		for (const other of ACCOUNT_REVISION_SECTIONS)
-			if (other !== value.section)
-				reads.section.patch(
-					(reply) =>
-						reply.status === "ok" && reply.value.section === other
-							? { ...reply, value: { ...reply.value, revision: value.revision } }
-							: reply,
-					{ section: other },
-				);
-	};
-
 	const reads: SettingsReads = {
-		section: createRead(
-			async (request: GetSectionRequest): Promise<SectionReply> => {
-				const reply = await port.getSection(request);
-				if (reply.status === "ok") shareAccountRevision(reply.value);
-				return reply;
-			},
-			{ failed: () => LOST, fresh: Infinity },
-		),
+		section: createRead((request: GetSectionRequest): Promise<SectionReply> => port.getSection(request), {
+			failed: () => LOST,
+			fresh: Infinity,
+		}),
 		brand: createRead((): Promise<BrandRead> => port.brand.get(), { failed: () => LOST, fresh: Infinity }),
 		wiki: createRead(() => port.wiki.read(), { failed: (): OrderRead => LOST, fresh: Infinity }),
 		region: createRead(() => port.region.read(), { failed: (): RegionRead => LOST }),
@@ -147,10 +142,7 @@ export function createSettingsStore({ port, seed }: { port: SettingsPort; seed: 
 					set({ book, flows: ASSET_FLOW in flows ? { ...flows, [ASSET_FLOW]: EMPTY_FLOW } : flows });
 				},
 				setFlow: (key, update) => set({ flows: { ...get().flows, [key]: update(get().flows[key]) } }),
-				replaceSection: (request, value) => {
-					reads.section.patch(() => ({ status: "ok", value }), request);
-					shareAccountRevision(value);
-				},
+				replaceSection: (request, value) => reads.section.patch(() => ({ status: "ok", value }), request),
 			},
 		};
 	});
