@@ -1,5 +1,5 @@
 {
-	"apps/web/src/features/feedback/FeedbackDialog.tsx": 2,
+	"apps/web/src/features/feedback/FeedbackDialog.tsx": 1,
 	"apps/web/src/features/feedback/OwnFeedback.tsx": 2,
 	"apps/web/src/features/feedback/Triage.tsx": 4,
 	"apps/web/src/features/feedback/actions.ts": 6,
