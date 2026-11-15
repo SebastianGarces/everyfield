@@ -127,7 +127,7 @@ const REACT_DOM = new Set(["react-dom"]);
 const TIMER_MODULES = new Set(["timers", "node:timers", "timers/promises", "node:timers/promises"]);
 const FUNCTIONS = new Set(["FunctionDeclaration", "FunctionExpression", "ArrowFunctionExpression"]);
 
-export const INTERACTIVE_HOSTS = ["a", "button", "input", "label", "option", "select", "summary"];
+export const INTERACTIVE_HOSTS = ["a[href]", "area[href]", "button", "input", "option", "select", "summary"];
 export const INTERACTIVE_ROLES = [
 	"button",
 	"checkbox",
@@ -141,11 +141,6 @@ export const INTERACTIVE_ROLES = [
 	"tab",
 	"treeitem",
 ];
-export const DRAG_SURFACES = {
-	carousel:
-		"A drag-to-scroll carousel: its pointer handlers move the scroll position and activate nothing, and its cursor is grab.",
-};
-const DRAG_HANDLERS = new Set(["onMouseDown", "onMouseUp", "onPointerDown", "onPointerUp"]);
 const POINTER_HANDLERS = new Set([
 	"onClick",
 	"onDoubleClick",
@@ -424,17 +419,19 @@ const literalAttribute = (element, name) => {
 	return value?.type === "Literal" && typeof value.value === "string" ? value.value : null;
 };
 
+const acceptsHost = (host, element) => {
+	const [, tag, required] = host.match(/^([a-z]+)(?:\[([a-z-]+)\])?$/);
+	return (
+		element.name.name === tag &&
+		(!required || element.attributes.some((a) => a.type === "JSXAttribute" && a.name.name === required))
+	);
+};
+
 const clickableHost = ratcheted("clickable-host", (context, push) => ({
 	JSXOpeningElement(node) {
 		if (node.name.type !== "JSXIdentifier" || !/^[a-z]/.test(node.name.name)) return;
-		if (INTERACTIVE_HOSTS.includes(node.name.name)) return;
-		const dragSurface = Object.hasOwn(DRAG_SURFACES, literalAttribute(node, "aria-roledescription") ?? "");
-		const handler = node.attributes.find(
-			(a) =>
-				a.type === "JSXAttribute" &&
-				POINTER_HANDLERS.has(a.name.name) &&
-				!(dragSurface && DRAG_HANDLERS.has(a.name.name)),
-		);
+		if (INTERACTIVE_HOSTS.some((host) => acceptsHost(host, node))) return;
+		const handler = node.attributes.find((a) => a.type === "JSXAttribute" && POINTER_HANDLERS.has(a.name.name));
 		if (!handler || INTERACTIVE_ROLES.includes(literalAttribute(node, "role"))) return;
 		push({
 			node: handler,
