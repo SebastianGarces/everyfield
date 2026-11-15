@@ -187,6 +187,48 @@ export function Row({ on }) {
 	]);
 });
 
+test("INV-lint: history writes and popstate listeners are reported outside the location store", () => {
+	const source = `export function go(mode, href) {
+	window.history.pushState(null, "", href);
+	history.replaceState(null, "", href);
+	window.history[mode === "push" ? "pushState" : "replaceState"](null, "", href);
+	window.addEventListener("popstate", () => {});
+	window.onpopstate = null;
+}
+`;
+	assert.deepEqual(
+		lint({ "apps/web/src/features/x/go.ts": source, "apps/web/src/components/location.ts": source }),
+		[2, 3, 4, 4, 5, 6].map((line) => `apps/web/src/features/x/go.ts:${line} no-raw-history`),
+	);
+});
+
+test("INV-lint: zustand is reached only through store files and the store helper, never at module level", () => {
+	const store = `import { createStore } from "zustand/vanilla";
+export const shared = createStore()(() => ({}));
+export const createPanelStore = () => createStore()(() => ({}));
+`;
+	const component = `import { create } from "zustand";
+import { createStore } from "zustand/vanilla";
+import { persist } from "zustand/middleware";
+import { useStore } from "zustand";
+export const used = [create, createStore, persist, useStore];
+`;
+	assert.deepEqual(
+		lint({
+			"apps/web/src/features/x/Panel.store.ts": store,
+			"apps/web/src/features/x/Panel.tsx": component,
+			"apps/web/src/components/store.ts": `import { useStore } from "zustand";\nexport { useShallow } from "zustand/react/shallow";\nexport { useStore };\n`,
+		}),
+		[
+			"apps/web/src/features/x/Panel.store.ts:2 zustand-shape",
+			"apps/web/src/features/x/Panel.tsx:1 zustand-shape",
+			"apps/web/src/features/x/Panel.tsx:2 zustand-shape",
+			"apps/web/src/features/x/Panel.tsx:3 zustand-shape",
+			"apps/web/src/features/x/Panel.tsx:4 zustand-shape",
+		],
+	);
+});
+
 function cursorRuleSelectors(css, cursor) {
 	const rule = css.match(new RegExp(`(:where\\((?:[^{}])*?)\\{\\s*cursor:\\s*${cursor};`));
 	assert.ok(rule, `controls.css has a :where() rule that sets cursor: ${cursor}`);
