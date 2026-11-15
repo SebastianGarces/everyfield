@@ -9,6 +9,15 @@ const ITEMS = 'button:not([disabled]), [role="button"]:not([disabled]), [tabinde
 
 export const InToolbar = React.createContext(false);
 
+const FOCUSABLE =
+	'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex], [contenteditable="true"]';
+
+function passPointerFocusOn(toolbar: HTMLElement) {
+	const outer = toolbar.parentElement?.closest<HTMLElement>(FOCUSABLE);
+	if (outer) outer.focus({ preventScroll: true });
+	else toolbar.blur();
+}
+
 const itemsOf = (toolbar: HTMLElement) => Array.from(toolbar.querySelectorAll<HTMLElement>(ITEMS));
 
 function arrowTarget(key: string, index: number, count: number) {
@@ -29,7 +38,6 @@ function arrowTarget(key: string, index: number, count: number) {
 export const Toolbar = React.forwardRef<HTMLDivElement, BaseProps>(({ children, className, ...props }, ref) => {
 	const remembered = React.useRef(0);
 	const [entry, setEntry] = React.useState(true);
-	const openEntry = () => setEntry(true);
 
 	return (
 		<div
@@ -61,15 +69,13 @@ export const Toolbar = React.forwardRef<HTMLDivElement, BaseProps>(({ children, 
 					if (index !== -1) remembered.current = index;
 				} else if (toolbar.matches(":focus-visible")) {
 					(items[remembered.current] ?? items[0])?.focus();
+				} else {
+					passPointerFocusOn(toolbar);
 				}
 			}}
 			onBlur={(event) => {
 				if (!event.currentTarget.contains(event.relatedTarget)) setEntry(true);
 			}}
-			onPointerDownCapture={() => setEntry(false)}
-			onPointerUp={openEntry}
-			onPointerCancel={openEntry}
-			onPointerLeave={openEntry}
 		>
 			<InToolbar value>{children}</InToolbar>
 		</div>
