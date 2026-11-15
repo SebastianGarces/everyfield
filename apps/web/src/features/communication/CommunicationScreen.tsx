@@ -12,12 +12,11 @@ import { Templates } from "./Templates.tsx";
 
 type Section = "messages" | "templates" | "address";
 
-const unsavedNew = (url: URL) => url.pathname === "/communication" && url.searchParams.get("compose") === "new";
-
-addAddressRule((to, from) => {
+addAddressRule((to) => {
+	if (to.pathname !== "/communication" || to.searchParams.get("compose") !== "new") return null;
 	const route = parseRoute(Object.fromEntries(to.searchParams));
-	if (!unsavedNew(to) || route.kind !== "compose" || route.handoff || route.step === "who") return null;
-	if (from && unsavedNew(from)) return null;
+	if (route.kind !== "compose" || route.handoff || route.step === "who") return null;
+	if (document.querySelector('[data-compose-draft="new"]')) return null;
 	return routeHref({ ...route, step: "who" });
 });
 

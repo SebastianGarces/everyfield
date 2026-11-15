@@ -379,7 +379,7 @@ export function Compose({
 	const chrome = { from: data.churchName, to: previewName, subject: form.subject };
 
 	return (
-		<div {...unsavedMark(dirty)} className="flex flex-col gap-6">
+		<div {...unsavedMark(dirty)} data-compose-draft={id} className="flex flex-col gap-6">
 			<div className="flex flex-wrap items-center justify-between gap-4">
 				<button
 					type="button"
