@@ -1,6 +1,5 @@
 {
-	"apps/web/src/features/settings/preview/RestrictedPreview.tsx": 1,
-	"apps/web/src/features/settings/preview/SettingsPreview.tsx": 6,
+	"apps/web/src/features/settings/preview/SettingsPreview.tsx": 1,
 	"apps/web/src/features/settings/preview/fixtures.ts": 17,
 	"apps/web/src/features/settings/preview/flows.ts": 1
 }

@@ -4,8 +4,8 @@ import { Button, Card, CardDescription, CardTitle, Select } from "@everyfield/ui
 import { ShellPreview } from "@everyfield/ui/shell/preview";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import { parsePreviewKit } from "../brand/fixtures";
+import { useState, useSyncExternalStore } from "react";
+import { parsePreviewKit, type PreviewKit } from "../brand/fixtures";
 import { offeredSections, parseSectionKey, SECTION_LABEL } from "../model";
 import type { DeletionStatus, SectionKey } from "../port";
 import { SettingsDialog } from "../SettingsDialog";
@@ -22,7 +22,10 @@ import {
 	type Fault,
 	type Operation,
 	type PreviewPersona,
+	type WikiScenario,
 } from "./fixtures";
+import { createReplies, type Replies } from "./replies";
+import { RepliesControl } from "./RepliesControl";
 
 const BASE = "/design/settings";
 
@@ -33,36 +36,46 @@ const BASE = "/design/settings";
  * fixture API, parsed by the settings contract.
  */
 export function SettingsPreview() {
-	const params = useParams<{ section?: string[] }>();
 	const search = useSearchParams();
-	const router = useRouter();
 	const persona = parsePersona(search.get("as"));
-	const delay = Number(search.get("delay") ?? 450);
-	const section = parseSectionKey(params.section?.[0]);
 	const kit = parsePreviewKit(search.get("kit"));
 	const wiki = parseWikiScenario(search.get("wiki"));
-	const query = (extra = "") =>
-		`?as=${persona}${search.get("delay") ? `&delay=${delay}` : ""}${search.get("kit") ? `&kit=${kit}` : ""}${search.get("wiki") ? `&wiki=${wiki}` : ""}${extra}`;
-	const hrefFor = (key: SectionKey) => `${BASE}/${key}${query()}`;
+	return (
+		<PreviewSession
+			key={`${persona}-${kit}-${wiki}`}
+			persona={persona}
+			kit={kit}
+			wiki={wiki}
+			faults={search.getAll("fail")}
+			held={search.get("hold") === "1"}
+		/>
+	);
+}
 
-	// One fixture API per persona and load: switching persona is switching account, so nothing carries over.
-	const fixture = useMemo(() => createFixturePort(persona, { delay, kit, wiki }), [persona, delay, kit, wiki]);
-	useEffect(() => {
-		for (const spec of search.getAll("fail")) {
-			const [op, code] = spec.split(":");
-			if (op && code) fixture.controls.failNext(op as Operation, code as Fault);
-		}
-		const hooks = window as unknown as { __settingsFixture?: unknown; __settingsNavigate?: (href: string) => void };
-		hooks.__settingsFixture = fixture.controls;
-		// A client-side navigation the browser tests use to switch persona while settings is open.
-		hooks.__settingsNavigate = (href) => router.push(href, { scroll: false });
-		// Faults from the URL apply once per fixture.
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [fixture]);
+function PreviewSession({
+	persona,
+	kit,
+	wiki,
+	faults,
+	held,
+}: {
+	persona: PreviewPersona;
+	kit: PreviewKit;
+	wiki: WikiScenario;
+	faults: string[];
+	held: boolean;
+}) {
+	const params = useParams<{ section?: string[] }>();
+	const router = useRouter();
+	const section = parseSectionKey(params.section?.[0]);
+	const [replies] = useState(() => createReplies(held));
+	const [fixture] = useState(() => createFixturePort(persona, { kit, wiki, faults: faults.map(parseFault), replies }));
+	const query = (extra = "") =>
+		`?as=${persona}${held ? "&hold=1" : ""}${kit !== "none" ? `&kit=${kit}` : ""}${wiki !== "unordered" ? `&wiki=${wiki}` : ""}${extra}`;
+	const hrefFor = (key: SectionKey) => `${BASE}/${key}${query()}`;
 
 	const viewer = previewViewer(persona);
 	const navigate = (key: SectionKey | null) => router.push(key ? hrefFor(key) : `${BASE}${query()}`, { scroll: false });
-	// As in the product: a workspace request opens its status; an account request is signed out and asks for proof.
 	const deleted = (status: DeletionStatus | null) => {
 		if (status && "subject" in status && status.subject.kind === "plant")
 			return router.push("/design/restricted/workspace-deletion?state=pending");
@@ -72,18 +85,24 @@ export function SettingsPreview() {
 
 	return (
 		<ShellPreview role={persona === "member" ? "member" : "owner"}>
-			<SettingsProvider key={`${persona}-${delay}-${kit}-${wiki}`} port={fixture.port} viewer={viewer}>
-				<PreviewPage persona={persona} query={query} fixture={fixture.controls} />
+			<SettingsProvider port={fixture.port} viewer={viewer}>
+				<PreviewPage persona={persona} query={query} fixture={fixture.controls} replies={replies} />
 				<SettingsDialog
 					section={section}
 					onNavigate={navigate}
 					hrefFor={hrefFor}
 					slots={{ sharing: <SharingSection relationships={PREVIEW_RELATIONSHIPS} /> }}
 					onDeletionRequested={deleted}
+					headerActions={<RepliesControl replies={replies} toggle={false} />}
 				/>
 			</SettingsProvider>
 		</ShellPreview>
 	);
+}
+
+function parseFault(spec: string): readonly [Operation, Fault] {
+	const [op, code] = spec.split(":");
+	return [op as Operation, code as Fault];
 }
 
 const FAULTS: { value: string; label: string }[] = [
@@ -110,10 +129,12 @@ function PreviewPage({
 	persona,
 	query,
 	fixture,
+	replies,
 }: {
 	persona: PreviewPersona;
 	query: (extra?: string) => string;
 	fixture: ReturnType<typeof createFixturePort>["controls"];
+	replies: Replies;
 }) {
 	const router = useRouter();
 	const [fault, setFault] = useState("none");
@@ -181,6 +202,9 @@ function PreviewPage({
 								fixture.failNext(op as Operation, code as Fault);
 							}}
 						/>
+					</div>
+					<div className="mt-3">
+						<RepliesControl replies={replies} />
 					</div>
 					<p className="mt-3 text-xs text-text-3" data-fixture-calls={calls}>
 						Calls so far:{" "}

@@ -2,6 +2,7 @@ import * as S from "@everyfield/contracts/settings";
 import * as N from "@everyfield/contracts/settings/native";
 import type { z } from "zod";
 import { rowsInOrder } from "../sections/wikiOrder";
+import { createReplies, type Replies } from "./replies";
 import { createFixtureBrand, type BrandFault, type BrandOperation, type PreviewKit } from "../brand/fixtures";
 import type {
 	OrderRead,
@@ -281,11 +282,18 @@ const WIKI_NETWORKS = [{ id: NETWORK.id, name: "Austin Sending Network" }];
 export function createFixturePort(
 	persona: PreviewPersona,
 	{
-		delay = 450,
 		now = () => Date.now(),
 		kit = "none",
 		wiki = "unordered",
-	}: { delay?: number; now?: () => number; kit?: PreviewKit; wiki?: WikiScenario } = {},
+		faults: firstFaults = [],
+		replies = createReplies(),
+	}: {
+		now?: () => number;
+		kit?: PreviewKit;
+		wiki?: WikiScenario;
+		faults?: readonly (readonly [Operation, Fault])[];
+		replies?: Replies;
+	} = {},
 ): { port: SettingsPort; controls: FixtureControls } {
 	const store: Store = {
 		sections: initialSections(persona),
@@ -293,11 +301,11 @@ export function createFixturePort(
 		avatars: new Map(),
 		staged: new Map(),
 	};
-	const faults = new Map<Operation, Fault>();
+	const faults = new Map<Operation, Fault>(firstFaults);
 	const calls: Record<string, number> = {};
 	const listeners = new Set<() => void>();
 
-	const wait = (ms = delay) => new Promise((r) => setTimeout(r, ms));
+	const wait = () => replies.arrive();
 	const refuse = (code: SettingsError["code"]): { status: "refused"; error: SettingsError } => ({
 		status: "refused",
 		error: S.settingsError.parse({
@@ -316,9 +324,9 @@ export function createFixturePort(
 	});
 	/** Counts the call, waits, then takes a queued fault. A thrown "offline" fault looks like a lost connection. */
 	async function tick(op: Operation): Promise<Fault | null> {
+		await wait();
 		calls[op] = (calls[op] ?? 0) + 1;
 		listeners.forEach((l) => l());
-		await wait();
 		const fault = faults.get(op);
 		if (!fault) return null;
 		faults.delete(op);
@@ -596,12 +604,12 @@ export function createFixturePort(
 		flows: {
 			avatar: {
 				async requestAvatarUpload(request) {
-					await wait(150);
+					await wait();
 					S.requestAvatarUpload.parse(request);
 					return ok(S.avatarUploadResult, { uploadId: nextId(), expiresAt: nowIso(now() + 15 * 60_000) });
 				},
 				async uploadAvatarBytes(target, file) {
-					await wait(300);
+					await wait();
 					store.staged.set(target.versionId, file);
 					return { status: "ok", value: null };
 				},
@@ -660,7 +668,7 @@ export function createFixturePort(
 				});
 			},
 			async previewPersonalTimezone(request) {
-				await wait(250);
+				await wait();
 				N.previewPersonalTimezoneRequest.parse(request);
 				const previewId = nextId();
 				const at = now();
@@ -728,8 +736,8 @@ export function createFixturePort(
 }
 
 /** The page the email-change link opens, for the preview: proof "valid" succeeds, "unknown" is uncertain. */
-export async function confirmFixtureEmail(request: { proof: string }) {
-	await new Promise((r) => setTimeout(r, 450));
+export const confirmFixtureEmail = (replies: Replies) => async (request: { proof: string }) => {
+	await replies.arrive();
 	N.confirmEmailChange.parse(request);
 	const correlationId = nextId();
 	if (request.proof === "valid")
@@ -741,7 +749,7 @@ export async function confirmFixtureEmail(request: { proof: string }) {
 			reporting: { status: "recorded", eventId: nextId(), mailIntentId: nextId() },
 		});
 	return N.credentialOutcome.parse({ status: request.proof === "unknown" ? "unknown" : "refused", correlationId });
-}
+};
 
 function pending(subject: { kind: "account" | "plant"; id: string }, at: number) {
 	const requestedAt = new Date(Math.floor(at / 1000) * 1000);
@@ -774,9 +782,9 @@ export function createDeletionPort(
 	scenario: DeletionScenario,
 	{
 		now = () => Date.now(),
-		delay = 400,
+		replies = createReplies(),
 		signedOut = false,
-	}: { now?: () => number; delay?: number; signedOut?: boolean } = {},
+	}: { now?: () => number; replies?: Replies; signedOut?: boolean } = {},
 ): DeletionPort {
 	const subject = subjectKind === "account" ? { kind: "account" as const, id: ACCOUNT.admin } : PLANT;
 	const day = 86_400_000;
@@ -805,7 +813,7 @@ export function createDeletionPort(
 						}
 					: pending(subject, requestedAt),
 	);
-	const wait = () => new Promise((r) => setTimeout(r, delay));
+	const wait = () => replies.arrive();
 	const refuse = (code: SettingsError["code"]): Reply<DeletionStatus> => ({
 		status: "refused",
 		error: S.settingsError.parse({
