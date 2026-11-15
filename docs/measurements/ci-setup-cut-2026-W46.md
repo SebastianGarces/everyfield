@@ -11,7 +11,7 @@ Every job now runs one shared setup step, `.github/actions/setup` (step name `Sh
 
 | # | Cut | Jobs |
 |---|---|---|
-| 1 | No second `actions/setup-node` call. The first one ran only to put Node on PATH, the second only to restore the pnpm store. | app, tooling, db, census parts 1 to 3, ci |
+| 1 | No second `actions/setup-node` call. The first one ran only to put Node on PATH, the second only to restore the pnpm store. | app, tooling, db, census parts 1 to 3 |
 | 2 | Node comes back from a cache of the runner's tool cache folder (`node-...` or `node-corepack-...` key on the Node version), so setup-node finds it instead of downloading it, unpacking it and copying it into the tool cache. | all 7 |
 | 3 | corepack's home comes back in the same cache (key on `packageManager`), and `corepack-install.sh` first runs `corepack install -g` with `COREPACK_ENABLE_NETWORK=0`, so pnpm reaches PATH with no registry request. On a miss it prints that and runs the old registry retries. | app, tooling, db, census parts 1 to 3 |
 | 4 | node_modules comes back from a cache keyed on the lockfiles, `pnpm-workspace.yaml`, Node and pnpm, in place of the pnpm store. `pnpm install --frozen-lockfile` still runs and still checks it against the lockfile; on a hit it prints "Already up to date" instead of linking 802 packages and running bun's postinstall. A miss installs from the registry and saves the cache straight after the install, before any test step. | app, tooling (with `tools/wiki/node_modules`), db, census parts 1 to 3 |

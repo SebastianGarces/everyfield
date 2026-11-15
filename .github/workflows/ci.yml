@@ -33,7 +33,6 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
-      # Node, pnpm from corepack and node_modules from caches, then the frozen-lockfile install (.github/actions/setup).
       - name: Shared setup (Node, pnpm, node_modules)
         uses: ./.github/actions/setup
         with:
@@ -171,7 +170,6 @@ jobs:
       EARLY_ACCESS_TEST_DATABASE: "1"
     steps:
       - uses: actions/checkout@v7
-      # Node, pnpm from corepack and node_modules from caches, then the frozen-lockfile install (.github/actions/setup).
       - name: Shared setup (Node, pnpm, node_modules)
         uses: ./.github/actions/setup
         with:
@@ -222,7 +220,6 @@ jobs:
       EARLY_ACCESS_TEST_DATABASE: "1"
     steps:
       - uses: actions/checkout@v7
-      # Node, pnpm from corepack and node_modules from caches, then the frozen-lockfile install (.github/actions/setup).
       - name: Shared setup (Node, pnpm, node_modules)
         uses: ./.github/actions/setup
         with:
