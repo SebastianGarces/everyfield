@@ -261,7 +261,7 @@ export function PersonDialog({
 			{roles !== null ? (
 				<Field label="Role" error={touched && noRole ? "Choose a role." : null}>
 					<Select
-						value={f.roleId ?? undefined}
+						value={f.roleId ?? ""}
 						placeholder="Choose an open role"
 						onValueChange={(v) => setF((x) => ({ ...x, roleId: v }))}
 						options={roles.map((r) => ({ value: r.id, label: r.name }))}
