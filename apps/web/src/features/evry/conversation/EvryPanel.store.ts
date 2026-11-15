@@ -58,6 +58,7 @@ export type EvryPanelState = {
 		cancel: () => void;
 		retry: (turnId: string) => void;
 		reconnect: () => void;
+		followStream: (listener: () => void) => () => void;
 		select: (conversationId: string) => void;
 		newChat: () => void;
 		seen: (proposalId: string) => void;
@@ -101,9 +102,10 @@ export function createEvryPanelStore(init: { context: string; port: EvryPort }):
 	let said: string | null = null;
 	let source: EventSource | null = null;
 	let following: string | null = null;
-	let sync = () => {};
+	let readers = 0;
+	let unwatch = () => {};
 
-	const store = createStore<EvryPanelState>()((set, get) => {
+	const store = createStore<EvryPanelState>()((set, get, api) => {
 		const watching = () => get().open && get().view === "chat";
 
 		const announce = (chat: State): string | null => {
@@ -220,9 +222,9 @@ export function createEvryPanelStore(init: { context: string; port: EvryPort }):
 		};
 
 		const follow = () => {
-			const { open, chat } = get();
+			const { chat } = get();
 			const id = chat.conversation?.id;
-			const wanted = open && id && chat.activeTurnId !== null ? id : null;
+			const wanted = readers > 0 && id && chat.activeTurnId !== null ? id : null;
 			if (wanted === following) return;
 			following = wanted;
 			if (source) {
@@ -267,7 +269,6 @@ export function createEvryPanelStore(init: { context: string; port: EvryPort }):
 				set({ stream: "reconnecting" });
 			});
 		};
-		sync = follow;
 
 		const reload = async () => {
 			const mine = ++shown;
@@ -382,6 +383,21 @@ export function createEvryPanelStore(init: { context: string; port: EvryPort }):
 					following = null;
 					follow();
 				},
+				followStream: (listener) => {
+					const off = api.subscribe(listener);
+					readers++;
+					if (readers === 1) {
+						unwatch = api.subscribe(follow);
+						follow();
+					}
+					return () => {
+						off();
+						readers--;
+						if (readers > 0) return;
+						unwatch();
+						follow();
+					};
+				},
 				select: (conversationId) =>
 					void (async () => {
 						if (conversationId === get().chat.conversation?.id) return;
@@ -412,6 +428,5 @@ export function createEvryPanelStore(init: { context: string; port: EvryPort }):
 		};
 	});
 
-	store.subscribe(() => sync());
 	return store;
 }

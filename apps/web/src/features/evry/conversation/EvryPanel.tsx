@@ -20,6 +20,7 @@ import {
 	useMemo,
 	useRef,
 	useState,
+	useSyncExternalStore,
 	useTransition,
 	type FormEvent,
 	type KeyboardEvent,
@@ -40,14 +41,12 @@ import {
 	type Conversation,
 	type Reference,
 	type Send,
-	type SourceResult,
 	type State,
 	type Turn,
 } from "./model.ts";
 import { ReviewCard } from "../review/ReviewCard.tsx";
 import { renderMarkdown } from "./view.ts";
 import { ResultCard } from "./ResultCard.tsx";
-import { cardView } from "./resultView.ts";
 import { useRowPhotos } from "./useRowPhotos.ts";
 import { AttachButton, AttachedPhoto, checkPhoto, stageAttached } from "./PhotoAttach.tsx";
 import { createEvryPanelStore, type EvryPanelState, type EvryPort } from "./EvryPanel.store.ts";
@@ -255,7 +254,13 @@ function Chat({
 	const actions = useActions();
 	const state = Panel.useSelect((s) => s.chat);
 	const load = Panel.useSelect((s) => s.load);
-	const stream = Panel.useSelect((s) => s.stream);
+	const panel = Panel.useStoreApi();
+	const stream = useSyncExternalStore(
+		actions.followStream,
+		() => panel.getState().stream,
+		() => "idle" as const,
+	);
+	const photos = useRowPhotos(turns);
 	const problem = Panel.useSelect((s) => s.problem);
 	const retrying = Panel.useSelect((s) => s.retrying);
 	const announcement = Panel.useSelect((s) => s.announcement);
@@ -315,6 +320,7 @@ function Chat({
 						canRetry={turn === lastTurn && retryable(state, turns)}
 						retrying={retrying}
 						reviews={state.reviews}
+						photos={photos}
 						onSeen={actions.seen}
 						onRetry={() => {
 							actions.retry(turn.id);
@@ -387,6 +393,7 @@ function TurnView({
 	canRetry,
 	retrying,
 	reviews,
+	photos,
 	onSeen,
 	onRetry,
 }: {
@@ -396,6 +403,7 @@ function TurnView({
 	canRetry: boolean;
 	retrying: boolean;
 	reviews: State["reviews"];
+	photos: Readonly<Record<string, string>>;
 	onSeen: (proposalId: string) => void;
 	onRetry: () => void;
 }) {
@@ -433,11 +441,12 @@ function TurnView({
 									</div>
 								)
 							) : block.kind === "result" ? (
-								<ResultBlock
+								<ResultCard
 									key={block.sequence}
 									operation={block.operation}
 									result={block.result}
 									originalTotal={block.originalTotal}
+									photos={photos}
 								/>
 							) : (
 								<ReviewCard
@@ -507,20 +516,6 @@ function SendView({ send, onResend, onEdit }: { send: Send; onResend: () => void
 			)}
 		</li>
 	);
-}
-
-function ResultBlock({
-	operation,
-	result,
-	originalTotal,
-}: {
-	operation: string;
-	result: SourceResult;
-	originalTotal: number | null;
-}) {
-	const people = cardView(operation, result, originalTotal).rows.flatMap((r) => (r.photoFor ? [r.photoFor] : []));
-	const photos = useRowPhotos(people);
-	return <ResultCard operation={operation} result={result} originalTotal={originalTotal} photos={photos} />;
 }
 
 function Composer({
@@ -707,7 +702,8 @@ function History({
 
 	const tryAgain = () => {
 		setMore(null);
-		first.retry();
+		if (page) first.reload();
+		else first.retry();
 	};
 
 	const showMore = async () => {
