@@ -84,7 +84,7 @@ export function VenuesSheet({
 
 const PLACES_SEARCH_PAUSE_MS = 300;
 
-const places = createRead(
+export const places = createRead(
 	(archived: boolean, query: string) =>
 		listVenues({ archived: archived ? "include" : "exclude", ...(query ? { search: query } : {}), limit: 100 }),
 	{ failed: (): Outcome<{ items: Venue[]; total: number }> => ({ status: "lost" }) },
@@ -110,7 +110,10 @@ function Places({ canWrite, onOpen, onAdd }: { canWrite: boolean; onOpen: (id: s
 						onChange={(e) => {
 							const next = e.target.value;
 							setSearch(next);
-							afterPause(() => setQuery(next.trim()));
+							afterPause(() => {
+								places.prefetch(archived, next.trim());
+								setQuery(next.trim());
+							});
 						}}
 					/>
 				</div>
@@ -120,7 +123,14 @@ function Places({ canWrite, onOpen, onAdd }: { canWrite: boolean; onOpen: (id: s
 					</Button>
 				) : null}
 			</div>
-			<Switch label="Show archived places" checked={archived} onCheckedChange={setArchived} />
+			<Switch
+				label="Show archived places"
+				checked={archived}
+				onCheckedChange={(next) => {
+					places.prefetch(next, query);
+					setArchived(next);
+				}}
+			/>
 			<Await
 				state={list}
 				fallback={

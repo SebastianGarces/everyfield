@@ -43,7 +43,7 @@ import { SaveNotice, useSaveIntent } from "../../components/save/parts.tsx";
 import { useStore } from "../../components/store.ts";
 import { VisionReport } from "./Report.tsx";
 import type { MeetingsView } from "./server.ts";
-import { VenuesSheet } from "./VenuesSheet.tsx";
+import { places as placeReads, VenuesSheet } from "./VenuesSheet.tsx";
 
 const ALL = "all";
 
@@ -67,7 +67,11 @@ export function MeetingsScreen({ view, canWrite }: { view: MeetingsView; canWrit
 	const filter = (patch: Partial<MeetingsQuery>) => go({ ...query, ...patch, page: 1 });
 
 	const plan = canWrite ? (
-		<Button variant="primary" icon={CalendarAdd01Icon} onClick={() => setPlanning(true)}>
+		<Button
+			variant="primary"
+			icon={CalendarAdd01Icon}
+			onClick={() => setPlanning(true)}
+		>
 			Plan a meeting
 		</Button>
 	) : null;
@@ -80,7 +84,14 @@ export function MeetingsScreen({ view, canWrite }: { view: MeetingsView; canWrit
 				subtitle="Vision meetings, orientations and pre-launch practices."
 				actions={
 					<>
-						<Button variant="secondary" icon={Location01Icon} onClick={() => setPlaces(true)}>
+						<Button
+							variant="secondary"
+							icon={Location01Icon}
+							onClick={() => {
+								placeReads.prefetch(false, "");
+								setPlaces(true);
+							}}
+						>
 							Places
 						</Button>
 						{plan}
