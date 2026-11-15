@@ -1,10 +1,36 @@
 {
+	"no-effects": {
+		"apps/web/src/features/wiki/client.tsx": [
+			{
+				"function": "WikiChrome",
+				"count": 1,
+				"reason": "Temporary, waiting for a shared follow-up. Opens Wiki search on /, including on keyboard layouts that type / with Shift. The page-event registry cannot yet match a printable key regardless of Shift while ignoring keys typed in a field; when it can, this listener goes."
+			},
+			{
+				"function": "ArticleSession",
+				"count": 1,
+				"reason": "Records one Wiki view each time an article is shown: on a direct load, a link, Back, Forward and a reload, and never on a prefetch or a refresh. No event covers all of those arrivals; recording it in the server render would make a page read write, lose views served from the router's cache on Back and count refreshes."
+			}
+		]
+	},
 	"no-global-listeners": {
 		"apps/web/src/features/wiki/ArticleSession.store.ts": [
 			{
 				"function": "track",
 				"count": 2,
-				"reason": "Reading progress is saved at coarse steps, so the furthest point read since the last step is sent when the reader closes or reloads the tab. Only pagehide fires then, a server action dies with the page, and the page-event registry owns only keydown and beforeunload (which prompts); the listener is added and removed with the measurement of the article column it belongs to."
+				"reason": "Temporary, waiting for a shared scroll-progress observer in packages/ui. Measures how far the article has been read; when the article has no scroll column of its own the page scrolls, so the listener is on the window. Attached from the column's own ref and removed when it detaches."
+			},
+			{
+				"function": "track",
+				"count": 2,
+				"reason": "Temporary survivor, waiting for a shared follow-up: the pagehide keepalive for unsent reading progress. It goes away once the page-event registry in components/save/leave.ts runs registered flushes on pagehide, which the store will join when a measurement passes the last saved point and leave when it sends."
+			}
+		],
+		"apps/web/src/features/wiki/client.tsx": [
+			{
+				"function": "WikiChrome",
+				"count": 2,
+				"reason": "Temporary, waiting for a shared follow-up. Opens Wiki search on /, including on keyboard layouts that type / with Shift. The page-event registry cannot yet match a printable key regardless of Shift while ignoring keys typed in a field; when it can, this listener goes."
 			}
 		]
 	}

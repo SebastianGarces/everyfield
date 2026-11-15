@@ -25,10 +25,19 @@ import { Tag, Toc, WikiSourceBar, type WikiPhase, WikiTree } from "@everyfield/u
 import Link from "next/link";
 import { createDebouncer, observeHeadings } from "@everyfield/ui/foundations";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { createContext, use, useCallback, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
+import {
+	createContext,
+	use,
+	useCallback,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+	useTransition,
+	type ReactNode,
+} from "react";
 import { createRead, useRead } from "../../components/read.tsx";
 import { useLocalStore, useShallow, useStore } from "../../components/store.ts";
-import { shortcutMark } from "../../components/save/leave.ts";
 import {
 	downloadPdf,
 	loadGuide,
@@ -71,6 +80,18 @@ export function WikiChrome({ children }: { children: ReactNode }) {
 	const [searchPath, setSearchPath] = useState<string | null>(null);
 	const [guide, setGuide] = useState(false);
 	if (searchPath !== null && searchPath !== pathname) setSearchPath(null);
+	useEffect(() => {
+		const onKey = (event: KeyboardEvent) => {
+			if (event.key !== "/" || event.metaKey || event.ctrlKey || event.altKey) return;
+			if (!pathname.startsWith("/wiki")) return;
+			const target = event.target;
+			if (target instanceof HTMLElement && target.closest("input, textarea, select, [contenteditable=true]")) return;
+			event.preventDefault();
+			setSearchPath(pathname);
+		};
+		window.addEventListener("keydown", onKey);
+		return () => window.removeEventListener("keydown", onKey);
+	}, [pathname]);
 	const chrome = useMemo(
 		() => ({
 			openSearch: () => setSearchPath(pathname),
@@ -93,13 +114,11 @@ export function WikiChrome({ children }: { children: ReactNode }) {
 
 export function WikiSearchButton() {
 	const wiki = useWikiChrome();
-	const slash = usePathname().startsWith("/wiki") ? shortcutMark("/") : {};
 	const open = () => wiki?.openSearch();
 	return (
 		<>
 			<div className="max-app-sm:hidden">
 				<SearchInput
-					{...slash}
 					readOnly
 					placeholder="Search the wiki"
 					shortcut="/"
@@ -113,7 +132,7 @@ export function WikiSearchButton() {
 					}}
 				/>
 			</div>
-			<IconButton {...slash} className="app-sm:hidden" icon={Search01Icon} label="Search the wiki" onClick={open} />
+			<IconButton className="app-sm:hidden" icon={Search01Icon} label="Search the wiki" onClick={open} />
 		</>
 	);
 }
@@ -144,17 +163,6 @@ function SearchDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (op
 	if (latest?.result !== shown?.result) setShown(latest);
 	const pending = query.trim() !== asked.text || found.status === "loading";
 	const field = useRef<HTMLInputElement | null>(null);
-	const holdField = useCallback(
-		(node: HTMLInputElement | null) => {
-			field.current = node;
-			if (!node) return;
-			return () => {
-				field.current = null;
-				pause.flush();
-			};
-		},
-		[pause],
-	);
 
 	function ask(text: string, phase: string, page: number) {
 		pause.cancel();
@@ -182,7 +190,7 @@ function SearchDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (op
 						}}
 					>
 						<SearchInput
-							ref={holdField}
+							ref={field}
 							value={query}
 							maxLength={200}
 							placeholder="Search the wiki"
@@ -375,6 +383,9 @@ const SESSION_PORT: SessionPort = { recordView: recordArticleView, saveProgress,
 export function ArticleSession({ children, ...seed }: SessionSeed & { children: ReactNode }) {
 	const store = useLocalStore(() => createArticleSessionStore(seed, SESSION_PORT));
 	const [exporting, startExport] = useTransition();
+	useEffect(() => {
+		store.getState().actions.recordView();
+	}, [store]);
 	const track = useCallback(
 		(column: HTMLElement | null) => (column ? store.getState().actions.track(column) : undefined),
 		[store],

@@ -32,6 +32,7 @@ export type SessionState = {
 	updated: boolean;
 	note: string;
 	actions: {
+		recordView: () => void;
 		track: (column: HTMLElement) => () => void;
 		toggleBookmark: () => Promise<void>;
 		pdf: () => Promise<void>;
@@ -126,11 +127,12 @@ export function createArticleSessionStore(seed: SessionSeed, port: SessionPort):
 			updated: seed.updated,
 			note: "",
 			actions: {
+				recordView() {
+					if (viewed) return;
+					viewed = true;
+					void enqueue(() => port.recordView({ requestKey: crypto.randomUUID(), ...reading }));
+				},
 				track(column) {
-					if (!viewed) {
-						viewed = true;
-						void enqueue(() => port.recordView({ requestKey: crypto.randomUUID(), ...reading }));
-					}
 					const article = column.querySelector<HTMLElement>("#wiki-article");
 					if (!article) return () => undefined;
 					const scrolls = getComputedStyle(column).overflowY !== "visible";
@@ -155,12 +157,13 @@ export function createArticleSessionStore(seed: SessionSeed, port: SessionPort):
 						},
 						{ root: scrolls ? column : null },
 					)(article);
-					const scroller: HTMLElement | Window = scrolls ? column : window;
-					scroller.addEventListener("scroll", settled, { passive: true });
+					if (scrolls) column.addEventListener("scroll", settled, { passive: true });
+					else window.addEventListener("scroll", settled, { passive: true });
 					const stopSizing = observeSize(settled, { viewport: true })(column);
 					window.addEventListener("pagehide", sendOnLeave);
 					return () => {
-						scroller.removeEventListener("scroll", settled);
+						if (scrolls) column.removeEventListener("scroll", settled);
+						else window.removeEventListener("scroll", settled);
 						stopFirstSight?.();
 						stopSizing?.();
 						window.removeEventListener("pagehide", sendOnLeave);
