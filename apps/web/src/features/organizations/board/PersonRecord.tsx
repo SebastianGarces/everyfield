@@ -302,7 +302,7 @@ function MoveDialog({
 	);
 }
 
-type MoveState = { error: string | null; problem: string | null; stageId: string; reason: string };
+type MoveState = { error: string | null; problem: string | null; stageId: string; reason: string; sent: number };
 
 function MoveForm({
 	record,
@@ -315,14 +315,15 @@ function MoveForm({
 }) {
 	const choices = stages.filter((s) => s.id !== record.stage.id);
 	const [state, move, saving] = useActionState(
-		async (_: MoveState, form: FormData): Promise<MoveState> => {
+		async (last: MoveState, form: FormData): Promise<MoveState> => {
 			const stageId = String(form.get("stageId") ?? "");
 			const reason = String(form.get("reason") ?? "").trim();
-			if (!reason) return { error: "Give a reason for this move.", problem: null, stageId, reason };
+			const sent = last.sent + 1;
+			if (!reason) return { error: "Give a reason for this move.", problem: null, stageId, reason, sent };
 			const problem = await onSubmit(stageId, reason);
-			return { error: null, problem, stageId, reason: problem ? reason : "" };
+			return { error: null, problem, stageId, reason: problem ? reason : "", sent };
 		},
-		{ error: null, problem: null, stageId: choices[0]?.id ?? "", reason: "" },
+		{ error: null, problem: null, stageId: choices[0]?.id ?? "", reason: "", sent: 0 },
 	);
 	return (
 		<form action={move} noValidate className="contents">
@@ -330,6 +331,7 @@ function MoveForm({
 			<DialogBody className="flex flex-col gap-4">
 				<Field label="Move to">
 					<Select
+						key={state.sent}
 						name="stageId"
 						defaultValue={state.stageId}
 						options={choices.map((s) => ({ value: s.id, label: s.label }))}
