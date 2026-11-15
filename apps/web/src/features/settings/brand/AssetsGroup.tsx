@@ -391,7 +391,7 @@ function Swatch({
 			aria-pressed={selected}
 			title={color}
 			onClick={onClick}
-			className={`${base} cursor-pointer ${selected ? "border-ink ring-2 ring-ink" : "border-line"}`}
+			className={`${base} ${selected ? "border-ink ring-2 ring-ink" : "border-line"}`}
 			style={{ background: color }}
 		/>
 	);

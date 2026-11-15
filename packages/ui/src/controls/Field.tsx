@@ -131,7 +131,7 @@ export function Input({ icon, trailing, invalid, boxClassName, className, id, ..
 				{...props}
 				{...control}
 				className={cn(
-					"h-full min-w-0 flex-1 bg-transparent text-inherit outline-none placeholder:text-text-3 focus-visible:outline-none disabled:cursor-not-allowed",
+					"h-full min-w-0 flex-1 bg-transparent text-inherit outline-none placeholder:text-text-3 focus-visible:outline-none",
 					className,
 				)}
 			/>
@@ -162,7 +162,7 @@ export function Textarea({
 			{...props}
 			{...control}
 			className={cn(
-				"min-h-24 w-full resize-y rounded-md bg-surface-raised px-3.5 py-3 text-md leading-normal text-ink shadow-[0_0_0_1px_var(--ef-line-2)] outline-none transition-[box-shadow] duration-150 placeholder:text-text-3 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60",
+				"min-h-24 w-full resize-y rounded-md bg-surface-raised px-3.5 py-3 text-md leading-normal text-ink shadow-[0_0_0_1px_var(--ef-line-2)] outline-none transition-[box-shadow] duration-150 placeholder:text-text-3 focus-visible:outline-none disabled:opacity-60",
 				isInvalid
 					? cn(inputInvalid, textareaInvalidFocus)
 					: "focus-visible:shadow-[0_0_0_1px_var(--ef-ink),0_0_0_4px_color-mix(in_srgb,var(--ef-focus)_28%,transparent)]",

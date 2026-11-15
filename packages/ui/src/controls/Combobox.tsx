@@ -52,7 +52,7 @@ function OptionList({
 						<button
 							type="button"
 							onClick={error.onRetry}
-							className="cursor-pointer rounded-xs font-medium text-ink underline underline-offset-[3px]"
+							className="rounded-xs font-medium text-ink underline underline-offset-[3px]"
 						>
 							Try again
 						</button>
@@ -78,7 +78,7 @@ function OptionList({
 									keywords={o.description ? [o.description] : undefined}
 									disabled={o.disabled}
 									onSelect={() => onSelect(o.value)}
-									className="relative flex min-h-[38px] cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-1.5 text-md text-ink transition-[background-color] duration-150 select-none data-[disabled=true]:cursor-not-allowed data-[disabled=true]:opacity-45 data-[selected=true]:bg-surface-2"
+									className="relative flex min-h-[38px] items-center gap-2.5 rounded-md px-2.5 py-1.5 text-md text-ink transition-[background-color] duration-150 select-none data-[disabled=true]:opacity-45 data-[selected=true]:bg-surface-2"
 								>
 									{multiple ? (
 										<span
@@ -158,7 +158,7 @@ export function Combobox({
 					control["aria-invalid"]
 						? inputInvalid
 						: "focus-visible:shadow-[0_0_0_1px_var(--ef-ink),0_0_0_4px_color-mix(in_srgb,var(--ef-focus)_28%,transparent)] focus-visible:outline-none",
-					"cursor-pointer justify-between text-left",
+					"justify-between text-left",
 					className,
 				)}
 			>
@@ -223,10 +223,7 @@ export function FilterChip({
 		>
 			<Popover open={open} onOpenChange={setOpen}>
 				<PopoverTrigger
-					className={cn(
-						"inline-flex h-full cursor-pointer items-center gap-2 rounded-md pl-3.5",
-						active ? "pr-1.5" : "pr-3.5",
-					)}
+					className={cn("inline-flex h-full items-center gap-2 rounded-md pl-3.5", active ? "pr-1.5" : "pr-3.5")}
 				>
 					{icon ? <Icon icon={icon} size={16} /> : null}
 					{label}
@@ -251,7 +248,7 @@ export function FilterChip({
 					type="button"
 					aria-label={`Remove ${label} filter`}
 					onClick={() => onValueChange([])}
-					className="mr-1 grid size-8 cursor-pointer place-items-center rounded-md text-amber-600 transition-[background-color] hover:bg-[color-mix(in_srgb,var(--ef-amber-500)_18%,transparent)]"
+					className="mr-1 grid size-8 place-items-center rounded-md text-amber-600 transition-[background-color] hover:bg-[color-mix(in_srgb,var(--ef-amber-500)_18%,transparent)]"
 				>
 					<Icon icon={Cancel01Icon} size={16} />
 				</button>

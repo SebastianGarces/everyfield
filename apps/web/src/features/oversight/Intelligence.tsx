@@ -98,7 +98,7 @@ export function IntelligenceBody({ initial, words }: { initial: IntelligenceView
 								href={href(l, viewingLatest ? null : view.run!.runId)}
 								aria-current={view.level === l ? "page" : undefined}
 								className={cn(
-									"inline-flex flex-none cursor-pointer items-center rounded-md px-3.5 py-2 font-medium whitespace-nowrap text-ink-2 transition-colors duration-150 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ef-focus)]",
+									"inline-flex flex-none items-center rounded-md px-3.5 py-2 font-medium whitespace-nowrap text-ink-2 transition-colors duration-150 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ef-focus)]",
 									view.level === l && "bg-surface-raised text-ink shadow-[var(--ef-shadow-raised)]",
 								)}
 							>
@@ -190,7 +190,7 @@ function Group({ group, rate, canRate }: { group: IntelligenceGroup; rate: Rate;
 						<Link
 							href={`/network/plants/${r.plantId}`}
 							data-focus-inset=""
-							className="-mx-2 flex cursor-pointer items-center gap-3 rounded-md px-2 py-3 transition-colors hover:bg-hover"
+							className="-mx-2 flex items-center gap-3 rounded-md px-2 py-3 transition-colors hover:bg-hover"
 						>
 							<CardIcon icon={UserGroupIcon} tone="green" size={36} />
 							<span className="flex min-w-0 flex-1 flex-col gap-1.5">
@@ -237,7 +237,7 @@ function Pattern({ pattern, rate, canRate }: { pattern: IntelligencePattern; rat
 					<li key={p.plantId}>
 						<Link
 							href={`/network/plants/${p.plantId}`}
-							className="cursor-pointer font-medium text-ink underline underline-offset-[3px] hover:text-ink-2"
+							className="font-medium text-ink underline underline-offset-[3px] hover:text-ink-2"
 						>
 							{p.name}
 						</Link>
@@ -290,7 +290,7 @@ function History({ view }: { view: IntelligenceView }) {
 						<Link
 							href={href(view.level, i === 0 ? null : h.runId)}
 							aria-current={view.run?.runId === h.runId ? "page" : undefined}
-							className="cursor-pointer text-md text-text-2 underline-offset-[3px] hover:text-ink hover:underline aria-[current=page]:font-medium aria-[current=page]:text-ink"
+							className="text-md text-text-2 underline-offset-[3px] hover:text-ink hover:underline aria-[current=page]:font-medium aria-[current=page]:text-ink"
 						>
 							{runLabel(h.ranAt, view.timeZone)}
 							{i === 0 ? " · latest" : ""}

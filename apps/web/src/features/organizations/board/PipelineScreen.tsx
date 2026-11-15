@@ -192,7 +192,7 @@ function Toolbar({ board }: { board: PipelineBoard }) {
 					href={boardHref({ ...query, stale: !query.stale, page: 1 })}
 					aria-pressed={query.stale}
 					className={cn(
-						"inline-flex h-10 cursor-pointer items-center gap-1.5 rounded-md px-3 text-sm font-medium whitespace-nowrap transition-[background-color,box-shadow] duration-150",
+						"inline-flex h-10 items-center gap-1.5 rounded-md px-3 text-sm font-medium whitespace-nowrap transition-[background-color,box-shadow] duration-150",
 						query.stale
 							? "bg-amber-100 text-amber-600 shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--ef-amber-500)_35%,transparent)]"
 							: "bg-surface-raised text-ink shadow-[inset_0_0_0_1px_var(--ef-line)] hover:shadow-[inset_0_0_0_1px_var(--ef-line-2)]",
@@ -210,7 +210,7 @@ function Toolbar({ board }: { board: PipelineBoard }) {
 							href={boardHref({ view, stale: false, q: "", page: 1 })}
 							aria-current={query.view === view ? "page" : undefined}
 							className={cn(
-								"cursor-pointer rounded-md px-3 py-1.5 text-sm font-medium",
+								"rounded-md px-3 py-1.5 text-sm font-medium",
 								query.view === view ? "bg-surface-raised text-ink shadow-raised" : "text-text-2 hover:text-ink",
 							)}
 						>
@@ -271,7 +271,7 @@ function PersonCard({ person, stage }: { person: Card; stage?: string }) {
 			<div className="min-w-0">
 				<Link
 					href={`${PIPELINE_PATH}/${person.personId}`}
-					className="block cursor-pointer truncate text-sm leading-[1.2] font-semibold text-ink after:absolute after:inset-0 after:rounded-card hover:underline"
+					className="block truncate text-sm leading-[1.2] font-semibold text-ink after:absolute after:inset-0 after:rounded-card hover:underline"
 				>
 					{person.name}
 				</Link>
@@ -333,10 +333,7 @@ function Pages({ board }: { board: PipelineBoard }) {
 	return (
 		<nav aria-label="Pages" className="mt-4 flex items-center justify-center gap-3 text-sm">
 			{query.page > 1 ? (
-				<Link
-					className="cursor-pointer font-medium text-ink underline"
-					href={boardHref({ ...query, page: query.page - 1 })}
-				>
+				<Link className="font-medium text-ink underline" href={boardHref({ ...query, page: query.page - 1 })}>
 					Previous
 				</Link>
 			) : null}
@@ -344,10 +341,7 @@ function Pages({ board }: { board: PipelineBoard }) {
 				Page {query.page} of {pages}
 			</span>
 			{query.page < pages ? (
-				<Link
-					className="cursor-pointer font-medium text-ink underline"
-					href={boardHref({ ...query, page: query.page + 1 })}
-				>
+				<Link className="font-medium text-ink underline" href={boardHref({ ...query, page: query.page + 1 })}>
 					Next
 				</Link>
 			) : null}
