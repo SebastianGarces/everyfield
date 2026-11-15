@@ -15,7 +15,7 @@ type Views = {
 export type PeopleViewsState = Views & {
 	actions: {
 		want: (base: PeopleView, next: ViewValue) => PeopleView | null;
-		arrived: (base: PeopleView, next: ViewValue, got: PeopleView) => boolean;
+		arrived: (base: PeopleView, next: ViewValue, got: PeopleView) => void;
 	};
 };
 
@@ -42,10 +42,8 @@ export function createPeopleViewsStore(base: PeopleView): StoreApi<PeopleViewsSt
 			},
 			arrived: (from, next, got) => {
 				const s = get();
-				if (s.base !== from) return false;
-				const wanted = s.wanted === next;
-				set({ loaded: { ...s.loaded, [kindOf(next)]: got }, view: wanted ? next : s.view });
-				return wanted;
+				if (s.base !== from) return;
+				set({ loaded: { ...s.loaded, [kindOf(next)]: got }, view: s.wanted === next ? next : s.view });
 			},
 		},
 	}));

@@ -88,16 +88,16 @@ export function PeopleScreen({ loaded, canWrite }: { loaded: PeopleView; canWrit
 	const switchView = (next: ViewValue) => {
 		const { want, arrived } = store.getState().actions;
 		const have = want(loaded, next);
-		if (have) return address({ ...have.query, view: next });
+		const target = { ...(have?.query ?? query), view: next };
+		address(target);
+		if (have) return;
 		const base = loaded;
 		const from = currentAddress();
-		const target = { ...query, view: next };
 		startTransition(async () => {
 			setChosen(next);
 			const got = await loadPeopleView(querySearch(target)).catch(() => null);
-			const still = currentAddress() === from;
-			if (!got) return void (still && store.getState().wanted === next && go(target, true));
-			if (arrived(base, next, got) && still) address({ ...got.query, view: next });
+			if (got) return arrived(base, next, got);
+			if (currentAddress() === from && store.getState().wanted === next) go(target, true);
 		});
 	};
 

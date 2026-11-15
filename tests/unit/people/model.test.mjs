@@ -25,7 +25,7 @@ import {
 	withEntry,
 	pairsToReview,
 } from "../../../apps/web/src/features/people/model.ts";
-import { createPersonStore, runSave } from "../../../apps/web/src/features/people/person.store.ts";
+import { createPersonStore, runSave, withServer } from "../../../apps/web/src/features/people/person.store.ts";
 
 const person = (revision, extra = {}) => ({ id: "p1", revision, displayName: "Maria Santos", ...extra });
 const keys = () => {
@@ -146,6 +146,15 @@ test("INV-revision: server props and answers never move the saved person back to
 	// Decimal revisions compare as numbers: "10" is newer than "9".
 	store.getState().actions.server(person("9", { displayName: "Nine" }));
 	assert.equal(store.getState().saved.revision, "10");
+	const page = createPersonStore(person("9", { displayName: "Saved here" }));
+	assert.equal(withServer(page, person("8", { displayName: "Old prop" })).getState().saved.displayName, "Saved here");
+	const shown = withServer(page, person("10", { displayName: "Newer prop" }));
+	assert.equal(shown.getState().saved.displayName, "Newer prop", "a newer server prop wins");
+	await runSave(shown, "profile", {}, async () => ({ status: "ok", value: person("11", { displayName: "Answer" }) }), {
+		fresh: keys(),
+		toPerson: (p) => p,
+	});
+	assert.equal(shown.getState().saved.displayName, "Answer", "an answer newer than the prop wins over it");
 });
 
 test("INV-edit-patch: edit profile sends only the fields that changed", () => {
