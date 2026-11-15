@@ -4,17 +4,17 @@
 			{
 				"function": "subscribe",
 				"count": 2,
-				"reason": "The one shared media-query subscription behind useMediaQuery and useReducedMotion: useSyncExternalStore adds the change listener of that query's MediaQueryList for as long as a component reads it and removes it with the last reader; a media query has no other change signal."
+				"reason": "The media-query subscription behind useMediaQuery and useReducedMotion: useSyncExternalStore calls it once per reading component, which adds its own change listener to that query's MediaQueryList and removes it when the component stops reading; a media query has no other change signal."
 			},
 			{
 				"function": "subscribeVisibility",
 				"count": 2,
-				"reason": "The one shared tab-visibility subscription behind useDocumentHidden: useSyncExternalStore adds the document's visibilitychange listener while a component reads it and removes it with the last reader; nothing else says the tab was hidden or shown."
+				"reason": "The tab-visibility subscription behind useDocumentHidden: useSyncExternalStore calls it once per reading component, which adds its own visibilitychange listener on the document and removes it when the component stops reading; nothing else says the tab was hidden or shown."
 			},
 			{
 				"function": "subscribeHash",
 				"count": 2,
-				"reason": "The one shared fragment subscription behind useLocationHash: useSyncExternalStore adds the window's hashchange listener while a component reads it and removes it with the last reader; the location store does not report fragment-only changes."
+				"reason": "The fragment subscription behind useLocationHash: useSyncExternalStore calls it once per reading component, which adds its own hashchange listener on the window and removes it when the component stops reading; the location store does not report fragment-only changes."
 			}
 		],
 		"packages/ui/src/foundations/evry-life.ts": [
