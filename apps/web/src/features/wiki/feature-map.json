@@ -1,0 +1,336 @@
+{
+	"$schema": "../../../feature-map.schema.json",
+	"feature": "wiki",
+	"catalog": ["WIKI-001", "WIKI-002", "WIKI-003", "WIKI-004", "WIKI-005", "WIKI-006", "WIKI-007", "WIKI-011"],
+	"surfaces": [
+		{
+			"id": "wiki.reader",
+			"says": "The Playbook wiki: what to read next, articles and church versions, search, bookmarks, ratings, print and PDF.",
+			"routes": ["/wiki/[[...slug]]"],
+			"endpoints": ["/api/wiki/progress"],
+			"catalog": ["WIKI-001", "WIKI-002", "WIKI-003", "WIKI-004", "WIKI-005", "WIKI-006", "WIKI-007", "WIKI-011"],
+			"reach": [
+				{
+					"rail": "Wiki",
+					"personas": ["owner", "admin", "member", "resident", "signup", "triage"]
+				},
+				{
+					"link": "/wiki/{slug}",
+					"fill": {
+						"slug": "an article's path, as in its link in the wiki's navigation"
+					}
+				}
+			],
+			"personas": {
+				"owner": "write",
+				"admin": "write",
+				"member": "write",
+				"resident": "write",
+				"signup": "write",
+				"triage": "write",
+				"visitor": "none"
+			},
+			"states": [
+				{
+					"id": "home",
+					"reach": {
+						"persona": "owner",
+						"open": "/wiki",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Continue reading"
+						},
+						{
+							"role": "heading",
+							"name": "Recent"
+						},
+						{
+							"role": "link",
+							"name": "Updated since you read it",
+							"match": "contains"
+						}
+					]
+				},
+				{
+					"id": "article",
+					"reach": {
+						"persona": "owner",
+						"open": "/wiki",
+						"path": [
+							{
+								"click": {
+									"role": "link",
+									"name": "Grace Fellowship (QA)",
+									"match": "contains"
+								}
+							},
+							{
+								"expect": {
+									"url": "/wiki/{slug}"
+								}
+							}
+						],
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Grace Fellowship (QA)",
+							"match": "contains"
+						},
+						{
+							"role": "button",
+							"name": "Download PDF"
+						},
+						{
+							"role": "button",
+							"name": "Helpful"
+						}
+					]
+				},
+				{
+					"id": "unavailable",
+					"reach": {
+						"persona": "owner",
+						"open": "/wiki/no-such-article",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "This article is not available"
+						}
+					]
+				},
+				{
+					"id": "account",
+					"reach": {
+						"persona": "triage",
+						"open": "/wiki",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Suggested"
+						}
+					]
+				},
+				{
+					"id": "signed-out",
+					"reach": {
+						"persona": "visitor",
+						"open": "/wiki",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"url": "/signin?returnTo=%2Fwiki"
+						}
+					]
+				},
+				{
+					"id": "load-failed",
+					"reach": {
+						"manual": "renders only when the wiki read fails on the server"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "We could not load the wiki"
+						}
+					]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "search",
+					"says": "Search finds articles by their words and marks each match in its snippet.",
+					"catalog": ["WIKI-003"],
+					"operations": ["wiki.search"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/wiki/wiki.test.mts",
+								"name": "AC:CASE-WIKI-003 search finds an organization article by the word its last edit wrote, not the word it replaced"
+							},
+							{
+								"file": "tests/integration/wiki/wiki.test.mts",
+								"name": "BUG-63e46c879 AC:CASE-WIKI-003 search snippets are plain whole words with each match in <b>"
+							}
+						],
+						"cases": ["CASE-WIKI-003"],
+						"browser": {
+							"state": "home",
+							"steps": [
+								{
+									"click": {
+										"role": "searchbox",
+										"name": "Search the wiki"
+									}
+								},
+								{
+									"type": "Designated",
+									"into": "Search words"
+								},
+								{
+									"press": "Enter"
+								}
+							],
+							"expect": [
+								{
+									"role": "link",
+									"name": "Designated",
+									"match": "contains"
+								},
+								{
+									"absent": {
+										"role": "link",
+										"name": "Grace Fellowship (QA)",
+										"match": "contains"
+									}
+								}
+							],
+							"kind": "behavior"
+						}
+					}
+				},
+				{
+					"id": "rate",
+					"says": "Helpful or Unhelpful records the reader's one rating.",
+					"catalog": ["WIKI-006"],
+					"operations": ["wiki.feedback.setMine"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/wiki/wiki.test.mts",
+								"name": "AC:CASE-WIKI-006 own feedback reads only while the reader's plant seat and lifecycle are live, as setMine writes"
+							}
+						],
+						"cases": ["CASE-WIKI-006"],
+						"browser": {
+							"state": "article",
+							"steps": [
+								{
+									"click": {
+										"role": "button",
+										"name": "Helpful"
+									}
+								}
+							],
+							"expect": [
+								{
+									"text": "Marked as helpful."
+								}
+							],
+							"kind": "behavior"
+						}
+					}
+				},
+				{
+					"id": "export",
+					"says": "Print and Download PDF render the visible text, diagrams as text, code verbatim, a human credit.",
+					"catalog": ["WIKI-007"],
+					"operations": [],
+					"noOperation": "the catalog's wiki.article.exportPdf and wiki.article.print are not quoted or declared in packages/*/src or apps/web/src/server",
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/wiki/wiki.test.mts",
+								"name": "AC:CASE-WIKI-007 PDF and print export render diagrams as text and code fences verbatim in Courier"
+							},
+							{
+								"file": "tests/integration/wiki/wiki.test.mts",
+								"name": "AC:CASE-WIKI-007 the export footer shows a human credit and never a source path or digest"
+							}
+						],
+						"cases": ["CASE-WIKI-007"],
+						"browser": {
+							"state": "article",
+							"steps": [],
+							"expect": [
+								{
+									"role": "button",
+									"name": "Download PDF"
+								},
+								{
+									"role": "button",
+									"name": "Print"
+								}
+							],
+							"kind": "presence"
+						}
+					}
+				},
+				{
+					"id": "progress",
+					"says": "Reading records progress; the home resumes it and marks an article changed since it was read.",
+					"catalog": ["WIKI-004"],
+					"operations": ["wiki.reading.updateProgress", "wiki.reading.recordView"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/wiki/wiki.test.mts",
+								"name": "two tabs write progress and views from stale revisions without a conflict; bookmark still works"
+							}
+						]
+					}
+				},
+				{
+					"id": "versions",
+					"says": "Churches and networks sharing the wiki publish their own versions; the reader picks which comes first.",
+					"catalog": ["WIKI-001"],
+					"operations": ["wiki.setSourceOrder"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/wiki/wiki.test.mts",
+								"name": "AC:CASE-WIKI-001 organization draft edit and hide keep every prior revision"
+							},
+							{
+								"file": "tests/unit/wiki/preferred-source.test.mts",
+								"name": "INV-wiki-prefer-head: setting church C preferred stores C, A, B and leaves the networks as they were"
+							}
+						],
+						"cases": ["CASE-WIKI-001"]
+					}
+				},
+				{
+					"id": "bookmark",
+					"says": "Bookmark keeps an article in Bookmarks; Remove bookmark takes it out.",
+					"catalog": ["WIKI-005"],
+					"operations": ["wiki.bookmarks.set"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/wiki/wiki.test.mts",
+								"name": "two tabs write progress and views from stale revisions without a conflict; bookmark still works"
+							}
+						],
+						"browser": {
+							"state": "article",
+							"steps": [
+								{
+									"click": {
+										"role": "button",
+										"name": "Bookmark"
+									}
+								}
+							],
+							"expect": [
+								{
+									"role": "button",
+									"name": "Remove bookmark"
+								}
+							],
+							"kind": "behavior"
+						}
+					}
+				}
+			]
+		}
+	]
+}
