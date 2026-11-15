@@ -56,7 +56,7 @@ export function observeHeadings(
 		if (!container || ids.length === 0) return;
 		const doc = container.ownerDocument;
 		const root = options.root?.(container) ?? null;
-		const offset = typeof options.offset === "function" ? options.offset(root) : (options.offset ?? 96);
+		const offset = typeof options.offset === "function" ? options.offset(root) : (options.offset ?? 120);
 		let active: string | undefined;
 		const update = () => {
 			const line = (root ? root.getBoundingClientRect().top : 0) + offset;
