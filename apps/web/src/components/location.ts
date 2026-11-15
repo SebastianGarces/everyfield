@@ -19,6 +19,7 @@ export type AddressRule = (to: URL, from: URL | null) => string | null;
 const changes = new Set<Listener>();
 const linkValueReaders = new Set<Listener>();
 const traversals = new Set<Listener>();
+const navigations = new Set<Listener>();
 const rules = new Map<string, AddressRule>();
 let routerBehind = false;
 let writing = false;
@@ -81,6 +82,19 @@ function traversed() {
 	routerBehind = true;
 	for (const listener of changes) listener();
 	for (const listener of traversals) listener();
+	navigated();
+}
+
+function navigated() {
+	for (const listener of [...navigations]) listener();
+}
+
+function linkFollowed(event: MouseEvent) {
+	if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+	const link = event.target instanceof Element ? event.target.closest("a[href]") : null;
+	if (!(link instanceof HTMLAnchorElement) || link.hasAttribute("download")) return;
+	if ((link.target && link.target !== "_self") || link.origin !== window.location.origin) return;
+	navigated();
 }
 
 function routerWrote(event: EntryChange) {
@@ -89,7 +103,11 @@ function routerWrote(event: EntryChange) {
 	shown = fullAddress();
 }
 
-type Installed = { popstate: () => void; entry: (event: EntryChange) => void };
+type Installed = {
+	popstate: () => void;
+	entry: (event: EntryChange) => void;
+	click: (event: MouseEvent) => void;
+};
 const INSTALLED = Symbol.for("everyfield.location");
 
 if (typeof window !== "undefined") {
@@ -99,11 +117,13 @@ if (typeof window !== "undefined") {
 	if (previous) {
 		window.removeEventListener("popstate", previous.popstate);
 		navigation?.removeEventListener("currententrychange", previous.entry);
+		document.removeEventListener("click", previous.click);
 	}
-	host[INSTALLED] = { popstate: traversed, entry: routerWrote };
+	host[INSTALLED] = { popstate: traversed, entry: routerWrote, click: linkFollowed };
 	shown = fullAddress();
 	window.addEventListener("popstate", traversed);
 	navigation?.addEventListener("currententrychange", routerWrote);
+	document.addEventListener("click", linkFollowed);
 }
 
 const subscribe = (listener: Listener) => {
@@ -116,6 +136,11 @@ export function onTraversal(listener: Listener): () => void {
 	return () => void traversals.delete(listener);
 }
 
+export function onNavigation(listener: Listener): () => void {
+	navigations.add(listener);
+	return () => void navigations.delete(listener);
+}
+
 export function addAddressRule(name: string, rule: AddressRule): void {
 	rules.set(name, rule);
 }
@@ -124,6 +149,7 @@ export function writeAddress(href: string | URL, { replace = false, state }: Add
 	const from = shown === null ? null : urlOf(shown);
 	write(ruled(urlOf(href), from) ?? href, replace, state ?? null);
 	for (const listener of changes) listener();
+	navigated();
 }
 
 const marked = (value: string) => (routerBehind ? `+${value}` : `-${value}`);

@@ -257,7 +257,7 @@ test("INV-lint: history writes, popstate, the Navigation API, the address fragme
 	);
 });
 
-test("INV-lint: window and document listeners are reported outside the location store and the page-event registry", () => {
+test("INV-lint: window and document listeners, and onTraversal or onNavigation held for a component's lifetime, are reported outside the location store and the page-event registry", () => {
 	const source = `export function mount(node, run) {
 	window.addEventListener("keydown", run);
 	document.removeEventListener("click", run);
@@ -276,12 +276,14 @@ test("INV-lint: window and document listeners are reported outside the location 
 	return [add, listen];
 }
 `;
-	const registries = `import { addAddressRule, onTraversal } from "../../components/location.ts";
+	const registries = `import { addAddressRule, onNavigation, onTraversal } from "../../components/location.ts";
 addAddressRule("ok", () => null);
 export function Screen() {
 	addAddressRule("bad", () => null);
 	const go = () => onTraversal(() => {});
-	return <button ref={(node) => (node ? onTraversal(() => {}) : undefined)} onClick={go} />;
+	onNavigation(() => {});
+	const leave = () => onNavigation(() => {});
+	return <button ref={(node) => (node ? onTraversal(() => {}) : undefined)} onClick={go} onBlur={leave} />;
 }
 `;
 	assert.deepEqual(
@@ -297,6 +299,7 @@ export function Screen() {
 			),
 			"apps/web/src/features/x/Screen.tsx:4 no-global-listeners",
 			"apps/web/src/features/x/Screen.tsx:6 no-global-listeners",
+			"apps/web/src/features/x/Screen.tsx:8 no-global-listeners",
 		].sort(),
 	);
 });

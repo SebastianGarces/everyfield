@@ -558,7 +558,7 @@ const LISTENER_MEMBERS = new Set(["addEventListener", "removeEventListener"]);
 const LISTENER_HOSTS = new Set([...GLOBAL_HOSTS, "document"]);
 const HOST_MEMBERS = new Set(["document", "body", "documentElement", "ownerDocument", "defaultView", "visualViewport"]);
 const ON_HANDLER = /^on[a-z]+$/;
-const REGISTRY_WORDS = new Set(["onTraversal", "addAddressRule"]);
+const REGISTRY_WORDS = new Set(["onTraversal", "onNavigation", "addAddressRule"]);
 
 function isJsxRef(fn) {
 	let node = fn.parent;
@@ -609,7 +609,7 @@ const noGlobalListeners = ratcheted("no-global-listeners", (context, push) => {
 			const fn = nearestFunction(node);
 			const owner = fn && functionName(fn);
 			if (fn && (isJsxRef(fn) || (owner && /^([A-Z]|use[A-Z0-9])/.test(owner))))
-				report(node, "onTraversal registered for a component's lifetime");
+				report(node, `${name} registered for a component's lifetime`);
 		},
 	};
 });
