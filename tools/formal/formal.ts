@@ -2,11 +2,13 @@
 // given), it runs TLC on the model's MC*.cfg with a pinned tla2tools.jar whose checksum it verifies, prints each
 // invariant and property with its result and the distinct states TLC explored, and prints TLC's counterexample when a
 // property fails. It then checks the outcome table the model prints against the committed outcomes.json (--write
-// rewrites it) and checks every map in .agents/skills/formal-*/map.json against the code and the model.
+// rewrites it) and checks every map in .agents/skills/formal-*/map.json against the code and the model. For a model in
+// SIMULATIONS it also generates random behaviors with TLC simulation from a fixed seed and checks them against the
+// committed traces.json the same way (T-399); `--traces <dir> [--seed <n>]` writes a fresh set outside the repository.
 //
 // TLC runs on a local Java 11 or newer when there is one, and otherwise in a pinned Java container through Docker.
 import { spawnSync } from "node:child_process";
-import { createHash } from "node:crypto";
+import { createHash, randomInt } from "node:crypto";
 import {
 	cpSync,
 	existsSync,
@@ -19,7 +21,7 @@ import {
 	writeFileSync,
 } from "node:fs";
 import { homedir } from "node:os";
-import { basename, join, relative, resolve } from "node:path";
+import { basename, dirname, join, relative, resolve } from "node:path";
 
 const TLA_TOOLS = {
 	version: "1.7.4",
@@ -86,8 +88,49 @@ function runner(): Runner {
 	throw new FormalError("TLC needs Java 11 or newer, or a running Docker. Neither answered.");
 }
 
-/** Runs TLC on one model dir's MC*.cfg in a temporary copy, so TLC's state files never land in the repository. */
-function tlc(dir: string, jar: string, how: Runner) {
+/** TLC simulation: `traces` random behaviors of up to `depth` states each, from `seed`, on one worker so a seed always
+ * gives the same behaviors. */
+type Simulate = { traces: number; depth: number; seed: number };
+
+/** The marker of each state a simulation prints. */
+const STATE_MARK = '<< "evf-state",';
+
+/**
+ * The module and config a simulation runs instead of the model's own: the same spec and constants, checking nothing,
+ * with one invariant that prints each state of each behavior as its level and every variable. TLC 1.7.4's own
+ * `-simulate file=` writes a lazily built function (such as the sessions a removal ends) as an unevaluated expression,
+ * and printing such a function whole breaks the run, so each variable prints as its set of <<key, value>> pairs.
+ */
+function simulation(dir: string, spec: string, config: string) {
+	const tla = globSync("*.tla", { cwd: dir })
+		.map((f) => readFileSync(join(dir, f), "utf8"))
+		.join("\n");
+	const variables = (/^VARIABLES?\s+([\s\S]*?)\n\s*\n/m.exec(tla)?.[1] ?? "")
+		.replace(/\\\*.*$/gm, "")
+		.split(",")
+		.map((v) => v.trim())
+		.filter(Boolean);
+	if (!variables.length) throw new FormalError(`${dir} declares no VARIABLES for its simulation to print.`);
+	const name = `Sim${spec.replace(/\.tla$/, "")}`;
+	const module = `---- MODULE ${name} ----
+EXTENDS ${spec.replace(/\.tla$/, "")}, TLC
+EvfPairs(f) == {<<k, f[k]>> : k \\in DOMAIN f}
+EvfTraceState == PrintT(<<"evf-state", TLCGet("level"), <<${variables.map((v) => `EvfPairs(${v})`).join(", ")}>>>>)
+====
+`;
+	let skip = false;
+	const kept = config.split("\n").filter((line) => {
+		if (/^[A-Z]/.test(line)) skip = /^(?:INVARIANTS?|PROPERTY|PROPERTIES)\b/.test(line);
+		return !skip;
+	});
+	return { name, module, config: `${kept.join("\n")}\nINVARIANT EvfTraceState\n`, variables };
+}
+
+/**
+ * Runs TLC on one model dir's MC*.cfg in a temporary copy, so TLC's state files never land in the repository. With
+ * `simulate` it generates random behaviors instead of checking every state (see `simulation`).
+ */
+function tlc(dir: string, jar: string, how: Runner, simulate?: Simulate) {
 	const configs = globSync("MC*.cfg", { cwd: dir });
 	if (configs.length !== 1) throw new FormalError(`${dir} needs exactly one MC*.cfg; it has ${configs.length}.`);
 	const config = configs[0]!,
@@ -97,17 +140,33 @@ function tlc(dir: string, jar: string, how: Runner) {
 	const work = mkdtempSync(join(cacheDir(), "run-"));
 	try {
 		for (const file of globSync("*.{tla,cfg}", { cwd: dir })) cpSync(join(dir, file), join(work, file));
+		const sim = simulate && simulation(dir, spec, readFileSync(join(dir, config), "utf8"));
+		if (sim) {
+			writeFileSync(join(work, `${sim.name}.tla`), sim.module);
+			writeFileSync(join(work, `${sim.name}.cfg`), sim.config);
+		}
+		const mode = simulate
+			? [
+					"-simulate",
+					`num=${simulate.traces}`,
+					"-depth",
+					`${simulate.depth}`,
+					"-seed",
+					`${simulate.seed}`,
+					"-workers",
+					"1",
+				]
+			: ["-workers", "auto"];
 		const args = [
 			"-XX:+UseParallelGC",
 			"-jar",
 			jar,
-			"-workers",
-			"auto",
+			...mode,
 			"-deadlock",
 			"-cleanup",
 			"-config",
-			config,
-			spec,
+			sim ? `${sim.name}.cfg` : config,
+			sim ? `${sim.name}.tla` : spec,
 		];
 		const options = { cwd: work, encoding: "utf8" as const, maxBuffer: 256 * 1024 * 1024, timeout: TLC_TIMEOUT_MS };
 		const started = Date.now();
@@ -150,6 +209,7 @@ function tlc(dir: string, jar: string, how: Runner) {
 			output,
 			status: result.status ?? 1,
 			ms: Date.now() - started,
+			variables: sim ? sim.variables : [],
 		};
 	} finally {
 		rmSync(work, { recursive: true, force: true });
@@ -193,6 +253,234 @@ function outcomes(output: string): string[][] | null {
 	return rows.map((r) => r.map(String)).sort((a, b) => (a.join(" ") < b.join(" ") ? -1 : 1));
 }
 
+/** A TLA+ value TLC printed, as JSON. A record or a function is an object, a tuple or a set is an array, and a model
+ * value is its name. */
+type Value = string | number | boolean | Value[] | { [key: string]: Value };
+type State = Record<string, Value>;
+
+const TOKEN = /\s*(<<|>>|\|->|:>|@@|[[\](){},]|"(?:[^"\\]|\\.)*"|-?\d+|[A-Za-z_]\w*)/y;
+
+/** The value TLC printed at `from` in `text`, read as TLC prints it. */
+function printedValue(text: string, from: number): Value {
+	TOKEN.lastIndex = from;
+	const take = (want?: string) => {
+		const at = TOKEN.lastIndex,
+			m = TOKEN.exec(text);
+		if (!m || (want !== undefined && m[1] !== want))
+			throw new FormalError(`Cannot read TLC's output: expected ${want ?? "a value"} at ${text.slice(at, at + 40)}`);
+		return m[1]!;
+	};
+	const peek = () => {
+		const at = TOKEN.lastIndex,
+			t = TOKEN.exec(text)?.[1];
+		TOKEN.lastIndex = at;
+		return t;
+	};
+	const list = <T>(close: string, sep: string, item: () => T) => {
+		const items: T[] = [];
+		if (peek() === close) return (take(), items);
+		for (;;) {
+			items.push(item());
+			const t = take();
+			if (t === close) return items;
+			if (t !== sep) throw new FormalError(`Cannot read TLC's output: expected ${sep} or ${close}, found ${t}`);
+		}
+	};
+	const value = (): Value => {
+		const t = take();
+		if (t === "<<" || t === "{") return list(t === "<<" ? ">>" : "}", ",", value);
+		if (t === "[") return Object.fromEntries(list("]", ",", () => [take(), (take("|->"), value())]));
+		if (t === "(") return Object.fromEntries(list(")", "@@", () => [String(value()), (take(":>"), value())]));
+		if (t.startsWith('"')) return JSON.parse(t) as string;
+		if (/^-?\d+$/.test(t)) return Number(t);
+		if (t === "TRUE" || t === "FALSE") return t === "TRUE";
+		if (/^[A-Za-z_]/.test(t)) return t;
+		throw new FormalError(`Cannot read TLC's output: unexpected ${t}`);
+	};
+	return value();
+}
+
+/** `v` with each tuple of plain values (in these models an id such as <<x, 1>>) as its parts joined by "/", and each
+ * object's keys in order, since TLC prints a record's fields in no fixed order. */
+const id = (v: Value): Value =>
+	Array.isArray(v)
+		? v.length && v.every((x) => typeof x !== "object")
+			? v.join("/")
+			: v.map(id)
+		: typeof v === "object"
+			? sorted(Object.entries(v).map(([k, x]) => [k, id(x)]))
+			: v;
+const sorted = (entries: [string, Value][]) =>
+	Object.fromEntries(entries.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
+
+/**
+ * The behaviors a simulation printed (see `simulation`), each a list of states in order. A state at a lower level than
+ * the one before starts a new behavior. TLC 1.7.4 checks the invariant on the initial state once, at level 0, and on
+ * each behavior's later states at levels 1, 2, ..., so each later behavior starts from that one initial state. It
+ * evaluates the invariant twice on some states, so the same state again at the same level is one state. Each variable printed as its set of <<key, value>> pairs and reads back as an object.
+ */
+export function printedBehaviors(output: string, variables: readonly string[]): State[][] {
+	const behaviors: State[][] = [];
+	let previous = -1;
+	for (let at = output.indexOf(STATE_MARK); at >= 0; at = output.indexOf(STATE_MARK, at + 1)) {
+		const [, level, values] = printedValue(output, at) as [string, number, Value[][][]];
+		const state: State = Object.fromEntries(
+			variables.map((name, i) => [name, sorted(values[i]!.map(([k, v]) => [String(id(k!)), id(v!)]))]),
+		);
+		const last = behaviors.at(-1)?.at(-1);
+		if (level === previous) {
+			if (JSON.stringify(state) !== JSON.stringify(last))
+				throw new FormalError(`TLC printed two different states at level ${level} of behavior ${behaviors.length}.`);
+			continue;
+		}
+		if (level < previous || !behaviors.length) behaviors.push(level === 0 ? [] : [behaviors[0]![0]!]);
+		previous = level;
+		behaviors.at(-1)!.push(state);
+	}
+	return behaviors;
+}
+
+/** One step of a behavior: the model action, its arguments, the result when the action has one, and every state
+ * variable entry the step changed. */
+type TraceStep = { action: string; args: Record<string, Value>; ok?: boolean; after: Record<string, Record<string, Value>> };
+
+/**
+ * A permissions step from the state it made. The model records each step in `last` (Step(op, session,
+ * target, ok)); the rest of an action's arguments are in the state it made.
+ */
+function permissionStep(after: State): Omit<TraceStep, "after"> {
+	const last = after.last as Record<string, Value>;
+	const op = String(last.op),
+		session = last.session!,
+		target = String(last.target);
+	const seatOps = ["appointAdmin", "demote", "changeOrdinaryRole", "remove"];
+	if (op === "signIn") return { action: "SignIn", args: { session } };
+	if (op === "endSession") return { action: "EndSession", args: { session } };
+	if (seatOps.includes(op)) {
+		const seat = (after.seats as Record<string, Record<string, Value>>)[target]!;
+		// Every seat change but a removal sets the role it names, so the seat's role after the step is that role.
+		return { action: "SeatAction", args: { session, op, to: op === "remove" ? "none" : seat.role!, target } };
+	}
+	if (op === "invite") {
+		const i = (after.invitations as Record<string, Record<string, Value>>)[target]!;
+		return { action: "Invite", args: { session, invitation: target, workspace: i.ws!, role: i.role!, to: i.to! } };
+	}
+	if (op === "revoke") return { action: "Revoke", args: { session, invitation: target } };
+	if (op === "accept") return { action: "Accept", args: { session, invitation: target } };
+	if (op === "expire") return { action: "Expire", args: { invitation: target } };
+	if (op === "resolve") {
+		const kind = (after.requests as Record<string, Record<string, Value>>)[target]!.kind!;
+		return { action: "Resolve", args: { request: target, session, kind } };
+	}
+	if (["read", "adminRead", "write"].includes(op))
+		return { action: "Run", args: { request: target, kind: op }, ok: last.ok === true };
+	throw new FormalError(`The model's step "${op}" maps to no action. Add it to permissionStep in tools/formal/formal.ts.`);
+}
+
+/** What one step covers: its action, with the seat change, or the statement kind and whether it was admitted. */
+function permissionCoverage(step: Omit<TraceStep, "after">) {
+	if (step.action === "SeatAction")
+		return `SeatAction ${step.args.op}${step.args.op === "changeOrdinaryRole" ? ` to ${step.args.to}` : ""}`;
+	if (step.action === "Run") return `Run ${step.args.kind} ${step.ok ? "admitted" : "refused"}`;
+	return step.action;
+}
+
+/**
+ * The models whose random behaviors `bin/dev formal` generates for a replay test, keyed by the module TLC checks (the
+ * MC*.cfg's name): the one place that sets how many behaviors, how long each may be and the seed, and what the
+ * behaviors must cover. A behavior ends early when no action is enabled, such as once every session has ended.
+ */
+const SIMULATIONS: Record<
+	string,
+	Simulate & {
+		step: (after: State) => Omit<TraceStep, "after">;
+		coverage: (step: Omit<TraceStep, "after">) => string;
+		covers: readonly string[];
+	}
+> = {
+	MCPermissions: {
+		traces: 40,
+		depth: 30,
+		seed: 399,
+		step: permissionStep,
+		coverage: permissionCoverage,
+		covers: [
+			"SignIn",
+			"EndSession",
+			"SeatAction appointAdmin",
+			"SeatAction demote",
+			"SeatAction changeOrdinaryRole to admin",
+			"SeatAction changeOrdinaryRole to member",
+			"SeatAction remove",
+			"Invite",
+			"Revoke",
+			"Expire",
+			"Accept",
+			"Resolve",
+			...["read", "adminRead", "write"].flatMap((k) => [`Run ${k} admitted`, `Run ${k} refused`]),
+		],
+	},
+};
+
+/** The simulation settings of the model in `dir`, if it has any. */
+const simulationOf = (dir: string) => SIMULATIONS[globSync("MC*.cfg", { cwd: dir })[0]?.replace(/\.cfg$/, "") ?? ""];
+
+/** The actions a model's Next names. */
+function nextActions(tla: string) {
+	const defined = new Set([...tla.matchAll(/^([A-Za-z]\w*)(?:\([^)]*\))?\s*==/gm)].map((m) => m[1]!));
+	const next = /^Next\s*==([\s\S]*?)^\S/m.exec(tla)?.[1] ?? "";
+	return [...new Set([...next.matchAll(/\b([A-Z]\w*)\(/g)].map((m) => m[1]!))].filter((n) => defined.has(n));
+}
+
+/**
+ * Generates a model's behaviors with TLC simulation and returns its traces file text, or the problem that stops it: a
+ * behavior that starts elsewhere, or an action of Next (or a listed variant) that no behavior takes.
+ */
+function generateTraces(dir: string, jar: string, how: Runner, seed: number) {
+	const sim = simulationOf(dir)!;
+	const run = tlc(dir, jar, how, { ...sim, seed });
+	if (!/Computed 1 initial states?\b/.test(run.output))
+		throw new FormalError(`${dir} has more than one initial state; its behaviors cannot share one start.`);
+	const behaviors = run.status === 0 ? printedBehaviors(run.output, run.variables) : [];
+	if (behaviors.length !== sim.traces) {
+		const error = run.output.indexOf("Error:");
+		throw new FormalError(
+			`TLC simulation of ${dir} printed ${behaviors.length} of ${sim.traces} behaviors.${error >= 0 ? `\n${run.output.slice(error)}` : ""}`,
+		);
+	}
+	const init = behaviors[0]![0]!;
+	const { last: _, ...start } = init;
+	const covered = new Set<string>();
+	const steps = behaviors.map((states, n) => {
+		if (JSON.stringify(states[0]) !== JSON.stringify(init))
+			throw new FormalError(`Behavior ${n + 1} of ${dir} starts in another initial state.`);
+		return states.slice(1).map((after, k) => {
+			const before = states[k]!;
+			const step = sim.step(after);
+			covered.add(sim.coverage(step));
+			const changed: TraceStep["after"] = {};
+			for (const [name, value] of Object.entries(after)) {
+				if (name === "last") continue;
+				const was = before[name] as Record<string, Value>;
+				for (const [key, v] of Object.entries(value as Record<string, Value>))
+					if (JSON.stringify(v) !== JSON.stringify(was[key])) (changed[name] ??= {})[key] = v;
+			}
+			return { ...step, after: changed };
+		});
+	});
+	const tla = globSync("*.tla", { cwd: dir })
+		.map((f) => readFileSync(join(dir, f), "utf8"))
+		.join("\n");
+	const listed = new Set(sim.covers.map((c) => c.split(" ")[0]));
+	const missing = [
+		...nextActions(tla).filter((a) => !listed.has(a)),
+		...sim.covers.filter((c) => !covered.has(c)),
+	];
+	const count = steps.reduce((n, s) => n + s.length, 0);
+	const text = `{\n\t"generatedBy": "bin/dev formal --write",\n\t"seed": ${seed},\n\t"traces": ${sim.traces},\n\t"depth": ${sim.depth},\n\t"init": ${JSON.stringify(start)},\n\t"behaviors": [\n${steps.map((b) => `\t\t[\n${b.map((s) => `\t\t\t${JSON.stringify(s)}`).join(",\n")}\n\t\t]`).join(",\n")}\n\t]\n}\n`;
+	return { text, traces: steps.length, steps: count, missing, ms: run.ms };
+}
+
 /** Checks one model dir. Returns the lines to print and whether it passed. */
 function checkModel(dir: string, jar: string, how: Runner, write: boolean) {
 	const lines: string[] = [];
@@ -214,23 +502,77 @@ function checkModel(dir: string, jar: string, how: Runner, write: boolean) {
 	for (const n of names.invariants) lines.push(`  passed  invariant ${n}`);
 	for (const n of names.properties) lines.push(`  passed  property  ${n}`);
 	lines.push(`  ${states ? `${states[2]} distinct states (${states[1]} generated)` : "state count not printed"}`);
+	let ok = true;
 	const table = outcomes(run.output);
-	if (!table) return { lines, ok: true };
-	const file = join(dir, "outcomes.json");
-	// One row per line, so a changed outcome reads as a one-line diff.
-	const text = `{\n\t"generatedBy": "bin/dev formal --write",\n\t"rows": [\n${table.map((r) => `\t\t${JSON.stringify(r)}`).join(",\n")}\n\t]\n}\n`;
-	const current = existsSync(file) ? readFileSync(file, "utf8") : null;
-	if (current === text) {
-		lines.push(`  outcomes.json matches the model (${table.length} rows)`);
-		return { lines, ok: true };
+	if (table)
+		// One row per line, so a changed outcome reads as a one-line diff.
+		ok &&= current(
+			lines,
+			join(dir, "outcomes.json"),
+			`{\n\t"generatedBy": "bin/dev formal --write",\n\t"rows": [\n${table.map((r) => `\t\t${JSON.stringify(r)}`).join(",\n")}\n\t]\n}\n`,
+			`${table.length} rows`,
+			"the conformance test",
+			write,
+		);
+	const sim = simulationOf(dir);
+	if (sim) {
+		const traces = generateTraces(dir, jar, how, sim.seed);
+		lines.push(
+			`  TLC simulation: ${traces.traces} traces, ${traces.steps} steps, depth ${sim.depth}, seed ${sim.seed} (${(traces.ms / 1000).toFixed(1)} s)`,
+		);
+		if (traces.missing.length) {
+			lines.push(
+				`  the traces leave out: ${traces.missing.join(", ")}. Raise traces or depth in SIMULATIONS (tools/formal/formal.ts), or list a new action there.`,
+			);
+			return { lines, ok: false };
+		}
+		lines.push(`  the traces cover every action: ${sim.covers.join(", ")}`);
+		ok &&= current(
+			lines,
+			join(dir, "traces.json"),
+			traces.text,
+			`${traces.traces} traces`,
+			"the replay test",
+			write,
+		);
+	}
+	return { lines, ok };
+}
+
+/** Whether a generated file matches its committed copy; with `write`, rewrites the copy. */
+function current(lines: string[], file: string, text: string, size: string, test: string, write: boolean) {
+	const name = basename(file);
+	if (existsSync(file) && readFileSync(file, "utf8") === text) {
+		lines.push(`  ${name} matches the model (${size})`);
+		return true;
 	}
 	if (write) {
 		writeFileSync(file, text);
-		lines.push(`  wrote outcomes.json (${table.length} rows)`);
-		return { lines, ok: true };
+		lines.push(`  wrote ${name} (${size})`);
+		return true;
 	}
-	lines.push(`  outcomes.json is stale: the model's table differs. Rerun with --write, then run the conformance test.`);
-	return { lines, ok: false };
+	lines.push(`  ${file} is stale: the model generates a different file. Rerun with --write, then run ${test}.`);
+	return false;
+}
+
+/**
+ * `--traces <dir>`: a fresh behavior set from `seed` (random when not given) for each model with a simulation, written
+ * to <dir>/<model>/traces.json outside the repository. The replay test reads it with FORMAL_TRACES=<dir>.
+ */
+function freshTraces(dirs: string[], out: string, seed: number, jar: string, how: Runner, root: string) {
+	let ok = true;
+	for (const dir of dirs.filter((d) => simulationOf(d))) {
+		const traces = generateTraces(dir, jar, how, seed);
+		const file = join(out, basename(dir), "traces.json");
+		console.log(`${relative(root, dir)}: TLC simulation from seed ${seed}: ${traces.traces} traces, ${traces.steps} steps`);
+		if (traces.missing.length) console.log(`  the traces leave out: ${traces.missing.join(", ")}. Try another seed.`);
+		ok &&= !traces.missing.length;
+		mkdirSync(dirname(file), { recursive: true });
+		writeFileSync(file, traces.text);
+		console.log(`  wrote ${file}`);
+	}
+	console.log(`Replay them: FORMAL_TRACES=${out} (see .agents/skills/formal-permissions/SKILL.md)`);
+	return ok;
 }
 
 type MapEntry = { name: string; code: { file: string; function: string }[]; ids: string[] };
@@ -265,8 +607,7 @@ export function mapProblems(root: string, mapFile: string): string[] {
 		const n = checkedNames(c);
 		return [...n.invariants, ...n.properties];
 	});
-	const next = /^Next\s*==([\s\S]*?)^\S/m.exec(tla)?.[1] ?? "";
-	const actions = [...new Set([...next.matchAll(/\b([A-Z]\w*)\(/g)].map((m) => m[1]!))].filter((n) => defined.has(n));
+	const actions = nextActions(tla);
 	const mapped = (list: MapEntry[]) => new Set(list.map((e) => e.name));
 	for (const a of actions)
 		if (!mapped(map.actions).has(a)) problems.push(`${mapFile}: action ${a} in Next is not mapped`);
@@ -306,12 +647,22 @@ export async function formalCommand(args: readonly string[], root: string): Prom
 	}
 }
 
+const USAGE = "Usage: bin/dev formal [--write] [<model dir>...] | bin/dev formal --traces <dir outside the repo> [--seed <n>]";
+
 async function formal(args: readonly string[], root: string): Promise<number> {
 	const write = args.includes("--write");
-	const given = args.filter((a) => !a.startsWith("--"));
-	const unknown = args.filter((a) => a.startsWith("--") && a !== "--write");
+	const valued = new Map<string, string>(),
+		given: string[] = [],
+		unknown: string[] = [];
+	for (let i = 0; i < args.length; i++) {
+		const a = args[i]!;
+		if (a === "--traces" || a === "--seed") valued.set(a, args[++i] ?? "");
+		else if (a === "--write") continue;
+		else if (a.startsWith("--")) unknown.push(a);
+		else given.push(a);
+	}
 	if (unknown.length) {
-		console.error(`formal: unknown option ${unknown.join(" ")}. Usage: bin/dev formal [--write] [<model dir>...]`);
+		console.error(`formal: unknown option ${unknown.join(" ")}. ${USAGE}`);
 		return 2;
 	}
 	const dirs = given.length
@@ -320,6 +671,21 @@ async function formal(args: readonly string[], root: string): Promise<number> {
 				.map((d) => resolve(root, d))
 				.sort();
 	if (!dirs.length) throw new FormalError("No formal models under formal/.");
+	const out = valued.get("--traces"),
+		seedText = valued.get("--seed");
+	if (seedText !== undefined && (out === undefined || !/^\d{1,15}$/.test(seedText))) {
+		console.error(`formal: --seed takes a whole number and goes with --traces. ${USAGE}`);
+		return 2;
+	}
+	if (out !== undefined) {
+		const target = resolve(out);
+		if (!out || write || !relative(root, target).startsWith("..")) {
+			console.error(`formal: --traces takes a directory outside the repository, without --write. ${USAGE}`);
+			return 2;
+		}
+		const seed = seedText === undefined ? randomInt(1, 2 ** 47) : Number(seedText);
+		return freshTraces(dirs, target, seed, await tlaTools(), runner(), root) ? 0 : 1;
+	}
 	const started = Date.now();
 	let ok = true;
 	const problems = globSync(".agents/skills/formal-*/map.json", { cwd: root }).flatMap((m) => mapProblems(root, m));
