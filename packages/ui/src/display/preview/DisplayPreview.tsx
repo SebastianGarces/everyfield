@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { PageHeader, SegmentedControl, ToastProvider } from "../../controls";
 import { ContentSection } from "./PreviewContent";
-import { BadgesSection, ListsSection, TableSection } from "./PreviewData";
+import { BadgesSection, ListsSection, PhotoSection, TableSection } from "./PreviewData";
 import { PipelineSection } from "./PreviewPipeline";
 
 type Group = "all" | "data" | "content" | "domain";
@@ -34,6 +34,7 @@ export function DisplayPreview() {
 				{show("data") ? <TableSection index={3} /> : null}
 				{show("content") ? <ContentSection index={4} /> : null}
 				{show("domain") ? <PipelineSection index={5} /> : null}
+				{show("data") ? <PhotoSection index={6} /> : null}
 			</div>
 		</ToastProvider>
 	);
