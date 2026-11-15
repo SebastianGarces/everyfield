@@ -13,6 +13,7 @@ filed. A deliverable that is missing without a filed follow-up is a blocking fin
 Follow `.agents/skills/verify-preview/SKILL.md`. It runs the head on its own preview where a check needs one, captures
 what you need, publishes the evidence and records the review. Tooling tasks rerun their commands as the probe.
 A task that changes a path in an `evf.toml` owner class gets the same review. evf then holds it for Sebastian.
+For a task that touches a state machine, attach its `docs/machines/<id>.md` chart and coverage report (`verify-preview` 4).
 For a task that changes `docs/reference/wiki/`, check sources, scripture and screenshots of each draft before you approve.
 
 Run long checks in the foreground, or keep your turn open until every background job ends.

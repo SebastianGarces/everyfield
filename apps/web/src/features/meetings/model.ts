@@ -1,6 +1,6 @@
 import { dateText, timeText } from "@everyfield/contracts/common";
+import { meetingStatusMachine, targets } from "@everyfield/contracts/machines";
 import type * as c from "@everyfield/contracts/meetings";
-import { statusTransitions } from "@everyfield/contracts/meetings";
 import type { Status } from "@everyfield/ui/display";
 import type { z } from "zod";
 import { MONTHS } from "../shared/dates.ts";
@@ -112,14 +112,8 @@ export function statusView(status: MeetingStatus, startsAt: string, now: string)
 		return { label: "Not closed", tone: "attention" };
 	return { label: STATUS_LABEL[status], tone: STATUS_TONE[status] };
 }
-/**
- * The statuses the Status menu offers from here. A practice is completed only by marking it held, and a completed
- * practice moves only through Mark as not held, so neither offers a plain status move (the producer refuses both).
- */
 export function statusMoves(type: MeetingType, status: MeetingStatus): readonly MeetingStatus[] {
-	if (type === "prelaunch_practice")
-		return status === "completed" ? [] : statusTransitions[status].filter((to) => to !== "completed");
-	return statusTransitions[status];
+	return targets(meetingStatusMachine, "meetings.changeStatus", status, { type });
 }
 /** The menu words for moving to each status. */
 export const STATUS_ACTION: Record<MeetingStatus, string> = {

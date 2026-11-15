@@ -1,4 +1,5 @@
 import { localDateTime, resolveCalendar, timeZone } from "@everyfield/contracts/common";
+import { allows, fromStates, holds, meetingStatusMachine } from "@everyfield/contracts/machines";
 import * as c from "@everyfield/contracts/meetings";
 import { sql, type SQLWrapper } from "@everyfield/db/query";
 import { randomUUID } from "node:crypto";
@@ -73,6 +74,16 @@ function expected(m: MeetingRow, revision: string) {
 function update(before: MeetingRow, after: MeetingRow, now: Date, set: SQLWrapper): SQLWrapper[] {
 	return [
 		sql`UPDATE meeting SET ${set}, revision = revision + 1 WHERE id = ${before.id}::uuid AND revision = ${before.revision}::bigint`,
+		...syncReminderJobs(after, now),
+	];
+}
+type StatusEvent = (typeof meetingStatusMachine.events)[number];
+function move(event: StatusEvent, before: MeetingRow, after: MeetingRow, now: Date, set: SQLWrapper[] = []) {
+	if (!allows(meetingStatusMachine, event, before.status, after.status, before)) deny(meetingStatusMachine.refusal);
+	return [
+		sql`UPDATE meeting SET status = ${after.status}, ${sql.join([...set, sql`revision = revision + 1`], sql`, `)}
+			WHERE id = ${before.id}::uuid AND revision = ${before.revision}::bigint
+			AND status = ANY(${sql.param(fromStates(meetingStatusMachine, event, after.status, before))}::text[])`,
 		...syncReminderJobs(after, now),
 	];
 }
@@ -275,15 +286,8 @@ export const meetingsWriter = {
 				expected(before, input.expectedRevision);
 				const to = input.input.to,
 					noop = before.status === to;
-				// A practice is completed with when it was held, and reopened through its correction (REQ-KNOW-042).
-				if (
-					!noop &&
-					(!c.statusTransitions[before.status].includes(to) ||
-						(before.type === "prelaunch_practice" && (to === "completed" || before.status === "completed")))
-				)
-					deny("status_transition");
 				const m = noop ? before : changed(before, { status: to });
-				if (!noop) audit.writes.push(...update(before, m, now, sql`status = ${to}`));
+				if (!noop) audit.writes.push(...move("meetings.changeStatus", before, m, now));
 				return {
 					...meetingChange(m, result(m, noop ? "noop" : "changed", audit.id), before),
 					action: "meetings.changed",
@@ -321,18 +325,13 @@ export const meetingsWriter = {
 				if (before.type !== "prelaunch_practice") deny("wrong_meeting_type");
 				const heldAt = new Date(input.input.occurredAt);
 				if (heldAt > now) deny("invalid_input", { issues: [{ path: "occurredAt", problem: "in_the_future" }] });
-				if (before.status === "cancelled") deny("status_transition");
+				const held = changed(before, { status: "completed", actual_occurrence_at: heldAt });
+				const writes = move("meetings.completePractice", before, held, now, [
+					sql`actual_occurrence_at = ${heldAt.toISOString()}::timestamptz`,
+				]);
 				const noop = before.status === "completed" && before.actual_occurrence_at?.getTime() === heldAt.getTime();
-				const m = noop ? before : changed(before, { status: "completed", actual_occurrence_at: heldAt });
-				if (!noop)
-					audit.writes.push(
-						...update(
-							before,
-							m,
-							now,
-							sql`status = 'completed', actual_occurrence_at = ${heldAt.toISOString()}::timestamptz`,
-						),
-					);
+				const m = noop ? before : held;
+				if (!noop) audit.writes.push(...writes);
 				return {
 					...meetingChange(m, result(m, noop ? "noop" : "changed", audit.id), before),
 					action: "meetings.finalized",
@@ -353,18 +352,16 @@ export const meetingsWriter = {
 				const heldAt = input.input.occurredAt ? new Date(input.input.occurredAt) : null;
 				if (heldAt && heldAt > now)
 					deny("invalid_input", { issues: [{ path: "occurredAt", problem: "in_the_future" }] });
-				// Not held reopens the practice to planning without a held time.
-				const patch = heldAt
-					? { status: "completed" as const, actual_occurrence_at: heldAt }
-					: { status: "planning" as const, actual_occurrence_at: null };
-				const m = changed(before, patch);
+				const m = changed(
+					before,
+					heldAt
+						? { status: "completed", actual_occurrence_at: heldAt }
+						: { status: "planning", actual_occurrence_at: null },
+				);
 				audit.writes.push(
-					...update(
-						before,
-						m,
-						now,
-						sql`status = ${patch.status}, actual_occurrence_at = ${heldAt?.toISOString() ?? null}::timestamptz`,
-					),
+					...move("meetings.correctPracticeOccurrence", before, m, now, [
+						sql`actual_occurrence_at = ${heldAt?.toISOString() ?? null}::timestamptz`,
+					]),
 				);
 				return {
 					...meetingChange(m, result(m, "changed", audit.id), before),
@@ -382,7 +379,8 @@ export const meetingsWriter = {
 			return command(tx, ctx, "meetings.correctOccurrence", input, async (w, audit) => {
 				const { m: before, now } = await lockMeeting(tx, w, input.input.meetingId);
 				expected(before, input.expectedRevision);
-				if (before.status !== "completed") deny("status_transition");
+				if (!holds(meetingStatusMachine, "meetings.correctOccurrence", before.status, before))
+					deny(meetingStatusMachine.refusal);
 				const voided = input.input.voided;
 				const noop = (before.occurrence_voided_at !== null) === voided;
 				const m = noop ? before : changed(before, { occurrence_voided_at: voided ? now : null });

@@ -178,6 +178,11 @@ node "$E/probe.mjs" <args> 2>&1 | tee "$E/probe.log"
 
 A change with both parts gets both. A tooling-only change gets its commands rerun as the probe.
 
+A change that touches a state machine (a table in `packages/contracts/src/machines/`, or a writer its census lists)
+also attaches the machine's chart, `docs/machines/<id>.md`, and its coverage report: run the proof test the chart names
+with `EVF_MACHINE_COVERAGE="$E/<id>.jsonl"`, then `node tools/ci/machines.ts coverage "$E/<id>.jsonl" | tee
+"$E/<id>-coverage.txt"`. Anything short of every edge, stay, refusal and state is unmet.
+
 ## 5. Publish
 
 ```bash

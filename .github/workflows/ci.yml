@@ -106,6 +106,9 @@ jobs:
       - name: Every integration test runs in CI
         if: ${{ !cancelled() }}
         run: node tools/ci/ci-tests.ts
+      - name: State machine charts and column writers
+        if: ${{ !cancelled() }}
+        run: corepack pnpm machines:check
       - name: CI test coverage tool
         if: ${{ !cancelled() }}
         run: node --test tools/ci/tests/*.test.ts
