@@ -587,7 +587,7 @@ export async function checkFeatureMaps(root: string, options: CheckOptions): Pro
 		`(${behaviors.filter((b) => b.proof.browser).length} with browser steps); ` +
 		`${owner.size} of ${routes.length} routes mapped, ${pending.length} pending; ` +
 		`${states.filter((x) => !("manual" in x.reach)).length} of ${states.length} states reachable by script`;
-	return { problems, summary };
+	return { problems: [...new Set(problems)], summary };
 }
 
 const q = (value: string) => JSON.stringify(value);
