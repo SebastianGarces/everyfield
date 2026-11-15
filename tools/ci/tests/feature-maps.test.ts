@@ -246,6 +246,36 @@ test("INV-feature-maps: an operation missing from the catalog, never named in co
 	]);
 });
 
+test("INV-feature-maps: an operation id with more than one dot, as the catalog writes some, is checked like any other", async () => {
+	const root = fixture();
+	const operations = JSON.parse(readFileSync(join(root, "docs/catalog/operations.json"), "utf8"));
+	operations.operations.push({ id: "things.pins.exportPin", feature_ids: ["THG-001"] });
+	writeFileSync(join(root, "docs/catalog/operations.json"), JSON.stringify(operations));
+	writeFileSync(join(root, "packages/core/src/pins.ts"), "export function exportPin(id: string) {\n\treturn id;\n}\n");
+	editMap(root, (map) => {
+		behavior(map).operations = ["things.open", "things.pins.exportPin", "things.pins.set"];
+	});
+	assert.deepEqual(await problems(root), [
+		at("things.list#open: operation things.pins.set is not in docs/catalog/operations.json"),
+	]);
+});
+
+test("INV-feature-maps: a known defect is printed as one and must be scripted", async () => {
+	const root = fixture();
+	editMap(root, (map) => {
+		Object.assign(surface(map).states[0]!, { defect: "a church-less account is sent to sign-in" });
+		Object.assign(surface(map).states[1]!, { defect: "it never ends" });
+	});
+	const doc = readFileSync(join(root, "docs/feature-maps/things.md"), "utf8");
+	assert.match(
+		doc,
+		/- \*\*populated\*\*: heading "All things"\. Known defect, so this state shows what is wrong: a church-less account is sent to sign-in\. As `owner`/,
+	);
+	assert.deepEqual(await problems(root), [
+		at("things.list state loading: a known defect needs a script that shows it, so each run sees it until it is fixed"),
+	]);
+});
+
 test("INV-feature-maps: a behavior with no operation must say why", async () => {
 	const root = fixture();
 	editMap(root, (map) => {
