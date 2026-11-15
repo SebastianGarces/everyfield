@@ -104,12 +104,18 @@ test("INV-read: a prefetched or seeded entry older than its fresh window is not 
 	stopB();
 });
 
-test("INV-read: a subscriber that knows a newer server read reloads an older entry once, every reader follows, and a newer entry is kept", async () => {
+test("INV-read: a subscriber that knows a newer server read reloads an older entry once by the server's own times, whatever the client clock says, and keeps a newer one", async (t) => {
+	let served = 1_000;
 	let calls = 0;
-	const count = createRead(async (account: string) => ({ status: "ok" as const, value: `${account}-${++calls}` }), {
-		failed: () => ({ status: "lost" as const }),
-		fresh: 60_000,
-	});
+	const count = createRead(
+		async (account: string) => ({ status: "ok" as const, value: `${account}-${++calls}`, servedAt: served }),
+		{
+			failed: () => ({ status: "lost" as const }),
+			fresh: 60_000,
+			servedAt: (v) => ("servedAt" in v ? v.servedAt : undefined),
+		},
+	);
+	t.mock.method(Date, "now", () => 1_000 + 120_000);
 	count.prefetch("a");
 	await settled();
 	const bell = count.connect(() => {}, "a");
@@ -117,30 +123,61 @@ test("INV-read: a subscriber that knows a newer server read reloads an older ent
 	const key = count.key("a");
 	for (let i = 0; i < 3; i++) count.snapshot(key);
 	assert.equal(calls, 1, "rendering with a bound starts nothing");
-	const page = count.connectWith(() => {}, ["a"], { newerThan: Date.now() + 1_000 });
-	const again = count.connectWith(() => {}, ["a"], { newerThan: Date.now() + 1_000 });
-	assert.equal(calls, 2, "one reload for the older entry, not one per subscriber");
-	assert.deepEqual(
-		count.snapshot(key)?.value,
-		{ status: "ok", value: "a-1" },
-		"the bell keeps its value while it reloads",
+	served = 2_000;
+	const page = count.connectWith(() => {}, ["a"], { newerThan: 1_500 });
+	const again = count.connectWith(() => {}, ["a"], { newerThan: 1_500 });
+	assert.equal(
+		calls,
+		2,
+		"one reload for the entry the server read before the page, with the client clock 2 minutes ahead",
+	);
+	assert.equal(
+		(count.snapshot(key)?.value as { value: string }).value,
+		"a-1",
+		"every reader keeps its value meanwhile",
 	);
 	await settled();
-	assert.deepEqual(count.snapshot(key)?.value, { status: "ok", value: "a-2" });
-	const older = count.connectWith(() => {}, ["a"], { newerThan: 0 });
-	assert.equal(calls, 2, "an entry newer than the bound is kept");
-	for (const stop of [bell, page, again, older]) stop();
+	assert.equal((count.snapshot(key)?.value as { value: string }).value, "a-2");
+	const later = count.connectWith(() => {}, ["a"], { newerThan: 1_500 });
+	assert.equal(calls, 2, "an entry the server read after the page is kept");
+	for (const stop of [bell, page, again, later]) stop();
 });
 
-test("INV-read: a patch while the entry loads is applied to the value that arrives", async () => {
+test("INV-read: a patch made while the entry loads is applied exactly once to the value that arrives", async () => {
 	let release: (value: string[]) => void = () => {};
 	const list = createRead(() => new Promise<string[]>((resolve) => (release = resolve)), { failed: () => [] });
 	const stop = list.connect(() => {}, "team");
-	list.patch((rows) => [...rows, "added"], "team");
+	let applied = 0;
+	list.patch((rows) => (applied++, [...rows, "added"]), "team");
 	release(["first"]);
 	await settled();
 	assert.deepEqual(list.snapshot(list.key("team"))?.value, ["first", "added"]);
+	assert.equal(applied, 1);
 	stop();
+});
+
+test("INV-read: a patch in a transition re-renders every reader of the key through its own update instead of an immediate notification", async () => {
+	const rows = createRead(async (team: string) => [team], { failed: () => [], fresh: Infinity });
+	rows.prefetch("t");
+	await settled();
+	const heard: string[] = [];
+	const asked = rows.connectWith(
+		() => heard.push("asked notified"),
+		["t"],
+		{},
+		() => heard.push("asked rerender"),
+	);
+	const list = rows.connectWith(
+		() => heard.push("list notified"),
+		["t"],
+		{},
+		() => heard.push("list rerender"),
+	);
+	const elsewhere = rows.connect(() => heard.push("plain notified"), "t");
+	rows.patchInTransition((value) => [...value, "b"], "t");
+	assert.deepEqual(heard.sort(), ["asked rerender", "list rerender", "plain notified"]);
+	assert.deepEqual(rows.snapshot(rows.key("t"))?.value, ["t", "b"]);
+	for (const stop of [asked, list, elsewhere]) stop();
 });
 
 test("INV-read: a read keeps at most its limit of entries, dropping the oldest one no reader shows", async () => {
