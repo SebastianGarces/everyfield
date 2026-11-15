@@ -108,6 +108,8 @@ export const RULES: readonly Rule[] = [
 	},
 	{ name: "dev command", paths: ["bin/dev"], tests: ["tests/workflow/dev.test.mjs"] },
 	{ name: "QA command", paths: ["bin/qa"], suites: ["tools-qa"] },
+	// T-396: its tests live in the QA suite, which CI already runs, and share its throwaway Postgres.
+	{ name: "production identity setup", paths: ["bin/prod-identity", "tools/prod-identity/**"], suites: ["tools-qa"] },
 	{
 		name: "preview config",
 		paths: ["scripts/preview.json"],

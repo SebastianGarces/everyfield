@@ -8,6 +8,7 @@ import {
 	FULL_ADDRESS,
 	NEON_PROJECT,
 	QA_LOGINS,
+	Redactor,
 	QA_ROLES,
 	roleUrl,
 	type NeonBranch,
@@ -42,23 +43,6 @@ const QA_ID = /^qa-[a-z0-9]+(-[a-z0-9]+)*$/;
 const aliasHost = (id: string) => `everyfield-${id}.vercel.app`;
 /** The seed runs from the branch's own code. */
 const SEED_PATHS = ["tools/qa/qa-seed.ts"];
-
-/** Hides connection strings and Neon passwords in text that leaves a process. */
-const redactConnections = (text: string) =>
-	text.replace(/\b(postgres(?:ql)?):\/\/[^\s"'<>]+/g, "$1://<redacted>").replace(/\bnpg_[A-Za-z0-9]+/g, "<redacted>");
-
-/** Masks every value qa handed to a child, connection URLs and Neon passwords, in text bound for the screen. */
-class Redactor {
-	private values: string[] = [];
-	add(...values: string[]): void {
-		for (const v of values) if (v.length >= 6) this.values.push(v);
-	}
-	clean(text: string): string {
-		let out = text;
-		for (const v of this.values) out = out.split(v).join("<redacted>");
-		return redactConnections(out);
-	}
-}
 
 type Result = { code: number; stdout: string; stderr: string };
 

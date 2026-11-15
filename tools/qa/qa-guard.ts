@@ -96,3 +96,20 @@ export function devParent(endpoints: NeonEndpoint[], branches: NeonBranch[]): Ne
 		return `The resolved parent branch serves ${PROD_ENDPOINT}, the production database.`;
 	return branch;
 }
+
+/** Hides connection strings and Neon passwords in text that leaves a process. */
+const redactConnections = (text: string) =>
+	text.replace(/\b(postgres(?:ql)?):\/\/[^\s"'<>]+/g, "$1://<redacted>").replace(/\bnpg_[A-Za-z0-9]+/g, "<redacted>");
+
+/** Masks every value qa handed to a child, connection URLs and Neon passwords, in text bound for the screen. */
+export class Redactor {
+	private values: string[] = [];
+	add(...values: string[]): void {
+		for (const v of values) if (v.length >= 6) this.values.push(v);
+	}
+	clean(text: string): string {
+		let out = text;
+		for (const v of this.values) out = out.split(v).join("<redacted>");
+		return redactConnections(out);
+	}
+}
