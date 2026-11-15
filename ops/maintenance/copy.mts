@@ -4,7 +4,7 @@
 // artifact is sealed with AES-256-GCM under a fresh data key, and the data key is kept only wrapped by the restricted
 // backup key-encryption key, read from a private file. The wrap binds the exact stored manifest, so a changed checksum,
 // expiry or ciphertext no longer opens. A recopy keeps every original subject expiry: validateCandidate refuses one later
-// than the expiry the older copy recorded. No provider, bucket, schedule or spend: G-RECOVERY stays open. Only the
+// than the original expiry it is given. No provider, bucket, schedule or spend: G-RECOVERY stays open. Only the
 // restricted CLI and tests import this file.
 import { createCipheriv, createDecipheriv, createHash, randomBytes, randomUUID } from "node:crypto";
 import { createRequire } from "node:module";
@@ -55,13 +55,11 @@ export type CopyResult =
 			/** Where the copy lives in the backup store: copy/<copy date>/<id>. */
 			location: string;
 			snapshot_date: string;
-			copied_at: string;
 			key_version: string;
 			key_recoverable_by: "restricted-backup";
 			/** The earliest original subject expiry the copy carries, or null without subjects. */
 			subject_expiry: string | null;
 			effective_expires_at: string;
-			artifacts: number;
 			live_recovery_proven: false;
 	  }
 	| { copy_encrypted: false; refusal: CopyRefusal; location: null };
@@ -154,16 +152,10 @@ async function copy(deps: CopyDeps, input: CopyInput): Promise<CopyResult> {
 		"copy" in input.source
 			? await openEncryptedCopy(deps.store, input.source.copy, input.keyFile)
 			: input.source.snapshot;
-	// The original expiries: those the caller knows, and on a recopy those the older copy recorded. The earliest wins.
-	const originals = new Map(input.originalExpiries ?? []);
-	if ("copy" in input.source)
-		for (const s of (snapshot.manifest as { subjects: { id: string; expiresAt: string }[] }).subjects) {
-			const known = originals.get(s.id);
-			if (!known || Date.parse(s.expiresAt) < Date.parse(known)) originals.set(s.id, s.expiresAt);
-		}
+	// A recopy carries the older copy's recorded expiries, bound by its key wrap; the caller's originals cap them.
 	let checked;
 	try {
-		checked = validateCandidate(snapshot.manifest, now, originals);
+		checked = validateCandidate(snapshot.manifest, now, input.originalExpiries);
 	} catch (error) {
 		const code = error instanceof Error ? error.message : "";
 		throw new Refused(MANIFEST_REFUSALS.has(code) ? (code as CopyRefusal) : "manifest_invalid");
@@ -194,12 +186,10 @@ async function copy(deps: CopyDeps, input: CopyInput): Promise<CopyResult> {
 		refusal: null,
 		location,
 		snapshot_date: manifest.createdAt.slice(0, 10),
-		copied_at: instant(now.getTime()),
 		key_version: manifest.keyVersion,
 		key_recoverable_by: "restricted-backup",
 		subject_expiry: subjects.length ? instant(Math.min(...subjects)) : null,
 		effective_expires_at: instant(checked.effectiveExpiresAt),
-		artifacts: 1 + manifest.objects.length,
 		live_recovery_proven: false,
 	};
 }
