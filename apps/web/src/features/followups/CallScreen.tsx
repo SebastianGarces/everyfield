@@ -11,8 +11,8 @@ import {
 	IntentLink,
 } from "@everyfield/ui/controls";
 import { Avatar, StatusBadge } from "@everyfield/ui/display";
-import { cn, Icon } from "@everyfield/ui/foundations";
-import { useRef, useState, useSyncExternalStore } from "react";
+import { cn, Icon, useMinuteClock } from "@everyfield/ui/foundations";
+import { useRef, useState } from "react";
 import { dueText, lacksOwner, ownerText } from "../tasks/model.ts";
 import { AssignMenu, dutyFrom } from "./duties.tsx";
 import { outcomeSaved } from "../tasks/fresh.tsx";
@@ -57,7 +57,7 @@ export function CallScreen({ initial, accountId, admin }: { initial: CallData; a
 	const owners = task.followUpOwners.length
 		? task.followUpOwners
 		: task.assignees.map((a) => ({ ...a, eligible: true, reason: null }));
-	const now = useNow();
+	const now = useMinuteClock();
 	const left48 =
 		now !== null && obligation?.kind === "first_vision_follow_up" && open ? windowAt(obligation.origin.at, now) : null;
 	const due = dueText(task.due);
@@ -311,14 +311,4 @@ export function CallScreen({ initial, accountId, admin }: { initial: CallData; a
 			) : null}
 		</div>
 	);
-}
-
-/** The time now in the browser, once a minute; null on the server and the first render, so hydration matches. */
-const minute = (tick: () => void) => {
-	const t = setInterval(tick, 60_000);
-	return () => clearInterval(t);
-};
-const nowMinute = () => Math.floor(Date.now() / 60_000) * 60_000;
-function useNow(): number | null {
-	return useSyncExternalStore(minute, nowMinute, () => null);
 }
