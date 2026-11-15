@@ -21,7 +21,9 @@ const HELP = `Browser runs, the local preview stack, its logs and the fast pre-p
         GitHub CI also runs: format:check, test:logs, the statement census with the one build then server-trace,
         schema generate --check, wiki
         The GitHub nightly also runs: every selectable test under coverage, typecheck:bun (bun check, until T-53),
-        and the tests/ui set in chromium and webkit on a seeded build over its own Postgres (scripts/nightly-ui.ts)
+        the tests/ui set in chromium and webkit on a seeded build over its own Postgres (scripts/nightly-ui.ts), and
+        the formal replay: permissions behaviors from a fresh random seed replayed on its own Postgres; a disagreement
+        files the seed (scripts/nightly-formal.ts [--seed <n>], .agents/skills/formal-permissions/SKILL.md)
   dev nightly           runs tests/ui on a preview of origin/main, one engine at a time; skips when the machine is
         loaded or no preview slot is free. The GitHub nightly runs the same set too; this stays the local run until
         it is retired. The coverage map comes from the GitHub nightly, not from this
@@ -31,11 +33,16 @@ const HELP = `Browser runs, the local preview stack, its logs and the fast pre-p
         nightly.jsonl record
   dev nightly schedule uninstall   boots the agent out and deletes its plist
   dev fast-check [--base <ref>] [--json]   format, lint and typecheck of only the files changed since the merge base
-        of origin/main (else main), in seconds, with no database, stack or network. Prints each fix command
+        of origin/main (else main), in seconds, with no database, stack or network. Prints each fix command. Its
+        formal step fails a branch that changes a file in a .agents/skills/formal-*/map.json without that map or its
+        model, unless a branch commit has the trailer "Formal-model: unchanged"
   dev hooks install                        points this repo's core.hooksPath at tools/git-hooks (pnpm install does it)
   dev formal [--write] [<model dir>...]    runs TLC on every model under formal/ with the pinned tla2tools.jar, checks
-        each model's outcomes.json (--write rewrites it) and the .agents/skills/formal-*/map.json maps; local Java 11+
-        or a pinned Java container in Docker (tools/formal/formal.ts, .agents/skills/formal-permissions/SKILL.md)
+        each model's outcomes.json and its TLC-simulated traces.json (--write rewrites both) and the
+        .agents/skills/formal-*/map.json maps; local Java 11+ or a pinned Java container in Docker
+        (tools/formal/formal.ts, .agents/skills/formal-permissions/SKILL.md)
+  dev formal --traces <dir> [--seed <n>]   writes fresh random behaviors from a new or given seed to <dir> outside the
+        repository, for the replay test's FORMAL_TRACES=<dir>
 
 Git hooks: on a push of a task branch (refs/heads/evf/*), tools/git-hooks/pre-push runs dev fast-check and refuses
 the push when it fails. Other refs pass unchecked. GitHub CI's full run over the whole repo stays required.`;
