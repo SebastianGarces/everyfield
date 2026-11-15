@@ -44,7 +44,7 @@ export const Toolbar = React.forwardRef<HTMLDivElement, BaseProps>(({ children, 
 			ref={ref}
 			role="toolbar"
 			aria-label="Document formatting"
-			tabIndex={entry ? 0 : undefined}
+			tabIndex={entry ? 0 : -1}
 			className={cn(TOOLBAR, "outline-none", className)}
 			{...props}
 			onKeyDownCapture={(event) => {
