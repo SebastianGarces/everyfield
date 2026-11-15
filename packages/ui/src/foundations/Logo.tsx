@@ -22,12 +22,10 @@ function Svg({ shape, className }: { shape: Shape; className?: string }) {
 	);
 }
 
-/** The Everyfield mark. It takes the current text color; the caller sets the size. */
 export function LogoMark({ className }: { className?: string }) {
 	return <Svg shape={MARK} className={className} />;
 }
 
-/** The Everyfield lockup: mark and wordmark in the prototype's proportions. Ink on light, cream on ink; the caller sets the size. */
 export function Lockup({ className }: { className?: string }) {
 	return (
 		<svg viewBox={LOCKUP.viewBox} fill="none" aria-hidden="true" focusable="false" className={className}>

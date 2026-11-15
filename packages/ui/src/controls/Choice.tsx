@@ -4,7 +4,6 @@ import { Checkbox as CheckboxPrimitive, RadioGroup as RadioPrimitive, Switch as 
 import { useId, type ComponentPropsWithRef, type ReactNode } from "react";
 import { cn } from "../foundations";
 
-/** The label and optional description next to a checkbox, radio or switch. Clicking the label toggles the control. */
 function ChoiceLabel({
 	htmlFor,
 	label,
@@ -32,16 +31,11 @@ function ChoiceLabel({
 }
 
 type CheckboxProps = Omit<ComponentPropsWithRef<typeof CheckboxPrimitive.Root>, "children"> & {
-	/** Visible label. Without one, pass aria-label (a row-selection box in a table). */
 	label?: ReactNode;
 	description?: ReactNode;
 	shape?: "square" | "round";
 };
 
-/**
- * Checkbox (components.md): checked, unchecked or mixed ("indeterminate"), square or round. 20px box inside a 44px
- * target when it has a label, because the label is part of the hit area.
- */
 export function Checkbox({ label, description, shape = "square", id, className, ...props }: CheckboxProps) {
 	const auto = useId();
 	const boxId = id ?? auto;
@@ -88,7 +82,6 @@ export function Checkbox({ label, description, shape = "square", id, className, 
 	);
 }
 
-/** RadioGroup (components.md): a labelled group; arrow keys move the choice, Tab enters and leaves the group. */
 export function RadioGroup({
 	className,
 	orientation = "vertical",
@@ -126,14 +119,9 @@ export function Radio({ label, description, id, className, ...props }: RadioProp
 type SwitchProps = Omit<ComponentPropsWithRef<typeof SwitchPrimitive.Root>, "children"> & {
 	label?: ReactNode;
 	description?: ReactNode;
-	/** green (default) or blue for the on state. */
 	tone?: "green" | "blue";
 };
 
-/**
- * Switch (components.md): a settings toggle that takes effect at once. With a label it is a full row: label and
- * description on the left, the switch on the right.
- */
 export function Switch({ label, description, tone = "green", id, className, ...props }: SwitchProps) {
 	const auto = useId();
 	const switchId = id ?? auto;

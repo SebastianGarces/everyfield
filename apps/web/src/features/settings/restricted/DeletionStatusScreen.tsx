@@ -10,7 +10,7 @@ import {
 import { normalizedEmail } from "@everyfield/contracts/identity";
 import { Button, Card, CardIcon, Field, Input, Skeleton } from "@everyfield/ui/controls";
 import { LogoMark } from "@everyfield/ui/foundations";
-import { Suspense, use, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { Suspense, use, useRef, useState, type ReactNode } from "react";
 import { FormMessage, PasswordInput } from "../../identity/parts";
 import { OUT_OF_REACH } from "../flows/DeletionDialogs";
 import type { DeletionPort, DeletionStatus, Reply } from "../port";
@@ -35,15 +35,6 @@ const OFFLINE: Refusal = {
 	reference: OFFLINE_REFERENCE,
 	code: "unknown",
 };
-
-/** The browser's own time zone for the dates on this page; UTC while the server renders it. */
-export function useBrowserZone(): string {
-	return useSyncExternalStore(
-		() => () => {},
-		() => Intl.DateTimeFormat().resolvedOptions().timeZone,
-		() => "UTC",
-	);
-}
 
 type Props = {
 	subject: Subject;

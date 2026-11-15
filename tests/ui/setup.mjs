@@ -42,5 +42,5 @@ export async function signIn(context, cookie) {
 }
 
 export async function hydrated(page) {
-	await page.locator("html[data-theme]").waitFor({ state: "attached", timeout: 60_000 });
+	await page.locator("[data-product-root][data-hydrated]").waitFor({ state: "attached", timeout: 60_000 });
 }
