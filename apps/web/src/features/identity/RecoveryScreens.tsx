@@ -32,7 +32,6 @@ function IncompleteLink({ action }: { action: ReactNode }) {
 	);
 }
 
-/** Password recovery request (auth.requestPasswordRecovery). Every address gets the same answer (REQ-IDN-009). */
 export function RecoverScreen() {
 	const [sent, setSent] = useState<{ to: string; again: boolean } | null>(null);
 	const [error, setError] = useState<string | null>(null);
@@ -119,7 +118,6 @@ export function RecoverScreen() {
 
 type ResetState = "form" | "done" | "expired";
 
-/** Choose a new password from a reset link (auth.recoverPassword). It never signs in by itself (REQ-IDN-009). */
 export function ResetPasswordScreen({ proof }: { proof: string | null }) {
 	useLinkSecretLeavesAddress(takeQueryProof);
 	const [state, setState] = useState<ResetState>("form");
@@ -220,10 +218,6 @@ export function ResetPasswordScreen({ proof }: { proof: string | null }) {
 
 type VerifyState = "ready" | "done" | "expired";
 
-/**
- * Confirm an email address from its link. The proof is spent only when the person presses the button: mail scanners
- * open links on their own, and a GET must never use up the proof.
- */
 export function VerifyEmailScreen({ proof }: { proof: string | null }) {
 	useLinkSecretLeavesAddress(takeQueryProof);
 	const [state, setState] = useState<VerifyState>("ready");

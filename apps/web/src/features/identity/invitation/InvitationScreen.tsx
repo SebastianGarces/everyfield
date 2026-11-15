@@ -44,11 +44,6 @@ import {
 } from "./model";
 import { FullPageLink } from "@/components/native";
 
-// /invitation, the link in a seat or residency invitation email (REQ-IDN-017, REQ-MUL-004). The page reads the proof,
-// removes it from the address bar and keeps it in this tab. It shows who invited whom to what (REQ-IDN-003), then
-// lets the invited person create an account or sign in, and accept or decline. Every proof the domain will not
-// honour (unknown, expired, withdrawn, replaced or used) shows the same NotAvailable state.
-
 const PAGE = "/invitation";
 
 type Session = Awaited<ReturnType<typeof readInvitation>>["session"];
@@ -61,12 +56,10 @@ addAddressRule("invitation-proof", (to) =>
 const takeFragmentProof = () => (tabStore.keepProof() ? currentAddress() : null);
 
 export function InvitationScreen() {
-	// The fragment never reaches the server; after sign-in the page opens without it, and this tab kept it.
 	const proof = useSyncExternalStore(tabStore.onProof, tabStore.proof, () => undefined);
 	useLinkSecretLeavesAddress(takeFragmentProof);
 	if (proof === undefined) return <Loading />;
 	if (!proof) return <Unavailable />;
-	// A new proof is a new invitation: its reads, answers and choices start fresh.
 	return <InvitationFor key={proof} proof={proof} />;
 }
 
@@ -102,7 +95,6 @@ function InvitationFor({ proof }: { proof: string }) {
 		);
 	if (state.status !== "ready") return <Loading />;
 	const { description, session } = state.data;
-	// An answer was sent from this tab and never confirmed. Resend that exact command before anything else.
 	if (held)
 		return (
 			<Unconfirmed
@@ -176,7 +168,6 @@ function Unavailable() {
 	);
 }
 
-/** The blue notice from the prototype's sign-in screen: who invited you, to what, and until when. */
 function Notice({ description }: { description: Description }) {
 	const s = description.subject;
 	return (
@@ -208,7 +199,6 @@ function Notice({ description }: { description: Description }) {
 type Mode = { mode: "join" } | { mode: "sign_in"; email: string; afterRegister: boolean };
 type FieldName = "name" | "email" | "password";
 
-/** Signed out: create the account the invitation names, or sign in to an existing one (REQ-IDN-030). */
 function SignedOut({
 	description,
 	proof,
@@ -285,7 +275,6 @@ function JoinForm({
 	const [errors, setErrors] = useState<Partial<Record<FieldName, string>>>({});
 	const [refusal, setRefusal] = useState<string | null>(null);
 	const [busy, setBusy] = useState(false);
-	// One key for this form, so a resubmit after a lost response is the same registration.
 	const [requestKey] = useState(() => crypto.randomUUID());
 	const nameRef = useRef<HTMLInputElement>(null);
 	const emailRef = useRef<HTMLInputElement>(null);
@@ -328,8 +317,6 @@ function JoinForm({
 			setRefusal(refusalMessage("register", registered.error));
 			return;
 		}
-		// Registration answers the same whether or not the address already had an account. Signing in with the password
-		// just typed is the proof that continues; anything else asks for that account's own password.
 		const signedIn = await identityApi.signIn({ email: email.data, password });
 		if (signedIn.ok) {
 			onJoined(email.data);
@@ -367,7 +354,6 @@ function JoinForm({
 	);
 }
 
-/** A refusal of an answer. The domain gives one code for every reason a claim fails, so the words stay general. */
 function refusedText(code: string | null): string {
 	if (code === "temporary") return "Someone is changing this invitation right now. Try again in a moment.";
 	return "This invitation cannot be accepted with this account. Sign in with the account for the invited address, and confirm that address first.";
@@ -379,7 +365,6 @@ async function sendSeat(command: SeatCommand) {
 	return seatInvitationAcceptedResult.parse(reply.value);
 }
 
-/** The answer, or `already_linked` when this account accepted the invitation in another tab first. */
 async function sendResident(command: ResidentCommand): Promise<ResidentDone> {
 	const reply = await respondResidentInvitation(command);
 	if (reply.status === "refused" && reply.code === "already_linked") return { status: "already_linked" };
@@ -387,7 +372,6 @@ async function sendResident(command: ResidentCommand): Promise<ResidentDone> {
 	return residentInvitationDecisionResult.parse(reply.value);
 }
 
-/** Keeps the command in this tab while it is unconfirmed, so a reload can resend it unchanged. */
 function holding<C, T>(store: (command: C) => void, send: (command: C) => Promise<T>) {
 	return async (command: C) => {
 		store(command);
@@ -419,7 +403,6 @@ function SignOutLine() {
 type AnswerProps = {
 	description: Description;
 	proof: string;
-	/** The description is being read again; a command built from it now could be stale. */
 	refreshing: boolean;
 	onRefused: () => void;
 	onHeld: (held: Held) => void;
@@ -618,11 +601,6 @@ function ConfirmHint({ email }: { email: string }) {
 
 type ResidentDone = ReturnType<typeof residentInvitationDecisionResult.parse> | { status: "already_linked" };
 
-/**
- * A signed-in account answers a residency invitation (residency.respondInvitation, REQ-MUL-004). The WP-007/ui
- * ResidencyDisclosure collects the sharing, unchecked by default, and its chosen value goes into the command exactly
- * as the component hands it over (ruling D51). Accepting never gives a seat; declining leaves the account unchanged.
- */
 function ResidentAnswer({ description, proof, refreshing, onRefused, onHeld, joining }: AnswerProps) {
 	const intent = useIntent<ResidentCommand>("resident-answer");
 	const [done, setDone] = useState<ResidentDone | null>(null);
@@ -668,7 +646,6 @@ function ResidentAnswer({ description, proof, refreshing, onRefused, onHeld, joi
 			<p className="sr-only" role="status">
 				{refreshing ? "Checking the invitation again" : ""}
 			</p>
-			{/* While the invitation is read again or an answer is on its way, the choices and buttons wait. */}
 			<div inert={locked} aria-busy={locked} className={locked ? "opacity-70" : undefined}>
 				<ResidencyDisclosure
 					organizationName={description.workspaceName}
@@ -740,7 +717,6 @@ function ResidentOutcome({ done, organizationName }: { done: ResidentDone; organ
 			actions={
 				<>
 					<Button asChild variant="primary" className="w-full">
-						{/* A full load, so the page and its navigation read the residency this answer just created. */}
 						<a href="/my-residency">Open My residency</a>
 					</Button>
 					<Button asChild variant="secondary" className="w-full">
@@ -755,10 +731,6 @@ function ResidentOutcome({ done, organizationName }: { done: ResidentDone; organ
 	);
 }
 
-/**
- * An answer left this tab and no reply came back. Its outcome is unknown, so the page resends that exact command:
- * the server returns the saved result when the first one landed, and makes no second change.
- */
 function Unconfirmed({ held, onSettled }: { held: Held; onSettled: () => void }) {
 	const intent = useIntent<SeatCommand | ResidentCommand>("held");
 	const [done, setDone] = useState<ReactNode>(null);

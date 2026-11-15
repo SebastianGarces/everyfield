@@ -11,15 +11,10 @@ import { refusalMessage } from "./messages";
 import { FormMessage, PasswordInput } from "./parts";
 import { SessionActions } from "./SessionActions";
 
-/**
- * Every sign-in lands on the landing route, which decides on the server (landingFor): Overview for a finished church, its
- * setup step for an unfinished one. A return path goes along as the route's returnTo, so it never skips setup.
- */
 export const AFTER_SIGN_IN = LANDING_ROUTE;
 
 export type SignedIn = "pending_domain" | "active";
 
-/** Sign in (#/signin). A visitor who already has a session sees the signed-in state instead of the form. */
 export function SignInScreen({ returnTo, signedIn }: { returnTo: string | null; signedIn: SignedIn | null }) {
 	if (signedIn) return <SignedInState status={signedIn} returnTo={returnTo} />;
 	return (
@@ -90,7 +85,6 @@ export function SignInForm({
 			...(returnTo ? { returnTo } : {}),
 		});
 		if (result.ok) {
-			// A full load, so every server component reads the new session cookie.
 			loadPage(afterSignIn(result.value.returnTo));
 			return;
 		}

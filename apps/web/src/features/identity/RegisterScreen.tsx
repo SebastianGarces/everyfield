@@ -44,7 +44,6 @@ const registration = createRead(
 	{ failed: (): Loaded => ({ status: "lost" }) },
 );
 
-/** Registration (accounts.getRegistrationOptions, accounts.register), then the native sign-in that resumes it. */
 export function RegisterScreen() {
 	const read = useRead(registration);
 	const loaded = read.value;
@@ -160,8 +159,6 @@ function RegisterFlow({ kinds }: { kinds: Kind[] }) {
 			setRefusal(refusalMessage("register", registered.error));
 			return;
 		}
-		// Every accepted registration answers "continue_identity_proof", whether or not the email already had an
-		// account. Signing in with the password just typed is the proof that resumes it (REQ-IDN-030).
 		const signedIn = await identityApi.signIn({ email: email.data, password });
 		if (signedIn.ok) {
 			loadPage(AFTER_SIGN_IN);
