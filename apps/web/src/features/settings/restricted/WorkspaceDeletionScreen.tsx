@@ -2,7 +2,8 @@
 
 import { cancelWorkspaceDeletion, getWorkspaceDeletionStatus, openWorkspaceDeletion } from "../actions";
 import type { DeletionPort, DeletionStatus, Reply } from "../port";
-import { DeletionStatusScreen, useBrowserZone } from "./DeletionStatusScreen";
+import { useBrowserZone } from "@everyfield/ui/foundations";
+import { DeletionStatusScreen } from "./DeletionStatusScreen";
 
 const PORT: DeletionPort = {
 	open: openWorkspaceDeletion,
@@ -25,7 +26,7 @@ export function WorkspaceDeletionScreen({
 			initial={initial}
 			requestedUntil={requestedUntil}
 			now={Date.now}
-			zone={useBrowserZone()}
+			zone={useBrowserZone() ?? "UTC"}
 			signInHref="/signin"
 		/>
 	);
