@@ -1,10 +1,27 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { createHash } from "node:crypto";
+import {
+	cpSync,
+	existsSync,
+	mkdirSync,
+	mkdtempSync,
+	readdirSync,
+	readFileSync,
+	rmSync,
+	statSync,
+	writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join, relative, resolve, sep } from "node:path";
+import { fileURLToPath } from "node:url";
+import { lintRuns, oxlintRuns } from "../fast-check.ts";
+import { actualCounts } from "./baseline.mjs";
 import { RATCHETED } from "./everyfield-plugin.mjs";
 import {
 	area,
 	baselineDir,
+	commentsExempt,
+	lintDir,
 	readBaseline,
 	readExemptions,
 	readSurvivors,
@@ -41,7 +58,6 @@ const tryGit = (args) => {
 		return null;
 	}
 };
-const severity = (value) => (Array.isArray(value) ? value[0] : value);
 
 function checkBaselineShape(dir) {
 	if (!existsSync(dir)) return;
@@ -89,18 +105,26 @@ function checkSurvivors(files) {
 	}
 }
 
-function offRules(rules = {}) {
-	return Object.entries(rules)
-		.filter(([, value]) => severity(value) === "off")
+const level = (value) => {
+	const given = Array.isArray(value) ? value[0] : value;
+	if (given === "error" || given === 2) return "error";
+	if (given === "warn" || given === 1) return "warn";
+	return "off";
+};
+
+const turnedDown = (rules = {}) =>
+	Object.entries(rules)
+		.filter(([rule, value]) => (rule.startsWith("everyfield/") ? level(value) !== "error" : level(value) === "off"))
 		.map(([rule]) => rule);
-}
+
+const PLUGIN = fileURLToPath(new URL("./everyfield-plugin.mjs", import.meta.url));
 
 function checkConfigs(exemptions) {
 	const reasons = exemptions.configs ?? {};
 	for (const [config, required] of Object.entries(CONFIGS)) {
 		const json = JSON.parse(readFileSync(join(root, config), "utf8"));
 		const given = reasons[config] ?? {};
-		const overrides = Object.fromEntries((json.overrides ?? []).map((o) => [o.files.join(", "), o.rules ?? {}]));
+		const blocks = (json.overrides ?? []).map((o) => ({ ...o, key: (o.files ?? []).join(", "), rules: o.rules ?? {} }));
 		const needs = (what, required, present, explained = {}) => {
 			for (const item of required)
 				if (typeof explained[item] !== "string" || explained[item].trim().length < 20)
@@ -109,17 +133,29 @@ function checkConfigs(exemptions) {
 				if (!present.includes(item))
 					fail(`scripts/lint/exemptions.json: ${config} ${what} ${item} names nothing in the config`);
 		};
+		const plugins = (json.jsPlugins ?? []).map((plugin) => resolve(dirname(join(root, config)), plugin));
+		if (plugins.length !== 1 || plugins[0] !== PLUGIN)
+			fail(`${config}: jsPlugins must be exactly the Everyfield plugin, scripts/lint/everyfield-plugin.mjs`);
 		const patterns = json.ignorePatterns ?? [];
 		needs("ignore pattern", patterns, patterns, given.ignorePatterns);
-		needs("rule", offRules(json.rules), Object.keys(json.rules ?? {}), given.rules);
-		for (const [files, rules] of Object.entries(overrides))
-			needs(`override for ${files}, rule`, offRules(rules), Object.keys(rules), given.overrides?.[files]);
+		needs("rule", turnedDown(json.rules), Object.keys(json.rules ?? {}), given.rules);
+		for (const block of blocks) {
+			if ("jsPlugins" in block || "ignorePatterns" in block || "categories" in block)
+				fail(`${config}: the override for ${block.key} may not set jsPlugins, ignorePatterns or categories`);
+			const present = blocks.filter((other) => other.key === block.key).flatMap((other) => Object.keys(other.rules));
+			needs(`override for ${block.key}, rule`, turnedDown(block.rules), present, given.overrides?.[block.key]);
+		}
 		for (const files of Object.keys(given.overrides ?? {}))
-			if (!(files in overrides)) fail(`scripts/lint/exemptions.json: ${config} has no override for ${files}`);
+			if (!blocks.some((block) => block.key === files))
+				fail(`scripts/lint/exemptions.json: ${config} has no override for ${files}`);
+		const overrides = {};
+		for (const block of blocks)
+			for (const [rule, value] of Object.entries(block.rules))
+				if (level(value) === "error") (overrides[block.key] ??= {})[rule] = value;
 		for (const [files, rules] of Object.entries(required)) {
 			const block = files === "*" ? json.rules : overrides[files];
 			for (const rule of rules)
-				if (severity(block?.[`everyfield/${rule}`]) !== "error")
+				if (level(block?.[`everyfield/${rule}`]) !== "error")
 					fail(
 						`${config}: everyfield/${rule} must be "error" ${files === "*" ? "in the top-level rules" : `in the override for ${files}`}`,
 					);
@@ -135,7 +171,10 @@ function checkFiles(baseline, files, newMigrations) {
 	const directives = baseline["lint-directives"] ?? {};
 	for (const [rule, entries] of Object.entries(baseline))
 		for (const path of Object.keys(entries))
-			if (!files.has(path)) fail(`${rule}: ${path} is gone; run node scripts/lint/baseline.mjs --shrink`);
+			if (!files.has(path))
+				fail(
+					`${rule}: ${path} is gone. If you deleted it, run node scripts/lint/baseline.mjs --shrink; if you moved it, move its entry to the new path in that path's area file (the growth check follows renames).`,
+				);
 	for (const path of files) {
 		const migration = newMigrations.has(path);
 		if (!migration && (MIGRATIONS.test(path) || !inScope(path))) continue;
@@ -244,48 +283,81 @@ function renamesSince(ref) {
 const knownAt = (ref, rule) =>
 	baselineAt(ref, rule) !== null || tryGit(["grep", "-q", "-F", `"${rule}"`, ref, "--", "scripts/lint/"]) !== null;
 
-function bootstrapCommit(base, rule) {
-	if (process.env.GITHUB_ACTIONS === "true") ensureHistory();
-	const added = tryGit([
-		"log",
-		"--reverse",
-		"--format=%H",
-		"--diff-filter=A",
-		`${base}..HEAD`,
-		"--",
-		`${BASELINE}/${rule}`,
-	]);
-	return added?.split("\n").find(Boolean) ?? null;
+const LINT_INPUTS = [
+	"scripts/lint",
+	"scripts/fast-check.ts",
+	"package.json",
+	"pnpm-workspace.yaml",
+	"pnpm-lock.yaml",
+	...Object.keys(CONFIGS),
+];
+
+function inputsDigest(ref) {
+	const hash = createHash("sha256").update(git(["rev-parse", `${ref}^{commit}`]).trim());
+	const walk = (path) => {
+		const full = join(root, path);
+		if (!existsSync(full)) return;
+		if (statSync(full).isDirectory()) {
+			for (const name of readdirSync(full).sort()) if (name !== "baseline") walk(`${path}/${name}`);
+		} else hash.update(path).update(readFileSync(full));
+	};
+	for (const path of LINT_INPUTS) walk(path);
+	return hash.digest("hex").slice(0, 32);
+}
+
+export function countsAt(ref) {
+	const cache = join(tmpdir(), "everyfield-lint-base", `${inputsDigest(ref)}.json`);
+	if (existsSync(cache)) return JSON.parse(readFileSync(cache, "utf8"));
+	const tree = mkdtempSync(join(tmpdir(), "everyfield-lint-tree-"));
+	try {
+		execFileSync("git", ["archive", "--format=tar", "-o", join(tree, ".tree.tar"), ref], { cwd: root });
+		execFileSync("tar", ["-xf", ".tree.tar"], { cwd: tree });
+		rmSync(join(tree, ".tree.tar"));
+		for (const config of Object.keys(CONFIGS)) {
+			const json = JSON.parse(readFileSync(join(root, config), "utf8"));
+			mkdirSync(dirname(join(tree, config)), { recursive: true });
+			writeFileSync(join(tree, config), JSON.stringify({ ...json, jsPlugins: [PLUGIN] }));
+		}
+		const lintData = join(tree, ".everyfield-lint");
+		mkdirSync(lintData);
+		if (existsSync(survivorsDir)) cpSync(survivorsDir, join(lintData, "survivors"), { recursive: true });
+		if (existsSync(join(lintDir, "exemptions.json")))
+			cpSync(join(lintDir, "exemptions.json"), join(lintData, "exemptions.json"));
+		const moved = (path) => join(tree, relative(root, path));
+		const runs = oxlintRuns(root).map((run) => ({ ...run, cwd: moved(run.cwd), roots: run.roots.map(moved) }));
+		const files = git(["ls-tree", "-r", "--name-only", "-z", ref]).split("\0").filter(Boolean);
+		const counts = actualCounts({
+			dir: tree,
+			runs,
+			files,
+			env: { EVERYFIELD_ROOT: tree, EVERYFIELD_LINT_DIR: lintData },
+		});
+		mkdirSync(dirname(cache), { recursive: true });
+		writeFileSync(cache, JSON.stringify(counts));
+		return counts;
+	} finally {
+		rmSync(tree, { recursive: true, force: true });
+	}
 }
 
 function checkGrowth(base, baseline, survivors) {
-	const renames = new Map();
-	const renamed = (ref) => {
-		if (!renames.has(ref)) renames.set(ref, renamesSince(ref));
-		return renames.get(ref);
-	};
+	const renamed = renamesSince(base.ref);
+	let computed = null;
 	for (const [rule, entries] of Object.entries(baseline)) {
-		let ref = base.ref;
-		let before = baselineAt(ref, rule);
-		if (before === null && !knownAt(ref, rule)) {
-			ref = bootstrapCommit(base.ref, rule);
-			if (!ref) {
-				notices.push(
-					`${rule}: the rule is new against ${base.ref.slice(0, 9)}; its growth check starts with the commit that adds ${BASELINE}/${rule}/`,
-				);
-				continue;
-			}
+		let before = baselineAt(base.ref, rule);
+		if (before === null && !knownAt(base.ref, rule)) {
+			computed ??= countsAt(base.ref);
+			before = computed[rule] ?? {};
 			notices.push(
-				`${rule}: the rule is new against ${base.ref.slice(0, 9)}; its baseline is held to the commit that added it (${ref.slice(0, 9)})`,
+				`${rule}: the rule is new against ${base.ref.slice(0, 9)}; its baseline is held to what the rule reports on that tree`,
 			);
-			before = baselineAt(ref, rule) ?? {};
 		}
 		before ??= {};
 		for (const [path, count] of Object.entries(entries)) {
-			const was = before[path] ?? before[renamed(ref)[path]];
+			const was = before[path] ?? before[renamed[path]];
 			if (was === undefined)
-				fail(`${rule}: ${path} is new to the baseline; the baseline only shrinks, so clean the file instead`);
-			else if (count > was) fail(`${rule}: ${path} grew from ${was} to ${count}; the baseline only shrinks`);
+				fail(`${rule}: ${path} is new to the baseline; a baseline never grows, so clean the file instead`);
+			else if (count > was) fail(`${rule}: ${path} grew from ${was} to ${count}; a baseline never grows`);
 		}
 	}
 	const before = survivorsAt(base.ref);
@@ -296,6 +368,48 @@ function checkGrowth(base, baseline, survivors) {
 				notices.push(
 					`${SURVIVORS}: ${rule} ${path} is new or larger; it waits for the owner (workflow-gates in evf.toml)`,
 				);
+}
+
+const LINT_FLAGS = { oxlint: new Set(["--max-warnings=0"]), eslint: new Set(["--max-warnings=0"]) };
+const SHELL = /[|;&<>$`()#\s]/;
+const IGNORE_FILES = /(^|\/)(\.eslintignore|\.oxlintignore|\.oxlintrc(\.[\w]+)?|oxlint\.config\.[cm]?[jt]s)$/;
+
+function checkLintCommands(files) {
+	const scripts = JSON.parse(readFileSync(join(root, "package.json"), "utf8")).scripts ?? {};
+	const parts = (script) => (script ?? "").split("&&").map((part) => part.trim());
+	if (!parts(scripts.lint).includes("pnpm -r --if-present lint"))
+		fail("package.json: the lint script must run every package's lint with pnpm -r --if-present lint");
+	const configs = new Set(Object.keys(CONFIGS).map((config) => join(root, config)));
+	for (const run of lintRuns(root)) {
+		const where = `${run.name}'s lint script (${run.tool})`;
+		let config = null;
+		for (let at = 0; at < run.args.length; at++) {
+			const arg = run.args[at];
+			if (arg === "-c" || arg === "--config") config = resolve(run.cwd, run.args[++at] ?? "");
+			else if (arg.startsWith("-")) {
+				if (!LINT_FLAGS[run.tool].has(arg))
+					fail(`${where}: the flag ${arg} is not allowed; lint flags can hide files or rules`);
+			} else if (SHELL.test(arg) || !existsSync(resolve(run.cwd, arg)))
+				fail(`${where}: ${arg} is not an existing lint root`);
+		}
+		if (!run.args.includes("--max-warnings=0")) fail(`${where}: needs --max-warnings=0`);
+		if (run.tool === "oxlint" && !configs.has(config))
+			fail(`${where}: must pass -c with one of ${Object.keys(CONFIGS).join(", ")}`);
+	}
+	for (const path of files) {
+		if (IGNORE_FILES.test(path) && !(path in CONFIGS))
+			fail(`${path}: lint ignore files and extra Oxlint configs are not allowed; they hide files or rules`);
+	}
+	const ignored = (tryGit(["ls-files", "-z", "-ci", "--exclude-standard"]) ?? "").split("\0").filter(Boolean);
+	for (const path of ignored)
+		fail(`${path}: git ignores this tracked file, so lint skips it; un-ignore it or delete it`);
+	const roots = oxlintRuns(root).flatMap((run) => run.roots);
+	for (const path of files) {
+		if (!JS.test(path) || commentsExempt(path) || !existsSync(join(root, path))) continue;
+		const full = join(root, path);
+		if (!roots.some((dir) => full === dir || full.startsWith(dir + sep)))
+			fail(`${path}: no lint run covers this file; move it under a linted folder or add its folder to a lint script`);
+	}
 }
 
 if (import.meta.main) {
@@ -316,6 +430,7 @@ if (import.meta.main) {
 	checkSurvivors(files);
 	checkConfigs(readExemptions());
 	checkFiles(baseline, files, newMigrations);
+	checkLintCommands(files);
 	if (base) checkGrowth(base, baseline, survivors);
 	else notices.push("No main branch to compare with, so the baseline growth check did not run.");
 	for (const notice of notices) console.log(notice);

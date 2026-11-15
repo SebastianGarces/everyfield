@@ -2,8 +2,9 @@
 	"comments": {
 		"docs/**": "Documentation, its Python tooling and the sha256-pinned original reference bytes (docs/reference/manifest.json); prose and originals are not code",
 		"design/**": "The approved brand prototype and its handoff exports; design/everyfield-ui.html changes only through Sebastian's owner class",
-		"packages/db/migrations/**": "An applied migration's bytes are checksummed on every database that ran it (migrate.ts raises migration_checksum_conflict); a migration new against main is still checked",
-		"**/*.generated.*": "A generator writes these files and its header says so; change the generator, never the output",
+		"packages/db/migrations/*.sql": "An applied migration's bytes are checksummed on every database that ran it (migrate.ts raises migration_checksum_conflict); a migration new against main is still checked",
+		"packages/db/migrations/meta/**": "Drizzle Kit writes the migration snapshots and journal; their bytes are part of the frozen migration record",
+		"packages/ui/src/foundations/logo-paths.generated.ts": "design/handoff/export.py writes this file and its header says so; change the generator, never the output",
 		"**/*.md": "Markdown is prose, not code",
 		"apps/web/scripts/render-share-images.mjs": "Image approvals hash these exact source bytes alongside the generated share images (.prettierignore)",
 		"apps/web/scripts/render-mesh-images.mjs": "Image approvals hash these exact source bytes alongside the generated mesh images (.prettierignore)",
