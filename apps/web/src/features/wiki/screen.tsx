@@ -102,7 +102,7 @@ function StepCard({ step, direction }: { step: Step; direction: "previous" | "ne
 	return (
 		<Link
 			href={step.href}
-			className={`group flex cursor-pointer items-center gap-4 rounded-card bg-surface p-5 shadow-card transition-colors hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus ${next ? "flex-row-reverse text-right app-sm:col-start-2" : ""}`}
+			className={`group flex items-center gap-4 rounded-card bg-surface p-5 shadow-card transition-colors hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus ${next ? "flex-row-reverse text-right app-sm:col-start-2" : ""}`}
 		>
 			<Icon
 				icon={next ? ArrowRight01Icon : ArrowLeft01Icon}

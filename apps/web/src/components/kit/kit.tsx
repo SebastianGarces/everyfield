@@ -150,7 +150,7 @@ export function UiButton({
 	return (
 		<span
 			className={cn(
-				"inline-flex cursor-default items-center justify-center gap-1.5 leading-none font-semibold whitespace-nowrap",
+				"pointer-events-none inline-flex items-center justify-center gap-1.5 leading-none font-semibold whitespace-nowrap",
 				size === "sm" ? "h-8 px-3 type-sm" : size === "action" ? "h-[34px] px-3.5 type-sm" : "h-9 px-3.5 type-sm",
 				V[variant],
 				className,

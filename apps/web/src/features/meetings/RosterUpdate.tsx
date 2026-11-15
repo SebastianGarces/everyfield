@@ -95,7 +95,7 @@ export function RosterUpdate({
 				<CardIcon icon={UserGroupIcon} tone="violet" size={36} />
 				<p className="min-w-[220px] flex-1 text-sm text-text-2">
 					The guest list was copied from{" "}
-					<IntentLink href={`/ministries/${team.id}`} className="cursor-pointer font-medium text-ink underline">
+					<IntentLink href={`/ministries/${team.id}`} className="font-medium text-ink underline">
 						{team.name}
 					</IntentLink>{" "}
 					when this meeting was made. It does not follow later changes to the ministry.

@@ -292,6 +292,8 @@
 	color: var(--paper-accent);
 	text-decoration: underline;
 	text-underline-offset: 2px;
+}
+.ef-paper [contenteditable="true"] a {
 	cursor: text;
 }
 /* The tag mark: a small caps label on an accent tile (layouts/doc.tsx, tagTile). */

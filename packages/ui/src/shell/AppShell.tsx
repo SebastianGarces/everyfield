@@ -162,7 +162,7 @@ function Topbar({
 						disabled={!actions.onAskEvry}
 						title={actions.onAskEvry ? undefined : "Evry is off on this page"}
 						aria-keyshortcuts={actions.onAskEvry ? "Meta+J" : undefined}
-						className="inline-flex h-11 cursor-pointer items-center gap-[9px] rounded-nav-item bg-surface-2 pr-4 pl-2.5 font-medium text-ink transition-[background-color] hover:bg-surface-3 disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-surface-2 max-app-xl:pr-3 max-app-sm:px-2.5"
+						className="inline-flex h-11 items-center gap-[9px] rounded-nav-item bg-surface-2 pr-4 pl-2.5 font-medium text-ink transition-[background-color] hover:bg-surface-3 disabled:opacity-45 disabled:hover:bg-surface-2 max-app-xl:pr-3 max-app-sm:px-2.5"
 					>
 						<EvryBot size="sm" />
 						<span className="max-app-sm:sr-only">{actions.onAskEvry ? "Ask Evry" : "Evry is off"}</span>
@@ -247,7 +247,7 @@ function TopIconButton({
 			aria-expanded={expanded}
 			onClick={onClick}
 			className={cn(
-				"relative grid size-11 cursor-pointer place-items-center rounded-nav-item text-ink-2 transition-[background-color] hover:bg-surface-2",
+				"relative grid size-11 place-items-center rounded-nav-item text-ink-2 transition-[background-color] hover:bg-surface-2",
 				className,
 			)}
 		>
