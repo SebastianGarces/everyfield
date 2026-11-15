@@ -3,17 +3,13 @@
 import * as React from "react";
 import { BUTTON_ICON } from "../styles.ts";
 
-// --- Hooks ---
 import { useTiptapEditor } from "../use-tiptap-editor.ts";
 
-// --- Icons ---
 import { CornerDownLeftIcon, ExternalLinkIcon, LinkIcon, TrashIcon } from "../icons.tsx";
 
-// --- Tiptap UI ---
 import type { UseLinkPopoverConfig } from "./use-link-popover.ts";
 import { useLinkPopover } from "./use-link-popover.ts";
 
-// --- UI Primitives ---
 import type { ButtonProps } from "../primitives/button.tsx";
 import { Button, ButtonGroup } from "../primitives/button.tsx";
 import { Popover, PopoverContent, PopoverTrigger } from "../primitives/popover.tsx";
@@ -21,46 +17,19 @@ import { Separator } from "../primitives/separator.tsx";
 import { Input, InputGroup } from "../primitives/input.tsx";
 
 interface LinkMainProps {
-	/**
-	 * The URL to set for the link.
-	 */
 	url: string;
-	/**
-	 * Why the last attempt to set a link was refused, if it was.
-	 */
 	error?: string | null;
-	/**
-	 * Function to update the URL state.
-	 */
 	setUrl: (url: string) => void;
-	/**
-	 * Function to set the link in the editor.
-	 */
 	setLink: () => void | boolean;
-	/**
-	 * Function to remove the link from the editor.
-	 */
 	removeLink: () => void;
-	/**
-	 * Function to open the link.
-	 */
 	openLink: () => void;
-	/**
-	 * Whether the link is currently active in the editor.
-	 */
 	isActive: boolean;
 }
 
 export interface LinkPopoverProps extends Omit<ButtonProps, "type">, UseLinkPopoverConfig {
-	/**
-	 * Callback for when the popover opens or closes.
-	 */
 	onOpenChange?: (isOpen: boolean) => void;
 }
 
-/**
- * Link button component for triggering the link popover
- */
 const LinkButton = React.forwardRef<HTMLButtonElement, ButtonProps>(({ className, children, ...props }, ref) => {
 	return (
 		<Button
@@ -80,9 +49,6 @@ const LinkButton = React.forwardRef<HTMLButtonElement, ButtonProps>(({ className
 
 LinkButton.displayName = "LinkButton";
 
-/**
- * Main content component for the link popover
- */
 const LinkMain: React.FC<LinkMainProps> = ({ url, error, setUrl, setLink, removeLink, openLink, isActive }) => {
 	const handleKeyDown = (event: React.KeyboardEvent) => {
 		if (event.key === "Enter") {
@@ -135,11 +101,6 @@ const LinkMain: React.FC<LinkMainProps> = ({ url, error, setUrl, setLink, remove
 	);
 };
 
-/**
- * Link popover component for Tiptap editors.
- *
- * For custom popover implementations, use the `useLinkPopover` hook instead.
- */
 export const LinkPopover = React.forwardRef<HTMLButtonElement, LinkPopoverProps>(
 	({ editor: providedEditor, onOpenChange, onClick, children, ...buttonProps }, ref) => {
 		const { editor } = useTiptapEditor(providedEditor);

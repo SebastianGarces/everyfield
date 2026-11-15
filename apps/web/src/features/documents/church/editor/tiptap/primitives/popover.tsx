@@ -19,7 +19,6 @@ function PopoverContent({
 	sideOffset = 4,
 	...props
 }: React.ComponentProps<typeof PopoverPrimitive.Content>) {
-	// Everyfield change: portal into the product root, not <body>, so the product font, tokens and focus ring apply.
 	const container = usePortalContainer();
 	return (
 		<PopoverPrimitive.Portal container={container}>

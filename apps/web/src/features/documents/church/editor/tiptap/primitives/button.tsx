@@ -1,9 +1,7 @@
 import * as React from "react";
 
-// --- Tiptap UI Primitive ---
 import { Tooltip, TooltipContent, TooltipTrigger } from "./tooltip";
 
-// --- Lib ---
 import { cn, parseShortcutKeys } from "../tiptap-utils.ts";
 import { BUTTON, BUTTON_BASE, BUTTON_GROUP } from "../styles.ts";
 import { InToolbar } from "./toolbar.tsx";
@@ -33,8 +31,6 @@ const ShortcutDisplay: React.FC<{ shortcuts: string[] }> = ({ shortcuts }) => {
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 	({ className, children, tooltip, showTooltip = true, shortcutKeys, "aria-label": ariaLabel, ...props }, ref) => {
 		const shortcuts = React.useMemo(() => parseShortcutKeys({ shortcutKeys }), [shortcutKeys]);
-		// Everyfield change: a `className` replaces the default box (size, padding, gap and justify), so a call site's
-		// `h-8` or `justify-between` is the only class for its property and takes effect.
 		const classes = className ? cn(BUTTON_BASE, className) : BUTTON;
 		const tabIndex = React.use(InToolbar) ? -1 : undefined;
 
