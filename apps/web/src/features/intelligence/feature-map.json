@@ -109,7 +109,7 @@
 							]
 						}
 					},
-					"noOperation": "its catalog read, intelligence.readColdStartGuidance, is a name the code does not quote or declare"
+					"noOperation": "no code is named intelligence.readColdStartGuidance; the page builds its next steps from the facts it reads"
 				}
 			]
 		},
@@ -200,7 +200,7 @@
 							}
 						]
 					},
-					"noOperation": "its catalog read, intelligence.readAssessmentHistory, is a name the code does not quote or declare"
+					"noOperation": "intelligence.readAssessmentHistory is implemented under a shorter name (packages/domain/src/intelligence/assessment.ts:409), a name that differs from the catalog id"
 				}
 			]
 		},

@@ -170,7 +170,7 @@
 					"id": "filter",
 					"says": "The Category choice narrows the template list to that kind of template.",
 					"catalog": ["DOC-001"],
-					"operations": [],
+					"operations": ["documents.templates.list"],
 					"proof": {
 						"tests": [
 							{
@@ -199,8 +199,7 @@
 								}
 							]
 						}
-					},
-					"noOperation": "the page reads the list once; its catalog name, documents.templates.list, is not quoted or declared in code"
+					}
 				}
 			]
 		},

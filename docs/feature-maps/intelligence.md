@@ -83,7 +83,7 @@ agent-browser wait --url "**/signin?returnTo=%2Fintelligence"
 
 With no assessment yet, the page lists next steps from the church's own records, each a link to where to record it.
 
-- No operation: its catalog read, intelligence.readColdStartGuidance, is a name the code does not quote or declare
+- No operation: no code is named intelligence.readColdStartGuidance; the page builds its next steps from the facts it reads
 - Catalog: PI-034
 - Cases: PI-CASE-025
 - Test: `tests/unit/intelligence/assessment-model.test.mjs`: `AC:PI-CASE-025 cold start says not prepared, on its way or couldn't be prepared, never a result`
@@ -129,7 +129,7 @@ agent-browser find role heading text --name "No assessments yet" --exact
 
 Trends shows each complete assessment, dated; a fact an older one did not have reads Not measured.
 
-- No operation: its catalog read, intelligence.readAssessmentHistory, is a name the code does not quote or declare
+- No operation: intelligence.readAssessmentHistory is implemented under a shorter name (packages/domain/src/intelligence/assessment.ts:409), a name that differs from the catalog id
 - Catalog: PI-029
 - Test: `tests/integration/intelligence/views.test.mts`: `trends show the latest twelve complete assessments, newest first and dated; a fact an older snapshot did not have reads Not measured, never zero`
 

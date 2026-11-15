@@ -210,7 +210,7 @@ agent-browser wait --url "**/signin?returnTo=%2Ffeedback%2Ftriage"
 
 A triager moves feedback to Reviewed, Resolved or Dismissed, and History names each move.
 
-- No operation: feedback.admin.changeStatus, its catalog name, is not quoted or declared in code
+- Operations: feedback.admin.changeStatus
 - Catalog: ADM-002
 - Cases: CASE-ADM-002
 - Test: `tests/integration/feedback/feedback.test.mts`: `AC:CASE-ADM-002 AC:PUB57-002 a triager filters, moves a status with history, and never overwrites a newer change`

@@ -396,8 +396,7 @@
 					"id": "change-status",
 					"says": "A triager moves feedback to Reviewed, Resolved or Dismissed, and History names each move.",
 					"catalog": ["ADM-002"],
-					"noOperation": "feedback.admin.changeStatus, its catalog name, is not quoted or declared in code",
-					"operations": [],
+					"operations": ["feedback.admin.changeStatus"],
 					"proof": {
 						"tests": [
 							{

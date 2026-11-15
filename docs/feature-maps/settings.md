@@ -18,6 +18,7 @@ flowchart LR
   s0 -.- s0_st0(("church"))
   s0 -.- s0_st1(("member"))
   s0 -.- s0_st2(("signed-out"))
+  s0 -.- s0_st3(("rail-settings-cut-off (known defect)"))
   s0 --- s0_b0["section-address<br/>tests + browser behavior"]
   s0 --- s0_b1["church-profile<br/>tests + cases + browser behavior"]
   s1["settings.account<br/>no page"]
@@ -101,11 +102,22 @@ agent-browser wait --load networkidle
 agent-browser wait --url "**/signin?returnTo=%2Fsettings%2Faccount"
 ```
 
+- **rail-settings-cut-off**: heading "History"; no dialog "Church profile". Known defect, so this state shows what is wrong: the rail is a sticky aside of fixed height with no scroll (packages/ui/src/shell/AppShell.tsx:263), so in a window as short as the proof browser's 577 px its last link, Settings, sits below the bottom edge and a click on it opens nothing; the account menu and keyboard Enter still open Settings. As `owner`, on the QA seed:
+
+```bash
+agent-browser open "$ORIGIN/communication"
+agent-browser wait --load networkidle
+agent-browser find role link click --name "Settings" --exact
+agent-browser wait --load networkidle
+agent-browser find role heading text --name "History" --exact
+! agent-browser find role dialog text --name "Church profile" --exact
+```
+
 #### settings.dialog#section-address
 
 Each section has its own address; choosing one in the dialog's list writes it.
 
-- No operation: its catalog read, settings.getSection, is a name the code does not quote or declare
+- No operation: settings.getSection is implemented as a property of the settings reader (packages/domain/src/settings/sections.ts:497), which the checker does not take for a declaration
 - Catalog: IDN-010
 - Test: `tests/integration/settings/settings.test.mts`: `INV-performance: each settings section reads in one statement on the pool, without a transaction`
 - Test: `tests/unit/settings/drafts-model.test.mjs`: `INV-draft-model: random interleavings keep the invariant`
@@ -194,7 +206,7 @@ agent-browser find role button text --name "Ruth Map Allen"
 
 Add photo uploads a private photo that only seat holders who share a church or a current link can load.
 
-- Operations: account.finalizeAvatar
+- Operations: account.requestAvatarUpload, account.finalizeAvatar
 - Catalog: IDN-006
 - Cases: TARGET-IDN-006
 - Test: `tests/integration/settings/settings.test.mts`: `AC:TARGET-IDN-006 AC:SEC-07 AC:PROVIDER48-002 avatar verifies private bytes, atomically changes the reference and denies old/foreign versions`
@@ -312,7 +324,7 @@ agent-browser wait --url "**/signin?returnTo=%2Fconfirm-email"
 
 The deletion page opens a request only for the email and password of an account scheduled for deletion; anything else gets one refusal.
 
-- No operation: its catalog read, account.getDeletionStatus, is a name the code does not quote or declare
+- No operation: no code is named account.getDeletionStatus; the deletion status read lives in packages/domain/src/settings/deletion.ts
 - Catalog: IDN-026
 - Cases: TARGET-IDN-026
 - Test: `tests/integration/settings/settings.test.mts`: `AC:DEL58-002 INV-performance: a fresh password proof opens only the account's current request; status and cancel stay small`

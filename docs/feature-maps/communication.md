@@ -137,7 +137,7 @@ agent-browser find role button text --name "QA delivery check"
 
 An Owner or Admin whose own address bounced restores it with a reason, and Past restores lists it.
 
-- No operation: its catalog operation, emailSuppression.requestRestore, is a name the code does not quote or declare
+- No operation: emailSuppression.requestRestore is implemented as a property of the communication writer (packages/domain/src/communication/writer.ts:350), which the checker does not take for a declaration
 - Catalog: IDN-012, NTF-011
 - Cases: CASE-NTF-011
 - Test: `tests/integration/communication/restores.test.mts`: `AC:CASE-NTF-011 Your address lists each past restore of the viewer's own address, newest first, in fixed statements`

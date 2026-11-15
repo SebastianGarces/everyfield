@@ -116,6 +116,35 @@
 							"url": "/signin?returnTo=%2Fsettings%2Faccount"
 						}
 					]
+				},
+				{
+					"id": "rail-settings-cut-off",
+					"defect": "the rail is a sticky aside of fixed height with no scroll (packages/ui/src/shell/AppShell.tsx:263), so in a window as short as the proof browser's 577 px its last link, Settings, sits below the bottom edge and a click on it opens nothing; the account menu and keyboard Enter still open Settings",
+					"reach": {
+						"persona": "owner",
+						"open": "/communication",
+						"path": [
+							{
+								"click": {
+									"role": "link",
+									"name": "Settings"
+								}
+							}
+						],
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "History"
+						},
+						{
+							"absent": {
+								"role": "dialog",
+								"name": "Church profile"
+							}
+						}
+					]
 				}
 			],
 			"behaviors": [
@@ -161,7 +190,7 @@
 							]
 						}
 					},
-					"noOperation": "its catalog read, settings.getSection, is a name the code does not quote or declare"
+					"noOperation": "settings.getSection is implemented as a property of the settings reader (packages/domain/src/settings/sections.ts:497), which the checker does not take for a declaration"
 				},
 				{
 					"id": "church-profile",
@@ -319,7 +348,7 @@
 					"id": "photo",
 					"says": "Add photo uploads a private photo that only seat holders who share a church or a current link can load.",
 					"catalog": ["IDN-006"],
-					"operations": ["account.finalizeAvatar"],
+					"operations": ["account.requestAvatarUpload", "account.finalizeAvatar"],
 					"proof": {
 						"tests": [
 							{
@@ -590,7 +619,7 @@
 							]
 						}
 					},
-					"noOperation": "its catalog read, account.getDeletionStatus, is a name the code does not quote or declare"
+					"noOperation": "no code is named account.getDeletionStatus; the deletion status read lives in packages/domain/src/settings/deletion.ts"
 				}
 			]
 		},

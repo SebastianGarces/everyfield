@@ -122,7 +122,7 @@ agent-browser wait --text "for your church."
 
 The Category choice narrows the template list to that kind of template.
 
-- No operation: the page reads the list once; its catalog name, documents.templates.list, is not quoted or declared in code
+- Operations: documents.templates.list
 - Catalog: DOC-001
 - Cases: CASE-DOC-001
 - Test: `tests/integration/documents/documents.test.mts`: `AC:CASE-DOC-001 the library lists 13 templates and 13 formats, and a retired id does not resolve`
