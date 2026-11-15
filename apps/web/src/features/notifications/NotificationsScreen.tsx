@@ -12,12 +12,13 @@ import {
 } from "@everyfield/ui/controls";
 import { LoadableView } from "@everyfield/ui/display";
 import { Icon } from "@everyfield/ui/foundations";
-import { useState } from "react";
+import { useAddress, writeAddress } from "../../components/location.ts";
 import { useClock, useFeed } from "./feed.tsx";
 import {
 	CATEGORIES,
 	categoryLabel,
 	groupByDay,
+	parseQuery,
 	querySearch,
 	type Category,
 	type FeedPage,
@@ -31,14 +32,13 @@ import { ItemsSkeleton, NotificationItem } from "./parts.tsx";
 
 const ANY = "any";
 
-export function NotificationsScreen({ initialQuery, initial }: { initialQuery: FeedQuery; initial: FeedPage }) {
-	const [query, setQuery] = useState(initialQuery);
+export function NotificationsScreen({ initial }: { initial: FeedPage }) {
+	const query = parseQuery(useAddress().params);
 	const feed = useFeed(query, initial);
 	const clock = useClock();
 
 	const go = (next: FeedQuery) => {
-		setQuery(next);
-		window.history.replaceState(null, "", `/notifications${querySearch(next)}`);
+		writeAddress(`/notifications${querySearch(next)}`, { replace: true });
 		void feed.load(next);
 	};
 	const ready = feed.state.status === "ready" ? feed.state.data : null;

@@ -11,42 +11,21 @@ import {
 	PopoverContent,
 	StatePanel,
 } from "@everyfield/ui/controls";
-import { useEffect, useRef, useState, type MouseEvent, type RefObject } from "react";
-import { useAccount, useClock, useFeed } from "./feed.tsx";
-import { readUnreadCount } from "./fetch.ts";
+import { useRef, useState, type MouseEvent, type RefObject } from "react";
+import { useClock, useFeed } from "./feed.tsx";
 import { ItemsSkeleton, NotificationItem } from "./parts.tsx";
-
-// The bell's drop-down (screens.md, Overlays: Notification drop-down). The frame passes `open` to the top bar's bell
-// and renders `element`. The count loads once the frame is on screen and again when the tab comes back after a while.
 
 const ALL = { unread: false, category: null } as const;
 const SHOWN = 6;
-const STALE_MS = 60_000;
 
 export function useNotificationBell() {
-	const account = useAccount();
 	const [open, setOpen] = useState(false);
 	const anchor = useRef<HTMLElement | null>(null);
 	const feed = useFeed(ALL, null);
 	const clock = useClock();
-	const counted = useRef(0);
-	const setCount = account.setCount;
 
-	useEffect(() => {
-		const refresh = () => {
-			if (document.visibilityState !== "visible" || Date.now() - counted.current < STALE_MS) return;
-			counted.current = Date.now();
-			void readUnreadCount().then((r) => r.status === "ok" && setCount(r.value.count));
-		};
-		refresh();
-		document.addEventListener("visibilitychange", refresh);
-		return () => document.removeEventListener("visibilitychange", refresh);
-	}, [setCount]);
-
-	/** The top bar calls this from the bell's click; the bell is the drop-down's anchor and gets focus back on close. */
 	const show = (event?: MouseEvent<HTMLElement>) => {
 		if (event) anchor.current = event.currentTarget;
-		counted.current = Date.now();
 		setOpen(true);
 		void feed.load(ALL);
 	};
@@ -68,7 +47,7 @@ export function useNotificationBell() {
 					<Button
 						variant="ghost"
 						size="sm"
-						disabled={feed.state.status !== "ready" || !(account.count ?? feed.state.data.unread)}
+						disabled={feed.state.status !== "ready" || !(feed.count ?? feed.state.data.unread)}
 						onClick={feed.markAll}
 					>
 						Mark all read
@@ -125,5 +104,5 @@ export function useNotificationBell() {
 			</PopoverContent>
 		</Popover>
 	);
-	return { unread: account.count ?? 0, open: show, expanded: open, element };
+	return { unread: feed.count ?? 0, open: show, expanded: open, element };
 }

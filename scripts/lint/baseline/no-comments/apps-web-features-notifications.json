@@ -1,9 +1,7 @@
 {
-	"apps/web/src/features/notifications/Bell.tsx": 3,
 	"apps/web/src/features/notifications/NotificationsScreen.tsx": 4,
 	"apps/web/src/features/notifications/OptOutScreen.tsx": 3,
 	"apps/web/src/features/notifications/actions.ts": 12,
-	"apps/web/src/features/notifications/feed.tsx": 23,
 	"apps/web/src/features/notifications/fetch.ts": 1,
 	"apps/web/src/features/notifications/model.ts": 15,
 	"apps/web/src/features/notifications/one-click.ts": 4,

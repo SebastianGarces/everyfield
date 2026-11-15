@@ -3,6 +3,7 @@ import { Card } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { NotAvailable } from "../access/AccessStates";
+import { markSubjectRead } from "../notifications/actions";
 import { MyResidencyScreen } from "./MyResidencyScreen";
 import { MY_RESIDENCY_PATH, readingPath } from "./model";
 import { ResidentReadingScreen } from "./ResidentReadingScreen";
@@ -25,10 +26,16 @@ async function account(path: string) {
 	return who;
 }
 
-export async function MyResidencyPage() {
+type Search = Promise<Record<string, string | string[] | undefined>>;
+
+export async function MyResidencyPage({ searchParams }: { searchParams: Search }) {
 	const authority = await account(MY_RESIDENCY_PATH);
 	if (!authority) return refused;
-	const residency = await loadMyResidency(authority);
+	const opened = (await searchParams).milestone;
+	const [residency] = await Promise.all([
+		loadMyResidency(authority),
+		typeof opened === "string" ? markSubjectRead({ kind: "residency_milestone", id: opened }) : null,
+	]);
 	if (residency.status !== "ok") return refused;
 	return <MyResidencyScreen initial={residency.value} />;
 }

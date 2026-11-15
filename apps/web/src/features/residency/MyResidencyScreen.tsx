@@ -24,10 +24,7 @@ import { StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
-import { markSubjectRead } from "../notifications/actions";
-import { useAccount } from "../notifications/feed";
-import { readUnreadCount } from "../notifications/fetch";
+import { useState } from "react";
 import { formatDay } from "../organizations/board/model";
 import { Problem } from "../organizations/board/Problem";
 import { programProblem, KIND } from "../organizations/programs/model";
@@ -75,29 +72,8 @@ function NotLinked() {
 	);
 }
 
-/**
- * A residency notice opens this page at its milestone (`?milestone=`, from the bell or its email): the page shows that
- * milestone as the one opened, its unread notices read as read and the bell's count follows. An entry already marked
- * in the bell marks nothing more. Returns the opened milestone's id.
- */
-function useOpenedNotice() {
-	const { remember, setCount } = useAccount();
-	const opened = useSearchParams().get("milestone");
-	useEffect(() => {
-		if (!opened) return;
-		void markSubjectRead({ kind: "residency_milestone", id: opened })
-			.then((r) => {
-				if (r.status !== "ok" || !r.value.markedIds.length) return;
-				remember(new Set(r.value.markedIds), true);
-				return readUnreadCount().then((c) => c.status === "ok" && setCount(c.value.count));
-			})
-			.catch(() => undefined);
-	}, [opened, remember, setCount]);
-	return opened;
-}
-
 function LinkedResidency({ residency }: { residency: Linked }) {
-	const opened = useOpenedNotice();
+	const opened = useSearchParams().get("milestone");
 	const church = residency.organizationName;
 	return (
 		<div className="flex flex-col gap-5">

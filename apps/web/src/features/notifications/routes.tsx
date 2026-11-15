@@ -30,7 +30,7 @@ export async function NotificationsPage({ searchParams }: { searchParams: Search
 				</Card>
 			</>
 		);
-	return <NotificationsScreen initialQuery={query} initial={loaded.value} />;
+	return <NotificationsScreen initial={loaded.value} />;
 }
 
 export const optOutMetadata: Metadata = {

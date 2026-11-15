@@ -48,7 +48,7 @@ export type FeedQuery = { unread: boolean; category: Category | null };
 export const CATEGORIES = Object.keys(CATEGORY_TEXT) as Category[];
 const isCategory = (v: string | null): v is Category => CATEGORIES.includes(v as Category);
 
-export function parseQuery(params: URLSearchParams): FeedQuery {
+export function parseQuery(params: Pick<URLSearchParams, "get">): FeedQuery {
 	const category = params.get("category");
 	return { unread: params.get("show") === "unread", category: isCategory(category) ? category : null };
 }
@@ -162,6 +162,24 @@ export function dueLabel(item: Pick<FeedItem, "dueLocalDate" | "overdue">): stri
 /** The entries with these ids shown as read. */
 export function markedRead(items: readonly FeedItem[], ids: ReadonlySet<string>): FeedItem[] {
 	return items.map((i) => (ids.has(i.id) && !i.read ? { ...i, read: true } : i));
+}
+
+export type MarkReach = { ids: ReadonlySet<string>; cutoff: string | null };
+
+const reaches = (item: FeedItem, mark: MarkReach) =>
+	mark.ids.has(item.id) || (mark.cutoff !== null && Date.parse(item.eligibleAt) <= Date.parse(mark.cutoff));
+
+export function withStandingMarks(
+	items: readonly FeedItem[],
+	marks: readonly MarkReach[],
+): { items: FeedItem[]; reached: number } {
+	let reached = 0;
+	const shown = items.map((item) => {
+		if (item.read || !marks.some((mark) => reaches(item, mark))) return item;
+		reached += 1;
+		return { ...item, read: true };
+	});
+	return { items: shown, reached };
 }
 
 /**
