@@ -1,5 +1,5 @@
 {
-	"apps/web/src/features/phases/JourneyScreen.tsx": 11,
+	"apps/web/src/features/phases/JourneyScreen.tsx": 8,
 	"apps/web/src/features/phases/PlantIntelligenceBlocked.tsx": 2,
 	"apps/web/src/features/phases/actions.ts": 3,
 	"apps/web/src/features/phases/model.ts": 14,

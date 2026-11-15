@@ -1,11 +1,9 @@
 "use client";
 
 import {
-	checkReason,
 	type Catalog,
 	type HistoryResult,
 	type JourneyEntry,
-	type JourneyState,
 	type PhaseNumber,
 	type Readiness,
 } from "@everyfield/contracts/phases";
@@ -39,27 +37,13 @@ import {
 } from "@everyfield/ui/controls";
 import { StatusBadge, type Status } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
-import { useState } from "react";
 import type { PlantFacts } from "@everyfield/contracts/intelligence";
 import { FactsSection } from "../intelligence/FactsSection.tsx";
 import { IntelligenceTabs } from "../intelligence/IntelligenceTabs.tsx";
+import { useLocalStore, useStore } from "../../components/store.ts";
 import { declarePhase, movePhase } from "./actions.ts";
-import {
-	entryDate,
-	entryDetail,
-	entryTitle,
-	isPending,
-	pendingDeclaration,
-	pendingMove,
-	POST_LAUNCH_MEASURES,
-	REASON_MESSAGE,
-	refusalMessage,
-	requestKeys,
-	sent,
-	SHORT_NAME,
-	withEntry,
-	type Journey,
-} from "./model.ts";
+import { createJourneyStore, type MoveDraft } from "./JourneyScreen.store.ts";
+import { entryDate, entryDetail, entryTitle, isPending, POST_LAUNCH_MEASURES, SHORT_NAME } from "./model.ts";
 
 type Viewer = { accountId: string; name: string };
 type Props = {
@@ -71,9 +55,6 @@ type Props = {
 	launchDates: HistoryEntry[];
 	viewer: Viewer;
 };
-
-/** What the change dialog holds: the chosen phase, the typed reason, and why the last attempt did not go through. */
-type MoveDraft = { to: PhaseNumber; reason: string; error: string | null; changed: JourneyState | null };
 
 const STATUS: Record<Readiness["criteria"][number]["status"], { status: Status; label: string }> = {
 	met: { status: "positive", label: "Met" },
@@ -89,64 +70,20 @@ const STATUS: Record<Readiness["criteria"][number]["status"], { status: Status; 
  */
 export function JourneyScreen({ history, catalog, readiness, facts, launchDates, viewer }: Props) {
 	const toast = useToast();
-	const [journey, setJourney] = useState<Journey>({ state: history.state, entries: history.entries });
-	const [move, setMove] = useState<MoveDraft | null>(null);
-	const [declare, setDeclare] = useState<PhaseNumber | null>(null);
-	const [receipt, setReceipt] = useState<string | null>(null);
-	// A lost move reopens with what was sent, so trying again is the same intent and replays its request key.
-	const [lostMove, setLostMove] = useState<MoveDraft | null>(null);
-	const [lostDeclare, setLostDeclare] = useState<PhaseNumber | null>(null);
-	const [keys] = useState(() => requestKeys(() => crypto.randomUUID()));
+	const store = useLocalStore(() =>
+		createJourneyStore({
+			journey: { state: history.state, entries: history.entries },
+			port: {
+				move: movePhase,
+				declare: declarePhase,
+				failed: (message) => toast({ message, tone: "error" }),
+				actor: { accountId: viewer.accountId, displayName: viewer.name } as JourneyEntry["actor"],
+			},
+		}),
+	);
+	const { journey, dialog, receipt, actions } = useStore(store, (state) => state);
 	const phase = catalog.phases[journey.state.phase]!;
-	const actor = { accountId: viewer.accountId, displayName: viewer.name } as JourneyEntry["actor"];
 	const busy = journey.entries.some(isPending);
-
-	async function submitMove(draft: MoveDraft) {
-		const checked = checkReason(draft.reason);
-		if (!checked.ok) return setMove({ ...draft, error: REASON_MESSAGE[checked.problem] });
-		const before = journey;
-		setMove(null);
-		setReceipt(null);
-		setLostMove(null);
-		setJourney(pendingMove(before, draft.to, checked.reason, actor, new Date().toISOString()));
-		const intent = ["move", before.state.revision, draft.to, draft.reason] as const;
-		const r = await sent(() => movePhase(keys.keyFor(intent), before.state.revision, draft.to, draft.reason));
-		if (r.status === "lost") setLostMove({ ...draft, error: null, changed: null });
-		else keys.settle(intent);
-		if (r.status === "ok") {
-			if (r.value.outcome === "noop") return setReceipt(`No change: already in Phase ${r.value.state.phase}.`);
-			return setJourney(withEntry(before, r.value.state, r.value.entry));
-		}
-		setJourney(before);
-		if (r.status === "refused" && r.error.code === "revision_conflict") {
-			// The church changed under the reviewer: show where it is now, keep the reason, and move from the new revision.
-			const changed = r.error.details.state;
-			setJourney({ ...before, state: changed });
-			return setMove({ ...draft, error: null, changed });
-		}
-		if (r.status === "refused" && r.error.code === "invalid_reason")
-			return setMove({ ...draft, error: refusalMessage(r), changed: null });
-		toast({ message: refusalMessage(r), tone: "error" });
-	}
-
-	async function submitDeclare(to: PhaseNumber) {
-		const before = journey;
-		setDeclare(null);
-		setReceipt(null);
-		setLostDeclare(null);
-		setJourney(pendingDeclaration(before, to, actor, new Date().toISOString()));
-		const intent = ["declare", before.state.revision, to] as const;
-		const r = await sent(() => declarePhase(keys.keyFor(intent), before.state.revision, to));
-		if (r.status === "lost") setLostDeclare(to);
-		else keys.settle(intent);
-		if (r.status === "ok") return setJourney(withEntry(before, r.value.state, r.value.entry));
-		setJourney(
-			r.status === "refused" && r.error.code === "revision_conflict"
-				? { ...before, state: r.error.details.state }
-				: before,
-		);
-		toast({ message: refusalMessage(r), tone: "error" });
-	}
 
 	return (
 		<>
@@ -164,12 +101,7 @@ export function JourneyScreen({ history, catalog, readiness, facts, launchDates,
 							<CardDescription>{phase.name}</CardDescription>
 						</CardHeading>
 						<CardActions>
-							<Button
-								variant="outline"
-								size="sm"
-								disabled={busy}
-								onClick={() => setMove(lostMove ?? { to: journey.state.phase, reason: "", error: null, changed: null })}
-							>
+							<Button variant="outline" size="sm" disabled={busy} onClick={actions.openMove}>
 								Change phase
 							</Button>
 						</CardActions>
@@ -181,7 +113,7 @@ export function JourneyScreen({ history, catalog, readiness, facts, launchDates,
 					{journey.state.declarable ? (
 						<div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-md bg-surface-2 px-4 py-3">
 							<p className="text-sm text-ink-2">Already further along? Declare your current phase.</p>
-							<Button variant="secondary" size="sm" disabled={busy} onClick={() => setDeclare(lostDeclare ?? 2)}>
+							<Button variant="secondary" size="sm" disabled={busy} onClick={actions.openDeclare}>
 								Declare phase
 							</Button>
 						</div>
@@ -192,18 +124,23 @@ export function JourneyScreen({ history, catalog, readiness, facts, launchDates,
 			</div>
 			<FactsSection facts={facts} />
 			<Phases catalog={catalog} current={journey.state.phase} />
-			{move ? (
+			{dialog?.kind === "move" ? (
 				<MoveDialog
-					draft={move}
+					draft={dialog.draft}
 					current={journey.state.phase}
 					catalog={catalog}
 					readiness={readiness[journey.state.phase]!}
-					onChange={setMove}
-					onSubmit={submitMove}
+					onChange={actions.editMove}
+					onSubmit={actions.submitMove}
 				/>
 			) : null}
-			{declare !== null ? (
-				<DeclareDialog to={declare} catalog={catalog} onChange={setDeclare} onSubmit={submitDeclare} />
+			{dialog?.kind === "declare" ? (
+				<DeclareDialog
+					to={dialog.to}
+					catalog={catalog}
+					onChange={actions.editDeclare}
+					onSubmit={actions.submitDeclare}
+				/>
 			) : null}
 		</>
 	);
