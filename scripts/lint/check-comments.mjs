@@ -7,6 +7,8 @@ import {
 	mkdtempSync,
 	readdirSync,
 	readFileSync,
+	realpathSync,
+	renameSync,
 	rmSync,
 	statSync,
 	writeFileSync,
@@ -37,11 +39,11 @@ const BASELINE = "scripts/lint/baseline";
 const SURVIVORS = "scripts/lint/survivors";
 const CONFIGS = {
 	".oxlintrc.json": {
-		"*": ["no-comments", "no-effects", "max-state"],
+		"*": ["no-comments", "no-effects", "max-state", "no-sql-comments"],
 		"packages/*/src/**": ["no-timers"],
 	},
 	"apps/web/.oxlintrc.json": {
-		"*": ["no-comments", "no-effects", "max-state"],
+		"*": ["no-comments", "no-effects", "max-state", "no-sql-comments"],
 		"src/**": ["no-timers", "clickable-host", "no-cursor-utility"],
 	},
 	"tools/.oxlintrc.json": { "*": ["no-comments", "no-effects", "max-state"] },
@@ -112,11 +114,46 @@ const level = (value) => {
 	return "off";
 };
 
+const CONFIG_KEYS = new Set([
+	"$schema",
+	"jsPlugins",
+	"plugins",
+	"categories",
+	"rules",
+	"overrides",
+	"ignorePatterns",
+	"env",
+	"globals",
+	"settings",
+]);
+const OVERRIDE_KEYS = new Set(["files", "rules", "plugins", "env", "globals"]);
+const ESLINT_CONFIGS = {
+	"apps/web/eslint.config.mjs": ['{ ignores: [".next/**", "next-env.d.ts"] },'],
+	"packages/domain/eslint.config.mjs": ['ignores: ["src/operations/health.ts", "src/operations/telemetry.ts"],'],
+};
+
+function checkEslintConfigs(files) {
+	for (const path of files)
+		if (/(^|\/)eslint\.config\.[cm]?[jt]s$/.test(path) && !(path in ESLINT_CONFIGS))
+			fail(`${path}: an ESLint config outside ${Object.keys(ESLINT_CONFIGS).join(", ")} is not allowed`);
+	for (const [path, allowed] of Object.entries(ESLINT_CONFIGS)) {
+		if (!existsSync(join(root, path))) continue;
+		for (const [at, line] of readFileSync(join(root, path), "utf8").split("\n").entries()) {
+			const text = line.trim();
+			if (/\bignores\b|globalIgnores|ignorePatterns/.test(text) && !allowed.includes(text))
+				fail(`${path}:${at + 1}: an ESLint ignore outside the expected ones can hide files`);
+			if (/everyfield|noInlineConfig|--no-ignore/.test(text))
+				fail(`${path}:${at + 1}: the ESLint config may not name the Everyfield rules or change inline config`);
+		}
+	}
+}
+
 const turnedDown = (rules = {}) =>
 	Object.entries(rules)
 		.filter(([rule, value]) => (rule.startsWith("everyfield/") ? level(value) !== "error" : level(value) === "off"))
 		.map(([rule]) => rule);
 
+const lintScriptsFile = join(lintDir, "lint-scripts.json");
 const PLUGIN = fileURLToPath(new URL("./everyfield-plugin.mjs", import.meta.url));
 
 function checkConfigs(exemptions) {
@@ -133,6 +170,9 @@ function checkConfigs(exemptions) {
 				if (!present.includes(item))
 					fail(`scripts/lint/exemptions.json: ${config} ${what} ${item} names nothing in the config`);
 		};
+		for (const key of Object.keys(json))
+			if (!CONFIG_KEYS.has(key))
+				fail(`${config}: the key ${key} is not allowed; a lint config holds only ${[...CONFIG_KEYS].join(", ")}`);
 		const plugins = (json.jsPlugins ?? []).map((plugin) => resolve(dirname(join(root, config)), plugin));
 		if (plugins.length !== 1 || plugins[0] !== PLUGIN)
 			fail(`${config}: jsPlugins must be exactly the Everyfield plugin, scripts/lint/everyfield-plugin.mjs`);
@@ -140,8 +180,11 @@ function checkConfigs(exemptions) {
 		needs("ignore pattern", patterns, patterns, given.ignorePatterns);
 		needs("rule", turnedDown(json.rules), Object.keys(json.rules ?? {}), given.rules);
 		for (const block of blocks) {
-			if ("jsPlugins" in block || "ignorePatterns" in block || "categories" in block)
-				fail(`${config}: the override for ${block.key} may not set jsPlugins, ignorePatterns or categories`);
+			for (const key of Object.keys(block))
+				if (key !== "key" && !OVERRIDE_KEYS.has(key))
+					fail(
+						`${config}: the override for ${block.key} may not set ${key}; an override holds only ${[...OVERRIDE_KEYS].join(", ")}`,
+					);
 			const present = blocks.filter((other) => other.key === block.key).flatMap((other) => Object.keys(other.rules));
 			needs(`override for ${block.key}, rule`, turnedDown(block.rules), present, given.overrides?.[block.key]);
 		}
@@ -161,6 +204,9 @@ function checkConfigs(exemptions) {
 					);
 		}
 	}
+	for (const [marker, reason] of Object.entries(exemptions.sqlMarkers ?? {}))
+		if (typeof reason !== "string" || reason.trim().length < 20)
+			fail(`scripts/lint/exemptions.json: sqlMarkers ${marker} needs a reason`);
 	for (const [glob, reason] of Object.entries(exemptions.comments ?? {}))
 		if (typeof reason !== "string" || reason.trim().length < 20)
 			fail(`scripts/lint/exemptions.json: comments ${glob} needs a reason`);
@@ -301,14 +347,21 @@ function inputsDigest(ref) {
 			for (const name of readdirSync(full).sort()) if (name !== "baseline") walk(`${path}/${name}`);
 		} else hash.update(path).update(readFileSync(full));
 	};
-	for (const path of LINT_INPUTS) walk(path);
+	const manifests = ["apps", "packages"].flatMap((parent) =>
+		existsSync(join(root, parent))
+			? readdirSync(join(root, parent))
+					.sort()
+					.map((name) => `${parent}/${name}/package.json`)
+			: [],
+	);
+	for (const path of [...LINT_INPUTS, ...manifests]) walk(path);
 	return hash.digest("hex").slice(0, 32);
 }
 
 export function countsAt(ref) {
 	const cache = join(tmpdir(), "everyfield-lint-base", `${inputsDigest(ref)}.json`);
 	if (existsSync(cache)) return JSON.parse(readFileSync(cache, "utf8"));
-	const tree = mkdtempSync(join(tmpdir(), "everyfield-lint-tree-"));
+	const tree = realpathSync(mkdtempSync(join(tmpdir(), "everyfield-lint-tree-")));
 	try {
 		execFileSync("git", ["archive", "--format=tar", "-o", join(tree, ".tree.tar"), ref], { cwd: root });
 		execFileSync("tar", ["-xf", ".tree.tar"], { cwd: tree });
@@ -319,10 +372,10 @@ export function countsAt(ref) {
 			writeFileSync(join(tree, config), JSON.stringify({ ...json, jsPlugins: [PLUGIN] }));
 		}
 		const lintData = join(tree, ".everyfield-lint");
-		mkdirSync(lintData);
-		if (existsSync(survivorsDir)) cpSync(survivorsDir, join(lintData, "survivors"), { recursive: true });
-		if (existsSync(join(lintDir, "exemptions.json")))
-			cpSync(join(lintDir, "exemptions.json"), join(lintData, "exemptions.json"));
+		cpSync(lintDir, lintData, {
+			recursive: true,
+			filter: (path) => relative(lintDir, path).split(sep)[0] !== "baseline",
+		});
 		const moved = (path) => join(tree, relative(root, path));
 		const runs = oxlintRuns(root).map((run) => ({ ...run, cwd: moved(run.cwd), roots: run.roots.map(moved) }));
 		const files = git(["ls-tree", "-r", "--name-only", "-z", ref]).split("\0").filter(Boolean);
@@ -333,7 +386,9 @@ export function countsAt(ref) {
 			env: { EVERYFIELD_ROOT: tree, EVERYFIELD_LINT_DIR: lintData },
 		});
 		mkdirSync(dirname(cache), { recursive: true });
-		writeFileSync(cache, JSON.stringify(counts));
+		const partial = `${cache}.${process.pid}.tmp`;
+		writeFileSync(partial, JSON.stringify(counts));
+		renameSync(partial, cache);
 		return counts;
 	} finally {
 		rmSync(tree, { recursive: true, force: true });
@@ -374,7 +429,33 @@ const LINT_FLAGS = { oxlint: new Set(["--max-warnings=0"]), eslint: new Set(["--
 const SHELL = /[|;&<>$`()#\s]/;
 const IGNORE_FILES = /(^|\/)(\.eslintignore|\.oxlintignore|\.oxlintrc(\.[\w]+)?|oxlint\.config\.[cm]?[jt]s)$/;
 
+function checkLintScripts() {
+	const expected = existsSync(lintScriptsFile) ? JSON.parse(readFileSync(lintScriptsFile, "utf8")) : {};
+	const manifests = [
+		"package.json",
+		...["apps", "packages"].flatMap((parent) =>
+			existsSync(join(root, parent))
+				? readdirSync(join(root, parent)).map((name) => `${parent}/${name}/package.json`)
+				: [],
+		),
+	].filter((path) => existsSync(join(root, path)));
+	for (const path of manifests) {
+		const scripts = JSON.parse(readFileSync(join(root, path), "utf8")).scripts ?? {};
+		const want = expected[path] ?? {};
+		const names = path === "package.json" ? Object.keys(want) : ["lint"];
+		for (const name of new Set([...names, ...Object.keys(want)]))
+			if (scripts[name] !== want[name])
+				fail(
+					`${path}: the ${name} script differs from scripts/lint/lint-scripts.json; a lint command changes only together with that expected value`,
+				);
+	}
+	for (const path of Object.keys(expected))
+		if (!manifests.includes(path)) fail(`scripts/lint/lint-scripts.json: ${path} does not exist`);
+}
+
 function checkLintCommands(files) {
+	checkLintScripts();
+	checkEslintConfigs(files);
 	const scripts = JSON.parse(readFileSync(join(root, "package.json"), "utf8")).scripts ?? {};
 	const parts = (script) => (script ?? "").split("&&").map((part) => part.trim());
 	if (!parts(scripts.lint).includes("pnpm -r --if-present lint"))

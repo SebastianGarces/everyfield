@@ -34,7 +34,9 @@ export function readSurvivors(dir = survivorsDir) {
 
 export const readExemptions = () => (existsSync(exemptionsFile) ? readJson(exemptionsFile) : {});
 
-const commentExemptions = Object.keys(readExemptions().comments ?? {});
+const exemptions = readExemptions();
+const commentExemptions = Object.keys(exemptions.comments ?? {});
+export const sqlMarkers = new Set(Object.keys(exemptions.sqlMarkers ?? {}));
 export const commentsExempt = (path) => commentExemptions.some((glob) => matchesGlob(path, glob));
 
 const baseline = ignoreBaseline ? {} : readBaseline();
