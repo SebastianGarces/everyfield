@@ -60,8 +60,6 @@ async function saveReading(
 	const fraction = input.input.fraction ?? "0";
 	const desired = input.input.desired ?? false;
 	const plantId = input.input.plantId ?? null;
-	// Only bookmark checks and bumps the reading revision. Progress and views are monotone merges that keep it.
-	// A row starts at revision 1 (the column's floor), so a page that loaded before any row ("0") matches 1.
 	const expected = !input.expectedRevision || input.expectedRevision === "0" ? "1" : input.expectedRevision;
 	const fresh = mode === "bookmark" ? sql`COALESCE(e.revision, 1)::text = ${expected}` : sql`true`;
 	const current = mode === "bookmark" ? sql`reading.revision::text = ${expected}` : sql`true`;

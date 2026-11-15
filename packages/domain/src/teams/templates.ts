@@ -1,7 +1,6 @@
 import { hash } from "../operations/canonical.ts";
 import "server-only";
 
-/** The generation a client must send. Version "1" is stale against this catalog. */
 export { TEMPLATE_VERSION } from "@everyfield/contracts/teams";
 
 type CatalogRole = { key: string; name: string; leadership: boolean; responsibilityKey: string | null };
@@ -14,7 +13,6 @@ const lead = (key: string, name: string, responsibilityKey: string | null): Cata
 	responsibilityKey,
 });
 
-/** Ten ministry templates. Leadership is the org-chart root. Administration has no starter role. */
 export const TEMPLATES: CatalogTeam[] = [
 	{
 		key: "leadership",
@@ -50,7 +48,6 @@ export function catalogTeam(key: string) {
 export function catalogRole(teamKey: string, roleKey: string) {
 	return catalogTeam(teamKey)?.roles.find((role) => role.key === roleKey);
 }
-/** A key outside this catalog refuses the whole import. Names never match a template. */
 export function unknownSelection(selections: readonly { teamKey: string; roleKeys: readonly string[] }[]) {
 	return selections.some((selection) => {
 		const team = catalogTeam(selection.teamKey);

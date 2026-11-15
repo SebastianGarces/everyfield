@@ -5,10 +5,6 @@ import "server-only";
 import type { RequestActor } from "../access/session.ts";
 import { GLOBAL, meSql, PAGE } from "./core.ts";
 
-/**
- * Who reads the corpus: a request's actor, or the plant assessment job, which holds the current claim of one plant's
- * job and reads only that plant's corpus (intelligence.retrieveMethodology). The job reads no account's bookmarks.
- */
 export type CorpusAccess =
 	{ authority: RequestActor; owner: Owner; admin?: boolean } | { job: "assessment"; owner: Owner & { kind: "plant" } };
 
@@ -21,7 +17,6 @@ function sourceSql(source: SourceView) {
 	};
 }
 
-/** Visible articles for one actor. One statement. A rejoined affiliation does not reclaim a stored rank. */
 export function corpusCtes(access: CorpusAccess, source: SourceView): SQL {
 	const pick = sourceSql(source);
 	const owner = access.owner;
@@ -272,12 +267,10 @@ export function corpusCtes(access: CorpusAccess, source: SourceView): SQL {
 		)`;
 }
 
-/** The body a reader may see: none under a hide, and none when only unranked church copies remain. */
 export function visibleBodySql(): SQL {
 	return sql`CASE WHEN p.hidden OR (p.order_required AND p.source_kind = 'church') THEN NULL ELSE p.body END`;
 }
 
-/** One article as JSON. A title list (`body: false`) leaves the body out: it shows titles, never the text. */
 export function articleJson({ body = true }: { body?: boolean } = {}): SQL {
 	return sql`json_build_object(
 		'articleId', p.article_id,
@@ -313,15 +306,10 @@ export function articleJson({ body = true }: { body?: boolean } = {}): SQL {
 	)`;
 }
 
-/** The picked articles that match `extra`. The reading and credit joins come later, on the rows a page keeps. */
 function articleFrom(extra: SQL = sql`true`): SQL {
 	return sql`picked p WHERE ${extra}`;
 }
 
-/**
- * The plant's live Wiki sources of one kind in reading order: the stored order first, then sources it does not
- * name yet, by when they joined. The order dialog lists them and a save must name each one.
- */
 function sourceList(access: CorpusAccess, kind: "sending_church" | "sending_network"): SQL {
 	const stored = kind === "sending_church" ? sql`p.churches` : sql`p.networks`;
 	return sql`COALESCE((
@@ -359,7 +347,6 @@ export function pageQuery(access: CorpusAccess, source: SourceView, page: number
 			), '[]'::json) AS articles`;
 }
 
-/** Every matching article in one statement. The count does not grow with the corpus. */
 export function catalogQuery(
 	access: CorpusAccess,
 	source: SourceView,
@@ -386,7 +373,6 @@ export function catalogQuery(
 			), '[]'::json) AS articles`;
 }
 
-/** Navigation ids in one statement: title, slug, phase and section. */
 export function navigationQuery(access: CorpusAccess, source: SourceView): SQL {
 	return sql`WITH ${corpusCtes(access, source)}
 		SELECT

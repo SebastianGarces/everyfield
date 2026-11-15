@@ -191,10 +191,6 @@ export function bookmarksList(db: Database, authority: RequestActor, raw: unknow
 		return listValue(page.articles, page.nextCursor, page.row);
 	});
 }
-/**
- * Markdown and MDX as plain words, for search snippets: markup goes, link and image text stays, and every line break,
- * table cell and list item becomes one space. Each step is [pattern, replacement, flags] for regexp_replace.
- */
 const PLAIN_TEXT_STEPS: readonly [string, string, string][] = [
 	["^[ \\t]*(```|~~~).*$", "", "gn"],
 	["</?[A-Za-z][^>]*>", " ", "g"],
@@ -384,7 +380,6 @@ const guideRow = z.object({
 	body: z.string().nullable(),
 });
 const noGuide = { found: false, missing: true, citation: null, articleId: null, title: null, slug: null, body: null };
-/** One statement for every route. A mapped route reads the version this viewer would open (C13 predicate inside). */
 export function contextGuide(db: Database, authority: RequestActor, raw: unknown) {
 	return runRead(async () => {
 		const input = parse(contextGuideRequest, raw);
@@ -662,7 +657,6 @@ function deniedExport() {
 		fontFailureOffersPrintFallback: false,
 	});
 }
-/** The stored credit belongs to the global article, so only the global version prints it, and only a human one. */
 function exportMeta(article: WikiArticle) {
 	return {
 		filename: pdfFilename(article.slug),

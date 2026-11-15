@@ -72,15 +72,6 @@ function stamp(column: SQL) {
 function mailOn(plantId: string) {
 	return sql`m.tenant_id = ${plantId}::uuid AND m.communication_id = c.id`;
 }
-/**
- * The state history shows, from the recipient rows only (a scheduled handoff stores the held time on each row; a
- * send-now handoff stores none). "Scheduled" needs at least one recipient waiting in Everyfield for the send time, or
- * one the email service accepted and holds (an email handed off before T-241). "unsubscribed": every recipient
- * unsubscribed from this church's email, so nothing goes out. A
- * recipient without an answer makes the handoff "Not confirmed", never "Not scheduled": the email service may hold
- * it. "Not scheduled" is only a handoff the email service refused for everyone. A cancel or time change counts as
- * done only when no accepted recipient is left open.
- */
 function hubState(plantId: string) {
 	const on = mailOn(plantId);
 	const any = (where: SQL) => sql`EXISTS (SELECT 1 FROM mail m WHERE ${on} AND ${where})`;
@@ -102,12 +93,10 @@ function hubState(plantId: string) {
 		ELSE 'unknown'
 	END`;
 }
-/** The send time an accepted recipient still holds when it differs from the saved (requested) time. */
 function staleHeldSql(plantId: string) {
 	return sql`(SELECT min(m.scheduled_at) FROM mail m WHERE ${mailOn(plantId)} AND m.state = 'accepted'
 		AND m.scheduled_at IS NOT NULL AND m.scheduled_at IS DISTINCT FROM c.scheduled_at)`;
 }
-/** The time to show: what the email service still holds, else the saved time. */
 function shownTimeSql(plantId: string) {
 	return stamp(sql`coalesce(${staleHeldSql(plantId)}, c.scheduled_at)`);
 }
@@ -118,7 +107,6 @@ function reachableSql(plantId: string) {
 			AND m.refusal IS NULL
 			AND NOT EXISTS (SELECT 1 FROM suppression s WHERE s.address_hash = m.address_hash AND s.cleared_at IS NULL))`;
 }
-/** A held (scheduled) recipient is not sent when the email service accepts it, only when it goes out. */
 function sentAtSql(plantId: string) {
 	return stamp(
 		sql`(SELECT min(coalesce(m.sent_at, m.delivered_at, CASE WHEN m.scheduled_at IS NULL THEN m.accepted_at END))

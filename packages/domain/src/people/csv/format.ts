@@ -1,6 +1,5 @@
 import { deny } from "../core.ts";
 
-/** One CSV record and the physical line it starts on. */
 export type CsvRecord = { line: number; fields: string[] };
 
 const COMMA = 44,
@@ -8,7 +7,6 @@ const COMMA = 44,
 	LF = 10,
 	QUOTE = 34;
 
-/** Line breaks in text[from, to): CRLF, LF and a lone CR each count once. */
 function breaks(text: string, from: number, to: number): number {
 	let n = 0;
 	for (let i = from; i < to; i++) {
@@ -18,12 +16,6 @@ function breaks(text: string, from: number, to: number): number {
 	return n;
 }
 
-/**
- * RFC 4180 records from decoded text: comma separated, CRLF, LF or CR line ends, quoted fields with doubled quotes and
- * embedded line breaks. A quote inside an unquoted field, text after a closing quote or an unterminated quote is
- * refused as malformed_csv_quoting with its line. Blank lines are not records. More than maxRecords records is refused
- * as soon as the parser sees one too many.
- */
 export function parseCsv(text: string, maxRecords: number): CsvRecord[] {
 	const records: CsvRecord[] = [],
 		n = text.length;
@@ -79,7 +71,6 @@ export function parseCsv(text: string, maxRecords: number): CsvRecord[] {
 	return records;
 }
 
-// REQ-PPL-019: a cell a spreadsheet would read as a formula or control gets a leading apostrophe.
 const formulaStart = /^[=+\-@\t\r]/;
 const needsQuotes = /[",\r\n]/;
 function cell(value: string | null): string {
@@ -87,7 +78,6 @@ function cell(value: string | null): string {
 	const safe = formulaStart.test(value) ? "'" + value : value;
 	return needsQuotes.test(safe) ? '"' + safe.replaceAll('"', '""') + '"' : safe;
 }
-/** One RFC 4180 line with CRLF, every text cell neutralized against formula execution. */
 export function csvLine(values: readonly (string | null)[]): string {
 	return values.map(cell).join(",") + "\r\n";
 }

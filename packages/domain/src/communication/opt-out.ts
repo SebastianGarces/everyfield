@@ -5,11 +5,6 @@ import { z } from "zod";
 import { openClaim, sealClaim, type OptOutKeyRing } from "../notifications/opt-out.ts";
 import { deny, readReply } from "./core.ts";
 
-// The Messages opt-out (REQ-NTF-016, D-284: "Per church and per person, staff can see it but can't clear it"). Every
-// Messages email names one church and one CRM Person in its Unsubscribe link. The token is the only authority: opening
-// the page only describes it, the button or the RFC 8058 one-click POST records the opt-out, and the undo it returns
-// works for one hour. Nothing here reads an account, a session or an address.
-
 const HOUR = 60 * 60 * 1000;
 const stamp = z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/);
 const claim = z.discriminatedUnion("purpose", [
@@ -33,10 +28,6 @@ const claim = z.discriminatedUnion("purpose", [
 type Claim = z.infer<typeof claim>;
 const tokenInput = z.strictObject({ token: z.string().min(1).max(2048) });
 
-/**
- * The Messages subkey of one opt-out key. The account opt-out seals its tokens with the key itself, so a token of one
- * kind never opens as the other.
- */
 const subkey = (key: Buffer, label: "token" | "siv") =>
 	createHmac("sha256", key).update(`everyfield/messages-opt-out/${label}`).digest();
 
@@ -50,10 +41,6 @@ function seal(ring: OptOutKeyRing, value: Claim, nonce: (claimJson: string) => B
 	return sealClaim(subkey(ringOf(ring)[0]!, "token"), json, nonce(json));
 }
 
-/**
- * The disable token of one church and one Person, as every Messages email to them carries it. It is the same on every
- * render (a synthetic IV from the claim), so a retried handoff keeps its body under its idempotency key.
- */
 export function messagesOptOutToken(ring: OptOutKeyRing, input: { plantId: string; personId: string }): string {
 	return seal(ring, { v: 1, kind: "messages", purpose: "disable", ...input }, (json) =>
 		createHmac("sha256", subkey(ringOf(ring)[0]!, "siv"))
@@ -71,15 +58,10 @@ function open(ring: OptOutKeyRing, token: string): Claim | null {
 	return null;
 }
 
-/**
- * The SQL test that a Messages email to `personId` in `plantId` is refused: the Person, or a Person merged into them,
- * has a current opt-out from this church. It names the Person, never the address.
- */
 export function optedOutSql(plantId: SQL, personId: SQL): SQL {
 	return sql`(${optedOutAtSql(plantId, personId)} IS NOT NULL)`;
 }
 
-/** When `personId` (or a Person merged into them) opted out of this church's Messages email, as SQL text or null. */
 export function optedOutAtSql(plantId: SQL, personId: SQL): SQL {
 	return sql`(SELECT to_char(min(o.opted_out_at) AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
 		FROM person_email_opt_out o
@@ -95,7 +77,6 @@ const stateRow = z.object({
 	changed: z.boolean(),
 });
 
-/** The church and this Person's own current opt-out. A Person that is not in the church reads as no church. */
 async function readState(db: Database, value: Claim) {
 	const result = await db.execute(sql`SELECT
 		(SELECT pl.name FROM plant pl JOIN person p ON p.id = ${value.personId}::uuid AND p.tenant_id = pl.id
@@ -109,11 +90,6 @@ async function readState(db: Database, value: Claim) {
 	return stateRow.parse(result.rows[0]);
 }
 
-/**
- * Record the opt-out once. A second unsubscribe while one is current changes nothing and returns that one. Every
- * scheduled Messages email from this church that has not gone out yet skips them (T-241), and whoever scheduled it
- * gets a notice in the same statement (T-242).
- */
 async function writeOptOut(db: Database, value: Claim) {
 	const result = await db.execute(sql`WITH target AS (
 			SELECT p.id, p.tenant_id, pl.name FROM person p JOIN plant pl ON pl.id = p.tenant_id
@@ -197,7 +173,6 @@ function openDisable(ring: OptOutKeyRing, raw: unknown) {
 	return value;
 }
 
-/** What the Unsubscribe page shows. It changes nothing, so a mail scanner that follows the link stops nothing. */
 export function describeMessagesOptOut(db: Database, ring: OptOutKeyRing, raw: unknown) {
 	return readReply<MessagesOptOutView>(async () => {
 		const value = openDisable(ring, raw);
@@ -207,10 +182,6 @@ export function describeMessagesOptOut(db: Database, ring: OptOutKeyRing, raw: u
 	});
 }
 
-/**
- * Unsubscribe from the button or the one-click POST. The undo token it returns names this opt-out and expires one hour
- * after the person unsubscribed.
- */
 export function applyMessagesOptOut(db: Database, ring: OptOutKeyRing, now: () => Date, raw: unknown) {
 	return readReply<MessagesOptOutResult>(async () => {
 		const value = openDisable(ring, raw);
@@ -237,7 +208,6 @@ export function applyMessagesOptOut(db: Database, ring: OptOutKeyRing, now: () =
 	});
 }
 
-/** The person's own undo, for one hour after they unsubscribed. After that it is refused and nothing changes. */
 export function undoMessagesOptOut(db: Database, ring: OptOutKeyRing, now: () => Date, raw: unknown) {
 	return readReply<MessagesOptInResult>(async () => {
 		const input = tokenInput.safeParse(raw);
