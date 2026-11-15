@@ -1627,7 +1627,10 @@
         "WP-095",
         "WP-058"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/knowledge/restore-deletion.test.mts"
+      ],
       "description": "Old snapshot/branch/object version recopy after livePurgedAt+7 days and current witness outside image.",
       "given": {
         "P": {
@@ -2151,7 +2154,10 @@
         "WP-050",
         "WP-092"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/knowledge/restore-files.test.mts"
+      ],
       "description": "Restore DB point with replaced/deleted/private ready files and failed pending upload candidate.",
       "given": {
         "P": {
@@ -2288,7 +2294,10 @@
         "WP-095",
         "WP-058"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/knowledge/restore-files.test.mts"
+      ],
       "description": "Timed ordinary mistake drill with accessible live providers and last committed work instants.",
       "given": {
         "P": {
@@ -2546,7 +2555,10 @@
         "WP-095",
         "WP-058"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/knowledge/restore-receipts.test.mts"
+      ],
       "description": "Isolated old backup has pending mail/public issue but current external receipts and newer deletion witnesses.",
       "given": {
         "P": {
