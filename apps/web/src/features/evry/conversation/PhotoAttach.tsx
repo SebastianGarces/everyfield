@@ -8,11 +8,6 @@ import { uploadAvatarBytes } from "../../settings/flows/avatarBytes.ts";
 import { stagePhoto } from "./photoActions.ts";
 import { NativeImage } from "@/components/native";
 
-// A photo the user attaches to their next message, so they can say "use this as my photo". It is staged as their own
-// account photo upload (the Settings Account section's upload), sent with the message as a photo reference, and shown
-// again on the review card before anything changes. Nothing else reads it.
-
-/** The types and size the account photo upload accepts. */
 const TYPES = ["image/jpeg", "image/png", "image/webp"];
 const MAX_BYTES = 3 * 1024 * 1024;
 
@@ -39,7 +34,6 @@ export async function stageAttached(file: File, src: string): Promise<Attached> 
 	}
 }
 
-/** The attach button: opens the photo picker. */
 export function AttachButton({ disabled, onFile }: { disabled: boolean; onFile: (file: File) => void }) {
 	const input = useRef<HTMLInputElement>(null);
 	return (
@@ -70,7 +64,6 @@ export function AttachButton({ disabled, onFile }: { disabled: boolean; onFile: 
 	);
 }
 
-/** The attached photo above the message: its thumbnail, what is happening to it and a way to take it off. */
 export function AttachedPhoto({ photo, onRemove }: { photo: Attached; onRemove: () => void }) {
 	const status =
 		photo.status === "uploading" ? "Uploading…" : photo.status === "ready" ? "Photo attached" : photo.message;

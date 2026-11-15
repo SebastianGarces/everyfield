@@ -234,16 +234,12 @@ function EvryPanel({ inPlant, context }: { inPlant: boolean; context: string }) 
 	);
 }
 
-/** An organization seat whose Pipeline page lists people is offered a pipeline question (WP-101). */
 const suggestionsFor = (inPlant: boolean, pipeline: boolean) =>
 	inPlant
 		? ["List the people in this church", "What can you help with?"]
 		: pipeline
 			? ["Who hasn't moved in six months?", "What can you help with?"]
 			: ["What can you help with?"];
-
-// ---------------------------------------------------------------------------------------------------------------
-// Chat
 
 function Chat({
 	turns,
@@ -527,9 +523,6 @@ function ResultBlock({
 	return <ResultCard operation={operation} result={result} originalTotal={originalTotal} photos={photos} />;
 }
 
-// ---------------------------------------------------------------------------------------------------------------
-// Composer
-
 function Composer({
 	ref,
 	busy,
@@ -664,9 +657,6 @@ function Composer({
 		</form>
 	);
 }
-
-// ---------------------------------------------------------------------------------------------------------------
-// History
 
 const DAY = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" });
 const TIME = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" });
