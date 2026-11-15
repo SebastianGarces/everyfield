@@ -273,7 +273,11 @@ function useRosterCheck(f: AssignForm, onStale: () => void) {
 			checkRoster({ ...f, personIds: next }, onStale);
 			setAsked(next);
 		});
-	return { check, digest, select, cancelOnDetach, retry: preview.retry };
+	const retry = () =>
+		void rosterChecks.retry({ programId: f.programId, ids: asked }).then((result) => {
+			if (isStale(result, f.revision)) onStale();
+		});
+	return { check, digest, select, cancelOnDetach, retry };
 }
 
 export function AssignDialog({
