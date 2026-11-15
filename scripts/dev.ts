@@ -144,16 +144,8 @@ async function main([command, ...args]: string[]): Promise<number> {
 			return (await import("./nightly.ts")).nightlyCommand(args);
 		case "fast-check":
 			return fastCheckCommand(args);
-		case "formal": {
-			const formal = await import("../tools/formal/formal.ts");
-			try {
-				return await formal.formalCommand(args, root);
-			} catch (error) {
-				if (!(error instanceof formal.FormalError)) throw error;
-				console.error(`formal: ${error.message}`);
-				return 1;
-			}
-		}
+		case "formal":
+			return (await import("../tools/formal/formal.ts")).formalCommand(args, root);
 		case "hooks":
 			return hooks(args);
 		case "help":

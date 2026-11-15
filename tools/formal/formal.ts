@@ -21,17 +21,17 @@ import {
 import { homedir } from "node:os";
 import { basename, join, relative, resolve } from "node:path";
 
-export const TLA_TOOLS = {
+const TLA_TOOLS = {
 	version: "1.7.4",
 	url: "https://github.com/tlaplus/tlaplus/releases/download/v1.7.4/tla2tools.jar",
 	sha256: "936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88",
 };
 /** eclipse-temurin:21-jre, pinned by its multi-platform index digest. */
-export const JAVA_IMAGE = "eclipse-temurin@sha256:18bb4a91a3dea3f03ee31d3755af34dfb40f904fc77ab56cdc2f092e32fff9c2";
+const JAVA_IMAGE = "eclipse-temurin@sha256:18bb4a91a3dea3f03ee31d3755af34dfb40f904fc77ab56cdc2f092e32fff9c2";
 /** A run that takes longer than this is a hang, not a slow model: the spec's budget is 3 minutes. */
 const TLC_TIMEOUT_MS = 10 * 60 * 1000;
 
-export class FormalError extends Error {
+class FormalError extends Error {
 	name = "FormalError";
 }
 
@@ -40,7 +40,7 @@ const cacheDir = (env = process.env) =>
 const sha256 = (file: string) => createHash("sha256").update(readFileSync(file)).digest("hex");
 
 /** The pinned jar in the cache, downloaded once and verified by checksum on every run. */
-export async function tlaTools(dir = cacheDir()): Promise<string> {
+async function tlaTools(dir = cacheDir()): Promise<string> {
 	const jar = join(dir, `tla2tools-${TLA_TOOLS.version}.jar`);
 	if (!existsSync(jar)) {
 		mkdirSync(dir, { recursive: true });
@@ -157,7 +157,7 @@ function tlc(dir: string, jar: string, how: Runner) {
 }
 
 /** The names a TLC config checks, by section. */
-export function checkedNames(config: string) {
+function checkedNames(config: string) {
 	const text = config.replace(/\\\*.*$/gm, "");
 	const names = { invariants: [] as string[], properties: [] as string[] };
 	let section: keyof typeof names | null = null;
@@ -171,7 +171,7 @@ export function checkedNames(config: string) {
 }
 
 /** The outcome table a model prints as `<<"outcomes", {...}>>`, sorted, or null when it prints none. */
-export function outcomes(output: string): string[][] | null {
+function outcomes(output: string): string[][] | null {
 	const start = output.indexOf('<< "outcomes",');
 	if (start < 0) return null;
 	let depth = 0,
@@ -234,11 +234,11 @@ function checkModel(dir: string, jar: string, how: Runner, write: boolean) {
 }
 
 type MapEntry = { name: string; code: { file: string; function: string }[]; ids: string[] };
-export type FormalMap = { model: string; actions: MapEntry[]; rules?: MapEntry[]; properties: MapEntry[] };
+type FormalMap = { model: string; actions: MapEntry[]; rules?: MapEntry[]; properties: MapEntry[] };
 
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 /** Whether `source` defines `name`: a function, a const, a method, an object property, or SQL. */
-export function defines(source: string, name: string) {
+function defines(source: string, name: string) {
 	const n = escape(name);
 	return [
 		new RegExp(`\\bfunction\\s+${n}\\b`),
@@ -297,6 +297,16 @@ export function mapProblems(root: string, mapFile: string): string[] {
 }
 
 export async function formalCommand(args: readonly string[], root: string): Promise<number> {
+	try {
+		return await formal(args, root);
+	} catch (error) {
+		if (!(error instanceof FormalError)) throw error;
+		console.error(`formal: ${error.message}`);
+		return 1;
+	}
+}
+
+async function formal(args: readonly string[], root: string): Promise<number> {
 	const write = args.includes("--write");
 	const given = args.filter((a) => !a.startsWith("--"));
 	const unknown = args.filter((a) => a.startsWith("--") && a !== "--write");
@@ -328,10 +338,5 @@ export async function formalCommand(args: readonly string[], root: string): Prom
 }
 
 if (import.meta.main) {
-	formalCommand(process.argv.slice(2), resolve(import.meta.dirname, "../.."))
-		.then((code) => process.exit(code))
-		.catch((error) => {
-			console.error(error instanceof FormalError ? `formal: ${error.message}` : error);
-			process.exit(1);
-		});
+	process.exit(await formalCommand(process.argv.slice(2), resolve(import.meta.dirname, "../..")));
 }

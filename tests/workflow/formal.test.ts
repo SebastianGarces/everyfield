@@ -27,7 +27,6 @@ function formal(...args: string[]) {
 
 /** A scratch copy of the permissions model with one text edit, which must apply exactly once. */
 function mutant(from: string, to: string) {
-	mkdirSync(cache, { recursive: true });
 	const dir = mkdtempSync(join(cache, "mutant-"));
 	cpSync(join(root, "formal/permissions"), dir, { recursive: true });
 	const file = join(dir, "Permissions.tla");
