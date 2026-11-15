@@ -6,11 +6,9 @@ import {
 	careLevel,
 	NOTE_MAX,
 	type CareArea,
-	type CareError,
 	type CareLevel,
 	type CarePage,
 	type CareWeek,
-	type CareWriteResult,
 } from "@everyfield/contracts/intelligence";
 import {
 	Button,
@@ -27,12 +25,11 @@ import {
 } from "@everyfield/ui/controls";
 import { cn, Icon } from "@everyfield/ui/foundations";
 import { RadioGroup } from "radix-ui";
-import { useRef, useState } from "react";
+import { useRef } from "react";
+import { useLocalStore, useStore } from "../../components/store.ts";
 import { correctCheckIn, readCheckInHistory, saveCheckIn } from "./actions.ts";
 import {
 	AREA,
-	complete,
-	draftOf,
 	LEVEL_LABEL,
 	missingAreas,
 	mondayDate,
@@ -41,12 +38,9 @@ import {
 	shortDate,
 	submitLabel,
 	weekNote,
-	withAnswer,
-	withResult,
-	type Draft,
-	type Outcome,
 } from "./model.ts";
 import { CheckInHeader } from "./Header.tsx";
+import { createCheckInStore, editingOf, shownOf, thisWeekOf, type CheckInPort } from "./CheckInScreen.store.ts";
 
 /**
  * The private weekly check-in (prototype #/me/check-in, REQ-PI-038 to REQ-PI-041). The form answers this week or
@@ -54,109 +48,26 @@ import { CheckInHeader } from "./Header.tsx";
  * in the strip, then confirms or puts the strip back with the reason, keeping what the author typed. It only shows the
  * author's own answers back: no prompt, alert or score.
  */
+const port: CheckInPort = { save: saveCheckIn, correct: correctCheckIn, history: readCheckInHistory };
+
 export function CheckInScreen({ initial, name }: { initial: CarePage; name: string }) {
-	const [strip, setStrip] = useState(initial);
-	const [older, setOlder] = useState<CarePage | null>(null);
-	// The past week being corrected, kept whole so paging the strip never changes which week the form saves.
-	const [target, setTarget] = useState<CareWeek | null>(null);
-	const thisWeek = strip.weeks[0]!;
-	const shown = older ?? strip;
-	const editing = target ?? thisWeek;
-	const correcting = target !== null;
-	const [draft, setDraft] = useState<Draft>(() => draftOf(thisWeek));
-	const [pending, setPending] = useState(false);
-	const [status, setStatus] = useState<string | null>(null);
-	const [failure, setFailure] = useState<{ error: CareError | null } | null>(null);
-	const [incomplete, setIncomplete] = useState(false);
-	const [paging, setPaging] = useState(false);
+	const store = useLocalStore(() => createCheckInStore({ initial, port }));
+	const s = useStore(store, (state) => state);
+	const { older, draft, saving: pending, paging, status, failure, incomplete, actions } = s;
+	const thisWeek = thisWeekOf(s);
+	const shown = shownOf(s);
+	const editing = editingOf(s);
+	const correcting = s.target !== null;
 	const formRef = useRef<HTMLHeadingElement>(null);
 	const cardRef = useRef<HTMLDivElement>(null);
-	// A retry of the same answers after a lost reply reuses its request key, so the server answers from its record.
-	const sent = useRef<{ payload: string; key: string } | null>(null);
-	const keyFor = (payload: string) => {
-		if (sent.current?.payload !== payload) sent.current = { payload, key: crypto.randomUUID() };
-		return sent.current.key;
-	};
 
 	const choose = (week: CareWeek | null) => {
-		setTarget(week && week.ordinal !== thisWeek.ordinal ? week : null);
-		setDraft(draftOf(week ?? thisWeek));
-		setFailure(null);
-		setIncomplete(false);
-		setStatus(null);
-		// The form comes into view below the sticky top bar, its heading takes focus for keyboard and screen reader users.
+		actions.choose(week);
 		formRef.current?.focus({ preventScroll: true });
 		cardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
 	};
-
-	async function submit() {
-		if (!complete(draft)) {
-			setIncomplete(true);
-			return;
-		}
-		setIncomplete(false);
-		setFailure(null);
-		setStatus("Saving…");
-		setPending(true);
-		const week = editing,
-			answers = draft.answers,
-			note = draft.note;
-		const before = { strip, older };
-		// Optimistic: the strip shows the new answer at once, on whichever page holds the week.
-		setStrip(withAnswer(strip, week, answers, note));
-		if (older) setOlder(withAnswer(older, week, answers, note));
-		const revision = strip.revision;
-		const payload = JSON.stringify({ id: week.id, revision, answers, note });
-		const key = keyFor(payload);
-		let result: Outcome<CareWriteResult>;
-		try {
-			result = correcting
-				? await correctCheckIn(key, revision, week.id, answers, note)
-				: await saveCheckIn(key, revision, answers, note);
-		} catch {
-			result = { status: "lost" };
-		}
-		setPending(false);
-		if (result.status !== "ok") {
-			// Roll back: the strip as it was; the form keeps what the author typed.
-			setStrip(before.strip);
-			setOlder(before.older);
-			setStatus(null);
-			setFailure({ error: result.status === "refused" ? result.error : null });
-			return;
-		}
-		sent.current = null;
-		const confirmed = result.value;
-		setStrip((s) => withResult(s, confirmed));
-		setOlder((o) => (o ? withResult(o, confirmed) : o));
-		setDraft(draftOf(confirmed.week));
-		if (correcting) setTarget(confirmed.week);
-		setStatus(
-			confirmed.outcome === "unchanged"
-				? "Nothing changed, so nothing new was saved."
-				: correcting
-					? "Correction saved. Your earlier answer stays in your history."
-					: "Check-in saved.",
-		);
-	}
-
-	async function load(page: number) {
-		setPaging(true);
-		const result = await readCheckInHistory(page).catch((): Outcome<CarePage> => ({ status: "lost" }));
-		setPaging(false);
-		if (result.status !== "ok") {
-			setFailure({ error: result.status === "refused" ? result.error : null });
-			return;
-		}
-		if (page === 1) {
-			setStrip(result.value);
-			setOlder(null);
-		} else {
-			// One calendar revision for every page: the newest read wins.
-			setOlder(result.value);
-			setStrip((s) => ({ ...s, revision: result.value.revision }));
-		}
-	}
+	const submit = actions.submit;
+	const load = actions.load;
 
 	const missing = incomplete ? missingAreas(draft) : [];
 	const conflict = failure?.error?.code === "revision_conflict";
@@ -202,10 +113,7 @@ export function CheckInScreen({ initial, name }: { initial: CarePage; name: stri
 								first={i === 0}
 								value={draft.answers[area]}
 								missing={missing.includes(area)}
-								onChange={(level) => {
-									setDraft((d) => ({ ...d, answers: { ...d.answers, [area]: level } }));
-									setStatus(null);
-								}}
+								onChange={(level) => actions.answer(area, level)}
 							/>
 						))}
 					</div>
@@ -220,11 +128,7 @@ export function CheckInScreen({ initial, name }: { initial: CarePage; name: stri
 							maxLength={NOTE_MAX}
 							placeholder="What is on your mind this week?"
 							className="min-h-[90px]"
-							onChange={(e) => {
-								const note = e.target.value;
-								setDraft((d) => ({ ...d, note }));
-								setStatus(null);
-							}}
+							onChange={(e) => actions.write(e.target.value)}
 						/>
 					</Field>
 					{missing.length ? (
@@ -304,7 +208,7 @@ export function CheckInScreen({ initial, name }: { initial: CarePage; name: stri
 									size="sm"
 									variant="secondary"
 									disabled={shown.page === 1 || paging}
-									onClick={() => (shown.page === 2 ? setOlder(null) : void load(shown.page - 1))}
+									onClick={() => (shown.page === 2 ? actions.showLatest() : void load(shown.page - 1))}
 								>
 									Newer weeks
 									<Icon icon={ArrowRight01Icon} size={16} />

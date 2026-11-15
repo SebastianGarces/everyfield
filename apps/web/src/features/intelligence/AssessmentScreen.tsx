@@ -49,9 +49,10 @@ import {
 	useToast,
 } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
-import { cn, Icon, type IconSvgElement } from "@everyfield/ui/foundations";
+import { cn, Icon, observeIntersection, type IconSvgElement } from "@everyfield/ui/foundations";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useMemo, useState } from "react";
+import { createRead, useRead } from "../../components/read.tsx";
 import {
 	markAssessmentSeen,
 	resolveAssessmentCitation,
@@ -94,7 +95,6 @@ const phaseName = (catalog: Catalog, n: number) => `Phase ${n} · ${catalog.phas
  */
 export function AssessmentScreen({ view, facts, catalog }: Props) {
 	const current = view.current;
-	useOpenOnce(current?.runId ?? null, view.seen);
 	return (
 		<>
 			<PageHeader
@@ -116,19 +116,28 @@ export function AssessmentScreen({ view, facts, catalog }: Props) {
 	);
 }
 
-/** The reader's explicit open of the current run, sent once from the browser: rendering on the server writes nothing. */
-function useOpenOnce(runId: string | null, seen: boolean) {
-	const sent = useRef<string | null>(null);
-	useEffect(() => {
-		if (!runId || seen || sent.current === runId) return;
-		sent.current = runId;
-		void markAssessmentSeen(runId).catch(() => {});
-	}, [runId, seen]);
-}
+const citations = createRead((runId: string, key: string) => resolveAssessmentCitation(runId, key), {
+	failed: (): ActionOutcome<CitationView> => ({ status: "lost" }),
+});
 
 function Current({ view, assessment: a, catalog }: { view: AssessmentView; assessment: Assessment; catalog: Catalog }) {
 	const [citation, setCitation] = useState<{ key: string; label: string } | null>(null);
-	const open = (key: string, label: string) => setCitation({ key, label });
+	const runId = a.runId;
+	const markSeen = useMemo(
+		() =>
+			view.seen
+				? undefined
+				: observeIntersection<HTMLDivElement>((entry, stop) => {
+						if (!entry.isIntersecting) return;
+						stop();
+						void markAssessmentSeen(runId).catch(() => {});
+					}),
+		[runId, view.seen],
+	);
+	const open = (key: string, label: string) => {
+		citations.prefetch(a.runId, key);
+		setCitation({ key, label });
+	};
 	const feedback = new Map(view.feedback.map((f) => [f.ordinal, f]));
 	const concerns = new Set(a.concerns.map((c) => c.ordinal));
 	const later = newestText(view.newest, true);
@@ -140,7 +149,7 @@ function Current({ view, assessment: a, catalog }: { view: AssessmentView; asses
 		concern: concerns.has(ordinal),
 	});
 	return (
-		<div className="flex flex-col gap-5">
+		<div ref={markSeen} className="flex flex-col gap-5">
 			<Card size="sm" as="section" aria-label="About this assessment" data-phase={a.phase}>
 				<div className="flex flex-col gap-3">
 					<p className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-ink-2">
@@ -605,16 +614,7 @@ function CitationDialog({
 	citation: { key: string; label: string };
 	onClose: () => void;
 }) {
-	const [result, setResult] = useState<ActionOutcome<CitationView> | null>(null);
-	useEffect(() => {
-		let live = true;
-		resolveAssessmentCitation(runId, citation.key)
-			.then((r) => live && setResult(r))
-			.catch(() => live && setResult({ status: "lost" }));
-		return () => {
-			live = false;
-		};
-	}, [runId, citation.key]);
+	const result = useRead(citations, runId, citation.key).value;
 	return (
 		<Dialog open onOpenChange={(next) => (next ? null : onClose())}>
 			<DialogContent size="sm">

@@ -1,7 +1,7 @@
 {
-	"apps/web/src/features/intelligence/AssessmentScreen.tsx": 8,
-	"apps/web/src/features/intelligence/AttestationsScreen.tsx": 16,
-	"apps/web/src/features/intelligence/CheckInScreen.tsx": 7,
+	"apps/web/src/features/intelligence/AssessmentScreen.tsx": 7,
+	"apps/web/src/features/intelligence/AttestationsScreen.tsx": 15,
+	"apps/web/src/features/intelligence/CheckInScreen.tsx": 1,
 	"apps/web/src/features/intelligence/FactsSection.tsx": 1,
 	"apps/web/src/features/intelligence/Header.tsx": 1,
 	"apps/web/src/features/intelligence/IntelligenceTabs.tsx": 1,
