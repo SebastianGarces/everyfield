@@ -1,21 +1,5 @@
 {
-	"no-effects": {
-		"apps/web/src/components/frame/SiteNav.tsx": [
-			{
-				"function": "SiteNav",
-				"count": 1,
-				"reason": "Temporary, waiting for a shared follow-up. Closes the open site menu on Escape wherever focus is, including in a form field. The page-event registry ignores keys typed in a field; when it can register a key that also applies there, this listener goes."
-			}
-		]
-	},
 	"no-global-listeners": {
-		"apps/web/src/components/frame/SiteNav.tsx": [
-			{
-				"function": "SiteNav",
-				"count": 2,
-				"reason": "Temporary, waiting for a shared follow-up. Closes the open site menu on Escape wherever focus is, including in a form field. The page-event registry ignores keys typed in a field; when it can register a key that also applies there, this listener goes. Added while a menu is open, removed when it closes."
-			}
-		],
 		"apps/web/src/components/frame/PageScroll.tsx": [
 			{
 				"function": "install",

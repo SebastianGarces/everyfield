@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { observeIntersection } from "@everyfield/ui/foundations";
-import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
+import { useMemo, useRef, useState, type MouseEvent, type ReactNode } from "react";
+import { shortcutMark } from "../save/leave.ts";
 import { buttonClass } from "../ButtonLink";
 import { cn } from "../cn";
 
@@ -19,8 +20,6 @@ type Props = {
 };
 
 export function SiteNav({ links, cta, logo, pillLogo, arrow, menuIcon }: Props) {
-	const inflowToggle = useRef<HTMLButtonElement>(null);
-	const pillToggle = useRef<HTMLButtonElement>(null);
 	const pillOnRef = useRef(false);
 	const [pillOn, setPillOn] = useState(false);
 	const [focusInHeader, setFocusInHeader] = useState(false);
@@ -38,17 +37,6 @@ export function SiteNav({ links, cta, logo, pillLogo, arrow, menuIcon }: Props) 
 		[],
 	);
 
-	useEffect(() => {
-		if (!open) return;
-		const onKey = (e: KeyboardEvent) => {
-			if (e.key !== "Escape") return;
-			setOpen(null);
-			(open === "pill" ? pillToggle : inflowToggle).current?.focus();
-		};
-		document.addEventListener("keydown", onKey);
-		return () => document.removeEventListener("keydown", onKey);
-	}, [open]);
-
 	const pillLive = pillOn && !focusInHeader;
 	const toggle = (which: Which) => setOpen((o) => (o === which ? null : which));
 	const shared = { links, cta, arrow, menuIcon, onLinkClick: () => setOpen(null) };
@@ -63,14 +51,7 @@ export function SiteNav({ links, cta, logo, pillLogo, arrow, menuIcon }: Props) 
 				onFocus={() => setFocusInHeader(true)}
 				onBlur={(e) => setFocusInHeader(e.currentTarget.contains(e.relatedTarget) || !document.hasFocus())}
 			>
-				<NavBar
-					{...shared}
-					which="inflow"
-					logo={logo}
-					open={open === "inflow"}
-					toggleRef={inflowToggle}
-					onToggle={() => toggle("inflow")}
-				/>
+				<NavBar {...shared} which="inflow" logo={logo} open={open === "inflow"} onToggle={() => toggle("inflow")} />
 			</header>
 			<header
 				data-on={pillOn}
@@ -86,14 +67,7 @@ export function SiteNav({ links, cta, logo, pillLogo, arrow, menuIcon }: Props) 
 					"max-mk-sm:top-[calc(12px_+_env(safe-area-inset-top))] max-mk-sm:right-[max(var(--spacing-page),env(safe-area-inset-right))] max-mk-sm:left-[max(var(--spacing-page),env(safe-area-inset-left))] max-mk-sm:w-auto",
 				)}
 			>
-				<NavBar
-					{...shared}
-					which="pill"
-					logo={pillLogo}
-					open={open === "pill"}
-					toggleRef={pillToggle}
-					onToggle={() => toggle("pill")}
-				/>
+				<NavBar {...shared} which="pill" logo={pillLogo} open={open === "pill"} onToggle={() => toggle("pill")} />
 			</header>
 		</>
 	);
@@ -107,7 +81,6 @@ type BarProps = {
 	arrow: ReactNode;
 	menuIcon: ReactNode;
 	open: boolean;
-	toggleRef: RefObject<HTMLButtonElement | null>;
 	onToggle: () => void;
 	onLinkClick: () => void;
 };
@@ -124,7 +97,11 @@ const MENU = {
 		"max-mk-nav:border-mk-line max-mk-nav:bg-white max-mk-nav:px-4 max-mk-nav:pt-3 max-mk-nav:pb-4 max-mk-nav:shadow-mk-menu",
 };
 
-function NavBar({ which, links, cta, logo, arrow, menuIcon, open, toggleRef, onToggle, onLinkClick }: BarProps) {
+const focusWhenNotPointed = (e: MouseEvent<HTMLButtonElement>) => {
+	if (e.detail === 0) e.currentTarget.focus();
+};
+
+function NavBar({ which, links, cta, logo, arrow, menuIcon, open, onToggle, onLinkClick }: BarProps) {
 	const pill = which === "pill";
 	const menuId = pill ? "pill-menu" : "site-menu";
 	return (
@@ -170,12 +147,15 @@ function NavBar({ which, links, cta, logo, arrow, menuIcon, open, toggleRef, onT
 					{arrow}
 				</Link>
 				<button
-					ref={toggleRef}
 					type="button"
 					aria-label="Menu"
 					aria-expanded={open}
 					aria-controls={menuId}
-					onClick={onToggle}
+					{...(open ? shortcutMark("Escape", { inFields: true }) : {})}
+					onClick={(e) => {
+						focusWhenNotPointed(e);
+						onToggle();
+					}}
 					className={cn(
 						"hidden place-items-center rounded-nav-item border-0 bg-cream text-ink hover:bg-mk-surface-3 max-mk-nav:grid",
 						pill ? "size-11 max-mk-sm:size-[42px]" : "size-[42px]",
