@@ -34,25 +34,23 @@ function IncompleteLink({ action }: { action: ReactNode }) {
 
 /** Password recovery request (auth.requestPasswordRecovery). Every address gets the same answer (REQ-IDN-009). */
 export function RecoverScreen() {
-	const [sentTo, setSentTo] = useState<string | null>(null);
+	const [sent, setSent] = useState<{ to: string; again: boolean } | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [refusal, setRefusal] = useState<string | null>(null);
-	const [resent, setResent] = useState(false);
 	const [busy, setBusy] = useState(false);
 	const emailRef = useRef<HTMLInputElement>(null);
 
 	async function send(email: string) {
 		setBusy(true);
 		setRefusal(null);
-		setResent(false);
+		if (sent) setSent({ to: sent.to, again: false });
 		const result = await identityApi.requestPasswordRecovery(email);
 		setBusy(false);
 		if (!result.ok) {
 			setRefusal(refusalMessage("recover", result.error));
 			return;
 		}
-		if (sentTo) setResent(true);
-		setSentTo(email);
+		setSent({ to: email, again: sent !== null });
 	}
 
 	async function submit(event: FormEvent<HTMLFormElement>) {
@@ -67,7 +65,7 @@ export function RecoverScreen() {
 		await send(email.data);
 	}
 
-	if (sentTo)
+	if (sent)
 		return (
 			<Outcome
 				icon={MailOpen01Icon}
@@ -76,16 +74,16 @@ export function RecoverScreen() {
 				actions={
 					<>
 						<FormMessage tone="error">{refusal}</FormMessage>
-						<FormMessage tone="success">{resent ? "Another link is on its way." : null}</FormMessage>
+						<FormMessage tone="success">{sent.again ? "Another link is on its way." : null}</FormMessage>
 						<SignInButton label="Back to sign in" />
-						<Button variant="ghost" loading={busy} onClick={() => void send(sentTo)} className="w-full">
+						<Button variant="ghost" loading={busy} onClick={() => void send(sent.to)} className="w-full">
 							Send another link
 						</Button>
 					</>
 				}
 			>
-				If an account uses <span className="font-medium text-ink">{sentTo}</span>, it gets a link to reset the password.
-				The link works once and expires after 1 hour.
+				If an account uses <span className="font-medium text-ink">{sent.to}</span>, it gets a link to reset the
+				password. The link works once and expires after 1 hour.
 			</Outcome>
 		);
 

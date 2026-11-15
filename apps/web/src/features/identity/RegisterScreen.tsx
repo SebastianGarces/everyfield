@@ -103,22 +103,21 @@ export function RegisterScreen() {
 }
 
 type FieldName = "name" | "email" | "password" | "organizationName";
-type Step = { step: "form" } | { step: "sign_in"; email: string; refusal: Refusal | null };
+type Step = { step: "form" } | { step: "busy" } | { step: "sign_in"; email: string; refusal: Refusal | null };
 
 function RegisterFlow({ kinds }: { kinds: Kind[] }) {
 	const [kind, setKind] = useState<Kind>(kinds[0] ?? "plant_precreation");
 	const [errors, setErrors] = useState<Partial<Record<FieldName, string>>>({});
 	const [refusal, setRefusal] = useState<string | null>(null);
-	const [busy, setBusy] = useState(false);
 	const [step, setStep] = useState<Step>({ step: "form" });
-	// One key for this form, so a resubmit after a lost response is the same request.
-	const [requestKey] = useState(() => crypto.randomUUID());
+	const requestKey = useRef<string | null>(null);
 	const nameRef = useRef<HTMLInputElement>(null);
 	const emailRef = useRef<HTMLInputElement>(null);
 	const passwordRef = useRef<HTMLInputElement>(null);
 	const organizationRef = useRef<HTMLInputElement>(null);
 	const organization = KINDS[kind].organization;
 	const kindLabel = useId();
+	const busy = step.step === "busy";
 
 	async function submit(event: FormEvent<HTMLFormElement>) {
 		event.preventDefault();
@@ -146,17 +145,18 @@ function RegisterFlow({ kinds }: { kinds: Kind[] }) {
 			target[first ?? "email"].current?.focus();
 			return;
 		}
-		setBusy(true);
+		setStep({ step: "busy" });
+		requestKey.current ??= crypto.randomUUID();
 		const registered = await identityApi.register({
 			kind,
 			name,
 			email: email.data,
 			password,
-			requestKey,
+			requestKey: requestKey.current,
 			...(organization ? { organizationName } : {}),
 		});
 		if (!registered.ok) {
-			setBusy(false);
+			setStep({ step: "form" });
 			setRefusal(refusalMessage("register", registered.error));
 			return;
 		}
@@ -167,7 +167,6 @@ function RegisterFlow({ kinds }: { kinds: Kind[] }) {
 			loadPage(AFTER_SIGN_IN);
 			return;
 		}
-		setBusy(false);
 		const quiet = signedIn.error.code === "invalid_credentials" || signedIn.error.code === "unauthenticated";
 		setStep({ step: "sign_in", email: email.data, refusal: quiet ? null : signedIn.error });
 	}

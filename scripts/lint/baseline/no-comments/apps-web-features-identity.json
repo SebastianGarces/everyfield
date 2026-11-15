@@ -1,7 +1,7 @@
 {
 	"apps/web/src/features/identity/AuthFrame.tsx": 5,
 	"apps/web/src/features/identity/RecoveryScreens.tsx": 3,
-	"apps/web/src/features/identity/RegisterScreen.tsx": 4,
+	"apps/web/src/features/identity/RegisterScreen.tsx": 3,
 	"apps/web/src/features/identity/SessionActions.tsx": 2,
 	"apps/web/src/features/identity/SignInScreen.tsx": 3,
 	"apps/web/src/features/identity/api.ts": 7,
