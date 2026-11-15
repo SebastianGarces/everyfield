@@ -66,7 +66,6 @@ export function useWikiChrome() {
 	return use(Chrome);
 }
 
-/** Guide and wiki search, mounted once on the product frame. Guide never records a reading. */
 export function WikiChrome({ children }: { children: ReactNode }) {
 	const pathname = usePathname();
 	const [searchPath, setSearchPath] = useState<string | null>(null);
@@ -214,7 +213,6 @@ function SearchDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (op
 	);
 }
 
-/** Shows the pending line whenever a search runs, also while the previous hits stay on screen. */
 function SearchBody({ result, pending, query }: { result: SearchResult | null; pending: boolean; query: string }) {
 	if (!query || (!result && !pending)) return <p className="text-text-2">Type a word to search the wiki.</p>;
 	if (!result) return <p className="text-text-2">Searching.</p>;
@@ -291,10 +289,6 @@ function Snippet({ text }: { text: string }) {
 	);
 }
 
-/**
- * The Guide inside a modal dialog that covers the frame's Guide button (Settings). Its panel renders inside the
- * dialog's React tree, so using the panel does not count as a click outside the dialog.
- */
 export function SettingsGuide() {
 	const pathname = usePathname();
 	const [open, setOpen] = useState(false);
@@ -339,7 +333,6 @@ function GuideBody({ result }: { result: GuideResult | null }) {
 	if (result.status === "missing") return <p>No guide for this page.</p>;
 	if (result.status === "denied") return <p>Sign in to read the guide.</p>;
 	if (result.status === "unavailable") return <p>The guide could not be loaded. Try again.</p>;
-	// The domain cut (sectionExcerpt) ends a mid-sentence cut with its own ellipsis, so the excerpt shows as it comes.
 	return (
 		<article className="flex flex-col gap-4">
 			<header>
@@ -452,7 +445,6 @@ export function ReadStatus({ credit, version }: { credit: string | null; version
 	);
 }
 
-/** What the last "Set as preferred" said, on the article it was chosen from. */
 type Said = { path: string } & (
 	| { saved: { name: string; list: "churches" | "networks"; id: string } }
 	| { refused: Exclude<OrderSave, { status: "ok" }> }
@@ -490,7 +482,6 @@ export function SourceBar({
 	const openSettings = useOpenSettings();
 	const [said, setSaid] = useState<Said | null>(null);
 	const [saving, setSaving] = useState(false);
-	// The article reloads inside this transition, so the status line waits for the version the save chose.
 	const [loading, startLoading] = useTransition();
 	const hrefFor = (id: string) => {
 		const params = new URLSearchParams(search.toString());
@@ -518,7 +509,6 @@ export function SourceBar({
 			return;
 		}
 		setSaid({ path: pathname, saved: { name, list: change.list, id: currentId } });
-		// The preferred source now opens without ?source=, in the default bar.
 		const params = new URLSearchParams(search.toString());
 		params.delete("source");
 		const query = params.toString();
@@ -558,13 +548,11 @@ export function SourceBar({
 					: undefined
 			}
 			status={canOrder ? status : undefined}
-			// The order is set in Settings, opened over this article so Escape and Back return here.
 			onSettings={canOrder ? () => (openSettings ? openSettings("wiki") : router.push("/settings/wiki")) : undefined}
 		/>
 	);
 }
 
-/** The Owner's way from an article to the church's Wiki source order in Settings, opened over the article. */
 export function OrderSettingsButton({ children }: { children: ReactNode }) {
 	const link = useSettingsLink("wiki");
 	return (
@@ -574,11 +562,9 @@ export function OrderSettingsButton({ children }: { children: ReactNode }) {
 	);
 }
 
-/** Thin scrollbar in theme colors. Each column reserves its gutter so text never shifts when a bar appears. */
 const SCROLL =
 	"overscroll-contain [scrollbar-color:var(--ef-line-2)_transparent] [scrollbar-gutter:stable] [scrollbar-width:thin]";
 
-/** A side column: it scrolls on its own when the layout is fixed, else it sticks below the app bar. */
 const RAIL = `${RAIL_FIXED} ${SCROLL}`;
 
 const ARTICLE_SCROLL_ID = "wiki-scroll";
@@ -590,7 +576,6 @@ function scrollColumn(): HTMLElement | null {
 
 type Heading = { id: string; label: string; level?: 2 | 3 };
 
-/** Where the sidenav was scrolled to. It outlives the page mount, so a click on a link keeps the place. */
 let sidenavTop = 0;
 
 function keepSidenavPlace(el: HTMLDivElement | null) {
@@ -606,10 +591,6 @@ function keepSidenavPlace(el: HTMLDivElement | null) {
 	sidenavTop = el.scrollTop;
 }
 
-/**
- * The reading columns. From 1280px up and with `fixed`, the page header above stays put and the sidenav, the article
- * and the contents list each scroll on their own. Below 1280px the page scrolls as one.
- */
 type Groups = { name: string; items: { id: string; title: string; href: string; read?: boolean }[] }[];
 
 function ArticleTree({

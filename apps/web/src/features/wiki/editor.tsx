@@ -133,7 +133,6 @@ function successCopy(kind: "save" | "publish" | "hide", state: ArticleState): st
 	return "Draft saved.";
 }
 
-/** A table, callout, diagram or code block: shown as readers see it and saved as it is. */
 function FixedView({ block }: { block: FixedBlock }) {
 	const name = FIXED_NAME[block.kind];
 	return (

@@ -39,8 +39,6 @@ import {
 import { ArticleBody } from "./prose.tsx";
 import type { WikiPageData } from "./server.ts";
 
-// The signed-in wiki. The crawler preview does not use this screen.
-
 function Meter({ label, done, total }: { label: string; done: number; total: number }) {
 	const width = total === 0 ? 0 : Math.round((done / total) * 100);
 	return (
@@ -119,7 +117,6 @@ function StepCard({ step, direction }: { step: Step; direction: "previous" | "ne
 	);
 }
 
-/** Owner and Admin only: two church versions have no order, so everyone reads the next version in line. */
 function OrderPrompt({ fallback }: { fallback: ArticleVersion | null }) {
 	return (
 		<Card variant="callout" tone="amber" className="mb-6">
@@ -148,7 +145,6 @@ export function WikiScreen({ data, source }: { data: WikiPageData; source: strin
 			: [];
 	const title = data.editing ? `Edit ${article?.article.title ?? "article"}` : (article?.article.title ?? "Wiki");
 	const phase = article?.article.phase;
-	// The stored credit belongs to the global article, so a church or network version shows its own name instead.
 	const credit = article && !article.version ? humanCredit(article.article.credit) : null;
 	const fixed = !data.editing;
 	const header = (

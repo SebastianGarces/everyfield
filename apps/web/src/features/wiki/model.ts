@@ -9,9 +9,6 @@ import {
 } from "@everyfield/contracts/wiki";
 import { z } from "zod";
 
-// View models for the wiki screens. The producer is the authority for entitlement.
-// These helpers only shape text the screen already received.
-
 export const PHASE_NAME = [
 	"Discovery",
 	"Core Group Development",
@@ -28,7 +25,6 @@ export type SourceChoice = { kind: "current" } | { kind: "global" } | { kind: "o
 
 export type SourceInput = { kind: "current" } | { kind: "global" } | { kind: "organization"; organizationId: string };
 
-/** A query source. Anything else is the reader's current source. */
 export function parseSource(raw: string | string[] | undefined): SourceChoice {
 	const value = Array.isArray(raw) ? raw[0] : raw;
 	if (value === "global") return { kind: "global" };
@@ -46,7 +42,6 @@ function sourceQuery(choice: SourceChoice): string | null {
 	return null;
 }
 
-/** Catch-all params back into the slug the producer stored. */
 function slugFromParts(parts: string[] | undefined): string {
 	if (!parts?.length) return "";
 	return parts
@@ -60,7 +55,6 @@ function slugFromParts(parts: string[] | undefined): string {
 		.join("/");
 }
 
-/** One encoding per segment. Slashes in the slug stay as path separators. */
 export function articlePath(slug: string): string {
 	if (!slug) return "/wiki";
 	return `/wiki/${slug
@@ -76,7 +70,6 @@ export function wikiReturn(path: string, choice: SourceChoice): string {
 
 const CRAWLER = /facebookexternalhit|Twitterbot|Slackbot|LinkedInBot|Googlebot|bingbot/i;
 
-/** Same test as the wiki producer. The page uses it only to skip the session read. */
 export function isCrawler(userAgent: string | null | undefined): boolean {
 	if (!userAgent) return false;
 	return userAgent === "crawler" || CRAWLER.test(userAgent);
@@ -136,7 +129,6 @@ export function treeModel(groups: NavGroup[], read: ReadonlySet<string>): TreeMo
 
 export type Step = { title: string; href: string; group: string };
 
-/** The article before and after `currentId` in the order the sidenav draws: journey phases, then the other groups. */
 export function stepsAround(tree: TreeModel, currentId: string): { previous: Step | null; next: Step | null } {
 	const flat = [
 		...tree.phases.map((phase) => ({ group: `Phase ${phase.number} · ${phase.name}`, items: phase.items })),
@@ -198,17 +190,10 @@ export function sourceRows(article: WikiArticle, names: ReadonlyMap<string, stri
 	return rows;
 }
 
-/** The church's stored Wiki source order, as wiki.setSourceOrder keeps it. Revision "0": no order is stored yet. */
 export type SourceOrder = { revision: string; churches: string[]; networks: string[] };
 
-/** The list with `id` first and the rest in the order they had. */
 export const toHead = (ids: readonly string[], id: string): string[] => [id, ...ids.filter((item) => item !== id)];
 
-/**
- * The order that makes `source` the preferred one in its own list, or null when "Set as preferred" is not offered:
- * no order to change (not an Owner or Admin), the Global source, the source already preferred here, or already first
- * in its list. With two or more churches and no stored order, any church can be chosen, even the first one listed.
- */
 export function preferredOrder(
 	order: SourceOrder | null,
 	source: Pick<SourceRow, "id" | "kind">,
@@ -230,7 +215,6 @@ export type Block =
 	| { kind: "table"; rows: string[][] }
 	| { kind: "callout"; label: string; text: string }
 	| { kind: "code"; text: string }
-	/** `info` and `source` are the fence as written, so a save keeps the diagram as its author wrote it. */
 	| { kind: "diagram"; diagram: Diagram; info: string; source: string };
 
 function headingId(text: string, used: Map<string, number>): string {
@@ -249,7 +233,6 @@ function withIds(blocks: Block[]): Block[] {
 	return blocks.map((block) => (block.kind === "heading" ? { ...block, id: headingId(block.text, used) } : block));
 }
 
-/** The reader's view of the shared blocks: headings 2 and 3 with ids, one paragraph per line, no blanks or breaks. */
 function readerBlocks(blocks: readonly WikiBlock[]): Block[] {
 	const out: Block[] = [];
 	for (const block of blocks) {
@@ -273,7 +256,6 @@ function readerBlocks(blocks: readonly WikiBlock[]): Block[] {
 	return withIds(out);
 }
 
-/** A stored body as the reader shows it (wikiBlocks, the one parser the excerpt, PDF and print export also read). */
 export function articleBlocks(contentType: string, body: string): Block[] {
 	return readerBlocks(wikiBlocks(contentType, body));
 }
@@ -292,7 +274,6 @@ function safeHref(raw: string): string | null {
 	return null;
 }
 
-/** Bold and links only. Every other marker stays as text. */
 export function inlineParts(text: string): Inline[] {
 	const parts: Inline[] = [];
 	const pattern = /\*\*([^*]+)\*\*|\[([^\]]+)\]\(([^)\s]+)\)/g;
@@ -314,7 +295,6 @@ export function inlineParts(text: string): Inline[] {
 
 export type SnippetPart = { text: string; mark: boolean };
 
-/** Postgres headlines wrap matches in b tags. Nothing else is treated as markup. */
 export function snippetParts(raw: string): SnippetPart[] {
 	const parts: SnippetPart[] = [];
 	const pattern = /<b>(.*?)<\/b>/gi;
@@ -333,7 +313,6 @@ function stripTags(text: string): string {
 	return text.replace(/<[^>]*>/g, "");
 }
 
-/** Whose text an article shows, when it is not the global article. */
 export type ArticleVersion = { kind: "church" | "network"; name: string };
 
 export type Listed = {
@@ -343,7 +322,6 @@ export type Listed = {
 	excerpt: string | null;
 	observedFraction: string;
 	completed: boolean;
-	/** A meaningful revision came after this reader finished it. */
 	updated: boolean;
 };
 
@@ -359,7 +337,6 @@ export function listed(article: WikiArticle): Listed {
 	};
 }
 
-/** `/wiki/a/b/edit` opens the organization editor. A slug alone named edit stays an article. */
 export function splitWikiPath(parts: string[] | undefined): { slug: string; editing: boolean } {
 	if (parts && parts.length >= 2 && parts[parts.length - 1] === "edit") {
 		return { slug: slugFromParts(parts.slice(0, -1)), editing: true };
@@ -371,7 +348,6 @@ export function editPath(slug: string): string {
 	return `${articlePath(slug)}/edit`;
 }
 
-/** A block the editor shows as the reader renders it and saves unchanged. */
 export type FixedBlock = Extract<Block, { kind: "table" | "callout" | "code" | "diagram" }>;
 
 export type EditorBlock =
@@ -394,14 +370,11 @@ function editorFromContract(value: unknown): EditorBlock[] | null {
 	return blocks && readerBlocks(blocks).map(readerToEditor);
 }
 
-/** Draft JSON first. Published markdown and older plain text become the same blocks. */
 export function editorBlocksFromBody(contentType: string, body: string): EditorBlock[] {
 	try {
 		const parsed = editorFromContract(JSON.parse(body) as unknown);
 		if (parsed && parsed.length) return parsed;
-	} catch {
-		// Plain text and markdown are not editor JSON.
-	}
+	} catch {}
 	return articleBlocks(contentType, body).map(readerToEditor);
 }
 
@@ -434,10 +407,6 @@ function editorDocumentJson(blocks: EditorBlock[]): string {
 	return JSON.stringify({ format: EDITOR_FORMAT, blocks: blocks.map(contractBlock) });
 }
 
-/**
- * The body to store. An unchanged editor keeps the loaded text, so a save does not turn
- * markdown or a table into editor JSON. An edit stores everyfield-editor-v1.
- */
 export function editorWriteBody(initialBody: string | null, initialContentType: string, blocks: EditorBlock[]): string {
 	if (initialBody) {
 		const seeded = editorBlocksFromBody(initialContentType, initialBody);
