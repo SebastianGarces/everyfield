@@ -254,7 +254,7 @@ function CardsSection() {
 				)}
 
 				<Card as="section" aria-labelledby="card-scroll">
-					<CardHeader>
+					<CardHeader className="mb-2.5">
 						<CardHeading>
 							<CardTitle id="card-scroll" size="sm">
 								Header and scroll area
@@ -1179,7 +1179,7 @@ function CompositionMap() {
 				aria-label="Feature compositions table"
 				tabIndex={0}
 				data-focus-inset=""
-				className="overflow-x-auto"
+				className="overflow-x-auto p-0"
 			>
 				<table className="w-full min-w-[620px] text-left text-md">
 					<thead className="text-sm text-text-3">

@@ -122,7 +122,7 @@ export function BadgesSection({ index }: { index: number }) {
 			<Grid cols={4} className="mt-5">
 				{INSIGHT_TONES.map(({ tone, label }) => (
 					<InsightCard key={tone} tone={tone} size="sm" aria-labelledby={`delta-on-ink-${tone}`}>
-						<InsightTitle as="h3" size="sm" id={`delta-on-ink-${tone}`}>
+						<InsightTitle as="h3" size="sm" id={`delta-on-ink-${tone}`} className="mt-0">
 							{label}
 						</InsightTitle>
 						<div className="mt-4 flex flex-wrap gap-2">

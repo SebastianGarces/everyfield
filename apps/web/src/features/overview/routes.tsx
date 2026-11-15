@@ -49,6 +49,7 @@ export async function OverviewPage() {
 						? `${ready.plantName} · ${phaseText(ready.phase)}`
 						: "Your church's name and phase could not load. Reload the page in a moment."
 				}
+				className="mb-1"
 			/>
 			{ready ? <GetStarted frame={ready} /> : null}
 			{failed ? <CardFailed what="Your next steps" loaded={failed} /> : null}

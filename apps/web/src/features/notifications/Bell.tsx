@@ -87,7 +87,7 @@ export function useNotificationBell() {
 							tone="error"
 							title="Notifications did not load"
 							headingLevel="h3"
-
+							className="py-8"
 							actions={
 								<Button variant="secondary" size="sm" onClick={feed.state.onRetry}>
 									Try again

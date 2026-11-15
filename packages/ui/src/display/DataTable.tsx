@@ -39,7 +39,7 @@ export function LoadableView<T>({
 				tone="error"
 				title={state.title ?? "This did not load"}
 				headingLevel="h3"
-
+				className="py-10"
 				meta={state.meta}
 				actions={
 					state.onRetry ? (

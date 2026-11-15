@@ -130,7 +130,7 @@ export function DuplicatePairs({ pairs }: { pairs: Pairs }) {
 				</Card>
 			) : (
 				<Card as="section" aria-labelledby="pairs-title">
-					<CardHeader>
+					<CardHeader className="mb-1">
 						<CardHeading>
 							<CardTitle as="h2" id="pairs-title">
 								{pairs.completeness === "partial" ? `First ${count} to review` : `${count} to review`}
@@ -209,7 +209,7 @@ export function DismissedPairs({ pairs }: { pairs: Dismissed }) {
 				</Card>
 			) : (
 				<Card as="section" aria-labelledby="dismissed-title">
-					<CardHeader>
+					<CardHeader className="mb-1">
 						<CardHeading>
 							<CardTitle as="h2" id="dismissed-title">
 								{pairs.completeness === "partial" ? `Latest ${count} dismissed` : `${count} dismissed`}

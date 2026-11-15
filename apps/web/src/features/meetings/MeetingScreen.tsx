@@ -954,7 +954,7 @@ function RsvpSummary({ guests, attended, started }: { guests: GuestRow[] | null;
 	const total = guests?.length ?? 0;
 	return (
 		<Card as="section" aria-labelledby="rsvps-title">
-			<CardHeader>
+			<CardHeader className="mb-3.5">
 				<CardHeading>
 					<CardTitle id="rsvps-title">RSVPs</CardTitle>
 					<CardDescription>
@@ -1005,7 +1005,7 @@ function CardsSummary({ guests, cards }: { guests: GuestRow[] | null; cards: Mee
 	const fromOthers = cards.filter((c) => !attended.has(c.personId));
 	return (
 		<Card as="section" aria-labelledby="cards-title">
-			<CardHeader>
+			<CardHeader className="mb-3">
 				<CardHeading>
 					<CardTitle id="cards-title">Response cards</CardTitle>
 					<CardDescription>
@@ -1038,7 +1038,7 @@ function CardsSummary({ guests, cards }: { guests: GuestRow[] | null; cards: Mee
 function NotesCard({ notes }: { notes: string | null }) {
 	return (
 		<Card as="section" aria-labelledby="notes-title">
-			<CardHeader>
+			<CardHeader className="mb-3">
 				<CardHeading>
 					<CardTitle id="notes-title">Notes</CardTitle>
 				</CardHeading>

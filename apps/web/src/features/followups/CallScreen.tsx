@@ -288,7 +288,7 @@ export function CallScreen({ initial, accountId, admin }: { initial: CallData; a
 
 			{call.recent && call.recent.items.length ? (
 				<Card className="gap-1">
-					<CardHeader>
+					<CardHeader className="mb-1">
 						<CardHeading>
 							<CardTitle size="sm">Recent</CardTitle>
 						</CardHeading>

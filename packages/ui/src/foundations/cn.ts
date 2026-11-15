@@ -1,9 +1,6 @@
 import { extendTailwindMerge } from "tailwind-merge";
 
 const merge = extendTailwindMerge({
-	override: {
-		conflictingClassGroups: { "font-size": [] },
-	},
 	extend: {
 		theme: {
 			text: [

@@ -558,7 +558,7 @@ function TemplatePanel({
 					{preview.kind === "pdf" ? (
 						<PdfPreview key={preview.key} title={template.name} pageSize={template.pageSize} bytes={preview.bytes} />
 					) : preview.kind === "message" ? (
-						<StatePanel tone="error" title="Preview unavailable" headingLevel="h3">
+						<StatePanel tone="error" title="Preview unavailable" headingLevel="h3" className="py-8">
 							{preview.text}
 						</StatePanel>
 					) : canPreview ? (

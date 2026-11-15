@@ -388,7 +388,7 @@ export function PersonScreen({
 						</div>
 						<div className="flex min-w-0 flex-col gap-5 max-app-lg:order-first">
 							<Card>
-								<CardHeader>
+								<CardHeader className="mb-2">
 									<CardHeading>
 										<CardTitle size="sm">Details</CardTitle>
 									</CardHeading>
@@ -475,7 +475,7 @@ export function PersonScreen({
 								<MinistryRoles key={`ministries-${generation}`} initial={ministries} canCorrect={canWrite} />
 							) : null}
 							<Card>
-								<CardHeader>
+								<CardHeader className="mb-2">
 									<CardHeading>
 										<CardTitle size="sm">{records ? "Adult or child" : "Adult or child and commitment"}</CardTitle>
 									</CardHeading>
@@ -522,7 +522,7 @@ export function PersonScreen({
 							</Card>
 							{p.summaryNotes ? (
 								<Card>
-									<CardHeader>
+									<CardHeader className="mb-2">
 										<CardHeading>
 											<CardTitle size="sm">Summary</CardTitle>
 										</CardHeading>

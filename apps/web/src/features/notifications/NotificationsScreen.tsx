@@ -65,7 +65,7 @@ export function NotificationsScreen({ initialQuery, initial }: { initialQuery: F
 					</>
 				}
 			/>
-			<Card className="w-full max-w-[880px] gap-2">
+			<Card className="w-full max-w-[880px] gap-2 px-[18px] py-5 max-app-sm:px-3">
 				<div className="flex flex-wrap items-center gap-3 px-2 pb-1.5">
 					<SegmentedControl
 						label="Show"
