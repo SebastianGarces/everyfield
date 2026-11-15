@@ -24,7 +24,9 @@ import { StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { markSubjectRead } from "../notifications/actions";
+import { useReadElsewhere } from "../notifications/feed";
 import { formatDay } from "../organizations/board/model";
 import { Problem } from "../organizations/board/Problem";
 import { programProblem, KIND } from "../organizations/programs/model";
@@ -66,8 +68,24 @@ function NotLinked() {
 	);
 }
 
-function LinkedResidency({ residency }: { residency: Linked }) {
+function useOpenedNotice() {
 	const opened = useSearchParams().get("milestone");
+	const readElsewhere = useReadElsewhere();
+	const sent = useRef<string | null>(null);
+	useEffect(() => {
+		if (!opened || sent.current === opened) return;
+		sent.current = opened;
+		void markSubjectRead({ kind: "residency_milestone", id: opened })
+			.then((r) => {
+				if (r.status === "ok" && r.value.markedIds.length) readElsewhere(r.value.markedIds);
+			})
+			.catch(() => undefined);
+	}, [opened, readElsewhere]);
+	return opened;
+}
+
+function LinkedResidency({ residency }: { residency: Linked }) {
+	const opened = useOpenedNotice();
 	const church = residency.organizationName;
 	return (
 		<div className="flex flex-col gap-5">
