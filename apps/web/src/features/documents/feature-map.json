@@ -1,0 +1,972 @@
+{
+	"$schema": "../../../feature-map.schema.json",
+	"feature": "documents",
+	"catalog": ["DOC-001", "DOC-002", "DOC-003", "DOC-016", "DOC-022", "DOC-023"],
+	"surfaces": [
+		{
+			"id": "documents.library",
+			"says": "Documents: fill a template and download or save it, and open what was written for the church or for you.",
+			"routes": ["/documents"],
+			"endpoints": ["/documents/preview"],
+			"catalog": ["DOC-001", "DOC-002", "DOC-003", "DOC-016"],
+			"polls": "the template list keeps fetching PDF page previews, so the page never goes network-idle",
+			"reach": [
+				{
+					"rail": "Documents",
+					"personas": ["owner", "admin", "member", "resident", "signup", "triage"]
+				}
+			],
+			"personas": {
+				"owner": "write",
+				"admin": "write",
+				"member": "write",
+				"resident": "write",
+				"signup": "write",
+				"triage": "write",
+				"visitor": "none"
+			},
+			"states": [
+				{
+					"id": "templates",
+					"reach": {
+						"persona": "owner",
+						"open": "/documents",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"text": "Saved for your church",
+							"match": "contains"
+						},
+						{
+							"role": "button",
+							"name": "Save for your church"
+						},
+						{
+							"role": "link",
+							"name": "QA welcome letter"
+						},
+						{
+							"role": "link",
+							"name": "Church documents"
+						}
+					]
+				},
+				{
+					"id": "account",
+					"reach": {
+						"persona": "resident",
+						"open": "/documents",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"text": "Your documents",
+							"match": "contains"
+						},
+						{
+							"role": "link",
+							"name": "New document"
+						},
+						{
+							"absent": {
+								"role": "button",
+								"name": "Save for your church"
+							}
+						},
+						{
+							"absent": {
+								"role": "link",
+								"name": "Church documents"
+							}
+						}
+					]
+				},
+				{
+					"id": "signed-out",
+					"reach": {
+						"persona": "visitor",
+						"open": "/documents",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"url": "/signin?returnTo=%2Fdocuments"
+						}
+					]
+				},
+				{
+					"id": "loading",
+					"file": "apps/web/src/app/(product)/(frame)/documents/loading.tsx",
+					"reach": {
+						"manual": "shows only while the server renders the page"
+					},
+					"expect": [
+						{
+							"text": "Loading documents"
+						}
+					]
+				},
+				{
+					"id": "error",
+					"file": "apps/web/src/app/(product)/(frame)/documents/error.tsx",
+					"reach": {
+						"manual": "renders only when the page throws while rendering"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "We could not load documents"
+						},
+						{
+							"role": "button",
+							"name": "Try again"
+						}
+					]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "save-for-church",
+					"says": "Save for your church keeps the filled template as a saved file in Saved for your church.",
+					"catalog": ["DOC-002", "DOC-003"],
+					"operations": ["documents.generate"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/documents/church.test.mts",
+								"name": "AC:DOC-003 Save for your church makes one saved file of each text template and no Church Document"
+							},
+							{
+								"file": "tests/integration/documents/owned.test.mts",
+								"name": "AC:CASE-DOC-003 AC:CASE-DOC-015 AC:PROVIDER48-002 AC:PROVIDER48-003 AC:TEN-004 saved renders match the preview and keep a private key"
+							}
+						],
+						"cases": ["CASE-DOC-003"],
+						"browser": {
+							"kind": "behavior",
+							"state": "templates",
+							"steps": [
+								{
+									"click": {
+										"role": "button",
+										"name": "Save for your church"
+									}
+								}
+							],
+							"expect": [
+								{
+									"noText": "Nothing saved for your church yet."
+								},
+								{
+									"text": "for your church.",
+									"match": "contains"
+								}
+							]
+						}
+					}
+				},
+				{
+					"id": "filter",
+					"says": "The Category choice narrows the template list to that kind of template.",
+					"catalog": ["DOC-001"],
+					"operations": [],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/documents/documents.test.mts",
+								"name": "AC:CASE-DOC-001 the library lists 13 templates and 13 formats, and a retired id does not resolve"
+							}
+						],
+						"cases": ["CASE-DOC-001"],
+						"browser": {
+							"kind": "behavior",
+							"state": "templates",
+							"steps": [
+								{
+									"click": {
+										"role": "radio",
+										"name": "Launch"
+									}
+								}
+							],
+							"expect": [
+								{
+									"noText": "Guest Sign-in Sheet"
+								},
+								{
+									"noText": "Bylaws"
+								}
+							]
+						}
+					},
+					"noOperation": "the page reads the list once; its catalog name, documents.templates.list, is not quoted or declared in code"
+				}
+			]
+		},
+		{
+			"id": "documents.church-library",
+			"says": "Church documents: the church plant's own editable copies of templates, and the archived ones.",
+			"routes": ["/documents/church", "/documents/church/archived"],
+			"catalog": ["DOC-022"],
+			"reach": [
+				{
+					"from": "documents.library",
+					"persona": "owner",
+					"path": [
+						{
+							"click": {
+								"role": "link",
+								"name": "Church documents"
+							}
+						},
+						{
+							"expect": {
+								"url": "/documents/church"
+							}
+						}
+					]
+				}
+			],
+			"personas": {
+				"owner": "write",
+				"admin": "write",
+				"member": "read",
+				"resident": "none"
+			},
+			"states": [
+				{
+					"id": "empty",
+					"reach": {
+						"persona": "owner",
+						"open": "/documents/church",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "No church documents yet"
+						},
+						{
+							"role": "button",
+							"name": "New from template"
+						}
+					]
+				},
+				{
+					"id": "archived-empty",
+					"reach": {
+						"persona": "owner",
+						"open": "/documents/church/archived",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "No archived documents"
+						},
+						{
+							"role": "link",
+							"name": "Back to Church documents"
+						}
+					]
+				},
+				{
+					"id": "member-archived",
+					"reach": {
+						"persona": "member",
+						"open": "/documents/church/archived",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "This page is not available"
+						}
+					]
+				},
+				{
+					"id": "no-seat",
+					"reach": {
+						"persona": "resident",
+						"open": "/documents/church",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Church documents need a church plant seat"
+						}
+					]
+				},
+				{
+					"id": "archived",
+					"reach": {
+						"persona": "owner",
+						"setup": [
+							{
+								"open": "/documents/church"
+							},
+							{
+								"click": {
+									"role": "button",
+									"name": "New from template"
+								}
+							},
+							{
+								"click": {
+									"role": "button",
+									"name": "Bylaws",
+									"match": "contains"
+								}
+							},
+							{
+								"expect": {
+									"url": "/documents/church/{documentId}"
+								}
+							},
+							{
+								"click": {
+									"role": "button",
+									"name": "Archive"
+								}
+							},
+							{
+								"click": {
+									"role": "button",
+									"name": "Archive document"
+								}
+							},
+							{
+								"expect": {
+									"url": "/documents/church?archived=1"
+								}
+							}
+						],
+						"open": "/documents/church/archived"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Archived documents"
+						},
+						{
+							"role": "button",
+							"name": "Restore",
+							"match": "contains"
+						}
+					]
+				},
+				{
+					"id": "loading",
+					"file": "apps/web/src/app/(product)/(frame)/documents/church/loading.tsx",
+					"reach": {
+						"manual": "shows only while the server renders the page"
+					},
+					"expect": [
+						{
+							"role": "status",
+							"name": "Loading"
+						}
+					]
+				},
+				{
+					"id": "loading-documents",
+					"file": "apps/web/src/app/(product)/(frame)/documents/loading.tsx",
+					"reach": {
+						"manual": "the Documents loading screen, shown while a page under /documents renders and no nearer loading screen applies"
+					},
+					"expect": [
+						{
+							"text": "Loading documents"
+						}
+					]
+				},
+				{
+					"id": "error",
+					"file": "apps/web/src/app/(product)/(frame)/documents/error.tsx",
+					"reach": {
+						"manual": "renders only when the page throws while rendering"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "We could not load documents"
+						}
+					]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "new-from-template",
+					"says": "New from template makes the church plant's own editable copy and opens it.",
+					"catalog": ["DOC-022"],
+					"operations": ["documents.createFromTemplate"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/documents/church.test.mts",
+								"name": "AC:CASE-DOC-022 New from template forks the policy, records its origin and freezes the church and brand kit values"
+							}
+						],
+						"cases": ["CASE-DOC-022"],
+						"browser": {
+							"kind": "behavior",
+							"state": "empty",
+							"steps": [
+								{
+									"click": {
+										"role": "button",
+										"name": "New from template"
+									}
+								},
+								{
+									"click": {
+										"role": "button",
+										"name": "Bylaws",
+										"match": "contains"
+									}
+								}
+							],
+							"expect": [
+								{
+									"url": "/documents/church/{documentId}"
+								},
+								{
+									"role": "heading",
+									"name": "Bylaws"
+								},
+								{
+									"role": "button",
+									"name": "Download PDF"
+								}
+							]
+						}
+					}
+				},
+				{
+					"id": "restore",
+					"says": "Restore puts an archived document back in the library, editable again.",
+					"catalog": ["DOC-022"],
+					"operations": ["documents.restoreChurch"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/documents/church-restore.test.mts",
+								"name": "AC:DOC-016 only an Owner or Admin restores, only an archived document, once, with one audit row"
+							},
+							{
+								"file": "tests/integration/documents/church-restore.test.mts",
+								"name": "AC:DOC-023 revisions and saved exports are unchanged by archive and restore, and the document is live again"
+							}
+						],
+						"browser": {
+							"kind": "behavior",
+							"state": "archived",
+							"steps": [
+								{
+									"click": {
+										"role": "button",
+										"name": "Restore",
+										"match": "contains"
+									}
+								},
+								{
+									"click": {
+										"role": "button",
+										"name": "Restore document"
+									}
+								}
+							],
+							"expect": [
+								{
+									"url": "/documents/church?restored=1"
+								},
+								{
+									"text": "The document was restored. It is back in the library and can be edited again."
+								},
+								{
+									"role": "link",
+									"name": "Bylaws",
+									"match": "contains"
+								}
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"id": "documents.church-document",
+			"says": "One church document: edit it, see its revisions, download it as PDF or Word, archive or delete it.",
+			"routes": ["/documents/church/[documentId]"],
+			"endpoints": [
+				"/documents/church/[documentId]/exports",
+				"/documents/church/[documentId]/exports/[exportId]",
+				"/documents/church/[documentId]/file"
+			],
+			"catalog": ["DOC-022", "DOC-023"],
+			"reach": [
+				{
+					"from": "documents.church-library",
+					"persona": "owner",
+					"path": [
+						{
+							"click": {
+								"role": "link",
+								"name": "Bylaws",
+								"match": "contains"
+							}
+						},
+						{
+							"expect": {
+								"url": "/documents/church/{documentId}"
+							}
+						}
+					]
+				},
+				{
+					"link": "/documents/church/{documentId}",
+					"fill": {
+						"documentId": "the id in a church document's link"
+					}
+				}
+			],
+			"personas": {
+				"owner": "write",
+				"admin": "write",
+				"member": "read"
+			},
+			"states": [
+				{
+					"id": "bylaws",
+					"reach": {
+						"persona": "owner",
+						"setup": [
+							{
+								"open": "/documents/church"
+							},
+							{
+								"click": {
+									"role": "button",
+									"name": "New from template"
+								}
+							},
+							{
+								"click": {
+									"role": "button",
+									"name": "Bylaws",
+									"match": "contains"
+								}
+							},
+							{
+								"expect": {
+									"url": "/documents/church/{documentId}"
+								}
+							}
+						]
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Bylaws"
+						},
+						{
+							"role": "button",
+							"name": "Download PDF"
+						},
+						{
+							"role": "button",
+							"name": "Download Word"
+						},
+						{
+							"role": "heading",
+							"name": "Revisions"
+						}
+					]
+				},
+				{
+					"id": "loading",
+					"file": "apps/web/src/app/(product)/(frame)/documents/church/loading.tsx",
+					"reach": {
+						"manual": "shows only while the server renders the page"
+					},
+					"expect": [
+						{
+							"role": "status",
+							"name": "Loading"
+						}
+					]
+				},
+				{
+					"id": "loading-documents",
+					"file": "apps/web/src/app/(product)/(frame)/documents/loading.tsx",
+					"reach": {
+						"manual": "the Documents loading screen, shown while a page under /documents renders and no nearer loading screen applies"
+					},
+					"expect": [
+						{
+							"text": "Loading documents"
+						}
+					]
+				},
+				{
+					"id": "error",
+					"file": "apps/web/src/app/(product)/(frame)/documents/error.tsx",
+					"reach": {
+						"manual": "renders only when the page throws while rendering"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "We could not load documents"
+						}
+					]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "save",
+					"says": "Save stores the edited body as a new revision, and it is there when the document opens again.",
+					"catalog": ["DOC-016", "DOC-022"],
+					"operations": ["documents.saveNative"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/documents/church.test.mts",
+								"name": "AC:DOC-016 a body the editor builds saves as one revision; a Member's save writes nothing"
+							}
+						],
+						"browser": {
+							"kind": "behavior",
+							"state": "bylaws",
+							"steps": [
+								{
+									"type": "Our bylaws, drafted on the map.",
+									"into": ", document body"
+								},
+								{
+									"click": {
+										"role": "button",
+										"name": "Save"
+									}
+								},
+								{
+									"click": {
+										"role": "link",
+										"name": "Church documents"
+									}
+								},
+								{
+									"click": {
+										"role": "link",
+										"name": "Bylaws",
+										"match": "contains"
+									}
+								},
+								{
+									"expect": {
+										"url": "/documents/church/{documentId}"
+									}
+								}
+							],
+							"expect": [
+								{
+									"text": "Our bylaws, drafted on the map.",
+									"match": "contains"
+								}
+							]
+						}
+					}
+				},
+				{
+					"id": "archive",
+					"says": "Archive takes the document out of the library; its revisions and saved exports stay readable.",
+					"catalog": ["DOC-022"],
+					"operations": [],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/documents/church-archive.test.mts",
+								"name": "AC:DOC-022 an archived document leaves the library for every seat and every write refuses it"
+							}
+						],
+						"browser": {
+							"kind": "behavior",
+							"state": "bylaws",
+							"steps": [
+								{
+									"click": {
+										"role": "button",
+										"name": "Archive"
+									}
+								},
+								{
+									"click": {
+										"role": "button",
+										"name": "Archive document"
+									}
+								}
+							],
+							"expect": [
+								{
+									"url": "/documents/church?archived=1"
+								},
+								{
+									"text": "The document was archived. Its revisions and saved exports stay available."
+								},
+								{
+									"role": "heading",
+									"name": "No church documents yet"
+								}
+							]
+						}
+					},
+					"noOperation": "the write it calls, archiveChurch, has no catalog entry; documents.archive in the catalog archives a written document"
+				},
+				{
+					"id": "export",
+					"says": "Download PDF and Download Word export the current revision; the preview, the download and the saved export are the same bytes.",
+					"catalog": ["DOC-023"],
+					"operations": ["documents.exportNative"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/documents/church.test.mts",
+								"name": "AC:CASE-DOC-023 the preview, Download PDF and the saved export of one revision have the same sha256"
+							}
+						],
+						"cases": ["CASE-DOC-023"],
+						"browser": {
+							"kind": "presence",
+							"state": "bylaws",
+							"steps": [],
+							"expect": [
+								{
+									"role": "button",
+									"name": "Download PDF"
+								},
+								{
+									"role": "button",
+									"name": "Download Word"
+								}
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"id": "documents.written",
+			"says": "A written document: write or import text, save it, and use it for the church.",
+			"routes": ["/documents/written/[documentId]"],
+			"endpoints": ["/documents/written/import"],
+			"catalog": ["DOC-016"],
+			"reach": [
+				{
+					"from": "documents.library",
+					"persona": "resident",
+					"path": [
+						{
+							"click": {
+								"role": "link",
+								"name": "New document"
+							}
+						},
+						{
+							"expect": {
+								"url": "/documents/written/new"
+							}
+						}
+					]
+				},
+				{
+					"from": "documents.library",
+					"persona": "owner",
+					"path": [
+						{
+							"click": {
+								"role": "link",
+								"name": "QA welcome letter"
+							}
+						},
+						{
+							"expect": {
+								"url": "/documents/written/{documentId}"
+							}
+						}
+					]
+				}
+			],
+			"personas": {
+				"owner": "write",
+				"admin": "write",
+				"member": "read",
+				"resident": "write",
+				"signup": "write",
+				"triage": "write"
+			},
+			"states": [
+				{
+					"id": "new",
+					"reach": {
+						"persona": "resident",
+						"open": "/documents/written/new",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "New document"
+						},
+						{
+							"role": "textbox",
+							"name": "Title"
+						},
+						{
+							"role": "button",
+							"name": "Import a text or Word file"
+						}
+					]
+				},
+				{
+					"id": "loading",
+					"file": "apps/web/src/app/(product)/(frame)/documents/written/[documentId]/loading.tsx",
+					"reach": {
+						"manual": "shows only while the server renders the page"
+					},
+					"expect": [
+						{
+							"role": "status",
+							"name": "Loading"
+						}
+					]
+				},
+				{
+					"id": "loading-documents",
+					"file": "apps/web/src/app/(product)/(frame)/documents/loading.tsx",
+					"reach": {
+						"manual": "the Documents loading screen, shown while a page under /documents renders and no nearer loading screen applies"
+					},
+					"expect": [
+						{
+							"text": "Loading documents"
+						}
+					]
+				},
+				{
+					"id": "error",
+					"file": "apps/web/src/app/(product)/(frame)/documents/error.tsx",
+					"reach": {
+						"manual": "renders only when the page throws while rendering"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "We could not load documents"
+						}
+					]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "write-and-save",
+					"says": "Save stores a new document under its own address with its title.",
+					"catalog": ["DOC-016"],
+					"operations": ["documents.saveNative"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/documents/owned.test.mts",
+								"name": "AC:CASE-DOC-016 INV-documents: a native body is checked at the boundary, old text opens intact, and Use for this church writes one copy"
+							}
+						],
+						"cases": ["CASE-DOC-016"],
+						"browser": {
+							"kind": "behavior",
+							"state": "new",
+							"steps": [
+								{
+									"type": "Map residency notes",
+									"into": "Title"
+								},
+								{
+									"type": "Notes from the map.",
+									"into": "Document text"
+								},
+								{
+									"click": {
+										"role": "button",
+										"name": "Save"
+									}
+								}
+							],
+							"expect": [
+								{
+									"url": "/documents/written/{documentId}"
+								},
+								{
+									"role": "heading",
+									"name": "Map residency notes"
+								},
+								{
+									"role": "button",
+									"name": "More actions"
+								}
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"id": "documents.template-picker-preview",
+			"says": "A design preview of New from template with 60 invented templates, to check search and paging. No database; production returns 404.",
+			"routes": ["/design/documents/templates"],
+			"reach": [
+				{
+					"link": "/design/documents/templates"
+				}
+			],
+			"personas": {
+				"visitor": "read",
+				"owner": "read"
+			},
+			"states": [
+				{
+					"id": "picker",
+					"reach": {
+						"persona": "visitor",
+						"open": "/design/documents/templates",
+						"seed": "qa",
+						"path": [
+							{
+								"click": {
+									"role": "button",
+									"name": "New from template"
+								}
+							}
+						]
+					},
+					"expect": [
+						{
+							"role": "searchbox",
+							"name": "Search templates"
+						},
+						{
+							"role": "button",
+							"name": "Volunteer Application",
+							"match": "contains"
+						},
+						{
+							"role": "button",
+							"name": "Expense Reimbursement Form",
+							"match": "contains"
+						}
+					]
+				}
+			],
+			"behaviors": []
+		}
+	]
+}

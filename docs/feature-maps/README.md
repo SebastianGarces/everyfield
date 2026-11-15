@@ -6,61 +6,130 @@ Each feature directory under `apps/web/src/features/` describes its surfaces: th
 reaches them, the states a verifier can open and the tests, cases and browser steps that prove each behavior.
 Print one surface with `node tools/ci/feature-maps.ts show <surface-id>`.
 
-Routes mapped: 27 of 136. Not yet mapped: 109, listed in [`apps/web/feature-maps.pending.json`](../../apps/web/feature-maps.pending.json).
+Routes mapped: 61 of 136. Not yet mapped: 75, listed in [`apps/web/feature-maps.pending.json`](../../apps/web/feature-maps.pending.json).
 
 ```mermaid
 flowchart LR
   rail(["rail"])
   links(["links and email"])
-  subgraph f0["identity"]
-    f0s0["identity.signin"]
-    f0s1["identity.home"]
-    f0s2["identity.register"]
-    f0s3["identity.recover"]
-    f0s4["identity.reset"]
-    f0s5["identity.verify-email"]
-    f0s6["identity.invitation"]
-    f0s7["identity.seats"]
+  subgraph f0["communication"]
+    f0s0["communication.messages"]
+    f0s1["communication.compose"]
+    f0s2["communication.templates"]
+    f0s3["communication.unsubscribe"]
   end
-  subgraph f1["meetings"]
-    f1s0["meetings.list"]
-    f1s1["meetings.detail"]
-    f1s2["meetings.check-in"]
-    f1s3["meetings.rsvp"]
+  subgraph f1["documents"]
+    f1s0["documents.library"]
+    f1s1["documents.church-library"]
+    f1s2["documents.church-document"]
+    f1s3["documents.written"]
+    f1s4["documents.template-picker-preview"]
   end
-  subgraph f2["people"]
-    f2s0["people.list"]
-    f2s1["people.person"]
-    f2s2["people.duplicates"]
-    f2s3["people.import"]
+  subgraph f2["feedback"]
+    f2s0["feedback.dialog"]
+    f2s1["feedback.own"]
+    f2s2["feedback.triage"]
   end
+  subgraph f3["identity"]
+    f3s0["identity.signin"]
+    f3s1["identity.home"]
+    f3s2["identity.register"]
+    f3s3["identity.recover"]
+    f3s4["identity.reset"]
+    f3s5["identity.verify-email"]
+    f3s6["identity.invitation"]
+    f3s7["identity.seats"]
+  end
+  subgraph f4["intelligence"]
+    f4s0["intelligence.assessment"]
+    f4s1["intelligence.trends"]
+    f4s2["intelligence.attestations"]
+    f4s3["intelligence.check-in"]
+  end
+  subgraph f5["meetings"]
+    f5s0["meetings.list"]
+    f5s1["meetings.detail"]
+    f5s2["meetings.check-in"]
+    f5s3["meetings.rsvp"]
+  end
+  subgraph f6["people"]
+    f6s0["people.list"]
+    f6s1["people.person"]
+    f6s2["people.duplicates"]
+    f6s3["people.import"]
+  end
+  subgraph f7["settings"]
+    f7s0["settings.dialog"]
+    f7s1["settings.account"]
+    f7s2["settings.brand"]
+    f7s3["settings.restricted"]
+    f7s4["settings.design-preview"]
+  end
+  subgraph f8["teams"]
+    f8s0["teams.list"]
+    f8s1["teams.ministry"]
+  end
+  rail -- "Messages" --> f0s0
   links -.-> f0s0
-  links -.-> f0s1
+  f0s0 --> f0s1
   f0s0 --> f0s2
   links -.-> f0s3
-  links -.-> f0s4
-  links -.-> f0s5
-  links -.-> f0s6
-  f2s0 --> f0s7
-  links -.-> f0s7
-  rail -- "Meetings" --> f1s0
+  rail -- "Documents" --> f1s0
   f1s0 --> f1s1
-  links -.-> f1s1
   f1s1 --> f1s2
   links -.-> f1s2
-  links -.-> f1s3
-  rail -- "People" --> f2s0
-  f2s0 --> f2s1
+  f1s0 --> f1s3
+  links -.-> f1s4
+  f0s0 --> f2s0
   links -.-> f2s1
   links -.-> f2s2
-  f2s0 --> f2s3
+  links -.-> f3s0
+  links -.-> f3s1
+  f3s0 --> f3s2
+  links -.-> f3s3
+  links -.-> f3s4
+  links -.-> f3s5
+  links -.-> f3s6
+  f6s0 --> f3s7
+  links -.-> f3s7
+  rail -- "Plant Intelligence" --> f4s0
+  f4s0 --> f4s1
+  f4s0 --> f4s2
+  f4s0 --> f4s3
+  links -.-> f4s3
+  rail -- "Meetings" --> f5s0
+  f5s0 --> f5s1
+  links -.-> f5s1
+  f5s1 --> f5s2
+  links -.-> f5s2
+  links -.-> f5s3
+  rail -- "People" --> f6s0
+  f6s0 --> f6s1
+  links -.-> f6s1
+  links -.-> f6s2
+  f6s0 --> f6s3
+  f0s0 --> f7s0
+  links -.-> f7s0
+  f7s0 --> f7s1
+  f7s0 --> f7s2
+  links -.-> f7s3
+  links -.-> f7s4
+  rail -- "Ministries" --> f8s0
+  f8s0 --> f8s1
+  links -.-> f8s1
 ```
 
 | Feature | Map | Surfaces | Routes | Behaviors | Browser behavior proofs | Browser presence proofs |
 |---|---|---|---|---|---|---|
+| [communication](communication.md) | [`apps/web/src/features/communication/feature-map.json`](../../apps/web/src/features/communication/feature-map.json) | 4 | 4 | 8 | 8 | 0 |
+| [documents](documents.md) | [`apps/web/src/features/documents/feature-map.json`](../../apps/web/src/features/documents/feature-map.json) | 5 | 11 | 8 | 7 | 1 |
+| [feedback](feedback.md) | [`apps/web/src/features/feedback/feature-map.json`](../../apps/web/src/features/feedback/feature-map.json) | 3 | 4 | 3 | 3 | 0 |
 | [identity](identity.md) | [`apps/web/src/features/identity/feature-map.json`](../../apps/web/src/features/identity/feature-map.json) | 8 | 10 | 11 | 4 | 1 |
+| [intelligence](intelligence.md) | [`apps/web/src/features/intelligence/feature-map.json`](../../apps/web/src/features/intelligence/feature-map.json) | 4 | 4 | 4 | 2 | 1 |
 | [meetings](meetings.md) | [`apps/web/src/features/meetings/feature-map.json`](../../apps/web/src/features/meetings/feature-map.json) | 4 | 5 | 10 | 4 | 4 |
 | [people](people.md) | [`apps/web/src/features/people/feature-map.json`](../../apps/web/src/features/people/feature-map.json) | 4 | 12 | 11 | 6 | 2 |
+| [settings](settings.md) | [`apps/web/src/features/settings/feature-map.json`](../../apps/web/src/features/settings/feature-map.json) | 5 | 9 | 6 | 5 | 1 |
+| [teams](teams.md) | [`apps/web/src/features/teams/feature-map.json`](../../apps/web/src/features/teams/feature-map.json) | 2 | 2 | 4 | 3 | 1 |
 
 ## Become a persona
 
@@ -70,7 +139,7 @@ local proof slot or a QA preview (`bin/qa`). Sign in at `/signin` with the perso
 [`tools/qa/qa-guard.ts`](../../tools/qa/qa-guard.ts); a proof slot's `login --persona <id>` sets the same session cookie.
 In commands, `$ORIGIN` is the app's address, `$REPO` the checkout, and `<QA_LOGINS.x>` and `<QA_PASSWORD>` are
 values from that file. Each step that opens, clicks, presses or uploads is followed by a network-idle wait, so the page
-has hydrated and the next check sees the result.
+has hydrated and the next check sees the result, except on a surface marked Polls (below).
 A state marked setup creates its own data first; run its setup once per fresh seed.
 
 | Persona | Context | Who | Sign in with |
@@ -93,7 +162,7 @@ names exist exactly; cases are `AC:` markers in those tests; operations are in t
 catalog features and are quoted or declared in code; email links name a template that builds that path; rail
 reaches agree with `shellNav` both ways for every persona; personas are QA seed logins whose name, context, role
 and residency link match what the seed creates; a behavior proof checks more than the address after it acts;
-and every name, label
+on a surface that polls, a waiting check follows every open, click, press and upload; and every name, label
 and text in a step equals (or, for `contains`, is part of) a string literal or JSX text, comments excluded, in the
 feature's folder, `packages/ui/src`, the shell (each with the modules it imports directly) or the QA seed, or was
 typed earlier in the same steps.
@@ -108,6 +177,8 @@ It cannot catch, and only running the browser steps catches:
 
 A browser proof marked presence only shows that the control is there; the listed tests prove the outcome.
 
-The network-idle wait suits these pages, which go quiet after each action. On a page that keeps fetching (for
-example `/documents`, or import progress) it runs to its 25 s timeout and still succeeds, so it proves nothing there;
-a map for a polling page should wait on its next check instead (`wait --text`, `wait --url`).
+The network-idle wait suits pages that go quiet after each action. On a page that keeps fetching (for example
+`/documents`, or import progress) it runs to its 25 s timeout and still succeeds, so it proves nothing there. Such a
+surface sets `polls` to say what keeps fetching: its commands get no network-idle wait, and the checker requires the
+check after each open, click, press or upload to be one that waits (a URL, `noText`, or `contains` text, printed as
+`wait --url`, `wait --fn` and `wait --text`).

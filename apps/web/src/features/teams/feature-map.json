@@ -1,0 +1,423 @@
+{
+	"$schema": "../../../feature-map.schema.json",
+	"feature": "teams",
+	"catalog": ["TEAM-001", "TEAM-004", "TEAM-005", "TEAM-012"],
+	"surfaces": [
+		{
+			"id": "teams.list",
+			"says": "Ministries: every team with its state, leader and how many serve, and the organization chart.",
+			"routes": ["/ministries"],
+			"catalog": ["TEAM-001", "TEAM-012"],
+			"reach": [
+				{
+					"rail": "Ministries",
+					"personas": ["owner", "admin", "member"]
+				}
+			],
+			"personas": {
+				"owner": "write",
+				"admin": "write",
+				"member": "read",
+				"visitor": "none"
+			},
+			"states": [
+				{
+					"id": "populated",
+					"reach": {
+						"persona": "owner",
+						"open": "/ministries",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Ministries"
+						},
+						{
+							"role": "link",
+							"name": "Worship",
+							"match": "contains"
+						},
+						{
+							"role": "button",
+							"name": "New ministry"
+						},
+						{
+							"role": "button",
+							"name": "Set up from templates"
+						}
+					]
+				},
+				{
+					"id": "member",
+					"reach": {
+						"persona": "member",
+						"open": "/ministries",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Ministries"
+						},
+						{
+							"role": "link",
+							"name": "Worship",
+							"match": "contains"
+						},
+						{
+							"absent": {
+								"role": "button",
+								"name": "New ministry"
+							}
+						}
+					]
+				},
+				{
+					"id": "signed-out",
+					"reach": {
+						"persona": "visitor",
+						"open": "/ministries",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"url": "/signin?returnTo=%2Fministries"
+						}
+					]
+				},
+				{
+					"id": "loading",
+					"file": "apps/web/src/app/(product)/(frame)/ministries/(list)/loading.tsx",
+					"reach": {
+						"manual": "shows only while the server renders the list"
+					},
+					"expect": [
+						{
+							"text": "Loading ministries"
+						}
+					]
+				},
+				{
+					"id": "error",
+					"file": "apps/web/src/app/(product)/(frame)/ministries/error.tsx",
+					"reach": {
+						"manual": "renders only when the page throws while rendering"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "We could not load ministries"
+						}
+					]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "create",
+					"says": "New ministry creates a team and opens its page.",
+					"catalog": ["TEAM-001"],
+					"operations": ["teams.create"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/teams/ministry.test.mts",
+								"name": "AC:TARGET-TEAM-001 the ministries list carries each leader's name, and a stale write reads the revision alone"
+							}
+						],
+						"cases": ["TARGET-TEAM-001"],
+						"browser": {
+							"kind": "behavior",
+							"state": "populated",
+							"steps": [
+								{
+									"click": {
+										"role": "button",
+										"name": "New ministry"
+									}
+								},
+								{
+									"type": "Map Outreach",
+									"into": "Name"
+								},
+								{
+									"click": {
+										"role": "button",
+										"name": "Create ministry"
+									}
+								}
+							],
+							"expect": [
+								{
+									"url": "/ministries/{teamId}"
+								},
+								{
+									"role": "heading",
+									"name": "Map Outreach"
+								},
+								{
+									"role": "button",
+									"name": "Appoint leader"
+								}
+							]
+						}
+					}
+				},
+				{
+					"id": "organization-view",
+					"says": "Organization view draws the teams as a chart that downloads as SVG or PDF.",
+					"catalog": ["TEAM-012"],
+					"operations": ["teams.orgChart"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/teams/teams.test.mts",
+								"name": "AC:TARGET-TEAM-012 the org chart and its PDF use the same wrapped lines"
+							},
+							{
+								"file": "tests/integration/teams/teams.test.mts",
+								"name": "AC:TARGET-TEAM-012 a chart of 60 ministries fits every line inside the PDF pages and the SVG"
+							}
+						],
+						"cases": ["TARGET-TEAM-012"],
+						"browser": {
+							"kind": "behavior",
+							"state": "populated",
+							"steps": [
+								{
+									"click": {
+										"role": "radio",
+										"name": "Organization view"
+									}
+								}
+							],
+							"expect": [
+								{
+									"url": "/ministries?view=chart"
+								},
+								{
+									"role": "region",
+									"name": "Organization view"
+								},
+								{
+									"role": "button",
+									"name": "Download PDF"
+								},
+								{
+									"absent": {
+										"role": "region",
+										"name": "Current ministries"
+									}
+								}
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"id": "teams.ministry",
+			"says": "One ministry: its roles and who fills them, responsibilities, people, training, history, leader and team meetings.",
+			"routes": ["/ministries/[teamId]"],
+			"catalog": ["TEAM-001", "TEAM-004", "TEAM-005"],
+			"reach": [
+				{
+					"from": "teams.list",
+					"persona": "owner",
+					"path": [
+						{
+							"click": {
+								"role": "link",
+								"name": "Worship",
+								"match": "contains"
+							}
+						},
+						{
+							"expect": {
+								"url": "/ministries/{teamId}"
+							}
+						}
+					]
+				},
+				{
+					"link": "/ministries/{teamId}",
+					"fill": {
+						"teamId": "the id in a ministry row's link"
+					}
+				}
+			],
+			"personas": {
+				"owner": "write",
+				"admin": "write",
+				"member": "read"
+			},
+			"states": [
+				{
+					"id": "worship",
+					"reach": {
+						"persona": "owner",
+						"open": "/ministries",
+						"path": [
+							{
+								"click": {
+									"role": "link",
+									"name": "Worship",
+									"match": "contains"
+								}
+							},
+							{
+								"expect": {
+									"url": "/ministries/{teamId}"
+								}
+							}
+						],
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Worship"
+						},
+						{
+							"role": "tab",
+							"name": "Roles",
+							"match": "contains"
+						},
+						{
+							"role": "button",
+							"name": "Appoint leader"
+						},
+						{
+							"role": "button",
+							"name": "Add role"
+						}
+					]
+				},
+				{
+					"id": "not-found",
+					"file": "apps/web/src/app/(product)/(frame)/ministries/[teamId]/not-found.tsx",
+					"reach": {
+						"persona": "owner",
+						"open": "/ministries/00000000-0000-4000-8000-000000000000",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "This ministry is not here"
+						},
+						{
+							"role": "link",
+							"name": "Ministries"
+						}
+					]
+				},
+				{
+					"id": "error",
+					"file": "apps/web/src/app/(product)/(frame)/ministries/error.tsx",
+					"reach": {
+						"manual": "renders only when the page throws while rendering"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "We could not load ministries"
+						}
+					]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "add-role",
+					"says": "Add role, then New blank role, adds a role the ministry can fill.",
+					"catalog": ["TEAM-005"],
+					"operations": ["teams.createRole"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/teams/teams.test.mts",
+								"name": "AC:TARGET-TEAM-005 AC:TARGET-TEAM-006 AC:GAP-TEAM-014 AC:TARGET-TEAM-014 a role has one live person, and lists hide safety fields"
+							}
+						],
+						"cases": ["TARGET-TEAM-005"],
+						"browser": {
+							"kind": "behavior",
+							"state": "worship",
+							"steps": [
+								{
+									"click": {
+										"role": "button",
+										"name": "Add role"
+									}
+								},
+								{
+									"click": {
+										"role": "menuitem",
+										"name": "New blank role"
+									}
+								},
+								{
+									"type": "Map greeter",
+									"into": "Name"
+								},
+								{
+									"click": {
+										"role": "button",
+										"name": "Add role"
+									}
+								}
+							],
+							"expect": [
+								{
+									"role": "button",
+									"name": "Map greeter",
+									"match": "contains"
+								},
+								{
+									"absent": {
+										"role": "heading",
+										"name": "No roles yet"
+									}
+								}
+							]
+						}
+					}
+				},
+				{
+					"id": "appoint-leader",
+					"says": "Appoint leader names the ministry's leader from the church's people.",
+					"catalog": ["TEAM-004"],
+					"operations": ["teams.appointLeader"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/teams/ministry.test.mts",
+								"name": "AC:TARGET-TEAM-004 turning leadership on a role fills an empty leader from its occupant and never replaces one"
+							}
+						],
+						"cases": ["TARGET-TEAM-004"],
+						"browser": {
+							"kind": "presence",
+							"state": "worship",
+							"steps": [
+								{
+									"click": {
+										"role": "button",
+										"name": "Appoint leader"
+									}
+								}
+							],
+							"expect": [
+								{
+									"role": "dialog",
+									"name": "Appoint leader",
+									"match": "contains"
+								}
+							]
+						}
+					}
+				}
+			]
+		}
+	]
+}
