@@ -128,10 +128,53 @@ function fixture() {
 						started_at: t(1),
 						steps: [step("Set up job", 1, 2), step("Documentation checks", 2, 5)],
 					},
+					{
+						id: 23,
+						name: "tooling",
+						created_at: t(0),
+						started_at: t(3),
+						// The step names since T-285: the shared setup action and tooling's node_modules save are setup,
+						// 1 + 1 + 6 + 2 + 1 + 1 + 1 = 13 s. The wiki install between them stays run time.
+						steps: [
+							step("Set up job", 3, 4),
+							step("Run actions/checkout@v7", 4, 5),
+							step("Shared setup (Node, pnpm, node_modules)", 5, 11),
+							step("QA preview tool", 11, 31),
+							step("Wiki tool install", 31, 32),
+							step("Shared setup (save node_modules with the wiki tool's)", 32, 34),
+							step("Run actions/cache@v6", 34, 35),
+							step("Post Shared setup (Node, pnpm, node_modules)", 35, 36),
+							step("Complete job", 36, 37),
+						],
+					},
+					{
+						id: 24,
+						name: "ci",
+						created_at: t(0),
+						started_at: t(2),
+						// The Node-only shared setup is setup too.
+						steps: [
+							step("Set up job", 2, 3),
+							step("Shared setup (Node)", 3, 5),
+							step("Statement budgets over the union of the parts", 5, 9),
+						],
+					},
 				],
 			},
 		},
 		[`${R}/jobs/21/logs`]: { body: "Cache not found for input keys: x\npnpm cache is not found\n" },
+		// The shared setup's two restores print inside its step: Node and corepack hit, node_modules missed. The
+		// corepack line and the save after the wiki install are not cache restores.
+		[`${R}/jobs/23/logs`]: {
+			body: [
+				"2026-11-04T12:00:05Z Cache restored from key: node-corepack-Linux-X64-24.22.1-pnpm@10.34.6",
+				"2026-11-04T12:00:06Z pnpm@10.34.6 from the corepack cache, no registry request",
+				"2026-11-04T12:00:07Z Cache not found for input keys: pnpm-modules-Linux-X64-node24.22.1-pnpm@10.34.6-abc",
+				"2026-11-04T12:00:33Z Cache saved with key: pnpm-modules-Linux-X64-node24.22.1-pnpm@10.34.6-abc",
+				"2026-11-04T12:00:34Z Cache restored from key: playwright-Linux-def",
+			].join("\n"),
+		},
+		[`${R}/jobs/24/logs`]: { body: "2026-11-04T12:00:03Z Cache restored from key: node-Linux-X64-24.22.1\n" },
 		// Job 22 has no log route: HTTP 404.
 	};
 	writeFileSync(join(root, "routes.json"), JSON.stringify(routes));
@@ -169,13 +212,17 @@ test("INV-ci-timing: ci-timing splits queue, setup and run per job, counts cache
 					jobs: [
 						{ id: 21, name: "app", queueMs: 4000, setupMs: 4000, runMs: 10_000, cacheHits: 0, cacheMisses: 2 },
 						{ id: 22, name: "docs", queueMs: 1000, setupMs: 1000, runMs: 3000, cacheHits: null, cacheMisses: null },
+						{ id: 23, name: "tooling", queueMs: 3000, setupMs: 13_000, runMs: 21_000, cacheHits: 2, cacheMisses: 1 },
+						{ id: 24, name: "ci", queueMs: 2000, setupMs: 3000, runMs: 4000, cacheHits: 1, cacheMisses: 0 },
 					],
 				},
 			],
 			totals: [
 				{ name: "app", jobs: 2, queueMs: 6000, setupMs: 15_000, runMs: 60_000, cacheHits: 2, cacheMisses: 3 },
+				{ name: "tooling", jobs: 1, queueMs: 3000, setupMs: 13_000, runMs: 21_000, cacheHits: 2, cacheMisses: 1 },
 				// The missing run time and both missing logs are left out of the totals, never counted as 0.
 				{ name: "docs", jobs: 2, queueMs: 6000, setupMs: 3000, runMs: 3000, cacheHits: null, cacheMisses: null },
+				{ name: "ci", jobs: 1, queueMs: 2000, setupMs: 3000, runMs: 4000, cacheHits: 1, cacheMisses: 0 },
 			],
 		});
 	} finally {
@@ -207,7 +254,7 @@ test("INV-ci-timing: ci-timing sends only GET reads to GitHub", () => {
 	try {
 		assert.equal(f.run("--last", "2").status, 0);
 		const calls = f.calls();
-		assert.equal(calls.length, 7);
+		assert.equal(calls.length, 9);
 		for (const call of calls) {
 			assert.deepEqual(call.slice(0, 3), ["api", "--method", "GET"]);
 			// A job log read also allows the log's colour codes; nothing else is added.
