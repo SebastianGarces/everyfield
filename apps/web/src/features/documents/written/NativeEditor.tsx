@@ -430,9 +430,9 @@ export default function NativeEditor({
 							loading={busy}
 							disabled={!changed && phase.kind !== "failed"}
 							{...shortcutMark(SAVE_SHORTCUT)}
-							onClick={() => {
-								const typingIn = document.activeElement?.closest("input, textarea, [contenteditable=true]");
-								void save().then((ok) => ok && !typingIn && editor?.view.focus());
+							onClick={(event) => {
+								const fromButton = event.detail > 0 || document.activeElement === event.currentTarget;
+								void save().then((ok) => ok && fromButton && editor?.view.focus());
 							}}
 						>
 							Save
