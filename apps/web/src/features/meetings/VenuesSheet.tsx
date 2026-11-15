@@ -23,15 +23,9 @@ import { SaveButton, SaveNotice, useSaveIntent } from "../../components/save/par
 import { MONTHS } from "../shared/dates.ts";
 
 type History = Extract<Awaited<ReturnType<typeof getVenue>>, { status: "ok" }>["value"];
-/** `saved` is the place a save just answered with: the screen shows it at once and loads only its history. */
 type Screen =
 	{ kind: "list" } | { kind: "new" } | { kind: "venue"; id: string; saved?: Venue } | { kind: "edit"; venue: Venue };
 
-/**
- * Places (REQ-MTG-003, REQ-MTG-004): the church's saved venues. Archived places are hidden unless asked for, and stay
- * on the meetings that used them. A correction records a reason in the place's history. Members read; Owners and
- * Admins add, change, archive and restore.
- */
 export function VenuesSheet({
 	open,
 	onOpenChange,
@@ -89,7 +83,6 @@ function Places({ canWrite, onOpen, onAdd }: { canWrite: boolean; onOpen: (id: s
 	const [round, setRound] = useState(0);
 	const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
 	const [query, setQuery] = useState("");
-	// The answer for the current search; an answer for an older search is never shown.
 	const key = `${archived}:${query}:${round}`;
 	const [got, setGot] = useState<{ key: string; value: Outcome<{ items: Venue[]; total: number }> } | null>(null);
 	const result = got?.key === key ? got.value : null;
@@ -196,7 +189,6 @@ function Place({
 	const [got, setGot] = useState<Outcome<History> | null>(() =>
 		saved ? { status: "ok", value: { status: "available", venue: saved, history: [] } } : null,
 	);
-	// After a save the place shows from the save's answer; only its history is still on the way.
 	const [historyPending, setHistoryPending] = useState(saved !== undefined);
 	const [, startTransition] = useTransition();
 	const [active, setActive] = useOptimistic<boolean | null>(null);
@@ -250,7 +242,6 @@ function Place({
 	const venue = loaded.venue;
 	const isActive = active ?? venue.active;
 
-	/** Archive or restore at once on screen; the answer confirms it or puts it back with the reason. */
 	function toggle(to: "archive" | "restore", reason?: string) {
 		startTransition(async () => {
 			setActive(to === "restore");
@@ -373,7 +364,6 @@ const FIELD_NAME: Record<string, string> = {
 	active: "archived state",
 };
 const fieldName = (k: string) => FIELD_NAME[k] ?? k;
-/** "Oct 12, 2026" from an instant, by its UTC day, so the server and browser print the same words. */
 const dayText = (at: string) => {
 	const d = new Date(at);
 	return `${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}, ${d.getUTCFullYear()}`;
@@ -397,13 +387,10 @@ const draftOf = (venue: Venue | undefined): VenueDraft => ({
 	reason: "",
 });
 
-/** Add a place, or change one. A change with a reason is a correction and keeps the reason in the history. */
 function VenueForm({ venue: opened, onDone }: { venue?: Venue; onDone: (id: string | null, saved?: Venue) => void }) {
-	// The place being changed: as opened, or as read again after a save refused as out of date.
 	const [venue, setVenue] = useState(opened);
 	const [draft, setDraft] = useState<VenueDraft>(() => draftOf(opened));
 	const [touched, setTouched] = useState(false);
-	// The form stays open while it saves; its notice says why a save was refused or that it may already be saved.
 	const lane = useSaveIntent({ explain: problemText });
 	const pending = lane.saving;
 	const set = (k: keyof VenueDraft) => (e: { target: { value: string } }) =>
@@ -455,7 +442,6 @@ function VenueForm({ venue: opened, onDone }: { venue?: Venue; onDone: (id: stri
 			what: `The changes to ${venue.name}`,
 			send: (key) => changeVenue(op, key, venue.revision, input),
 			ok: (value) => onDone(venue.id, value.venue),
-			// Out of date: the form shows the place as it is now, as the refusal says, and saves against that revision.
 			refused: (code) =>
 				code === "conflict" &&
 				getVenue(venue.id).then(
