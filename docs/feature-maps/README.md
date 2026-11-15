@@ -91,7 +91,9 @@ behaves as the map says. It checks: every route belongs to one surface or the sh
 files import only their own feature; every `loading`, `error` and `not-found` file is a declared state; test
 names exist exactly; cases are `AC:` markers in those tests; operations are in the catalog, serve the behavior's
 catalog features and are quoted or declared in code; email links name a template that builds that path; rail
-reaches agree with `shellNav` both ways for every persona; personas are QA seed logins; and every name, label
+reaches agree with `shellNav` both ways for every persona; personas are QA seed logins whose name, context, role
+and residency link match what the seed creates; a behavior proof checks more than the address after it acts;
+and every name, label
 and text in a step equals (or, for `contains`, is part of) a string literal or JSX text, comments excluded, in the
 feature's folder, `packages/ui/src`, the shell (each with the modules it imports directly) or the QA seed, or was
 typed earlier in the same steps.
@@ -101,6 +103,11 @@ It cannot catch, and only running the browser steps catches:
 - a rename where the old text still exists elsewhere in that scope;
 - the wrong role for a name (a heading checked as a button);
 - whether a persona really has the access the map gives it, or a state's checks also pass on another screen;
-- whether the seed data the steps name is in the state the steps expect (each run needs a fresh seed).
+- whether the seed data the steps name is in the state the steps expect (each run needs a fresh seed);
+- a real test name that tests something other than the behavior it is listed under.
 
 A browser proof marked presence only shows that the control is there; the listed tests prove the outcome.
+
+The network-idle wait suits these pages, which go quiet after each action. On a page that keeps fetching (for
+example `/documents`, or import progress) it runs to its 25 s timeout and still succeeds, so it proves nothing there;
+a map for a polling page should wait on its next check instead (`wait --text`, `wait --url`).

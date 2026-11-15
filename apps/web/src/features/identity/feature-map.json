@@ -119,6 +119,10 @@
 							"expect": [
 								{
 									"url": "/overview"
+								},
+								{
+									"role": "link",
+									"name": "Overview"
 								}
 							],
 							"kind": "behavior"

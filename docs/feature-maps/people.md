@@ -97,6 +97,8 @@ Typing in Search people narrows the directory after a pause and keeps the term i
 ```bash
 agent-browser find label "Search people" fill "Maria"
 agent-browser wait --url "**/people?q=Maria"
+agent-browser find role link text --name "Maria Santos" --exact
+! agent-browser find role link text --name "James Okafor" --exact
 ```
 
 #### people.list#add-person
@@ -121,7 +123,7 @@ agent-browser find role heading text --name "Map Proof Person" --exact
 
 #### people.list#pipeline
 
-The Pipeline view groups people by stage, and a move keeps its place and its newest revision.
+The Pipeline view shows one column per stage; the tests prove a move keeps its place and newest revision.
 
 - Operations: people.getPipelineData, people.reorderPipeline
 - Catalog: PPL-007
@@ -134,6 +136,8 @@ The Pipeline view groups people by stage, and a move keeps its place and its new
 agent-browser find role radio click --name "Pipeline" --exact
 agent-browser wait --load networkidle
 agent-browser wait --url "**/people?view=pipeline"
+agent-browser find role region text --name "Prospect"
+agent-browser find role region text --name "Core group"
 ```
 
 #### people.list#export
@@ -306,7 +310,7 @@ agent-browser find role heading text --name "Possible duplicates" --exact
 agent-browser find role heading text --name "Nothing to review" --exact
 ```
 
-- **pairs**: heading containing "to review"; button containing "are not a duplicate". As `owner`, after the setup steps below, which create what no seed holds:
+- **pairs**: heading "Possible duplicates"; button containing "are not a duplicate". As `owner`, after the setup steps below, which create what no seed holds:
 
 ```bash
 agent-browser open "$ORIGIN/people/import"
@@ -320,7 +324,7 @@ agent-browser wait --load networkidle
 agent-browser wait --text "added"
 agent-browser open "$ORIGIN/people/duplicates"
 agent-browser wait --load networkidle
-agent-browser find role heading text --name "to review"
+agent-browser find role heading text --name "Possible duplicates" --exact
 agent-browser find role button text --name "are not a duplicate"
 ```
 

@@ -125,6 +125,16 @@
 							"expect": [
 								{
 									"url": "/people?q=Maria"
+								},
+								{
+									"role": "link",
+									"name": "Maria Santos"
+								},
+								{
+									"absent": {
+										"role": "link",
+										"name": "James Okafor"
+									}
 								}
 							],
 							"kind": "behavior"
@@ -176,7 +186,7 @@
 				},
 				{
 					"id": "pipeline",
-					"says": "The Pipeline view groups people by stage, and a move keeps its place and its newest revision.",
+					"says": "The Pipeline view shows one column per stage; the tests prove a move keeps its place and newest revision.",
 					"catalog": ["PPL-007"],
 					"operations": ["people.getPipelineData", "people.reorderPipeline"],
 					"proof": {
@@ -204,6 +214,16 @@
 							"expect": [
 								{
 									"url": "/people?view=pipeline"
+								},
+								{
+									"role": "region",
+									"name": "Prospect",
+									"match": "contains"
+								},
+								{
+									"role": "region",
+									"name": "Core group",
+									"match": "contains"
 								}
 							],
 							"kind": "behavior"
@@ -610,8 +630,7 @@
 					"expect": [
 						{
 							"role": "heading",
-							"name": "to review",
-							"match": "contains"
+							"name": "Possible duplicates"
 						},
 						{
 							"role": "button",

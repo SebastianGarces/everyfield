@@ -114,6 +114,7 @@ agent-browser find label "Password" fill "<QA_PASSWORD>"
 agent-browser find role button click --name "Sign in" --exact
 agent-browser wait --load networkidle
 agent-browser wait --url "**/overview"
+agent-browser find role link text --name "Overview" --exact
 ```
 
 #### identity.signin#safe-return

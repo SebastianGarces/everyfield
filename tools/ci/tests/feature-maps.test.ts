@@ -19,8 +19,8 @@ const thingsMap = () => ({
 			id: "things.list",
 			says: "Every thing of the church.",
 			routes: ["/things"],
-			reach: [{ rail: "Things", personas: ["owner"] } as Record<string, unknown>],
-			personas: { owner: "write", visitor: "none" } as Record<string, string>,
+			reach: [{ rail: "Things", personas: ["owner", "admin"] } as Record<string, unknown>],
+			personas: { owner: "write", admin: "read", visitor: "none" } as Record<string, string>,
 			states: [
 				{
 					id: "populated",
@@ -106,10 +106,24 @@ function fixture(): string {
 	put("packages/core/src/other.ts", 'export const MORE = ["other.make"];\n');
 	put("docs/catalog/requirements/things.json", { requirements: [{ id: "REQ-THG-001", text: "Things open." }] });
 	put("docs/acceptance/things.json", { cases: [{ id: "CASE-THING-1" }, { id: "CASE-THING-2" }] });
-	put("tools/qa/qa-guard.ts", 'export const QA_LOGINS = {\n\towner: "delivered+qa-owner@resend.dev",\n} as const;\n');
-	put("tools/qa/qa-seed.ts", 'const PLACES = ["The Gym"];\n');
+	put(
+		"tools/qa/qa-guard.ts",
+		'export const QA_LOGINS = {\n\towner: "delivered+qa-owner@resend.dev",\n\tadmin: "delivered+qa-admin@resend.dev",\n} as const;\n',
+	);
+	put(
+		"tools/qa/qa-seed.ts",
+		[
+			'const PLACES = ["The Gym"];',
+			'const owner = await account("Olive Owner", QA_LOGINS.owner);',
+			'const helper = await account("Ada Admin", QA_LOGINS.admin);',
+			'const plantId = await church(CHURCH, "Austin", owner, QA_LOGINS.owner, "");',
+			'for (const [accountId, role, name] of [[helper, "admin", "Ada Admin"]]) {}',
+			"",
+		].join("\n"),
+	);
 	put("tools/qa/personas.json", {
-		owner: { says: "An Owner", context: "plant", role: "owner", seed: "qa" },
+		owner: { says: "Olive Owner, the Owner", context: "plant", role: "owner", seed: "qa" },
+		admin: { says: "Ada Admin, an Admin", context: "plant", role: "admin", seed: "qa" },
 		visitor: { says: "Nobody", context: "signed-out" },
 	});
 	put("tests/integration/things.test.mts", `test(${JSON.stringify(TEST_NAME)}, () => {});\n`);
@@ -324,7 +338,7 @@ test("INV-feature-maps: a rail reach the rail does not offer fails, also for a s
 	const root = fixture();
 	editMap(root, (map) => {
 		surface(map).personas.visitor = "read";
-		surface(map).reach = [{ rail: "Things", personas: ["owner", "visitor"] }];
+		surface(map).reach = [{ rail: "Things", personas: ["owner", "admin", "visitor"] }];
 	});
 	assert.deepEqual(await problems(root), [
 		at('things.list reach 1: the rail offers "visitor" no "Things" (apps/web/src/features/shell/nav.ts)'),
@@ -335,7 +349,7 @@ test("INV-feature-maps: a rail item a persona has fails when the surface gives t
 	const root = fixture();
 	editMap(root, (map) => {
 		surface(map).personas.owner = "none";
-		surface(map).reach = [{ link: "/things" }];
+		surface(map).reach = [{ rail: "Things", personas: ["admin"] }];
 		surface(map).states[0]!.reach = { persona: "visitor", open: "/things", seed: "qa" };
 	});
 	assert.deepEqual(await problems(root), [
@@ -360,4 +374,39 @@ test("INV-feature-maps: off CI with no base, growth is not compared", async () =
 	const root = fixture();
 	writeFileSync(join(root, "apps/web/feature-maps.pending.json"), JSON.stringify({ routes: ["/later"] }));
 	assert.deepEqual(await problems(root, NO_BASE), []);
+});
+
+test("INV-feature-maps: a persona whose context, role or name differs from the QA seed fails", async () => {
+	const root = fixture();
+	const file = join(root, "tools/qa/personas.json");
+	const personas = JSON.parse(readFileSync(file, "utf8")) as Record<string, Record<string, unknown>>;
+	personas.admin!.role = "member";
+	personas.owner!.says = "Somebody Else, the Owner";
+	writeFileSync(file, JSON.stringify(personas));
+	assert.deepEqual(writeDocs(root), []);
+	assert.deepEqual(await problems(root), [
+		'tools/qa/personas.json: persona "owner": says "Somebody Else, the Owner", but the QA seed names QA_LOGINS.owner "Olive Owner"',
+		'tools/qa/personas.json: persona "admin": is plant member here, but the QA seed makes QA_LOGINS.admin plant admin',
+	]);
+});
+
+test("INV-feature-maps: a behavior proof whose only check after acting is the address fails", async () => {
+	const root = fixture();
+	editMap(root, (map) => {
+		behavior(map).proof.browser.expect = [{ url: "/things?open=1" }];
+	});
+	assert.deepEqual(await problems(root), [
+		at("things.list#open: a behavior proof checks something besides the address after it acts"),
+	]);
+});
+
+test("INV-feature-maps: an absent observable names something that must not be on the page", async () => {
+	const root = fixture();
+	editMap(root, (map) => {
+		behavior(map).proof.browser.expect = [{ absent: { role: "button", name: "Shut thing" } }];
+	});
+	const scope = "apps/web/src/features/things (and what it imports), packages/ui/src, the shell or tools/qa/qa-seed.ts";
+	assert.deepEqual(await problems(root), [
+		at(`things.list#open: no string literal or JSX text in ${scope} equals "Shut thing"`),
+	]);
 });

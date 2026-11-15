@@ -23,7 +23,8 @@ type Schema = { [key: string]: Json };
 
 type Match = "exact" | "contains";
 type Target = { role: string; name: string; match?: Match } | { text: string; match?: Match };
-type Observable = Target | { noText: string } | { url: string };
+type RoleTarget = { role: string; name: string; match?: Match };
+type Observable = Target | { noText: string } | { url: string } | { absent: RoleTarget };
 type Step =
 	{ open: string } | { click: Target } | { type: string; into: string } | { press: string } | { upload: string };
 type Reach =
@@ -265,6 +266,37 @@ function withImports(root: string, dir: string): string[] {
 	return [...new Set([...files, ...imported])];
 }
 
+type SeedPersona = Omit<Persona, "says" | "seed"> & { name: string };
+const describePersona = (p: Omit<Persona, "says" | "seed">) =>
+	`${p.context}${p.role ? ` ${p.role}` : ""}${p.residencyLinked ? " with a residency link" : ""}`;
+
+export function personasFromSeed(source: string): Map<string, SeedPersona> {
+	const names = new Map<string, string>();
+	for (const m of source.matchAll(/account\("([^"]+)",\s*QA_LOGINS\.(\w+)/g)) names.set(m[2]!, m[1]!);
+	for (const m of source.matchAll(/name:\s*"([^"]+)",\s*login:\s*QA_LOGINS\.(\w+)/g)) names.set(m[2]!, m[1]!);
+	for (const m of source.matchAll(/login:\s*QA_LOGINS\.(\w+),\s*person:\s*"([^"]+)"/g)) names.set(m[1]!, m[2]!);
+	const byName = new Map([...names].map(([login, name]) => [name, login] as const));
+	const out = new Map<string, SeedPersona>();
+	for (const [login, name] of names) out.set(login, { name, context: "account" });
+	const organization = /login:\s*QA_LOGINS\.(\w+),(?:\s*person:\s*"[^"]+",)?\s*role:\s*"(?:owner|admin|member)"/g;
+	for (const m of source.matchAll(organization))
+		out.set(m[1]!, { name: names.get(m[1]!) ?? m[1]!, context: "organization" });
+	for (const m of source.matchAll(/QA_LOGINS\.(\w+)\s*\}\s*as const/g))
+		if (/RESIDENT\s*=\s*\{[^}]*$/.test(source.slice(0, m.index! + m[0].indexOf("}"))))
+			out.set(m[1]!, { name: names.get(m[1]!) ?? m[1]!, context: "account", residencyLinked: true });
+	for (const m of source.matchAll(/account\((\w+)\.name,\s*\1\.login,\s*\{\s*kind:\s*"sending_/g)) {
+		const login = new RegExp(`const ${m[1]} = \\{[^}]*login: QA_LOGINS\\.(\\w+)`).exec(source)?.[1];
+		if (login) out.set(login, { name: names.get(login) ?? login, context: "organization" });
+	}
+	for (const m of source.matchAll(/church\([^)]*QA_LOGINS\.(\w+)/g))
+		out.set(m[1]!, { name: names.get(m[1]!) ?? m[1]!, context: "plant", role: "owner" });
+	for (const m of source.matchAll(/\[\w+,\s*"(owner|admin|member)",\s*"([^"]+)"/g)) {
+		const login = byName.get(m[2]!);
+		if (login) out.set(login, { name: m[2]!, context: "plant", role: m[1] as "owner" | "admin" | "member" });
+	}
+	return out;
+}
+
 export function qaLogins(root: string): Set<string> {
 	const block = /export const QA_LOGINS = \{([^}]*)\}/.exec(readFileSync(join(root, LOGINS_FILE), "utf8"))?.[1] ?? "";
 	return new Set([...block.matchAll(/^\s*([A-Za-z0-9]+):/gm)].map((m) => m[1]!));
@@ -326,7 +358,13 @@ function named(observables: Observable[], steps: Step[]): Named[] {
 			: { value: t.text, match: t.match ?? "exact" };
 	return [
 		...observables.flatMap((o) =>
-			"noText" in o ? [{ value: o.noText, match: "exact" as const }] : "url" in o ? [] : [fromTarget(o)],
+			"noText" in o
+				? [{ value: o.noText, match: "exact" as const }]
+				: "url" in o
+					? []
+					: "absent" in o
+						? [fromTarget(o.absent)]
+						: [fromTarget(o)],
 		),
 		...steps.flatMap((s): Named[] =>
 			"click" in s
@@ -385,6 +423,7 @@ export async function checkFeatureMaps(root: string, options: CheckOptions): Pro
 	const pending = ((pendingJson as { routes?: string[] }).routes ?? []).slice();
 
 	const logins = qaLogins(root);
+	const seedPersonas = personasFromSeed(readFileSync(join(root, SEED_FILE), "utf8"));
 	for (const [id, persona] of Object.entries(personas)) {
 		const at = `${PERSONAS_FILE}: persona "${id}"`;
 		if (persona.context === "plant" && !persona.role) problems.push(`${at}: a plant persona needs a role`);
@@ -393,6 +432,17 @@ export async function checkFeatureMaps(root: string, options: CheckOptions): Pro
 			if (persona.seed) problems.push(`${at}: a signed-out persona has no seed`);
 		} else if (persona.seed !== "qa") problems.push(`${at}: needs "seed": "qa", the seed that creates it`);
 		else if (!logins.has(id)) problems.push(`${at}: is no QA_LOGINS key in ${LOGINS_FILE}, so nothing signs it in`);
+		else {
+			const seeded = seedPersonas.get(id);
+			if (!seeded) problems.push(`${at}: ${SEED_FILE} does not say who QA_LOGINS.${id} is`);
+			else {
+				if (!persona.says.startsWith(seeded.name))
+					problems.push(`${at}: says "${persona.says}", but the QA seed names QA_LOGINS.${id} "${seeded.name}"`);
+				const mine = describePersona(persona);
+				const theirs = describePersona(seeded);
+				if (mine !== theirs) problems.push(`${at}: is ${mine} here, but the QA seed makes QA_LOGINS.${id} ${theirs}`);
+			}
+		}
 	}
 
 	const routes = appRoutes(root);
@@ -648,8 +698,17 @@ export async function checkFeatureMaps(root: string, options: CheckOptions): Pro
 					if (!state) problems.push(at(`${where}: browser proof starts in unknown state "${browser.state}"`));
 					else if ("manual" in state.reach)
 						problems.push(at(`${where}: browser proof starts in state "${browser.state}", which no script reaches`));
-					if (browser.kind === "behavior" && !browser.steps.some((st) => !("open" in st) && !("expect" in st)))
+					const acts = browser.steps.findIndex((st) => !("open" in st) && !("expect" in st));
+					if (browser.kind === "behavior" && acts < 0)
 						problems.push(at(`${where}: a behavior proof acts (click, type, press or upload) before it observes`));
+					const after = [
+						...browser.steps
+							.slice(acts + 1)
+							.flatMap((st) => ("expect" in st ? [(st as { expect: Observable }).expect] : [])),
+						...browser.expect,
+					];
+					if (browser.kind === "behavior" && acts >= 0 && after.every((o) => "url" in o))
+						problems.push(at(`${where}: a behavior proof checks something besides the address after it acts`));
 					const before =
 						state && "persona" in state.reach
 							? [...("setup" in state.reach ? state.reach.setup : []), ...(state.reach.path ?? [])]
@@ -722,6 +781,8 @@ function command(step: Step | Observable): string {
 	if ("press" in step) return `agent-browser press ${step.press}`;
 	if ("upload" in step) return `agent-browser upload "input[type=file]" ${q("$REPO/" + step.upload)}`;
 	if ("expect" in step) return command((step as { expect: Observable }).expect);
+	if ("absent" in step)
+		return `! agent-browser find role ${step.absent.role} text --name ${q(step.absent.name)}${exact(step.absent)}`;
 	if ("noText" in step) return `agent-browser wait --fn ${q(`!document.body.innerText.includes(${q(step.noText)})`)}`;
 	if ("url" in step) return `agent-browser wait --url ${q("**" + step.url.replace(/\{[A-Za-z]+\}/g, "*"))}`;
 	if ("role" in step) return `agent-browser find role ${step.role} text --name ${q(step.name)}${exact(step)}`;
@@ -742,8 +803,14 @@ const describeTarget = (t: Target) => {
 	const how = (t.match ?? "exact") === "contains" ? "containing " : "";
 	return "role" in t ? `${t.role} ${how}"${t.name}"` : `text ${how}"${t.text}"`;
 };
-const describeObservable = (o: Observable) =>
-	"noText" in o ? `no text "${o.noText}"` : "url" in o ? `URL \`${o.url}\`` : describeTarget(o);
+const describeObservable = (o: Observable): string =>
+	"noText" in o
+		? `no text "${o.noText}"`
+		: "url" in o
+			? `URL \`${o.url}\``
+			: "absent" in o
+				? `no ${describeTarget(o.absent)}`
+				: describeTarget(o);
 
 function stateLines(state: State): string[] {
 	const file = state.file ? ` (\`${state.file.slice(state.file.lastIndexOf("/") + 1)}\`)` : "";
@@ -951,7 +1018,9 @@ function overviewDoc(maps: LoadedMap[], personas: Record<string, Persona>, pendi
 		"files import only their own feature; every `loading`, `error` and `not-found` file is a declared state; test",
 		"names exist exactly; cases are `AC:` markers in those tests; operations are in the catalog, serve the behavior's",
 		"catalog features and are quoted or declared in code; email links name a template that builds that path; rail",
-		"reaches agree with `shellNav` both ways for every persona; personas are QA seed logins; and every name, label",
+		"reaches agree with `shellNav` both ways for every persona; personas are QA seed logins whose name, context, role",
+		"and residency link match what the seed creates; a behavior proof checks more than the address after it acts;",
+		"and every name, label",
 		"and text in a step equals (or, for `contains`, is part of) a string literal or JSX text, comments excluded, in the",
 		"feature's folder, `packages/ui/src`, the shell (each with the modules it imports directly) or the QA seed, or was",
 		"typed earlier in the same steps.",
@@ -961,9 +1030,14 @@ function overviewDoc(maps: LoadedMap[], personas: Record<string, Persona>, pendi
 		"- a rename where the old text still exists elsewhere in that scope;",
 		"- the wrong role for a name (a heading checked as a button);",
 		"- whether a persona really has the access the map gives it, or a state's checks also pass on another screen;",
-		"- whether the seed data the steps name is in the state the steps expect (each run needs a fresh seed).",
+		"- whether the seed data the steps name is in the state the steps expect (each run needs a fresh seed);",
+		"- a real test name that tests something other than the behavior it is listed under.",
 		"",
 		"A browser proof marked presence only shows that the control is there; the listed tests prove the outcome.",
+		"",
+		"The network-idle wait suits these pages, which go quiet after each action. On a page that keeps fetching (for",
+		"example `/documents`, or import progress) it runs to its 25 s timeout and still succeeds, so it proves nothing there;",
+		"a map for a polling page should wait on its next check instead (`wait --text`, `wait --url`).",
 		"",
 	].join("\n");
 }

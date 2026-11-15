@@ -133,17 +133,23 @@
 								{
 									"click": {
 										"role": "radio",
-										"name": "Past"
+										"name": "Orientation"
 									}
 								}
 							],
 							"expect": [
 								{
-									"url": "/meetings?when=past"
+									"url": "/meetings?type=orientation"
 								},
 								{
-									"role": "radio",
-									"name": "Past"
+									"role": "link",
+									"name": "QA orientation"
+								},
+								{
+									"absent": {
+										"role": "link",
+										"name": "QA vision meeting"
+									}
 								}
 							],
 							"kind": "behavior"

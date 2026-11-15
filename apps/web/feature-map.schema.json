@@ -486,6 +486,30 @@
 							"pattern": "^/"
 						}
 					}
+				},
+				{
+					"type": "object",
+					"additionalProperties": false,
+					"required": ["absent"],
+					"properties": {
+						"absent": {
+							"type": "object",
+							"additionalProperties": false,
+							"required": ["role", "name"],
+							"properties": {
+								"role": {
+									"type": "string",
+									"pattern": "^[a-z]+$"
+								},
+								"name": {
+									"$ref": "#/$defs/text"
+								},
+								"match": {
+									"$ref": "#/$defs/match"
+								}
+							}
+						}
+					}
 				}
 			]
 		},

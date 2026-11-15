@@ -97,10 +97,11 @@ The When, Type and Status filters narrow the list and live in the address.
 - Browser, behavior proof (acts and checks the result), from state populated:
 
 ```bash
-agent-browser find role radio click --name "Past" --exact
+agent-browser find role radio click --name "Orientation" --exact
 agent-browser wait --load networkidle
-agent-browser wait --url "**/meetings?when=past"
-agent-browser find role radio text --name "Past" --exact
+agent-browser wait --url "**/meetings?type=orientation"
+agent-browser find role link text --name "QA orientation" --exact
+! agent-browser find role link text --name "QA vision meeting" --exact
 ```
 
 #### meetings.list#plan
