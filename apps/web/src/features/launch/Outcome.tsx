@@ -20,9 +20,9 @@ import {
 	Textarea,
 	useToast,
 } from "@everyfield/ui/controls";
-import { Icon } from "@everyfield/ui/foundations";
+import { createDebouncer, Icon } from "@everyfield/ui/foundations";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { addGuest, correctOutcome, recordOutcome, suggestGuests } from "./actions.ts";
 import {
 	countText,
@@ -266,6 +266,8 @@ function OutcomeDialog({
 	);
 }
 
+const GUEST_SEARCH_PAUSE_MS = 200;
+
 /**
  * The guests a planter names (LCH-007). Typing shows People of the church with a matching name; picking one links that
  * Person. "Add as a new person" creates a Person with only the typed name. A name alone never links anyone.
@@ -275,18 +277,24 @@ function Guests({ plan, keys, onPlan }: { plan: Plan; keys: Keys; onPlan: (p: Pl
 	const [name, setName] = useState("");
 	const [matches, setMatches] = useState<GuestMatch[]>([]);
 	const [busy, setBusy] = useState(false);
+	const [{ run: afterPause, cancel: cancelSearch, cancelOnDetach }] = useState(() =>
+		createDebouncer(GUEST_SEARCH_PAUSE_MS),
+	);
 	const asked = useRef(0);
 	const typed = name.trim();
 
-	useEffect(() => {
-		if (typed.length < 2) return;
+	const type = (value: string) => {
+		setName(value);
+		const next = value.trim();
+		if (next === typed) return;
+		cancelSearch();
+		if (next.length < 2) return;
 		const ask = ++asked.current;
-		const timer = setTimeout(async () => {
-			const r = await sent(() => suggestGuests(typed));
+		afterPause(async () => {
+			const r = await sent(() => suggestGuests(next));
 			if (ask === asked.current && r.status === "ok") setMatches(r.value);
-		}, 200);
-		return () => clearTimeout(timer);
-	}, [typed]);
+		});
+	};
 
 	async function add(input: { personId: string } | { displayName: string }) {
 		const intent = ["guest", input] as const;
@@ -295,6 +303,7 @@ function Guests({ plan, keys, onPlan }: { plan: Plan; keys: Keys; onPlan: (p: Pl
 		setBusy(false);
 		if (r.status !== "lost") keys.settle(intent);
 		if (r.status === "ok") {
+			cancelSearch();
 			setName("");
 			setMatches([]);
 			if (r.value.outcome === "noop") toast({ message: "Already named as a Launch Sunday guest.", tone: "info" });
@@ -327,7 +336,8 @@ function Guests({ plan, keys, onPlan }: { plan: Plan; keys: Keys; onPlan: (p: Pl
 						maxLength={GUEST_NAME_MAX}
 						autoComplete="off"
 						placeholder="First name is enough"
-						onChange={(e) => setName(e.target.value)}
+						ref={cancelOnDetach}
+						onChange={(e) => type(e.target.value)}
 					/>
 				</Field>
 				<Button type="submit" variant="secondary" className="mt-[26px] max-app-sm:mt-0" disabled={!typed || busy}>
