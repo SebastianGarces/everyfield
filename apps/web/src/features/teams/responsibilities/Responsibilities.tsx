@@ -154,11 +154,7 @@ export function ResponsibilitiesPanel({
 	const rows = items === null ? null : shown;
 
 	const edit = (change: (current: Page) => Page) =>
-		pages.patch(
-			(result) => (result.status === "ok" ? { ...result, value: change(result.value) } : result),
-			teamId,
-			shownPage,
-		);
+		list.patch((result) => (result.status === "ok" ? { ...result, value: change(result.value) } : result));
 
 	const reload = () => {
 		const target = page;
@@ -216,14 +212,16 @@ export function ResponsibilitiesPanel({
 						startTransition(() =>
 							edit((current) => ({
 								...current,
-								items: current.items.concat({
-									id: result.id,
-									revision: result.revision,
-									sourceLine: result.sourceLine,
-									text: result.text,
-									sortOrder: row.sortOrder,
-									completedOn: null,
-								}),
+								items: current.items.some((item) => item.id === result.id)
+									? current.items
+									: current.items.concat({
+											id: result.id,
+											revision: result.revision,
+											sourceLine: result.sourceLine,
+											text: result.text,
+											sortOrder: row.sortOrder,
+											completedOn: null,
+										}),
 							})),
 						);
 						toast({ tone: "success", message: "Responsibility added." });
