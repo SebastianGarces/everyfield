@@ -38,19 +38,25 @@ import {
 	Textarea,
 } from "@everyfield/ui/controls";
 import { Avatar, StageChip } from "@everyfield/ui/display";
-import { cn, Icon, type IconSvgElement } from "@everyfield/ui/foundations";
+import { cn, focusOnMount, Icon, useFocusRequest, type IconSvgElement } from "@everyfield/ui/foundations";
 import { useRouter } from "next/navigation";
-import { useEffect, useId, useLayoutEffect, useRef, useState, type FormEvent, type ReactNode, type Ref } from "react";
+import {
+	useCallback,
+	useId,
+	useRef,
+	useState,
+	useSyncExternalStore,
+	type FormEvent,
+	type ReactNode,
+	type Ref,
+} from "react";
 import { STAGE_KEY, type StageValue } from "../../people/model.ts";
-import type { Reply } from "../conversation/api.ts";
 import * as api from "./api.ts";
 import { MAIL_CONSEQUENCE, MailChanges, MailResult } from "./MailChanges.tsx";
 import { NoticeChanges } from "./NoticeChanges.tsx";
 import { CurrentState, ImportResult, ImportRows, PeopleResult, ReviewedPeople } from "./PeopleChanges.tsx";
 import {
-	actionNotice,
 	addsOnly,
-	approvalLeft,
 	asksReason,
 	approvable,
 	CHOICES,
@@ -78,9 +84,7 @@ import {
 	peopleResult,
 	phaseOf,
 	photoRef,
-	pollDelay,
 	refusalText,
-	isPhoto,
 	isLaunch,
 	isPipeline,
 	isSettings,
@@ -91,7 +95,6 @@ import {
 	settingsRefusalText,
 	retryable,
 	reviseInput,
-	seatsAccount,
 	SHARE_CHOICES,
 	shownChanges,
 	valueText,
@@ -100,16 +103,14 @@ import {
 	type Review,
 } from "./model.ts";
 import { NativeImage } from "@/components/native";
+import { useLocalStore } from "@/components/store";
+import { createReviewStore, lapsedOf, uploadOf, type Action, type Notice } from "./ReviewCard.store.ts";
 
 // The Evry review card (WP-053/ui; design/everyfield-ui.html, Evry panel review cards): exactly what a prepared change
 // will do, before and after, and who it affects. The owner approves the exact revision, revises a value or cancels.
 // An approved change runs once in the background; the card follows it to its saved outcome and says plainly when it
 // was refused, expired or closed. Nothing changes in People until the owner approves.
 
-type Action = "approve" | "revise" | "cancel" | "retry" | "recheck";
-/** An action whose result is not known: no reply, and no read after it. It may have been saved. */
-type Unknown = { action: Action; revision: number };
-type Notice = { text: string; tone: "error" | "neutral" };
 /**
  * What the card shows: the review's phase, or why there is no review to show. photo_unavailable is a pending set-photo
  * review whose upload is gone: it stays on screen, but can't be approved. unknown is a review whose last action got no
@@ -117,259 +118,37 @@ type Notice = { text: string; tone: "error" | "neutral" };
  */
 type View = Phase | "loading" | "lost" | "unavailable" | "photo_unavailable" | "unknown";
 
-/**
- * `seed` is the review the conversation's open read brought (null: unavailable to this person). A card with one shows it
- * at once and sends no read; a card without one, such as a review from a live turn, reads its review on mount.
- */
-function useReview(proposalId: string, seed: Review | null | undefined, onSeen: (proposalId: string) => void) {
-	const [seeded] = useState(seed !== undefined);
-	const [review, setReview] = useState<Review | null>(seed ?? null);
-	const [load, setLoad] = useState<"loading" | "ready" | "lost" | "unavailable">(
-		seed === undefined ? "loading" : seed ? "ready" : "unavailable",
-	);
-	const [busy, setBusy] = useState<Action | "check" | null>(null);
-	const [notice, setNotice] = useState<Notice | null>(null);
-	/** The server's last refusal of an action, for the revision it refused. */
-	const [refused, setRefused] = useState<{ code: string; revision: number } | null>(null);
-	/** The action with no known result. While it lasts, nothing else on the card can be sent. */
-	const [unknown, setUnknown] = useState<Unknown | null>(null);
-	/** What Check again needs to settle the unknown action: the review it started from and what success looks like. */
-	const open = useRef<{
-		before: Review;
-		done: (now: Review, before: Review) => boolean;
-		settled: (now: Review) => Notice | null;
-	} | null>(null);
-	// Every action takes a new generation; a read that started before it is dropped when it answers late.
-	const generation = useRef(0);
-	const inFlight = useRef(false);
-	const show = (next: Review) => {
-		setReview(next);
-		setLoad("ready");
-	};
-	/** The review refused to load: access ended or changed. Its content is not shown again. */
-	const gone = () => {
-		setLoad("unavailable");
-		setNotice(null);
-	};
-	const read = async () => {
-		const g = generation.current;
-		const reply = await api.readReview(proposalId);
-		if (g !== generation.current) return null;
-		if (reply.status === "ok") show(reply.value);
-		else if (reply.status === "refused") gone();
-		return reply;
-	};
+const shownSeeds = new WeakSet<Review>();
+const shownUnavailable = new Set<string>();
 
-	useEffect(() => {
-		if (seeded) return onSeen(proposalId);
-		let live = true;
-		void api.readReview(proposalId).then((reply) => {
-			if (!live) return;
-			if (reply.status === "ok") show(reply.value);
-			else setLoad(reply.status === "refused" ? "unavailable" : "lost");
-		});
-		return () => {
-			live = false;
-		};
-	}, [proposalId, seeded, onSeen]);
-
-	/** The review whose approval ran out on the card's timer. A newer review from the server starts its own count. */
-	const [ranOut, setRanOut] = useState<Review | null>(null);
-	const lapsed = !!review && (approvalLeft(review) <= 0 || ranOut === review);
-	const view: Exclude<View, "photo_unavailable" | "unknown"> =
-		load === "ready" && review ? phaseOf(review, lapsed) : load === "ready" ? "loading" : load;
-
-	// The expiry is the server's: one timer waits the time the server said was left, with no request. The browser's
-	// clock is never read, so a clock set hours ahead or behind changes nothing (R5-5).
-	useEffect(() => {
-		if (!review) return;
-		const left = approvalLeft(review);
-		if (left <= 0) return;
-		const t = setTimeout(() => setRanOut(review), Math.min(left + 50, 2 ** 31 - 1));
-		return () => clearTimeout(t);
-	}, [review]);
-
-	// A running change is read again, quickly at first, until its outcome is saved. A refusal means access ended.
-	useEffect(() => {
-		if (view !== "running" || busy) return;
-		let attempt = 0;
-		let live = true;
-		let t: ReturnType<typeof setTimeout>;
-		const next = () => {
-			t = setTimeout(async () => {
-				const reply = await read();
-				if (live && reply?.status !== "refused") next();
-			}, pollDelay(attempt++));
-		};
-		next();
-		return () => {
-			live = false;
-			clearTimeout(t);
-		};
-		// eslint-disable-next-line react-hooks/exhaustive-deps -- one poll loop while this revision runs
-	}, [view, busy]);
-
-	/**
-	 * Runs one action at a time. A reply that arrives is final. After a refusal or a lost reply the review is read once
-	 * to show what is true now, and `done` says whether that is what the action wanted: an approval that committed but
-	 * whose reply was lost shows as approved, never as "not approved".
-	 */
-	async function act<T>(
-		action: Action,
-		send: (review: Review) => Promise<Reply<T>>,
-		result: (value: T) => Review,
-		done: (now: Review, before: Review) => boolean,
-		settled: (now: Review) => Notice | null = () => null,
-	) {
-		// A ref, not state: three clicks in one frame all see the same render, and only the first may send.
-		if (inFlight.current || !review) return false;
-		inFlight.current = true;
-		const before = review;
-		setBusy(action);
-		setNotice(null);
-		const g = ++generation.current;
-		const reply = await send(before);
-		let current: Review | null = reply.status === "ok" ? result(reply.value) : null;
-		let refused = false;
-		if (reply.status !== "ok") {
-			const reread = await api.readReview(before.id);
-			if (reread.status === "ok") current = reread.value;
-			refused = reread.status === "refused";
-		}
-		inFlight.current = false;
-		if (g !== generation.current) return false;
-		setBusy(null);
-		setRefused(reply.status === "refused" ? { code: reply.error.code, revision: before.revision } : null);
-		// No reply and no read: the action may have been saved. Check again settles it; nothing else can be sent.
-		const lost = reply.status === "lost" && !current && !refused;
-		setUnknown(lost ? { action, revision: before.revision } : null);
-		open.current = lost ? { before, done, settled } : null;
-		if (lost) return false;
-		if (refused) {
-			gone();
-			return false;
-		}
-		if (current) show(current);
-		if (current && (reply.status === "ok" || done(current, before))) {
-			setNotice(settled(current));
-			return true;
-		}
-		// An expired or closed review says so in its own state; only a changed review or an unknown result needs words.
-		const code = reply.status === "refused" ? reply.error.code : null;
-		if (current && (code === "review_expired" || code === "review_closed" || code === "photo_unavailable"))
-			return false;
-		setNotice({
-			text: actionNotice(reply.status === "refused" ? reply.error : "lost", isMail(before.operation)),
-			tone: "error",
-		});
-		return false;
-	}
-
-	// The reason typed on a card that asks for one, kept only for a Check again after a lost reply.
-	const typed = useRef<string | undefined>(undefined);
-	const approve = (reason = typed.current) => {
-		typed.current = reason;
-		return act(
-			"approve",
-			// The witness is the request key: the same revision and digest, sent once more after a lost reply.
-			(r) => api.approve(r, reason),
-			(v) => v.proposal,
-			(now, before) => now.revision === before.revision && now.status === "approved",
-		);
-	};
-
-	/**
-	 * Check again after an unknown result. An approval sends the same request and key again, which the server
-	 * replays. Other actions read the review: the server's answer says whether the action was saved.
-	 */
-	async function check() {
-		const u = open.current;
-		if (!u || !unknown || inFlight.current) return;
-		if (unknown.action === "approve") return void (await approve());
-		inFlight.current = true;
-		setBusy("check");
-		setNotice(null);
-		const g = ++generation.current;
-		const reread = await api.readReview(u.before.id);
-		inFlight.current = false;
-		if (g !== generation.current) return;
-		setBusy(null);
-		if (reread.status === "lost")
-			return setNotice({ text: "Still no answer. Check your connection, then check again.", tone: "neutral" });
-		setUnknown(null);
-		open.current = null;
-		if (reread.status === "refused") return gone();
-		show(reread.value);
-		setNotice(
-			u.done(reread.value, u.before) ? u.settled(reread.value) : { text: NOT_DONE[unknown.action], tone: "error" },
-		);
-	}
-
-	return {
-		review,
-		view,
-		busy,
-		check,
-		notice,
-		refused,
-		unknown,
-		lapsed,
-		reload: () => {
-			setLoad("loading");
-			void read().then((reply) => reply?.status === "lost" && setLoad("lost"));
-		},
-		approve,
-		cancel: () =>
-			act(
-				"cancel",
-				(r) => api.cancel(r.id),
-				(v) => v.proposal,
-				(now) => now.status === "cancelled" || now.outcome !== null || now.executing,
-				(now) =>
-					now.outcome === "completed"
-						? { text: "This change was already saved, so it can't be cancelled.", tone: "neutral" }
-						: now.status !== "cancelled" && now.executing
-							? { text: "This change is already running. The card shows its result.", tone: "neutral" }
-							: null,
-			),
-		revise: (edits?: Record<string, string>) =>
-			act(
-				"revise",
-				(r) => api.revise(r.id, r.operation, r.revision, reviseInput(r, edits)),
-				(v) => v,
-				(now, before) => now.revision > before.revision,
-			),
-		retry: () =>
-			act(
-				"retry",
-				(r) => api.retry(r.id),
-				(v) => v.proposal,
-				(now) => now.outcome === null || now.outcome === "completed",
-			),
-		/** Asks the email service again about an email effect it has not confirmed. */
-		recheck: () =>
-			act(
-				"recheck",
-				(r) => api.check(r.id),
-				(v) => v.proposal,
-				(now) => now.outcome === "completed",
-				(now) =>
-					checkable(now)
-						? { text: "The email service still has not confirmed this. Check again later.", tone: "neutral" }
-						: null,
-			),
-		clearNotice: () => setNotice(null),
-	};
+function firstShow(proposalId: string, seed: Review | null | undefined): Review | null | undefined {
+	if (seed === undefined) return undefined;
+	const shown = seed ? shownSeeds.has(seed) : shownUnavailable.has(proposalId);
+	if (seed) shownSeeds.add(seed);
+	else shownUnavailable.add(proposalId);
+	return shown ? undefined : seed;
 }
 
-/** What a read after Check again says when the unknown action did not happen. Only the server's read says it. */
-const NOT_DONE: Record<Action, string> = {
-	approve: "This change was not approved. Nothing was changed.",
-	revise: "Your update was not saved. Update the review again.",
-	cancel: "This change was not cancelled. It is still waiting for your review.",
-	retry: "Evry did not try this again. Try again.",
-	recheck: "Evry could not ask the email service again. Check again.",
-};
+function useReview(proposalId: string, seed: Review | null | undefined) {
+	const router = useRouter();
+	const store = useLocalStore(() =>
+		createReviewStore({
+			id: proposalId,
+			seed: firstShow(proposalId, seed),
+			port: { ...api, refresh: () => router.refresh() },
+		}),
+	);
+	const state = useSyncExternalStore(store.getState().actions.follow, store.getState, store.getState);
+	const { review, load, photo, outcome, actions } = state;
+	const lapsed = lapsedOf(state);
+	const view: Exclude<View, "photo_unavailable" | "unknown"> =
+		load === "ready" && review ? phaseOf(review, lapsed) : load === "ready" ? "loading" : load;
+	const upload = uploadOf(review);
+	const mine = photo && photo.upload === upload ? photo : null;
+	const staged: StagedPhoto = mine ?? { status: view === "pending" && upload !== null ? "loading" : "idle" };
+	return { ...actions, ...outcome, review, view, busy: state.busy, lapsed, staged };
+}
+
 const UNKNOWN_TEXT: Record<Action, string> = {
 	approve:
 		"Evry got no answer to your approval, so it may already be saved. Check again to find out. Checking never saves it twice.",
@@ -379,39 +158,8 @@ const UNKNOWN_TEXT: Record<Action, string> = {
 	recheck: "Evry got no answer from the email service. Check again.",
 };
 
-type Staged = { upload: string; status: "ready"; src: string } | { upload: string; status: "gone" | "lost" };
 /** What the card knows about a set-photo review's upload: shown, being read, gone, not read (lost) or not asked for. */
 type StagedPhoto = { status: "idle" | "loading" | "gone" | "lost" } | { status: "ready"; src: string };
-
-/**
- * The exact upload a pending set-photo review would save. It is the content under review (REQ-EVR-011), so the card
- * reads it once as soon as the pending review shows, and keeps the bytes while it shows them: after approval the
- * same image stays on screen with no second request. A lost read can be tried again; a refused one is gone.
- */
-function useStagedPhoto(proposalId: string, upload: string | null, wanted: boolean) {
-	const [loaded, setLoaded] = useState<Staged | null>(null);
-	const mine = loaded && loaded.upload === upload ? loaded : null;
-	const need = wanted && upload !== null && mine === null;
-	useEffect(() => {
-		if (!need || upload === null) return;
-		let live = true;
-		void api.readStagedPhoto(proposalId).then((reply) => {
-			if (!live) return;
-			setLoaded(
-				reply.status === "ok"
-					? { upload, status: "ready", src: URL.createObjectURL(reply.value) }
-					: { upload, status: reply.status === "refused" ? "gone" : "lost" },
-			);
-		});
-		return () => {
-			live = false;
-		};
-	}, [need, proposalId, upload]);
-	const src = loaded?.status === "ready" ? loaded.src : null;
-	useEffect(() => () => void (src && URL.revokeObjectURL(src)), [src]);
-	const photo: StagedPhoto = mine ?? { status: need ? "loading" : "idle" };
-	return { photo, retry: () => setLoaded(null) };
-}
 
 // ---------------------------------------------------------------------------------------------------------------
 
@@ -525,31 +273,23 @@ export function ReviewCard({
 	proposalId,
 	target,
 	seed,
-	onSeen,
 }: {
 	proposalId: string;
 	target: string | null;
 	seed?: Review | null;
 	onSeen: (proposalId: string) => void;
 }) {
-	const r = useReview(proposalId, seed, onSeen);
+	const r = useReview(proposalId, seed);
 	// The reason the person types on a card that asks for one. It stays in this card: Evry never saves it.
 	const [reason, setReason] = useState("");
 	// The revision being revised: a new revision, or a change of state, closes the form on its own.
 	const [editing, setEditing] = useState<number | null>(null);
+	const [closes, setCloses] = useState(0);
 	const headId = useId();
-	const card = useRef<HTMLElement>(null);
-	const head = useRef<HTMLHeadingElement>(null);
-	const noticeRef = useRef<HTMLParagraphElement>(null);
-	const reviseButton = useRef<HTMLButtonElement>(null);
 	const focusInside = useRef(false);
-	const { review, notice } = r;
-	const upload =
-		review && isPhoto(review.operation) ? review.review.changes.find((c) => c.field === "photo")?.after : null;
-	const staged = useStagedPhoto(proposalId, typeof upload === "string" ? upload : null, r.view === "pending");
+	const { review, notice, staged } = r;
 	const photoGone =
-		staged.photo.status === "gone" ||
-		(r.refused?.code === "photo_unavailable" && r.refused.revision === review?.revision);
+		staged.status === "gone" || (r.refused?.code === "photo_unavailable" && r.refused.revision === review?.revision);
 	// An unknown result wins over the clock: a review that may have been approved never says "nothing was changed".
 	const unknown = r.unknown && r.unknown.revision === review?.revision ? r.unknown.action : undefined;
 	const view: View = unknown ? "unknown" : r.view === "pending" && photoGone ? "photo_unavailable" : r.view;
@@ -559,36 +299,18 @@ export function ReviewCard({
 	// A change of view after the card loaded is announced once (the previous-value pattern, no effect). An email card's
 	// head is part of the key: Check again turns "Cancel not confirmed" into "Cancelled" with no new view or revision.
 	const key = `${view}:${review?.revision ?? 0}:${mailTitle?.title ?? ""}`;
-	const [seen, setSeen] = useState(key);
-	const [announce, setAnnounce] = useState("");
-	if (seen !== key) {
-		setSeen(key);
-		setAnnounce(seen.startsWith("loading") ? "" : announcement(view, review, r.lapsed, unknown));
-	}
-	// Focus that was on a control the change removed goes to the card's head, so keyboard users stay in the card
-	// (PR 197, finding F2).
-	useLayoutEffect(() => {
-		const active = document.activeElement;
-		if (focusInside.current && (!active || active === document.body || !card.current?.contains(active)))
-			head.current?.focus();
-	}, [key]);
-	useEffect(() => {
-		if (notice?.tone === "error") noticeRef.current?.focus();
-	}, [notice]);
-	// Starting a church, or turning a Discovery space into one, moves the account into the new church as its Owner: once
-	// this card sees it go from waiting to saved, the page reads its context again, so the frame works in that church. A
-	// card that opens already saved changes nothing.
-	const router = useRouter();
-	const seating = review ? seatsAccount(review.operation) : false;
-	const awaiting = useRef(false);
-	useEffect(() => {
-		if (!seating) return;
-		if (view === "pending" || view === "running") awaiting.current = true;
-		else if (view === "completed" && awaiting.current) {
-			awaiting.current = false;
-			router.refresh();
-		}
-	}, [seating, view, router]);
+	const [said, setSaid] = useState({ key, text: "" });
+	if (said.key !== key)
+		setSaid({ key, text: said.key.startsWith("loading") ? "" : announcement(view, review, r.lapsed, unknown) });
+	const keepFocus = useCallback((node: HTMLHeadingElement) => {
+		const active = node.ownerDocument.activeElement;
+		const card = node.closest("section");
+		return focusInside.current && (!active || active === node.ownerDocument.body || !card?.contains(active))
+			? node
+			: null;
+	}, []);
+	const headRef = useFocusRequest(key, keepFocus);
+	const reviseRef = useFocusRequest<HTMLButtonElement>(closes);
 
 	const why = note(view, review, r.lapsed, unknown);
 	const base = view === "loading" || view === "lost" ? HEAD.pending : HEAD[view];
@@ -621,7 +343,6 @@ export function ReviewCard({
 
 	return (
 		<section
-			ref={card}
 			data-proposal={proposalId}
 			data-state={view}
 			aria-labelledby={headId}
@@ -632,7 +353,7 @@ export function ReviewCard({
 			}}
 			className="overflow-hidden rounded-card bg-surface-raised shadow-[inset_0_0_0_1px_var(--ef-line),var(--ef-shadow-raised)]"
 		>
-			<CardHead id={headId} ref={head} icon={h.icon} tone={h.tone} title={title} spinning={view === "running"}>
+			<CardHead id={headId} ref={headRef} icon={h.icon} tone={h.tone} title={title} spinning={view === "running"}>
 				{meta}
 			</CardHead>
 			{why ? <p className="bg-surface-2 px-4 py-2.5 text-sm text-text-2">{why}</p> : null}
@@ -658,12 +379,11 @@ export function ReviewCard({
 					checking={r.busy === "check"}
 					onCheck={() => void r.check()}
 					notice={notice}
-					noticeRef={noticeRef}
 					onSubmit={(edits) => void r.revise(edits)}
 					onClose={() => {
 						setEditing(null);
 						r.clearNotice();
-						requestAnimationFrame(() => reviseButton.current?.focus());
+						setCloses((n) => n + 1);
 					}}
 				/>
 			) : (
@@ -686,11 +406,7 @@ export function ReviewCard({
 							</>
 						) : (
 							<>
-								<Changes
-									review={review}
-									staged={photoGone ? { status: "gone" } : staged.photo}
-									onRetry={staged.retry}
-								/>
+								<Changes review={review} staged={photoGone ? { status: "gone" } : staged} onRetry={r.retryPhoto} />
 								{view === "completed" && review.receipt?.people ? (
 									<PeopleResult review={review} />
 								) : (
@@ -728,25 +444,14 @@ export function ReviewCard({
 							</p>
 						) : null}
 					</div>
-					{notice ? (
-						<p
-							ref={noticeRef}
-							tabIndex={-1}
-							className={cn(
-								"mx-4 mb-3 rounded-md px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-focus",
-								notice.tone === "error" ? "bg-magenta-50 text-magenta-600" : "bg-surface-2 text-text-2",
-							)}
-						>
-							{notice.text}
-						</p>
-					) : null}
+					{notice ? <NoticeLine notice={notice} /> : null}
 					<Footer
 						view={view}
 						review={review}
-						canApprove={approvable(review, staged.photo.status === "ready")}
+						canApprove={approvable(review, staged.status === "ready")}
 						reason={asksReason(review.operation) ? reason.trim() : null}
 						r={r}
-						reviseButton={reviseButton}
+						reviseButton={reviseRef}
 						onRevise={() => {
 							r.clearNotice();
 							setEditing(review.revision);
@@ -755,7 +460,7 @@ export function ReviewCard({
 				</>
 			)}
 			<p role="status" className="sr-only">
-				{announce}
+				{said.text}
 			</p>
 		</section>
 	);
@@ -956,6 +661,21 @@ function Footer({
 /** A short reason under the footer's buttons for a control that is disabled. */
 function Hint({ children }: { children: ReactNode }) {
 	return <p className="w-full text-xs text-text-3">{children}</p>;
+}
+
+function NoticeLine({ notice }: { notice: Notice }) {
+	return (
+		<p
+			ref={notice.tone === "error" ? focusOnMount : undefined}
+			tabIndex={-1}
+			className={cn(
+				"mx-4 mb-3 rounded-md px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-focus",
+				notice.tone === "error" ? "bg-magenta-50 text-magenta-600" : "bg-surface-2 text-text-2",
+			)}
+		>
+			{notice.text}
+		</p>
+	);
 }
 
 function CardHead({
@@ -1364,6 +1084,20 @@ function LinkPicker({
 	);
 }
 
+function focusControl(form: HTMLFormElement, field?: string) {
+	form
+		.querySelector<HTMLElement>(
+			field
+				? `[data-field="${field}"] :is(input,textarea,button)`
+				: ":is(input,textarea,button[role=combobox],button[role=checkbox])",
+		)
+		?.focus();
+}
+
+function focusFirstControl(form: HTMLFormElement | null) {
+	if (form) focusControl(form);
+}
+
 function ReviseForm({
 	review,
 	busy,
@@ -1371,7 +1105,6 @@ function ReviseForm({
 	checking,
 	onCheck,
 	notice,
-	noticeRef,
 	onSubmit,
 	onClose,
 }: {
@@ -1382,7 +1115,6 @@ function ReviseForm({
 	checking: boolean;
 	onCheck: () => void;
 	notice: Notice | null;
-	noticeRef: Ref<HTMLParagraphElement>;
 	onSubmit: (edits: Record<string, string>) => void;
 	onClose: () => void;
 }) {
@@ -1397,28 +1129,18 @@ function ReviseForm({
 		),
 	);
 	const [missing, setMissing] = useState<string | null>(null);
-	const form = useRef<HTMLFormElement>(null);
-	const focusField = (field?: string) =>
-		form.current
-			?.querySelector<HTMLElement>(
-				field
-					? `[data-field="${field}"] :is(input,textarea,button)`
-					: ":is(input,textarea,button[role=combobox],button[role=checkbox])",
-			)
-			?.focus();
-	useEffect(() => focusField(), []);
 	const locked = busy || unknown || checking;
 	const dated = hasBirthDate(review, edits);
-	const submit = (e: FormEvent) => {
+	const submit = (e: FormEvent<HTMLFormElement>) => {
 		e.preventDefault();
 		if (locked) return;
 		const empty = missingRequired(review, edits);
 		setMissing(empty?.field ?? null);
-		if (empty) return focusField(empty.field);
+		if (empty) return focusControl(e.currentTarget, empty.field);
 		onSubmit(edits);
 	};
 	return (
-		<form ref={form} onSubmit={submit} noValidate aria-label="Revise this change">
+		<form ref={focusFirstControl} onSubmit={submit} noValidate aria-label="Revise this change">
 			<div className="flex flex-col gap-3 px-4 py-3.5">
 				<Affects review={review} />
 				{fields.map((c) => {
@@ -1462,18 +1184,7 @@ function ReviseForm({
 				})}
 				<p className="text-xs text-text-3">Updating makes a new revision. You check it, then approve it.</p>
 			</div>
-			{notice ? (
-				<p
-					ref={noticeRef}
-					tabIndex={-1}
-					className={cn(
-						"mx-4 mb-3 rounded-md px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-focus",
-						notice.tone === "error" ? "bg-magenta-50 text-magenta-600" : "bg-surface-2 text-text-2",
-					)}
-				>
-					{notice.text}
-				</p>
-			) : null}
+			{notice ? <NoticeLine notice={notice} /> : null}
 			<div className="flex flex-wrap items-center gap-2 border-t border-line px-4 py-3">
 				{unknown || checking ? (
 					<Button size="sm" variant="primary" type="button" loading={checking} onClick={onCheck}>

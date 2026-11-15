@@ -1,0 +1,16 @@
+{
+	"no-timers": {
+		"apps/web/src/features/evry/review/ReviewCard.store.ts": [
+			{
+				"function": "lapseLater",
+				"count": 1,
+				"reason": "The review card's approval countdown is the product behavior: when the time the server said was left runs out, the card turns Expired and Approve goes away (R5-5). The browser's clock is never read, so a clock set hours ahead or behind changes nothing; nothing else announces the moment the approval ends. It runs only while the card is on screen and is cleared when the review changes or the card leaves."
+			},
+			{
+				"function": "readAgainLater",
+				"count": 1,
+				"reason": "Temporary survivor, waiting for a server push (QF-C-14): an approved change runs in a background job and the card reads its review again on a backoff until the outcome is saved. The server has no channel that says the job ended, so only a read can learn it. It runs only while a card on screen shows a running change with no action in flight, and stops at the outcome, an action, a refusal or when the card leaves. It goes away once the conversation stream or a review stream publishes the outcome."
+			}
+		]
+	}
+}

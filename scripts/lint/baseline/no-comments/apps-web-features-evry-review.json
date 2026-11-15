@@ -2,7 +2,7 @@
 	"apps/web/src/features/evry/review/MailChanges.tsx": 13,
 	"apps/web/src/features/evry/review/NoticeChanges.tsx": 2,
 	"apps/web/src/features/evry/review/PeopleChanges.tsx": 10,
-	"apps/web/src/features/evry/review/ReviewCard.tsx": 67,
+	"apps/web/src/features/evry/review/ReviewCard.tsx": 40,
 	"apps/web/src/features/evry/review/api.ts": 7,
 	"apps/web/src/features/evry/review/model.ts": 108
 }
