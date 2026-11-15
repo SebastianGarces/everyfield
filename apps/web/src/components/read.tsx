@@ -1,7 +1,7 @@
 "use client";
 
 import { useHydrated } from "@everyfield/ui/foundations";
-import { useMemo, useSyncExternalStore, useTransition, type ReactNode } from "react";
+import { useMemo, useRef, useState, useSyncExternalStore, useTransition, type ReactNode } from "react";
 
 export type ReadSnapshot<T> = {
 	readonly status: "loading" | "ready";
@@ -21,12 +21,19 @@ export type Read<A extends unknown[], T> = {
 	forget(...args: A | []): void;
 	snapshot(key: string): ReadSnapshot<T> | null;
 	connect(listener: () => void, ...args: A): () => void;
+	connectWith(listener: () => void, args: A, bound?: ReaderBound): () => void;
+	patchFor(listener: (() => void) | null, change: (value: T) => T, ...args: A): void;
 };
+
+export type ReaderBound = { readonly newerThan?: number };
+
+export type ReaderOptions = ReaderBound & { readonly showPrevious?: boolean };
 
 export type ReadOptions<T> = {
 	failed: (error: unknown) => T;
 	fresh?: number;
 	keep?: (value: T) => boolean;
+	limit?: number;
 };
 
 export type ReadState<T> = {
@@ -38,21 +45,44 @@ export type ReadState<T> = {
 	patch(change: (value: T) => T): void;
 };
 
-type Entry<T> = ReadSnapshot<T> & { at: number; reusable: boolean; unread: boolean };
+type Entry<T> = ReadSnapshot<T> & {
+	at: number;
+	reusable: boolean;
+	unread: boolean;
+	changes: readonly ((value: T) => T)[];
+};
+
+const onServer = () => typeof window === "undefined";
 
 const outcomeOk = (value: unknown) =>
 	!(typeof value === "object" && value !== null && "status" in value && value.status !== "ok");
 
 export function createRead<A extends unknown[], T>(
 	load: (...args: A) => Promise<T>,
-	{ failed, fresh = 0, keep = outcomeOk }: ReadOptions<T>,
+	{ failed, fresh = 0, keep = outcomeOk, limit = 200 }: ReadOptions<T>,
 ): Read<A, T> {
 	const entries = new Map<string, Entry<T>>();
 	const listeners = new Set<() => void>();
 	const readers = new Map<string, number>();
-	const emit = () => {
-		for (const listener of listeners) listener();
+	const emit = (except: (() => void) | null = null) => {
+		for (const listener of listeners) if (listener !== except) listener();
 	};
+	const put = (k: string, entry: Entry<T>) => {
+		entries.delete(k);
+		entries.set(k, entry);
+		for (const old of entries.keys()) {
+			if (entries.size <= limit) break;
+			if (!watched(old) && old !== k) entries.delete(old);
+		}
+	};
+	const settled = (k: string, promise: Promise<T>) =>
+		void promise.then((loaded) => {
+			const entry = entries.get(k);
+			if (entry?.promise !== promise) return;
+			const value = entry.changes.reduce((current, change) => change(current), loaded);
+			entries.set(k, { ...entry, status: "ready", value, at: Date.now(), reusable: keep(value), changes: [] });
+			emit();
+		});
 	const key = (...args: A) => JSON.stringify(args);
 	const watched = (k: string) => (readers.get(k) ?? 0) > 0;
 
@@ -61,23 +91,56 @@ export function createRead<A extends unknown[], T>(
 
 	const start = (k: string, args: A, keepValue: boolean) => {
 		const promise = new Promise<T>((resolve) => resolve(load(...args))).catch(failed);
+		if (onServer()) return promise;
 		const previous = keepValue ? entries.get(k)?.value : undefined;
-		entries.set(k, {
+		put(k, {
 			status: "loading",
 			value: previous,
 			promise,
 			at: Date.now(),
 			reusable: true,
 			unread: !watched(k),
+			changes: [],
 		});
-		void promise.then((value) => {
-			const entry = entries.get(k);
-			if (entry?.promise !== promise) return;
-			entries.set(k, { ...entry, status: "ready", value, at: Date.now(), reusable: keep(value) });
-			emit();
-		});
+		settled(k, promise);
 		emit();
 		return promise;
+	};
+
+	const patchFor = (except: (() => void) | null, change: (value: T) => T, ...args: A) => {
+		const k = key(...args);
+		const entry = entries.get(k);
+		if (!entry) return;
+		if (entry.status === "loading") {
+			entries.set(k, {
+				...entry,
+				value: entry.value === undefined ? undefined : change(entry.value),
+				changes: [...entry.changes, change],
+			});
+			emit(except);
+			return;
+		}
+		if (entry.value === undefined) return;
+		const value = change(entry.value);
+		entries.set(k, { ...entry, value, promise: Promise.resolve(value), at: Date.now(), reusable: true });
+		emit(except);
+	};
+
+	const connectWith = (listener: () => void, args: A, bound: ReaderBound = {}) => {
+		const k = key(...args);
+		listeners.add(listener);
+		const entry = entries.get(k);
+		const others = watched(k);
+		readers.set(k, (readers.get(k) ?? 0) + 1);
+		const older = usable(entry) && entry!.status === "ready" && entry!.at < (bound.newerThan ?? -Infinity);
+		if (usable(entry) && !older) entry!.unread = false;
+		else start(k, args, others || entry?.unread === true || older);
+		return () => {
+			listeners.delete(listener);
+			const left = (readers.get(k) ?? 1) - 1;
+			if (left > 0) readers.set(k, left);
+			else readers.delete(k);
+		};
 	};
 
 	const get = (...args: A) => {
@@ -93,28 +156,25 @@ export function createRead<A extends unknown[], T>(
 		prefetch: (...args) => void get(...args),
 		seed: (value, ...args) => {
 			const k = key(...args);
-			if (entries.has(k)) return;
+			if (onServer() || entries.has(k)) return;
 			const promise = value instanceof Promise ? value.catch(failed) : Promise.resolve(value);
 			if (value instanceof Promise) {
-				entries.set(k, { status: "loading", value: undefined, promise, at: Date.now(), reusable: true, unread: true });
-				void promise.then((settled) => {
-					const entry = entries.get(k);
-					if (entry?.promise !== promise) return;
-					entries.set(k, { ...entry, status: "ready", value: settled, at: Date.now(), reusable: keep(settled) });
-					emit();
+				put(k, {
+					status: "loading",
+					value: undefined,
+					promise,
+					at: Date.now(),
+					reusable: true,
+					unread: true,
+					changes: [],
 				});
-			} else entries.set(k, { status: "ready", value, promise, at: Date.now(), reusable: true, unread: true });
+				settled(k, promise);
+			} else put(k, { status: "ready", value, promise, at: Date.now(), reusable: true, unread: true, changes: [] });
 		},
 		refresh: (...args) => start(key(...args), args, true),
 		retry: (...args) => start(key(...args), args, false),
-		patch: (change, ...args) => {
-			const k = key(...args);
-			const entry = entries.get(k);
-			if (entry?.status !== "ready" || entry.value === undefined) return;
-			const value = change(entry.value);
-			entries.set(k, { ...entry, value, promise: Promise.resolve(value), at: Date.now(), reusable: true });
-			emit();
-		},
+		patch: (change, ...args) => patchFor(null, change, ...args),
+		patchFor,
 		forget: (...args) => {
 			if (args.length === 0) entries.clear();
 			else entries.delete(key(...(args as A)));
@@ -125,47 +185,71 @@ export function createRead<A extends unknown[], T>(
 			if (!entry) return null;
 			return watched(k) || entry.unread || usable(entry) ? entry : null;
 		},
-		connect: (listener, ...args) => {
-			const k = key(...args);
-			listeners.add(listener);
-			const entry = entries.get(k);
-			const others = watched(k);
-			readers.set(k, (readers.get(k) ?? 0) + 1);
-			if (usable(entry)) entry!.unread = false;
-			else start(k, args, others || entry?.unread === true);
-			return () => {
-				listeners.delete(listener);
-				const left = (readers.get(k) ?? 1) - 1;
-				if (left > 0) readers.set(k, left);
-				else readers.delete(k);
-			};
-		},
+		connect: (listener, ...args) => connectWith(listener, args),
+		connectWith,
 	};
 }
 
 const none = () => () => {};
 
 export function useRead<A extends unknown[], T>(read: Read<A, T> | null, ...args: A): ReadState<T> {
+	return useReadWith(read, args);
+}
+
+export function useReadWith<A extends unknown[], T>(
+	read: Read<A, T> | null,
+	args: A,
+	{ newerThan, showPrevious = false }: ReaderOptions = {},
+): ReadState<T> {
 	const hydrated = useHydrated();
 	const key = read && hydrated ? read.key(...args) : null;
 	const [reloading, startReload] = useTransition();
+	const reader = useRef<(() => void) | null>(null);
+	const [, setPatched] = useState(0);
 	const connect = useMemo(
-		() => (read && key !== null ? (listener: () => void) => read.connect(listener, ...(JSON.parse(key) as A)) : none),
-		[read, key],
+		() =>
+			read && key !== null
+				? (listener: () => void) => {
+						reader.current = listener;
+						const stop = read.connectWith(listener, JSON.parse(key) as A, { newerThan });
+						return () => {
+							if (reader.current === listener) reader.current = null;
+							stop();
+						};
+					}
+				: none,
+		[read, key, newerThan],
 	);
 	const snapshot = useSyncExternalStore(
 		connect,
 		() => (read && key !== null ? read.snapshot(key) : null),
 		() => null,
 	);
+	const [shown, setShown] = useState<{ value: T | undefined }>({ value: undefined });
+	if (showPrevious && snapshot?.value !== undefined && shown.value !== snapshot.value)
+		setShown({ value: snapshot.value });
+	const value = snapshot?.value ?? (showPrevious && key !== null ? shown.value : undefined);
 	return {
 		status: key === null ? "idle" : (snapshot?.status ?? "loading"),
-		value: snapshot?.value,
-		reloading: reloading || (snapshot?.status === "loading" && snapshot.value !== undefined),
+		value,
+		reloading: reloading || ((snapshot?.status ?? "loading") === "loading" && value !== undefined),
 		retry: () => void (read && key !== null && read.retry(...args)),
 		reload: () => startReload(() => void (read && key !== null && read.refresh(...args))),
-		patch: (change) => void (read && key !== null && read.patch(change, ...args)),
+		patch: (change) => {
+			if (!read || key === null) return;
+			read.patchFor(reader.current, change, ...args);
+			setPatched((n) => n + 1);
+		},
 	};
+}
+
+export function useLocalRead<A extends unknown[], T>(
+	load: (...args: A) => Promise<T>,
+	options: ReadOptions<T>,
+	...args: A
+): ReadState<T> {
+	const [read] = useState(() => createRead(load, options));
+	return useRead(read, ...args);
 }
 
 export function Await<T>({

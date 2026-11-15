@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { mock, test } from "node:test";
 
+Object.assign(globalThis, { window: globalThis });
 const { createRead } = await import("../../../apps/web/src/components/read.tsx");
 
 const settled = () => new Promise((resolve) => setImmediate(resolve));
@@ -101,4 +102,57 @@ test("INV-read: a prefetched or seeded entry older than its fresh window is not 
 	assert.equal(read.snapshot(read.key("a"))?.status, "loading");
 	stopA();
 	stopB();
+});
+
+test("INV-read: a subscriber that knows a newer server read reloads an older entry once, every reader follows, and a newer entry is kept", async () => {
+	let calls = 0;
+	const count = createRead(async (account: string) => ({ status: "ok" as const, value: `${account}-${++calls}` }), {
+		failed: () => ({ status: "lost" as const }),
+		fresh: 60_000,
+	});
+	count.prefetch("a");
+	await settled();
+	const bell = count.connect(() => {}, "a");
+	assert.equal(calls, 1);
+	const key = count.key("a");
+	for (let i = 0; i < 3; i++) count.snapshot(key);
+	assert.equal(calls, 1, "rendering with a bound starts nothing");
+	const page = count.connectWith(() => {}, ["a"], { newerThan: Date.now() + 1_000 });
+	const again = count.connectWith(() => {}, ["a"], { newerThan: Date.now() + 1_000 });
+	assert.equal(calls, 2, "one reload for the older entry, not one per subscriber");
+	assert.deepEqual(
+		count.snapshot(key)?.value,
+		{ status: "ok", value: "a-1" },
+		"the bell keeps its value while it reloads",
+	);
+	await settled();
+	assert.deepEqual(count.snapshot(key)?.value, { status: "ok", value: "a-2" });
+	const older = count.connectWith(() => {}, ["a"], { newerThan: 0 });
+	assert.equal(calls, 2, "an entry newer than the bound is kept");
+	for (const stop of [bell, page, again, older]) stop();
+});
+
+test("INV-read: a patch while the entry loads is applied to the value that arrives", async () => {
+	let release: (value: string[]) => void = () => {};
+	const list = createRead(() => new Promise<string[]>((resolve) => (release = resolve)), { failed: () => [] });
+	const stop = list.connect(() => {}, "team");
+	list.patch((rows) => [...rows, "added"], "team");
+	release(["first"]);
+	await settled();
+	assert.deepEqual(list.snapshot(list.key("team"))?.value, ["first", "added"]);
+	stop();
+});
+
+test("INV-read: a read keeps at most its limit of entries, dropping the oldest one no reader shows", async () => {
+	const pages = createRead(async (n: number) => n, { failed: () => -1, fresh: Infinity, limit: 2 });
+	const shown = pages.connect(() => {}, 1);
+	pages.prefetch(2);
+	pages.prefetch(3);
+	pages.prefetch(4);
+	await settled();
+	assert.notEqual(pages.peek(1), null, "a shown entry is never dropped");
+	assert.equal(pages.peek(2), null);
+	assert.equal(pages.peek(3), null);
+	assert.notEqual(pages.peek(4), null);
+	shown();
 });
