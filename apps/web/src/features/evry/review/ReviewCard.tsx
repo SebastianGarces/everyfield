@@ -106,16 +106,6 @@ import { NativeImage } from "@/components/native";
 import { useLocalStore } from "@/components/store";
 import { createReviewStore, lapsedOf, uploadOf, type Action, type Notice } from "./ReviewCard.store.ts";
 
-// The Evry review card (WP-053/ui; design/everyfield-ui.html, Evry panel review cards): exactly what a prepared change
-// will do, before and after, and who it affects. The owner approves the exact revision, revises a value or cancels.
-// An approved change runs once in the background; the card follows it to its saved outcome and says plainly when it
-// was refused, expired or closed. Nothing changes in People until the owner approves.
-
-/**
- * What the card shows: the review's phase, or why there is no review to show. photo_unavailable is a pending set-photo
- * review whose upload is gone: it stays on screen, but can't be approved. unknown is a review whose last action got no
- * answer, even after the read that follows it: it may already be saved, so only Check again is offered (C58, C68).
- */
 type View = Phase | "loading" | "lost" | "unavailable" | "photo_unavailable" | "unknown";
 
 const shownSeeds = new WeakSet<Review>();
@@ -158,10 +148,7 @@ const UNKNOWN_TEXT: Record<Action, string> = {
 	recheck: "Evry got no answer from the email service. Check again.",
 };
 
-/** What the card knows about a set-photo review's upload: shown, being read, gone, not read (lost) or not asked for. */
 type StagedPhoto = { status: "idle" | "loading" | "gone" | "lost" } | { status: "ready"; src: string };
-
-// ---------------------------------------------------------------------------------------------------------------
 
 type Tone = "amber" | "green" | "magenta" | "gray";
 const HEAD: Record<Exclude<View, "loading" | "lost">, { icon: IconSvgElement; title: string; tone: Tone }> = {
@@ -184,11 +171,9 @@ const HEAD_TONE: Record<Tone, string> = {
 	gray: "bg-surface-2 text-text-2 border-b-line",
 };
 
-/** The note under the head: why the card is in this state, when that needs saying. Also what is announced. */
 function note(view: View, review: Review | null, lapsed: boolean, unknown?: Action): string | null {
 	const who = review?.review.target?.label ?? null;
 	const mail = !!review && isMail(review.operation);
-	// A review the server can't approve as asked says why, in its own words, and offers no Approve.
 	if (review && view === "pending" && review.review.refusal) return review.review.refusal;
 	if (mail) {
 		if (view === "pending" && review.stale)
@@ -241,19 +226,16 @@ function note(view: View, review: Review | null, lapsed: boolean, unknown?: Acti
 		case "cancelled":
 			return "You cancelled this change. Nothing was changed.";
 		case "withheld":
-			// Nothing ran unless it was approved; after an approval the card can't see the result any more.
 			return review?.status === "approved"
 				? "The person in this change is no longer available to you, so Evry can't show this change or its result."
 				: "The person in this change is no longer available to you. Nothing was changed.";
 		case "unavailable":
-			// Access ended, so the card can't read the result: it says so and claims nothing about the change.
 			return "You can't see this change now, so Evry can't show its result. Changes like this need an Owner or Admin seat in this church.";
 		default:
 			return null;
 	}
 }
 
-/** What a screen reader hears when the card changes after it loaded. */
 function announcement(view: View, review: Review | null, lapsed: boolean, unknown?: Action) {
 	const head =
 		view === "loading" || view === "lost"
@@ -279,9 +261,7 @@ export function ReviewCard({
 	seed?: Review | null;
 }) {
 	const r = useReview(proposalId, seed);
-	// The reason the person types on a card that asks for one. It stays in this card: Evry never saves it.
 	const [reason, setReason] = useState("");
-	// The revision being revised: a new revision, or a change of state, closes the form on its own.
 	const [editing, setEditing] = useState<number | null>(null);
 	const [closes, setCloses] = useState(0);
 	const headId = useId();
@@ -289,14 +269,10 @@ export function ReviewCard({
 	const { review, notice, staged } = r;
 	const photoGone =
 		staged.status === "gone" || (r.refused?.code === "photo_unavailable" && r.refused.revision === review?.revision);
-	// An unknown result wins over the clock: a review that may have been approved never says "nothing was changed".
 	const unknown = r.unknown && r.unknown.revision === review?.revision ? r.unknown.action : undefined;
 	const view: View = unknown ? "unknown" : r.view === "pending" && photoGone ? "photo_unavailable" : r.view;
 
-	// An email card says only what the email service confirmed (model.ts mailHead).
 	const mailTitle = review ? mailHead(review, view) : null;
-	// A change of view after the card loaded is announced once (the previous-value pattern, no effect). An email card's
-	// head is part of the key: Check again turns "Cancel not confirmed" into "Cancelled" with no new view or revision.
 	const key = `${view}:${review?.revision ?? 0}:${mailTitle?.title ?? ""}`;
 	const [said, setSaid] = useState({ key, text: "" });
 	if (said.key !== key)
@@ -313,8 +289,6 @@ export function ReviewCard({
 
 	const why = note(view, review, r.lapsed, unknown);
 	const base = view === "loading" || view === "lost" ? HEAD.pending : HEAD[view];
-	// Only a confirmed result carries the tick: a saved outcome that says nothing happened carries the alert, and so
-	// does an email review the server refused on the card.
 	const icon =
 		mailTitle &&
 		((view === "completed" && mailTitle.tone !== "green") || (view === "pending" && review?.review.refusal))
@@ -328,7 +302,6 @@ export function ReviewCard({
 			? {
 					...base,
 					title: people ?? imported!,
-					// Someone was left out: the head says so in the alert tone, never the tone of a complete save.
 					...(people && !people.startsWith("Saved") && { icon: Alert02Icon, tone: "amber" as const }),
 				}
 			: base;
@@ -387,7 +360,6 @@ export function ReviewCard({
 				/>
 			) : (
 				<>
-					{/* A closed review keeps full contrast: the gray head says it is closed (WCAG 1.4.3). */}
 					<div className="flex flex-col gap-3 px-4 py-3.5">
 						<Affects review={review} />
 						{isMail(review.operation) ? (
@@ -476,9 +448,7 @@ function Footer({
 }: {
 	view: Phase | "photo_unavailable" | "unknown";
 	review: Review;
-	/** False while a new photo is not shown yet: the owner approves only what the card shows. */
 	canApprove: boolean;
-	/** The typed reason on a card that asks for one (empty until typed); null on any other card. */
 	reason: string | null;
 	r: ReturnType<typeof useReview>;
 	reviseButton: Ref<HTMLButtonElement>;
@@ -494,7 +464,6 @@ function Footer({
 			disabled={other("cancel")}
 			onClick={() => void r.cancel()}
 		>
-			{/* On a cancel review, "Cancel" would read as cancelling the email. */}
 			{isMail(review.operation) ? "Close review" : "Cancel"}
 		</Button>
 	);
@@ -649,7 +618,6 @@ function Footer({
 				Prepare again
 			</Button>
 		);
-	// Keyed by view: a control never turns into another one under the keyboard focus (Approve into Prepare again).
 	return body ? (
 		<div key={view} className="flex flex-wrap items-center gap-2 border-t border-line px-4 py-3">
 			{body}
@@ -657,7 +625,6 @@ function Footer({
 	) : null;
 }
 
-/** A short reason under the footer's buttons for a control that is disabled. */
 function Hint({ children }: { children: ReactNode }) {
 	return <p className="w-full text-xs text-text-3">{children}</p>;
 }
@@ -711,7 +678,6 @@ function CardHead({
 	);
 }
 
-/** A notifications review changes only the signed-in account's own bell or settings. */
 const NOTIFICATION_SUBJECT: Partial<Record<string, string>> = {
 	"notifications.markSelectedRead": "Your notifications",
 	"notifications.markAllVisibleRead": "Your notifications",
@@ -720,7 +686,6 @@ const NOTIFICATION_SUBJECT: Partial<Record<string, string>> = {
 	"notifications.oversightDigestCadence.set": "Your oversight digest",
 };
 
-/** The ministry records a Ministries change names. */
 const RECORD_GLYPH: Partial<Record<NonNullable<Review["review"]["target"]>["kind"], IconSvgElement>> = {
 	person: UserIcon,
 	message: Mail01Icon,
@@ -734,8 +699,6 @@ const RECORD_GLYPH: Partial<Record<NonNullable<Review["review"]["target"]>["kind
 	venue: Location01Icon,
 };
 
-/** Who the change affects: the person, the new person a create adds, a ministry record, the account's own
- * notifications, or a meeting or venue for a Meetings write. */
 function Affects({ review }: { review: Review }) {
 	const mail = isMail(review.operation);
 	const own = isNotification(review.operation);
@@ -762,7 +725,6 @@ function Affects({ review }: { review: Review }) {
 	const tag = !kind && review.review.changes.find((c) => c.field === "tag" || c.field === "createTag")?.after;
 	const imported = review.operation === "people.executeBulkImport";
 	const program = review.operation === "development.saveProgram" || review.operation === "development.draftNextVersion";
-	// A ministry change names its ministry, role, program or responsibility; a new ministry or program its name.
 	const record = isTeams(review.operation) ? ((target && RECORD_GLYPH[target.kind]) ?? UserGroupIcon) : null;
 	const glyph = own
 		? Notification01Icon
@@ -841,7 +803,6 @@ const TILE_TEXT: Partial<Record<TileState, string>> = {
 	lost: "Didn't load",
 };
 
-/** One photo in the comparison: an 80 px square with its caption and file reference, in every state it can be in. */
 function PhotoTile({
 	caption,
 	value,
@@ -896,11 +857,6 @@ function PhotoTile({
 	);
 }
 
-/**
- * A photo before and after, side by side, so the owner approves the exact upload they see. The current photo comes
- * from People; the new one from this review's own upload read, kept after approval. A card opened after the review
- * ended shows a saved photo from People and otherwise only the file reference, so two uploads never look the same.
- */
 function PhotoChange({
 	review,
 	change,
@@ -949,10 +905,6 @@ function PhotoChange({
 	);
 }
 
-/**
- * What else the change means, from the review itself: what a time zone change moves, what ending a connection stops,
- * the 30 days before a login is deleted. The first line leads a list that follows it.
- */
 function Notes({ notes }: { notes: string[] }) {
 	const [first, ...rest] = notes;
 	const list = first?.endsWith(":") ? rest : [];
@@ -979,13 +931,10 @@ function Notes({ notes }: { notes: string[] }) {
 	);
 }
 
-/** Each changed field: its value now, then what it will be. A new person and a reason have no before. */
 function Changes({ review, staged, onRetry }: { review: Review; staged: StagedPhoto; onRetry: () => void }) {
 	const changes = shownChanges(review);
 	if (!changes.length) return null;
 	const create = addsOnly(review.operation);
-	// A Meetings or Launch value with nothing before it is new: it shows only what it will be.
-	// So is a milestone a program's next version adds.
 	const fresh = (c: Change) =>
 		(isMeetings(review.operation) ||
 			isLaunch(review.operation) ||
@@ -1019,7 +968,6 @@ function Changes({ review, staged, onRetry }: { review: Review; staged: StagedPh
 	);
 }
 
-/** A Discovery link on a conversion review: the organization, and whether it carries over and what it will share. */
 function LinkChange({ change }: { change: Change }) {
 	const link = carryOver(change)!;
 	return (
@@ -1035,7 +983,6 @@ function LinkChange({ change }: { change: Change }) {
 	);
 }
 
-/** The picks for one Discovery link: carry it over or not, and what the church's link shares. */
 function LinkPicker({
 	change,
 	value,
@@ -1109,7 +1056,6 @@ function ReviseForm({
 }: {
 	review: Review;
 	busy: boolean;
-	/** The last update got no answer: the form keeps its values but can't send or close until Check again settles it. */
 	unknown: boolean;
 	checking: boolean;
 	onCheck: () => void;

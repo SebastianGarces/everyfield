@@ -2,12 +2,7 @@ import { ArrowRight02Icon } from "@hugeicons/core-free-icons";
 import { Icon, cn } from "@everyfield/ui/foundations";
 import { ROW_OUTCOME, emptyText, fieldLabel, valueText, type Change, type Review, type ReviewedRow } from "./model.ts";
 
-// What a change that reaches several people does to each of them (WP-064): every household member's address, every
-// person being tagged, every row of an import. Before approval the card lists what will happen; after it, what did,
-// person by person, so a change that left anyone out never reads as done for everyone.
-
 function Before({ change }: { change: Change }) {
-	// A tag on many people: each line says only whether this person gets it or loses it.
 	if (change.field === "tag")
 		return <span className="text-sm text-text-2">{change.after ? "Gets the tag" : "Loses the tag"}</span>;
 	const before = valueText(change.field, change.before);
@@ -27,7 +22,6 @@ function Before({ change }: { change: Change }) {
 	);
 }
 
-/** One line per person: their name, then their change, or why they will not or did not change. */
 function Row({ name, children }: { name: string; children: React.ReactNode }) {
 	return (
 		<li className="flex flex-col gap-0.5 py-2 first:pt-0 last:pb-0">
@@ -37,7 +31,6 @@ function Row({ name, children }: { name: string; children: React.ReactNode }) {
 	);
 }
 
-/** The people a pending review reaches, each with what will change for them. */
 export function ReviewedPeople({ review }: { review: Review }) {
 	const people = review.review.people;
 	if (!people?.length) return null;
@@ -61,7 +54,6 @@ export function ReviewedPeople({ review }: { review: Review }) {
 	);
 }
 
-/** After approval: who changed and who did not, and why. */
 export function PeopleResult({ review }: { review: Review }) {
 	const people = review.receipt?.people;
 	if (!people?.length) return null;
@@ -80,7 +72,6 @@ export function PeopleResult({ review }: { review: Review }) {
 	);
 }
 
-/** A refusal because a record changed: the records as they are now. */
 export function CurrentState({ review }: { review: Review }) {
 	const current = review.receipt?.current;
 	if (!current?.length) return null;
@@ -107,7 +98,6 @@ const OUTCOME_TONE: Record<ReviewedRow["outcome"], string> = {
 	fail: "bg-magenta-50 text-magenta-600",
 };
 
-/** Each row of a reviewed import with what will happen to it. */
 export function ImportRows({ review }: { review: Review }) {
 	const rows = review.review.rows;
 	if (!rows?.length) return null;
@@ -131,7 +121,6 @@ export function ImportRows({ review }: { review: Review }) {
 	);
 }
 
-/** After approval: the saved import's counts and each failed row's reason. The rows are written in the background. */
 export function ImportResult({ review }: { review: Review }) {
 	const result = review.receipt?.import;
 	if (!result) return null;
