@@ -8,7 +8,10 @@ import type { SendPlan } from "./ReviewStep.tsx";
 export type Opening =
 	| { kind: "draft"; draft: Draft }
 	| { kind: "new"; meeting: MeetingContext | null; template: Template | null; guests: boolean; notes: string[] }
-	| { kind: "missing" };
+	| { kind: "missing" }
+	| { kind: "unreachable" };
+
+export type Opened = Exclude<Opening, { kind: "missing" } | { kind: "unreachable" }>;
 
 export type Undo = {
 	subject: string;
@@ -58,7 +61,7 @@ const SEARCH_PAUSE_MS = 300;
 const savedOf = (form: Form) => JSON.stringify(draftPayload(form));
 const sameAudience = (a: Audience, b: Audience) => JSON.stringify(a) === JSON.stringify(b);
 
-export function openedForm(opening: Exclude<Opening, { kind: "missing" }>, templates: readonly Template[]): Form {
+export function openedForm(opening: Opened, templates: readonly Template[]): Form {
 	if (opening.kind === "draft") return formFrom(opening.draft, templates);
 	let form: Form = { ...blankForm(), meetingId: opening.meeting?.id ?? null };
 	const template = opening.template;
@@ -78,10 +81,7 @@ export function openedForm(opening: Exclude<Opening, { kind: "missing" }>, templ
 	return form;
 }
 
-export function createComposeStore(init: {
-	opening: Exclude<Opening, { kind: "missing" }>;
-	templates: readonly Template[];
-}): ComposeStore {
+export function createComposeStore(init: { opening: Opened; templates: readonly Template[] }): ComposeStore {
 	const countPause = createDebouncer(COUNT_PAUSE_MS);
 	const previewPause = createDebouncer(PREVIEW_PAUSE_MS);
 	const searchPause = createDebouncer(SEARCH_PAUSE_MS);

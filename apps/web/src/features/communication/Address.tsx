@@ -13,7 +13,9 @@ import {
 import { useRef, useState, useTransition } from "react";
 import { createRead, useRead } from "../../components/read.tsx";
 import { readOwnSuppression, restoreOwnSuppression } from "./actions.ts";
-import { outcomeText, restoreText, type Outcome, type SuppressionReport } from "./model.ts";
+import { outcomeText, restoreText, type Outcome, type RestoreReport, type SuppressionReport } from "./model.ts";
+
+const lost = <T,>(): Outcome<T> => ({ status: "lost" });
 import { useKeys } from "./useKeys.ts";
 
 type Notice = { text: string; tone: "alert" | "status" };
@@ -47,7 +49,7 @@ export function Address() {
 		}
 		setReasonError(undefined);
 		start(async () => {
-			const result = await restoreOwnSuppression(keys.take("restore"), trimmed);
+			const result = await restoreOwnSuppression(keys.take("restore"), trimmed).catch(lost<RestoreReport>);
 			keys.settle("restore", result);
 			if (result.status !== "ok") {
 				setRestored({ text: outcomeText(result) ?? "Unable to restore this address.", tone: "alert" });
@@ -59,9 +61,11 @@ export function Address() {
 					current.status === "ok" ? { ...current, value: { ...current.value, active: false } } : current,
 				);
 				setReason("");
-				void readOwnSuppression().then((fresh) => {
-					if (fresh.status === "ok") ownSuppression.patch(() => fresh);
-				});
+				void readOwnSuppression()
+					.catch(lost<SuppressionReport>)
+					.then((fresh) => {
+						if (fresh.status === "ok") ownSuppression.patch(() => fresh);
+					});
 			}
 		});
 	};

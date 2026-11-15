@@ -18,11 +18,14 @@ import {
 	outcomeText,
 	templateCategories,
 	type MeetingType,
+	type Outcome,
 	type Template,
 	type TemplateCategory,
 } from "./model.ts";
 import { createTemplateEditorStore, type Issues } from "./Templates.store.ts";
 import { useKeys } from "./useKeys.ts";
+
+const lost = <T,>(): Outcome<T> => ({ status: "lost" });
 
 export function Templates({
 	templates,
@@ -200,14 +203,16 @@ function Editor({
 			actions.flag(found);
 			if (found.name || found.subject || found.body || found.meetingType) return;
 			if (!current) {
-				const result = await createTemplate(keys.take("template"), payload());
+				const result = await createTemplate(keys.take("template"), payload()).catch(lost<Template>);
 				keys.settle("template", result);
 				if (result.status !== "ok") return actions.flag({ form: outcomeText(result) ?? undefined });
 				keep(result.value);
 				actions.say("Template created.");
 				return;
 			}
-			const result = await updateTemplate(keys.take("template"), current.revision, current.templateId, payload());
+			const result = await updateTemplate(keys.take("template"), current.revision, current.templateId, payload()).catch(
+				lost<Template>,
+			);
 			keys.settle("template", result);
 			if (result.status !== "ok") return actions.flag({ form: outcomeText(result) ?? undefined });
 			keep(result.value);
@@ -217,7 +222,7 @@ function Editor({
 	const onFork = () =>
 		run(async () => {
 			if (!current?.sourceKey) return;
-			const result = await forkTemplate(keys.take("fork"), current.sourceKey);
+			const result = await forkTemplate(keys.take("fork"), current.sourceKey).catch(lost<Template>);
 			keys.settle("fork", result);
 			if (result.status !== "ok") return actions.flag({ form: outcomeText(result) ?? undefined });
 			keep(result.value);

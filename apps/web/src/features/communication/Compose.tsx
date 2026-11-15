@@ -36,7 +36,7 @@ import {
 	type PageData,
 	type Step,
 } from "./model.ts";
-import { createComposeStore, type Opening } from "./Compose.store.ts";
+import { createComposeStore, type Opened, type Opening } from "./Compose.store.ts";
 import { useKeys } from "./useKeys.ts";
 import { ReviewStep } from "./ReviewStep.tsx";
 import { useAudienceSummary, WhoStep } from "./WhoStep.tsx";
@@ -61,10 +61,12 @@ const lost = <T,>(): Outcome<T> => ({ status: "lost" });
 async function open(id: string, handoff: Handoff | null): Promise<Opening> {
 	if (id !== "new") {
 		const draft = await readDraft(id);
+		if (draft.status === "lost") return { kind: "unreachable" };
 		return draft.status === "ok" ? { kind: "draft", draft: draft.value } : { kind: "missing" };
 	}
 	if (!handoff) return { kind: "new", meeting: null, template: null, guests: false, notes: [] };
 	const context = await readMeetingContext(handoff.meeting);
+	if (context.status === "lost") return { kind: "unreachable" };
 	if (context.status !== "ok")
 		return {
 			kind: "new",
@@ -74,6 +76,7 @@ async function open(id: string, handoff: Handoff | null): Promise<Opening> {
 			notes: ["That meeting is not available. The message has no meeting."],
 		};
 	const found = handoff.template ? await readMeetingTemplate(context.value.type) : null;
+	if (found?.status === "lost") return { kind: "unreachable" };
 	return {
 		kind: "new",
 		meeting: context.value,
@@ -86,7 +89,10 @@ async function open(id: string, handoff: Handoff | null): Promise<Opening> {
 	};
 }
 
-const openings = createRead(open, { failed: (): Opening => ({ kind: "missing" }) });
+const openings = createRead(open, {
+	failed: (): Opening => ({ kind: "unreachable" }),
+	keep: (opening) => opening.kind !== "unreachable",
+});
 const meetingContexts = createRead((meetingId: string) => readMeetingContext(meetingId), {
 	failed: lost<MeetingContext>,
 });
@@ -129,6 +135,23 @@ export function Compose(props: ComposeProps) {
 			</p>
 		);
 	}
+	if (opened.kind === "unreachable") {
+		return (
+			<div className="flex flex-col items-start gap-3">
+				<p role="alert" className="text-md font-medium text-magenta-600">
+					{outcomeText({ status: "lost" })}
+				</p>
+				<div className="flex flex-wrap gap-2">
+					<Button variant="secondary" onClick={opening.retry}>
+						Try again
+					</Button>
+					<Button variant="ghost" onClick={props.onLeave}>
+						Back to messages
+					</Button>
+				</div>
+			</div>
+		);
+	}
 	if (opened.kind === "missing") {
 		return (
 			<div className="flex flex-col items-start gap-3">
@@ -162,7 +185,7 @@ function ComposeForm({
 	onLeave,
 	onDeleted,
 	onDone,
-}: ComposeProps & { opening: Exclude<Opening, { kind: "missing" }>; onHeld: (id: string) => void }) {
+}: ComposeProps & { opening: Opened; onHeld: (id: string) => void }) {
 	const keys = useKeys();
 	const store = useLocalStore(() => createComposeStore({ opening, templates: data.templates }));
 	const { form, saved, extra, notes, undo, pending, problem, plan, scheduledId, counted, previewed, actions } =
@@ -220,7 +243,7 @@ function ComposeForm({
 
 	const persist = async (target: Step): Promise<Form | null> => {
 		if (locked) return form;
-		const result = await saveDraft(keys.take("save"), form.revision, draftPayload(form));
+		const result = await saveDraft(keys.take("save"), form.revision, draftPayload(form)).catch(lost<Draft>);
 		keys.settle("save", result);
 		if (result.status !== "ok") {
 			actions.fail(outcomeText(result));

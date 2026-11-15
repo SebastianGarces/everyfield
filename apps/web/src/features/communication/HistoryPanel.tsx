@@ -698,7 +698,7 @@ function Browser({
 	};
 
 	const refresh = async (id: string) => {
-		const fresh = await openMessage(id);
+		const fresh = await openMessage(id).catch(lost<MessageView>);
 		if (fresh.status !== "ok") return;
 		messages.patch(() => fresh, id);
 		history.patch(id, fresh.value);
@@ -714,7 +714,7 @@ function Browser({
 		setActing(name);
 		setNotice(id, null);
 		try {
-			const result = await call();
+			const result = await call().catch(lost<T>);
 			keys.settle(name, result);
 			if (result.status !== "ok") {
 				setNotice(id, { text: outcomeText(result) ?? "Unable to finish. Try again.", tone: "alert" });
