@@ -20,7 +20,7 @@ import {
 	useToast,
 } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
-import { cn, Icon } from "@everyfield/ui/foundations";
+import { cn, Icon, prefersReducedMotion } from "@everyfield/ui/foundations";
 import { useEffect, useRef, useState } from "react";
 import { addWalkIn, reloadCheckIn, setPresence, settleAttendance } from "./actions.ts";
 import {
@@ -107,7 +107,7 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 	// The effect depends on the guest alone, so a render never restarts the timer or the scroll.
 	useEffect(() => {
 		if (!arrived) return;
-		const calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+		const calm = prefersReducedMotion();
 		list.current
 			?.querySelector(`[data-guest="${CSS.escape(arrived)}"]`)
 			?.scrollIntoView({ block: "center", behavior: calm ? "instant" : "smooth" });

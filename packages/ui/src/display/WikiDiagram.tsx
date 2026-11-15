@@ -1,13 +1,6 @@
 import { useId, type CSSProperties, type ReactNode } from "react";
 import { cn } from "../foundations";
 
-/**
- * WikiDiagram (WP-034): a diagram block from a Wiki article, drawn as cards with real text. The shape is structural, so
- * the parsed contracts `Diagram` fits it and this package needs no contracts import. The figure is named by its title
- * and the caller's `summary`, the text alternative (type, node count, loop). The nodes are a list in source order: `<ol>` for flow, stages, cycle
- * and timeline, nested `<ul>` for hierarchy. Arrows, rails and rings are decoration and hidden from assistive tech.
- * Layouts follow the figure's own width (container queries): flow, cycle and timeline turn vertical when narrow.
- */
 export type WikiDiagramNode = { readonly label: string; readonly detail?: string; readonly note?: string };
 export type WikiDiagramTreeNode = WikiDiagramNode & { readonly children: readonly WikiDiagramTreeNode[] };
 export type WikiDiagramData =
@@ -20,7 +13,6 @@ export type WikiDiagramData =
 	| { readonly type: "stages" | "timeline"; readonly title: string; readonly nodes: readonly WikiDiagramNode[] }
 	| { readonly type: "hierarchy"; readonly title: string; readonly nodes: readonly WikiDiagramTreeNode[] };
 
-/** Overrides for the article prose around the figure: its list bullets, paddings and paragraph gaps. */
 const RESET = "m-0! list-none! p-0! [&>li]:my-0!";
 
 export function WikiDiagram({
@@ -66,7 +58,6 @@ export function WikiDiagram({
 	);
 }
 
-/** Label, detail and note of one node as block text (spans, so the prose paragraph spacing does not apply). */
 function Text({ node, note = true }: { node: WikiDiagramNode; note?: boolean }) {
 	return (
 		<>
@@ -99,7 +90,6 @@ function Number({ n, className }: { n: number; className?: string }) {
 	);
 }
 
-/** A connector arrow pointing down; `sideways` turns it right in the wide layout. */
 function Arrow({ sideways }: { sideways: boolean }) {
 	return (
 		<svg
@@ -135,7 +125,6 @@ function ReturnIcon() {
 	);
 }
 
-/** Steps joined by arrows. Four steps or fewer run across a wide figure; a loop draws a return path back to step 1. */
 function Flow({ nodes, loop }: { nodes: readonly WikiDiagramNode[]; loop: string | null }) {
 	const across = nodes.length <= 4;
 	return (
@@ -170,7 +159,6 @@ function Flow({ nodes, loop }: { nodes: readonly WikiDiagramNode[]; loop: string
 	);
 }
 
-/** The return path of a vertical loop: a rail on the left. `wideHidden` drops it in a wide figure. */
 function SideRail({ wideHidden }: { wideHidden: boolean }) {
 	return (
 		<span
@@ -185,7 +173,6 @@ function SideRail({ wideHidden }: { wideHidden: boolean }) {
 	);
 }
 
-/** The return path of a loop: a rail on the left in the vertical form, a bracket under the row when across. */
 function ReturnRail({ across }: { across: boolean }) {
 	return (
 		<>
@@ -202,7 +189,6 @@ function ReturnRail({ across }: { across: boolean }) {
 	);
 }
 
-/** Numbered stage cards in reading order. */
 function Stages({ nodes }: { nodes: readonly WikiDiagramNode[] }) {
 	return (
 		<ol className={cn(RESET, "grid gap-3 @md:grid-cols-2", nodes.length % 3 === 0 && "@2xl:grid-cols-3")}>
@@ -220,10 +206,6 @@ function Stages({ nodes }: { nodes: readonly WikiDiagramNode[] }) {
 	);
 }
 
-/**
- * Perimeter cells of a 3 by 3 grid, clockwise from the top middle, for 2 to 8 nodes in a wide figure. Each cell is
- * [row, column]. The center holds the ring mark; the cards sit on a rounded ring drawn behind them.
- */
 const RING: Record<number, readonly (readonly [number, number])[]> = {
 	2: [
 		[1, 2],
@@ -276,7 +258,6 @@ const RING: Record<number, readonly (readonly [number, number])[]> = {
 	],
 };
 
-/** Nodes on a closed loop: a ring of cards in a wide figure, or a column with a return rail. */
 function Cycle({ nodes }: { nodes: readonly WikiDiagramNode[] }) {
 	const ring = RING[nodes.length];
 	const place = (index: number) =>
@@ -341,7 +322,6 @@ function Cycle({ nodes }: { nodes: readonly WikiDiagramNode[] }) {
 	);
 }
 
-/** A tree: each level indents under its parent with elbow connectors. */
 function Tree({ nodes, root = false }: { nodes: readonly WikiDiagramTreeNode[]; root?: boolean }) {
 	return (
 		<ul className={cn(RESET, !root && "mt-2! ml-4! pl-5!")}>
@@ -351,7 +331,6 @@ function Tree({ nodes, root = false }: { nodes: readonly WikiDiagramTreeNode[]; 
 					className={cn(
 						"relative",
 						!root && "mt-2!",
-						// The elbow: a line down from the parent and across to this card. The last child stops at its card.
 						!root &&
 							"before:absolute before:-top-2 before:-left-5 before:h-[calc(1.5rem+0.5rem)] before:w-4 before:rounded-bl-md before:border-b-[1.75px] before:border-l-[1.75px] before:border-text-3 before:content-['']",
 						!root &&
@@ -369,7 +348,6 @@ function Tree({ nodes, root = false }: { nodes: readonly WikiDiagramTreeNode[]; 
 	);
 }
 
-/** Markers on a line, each with its note as the time label. Five or fewer run across a wide figure. */
 function Timeline({ nodes }: { nodes: readonly WikiDiagramNode[] }) {
 	const across = nodes.length <= 5;
 	return (

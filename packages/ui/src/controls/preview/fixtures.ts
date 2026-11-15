@@ -1,8 +1,5 @@
 import type { ComboboxOption, DatePreset, SelectOption } from "..";
 
-// Invented sample data for the controls preview: one church, Harvest Point, as in the prototype.
-
-/** Initials-circle tones for the preview. The real Avatar ships with WP-090. */
 export const TONES_PREVIEW = {
 	blue: "bg-blue-100 text-blue-600",
 	amber: "bg-amber-100 text-amber-600",

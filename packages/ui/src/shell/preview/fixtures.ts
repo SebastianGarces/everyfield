@@ -16,11 +16,6 @@ import {
 } from "@hugeicons/core-free-icons";
 import type { ShellItem, ShellLink, ShellNav, ShellUser } from "../nav";
 
-/**
- * Sample people and navigation for the shell preview. All names are invented sample data (design/handoff/README.md).
- * In the product, the caller builds the navigation from the person's actual seat or relationship; these fixtures only
- * show that the shell draws exactly the items it is given.
- */
 export const PREVIEW_ROLES = ["owner", "member", "residency"] as const;
 export type PreviewRole = (typeof PREVIEW_ROLES)[number];
 
@@ -53,7 +48,6 @@ function tools(base: string, o: Overlays): ShellItem[] {
 	];
 }
 
-/** A plant seat (Owner or Member): the prototype's top navigation and rail. A Member reads what the seat allows. */
 function plantNav(base: string, o: Overlays): ShellNav {
 	return {
 		main: [
@@ -74,10 +68,6 @@ function plantNav(base: string, o: Overlays): ShellNav {
 	};
 }
 
-/**
- * A linked Discovery account without a seat (REQ-MUL-013): My residency, its private Wiki reading and documents. It
- * receives no People, Meetings, Tasks, Launch, organization directory or plant workspace.
- */
 function residencyNav(base: string, o: Overlays): ShellNav {
 	return {
 		main: [
