@@ -143,10 +143,10 @@ function fixture({ tools = true } = {}) {
 	ok("add", "-A");
 	ok("commit", "-qm", "base");
 	ok("checkout", "-qb", "evf/t-1");
-	const commit = (files) => {
+	const commit = (files, message = "change") => {
 		for (const [file, content] of Object.entries(files)) write(file, content);
 		ok("add", "-A");
-		ok("commit", "-qm", "change");
+		ok("commit", "-qm", message);
 	};
 	const dev = (args, extra = {}) =>
 		spawnSync(join(dir, "bin/dev"), args, { cwd: dir, env: { ...env, ...extra }, encoding: "utf8" });
@@ -155,8 +155,126 @@ function fixture({ tools = true } = {}) {
 		const report = JSON.parse(run.stdout);
 		return { status: run.status, report, step: (name) => report.steps.find((step) => step.name === name) };
 	};
-	return { dir, home, env, globalHooks, gitconfig, git, ok, commit, dev, check };
+	return { dir, home, env, globalHooks, gitconfig, git, ok, commit, write, dev, check };
 }
+
+const SESSION = "packages/domain/src/access/session.ts";
+const SEATS = "packages/domain/src/identity/seats.ts";
+const PERMISSIONS_MAP = ".agents/skills/formal-permissions/map.json";
+const MAINTAIN = ".agents/skills/maintain-formal-verification/SKILL.md";
+const formalMap = (model, entries) => JSON.stringify({ model, actions: entries, properties: [] }, null, "\t") + "\n";
+
+/** The fixture with this checkout's real permissions map, its model folder and the mapped files it names, on main. */
+function formalFixture() {
+	const fx = fixture();
+	fx.ok("checkout", "-q", "main");
+	const map = JSON.parse(readFileSync(join(repo, PERMISSIONS_MAP), "utf8"));
+	const files = {
+		[PERMISSIONS_MAP]: readFileSync(join(repo, PERMISSIONS_MAP), "utf8"),
+		[`${map.model}/Permissions.tla`]: "---- MODULE Permissions ----\n====\n",
+	};
+	for (const entry of [...map.actions, ...(map.rules ?? []), ...map.properties])
+		for (const code of entry.code) files[code.file] = `// ${code.function}\n`;
+	fx.commit(files, "formal base");
+	fx.ok("branch", "-qf", "evf/t-1", "main");
+	fx.ok("checkout", "-q", "evf/t-1");
+	return fx;
+}
+
+test("fast-check's formal step fails a branch that changes a mapped file without its map or model, and names the map, model and maintain skill", () => {
+	const fx = formalFixture();
+	fx.commit({ [SESSION]: "// lockWriteAuthority\n// one more line\n", "docs/note.md": "A note.\n" });
+	const { status, report, step } = fx.check();
+	assert.equal(status, 1);
+	assert.equal(report.ok, false);
+	const formal = step("formal");
+	assert.equal(formal.status, "failed");
+	assert.deepEqual(formal.files, [SESSION]);
+	assert.equal(formal.fix, MAINTAIN);
+	assert.equal(typeof formal.ms, "number");
+	assert.match(
+		formal.detail,
+		/mapped in \.agents\/skills\/formal-permissions\/map\.json \(model formal\/permissions\/\)/,
+	);
+	assert.match(formal.detail, /Formal-model: unchanged/);
+
+	const human = fx.dev(["fast-check"]);
+	assert.equal(human.status, 1);
+	assert.match(human.stdout, /^formal +failed \d+ ms\n {2}packages\/domain\/src\/access\/session\.ts$/m);
+	assert.match(human.stdout, /^ {2}fix: \.agents\/skills\/maintain-formal-verification\/SKILL\.md$/m);
+});
+
+test("fast-check's formal step passes a mapped change that also changes the model folder or the map", () => {
+	const model = formalFixture();
+	model.commit({
+		[SESSION]: "// lockWriteAuthority\n// changed\n",
+		"formal/permissions/Permissions.tla": "\\* changed\n",
+	});
+	assert.equal(model.check().step("formal").status, "passed");
+
+	const map = formalFixture();
+	const edited = readFileSync(join(map.dir, PERMISSIONS_MAP), "utf8").replace('"model"', '"model" ');
+	map.commit({ [SESSION]: "// lockWriteAuthority\n// changed\n", [PERMISSIONS_MAP]: edited });
+	const { status, step } = map.check();
+	assert.equal(step("formal").status, "passed");
+	assert.equal(status, 0);
+});
+
+test("fast-check's formal step counts a deleted or renamed mapped file as changed", () => {
+	const deleted = formalFixture();
+	deleted.ok("rm", "-q", SEATS);
+	deleted.ok("commit", "-qm", "drop seats");
+	const gone = deleted.check().step("formal");
+	assert.equal(gone.status, "failed");
+	assert.deepEqual(gone.files, [SEATS]);
+
+	const moved = formalFixture();
+	moved.ok("mv", SEATS, "packages/domain/src/identity/seat-rules.ts");
+	moved.ok("commit", "-qm", "move seats");
+	const renamed = moved.check().step("formal");
+	assert.equal(renamed.status, "failed");
+	assert.deepEqual(renamed.files, [SEATS]);
+});
+
+test("fast-check's formal step passes on a branch commit with the Formal-model: unchanged trailer and names that commit", () => {
+	const fx = formalFixture();
+	fx.commit({ [SESSION]: "// lockWriteAuthority\n// refactor\n" }, "Refactor the lock\n\nFormal-model: unchanged");
+	const trailed = fx.ok("rev-parse", "HEAD");
+	fx.commit({ "docs/note.md": "A later commit.\n" });
+	const { status, step } = fx.check();
+	assert.equal(status, 0);
+	const formal = step("formal");
+	assert.equal(formal.status, "passed");
+	assert.match(formal.detail, new RegExp(`Formal-model: unchanged trailer in commit ${trailed.slice(0, 9)}`));
+
+	const human = fx.dev(["fast-check"]);
+	assert.equal(human.status, 0);
+	assert.match(
+		human.stdout,
+		new RegExp(`^formal +passed \\d+ ms: .*Formal-model: unchanged trailer in commit ${trailed.slice(0, 9)}`, "m"),
+	);
+});
+
+test("fast-check's formal step passes a branch that touches no mapped file and reads a second subsystem's map with no code change", () => {
+	const fx = formalFixture();
+	fx.commit({ "packages/domain/src/other.ts": "export {};\n" });
+	assert.equal(fx.check().step("formal").status, "passed");
+
+	fx.commit({
+		".agents/skills/formal-billing/map.json": formalMap("formal/billing", [
+			{ name: "Charge", code: [{ file: "packages/domain/src/billing/charge.ts", function: "charge" }], ids: [] },
+		]),
+		"packages/domain/src/billing/charge.ts": "// charge\n",
+	});
+	assert.equal(fx.check().step("formal").status, "passed", "a new map and its code are added together");
+	fx.ok("branch", "-qf", "main", "HEAD");
+
+	fx.commit({ "packages/domain/src/billing/charge.ts": "// charge\n// changed\n" });
+	const formal = fx.check().step("formal");
+	assert.equal(formal.status, "failed");
+	assert.deepEqual(formal.files, ["packages/domain/src/billing/charge.ts"]);
+	assert.match(formal.detail, /formal-billing\/map\.json \(model formal\/billing\/\)/);
+});
 
 test("fast-check fails a changed file's format error, names it and prints the Prettier fix; ignored and unglobbed files are not checked", () => {
 	const fx = fixture();
@@ -338,6 +456,7 @@ test("fast-check passes a branch whose own files are clean, though main holds un
 			["format", "passed"],
 			["lint", "passed"],
 			["typecheck", "passed"],
+			["formal", "skipped"],
 		],
 	);
 });
@@ -349,7 +468,7 @@ test("fast-check without node_modules fails each needed step with pnpm install, 
 	assert.equal(docs.status, 0);
 	assert.deepEqual(
 		docs.report.steps.map((step) => step.status),
-		["skipped", "skipped", "skipped"],
+		["skipped", "skipped", "skipped", "skipped"],
 	);
 
 	fx.commit({ "packages/demo/src/fine.ts": "export const fine = 1;\n" });
@@ -361,6 +480,7 @@ test("fast-check without node_modules fails each needed step with pnpm install, 
 			["format", "failed", "pnpm install"],
 			["lint", "failed", "pnpm install"],
 			["typecheck", "failed", "pnpm install"],
+			["formal", "skipped", undefined],
 		],
 	);
 });
