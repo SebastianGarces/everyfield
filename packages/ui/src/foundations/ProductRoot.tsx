@@ -21,6 +21,19 @@ function endThemeFade(event: TransitionEvent<HTMLDivElement>) {
 		event.currentTarget.removeAttribute("data-theme-fade");
 }
 
+function styleCommittedTheme(el: HTMLElement) {
+	return getComputedStyle(el).backgroundColor;
+}
+
+function fadeTo(el: HTMLDivElement, next: ProductTheme) {
+	if (el.dataset.theme === next || prefersReducedMotion()) {
+		el.removeAttribute("data-theme-fade");
+		return;
+	}
+	el.setAttribute("data-theme-fade", "");
+	styleCommittedTheme(el);
+}
+
 let chosen: ProductTheme | null = null;
 
 export function ProductRoot({ initialTheme, children }: { initialTheme: ProductTheme; children: ReactNode }) {
@@ -32,8 +45,7 @@ export function ProductRoot({ initialTheme, children }: { initialTheme: ProductT
 		chosen = next;
 		document.cookie = `${THEME_COOKIE}=${next}; Path=/; Max-Age=${YEAR}; SameSite=Lax`;
 		const el = root.current;
-		if (el?.dataset.theme === next || prefersReducedMotion()) el?.removeAttribute("data-theme-fade");
-		else el?.setAttribute("data-theme-fade", "");
+		if (el) fadeTo(el, next);
 		setThemeState(next);
 	}, []);
 
