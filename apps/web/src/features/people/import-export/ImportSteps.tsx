@@ -26,8 +26,8 @@ import {
 	SegmentedControl,
 } from "@everyfield/ui/controls";
 import { Pagination } from "@everyfield/ui/display";
-import { cn, Icon } from "@everyfield/ui/foundations";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { cn, Icon, useFocusRequest } from "@everyfield/ui/foundations";
+import { useRef, useState, type ReactNode } from "react";
 import {
 	addCount,
 	canReview,
@@ -123,9 +123,7 @@ export function StepHeading({
 }
 
 export function Problem({ notice, actions }: { notice: Notice; actions?: ReactNode }) {
-	const ref = useRef<HTMLDivElement>(null);
-	// An error takes focus when it appears, so the person hears what went wrong and what to do.
-	useEffect(() => ref.current?.focus(), [notice]);
+	const ref = useFocusRequest<HTMLDivElement>(`${notice.title}\n${notice.text}`);
 	return (
 		<Card
 			ref={ref}

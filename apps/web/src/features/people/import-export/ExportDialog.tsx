@@ -12,7 +12,7 @@ import {
 	DialogFooter,
 	DialogHeader,
 } from "@everyfield/ui/controls";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { querySearch, type PeopleQuery } from "../model.ts";
 import { describeFilters, plural } from "./model.ts";
 
@@ -37,10 +37,15 @@ export function ExportDialog({
 	const [state, setState] = useState<State>({ kind: "ready" });
 	const busy = state.kind === "exporting";
 	const slowTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
-	useEffect(() => () => clearTimeout(slowTimer.current), []);
+	const file = useRef<string | null>(null);
+	const release = () => {
+		if (file.current) URL.revokeObjectURL(file.current);
+		file.current = null;
+	};
 	const filters = describeFilters(query);
 
 	const download = async () => {
+		release();
 		setState({ kind: "exporting", slow: false });
 		// A very large export is report work and can pass one second (C33); the dialog says so while it waits.
 		slowTimer.current = setTimeout(() => setState((s) => (s.kind === "exporting" ? { ...s, slow: true } : s)), 1000);
@@ -57,7 +62,7 @@ export function ExportDialog({
 			a.href = url;
 			a.download = filename;
 			a.click();
-			setTimeout(() => URL.revokeObjectURL(url), 30_000);
+			file.current = url;
 			setState({
 				kind: "done",
 				filename,
@@ -73,6 +78,7 @@ export function ExportDialog({
 
 	const close = () => {
 		if (busy) return;
+		release();
 		onOpenChange(false);
 		setState({ kind: "ready" });
 	};

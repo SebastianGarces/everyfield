@@ -1,7 +1,9 @@
 "use client";
 
 import { Button, buttonVariants, IntentLink, PageHeader } from "@everyfield/ui/controls";
-import { useEffect, useRef, useState } from "react";
+import { useFocusRequest } from "@everyfield/ui/foundations";
+import { useRef, useState, useSyncExternalStore } from "react";
+import { writeAddress } from "../../../components/location.ts";
 import { DoneStep, ImportStep, ReviewStep, Steps, UploadStep } from "./ImportSteps.tsx";
 import {
 	addCount,
@@ -22,6 +24,7 @@ import {
 	type Preview,
 	type Review,
 } from "./model.ts";
+import { watchReceipt, type Polled } from "./receipt-watch.ts";
 
 // People CSV import (REQ-PPL-018): upload, review every row, import as one background job, then the receipt. The
 // file goes once into the private bucket with a signed PUT (REQ-PPL-014's private-file flow); the preview and the import
@@ -86,12 +89,17 @@ async function stage(file: File): Promise<Answer<string>> {
 }
 const readReceipt = (key: string) => call<ImportReceipt>(`/api/people/import?key=${encodeURIComponent(key)}`);
 const address = (key: string | null) =>
-	window.history.replaceState(null, "", key ? `/people/import?import=${key}` : "/people/import");
+	writeAddress(key ? `/people/import?import=${key}` : "/people/import", { replace: true });
+const pollReceipt = (key: string) => async (): Promise<Polled> => {
+	const got = await readReceipt(key);
+	return got.status === "ok" ? { status: "ok", receipt: got.value } : { status: got.status };
+};
+const unwatched = () => () => {};
 
 const finished = (r: ImportReceipt) => r.status !== "in_progress";
 
 export function ImportScreen({ initial }: { initial: Initial }) {
-	const [state, setState] = useState<State>(() => {
+	const [base, setState] = useState<State>(() => {
 		if (initial.kind === "receipt")
 			return finished(initial.receipt)
 				? done(null, initial.key, initial.receipt)
@@ -104,19 +112,23 @@ export function ImportScreen({ initial }: { initial: Initial }) {
 			error: initial.kind === "missing" ? NOT_FOUND : null,
 		};
 	});
+	const running = base.step === "import" ? base : null;
+	const watch = running?.receipt ? watchReceipt(running.receipt, pollReceipt(running.key)) : null;
+	const polled = useSyncExternalStore(
+		watch?.subscribe ?? unwatched,
+		() => watch?.latest() ?? null,
+		() => null,
+	);
+	const state = running && watch && polled ? afterPoll(running, polled) : base;
 	const heading = useRef<HTMLHeadingElement>(null);
-	const step = state.step;
-	// A new step or a blocking problem moves focus, so keyboard and screen reader users start there. A refusal on the
-	// new step wins over its heading: the person must hear what went wrong first.
 	const blocking = state.step === "import" && state.trouble !== RECONNECTING ? state.trouble?.title : null;
-	const first = useRef(true);
-	useEffect(() => {
-		if (first.current) {
-			first.current = false;
-			return;
-		}
-		(document.querySelector<HTMLElement>("[data-import-problem]") ?? heading.current)?.focus();
-	}, [step, blocking]);
+	const moment = `${state.step}|${blocking ?? ""}`;
+	const [moves, setMoves] = useState({ moment, n: 0 });
+	if (moves.moment !== moment) setMoves({ moment, n: moves.n + 1 });
+	const focusMove = useFocusRequest<HTMLDivElement>(
+		moves.n,
+		(root) => root.querySelector<HTMLElement>("[data-import-problem]") ?? heading.current,
+	);
 
 	const check = async (picked: File) => {
 		if (picked.size > MAX_BYTES) {
@@ -199,37 +211,6 @@ export function ImportScreen({ initial }: { initial: Initial }) {
 		return refuse(got.code);
 	};
 
-	// While the job runs, read its receipt about once a second. A failed read waits longer, then tries again.
-	const running = state.step === "import" && state.receipt !== null ? state : null;
-	const runningKey = running?.key;
-	useEffect(() => {
-		if (!runningKey) return;
-		let wait = 1000;
-		let timer: ReturnType<typeof setTimeout>;
-		let stopped = false;
-		const tick = async () => {
-			const got = await readReceipt(runningKey);
-			if (stopped) return;
-			if (got.status === "ok") {
-				wait = 1000;
-				setState((s) => (s.step === "import" && s.key === runningKey ? next(s, got.value) : s));
-				if (finished(got.value)) return;
-			} else if (got.status === "refused") {
-				setState((s) => (s.step === "import" && s.key === runningKey ? { ...s, trouble: UNCONFIRMED } : s));
-				return;
-			} else {
-				wait = Math.min(wait * 2, 8000);
-				setState((s) => (s.step === "import" && s.key === runningKey ? { ...s, trouble: RECONNECTING } : s));
-			}
-			timer = setTimeout(tick, wait);
-		};
-		timer = setTimeout(tick, wait);
-		return () => {
-			stopped = true;
-			clearTimeout(timer);
-		};
-	}, [runningKey]);
-
 	const startOver = () => {
 		address(null);
 		setState({ step: "upload", checking: null, error: null });
@@ -278,39 +259,45 @@ export function ImportScreen({ initial }: { initial: Initial }) {
 				}
 			/>
 			<Steps current={state.step} />
-			{state.step === "upload" ? (
-				<UploadStep heading={heading} checking={state.checking} error={state.error} onFile={check} />
-			) : state.step === "review" ? (
-				<ReviewStep
-					heading={heading}
-					review={state.review}
-					refusal={state.refusal}
-					onChoices={(choices) => setState({ ...state, review: { ...state.review, choices }, refusal: null })}
-					onCheckAgain={() => check(state.review.file)}
-				/>
-			) : state.step === "import" ? (
-				<ImportStep
-					heading={heading}
-					receipt={state.receipt}
-					trouble={state.trouble}
-					onRetry={state.trouble === LOST_CHECK ? () => confirm(state.review, state.key) : null}
-					onStartOver={startOver}
-				/>
-			) : (
-				<DoneStep
-					heading={heading}
-					receipt={state.receipt}
-					review={state.review}
-					working={state.working}
-					problem={state.problem}
-					onRetry={(file) => void retry(state, file)}
-					onStartOver={startOver}
-				/>
-			)}
+			<div ref={focusMove} className="contents">
+				{state.step === "upload" ? (
+					<UploadStep heading={heading} checking={state.checking} error={state.error} onFile={check} />
+				) : state.step === "review" ? (
+					<ReviewStep
+						heading={heading}
+						review={state.review}
+						refusal={state.refusal}
+						onChoices={(choices) => setState({ ...state, review: { ...state.review, choices }, refusal: null })}
+						onCheckAgain={() => check(state.review.file)}
+					/>
+				) : state.step === "import" ? (
+					<ImportStep
+						heading={heading}
+						receipt={state.receipt}
+						trouble={state.trouble}
+						onRetry={state.trouble === LOST_CHECK ? () => confirm(state.review, state.key) : null}
+						onStartOver={startOver}
+					/>
+				) : (
+					<DoneStep
+						heading={heading}
+						receipt={state.receipt}
+						review={state.review}
+						working={state.working}
+						problem={state.problem}
+						onRetry={(file) => void retry(state, file)}
+						onStartOver={startOver}
+					/>
+				)}
+			</div>
 		</>
 	);
 }
 
-function next(s: Extract<State, { step: "import" }>, receipt: ImportReceipt): State {
-	return finished(receipt) ? done(s.review, s.key, receipt) : { ...s, receipt, trouble: null };
+function afterPoll(s: Extract<State, { step: "import" }>, polled: Polled): State {
+	if (polled.status === "refused") return { ...s, trouble: UNCONFIRMED };
+	if (polled.status === "lost") return { ...s, trouble: RECONNECTING };
+	return finished(polled.receipt)
+		? done(s.review, s.key, polled.receipt)
+		: { ...s, receipt: polled.receipt, trouble: null };
 }
