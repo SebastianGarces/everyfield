@@ -21,7 +21,7 @@ import {
 } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon, prefersReducedMotion } from "@everyfield/ui/foundations";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { addWalkIn, reloadCheckIn, setPresence, settleAttendance } from "./actions.ts";
 import {
 	DialogNotice,
@@ -61,7 +61,6 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 	// The saved walk-in to show: scrolled to the middle and held in a soft highlight for a moment. Keyed by guest id,
 	// because two guests can share a name.
 	const [arrived, setArrived] = useState<string | null>(null);
-	const list = useRef<HTMLUListElement>(null);
 	const [search, setSearch] = useState("");
 	// A walk-in and Finish both change who attended, so they share one save lane (C68). Presence taps have one per person.
 	const door = useSaveIntent<DoorForm>({ explain: problemText });
@@ -103,17 +102,6 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 	const rows = guests
 		.filter((g) => !q || g.person.displayName.toLowerCase().includes(q))
 		.sort((a, b) => rank(a) - rank(b) || a.person.displayName.localeCompare(b.person.displayName));
-
-	// The effect depends on the guest alone, so a render never restarts the timer or the scroll.
-	useEffect(() => {
-		if (!arrived) return;
-		const calm = prefersReducedMotion();
-		list.current
-			?.querySelector(`[data-guest="${CSS.escape(arrived)}"]`)
-			?.scrollIntoView({ block: "center", behavior: calm ? "instant" : "smooth" });
-		const t = setTimeout(() => setArrived(null), 3000);
-		return () => clearTimeout(t);
-	}, [arrived]);
 
 	function submitWalkIn(input: WalkInInput) {
 		const p = input.person;
@@ -255,7 +243,10 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 					aria-label="Find a name"
 					placeholder="Find a name"
 					value={search}
-					onChange={(e) => setSearch(e.target.value)}
+					onChange={(e) => {
+						setSearch(e.target.value);
+						setArrived(null);
+					}}
 					className="h-[46px]"
 				/>
 			</header>
@@ -281,10 +272,7 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 										: `Everyone on the list is here.${finalizer ? " Finish check-in when you are ready." : ""}`}
 							</p>
 						)}
-						<ul
-							ref={list}
-							className="overflow-hidden rounded-card bg-surface-raised shadow-[inset_0_0_0_1px_var(--ef-line),var(--ef-shadow-raised)]"
-						>
+						<ul className="overflow-hidden rounded-card bg-surface-raised shadow-[inset_0_0_0_1px_var(--ef-line),var(--ef-shadow-raised)]">
 							{rows.map((g) => (
 								<li key={g.id} className="border-line not-first:border-t">
 									<Row
@@ -376,6 +364,24 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 const rank = (g: GuestRow) => (g.rsvp === "confirmed" ? 0 : g.rsvp === "pending" ? 1 : 2);
 
 /** One guest at the door: a 56px to-do row with a round check and a status chip. Pressed means here. */
+const ARRIVAL_HOLD_MS = 3000;
+const ARRIVAL_FADE_MS = 150;
+
+function showArrival(row: HTMLElement | null) {
+	if (!row) return;
+	const calm = prefersReducedMotion();
+	row.scrollIntoView({ block: "center", behavior: calm ? "instant" : "smooth" });
+	const held = { backgroundColor: "var(--ef-surface-2)" };
+	row.animate(
+		[
+			held,
+			{ ...held, offset: ARRIVAL_HOLD_MS / (ARRIVAL_HOLD_MS + ARRIVAL_FADE_MS), easing: calm ? "step-end" : "ease" },
+			{},
+		],
+		{ duration: ARRIVAL_HOLD_MS + ARRIVAL_FADE_MS },
+	);
+}
+
 function Row({
 	guest: g,
 	disabled,
@@ -404,6 +410,7 @@ function Row({
 	return (
 		<button
 			type="button"
+			ref={highlight ? showArrival : undefined}
 			data-guest={g.id}
 			aria-pressed={here}
 			aria-busy={state === "saving" || state === "checking" || undefined}
@@ -411,7 +418,6 @@ function Row({
 			onClick={() => !saving && !disabled && onToggle()}
 			className={cn(
 				"flex min-h-14 w-full items-center gap-3.5 px-4 py-2.5 text-left transition-colors duration-150 hover:bg-surface-2 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus aria-disabled:hover:bg-transparent motion-reduce:transition-none",
-				highlight && "bg-surface-2",
 			)}
 		>
 			<span
