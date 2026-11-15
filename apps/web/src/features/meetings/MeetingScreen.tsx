@@ -104,7 +104,7 @@ import {
 } from "./model.ts";
 import { MeetingStatusBadge, RsvpBar } from "./parts.tsx";
 import { defaultTab, nextStep, pickTab, type Primary, type TabId } from "./next-step.ts";
-import { deleteFromList } from "./deletions.ts";
+import { deleteFromList } from "./deletions.store.ts";
 import {
 	applyChange,
 	withAttendanceRevision,
