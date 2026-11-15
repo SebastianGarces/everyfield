@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { EvryBot, type EvryMood } from "..";
 
 export function EvryCheer() {
 	const [mood, setMood] = useState<EvryMood>("idle");
 	const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
-	useEffect(() => () => clearTimeout(timer.current), []);
 	return (
 		<button
 			type="button"

@@ -3,7 +3,7 @@
 import { ArrowDown01Icon, BellIcon, Cancel01Icon, Menu01Icon, Search01Icon } from "@hugeicons/core-free-icons";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { useCallback, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { Menu, MenuContent, MenuTrigger } from "../controls";
 import { AvatarImage } from "../display/AvatarImage";
 import { cn, EvryBot, HoverGroup, Icon, Lockup, LogoMark, useHoverItem } from "../foundations";
@@ -306,17 +306,15 @@ function NarrowMenu({ nav, current, onSearch }: { nav: ShellNav; current: string
 	const [open, setOpen] = useState(false);
 	const panelId = useId();
 	const button = useRef<HTMLButtonElement>(null);
-	const wrapper = useRef<HTMLDivElement>(null);
 	const close = () => setOpen(false);
-
-	useEffect(() => {
-		if (!open) return;
+	const closeOnPointerOutside = useCallback((wrapper: HTMLDivElement | null) => {
+		if (!wrapper) return;
 		const onPointerDown = (e: PointerEvent) => {
-			if (!wrapper.current?.contains(e.target as Node)) setOpen(false);
+			if (!wrapper.contains(e.target as Node)) setOpen(false);
 		};
-		document.addEventListener("pointerdown", onPointerDown);
-		return () => document.removeEventListener("pointerdown", onPointerDown);
-	}, [open]);
+		wrapper.ownerDocument.addEventListener("pointerdown", onPointerDown);
+		return () => wrapper.ownerDocument.removeEventListener("pointerdown", onPointerDown);
+	}, []);
 
 	const onKeyDown = (e: KeyboardEvent) => {
 		if (e.key === "Escape" && open) {
@@ -328,7 +326,12 @@ function NarrowMenu({ nav, current, onSearch }: { nav: ShellNav; current: string
 	const rest = [...nav.pages, ...nav.tools];
 
 	return (
-		<div ref={wrapper} role="presentation" onKeyDown={onKeyDown} className="app-md:hidden">
+		<div
+			ref={open ? closeOnPointerOutside : undefined}
+			role="presentation"
+			onKeyDown={onKeyDown}
+			className="app-md:hidden"
+		>
 			<div className={cn(PILL, "flex h-topbar items-center px-2")}>
 				<button
 					ref={button}

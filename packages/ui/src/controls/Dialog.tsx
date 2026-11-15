@@ -2,7 +2,7 @@
 
 import { Alert02Icon, Cancel01Icon } from "@hugeicons/core-free-icons";
 import { AlertDialog, Dialog as DialogPrimitive } from "radix-ui";
-import { useState, type ComponentPropsWithRef, type ReactNode } from "react";
+import { useState, type ComponentPropsWithRef, type ReactNode, type Ref } from "react";
 import { cn, Icon, type IconSvgElement } from "../foundations";
 import { Button, IconButton } from "./Button";
 import { CardIcon, type Tone } from "./Card";
@@ -206,6 +206,8 @@ type SheetProps = {
 	footer?: ReactNode;
 	children: ReactNode;
 	className?: string;
+	onOpenAutoFocus?: (event: Event) => void;
+	bodyRef?: Ref<HTMLDivElement>;
 };
 
 export function Sheet({
@@ -219,9 +221,11 @@ export function Sheet({
 	footer,
 	children,
 	className,
+	onOpenAutoFocus,
+	bodyRef,
 }: SheetProps) {
 	const container = usePortalContainer();
-	const focus = useReturnFocus();
+	const focus = useReturnFocus({ onOpenAutoFocus });
 	return (
 		<DialogPrimitive.Root open={open} onOpenChange={onOpenChange} modal={modal}>
 			{trigger ? <DialogPrimitive.Trigger asChild>{trigger}</DialogPrimitive.Trigger> : null}
@@ -252,7 +256,9 @@ export function Sheet({
 							<IconButton icon={Cancel01Icon} label="Close" size="sm" />
 						</DialogPrimitive.Close>
 					</div>
-					<div className="min-h-0 flex-1 overflow-y-auto px-6 py-5 text-text-2">{children}</div>
+					<div ref={bodyRef} className="min-h-0 flex-1 overflow-y-auto px-6 py-5 text-text-2">
+						{children}
+					</div>
 					{footer ? (
 						<div className="flex flex-none flex-wrap items-center gap-2.5 border-t border-line bg-surface px-6 py-3.5 max-app-sm:rounded-none rounded-b-card">
 							{footer}

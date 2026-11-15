@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useId, useRef, useState, type CSSProperties } from "react";
 import { cn } from "./cn";
 import { restPaths, type EvryShape, type EyeMood } from "./evry-geo";
-import { mountEvry, type EvryHandle, type EvryLifeOptions } from "./evry-life";
+import { mountEvry } from "./evry-life";
 
 export type EvryBotSize = "xs" | "sm" | "md" | "lg" | "xl";
 export type EvryMood = "idle" | "thinking" | "talking" | "happy";
@@ -28,40 +28,24 @@ export function EvryBot({
 	const id = "eb" + useId().replace(/[^\w-]/g, "");
 	const face: EyeMood = mood === "talking" ? "idle" : mood;
 	const [first] = useState(() => ({ shape: shape ?? "circle", ...restPaths(shape ?? "circle", face) }));
-	const root = useRef<HTMLSpanElement>(null);
 	const path = useRef<SVGPathElement>(null);
 	const g = useRef<SVGGElement>(null);
 	const eye0 = useRef<SVGPathElement>(null);
 	const eye1 = useRef<SVGPathElement>(null);
 	const hl = useRef<SVGRadialGradientElement>(null);
 	const sh = useRef<SVGLinearGradientElement>(null);
-	const life = useRef<EvryHandle | null>(null);
-	const small = size !== "xl";
-	const options: EvryLifeOptions = { small, mood: face, shape, hold, follow };
-	const latest = useRef(options);
-	latest.current = options;
-
-	useEffect(() => {
-		const handle = mountEvry(
-			{
-				root: root.current!,
-				path: path.current!,
-				g: g.current!,
-				eyes: [eye0.current!, eye1.current!],
-				hl: hl.current!,
-				sh: sh.current!,
-			},
-			latest.current,
-		);
-		life.current = handle;
-		return () => {
-			handle.unmount();
-			life.current = null;
-		};
+	const live = useCallback((root: HTMLSpanElement | null) => {
+		if (!root) return;
+		const handle = mountEvry({
+			root,
+			path: path.current!,
+			g: g.current!,
+			eyes: [eye0.current!, eye1.current!],
+			hl: hl.current!,
+			sh: sh.current!,
+		});
+		return () => handle.unmount();
 	}, []);
-	useEffect(() => {
-		life.current?.update({ small, mood: face, shape, hold, follow });
-	}, [small, face, shape, hold, follow]);
 
 	const style = {
 		"--eb-float": `${(3 + blinkOffset * 1.2).toFixed(2)}s`,
@@ -69,11 +53,12 @@ export function EvryBot({
 	} as CSSProperties;
 	return (
 		<span
-			ref={root}
+			ref={live}
 			className={cn("evry-bot", className)}
 			data-size={size}
 			data-mood={face}
 			data-shape={first.shape}
+			data-want-shape={shape}
 			data-hold={hold ? "" : undefined}
 			data-follow={follow ? "" : undefined}
 			style={style}

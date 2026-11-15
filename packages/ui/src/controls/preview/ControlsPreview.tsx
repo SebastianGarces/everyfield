@@ -27,7 +27,7 @@ import {
 	UserCheck01Icon,
 	UserMultipleIcon,
 } from "@hugeicons/core-free-icons";
-import { useEffect, useState, type ReactNode } from "react";
+import { useState, useSyncExternalStore, type ReactNode } from "react";
 import { cn, EvryBot, Icon, revealDelay } from "../../foundations";
 import {
 	Button,
@@ -459,107 +459,125 @@ const CURSOR_OWNERS = TAGS.owners.map((o, i) => (i === 1 ? { ...o, disabled: tru
 const PLAIN = "h-[34px] rounded-sm bg-surface-2 px-3 text-sm font-medium text-ink";
 
 function CursorSamples() {
-	const [view, setView] = useState("grid");
-	const [tab, setTab] = useState("one");
-	const [stage, setStage] = useState("core");
-	const [owner, setOwner] = useState<string[]>([]);
-	const [failed, setFailed] = useState<string[]>([]);
+	return (
+		<Specimen label="Pointer and disabled cursors" className="mt-5">
+			<CursorOverlays />
+			<CursorFields />
+			<CursorChoices />
+		</Specimen>
+	);
+}
+
+function CursorOverlays() {
 	const [paletteError, setPaletteError] = useState(false);
 	const [density, setDensity] = useState("comfortable");
 	return (
-		<Specimen label="Pointer and disabled cursors" className="mt-5">
-			<div className="flex flex-wrap items-center gap-3">
-				<IconButton icon={Edit02Icon} label="Edit (disabled)" disabled />
-				<Menu>
-					<MenuTrigger className={PLAIN}>Plain menu trigger</MenuTrigger>
-					<MenuContent>
-						<MenuRadioGroup value={density} onValueChange={setDensity}>
-							<MenuRadioItem value="comfortable">Comfortable</MenuRadioItem>
-							<MenuRadioItem value="compact">Compact</MenuRadioItem>
-							<MenuRadioItem value="dense" disabled>
-								Dense (disabled)
-							</MenuRadioItem>
-						</MenuRadioGroup>
-					</MenuContent>
-				</Menu>
-				<Dialog>
-					<DialogTrigger className={PLAIN}>Plain dialog trigger</DialogTrigger>
-					<DialogContent>
-						<DialogHeader title="Plain dialog" />
-						<DialogBody>This dialog opens from a trigger without asChild.</DialogBody>
-					</DialogContent>
-				</Dialog>
-				<Popover>
-					<PopoverTrigger className={PLAIN}>Plain popover trigger</PopoverTrigger>
-					<PopoverContent label="Plain popover" className="w-[240px] p-4">
-						<p className="text-sm text-text-2">This pop-over opens from a trigger without asChild.</p>
-					</PopoverContent>
-				</Popover>
-				<Button size="sm" variant="outline" onClick={() => setPaletteError(true)}>
-					Palette with error
-				</Button>
-				<CommandPalette
-					open={paletteError}
-					onOpenChange={setPaletteError}
-					groups={[]}
-					error={{ message: "Search is unavailable.", onRetry: () => setPaletteError(false) }}
+		<div className="flex flex-wrap items-center gap-3">
+			<IconButton icon={Edit02Icon} label="Edit (disabled)" disabled />
+			<Menu>
+				<MenuTrigger className={PLAIN}>Plain menu trigger</MenuTrigger>
+				<MenuContent>
+					<MenuRadioGroup value={density} onValueChange={setDensity}>
+						<MenuRadioItem value="comfortable">Comfortable</MenuRadioItem>
+						<MenuRadioItem value="compact">Compact</MenuRadioItem>
+						<MenuRadioItem value="dense" disabled>
+							Dense (disabled)
+						</MenuRadioItem>
+					</MenuRadioGroup>
+				</MenuContent>
+			</Menu>
+			<Dialog>
+				<DialogTrigger className={PLAIN}>Plain dialog trigger</DialogTrigger>
+				<DialogContent>
+					<DialogHeader title="Plain dialog" />
+					<DialogBody>This dialog opens from a trigger without asChild.</DialogBody>
+				</DialogContent>
+			</Dialog>
+			<Popover>
+				<PopoverTrigger className={PLAIN}>Plain popover trigger</PopoverTrigger>
+				<PopoverContent label="Plain popover" className="w-[240px] p-4">
+					<p className="text-sm text-text-2">This pop-over opens from a trigger without asChild.</p>
+				</PopoverContent>
+			</Popover>
+			<Button size="sm" variant="outline" onClick={() => setPaletteError(true)}>
+				Palette with error
+			</Button>
+			<CommandPalette
+				open={paletteError}
+				onOpenChange={setPaletteError}
+				groups={[]}
+				error={{ message: "Search is unavailable.", onRetry: () => setPaletteError(false) }}
+			/>
+		</div>
+	);
+}
+
+function CursorFields() {
+	const [stage, setStage] = useState("core");
+	const [owner, setOwner] = useState<string[]>([]);
+	const [failed, setFailed] = useState<string[]>([]);
+	return (
+		<div className="mt-5 grid items-start gap-4 app-md:grid-cols-2">
+			<Field label="Stage with a disabled option">
+				<Select value={stage} onValueChange={setStage} options={CURSOR_STAGES} />
+			</Field>
+			<Field label="Stage (disabled)">
+				<Select defaultValue="core" onValueChange={() => {}} options={STAGES} disabled />
+			</Field>
+			<Field label="Owner with a disabled option">
+				<Combobox
+					searchLabel="Search owners"
+					options={CURSOR_OWNERS}
+					value={owner}
+					onValueChange={setOwner}
+					placeholder="Choose an owner"
 				/>
+			</Field>
+			<Field label="Owner that failed to load">
+				<Combobox
+					searchLabel="Search failed owners"
+					options={[]}
+					value={failed}
+					onValueChange={setFailed}
+					placeholder="Choose a failed owner"
+					error={{ message: "Owners did not load.", onRetry: () => {} }}
+				/>
+			</Field>
+		</div>
+	);
+}
+
+function CursorChoices() {
+	const [view, setView] = useState("grid");
+	const [tab, setTab] = useState("one");
+	return (
+		<div className="mt-5 flex flex-wrap items-start gap-x-8 gap-y-4">
+			<Checkbox label="Disabled checkbox" disabled />
+			<div className="min-w-0">
+				<SegmentedControl
+					label="Layout"
+					value={view}
+					onValueChange={setView}
+					options={[
+						{ value: "grid", label: "Grid" },
+						{ value: "rows", label: "Rows" },
+						{ value: "map", label: "Map", disabled: true },
+					]}
+				/>
+				<Tabs value={tab} onValueChange={setTab} className="mt-4">
+					<TabsList aria-label="Sample tabs">
+						<Tab value="one">One</Tab>
+						<Tab value="two">Two</Tab>
+						<Tab value="three" disabled>
+							Three
+						</Tab>
+					</TabsList>
+					<TabsPanel value="one">First tab.</TabsPanel>
+					<TabsPanel value="two">Second tab.</TabsPanel>
+					<TabsPanel value="three">Third tab.</TabsPanel>
+				</Tabs>
 			</div>
-			<div className="mt-5 grid items-start gap-4 app-md:grid-cols-2">
-				<Field label="Stage with a disabled option">
-					<Select value={stage} onValueChange={setStage} options={CURSOR_STAGES} />
-				</Field>
-				<Field label="Stage (disabled)">
-					<Select defaultValue="core" onValueChange={() => {}} options={STAGES} disabled />
-				</Field>
-				<Field label="Owner with a disabled option">
-					<Combobox
-						searchLabel="Search owners"
-						options={CURSOR_OWNERS}
-						value={owner}
-						onValueChange={setOwner}
-						placeholder="Choose an owner"
-					/>
-				</Field>
-				<Field label="Owner that failed to load">
-					<Combobox
-						searchLabel="Search failed owners"
-						options={[]}
-						value={failed}
-						onValueChange={setFailed}
-						placeholder="Choose a failed owner"
-						error={{ message: "Owners did not load.", onRetry: () => {} }}
-					/>
-				</Field>
-			</div>
-			<div className="mt-5 flex flex-wrap items-start gap-x-8 gap-y-4">
-				<Checkbox label="Disabled checkbox" disabled />
-				<div className="min-w-0">
-					<SegmentedControl
-						label="Layout"
-						value={view}
-						onValueChange={setView}
-						options={[
-							{ value: "grid", label: "Grid" },
-							{ value: "rows", label: "Rows" },
-							{ value: "map", label: "Map", disabled: true },
-						]}
-					/>
-					<Tabs value={tab} onValueChange={setTab} className="mt-4">
-						<TabsList aria-label="Sample tabs">
-							<Tab value="one">One</Tab>
-							<Tab value="two">Two</Tab>
-							<Tab value="three" disabled>
-								Three
-							</Tab>
-						</TabsList>
-						<TabsPanel value="one">First tab.</TabsPanel>
-						<TabsPanel value="two">Second tab.</TabsPanel>
-						<TabsPanel value="three">Third tab.</TabsPanel>
-					</Tabs>
-				</div>
-			</div>
-		</Specimen>
+		</div>
 	);
 }
 
@@ -763,23 +781,38 @@ function RowMenu({ name }: { name: string }) {
 	);
 }
 
+let paletteOpen = false;
+const paletteListeners = new Set<() => void>();
+const paletteSnapshot = () => paletteOpen;
+const closedOnServer = () => false;
+function setPaletteOpen(next: boolean) {
+	paletteOpen = next;
+	for (const changed of paletteListeners) changed();
+}
+function togglePaletteOnShortcut(e: KeyboardEvent) {
+	if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+		e.preventDefault();
+		setPaletteOpen(!paletteOpen);
+	}
+}
+function subscribePalette(changed: () => void) {
+	paletteListeners.add(changed);
+	if (paletteListeners.size === 1) window.addEventListener("keydown", togglePaletteOnShortcut);
+	return () => {
+		paletteListeners.delete(changed);
+		if (paletteListeners.size > 0) return;
+		window.removeEventListener("keydown", togglePaletteOnShortcut);
+		paletteOpen = false;
+	};
+}
+
 function OverlaysSection() {
 	const toast = useToast();
-	const [palette, setPalette] = useState(false);
+	const palette = useSyncExternalStore(subscribePalette, paletteSnapshot, closedOnServer);
+	const setPalette = setPaletteOpen;
 	const [guide, setGuide] = useState(false);
 	const [attempts, setAttempts] = useState(0);
 	const [offer, setOffer] = useState(true);
-
-	useEffect(() => {
-		const onKey = (e: KeyboardEvent) => {
-			if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
-				e.preventDefault();
-				setPalette((o) => !o);
-			}
-		};
-		window.addEventListener("keydown", onKey);
-		return () => window.removeEventListener("keydown", onKey);
-	}, []);
 
 	return (
 		<Section

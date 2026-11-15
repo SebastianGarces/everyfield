@@ -94,12 +94,10 @@ test("INV-evry-follow: a follow bot's gaze follows the pointer on a spring and r
 	const root = node();
 	let reads = 0;
 	root.parentElement = null;
+	root.dataset = { size: "xl", mood: "idle", wantShape: "circle", hold: "", follow: "" };
 	root.getBoundingClientRect = () => (reads++, { left: 0, top: 0, width: 40, height: 40 });
 	const eyes = [node(), node()];
-	const handle = mountEvry(
-		{ root, path: node(), g: node(), eyes, hl: node(), sh: node() },
-		{ small: false, mood: "idle", shape: "circle", hold: true, follow: true },
-	);
+	const handle = mountEvry({ root, path: node(), g: node(), eyes, hl: node(), sh: node() });
 	io([{ target: root, isIntersecting: true }]);
 	run(100);
 	const rest = geo.restPaths("circle", "idle").eyes;

@@ -14,7 +14,7 @@ export type ToastInput = {
 	duration?: number;
 };
 
-type ToastItem = ToastInput & { id: number };
+type ToastItem = ToastInput & { id: number; open: boolean };
 const ToastContext = createContext<((toast: ToastInput) => void) | null>(null);
 
 export function useToast(): (toast: ToastInput) => void {
@@ -30,19 +30,27 @@ let nextId = 0;
 
 export function ToastProvider({ children }: { children: ReactNode }) {
 	const [toasts, setToasts] = useState<ToastItem[]>([]);
-	const show = useCallback((toast: ToastInput) => setToasts((all) => [...all, { ...toast, id: ++nextId }]), []);
+	const show = useCallback(
+		(toast: ToastInput) => setToasts((all) => [...all.filter((t) => t.open), { ...toast, id: ++nextId, open: true }]),
+		[],
+	);
+	const close = (id: number) => setToasts((all) => all.map((t) => (t.id === id ? { ...t, open: false } : t)));
 	const remove = (id: number) => setToasts((all) => all.filter((t) => t.id !== id));
 
 	return (
 		<ToastContext value={show}>
 			<ToastPrimitive.Provider swipeDirection="right" label="Notifications">
 				{children}
-				{toasts.map(({ id, message, tone = "success", action, duration }) => (
+				{toasts.map(({ id, open, message, tone = "success", action, duration }) => (
 					<ToastPrimitive.Root
 						key={id}
+						open={open}
 						type={tone === "error" ? "foreground" : "background"}
 						duration={duration ?? (tone === "error" ? Infinity : 5000)}
-						onOpenChange={(open) => !open && setTimeout(() => remove(id), 200)}
+						onOpenChange={(next) => !next && close(id)}
+						onAnimationEnd={(event) => {
+							if (event.target === event.currentTarget && event.currentTarget.dataset.state === "closed") remove(id);
+						}}
 						className="ef-toast flex w-full items-center gap-3 rounded-card bg-ink py-3 pr-3 pl-4 text-md text-on-ink shadow-pop"
 					>
 						<span

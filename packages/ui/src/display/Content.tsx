@@ -18,7 +18,7 @@ import {
 	Tick02Icon,
 } from "@hugeicons/core-free-icons";
 import { Accordion, DropdownMenu, Toolbar } from "radix-ui";
-import { useEffect, useState, type ComponentPropsWithRef, type ElementType, type ReactNode } from "react";
+import { type ComponentPropsWithRef, type ElementType, type ReactNode } from "react";
 import { Button, MenuContent, MenuLabel, MenuSeparator, Menu, MenuTrigger } from "../controls";
 import { cn, Icon, type IconSvgElement } from "../foundations";
 import { StatusBadge } from "./Badges";
@@ -218,28 +218,6 @@ export function WikiTree({
 			</Accordion.Root>
 		</nav>
 	);
-}
-
-export function useActiveHeading(ids: string[]): string | undefined {
-	const [active, setActive] = useState<string | undefined>(ids[0]);
-	const key = ids.join("|");
-	useEffect(() => {
-		const els = key
-			.split("|")
-			.map((id) => document.getElementById(id))
-			.filter((el): el is HTMLElement => el !== null);
-		if (els.length === 0) return;
-		const observer = new IntersectionObserver(
-			(entries) => {
-				const above = entries.filter((e) => e.isIntersecting).map((e) => e.target.id);
-				if (above.length) setActive(above[0]);
-			},
-			{ rootMargin: "-96px 0px -66% 0px" },
-		);
-		els.forEach((el) => observer.observe(el));
-		return () => observer.disconnect();
-	}, [key]);
-	return active;
 }
 
 export function Toc({

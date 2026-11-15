@@ -34,7 +34,23 @@ export type EvryLifeOptions = {
 	hold: boolean;
 	follow: boolean;
 };
-export type EvryHandle = { update(options: EvryLifeOptions): void; unmount(): void };
+export type EvryHandle = { unmount(): void };
+
+const OPTION_ATTRIBUTES = ["data-size", "data-mood", "data-want-shape", "data-hold", "data-follow"];
+const isShape = (value: string | undefined): value is EvryShape => !!value && (NAMES as string[]).includes(value);
+const isMood = (value: string | undefined): value is EyeMood =>
+	value === "idle" || value === "thinking" || value === "happy";
+
+export function optionsOf(root: HTMLElement): EvryLifeOptions {
+	const { size, mood, wantShape, hold, follow } = root.dataset;
+	return {
+		small: size !== "xl",
+		mood: isMood(mood) ? mood : "idle",
+		shape: isShape(wantShape) ? wantShape : undefined,
+		hold: hold !== undefined,
+		follow: follow !== undefined,
+	};
+}
 
 type Move = {
 	from: number[];
@@ -228,8 +244,9 @@ function start() {
 	};
 }
 
-export function mountEvry(nodes: EvryNodes, options: EvryLifeOptions): EvryHandle {
+export function mountEvry(nodes: EvryNodes): EvryHandle {
 	if (!page) start();
+	const options = optionsOf(nodes.root);
 	const host = nodes.root.parentElement?.closest<HTMLElement>("[data-open]") ?? null;
 	const st: Bot = {
 		n: nodes,
@@ -284,25 +301,28 @@ export function mountEvry(nodes: EvryNodes, options: EvryLifeOptions): EvryHandl
 	nodes.root.setAttribute("data-eb", "");
 	applyPref(st);
 	page!.io.observe(nodes.root);
+	const update = (next: EvryLifeOptions) => {
+		const prev = st.o;
+		st.o = next;
+		if (next.shape !== prev.shape || next.hold !== prev.hold) {
+			if (next.shape && next.shape !== prev.shape) {
+				setShape(st, next.shape);
+				draw(st, true);
+			}
+			st.next = 0;
+		}
+		if (!next.follow && st.follow) {
+			st.follow = null;
+			st.moves = [move([st.gx, st.gy], [0, 0], performance.now(), 0, 0)];
+		}
+		if (next.mood !== prev.mood) onMood(st);
+		wake();
+	};
+	const own = new MutationObserver(() => update(optionsOf(nodes.root)));
+	own.observe(nodes.root, { attributes: true, attributeFilter: OPTION_ATTRIBUTES });
 	return {
-		update(next) {
-			const prev = st.o;
-			st.o = next;
-			if (next.shape !== prev.shape || next.hold !== prev.hold) {
-				if (next.shape && next.shape !== prev.shape) {
-					setShape(st, next.shape);
-					draw(st, true);
-				}
-				st.next = 0;
-			}
-			if (!next.follow && st.follow) {
-				st.follow = null;
-				st.moves = [move([st.gx, st.gy], [0, 0], performance.now(), 0, 0)];
-			}
-			if (next.mood !== prev.mood) onMood(st);
-			wake();
-		},
 		unmount() {
+			own.disconnect();
 			bots.splice(bots.indexOf(st), 1);
 			byEl.delete(nodes.root);
 			st.hostObserver?.disconnect();

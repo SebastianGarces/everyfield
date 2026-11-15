@@ -1,19 +1,17 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { cn } from "../foundations";
 
 export function AvatarImage({ src }: { src: string }) {
 	const [state, setState] = useState<"loading" | "loaded" | "failed">("loading");
-	const ref = useRef<HTMLImageElement>(null);
-	useEffect(() => {
-		const img = ref.current;
+	const settledBeforeHydration = useCallback((img: HTMLImageElement | null) => {
 		if (img?.complete) setState(img.naturalWidth > 0 ? "loaded" : "failed");
 	}, []);
 	if (state === "failed") return null;
 	return (
 		<img
-			ref={ref}
+			ref={settledBeforeHydration}
 			src={src}
 			alt=""
 			decoding="async"
