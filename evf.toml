@@ -20,7 +20,7 @@ heavy = [
   "tsgo", "tsgo *", "*/tsgo", "*/tsgo *", "env *tsgo", "env *tsgo *",
   "npx *tsgo", "npx *tsgo *", "pnpm *tsgo", "pnpm *tsgo *", "corepack pnpm *tsgo", "corepack pnpm *tsgo *",
   "next build", "next build *", "*/next build", "*/next build *", "env *next build", "env *next build *",
-  "npx *next build", "npx *next build *", # through pnpm and corepack pnpm: the `pnpm * build` patterns below
+  "npx *next build", "npx *next build *",
   "pnpm *typecheck*", "*/pnpm *typecheck*", "env *pnpm *typecheck*", "npx *pnpm *typecheck*", "corepack pnpm *typecheck*",
   "pnpm *test:db*", "*/pnpm *test:db*", "env *pnpm *test:db*", "npx *pnpm *test:db*", "corepack pnpm *test:db*",
   "pnpm build", "pnpm build *", "pnpm * build", "pnpm * build *",

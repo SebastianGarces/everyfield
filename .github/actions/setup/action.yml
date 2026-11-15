@@ -48,7 +48,6 @@ runs:
         { echo "toolchain-paths<<EOF"; echo "$node_dir"; echo "$HOME/.cache/node/corepack"; echo EOF; } >> "$GITHUB_OUTPUT"
         lockfiles=(pnpm-lock.yaml pnpm-workspace.yaml)
         paths=(node_modules)
-        # One node_modules per workspace package glob in pnpm-workspace.yaml.
         while read -r glob; do paths+=("$glob/node_modules"); done < <(
           awk '/^packages:/ { p = 1; next } /^[^ #-]/ { p = 0 } p && /^ *- / { sub(/^ *- */, ""); gsub(/["'\'']/, ""); print }' pnpm-workspace.yaml
         )
