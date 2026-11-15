@@ -36,10 +36,6 @@ const OUTCOME_TEXT: Record<Failure, string> = {
 		"We could not confirm whether your password changed. Do not try again yet: sign out, then sign in to see which password works.",
 };
 
-/**
- * Changing your password (REQ-IDN-008). It needs the current password. Success signs out your other devices and
- * keeps this one. Passwords live only in this dialog's state: they are cleared when it closes and never retried.
- */
 export function PasswordDialog() {
 	const [open, setOpen] = useState(false);
 	const [done, setDone] = useState(false);

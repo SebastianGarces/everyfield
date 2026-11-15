@@ -22,15 +22,9 @@ import { newRequestKey } from "../port";
 import { SaveError } from "../SettingsDialog";
 import { useReads, useSettings } from "../store";
 
-// The church's reporting Region (WP-047b, REQ-PI-044): an official OMB 23-01 metro or micro area. The planter types
-// their city and state; the official list suggests the area that names it as a principal city. A place several areas
-// match is never resolved for them: they choose, or leave it unresolved. Sending churches and networks see the city,
-// state and Region, never the street, and cannot set or change it.
-
 type Ready = Extract<RegionRead, { status: "ok" }>;
 const UNRESOLVED = "unresolved";
 
-/** The Region row of the church settings: the saved area and, for an Owner or Admin, the picker. */
 export function ReportingRegion({ onSaved }: { onSaved: () => void }) {
 	const reads = useReads();
 	const region = useRead(reads.region);

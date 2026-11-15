@@ -37,12 +37,6 @@ const LIST: Record<OrderKind, { title: string; description: string; empty: strin
 	},
 };
 
-/**
- * Wiki sources (T-26): the order in which the church reads its sending churches' and networks' Wiki versions. The
- * first entry of each list is the preferred one; the other versions stay in each article's Source menu. Nothing is
- * saved until Save order, and the save sends the revision this read returned, so an order saved elsewhere since is
- * refused rather than overwritten.
- */
 export function WikiSourcesSection() {
 	const reads = useReads();
 	const read = useRead(reads.wiki);
@@ -117,7 +111,6 @@ function OrderEditor({ view }: { view: WikiOrderView }) {
 			setView(savedView(view, sent, reply.revision));
 			setSaved(true);
 			setAnnouncement("");
-			// The confirmation is at the top of the section body; bring it into view (the body only, not the sheet).
 			body.current?.closest("[role=region]")?.scrollTo({ top: 0 });
 			return { ok: true, server: sent };
 		});
@@ -203,10 +196,6 @@ function OrderEditor({ view }: { view: WikiOrderView }) {
 	);
 }
 
-/**
- * Focuses a control without letting the browser scroll the dialog sheet itself (on a phone that cut off the section
- * nav and lifted the footer), then scrolls only the section body, if needed, to show it.
- */
 function focusInBody(control: HTMLElement) {
 	control.focus({ preventScroll: true });
 	const body = control.closest<HTMLElement>("[role=region]");
@@ -226,7 +215,6 @@ function OrderList({
 }: {
 	kind: OrderKind;
 	rows: OrderRow[];
-	/** Whether the first entry is marked Preferred: not while competing church versions wait for a saved order. */
 	marked: boolean;
 	disabled: boolean;
 	onMove: (kind: OrderKind, row: OrderRow, index: number, step: -1 | 1) => void;

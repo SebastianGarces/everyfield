@@ -53,27 +53,15 @@ type Frame = { requestClose: () => void };
 const FrameContext = createContext<Frame | null>(null);
 
 export type SettingsDialogProps = {
-	/** The section in the URL, or null when settings is closed. */
 	section: SectionKey | null;
-	/** Changes the URL: a section, or null to close and return to the page underneath. */
 	onNavigate: (section: SectionKey | null) => void;
-	/** The link for a section, so each one can be opened in a new tab or shared. */
 	hrefFor: (section: SectionKey) => string;
-	/** Sections drawn by their caller inside this frame, such as Seats (WP-008/ui) and Sharing (WP-007). */
 	slots?: Partial<Record<SectionKey, ReactNode>>;
-	/** Sections that are pages of their own: the nav links to them, and `open` leaves Settings for that page. */
 	pages?: { sections: readonly SectionKey[]; open: (section: SectionKey) => void };
-	/** A deletion was requested: the session ends and the restricted status page takes over. */
 	onDeletionRequested: (status: DeletionStatus | null) => void;
-	/** Header buttons left of Close, such as the Guide: the dialog covers the frame's own Guide button. */
 	headerActions?: ReactNode;
 };
 
-/**
- * SettingsDialog (<SettingsDialog section>): side nav, one section, and a footer for sections with a Save button.
- * Every section has its own URL. Drafts stay while you move between sections; closing with unsaved changes asks
- * before discarding them, also when Back leaves settings (REQ-IDN-010).
- */
 export function SettingsDialog({
 	section,
 	onNavigate,
@@ -91,9 +79,6 @@ export function SettingsDialog({
 	const [moves, setMoves] = useState(0);
 	const navLabel = useId();
 
-	// The URL leads. When it closes settings while drafts are unsaved (Back, or a link), keep the last section on
-	// screen and ask; Keep editing puts its URL back. Only a URL change decides this, during render (React's
-	// "adjust state when a prop changes" pattern), so drafts changing alone never close settings.
 	const [urlSection, setUrlSection] = useState(section);
 	if (section !== urlSection) {
 		setUrlSection(section);
@@ -115,9 +100,7 @@ export function SettingsDialog({
 			onNavigate(null);
 		}
 	};
-	// ConfirmDialog also reports "closed" after Discard runs, so Discard marks itself first.
 	const discarded = useRef(false);
-	// The page a nav link asked for while the question about unsaved changes is open.
 	const leavingFor = useRef<SectionKey | null>(null);
 	const keepEditing = (open: boolean) => {
 		if (open) return;
@@ -165,7 +148,6 @@ export function SettingsDialog({
 					size="lg"
 					aria-describedby={undefined}
 					onOpenAutoFocus={(e) => {
-						// Start on the current section's link, so Tab then walks into that section.
 						const link = currentNavLink(e.currentTarget as HTMLElement);
 						if (!link) return;
 						e.preventDefault();
@@ -228,7 +210,6 @@ export function SettingsDialog({
 						<div className="flex min-h-0 min-w-0 flex-1 flex-col">
 							<DialogHeader
 								title={
-									// The prototype's section title is 26px (the dialog header default is smaller).
 									<span className="font-display text-[26px] leading-[1.15] tracking-[-0.02em]">
 										{current ? SECTION_LABEL[current] : "Settings"}
 									</span>
@@ -309,10 +290,6 @@ function SectionContent({
 	}
 }
 
-/**
- * The scrolling body of a section. It is a focusable region, so keyboard users can scroll it even when it holds no
- * control (a Member's read-only Sharing on a phone).
- */
 export function SectionBody({ children, className }: { children: ReactNode; className?: string }) {
 	return (
 		<div
@@ -327,10 +304,6 @@ export function SectionBody({ children, className }: { children: ReactNode; clas
 	);
 }
 
-/**
- * One setting: label and description on the left, the control on the right (prototype .set-row). `htmlFor` links
- * the label to a single control; without it the controls form a group named by the label.
- */
 export function SettingRow({
 	label,
 	description,
@@ -375,7 +348,6 @@ export function SettingRow({
 	);
 }
 
-/** A refusal in words, with the support reference and an optional next step. */
 export function SaveError({ message, reference, action }: { message: string; reference?: string; action?: ReactNode }) {
 	return (
 		<div
@@ -392,10 +364,6 @@ export function SaveError({ message, reference, action }: { message: string; ref
 	);
 }
 
-/**
- * The footer of a section with a Save button (prototype .modal-foot). It says when the section has unsaved changes
- * and names other sections that still have some. Cancel closes settings and asks first when anything is unsaved.
- */
 export function SaveFooter({
 	section,
 	dirty,
@@ -405,7 +373,6 @@ export function SaveFooter({
 	label = "Save",
 }: {
 	section: SectionKey;
-	/** The Save button's words, such as "Save order". */
 	label?: string;
 	dirty: boolean;
 	saving: boolean;
@@ -445,7 +412,6 @@ export function SaveFooter({
 	);
 }
 
-/** The footer of a section whose switches save at once. */
 export function AutoSaveFooter() {
 	return (
 		<div className="flex-none border-t border-line bg-surface px-8 py-4 text-sm text-text-3 max-app-sm:px-5">

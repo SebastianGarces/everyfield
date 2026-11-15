@@ -21,16 +21,11 @@ const TEXT: Record<CredentialOutcome["status"], { title: string; body: string }>
 	},
 };
 
-/**
- * The page the email-change link opens (REQ-IDN-007). It confirms only after a click, so a mail scanner that opens
- * links cannot use it, and it sends the proof once. Confirmation needs the account that asked for the change.
- */
 export function ConfirmEmailScreen({
 	proof,
 	confirm,
 	accountHref,
 }: {
-	/** The link's token; null when the link has none, which reads as a link that does not work. */
 	proof: string | null;
 	confirm: (request: { proof: string }) => Promise<CredentialOutcome>;
 	accountHref: string;

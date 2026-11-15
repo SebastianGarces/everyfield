@@ -29,12 +29,6 @@ import { RepliesControl } from "./RepliesControl";
 
 const BASE = "/design/settings";
 
-/**
- * The settings design preview at /design/settings/[section]?as=<persona>. The page underneath is a placeholder inside
- * the app shell; Settings opens over it as the real app does. `as` picks the persona, `delay` the reply time in
- * milliseconds and `fail=<operation>:<code>` makes the first call of that operation fail. Every reply comes from the
- * fixture API, parsed by the settings contract.
- */
 export function SettingsPreview() {
 	const search = useSearchParams();
 	const persona = parsePersona(search.get("as"));

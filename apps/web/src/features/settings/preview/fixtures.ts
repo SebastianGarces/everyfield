@@ -19,10 +19,6 @@ import type {
 	TimezonePreference,
 } from "../port";
 
-// The fixture API for the design preview (WP-010/ui R4). It keeps per-persona state in memory and answers like the
-// contract says: every reply goes through the contract schema, so a fixture that drifts from the contract throws.
-// Faults let the preview and the browser tests make the next call of one operation fail in a chosen way.
-
 export type PreviewPersona = "owner" | "admin" | "member" | "network";
 export const PERSONAS: readonly PreviewPersona[] = ["owner", "admin", "member", "network"];
 export const PERSONA_LABEL: Record<PreviewPersona, string> = {
@@ -119,7 +115,6 @@ function initialSections(persona: PreviewPersona): Map<string, SectionResult> {
 		S.sectionResult.parse({
 			section: "notifications",
 			accountId: account,
-			// Your account and notification choices share the account's one revision, as on the server.
 			revision: "3",
 			values: {
 				choices:
@@ -260,14 +255,11 @@ function keyOf(row: SectionResult | z.input<typeof S.getSectionRequest>): string
 }
 
 export type FixtureControls = {
-	/** Make the next call of `op` fail with `fault`. */
 	failNext: (op: Operation, fault: Fault) => void;
-	/** How many times each operation was called, for the preview dock and the tests. */
 	calls: Record<string, number>;
 	onChange: (listener: () => void) => () => void;
 };
 
-/** The Wiki sources the preview plant reads: no order stored yet, an order stored, or no sharing affiliations. */
 export type WikiScenario = "unordered" | "ordered" | "empty";
 export function parseWikiScenario(value: string | null | undefined): WikiScenario {
 	return value === "ordered" || value === "empty" ? value : "unordered";
@@ -278,7 +270,6 @@ const WIKI_CHURCHES = [
 ];
 const WIKI_NETWORKS = [{ id: NETWORK.id, name: "Austin Sending Network" }];
 
-/** A fixture port for one persona. `delay` is the reply time in milliseconds. */
 export function createFixturePort(
 	persona: PreviewPersona,
 	{
@@ -322,7 +313,6 @@ export function createFixturePort(
 							: "never",
 		}),
 	});
-	/** Counts the call, waits, then takes a queued fault. A thrown "offline" fault looks like a lost connection. */
 	async function tick(op: Operation): Promise<Fault | null> {
 		await wait();
 		calls[op] = (calls[op] ?? 0) + 1;
@@ -345,10 +335,6 @@ export function createFixturePort(
 		return row?.section === "account" ? row.personalTimezone : { status: "unconfirmed" };
 	};
 	const bump = (revision: string) => String(BigInt(revision) + 1n);
-	/**
-	 * Stores an account or notifications row and gives the other one its revision: both carry the account's one
-	 * revision, so a save of either (or of your photo or time zone) refuses the other's stale revision with `conflict`.
-	 */
 	const setAccountScope = (row: Extract<SectionResult, { section: "account" | "notifications" }>) => {
 		store.sections.set(row.section, row);
 		const other = store.sections.get(row.section === "account" ? "notifications" : "account");
@@ -356,7 +342,6 @@ export function createFixturePort(
 			store.sections.set(other.section, { ...other, revision: row.revision });
 	};
 	const canAdminPlant = persona === "owner" || persona === "admin";
-	// The stored Wiki source order, as wiki.setSourceOrder keeps it: revision "0" until an order is saved.
 	let wikiOrder: { revision: string; churches: OrderRow[]; networks: OrderRow[] } =
 		wiki === "empty"
 			? { revision: "0", churches: [], networks: [] }
@@ -364,7 +349,6 @@ export function createFixturePort(
 				? { revision: "3", churches: [...WIKI_CHURCHES].reverse(), networks: WIKI_NETWORKS }
 				: { revision: "0", churches: WIKI_CHURCHES, networks: WIKI_NETWORKS };
 
-	// The design preview's reporting location: Round Rock, TX with no Region yet, and one official match.
 	let region: { revision: string; code: string | null } = { revision: "1", code: null };
 	const AUSTIN = { code: "12420", title: "Austin-Round Rock-San Marcos, TX", type: "metro" as const };
 	const port: SettingsPort = {
@@ -403,7 +387,6 @@ export function createFixturePort(
 			async save(_requestKey, expectedRevision, churches, networks): Promise<OrderSave> {
 				const fault = await tick("saveWikiOrder");
 				if (fault === "conflict") {
-					// Someone else saved another order first.
 					wikiOrder = { ...wikiOrder, revision: bump(wikiOrder.revision), churches: [...wikiOrder.churches].reverse() };
 					return { status: "conflict", revision: wikiOrder.revision };
 				}
@@ -735,7 +718,6 @@ export function createFixturePort(
 	};
 }
 
-/** The page the email-change link opens, for the preview: proof "valid" succeeds, "unknown" is uncertain. */
 export const confirmFixtureEmail = (replies: Replies) => async (request: { proof: string }) => {
 	await replies.arrive();
 	N.confirmEmailChange.parse(request);
@@ -773,10 +755,6 @@ export const DELETION_SCENARIOS: readonly DeletionScenario[] = [
 	"cancelled",
 ];
 
-/**
- * The restricted deletion session for the preview. "late" is a request whose 30 days ended while the purge has not
- * started; "skew" ends one minute after the page's clock, but the server already counts it as ended.
- */
 export function createDeletionPort(
 	subjectKind: "account" | "plant",
 	scenario: DeletionScenario,
@@ -823,7 +801,6 @@ export function createDeletionPort(
 			retry: code === "conflict" ? "refresh" : "never",
 		}),
 	});
-	// Signed out: no restricted session until the original login and password "correct horse" open one.
 	let proven = !signedOut;
 	return {
 		async open(request) {
@@ -841,7 +818,6 @@ export function createDeletionPort(
 			await wait();
 			if (status.status !== "pending_deletion") return refuse("conflict");
 			if (expectedRevision !== status.revision) return refuse("conflict");
-			// The server's own deadline: "skew" has already ended on the server even though the page shows one minute left.
 			const serverNow = scenario === "skew" ? now() + 120_000 : now();
 			if (serverNow >= Date.parse(status.cancelUntil)) return refuse("deadline_passed");
 			status = N.deletionStatus.parse({

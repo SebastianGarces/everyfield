@@ -26,11 +26,6 @@ const OFFLINE_NOTE: Note = {
 	conflict: true,
 };
 
-/**
- * The state and actions of the "Logos and images" group. Picks and notes live in the settings store, so they survive
- * switching sections and mark Brand kit unsaved. An upload or removal updates the kit from its own reply; nothing
- * refreshes the route.
- */
 export function useAssets({
 	port,
 	kit,
@@ -50,11 +45,8 @@ export function useAssets({
 		const reply = reads.brand.peek()?.value;
 		return reply?.status === "ok" ? reply.value.kit : kit;
 	};
-	// Each upload and removal changes the kit's revision, so they run one after another: the next reads the revision the
-	// last one returned, and two slots filled in quick succession never conflict with each other.
 	const queue = useRef<Promise<unknown>>(Promise.resolve());
 	const inOrder = (job: () => Promise<UploadOutcome>): Promise<UploadOutcome> => {
-		// The kit a job returns is the latest at once: the next job must not wait for React to render it.
 		const run = async () => {
 			const outcome = await job();
 			if (outcome.ok) setKit(outcome.kit);
@@ -110,7 +102,6 @@ export function useAssets({
 		if (error.code === "alt_text_required")
 			return patch(slot, { pick: { ...idle, altError: ALT_REQUIRED }, note: null });
 		const note: Note = { message: assetMessage(error), reference: errorReference(error) };
-		// A conflict keeps the file and the text so Load latest and a second Upload finish the job.
 		if (error.code === "conflict") return patch(slot, { pick: idle, note: { ...note, conflict: true } });
 		patch(slot, { pick: null, note });
 	};
