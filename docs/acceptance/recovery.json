@@ -122,7 +122,10 @@
         "WP-037",
         "WP-092"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/knowledge/encrypted-copy.test.mts"
+      ],
       "description": "Dated encrypted full candidate/checksums, key escrow, subject expiry and old copy recopy.",
       "given": {
         "P": {
@@ -357,7 +360,10 @@
         "WP-095",
         "WP-058"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/knowledge/readiness.test.mts"
+      ],
       "description": "Beforecustomerdata gate lacks actual cost approval, host schedule, key-exclusion and coherent restore evidence.",
       "given": {
         "P": {

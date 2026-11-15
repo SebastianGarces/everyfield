@@ -10,6 +10,8 @@ const operations = z.enum([
 	"migration-adopt",
 	"backup-check",
 	"restore-rehearsal",
+	"backup-copy",
+	"readiness",
 ]);
 const control = z.strictObject({
 	version: z.literal(1),
@@ -54,7 +56,11 @@ export async function loadControl(path, operation) {
 		process.env.NODE_ENV === "production"
 	)
 		throw Error("operator_unavailable");
-	const context = { "backup-check": "restricted-backup", "restore-rehearsal": "restricted-recovery" }[operation];
+	const context = {
+		"backup-check": "restricted-backup",
+		"backup-copy": "restricted-backup",
+		"restore-rehearsal": "restricted-recovery",
+	}[operation];
 	if ((context ?? "migration-operator") !== c.context) throw Error("operator_context_mismatch");
 	return c;
 }
