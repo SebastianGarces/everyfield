@@ -22,11 +22,6 @@ import { PIPELINE_PATH } from "../board/model";
 import { Problem } from "../board/Problem";
 import { mergePeople, reviewMerge, undoMerge } from "./actions";
 
-// Possible duplicates for the organization pipeline (REQ-MUL-017), in the planter duplicates review's shape. A pair is
-// a suggestion: opening it changes nothing, and the merge waits until the Owner or Admin picks the record that stays and
-// the value to keep for every field that differs. A merge can be undone while nothing has changed since. A merged pair
-// keeps its card, with the result and the undo, until the page is read again.
-
 type Pairs = z.infer<typeof organizationDuplicatePairs>;
 type Pair = Pairs["items"][number];
 type Review = z.infer<typeof mergeReview>;

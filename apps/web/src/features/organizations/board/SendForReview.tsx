@@ -19,15 +19,10 @@ import { sendAnswers, withdrawReview } from "./actions";
 import { formatDay, refusalText } from "./model";
 import { Problem } from "./Problem";
 
-// Kept answers sent for review (T-385, D-1507): an Owner or Admin chooses some questions of a kept-answers note, names
-// the group and picks a current seat of the organization. The reviewer reads only those questions, with the note's
-// current answers, and nothing else of the person. No answer goes into the notice or its email.
-
 type Staff = PipelineBoard["staff"];
 type Answer = Awaited<ReturnType<typeof sendAnswers>>;
 const lost = (): Answer => ({ status: "lost" });
 
-/** The dialog behind "Send for review". Send stays off until a question, a group name and a reviewer are chosen. */
 export function SendForReviewDialog({
 	open,
 	onOpenChange,
@@ -67,7 +62,6 @@ function SendForm({
 	staff: Staff;
 	onSent: () => Promise<void>;
 }) {
-	// One ID per dialog: a resend after a lost answer, or a second click, makes no second send.
 	const [reviewId] = useState(() => crypto.randomUUID());
 	const [chosen, setChosen] = useState<ReadonlySet<string>>(new Set());
 	const [groupName, setGroupName] = useState("");
@@ -127,7 +121,6 @@ function SendForm({
 	);
 }
 
-/** The note's sends that are not withdrawn: who, which group and when, its questions, and Withdraw for an Owner or Admin. */
 export function NoteReviews({
 	reviews,
 	canWithdraw,

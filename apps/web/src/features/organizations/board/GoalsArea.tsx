@@ -27,17 +27,10 @@ import { formatDay, goalHeadline, KIND_LABEL, monthLabel, plural, refusalText } 
 import { Problem } from "./Problem";
 
 type Goal = PipelineGoals["goals"][number];
-/** A goal counts at most this many things (D-1264). */
 const MAX_COUNTS = 4;
 
-/** What "Plants sent" says until commissioning and plant lineage exist (ADR-001 stage 3). Never a zero. */
 const PLANTS_UNAVAILABLE = "Everyfield will count plants sent once churches are commissioned through it.";
 
-/**
- * The goals area on the Pipeline page (REQ-MUL-007, -009), for every seat: the organization's sending goals, its own
- * pipeline counted by stage kind as of today, and leadership conversations by month and quarter. Counts and dates
- * only: no rates, forecasts or verdicts (ADR-001). Owners and Admins add and edit goals.
- */
 export function GoalsArea({ initial }: { initial: PipelineGoals }) {
 	const [local, setLocal] = useState<{ from: PipelineGoals; value: PipelineGoals } | null>(null);
 	const data = local?.from === initial ? local.value : initial;
@@ -139,10 +132,6 @@ function GoalItem({ goal, asOf, onEdit }: { goal: Goal; asOf: string; onEdit: ((
 	);
 }
 
-/**
- * The counts the goal chose (D-1264): people who reached a stage of each kind since the goal's counting-from day, as of
- * today. Plain counts and dates, never measured against a target.
- */
 function ChosenCounts({ goal, asOf, canEdit }: { goal: Goal; asOf: string; canEdit: boolean }) {
 	const since = formatDay(goal.countingFrom);
 	return (
@@ -185,7 +174,6 @@ function Figure({ term, value }: { term: string; value: string }) {
 	);
 }
 
-/** Live people of this organization counted once each by the fixed kind of their stage, as of today. */
 function Today({ data }: { data: PipelineGoals }) {
 	return (
 		<Card>
@@ -227,7 +215,6 @@ function Today({ data }: { data: PipelineGoals }) {
 	);
 }
 
-/** Leadership conversations by the month and the quarter they happened in, oldest first. A zero stays a zero. */
 function Conversations({ data }: { data: PipelineGoals }) {
 	const { months, quarters } = data.conversations;
 	return (
@@ -302,7 +289,6 @@ type CountRow = { key: string; kind: Goal["counts"][number]["kind"]; label: stri
 type CountErrors = Record<string, { label?: string; kind?: string }>;
 const KIND_OPTIONS = Object.entries(KIND_LABEL).map(([value, label]) => ({ value, label }));
 
-/** What is wrong with each count row, by its key: a missing or long name, or a kind an earlier row already counts. */
 function countProblems(rows: readonly CountRow[]): CountErrors {
 	const problems: CountErrors = {};
 	rows.forEach((row, i) => {
@@ -321,7 +307,6 @@ function countProblems(rows: readonly CountRow[]): CountErrors {
 	return problems;
 }
 
-/** A whole number of 0 or more, or the message that says why not. */
 function target(text: string): number | string {
 	if (text.trim() === "") return "Enter a number, or 0.";
 	const n = Number(text);
@@ -331,10 +316,6 @@ function target(text: string): number | string {
 	return n;
 }
 
-/**
- * A goal's targets, year, reason, counting-from day and chosen counts. Adding names the goal's ID once per dialog, so a
- * resend adds one goal.
- */
 type GoalState = {
 	errors: Errors;
 	countErrors: CountErrors;
@@ -477,10 +458,6 @@ function GoalForm({
 	);
 }
 
-/**
- * The goal's chosen counts (D-1264): up to 4 rows, each a name and the stage kind it counts. A count is the people who
- * reached a stage of that kind since the counting-from day, so a person who moved on stays counted.
- */
 function CountsEditor({
 	rows,
 	errors,

@@ -16,17 +16,10 @@ export const versionReviews = createRead(
 	{ failed: lost },
 );
 
-/** "Casey Lee", "Casey Lee and Jordan Price", "Casey Lee, Jordan Price and Riley Shaw". */
 function names(list: string[]) {
 	return list.length < 2 ? (list[0] ?? "") : `${list.slice(0, -1).join(", ")} and ${list.at(-1)}`;
 }
 
-/**
- * The director's review before applying the program's current version to the selected enrollments at once
- * (REQ-MUL-011, D-1328, D-1329): one section per person with what changes for them and their stage on the new version.
- * The director can take a person out of the review. Nothing is saved until they confirm, and then everyone listed
- * moves or nobody does: if anyone's review went out of date, the dialog names them and loads fresh reviews.
- */
 export function ApplyVersionsDialog({
 	open,
 	programId,

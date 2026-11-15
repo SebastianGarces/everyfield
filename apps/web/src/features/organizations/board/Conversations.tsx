@@ -27,11 +27,6 @@ import { Problem } from "./Problem";
 type Record = PipelinePersonRecord;
 type Conversation = Record["conversations"][number];
 
-/**
- * Leadership (“I see in you”) conversations with this person (REQ-MUL-009). Everyone who reads the record logs and
- * corrects them; only they read the notes, because the record's audience is the notes' audience. Logging is
- * human-only. Each correction stays in the conversation's history with the old and new day.
- */
 export function ConversationsCard({ record, onChanged }: { record: Record; onChanged: () => Promise<void> }) {
 	const [editing, setEditing] = useState<Conversation | "new" | null>(null);
 	const live = !record.retired;
@@ -132,7 +127,6 @@ function ConversationDialog({
 	);
 }
 
-/** The day it happened (not after today) and an optional short note. Logging names the conversation's ID once. */
 function ConversationForm({
 	record,
 	conversation,

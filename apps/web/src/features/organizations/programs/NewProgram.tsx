@@ -18,7 +18,6 @@ type NewState = {
 	problem: string | null;
 };
 
-/** The residency template as an editable plan (REQ-MUL-010). */
 function template(): PlanDraft {
 	return {
 		rhythm: "monthly",
@@ -41,10 +40,6 @@ function template(): PlanDraft {
 }
 const blank = (): PlanDraft => ({ rhythm: "monthly", expectedMonths: "12", stages: [], milestones: [], readings: [] });
 
-/**
- * A new apprenticeship or residency, from the residency template or from blank (REQ-MUL-010). An Owner or Admin
- * names it and its director; the plan saves as a draft that the director reviews and publishes.
- */
 export function NewProgram({ list }: { list: ProgramList }) {
 	const router = useRouter();
 	const [programId] = useState(() => crypto.randomUUID());

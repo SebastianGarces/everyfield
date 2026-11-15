@@ -39,11 +39,6 @@ import {
 	type Row,
 } from "./model";
 
-// Import pipeline people from a CSV or a form's Excel export (T-363): upload, review the columns and rows, import, then
-// the result. The chosen bytes stay in memory; the preview and the import each send them, and the server reads them
-// itself. A column change asks the server again, so every row's state is the server's. Possible duplicates start with no
-// choice: the person picks Skip or Add anyway on each (REQ-MUL-017).
-
 type Stages = PipelineBoard["stages"];
 type Staff = PipelineBoard["staff"];
 type State =
@@ -78,7 +73,6 @@ export function PipelineImportScreen({ stages, staff }: { stages: Stages; staff:
 
 	const check = async (picked: File) => {
 		setState({ step: "upload", checking: picked, error: null });
-		// The bytes are read once, so the import sends the file that was checked even if the one on disk changes.
 		const file = new File([await picked.arrayBuffer()], picked.name, { type: picked.type });
 		const got = await previewOf(file, null);
 		if (got.status !== "ok") return setState({ step: "upload", checking: null, error: refusalNotice(got) });
@@ -98,7 +92,6 @@ export function PipelineImportScreen({ stages, staff }: { stages: Stages; staff:
 	};
 
 	const update = (review: Review) => setState({ step: "review", review });
-	/** A column's new choice: the server reads the rows again with it. Decisions stay on rows still flagged. */
 	const choose = async (review: Review, index: number, choice: PipelineColumnChoice) => {
 		const columns = review.preview.columns.map((c, i) => (i === index ? choice : c.choice));
 		update({ ...review, checking: true, problem: null });
@@ -123,7 +116,6 @@ export function PipelineImportScreen({ stages, staff }: { stages: Stages; staff:
 		update(revised(review, { preview: got.value, decisions: new Map(), checking: false }));
 	};
 
-	/** Every press of Import for this review sends its one import id, so a retry after a lost reply adds no one twice. */
 	const run = async (review: Review) => {
 		setState({ step: "import", review });
 		setState(afterImport(review, await send<Result>("save", review.file, importRequest(review))));

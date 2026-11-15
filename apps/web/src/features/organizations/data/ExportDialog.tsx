@@ -15,9 +15,6 @@ import {
 import { useState } from "react";
 import { PIPELINE_PATH, plural } from "../board/model";
 
-// Export the whole pipeline as CSV (REQ-MUL-005), in the People export's shape: the dialog says what the file holds and
-// leaves out before the download and how many people it has after it. One request per Download press.
-
 type State =
 	| { kind: "ready" }
 	| { kind: "exporting" }

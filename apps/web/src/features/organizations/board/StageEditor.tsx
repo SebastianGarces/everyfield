@@ -21,10 +21,6 @@ import { Problem } from "./Problem";
 type Stage = PipelineBoard["stages"][number];
 type Row = { id: string; label: string; kind: string; revision: string | null; count: number };
 
-/**
- * Owners and Admins rename, add, reorder and delete stages, then review exactly what will change before anything
- * saves. A stage that still has people cannot be deleted; the editor says so at the moment someone tries.
- */
 export function StageEditor({
 	open,
 	onOpenChange,

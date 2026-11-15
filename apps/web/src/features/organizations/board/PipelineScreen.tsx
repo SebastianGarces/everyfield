@@ -19,12 +19,6 @@ import { ExportDialog } from "../data/ExportDialog";
 type Stage = PipelineBoard["stages"][number];
 type Card = Stage["people"][number];
 
-/**
- * The organization's Pipeline (REQ-MUL-008): one column per stage in the organization's order. Owners and Admins see
- * everyone and add people and edit stages; responsible staff see their own people; any other seat sees counts only.
- * The filters live in the address (D67). Moving a person happens on their record, with a reason. Above the board,
- * every seat sees the sending goals and conversation counts.
- */
 export function PipelineScreen({ initial, goals }: { initial: PipelineBoard; goals: PipelineGoals | null }) {
 	const [local, setLocal] = useState<{ from: PipelineBoard; value: PipelineBoard } | null>(null);
 	const board = local?.from === initial ? local.value : initial;
@@ -36,7 +30,6 @@ export function PipelineScreen({ initial, goals }: { initial: PipelineBoard; goa
 	const { query } = board;
 	const total = board.stages.reduce((n, s) => n + s.count, 0);
 	const retiredView = query.view === "retired";
-	// Nobody in the pipeline yet, live or retired: the board says so first and offers a way to add someone.
 	const empty = admin && !retiredView && total === 0 && board.retiredCount === 0 && !query.q && !query.stale;
 
 	async function reread() {
@@ -158,7 +151,6 @@ export function PipelineScreen({ initial, goals }: { initial: PipelineBoard; goa
 	);
 }
 
-/** Search, the six-month filter with its as-of date, and Board or Retired for Owners and Admins. */
 function Toolbar({ board }: { board: PipelineBoard }) {
 	const { query } = board;
 	const router = useRouter();
@@ -281,7 +273,6 @@ function PersonCard({ person, stage }: { person: Card; stage?: string }) {
 	);
 }
 
-/** Owners and Admins find retired people here, with their stage and history kept. */
 function Retired({ board }: { board: PipelineBoard }) {
 	const people = board.stages.flatMap((s) => s.people.map((p) => ({ p, stage: s.label })));
 	if (!people.length)
@@ -301,7 +292,6 @@ function Retired({ board }: { board: PipelineBoard }) {
 	);
 }
 
-/** A seat with no pipeline duty sees how many people are at each stage, and nothing about who they are. */
 function Counts({ board }: { board: PipelineBoard }) {
 	return (
 		<>

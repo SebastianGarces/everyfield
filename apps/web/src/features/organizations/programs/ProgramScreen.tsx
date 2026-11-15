@@ -35,10 +35,6 @@ import { draftFrom, PlanEditor, planFrom, type PlanDraft } from "./PlanEditor";
 
 const lost = () => ({ status: "lost" as const });
 
-/**
- * One program (REQ-MUL-010, -011). Everyone in the organization reads its plan and who is enrolled. The director edits
- * the draft and publishes it as the next version; an Owner or Admin enrolls people in the published version.
- */
 export function ProgramScreen({ initial, organizationId }: { initial: ProgramDetail; organizationId: string }) {
 	const router = useRouter();
 	const [local, setLocal] = useState<{ from: ProgramDetail; value: ProgramDetail } | null>(null);
@@ -226,7 +222,6 @@ function PlanEditing({
 	);
 }
 
-/** A version's plan as everyone reads it. A reading whose source no longer publishes it shows as unavailable. */
 function PlanView({ version, organizationId }: { version: ProgramVersion; organizationId: string }) {
 	return (
 		<>
@@ -313,10 +308,6 @@ export function Detail({ term, children }: { term: string; children: ReactNode }
 	);
 }
 
-/**
- * Who is enrolled. The director selects active enrollments on an earlier version and applies the current version to
- * them together (D-1329); an enrollment already on it, or no longer active, can't be selected.
- */
 function Enrollments({ program, onApplied }: { program: ProgramDetail; onApplied: () => Promise<unknown> }) {
 	const [selected, onSelectedChange] = useState<string[]>([]);
 	const [applying, setApplying] = useState(false);
@@ -422,7 +413,6 @@ function Enrollments({ program, onApplied }: { program: ProgramDetail; onApplied
 	);
 }
 
-/** Enroll a live pipeline person in the published version, at one of its stages (REQ-MUL-011). */
 function EnrollDialog(form: {
 	program: ProgramDetail;
 	version: ProgramVersion;

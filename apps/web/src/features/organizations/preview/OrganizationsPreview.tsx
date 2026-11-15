@@ -47,10 +47,6 @@ const NOTE: Record<OrganizationFlow, string> = {
 	notices: "Coarse relationship notices. They name the organization and the event only.",
 };
 
-/**
- * The organization relationship previews at /design/organizations/[flow] (WP-007/ui). `as` picks the viewer,
- * `scenario` the sample state, and `stage=before` shows the residency choices before joining.
- */
 export function OrganizationsPreview({ flow }: { flow: OrganizationFlow }) {
 	const search = useSearchParams();
 	const router = useRouter();

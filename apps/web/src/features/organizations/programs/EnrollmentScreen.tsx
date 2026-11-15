@@ -42,13 +42,6 @@ const lost = () => ({ status: "lost" as const });
 
 const versionReview = createRead((enrollmentId: string) => reviewVersion(enrollmentId).catch(lost), { failed: lost });
 
-/**
- * One enrollment (REQ-MUL-011, -012): the person's cohort, dates, program stage and next meeting on the version they
- * were enrolled on, and each milestone of that version. The director records and confirms an unlinked enrollee's
- * milestone in one step and writes dated feedback on hands-on assignments, which only the director, the Owner and
- * Admins read. When the program has a newer published version, the director reviews what changes for this person and
- * applies it (REQ-MUL-011); records on milestones the new version drops stay listed under earlier versions.
- */
 export function EnrollmentScreen({ initial }: { initial: EnrollmentDetail }) {
 	const [local, setLocal] = useState<{ from: EnrollmentDetail; value: EnrollmentDetail } | null>(null);
 	const enrollment = local?.from === initial ? local.value : initial;
@@ -248,14 +241,11 @@ function MilestoneRow({
 	milestone: Milestone;
 	enrollment: EnrollmentDetail;
 	director: boolean;
-	/** For a milestone a later version removed: the version its record is on. */
 	recordedOn?: number;
 	onRecord: () => void;
 	onChanged: () => Promise<void>;
 }) {
 	const c = m.completion;
-	// A linked enrollee marks their own milestones, so there is no one-step record; while they don't share milestone
-	// progress, an empty row says nothing about whether it is done.
 	const linked = enrollment.resident.status === "linked";
 	const hidden = enrollment.resident.status === "linked" && enrollment.resident.milestones === "not_shared";
 	const waiting = c !== null && c.confirmedOn === null;
@@ -342,7 +332,6 @@ function MilestoneRow({
 	);
 }
 
-/** The director's dated feedback on one hands-on assignment. It describes the work and never judges a calling. */
 function Feedback({
 	milestone,
 	enrollment,
@@ -433,7 +422,6 @@ function Feedback({
 	);
 }
 
-/** The director records the day the enrollee finished, and confirms it in the same step (REQ-MUL-012). */
 function RecordDialog({
 	milestone,
 	enrollment,
@@ -505,11 +493,6 @@ function RecordForm({
 	);
 }
 
-/**
- * The director's review before applying the program's current version to this enrollment (REQ-MUL-011): what is added,
- * removed and changed for this person, the finished milestones that carry over, and their stage on the new version.
- * Nothing is saved until they confirm. A review that went out of date is refused and replaced with a fresh one.
- */
 function ApplyDialog({
 	open,
 	enrollment,

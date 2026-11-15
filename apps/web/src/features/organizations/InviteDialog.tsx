@@ -23,10 +23,8 @@ import { emailProblem, kindLabel } from "./model";
 import { ProblemLine } from "./parts";
 import type { Disclosure, Invitation, Organization, RelationshipPair, Run } from "./port";
 
-/** One organization this subject may ask to connect with. */
 export type InviteTarget = { pair: RelationshipPair; name: string };
 
-/** Reads the exact disclosure the server will apply for this pair (readSharingDisclosure), or null when it has none. */
 export type ReadDisclosure = (pair: RelationshipPair) => Promise<Disclosure | null>;
 
 const REFUSED: Record<string, string> = {
@@ -38,12 +36,6 @@ const REFUSED: Record<string, string> = {
 	stale_revision: "Your details changed since this page loaded. Close this, then try again.",
 };
 
-/**
- * Asking one exact organization to connect (REQ-IDN-020). The subject's Owner or Admin picks the organization and
- * the address of its Owner or Admin, and sees what that organization will be able to see before sending
- * (REQ-IDN-022). Nothing is shared until the organization accepts. When the reply is lost, the fields lock and
- * Try again resends the same command; closing the dialog then asks the list to reload.
- */
 export function InviteDialog({
 	targets,
 	readDisclosure,

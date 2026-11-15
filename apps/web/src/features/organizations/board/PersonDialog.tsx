@@ -24,11 +24,6 @@ const NOBODY = "none";
 export type PersonValues = { name: string; email: string | null; responsibleSeatId: string | null; stageId: string };
 export type Saved = PersonValues & { personId: string; revision: string };
 
-/**
- * Add a person to the pipeline, or edit one's name, email and responsible staff. The responsible-staff choices are the
- * organization's current seats, from the server. Adding names the new person's ID once per dialog, so a resend after
- * a lost answer adds nobody twice.
- */
 export function PersonDialog({
 	open,
 	onOpenChange,
@@ -41,7 +36,6 @@ export function PersonDialog({
 	onOpenChange: (open: boolean) => void;
 	staff: Staff;
 	stages: Stages;
-	/** The person being edited; absent when adding. */
 	editing?: Saved;
 	onSaved: (saved: Saved) => void;
 }) {
