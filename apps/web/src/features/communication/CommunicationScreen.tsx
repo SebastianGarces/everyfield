@@ -3,7 +3,7 @@
 import { Add01Icon } from "@hugeicons/core-free-icons";
 import { Button, PageHeader, SegmentedControl } from "@everyfield/ui/controls";
 import { useState } from "react";
-import { useAddress, writeAddress } from "../../components/location.ts";
+import { traversalRef, useAddress, writeAddress } from "../../components/location.ts";
 import { Address } from "./Address.tsx";
 import { Compose } from "./Compose.tsx";
 import { History } from "./HistoryPanel.tsx";
@@ -12,15 +12,15 @@ import { Templates } from "./Templates.tsx";
 
 type Section = "messages" | "templates" | "address";
 
-const unsavedArrival = (route: Route, startedNew: boolean): Route =>
-	route.kind === "compose" && route.id === "new" && !route.handoff && !startedNew ? { ...route, step: "who" } : route;
+const reopenUnsavedAtWho = traversalRef(() => {
+	const route = parseRoute(Object.fromEntries(new URLSearchParams(window.location.search)));
+	if (route.kind === "compose" && route.id === "new" && !route.handoff && route.step !== "who")
+		writeAddress(routeHref({ ...route, step: "who" }), { replace: true });
+});
 
 export function CommunicationScreen({ data, canWrite }: { data: PageData; canWrite: boolean }) {
 	const address = useAddress();
-	const [startedNew, setStartedNew] = useState(false);
-	const parsed = parseRoute(Object.fromEntries(address.params.entries()));
-	if (startedNew && parsed.kind !== "compose") setStartedNew(false);
-	const route = unsavedArrival(parsed, startedNew);
+	const route = parseRoute(Object.fromEntries(address.params.entries()));
 	const [templates, setTemplates] = useState<Template[]>(data.templates);
 	const [banner, setBanner] = useState<string | null>(null);
 
@@ -51,7 +51,7 @@ export function CommunicationScreen({ data, canWrite }: { data: PageData; canWri
 	};
 
 	return (
-		<div className="flex flex-col gap-6">
+		<div ref={reopenUnsavedAtWho} className="flex flex-col gap-6">
 			<PageHeader
 				size="xl"
 				title="Messages"
@@ -76,10 +76,7 @@ export function CommunicationScreen({ data, canWrite }: { data: PageData; canWri
 					id={route.id}
 					step={route.step}
 					handoff={route.handoff}
-					onStep={(step: Step) => {
-						if (route.id === "new") setStartedNew(true);
-						go({ ...route, step }, "replace");
-					}}
+					onStep={(step: Step) => go({ ...route, step }, "replace")}
 					onSaved={(id, step) => go({ kind: "compose", id, step, handoff: null }, "replace")}
 					onLeave={() => go({ kind: "history", message: null, meeting: null, person: null })}
 					onDeleted={() => {

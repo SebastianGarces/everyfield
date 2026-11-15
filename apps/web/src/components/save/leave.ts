@@ -34,7 +34,7 @@ function matches({ combo }: Shortcut, event: KeyboardEvent): boolean {
 	if ((event.key ?? "").toLowerCase() !== combo.key) return false;
 	if (event.metaKey || event.ctrlKey ? !combo.mod : combo.mod) return false;
 	if (event.altKey !== combo.alt) return false;
-	if (combo.shift ? !event.shiftKey : event.shiftKey && /^[a-z0-9]$/.test(combo.key)) return false;
+	if (combo.shift && !event.shiftKey) return false;
 	return combo.mod || !typing(event.target);
 }
 

@@ -49,6 +49,11 @@ const subscribe = (listener: Listener) => watch(changes, listener);
 
 export const onTraversal = (listener: Listener) => watch(traversals, listener);
 
+export const traversalRef =
+	(listener: Listener) =>
+	(node: Element | null): (() => void) | undefined =>
+		node ? onTraversal(listener) : undefined;
+
 export const currentAddress = () => window.location.pathname + window.location.search;
 
 export function writeAddress(href: string | URL, { replace = false, state }: AddressWrite = {}): void {
