@@ -58,7 +58,8 @@ message or partial receipt. Generic input validation gets no regression test.
   such as a row's `created_at` or the transaction's `now()`. A race test holds a real lock and waits for the rival
   with `waitingOnLock`, which polls Postgres lock state; its `pids`, `blockedBy` and `count` options name which
   sessions must wait, so no file writes its own lock poll. `Date.now()` may only place seeded rows days away from any
-  boundary. Three uses keep real time, and each says why in a comment: the production latency proof in
+  boundary. Three uses keep real time, each with its reason in the `EXEMPT` entries of
+  `tests/workflow/integration-timing.test.mjs`: the production latency proof in
   `tests/integration/identity/timing.production.mts`, the `ms` field of `tests/integration/writes/counter.mjs`, and
   the 3 s wait in INV-expiry of `tests/integration/identity/invitations.test.mts`, where only elapsed time shows that
   an expiry check reads the clock after a lock wait. `tests/workflow/integration-timing.test.mjs` enforces this rule
