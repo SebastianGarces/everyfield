@@ -44,7 +44,7 @@ export type Actions = {
 	run(op: Op, input: unknown): Promise<Hold | "ok" | "refused">;
 	refresh(): Promise<void>;
 };
-const Context = createContext<{ store: Store; actions: Actions } | null>(null);
+const Context = createContext<{ store: Store; start: StepKey; actions: Actions } | null>(null);
 
 const STEP_PARAM = "step";
 
@@ -57,8 +57,7 @@ function stepHref(state: State): string | null {
 	return url.pathname + url.search + url.hash;
 }
 
-function atStep(state: State, requested: StepKey | null): State {
-	if (requested === null) return state;
+function atStep(state: State, requested: StepKey): State {
 	const moved = setView(state, requested);
 	return moved.view === state.view ? state : moved;
 }
@@ -76,12 +75,18 @@ export function OnboardingProvider({
 	signIn: () => void;
 	children: ReactNode;
 }) {
-	const [store] = useState(() => createStore(initialState(entry, step)));
+	const [{ store, start }] = useState(() => {
+		const initial = initialState(entry, step);
+		return { store: createStore(initial), start: initial.view };
+	});
 
 	const actions = useMemo<Actions>(() => {
 		const cell = {
 			get: () => {
-				const shown = atStep(store.get(), parseStep(new URL(window.location.href).searchParams.get(STEP_PARAM)));
+				const shown = atStep(
+					store.get(),
+					parseStep(new URL(window.location.href).searchParams.get(STEP_PARAM)) ?? start,
+				);
 				if (shown !== store.get()) store.set(shown);
 				return shown;
 			},
@@ -106,9 +111,9 @@ export function OnboardingProvider({
 			},
 			refresh: () => refreshEntry(port, cell, signIn),
 		};
-	}, [port, signIn, store]);
+	}, [port, signIn, store, start]);
 
-	const value = useMemo(() => ({ store, actions }), [store, actions]);
+	const value = useMemo(() => ({ store, start, actions }), [store, start, actions]);
 	return <Context.Provider value={value}>{children}</Context.Provider>;
 }
 
@@ -116,7 +121,7 @@ export function useOnboarding(): { state: State; actions: Actions } {
 	const context = use(Context);
 	if (!context) throw new Error("useOnboarding needs an OnboardingProvider");
 	const stored = useSyncExternalStore(context.store.subscribe, context.store.get, context.store.get);
-	const requested = parseStep(useAddress().params.get(STEP_PARAM));
+	const requested = parseStep(useAddress().params.get(STEP_PARAM)) ?? context.start;
 	const state = useMemo(() => atStep(stored, requested), [stored, requested]);
 	return { state, actions: context.actions };
 }
