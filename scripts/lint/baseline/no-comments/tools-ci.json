@@ -1,7 +1,7 @@
 {
 	"tools/ci/ci-tests.ts": 12,
 	"tools/ci/ci-timing.ts": 10,
-	"tools/ci/select.ts": 43,
+	"tools/ci/select.ts": 44,
 	"tools/ci/test-names.ts": 13,
 	"tools/ci/tests/ci-tests.test.ts": 1,
 	"tools/ci/tests/ci-timing.test.ts": 15,
