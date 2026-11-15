@@ -218,11 +218,16 @@ const guardText = (t: Guarded<string>) =>
 
 export function mermaid(m: MachineShape): string {
 	const label = (event: string, rule: Guarded<string>) => [event, guardText(rule)].filter(Boolean).join(" ");
+	const arrows = new Map<string, string[]>();
+	for (const t of m.transitions) {
+		const pair = `${t.from} --> ${t.to}`;
+		arrows.set(pair, [...(arrows.get(pair) ?? []), label(t.event, t)]);
+	}
 	return [
 		"stateDiagram-v2",
 		`  [*] --> ${m.initial.to}: ${m.initial.event}`,
-		...m.transitions.map((t) => `  ${t.from} --> ${t.to}: ${label(t.event, t)}`),
-		...m.stays.flatMap((s) => s.in.map((state) => `  note right of ${state}: stays on ${label(s.event, s)}`)),
+		...[...arrows].map(([pair, labels]) => `  ${pair}: ${labels.join(" / ")}`),
+		...m.stays.flatMap((s) => s.in.map((state) => `  note right of ${state} : stays on ${label(s.event, s)}`)),
 	].join("\n");
 }
 

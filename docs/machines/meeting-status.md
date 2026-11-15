@@ -16,29 +16,22 @@ stateDiagram-v2
   planning --> ready: meetings.changeStatus
   planning --> in_progress: meetings.changeStatus
   planning --> cancelled: meetings.changeStatus
-  ready --> planning: meetings.changeStatus
+  ready --> planning: meetings.changeStatus / meetings.correctPracticeOccurrence when practice
   ready --> in_progress: meetings.changeStatus
   ready --> cancelled: meetings.changeStatus
   in_progress --> ready: meetings.changeStatus
-  in_progress --> completed: meetings.changeStatus unless practice
+  in_progress --> completed: meetings.changeStatus unless practice / meetings.completePractice when practice / meetings.correctPracticeOccurrence when practice
   in_progress --> cancelled: meetings.changeStatus
   completed --> in_progress: meetings.changeStatus unless practice
-  cancelled --> planning: meetings.changeStatus
-  planning --> completed: meetings.completePractice when practice
-  ready --> completed: meetings.completePractice when practice
-  in_progress --> completed: meetings.completePractice when practice
-  completed --> completed: meetings.completePractice when practice
-  planning --> completed: meetings.correctPracticeOccurrence when practice
+  cancelled --> planning: meetings.changeStatus / meetings.correctPracticeOccurrence when practice
+  planning --> completed: meetings.completePractice when practice / meetings.correctPracticeOccurrence when practice
+  ready --> completed: meetings.completePractice when practice / meetings.correctPracticeOccurrence when practice
+  completed --> completed: meetings.completePractice when practice / meetings.correctPracticeOccurrence when practice
   planning --> planning: meetings.correctPracticeOccurrence when practice
-  ready --> completed: meetings.correctPracticeOccurrence when practice
-  ready --> planning: meetings.correctPracticeOccurrence when practice
-  in_progress --> completed: meetings.correctPracticeOccurrence when practice
   in_progress --> planning: meetings.correctPracticeOccurrence when practice
-  completed --> completed: meetings.correctPracticeOccurrence when practice
   completed --> planning: meetings.correctPracticeOccurrence when practice
   cancelled --> completed: meetings.correctPracticeOccurrence when practice
-  cancelled --> planning: meetings.correctPracticeOccurrence when practice
-  note right of completed: stays on meetings.correctOccurrence
+  note right of completed : stays on meetings.correctOccurrence
 ```
 
 ## Refused moves
