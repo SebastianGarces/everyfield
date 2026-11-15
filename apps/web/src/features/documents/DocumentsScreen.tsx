@@ -24,7 +24,14 @@ import { generateDocument, resolveDocument, type DocumentOutcome } from "./actio
 import { createChurchDocument, type ChurchActionResult } from "./church/actions.ts";
 import { PdfPreview } from "./PdfPreview.tsx";
 import { Thumbnail } from "./Thumbnail.tsx";
-import { RENDER_FAILED, bytesOf, downloadBytes, sharedPreview, type PreviewReply } from "./preview-client.ts";
+import {
+	RENDER_FAILED,
+	bytesOf,
+	downloadBytes,
+	sharedPreview,
+	type PreviewAlias,
+	type PreviewReply,
+} from "./preview-client.ts";
 import {
 	CATEGORIES,
 	FORMAT_LABEL,
@@ -85,6 +92,7 @@ type PreviewRequest = {
 	format: Format;
 	overrides: Record<string, string>;
 	key: string;
+	alias: PreviewAlias | null;
 	signature: string;
 	failed?: string;
 };
@@ -105,27 +113,33 @@ const resolutions = createRead(
 );
 
 const previews = createRead(
-	(templateId: string, format: Format, overrides: Record<string, string>, key: string) =>
-		sharedPreview(key, templateId, format, overrides),
+	(templateId: string, format: Format, overrides: Record<string, string>, key: string, alias: PreviewAlias | null) =>
+		sharedPreview(key, templateId, format, overrides, alias),
 	{ failed: (): PreviewReply => ({ status: "lost" }) },
 );
 
-const signatureOf = (templateId: string, format: Format, overrides: Record<string, string>) =>
-	`${templateId}:${format}:${JSON.stringify(overrides)}`;
+const signatureOf = (templateId: string, format: Format, overrides: Record<string, string>, resolved: Resolved) =>
+	JSON.stringify([templateId, format, overrides, churchValues(resolved)]);
 
 function requestFor(
 	template: Template,
 	format: Format,
 	overrides: Record<string, string>,
 	version: string,
-	church: Record<string, string>,
+	resolved: Resolved,
+	opened: Record<string, string>,
 ): PreviewRequest {
+	const church = churchValues(resolved);
+	const plain = format === "pdf" && Object.keys(overrides).length === 0;
 	return {
 		templateId: template.id,
 		format,
 		overrides,
 		key: renderKey({ templateId: template.id, version, format, overrides, church }),
-		signature: signatureOf(template.id, format, overrides),
+		alias: plain
+			? { key: renderKey({ templateId: template.id, version, format, overrides, church: opened }), church }
+			: null,
+		signature: signatureOf(template.id, format, overrides, resolved),
 	};
 }
 
@@ -138,17 +152,17 @@ function openingRequest(
 	format: Format,
 	resolved: Resolved,
 	version: string,
-	church: Record<string, string>,
+	opened: Record<string, string>,
 ): PreviewRequest | null {
 	const drafts = draftsFrom(resolved);
 	if (missingFields(template, drafts).length > 0) return null;
 	const overrides = overridesOf(template, drafts, resolved);
 	if (combinedTooLong(overrides)) return null;
-	return requestFor(template, format, overrides, version, church);
+	return requestFor(template, format, overrides, version, resolved, opened);
 }
 
 const forgetPreview = (request: PreviewRequest | null) =>
-	request && previews.forget(request.templateId, request.format, request.overrides, request.key);
+	request && previews.forget(request.templateId, request.format, request.overrides, request.key, request.alias);
 
 export function DocumentsScreen({
 	templates,
@@ -217,7 +231,8 @@ export function DocumentsScreen({
 		missing.length === 0 &&
 		!tooLong,
 	);
-	const signature = selected && activeFormat ? signatureOf(selected.id, activeFormat, overrides) : "";
+	const signature =
+		selected && activeFormat && current ? signatureOf(selected.id, activeFormat, overrides, current) : "";
 
 	const shown =
 		request && selected && request.templateId === selected.id && request.format === activeFormat ? request : null;
@@ -228,6 +243,7 @@ export function DocumentsScreen({
 		reading?.format ?? "pdf",
 		reading?.overrides ?? {},
 		reading?.key ?? "",
+		reading?.alias ?? null,
 	);
 	const artifact = reply.value?.status === "ok" ? reply.value.value.artifact : null;
 	const bytes = useMemo(() => (artifact ? bytesOf(artifact) : null), [artifact]);
@@ -300,7 +316,7 @@ export function DocumentsScreen({
 			}
 			if (before?.status !== "ok") return;
 			resolutions.patch(() => before, template.id, format, visit);
-			setRequest({ ...requestFor(template, format, {}, version, church), failed: problemText(result) });
+			setRequest({ ...requestFor(template, format, {}, version, before.value, church), failed: problemText(result) });
 		});
 	}
 
@@ -322,7 +338,8 @@ export function DocumentsScreen({
 
 	function runPreview(download: boolean) {
 		if (!selected || !activeFormat || !ready) return;
-		const next = requestFor(selected, activeFormat, overrides, version, church);
+		if (!current) return;
+		const next = requestFor(selected, activeFormat, overrides, version, current, church);
 		if (!download) {
 			if (request?.key !== next.key) forgetPreview(request);
 			setRequest(next);
@@ -330,7 +347,7 @@ export function DocumentsScreen({
 		}
 		const name = selected.name;
 		startDownload(async () => {
-			const result = await sharedPreview(next.key, next.templateId, next.format, next.overrides);
+			const result = await sharedPreview(next.key, next.templateId, next.format, next.overrides, next.alias);
 			if (result.status === "ok" && result.value.artifact) downloadBytes(name, next.format, result.value.artifact);
 			else {
 				forgetPreview(request);

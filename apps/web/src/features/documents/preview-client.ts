@@ -1,4 +1,4 @@
-import { MIME, fileName, type Format, type Resolved } from "./model.ts";
+import { MIME, churchValues, fileName, type Format, type Resolved } from "./model.ts";
 
 export type PreviewReply =
 	| { status: "ok"; value: Resolved & { artifact: string | null; brandKit: boolean } }
@@ -44,25 +44,43 @@ async function postPreview(
 const renders = new Map<string, Promise<PreviewReply>>();
 const KEPT = 24;
 
+function remember(key: string, reply: Promise<PreviewReply>) {
+	renders.set(key, reply);
+	for (const old of renders.keys()) {
+		if (renders.size <= KEPT) break;
+		renders.delete(old);
+	}
+	void reply.then((settled) => {
+		if (renders.get(key) === reply && (settled.status !== "ok" || !settled.value.artifact)) renders.delete(key);
+	});
+}
+
+export type PreviewAlias = { key: string; church: Record<string, string> };
+
+const sorted = (values: Record<string, string>) =>
+	JSON.stringify(Object.entries(values).sort(([a], [b]) => (a < b ? -1 : 1)));
+
+const printed = (reply: PreviewReply, church: Record<string, string>) =>
+	reply.status === "ok" && sorted(churchValues(reply.value)) === sorted(church);
+
 export function sharedPreview(
 	key: string,
 	templateId: string,
 	format: Format,
 	overrides: Record<string, string>,
+	alias: PreviewAlias | null = null,
 ): Promise<PreviewReply> {
-	let known = renders.get(key);
-	if (!known) {
-		known = postPreview(templateId, format, overrides);
-		renders.set(key, known);
-		for (const old of renders.keys()) {
-			if (renders.size <= KEPT) break;
-			renders.delete(old);
-		}
-		void known.then((reply) => {
-			if (reply.status !== "ok" || !reply.value.artifact) renders.delete(key);
-		});
-	}
-	return known;
+	const known = renders.get(key);
+	if (known) return known;
+	const earlier = alias ? renders.get(alias.key) : undefined;
+	const reply = earlier
+		? earlier.then((settled) =>
+				alias && printed(settled, alias.church) ? settled : postPreview(templateId, format, overrides),
+			)
+		: postPreview(templateId, format, overrides);
+	remember(key, reply);
+	if (alias && !earlier) remember(alias.key, reply);
+	return reply;
 }
 
 export const RENDER_FAILED = "This file did not render. Nothing was saved.";
