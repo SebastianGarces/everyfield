@@ -1,12 +1,6 @@
 "use client";
 
-import {
-	ANSWER_MAX,
-	checkSummary,
-	GUEST_QUESTION,
-	SUMMARY_MAX,
-	type Plan,
-} from "@everyfield/contracts/launch";
+import { ANSWER_MAX, checkSummary, GUEST_QUESTION, SUMMARY_MAX, type Plan } from "@everyfield/contracts/launch";
 import {
 	Button,
 	Card,
