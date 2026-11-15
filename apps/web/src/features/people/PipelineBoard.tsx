@@ -33,7 +33,16 @@ import {
 } from "./model.ts";
 import { useLocalStore } from "../../components/store.ts";
 import { createPersonStore, runSave, withServer, type PersonStore } from "./person.store.ts";
-import { CardLink, FormProblem, fresh, problemOf, problemText, usePersonState, When } from "./parts.tsx";
+import {
+	CardLink,
+	FormProblem,
+	fresh,
+	prefetchWarnings,
+	problemOf,
+	problemText,
+	usePersonState,
+	When,
+} from "./parts.tsx";
 import { StageDialog, type PersonDraft } from "./StageDialog.tsx";
 
 type Pipeline = z.infer<typeof people.pipelineResult>;
@@ -69,8 +78,10 @@ export function PipelineBoard({
 	const answered = (column: ColumnValue, answer: Answer) => change((s) => void s.columns.set(column, answer));
 	const [dragged, setDragged] = useState<CardData | null>(null);
 	const [over, setOver] = useState<ColumnValue | null>(null);
-	const move = (card: CardData, target?: StageValue) =>
+	const move = (card: CardData, target?: StageValue) => {
+		prefetchWarnings(card.person.id);
 		setMoving({ store: createPersonStore<PlantPerson, PersonDraft>(card.person), card, target });
+	};
 
 	return (
 		<>

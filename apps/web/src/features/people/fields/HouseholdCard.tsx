@@ -42,6 +42,7 @@ import {
 	CopyAddressDialog,
 	EditHouseholdDialog,
 	householdProblem,
+	households,
 	JoinHouseholdDialog,
 	LeaveHouseholdDialog,
 	StartHouseholdDialog,
@@ -280,7 +281,14 @@ export function HouseholdCard({
 					<p className="text-sm text-text-3">{first} is not in a household.</p>
 					{canEdit ? (
 						<div className="flex flex-wrap gap-2">
-							<Button size="sm" variant="secondary" onClick={() => lane.open({ kind: "join" })}>
+							<Button
+								size="sm"
+								variant="secondary"
+								onClick={() => {
+									households.prefetch("");
+									lane.open({ kind: "join" });
+								}}
+							>
 								Add to a household
 							</Button>
 							<Button size="sm" variant="ghost" onClick={() => lane.open({ kind: "start" })}>

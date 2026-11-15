@@ -41,7 +41,7 @@ import { ActivityCard, type Activities, type EntryFields, type Item } from "./Ac
 import { CLASSIFICATION_LABEL, SOURCE_LABEL, STAGE_KEY, STAGE_LABEL, withEntry } from "./model.ts";
 import type { Outcome } from "../../components/save/model.ts";
 import { ClassificationDialog, EditProfileDialog, RestoreDialog, RetireDialog } from "./PersonDialogs.tsx";
-import { LocalDay, usePersonStore, When } from "./parts.tsx";
+import { LocalDay, prefetchWarnings, usePersonStore, When } from "./parts.tsx";
 import { StageDialog, type PersonDraft } from "./StageDialog.tsx";
 import { HouseholdCard } from "./fields/HouseholdCard.tsx";
 import type { HouseholdResult, PersonFields } from "./fields/model.ts";
@@ -53,7 +53,7 @@ import type { PersonRecords } from "./assessments/model.ts";
 import { RecordsSection, type CorrectedRecord } from "./assessments/RecordsSection.tsx";
 import { EditRecordDialog } from "./corrections/EditRecordDialog.tsx";
 import { DuplicateHints } from "./corrections/DuplicateHints.tsx";
-import { recordsIntent } from "./corrections/intent.ts";
+import { recordsIntent, recordsRead, unmergeRead } from "./corrections/intent.ts";
 import type { DuplicateHints as Hints } from "./corrections/server.ts";
 import { UnmergeDialog } from "./corrections/UnmergeDialog.tsx";
 import { loadPersonPage, type PersonPage, type Unmerged } from "./corrections/actions.ts";
@@ -220,7 +220,15 @@ export function PersonScreen({
 				<div className="flex max-w-full min-w-0 flex-wrap items-center gap-2.5">
 					{canWrite && live ? (
 						<>
-							<Button variant="primary" icon={UserCheck01Icon} disabled={busy} onClick={() => setOpen("stage")}>
+							<Button
+								variant="primary"
+								icon={UserCheck01Icon}
+								disabled={busy}
+								onClick={() => {
+									prefetchWarnings(p.id);
+									setOpen("stage");
+								}}
+							>
 								Change stage
 							</Button>
 							<Menu>
@@ -231,7 +239,14 @@ export function PersonScreen({
 									<MenuItem icon={Edit02Icon} onSelect={() => setOpen("profile")}>
 										Edit profile
 									</MenuItem>
-									<MenuItem icon={FileEditIcon} onSelect={() => setOpen("correct")} {...recordsIntent(p.id)}>
+									<MenuItem
+										icon={FileEditIcon}
+										onSelect={() => {
+											recordsRead.prefetch(p.id);
+											setOpen("correct");
+										}}
+										{...recordsIntent(p.id)}
+									>
 										Edit a record
 									</MenuItem>
 									{p.birthDate ? null : (
@@ -240,7 +255,14 @@ export function PersonScreen({
 										</MenuItem>
 									)}
 									<MenuSeparator />
-									<MenuItem icon={Delete02Icon} danger onSelect={() => setOpen("retire")}>
+									<MenuItem
+										icon={Delete02Icon}
+										danger
+										onSelect={() => {
+											prefetchWarnings(p.id);
+											setOpen("retire");
+										}}
+									>
 										Retire person
 									</MenuItem>
 								</MenuContent>
@@ -352,7 +374,14 @@ export function PersonScreen({
 								onConflict={reload}
 								accountId={accountId}
 								canWrite={canWrite}
-								onUnmerge={canWrite ? (mergeId) => setOpen({ unmerge: mergeId }) : undefined}
+								onUnmerge={
+									canWrite
+										? (mergeId) => {
+												unmergeRead.prefetch(mergeId);
+												setOpen({ unmerge: mergeId });
+											}
+										: undefined
+								}
 							/>
 						</div>
 						<div className="flex min-w-0 flex-col gap-5 max-app-lg:order-first">

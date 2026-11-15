@@ -315,7 +315,11 @@ function WitnessPicker({
 				onChange={(e) => {
 					const next = e.target.value;
 					setSearch(next);
-					afterPause(() => setQuery(next.trim()));
+					afterPause(() => {
+						const q = next.trim();
+						if (q) witnesses.prefetch(q);
+						setQuery(q);
+					});
 				}}
 			/>
 			<div className="max-h-[200px] min-h-[52px] overflow-y-auto rounded-md px-1">

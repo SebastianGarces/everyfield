@@ -96,7 +96,7 @@ function AddressFields({ value, onChange }: { value: Address; onChange: (a: Addr
 }
 
 type Found = Outcome<{ items: HouseholdSummary[]; total: number }>;
-const households = createRead((q: string): Promise<Found> => findHouseholds(q), {
+export const households = createRead((q: string): Promise<Found> => findHouseholds(q), {
 	failed: () => ({ status: "lost" }) as const,
 });
 const firstInput = (node: HTMLElement) => node.querySelector<HTMLElement>("input");

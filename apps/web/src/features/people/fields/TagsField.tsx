@@ -12,7 +12,7 @@ import { PersonLink } from "../parts.tsx";
 import { addPersonTag, listChurchTags, removePersonTag } from "./actions.ts";
 import { ManageTagsDialog } from "./ManageTagsDialog.tsx";
 import { tagLook, type ChurchTag, type PersonTag } from "./model.ts";
-import { tagProblem } from "./ManageTagsDialog.tsx";
+import { churchTags, tagProblem } from "./ManageTagsDialog.tsx";
 
 type Change = { add: PersonTag } | { remove: string };
 const byName = (a: { name: string }, b: { name: string }) =>
@@ -134,6 +134,7 @@ export function TagsField({
 								onCreate={(name) => add({ name })}
 								onManage={() => {
 									setOpen(false);
+									churchTags.prefetch();
 									setManaging(true);
 								}}
 							/>

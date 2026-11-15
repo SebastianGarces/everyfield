@@ -85,6 +85,8 @@ const warningsRead = createRead<[personId: string, round: number], Warnings>((pe
 	failed: () => ({ status: "lost" }) as const,
 });
 
+export const prefetchWarnings = (personId: string) => warningsRead.prefetch(personId, 0);
+
 export function useWarnings(personId: string, round: number): Warnings | null {
 	return useRead(warningsRead, personId, round).value ?? null;
 }

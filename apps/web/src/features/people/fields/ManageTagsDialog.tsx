@@ -31,7 +31,7 @@ import { FormProblem, problemText } from "../parts.tsx";
 import { createChurchTag, deleteChurchTag, listChurchTags, updateChurchTag } from "./actions.ts";
 import { TAG_COLOR_LABEL, TAG_COLORS, tagLook, type ChurchTag } from "./model.ts";
 
-const churchTags = createRead((): Promise<Outcome<ChurchTag[]>> => listChurchTags(), {
+export const churchTags = createRead((): Promise<Outcome<ChurchTag[]>> => listChurchTags(), {
 	failed: () => ({ status: "lost" }) as const,
 });
 const byName = (a: { name: string }, b: { name: string }) =>
