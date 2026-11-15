@@ -28,9 +28,6 @@ import {
 import { DoneBox } from "./parts.tsx";
 import { warmAssignees } from "./AssigneePicker.tsx";
 
-// The task panel's structure sections (REQ-TSK-005 to 007): steps, what the task waits for and how it repeats. Each
-// save is one request; the screen shows it at once and confirms or rolls it back.
-
 export function Section({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
 	return (
 		<section className="flex flex-col gap-2">
@@ -43,10 +40,6 @@ export function Section({ title, action, children }: { title: string; action?: R
 	);
 }
 
-/**
- * An inline form: opening it moves focus to its first field, Escape inside it closes the form, not the panel around it,
- * and focus goes back to the button that opened it. The panel closes on Escape from a document listener, so this one listens on the window first.
- */
 function useInlineForm<T extends HTMLElement>(onClose: () => void): (node: T | null) => void {
 	const form = useRef<T | null>(null);
 	const close = useEffectEvent(onClose);
@@ -71,7 +64,6 @@ function useFormCloses() {
 	return { opener, closed: () => setCloses((n) => n + 1) };
 }
 
-/** A step's assignee choice: the task's own assignee, no one, or a seat. */
 export type StepAssignee = { kind: "inherit" } | { kind: "nobody" } | { kind: "seat"; accountId: string; name: string };
 const candidates = createRead((taskId: string, search: string) => prerequisiteCandidates(taskId, search), {
 	failed: () => ({ status: "lost" }) as const,
@@ -79,11 +71,6 @@ const candidates = createRead((taskId: string, search: string) => prerequisiteCa
 const INHERIT = "inherit",
 	NOBODY = "nobody";
 
-/**
- * Steps: one-level child tasks, each with its own assignee and history (REQ-TSK-005). A step is ticked by its own
- * assignee or an Owner/Admin; holding the task does not count. An Owner or Admin adds steps under any task and may
- * name who holds each; a Member adds steps only under their own task, and those steps are theirs.
- */
 export function Steps({
 	steps,
 	taskAssignees,
@@ -102,7 +89,6 @@ export function Steps({
 	admin: boolean;
 	you: string;
 	canTick: (s: Step) => boolean;
-	/** A step's last save in flight or unknown (C68). */
 	wait: (id: string) => Wait;
 	onTick: (s: Step, complete: boolean) => void;
 	onRemove: (s: Step) => void;
@@ -201,7 +187,6 @@ function AddStep({
 	const [seats, setSeats] = useState<{ value: string; label: string }[] | "loading" | "failed" | null>(null);
 	const input = useRef<HTMLInputElement>(null);
 	const form = useInlineForm<HTMLFormElement>(onClose);
-	// The church's seats load on intent over Assigned to, so a step that keeps the task's assignee sends no read.
 	const warm = () => {
 		if (seats !== null && seats !== "failed") return;
 		setSeats("loading");
@@ -233,7 +218,6 @@ function AddStep({
 					? { kind: "nobody" }
 					: { kind: "seat", accountId: who, name: seat?.label.replace(/ \(you\)$/, "") ?? "" },
 		);
-		// The form stays open for the next step.
 		setTitle("");
 		setTouched(false);
 		input.current?.focus();
@@ -288,11 +272,6 @@ function AddStep({
 	);
 }
 
-/**
- * Blocked by: the tasks this one waits for (REQ-TSK-006). A done, no-longer-needed or deleted task no longer holds it
- * back. It is a reminder, not a lock: the task can still be marked done. An Owner or Admin changes the whole list at
- * once; a task that already waits for this one, directly or through others, is never offered.
- */
 export function BlockedBy({
 	task,
 	items,
@@ -306,9 +285,7 @@ export function BlockedBy({
 	onOpen,
 }: {
 	task: Pick<TaskDetail, "id" | "status">;
-	/** The task's last save is in flight or unknown: the list cannot change now (C68). */
 	locked: boolean;
-	/** Null when the list did not load. */
 	items: Prerequisite[] | null;
 	admin: boolean;
 	editing: boolean;
@@ -529,11 +506,6 @@ const draftOf = (r: (Rule & { stopped?: boolean }) | null): RuleDraft =>
 		? { frequency: r.frequency, ends: r.until ? "on" : "never", until: r.until ?? "", time: r.localTime ?? "" }
 		: { frequency: "weekly", ends: "never", until: "", time: "" };
 
-/**
- * Repeats (REQ-TSK-007). Marking a repeating task done adds the next one, one interval after its due date (or after the
- * day it was done when it has none), with fresh steps. Stopping keeps every earlier occurrence and its history. A task
- * a meeting created cannot repeat. An Owner or Admin changes the rule.
- */
 export function Repeats({
 	task,
 	occurrence,
@@ -551,7 +523,6 @@ export function Repeats({
 	occurrence: Occurrence | null;
 	canEdit: boolean;
 	editing: boolean;
-	/** The task's last save is in flight or unknown: the rule cannot change now (C68). */
 	locked: boolean;
 	draft?: Rule | null;
 	year: number;
@@ -566,8 +537,6 @@ export function Repeats({
 	const live = r && !r.stopped;
 	const other =
 		occurrence?.status === "series" && occurrence.open && occurrence.open.taskId !== task.id ? occurrence.open : null;
-	// Only the open occurrence adds the next one. When none is open (it was deleted, or closed as no longer needed),
-	// the series goes on once the latest occurrence is done again (PR 241).
 	const next = !isSettled(task.status)
 		? "Marking it done adds the next one, with fresh steps."
 		: other
@@ -643,7 +612,6 @@ function RepeatEditor({
 		e.preventDefault();
 		setTouched(true);
 		if (d.frequency === NEVER) return onSave(null);
-		// A refused save moves focus to the field that needs an answer.
 		if (d.ends === "on" && !/^\d{4}-\d{2}-\d{2}$/.test(d.until)) return until.current?.focus();
 		onSave({
 			frequency: d.frequency,

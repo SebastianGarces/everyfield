@@ -42,11 +42,6 @@ export type Data =
 	{ kind: "coverage"; coverage: Coverage; owners: Account[] | null } | { kind: "mine"; owners: Owners };
 type Row = Coverage["items"][number];
 
-/**
- * Follow-up assignments (REQ-TSK-012, REQ-TSK-013). Owners and Admins see each contact's coverage: owned, Needs owner,
- * or no follow-up at all, which is not late work and shows no invented date. They assign, add a follow-up and hand off
- * an account's follow-ups. A Member sees the follow-ups they own.
- */
 export function FollowUpsScreen({ data, filter }: { data: Data; filter: Filter }) {
 	return (
 		<>
@@ -66,7 +61,6 @@ export function FollowUpsScreen({ data, filter }: { data: Data; filter: Filter }
 }
 
 function Coverage({ coverage, owners, filter }: { coverage: Coverage; owners: Account[] | null; filter: Filter }) {
-	// The page brought the eligible owners: Assign and Add follow-up use them without another read.
 	useState(() => owners && seedOwners(owners));
 	const router = useRouter();
 	const path = usePathname();
@@ -86,7 +80,6 @@ function Coverage({ coverage, owners, filter }: { coverage: Coverage; owners: Ac
 		if (page > 1) q.set("page", String(page));
 		router.push(`${path}${q.size ? `?${q}` : ""}`);
 	};
-	/** A follow-up as shown in its contact's row: at once, from an answer, or back after a refusal. */
 	const change = (d: DutyItem) =>
 		setRows((all) =>
 			all.map((r) => {
@@ -97,10 +90,6 @@ function Coverage({ coverage, owners, filter }: { coverage: Coverage; owners: Ac
 				return { ...r, duties, coverage: coverageOf(duties) };
 			}),
 		);
-	/**
-	 * After the server confirmed a change: the totals follow it, and a contact that no longer matches the chosen view
-	 * leaves the list, with a status line that says where it went.
-	 */
 	function confirmed(moves: Parameters<typeof totalsAfter>[1]) {
 		setView((v) => {
 			const totals = totalsAfter(v.totals, moves);
@@ -115,10 +104,6 @@ function Coverage({ coverage, owners, filter }: { coverage: Coverage; owners: Ac
 			};
 		});
 	}
-	/**
-	 * After a refusal because a row was out of date: this view's rows, revisions and totals as the server has them now
-	 * (C58 rule 6). A failed read leaves the screen as it is; the refusal notice already says what happened.
-	 */
 	async function reload() {
 		const r = await loadCoverage(filter, coverage.page);
 		if (r.status !== "ok") return;
@@ -134,7 +119,6 @@ function Coverage({ coverage, owners, filter }: { coverage: Coverage; owners: Ac
 					revisions.has(d.taskId)
 						? {
 								...d,
-								// D-d: the recipient takes the source's place; when it already holds the follow-up, the source leaves.
 								owners: [
 									...d.owners.filter((o) => o.accountId !== plan.from.accountId && o.accountId !== r.to.accountId),
 									{ ...r.to, eligible: true, reason: null },
@@ -368,7 +352,6 @@ function Coverage({ coverage, owners, filter }: { coverage: Coverage; owners: Ac
 	);
 }
 
-/** The follow-ups a Member owns, 50 to a page, with the pages in the address (D67). */
 function Mine({ owners }: { owners: Owners }) {
 	const router = useRouter();
 	const path = usePathname();

@@ -49,16 +49,10 @@ type Draft = {
 	category: Category;
 	due: DueDraft;
 	assigneeIds: string[];
-	/** Each chosen assignee's name as the form shows it, for the row before the server answers. */
 	assigneeNames: Record<string, string>;
 	relation: Relation;
-	/** The assignee the last refused save named as unable to own follow-ups (`owner_ineligible`). */
 	ineligible?: string;
 };
-/**
- * A save the screen shows before the answer: the row as it will be, the request and the person's text (the form opens
- * again with it after a refusal). `send` takes the save intent's request key; the revision is the one the form showed.
- */
 export type Commit = {
 	before: TaskDetail | null;
 	preview: TaskItem;
@@ -96,26 +90,14 @@ function draftOf(task: TaskDetail | null, viewer: Viewer): Draft {
 	};
 }
 
-/**
- * The task form on its card's save lane (C58): the task it was opened on, or null for a new task, and after a refused
- * save the person's values with the server's question, so the form opens again where they left it.
- */
 export type EditForm = {
 	kind: "edit";
 	task: TaskDetail | null;
 	draft?: Draft;
-	/** The two occurrences of a time the clocks repeat, from the server's refusal. */
 	choices?: Choices;
 	problem?: string;
 };
 
-/**
- * New task and Edit task (REQ-TSK-002, REQ-TSK-018). A due date is a day, a church-local time or nothing. A time the
- * clocks skip is refused with a request for another time; a time the clocks repeat shows both occurrences and saves
- * only after the person picks one (B03-008, B03-009). A task a meeting created keeps its category and link. Every save
- * closes the form and shows at once on the list; a refusal opens the form again on the newest copy of the task with
- * the person's own changes on top (R4-2).
- */
 export function TaskDialog({
 	form,
 	latest,
@@ -126,12 +108,9 @@ export function TaskDialog({
 	onCommit,
 }: {
 	form: EditForm | null;
-	/** The newest copy of the edited task this screen holds (a conflict reads it again), or null for a new task. */
 	latest: TaskDetail | null;
 	viewer: Viewer;
-	/** The card's save in flight or unknown: the form keeps its values and cannot submit (C68). */
 	wait: Wait;
-	/** Why the last save of this form was refused, in words. */
 	problem?: string;
 	onClose: () => void;
 	onCommit: (c: Commit) => void;
@@ -164,12 +143,10 @@ function Form({
 	onCommit: (c: Commit) => void;
 }) {
 	const initial = draftOf(task, viewer);
-	// The person's changes from a refused save, on top of the newest copy: a field they did not touch shows its new value.
 	const [draft, setDraft] = useState(() =>
 		form.draft ? rebase(form.draft, draftOf(form.task, viewer), initial) : initial,
 	);
 	const [touched, setTouched] = useState(false);
-	// A follow-up owner refusal names the assignee it is about, not the viewer's seat.
 	const [problem, setProblem] = useState(() =>
 		form.problem === "owner_ineligible" && form.draft
 			? problemText("owner_ineligible", form.draft.assigneeNames[form.draft.ineligible ?? ""])
@@ -191,7 +168,6 @@ function Form({
 		setProblem(null);
 	};
 	const setDue = (patch: Partial<DueDraft>) => {
-		// A new day or time is a new question: an earlier occurrence choice or skipped-time warning no longer applies.
 		setDraft((d) => ({ ...d, due: { ...d.due, ...patch, offsetSeconds: undefined } }));
 		setAsked(null);
 		setProblem(null);
@@ -209,7 +185,6 @@ function Form({
 			? `A description can be at most ${MAX_DESCRIPTION.toLocaleString("en-US")} characters. This one has ${descriptionLength.toLocaleString("en-US")}.`
 			: null;
 
-	/** Returns false when the form has missing answers. */
 	function submit(): boolean {
 		setTouched(true);
 		if (!title || !due.ok || descriptionError) return false;
@@ -250,11 +225,8 @@ function Form({
 			const revision = task.revision;
 			send = (key) => editTask(key, revision, task.id, patch);
 		}
-		// A refusal that names an assignee who cannot own follow-ups: the reopened form keeps who it was, and the next
-		// picker open reads the eligible list again.
 		const committed: Draft = { ...draft, ineligible: undefined };
 		send = noticingIneligible(send, forgetAssignees, (accountId) => (committed.ineligible = accountId));
-		// A new time of day shows its day until the server resolves the instant in the church's time zone.
 		const shownDue: Due =
 			due.due.kind === "undated"
 				? { kind: "undated" }
@@ -424,13 +396,10 @@ function AssigneeField({
 	onChange,
 }: {
 	value: string[];
-	/** A follow-up with a person offers only seats that may own one (REQ-TSK-012). */
 	followUp: boolean;
 	names: Record<string, string>;
 	current: TaskItem["assignees"];
-	/** The assignee a refusal named as unable to own follow-ups. */
 	refused?: string;
-	/** The follow-up owner views of the people already on the task, for their warnings. */
 	owners: TaskItem["followUpOwners"];
 	viewer: Viewer;
 	onChange: (ids: string[], names: Record<string, string>) => void;
@@ -451,7 +420,6 @@ function AssigneeField({
 	);
 }
 
-/** Linked to: nothing, or one live person, meeting or team of the church, found by name. */
 function RelationField({
 	value,
 	locked,

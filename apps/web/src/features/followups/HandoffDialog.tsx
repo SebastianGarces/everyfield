@@ -26,11 +26,6 @@ import { useLocalStore, useStore } from "../../components/store.ts";
 
 type Seat = { accountId: string; displayName: string; role: string };
 
-/**
- * The handoff's state and its save lane (REQ-TSK-013), held by the page, not the dialog. Closing the dialog while a
- * move is saving or its result is unknown keeps the lane, the selection and Check again on the page (C58, C68): only a
- * server answer settles it. A plain Cancel with nothing pending changes nothing and starts the next opening afresh.
- */
 export function useHandoff(onMoved: (r: HandoffResult, plan: HandoffPlan) => void) {
 	const store = useLocalStore(() => createHandoffStore({ loadPlan }));
 	const { open, from, plan, selected, to, toError, result, actions } = useStore(store, (s) => s);
@@ -56,13 +51,11 @@ export function useHandoff(onMoved: (r: HandoffResult, plan: HandoffPlan) => voi
 				actions.settle(value);
 				onMoved(value, p);
 			},
-			// Out of date or the recipient lost eligibility: read the preview again and keep the person's own choices.
 			refused: async (code) => {
 				if (code === "conflict" || code === "handoff_target_ineligible") await actions.preview(p.from.accountId, true);
 			},
 		});
 	}
-	/** Opens the dialog, or the review for one account as the "Waiting for a handoff" list does. */
 	function start(account?: string) {
 		actions.show(true);
 		if (account === undefined || lane.notice || lane.wait) return;
@@ -70,7 +63,6 @@ export function useHandoff(onMoved: (r: HandoffResult, plan: HandoffPlan) => voi
 		actions.choose(account);
 		void actions.preview(account, false);
 	}
-	/** Closes the dialog. With nothing saving, unknown or refused, the next opening starts afresh (Cancel changes nothing). */
 	function close() {
 		actions.show(false);
 		if (lane.notice || lane.wait) return;
@@ -99,11 +91,6 @@ export function useHandoff(onMoved: (r: HandoffResult, plan: HandoffPlan) => voi
 }
 export type Handoff = ReturnType<typeof useHandoff>;
 
-/**
- * Hand an account's open follow-ups to an eligible owner (REQ-TSK-013). Choose whose follow-ups, review them and the
- * recipient, then move up to 100 at once, all or nothing. Cancel changes nothing; follow-ups left behind read as Needs
- * owner while their stored owner cannot own them. The save's notice shows inside the dialog while it is open.
- */
 export function HandoffDialog({
 	h,
 	former,
@@ -111,9 +98,7 @@ export function HandoffDialog({
 	returnFocus,
 }: {
 	h: Handoff;
-	/** Focus back to the button that opened the dialog (useOpener). */
 	returnFocus?: (e: Event) => void;
-	/** Accounts that still hold open follow-ups they can no longer own, including ones whose seat ended. */
 	former: readonly (Account & { open: number })[];
 	onClose: () => void;
 }) {
@@ -306,10 +291,6 @@ function Review({
 	);
 }
 
-/**
- * Whose follow-ups can move: everyone who can no longer own the follow-ups they hold, including an account whose seat
- * ended, first, then every current seat (a demoted one included).
- */
 function sourceOptions(seats: readonly Seat[], former: readonly (Account & { open: number })[]) {
 	const left = former.map((f) => ({
 		value: f.accountId,

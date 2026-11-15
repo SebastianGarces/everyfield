@@ -23,10 +23,6 @@ import {
 	type TemplatePreview,
 } from "./model.ts";
 
-// Phase checklists (TSK-009): the fixed Everyfield catalog, grouped by phase and then by kind of work, with the
-// church's current phase marked. A preview shows each task and its due date; importing adds exactly those tasks to the
-// list, assigned to the person who imported them. Owner and Admin only.
-
 type Load<T> = { status: "loading" } | { status: "failed"; message: string } | { status: "ok"; value: T };
 const loadFailed = (r: Exclude<Outcome<unknown>, { status: "ok" }>) => ({
 	status: "failed" as const,
@@ -35,21 +31,13 @@ const loadFailed = (r: Exclude<Outcome<unknown>, { status: "ok" }>) => ({
 export const phaseName = (phase: number) => `Phase ${phase} · ${SHORT_NAME[phase] ?? ""}`;
 const previews = createRead((key: string) => loadPreview(key), { failed: () => ({ status: "lost" }) as const });
 
-export function Templates({
-	year,
-	onImported,
-}: {
-	year: number;
-	/** The confirmed new tasks, for the list to show without a reload. */
-	onImported: (tasks: TaskItem[]) => void;
-}) {
+export function Templates({ year, onImported }: { year: number; onImported: (tasks: TaskItem[]) => void }) {
 	const toast = useToast();
 	const [open, setOpen] = useState(false);
 	const [catalog, setCatalog] = useState<Load<TemplateCatalog>>({ status: "loading" });
 	const [chosen, setChosen] = useState<string | null>(null);
 	const [saving, startSaving] = useTransition();
 	const [problem, setProblem] = useState<string | null>(null);
-	// One import intent: a lost answer is sent again with the same key, so the tasks are added once.
 	const intent = useRef<string>("");
 	const reading = useRef(false);
 	const read = useRead(chosen ? previews : null, chosen ?? "");
@@ -64,7 +52,6 @@ export function Templates({
 			setCatalog(r.status === "ok" ? r : loadFailed(r));
 		});
 	};
-	// The catalog is read on intent (pointer or focus on the button) or on open, once; a failed read offers a retry.
 	const warm = () => {
 		if (catalog.status !== "ok" && !reading.current) readCatalog();
 	};
@@ -94,7 +81,6 @@ export function Templates({
 			intent.current = crypto.randomUUID();
 			if (r.status === "refused") {
 				setProblem(problemText(r.code));
-				// The catalog changed under the preview: show the current one.
 				if (r.code === "stale_catalog") {
 					readCatalog();
 					previews.retry(p.checklist.key);
@@ -222,7 +208,6 @@ function CatalogBody({
 	);
 }
 
-/** The chosen checklist's body: its description, what adding it does and its tasks under a heading that names it. */
 function PreviewBody({
 	state,
 	shown,
