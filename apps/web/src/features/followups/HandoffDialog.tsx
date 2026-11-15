@@ -144,7 +144,7 @@ export function HandoffDialog({
 								<>
 									<Field label="Whose follow-ups">
 										<Select
-											value={from || undefined}
+											value={from}
 											onValueChange={(v) => {
 												setFrom(v);
 												void preview(v, false);
@@ -181,7 +181,7 @@ export function HandoffDialog({
 											}
 										>
 											<Select
-												value={to || undefined}
+												value={to}
 												onValueChange={setTo}
 												placeholder="Choose a person"
 												options={p.recipients.map((r) => ({ value: r.accountId, label: r.displayName }))}
