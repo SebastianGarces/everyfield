@@ -9,7 +9,6 @@ import { errorReference, errorText } from "./model";
 import type { Refusal } from "./save";
 import type { GetSectionRequest, SectionKey, SectionResult, SectionSeed, SettingsPort, SettingsViewer } from "./port";
 import {
-	accountRevisionPartner,
 	createSettingsStore,
 	withAccountRevision,
 	selectDirtyKeys,
@@ -117,8 +116,7 @@ export function useSection<S extends SectionResult["section"], F = unknown>(
 	const actions = Settings.useSelect((state) => state.actions);
 	const read = useRead(reads.section, request);
 	const reply = read.value;
-	const partner = accountRevisionPartner(request.section);
-	const partnerReply = partner ? reads.section.peek(partner)?.value : undefined;
+	const accountRevision = Settings.useSelect((state) => state.accountRevision);
 	const observe = (value: SectionResult) => {
 		if (!draft || value.section !== request.section) return;
 		const form = draft.formOf(value as Extract<SectionResult, { section: S }>);
@@ -130,7 +128,7 @@ export function useSection<S extends SectionResult["section"], F = unknown>(
 			: reply.status === "ok"
 				? {
 						status: "ready",
-						data: withAccountRevision(reply.value, partnerReply) as Extract<SectionResult, { section: S }>,
+						data: withAccountRevision(reply.value, accountRevision) as Extract<SectionResult, { section: S }>,
 					}
 				: {
 						status: "error",
@@ -149,7 +147,9 @@ export function useSection<S extends SectionResult["section"], F = unknown>(
 		},
 		reload: () =>
 			void reads.section.refresh(request).then((next) => {
-				if (next.status === "ok") observe(next.value);
+				if (next.status !== "ok") return;
+				actions.sectionLoaded(next.value);
+				observe(next.value);
 			}),
 	};
 }

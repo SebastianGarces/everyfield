@@ -38,6 +38,7 @@ export type SettingsState = {
 	book: Book<SectionKey, Refusal>;
 	servers: Partial<Record<SectionKey, unknown>>;
 	flows: Record<string, unknown>;
+	accountRevision: Revision | null;
 	actions: {
 		observe: (key: SectionKey, server: unknown) => void;
 		edit: (key: SectionKey, value: unknown, server: unknown) => void;
@@ -45,6 +46,7 @@ export type SettingsState = {
 		clear: () => void;
 		setFlow: (key: string, update: (prev: unknown) => unknown) => void;
 		replaceSection: (request: GetSectionRequest, value: SectionResult) => void;
+		sectionLoaded: (value: SectionResult) => void;
 	};
 };
 
@@ -58,18 +60,17 @@ const OFFLINE_SAVE: Refusal = {
 	code: "unknown",
 };
 
-const ACCOUNT_REVISION_PARTNER = { account: "notifications", notifications: "account" } as const;
+type AccountScoped = Extract<SectionResult, { section: "account" | "notifications" }>;
+type Revision = AccountScoped["revision"];
 
-export function withAccountRevision(value: SectionResult, partner: SectionReply | undefined): SectionResult {
-	if (value.section !== "account" && value.section !== "notifications") return value;
-	if (partner?.status !== "ok" || partner.value.section !== ACCOUNT_REVISION_PARTNER[value.section]) return value;
-	return BigInt(partner.value.revision) > BigInt(value.revision)
-		? { ...value, revision: partner.value.revision }
-		: value;
-}
+const sharesAccountRevision = (value: SectionResult): value is AccountScoped =>
+	value.section === "account" || value.section === "notifications";
 
-export function accountRevisionPartner(section: SectionResult["section"]): GetSectionRequest | null {
-	return section === "account" || section === "notifications" ? { section: ACCOUNT_REVISION_PARTNER[section] } : null;
+const newer = (a: Revision | null, b: Revision) => (a !== null && BigInt(a) >= BigInt(b) ? a : b);
+
+export function withAccountRevision(value: SectionResult, accountRevision: Revision | null): SectionResult {
+	if (!sharesAccountRevision(value) || accountRevision === null) return value;
+	return BigInt(accountRevision) > BigInt(value.revision) ? { ...value, revision: accountRevision } : value;
 }
 
 const settled = <T>(thenable: PromiseLike<T>) => new Promise<T>((resolve, reject) => thenable.then(resolve, reject));
@@ -107,6 +108,9 @@ export function createSettingsStore({ port, seed }: { port: SettingsPort; seed: 
 				servers: { ...servers, [key]: server },
 			});
 		};
+		const sectionLoaded = (value: SectionResult) => {
+			if (sharesAccountRevision(value)) set({ accountRevision: newer(get().accountRevision, value.revision) });
+		};
 		const remember = (key: SectionKey, server: unknown) => {
 			if (!(key in get().servers)) set({ servers: { ...get().servers, [key]: server } });
 		};
@@ -116,6 +120,7 @@ export function createSettingsStore({ port, seed }: { port: SettingsPort; seed: 
 			book: emptyBook<SectionKey, Refusal>(),
 			servers: {},
 			flows: {},
+			accountRevision: null,
 			actions: {
 				observe,
 				edit: (key, value, server) => {
@@ -142,7 +147,11 @@ export function createSettingsStore({ port, seed }: { port: SettingsPort; seed: 
 					set({ book, flows: ASSET_FLOW in flows ? { ...flows, [ASSET_FLOW]: EMPTY_FLOW } : flows });
 				},
 				setFlow: (key, update) => set({ flows: { ...get().flows, [key]: update(get().flows[key]) } }),
-				replaceSection: (request, value) => reads.section.patch(() => ({ status: "ok", value }), request),
+				replaceSection: (request, value) => {
+					reads.section.patch(() => ({ status: "ok", value }), request);
+					sectionLoaded(value);
+				},
+				sectionLoaded,
 			},
 		};
 	});
