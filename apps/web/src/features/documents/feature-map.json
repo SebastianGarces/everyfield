@@ -35,7 +35,7 @@
 					},
 					"expect": [
 						{
-							"text": "Saved for your church",
+							"text": "QA welcome letter",
 							"match": "contains"
 						},
 						{
@@ -61,7 +61,7 @@
 					},
 					"expect": [
 						{
-							"text": "Your documents",
+							"text": "No written documents yet",
 							"match": "contains"
 						},
 						{
@@ -722,7 +722,7 @@
 							]
 						}
 					},
-					"noOperation": "the write it calls, archiveChurch, has no catalog entry; documents.archive in the catalog archives a written document"
+					"noOperation": "the church archive write it calls has no catalog entry; documents.archive in the catalog archives a written document"
 				},
 				{
 					"id": "export",

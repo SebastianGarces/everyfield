@@ -70,21 +70,21 @@ Reach:
 
 States:
 
-- **templates**: text containing "Saved for your church"; button "Save for your church"; link "QA welcome letter"; link "Church documents". As `owner`, on the QA seed:
+- **templates**: text containing "QA welcome letter"; button "Save for your church"; link "QA welcome letter"; link "Church documents". As `owner`, on the QA seed:
 
 ```bash
 agent-browser open "$ORIGIN/documents"
-agent-browser wait --text "Saved for your church"
+agent-browser wait --text "QA welcome letter"
 agent-browser find role button text --name "Save for your church" --exact
 agent-browser find role link text --name "QA welcome letter" --exact
 agent-browser find role link text --name "Church documents" --exact
 ```
 
-- **account**: text containing "Your documents"; link "New document"; no button "Save for your church"; no link "Church documents". As `resident`, on the QA seed:
+- **account**: text containing "No written documents yet"; link "New document"; no button "Save for your church"; no link "Church documents". As `resident`, on the QA seed:
 
 ```bash
 agent-browser open "$ORIGIN/documents"
-agent-browser wait --text "Your documents"
+agent-browser wait --text "No written documents yet"
 agent-browser find role link text --name "New document" --exact
 ! agent-browser find role button text --name "Save for your church" --exact
 ! agent-browser find role link text --name "Church documents" --exact
@@ -320,7 +320,7 @@ agent-browser wait --text "Our bylaws, drafted on the map."
 
 Archive takes the document out of the library; its revisions and saved exports stay readable.
 
-- No operation: the write it calls, archiveChurch, has no catalog entry; documents.archive in the catalog archives a written document
+- No operation: the church archive write it calls has no catalog entry; documents.archive in the catalog archives a written document
 - Catalog: DOC-022
 - Test: `tests/integration/documents/church-archive.test.mts`: `AC:DOC-022 an archived document leaves the library for every seat and every write refuses it`
 - Browser, behavior proof (acts and checks the result), from state bylaws:
