@@ -43,6 +43,8 @@ jobs:
         run: pnpm format:check
       - name: Lint (Oxlint, ESLint, lint baselines against main, image locks, colour literals)
         run: pnpm lint
+      - name: Lint rules stay on, cover every file and only shrink their baselines
+        run: node scripts/lint/check-comments.mjs
       # TypeScript 7 over every package, then tsconfig.tools.json. The bun shadow (pnpm typecheck:bun) runs nightly.
       - name: Types
         run: pnpm typecheck

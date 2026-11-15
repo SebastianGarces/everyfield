@@ -6,6 +6,7 @@ import { Icon } from "@everyfield/ui/foundations";
 import { useEffect, useRef, useState } from "react";
 import { uploadAvatarBytes } from "../../settings/flows/avatarBytes.ts";
 import { stagePhoto } from "./photoActions.ts";
+import { NativeImage } from "@/components/native";
 
 // A photo the user attaches to their next message, so they can say "use this as my photo". It is staged as their own
 // account photo upload (the Settings Account section's upload), sent with the message as a photo reference, and shown
@@ -90,7 +91,7 @@ export function AttachedPhoto({ photo, onRemove }: { photo: Attached; onRemove: 
 	return (
 		<div className="mb-2 flex items-center gap-2.5" aria-live="polite">
 			{photo.src ? (
-				<img
+				<NativeImage
 					src={photo.src}
 					alt=""
 					className="size-10 flex-none rounded-md object-cover shadow-[0_0_0_1px_var(--ef-line-2)]"
