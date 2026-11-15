@@ -441,7 +441,6 @@ export async function main(argv: string[], env: NodeJS.ProcessEnv = process.env)
 				.filter((k) => k.generate)
 				.map((k) => ({ name: k.name, value: k.name === "IDENTITY_ORIGIN" ? origin : keys[k.name], force: false })),
 		];
-		for (const s of settings) if (s.name !== "IDENTITY_ORIGIN") redactor.add(s.value);
 
 		// One transaction: the logins and grants commit only once the commands file holding their passwords exists.
 		let wrote = false;
