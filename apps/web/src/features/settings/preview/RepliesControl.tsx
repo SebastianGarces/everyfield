@@ -17,7 +17,11 @@ export function RepliesControl({ replies, toggle = true }: { replies: Replies; t
 			) : null}
 			{held ? (
 				<Button size="sm" variant="secondary" disabled={waiting === 0} onClick={replies.answer}>
-					{waiting === 1 ? "Answer the waiting call" : `Answer ${waiting} waiting calls`}
+					{waiting === 0
+						? "No waiting calls"
+						: waiting === 1
+							? "Answer the waiting call"
+							: `Answer ${waiting} waiting calls`}
 				</Button>
 			) : null}
 		</span>
