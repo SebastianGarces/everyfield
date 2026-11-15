@@ -87,7 +87,7 @@ export function CommandPalette({
 									<button
 										type="button"
 										onClick={error.onRetry}
-										className="cursor-pointer rounded-xs font-medium text-ink underline underline-offset-[3px]"
+										className="rounded-xs font-medium text-ink underline underline-offset-[3px]"
 									>
 										Try again
 									</button>
@@ -119,7 +119,7 @@ export function CommandPalette({
 														item.onSelect();
 														onOpenChange(false);
 													}}
-													className="flex h-[42px] cursor-pointer items-center gap-2.5 rounded-md px-2.5 transition-[background-color] duration-150 select-none data-[selected=true]:bg-surface-2"
+													className="flex h-[42px] items-center gap-2.5 rounded-md px-2.5 transition-[background-color] duration-150 select-none data-[selected=true]:bg-surface-2"
 												>
 													{item.art}
 													<span className="min-w-0 flex-1 truncate">{item.label}</span>

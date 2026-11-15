@@ -431,7 +431,7 @@ export function AccessForm({ paths, text, who: chosen }: Props) {
 								<label
 									key={w}
 									className={cn(
-										"flex min-h-14 cursor-pointer items-center gap-3 border border-mk-line-strong bg-mk-canvas px-4 type-lg font-semibold text-ink",
+										"flex min-h-14 items-center gap-3 border border-mk-line-strong bg-mk-canvas px-4 type-lg font-semibold text-ink",
 										"[transition:border-color_.15s,background-color_.15s,box-shadow_.15s] hover:border-ink/40 motion-reduce:transition-none",
 										"has-checked:border-ink has-checked:bg-white has-checked:shadow-[inset_0_0_0_1px_var(--color-ink)]",
 										"has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-green-600",
@@ -487,14 +487,11 @@ export function AccessForm({ paths, text, who: chosen }: Props) {
 					<div className="flex flex-row-reverse items-center justify-between gap-3 max-mk-sm:flex-col max-mk-sm:items-stretch">
 						<button
 							ref={primaryRef}
-							className={buttonClass(
-								"primary",
-								"md",
-								"justify-center aria-disabled:cursor-progress aria-disabled:bg-ink-2",
-							)}
+							className={buttonClass("primary", "md", "justify-center aria-disabled:bg-ink-2")}
 							type="submit"
 							name="intent"
 							value={s.step < LAST_STEP ? "next" : "send"}
+							aria-busy={sending || undefined}
 							aria-disabled={sending || undefined}
 						>
 							{s.step < LAST_STEP ? text.continue : sending ? text.submitting : text.submit}
@@ -509,11 +506,7 @@ export function AccessForm({ paths, text, who: chosen }: Props) {
 						</button>
 						<button
 							className={cn(
-								buttonClass(
-									"secondary",
-									"md",
-									"justify-center ps-5 aria-disabled:cursor-progress aria-disabled:opacity-60",
-								),
+								buttonClass("secondary", "md", "justify-center ps-5 aria-disabled:opacity-60"),
 								s.step === 0 && "invisible",
 							)}
 							type="submit"

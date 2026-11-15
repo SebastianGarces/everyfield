@@ -27,7 +27,7 @@ export function PasswordInput(props: Omit<ComponentPropsWithRef<typeof Input>, "
 					type="button"
 					aria-pressed={shown}
 					onClick={() => setShown((v) => !v)}
-					className="-mr-2 grid size-9 flex-none cursor-pointer place-items-center rounded-sm text-text-2 transition-[background-color] duration-150 hover:bg-hover hover:text-ink"
+					className="-mr-2 grid size-9 flex-none place-items-center rounded-sm text-text-2 transition-[background-color] duration-150 hover:bg-hover hover:text-ink"
 				>
 					<Icon icon={shown ? ViewOffSlashIcon : ViewIcon} size={18} />
 					<span className="sr-only">Show password</span>

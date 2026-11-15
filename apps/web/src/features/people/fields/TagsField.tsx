@@ -208,7 +208,7 @@ function TagChip({ tag, onRemove, wait = null }: { tag: PersonTag; onRemove?: ()
 					onClick={onRemove}
 					disabled={wait !== null}
 					aria-label={`Remove tag ${tag.name}`}
-					className="mr-0.5 grid size-6 flex-none cursor-pointer place-items-center rounded-sm opacity-70 transition-[opacity,background-color] duration-150 hover:bg-black/5 hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-white/10"
+					className="mr-0.5 grid size-6 flex-none place-items-center rounded-sm opacity-70 transition-[opacity,background-color] duration-150 hover:bg-black/5 hover:opacity-100 disabled:opacity-40 dark:hover:bg-white/10"
 				>
 					<Icon icon={Cancel01Icon} size={16} />
 				</button>
@@ -290,11 +290,7 @@ function TagPicker({
 				) : church.status !== "ok" ? (
 					<li role="alert" className="flex flex-col items-start gap-2 px-2.5 py-3 text-sm text-text-2">
 						<span>The church&apos;s tags did not load.</span>
-						<button
-							type="button"
-							onClick={onRetry}
-							className="cursor-pointer font-medium text-ink underline underline-offset-[3px]"
-						>
+						<button type="button" onClick={onRetry} className="font-medium text-ink underline underline-offset-[3px]">
 							Try again
 						</button>
 					</li>
@@ -312,7 +308,7 @@ function TagPicker({
 										disabled={wait !== null}
 										onClick={() => onToggle({ id: t.id, name: t.name, color: t.color })}
 										onKeyDown={(e) => move(e, i)}
-										className="flex min-h-[38px] w-full cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-md text-ink transition-[background-color] duration-150 hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-50"
+										className="flex min-h-[38px] w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-md text-ink transition-[background-color] duration-150 hover:bg-surface-2 disabled:opacity-50"
 									>
 										<span
 											aria-hidden="true"
@@ -360,7 +356,7 @@ function TagPicker({
 								setQuery("");
 							}}
 							onKeyDown={(e) => move(e, matches.length)}
-							className="flex min-h-[38px] w-full cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-md text-ink transition-[background-color] duration-150 hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-50"
+							className="flex min-h-[38px] w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-md text-ink transition-[background-color] duration-150 hover:bg-surface-2 disabled:opacity-50"
 						>
 							<Icon icon={Add01Icon} size={18} className="text-text-2" />
 							<span className="min-w-0 truncate">
@@ -374,7 +370,7 @@ function TagPicker({
 				<button
 					type="button"
 					onClick={onManage}
-					className="flex min-h-[38px] w-full cursor-pointer items-center gap-2.5 rounded-md px-2.5 text-left text-sm text-text-2 transition-[background-color] duration-150 hover:bg-surface-2"
+					className="flex min-h-[38px] w-full items-center gap-2.5 rounded-md px-2.5 text-left text-sm text-text-2 transition-[background-color] duration-150 hover:bg-surface-2"
 				>
 					<Icon icon={Settings01Icon} size={18} />
 					Manage church tags

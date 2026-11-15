@@ -53,7 +53,7 @@ export function Select({
 					isInvalid
 						? inputInvalid
 						: "focus-visible:shadow-[0_0_0_1px_var(--ef-ink),0_0_0_4px_color-mix(in_srgb,var(--ef-focus)_28%,transparent)] focus-visible:outline-none",
-					"cursor-pointer justify-between text-left data-[placeholder]:text-text-3 disabled:cursor-not-allowed disabled:opacity-60",
+					"justify-between text-left data-[placeholder]:text-text-3 disabled:opacity-60",
 					className,
 				)}
 			>
@@ -96,7 +96,7 @@ function SelectItem({
 		<SelectPrimitive.Item
 			value={option.value}
 			disabled={option.disabled}
-			className="relative flex h-[38px] cursor-pointer items-center gap-2.5 rounded-md px-2.5 text-md text-ink outline-none select-none data-[disabled]:cursor-not-allowed data-[disabled]:opacity-45 transition-[background-color] duration-150 data-[highlighted]:bg-surface-2"
+			className="relative flex h-[38px] items-center gap-2.5 rounded-md px-2.5 text-md text-ink outline-none select-none data-[disabled]:opacity-45 transition-[background-color] duration-150 data-[highlighted]:bg-surface-2"
 		>
 			<SelectPrimitive.ItemText>{render ? render(option) : option.label}</SelectPrimitive.ItemText>
 			<SelectPrimitive.ItemIndicator className="ml-auto">

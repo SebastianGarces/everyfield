@@ -10,7 +10,7 @@
 	"apps/web/src/features/communication/SentTotals.tsx": 3,
 	"apps/web/src/features/communication/Templates.tsx": 3,
 	"apps/web/src/features/communication/UnsubscribeScreen.tsx": 2,
-	"apps/web/src/features/communication/WhoStep.tsx": 11,
+	"apps/web/src/features/communication/WhoStep.tsx": 10,
 	"apps/web/src/features/communication/actions.ts": 17,
 	"apps/web/src/features/communication/body.ts": 6,
 	"apps/web/src/features/communication/capture.ts": 14,
