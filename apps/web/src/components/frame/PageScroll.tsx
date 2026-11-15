@@ -1,5 +1,6 @@
 "use client";
 
+import { prefersReducedMotion } from "@everyfield/ui/foundations";
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 import { inOut } from "@/components/motion/curves";
@@ -49,7 +50,7 @@ export function PageScroll() {
 			const page = location.pathname + location.search;
 			if (url.origin !== location.origin || url.pathname + url.search !== page || !url.hash) return;
 			const target = document.getElementById(decodeURIComponent(url.hash.slice(1)));
-			if (!target || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+			if (!target || prefersReducedMotion()) return;
 			e.preventDefault();
 			stopGlide();
 			const from = window.scrollY;

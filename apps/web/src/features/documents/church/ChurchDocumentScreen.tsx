@@ -10,7 +10,7 @@ import {
 	type SavedExport,
 } from "@everyfield/contracts/documents";
 import { Button, ConfirmDialog, PageHeader, Skeleton } from "@everyfield/ui/controls";
-import { Tag } from "@everyfield/ui/display";
+import { LocalTime, Tag } from "@everyfield/ui/display";
 import dynamic from "next/dynamic";
 import { useRef, useState } from "react";
 import { ChurchBranding } from "./ChurchBranding.tsx";
@@ -19,7 +19,7 @@ import { ChurchRevisions } from "./ChurchRevisions.tsx";
 import { SavedExports, savedExportHref } from "./SavedExports.tsx";
 import { VersionHistory } from "./VersionHistory.tsx";
 import { archiveChurchDocument, deleteChurchDocument, type ChurchActionResult } from "./actions.ts";
-import { CLASS_LABEL, savedAt } from "./labels.ts";
+import { CLASS_LABEL } from "./labels.ts";
 import type { ChurchView, ExportResult, RevisionRow, TemplateState } from "./server.ts";
 
 // One Church Document: the real PDF as its preview, the downloads, the revisions and the saved exports. A download saves
@@ -244,8 +244,8 @@ export function ChurchDocumentScreen({
 					role="status"
 					className="mb-4 rounded-md bg-surface-raised px-4 py-3 text-md text-text-2 shadow-[0_0_0_1px_var(--ef-line)]"
 				>
-					Archived by {doc.archived.by ?? "a former member"} on {savedAt(doc.archived.at)}. It is read-only; its
-					revisions and saved exports stay available.
+					Archived by {doc.archived.by ?? "a former member"} on <LocalTime iso={doc.archived.at} />. It is read-only;
+					its revisions and saved exports stay available.
 				</p>
 			) : null}
 			{exportError?.at === null ? (
