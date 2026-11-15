@@ -56,7 +56,7 @@ export function MetricsCards({ loaded }: { loaded: Loaded<Metrics> }) {
 					key={m.key}
 					href={m.href}
 					prefetch={false}
-					className="group cursor-pointer rounded-card border border-line bg-surface p-5 transition-colors hover:bg-hover max-app-sm:p-4"
+					className="group rounded-card border border-line bg-surface p-5 transition-colors hover:bg-hover max-app-sm:p-4"
 				>
 					<span className="block text-md font-medium text-text-2">{m.label}</span>
 					<span className="num mt-3 block font-display text-[40px] leading-none tracking-[-0.02em] text-ink max-app-sm:text-[32px]">

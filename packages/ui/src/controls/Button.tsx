@@ -6,7 +6,7 @@ import { Spinner } from "./Spinner";
 
 /** Button variants from the prototype's .btn (components.md, Button). Text on a hue fill is ink or on-ink, never white. */
 export const buttonVariants = cva(
-	"relative inline-flex flex-none cursor-pointer items-center justify-center gap-2 whitespace-nowrap font-medium select-none transition-[background-color,box-shadow,translate,opacity] duration-150 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-45 disabled:active:translate-y-0 aria-busy:cursor-progress",
+	"relative inline-flex flex-none items-center justify-center gap-2 whitespace-nowrap font-medium select-none transition-[background-color,box-shadow,translate,opacity] duration-150 active:translate-y-px disabled:opacity-45 disabled:active:translate-y-0",
 	{
 		variants: {
 			variant: {
@@ -78,7 +78,7 @@ export function Button({ variant, size, asChild, icon, loading, className, child
 }
 
 export const iconButtonVariants = cva(
-	"relative grid flex-none cursor-pointer place-items-center text-ink-2 transition-[background-color,box-shadow] duration-150 disabled:cursor-not-allowed disabled:opacity-45",
+	"relative grid flex-none place-items-center text-ink-2 transition-[background-color,box-shadow] duration-150 disabled:opacity-45",
 	{
 		variants: {
 			variant: {

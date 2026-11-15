@@ -111,7 +111,7 @@ function Group({
 						<li key={m.id}>
 							<IntentLink
 								href={`/meetings/${m.id}`}
-								className="-mx-2 flex cursor-pointer items-center justify-between gap-3 rounded-sm px-2 py-2.5 hover:bg-surface-sunken"
+								className="-mx-2 flex items-center justify-between gap-3 rounded-sm px-2 py-2.5 hover:bg-surface-sunken"
 							>
 								<span className="flex min-w-0 flex-col">
 									<span className="truncate font-medium text-ink">{m.displayTitle}</span>

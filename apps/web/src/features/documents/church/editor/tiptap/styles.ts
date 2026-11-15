@@ -8,7 +8,7 @@
 // `_BASE` and writes its own box, so no two of its classes set the same property.
 
 export const BUTTON_BASE =
-	"inline-flex flex-none cursor-pointer items-center rounded-sm bg-transparent text-sm font-medium whitespace-nowrap text-ink select-none transition-colors hover:bg-hover disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-transparent data-[active-state=on]:bg-green-100 data-[active-state=on]:text-ink data-[state=open]:bg-hover";
+	"inline-flex flex-none items-center rounded-sm bg-transparent text-sm font-medium whitespace-nowrap text-ink select-none transition-colors hover:bg-hover disabled:opacity-45 disabled:hover:bg-transparent data-[active-state=on]:bg-green-100 data-[active-state=on]:text-ink data-[state=open]:bg-hover";
 /** The default box of a button. A `className` on the button primitive replaces it (see `primitives/button.tsx`). */
 const BUTTON_BOX = "h-9 min-w-9 justify-center gap-1.5 px-2";
 export const BUTTON = `${BUTTON_BASE} ${BUTTON_BOX}`;
@@ -25,7 +25,7 @@ const SURFACE =
 export const POPOVER = `${SURFACE} min-w-[280px] max-w-[calc(100vw-24px)]`;
 export const MENU = `${SURFACE} min-w-[220px]`;
 export const MENU_ITEM_BASE =
-	"cursor-pointer rounded-sm text-ink outline-none select-none data-[disabled]:cursor-not-allowed data-[disabled]:opacity-45 data-[highlighted]:bg-hover data-[state=checked]:font-semibold";
+	"rounded-sm text-ink outline-none select-none data-[disabled]:opacity-45 data-[highlighted]:bg-hover data-[state=checked]:font-semibold";
 const MENU_ITEM_ROW = "flex items-center gap-2 px-2.5 py-2 text-md";
 export const MENU_ITEM = `${MENU_ITEM_BASE} ${MENU_ITEM_ROW}`;
 export const TOOLTIP =
