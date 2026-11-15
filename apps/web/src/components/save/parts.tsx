@@ -1,8 +1,7 @@
 "use client";
 
-import { Alert02Icon } from "@hugeicons/core-free-icons";
-import { Button, Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader } from "@everyfield/ui/controls";
-import { cn, Icon, type IconSvgElement } from "@everyfield/ui/foundations";
+import { Alert, Button, Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader } from "@everyfield/ui/controls";
+import { cn, type IconSvgElement } from "@everyfield/ui/foundations";
 import {
 	createContext,
 	use,
@@ -178,15 +177,9 @@ export function RecordDialog({
 					<DialogBody className="flex flex-col gap-5 pb-1">
 						<DialogNotice />
 						{problem ? (
-							<div
-								ref={alert}
-								role="alert"
-								tabIndex={-1}
-								className="flex items-start gap-2 rounded-md bg-magenta-50 px-3.5 py-2.5 text-sm text-magenta-600 outline-none focus-visible:shadow-[0_0_0_2px_var(--ef-focus)]"
-							>
-								<Icon icon={Alert02Icon} size={16} className="mt-px flex-none" />
+							<Alert ref={alert} role="alert" tabIndex={-1}>
 								{problem}
-							</div>
+							</Alert>
 						) : null}
 						<div ref={fields} className="contents">
 							{children}
@@ -326,39 +319,37 @@ function NoticeRegion({ notice, busy, onDismiss, className }: NoticeProps & { cl
 function NoticeBody({ notice, busy, onDismiss }: NoticeProps & { notice: Notice }) {
 	const hintId = useId();
 	return (
-		<div
+		<Alert
 			aria-atomic="true"
-			className="flex flex-col items-start gap-2.5 rounded-md bg-magenta-50 px-3.5 py-3 text-sm text-magenta-600"
+			actions={
+				<>
+					{notice.tone === "unknown" ? (
+						<Button
+							size="sm"
+							variant="secondary"
+							type="button"
+							loading={notice.checking}
+							disabled={busy && !notice.checking}
+							aria-describedby={busy && !notice.checking ? hintId : undefined}
+							onClick={notice.check}
+						>
+							Check again
+						</Button>
+					) : null}
+					{notice.tone === "refused" ? (
+						<Button size="sm" variant="ghost" type="button" onClick={onDismiss}>
+							Dismiss
+						</Button>
+					) : null}
+					{notice.tone === "unknown" && busy && !notice.checking ? (
+						<p id={hintId} className="basis-full text-xs">
+							Check again waits until the other save ends.
+						</p>
+					) : null}
+				</>
+			}
 		>
-			<p className="flex items-start gap-2">
-				<Icon icon={Alert02Icon} size={16} className="mt-px flex-none" />
-				<span>{noticeText(notice)}</span>
-			</p>
-			<div className="flex flex-wrap gap-2">
-				{notice.tone === "unknown" ? (
-					<Button
-						size="sm"
-						variant="secondary"
-						type="button"
-						loading={notice.checking}
-						disabled={busy && !notice.checking}
-						aria-describedby={busy && !notice.checking ? hintId : undefined}
-						onClick={notice.check}
-					>
-						Check again
-					</Button>
-				) : null}
-				{notice.tone === "refused" ? (
-					<Button size="sm" variant="ghost" type="button" onClick={onDismiss}>
-						Dismiss
-					</Button>
-				) : null}
-			</div>
-			{notice.tone === "unknown" && busy && !notice.checking ? (
-				<p id={hintId} className="text-xs text-magenta-600">
-					Check again waits until the other save ends.
-				</p>
-			) : null}
-		</div>
+			{noticeText(notice)}
+		</Alert>
 	);
 }
