@@ -64,7 +64,7 @@ import {
 type Viewer = { accountId: string; name: string };
 type MoveDraft = { to: PhaseNumber; reason: string; error: string | null; changed: JourneyState | null };
 type JourneyDialog = { kind: "move"; draft: MoveDraft } | { kind: "declare"; to: PhaseNumber } | null;
-type LostAttempt = { kind: "move"; draft: MoveDraft } | { kind: "declare"; to: PhaseNumber } | null;
+type LostAttempts = { move: MoveDraft | null; declare: PhaseNumber | null };
 type Props = {
 	history: HistoryResult;
 	catalog: Catalog;
@@ -86,7 +86,7 @@ export function JourneyScreen({ history, catalog, readiness, facts, launchDates,
 	const [journey, setJourney] = useState<Journey>({ state: history.state, entries: history.entries });
 	const [dialog, setDialog] = useState<JourneyDialog>(null);
 	const [receipt, setReceipt] = useState<string | null>(null);
-	const [lost, setLost] = useState<LostAttempt>(null);
+	const [lost, setLost] = useState<LostAttempts>({ move: null, declare: null });
 	const keys = useRef<ReturnType<typeof requestKeys> | null>(null);
 	const keysNow = () => (keys.current ??= requestKeys(() => crypto.randomUUID()));
 	const phase = catalog.phases[journey.state.phase]!;
@@ -96,9 +96,9 @@ export function JourneyScreen({ history, catalog, readiness, facts, launchDates,
 	const openMove = () =>
 		setDialog({
 			kind: "move",
-			draft: lost?.kind === "move" ? lost.draft : { to: journey.state.phase, reason: "", error: null, changed: null },
+			draft: lost.move ?? { to: journey.state.phase, reason: "", error: null, changed: null },
 		});
-	const openDeclare = () => setDialog({ kind: "declare", to: lost?.kind === "declare" ? lost.to : 2 });
+	const openDeclare = () => setDialog({ kind: "declare", to: lost.declare ?? 2 });
 	const editMove = (draft: MoveDraft | null) => setDialog(draft ? { kind: "move", draft } : null);
 	const editDeclare = (to: PhaseNumber | null) => setDialog(to === null ? null : { kind: "declare", to });
 
@@ -108,11 +108,11 @@ export function JourneyScreen({ history, catalog, readiness, facts, launchDates,
 		const before = journey;
 		setDialog(null);
 		setReceipt(null);
-		setLost((l) => (l?.kind === "move" ? null : l));
+		setLost((l) => ({ ...l, move: null }));
 		setJourney(pendingMove(before, draft.to, checked.reason, actor, new Date().toISOString()));
 		const intent = ["move", before.state.revision, draft.to, draft.reason] as const;
 		const r = await sent(() => movePhase(keysNow().keyFor(intent), before.state.revision, draft.to, draft.reason));
-		if (r.status === "lost") setLost({ kind: "move", draft: { ...draft, error: null, changed: null } });
+		if (r.status === "lost") setLost((l) => ({ ...l, move: { ...draft, error: null, changed: null } }));
 		else keysNow().settle(intent);
 		if (r.status === "ok") {
 			if (r.value.outcome === "noop") return setReceipt(`No change: already in Phase ${r.value.state.phase}.`);
@@ -133,11 +133,11 @@ export function JourneyScreen({ history, catalog, readiness, facts, launchDates,
 		const before = journey;
 		setDialog(null);
 		setReceipt(null);
-		setLost((l) => (l?.kind === "declare" ? null : l));
+		setLost((l) => ({ ...l, declare: null }));
 		setJourney(pendingDeclaration(before, to, actor, new Date().toISOString()));
 		const intent = ["declare", before.state.revision, to] as const;
 		const r = await sent(() => declarePhase(keysNow().keyFor(intent), before.state.revision, to));
-		if (r.status === "lost") setLost({ kind: "declare", to });
+		if (r.status === "lost") setLost((l) => ({ ...l, declare: to }));
 		else keysNow().settle(intent);
 		if (r.status === "ok") return setJourney(withEntry(before, r.value.state, r.value.entry));
 		setJourney(
