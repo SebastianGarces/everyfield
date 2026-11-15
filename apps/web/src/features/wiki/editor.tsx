@@ -16,6 +16,7 @@ import {
 	type FixedBlock,
 } from "./model.ts";
 import { ArticleBlocks } from "./prose.tsx";
+import "./editor.css";
 
 type Row = { key: string; block: EditorBlock };
 type TextBlock = Exclude<EditorBlock, { kind: "fixed" }>;
@@ -300,9 +301,9 @@ export function WikiEditor({
 	const canHide = saved.revision !== "0" && saved.state !== "hide";
 
 	return (
-		<div className="rounded-card bg-surface px-6 py-8 shadow-card max-app-sm:px-4 sm:px-11">
+		<div data-wiki-editor className="rounded-card bg-surface px-6 py-8 shadow-card max-app-sm:px-4 sm:px-11">
 			<form
-				className="mx-auto flex max-w-[700px] flex-col gap-8 [&_*]:scroll-mb-32"
+				className="mx-auto flex max-w-[700px] flex-col gap-8"
 				aria-label="Organization version"
 				onSubmit={(event) => event.preventDefault()}
 			>
