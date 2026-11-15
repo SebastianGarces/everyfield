@@ -26,7 +26,6 @@ test("INV-typecheck: the corpus seeds at least 30 errors in all 7 packages, with
 	])
 		assert.match(kinds, kind);
 	assert.equal(new Set(CASES.map((c) => c.id)).size, CASES.length, "case ids are unique");
-	// Every write is a path inside the temporary copy.
 	for (const file of [...Object.keys(BASE_FILES), ...CASES.flatMap((c) => Object.keys(c.files))])
 		assert.ok(!isAbsolute(file) && !file.split("/").includes(".."), file);
 });

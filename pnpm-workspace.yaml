@@ -1,7 +1,5 @@
 packages:
   - apps/*
   - packages/*
-# Bun's postinstall puts the platform binary in place for the packages' typecheck:bun, the nightly bun check shadow
-# (T-53, T-110, T-216).
 onlyBuiltDependencies:
   - bun
