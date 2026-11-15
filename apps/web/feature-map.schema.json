@@ -284,7 +284,7 @@
 					"type": "array",
 					"items": {
 						"type": "string",
-						"pattern": "^[a-z][A-Za-z]*\\.[a-z][A-Za-z]*$"
+						"pattern": "^[a-z][A-Za-z]*(\\.[a-z][A-Za-z]*)+$"
 					}
 				},
 				"proof": {

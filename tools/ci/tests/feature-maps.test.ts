@@ -246,6 +246,16 @@ test("INV-feature-maps: an operation missing from the catalog, never named in co
 	]);
 });
 
+test("INV-feature-maps: an operation id with more than one dot, as the catalog writes some, is checked like any other", async () => {
+	const root = fixture();
+	editMap(root, (map) => {
+		behavior(map).operations = ["things.open", "things.pins.set"];
+	});
+	assert.deepEqual(await problems(root), [
+		at("things.list#open: operation things.pins.set is not in docs/catalog/operations.json"),
+	]);
+});
+
 test("INV-feature-maps: a behavior with no operation must say why", async () => {
 	const root = fixture();
 	editMap(root, (map) => {
