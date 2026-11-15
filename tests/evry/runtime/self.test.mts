@@ -1,5 +1,3 @@
-// WP-059: Evry knows which person row is the signed-in user, marks it `you` in every person row a read returns, and
-// tells the model never to suggest the user as a follow-up. Lists, counts and lookups still include the user.
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { invokeRead } from "../../../packages/evry/src/index.ts";

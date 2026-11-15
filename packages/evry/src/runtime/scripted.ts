@@ -12,11 +12,6 @@ import { overviewStep } from "./scripted-overview.ts";
 import { pipelineStep } from "./scripted-pipeline.ts";
 import { settingsStep } from "./scripted-settings.ts";
 
-// A deterministic stand-in for a qualified model, for local previews and tests only (selectQualifiedModel never picks
-// it on Vercel). It reads the conversation the way a model would see it and answers through the same tools, so the
-// runtime, its limits, fences and stream are exercised end to end without a paid provider. It is not policy: the
-// runtime enforces the boundary and limits whatever the model says.
-
 type Prompt = LanguageModelV4CallOptions["prompt"];
 const lastUserText = (prompt: Prompt) => {
 	for (let i = prompt.length - 1; i >= 0; i--) {
@@ -53,11 +48,7 @@ function classify(text: string) {
 	return "application";
 }
 
-// Email requests (MAIL51-009): "draft an email to the launch team", "schedule it for Friday at 9am", "move the Friday
-// email to Saturday at 9am", "cancel the Friday email", "replace the body of the Friday email with: ...". The same
-// tools a model uses: find the message with a read, then propose the reviewed change.
 const DAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
-/** The next date (UTC calendar) of a weekday name, from today: "friday" is never today. */
 function nextDate(day: string, now = new Date()) {
 	const ahead = (DAYS.indexOf(day.toLowerCase()) - now.getUTCDay() + 7) % 7 || 7;
 	return new Date(now.getTime() + ahead * 86_400_000).toISOString().slice(0, 10);
@@ -121,10 +112,6 @@ function emailStep(text: string, canPropose: boolean, canRead: boolean, result: 
 	);
 }
 
-// Notification requests (WP-081, WP-082), with the same tools a model uses. "Anything I missed" reads the unread feed
-// and answers grouped by area with the count; reading never marks anything read. "Mark those three as read" marks the
-// group of that size from the unread feed, and "mark all as read", "stop emailing me task reminders" and "send my digest
-// daily" each propose their review. A digest choice Settings does not offer gets the choices that exist.
 const AREA: Record<string, string> = {
 	task_due: "Tasks",
 	task_overdue: "Tasks",
@@ -158,7 +145,6 @@ function notificationStep(
 	const preview = /\bnext (?:oversight )?digest\b/i.test(text);
 	const someone =
 		/\b(?:[Cc]hange|[Tt]urn off|[Ss]top)\b.*\b([A-Z][a-z]+)'s (?:notifications?|(?:oversight )?digest)\b/.exec(text);
-	// In an organization, the digest is the oversight digest.
 	const digest = tools.oversight ? "oversight digest" : "church digest";
 	if (!(missed || those || all || email || cadence || other || preview || someone)) return null;
 	const propose = (operation: string, input: unknown) => [toolCall("propose_change", { operation, input })];
@@ -240,13 +226,7 @@ function notificationStep(
 	];
 }
 
-// Household, tag, note, skill and import requests (WP-064): "add Pedro to the Martinez household", "the nguyens moved
-// to 123 oak st, update everyone", "tag Ana Rivera and Mark Thompson as coffee-oct", "add a note to Maria Santos: ...",
-// "change Maria Santos's note to: ...", "delete Maria Santos's note", "Sam does sound, advanced", "how did yesterday's
-// import go" and "import this csv: ...". Each finds its records with reads, one step after another, then proposes the
-// reviewed change. A seat that may not propose is told who can make the change.
 type Row = { id: string; kind: string; label: string; fields: Record<string, unknown> };
-/** Every tool result since the user's last message, in order. */
 function turnOutputs(prompt: Prompt): Record<string, unknown>[] {
 	const out: Record<string, unknown>[] = [];
 	for (let i = prompt.length - 1; i >= 0 && prompt[i]!.role !== "user"; i--) {
@@ -388,13 +368,6 @@ function peopleOrganizationStep(
 	}
 }
 
-// Meetings requests (WP-065/066), each through the same tools a model uses: read the meetings, then answer from the rows
-// or propose the reviewed change. "what are my upcoming meetings?", "who rsvp'd for thursday's vision night",
-// "print the agenda for sunday", "what do I still need from the vision kit?", "are vision nights growing? last 3",
-// "set up a vision meeting next thursday 7pm at the coffee shop" (then "the 22nd"), "add a walk-in, Luis, no last name",
-// "mark Maria, Alex and Casey as attended and finalize it", "score last night's vision meeting for me" (then the eight
-// scores) and "delete the <meeting>".
-/** The user's earlier messages in this conversation, oldest first, without the last one. */
 function earlierUserTexts(prompt: Prompt) {
 	const texts = prompt
 		.filter((m) => m.role === "user")
@@ -416,7 +389,6 @@ const dayName = (date: string) =>
 	new Intl.DateTimeFormat("en-US", { weekday: "long", month: "short", day: "numeric", timeZone: "UTC" }).format(
 		new Date(`${date}T12:00:00Z`),
 	);
-/** The next `day` (0 = Sunday) on or after tomorrow, church-local. */
 const nextWeekday = (day: number, from = localToday()) => addDays(from, (day - weekday(from) + 7) % 7 || 7);
 const RSVP_GROUPS = [
 	["yes", "RSVP yes"],
@@ -452,7 +424,6 @@ function meetingsStep(
 	const earlierTexts = earlierUserTexts(prompt);
 	const earlier = earlierTexts.join("\n");
 	const pickedDay = /^(?:the )?(\d{1,2})(?:st|nd|rd|th)?\.?$|\bthursday,? (\w+ \d{1,2})\b/i.exec(text.trim());
-	// The latest earlier request to set one up, so a reply such as "the 19th" answers the question just asked.
 	const asked =
 		earlierTexts
 			.reverse()
@@ -633,7 +604,6 @@ function respond(options: LanguageModelV4CallOptions): LanguageModelV4Content[] 
 	const text = lastUserText(options.prompt);
 	if (options.responseFormat?.type === "json")
 		return [{ type: "text", text: JSON.stringify({ kind: classify(text) }) }];
-	// "Show a formatting demo": an answer with markdown, written slowly enough to watch it grow (local previews and tests).
 	if (FORMATTING.test(text)) return [{ type: "text", text: FORMATTING_ANSWER }];
 	const overview = overviewStep(options, text);
 	if (overview) return overview;
@@ -647,11 +617,9 @@ function respond(options: LanguageModelV4CallOptions): LanguageModelV4Content[] 
 	if (settings) return settings;
 	const hasPeople = options.tools?.some((t) => t.name === "people_read") ?? false;
 	const canPropose = options.tools?.some((t) => t.name === "propose_change") ?? false;
-	// A Member proposes changes to their own notifications only; the People reviews are an Owner's or Admin's.
 	const canProposePeople = JSON.stringify(options.tools?.find((t) => t.name === "propose_change") ?? {}).includes(
 		'"people.',
 	);
-	// "Change Maria's city to Austin": find the person, then propose the change for review.
 	const change = /\b(?:change|set|update)\s+([A-Z][\w'-]+?)(?:'s)?\s+(city|phone|email)\s+to\s+(.+?)\.?\s*$/i.exec(
 		text,
 	);
@@ -666,7 +634,6 @@ function respond(options: LanguageModelV4CallOptions): LanguageModelV4Content[] 
 	const email = emailStep(text, canPropose, canReadMail, result);
 	if (email) return email;
 	if (hasPeople) {
-		// The import receipt read is one of the people-organization tool's operations only for an Owner or Admin.
 		const imports = JSON.stringify(options.tools?.find((t) => t.name === "peopleOrganization_read") ?? {}).includes(
 			"people.getImportReceipt",
 		);
@@ -703,7 +670,6 @@ function respond(options: LanguageModelV4CallOptions): LanguageModelV4Content[] 
 					input: { personId: rows[0]!.id, patch: { [change[2]!.toLowerCase()]: change[3] } },
 				}),
 			];
-		// "every" asks for all pages: keep reading while the result says more exist; the runtime's budget stops it.
 		if (/\bevery\b/i.test(text) && typeof result.next === "number")
 			return [
 				toolCall("people_read", {
@@ -776,7 +742,6 @@ export function scriptedModel(): LanguageModelV4 {
 				if (c.type === "text") {
 					const id = randomUUID();
 					parts.push({ type: "text-start", id });
-					// Word-sized deltas, so a reader sees the reply arrive in pieces as a provider would send it.
 					for (const word of c.text.match(/\S+\s*/g) ?? []) parts.push({ type: "text-delta", id, delta: word });
 					parts.push({ type: "text-end", id });
 				} else if (c.type === "tool-call") parts.push(c);

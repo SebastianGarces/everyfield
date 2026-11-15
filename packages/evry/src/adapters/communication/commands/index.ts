@@ -24,25 +24,15 @@ import type { EvryActor } from "../../../context/actor.ts";
 import type { EffectResult, MailPort, ReviewContext, ReviewedWrite } from "../../../proposals/types.ts";
 import { held, unanswered, untouchedMail } from "../reads/index.ts";
 
-// The Communication reviewed writes (MAIL51-009). Each review reads the message live in the actor's church and saves the
-// native command's exact arguments, including the revision the review showed. Messages and Evry call the same native
-// operations: a draft is saved in one transaction; a schedule saves in one transaction and then hands off to the email
-// service; a time change, a cancel and a replacement call the email service outside any transaction. Anything that
-// changed since the review refuses (revision_conflict) before the email service hears of it. Each review saves the
-// `untouched` mail count beside the revision, and a review with an audience saves who it showed: staleMessage and the
-// native schedule compare those facts.
-
 const ownerOrAdmin = (actor: EvryActor) =>
 	actor.owner.kind === "plant" && (actor.role === "owner" || actor.role === "admin");
 
-/** The church's own time zone, as `c`'s plant. */
 const zone = sql`(SELECT pl.timezone FROM plant pl WHERE pl.id=c.plant_id)`;
 const iso = (column: SQL) => sql`to_char(${column} AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`;
 const message = sql`jsonb_build_object('kind','message','id',c.id,'label',coalesce(nullif(c.subject,''),'Untitled draft'))`;
 const change = (field: string, before: SQL | null, after: SQL) =>
 	sql`jsonb_build_object('field',${field}::text,'before',${before ?? sql`NULL::jsonb`},'after',${after})`;
 const instantAt = (at: SQL) => sql`jsonb_build_object('at',${iso(at)},'zone',${zone})`;
-/** An audience with the counts a send would use, from the shared resolver the Messages composer uses. */
 const audienceShape = (plantId: string, audience: AudienceValue) =>
 	sql`(SELECT jsonb_build_object('groups',${JSON.stringify(audience.groups)}::jsonb,'teamIds',${JSON.stringify(audience.teamIds)}::jsonb,
 		'personIds',${JSON.stringify(audience.personIds)}::jsonb,
@@ -63,7 +53,6 @@ const localTime = z
 	.describe("The church's local date and time, like 2026-11-06T09:00, never a zone or offset");
 const messageId = z.uuid().describe("A message id from communication.list");
 
-/** An email body as the reader sees it: paragraphs and line breaks kept, markup and entities gone. */
 const readable = (html: string) =>
 	sanitizeHtml(html)
 		.replace(/<br\s*\/?>/gi, "\n")
@@ -76,7 +65,6 @@ const readable = (html: string) =>
 		.replaceAll("&amp;", "&")
 		.trim();
 
-/** Plain paragraphs become safe email markup; the domain sanitizes it again when it saves. */
 const paragraphs = (text: string) =>
 	text
 		.split(/\n{2,}/)
@@ -85,14 +73,12 @@ const paragraphs = (text: string) =>
 		.map((block) => `<p>${escapeHtml(block).replaceAll("\n", "<br>")}</p>`)
 		.join("");
 
-/** The window Everyfield holds an email for: not in the past, at most 30 days ahead (scheduleAccepted). */
 const acceptedWindow = (at: SQL): SQL =>
 	sql`CASE WHEN ${at} < clock_timestamp() THEN 'That time has already passed. Pick a time from now on.'
 		WHEN ${at} > clock_timestamp() + interval '30 days' THEN 'Everyfield can hold an email for up to 30 days. Pick a time within the next 30 days.' END`;
 const withRefusal = (refusal: SQL, review: SQL): SQL =>
 	sql`${review} || CASE WHEN ${refusal} IS NULL THEN '{}'::jsonb ELSE jsonb_build_object('refusal',${refusal}) END`;
 
-/** The args a review of a saved message stored: the revision it showed and the native input, without a request key. */
 const savedArgs = z.object({ expectedRevision: z.string(), input: z.object({ communicationId: z.uuid() }) });
 const savedTime = savedArgs.extend({ input: z.object({ communicationId: z.uuid(), scheduledAt: z.string() }) });
 const savedSchedule = savedArgs.extend({
@@ -106,7 +92,6 @@ const done = (reply: CommunicationReply<{ communicationId: string; revision: str
 		? { receiptId: reply.value.communicationId, revision: reply.value.revision }
 		: { refused: reply.error.code };
 
-/** What became of each recipient the email service held for a message. A recipient it never took is not affected. */
 async function recipientOutcomes(db: Database, authority: RequestActor, communicationId: string) {
 	const plantId = authority.actor.context.owner.id;
 	const r = await db.execute(
@@ -119,8 +104,6 @@ async function recipientOutcomes(db: Database, authority: RequestActor, communic
 	);
 	return z.array(z.object({ name: z.string(), outcome: recipientOutcome })).parse(r.rows);
 }
-
-// --- 1. communication.saveDraft -----------------------------------------------------------------------------
 
 const draftInput = z.strictObject({
 	subject: z.string().trim().min(1).max(200),
@@ -147,16 +130,9 @@ export const saveDraft: ReviewedWrite<z.infer<typeof draftInput>> = {
 	},
 };
 
-// --- 2. communication.scheduleReviewed ----------------------------------------------------------------------
-
 const scheduleInput = z.strictObject({ communicationId: messageId, sendAt: localTime });
-/** Stands in for the first recipient's name until the review statement knows who that is. */
 const SAMPLE_NAME = "RECIPIENT_NAME_TOKEN_7F3A";
 
-/**
- * One audience as the handoff will resolve it. The address hashes are read first because the keys that hash an address
- * are not in the database: the review statement then compares them to the active blocks. Null with no mail keys.
- */
 async function audienceFacts(context: ReviewContext, plantId: string, audience: AudienceValue) {
 	const { mail } = context;
 	if (!mail) return null;
@@ -174,7 +150,6 @@ async function audienceFacts(context: ReviewContext, plantId: string, audience: 
 }
 type AudienceFacts = NonNullable<Awaited<ReturnType<typeof audienceFacts>>>;
 
-/** The statement's `classified` table: each person of the audience, with why they are left out or null. */
 const classifiedPeople = (plantId: string, facts: AudienceFacts) =>
 	sql`people AS (
 		SELECT * FROM jsonb_to_recordset(${audiencePeople(plantId, facts.audience)}) x(id uuid,"displayName" text,email text)
@@ -188,18 +163,11 @@ const classifiedPeople = (plantId: string, facts: AudienceFacts) =>
 					WHERE h.email=lower(btrim(p.email)) AND s.cleared_at IS NULL) THEN 'blocked' END AS reason
 		FROM people p
 	)`;
-/** What the handoff would refuse about the `classified` audience, said on the review so nothing is approved in vain. */
 const audienceRefusal = sql`CASE WHEN (SELECT count(*) FROM classified WHERE reason IS NULL)=0 THEN 'Nobody in this audience can get this email.' END`;
-/** Who the review leaves out of the email and why, by name. */
 const leftOutPeople = sql`coalesce((SELECT jsonb_agg(jsonb_build_object('name',name,'reason',reason) ORDER BY name,id) FROM classified WHERE reason IS NOT NULL),'[]'::jsonb)`;
 const leftOutIds = sql`coalesce((SELECT jsonb_agg(id) FROM classified WHERE reason IS NOT NULL),'[]'::jsonb)`;
 
 type Handoff = Awaited<ReturnType<typeof communicationWriter.handOffScheduled>>;
-/**
- * The message is saved as scheduled. Only an accepted recipient is called scheduled; unknown ones are counted, never called
- * delivered. A handoff (`leftOut` given) makes no email service call (D-927): every recipient it accepts waits in
- * Everyfield until the send time. A later check may find mail the email service already took.
- */
 function scheduleReport(sent: Handoff, scheduledAt: string, leftOut?: number): MailReport {
 	if (sent.status !== "ok")
 		return {
@@ -240,7 +208,6 @@ export const schedule: ReviewedWrite<z.infer<typeof scheduleInput>> = {
 			.parse(found.rows[0]);
 		const facts = await audienceFacts(context, actor.owner.id, audienceInput.parse(draft.audience ?? {}));
 		if (!facts) return null;
-		// The first person who will get it is named in the content; the review statement puts the name in.
 		const content = draft.body_html ? readable(renderBody(draft.body_html, { name: SAMPLE_NAME, rsvp_link: "" })) : "";
 		const at = sql`(${value.sendAt}::timestamp AT TIME ZONE ${zone})`;
 		const refusal = sql`coalesce(${acceptedWindow(at)},
@@ -304,9 +271,6 @@ export const schedule: ReviewedWrite<z.infer<typeof scheduleInput>> = {
 	},
 };
 
-// --- 3. communication.rescheduleReviewed (time change) ---------------------------------------------------------
-
-/** Moves the time. Safe to repeat: a message already at the new time moves only the recipients that still hold the old one. */
 async function moveTime(
 	db: Database,
 	authority: RequestActor,
@@ -316,7 +280,6 @@ async function moveTime(
 ): Promise<EffectResult> {
 	const saved = savedTime.parse(args);
 	const { communicationId, scheduledAt } = saved.input;
-	// A message already at the new time is this effect's own earlier success, at the revision that success saved.
 	const found = await db.execute(
 		sql`SELECT c.revision::text AS revision,${iso(sql`c.scheduled_at`)} AS scheduled_at FROM communication c
 			WHERE c.id=${communicationId}::uuid AND c.plant_id=${authority.actor.context.owner.id}::uuid`,
@@ -343,7 +306,6 @@ async function moveTime(
 		},
 	};
 }
-/** Holds a review's native work in the executor's transaction without changing anything: the email service step does it. */
 const checkedOnly = async (_tx: Transaction, _context: unknown, args: unknown): Promise<EffectResult> => {
 	const saved = savedArgs.parse(args);
 	return { receiptId: saved.input.communicationId, revision: saved.expectedRevision };
@@ -357,7 +319,6 @@ export const reschedule: ReviewedWrite<z.infer<typeof scheduleInput>> = {
 	allowed: ownerOrAdmin,
 	review(actor, value) {
 		const at = sql`(${value.sendAt}::timestamp AT TIME ZONE ${zone})`;
-		// A time moves by the email service's id for each recipient. One it never answered about may hold the old time for good.
 		const refusal = sql`coalesce(CASE WHEN ${unanswered}>0 THEN 'The email service has not answered about every recipient of this message, so the send time can''t change.' END,
 			${acceptedWindow(at)})`;
 		return sql`SELECT ${withRefusal(
@@ -375,8 +336,6 @@ export const reschedule: ReviewedWrite<z.infer<typeof scheduleInput>> = {
 	reach: (db, authority, args, effectKey, _first, mail) => moveTime(db, authority, args, `${effectKey}:move`, mail),
 	check: (db, authority, args, keys, mail) => moveTime(db, authority, args, `${keys.checkKey}:move`, mail),
 };
-
-// --- 4. communication.cancelScheduledReviewed ---------------------------------------------------------------
 
 const cancelInput = z.strictObject({ communicationId: messageId });
 async function cancelStep(
@@ -402,12 +361,10 @@ async function cancelStep(
 		revision: saved.expectedRevision,
 		report: {
 			kind: "cancel",
-			// Cancelled only once the email service confirmed every recipient it held.
 			confirmation: v.scheduledCancel === "confirmed" ? "confirmed" : open ? "not_confirmed" : "none",
 			cancelled: v.confirmedCount,
 			sent: v.sentCount,
 			open: v.openCount,
-			// A cancel that is not confirmed lists who may still get the email.
 			...(open ? { people: await recipientOutcomes(db, authority, communicationId) } : {}),
 		},
 	};
@@ -432,8 +389,6 @@ export const cancel: ReviewedWrite<z.infer<typeof cancelInput>> = {
 	reach: (db, authority, args, effectKey, _first, mail) => cancelStep(db, authority, args, `${effectKey}:cancel`, mail),
 	check: (db, authority, args, keys, mail) => cancelStep(db, authority, args, `${keys.checkKey}:cancel`, mail),
 };
-
-// --- 5. communication.replaceScheduledReviewed --------------------------------------------------------------
 
 const replaceInput = z.strictObject({
 	communicationId: messageId,
@@ -460,11 +415,6 @@ const savedReplace = savedArgs.extend({
 	}),
 });
 
-/**
- * Cancel the old send first. Only when every recipient is confirmed cancelled does it save and hand off the new one,
- * at the same time. Each step replays: the cancel asks only open recipients, and the new message's keys are fixed.
- * Once the cancel ran, a refusal is a report that says what did happen, never a refusal that says nothing was done.
- */
 async function replaceStep(
 	db: Database,
 	authority: RequestActor,
@@ -486,7 +436,6 @@ async function replaceStep(
 	);
 	if (old.status !== "ok") return { refused: old.error.code };
 	const counts = { cancelled: old.value.confirmedCount, sent: old.value.sentCount, open: old.value.openCount };
-	/** No replacement exists. Everyone the old send reached is listed with what happened to them. */
 	const stopped = async (
 		confirmation: "not_confirmed" | "blocked" | "refused",
 		code?: string,
@@ -603,7 +552,6 @@ export const replace: ReviewedWrite<z.infer<typeof replaceInput>> = {
 			changes.push(
 				change("audience", audienceShape(actor.owner.id, oldAudience), audienceShape(actor.owner.id, value.audience)),
 			);
-		// What the new send would be refused for is refused here, before the old send is cancelled.
 		const needsMeeting = usesRsvpLink(html ?? before.body_html);
 		const refusal = sql`coalesce(${acceptedWindow(sql`c.scheduled_at`)},
 			CASE WHEN ${needsMeeting}::boolean AND NOT coalesce((SELECT ${meetingOpenSql("mt")} FROM meeting mt WHERE mt.id=c.meeting_id AND mt.plant_id=c.plant_id),false)
@@ -624,7 +572,6 @@ export const replace: ReviewedWrite<z.infer<typeof replaceInput>> = {
 				'meetingId',c.meeting_id,'scheduledAt',${iso(sql`c.scheduled_at`)})) AS args
 			FROM c`;
 	},
-	// The new audience is compared before the old send is cancelled, so a changed audience costs nobody their email.
 	async recheck(tx, context, args) {
 		const saved = savedReplace.parse(args);
 		const now = await tx.execute(sql`SELECT ${audiencePeople(context.selected.id, saved.input.audience)} AS people`);
@@ -637,7 +584,6 @@ export const replace: ReviewedWrite<z.infer<typeof replaceInput>> = {
 		replaceStep(db, authority, args, { cancelKey: `${keys.checkKey}:cancel`, buildKey: keys.effectKey }, mail),
 };
 
-/** The installed Communication reviewed writes, keyed by operation. */
 export const COMMUNICATION_COMMANDS = {
 	"communication.saveDraft": saveDraft,
 	"communication.scheduleReviewed": schedule,
