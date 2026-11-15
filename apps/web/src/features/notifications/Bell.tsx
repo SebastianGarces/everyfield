@@ -99,7 +99,7 @@ export function useNotificationBell() {
 					href="/notifications"
 					onClick={() => {
 						setOpen(false);
-						refreshCount();
+						if (feed.state.status === "error") refreshCount();
 					}}
 					className={buttonVariants({ variant: "secondary", size: "sm", className: "mt-1.5 w-full" })}
 				>
