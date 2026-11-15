@@ -4,7 +4,7 @@ import { Link01Icon, Notification01Icon, Unlink01Icon } from "@hugeicons/core-fr
 import { Card, PageHeader, SegmentedControl } from "@everyfield/ui/controls";
 import { List, ListRow } from "@everyfield/ui/display";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Connections } from "../Connections";
 import { InvitationResponse } from "../InvitationResponse";
 import { noticeText } from "../model";
@@ -127,7 +127,7 @@ function Flow({
 	stage: string | null;
 }) {
 	const side = flow === "organization" ? "organization" : "subject";
-	const backend = useMemo(() => createBackend(side, viewer, scenario), [side, viewer, scenario]);
+	const [backend] = useState(() => createBackend(side, viewer, scenario));
 	const canManage = viewer === "owner";
 
 	switch (flow) {

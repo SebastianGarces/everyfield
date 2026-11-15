@@ -56,7 +56,8 @@ export function PersonRecord({
 	staff: PipelineBoard["staff"];
 	organization: string;
 }) {
-	const [record, setRecord] = useState(initial);
+	const [local, setLocal] = useState<{ from: Record; value: Record } | null>(null);
+	const record = local?.from === initial ? local.value : initial;
 	const [dialog, setDialog] = useState<"edit" | "move" | "assessment" | "retire" | "restore" | "remove" | null>(null);
 	const [notice, setNotice] = useState<string | null>(null);
 	const admin = record.audience === "administrator";
@@ -64,7 +65,7 @@ export function PersonRecord({
 	async function latest() {
 		const answer = await readPerson(record.personId).catch(() => null);
 		if (answer?.status !== "ok") return null;
-		setRecord(answer.value);
+		setLocal({ from: initial, value: answer.value });
 		return answer.value;
 	}
 	async function reread() {
