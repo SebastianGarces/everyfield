@@ -1,0 +1,17 @@
+{
+	"tools/ci/ci-tests.ts": 12,
+	"tools/ci/ci-timing.ts": 10,
+	"tools/ci/select.ts": 43,
+	"tools/ci/test-names.ts": 13,
+	"tools/ci/tests/ci-tests.test.ts": 1,
+	"tools/ci/tests/ci-timing.test.ts": 15,
+	"tools/ci/tests/dev-help.test.ts": 3,
+	"tools/ci/tests/select-sabotage.test.ts": 4,
+	"tools/ci/tests/select.test.ts": 6,
+	"tools/ci/tests/test-names.test.ts": 1,
+	"tools/ci/tests/typecheck-corpus.test.ts": 1,
+	"tools/ci/tests/typecheck.test.ts": 11,
+	"tools/ci/typecheck-compare.ts": 5,
+	"tools/ci/typecheck-corpus.ts": 16,
+	"tools/ci/typecheck.ts": 11
+}
