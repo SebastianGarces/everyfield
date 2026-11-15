@@ -1094,9 +1094,13 @@ function TaskRow({
 }
 
 function SearchBox({ query, go }: { query: TaskQuery; go: (q: TaskQuery, replace?: boolean) => void }) {
-	const [box, setBox] = useState({ text: query.search, shown: query.search, sent: null as string | null });
+	const [box, setBox] = useState({ text: query.search, shown: query.search, sent: [] as readonly string[] });
 	if (box.shown !== query.search)
-		setBox({ text: query.search === box.sent ? box.text : query.search, shown: query.search, sent: box.sent });
+		setBox(
+			box.sent.includes(query.search)
+				? { text: box.text, shown: query.search, sent: box.sent.slice(box.sent.indexOf(query.search) + 1) }
+				: { text: query.search, shown: query.search, sent: [] },
+		);
 	const [{ run: afterPause, cancelOnDetach }] = useState(() => createDebouncer(300));
 	return (
 		<div className="w-[280px] max-app-sm:w-full">
@@ -1112,7 +1116,7 @@ function SearchBox({ query, go }: { query: TaskQuery; go: (q: TaskQuery, replace
 					afterPause(() => {
 						const current = parseQuery(new URLSearchParams(window.location.search));
 						if (next.trim() === current.search) return;
-						setBox((b) => ({ ...b, sent: next.trim() }));
+						setBox((b) => ({ ...b, sent: [...b.sent, next.trim()] }));
 						go(withFilters(current, { search: next.trim() }), true);
 					});
 				}}
