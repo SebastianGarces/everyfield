@@ -135,10 +135,18 @@ test("INV-focus: a focus request is served once, on the commit that brings it; a
 	requests.ref(4, ui.focusIfLost)(asElement(field));
 	assert.equal(doc.activeElement, field, "focusIfLost takes focus that fell to the body");
 
-	let scrolled: boolean | undefined;
-	const row = fakeNode(doc, { focus: (options?: FocusOptions) => (scrolled = !options?.preventScroll) });
+	let received: FocusOptions | undefined;
+	const row = fakeNode(doc, { focus: (options?: FocusOptions) => (received = options) });
 	requests.ref(5, undefined, { preventScroll: true })(asElement(row));
-	assert.equal(scrolled, false, "focus options reach the focused node, so a pick never focuses by itself");
+	assert.deepEqual(
+		received,
+		{ preventScroll: true },
+		"focus options reach the focused node, so a pick never focuses by itself",
+	);
+	requests.ref(6, undefined, { focusVisible: true })(asElement(row));
+	assert.deepEqual(received, { focusVisible: true }, "every focus option is passed on, none is dropped");
+	const shown = requests.ref(7, undefined, { focusVisible: true });
+	assert.notEqual(requests.ref(7, undefined, { focusVisible: false }), shown, "a different option is a different ref");
 });
 
 test("INV-observers: every node observer stops on detach, and a late fonts.ready no longer measures", async () => {

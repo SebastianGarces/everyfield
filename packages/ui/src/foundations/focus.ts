@@ -36,7 +36,7 @@ export function createFocusRequests() {
 	let last: {
 		request: FocusRequest;
 		pick: unknown;
-		preventScroll: boolean | undefined;
+		options: string;
 		ref: (node: HTMLElement | null) => void;
 	} | null = null;
 	return {
@@ -45,15 +45,14 @@ export function createFocusRequests() {
 			pick?: FocusPick<T>,
 			options?: FocusOptions,
 		): (node: T | null) => void {
-			const preventScroll = options?.preventScroll;
-			if (last && last.request === request && last.pick === pick && last.preventScroll === preventScroll)
-				return last.ref;
+			const key = `${options?.preventScroll}/${options?.focusVisible}`;
+			if (last && last.request === request && last.pick === pick && last.options === key) return last.ref;
 			const ref = (node: T | null) => {
 				if (!node || !isRequest(request) || served === request) return;
 				served = request;
-				(pick ? pick(node) : node)?.focus({ preventScroll });
+				(pick ? pick(node) : node)?.focus(options);
 			};
-			last = { request, pick, preventScroll, ref: ref as (node: HTMLElement | null) => void };
+			last = { request, pick, options: key, ref: ref as (node: HTMLElement | null) => void };
 			return ref;
 		},
 	};
