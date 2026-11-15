@@ -2,7 +2,8 @@
 
 import { useToast } from "@everyfield/ui/controls";
 import type { Loadable } from "@everyfield/ui/display";
-import { createContext, use, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useBrowserZone, useMinuteClock } from "@everyfield/ui/foundations";
+import { createContext, use, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { markAllVisibleRead, markRead, markSelectedRead } from "./actions.ts";
 import { readFirstPage, readMore, readRevision } from "./fetch.ts";
 import {
@@ -86,17 +87,11 @@ export function useAccount(): Account {
 	return account;
 }
 
-let clock: Clock | null = null;
-const clockSubscribe = (changed: () => void) => {
-	const timer = setInterval(() => {
-		clock = null;
-		changed();
-	}, 60_000);
-	return () => clearInterval(timer);
-};
-const clockSnapshot = () => (clock ??= { zone: Intl.DateTimeFormat().resolvedOptions().timeZone, now: Date.now() });
-/** The browser's zone and minute; null during server rendering, so times and day groups never mismatch on hydration. */
-export const useClock = () => useSyncExternalStore(clockSubscribe, clockSnapshot, () => null);
+export function useClock(): Clock | null {
+	const zone = useBrowserZone();
+	const now = useMinuteClock();
+	return useMemo(() => (zone === null || now === null ? null : { zone, now }), [zone, now]);
+}
 
 type Ready = { items: FeedItem[]; nextCursor: string | null; unread: number; more: "idle" | "loading" | "failed" };
 type Marked = Outcome<{ markedIds: string[] }>;

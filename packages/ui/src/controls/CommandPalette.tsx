@@ -12,9 +12,7 @@ import { Spinner } from "./Spinner";
 export type CommandItem = {
 	id: string;
 	label: string;
-	/** Leading art: an Avatar, an icon or EvryBot size xs. Decorative. */
 	art?: ReactNode;
-	/** Right-hand detail, such as the person's stage. Also searched. */
 	meta?: string;
 	keywords?: string[];
 	onSelect: () => void;
@@ -26,23 +24,15 @@ type CommandPaletteProps = {
 	onOpenChange: (open: boolean) => void;
 	groups: CommandGroup[];
 	placeholder?: string;
-	/** Controlled query, for pages that search on the server. Then pass filter={false}. */
 	query?: string;
 	onQueryChange?: (query: string) => void;
-	/** false when the caller already filtered the groups for the query. */
 	filter?: boolean;
 	loading?: boolean;
-	/** A failed search says so and never looks like "No results". */
 	error?: { message: string; onRetry: () => void };
 	emptyText?: string;
-	/** Keyboard hints in the footer, such as ["↑↓ move", "↵ open", "⌘J ask Evry"]. */
 	hints?: string[];
 };
 
-/**
- * CommandPalette (components.md): a modal dialog with a search combobox, grouped results and a hint footer. Arrow keys
- * move through results, Enter opens one, Esc closes and returns focus. The caller opens it from Search and ⌘K.
- */
 export function CommandPalette({
 	open,
 	onOpenChange,
