@@ -211,5 +211,6 @@ Appoint leader names the ministry's leader from the church's people.
 ```bash
 agent-browser find role button click --name "Appoint leader" --exact
 agent-browser wait --load networkidle
-agent-browser find role dialog text --name "Appoint leader"
+agent-browser find role heading text --name "Appoint a leader for"
+agent-browser find role button text --name "Cancel" --exact
 ```

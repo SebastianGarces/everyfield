@@ -445,9 +445,13 @@
 							],
 							"expect": [
 								{
-									"role": "dialog",
-									"name": "Appoint leader",
+									"role": "heading",
+									"name": "Appoint a leader for",
 									"match": "contains"
+								},
+								{
+									"role": "button",
+									"name": "Cancel"
 								}
 							]
 						}
