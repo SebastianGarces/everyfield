@@ -1203,7 +1203,10 @@
       "work_packages": [
         "WP-092"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/knowledge/message-templates.test.mts"
+      ],
       "description": "Seven registered system templates; plant fork changed subject",
       "given": {
         "P": {

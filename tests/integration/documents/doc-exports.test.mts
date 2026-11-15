@@ -81,7 +81,8 @@ sofficeTest(
 	"AC:CASE-DOC-023 the Word file of the policy opens in LibreOffice with the PDF's headings and paragraph text",
 	async () => {
 		const doc = await fork("conflict-of-interest-policy");
-		const pdf = words((await pdfPages(await renderDocFile(doc, "pdf", THEME, SAVED))).join(" "));
+		const pdfPageTexts = await pdfPages(await renderDocFile(doc, "pdf", THEME, SAVED));
+		const pdf = words(pdfPageTexts.join(" "));
 		const docx = await renderDocFile(doc, "docx", THEME, SAVED);
 		const pages = await pdfPages(sofficeToPdf(docx));
 		const converted = words(pages.join(" "));
@@ -93,9 +94,11 @@ sofficeTest(
 			assert.ok(converted.includes(words(line)), `the Word file has "${line}"`);
 		}
 		assert.match(converted, /01 Purpose/);
-		// LibreOffice breaks pages a little differently from our PDF, so the count comes from its own output.
-		assert.ok(pages.length >= 2, "the policy runs past one page");
-		assert.match(converted, new RegExp(`Page 1 of ${pages.length}`), "LibreOffice fills PAGE and NUMPAGES");
+		// The Word file lays out on as many pages as our PDF, so the last signature row stays on the PDF's last page.
+		assert.equal(pdfPageTexts.length, 2);
+		assert.equal(pages.length, pdfPageTexts.length, "LibreOffice gives the PDF's page count");
+		assert.match(converted, /Page 1 of 2/, "LibreOffice fills PAGE and NUMPAGES");
+		assert.match(words(pages.at(-1)!), /BOARD MEMBER ROLE SIGNATURE DATE/, "the signature rows are on the last page");
 		pages.forEach((page, i) =>
 			assert.equal(
 				words(page).split("Template, not legal advice").length - 1,
@@ -158,7 +161,7 @@ sofficeTest(
 		for (const id of ["commitment-card", "guest-sign-in-sheet"]) {
 			const doc = await fork(id);
 			const pages = await pdfPages(sofficeToPdf(await renderDocFile(doc, "docx", THEME, SAVED)));
-			assert.equal(pages.length, id === "commitment-card" ? 1 : 2, id);
+			assert.equal(pages.length, 1, id);
 			for (const heading of proseOf(doc).headings)
 				assert.ok(words(pages.join(" ")).includes(words(heading)), `${id}: ${heading}`);
 		}
