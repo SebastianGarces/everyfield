@@ -258,3 +258,36 @@ function EditorSpecimen() {
 		</WikiEditor>
 	);
 }
+
+const EXCERPT = (
+	<>
+		<h2>Before the meeting</h2>
+		<p>Pick a home with room for about 40 adults. Ask two or three core members to host with you.</p>
+		<h3>What to bring</h3>
+		<ul>
+			<li>Response cards and a guest sign-in sheet.</li>
+			<li>A plan for childcare so parents can listen.</li>
+		</ul>
+		<p>Send the invitation two weeks ahead and remind people the day before.</p>
+	</>
+);
+
+export function ProseSizesSection({ index }: { index: number }) {
+	return (
+		<Section
+			index={index}
+			title="Prose sizes"
+			code={'<Prose size="md|sm|excerpt">'}
+			note="An article reads at md; a narrow panel at sm. An excerpt, such as the guide panel's part of an article, keeps sm's text and sets its headings in the body face at text size, with no space above the first block or below the last."
+		>
+			<Grid cols={2}>
+				<Specimen title="sm">
+					<Prose size="sm">{EXCERPT}</Prose>
+				</Specimen>
+				<Specimen title="excerpt">
+					<Prose size="excerpt">{EXCERPT}</Prose>
+				</Specimen>
+			</Grid>
+		</Section>
+	);
+}
