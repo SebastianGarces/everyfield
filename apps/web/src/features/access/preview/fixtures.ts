@@ -16,11 +16,12 @@ export const VIEWER_LABEL: Record<Viewer, string> = {
 	"admin-and-director": "Admin and director",
 };
 
-export const NOTE_SCENARIOS = ["pages", "empty", "load-failed", "more-failed", "access-ended"] as const;
+export const NOTE_SCENARIOS = ["pages", "empty", "loading", "load-failed", "more-failed", "access-ended"] as const;
 export type NoteScenario = (typeof NOTE_SCENARIOS)[number];
 export const SCENARIO_LABEL: Record<NoteScenario, string> = {
 	pages: "Several pages",
 	empty: "No notes",
+	loading: "Still loading",
 	"load-failed": "Load fails once",
 	"more-failed": "Next page fails once",
 	"access-ended": "Access ends",
@@ -87,24 +88,24 @@ function note(i: number) {
 }
 
 const PAGE = 4;
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
  * A fixture orgPeople.readNotes. Pages hold four notes so paging shows; the real API returns up to 100. The viewer's
  * notes duty comes from the same duties the page shows.
  */
-export function notesReader(viewer: Viewer, scenario: NoteScenario, wait: number): ReadNotes {
+export function notesReader(viewer: Viewer, scenario: NoteScenario): ReadNotes {
 	const duty = DUTIES[viewer].find((d) => d.canReadStaffNotes)?.kind;
-	// "load-failed" fails every first-page read made while the panel mounts (React's development double mount
-	// included), so Try again succeeds. "more-failed" fails the first next-page read once.
-	const mounted = Date.now();
+	let firstFailures = scenario === "load-failed" ? 1 : 0;
 	let moreFailures = scenario === "more-failed" ? 1 : 0;
 	return async (after) => {
-		await delay(wait);
+		if (scenario === "loading") return new Promise<never>(() => {});
 		const start = after ? NOTE_IDS.indexOf(after) + 1 : 0;
 		if (!duty || (scenario === "access-ended" && start > 0))
 			return organizationNotesResult.parse({ status: "unavailable" });
-		if (scenario === "load-failed" && start === 0 && Date.now() - mounted < 1000 + wait) throw new Error("network");
+		if (firstFailures > 0 && start === 0) {
+			firstFailures -= 1;
+			throw new Error("network");
+		}
 		if (moreFailures > 0 && start > 0) {
 			moreFailures -= 1;
 			throw new Error("network");

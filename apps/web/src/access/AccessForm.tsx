@@ -3,7 +3,6 @@
 import { ArrowDown01Icon, ArrowLeft02Icon, ArrowRight02Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 import {
 	useActionState,
-	useEffect,
 	useId,
 	useRef,
 	useState,
@@ -16,6 +15,7 @@ import { buttonClass } from "@/components/ButtonLink";
 import { cn } from "@/components/cn";
 import { Display } from "@/components/Display";
 import { Icon } from "@/components/Icon";
+import { useFocusRequest } from "@everyfield/ui/foundations";
 import { revealProps, useReveal } from "@/components/motion/Reveal";
 import { stepAccessForm, submitAccessRequest } from "./actions";
 import { HONEYPOT, validateAccessRequest, type FieldErrorCode } from "./contract";
@@ -249,10 +249,18 @@ export function AccessForm({ paths, text, who: chosen }: Props) {
 	const rv = revealProps();
 	const [serverState, formAction] = useActionState(stepAccessForm, chosen ? { ...START, who: chosen } : START);
 	const [s, setS] = useState<FormState>(serverState);
-	const [sending, setSending] = useState(false);
 	const [said, setSaid] = useState("");
-	const focusNext = useRef<Focus | null>(null);
-	const [, startTransition] = useTransition();
+	const [landed, setLanded] = useState<{ n: number; to: Focus }>({ n: 0, to: "step" });
+	const [sending, startTransition] = useTransition();
+	const focusLanded = useFocusRequest<HTMLDivElement>(landed.n, (layout) => {
+		if (landed.to === "message") return msgRef.current;
+		const view = layout.querySelector<HTMLElement>("[data-view=current]");
+		return landed.to === "error"
+			? (view?.querySelector<HTMLElement>("[aria-invalid=true]") ?? view?.querySelector<HTMLElement>("input") ?? null)
+			: (view?.querySelector<HTMLElement>("input:checked") ??
+					view?.querySelector<HTMLElement>("input:not([type=hidden]), select, textarea") ??
+					null);
+	});
 
 	const kind = s.who ? kindOf(s.who) : undefined;
 	const notice = s.status !== "editing" && s.status !== "received" ? s.status : undefined;
@@ -274,31 +282,18 @@ export function AccessForm({ paths, text, who: chosen }: Props) {
 	/** Shows a new state, then moves focus to what changed and says the new step. */
 	const land = (n: FormState) => {
 		setS(n);
-		if (n.status !== "editing") {
-			focusNext.current = "message";
-			setSaid("");
-		} else if (Object.keys(n.errors).length) {
-			focusNext.current = "error";
-			setSaid(n.invalid ? text.outcomes.invalid.title : "");
-		} else {
-			focusNext.current = "step";
-			setSaid(`${progress(n.step)}. ${titleOf(n)}`);
-		}
+		const to: Focus = n.status !== "editing" ? "message" : Object.keys(n.errors).length ? "error" : "step";
+		setLanded((l) => ({ n: l.n + 1, to }));
+		setSaid(
+			to === "message"
+				? ""
+				: to === "error"
+					? n.invalid
+						? text.outcomes.invalid.title
+						: ""
+					: `${progress(n.step)}. ${titleOf(n)}`,
+		);
 	};
-	useEffect(() => {
-		const to = focusNext.current;
-		if (!to) return;
-		focusNext.current = null;
-		if (to === "message") return msgRef.current?.focus();
-		const view = formRef.current?.querySelector<HTMLElement>("[data-view=current]");
-		const target =
-			to === "error"
-				? // A radio cannot be marked invalid, so the choice's error focuses the first choice.
-					(view?.querySelector<HTMLElement>("[aria-invalid=true]") ?? view?.querySelector<HTMLElement>("input"))
-				: (view?.querySelector<HTMLElement>("input:checked") ??
-					view?.querySelector<HTMLElement>("input:not([type=hidden]), select, textarea"));
-		target?.focus();
-	});
 
 	// Once a field shows an error, the error follows what the person types. On leaving a filled field, check it.
 	const recheck = (name: string, onBlur: boolean) => {
@@ -323,7 +318,6 @@ export function AccessForm({ paths, text, who: chosen }: Props) {
 		const who = s.who;
 		const v = validateAccessRequest(kindOf(who), values);
 		if (!v.ok) return land(withErrors(s, values, v.fieldErrors));
-		setSending(true);
 		startTransition(async () => {
 			let n: FormState;
 			try {
@@ -333,7 +327,6 @@ export function AccessForm({ paths, text, who: chosen }: Props) {
 				// The request did not reach the server, or the reply was lost.
 				n = { ...s, values, errors: {}, status: navigator.onLine ? "unavailable" : "offline" };
 			}
-			setSending(false);
 			land(n);
 		});
 	}
@@ -401,7 +394,7 @@ export function AccessForm({ paths, text, who: chosen }: Props) {
 			aria-busy={sending}
 			aria-label={text.submit}
 		>
-			<div className={LAYOUT}>
+			<div className={LAYOUT} ref={focusLanded}>
 				<div className={cn("col-start-1 row-start-1 flex items-center justify-between gap-4", received && "invisible")}>
 					<p className={EYEBROW}>{progress(s.step)}</p>
 					<div className="flex gap-1.5" aria-hidden="true">

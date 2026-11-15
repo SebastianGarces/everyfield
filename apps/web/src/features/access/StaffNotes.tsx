@@ -1,7 +1,7 @@
 "use client";
 
 import { LockKeyIcon, Note01Icon, RefreshIcon, UserRemove01Icon } from "@hugeicons/core-free-icons";
-import type { PipelineAccessResult } from "@everyfield/contracts/access";
+import type { OrganizationNotesResult, PipelineAccessResult } from "@everyfield/contracts/access";
 import {
 	Button,
 	Card,
@@ -14,17 +14,15 @@ import {
 	StatePanel,
 } from "@everyfield/ui/controls";
 import { Avatar, Tag } from "@everyfield/ui/display";
-import { cn, Icon } from "@everyfield/ui/foundations";
-import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { cn, Icon, observeSize, useFocusRequest } from "@everyfield/ui/foundations";
+import { useId, useMemo, useState } from "react";
+import { createRead, useRead } from "../../components/read.tsx";
 import { NotAvailable } from "./AccessStates";
 import { DUTY_LABEL, type AllowedNotes, type ReadNotes } from "./port";
 
 type Note = AllowedNotes["notes"][number];
-type View =
-	| { kind: "loading" }
-	| { kind: "failed" }
-	| { kind: "unavailable" }
-	| { kind: "shown"; notes: Note[]; next: AllowedNotes["next"]; more: "idle" | "loading" | "failed" };
+type FirstPage = OrganizationNotesResult | { status: "failed" };
+type More = { pages: AllowedNotes[]; status: "idle" | "loading" | "failed" | "unavailable" };
 
 /**
  * The viewer's own duties for one pipeline person (pipelineAccess.readPerson, REQ-MUL-002). It names only the
@@ -64,64 +62,41 @@ export function StaffNotesPanel({
 	/** The organization's time zone, for note times. */
 	zone: string;
 }) {
-	const [view, setView] = useState<View>({ kind: "loading" });
+	const [{ read: readPage, first }] = useState(() => ({
+		read,
+		first: createRead<[null], FirstPage>(read, { failed: () => ({ status: "failed" }) }),
+	}));
+	const page = useRead(first, null);
+	const [more, setMore] = useState<More>({ pages: [], status: "idle" });
 	const [announce, setAnnounce] = useState("");
-	const firstNew = useRef<string | null>(null);
-	const list = useRef<HTMLOListElement>(null);
 	const titleId = useId();
 
-	const [attempt, setAttempt] = useState(0);
-
-	useEffect(() => {
-		let live = true;
-		read(null).then(
-			(page) => {
-				if (!live) return;
-				setView(
-					page.status === "allowed"
-						? { kind: "shown", notes: page.notes, next: page.next, more: "idle" }
-						: { kind: "unavailable" },
-				);
-			},
-			() => {
-				if (live) setView({ kind: "failed" });
-			},
-		);
-		return () => {
-			live = false;
-		};
-	}, [read, attempt]);
-
-	function retryFirst() {
-		setView({ kind: "loading" });
-		setAttempt((n) => n + 1);
-	}
+	const opening = page.value?.status === "allowed" ? page.value : null;
+	const last = more.pages.at(-1) ?? opening;
+	const notes = opening ? [...opening.notes, ...more.pages.flatMap((p) => p.notes)] : [];
+	const newest = more.pages.at(-1)?.notes[0]?.id ?? null;
+	const view =
+		page.value === undefined
+			? "loading"
+			: page.value.status === "failed"
+				? "failed"
+				: page.value.status !== "allowed" || more.status === "unavailable"
+					? "unavailable"
+					: "shown";
 
 	async function loadMore() {
-		if (view.kind !== "shown" || !view.next || view.more === "loading") return;
-		const { notes, next } = view;
-		setView({ ...view, more: "loading" });
+		if (!last?.next || more.status === "loading") return;
+		const after = last.next;
+		setMore((m) => ({ ...m, status: "loading" }));
 		try {
-			const page = await read(next);
-			if (page.status !== "allowed") {
-				setView({ kind: "unavailable" });
-				return;
-			}
-			firstNew.current = page.notes[0]?.id ?? null;
-			setView({ kind: "shown", notes: [...notes, ...page.notes], next: page.next, more: "idle" });
-			setAnnounce(page.notes.length === 1 ? "1 more note loaded." : `${page.notes.length} more notes loaded.`);
+			const next = await readPage(after);
+			if (next.status !== "allowed") return setMore((m) => ({ ...m, status: "unavailable" }));
+			setMore((m) => ({ pages: [...m.pages, next], status: "idle" }));
+			setAnnounce(next.notes.length === 1 ? "1 more note loaded." : `${next.notes.length} more notes loaded.`);
 		} catch {
-			setView({ kind: "shown", notes, next, more: "failed" });
+			setMore((m) => ({ ...m, status: "failed" }));
 		}
 	}
-
-	// Move focus to the first note of a new page, so keyboard users continue reading where the list grew.
-	useEffect(() => {
-		const id = firstNew.current;
-		if (!id) return;
-		firstNew.current = null;
-		list.current?.querySelector<HTMLElement>(`[data-note="${CSS.escape(id)}"]`)?.focus();
-	});
 
 	return (
 		<Card as="section" aria-labelledby={titleId}>
@@ -143,7 +118,7 @@ export function StaffNotesPanel({
 				</CardHeading>
 			</CardHeader>
 
-			{view.kind === "loading" ? (
+			{view === "loading" ? (
 				<div aria-busy="true" className="flex flex-col gap-5">
 					<span className="sr-only">Loading staff notes…</span>
 					{[0, 1].map((i) => (
@@ -157,39 +132,45 @@ export function StaffNotesPanel({
 						</div>
 					))}
 				</div>
-			) : view.kind === "failed" ? (
+			) : view === "failed" ? (
 				<StatePanel
 					tone="error"
 					title="We could not load the staff notes"
 					headingLevel="h3"
 					className="py-10"
 					actions={
-						<Button variant="secondary" icon={RefreshIcon} onClick={retryFirst}>
+						<Button variant="secondary" icon={RefreshIcon} onClick={page.retry}>
 							Try again
 						</Button>
 					}
 				>
 					This is a loading problem. No note was changed.
 				</StatePanel>
-			) : view.kind === "unavailable" ? (
+			) : view === "unavailable" ? (
 				<NotAvailable scope="section" />
-			) : view.notes.length === 0 ? (
+			) : notes.length === 0 ? (
 				<EmptyState icon={Note01Icon} title="No staff notes yet">
 					Notes your staff write about {personName} will show here.
 				</EmptyState>
 			) : (
 				<>
-					<ol ref={list} aria-labelledby={titleId} className="flex flex-col divide-y divide-line">
-						{view.notes.map((note) => (
-							<NoteRow key={note.id} note={note} authorName={authorName} zone={zone} />
+					<ol aria-labelledby={titleId} className="flex flex-col divide-y divide-line">
+						{notes.map((note) => (
+							<NoteRow
+								key={note.id}
+								note={note}
+								authorName={authorName}
+								zone={zone}
+								focusRequest={note.id === newest ? newest : null}
+							/>
 						))}
 					</ol>
-					{view.next || view.more === "failed" ? (
+					{last?.next || more.status === "failed" ? (
 						<div className="mt-4 flex flex-wrap items-center gap-3 border-t border-line pt-4">
-							<Button variant="secondary" loading={view.more === "loading"} onClick={() => void loadMore()}>
-								{view.more === "failed" ? "Try again" : "Show more notes"}
+							<Button variant="secondary" loading={more.status === "loading"} onClick={() => void loadMore()}>
+								{more.status === "failed" ? "Try again" : "Show more notes"}
 							</Button>
-							{view.more === "failed" ? (
+							{more.status === "failed" ? (
 								<p role="alert" className="text-sm text-magenta-600">
 									We could not load more notes. The notes above are still current.
 								</p>
@@ -205,22 +186,30 @@ export function StaffNotesPanel({
 	);
 }
 
-function NoteRow({ note, authorName, zone }: { note: Note; authorName: (id: string) => string; zone: string }) {
+function NoteRow({
+	note,
+	authorName,
+	zone,
+	focusRequest,
+}: {
+	note: Note;
+	authorName: (id: string) => string;
+	zone: string;
+	focusRequest: string | null;
+}) {
 	const [open, setOpen] = useState(false);
 	const [clipped, setClipped] = useState(false);
-	const body = useRef<HTMLParagraphElement>(null);
 	const bodyId = useId();
-	// Offer "Show the whole note" only when the six-line clamp actually hides text at this width.
-	useLayoutEffect(() => {
-		const el = body.current;
-		if (!el || open) return;
-		const observer = new ResizeObserver(() => setClipped(el.scrollHeight > el.clientHeight + 1));
-		observer.observe(el);
-		return () => observer.disconnect();
-	}, [open]);
+	const focusRef = useFocusRequest<HTMLLIElement>(focusRequest);
+	const measure = useMemo(
+		() =>
+			open ? undefined : observeSize<HTMLParagraphElement>((el) => setClipped(el.scrollHeight > el.clientHeight + 1)),
+		[open],
+	);
 	const name = note.author.kind === "account" ? authorName(note.author.accountId) : "Removed account";
 	return (
 		<li
+			ref={focusRef}
 			data-note={note.id}
 			tabIndex={-1}
 			className="flex gap-3 py-4 first:pt-0 last:pb-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
@@ -237,7 +226,7 @@ function NoteRow({ note, authorName, zone }: { note: Note; authorName: (id: stri
 					</span>
 				</p>
 				<p
-					ref={body}
+					ref={measure}
 					id={bodyId}
 					className={cn("mt-1 whitespace-pre-line break-words text-text-2 text-pretty", !open && "line-clamp-6")}
 				>
