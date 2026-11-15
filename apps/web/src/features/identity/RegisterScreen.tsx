@@ -3,8 +3,9 @@
 import { LockKeyIcon, Mail01Icon, UserIcon, WifiDisconnected01Icon } from "@hugeicons/core-free-icons";
 import { accountKind, nativePassword, normalizedEmail, registrationOptions } from "@everyfield/contracts/identity";
 import { Button, Field, Input, Radio, RadioGroup, Skeleton } from "@everyfield/ui/controls";
-import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from "react";
+import { useId, useRef, useState, type FormEvent } from "react";
 import type { z } from "zod";
+import { createRead, useRead } from "../../components/read.tsx";
 import { identityApi, loadPage, type Refusal } from "./api";
 import { AuthFooter, AuthHeading, AuthLink } from "./AuthFrame";
 import { refusalMessage } from "./messages";
@@ -33,23 +34,22 @@ const KINDS: Record<Kind, { label: string; description: string; organization?: s
 };
 const ORDER: Kind[] = ["plant_precreation", "sending_church", "sending_network", "discovery"];
 
-type Loaded = { state: "loading" } | { state: "failed" } | { state: "ready"; options: Options };
+type Loaded = { status: "lost" } | { status: "ok"; options: Options };
+
+const registration = createRead(
+	() =>
+		identityApi
+			.registrationOptions()
+			.then((result): Loaded => (result.ok ? { status: "ok", options: result.value } : { status: "lost" })),
+	{ failed: (): Loaded => ({ status: "lost" }) },
+);
 
 /** Registration (accounts.getRegistrationOptions, accounts.register), then the native sign-in that resumes it. */
 export function RegisterScreen() {
-	const [loaded, setLoaded] = useState<Loaded>({ state: "loading" });
-	const fetchOptions = useCallback(() => {
-		void identityApi.registrationOptions().then((result) => {
-			setLoaded(result.ok ? { state: "ready", options: result.value } : { state: "failed" });
-		});
-	}, []);
-	useEffect(fetchOptions, [fetchOptions]);
-	const retry = () => {
-		setLoaded({ state: "loading" });
-		fetchOptions();
-	};
+	const read = useRead(registration);
+	const loaded = read.value;
 
-	if (loaded.state === "loading")
+	if (loaded === undefined)
 		return (
 			<div aria-busy="true">
 				<span className="sr-only" role="status">
@@ -64,7 +64,7 @@ export function RegisterScreen() {
 				</div>
 			</div>
 		);
-	if (loaded.state === "failed")
+	if (loaded.status === "lost")
 		return (
 			<div role="alert">
 				<Outcome
@@ -72,7 +72,7 @@ export function RegisterScreen() {
 					tone="magenta"
 					title="Sign-up did not load"
 					actions={
-						<Button variant="primary" onClick={retry} className="w-full">
+						<Button variant="primary" onClick={read.retry} className="w-full">
 							Try again
 						</Button>
 					}

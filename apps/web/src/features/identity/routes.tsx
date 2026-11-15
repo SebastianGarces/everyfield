@@ -24,8 +24,10 @@ export function IdentityLayout({ children }: { children: ReactNode }) {
 
 export const signInMetadata: Metadata = { title: "Sign in" };
 export async function SignInPage({ searchParams }: { searchParams: Search }) {
+	const [search, viewer] = await Promise.all([searchParams, getViewer()]);
+	const signedIn = viewer && viewer.status !== "unauthenticated" ? viewer.status : null;
 	// Only a safe local path survives (REQ-IDN-028); anything else signs in to the default place.
-	return <SignInScreen returnTo={safeReturn(one((await searchParams).returnTo))} />;
+	return <SignInScreen returnTo={safeReturn(one(search.returnTo))} signedIn={signedIn} />;
 }
 
 // The landing route (/home). Every post-sign-in and "home" link points here; the rule is landingFor, from the seat and the

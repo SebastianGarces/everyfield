@@ -6,7 +6,6 @@ import {
 	recoveryCompletedResult,
 	registrationOptions,
 	registrationResult,
-	sessionResult,
 	signedOutResult,
 } from "@everyfield/contracts/identity";
 import { z } from "zod";
@@ -50,7 +49,6 @@ async function call<T>(path: string, schema: z.ZodType<T>, body?: unknown): Prom
 }
 
 export const identityApi = {
-	session: () => call("get-session", sessionResult),
 	registrationOptions: () => call("registration-options", registrationOptions),
 	signIn: (input: { email: string; password: string; returnTo?: string }) =>
 		call("sign-in/email", signedInResult, input),
