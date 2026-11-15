@@ -1,11 +1,12 @@
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 
 import { fixture } from "../../support/fixture.mts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { peopleReader } from "../../../packages/domain/src/people/index.ts";
+import { readAvatar } from "../../../packages/domain/src/settings/avatar.ts";
 import {
 	pipelineWriter,
 	readPipelineBoard,
@@ -479,7 +480,7 @@ test("AC:ADR1-009 a note is read by Owner, Admin and responsible staff only, and
 	);
 	ok(await removePipelineNote(db, await authority(ana), { noteId, expectedRevision: edited.revision }));
 	const r = ok(await record(dana, casey));
-	assert.deepEqual(r.notes, [{ state: "removed", id: noteId, author: "Ana", removedOn: r.asOf }]);
+	assert.deepEqual(r.notes, [{ state: "removed", id: noteId, author: "Ana", avatar: null, removedOn: r.asOf }]);
 	assert.deepEqual(
 		(await board(dana, { q: "seminary" })).stages.flatMap((s) => s.people),
 		[],
@@ -516,4 +517,92 @@ test("AC:ADR1-001 retiring takes a person off the board and counts; restoring pu
 	const restored = await board(dana);
 	assert.equal(restored.stages.find((s) => s.label === "Resident")!.count, resident.count);
 	assert.deepEqual(names(restored).Resident, ["Jordan Reyes"]);
+});
+
+// T-277: a note's author shows their account photo by the workspace rule (REQ-IDN-006). Last, since it ends Ana's seat.
+const PNG = Buffer.from(
+	"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADUlEQVQImWPgEpH7DwABpAE8sdwFIwAAAABJRU5ErkJggg==",
+	"base64",
+);
+/** A private bucket fake holding the photo bytes the byte read asks for. */
+const photoObjects = new Map<string, Buffer>();
+const photoStorage = {
+	bucket: "synthetic-only",
+	client: {
+		send: async (command: { constructor: { name: string }; input: { Key: string } }) => {
+			if (command.constructor.name === "GetBucketAclCommand")
+				return { Grants: [{ Grantee: { ID: "private-owner" }, Permission: "FULL_CONTROL" }] };
+			if (command.constructor.name !== "GetObjectCommand") throw Error("unexpected provider operation");
+			const body = photoObjects.get(command.input.Key)!;
+			return { ContentLength: body.length, Body: { transformToByteArray: async () => body } };
+		},
+	},
+};
+/** The account's photo is now a new version, as Settings' finalize leaves it. */
+async function setAvatar(a: Actor) {
+	const versionId = randomUUID();
+	const key = `private/${a.id}/${versionId}`;
+	photoObjects.set(key, PNG);
+	await admin.execute(sql`INSERT INTO file_object(id,tenant_id,purpose,opaque_key,media_type,max_bytes,byte_count,
+		sha256,state,upload_key,claim_generation) VALUES(${versionId},${a.id},'avatar',${key},'image/png',${PNG.length},
+		${PNG.length},${createHash("sha256").update(PNG).digest("hex")},'ready',${versionId},0)`);
+	await admin.execute(sql`UPDATE account SET avatar_object_id=${versionId} WHERE id=${a.id}`);
+	return { accountId: a.id, versionId };
+}
+/** What Dana's session gets for one photo version: "bytes", or "refused" for every refusal. */
+const photoRead = (photo: { accountId: string; versionId: string }) =>
+	readAvatar(db, photoStorage as never, { session: dana.session, selected: { kind: "account", id: dana.id } } as never, photo).then(
+		(bytes) => (Buffer.from(bytes).equals(PNG) ? "bytes" : "wrong bytes"),
+		(error: Error) => (error.message === "unavailable" ? "refused" : error.message),
+	);
+/** Each note on Casey as the reader sees it: its state, author and photo reference. */
+const noteAuthors = async (reader: Actor) =>
+	ok(await record(reader, casey)).notes.map((n) => [n.state, n.author, n.avatar]);
+
+test("AC:TARGET-IDN-006 a note's author shows their account photo while it is visible in the organization, else initials", async () => {
+	// The earlier test left Ana's removed note on Casey; she adds a current one. With no photo, both carry none.
+	ok(await addPipelineNote(db, await authority(ana), { personId: casey, noteId: randomUUID(), body: "Met Casey's family" }));
+	assert.deepEqual(await noteAuthors(dana), [
+		["current", "Ana", null],
+		["removed", "Ana", null],
+	]);
+
+	// With a photo, Dana, Luis and Ana herself see it on the current and the removed note, and Dana loads its bytes.
+	const photo = await setAvatar(ana);
+	for (const reader of [dana, luis, ana])
+		assert.deepEqual(await noteAuthors(reader), [
+			["current", "Ana", photo],
+			["removed", "Ana", photo],
+		]);
+	assert.equal(await photoRead(photo), "bytes");
+
+	// A lifecycle witness hiding Ana's account hides the photo; once it is cancelled the photo shows again.
+	const witness = randomUUID();
+	await admin.execute(sql`INSERT INTO lifecycle_witness(id,kind,opaque_subject_id,request_revision,state,witness_checkpoint,
+		cleanup_state,request_id,requested_at,cancel_until) VALUES(${witness},'account',${ana.id}::uuid,1,'pending_deletion',1,
+		'not_started',${randomUUID()},statement_timestamp(),statement_timestamp()+interval '720 hours')`);
+	assert.deepEqual(await noteAuthors(dana), [
+		["current", "Ana", null],
+		["removed", "Ana", null],
+	]);
+	await admin.execute(sql`UPDATE lifecycle_witness SET state='cancelled' WHERE id=${witness}::uuid`);
+	assert.deepEqual((await noteAuthors(dana))[0], ["current", "Ana", photo]);
+
+	// Ana's seat ends: the next read shows her name with no photo, and the photo she had no longer loads for Dana.
+	await admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE id=${anaSeat}::uuid`);
+	assert.deepEqual(await noteAuthors(dana), [
+		["current", "Ana", null],
+		["removed", "Ana", null],
+	]);
+	assert.equal(await photoRead(photo), "refused");
+
+	// A note whose author no longer resolves reads as Former staff with no photo.
+	await admin.execute(sql`UPDATE person_note SET author_id=NULL WHERE tenant_id=${grace.id}::uuid AND person_id=${casey}::uuid`);
+	assert.deepEqual(await noteAuthors(dana), [
+		["current", null, null],
+		["removed", null, null],
+	]);
+
+	// Another organization reads no note and no photo of Grace Austin's people.
+	refusedWith(await record(hillOwner, casey), "unavailable");
 });
