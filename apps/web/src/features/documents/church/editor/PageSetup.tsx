@@ -184,7 +184,7 @@ export function PageSetupPanel({
 				<Tip text="Close page setup">
 					<button
 						type="button"
-						className="cursor-pointer rounded-sm px-2 py-1 text-sm font-medium text-ink-2 hover:bg-hover"
+						className="rounded-sm px-2 py-1 text-sm font-medium text-ink-2 hover:bg-hover"
 						onClick={onClose}
 					>
 						Close

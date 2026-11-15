@@ -97,7 +97,7 @@ function ArchivedRow({ doc }: { doc: ArchivedChurchSummary }) {
 			<IntentLink
 				href={`/documents/church/${doc.id}`}
 				className={cn(
-					"group flex min-h-11 min-w-0 flex-1 cursor-pointer flex-col justify-center gap-1 rounded-md",
+					"group flex min-h-11 min-w-0 flex-1 flex-col justify-center gap-1 rounded-md",
 					"focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-focus",
 				)}
 			>

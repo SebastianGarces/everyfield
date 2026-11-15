@@ -142,7 +142,7 @@ const REACT_DOM = new Set(["react-dom"]);
 const TIMER_MODULES = new Set(["timers", "node:timers", "timers/promises", "node:timers/promises"]);
 const FUNCTIONS = new Set(["FunctionDeclaration", "FunctionExpression", "ArrowFunctionExpression"]);
 
-export const INTERACTIVE_HOSTS = ["a", "button", "input", "label", "option", "select", "summary"];
+export const INTERACTIVE_HOSTS = ["a[href]", "area[href]", "button", "input", "option", "select", "summary"];
 export const INTERACTIVE_ROLES = [
 	"button",
 	"checkbox",
@@ -510,19 +510,27 @@ const noComments = ratcheted("no-comments", (context, push) => {
 	};
 });
 
-const literalRole = (element) => {
-	const role = element.attributes.find((a) => a.type === "JSXAttribute" && a.name.name === "role");
-	if (!role) return undefined;
-	const value = role.value?.type === "JSXExpressionContainer" ? role.value.expression : role.value;
+const literalAttribute = (element, name) => {
+	const attribute = element.attributes.find((a) => a.type === "JSXAttribute" && a.name.name === name);
+	if (!attribute) return undefined;
+	const value = attribute.value?.type === "JSXExpressionContainer" ? attribute.value.expression : attribute.value;
 	return value?.type === "Literal" && typeof value.value === "string" ? value.value : null;
+};
+
+const acceptsHost = (host, element) => {
+	const [, tag, required] = host.match(/^([a-z]+)(?:\[([a-z-]+)\])?$/);
+	return (
+		element.name.name === tag &&
+		(!required || element.attributes.some((a) => a.type === "JSXAttribute" && a.name.name === required))
+	);
 };
 
 const clickableHost = ratcheted("clickable-host", (context, push) => ({
 	JSXOpeningElement(node) {
 		if (node.name.type !== "JSXIdentifier" || !/^[a-z]/.test(node.name.name)) return;
-		if (INTERACTIVE_HOSTS.includes(node.name.name)) return;
+		if (INTERACTIVE_HOSTS.some((host) => acceptsHost(host, node))) return;
 		const handler = node.attributes.find((a) => a.type === "JSXAttribute" && POINTER_HANDLERS.has(a.name.name));
-		if (!handler || INTERACTIVE_ROLES.includes(literalRole(node))) return;
+		if (!handler || INTERACTIVE_ROLES.includes(literalAttribute(node, "role"))) return;
 		push({
 			node: handler,
 			fn: enclosingName(node),

@@ -189,15 +189,58 @@ export function Row({ on }) {
 			<li role="option" aria-selected onClick={on} onKeyDown={on}>a</li>
 			<div role="presentation" onClick={on} className={\`p-2 hover:cursor-default \${on}\`} />
 			<button onClick={on} className="cursor-grab cursor-progress">b</button>
+			<a href="/x" onClick={on}>c</a>
+			<a onClick={on}>d</a>
+			<label onClick={on}>
+				<input type="text" />
+			</label>
 		</ul>
 	);
 }
 `;
 	assert.deepEqual(lint({ "apps/web/src/features/x/Row.tsx": source, "packages/ui/src/Row.tsx": source }), [
 		"apps/web/src/features/x/Row.tsx:1 no-cursor-utility",
+		"apps/web/src/features/x/Row.tsx:10 clickable-host",
 		"apps/web/src/features/x/Row.tsx:6 clickable-host",
 		"apps/web/src/features/x/Row.tsx:6 no-cursor-utility",
+		"apps/web/src/features/x/Row.tsx:9 clickable-host",
 	]);
+});
+
+function cursorRuleSelectors(css, cursor) {
+	const rule = css.match(new RegExp(`(:where\\((?:[^{}])*?)\\{\\s*cursor:\\s*${cursor};`));
+	assert.ok(rule, `controls.css has a :where() rule that sets cursor: ${cursor}`);
+	const text = rule[1].slice(":where(".length);
+	const items = [];
+	let depth = 0;
+	let start = 0;
+	for (let i = 0; i < text.length && depth >= 0; i++) {
+		if (text[i] === "(") depth++;
+		else if (text[i] === ")") depth--;
+		if ((text[i] === "," && depth === 0) || depth < 0) {
+			items.push(text.slice(start, i).trim());
+			start = i + 1;
+		}
+	}
+	return items;
+}
+
+test("INV-cursor: the base pointer rule covers exactly the hosts and roles clickable-host accepts, plus labels, which take no handler", async () => {
+	const { INTERACTIVE_HOSTS, INTERACTIVE_ROLES } = await import(PLUGIN);
+	const css = readFileSync(join(repo, "packages/ui/src/controls/controls.css"), "utf8");
+	const hostOf = (item) => item.match(/^[a-z]+(?:\[href\])?/)?.[0];
+	const roleOf = (item) => item.match(/^\[role="([a-z]+)"\]$/)?.[1];
+	const pointer = cursorRuleSelectors(css, "pointer");
+	const pointerHosts = [...new Set(pointer.map(hostOf).filter(Boolean))].sort();
+	assert.deepEqual(pointerHosts, [...INTERACTIVE_HOSTS, "label"].sort());
+	assert.deepEqual(pointer.map(roleOf).filter(Boolean).sort(), [...INTERACTIVE_ROLES].sort());
+	const disabled = cursorRuleSelectors(css, "not-allowed");
+	const disabledHosts = new Set(disabled.map(hostOf).filter(Boolean));
+	assert.deepEqual(
+		INTERACTIVE_HOSTS.filter((host) => !disabledHosts.has(host)),
+		[],
+	);
+	assert.deepEqual(disabled.map(roleOf).filter(Boolean).sort(), [...INTERACTIVE_ROLES].sort());
 });
 
 test("INV-lint: a baseline allows its count, refuses growth and refuses a stale entry; a survivor covers only its function", () => {

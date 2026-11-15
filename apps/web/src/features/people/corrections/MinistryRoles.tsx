@@ -97,7 +97,7 @@ export function MinistryRoles({ initial, canCorrect }: { initial: Role[]; canCor
 								<span className="font-medium text-ink">{r.roleName}</span>
 								<IntentLink
 									href={`/ministries/${r.teamId}`}
-									className="w-fit cursor-pointer text-sm text-text-2 underline-offset-2 hover:underline"
+									className="w-fit text-sm text-text-2 underline-offset-2 hover:underline"
 								>
 									{r.teamName}
 								</IntentLink>
