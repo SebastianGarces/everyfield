@@ -30,6 +30,7 @@ const factories = {
 	createNotificationProducer: "notifications",
 	createLifecycleCleanup: "lifecycle.purge",
 	referenceService: "reference",
+	messageTemplateInstaller: "reference",
 	attemptBudget: "identity.budget",
 	createTaskWriter: "tasks",
 	createTemplateReader: "tasks",

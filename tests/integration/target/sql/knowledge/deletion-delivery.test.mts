@@ -206,7 +206,8 @@ test("AC:DEL58-006 pending deletion hands off nothing new, leaves held mail to r
 	await admin.execute(
 		sql`UPDATE mail SET scheduled_at = clock_timestamp() WHERE logical_key LIKE ${"communication/" + pending.id + "/%"}`,
 	);
-	assert.equal(await runDueScheduled(db, transport, keys, 10, Date.now() + 1), 0);
+	// The host clock stands at DELETE_AT, so the run's end a minute later lets it look at every due batch.
+	assert.equal(await runDueScheduled(db, transport, keys, 10, DELETE_AT.getTime() + 60_000), 0);
 	assert.equal(await cancelUnsubscribedHeld(db, transport, 10), 0);
 	refused(await handoff("dispatchAttempt", pending), "access_denied");
 	refused(
