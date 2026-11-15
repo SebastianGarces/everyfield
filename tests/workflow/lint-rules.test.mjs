@@ -343,6 +343,24 @@ export function Panel() {
 	);
 });
 
+test("INV-lint: a createRead loader only loads its key: a call of a read, optionally mapped, and nothing else", () => {
+	const source = `import { createRead } from "../../components/read.tsx";
+import { loadThing, markSeen } from "./actions.ts";
+export const a = createRead((id) => loadThing(id), { failed: () => null });
+export const b = createRead((id) => fetch("/x?id=" + id).then((r) => r.json()), { failed: () => null });
+export const c = createRead(() => loadThing().catch(() => null), { failed: () => null });
+export const d = createRead(async (id) => { markSeen(id); return loadThing(id); }, { failed: () => null });
+export const e = createRead(loadThing, { failed: () => null });
+export const f = createRead((id) => (markSeen(id), loadThing(id)), { failed: () => null });
+export const g = createRead((id) => loadThing(id).then((r) => { markSeen(id); return r; }), { failed: () => null });
+`;
+	assert.deepEqual(lint({ "apps/web/src/features/x/reads.ts": source }), [
+		"apps/web/src/features/x/reads.ts:6 read-loader",
+		"apps/web/src/features/x/reads.ts:8 read-loader",
+		"apps/web/src/features/x/reads.ts:9 read-loader",
+	]);
+});
+
 function cursorRuleSelectors(css, cursor) {
 	const rule = css.match(new RegExp(`(:where\\((?:[^{}])*?)\\{\\s*cursor:\\s*${cursor};`));
 	assert.ok(rule, `controls.css has a :where() rule that sets cursor: ${cursor}`);

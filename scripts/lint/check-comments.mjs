@@ -52,6 +52,7 @@ const CONFIGS = {
 			"no-raw-history",
 			"no-global-listeners",
 			"zustand-shape",
+			"read-loader",
 			"feature-boundaries",
 		],
 	},
