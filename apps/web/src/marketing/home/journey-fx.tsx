@@ -1,9 +1,10 @@
 "use client";
 
-import { useInView, useMotionValue } from "motion/react";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { observeSize, prefersReducedMotion } from "@everyfield/ui/foundations";
+import { useMotionValue } from "motion/react";
+import { useCallback, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { EvryBot } from "@/components/kit/EvryBot";
-import { useReduced, useTabHidden } from "@/components/motion/scene";
+import { createAutoplay, joinRefs } from "../playback";
 import { stopCurve, stopLeft, type Pt } from "../sections/stop-curve";
 
 // The journey path (OPS-82 prototype, pthLayout to pthGo). One smooth curve runs through the six stop centres. EvryBot
@@ -50,14 +51,7 @@ export function JourneyPath({
 	const mood = useMotionValue("idle");
 
 	const [k, setK] = useState(0);
-	const [say, setSay] = useState(0);
-	const [hover, setHover] = useState(false);
-	const [focus, setFocus] = useState(false);
-	const [user, setUser] = useState(false);
-	const hidden = useTabHidden();
-	const reduced = useReduced();
-	const vis = useInView(band, { amount: 0.45 });
-	const running = vis && !hover && !focus && !user && !hidden && reduced === false;
+	const [autoplay] = useState(() => createAutoplay(STEP));
 
 	/** The walker rides above the line at length L; the walked line ends under it. */
 	const put = useCallback((L: number) => {
@@ -110,18 +104,19 @@ export function JourneyPath({
 	}, [n]);
 
 	const arrive = useCallback(
-		(i: number, quiet?: boolean) => {
-			setSay(i);
+		(i: number) => {
+			bubble.current!.textContent = steps[i]!.say;
+			place();
 			bubble.current!.removeAttribute("data-swap");
 			clearTimeout(moodTimer.current);
-			if (quiet || reduced) return;
+			if (prefersReducedMotion()) return;
 			mood.set("talking");
 			moodTimer.current = setTimeout(() => {
 				mood.set(/task/.test(steps[i]!.say) ? "happy" : "idle");
 				moodTimer.current = setTimeout(() => mood.set("idle"), 1600);
 			}, 1300);
 		},
-		[mood, reduced, steps],
+		[mood, place, steps],
 	);
 
 	const walk = useCallback(
@@ -131,7 +126,7 @@ export function JourneyPath({
 				from = g.L,
 				to = g.at[i]!,
 				dist = Math.abs(to - from);
-			if (dist < 1 || reduced) {
+			if (dist < 1 || prefersReducedMotion()) {
 				put(to);
 				arrive(i);
 				return;
@@ -146,6 +141,7 @@ export function JourneyPath({
 				easing: "cubic-bezier(.4,0,.4,1)",
 			});
 			const frame = (now: number) => {
+				if (!walker.current) return;
 				const u = Math.min(1, (now - t0) / dur);
 				put(from + (to - from) * ease(u));
 				if (u < 1) raf.current = requestAnimationFrame(frame);
@@ -153,19 +149,21 @@ export function JourneyPath({
 			};
 			raf.current = requestAnimationFrame(frame);
 		},
-		[arrive, mood, put, reduced],
+		[arrive, mood, put],
 	);
 
 	const go = useCallback(
 		(i: number) => {
+			const moved = geo.current.k !== i;
 			geo.current.k = i;
 			setK(i);
 			walk(i);
+			if (moved) autoplay.restart();
 		},
-		[walk],
+		[autoplay, walk],
 	);
 	const pick = (i: number) => {
-		setUser(true);
+		autoplay.hold("user", true);
 		go(i);
 	};
 	const onKey = (i: number) => (e: KeyboardEvent<HTMLButtonElement>) => {
@@ -178,54 +176,45 @@ export function JourneyPath({
 		pick(j);
 	};
 
-	// First layout, and again when the band resizes or the fonts arrive: the walker stays on its stop.
-	useLayoutEffect(() => {
-		const relayout = () => {
-			layout();
-			cancelAnimationFrame(raf.current);
-			put(geo.current.at[geo.current.k]!);
-			place();
-			bubble.current!.removeAttribute("data-swap");
-			// Hidden until the first layout puts it on its stop.
-			walker.current!.style.visibility = "visible";
-		};
-		relayout();
-		const ro = new ResizeObserver(relayout);
-		ro.observe(band.current!);
-		void document.fonts.ready.then(relayout);
-		return () => {
-			ro.disconnect();
-			cancelAnimationFrame(raf.current);
-			clearTimeout(moodTimer.current);
-		};
-	}, [layout, place, put]);
-
-	// The bubble takes its new line, then finds its place over the walker.
-	useLayoutEffect(place, [say, place]);
-
-	// Auto-advance: each arrival starts a new STEP wait while nothing pauses the band.
-	useEffect(() => {
-		if (!running) return;
-		const id = setTimeout(() => go((k + 1) % n), STEP);
-		return () => clearTimeout(id);
-	}, [running, k, n, go]);
+	const bandRef = useCallback(
+		(node: HTMLDivElement | null) =>
+			joinRefs<HTMLDivElement>(
+				(node) => {
+					band.current = node;
+					return undefined;
+				},
+				observeSize(
+					() => {
+						layout();
+						cancelAnimationFrame(raf.current);
+						put(geo.current.at[geo.current.k]!);
+						place();
+						bubble.current!.removeAttribute("data-swap");
+						walker.current!.style.visibility = "visible";
+					},
+					{ fonts: true },
+				),
+				autoplay.observe(() => go((geo.current.k + 1) % n), 0.45),
+			)(node),
+		[autoplay, go, layout, n, place, put],
+	);
 
 	return (
 		<section
 			id="week"
 			aria-labelledby="week-title"
 			className="relative py-section"
-			onMouseEnter={() => setHover(true)}
-			onMouseLeave={() => setHover(false)}
-			onFocus={() => setFocus(true)}
+			onMouseEnter={() => autoplay.hold("hover", true)}
+			onMouseLeave={() => autoplay.hold("hover", false)}
+			onFocus={() => autoplay.hold("focus", true)}
 			onBlur={(e) => {
-				if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setFocus(false);
+				if (!e.currentTarget.contains(e.relatedTarget as Node | null)) autoplay.hold("focus", false);
 			}}
 		>
 			<div className="mx-auto max-w-mk px-page">
 				{head}
 				<div
-					ref={band}
+					ref={bandRef}
 					className="relative isolate h-[clamp(340px,32vw,460px)] [--hi:60%] [--ic:clamp(46px,6vw,92px)] [--lo:72%] max-mk-cx:[--hi:64%] max-mk-cx:[--lo:78%]"
 				>
 					{photo}
@@ -285,7 +274,7 @@ export function JourneyPath({
 							ref={bubble}
 							className="absolute bottom-[calc(100%+12px)] left-(--bx,0px) m-0 w-max max-w-[min(320px,calc(100vw-64px))] bg-mk-canvas px-[15px] py-[11px] type-lg leading-[1.4] text-ink shadow-mk-say transition-[opacity,translate] duration-250 after:absolute after:top-full after:left-(--tx,20px) after:-ml-[7px] after:border-[7px] after:border-transparent after:border-t-mk-canvas after:content-[''] data-swap:translate-y-1 data-swap:opacity-0 max-mk-cx:max-w-[250px] max-mk-cx:px-3 max-mk-cx:py-[9px] max-mk-cx:type-md"
 						>
-							{steps[say]!.say}
+							{steps[0]!.say}
 						</p>
 						<span ref={bot} className="block size-[clamp(44px,4.2vw,62px)]">
 							<span className="block origin-top-left">
