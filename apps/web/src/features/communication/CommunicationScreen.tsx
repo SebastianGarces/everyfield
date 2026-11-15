@@ -12,7 +12,7 @@ import { Templates } from "./Templates.tsx";
 
 type Section = "messages" | "templates" | "address";
 
-addAddressRule((to) => {
+addAddressRule("communication: an unsaved new message starts at Who", (to) => {
 	if (to.pathname !== "/communication" || to.searchParams.get("compose") !== "new") return null;
 	const route = parseRoute(Object.fromEntries(to.searchParams));
 	if (route.kind !== "compose" || route.handoff || route.step === "who") return null;

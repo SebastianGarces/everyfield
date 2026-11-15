@@ -7,6 +7,7 @@ type Listener = () => void;
 type EntryChange = { navigationType: "push" | "replace" | "reload" | "traverse" | null };
 type EntryChanges = {
 	addEventListener(type: "currententrychange", listener: (event: EntryChange) => void): void;
+	removeEventListener(type: "currententrychange", listener: (event: EntryChange) => void): void;
 };
 
 export type AddressParams = Omit<URLSearchParams, "append" | "delete" | "set" | "sort">;
@@ -16,7 +17,7 @@ export type AddressRule = (to: URL, from: URL | null) => string | null;
 
 const changes = new Set<Listener>();
 const traversals = new Set<Listener>();
-const rules: AddressRule[] = [];
+const rules = new Map<string, AddressRule>();
 let routerBehind = false;
 let writing = false;
 let shown: string | null = null;
@@ -26,7 +27,7 @@ export const currentAddress = () => window.location.pathname + window.location.s
 const urlOf = (href: string | URL) => new URL(href, ORIGIN);
 
 function ruled(to: URL, from: URL | null): string | null {
-	for (const rule of rules) {
+	for (const rule of rules.values()) {
 		const next = rule(to, from);
 		if (next !== null) return next;
 	}
@@ -61,10 +62,21 @@ function routerWrote(event: EntryChange) {
 	shown = currentAddress();
 }
 
+type Installed = { popstate: () => void; entry: (event: EntryChange) => void };
+const INSTALLED = Symbol.for("everyfield.location");
+
 if (typeof window !== "undefined") {
+	const host = window as unknown as Record<symbol, Installed | undefined>;
+	const navigation = (window as { navigation?: EntryChanges }).navigation;
+	const previous = host[INSTALLED];
+	if (previous) {
+		window.removeEventListener("popstate", previous.popstate);
+		navigation?.removeEventListener("currententrychange", previous.entry);
+	}
+	host[INSTALLED] = { popstate: traversed, entry: routerWrote };
 	shown = currentAddress();
 	window.addEventListener("popstate", traversed);
-	(window as { navigation?: EntryChanges }).navigation?.addEventListener("currententrychange", routerWrote);
+	navigation?.addEventListener("currententrychange", routerWrote);
 }
 
 const subscribe = (listener: Listener) => {
@@ -77,8 +89,8 @@ export function onTraversal(listener: Listener): () => void {
 	return () => void traversals.delete(listener);
 }
 
-export function addAddressRule(rule: AddressRule): void {
-	if (!rules.includes(rule)) rules.push(rule);
+export function addAddressRule(name: string, rule: AddressRule): void {
+	rules.set(name, rule);
 }
 
 export function writeAddress(href: string | URL, { replace = false, state }: AddressWrite = {}): void {

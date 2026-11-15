@@ -62,7 +62,17 @@ function onBeforeUnload(event: BeforeUnloadEvent) {
 	event.returnValue = "";
 }
 
+type Installed = { keydown: (event: KeyboardEvent) => void; beforeunload: (event: BeforeUnloadEvent) => void };
+const INSTALLED = Symbol.for("everyfield.page-events");
+
 if (typeof window !== "undefined") {
+	const host = window as unknown as Record<symbol, Installed | undefined>;
+	const previous = host[INSTALLED];
+	if (previous) {
+		window.removeEventListener("keydown", previous.keydown);
+		window.removeEventListener("beforeunload", previous.beforeunload);
+	}
+	host[INSTALLED] = { keydown: onKeyDown, beforeunload: onBeforeUnload };
 	window.addEventListener("keydown", onKeyDown);
 	window.addEventListener("beforeunload", onBeforeUnload);
 }
