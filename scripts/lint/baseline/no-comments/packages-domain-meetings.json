@@ -3,7 +3,7 @@
 	"packages/domain/src/meetings/attendance.ts": 42,
 	"packages/domain/src/meetings/core.ts": 20,
 	"packages/domain/src/meetings/guests.ts": 21,
-	"packages/domain/src/meetings/meetings.ts": 22,
+	"packages/domain/src/meetings/meetings.ts": 20,
 	"packages/domain/src/meetings/notifications.ts": 8,
 	"packages/domain/src/meetings/queries.ts": 16,
 	"packages/domain/src/meetings/roster.ts": 10,

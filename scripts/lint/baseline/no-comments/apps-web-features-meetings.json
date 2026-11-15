@@ -16,7 +16,7 @@
 	"apps/web/src/features/meetings/deletions.ts": 7,
 	"apps/web/src/features/meetings/dialogs.tsx": 6,
 	"apps/web/src/features/meetings/errors.tsx": 1,
-	"apps/web/src/features/meetings/model.ts": 30,
+	"apps/web/src/features/meetings/model.ts": 29,
 	"apps/web/src/features/meetings/next-step.ts": 11,
 	"apps/web/src/features/meetings/page-state.ts": 9,
 	"apps/web/src/features/meetings/parts.tsx": 6,
