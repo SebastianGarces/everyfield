@@ -30,16 +30,21 @@ start. These rules apply to every role that opens a browser.
   times out or gets a signal, it closes the run's agent-browser session, stops every process
   the run started and deletes the run's temporary directory, where Playwright keeps its profiles.
 - Interactive checks use `bin/app`, never the Playwright MCP. It drives agent-browser in one session
-  per worktree (`app-<worktree>`, 10 min idle timeout), prints one line per result, and its exit
-  code is the result (0 ok, 1 expectation failed, 3 not found, 4 no app). `bin/app help` is the
-  whole guide; `bin/app raw -- <args>` reaches any other agent-browser command in the same session.
+  per worktree (`app-<worktree>`, 10 min idle timeout, reopened as the last persona after an idle
+  close), prints one line per result, and its exit code is the result (0 ok, 1 expectation failed,
+  3 not found, 4 no app). `bin/app help` is the whole guide. Write the whole flow as one `do` script
+  and make every step prove something: `fill` reads the value back, actions print new status and
+  alert text, `expect` checks the result.
 
   ```bash
   bin/app up                                   # this head on a throwaway Postgres with the QA seed
   bin/app --task <task>-verify do <<'EOF'
   login owner --goto /people
-  click "Ana Lee"
-  expect --text "Ana Lee"
+  click "Lena Park"
+  click "Edit profile"
+  fill City Provo
+  click "Save changes"
+  expect --text Provo
   shot person
   cursor-audit
   errors
@@ -47,7 +52,14 @@ start. These rules apply to every role that opens a browser.
   bin/app down                                 # closes the browser too; bin/app close keeps the app
   ```
 
-  `shot` writes 390 and 1440 px PNGs to `$E/shots` when `--task` is `<task>-verify`.
+  `shot` writes true 390 and 1440 px PNGs to `$E/shots` when `--task` is `<task>-verify`. Against a
+  portless preview, pass `--url <preview>` once and `login <key> --cookie-file <tests/ui fixture>`.
+- When you use agent-browser directly (`bin/app raw -- <args>` keeps the session flags), chain the
+  steps in one shell call with semantic locators instead of a snapshot and an `@ref` per step:
+  `find role link click --name "Lena Park" --exact && find label City fill Provo && find role button
+  click --name "Save changes" && wait --fn "document.body.innerText.includes('Provo')"`. Its `fill`
+  does not check the result (a date or time input stays empty and it still prints done), and
+  `screenshot --full` at 390 or 1440 comes out 375 or 1425 px wide when the page scrolls.
 - Stop only processes you started, by PID or process group. Never stop processes by a name
   pattern (`pkill chrome`, `killall`): other agents' browsers run on the same machine.
 - Before you end, none of your browsers or agent-browser sessions may still be running.
