@@ -313,7 +313,7 @@ export function createEvryPanelStore(init: { context: string; port: EvryPort }):
 				setView: (view) => {
 					if (view === get().view) return;
 					if (view === "history") dropPhoto();
-					set({ view });
+					set({ view, ...(view === "history" && { chat: { ...get().chat, reviews: {} } }) });
 					if (view === "chat") watchAgain();
 				},
 				write: (draft) => set({ draft }),
@@ -395,6 +395,7 @@ export function createEvryPanelStore(init: { context: string; port: EvryPort }):
 						if (readers > 0) return;
 						unwatch();
 						follow();
+						set({ chat: { ...get().chat, reviews: {} } });
 					};
 				},
 				select: (conversationId) =>
