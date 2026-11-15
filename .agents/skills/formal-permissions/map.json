@@ -1,5 +1,7 @@
 {
 	"model": "formal/permissions",
+	"generated": ["formal/permissions/outcomes.json", "formal/permissions/traces.json"],
+	"tests": ["tests/integration/access/formal-permissions.test.mts", "tests/integration/access/formal-replay.test.mts"],
 	"actions": [
 		{
 			"name": "SignIn",
@@ -9,9 +11,7 @@
 					"function": "handle"
 				}
 			],
-			"ids": [
-				"REQ-IDN-001"
-			]
+			"ids": ["REQ-IDN-001"]
 		},
 		{
 			"name": "EndSession",
@@ -25,10 +25,7 @@
 					"function": "live_session"
 				}
 			],
-			"ids": [
-				"REQ-IDN-001",
-				"REQ-IDN-029"
-			]
+			"ids": ["REQ-IDN-001", "REQ-IDN-029"]
 		},
 		{
 			"name": "SeatAction",
@@ -50,11 +47,7 @@
 					"function": "revoke_removed_seat_sessions"
 				}
 			],
-			"ids": [
-				"REQ-IDN-019",
-				"REQ-IDN-029",
-				"D70"
-			]
+			"ids": ["REQ-IDN-019", "REQ-IDN-029", "D70"]
 		},
 		{
 			"name": "Invite",
@@ -68,9 +61,7 @@
 					"function": "writeAsAdministrator"
 				}
 			],
-			"ids": [
-				"REQ-IDN-017"
-			]
+			"ids": ["REQ-IDN-017"]
 		},
 		{
 			"name": "Revoke",
@@ -84,9 +75,7 @@
 					"function": "pending"
 				}
 			],
-			"ids": [
-				"REQ-IDN-017"
-			]
+			"ids": ["REQ-IDN-017"]
 		},
 		{
 			"name": "Expire",
@@ -100,9 +89,7 @@
 					"function": "current"
 				}
 			],
-			"ids": [
-				"REQ-IDN-017"
-			]
+			"ids": ["REQ-IDN-017"]
 		},
 		{
 			"name": "Accept",
@@ -120,10 +107,7 @@
 					"function": "current"
 				}
 			],
-			"ids": [
-				"REQ-IDN-017",
-				"REQ-IDN-005"
-			]
+			"ids": ["REQ-IDN-017", "REQ-IDN-005"]
 		},
 		{
 			"name": "Resolve",
@@ -137,10 +121,7 @@
 					"function": "readRequestViewer"
 				}
 			],
-			"ids": [
-				"REQ-IDN-029",
-				"D59"
-			]
+			"ids": ["REQ-IDN-029", "D59"]
 		},
 		{
 			"name": "Run",
@@ -162,11 +143,7 @@
 					"function": "writeAuthority"
 				}
 			],
-			"ids": [
-				"REQ-IDN-029",
-				"C13",
-				"D70"
-			]
+			"ids": ["REQ-IDN-029", "C13", "D70"]
 		}
 	],
 	"rules": [
@@ -182,9 +159,7 @@
 					"function": "writeAsAdministrator"
 				}
 			],
-			"ids": [
-				"REQ-IDN-019"
-			]
+			"ids": ["REQ-IDN-019"]
 		},
 		{
 			"name": "MayInvite",
@@ -198,9 +173,7 @@
 					"function": "ordinarySeatRole"
 				}
 			],
-			"ids": [
-				"REQ-IDN-017"
-			]
+			"ids": ["REQ-IDN-017"]
 		},
 		{
 			"name": "MayRevoke",
@@ -210,9 +183,7 @@
 					"function": "change"
 				}
 			],
-			"ids": [
-				"REQ-IDN-017"
-			]
+			"ids": ["REQ-IDN-017"]
 		},
 		{
 			"name": "MayAccept",
@@ -226,9 +197,7 @@
 					"function": "current"
 				}
 			],
-			"ids": [
-				"REQ-IDN-017"
-			]
+			"ids": ["REQ-IDN-017"]
 		},
 		{
 			"name": "ResolveAdmits",
@@ -236,6 +205,10 @@
 				{
 					"file": "packages/domain/src/access/session.ts",
 					"function": "actorOf"
+				},
+				{
+					"file": "packages/domain/src/people/core.ts",
+					"function": "seated"
 				},
 				{
 					"file": "packages/domain/src/identity/invitations.ts",
@@ -246,10 +219,7 @@
 					"function": "list"
 				}
 			],
-			"ids": [
-				"REQ-IDN-029",
-				"D59"
-			]
+			"ids": ["REQ-IDN-029", "D59"]
 		},
 		{
 			"name": "LiveCheck",
@@ -263,10 +233,7 @@
 					"function": "writeAuthority"
 				}
 			],
-			"ids": [
-				"C13",
-				"D70"
-			]
+			"ids": ["C13", "D70"]
 		}
 	],
 	"properties": [
@@ -278,9 +245,7 @@
 					"function": "seat_uq_0"
 				}
 			],
-			"ids": [
-				"REQ-IDN-005"
-			]
+			"ids": ["REQ-IDN-005"]
 		},
 		{
 			"name": "OneLiveSeatPerAccount",
@@ -290,9 +255,7 @@
 					"function": "seat_uq_0"
 				}
 			],
-			"ids": [
-				"REQ-IDN-005"
-			]
+			"ids": ["REQ-IDN-005"]
 		},
 		{
 			"name": "OneLiveOwner",
@@ -306,9 +269,7 @@
 					"function": "seat_uq_2"
 				}
 			],
-			"ids": [
-				"REQ-IDN-029"
-			]
+			"ids": ["REQ-IDN-029"]
 		},
 		{
 			"name": "OwnerSeatFixed",
@@ -318,10 +279,7 @@
 					"function": "mutation"
 				}
 			],
-			"ids": [
-				"REQ-IDN-019",
-				"REQ-IDN-029"
-			]
+			"ids": ["REQ-IDN-019", "REQ-IDN-029"]
 		},
 		{
 			"name": "NoInvitationGrantsOwner",
@@ -335,9 +293,7 @@
 					"function": "accept"
 				}
 			],
-			"ids": [
-				"REQ-IDN-017"
-			]
+			"ids": ["REQ-IDN-017"]
 		},
 		{
 			"name": "OnlyAdministratorsChangeSeats",
@@ -351,10 +307,7 @@
 					"function": "lockWriteAuthority"
 				}
 			],
-			"ids": [
-				"REQ-IDN-019",
-				"REQ-IDN-029"
-			]
+			"ids": ["REQ-IDN-019", "REQ-IDN-029"]
 		},
 		{
 			"name": "NoActionOnEndedSeat",
@@ -364,9 +317,7 @@
 					"function": "mutation"
 				}
 			],
-			"ids": [
-				"REQ-IDN-019"
-			]
+			"ids": ["REQ-IDN-019"]
 		},
 		{
 			"name": "TenantAccessNeedsSeat",
@@ -380,10 +331,7 @@
 					"function": "writeAuthority"
 				}
 			],
-			"ids": [
-				"REQ-IDN-005",
-				"C13"
-			]
+			"ids": ["REQ-IDN-005", "C13"]
 		},
 		{
 			"name": "StatementSeesLiveAccess",
@@ -397,10 +345,7 @@
 					"function": "liveRows"
 				}
 			],
-			"ids": [
-				"C13",
-				"REQ-IDN-029"
-			]
+			"ids": ["C13", "REQ-IDN-029"]
 		},
 		{
 			"name": "NoChangeWithoutAccess",
@@ -410,10 +355,7 @@
 					"function": "writeAuthority"
 				}
 			],
-			"ids": [
-				"D70",
-				"REQ-IDN-029"
-			]
+			"ids": ["D70", "REQ-IDN-029"]
 		},
 		{
 			"name": "InvitationAcceptedOnce",
@@ -427,9 +369,7 @@
 					"function": "current"
 				}
 			],
-			"ids": [
-				"REQ-IDN-017"
-			]
+			"ids": ["REQ-IDN-017"]
 		},
 		{
 			"name": "AcceptOnlyPending",
@@ -443,9 +383,7 @@
 					"function": "current"
 				}
 			],
-			"ids": [
-				"REQ-IDN-017"
-			]
+			"ids": ["REQ-IDN-017"]
 		},
 		{
 			"name": "OneSeatPerAcceptance",
@@ -455,9 +393,7 @@
 					"function": "accept"
 				}
 			],
-			"ids": [
-				"REQ-IDN-017"
-			]
+			"ids": ["REQ-IDN-017"]
 		}
 	]
 }
