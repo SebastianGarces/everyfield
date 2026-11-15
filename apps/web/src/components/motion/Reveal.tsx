@@ -1,7 +1,7 @@
 "use client";
 
 import { prefersReducedMotion } from "@everyfield/ui/foundations";
-import { useEffect, useRef, type CSSProperties, type ReactNode, type RefObject } from "react";
+import { useEffect, type CSSProperties, type ReactNode, type RefObject } from "react";
 import { cn } from "../cn";
 
 /**
@@ -11,9 +11,8 @@ import { cn } from "../cn";
  * report carries the geometry, so nothing reads layout. Reduced motion: nothing happens.
  * up: the block after the phases rail rises further (28 px over .5 s) and also shows once it has been scrolled past.
  */
-export function useReveal(ref: RefObject<HTMLElement | null>, up?: boolean) {
-	useEffect(() => {
-		const el = ref.current;
+function revealOnceInView(up: boolean) {
+	return (el: HTMLElement | null) => {
 		if (!el || prefersReducedMotion()) return;
 		const margin = up ? 0.12 : 0.08;
 		let first = true;
@@ -39,7 +38,15 @@ export function useReveal(ref: RefObject<HTMLElement | null>, up?: boolean) {
 		);
 		io.observe(el);
 		return () => io.disconnect();
-	}, [ref, up]);
+	};
+}
+
+const REVEAL = { rise: revealOnceInView(false), riseFurther: revealOnceInView(true) };
+
+export const revealRef = (up?: boolean) => (up ? REVEAL.riseFurther : REVEAL.rise);
+
+export function useReveal(ref: RefObject<HTMLElement | null>, up?: boolean) {
+	useEffect(() => revealRef(up)(ref.current), [ref, up]);
 }
 
 /** Classes and style of a revealed block. delay: start delay in ms (siblings stagger 70 ms apart, at most 280 ms). */
@@ -59,11 +66,9 @@ type Props = { children: ReactNode; className?: string; delay?: number; up?: boo
 
 /** A div that rises in once (see useReveal). */
 export function Reveal({ children, className, delay = 0, up }: Props) {
-	const ref = useRef<HTMLDivElement>(null);
-	useReveal(ref, up);
 	const r = revealProps(delay, up);
 	return (
-		<div ref={ref} className={cn(r.className, className)} style={r.style}>
+		<div ref={revealRef(up)} className={cn(r.className, className)} style={r.style}>
 			{children}
 		</div>
 	);

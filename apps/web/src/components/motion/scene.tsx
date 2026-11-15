@@ -1,15 +1,8 @@
 "use client";
 
 import { cancelFrame, frame, useTransform, type MotionValue } from "motion/react";
-import {
-	createContext,
-	useContext,
-	useEffect,
-	useEffectEvent,
-	useRef,
-	useSyncExternalStore,
-	type ReactNode,
-} from "react";
+import { useDocumentHidden, useReducedMotion } from "@everyfield/ui/foundations";
+import { createContext, useCallback, useContext, useEffect, useEffectEvent, type ReactNode } from "react";
 import { transformOf, type Frame } from "./curves";
 
 /**
@@ -77,51 +70,25 @@ export function MText({
 	className?: string;
 	"data-n"?: string;
 }) {
-	const ref = useRef<HTMLSpanElement>(null);
-	useEffect(() => {
-		const el = ref.current;
-		if (!el) return;
-		el.textContent = value.get();
-		return value.on("change", (v) =>
-			frame.render(() => {
-				el.textContent = v;
-			}),
-		);
-	}, [value]);
+	const follow = useCallback(
+		(el: HTMLSpanElement | null) => {
+			if (!el) return;
+			el.textContent = value.get();
+			return value.on("change", (v) =>
+				frame.render(() => {
+					el.textContent = v;
+				}),
+			);
+		},
+		[value],
+	);
 	return (
-		<span ref={ref} className={className} {...rest} suppressHydrationWarning>
+		<span ref={follow} className={className} {...rest} suppressHydrationWarning>
 			{value.get()}
 		</span>
 	);
 }
 
-const REDUCE = "(prefers-reduced-motion: reduce)";
-const subscribeReduced = (cb: () => void) => {
-	const mq = matchMedia(REDUCE);
-	mq.addEventListener("change", cb);
-	return () => mq.removeEventListener("change", cb);
-};
-/**
- * The visitor's reduced-motion setting. The server and the hydrating render see false; React then renders again with
- * the real value, so attributes that depend on it (labels, icons) never keep a stale server value.
- */
-export function useReduced() {
-	return useSyncExternalStore(
-		subscribeReduced,
-		() => matchMedia(REDUCE).matches,
-		() => false,
-	);
-}
+export const useReduced = useReducedMotion;
 
-const subscribeHidden = (cb: () => void) => {
-	document.addEventListener("visibilitychange", cb);
-	return () => document.removeEventListener("visibilitychange", cb);
-};
-/** Whether the tab is hidden. Timers that advance a scene stop while it is; the server render sees a visible tab. */
-export function useTabHidden() {
-	return useSyncExternalStore(
-		subscribeHidden,
-		() => document.hidden,
-		() => false,
-	);
-}
+export const useTabHidden = useDocumentHidden;
