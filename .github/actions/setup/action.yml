@@ -1,0 +1,103 @@
+# The setup every CI job shares (T-285): Node, pnpm from corepack and the workspace's node_modules.
+# - Node and corepack's home come back from one cache keyed on the Node version and packageManager, so setup-node finds
+#   Node in the tool cache instead of downloading it, and corepack installs pnpm with no registry request. On a miss,
+#   corepack-install.sh fetches pnpm with its registry retries and the cache is saved straight after.
+# - node_modules comes back from a cache keyed on the lockfiles, pnpm-workspace.yaml, Node and pnpm, and
+#   `pnpm install --frozen-lockfile` still runs and checks it against the lockfile ("Already up to date"). On a miss pnpm
+#   installs from the registry and the cache is saved right after the install, before any test can write into it.
+# The job step that uses this action is named "Shared setup ...", which tools/ci/ci-timing.ts counts as setup.
+name: Shared CI setup
+description: Node, pnpm from corepack and node_modules from caches, then pnpm install --frozen-lockfile.
+inputs:
+  node-version:
+    description: Exact Node version.
+    required: true
+  install:
+    description: '"false" sets up Node only, for a job that runs no pnpm.'
+    default: "true"
+  extra-dirs:
+    description: >-
+      Space-separated directories with their own lockfile that the job installs itself later (tools/wiki). Their
+      lockfiles join the node_modules key and their node_modules join the cache, which the job then saves itself.
+    default: ""
+  save-modules:
+    description: '"false" leaves the node_modules save on a miss to the job, after it installs its extra-dirs.'
+    default: "true"
+outputs:
+  modules-hit:
+    description: '"true" when node_modules came back from the cache under the exact key.'
+    value: ${{ steps.modules.outputs.cache-hit }}
+  modules-key:
+    description: The node_modules cache key.
+    value: ${{ steps.keys.outputs.modules-key }}
+  modules-paths:
+    description: The node_modules cache paths, one per line.
+    value: ${{ steps.keys.outputs.modules-paths }}
+runs:
+  using: composite
+  steps:
+    - name: Cache keys
+      id: keys
+      shell: bash
+      env:
+        NODE_VERSION: ${{ inputs.node-version }}
+        INSTALL: ${{ inputs.install }}
+        EXTRA_DIRS: ${{ inputs.extra-dirs }}
+      run: |
+        set -euo pipefail
+        node_dir="$RUNNER_TOOL_CACHE/node/$NODE_VERSION"
+        if [ "$INSTALL" != true ]; then
+          echo "toolchain-key=node-$RUNNER_OS-$RUNNER_ARCH-$NODE_VERSION" >> "$GITHUB_OUTPUT"
+          { echo "toolchain-paths<<EOF"; echo "$node_dir"; echo EOF; } >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+        pm=$(jq -r .packageManager package.json)
+        echo "toolchain-key=node-corepack-$RUNNER_OS-$RUNNER_ARCH-$NODE_VERSION-$pm" >> "$GITHUB_OUTPUT"
+        { echo "toolchain-paths<<EOF"; echo "$node_dir"; echo "$HOME/.cache/node/corepack"; echo EOF; } >> "$GITHUB_OUTPUT"
+        lockfiles=(pnpm-lock.yaml pnpm-workspace.yaml)
+        paths=(node_modules)
+        # One node_modules per workspace package glob in pnpm-workspace.yaml.
+        while read -r glob; do paths+=("$glob/node_modules"); done < <(
+          awk '/^packages:/ { p = 1; next } /^[^ #-]/ { p = 0 } p && /^ *- / { sub(/^ *- */, ""); gsub(/["'\'']/, ""); print }' pnpm-workspace.yaml
+        )
+        for dir in $EXTRA_DIRS; do lockfiles+=("$dir/pnpm-lock.yaml"); paths+=("$dir/node_modules"); done
+        hash=$(sha256sum "${lockfiles[@]}" | sha256sum | cut -d' ' -f1)
+        echo "modules-key=pnpm-modules-$RUNNER_OS-$RUNNER_ARCH-node$NODE_VERSION-$pm-$hash" >> "$GITHUB_OUTPUT"
+        { echo "modules-paths<<EOF"; printf '%s\n' "${paths[@]}" '!node_modules/.cache'; echo EOF; } >> "$GITHUB_OUTPUT"
+    - name: Node and corepack cache
+      id: toolchain
+      uses: actions/cache/restore@v6
+      with:
+        path: ${{ steps.keys.outputs.toolchain-paths }}
+        key: ${{ steps.keys.outputs.toolchain-key }}
+    - uses: actions/setup-node@v7
+      with:
+        node-version: ${{ inputs.node-version }}
+        package-manager-cache: false
+    - name: pnpm from corepack (retries registry errors)
+      if: inputs.install == 'true'
+      shell: bash
+      run: .github/scripts/corepack-install.sh
+    - name: Save the Node and corepack cache
+      if: steps.toolchain.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v6
+      with:
+        path: ${{ steps.keys.outputs.toolchain-paths }}
+        key: ${{ steps.keys.outputs.toolchain-key }}
+    - name: node_modules cache
+      id: modules
+      if: inputs.install == 'true'
+      uses: actions/cache/restore@v6
+      with:
+        path: ${{ steps.keys.outputs.modules-paths }}
+        key: ${{ steps.keys.outputs.modules-key }}
+    - name: pnpm install
+      if: inputs.install == 'true'
+      shell: bash
+      run: pnpm install --frozen-lockfile
+    - name: Save the node_modules cache
+      if: inputs.install == 'true' && inputs.save-modules == 'true' && steps.modules.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v6
+      with:
+        path: ${{ steps.keys.outputs.modules-paths }}
+        key: ${{ steps.keys.outputs.modules-key }}
