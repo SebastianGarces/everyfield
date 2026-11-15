@@ -296,7 +296,7 @@ export function render(m: MachineShape, writers: readonly Writer[]): string {
 		"",
 		"| Subject | Event | From | To | Refusal |",
 		"|---|---|---|---|---|",
-		...declaredRefusals.map((r) => `| ${r.subject} | ${code(r.event)} | ${r.from} | ${r.to} | ${code(r.code)} |`),
+		...declaredRefusals.map((r) => `| ${code(r.subject)} | ${code(r.event)} | ${r.from} | ${r.to} | ${code(r.code)} |`),
 		...(declaredSkips.length
 			? [
 					"",
@@ -304,7 +304,7 @@ export function render(m: MachineShape, writers: readonly Writer[]): string {
 					"",
 					"| Subject | Event | From | Not moved to |",
 					"|---|---|---|---|",
-					...declaredSkips.map((r) => `| ${r.subject} | ${code(r.event)} | ${r.from} | ${r.to} |`),
+					...declaredSkips.map((r) => `| ${code(r.subject)} | ${code(r.event)} | ${r.from} | ${r.to} |`),
 				]
 			: []),
 		"",
