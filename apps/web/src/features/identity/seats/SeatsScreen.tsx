@@ -182,7 +182,7 @@ export function SeatsScreen({ initial }: { initial: SeatsData }) {
 function Shell({ title, subtitle, children }: { title: string; subtitle: string | null; children: React.ReactNode }) {
 	return (
 		<div className="mx-auto flex max-w-[880px] flex-col gap-6">
-			<PageHeader title={title} subtitle={subtitle ?? undefined} className="mb-0" />
+			<PageHeader title={title} subtitle={subtitle ?? undefined} />
 			{children}
 		</div>
 	);
@@ -453,7 +453,7 @@ function RosterCard({
 											onValueChange={(v) => {
 												if (v !== seat.role) void changeRole(seat, v === "admin" ? "admin" : "member");
 											}}
-											className="h-[34px] w-[130px]"
+											className="h-[34px]"
 										/>
 										{roleIntent.held === seat.seatId ? (
 											<Button

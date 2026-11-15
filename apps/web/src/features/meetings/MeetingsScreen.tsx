@@ -106,7 +106,7 @@ export function MeetingsScreen({ view, canWrite }: { view: MeetingsView; canWrit
 					{next ? <NextMeeting meeting={next} now={now} thisYear={thisYear} /> : null}
 					{canWrite ? <VisionReport thisYear={thisYear} /> : null}
 					<Card as="section" aria-labelledby="all-meetings">
-						<CardHeader className="flex-wrap items-center gap-3">
+						<CardHeader className="flex-wrap">
 							<CardHeading>
 								<CardTitle id="all-meetings">All meetings</CardTitle>
 							</CardHeading>

@@ -148,7 +148,7 @@ export function AttendanceCard({
 	const held = lane.wait !== null || blocked;
 	return (
 		<Card as="section" aria-labelledby="attendance-title" aria-busy={settling || undefined}>
-			<CardHeader className="mb-3.5">
+			<CardHeader>
 				<CardHeading>
 					<CardTitle id="attendance-title">Attendance</CardTitle>
 					<CardDescription>

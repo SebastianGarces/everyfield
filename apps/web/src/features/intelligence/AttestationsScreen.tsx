@@ -235,18 +235,8 @@ export function AttestationsScreen({ initial, viewerName }: { initial: Attestati
 			<div className="mb-5 grid grid-cols-4 gap-4 max-app-md:grid-cols-2">
 				<Stat label="Signals" value={page.signals.length} note="You answer these seven" />
 				<Stat label="Current" value={page.counts.current} note="Answered and up to date" />
-				<Stat
-					label="Needs renewing"
-					value={page.counts.needsRenewing}
-					tone={page.counts.needsRenewing ? "amber" : undefined}
-					note="Monthly answers older than 30 days"
-				/>
-				<Stat
-					label="Not answered"
-					value={page.counts.notAnswered}
-					tone={page.counts.notAnswered ? "amber" : undefined}
-					note="Shown as Unknown, never as no"
-				/>
+				<Stat label="Needs renewing" value={page.counts.needsRenewing} note="Monthly answers older than 30 days" />
+				<Stat label="Not answered" value={page.counts.notAnswered} note="Shown as Unknown, never as no" />
 			</div>
 			{SIGNAL_GROUPS.map((group) => {
 				const rows = signalsIn(page, group.id);
@@ -326,15 +316,11 @@ const GROUP_ICON: Record<(typeof SIGNAL_GROUPS)[number]["id"], IconSvgElement> =
 	foundations: MapsLocation01Icon,
 };
 
-function Stat({ label, value, note, tone }: { label: string; value: number; note: string; tone?: "amber" }) {
+function Stat({ label, value, note }: { label: string; value: number; note: string }) {
 	return (
 		<Card size="sm">
 			<div className="text-xs font-semibold text-text-3">{label}</div>
-			<div
-				className={cn("mt-1 font-display text-title-lg leading-none text-ink", tone === "amber" && "text-amber-600")}
-			>
-				{value}
-			</div>
+			<div className="mt-1 font-display text-title-lg leading-none text-ink">{value}</div>
 			<div className="mt-2 text-sm text-text-3">{note}</div>
 		</Card>
 	);

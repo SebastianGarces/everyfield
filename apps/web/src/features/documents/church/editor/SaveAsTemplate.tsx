@@ -239,7 +239,7 @@ export function SaveAsTemplateDialog({
 										label={
 											<span className="flex flex-wrap items-center gap-x-2 gap-y-1">
 												<span className="min-w-0 break-words">{t.title}</span>
-												<Tag className="h-[22px] px-2 text-xs">v{t.version}</Tag>
+												<Tag className="text-xs">v{t.version}</Tag>
 											</span>
 										}
 										description={t.description ?? undefined}

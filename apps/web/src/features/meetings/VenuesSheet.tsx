@@ -137,7 +137,7 @@ function Places({ canWrite, onOpen, onAdd }: { canWrite: boolean; onOpen: (id: s
 							tone="error"
 							title="Places did not load"
 							headingLevel="h3"
-							className="py-8"
+
 							actions={
 								<Button variant="secondary" size="sm" onClick={retry}>
 									Try again
@@ -236,7 +236,7 @@ function Place({
 		return (
 			<div className="flex flex-col gap-3">
 				{back}
-				<StatePanel tone="error" title="This place did not load" headingLevel="h3" className="py-8">
+				<StatePanel tone="error" title="This place did not load" headingLevel="h3">
 					{got.status === "ok" ? "It may have been removed." : "Nothing was changed. Try again in a moment."}
 				</StatePanel>
 			</div>

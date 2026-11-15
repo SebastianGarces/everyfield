@@ -81,7 +81,7 @@ export function PdfPreview({ title, pageSize, bytes }: Props) {
 
 	if (failed)
 		return (
-			<StatePanel tone="error" title="Preview unavailable" headingLevel="h3" className="py-8">
+			<StatePanel tone="error" title="Preview unavailable" headingLevel="h3">
 				{RENDER_FAILED}
 			</StatePanel>
 		);

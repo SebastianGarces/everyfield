@@ -37,7 +37,6 @@ export function CardFailed({ what, loaded }: { what: string; loaded: Exclude<Loa
 				tone={loaded.status === "denied" ? "lock" : "error"}
 				headingLevel="h2"
 				title={loaded.status === "denied" ? `${what} are not part of your seat` : `${what} could not load`}
-				className="py-10"
 			>
 				{loaded.status === "denied"
 					? "Your seat in this church changed. Reload the page to see what it allows now."

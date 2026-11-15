@@ -14,9 +14,9 @@ const DOT: Record<Status, string> = {
 	unknown: "bg-transparent shadow-[inset_0_0_0_1.5px_var(--ef-text-3)]",
 };
 const SOFT: Record<Status, string> = {
-	positive: "bg-green-100 text-green-700",
-	measured: "bg-blue-100 text-blue-600",
-	attention: "bg-amber-100 text-amber-600",
+	positive: "bg-green-100",
+	measured: "bg-blue-100",
+	attention: "bg-amber-100",
 	risk: "bg-magenta-100 text-magenta-600",
 	unknown: "bg-surface-2 text-text-2",
 };
