@@ -108,23 +108,12 @@ import { createReviewStore, lapsedOf, uploadOf, type Action, type Notice } from 
 
 type View = Phase | "loading" | "lost" | "unavailable" | "photo_unavailable" | "unknown";
 
-const shownSeeds = new WeakSet<Review>();
-const shownUnavailable = new Set<string>();
-
-function firstShow(proposalId: string, seed: Review | null | undefined): Review | null | undefined {
-	if (seed === undefined) return undefined;
-	const shown = seed ? shownSeeds.has(seed) : shownUnavailable.has(proposalId);
-	if (seed) shownSeeds.add(seed);
-	else shownUnavailable.add(proposalId);
-	return shown ? undefined : seed;
-}
-
 function useReview(proposalId: string, seed: Review | null | undefined) {
 	const router = useRouter();
 	const store = useLocalStore(() =>
 		createReviewStore({
 			id: proposalId,
-			seed: firstShow(proposalId, seed),
+			seed,
 			port: { ...api, refresh: () => router.refresh() },
 		}),
 	);

@@ -192,7 +192,9 @@ export function createReviewStore(init: {
 			if (watched && state.load === "loading") load();
 
 			const review = state.review;
-			const timed = watched && review && state.ranOut !== review && approvalLeft(review) > 0 ? review : null;
+			const counting = phaseNow(state) === "pending" || phaseNow(state) === "unconfirmed";
+			const timed =
+				watched && counting && review && state.ranOut !== review && approvalLeft(review) > 0 ? review : null;
 			if (expiry?.review !== timed) {
 				if (expiry) clearTimeout(expiry.timer);
 				expiry = timed ? { review: timed, timer: lapseLater(timed) } : null;
