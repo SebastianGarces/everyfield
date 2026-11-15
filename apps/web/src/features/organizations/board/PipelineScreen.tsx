@@ -22,7 +22,8 @@ type Card = Stage["people"][number];
 export function PipelineScreen({ initial, goals }: { initial: PipelineBoard; goals: PipelineGoals | null }) {
 	const [local, setLocal] = useState<{ from: PipelineBoard; value: PipelineBoard } | null>(null);
 	const board = local?.from === initial ? local.value : initial;
-	const setBoard = (change: (b: PipelineBoard) => PipelineBoard) => setLocal({ from: initial, value: change(board) });
+	const setBoard = (change: (b: PipelineBoard) => PipelineBoard) =>
+		setLocal((last) => ({ from: initial, value: change(last?.from === initial ? last.value : initial) }));
 	const [dialog, setDialog] = useState<"add" | "stages" | "export" | null>(null);
 	const dialogFor = (name: "add" | "stages" | "export") => (open: boolean) => setDialog(open ? name : null);
 	const router = useRouter();

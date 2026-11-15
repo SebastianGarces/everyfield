@@ -99,8 +99,7 @@ export function ProgramScreen({ initial, organizationId }: { initial: ProgramDet
 										}).catch(lost);
 										if (answer.status !== "ok") return setProblem(programProblem(answer));
 										setProblem(null);
-										await reread();
-										setView("published");
+										void reread().then(() => setView("published"));
 									}}
 								/>
 							) : null}

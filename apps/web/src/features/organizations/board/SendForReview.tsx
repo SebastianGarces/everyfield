@@ -87,7 +87,14 @@ function SendForm({
 		return null;
 	}, null);
 	return (
-		<form action={submit} noValidate className="contents">
+		<form
+			action={submit}
+			onSubmit={(event) => {
+				if (saving) event.preventDefault();
+			}}
+			noValidate
+			className="contents"
+		>
 			<DialogHeader
 				title="Send for review"
 				description={`The reviewer sees only the questions you choose, with ${person}’s answers. They see nothing else of ${person}, and the email they get holds no answers.`}

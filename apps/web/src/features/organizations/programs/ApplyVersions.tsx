@@ -107,6 +107,7 @@ function ApplyVersionsReview({
 						? "A newer version was published, or everyone’s enrollment changed, since you opened this review. Nobody was moved. Check the updated reviews below, then confirm again."
 						: `Something changed for ${names(changed)} since you opened this review, so nobody was moved. Check the updated review below, then confirm again.`,
 				);
+				versionReviews.seed({ status: "ok", value: shown }, programId, listed);
 				void versionReviews.refresh(programId, listed);
 				setAsked(listed);
 				return;
