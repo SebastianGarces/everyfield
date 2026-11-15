@@ -3,6 +3,7 @@
 	"tests/workflow/dev.test.mjs": 6,
 	"tests/workflow/evry-evals-coverage.test.mjs": 12,
 	"tests/workflow/fast-check.test.mjs": 8,
+	"tests/workflow/formal.test.ts": 7,
 	"tests/workflow/integration-timing.test.mjs": 35,
 	"tests/workflow/lint-rule-coverage.test.mjs": 2,
 	"tests/workflow/nightly-schedule.test.ts": 4,

@@ -1,4 +1,5 @@
 {
+	"tests/integration/access/formal-permissions.test.mts": 15,
 	"tests/integration/access/privileges.test.mts": 1,
 	"tests/integration/access/tenancy-access.mts": 4,
 	"tests/integration/access/tenancy-branding.mts": 12,
