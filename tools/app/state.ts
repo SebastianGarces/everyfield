@@ -79,6 +79,10 @@ export type LocalApp = {
 	phase: string;
 	startedAt: string;
 	pid?: number;
+	pidStart?: string;
+	upPid?: number;
+	upStart?: string;
+	fingerprint?: string;
 	readyMs?: number;
 };
 
@@ -90,6 +94,8 @@ export type Element = { ref: string; role: string; name: string; attrs: string }
 export type SessionState = {
 	origin?: string;
 	persona?: string;
+	cookieFile?: string;
+	lastUrl?: string;
 	seenErrors: number;
 	baseline?: { url: string; scope: string; elements: Element[] };
 };

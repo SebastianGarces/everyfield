@@ -104,13 +104,17 @@ export function distance(a: string, b: string): number {
 	return row[b.length]!;
 }
 
+const words = (text: string) => text.toLowerCase().match(/[\p{L}\p{N}]{3,}/gu) ?? [];
+
 export function nearest<T>(items: T[], wanted: string, text: (item: T) => string, count = 3): T[] {
 	const target = wanted.toLowerCase();
+	const wantedWords = words(wanted);
 	const score = (item: T) => {
 		const value = text(item).toLowerCase();
 		if (!value) return Number.POSITIVE_INFINITY;
-		if (value.includes(target) || target.includes(value)) return Math.abs(value.length - target.length) / 100;
-		return distance(value.slice(0, target.length + 8), target);
+		if (value.includes(target) || target.includes(value)) return Math.abs(value.length - target.length) / 1000;
+		const shared = wantedWords.filter((word) => value.includes(word)).length;
+		return (wantedWords.length - shared) * 100 + distance(value.slice(0, target.length + 8), target);
 	};
 	return items
 		.map((item) => ({ item, score: score(item) }))
@@ -140,21 +144,35 @@ export const CLICKABLE = new Set([
 	"img",
 	"generic",
 ]);
-export const FILLABLE = new Set(["textbox", "searchbox", "combobox", "spinbutton"]);
 
 export type Pick = { role?: string; nth?: number; exact?: boolean };
 
-export function pick(elements: Element[], name: string, roles: Set<string>, options: Pick, what: string): Element {
-	const pool = elements.filter((element) => (options.role ? element.role === options.role : roles.has(element.role)));
+const listed = (elements: Element[]) =>
+	elements.map((element) => `${element.role} "${short(element.name)}" (${element.ref})`).join(", ");
+
+export function pick(elements: Element[], name: string, options: Pick, context: { modalOpen: boolean }): Element {
+	const pool = elements.filter((element) =>
+		options.role ? element.role === options.role : CLICKABLE.has(element.role),
+	);
 	const wanted = name.toLowerCase();
-	const exact = pool.filter((element) => element.name.toLowerCase() === wanted);
-	const matches = exact.length || options.exact ? exact : pool.filter((e) => e.name.toLowerCase().includes(wanted));
-	const kind = options.role ?? what;
+	const named = (list: Element[]) => {
+		const exact = list.filter((element) => element.name.toLowerCase() === wanted);
+		return exact.length || options.exact ? exact : list.filter((e) => e.name.toLowerCase().includes(wanted));
+	};
+	const matches = named(pool);
+	const kind = options.role ?? "clickable";
+	const modal = context.modalOpen ? " (a dialog is open; only its elements are reachable)" : "";
 	if (!matches.length) {
-		const close = nearest(pool.length ? pool : elements, name, (element) => element.name);
+		const otherRoles = named(elements);
+		if (otherRoles.length)
+			throw new AppError(
+				EXIT.notFound,
+				`no ${kind} named "${name}"${modal}; found ${listed(otherRoles.slice(0, 3))}: add --role ${otherRoles[0]!.role}`,
+			);
+		const close = nearest(elements, name, (element) => element.name);
 		throw new AppError(
 			EXIT.notFound,
-			`no ${kind} named "${name}". Nearest: ${close.map((element) => `${element.role} "${element.name}" (${element.ref})`).join(", ") || "none (app snapshot)"}`,
+			`no ${kind} named "${name}"${modal}. Nearest: ${listed(close) || "none (app snapshot)"}`,
 		);
 	}
 	if (options.nth !== undefined) {
@@ -173,16 +191,27 @@ export function pick(elements: Element[], name: string, roles: Set<string>, opti
 	return matches[0]!;
 }
 
-export function changes(before: Element[], after: Element[]): string[] {
-	const old = new Map(before.map((element) => [element.ref, element]));
-	const now = new Set(after.map((element) => element.ref));
-	const lines: string[] = [];
-	for (const element of after) {
-		const previous = old.get(element.ref);
-		if (!previous) lines.push(`+ ${describe(element)}`);
-		else if (previous.name !== element.name || previous.attrs !== element.attrs || previous.role !== element.role)
-			lines.push(`~ ${describe(element)}`);
+function keyed(elements: Element[]): Map<string, Element> {
+	const seen = new Map<string, number>();
+	const out = new Map<string, Element>();
+	for (const element of elements) {
+		const base = `${element.role}\u0000${element.name}`;
+		const n = (seen.get(base) ?? 0) + 1;
+		seen.set(base, n);
+		out.set(`${base}\u0000${n}`, element);
 	}
-	for (const element of before) if (!now.has(element.ref)) lines.push(`- ${describe(element, false)}`);
+	return out;
+}
+
+export function changes(before: Element[], after: Element[]): string[] {
+	const old = keyed(before);
+	const now = keyed(after);
+	const lines: string[] = [];
+	for (const [key, element] of now) {
+		const previous = old.get(key);
+		if (!previous) lines.push(`+ ${describe(element)}`);
+		else if (previous.attrs !== element.attrs) lines.push(`~ ${describe(element)}`);
+	}
+	for (const [key, element] of old) if (!now.has(key)) lines.push(`- ${describe(element, false)}`);
 	return lines;
 }

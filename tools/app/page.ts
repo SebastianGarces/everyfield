@@ -1,18 +1,6 @@
-import { mkdirSync, openSync, readFileSync, readSync, closeSync } from "node:fs";
-import { join, resolve } from "node:path";
-import {
-	batch,
-	changes,
-	CLICKABLE,
-	describe,
-	FILLABLE,
-	must,
-	nearest,
-	pick,
-	treeOf,
-	type Browser,
-	type Pick,
-} from "./browser.ts";
+import { closeSync, mkdirSync, openSync, readFileSync, readSync } from "node:fs";
+import { basename, join, resolve } from "node:path";
+import { batch, changes, describe, must, nearest, pick, treeOf, type Browser, type Pick } from "./browser.ts";
 import {
 	AppError,
 	evidenceDir,
@@ -32,22 +20,39 @@ export type Context = {
 	task: string | undefined;
 };
 
+const script = (file: string) =>
+	readFileSync(new URL(file, import.meta.url), "utf8")
+		.trim()
+		.replace(/;$/, "");
+const PROBE = script("./cursor-probe.js");
+const FIELDS = script("./fields.js");
+
 const SETTLE = [["wait", "--load", "networkidle", "--timeout", "5000"]];
-const READ = [["snapshot", "-i"], ["get", "url"], ["get", "title"], ["errors"], ["console"]];
+const FRAME = [
+	"eval",
+	"new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(() => done('framed'))))",
+];
+const MODAL = [
+	"eval",
+	"String(!![...document.querySelectorAll('[role=dialog],[role=alertdialog],dialog[open]')].some((e) => e.getClientRects().length))",
+];
+const LIVE = [
+	"eval",
+	"JSON.stringify([...new Set([...document.querySelectorAll('[role=status],[role=alert],[aria-live]:not([aria-live=off])')].map((e) => (e.innerText || '').trim().replace(/\\s+/g, ' ')).filter(Boolean))])",
+];
+const READ = [["snapshot", "-i"], ["get", "url"], ["get", "title"], ["errors"], ["console"], LIVE];
 const WIDTHS: Record<number, number> = { 390: 844, 1440: 900 };
 const CAP = 30;
-const PROBE = readFileSync(new URL("./cursor-probe.js", import.meta.url), "utf8")
-	.trim()
-	.replace(/;$/, "");
 const TALL =
 	"String(Math.max(document.documentElement.scrollHeight, document.body.scrollHeight, ...[...document.querySelectorAll('*')].filter((e) => /(auto|scroll)/.test(getComputedStyle(e).overflowY) && e.scrollHeight > e.clientHeight).map((e) => innerHeight + e.scrollHeight - e.clientHeight)))";
-const MODAL_OPEN =
-	"String(!![...document.querySelectorAll('[role=dialog],[role=alertdialog],dialog[open]')].some((e) => e.getClientRects().length))";
 
-type Page = { url: string; path: string; title: string; elements: Element[]; problems: number };
+type Steps = ReturnType<typeof batch>;
+type Page = { url: string; path: string; title: string; elements: Element[]; problems: number; live: string[] };
 
-function readPage(steps: ReturnType<typeof batch>): Page {
-	const [snapshot, url, title, errors, consoleLog] = steps.slice(-READ.length);
+const liveOf = (step: Steps[number] | undefined): string[] => JSON.parse(String(must(step).result ?? "[]")) as string[];
+
+function readPage(steps: Steps): Page {
+	const [snapshot, url, title, errors, consoleLog, live] = steps.slice(-READ.length);
 	const href = String(must(url).url ?? "");
 	const messages = (must(consoleLog).messages as { type?: string }[] | undefined) ?? [];
 	const errorList = (must(errors).errors as unknown[] | undefined) ?? [];
@@ -62,23 +67,25 @@ function readPage(steps: ReturnType<typeof batch>): Page {
 		title: String(must(title).title ?? ""),
 		elements: treeOf(must(snapshot)),
 		problems: errorList.length + messages.filter((message) => message.type === "error").length,
+		live: liveOf(live),
 	};
 }
 
-function problemsNote(context: Context, page: Page): string {
+function notes(context: Context, page: Page, liveBefore: string[] = []): string {
 	const fresh = page.problems - context.state.seenErrors;
 	context.state.seenErrors = page.problems;
-	return fresh > 0 ? ` · ! ${fresh} new error${fresh === 1 ? "" : "s"} (app errors)` : "";
+	context.state.lastUrl = page.url;
+	const live = page.live.filter((text) => !liveBefore.includes(text)).slice(0, 2);
+	return [
+		...live.map((text) => ` · live "${text.length > 80 ? `${text.slice(0, 79)}…` : text}"`),
+		fresh > 0 ? ` · ! ${fresh} new error${fresh === 1 ? "" : "s"} (app errors)` : "",
+	].join("");
 }
 
 const where = (page: Page) => `${page.path} "${page.title}" · ${page.elements.length} interactive`;
 
 export function requireOrigin(context: Context): string {
-	if (!context.origin)
-		throw new AppError(
-			EXIT.noTarget,
-			"no app to drive: run app up, or pass --url <origin> once (app goto / --url ...)",
-		);
+	if (!context.origin) throw new AppError(EXIT.noTarget, "no app to drive: run app up, or pass --url <origin> once");
 	return context.origin;
 }
 
@@ -89,7 +96,8 @@ export function goto(context: Context, route: string): string {
 	const steps = batch(context.browser, [["open", target(origin, route)], ...SETTLE, ...READ]);
 	must(steps[0]);
 	const page = readPage(steps);
-	return `${where(page)}${problemsNote(context, page)}`;
+	context.state.baseline = undefined;
+	return `${where(page)}${notes(context, page)}`;
 }
 
 export type Cookie = { name: string; value: string };
@@ -119,6 +127,8 @@ export function signInBrowser(context: Context, cookie: Cookie | null, route: st
 		...READ,
 	]);
 	for (const step of steps.slice(0, setCookie.length + 3)) must(step);
+	context.state.baseline = undefined;
+	context.state.seenErrors = 0;
 	return readPage(steps);
 }
 
@@ -129,7 +139,7 @@ export function loginLine(context: Context, persona: string | null, page: Page):
 			`${persona} is not signed in (landed on ${page.path}). Retry with app login ${persona} --fresh`,
 		);
 	context.state.persona = persona ?? undefined;
-	return `${persona ? `signed in ${persona}` : "signed out"} → ${where(page)}${problemsNote(context, page)}`;
+	return `${persona ? `signed in ${persona}` : "signed out"} → ${where(page)}${notes(context, page)}`;
 }
 
 function scopeSelector(scope: string | undefined): string | undefined {
@@ -143,7 +153,7 @@ export function snapshot(context: Context, options: { scope?: string; all?: bool
 	const chosen = scopeSelector(options.scope);
 	const steps =
 		chosen === undefined
-			? batch(context.browser, [["eval", MODAL_OPEN], ["snapshot", "-i", "-s", "main"], ...READ])
+			? batch(context.browser, [MODAL, ["snapshot", "-i", "-s", "main"], ...READ])
 			: batch(context.browser, [...(chosen ? [["snapshot", "-i", "-s", chosen]] : []), ...READ]);
 	const page = readPage(steps);
 	let scope = options.scope ?? "page";
@@ -158,22 +168,34 @@ export function snapshot(context: Context, options: { scope?: string; all?: bool
 			throw new AppError(EXIT.notFound, `nothing matches --scope ${options.scope} on ${page.path}`);
 		elements = treeOf(must(steps[0]));
 	}
-	const header = `${page.path} "${page.title}" · ${scope} · ${elements.length} interactive${problemsNote(context, page)}`;
 	const baseline = context.state.baseline;
+	const live = page.live.length
+		? [`live: ${page.live.map((text) => JSON.stringify(text.slice(0, 80))).join(" · ")}`]
+		: [];
+	const header = `${page.path} "${page.title}" · ${scope} · ${elements.length} interactive${notes(context, page).replace(/ · live "[^"]*"/g, "")}`;
 	context.state.baseline = { url: page.url, scope, elements };
 	if (!options.all && baseline && baseline.url === page.url && baseline.scope === scope) {
 		const diff = changes(baseline.elements, elements);
-		if (!diff.length) return `${header} · unchanged since your last snapshot`;
-		return [`${header} · ${diff.length} changed since your last snapshot`, ...capped(diff, "app snapshot --all")].join(
-			"\n",
-		);
+		if (!diff.length) return [`${header} · unchanged since your last snapshot`, ...live].join("\n");
+		return [
+			`${header} · ${diff.length} changed since your last snapshot`,
+			...capped(diff, "app snapshot --all"),
+			...live,
+		].join("\n");
 	}
+	const reason =
+		!options.all && baseline
+			? baseline.url !== page.url
+				? " · new page, full list"
+				: ` · scope is now ${scope}, full list`
+			: "";
 	return [
-		header,
+		`${header}${reason}`,
 		...capped(
 			elements.map((element) => describe(element)),
 			"app snapshot --all",
 		),
+		...live,
 	].join("\n");
 }
 
@@ -182,43 +204,196 @@ function capped(lines: string[], more: string): string[] {
 	return [...lines.slice(0, CAP), `… ${lines.length - CAP} more (${more})`];
 }
 
-function act(context: Context, verb: string, action: string[], subject: string): string {
-	const steps = batch(context.browser, [["get", "url"], ["snapshot", "-i"], action, ...SETTLE, ...READ]);
-	const before = treeOf(must(steps[1]));
+type Acted = { line: string; after: Steps };
+
+function act(context: Context, verb: string, actions: string[][], subject: string, after: string[][] = []): Acted {
+	const head = [["get", "url"], ["snapshot", "-i"], MODAL, LIVE];
+	const steps = batch(context.browser, [...head, ...actions, ...SETTLE, FRAME, ...after, MODAL, ...READ]);
 	const beforeUrl = String(must(steps[0]).url ?? "");
-	must(steps[2]);
+	const before = treeOf(must(steps[1]));
+	const modalBefore = must(steps[2]).result === "true";
+	const liveBefore = liveOf(steps[3]);
+	for (const step of steps.slice(head.length, head.length + actions.length)) must(step);
+	const tail = steps.slice(head.length + actions.length + SETTLE.length + 1);
+	const modalAfter = must(tail[after.length]).result === "true";
 	const page = readPage(steps);
-	const note = problemsNote(context, page);
-	if (page.url !== beforeUrl) return `${verb} ${subject} → ${where(page)}${note}`;
+	const note = notes(context, page, liveBefore);
+	const done = (text: string): Acted => ({
+		line: `${verb} ${subject}${text}${note}`,
+		after: tail.slice(0, after.length),
+	});
+	if (page.url !== beforeUrl) {
+		context.state.baseline = undefined;
+		return done(` → ${where(page)}`);
+	}
 	const diff = changes(before, page.elements);
-	if (!diff.length) return `${verb} ${subject} · no change in interactive elements${note}`;
-	if (diff.length <= 3) return `${verb} ${subject} · ${diff.join(" · ")}${note}`;
-	const count = (mark: string) => diff.filter((line) => line.startsWith(mark)).length;
-	const heading = diff.find((line) => /^\+ \S+ (heading|dialog|alertdialog) /.test(line));
-	return `${verb} ${subject} · +${count("+")} ~${count("~")} -${count("-")} interactive${heading ? ` · ${heading}` : ""} (app snapshot)${note}`;
+	if (modalBefore !== modalAfter) {
+		const heading = diff.find((line) => /^\+ \S+ heading /.test(line));
+		return done(
+			modalAfter
+				? ` · opened dialog${heading ? ` ${heading.replace(/^\+ \S+ heading /, "")}` : ""} · ${page.elements.length} interactive`
+				: ` · closed the dialog · ${page.elements.length} interactive`,
+		);
+	}
+	if (!diff.length) return done(" · no change in interactive elements");
+	const shown = diff.slice(0, 6).join(" · ");
+	return done(` · ${shown}${diff.length > 6 ? ` · ${diff.length - 6} more (app snapshot)` : ""}`);
 }
 
-function resolveElement(context: Context, name: string, roles: Set<string>, options: Pick, what: string): Element {
+function snapshotFor(context: Context): { elements: Element[]; modalOpen: boolean } {
 	requireOrigin(context);
-	const elements = treeOf(must(batch(context.browser, [["snapshot", "-i"]])[0]));
-	return pick(elements, name, roles, options, what);
+	const steps = batch(context.browser, [["snapshot", "-i"], MODAL]);
+	return { elements: treeOf(must(steps[0])), modalOpen: must(steps[1]).result === "true" };
 }
 
 const subject = (element: Element) => `${element.role} "${element.name}"`;
 
 export function click(context: Context, name: string, options: Pick): string {
-	const element = resolveElement(context, name, CLICKABLE, options, "clickable");
-	return act(context, "clicked", ["click", `@${element.ref}`], subject(element));
-}
-
-export function fill(context: Context, label: string, value: string, options: Pick): string {
-	const element = resolveElement(context, label, FILLABLE, options, "field");
-	return act(context, "filled", ["fill", `@${element.ref}`, value], subject(element));
+	const seen = snapshotFor(context);
+	const element = pick(seen.elements, name, options, seen);
+	const unique =
+		seen.elements.filter((other) => other.role === element.role && other.name === element.name).length === 1;
+	const action =
+		unique && element.name
+			? ["find", "role", element.role, "click", "--name", element.name, "--exact"]
+			: ["click", `@${element.ref}`];
+	return act(context, "clicked", [action], subject(element)).line;
 }
 
 export function press(context: Context, key: string): string {
 	requireOrigin(context);
-	return act(context, "pressed", ["press", key], key);
+	return act(context, "pressed", [["press", key]], key).line;
+}
+
+type Field = { selector: string; kind: string; label: string; value: string };
+
+const SEGMENT = /^(month|day|year|hours?|minutes?|seconds?|am\/pm)$/i;
+const TRUE = /^(on|true|yes|checked|1)$/i;
+const FALSE = /^(off|false|no|unchecked|0)$/i;
+const FORMAT: Record<string, string> = {
+	date: "YYYY-MM-DD",
+	time: "HH:MM (24 h)",
+	"datetime-local": "YYYY-MM-DDTHH:MM",
+	month: "YYYY-MM",
+	week: "YYYY-Www",
+	color: "#rrggbb",
+	range: "a number",
+	checkbox: "on or off",
+	radio: "on",
+	file: "a file path",
+};
+const fieldLine = (field: Field) => `${field.kind} "${field.label}"`;
+const shortLabel = (label: string) => label.split(" · ")[0]!.trim();
+const bare = (label: string) => shortLabel(label).toLowerCase();
+
+function chooseField(fields: Field[], label: string, nth: number | undefined): Field {
+	const wanted = label.trim().toLowerCase();
+	const exact = fields.filter((field) => field.label.toLowerCase() === wanted || bare(field.label) === wanted);
+	const matches = exact.length ? exact : fields.filter((field) => field.label.toLowerCase().includes(wanted));
+	if (nth !== undefined) {
+		const chosen = matches[nth - 1];
+		if (!chosen) throw new AppError(EXIT.notFound, `only ${matches.length} fields match "${label}"`);
+		return chosen;
+	}
+	if (matches.length === 1) return matches[0]!;
+	if (matches.length > 1)
+		throw new AppError(
+			EXIT.notFound,
+			`${matches.length} fields match "${label}": ${matches.slice(0, 4).map(fieldLine).join(", ")}. Add --nth <n>`,
+		);
+	const datelike = fields.filter((field) => ["date", "time", "datetime-local"].includes(field.kind));
+	if (SEGMENT.test(label.trim()) && datelike.length)
+		throw new AppError(
+			EXIT.notFound,
+			`"${label}" is one segment of a date or time field; fill the whole field: ${datelike
+				.map((field) => `fill "${shortLabel(field.label)}" <${FORMAT[field.kind]}>`)
+				.join(" · ")}`,
+		);
+	throw new AppError(
+		EXIT.notFound,
+		`no field labelled "${label}". Nearest: ${
+			nearest(fields, label, (field) => field.label)
+				.map(fieldLine)
+				.join(", ") || "none (app snapshot)"
+		}`,
+	);
+}
+
+function fillActions(field: Field, value: string): string[][] {
+	const request = (op: string) => [
+		"eval",
+		`(${FIELDS})(${JSON.stringify({ op, selector: field.selector, kind: field.kind, value })})`,
+	];
+	switch (field.kind) {
+		case "textbox":
+			return [["fill", field.selector, value]];
+		case "select":
+			return [["select", field.selector, value]];
+		case "file":
+			return [["upload", field.selector, resolve(value)]];
+		case "checkbox":
+		case "radio": {
+			if (!TRUE.test(value) && !FALSE.test(value))
+				throw new AppError(EXIT.usage, `${fieldLine(field)} takes ${FORMAT[field.kind]}, not "${value}"`);
+			if (field.value === String(TRUE.test(value))) return [];
+			return [["click", field.selector]];
+		}
+		case "combobox":
+			return [
+				["click", field.selector],
+				["wait", "[role=option]", "--timeout", "5000"],
+				["find", "role", "option", "click", "--name", value, "--exact"],
+			];
+		default:
+			return [request("set")];
+	}
+}
+
+function matchesWanted(field: Field, wanted: string, held: { value: string; alt: string }): boolean {
+	const value = held.value.trim();
+	if (field.kind === "checkbox" || field.kind === "radio") return value === String(TRUE.test(wanted));
+	if (field.kind === "select") return value.toLowerCase() === wanted.toLowerCase() || held.alt === wanted;
+	if (field.kind === "combobox") return value.toLowerCase().includes(wanted.toLowerCase());
+	if (field.kind === "file") return value === basename(wanted);
+	return held.value === wanted;
+}
+
+export function fill(context: Context, label: string, value: string, nth: number | undefined): string {
+	requireOrigin(context);
+	const fields = JSON.parse(
+		String(must(batch(context.browser, [["eval", `(${FIELDS})({"op":"list"})`]])[0]).result),
+	) as Field[];
+	const field = chooseField(fields, label, nth);
+	const read = ["eval", `(${FIELDS})(${JSON.stringify({ op: "read", selector: field.selector, kind: field.kind })})`];
+	let acted: Acted;
+	try {
+		acted = act(context, "filled", fillActions(field, value), fieldLine(field), [read]);
+	} catch (error) {
+		if (!(error instanceof AppError) || field.kind !== "combobox") throw error;
+		const open = batch(context.browser, [
+			["snapshot", "-i"],
+			["press", "Escape"],
+		]);
+		const options = treeOf(must(open[0])).filter((element) => element.role === "option");
+		throw new AppError(
+			EXIT.notFound,
+			`${fieldLine(field)} has no option named "${value}". Options: ${
+				options
+					.slice(0, 12)
+					.map((option) => JSON.stringify(option.name))
+					.join(", ") || "none listed"
+			}`,
+		);
+	}
+	const held = JSON.parse(String(must(acted.after[0]).result)) as { value: string; alt: string; missing?: boolean };
+	if (held.missing)
+		throw new AppError(EXIT.failed, `FAIL ${fieldLine(field)} left the page during fill; check with app snapshot`);
+	if (!matchesWanted(field, value, held))
+		throw new AppError(
+			EXIT.failed,
+			`FAIL ${fieldLine(field)} holds ${JSON.stringify(held.value)} after fill (wanted ${JSON.stringify(value)}${FORMAT[field.kind] ? `, format ${FORMAT[field.kind]}` : ""})`,
+		);
+	return acted.line.replace(`filled ${fieldLine(field)}`, `filled ${fieldLine(field)} = ${JSON.stringify(held.value)}`);
 }
 
 export type Expectation = {
@@ -314,6 +489,12 @@ function pngSize(file: string): string {
 	return `${header.readUInt32BE(16)}x${header.readUInt32BE(20)}`;
 }
 
+const resized = (width: number, height: number) => [
+	["set", "viewport", String(width), String(height)],
+	["wait", "--fn", `innerWidth === ${width} && innerHeight === ${height}`, "--timeout", "5000"],
+	FRAME,
+];
+
 export function shot(
 	context: Context,
 	name: string,
@@ -330,25 +511,15 @@ export function shot(
 	for (const width of options.widths) {
 		const height = WIDTHS[width] ?? (width < 768 ? 844 : 900);
 		const file = join(dir, `${name}-${width}.png`);
-		const sized = batch(context.browser, [
-			["set", "viewport", String(width), String(height)],
-			["wait", "300"],
-			["eval", TALL],
-		]);
-		must(sized[0]);
-		const tall = Math.min(Number(must(sized[2]).result) || height, 16000);
+		const sized = batch(context.browser, [...resized(width, height), ["eval", TALL]]);
+		for (const step of sized) must(step);
+		const tall = Math.min(Number(must(sized[3]).result) || height, 16000);
 		const capture =
-			!options.viewportOnly && tall > height
-				? [
-						["set", "viewport", String(width), String(tall)],
-						["wait", "300"],
-						["screenshot", file],
-					]
-				: [["screenshot", file]];
+			!options.viewportOnly && tall > height ? [...resized(width, tall), ["screenshot", file]] : [["screenshot", file]];
 		for (const step of batch(context.browser, capture)) must(step);
 		lines.push(`${file} ${pngSize(file)}`);
 	}
-	must(batch(context.browser, [["set", "viewport", "1440", "900"]])[0]);
+	for (const step of batch(context.browser, resized(1440, 900))) must(step);
 	return lines.join("\n");
 }
 

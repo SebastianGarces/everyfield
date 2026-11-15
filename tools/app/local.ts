@@ -75,19 +75,42 @@ const secretsPath = (repo: Repo) => join(appDir(repo), "secrets.json");
 const cookiesPath = (repo: Repo) => join(appDir(repo), "cookies.json");
 const setupLog = (repo: Repo) => join(appDir(repo), "setup.log");
 const appLog = (repo: Repo) => join(appDir(repo), "app.log");
-const buildPath = (repo: Repo) => join(appDir(repo), "build.json");
+const readyMark = (repo: Repo) => join(appDir(repo), "ready");
 const dbUrl = (user: string, password: string, port: number) =>
 	`postgres://${user}:${password}@127.0.0.1:${port}/everyfield_ci`;
 
-const alive = (pid: number | undefined) => {
-	if (!pid) return false;
-	try {
-		process.kill(pid, 0);
-		return true;
-	} catch {
-		return false;
-	}
-};
+const startOf = (pid: number) => run("ps", ["-o", "lstart=", "-p", String(pid)]).stdout.trim();
+
+function ours(pid: number | undefined, start: string | undefined, marker: string): boolean {
+	if (!pid || !start) return false;
+	const seen = run("ps", ["-o", "lstart=,command=", "-p", String(pid)]).stdout.trim();
+	return seen.startsWith(start) && seen.includes(marker);
+}
+
+const serving = (app: LocalApp) => ours(app.pid, app.pidStart, "tools/app/main.ts _serve");
+const starting = (app: LocalApp) => ours(app.upPid, app.upStart, "tools/app/main.ts");
+
+export function staleNote(repo: Repo): string | null {
+	const app = readLocalApp(repo);
+	if (!app || app.mode !== "prod" || !serving(app) || app.fingerprint === fingerprint(repo.root)) return null;
+	return `! the app serves ${app.head}, but the worktree changed since: app up restarts it on this code`;
+}
+
+function watchUp(repo: Repo, container: string) {
+	const child = spawn(
+		"sh",
+		[
+			"-c",
+			'while kill -0 "$1" 2>/dev/null; do sleep 1; done; [ -f "$2" ] || docker rm -f -v "$3" >/dev/null 2>&1',
+			"watch-up",
+			String(process.pid),
+			readyMark(repo),
+			container,
+		],
+		{ detached: true, stdio: "ignore" },
+	);
+	child.unref();
+}
 
 function freePort(): Promise<number> {
 	return new Promise((done, failed) => {
@@ -159,8 +182,17 @@ function appEnv(app: LocalApp, secrets: Secrets, repo: Repo): Record<string, str
 export async function up(repo: Repo, options: { mode: string; timeoutSeconds: number }): Promise<string> {
 	if (options.mode !== "dev" && options.mode !== "prod") throw new AppError(EXIT.usage, "--mode is dev or prod");
 	const existing = readLocalApp(repo);
-	if (existing && alive(existing.pid))
-		return `already up ${existing.origin} ${existing.mode} ${existing.head} (app down first to restart)`;
+	let restarted = "";
+	if (existing && starting(existing) && !existing.pid)
+		throw new AppError(EXIT.noTarget, `another app up is starting this worktree's app (phase ${existing.phase})`);
+	if (existing && serving(existing)) {
+		const fresh = existing.mode === "dev" || existing.fingerprint === fingerprint(repo.root);
+		if (fresh && existing.mode === options.mode)
+			return `already up ${existing.origin} ${existing.mode} ${existing.head} on this code`;
+		restarted = fresh
+			? ` (restarted in ${options.mode} mode)`
+			: ` (restarted: the code changed since ${existing.head})`;
+	}
 	if (existing) down(repo);
 	const web = join(repo.root, "apps/web");
 	if (!existsSync(join(web, "node_modules/next/dist/bin/next")))
@@ -198,8 +230,12 @@ export async function up(repo: Repo, options: { mode: string; timeoutSeconds: nu
 		image: IMAGE,
 		phase: "database",
 		startedAt: new Date().toISOString(),
+		upPid: process.pid,
+		upStart: startOf(process.pid),
+		fingerprint: fingerprint(repo.root),
 	};
 	writeLocalApp(repo, app);
+	watchUp(repo, container);
 	const phase = (name: string) => {
 		app.phase = name;
 		writeLocalApp(repo, app);
@@ -288,10 +324,11 @@ export async function up(repo: Repo, options: { mode: string; timeoutSeconds: nu
 	);
 	supervisor.unref();
 	app.pid = supervisor.pid;
+	app.pidStart = supervisor.pid ? startOf(supervisor.pid) : undefined;
 	writeLocalApp(repo, app);
 	const deadline = Date.now() + options.timeoutSeconds * 1000;
 	for (;;) {
-		if (!alive(app.pid)) fail(`the app process exited; see ${appLog(repo)}`);
+		if (!serving(app)) fail(`the app process exited; see ${appLog(repo)}`);
 		try {
 			const response = await fetch(app.origin + "/access", {
 				redirect: "manual",
@@ -303,8 +340,9 @@ export async function up(repo: Repo, options: { mode: string; timeoutSeconds: nu
 		sleepSync(1000);
 	}
 	app.readyMs = Date.now() - started;
+	writeFileSync(readyMark(repo), app.startedAt);
 	phase("ready");
-	return `up ${app.origin} ${app.mode} ${app.head} · QA seed, ${signed.length} personas · ${Math.round(app.readyMs / 1000)} s`;
+	return `up ${app.origin} ${app.mode} ${app.head} · QA seed, ${signed.length} personas · ${Math.round(app.readyMs / 1000)} s${restarted}`;
 }
 
 function signIn(repo: Repo, app: LocalApp, secrets: Secrets, personas: Persona[]): Persona[] {
@@ -337,7 +375,7 @@ function signIn(repo: Repo, app: LocalApp, secrets: Secrets, personas: Persona[]
 
 export function cookieFor(repo: Repo, persona: Persona, fresh: boolean): { name: string; value: string } {
 	const app = readLocalApp(repo);
-	if (!app || !alive(app.pid))
+	if (!app || !serving(app))
 		throw new AppError(EXIT.noTarget, "no local app is up for this worktree: run app up, or pass --cookie-file");
 	const saved = readJson<Cookies>(cookiesPath(repo))?.[persona];
 	if (saved && !fresh) return saved;
@@ -351,22 +389,21 @@ export function cookieFor(repo: Repo, persona: Persona, fresh: boolean): { name:
 export function down(repo: Repo): string {
 	const app = readLocalApp(repo);
 	if (!app) return "no local app was up";
-	if (app.pid && alive(app.pid)) {
+	const signal = (name: NodeJS.Signals) => {
 		try {
-			process.kill(-app.pid, "SIGTERM");
+			process.kill(-app.pid!, name);
 		} catch {
 			try {
-				process.kill(app.pid, "SIGTERM");
+				process.kill(app.pid!, name);
 			} catch {}
 		}
-	}
+	};
+	const ownServer = serving(app);
+	if (ownServer) signal("SIGTERM");
 	run("docker", ["rm", "-f", "-v", app.container]);
 	const until = Date.now() + 10_000;
-	while (alive(app.pid) && Date.now() < until) sleepSync(300);
-	if (alive(app.pid))
-		try {
-			process.kill(-app.pid!, "SIGKILL");
-		} catch {}
+	while (ownServer && serving(app) && Date.now() < until) sleepSync(300);
+	if (ownServer && serving(app)) signal("SIGKILL");
 	removeAppDir(repo);
 	return `down ${app.origin}`;
 }
@@ -374,7 +411,8 @@ export function down(repo: Repo): string {
 export async function status(repo: Repo): Promise<string> {
 	const app = readLocalApp(repo);
 	if (!app) return "no local app (app up starts one)";
-	const running = alive(app.pid);
+	const running = serving(app);
+	if (!running && !app.pid && starting(app)) return `${app.origin} ${app.mode} ${app.head} · starting (${app.phase})`;
 	let http = "-";
 	if (running)
 		try {
@@ -384,7 +422,8 @@ export async function status(repo: Repo): Promise<string> {
 		} catch {
 			http = "no answer";
 		}
-	return `${app.origin} ${app.mode} ${app.head} · ${running ? `up (${app.phase}) http ${http}` : `down (stopped at ${app.phase}; app down cleans up)`}`;
+	const stale = running && app.mode === "prod" && app.fingerprint !== fingerprint(repo.root);
+	return `${app.origin} ${app.mode} ${app.head} · ${running ? `up (${app.phase}) http ${http}${stale ? " · stale: the worktree changed since, app up restarts it" : ""}` : `down (stopped at ${app.phase}; app down cleans up)`}`;
 }
 
 export function personas(): string {
