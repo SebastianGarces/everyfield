@@ -360,7 +360,7 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: TasksAnswer; vie
 		});
 		if (unknown || pageStore.getState().readingBadges) readBadges();
 	};
-	const readBadges = () => {
+	const readBadges = (retry = true) => {
 		const { badgeReads } = pageStore.getState();
 		const read = badgeReads.start(window.location.search);
 		const current = () => badgeReads.applies(read, window.location.search);
@@ -378,6 +378,7 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: TasksAnswer; vie
 		changePage(() => ({ readingBadges: true, badgesStale: false }));
 		loadBlocking(ids).then((r) => {
 			if (!current()) return;
+			if (r.status !== "ok" && retry) return readBadges(false);
 			if (r.status !== "ok") return changePage(() => ({ readingBadges: false, badgesStale: true }));
 			changePage(() => ({ readingBadges: false }));
 			const fresh = new Map(r.value.map((t) => [t.id, t.openPrerequisites]));
