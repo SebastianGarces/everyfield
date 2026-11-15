@@ -1,7 +1,3 @@
-// T-190 (Nora, Audit #551, Nov 10 2026; DOC-017, BRD-006): a library template's preview and "Save for your church"
-// render with the church theme when the church plant has a brand kit and with the Everyfield-neutral theme when it has
-// none. Both go through the same render, so a saved file holds the bytes its preview showed. A kit change never changes
-// a saved file; a replay on the same request key returns the file saved first.
 import { fixture, ok } from "../../support/fixture.mts";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { S3Client } from "../../../packages/db/node_modules/@aws-sdk/client-s3/dist-es/index.js";
@@ -22,7 +18,6 @@ const database = await fixture({ prefix: "t190", plant: { name: CHURCH } });
 const { admin } = database;
 const db = database.pools.runtime;
 const P = database.tenant.id;
-// 0 owner, 1 member
 const actors = [database.actors.owner, database.actors.member];
 
 class MemoryClient extends S3Client {
@@ -68,7 +63,6 @@ const authority = async (who = 0) => {
 const PRIMARY = "#8B1E3F";
 const NEXT_PRIMARY = "#1F4E79";
 const LEGAL = "Harvest Point Church, Inc.";
-// A wide logo with a flat block, and a cover photo: the kit rasterizes both.
 const logo = await sharp({ create: { width: 600, height: 200, channels: 4, background: "#8B1E3F" } })
 	.png()
 	.toBuffer();
@@ -99,7 +93,6 @@ async function resetKit() {
 	revision = "0";
 }
 
-/** Every required field of a template filled, so each template renders. */
 async function overridesFor(templateId: string) {
 	const { templates } = await library();
 	const template = templates.find((item) => item.id === templateId)!;
@@ -107,7 +100,6 @@ async function overridesFor(templateId: string) {
 		template.mergeFields.filter((f) => f.required && f.key !== "church_name").map((f) => [f.key, "Sample"]),
 	);
 }
-/** The Everyfield-neutral render of a template for this plant, with no theme given at all. */
 async function neutralDigest(templateId: string, format: "pdf" | "xlsx") {
 	const { templates } = await library();
 	const template = templates.find((item) => item.id === templateId)!;
@@ -141,7 +133,6 @@ async function save(templateId: string, requestKey: string, format: "pdf" | "xls
 		),
 	);
 }
-/** The stored bytes of one saved file, read straight from private storage. */
 async function storedBytes(id: string) {
 	const row = (
 		await admin.execute(
@@ -253,7 +244,6 @@ describe("library templates follow the church brand kit", { concurrency: 1 }, ()
 		assert.equal(await hasImage(noStorage.bytes), false);
 		assert.notEqual(noStorage.digest, full.digest);
 		assert.match((await pdfPages(noStorage.bytes)).join(" "), new RegExp(CHURCH));
-		// A missing file in storage reads the same as no storage.
 		const kept = new Map(client.objects);
 		const logoKey = (
 			await admin.execute(

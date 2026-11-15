@@ -1,5 +1,3 @@
-// The rows of the pipeline import fixtures (T-363). Row 1 is the header of a Microsoft Forms export: the form's own
-// ID, times, Email and Name columns, then its questions; the last two are credentialing questions (T-385).
 export const APPLICATIONS: string[][] = [
 	[
 		"ID",
@@ -62,10 +60,8 @@ export const APPLICATIONS: string[][] = [
 		"Ordained 2019",
 	],
 ];
-/** applications-v2.xlsx: the same titles, questions first and the form's own columns last. */
 export const V2_ORDER = [6, 5, 8, 10, 9, 12, 11, 7, 0, 3, 4, 1, 2];
 
-/** A UTF-8 CSV with a byte order mark and CRLF line ends, every field quoted where it needs it. */
 export function csvOf(rows: string[][]) {
 	const cell = (v: string) => (/[",\r\n]/.test(v) ? `"${v.replaceAll('"', '""').replaceAll("\n", "\r\n")}"` : v);
 	return "﻿" + rows.map((r) => r.map(cell).join(",") + "\r\n").join("");
