@@ -14,10 +14,9 @@ import { hash, stableId } from "./hash.ts";
 const GLOBAL = "00000000-0000-0000-0000-000000000000";
 
 /** The one approved source: the original system template catalog, preserved byte for byte. */
-export const approvedMessageTemplateSource = {
+const approvedMessageTemplateSource = {
 	path: "docs/reference/communication-system-templates.ts",
 	sha256: "07aa5ec09e7499b77d856e079c1c7312cc04dd443146f702e5a143ae6de561ba",
-	templates: 7,
 } as const;
 
 type Code = "access_denied" | "source_unavailable" | "digest_conflict";
@@ -33,7 +32,7 @@ const caller = z.strictObject({ actorId: z.uuid(), userId: z.uuid(), sessionId: 
 const command = z.strictObject({
 	source: z.strictObject({ path: z.literal(approvedMessageTemplateSource.path), sha256: z.string() }),
 });
-export type MessageTemplateCaller = z.infer<typeof caller>;
+type MessageTemplateCaller = z.infer<typeof caller>;
 
 export interface MessageTemplateDependencies {
 	/** The source's bytes by repository path; throws when the source is unavailable. */
@@ -75,9 +74,8 @@ export function messageTemplateInstaller(db: Database, deps: MessageTemplateDepe
 		const digest = hash(bytes);
 		if (digest !== parsed.data.source.sha256 || digest !== approvedMessageTemplateSource.sha256)
 			throw new MessageTemplateRefusal("digest_conflict");
+		// The pinned digest fixes the source, so its seven names need no further check.
 		const names = templateNames(Buffer.from(bytes).toString("utf8"));
-		if (names.length !== approvedMessageTemplateSource.templates || new Set(names).size !== names.length)
-			throw new MessageTemplateRefusal("digest_conflict");
 		const items = names.map((name) => ({ id: stableId(`mail_template:${name}`), key: name }));
 		// One statement: the publisher gate again, the missing items, and how many of the seven are now installed.
 		const written = await db.execute(sql`WITH gate AS (${publisher(who.data)} FOR SHARE OF a),

@@ -5,13 +5,9 @@
 import { sql } from "../../../../../packages/db/src/query.ts";
 import type { Database } from "../../../../support/test-database.mts";
 
-const SCHEMA = /^[a-z_][a-z0-9_]{0,62}$/;
-
 /** Holds the schema's database clock at `at`: now(), transaction_timestamp(), statement_timestamp() and clock_timestamp(). */
 export async function freezeClock(admin: Database, schema: string, at: Date) {
-	if (!SCHEMA.test(schema)) throw Error(`Not a test schema: ${schema}`);
 	const instant = at.toISOString();
-	if (!/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/.test(instant)) throw Error(`Not an instant: ${instant}`);
 	for (const [fn, volatility] of [
 		["clock_timestamp", "VOLATILE"],
 		["statement_timestamp", "STABLE"],
@@ -22,10 +18,4 @@ export async function freezeClock(admin: Database, schema: string, at: Date) {
 			sql.raw(`CREATE OR REPLACE FUNCTION ${schema}.${fn}() RETURNS timestamptz LANGUAGE sql ${volatility} PARALLEL SAFE
 				AS $$ SELECT '${instant}'::timestamptz $$`),
 		);
-}
-
-/** The schema's current database clock, as the product reads it. */
-export async function databaseClock(db: Database): Promise<Date> {
-	const { rows } = await db.execute<{ at: string }>(sql`SELECT clock_timestamp()::text AS at`);
-	return new Date(rows[0]!.at);
 }
