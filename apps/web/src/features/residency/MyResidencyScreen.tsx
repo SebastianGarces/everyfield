@@ -63,7 +63,6 @@ function NotLinked() {
 					title="You’re no longer linked to a residency"
 					action={
 						<Button asChild variant="primary">
-							{/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
 							<a href="/home">Back to Discovery</a>
 						</Button>
 					}

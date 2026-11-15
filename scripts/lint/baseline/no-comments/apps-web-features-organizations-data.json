@@ -1,0 +1,9 @@
+{
+	"apps/web/src/features/organizations/data/DuplicatesScreen.tsx": 5,
+	"apps/web/src/features/organizations/data/ExportDialog.tsx": 2,
+	"apps/web/src/features/organizations/data/RemoveDialog.tsx": 3,
+	"apps/web/src/features/organizations/data/actions.ts": 6,
+	"apps/web/src/features/organizations/data/export-route.ts": 3,
+	"apps/web/src/features/organizations/data/model.ts": 3,
+	"apps/web/src/features/organizations/data/routes.tsx": 2
+}

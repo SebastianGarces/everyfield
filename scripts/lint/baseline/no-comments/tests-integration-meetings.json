@@ -1,0 +1,10 @@
+{
+	"tests/integration/meetings/add-guests.test.mts": 21,
+	"tests/integration/meetings/attendance.test.mts": 94,
+	"tests/integration/meetings/guest-photos.test.mts": 11,
+	"tests/integration/meetings/meetings.test.mts": 41,
+	"tests/integration/meetings/next-step.test.mts": 7,
+	"tests/integration/meetings/notification-worker.test.mts": 19,
+	"tests/integration/meetings/person-search.test.mts": 3,
+	"tests/integration/meetings/rsvp-token.mts": 3
+}

@@ -1,0 +1,8 @@
+{
+	"packages/domain/src/onboarding/core.ts": 10,
+	"packages/domain/src/onboarding/creation.ts": 12,
+	"packages/domain/src/onboarding/index.ts": 1,
+	"packages/domain/src/onboarding/reading.ts": 3,
+	"packages/domain/src/onboarding/reads.ts": 7,
+	"packages/domain/src/onboarding/setup.ts": 9
+}

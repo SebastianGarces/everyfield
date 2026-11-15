@@ -124,6 +124,12 @@ export const RULES: readonly Rule[] = [
 	},
 	{ name: "web app under a dev server", paths: ["apps/web/**"], tests: ["tests/workflow/server-logs.test.mjs"] },
 	{
+		name: "lint rules and their baselines",
+		paths: ["scripts/lint/**", "tools/.oxlintrc.json"],
+		checks: ["lint"],
+		tests: ["tests/workflow/lint-rules.test.mjs"],
+	},
+	{
 		name: "lint rule coverage",
 		paths: ["scripts/lint-rule-coverage.mjs"],
 		tests: ["tests/workflow/lint-rule-coverage.test.mjs"],

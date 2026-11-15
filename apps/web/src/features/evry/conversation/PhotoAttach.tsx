@@ -90,7 +90,6 @@ export function AttachedPhoto({ photo, onRemove }: { photo: Attached; onRemove: 
 	return (
 		<div className="mb-2 flex items-center gap-2.5" aria-live="polite">
 			{photo.src ? (
-				// eslint-disable-next-line @next/next/no-img-element -- a local object URL of the file the user picked
 				<img
 					src={photo.src}
 					alt=""

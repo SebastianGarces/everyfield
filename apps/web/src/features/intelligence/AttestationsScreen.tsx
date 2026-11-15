@@ -874,6 +874,8 @@ function CandidateSection({
 	);
 }
 
+const recordedNow = () => new Date().toISOString();
+
 function CandidateDialog({
 	page,
 	personId,
@@ -948,8 +950,7 @@ function CandidateDialog({
 						asOf: asOf as CandidateEntry["asOf"],
 						statement: statement.trim() || null,
 						authorName: viewerName,
-						// oxlint-disable-next-line react/purity -- run() is an event handler, not render; Oxlint's compiler port reads it as render
-						recordedAt: new Date().toISOString() as CandidateEntry["recordedAt"],
+						recordedAt: recordedNow() as CandidateEntry["recordedAt"],
 						revision: String(BigInt(revision) + 1n) as CandidateEntry["revision"],
 					};
 		const failure = await onSave(input, what, revision, optimistic);

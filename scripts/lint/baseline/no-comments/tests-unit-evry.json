@@ -1,0 +1,8 @@
+{
+	"tests/unit/evry/markdown.test.mjs": 10,
+	"tests/unit/evry/model.test.mjs": 16,
+	"tests/unit/evry/result-card-photos.test.mts": 8,
+	"tests/unit/evry/result-card.test.mjs": 11,
+	"tests/unit/evry/review-model.test.mjs": 19,
+	"tests/unit/evry/stream-cursor.test.mts": 4
+}

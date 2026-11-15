@@ -1,0 +1,115 @@
+{
+	"comments": {
+		"docs/**": "Documentation, its Python tooling and the sha256-pinned original reference bytes (docs/reference/manifest.json); prose and originals are not code",
+		"design/**": "The approved brand prototype and its handoff exports; design/everyfield-ui.html changes only through Sebastian's owner class",
+		"packages/db/migrations/**": "An applied migration's bytes are checksummed on every database that ran it (migrate.ts raises migration_checksum_conflict); a migration new against main is still checked",
+		"**/*.generated.*": "A generator writes these files and its header says so; change the generator, never the output",
+		"**/*.md": "Markdown is prose, not code",
+		"apps/web/scripts/render-share-images.mjs": "Image approvals hash these exact source bytes alongside the generated share images (.prettierignore)",
+		"apps/web/scripts/render-mesh-images.mjs": "Image approvals hash these exact source bytes alongside the generated mesh images (.prettierignore)",
+		"apps/web/src/marketing/logo-symbols.ts": "Image approvals hash these exact source bytes alongside the generated logo assets (.prettierignore)",
+		"tests/integration/documents/fixtures/format/**": "Fixtures moved from the retired doc-format prototype keep their bytes (.prettierignore)"
+	},
+	"configs": {
+		".oxlintrc.json": {
+			"overrides": {
+				"**/*.ts, **/*.tsx, **/*.mts, **/*.cts": {
+					"constructor-super": "The TypeScript compiler reports this in TypeScript files itself, as typescript-eslint's eslint-recommended config does",
+					"getter-return": "The TypeScript compiler reports this in TypeScript files itself, as typescript-eslint's eslint-recommended config does",
+					"no-class-assign": "The TypeScript compiler reports this in TypeScript files itself, as typescript-eslint's eslint-recommended config does",
+					"no-const-assign": "The TypeScript compiler reports this in TypeScript files itself, as typescript-eslint's eslint-recommended config does",
+					"no-dupe-class-members": "The TypeScript compiler reports this in TypeScript files itself, as typescript-eslint's eslint-recommended config does",
+					"no-dupe-keys": "The TypeScript compiler reports this in TypeScript files itself, as typescript-eslint's eslint-recommended config does",
+					"no-func-assign": "The TypeScript compiler reports this in TypeScript files itself, as typescript-eslint's eslint-recommended config does",
+					"no-import-assign": "The TypeScript compiler reports this in TypeScript files itself, as typescript-eslint's eslint-recommended config does",
+					"no-new-native-nonconstructor": "The TypeScript compiler reports this in TypeScript files itself, as typescript-eslint's eslint-recommended config does",
+					"no-obj-calls": "The TypeScript compiler reports this in TypeScript files itself, as typescript-eslint's eslint-recommended config does",
+					"no-redeclare": "The TypeScript compiler reports this in TypeScript files itself, as typescript-eslint's eslint-recommended config does",
+					"no-setter-return": "The TypeScript compiler reports this in TypeScript files itself, as typescript-eslint's eslint-recommended config does",
+					"no-this-before-super": "The TypeScript compiler reports this in TypeScript files itself, as typescript-eslint's eslint-recommended config does",
+					"no-unreachable": "The TypeScript compiler reports this in TypeScript files itself, as typescript-eslint's eslint-recommended config does",
+					"no-unsafe-negation": "The TypeScript compiler reports this in TypeScript files itself, as typescript-eslint's eslint-recommended config does",
+					"no-with": "The TypeScript compiler reports this in TypeScript files itself, as typescript-eslint's eslint-recommended config does"
+				},
+				"**/*.test.*, **/test/**, **/tests/**, packages/domain/src/early-access/index.ts": {
+					"everyfield/resend-senders": "Tests drive fake mail providers, and early access is one of the guarded senders that may reach Resend"
+				},
+				"tests/integration/**, tests/evry/**, tests/ui/**, tests/unit/**, tests/workflow/**": {
+					"typescript/no-explicit-any": "No typecheck covers these test folders, so a type written there goes unchecked; any marks untyped JSON",
+					"no-unused-vars": "Tests drop fields with rest destructuring to compare what is left"
+				},
+				"tests/**/*.cjs": {
+					"typescript/no-require-imports": "A CommonJS preload that node loads with --require can only require"
+				},
+				"packages/domain/src/intelligence/**": {
+					"everyfield/private-care-scope": "The intelligence domain owns the private-care tables and operations"
+				}
+			}
+		},
+		"apps/web/.oxlintrc.json": {
+			"ignorePatterns": {
+				".next/**": "Next writes its build and dev output here; it is not source",
+				"out/**": "Next writes a static export here; it is build output, not source",
+				"build/**": "Build output that tools write; it is not source",
+				"next-env.d.ts": "Next generates this file and it is not committed"
+			},
+			"rules": {
+				"nextjs/no-html-link-for-pages": "ESLint's @next/next version enforces this rule; Oxlint's version differs",
+				"nextjs/no-img-element": "ESLint's @next/next version enforces this rule; Oxlint's version differs"
+			},
+			"overrides": {
+				"**/*.{js,jsx,mjs,ts,tsx,mts,cts}": {
+					"react/jsx-no-target-blank": "eslint-config-next, whose ESLint rules this config carried over to Oxlint (T-43), turns this rule off",
+					"react/no-unknown-property": "eslint-config-next, whose ESLint rules this config carried over to Oxlint (T-43), turns this rule off",
+					"react/no-unsafe": "eslint-config-next, whose ESLint rules this config carried over to Oxlint (T-43), turns this rule off",
+					"react/react-in-jsx-scope": "The automatic JSX runtime needs no React in scope"
+				},
+				"**/*.ts, **/*.tsx, **/*.mts, **/*.cts": {
+					"constructor-super": "The TypeScript compiler reports this in TypeScript files itself, as typescript-eslint's eslint-recommended config does",
+					"getter-return": "The TypeScript compiler reports this in TypeScript files itself, as typescript-eslint's eslint-recommended config does",
+					"no-class-assign": "The TypeScript compiler reports this in TypeScript files itself, as typescript-eslint's eslint-recommended config does",
+					"no-const-assign": "The TypeScript compiler reports this in TypeScript files itself, as typescript-eslint's eslint-recommended config does",
+					"no-dupe-class-members": "The TypeScript compiler reports this in TypeScript files itself, as typescript-eslint's eslint-recommended config does",
+					"no-dupe-keys": "The TypeScript compiler reports this in TypeScript files itself, as typescript-eslint's eslint-recommended config does",
+					"no-func-assign": "The TypeScript compiler reports this in TypeScript files itself, as typescript-eslint's eslint-recommended config does",
+					"no-import-assign": "The TypeScript compiler reports this in TypeScript files itself, as typescript-eslint's eslint-recommended config does",
+					"no-new-native-nonconstructor": "The TypeScript compiler reports this in TypeScript files itself, as typescript-eslint's eslint-recommended config does",
+					"no-obj-calls": "The TypeScript compiler reports this in TypeScript files itself, as typescript-eslint's eslint-recommended config does",
+					"no-redeclare": "The TypeScript compiler reports this in TypeScript files itself, as typescript-eslint's eslint-recommended config does",
+					"no-setter-return": "The TypeScript compiler reports this in TypeScript files itself, as typescript-eslint's eslint-recommended config does",
+					"no-this-before-super": "The TypeScript compiler reports this in TypeScript files itself, as typescript-eslint's eslint-recommended config does",
+					"no-unreachable": "The TypeScript compiler reports this in TypeScript files itself, as typescript-eslint's eslint-recommended config does",
+					"no-unsafe-negation": "The TypeScript compiler reports this in TypeScript files itself, as typescript-eslint's eslint-recommended config does",
+					"no-with": "The TypeScript compiler reports this in TypeScript files itself, as typescript-eslint's eslint-recommended config does"
+				},
+				"src/features/documents/church/editor/tiptap/**": {
+					"react/set-state-in-effect": "Vendored Tiptap UI components keep upstream's code so later upstream updates stay comparable; editor/tiptap/README.md lists the Everyfield changes",
+					"react/refs": "Vendored Tiptap UI components keep upstream's code so later upstream updates stay comparable; editor/tiptap/README.md lists the Everyfield changes",
+					"react/immutability": "Vendored Tiptap UI components keep upstream's code so later upstream updates stay comparable; editor/tiptap/README.md lists the Everyfield changes"
+				},
+				"**/*.test.*, **/test/**, **/tests/**, src/features/communication/mail.ts, src/server/jobs/resend.ts": {
+					"everyfield/resend-senders": "Tests drive fake mail providers, and mail.ts and server/jobs/resend.ts are the two guarded senders in apps/web"
+				},
+				"src/app/layout.tsx": {
+					"everyfield/no-inner-html": "The root layout's own constant script sets the reader flags before the first paint, and React gives an inline script its code only through dangerouslySetInnerHTML"
+				},
+				"src/features/followups/fields.tsx": {
+					"react/purity": "The latest time a follow-up can be logged at is now, read again on each render as the input's max"
+				},
+				"src/features/intelligence/**": {
+					"everyfield/private-care-scope": "The intelligence feature owns the private-care tables and operations"
+				}
+			}
+		},
+		"tools/.oxlintrc.json": {
+			"overrides": {
+				"**/*.test.*, **/test/**, **/tests/**": {
+					"everyfield/resend-senders": "Tests drive fake mail providers"
+				},
+				"**/lint/everyfield-plugin.mjs": {
+					"everyfield/resend-senders": "The lint plugin defines the rule, so it names the Resend host itself"
+				}
+			}
+		}
+	}
+}

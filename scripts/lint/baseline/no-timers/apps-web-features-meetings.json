@@ -1,0 +1,7 @@
+{
+	"apps/web/src/features/meetings/Attendance.tsx": 1,
+	"apps/web/src/features/meetings/CheckInScreen.tsx": 1,
+	"apps/web/src/features/meetings/GuestList.tsx": 4,
+	"apps/web/src/features/meetings/VenuesSheet.tsx": 1,
+	"apps/web/src/features/meetings/dialogs.tsx": 1
+}
