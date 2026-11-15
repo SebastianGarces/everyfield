@@ -1,12 +1,12 @@
 # Meeting status machine
 
 Generated from `packages/contracts/src/machines/meeting-status.ts` by `node tools/ci/machines.ts --write`.
-`node tools/ci/machines.ts --check` fails when this page differs from the table or when code writes the column
-without the machine's guard.
+`node tools/ci/machines.ts --check` fails when this page differs from the table, and when the writer census below
+finds a write of the column that does not carry the machine's guard.
 
 - Column: `meeting.status`
 - States: `planning`, `ready`, `in_progress`, `completed`, `cancelled`
-- Subjects the guards tell apart: `vision`, `practice`
+- Subjects the guards tell apart: `vision`, `orientation`, `team`, `practice`
 - Refusal for every move the chart does not show: `status_transition`
 - A request for the current state writes nothing: `meetings.changeStatus`
 
@@ -51,6 +51,32 @@ stateDiagram-v2
 | vision | `meetings.correctOccurrence` | ready | ready |
 | vision | `meetings.correctOccurrence` | in_progress | in_progress |
 | vision | `meetings.correctOccurrence` | cancelled | cancelled |
+| orientation | `meetings.changeStatus` | planning | completed |
+| orientation | `meetings.changeStatus` | ready | completed |
+| orientation | `meetings.changeStatus` | in_progress | planning |
+| orientation | `meetings.changeStatus` | completed | ready |
+| orientation | `meetings.changeStatus` | completed | cancelled |
+| orientation | `meetings.changeStatus` | completed | planning |
+| orientation | `meetings.changeStatus` | cancelled | ready |
+| orientation | `meetings.changeStatus` | cancelled | in_progress |
+| orientation | `meetings.changeStatus` | cancelled | completed |
+| orientation | `meetings.correctOccurrence` | planning | planning |
+| orientation | `meetings.correctOccurrence` | ready | ready |
+| orientation | `meetings.correctOccurrence` | in_progress | in_progress |
+| orientation | `meetings.correctOccurrence` | cancelled | cancelled |
+| team | `meetings.changeStatus` | planning | completed |
+| team | `meetings.changeStatus` | ready | completed |
+| team | `meetings.changeStatus` | in_progress | planning |
+| team | `meetings.changeStatus` | completed | ready |
+| team | `meetings.changeStatus` | completed | cancelled |
+| team | `meetings.changeStatus` | completed | planning |
+| team | `meetings.changeStatus` | cancelled | ready |
+| team | `meetings.changeStatus` | cancelled | in_progress |
+| team | `meetings.changeStatus` | cancelled | completed |
+| team | `meetings.correctOccurrence` | planning | planning |
+| team | `meetings.correctOccurrence` | ready | ready |
+| team | `meetings.correctOccurrence` | in_progress | in_progress |
+| team | `meetings.correctOccurrence` | cancelled | cancelled |
 | practice | `meetings.changeStatus` | planning | completed |
 | practice | `meetings.changeStatus` | ready | completed |
 | practice | `meetings.changeStatus` | in_progress | planning |
@@ -74,6 +100,17 @@ stateDiagram-v2
 |---|---|---|
 | `packages/domain/src/meetings/meetings.ts` | update | from-state filter |
 | `packages/domain/src/meetings/meetings.ts` | insert | initial state |
+
+The census is a static scan of git-tracked product code and SQL files under apps, packages, ops, scripts and
+tools. It reads SQL literals (with an optional schema prefix), SET fragments in a file that also holds a dynamic
+`SET ${…}` on the table, Drizzle `update`/`insert` calls, and `.sql` files. A guarded UPDATE filters on
+`status = ANY(${fromStates(meetingStatusMachine, …)})` in the same statement; a guarded INSERT writes the
+initial state. A column name or statement start built at runtime, or a Drizzle object that is not a literal, counts
+as an unguarded writer.
+
+It cannot see: a SET fragment passed in from another file, SQL text assembled from variables that hold no
+literal naming the table, statements sent outside this repository, or writes made by hand in a database
+session. Only a database trigger generated from this table would refuse those.
 
 ## Proof
 

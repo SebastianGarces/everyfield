@@ -7,6 +7,7 @@ import {
 	allows,
 	coverage,
 	meetingStatusMachine as machine,
+	noops,
 	refusals,
 } from "../../../packages/contracts/src/machines/index.ts";
 import { meetingsWriter as meetings } from "../../../packages/domain/src/meetings/index.ts";
@@ -19,6 +20,9 @@ const run = (op, input) => db.transaction((tx) => op(tx, ctx, { requestKey: rand
 const day = (days) => new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
 const heldAt = (days) => new Date(Date.now() - days * 86_400_000).toISOString();
 const reason = "Model-based walk";
+const team = randomUUID();
+await database.admin.execute(sql`INSERT INTO team(id, plant_id, name, state, sort_order)
+	VALUES (${team}, ${database.tenant.id}, 'Hosts', 'active', 1)`);
 
 after(() => database.close());
 
@@ -32,7 +36,12 @@ async function stored(id) {
 async function schedule(subject) {
 	const created = ok(
 		await run(meetings.schedule, {
-			input: { type: machine.subjects[subject].type, date: day(30), time: "18:30" },
+			input: {
+				type: machine.subjects[subject].type,
+				date: day(30),
+				time: "18:30",
+				...(machine.subjects[subject].type === "team_meeting" ? { teamId: team } : {}),
+			},
 		}),
 	);
 	return stored(created.meeting.id);
@@ -124,6 +133,14 @@ test("INV-machine: meeting status follows its declared transitions and refuses e
 		const after = await stored(before.id);
 		assert.deepEqual(after, before, `${subject} ${r.event} ${r.from} -> ${r.to} left the row unchanged`);
 		observe({ kind: "refusal", subject, event: r.event, from: before.status, to: r.to });
+	}
+
+	for (const n of noops(machine)) {
+		const before = await meetingIn(n.subject, n.state);
+		const reply = ok(await fire(before, n.event, n.state));
+		assert.equal(reply.outcome, "noop");
+		assert.deepEqual(await stored(before.id), before, `${n.subject} ${n.event} ${n.state} wrote nothing`);
+		observe({ kind: "noop", subject: n.subject, event: n.event, from: n.state, to: n.state });
 	}
 
 	const report = coverage(machine, refusals(machine), observations);

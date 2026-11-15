@@ -12,6 +12,7 @@ import {
 	type Observation,
 	type Refusal,
 } from "../../packages/contracts/src/machines/index.ts";
+import * as registry from "../../packages/contracts/src/machines/index.ts";
 
 export type Writer = {
 	readonly file: string;
@@ -20,31 +21,45 @@ export type Writer = {
 	readonly guard: string | null;
 };
 
-type Literal = { readonly text: string; readonly exprs: readonly string[]; readonly line: number };
+type Literal = { readonly text: string; readonly guarded: readonly boolean[]; readonly line: number };
 
 const SOURCE_ROOTS = ["apps", "packages", "ops", "scripts", "tools"];
 const SOURCE_FILE = /\.(?:ts|tsx|mts|cts|js|jsx|mjs|cjs)$/;
+const SQL_FILE = /\.sql$/;
 const NOT_PRODUCT = /(?:^|\/)(?:tests?|node_modules|\.next|dist)\/|\.test\.[^/]+$/;
-const KEYWORDS = /\b(?:SELECT|UPDATE|INSERT|DELETE|WHERE|FROM|JOIN|ON|AND|OR|WHEN|THEN|CASE)\b/i;
+const STATEMENT = /\b(?:SELECT|UPDATE|INSERT|DELETE|WHERE|FROM)\b/i;
 
 const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-function sourceFiles(root: string): string[] {
+function trackedFiles(root: string): string[] {
 	return execFileSync("git", ["ls-files", "-z", "--", ...SOURCE_ROOTS], { cwd: root, encoding: "utf8" })
 		.split("\0")
-		.filter((file) => file && SOURCE_FILE.test(file) && !NOT_PRODUCT.test(file) && existsSync(join(root, file)));
+		.filter(
+			(file) =>
+				file &&
+				(SOURCE_FILE.test(file) || SQL_FILE.test(file)) &&
+				!NOT_PRODUCT.test(file) &&
+				existsSync(join(root, file)),
+		);
 }
 
-function literals(source: ts.SourceFile): Literal[] {
+function guardCall(expr: ts.Expression, binding: string): boolean {
+	if (!ts.isCallExpression(expr)) return false;
+	const callee = expr.expression.getText();
+	if (callee === "sql.param" && expr.arguments.length === 1) return guardCall(expr.arguments[0]!, binding);
+	return callee === "fromStates" && expr.arguments[0]?.getText() === binding;
+}
+
+function literals(source: ts.SourceFile, binding: string): Literal[] {
 	const found: Literal[] = [];
 	const line = (node: ts.Node) => source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1;
 	const visit = (node: ts.Node) => {
 		if (ts.isNoSubstitutionTemplateLiteral(node) || ts.isStringLiteral(node))
-			found.push({ text: node.text, exprs: [], line: line(node) });
+			found.push({ text: node.text, guarded: [], line: line(node) });
 		else if (ts.isTemplateExpression(node))
 			found.push({
 				text: node.head.text + node.templateSpans.map((span, i) => `$${i}${span.literal.text}`).join(""),
-				exprs: node.templateSpans.map((span) => span.expression.getText(source)),
+				guarded: node.templateSpans.map((span) => guardCall(span.expression, binding)),
 				line: line(node),
 			});
 		ts.forEachChild(node, visit);
@@ -74,6 +89,15 @@ function splitTop(list: string): string[] {
 function drizzleWriters(source: ts.SourceFile, m: MachineShape, file: string): Writer[] {
 	const found: Writer[] = [];
 	const target = new RegExp(`(?:^|\\.)${escape(m.table)}$`);
+	const names = (arg: ts.Expression) =>
+		!ts.isObjectLiteralExpression(arg) ||
+		arg.properties.some(
+			(p) =>
+				ts.isSpreadAssignment(p) ||
+				p.name === undefined ||
+				ts.isComputedPropertyName(p.name) ||
+				p.name.getText(source).replace(/["']/g, "") === m.column,
+		);
 	const visit = (node: ts.Node) => {
 		if (
 			ts.isCallExpression(node) &&
@@ -83,11 +107,7 @@ function drizzleWriters(source: ts.SourceFile, m: MachineShape, file: string): W
 			ts.isPropertyAccessExpression(node.expression.expression.expression) &&
 			["update", "insert"].includes(node.expression.expression.expression.name.text) &&
 			target.test(node.expression.expression.arguments[0]?.getText(source) ?? "") &&
-			node.arguments.some(
-				(arg) =>
-					ts.isObjectLiteralExpression(arg) &&
-					arg.properties.some((p) => p.name !== undefined && p.name.getText(source) === m.column),
-			)
+			node.arguments.some(names)
 		)
 			found.push({
 				file,
@@ -101,53 +121,70 @@ function drizzleWriters(source: ts.SourceFile, m: MachineShape, file: string): W
 	return found;
 }
 
-export function census(root: string, m: MachineShape): Writer[] {
-	const table = escape(m.table),
+export function bindingOf(m: MachineShape): string {
+	const name = Object.entries(registry).find(([, value]) => value === m)?.[0];
+	if (!name) throw new Error(`${m.id}: the machines index must export the machine by name.`);
+	return name;
+}
+
+export function census(root: string, m: MachineShape, binding = bindingOf(m)): Writer[] {
+	const table = `(?:"?\\w+"?\\.)?"?${escape(m.table)}"?(?![\\w"])`,
 		column = `"?${escape(m.column)}"?`;
 	const update = new RegExp(
-		`\\bUPDATE\\s+(?:ONLY\\s+)?"?${table}"?(?![\\w"])(?:\\s+(?:AS\\s+)?(?!SET\\b)\\w+)?\\s+SET\\b([\\s\\S]*?)(?:\\bWHERE\\b|\\bRETURNING\\b|\\bFROM\\b|$)`,
-		"i",
+		`\\bUPDATE\\s+(?:ONLY\\s+)?${table}(?:\\s+(?:AS\\s+)?(?!SET\\b)\\w+)?\\s+SET\\b([\\s\\S]*?)(?=\\bWHERE\\b|\\bRETURNING\\b|\\bFROM\\b|;|$)`,
+		"gi",
 	);
 	const insert = new RegExp(
-		`\\bINSERT\\s+INTO\\s+"?${table}"?\\s*\\(([^)]*)\\)\\s*(VALUES\\s*\\(([\\s\\S]*)\\))?`,
-		"i",
+		`\\bINSERT\\s+INTO\\s+${table}\\s*(?:\\(([^)]*)\\)\\s*(VALUES\\s*\\(([\\s\\S]*)\\))?)?`,
+		"gi",
 	);
-	const assigns = new RegExp(`(?<![.\\w])${column}\\s*=`, "i");
+	const assigns = new RegExp(`^(?:\\w+\\.)?${column}\\s*=`, "i");
+	const dynamicColumn = /^\$\d+\s*=/;
 	const filter = new RegExp(`(?<![\\w])(?:\\w+\\.)?${column}\\s*=\\s*ANY\\s*\\(\\s*\\$(\\d+)`, "i");
-	const prefilter = new RegExp(`\\b(?:UPDATE|INSERT\\s+INTO)\\s+"?${table}\\b|\\.(?:update|insert)\\(`, "i");
+	const prefilter = new RegExp(`\\b(?:UPDATE|INSERT\\s+INTO)\\s+${table}|\\.(?:update|insert)\\(`, "i");
 	const writers: Writer[] = [];
-	for (const file of sourceFiles(root)) {
+	for (const file of trackedFiles(root)) {
 		const text = readFileSync(join(root, file), "utf8");
 		if (!prefilter.test(text)) continue;
-		const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true);
-		const found = literals(source);
+		const sqlFile = SQL_FILE.test(file);
+		const source = sqlFile ? undefined : ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true);
+		const found: Literal[] = source ? literals(source, binding) : [{ text, guarded: [], line: 1 }];
+		const lineOf = (lit: Literal, index: number) => (sqlFile ? text.slice(0, index).split("\n").length : lit.line);
 		let dynamicSet = false;
 		for (const lit of found) {
-			const u = update.exec(lit.text);
-			if (u) {
-				const set = u[1] ?? "";
-				if (splitTop(set).some((item) => /^\$\d+$/.test(item))) dynamicSet = true;
-				if (!assigns.test(set)) continue;
+			for (const u of lit.text.matchAll(update)) {
+				const items = splitTop(u[1] ?? "").filter(Boolean);
+				if (items.some((item) => /^\$\d+$/.test(item))) dynamicSet = true;
+				const line = lineOf(lit, u.index);
+				if (!items.length || items.some((item) => dynamicColumn.test(item))) {
+					writers.push({ file, line, statement: "update", guard: null });
+					continue;
+				}
+				if (!items.some((item) => assigns.test(item))) continue;
 				const f = filter.exec(lit.text);
-				const guarded = f !== null && (lit.exprs[Number(f[1])] ?? "").includes("fromStates(");
-				writers.push({ file, line: lit.line, statement: "update", guard: guarded ? "from-state filter" : null });
-				continue;
+				const guarded = !sqlFile && f !== null && lit.guarded[Number(f[1])] === true;
+				writers.push({ file, line, statement: "update", guard: guarded ? "from-state filter" : null });
 			}
-			const i = insert.exec(lit.text);
-			if (i) {
-				const columns = splitTop(i[1] ?? "").map((c) => c.replace(/"/g, "").toLowerCase());
+			for (const i of lit.text.matchAll(insert)) {
+				const line = lineOf(lit, i.index);
+				if (i[1] === undefined) {
+					writers.push({ file, line, statement: "insert", guard: null });
+					continue;
+				}
+				const columns = splitTop(i[1]).map((c) => c.replace(/"/g, "").toLowerCase());
 				const at = columns.indexOf(m.column.toLowerCase());
 				if (at < 0) continue;
 				const value = i[3] === undefined ? undefined : splitTop(i[3])[at];
-				const initial = value !== undefined && new RegExp(`^'${escape(m.initial.to)}'(?:::text)?$`).test(value);
-				writers.push({ file, line: lit.line, statement: "insert", guard: initial ? "initial state" : null });
+				const initial =
+					!sqlFile && value !== undefined && new RegExp(`^'${escape(m.initial.to)}'(?:::text)?$`).test(value);
+				writers.push({ file, line, statement: "insert", guard: initial ? "initial state" : null });
 			}
 		}
 		if (dynamicSet)
 			for (const lit of found)
-				if (!KEYWORDS.test(lit.text) && assigns.test(lit.text))
+				if (!STATEMENT.test(lit.text) && splitTop(lit.text).some((item) => assigns.test(item)))
 					writers.push({ file, line: lit.line, statement: "set fragment", guard: null });
-		writers.push(...drizzleWriters(source, m, file));
+		if (source) writers.push(...drizzleWriters(source, m, file));
 	}
 	return writers.sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line);
 }
@@ -161,8 +198,8 @@ export function render(m: MachineShape, declaredRefusals: readonly Refusal[], wr
 		`# ${title(m.id)} machine`,
 		"",
 		`Generated from \`packages/contracts/src/machines/${m.id}.ts\` by \`node tools/ci/machines.ts --write\`.`,
-		"`node tools/ci/machines.ts --check` fails when this page differs from the table or when code writes the column",
-		"without the machine's guard.",
+		"`node tools/ci/machines.ts --check` fails when this page differs from the table, and when the writer census below",
+		"finds a write of the column that does not carry the machine's guard.",
 		"",
 		`- Column: \`${m.table}.${m.column}\``,
 		`- States: ${m.states.map((s) => `\`${s}\``).join(", ")}`,
@@ -189,6 +226,17 @@ export function render(m: MachineShape, declaredRefusals: readonly Refusal[], wr
 		"| File | Statement | Guard |",
 		"|---|---|---|",
 		...statements.map((w) => `| \`${w.file}\` | ${w.statement} | ${w.guard ?? "none"} |`),
+		"",
+		"The census is a static scan of git-tracked product code and SQL files under apps, packages, ops, scripts and",
+		"tools. It reads SQL literals (with an optional schema prefix), SET fragments in a file that also holds a dynamic",
+		"`SET ${…}` on the table, Drizzle `update`/`insert` calls, and `.sql` files. A guarded UPDATE filters on",
+		`\`${m.column} = ANY(\${fromStates(${bindingOf(m)}, …)})\` in the same statement; a guarded INSERT writes the`,
+		"initial state. A column name or statement start built at runtime, or a Drizzle object that is not a literal, counts",
+		"as an unguarded writer.",
+		"",
+		"It cannot see: a SET fragment passed in from another file, SQL text assembled from variables that hold no",
+		"literal naming the table, statements sent outside this repository, or writes made by hand in a database",
+		"session. Only a database trigger generated from this table would refuse those.",
 		"",
 		"## Proof",
 		"",
@@ -263,5 +311,5 @@ if (import.meta.main) {
 	const problems = checkMachines(process.cwd(), mode === "--write");
 	for (const p of problems) console.error(p);
 	if (problems.length) process.exit(1);
-	console.log(`machines: ${machines.length} machine(s), charts current, every writer guarded.`);
+	console.log(`machines: ${machines.length} machine(s), charts current, every writer the census sees is guarded.`);
 }

@@ -19,7 +19,12 @@ export const meetingStatusMachine = machine({
 	refusal: "status_transition",
 	initial: { event: "meetings.schedule", to: "planning" },
 	guards: { practice: (m: { readonly type: z.infer<typeof meetingType> }) => m.type === "prelaunch_practice" },
-	subjects: { vision: { type: "vision_meeting" }, practice: { type: "prelaunch_practice" } },
+	subjects: {
+		vision: { type: "vision_meeting" },
+		orientation: { type: "orientation" },
+		team: { type: "team_meeting" },
+		practice: { type: "prelaunch_practice" },
+	},
 	edges: [
 		{ event: "meetings.changeStatus", from: "planning", to: ["ready", "in_progress", "cancelled"] },
 		{ event: "meetings.changeStatus", from: "ready", to: ["planning", "in_progress", "cancelled"] },

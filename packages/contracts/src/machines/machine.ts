@@ -162,9 +162,17 @@ export function refusals<S extends string, E extends string, G extends string, S
 	return found;
 }
 
+export type Noop = { readonly subject: string; readonly event: string; readonly state: string };
+
+export function noops(m: MachineShape): readonly Noop[] {
+	return Object.keys(m.subjects).flatMap((subject) =>
+		m.unchangedIsNoop.flatMap((event) => m.states.map((state) => ({ subject, event, state }))),
+	);
+}
+
 export type Observation = {
 	readonly machine: string;
-	readonly kind: "edge" | "stay" | "refusal";
+	readonly kind: "edge" | "stay" | "refusal" | "noop";
 	readonly subject: string;
 	readonly event: string;
 	readonly from: string | null;
@@ -194,7 +202,8 @@ export function coverage(
 	];
 	const stays = m.stays.flatMap((s) => s.in.map((state) => key("stay", s.event, state, state)));
 	const refused = declaredRefusals.map((r) => key("refusal", r.event, r.from, r.to, r.subject));
-	const states = m.states.filter((s) => seen.some((o) => o.kind !== "refusal" && o.to === s));
+	const unchanged = noops(m).map((n) => key("noop", n.event, n.state, n.state, n.subject));
+	const states = m.states.filter((s) => seen.some((o) => (o.kind === "edge" || o.kind === "stay") && o.to === s));
 	const unique = (keys: readonly string[]) => [...new Set(keys)];
 	const count = (keys: readonly string[]) => {
 		const all = unique(keys);
@@ -202,14 +211,16 @@ export function coverage(
 	};
 	const e = count(edges),
 		st = count(stays),
-		r = count(refused);
+		r = count(refused),
+		n = count(unchanged);
 	const missing = [
-		...[...e.all, ...st.all, ...r.all].filter((k) => !observed.has(k)),
+		...[...e.all, ...st.all, ...r.all, ...n.all].filter((k) => !observed.has(k)),
 		...m.states.filter((s) => !states.includes(s)).map((s) => `state ${s}`),
 	];
 	const line =
 		`${m.id}: edges ${e.hit.length}/${e.all.length}, stays ${st.hit.length}/${st.all.length}, ` +
-		`refusals ${r.hit.length}/${r.all.length}, states ${states.length}/${m.states.length}`;
+		`refusals ${r.hit.length}/${r.all.length}, no-ops ${n.hit.length}/${n.all.length}, ` +
+		`states ${states.length}/${m.states.length}`;
 	return { line, complete: missing.length === 0, missing };
 }
 
