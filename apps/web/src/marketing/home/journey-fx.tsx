@@ -268,7 +268,7 @@ export function JourneyPath({
 										aria-label={s.title}
 										onClick={() => pick(i)}
 										onKeyDown={onKey(i)}
-										className="grid size-full cursor-pointer place-items-center border-0 bg-mk-canvas-92 p-0 text-ink shadow-mk-stop transition-colors duration-250 focus-visible:outline-cream aria-pressed:bg-green-500"
+										className="grid size-full place-items-center border-0 bg-mk-canvas-92 p-0 text-ink shadow-mk-stop transition-colors duration-250 focus-visible:outline-cream aria-pressed:bg-green-500"
 									>
 										{s.icon}
 									</button>
@@ -301,19 +301,23 @@ export function JourneyPath({
 							data-on={i === k ? "" : undefined}
 							className="group relative bg-white shadow-[var(--shadow-mk-card),inset_0_3px_0_transparent] transition-shadow duration-300 hover:shadow-[var(--shadow-mk-card),inset_0_3px_0_var(--color-mk-line-strong)] data-on:shadow-[var(--shadow-mk-card),inset_0_3px_0_var(--color-ink)]"
 						>
-							{/* A pointer shortcut to this step's stop button above, which carries the keyboard path and aria-pressed. */}
-							<div
-								role="presentation"
-								onClick={() => pick(i)}
-								className="cursor-pointer px-6 pt-[22px] pb-[26px] max-mk-cx:px-5 max-mk-cx:pt-[18px] max-mk-cx:pb-5"
-							>
+							<div className="px-6 pt-[22px] pb-[26px] max-mk-cx:px-5 max-mk-cx:pt-[18px] max-mk-cx:pb-5">
 								<span
 									aria-hidden="true"
 									className="mb-2.5 block type-xs font-semibold tracking-[.06em] text-text-3 group-data-on:text-green-600"
 								>
 									{num(i)}
 								</span>
-								<h3 className="mk-display font-title type-title-sm leading-[1.15] mk-cx:type-title-md">{s.title}</h3>
+								<h3 className="mk-display font-title type-title-sm leading-[1.15] mk-cx:type-title-md">
+									<button
+										type="button"
+										tabIndex={-1}
+										onClick={() => pick(i)}
+										className="text-left after:absolute after:inset-0"
+									>
+										{s.title}
+									</button>
+								</h3>
 								<p className="mt-2 type-lg leading-[1.5] text-text-2">{s.body}</p>
 							</div>
 						</li>
