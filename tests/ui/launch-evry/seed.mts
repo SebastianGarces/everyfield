@@ -1,41 +1,3 @@
-// Seeds the Evry Launch example (WP-075, WP-076) on the shared tests/ui seed environment (tests/ui/seed-env.mts), so
-// each Launch panel state can be viewed on a preview. Six churches, all America/Chicago, dated from today:
-//
-// - Cedar Hill Church (Owner Noah Hayes, Admin Grace Lin, Member Eli Ward): Launch Sunday 28 days out, set a month ago
-//   for 35 days out and moved three days ago ("The school asked us to start a week earlier."). Four milestones are
-//   marked complete, so five stay open. "Send the press release to local media", a prep task linked to "Promotion plan
-//   implemented", is two days overdue; "Send a press release to local media outlets", an ordinary task linked to no
-//   milestone, is three days overdue. Launch team holds 14 people. Ask the countdown, the open and blocked milestones,
-//   the launch-team goal and what changed since last week; move or postpone the date as each seat.
-// - Westfield Church (Owner Ava Stone): no launch date.
-// - Riverbend Church (Owner Leo Grant): Launch Sunday two days ago, not recorded yet. Record its attendance, then submit
-//   the debrief and publish the summary. Before that, "add Sam Ortiz as a launch guest" and "correct launch attendance
-//   to 162, we miscounted" are refused: Launch Sunday isn't recorded (T-383).
-// - Northgate Church (Owner Mia Cole): Launch Sunday three days ago, recorded with attendance 150 and three named
-//   first-time guests (Maya Brooks, Owen Price, Ruth Kim); a Vision meeting a month ago had two other people attend.
-// - Oakridge Church (Owner Isaac Moore, Admins Nina Shaw and Paul Kemp, Member Tess Young), for completing and
-//   reopening milestones (T-382): Launch Sunday 28 days out. "Worship Center secured and rehearsed in" (the venue
-//   milestone) is open with four linked prep tasks, two of them complete in Tasks. "Promotion plan chosen" is complete.
-//   "Prayer and fasting underway" needs review: Nina completed it with its first task done, and Isaac reopened that task
-//   in Tasks since. Ask "mark the venue milestone complete", "reopen the promotion plan chosen milestone" and "mark the
-//   fasting milestone complete" as each seat (the scripted model reads any "prayer" as a pastoral question).
-// - Lakeside Church (Owner Hugo Diaz, Admin Kara Bell, Member Omar Reed), for naming guests and correcting the outcome
-//   (T-383): Launch Sunday two days ago, recorded with attendance 150 and 4 decisions and three named guests (Ana Silva,
-//   Ben Cho, Cara Wells). People holds one live "Maria Lopez" (maria.lopez@example.test) and no "Sam Ortiz". Ask "add Sam
-//   Ortiz as a launch sunday guest", "add Maria Lopez as a launch guest" (then "the first one" or "add Maria Lopez as a
-//   new person"), "add Sam Ortiz, Jo Kim and Lee Park as launch guests", "correct launch attendance to 162, we miscounted
-//   the overflow room", "correct launch sunday: we don't actually know how many decisions" and "correct launch
-//   attendance to 170" (no reason) as each seat.
-//
-// Accounts sign up through the identity service, churches are created through the onboarding producer, people through
-// the People writer and every Launch change through the native Launch writer the Launch plan calls. Seats beyond the
-// Owner, task due dates and the history dates are raw rows: no public write backdates them.
-//
-//   up:   node --env-file=<home apps/web/.env.local> --conditions=react-server --import tsx tests/ui/launch-evry/seed.mts up <preview-url>
-//   down: node --env-file=<home apps/web/.env.local> --conditions=react-server --import tsx tests/ui/launch-evry/seed.mts down
-//
-// `up` writes every seat's session cookie and the church ids to the launch-evry fixture (fixturePath in setup.mjs; by
-// default /tmp/everyfield-launch-evry-ui.json). Every account's password is in PASSWORD below.
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { reviewedOf } from "../../../packages/contracts/src/launch/index.ts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
@@ -58,7 +20,6 @@ const today = () =>
 	new Intl.DateTimeFormat("en-CA", { timeZone: ZONE, year: "numeric", month: "2-digit", day: "2-digit" }).format(
 		new Date(),
 	);
-/** The church-local date `n` days from today. */
 const day = (n: number) => new Date(Date.parse(`${today()}T12:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
 const COMPLETED = [
 	"operations.equipment_on_site",
@@ -72,7 +33,6 @@ function ok<T>(reply: { status: string; value?: T; error?: unknown }, what: stri
 	return reply.value as T;
 }
 
-/** The example's accounts, churches and Launch plans in the schema `admin` and `runtime` are pinned to. */
 export async function seedLaunchEvry(env: {
 	admin: Database;
 	runtime: Database;
@@ -105,7 +65,6 @@ export async function seedLaunchEvry(env: {
 		);
 	const tag = randomUUID().slice(0, 8);
 
-	/** A signed-in active account that may create a church. */
 	async function account(name: string): Promise<Account> {
 		ip++;
 		const email = `${name.toLowerCase().replace(/\W+/g, ".")}.${tag}@launch-preview.example.test`;
@@ -140,7 +99,6 @@ export async function seedLaunchEvry(env: {
 	const onboarding = createOnboardingProducer({ invalidate: noop, notice: noop, enqueue: noop } as never);
 	const ctx = (a: Account, selected: Plant | { kind: "account"; id: string }) =>
 		({ session: a.sessionId, selected }) as never;
-	/** A church its Owner creates through onboarding, in America/Chicago. */
 	async function plant(owner: Account, name: string, city: string): Promise<Plant> {
 		const created = ok<{ plant: Plant }>(
 			(await runtime.transaction((tx) =>
@@ -183,14 +141,12 @@ export async function seedLaunchEvry(env: {
 			`schedule ${date}`,
 		);
 	};
-	/** Dates the church's newest Launch date row back `days` days, as if it was made then. */
 	const backdate = (p: Plant, days: number) =>
 		admin.execute(sql`UPDATE audit_event SET occurred_at=clock_timestamp()-make_interval(days=>${days}),
 			recorded_at=clock_timestamp()-make_interval(days=>${days})
 			WHERE id=(SELECT id FROM audit_event WHERE tenant_id=${p.id} AND action='launch.changed' AND subject_type='launch'
 				ORDER BY recorded_at DESC LIMIT 1)`);
 
-	// Cedar Hill: 28 days out, moved there three days ago, five milestones open, one linked prep task overdue.
 	const noah = await account("Noah Hayes");
 	const grace = await account("Grace Lin");
 	const eli = await account("Eli Ward");
@@ -220,16 +176,13 @@ export async function seedLaunchEvry(env: {
 	for (let n = 1; n <= 14; n++) await person(noah, cedar, `Launch Team ${String(n).padStart(2, "0")}`, "launch_team");
 	for (let n = 1; n <= 4; n++) await person(noah, cedar, `Prospect ${n}`, "prospect");
 
-	// Westfield: no launch date.
 	const ava = await account("Ava Stone");
 	const westfield = await plant(ava, "Westfield Church", "Pflugerville");
 
-	// Riverbend: Launch Sunday two days ago, not recorded yet.
 	const leo = await account("Leo Grant");
 	const riverbend = await plant(leo, "Riverbend Church", "Austin");
 	await schedule(leo, day(-2), null);
 
-	// Northgate: Launch Sunday recorded with 150 people and three named guests; a Vision meeting had two others.
 	const mia = await account("Mia Cole");
 	const northgate = await plant(mia, "Northgate Church", "Georgetown");
 	await schedule(mia, day(-3), null);
@@ -261,7 +214,6 @@ export async function seedLaunchEvry(env: {
 			VALUES(${northgate.id},${vision},${id},true,'attended')`);
 	}
 
-	// Oakridge: the venue milestone open with two of four prep tasks done, one milestone complete, one needing review.
 	const isaac = await account("Isaac Moore");
 	const nina = await account("Nina Shaw");
 	const paul = await account("Paul Kemp");
@@ -273,7 +225,6 @@ export async function seedLaunchEvry(env: {
 	await schedule(isaac, day(28), null);
 	const tasks = createTaskWriter({ reminders: async () => undefined });
 	const milestone = async (key: string) => (await planOf(isaac)).milestones.find((m) => m.templateKey === key)!;
-	/** A milestone's prep task completed or reopened in Tasks, by its title. */
 	const setTask = async (a: Account, key: string, title: string, op: "complete" | "reopen") => {
 		const t = (await milestone(key)).tasks.find((x) => x.title === title)!;
 		ok(
@@ -294,7 +245,6 @@ export async function seedLaunchEvry(env: {
 			`complete ${key}`,
 		);
 	};
-	// Two more prep tasks linked to the venue milestone, so it has four.
 	await admin.execute(sql`INSERT INTO task(plant_id,title,description,category,priority,status,creator_id,created_at,due_kind,launch_task_key)
 		SELECT ${oakridge.id}::uuid,r.title,'Launch readiness: part of the "Worship Center secured and rehearsed in" milestone on the Launch plan.',
 			'launch_prep','medium','not_started',${isaac.accountId}::uuid,clock_timestamp(),'undated',r.key
@@ -308,7 +258,6 @@ export async function seedLaunchEvry(env: {
 	await complete(nina, "launch_team.prayer_and_fasting");
 	await setTask(isaac, "launch_team.prayer_and_fasting", fast, "reopen");
 
-	// Lakeside: Launch Sunday recorded with 150 and 4 decisions, three named guests and a Maria Lopez in People.
 	const hugo = await account("Hugo Diaz");
 	const kara = await account("Kara Bell");
 	const omar = await account("Omar Reed");
