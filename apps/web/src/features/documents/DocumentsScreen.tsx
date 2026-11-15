@@ -47,7 +47,7 @@ import {
 	type Template,
 } from "./model.ts";
 import { NativeDocuments } from "./native.tsx";
-import { SavedHistory } from "./saved.tsx";
+import { SavedHistory, savedDocuments } from "./saved.tsx";
 
 // The documents library and the side-effect-free preview. Saving stores a generated file for the church.
 // A preview download stays on this device.
@@ -116,7 +116,6 @@ export function DocumentsScreen({
 	const [creating, startCreate] = useTransition();
 	const [createNote, setCreateNote] = useState<string | null>(null);
 	const createKeys = useRef(new Map<string, string>());
-	const [savedTick, setSavedTick] = useState(0);
 	const panel = useRef<HTMLDivElement>(null);
 	const autoPreviewed = useRef<string | null>(null);
 	const resolveToken = useRef(0);
@@ -246,7 +245,7 @@ export function DocumentsScreen({
 				return;
 			}
 			setSaveNote(`Saved ${result.value.savedTemplateName} for your church.`);
-			setSavedTick((current) => current + 1);
+			void savedDocuments.refresh();
 		});
 	}
 
@@ -475,7 +474,7 @@ export function DocumentsScreen({
 					</Card>
 				</aside>
 			</section>
-			<SavedHistory enabled={canPreview} refreshKey={savedTick} />
+			<SavedHistory enabled={canPreview} />
 			{written ? <NativeDocuments written={written} canEdit={canEdit} /> : null}
 		</>
 	);
