@@ -3080,7 +3080,7 @@
     },
     "WP-092": {
       "status": "in_progress",
-      "revision": 2,
+      "revision": 3,
       "updated_at": "2026-11-14T00:00:00.000Z",
       "evidence": [
         {
@@ -3152,9 +3152,23 @@
           "test": "AC:REC59-006 in tests/integration/target/sql/knowledge/restore-receipts.test.mts (node --test on Postgres; CI census through tests/integration/writes/suites.json)",
           "result": "passed",
           "note": "T-394 slice 2: an old copy restores no expired body, sends no mail, publishes no issue and keeps the expiry; its rows take the accepted receipt and issue 7."
+        },
+        {
+          "path": "tests/integration/target/sql/knowledge/encrypted-copy.test.mts",
+          "commit": "7550ce29b220b78154dfe1600e691101dfe18d77",
+          "test": "AC:BKT60-002 in tests/integration/target/sql/knowledge/encrypted-copy.test.mts (node --test on Postgres; CI census through tests/integration/writes/suites.json)",
+          "result": "passed",
+          "note": "T-395 slice 3: maintenance.createEncryptedCopy (ops/maintenance/copy.mts) seals the 2026-10-13 image and ready bytes with AES-256-GCM, records checksums, key version and subject expiry 2026-10-20T16:00:00Z; only the restricted backup key from a private file opens it; another key or a changed copy is refused; the 2026-10-19 recopy keeps the expiry; A gets nothing through documents.download. Local crypto and fakes only: G-RECOVERY stays open."
+        },
+        {
+          "path": "tests/integration/target/sql/knowledge/readiness.test.mts",
+          "commit": "7550ce29b220b78154dfe1600e691101dfe18d77",
+          "test": "AC:BKT60-004 in tests/integration/target/sql/knowledge/readiness.test.mts (node --test on Postgres; CI census through tests/integration/writes/suites.json)",
+          "result": "passed",
+          "note": "T-395 slice 3: ops.readiness (ops/maintenance/readiness.mts) reports customer_data_gate blocked and build_gate_from_backup false, naming each missing item of cost approval, host schedule, key exclusion and coherent restore; a restore rehearsal does not count. It never reads ready here (WP-058 closes it with live evidence); G-RECOVERY stays open."
         }
       ],
-      "notes": "T-393 slice 1 (D-1552, D-1554): DEL58-003, DEL58-006, GAP-REF-006 and SCHEMA-010 run. T-394 slice 2: the isolated restore rehearsal (ops/maintenance/restore.mts) runs ORG55-008, DEL58-008, OPS54-002, REC59-003, REC59-004 and REC59-006 on a throwaway Postgres and a fake object store; G-RECOVERY stays open. Not done: the encrypted copy and readiness gates (BKT60-002, BKT60-004), and the WP-049 and WP-055 dependencies remain."
+      "notes": "T-393 slice 1 (D-1552, D-1554): DEL58-003, DEL58-006, GAP-REF-006 and SCHEMA-010 run. T-394 slice 2: the isolated restore rehearsal (ops/maintenance/restore.mts) runs ORG55-008, DEL58-008, OPS54-002, REC59-003, REC59-004 and REC59-006 on a throwaway Postgres and a fake object store; G-RECOVERY stays open. T-395 slice 3: the local encrypted copy (ops/maintenance/copy.mts) and readiness report (ops/maintenance/readiness.mts) run BKT60-002 and BKT60-004; G-RECOVERY stays open, with no real bucket, host, schedule, key escrow or spend. Not done: the WP-049 and WP-055 dependencies remain."
     },
     "WP-093": {
       "status": "not_started",
