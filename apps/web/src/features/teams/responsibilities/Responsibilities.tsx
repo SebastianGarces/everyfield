@@ -59,6 +59,9 @@ type RowChange =
 	| { kind: "remove"; id: string }
 	| { kind: "add"; row: Row };
 
+const savedAs = (row: Row, pending: Row) =>
+	!row.pending && row.sortOrder === pending.sortOrder && row.text === pending.text;
+
 function applyRows(items: Row[], change: RowChange): Row[] {
 	switch (change.kind) {
 		case "tick":
@@ -70,7 +73,7 @@ function applyRows(items: Row[], change: RowChange): Row[] {
 		case "remove":
 			return items.filter((row) => row.id !== change.id);
 		case "add":
-			return [...items, change.row];
+			return items.some((row) => savedAs(row, change.row)) ? items : [...items, change.row];
 	}
 }
 
