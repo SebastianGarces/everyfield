@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { RATCHETED } from "./everyfield-plugin.mjs";
@@ -188,21 +189,44 @@ function resolveBase(argv) {
 	return ref ? { ref, how: `the merge base of HEAD and ${main}` } : null;
 }
 
+const trees = new Map();
+
+function treeAt(ref) {
+	if (trees.has(ref)) return trees.get(ref);
+	const paths = (tryGit(["ls-tree", "-r", "--name-only", "-z", ref, "--", "scripts/lint/"]) ?? "")
+		.split("\0")
+		.filter((path) => path.endsWith(".json"));
+	const blobs = new Map();
+	if (paths.length) {
+		const out = execFileSync("git", ["cat-file", "--batch"], {
+			cwd: root,
+			input: paths.map((path) => `${ref}:${path}`).join("\n") + "\n",
+			maxBuffer: 1 << 30,
+		});
+		let at = 0;
+		for (const path of paths) {
+			const header = out.subarray(at, out.indexOf(10, at)).toString();
+			const size = Number(header.split(" ")[2]);
+			const start = out.indexOf(10, at) + 1;
+			blobs.set(path, JSON.parse(out.subarray(start, start + size).toString()));
+			at = start + size + 1;
+		}
+	}
+	trees.set(ref, blobs);
+	return blobs;
+}
+
 function baselineAt(ref, rule) {
-	const listed = tryGit(["ls-tree", "--name-only", `${ref}:${BASELINE}/${rule}`]);
-	if (listed === null) return null;
-	const entries = {};
-	for (const name of listed.split("\n").filter(Boolean))
-		Object.assign(entries, JSON.parse(git(["show", `${ref}:${BASELINE}/${rule}/${name}`])));
-	return entries;
+	const prefix = `${BASELINE}/${rule}/`;
+	const files = [...treeAt(ref)].filter(([path]) => path.startsWith(prefix));
+	return files.length ? Object.assign({}, ...files.map(([, entries]) => entries)) : null;
 }
 
 function survivorsAt(ref) {
-	const listed = tryGit(["ls-tree", "--name-only", `${ref}:${SURVIVORS}`]) ?? "";
 	const byRule = {};
-	for (const name of listed.split("\n").filter(Boolean))
-		for (const [rule, files] of Object.entries(JSON.parse(git(["show", `${ref}:${SURVIVORS}/${name}`]))))
-			Object.assign((byRule[rule] ??= {}), files);
+	for (const [path, content] of treeAt(ref))
+		if (path.startsWith(`${SURVIVORS}/`))
+			for (const [rule, files] of Object.entries(content)) Object.assign((byRule[rule] ??= {}), files);
 	return byRule;
 }
 
@@ -218,8 +242,7 @@ function renamesSince(ref) {
 }
 
 const knownAt = (ref, rule) =>
-	tryGit(["grep", "-q", "-F", `"${rule}"`, ref, "--", "scripts/lint/"]) !== null ||
-	tryGit(["ls-tree", "--name-only", `${ref}:${BASELINE}/${rule}`]) !== null;
+	baselineAt(ref, rule) !== null || tryGit(["grep", "-q", "-F", `"${rule}"`, ref, "--", "scripts/lint/"]) !== null;
 
 function bootstrapCommit(base, rule) {
 	if (process.env.GITHUB_ACTIONS === "true") ensureHistory();
@@ -281,10 +304,13 @@ if (import.meta.main) {
 	const baseline = readBaseline(baselineDir);
 	const survivors = readSurvivors(survivorsDir);
 	const base = argv.includes("--no-base") ? null : resolveBase(argv);
+	const migrationsAtBase = new Set(
+		base
+			? (tryGit(["ls-tree", "-r", "--name-only", "-z", base.ref, "--", "packages/db/migrations/"]) ?? "").split("\0")
+			: [],
+	);
 	const newMigrations = new Set(
-		[...files].filter(
-			(path) => MIGRATIONS.test(path) && base && tryGit(["cat-file", "-e", `${base.ref}:${path}`]) === null,
-		),
+		[...files].filter((path) => base && MIGRATIONS.test(path) && !migrationsAtBase.has(path)),
 	);
 	checkBaselineShape(baselineDir);
 	checkSurvivors(files);
