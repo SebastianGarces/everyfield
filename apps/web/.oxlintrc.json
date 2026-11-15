@@ -1281,6 +1281,7 @@
 				"everyfield/clickable-host": "error",
 				"everyfield/no-cursor-utility": "error",
 				"everyfield/no-raw-history": "error",
+				"everyfield/no-global-listeners": "error",
 				"everyfield/zustand-shape": "error",
 				"everyfield/feature-boundaries": "error"
 			}

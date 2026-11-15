@@ -209,18 +209,59 @@ export function Row({ on }) {
 	]);
 });
 
-test("INV-lint: history writes and popstate listeners are reported outside the location store", () => {
+test("INV-lint: history writes, popstate and the Navigation API are reported outside the location store, in every spelling", () => {
 	const source = `export function go(mode, href) {
 	window.history.pushState(null, "", href);
 	history.replaceState(null, "", href);
 	window.history[mode === "push" ? "pushState" : "replaceState"](null, "", href);
-	window.addEventListener("popstate", () => {});
+	onTraversal("popstate");
 	window.onpopstate = null;
+	const { pushState } = window.history;
+	listen(\`popstate\`);
+	history["push" + "State"](null, "", href);
+	window.navigation.navigate(href);
+	navigation.addEventListener("navigate", go);
+	return pushState;
 }
 `;
 	assert.deepEqual(
 		lint({ "apps/web/src/features/x/go.ts": source, "apps/web/src/components/location.ts": source }),
-		[2, 3, 4, 4, 5, 6].map((line) => `apps/web/src/features/x/go.ts:${line} no-raw-history`),
+		[
+			"apps/web/src/features/x/go.ts:2 no-raw-history",
+			"apps/web/src/features/x/go.ts:3 no-raw-history",
+			"apps/web/src/features/x/go.ts:4 no-raw-history",
+			"apps/web/src/features/x/go.ts:4 no-raw-history",
+			"apps/web/src/features/x/go.ts:4 no-raw-history",
+			"apps/web/src/features/x/go.ts:5 no-raw-history",
+			"apps/web/src/features/x/go.ts:6 no-raw-history",
+			"apps/web/src/features/x/go.ts:7 no-raw-history",
+			"apps/web/src/features/x/go.ts:8 no-raw-history",
+			"apps/web/src/features/x/go.ts:9 no-raw-history",
+			"apps/web/src/features/x/go.ts:10 no-raw-history",
+			"apps/web/src/features/x/go.ts:10 no-raw-history",
+			"apps/web/src/features/x/go.ts:11 no-raw-history",
+		].sort(),
+	);
+});
+
+test("INV-lint: window and document listeners are reported outside the location store and the page-event registry", () => {
+	const source = `export function mount(node, run) {
+	window.addEventListener("keydown", run);
+	document.removeEventListener("click", run);
+	const add = globalThis.addEventListener;
+	addEventListener("beforeunload", run);
+	window.document.addEventListener("click", run);
+	node.addEventListener("click", run);
+	return add;
+}
+`;
+	assert.deepEqual(
+		lint({
+			"apps/web/src/features/x/mount.ts": source,
+			"apps/web/src/components/save/leave.ts": source,
+			"apps/web/src/components/location.ts": source,
+		}),
+		[2, 3, 4, 5, 6].map((line) => `apps/web/src/features/x/mount.ts:${line} no-global-listeners`),
 	);
 });
 
@@ -229,24 +270,43 @@ test("INV-lint: zustand is reached only through store files and the store helper
 export const shared = createStore()(() => ({}));
 export const createPanelStore = () => createStore()(() => ({}));
 `;
+	const evasions = `import { createStore as make } from "zustand/vanilla";
+import * as z from "zustand/vanilla";
+export { createStore } from "zustand/vanilla";
+export const a = make()(() => ({}));
+export const b = z.createStore()(() => ({}));
+export const c = (() => make()(() => ({})))();
+export const createOtherStore = () => make()(() => ({}));
+`;
 	const component = `import { create } from "zustand";
 import { createStore } from "zustand/vanilla";
 import { persist } from "zustand/middleware";
 import { useStore } from "zustand";
+import { createPanelStore } from "./Panel.store.ts";
 export const used = [create, createStore, persist, useStore];
+export const shared = createPanelStore();
+export function Panel() {
+	return createPanelStore();
+}
 `;
 	assert.deepEqual(
 		lint({
 			"apps/web/src/features/x/Panel.store.ts": store,
+			"apps/web/src/features/x/Other.store.ts": evasions,
 			"apps/web/src/features/x/Panel.tsx": component,
 			"apps/web/src/components/store.ts": `import { useStore } from "zustand";\nexport { useShallow } from "zustand/react/shallow";\nexport { useStore };\n`,
 		}),
 		[
+			"apps/web/src/features/x/Other.store.ts:3 zustand-shape",
+			"apps/web/src/features/x/Other.store.ts:4 zustand-shape",
+			"apps/web/src/features/x/Other.store.ts:5 zustand-shape",
+			"apps/web/src/features/x/Other.store.ts:6 zustand-shape",
 			"apps/web/src/features/x/Panel.store.ts:2 zustand-shape",
 			"apps/web/src/features/x/Panel.tsx:1 zustand-shape",
 			"apps/web/src/features/x/Panel.tsx:2 zustand-shape",
 			"apps/web/src/features/x/Panel.tsx:3 zustand-shape",
 			"apps/web/src/features/x/Panel.tsx:4 zustand-shape",
+			"apps/web/src/features/x/Panel.tsx:7 zustand-shape",
 		],
 	);
 });

@@ -481,8 +481,25 @@ const noTimers = ratcheted("no-timers", (context, push) => {
 });
 
 export const LOCATION_STORE = "apps/web/src/components/location.ts";
-const HISTORY_WRITES = new Set(["pushState", "replaceState"]);
-const HISTORY_WORDS = new Set([...HISTORY_WRITES, "popstate", "onpopstate"]);
+export const PAGE_EVENTS = "apps/web/src/components/save/leave.ts";
+const HISTORY_MEMBERS = new Set(["pushState", "replaceState", "onpopstate"]);
+const HISTORY_STRINGS = new Set(["pushState", "replaceState", "popstate", "onpopstate", "currententrychange"]);
+const GLOBAL_HOSTS = new Set(["window", "globalThis", "self"]);
+
+const stringValue = (node) =>
+	node?.type === "Literal" && typeof node.value === "string"
+		? node.value
+		: node?.type === "TemplateLiteral" && node.expressions.length === 0
+			? (node.quasis[0]?.value.cooked ?? null)
+			: null;
+const isHost = (node, context, names) =>
+	node?.type === "Identifier" && names.has(node.name) && !declared(context, node);
+const isHistory = (node, context) =>
+	isHost(node, context, new Set(["history"])) ||
+	(memberName(node) === "history" && isHost(node.object, context, GLOBAL_HOSTS));
+const isNavigation = (node, context) =>
+	isHost(node, context, new Set(["navigation"])) ||
+	(memberName(node) === "navigation" && isHost(node.object, context, GLOBAL_HOSTS));
 
 const noRawHistory = ratcheted("no-raw-history", (context, push) => {
 	if (repoPath(context.filename) === LOCATION_STORE) return {};
@@ -490,16 +507,58 @@ const noRawHistory = ratcheted("no-raw-history", (context, push) => {
 		push({
 			node,
 			fn: enclosingName(node),
-			message: `${word} outside ${LOCATION_STORE}: the address has one owner. Write it with writeAddress, read it with usePath or useAddress, and react to Back and Forward with onTraversal, so every reader sees the same address in the same event.`,
+			message: `${word} outside ${LOCATION_STORE}: the address has one owner. Write it with writeAddress, read it with usePath or useAddress, react to Back and Forward with an address rule or onTraversal, so every reader sees the same address in the same event.`,
 		});
 	return {
 		MemberExpression(node) {
-			const name = node.computed ? literalArgument(node.property) : node.property.name;
-			if (name && HISTORY_WORDS.has(name)) report(node, name);
+			const name = memberName(node);
+			if (name && HISTORY_MEMBERS.has(name)) return report(node, name);
+			if (node.computed && name === null && isHistory(node.object, context)) return report(node, "history[...]");
+			if (isNavigation(node, context) || isNavigation(node.object, context)) report(node, "the Navigation API");
+		},
+		Property(node) {
+			if (node.parent?.type !== "ObjectPattern") return;
+			const name = keyName(node.key, node.computed);
+			if (name && HISTORY_MEMBERS.has(name)) report(node, name);
 		},
 		Literal(node) {
-			if (typeof node.value === "string" && HISTORY_WORDS.has(node.value) && node.parent?.type !== "MemberExpression")
-				report(node, node.value);
+			const value = stringValue(node);
+			if (value && HISTORY_STRINGS.has(value) && memberName(node.parent) === null) report(node, value);
+		},
+		TemplateLiteral(node) {
+			const value = stringValue(node);
+			if (value && HISTORY_STRINGS.has(value)) report(node, value);
+		},
+	};
+});
+
+const GLOBAL_LISTENER_OWNERS = new Set([LOCATION_STORE, PAGE_EVENTS]);
+const LISTENER_MEMBERS = new Set(["addEventListener", "removeEventListener", "onbeforeunload", "onkeydown"]);
+const LISTENER_HOSTS = new Set([...GLOBAL_HOSTS, "document"]);
+
+const noGlobalListeners = ratcheted("no-global-listeners", (context, push) => {
+	if (GLOBAL_LISTENER_OWNERS.has(repoPath(context.filename))) return {};
+	const report = (node, name) =>
+		push({
+			node,
+			fn: enclosingName(node),
+			message: `${name} on window or document: page-wide events have one owner each. Address changes go through ${LOCATION_STORE} (an address rule registered at module scope, or onTraversal started from an event); shortcuts and the unsaved-work warning go through ${PAGE_EVENTS} (aria-keyshortcuts on the control, data-unsaved on the form). A listener tied to a component's lifetime is an effect: it needs a survivor entry.`,
+		});
+	return {
+		MemberExpression(node) {
+			const name = memberName(node);
+			if (!name || !LISTENER_MEMBERS.has(name)) return;
+			const host = node.object;
+			if (
+				isHost(host, context, LISTENER_HOSTS) ||
+				(memberName(host) === "document" && isHost(host.object, context, GLOBAL_HOSTS))
+			)
+				report(node, name);
+		},
+		Identifier(node) {
+			if (node.name !== "addEventListener" || !isValueReference(node) || declared(context, node)) return;
+			if (node.parent?.type === "MemberExpression" && node.parent.property === node) return;
+			report(node, "addEventListener");
 		},
 	};
 });
@@ -507,34 +566,73 @@ const noRawHistory = ratcheted("no-raw-history", (context, push) => {
 export const STORE_HELPER = "apps/web/src/components/store.ts";
 export const MODULE_STORES = ["apps/web/src/features/meetings/deletions.store.ts"];
 const ZUSTAND = /^zustand(?:\/|$)/;
+const STORE_FACTORY = /^create\w*Store$/;
+
+function atModuleLevel(node) {
+	for (let p = node.parent; p; p = p.parent) {
+		if (!FUNCTIONS.has(p.type)) continue;
+		const call = p.parent;
+		const iife = call?.type === "CallExpression" && call.callee === p;
+		if (!iife) return false;
+	}
+	return true;
+}
 
 const zustandShape = {
 	meta: { type: "problem" },
 	create(context) {
 		const path = repoPath(context.filename);
 		const storeFile = path.endsWith(".store.ts");
+		const report = (node, message) => context.report({ node, message });
 		const allowed = (source) =>
 			source === "zustand/vanilla"
 				? storeFile
 				: path === STORE_HELPER && (source === "zustand" || source === "zustand/react/shallow");
+		const factories = new Set();
+		const spaces = new Set();
 		const sources = moduleSources((node, source) => {
-			if (!ZUSTAND.test(source) || allowed(source)) return;
-			context.report({
-				node,
-				message: `${source} is not imported here. A store file (<Component>.store.ts) imports createStore from zustand/vanilla only; components read it through useLocalStore, useStore and storeContext from ${STORE_HELPER}. No module-level create(), no middleware.`,
-			});
+			if (!ZUSTAND.test(source)) return;
+			if ((node.type === "ExportNamedDeclaration" || node.type === "ExportAllDeclaration") && path !== STORE_HELPER)
+				return report(
+					node,
+					`${source} is not re-exported. Import it where it is used: store files take createStore from zustand/vanilla; components use ${STORE_HELPER}.`,
+				);
+			if (!allowed(source))
+				report(
+					node,
+					`${source} is not imported here. A store file (<Component>.store.ts) imports createStore from zustand/vanilla only; components read it through useLocalStore, useStore and storeContext from ${STORE_HELPER}. No module-level create(), no middleware.`,
+				);
 		});
+		const isFactory = (callee) =>
+			(callee?.type === "Identifier" && factories.has(callee.name)) ||
+			(callee?.type === "MemberExpression" &&
+				callee.object.type === "Identifier" &&
+				spaces.has(callee.object.name) &&
+				memberName(callee) === "createStore");
 		return {
 			...sources,
+			ImportDeclaration(node) {
+				sources.ImportDeclaration(node);
+				const source = node.source.value;
+				const vanilla = source === "zustand/vanilla";
+				const storeModule = /\.store(\.ts)?$/.test(source);
+				if (!vanilla && !storeModule) return;
+				for (const spec of node.specifiers) {
+					if (spec.type === "ImportNamespaceSpecifier") spaces.add(spec.local.name);
+					else if (spec.type === "ImportSpecifier") {
+						const name = nameOf(spec.imported);
+						if ((vanilla && name === "createStore") || (storeModule && STORE_FACTORY.test(name)))
+							factories.add(spec.local.name);
+					}
+				}
+			},
 			CallExpression(node) {
 				sources.CallExpression(node);
-				if (!storeFile || MODULE_STORES.includes(path) || nearestFunction(node)) return;
-				if (node.callee.type === "Identifier" && node.callee.name === "createStore")
-					context.report({
-						node,
-						message:
-							"A store is created per component instance: export a create<Name>Store(init) function and call it from useLocalStore. A module-level store is shared by every request during server rendering.",
-					});
+				if (MODULE_STORES.includes(path) || !isFactory(node.callee) || !atModuleLevel(node)) return;
+				report(
+					node,
+					"A store is created per component instance: export a create<Name>Store(init) function and call it from useLocalStore. A module-level store is shared by every request during server rendering.",
+				);
 			},
 		};
 	},
@@ -719,6 +817,7 @@ export default {
 		"clickable-host": clickableHost,
 		"no-cursor-utility": noCursorUtility,
 		"no-raw-history": noRawHistory,
+		"no-global-listeners": noGlobalListeners,
 		"zustand-shape": zustandShape,
 		"feature-boundaries": featureBoundaries,
 		"no-sql-comments": noSqlComments,

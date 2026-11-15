@@ -50,6 +50,7 @@ const CONFIGS = {
 			"clickable-host",
 			"no-cursor-utility",
 			"no-raw-history",
+			"no-global-listeners",
 			"zustand-shape",
 			"feature-boundaries",
 		],
