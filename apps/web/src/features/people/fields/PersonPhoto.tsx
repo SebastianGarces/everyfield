@@ -17,7 +17,7 @@ import {
 } from "@everyfield/ui/controls";
 import { Avatar, initials } from "@everyfield/ui/display";
 import { Icon } from "@everyfield/ui/foundations";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import type { z } from "zod";
 import { SaveNotice, useSaveIntent } from "../../../components/save/parts.tsx";
 import type { Receipt } from "../boundary.ts";
@@ -79,23 +79,11 @@ export function PersonPhoto({
 	const [photo, setPhoto] = useState(initial);
 	const [preview, setPreview] = useState<string | null>(null);
 	const [busy, setBusy] = useState<"upload" | "remove" | null>(null);
-	useEffect(() => () => void (preview && URL.revokeObjectURL(preview)), [preview]);
 
 	// The saved photo shows only once its bytes have loaded; until then, or if the route refuses, the initials stay, so
 	// the header never shows a broken image (REQ-PPL-005).
 	const saved = photoSrc(photo);
-	const [loaded, setLoaded] = useState<string | null>(null);
-	useEffect(() => {
-		if (!saved) return;
-		let live = true;
-		const img = new Image();
-		img.onload = () => live && setLoaded(saved);
-		img.src = saved;
-		return () => {
-			live = false;
-		};
-	}, [saved]);
-	const src = busy === "remove" ? undefined : (preview ?? (saved && loaded === saved ? saved : undefined));
+	const src = busy === "remove" ? undefined : (preview ?? saved ?? undefined);
 	const label = src ? `Photo of ${person.displayName}` : person.displayName;
 
 	const through = throughStore(
@@ -110,6 +98,11 @@ export function PersonPhoto({
 		const r = await readPhoto(person.id).catch(() => null);
 		if (r?.status === "ok") setPhoto(r.value);
 	};
+
+	function drop(local: string) {
+		setPreview((p) => (p === local ? null : p));
+		URL.revokeObjectURL(local);
+	}
 
 	async function upload(file: File) {
 		const problem = photoProblem(file);
@@ -137,15 +130,15 @@ export function PersonPhoto({
 				onSaved(value.receipt);
 				// Keep the chosen file on screen until the saved version has loaded, so the header never flashes empty.
 				const saved = photoSrc(value.photo);
-				if (!saved) return setPreview(null);
+				if (!saved) return drop(local);
 				const img = new Image();
-				img.onload = img.onerror = () => setPreview((p) => (p === local ? null : p));
+				img.onload = img.onerror = () => drop(local);
 				img.src = saved;
 				toast({ tone: "success", message: "Photo saved." });
 			},
 		});
 		setBusy(null);
-		if (!settled) setPreview(null);
+		if (!settled) drop(local);
 	}
 
 	async function remove() {

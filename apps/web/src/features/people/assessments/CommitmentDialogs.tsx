@@ -20,7 +20,9 @@ import {
 	Textarea,
 	useFieldControl,
 } from "@everyfield/ui/controls";
-import { useEffect, useId, useRef, useState } from "react";
+import { createDebouncer } from "@everyfield/ui/foundations";
+import { useId, useRef, useState } from "react";
+import { createRead, useRead } from "../../../components/read.tsx";
 import type { Outcome, Wait } from "../../../components/save/model.ts";
 import { RecordDialog } from "../../../components/save/parts.tsx";
 import { LocalDay } from "../parts.tsx";
@@ -285,6 +287,12 @@ function WitnessField({
 	);
 }
 
+const WITNESS_PAUSE_MS = 250;
+const witnesses = createRead(
+	(query: string): Promise<Outcome<{ id: string; name: string; detail: string }[]>> => findWitnesses(query),
+	{ failed: () => ({ status: "lost" }) as const },
+);
+
 /** Search this church's people for the witness. An answer for an older search is never shown. */
 function WitnessPicker({
 	exclude,
@@ -303,24 +311,9 @@ function WitnessPicker({
 	const errorId = useId();
 	const [search, setSearch] = useState("");
 	const [query, setQuery] = useState("");
-	const [got, setGot] = useState<{
-		query: string;
-		value: Outcome<{ id: string; name: string; detail: string }[]>;
-	} | null>(null);
-	const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
-	useEffect(() => {
-		if (query === "") return;
-		let live = true;
-		findWitnesses(query).then(
-			(value) => live && setGot({ query, value }),
-			() => live && setGot({ query, value: { status: "lost" } }),
-		);
-		return () => {
-			live = false;
-		};
-	}, [query]);
-	useEffect(() => () => clearTimeout(timer.current), []);
-	const result = query === "" ? null : got?.query === query ? got.value : undefined;
+	const [{ run: afterPause, cancelOnDetach }] = useState(() => createDebouncer(WITNESS_PAUSE_MS));
+	const got = useRead(query === "" ? null : witnesses, query);
+	const result = query === "" ? null : got.value;
 	const found = result?.status === "ok" ? result.value.filter((p) => p.id !== exclude) : [];
 	const options = value && !found.some((p) => p.id === value.id) ? [{ ...value, detail: "" }, ...found] : found;
 	return (
@@ -328,6 +321,7 @@ function WitnessPicker({
 			<SearchInput
 				aria-label="Search people for the witness"
 				placeholder="Search name, email or phone"
+				ref={cancelOnDetach}
 				value={search}
 				maxLength={255}
 				autoFocus={autoFocus}
@@ -336,8 +330,7 @@ function WitnessPicker({
 				onChange={(e) => {
 					const next = e.target.value;
 					setSearch(next);
-					clearTimeout(timer.current);
-					timer.current = setTimeout(() => setQuery(next.trim()), 250);
+					afterPause(() => setQuery(next.trim()));
 				}}
 			/>
 			<div className="max-h-[200px] min-h-[52px] overflow-y-auto rounded-md px-1">

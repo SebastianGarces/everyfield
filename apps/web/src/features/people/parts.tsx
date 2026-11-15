@@ -91,7 +91,7 @@ export function LocalDay({ day }: { day: string }) {
 
 type Warnings = Outcome<z.infer<typeof people.statusWarningsResult>>;
 const warningsRead = createRead<[personId: string, round: number], Warnings>((personId) => statusWarnings(personId), {
-	failed: () => ({ status: "lost" }),
+	failed: () => ({ status: "lost" }) as const,
 });
 
 export function useWarnings(personId: string, round: number): Warnings | null {

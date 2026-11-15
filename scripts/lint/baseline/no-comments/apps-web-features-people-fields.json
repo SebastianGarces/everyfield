@@ -1,7 +1,7 @@
 {
 	"apps/web/src/features/people/fields/HouseholdCard.tsx": 21,
-	"apps/web/src/features/people/fields/HouseholdDialogs.tsx": 13,
-	"apps/web/src/features/people/fields/ManageTagsDialog.tsx": 16,
+	"apps/web/src/features/people/fields/HouseholdDialogs.tsx": 12,
+	"apps/web/src/features/people/fields/ManageTagsDialog.tsx": 14,
 	"apps/web/src/features/people/fields/PersonPhoto.tsx": 12,
 	"apps/web/src/features/people/fields/SkillsCard.tsx": 5,
 	"apps/web/src/features/people/fields/TagsField.tsx": 9,

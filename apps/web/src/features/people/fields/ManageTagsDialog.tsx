@@ -23,13 +23,17 @@ import {
 } from "@everyfield/ui/controls";
 import { TINT, type Tone } from "@everyfield/ui/display";
 import { cn } from "@everyfield/ui/foundations";
-import { useEffect, useOptimistic, useRef, useState, useTransition } from "react";
+import { useOptimistic, useState, useTransition } from "react";
+import { createRead, useRead } from "../../../components/read.tsx";
 import type { Outcome } from "../../../components/save/model.ts";
 import { DialogNotice, type SaveIntent } from "../../../components/save/parts.tsx";
 import { FormProblem, problemText } from "../parts.tsx";
 import { createChurchTag, deleteChurchTag, listChurchTags, updateChurchTag } from "./actions.ts";
 import { TAG_COLOR_LABEL, TAG_COLORS, tagLook, type ChurchTag } from "./model.ts";
 
+const churchTags = createRead((): Promise<Outcome<ChurchTag[]>> => listChurchTags(), {
+	failed: () => ({ status: "lost" }) as const,
+});
 const byName = (a: { name: string }, b: { name: string }) =>
 	a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
 const problem = (r: Outcome<unknown>) => (r.status === "ok" ? undefined : r.status === "lost" ? "lost" : r.code);
@@ -56,8 +60,7 @@ export function ManageTagsDialog({
 	/** Every change to the church's tags, so chips on the page follow it. */
 	onChurchTags: (tags: ChurchTag[]) => void;
 }) {
-	// Read fresh on every opening: the counts change whenever anyone tags a person.
-	const [loaded, setLoaded] = useState<Outcome<ChurchTag[]> | null>(null);
+	const loaded = useRead(churchTags).value ?? null;
 	const tags = loaded?.status === "ok" ? loaded.value : [];
 	// Create, rename, recolor and delete show at once; a refused change falls back to the saved list with its reason.
 	const [shown, apply] = useOptimistic(tags, (all, change: { put: ChurchTag } | { remove: string }) =>
@@ -73,28 +76,10 @@ export function ManageTagsDialog({
 	/** The tag whose rename row is open, and the name it starts with (a refused rename keeps what was typed). */
 	const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null);
 	const [deleting, setDeleting] = useState<ChurchTag | null>(null);
-	// The list as last saved. Saves that finish out of order each start from it, so none brings back an older tag.
-	const latest = useRef<ChurchTag[]>([]);
-
-	useEffect(() => {
-		if (loaded) return;
-		let live = true;
-		listChurchTags()
-			.catch(() => ({ status: "lost" }) as const)
-			.then((r) => {
-				if (!live) return;
-				if (r.status === "ok") latest.current = r.value;
-				setLoaded(r);
-			});
-		return () => {
-			live = false;
-		};
-	}, [loaded]);
-
 	const save = (update: (all: ChurchTag[]) => ChurchTag[]) => {
-		const all = update(latest.current).sort(byName);
-		latest.current = all;
-		setLoaded({ status: "ok", value: all });
+		const saved = churchTags.peek()?.value;
+		const all = update(saved?.status === "ok" ? saved.value : []).sort(byName);
+		churchTags.patch(() => ({ status: "ok", value: all }));
 		onChurchTags(all);
 	};
 
