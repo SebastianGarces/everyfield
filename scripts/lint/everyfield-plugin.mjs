@@ -815,11 +815,15 @@ const RENDER_CALLBACKS = {
 	useSyncExternalStore: [1, 2],
 };
 
-function rendering(node) {
+const ROUTE_HANDLERS = new Set(["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]);
+const renders = (name, jsx) =>
+	/^use[A-Z0-9]/.test(name) || (jsx && !ROUTE_HANDLERS.has(name) && (name === "default" || /^[A-Z]/.test(name)));
+
+function rendering(node, jsx) {
 	const fn = nearestFunction(node);
 	if (!fn) return false;
 	const name = functionName(fn);
-	if (name && isOwner(name)) return true;
+	if (name && renders(name, jsx)) return true;
 	const call = fn.parent;
 	const hook =
 		call?.type === "CallExpression"
@@ -827,7 +831,7 @@ function rendering(node) {
 				? call.callee.name
 				: memberName(call.callee)
 			: null;
-	return Boolean(RENDER_CALLBACKS[hook]?.includes(call.arguments.indexOf(fn))) && rendering(call);
+	return Boolean(RENDER_CALLBACKS[hook]?.includes(call.arguments.indexOf(fn))) && rendering(call, jsx);
 }
 
 const rootObject = (node) => {
@@ -845,12 +849,6 @@ function moduleBinding(context, id) {
 	}
 	return null;
 }
-
-const outermostFunction = (node) => {
-	let found = null;
-	for (let p = node.parent; p; p = p.parent) if (FUNCTIONS.has(p.type)) found = p;
-	return found;
-};
 
 const noRenderWrites = ratcheted("no-render-writes", (context, push) => {
 	const writes = [];
@@ -873,7 +871,7 @@ const noRenderWrites = ratcheted("no-render-writes", (context, push) => {
 		"Program:exit"() {
 			const writers = new Map();
 			const owner = (node) => {
-				const fn = outermostFunction(node);
+				const fn = nearestFunction(node);
 				const named = fn?.parent?.type === "VariableDeclarator" ? fn.parent.id : fn?.id;
 				return named && moduleBinding(context, named) ? named.name : null;
 			};
@@ -898,10 +896,11 @@ const noRenderWrites = ratcheted("no-render-writes", (context, push) => {
 					fn: enclosingName(node),
 					message: `${what} writes module state while rendering. A render can run on the server for every request and is thrown away whenever React discards it, so the write leaks between users and leaves a trace of a render that never showed. Keep the value in the component's store or state, and write it in the event that changes it.`,
 				});
-			for (const { node, what } of writes) if (rendering(node)) report(node, what);
+			const jsx = /\.[jt]sx$/.test(context.filename);
+			for (const { node, what } of writes) if (rendering(node, jsx)) report(node, what);
 			for (const call of calls) {
 				const what = writers.get(call.callee.name);
-				if (what && moduleBinding(context, call.callee) && rendering(call))
+				if (what && moduleBinding(context, call.callee) && rendering(call, jsx))
 					report(call, `${call.callee.name} (through ${what})`);
 			}
 		},

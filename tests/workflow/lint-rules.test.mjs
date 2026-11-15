@@ -1089,3 +1089,47 @@ markShown("boot");
 		].sort(),
 	);
 });
+
+test("INV-lint: a module write that runs only later, in a handler, a subscription or a route handler, is not a render write", () => {
+	const later = `import { useSyncExternalStore } from "react";
+const listeners = new Set();
+let value = 0;
+function subscribe(cb) {
+	listeners.add(cb);
+	return () => listeners.delete(cb);
+}
+function useBump() {
+	return () => {
+		value++;
+	};
+}
+function makeBump() {
+	return () => listeners.clear();
+}
+function useValue() {
+	return useSyncExternalStore((cb) => subscribe(cb), () => value);
+}
+export function Counter() {
+	const bump = useBump();
+	const reset = makeBump();
+	const shown = useValue();
+	return <button onClick={() => (bump(), reset())}>{shown}</button>;
+}
+`;
+	const route = `const hits = new Map();
+export async function POST() {
+	hits.set("a", 1);
+	return new Response(null);
+}
+export function Report() {
+	hits.clear();
+	return null;
+}
+`;
+	assert.deepEqual(
+		lint({ "apps/web/src/features/x/Counter.tsx": later, "apps/web/src/app/api/x/route.ts": route }).filter((hit) =>
+			hit.endsWith("no-render-writes"),
+		),
+		[],
+	);
+});
