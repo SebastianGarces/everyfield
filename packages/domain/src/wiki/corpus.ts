@@ -231,8 +231,6 @@ export function corpusCtes(access: CorpusAccess, source: SourceView): SQL {
 			WHERE ${pick.kind} = 'current'
 				OR (${pick.kind} = 'global' AND c.source_kind = 'global')
 				OR (${pick.kind} = 'organization' AND c.source_id = ${pick.organizationId}::uuid)
-			-- Unranked church copies have no winner (REQ-KNOW-191): the next version in line is read instead, the
-			-- network's, then the global one. Each church copy stays open by name.
 			ORDER BY c.article_id,
 				CASE
 					WHEN c.source_kind = 'church' AND EXISTS (SELECT FROM unordered u WHERE u.article_id = c.article_id)

@@ -402,7 +402,6 @@ export async function getDeliveryTotals(tx: Tx, authority: RequestActor, request
 				LEFT JOIN communication c ON c.id = ${input.communicationId}::uuid AND c.plant_id = ${reader.plantId}::uuid
 				LEFT JOIN LATERAL (
 					SELECT count(*)::int AS total,
-						-- Attempted: handed to the email service. A recipient skipped because they unsubscribed never was.
 						count(*) FILTER (WHERE m.state NOT IN ('pending', 'scheduled') AND m.refusal IS NULL)::int AS attempted,
 						count(*) FILTER (WHERE m.bounced_at IS NULL AND m.state NOT IN ('refused', 'failed')
 							AND (m.state IN ('accepted', 'sent') OR m.accepted_at IS NOT NULL))::int AS accepted,
@@ -421,7 +420,6 @@ export async function getDeliveryTotals(tx: Tx, authority: RequestActor, request
 						count(*) FILTER (WHERE m.cancel_requested_at IS NOT NULL
 							AND m.state IN ('accepted', 'unknown', 'dispatched'))::int AS cancel_open,
 						count(*) FILTER (WHERE m.state <> 'sent' AND m.delivered_at IS NULL)::int AS not_sent,
-						-- Outcomes: only what the email service answered, not a recipient still waiting, nor one skipped for an opt-out.
 						count(*) FILTER (WHERE m.state <> 'scheduled' AND m.refusal IS NULL AND ${word} = 'accepted')::int AS word_accepted,
 						count(*) FILTER (WHERE m.state <> 'scheduled' AND m.refusal IS NULL AND ${word} = 'unknown')::int AS word_unknown,
 						count(*) FILTER (WHERE m.state <> 'scheduled' AND m.refusal IS NULL AND ${word} = 'rejected')::int AS word_rejected
@@ -609,7 +607,6 @@ export async function listMeetingTracking(tx: Tx, authority: RequestActor, reque
 						SELECT jsonb_agg(jsonb_build_object('personId', t.id, 'name', t.display_name, 'deliveryStatus', t.status)
 							ORDER BY t.display_name, t.id)
 						FROM (
-							-- One row per person: a person emailed by several of the meeting's messages shows their latest mail.
 							SELECT DISTINCT ON (p.id) p.id, p.display_name,
 								CASE WHEN m.delivered_at IS NOT NULL THEN 'delivered' WHEN m.refusal = 'unsubscribed' THEN 'unsubscribed' ELSE m.state END AS status
 							FROM communication c

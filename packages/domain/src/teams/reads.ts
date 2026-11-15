@@ -256,7 +256,6 @@ export const teamsReader = {
 					) ORDER BY a.occurred_at DESC, a.id DESC)
 					FROM (SELECT e.*, s.subject FROM audit_event e
 						JOIN subjects s ON s.id = e.subject_id AND (e.subject_type = s.stored
-							-- Seat removal files the leader leaving under the team id with no subject type, stored as 'record'.
 							OR (s.subject = 'ministry' AND e.subject_type = 'record' AND e.kind = 'leader_change'))
 						WHERE e.tenant_id = ${plant} AND e.kind <> 'noop'
 							AND NOT (s.subject = 'role' AND e.request_identity->>'operation' IS NOT DISTINCT FROM 'teams.initialize')

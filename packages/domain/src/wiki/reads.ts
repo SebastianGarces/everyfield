@@ -229,7 +229,6 @@ export async function search(db: Database, authority: RequestActor, raw: unknown
 				await tx.execute(sql`SELECT set_config('lock_timeout','1s',true)`);
 				return tx.execute(sql`WITH ${corpusCtes(access, source)},
 					scored AS (
-						-- Every visible row comes from exactly one revision, whose stored vector the database wrote with it.
 						SELECT p.*, ts_rank(r.search_vector, websearch_to_tsquery('english', ${input.query})) AS text_rank
 						FROM picked p
 						JOIN article_revision r ON r.id = p.revision_id

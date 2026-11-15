@@ -223,8 +223,6 @@ async function loadAudience(db: Database, actor: Actor, communicationId: string)
 					WHERE p.id = e.value::uuid AND p.plant_id = c.plant_id AND p.tenant_id = c.plant_id AND p.state = 'live'
 				)
 			) END AS foreign_people,
-			-- Every frozen request of the message, in the person-id order its batches were cut in. A recipient still to be
-			-- handed off carries its sealed email, so a retry sends the frozen bytes without another read.
 			CASE WHEN c.id IS NULL THEN '[]'::jsonb ELSE coalesce((
 				SELECT jsonb_agg(jsonb_build_object('requestId', b.id, 'providerKey', b.provider_key, 'attemptId', b.attempt_id,
 					'expired', b.expired, 'members', b.members) ORDER BY b.first_person, b.id)
@@ -455,7 +453,6 @@ async function prepare(
 						SELECT 1 FROM suppression s WHERE s.address_hash = i.address_hash AND s.cleared_at IS NULL
 					) OR i.person = ANY(${sql.param(leftOut)}::uuid[]) THEN 'refused' ELSE ${waiting} END,
 					clock_timestamp(), ${heldUntil}::timestamptz,
-					-- The person's own opt-out from this church, not the address, decides this refusal (D-284).
 					CASE WHEN i.unsubscribed THEN 'unsubscribed' END
 				FROM (SELECT i.*, ${optedOutSql(sql`${actor.plantId}::uuid`, sql`i.person`)} AS unsubscribed FROM input i) i
 				JOIN gate g ON g.allowed
@@ -889,7 +886,6 @@ export function rescheduleDispatched(
 					AND revision = ${found.revision}::bigint AND ${adminGate(actor)}
 					RETURNING id
 				), waiting AS (
-					-- Recipients Everyfield still holds move with the saved time; the email service never had them.
 					UPDATE mail m SET scheduled_at = ${requested}::timestamptz
 					WHERE m.tenant_id = ${actor.plantId}::uuid AND m.communication_id = ${found.id}::uuid
 						AND m.state = 'scheduled' AND EXISTS (SELECT 1 FROM updated)
@@ -1141,7 +1137,6 @@ async function claimDue(db: Database) {
 				JOIN mail m ON m.id = mem.mail_id AND m.tenant_id = mem.tenant_id
 				WHERE m.state = 'scheduled'
 			), flipped AS (
-				-- The held time is cleared: the email now goes out at once, like a send now.
 				UPDATE mail m SET
 					state = CASE WHEN d.unsubscribed OR d.blocked THEN 'refused' ELSE 'dispatched' END,
 					refusal = CASE WHEN d.unsubscribed THEN 'unsubscribed' END,

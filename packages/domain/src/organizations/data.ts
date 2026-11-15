@@ -106,8 +106,6 @@ SELECT g.allowed,(SELECT to_jsonb(o) FROM o) AS org,
     'milestones',coalesce((SELECT jsonb_agg(jsonb_build_object('title',dm.title,'on',c.completed_on::text)
       ORDER BY c.completed_on,dm.position,dm.id)
      FROM enrollment_milestone c JOIN development_milestone dm ON dm.id=c.milestone_id AND dm.organization_id=c.organization_id
-     -- Each mark exports as the organization sees it (orgSees): what it recorded itself always, a resident's own
-     -- mark only while their live link shares milestone progress.
      WHERE c.enrollment_id=e.id AND c.organization_id=e.organization_id AND ${orgSees}),'[]'::jsonb))
     ORDER BY e.started_on,lower(dp.name),e.id)
    FROM development_enrollment e JOIN development_program dp ON dp.id=e.program_id AND dp.organization_id=e.organization_id

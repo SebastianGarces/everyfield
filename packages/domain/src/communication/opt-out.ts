@@ -101,8 +101,6 @@ async function writeOptOut(db: Database, value: Claim) {
 			ON CONFLICT (person_id) WHERE undone_at IS NULL DO NOTHING
 			RETURNING id, opted_out_at
 		), skipped AS (
-			-- A scheduled email still waiting in Everyfield skips them from now on, and the one-hour undo does not bring it
-			-- back. An email the email service already holds is cancelled there by the minute runner.
 			UPDATE mail m SET state = 'refused', refusal = 'unsubscribed'
 			FROM target t
 			WHERE m.tenant_id = t.tenant_id AND m.purpose = 'communication' AND m.state = 'scheduled'
@@ -110,9 +108,6 @@ async function writeOptOut(db: Database, value: Claim) {
 					SELECT q.merged_into_person_id FROM person q WHERE q.id = t.id AND q.merged_into_person_id IS NOT NULL)
 			RETURNING m.id, m.recipient_person_id, m.scheduled_at, m.communication_id
 		), noticed AS (
-			-- The staff member who scheduled each skipped email is told now, in the bell, while they hold a seat in this
-			-- church (T-242, D-680 to D-684). One notice per email and per person: the key repeats on a retry, and an
-			-- email skipped once is never skipped again, so neither a second click nor an undo and new opt-out adds one.
 			INSERT INTO notice (tenant_id, recipient_id, category, purpose, logical_key, source_record_id, source_revision,
 				title, safe_body, eligible_at, created_at, timezone)
 			SELECT c.plant_id, x.scheduler, 'communication', 'communication_unsubscribed',
@@ -133,10 +128,8 @@ async function writeOptOut(db: Database, value: Claim) {
 					WHERE a.tenant_id = c.plant_id AND a.subject_id = c.id AND a.action = 'communication.send_intended'
 						AND a.event_key LIKE 'dispatch/%'
 					ORDER BY a.occurred_at, a.id LIMIT 1) AS scheduler,
-				-- A scheduled email always has a subject; the fallback only names the gap.
 				coalesce('“' || c.subject || '”', '(No subject)') AS subject,
 				to_char(coalesce(k.scheduled_at, c.scheduled_at) AT TIME ZONE pl.timezone, 'Mon FMDD, YYYY, FMHH12:MI AM') AS send_at,
-				-- This statement's own skips are not visible to its other parts, so they count as unsubscribed here.
 				NOT EXISTS (SELECT 1 FROM mail o
 					WHERE o.tenant_id = c.plant_id AND o.purpose = 'communication'
 						AND o.communication_id = c.id

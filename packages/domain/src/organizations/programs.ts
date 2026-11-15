@@ -647,8 +647,6 @@ linked AS (SELECT FROM residency_link l JOIN x ON l.person_id=x.person_id WHERE 
  AND ${liveResidency}),
 d AS (SELECT ${input.completedOn}::date<=(clock_timestamp() AT TIME ZONE o.timezone)::date AS past FROM organization o
  WHERE o.id=${org}::uuid),
--- The milestone as the organization recorded it on any version, matched by lineage: one carried from an earlier version
--- stays as recorded. A former resident's own mark no longer shows, so it does not count.
 done AS (SELECT FROM enrollment_milestone c JOIN development_milestone cm ON cm.id=c.milestone_id
  AND cm.organization_id=c.organization_id JOIN m ON cm.lineage=m.lineage
  WHERE c.enrollment_id=${input.enrollmentId}::uuid AND c.organization_id=${org}::uuid AND c.source='program_leader'),
@@ -688,7 +686,6 @@ function confirmMilestone(db: Database, authority: RequestActor, raw: unknown) {
 			}),
 			sql`WITH ${directedEnrollment(w, input.enrollmentId, input.milestoneId)},
 ${linkOf(org)},
--- The resident's mark on this milestone, on any version, matched by lineage.
 r AS (SELECT c.id,c.confirmed_at FROM enrollment_milestone c JOIN development_milestone cm ON cm.id=c.milestone_id
  AND cm.organization_id=c.organization_id JOIN m ON cm.lineage=m.lineage
  WHERE c.enrollment_id=${input.enrollmentId}::uuid AND c.organization_id=${org}::uuid AND c.source='resident'),
@@ -697,7 +694,6 @@ c AS (UPDATE enrollment_milestone c SET confirmer_id=${w.actor}::uuid,confirmed_
   AND coalesce((SELECT share_milestones FROM lk),false) RETURNING c.id),
 a AS (${w.audit({ action: "development.milestone_confirmed", kind: "accept", subjectType: "development_enrollment", subject: sql`x.id`, metadata: { milestoneId: input.milestoneId, source: "resident" } })}
  FROM x,c RETURNING id),
--- The linked resident hears of it (T-365): one notice job for this confirmation and link.
 j AS (${queueResidencyJob(org, sql`x,m,c,lk`)})
 SELECT EXISTS(SELECT FROM x) AS found,EXISTS(SELECT FROM m) AS milestone,
  coalesce((SELECT share_milestones FROM lk),false) AS shared,EXISTS(SELECT FROM c) AS confirmed,
@@ -726,7 +722,6 @@ f AS (INSERT INTO assignment_feedback (id,organization_id,enrollment_id,version_
  FROM x,m WHERE m.hands_on ON CONFLICT (id) DO NOTHING RETURNING id),
 a AS (${w.audit({ action: "development.feedback_recorded", kind: "create", subjectType: "development_enrollment", subject: sql`x.id`, metadata: { feedbackId: input.feedbackId, milestoneId: input.milestoneId } })}
  FROM x,f RETURNING id),
--- A linked resident hears of new feedback, never its words (T-365, D-1414); an unlinked enrollee gets nothing.
 j AS (${queueResidencyJob(org, sql`x,m,f,lk`, input.feedbackId)})
 SELECT EXISTS(SELECT FROM x) AS found,EXISTS(SELECT FROM m WHERE m.hands_on) AS assignment,EXISTS(SELECT FROM f) AS added,
  EXISTS(SELECT FROM assignment_feedback f WHERE f.id=${input.feedbackId}::uuid AND f.organization_id=${org}::uuid
