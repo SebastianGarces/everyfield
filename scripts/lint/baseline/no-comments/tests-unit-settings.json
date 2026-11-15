@@ -1,0 +1,7 @@
+{
+	"tests/unit/settings/brand-assets.test.mts": 13,
+	"tests/unit/settings/brand-model.test.mts": 11,
+	"tests/unit/settings/drafts-model.test.mjs": 19,
+	"tests/unit/settings/notifications-model.test.mjs": 2,
+	"tests/unit/settings/wiki-sources.test.mts": 5
+}

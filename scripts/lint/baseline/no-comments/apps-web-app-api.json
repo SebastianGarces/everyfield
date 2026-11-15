@@ -1,0 +1,15 @@
+{
+	"apps/web/src/app/api/accounts/[accountId]/avatar/[versionId]/route.ts": 7,
+	"apps/web/src/app/api/brand/assets/[id]/route.ts": 8,
+	"apps/web/src/app/api/cron/jobs/route.ts": 2,
+	"apps/web/src/app/api/dev/outbox/route.ts": 1,
+	"apps/web/src/app/api/evry/conversations/[id]/stream/route.ts": 7,
+	"apps/web/src/app/api/evry/conversations/[id]/turns/route.ts": 1,
+	"apps/web/src/app/api/evry/open/route.ts": 3,
+	"apps/web/src/app/api/evry/proposals/[id]/approve/route.ts": 3,
+	"apps/web/src/app/api/evry/proposals/[id]/check/route.ts": 1,
+	"apps/web/src/app/api/evry/proposals/[id]/photo/route.ts": 3,
+	"apps/web/src/app/api/people/import/retry/route.ts": 1,
+	"apps/web/src/app/api/people/import/route.ts": 1,
+	"apps/web/src/app/api/webhooks/resend/route.ts": 1
+}

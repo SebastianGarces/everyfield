@@ -1,0 +1,14 @@
+{
+	"tests/evry/adapters/communication/commands/email.test.mts": 56,
+	"tests/evry/adapters/meetings/commands/commands.test.mts": 7,
+	"tests/evry/adapters/meetings/reads/reads.test.mts": 2,
+	"tests/evry/adapters/meetings/support.mts": 11,
+	"tests/evry/adapters/notifications/notifications.test.mts": 16,
+	"tests/evry/adapters/notifications/oversight.test.mts": 15,
+	"tests/evry/adapters/people-organization/commands/commands.test.mts": 10,
+	"tests/evry/adapters/people-organization/reads/reads.test.mts": 7,
+	"tests/evry/adapters/people/commands/commands.test.mts": 21,
+	"tests/evry/adapters/people/reads/reads.test.mts": 19,
+	"tests/evry/adapters/settings/digest-schedule.test.mts": 11,
+	"tests/evry/adapters/teams/teams.test.mts": 9
+}

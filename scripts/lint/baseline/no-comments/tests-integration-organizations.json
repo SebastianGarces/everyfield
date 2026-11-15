@@ -1,0 +1,18 @@
+{
+	"tests/integration/organizations/consent.test.mts": 4,
+	"tests/integration/organizations/data.test.mts": 24,
+	"tests/integration/organizations/goals.test.mts": 57,
+	"tests/integration/organizations/import-files/data.mts": 4,
+	"tests/integration/organizations/import-files/make.mts": 3,
+	"tests/integration/organizations/import.test.mts": 21,
+	"tests/integration/organizations/live-reads.test.mts": 4,
+	"tests/integration/organizations/multiplication.test.mts": 35,
+	"tests/integration/organizations/pipeline.test.mts": 32,
+	"tests/integration/organizations/programs.test.mts": 61,
+	"tests/integration/organizations/relationships.test.mts": 7,
+	"tests/integration/organizations/residency-notices.test.mts": 23,
+	"tests/integration/organizations/residency.test.mts": 33,
+	"tests/integration/organizations/reviews.test.mts": 19,
+	"tests/integration/organizations/statement-of-faith.test.mts": 7,
+	"tests/integration/organizations/support.mts": 5
+}

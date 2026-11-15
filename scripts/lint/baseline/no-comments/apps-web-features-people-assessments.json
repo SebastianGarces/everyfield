@@ -1,0 +1,13 @@
+{
+	"apps/web/src/features/people/assessments/AssessmentCard.tsx": 4,
+	"apps/web/src/features/people/assessments/CommitmentCard.tsx": 12,
+	"apps/web/src/features/people/assessments/CommitmentDialogs.tsx": 19,
+	"apps/web/src/features/people/assessments/InterviewCard.tsx": 4,
+	"apps/web/src/features/people/assessments/RecordsSection.tsx": 8,
+	"apps/web/src/features/people/assessments/actions.ts": 10,
+	"apps/web/src/features/people/assessments/document-route.ts": 4,
+	"apps/web/src/features/people/assessments/model.ts": 10,
+	"apps/web/src/features/people/assessments/parts.tsx": 7,
+	"apps/web/src/features/people/assessments/server.ts": 1,
+	"apps/web/src/features/people/assessments/upload.ts": 8
+}
