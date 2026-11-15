@@ -33,6 +33,8 @@ SeatChanges == {<<"appointAdmin", "admin">>, <<"demote", "member">>,
 SeatOps == {c[1] : c \in SeatChanges}
 \* A tenant statement: any seat may read; only an Owner or Admin reads the
 \* administrators' lists; a write carries the resolved seat's revision (D70).
+\* The writes that check access in their final statement (writeAuthority) are
+\* People's single-statement writes, and only an Owner or Admin makes them.
 StatementKinds == {"read", "adminRead", "write"}
 InvitationStates == {"pending", "accepted", "revoked", "expired"}
 
@@ -77,8 +79,9 @@ MayRevoke(actorRole) == actorRole \in Administrators
 MayAccept(state, seated) == state = "pending" /\ ~seated
 
 \* Resolving the request actor (RequestActor.resolve, then the operation's own
-\* role check on that resolved actor).
-ResolveAdmits(kind, role) == kind = "adminRead" => role \in Administrators
+\* role check on that resolved actor: an administrators' list or a write needs
+\* an Owner or Admin).
+ResolveAdmits(kind, role) == kind \in {"adminRead", "write"} => role \in Administrators
 
 \* session.ts liveRead / writeAuthority: the check inside the statement itself,
 \* against the seat and session as they are when the statement runs (C13, D70).
