@@ -190,6 +190,9 @@
 				"reach": {
 					"$ref": "#/$defs/stateReach"
 				},
+				"defect": {
+					"$ref": "#/$defs/text"
+				},
 				"expect": {
 					"type": "array",
 					"minItems": 1,
