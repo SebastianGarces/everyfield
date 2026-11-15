@@ -3,8 +3,9 @@
 import { Add01Icon, Cancel01Icon, Link04Icon, RepeatIcon } from "@hugeicons/core-free-icons";
 import { Button, Field, IconButton, Input, SearchInput, Select, Spinner } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
-import { cn, Icon } from "@everyfield/ui/foundations";
-import { useEffect, useRef, useState, type FormEvent, type ReactNode, type RefObject } from "react";
+import { cn, createDebouncer, focusIfLost, Icon, useFocusRequest } from "@everyfield/ui/foundations";
+import { useCallback, useEffect, useEffectEvent, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { createRead, useRead } from "../../components/read.tsx";
 import type { Wait } from "../../components/save/model.ts";
 import { prerequisiteCandidates } from "./fetch.ts";
 import {
@@ -16,7 +17,6 @@ import {
 	PENDING_PREFIX,
 	repeatText,
 	STATUS_LABEL,
-	type Candidate,
 	type Frequency,
 	type Occurrence,
 	type Prerequisite,
@@ -47,41 +47,35 @@ export function Section({ title, action, children }: { title: string; action?: R
  * An inline form: opening it moves focus to its first field, Escape inside it closes the form, not the panel around it,
  * and focus goes back to the button that opened it. The panel closes on Escape from a document listener, so this one listens on the window first.
  */
-function useInlineForm(form: RefObject<HTMLElement | null>, onClose: () => void) {
-	const close = useRef(onClose);
-	useEffect(() => {
-		close.current = onClose;
-	});
-	// Opening the form moves focus into it: to the field marked data-first, else the first field.
-	useEffect(() => {
-		const el = form.current;
-		if (el && !el.contains(document.activeElement))
-			(el.querySelector<HTMLElement>("[data-first]") ?? el.querySelector<HTMLElement>("input, button"))?.focus();
-	}, [form]);
+function useInlineForm<T extends HTMLElement>(onClose: () => void): (node: T | null) => void {
+	const form = useRef<T | null>(null);
+	const close = useEffectEvent(onClose);
 	useEffect(() => {
 		const onKey = (e: KeyboardEvent) => {
 			if (e.key !== "Escape" || !form.current?.contains(document.activeElement)) return;
 			e.stopPropagation();
-			close.current();
+			close();
 		};
 		window.addEventListener("keydown", onKey, true);
 		return () => window.removeEventListener("keydown", onKey, true);
-	}, [form]);
+	}, []);
+	return useCallback((node: T | null) => {
+		form.current = node;
+		if (node && !node.contains(document.activeElement))
+			(node.querySelector<HTMLElement>("[data-first]") ?? node.querySelector<HTMLElement>("input, button"))?.focus();
+	}, []);
 }
-/** Focus returns to a section's button when its form closes and focus would otherwise be lost. */
-function useReturnFocus(editing: boolean) {
-	const opener = useRef<HTMLButtonElement>(null);
-	const was = useRef(editing);
-	useEffect(() => {
-		if (was.current && !editing && (!document.activeElement || document.activeElement === document.body))
-			opener.current?.focus();
-		was.current = editing;
-	}, [editing]);
-	return opener;
+function useFormCloses() {
+	const [closes, setCloses] = useState(0);
+	const opener = useFocusRequest<HTMLButtonElement>(closes, focusIfLost);
+	return { opener, closed: () => setCloses((n) => n + 1) };
 }
 
 /** A step's assignee choice: the task's own assignee, no one, or a seat. */
 export type StepAssignee = { kind: "inherit" } | { kind: "nobody" } | { kind: "seat"; accountId: string; name: string };
+const candidates = createRead((taskId: string, search: string) => prerequisiteCandidates(taskId, search), {
+	failed: () => ({ status: "lost" }) as const,
+});
 const INHERIT = "inherit",
 	NOBODY = "nobody";
 
@@ -115,7 +109,7 @@ export function Steps({
 	onAdd: (title: string, assignee: StepAssignee) => void;
 }) {
 	const [adding, setAdding] = useState(false);
-	const opener = useReturnFocus(adding);
+	const { opener, closed } = useFormCloses();
 	const done = steps.filter((s) => s.status === "complete").length;
 	if (!steps.length && !canAdd) return null;
 	return (
@@ -173,7 +167,16 @@ export function Steps({
 				</p>
 			) : null}
 			{adding ? (
-				<AddStep admin={admin} taskAssignees={taskAssignees} you={you} onAdd={onAdd} onClose={() => setAdding(false)} />
+				<AddStep
+					admin={admin}
+					taskAssignees={taskAssignees}
+					you={you}
+					onAdd={onAdd}
+					onClose={() => {
+						setAdding(false);
+						closed();
+					}}
+				/>
 			) : null}
 		</Section>
 	);
@@ -197,8 +200,7 @@ function AddStep({
 	const [touched, setTouched] = useState(false);
 	const [seats, setSeats] = useState<{ value: string; label: string }[] | "loading" | "failed" | null>(null);
 	const input = useRef<HTMLInputElement>(null);
-	const form = useRef<HTMLFormElement>(null);
-	useInlineForm(form, onClose);
+	const form = useInlineForm<HTMLFormElement>(onClose);
 	// The church's seats load on intent over Assigned to, so a step that keeps the task's assignee sends no read.
 	const warm = () => {
 		if (seats !== null && seats !== "failed") return;
@@ -316,7 +318,7 @@ export function BlockedBy({
 	onSave: (items: Prerequisite[]) => void;
 	onOpen: (id: string) => void;
 }) {
-	const opener = useReturnFocus(editing);
+	const { opener, closed } = useFormCloses();
 	if (!items) {
 		return (
 			<Section title="Blocked by">
@@ -338,7 +340,18 @@ export function BlockedBy({
 			}
 		>
 			{editing ? (
-				<PrerequisiteEditor taskId={task.id} initial={draft ?? items} onCancel={onCancel} onSave={onSave} />
+				<PrerequisiteEditor
+					taskId={task.id}
+					initial={draft ?? items}
+					onCancel={() => {
+						closed();
+						onCancel();
+					}}
+					onSave={(list) => {
+						closed();
+						onSave(list);
+					}}
+				/>
 			) : (
 				<>
 					<p className="text-sm text-text-2">
@@ -410,24 +423,16 @@ function PrerequisiteEditor({
 	onSave: (items: Prerequisite[]) => void;
 }) {
 	const [chosen, setChosen] = useState(initial);
-	const form = useRef<HTMLDivElement>(null);
-	useInlineForm(form, onCancel);
+	const form = useInlineForm<HTMLDivElement>(onCancel);
 	const [search, setSearch] = useState("");
-	const [found, setFound] = useState<Candidate[] | "loading" | "failed">("loading");
-	const seq = useRef(0);
-	useEffect(() => {
-		const n = ++seq.current;
-		const timer = setTimeout(
-			() => {
-				setFound("loading");
-				prerequisiteCandidates(taskId, search).then(
-					(r) => n === seq.current && setFound(r.status === "ok" ? r.value.items : "failed"),
-				);
-			},
-			search ? 250 : 0,
-		);
-		return () => clearTimeout(timer);
-	}, [taskId, search]);
+	const [{ run: afterPause, cancel, cancelOnDetach }] = useState(() => createDebouncer(250));
+	const read = useRead(candidates, taskId, search);
+	const found =
+		read.value === undefined
+			? ("loading" as const)
+			: read.value.status === "ok"
+				? read.value.value.items
+				: ("failed" as const);
 	const offered = Array.isArray(found) ? found.filter((c) => !chosen.some((p) => p.id === c.id)) : [];
 	const full = chosen.length >= 50;
 	const changed = chosen.length !== initial.length || chosen.some((p, i) => initial[i]?.id !== p.id);
@@ -461,11 +466,16 @@ function PrerequisiteEditor({
 			)}
 			<SearchInput
 				data-first
+				ref={cancelOnDetach}
 				aria-label="Find a task it waits for"
 				placeholder="Find a task"
-				value={search}
 				maxLength={200}
-				onChange={(e) => setSearch(e.target.value)}
+				onChange={(e) => {
+					const text = e.target.value;
+					if (text) return afterPause(() => setSearch(text));
+					cancel();
+					setSearch("");
+				}}
 			/>
 			<div aria-live="polite" className="flex flex-col">
 				{found === "loading" && offered.length === 0 ? (
@@ -550,7 +560,7 @@ export function Repeats({
 	onSave: (rule: Rule | null) => void;
 	onOpen: (id: string) => void;
 }) {
-	const opener = useReturnFocus(editing);
+	const { opener, closed } = useFormCloses();
 	const r = task.recurrence;
 	if (!r && !canEdit) return null;
 	const live = r && !r.stopped;
@@ -580,8 +590,14 @@ export function Repeats({
 				<RepeatEditor
 					initial={draftOf(draft === undefined ? r : draft)}
 					stoppable={Boolean(live)}
-					onCancel={onCancel}
-					onSave={onSave}
+					onCancel={() => {
+						closed();
+						onCancel();
+					}}
+					onSave={(rule) => {
+						closed();
+						onSave(rule);
+					}}
 				/>
 			) : (
 				<div className="flex flex-col gap-1">
@@ -618,9 +634,8 @@ function RepeatEditor({
 	onSave: (rule: Rule | null) => void;
 }) {
 	const [d, setD] = useState(initial);
-	const form = useRef<HTMLFormElement>(null);
+	const form = useInlineForm<HTMLFormElement>(onCancel);
 	const until = useRef<HTMLInputElement>(null);
-	useInlineForm(form, onCancel);
 	const [touched, setTouched] = useState(false);
 	const set = (patch: Partial<RuleDraft>) => setD((x) => ({ ...x, ...patch }));
 	const untilError = touched && d.ends === "on" && !/^\d{4}-\d{2}-\d{2}$/.test(d.until) ? "Pick the last day." : null;

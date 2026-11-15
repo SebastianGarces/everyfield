@@ -3,7 +3,9 @@
 import { Task01Icon, PencilEdit02Icon } from "@hugeicons/core-free-icons";
 import { Field, Input, Radio, RadioGroup, SearchInput, Select, Spinner, Textarea } from "@everyfield/ui/controls";
 import { DESCRIPTION_EXCERPT, MAX_DESCRIPTION, normalizeDescription } from "@everyfield/contracts/tasks";
-import { useEffect, useRef, useState } from "react";
+import { createDebouncer } from "@everyfield/ui/foundations";
+import { useRef, useState } from "react";
+import { createRead, useRead } from "../../components/read.tsx";
 import { RecordDialog } from "../../components/save/parts.tsx";
 import type { Wait } from "../../components/save/model.ts";
 import { offsetText } from "../shared/dates.ts";
@@ -64,7 +66,11 @@ export type Commit = {
 	draft: Draft;
 };
 type Choices = Extract<TaskError, { code: "ambiguous_local_time" }>["details"]["choices"];
+type TimeQuestion = { kind: "skipped" } | { kind: "repeated"; choices: Choices } | null;
 const RELATION_PLURAL = { person: "people", meeting: "meetings", team: "teams" } as const;
+const relations = createRead((kind: RelationKind, search: string) => relationOptions(kind, search), {
+	failed: () => ({ status: "lost" }) as const,
+});
 
 function draftOf(task: TaskDetail | null, viewer: Viewer): Draft {
 	if (!task)
@@ -157,7 +163,7 @@ function Form({
 	onClose: () => void;
 	onCommit: (c: Commit) => void;
 }) {
-	const [initial] = useState(() => draftOf(task, viewer));
+	const initial = draftOf(task, viewer);
 	// The person's changes from a refused save, on top of the newest copy: a field they did not touch shows its new value.
 	const [draft, setDraft] = useState(() =>
 		form.draft ? rebase(form.draft, draftOf(form.task, viewer), initial) : initial,
@@ -169,10 +175,15 @@ function Form({
 			? problemText("owner_ineligible", form.draft.assigneeNames[form.draft.ineligible ?? ""])
 			: (refusal ?? null),
 	);
-	const [gap, setGap] = useState(form.problem === "nonexistent_local_time");
-	const [fold, setFold] = useState<Choices | null>(() =>
-		form.choices ? [...form.choices].sort((a, b) => a.instant.localeCompare(b.instant)) : null,
+	const [asked, setAsked] = useState<TimeQuestion>(() =>
+		form.problem === "nonexistent_local_time"
+			? { kind: "skipped" }
+			: form.choices
+				? { kind: "repeated", choices: [...form.choices].sort((a, b) => a.instant.localeCompare(b.instant)) }
+				: null,
 	);
+	const gap = asked?.kind === "skipped";
+	const fold = asked?.kind === "repeated" ? asked.choices : null;
 	const foldBox = useRef<HTMLDivElement>(null);
 	const managed = task?.managed ?? null;
 	const set = (patch: Partial<Draft>) => {
@@ -182,8 +193,7 @@ function Form({
 	const setDue = (patch: Partial<DueDraft>) => {
 		// A new day or time is a new question: an earlier occurrence choice or skipped-time warning no longer applies.
 		setDraft((d) => ({ ...d, due: { ...d.due, ...patch, offsetSeconds: undefined } }));
-		setGap(false);
-		setFold(null);
+		setAsked(null);
 		setProblem(null);
 	};
 
@@ -452,23 +462,15 @@ function RelationField({
 	onChange: (v: Relation) => void;
 }) {
 	const [kind, setKind] = useState<RelationKind | "none">(value?.kind ?? "none");
-	const [search, setSearch] = useState("");
-	const [found, setFound] = useState<{ id: string; label: string }[] | "loading" | "failed">([]);
-	const seq = useRef(0);
-	useEffect(() => {
-		if (kind === "none" || locked) return;
-		const n = ++seq.current;
-		const timer = setTimeout(
-			() => {
-				setFound("loading");
-				relationOptions(kind, search)
-					.catch(() => ({ status: "lost" }) as const)
-					.then((r) => n === seq.current && setFound(r.status === "ok" ? r.value.items : "failed"));
-			},
-			search ? 250 : 0,
-		);
-		return () => clearTimeout(timer);
-	}, [kind, search, locked]);
+	const [query, setQuery] = useState("");
+	const [{ run: afterPause, cancel, cancelOnDetach }] = useState(() => createDebouncer(250));
+	const read = useRead(kind === "none" || locked ? null : relations, kind === "none" ? "person" : kind, query);
+	const found =
+		read.value === undefined
+			? ("loading" as const)
+			: read.value.status === "ok"
+				? read.value.value.items
+				: ("failed" as const);
 	if (locked)
 		return (
 			<Field label="Linked to" hint="Set by the meeting that created this task.">
@@ -485,7 +487,8 @@ function RelationField({
 					value={kind}
 					onValueChange={(k) => {
 						setKind(k as RelationKind | "none");
-						setSearch("");
+						cancel();
+						setQuery("");
 						if (k === "none" || k !== value?.kind) onChange(null);
 					}}
 					options={[
@@ -499,11 +502,17 @@ function RelationField({
 			{kind !== "none" ? (
 				<div className="flex flex-col gap-2 rounded-md bg-surface p-3">
 					<SearchInput
+						key={kind}
+						ref={cancelOnDetach}
 						aria-label={`Search ${RELATION_PLURAL[kind]}`}
 						placeholder={`Search ${RELATION_PLURAL[kind]}`}
-						value={search}
 						maxLength={200}
-						onChange={(e) => setSearch(e.target.value)}
+						onChange={(e) => {
+							const text = e.target.value;
+							if (text) return afterPause(() => setQuery(text));
+							cancel();
+							setQuery("");
+						}}
 					/>
 					{found === "loading" && listed.length === 0 ? (
 						<p className="flex items-center gap-2 px-1 py-2 text-sm text-text-3" role="status">

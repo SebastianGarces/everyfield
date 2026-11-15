@@ -44,7 +44,7 @@ export function PhaseOffer({
 	const [saving, setSaving] = useState<"accept" | "decline" | null>(null);
 	const [problem, setProblem] = useState<string | null>(null);
 	// One answer intent: a lost reply is sent again with the same key and replays the stored answer.
-	const intent = useRef(crypto.randomUUID());
+	const intent = useRef<string | null>(null);
 
 	if (card.status === "answered") return <AlreadyAnswered decided={card} onClose={() => setCard(NONE)} />;
 	if (card.status === "none") return null;
@@ -54,14 +54,14 @@ export function PhaseOffer({
 		setSaving(kind);
 		setProblem(null);
 		const keys = kind === "accept" ? offer.checklists.filter((k) => chosen.has(k.key)).map((k) => k.key) : [];
-		const r = await answerOffer(intent.current, {
+		const r = await answerOffer((intent.current ??= crypto.randomUUID()), {
 			transitionId: offer.transition.id,
 			catalogVersion: offer.catalogVersion,
 			checklistKeys: keys,
 		}).catch((): Outcome<OfferAnswered> => ({ status: "lost" }));
 		setSaving(null);
 		if (r.status === "lost") return setProblem(problemText("lost"));
-		intent.current = crypto.randomUUID();
+		intent.current = null;
 		if (r.status === "ok") {
 			onAdded(r.value.created);
 			setCard(NONE);
