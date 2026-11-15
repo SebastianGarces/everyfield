@@ -1,5 +1,3 @@
-"use client";
-
 import { ArrowRight02Icon } from "@hugeicons/core-free-icons";
 import { Icon, cn } from "@everyfield/ui/foundations";
 import { ROW_OUTCOME, emptyText, fieldLabel, valueText, type Change, type Review, type ReviewedRow } from "./model.ts";
