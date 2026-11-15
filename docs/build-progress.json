@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "project_id": "everyfield-v3",
-  "revision": 167,
-  "updated_at": "2026-11-13T21:06:03.735Z",
+  "revision": 168,
+  "updated_at": "2026-11-14T00:00:00.000Z",
   "packages": {
     "WP-001": {
       "status": "in_progress",
@@ -3079,11 +3079,40 @@
       "notes": ""
     },
     "WP-092": {
-      "status": "not_started",
-      "revision": 0,
-      "updated_at": null,
-      "evidence": [],
-      "notes": ""
+      "status": "in_progress",
+      "revision": 1,
+      "updated_at": "2026-11-14T00:00:00.000Z",
+      "evidence": [
+        {
+          "path": "tests/integration/target/sql/knowledge/deletion-deadline.test.mts",
+          "commit": "e67fb79c119f8865df9470a2596169befce58708",
+          "test": "AC:DEL58-003 in tests/integration/target/sql/knowledge/deletion-deadline.test.mts (node --test on Postgres; CI census through tests/integration/writes/suites.json)",
+          "result": "passed",
+          "note": "T-393 slice 1: cancel before the deadline, refused at it, stale proof refused after a newer request."
+        },
+        {
+          "path": "tests/integration/target/sql/knowledge/deletion-delivery.test.mts",
+          "commit": "e67fb79c119f8865df9470a2596169befce58708",
+          "test": "AC:DEL58-006 in tests/integration/target/sql/knowledge/deletion-delivery.test.mts (node --test on Postgres; CI census through tests/integration/writes/suites.json)",
+          "result": "passed",
+          "note": "T-393 slice 1: no new handoff, held mail left to reconcile, sent mail not recalled, issued URL keeps its TTL and no new URL."
+        },
+        {
+          "path": "tests/integration/target/sql/knowledge/message-templates.test.mts",
+          "commit": "e67fb79c119f8865df9470a2596169befce58708",
+          "test": "AC:GAP-REF-006 in tests/integration/target/sql/knowledge/message-templates.test.mts (node --test on Postgres; CI census through tests/integration/writes/suites.json)",
+          "result": "passed",
+          "note": "T-393 slice 1: repeat install of seven templates keeps the fork; missing merge field, foreign caller and unavailable source refused."
+        },
+        {
+          "path": "tests/integration/target/sql/knowledge/unmerge.test.mts",
+          "commit": "e67fb79c119f8865df9470a2596169befce58708",
+          "test": "AC:SCHEMA-010 in tests/integration/target/sql/knowledge/unmerge.test.mts (node --test on Postgres; CI census through tests/integration/writes/suites.json)",
+          "result": "passed",
+          "note": "T-393 slice 1: changed post-merge state refused with inverse_conflict; clean state inverts once; no provider undo or resend."
+        }
+      ],
+      "notes": "T-393 slice 1 (D-1552, D-1554): DEL58-003, DEL58-006, GAP-REF-006 and SCHEMA-010 run. Not done: the isolated-restore gates (ORG55-008, DEL58-008, OPS54-002, REC59-003, REC59-004, REC59-006), the encrypted copy and readiness gates (BKT60-002, BKT60-004), and the WP-049 and WP-055 dependencies remain."
     },
     "WP-093": {
       "status": "not_started",

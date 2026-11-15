@@ -923,7 +923,10 @@
         "WP-010",
         "WP-092"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/knowledge/deletion-deadline.test.mts"
+      ],
       "description": "Cancel at deadline-minus 1ms, exact deadline, purge lease and stale old request after new request.",
       "given": {
         "P": {
@@ -1357,7 +1360,10 @@
         "WP-029",
         "WP-092"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/knowledge/deletion-delivery.test.mts"
+      ],
       "description": "Pendingdeletion with unsent intent, accepted scheduled mail, sent mail and unexpired issued URL.",
       "given": {
         "P": {
