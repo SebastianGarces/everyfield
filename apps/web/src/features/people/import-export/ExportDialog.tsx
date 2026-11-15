@@ -12,7 +12,7 @@ import {
 	DialogFooter,
 	DialogHeader,
 } from "@everyfield/ui/controls";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { querySearch, type PeopleQuery } from "../model.ts";
 import { describeFilters, plural } from "./model.ts";
 import "./export.css";
@@ -20,8 +20,17 @@ import "./export.css";
 type State =
 	| { kind: "ready" }
 	| { kind: "exporting" }
-	| { kind: "done"; filename: string; returned: number; complete: boolean }
+	| { kind: "done"; filename: string; returned: number; complete: boolean; url: string }
 	| { kind: "failed"; denied: boolean };
+
+function saveOnce(link: HTMLAnchorElement | null) {
+	if (!link) return;
+	if (!link.dataset.saved) {
+		link.dataset.saved = "true";
+		link.click();
+	}
+	return () => URL.revokeObjectURL(link.href);
+}
 
 export function ExportDialog({
 	query,
@@ -34,15 +43,9 @@ export function ExportDialog({
 }) {
 	const [state, setState] = useState<State>({ kind: "ready" });
 	const busy = state.kind === "exporting";
-	const file = useRef<string | null>(null);
-	const release = () => {
-		if (file.current) URL.revokeObjectURL(file.current);
-		file.current = null;
-	};
 	const filters = describeFilters(query);
 
 	const download = async () => {
-		release();
 		setState({ kind: "exporting" });
 		try {
 			const res = await fetch(`/api/people/export${querySearch({ ...query, page: 1 })}`, { cache: "no-store" });
@@ -52,17 +55,12 @@ export function ExportDialog({
 			}
 			const blob = await res.blob();
 			const filename = /filename="([^"]+)"/.exec(res.headers.get("content-disposition") ?? "")?.[1] ?? "people.csv";
-			const url = URL.createObjectURL(blob);
-			const a = document.createElement("a");
-			a.href = url;
-			a.download = filename;
-			a.click();
-			file.current = url;
 			setState({
 				kind: "done",
 				filename,
 				returned: Number(res.headers.get("x-export-returned") ?? 0),
 				complete: res.headers.get("x-export-completeness") === "complete",
+				url: URL.createObjectURL(blob),
 			});
 		} catch {
 			setState({ kind: "failed", denied: false });
@@ -71,7 +69,6 @@ export function ExportDialog({
 
 	const close = () => {
 		if (busy) return;
-		release();
 		onOpenChange(false);
 		setState({ kind: "ready" });
 	};
@@ -126,6 +123,9 @@ export function ExportDialog({
 						) : null}
 					</div>
 				</DialogBody>
+				{state.kind === "done" ? (
+					<a key={state.url} hidden href={state.url} download={state.filename} ref={saveOnce} />
+				) : null}
 				<DialogFooter>
 					<Button variant="ghost" disabled={busy} onClick={close}>
 						{state.kind === "done" ? "Close" : "Cancel"}
