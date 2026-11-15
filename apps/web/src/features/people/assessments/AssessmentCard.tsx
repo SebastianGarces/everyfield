@@ -118,7 +118,7 @@ export function AssessmentCard({
 
 	return (
 		<Card className="min-w-0">
-			<CardHeader>
+			<CardHeader className="mb-4">
 				<CardHeading>
 					<CardTitle size="sm">The 4 C&rsquo;s</CardTitle>
 					<CardDescription className="text-sm">

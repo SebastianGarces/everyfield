@@ -254,7 +254,7 @@ function CardsSection() {
 				)}
 
 				<Card as="section" aria-labelledby="card-scroll">
-					<CardHeader>
+					<CardHeader className="mb-2.5">
 						<CardHeading>
 							<CardTitle id="card-scroll" size="sm">
 								Header and scroll area

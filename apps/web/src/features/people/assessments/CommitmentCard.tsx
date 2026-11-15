@@ -316,7 +316,7 @@ export function CommitmentCard({
 	const badge = STATE_BADGE[state];
 	return (
 		<Card className="min-w-0">
-			<CardHeader>
+			<CardHeader className="mb-3">
 				<CardHeading>
 					<div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
 						<CardTitle size="sm">Commitment</CardTitle>

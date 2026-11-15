@@ -25,7 +25,7 @@ export function VisionReport({ thisYear }: { thisYear: number }) {
 	const { promise, retry } = useRead(visionReports);
 	const card = (busy: boolean, body: ReactNode) => (
 		<Card as="section" aria-labelledby="vision-report" aria-busy={busy || undefined}>
-			<CardHeader>
+			<CardHeader className="mb-2">
 				<CardHeading>
 					<CardTitle id="vision-report">Vision meetings</CardTitle>
 					<CardDescription>

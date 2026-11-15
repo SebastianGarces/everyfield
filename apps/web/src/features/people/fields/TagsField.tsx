@@ -130,7 +130,7 @@ export function TagsField({
 						}}
 					>
 						<PopoverTrigger asChild>
-							<Button variant="ghost" size="sm" icon={Add01Icon} className="text-text-2">
+							<Button variant="ghost" size="sm" icon={Add01Icon} className="h-[26px] px-2 text-text-2">
 								Add tag
 							</Button>
 						</PopoverTrigger>
@@ -185,7 +185,7 @@ function TagChip({ tag, onRemove, wait = null }: { tag: PersonTag; onRemove?: ()
 	const look = tagLook(tag.color);
 	const pending = tag.id.startsWith("new:");
 	return (
-		<Tag tone={look.tone} className="max-w-full" aria-busy={pending || undefined}>
+		<Tag tone={look.tone} className="max-w-full gap-0 px-0" aria-busy={pending || undefined}>
 			{pending ? (
 				<span className="flex min-w-0 items-center gap-1.5 px-2.5">
 					<span className="truncate">{tag.name}</span>

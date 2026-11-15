@@ -601,7 +601,7 @@ export function GuestList({
 	const form = lane.editing;
 	return (
 		<Card as="section" aria-labelledby="guests-title">
-			<CardHeader className="flex-wrap">
+			<CardHeader className="flex-wrap items-center">
 				<CardHeading>
 					<CardTitle id="guests-title">Guest list</CardTitle>
 				</CardHeading>

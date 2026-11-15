@@ -328,7 +328,7 @@ function PairReview({
 
 			<div className="flex min-w-0 flex-col gap-5">
 				<Card size="sm" as="section" aria-labelledby="moves-title">
-					<CardHeader>
+					<CardHeader className="mb-1">
 						<CardHeading>
 							<CardTitle size="sm" id="moves-title">
 								What moves to {first(survivor.displayName)}

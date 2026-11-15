@@ -78,7 +78,7 @@ export function MinistryRoles({ initial, canCorrect }: { initial: Role[]; canCor
 
 	return (
 		<Card as="section" aria-labelledby="ministry-roles">
-			<CardHeader>
+			<CardHeader className="mb-2">
 				<CardHeading>
 					<CardTitle id="ministry-roles" size="sm">
 						Ministry roles

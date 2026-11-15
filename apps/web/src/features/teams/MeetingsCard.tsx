@@ -50,7 +50,7 @@ export function MeetingsCard({
 	) : null;
 	return (
 		<Card as="section" aria-labelledby="ministry-meetings">
-			<CardHeader className="flex-wrap">
+			<CardHeader className="flex-wrap items-start gap-3">
 				<CardHeading>
 					<CardTitle id="ministry-meetings" size="sm">
 						Meetings

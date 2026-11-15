@@ -153,7 +153,7 @@ function FollowUpsCard({
 	const vision = obligations.filter((o) => o.kind === "first_vision_follow_up");
 	return (
 		<Card as="section" aria-labelledby="followups-title">
-			<CardHeader>
+			<CardHeader className="mb-2">
 				<CardHeading>
 					<CardTitle size="sm" id="followups-title">
 						Follow-ups
@@ -340,7 +340,7 @@ function ContactLogCard({
 
 	return (
 		<Card as="section" aria-labelledby="contact-log-title" id="contact-log" className="scroll-mt-24">
-			<CardHeader>
+			<CardHeader className="mb-1">
 				<CardHeading>
 					<CardTitle size="sm" id="contact-log-title">
 						Contact log
