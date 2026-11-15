@@ -53,9 +53,6 @@ import {
 import { NativeDocuments } from "./native.tsx";
 import { SavedHistory, savedDocuments } from "./saved.tsx";
 
-// The documents library and the side-effect-free preview. Saving stores a generated file for the church.
-// A preview download stays on this device.
-
 type PreviewState =
 	| { kind: "idle" }
 	| { kind: "pdf"; bytes: Uint8Array; key: string; brandKit: boolean }
@@ -64,14 +61,12 @@ type PreviewState =
 
 type Props = {
 	templates: Template[];
-	/** The library version: part of every render key, so a new library draws new thumbnails. */
 	version: string;
 	context: Resolved | null;
 	canPreview: boolean;
 	canEdit: boolean;
 	canStore: boolean;
 	written: "church" | "account" | null;
-	/** The authored text templates: each makes a saved file or an editable Church Document. */
 	textTemplates: readonly string[];
 };
 
@@ -590,10 +585,6 @@ function TemplatePanel({
 	preview: PreviewState;
 	stale: boolean;
 	saveNote: string | null;
-	/**
-	 * How this template makes a document here. `save`: the one Save button, as for every other template. `both`: an
-	 * Owner or Admin chooses a saved file or an editable Church Document. `member`: a Member is told who makes them.
-	 */
 	make: "save" | "both" | "member";
 	creating: boolean;
 	createNote: string | null;
@@ -774,7 +765,6 @@ function TemplatePanel({
 	);
 }
 
-/** One way to make a document: its button, and a one-line note that says what the button makes. */
 function MakeOption({ id, note, button }: { id: string; note: string; button: ReactNode }) {
 	return (
 		<div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-3">

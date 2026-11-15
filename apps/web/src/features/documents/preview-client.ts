@@ -1,8 +1,5 @@
 import { MIME, fileName, type Format, type Resolved } from "./model.ts";
 
-// The browser side of the preview route. One POST returns the exact bytes; the preview, the thumbnail and the
-// download all use them, so the three agree by construction (DOC-002, DOC-003).
-
 export type PreviewReply =
 	| { status: "ok"; value: Resolved & { artifact: string | null; brandKit: boolean } }
 	| { status: "refused"; code: string; path?: string }
@@ -26,7 +23,6 @@ export function downloadBytes(name: string, format: Format, encoded: string) {
 	URL.revokeObjectURL(url);
 }
 
-/** One JSON post. The preview route skips the server-action flight, which was the slow part. */
 async function postPreview(
 	templateId: string,
 	format: Format,
@@ -45,12 +41,9 @@ async function postPreview(
 	}
 }
 
-// The renders of this visit, by render key (model.ts). A thumbnail and the preview of the same template and values
-// share one request. A failed render is not kept, and only the newest few are, so the bytes do not pile up.
 const renders = new Map<string, Promise<PreviewReply>>();
 const KEPT = 24;
 
-/** The preview for `key`, posted once: a later call with the same key gets the same reply. */
 export function sharedPreview(
 	key: string,
 	templateId: string,
@@ -72,5 +65,4 @@ export function sharedPreview(
 	return known;
 }
 
-/** The one line every render failure shows. */
 export const RENDER_FAILED = "This file did not render. Nothing was saved.";

@@ -9,11 +9,6 @@ import { closePdf, drawPage, openPdf } from "./pdf.ts";
 import { bytesOf, sharedPreview } from "./preview-client.ts";
 import { NativeImage } from "@/components/native";
 
-// A library thumbnail: page 1 of the renderer's own bytes for the template, drawn when the card scrolls into view.
-// Renders run one at a time and the picture is kept for the visit, by the render key of what it printed, so the
-// library route stays quick and a change to the template or the church's values draws a new one. The selected
-// template's preview shares the same render (sharedPreview).
-
 const WIDTH = 200;
 const pictures = new Map<string, Promise<string | null>>();
 let queue: Promise<unknown> = Promise.resolve();
@@ -49,7 +44,6 @@ export function Thumbnail({
 	enabled,
 }: {
 	template: Template;
-	/** What the picture prints: model.ts `renderKey` for the template as a PDF with no overrides. */
 	renderKey: string;
 	enabled: boolean;
 }) {

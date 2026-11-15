@@ -7,15 +7,10 @@ import type { DocumentOutcome } from "../actions.ts";
 import { writtenView, type WrittenView } from "../model.ts";
 import { documentActor } from "../server.ts";
 
-// POST /documents/written/import?title=&format=&expectedRevision=&requestKey=[&documentId=] with the file's raw bytes as
-// the body. A server action caps its body at the host's action limit, so import has its own route, as preview and
-// export do. The original bytes stay private; the reply is the written document as its new saved revision.
-
 const NO_STORE = { "Cache-Control": "private, no-store" };
 const answer = (outcome: DocumentOutcome<WrittenView>) => Response.json(outcome, { headers: NO_STORE });
 const tooLarge = () => answer({ status: "refused", code: "invalid_input", problem: IMPORT_TOO_LARGE });
 
-/** The body's bytes, or null once it passes `max`: a body with no length header is counted as it arrives. */
 async function readCapped(request: Request, max: number): Promise<Uint8Array | null> {
 	if (!request.body) return new Uint8Array();
 	const chunks: Uint8Array[] = [];

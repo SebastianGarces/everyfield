@@ -22,10 +22,6 @@ import { copyToChurch, loadCopySources, loadWrittenDocuments, type DocumentOutco
 import { documentProblem, type CopySource, type OwnedView } from "./model.ts";
 import { SECTION } from "./written/notes.tsx";
 
-// Written documents for the account or the church. Each row opens the document on its own page, where it is edited
-// in the shared editor (or read, for a Member). In a church plant seat an Owner or Admin can copy one of their own
-// account documents into the church with Use for this church.
-
 type Scope = "church" | "account";
 
 const KIND_LABEL: Record<OwnedView["kind"], string | null> = {
@@ -154,11 +150,6 @@ export function NativeDocuments({ written, canEdit }: { written: Scope; canEdit:
 	);
 }
 
-/**
- * Use for this church: a list of your own account documents. Choosing one copies its current revision into one new
- * church document and opens the copy. The original stays in Your documents. One request key covers each choice, so a
- * double click or a retry after a lost reply makes one copy.
- */
 function UseForChurch({ onClose }: { onClose: () => void }) {
 	const router = useRouter();
 	const sources = useRead(copySources);
@@ -168,13 +159,11 @@ function UseForChurch({ onClose }: { onClose: () => void }) {
 
 	async function copy(source: CopySource) {
 		if (copying) return;
-		// The same choice keeps its key until an answer arrives; a new choice gets a new key.
 		if (attempt.current?.documentId !== source.id)
 			attempt.current = { documentId: source.id, key: crypto.randomUUID() };
 		const key = attempt.current.key;
 		setCopying(source.id);
 		setProblem(null);
-		// A call that never reached the server reads as a lost reply, so the same choice retries with the same key.
 		const result = await copyToChurch({ documentId: source.id, revisionId: source.revisionId, requestKey: key }).catch(
 			() => ({ status: "lost" }) as const,
 		);

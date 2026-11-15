@@ -9,9 +9,6 @@ import type { Template } from "./model.ts";
 import { closePdf, drawPage, openPdf } from "./pdf.ts";
 import { RENDER_FAILED } from "./preview-client.ts";
 
-// The preview: each page at its true aspect (Letter 8.5 x 11, card 4.25 x 5.5), drawn from the renderer's bytes.
-// Arrow keys, Page Up and Page Down, Home and End move between pages when the page has focus.
-
 type Props = { title: string; pageSize: NonNullable<Template["pageSize"]>; bytes: Uint8Array };
 
 function pdfCanvas(bytes: Uint8Array, events: { opened: (pages: number) => void; failed: () => void }) {

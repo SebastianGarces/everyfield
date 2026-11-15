@@ -8,9 +8,6 @@ import { Await, createRead, useRead } from "../../components/read.tsx";
 import { downloadSavedDocument, listSavedDocuments, type DocumentOutcome } from "./actions.ts";
 import { FORMAT_LABEL, documentProblem, savedWhen, type SavedFile } from "./model.ts";
 
-// Saved generated files. The list loads after the page, so the documents route keeps its statement budget.
-// Each download asks for a new five-minute link. The stored bytes do not change when the template changes.
-
 export const savedDocuments = createRead(() => listSavedDocuments(), {
 	failed: (): DocumentOutcome<SavedFile[]> => ({ status: "lost" }),
 });
@@ -25,7 +22,6 @@ export function SavedHistory({ enabled }: { enabled: boolean }) {
 		setBusyId(entry.id);
 		setNote(null);
 		setLink(null);
-		// A call that never reached the server reads as a dropped connection, and the row can be downloaded again.
 		const result = await downloadSavedDocument(entry.id).catch(() => ({ status: "lost" }) as const);
 		setBusyId(null);
 		if (result.status === "lost") {

@@ -14,12 +14,6 @@ import type { CSSProperties, ReactNode } from "react";
 import "../church/editor/editor.css";
 import { tableView } from "../church/editor/table-model.ts";
 
-// A native body drawn read-only, for a Member and for an archived document: the editor's paper and type, without the
-// editor. Text is drawn as text nodes and never as HTML; a link keeps only an address the safe link rule accepts. A
-// table draws as the editor draws it (T-100): header labels, cell text, amounts in the shared format, check boxes, row
-// numbers and stripes, with no control. Nothing here imports the editor (D-227).
-
-/** The text width of the plain paper in points, as the editor lays a table out (table-extension.ts). */
 const PLAIN_TEXT_WIDTH = 480;
 
 function marked(text: string, marks: Mark[] = []): ReactNode {

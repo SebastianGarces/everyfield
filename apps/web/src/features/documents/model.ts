@@ -10,8 +10,6 @@ import {
 } from "@everyfield/contracts/documents";
 import type { z } from "zod";
 
-// Launch is the screen name for the operational category. The catalog has no "launch" value.
-
 export type Template = z.infer<typeof templateView>;
 export type Format = z.infer<typeof documentFormat>;
 export type Category = z.infer<typeof documentCategory>;
@@ -90,7 +88,6 @@ function isFormat(value: string): value is Format {
 	return FORMATS.has(value);
 }
 
-/** Read the documents address. An unknown category, phase, or format is omitted. */
 export function parseQuery(params: Pick<URLSearchParams, "get">): DocumentsQuery {
 	const category = params.get("category");
 	const format = params.get("format");
@@ -126,7 +123,6 @@ export type TemplateFilter = {
 	q: string;
 };
 
-/** Category, article, phase, and search run on the loaded library. Search is not an API filter. */
 export function filterTemplates(templates: Template[], filter: TemplateFilter) {
 	const q = filter.q.trim().toLowerCase();
 	return templates.filter((template) => {
@@ -138,7 +134,6 @@ export function filterTemplates(templates: Template[], filter: TemplateFilter) {
 	});
 }
 
-/** The address template when it is in the filtered list. Otherwise the first match. An unknown id is omitted. */
 export function choose(templates: Template[], templateId: string | null) {
 	if (templates.length === 0) return null;
 	return templates.find((template) => template.id === templateId) ?? templates[0];
@@ -157,10 +152,6 @@ export function draftsFrom(resolved: Resolved | null) {
 	return drafts;
 }
 
-/**
- * Text the person changed. A blank field is omitted so the church value can fill it again.
- * An unchanged church, pastor, or launch value is also omitted, so the file still prints that value.
- */
 export function overridesOf(template: Template, drafts: Record<string, string>, resolved: Resolved | null) {
 	const overrides: Record<string, string> = {};
 	for (const field of template.mergeFields) {
@@ -180,10 +171,8 @@ export function combinedTooLong(overrides: Record<string, string>) {
 	return bytes > MERGE_BYTES_MAX;
 }
 
-/** What the person reads when the merge fields together pass the byte cap. */
 export const MERGE_TOO_LONG = `Shorten the fields. Together they must stay under ${MERGE_BYTES_MAX / 1024} KB.`;
 
-/** The server refuses merge values over the byte cap at the path "overrides" (an unknown key is "overrides.<key>"). */
 export function mergeTooLong(code: string, path: string | undefined) {
 	return code === "invalid_input" && path === "overrides";
 }
@@ -202,17 +191,13 @@ export type SavedFile = Pick<
 	"id" | "savedTemplateName" | "format" | "generatedAt" | "downloadName"
 >;
 
-/** One row of the written-documents list. The list links to the document's own page and carries no body. */
 export type OwnedView = Pick<z.infer<typeof ownedListItem>, "id" | "kind" | "title" | "archived">;
-/** A plain native document on its own page: the body node, its revision, and where it came from. */
 export type WrittenView = Pick<
 	z.infer<typeof ownedDocument>,
 	"id" | "kind" | "title" | "body" | "revision" | "archived" | "textRevision"
 > & {
-	/** True for a church copy made with Use for this church. */
 	copied: boolean;
 };
-/** What the native page shows of a stored document. The tenant and the hashes stay on the server. */
 export function writtenView(value: z.infer<typeof ownedDocument>): WrittenView {
 	return {
 		id: value.id,
@@ -225,13 +210,8 @@ export function writtenView(value: z.infer<typeof ownedDocument>): WrittenView {
 		copied: value.copiedFromHash !== null,
 	};
 }
-/** One of your account documents Use for this church can copy. */
 export type CopySource = { id: string; title: string; revisionId: string };
 
-/**
- * A sentence for a refused document action. Invalid input keeps the server's problem.
- * A conflict always tells the person to reload.
- */
 export function documentProblem(code: string, problem: string | undefined, fallback: string) {
 	if (code === "invalid_input" && problem) return problem;
 	if (code === "unavailable" && problem) return problem;
@@ -245,10 +225,6 @@ export function savedWhen(iso: string) {
 	return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(date);
 }
 
-/**
- * The church's own values a library render prints, by where each comes from, as the page's resolved fields name them.
- * A typed override is not the church's value, and an absent field has none.
- */
 export function churchValues(resolved: Resolved | null): Record<string, string> {
 	const values: Record<string, string> = {};
 	for (const field of resolved?.fields ?? [])
@@ -259,11 +235,6 @@ export function churchValues(resolved: Resolved | null): Record<string, string> 
 
 const sorted = (record: Record<string, string>) => Object.entries(record).sort(([a], [b]) => (a < b ? -1 : 1));
 
-/**
- * What one library render depends on: the template and the library version it belongs to, the format, the typed
- * overrides and the church's own values. Equal keys mean equal bytes, so a thumbnail and the preview of the same
- * template share one render, and a change to any of them makes a new one.
- */
 export function renderKey(input: {
 	templateId: string;
 	version: string;
