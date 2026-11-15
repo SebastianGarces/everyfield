@@ -180,6 +180,7 @@ export function AttestationsScreen({ initial, viewerName }: { initial: Attestati
 		optimistic: CandidateEntry | null,
 	): Promise<string | null> {
 		const before = page.candidates.find((c) => c.personId === input.personId) ?? null;
+		const personBefore = page.people.find((x) => x.id === input.personId);
 		const payload = JSON.stringify([action, revision, input]);
 		if (optimistic) setPage((p) => withCandidate(p, optimistic));
 		const result = await sent(() =>
@@ -191,7 +192,11 @@ export function AttestationsScreen({ initial, viewerName }: { initial: Attestati
 			setPage((p) =>
 				before
 					? withCandidate(p, before)
-					: { ...p, candidates: p.candidates.filter((c) => c.personId !== input.personId) },
+					: {
+							...p,
+							candidates: p.candidates.filter((c) => c.personId !== input.personId),
+							people: p.people.map((x) => (x.id === input.personId && personBefore ? personBefore : x)),
+						},
 			);
 			return fail(result);
 		}
