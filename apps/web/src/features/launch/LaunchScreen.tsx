@@ -51,7 +51,7 @@ import {
 import { StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
 import Link from "next/link";
-import { useId, useState } from "react";
+import { useId, useState, useTransition } from "react";
 import { changeTaskStatus } from "../tasks/actions.ts";
 import { DoneBox } from "../tasks/parts.tsx";
 import {
@@ -89,7 +89,6 @@ type DateDraft = {
 	date: string;
 	reason: string;
 	error: string | null;
-	saving: boolean;
 };
 const AREAS: Area[] = ["operations", "launch_team", "promotion"];
 const GATHERING = { choose: chooseGatheringPath, save: saveGathering, offers: readGatheringOffers };
@@ -109,18 +108,22 @@ export function LaunchScreen({
 	const milestone = plan.path.kind === "milestone" ? plan.path : null;
 	const [draft, setDraft] = useState<DateDraft | null>(null);
 	const [keys] = useState(() => requestKeys(() => crypto.randomUUID()));
+	const [saving, startSaving] = useTransition();
 	const shown = shownOf(plan);
 	const dated = shown.kind === "ahead" || shown.kind === "today" || shown.kind === "overdue";
 
 	const replaceMilestone = (m: Milestone) =>
 		setPlan((p) => ({ ...p, milestones: p.milestones.map((x) => (x.id === m.id ? m : x)) }));
 
-	async function submitDate(d: DateDraft) {
+	function submitDate(d: DateDraft) {
 		const note = checkNote(d.reason, d.mode !== "set");
 		if (!note.ok) return setDraft({ ...d, error: NOTE_MESSAGE[note.problem] });
 		if (d.mode !== "postpone" && !d.date) return setDraft({ ...d, error: "Choose a date for Launch Sunday." });
+		startSaving(() => saveDate(d));
+	}
+
+	async function saveDate(d: DateDraft) {
 		const intent = [d.mode, plan.revision, d.date, d.reason] as const;
-		setDraft({ ...d, saving: true });
 		const r = await sent(() =>
 			d.mode === "postpone"
 				? postponeLaunch(keys.keyFor(intent), plan.revision, d.reason)
@@ -134,7 +137,7 @@ export function LaunchScreen({
 				toast({ message: "No change: Launch Sunday is already that date.", tone: "info" });
 			return;
 		}
-		setDraft({ ...d, error: refusalMessage(r), saving: false });
+		setDraft({ ...d, error: refusalMessage(r) });
 	}
 
 	const open = (mode: DateDraft["mode"]) =>
@@ -143,7 +146,6 @@ export function LaunchScreen({
 			date: mode === "postpone" ? "" : (plan.launch?.targetDate ?? ""),
 			reason: "",
 			error: null,
-			saving: false,
 		});
 	const actions =
 		viewer.admin && !milestone ? (
@@ -227,7 +229,9 @@ export function LaunchScreen({
 			) : null}
 			{plan.outcome ? null : after}
 			{viewer.admin ? <LaunchHistory today={plan.today} /> : null}
-			{draft ? <DateDialog draft={draft} plan={plan} onChange={setDraft} onSubmit={submitDate} /> : null}
+			{draft ? (
+				<DateDialog draft={draft} saving={saving} plan={plan} onChange={setDraft} onSubmit={submitDate} />
+			) : null}
 		</>
 	);
 }
@@ -712,11 +716,13 @@ function TaskRow({
 
 function DateDialog({
 	draft,
+	saving,
 	plan,
 	onChange,
 	onSubmit,
 }: {
 	draft: DateDraft;
+	saving: boolean;
 	plan: Plan;
 	onChange: (d: DateDraft | null) => void;
 	onSubmit: (d: DateDraft) => void;
@@ -776,8 +782,8 @@ function DateDialog({
 						<Button type="button" variant="secondary" onClick={() => onChange(null)}>
 							Cancel
 						</Button>
-						<Button type="submit" variant="primary" disabled={draft.saving}>
-							{draft.saving ? "Saving" : copy.submit}
+						<Button type="submit" variant="primary" disabled={saving}>
+							{saving ? "Saving" : copy.submit}
 						</Button>
 					</DialogFooter>
 				</form>
