@@ -46,10 +46,6 @@ import { places as placeReads, VenuesSheet } from "./VenuesSheet.tsx";
 
 const ALL = "all";
 
-/**
- * The meetings list (REQ-MTG-001): every current meeting, newest first, with the window, type and status in the
- * address. A filter change goes back to page one. An empty filter says so and never claims there is no history.
- */
 export function MeetingsScreen({ view, canWrite }: { view: MeetingsView; canWrite: boolean }) {
 	const router = useRouter();
 	const pathname = usePathname();
@@ -58,7 +54,6 @@ export function MeetingsScreen({ view, canWrite }: { view: MeetingsView; canWrit
 	const planLane = useSaveIntent({ explain: problemText });
 	const [places, setPlaces] = useState(false);
 	const { query, hasHistory, now } = view;
-	// A meeting deleted from its page leaves this list at once, while its delete is confirmed (deletions.ts).
 	const deleted = useDeleted();
 	useEffect(() => deletions.flush(), []);
 	const page = view.page && {
@@ -255,10 +250,6 @@ function columns(thisYear: number, now: string): Column<Summary>[] {
 	];
 }
 
-/**
- * The next upcoming meeting, as the prototype's "Next" card: one link to the meeting page. Its name is the card's visible
- * text, so a voice-control user can say what they see (WCAG 2.5.3).
- */
 function NextMeeting({ meeting: m, now, thisYear }: { meeting: Summary; now: string; thisYear: number }) {
 	const until = untilText(m, now);
 	return (
