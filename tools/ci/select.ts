@@ -91,7 +91,6 @@ export const RULES: readonly Rule[] = [
 		tests: ["tests/workflow/role-prompts.test.mjs"],
 	},
 	{ name: "dev command", paths: ["bin/dev"], tests: ["tests/workflow/dev.test.mjs"] },
-	// bin/dev formal reads the models, the maps and every mapped code file as text (T-398, D93).
 	{
 		name: "formal checks",
 		paths: [
