@@ -192,8 +192,10 @@ function act(context: Context, verb: string, action: string[], subject: string):
 	if (page.url !== beforeUrl) return `${verb} ${subject} → ${where(page)}${note}`;
 	const diff = changes(before, page.elements);
 	if (!diff.length) return `${verb} ${subject} · no change in interactive elements${note}`;
-	const shown = diff.slice(0, 3).join(" · ");
-	return `${verb} ${subject} · ${shown}${diff.length > 3 ? ` · ${diff.length - 3} more (app snapshot)` : ""}${note}`;
+	if (diff.length <= 3) return `${verb} ${subject} · ${diff.join(" · ")}${note}`;
+	const count = (mark: string) => diff.filter((line) => line.startsWith(mark)).length;
+	const heading = diff.find((line) => /^\+ \S+ (heading|dialog|alertdialog) /.test(line));
+	return `${verb} ${subject} · +${count("+")} ~${count("~")} -${count("-")} interactive${heading ? ` · ${heading}` : ""} (app snapshot)${note}`;
 }
 
 function resolveElement(context: Context, name: string, roles: Set<string>, options: Pick, what: string): Element {

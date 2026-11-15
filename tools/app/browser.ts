@@ -85,8 +85,10 @@ export function treeOf(result: Record<string, unknown>): Element[] {
 	return parseTree(tree);
 }
 
+const short = (name: string) => (name.length > 60 ? `${name.slice(0, 59)}…` : name);
+
 export const describe = (element: Element, withRef = true) =>
-	`${withRef ? `${element.ref} ` : ""}${element.role}${element.name ? ` "${element.name}"` : ""}${element.attrs ? ` [${element.attrs}]` : ""}`;
+	`${withRef ? `${element.ref} ` : ""}${element.role}${element.name ? ` "${short(element.name)}"` : ""}${element.attrs ? ` [${element.attrs}]` : ""}`;
 
 export function distance(a: string, b: string): number {
 	const row = Array.from({ length: b.length + 1 }, (_, i) => i);

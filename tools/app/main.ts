@@ -124,9 +124,10 @@ function number(raw: string | undefined, fallback: number, what: string): number
 function contextFor(repo: Repo, values: Values): Context {
 	const session = values.session ?? process.env.AGENT_BROWSER_SESSION ?? `app-${repo.name}`;
 	const state = readSession(repo, session);
-	if (values.url) state.origin = values.url.replace(/\/+$/, "");
 	const local = readLocalApp(repo);
-	const origin = state.origin ?? (local?.phase === "ready" ? local.origin : undefined);
+	if (values.url) state.origin = values.url.replace(/\/+$/, "");
+	else if (local?.phase === "ready") state.origin = local.origin;
+	const origin = state.origin;
 	return { repo, browser: browserFor(session, origin), origin, state, task: values.task };
 }
 
@@ -260,7 +261,7 @@ async function script(repo: Repo, values: Values): Promise<string> {
 		if (words[0] === "app") words.shift();
 		try {
 			const result = await command(repo, words, shared);
-			lines.push(`${index + 1} ok ${result.split("\n").join("\n  ")}`);
+			lines.push(`${index + 1} ok ${result.replace(/^ok /, "").split("\n").join("\n  ")}`);
 		} catch (error) {
 			if (!(error instanceof AppError)) throw error;
 			lines.push(
