@@ -347,11 +347,11 @@ const ARRIVAL_HOLD_MS = 3000;
 const ARRIVAL_FADE_MS = 150;
 
 function showArrival(row: HTMLElement | null) {
-	if (!row) return;
+	if (!row) return undefined;
 	const calm = prefersReducedMotion();
 	row.scrollIntoView({ block: "center", behavior: calm ? "instant" : "smooth" });
 	const held = { backgroundColor: "var(--ef-surface-2)" };
-	row.animate(
+	const arrival = row.animate(
 		[
 			held,
 			{ ...held, offset: ARRIVAL_HOLD_MS / (ARRIVAL_HOLD_MS + ARRIVAL_FADE_MS), easing: calm ? "step-end" : "ease" },
@@ -359,6 +359,7 @@ function showArrival(row: HTMLElement | null) {
 		],
 		{ duration: ARRIVAL_HOLD_MS + ARRIVAL_FADE_MS },
 	);
+	return () => arrival.cancel();
 }
 
 function Row({
