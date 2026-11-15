@@ -5,17 +5,10 @@ import { useDocumentHidden, useReducedMotion } from "@everyfield/ui/foundations"
 import { createContext, useCallback, useContext, useEffect, useEffectEvent, type ReactNode } from "react";
 import { transformOf, type Frame } from "./curves";
 
-/**
- * Advances a scene while `run` is true: Motion's frame loop calls `step(dt)` once per frame in its update phase, before
- * it writes styles. Steps only set MotionValues; they never read layout. Off screen, paused or reduced motion: no
- * callback is registered at all, so an idle page has no frame loop. dt is capped at 50 ms (a tab returning from the
- * background resumes where it left off).
- */
 export function useTicker(run: boolean, step: (dt: number) => void) {
 	const onStep = useEffectEvent(step);
 	useEffect(() => {
 		if (!run) return;
-		// Time counts from the moment the scene starts, as in the prototype (its first frame advances by one frame).
 		let last = performance.now();
 		const tick = ({ timestamp }: { timestamp: number }) => {
 			onStep(Math.max(0, Math.min(timestamp - last, 50)));
@@ -26,7 +19,6 @@ export function useTicker(run: boolean, step: (dt: number) => void) {
 	}, [run]);
 }
 
-/** Transform and opacity of an element as a function of a clock. */
 export function useTo(t: MotionValue<number>, f: (t: number) => Frame) {
 	const transform = useTransform(t, (v) => {
 		const [x, y, s] = f(v);
@@ -36,16 +28,10 @@ export function useTo(t: MotionValue<number>, f: (t: number) => Frame) {
 	return { transform, opacity };
 }
 
-/** Text as a function of a clock (typing, counters). Rendered as the child of an m element, so React never re-renders. */
 export function useText(t: MotionValue<number>, f: (t: number) => string) {
 	return useTransform(t, f);
 }
 
-/**
- * A panel's clocks, given by the chapter that shows it: t is the scene time (ms) and since the time since the panel
- * became the shown one (its children stagger in on it). stagger is when the first child starts (240 ms on the desktop
- * panel, after the card crossfade; 90 ms on a phone panel).
- */
 export type PanelClock = { t: MotionValue<number>; since: MotionValue<number>; stagger: number };
 const PanelContext = createContext<PanelClock | null>(null);
 export function PanelClockProvider({ clock, children }: { clock: PanelClock; children: ReactNode }) {
@@ -57,10 +43,6 @@ export function usePanelClock() {
 	return c;
 }
 
-/**
- * Text from a MotionValue, written in Motion's render step. It does not wait for the lazy Motion features, so a value
- * set before they load (reduced motion jumps to the still frame at once) still shows. React renders the first value.
- */
 export function MText({
 	value,
 	className,

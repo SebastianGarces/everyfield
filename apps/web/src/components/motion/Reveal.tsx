@@ -4,13 +4,6 @@ import { prefersReducedMotion } from "@everyfield/ui/foundations";
 import { useEffect, type CSSProperties, type ReactNode, type RefObject } from "react";
 import { cn } from "../cn";
 
-/**
- * A block that rises 18 px and fades in once when it scrolls into view (transform and opacity, CSS transition).
- * Blocks already on screen when the page opens are never hidden, so the first paint is complete without JavaScript;
- * a block below the fold is hidden only after the first IntersectionObserver report says it is off screen. The
- * report carries the geometry, so nothing reads layout. Reduced motion: nothing happens.
- * up: the block after the phases rail rises further (28 px over .5 s) and also shows once it has been scrolled past.
- */
 function revealOnceInView(up: boolean) {
 	return (el: HTMLElement | null) => {
 		if (!el || prefersReducedMotion()) return;
@@ -49,7 +42,6 @@ export function useReveal(ref: RefObject<HTMLElement | null>, up?: boolean) {
 	useEffect(() => revealRef(up)(ref.current), [ref, up]);
 }
 
-/** Classes and style of a revealed block. delay: start delay in ms (siblings stagger 70 ms apart, at most 280 ms). */
 export function revealProps(delay = 0, up?: boolean) {
 	return {
 		className: cn(
@@ -64,7 +56,6 @@ export function revealProps(delay = 0, up?: boolean) {
 
 type Props = { children: ReactNode; className?: string; delay?: number; up?: boolean };
 
-/** A div that rises in once (see useReveal). */
 export function Reveal({ children, className, delay = 0, up }: Props) {
 	const r = revealProps(delay, up);
 	return (

@@ -10,14 +10,7 @@ import {
 	type JSX,
 } from "react";
 
-/**
- * Elements whose style may hold MotionValues. Every animated value on the site is a MotionValue (a scene clock through
- * useTransform), so an element only has to show the current value on render and write each change to its style in
- * Motion's render step. That is all Motion's own m components did here; they also carried Motion's animation,
- * gesture and layout-projection engine, which the site never uses (about 40 KB of client JS).
- */
 type Value = string | number | undefined;
-/** A MotionValue of any value type, read-only from here (MotionValue's type parameter is invariant). */
 type Live = { get(): Value; on(event: "change", callback: () => void): () => void };
 type MStyle = { [K in keyof CSSProperties]?: CSSProperties[K] | Live } & { [k: `--${string}`]: Value | Live };
 type Props<T extends keyof JSX.IntrinsicElements> = Omit<ComponentPropsWithRef<T>, "style"> & { style?: MStyle };
@@ -31,11 +24,6 @@ const css = (k: string, v: Value) =>
 			: String(v);
 const kebab = (k: string) => (k.startsWith("--") ? k : k.replace(/[A-Z]/g, (c) => "-" + c.toLowerCase()));
 
-/**
- * The style React renders. A MotionValue property always renders its first value: React then never writes it again,
- * and only the binder below updates it. (If React rendered the current value, a commit could land after a newer
- * frame and put back an older value.)
- */
 function useResolved(style: MStyle | undefined) {
 	const [first] = useState(() => new Map<string, Value>());
 	if (!style) return undefined;

@@ -13,20 +13,12 @@ type Which = "inflow" | "pill";
 type Props = {
 	links: NavLink[];
 	cta: NavLink;
-	/** Server-rendered pieces, passed in so their SVG stays out of the client bundle. */
 	logo: ReactNode;
 	pillLogo: ReactNode;
 	arrow: ReactNode;
 	menuIcon: ReactNode;
 };
 
-/**
- * The site header in two copies: the in-flow header at the top of the page and the floating pill that slides in once
- * the in-flow header has scrolled out of view. Exactly one is exposed to assistive tech at a time (the other is inert
- * and aria-hidden), so there is one banner and one Main nav. While focus is inside the in-flow header it stays the
- * exposed one, even after it scrolls away; once focus leaves, the pill takes over. Below 1121 px each copy has its own
- * menu: Escape closes it and returns focus to its toggle, and a link click closes it.
- */
 export function SiteNav({ links, cta, logo, pillLogo, arrow, menuIcon }: Props) {
 	const inflowToggle = useRef<HTMLButtonElement>(null);
 	const pillToggle = useRef<HTMLButtonElement>(null);
@@ -80,14 +72,11 @@ export function SiteNav({ links, cta, logo, pillLogo, arrow, menuIcon }: Props) 
 				aria-hidden={!pillLive || undefined}
 				className={cn(
 					"fixed inset-x-0 top-3 z-60 mx-auto w-full max-w-mk rounded-nav bg-white shadow-mk-pill will-change-[transform,opacity]",
-					// Slides down 360 ms with the hero ease-out; transform and opacity only. Hidden, it waits for the slide to end
-					// before it turns invisible.
 					"invisible opacity-0 [transform:translate3d(0,calc(-100%_-_16px),0)]",
 					"[transition:transform_.36s_var(--ease-mk-out),opacity_.36s_var(--ease-mk-out),visibility_0s_linear_.36s]",
 					"data-[on=true]:visible data-[on=true]:opacity-100 data-[on=true]:[transform:none]",
 					"data-[on=true]:[transition:transform_.36s_var(--ease-mk-out),opacity_.36s_var(--ease-mk-out),visibility_0s_linear_0s]",
 					"motion-reduce:[transition:none] motion-reduce:data-[on=true]:[transition:none]",
-					// Phones: the pill floats inside the page margin and clear of the notch (E8).
 					"max-mk-sm:top-[calc(12px_+_env(safe-area-inset-top))] max-mk-sm:right-[max(var(--spacing-page),env(safe-area-inset-right))] max-mk-sm:left-[max(var(--spacing-page),env(safe-area-inset-left))] max-mk-sm:w-auto",
 				)}
 			>
@@ -136,7 +125,6 @@ function NavBar({ which, links, cta, logo, arrow, menuIcon, open, toggleRef, onT
 		<div
 			className={cn(
 				"mx-auto flex max-w-mk items-center gap-7 px-page max-mk-sm:gap-3",
-				// The pill's last control sits as far from the right edge as from the top and bottom: (60 - 44) / 2.
 				pill ? "h-[60px] pr-2 max-mk-sm:h-14 max-mk-sm:pr-[7px]" : "h-[70px] max-mk-sm:h-16",
 			)}
 		>
@@ -156,7 +144,6 @@ function NavBar({ which, links, cta, logo, arrow, menuIcon, open, toggleRef, onT
 					</Link>
 				))}
 				{pill ? null : (
-					// Phones (440 px and below) have no room for the request button in the header, so the menu carries it.
 					<Link
 						href={cta.href}
 						aria-current={cta.current ? "page" : undefined}
