@@ -57,8 +57,7 @@ export function createRead<A extends unknown[], T>(
 	const watched = (k: string) => (readers.get(k) ?? 0) > 0;
 
 	const usable = (entry: Entry<T> | undefined) =>
-		entry !== undefined &&
-		(entry.status === "loading" || (entry.reusable && Date.now() - entry.at < fresh));
+		entry !== undefined && (entry.status === "loading" || (entry.reusable && Date.now() - entry.at < fresh));
 
 	const start = (k: string, args: A, keepValue: boolean) => {
 		const promise = new Promise<T>((resolve) => resolve(load(...args))).catch(failed);
