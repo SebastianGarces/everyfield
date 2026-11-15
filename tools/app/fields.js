@@ -52,13 +52,15 @@
 		if (labels.length) return labels.join(" ");
 		const wrap = el.closest("label");
 		if (wrap) return labelText(wrap);
-		return (el.getAttribute("placeholder") || el.getAttribute("title") || el.getAttribute("name") || "").trim();
+		const named = (el.getAttribute("placeholder") || el.getAttribute("title") || el.getAttribute("name") || "").trim();
+		if (named || !el.getAttribute("role")) return named;
+		return text(el);
 	};
 	const valueOf = (el, kind) => {
 		if (kind === "checkbox" || kind === "radio")
 			return String(el.tagName === "INPUT" ? el.checked : el.getAttribute("aria-checked") === "true");
 		if (kind === "select") return el.selectedOptions[0] ? el.selectedOptions[0].label.trim() : "";
-		if (kind === "file") return [...el.files].map((file) => file.name).join(", ");
+		if (kind === "file") return [...el.files].map((file) => `${file.name} (${file.size} B)`).join(", ");
 		if (kind === "combobox" && el.tagName !== "INPUT") return text(el);
 		if (el.tagName === "INPUT" || el.tagName === "TEXTAREA") return el.value;
 		return text(el);

@@ -29,6 +29,16 @@ const FORM = `<!doctype html><html><head><title>Form</title><style>select, label
 <label>Code <input oninput="this.value = ''"></label>
 <label>Kind <select><option>Vision</option><option>Team</option></select></label>
 <label><input type="checkbox"> Remind me</label>
+<label>Photo <input type="file"></label>
+<button disabled onclick="document.title = 'ran'">Disabled save</button>
+<button aria-disabled="true" onclick="if (this.getAttribute('aria-disabled') !== 'true') document.title = 'ran'">Aria disabled save</button>
+<button>Noop</button>
+<span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0)">Secret saved</span>
+<p style="opacity: 0">Faded saved</p>
+<p>Shown saved</p>
+<div role="radiogroup" aria-label="Whose tasks" onclick="for (const r of this.children) r.setAttribute('aria-checked', String(r === event.target))">
+<div role="radio" aria-checked="true" tabindex="0">Mine</div><div role="radio" aria-checked="false" tabindex="-1">All</div>
+</div>
 </main></body></html>`;
 
 const SERVER = `
@@ -176,9 +186,9 @@ test(
 			});
 			assert.deepEqual(app("expect", "--text", "server better-auth.session_token=fixture-token"), {
 				code: 0,
-				out: 'ok text "server better-auth.session_token=fixture-token"',
+				out: 'ok text "server better-auth.session_token=fixture-token" (visible)',
 			});
-			assert.deepEqual(app("expect", "--text", "client none"), { code: 0, out: 'ok text "client none"' });
+			assert.deepEqual(app("expect", "--text", "client none"), { code: 0, out: 'ok text "client none" (visible)' });
 		} finally {
 			removeTemp(fixtures);
 		}
@@ -260,7 +270,7 @@ test(
 			);
 			assert.deepEqual(app("expect", "--text", "server better-auth.session_token=fixture-token"), {
 				code: 0,
-				out: 'the browser had closed (idle timeout or crash): reopened as owner at /cookie\nok text "server better-auth.session_token=fixture-token"',
+				out: 'the browser had closed (idle timeout or crash): reopened as owner at /cookie\nok text "server better-auth.session_token=fixture-token" (visible)',
 			});
 		} finally {
 			removeTemp(fixtures);
@@ -273,3 +283,70 @@ test("INV-app: --help prints the guide and exits 0", () => {
 	assert.equal(help.status, 0);
 	assert.match(help.stdout, /^app: drive this worktree's Everyfield/);
 });
+
+test("INV-app: fill refuses a file that does not exist and reads back the uploaded name and size", { skip }, () => {
+	const fixtures = mkdtempSync(join(tmpdir(), "app-cookie-"));
+	try {
+		const photo = join(fixtures, "photo.txt");
+		writeFileSync(photo, "hello");
+		app("goto", "/form", "--url", origin);
+		assert.deepEqual(app("fill", "Photo", join(fixtures, "missing.png")), {
+			code: 2,
+			out: `no readable file at ${join(fixtures, "missing.png")}`,
+		});
+		assert.deepEqual(app("fill", "Photo", photo), {
+			code: 0,
+			out: 'filled file "Photo" = "photo.txt (5 B)" · no change in interactive elements',
+		});
+	} finally {
+		removeTemp(fixtures);
+	}
+});
+
+test("INV-app: a click on a disabled control fails, and a click that changes nothing says so", { skip }, () => {
+	app("goto", "/form", "--url", origin);
+	assert.deepEqual(app("click", "Disabled save"), {
+		code: 1,
+		out: 'FAIL button "Disabled save" is disabled; the click would do nothing',
+	});
+	assert.deepEqual(app("click", "Aria disabled save"), {
+		code: 1,
+		out: 'FAIL button "Aria disabled save" is disabled; the click would do nothing',
+	});
+	assert.deepEqual(app("expect", "--title", "Form"), { code: 0, out: 'ok title "Form"' });
+	assert.deepEqual(app("click", "Noop"), {
+		code: 0,
+		out: 'clicked button "Noop" · no change seen: no navigation, no element or live-text change',
+	});
+});
+
+test(
+	"INV-app: expect --text passes only on text a sighted person can see, unless asked for screen-reader text",
+	{ skip },
+	() => {
+		app("goto", "/form", "--url", origin);
+		assert.deepEqual(app("expect", "--text", "Shown saved"), { code: 0, out: 'ok text "Shown saved" (visible)' });
+		assert.deepEqual(app("expect", "--text", "Secret saved", "--timeout", "300"), {
+			code: 1,
+			out: 'FAIL text "Secret saved" is on the page but not visible (hidden, clipped, transparent or covered) after 0.3 s; --screen-reader asserts text for assistive technology',
+		});
+		assert.deepEqual(app("expect", "--text", "Faded saved", "--timeout", "300").code, 1);
+		assert.deepEqual(app("expect", "--text", "Secret saved", "--screen-reader"), {
+			code: 0,
+			out: 'ok text "Secret saved" (screen-reader text, not visible)',
+		});
+	},
+);
+
+test(
+	"INV-app: fill finds a radio by its own text and a missing select option is a could-not-act exit 3",
+	{ skip },
+	() => {
+		app("goto", "/form", "--url", origin);
+		assert.deepEqual(app("fill", "All", "on"), {
+			code: 0,
+			out: 'filled radio "All" = "true" · ~ eN radio "Mine" [checked=false] · ~ eN radio "All" [checked=true]',
+		});
+		assert.equal(app("fill", "Kind", "Kiwi").code, 3);
+	},
+);

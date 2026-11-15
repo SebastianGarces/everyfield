@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { parseArgs } from "node:util";
-import { browserFor, closeBrowser, sessionOpen } from "./browser.ts";
+import { batch, browserFor, closeBrowser, sessionOpen } from "./browser.ts";
 import { cookieFor, down, personaKey, personas, serve, staleNote, status, up } from "./local.ts";
 import {
 	click,
@@ -38,11 +38,14 @@ const HELP = `app: drive this worktree's Everyfield in one agent-browser session
   goto <route>                  open a route; prints path, title, interactive count
   snapshot [--scope main|nav|dialog|page|<css>] [--all]
                                 interactive elements and live/status text; then only what changed since the last one
-  click <name> [--role r] [--nth n] [--exact]       press <key>
+  click <name> [--role r] [--nth n] [--exact]       fails on a disabled control; says "no change seen" otherwise
+  press <key>
   fill <label> <value> [--nth n]  reads the value back and fails when the field does not hold it. Values by kind:
                                 text as is · date YYYY-MM-DD · time HH:MM · select/combobox the option name ·
-                                checkbox/radio on|off · file a path
+                                checkbox/radio on|off · file a path (checked: name and size)
   expect --text t | --no-text t | --path /route | --title t | --name n [--role r]   [--timeout ms]
+                                --text means visible to a sighted person; add --screen-reader for text in the
+                                accessibility tree only (sr-only, transparent)
   shot <name> [--widths 390,1440] [--viewport] [--out dir]   PNGs outside the repo, full height by default
   cursor-audit [--scope <css>]  every visible clickable must show cursor:pointer (not-allowed when disabled)
   errors                        page and console errors this session
@@ -54,8 +57,11 @@ login <key> --cookie-file <json>, where the JSON holds {"<key>": {"cookie": "nam
 {"name": ..., "value": ...}}} (the tests/ui seed fixtures work as they are).
 Global: --session <name> (default app-<worktree>), --task <id> (evidence folder
 <git common dir>/evf-evidence/<id>/<sha7>/shots). After an idle close the next command reopens the last page as the
-last persona. Exit: 0 ok, 1 expectation failed, 2 usage, 3 element not found or ambiguous, 4 no app or not signed in,
-5 agent-browser error.`;
+last persona. Nothing prints ok without the effect it names: an action prints what changed, fill the value it read.
+Exit codes:
+  0 ok, effect observed     1 expectation failed, field does not hold the value, or control disabled
+  2 usage, unknown persona, file not found                3 could not act: no such element or field, ambiguous,
+  covered, missing option   4 no app, not signed in, browser cannot reopen           5 agent-browser itself failed`;
 
 const OPTIONS = {
 	url: { type: "string" },
@@ -71,6 +77,7 @@ const OPTIONS = {
 	value: { type: "string" },
 	text: { type: "string" },
 	"no-text": { type: "string" },
+	"screen-reader": { type: "boolean" },
 	title: { type: "string" },
 	path: { type: "string" },
 	timeout: { type: "string" },
@@ -178,7 +185,10 @@ function login(context: Context, values: Values, raw: string | undefined): strin
 
 function reopen(context: Context): string | null {
 	const { persona, lastUrl, cookieFile } = context.state;
-	if (!lastUrl || sessionOpen(context.browser.session)) return null;
+	if (!lastUrl) return null;
+	const probe = batch(context.browser, [["get", "url"]])[0];
+	const current = probe?.success ? String(probe.result?.url ?? "") : "";
+	if (current && current !== "about:blank") return null;
 	let path = "/";
 	try {
 		const url = new URL(lastUrl);
@@ -262,6 +272,7 @@ async function command(repo: Repo, args: string[], outer: Values | null): Promis
 						title: values.title,
 						role: values.role,
 						name: values.name,
+						screenReader: values["screen-reader"] === true,
 						timeout: number(values.timeout, 5000, "--timeout"),
 					}),
 				);

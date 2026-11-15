@@ -1,9 +1,10 @@
-import { closeSync, mkdirSync, openSync, readFileSync, readSync } from "node:fs";
+import { accessSync, closeSync, constants, mkdirSync, openSync, readFileSync, readSync, statSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
 import { batch, changes, describe, must, nearest, pick, treeOf, type Browser, type Pick } from "./browser.ts";
 import {
 	AppError,
 	evidenceDir,
+	firstLine,
 	EXIT,
 	insideWorkTree,
 	sleepSync,
@@ -26,6 +27,7 @@ const script = (file: string) =>
 		.replace(/;$/, "");
 const PROBE = script("./cursor-probe.js");
 const FIELDS = script("./fields.js");
+const TEXT = script("./text-probe.js");
 
 const SETTLE = [["wait", "--load", "networkidle", "--timeout", "5000"]];
 const FRAME = [
@@ -206,14 +208,26 @@ function capped(lines: string[], more: string): string[] {
 
 type Acted = { line: string; after: Steps };
 
-function act(context: Context, verb: string, actions: string[][], subject: string, after: string[][] = []): Acted {
+function act(
+	context: Context,
+	verb: string,
+	actions: string[][],
+	subject: string,
+	after: string[][] = [],
+	unchanged = " · no change in interactive elements",
+): Acted {
 	const head = [["get", "url"], ["snapshot", "-i"], MODAL, LIVE];
 	const steps = batch(context.browser, [...head, ...actions, ...SETTLE, FRAME, ...after, MODAL, ...READ]);
 	const beforeUrl = String(must(steps[0]).url ?? "");
 	const before = treeOf(must(steps[1]));
 	const modalBefore = must(steps[2]).result === "true";
 	const liveBefore = liveOf(steps[3]);
-	for (const step of steps.slice(head.length, head.length + actions.length)) must(step);
+	for (const step of steps.slice(head.length, head.length + actions.length))
+		if (!step.success)
+			throw new AppError(
+				EXIT.notFound,
+				`could not ${verb.replace(/ed$/, "")} ${subject}: ${firstLine(step.error ?? "failed")}`,
+			);
 	const tail = steps.slice(head.length + actions.length + SETTLE.length + 1);
 	const modalAfter = must(tail[after.length]).result === "true";
 	const page = readPage(steps);
@@ -235,7 +249,7 @@ function act(context: Context, verb: string, actions: string[][], subject: strin
 				: ` · closed the dialog · ${page.elements.length} interactive`,
 		);
 	}
-	if (!diff.length) return done(" · no change in interactive elements");
+	if (!diff.length) return done(page.live.some((text) => !liveBefore.includes(text)) ? "" : unchanged);
 	const shown = diff.slice(0, 6).join(" · ");
 	return done(` · ${shown}${diff.length > 6 ? ` · ${diff.length - 6} more (app snapshot)` : ""}`);
 }
@@ -257,7 +271,20 @@ export function click(context: Context, name: string, options: Pick): string {
 		unique && element.name
 			? ["find", "role", element.role, "click", "--name", element.name, "--exact"]
 			: ["click", `@${element.ref}`];
-	return act(context, "clicked", [action], subject(element)).line;
+	const state = batch(context.browser, [
+		["is", "enabled", `@${element.ref}`],
+		["get", "attr", `@${element.ref}`, "aria-disabled"],
+	]);
+	if (must(state[0]).enabled === false || must(state[1]).value === "true")
+		throw new AppError(EXIT.failed, `FAIL ${subject(element)} is disabled; the click would do nothing`);
+	return act(
+		context,
+		"clicked",
+		[action],
+		subject(element),
+		[],
+		" · no change seen: no navigation, no element or live-text change",
+	).line;
 }
 
 export function press(context: Context, key: string): string {
@@ -335,6 +362,8 @@ function fillActions(field: Field, value: string): string[][] {
 		case "radio": {
 			if (!TRUE.test(value) && !FALSE.test(value))
 				throw new AppError(EXIT.usage, `${fieldLine(field)} takes ${FORMAT[field.kind]}, not "${value}"`);
+			if (field.kind === "radio" && FALSE.test(value))
+				throw new AppError(EXIT.usage, `${fieldLine(field)} cannot be turned off; fill another option of its group`);
 			if (field.value === String(TRUE.test(value))) return [];
 			return [["click", field.selector]];
 		}
@@ -354,7 +383,7 @@ function matchesWanted(field: Field, wanted: string, held: { value: string; alt:
 	if (field.kind === "checkbox" || field.kind === "radio") return value === String(TRUE.test(wanted));
 	if (field.kind === "select") return value.toLowerCase() === wanted.toLowerCase() || held.alt === wanted;
 	if (field.kind === "combobox") return value.toLowerCase().includes(wanted.toLowerCase());
-	if (field.kind === "file") return value === basename(wanted);
+	if (field.kind === "file") return value === `${basename(wanted)} (${statSync(resolve(wanted)).size} B)`;
 	return held.value === wanted;
 }
 
@@ -364,6 +393,15 @@ export function fill(context: Context, label: string, value: string, nth: number
 		String(must(batch(context.browser, [["eval", `(${FIELDS})({"op":"list"})`]])[0]).result),
 	) as Field[];
 	const field = chooseField(fields, label, nth);
+	if (field.kind === "file") {
+		const path = resolve(value);
+		try {
+			accessSync(path, constants.R_OK);
+			if (!statSync(path).isFile()) throw new Error("not a file");
+		} catch {
+			throw new AppError(EXIT.usage, `no readable file at ${path}`);
+		}
+	}
 	const read = ["eval", `(${FIELDS})(${JSON.stringify({ op: "read", selector: field.selector, kind: field.kind })})`];
 	let acted: Acted;
 	try {
@@ -403,6 +441,7 @@ export type Expectation = {
 	title?: string;
 	role?: string;
 	name?: string;
+	screenReader: boolean;
 	timeout: number;
 };
 
@@ -427,7 +466,17 @@ export function expect(context: Context, wanted: Expectation): string {
 	const seconds = `${wanted.timeout / 1000} s`;
 	if (wanted.text !== undefined) {
 		const text = JSON.stringify(wanted.text);
-		if (waitFor(context, `document.body.innerText.includes(${text})`, wanted.timeout)) return `ok text ${text}`;
+		const probe = `(${TEXT})(${text})`;
+		const enough = wanted.screenReader ? `${probe} !== "absent"` : `${probe} === "visible"`;
+		const found = waitFor(context, enough, wanted.timeout);
+		const state = String(must(batch(context.browser, [["eval", probe]])[0]).result);
+		if (found && state !== "absent")
+			return `ok text ${text} (${state === "visible" ? "visible" : "screen-reader text, not visible"})`;
+		if (state === "screen-reader")
+			throw new AppError(
+				EXIT.failed,
+				`FAIL text ${text} is on the page but not visible (hidden, clipped, transparent or covered) after ${seconds}; --screen-reader asserts text for assistive technology`,
+			);
 		const close = nearest(bodyLines(context), wanted.text, (line) => line, 1)[0];
 		throw new AppError(
 			EXIT.failed,
@@ -436,7 +485,10 @@ export function expect(context: Context, wanted: Expectation): string {
 	}
 	if (wanted.noText !== undefined) {
 		const text = JSON.stringify(wanted.noText);
-		if (waitFor(context, `!document.body.innerText.includes(${text})`, wanted.timeout)) return `ok no text ${text}`;
+		const probe = `(${TEXT})(${text})`;
+		const gone = wanted.screenReader ? `${probe} === "absent"` : `${probe} !== "visible"`;
+		if (waitFor(context, gone, wanted.timeout))
+			return `ok no text ${text} (${wanted.screenReader ? "not even for screen readers" : "not visible"})`;
 		throw new AppError(EXIT.failed, `FAIL text ${text} still on the page after ${seconds}`);
 	}
 	if (wanted.url !== undefined) {
