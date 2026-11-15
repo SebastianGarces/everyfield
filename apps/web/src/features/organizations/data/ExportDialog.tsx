@@ -21,12 +21,20 @@ type State =
 	| { kind: "done"; filename: string; people: number; url: string }
 	| { kind: "failed"; denied: boolean };
 
+function saveOnce(link: HTMLAnchorElement | null) {
+	if (!link) return;
+	if (!link.dataset.saved) {
+		link.dataset.saved = "true";
+		link.click();
+	}
+	return () => URL.revokeObjectURL(link.href);
+}
+
 export function ExportDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
 	const [state, setState] = useState<State>({ kind: "ready" });
 	const busy = state.kind === "exporting";
 
 	const download = async () => {
-		if (state.kind === "done") URL.revokeObjectURL(state.url);
 		setState({ kind: "exporting" });
 		try {
 			const res = await fetch(`${PIPELINE_PATH}/export`, { cache: "no-store" });
@@ -36,12 +44,12 @@ export function ExportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
 			}
 			const blob = await res.blob();
 			const filename = /filename="([^"]+)"/.exec(res.headers.get("content-disposition") ?? "")?.[1] ?? "pipeline.csv";
-			const url = URL.createObjectURL(blob);
-			const a = document.createElement("a");
-			a.href = url;
-			a.download = filename;
-			a.click();
-			setState({ kind: "done", filename, people: Number(res.headers.get("x-export-people") ?? 0), url });
+			setState({
+				kind: "done",
+				filename,
+				people: Number(res.headers.get("x-export-people") ?? 0),
+				url: URL.createObjectURL(blob),
+			});
 		} catch {
 			setState({ kind: "failed", denied: false });
 		}
@@ -49,7 +57,6 @@ export function ExportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
 
 	const close = () => {
 		if (busy) return;
-		if (state.kind === "done") URL.revokeObjectURL(state.url);
 		onOpenChange(false);
 		setState({ kind: "ready" });
 	};
@@ -102,6 +109,9 @@ export function ExportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
 						) : null}
 					</div>
 				</DialogBody>
+				{state.kind === "done" ? (
+					<a key={state.url} hidden href={state.url} download={state.filename} ref={saveOnce} />
+				) : null}
 				<DialogFooter>
 					<Button variant="ghost" disabled={busy} onClick={close}>
 						{state.kind === "done" ? "Close" : "Cancel"}
