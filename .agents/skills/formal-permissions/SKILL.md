@@ -25,6 +25,7 @@ is implied. This skill covers permissions only. Billing gets its own `formal-bil
 | `tests/integration/access/formal-permissions.test.mts` | The conformance test: one step at a time |
 | `tests/integration/access/formal-replay.test.mts` | The trace replay: whole behaviors, step by step |
 | `tests/workflow/formal.test.ts` | Runs the check, the two demonstrations, the trace coverage check and the map check in CI |
+| `scripts/nightly-formal.ts`, `tests/workflow/nightly-formal.test.ts` | The nightly fresh-seed replay and its verdict tests (T-401) |
 
 ## What the model covers
 
@@ -172,3 +173,35 @@ A failure prints the seed, so the same behaviors can be generated and replayed a
    ...` expression with `sessions' = sessions`, then `bin/dev formal --write`. TLC still passes every property, and the
    replay fails at the removal step: the model keeps the removed account's session live, the code ended it (seed 399:
    behavior 1, step 3). Revert with `git checkout formal/permissions`.
+
+## Nightly
+
+**What runs.** The `formal` job of GitHub's Nightly workflow (`.github/workflows/nightly.yml`, T-401) runs
+`node scripts/nightly-formal.ts` each night and on a manual dispatch, on its own throwaway `pgvector/pgvector:0.8.7-pg18`
+service after `pnpm db:migrate`. It prints a fresh random seed and the commit before anything else, generates with
+`bin/dev formal --traces $RUNNER_TEMP/nightly-formal/traces --seed <seed>`, prints the trace and step counts and any
+model action the seed's traces leave out, and replays them with `FORMAL_TRACES` pointing at that directory. A gap in
+coverage is noted, never failed, and the traces still replay (D-1589); there is no retry with another seed. The same
+lines go to the job summary. Seed 399 takes about 30 s on this Mac (15 s of TLC through Docker, 13 s of replay).
+
+**Where a failure is filed.** A disagreement, a failed generation, an unreachable database, a crashed replay or one
+with no test fails the step with one `::error::` line that says which, the seed, the commit and the commands that
+reproduce it. On main, fail-forward opens or updates the one Nightly incident for the failed run, and its log excerpt
+ends at that first `##[error]` line, so the incident carries the seed (D-1587). No other issue writer exists.
+
+**Why no detail is printed.** The repository, its Actions logs and its artifacts are public, and a disagreement can be
+a real weakness. The replay's own output (the behavior, the action and its arguments, model and code state) goes only
+to `$RUNNER_TEMP/nightly-formal/replay.log`, which no step prints or uploads (D-1588).
+
+**Reproduce a filed seed.** Run the commands in the incident: check out its commit, then
+
+```sh
+bin/dev formal --traces /tmp/formal-seed-<seed> --seed <seed>
+cd packages/domain && FORMAL_TRACES=/tmp/formal-seed-<seed> \
+  npx tsx --conditions=react-server --test ../../tests/integration/access/formal-replay.test.mts
+```
+
+on a throwaway Postgres (`.agents/skills/verify/SKILL.md`). Or run the whole nightly step locally with
+`node scripts/nightly-formal.ts --seed <seed>` against `DATABASE_URL` on a throwaway `everyfield_ci` (with `CI=true` and
+`EARLY_ACCESS_TEST_DATABASE=1`, after `pnpm db:migrate`); it prints where its `replay.log` is. Then follow
+`.agents/skills/maintain-formal-verification/SKILL.md` ("A filed nightly seed").

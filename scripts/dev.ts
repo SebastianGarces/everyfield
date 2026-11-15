@@ -21,7 +21,9 @@ const HELP = `Browser runs, the local preview stack, its logs and the fast pre-p
         GitHub CI also runs: format:check, test:logs, the statement census with the one build then server-trace,
         schema generate --check, wiki
         The GitHub nightly also runs: every selectable test under coverage, typecheck:bun (bun check, until T-53),
-        and the tests/ui set in chromium and webkit on a seeded build over its own Postgres (scripts/nightly-ui.ts)
+        the tests/ui set in chromium and webkit on a seeded build over its own Postgres (scripts/nightly-ui.ts), and
+        the formal replay: permissions behaviors from a fresh random seed replayed on its own Postgres; a disagreement
+        files the seed (scripts/nightly-formal.ts [--seed <n>], .agents/skills/formal-permissions/SKILL.md)
   dev nightly           runs tests/ui on a preview of origin/main, one engine at a time; skips when the machine is
         loaded or no preview slot is free. The GitHub nightly runs the same set too; this stays the local run until
         it is retired. The coverage map comes from the GitHub nightly, not from this

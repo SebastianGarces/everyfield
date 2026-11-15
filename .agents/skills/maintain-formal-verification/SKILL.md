@@ -50,6 +50,18 @@ indexes and session functions in `packages/db/migrations/`.
 8. Say in your summary which model actions, rules or properties changed and why, name the outcome rows that changed,
    and give the trace and step counts `bin/dev formal` printed.
 
+## A filed nightly seed
+
+The Nightly incident names a seed and a commit when the nightly replay disagreed (`formal-permissions`, "Nightly"):
+
+1. Reproduce it locally with the incident's commands, at its commit, and read the disagreement the replay prints: the
+   behavior, the step, model and code side by side.
+2. Decide which side is wrong. When the model is (it allows or refuses what the requirement or ruling says the code
+   should, or it misses state the code keeps), fix the model and the map as in the steps above, regenerate, replay that
+   seed green, and say in the PR that the nightly seed found a model mistake and what changed.
+3. When the code is, it is a real weakness: file it with `evf task new` as below, with the seed and the behavior
+   number, and name it by its task id only everywhere public. Do not fix it in an unrelated task.
+
 ## A real weakness
 
 When TLC finds a counterexample, or the conformance test or the trace replay a disagreement, that shows the **code** breaks a property
