@@ -1,14 +1,15 @@
 "use client";
 
-import { useReduced, useTabHidden } from "@/components/motion/scene";
+import { useReduced } from "@/components/motion/scene";
 import { ArrowRight02Icon } from "@hugeicons/core-free-icons";
-import { useInView } from "motion/react";
-import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { observeSize } from "@everyfield/ui/foundations";
+import { useCallback, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { cn } from "@/components/cn";
 import { Icon } from "@/components/Icon";
 import { PlaybackGlyph } from "@/components/kit/kit";
 import { Backdrop } from "../photo/Backdrop";
 import type { PhotoName } from "../photo/photos";
+import { createAutoplay, joinRefs } from "../playback";
 
 type Props = {
 	/** The whole sentence for screen readers ("Sent by a church, a network through a church or a network. Seen in one place."). */
@@ -44,40 +45,38 @@ const EASE = "cubic-bezier(.65,0,.35,1)";
  */
 export function PathsCycle({ sentence, lead, tail, phrases, panes, apps, photos }: Props) {
 	const reduced = useReduced();
-	const run = useRef<HTMLDivElement>(null);
 	const items = useRef<(HTMLSpanElement | null)[]>([]);
 	const dot = useRef<HTMLSpanElement>(null);
 	const [k, setK] = useState(0);
 	const [paused, setPaused] = useState(false);
 	const [w, setW] = useState<{ items: number[]; max: number; dot: number } | null>(null);
-	const seen = useInView(run, { amount: 0.3 });
+	const [autoplay] = useState(() => createAutoplay(STEP));
 	const n = phrases.length;
 
-	const measure = useCallback(() => {
-		const ws = items.current.map((e) => e?.offsetWidth ?? 0);
-		const next = {
-			items: ws,
-			max: Math.max(...ws),
-			dot: dot.current?.offsetWidth ?? 0,
-		};
-		setW((c) => (c && c.max === next.max && c.dot === next.dot && c.items.join() === next.items.join() ? c : next));
-	}, []);
-	useEffect(() => {
-		const r = run.current;
-		if (!r) return;
-		const ro = new ResizeObserver(measure);
-		ro.observe(r);
-		void document.fonts.ready.then(measure);
-		return () => ro.disconnect();
-	}, [measure]);
-
-	// A hidden tab stops the timer, as in the prototype; a full step starts again when the tab shows.
-	const hidden = useTabHidden();
-	useEffect(() => {
-		if (!seen || paused || reduced || hidden) return;
-		const id = setTimeout(() => setK((c) => (c + 1) % n), STEP);
-		return () => clearTimeout(id);
-	}, [seen, paused, reduced, hidden, k, n]);
+	const run = useCallback(
+		(node: HTMLDivElement | null) =>
+			joinRefs<HTMLDivElement>(
+				observeSize(
+					() => {
+						const ws = items.current.map((e) => e?.offsetWidth ?? 0);
+						const next = {
+							items: ws,
+							max: Math.max(...ws),
+							dot: dot.current?.offsetWidth ?? 0,
+						};
+						setW((c) =>
+							c && c.max === next.max && c.dot === next.dot && c.items.join() === next.items.join() ? c : next,
+						);
+					},
+					{ fonts: true },
+				),
+				autoplay.observe(() => {
+					setK((c) => (c + 1) % n);
+					autoplay.restart();
+				}, 0.3),
+			)(node),
+		[autoplay, n],
+	);
 
 	const wk = w ? w.items[k]! : 0;
 	// Before the first measurement (server HTML) the slot shows the widest phrase with its full highlight and the period after it.

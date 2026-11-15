@@ -1,0 +1,20 @@
+{
+	"no-global-listeners": {
+		"apps/web/src/marketing/playback.ts": [
+			{
+				"function": "install",
+				"count": 2,
+				"reason": "The marketing page-state owner's one permanent visibilitychange listener, installed once at module load like the location store's (the second count is its hot-reload removal). The home journey and the /oversight sending paths advance on their own and must stop while the tab is hidden and start a full step again when it shows; the hero and vision clocks must jump to their still frame when reduced motion turns on. An autoplay subscribes in the event that makes it need the page state (its block scrolls into view) and releases it when the block leaves or detaches; the lint knows only the location store and the page-event registry as owners."
+			}
+		]
+	},
+	"no-timers": {
+		"apps/web/src/marketing/playback.ts": [
+			{
+				"function": "start",
+				"count": 1,
+				"reason": "The autoplay step the visitor sees: the home journey walks to its next stop every 4.2 s and the /oversight sending paths roll to their next phrase every 5.5 s while the block is on screen, the tab is visible, motion is not reduced and nothing holds it (hover, focus, a pick, the pause button). The wait is the product behavior, not an ordering patch; every hold clears it and every release starts a full step."
+			}
+		]
+	}
+}
