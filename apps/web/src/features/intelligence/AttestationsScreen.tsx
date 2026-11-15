@@ -451,7 +451,7 @@ function Choice({
 					key={v}
 					value={v}
 					className={cn(
-						"inline-flex cursor-pointer items-center justify-center gap-2 rounded-md bg-surface-2 font-medium text-ink-2 transition-[background-color,box-shadow] duration-150 hover:bg-surface-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ef-focus)] data-[state=checked]:bg-surface-raised data-[state=checked]:text-ink data-[state=checked]:shadow-[inset_0_0_0_1.5px_var(--ef-ink),var(--ef-shadow-raised)]",
+						"inline-flex items-center justify-center gap-2 rounded-md bg-surface-2 font-medium text-ink-2 transition-[background-color,box-shadow] duration-150 hover:bg-surface-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ef-focus)] data-[state=checked]:bg-surface-raised data-[state=checked]:text-ink data-[state=checked]:shadow-[inset_0_0_0_1.5px_var(--ef-ink),var(--ef-shadow-raised)]",
 						size === "sm" ? "h-9 text-sm" : "h-11",
 					)}
 				>
@@ -743,7 +743,7 @@ function RenewDialog({
 										{row.state === "failed" ? (
 											<div role="alert" className="mt-2 text-sm font-medium text-magenta-600">
 												{row.error}{" "}
-												<button type="button" className="cursor-pointer underline" onClick={onReload}>
+												<button type="button" className="underline" onClick={onReload}>
 													Load the latest answers
 												</button>
 											</div>

@@ -196,7 +196,7 @@ function NavBar({ which, links, cta, logo, arrow, menuIcon, open, toggleRef, onT
 					aria-controls={menuId}
 					onClick={onToggle}
 					className={cn(
-						"hidden cursor-pointer place-items-center rounded-nav-item border-0 bg-cream text-ink hover:bg-mk-surface-3 max-mk-nav:grid",
+						"hidden place-items-center rounded-nav-item border-0 bg-cream text-ink hover:bg-mk-surface-3 max-mk-nav:grid",
 						pill ? "size-11 max-mk-sm:size-[42px]" : "size-[42px]",
 					)}
 				>

@@ -67,7 +67,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 								<button
 									type="button"
 									onClick={action.onSelect}
-									className="h-8 flex-none cursor-pointer rounded-sm bg-on-ink-soft px-2.5 text-sm font-medium text-on-ink transition-[background-color] hover:bg-[color-mix(in_srgb,var(--ef-on-ink)_20%,transparent)]"
+									className="h-8 flex-none rounded-sm bg-on-ink-soft px-2.5 text-sm font-medium text-on-ink transition-[background-color] hover:bg-[color-mix(in_srgb,var(--ef-on-ink)_20%,transparent)]"
 								>
 									{action.label}
 								</button>
@@ -75,7 +75,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 						) : null}
 						<ToastPrimitive.Close
 							aria-label="Close"
-							className="grid size-8 flex-none cursor-pointer place-items-center rounded-sm text-on-ink opacity-80 transition-[opacity,background-color] hover:bg-on-ink-soft hover:opacity-100"
+							className="grid size-8 flex-none place-items-center rounded-sm text-on-ink opacity-80 transition-[opacity,background-color] hover:bg-on-ink-soft hover:opacity-100"
 						>
 							<Icon icon={Cancel01Icon} size={16} />
 						</ToastPrimitive.Close>

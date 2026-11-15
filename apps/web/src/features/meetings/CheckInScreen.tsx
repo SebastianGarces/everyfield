@@ -410,7 +410,7 @@ function Row({
 			aria-disabled={disabled || saving || undefined}
 			onClick={() => !saving && !disabled && onToggle()}
 			className={cn(
-				"flex min-h-14 w-full cursor-pointer items-center gap-3.5 px-4 py-2.5 text-left transition-colors duration-150 hover:bg-surface-2 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus aria-disabled:cursor-not-allowed aria-disabled:hover:bg-transparent motion-reduce:transition-none",
+				"flex min-h-14 w-full items-center gap-3.5 px-4 py-2.5 text-left transition-colors duration-150 hover:bg-surface-2 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus aria-disabled:hover:bg-transparent motion-reduce:transition-none",
 				highlight && "bg-surface-2",
 			)}
 		>

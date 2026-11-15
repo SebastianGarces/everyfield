@@ -140,7 +140,7 @@ export function ResultCard({
 										target="_blank"
 										rel="noopener noreferrer"
 										data-focus-inset=""
-										className={cn(rowClass, "cursor-pointer transition-[background-color] hover:bg-hover")}
+										className={cn(rowClass, "transition-[background-color] hover:bg-hover")}
 									>
 										{body}
 									</a>

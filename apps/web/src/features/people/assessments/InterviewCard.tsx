@@ -227,7 +227,7 @@ export function InterviewCard({
 								type="button"
 								aria-expanded={open}
 								onClick={() => setOpen(!open)}
-								className="cursor-pointer rounded-xs text-sm font-medium text-ink-2 underline-offset-[3px] hover:underline"
+								className="rounded-xs text-sm font-medium text-ink-2 underline-offset-[3px] hover:underline"
 							>
 								{open
 									? "Hide earlier interviews"
