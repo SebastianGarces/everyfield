@@ -1,13 +1,15 @@
 "use client";
 
-import { useInView, useMotionValue, useTransform, type MotionValue } from "motion/react";
-import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
+import { observeIntersection, observeSize, prefersReducedMotion } from "@everyfield/ui/foundations";
+import { useMotionValue, useTransform, type MotionValue } from "motion/react";
+import { useCallback, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { PlaybackGlyph } from "@/components/kit/kit";
 import { back, bump, clamp, inOut, out, P, sine, transformOf } from "@/components/motion/curves";
 import { DoneButton } from "@/components/motion/DoneButton";
 import { FxProvider, TargetProvider, useT } from "@/components/motion/fx";
 import { m } from "@/components/motion/m";
-import { MText, PanelClockProvider, useReduced, useText, useTicker, useTo } from "@/components/motion/scene";
+import { MText, PanelClockProvider, useReduced, useText, useTo } from "@/components/motion/scene";
+import { joinRefs, onPageStateChange, runFrames } from "../playback";
 
 /* ---------- Timing (Revision 8 table: the one place to tune the hero loop; ms) ----------
    Five cards share one grid cell and crossfade. The person's chip glides from a hidden slot in each card to the next.
@@ -103,36 +105,35 @@ type Pos = { x: number; y: number };
  * runs only while the stage is on screen and not paused; reduced motion shows the last scene and no pause button.
  */
 export function HeroStage({ label, chip, children }: { label: string; chip: ReactNode; children: ReactNode }) {
-	const root = useRef<HTMLDivElement>(null);
-	const stage = useRef<HTMLDivElement>(null);
 	const slots = useRef<(HTMLElement | null)[]>([]);
 	const t = useMotionValue(0);
 	// Slot positions live in a ref; measured bumps a counter so the chip transform recomputes even while paused.
 	const pos = useRef<Pos[]>([]);
 	const measured = useMotionValue(0);
 	const [paused, setPaused] = useState(false);
+	const [seen, setSeen] = useState(false);
 	const reduced = useReduced();
-	const seen = useInView(stage);
 	const run = seen && !paused && reduced === false;
+	const [loop] = useState(() => createLoop(t));
 
-	useEffect(() => {
-		if (reduced) t.set(STILL);
-	}, [reduced, t]);
-	useTicker(run, (dt) => t.set((t.get() + dt) % LOOP));
-
-	// Slot positions inside the stage, measured when the stage resizes and when the fonts arrive (never per frame).
-	useEffect(() => {
-		const st = stage.current;
-		if (!st) return;
-		const measure = () => {
-			pos.current = slots.current.map((s) => offsetIn(s, st));
-			measured.set(measured.get() + 1);
-		};
-		const ro = new ResizeObserver(measure);
-		ro.observe(st);
-		void document.fonts.ready.then(measure);
-		return () => ro.disconnect();
-	}, [measured]);
+	const stage = useCallback(
+		(node: HTMLDivElement | null) =>
+			joinRefs<HTMLDivElement>(
+				loop.attach,
+				observeIntersection((entry) => {
+					setSeen(entry.isIntersecting);
+					loop.set("seen", entry.isIntersecting);
+				}),
+				observeSize(
+					(st) => {
+						pos.current = slots.current.map((s) => offsetIn(s, st));
+						measured.set(measured.get() + 1);
+					},
+					{ fonts: true },
+				),
+			)(node),
+		[loop, measured],
+	);
 
 	const clock = useMemo(() => ({ t, since: t, stagger: 0 }), [t]);
 	const register = useMemo(
@@ -143,7 +144,7 @@ export function HeroStage({ label, chip, children }: { label: string; chip: Reac
 	);
 
 	return (
-		<div ref={root} className="relative mx-auto max-w-[1180px]" data-idle={run ? undefined : ""}>
+		<div className="relative mx-auto max-w-[1180px]" data-idle={run ? undefined : ""}>
 			<div
 				ref={stage}
 				role="img"
@@ -164,13 +165,47 @@ export function HeroStage({ label, chip, children }: { label: string; chip: Reac
 			<button
 				type="button"
 				aria-label={paused ? "Play animation" : "Pause animation"}
-				onClick={() => setPaused((p) => !p)}
+				onClick={() => {
+					setPaused(!paused);
+					loop.set("paused", !paused);
+				}}
 				className="absolute bottom-3.5 left-1/2 z-7 -ml-[17px] grid size-[34px] place-items-center rounded-sm border-0 bg-transparent text-ink hover:bg-white/35 motion-reduce:hidden"
 			>
 				<PlaybackGlyph paused={paused} />
 			</button>
 		</div>
 	);
+}
+
+function createLoop(t: MotionValue<number>) {
+	const state = { seen: false, paused: false };
+	let stop: (() => void) | undefined;
+	const sync = () => {
+		const reduced = prefersReducedMotion();
+		if (reduced) t.set(STILL);
+		const run = state.seen && !state.paused && !reduced;
+		if (run && !stop) stop = runFrames((dt) => t.set((t.get() + dt) % LOOP));
+		if (!run && stop) {
+			stop();
+			stop = undefined;
+		}
+	};
+	return {
+		set(key: keyof typeof state, value: boolean) {
+			state[key] = value;
+			sync();
+		},
+		attach(node: HTMLDivElement | null) {
+			if (!node) return;
+			sync();
+			const release = onPageStateChange(sync);
+			return () => {
+				release();
+				stop?.();
+				stop = undefined;
+			};
+		},
+	};
 }
 
 /** Position of el inside stop, from the offset chain (layout is clean in a ResizeObserver callback). */
