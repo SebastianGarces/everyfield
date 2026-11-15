@@ -1,7 +1,7 @@
 "use client";
 
 import { MotionConfig } from "motion/react";
-import { createContext, use, useCallback, useRef, useState, type ReactNode, type TransitionEvent } from "react";
+import { createContext, use, useCallback, useRef, useState, type ReactNode, type AnimationEvent } from "react";
 import { prefersReducedMotion, useHydrated } from "./browser";
 import { THEME_COOKIE, type ProductTheme } from "./theme";
 
@@ -16,13 +16,9 @@ export function useProductTheme(): ThemeState {
 
 const YEAR = 60 * 60 * 24 * 365;
 
-function endThemeFade(event: TransitionEvent<HTMLDivElement>) {
-	if (event.target === event.currentTarget && event.propertyName === "background-color")
+function endThemeFade(event: AnimationEvent<HTMLDivElement>) {
+	if (event.target === event.currentTarget && event.animationName.startsWith("ef-theme-fade"))
 		event.currentTarget.removeAttribute("data-theme-fade");
-}
-
-function styleCommittedTheme(el: HTMLElement) {
-	return getComputedStyle(el).backgroundColor;
 }
 
 function fadeTo(el: HTMLDivElement, next: ProductTheme) {
@@ -30,8 +26,7 @@ function fadeTo(el: HTMLDivElement, next: ProductTheme) {
 		el.removeAttribute("data-theme-fade");
 		return;
 	}
-	el.setAttribute("data-theme-fade", "");
-	styleCommittedTheme(el);
+	el.setAttribute("data-theme-fade", el.getAttribute("data-theme-fade") === "a" ? "b" : "a");
 }
 
 let chosen: ProductTheme | null = null;
@@ -57,8 +52,7 @@ export function ProductRoot({ initialTheme, children }: { initialTheme: ProductT
 					data-product-root=""
 					data-theme={theme}
 					data-hydrated={hydrated ? "" : undefined}
-					onTransitionEnd={endThemeFade}
-					onTransitionCancel={endThemeFade}
+					onAnimationEnd={endThemeFade}
 					className="min-h-dvh bg-frame font-sans text-md text-text"
 				>
 					{children}
