@@ -1,0 +1,580 @@
+import assert from "node:assert/strict";
+import { execFileSync, spawnSync } from "node:child_process";
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join, relative, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import test from "node:test";
+
+const repo = fileURLToPath(new URL("../..", import.meta.url));
+const OXLINT = join(repo, "packages/evry/node_modules/.bin/oxlint");
+const PLUGIN = join(repo, "scripts/lint/everyfield-plugin.mjs");
+const CHECK = join(repo, "scripts/lint/check-comments.mjs");
+const CONFIGS = [".oxlintrc.json", "apps/web/.oxlintrc.json", "tools/.oxlintrc.json"];
+const DISABLE = ["eslint", "disable-next-line"].join("-");
+const OX_DISABLE = ["oxlint", "disable"].join("-");
+const EXPECT_ERROR = ["@ts", "expect-error"].join("-");
+
+const SCRIPTS = {
+	lint: "pnpm -r --if-present lint && pnpm run lint:web && pnpm run lint:repo && pnpm run lint:tools",
+	"lint:web": `cd apps/web && ${OXLINT} -c .oxlintrc.json --max-warnings=0 .`,
+	"lint:repo": `${OXLINT} -c .oxlintrc.json --max-warnings=0 packages tests/unit`,
+	"lint:tools": `${OXLINT} -c tools/.oxlintrc.json --max-warnings=0 tools`,
+};
+
+const temps = [];
+test.after(() => temps.forEach((dir) => rmSync(dir, { recursive: true, force: true })));
+
+const put = (dir, path, content) => {
+	mkdirSync(dirname(join(dir, path)), { recursive: true });
+	writeFileSync(join(dir, path), typeof content === "string" ? content : `${JSON.stringify(content, null, "\t")}\n`);
+};
+
+function sandbox(files = {}, lintData = {}) {
+	const dir = realpathSync(mkdtempSync(join(tmpdir(), "lint-rules-")));
+	temps.push(dir);
+	for (const config of CONFIGS)
+		put(dir, config, { ...JSON.parse(readFileSync(join(repo, config), "utf8")), jsPlugins: [PLUGIN] });
+	put(
+		dir,
+		"scripts/lint/exemptions.json",
+		JSON.parse(readFileSync(join(repo, "scripts/lint/exemptions.json"), "utf8")),
+	);
+	put(dir, "package.json", { scripts: SCRIPTS });
+	put(dir, "scripts/lint/lint-scripts.json", { "package.json": SCRIPTS });
+	put(dir, "pnpm-workspace.yaml", "packages: []\n");
+	for (const root of ["packages/ui/src/index.ts", "tests/unit/index.ts", "tools/index.ts"])
+		put(dir, root, "export {};\n");
+	for (const [path, content] of Object.entries(files)) put(dir, path, content);
+	for (const [path, content] of Object.entries(lintData)) put(dir, `scripts/lint/${path}`, content);
+	return dir;
+}
+
+const env = (dir, extra = {}) => {
+	const clean = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith("GITHUB_")));
+	return { ...clean, EVERYFIELD_ROOT: dir, EVERYFIELD_LINT_DIR: join(dir, "scripts/lint"), ...extra };
+};
+
+const GROUPS = [
+	{ config: "apps/web/.oxlintrc.json", cwd: "apps/web", owns: (path) => path.startsWith("apps/web/") },
+	{ config: "tools/.oxlintrc.json", cwd: ".", owns: (path) => path.startsWith("tools/") },
+	{ config: ".oxlintrc.json", cwd: ".", owns: () => true },
+];
+
+function lintIn(dir, paths) {
+	const hits = [];
+	for (const group of GROUPS) {
+		const mine = paths.filter((path) => GROUPS.find((g) => g.owns(path)) === group);
+		if (!mine.length) continue;
+		const cwd = join(dir, group.cwd);
+		const ran = spawnSync(
+			OXLINT,
+			["-c", relative(cwd, join(dir, group.config)), "-f", "json", ...mine.map((p) => relative(cwd, join(dir, p)))],
+			{ cwd, encoding: "utf8", env: env(dir) },
+		);
+		for (const d of JSON.parse(ran.stdout.slice(ran.stdout.indexOf("{"))).diagnostics) {
+			const rule = /^everyfield\(([\w-]+)\)$/.exec(d.code ?? "")?.[1];
+			if (rule && rule !== "resend-senders")
+				hits.push(`${relative(dir, resolve(cwd, d.filename))}:${d.labels?.[0]?.span.line ?? 1} ${rule}`);
+		}
+	}
+	return hits.sort();
+}
+
+const lint = (files, lintData) => lintIn(sandbox(files, lintData), Object.keys(files));
+
+const EFFECTS = `import * as R from "react";
+import React2, { useEffect as ue, useLayoutEffect } from "react";
+export { useInsertionEffect } from "react";
+export * from "react";
+const { useEffect: picked } = R;
+const hook = ue;
+const required = require("react").useLayoutEffect;
+export function Panel() {
+	ue(() => {}, []);
+	useLayoutEffect(() => {});
+	R.useEffect(() => {});
+	React2.useInsertionEffect(() => {});
+	return [hook, picked, required];
+}
+`;
+
+test("INV-lint: every import form of an effect hook is reported", () => {
+	const hits = lint({ "packages/ui/src/effects.tsx": EFFECTS });
+	assert.deepEqual(
+		hits.map((hit) => hit.replace("packages/ui/src/effects.tsx:", "")),
+		[
+			"11 no-effects",
+			"12 no-effects",
+			"3 no-effects",
+			"4 no-effects",
+			"5 no-effects",
+			"6 no-effects",
+			"7 no-effects",
+			"9 no-effects",
+			"10 no-effects",
+		].sort(),
+	);
+});
+
+test("INV-lint: a fifth state hook in a component or hook is reported, a nested callback's is not", () => {
+	const five = (name) =>
+		`export function ${name}() {\n\tconst a = useState(0);\n\tconst b = useState(0);\n\tconst c = React.useState(0);\n\tconst [d] = useReducer((s) => s, 0);\n\tconst [e] = useState(0);\n\tconst nested = () => useState(0);\n\treturn [a, b, c, d, e, nested];\n}\n`;
+	const source = `import React, { useReducer, useState } from "react";\n${five("Panel")}${five("useThing")}${five("helper")}export default function () {\n\tconst a = useState(0), b = useState(0), c = useState(0), d = useState(0), e = useState(0);\n\treturn [a, b, c, d, e];\n}\n`;
+	assert.deepEqual(lint({ "apps/web/src/features/x/state.tsx": source }), [
+		"apps/web/src/features/x/state.tsx:16 max-state",
+		"apps/web/src/features/x/state.tsx:30 max-state",
+		"apps/web/src/features/x/state.tsx:7 max-state",
+	]);
+});
+
+test("INV-lint: timers, fixed waits and flushSync are reported in product code and not in tests or tools", () => {
+	const timers = `import { flushSync } from "react-dom";
+import { setTimeout as sleep, scheduler } from "node:timers/promises";
+import * as timers from "node:timers/promises";
+export async function run() {
+	setTimeout(() => {}, 0);
+	window.requestAnimationFrame(() => {});
+	globalThis.queueMicrotask(() => {});
+	setImmediate(() => {});
+	await sleep(10);
+	await timers.setTimeout(10);
+	await scheduler.wait(10);
+	flushSync(() => {});
+}
+`;
+	const lines = [5, 6, 7, 8, 9, 10, 11, 12];
+	const places = [
+		"apps/web/src/features/x/Panel.tsx",
+		"apps/web/src/server/jobs/retry.ts",
+		"packages/domain/src/retry.ts",
+	];
+	const files = Object.fromEntries(
+		[...places, "tests/integration/retry.test.mts", "tools/ci/retry.ts", "apps/web/scripts/retry.mjs"].map((p) => [
+			p,
+			timers,
+		]),
+	);
+	assert.deepEqual(lint(files), places.flatMap((p) => lines.map((line) => `${p}:${line} no-timers`)).sort());
+});
+
+test("INV-lint: every comment except a shebang and a bundler ignore inside import() is reported, JSX comments included", () => {
+	const source = `#!/usr/bin/env node
+// prose
+/* block */
+/** doc */
+// ${DISABLE} no-console
+// ${EXPECT_ERROR} reason
+const view = <div>{/* jsx */}</div>;
+export const load = () => import(/* webpackIgnore: true */ /* turbopackIgnore: true */ "./x.mjs");
+export const kept = () => [/* webpackIgnore: true */ view];
+`;
+	assert.deepEqual(
+		lint({ "tools/x.tsx": source }),
+		[2, 3, 4, 5, 6, 7, 9].map((line) => `tools/x.tsx:${line} no-comments`).sort(),
+	);
+});
+
+test("INV-lint: call-site cursor classes and pointer handlers on non-control elements are reported", () => {
+	const source = `export const ROW = "flex cursor-pointer";
+export function Row({ on }) {
+	return (
+		<ul>
+			<li role="option" aria-selected onClick={on} onKeyDown={on}>a</li>
+			<div role="presentation" onClick={on} className={\`p-2 hover:cursor-default \${on}\`} />
+			<button onClick={on} className="cursor-grab cursor-progress">b</button>
+		</ul>
+	);
+}
+`;
+	assert.deepEqual(lint({ "apps/web/src/features/x/Row.tsx": source, "packages/ui/src/Row.tsx": source }), [
+		"apps/web/src/features/x/Row.tsx:1 no-cursor-utility",
+		"apps/web/src/features/x/Row.tsx:6 clickable-host",
+		"apps/web/src/features/x/Row.tsx:6 no-cursor-utility",
+	]);
+});
+
+test("INV-lint: a baseline allows its count, refuses growth and refuses a stale entry; a survivor covers only its function", () => {
+	const path = "packages/ui/src/Panel.tsx";
+	const effects = (n) =>
+		`import { useEffect } from "react";\nexport function Panel() {\n${"\tuseEffect(() => {});\n".repeat(n)}}\n`;
+	const baseline = (n) => ({ "baseline/no-effects/packages-ui.json": { [path]: n } });
+	assert.deepEqual(lint({ [path]: effects(2) }, baseline(2)), []);
+	assert.deepEqual(lint({ [path]: effects(1) }, baseline(2)), []);
+	assert.deepEqual(
+		lint({ [path]: effects(3) }, baseline(2)),
+		[3, 4, 5].map((l) => `${path}:${l} no-effects`),
+	);
+	assert.deepEqual(lint({ [path]: effects(0) }, baseline(2)), [`${path}:1 no-effects`]);
+	const survivor = (fn) => ({
+		"survivors/packages-ui.json": {
+			"no-effects": { [path]: [{ function: fn, count: 1, reason: "a reason long enough to read" }] },
+		},
+	});
+	assert.deepEqual(lint({ [path]: effects(1) }, survivor("Panel")), []);
+	assert.deepEqual(lint({ [path]: effects(1) }, survivor("Other")), [`${path}:1 no-effects`, `${path}:3 no-effects`]);
+});
+
+function check(dir, args = [], extra = {}) {
+	const ran = spawnSync(process.execPath, [CHECK, ...args], { cwd: dir, encoding: "utf8", env: env(dir, extra) });
+	return { status: ran.status, out: ran.stdout + ran.stderr };
+}
+
+const git = (dir, ...args) =>
+	execFileSync("git", ["-c", "user.email=t@example.test", "-c", "user.name=t", "-c", "commit.gpgsign=false", ...args], {
+		cwd: dir,
+		encoding: "utf8",
+	}).trim();
+
+const commitAll = (dir, message) => {
+	git(dir, "add", "-A");
+	git(dir, "commit", "-q", "--allow-empty", "-m", message);
+	return git(dir, "rev-parse", "HEAD");
+};
+
+test("INV-lint: the comment check finds CSS, JSONC, YAML, shell, ignore-file and new migration comments and every directive", () => {
+	const files = {
+		"packages/ui/src/a.css": `a { color: red; } /* why */\n.b::after { content: "/* not */"; }\n`,
+		"tsconfig.x.json": `{\n\t// why\n\t"a": "http://x"\n}\n`,
+		".github/workflows/x.yml": `name: x # why\non: "#not"\n`,
+		"bin/tool": `#!/bin/sh\n# why\necho "#not"\n`,
+		".gitignore": `# why\nnode_modules\n`,
+		"packages/db/migrations/20990101000000_new.sql": `select '--not';\n-- why\n`,
+		"packages/ui/src/b.ts": `export const a = 1;\n// ${DISABLE} x\n/* ${OX_DISABLE} */\n`,
+		"docs/x.css": `/* exempt */\n`,
+	};
+	const dir = sandbox();
+	git(dir, "init", "-q");
+	const base = commitAll(dir, "base");
+	for (const [path, content] of Object.entries(files)) put(dir, path, content);
+	const { status, out } = check(dir, ["--base", base]);
+	assert.equal(status, 1);
+	const failed = out
+		.split("\n")
+		.filter((line) => /^[\w./-]+(:\d+)?: \d+ /.test(line))
+		.map((line) => line.replace(/;.*| comments.*| lint or.*/, ""))
+		.sort();
+	assert.deepEqual(failed, [
+		".github/workflows/x.yml:1: 1",
+		".gitignore:1: 1",
+		"bin/tool:2: 1",
+		"packages/db/migrations/20990101000000_new.sql:2: 1",
+		"packages/ui/src/a.css:1: 1",
+		"packages/ui/src/b.ts: 2",
+		"tsconfig.x.json:2: 1",
+	]);
+});
+
+test("INV-lint: an oxlint override that turns a rule off needs its reason, and the code rules stay on", () => {
+	const dir = sandbox();
+	const config = JSON.parse(readFileSync(join(dir, "apps/web/.oxlintrc.json"), "utf8"));
+	config.overrides.push({ files: ["src/x.tsx"], rules: { "everyfield/no-effects": "off" } });
+	config.rules["everyfield/max-state"] = "warn";
+	put(dir, "apps/web/.oxlintrc.json", config);
+	git(dir, "init", "-q");
+	const { status, out } = check(dir, ["--no-base"]);
+	assert.equal(status, 1);
+	assert.match(out, /override for src\/x\.tsx, rule everyfield\/no-effects needs its reason/);
+	assert.match(out, /everyfield\/max-state must be "error" in the top-level rules/);
+});
+
+function history() {
+	const path = "packages/ui/src/Panel.tsx";
+	const renamed = "packages/ui/src/Moved.tsx";
+	const dir = sandbox({ [path]: "export {};\n", "packages/ui/src/Other.tsx": "export {};\n" }, {});
+	git(dir, "init", "-q", "-b", "main");
+	const write = (entries) => put(dir, "scripts/lint/baseline/no-effects/packages-ui.json", entries);
+	write({ [path]: 2 });
+	const base = commitAll(dir, "base");
+	return { dir, path, renamed, write, base };
+}
+
+test("INV-lint: a baseline entry new to the base or larger than at the base fails, and a rename carries its entry", () => {
+	const { dir, path, renamed, write, base } = history();
+	const growth = (entries, ...moves) => {
+		git(dir, "reset", "-q", "--hard", base);
+		for (const [from, to] of moves) git(dir, "mv", from, to);
+		write(entries);
+		commitAll(dir, "change");
+		return check(dir, ["--base", base]).out;
+	};
+	assert.match(growth({ [path]: 3 }), /no-effects: packages\/ui\/src\/Panel\.tsx grew from 2 to 3/);
+	assert.match(growth({ [path]: 2, "packages/ui/src/Other.tsx": 1 }), /Other\.tsx is new to the baseline/);
+	assert.match(growth({ [path]: 1 }), /check-comments: passed/);
+	assert.match(growth({ [renamed]: 2 }, [path, renamed]), /check-comments: passed/);
+	assert.match(growth({ [renamed]: 3 }, [path, renamed]), /Moved\.tsx grew from 2 to 3/);
+});
+
+test("INV-lint: a rule new against main is held to what it reports on main's tree, so merging main and regenerating stays legal", () => {
+	const dir = sandbox({ "packages/ui/src/Panel.tsx": "export {};\n" });
+	git(dir, "init", "-q", "-b", "main");
+	commitAll(dir, "main without the rule");
+	git(dir, "switch", "-q", "-c", "feature");
+	commitAll(dir, "branch work");
+	git(dir, "switch", "-q", "main");
+	put(dir, "packages/ui/src/Panel.tsx", "export const later = () => setTimeout(() => {}, 1);\n");
+	commitAll(dir, "main gains a timer");
+	git(dir, "switch", "-q", "feature");
+	git(dir, "merge", "-q", "--no-edit", "main");
+	put(dir, "scripts/lint/baseline/no-timers/packages-ui.json", { "packages/ui/src/Panel.tsx": 1 });
+	commitAll(dir, "regenerate after merging main");
+	const main = git(dir, "rev-parse", "main");
+	const regenerated = check(dir, ["--base", main]).out;
+	assert.match(
+		regenerated,
+		/no-timers: the rule is new against \w+; its baseline is held to what the rule reports on that tree/,
+	);
+	assert.doesNotMatch(regenerated, /no-timers: .*(grew|new to the baseline)/);
+	put(dir, "scripts/lint/baseline/no-timers/packages-ui.json", { "packages/ui/src/Panel.tsx": 2 });
+	assert.match(check(dir, ["--base", main]).out, /no-timers: packages\/ui\/src\/Panel\.tsx grew from 1 to 2/);
+	put(dir, "scripts/lint/baseline/no-timers/packages-ui.json", {
+		"packages/ui/src/Panel.tsx": 1,
+		"packages/ui/src/index.ts": 1,
+	});
+	assert.match(check(dir, ["--base", main]).out, /no-timers: packages\/ui\/src\/index\.ts is new to the baseline/);
+});
+
+test("INV-lint: in CI the growth check compares with main, through HEAD^1 or, for a stacked pull request, the merge base", () => {
+	const { dir: origin, path, write } = history();
+	git(origin, "switch", "-q", "-c", "lower");
+	write({ [path]: 1 });
+	commitAll(origin, "lower shrinks");
+	git(origin, "switch", "-q", "-c", "upper");
+	write({ [path]: 2 });
+	commitAll(origin, "upper regrows within main");
+	git(origin, "switch", "-q", "main");
+	commitAll(origin, "main moves on");
+
+	const clone = realpathSync(mkdtempSync(join(tmpdir(), "lint-clone-")));
+	temps.push(clone);
+	execFileSync("git", ["clone", "-q", "--depth", "2", "--no-local", "--branch", "upper", `file://${origin}`, clone]);
+	const ci = (target) =>
+		check(clone, [], { GITHUB_ACTIONS: "true", GITHUB_EVENT_NAME: "pull_request", GITHUB_BASE_REF: target }).out;
+	const stacked = ci("lower");
+	assert.match(stacked, /merge base of HEAD and main \(the pull request is stacked on lower\)/);
+	assert.match(stacked, /check-comments: passed/);
+
+	git(clone, "fetch", "-q", "origin", "main");
+	git(clone, "switch", "-q", "--detach", "origin/main");
+	git(clone, "merge", "-q", "--no-ff", "--no-edit", "upper");
+	const direct = ci("main");
+	assert.match(direct, /the first parent of the pull_request commit/);
+	assert.match(direct, /check-comments: passed/);
+});
+
+const configFails = (edit, pattern) => {
+	const dir = sandbox();
+	const path = join(dir, "apps/web/.oxlintrc.json");
+	const config = JSON.parse(readFileSync(path, "utf8"));
+	edit(config);
+	put(dir, "apps/web/.oxlintrc.json", config);
+	git(dir, "init", "-q");
+	const { status, out } = check(dir, ["--no-base"]);
+	assert.equal(status, 1, out);
+	assert.match(out, pattern);
+};
+
+test("INV-lint: every override block is checked, so a second block with the same files cannot switch a rule off", () =>
+	configFails((config) => {
+		const blocks = config.overrides.filter((block) => block.files.join() === "src/**");
+		assert.ok(blocks.length > 1);
+		blocks[0].rules["everyfield/no-effects"] = "off";
+	}, /override for src\/\*\*, rule everyfield\/no-effects needs its reason/));
+
+test("INV-lint: any severity below error for an Everyfield rule needs its reason", () => {
+	for (const severity of ["allow", 0, "warn", 1, ["off"], ["warn", {}]])
+		configFails(
+			(config) =>
+				config.overrides.push({ files: ["src/features/x/**"], rules: { "everyfield/no-comments": severity } }),
+			/override for src\/features\/x\/\*\*, rule everyfield\/no-comments needs its reason/,
+		);
+});
+
+test("INV-lint: ignore files, ignored tracked files and lint flags cannot hide a file or a rule", () => {
+	const fails = (files, pattern, scripts = {}, setup = () => {}) => {
+		const dir = sandbox(files);
+		put(dir, "package.json", { scripts: { ...SCRIPTS, ...scripts } });
+		git(dir, "init", "-q");
+		setup(dir);
+		const { status, out } = check(dir, ["--no-base"]);
+		assert.equal(status, 1, out);
+		assert.match(out, pattern);
+	};
+	fails({ "apps/web/.eslintignore": "src/x/**\n" }, /apps\/web\/\.eslintignore: lint ignore files/);
+	fails({ ".oxlintignore": "src/x/**\n" }, /^\.oxlintignore: lint ignore files/m);
+	fails(
+		{ "packages/ui/.oxlintrc.json": "{}\n" },
+		/packages\/ui\/\.oxlintrc\.json: lint ignore files and extra Oxlint configs/,
+	);
+	fails(
+		{ ".gitignore": "hidden/\n", "packages/ui/src/hidden/a.ts": "export {};\n" },
+		/hidden\/a\.ts: git ignores this tracked file/,
+		{},
+		(dir) => git(dir, "add", "-f", "packages/ui/src/hidden/a.ts"),
+	);
+	for (const flag of [
+		"-A everyfield/no-effects",
+		"--allow everyfield/no-effects",
+		"--ignore-path x",
+		"--ignore-pattern x",
+		"--no-ignore",
+	])
+		fails({}, /flag -/, { "lint:repo": `${OXLINT} -c .oxlintrc.json --max-warnings=0 ${flag} packages tests/unit` });
+	fails({ "other.json": "{}\n" }, /must pass -c with one of/, {
+		"lint:repo": `${OXLINT} -c other.json --max-warnings=0 packages tests/unit`,
+	});
+	fails({}, /needs --max-warnings=0/, { "lint:repo": `${OXLINT} -c .oxlintrc.json packages tests/unit` });
+	fails({}, /must run every package's lint/, {
+		lint: "pnpm run lint:web && pnpm run lint:repo && pnpm run lint:tools",
+	});
+});
+
+test("INV-lint: a JS or TS file that no lint run covers fails", () => {
+	const dir = sandbox({
+		"tests/zzgroup/a.ts": "export {};\n",
+		"lib/b.tsx": "export {};\n",
+		"bin/zz.mjs": "export {};\n",
+	});
+	git(dir, "init", "-q");
+	const { status, out } = check(dir, ["--no-base"]);
+	assert.equal(status, 1, out);
+	const uncovered = out
+		.split("\n")
+		.filter((line) => line.includes("no lint run covers"))
+		.map((line) => line.split(":")[0]);
+	assert.deepEqual(uncovered.sort(), ["bin/zz.mjs", "lib/b.tsx", "tests/zzgroup/a.ts"]);
+});
+
+test("INV-lint: effect, state and timer hooks are reported as references, not only as calls", () => {
+	const source = `import React, * as R from "react";
+import { useState as us } from "react";
+const run = R.useEffect;
+React["useEffect"](() => {});
+export async function load() {
+	(await import("react")).useLayoutEffect(() => {});
+	return run;
+}
+const s = us;
+export function Wide() {
+	const a = s(0), b = React["useState"](0), c = us(0), d = us(0), e = s(0);
+	return [a, b, c, d, e];
+}
+const t = setTimeout;
+const { setTimeout: w } = window;
+globalThis["setTimeout"](() => {}, 1);
+setTimeout.call(null, () => {}, 1);
+export const o = { schedule: requestAnimationFrame };
+scheduler.postTask(() => {}, { delay: 10 });
+scheduler.postTask(() => {});
+AbortSignal.timeout(10);
+export function own(setTimeout) {
+	setTimeout(() => {});
+}
+export type Handle = ReturnType<typeof setTimeout>;
+export { t, w };
+`;
+	assert.deepEqual(
+		lint({ "packages/ui/src/sneaky.tsx": source }).map((hit) => hit.replace("packages/ui/src/sneaky.tsx:", "")),
+		[
+			"3 no-effects",
+			"4 no-effects",
+			"6 no-effects",
+			"6 no-effects",
+			"11 max-state",
+			"14 no-timers",
+			"15 no-timers",
+			"16 no-timers",
+			"17 no-timers",
+			"18 no-timers",
+			"19 no-timers",
+		].sort(),
+	);
+});
+
+test("INV-lint: an Oxlint config holds only known keys, so extends cannot pull in an override that turns rules off", () => {
+	configFails((config) => {
+		config.extends = ["../../tools/x.json"];
+	}, /apps\/web\/\.oxlintrc\.json: the key extends is not allowed/);
+	configFails((config) => {
+		config.overrides.push({ files: ["src/**"], extends: ["x.json"], rules: {} });
+	}, /the override for src\/\*\* may not set extends/);
+});
+
+test("INV-lint: ESLint configs carry no ignores beyond the expected ones and live only where expected", () => {
+	const fails = (files, pattern) => {
+		const dir = sandbox(files);
+		git(dir, "init", "-q");
+		const { status, out } = check(dir, ["--no-base"]);
+		assert.equal(status, 1, out);
+		assert.match(out, pattern);
+	};
+	fails(
+		{ "apps/web/eslint.config.mjs": 'export default [{ ignores: ["src/features/x/**"] }];\n' },
+		/apps\/web\/eslint\.config\.mjs:1: an ESLint ignore outside the expected ones/,
+	);
+	fails({ "lib/eslint.config.mjs": "export default [];\n" }, /lib\/eslint\.config\.mjs: an ESLint config outside/);
+});
+
+test("INV-lint: the lint scripts match their expected values exactly, so no step can be dropped, reordered or made optional", () => {
+	for (const lint of [
+		`${SCRIPTS.lint} || true`,
+		`${SCRIPTS.lint}; true`,
+		"pnpm -r --if-present lint && pnpm run lint:repo && pnpm run lint:web && pnpm run lint:tools",
+		"pnpm -r --if-present lint && pnpm run lint:web && pnpm run lint:repo",
+	]) {
+		const dir = sandbox();
+		put(dir, "package.json", { scripts: { ...SCRIPTS, lint } });
+		git(dir, "init", "-q");
+		const { status, out } = check(dir, ["--no-base"]);
+		assert.equal(status, 1, out);
+		assert.match(out, /package\.json: the lint script differs from scripts\/lint\/lint-scripts\.json/);
+	}
+	const step = " && node scripts/lint/check-comments.mjs";
+	const dir = sandbox();
+	put(dir, "scripts/lint/lint-scripts.json", {
+		"package.json": { ...SCRIPTS, "lint:repo": SCRIPTS["lint:repo"] + step },
+	});
+	git(dir, "init", "-q");
+	assert.match(check(dir, ["--no-base"]).out, /package\.json: the lint:repo script differs/);
+});
+
+test("INV-lint: the base tree is linted at its real path, so path exemptions hold on a symlinked TMPDIR", () => {
+	const dir = sandbox({
+		"packages/ui/src/a.ts": "// kept\nexport {};\n",
+		"apps/web/scripts/render-share-images.mjs": "// exempt bytes\nexport {};\n",
+	});
+	git(dir, "init", "-q", "-b", "main");
+	const base = commitAll(dir, "base");
+	put(dir, "scripts/lint/baseline/no-comments/packages-ui.json", { "packages/ui/src/a.ts": 1 });
+	commitAll(dir, "baseline");
+	const real = realpathSync(mkdtempSync(join(tmpdir(), "lint-tmp-")));
+	const linked = `${real}-link`;
+	symlinkSync(real, linked);
+	temps.push(real, linked);
+	assert.match(check(dir, ["--base", base], { TMPDIR: linked }).out, /check-comments: passed/);
+	put(dir, "scripts/lint/baseline/no-comments/apps-web.json", { "apps/web/scripts/render-share-images.mjs": 1 });
+	assert.match(
+		check(dir, ["--base", base], { TMPDIR: linked }).out,
+		/no-comments: apps\/web\/scripts\/render-share-images\.mjs is new to the baseline/,
+	);
+});
+
+test("INV-lint: comments inside SQL templates and query strings are reported, a listed marker is not", () => {
+	const source = `import { sql as q } from "drizzle-orm";
+export const sql = (s: TemplateStringsArray, ...v: unknown[]) => [s, v];
+export const a = sql\`SELECT 1 -- why
+ FROM x WHERE y = '-- not' /* also */\`;
+export const b = q\`SELECT \${1} -- aliased\`;
+export const run = (client: { query(text: string): void }) => {
+	client.query("BEGIN /* evf:retry */");
+	client.query(\`SELECT 2 -- in a query\`);
+	client.query("SELECT '/* text */'");
+};
+`;
+	assert.deepEqual(lint({ "packages/domain/src/q.ts": source }), [
+		"packages/domain/src/q.ts:3 no-sql-comments",
+		"packages/domain/src/q.ts:4 no-sql-comments",
+		"packages/domain/src/q.ts:5 no-sql-comments",
+		"packages/domain/src/q.ts:8 no-sql-comments",
+	]);
+});

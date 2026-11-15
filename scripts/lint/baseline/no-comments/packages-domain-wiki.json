@@ -1,0 +1,10 @@
+{
+	"packages/domain/src/wiki/core.ts": 5,
+	"packages/domain/src/wiki/corpus.ts": 8,
+	"packages/domain/src/wiki/editorial.ts": 1,
+	"packages/domain/src/wiki/excerpt.ts": 10,
+	"packages/domain/src/wiki/guides.ts": 5,
+	"packages/domain/src/wiki/pdf.ts": 23,
+	"packages/domain/src/wiki/reads.ts": 3,
+	"packages/domain/src/wiki/writes.ts": 2
+}

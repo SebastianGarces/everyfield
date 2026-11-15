@@ -1,0 +1,7 @@
+{
+	"packages/contracts/src/tasks/description.ts": 8,
+	"packages/contracts/src/tasks/requests.ts": 14,
+	"packages/contracts/src/tasks/results.ts": 18,
+	"packages/contracts/src/tasks/templates.ts": 14,
+	"packages/contracts/src/tasks/values.ts": 17
+}

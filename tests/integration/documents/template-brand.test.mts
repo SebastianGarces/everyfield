@@ -35,7 +35,6 @@ class MemoryClient extends S3Client {
 			credentials: { accessKeyId: "test", secretAccessKey: "test" },
 		});
 	}
-	// @ts-expect-error The test double answers only the commands the code sends.
 	async send(command: { constructor: { name: string }; input?: Record<string, unknown> }) {
 		const input = (command.input ?? {}) as { Key: string; Body: Uint8Array };
 		switch (command.constructor.name) {

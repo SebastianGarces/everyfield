@@ -1,0 +1,10 @@
+{
+	"apps/web/src/app/(product)/design/documents/templates/page.tsx": 2,
+	"apps/web/src/app/(product)/design/layout.tsx": 2,
+	"apps/web/src/app/(product)/design/onboarding/page.tsx": 1,
+	"apps/web/src/app/(product)/design/settings/[[...section]]/page.tsx": 1,
+	"apps/web/src/app/(product)/design/settings/layout.tsx": 1,
+	"apps/web/src/app/(product)/layout.tsx": 4,
+	"apps/web/src/app/(product)/organization/pipeline/layout.tsx": 1,
+	"apps/web/src/app/(product)/organization/reviews/layout.tsx": 1
+}

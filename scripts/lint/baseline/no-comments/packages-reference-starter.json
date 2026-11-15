@@ -1,0 +1,9 @@
+{
+	"packages/reference/src/starter/manifest/approved.ts": 4,
+	"packages/reference/src/starter/manifest/pin.mjs": 2,
+	"packages/reference/src/starter/verify/cli.ts": 8,
+	"packages/reference/src/starter/verify/embed.ts": 2,
+	"packages/reference/src/starter/verify/openai.ts": 1,
+	"packages/reference/src/starter/verify/service.ts": 1,
+	"packages/reference/src/starter/verify/snapshot.ts": 1
+}

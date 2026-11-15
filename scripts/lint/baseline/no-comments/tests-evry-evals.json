@@ -1,0 +1,19 @@
+{
+	"tests/evry/evals/classify.test.mts": 9,
+	"tests/evry/evals/clock.test.mts": 3,
+	"tests/evry/evals/followups.test.mts": 20,
+	"tests/evry/evals/golden-church.mts": 120,
+	"tests/evry/evals/golden-harness.mts": 35,
+	"tests/evry/evals/golden.test.mts": 43,
+	"tests/evry/evals/households.test.mts": 15,
+	"tests/evry/evals/launch-church.mts": 38,
+	"tests/evry/evals/launch.test.mts": 53,
+	"tests/evry/evals/onboarding.test.mts": 22,
+	"tests/evry/evals/overview.test.mts": 28,
+	"tests/evry/evals/pipeline-church.mts": 19,
+	"tests/evry/evals/pipeline.test.mts": 53,
+	"tests/evry/evals/settings-ports.mts": 8,
+	"tests/evry/evals/settings.test.mts": 16,
+	"tests/evry/evals/setup-church.mts": 31,
+	"tests/evry/evals/small-church.mts": 21
+}
