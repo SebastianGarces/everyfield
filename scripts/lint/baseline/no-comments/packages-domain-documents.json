@@ -25,8 +25,6 @@
 	"packages/domain/src/documents/reads.ts": 7,
 	"packages/domain/src/documents/render.ts": 6,
 	"packages/domain/src/documents/scope.ts": 2,
-	"packages/domain/src/documents/templates/agenda-content.ts": 3,
-	"packages/domain/src/documents/templates/checklists-content.ts": 1,
 	"packages/domain/src/documents/templates/church.ts": 1,
 	"packages/domain/src/documents/templates/published/index.ts": 6,
 	"packages/domain/src/documents/templates/registry.ts": 7,
