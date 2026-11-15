@@ -89,7 +89,6 @@ export function Thumbnail({
 			data-thumbnail={url ? "ready" : "pending"}
 		>
 			{url && size ? (
-				// eslint-disable-next-line @next/next/no-img-element -- a data URL drawn from the renderer's bytes
 				<img
 					src={url}
 					alt={`Page 1 of ${template.name}`}

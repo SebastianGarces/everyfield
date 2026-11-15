@@ -239,7 +239,6 @@ function ImageBox({ src, alt, dark, busy }: { src: string; alt: string; dark: bo
 			className="flex h-20 w-40 flex-none items-center justify-center overflow-hidden rounded-sm border border-line p-2"
 			style={{ background: dark ? "var(--color-ink-fixed)" : "white", opacity: busy ? 0.6 : 1 }}
 		>
-			{/* eslint-disable-next-line @next/next/no-img-element -- the authenticated route or a local object URL */}
 			<img src={src} alt={alt} className="max-h-full max-w-full object-contain" />
 		</div>
 	);
@@ -268,7 +267,6 @@ function Backgrounds({
 							className="flex h-14 items-center justify-center overflow-hidden rounded-sm border border-line p-2"
 							style={{ background: s.color }}
 						>
-							{/* eslint-disable-next-line @next/next/no-img-element -- the authenticated route */}
 							<img src={src} alt={s.name === "Light" ? alt : ""} className="max-h-full max-w-full object-contain" />
 						</div>
 						<span className="text-xs text-text-3">{s.name}</span>

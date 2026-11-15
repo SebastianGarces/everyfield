@@ -113,7 +113,6 @@ function LogoSlot({
 	if (image)
 		return (
 			<div data-slot="logo" data-image="" className="flex items-center" style={{ height, width, maxWidth }}>
-				{/* eslint-disable-next-line @next/next/no-img-element -- the authenticated asset route */}
 				<img src={src(image.fileId)} alt={image.alt} className="max-h-full max-w-full object-contain object-left" />
 			</div>
 		);
@@ -172,7 +171,6 @@ function Formal({ theme, layout }: { theme: DocumentTheme; layout: Layout<"forma
 				<p className="text-[10px] opacity-60">Signed</p>
 				{signature.image ? (
 					<div data-slot="signature" className="mt-1 flex h-10 items-end">
-						{/* eslint-disable-next-line @next/next/no-img-element -- the authenticated asset route */}
 						<img
 							src={src(signature.image.fileId)}
 							alt={signature.image.alt}
@@ -231,7 +229,6 @@ function Outward({ theme, layout }: { theme: DocumentTheme; layout: Layout<"outw
 			</div>
 			{layout.coverPhoto ? (
 				<div data-slot="cover-photo" className="h-24 overflow-hidden">
-					{/* eslint-disable-next-line @next/next/no-img-element -- the authenticated asset route */}
 					<img src={src(layout.coverPhoto.fileId)} alt={layout.coverPhoto.alt} className="size-full object-cover" />
 				</div>
 			) : null}
