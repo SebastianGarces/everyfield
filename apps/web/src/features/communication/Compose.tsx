@@ -396,7 +396,7 @@ export function Compose({
 				<button
 					type="button"
 					onClick={() => (dirty ? setLeaving(true) : onLeave())}
-					className="inline-flex cursor-pointer items-center gap-1.5 rounded-sm text-md font-medium text-ink-2 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ef-focus)]"
+					className="inline-flex items-center gap-1.5 rounded-sm text-md font-medium text-ink-2 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ef-focus)]"
 				>
 					<Icon icon={ArrowLeft01Icon} size={16} />
 					Back to messages
@@ -409,7 +409,7 @@ export function Compose({
 									type="button"
 									aria-current={s.value === step ? "step" : undefined}
 									onClick={() => void go(s.value)}
-									className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-md px-3 text-md font-medium text-text-2 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--ef-focus)] aria-[current=step]:bg-surface-2 aria-[current=step]:text-ink"
+									className="inline-flex h-9 items-center gap-2 rounded-md px-3 text-md font-medium text-text-2 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--ef-focus)] aria-[current=step]:bg-surface-2 aria-[current=step]:text-ink"
 								>
 									<span className="grid size-5 place-items-center rounded-full bg-surface-2 text-xs tabular-nums">
 										{i < stepIndex ? <Icon icon={Tick02Icon} size={16} /> : i + 1}
@@ -488,7 +488,7 @@ export function Compose({
 										Template applied.{" "}
 										<button
 											type="button"
-											className="cursor-pointer font-medium text-ink underline underline-offset-[3px]"
+											className="font-medium text-ink underline underline-offset-[3px]"
 											onClick={() => {
 												setForm((c) => ({
 													...c,

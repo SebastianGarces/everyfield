@@ -19,7 +19,7 @@ function PublicLink({ url }: { url: string }) {
 			href={url}
 			target="_blank"
 			rel="noreferrer"
-			className="inline-flex cursor-pointer items-center gap-1 text-sm font-medium text-ink underline underline-offset-2"
+			className="inline-flex items-center gap-1 text-sm font-medium text-ink underline underline-offset-2"
 		>
 			Public issue
 		</a>
@@ -59,7 +59,7 @@ export function OwnFeedbackList({ initial }: { initial: OwnFeedbackPage }) {
 					<ListRow
 						key={item.id}
 						title={
-							<Link href={`/feedback/${item.id}`} className="cursor-pointer hover:underline hover:underline-offset-2">
+							<Link href={`/feedback/${item.id}`} className="hover:underline hover:underline-offset-2">
 								{CATEGORY_NAME[item.category]}
 							</Link>
 						}

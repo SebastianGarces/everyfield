@@ -17,7 +17,7 @@
 	"packages/ui/src/controls/States.tsx": 7,
 	"packages/ui/src/controls/Tabs.tsx": 6,
 	"packages/ui/src/controls/Toast.tsx": 4,
-	"packages/ui/src/controls/controls.css": 8,
+	"packages/ui/src/controls/controls.css": 7,
 	"packages/ui/src/controls/index.ts": 1,
 	"packages/ui/src/controls/overlay-portal.tsx": 2,
 	"packages/ui/src/controls/preview/ControlsPreview.tsx": 4,

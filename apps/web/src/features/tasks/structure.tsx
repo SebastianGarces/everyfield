@@ -369,7 +369,7 @@ export function BlockedBy({
 											type="button"
 											onClick={() => onOpen(p.id)}
 											className={cn(
-												"min-w-0 flex-1 cursor-pointer rounded-xs text-left underline-offset-[3px] hover:underline [overflow-wrap:anywhere]",
+												"min-w-0 flex-1 rounded-xs text-left underline-offset-[3px] hover:underline [overflow-wrap:anywhere]",
 												blocks(p) ? "text-ink" : "text-text-3 line-through",
 											)}
 										>
@@ -488,7 +488,7 @@ function PrerequisiteEditor({
 									onClick={() =>
 										setChosen((x) => [...x, { ...c, deleted: false, blocking: blocks({ ...c, deleted: false }) }])
 									}
-									className="flex min-h-11 w-full cursor-pointer items-center gap-2 rounded-sm px-2 text-left hover:bg-hover disabled:cursor-not-allowed disabled:opacity-45"
+									className="flex min-h-11 w-full items-center gap-2 rounded-sm px-2 text-left hover:bg-hover disabled:opacity-45"
 								>
 									<Icon icon={Add01Icon} size={16} className="flex-none text-text-3" />
 									<span className="min-w-0 flex-1 [overflow-wrap:anywhere]">{c.title}</span>
