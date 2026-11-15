@@ -19,22 +19,15 @@ import {
 } from "@everyfield/contracts/identity";
 import { Button, ConfirmDialog, Field, Input, Skeleton } from "@everyfield/ui/controls";
 import { Avatar } from "@everyfield/ui/display";
-import {
-	useCallback,
-	useEffect,
-	useLayoutEffect,
-	useRef,
-	useState,
-	useSyncExternalStore,
-	type FormEvent,
-	type ReactNode,
-} from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type FormEvent, type ReactNode } from "react";
+import { addAddressRule, currentAddress } from "../../../components/location.ts";
 import { NotAvailable } from "../../access/AccessStates";
 import { Refusal, useIntent, useLoad } from "../../organizations/intent";
 import { ProblemLine } from "../../organizations/parts";
 import { ResidencyDisclosure } from "../../organizations/Residency";
 import { identityApi, loadPage } from "../api";
 import { AuthFooter, AuthHeading } from "../AuthFrame";
+import { useLinkSecretLeavesAddress } from "../link";
 import { refusalMessage } from "../messages";
 import { FormMessage, Outcome, PasswordInput } from "../parts";
 import { AFTER_SIGN_IN, SignInForm } from "../SignInScreen";
@@ -61,23 +54,16 @@ const PAGE = "/invitation";
 type Session = Awaited<ReturnType<typeof readInvitation>>["session"];
 type Read = { description: ReturnType<typeof invitationDescriptionResult.parse>; session: Session };
 
-/**
- * Another invitation link opened in this same tab only changes the fragment: the page does not load again. Each new
- * fragment is kept and cleaned at once, and the screen follows the new proof.
- */
-function followFragment(notify: () => void) {
-	const changed = () => {
-		tabStore.keepProof();
-		notify();
-	};
-	window.addEventListener("hashchange", changed);
-	return () => window.removeEventListener("hashchange", changed);
-}
+addAddressRule("invitation-proof", (to) =>
+	to.pathname === PAGE && tabStore.keepProof() ? to.pathname + to.search : null,
+);
+
+const takeFragmentProof = () => (tabStore.keepProof() ? currentAddress() : null);
 
 export function InvitationScreen() {
 	// The fragment never reaches the server; after sign-in the page opens without it, and this tab kept it.
-	const proof = useSyncExternalStore(followFragment, tabStore.proof, () => undefined);
-	useLayoutEffect(() => tabStore.keepProof(), []);
+	const proof = useSyncExternalStore(tabStore.onProof, tabStore.proof, () => undefined);
+	useLinkSecretLeavesAddress(takeFragmentProof);
 	if (proof === undefined) return <Loading />;
 	if (!proof) return <Unavailable />;
 	// A new proof is a new invitation: its reads, answers and choices start fresh.

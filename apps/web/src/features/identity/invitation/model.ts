@@ -54,17 +54,24 @@ export type Held = { proof: string; workspaceName: string } & (
 	{ kind: "seat"; command: SeatCommand } | { kind: "resident"; command: ResidentCommand }
 );
 
+const proofReaders = new Set<() => void>();
+const linkProof = () => new URLSearchParams(window.location.hash.slice(1)).get("proof");
+
 export const tabStore = {
 	/** The proof from the link's fragment (#proof=...), or the one this tab kept after it cleaned the address. */
 	proof(): string | null {
-		return new URLSearchParams(window.location.hash.slice(1)).get("proof") ?? sessionStorage.getItem(PROOF);
+		return linkProof() ?? sessionStorage.getItem(PROOF);
 	},
-	/** Keeps the fragment's proof in this tab and removes it from the address bar and history. */
-	keepProof() {
-		const fromLink = new URLSearchParams(window.location.hash.slice(1)).get("proof");
-		if (!fromLink) return;
+	onProof(reader: () => void) {
+		proofReaders.add(reader);
+		return () => void proofReaders.delete(reader);
+	},
+	keepProof(): boolean {
+		const fromLink = linkProof();
+		if (!fromLink) return false;
 		sessionStorage.setItem(PROOF, fromLink);
-		history.replaceState(null, "", window.location.pathname + window.location.search);
+		for (const reader of proofReaders) reader();
+		return true;
 	},
 	held(proof: string): Held | null {
 		// The server render has no tab; it shows the loading state, and the tab's value is read on the client.

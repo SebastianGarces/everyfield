@@ -1,0 +1,11 @@
+{
+	"no-effects": {
+		"apps/web/src/features/identity/link.ts": [
+			{
+				"function": "useLinkSecretLeavesAddress",
+				"count": 1,
+				"reason": "A one-time link secret (the reset or confirmation token in the query, the invitation proof in the fragment) must leave the address bar and history in the commit that first shows its screen, after Next has written its own first history entry: no event happens on arrival, the location store applies address rules only on writes and Back or Forward, the server never sees the fragment and can drop the query only with a redirect that changes how the secret is carried, and a client module runs inside the hydrating render, where a history write would update the router during render. Waiting for the first user event would leave the secret in the address longer than today."
+			}
+		]
+	}
+}
