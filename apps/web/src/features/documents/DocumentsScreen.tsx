@@ -167,19 +167,18 @@ export function DocumentsScreen({
 	const activeFormat = selected
 		? offeredFormat(selected, query.template === null || query.template === selected.id ? query.format : null)
 		: null;
-	const [church] = useState(() => {
-		const values = churchValues(context);
+	const [{ church, visit }] = useState(() => {
+		const opened = { church: churchValues(context), visit: crypto.randomUUID() };
 		const template = context && templates.find((item) => item.id === context.templateId);
 		if (typeof window !== "undefined" && canPreview && context && template)
 			resolutions.seed(
 				{ status: "ok", value: context },
 				context.templateId,
 				offeredFormat(template, null),
-				JSON.stringify([version, values]),
+				opened.visit,
 			);
-		return values;
+		return opened;
 	});
-	const visit = JSON.stringify([version, church]);
 	const [edits, setEdits] = useState<Edits>(() => ({ templateId: selected?.id ?? null, values: {} }));
 	const [request, setRequest] = useState<PreviewRequest | null>(() =>
 		canPreview && context && selected && activeFormat && context.templateId === selected.id
@@ -209,7 +208,15 @@ export function DocumentsScreen({
 	const overrides = selected ? overridesOf(selected, drafts, current) : {};
 	const tooLong = combinedTooLong(overrides);
 	const missing = selected && (current || !canPreview) ? missingFields(selected, drafts) : [];
-	const ready = Boolean(selected && activeFormat && canPreview && current && missing.length === 0 && !tooLong);
+	const ready = Boolean(
+		selected &&
+		activeFormat &&
+		canPreview &&
+		current &&
+		resolution.status !== "loading" &&
+		missing.length === 0 &&
+		!tooLong,
+	);
 	const signature = selected && activeFormat ? signatureOf(selected.id, activeFormat, overrides) : "";
 
 	const shown =
@@ -283,10 +290,17 @@ export function DocumentsScreen({
 		opening.current = template?.id ?? null;
 		if (!template || !canPreview) return;
 		const format = offeredFormat(template, null);
-		void resolutions.get(template.id, format, visit).then((result) => {
-			if (opening.current !== template.id || result.status !== "ok") return;
-			const next = openingRequest(template, format, result.value, version, church);
-			setRequest((previous) => (previous?.templateId === template.id ? previous : next));
+		const before = resolutions.peek(template.id, format, visit)?.value;
+		void resolutions.refresh(template.id, format, visit).then((result) => {
+			if (opening.current !== template.id) return;
+			if (result.status === "ok") {
+				const next = openingRequest(template, format, result.value, version, church);
+				setRequest((previous) => (previous?.templateId === template.id ? previous : next));
+				return;
+			}
+			if (before?.status !== "ok") return;
+			resolutions.patch(() => before, template.id, format, visit);
+			setRequest({ ...requestFor(template, format, {}, version, church), failed: problemText(result) });
 		});
 	}
 
