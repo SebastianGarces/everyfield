@@ -268,4 +268,27 @@ test("INV-leave: Back from a page with unsaved work asks every time, from its fi
 	assert.ok(leave.leaveRequestNow());
 	leave.leaveRequestNow()?.stay();
 	clean();
+
+	const leaveByLink = (href: string) => {
+		const link = new FakeAnchor("a", { href });
+		page = [editor, link];
+		click(link);
+		leave.leaveRequestNow()?.leave();
+		clean();
+		open(href);
+	};
+	open("/documents/written/e");
+	edit();
+	leaveByLink("/documents/new");
+	edit();
+	leaveByLink("/documents");
+	history.back();
+	history.back();
+	assert.equal(at.pathname, "/documents/written/e", "a clean editor left by Back goes on to the one before it");
+	edit();
+	history.back();
+	assert.ok(leave.leaveRequestNow(), "an edit made on an earlier editor's guard entry asks on the next Back");
+	assert.equal(at.pathname, "/documents/written/e");
+	leave.leaveRequestNow()?.stay();
+	clean();
 });

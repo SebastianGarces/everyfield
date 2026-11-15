@@ -97,9 +97,8 @@ function pushGuardEntry() {
 }
 
 export function armLeaveHold(): void {
-	if (onGuardEntry()) return;
 	home = here();
-	pushGuardEntry();
+	if (!onGuardEntry()) pushGuardEntry();
 }
 
 function traversed() {
