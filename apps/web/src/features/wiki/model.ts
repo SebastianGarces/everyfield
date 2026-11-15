@@ -370,12 +370,17 @@ function editorFromContract(value: unknown): EditorBlock[] | null {
 	return blocks && readerBlocks(blocks).map(readerToEditor);
 }
 
-export function editorBlocksFromBody(contentType: string, body: string): EditorBlock[] {
+function editorJsonBlocks(body: string): EditorBlock[] | null {
 	try {
-		const parsed = editorFromContract(JSON.parse(body) as unknown);
-		if (parsed && parsed.length) return parsed;
-	} catch {}
-	return articleBlocks(contentType, body).map(readerToEditor);
+		return editorFromContract(JSON.parse(body) as unknown);
+	} catch {
+		return null;
+	}
+}
+
+export function editorBlocksFromBody(contentType: string, body: string): EditorBlock[] {
+	const parsed = editorJsonBlocks(body);
+	return parsed?.length ? parsed : articleBlocks(contentType, body).map(readerToEditor);
 }
 
 const run = (text: string) => [{ type: "text", text, marks: [] }];
