@@ -99,6 +99,7 @@ import {
 	type Phase,
 	type Review,
 } from "./model.ts";
+import { NativeImage } from "@/components/native";
 
 // The Evry review card (WP-053/ui; design/everyfield-ui.html, Evry panel review cards): exactly what a prepared change
 // will do, before and after, and who it affects. The owner approves the exact revision, revises a value or cancels.
@@ -1143,7 +1144,7 @@ function PhotoTile({
 		<figure className="flex min-w-20 flex-none flex-col gap-1.5" aria-busy={shown === "loading" || undefined}>
 			<span className="grid size-20 place-items-center overflow-hidden rounded-md bg-surface-raised text-text-3 shadow-[inset_0_0_0_1px_var(--ef-line)]">
 				{shown === "image" ? (
-					<img
+					<NativeImage
 						src={src}
 						alt={alt}
 						width={80}
