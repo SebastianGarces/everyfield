@@ -1,8 +1,0 @@
-{
-	"packages/contracts/src/identity/identity.test.mts": 3,
-	"packages/contracts/src/identity/invitations.ts": 10,
-	"packages/contracts/src/identity/navigation.ts": 9,
-	"packages/contracts/src/identity/requests.ts": 5,
-	"packages/contracts/src/identity/results.ts": 6,
-	"packages/contracts/src/identity/seats.ts": 8
-}
