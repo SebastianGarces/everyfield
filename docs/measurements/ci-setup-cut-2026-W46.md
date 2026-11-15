@@ -66,20 +66,27 @@ restore 5 s (2.6 s download, 2.3 s unpack), and `pnpm install` 6.6 s (2.4 s link
 
 ## After
 
-Filled from the PR's own CI run once it has completed on warm caches. The first run of a new cache key misses every
-new cache and installs from the registry; ci-timing reads the latest attempt of a run, so a rerun of the same run id
-or the next push is the measured run.
+Measured on PR #804's CI run 43660777259, attempt 2, at head aad87a89c (2026-11-15), read with
+`node tools/ci/ci-timing.ts --last 15 --json`. Attempt 1 was the first run of the new cache keys: every new cache
+missed and installed from the registry, which shows the miss path works. Attempt 2 is a rerun of the same run on warm
+caches (D-1563): every job logs `Cache restored from key: ...` for each of its caches, ci-timing counts 15 hits and 0
+misses, and `corepack-install.sh` prints `pnpm@10.34.6 from the corepack cache, no registry request`. `pnpm install
+--frozen-lockfile` prints "Already up to date" and takes 5 to 6.1 s, against 7 to 9 s in W46 run 43201298354.
 
-| Job | W46 median | After (run id pending) | Saved per job |
-|---|---|---|---|
-| app (lint, types, logs, unit) | 36.0 s | pending | pending |
-| tooling (docs, workflow, tools, wiki) | 31.0 s | pending | pending |
-| db (@everyfield/db, evry) | 24.0 s | pending | pending |
-| domain (census part 1) | 31.0 s | pending | pending |
-| domain (census part 2) | 24.0 s | pending | pending |
-| domain (census part 3) | 25.0 s | pending | pending |
-| ci | 9.0 s | pending | pending |
-| Per-run sum | 182.0 s | pending | pending |
+| Job | W46 median | Current main median | After (run 43660777259, attempt 2) | Saved per job vs W46 | Minutes per week vs W46 |
+|---|---|---|---|---|---|
+| app (lint, types, logs, unit) | 36.0 s | 24.0 s | 20 s | 16 s | 790 |
+| tooling (docs, workflow, tools, wiki) | 31.0 s | 35.5 s | 28 s | 3 s | 148 |
+| db (@everyfield/db, evry) | 24.0 s | 24.5 s | 19 s | 5 s | 247 |
+| domain (census part 1) | 31.0 s | 35.0 s | 28 s | 3 s | 148 |
+| domain (census part 2) | 24.0 s | 24.0 s | 22 s | 2 s | 99 |
+| domain (census part 3) | 25.0 s | 26.0 s | 17 s | 8 s | 395 |
+| ci | 9.0 s | 9.0 s | 6 s | 3 s | 148 |
+| Per-run sum | 182.0 s | 179.5 s | 140 s | 42 s (40 s summed per job) | 1976 summed per job, 2075 from the sum |
+
+No job's setup is above its W46 median or its current main median. The per-job savings add to 40 s because a median
+of sums is not a sum of medians; the run's sum is 42 s under the W46 median sum and 39.5 s under current main's.
+Against current main the app saving is 4 s and part 1's is 7 s, since T-216 had already moved the build between them.
 
 Minutes saved per week are scaled as in `setup-costs-2026-W46.md`: 72 jobs of each name in its 0.1699-day CI sample,
 so each second cut from one job's setup is 72 × 7 / 0.1699 / 60 = 49.4 min per week for that job.
@@ -87,15 +94,19 @@ so each second cut from one job's setup is 72 × 7 / 0.1699 / 60 = 49.4 min per 
 ## Cache sizes
 
 GitHub's free Actions cache holds 10 GB per repository and evicts the least recently used entries above it. The
-entries this change stops writing are the two `node-cache-Linux-x64-pnpm-*` store entries (280 MB each). The new
-entries, one per key:
+entries this change stops writing are the two `node-cache-Linux-x64-pnpm-*` store entries (293 MB and 294 MB on main).
+The new entries, one per key, with sizes from the cache lines in the job logs of run 43660777259:
 
 | Entry | Key prefix | Size |
 |---|---|---|
-| Node and corepack home | `node-corepack-Linux-X64-` | pending (Node 24 tool cache folder plus a 22 MB corepack home) |
-| Node only (ci job) | `node-Linux-X64-` | pending |
-| node_modules | `pnpm-modules-Linux-X64-` | pending (246 MB zstd locally) |
-| node_modules with tools/wiki | `pnpm-modules-Linux-X64-` (other hash) | pending |
+| Node and corepack home | `node-corepack-Linux-X64-` | 51 MB |
+| Node only (ci job) | `node-Linux-X64-` | 47 MB |
+| node_modules | `pnpm-modules-Linux-X64-` | 257 MB |
+| node_modules with tools/wiki | `pnpm-modules-Linux-X64-` (other hash) | 257 MB |
+
+New entries total 612 MB against 587 MB of store entries no longer written, so about +25 MB net. The repository's
+cache total was 11.41 GB on 2026-11-15, above the 10 GB line, because of about 10 GB of existing `next-` build caches;
+GitHub evicts the oldest entries, and this change adds almost nothing to that total.
 
 ## Limits on these numbers
 
