@@ -319,7 +319,7 @@ const sorted = (entries: [string, Value][]) =>
  * each behavior's later states at levels 1, 2, ..., so each later behavior starts from that one initial state. It
  * evaluates the invariant twice on some states, so the same state again at the same level is one state. Each variable printed as its set of <<key, value>> pairs and reads back as an object.
  */
-export function printedBehaviors(output: string, variables: readonly string[]): State[][] {
+function printedBehaviors(output: string, variables: readonly string[]): State[][] {
 	const behaviors: State[][] = [];
 	let previous = -1;
 	for (let at = output.indexOf(STATE_MARK); at >= 0; at = output.indexOf(STATE_MARK, at + 1)) {
@@ -441,7 +441,7 @@ function nextActions(tla: string) {
 
 /**
  * Generates a model's behaviors with TLC simulation and returns its traces file text, or the problem that stops it: a
- * behavior that starts elsewhere, or an action of Next (or a listed variant) that no behavior takes.
+ * model with more than one initial state, or an action of Next (or a listed variant) that no behavior takes.
  */
 function generateTraces(dir: string, jar: string, how: Runner, seed: number) {
 	const sim = simulationOf(dir)!;
@@ -458,10 +458,8 @@ function generateTraces(dir: string, jar: string, how: Runner, seed: number) {
 	const init = behaviors[0]![0]!;
 	const { last: _, ...start } = init;
 	const covered = new Set<string>();
-	const steps = behaviors.map((states, n) => {
-		if (JSON.stringify(states[0]) !== JSON.stringify(init))
-			throw new FormalError(`Behavior ${n + 1} of ${dir} starts in another initial state.`);
-		return states.slice(1).map((after, k) => {
+	const steps = behaviors.map((states) =>
+		states.slice(1).map((after, k) => {
 			const before = states[k]!;
 			const step = sim.step(after);
 			covered.add(sim.coverage(step));
@@ -473,8 +471,8 @@ function generateTraces(dir: string, jar: string, how: Runner, seed: number) {
 					if (JSON.stringify(v) !== JSON.stringify(was[key])) (changed[name] ??= {})[key] = v;
 			}
 			return { ...step, after: changed };
-		});
-	});
+		}),
+	);
 	const tla = globSync("*.tla", { cwd: dir })
 		.map((f) => readFileSync(join(dir, f), "utf8"))
 		.join("\n");

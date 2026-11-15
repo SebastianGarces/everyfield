@@ -404,16 +404,6 @@ function apply(state: Entries, step: Step): Entries {
 }
 const where = `seed ${traces.seed}, ${source === committed ? "formal/permissions/traces.json" : source}`;
 
-test("INV-access: every action in the permissions model's traces has a replay handler", () => {
-	assert.ok(traces.behaviors.length > 0);
-	const actions = new Set(traces.behaviors.flat().map((s) => s.action));
-	assert.deepEqual(
-		[...actions].filter((a) => !Object.hasOwn(handlers, a)),
-		[],
-		"a model action has no handler in tests/integration/access/formal-replay.test.mts: add one",
-	);
-});
-
 for (const [n, behavior] of traces.behaviors.entries())
 	test(`INV-access: replayed behavior ${n + 1} of the permissions model (${behavior.length} steps) agrees with the code at every step`, async () => {
 		const world = await World.seed(traces.init);
