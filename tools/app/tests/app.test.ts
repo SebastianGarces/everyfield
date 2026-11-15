@@ -36,6 +36,9 @@ const FORM = `<!doctype html><html><head><title>Form</title><style>select, label
 <span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0)">Secret saved</span>
 <p style="opacity: 0">Faded saved</p>
 <p>Shown saved</p>
+<fieldset disabled><legend>Locked</legend><button onclick="document.title = 'ran'">Fieldset child</button></fieldset>
+<div style="height: 80px; overflow: auto"><p style="height: 200px">Top row</p><p>Deep row saved</p></div>
+<div style="height: 20px; overflow: hidden"><p style="height: 40px">Shown row</p><p>Cut row saved</p></div>
 <div role="radiogroup" aria-label="Whose tasks" onclick="for (const r of this.children) r.setAttribute('aria-checked', String(r === event.target))">
 <div role="radio" aria-checked="true" tabindex="0">Mine</div><div role="radio" aria-checked="false" tabindex="-1">All</div>
 </div>
@@ -328,12 +331,12 @@ test(
 		assert.deepEqual(app("expect", "--text", "Shown saved"), { code: 0, out: 'ok text "Shown saved" (visible)' });
 		assert.deepEqual(app("expect", "--text", "Secret saved", "--timeout", "300"), {
 			code: 1,
-			out: 'FAIL text "Secret saved" is on the page but not visible (hidden, clipped, transparent or covered) after 0.3 s; --screen-reader asserts text for assistive technology',
+			out: 'FAIL text "Secret saved" is on the page but not visible (clipped) after 0.3 s; --screen-reader asserts text for assistive technology',
 		});
 		assert.deepEqual(app("expect", "--text", "Faded saved", "--timeout", "300").code, 1);
 		assert.deepEqual(app("expect", "--text", "Secret saved", "--screen-reader"), {
 			code: 0,
-			out: 'ok text "Secret saved" (screen-reader text, not visible)',
+			out: 'ok text "Secret saved" (in the accessibility tree; not visible: clipped)',
 		});
 	},
 );
@@ -350,3 +353,33 @@ test(
 		assert.equal(app("fill", "Kind", "Kiwi").code, 3);
 	},
 );
+
+test("INV-app: a click inside a disabled fieldset fails like any disabled control", { skip }, () => {
+	app("goto", "/form", "--url", origin);
+	assert.deepEqual(app("click", "Fieldset child"), {
+		code: 1,
+		out: 'FAIL button "Fieldset child" is disabled; the click would do nothing',
+	});
+	assert.deepEqual(app("expect", "--title", "Form"), { code: 0, out: 'ok title "Form"' });
+});
+
+test("INV-app: text a person can scroll to is visible, text cut off by overflow hidden is not", { skip }, () => {
+	app("goto", "/form", "--url", origin);
+	assert.deepEqual(app("expect", "--text", "Deep row saved"), { code: 0, out: 'ok text "Deep row saved" (visible)' });
+	assert.deepEqual(app("expect", "--text", "Deep row saved", "--screen-reader"), {
+		code: 0,
+		out: 'ok text "Deep row saved" (visible)',
+	});
+	assert.deepEqual(app("expect", "--text", "Cut row saved", "--timeout", "300"), {
+		code: 1,
+		out: 'FAIL text "Cut row saved" is on the page but not visible (clipped) after 0.3 s; --screen-reader asserts text for assistive technology',
+	});
+});
+
+test("INV-app: cursor-audit on a scope with no clickable element is not a pass", { skip }, () => {
+	app("goto", "/", "--url", origin);
+	assert.deepEqual(app("cursor-audit", "--scope", "h1"), {
+		code: 3,
+		out: "nothing checked: no visible clickable element in h1",
+	});
+});

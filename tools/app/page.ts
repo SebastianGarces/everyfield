@@ -274,8 +274,20 @@ export function click(context: Context, name: string, options: Pick): string {
 	const state = batch(context.browser, [
 		["is", "enabled", `@${element.ref}`],
 		["get", "attr", `@${element.ref}`, "aria-disabled"],
+		["scrollintoview", `@${element.ref}`],
+		["get", "box", `@${element.ref}`],
 	]);
-	if (must(state[0]).enabled === false || must(state[1]).value === "true")
+	const box = must(state[3]) as { x?: number; y?: number; width?: number; height?: number };
+	const center = JSON.stringify([(box.x ?? 0) + (box.width ?? 0) / 2, (box.y ?? 0) + (box.height ?? 0) / 2]);
+	const formDisabled = must(
+		batch(context.browser, [
+			[
+				"eval",
+				`String(!!document.elementFromPoint(...${center})?.closest("button, input, select, textarea, option, optgroup, fieldset")?.matches(":disabled"))`,
+			],
+		])[0],
+	).result;
+	if (must(state[0]).enabled === false || must(state[1]).value === "true" || formDisabled === "true")
 		throw new AppError(EXIT.failed, `FAIL ${subject(element)} is disabled; the click would do nothing`);
 	return act(
 		context,
@@ -466,16 +478,20 @@ export function expect(context: Context, wanted: Expectation): string {
 	const seconds = `${wanted.timeout / 1000} s`;
 	if (wanted.text !== undefined) {
 		const text = JSON.stringify(wanted.text);
-		const probe = `(${TEXT})(${text})`;
-		const enough = wanted.screenReader ? `${probe} !== "absent"` : `${probe} === "visible"`;
-		const found = waitFor(context, enough, wanted.timeout);
-		const state = String(must(batch(context.browser, [["eval", probe]])[0]).result);
-		if (found && state !== "absent")
-			return `ok text ${text} (${state === "visible" ? "visible" : "screen-reader text, not visible"})`;
-		if (state === "screen-reader")
+		const probe = `JSON.parse((${TEXT})(${text})).state`;
+		const accepted = wanted.screenReader ? `["visible", "screen-reader"].includes(${probe})` : `${probe} === "visible"`;
+		const found = waitFor(context, accepted, wanted.timeout);
+		const seen = JSON.parse(String(must(batch(context.browser, [["eval", `(${TEXT})(${text})`]])[0]).result)) as {
+			state: string;
+			reason?: string;
+		};
+		if (found && seen.state === "visible") return `ok text ${text} (visible)`;
+		if (found && seen.state === "screen-reader" && wanted.screenReader)
+			return `ok text ${text} (in the accessibility tree; not visible: ${seen.reason})`;
+		if (seen.state === "screen-reader" || seen.state === "hidden")
 			throw new AppError(
 				EXIT.failed,
-				`FAIL text ${text} is on the page but not visible (hidden, clipped, transparent or covered) after ${seconds}; --screen-reader asserts text for assistive technology`,
+				`FAIL text ${text} is on the page but not visible (${seen.reason}) after ${seconds}${seen.state === "screen-reader" ? "; --screen-reader asserts text for assistive technology" : ", and not exposed to assistive technology either"}`,
 			);
 		const close = nearest(bodyLines(context), wanted.text, (line) => line, 1)[0];
 		throw new AppError(
@@ -485,10 +501,10 @@ export function expect(context: Context, wanted: Expectation): string {
 	}
 	if (wanted.noText !== undefined) {
 		const text = JSON.stringify(wanted.noText);
-		const probe = `(${TEXT})(${text})`;
-		const gone = wanted.screenReader ? `${probe} === "absent"` : `${probe} !== "visible"`;
+		const probe = `JSON.parse((${TEXT})(${text})).state`;
+		const gone = wanted.screenReader ? `!["visible", "screen-reader"].includes(${probe})` : `${probe} !== "visible"`;
 		if (waitFor(context, gone, wanted.timeout))
-			return `ok no text ${text} (${wanted.screenReader ? "not even for screen readers" : "not visible"})`;
+			return `ok no text ${text} (${wanted.screenReader ? "not visible and not in the accessibility tree" : "not visible"})`;
 		throw new AppError(EXIT.failed, `FAIL text ${text} still on the page after ${seconds}`);
 	}
 	if (wanted.url !== undefined) {
@@ -582,6 +598,8 @@ export function cursorAudit(context: Context, scope: string | undefined): string
 	const raw = must(batch(context.browser, [["eval", `(${PROBE})(${JSON.stringify(scope ?? "")})`]])[0]).result;
 	const report = JSON.parse(String(raw)) as { checked?: number; violations?: Violation[]; missing?: string };
 	if (report.missing) throw new AppError(EXIT.notFound, `nothing matches --scope ${report.missing}`);
+	if (!report.checked)
+		throw new AppError(EXIT.notFound, `nothing checked: no visible clickable element in ${scope || "the page"}`);
 	const violations = report.violations ?? [];
 	const summary = `${report.checked ?? 0} clickable, ${violations.length} wrong`;
 	if (!violations.length) return summary;
