@@ -5,6 +5,8 @@
 # The tests/ui browser set runs here as well (T-301), chromium then webkit, over a seeded production build on the
 # runner's own throwaway Postgres, with no secret or outside service. `bin/dev nightly` stays the local run of the
 # same set on a preview of origin/main until it is retired (D-1377).
+# Every job sets up Node, pnpm and node_modules through .github/actions/setup, the action the ci.yml jobs use (T-392),
+# so nightly restores and saves the same Node, corepack and node_modules caches as CI.
 # GitHub runs a schedule on the default branch only. fail-forward reports a failed run on main as one incident.
 name: Nightly
 
@@ -32,19 +34,10 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0 # operation rule and rule placement checks read baseline commits
-      - uses: actions/setup-node@v7
+      - name: Shared setup (Node, pnpm, node_modules)
+        uses: ./.github/actions/setup
         with:
           node-version: ${{ env.NODE_VERSION }}
-      # pnpm comes from corepack at the packageManager version in package.json, installed once. The pnpm store
-      # cache below calls pnpm, so it comes after.
-      - name: pnpm from corepack (retries registry errors)
-        run: .github/scripts/corepack-install.sh
-      - name: pnpm store cache
-        uses: actions/setup-node@v7
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
       - name: Git identity for test fixtures
         run: |
           git config --global user.name "evf ci"
@@ -69,17 +62,10 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - name: Shared setup (Node, pnpm, node_modules)
+        uses: ./.github/actions/setup
         with:
           node-version: ${{ env.NODE_VERSION }}
-      - name: pnpm from corepack (retries registry errors)
-        run: .github/scripts/corepack-install.sh
-      - name: pnpm store cache
-        uses: actions/setup-node@v7
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
       - name: bun check over every package
         run: pnpm typecheck:bun
 
@@ -112,17 +98,10 @@ jobs:
       - name: tests/ui directory
         run: echo "UI_DIR=$RUNNER_TEMP/nightly-ui" >> "$GITHUB_ENV"
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - name: Shared setup (Node, pnpm, node_modules)
+        uses: ./.github/actions/setup
         with:
           node-version: ${{ env.NODE_VERSION }}
-      - name: pnpm from corepack (retries registry errors)
-        run: .github/scripts/corepack-install.sh
-      - name: pnpm store cache
-        uses: actions/setup-node@v7
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
       - name: Playwright chromium and webkit with their system dependencies
         working-directory: apps/web
         run: pnpm exec playwright install --with-deps chromium webkit
