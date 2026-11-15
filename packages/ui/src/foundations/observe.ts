@@ -42,6 +42,27 @@ export function observeIntersection<T extends Element>(
 	};
 }
 
+export type ScrollOptions<T extends Element> = {
+	root?: (node: T) => Element | null;
+};
+
+export function observeScroll<T extends Element>(
+	onScroll: (node: T) => void,
+	options: ScrollOptions<T> = {},
+): NodeRef<T> {
+	return (node) => {
+		if (!node) return;
+		const root = options.root?.(node) ?? null;
+		const scrolled = () => onScroll(node);
+		if (root) {
+			root.addEventListener("scroll", scrolled, { passive: true });
+			return () => root.removeEventListener("scroll", scrolled);
+		}
+		window.addEventListener("scroll", scrolled, { passive: true });
+		return () => window.removeEventListener("scroll", scrolled);
+	};
+}
+
 export type HeadingOptions = {
 	offset?: number | ((root: Element | null) => number);
 	root?: (container: HTMLElement) => Element | null;
@@ -70,22 +91,13 @@ export function observeHeadings(
 			onActive(current);
 		};
 		update();
-		if (root) {
-			root.addEventListener("scroll", update, { passive: true });
-			return () => root.removeEventListener("scroll", update);
-		}
-		window.addEventListener("scroll", update, { passive: true });
-		return () => window.removeEventListener("scroll", update);
+		return observeScroll<HTMLElement>(update, { root: () => root })(container);
 	};
 }
 
-export type ScrollProgressOptions<T extends Element> = {
-	root?: (node: T) => Element | null;
-};
-
 export function observeScrollProgress<T extends HTMLElement>(
 	onProgress: (fraction: number) => void,
-	options: ScrollProgressOptions<T> = {},
+	options: ScrollOptions<T> = {},
 ): NodeRef<T> {
 	return (node) => {
 		if (!node) return;
@@ -97,22 +109,11 @@ export function observeScrollProgress<T extends HTMLElement>(
 			const seen = Math.min(total, Math.max(0, edge - node.getBoundingClientRect().top));
 			onProgress(seen / total);
 		};
-		const resized = new ResizeObserver(report);
-		resized.observe(node);
-		if (root) {
-			resized.observe(root);
-			root.addEventListener("scroll", report, { passive: true });
-			return () => {
-				resized.disconnect();
-				root.removeEventListener("scroll", report);
-			};
-		}
-		window.addEventListener("scroll", report, { passive: true });
-		window.addEventListener("resize", report, { passive: true });
+		const stopSize = observeSize<T>(report, { also: () => [root], viewport: !root })(node);
+		const stopScroll = observeScroll<T>(report, { root: () => root })(node);
 		return () => {
-			resized.disconnect();
-			window.removeEventListener("scroll", report);
-			window.removeEventListener("resize", report);
+			stopSize?.();
+			stopScroll?.();
 		};
 	};
 }

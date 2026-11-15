@@ -30,14 +30,9 @@
 	"no-global-listeners": {
 		"packages/ui/src/foundations/observe.ts": [
 			{
-				"function": "observeHeadings",
+				"function": "observeScroll",
 				"count": 2,
-				"reason": "The active heading is the last heading above a line in the reader's viewport; where the page itself scrolls (no scroll column), only the window's scroll event says the headings moved. Added when the contents node attaches and removed when it detaches; no observer reports a continuous position"
-			},
-			{
-				"function": "observeScrollProgress",
-				"count": 4,
-				"reason": "How much of the node the reader has seen is its top against the viewport's bottom edge; where the page itself scrolls (no scroll column), only the window's scroll and resize events say that edge moved. Added when the node attaches and removed when it detaches; an IntersectionObserver reports only fixed thresholds, not a continuous fraction"
+				"reason": "The one shared scroll observer for a node's position (active heading, reading progress): where the page itself scrolls (no scroll column), only the window's scroll event says the node moved. Added when the node attaches and removed when it detaches; no observer reports a continuous position"
 			},
 			{
 				"function": "observeSize",

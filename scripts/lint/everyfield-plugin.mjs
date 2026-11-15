@@ -554,10 +554,21 @@ const noGlobalListeners = ratcheted("no-global-listeners", (context, push) => {
 			fn: enclosingName(node),
 			message: `${name}: page-wide events have one owner each. Address changes go through ${LOCATION_STORE} (an address rule registered at module scope, or onTraversal started from an event); shortcuts and the unsaved-work warning go through ${PAGE_EVENTS} (data-shortcut on the form or control, data-unsaved on the form). A listener tied to a component's lifetime is an effect: it needs a survivor entry.`,
 		});
-	const isGlobalHost = (node) =>
-		isHost(node, context, LISTENER_HOSTS) ||
-		(node?.type === "Identifier" && aliases.has(node.name)) ||
-		HOST_MEMBERS.has(memberName(node) ?? "");
+	const isGlobalHost = (node) => {
+		if (node?.type === "ConditionalExpression") return isGlobalHost(node.consequent) || isGlobalHost(node.alternate);
+		if (node?.type === "LogicalExpression") return isGlobalHost(node.left) || isGlobalHost(node.right);
+		if (
+			node?.type === "TSAsExpression" ||
+			node?.type === "TSNonNullExpression" ||
+			node?.type === "TSSatisfiesExpression"
+		)
+			return isGlobalHost(node.expression);
+		return (
+			isHost(node, context, LISTENER_HOSTS) ||
+			(node?.type === "Identifier" && aliases.has(node.name)) ||
+			HOST_MEMBERS.has(memberName(node) ?? "")
+		);
+	};
 	return {
 		VariableDeclarator(node) {
 			if (node.id.type === "Identifier" && isGlobalHost(node.init)) aliases.add(node.id.name);

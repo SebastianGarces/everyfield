@@ -326,11 +326,7 @@ export function TableSection({ index }: { index: number }) {
 	);
 }
 
-const PHOTO =
-	"data:image/svg+xml," +
-	encodeURIComponent(
-		'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" fill="#4f8a6b"/><circle cx="32" cy="26" r="12" fill="#e8d9c4"/><path d="M10 64c2-14 12-22 22-22s20 8 22 22z" fill="#e8d9c4"/></svg>',
-	);
+const PHOTO = "/mesh/sage.svg";
 
 function SettledAvatar({ name, src }: { name: string; src: string }) {
 	const [known, setKnown] = useState<"loaded" | "failed" | null>(null);
