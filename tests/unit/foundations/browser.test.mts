@@ -73,7 +73,7 @@ test("INV-debounce: only the last call runs, once; cancel, flush and detaching i
 
 type FakeNode = {
 	ownerDocument: FakeDocument;
-	focus: () => void;
+	focus: (options?: FocusOptions) => void;
 	id?: string;
 	top?: number;
 	addEventListener?: (type: string, fn: () => void) => void;
@@ -134,6 +134,11 @@ test("INV-focus: a focus request is served once, on the commit that brings it; a
 	doc.activeElement = doc.body;
 	requests.ref(4, ui.focusIfLost)(asElement(field));
 	assert.equal(doc.activeElement, field, "focusIfLost takes focus that fell to the body");
+
+	let scrolled: boolean | undefined;
+	const row = fakeNode(doc, { focus: (options?: FocusOptions) => (scrolled = !options?.preventScroll) });
+	requests.ref(5, undefined, { preventScroll: true })(asElement(row));
+	assert.equal(scrolled, false, "focus options reach the focused node, so a pick never focuses by itself");
 });
 
 test("INV-observers: every node observer stops on detach, and a late fonts.ready no longer measures", async () => {

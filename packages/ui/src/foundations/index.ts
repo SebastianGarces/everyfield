@@ -21,6 +21,7 @@ export {
 	focusFirstField,
 	focusIfLost,
 	focusOnMount,
+	useFocusOnChange,
 	useFocusRequest,
 	type FocusPick,
 	type FocusRequest,

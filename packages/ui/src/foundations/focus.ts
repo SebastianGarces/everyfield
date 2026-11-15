@@ -33,16 +33,27 @@ const isRequest = (request: FocusRequest) =>
 
 export function createFocusRequests() {
 	let served: FocusRequest;
-	let last: { request: FocusRequest; pick: unknown; ref: (node: HTMLElement | null) => void } | null = null;
+	let last: {
+		request: FocusRequest;
+		pick: unknown;
+		preventScroll: boolean | undefined;
+		ref: (node: HTMLElement | null) => void;
+	} | null = null;
 	return {
-		ref<T extends HTMLElement>(request: FocusRequest, pick?: FocusPick<T>): (node: T | null) => void {
-			if (last && last.request === request && last.pick === pick) return last.ref;
+		ref<T extends HTMLElement>(
+			request: FocusRequest,
+			pick?: FocusPick<T>,
+			options?: FocusOptions,
+		): (node: T | null) => void {
+			const preventScroll = options?.preventScroll;
+			if (last && last.request === request && last.pick === pick && last.preventScroll === preventScroll)
+				return last.ref;
 			const ref = (node: T | null) => {
 				if (!node || !isRequest(request) || served === request) return;
 				served = request;
-				(pick ? pick(node) : node)?.focus();
+				(pick ? pick(node) : node)?.focus({ preventScroll });
 			};
-			last = { request, pick, ref: ref as (node: HTMLElement | null) => void };
+			last = { request, pick, preventScroll, ref: ref as (node: HTMLElement | null) => void };
 			return ref;
 		},
 	};
@@ -51,7 +62,18 @@ export function createFocusRequests() {
 export function useFocusRequest<T extends HTMLElement>(
 	request: FocusRequest,
 	pick?: FocusPick<T>,
+	options?: FocusOptions,
 ): (node: T | null) => void {
 	const [requests] = useState(createFocusRequests);
-	return requests.ref(request, pick);
+	return requests.ref(request, pick, options);
+}
+
+export function useFocusOnChange<T extends HTMLElement>(
+	value: string | number | boolean | null | undefined,
+	pick?: FocusPick<T>,
+	options?: FocusOptions,
+): (node: T | null) => void {
+	const [seen, setSeen] = useState({ value, changes: 0 });
+	if (!Object.is(seen.value, value)) setSeen({ value, changes: seen.changes + 1 });
+	return useFocusRequest(seen.changes, pick, options);
 }
