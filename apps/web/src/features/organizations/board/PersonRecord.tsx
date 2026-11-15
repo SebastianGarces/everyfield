@@ -22,7 +22,7 @@ import {
 	Textarea,
 } from "@everyfield/ui/controls";
 import { Avatar } from "@everyfield/ui/display";
-import { useActionState, useState, type FormEvent, type ReactNode } from "react";
+import { useActionState, useState, useTransition, type FormEvent, type ReactNode } from "react";
 import {
 	addNote,
 	editNote,
@@ -353,6 +353,8 @@ function MoveForm({
 	);
 }
 
+type AssessmentState = { errors: { on?: string; by?: string }; problem: string | null };
+
 function AssessmentDialog({
 	open,
 	onOpenChange,
@@ -366,37 +368,33 @@ function AssessmentDialog({
 }) {
 	const [on, setOn] = useState("");
 	const [by, setBy] = useState("");
-	const [errors, setErrors] = useState<{ on?: string; by?: string }>({});
-	const [problem, setProblem] = useState<string | null>(null);
-	const [saving, setSaving] = useState(false);
-	async function submit(event: FormEvent) {
-		event.preventDefault();
-		const next = {
-			on: !on ? "Enter the date." : on > asOf ? "The date can’t be after today." : undefined,
-			by: by.trim() ? undefined : "Enter who ran it.",
-		};
-		setErrors(next);
-		if (next.on || next.by) return;
-		setSaving(true);
-		setProblem(await onSubmit(on, by.trim()));
-		setSaving(false);
-	}
+	const [state, submit, saving] = useActionState(
+		async (last: AssessmentState): Promise<AssessmentState> => {
+			const errors = {
+				on: !on ? "Enter the date." : on > asOf ? "The date can’t be after today." : undefined,
+				by: by.trim() ? undefined : "Enter who ran it.",
+			};
+			if (errors.on || errors.by) return { errors, problem: last.problem };
+			return { errors, problem: await onSubmit(on, by.trim()) };
+		},
+		{ errors: {}, problem: null },
+	);
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent size="sm">
-				<form onSubmit={submit} noValidate className="contents">
+				<form action={submit} noValidate className="contents">
 					<DialogHeader
 						title="Record an outside assessment"
 						description="Record that it happened, when, and who ran it. Everyfield doesn’t keep results, scores or ratings."
 					/>
 					<DialogBody className="flex flex-col gap-4">
-						<Field label="Date" error={errors.on}>
+						<Field label="Date" error={state.errors.on}>
 							<Input type="date" value={on} max={asOf} onChange={(e) => setOn(e.target.value)} />
 						</Field>
-						<Field label="Who ran it" error={errors.by} hint="For example, Send Network assessment retreat.">
+						<Field label="Who ran it" error={state.errors.by} hint="For example, Send Network assessment retreat.">
 							<Input value={by} onChange={(e) => setBy(e.target.value)} maxLength={200} />
 						</Field>
-						<Problem text={problem} />
+						<Problem text={state.problem} />
 					</DialogBody>
 					<DialogFooter>
 						<Button type="submit" variant="primary" loading={saving}>
@@ -527,20 +525,19 @@ function NoteItem({
 	const [sending, setSending] = useState(false);
 	const sendable = review !== null && note.questions !== null;
 	const [text, setText] = useState(note.body);
-	const [removing, setRemoving] = useState(false);
 	const [problem, setProblem] = useState<string | null>(null);
-	const [saving, setSaving] = useState(false);
-	async function save(event: FormEvent) {
+	const [saving, startSaving] = useTransition();
+	function save(event: FormEvent) {
 		event.preventDefault();
 		if (!text.trim()) return;
-		setSaving(true);
-		const answer = await editNote({ noteId: note.id, expectedRevision: note.revision, body: text.trim() }).catch(
-			(): Failure => ({ status: "lost" }),
-		);
-		setSaving(false);
-		if (answer.status !== "ok") return setProblem(refusalText(answer));
-		setEditing(false);
-		await onChanged();
+		startSaving(async () => {
+			const answer = await editNote({ noteId: note.id, expectedRevision: note.revision, body: text.trim() }).catch(
+				(): Failure => ({ status: "lost" }),
+			);
+			if (answer.status !== "ok") return setProblem(refusalText(answer));
+			setEditing(false);
+			await onChanged();
+		});
 	}
 	const meta = `${note.author ?? "Former staff"} · ${formatDay(note.writtenOn)}${note.editedOn ? ` · edited ${formatDay(note.editedOn)}` : ""}`;
 	return (
@@ -583,9 +580,23 @@ function NoteItem({
 								<Button variant="ghost" size="sm" onClick={() => setEditing(true)}>
 									Edit
 								</Button>
-								<Button variant="ghost" size="sm" onClick={() => setRemoving(true)}>
-									Remove
-								</Button>
+								<ConfirmDialog
+									trigger={
+										<Button variant="ghost" size="sm">
+											Remove
+										</Button>
+									}
+									title="Remove this note?"
+									description="The text is deleted. Others who can read notes will see that you removed a note, and when."
+									confirmLabel="Remove note"
+									onConfirm={async () => {
+										const answer = await removeNote({ noteId: note.id, expectedRevision: note.revision }).catch(
+											(): Failure => ({ status: "lost" }),
+										);
+										if (answer.status !== "ok") setProblem(refusalText(answer));
+										else await onChanged();
+									}}
+								/>
 							</>
 						) : null}
 					</span>
@@ -607,20 +618,6 @@ function NoteItem({
 				/>
 			) : null}
 			{problem ? <p className="text-sm text-magenta-600">{problem}</p> : null}
-			<ConfirmDialog
-				open={removing}
-				onOpenChange={setRemoving}
-				title="Remove this note?"
-				description="The text is deleted. Others who can read notes will see that you removed a note, and when."
-				confirmLabel="Remove note"
-				onConfirm={async () => {
-					const answer = await removeNote({ noteId: note.id, expectedRevision: note.revision }).catch((): Failure => ({
-						status: "lost",
-					}));
-					if (answer.status !== "ok") setProblem(refusalText(answer));
-					else await onChanged();
-				}}
-			/>
 		</article>
 	);
 }

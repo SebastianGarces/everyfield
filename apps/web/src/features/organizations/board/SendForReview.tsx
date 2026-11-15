@@ -14,7 +14,7 @@ import {
 	Input,
 	Select,
 } from "@everyfield/ui/controls";
-import { useState, type FormEvent } from "react";
+import { useActionState, useState } from "react";
 import { sendAnswers, withdrawReview } from "./actions";
 import { formatDay, refusalText } from "./model";
 import { Problem } from "./Problem";
@@ -72,8 +72,6 @@ function SendForm({
 	const [chosen, setChosen] = useState<ReadonlySet<string>>(new Set());
 	const [groupName, setGroupName] = useState("");
 	const [reviewer, setReviewer] = useState("");
-	const [problem, setProblem] = useState<string | null>(null);
-	const [saving, setSaving] = useState(false);
 	const ready = chosen.size > 0 && groupName.trim() !== "" && reviewer !== "";
 	function toggle(question: string, on: boolean) {
 		const next = new Set(chosen);
@@ -81,10 +79,8 @@ function SendForm({
 		else next.delete(question);
 		setChosen(next);
 	}
-	async function submit(event: FormEvent) {
-		event.preventDefault();
-		if (!ready || saving) return;
-		setSaving(true);
+	const [problem, submit, saving] = useActionState(async (last: string | null): Promise<string | null> => {
+		if (!ready) return last;
 		const answer = await sendAnswers({
 			reviewId,
 			noteId,
@@ -92,15 +88,12 @@ function SendForm({
 			questions: questions.filter((q) => chosen.has(q)),
 			reviewerSeatId: reviewer,
 		}).catch(lost);
-		if (answer.status !== "ok") {
-			setSaving(false);
-			setProblem(refusalText(answer));
-			return;
-		}
+		if (answer.status !== "ok") return refusalText(answer);
 		await onSent();
-	}
+		return null;
+	}, null);
 	return (
-		<form onSubmit={submit} noValidate className="contents">
+		<form action={submit} noValidate className="contents">
 			<DialogHeader
 				title="Send for review"
 				description={`The reviewer sees only the questions you choose, with ${person}’s answers. They see nothing else of ${person}, and the email they get holds no answers.`}

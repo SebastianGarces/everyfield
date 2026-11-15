@@ -21,7 +21,7 @@ import {
 	Select,
 	Textarea,
 } from "@everyfield/ui/controls";
-import { useState, type FormEvent } from "react";
+import { useActionState, useState } from "react";
 import { readGoals, saveGoal } from "./actions";
 import { formatDay, goalHeadline, KIND_LABEL, monthLabel, plural, refusalText } from "./model";
 import { Problem } from "./Problem";
@@ -39,18 +39,15 @@ const PLANTS_UNAVAILABLE = "Everyfield will count plants sent once churches are 
  * only: no rates, forecasts or verdicts (ADR-001). Owners and Admins add and edit goals.
  */
 export function GoalsArea({ initial }: { initial: PipelineGoals }) {
-	const [data, setData] = useState(initial);
-	const [seen, setSeen] = useState(initial);
-	if (seen !== initial) {
-		setSeen(initial);
-		setData(initial);
-	}
-	const [editing, setEditing] = useState<Goal | "new" | null>(null);
+	const [local, setLocal] = useState<{ from: PipelineGoals; value: PipelineGoals } | null>(null);
+	const data = local?.from === initial ? local.value : initial;
+	const [editing, setEditing] = useState<Goal | { adding: string } | null>(null);
+	const add = () => setEditing({ adding: crypto.randomUUID() });
 
 	async function saved() {
 		setEditing(null);
 		const answer = await readGoals().catch(() => null);
-		if (answer?.status === "ok") setData(answer.value);
+		if (answer?.status === "ok") setLocal({ from: initial, value: answer.value });
 	}
 
 	return (
@@ -66,7 +63,7 @@ export function GoalsArea({ initial }: { initial: PipelineGoals }) {
 					</CardHeading>
 					{data.canEdit && data.goals.length ? (
 						<CardActions>
-							<Button variant="secondary" size="sm" icon={PlusSignIcon} onClick={() => setEditing("new")}>
+							<Button variant="secondary" size="sm" icon={PlusSignIcon} onClick={add}>
 								Add goal
 							</Button>
 						</CardActions>
@@ -88,7 +85,7 @@ export function GoalsArea({ initial }: { initial: PipelineGoals }) {
 								: "No goals yet. Owners and Admins add them."}
 						</p>
 						{data.canEdit ? (
-							<Button variant="primary" size="sm" icon={PlusSignIcon} onClick={() => setEditing("new")}>
+							<Button variant="primary" size="sm" icon={PlusSignIcon} onClick={add}>
 								Add goal
 							</Button>
 						) : null}
@@ -103,7 +100,8 @@ export function GoalsArea({ initial }: { initial: PipelineGoals }) {
 				<GoalDialog
 					open={editing !== null}
 					onOpenChange={(open) => (open ? null : setEditing(null))}
-					goal={editing === "new" ? null : editing}
+					goal={editing && "adding" in editing ? null : editing}
+					goalId={editing ? ("adding" in editing ? editing.adding : editing.id) : ""}
 					asOf={data.asOf}
 					onSaved={saved}
 				/>
@@ -279,18 +277,22 @@ function GoalDialog({
 	open,
 	onOpenChange,
 	goal,
+	goalId,
 	asOf,
 	onSaved,
 }: {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	goal: Goal | null;
+	goalId: string;
 	asOf: string;
 	onSaved: () => void;
 }) {
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent size="sm">{open ? <GoalForm goal={goal} asOf={asOf} onSaved={onSaved} /> : null}</DialogContent>
+			<DialogContent size="sm">
+				{open ? <GoalForm goal={goal} goalId={goalId} asOf={asOf} onSaved={onSaved} /> : null}
+			</DialogContent>
 		</Dialog>
 	);
 }
@@ -333,20 +335,30 @@ function target(text: string): number | string {
  * A goal's targets, year, reason, counting-from day and chosen counts. Adding names the goal's ID once per dialog, so a
  * resend adds one goal.
  */
-function GoalForm({ goal, asOf, onSaved }: { goal: Goal | null; asOf: string; onSaved: () => void }) {
-	const [goalId] = useState(() => goal?.id ?? crypto.randomUUID());
+type GoalState = {
+	errors: Errors;
+	countErrors: CountErrors;
+	problem: string | null;
+	values: { reason: string; from: string };
+};
+
+function GoalForm({
+	goal,
+	goalId,
+	asOf,
+	onSaved,
+}: {
+	goal: Goal | null;
+	goalId: string;
+	asOf: string;
+	onSaved: () => void;
+}) {
 	const [leaders, setLeaders] = useState(goal ? String(goal.leaderTarget) : "");
 	const [plants, setPlants] = useState(goal ? String(goal.plantTarget) : "");
 	const [year, setYear] = useState(goal ? String(goal.targetYear) : "");
-	const [reason, setReason] = useState(goal?.rationale ?? "");
-	const [from, setFrom] = useState<string>(goal?.countingFrom ?? asOf);
 	const [counts, setCounts] = useState<CountRow[]>(() =>
 		(goal?.counts ?? []).map((c) => ({ key: crypto.randomUUID(), kind: c.kind, label: c.label })),
 	);
-	const [errors, setErrors] = useState<Errors>({});
-	const [countErrors, setCountErrors] = useState<CountErrors>({});
-	const [problem, setProblem] = useState<string | null>(null);
-	const [saving, setSaving] = useState(false);
 	const leaderTarget = target(leaders);
 	const plantTarget = target(plants);
 	const targetYear = Number(year);
@@ -355,40 +367,52 @@ function GoalForm({ goal, asOf, onSaved }: { goal: Goal | null; asOf: string; on
 			? goalHeadline({ leaderTarget, plantTarget, targetYear })
 			: null;
 
-	async function submit(event: FormEvent) {
-		event.preventDefault();
-		const next: Errors = {
-			leaders: typeof leaderTarget === "string" ? leaderTarget : undefined,
-			plants: typeof plantTarget === "string" ? plantTarget : undefined,
-			year:
-				Number.isInteger(targetYear) && targetYear >= 2000 && targetYear <= 2200
-					? undefined
-					: "Enter a year between 2000 and 2200.",
-			reason: reason.trim() ? undefined : "Say briefly why this goal matters.",
-			from: !from ? "Enter the date." : from > asOf ? "The counting-from date can’t be after today." : undefined,
-		};
-		const rows = countProblems(counts);
-		setErrors(next);
-		setCountErrors(rows);
-		if (Object.values(next).some(Boolean) || Object.keys(rows).length) return;
-		setSaving(true);
-		const answer = await saveGoal({
-			goalId,
-			expectedRevision: goal?.revision ?? null,
-			leaderTarget,
-			plantTarget,
-			targetYear,
-			rationale: reason.trim(),
-			countingFrom: from,
-			counts: counts.map((c) => ({ kind: c.kind, label: c.label.trim() })),
-		}).catch(() => ({ status: "lost" as const }));
-		setSaving(false);
-		if (answer.status !== "ok") return setProblem(refusalText(answer));
-		onSaved();
-	}
+	const [state, submit, saving] = useActionState(
+		async (last: GoalState, form: FormData): Promise<GoalState> => {
+			const values = { reason: String(form.get("reason") ?? ""), from: String(form.get("from") ?? "") };
+			const errors: Errors = {
+				leaders: typeof leaderTarget === "string" ? leaderTarget : undefined,
+				plants: typeof plantTarget === "string" ? plantTarget : undefined,
+				year:
+					Number.isInteger(targetYear) && targetYear >= 2000 && targetYear <= 2200
+						? undefined
+						: "Enter a year between 2000 and 2200.",
+				reason: values.reason.trim() ? undefined : "Say briefly why this goal matters.",
+				from: !values.from
+					? "Enter the date."
+					: values.from > asOf
+						? "The counting-from date can’t be after today."
+						: undefined,
+			};
+			const countErrors = countProblems(counts);
+			const checked = { errors, countErrors, values };
+			if (Object.values(errors).some(Boolean) || Object.keys(countErrors).length)
+				return { ...checked, problem: last.problem };
+			const answer = await saveGoal({
+				goalId,
+				expectedRevision: goal?.revision ?? null,
+				leaderTarget,
+				plantTarget,
+				targetYear,
+				rationale: values.reason.trim(),
+				countingFrom: values.from,
+				counts: counts.map((c) => ({ kind: c.kind, label: c.label.trim() })),
+			}).catch(() => ({ status: "lost" as const }));
+			if (answer.status !== "ok") return { ...checked, problem: refusalText(answer) };
+			onSaved();
+			return { ...checked, problem: null };
+		},
+		{
+			errors: {},
+			countErrors: {},
+			problem: null,
+			values: { reason: goal?.rationale ?? "", from: goal?.countingFrom ?? asOf },
+		},
+	);
+	const { errors, countErrors, problem } = state;
 
 	return (
-		<form onSubmit={submit} noValidate className="contents">
+		<form action={submit} noValidate className="contents">
 			<DialogHeader
 				title={goal ? "Edit goal" : "Add a sending goal"}
 				description="Saving a goal moves no one and changes no stage."
@@ -427,14 +451,14 @@ function GoalForm({ goal, asOf, onSaved }: { goal: Goal | null; asOf: string; on
 					/>
 				</Field>
 				<Field label="Why this goal" error={errors.reason} hint="A sentence or two your staff will see with the goal.">
-					<Textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={3} maxLength={1000} />
+					<Textarea name="reason" defaultValue={state.values.reason} rows={3} maxLength={1000} />
 				</Field>
 				<Field
 					label="Counting from"
 					error={errors.from}
 					hint="The goal’s counts include stage moves on or after this day."
 				>
-					<Input type="date" value={from} max={asOf} onChange={(e) => setFrom(e.target.value)} />
+					<Input type="date" name="from" defaultValue={state.values.from} max={asOf} />
 				</Field>
 				<CountsEditor rows={counts} errors={countErrors} onChange={setCounts} />
 				{preview ? (

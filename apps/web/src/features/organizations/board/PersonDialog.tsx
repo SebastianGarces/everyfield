@@ -12,7 +12,7 @@ import {
 	Input,
 	Select,
 } from "@everyfield/ui/controls";
-import { useState, type FormEvent } from "react";
+import { useActionState, useState } from "react";
 import { addPerson, editPerson } from "./actions";
 import { refusalText } from "./model";
 import { Problem } from "./Problem";
@@ -54,6 +54,13 @@ export function PersonDialog({
 	);
 }
 
+type FormState = {
+	values: { name: string; email: string; responsible: string; stageId: string };
+	nameError: string | null;
+	emailError: string | null;
+	problem: string | null;
+};
+
 function Form({
 	staff,
 	stages,
@@ -66,80 +73,87 @@ function Form({
 	onSaved: (saved: Saved) => void;
 }) {
 	const [personId] = useState(() => editing?.personId ?? crypto.randomUUID());
-	const [name, setName] = useState(editing?.name ?? "");
-	const [email, setEmail] = useState(editing?.email ?? "");
-	const [responsible, setResponsible] = useState(editing?.responsibleSeatId ?? NOBODY);
-	const [stageId, setStageId] = useState(editing?.stageId ?? stages[0]?.id ?? "");
-	const [saving, setSaving] = useState(false);
-	const [problem, setProblem] = useState<string | null>(null);
-	const [nameError, setNameError] = useState<string | null>(null);
-	const [emailError, setEmailError] = useState<string | null>(null);
-
-	async function submit(event: FormEvent) {
-		event.preventDefault();
-		const trimmed = name.trim();
-		const address = email.trim();
-		setNameError(trimmed ? null : "Enter a name.");
-		const emailOk = !address || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address);
-		setEmailError(emailOk ? null : "Enter an email address like name@example.com, or leave it empty.");
-		if (!trimmed || !emailOk) return;
-		setSaving(true);
-		setProblem(null);
-		const values = {
-			displayName: trimmed,
-			email: address || null,
-			responsibleSeatId: responsible === NOBODY ? null : responsible,
-		};
-		const answer = editing
-			? await editPerson({ personId, expectedRevision: editing.revision, ...values }).catch(() => ({
-					status: "lost" as const,
-				}))
-			: await addPerson({ personId, stageId, ...values }).catch(() => ({ status: "lost" as const }));
-		setSaving(false);
-		if (answer.status !== "ok") {
-			setProblem(refusalText(answer));
-			return;
-		}
-		onSaved({
-			personId,
-			revision: answer.value.revision,
-			name: trimmed,
-			email: values.email ? values.email.toLowerCase() : null,
-			responsibleSeatId: values.responsibleSeatId,
-			stageId,
-		});
-	}
+	const [state, submit, saving] = useActionState(
+		async (last: FormState, form: FormData): Promise<FormState> => {
+			const values = {
+				name: String(form.get("name") ?? ""),
+				email: String(form.get("email") ?? ""),
+				responsible: String(form.get("responsible") ?? NOBODY),
+				stageId: String(form.get("stageId") ?? last.values.stageId),
+			};
+			const trimmed = values.name.trim();
+			const address = values.email.trim();
+			const emailOk = !address || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address);
+			const checked = {
+				values,
+				nameError: trimmed ? null : "Enter a name.",
+				emailError: emailOk ? null : "Enter an email address like name@example.com, or leave it empty.",
+			};
+			if (!trimmed || !emailOk) return { ...checked, problem: last.problem };
+			const sent = {
+				displayName: trimmed,
+				email: address || null,
+				responsibleSeatId: values.responsible === NOBODY ? null : values.responsible,
+			};
+			const answer = editing
+				? await editPerson({ personId, expectedRevision: editing.revision, ...sent }).catch(() => ({
+						status: "lost" as const,
+					}))
+				: await addPerson({ personId, stageId: values.stageId, ...sent }).catch(() => ({ status: "lost" as const }));
+			if (answer.status !== "ok") return { ...checked, problem: refusalText(answer) };
+			onSaved({
+				personId,
+				revision: answer.value.revision,
+				name: trimmed,
+				email: sent.email ? sent.email.toLowerCase() : null,
+				responsibleSeatId: sent.responsibleSeatId,
+				stageId: values.stageId,
+			});
+			return { ...checked, problem: null };
+		},
+		{
+			values: {
+				name: editing?.name ?? "",
+				email: editing?.email ?? "",
+				responsible: editing?.responsibleSeatId ?? NOBODY,
+				stageId: editing?.stageId ?? stages[0]?.id ?? "",
+			},
+			nameError: null,
+			emailError: null,
+			problem: null,
+		},
+	);
 
 	return (
-		<form onSubmit={submit} noValidate className="contents">
+		<form action={submit} noValidate className="contents">
 			<DialogHeader
 				title={editing ? "Edit details" : "Add a person"}
 				description={editing ? undefined : "Someone you are deliberately developing toward planting."}
 			/>
 			<DialogBody className="flex flex-col gap-4">
-				<Field label="Name" error={nameError ?? undefined}>
-					<Input value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" maxLength={255} />
+				<Field label="Name" error={saving ? undefined : (state.nameError ?? undefined)}>
+					<Input name="name" defaultValue={state.values.name} autoComplete="off" maxLength={255} />
 				</Field>
-				<Field label="Email" optional error={emailError ?? undefined}>
-					<Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="off" />
+				<Field label="Email" optional error={saving ? undefined : (state.emailError ?? undefined)}>
+					<Input type="email" name="email" defaultValue={state.values.email} autoComplete="off" />
 				</Field>
 				<Field label="Responsible staff" hint="They can read this person’s record and notes, and add notes.">
 					<Select
-						value={responsible}
-						onValueChange={setResponsible}
+						name="responsible"
+						defaultValue={state.values.responsible}
 						options={[{ value: NOBODY, label: "No one" }, ...staff.map((s) => ({ value: s.seatId, label: s.name }))]}
 					/>
 				</Field>
 				{editing ? null : (
 					<Field label="Stage">
 						<Select
-							value={stageId}
-							onValueChange={setStageId}
+							name="stageId"
+							defaultValue={state.values.stageId}
 							options={stages.map((s) => ({ value: s.id, label: s.label }))}
 						/>
 					</Field>
 				)}
-				<Problem text={problem} />
+				<Problem text={saving ? null : state.problem} />
 			</DialogBody>
 			<DialogFooter>
 				<Button type="submit" variant="primary" loading={saving}>

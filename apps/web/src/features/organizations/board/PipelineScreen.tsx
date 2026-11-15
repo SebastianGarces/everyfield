@@ -26,16 +26,11 @@ type Card = Stage["people"][number];
  * every seat sees the sending goals and conversation counts.
  */
 export function PipelineScreen({ initial, goals }: { initial: PipelineBoard; goals: PipelineGoals | null }) {
-	const [board, setBoard] = useState(initial);
-	const [seen, setSeen] = useState(initial);
-	// A new server read (another address) replaces local changes.
-	if (seen !== initial) {
-		setSeen(initial);
-		setBoard(initial);
-	}
-	const [adding, setAdding] = useState(false);
-	const [editingStages, setEditingStages] = useState(false);
-	const [exporting, setExporting] = useState(false);
+	const [local, setLocal] = useState<{ from: PipelineBoard; value: PipelineBoard } | null>(null);
+	const board = local?.from === initial ? local.value : initial;
+	const setBoard = (change: (b: PipelineBoard) => PipelineBoard) => setLocal({ from: initial, value: change(board) });
+	const [dialog, setDialog] = useState<"add" | "stages" | "export" | null>(null);
+	const dialogFor = (name: "add" | "stages" | "export") => (open: boolean) => setDialog(open ? name : null);
 	const router = useRouter();
 	const admin = board.audience === "administrator";
 	const { query } = board;
@@ -46,12 +41,12 @@ export function PipelineScreen({ initial, goals }: { initial: PipelineBoard; goa
 
 	async function reread() {
 		const answer = await readBoard(query).catch(() => null);
-		if (answer?.status === "ok") setBoard(answer.value);
+		if (answer?.status === "ok") setBoard(() => answer.value);
 		else router.refresh();
 	}
 
 	const added = (person: Saved) => {
-		setAdding(false);
+		setDialog(null);
 		const responsible = board.staff.find((s) => s.seatId === person.responsibleSeatId);
 		const card: Card = {
 			personId: person.personId as Card["personId"],
@@ -90,16 +85,16 @@ export function PipelineScreen({ initial, goals }: { initial: PipelineBoard; goa
 									Import
 								</Link>
 							</Button>
-							<Button variant="secondary" icon={FileExportIcon} onClick={() => setExporting(true)}>
+							<Button variant="secondary" icon={FileExportIcon} onClick={() => setDialog("export")}>
 								Export
 							</Button>
 							<Button variant="secondary" asChild>
 								<Link href={`${PIPELINE_PATH}/duplicates`}>Possible duplicates</Link>
 							</Button>
-							<Button variant="secondary" icon={Edit02Icon} onClick={() => setEditingStages(true)}>
+							<Button variant="secondary" icon={Edit02Icon} onClick={() => setDialog("stages")}>
 								Edit stages
 							</Button>
-							<Button variant="primary" icon={PlusSignIcon} onClick={() => setAdding(true)}>
+							<Button variant="primary" icon={PlusSignIcon} onClick={() => setDialog("add")}>
 								Add person
 							</Button>
 						</>
@@ -121,7 +116,7 @@ export function PipelineScreen({ initial, goals }: { initial: PipelineBoard; goa
 								icon={UserMultipleIcon}
 								title="No one in your pipeline yet"
 								action={
-									<Button variant="primary" icon={PlusSignIcon} onClick={() => setAdding(true)}>
+									<Button variant="primary" icon={PlusSignIcon} onClick={() => setDialog("add")}>
 										Add person
 									</Button>
 								}
@@ -141,19 +136,19 @@ export function PipelineScreen({ initial, goals }: { initial: PipelineBoard; goa
 			{admin ? (
 				<>
 					<PersonDialog
-						open={adding}
-						onOpenChange={setAdding}
+						open={dialog === "add"}
+						onOpenChange={dialogFor("add")}
 						staff={board.staff}
 						stages={board.stages}
 						onSaved={added}
 					/>
-					<ExportDialog open={exporting} onOpenChange={setExporting} />
+					<ExportDialog open={dialog === "export"} onOpenChange={dialogFor("export")} />
 					<StageEditor
-						open={editingStages}
-						onOpenChange={setEditingStages}
+						open={dialog === "stages"}
+						onOpenChange={dialogFor("stages")}
 						stages={board.stages}
 						onSaved={() => {
-							setEditingStages(false);
+							setDialog(null);
 							void reread();
 						}}
 					/>
