@@ -72,12 +72,19 @@ export function WikiChrome({ children }: { children: ReactNode }) {
 	const [searchPath, setSearchPath] = useState<string | null>(null);
 	const [guide, setGuide] = useState(false);
 	if (searchPath !== null && searchPath !== pathname) setSearchPath(null);
-	const toggleGuide = () => {
-		if (!guide) guides.refresh(pathname);
-		setGuide(!guide);
-	};
+	const chrome = useMemo(
+		() => ({
+			openSearch: () => setSearchPath(pathname),
+			toggleGuide: () => {
+				if (!guide) guides.refresh(pathname);
+				setGuide(!guide);
+			},
+			guideOpen: guide,
+		}),
+		[pathname, guide],
+	);
 	return (
-		<Chrome value={{ openSearch: () => setSearchPath(pathname), toggleGuide, guideOpen: guide }}>
+		<Chrome value={chrome}>
 			{children}
 			<SearchDialog open={searchPath === pathname} onOpenChange={(next) => setSearchPath(next ? pathname : null)} />
 			<GuideSheet open={guide} onOpenChange={setGuide} />
@@ -603,39 +610,20 @@ function keepSidenavPlace(el: HTMLDivElement | null) {
  * The reading columns. From 1280px up and with `fixed`, the page header above stays put and the sidenav, the article
  * and the contents list each scroll on their own. Below 1280px the page scrolls as one.
  */
-export function ArticleColumns({
+type Groups = { name: string; items: { id: string; title: string; href: string; read?: boolean }[] }[];
+
+function ArticleTree({
 	phases,
 	more,
 	currentId,
-	headings,
-	children,
 	meter,
-	fixed,
 }: {
 	phases: WikiPhase[];
-	more: { name: string; items: { id: string; title: string; href: string; read?: boolean }[] }[];
+	more: Groups;
 	currentId?: string;
-	headings: Heading[];
-	children: ReactNode;
 	meter: ReactNode;
-	fixed: boolean;
 }) {
-	const pathname = usePathname();
-	const session = use(SessionContext);
-	const [openPath, setOpenPath] = useState<string | null>(null);
-	const open = openPath === pathname;
-	const [heading, setHeading] = useState(headings[0]?.id);
-	const ids = headings.map((item) => item.id).join("|");
-	const watchHeadings = useMemo(
-		() =>
-			observeHeadings(ids ? ids.split("|") : [], setHeading, {
-				root: () => scrollColumn(),
-				offset: (root) => (root ? 24 : 120),
-			}),
-		[ids],
-	);
-	const toc = headings.length ? <Toc items={headings} current={heading} /> : null;
-	const tree = () => (
+	return (
 		<div className="flex flex-col gap-4">
 			{phases.length ? <WikiTree phases={phases} currentId={currentId} linkAs={Link} /> : null}
 			{more.map((group) => (
@@ -665,6 +653,40 @@ export function ArticleColumns({
 			{meter}
 		</div>
 	);
+}
+
+export function ArticleColumns({
+	phases,
+	more,
+	currentId,
+	headings,
+	children,
+	meter,
+	fixed,
+}: {
+	phases: WikiPhase[];
+	more: Groups;
+	currentId?: string;
+	headings: Heading[];
+	children: ReactNode;
+	meter: ReactNode;
+	fixed: boolean;
+}) {
+	const pathname = usePathname();
+	const session = use(SessionContext);
+	const [openPath, setOpenPath] = useState<string | null>(null);
+	const open = openPath === pathname;
+	const [heading, setHeading] = useState(headings[0]?.id);
+	const ids = headings.map((item) => item.id).join("|");
+	const watchHeadings = useMemo(
+		() =>
+			observeHeadings(ids ? ids.split("|") : [], setHeading, {
+				root: () => scrollColumn(),
+				offset: (root) => (root ? 24 : 120),
+			}),
+		[ids],
+	);
+	const toc = headings.length ? <Toc items={headings} current={heading} /> : null;
 	return (
 		<>
 			<div className={`mb-4 ${BELOW_WIDE_ONLY}`}>
@@ -675,7 +697,9 @@ export function ArticleColumns({
 			<Dialog open={open} onOpenChange={(next) => setOpenPath(next ? pathname : null)}>
 				<DialogContent>
 					<DialogHeader title="Articles" />
-					<DialogBody>{tree()}</DialogBody>
+					<DialogBody>
+						<ArticleTree phases={phases} more={more} currentId={currentId} meter={meter} />
+					</DialogBody>
 				</DialogContent>
 			</Dialog>
 			<div className={fixed ? GRID_FIXED : GRID}>
@@ -686,7 +710,7 @@ export function ArticleColumns({
 					}}
 					className={fixed ? RAIL : RAIL_STICKY}
 				>
-					{tree()}
+					<ArticleTree phases={phases} more={more} currentId={currentId} meter={meter} />
 				</div>
 				<div
 					ref={session?.track}
