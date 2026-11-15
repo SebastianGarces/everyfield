@@ -8616,7 +8616,10 @@
         "WP-095",
         "WP-058"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/knowledge/restore-deletion.test.mts"
+      ],
       "description": "Deletion request October 13; coherent live purge November 20 after retry; copy expires≤November 27; isolated old restore after expiry.",
       "given": {
         "P": {

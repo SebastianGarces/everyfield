@@ -4950,7 +4950,10 @@
         "WP-095",
         "WP-058"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/knowledge/restore-files.test.mts"
+      ],
       "description": "Isolated timed DB plus files restore with current deletion witness/external mail/issue receipt and mismatched file.",
       "given": {
         "P": {

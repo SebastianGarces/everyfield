@@ -3080,7 +3080,7 @@
     },
     "WP-092": {
       "status": "in_progress",
-      "revision": 1,
+      "revision": 2,
       "updated_at": "2026-11-14T00:00:00.000Z",
       "evidence": [
         {
@@ -3110,9 +3110,51 @@
           "test": "AC:SCHEMA-010 in tests/integration/target/sql/knowledge/unmerge.test.mts (node --test on Postgres; CI census through tests/integration/writes/suites.json)",
           "result": "passed",
           "note": "T-393 slice 1: changed post-merge state refused with inverse_conflict; clean state inverts once; no provider undo or resend."
+        },
+        {
+          "path": "tests/integration/target/sql/knowledge/restore-deletion.test.mts",
+          "commit": "dbee8e80b1185bde35d1b8986a77ba20a55c93ba",
+          "test": "AC:ORG55-008 in tests/integration/target/sql/knowledge/restore-deletion.test.mts (node --test on Postgres; CI census through tests/integration/writes/suites.json)",
+          "result": "passed",
+          "note": "T-394 slice 2: a pre-purge snapshot restored before copy expiry shows A purged from the current witness and hides A's body, email and avatar; on 2026-11-27 the copy has expired and nothing restores."
+        },
+        {
+          "path": "tests/integration/target/sql/knowledge/restore-deletion.test.mts",
+          "commit": "dbee8e80b1185bde35d1b8986a77ba20a55c93ba",
+          "test": "AC:DEL58-008 in tests/integration/target/sql/knowledge/restore-deletion.test.mts (node --test on Postgres; CI census through tests/integration/writes/suites.json)",
+          "result": "passed",
+          "note": "T-394 slice 2: a recopy claiming a later expiry is refused through the candidate check's original-expiry map; the restored recopy keeps the witness expiry, hides A and refuses its cancel."
+        },
+        {
+          "path": "tests/integration/target/sql/knowledge/restore-files.test.mts",
+          "commit": "dbee8e80b1185bde35d1b8986a77ba20a55c93ba",
+          "test": "AC:OPS54-002 in tests/integration/target/sql/knowledge/restore-files.test.mts (node --test on Postgres; CI census through tests/integration/writes/suites.json)",
+          "result": "passed",
+          "note": "T-394 slice 2: a restored database missing one ready file's bytes fails, drops the target and keeps the customer-data gate blocked."
+        },
+        {
+          "path": "tests/integration/target/sql/knowledge/restore-files.test.mts",
+          "commit": "dbee8e80b1185bde35d1b8986a77ba20a55c93ba",
+          "test": "AC:REC59-003 in tests/integration/target/sql/knowledge/restore-files.test.mts (node --test on Postgres; CI census through tests/integration/writes/suites.json)",
+          "result": "passed",
+          "note": "T-394 slice 2: bytes of D-v1 under a database row pointing at D-v2 fail closed, naming the file id only, with nothing issuable."
+        },
+        {
+          "path": "tests/integration/target/sql/knowledge/restore-files.test.mts",
+          "commit": "dbee8e80b1185bde35d1b8986a77ba20a55c93ba",
+          "test": "AC:REC59-004 in tests/integration/target/sql/knowledge/restore-files.test.mts (node --test on Postgres; CI census through tests/integration/writes/suites.json)",
+          "result": "passed",
+          "note": "T-394 slice 2: the drill clock measures 1 h lost and 4 h to recover, meeting the internal targets with no customer SLA; 5 h misses."
+        },
+        {
+          "path": "tests/integration/target/sql/knowledge/restore-receipts.test.mts",
+          "commit": "dbee8e80b1185bde35d1b8986a77ba20a55c93ba",
+          "test": "AC:REC59-006 in tests/integration/target/sql/knowledge/restore-receipts.test.mts (node --test on Postgres; CI census through tests/integration/writes/suites.json)",
+          "result": "passed",
+          "note": "T-394 slice 2: an old copy restores no expired body, sends no mail, publishes no issue and keeps the expiry; its rows take the accepted receipt and issue 7."
         }
       ],
-      "notes": "T-393 slice 1 (D-1552, D-1554): DEL58-003, DEL58-006, GAP-REF-006 and SCHEMA-010 run. Not done: the isolated-restore gates (ORG55-008, DEL58-008, OPS54-002, REC59-003, REC59-004, REC59-006), the encrypted copy and readiness gates (BKT60-002, BKT60-004), and the WP-049 and WP-055 dependencies remain."
+      "notes": "T-393 slice 1 (D-1552, D-1554): DEL58-003, DEL58-006, GAP-REF-006 and SCHEMA-010 run. T-394 slice 2: the isolated restore rehearsal (ops/maintenance/restore.mts) runs ORG55-008, DEL58-008, OPS54-002, REC59-003, REC59-004 and REC59-006 on a throwaway Postgres and a fake object store; G-RECOVERY stays open. Not done: the encrypted copy and readiness gates (BKT60-002, BKT60-004), and the WP-049 and WP-055 dependencies remain."
     },
     "WP-093": {
       "status": "not_started",
