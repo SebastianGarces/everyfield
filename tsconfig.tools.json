@@ -23,6 +23,7 @@
 		"scripts/**/*.ts",
 		"tools/ci/**/*.ts",
 		"tools/qa/**/*.ts",
+		"tools/app/**/*.ts",
 		"tools/prod-identity/**/*.ts",
 		"ops/actionable-watch/**/*.mts"
 	]

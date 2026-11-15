@@ -231,6 +231,7 @@ test("T-41 --full, the verifier mode, ignores selection: a docs-only diff runs e
 		"workflow",
 		"tools-ci",
 		"tools-qa",
+		"tools-app",
 		"github-scripts",
 		"ops-watch",
 	]);

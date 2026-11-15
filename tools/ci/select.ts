@@ -18,6 +18,7 @@ export const CHECKS = {
 	workflow: { kind: "suite", root: "tests/workflow", files: "tests/workflow/*.test.{mjs,ts}" },
 	"tools-ci": { kind: "suite", root: "tools/ci/tests", files: "tools/ci/tests/*.test.ts" },
 	"tools-qa": { kind: "suite", root: "tools/qa/tests", files: "tools/qa/tests/*.test.ts" },
+	"tools-app": { kind: "suite", root: "tools/app/tests", files: "tools/app/tests/*.test.ts" },
 	"github-scripts": { kind: "suite", root: ".github/scripts", files: ".github/scripts/*.test.cjs" },
 	"ops-watch": { kind: "suite", root: "ops/actionable-watch/test", files: "ops/actionable-watch/test/*.test.mts" },
 } as const satisfies Record<string, Check>;
@@ -108,6 +109,7 @@ export const RULES: readonly Rule[] = [
 	},
 	{ name: "dev command", paths: ["bin/dev"], tests: ["tests/workflow/dev.test.mjs"] },
 	{ name: "QA command", paths: ["bin/qa"], suites: ["tools-qa"] },
+	{ name: "app verification command", paths: ["bin/app", "tools/app/**"], suites: ["tools-app"] },
 	// T-396: its tests live in the QA suite, which CI already runs, and share its throwaway Postgres.
 	{ name: "production identity setup", paths: ["bin/prod-identity", "tools/prod-identity/**"], suites: ["tools-qa"] },
 	{
