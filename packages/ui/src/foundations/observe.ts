@@ -53,31 +53,25 @@ export function observeHeadings(
 	options: HeadingOptions = {},
 ): NodeRef<HTMLElement> {
 	return (container) => {
-		if (!container) return;
-		const headings = ids
-			.map((id) => container.ownerDocument.getElementById(id))
-			.filter((el): el is HTMLElement => el !== null);
-		if (headings.length === 0) return;
+		if (!container || ids.length === 0) return;
+		const doc = container.ownerDocument;
 		const root = options.root?.(container) ?? null;
 		const offset = typeof options.offset === "function" ? options.offset(root) : (options.offset ?? 96);
-		const passed = new Set<Element>();
 		let active: string | undefined;
-		const observer = new IntersectionObserver(
-			(entries) => {
-				for (const entry of entries) {
-					const line = entry.rootBounds?.top ?? offset;
-					if (entry.boundingClientRect.top <= line) passed.add(entry.target);
-					else passed.delete(entry.target);
-				}
-				let current = headings[0]!;
-				for (const heading of headings) if (passed.has(heading)) current = heading;
-				if (current.id === active) return;
-				active = current.id;
-				onActive(active);
-			},
-			{ root, rootMargin: `-${offset}px 0px 0px 0px`, threshold: [0, 1] },
-		);
-		for (const heading of headings) observer.observe(heading);
-		return () => observer.disconnect();
+		const update = () => {
+			const line = (root ? root.getBoundingClientRect().top : 0) + offset;
+			let current = ids[0]!;
+			for (const id of ids) {
+				const heading = doc.getElementById(id);
+				if (heading && heading.getBoundingClientRect().top <= line) current = id;
+			}
+			if (current === active) return;
+			active = current;
+			onActive(current);
+		};
+		update();
+		const target: Element | Window = root ?? doc.defaultView ?? window;
+		target.addEventListener("scroll", update, { passive: true });
+		return () => target.removeEventListener("scroll", update);
 	};
 }
