@@ -153,6 +153,7 @@ function Coverage({ coverage, owners, filter }: { coverage: Coverage; owners: Ac
 						icon={ArrowDataTransferHorizontalIcon}
 						onClick={(e) => {
 							opener.mark(e);
+							prefetchSeats();
 							handoff.start();
 						}}
 						{...warmOn(prefetchSeats)}
@@ -220,6 +221,7 @@ function Coverage({ coverage, owners, filter }: { coverage: Coverage; owners: Ac
 												disabled={lane.wait !== null}
 												onClick={(e) => {
 													opener.mark(e);
+													prefetchOwners();
 													setAdding(r.person);
 												}}
 												{...warmOn(prefetchOwners)}
@@ -310,6 +312,7 @@ function Coverage({ coverage, owners, filter }: { coverage: Coverage; owners: Ac
 											disabled={handoff.lane.wait !== null}
 											onClick={(e) => {
 												opener.mark(e);
+												prefetchSeats();
 												handoff.start(o.accountId);
 											}}
 											{...warmOn(prefetchSeats)}

@@ -454,6 +454,7 @@ function RelationField({
 				<Select
 					value={kind}
 					onValueChange={(k) => {
+						if (k !== "none" && !locked) relations.prefetch(k as RelationKind, "");
 						setKind(k as RelationKind | "none");
 						cancel();
 						setQuery("");

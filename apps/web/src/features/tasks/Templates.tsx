@@ -61,6 +61,7 @@ export function Templates({ year, onImported }: { year: number; onImported: (tas
 		else choose(null);
 	};
 	const choose = (key: string | null) => {
+		if (key) previews.prefetch(key);
 		setChosen(key);
 		setProblem(null);
 		intent.current = crypto.randomUUID();
