@@ -116,3 +116,32 @@ jobs:
             !${{ runner.temp }}/nightly-ui/fixtures
           if-no-files-found: ignore
           retention-days: 14
+
+  formal:
+    name: formal replay (fresh seed)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: pgvector/pgvector:0.8.7-pg18
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: everyfield_ci
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U ci -d everyfield_ci"
+          --health-interval 2s --health-timeout 5s --health-retries 30
+    env:
+      DATABASE_URL: postgres://ci:ci@localhost:5432/everyfield_ci
+      EARLY_ACCESS_TEST_DATABASE: "1"
+    steps:
+      - uses: actions/checkout@v7
+      - name: Shared setup (Node, pnpm, node_modules)
+        uses: ./.github/actions/setup
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Migrate the throwaway database
+        run: pnpm db:migrate
+      - name: Generate and replay permissions behaviors from a fresh seed
+        run: node scripts/nightly-formal.ts
