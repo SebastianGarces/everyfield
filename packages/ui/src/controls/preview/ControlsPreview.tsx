@@ -28,7 +28,7 @@ import {
 	UserMultipleIcon,
 } from "@hugeicons/core-free-icons";
 import { useState, useSyncExternalStore, type ReactNode } from "react";
-import { cn, EvryBot, Icon, revealDelay } from "../../foundations";
+import { cn, EvryBot, Icon, revealDelay, useFocusRequest } from "../../foundations";
 import {
 	Button,
 	CalloutLabel,
@@ -1152,8 +1152,29 @@ function FeedbackSection() {
 	);
 }
 
+function SpecimenPager() {
+	const [{ page, moves }, setPaging] = useState({ page: 1, moves: 0 });
+	const previous = useFocusRequest<HTMLButtonElement>(page === 2 && moves);
+	const next = useFocusRequest<HTMLButtonElement>(page === 1 && moves);
+	const go = (to: number) => setPaging({ page: to, moves: moves + 1 });
+	return (
+		<CardStickyFooter>
+			<span role="status" className="text-text-3">
+				Page {page} of 2
+			</span>
+			<span className="flex gap-2">
+				<Button ref={previous} size="sm" disabled={page === 1} onClick={() => go(1)}>
+					Previous
+				</Button>
+				<Button ref={next} size="sm" disabled={page === 2} onClick={() => go(2)}>
+					Next
+				</Button>
+			</span>
+		</CardStickyFooter>
+	);
+}
+
 function StickyFooterSection() {
-	const [page, setPage] = useState(1);
 	const rows = ACTIVITY.slice(0, 6);
 	return (
 		<Section
@@ -1179,19 +1200,7 @@ function StickyFooterSection() {
 								</li>
 							))}
 						</ul>
-						<CardStickyFooter>
-							<span role="status" className="text-text-3">
-								Page {page} of 2
-							</span>
-							<span className="flex gap-2">
-								<Button size="sm" disabled={page === 1} onClick={() => setPage(1)}>
-									Previous
-								</Button>
-								<Button size="sm" disabled={page === 2} onClick={() => setPage(2)}>
-									Next
-								</Button>
-							</span>
-						</CardStickyFooter>
+						<SpecimenPager />
 					</Card>
 				))}
 			</div>

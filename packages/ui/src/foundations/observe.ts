@@ -4,6 +4,7 @@ export type SizeOptions<T extends Element> = {
 	also?: (node: T) => Iterable<Element | null | undefined>;
 	fonts?: boolean;
 	viewport?: boolean;
+	measureOnAttach?: boolean;
 };
 
 export function observeSize<T extends Element>(onResize: (node: T) => void, options: SizeOptions<T> = {}): NodeRef<T> {
@@ -13,7 +14,7 @@ export function observeSize<T extends Element>(onResize: (node: T) => void, opti
 		const measure = () => {
 			if (attached) onResize(node);
 		};
-		measure();
+		if (options.measureOnAttach !== false) measure();
 		const observer = new ResizeObserver(measure);
 		observer.observe(node);
 		for (const other of options.also?.(node) ?? []) if (other) observer.observe(other);
@@ -109,9 +110,7 @@ export function observeScrollProgress<T extends HTMLElement>(
 			const seen = Math.min(total, Math.max(0, edge - node.getBoundingClientRect().top));
 			onProgress(seen / total);
 		};
-		let laidOut = false;
-		const stopSize = observeSize<T>(() => laidOut && report(), { also: () => [root], viewport: !root })(node);
-		laidOut = true;
+		const stopSize = observeSize<T>(report, { also: () => [root], viewport: !root, measureOnAttach: false })(node);
 		const stopScroll = observeScroll<T>(report, { root: () => root })(node);
 		return () => {
 			stopSize?.();

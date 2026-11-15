@@ -193,6 +193,10 @@ test("INV-observers: every node observer stops on detach, and a late fonts.ready
 		await fonts;
 		assert.equal(measured, 1, "fonts.ready after detach does not measure");
 
+		const detachLater = ui.observeSize(() => measured++, { measureOnAttach: false })(node)!;
+		assert.equal(measured, 1, "measureOnAttach: false leaves the first measure to the size observer");
+		detachLater();
+
 		const detachSeen = ui.observeIntersection(() => {})(node)!;
 		assert.ok(live.has("intersection"));
 		detachSeen();
