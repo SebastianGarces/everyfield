@@ -222,6 +222,7 @@ function Editor({
 	const onFork = () =>
 		run(async () => {
 			if (!current?.sourceKey) return;
+			actions.flag({});
 			const result = await forkTemplate(keys.take("fork"), current.sourceKey).catch(lost<Template>);
 			keys.settle("fork", result);
 			if (result.status !== "ok") return actions.flag({ form: outcomeText(result) ?? undefined });
