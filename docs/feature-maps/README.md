@@ -122,7 +122,7 @@ flowchart LR
 | Feature | Map | Surfaces | Routes | Behaviors | Browser behavior proofs | Browser presence proofs |
 |---|---|---|---|---|---|---|
 | [communication](communication.md) | [`apps/web/src/features/communication/feature-map.json`](../../apps/web/src/features/communication/feature-map.json) | 4 | 4 | 8 | 8 | 0 |
-| [documents](documents.md) | [`apps/web/src/features/documents/feature-map.json`](../../apps/web/src/features/documents/feature-map.json) | 5 | 11 | 8 | 7 | 1 |
+| [documents](documents.md) | [`apps/web/src/features/documents/feature-map.json`](../../apps/web/src/features/documents/feature-map.json) | 5 | 11 | 8 | 6 | 2 |
 | [feedback](feedback.md) | [`apps/web/src/features/feedback/feature-map.json`](../../apps/web/src/features/feedback/feature-map.json) | 3 | 4 | 3 | 3 | 0 |
 | [identity](identity.md) | [`apps/web/src/features/identity/feature-map.json`](../../apps/web/src/features/identity/feature-map.json) | 8 | 10 | 11 | 4 | 1 |
 | [intelligence](intelligence.md) | [`apps/web/src/features/intelligence/feature-map.json`](../../apps/web/src/features/intelligence/feature-map.json) | 4 | 4 | 4 | 2 | 1 |

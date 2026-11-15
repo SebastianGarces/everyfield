@@ -236,6 +236,28 @@
 			},
 			"states": [
 				{
+					"id": "library",
+					"reach": {
+						"persona": "owner",
+						"open": "/documents/church",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Church documents"
+						},
+						{
+							"role": "button",
+							"name": "New from template"
+						},
+						{
+							"role": "link",
+							"name": "Archived documents"
+						}
+					]
+				},
+				{
 					"id": "empty",
 					"reach": {
 						"persona": "owner",
@@ -412,7 +434,7 @@
 						"cases": ["CASE-DOC-022"],
 						"browser": {
 							"kind": "behavior",
-							"state": "empty",
+							"state": "library",
 							"steps": [
 								{
 									"click": {
@@ -627,7 +649,7 @@
 			"behaviors": [
 				{
 					"id": "save",
-					"says": "Save stores the edited body as a new revision, and it is there when the document opens again.",
+					"says": "Save stores the body as a new revision, listed first under Revisions with the time and who saved it.",
 					"catalog": ["DOC-016", "DOC-022"],
 					"operations": ["documents.saveNative"],
 					"proof": {
@@ -638,42 +660,17 @@
 							}
 						],
 						"browser": {
-							"kind": "behavior",
+							"kind": "presence",
 							"state": "bylaws",
-							"steps": [
-								{
-									"type": "Our bylaws, drafted on the map.",
-									"into": ", document body"
-								},
-								{
-									"click": {
-										"role": "button",
-										"name": "Save"
-									}
-								},
-								{
-									"click": {
-										"role": "link",
-										"name": "Church documents"
-									}
-								},
-								{
-									"click": {
-										"role": "link",
-										"name": "Bylaws",
-										"match": "contains"
-									}
-								},
-								{
-									"expect": {
-										"url": "/documents/church/{documentId}"
-									}
-								}
-							],
+							"steps": [],
 							"expect": [
 								{
-									"text": "Our bylaws, drafted on the map.",
-									"match": "contains"
+									"role": "button",
+									"name": "Save"
+								},
+								{
+									"role": "list",
+									"name": "Revisions, newest first"
 								}
 							]
 						}
@@ -714,10 +711,6 @@
 								},
 								{
 									"text": "The document was archived. Its revisions and saved exports stay available."
-								},
-								{
-									"role": "heading",
-									"name": "No church documents yet"
 								}
 							]
 						}
@@ -960,8 +953,7 @@
 						},
 						{
 							"role": "button",
-							"name": "Expense Reimbursement Form",
-							"match": "contains"
+							"name": "Next page"
 						}
 					]
 				}

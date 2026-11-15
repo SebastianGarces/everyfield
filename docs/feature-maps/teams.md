@@ -20,8 +20,9 @@ flowchart LR
   s0 -- "link containing #quot;Worship#quot;" --> s1
   s1_link1 --> s1
   s1 -.- s1_st0(("worship"))
-  s1 -.- s1_st1(("not-found"))
-  s1 -.- s1_st2(("error (manual)"))
+  s1 -.- s1_st1(("kids"))
+  s1 -.- s1_st2(("not-found"))
+  s1 -.- s1_st3(("error (manual)"))
   s1 --- s1_b0["add-role<br/>tests + cases + browser behavior"]
   s1 --- s1_b1["appoint-leader<br/>tests + cases + browser presence"]
 ```
@@ -151,6 +152,19 @@ agent-browser find role button text --name "Appoint leader" --exact
 agent-browser find role button text --name "Add role" --exact
 ```
 
+- **kids**: heading "Kids"; heading "No roles yet"; button "Add role". As `owner`, on the QA seed:
+
+```bash
+agent-browser open "$ORIGIN/ministries"
+agent-browser wait --load networkidle
+agent-browser find role link click --name "Kids"
+agent-browser wait --load networkidle
+agent-browser wait --url "**/ministries/*"
+agent-browser find role heading text --name "Kids" --exact
+agent-browser find role heading text --name "No roles yet" --exact
+agent-browser find role button text --name "Add role" --exact
+```
+
 - **not-found** (`not-found.tsx`): heading "This ministry is not here"; link "Ministries". As `owner`, on the QA seed:
 
 ```bash
@@ -170,7 +184,7 @@ Add role, then New blank role, adds a role the ministry can fill.
 - Catalog: TEAM-005
 - Cases: TARGET-TEAM-005
 - Test: `tests/integration/teams/teams.test.mts`: `AC:TARGET-TEAM-005 AC:TARGET-TEAM-006 AC:GAP-TEAM-014 AC:TARGET-TEAM-014 a role has one live person, and lists hide safety fields`
-- Browser, behavior proof (acts and checks the result), from state worship:
+- Browser, behavior proof (acts and checks the result), from state kids:
 
 ```bash
 agent-browser find role button click --name "Add role" --exact

@@ -294,6 +294,42 @@
 					]
 				},
 				{
+					"id": "kids",
+					"reach": {
+						"persona": "owner",
+						"open": "/ministries",
+						"path": [
+							{
+								"click": {
+									"role": "link",
+									"name": "Kids",
+									"match": "contains"
+								}
+							},
+							{
+								"expect": {
+									"url": "/ministries/{teamId}"
+								}
+							}
+						],
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Kids"
+						},
+						{
+							"role": "heading",
+							"name": "No roles yet"
+						},
+						{
+							"role": "button",
+							"name": "Add role"
+						}
+					]
+				},
+				{
 					"id": "not-found",
 					"file": "apps/web/src/app/(product)/(frame)/ministries/[teamId]/not-found.tsx",
 					"reach": {
@@ -342,7 +378,7 @@
 						"cases": ["TARGET-TEAM-005"],
 						"browser": {
 							"kind": "behavior",
-							"state": "worship",
+							"state": "kids",
 							"steps": [
 								{
 									"click": {

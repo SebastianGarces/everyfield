@@ -15,13 +15,20 @@
 					"path": [
 						{
 							"click": {
-								"role": "link",
-								"name": "Settings"
+								"role": "button",
+								"name": "account menu",
+								"match": "contains"
+							}
+						},
+						{
+							"click": {
+								"role": "menuitem",
+								"name": "Your account"
 							}
 						},
 						{
 							"expect": {
-								"url": "/settings"
+								"url": "/settings/account"
 							}
 						}
 					]

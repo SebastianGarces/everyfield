@@ -13,7 +13,7 @@ flowchart LR
   s4_link1(["link /design/restricted/{flow}"])
   x_communication_messages(["communication.messages"])
   s0["settings.dialog<br/>/settings /settings/[section]"]
-  x_communication_messages -- "link #quot;Settings#quot;" --> s0
+  x_communication_messages -- "button containing #quot;account menu#quot;, then menuitem #quot;Your account#quot;" --> s0
   s0_link1 --> s0
   s0 -.- s0_st0(("church"))
   s0 -.- s0_st1(("member"))
@@ -60,9 +60,11 @@ Reach:
 - From communication.messages as `owner`:
 
 ```bash
-agent-browser find role link click --name "Settings" --exact
+agent-browser find role button click --name "account menu"
 agent-browser wait --load networkidle
-agent-browser wait --url "**/settings"
+agent-browser find role menuitem click --name "Your account" --exact
+agent-browser wait --load networkidle
+agent-browser wait --url "**/settings/account"
 ```
 
 - Link `/settings/{section}` where `{section}` is a section key: church, brand, notifications, wiki-sources or account

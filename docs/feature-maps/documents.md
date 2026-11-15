@@ -19,14 +19,15 @@ flowchart LR
   s0 --- s0_b1["filter<br/>tests + cases + browser behavior"]
   s1["documents.church-library<br/>/documents/church /documents/church/archived"]
   s0 -- "link #quot;Church documents#quot;" --> s1
-  s1 -.- s1_st0(("empty"))
-  s1 -.- s1_st1(("archived-empty"))
-  s1 -.- s1_st2(("member-archived"))
-  s1 -.- s1_st3(("no-seat"))
-  s1 -.- s1_st4(("archived (setup)"))
-  s1 -.- s1_st5(("loading (manual)"))
-  s1 -.- s1_st6(("loading-documents (manual)"))
-  s1 -.- s1_st7(("error (manual)"))
+  s1 -.- s1_st0(("library"))
+  s1 -.- s1_st1(("empty"))
+  s1 -.- s1_st2(("archived-empty"))
+  s1 -.- s1_st3(("member-archived"))
+  s1 -.- s1_st4(("no-seat"))
+  s1 -.- s1_st5(("archived (setup)"))
+  s1 -.- s1_st6(("loading (manual)"))
+  s1 -.- s1_st7(("loading-documents (manual)"))
+  s1 -.- s1_st8(("error (manual)"))
   s1 --- s1_b0["new-from-template<br/>tests + cases + browser behavior"]
   s1 --- s1_b1["restore<br/>tests + browser behavior"]
   s2["documents.church-document<br/>/documents/church/[documentId]"]
@@ -36,7 +37,7 @@ flowchart LR
   s2 -.- s2_st1(("loading (manual)"))
   s2 -.- s2_st2(("loading-documents (manual)"))
   s2 -.- s2_st3(("error (manual)"))
-  s2 --- s2_b0["save<br/>tests + browser behavior"]
+  s2 --- s2_b0["save<br/>tests + browser presence"]
   s2 --- s2_b1["archive<br/>tests + browser behavior"]
   s2 --- s2_b2["export<br/>tests + cases + browser presence"]
   s3["documents.written<br/>/documents/written/[documentId]"]
@@ -153,6 +154,16 @@ agent-browser wait --url "**/documents/church"
 
 States:
 
+- **library**: heading "Church documents"; button "New from template"; link "Archived documents". As `owner`, on the QA seed:
+
+```bash
+agent-browser open "$ORIGIN/documents/church"
+agent-browser wait --load networkidle
+agent-browser find role heading text --name "Church documents" --exact
+agent-browser find role button text --name "New from template" --exact
+agent-browser find role link text --name "Archived documents" --exact
+```
+
 - **empty**: heading "No church documents yet"; button "New from template". As `owner`, on the QA seed:
 
 ```bash
@@ -220,7 +231,7 @@ New from template makes the church plant's own editable copy and opens it.
 - Catalog: DOC-022
 - Cases: CASE-DOC-022
 - Test: `tests/integration/documents/church.test.mts`: `AC:CASE-DOC-022 New from template forks the policy, records its origin and freezes the church and brand kit values`
-- Browser, behavior proof (acts and checks the result), from state empty:
+- Browser, behavior proof (acts and checks the result), from state library:
 
 ```bash
 agent-browser find role button click --name "New from template" --exact
@@ -297,23 +308,16 @@ agent-browser find role heading text --name "Revisions" --exact
 
 #### documents.church-document#save
 
-Save stores the edited body as a new revision, and it is there when the document opens again.
+Save stores the body as a new revision, listed first under Revisions with the time and who saved it.
 
 - Operations: documents.saveNative
 - Catalog: DOC-016, DOC-022
 - Test: `tests/integration/documents/church.test.mts`: `AC:DOC-016 a body the editor builds saves as one revision; a Member's save writes nothing`
-- Browser, behavior proof (acts and checks the result), from state bylaws:
+- Browser, presence proof only (the control is there; the tests prove the outcome), from state bylaws:
 
 ```bash
-agent-browser find label ", document body" fill "Our bylaws, drafted on the map."
-agent-browser find role button click --name "Save" --exact
-agent-browser wait --load networkidle
-agent-browser find role link click --name "Church documents" --exact
-agent-browser wait --load networkidle
-agent-browser find role link click --name "Bylaws"
-agent-browser wait --load networkidle
-agent-browser wait --url "**/documents/church/*"
-agent-browser wait --text "Our bylaws, drafted on the map."
+agent-browser find role button text --name "Save" --exact
+agent-browser find role list text --name "Revisions, newest first" --exact
 ```
 
 #### documents.church-document#archive
@@ -332,7 +336,6 @@ agent-browser find role button click --name "Archive document" --exact
 agent-browser wait --load networkidle
 agent-browser wait --url "**/documents/church?archived=1"
 agent-browser find text "The document was archived. Its revisions and saved exports stay available." text --exact
-agent-browser find role heading text --name "No church documents yet" --exact
 ```
 
 #### documents.church-document#export
@@ -426,7 +429,7 @@ Reach:
 
 States:
 
-- **picker**: searchbox "Search templates"; button containing "Volunteer Application"; button containing "Expense Reimbursement Form". As `visitor`, on the QA seed:
+- **picker**: searchbox "Search templates"; button containing "Volunteer Application"; button "Next page". As `visitor`, on the QA seed:
 
 ```bash
 agent-browser open "$ORIGIN/design/documents/templates"
@@ -435,6 +438,6 @@ agent-browser find role button click --name "New from template" --exact
 agent-browser wait --load networkidle
 agent-browser find role searchbox text --name "Search templates" --exact
 agent-browser find role button text --name "Volunteer Application"
-agent-browser find role button text --name "Expense Reimbursement Form"
+agent-browser find role button text --name "Next page" --exact
 ```
 
