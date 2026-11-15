@@ -1,0 +1,42 @@
+{
+	"plant-owner": {
+		"says": "Daniel Reyes, Owner of Harvest Point, with 30 people and the meetings seed's meetings",
+		"context": "plant",
+		"role": "owner",
+		"seed": "people",
+		"cookie": "/owner/cookie"
+	},
+	"plant-admin": {
+		"says": "Grace Lin, Admin of Harvest Point",
+		"context": "plant",
+		"role": "admin",
+		"seed": "people",
+		"cookie": "/admin/cookie"
+	},
+	"plant-member": {
+		"says": "Eli Moss, Member of Harvest Point",
+		"context": "plant",
+		"role": "member",
+		"seed": "people",
+		"cookie": "/member/cookie"
+	},
+	"landing-finished": {
+		"says": "Fiona Finished, Owner of a church whose setup is finished; signs in with the sign-in form",
+		"context": "plant",
+		"role": "owner",
+		"seed": "invitation",
+		"email": "/landing/finished",
+		"password": "/password"
+	},
+	"landing-new": {
+		"says": "Nina New, an account that has not finished sign-up; signs in with the sign-in form",
+		"context": "account",
+		"seed": "invitation",
+		"email": "/landing/pending",
+		"password": "/password"
+	},
+	"visitor": {
+		"says": "Nobody signed in",
+		"context": "signed-out"
+	}
+}

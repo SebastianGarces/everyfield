@@ -77,6 +77,8 @@ async function up(origin: string) {
 	}
 
 	const owner = await account("Daniel Reyes", "owner@people-preview.example.test");
+	const seatAdmin = await account("Grace Lin", "admin@people-preview.example.test");
+	const seatMember = await account("Eli Moss", "member@people-preview.example.test");
 
 	const noop = async () => {};
 	const onboarding = createOnboardingProducer({ invalidate: noop, notice: noop, enqueue: noop });
@@ -96,6 +98,12 @@ async function up(origin: string) {
 	);
 	if (created.status !== "ok") throw Error("createPlant: " + JSON.stringify(created));
 	const plant = (created.value as { plant: { kind: "plant"; id: string } }).plant;
+	for (const [seated, role] of [
+		[seatAdmin, "admin"],
+		[seatMember, "member"],
+	] as const)
+		await admin.execute(sql`INSERT INTO seat(account_id,plant_id,role,accepted_at)
+			VALUES(${seated.accountId},${plant.id},${role},clock_timestamp()-interval '1 minute')`);
 
 	const ctx = { session: owner.sessionId, selected: plant } as never;
 	const write = <T,>(run: (tx: unknown) => Promise<T>) => runtime.transaction((tx) => run(tx));
@@ -128,6 +136,8 @@ async function up(origin: string) {
 		origin,
 		plant: plant.id,
 		owner: { cookie: owner.cookie, accountId: owner.accountId },
+		admin: { cookie: seatAdmin.cookie, accountId: seatAdmin.accountId },
+		member: { cookie: seatMember.cookie, accountId: seatMember.accountId },
 		people: Object.fromEntries(Object.entries(people).map(([k, v]) => [k, v.id])),
 	});
 	await env.close();
