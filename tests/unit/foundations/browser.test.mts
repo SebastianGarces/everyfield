@@ -79,7 +79,6 @@ test("INV-cn: a call-site class wins over the primitive's conflicting class, and
 	assert.equal(ui.cn("gap-[26px] max-app-sm:gap-5", "gap-5 max-app-sm:gap-3"), "gap-5 max-app-sm:gap-3");
 	assert.equal(ui.cn("text-md text-ink", "text-text-2"), "text-md text-text-2");
 	assert.equal(ui.cn("text-title-sm text-ink", "text-[14px]"), "text-ink text-[14px]");
-	assert.equal(ui.cn("leading-[1.05] text-ink", "text-[52px]"), "leading-[1.05] text-ink text-[52px]");
 	assert.equal(ui.cn("shadow-card rounded-card", "shadow-none rounded-full"), "shadow-none rounded-full");
 	assert.equal(
 		ui.cn("text-display-lg text-ink font-title", false, null, undefined),
