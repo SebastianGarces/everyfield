@@ -112,5 +112,8 @@
 				}
 			}
 		}
+	},
+	"sqlMarkers": {
+		"/* evf:retry */": "The statement counter (tests/integration/writes/counter.mjs) reads this marker on BEGIN to tell a retried transaction from a first attempt"
 	}
 }
