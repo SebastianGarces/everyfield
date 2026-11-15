@@ -383,7 +383,15 @@ export default function NativeEditor({
 							New document. Nothing is saved yet.
 						</p>
 					)}
-					<div className="flex flex-wrap items-center gap-2">
+					<form
+						className="flex flex-wrap items-center gap-2"
+						{...shortcutMark(SAVE_SHORTCUT)}
+						onSubmit={(event) => {
+							event.preventDefault();
+							const fromButton = (event.nativeEvent as SubmitEvent).submitter !== null;
+							void save().then((ok) => ok && fromButton && editor?.view.focus());
+						}}
+					>
 						<Button
 							variant="secondary"
 							size="sm"
@@ -429,15 +437,11 @@ export default function NativeEditor({
 							icon={FloppyDiskIcon}
 							loading={busy}
 							disabled={!changed && phase.kind !== "failed"}
-							{...shortcutMark(SAVE_SHORTCUT)}
-							onClick={(event) => {
-								const fromButton = event.detail > 0 || document.activeElement === event.currentTarget;
-								void save().then((ok) => ok && fromButton && editor?.view.focus());
-							}}
+							type="submit"
 						>
 							Save
 						</Button>
-					</div>
+					</form>
 				</div>
 				{changed && saved.id ? (
 					<p className="w-full max-w-[816px] self-center text-sm text-text-2">

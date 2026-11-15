@@ -46,8 +46,14 @@ function onKeyDown(event: KeyboardEvent) {
 	if (event.defaultPrevented) return;
 	const target = shortcutTarget(event);
 	if (!target) return;
+	if (target instanceof HTMLFormElement) {
+		event.preventDefault();
+		target.requestSubmit();
+		return;
+	}
+	if (target.matches(":disabled, [aria-disabled=true], [aria-busy=true]")) return;
 	event.preventDefault();
-	if (!target.matches(":disabled, [aria-disabled=true]")) target.click();
+	target.click();
 }
 
 function onBeforeUnload(event: BeforeUnloadEvent) {
