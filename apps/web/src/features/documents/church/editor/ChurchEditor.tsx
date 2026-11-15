@@ -54,10 +54,6 @@ import { BlockShortcuts, LeaveDialog, SaveStatusText, useLeaveGuard, type SaveSt
 import { TemplateCompare, templateCompares } from "./TemplateCompare.tsx";
 import { EditorToolbar } from "./Toolbar.tsx";
 
-// The Church Document editor: the toolbar, the paper page, the save status and the real-PDF preview. The editor holds
-// the document as ProseMirror JSON and builds the stored document from it on Save. It stays mounted while the preview
-// shows, so the content, the cursor and the undo history survive a trip to the preview and back.
-
 const NOTICE_WHY =
 	"Every formal or legal document prints this notice, in the PDF and the Word file. Editing the document cannot remove it.";
 
@@ -65,25 +61,16 @@ type Props = {
 	docId: string;
 	title: string;
 	document: DocDocument;
-	/** The palette the PDF paints for this document and the brand-kit images it may show. */
 	brand: DocBrand;
 	assets: LiveAssets;
-	/** The church's current value of each merge field Insert offers, by key. */
 	mergeValues: Record<string, string>;
 	revision: string;
-	/** A save moved the revision; `formats` are the downloads its body offers (Excel only with a budget table). */
 	onRevision: (revision: string, formats: ExportFormat[]) => void;
-	/** The saved revisions, newest first, as Version history lists them. */
 	revisions: RevisionRow[];
-	/** The preview address of one revision in one format: the preview and history read it. */
 	file: (format: string, revision: string) => string;
-	/** Where the document stands against its template; null when there is nothing to compare with. */
 	template: "behind" | "current" | null;
-	/** The church template's name when the document was made from one; null for a built-in template. */
 	templateName: string | null;
-	/** Changes from the template were accepted as `revision`: the page reopens the editor on it. */
 	onAccepted: (document: DocDocument, revision: string, taken: number) => void;
-	/** What the last accept did, shown in the status line until the next edit. */
 	accepted?: string | null;
 };
 
@@ -174,7 +161,6 @@ export default function ChurchEditor({
 		setMode("preview");
 	}, [save, status.kind]);
 
-	// The compare reads the saved revision, so edits not yet saved are saved first.
 	const compare = useCallback(async () => {
 		if (status.kind !== "saved" && !(await save())) return;
 		templateCompares.prefetch(docId);
@@ -185,7 +171,6 @@ export default function ChurchEditor({
 		if (editor) deleteAllContent(editor);
 	}, [editor]);
 
-	// The page setup the editor holds now: a change in the Page setup panel reaches the paper at once.
 	const page = useEditorState({
 		editor,
 		selector: ({ editor: e }) => (e ? readPage(e.state) : (stored.page as ReturnType<typeof readPage>)),
@@ -202,7 +187,6 @@ export default function ChurchEditor({
 			: { x: page.margin.left, y: page.margin.top };
 		const px = (n: number) => `${((n * 4) / 3).toFixed(2)}px`;
 		return {
-			// A card is its tile cell, padding inside, so its text column is the PDF's: the cell less twice the padding.
 			"--page-w": px(width),
 			"--page-h": px(height),
 			"--pad-x": px(pad.x),
@@ -211,7 +195,6 @@ export default function ChurchEditor({
 		} as CSSProperties;
 	}, [page, brand]);
 
-	// Save as template: each opening mounts the dialog afresh (a new request key); a success names the template here.
 	const [templateDialog, setTemplateDialog] = useState({ open: false, opening: 0, requestKey: "" });
 	const [savedTemplate, setSavedTemplate] = useState<TemplateSaved | null>(null);
 
@@ -325,7 +308,6 @@ export default function ChurchEditor({
 				{template === "behind" && mode === "edit" ? (
 					<TemplateNotice churchTemplate={templateName} onCompare={() => void compare()} />
 				) : null}
-				{/* The editor stays in the page while the preview shows, so its content, cursor and undo history stay. */}
 				<div hidden={mode !== "edit"} className="flex flex-col gap-3">
 					<div className="sticky top-[calc(var(--ef-topbar-h)+28px)] z-20 overflow-hidden rounded-card bg-surface-raised shadow-[0_0_0_1px_var(--ef-line)]">
 						{editor ? (
@@ -409,7 +391,6 @@ export default function ChurchEditor({
 						docId={docId}
 						brand={brand}
 						revision={shownRevision}
-						// A compare that read a newer revision (saved in another tab) reloads the page onto it: nothing here is unsaved.
 						onBack={(stale) => (stale ? window.location.reload() : setMode("edit"))}
 						onAccepted={onAccepted}
 					/>
@@ -426,7 +407,6 @@ export default function ChurchEditor({
 				) : null}
 			</div>
 			<LeaveDialog request={leave.request} onSave={save} onDone={leave.close} />
-			{/* Mounted from its first opening on: the dialog reads the church templates when it mounts. */}
 			{templateDialog.opening > 0 ? (
 				<SaveAsTemplateDialog
 					key={templateDialog.opening}
@@ -463,10 +443,6 @@ function LockGlyph() {
 	);
 }
 
-/**
- * The template this document came from has changed since: a plain notice with the way to compare. A church template
- * is named, so the notice says it is the church's own.
- */
 function TemplateNotice({ churchTemplate, onCompare }: { churchTemplate: string | null; onCompare: () => void }) {
 	return (
 		<section

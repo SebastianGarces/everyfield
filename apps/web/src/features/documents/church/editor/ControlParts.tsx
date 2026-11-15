@@ -7,14 +7,9 @@ import { TOKEN_NAMES, TOKENS } from "./layout.ts";
 import { Button } from "./tiptap/primitives/button.tsx";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./tiptap/primitives/tooltip.tsx";
 
-// The small controls the settings row is made of: a tooltip for a field, a choice from a short list, a row of color
-// swatches, and a labelled group. Every color control offers the format's tokens only: no hex input, no color picker.
-
-/** The color a token paints in this document, as the PDF prints it on white. `none` has no color. */
 const swatchColor = (palette: DocBrand["palette"], token: Token) =>
 	token === "none" ? null : palette[token === "muted-text" ? "mutedText" : token];
 
-/** A hover and focus tooltip for a control that has no tooltip of its own (an input, a select, a switch). */
 export function Tip({ text, children, className }: { text: string; children: ReactNode; className?: string }) {
 	return (
 		<Tooltip delay={300}>
@@ -28,7 +23,6 @@ export function Tip({ text, children, className }: { text: string; children: Rea
 
 export const keepSelection = (event: { preventDefault: () => void }) => event.preventDefault();
 
-/** Arrow keys in a radio group: choose the next or previous value and move focus to it. */
 function rove<T>(event: KeyboardEvent, index: number, values: readonly T[], choose: (value: T) => void) {
 	const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[event.key];
 	if (!step) return;
@@ -39,7 +33,6 @@ function rove<T>(event: KeyboardEvent, index: number, values: readonly T[], choo
 	(group?.children[at] as HTMLElement | undefined)?.focus();
 }
 
-/** One choice from a short list, as a radio group: arrow keys move and choose, Tab enters and leaves. */
 export function Segmented<T extends string | number>({
 	label,
 	value,
@@ -86,7 +79,6 @@ export function Segmented<T extends string | number>({
 	);
 }
 
-/** A row of swatches, one for each token, each named by the token's readable name. */
 export function Swatches({
 	label,
 	value,

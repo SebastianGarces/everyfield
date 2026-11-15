@@ -27,17 +27,11 @@ import { useId, useState, useTransition, type FormEvent } from "react";
 import { createRead, useRead } from "../../../../components/read.tsx";
 import { listChurchTemplates, saveChurchTemplate, updateChurchTemplate } from "../actions.ts";
 
-// Save as template (Approach A): the saved revision becomes the church's own template, or the next version of one it
-// already has. Unsaved edits are not in a saved revision, so the dialog offers to save them first and holds Confirm
-// until they are saved.
-
-/** The church's templates now; none when they cannot be read, so the dialog offers only a new template. */
 export const churchTemplates = createRead(
 	() => listChurchTemplates().then((result) => (result.status === "ok" ? result.templates : [])),
 	{ failed: (): ChurchTemplateSummary[] => [] },
 );
 
-/** What the editor's confirmation names: the template, its version and whether this made a new version of it. */
 export type TemplateSaved = { title: string; version: number; updated: boolean };
 
 export function SaveAsTemplateDialog({
@@ -55,9 +49,7 @@ export function SaveAsTemplateDialog({
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	docId: string;
-	/** The document's title, filled in as the template's name. */
 	title: string;
-	/** The last saved revision: the one the template copies. */
 	revision: string;
 	unsaved: boolean;
 	saving: boolean;

@@ -11,8 +11,6 @@ import { ChurchDocumentScreen } from "./ChurchDocumentScreen.tsx";
 import { ChurchLibrary } from "./ChurchLibrary.tsx";
 import { canManageChurch, loadArchived, loadChurchDocument, loadLibrary } from "./server.ts";
 
-// The Church Documents routes. The files under apps/web/src/app/ only re-export these.
-
 export const churchLibraryMetadata: Metadata = { title: "Church documents", robots: { index: false, follow: false } };
 export const churchArchivedMetadata: Metadata = {
 	title: "Archived documents",
@@ -47,7 +45,6 @@ export async function ChurchLibraryPage({
 	);
 }
 
-/** The one-line notice the library shows after a delete, an archive or a restore returned to it. */
 function noticeOf(params: Record<string, string | string[] | undefined>) {
 	if (params.restored === "1") return "restored" as const;
 	if (params.archived === "1") return "archived" as const;
@@ -55,10 +52,6 @@ function noticeOf(params: Record<string, string | string[] | undefined>) {
 	return null;
 }
 
-/**
- * The church plant's archived Church Documents (T-284). Only an Owner or Admin opens it; a Member gets the same "not
- * available" state as any page they cannot use.
- */
 export async function ChurchArchivedPage() {
 	const authority = (await activeViewer("/documents/church/archived"))?.authority;
 	if (!authority) return <Unavailable />;
@@ -90,7 +83,6 @@ export async function ChurchDocumentPage({ params }: { params: Promise<{ documen
 	if (loaded.status === "failed") return <Failed />;
 	if (loaded.status === "refused") return <Missing />;
 	if (loaded.status === "deleted") return <Deleted />;
-	// The stored document goes to the browser only for an Owner or Admin, who can edit it. A Member gets the preview.
 	const canManage = canManageChurch(authority);
 	const { brands, template, mergeValues } = loaded.value;
 	return (
@@ -132,7 +124,6 @@ function Missing() {
 	);
 }
 
-/** A seat of the church plant opened a deleted document or one of its saved exports: nothing of it shows. */
 function Deleted() {
 	return (
 		<>
@@ -168,7 +159,6 @@ function Failed() {
 	);
 }
 
-/** The first paint while a church document loads: the page's shape, not a spinner. */
 export function ChurchLoading() {
 	return (
 		<div aria-busy="true" className="flex flex-col gap-5">

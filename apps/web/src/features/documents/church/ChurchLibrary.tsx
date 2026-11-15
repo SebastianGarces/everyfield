@@ -37,10 +37,8 @@ import { CLASS_LABEL, formatList, paperText, updatedText } from "./labels.ts";
 type Props = {
 	documents: ChurchSummary[];
 	templates: DocTemplateSummary[];
-	/** The church's own templates, saved from its documents. Empty for a Member. */
 	churchTemplates: ChurchTemplateSummary[];
 	canManage: boolean;
-	/** The notice after a delete, an archive or a restore returned here. */
 	notice: "deleted" | "archived" | "restored" | null;
 };
 
@@ -127,16 +125,12 @@ export function ChurchLibrary({ documents, templates, churchTemplates, canManage
 	);
 }
 
-/** Templates on one page of the picker. */
 const PAGE_SIZE = 10;
 
-/** One template in the picker: the church's own, or Everyfield's. `templateId` is what New from template takes. */
 type Choice = {
 	group: "church" | "everyfield";
 	templateId: string;
-	/** The church template's record id, which Delete takes. */
 	recordId: string | null;
-	/** The church template's current version; Everyfield's templates show none. */
 	version: number | null;
 	title: string;
 	description: string | null;
@@ -150,7 +144,6 @@ const GROUPS = [
 	{ group: "everyfield", label: "Everyfield templates" },
 ] as const;
 
-/** The templates whose name, description or category holds every word of the search, in their order. */
 function matching(templates: Choice[], search: string) {
 	const words = search.toLowerCase().split(/\s+/).filter(Boolean);
 	if (!words.length) return templates;
@@ -160,11 +153,6 @@ function matching(templates: Choice[], search: string) {
 	});
 }
 
-/**
- * "New from template": the church's own templates first, then Everyfield's, each group under its own heading. A search
- * over name, description and category and pages of ten keep a long list easy to browse. Choosing one makes the
- * document and opens its page. An Owner or Admin can rename or delete a church template here; Everyfield's stay.
- */
 function TemplatePicker({
 	templates,
 	churchTemplates,
@@ -286,7 +274,6 @@ function PickerList({
 					aria-label="Search templates"
 				/>
 			</div>
-			{/* pt-1 keeps the first card's ring and focus outline inside the scroll area, which clips its edges. */}
 			<DialogBody ref={list} className={cn("flex flex-col gap-6 pt-1", pageCount > 1 ? "pb-4" : "pb-7")}>
 				<div role="status" className="empty:hidden">
 					{saved ? (
@@ -299,7 +286,6 @@ function PickerList({
 				{GROUPS.map(({ group, label }) => {
 					const items = shown.filter((t) => t.group === group);
 					if (!items.length) return null;
-					// A church with no templates of its own sees Everyfield's list alone, with no heading.
 					const headed = group === "church" || shown.some((t) => t.group === "church");
 					return (
 						<section key={group} className="flex flex-col gap-3">
@@ -360,10 +346,6 @@ function PickerList({
 	);
 }
 
-/**
- * One template: a button that makes a document from it, and for a church template Edit and Delete buttons at its right
- * edge, past the arrow.
- */
 function TemplateCard({
 	template: t,
 	busy,
@@ -420,7 +402,6 @@ function TemplateCard({
 								disabled={disabled}
 								onClick={() => setEditing(true)}
 							/>
-							{/* Mounted only while open, so each opening starts from what the card shows and with new request keys. */}
 							{editing ? (
 								<EditTemplateDialog
 									onOpenChange={setEditing}

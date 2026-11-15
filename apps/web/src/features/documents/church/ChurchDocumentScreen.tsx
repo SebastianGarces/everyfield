@@ -23,13 +23,6 @@ import { archiveChurchDocument, deleteChurchDocument, type ChurchActionResult } 
 import { CLASS_LABEL } from "./labels.ts";
 import type { ChurchView, ExportResult, RevisionRow, TemplateState } from "./server.ts";
 
-// One Church Document: the real PDF as its preview, the downloads, the revisions and the saved exports. A download saves
-// one export of the shown revision (or of the revision a Revisions row names), then downloads that export's stored bytes (D-78); the preview stays a fresh render and saves
-// nothing. Any seat downloads (D-80). An Owner or Admin can edit, archive and delete it, and delete a saved export (D-79).
-// An archived document is read-only for every seat: no editor, no branding switch, no Archive and no export delete, while its revisions
-// and saved exports stay readable and downloadable, and an Owner or Admin can still delete it (T-9).
-// The editor is a separate chunk, loaded only when an Owner or Admin opens the page: a Member's page never loads it.
-
 const ChurchEditor = dynamic(() => import("./editor/ChurchEditor.tsx"), {
 	ssr: false,
 	loading: () => (
@@ -59,13 +52,9 @@ export function ChurchDocumentScreen({
 	viewerName,
 }: {
 	doc: ChurchView;
-	/** The newest saved revisions, newest first, at most CHURCH_REVISION_LIST_MAX. */
 	revisions: RevisionRow[];
-	/** True when the document has older revisions than `revisions` holds. */
 	revisionsTruncated: boolean;
-	/** The latest saved exports, newest first. */
 	exports: SavedExport[];
-	/** The stored document, only for an Owner or Admin. A Member gets null and the read-only page. */
 	editable: {
 		document: DocDocument;
 		brands: DocBrands;
@@ -73,7 +62,6 @@ export function ChurchDocumentScreen({
 		mergeValues: Record<string, string>;
 	} | null;
 	canManage: boolean;
-	/** The viewer's own name, for the row their save adds; the server reads the same name for that revision. */
 	viewerName: string | null;
 }) {
 	const [record, setRecord] = useState(() => ({
@@ -139,14 +127,12 @@ export function ChurchDocumentScreen({
 
 	async function remove() {
 		const result: ChurchActionResult | undefined = await deleteChurchDocument(doc.id, revision);
-		// A success redirects to the library and returns nothing here; a refusal stays in the dialog with its reason.
 		if (result?.status === "refused") throw new Error(result.message);
 		if (result?.status === "lost") throw new Error("The connection dropped. Nothing was deleted.");
 	}
 
 	async function archive() {
 		const result: ChurchActionResult | undefined = await archiveChurchDocument(doc.id, revision);
-		// A success redirects to the library and returns nothing here; a refusal stays in the dialog with its reason.
 		if (result?.status === "refused") throw new Error(result.message);
 		if (result?.status === "lost") throw new Error("The connection dropped. Nothing was archived.");
 	}
@@ -361,7 +347,6 @@ function ReadOnly({
 	);
 }
 
-/** Asks the server to save one export. Any failure to reach it, or an answer that is not JSON, is a lost connection. */
 async function requestExport(
 	documentId: string,
 	body: { revision: string; format: string; requestKey: string },

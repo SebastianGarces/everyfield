@@ -22,10 +22,6 @@ import { Icon } from "@everyfield/ui/foundations";
 import { useRef, useState } from "react";
 import { editChurchTemplate } from "./actions.ts";
 
-// Rename a church template or change its description. It makes no new version: documents already made from it keep
-// their own title, and new ones take the new name. The limits are Save as template's, from the contract.
-
-/** What the card shows after a save: the template's name and description. */
 export type TemplateDetails = Pick<ChurchTemplateSummary, "title" | "description">;
 
 export function EditTemplateDialog({
@@ -35,9 +31,7 @@ export function EditTemplateDialog({
 	onSaved,
 }: {
 	onOpenChange: (open: boolean) => void;
-	/** The church template's record id. */
 	templateId: string;
-	/** The name and description the card shows now, filled in. */
 	details: TemplateDetails;
 	onSaved: (saved: TemplateDetails) => void;
 }) {
@@ -45,8 +39,6 @@ export function EditTemplateDialog({
 	const [description, setDescription] = useState(details.description ?? "");
 	const [error, setError] = useState<string | null>(null);
 	const [pending, setPending] = useState(false);
-	// One request key for each set of values while the dialog is open: a double click or a resend after a dropped
-	// connection writes the change once, and a new value after a failure is a new request.
 	const keys = useRef<Map<string, string> | null>(null);
 	const trimmed = name.trim();
 

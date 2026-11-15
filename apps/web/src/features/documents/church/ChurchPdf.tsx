@@ -7,10 +7,6 @@ import { useCallback, useState } from "react";
 import { createRead, useRead } from "../../../components/read.tsx";
 import { closePdf, drawPage, openPdf } from "../pdf.ts";
 
-// The preview of a Church Document is its real PDF: the bytes "Download PDF" gives, drawn page by page with page breaks
-// and the card sheet exactly as they print. Pages draw one after another as the reader scrolls toward them. A new
-// revision gets a new `src`; the parent keys this component by it, so nothing from the old file stays.
-
 type Props = { title: string; src: string; page: { width: number; height: number } };
 
 type PdfFile = { status: "ok"; bytes: Uint8Array } | { status: "lost" };
