@@ -18,7 +18,7 @@ import { useState } from "react";
 import { createRead, useRead } from "../../components/read.tsx";
 import { DialogNotice, SaveButton, type SaveIntent } from "../../components/save/parts.tsx";
 import { importTemplates, templateCatalog } from "./actions.ts";
-import { NEW_SETUP, plural, type Catalog, type Outcome, type SetupForm } from "./model.ts";
+import { plural, type Catalog, type Outcome, type SetupForm } from "./model.ts";
 
 type SetupInto = {
 	id: string;
@@ -43,10 +43,12 @@ type SetupProps = {
 
 export function SetupDialog(props: SetupProps) {
 	const { lane } = props;
+	const [opened, setOpened] = useState(lane.editing);
+	if (lane.editing && lane.editing !== opened) setOpened(lane.editing);
 	return (
 		<Dialog open={lane.editing !== null} onOpenChange={(next) => !next && lane.close()}>
 			<DialogContent size="md">
-				<SetupBody {...props} form={lane.editing ?? NEW_SETUP} />
+				{opened ? <SetupBody key={opened.opening} {...props} form={opened} /> : null}
 			</DialogContent>
 		</Dialog>
 	);

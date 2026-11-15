@@ -231,5 +231,10 @@ export function planTeamEdit(
 	return now.reason.trim() ? "close-and-say" : "close";
 }
 
-export type SetupForm = { chosen: Record<string, string[]> | null; step: "choose" | "review"; problem?: string };
-export const NEW_SETUP: SetupForm = { chosen: null, step: "choose" };
+export type SetupForm = {
+	opening: string;
+	chosen: Record<string, string[]> | null;
+	step: "choose" | "review";
+	problem?: string;
+};
+export const newSetup = (): SetupForm => ({ opening: crypto.randomUUID(), chosen: null, step: "choose" });

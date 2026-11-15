@@ -29,7 +29,7 @@ import { useAddress, writeAddress } from "../../components/location.ts";
 import { NoticeInDialog, SaveNotice, useSaveIntent } from "../../components/save/parts.tsx";
 import { createTeam, reloadTeams } from "./actions.ts";
 import { optional, TeamDialog, type TeamForm } from "./dialogs.tsx";
-import { isLeadership, NEW_SETUP, plural, problemText, type SetupForm, type Team } from "./model.ts";
+import { isLeadership, newSetup, plural, problemText, type SetupForm, type Team } from "./model.ts";
 import { OrgChart } from "./OrgChart.tsx";
 import { MinistryCard } from "./parts.tsx";
 import type { TeamView, TeamsView } from "./server.ts";
@@ -95,7 +95,7 @@ export function TeamsScreen({ view: initial, admin }: { view: TeamsView; admin: 
 	}
 
 	const setup = admin ? (
-		<Button variant="secondary" icon={LayoutGridIcon} onClick={() => setupLane.open(NEW_SETUP)}>
+		<Button variant="secondary" icon={LayoutGridIcon} onClick={() => setupLane.open(newSetup())}>
 			Set up from templates
 		</Button>
 	) : null;
@@ -151,7 +151,7 @@ export function TeamsScreen({ view: initial, admin }: { view: TeamsView; admin: 
 				</Card>
 			) : tab === "chart" ? (
 				<Card>
-					<OrgChart nodes={view.nodes} onAdd={admin ? () => setupLane.open(NEW_SETUP) : undefined} />
+					<OrgChart nodes={view.nodes} onAdd={admin ? () => setupLane.open(newSetup()) : undefined} />
 				</Card>
 			) : teams.length === 0 ? (
 				<Card>

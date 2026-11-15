@@ -79,7 +79,7 @@ import {
 	diffLines,
 	historyTitle,
 	iconKey,
-	NEW_SETUP,
+	newSetup,
 	people,
 	planTeamEdit,
 	plural,
@@ -338,7 +338,7 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 		admin: data.admin,
 		disabled: roleLane.wait !== null || templatesLane.wait !== null,
 		onBlank: () => roleLane.open(roleForm(null)),
-		onTemplates: () => templatesLane.open(NEW_SETUP),
+		onTemplates: () => templatesLane.open(newSetup()),
 	};
 
 	const leaderNote =
