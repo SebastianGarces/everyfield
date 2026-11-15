@@ -58,7 +58,7 @@ export function createRead<A extends unknown[], T>(
 
 	const usable = (entry: Entry<T> | undefined) =>
 		entry !== undefined &&
-		(entry.status === "loading" || entry.unread || (entry.reusable && Date.now() - entry.at < fresh));
+		(entry.status === "loading" || (entry.reusable && Date.now() - entry.at < fresh));
 
 	const start = (k: string, args: A, keepValue: boolean) => {
 		const promise = new Promise<T>((resolve) => resolve(load(...args))).catch(failed);
@@ -124,7 +124,7 @@ export function createRead<A extends unknown[], T>(
 		snapshot: (k) => {
 			const entry = entries.get(k);
 			if (!entry) return null;
-			return watched(k) || usable(entry) ? entry : null;
+			return watched(k) || entry.unread || usable(entry) ? entry : null;
 		},
 		connect: (listener, ...args) => {
 			const k = key(...args);
@@ -133,7 +133,7 @@ export function createRead<A extends unknown[], T>(
 			const others = watched(k);
 			readers.set(k, (readers.get(k) ?? 0) + 1);
 			if (usable(entry)) entry!.unread = false;
-			else start(k, args, others);
+			else start(k, args, others || entry?.unread === true);
 			return () => {
 				listeners.delete(listener);
 				const left = (readers.get(k) ?? 1) - 1;
