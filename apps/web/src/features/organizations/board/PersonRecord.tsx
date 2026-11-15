@@ -1,6 +1,7 @@
 "use client";
 
 import type { PipelineBoard, PipelinePersonRecord } from "@everyfield/contracts/organizations";
+import { avatarRoute } from "@everyfield/contracts/settings";
 import { ArrowRight02Icon, Edit02Icon } from "@hugeicons/core-free-icons";
 import {
 	Button,
@@ -20,6 +21,7 @@ import {
 	Select,
 	Textarea,
 } from "@everyfield/ui/controls";
+import { Avatar } from "@everyfield/ui/display";
 import { useState, type FormEvent, type ReactNode } from "react";
 import {
 	addNote,
@@ -490,8 +492,11 @@ function Notes({
 						{record.notes.map((n) => (
 							<li key={n.id}>
 								{n.state === "removed" ? (
-									<p className="rounded-md bg-surface-2 px-3 py-2.5 text-sm text-text-2">
-										Note removed by {n.author ?? "former staff"}, {formatDay(n.removedOn)}
+									<p className="flex items-center gap-2 rounded-md bg-surface-2 px-3 py-2.5 text-sm text-text-2">
+										<NoteAuthorAvatar note={n} />
+										<span className="min-w-0">
+											Note removed by {n.author ?? "former staff"}, {formatDay(n.removedOn)}
+										</span>
 									</p>
 								) : (
 									<NoteItem
@@ -511,6 +516,19 @@ function Notes({
 				)}
 			</CardBody>
 		</Card>
+	);
+}
+
+/** The note author's account photo where this organization may see it (REQ-IDN-006), else their initials. */
+function NoteAuthorAvatar({ note }: { note: Record["notes"][number] }) {
+	return (
+		<Avatar
+			name={note.author ?? "Former staff"}
+			src={note.avatar ? avatarRoute(note.avatar) : undefined}
+			tone="blue"
+			size="xs"
+			decorative
+		/>
 	);
 }
 
@@ -574,7 +592,10 @@ function NoteItem({
 				<p className="text-sm whitespace-pre-wrap text-ink [overflow-wrap:anywhere]">{note.body}</p>
 			)}
 			<div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-				<span className="text-xs text-text-3">{meta}</span>
+				<span className="flex min-w-0 items-center gap-2 text-xs text-text-3">
+					<NoteAuthorAvatar note={note} />
+					{meta}
+				</span>
 				{(editable || sendable) && !editing ? (
 					<span className="ml-auto flex flex-wrap gap-1">
 						{sendable ? (
