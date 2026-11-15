@@ -3,7 +3,8 @@
 import { ArrowLeft01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 import { Button, ConfirmDialog, Field, Select } from "@everyfield/ui/controls";
 import { Icon } from "@everyfield/ui/foundations";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { unloadHoldRef } from "../../components/save/leave.ts";
 import { deleteDraft, readDraft, readMeetingContext, readMeetingTemplate, saveDraft, handOff } from "./actions.ts";
 import { bodyToTextResult, textToBody } from "./body.ts";
 import {
@@ -187,13 +188,6 @@ export function Compose({
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [id, handoff?.meeting]);
 
-	// A new message that is not saved lives only in this page. A reload of Write or Review has nothing to show, so it
-	// opens at Who. The meeting handoff opens at Write on purpose.
-	useEffect(() => {
-		if (id === "new" && step !== "who" && !handoff) onStep("who");
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, []);
-
 	// A saved draft that belongs to a meeting shows the meeting's context line.
 	useEffect(() => {
 		if (!form.meetingId || meeting?.id === form.meetingId) return;
@@ -212,12 +206,7 @@ export function Compose({
 
 	const payload = JSON.stringify(draftPayload(form));
 	const dirty = !locked && payload !== saved;
-	useEffect(() => {
-		if (!dirty) return;
-		const guard = (event: BeforeUnloadEvent) => event.preventDefault();
-		window.addEventListener("beforeunload", guard);
-		return () => window.removeEventListener("beforeunload", guard);
-	}, [dirty]);
+	const holdUnsaved = useMemo(() => (dirty ? unloadHoldRef(() => true) : undefined), [dirty]);
 
 	const hasMeeting = form.meetingId !== null;
 	const write = writeReason(form, hasMeeting);
@@ -391,7 +380,7 @@ export function Compose({
 	const chrome = { from: data.churchName, to: previewName, subject: form.subject };
 
 	return (
-		<div className="flex flex-col gap-6">
+		<div ref={holdUnsaved} className="flex flex-col gap-6">
 			<div className="flex flex-wrap items-center justify-between gap-4">
 				<button
 					type="button"

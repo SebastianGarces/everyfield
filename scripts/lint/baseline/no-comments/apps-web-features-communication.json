@@ -1,6 +1,6 @@
 {
 	"apps/web/src/features/communication/Address.tsx": 2,
-	"apps/web/src/features/communication/Compose.tsx": 23,
+	"apps/web/src/features/communication/Compose.tsx": 20,
 	"apps/web/src/features/communication/EmailFrame.tsx": 7,
 	"apps/web/src/features/communication/HistoryPanel.tsx": 14,
 	"apps/web/src/features/communication/MessageEditor.tsx": 6,

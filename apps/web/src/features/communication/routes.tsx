@@ -4,6 +4,8 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { CommunicationScreen } from "./CommunicationScreen.tsx";
+import { parseRoute, routeHref } from "./model.ts";
+import { params } from "../shared/search-params.ts";
 import { canWrite } from "../shared/seat-role.ts";
 import { communicationViewer, loadCommunicationPage, type Viewer } from "./server.ts";
 
@@ -37,9 +39,12 @@ export const communicationMetadata: Metadata = { title: "Messages", robots: { in
 type Search = Promise<Record<string, string | string[] | undefined>>;
 
 export async function CommunicationPage({ searchParams }: { searchParams?: Search }) {
-	if (searchParams) await searchParams;
+	const query = searchParams ? Object.fromEntries(params(await searchParams)) : {};
 	const g = await gate("/communication", "Messages");
 	if ("blocked" in g) return g.blocked;
+	const route = parseRoute(query);
+	if (route.kind === "compose" && route.id === "new" && !route.handoff && route.step !== "who")
+		redirect(routeHref({ ...route, step: "who" }));
 	const loaded = await loadCommunicationPage(g.viewer);
 	if (loaded.status !== "ok") {
 		return (

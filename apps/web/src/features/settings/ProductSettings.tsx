@@ -2,8 +2,9 @@
 
 import { DASHBOARD_HOME } from "@everyfield/contracts/identity";
 import { avatarRoute } from "@everyfield/contracts/settings";
-import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useRef, useState } from "react";
+import { currentAddress, onTraversal, usePath, writeAddress } from "../../components/location.ts";
 import { loadPage } from "../identity/api";
 import { readSourceOrder, saveSourceOrder } from "../wiki/actions";
 import { readRegion, saveRegion, suggestRegion } from "./region";
@@ -69,43 +70,48 @@ const PORT: SettingsPort = {
 };
 const hrefFor = (key: SectionKey) => `/settings/${key}`;
 
-export function useProductSettings(viewer: SettingsViewer | null, seed: SectionSeed | null = null) {
-	const pathname = usePathname();
-	const router = useRouter();
-	const atPath = sectionAt(pathname, viewer);
-	const [asked, setAsked] = useState<{ section: SectionKey | null; path: string } | undefined>(undefined);
-	if (asked && asked.path !== pathname) setAsked(undefined);
-	const section = asked ? asked.section : atPath;
-	const underneath = useRef<string | null>(null);
-	useEffect(() => {
-		if (!atPath) underneath.current = window.location.pathname + window.location.search;
-	}, [atPath, pathname]);
+const pathOf = (href: string | null) => href?.split("?")[0] ?? null;
 
-	const stale = useRef(false);
-	const port = useMemo<SettingsPort>(
-		() => ({
-			...PORT,
-			wiki: {
-				...PORT.wiki,
-				save: async (...args) => {
-					const reply = await PORT.wiki.save(...args);
-					if (reply.status === "ok") stale.current = true;
-					return reply;
-				},
+export function useProductSettings(viewer: SettingsViewer | null, seed: SectionSeed | null = null) {
+	const path = usePath();
+	const router = useRouter();
+	const section = sectionAt(path, viewer);
+	const [underneath, setUnderneath] = useState<string | null>(null);
+	if (!section && pathOf(underneath) !== path) setUnderneath(path);
+
+	const refreshAfterClose = useRef<(() => void) | null>(null);
+	const refreshUnderneath = () => {
+		const refresh = refreshAfterClose.current;
+		refreshAfterClose.current = null;
+		refresh?.();
+	};
+	const [port] = useState<SettingsPort>(() => ({
+		...PORT,
+		wiki: {
+			...PORT.wiki,
+			save: async (...args) => {
+				const reply = await PORT.wiki.save(...args);
+				if (reply.status === "ok" && !refreshAfterClose.current) {
+					const stop = onTraversal(() => {
+						if (!sectionAt(window.location.pathname, viewer)) refreshUnderneath();
+					});
+					refreshAfterClose.current = () => {
+						stop();
+						router.refresh();
+					};
+				}
+				return reply;
 			},
-		}),
-		[],
-	);
-	useEffect(() => {
-		if (atPath || !stale.current) return;
-		stale.current = false;
-		router.refresh();
-	}, [atPath, router]);
+		},
+	}));
 
 	const navigate = (key: SectionKey | null) => {
-		if (key || underneath.current) {
-			setAsked({ section: key, path: pathname });
-			window.history.pushState(null, "", key ? hrefFor(key) : underneath.current);
+		if (key) {
+			if (!section) setUnderneath(currentAddress());
+			writeAddress(hrefFor(key));
+		} else if (underneath) {
+			writeAddress(underneath);
+			refreshUnderneath();
 		} else router.push(viewer?.context === "plant" ? DASHBOARD_HOME : "/settings/sharing");
 	};
 
