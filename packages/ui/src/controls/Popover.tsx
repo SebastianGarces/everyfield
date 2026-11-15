@@ -5,7 +5,6 @@ import type { ComponentPropsWithRef, ReactNode } from "react";
 import { cn } from "../foundations";
 import { usePortalContainer } from "./overlay-portal";
 
-/** The floating surface shared by Popover, Menu, Select and Combobox lists (prototype .popover). */
 export const popSurface =
 	"ef-pop z-50 rounded-card bg-surface-raised p-1.5 text-md text-ink shadow-[var(--ef-shadow-pop),0_0_0_1px_var(--ef-line)] outline-none";
 
@@ -14,10 +13,6 @@ export const PopoverTrigger = PopoverPrimitive.Trigger;
 export const PopoverClose = PopoverPrimitive.Close;
 export const PopoverAnchor = PopoverPrimitive.Anchor;
 
-/**
- * Popover (components.md): Popup and an optional Arrow. Focus moves into it on open and returns to the trigger on
- * close; Esc and an outside click close it. `label` names the dialog for screen readers when it has no heading.
- */
 export function PopoverContent({
 	arrow,
 	label,
@@ -50,20 +45,13 @@ export function PopoverContent({
 }
 
 type TooltipProps = {
-	/** What the tooltip says. For an IconButton this repeats its label for sighted users. */
 	content: ReactNode;
-	/** light: the chart read-out with Segments · dark: a short name. */
 	tone?: "light" | "dark";
 	side?: "top" | "right" | "bottom" | "left";
-	/** The trigger: one focusable element. The tooltip opens on hover and on keyboard focus, and closes with Esc. */
 	children: ReactNode;
 	delay?: number;
 };
 
-/**
- * Tooltip (components.md). Never put the only copy of important information in a tooltip, and never put controls
- * in one: it is a description of its trigger, not a dialog.
- */
 export function Tooltip({ content, tone = "dark", side = "top", delay = 300, children }: TooltipProps) {
 	const container = usePortalContainer();
 	return (
@@ -90,7 +78,6 @@ export function Tooltip({ content, tone = "dark", side = "top", delay = 300, chi
 	);
 }
 
-/** The thin divider between Segments in a light tooltip ("Oct 12 | 47 attended | 9 new"). */
 export function TooltipSep() {
 	return <span aria-hidden="true" className="h-4 w-px bg-line-2" />;
 }

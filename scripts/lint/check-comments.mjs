@@ -41,6 +41,7 @@ const CONFIGS = {
 	".oxlintrc.json": {
 		"*": ["no-comments", "no-effects", "max-state", "no-sql-comments"],
 		"packages/*/src/**": ["no-timers"],
+		"packages/ui/src/**": ["no-cursor-utility"],
 	},
 	"apps/web/.oxlintrc.json": {
 		"*": ["no-comments", "no-effects", "max-state", "no-sql-comments"],
