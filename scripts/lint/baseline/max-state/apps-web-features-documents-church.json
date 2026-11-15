@@ -2,6 +2,5 @@
 	"apps/web/src/features/documents/church/ChurchDocumentScreen.tsx": 5,
 	"apps/web/src/features/documents/church/ChurchLibrary.tsx": 4,
 	"apps/web/src/features/documents/church/editor/ChurchEditor.tsx": 5,
-	"apps/web/src/features/documents/church/editor/SaveAsTemplate.tsx": 4,
-	"apps/web/src/features/documents/church/editor/TemplateCompare.tsx": 1
+	"apps/web/src/features/documents/church/editor/SaveAsTemplate.tsx": 3
 }

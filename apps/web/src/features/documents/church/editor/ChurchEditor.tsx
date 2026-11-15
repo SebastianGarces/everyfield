@@ -48,9 +48,9 @@ import { TABLE_REFUSED } from "./TableControls.tsx";
 import { readPage } from "./layout.ts";
 import { paletteVars } from "./paper.ts";
 import { PageSetupPanel } from "./PageSetup.tsx";
-import { SaveAsTemplateDialog, type TemplateSaved } from "./SaveAsTemplate.tsx";
+import { SaveAsTemplateDialog, churchTemplates, type TemplateSaved } from "./SaveAsTemplate.tsx";
 import { BlockShortcuts, LeaveDialog, SaveStatusText, useLeaveGuard, type SaveStatus } from "./session.tsx";
-import { TemplateCompare } from "./TemplateCompare.tsx";
+import { TemplateCompare, templateCompares } from "./TemplateCompare.tsx";
 import { EditorToolbar } from "./Toolbar.tsx";
 
 // The Church Document editor: the toolbar, the paper page, the save status and the real-PDF preview. The editor holds
@@ -268,8 +268,9 @@ export default function ChurchEditor({
 	// The compare reads the saved revision, so edits not yet saved are saved first.
 	const compare = useCallback(async () => {
 		if (status.kind !== "saved" && !(await save())) return;
+		templateCompares.prefetch(docId);
 		setMode("compare");
-	}, [save, status.kind]);
+	}, [save, status.kind, docId]);
 
 	const deleteAll = useCallback(() => {
 		if (editor) deleteAllContent(editor);
@@ -372,7 +373,10 @@ export default function ChurchEditor({
 							<MenuContent align="end">
 								<MenuItem
 									icon={FileAddIcon}
-									onSelect={() => setTemplateDialog((d) => ({ open: true, opening: d.opening + 1 }))}
+									onSelect={() => {
+										churchTemplates.retry();
+										setTemplateDialog((d) => ({ open: true, opening: d.opening + 1 }));
+									}}
 								>
 									Save as template
 								</MenuItem>

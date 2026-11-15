@@ -15,7 +15,8 @@ import {
 } from "@everyfield/contracts/documents";
 import { Button, Checkbox, SegmentedControl, Skeleton, StatePanel } from "@everyfield/ui/controls";
 import { EditorContent, useEditor, type JSONContent } from "@tiptap/react";
-import { useCallback, useEffect, useId, useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
+import { createRead, useRead } from "../../../../components/read.tsx";
 import { acceptTemplateChanges, compareWithTemplate, type CompareResult } from "../actions.ts";
 import { blockLabel, PAPER_LABEL } from "../labels.ts";
 import { editorExtensions, type FieldValues } from "./extensions.ts";
@@ -41,7 +42,21 @@ type Props = {
 	revision: string;
 };
 
+export const templateCompares = createRead(
+	(docId: string) => compareWithTemplate(docId).catch((): CompareResult => ({ status: "lost" })),
+	{ failed: (): CompareResult => ({ status: "lost" }) },
+);
+
 type Load = { kind: "loading" } | { kind: "ready"; compare: ChurchCompare } | { kind: "failed"; message: string };
+
+function loadOf(result: CompareResult | undefined): Load {
+	if (!result) return { kind: "loading" };
+	if (result.status === "ok") return { kind: "ready", compare: result.compare };
+	return {
+		kind: "failed",
+		message: result.status === "refused" ? result.message : "The connection dropped. Nothing was changed.",
+	};
+}
 
 const KIND: Record<DocDifference["kind"], { label: string; take: string; chip: string }> = {
 	"template-only": {
@@ -108,39 +123,20 @@ function describePage(page: PageLayout) {
 }
 
 export function TemplateCompare({ docId, brand, onBack, onAccepted, revision }: Props) {
-	const [load, setLoad] = useState<Load>({ kind: "loading" });
-	const [view, setView] = useState<CompareView>("changes");
+	const compared = useRead(templateCompares, docId);
+	const load = loadOf(compared.value);
+	const [chosenView, setView] = useState<CompareView>("changes");
 	const [chosen, setChosen] = useState<ReadonlySet<number>>(new Set());
 	const [busy, setBusy] = useState<"chosen" | "all" | null>(null);
 	const [notice, setNotice] = useState<string | null>(null);
 	const headingId = useId();
+	const view: CompareView = load.kind === "ready" && load.compare.changes === null ? "all" : chosenView;
 
-	const show = useCallback((result: CompareResult) => {
-		if (result.status === "ok") {
-			setLoad({ kind: "ready", compare: result.compare });
-			setView((now) => (result.compare.changes === null ? "all" : now));
-			setChosen(new Set());
-			return result.compare;
-		}
-		setLoad({
-			kind: "failed",
-			message: result.status === "refused" ? result.message : "The connection dropped. Nothing was changed.",
-		});
-		return null;
-	}, []);
-	const read = useCallback(async () => {
-		setLoad({ kind: "loading" });
-		return show(await compareWithTemplate(docId).catch(() => ({ status: "lost" }) as const));
-	}, [docId, show]);
-	useEffect(() => {
-		let live = true;
-		void compareWithTemplate(docId)
-			.catch(() => ({ status: "lost" }) as const)
-			.then((result) => live && show(result));
-		return () => {
-			live = false;
-		};
-	}, [docId, show]);
+	async function read() {
+		setChosen(new Set());
+		const result = await templateCompares.retry(docId);
+		return result.status === "ok" ? result.compare : null;
+	}
 
 	const stale = load.kind === "ready" && load.compare.revision !== revision;
 

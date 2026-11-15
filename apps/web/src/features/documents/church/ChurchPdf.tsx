@@ -1,9 +1,11 @@
 "use client";
 
 import { Skeleton, StatePanel } from "@everyfield/ui/controls";
+import { observeIntersection, observeSize } from "@everyfield/ui/foundations";
 import type { PDFDocumentProxy } from "pdfjs-dist";
-import { useEffect, useRef, useState } from "react";
-import { closePdf, drawPage, openPdf, preparePdf } from "../pdf.ts";
+import { useCallback, useState } from "react";
+import { createRead, useRead } from "../../../components/read.tsx";
+import { closePdf, drawPage, openPdf } from "../pdf.ts";
 
 // The preview of a Church Document is its real PDF: the bytes "Download PDF" gives, drawn page by page with page breaks
 // and the card sheet exactly as they print. Pages draw one after another as the reader scrolls toward them. A new
@@ -11,59 +13,131 @@ import { closePdf, drawPage, openPdf, preparePdf } from "../pdf.ts";
 
 type Props = { title: string; src: string; page: { width: number; height: number } };
 
-export function ChurchPdf({ title, src, page }: Props) {
-	const [doc, setDoc] = useState<PDFDocumentProxy | null>(null);
-	const [failed, setFailed] = useState(false);
-	const [width, setWidth] = useState(0);
-	const frame = useRef<HTMLDivElement>(null);
+type PdfFile = { status: "ok"; bytes: Uint8Array } | { status: "lost" };
 
-	useEffect(() => {
-		let cancelled = false;
-		let opened: PDFDocumentProxy | null = null;
-		preparePdf();
-		fetch(src, { cache: "no-store" })
-			.then((response) => (response.ok ? response.arrayBuffer() : Promise.reject(new Error(String(response.status)))))
-			.then((buffer) => openPdf(new Uint8Array(buffer)))
-			.then(
-				(next) => {
-					if (cancelled) closePdf(next);
-					else {
-						opened = next;
-						setDoc(next);
-					}
+const pdfFiles = createRead(
+	(src: string) =>
+		fetch(src, { cache: "no-store" }).then((response): Promise<PdfFile> | PdfFile =>
+			response.ok
+				? response.arrayBuffer().then((buffer): PdfFile => ({ status: "ok", bytes: new Uint8Array(buffer) }))
+				: { status: "lost" },
+		),
+	{ failed: (): PdfFile => ({ status: "lost" }) },
+);
+
+function pdfPages(bytes: Uint8Array, events: { opened: (pages: number) => void; failed: () => void }) {
+	let doc: PDFDocumentProxy | null = null;
+	let width = 0;
+	const painters = new Set<() => void>();
+	const paintAll = () => {
+		for (const paint of painters) paint();
+	};
+	return {
+		attach(frame: HTMLDivElement | null) {
+			if (!frame) return;
+			let live = true;
+			const stopSize = observeSize<HTMLDivElement>((node) => {
+				width = Math.round(node.clientWidth);
+				paintAll();
+			})(frame);
+			openPdf(bytes).then(
+				(opened) => {
+					if (!live) return closePdf(opened);
+					doc = opened;
+					events.opened(opened.numPages);
+					paintAll();
 				},
-				() => !cancelled && setFailed(true),
+				() => live && events.failed(),
 			);
-		return () => {
-			cancelled = true;
-			if (opened) closePdf(opened);
-		};
-	}, [src]);
+			return () => {
+				live = false;
+				stopSize?.();
+				if (doc) closePdf(doc);
+				doc = null;
+			};
+		},
+		page(number: number, drawn: () => void) {
+			return (canvas: HTMLCanvasElement | null) => {
+				if (!canvas) return;
+				let live = true;
+				let visible = number === 1;
+				let latest = 0;
+				const paint = () => {
+					if (!live || !visible || !doc || width === 0) return;
+					const mine = ++latest;
+					const current = () => live && mine === latest;
+					drawPage(doc, number, canvas, width, window.devicePixelRatio || 1, current).then(
+						() => current() && drawn(),
+						() => undefined,
+					);
+				};
+				painters.add(paint);
+				const stopSeen = visible
+					? undefined
+					: observeIntersection<HTMLCanvasElement>(
+							(entry, stop) => {
+								if (!entry.isIntersecting) return;
+								stop();
+								visible = true;
+								paint();
+							},
+							{ rootMargin: "800px 0px" },
+						)(canvas);
+				paint();
+				return () => {
+					live = false;
+					stopSeen?.();
+					painters.delete(paint);
+				};
+			};
+		},
+	};
+}
 
-	useEffect(() => {
-		const node = frame.current;
-		if (!node) return;
-		const observer = new ResizeObserver(([entry]) => entry && setWidth(Math.round(entry.contentRect.width)));
-		observer.observe(node);
-		return () => observer.disconnect();
-	}, []);
+type Pages = ReturnType<typeof pdfPages>;
 
-	if (failed)
-		return (
-			<StatePanel tone="error" title="The preview did not load" headingLevel="h2" className="py-8">
-				The PDF did not render. Nothing was changed. Reload the page to try again.
-			</StatePanel>
-		);
+export function ChurchPdf({ title, src, page }: Props) {
+	const file = useRead(pdfFiles, src);
+	if (file.value?.status === "lost") return <Failed />;
+	return file.value ? <PdfPages title={title} bytes={file.value.bytes} page={page} /> : <Loading page={page} />;
+}
 
-	const pages = doc?.numPages ?? 0;
+function Failed() {
 	return (
-		<div ref={frame} className="flex flex-col gap-5" aria-busy={doc ? undefined : true}>
+		<StatePanel tone="error" title="The preview did not load" headingLevel="h2" className="py-8">
+			The PDF did not render. Nothing was changed. Reload the page to try again.
+		</StatePanel>
+	);
+}
+
+function Loading({ page }: { page: Props["page"] }) {
+	return (
+		<div className="flex flex-col gap-5" aria-busy>
 			<p className="sr-only" role="status">
-				{doc ? `${title} preview, ${pages} page${pages === 1 ? "" : "s"}` : "Loading the preview"}
+				Loading the preview
 			</p>
-			{doc ? (
+			<div style={{ aspectRatio: `${page.width} / ${page.height}` }} className="w-full">
+				<Skeleton shape="block" className="size-full rounded-none" />
+			</div>
+		</div>
+	);
+}
+
+function PdfPages({ title, bytes, page }: { title: string; bytes: Uint8Array; page: Props["page"] }) {
+	const [pages, setPages] = useState(0);
+	const [failed, setFailed] = useState(false);
+	const [pdf] = useState(() => pdfPages(bytes, { opened: setPages, failed: () => setFailed(true) }));
+	const attach = useCallback((node: HTMLDivElement | null) => pdf.attach(node), [pdf]);
+
+	if (failed) return <Failed />;
+	return (
+		<div ref={attach} className="flex flex-col gap-5" aria-busy={pages ? undefined : true}>
+			<p className="sr-only" role="status">
+				{pages ? `${title} preview, ${pages} page${pages === 1 ? "" : "s"}` : "Loading the preview"}
+			</p>
+			{pages ? (
 				Array.from({ length: pages }, (_, i) => (
-					<PdfPage key={i} doc={doc} number={i + 1} total={pages} width={width} title={title} page={page} />
+					<PdfPage key={i} pdf={pdf} number={i + 1} total={pages} title={title} page={page} />
 				))
 			) : (
 				<div style={{ aspectRatio: `${page.width} / ${page.height}` }} className="w-full">
@@ -75,45 +149,20 @@ export function ChurchPdf({ title, src, page }: Props) {
 }
 
 function PdfPage({
-	doc,
+	pdf,
 	number,
 	total,
-	width,
 	title,
 	page,
 }: {
-	doc: PDFDocumentProxy;
+	pdf: Pages;
 	number: number;
 	total: number;
-	width: number;
 	title: string;
-	page: { width: number; height: number };
+	page: Props["page"];
 }) {
-	const canvas = useRef<HTMLCanvasElement>(null);
-	const [visible, setVisible] = useState(number === 1);
 	const [drawn, setDrawn] = useState(false);
-
-	useEffect(() => {
-		const node = canvas.current;
-		if (!node || visible) return;
-		const observer = new IntersectionObserver(([entry]) => entry?.isIntersecting && setVisible(true), {
-			rootMargin: "800px 0px",
-		});
-		observer.observe(node);
-		return () => observer.disconnect();
-	}, [visible]);
-
-	useEffect(() => {
-		if (!visible || !canvas.current || width === 0) return;
-		let current = true;
-		drawPage(doc, number, canvas.current, width, window.devicePixelRatio || 1, () => current).then(
-			() => current && setDrawn(true),
-			() => undefined,
-		);
-		return () => {
-			current = false;
-		};
-	}, [doc, number, width, visible]);
+	const [attach] = useState(() => pdf.page(number, () => setDrawn(true)));
 
 	return (
 		<figure className="flex flex-col gap-2">
@@ -123,7 +172,7 @@ function PdfPage({
 			>
 				{drawn ? null : <Skeleton shape="block" className="absolute inset-0 rounded-none" />}
 				<canvas
-					ref={canvas}
+					ref={attach}
 					role="img"
 					aria-label={`${title}, page ${number} of ${total}`}
 					className="block size-full"

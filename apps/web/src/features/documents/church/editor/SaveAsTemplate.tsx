@@ -23,7 +23,8 @@ import {
 } from "@everyfield/ui/controls";
 import { Tag } from "@everyfield/ui/display";
 import { Icon } from "@everyfield/ui/foundations";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { createRead, useRead } from "../../../../components/read.tsx";
 import { listChurchTemplates, saveChurchTemplate, updateChurchTemplate } from "../actions.ts";
 
 // Save as template (Approach A): the saved revision becomes the church's own template, or the next version of one it
@@ -31,11 +32,10 @@ import { listChurchTemplates, saveChurchTemplate, updateChurchTemplate } from ".
 // until they are saved.
 
 /** The church's templates now; none when they cannot be read, so the dialog offers only a new template. */
-const currentTemplates = () =>
-	listChurchTemplates().then(
-		(result) => (result.status === "ok" ? result.templates : []),
-		() => [],
-	);
+export const churchTemplates = createRead(
+	() => listChurchTemplates().then((result) => (result.status === "ok" ? result.templates : [])),
+	{ failed: (): ChurchTemplateSummary[] => [] },
+);
 
 /** What the editor's confirmation names: the template, its version and whether this made a new version of it. */
 export type TemplateSaved = { title: string; version: number; updated: boolean };
@@ -67,7 +67,7 @@ export function SaveAsTemplateDialog({
 	const [name, setName] = useState(title);
 	const [description, setDescription] = useState("");
 	// The church's templates as they stand when the dialog opens; null until read. None means no update choice.
-	const [templates, setTemplates] = useState<ChurchTemplateSummary[] | null>(null);
+	const templates = useRead(churchTemplates).value ?? null;
 	const [chosen, setChosen] = useState<string | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [pending, setPending] = useState(false);
@@ -75,19 +75,6 @@ export function SaveAsTemplateDialog({
 	// or one version. The editor mounts the dialog afresh each time it opens, so each opening starts with the title, a
 	// fresh read of the templates and a new key.
 	const [requestKey] = useState(() => crypto.randomUUID());
-
-	async function readTemplates() {
-		const next = await currentTemplates();
-		setTemplates(next);
-		return next;
-	}
-	useEffect(() => {
-		let live = true;
-		void currentTemplates().then((next) => live && setTemplates(next));
-		return () => {
-			live = false;
-		};
-	}, []);
 
 	const target = templates?.find((t) => t.id === chosen) ?? null;
 	const updating = mode === "update" && (templates?.length ?? 0) > 0;
@@ -155,7 +142,7 @@ export function SaveAsTemplateDialog({
 			return;
 		}
 		// Someone else updated or deleted it first: read the templates again, so the list shows where they stand now.
-		const now = (await readTemplates()).find((t) => t.id === target.id);
+		const now = (await churchTemplates.refresh()).find((t) => t.id === target.id);
 		setPending(false);
 		if (result.code === "conflict" && now)
 			setError(
