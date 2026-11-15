@@ -1,8 +1,8 @@
 "use client";
 
 import { Alert02Icon } from "@hugeicons/core-free-icons";
-import { Icon } from "@everyfield/ui/foundations";
-import { useEffect, useRef, type ReactNode } from "react";
+import { Icon, useFocusRequest, type FocusRequest } from "@everyfield/ui/foundations";
+import type { ReactNode } from "react";
 
 /**
  * A problem under a form or on a page. It is an alert, and it takes focus when it appears, so a keyboard or screen
@@ -10,11 +10,8 @@ import { useEffect, useRef, type ReactNode } from "react";
  * problem. Render it inside the open dialog when a dialog is open: the page behind a modal is hidden from assistive
  * technology.
  */
-export function Problem({ children, focus = true }: { children: ReactNode; focus?: boolean }) {
-	const ref = useRef<HTMLDivElement>(null);
-	useEffect(() => {
-		if (focus) ref.current?.focus();
-	}, []); // eslint-disable-line react-hooks/exhaustive-deps
+export function Problem({ children, request = 1 }: { children: ReactNode; request?: FocusRequest }) {
+	const ref = useFocusRequest<HTMLDivElement>(request);
 	return (
 		<div
 			ref={ref}

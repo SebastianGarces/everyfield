@@ -20,15 +20,16 @@ import {
 	Textarea,
 } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { focusOnMount } from "@everyfield/ui/foundations";
+import { useRef, useState, type ReactNode } from "react";
 import type { z } from "zod";
 import type { Receipt } from "../boundary.ts";
 import { runSave, type PersonStore } from "../person.store.ts";
-import type { Outcome } from "../../../components/save/model.ts";
+import { useRead } from "../../../components/read.tsx";
 import { fresh, LocalDay, usePersonState, When } from "../parts.tsx";
 import type { PersonDraft } from "../StageDialog.tsx";
-import { correctRecord, loadRecords } from "./actions.ts";
-import { takeRecords } from "./intent.ts";
+import { correctRecord } from "./actions.ts";
+import { recordsRead } from "./intent.ts";
 import {
 	assessmentChanges,
 	commitmentChanges,
@@ -112,30 +113,22 @@ export function EditRecordDialog({
 	/** A saved edit: its card shows the record as saved now, and Activity adds its entry when the receipt is known. */
 	onEdited: (receipt: Receipt | null, corrected: Chosen) => void;
 }) {
-	const [records, setRecords] = useState<Outcome<Records> | null>(null);
 	const [chosen, setChosen] = useState<{ type: RecordType; id: string } | null>(null);
 	const [saved, setSaved] = useState<{ type: RecordType; id: string; reasoned: boolean } | null>(null);
 	const [reason, setReason] = useState("");
 	const [pending, setPending] = useState(false);
-	const seq = useRef(0);
+	const read = useRead(recordsRead, person.id);
+	const records = read.value ?? null;
 	// Edits whose answer was lost. Only a server answer may say what happened, never a failed read.
 	const errors = usePersonState(store).errors;
 	const uncertain = new Set(
 		Object.entries(errors).flatMap(([k, v]) => (k.startsWith("correct:") && v === "lost" ? [k.slice(8)] : [])),
 	);
 
-	/** Reads the records. The first read is the one started on intent, when there is one (intent.ts). */
-	async function load(first = false) {
-		const n = ++seq.current;
-		const r = first
-			? await takeRecords(person.id)
-			: await loadRecords(person.id).catch(() => ({ status: "lost" }) as const);
-		if (n === seq.current) setRecords(r);
-		return r;
-	}
-	useEffect(() => {
-		void load(true);
-	}, [person.id]); // eslint-disable-line react-hooks/exhaustive-deps
+	const close = () => {
+		onClose();
+		recordsRead.forget(person.id);
+	};
 
 	const list = records?.status === "ok" ? records.value : null;
 	const find = (data: Records, c: { type: RecordType; id: string }): Chosen | null => {
@@ -155,7 +148,7 @@ export function EditRecordDialog({
 	};
 
 	return (
-		<Dialog open onOpenChange={(open) => !open && !pending && onClose()}>
+		<Dialog open onOpenChange={(open) => !open && !pending && close()}>
 			<DialogContent size="md" aria-busy={pending || records === null || undefined}>
 				<DialogHeader
 					icon={FileEditIcon}
@@ -192,16 +185,10 @@ export function EditRecordDialog({
 							</Problem>
 						</DialogBody>
 						<DialogFooter>
-							<Button variant="secondary" onClick={onClose}>
+							<Button variant="secondary" onClick={close}>
 								Close
 							</Button>
-							<Button
-								variant="primary"
-								onClick={() => {
-									setRecords(null);
-									void load();
-								}}
-							>
+							<Button variant="primary" onClick={read.retry}>
 								Try again
 							</Button>
 						</DialogFooter>
@@ -220,7 +207,7 @@ export function EditRecordDialog({
 							<Button variant="secondary" onClick={back}>
 								Edit another record
 							</Button>
-							<Button variant="primary" onClick={onClose}>
+							<Button variant="primary" onClick={close}>
 								Done
 							</Button>
 						</DialogFooter>
@@ -238,11 +225,11 @@ export function EditRecordDialog({
 						onBack={back}
 						onPending={setPending}
 						reload={async () => {
-							const r = await load();
+							const r = await recordsRead.refresh(person.id);
 							return r.status === "ok" ? find(r.value, { type: current.type, id: current.record.id }) : null;
 						}}
 						onSaved={(next, correction, receipt) => {
-							setRecords({
+							read.patch(() => ({
 								status: "ok",
 								value: {
 									...list,
@@ -257,7 +244,7 @@ export function EditRecordDialog({
 									),
 									corrections: correction ? [correction, ...list.corrections] : list.corrections,
 								},
-							});
+							}));
 							setSaved({ type: next.type, id: next.record.id, reasoned: Boolean(correction?.reason) });
 							setReason("");
 							onEdited(receipt, next);
@@ -269,7 +256,7 @@ export function EditRecordDialog({
 							<RecordList data={list} uncertain={uncertain} onChoose={(type, id) => setChosen({ type, id })} />
 						</DialogBody>
 						<DialogFooter>
-							<Button variant="secondary" onClick={onClose}>
+							<Button variant="secondary" onClick={close}>
 								Close
 							</Button>
 						</DialogFooter>
@@ -281,10 +268,8 @@ export function EditRecordDialog({
 }
 
 function SavedNote({ type, reasoned }: { type: RecordType; reasoned: boolean }) {
-	const ref = useRef<HTMLDivElement>(null);
-	useEffect(() => ref.current?.focus(), []);
 	return (
-		<div ref={ref} tabIndex={-1} role="status" className="flex flex-col gap-2 outline-none">
+		<div ref={focusOnMount} tabIndex={-1} role="status" className="flex flex-col gap-2 outline-none">
 			<CalloutLabel tone="green" icon={Tick02Icon}>
 				Changes saved
 			</CalloutLabel>

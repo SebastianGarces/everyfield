@@ -28,10 +28,11 @@ import {
 	StatePanel,
 } from "@everyfield/ui/controls";
 import { Avatar, KeyValue, KeyValueList, StageChip, StatusBadge } from "@everyfield/ui/display";
-import { cn } from "@everyfield/ui/foundations";
+import { cn, focusOnMount } from "@everyfield/ui/foundations";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useRef, useState, useTransition, type ReactNode } from "react";
 import { keyFor, STAGE_KEY, STAGE_LABEL, type KeyedPayload, type StageValue } from "../model.ts";
+import { writeAddress } from "../../../components/location.ts";
 import type { Outcome } from "../../../components/save/model.ts";
 import { fresh, LocalDay, When } from "../parts.tsx";
 import { dismissPair, mergeDestination, mergePair, reviewPair, type Merged } from "./actions.ts";
@@ -76,48 +77,49 @@ export function DuplicatesScreen({ initial, query }: { initial: PairView; query:
 	const [done, setDone] = useState<Done | null>(null);
 	/** A problem the page shows after the dialog closed, with a key so a repeat problem takes focus again. */
 	const [notice, setNotice] = useState<{ n: number; text: string } | null>(null);
-	const [loading, setLoading] = useState(false);
+	const [loading, startLoad] = useTransition();
 	// Each review request carries a number; an answer to an older request never replaces a newer one.
 	const seq = useRef(0);
 	const router = useRouter();
-	const [dismissing, setDismissing] = useState(false);
+	const [dismissing, startDismiss] = useTransition();
 	const [dismiss] = useState(() => reviewDismiss(dismissPair));
 
-	/** "Not a duplicate" on a listed pair (T-268): dismiss it and return to the list, or stay and say why. */
-	async function notDuplicate(listed: ListedPair, review: Review) {
+	function notDuplicate(listed: ListedPair, review: Review) {
 		const name = (id: string) =>
 			id === review.source.personId ? review.source.displayName : review.survivor.displayName;
-		setDismissing(true);
-		const r = await dismiss(listed);
-		if (!r) return;
-		if (r.next === "list") {
-			leaveConfirmation(notDuplicateText(name(listed.personId), name(listed.withPersonId)));
-			return router.push("/people/duplicates");
-		}
-		setDismissing(false);
-		if (r.reread) return load(review.survivor.personId, r.text);
-		setNotice((old) => ({ n: (old?.n ?? 0) + 1, text: r.text }));
+		startDismiss(async () => {
+			const r = await dismiss(listed);
+			if (!r) return;
+			if (r.next === "list") {
+				leaveConfirmation(notDuplicateText(name(listed.personId), name(listed.withPersonId)));
+				return router.push("/people/duplicates");
+			}
+			if (r.reread) return load(review.survivor.personId, r.text);
+			startDismiss(() => setNotice((old) => ({ n: (old?.n ?? 0) + 1, text: r.text })));
+		});
 	}
 
-	async function load(keep: string | null, then?: string) {
+	function load(keep: string | null, then?: string) {
 		const n = ++seq.current;
-		setLoading(true);
-		const r: Outcome<PairView> = await reviewPair({ ...query, keep }).catch(() => ({ status: "lost" }) as const);
-		if (n !== seq.current) return;
-		setLoading(false);
-		if (r.status === "ok") {
-			setView(r.value);
-			if (r.value.kind === "ready")
-				window.history.replaceState(null, "", pairHref(query.person, query.with, keep ?? undefined));
-			setNotice(then ? { n, text: then } : null);
-		} else
-			setNotice({
-				n,
-				text:
-					r.status === "lost"
-						? "The review did not load. Try again in a moment."
-						: "You cannot review these people. Your seat may have changed; reload the page.",
+		startLoad(async () => {
+			const r: Outcome<PairView> = await reviewPair({ ...query, keep }).catch(() => ({ status: "lost" }) as const);
+			if (n !== seq.current) return;
+			startLoad(() => {
+				if (r.status === "ok") {
+					setView(r.value);
+					if (r.value.kind === "ready")
+						writeAddress(pairHref(query.person, query.with, keep ?? undefined), { replace: true });
+					setNotice(then ? { n, text: then } : null);
+				} else
+					setNotice({
+						n,
+						text:
+							r.status === "lost"
+								? "The review did not load. Try again in a moment."
+								: "You cannot review these people. Your seat may have changed; reload the page.",
+					});
 			});
+		});
 	}
 
 	if (done) return <Result done={done} />;
@@ -129,8 +131,8 @@ export function DuplicatesScreen({ initial, query }: { initial: PairView; query:
 				subtitle="Everyfield never merges on its own. You choose which details to keep."
 			/>
 			{notice ? (
-				<div className="mb-5" key={notice.n}>
-					<Problem>{notice.text}</Problem>
+				<div className="mb-5">
+					<Problem request={notice.n}>{notice.text}</Problem>
 				</div>
 			) : null}
 			{view.kind === "ready" ? (
@@ -676,7 +678,7 @@ function ConfirmMerge({
 						You can undo this with Review Unmerge in {first(survivor)}&rsquo;s Activity, while nothing that depends on
 						the merge has changed.
 					</p>
-					{problem ? <Problem key={problem.n}>{problem.text}</Problem> : null}
+					{problem ? <Problem request={problem.n}>{problem.text}</Problem> : null}
 				</DialogBody>
 				<DialogFooter>
 					<Button variant="secondary" disabled={pending} onClick={onClose}>
@@ -702,8 +704,6 @@ function Point({ children }: { children: ReactNode }) {
 
 /** The merge result: what moved, a link to the survivor and the way back. Focus moves to its heading. */
 function Result({ done }: { done: Done }) {
-	const ref = useRef<HTMLHeadingElement>(null);
-	useEffect(() => ref.current?.focus(), []);
 	const { merged } = done;
 	return (
 		<>
@@ -712,7 +712,7 @@ function Result({ done }: { done: Done }) {
 				<CalloutLabel tone="green" icon={Tick02Icon}>
 					Merged
 				</CalloutLabel>
-				<h2 ref={ref} tabIndex={-1} className="mt-3 font-title text-title-md text-ink outline-none">
+				<h2 ref={focusOnMount} tabIndex={-1} className="mt-3 font-title text-title-md text-ink outline-none">
 					{done.source} is now part of {done.survivor}
 				</h2>
 				<CalloutText className="text-sm">

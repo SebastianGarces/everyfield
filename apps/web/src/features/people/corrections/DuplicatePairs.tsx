@@ -15,7 +15,7 @@ import {
 	IntentLink,
 } from "@everyfield/ui/controls";
 import { Avatar } from "@everyfield/ui/display";
-import { useEffect, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { sendTwice, type Outcome } from "../../../components/save/model.ts";
 import { dismissPair, restorePair, type PairChange } from "./actions.ts";
 import {
@@ -40,29 +40,13 @@ const send: Record<PairAction, (input: unknown) => Promise<Outcome<PairChange>>>
 
 // The confirmation a dismiss on the review screen leaves for the list it returns to (T-268). The list shows it once and
 // clears it, so a reload shows the list without it. Storage can be blocked; the list is right without the confirmation.
-const RETURNED = "everyfield.duplicates.returned";
-const confirmation = {
-	leave(text: string) {
-		try {
-			sessionStorage.setItem(RETURNED, text);
-		} catch {}
-	},
-	read() {
-		// The server render has no tab; the review returns to the list by a client navigation, which reads the tab.
-		if (typeof window === "undefined") return null;
-		try {
-			return sessionStorage.getItem(RETURNED);
-		} catch {
-			return null;
-		}
-	},
-	clear() {
-		try {
-			sessionStorage.removeItem(RETURNED);
-		} catch {}
-	},
+let returned: string | null = null;
+export const leaveConfirmation = (text: string) => {
+	returned = text;
 };
-export const leaveConfirmation = confirmation.leave;
+const takeConfirmation = (node: HTMLElement | null) => {
+	if (node) returned = null;
+};
 
 /**
  * One list's dismiss or restore (D-789). The row leaves at once; a refused or lost answer puts it back in its place with
@@ -93,19 +77,18 @@ function usePairs<P extends Pair>(items: readonly P[], action: PairAction) {
  */
 export function DuplicatePairs({ pairs }: { pairs: Pairs }) {
 	const { shown, notice, run, said } = usePairs(pairs.items, "dismiss");
-	const [returned] = useState(confirmation.read);
-	useEffect(() => confirmation.clear(), []);
+	const [confirmation] = useState(() => returned);
 	const count = shown.length;
 	return (
 		<>
 			<Said text={said} />
-			{returned ? (
-				<Card variant="callout" tone="green" role="status" className="mb-5">
+			{confirmation ? (
+				<Card ref={takeConfirmation} variant="callout" tone="green" role="status" className="mb-5">
 					<CalloutLabel tone="green" icon={Tick02Icon}>
 						Marked not a duplicate
 					</CalloutLabel>
 					<CalloutText className="text-sm">
-						{returned}{" "}
+						{confirmation}{" "}
 						<IntentLink href={DISMISSED_HREF} className="font-semibold text-ink underline underline-offset-2">
 							See dismissed pairs
 						</IntentLink>
@@ -273,7 +256,7 @@ function PairRow({
 			{notice ? (
 				// The row's button left with the row, so the notice takes focus when the row comes back.
 				<div className="basis-full">
-					<Problem key={notice}>{notice}</Problem>
+					<Problem request={notice}>{notice}</Problem>
 				</div>
 			) : null}
 		</li>
