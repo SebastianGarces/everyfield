@@ -1,7 +1,7 @@
 import "../../../platform/setup.mts";
 import test, { after, before, mock } from "node:test";
 import assert from "node:assert/strict";
-import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -107,7 +107,10 @@ test("only a verified restricted-backup capability for the copy operation gets p
 	const cases: [string, unknown][] = [
 		["a missing capability", undefined],
 		["an unverified capability", { ...backupOperator, verified: false }],
-		["another operation's capability", { ...backupOperator, operation_ids: ["maintenance.restoreWithCurrentManifest"] }],
+		[
+			"another operation's capability",
+			{ ...backupOperator, operation_ids: ["maintenance.restoreWithCurrentManifest"] },
+		],
 		["the restricted recovery capability", operator],
 		["the shared development environment", { ...backupOperator, environment: "development" }],
 		["A's Admin session", { account: a.id, session: a.session, context: plant.id, role: "Admin" }],
@@ -170,14 +173,17 @@ test("AC:BKT60-002 a dated encrypted DB-plus-bytes copy whose key only the restr
 		assert.doesNotMatch(backup.get(`${location}/manifest.json`)!.toString("utf8"), /Harvest Point|launch plan/);
 	});
 
-	await step.test("the restricted backup key recovers the image and bytes matching the recorded checksums", async () => {
-		const opened = await openEncryptedCopy(store, location, keyFile);
-		assert.deepEqual(opened.image, plain.image);
-		assert.equal(sha256(opened.image), plain.manifest.database.sha256);
-		const id = plain.manifest.objects[0].id;
-		assert.deepEqual(Buffer.from(opened.objects.get(id)!), DOCUMENT);
-		assert.equal(sha256(opened.objects.get(id)!), sha256(DOCUMENT));
-	});
+	await step.test(
+		"the restricted backup key recovers the image and bytes matching the recorded checksums",
+		async () => {
+			const opened = await openEncryptedCopy(store, location, keyFile);
+			assert.deepEqual(opened.image, plain.image);
+			assert.equal(sha256(opened.image), plain.manifest.database.sha256);
+			const id = plain.manifest.objects[0].id;
+			assert.deepEqual(Buffer.from(opened.objects.get(id)!), DOCUMENT);
+			assert.equal(sha256(opened.objects.get(id)!), sha256(DOCUMENT));
+		},
+	);
 
 	await step.test("another key, a changed ciphertext and a changed checksum are each refused", async () => {
 		await assert.rejects(openEncryptedCopy(store, location, otherKeyFile), { message: "copy_unreadable" });
@@ -211,23 +217,26 @@ test("AC:BKT60-002 a dated encrypted DB-plus-bytes copy whose key only the restr
 		await assert.rejects(openEncryptedCopy(store, location, open), { message: "key_unavailable" });
 	});
 
-	await step.test("the recopy on 2026-10-19 keeps the 2026-10-20 subject expiry, never the recopy date plus seven days", async () => {
-		const recopy = await copyAt(RECOPY, { source: { copy: location } });
-		assert.equal(recopy.copy_encrypted, true, JSON.stringify(recopy));
-		if (!recopy.copy_encrypted) return;
-		assert.match(recopy.location, /^copy\/2026-10-19\//);
-		assert.equal(recopy.subject_expiry, "2026-10-20T16:00:00Z");
-		assert.equal(recopy.effective_expires_at, "2026-10-20T16:00:00Z");
-		assert.notEqual(recopy.effective_expires_at, new Date(RECOPY.getTime() + 7 * DAY).toISOString());
-		assert.notEqual(recopy.key_version, result.key_version);
-		const manifest = JSON.parse(backup.get(`${recopy.location}/manifest.json`)!.toString("utf8"));
-		const checked = validateCandidate(manifest, RECOPY);
-		assert.deepEqual(checked.manifest.subjects, [{ id: subject, expiresAt: SUBJECT_EXPIRY }]);
-		assert.equal(checked.effectiveExpiresAt, "2026-10-20T16:00:00.000Z");
-		// The recopy opens with the restricted key to the same bytes.
-		const opened = await openEncryptedCopy(store, recopy.location, keyFile);
-		assert.deepEqual(opened.image, plain.image);
-	});
+	await step.test(
+		"the recopy on 2026-10-19 keeps the 2026-10-20 subject expiry, never the recopy date plus seven days",
+		async () => {
+			const recopy = await copyAt(RECOPY, { source: { copy: location } });
+			assert.equal(recopy.copy_encrypted, true, JSON.stringify(recopy));
+			if (!recopy.copy_encrypted) return;
+			assert.match(recopy.location, /^copy\/2026-10-19\//);
+			assert.equal(recopy.subject_expiry, "2026-10-20T16:00:00Z");
+			assert.equal(recopy.effective_expires_at, "2026-10-20T16:00:00Z");
+			assert.notEqual(recopy.effective_expires_at, new Date(RECOPY.getTime() + 7 * DAY).toISOString());
+			assert.notEqual(recopy.key_version, result.key_version);
+			const manifest = JSON.parse(backup.get(`${recopy.location}/manifest.json`)!.toString("utf8"));
+			const checked = validateCandidate(manifest, RECOPY);
+			assert.deepEqual(checked.manifest.subjects, [{ id: subject, expiresAt: SUBJECT_EXPIRY }]);
+			assert.equal(checked.effectiveExpiresAt, "2026-10-20T16:00:00.000Z");
+			// The recopy opens with the restricted key to the same bytes.
+			const opened = await openEncryptedCopy(store, recopy.location, keyFile);
+			assert.deepEqual(opened.image, plain.image);
+		},
+	);
 
 	await step.test("a recopy that carries a later subject expiry is refused", async () => {
 		const opened = await openEncryptedCopy(store, location, keyFile);
@@ -235,7 +244,12 @@ test("AC:BKT60-002 a dated encrypted DB-plus-bytes copy whose key only the restr
 		const later = new Date(RECOPY.getTime() + 7 * DAY).toISOString();
 		const redated = {
 			...opened,
-			manifest: { ...old, createdAt: RECOPY.toISOString(), expiresAt: later, subjects: [{ id: subject, expiresAt: later }] },
+			manifest: {
+				...old,
+				createdAt: RECOPY.toISOString(),
+				expiresAt: later,
+				subjects: [{ id: subject, expiresAt: later }],
+			},
 		};
 		const before = writes;
 		const refusedCopy = await copyAt(RECOPY, {

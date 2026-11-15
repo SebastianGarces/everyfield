@@ -24,7 +24,11 @@ const scoped = {
 } as const;
 /** Evidence of each kind in the shape ops.readiness counts. */
 const supplied = {
-	cost_approval: { approved: true, approved_at: "2026-10-12T16:00:00Z", monthly_usd: { low: 5, expected: 10, high: 20 } },
+	cost_approval: {
+		approved: true,
+		approved_at: "2026-10-12T16:00:00Z",
+		monthly_usd: { low: 5, expected: 10, high: 20 },
+	},
 	host_schedule: { host: "restricted-host-1", schedule: "daily 03:00 UTC", verified_at: "2026-10-12T16:00:00Z" },
 	key_exclusion: { denied: { app: true, build: true, preview: true }, verified_at: "2026-10-12T16:00:00Z" },
 	coherent_restore: { live_recovery_proven: true, verified_at: "2026-10-12T16:00:00Z" },
@@ -54,7 +58,11 @@ test("only a verified explicit scoped operator capability for ops.readiness gets
 		["A's Admin role as the authority", { ...scoped, authority: "plant_admin" }],
 	];
 	for (const [name, capability] of cases)
-		assert.deepEqual(readiness({ capability, evidence: supplied, now: NOW }), { refusal: "operator_unavailable" }, name);
+		assert.deepEqual(
+			readiness({ capability, evidence: supplied, now: NOW }),
+			{ refusal: "operator_unavailable" },
+			name,
+		);
 });
 
 test("AC:BKT60-004 the before-customer-data gate stays blocked while cost, host schedule, key exclusion or coherent restore evidence is missing", async (step) => {
@@ -111,7 +119,10 @@ test("AC:BKT60-004 the before-customer-data gate stays blocked while cost, host 
 			assert.equal(report.refusal === null && report.customer_data_gate, "blocked");
 			assert.deepEqual(report.refusal === null && report.missing, ["coherent_restore"]);
 			// The offline candidate check's own verdict does not count either.
-			const offline = { ...supplied, coherent_restore: { liveRecoveryProven: false, verified_at: "2026-10-13T16:00:00Z" } };
+			const offline = {
+				...supplied,
+				coherent_restore: { liveRecoveryProven: false, verified_at: "2026-10-13T16:00:00Z" },
+			};
 			const again = readiness({ capability: scoped, evidence: offline, now: NOW });
 			assert.deepEqual(again.refusal === null && again.missing, ["coherent_restore"]);
 		} finally {

@@ -48,7 +48,8 @@ export type ReadinessReport =
 
 export function readiness(input: { capability: unknown; evidence: unknown; now: Date }): ReadinessReport {
 	if (!capability.safeParse(input.capability).success) return { refusal: "operator_unavailable" };
-	const evidence = input.evidence && typeof input.evidence === "object" ? (input.evidence as Record<string, unknown>) : {};
+	const evidence =
+		input.evidence && typeof input.evidence === "object" ? (input.evidence as Record<string, unknown>) : {};
 	const missing = (Object.keys(EVIDENCE) as EvidenceItem[]).filter(
 		(item) => !EVIDENCE[item].safeParse(evidence[item]).success,
 	);

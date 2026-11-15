@@ -73,7 +73,11 @@ class Refused extends Error {
 		this.code = code;
 	}
 }
-const MANIFEST_REFUSALS = new Set(["copy_expired_or_invalid", "duplicate_manifest_identity", "subject_expired_or_reset"]);
+const MANIFEST_REFUSALS = new Set([
+	"copy_expired_or_invalid",
+	"duplicate_manifest_identity",
+	"subject_expired_or_reset",
+]);
 const IV = 12,
 	TAG = 16;
 const sha256 = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");
@@ -147,7 +151,9 @@ async function copy(deps: CopyDeps, input: CopyInput): Promise<CopyResult> {
 	const now = deps.clock();
 	const kek = await backupKey(input.keyFile);
 	const snapshot =
-		"copy" in input.source ? await openEncryptedCopy(deps.store, input.source.copy, input.keyFile) : input.source.snapshot;
+		"copy" in input.source
+			? await openEncryptedCopy(deps.store, input.source.copy, input.keyFile)
+			: input.source.snapshot;
 	// The original expiries: those the caller knows, and on a recopy those the older copy recorded. The earliest wins.
 	const originals = new Map(input.originalExpiries ?? []);
 	if ("copy" in input.source)
