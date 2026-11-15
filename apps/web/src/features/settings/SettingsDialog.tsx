@@ -13,8 +13,9 @@ import {
 } from "@hugeicons/core-free-icons";
 import { Button, ConfirmDialog, Dialog, DialogContent, DialogHeader, StatePanel } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
-import { cn, Icon, type IconSvgElement } from "@everyfield/ui/foundations";
-import { createContext, use, useEffect, useId, useRef, useState, type MouseEvent, type ReactNode } from "react";
+import { cn, Icon, useFocusRequest, type IconSvgElement } from "@everyfield/ui/foundations";
+import { createContext, use, useId, useRef, useState, type MouseEvent, type ReactNode } from "react";
+import { unsavedMark } from "../../components/save/leave.ts";
 import { offeredSections, SECTION_LABEL } from "./model";
 import type { SectionKey } from "./port";
 import { useDirtySections, useSettings } from "./store";
@@ -87,7 +88,7 @@ export function SettingsDialog({
 	const offered = offeredSections(viewer, [...(Object.keys(slots) as SectionKey[]), ...(pages?.sections ?? [])]);
 	const [shown, setShown] = useState<SectionKey | null>(section);
 	const [confirming, setConfirming] = useState(false);
-	const panel = useRef<HTMLDivElement>(null);
+	const [moves, setMoves] = useState(0);
 	const navLabel = useId();
 
 	// The URL leads. When it closes settings while drafts are unsaved (Back, or a link), keep the last section on
@@ -96,23 +97,16 @@ export function SettingsDialog({
 	const [urlSection, setUrlSection] = useState(section);
 	if (section !== urlSection) {
 		setUrlSection(section);
-		if (section) setShown(section);
-		else if (dirty.keys.length > 0 && shown) setConfirming(true);
+		if (section) {
+			if (shown && section !== shown) setMoves(moves + 1);
+			setShown(section);
+		} else if (dirty.keys.length > 0 && shown) setConfirming(true);
 		else setShown(null);
 	}
 
-	// When a section change removes the focused control (Back or Forward), focus moves to the current nav link
-	// instead of falling to the page body.
-	useEffect(() => {
-		if (!shown) return;
-		const frame = requestAnimationFrame(() => {
-			const root = panel.current;
-			if (!root || root.contains(document.activeElement)) return;
-			if (document.querySelector("[role=alertdialog]")) return;
-			root.querySelector<HTMLElement>("[data-settings-nav][aria-current=page]")?.focus();
-		});
-		return () => cancelAnimationFrame(frame);
-	}, [shown]);
+	const panel = useFocusRequest<HTMLDivElement>(moves, (root) =>
+		confirming || root.contains(root.ownerDocument.activeElement) ? null : currentNavLink(root),
+	);
 
 	const requestClose = () => {
 		if (dirty.keys.length > 0) setConfirming(true);
@@ -172,7 +166,7 @@ export function SettingsDialog({
 					aria-describedby={undefined}
 					onOpenAutoFocus={(e) => {
 						// Start on the current section's link, so Tab then walks into that section.
-						const link = panel.current?.querySelector<HTMLElement>("[data-settings-nav][aria-current=page]");
+						const link = currentNavLink(e.currentTarget as HTMLElement);
 						if (!link) return;
 						e.preventDefault();
 						link.focus();
@@ -181,6 +175,7 @@ export function SettingsDialog({
 				>
 					<div
 						ref={panel}
+						{...unsavedMark(dirty.keys.length > 0)}
 						className="grid min-h-0 flex-1 grid-cols-[240px_minmax(0,1fr)] max-app-md:grid-cols-[200px_minmax(0,1fr)] max-app-sm:flex max-app-sm:flex-col"
 					>
 						<nav
@@ -278,6 +273,8 @@ export function SettingsDialog({
 		</FrameContext>
 	);
 }
+
+const currentNavLink = (root: HTMLElement) => root.querySelector<HTMLElement>("[data-settings-nav][aria-current=page]");
 
 function listNames(names: string[]): string {
 	if (names.length <= 1) return names[0] ?? "this section";

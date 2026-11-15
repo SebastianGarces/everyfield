@@ -21,7 +21,10 @@ export function AccountSection({
 }: {
 	onDeletionRequested: (status: DeletionStatus | null) => void;
 }) {
-	const { state, replace, reload } = useSection({ section: "account" });
+	const { state, replace, reload } = useSection(
+		{ section: "account" },
+		{ key: "account", formOf: (account) => ({ name: account.name }) },
+	);
 	return (
 		<LoadableView
 			state={state}

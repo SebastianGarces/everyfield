@@ -88,17 +88,18 @@ function BrandEditor({
 }: {
 	view: BrandView;
 	setKit: ReturnType<typeof useBrand>["setKit"];
-	reload: () => void;
+	reload: ReturnType<typeof useBrand>["reload"];
 }) {
 	const { port } = useSettings();
 	const { kit, churchName } = view;
 	const saved = formOf(kit);
-	const { draft, setDraft, dirty, saving, refusal, save: runSave } = useDraft<BrandForm>("brand", saved);
+	const { draft, setDraft, dirty, saving, refusal, save: runSave, serverChanged } = useDraft<BrandForm>("brand", saved);
+	const reloadKit = () => void reload().then((latest) => latest && serverChanged(formOf(latest.kit)));
 	const [showErrors, setShowErrors] = useState(false);
 	const [confirmingReset, setConfirmingReset] = useState(false);
 	const [pickedHint, setPickedHint] = useState(false);
 	const set = <K extends keyof BrandForm>(key: K, value: BrandForm[K]) => setDraft({ ...draft, [key]: value });
-	const assets = useAssets({ port: port.brand, kit, setKit, reload });
+	const assets = useAssets({ port: port.brand, kit, setKit, reload: reloadKit });
 	const picked = hasPicks({ picks: assets.picks });
 
 	// Field errors: the contract's rules, plus the field a refusal names. A refusal clears with the next edit.
@@ -153,7 +154,7 @@ function BrandEditor({
 				onClick={() => {
 					// Reading the kit again clears the refusal; the draft stays, and a change under it rebases.
 					setDraft(draft);
-					reload();
+					reloadKit();
 				}}
 			>
 				Load latest

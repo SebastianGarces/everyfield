@@ -82,7 +82,10 @@ function ChurchLoaded({
 	plant: PlantOwner;
 	onDeletionRequested: (status: DeletionStatus | null) => void;
 }) {
-	const { state, replace, reload } = useSection({ section: "plant", plant });
+	const { state, replace, reload } = useSection(
+		{ section: "plant", plant },
+		{ key: "church", formOf: (section) => formOf(section.values) },
+	);
 	return (
 		<LoadableView
 			state={state}

@@ -81,7 +81,13 @@ export function OrganizationSection() {
 }
 
 function OrganizationLoaded({ organization, admin }: { organization: OrganizationOwner; admin: boolean }) {
-	const { state, replace, reload } = useSection({ section: "organization", organization });
+	const { state, replace, reload } = useSection(
+		{ section: "organization", organization },
+		{
+			key: "organization",
+			formOf: (section) => (section.values.status === "available" ? formOf(section.values) : undefined),
+		},
+	);
 	return (
 		<LoadableView
 			state={state}

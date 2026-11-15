@@ -10,6 +10,5 @@
 	"apps/web/src/features/settings/brand/model.ts": 13,
 	"apps/web/src/features/settings/brand/picks.ts": 7,
 	"apps/web/src/features/settings/brand/server.ts": 7,
-	"apps/web/src/features/settings/brand/useAssets.ts": 6,
-	"apps/web/src/features/settings/brand/useBrand.ts": 4
+	"apps/web/src/features/settings/brand/useAssets.ts": 5
 }

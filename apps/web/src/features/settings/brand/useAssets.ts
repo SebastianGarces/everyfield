@@ -1,11 +1,11 @@
 "use client";
 
 import type { AssetSlot } from "@everyfield/contracts/branding";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { errorReference } from "../model";
 import { OFFLINE_REFERENCE } from "../save";
 import type { BrandKit, BrandPort, SuggestedColors } from "../port";
-import { useFlowState } from "../store";
+import { useFlowState, useLatestFlow, useReads } from "../store";
 import {
 	ALT_REQUIRED,
 	altProblem,
@@ -44,11 +44,12 @@ export function useAssets({
 }) {
 	const [flow, setFlow] = useFlowState<AssetFlow>(ASSET_FLOW, EMPTY_FLOW);
 	const [suggestion, setSuggestion] = useState<SuggestedColors | null>(null);
-	// The revision and kit an async step reads when it starts its last call, never the one a render closed over.
-	const latest = useRef({ kit, flow });
-	useEffect(() => {
-		latest.current = { kit, flow };
-	});
+	const latestFlow = useLatestFlow<AssetFlow>(ASSET_FLOW, EMPTY_FLOW);
+	const reads = useReads();
+	const latestKit = () => {
+		const reply = reads.brand.peek()?.value;
+		return reply?.status === "ok" ? reply.value.kit : kit;
+	};
 	// Each upload and removal changes the kit's revision, so they run one after another: the next reads the revision the
 	// last one returned, and two slots filled in quick succession never conflict with each other.
 	const queue = useRef<Promise<unknown>>(Promise.resolve());
@@ -56,7 +57,7 @@ export function useAssets({
 		// The kit a job returns is the latest at once: the next job must not wait for React to render it.
 		const run = async () => {
 			const outcome = await job();
-			if (outcome.ok) latest.current.kit = outcome.kit;
+			if (outcome.ok) setKit(outcome.kit);
 			return outcome;
 		};
 		const next = queue.current.then(run, run);
@@ -86,11 +87,11 @@ export function useAssets({
 	const choose = (slot: AssetSlot, file: File) => {
 		const problem = fileProblem(file);
 		if (problem) return patch(slot, { note: { message: problem } });
-		patch(slot, { pick: { ...pickFile(file), alt: latest.current.flow.picks[slot]?.alt ?? "" }, note: null });
+		patch(slot, { pick: { ...pickFile(file), alt: latestFlow().picks[slot]?.alt ?? "" }, note: null });
 	};
 
 	const setAlt = (slot: AssetSlot, alt: string) => {
-		const pick = latest.current.flow.picks[slot];
+		const pick = latestFlow().picks[slot];
 		if (pick) patch(slot, { pick: { ...pick, alt, altError: undefined } });
 	};
 
@@ -115,7 +116,7 @@ export function useAssets({
 	};
 
 	const confirm = async (slot: AssetSlot) => {
-		const pick = latest.current.flow.picks[slot];
+		const pick = latestFlow().picks[slot];
 		if (!pick || pick.status === "uploading") return;
 		if (altProblem(pick.alt)) return patch(slot, { pick: { ...pick, altError: ALT_REQUIRED } });
 		const sending = { ...pick, altError: undefined, status: "uploading" as const };
@@ -125,17 +126,17 @@ export function useAssets({
 				slot,
 				file: pick.file,
 				altText: pick.alt.trim(),
-				revision: () => latest.current.kit.revision,
+				revision: () => latestKit().revision,
 			}),
 		);
 		finish(slot, sending, outcome);
 	};
 
 	const remove = async (slot: AssetSlot) => {
-		const before = latest.current.kit;
+		const before = latestKit();
 		setKit(withoutAsset(before, slot));
 		patch(slot, { note: null });
-		const outcome = await inOrder(() => removeAsset(port, slot, latest.current.kit.revision));
+		const outcome = await inOrder(() => removeAsset(port, slot, latestKit().revision));
 		if (outcome.ok) return setKit(outcome.kit);
 		setKit(before);
 		patch(slot, {

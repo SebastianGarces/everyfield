@@ -1,48 +1,23 @@
 "use client";
 
 import type { Loadable } from "@everyfield/ui/display";
-import { createContext, use, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { begin, discard, edit, emptyBook, finish, isDirty, isSaving, rebase, same, visible, type Book } from "./drafts";
-import { ASSET_FLOW, EMPTY_FLOW, hasPicks, releaseAll } from "./brand/picks";
+import { createContext, use, type ReactNode } from "react";
+import { useRead } from "../../components/read.tsx";
+import { storeContext, useLocalStore, useShallow } from "../../components/store.ts";
+import { isDirty, isSaving, visible } from "./drafts";
 import { errorReference, errorText } from "./model";
-import { OFFLINE_REFERENCE, type Refusal } from "./save";
+import type { Refusal } from "./save";
 import type { GetSectionRequest, SectionKey, SectionResult, SectionSeed, SettingsPort, SettingsViewer } from "./port";
+import {
+	createSettingsStore,
+	selectDirtyKeys,
+	type SaveOutcome,
+	type SettingsReads,
+	type SettingsState,
+} from "./settings.store";
 
-// The settings store lives as long as the dialog's route layout, so a section's draft survives switching sections and
-// back/forward (WP-010/ui R2). It is keyed by account and context by its owner (SettingsProvider), so switching
-// account remounts it and no draft or cached section crosses accounts.
-
-type StoreValue = {
-	port: SettingsPort;
-	viewer: SettingsViewer;
-	book: Book<SectionKey, Refusal>;
-	/** The server value per section as a draft form, for the nav mark and the close guard. */
-	servers: Partial<Record<SectionKey, unknown>>;
-	observe: (key: SectionKey, server: unknown) => void;
-	editDraft: (key: SectionKey, value: unknown, server: unknown) => void;
-	runSave: (key: SectionKey, server: unknown, work: (sent: unknown) => Promise<SaveOutcome<unknown>>) => Promise<void>;
-	clearDrafts: () => void;
-	flows: Record<string, unknown>;
-	setFlow: (key: string, update: (prev: unknown) => unknown) => void;
-	sections: Map<string, SectionResult>;
-	remember: (cacheKey: string, value: SectionResult) => void;
-	seed: SectionSeed | null;
-};
-
-/**
- * What a section's save work reports. A success gives the server value (as the section's form) from its last reply.
- * A refusal gives it only when an earlier step of the same save committed; otherwise the store uses the latest
- * server value it holds. No value captured when Save was pressed is ever used.
- */
-export type SaveOutcome<T> = { ok: true; server: T } | { ok: false; refusal: Refusal; server?: T };
-
-const Store = createContext<StoreValue | null>(null);
-
-function useStore(): StoreValue {
-	const store = use(Store);
-	if (!store) throw new Error("Settings screens need a SettingsProvider above them.");
-	return store;
-}
+const Settings = storeContext<SettingsState>("Settings");
+const Viewer = createContext<SettingsViewer | null>(null);
 
 export function SettingsProvider({
 	port,
@@ -55,154 +30,35 @@ export function SettingsProvider({
 	seed?: SectionSeed | null;
 	children: ReactNode;
 }) {
-	// The draft book (drafts.ts). React state drives rendering; the ref is the same value for async save code,
-	// which must decide on the latest book, not the one its render saw. Only commit() writes either.
-	const [book, setBook] = useState(() => emptyBook<SectionKey, Refusal>());
-	const bookRef = useRef(book);
-	const commit = useCallback((next: Book<SectionKey, Refusal>) => {
-		bookRef.current = next;
-		setBook(next);
-	}, []);
-	const [servers, setServers] = useState<Partial<Record<SectionKey, unknown>>>({});
-	const serversRef = useRef(servers);
-	const observe = useCallback(
-		(key: SectionKey, server: unknown) => {
-			if (key in serversRef.current && same(serversRef.current[key], server)) return;
-			if (key in serversRef.current) commit(rebase(bookRef.current, key, serversRef.current[key], server));
-			serversRef.current = { ...serversRef.current, [key]: server };
-			setServers(serversRef.current);
-		},
-		[commit],
+	const store = useLocalStore(() => createSettingsStore({ port, seed }));
+	return (
+		<Settings.Provider value={store}>
+			<Viewer value={viewer}>{children}</Viewer>
+		</Settings.Provider>
 	);
-	const [sections, setSections] = useState(() => new Map<string, SectionResult>());
-	const editDraft = useCallback(
-		(key: SectionKey, value: unknown, server: unknown) => commit(edit(bookRef.current, key, value, server)),
-		[commit],
-	);
-	// The store owns every save: at most one per section, whichever screen started it, and its reply lands here even
-	// after the section unmounted. The reply is reconciled against the server value it reports, never a snapshot.
-	const runSave = useCallback(
-		async (key: SectionKey, server: unknown, work: (sent: unknown) => Promise<SaveOutcome<unknown>>) => {
-			const started = begin(bookRef.current, key, server);
-			if (!started) return;
-			commit(started.book);
-			let outcome: SaveOutcome<unknown>;
-			try {
-				outcome = await work(started.sent);
-			} catch {
-				outcome = {
-					ok: false,
-					refusal: {
-						message: "Everyfield could not be reached, so this may not have saved. Load the latest version to check.",
-						reference: OFFLINE_REFERENCE,
-						code: "unknown",
-					},
-				};
-			}
-			if (outcome.server !== undefined) observe(key, outcome.server);
-			commit(finish(bookRef.current, key, outcome, serversRef.current[key]));
-		},
-		[commit, observe],
-	);
-	const [flows, setFlows] = useState<Record<string, unknown>>({});
-	const clearDrafts = useCallback(() => {
-		let next = bookRef.current;
-		for (const key of Object.keys(next.edits) as SectionKey[]) next = discard(next, key);
-		commit(next);
-		// Files picked for the brand kit and not yet uploaded are drafts too (REQ-IDN-010).
-		releaseAll(flows[ASSET_FLOW]);
-		setFlows((all) => (ASSET_FLOW in all ? { ...all, [ASSET_FLOW]: EMPTY_FLOW } : all));
-	}, [commit, flows]);
-	const setFlow = useCallback(
-		(key: string, update: (prev: unknown) => unknown) => setFlows((all) => ({ ...all, [key]: update(all[key]) })),
-		[],
-	);
-	const remember = useCallback(
-		(cacheKey: string, value: SectionResult) =>
-			setSections((all) => shareAccountRevision(all, value).set(cacheKey, value)),
-		[],
-	);
-	const value = useMemo(
-		() => ({
-			port,
-			viewer,
-			book,
-			servers,
-			observe,
-			editDraft,
-			runSave,
-			clearDrafts,
-			sections,
-			remember,
-			flows,
-			setFlow,
-			seed,
-		}),
-		[port, viewer, book, servers, observe, editDraft, runSave, clearDrafts, sections, remember, flows, setFlow, seed],
-	);
-
-	// A reload or tab close with unsaved drafts asks the browser to confirm.
-	const anyDirty = dirtyKeys(book, servers, flows).length > 0;
-	useEffect(() => {
-		if (!anyDirty) return;
-		const warn = (e: BeforeUnloadEvent) => e.preventDefault();
-		window.addEventListener("beforeunload", warn);
-		return () => window.removeEventListener("beforeunload", warn);
-	}, [anyDirty]);
-
-	return <Store value={value}>{children}</Store>;
 }
 
-/**
- * Your account and your notification choices carry the account's one revision, so a save of either changes the
- * revision the other must send next. A copy of the cache with the new revision on the other cached section, whose
- * other fields stay as they were.
- */
-function shareAccountRevision(all: Map<string, SectionResult>, value: SectionResult): Map<string, SectionResult> {
-	const next = new Map(all);
-	if (value.section !== "account" && value.section !== "notifications") return next;
-	for (const [key, cached] of all)
-		if ((cached.section === "account" || cached.section === "notifications") && cached.section !== value.section)
-			next.set(key, { ...cached, revision: value.revision });
-	return next;
-}
-
-function dirtyKeys(
-	book: Book<SectionKey, Refusal>,
-	servers: Partial<Record<SectionKey, unknown>>,
-	flows: Record<string, unknown>,
-): SectionKey[] {
-	const keys = (Object.keys(book.edits) as SectionKey[]).filter((key) => isDirty(book, key, servers[key]));
-	// A picked file or typed alt text that is not yet uploaded leaves Brand kit unsaved.
-	return hasPicks(flows[ASSET_FLOW]) && !keys.includes("brand") ? [...keys, "brand"] : keys;
-}
-
-export function useSettings() {
-	const { port, viewer } = useStore();
+export function useSettings(): { port: SettingsPort; viewer: SettingsViewer } {
+	const viewer = use(Viewer);
+	const port = Settings.useSelect((state) => state.port);
+	if (!viewer) throw new Error("Settings screens need a SettingsProvider above them.");
 	return { port, viewer };
 }
 
-/** The read the server started with the page, for sections with their own read (the brand kit). */
-export function useSeed(): SectionSeed | null {
-	return useStore().seed;
+export function useReads(): SettingsReads {
+	return Settings.useSelect((state) => state.reads);
 }
 
-/** Your photo, email, password, own time zone and deletion (SettingsPort.flows). */
 export function useFlows() {
-	return useStore().port.flows;
+	return Settings.useSelect((state) => state.port.flows);
 }
 
-/** The sections whose visible value differs from the server value. */
 export function useDirtySections(): { keys: SectionKey[]; clear: () => void } {
-	const { book, servers, flows, clearDrafts } = useStore();
-	return { keys: dirtyKeys(book, servers, flows), clear: clearDrafts };
+	const keys = Settings.useSelect(useShallow(selectDirtyKeys));
+	const clear = Settings.useSelect((state) => state.actions.clear);
+	return { keys, clear };
 }
 
-/**
- * A section's draft, from the store's book (drafts.ts). `saved` is the server value as this form, from the section
- * cache. The draft survives leaving the section; so do its save in flight and its refusal. `save(work)` starts the
- * section's one save: `work` gets exactly what is sent and reports the outcome with the server value after it.
- */
 export function useDraft<T>(
 	key: SectionKey,
 	saved: T,
@@ -213,93 +69,80 @@ export function useDraft<T>(
 	saving: boolean;
 	refusal: Refusal | null;
 	save: (work: (sent: T) => Promise<SaveOutcome<T>>) => Promise<void>;
+	serverChanged: (server: T) => void;
 } {
-	const { book, observe, editDraft, runSave } = useStore();
-	const savedJson = JSON.stringify(saved);
-	useEffect(() => {
-		observe(key, JSON.parse(savedJson));
-	}, [observe, key, savedJson]);
+	const book = Settings.useSelect((state) => state.book);
+	const actions = Settings.useSelect((state) => state.actions);
 	return {
 		draft: visible(book, key, saved) as T,
 		dirty: isDirty(book, key, saved),
 		saving: isSaving(book, key),
 		refusal: book.refusals[key] ?? null,
-		setDraft: (next: T) => editDraft(key, next, saved),
-		save: (work) => runSave(key, saved, work as (sent: unknown) => Promise<SaveOutcome<unknown>>),
+		setDraft: (next: T) => actions.edit(key, next, saved),
+		save: (work) => actions.save(key, saved, work as (sent: unknown) => Promise<SaveOutcome<unknown>>),
+		serverChanged: (server: T) => actions.observe(key, server),
 	};
 }
 
-/**
- * State of a multi-step flow that must outlive its section, such as an email link that is sending or was sent.
- * It lives in the store, so switching sections and coming back shows the same step, and a reply that arrives while
- * another section is open still lands. Switching account remounts the store and drops it.
- */
 export function useFlowState<T>(key: string, initial: T): [T, (next: T | ((prev: T) => T)) => void] {
-	const { flows, setFlow } = useStore();
-	const value = (key in flows ? flows[key] : initial) as T;
-	const set = useCallback(
-		(next: T | ((prev: T) => T)) =>
-			setFlow(key, (prev) => {
-				const current = (prev === undefined ? initial : prev) as T;
-				return typeof next === "function" ? (next as (p: T) => T)(current) : next;
-			}),
-		// `initial` is a constant per call site.
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-		[key, setFlow],
-	);
+	const value = Settings.useSelect((state) => (key in state.flows ? state.flows[key] : initial)) as T;
+	const setFlow = Settings.useSelect((state) => state.actions.setFlow);
+	const set = (next: T | ((prev: T) => T)) =>
+		setFlow(key, (prev) => {
+			const current = (prev === undefined ? initial : prev) as T;
+			return typeof next === "function" ? (next as (p: T) => T)(current) : next;
+		});
 	return [value, set];
 }
 
-function cacheKeyOf(request: GetSectionRequest): string {
-	return JSON.stringify(request);
+export function useLatestFlow<T>(key: string, initial: T): () => T {
+	const store = Settings.useStoreApi();
+	return () => {
+		const flows = store.getState().flows;
+		return (key in flows ? flows[key] : initial) as T;
+	};
 }
 
-/**
- * Loads one section through the port and keeps the last loaded value in the store, so switching back shows it at
- * once. `replace` stores the section a save returned.
- */
-export function useSection<S extends SectionResult["section"]>(
+export function useSection<S extends SectionResult["section"], F = unknown>(
 	request: GetSectionRequest & { section: S },
+	draft?: { key: SectionKey; formOf: (value: Extract<SectionResult, { section: S }>) => F | undefined },
 ): {
 	state: Loadable<Extract<SectionResult, { section: S }>>;
 	replace: (value: SectionResult) => void;
 	reload: () => void;
 } {
-	const { port, sections, remember, seed } = useStore();
-	const key = cacheKeyOf(request);
-	const cached = sections.get(key) as Extract<SectionResult, { section: S }> | undefined;
-	// A failure belongs to one key and attempt, so a new request or a retry never shows an old failure.
-	const [failure, setFailure] = useState<{ key: string; attempt: number; meta: string } | null>(null);
-	const [attempt, setAttempt] = useState(0);
-
-	useEffect(() => {
-		if (cached && attempt === 0) return;
-		let live = true;
-		// The first load of the page's own section uses the read the server started (a React thenable, so wrapped).
-		const seeded = attempt === 0 && seed && "request" in seed && cacheKeyOf(seed.request) === key ? seed.value : null;
-		Promise.resolve(seeded ?? port.getSection(JSON.parse(key) as GetSectionRequest)).then(
-			(reply) => {
-				if (!live) return;
-				if (reply.status === "ok") remember(key, reply.value);
-				else setFailure({ key, attempt, meta: `${errorText(reply.error)} Reference ${errorReference(reply.error)}.` });
-			},
-			// The call itself failed (no connection): show the retry state instead of staying on the skeleton.
-			() => live && setFailure({ key, attempt, meta: "Everyfield could not be reached. Check your connection." }),
-		);
-		return () => {
-			live = false;
-		};
-		// The cached value and the seed are read once per key; a reload bumps the attempt.
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [port, key, attempt, remember]);
-
-	const reload = useCallback(() => setAttempt((n) => n + 1), []);
-	const replace = useCallback((value: SectionResult) => remember(key, value), [key, remember]);
-	const failed = failure && failure.key === key && failure.attempt === attempt ? failure : null;
-	const state: Loadable<Extract<SectionResult, { section: S }>> = failed
-		? { status: "error", title: "This section did not load", meta: failed.meta, onRetry: reload }
-		: cached
-			? { status: "ready", data: cached }
-			: { status: "loading" };
-	return { state, replace, reload };
+	const reads = useReads();
+	const actions = Settings.useSelect((state) => state.actions);
+	const read = useRead(reads.section, request);
+	const reply = read.value;
+	const observe = (value: SectionResult) => {
+		if (!draft || value.section !== request.section) return;
+		const form = draft.formOf(value as Extract<SectionResult, { section: S }>);
+		if (form !== undefined) actions.observe(draft.key, form);
+	};
+	const state: Loadable<Extract<SectionResult, { section: S }>> =
+		reply === undefined
+			? { status: "loading" }
+			: reply.status === "ok"
+				? { status: "ready", data: reply.value as Extract<SectionResult, { section: S }> }
+				: {
+						status: "error",
+						title: "This section did not load",
+						meta:
+							reply.status === "refused"
+								? `${errorText(reply.error)} Reference ${errorReference(reply.error)}.`
+								: "Everyfield could not be reached. Check your connection.",
+						onRetry: read.retry,
+					};
+	return {
+		state,
+		replace: (value) => {
+			actions.replaceSection(request, value);
+			observe(value);
+		},
+		reload: () =>
+			void reads.section.refresh(request).then((next) => {
+				if (next.status === "ok") observe(next.value);
+			}),
+	};
 }
