@@ -2,8 +2,8 @@
 
 import { File02Icon, Table01Icon } from "@hugeicons/core-free-icons";
 import { Skeleton } from "@everyfield/ui/controls";
-import { Icon } from "@everyfield/ui/foundations";
-import { useEffect, useRef, useState } from "react";
+import { Icon, observeIntersection } from "@everyfield/ui/foundations";
+import { useState } from "react";
 import type { Template } from "./model.ts";
 import { closePdf, drawPage, openPdf } from "./pdf.ts";
 import { bytesOf, sharedPreview } from "./preview-client.ts";
@@ -53,39 +53,30 @@ export function Thumbnail({
 	renderKey: string;
 	enabled: boolean;
 }) {
-	const frame = useRef<HTMLSpanElement>(null);
 	const [url, setUrl] = useState<string | null>(null);
 	const [loading, setLoading] = useState(false);
 	const pdf = template.formats[0] === "pdf" && template.pageSize !== null;
-
-	useEffect(() => {
-		const node = frame.current;
-		if (!node || !pdf || !enabled) return;
-		let current = true;
-		const observer = new IntersectionObserver(
-			([entry]) => {
-				if (!entry?.isIntersecting) return;
-				observer.disconnect();
-				setLoading(true);
-				void picture(template, renderKey).then((next) => {
-					if (!current) return;
-					setUrl(next);
-					setLoading(false);
-				});
-			},
-			{ rootMargin: "200px" },
-		);
-		observer.observe(node);
-		return () => {
-			current = false;
-			observer.disconnect();
-		};
-	}, [template, renderKey, pdf, enabled]);
+	const [watch] = useState(() =>
+		pdf && enabled
+			? observeIntersection<HTMLSpanElement>(
+					(entry, stop) => {
+						if (!entry.isIntersecting) return;
+						stop();
+						setLoading(true);
+						void picture(template, renderKey).then((next) => {
+							setUrl(next);
+							setLoading(false);
+						});
+					},
+					{ rootMargin: "200px" },
+				)
+			: undefined,
+	);
 
 	const size = template.pageSize;
 	return (
 		<span
-			ref={frame}
+			ref={watch}
 			className="flex h-56 w-full items-center justify-center overflow-hidden rounded-md bg-surface-2 p-3"
 			data-thumbnail={url ? "ready" : "pending"}
 		>

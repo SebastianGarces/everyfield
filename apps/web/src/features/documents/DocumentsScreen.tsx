@@ -376,6 +376,13 @@ export function DocumentsScreen({
 							{filtered.map((template) => {
 								const pressed = template.id === selected?.id;
 								const phase = phaseText(template.phase);
+								const thumbnailKey = renderKey({
+									templateId: template.id,
+									version,
+									format: "pdf",
+									overrides: {},
+									church,
+								});
 								return (
 									<div
 										key={template.id}
@@ -394,17 +401,7 @@ export function DocumentsScreen({
 											onClick={() => select(template.id)}
 											className="flex flex-col items-stretch gap-3 text-left outline-none after:absolute after:inset-0 after:content-['']"
 										>
-											<Thumbnail
-												template={template}
-												renderKey={renderKey({
-													templateId: template.id,
-													version,
-													format: "pdf",
-													overrides: {},
-													church,
-												})}
-												enabled={canPreview}
-											/>
+											<Thumbnail key={thumbnailKey} template={template} renderKey={thumbnailKey} enabled={canPreview} />
 											<span id={`template-${template.id}-name`} className="px-2 font-medium text-ink">
 												{template.name}
 											</span>

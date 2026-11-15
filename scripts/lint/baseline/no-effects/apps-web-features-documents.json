@@ -1,5 +1,3 @@
 {
-	"apps/web/src/features/documents/DocumentsScreen.tsx": 2,
-	"apps/web/src/features/documents/PdfPreview.tsx": 3,
-	"apps/web/src/features/documents/Thumbnail.tsx": 1
+	"apps/web/src/features/documents/DocumentsScreen.tsx": 2
 }
