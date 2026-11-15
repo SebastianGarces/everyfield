@@ -1,3 +1,4 @@
+import { fromStates, invitationMachine } from "@everyfield/contracts/machines";
 import * as C from "@everyfield/contracts/organizations";
 import type { Database } from "@everyfield/db/client";
 import { sql } from "@everyfield/db/query";
@@ -200,6 +201,7 @@ FROM g`);
  * remove_organization_person, which deletes the pipeline rows the runtime role may not, scrubs the audit trails, and
  * appends one body-free removal audit row after it. Not retirement: nothing here can be restored. Owner or Admin.
  */
+const residentInvitation = { purpose: "residency_link", tenant: "organization", fresh: true } as const;
 function removePerson(db: Database, authority: RequestActor, raw: unknown) {
 	return write(db, authority, true, async (w) => {
 		const input = parse(C.removePipelinePersonRequest, raw);
@@ -237,7 +239,8 @@ l AS (UPDATE residency_link l SET ended_at=coalesce(l.ended_at,clock_timestamp()
 mat AS (UPDATE organization SET material_revision=material_revision+1 WHERE id=${o}::uuid AND EXISTS(SELECT FROM cur WHERE cur.active)
  RETURNING id),
 i AS (UPDATE invitation SET state='revoked',acted_at=clock_timestamp(),revision=revision+1 FROM g
- WHERE invitation.tenant_id=${o}::uuid AND invitation.resident_person_id=g.id AND invitation.state='pending'
+ WHERE invitation.tenant_id=${o}::uuid AND invitation.resident_person_id=g.id
+ AND invitation.state = ANY(${sql.param(fromStates(invitationMachine, "pipeline.removePerson", "revoked", residentInvitation))}::text[])
  RETURNING invitation.id),
 n AS (DELETE FROM person_note n USING g WHERE n.tenant_id=${o}::uuid AND n.person_id=g.id RETURNING n.id)
 SELECT EXISTS(SELECT FROM x) AS found,(SELECT revision::text FROM x) AS current,EXISTS(SELECT FROM p) AS removed,

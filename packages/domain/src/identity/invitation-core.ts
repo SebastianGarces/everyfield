@@ -1,6 +1,7 @@
 import { writeAction } from "../operations/actions.ts";
 import { accountId, owner, requestIdentity, sessionId, type Owner } from "@everyfield/contracts/common";
 import { invitationError, seatError } from "@everyfield/contracts/identity";
+import { invitationMachine, permits, type InvitationSubject } from "@everyfield/contracts/machines";
 import type { Database, Transaction } from "@everyfield/db/client";
 import { eq, sql } from "@everyfield/db/query";
 import * as t from "@everyfield/db/tables";
@@ -142,9 +143,15 @@ export async function event(_tx: Transaction, ...args: Parameters<typeof eventRo
 }
 export type Invitation = typeof t.invitation.$inferSelect;
 export async function load(tx: Transaction, id: string) {
-	const [i] = await tx.select().from(t.invitation).where(eq(t.invitation.id, id)).for("update");
-	if (!i || (i.purpose !== "seat" && i.purpose !== "residency_link")) refuse();
-	return i;
+	const [r] = await tx
+		.select({ invitation: t.invitation, tenant: t.tenant.kind })
+		.from(t.invitation)
+		.innerJoin(t.tenant, eq(t.tenant.id, t.invitation.tenant_id))
+		.where(eq(t.invitation.id, id))
+		.for("update", { of: t.invitation });
+	if (!r || (r.invitation.purpose !== "seat" && r.invitation.purpose !== "residency_link")) refuse();
+	if (r.tenant !== "plant" && r.tenant !== "organization") refuse();
+	return { invitation: r.invitation, tenant: r.tenant };
 }
 /**
  * A write's invitation row, locked, with its workspace in one statement, then the workspace root share-locked with the
@@ -183,7 +190,7 @@ export async function lockForWrite(tx: Transaction, id: string) {
 		(selected.kind === "organization" && locked.data.organization_kind !== selected.organizationKind)
 	)
 		refuse();
-	return { invitation: r.invitation, selected, now: new Date(locked.data.now) };
+	return { invitation: r.invitation, selected, tenant: r.kind, now: new Date(locked.data.now) };
 }
 const lockedRoot = z.object({ kind: z.string(), organization_kind: z.string().nullable(), now: z.number() });
 export async function workspace(tx: Transaction, id: string) {
@@ -217,11 +224,34 @@ export async function now(tx: Transaction) {
 	return v.now;
 }
 export const expires = (i: Pick<Invitation, "created_at">) => new Date(i.created_at.getTime() + 30 * 86400000);
-export async function pending(tx: Transaction, i: Invitation, expected?: string) {
-	current(i, await now(tx), expected);
+export type InvitationEvent = (typeof invitationMachine.events)[number];
+export type InvitationState = (typeof invitationMachine.states)[number];
+export const subjectOf = (
+	i: Pick<Invitation, "purpose" | "created_at">,
+	tenant: InvitationSubject["tenant"],
+	at: Date,
+): InvitationSubject => ({ purpose: i.purpose, tenant, fresh: expires(i) > at });
+export async function pending(
+	tx: Transaction,
+	i: Invitation,
+	tenant: InvitationSubject["tenant"],
+	event: InvitationEvent,
+	to: InvitationState,
+	expected?: string,
+) {
+	return current(i, tenant, await now(tx), event, to, expected);
 }
-/** Refuses unless the invitation is pending, unexpired at `at` and, when given, at the expected revision. */
-export function current(i: Invitation, at: Date, expected?: string) {
-	if (i.state !== "pending" || expires(i) <= at || (expected !== undefined && i.revision !== expected)) refuse();
+export function current(
+	i: Invitation,
+	tenant: InvitationSubject["tenant"],
+	at: Date,
+	event: InvitationEvent,
+	to: InvitationState,
+	expected?: string,
+) {
+	const subject = subjectOf(i, tenant, at);
+	if (!permits(invitationMachine, event, i.state, to, subject) || (expected !== undefined && i.revision !== expected))
+		refuse();
+	return subject;
 }
 export const bump = (r: string) => (BigInt(r) + 1n).toString();

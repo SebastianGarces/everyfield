@@ -1,10 +1,11 @@
 import { requestWrite } from "../access/session.ts";
 import { writeActor } from "./core.ts";
-import { eq, sql } from "@everyfield/db/query";
+import { and, eq, inArray, sql } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
 import { auditSavepoint, setAuditDetails } from "../operations/writes.ts";
 
 import { accountId, recordId, revision, tenantId, type Owner, type sessionId } from "@everyfield/contracts/common";
+import { allows, fromStates, invitationMachine, invitationPurposes, permits } from "@everyfield/contracts/machines";
 import type { OrganizationAdapter, RelationshipPair } from "@everyfield/contracts/organizations";
 import * as Q from "@everyfield/contracts/organizations";
 import type { Transaction } from "@everyfield/db/client";
@@ -43,9 +44,10 @@ import { queueMilestoneJob } from "./notifications.ts";
 const DAY = 86400000;
 const invitationFacts = z.object({
 	id: recordId,
+	purpose: z.enum(invitationPurposes),
 	recipient_email: z.string(),
 	token_hash: z.string(),
-	state: z.string(),
+	state: z.enum(invitationMachine.states),
 	created_at: z.coerce.date(),
 	resent_at: z.coerce.date().nullable(),
 	revision,
@@ -93,7 +95,7 @@ async function loadInvitation(tx: Transaction, id: string, session: z.infer<type
 		ELSE EXISTS(SELECT FROM seat s2 WHERE s2.account_id=i.inviter_id AND coalesce(s2.plant_id,s2.organization_id)=coalesce(r.plant_id,r.sending_church_id)
 			AND s2.role IN ('owner','admin') AND s2.ended_at IS NULL AND NOT EXISTS(SELECT FROM lifecycle_witness w WHERE w.seat_id=s2.id AND w.state<>'active')) END`;
 	const rows = await tx.execute(
-		sql`SELECT i.id,i.recipient_email,i.token_hash,i.state,i.created_at,i.resent_at,i.revision,
+		sql`SELECT i.id,i.purpose,i.recipient_email,i.token_hash,i.state,i.created_at,i.resent_at,i.revision,
 		r.plant_id,r.account_id,r.sending_church_id,r.organization_id,r.inviter_description,o.kind AS organization_kind,s.kind AS subject_kind,
 		clock_timestamp() AS now,coalesce(relationship_recipient(${session})=i.recipient_email,false) AS addressed,
 		(${subjectLive}) AS pair_live,
@@ -115,7 +117,12 @@ const authorizedReceiver = (actor: Actor, i: Invite, pair: RelationshipPair) =>
 /** The subject side: its Owner or Admin, or the Discovery account itself while it may still act. */
 const actsForSubject = (actor: Actor, pair: RelationshipPair, discovery: boolean) =>
 	sameOwner(actor.context.owner, subjectOwner(pair)) && (pair.kind === "discovery" ? discovery : administrator(actor));
-const expired = (i: Invite) => i.now.getTime() >= i.created_at.getTime() + 30 * DAY;
+const tenants = { plant: "plant", discovery: "account", sending_church: "organization" } as const;
+const subjectOf = (i: Invite) => ({
+	purpose: i.purpose,
+	tenant: tenants[pairFor(i).kind],
+	fresh: i.now.getTime() < i.created_at.getTime() + 30 * DAY,
+});
 const bump = (column: typeof tables.invitation.revision | typeof tables.affiliation.revision) => sql`${column}+1`;
 const inviteFacts = z.object({
 	now: z.coerce.date(),
@@ -283,20 +290,27 @@ export function relationshipCommands(
 				return Q.invitationDecisionResult.parse(c.result);
 			}
 			checkRevision(q.expectedRevision, i.revision);
-			if (i.state !== "pending" || expired(i) || !i.inviter_live) refuse();
-			if ("proof" in q.input && !proofMatches(q.input.proof, i.token_hash)) refuse();
 			const accept = q.input.decision === "accept",
-				next = String(BigInt(i.revision) + 1n);
+				to = accept ? "accepted" : "declined",
+				subject = subjectOf(i);
+			if (!allows(invitationMachine, name, i.state, to, subject) || !i.inviter_live) refuse();
+			if ("proof" in q.input && !proofMatches(q.input.proof, i.token_hash)) refuse();
+			const next = String(BigInt(i.revision) + 1n);
 			c.writes.push(
 				tx
 					.update(tables.invitation)
 					.set({
-						state: accept ? "accepted" : "declined",
+						state: to,
 						acted_at: i.now,
 						accepted_account_id: actor.accountId,
 						revision: bump(tables.invitation.revision),
 					})
-					.where(eq(tables.invitation.id, i.id)),
+					.where(
+						and(
+							eq(tables.invitation.id, i.id),
+							inArray(tables.invitation.state, fromStates(invitationMachine, name, to, subject)),
+						),
+					),
 			);
 			if (!accept) {
 				await appendEvent(tx, c, i.id, "remove", null, i.revision, next);
@@ -410,14 +424,24 @@ export function relationshipCommands(
 			);
 			if (c.kind === "replay") return resend ? Q.invitationResult.parse(c.result) : Q.mutationResult.parse(c.result);
 			checkRevision(q.expectedRevision, i.revision);
-			if (i.state !== "pending" || expired(i)) refuse();
+			const event = resend ? "associations.resendInvitation" : "associations.revokeInvitation",
+				subject = subjectOf(i);
+			if (!permits(invitationMachine, event, i.state, resend ? "pending" : "revoked", subject)) refuse();
 			const next = String(BigInt(i.revision) + 1n);
 			if (!resend) {
 				c.writes.push(
 					tx
 						.update(tables.invitation)
 						.set({ state: "revoked", acted_at: i.now, revision: bump(tables.invitation.revision) })
-						.where(eq(tables.invitation.id, i.id)),
+						.where(
+							and(
+								eq(tables.invitation.id, i.id),
+								inArray(
+									tables.invitation.state,
+									fromStates(invitationMachine, "associations.revokeInvitation", "revoked", subject),
+								),
+							),
+						),
 				);
 				await appendEvent(tx, c, i.id, "revoke", "invitation.revoked", i.revision, next);
 				return finishCommand(tx, c, () => Q.mutationResult.parse({ status: "committed" }));
@@ -530,7 +554,8 @@ export async function readAnswerableInvitation(
 		actor = await currentActor(tx, session, selected);
 	if (actor.status !== "active" || !i.pair_live || !authorizedReceiver(actor, i, pair))
 		return { status: "unavailable" } as const;
-	if (i.state !== "pending" || expired(i) || !i.inviter_live) return { status: "unavailable" } as const;
+	if (!allows(invitationMachine, "associations.acceptInvitation", i.state, "accepted", subjectOf(i)) || !i.inviter_live)
+		return { status: "unavailable" } as const;
 	return Q.invitationResult.parse({
 		status: "pending",
 		invitationId: i.id,
