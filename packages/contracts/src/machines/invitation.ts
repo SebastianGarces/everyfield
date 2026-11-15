@@ -132,5 +132,8 @@ export const invitationMachine = machine({
 		{ event: "associations.resendInvitation", in: ["pending"], when: ["relationship", "withinThirtyDays"] },
 	],
 	unchangedIsNoop: [],
+	notes: [
+		"`withinThirtyDays`: created less than 720 hours before the database clock. Nothing expires an invitation on a timer: an invite to the same address in the same tenant sweeps the older stale ones.",
+	],
 	proof: "tests/integration/identity/invitation-machine.test.mts",
 });

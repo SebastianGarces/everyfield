@@ -7,6 +7,7 @@ export type Edge<S extends string, E extends string, G extends string> = Guarded
 	readonly from: OneOrMany<S>;
 	readonly to: OneOrMany<S>;
 	readonly sweep?: true;
+	readonly sql?: string;
 };
 
 export type Initial<S extends string, E extends string, G extends string> = Guarded<G> & {
@@ -24,6 +25,7 @@ export type Transition<S extends string = string, E extends string = string, G e
 	readonly from: S;
 	readonly to: S;
 	readonly sweep?: true;
+	readonly sql?: string;
 };
 
 export type RefusalCode<S extends string, E extends string, R extends string> = {
@@ -47,6 +49,8 @@ export type MachineDefinition<S extends string, E extends string, G extends stri
 	readonly edges: readonly Edge<NoInfer<S>, NoInfer<E>, NoInfer<G>>[];
 	readonly stays: readonly Stay<NoInfer<S>, NoInfer<E>, NoInfer<G>>[];
 	readonly unchangedIsNoop: readonly NoInfer<E>[];
+	readonly decided?: readonly NoInfer<E>[];
+	readonly notes?: readonly string[];
 	readonly proof: string;
 };
 
@@ -76,6 +80,8 @@ export type MachineShape = {
 	readonly transitions: readonly Transition[];
 	readonly stays: readonly Stay<string, string, string>[];
 	readonly unchangedIsNoop: readonly string[];
+	readonly decided?: readonly string[];
+	readonly notes?: readonly string[];
 	readonly proof: string;
 };
 
@@ -102,6 +108,7 @@ export function machine<
 				to,
 				...rule(edge),
 				...(edge.sweep ? { sweep: true as const } : {}),
+				...(edge.sql ? { sql: edge.sql } : {}),
 			})),
 		),
 	);
@@ -154,6 +161,10 @@ export function permits<S extends string, E extends string, G extends string, Su
 
 export function enters(m: MachineShape, subject: unknown): readonly { readonly event: string; readonly to: string }[] {
 	return m.entries.filter((e) => applies(m.guards, e, subject));
+}
+
+export function entryStates(m: MachineShape, event: string): string[] {
+	return [...new Set(m.entries.filter((e) => e.event === event).map((e) => e.to))];
 }
 
 export function targets<S extends string, E extends string, G extends string, Subject, R extends string>(
@@ -215,6 +226,13 @@ function moves(m: MachineShape, sweep: boolean) {
 			const edges = m.transitions.filter((t) => t.event === event && !!t.sweep === sweep);
 			const stays = m.stays.filter((s) => s.event === event);
 			const held = (state: string) => stays.some((s) => s.in.includes(state) && applies(m.guards, s, subject));
+			const leaves = (state: string) => edges.some((t) => t.from === state && applies(m.guards, t, subject));
+			if (m.decided?.includes(event)) {
+				if (!sweep && [...edges, ...stays].some((r) => applies(m.guards, r, subject, facts)))
+					for (const state of states)
+						if (!leaves(state) && !held(state)) found.push({ subject: name, event, from: state, to: state });
+				continue;
+			}
 			if (edges.some((t) => applies(m.guards, t, subject, facts))) {
 				const candidates = [...new Set(edges.map((t) => t.to))];
 				for (const from of states)
@@ -226,7 +244,8 @@ function moves(m: MachineShape, sweep: boolean) {
 			}
 			if (sweep) continue;
 			if (stays.some((s) => applies(m.guards, s, subject, facts)))
-				for (const state of states) if (!held(state)) found.push({ subject: name, event, from: state, to: state });
+				for (const state of states)
+					if (!held(state) && !leaves(state)) found.push({ subject: name, event, from: state, to: state });
 		}
 	}
 	return [...new Map(found.map((f) => [`${f.subject} ${f.event} ${f.from} ${f.to}`, f])).values()];
@@ -312,8 +331,8 @@ const guardText = (t: Guarded<string>) =>
 		.join(", ");
 
 export function mermaid(m: MachineShape): string {
-	const label = (event: string, r: Guarded<string> & { readonly sweep?: true }) =>
-		[event, r.sweep ? "sweep" : "", guardText(r)].filter(Boolean).join(" ");
+	const label = (event: string, r: Guarded<string> & { readonly sweep?: true; readonly sql?: string }) =>
+		[event, r.sweep ? "sweep" : "", guardText(r), r.sql ? `via ${r.sql}` : ""].filter(Boolean).join(" ");
 	const arrows = new Map<string, string[]>();
 	const arrow = (pair: string, text: string) => arrows.set(pair, [...(arrows.get(pair) ?? []), text]);
 	for (const e of m.entries) arrow(`[*] --> ${e.to}`, label(e.event, e));

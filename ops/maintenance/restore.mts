@@ -7,6 +7,7 @@
 // customer-data gate stays blocked: G-RECOVERY is open. Only the restricted CLI and tests import this file.
 import { createHash } from "node:crypto";
 import { createRequire } from "node:module";
+import { deletionMachine, entryStates, fromStates } from "../../packages/contracts/src/machines/index.ts";
 import { sql } from "../../packages/db/src/query.ts";
 import { migrate, migrationArtifact } from "../../packages/db/src/schema/migrate.ts";
 import type { Database } from "../../packages/db/src/client.ts";
@@ -31,7 +32,7 @@ const witness = z.looseObject({
 	id: z.uuid(),
 	kind: z.enum(["account", "plant", "seat", "affiliation"]),
 	opaque_subject_id: z.uuid(),
-	state: z.enum(["active", "pending_deletion", "purging", "purged", "cancelled", "revoked"]),
+	state: z.enum(deletionMachine.states),
 	request_id: z.uuid().nullable(),
 	request_revision: count,
 	witness_checkpoint: count,
@@ -368,7 +369,8 @@ async function applyWitnesses(tx: Tx, witnesses: ReturnType<typeof witness.parse
 	await tx.execute(sql`DELETE FROM lifecycle_witness`);
 	if (rows.length)
 		await tx.execute(sql`INSERT INTO lifecycle_witness
-			SELECT * FROM json_populate_recordset(NULL::lifecycle_witness, ${JSON.stringify(rows)}::json)`);
+			SELECT * FROM json_populate_recordset(NULL::lifecycle_witness, ${JSON.stringify(rows)}::json) r
+			WHERE r.state = ANY(${sql.param(entryStates(deletionMachine, OPERATION))}::text[])`);
 	await tx.execute(sql`SET LOCAL session_replication_role = origin`);
 	for (const w of witnesses.filter((w) => w.state === "pending_deletion"))
 		await tx.execute(sql`SELECT settings_suspend_subject(${w.id}::uuid, ${w.request_id}::uuid)`);
@@ -386,7 +388,8 @@ async function applyWitnesses(tx: Tx, witnesses: ReturnType<typeof witness.parse
 	for (const w of purging)
 		await tx.execute(sql`UPDATE lifecycle_witness SET state=${w.state}, cleanup_state=${String(w.cleanup_state)},
 			live_purged_at=${w.live_purged_at as string | null}::timestamptz, copy_expires_at=${w.copy_expires_at}::timestamptz
-			WHERE id=${w.id}::uuid`);
+			WHERE id=${w.id}::uuid
+			AND state = ANY(${sql.param(fromStates(deletionMachine, OPERATION, w.state, { kind: w.kind, copy: true }))}::text[])`);
 }
 
 /** After the witnesses, no open mail or publication may remain that the current receipts do not account for. */

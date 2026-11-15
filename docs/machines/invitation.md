@@ -17,6 +17,8 @@ finds a write of the column that does not carry the machine's guard.
 - `unavailable` instead for `associations.declineInvitation`
 - A sweep changes only the rows in its from-states and leaves every other row as it is
 
+- `withinThirtyDays`: created less than 720 hours before the database clock. Nothing expires an invitation on a timer: an invite to the same address in the same tenant sweeps the older stale ones.
+
 ```mermaid
 stateDiagram-v2
   [*] --> pending: seats.invite when seat / residency.invite when residency / associations.invite when relationship
@@ -357,14 +359,19 @@ tools. It reads SQL literals (with an optional schema prefix), SET fragments in 
 `state = ANY(${fromStates(invitationMachine, …)})` in the same statement, or a Drizzle update on
 `inArray(<table>.state, fromStates(invitationMachine, …))` in its `where` (alone or inside `and`). A guarded
 INSERT writes an initial state as a literal; in a Drizzle object literal that is the last property that names
-the column, after any spread. A column name or statement start built at runtime, or a Drizzle object that is not
-a literal, counts as an unguarded writer.
+the column, after any spread. An INSERT that copies rows without a column list is guarded when it filters on
+`state = ANY(${entryStates(invitationMachine, …)})`. An UPDATE in a `.sql` file is guarded only inside a
+function that an edge names with `sql`, after a `SELECT * INTO … FROM <table> WHERE … FOR UPDATE; IF NOT FOUND
+THEN RAISE` whose required states are exactly that edge's from-states, and only when it writes that edge's
+target as a literal. A column name or statement start built at runtime, or a Drizzle object that is not a
+literal, counts as an unguarded writer.
 
 It cannot see: a SET fragment passed in from another file, SQL text assembled from variables that hold no
 literal naming the table, statements sent outside this repository, or writes made by hand in a database
 session. Only a database trigger generated from this table would refuse those.
 
-It is strict where it cannot tell: a write in a `.sql` file counts as unguarded, and so does a bare
+It is strict where it cannot tell: any other write in a `.sql` file counts as unguarded (a data backfill
+needs its own edge and function), and so does a bare
 `state = …` fragment of any table in a file that also holds a dynamic `UPDATE invitation SET ${…}`.
 
 ## Proof

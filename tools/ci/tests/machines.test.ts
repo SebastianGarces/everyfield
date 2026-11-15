@@ -171,6 +171,61 @@ test("INV-machines: a guarded writer and a current chart pass; a stale chart and
 	}
 });
 
+test("INV-machines: a SQL function writer is guarded only by its edge's locking read, and a copy only by entry states", () => {
+	const r = repo();
+	try {
+		const fn = (lock: string, name = "settings_purge_subject", to = "purged") =>
+			[
+				`CREATE FUNCTION ${name}(witness uuid,request uuid,expected bigint) RETURNS void`,
+				"LANGUAGE plpgsql SECURITY DEFINER SET search_path FROM CURRENT AS $$",
+				"DECLARE w lifecycle_witness%ROWTYPE;",
+				"BEGIN",
+				` SELECT * INTO w FROM lifecycle_witness WHERE id=witness AND request_id=request AND ${lock} FOR UPDATE;`,
+				" IF NOT FOUND THEN RAISE EXCEPTION 'unavailable' USING ERRCODE='42501'; END IF;",
+				` UPDATE lifecycle_witness SET state='${to}',witness_checkpoint=witness_checkpoint+1 WHERE id=witness;`,
+				"END $$;",
+			].join("\n");
+		const migration = "packages/db/migrations/0999_purge.sql";
+		const copy = "ops/maintenance/copy.mts";
+		const guarded: Record<string, string> = {
+			[migration]: fn("state='purging' AND cancel_until<=clock_timestamp()"),
+			[copy]:
+				"sql`INSERT INTO lifecycle_witness SELECT * FROM json_populate_recordset(NULL::lifecycle_witness, ${rows}::json) r WHERE r.state = ANY(${sql.param(entryStates(deletionMachine, OPERATION))}::text[])`;",
+		};
+		for (const [file, source] of Object.entries(guarded)) r.put(file, source);
+		assert.equal(r.cli("--write").status, 0);
+		assert.equal(r.cli("--check").status, 0, "the declared purge function and a filtered copy are guarded");
+		const unguarded: [string, string, string, RegExp][] = [
+			["function locking another state", migration, fn("state='pending_deletion'"), /0999_purge\.sql:7: update writes/],
+			["function locking a state list", migration, fn("state IN ('purging','pending_deletion')"), /0999_purge\.sql:7/],
+			["function no edge names", migration, fn("state='purging'", "settings_other"), /0999_purge\.sql:7/],
+			["function writing another state", migration, fn("state='purging'", undefined, "cancelled"), /0999_purge\.sql:7/],
+			[
+				"copy filtered on from-states",
+				copy,
+				"sql`INSERT INTO lifecycle_witness SELECT * FROM json_populate_recordset(NULL::lifecycle_witness, ${rows}::json) r WHERE r.state = ANY(${fromStates(deletionMachine, e, to, w)})`;",
+				/copy\.mts:1: insert writes/,
+			],
+			[
+				"copy with no filter",
+				copy,
+				"sql`INSERT INTO lifecycle_witness SELECT * FROM json_populate_recordset(NULL::lifecycle_witness, ${rows}::json)`;",
+				/copy\.mts:1: insert writes/,
+			],
+		];
+		for (const [name, file, source, expected] of unguarded) {
+			r.put(file, source);
+			const result = r.cli("--check");
+			assert.equal(result.status, 1, name);
+			assert.match(result.stderr, expected, name);
+			assert.equal(result.stderr.match(/ writes lifecycle_witness\.state /g)?.length, 1, name);
+			r.put(file, guarded[file]!);
+		}
+	} finally {
+		r.close();
+	}
+});
+
 test("INV-machines: the coverage report fails until every declared edge, stay and refusal is observed", () => {
 	const r = repo();
 	try {

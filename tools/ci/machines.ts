@@ -21,7 +21,8 @@ export type Writer = {
 	readonly guard: string | null;
 };
 
-type Literal = { readonly text: string; readonly guarded: readonly boolean[]; readonly line: number };
+type Guard = "fromStates" | "entryStates";
+type Literal = { readonly text: string; readonly guarded: readonly (Guard | null)[]; readonly line: number };
 
 const SOURCE_ROOTS = ["apps", "packages", "ops", "scripts", "tools"];
 const SOURCE_FILE = /\.(?:ts|tsx|mts|cts|js|jsx|mjs|cjs)$/;
@@ -43,11 +44,13 @@ function trackedFiles(root: string): string[] {
 		);
 }
 
-function guardCall(expr: ts.Expression, binding: string): boolean {
-	if (!ts.isCallExpression(expr)) return false;
+function guardCall(expr: ts.Expression, binding: string): Guard | null {
+	if (!ts.isCallExpression(expr)) return null;
 	const callee = expr.expression.getText();
 	if (callee === "sql.param" && expr.arguments.length === 1) return guardCall(expr.arguments[0]!, binding);
-	return callee === "fromStates" && expr.arguments[0]?.getText() === binding;
+	return (callee === "fromStates" || callee === "entryStates") && expr.arguments[0]?.getText() === binding
+		? callee
+		: null;
 }
 
 function literals(source: ts.SourceFile, binding: string): Literal[] {
@@ -122,7 +125,7 @@ function drizzleWriters(source: ts.SourceFile, m: MachineShape, file: string, bi
 			callee === "inArray" &&
 			where.arguments.length === 2 &&
 			targetColumn.test(where.arguments[0]!.getText(source)) &&
-			guardCall(where.arguments[1]!, binding)
+			guardCall(where.arguments[1]!, binding) === "fromStates"
 		);
 	};
 	const guardOf = (node: ts.CallExpression, kind: string): string | null => {
@@ -155,6 +158,24 @@ function drizzleWriters(source: ts.SourceFile, m: MachineShape, file: string, bi
 	};
 	visit(source);
 	return found;
+}
+
+function functionGuard(m: MachineShape, text: string, index: number, to: string | undefined): string | null {
+	const head = [
+		...text.slice(0, index).matchAll(/CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+(?:"?\w+"?\.)?"?(\w+)"?\s*\(/gi),
+	].at(-1);
+	if (!head || to === undefined || text.slice(head.index, index).includes("$$;")) return null;
+	const from = [...new Set(m.transitions.filter((t) => t.sql === head[1] && t.to === to).map((t) => t.from))];
+	const lock = new RegExp(
+		`SELECT\\s+\\*\\s+INTO\\s+\\w+\\s+FROM\\s+"?${escape(m.table)}"?\\s+WHERE\\s+([^;]*?)\\s+FOR\\s+UPDATE\\s*;\\s*IF\\s+NOT\\s+FOUND\\s+THEN\\s+RAISE\\b`,
+		"i",
+	).exec(text.slice(head.index, index));
+	const column = escape(m.column);
+	const single = lock && new RegExp(`(?<![\\w.])${column}\\s*=\\s*'([^']*)'`, "i").exec(lock[1]!);
+	const listed = lock && new RegExp(`(?<![\\w.])${column}\\s+IN\\s*\\(([^)]*)\\)`, "i").exec(lock[1]!);
+	const required = single ? [single[1]!] : listed ? splitTop(listed[1]!).map((v) => v.replace(/'/g, "")) : [];
+	const same = from.length > 0 && required.length === from.length && from.every((s) => required.includes(s));
+	return same ? `locked ${from.join(", ")} in ${head[1]}` : null;
 }
 
 export function bindingOf(m: MachineShape): string {
@@ -196,15 +217,23 @@ export function census(root: string, m: MachineShape, binding = bindingOf(m)): W
 					writers.push({ file, line, statement: "update", guard: null });
 					continue;
 				}
-				if (!items.some((item) => assigns.test(item))) continue;
+				const assignment = items.find((item) => assigns.test(item));
+				if (assignment === undefined) continue;
+				if (sqlFile) {
+					const to = /=\s*'([^']*)'\s*$/.exec(assignment)?.[1];
+					writers.push({ file, line, statement: "update", guard: functionGuard(m, text, u.index, to) });
+					continue;
+				}
 				const f = filter.exec(lit.text);
-				const guarded = !sqlFile && f !== null && lit.guarded[Number(f[1])] === true;
+				const guarded = f !== null && lit.guarded[Number(f[1])] === "fromStates";
 				writers.push({ file, line, statement: "update", guard: guarded ? "from-state filter" : null });
 			}
 			for (const i of lit.text.matchAll(insert)) {
 				const line = lineOf(lit, i.index);
 				if (i[1] === undefined) {
-					writers.push({ file, line, statement: "insert", guard: null });
+					const f = filter.exec(lit.text);
+					const copied = !sqlFile && f !== null && lit.guarded[Number(f[1])] === "entryStates";
+					writers.push({ file, line, statement: "insert", guard: copied ? "entry-state filter" : null });
 					continue;
 				}
 				const columns = splitTop(i[1]).map((c) => c.replace(/"/g, "").toLowerCase());
@@ -257,6 +286,7 @@ export function render(m: MachineShape, writers: readonly Writer[]): string {
 		...(declaredSkips.length
 			? ["- A sweep changes only the rows in its from-states and leaves every other row as it is"]
 			: []),
+		...(m.notes?.length ? ["", ...m.notes.map((n) => `- ${n}`)] : []),
 		"",
 		"```mermaid",
 		mermaid(m),
@@ -290,14 +320,19 @@ export function render(m: MachineShape, writers: readonly Writer[]): string {
 		`\`${m.column} = ANY(\${fromStates(${bindingOf(m)}, …)})\` in the same statement, or a Drizzle update on`,
 		`\`inArray(<table>.${m.column}, fromStates(${bindingOf(m)}, …))\` in its \`where\` (alone or inside \`and\`). A guarded`,
 		"INSERT writes an initial state as a literal; in a Drizzle object literal that is the last property that names",
-		"the column, after any spread. A column name or statement start built at runtime, or a Drizzle object that is not",
-		"a literal, counts as an unguarded writer.",
+		"the column, after any spread. An INSERT that copies rows without a column list is guarded when it filters on",
+		`\`${m.column} = ANY(\${entryStates(${bindingOf(m)}, …)})\`. An UPDATE in a \`.sql\` file is guarded only inside a`,
+		"function that an edge names with `sql`, after a `SELECT * INTO … FROM <table> WHERE … FOR UPDATE; IF NOT FOUND",
+		"THEN RAISE` whose required states are exactly that edge's from-states, and only when it writes that edge's",
+		"target as a literal. A column name or statement start built at runtime, or a Drizzle object that is not a",
+		"literal, counts as an unguarded writer.",
 		"",
 		"It cannot see: a SET fragment passed in from another file, SQL text assembled from variables that hold no",
 		"literal naming the table, statements sent outside this repository, or writes made by hand in a database",
 		"session. Only a database trigger generated from this table would refuse those.",
 		"",
-		"It is strict where it cannot tell: a write in a `.sql` file counts as unguarded, and so does a bare",
+		"It is strict where it cannot tell: any other write in a `.sql` file counts as unguarded (a data backfill",
+		"needs its own edge and function), and so does a bare",
 		`\`${m.column} = …\` fragment of any table in a file that also holds a dynamic \`UPDATE ${m.table} SET \${…}\`.`,
 		"",
 		"## Proof",
