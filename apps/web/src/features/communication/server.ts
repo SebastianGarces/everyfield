@@ -12,13 +12,9 @@ import type { Outcome, PageData } from "./model.ts";
 import { appOrigin, mailReady, type MailReady } from "./mail.ts";
 import { canWrite } from "../shared/seat-role.ts";
 
-// The Messages screens reach the communication writer here. Reads recheck the live seat. Writes recheck authority
-// inside the write statement. A member may read drafts and templates. Audience, preview and writes need an Owner or Admin.
-
 type Peopled = NonNullable<NonNullable<Awaited<ReturnType<typeof getViewer>>>["people"]>;
 export type Viewer = Peopled;
 
-/** The request's plant seat. Signed out, no plant seat, and a setup failure stay distinct. */
 export async function communicationViewer() {
 	try {
 		const viewer = await getViewer();
@@ -37,7 +33,6 @@ export async function communicationViewer() {
 const outcome = <T>(reply: CommunicationReply<T>): Outcome<T> =>
 	reply.status === "ok" ? { status: "ok", value: reply.value } : { status: "refused", code: reply.error.code };
 
-/** One read transaction. A database failure reads as lost, never as an empty list. */
 export async function read<T>(
 	viewer: Viewer,
 	run: (tx: Transaction) => Promise<CommunicationReply<T>>,
@@ -52,7 +47,6 @@ export async function read<T>(
 	}
 }
 
-/** One native write. The actor comes from the request, never from the browser. */
 export async function write<T>(
 	viewer: Viewer,
 	run: (tx: Transaction, context: CommunicationContext) => Promise<CommunicationReply<T>>,
@@ -67,7 +61,6 @@ export async function write<T>(
 	}
 }
 
-/** One provider call. Mail setup is checked before the domain writes a send. A thrown provider error stays lost. */
 export async function deliver<T>(
 	run: (
 		db: NonNullable<ReturnType<typeof requestDatabase>>,
@@ -95,9 +88,7 @@ export async function deliver<T>(
 	}
 }
 
-/** Templates, teams and the church name for the page. A member skips the team read. */
 export function loadCommunicationPage(viewer: Viewer): Promise<Outcome<PageData>> {
-	// The sample RSVP link needs the configured origin. Without it the page says so instead of linking nowhere.
 	const origin = appOrigin();
 	if (origin === null) return Promise.resolve({ status: "refused", code: "unavailable" });
 	return read(viewer, async (tx) => {

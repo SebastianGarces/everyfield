@@ -6,10 +6,6 @@ import { observeSize } from "@everyfield/ui/foundations";
 import { useCallback, useRef, useState, type ReactNode } from "react";
 import { renderPreview, type PreviewInput } from "./preview.ts";
 
-// The one place an email shows. The HTML is the exact output of renderPreview, in a sandboxed iframe, so app CSS cannot
-// restyle it. The frame is sized to the document height (no inner scrollbar) and scales down, never crops, when the
-// space is narrower than the chosen width. Links in it do not navigate. The email stays light in dark mode.
-
 type Width = "desktop" | "phone";
 const widthPx: Record<Width, number> = { desktop: 600, phone: 375 };
 
@@ -29,7 +25,6 @@ function EmailFrame({ html, width, label = "Email preview" }: { html: string; wi
 	const onLoad = () => {
 		const doc = frame.current?.contentDocument;
 		if (!doc) return;
-		// Links in the email never navigate: the parent cancels the click.
 		doc.addEventListener("click", (event) => {
 			if ((event.target as Element | null)?.closest?.("a")) event.preventDefault();
 		});
@@ -64,10 +59,6 @@ function EmailFrame({ html, width, label = "Email preview" }: { html: string; wi
 
 export type Chrome = { from: string; to: string; subject: string };
 
-/**
- * The preview stage: a toolbar with the Desktop and Phone switch, app-drawn inbox chrome (From, To, Subject) and the
- * email. It asks renderPreview for the HTML whenever the input changes.
- */
 export function PreviewStage({
 	input,
 	live = input.bodyHtml,
@@ -78,7 +69,6 @@ export function PreviewStage({
 	input: PreviewInput;
 	live?: string;
 	chrome: Chrome;
-	/** Extra toolbar controls, such as the recipient switcher. */
 	toolbar?: ReactNode;
 	empty?: string;
 }) {

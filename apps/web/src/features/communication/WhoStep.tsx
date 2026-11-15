@@ -20,13 +20,9 @@ import {
 	type Team,
 } from "./model.ts";
 
-// Who: groups and teams in a searchable multi-select, people in one To field, then the counts and who is left out.
-
 const MAX_CHIPS = 8;
 
-/** The day someone unsubscribed, in the reader's own format. */
 const onDay = (iso: string) => new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(new Date(iso));
-/** Why an unsubscribed person is left out. Nobody on the church's staff can clear it (D-284). */
 const unsubscribedReason = (iso: string) => `Unsubscribed from this church's email on ${onDay(iso)}`;
 
 const lost = <T,>(): Outcome<T> => ({ status: "lost" });
@@ -230,7 +226,6 @@ function Counts({
 	);
 }
 
-/** The To field: type to search people, pick with arrows and Enter, remove with Backspace. */
 function ToField({
 	store,
 	locked,
@@ -411,7 +406,6 @@ function ToField({
 									className="flex min-h-[40px] flex-wrap items-center justify-between gap-x-3 rounded-sm px-3 py-1.5 text-md text-ink aria-disabled:text-text-3 aria-selected:bg-surface-2"
 								>
 									<span className="min-w-0 truncate">{person.displayName}</span>
-									{/* The reason and its date always show in full; on a narrow screen it wraps below the name. */}
 									<span className={`min-w-0 text-sm text-text-3 ${person.unsubscribedAt ? "" : "truncate"}`}>
 										{!person.email
 											? "No email address"

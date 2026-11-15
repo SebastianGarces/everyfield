@@ -41,18 +41,12 @@ import { useKeys } from "./useKeys.ts";
 import { ReviewStep } from "./ReviewStep.tsx";
 import { useAudienceSummary, WhoStep } from "./WhoStep.tsx";
 
-// The guided compose flow: Who, Write, Review and send. The address names the step, so Back and reload work. A new
-// message lives in this form until the planter saves it on purpose: Save draft, the move to Review, or a send. That
-// keeps a message the planter started and left from piling up as a "No subject" draft. Review always works on a saved
-// revision. A saved draft can be deleted.
-
 const STEPS: { value: Step; label: string }[] = [
 	{ value: "who", label: "Who" },
 	{ value: "write", label: "Write" },
 	{ value: "review", label: "Review and send" },
 ];
 
-/** The meeting's own local date and time, as words. The parts are not shifted by the viewer's zone. */
 function meetingWhen(date: string, time: string): string {
 	const [y, m, d] = date.split("-").map(Number);
 	const [h, min] = time.split(":").map(Number);
@@ -498,7 +492,6 @@ function ComposeForm({
 			) : null}
 
 			<div
-				// Review ends in the Send now button. A sticky bar would sit over it at first paint.
 				className={`flex flex-wrap items-center justify-between gap-3 border-t border-line bg-[var(--ef-frame)] py-4 ${step === "review" ? "" : "sticky bottom-0"}`}
 			>
 				<p id="step-reason" className="text-sm text-text-2" role={reason ? "status" : undefined}>

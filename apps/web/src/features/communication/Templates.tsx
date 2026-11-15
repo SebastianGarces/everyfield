@@ -24,8 +24,6 @@ import {
 import { createTemplateEditorStore, type Issues } from "./Templates.store.ts";
 import { useKeys } from "./useKeys.ts";
 
-// Templates: a list in two groups, and the editor on the Write layout with the same live preview.
-
 export function Templates({
 	templates,
 	setTemplates,
@@ -38,7 +36,6 @@ export function Templates({
 	templates: Template[];
 	setTemplates: (next: Template[] | ((rows: Template[]) => Template[])) => void;
 	canWrite: boolean;
-	/** A template id, "new" or null for the list. It comes from the address. */
 	selected: string | null;
 	onSelect: (id: string | null) => void;
 	churchName: string;
@@ -131,7 +128,6 @@ function Editor({
 	origin,
 }: {
 	template: Template | null;
-	/** The address names a template that is not in the list. A save that just replaced the row is not missing. */
 	missing: boolean;
 	canWrite: boolean;
 	setTemplates: (next: Template[] | ((rows: Template[]) => Template[])) => void;

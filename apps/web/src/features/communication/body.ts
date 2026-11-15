@@ -1,7 +1,3 @@
-// The message editor is plain text. These pure functions map that text to the stored sanitized HTML and back.
-// Forms: a blank line starts a paragraph, a line break is <br>, **bold**, *italic*, [text](https://…), "- " and
-// "1. " lists, "# " "## " "### " headings and "> " quotes. Every output uses only tags the sanitizer keeps.
-
 const escapeText = (value: string) => value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 const unescapeText = (value: string) =>
 	value
@@ -37,7 +33,6 @@ const NUMBER = /^\d+\. (.*)$/;
 const HEADING = /^(#{1,3}) (.*)$/;
 const QUOTE = /^> ?(.*)$/;
 
-/** Stored HTML for the typed text. */
 export function textToBody(text: string): string {
 	const lines = text.replaceAll("\r\n", "\n").split("\n");
 	const blocks: string[] = [];
@@ -92,11 +87,10 @@ export function textToBody(text: string): string {
 	return blocks.join("");
 }
 
-type BodyText = { text: string; /** True when <u> or <span> markup was reduced to its text. */ lossy: boolean };
+type BodyText = { text: string; lossy: boolean };
 
 const TOKEN = /<(\/?)([a-z0-9]+)([^>]*)>|([^<]+)/gi;
 
-/** The typed text for stored HTML. */
 export function bodyToTextResult(html: string): BodyText {
 	let lossy = false;
 	const blocks: { text: string; list: number }[] = [];

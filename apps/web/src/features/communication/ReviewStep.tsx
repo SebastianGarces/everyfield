@@ -21,9 +21,6 @@ import { insideWindow, windowBounds } from "./scheduleWindow.ts";
 import { listed, plural, type Form } from "./composeModel.ts";
 import { groupLabel, type AudienceSummary, type MeetingContext, type Team, type Template } from "./model.ts";
 
-// Review and send: the full-width email with a "Preview as" switcher, and the "Ready to send?" panel.
-
-/** Tomorrow at 9:00 and the next Sunday at 8:00, both local, both inside the window. */
 function presets(now = new Date()): { label: string; at: Date }[] {
 	const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 9, 0);
 	const toSunday = (7 - now.getDay()) % 7 || 7;

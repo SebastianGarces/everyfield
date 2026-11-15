@@ -4,14 +4,10 @@ import { Field, Input, Textarea } from "@everyfield/ui/controls";
 import { useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { fieldToken, fieldsFor, type MergeField } from "./fields.ts";
 
-// Subject and message for Write and for the template editor. The message is plain text. The rail lists the fields that
-// work in it; a click inserts one at the cursor, and typing `{{` opens the same list under the cursor.
-
 type Open = { from: number; query: string; top: number; left: number };
 
 const LINE = 22;
 
-/** Where the `{{name` being typed ends at the caret, and roughly where to draw the list. */
 function openAt(el: HTMLTextAreaElement): Open | null {
 	const caret = el.selectionStart;
 	const before = el.value.slice(0, caret);
@@ -43,9 +39,7 @@ export function MessageEditor({
 	bodyError?: string;
 	hasMeeting: boolean;
 	disabled?: boolean;
-	/** True when the opened body had markup the editor reduced to text. */
 	lossy?: boolean;
-	/** The template picker, above the subject. */
 	children?: ReactNode;
 }) {
 	const area = useRef<HTMLTextAreaElement>(null);
@@ -74,7 +68,6 @@ export function MessageEditor({
 			setActive((current) => (current + step + shown.length) % shown.length);
 		} else if (event.key === "Enter" || event.key === "Tab") {
 			event.preventDefault();
-			// Replace the typed `{{na` with the whole field.
 			const el = event.currentTarget;
 			const field = shown[active] ?? shown[0]!;
 			el.setRangeText(fieldToken(field.key), open.from, el.selectionStart, "end");

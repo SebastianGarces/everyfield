@@ -139,7 +139,6 @@ export function Address() {
 	);
 }
 
-/** The date and time on this device's clock. */
 function restoredOn(iso: string): string {
 	return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(iso));
 }

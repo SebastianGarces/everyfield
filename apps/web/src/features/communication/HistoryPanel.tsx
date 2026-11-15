@@ -56,9 +56,6 @@ import { insideWindow, windowBounds } from "./scheduleWindow.ts";
 import { createHistoryStore } from "./HistoryPanel.store.ts";
 import { useKeys } from "./useKeys.ts";
 
-// History is the message hub. A follow-up saves a new reviewed message and leaves the original alone.
-// Times use the clock on this device. The church zone is not on this page.
-
 type PersonName = { id: string; displayName: string; email: string | null };
 
 function problem(result: Outcome<unknown>): string {
@@ -156,7 +153,6 @@ function useHistory(list: ListQuery) {
 		first.reload();
 	};
 
-	/** The open message's row follows its fresh detail after an action, so the list never keeps an old state. */
 	const patch = (id: string, view: MessageView) => {
 		firstPages.patch(
 			(current) =>
@@ -196,7 +192,6 @@ function StateBadge({ state }: { state: HubState }) {
 	);
 }
 
-/** The time a row shows: sent, else scheduled, else when it was created. */
 function rowTime(item: HistoryItem): string {
 	if (item.sentAt) return when(item.sentAt);
 	if (item.scheduledAt) return `For ${when(item.scheduledAt)}`;
@@ -230,7 +225,6 @@ function MessageButton({
 	);
 }
 
-/** A message that has not gone out has no recipient records yet, so a zero there would mislead. */
 const recipientCount = (n: number, state: HubState) =>
 	n === 0 && (state === "draft" || state === "scheduled") ? "Not sent yet" : plural(n, "recipient", "recipients");
 
@@ -255,11 +249,9 @@ type ScheduledActions = {
 	onReschedule: (instant: Date) => void;
 };
 
-/** The handoff counts every scheduled state names. Refused here is the email service's refusal, never a bounce. */
 const handoffCounts = (totals: MessageView["totals"]) =>
 	`Accepted ${totals.accepted}. Refused ${totals.failed}. No answer ${totals.unknown}.${unsubscribedNote(totals.unsubscribed)}`;
 
-/** Headline and detail for the message's state at the email service. Each line comes only from confirmed answers. */
 function heldStatus(view: MessageView): { title: string; body: string } {
 	const { totals, detail } = view;
 	const went = sentNote(totals.sent);
@@ -309,7 +301,6 @@ function heldStatus(view: MessageView): { title: string; body: string } {
 	}
 }
 
-/** An action's result. It stays after the scheduled panel closes, as when every email already went out. */
 function ResultNotice({ notice }: { notice: Notice }) {
 	return (
 		<p
@@ -330,7 +321,6 @@ function ScheduledPanel({ view, actions }: { view: MessageView; actions: Schedul
 	const state = view.totals.state;
 	const status = heldStatus(view);
 	const requestedAt = view.detail.requestedAt;
-	// The email service holds at least one recipient: cancel and time change go to it, and Send now would not.
 	const held = state === "scheduled" || state === "time_unconfirmed";
 	const unconfirmed = state === "cancel_unconfirmed" || state === "time_unconfirmed";
 	const action = (name: string, label: string, run: () => void, variant: "primary" | "secondary" = "secondary") => (
@@ -674,7 +664,6 @@ function Browser({
 	const count = (state: HubState) => history.items.filter((item) => item.state === state).length;
 
 	const select = (item: HistoryItem) => {
-		// A draft goes back to Write. Anything else opens in the detail pane.
 		if (item.state === "draft" && onCompose && canWrite) {
 			onCompose(item.id, "write", false);
 			return;
@@ -1009,11 +998,6 @@ function Browser({
 	);
 }
 
-/**
- * The person's own opt-out from this church's email (D-284). Staff see it and when, and nothing here can clear it. The
- * Unsubscribe page offered the person an Undo for one hour after they pressed Unsubscribe; opening the link again later
- * only shows that they are unsubscribed.
- */
 function OptOutNote({ at, churchName }: { at: string; churchName: string }) {
 	return (
 		<div className="flex flex-col gap-1 rounded-md bg-surface-2 px-3.5 py-3">
@@ -1079,9 +1063,7 @@ export function History({
 	personId: string | null;
 	meetingId: string | null;
 	onOpen: (draft: Draft, people: PersonName[]) => void;
-	/** Stay on the opened person or meeting. The person tab uses this so the tab does not open the church list. */
 	keepScope?: boolean;
-	/** The opened message, from the address. Without it the list keeps its own choice (the person tab). */
 	selected?: string | null;
 	onSelected?: (id: string | null) => void;
 	onCompose?: (id: string, step: "write" | "review", replace: boolean) => void;
