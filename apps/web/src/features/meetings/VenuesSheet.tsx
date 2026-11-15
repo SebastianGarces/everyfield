@@ -57,7 +57,10 @@ export function VenuesSheet({
 			{!open ? null : screen.kind === "list" ? (
 				<Places
 					canWrite={canWrite}
-					onOpen={(id) => setScreen({ kind: "venue", id })}
+					onOpen={(id) => {
+						placeDetails.prefetch(id);
+						setScreen({ kind: "venue", id });
+					}}
 					onAdd={() => setScreen({ kind: "new" })}
 				/>
 			) : screen.kind === "venue" ? (

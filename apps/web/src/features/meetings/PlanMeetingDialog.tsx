@@ -55,6 +55,11 @@ const teamMinistries = createRead(() => listMinistries().then((r) => (r.status =
 	failed: (): Ministry[] => [],
 });
 
+export function prefetchPlanReads(editing: boolean) {
+	savedPlaces.prefetch();
+	if (!editing) teamMinistries.prefetch();
+}
+
 function initial(meeting: Detail | undefined, ministry: Ministry | undefined): Draft {
 	return {
 		type: meeting?.type ?? (ministry ? "team_meeting" : "vision_meeting"),

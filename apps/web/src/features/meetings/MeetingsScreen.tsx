@@ -38,7 +38,7 @@ import {
 } from "./model.ts";
 import { IntentLink, MeetingIcon, MeetingStatusBadge, RsvpBar } from "./parts.tsx";
 import { deletions } from "./deletions.store.ts";
-import { PlanMeetingDialog } from "./PlanMeetingDialog.tsx";
+import { PlanMeetingDialog, prefetchPlanReads } from "./PlanMeetingDialog.tsx";
 import { SaveNotice, useSaveIntent } from "../../components/save/parts.tsx";
 import { useStore } from "../../components/store.ts";
 import { VisionReport } from "./Report.tsx";
@@ -70,7 +70,10 @@ export function MeetingsScreen({ view, canWrite }: { view: MeetingsView; canWrit
 		<Button
 			variant="primary"
 			icon={CalendarAdd01Icon}
-			onClick={() => setPlanning(true)}
+			onClick={() => {
+				prefetchPlanReads(false);
+				setPlanning(true);
+			}}
 		>
 			Plan a meeting
 		</Button>

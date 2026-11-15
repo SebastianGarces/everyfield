@@ -114,7 +114,7 @@ import {
 	type GuestRow,
 	type PageView,
 } from "./page-state.ts";
-import { PlanMeetingDialog } from "./PlanMeetingDialog.tsx";
+import { PlanMeetingDialog, prefetchPlanReads } from "./PlanMeetingDialog.tsx";
 import { RosterUpdate } from "./RosterUpdate.tsx";
 import type { MeetingPageData } from "./server.ts";
 
@@ -502,7 +502,10 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 				variant="secondary"
 				icon={Edit02Icon}
 				disabled={meetingLane.wait !== null}
-				onClick={() => openDialog("edit")}
+				onClick={() => {
+					prefetchPlanReads(true);
+					openDialog("edit");
+				}}
 			>
 				Edit
 			</Button>
