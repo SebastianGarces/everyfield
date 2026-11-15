@@ -1,6 +1,15 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import {
+	existsSync,
+	mkdirSync,
+	mkdtempSync,
+	readFileSync,
+	realpathSync,
+	rmSync,
+	symlinkSync,
+	writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -14,6 +23,13 @@ const CONFIGS = [".oxlintrc.json", "apps/web/.oxlintrc.json", "tools/.oxlintrc.j
 const DISABLE = ["eslint", "disable-next-line"].join("-");
 const OX_DISABLE = ["oxlint", "disable"].join("-");
 const EXPECT_ERROR = ["@ts", "expect-error"].join("-");
+
+const SCRIPTS = {
+	lint: "pnpm -r --if-present lint && pnpm run lint:web && pnpm run lint:repo && pnpm run lint:tools",
+	"lint:web": `cd apps/web && ${OXLINT} -c .oxlintrc.json --max-warnings=0 .`,
+	"lint:repo": `${OXLINT} -c .oxlintrc.json --max-warnings=0 packages tests/unit`,
+	"lint:tools": `${OXLINT} -c tools/.oxlintrc.json --max-warnings=0 tools`,
+};
 
 const temps = [];
 test.after(() => temps.forEach((dir) => rmSync(dir, { recursive: true, force: true })));
@@ -30,6 +46,10 @@ function sandbox(files = {}, lintData = {}) {
 		put(dir, config, { ...JSON.parse(readFileSync(join(repo, config), "utf8")), jsPlugins: [PLUGIN] });
 	for (const data of ["exemptions.json", "boundaries/_layout.json"])
 		put(dir, `scripts/lint/${data}`, JSON.parse(readFileSync(join(repo, "scripts/lint", data), "utf8")));
+	put(dir, "package.json", { scripts: SCRIPTS });
+	put(dir, "pnpm-workspace.yaml", "packages: []\n");
+	for (const root of ["packages/ui/src/index.ts", "tests/unit/index.ts", "tools/index.ts"])
+		put(dir, root, "export {};\n");
 	for (const [path, content] of Object.entries(files)) put(dir, path, content);
 	for (const [path, content] of Object.entries(lintData)) put(dir, `scripts/lint/${path}`, content);
 	return dir;
@@ -413,15 +433,33 @@ test("INV-lint: a baseline entry new to the base or larger than at the base fail
 	assert.match(growth({ [renamed]: 3 }, [path, renamed]), /Moved\.tsx grew from 2 to 3/);
 });
 
-test("INV-lint: a rule new against main is held to the commit that adds its baseline", () => {
-	const { dir, path } = history();
-	const main = git(dir, "rev-parse", "HEAD");
+test("INV-lint: a rule new against main is held to what it reports on main's tree, so merging main and regenerating stays legal", () => {
+	const dir = sandbox({ "packages/ui/src/Panel.tsx": "export {};\n" });
+	git(dir, "init", "-q", "-b", "main");
+	commitAll(dir, "main without the rule");
 	git(dir, "switch", "-q", "-c", "feature");
-	put(dir, "scripts/lint/baseline/max-state/packages-ui.json", { [path]: 2 });
-	commitAll(dir, "add a rule");
-	put(dir, "scripts/lint/baseline/max-state/packages-ui.json", { [path]: 3 });
-	commitAll(dir, "grow it");
-	assert.match(check(dir, ["--base", main]).out, /max-state: packages\/ui\/src\/Panel\.tsx grew from 2 to 3/);
+	commitAll(dir, "branch work");
+	git(dir, "switch", "-q", "main");
+	put(dir, "packages/ui/src/Panel.tsx", "export const later = () => setTimeout(() => {}, 1);\n");
+	commitAll(dir, "main gains a timer");
+	git(dir, "switch", "-q", "feature");
+	git(dir, "merge", "-q", "--no-edit", "main");
+	put(dir, "scripts/lint/baseline/no-timers/packages-ui.json", { "packages/ui/src/Panel.tsx": 1 });
+	commitAll(dir, "regenerate after merging main");
+	const main = git(dir, "rev-parse", "main");
+	const regenerated = check(dir, ["--base", main]).out;
+	assert.match(
+		regenerated,
+		/no-timers: the rule is new against \w+; its baseline is held to what the rule reports on that tree/,
+	);
+	assert.doesNotMatch(regenerated, /no-timers: .*(grew|new to the baseline)/);
+	put(dir, "scripts/lint/baseline/no-timers/packages-ui.json", { "packages/ui/src/Panel.tsx": 2 });
+	assert.match(check(dir, ["--base", main]).out, /no-timers: packages\/ui\/src\/Panel\.tsx grew from 1 to 2/);
+	put(dir, "scripts/lint/baseline/no-timers/packages-ui.json", {
+		"packages/ui/src/Panel.tsx": 1,
+		"packages/ui/src/index.ts": 1,
+	});
+	assert.match(check(dir, ["--base", main]).out, /no-timers: packages\/ui\/src\/index\.ts is new to the baseline/);
 });
 
 test("INV-lint: in CI the growth check compares with main, through HEAD^1 or, for a stacked pull request, the merge base", () => {
@@ -455,13 +493,7 @@ test("INV-lint: in CI the growth check compares with main, through HEAD^1 or, fo
 test("INV-lint: baseline --shrink moves a renamed file's entries to its new path and area, and the growth check accepts them", () => {
 	const effect = `import { useEffect } from "react";\nexport function Panel() {\n\tuseEffect(() => {});\n}\n`;
 	const dir = sandbox(
-		{
-			"packages/ui/src/Panel.tsx": effect,
-			"pnpm-workspace.yaml": "packages: []\n",
-			"package.json": {
-				scripts: { lint: "pnpm run lint:ui", "lint:ui": `${OXLINT} -c .oxlintrc.json packages` },
-			},
-		},
+		{ "packages/ui/src/Panel.tsx": effect },
 		{ "baseline/no-effects/packages-ui.json": { "packages/ui/src/Panel.tsx": 1 } },
 	);
 	git(dir, "init", "-q", "-b", "main");
@@ -481,4 +513,147 @@ test("INV-lint: baseline --shrink moves a renamed file's entries to its new path
 	assert.equal(existsSync(join(baseline, "packages-ui.json")), false);
 	commitAll(dir, "move");
 	assert.match(check(dir, ["--base", base]).out, /check-comments: passed/);
+});
+
+const configFails = (edit, pattern) => {
+	const dir = sandbox();
+	const path = join(dir, "apps/web/.oxlintrc.json");
+	const config = JSON.parse(readFileSync(path, "utf8"));
+	edit(config);
+	put(dir, "apps/web/.oxlintrc.json", config);
+	git(dir, "init", "-q");
+	const { status, out } = check(dir, ["--no-base"]);
+	assert.equal(status, 1, out);
+	assert.match(out, pattern);
+};
+
+test("INV-lint: every override block is checked, so a second block with the same files cannot switch a rule off", () =>
+	configFails((config) => {
+		const blocks = config.overrides.filter((block) => block.files.join() === "src/**");
+		assert.ok(blocks.length > 1);
+		blocks[0].rules["everyfield/no-effects"] = "off";
+	}, /override for src\/\*\*, rule everyfield\/no-effects needs its reason/));
+
+test("INV-lint: any severity below error for an Everyfield rule needs its reason", () => {
+	for (const severity of ["allow", 0, "warn", 1, ["off"], ["warn", {}]])
+		configFails(
+			(config) =>
+				config.overrides.push({ files: ["src/features/x/**"], rules: { "everyfield/no-comments": severity } }),
+			/override for src\/features\/x\/\*\*, rule everyfield\/no-comments needs its reason/,
+		);
+});
+
+test("INV-lint: ignore files, ignored tracked files and lint flags cannot hide a file or a rule", () => {
+	const fails = (files, pattern, scripts = {}, setup = () => {}) => {
+		const dir = sandbox(files);
+		put(dir, "package.json", { scripts: { ...SCRIPTS, ...scripts } });
+		git(dir, "init", "-q");
+		setup(dir);
+		const { status, out } = check(dir, ["--no-base"]);
+		assert.equal(status, 1, out);
+		assert.match(out, pattern);
+	};
+	fails({ "apps/web/.eslintignore": "src/x/**\n" }, /apps\/web\/\.eslintignore: lint ignore files/);
+	fails({ ".oxlintignore": "src/x/**\n" }, /^\.oxlintignore: lint ignore files/m);
+	fails(
+		{ "packages/ui/.oxlintrc.json": "{}\n" },
+		/packages\/ui\/\.oxlintrc\.json: lint ignore files and extra Oxlint configs/,
+	);
+	fails(
+		{ ".gitignore": "hidden/\n", "packages/ui/src/hidden/a.ts": "export {};\n" },
+		/hidden\/a\.ts: git ignores this tracked file/,
+		{},
+		(dir) => git(dir, "add", "-f", "packages/ui/src/hidden/a.ts"),
+	);
+	for (const flag of [
+		"-A everyfield/no-effects",
+		"--allow everyfield/no-effects",
+		"--ignore-path x",
+		"--ignore-pattern x",
+		"--no-ignore",
+	])
+		fails({}, /flag -/, { "lint:repo": `${OXLINT} -c .oxlintrc.json --max-warnings=0 ${flag} packages tests/unit` });
+	fails({ "other.json": "{}\n" }, /must pass -c with one of/, {
+		"lint:repo": `${OXLINT} -c other.json --max-warnings=0 packages tests/unit`,
+	});
+	fails({}, /needs --max-warnings=0/, { "lint:repo": `${OXLINT} -c .oxlintrc.json packages tests/unit` });
+	fails({}, /must run every package's lint/, {
+		lint: "pnpm run lint:web && pnpm run lint:repo && pnpm run lint:tools",
+	});
+});
+
+test("INV-lint: a JS or TS file that no lint run covers fails", () => {
+	const dir = sandbox({
+		"tests/zzgroup/a.ts": "export {};\n",
+		"lib/b.tsx": "export {};\n",
+		"bin/zz.mjs": "export {};\n",
+	});
+	git(dir, "init", "-q");
+	const { status, out } = check(dir, ["--no-base"]);
+	assert.equal(status, 1, out);
+	const uncovered = out
+		.split("\n")
+		.filter((line) => line.includes("no lint run covers"))
+		.map((line) => line.split(":")[0]);
+	assert.deepEqual(uncovered.sort(), ["bin/zz.mjs", "lib/b.tsx", "tests/zzgroup/a.ts"]);
+});
+
+test("INV-lint: effect, state and timer hooks are reported as references, not only as calls", () => {
+	const source = `import React, * as R from "react";
+import { useState as us } from "react";
+const run = R.useEffect;
+React["useEffect"](() => {});
+export async function load() {
+	(await import("react")).useLayoutEffect(() => {});
+	return run;
+}
+const s = us;
+export function Wide() {
+	const a = s(0), b = React["useState"](0), c = us(0), d = us(0), e = s(0);
+	return [a, b, c, d, e];
+}
+const t = setTimeout;
+const { setTimeout: w } = window;
+globalThis["setTimeout"](() => {}, 1);
+setTimeout.call(null, () => {}, 1);
+export const o = { schedule: requestAnimationFrame };
+scheduler.postTask(() => {}, { delay: 10 });
+scheduler.postTask(() => {});
+AbortSignal.timeout(10);
+export function own(setTimeout) {
+	setTimeout(() => {});
+}
+export type Handle = ReturnType<typeof setTimeout>;
+export { t, w };
+`;
+	assert.deepEqual(
+		lint({ "packages/ui/src/sneaky.tsx": source }).map((hit) => hit.replace("packages/ui/src/sneaky.tsx:", "")),
+		[
+			"3 no-effects",
+			"4 no-effects",
+			"6 no-effects",
+			"6 no-effects",
+			"11 max-state",
+			"14 no-timers",
+			"15 no-timers",
+			"16 no-timers",
+			"17 no-timers",
+			"18 no-timers",
+			"19 no-timers",
+		].sort(),
+	);
+});
+
+test("INV-lint: a path-based rule new against the base is held to what it reports on the base tree", () => {
+	const page = "apps/web/src/app/x/page.tsx";
+	const dir = sandbox({ [page]: "export default function Page() {\n\treturn null;\n}\n" });
+	git(dir, "init", "-q", "-b", "main");
+	const base = commitAll(dir, "base");
+	put(dir, "scripts/lint/baseline/feature-boundaries/apps-web-app-x.json", { [page]: 1 });
+	commitAll(dir, "baseline the new rule");
+	const linkedTmp = `${dir}-tmp`;
+	symlinkSync(dir, linkedTmp);
+	temps.push(linkedTmp);
+	const { out } = check(dir, ["--base", base], { TMPDIR: linkedTmp });
+	assert.match(out, /check-comments: passed/);
 });
