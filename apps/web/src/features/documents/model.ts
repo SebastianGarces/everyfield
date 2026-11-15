@@ -91,7 +91,7 @@ function isFormat(value: string): value is Format {
 }
 
 /** Read the documents address. An unknown category, phase, or format is omitted. */
-export function parseQuery(params: URLSearchParams): DocumentsQuery {
+export function parseQuery(params: Pick<URLSearchParams, "get">): DocumentsQuery {
 	const category = params.get("category");
 	const format = params.get("format");
 	const phaseRaw = params.get("phase");
@@ -105,6 +105,18 @@ export function parseQuery(params: URLSearchParams): DocumentsQuery {
 		q: (params.get("q") ?? "").slice(0, 80),
 		format: format && isFormat(format) ? format : null,
 	};
+}
+
+export function queryHref(pathname: string, query: DocumentsQuery) {
+	const params = new URLSearchParams();
+	if (query.template) params.set("template", query.template);
+	if (query.category !== "all") params.set("category", query.category);
+	if (query.wiki) params.set("wiki", query.wiki);
+	if (query.phase !== null) params.set("phase", String(query.phase));
+	if (query.q) params.set("q", query.q);
+	if (query.format) params.set("format", query.format);
+	const search = params.toString();
+	return search ? `${pathname}?${search}` : pathname;
 }
 
 export type TemplateFilter = {

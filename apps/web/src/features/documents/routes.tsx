@@ -26,7 +26,6 @@ export async function DocumentsPage({ searchParams }: { searchParams: Search }) 
 		<DocumentsScreen
 			templates={loaded.templates}
 			version={loaded.version}
-			query={query}
 			context={loaded.context}
 			canPreview={loaded.canPreview}
 			canEdit={canEditDocuments(viewer.authority)}

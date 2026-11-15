@@ -1,5 +1,5 @@
 {
-	"apps/web/src/features/documents/DocumentsScreen.tsx": 14,
+	"apps/web/src/features/documents/DocumentsScreen.tsx": 6,
 	"apps/web/src/features/documents/PdfPreview.tsx": 2,
 	"apps/web/src/features/documents/Thumbnail.tsx": 5,
 	"apps/web/src/features/documents/actions.ts": 12,

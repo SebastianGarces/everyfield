@@ -17,12 +17,14 @@ import {
 import { Tag } from "@everyfield/ui/display";
 import { cn } from "@everyfield/ui/foundations";
 import { MERGE_VALUE_MAX } from "@everyfield/contracts/documents";
-import { useEffect, useRef, useState, useTransition, type ReactNode } from "react";
-import { generateDocument, resolveDocument } from "./actions.ts";
+import { startTransition, useActionState, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
+import { writeAddress, useAddress } from "../../components/location.ts";
+import { createRead, useRead } from "../../components/read.tsx";
+import { generateDocument, resolveDocument, type DocumentOutcome } from "./actions.ts";
 import { createChurchDocument, type ChurchActionResult } from "./church/actions.ts";
 import { PdfPreview } from "./PdfPreview.tsx";
 import { Thumbnail } from "./Thumbnail.tsx";
-import { RENDER_FAILED, bytesOf, downloadBytes, sharedPreview } from "./preview-client.ts";
+import { RENDER_FAILED, bytesOf, downloadBytes, sharedPreview, type PreviewReply } from "./preview-client.ts";
 import {
 	CATEGORIES,
 	FORMAT_LABEL,
@@ -39,7 +41,9 @@ import {
 	filterTemplates,
 	offeredFormat,
 	overridesOf,
+	parseQuery,
 	phaseText,
+	queryHref,
 	renderKey,
 	type DocumentsQuery,
 	type Format,
@@ -62,7 +66,6 @@ type Props = {
 	templates: Template[];
 	/** The library version: part of every render key, so a new library draws new thumbnails. */
 	version: string;
-	query: DocumentsQuery;
 	context: Resolved | null;
 	canPreview: boolean;
 	canEdit: boolean;
@@ -79,10 +82,82 @@ function failureText(code: string, path?: string) {
 	return RENDER_FAILED;
 }
 
+const problemText = (reply: { status: "refused"; code: string; path?: string } | { status: "lost" }) =>
+	reply.status === "refused" ? failureText(reply.code, reply.path) : failureText("lost");
+
+type PreviewRequest = {
+	templateId: string;
+	format: Format;
+	overrides: Record<string, string>;
+	key: string;
+	signature: string;
+	failed?: string;
+};
+type Edits = { templateId: string | null; values: Record<string, string> };
+type Note = { edits: Edits; format: Format | null; text: string };
+type Job = {
+	templateId: string;
+	format: Format;
+	overrides: Record<string, string>;
+	key: string;
+	signature: string;
+	edits: Edits;
+};
+
+const resolutions = createRead(
+	(...[templateId, format]: [templateId: string, format: Format, visit: string]) => resolveDocument(templateId, format),
+	{ failed: (): DocumentOutcome<Resolved> => ({ status: "lost" }), fresh: Infinity },
+);
+
+const previews = createRead(
+	(templateId: string, format: Format, overrides: Record<string, string>, key: string) =>
+		sharedPreview(key, templateId, format, overrides),
+	{ failed: (): PreviewReply => ({ status: "lost" }) },
+);
+
+const signatureOf = (templateId: string, format: Format, overrides: Record<string, string>) =>
+	`${templateId}:${format}:${JSON.stringify(overrides)}`;
+
+function requestFor(
+	template: Template,
+	format: Format,
+	overrides: Record<string, string>,
+	version: string,
+	church: Record<string, string>,
+): PreviewRequest {
+	return {
+		templateId: template.id,
+		format,
+		overrides,
+		key: renderKey({ templateId: template.id, version, format, overrides, church }),
+		signature: signatureOf(template.id, format, overrides),
+	};
+}
+
+function missingFields(template: Template, drafts: Record<string, string>) {
+	return template.mergeFields.filter((field) => field.required && !(drafts[field.key] ?? "").trim());
+}
+
+function openingRequest(
+	template: Template,
+	format: Format,
+	resolved: Resolved,
+	version: string,
+	church: Record<string, string>,
+): PreviewRequest | null {
+	const drafts = draftsFrom(resolved);
+	if (missingFields(template, drafts).length > 0) return null;
+	const overrides = overridesOf(template, drafts, resolved);
+	if (combinedTooLong(overrides)) return null;
+	return requestFor(template, format, overrides, version, church);
+}
+
+const forgetPreview = (request: PreviewRequest | null) =>
+	request && previews.forget(request.templateId, request.format, request.overrides, request.key);
+
 export function DocumentsScreen({
 	templates,
 	version,
-	query,
 	context,
 	canPreview,
 	canEdit,
@@ -90,185 +165,193 @@ export function DocumentsScreen({
 	written,
 	textTemplates,
 }: Props) {
-	const initial = filterTemplates(templates, query);
-	const [category, setCategory] = useState(query.category);
-	const [wiki, setWiki] = useState(query.wiki);
-	const [phase, setPhase] = useState(query.phase);
-	const [q, setQ] = useState(query.q);
-	const [selectedId, setSelectedId] = useState<string | null>(choose(initial, query.template)?.id ?? null);
-	const [resolved, setResolved] = useState<Resolved | null>(context);
-	const [resolvedFor, setResolvedFor] = useState<string | null>(context?.templateId ?? null);
-	const [drafts, setDrafts] = useState<Record<string, string>>(() => draftsFrom(context));
-	const [format, setFormat] = useState<Format | null>(() => {
-		const chosen = choose(initial, query.template);
-		return chosen ? offeredFormat(chosen, context?.format ?? query.format) : null;
+	const address = useAddress();
+	const query = parseQuery(address.params);
+	const filtered = filterTemplates(templates, query);
+	const selected = choose(filtered, query.template);
+	const activeFormat = selected
+		? offeredFormat(selected, query.template === null || query.template === selected.id ? query.format : null)
+		: null;
+	const [church] = useState(() => {
+		const values = churchValues(context);
+		const template = context && templates.find((item) => item.id === context.templateId);
+		if (typeof window !== "undefined" && canPreview && context && template)
+			resolutions.seed(
+				{ status: "ok", value: context },
+				context.templateId,
+				offeredFormat(template, null),
+				JSON.stringify([version, values]),
+			);
+		return values;
 	});
-	const [preview, setPreview] = useState<PreviewState>({ kind: "idle" });
-	// The church's values as this page load read them: every render key of the visit names them.
-	const [church] = useState(() => churchValues(context));
-	const [artifact, setArtifact] = useState<{ key: string; format: Format; bytes: string; brandKit: boolean } | null>(
-		null,
+	const visit = JSON.stringify([version, church]);
+	const [edits, setEdits] = useState<Edits>(() => ({ templateId: selected?.id ?? null, values: {} }));
+	const [request, setRequest] = useState<PreviewRequest | null>(() =>
+		canPreview && context && selected && activeFormat && context.templateId === selected.id
+			? openingRequest(selected, activeFormat, context, version, church)
+			: null,
 	);
-	const [resolving, startResolve] = useTransition();
-	const [previewing, startPreview] = useTransition();
-	const [saving, startSave] = useTransition();
-	const [saveNote, setSaveNote] = useState<string | null>(null);
-	const [creating, startCreate] = useTransition();
-	const [createNote, setCreateNote] = useState<string | null>(null);
-	const createKeys = useRef(new Map<string, string>());
-	const panel = useRef<HTMLDivElement>(null);
-	const autoPreviewed = useRef<string | null>(null);
-	const resolveToken = useRef(0);
-	const saveKeys = useRef(new Map<string, string>());
+	const opening = useRef<string | null>(null);
+	const saveKeys = useRef<Map<string, string>>(null);
+	const createKeys = useRef<Map<string, string>>(null);
+	const panel = useRef<HTMLElement>(null);
+	const [downloading, startDownload] = useTransition();
 
-	const filtered = filterTemplates(templates, { category, wiki, phase, q });
-	const visibleId = filtered.some((template) => template.id === selectedId) ? selectedId : (filtered[0]?.id ?? null);
-	const selected = filtered.find((template) => template.id === visibleId) ?? null;
-	const activeFormat = selected ? offeredFormat(selected, format) : null;
-	const current = resolved?.templateId === selected?.id ? resolved : null;
+	const resolution = useRead(
+		canPreview && selected ? resolutions : null,
+		selected?.id ?? "",
+		selected ? offeredFormat(selected, null) : "pdf",
+		visit,
+	);
+	const resolvedNow =
+		resolution.value ??
+		(resolution.status === "idle" && canPreview && context && context.templateId === selected?.id
+			? ({ status: "ok", value: context } as const)
+			: undefined);
+	const current = resolvedNow?.status === "ok" ? resolvedNow.value : null;
 
-	useEffect(() => {
-		if (!visibleId || !canPreview || resolvedFor === visibleId) return;
-		const template = templates.find((item) => item.id === visibleId);
-		if (!template) return;
-		const token = ++resolveToken.current;
-		const nextFormat = offeredFormat(template, null);
-		startResolve(async () => {
-			const result = await resolveDocument(template.id, nextFormat);
-			if (token !== resolveToken.current) return;
-			setArtifact(null);
-			setResolvedFor(template.id);
-			if (result.status !== "ok") {
-				setResolved(null);
-				setDrafts({});
-				setPreview({
-					kind: "message",
-					text: failureText(
-						result.status === "refused" ? result.code : "lost",
-						result.status === "refused" ? result.path : undefined,
-					),
-				});
-				return;
-			}
-			setResolved(result.value);
-			setDrafts(draftsFrom(result.value));
-			setFormat(result.value.format);
-			setPreview({ kind: "idle" });
-		});
-	}, [visibleId, canPreview, resolvedFor, templates]);
-
-	function showBytes(nextFormat: Format, encoded: string, key: string, brandKit: boolean) {
-		if (nextFormat !== "pdf") {
-			setPreview({ kind: "office" });
-			return;
-		}
-		setPreview({ kind: "pdf", bytes: bytesOf(encoded), key, brandKit });
-	}
-
+	const drafts = { ...draftsFrom(current), ...(edits.templateId === selected?.id ? edits.values : {}) };
 	const overrides = selected ? overridesOf(selected, drafts, current) : {};
 	const tooLong = combinedTooLong(overrides);
-	const missing = selected
-		? selected.mergeFields.filter((field) => field.required && !(drafts[field.key] ?? "").trim())
-		: [];
-	const ready = Boolean(selected && activeFormat && canPreview && missing.length === 0 && !tooLong);
-	const signature = `${selected?.id ?? ""}:${activeFormat ?? ""}:${JSON.stringify(overrides)}`;
+	const missing = selected && (current || !canPreview) ? missingFields(selected, drafts) : [];
+	const ready = Boolean(selected && activeFormat && canPreview && current && missing.length === 0 && !tooLong);
+	const signature = selected && activeFormat ? signatureOf(selected.id, activeFormat, overrides) : "";
+
+	const shown =
+		request && selected && request.templateId === selected.id && request.format === activeFormat ? request : null;
+	const reading = shown && !shown.failed ? shown : null;
+	const reply = useRead(
+		reading ? previews : null,
+		reading?.templateId ?? "",
+		reading?.format ?? "pdf",
+		reading?.overrides ?? {},
+		reading?.key ?? "",
+	);
+	const artifact = reply.value?.status === "ok" ? reply.value.value.artifact : null;
+	const bytes = useMemo(() => (artifact ? bytesOf(artifact) : null), [artifact]);
+	const preview: PreviewState =
+		resolvedNow && resolvedNow.status !== "ok"
+			? { kind: "message", text: problemText(resolvedNow) }
+			: shown?.failed
+				? { kind: "message", text: shown.failed }
+				: !shown || reply.value === undefined
+					? { kind: "idle" }
+					: reply.value.status !== "ok"
+						? { kind: "message", text: problemText(reply.value) }
+						: !bytes
+							? { kind: "message", text: RENDER_FAILED }
+							: shown.format !== "pdf"
+								? { kind: "office" }
+								: { kind: "pdf", bytes, key: shown.signature, brandKit: reply.value.value.brandKit };
+
+	const [saveNote, save, saving] = useActionState(async (_: Note | null, job: Job): Promise<Note> => {
+		const result = await generateDocument(job.templateId, job.format, job.overrides, job.key).catch(
+			() => ({ status: "lost" }) as const,
+		);
+		if (result.status !== "ok") {
+			if (result.status === "refused" && result.code === "conflict") saveKeys.current?.delete(job.signature);
+			return {
+				edits: job.edits,
+				format: job.format,
+				text: documentProblem(
+					result.status === "refused" ? result.code : "lost",
+					result.status === "refused" ? result.problem : undefined,
+					"This file did not save. Nothing was stored.",
+				),
+			};
+		}
+		void savedDocuments.refresh();
+		return { edits: job.edits, format: job.format, text: `Saved ${result.value.savedTemplateName} for your church.` };
+	}, null);
+
+	const [createNote, create, creating] = useActionState(
+		async (previous: Note | null, job: Job): Promise<Note | null> => {
+			const result: ChurchActionResult | undefined = await createChurchDocument(
+				job.templateId,
+				job.key,
+				job.overrides,
+			).catch(() => ({ status: "lost" }) as const);
+			if (!result) return previous;
+			return {
+				edits: job.edits,
+				format: null,
+				text: result.status === "refused" ? result.message : "The connection dropped. Nothing was made. Try again.",
+			};
+		},
+		null,
+	);
+
+	function open(template: Template | null) {
+		setEdits({ templateId: template?.id ?? null, values: {} });
+		forgetPreview(request);
+		setRequest(null);
+		opening.current = template?.id ?? null;
+		if (!template || !canPreview) return;
+		const format = offeredFormat(template, null);
+		void resolutions.get(template.id, format, visit).then((result) => {
+			if (opening.current !== template.id || result.status !== "ok") return;
+			const next = openingRequest(template, format, result.value, version, church);
+			setRequest((previous) => (previous?.templateId === template.id ? previous : next));
+		});
+	}
+
+	function navigate(change: Partial<DocumentsQuery>) {
+		const next = { ...query, ...change };
+		const nextSelected = choose(filterTemplates(templates, next), next.template);
+		if (nextSelected?.id !== selected?.id) {
+			next.format = null;
+			open(nextSelected ?? null);
+		}
+		writeAddress(`${queryHref(address.pathname, next)}${window.location.hash}`, { replace: true });
+	}
+
+	function select(id: string) {
+		navigate({ template: id });
+		const node = panel.current;
+		if (node && getComputedStyle(node).position !== "sticky") node.scrollIntoView({ block: "start" });
+	}
 
 	function runPreview(download: boolean) {
 		if (!selected || !activeFormat || !ready) return;
-		if (!download && artifact?.key === signature && artifact.format === activeFormat) {
-			showBytes(activeFormat, artifact.bytes, signature, artifact.brandKit);
+		const next = requestFor(selected, activeFormat, overrides, version, church);
+		if (!download) {
+			if (request?.key !== next.key) forgetPreview(request);
+			setRequest(next);
 			return;
 		}
-		const template = selected;
-		const nextFormat = activeFormat;
-		// The same template, format and values as its thumbnail share the thumbnail's render.
-		const key = renderKey({ templateId: template.id, version, format: nextFormat, overrides, church });
-		startPreview(async () => {
-			const result = await sharedPreview(key, template.id, nextFormat, overrides);
-			if (result.status !== "ok") {
-				setPreview({
-					kind: "message",
-					text: failureText(
-						result.status === "refused" ? result.code : "lost",
-						result.status === "refused" ? result.path : undefined,
-					),
-				});
-				return;
+		const name = selected.name;
+		startDownload(async () => {
+			const result = await sharedPreview(next.key, next.templateId, next.format, next.overrides);
+			if (result.status === "ok" && result.value.artifact) downloadBytes(name, next.format, result.value.artifact);
+			else {
+				forgetPreview(request);
+				setRequest({ ...next, failed: result.status === "ok" ? RENDER_FAILED : problemText(result) });
 			}
-			setResolved(result.value);
-			if (!result.value.artifact) {
-				setPreview({ kind: "message", text: "This file did not render. Nothing was saved." });
-				return;
-			}
-			const brandKit = result.value.brandKit;
-			setArtifact({ key: signature, format: nextFormat, bytes: result.value.artifact, brandKit });
-			if (download) downloadBytes(template.name, nextFormat, result.value.artifact);
-			else showBytes(nextFormat, result.value.artifact, signature, brandKit);
 		});
 	}
 
-	// A template opens in the preview once its church values load. Editing a field never reopens it by itself.
-	useEffect(() => {
-		if (!ready || !selected || !current || preview.kind !== "idle" || autoPreviewed.current === selected.id) return;
-		autoPreviewed.current = selected.id;
-		runPreview(false);
-	});
-
-	function select(id: string) {
-		setSelectedId(id);
-		setPreview({ kind: "idle" });
-		setSaveNote(null);
-		setCreateNote(null);
-		// Below the desktop width the preview sits under the list, so bring it into view.
-		// 1023px is one under Tailwind's `lg` (1024px), where the layout turns side by side.
-		if (window.matchMedia("(max-width: 1023px)").matches)
-			requestAnimationFrame(() => panel.current?.scrollIntoView({ block: "start" }));
+	function job(keys: { current: Map<string, string> | null }): Job | null {
+		if (!selected || !activeFormat) return null;
+		const known = (keys.current ??= new Map());
+		const key = known.get(signature) ?? crypto.randomUUID();
+		known.set(signature, key);
+		return { templateId: selected.id, format: activeFormat, overrides, key, signature, edits };
 	}
 
 	function runSave() {
-		if (!selected || !activeFormat || !ready || !canStore) return;
-		const template = selected;
-		const nextFormat = activeFormat;
-		const key = saveKeys.current.get(signature) ?? crypto.randomUUID();
-		saveKeys.current.set(signature, key);
-		startSave(async () => {
-			const result = await generateDocument(template.id, nextFormat, overrides, key);
-			if (result.status !== "ok") {
-				if (result.status === "refused" && result.code === "conflict") saveKeys.current.delete(signature);
-				setSaveNote(
-					documentProblem(
-						result.status === "refused" ? result.code : "lost",
-						result.status === "refused" ? result.problem : undefined,
-						"This file did not save. Nothing was stored.",
-					),
-				);
-				return;
-			}
-			setSaveNote(`Saved ${result.value.savedTemplateName} for your church.`);
-			void savedDocuments.refresh();
-		});
+		if (!ready || !canStore) return;
+		const next = job(saveKeys);
+		if (next) startTransition(() => save(next));
 	}
 
-	// "Create Church Document" opens the new document's page. The same values reuse one request key, so a second click
-	// opens the same document. It uses the values typed here, as "Save for your church" does.
 	function runCreate() {
-		if (!selected || !ready || !canEdit) return;
-		const template = selected;
-		const key = createKeys.current.get(signature) ?? crypto.randomUUID();
-		createKeys.current.set(signature, key);
-		setCreateNote(null);
-		startCreate(async () => {
-			const result: ChurchActionResult | undefined = await createChurchDocument(template.id, key, overrides);
-			// A success redirects to the new document and returns nothing here; only a refusal comes back.
-			if (!result) return;
-			setCreateNote(
-				result.status === "refused" ? result.message : "The connection dropped. Nothing was made. Try again.",
-			);
-		});
+		if (!ready || !canEdit) return;
+		const next = job(createKeys);
+		if (next) startTransition(() => create(next));
 	}
 
-	const searchEmpty = q.trim().length > 0 && filtered.length === 0;
-	const wikiEmpty = !searchEmpty && filtered.length === 0 && (wiki !== null || phase !== null);
+	const searchEmpty = query.q.trim().length > 0 && filtered.length === 0;
+	const wikiEmpty = !searchEmpty && filtered.length === 0 && (query.wiki !== null || query.phase !== null);
 
 	return (
 		<>
@@ -303,8 +386,8 @@ export function DocumentsScreen({
 						<SegmentedControl
 							wrap
 							label="Category"
-							value={category}
-							onValueChange={(next) => setCategory(next)}
+							value={query.category}
+							onValueChange={(next) => navigate({ category: next })}
 							options={CATEGORIES.map((item) => ({
 								value: item.value,
 								label: item.label,
@@ -314,18 +397,19 @@ export function DocumentsScreen({
 						<SearchInput
 							aria-label="Search templates"
 							placeholder="Search templates"
-							value={q}
-							onChange={(event) => setQ(event.target.value)}
+							value={query.q}
+							maxLength={80}
+							onChange={(event) => navigate({ q: event.target.value })}
 						/>
 					</div>
 					{searchEmpty ? (
 						<Card>
 							<EmptyState
 								icon={Search01Icon}
-								title={`No templates for "${q.trim()}"`}
+								title={`No templates for "${query.q.trim()}"`}
 								headingLevel="h3"
 								action={
-									<Button variant="secondary" onClick={() => setQ("")}>
+									<Button variant="secondary" onClick={() => navigate({ q: "" })}>
 										Clear search
 									</Button>
 								}
@@ -342,12 +426,7 @@ export function DocumentsScreen({
 								action={
 									<Button
 										variant="secondary"
-										onClick={() => {
-											setWiki(null);
-											setPhase(null);
-											setCategory("all");
-											setQ("");
-										}}
+										onClick={() => navigate({ wiki: null, phase: null, category: "all", q: "" })}
 									>
 										Show all templates
 									</Button>
@@ -363,7 +442,7 @@ export function DocumentsScreen({
 								title="No templates in this category"
 								headingLevel="h3"
 								action={
-									<Button variant="secondary" onClick={() => setCategory("all")}>
+									<Button variant="secondary" onClick={() => navigate({ category: "all" })}>
 										Show all templates
 									</Button>
 								}
@@ -432,32 +511,27 @@ export function DocumentsScreen({
 								template={selected}
 								format={activeFormat}
 								drafts={drafts}
-								resolved={resolved?.templateId === selected.id ? resolved : null}
+								resolved={current}
 								canPreview={canPreview}
 								tooLong={tooLong}
 								missing={missing.map((field) => field.key)}
-								busy={previewing || resolving}
+								busy={downloading || resolution.status === "loading" || reply.status === "loading"}
 								ready={ready}
 								preview={preview}
 								stale={preview.kind === "pdf" && preview.key !== signature}
 								canStore={canStore}
 								saving={saving}
-								saveNote={saveNote}
+								saveNote={saveNote?.edits === edits && saveNote.format === activeFormat ? saveNote.text : null}
 								make={textTemplates.includes(selected.id) && canPreview ? (canEdit ? "both" : "member") : "save"}
 								creating={creating}
-								createNote={createNote}
-								onDraft={(key, value) => {
-									setDrafts((current) => ({ ...current, [key]: value }));
-									setArtifact(null);
-									setSaveNote(null);
-									setCreateNote(null);
-								}}
-								onFormat={(next) => {
-									setFormat(next);
-									setArtifact(null);
-									setSaveNote(null);
-									setPreview({ kind: "idle" });
-								}}
+								createNote={createNote?.edits === edits && !creating ? createNote.text : null}
+								onDraft={(key, value) =>
+									setEdits((previous) => ({
+										templateId: selected.id,
+										values: { ...(previous.templateId === selected.id ? previous.values : {}), [key]: value },
+									}))
+								}
+								onFormat={(next) => navigate({ template: selected.id, format: next })}
 								onPreview={() => runPreview(false)}
 								onDownload={() => runPreview(true)}
 								onSave={runSave}
