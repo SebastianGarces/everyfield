@@ -47,7 +47,7 @@ export function EditTemplateDialog({
 	const [pending, setPending] = useState(false);
 	// One request key for each set of values while the dialog is open: a double click or a resend after a dropped
 	// connection writes the change once, and a new value after a failure is a new request.
-	const keys = useRef(new Map<string, string>());
+	const keys = useRef<Map<string, string> | null>(null);
 	const trimmed = name.trim();
 
 	function change(next: boolean) {
@@ -58,6 +58,7 @@ export function EditTemplateDialog({
 		if (pending || !trimmed) return;
 		const values = { name: trimmed, description: description.trim() };
 		const id = JSON.stringify(values);
+		keys.current ??= new Map();
 		const requestKey = keys.current.get(id) ?? crypto.randomUUID();
 		keys.current.set(id, requestKey);
 		setPending(true);

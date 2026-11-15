@@ -36,7 +36,7 @@ function rove<T>(event: KeyboardEvent, index: number, values: readonly T[], choo
 	const at = (index + step + values.length) % values.length;
 	choose(values[at] as T);
 	const group = (event.currentTarget as HTMLElement).parentElement;
-	requestAnimationFrame(() => (group?.children[at] as HTMLElement | undefined)?.focus());
+	(group?.children[at] as HTMLElement | undefined)?.focus();
 }
 
 /** One choice from a short list, as a radio group: arrow keys move and choose, Tab enters and leaves. */
