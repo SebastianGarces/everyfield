@@ -29,9 +29,11 @@ export { Lockup, LogoMark } from "./Logo";
 export {
 	observeHeadings,
 	observeIntersection,
+	observeScrollProgress,
 	observeSize,
 	type HeadingOptions,
 	type NodeRef,
+	type ScrollProgressOptions,
 	type SizeOptions,
 } from "./observe";
 export { ProductRoot, useProductTheme } from "./ProductRoot";

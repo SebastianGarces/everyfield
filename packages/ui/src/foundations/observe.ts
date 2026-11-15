@@ -70,8 +70,49 @@ export function observeHeadings(
 			onActive(current);
 		};
 		update();
-		const target: Element | Window = root ?? doc.defaultView ?? window;
-		target.addEventListener("scroll", update, { passive: true });
-		return () => target.removeEventListener("scroll", update);
+		if (root) {
+			root.addEventListener("scroll", update, { passive: true });
+			return () => root.removeEventListener("scroll", update);
+		}
+		window.addEventListener("scroll", update, { passive: true });
+		return () => window.removeEventListener("scroll", update);
+	};
+}
+
+export type ScrollProgressOptions<T extends Element> = {
+	root?: (node: T) => Element | null;
+};
+
+export function observeScrollProgress<T extends HTMLElement>(
+	onProgress: (fraction: number) => void,
+	options: ScrollProgressOptions<T> = {},
+): NodeRef<T> {
+	return (node) => {
+		if (!node) return;
+		const root = options.root?.(node) ?? null;
+		const report = () => {
+			const total = node.scrollHeight;
+			if (total <= 0) return;
+			const edge = root ? root.getBoundingClientRect().bottom : window.innerHeight;
+			const seen = Math.min(total, Math.max(0, edge - node.getBoundingClientRect().top));
+			onProgress(seen / total);
+		};
+		const resized = new ResizeObserver(report);
+		resized.observe(node);
+		if (root) {
+			resized.observe(root);
+			root.addEventListener("scroll", report, { passive: true });
+			return () => {
+				resized.disconnect();
+				root.removeEventListener("scroll", report);
+			};
+		}
+		window.addEventListener("scroll", report, { passive: true });
+		window.addEventListener("resize", report, { passive: true });
+		return () => {
+			resized.disconnect();
+			window.removeEventListener("scroll", report);
+			window.removeEventListener("resize", report);
+		};
 	};
 }

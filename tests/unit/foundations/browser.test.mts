@@ -190,6 +190,16 @@ test("INV-observers: every node observer stops on detach, and a late fonts.ready
 		assert.ok(listeners.has("scroll"));
 		detachHeadings();
 		assert.ok(!listeners.has("scroll"), "scroll listener released");
+
+		const seen: number[] = [];
+		Object.assign(target, { innerHeight: 700 });
+		const article = { scrollHeight: 1000, getBoundingClientRect: () => ({ top: 200 }) } as unknown as HTMLElement;
+		const detachProgress = ui.observeScrollProgress((fraction) => seen.push(fraction))(article)!;
+		assert.ok(live.has("resize") && listeners.has("scroll") && listeners.has("resize"));
+		listeners.get("scroll")!();
+		assert.deepEqual(seen, [0.5], "the part above the viewport's bottom edge, as a fraction of the node");
+		detachProgress();
+		assert.ok(!live.has("resize") && !listeners.has("scroll") && !listeners.has("resize"), "progress released");
 	} finally {
 		for (const [key, value] of saved) globals[key] = value;
 	}
