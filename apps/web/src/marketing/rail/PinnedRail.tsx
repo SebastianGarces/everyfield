@@ -23,13 +23,13 @@ const WIDE = "(min-width: 901px)";
 const START = 0.55,
 	LEAD = 1;
 
-function driveRail(track: HTMLSpanElement | null) {
+function driveRail(track: HTMLSpanElement | null, geo: Geo) {
 	const list = track?.parentElement?.querySelector("ol");
 	if (!track || !list) return;
 	const anim = new NativeAnimation({
 		element: list,
 		name: "transform",
-		keyframes: [`translate3d(${track.dataset.from}px,0,0)`, `translate3d(${track.dataset.to}px,0,0)`],
+		keyframes: [`translate3d(${geo.a.toFixed(2)}px,0,0)`, `translate3d(${(geo.a - geo.travel).toFixed(2)}px,0,0)`],
 		duration: 1000,
 		ease: "linear",
 	});
@@ -87,6 +87,8 @@ export function PinnedRail({ id, headingId, head, children }: Props) {
 			),
 		[pinned],
 	);
+
+	const drive = useMemo(() => (geo ? (track: HTMLSpanElement | null) => driveRail(track, geo) : undefined), [geo]);
 
 	const progress = useCallback(
 		(y: number) => (geo && geo.travel ? clamp((y - geo.pinTop + geo.stick) / geo.travel) : 0),
@@ -175,10 +177,7 @@ export function PinnedRail({ id, headingId, head, children }: Props) {
 			<span ref={probe} aria-hidden="true" className="pointer-events-none invisible absolute top-(--phc-top) size-0" />
 			<div className="relative" style={geo ? { height: geo.fh + geo.travel } : undefined}>
 				<span
-					key={geo ? JSON.stringify(geo) : "unpinned"}
-					ref={geo ? driveRail : undefined}
-					data-from={geo ? geo.a.toFixed(2) : undefined}
-					data-to={geo ? (geo.a - geo.travel).toFixed(2) : undefined}
+					ref={drive}
 					aria-hidden="true"
 					className="pointer-events-none invisible absolute inset-x-0 w-px"
 					style={geo ? { top: -geo.stick, height: `calc(${geo.travel}px + 100vh)` } : { top: 0, height: 0 }}
