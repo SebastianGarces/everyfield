@@ -27,7 +27,7 @@ import { EditorContent, EditorContext, useEditor } from "@tiptap/react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { writeAddress } from "../../../components/location.ts";
-import { SAVE_SHORTCUT } from "../../../components/save/leave.ts";
+import { SAVE_SHORTCUT, shortcutMark } from "../../../components/save/leave.ts";
 import { archiveOwnedDocument, designateOwnedDocument, saveOwnedDocument, type DocumentOutcome } from "../actions.ts";
 import { clean } from "../church/editor/document-json.ts";
 import "../church/editor/editor.css";
@@ -429,7 +429,7 @@ export default function NativeEditor({
 							icon={FloppyDiskIcon}
 							loading={busy}
 							disabled={!changed && phase.kind !== "failed"}
-							aria-keyshortcuts={SAVE_SHORTCUT}
+							{...shortcutMark(SAVE_SHORTCUT)}
 							onClick={() => {
 								const typingIn = document.activeElement?.closest("input, textarea, [contenteditable=true]");
 								void save().then((ok) => ok && !typingIn && editor?.view.focus());

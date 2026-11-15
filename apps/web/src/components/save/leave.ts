@@ -15,6 +15,8 @@ export function leavePage(go: () => void): void {
 
 export const SAVE_SHORTCUT = "Meta+S Control+S Meta+Shift+S Control+Shift+S";
 
+export const shortcutMark = (combos: string) => ({ "data-shortcut": combos, "aria-keyshortcuts": combos });
+
 export const unsavedMark = (unsaved: boolean) => (unsaved ? { "data-unsaved": "" } : {});
 
 const MODIFIERS = ["Meta", "Control", "Alt", "Shift"] as const;
@@ -32,9 +34,9 @@ function matches(combo: string, event: KeyboardEvent): boolean {
 }
 
 function shortcutTarget(event: KeyboardEvent): HTMLElement | null {
-	for (const element of document.querySelectorAll<HTMLElement>("[aria-keyshortcuts]")) {
+	for (const element of document.querySelectorAll<HTMLElement>("[data-shortcut]")) {
 		if (!element.isConnected || (element.checkVisibility && !element.checkVisibility())) continue;
-		const combos = (element.getAttribute("aria-keyshortcuts") ?? "").split(/\s+/);
+		const combos = (element.getAttribute("data-shortcut") ?? "").split(/\s+/);
 		if (combos.some((combo) => combo && matches(combo, event))) return element;
 	}
 	return null;
