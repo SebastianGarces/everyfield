@@ -1,4 +1,5 @@
-# The setup every CI job shares (T-285): Node, pnpm from corepack and the workspace's node_modules.
+# The setup every ci.yml and nightly.yml job shares (T-285, T-392): Node, pnpm from corepack and the workspace's
+# node_modules.
 # - Node and corepack's home come back from one cache keyed on the Node version and packageManager, so setup-node finds
 #   Node in the tool cache instead of downloading it, and corepack installs pnpm with no registry request. On a miss,
 #   corepack-install.sh fetches pnpm with its registry retries and the cache is saved straight after.
