@@ -677,6 +677,43 @@ const zustandShape = {
 	},
 };
 
+const CHAIN = new Set(["then", "catch", "finally"]);
+const mapsOnly = (fn) =>
+	fn === undefined ||
+	((fn.type === "ArrowFunctionExpression" || fn.type === "Identifier") && fn.body?.type !== "BlockStatement");
+
+function loadsOnly(node) {
+	let call = node;
+	while (call?.type === "CallExpression" && CHAIN.has(memberName(call.callee) ?? "")) {
+		if (!call.arguments.every(mapsOnly)) return false;
+		call = call.callee.object;
+	}
+	return call?.type === "CallExpression" && call.callee.type !== "SequenceExpression";
+}
+
+const readLoader = {
+	meta: { type: "problem" },
+	create(context) {
+		return {
+			CallExpression(node) {
+				if (node.callee.type !== "Identifier" || node.callee.name !== "createRead") return;
+				const loader = node.arguments[0];
+				if (!loader || loader.type === "Identifier") return;
+				const fine =
+					(loader.type === "ArrowFunctionExpression" || loader.type === "FunctionExpression") &&
+					loader.body.type !== "BlockStatement" &&
+					loadsOnly(loader.body);
+				if (!fine)
+					context.report({
+						node: loader,
+						message:
+							"A createRead loader only loads its key: one call of a server read or fetch, optionally mapped with then/catch/finally arrows that return a value. Anything else (marking read, navigation, focus, a timer, a write) would run once per key when the first reader subscribes, a mount hook with no cleanup.",
+					});
+			},
+		};
+	},
+};
+
 const BUNDLER_IGNORE = /^\s*(?:webpackIgnore|turbopackIgnore):\s*true\s*$/;
 const DIRECTIVE =
 	/^\s*(?:@ts-|\/\s*<|(?:eslint|oxlint)-(?:disable|enable)|eslint-env\b|globals?\s|(?:biome|prettier)-ignore|[#@]__|(?:c8|istanbul|v8|node:coverage)\s+ignore|@jsx)/;
@@ -858,6 +895,7 @@ export default {
 		"no-raw-history": noRawHistory,
 		"no-global-listeners": noGlobalListeners,
 		"zustand-shape": zustandShape,
+		"read-loader": readLoader,
 		"feature-boundaries": featureBoundaries,
 		"no-sql-comments": noSqlComments,
 	},
