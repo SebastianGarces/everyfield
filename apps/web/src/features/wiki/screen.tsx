@@ -19,7 +19,6 @@ import {
 	OrderSettingsButton,
 	ReadStatus,
 	SourceBar,
-	TocRail,
 	WikiSearchButton,
 } from "./client.tsx";
 import { FixedFrame } from "../../components/frame/FixedFrame.tsx";
@@ -244,7 +243,7 @@ export function WikiScreen({ data, source }: { data: WikiPageData; source: strin
 				phases={data.tree.phases}
 				more={data.tree.more}
 				currentId={article?.article.articleId}
-				toc={<TocRail items={headings} />}
+				headings={headings}
 				meter={
 					data.phaseRead ? (
 						<Meter

@@ -23,8 +23,11 @@ import {
 } from "@everyfield/ui/controls";
 import { Tag, Toc, WikiSourceBar, type WikiPhase, WikiTree } from "@everyfield/ui/display";
 import Link from "next/link";
+import { observeHeadings } from "@everyfield/ui/foundations";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { createContext, use, useEffect, useLayoutEffect, useRef, useState, useTransition, type ReactNode } from "react";
+import { createContext, use, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
+import { createRead, useRead } from "../../components/read.tsx";
+import { shortcutMark } from "../../components/save/leave.ts";
 import {
 	downloadPdf,
 	loadGuide,
@@ -62,27 +65,18 @@ export function useWikiChrome() {
 
 /** Guide and wiki search, mounted once on the product frame. Guide never records a reading. */
 export function WikiChrome({ children }: { children: ReactNode }) {
-	const [search, setSearch] = useState(false);
-	const [guide, setGuide] = useState(false);
 	const pathname = usePathname();
-	useEffect(() => {
-		const onKey = (event: KeyboardEvent) => {
-			if (event.key !== "/" || event.metaKey || event.ctrlKey || event.altKey) return;
-			if (!pathname.startsWith("/wiki")) return;
-			const target = event.target;
-			if (target instanceof HTMLElement && target.closest("input, textarea, select, [contenteditable=true]")) return;
-			event.preventDefault();
-			setSearch(true);
-		};
-		window.addEventListener("keydown", onKey);
-		return () => window.removeEventListener("keydown", onKey);
-	}, [pathname]);
+	const [searchPath, setSearchPath] = useState<string | null>(null);
+	const [guide, setGuide] = useState(false);
+	if (searchPath !== null && searchPath !== pathname) setSearchPath(null);
+	const toggleGuide = () => {
+		if (!guide) guides.refresh(pathname);
+		setGuide(!guide);
+	};
 	return (
-		<Chrome
-			value={{ openSearch: () => setSearch(true), toggleGuide: () => setGuide((open) => !open), guideOpen: guide }}
-		>
+		<Chrome value={{ openSearch: () => setSearchPath(pathname), toggleGuide, guideOpen: guide }}>
 			{children}
-			<SearchDialog open={search} onOpenChange={setSearch} />
+			<SearchDialog open={searchPath === pathname} onOpenChange={(next) => setSearchPath(next ? pathname : null)} />
 			<GuideSheet open={guide} onOpenChange={setGuide} />
 		</Chrome>
 	);
@@ -90,11 +84,13 @@ export function WikiChrome({ children }: { children: ReactNode }) {
 
 export function WikiSearchButton() {
 	const wiki = useWikiChrome();
+	const slash = usePathname().startsWith("/wiki") ? shortcutMark("/") : {};
 	const open = () => wiki?.openSearch();
 	return (
 		<>
 			<div className="max-app-sm:hidden">
 				<SearchInput
+					{...slash}
 					readOnly
 					placeholder="Search the wiki"
 					shortcut="/"
@@ -108,7 +104,7 @@ export function WikiSearchButton() {
 					}}
 				/>
 			</div>
-			<IconButton className="app-sm:hidden" icon={Search01Icon} label="Search the wiki" onClick={open} />
+			<IconButton {...slash} className="app-sm:hidden" icon={Search01Icon} label="Search the wiki" onClick={open} />
 		</>
 	);
 }
@@ -123,8 +119,6 @@ const SEARCH_DELAY_MS = 250;
 function SearchDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
 	const params = useSearchParams();
 	const source = params.get("source");
-	const pathname = usePathname();
-	const route = useRef(pathname);
 	const [query, setQuery] = useState("");
 	const [phase, setPhase] = useState("all");
 	const [page, setPage] = useState(1);
@@ -133,12 +127,6 @@ function SearchDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (op
 	const field = useRef<HTMLInputElement>(null);
 	const sequence = useRef(0);
 	const timer = useRef(0);
-
-	useEffect(() => {
-		if (route.current === pathname) return;
-		route.current = pathname;
-		onOpenChange(false);
-	}, [pathname, onOpenChange]);
 
 	useEffect(() => () => window.clearTimeout(timer.current), []);
 
@@ -307,6 +295,7 @@ function Snippet({ text }: { text: string }) {
  * dialog's React tree, so using the panel does not count as a click outside the dialog.
  */
 export function SettingsGuide() {
+	const pathname = usePathname();
 	const [open, setOpen] = useState(false);
 	return (
 		<>
@@ -315,30 +304,22 @@ export function SettingsGuide() {
 				label="Guide"
 				size="sm"
 				aria-expanded={open}
-				onClick={() => setOpen((value) => !value)}
+				onClick={() => {
+					if (!open) guides.refresh(pathname);
+					setOpen(!open);
+				}}
 			/>
 			<GuideSheet open={open} onOpenChange={setOpen} />
 		</>
 	);
 }
 
+const guides = createRead((path: string) => loadGuide(path), {
+	failed: (): GuideResult => ({ status: "unavailable" }),
+});
+
 function GuideSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
-	const pathname = usePathname();
-	const [result, setResult] = useState<{ path: string; value: GuideResult } | null>(null);
-	useEffect(() => {
-		if (!open) return;
-		let live = true;
-		// A rejected call (offline) shows the same text as a guide the server could not read.
-		void loadGuide(pathname)
-			.catch((): GuideResult => ({ status: "unavailable" }))
-			.then((next) => {
-				if (live) setResult({ path: pathname, value: next });
-			});
-		return () => {
-			live = false;
-		};
-	}, [open, pathname]);
-	const shown = result?.path === pathname ? result.value : null;
+	const guide = useRead(open ? guides : null, usePathname());
 	return (
 		<Sheet
 			open={open}
@@ -347,7 +328,7 @@ function GuideSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (open
 			description="A short note for this page."
 			modal={false}
 		>
-			<GuideBody result={shown} />
+			<GuideBody result={guide.value ?? null} />
 		</Sheet>
 	);
 }
@@ -800,40 +781,23 @@ const SCROLL =
 /** A side column: it scrolls on its own when the layout is fixed, else it sticks below the app bar. */
 const RAIL = `${RAIL_FIXED} ${SCROLL}`;
 
-/** The heading nearest the top of the article column (the window below 1280px) is the current one. */
-function useCurrentHeading(ids: string[]): string | undefined {
-	const [current, setCurrent] = useState<string | undefined>(ids[0]);
-	const key = ids.join("|");
-	useEffect(() => {
-		const list = key ? key.split("|") : [];
-		if (!list.length) return;
-		const column = scrollColumn();
-		const update = () => {
-			// Below 1280px the window scrolls and headings stop under the sticky app bar.
-			const top = column ? column.getBoundingClientRect().top + 24 : 120;
-			let found = list[0];
-			for (const id of list) {
-				const el = document.getElementById(id);
-				if (el && el.getBoundingClientRect().top <= top) found = id;
-			}
-			setCurrent(found);
-		};
-		update();
-		const target: Element | Window = column ?? window;
-		target.addEventListener("scroll", update, { passive: true });
-		return () => target.removeEventListener("scroll", update);
-	}, [key]);
-	return current;
-}
-
-export function TocRail({ items }: { items: { id: string; label: string; level?: 2 | 3 }[] }) {
-	const current = useCurrentHeading(items.map((item) => item.id));
-	if (!items.length) return null;
-	return <Toc items={items} current={current} />;
-}
+type Heading = { id: string; label: string; level?: 2 | 3 };
 
 /** Where the sidenav was scrolled to. It outlives the page mount, so a click on a link keeps the place. */
 let sidenavTop = 0;
+
+function keepSidenavPlace(el: HTMLDivElement | null) {
+	if (!el) return;
+	el.scrollTop = sidenavTop;
+	const current = el.querySelector<HTMLElement>('[aria-current="page"]');
+	if (current) {
+		const box = el.getBoundingClientRect();
+		const link = current.getBoundingClientRect();
+		if (link.top < box.top) el.scrollTop += link.top - box.top;
+		else if (link.bottom > box.bottom) el.scrollTop += link.bottom - box.bottom;
+	}
+	sidenavTop = el.scrollTop;
+}
 
 /**
  * The reading columns. From 1280px up and with `fixed`, the page header above stays put and the sidenav, the article
@@ -843,7 +807,7 @@ export function ArticleColumns({
 	phases,
 	more,
 	currentId,
-	toc,
+	headings,
 	children,
 	meter,
 	fixed,
@@ -851,7 +815,7 @@ export function ArticleColumns({
 	phases: WikiPhase[];
 	more: { name: string; items: { id: string; title: string; href: string; read?: boolean }[] }[];
 	currentId?: string;
-	toc: ReactNode;
+	headings: Heading[];
 	children: ReactNode;
 	meter: ReactNode;
 	fixed: boolean;
@@ -859,23 +823,17 @@ export function ArticleColumns({
 	const pathname = usePathname();
 	const [openPath, setOpenPath] = useState<string | null>(null);
 	const open = openPath === pathname;
-	const side = useRef<HTMLDivElement>(null);
-	// Each article is a new page mount, so the article column starts at its top. The sidenav takes back the place it had
-	// and shows the current link when that link is out of view.
-	useLayoutEffect(() => {
-		const el = side.current;
-		if (!el) return;
-		el.scrollTop = sidenavTop;
-		// Set scrollTop directly: scrollIntoView moves Chromium's focus start point and breaks the first Tab.
-		const current = el.querySelector<HTMLElement>('[aria-current="page"]');
-		if (current) {
-			const box = el.getBoundingClientRect();
-			const link = current.getBoundingClientRect();
-			if (link.top < box.top) el.scrollTop += link.top - box.top;
-			else if (link.bottom > box.bottom) el.scrollTop += link.bottom - box.bottom;
-		}
-		sidenavTop = el.scrollTop;
-	}, []);
+	const [heading, setHeading] = useState(headings[0]?.id);
+	const ids = headings.map((item) => item.id).join("|");
+	const watchHeadings = useMemo(
+		() =>
+			observeHeadings(ids ? ids.split("|") : [], setHeading, {
+				root: () => scrollColumn(),
+				offset: (root) => (root ? 24 : 120),
+			}),
+		[ids],
+	);
+	const toc = headings.length ? <Toc items={headings} current={heading} /> : null;
 	const tree = () => (
 		<div className="flex flex-col gap-4">
 			{phases.length ? <WikiTree phases={phases} currentId={currentId} linkAs={Link} /> : null}
@@ -921,7 +879,7 @@ export function ArticleColumns({
 			</Dialog>
 			<div className={fixed ? GRID_FIXED : GRID}>
 				<div
-					ref={side}
+					ref={keepSidenavPlace}
 					onScroll={(event) => {
 						sidenavTop = event.currentTarget.scrollTop;
 					}}
@@ -938,7 +896,9 @@ export function ArticleColumns({
 					<div className={`mb-6 ${BELOW_WIDE_ONLY}`}>{toc}</div>
 					{children}
 				</div>
-				<div className={fixed ? `${RAIL} ${RAIL_TOC_PAD}` : RAIL_STICKY}>{toc}</div>
+				<div ref={watchHeadings} className={fixed ? `${RAIL} ${RAIL_TOC_PAD}` : RAIL_STICKY}>
+					{toc}
+				</div>
 			</div>
 		</>
 	);

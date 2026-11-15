@@ -1,6 +1,6 @@
 {
 	"apps/web/src/features/wiki/actions.ts": 4,
-	"apps/web/src/features/wiki/client.tsx": 38,
+	"apps/web/src/features/wiki/client.tsx": 32,
 	"apps/web/src/features/wiki/editor.tsx": 1,
 	"apps/web/src/features/wiki/layout.ts": 8,
 	"apps/web/src/features/wiki/model.ts": 22,
