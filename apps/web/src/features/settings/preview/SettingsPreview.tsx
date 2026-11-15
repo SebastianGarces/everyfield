@@ -94,9 +94,9 @@ function PreviewSession({
 	);
 }
 
-function parseFault(spec: string): readonly [Operation, Fault] {
-	const [op, code] = spec.split(":");
-	return [op as Operation, code as Fault];
+function parseFault(spec: string): readonly [Operation, Fault, number] {
+	const [op, code, skip] = spec.split(":");
+	return [op as Operation, code as Fault, Number(skip ?? 0) || 0];
 }
 
 const FAULTS: { value: string; label: string }[] = [

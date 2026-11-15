@@ -113,8 +113,14 @@ function RegionDialog({
 	const find = () => {
 		setProblem(null);
 		setChoice(undefined);
-		if (asked) matches.reload();
-		else {
+		if (asked) {
+			const shown = matches.value;
+			void reads.regionMatches.refresh(asked).then((next) => {
+				if (next !== null || !shown) return;
+				reads.regionMatches.patch(() => shown, asked);
+				setProblem("We couldn't look up areas. Try again in a moment.");
+			});
+		} else {
 			reads.regionMatches.prefetch(place);
 			setAsked(place);
 		}

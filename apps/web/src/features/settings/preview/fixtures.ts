@@ -282,7 +282,7 @@ export function createFixturePort(
 		now?: () => number;
 		kit?: PreviewKit;
 		wiki?: WikiScenario;
-		faults?: readonly (readonly [Operation, Fault])[];
+		faults?: readonly (readonly [Operation, Fault, number?])[];
 		replies?: Replies;
 	} = {},
 ): { port: SettingsPort; controls: FixtureControls } {
@@ -292,7 +292,8 @@ export function createFixturePort(
 		avatars: new Map(),
 		staged: new Map(),
 	};
-	const faults = new Map<Operation, Fault>(firstFaults);
+	const faults = new Map<Operation, Fault>(firstFaults.map(([op, fault]) => [op, fault]));
+	const skips = new Map<Operation, number>(firstFaults.map(([op, , skip]) => [op, skip ?? 0]));
 	const calls: Record<string, number> = {};
 	const listeners = new Set<() => void>();
 
@@ -319,6 +320,11 @@ export function createFixturePort(
 		listeners.forEach((l) => l());
 		const fault = faults.get(op);
 		if (!fault) return null;
+		const skip = skips.get(op) ?? 0;
+		if (skip > 0) {
+			skips.set(op, skip - 1);
+			return null;
+		}
 		faults.delete(op);
 		listeners.forEach((l) => l());
 		if (fault === "offline") throw new TypeError("Failed to fetch");
