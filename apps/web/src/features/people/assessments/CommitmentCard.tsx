@@ -72,7 +72,6 @@ type Editing =
 	| { form: "record"; draft: CommitmentDraft; problem?: string }
 	| { form: "withdraw" | "reactivate"; draft: LifecycleDraft; problem?: string }
 	| { form: "correct"; card: Commitment; draft: CorrectionDraft; problem?: string };
-/** What the card shows while a save runs: a new card, a state change or a corrected card. */
 type Expected = { card: Commitment } | { current: CommitmentStatus };
 
 const STATE_BADGE = {
@@ -81,12 +80,6 @@ const STATE_BADGE = {
 	unknown: { status: "unknown", label: "Not recorded" },
 } as const;
 
-/**
- * The commitment (REQ-PPL-014, 020, 026): the current state, the first commitment date and every signed card with its
- * witness and private document. Recording a card moves an earlier stage to Core group in the same save. A withdrawal or
- * reactivation changes only the current state; a correction or void keeps the old values in the history. Each change
- * shows at once while it saves; a refusal takes it back and opens the form again with the values and the reason.
- */
 export function CommitmentCard({
 	personId,
 	personName,
@@ -108,7 +101,6 @@ export function CommitmentCard({
 		corrected?.flatMap((c) => (c.type === "commitment" ? [c.record] : [])),
 	);
 	const [current, setCurrent] = useState<CommitmentStatus | null>(initial?.current ?? null);
-	/** Takes a commitment state from an answer only when it is newer: a late or replayed answer never undoes a later one. */
 	const setLatest = (next: CommitmentStatus) =>
 		setCurrent((now) => (now && newerRevision(now.personRevision, next.personRevision) ? now : next));
 	const [firstOn, setFirstOn] = useState<FirstAcquisition>(initial?.firstAcquisition ?? { status: "unknown" });
@@ -117,23 +109,18 @@ export function CommitmentCard({
 		"card" in e ? { ...v, items: withRecord(v.items, e.card) } : { ...v, current: e.current },
 	);
 	const [, start] = useTransition();
-	// Another change to this person is saving: the card waits, and Check again waits for it (C65, C68).
 	usePersonState(store);
 	const dialog = useSaveIntent<Editing>({ explain: recordProblem, busy: () => store.getState().pending !== null });
-	/** How much of the pending card's document the bucket has received, 0 to 1, or null when no bytes are moving. */
 	const [progress, setProgress] = useState<number | null>(null);
-	/** Uploads a refused save left pending, by file: a corrected form with the same file does not send it again. */
 	const uploads = useRef(new WeakMap<File, DocumentUpload>());
 	const wait = dialog.wait;
 	const editing = dialog.editing;
 	const first = firstName(personName);
 	const moves = advancedStage(stage, "core_group") !== stage;
 	const state = view.current?.state ?? "unknown";
-	/** A refused save opens its form with the server's reason; a conflict also reads the person again. */
 	const refused = (code: string) => {
 		if (code === "conflict") onConflict();
 	};
-	/** The person as the write left them: its revision and, for a card, the stage it advanced to. */
 	const personAfter = (revision: string, stageNow = store.getState().saved.stage): PlantPerson =>
 		({ ...store.getState().saved, stage: stageNow, revision }) as PlantPerson;
 
@@ -182,12 +169,6 @@ export function CommitmentCard({
 		});
 	}
 
-	/**
-	 * One card save of one intent. The document moves inside the save, so the card counts as saving from the first byte
-	 * (C68). Check again keeps the intent's upload, so it never signs or sends the file again before the save has checked
-	 * it (upload.ts, C97); that upload replays on its own, so the lane does not. A refused save keeps the upload pending
-	 * for a corrected form with the same file; a saved card takes it.
-	 */
 	async function commitCard(
 		base: { personId: string } & Record<string, unknown>,
 		upload: DocumentUpload | null,
@@ -263,7 +244,6 @@ export function CommitmentCard({
 					});
 					toast({
 						tone: "success",
-						// A checked-again save may land after a later change moved the state on, so it names the change only.
 						message: checked
 							? `${what} is saved.`
 							: change === "withdraw"
@@ -507,7 +487,6 @@ function CardRow({
 	witnessName: string | undefined;
 	by: string;
 	canEdit: boolean;
-	/** The pending card's upload, 0 to 1, while its bytes move; null before and after. */
 	progress: number | null;
 	onCorrect: (action: "correct" | "void") => void;
 }) {
@@ -520,7 +499,6 @@ function CardRow({
 				className={cn(
 					"mt-0.5 grid size-8 flex-none place-items-center rounded-md",
 					voided ? "bg-surface-2 text-text-3" : "bg-green-100 text-green-700",
-					// Only the decorative tile fades while the card saves; text keeps full contrast (WCAG 1.4.3).
 					pending && "opacity-60",
 				)}
 			>

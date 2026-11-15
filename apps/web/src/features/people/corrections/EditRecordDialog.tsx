@@ -64,7 +64,6 @@ type Chosen =
 	| { type: "interview"; record: Interview }
 	| { type: "commitment"; record: Commitment };
 
-/** The record kind inside a sentence: "the 4 C's assessment". */
 const TYPE_NAME: Record<RecordType, string> = {
 	assessment: "4 C's assessment",
 	interview: "interview",
@@ -91,14 +90,6 @@ const interviewValues = (r: Interview): InterviewValues => ({
 	nextSteps: r.nextSteps,
 });
 
-/**
- * Edit a record (REQ-PPL-015, a flow the prototype does not draw). One dialog lists the person's 4 C's
- * assessments, interviews and commitment cards; choosing one opens its values to edit, with an optional reason and
- * the changes already made to it (old value, new value, who and why when given). Only changed fields are sent. The
- * recorder, the recorded time, the witness and the document never change, and the stage never moves. Each edit is one
- * intent with one request key: a retry after a lost answer replays, and a refusal after a lost answer reads the record
- * again before the dialog says whether the edit was saved.
- */
 export function EditRecordDialog({
 	person,
 	store,
@@ -110,7 +101,6 @@ export function EditRecordDialog({
 	store: PersonStore<PlantPerson, PersonDraft>;
 	accountId: string;
 	onClose: () => void;
-	/** A saved edit: its card shows the record as saved now, and Activity adds its entry when the receipt is known. */
 	onEdited: (receipt: Receipt | null, corrected: Chosen) => void;
 }) {
 	const [chosen, setChosen] = useState<{ type: RecordType; id: string } | null>(null);
@@ -119,7 +109,6 @@ export function EditRecordDialog({
 	const [pending, setPending] = useState(false);
 	const read = useRead(recordsRead, person.id);
 	const records = read.value ?? null;
-	// Edits whose answer was lost. Only a server answer may say what happened, never a failed read.
 	const errors = usePersonState(store).errors;
 	const uncertain = new Set(
 		Object.entries(errors).flatMap(([k, v]) => (k.startsWith("correct:") && v === "lost" ? [k.slice(8)] : [])),
@@ -281,14 +270,12 @@ function SavedNote({ type, reasoned }: { type: RecordType; reasoned: boolean }) 
 	);
 }
 
-/** Every record the person has, grouped by kind. A voided card stays listed but cannot be edited. */
 function RecordList({
 	data,
 	uncertain,
 	onChoose,
 }: {
 	data: Records;
-	/** Records whose last edit got no answer: it may have been saved. */
 	uncertain: ReadonlySet<string>;
 	onChoose: (type: RecordType, id: string) => void;
 }) {
@@ -391,7 +378,6 @@ type FormProps = {
 	accountId: string;
 	onBack: () => void;
 	onPending: (pending: boolean) => void;
-	/** The record read again, after a refusal; null when it could not be read. */
 	reload: () => Promise<Chosen | null>;
 	onSaved: (next: Chosen, correction: Correction | null, receipt: Receipt | null) => void;
 };
@@ -403,10 +389,6 @@ function EditForm(props: FormProps) {
 	return <CommitmentForm {...props} chosen={chosen} />;
 }
 
-/**
- * The save shared by the three forms. `changes` is what differs from the record; `apply` is the record with the
- * changes, as the server holds it after a saved edit.
- */
 function useCorrection(
 	props: FormProps,
 	changes: Record<string, unknown>,
@@ -435,7 +417,6 @@ function useCorrection(
 			changes,
 		};
 		const rev = chosen.record.revision;
-		// An earlier answer for this record was lost, in this form or before the dialog was reopened.
 		if (store.getState().errors[slot] === "lost") lost.current = true;
 		busy(true);
 		setProblem(null);
@@ -473,7 +454,6 @@ function useCorrection(
 			});
 		}
 		if (r.code === "conflict") {
-			// The record changed since the form opened, perhaps by this edit's own earlier attempt.
 			const fresh = await props.reload();
 			busy(false);
 			const draft = apply();
@@ -715,7 +695,6 @@ function CommitmentForm(props: FormProps & { chosen: Extract<Chosen, { type: "co
 	);
 }
 
-/** The changes already made to one record: old value, new value, who and why when given, latest first. */
 function History({ corrections, accountId, open }: { corrections: Correction[]; accountId: string; open?: boolean }) {
 	if (!corrections.length) return null;
 	return (

@@ -38,8 +38,6 @@ const send: Record<PairAction, (input: unknown) => Promise<Outcome<PairChange>>>
 	restore: restorePair,
 };
 
-// The confirmation a dismiss on the review screen leaves for the list it returns to (T-268). The list shows it once and
-// clears it, so a reload shows the list without it. Storage can be blocked; the list is right without the confirmation.
 let returned: string | null = null;
 export const leaveConfirmation = (text: string) => {
 	returned = text;
@@ -48,10 +46,6 @@ const takeConfirmation = (node: HTMLElement | null) => {
 	if (node) returned = null;
 };
 
-/**
- * One list's dismiss or restore (D-789). The row leaves at once; a refused or lost answer puts it back in its place with
- * a notice. The write sets a state, so a lost answer is sent once more as it is.
- */
 function usePairs<P extends Pair>(items: readonly P[], action: PairAction) {
 	const [state, setState] = useState<PairState>(pairsAtStart);
 	const [said, setSaid] = useState("");
@@ -70,11 +64,6 @@ function usePairs<P extends Pair>(items: readonly P[], action: PairAction) {
 	return { shown: pairsShown(items, state), notice: (p: P) => state.notices[pairKey(p)], run, said };
 }
 
-/**
- * The pairs to review at /people/duplicates (REQ-PPL-018): each person a CSV import added with "Add, review later" and
- * the person they may duplicate. Review opens the side-by-side review; "Not a duplicate" takes the pair off the list.
- * A pair also leaves once either person is merged or retired. With none, a plain empty state.
- */
 export function DuplicatePairs({ pairs }: { pairs: Pairs }) {
 	const { shown, notice, run, said } = usePairs(pairs.items, "dismiss");
 	const [confirmation] = useState(() => returned);
@@ -159,10 +148,6 @@ export function DuplicatePairs({ pairs }: { pairs: Pairs }) {
 	);
 }
 
-/**
- * /people/duplicates?view=dismissed (D-790): the pairs marked "Not a duplicate", newest first, with who marked each one
- * and when. Restore puts a pair back on the list in its import order.
- */
 export function DismissedPairs({ pairs }: { pairs: Dismissed }) {
 	const { shown, notice, run, said } = usePairs(pairs.items, "restore");
 	const count = shown.length;
@@ -254,7 +239,6 @@ function PairRow({
 			</div>
 			<div className="ml-auto flex flex-none items-center gap-2">{actions}</div>
 			{notice ? (
-				// The row's button left with the row, so the notice takes focus when the row comes back.
 				<div className="basis-full">
 					<Problem request={notice}>{notice}</Problem>
 				</div>
@@ -263,7 +247,6 @@ function PairRow({
 	);
 }
 
-/** Says a saved change to screen readers: the row it names has left the list. */
 function Said({ text }: { text: string }) {
 	return (
 		<p role="status" className="sr-only">

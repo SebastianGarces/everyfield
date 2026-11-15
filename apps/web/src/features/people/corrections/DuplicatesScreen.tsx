@@ -66,19 +66,11 @@ type Done = { merged: Pick<Merged, "moved" | "survivorId" | "sourceId">; source:
 const first = (name: string) => name.split(" ")[0] ?? name;
 const crumbs = [{ label: "People", href: "/people" }, { label: "Possible duplicate" }];
 
-/**
- * Duplicate review and merge (REQ-PPL-016, 017, 025; prototype #/people/duplicates). The review shows both people side
- * by side: every differing field with both values to choose from, the stage and commitment the survivor keeps, what
- * moves, what stays and anything that blocks the merge. Nothing merges without the confirm dialog, and the result names
- * what moved and the way back (Unmerge in the survivor's Activity).
- */
 export function DuplicatesScreen({ initial, query }: { initial: PairView; query: PairQuery }) {
 	const [view, setView] = useState<PairView>(initial);
 	const [done, setDone] = useState<Done | null>(null);
-	/** A problem the page shows after the dialog closed, with a key so a repeat problem takes focus again. */
 	const [notice, setNotice] = useState<{ n: number; text: string } | null>(null);
 	const [loading, startLoad] = useTransition();
-	// Each review request carries a number; an answer to an older request never replaces a newer one.
 	const seq = useRef(0);
 	const router = useRouter();
 	const [dismissing, startDismiss] = useTransition();
@@ -205,13 +197,10 @@ function PairReview({
 }: {
 	view: Ready;
 	loading: boolean;
-	/** A "Not a duplicate" is in flight: nothing else on the review starts. */
 	dismissing: boolean;
 	onNotDuplicate: (listed: ListedPair) => void;
-	/** Review the pair again with `personId` as the person who stays; `why` is shown when it is a refusal's answer. */
 	onKeep: (personId: string, why?: string) => void;
 	onDone: (done: Done) => void;
-	/** The reviewed state is out of date: read it again and say why. */
 	onStale: (why: string) => void;
 }) {
 	const { review } = view;
@@ -225,7 +214,6 @@ function PairReview({
 	const blocked = review.blockers.causes.length > 0;
 	const fromSource = (review.fields as Field[]).filter((f) => choices[f.field] === "source").map((f) => f.field);
 	const stageMoves = review.stage && review.stage.result !== review.stage.survivor;
-	// Two records with one name: name the swap by record, not by a name that fits both.
 	const swapLabel =
 		source.displayName === survivor.displayName
 			? "Keep the other record instead"
@@ -505,7 +493,6 @@ function PersonHead({
 	);
 }
 
-/** One differing field: a labelled radio group with both values. Arrow keys move the choice. */
 function FieldRow({
 	field,
 	view,
@@ -562,11 +549,6 @@ function FieldRow({
 	);
 }
 
-/**
- * The merge confirmation. One request key per reviewed merge: a retry after a lost answer sends the same key, so the
- * server replays a merge that did happen. A refusal after a lost answer first asks where the source's links lead, so
- * the screen never says a merge failed when it went through.
- */
 function ConfirmMerge({
 	review,
 	fromSource,
@@ -581,7 +563,6 @@ function ConfirmMerge({
 	fromSource: MergeField[];
 	fieldChoices: ReturnType<typeof sourceChoices>;
 	stageTo: StageValue | null;
-	/** This review's merge intent: its request key and whether an answer was lost. It outlives the dialog. */
 	intentRef: { current: Intent };
 	onClose: () => void;
 	onDone: (done: Done) => void;
@@ -591,10 +572,8 @@ function ConfirmMerge({
 		survivor = review.survivor.displayName;
 	const [pending, setPending] = useState(false);
 	const [problem, setProblem] = useState<{ n: number; text: string; retry?: boolean } | null>(null);
-	/** Shows a problem; each one gets a new number, so a repeat of the same words still takes focus. */
 	const say = (p: { text: string; retry?: boolean }) => setProblem((old) => ({ ...p, n: (old?.n ?? 0) + 1 }));
 	const moves = referenceGroups(review.references).moves;
-	// After a merge the result heading takes focus; the closing dialog must not move it back to the page.
 	const finished = useRef(false);
 	const done = (moved: Merged["moved"]) => {
 		finished.current = true;
@@ -629,7 +608,6 @@ function ConfirmMerge({
 		}
 		key.payload = null;
 		if (key.lost) {
-			// An earlier attempt's answer was lost. It may have merged them: check before saying anything.
 			const d = await mergeDestination(review.source.personId).catch(() => ({ status: "lost" }) as const);
 			if (d.status === "ok" && d.value.status === "merged" && d.value.destinationId === review.survivor.personId)
 				return done(moves.map(({ kind, count }) => ({ kind, count })));
@@ -702,7 +680,6 @@ function Point({ children }: { children: ReactNode }) {
 	);
 }
 
-/** The merge result: what moved, a link to the survivor and the way back. Focus moves to its heading. */
 function Result({ done }: { done: Done }) {
 	const { merged } = done;
 	return (

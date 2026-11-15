@@ -32,13 +32,6 @@ type PlantPerson = z.infer<typeof people.plantPerson>;
 type Restored = UnmergeView["preview"]["restores"];
 const first = (name: string) => name.split(" ")[0] ?? name;
 
-/**
- * Unmerge (REQ-PPL-025; prototype #/people/duplicates, preview, done and refused). It opens from the merge in the
- * survivor's Activity and reads the preview when it opens: who comes back, which details go back and what moves back,
- * or what changed since the merge and so blocks it. The Unmerge itself goes through the person store, one request key per
- * merge: a retry after a lost answer replays instead of acting twice, and any later refusal reads the preview again
- * before the dialog says what happened.
- */
 export function UnmergeDialog({
 	mergeId,
 	store,
@@ -48,27 +41,20 @@ export function UnmergeDialog({
 	mergeId: string;
 	store: PersonStore<PlantPerson, PersonDraft>;
 	onClose: () => void;
-	/**
-	 * The Unmerge is saved (`done`, or null when an earlier lost attempt turned out to have run): the page reads itself
-	 * again. Resolves true when that read succeeded. The dialog stays open until it settles (C80).
-	 */
 	onUnmerged: (done: Unmerged | null) => Promise<boolean>;
 }) {
 	const read = useRead(unmergeRead, mergeId);
 	const preview = read.value ?? null;
 	const [problem, setProblem] = useState<{ n: number; text: string; retry?: boolean } | null>(null);
-	/** Shows a problem; each one gets a new number, so a repeat of the same words still takes focus. */
 	const say = (p: { text: string; retry?: boolean }) => setProblem((old) => ({ ...p, n: (old?.n ?? 0) + 1 }));
 	const [done, setDone] = useState<{ restored: Restored; names: UnmergeView["names"] } | null>(null);
 	const [pending, setPending] = useState(false);
-	/** After a saved Unmerge: the page is reading itself again, has done so, or could not (C80). */
 	const [page, setPage] = useState<"updating" | "updated" | "stale" | null>(null);
 	async function refreshPage(done: Unmerged | null) {
 		setPage("updating");
 		setPage((await onUnmerged(done).catch(() => false)) ? "updated" : "stale");
 	}
 	const slot = `unmerge:${mergeId}`;
-	// An earlier Unmerge of this merge whose answer was lost: only a server answer may say what happened, never a failed read.
 	const uncertain = usePersonState(store).errors[slot] === "lost";
 
 	const close = () => {
@@ -99,7 +85,6 @@ export function UnmergeDialog({
 				text: "We did not hear back from the server, so the Unmerge may have happened. Try again; it will not run twice.",
 			});
 		}
-		// A refusal: read the preview again, so the dialog shows the truth, including an Unmerge that did happen.
 		const again = await unmergeRead.refresh(mergeId);
 		setPending(false);
 		if (again.status === "ok" && again.value.preview.state === "unmerged") {
@@ -120,7 +105,6 @@ export function UnmergeDialog({
 	const p = view?.preview;
 	const names = done?.names ?? view?.names;
 	const blocked = Boolean(p && p.state === "merged" && p.conflicts.length);
-	// `earlier`: this merge was undone before the dialog opened, so the dialog reports that and claims nothing about now.
 	const finished = done
 		? { ...done, earlier: false }
 		: p?.state === "unmerged" && view
@@ -261,7 +245,6 @@ export function UnmergeDialog({
 	);
 }
 
-/** The Unmerge result, read out as a status: both people with links, and what moved back. */
 function Finished({
 	restored,
 	names,

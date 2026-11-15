@@ -33,7 +33,6 @@ import { ChoiceField, recordProblem } from "./parts.tsx";
 const DOCUMENT_TYPES = commitmentMime.options;
 const KINDS = (["core_group", "launch_team"] as const).map((k) => ({ value: k, label: KIND_LABEL[k] }));
 
-/** The client check before an upload (REQ-PPL-014). The server checks the bytes and type again. */
 function documentProblem(file: { size: number; type: string }): string | null {
 	if (file.size === 0) return "This file is empty. Choose the signed card.";
 	if (!commitmentMime.safeParse(file.type).success) return "Use a PDF, JPG or PNG file.";
@@ -45,7 +44,6 @@ export const fileSize = (bytes: number) =>
 export const fileKind = (mime: string) => (mime === "application/pdf" ? "PDF" : mime === "image/png" ? "PNG" : "JPG");
 
 type Witness = { kind: "none" } | { kind: "person"; id: string; name: string } | { kind: "external"; text: string };
-/** A record form's values. */
 export type CommitmentDraft = {
 	kind: Kind;
 	occurredOn: string;
@@ -61,7 +59,6 @@ export const blankCommitment = (): CommitmentDraft => ({
 	file: null,
 });
 
-/** Record a signed commitment card (REQ-PPL-014): kind, signed date, witness, notes and the private document. */
 export function RecordCommitmentDialog({
 	wait,
 	draft: initial,
@@ -73,13 +70,11 @@ export function RecordCommitmentDialog({
 	onClose,
 	onSubmit,
 }: {
-	/** The card's last save is in flight or unknown (C68): saving waits, and the form keeps its answers. */
 	wait: Wait;
 	draft: CommitmentDraft;
 	problem?: string;
 	personId: string;
 	personName: string;
-	/** Saving moves the person's earlier stage to Core group. */
 	moves: boolean;
 	documentsEnabled: boolean;
 	onClose: () => void;
@@ -88,8 +83,6 @@ export function RecordCommitmentDialog({
 	const [draft, setDraft] = useState(initial);
 	const [touched, setTouched] = useState(false);
 	const set = (patch: Partial<CommitmentDraft>) => setDraft((d) => ({ ...d, ...patch }));
-	// A refusal names the one field it is about. Its error stays until that value changes, so the same date or file is
-	// not sent again.
 	const futureDate = problem === "future_date" && draft.occurredOn === initial.occurredOn;
 	const unreadable = problem === "unreadable_document" && draft.file === initial.file;
 	const fileError = draft.file
@@ -163,10 +156,6 @@ export function RecordCommitmentDialog({
 	);
 }
 
-/**
- * The signed card's file inside its Field. The Field's label opens the picker; the button carries the field's hint,
- * error and the chosen file as its description, so a screen reader hears what is attached and why it is refused.
- */
 function DocumentPicker({ file, onChange }: { file: File | null; onChange: (file: File | null) => void }) {
 	const control = useFieldControl({});
 	const chosenId = useId();
@@ -237,8 +226,6 @@ function WitnessField({
 	onChange: (w: Witness) => void;
 }) {
 	const id = useId();
-	// The witness input takes focus only when the person picks its option. A form reopened after a refusal keeps its
-	// witness, and RecordDialog decides where focus starts.
 	const [picked, setPicked] = useState(false);
 	return (
 		<div className="flex flex-col gap-2">
@@ -293,7 +280,6 @@ const witnesses = createRead(
 	{ failed: () => ({ status: "lost" }) as const },
 );
 
-/** Search this church's people for the witness. An answer for an older search is never shown. */
 function WitnessPicker({
 	exclude,
 	value,
@@ -304,7 +290,6 @@ function WitnessPicker({
 	exclude: string;
 	value: { id: string; name: string } | null;
 	invalid: boolean;
-	/** The person just chose to name a church member as the witness. */
 	autoFocus: boolean;
 	onChange: (p: { id: string; name: string }) => void;
 }) {
@@ -373,7 +358,6 @@ function WitnessPicker({
 
 export type LifecycleDraft = { effectiveOn: string; reason: string };
 
-/** Withdraw or reactivate the current commitment on a date (REQ-PPL-014, 026). The stage never changes. */
 export function LifecycleDialog({
 	wait,
 	change,
@@ -384,13 +368,11 @@ export function LifecycleDialog({
 	onClose,
 	onSubmit,
 }: {
-	/** The card's last save is in flight or unknown (C68): saving waits, and the form keeps its answers. */
 	wait: Wait;
 	change: "withdraw" | "reactivate";
 	draft: LifecycleDraft;
 	problem?: string;
 	personName: string;
-	/** The date the current state took effect. A change cannot be dated before it. */
 	since: string | null;
 	onClose: () => void;
 	onSubmit: (draft: LifecycleDraft) => void;
@@ -398,7 +380,6 @@ export function LifecycleDialog({
 	const [draft, setDraft] = useState(initial);
 	const [touched, setTouched] = useState(false);
 	const early = since !== null && draft.effectiveOn !== "" && draft.effectiveOn < since;
-	// The refusal stays until the refused date changes, so the same date is not sent again.
 	const futureDate = problem === "future_date" && draft.effectiveOn === initial.effectiveOn;
 	const complete = draft.effectiveOn !== "" && !early;
 	const withdraw = change === "withdraw";
@@ -457,7 +438,6 @@ export function LifecycleDialog({
 
 export type CorrectionDraft = { action: "correct" | "void"; occurredOn: string; kind: Kind; reason: string };
 
-/** Correct one card's signed date or kind, or void a card that was never genuine (REQ-PPL-026). */
 export function CorrectionDialog({
 	wait,
 	card,
@@ -466,7 +446,6 @@ export function CorrectionDialog({
 	onClose,
 	onSubmit,
 }: {
-	/** The card's last save is in flight or unknown (C68): saving waits, and the form keeps its answers. */
 	wait: Wait;
 	card: Commitment;
 	draft: CorrectionDraft;
@@ -479,7 +458,6 @@ export function CorrectionDialog({
 	const set = (patch: Partial<CorrectionDraft>) => setDraft((d) => ({ ...d, ...patch }));
 	const voiding = draft.action === "void";
 	const unchanged = !voiding && draft.occurredOn === card.occurredOn && draft.kind === card.kind;
-	// The refusal stays until the refused date changes, so the same date is not sent again.
 	const futureDate = problem === "future_date" && draft.occurredOn === initial.occurredOn;
 	const complete = draft.reason.trim() !== "" && (voiding || (draft.occurredOn !== "" && !unchanged));
 	return (

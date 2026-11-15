@@ -65,13 +65,6 @@ import type { PersonFollowUps as FollowUpsData } from "../followups/server.ts";
 type PlantPerson = z.infer<typeof people.plantPerson>;
 type Open = "stage" | "profile" | "classify" | "retire" | "restore" | "correct" | { unmerge: string } | null;
 
-/**
- * Person (REQ-PPL-002/003/004/006/008). The header says who and where in the pipeline; Owners and Admins change the
- * stage, edit the profile, record adult or child and retire or restore. Every change goes through one store, so only one
- * runs at a time and each uses the latest saved revision. A saved change shows from its answer: the store takes the
- * saved person and Activity adds the new entry, with no page reload. A refusal because this page was out of date
- * reads this person again, and nothing else.
- */
 export function PersonScreen({
 	person,
 	activities,
@@ -91,28 +84,18 @@ export function PersonScreen({
 }: {
 	person: PlantPerson;
 	activities: Outcome<Activities>;
-	/** The person has a live Everyfield account link (never which account). */
 	linked: boolean;
-	/** The person is the viewer's own account person. */
 	isYou: boolean;
 	survivor: { id: string; name: string } | null;
 	accountId: string;
 	canWrite: boolean;
-	/** Tags, skills, household and photo (WP-012). Null for a person they do not apply to. */
 	fields: PersonFields | null;
-	/** The 4 C's, interviews and commitments (WP-014). Null for a viewer who is not an Owner or Admin. */
 	records: PersonRecords | null;
-	/** Follow-ups, Vision follow-ups and the contact log (WP-023). Null for a person they do not apply to. */
 	followUps: FollowUpsData | null;
-	/** Photos can be added (private storage is configured and the photo UI has shipped). */
 	photosEnabled: boolean;
-	/** Private storage is configured, so a commitment card can carry its signed document. */
 	documentsEnabled: boolean;
-	/** Possible duplicates of this live person (WP-015). Null when they do not apply or could not be read. */
 	duplicates?: Hints | null;
-	/** The page opened from a link to a person who was merged into this one. */
 	followedMerge?: boolean;
-	/** The person's ministry roles, now and before (WP-017). Null for a person they do not apply to. */
 	ministries?: ComponentProps<typeof MinistryRoles>["initial"] | null;
 }) {
 	const [store, state] = usePersonStore<PlantPerson, PersonDraft>(person);
@@ -129,8 +112,6 @@ export function PersonScreen({
 			...fields,
 		} as Item);
 	};
-	// The page parts the server read. An Unmerge replaces them with its authoritative result; `generation` restarts the
-	// cards that hold their own copy, so none keeps a record or tag that moved back to the other person.
 	const [parts, setParts] = useState({
 		fields: initialFields,
 		records: initialRecords,
@@ -141,7 +122,6 @@ export function PersonScreen({
 	});
 	const { fields, records, duplicates, generation, household, corrected } = parts;
 	const setHousehold = (next: HouseholdResult | null) => setParts((old) => ({ ...old, household: next }));
-	/** A saved tag, skill or photo change: Activity records it as a change to the person's details. */
 	const changed = (receipt: Receipt) => saved(receipt, { kind: "activity", action: "updated" });
 	const householdName = household?.status === "available" ? household.household.name : null;
 	async function reload() {
@@ -150,23 +130,13 @@ export function PersonScreen({
 		store.getState().actions.server(r.value.person);
 		if (r.value.activities) setHistory({ status: "ok", value: r.value.activities });
 	}
-	// The person as shown: the saved person, plus a change the screen expects while it saves (the household address
-	// copied onto this person). It falls back to the saved person when that change is refused.
 	const [p, expectPerson] = useOptimistic(state.saved, (saved, patch: Partial<PlantPerson>) => ({
 		...saved,
 		...patch,
 	}));
 	const [open, setOpen] = useState<Open>(null);
-	/** The page parts did not read again after an Unmerge: say so, and offer the reload that shows them. */
 	const [stale, setStale] = useState(false);
-	/** The page as the Unmerge left it, read while the Unmerge dialog is still open and shown when it closes (C80). */
 	const fresh = useRef<{ receipt: Receipt | null; page: PersonPage | null } | null>(null);
-	/**
-	 * After an Unmerge the records, tags, skills, household and hints on this page may belong to the other person again.
-	 * The Unmerge answer carries the page as the Unmerge left it (C84); an Unmerge found to have run after a lost answer
-	 * reads it here. The dialog stays open until the page is in hand, so nothing on the page can start behind it, and it
-	 * says itself when the page did not read (C80).
-	 */
 	async function readAfterUnmerge(done: Unmerged | null): Promise<boolean> {
 		let page = done ? done.page : null;
 		if (!done) {
@@ -176,7 +146,6 @@ export function PersonScreen({
 		fresh.current = { receipt: done?.receipt ?? fresh.current?.receipt ?? null, page };
 		return page !== null;
 	}
-	/** The Unmerge dialog closed: show what it read, or keep the page and say it is out of date. */
 	function closeUnmerge() {
 		const got = fresh.current;
 		fresh.current = null;

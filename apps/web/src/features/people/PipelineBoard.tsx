@@ -41,15 +41,6 @@ type Group = Pipeline["groups"][number];
 type CardData = Group["cards"][number];
 type PlantPerson = z.infer<typeof people.plantPerson>;
 
-/**
- * The pipeline (REQ-PPL-007): five columns; the last holds core group, launch team and leader with milestone badges.
- * Cards show only open parent follow-up work and its due-day warnings. Owners and Admins move a person by dragging a
- * card to another column or with the card's Move menu (the keyboard way); both open the same Change stage dialog.
- * Members see no move controls. Order inside a column is the server's order.
- *
- * A move is one request and no page refresh (D68): the card moves as soon as the move is sent, the server's answer
- * confirms it, and a refusal puts the card back.
- */
 export function PipelineBoard({
 	query,
 	pipeline,
@@ -65,8 +56,6 @@ export function PipelineBoard({
 		card: CardData;
 		target?: StageValue;
 	} | null>(null);
-	// What changed since this server copy (D68): stage moves by person, and each column's latest saved answer from a
-	// reorder or a stage change. A new server copy (a refresh or a filter change) already includes both.
 	const [since, setSince] = useState<Since>(() => nothingSince(pipeline));
 	const now = since.from === pipeline ? since : nothingSince(pipeline);
 	const change = (edit: (s: Since) => void) =>
@@ -94,8 +83,6 @@ export function PipelineBoard({
 				<div className="grid min-w-[1180px] grid-cols-5 gap-3.5">
 					{pipeline.groups.map((g) => (
 						<Column
-							// Keyed by column only: a refresh must not remount the column, or keyboard focus and the
-							// last reorder message would be lost (verifier finding on b4d2ec0).
 							key={g.column}
 							group={g}
 							moved={now.moved}
@@ -134,14 +121,11 @@ export function PipelineBoard({
 					onOpenChange={(open) => !open && setMoving(null)}
 					store={moving.store}
 					target={moving.target}
-					// Sent: the card moves now. Answered: the saved person, and the saved order and revision of the columns it
-					// left and joined. Refused: the card as it was.
 					from={columnOf(moving.card.person.stage)}
 					onStage={(person, columns) => {
 						place({ ...moving.card, person: person ?? moving.card.person });
 						for (const column of columns ?? []) answered(column.column, column);
 					}}
-					// The person changed elsewhere: the board reads the pipeline again, the only reload a move can cause.
 					onConflict={() => router.refresh()}
 				/>
 			) : null}
@@ -171,9 +155,7 @@ function Column({
 	onMove,
 }: {
 	group: Group;
-	/** Stage moves since this server copy; a card shows in the column its current stage belongs to. */
 	moved: ReadonlyMap<string, CardData>;
-	/** The column's latest saved order and revisions since this server copy, from a reorder or a stage change. */
 	answer: Answer | undefined;
 	onAnswer: (answer: Answer) => void;
 	query: PeopleQuery;
@@ -187,7 +169,6 @@ function Column({
 	onDragEnd: () => void;
 	onMove: (card: CardData, target?: StageValue) => void;
 }) {
-	// "Show more" pages belong to the server copy they were loaded on; a refresh brings a new first page and drops them.
 	const [extra, setExtra] = useState<{ from: Group; cards: CardData[]; next: number | null; problem?: string }>({
 		from: group,
 		cards: [],
@@ -195,46 +176,34 @@ function Column({
 	});
 	const more_ = extra.from === group ? extra : { from: group, cards: [], next: group.next };
 	const [loading, setLoading] = useState(false);
-	// A reorder being saved: its order shows at once, until the answer or a refusal.
 	const [pending, setPending] = useState<{ from: Group; ids: string[] } | null>(null);
 	const loaded = [...group.cards, ...more_.cards];
 	const cards = columnCards(group.column, loaded, moved, answer, pending?.from === group ? pending.ids : undefined);
-	// Moves change the count: cards that arrived minus cards that left.
 	const count = (group.total ?? loaded.length) + cards.length - loaded.length;
 	const router = useRouter();
-	// One reorder at a time per column, with the column's revision as the lock (REQ-PPL-007). The store outlives
-	// refreshes, so a refusal message stays until the next try; the server's newer revision replaces the old one.
 	const own = useLocalStore(() => createPersonStore<{ revision: string }, null>({ revision: group.revision }));
 	const columnRevision = answer?.revision ?? group.revision;
 	const store = useMemo(() => withServer(own, { revision: columnRevision }), [own, columnRevision]);
 	const order = usePersonState(store);
 	const [said, setSaid] = useState("");
-	// Up and down place a person next to their true neighbour. A search or filter hides people, and "Show more" may not
-	// have run, so the neighbour on screen may not be the real one: reorder needs an unfiltered, fully loaded column
-	// (verifier finding: q=an sent 2 of 5 IDs).
 	const filtered = isFiltered(query);
 	const complete = !filtered && !more_.next && cards.length <= 100;
-	// After a keyboard reorder, focus returns to the moved person's Move button, also after the refresh re-renders.
 	async function reorder(card: CardData, direction: "up" | "down") {
 		const ids = moveInOrder(
 			cards.map((c) => c.person.id),
 			card.person.id,
 			direction,
 		);
-		// The server places this one person after their new upper neighbour, or first (D68).
 		const at = ids.indexOf(card.person.id);
 		const input = { column: group.column, personId: card.person.id, afterId: at > 0 ? ids[at - 1]! : null };
 		const rev = order.saved.revision;
-		// The card moves now; the answer confirms the order, a refusal puts it back.
 		setPending({ from: group, ids });
 		const r = await runSave(store, "order", { input, rev }, (key) => reorderPipeline(key, rev, input), {
 			fresh,
-			// The answer carries the column revision as saved now, so a quick next move uses it.
 			toPerson: (v) => ({ revision: v.revision }),
 		});
 		setPending(null);
 		if (r?.status === "ok") {
-			// Show the column the server answered with: its order belongs to the revision the store just took.
 			onAnswer(r.value);
 			setSaid(
 				r.value.personIds.join() === ids.join()
@@ -260,7 +229,6 @@ function Column({
 
 	return (
 		<div
-			// The column revision the next reorder sends: the saved order's, from the server's answer or a refresh.
 			data-revision={order.saved.revision}
 			onDragOver={canWrite ? onDragOver : undefined}
 			onDragLeave={canWrite ? onDragLeave : undefined}
@@ -331,10 +299,6 @@ function Column({
 	);
 }
 
-/**
- * Milestone, due-day and inactivity badges. A person with no duty shows no due-day badge: no follow-up is not urgent
- * work. No recorded activity for longer than the church's Settings allow shows the inactivity badge (REQ-PPL-007).
- */
 function CardBadges({ card }: { card: CardData }) {
 	const overdue = card.activeParentDuties.filter((d) => d.warning === "overdue").length;
 	const undated = card.activeParentDuties.filter((d) => d.warning === "missing_due_date").length;
@@ -365,16 +329,11 @@ function CardBadges({ card }: { card: CardData }) {
 	);
 }
 
-/** Whole days since the last recorded activity, as the badge says it ("12 days"). */
 function quietDays(lastActivityAt: string): string {
 	const days = Math.max(1, Math.floor((Date.now() - Date.parse(lastActivityAt)) / 86_400_000));
 	return `${days} ${days === 1 ? "day" : "days"}`;
 }
 
-/**
- * The keyboard way to move a card, in its corner: up or down inside the column, or to another stage. Up and down need
- * the whole column on screen; until then they are disabled and say why.
- */
 function MoveMenu({
 	card,
 	onMove,
@@ -384,7 +343,6 @@ function MoveMenu({
 	why,
 }: {
 	card: CardData;
-	/** Why Move up and Move down are off, when they are. */
 	why: string;
 	onMove: (card: CardData, target?: StageValue) => void;
 	onReorder: ((direction: "up" | "down") => void) | null;

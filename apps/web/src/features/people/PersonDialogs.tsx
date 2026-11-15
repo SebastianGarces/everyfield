@@ -27,13 +27,7 @@ import type { PersonDraft } from "./StageDialog.tsx";
 
 type PlantPerson = z.infer<typeof people.plantPerson>;
 type Store = PersonStore<PlantPerson, PersonDraft>;
-/** What every person dialog reports: a saved change with its Activity entry, or a refusal because the page is old. */
 type Reported = { onSaved: (receipt: Receipt, entry: EntryFields) => void; onConflict: () => void };
-
-// ---------------------------------------------------------------------------------------------------------------
-// Edit profile (REQ-PPL-002). The draft keeps the person as it was when editing began; Save sends only the fields
-// that differ from it, and a cleared field is sent as null so the server clears it. Stage is not here: it changes
-// only through Change stage, with its warnings.
 
 const PROFILE = [
 	"displayName",
@@ -243,11 +237,6 @@ export function EditProfileDialog({
 	);
 }
 
-// ---------------------------------------------------------------------------------------------------------------
-// Adult classification (REQ-PPL-026, cohort input). Recorded only for a person with no birth date: a birth date sets
-// adult or child itself, and this dialog is not offered then. Never inferred from a household or stage. The first
-// answer is recorded; a later one is a correction with a reason, both kept in history.
-
 export type ClassifyDraft = { classification: string; occurredOn: string; reason: string };
 
 export function ClassificationDialog({
@@ -267,14 +256,10 @@ export function ClassificationDialog({
 	const pending = state.pending === "classify";
 	const draft = (state.drafts.classify as ClassifyDraft | undefined) ?? {
 		classification: correction ? person.adultClassification : "adult",
-		// No default: only the server knows the church's date, and a date from the reader's clock can be the church's
-		// tomorrow (verifier finding on f0ea75d). The person picks the date.
 		occurredOn: "",
 		reason: "",
 	};
 	const [touched, setTouched] = useState(false);
-	// The date the server last refused as after the church's today. Its error stays until the date changes, so the same
-	// date is not sent again; any other refusal shows below the form.
 	const [refusedOn, setRefusedOn] = useState<string | null>(null);
 	const set = (patch: Partial<ClassifyDraft>) => store.getState().actions.edit("classify", { ...draft, ...patch });
 	const close = (next: boolean) => {
@@ -383,10 +368,6 @@ export function ClassificationDialog({
 	);
 }
 
-// ---------------------------------------------------------------------------------------------------------------
-// Retire (REQ-PPL-003): a soft retirement with a reason. It reviews open duties first; each stays open as Needs
-// owner. History and relations stay; the person leaves active lists and pickers. Restore is separate.
-
 export function RetireDialog({
 	open,
 	onOpenChange,
@@ -402,7 +383,6 @@ export function RetireDialog({
 	const person = state.saved;
 	const pending = state.pending === "retire";
 	const reason = (state.drafts.retire as { body: string } | undefined)?.body ?? "";
-	// Read when the dialog opens and again after a conflict, never because this dialog's own save moved the revision.
 	const [round, setRound] = useState(0);
 	const warnings = useWarnings(person.id, round);
 	const [touched, setTouched] = useState(false);
@@ -500,7 +480,6 @@ export function RetireDialog({
 	);
 }
 
-/** Restore (REQ-PPL-003): only an ordinary retired person. It does not bring back a seat, consent or private care. */
 export function RestoreDialog({
 	open,
 	onOpenChange,
@@ -530,7 +509,6 @@ export function RestoreDialog({
 					fresh,
 					toPerson: (v) => v.person,
 				});
-				// ConfirmDialog shows a thrown message in the dialog and keeps it open for another try.
 				if (result === null) throw new Error("Another change to this person is still saving. Try again in a moment.");
 				if (isConflict(result)) onConflict();
 				if (result.status !== "ok") throw new Error(problemText(problemOf(result) ?? "unavailable"));

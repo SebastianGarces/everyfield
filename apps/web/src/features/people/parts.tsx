@@ -13,7 +13,6 @@ import { createRead, useRead } from "../../components/read.tsx";
 import { useLocalStore } from "../../components/store.ts";
 import { createPersonStore, withServer, type PersonState, type PersonStore, type Saved } from "./person.store.ts";
 
-/** What a refusal or lost answer means for the person, in words. Nothing here reveals another tenant's records. */
 export function problemText(code: string): string {
 	switch (code) {
 		case "conflict":
@@ -35,7 +34,6 @@ export function problemText(code: string): string {
 	}
 }
 
-/** The error line under a form. It is a live region, so a screen reader hears the problem when it appears. */
 export function FormProblem({ code, id }: { code: string | undefined; id?: string }) {
 	return (
 		<div aria-live="assertive" id={id} className="empty:hidden">
@@ -60,7 +58,6 @@ export function usePersonState<P extends Saved, D>(store: PersonStore<P, D>): Pe
 }
 
 export const fresh = () => crypto.randomUUID();
-/** A refusal because this page's copy is out of date: the screen reads the person again. */
 export const isConflict = <T,>(o: Outcome<T> | null) => o?.status === "refused" && o.code === "conflict";
 export const problemOf = <T,>(o: Outcome<T> | null): string | undefined =>
 	!o || o.status === "ok" ? undefined : o.status === "lost" ? "lost" : o.code;
@@ -68,9 +65,6 @@ export const problemOf = <T,>(o: Outcome<T> | null): string | undefined =>
 const DATE = { month: "short", day: "numeric", year: "numeric" } as const;
 const TIME = { ...DATE, hour: "numeric", minute: "2-digit" } as const;
 const DAY = new Intl.DateTimeFormat("en-US", { ...DATE, timeZone: "UTC" });
-/**
- * An instant in the reader's own time zone. The server and the first browser render use UTC, so hydration matches; right after it the browser shows the reader's zone.
- */
 export function When({ at, withTime = false }: { at: string; withTime?: boolean }) {
 	const browser = useHydrated();
 	const parts = Object.fromEntries(
@@ -78,12 +72,9 @@ export function When({ at, withTime = false }: { at: string; withTime?: boolean 
 			.formatToParts(new Date(at))
 			.map((p) => [p.type, p.value]),
 	);
-	// The punctuation is ours: engines join the same parts differently ("Oct 19, 2026, 1:30 AM" or "... at 1:30 AM"),
-	// which would break hydration.
 	const text = `${parts.month} ${parts.day}, ${parts.year}${withTime ? `, ${parts.hour}:${parts.minute} ${parts.dayPeriod}` : ""}`;
 	return <time dateTime={at}>{text}</time>;
 }
-/** A calendar date (yyyy-mm-dd) shown as written, never shifted by a time zone. */
 export function LocalDay({ day }: { day: string }) {
 	const [y, m, d] = day.split("-").map(Number) as [number, number, number];
 	return <time dateTime={day}>{DAY.format(new Date(Date.UTC(y, m - 1, d)))}</time>;
@@ -98,24 +89,12 @@ export function useWarnings(personId: string, round: number): Warnings | null {
 	return useRead(warningsRead, personId, round).value ?? null;
 }
 
-/**
- * The name link inside a PersonCard. PersonCard passes its own classes (the stretched link that makes the whole card
- * clickable); this sets a 24px line, so the link itself meets the WCAG 2.2 target size next to the card's Move button,
- * and keeps the ellipsis on a long name.
- */
 export function CardLink({ className, ...props }: ComponentProps<typeof PersonLink>) {
 	return (
 		<PersonLink {...props} className={`${className ?? ""} inline-block max-w-full truncate align-top leading-6`} />
 	);
 }
 
-/**
- * A link to one person from the People list, cards or pipeline. A view switch shows up to a page of new person links
- * at once, and Next.js would prefetch every one that scrolls into view, so a switch would send a request per person.
- * These links prefetch only when a person shows intent: the mouse moves over the link, a finger touches it, or keyboard
- * focus reaches it. Content that slides under a resting pointer after a move, or focus that code restores when a
- * dialog closes, is not intent and sends nothing (D68 verifier finding: a stage move sent a profile prefetch).
- */
 export function PersonLink({
 	href,
 	onPointerMove,

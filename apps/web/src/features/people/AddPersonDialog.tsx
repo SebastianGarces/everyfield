@@ -40,12 +40,6 @@ const EMPTY: Draft = {
 };
 const blankToNull = (v: string) => (v.trim() === "" ? null : v.trim());
 
-/**
- * Add person (REQ-PPL-002 quick add): one real display name, optional email and phone, and the defaults the product
- * names (prospect, source other, country US, adult classification not recorded). Nothing here links an account or
- * records a commitment. The draft stays if the dialog closes by accident; Cancel asks nothing because nothing is lost
- * that matters more than a name.
- */
 export function AddPersonDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
 	const router = useRouter();
 	const store = useLocalStore(() => createPersonStore<{ revision: string }, Draft>({ revision: "0" }));

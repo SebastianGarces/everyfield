@@ -16,9 +16,6 @@ import { useRef, useState } from "react";
 import { querySearch, type PeopleQuery } from "../model.ts";
 import { describeFilters, plural } from "./model.ts";
 
-// Export the directory's current filters as CSV (REQ-PPL-019). The dialog names the filters before the download and
-// the row count after it. One request per Download press; the file is every matching person, however many.
-
 type State =
 	| { kind: "ready" }
 	| { kind: "exporting"; slow: boolean }
@@ -47,7 +44,6 @@ export function ExportDialog({
 	const download = async () => {
 		release();
 		setState({ kind: "exporting", slow: false });
-		// A very large export is report work and can pass one second (C33); the dialog says so while it waits.
 		slowTimer.current = setTimeout(() => setState((s) => (s.kind === "exporting" ? { ...s, slow: true } : s)), 1000);
 		try {
 			const res = await fetch(`/api/people/export${querySearch({ ...query, page: 1 })}`, { cache: "no-store" });

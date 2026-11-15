@@ -70,12 +70,6 @@ const RATING_TONE = {
 	fail: "bg-magenta-100 text-magenta-600",
 } as const;
 
-/**
- * The interview (REQ-PPL-013, 020): the latest one's five criteria, result and next steps, with earlier ones below.
- * Any result means the interview happened, so saving one moves an earlier stage to Interviewed in the same save; a
- * later stage stays. The new interview and the stage show at once while it saves; a refusal takes both back and opens
- * the form again with the answers and the reason.
- */
 export function InterviewCard({
 	personId,
 	personName,
@@ -96,7 +90,6 @@ export function InterviewCard({
 	);
 	const [shown, expect] = useOptimistic(history.items, withRecord<Interview>);
 	const [, start] = useTransition();
-	// Another change to this person is saving: the card waits, and Check again waits for it (C65, C68).
 	usePersonState(store);
 	const form = useSaveIntent<Editing>({ explain: recordProblem, busy: () => store.getState().pending !== null });
 	const wait = form.wait;
@@ -320,7 +313,6 @@ function InterviewDialog({
 	onClose,
 	onSubmit,
 }: {
-	/** The card's last save is in flight or unknown (C68): saving waits, and the form keeps its answers. */
 	wait: Wait;
 	editing: Editing;
 	personName: string;
@@ -334,7 +326,6 @@ function InterviewDialog({
 	const setCriterion = (k: CriterionKey, patch: Partial<Draft[CriterionKey]>) =>
 		setDraft((d) => ({ ...d, [k]: { ...d[k], ...patch } }));
 	const complete = draft.occurredOn !== "" && draft.result !== "" && CRITERIA.every((k) => draft[k].rating !== "");
-	// The refusal stays until the refused date changes, so the same date is not sent again.
 	const futureDate = editing.problem === "future_date" && draft.occurredOn === editing.draft.occurredOn;
 	return (
 		<RecordDialog

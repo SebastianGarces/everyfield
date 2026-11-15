@@ -26,12 +26,6 @@ import {
 } from "./model.ts";
 import { watchReceipt, type Polled } from "./receipt-watch.ts";
 
-// People CSV import (REQ-PPL-018): upload, review every row, import as one background job, then the receipt. The
-// file goes once into the private bucket with a signed PUT (REQ-PPL-014's private-file flow); the preview and the import
-// name that upload, and the server reads the stored bytes itself each time. No parsed row is ever sent back.
-// One import has one request key, made when the person presses Import. It lives in the address (?import=), so a
-// lost reply or a reload reads the same import's receipt instead of starting a second one.
-
 type State =
 	| { step: "upload"; checking: File | null; error: Notice | null }
 	| { step: "review"; review: Review; refusal: Notice | null }
@@ -54,7 +48,6 @@ const done = (review: Review | null, key: string, receipt: ImportReceipt, proble
 	problem,
 });
 
-/** What the page found for ?import= when it loaded. */
 export type Initial =
 	| { kind: "none" }
 	| { kind: "receipt"; key: string; receipt: ImportReceipt }
@@ -76,7 +69,6 @@ const post = (body: unknown): RequestInit => ({
 	headers: { "Content-Type": "application/json" },
 	body: JSON.stringify(body),
 });
-/** Puts the file into the private bucket under a freshly signed upload: its id, or why not. */
 async function stage(file: File): Promise<Answer<string>> {
 	const signed = await call<ImportUpload>("/api/people/import/upload", post({ byteLength: file.size }));
 	if (signed.status !== "ok") return signed;
@@ -136,8 +128,6 @@ export function ImportScreen({ initial }: { initial: Initial }) {
 			return;
 		}
 		setState({ step: "upload", checking: picked, error: null });
-		// The chosen bytes stay in memory, so checking again uploads the same file even if the one on disk changes or
-		// moves afterwards. The import names the upload that was previewed, never new bytes.
 		const file = new File([await picked.arrayBuffer()], picked.name, { type: "text/csv" });
 		const refuse = (got: Exclude<Answer<unknown>, { status: "ok" }>) =>
 			setState({
@@ -156,7 +146,6 @@ export function ImportScreen({ initial }: { initial: Initial }) {
 		});
 	};
 
-	/** Sends the reviewed import under its key. The same key repeats it safely after a lost reply. */
 	const send = async (review: Review, key: string) => {
 		setState({ step: "import", review, key, receipt: null, trouble: null });
 		const got = await call<ImportReceipt>(
@@ -175,22 +164,16 @@ export function ImportScreen({ initial }: { initial: Initial }) {
 		setState({ step: "review", review, refusal: importRefusal(got.code) });
 	};
 
-	/** After a lost reply: the receipt says whether the import started. Nothing is sent again without a press. */
 	const confirm = async (review: Review | null, key: string) => {
 		setState({ step: "import", review, key, receipt: null, trouble: null });
 		const got = await readReceipt(key);
 		if (got.status === "ok") return settle(review, key, got.value);
-		// A refusal does not prove that nothing was saved (see UNCONFIRMED), so the screen sends nothing again.
 		setState({ step: "import", review, key, receipt: null, trouble: got.status === "lost" ? LOST_CHECK : UNCONFIRMED });
 	};
 
 	const settle = (review: Review | null, key: string, receipt: ImportReceipt) =>
 		setState(finished(receipt) ? done(review, key, receipt) : { step: "import", review, key, receipt, trouble: null });
 
-	/**
-	 * "Try N rows again": from the server's kept copy, or with `picked`, the same file uploaded again once the copy is
-	 * deleted. A refusal reads the receipt again, so the screen shows whether the copy is still kept.
-	 */
 	const retry = async (s: Done, picked?: File) => {
 		const refuse = async (code: string) => {
 			const fresh = await readReceipt(s.key);

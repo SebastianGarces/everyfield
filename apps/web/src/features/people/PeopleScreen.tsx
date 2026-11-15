@@ -60,21 +60,11 @@ import { PipelineBoard } from "./PipelineBoard.tsx";
 import type { PeopleData, PeopleView } from "./server.ts";
 
 type PlantPerson = z.infer<typeof people.plantPerson>;
-/** A list row: the person and the photo it shows, when there is one (REQ-PPL-005, REQ-IDN-006). */
 type ListRow = PlantPerson & { photo?: string };
 
 const COMMITMENT_LABEL = { active: "Committed", withdrawn: "Withdrawn", unknown: "Not recorded" } as const;
 const RETIRED_LABEL = { include: "Active and retired", only: "Retired only" } as const;
 
-/**
- * People list, cards and pipeline (REQ-PPL-001, REQ-PPL-007). Search, filters, view and page live in the address; a
- * search or filter change goes back to the first page and keeps the other filters. Members read; Owners and Admins
- * also add and move.
- *
- * A view switch stays in the browser. List and cards show the same loaded page, so switching between them sends no
- * request. The pipeline loads once for the current filters and is kept, and so are the list rows, so switching back
- * and forth sends nothing more. A new server answer (filters, page, or a refresh after a change) replaces both.
- */
 export function PeopleScreen({ loaded, canWrite }: { loaded: PeopleView; canWrite: boolean }) {
 	const router = useRouter();
 	const pathname = usePathname();
@@ -397,7 +387,6 @@ function Results({
 	);
 }
 
-/** Range text and page numbers for the list and cards. */
 function Pager({
 	query,
 	shown,
@@ -409,8 +398,6 @@ function Pager({
 	total: number;
 	go: (q: PeopleQuery) => void;
 }) {
-	// The pager stays at the bottom of the window while the rows scroll under it, so the next page is always one press
-	// away. It is the card's bottom edge, with the card's side padding, so it lines up when the list ends.
 	return (
 		<div className="sticky bottom-0 z-[2] -mx-7 -mb-[26px] flex flex-wrap items-center justify-between gap-3 rounded-b-card border-t border-line bg-surface px-7 pt-3 pb-[max(12px,env(safe-area-inset-bottom))] max-app-sm:-mx-5 max-app-sm:-mb-5 max-app-sm:px-5">
 			<span className="text-text-3" role="status">
@@ -425,7 +412,6 @@ function RowCardLink({ className, ...props }: ComponentProps<typeof CardLink>) {
 	return <CardLink {...props} className={`${className ?? ""} scroll-mb-24`} />;
 }
 
-/** Retired, committed and launch-team or leader badges: the facts a list row says in words. */
 function PersonBadges({ person }: { person: PlantPerson }) {
 	return (
 		<span className="flex flex-wrap items-center gap-1.5">
@@ -482,10 +468,6 @@ const COLUMNS: Column<ListRow>[] = [
 	{ key: "added", header: "Added", cell: (p) => <When at={p.createdAt} /> },
 ];
 
-/**
- * An active tag filter from the address (ruling D47). People must carry every selected tag. The chip shows "Tag" (or
- * "Tag N" when several are on), not the tag's name, and removes that filter.
- */
 function TagChip({ label, onRemove }: { label: string; onRemove: () => void }) {
 	return (
 		<span className="inline-flex h-10 flex-none items-center gap-2 rounded-md bg-amber-100 pr-1.5 pl-3.5 font-medium whitespace-nowrap text-amber-600 shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--ef-amber-500)_35%,transparent)]">

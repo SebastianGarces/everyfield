@@ -49,10 +49,7 @@ import {
 
 import { RECONNECTING, type FailedRow, type Notice, type Review } from "./model.ts";
 
-// The four steps of the People CSV import screen. ImportScreen owns the state; these only draw it.
-
 export type StepKey = "upload" | "review" | "import" | "done";
-// ---------------------------------------------------------------------------------------------------------------
 
 const STEPS = [
 	{ key: "upload", label: "Upload" },
@@ -61,7 +58,6 @@ const STEPS = [
 	{ key: "done", label: "Done" },
 ] as const;
 
-/** The step pills from the prototype's import page. They show progress only; the page's buttons move between steps. */
 export function Steps({ current }: { current: StepKey }) {
 	const at = STEPS.findIndex((s) => s.key === current);
 	return (
@@ -143,9 +139,6 @@ export function Problem({ notice, actions }: { notice: Notice; actions?: ReactNo
 	);
 }
 
-// ---------------------------------------------------------------------------------------------------------------
-
-/** What an upload takes. The People import takes the 12-column CSV; another import names its own. */
 export type UploadKind = { title: string; accept: string; prompt: string; limits: string; inputLabel: string };
 const CSV_UPLOAD: UploadKind = {
 	title: "Choose a CSV file",
@@ -168,7 +161,6 @@ export function UploadStep({
 	error: Notice | null;
 	onFile: (file: File) => void;
 	kind?: UploadKind;
-	/** The card beside the drop zone. */
 	aside?: ReactNode;
 }) {
 	const [over, setOver] = useState(false);
@@ -227,7 +219,6 @@ export function UploadStep({
 	);
 }
 
-/** The People import's side card: the template and what it reads. */
 function TemplateCard() {
 	return (
 		<Card size="sm" className="gap-3">
@@ -251,8 +242,6 @@ function TemplateCard() {
 		</Card>
 	);
 }
-
-// ---------------------------------------------------------------------------------------------------------------
 
 export function Stat({ label, value, note, tone }: { label: string; value: number; note: string; tone?: string }) {
 	return (
@@ -299,10 +288,8 @@ export function ReviewStep({
 	const at = Math.min(page, pages);
 	const slice = shown.slice((at - 1) * ROWS_PER_PAGE, at * ROWS_PER_PAGE);
 	const duplicates = counts.existingDuplicates + counts.withinFileDuplicates;
-	// Rows can match both ways; the group counts each row once.
 	const toCheck = rowsIn(preview.rows, "check").length;
 	const ready = counts.valid - toCheck;
-	// A row skipped under its repeat takes away that repeat's review target, so every change rechecks the targets.
 	const choose = (next: Map<number, Choice>) => onChoices(withReviewTargets(preview, next));
 	const setAll = (choice: Choice) => {
 		const next = new Map(choices);
@@ -524,8 +511,6 @@ function RowItem({
 	);
 }
 
-// ---------------------------------------------------------------------------------------------------------------
-
 export function ImportStep({
 	heading,
 	receipt,
@@ -558,7 +543,6 @@ export function ImportStep({
 								</Button>
 							</>
 						) : (
-							// The outcome is unknown (UNCONFIRMED): People shows what was saved; nothing here sends the import again.
 							<IntentLink href="/people" className={buttonVariants({ variant: "primary" })}>
 								Go to People
 							</IntentLink>
@@ -610,12 +594,6 @@ export function ImportStep({
 	);
 }
 
-// ---------------------------------------------------------------------------------------------------------------
-
-/**
- * The receipt. A partial import offers "Try N rows again" while the server keeps its file; once the file is deleted
- * (7 days after the import stopped), the person uploads the same file again instead (`onRetry` with it).
- */
 export function DoneStep({
 	heading,
 	receipt,
@@ -628,7 +606,6 @@ export function DoneStep({
 	heading: React.RefObject<HTMLHeadingElement | null>;
 	receipt: ImportReceipt;
 	review: Review | null;
-	/** A retry is on its way: the chosen file while it uploads, or true for the kept copy. */
 	working: File | boolean;
 	problem: Notice | null;
 	onRetry: (file?: File) => void;
@@ -637,12 +614,9 @@ export function DoneStep({
 	const { counts } = receipt;
 	const failed = receipt.rows.filter((r): r is FailedRow => r.status === "failed");
 	const invalid = failed.filter((r) => r.reason === "invalid");
-	// Every row the import did not add, each with its reason: the ones that need a fix, the ones the job could not
-	// write and the ones it never reached.
 	const notImported = receipt.rows.filter(
 		(r): r is NotImportedRow => r.status === "failed" || r.status === "remaining",
 	);
-	// Every row still to write: the ones the job tried and could not write, and the ones it never reached.
 	const notSaved = counts.remaining;
 	const partial = receipt.status === "partial";
 	const retry = partial && receipt.fileKept;
@@ -736,7 +710,6 @@ export function DoneStep({
 	);
 }
 
-/** The file button of an expired partial import: the same file, uploaded again to finish its remaining rows. */
 function ChooseAgain({ working, onFile }: { working: File | boolean; onFile: (file: File) => void }) {
 	const busy = working !== false;
 	return (

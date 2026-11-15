@@ -28,7 +28,6 @@ import { readPhoto, removePhoto, uploadPhoto, type PhotoSaved } from "./actions.
 import { photoProblem, photoSrc, takeFile, type PhotoResult } from "./model.ts";
 
 type PlantPerson = z.infer<typeof people.plantPerson>;
-/** The words for a refused photo change. */
 function photoRefusal(code: string): string {
 	switch (code) {
 		case "busy":
@@ -42,13 +41,6 @@ function photoRefusal(code: string): string {
 	}
 }
 
-/**
- * The person's photo in the page header (REQ-PPL-005). The image comes only from the app's own route for the exact
- * version. Owners and Admins add, replace or remove it from the photo menu. A new photo shows at once from the chosen
- * file; the old one stays saved until the new one is. Changes save through a save lane (components/save) in the person
- * store: a lost answer is replayed with the same key, an answer that stays unknown offers Check again, and only a
- * server answer says the photo was not saved. The photo has no card, so its notice opens under it.
- */
 export function PersonPhoto({
 	store,
 	person,
@@ -62,14 +54,11 @@ export function PersonPhoto({
 	person: PlantPerson;
 	initial: PhotoResult;
 	canEdit: boolean;
-	/** Private photo storage is configured for this deployment. */
 	enabled: boolean;
 	onSaved: (receipt: Receipt) => void;
-	/** The person changed elsewhere: read the person again. */
 	onConflict: () => void;
 }) {
 	const toast = useToast();
-	// Another change to this person is saving: the photo waits, and Check again waits for it (C65, C68).
 	usePersonState(store);
 	const lane = useSaveIntent<{ problem?: string }>({
 		explain: photoRefusal,
@@ -80,8 +69,6 @@ export function PersonPhoto({
 	const [preview, setPreview] = useState<string | null>(null);
 	const [busy, setBusy] = useState<"upload" | "remove" | null>(null);
 
-	// The saved photo shows only once its bytes have loaded; until then, or if the route refuses, the initials stay, so
-	// the header never shows a broken image (REQ-PPL-005).
 	const saved = photoSrc(photo);
 	const src = busy === "remove" ? undefined : (preview ?? saved ?? undefined);
 	const label = src ? `Photo of ${person.displayName}` : person.displayName;
@@ -91,7 +78,6 @@ export function PersonPhoto({
 		"photo",
 		(v: PhotoSaved) => ({ ...store.getState().saved, revision: v.personRevision }) as PlantPerson,
 	);
-	/** A conflict: the person or the photo changed elsewhere, so the page reads the person and the photo again. */
 	const refused = async (code: string) => {
 		if (code !== "conflict") return;
 		onConflict();
@@ -128,7 +114,6 @@ export function PersonPhoto({
 				settled = true;
 				setPhoto(value.photo);
 				onSaved(value.receipt);
-				// Keep the chosen file on screen until the saved version has loaded, so the header never flashes empty.
 				const saved = photoSrc(value.photo);
 				if (!saved) return drop(local);
 				const img = new Image();
@@ -158,8 +143,6 @@ export function PersonPhoto({
 		setBusy(null);
 	}
 
-	// Inside the photo button the initials are the placeholder picture of the person, like the photo with alt="": they
-	// are drawn as generated content, so the button's only label is its name ("Add photo of …", WCAG 2.5.3).
 	const avatar = (
 		<Avatar name={person.displayName} label={label} src={src} size="xl" decorative={canEdit}>
 			{canEdit ? (
@@ -234,7 +217,6 @@ export function PersonPhoto({
 			<PopoverContent
 				label="Photo"
 				className="w-[340px] p-0"
-				// The notice is an assertive live region: it is read out where it is, without taking focus from the page.
 				onOpenAutoFocus={(e) => e.preventDefault()}
 				onInteractOutside={(e) => e.preventDefault()}
 				onEscapeKeyDown={() => lane.dismiss()}

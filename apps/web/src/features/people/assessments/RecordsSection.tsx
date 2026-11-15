@@ -14,24 +14,17 @@ import type { PersonRecords } from "./model.ts";
 
 export type PlantPerson = z.infer<typeof people.plantPerson>;
 
-/** What each record card needs from the person page. */
 export type RecordProps<T> = {
 	personId: string;
 	personName: string;
-	/** The stage as shown now, including a change still saving. */
 	stage: StageValue;
 	store: PersonStore<PlantPerson, PersonDraft>;
-	/** Shows a change to the person (the stage a record advances) while its save runs. */
 	expectPerson: (patch: Partial<PlantPerson>) => void;
-	/** The first history page, or null when it did not load. */
 	initial: T | null;
 	canEdit: boolean;
 	accountId: string;
-	/** A saved record: Activity adds its entry from the receipt. */
 	onSaved: (receipt: Receipt, fields: EntryFields) => void;
-	/** A refusal because this page's copy of the person is out of date. */
 	onConflict: () => void;
-	/** Every record corrected elsewhere on this page (Edit a record, WP-015): each card shows its own as saved now. */
 	corrected?: readonly CorrectedRecord[];
 };
 export type CorrectedRecord =
@@ -39,10 +32,6 @@ export type CorrectedRecord =
 	| { type: "interview"; record: z.infer<typeof people.interview> }
 	| { type: "commitment"; record: z.infer<typeof people.commitment> };
 
-/**
- * The person's 4 C's, interview and commitment (REQ-PPL-012, 013, 014), for an Owner or Admin. The 4 C's and the
- * interview sit side by side as in the approved Person screen; the commitment card is below them.
- */
 export function RecordsSection({
 	records,
 	documentsEnabled,

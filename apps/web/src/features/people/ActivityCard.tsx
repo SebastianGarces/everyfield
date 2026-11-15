@@ -35,13 +35,8 @@ type PlantPerson = z.infer<typeof people.plantPerson>;
 export type Activities = z.infer<typeof people.activitiesResult>;
 export type Item = Activities["items"][number];
 type Base = "id" | "occurredAt" | "recordedAt" | "actor";
-/** An Activity entry without the parts every entry has: what a saved change adds, before its receipt is known. */
 export type EntryFields = Item extends infer I ? (I extends Item ? Omit<I, Base> : never) : never;
 type Store = PersonStore<PlantPerson, PersonDraft>;
-/**
- * A saved note change moves the person revision on and changes nothing else on the person: the person this page holds
- * takes the answer's revision, so the next save on this page sends the latest one.
- */
 const savedAt =
 	(store: Store) =>
 	(v: { personRevision: PlantPerson["revision"] }): PlantPerson => ({
@@ -50,11 +45,6 @@ const savedAt =
 	});
 type NoteEdit = { body: string; reason: string };
 
-/**
- * Activity (REQ-PPL-008): ordinary notes, stage changes, record activity and follow-up history, newest first, in the
- * server's time-and-ID order, descending. Only a note's author edits or deletes it, with a reason that goes to the history. A
- * deleted note keeps a marker of who removed it and when; its words are gone. A saved note shows from its answer.
- */
 export function ActivityCard({
 	store,
 	activities,
@@ -68,14 +58,10 @@ export function ActivityCard({
 	store: Store;
 	activities: Outcome<Activities>;
 	onActivities: (activities: Outcome<Activities>) => void;
-	/** A saved note change: a new entry, or a known entry as it is now. */
 	onEntry: (item: Item) => void;
-	/** A note change was refused because this page is out of date: read the person again. */
 	onConflict: () => void;
-	/** The viewer's account, to tell their own notes from others'. */
 	accountId: string;
 	canWrite: boolean;
-	/** Opens the Unmerge preview for a merge in this history (WP-015). Owners and Admins only. */
 	onUnmerge?: (mergeId: string) => void;
 }) {
 	const state = usePersonState(store);
@@ -86,7 +72,6 @@ export function ActivityCard({
 	const first = person.displayName.split(" ")[0] ?? person.displayName;
 	const composer = (state.drafts.note as { body: string } | undefined)?.body ?? "";
 	const writing = canWrite && live;
-	// A merge that a later loaded entry undid offers no Unmerge; the dialog still guards one undone on an unloaded page.
 	const undone = new Set(
 		activities.status === "ok"
 			? activities.value.items.flatMap((i) =>
@@ -104,7 +89,6 @@ export function ActivityCard({
 		setMore({ loading: true });
 		const r = await loadActivities(person.id, activities.value.next).catch(() => ({ status: "lost" }) as const);
 		if (r.status === "ok") {
-			// A note saved since the first page shifted the pages by one: skip what is already shown.
 			const shown = new Set(activities.value.items.map((i) => i.id));
 			setActivities({
 				status: "ok",
@@ -409,7 +393,6 @@ function DeleteNoteDialog({
 	note: Extract<Item, { kind: "note" }> | null;
 	store: Store;
 	onClose: () => void;
-	/** The note's entry as it is now: a marker that it was deleted. */
 	onDeleted: (entry: Item) => void;
 	onConflict: () => void;
 }) {
