@@ -45,10 +45,9 @@ if (mode === "production" && git(project, "status", "--porcelain")) throw new Er
 // IDENTITY_* keys, or a full copy) laid over it. The worktree's file is only read, never created, edited or deleted,
 // so a seed's own up and down keep working. The composed env goes to a private config outside the repository.
 const env = composeEnv(join(root, "apps/web/.env.local"), join(project, "apps/web/.env.local"));
-// The dev host allowlist has one source: main's reset script, which only runs on the dev database.
 git(root, "fetch", "--quiet", "origin", "main");
-const resetScript = git(root, "show", "origin/main:packages/db/scripts/reset-dev.ts");
-const devHosts = [...(/developmentHosts = new Set\(\[([^\]]+)\]/.exec(resetScript)?.[1] ?? "").matchAll(/"([^"]+)"/g)].map((m) => m[1]);
+const hostsSource = git(root, "show", "origin/main:packages/db/src/development.ts");
+const devHosts = [...(/developmentHosts\b[^=]*= new Set\(\[([^\]]+)\]/.exec(hostsSource)?.[1] ?? "").matchAll(/"([^"]+)"/g)].map((m) => m[1]);
 assertDevelopmentDatabase(env, devHosts);
 
 // Portless needs Node 24+. Pin the newest installed Node 24 so commands do not depend on the caller's PATH.
