@@ -1,8 +1,0 @@
-{
-	"packages/ui/src/shell/AppShell.tsx": 14,
-	"packages/ui/src/shell/RoleBanner.tsx": 1,
-	"packages/ui/src/shell/ThemeToggle.tsx": 2,
-	"packages/ui/src/shell/nav.ts": 9,
-	"packages/ui/src/shell/preview/ShellPreview.tsx": 2,
-	"packages/ui/src/shell/preview/fixtures.ts": 3
-}

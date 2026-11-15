@@ -1,4 +1,3 @@
-// Invented sample data for /design/display. No real people, churches or numbers.
 import type { Stage } from "../Badges";
 import type { WikiPhase, WikiSource } from "../Content";
 import type { Tone } from "../tone";
