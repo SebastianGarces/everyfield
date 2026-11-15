@@ -1179,7 +1179,7 @@ function CompositionMap() {
 				aria-label="Feature compositions table"
 				tabIndex={0}
 				data-focus-inset=""
-				className="overflow-x-auto p-0"
+				className="overflow-x-auto"
 			>
 				<table className="w-full min-w-[620px] text-left text-md">
 					<thead className="text-sm text-text-3">

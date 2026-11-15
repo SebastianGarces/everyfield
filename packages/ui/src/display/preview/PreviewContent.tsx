@@ -155,10 +155,10 @@ function ArticleSpecimen() {
 	const trackHeadings = useMemo(() => observeHeadings(HEADING_IDS, setCurrent), []);
 	return (
 		<div className="mt-5 grid grid-cols-[250px_minmax(0,1fr)_240px] items-start gap-5 max-app-lg:grid-cols-[220px_minmax(0,1fr)] max-app-md:grid-cols-1">
-			<Specimen className="px-2.5 py-3.5 max-app-sm:px-2.5">
+			<Specimen>
 				<WikiTree phases={WIKI_PHASES} currentId="first" />
 			</Specimen>
-			<Specimen className="px-11 py-9 max-app-sm:px-5 max-app-sm:py-6">
+			<Specimen className="max-app-sm:py-6">
 				<Prose ref={trackHeadings}>
 					<p className="text-lg text-ink">
 						A vision meeting is a short, warm gathering where you share why this church should exist.
@@ -205,13 +205,13 @@ function EditorSpecimen() {
 			onCommand={toggle}
 			aside={
 				<>
-					<Specimen title="Version" className="px-[22px] py-5">
+					<Specimen title="Version" className="px-[22px]">
 						<KeyValueList>
 							<KeyValue k="Based on" value="Everyfield global v4" size="sm" />
 							<KeyValue k="Your edits" value="2 changed · 1 added" size="sm" />
 						</KeyValueList>
 					</Specimen>
-					<Specimen title="History" className="px-[22px] py-5">
+					<Specimen title="History" className="px-[22px]">
 						<RevisionList
 							revisions={[
 								{ id: "d", title: "Draft", meta: "Ruth Allen · now", state: "draft" },
