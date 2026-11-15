@@ -5,7 +5,7 @@
 	"apps/web/src/features/meetings/Kit.tsx": 7,
 	"apps/web/src/features/meetings/MeetingScreen.tsx": 44,
 	"apps/web/src/features/meetings/MeetingsScreen.tsx": 3,
-	"apps/web/src/features/meetings/PlanMeetingDialog.tsx": 25,
+	"apps/web/src/features/meetings/PlanMeetingDialog.tsx": 17,
 	"apps/web/src/features/meetings/RosterUpdate.tsx": 2,
 	"apps/web/src/features/meetings/RsvpScreen.tsx": 6,
 	"apps/web/src/features/meetings/actions.ts": 34,
