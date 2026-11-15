@@ -360,7 +360,7 @@ function RecordList({
 											disabled={r.voided}
 											onClick={() => onChoose(g.type, r.id)}
 											data-focus-inset=""
-											className="-mx-2 flex min-h-12 w-[calc(100%+16px)] items-center gap-3 rounded-md px-2 py-2.5 text-left transition-colors enabled:cursor-pointer enabled:hover:bg-hover disabled:cursor-not-allowed"
+											className="-mx-2 flex min-h-12 w-[calc(100%+16px)] items-center gap-3 rounded-md px-2 py-2.5 text-left transition-colors enabled:hover:bg-hover"
 										>
 											<span className="min-w-0 flex-1">
 												<span className="block font-medium text-ink">
@@ -735,9 +735,7 @@ function History({ corrections, accountId, open }: { corrections: Correction[]; 
 	if (!corrections.length) return null;
 	return (
 		<details open={open} className="group rounded-md bg-surface px-4 py-3">
-			<summary className="cursor-pointer text-sm font-semibold text-ink">
-				Changes to this record ({corrections.length})
-			</summary>
+			<summary className="text-sm font-semibold text-ink">Changes to this record ({corrections.length})</summary>
 			<ol className="mt-2 flex flex-col">
 				{corrections.map((c) => (
 					<li key={c.id} className="border-t border-line py-3 text-sm first:border-t-0">

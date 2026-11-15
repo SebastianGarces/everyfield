@@ -395,7 +395,7 @@ export default function ChurchEditor({
 									template. Find it in New from template on{" "}
 								</>
 							)}
-							<IntentLink href="/documents/church" className="cursor-pointer text-ink underline underline-offset-2">
+							<IntentLink href="/documents/church" className="text-ink underline underline-offset-2">
 								Church documents
 							</IntentLink>
 							.
@@ -471,7 +471,7 @@ export default function ChurchEditor({
 									>
 										<button
 											type="button"
-											className="inline-flex cursor-pointer items-center gap-1 rounded-sm bg-[var(--paper-muted)] px-2 py-0.5 text-xs font-semibold text-[var(--paper-ink)]"
+											className="inline-flex items-center gap-1 rounded-sm bg-[var(--paper-muted)] px-2 py-0.5 text-xs font-semibold text-[var(--paper-ink)]"
 										>
 											<LockGlyph />
 											Locked

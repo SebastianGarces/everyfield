@@ -365,7 +365,7 @@ function ColorMenu({
 					type="button"
 					disabled={disabled}
 					aria-label={`Color for ${tag.name}: ${label}`}
-					className="grid size-8 flex-none cursor-pointer place-items-center rounded-sm transition-[background-color] duration-150 hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-50"
+					className="grid size-8 flex-none place-items-center rounded-sm transition-[background-color] duration-150 hover:bg-surface-2 disabled:opacity-50"
 				>
 					<Swatch tone={look.tone} dot={look.dot} />
 				</button>

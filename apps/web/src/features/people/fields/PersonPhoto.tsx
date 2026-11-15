@@ -190,7 +190,7 @@ export function PersonPhoto({
 							<button
 								type="button"
 								aria-label={`${has ? "Change" : "Add"} photo of ${person.displayName}`}
-								className="group relative block cursor-pointer rounded-full"
+								className="group relative block rounded-full"
 								disabled={busy !== null || lane.wait !== null}
 							>
 								{avatar}

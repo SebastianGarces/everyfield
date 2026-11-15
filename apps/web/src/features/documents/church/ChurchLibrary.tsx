@@ -99,7 +99,7 @@ export function ChurchLibrary({ documents, templates, churchTemplates, canManage
 								<IntentLink
 									href={`/documents/church/${doc.id}`}
 									className={cn(
-										"group flex min-h-11 cursor-pointer items-center gap-4 rounded-card bg-surface-raised px-5 py-4",
+										"group flex min-h-11 items-center gap-4 rounded-card bg-surface-raised px-5 py-4",
 										"shadow-[0_0_0_1px_var(--ef-line)] transition-shadow duration-150 hover:shadow-[0_0_0_1px_var(--ef-ink)]",
 										"focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus",
 										"max-app-sm:flex-col max-app-sm:items-start max-app-sm:gap-2",
@@ -363,10 +363,10 @@ function TemplateCard({
 				aria-busy={busy || undefined}
 				disabled={disabled}
 				className={cn(
-					"flex w-full cursor-pointer items-start gap-4 rounded-card bg-surface-raised p-4 text-left",
+					"flex w-full items-start gap-4 rounded-card bg-surface-raised p-4 text-left",
 					"shadow-[0_0_0_1px_var(--ef-line)] transition-shadow duration-150 hover:shadow-[0_0_0_1px_var(--ef-ink)]",
 					"focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus",
-					"disabled:cursor-not-allowed disabled:opacity-60",
+					"disabled:opacity-60",
 					onDelete && "pr-26 max-app-sm:pr-16",
 				)}
 			>

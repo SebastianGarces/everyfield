@@ -95,7 +95,7 @@ export function ListRow({
 			data-focus-inset={interactive ? "" : undefined}
 			className={cn(
 				"flex w-full items-center gap-3.5 border-t border-line py-4 text-left text-ink first:border-t-0",
-				interactive && "-mx-2 w-[calc(100%+16px)] cursor-pointer rounded-md px-2 transition-colors hover:bg-hover",
+				interactive && "-mx-2 w-[calc(100%+16px)] rounded-md px-2 transition-colors hover:bg-hover",
 				className,
 			)}
 		>
