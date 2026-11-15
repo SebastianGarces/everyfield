@@ -19,5 +19,11 @@
 		"types": ["node"],
 		"noEmit": true
 	},
-	"include": ["scripts/**/*.ts", "tools/ci/**/*.ts", "tools/qa/**/*.ts", "ops/actionable-watch/**/*.mts"]
+	"include": [
+		"scripts/**/*.ts",
+		"tools/ci/**/*.ts",
+		"tools/qa/**/*.ts",
+		"tools/prod-identity/**/*.ts",
+		"ops/actionable-watch/**/*.mts"
+	]
 }

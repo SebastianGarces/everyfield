@@ -1,0 +1,8 @@
+#!/bin/sh
+# prod-identity: the one-time production identity setup (T-396). Runs tools/prod-identity/setup.ts on Node 24+.
+# Dry run unless --apply. Runbook: docs/runbooks/production-identity.md
+set -e
+here=$(cd "$(dirname "$0")/.." && pwd)
+tool=prod-identity
+. "$here/bin/lib/node24.sh"
+exec "$node_bin" --disable-warning=ExperimentalWarning "$here/tools/prod-identity/setup.ts" "$@"
