@@ -23,9 +23,19 @@ import {
 } from "@everyfield/ui/controls";
 import { Tag, Toc, WikiSourceBar, type WikiPhase, WikiTree } from "@everyfield/ui/display";
 import Link from "next/link";
-import { observeHeadings } from "@everyfield/ui/foundations";
+import { createDebouncer, observeHeadings } from "@everyfield/ui/foundations";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { createContext, use, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
+import {
+	createContext,
+	use,
+	useCallback,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+	useTransition,
+	type ReactNode,
+} from "react";
 import { createRead, useRead } from "../../components/read.tsx";
 import { shortcutMark } from "../../components/save/leave.ts";
 import {
@@ -116,49 +126,42 @@ const PHASES = [
 
 const SEARCH_DELAY_MS = 250;
 
+const searches = createRead(
+	(text: string, phase: string, page: number, source: string | null) =>
+		searchWiki(text, phase === "all" ? null : Number(phase), page, source),
+	{ failed: (): SearchResult => ({ status: "lost" }) },
+);
+
+type Asked = { text: string; phase: string; page: number; source: string | null };
+
 function SearchDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
-	const params = useSearchParams();
-	const source = params.get("source");
+	const source = useSearchParams().get("source");
 	const [query, setQuery] = useState("");
-	const [phase, setPhase] = useState("all");
-	const [page, setPage] = useState(1);
-	const [result, setResult] = useState<SearchResult | null>(null);
-	const [pending, setPending] = useState(false);
-	const field = useRef<HTMLInputElement>(null);
-	const sequence = useRef(0);
-	const timer = useRef(0);
+	const [asked, setAsked] = useState<Asked>({ text: "", phase: "all", page: 1, source: null });
+	const [pause] = useState(() => createDebouncer(SEARCH_DELAY_MS));
+	const found = useRead(asked.text ? searches : null, asked.text, asked.phase, asked.page, asked.source);
+	const [shown, setShown] = useState<{ page: number; result: SearchResult } | null>(null);
+	const latest = !asked.text ? null : found.value ? { page: asked.page, result: found.value } : shown;
+	if (latest?.result !== shown?.result) setShown(latest);
+	const pending = query.trim() !== asked.text || found.status === "loading";
+	const field = useRef<HTMLInputElement | null>(null);
+	const holdField = useCallback(
+		(node: HTMLInputElement | null) => {
+			field.current = node;
+			if (!node) return;
+			return () => {
+				field.current = null;
+				pause.flush();
+			};
+		},
+		[pause],
+	);
 
-	useEffect(() => () => window.clearTimeout(timer.current), []);
-
-	/** Run one search. Only the newest request may write its result. */
-	async function run(text: string, phaseValue: string, nextPage: number) {
-		window.clearTimeout(timer.current);
-		const id = ++sequence.current;
-		const trimmed = text.trim();
-		if (!trimmed) {
-			setResult(null);
-			setPending(false);
-			return;
-		}
-		setPending(true);
-		let found: SearchResult;
-		try {
-			found = await searchWiki(trimmed, phaseValue === "all" ? null : Number(phaseValue), nextPage, source);
-		} catch {
-			found = { status: "lost" };
-		}
-		if (id !== sequence.current) return;
-		setResult(found);
-		setPage(nextPage);
-		setPending(false);
-	}
-
-	function schedule(text: string, phaseValue: string) {
-		window.clearTimeout(timer.current);
-		// Supersede any request in flight while the delay runs.
-		sequence.current += 1;
-		setPending(true);
-		timer.current = window.setTimeout(() => void run(text, phaseValue, 1), SEARCH_DELAY_MS);
+	function ask(text: string, phase: string, page: number) {
+		pause.cancel();
+		const next = { text: text.trim(), phase, page, source };
+		if (next.text) void searches.refresh(next.text, next.phase, next.page, next.source);
+		setAsked(next);
 	}
 
 	return (
@@ -176,34 +179,32 @@ function SearchDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (op
 						className="flex flex-col gap-3"
 						onSubmit={(event) => {
 							event.preventDefault();
-							void run(query, phase, 1);
+							ask(query, asked.phase, 1);
 						}}
 					>
 						<SearchInput
-							ref={field}
+							ref={holdField}
 							value={query}
 							maxLength={200}
 							placeholder="Search the wiki"
 							aria-label="Search words"
 							onChange={(event) => {
-								setQuery(event.target.value);
-								schedule(event.target.value, phase);
+								const text = event.target.value;
+								setQuery(text);
+								pause.run(() => ask(text, asked.phase, 1));
 							}}
 						/>
 						<Select
 							aria-label="Phase"
-							value={phase}
+							value={asked.phase}
 							options={PHASES}
-							onValueChange={(next) => {
-								setPhase(next);
-								void run(query, next, 1);
-							}}
+							onValueChange={(next) => ask(query, next, 1)}
 							className="w-[240px]"
 						/>
 					</form>
-					<SearchBody result={result} pending={pending} query={query.trim()} />
-					{result?.status === "results" && result.nextPage ? (
-						<Button variant="secondary" onClick={() => void run(query, phase, page + 1)} loading={pending}>
+					<SearchBody result={shown?.result ?? null} pending={pending} query={query.trim()} />
+					{shown?.result.status === "results" && shown.result.nextPage ? (
+						<Button variant="secondary" onClick={() => ask(query, asked.phase, shown.page + 1)} loading={pending}>
 							Next page
 						</Button>
 					) : null}
