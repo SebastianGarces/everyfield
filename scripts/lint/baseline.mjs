@@ -6,24 +6,19 @@ import { RATCHETED } from "./everyfield-plugin.mjs";
 import { area, baselineDir, readBaseline, root, SCRIPT_RULES } from "./ratchet.mjs";
 import { commentScanner, directiveCount, inScope, JS, MIGRATIONS, repoFiles } from "./scan.mjs";
 
-const toRepo = (file) => relative(root, file).split(sep).join("/");
-
-function lintCounts() {
+function lintCounts(dir, runs, env) {
 	const counts = Object.fromEntries(RATCHETED.map((rule) => [rule, {}]));
-	for (const run of oxlintRuns(root)) {
+	for (const run of runs) {
+		const roots = run.roots.filter((path) => existsSync(path));
+		if (!roots.length) continue;
 		const ran = spawnSync(
 			run.bin,
-			[
-				...(run.config ? ["-c", run.config] : []),
-				"-f",
-				"json",
-				...run.roots.map((dir) => relative(run.cwd, dir) || "."),
-			],
+			[...(run.config ? ["-c", run.config] : []), "-f", "json", ...roots.map((path) => relative(run.cwd, path) || ".")],
 			{
 				cwd: run.cwd,
 				encoding: "utf8",
 				maxBuffer: 1 << 30,
-				env: { ...process.env, EVERYFIELD_LINT_BASELINE: "off" },
+				env: { ...process.env, ...env, EVERYFIELD_LINT_BASELINE: "off" },
 			},
 		);
 		const report = JSON.parse(ran.stdout.slice(ran.stdout.indexOf("{")));
@@ -31,7 +26,7 @@ function lintCounts() {
 		for (const d of report.diagnostics) {
 			const rule = /^everyfield\(([\w-]+)\)$/.exec(d.code ?? "")?.[1];
 			if (!counts[rule]) continue;
-			const path = toRepo(resolve(run.cwd, d.filename));
+			const path = relative(dir, resolve(run.cwd, d.filename)).split(sep).join("/");
 			const key = `${rule}\0${path}`;
 			perRun[key] = (perRun[key] ?? 0) + 1;
 		}
@@ -43,11 +38,11 @@ function lintCounts() {
 	return counts;
 }
 
-function textCounts(counts) {
+function textCounts(counts, dir, files) {
 	counts["lint-directives"] = {};
-	for (const path of repoFiles()) {
-		if (!inScope(path) || MIGRATIONS.test(path) || !existsSync(join(root, path))) continue;
-		const text = readFileSync(join(root, path), "utf8");
+	for (const path of files) {
+		if (!inScope(path) || MIGRATIONS.test(path) || !existsSync(join(dir, path))) continue;
+		const text = readFileSync(join(dir, path), "utf8");
 		const directives = directiveCount(text);
 		if (directives) counts["lint-directives"][path] = directives;
 		if (JS.test(path)) continue;
@@ -57,7 +52,8 @@ function textCounts(counts) {
 	return counts;
 }
 
-export const actualCounts = () => textCounts(lintCounts());
+export const actualCounts = ({ dir = root, runs = oxlintRuns(root), files = repoFiles(), env = {} } = {}) =>
+	textCounts(lintCounts(dir, runs, env), dir, files);
 
 function write(rule, entries) {
 	const dir = join(baselineDir, rule);

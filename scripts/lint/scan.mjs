@@ -51,7 +51,7 @@ function hashComments(text) {
 			if (quote) {
 				if (c === "\\" && quote === '"') j++;
 				else if (c === quote) quote = null;
-			} else if (c === '"' || c === "'") quote = c;
+			} else if ((c === '"' || c === "'") && (j === 0 || /[\s:[{,=(]/.test(line[j - 1]))) quote = c;
 			else if (c === "#" && (j === 0 || /\s/.test(line[j - 1]))) return [at + 1];
 		}
 		return [];
