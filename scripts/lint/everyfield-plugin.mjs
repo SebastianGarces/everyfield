@@ -1,4 +1,5 @@
 import { fileProblems, importProblem, routeFeatures } from "./boundaries.mjs";
+import { existsSync, readFileSync } from "node:fs";
 import { area, commentsExempt, ratchet, repoPath, sqlMarkers } from "./ratchet.mjs";
 
 const RESEND_PACKAGE = /^resend(?:\/|$)/;
@@ -481,6 +482,7 @@ const noTimers = ratcheted("no-timers", (context, push) => {
 });
 
 export const LOCATION_STORE = "apps/web/src/components/location.ts";
+export const ONE_TIME_LINK = "apps/web/src/components/one-time-link.ts";
 export const PAGE_EVENTS = "apps/web/src/components/save/leave.ts";
 const HISTORY_MEMBERS = new Set(["pushState", "replaceState", "onpopstate"]);
 const HISTORY_STRINGS = new Set(["pushState", "replaceState", "popstate", "onpopstate", "currententrychange"]);
@@ -497,22 +499,56 @@ const isHost = (node, context, names) =>
 const isHistory = (node, context) =>
 	isHost(node, context, new Set(["history"])) ||
 	(memberName(node) === "history" && isHost(node.object, context, GLOBAL_HOSTS));
+const LINK_VALUE_ENTRY = /path: "(\/[^"]+)",\s*part: "(query|fragment)",\s*param: (?:null|"([^"]+)")/g;
+const LINK_REGISTRY = new URL(`../../${ONE_TIME_LINK}`, import.meta.url);
+const LINK_VALUES = [
+	...(existsSync(LINK_REGISTRY) ? readFileSync(LINK_REGISTRY, "utf8") : "").matchAll(LINK_VALUE_ENTRY),
+].map(([, path, part, param]) => ({ path, part, param }));
+const carriesLinkValue = (text) =>
+	LINK_VALUES.some(({ path, part, param }) => {
+		if (!text.startsWith(path) || !/^[?#]/.test(text.slice(path.length))) return false;
+		const [beforeHash, ...hash] = text.split("#");
+		if (part === "fragment") return hash.length > 0;
+		return new RegExp(`[?&]${param}=`).test(beforeHash);
+	});
+const isLocation = (node, context) =>
+	isHost(node, context, new Set(["location"])) ||
+	(memberName(node) === "location" && isHost(node.object, context, new Set([...GLOBAL_HOSTS, "document"])));
 const isNavigation = (node, context) =>
 	isHost(node, context, new Set(["navigation"])) ||
 	(memberName(node) === "navigation" && isHost(node.object, context, GLOBAL_HOSTS));
 
+const PLACEHOLDER = "\u0000";
+const addressText = (node) => {
+	if (node.type === "Literal") return typeof node.value === "string" ? node.value : PLACEHOLDER;
+	if (node.type === "TemplateLiteral")
+		return node.quasis.map((q, i) => (i ? PLACEHOLDER : "") + (q.value.cooked ?? "")).join("");
+	if (node.type === "BinaryExpression" && node.operator === "+")
+		return addressText(node.left) + addressText(node.right);
+	return PLACEHOLDER;
+};
+const MAIL_BUILDERS = /^apps\/web\/src\/server\//;
+
 const noRawHistory = ratcheted("no-raw-history", (context, push) => {
-	if (repoPath(context.filename) === LOCATION_STORE) return {};
+	const path = repoPath(context.filename);
+	if ([LOCATION_STORE, ONE_TIME_LINK].includes(path)) return {};
 	const report = (node, word) =>
 		push({
 			node,
 			fn: enclosingName(node),
-			message: `${word} outside ${LOCATION_STORE}: the address has one owner. Write it with writeAddress, read it with usePath or useAddress, react to Back and Forward with an address rule or onTraversal, so every reader sees the same address in the same event.`,
+			message: `${word} outside ${LOCATION_STORE}: the address has one owner. Write it with writeAddress, read it with usePath or useAddress, read a one-time link value with useOneTimeLinkValue, react to Back and Forward with an address rule or onTraversal, so every reader sees the same address in the same event.`,
 		});
+	const linkAddress = (node, text) => {
+		if (MAIL_BUILDERS.test(path)) return;
+		const address = text.startsWith(PLACEHOLDER + "/") ? text.slice(1) : text;
+		if (carriesLinkValue(address))
+			report(node, "an in-app address with a one-time link value (only an emailed link may carry one)");
+	};
 	return {
 		MemberExpression(node) {
 			const name = memberName(node);
 			if (name && HISTORY_MEMBERS.has(name)) return report(node, name);
+			if (name === "hash" && isLocation(node.object, context)) return report(node, "location.hash");
 			if (node.computed && name === null && isHistory(node.object, context)) return report(node, "history[...]");
 			if (isNavigation(node, context) || isNavigation(node.object, context)) report(node, "the Navigation API");
 		},
@@ -524,10 +560,24 @@ const noRawHistory = ratcheted("no-raw-history", (context, push) => {
 		Literal(node) {
 			const value = stringValue(node);
 			if (value && HISTORY_STRINGS.has(value) && memberName(node.parent) === null) report(node, value);
+			if (node.parent?.type !== "BinaryExpression" && typeof node.value === "string") linkAddress(node, node.value);
 		},
 		TemplateLiteral(node) {
 			const value = stringValue(node);
 			if (value && HISTORY_STRINGS.has(value)) report(node, value);
+			if (node.parent?.type !== "BinaryExpression") linkAddress(node, addressText(node));
+		},
+		BinaryExpression(node) {
+			if (node.operator === "+" && !(node.parent?.type === "BinaryExpression" && node.parent.operator === "+"))
+				linkAddress(node, addressText(node));
+		},
+		ImportSpecifier(node) {
+			if (keyName(node.imported, false) === "useLocationHash") report(node, "useLocationHash");
+		},
+		VariableDeclarator(node) {
+			if (node.id.type !== "ObjectPattern" || !isLocation(node.init, context)) return;
+			for (const p of node.id.properties)
+				if (p.type === "Property" && keyName(p.key, p.computed) === "hash") report(p, "location.hash");
 		},
 	};
 });
@@ -537,7 +587,7 @@ const LISTENER_MEMBERS = new Set(["addEventListener", "removeEventListener"]);
 const LISTENER_HOSTS = new Set([...GLOBAL_HOSTS, "document"]);
 const HOST_MEMBERS = new Set(["document", "body", "documentElement", "ownerDocument", "defaultView", "visualViewport"]);
 const ON_HANDLER = /^on[a-z]+$/;
-const REGISTRY_WORDS = new Set(["onTraversal", "addAddressRule"]);
+const REGISTRY_WORDS = new Set(["onTraversal", "onNavigation", "addAddressRule"]);
 
 function isJsxRef(fn) {
 	let node = fn.parent;
@@ -552,7 +602,7 @@ const noGlobalListeners = ratcheted("no-global-listeners", (context, push) => {
 		push({
 			node,
 			fn: enclosingName(node),
-			message: `${name}: page-wide events have one owner each. Address changes go through ${LOCATION_STORE} (an address rule registered at module scope, or onTraversal started from an event); shortcuts and the unsaved-work warning go through ${PAGE_EVENTS} (data-shortcut on the form or control, data-unsaved on the form). A listener tied to a component's lifetime is an effect: it needs a survivor entry.`,
+			message: `${name}: page-wide events have one owner each. Address changes go through ${LOCATION_STORE} (an address rule registered at module scope, or onTraversal started from an event); shortcuts, the unsaved-work warning, the leave hold and the last write when the page is hidden go through ${PAGE_EVENTS} (shortcutMark on the form or control, unsavedMark or leaveHoldMark on the form, leaveBeaconMark on the element that holds the write). A listener tied to a component's lifetime is an effect: it needs a survivor entry.`,
 		});
 	const isGlobalHost = (node) =>
 		isHost(node, context, LISTENER_HOSTS) ||
@@ -588,7 +638,7 @@ const noGlobalListeners = ratcheted("no-global-listeners", (context, push) => {
 			const fn = nearestFunction(node);
 			const owner = fn && functionName(fn);
 			if (fn && (isJsxRef(fn) || (owner && /^([A-Z]|use[A-Z0-9])/.test(owner))))
-				report(node, "onTraversal registered for a component's lifetime");
+				report(node, `${name} registered for a component's lifetime`);
 		},
 	};
 });
@@ -696,7 +746,7 @@ const readLoader = {
 	create(context) {
 		return {
 			CallExpression(node) {
-				if (node.callee.type !== "Identifier" || node.callee.name !== "createRead") return;
+				if (node.callee.type !== "Identifier" || !["createRead", "useLocalRead"].includes(node.callee.name)) return;
 				const loader = node.arguments[0];
 				if (!loader || loader.type === "Identifier") return;
 				const fine =
@@ -707,7 +757,7 @@ const readLoader = {
 					context.report({
 						node: loader,
 						message:
-							"A createRead loader only loads its key: one call of a server read or fetch, optionally mapped with then/catch/finally arrows that return a value. Anything else (marking read, navigation, focus, a timer, a write) would run once per key when the first reader subscribes, a mount hook with no cleanup.",
+							"A createRead or useLocalRead loader only loads its key: one call of a server read or fetch, optionally mapped with then/catch/finally arrows that return a value. Anything else (marking read, navigation, focus, a timer, a write) would run once per key when the first reader subscribes, a mount hook with no cleanup.",
 					});
 			},
 		};
