@@ -2,7 +2,8 @@
 
 import { organizationBodyFits } from "@everyfield/contracts/wiki";
 import { Button, ConfirmDialog, Field, Select, Textarea } from "@everyfield/ui/controls";
-import { useEffect, useRef, useState } from "react";
+import { useFocusRequest } from "@everyfield/ui/foundations";
+import { useReducer, useRef, useState, useTransition } from "react";
 import { hideWikiSource, publishWikiArticle, saveWikiDraft, type OrgResult } from "./actions.ts";
 import {
 	articlePath,
@@ -64,10 +65,58 @@ function textLabel(block: TextBlock): string {
 	return "Paragraph";
 }
 
-function seedRows(body: string | null, contentType: string): Row[] {
+type Doc = { rows: Row[]; next: number; focus: { key: string; n: number } | null };
+
+type Edit =
+	| { type: "update"; key: string; block: EditorBlock }
+	| { type: "move"; index: number; direction: -1 | 1 }
+	| { type: "remove"; key: string }
+	| { type: "add" }
+	| { type: "focus"; key: string };
+
+function seedDoc({ body, contentType }: { body: string | null; contentType: string }): Doc {
 	const parsed = body ? editorBlocksFromBody(contentType, body) : [];
 	const blocks = parsed.length ? parsed : [{ kind: "paragraph" as const, text: "" }];
-	return blocks.map((block, index) => ({ key: `block-${index + 1}`, block }));
+	return {
+		rows: blocks.map((block, index) => ({ key: `block-${index + 1}`, block })),
+		next: blocks.length + 1,
+		focus: null,
+	};
+}
+
+const focusOn = (doc: Doc, key: string): Doc["focus"] => ({ key, n: (doc.focus?.n ?? 0) + 1 });
+
+function edit(doc: Doc, change: Edit): Doc {
+	const { rows } = doc;
+	if (change.type === "update")
+		return { ...doc, rows: rows.map((row) => (row.key === change.key ? { ...row, block: change.block } : row)) };
+	if (change.type === "focus") return { ...doc, focus: focusOn(doc, change.key) };
+	if (change.type === "add") {
+		const key = `block-${doc.next}`;
+		return {
+			rows: [...rows, { key, block: { kind: "paragraph", text: "" } }],
+			next: doc.next + 1,
+			focus: focusOn(doc, key),
+		};
+	}
+	if (change.type === "remove") {
+		if (rows.length < 2) return doc;
+		const index = rows.findIndex((row) => row.key === change.key);
+		const landing = rows[Math.max(0, index - 1)]?.key;
+		return {
+			...doc,
+			rows: rows.filter((row) => row.key !== change.key),
+			focus: landing ? focusOn(doc, landing) : doc.focus,
+		};
+	}
+	const target = change.index + change.direction;
+	const row = rows[change.index];
+	const other = rows[target];
+	if (!row || !other) return doc;
+	const next = rows.slice();
+	next[change.index] = other;
+	next[target] = row;
+	return { ...doc, rows: next, focus: focusOn(doc, row.key) };
 }
 
 function failureCopy(status: Exclude<OrgResult["status"], "ok">): string {
@@ -101,15 +150,16 @@ function TextFields({
 	block,
 	index,
 	error,
-	bind,
+	focusRequest,
 	onChange,
 }: {
 	block: TextBlock;
 	index: number;
 	error: string | undefined;
-	bind: (node: HTMLTextAreaElement | null) => void;
+	focusRequest: number;
 	onChange: (block: EditorBlock) => void;
 }) {
+	const focusText = useFocusRequest<HTMLTextAreaElement>(focusRequest);
 	return (
 		<>
 			<Field label={`Block ${index + 1} type`}>
@@ -125,7 +175,7 @@ function TextFields({
 				error={error}
 			>
 				<Textarea
-					ref={bind}
+					ref={focusText}
 					value={block.text}
 					rows={block.kind === "paragraph" || block.kind === "list" ? 5 : 2}
 					onChange={(event) => onChange({ ...block, text: event.target.value })}
@@ -156,36 +206,18 @@ export function WikiEditor({
 	baselineBody: string | null;
 	baselineContentType: string;
 }) {
-	const [rows, setRows] = useState<Row[]>(() => seedRows(initialBody, initialContentType));
-	const [revision, setRevision] = useState(initialRevision);
-	const [articleState, setArticleState] = useState<ArticleState>(initialState);
-	const [busy, setBusy] = useState<"save" | "publish" | "hide" | null>(null);
-	const [status, setStatus] = useState("");
-	const [formError, setFormError] = useState("");
-	const [publishOpen, setPublishOpen] = useState(false);
-	const [hideOpen, setHideOpen] = useState(false);
-	const revisionRef = useRef(initialRevision);
+	const [doc, dispatch] = useReducer(edit, { body: initialBody, contentType: initialContentType }, seedDoc);
+	const [saved, setSaved] = useState({ revision: initialRevision, state: initialState });
+	const [notice, setNotice] = useState({ status: "", error: "" });
+	const [confirm, setConfirm] = useState<"publish" | "hide" | null>(null);
+	const [saving, startSave] = useTransition();
 	const lock = useRef(false);
-	const keyCount = useRef(Math.max(1, rows.length) + 1);
-	const fields = useRef(new Map<string, HTMLTextAreaElement>());
-	const pendingFocus = useRef<string | null>(null);
+	const { rows } = doc;
 	const baseline = baselineBody ? editorBlocksFromBody(baselineContentType, baselineBody) : [];
 	const blocks = rows.map((row) => row.block);
 	const changes = changedSectionLabels(baseline, blocks);
 	const consequences = [...changes, "Finished readers will see Updated since you read it."];
 	const textChanged = articleTextChanged(baseline, blocks);
-
-	useEffect(() => {
-		const key = pendingFocus.current;
-		if (!key) return;
-		pendingFocus.current = null;
-		fields.current.get(key)?.focus();
-	});
-
-	function focusRow(key: string | undefined) {
-		if (!key) return;
-		pendingFocus.current = key;
-	}
 
 	function writeBody(): string {
 		return editorWriteBody(initialBody, initialContentType, blocks);
@@ -204,15 +236,13 @@ export function WikiEditor({
 			if (invalid) return invalid;
 		}
 		lock.current = true;
-		setBusy(kind);
-		setFormError("");
-		const body = writeBody();
+		setNotice((current) => ({ ...current, error: "" }));
 		const command = {
 			requestKey: crypto.randomUUID(),
-			expectedRevision: revisionRef.current,
+			expectedRevision: saved.revision,
 			articleId,
 			organizationId,
-			body,
+			body: writeBody(),
 			cachePath: articlePath(slug).slice(0, 400),
 		};
 		try {
@@ -223,31 +253,32 @@ export function WikiEditor({
 						? await publishWikiArticle(command)
 						: await saveWikiDraft(command);
 			if (result.status !== "ok") return failureCopy(result.status);
-			revisionRef.current = result.revision;
-			setRevision(result.revision);
-			setArticleState(result.state);
-			setStatus(successCopy(kind, result.state));
+			setSaved({ revision: result.revision, state: result.state });
+			setNotice({ status: successCopy(kind, result.state), error: "" });
 			return null;
 		} catch {
 			return "That did not save. Try again.";
 		} finally {
 			lock.current = false;
-			setBusy(null);
 		}
 	}
 
 	function showProblem(message: string) {
-		setFormError(message);
-		setStatus("");
-		if (message === EMPTY_TEXT) {
-			const key = rows[0]?.key;
-			if (key) fields.current.get(key)?.focus();
-		}
+		setNotice({ status: "", error: message });
+		const key = rows[0]?.key;
+		if (message === EMPTY_TEXT && key) dispatch({ type: "focus", key });
 	}
 
-	async function save() {
-		const message = await commit("save");
-		if (message) showProblem(message);
+	function save() {
+		const invalid = problem();
+		if (invalid) {
+			showProblem(invalid);
+			return;
+		}
+		startSave(async () => {
+			const message = await commit("save");
+			if (message) showProblem(message);
+		});
 	}
 
 	function openPublish() {
@@ -256,65 +287,23 @@ export function WikiEditor({
 			showProblem(message);
 			return;
 		}
-		setFormError("");
-		setPublishOpen(true);
+		setNotice((current) => ({ ...current, error: "" }));
+		setConfirm("publish");
 	}
 
 	function openHide() {
-		setFormError("");
-		setHideOpen(true);
+		setNotice((current) => ({ ...current, error: "" }));
+		setConfirm("hide");
 	}
 
-	function update(key: string, block: EditorBlock) {
-		setRows((current) => current.map((row) => (row.key === key ? { ...row, block } : row)));
-	}
-
-	function move(index: number, direction: -1 | 1) {
-		const target = index + direction;
-		const row = rows[index];
-		if (!row || !rows[target]) return;
-		setRows((current) => {
-			const next = current.slice();
-			const item = next[index];
-			const other = next[target];
-			if (!item || !other) return current;
-			next[index] = other;
-			next[target] = item;
-			return next;
-		});
-		focusRow(row.key);
-	}
-
-	function remove(key: string) {
-		if (rows.length < 2) return;
-		const index = rows.findIndex((row) => row.key === key);
-		setRows((current) => (current.length < 2 ? current : current.filter((row) => row.key !== key)));
-		focusRow(rows[Math.max(0, index - 1)]?.key);
-	}
-
-	function addParagraph() {
-		const key = `block-${keyCount.current}`;
-		keyCount.current += 1;
-		setRows((current) => [...current, { key, block: { kind: "paragraph", text: "" } }]);
-		focusRow(key);
-	}
-
-	const locked = busy !== null || publishOpen || hideOpen;
-	const canHide = revision !== "0" && articleState !== "hide";
-
-	useEffect(() => {
-		const root = document.documentElement;
-		const previous = root.style.scrollPaddingBottom;
-		root.style.scrollPaddingBottom = "128px";
-		return () => {
-			root.style.scrollPaddingBottom = previous;
-		};
-	}, []);
+	const formError = notice.error;
+	const locked = saving || confirm !== null;
+	const canHide = saved.revision !== "0" && saved.state !== "hide";
 
 	return (
 		<div className="rounded-card bg-surface px-6 py-8 shadow-card max-app-sm:px-4 sm:px-11">
 			<form
-				className="mx-auto flex max-w-[700px] flex-col gap-8"
+				className="mx-auto flex max-w-[700px] flex-col gap-8 [&_*]:scroll-mb-32"
 				aria-label="Organization version"
 				onSubmit={(event) => event.preventDefault()}
 			>
@@ -336,26 +325,33 @@ export function WikiEditor({
 												? formError
 												: undefined
 										}
-										bind={(node) => {
-											if (node) fields.current.set(row.key, node);
-											else fields.current.delete(row.key);
-										}}
-										onChange={(block) => update(row.key, block)}
+										focusRequest={doc.focus?.key === row.key ? doc.focus.n : 0}
+										onChange={(block) => dispatch({ type: "update", key: row.key, block })}
 									/>
 								)}
 								<div className="flex flex-wrap gap-2">
-									<Button type="button" variant="ghost" disabled={index === 0} onClick={() => move(index, -1)}>
+									<Button
+										type="button"
+										variant="ghost"
+										disabled={index === 0}
+										onClick={() => dispatch({ type: "move", index, direction: -1 })}
+									>
 										Move up
 									</Button>
 									<Button
 										type="button"
 										variant="ghost"
 										disabled={index === rows.length - 1}
-										onClick={() => move(index, 1)}
+										onClick={() => dispatch({ type: "move", index, direction: 1 })}
 									>
 										Move down
 									</Button>
-									<Button type="button" variant="ghost" disabled={rows.length < 2} onClick={() => remove(row.key)}>
+									<Button
+										type="button"
+										variant="ghost"
+										disabled={rows.length < 2}
+										onClick={() => dispatch({ type: "remove", key: row.key })}
+									>
 										Remove
 									</Button>
 								</div>
@@ -364,7 +360,7 @@ export function WikiEditor({
 					))}
 				</ol>
 				<div>
-					<Button type="button" variant="outline" disabled={locked} onClick={addParagraph}>
+					<Button type="button" variant="outline" disabled={locked} onClick={() => dispatch({ type: "add" })}>
 						Add a paragraph
 					</Button>
 				</div>
@@ -375,15 +371,10 @@ export function WikiEditor({
 						) : null}
 					</div>
 					<p role="status" className="min-h-6 text-sm text-text-2">
-						{status}
+						{notice.status}
 					</p>
 					<div className="flex flex-wrap gap-3">
-						<Button
-							type="button"
-							loading={busy === "save"}
-							disabled={locked && busy !== "save"}
-							onClick={() => void save()}
-						>
+						<Button type="button" loading={saving} disabled={locked && !saving} onClick={save}>
 							Save draft
 						</Button>
 						<Button type="button" variant="primary" disabled={locked} onClick={openPublish}>
@@ -397,8 +388,8 @@ export function WikiEditor({
 					</div>
 				</div>
 				<ConfirmDialog
-					open={publishOpen}
-					onOpenChange={setPublishOpen}
+					open={confirm === "publish"}
+					onOpenChange={(open) => setConfirm(open ? "publish" : null)}
 					title="Publish this article?"
 					description="Readers of this wiki will see this version."
 					consequences={textChanged ? consequences : ["Finished readers will see Updated since you read it."]}
@@ -409,8 +400,8 @@ export function WikiEditor({
 					}}
 				/>
 				<ConfirmDialog
-					open={hideOpen}
-					onOpenChange={setHideOpen}
+					open={confirm === "hide"}
+					onOpenChange={(open) => setConfirm(open ? "hide" : null)}
 					title="Hide this source?"
 					description="You can publish this source again later."
 					tone="danger"
