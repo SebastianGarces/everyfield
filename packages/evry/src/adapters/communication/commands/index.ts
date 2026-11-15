@@ -156,7 +156,6 @@ const classifiedPeople = (plantId: string, facts: AudienceFacts) =>
 	), hashes AS (SELECT key AS email,value AS hash FROM jsonb_each_text(${JSON.stringify(facts.hashes)}::jsonb)),
 	classified AS (
 		SELECT p.id,p."displayName" AS name,
-			-- The handoff's own refusals, in its order: the person's opt-out from this church decides before the address.
 			CASE WHEN btrim(coalesce(p.email,''))='' THEN 'no_address'
 				WHEN ${optedOutSql(sql`${plantId}::uuid`, sql`p.id`)} THEN 'unsubscribed'
 				WHEN EXISTS(SELECT 1 FROM suppression s JOIN hashes h ON h.hash=s.address_hash
