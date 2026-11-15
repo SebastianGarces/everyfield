@@ -1,6 +1,3 @@
-// The formal checks (T-398): `bin/dev formal` checks every model with TLC, the outcome table and the maps, and each
-// property can fail. The two demonstrations in .agents/skills/formal-permissions/SKILL.md run here on a scratch copy
-// of the model, so a property that stopped constraining anything fails this test.
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -12,7 +9,6 @@ import { mapProblems } from "../../tools/formal/formal.ts";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const MAP = ".agents/skills/formal-permissions/map.json";
-// TLC's scratch copies live under the cache in the home folder, which Docker on macOS shares with its VM.
 const cache = process.env.EVERYFIELD_FORMAL_CACHE ?? join(homedir(), ".cache", "everyfield", "formal");
 mkdirSync(cache, { recursive: true });
 
@@ -25,7 +21,6 @@ function formal(...args: string[]) {
 	return { status: r.status, output: `${r.stdout}${r.stderr}` };
 }
 
-/** A scratch copy of the permissions model with one text edit, which must apply exactly once. */
 function mutant(from: string, to: string) {
 	const dir = mkdtempSync(join(cache, "mutant-"));
 	cpSync(join(root, "formal/permissions"), dir, { recursive: true });
@@ -62,13 +57,11 @@ test("INV-formal: the permissions model passes every property and its outcome ta
 });
 
 for (const [property, from, to] of [
-	// C13's bug class: a read that trusts the actor its request resolved at the start.
 	[
 		"StatementSeesLiveAccess",
 		"ReadAdmits(q, cur, session) == LiveCheck(q, cur, session)",
 		"ReadAdmits(q, cur, session) == TRUE",
 	],
-	// An Admin (or Owner) may act on the Owner seat.
 	["OwnerSeatFixed", '    /\\ targetRole # "owner"\n', ""],
 ] as const)
 	test(`INV-formal: TLC fails ${property} with a trace when the model drops its guard`, () => {
