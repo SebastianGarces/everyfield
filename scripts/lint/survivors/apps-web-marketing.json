@@ -4,7 +4,7 @@
 			{
 				"function": "install",
 				"count": 2,
-				"reason": "The marketing page-state owner's one permanent visibilitychange listener, installed once at module load like the location store's (the second count is its hot-reload removal). The home journey and the /oversight sending paths advance on their own and must stop while the tab is hidden and start a full step again when it shows; the hero and vision clocks must jump to their still frame when reduced motion turns on. An autoplay subscribes in the event that makes it need the page state (its block scrolls into view) and releases it when the block leaves or detaches; the lint knows only the location store and the page-event registry as owners."
+				"reason": "The marketing page-state owner's one permanent visibilitychange listener, installed once at module load like the location store's (the second count is its hot-reload removal). The home journey and the /oversight sending paths advance on their own and must stop while the tab is hidden and start a full step again when it shows; the hero and vision clocks must jump to their still frame when reduced motion turns on. Each subscribes in the event that makes it need the page state and releases it when that need ends: an autoplay and the hero clock while their block is on screen, the vision zoom from its first intersection report until its entrance has played; the lint knows only the location store and the page-event registry as owners."
 			}
 		]
 	},
