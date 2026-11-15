@@ -421,7 +421,9 @@ const zustandShape = {
 		const path = repoPath(context.filename);
 		const storeFile = path.endsWith(".store.ts");
 		const allowed = (source) =>
-			source === "zustand/vanilla" ? storeFile : path === STORE_HELPER && (source === "zustand" || source === "zustand/react/shallow");
+			source === "zustand/vanilla"
+				? storeFile
+				: path === STORE_HELPER && (source === "zustand" || source === "zustand/react/shallow");
 		const sources = moduleSources((node, source) => {
 			if (!ZUSTAND.test(source) || allowed(source)) return;
 			context.report({
