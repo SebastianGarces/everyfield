@@ -20,6 +20,11 @@ Today that is the permissions model (`.agents/skills/formal-permissions/`): `pac
 `packages/domain/src/identity/{seats,invitations,invitation-core,service}.ts`, the invitation contracts and the seat
 indexes and session functions in `packages/db/migrations/`.
 
+`bin/dev fast-check` (and so the pre-push hook) enforces this: its `formal` step fails a branch that changes, deletes or
+renames a mapped file without changing that map or the model folder its `"model"` names, and lists the files. When you
+followed the steps below and the behavior did not change, so neither the model nor the map needs an edit, add the
+trailer `Formal-model: unchanged` to a branch commit's message; the step then passes and names that commit.
+
 ## Steps
 
 1. **Decide whether the behavior changed.** Read the map entries for each function you touched and the model

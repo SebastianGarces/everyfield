@@ -31,7 +31,9 @@ const HELP = `Browser runs, the local preview stack, its logs and the fast pre-p
         nightly.jsonl record
   dev nightly schedule uninstall   boots the agent out and deletes its plist
   dev fast-check [--base <ref>] [--json]   format, lint and typecheck of only the files changed since the merge base
-        of origin/main (else main), in seconds, with no database, stack or network. Prints each fix command
+        of origin/main (else main), in seconds, with no database, stack or network. Prints each fix command. Its
+        formal step fails a branch that changes a file in a .agents/skills/formal-*/map.json without that map or its
+        model, unless a branch commit has the trailer "Formal-model: unchanged"
   dev hooks install                        points this repo's core.hooksPath at tools/git-hooks (pnpm install does it)
   dev formal [--write] [<model dir>...]    runs TLC on every model under formal/ with the pinned tla2tools.jar, checks
         each model's outcomes.json (--write rewrites it) and the .agents/skills/formal-*/map.json maps; local Java 11+

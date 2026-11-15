@@ -21,8 +21,12 @@ Format, lint and typecheck fail fast on your own machine. `pnpm install` points 
 `tools/git-hooks` (or run `bin/dev hooks install`). Its `pre-push` hook runs `bin/dev fast-check` on each push of a task
 branch (`refs/heads/evf/*`) and refuses the push when it fails. The check covers only the files changed since the merge
 base of `origin/main`, needs no database or stack, and prints the exact fix command. Run it by hand with
-`bin/dev fast-check` (`--json` for each step's status, files and time). It skips the non-ESLint parts of `apps/web` lint
-and every file the branch did not change, so GitHub CI's full run stays required.
+`bin/dev fast-check` (`--json` for each step's status, files and time). Its steps are `format`, `lint`, `typecheck` and
+`formal`: the `formal` step fails a branch that changes a code file named in a `.agents/skills/formal-*/map.json`
+without changing that map or its model folder, and points at
+[maintain-formal-verification](../maintain-formal-verification/SKILL.md); a branch commit with the trailer
+`Formal-model: unchanged` passes it. It skips the non-ESLint parts of `apps/web` lint and every file the branch did not
+change, so GitHub CI's full run stays required.
 
 Independent verification of a PR uses [verify-preview](../verify-preview/SKILL.md): a fresh Opus
 verifier session runs the exact PR head on its own preview, publishes the evidence and records
