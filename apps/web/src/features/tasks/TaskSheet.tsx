@@ -43,7 +43,7 @@ import {
 } from "./model.ts";
 import { DescriptionView } from "./description.ts";
 import { DueLine, STATUS_TONE, StatusItems } from "./parts.tsx";
-import { BlockedBy, Repeats, Section, Steps, type StepAssignee } from "./structure.tsx";
+import { BlockedBy, closeInlineFormOnEscape, Repeats, Section, Steps, type StepAssignee } from "./structure.tsx";
 
 export type DetailState = { status: "loading" } | { status: "failed"; code: string } | ({ status: "ok" } & Loaded);
 export type PanelEdit =
@@ -134,6 +134,7 @@ export function TaskSheet({
 		<Sheet
 			open={open}
 			onOpenChange={(o) => !o && onClose()}
+			onEscapeKeyDown={closeInlineFormOnEscape}
 			title={task?.title ?? "Task"}
 			description={
 				task ? (
