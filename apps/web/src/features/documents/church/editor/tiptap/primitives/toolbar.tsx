@@ -28,20 +28,21 @@ function arrowTarget(key: string, index: number, count: number) {
 
 export const Toolbar = React.forwardRef<HTMLDivElement, BaseProps>(({ children, className, ...props }, ref) => {
 	const remembered = React.useRef(0);
-	const [leaving, setLeaving] = React.useState(false);
+	const [entry, setEntry] = React.useState(true);
+	const openEntry = () => setEntry(true);
 
 	return (
 		<div
 			ref={ref}
 			role="toolbar"
 			aria-label="Document formatting"
-			tabIndex={leaving ? -1 : 0}
+			tabIndex={entry ? 0 : undefined}
 			className={cn(TOOLBAR, "outline-none", className)}
 			{...props}
 			onKeyDownCapture={(event) => {
 				const toolbar = event.currentTarget;
 				if (event.key === "Tab") {
-					if (event.shiftKey && toolbar.contains(event.target as Node)) setLeaving(true);
+					if (event.shiftKey && toolbar.contains(event.target as Node)) setEntry(false);
 					return;
 				}
 				const items = itemsOf(toolbar);
@@ -63,8 +64,12 @@ export const Toolbar = React.forwardRef<HTMLDivElement, BaseProps>(({ children, 
 				}
 			}}
 			onBlur={(event) => {
-				if (!event.currentTarget.contains(event.relatedTarget)) setLeaving(false);
+				if (!event.currentTarget.contains(event.relatedTarget)) setEntry(true);
 			}}
+			onPointerDownCapture={() => setEntry(false)}
+			onPointerUp={openEntry}
+			onPointerCancel={openEntry}
+			onPointerLeave={openEntry}
 		>
 			<InToolbar value>{children}</InToolbar>
 		</div>
