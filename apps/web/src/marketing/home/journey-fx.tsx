@@ -312,6 +312,7 @@ export function JourneyPath({
 									<button
 										type="button"
 										tabIndex={-1}
+										aria-hidden="true"
 										onClick={() => pick(i)}
 										className="text-left after:absolute after:inset-0"
 									>
