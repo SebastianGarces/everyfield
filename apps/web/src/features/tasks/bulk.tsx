@@ -68,7 +68,7 @@ export function BulkBar({
 			aria-label="Selected tasks"
 			className="mt-4 flex flex-wrap items-center gap-2 rounded-card bg-ink py-2 pr-2 pl-3 text-on-ink shadow-pop"
 		>
-			<label className="-my-1 grid size-11 flex-none cursor-pointer place-items-center">
+			<label className="-my-1 grid size-11 flex-none place-items-center">
 				<Checkbox
 					aria-label="Select every task on this page"
 					checked={all ? true : "indeterminate"}
@@ -226,7 +226,7 @@ export function BulkReport({
 						<button
 							type="button"
 							onClick={() => onOpen(t.id)}
-							className="inline-flex min-h-6 cursor-pointer items-center rounded-xs text-left font-medium text-ink underline-offset-[3px] hover:underline"
+							className="inline-flex min-h-6 items-center rounded-xs text-left font-medium text-ink underline-offset-[3px] hover:underline"
 						>
 							{t.title}
 						</button>

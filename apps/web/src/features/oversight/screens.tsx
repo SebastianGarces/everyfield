@@ -78,7 +78,7 @@ import {
 function ViewTabs({ kind, current }: { kind: OrganizationKind; current: OrganizationView }) {
 	const tab = (active: boolean) =>
 		cn(
-			"inline-flex cursor-pointer items-center gap-2 rounded-md px-3.5 py-2 font-medium text-ink-2 transition-colors duration-150 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ef-focus)]",
+			"inline-flex items-center gap-2 rounded-md px-3.5 py-2 font-medium text-ink-2 transition-colors duration-150 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ef-focus)]",
 			active && "bg-surface-raised text-ink shadow-[var(--ef-shadow-raised)]",
 		);
 	const { label, tabs } = VIEWS[kind];
@@ -126,7 +126,7 @@ function PlantRow({ plant }: { plant: PlantDirectoryRow }) {
 			<Link
 				href={`/network/plants/${plant.plantId}`}
 				data-focus-inset=""
-				className="-mx-2 grid cursor-pointer grid-cols-[minmax(0,1fr)_9rem_11rem_10rem_11rem_auto] items-center gap-x-4 gap-y-2 rounded-md px-2 py-4 transition-colors hover:bg-hover max-app-md:grid-cols-[minmax(0,1fr)_auto]"
+				className="-mx-2 grid grid-cols-[minmax(0,1fr)_9rem_11rem_10rem_11rem_auto] items-center gap-x-4 gap-y-2 rounded-md px-2 py-4 transition-colors hover:bg-hover max-app-md:grid-cols-[minmax(0,1fr)_auto]"
 			>
 				<span className="flex min-w-0 items-center gap-3.5 max-app-md:col-start-1">
 					<CardIcon icon={ChurchIcon} tone="green" size={36} />
@@ -709,7 +709,7 @@ export function RosterScreen({ roster }: { roster: SendingChurchRoster }) {
 					{pendingInvitations ? (
 						<Link
 							href="/settings/sharing#connections"
-							className="cursor-pointer text-md text-text-2 underline-offset-[3px] hover:text-ink hover:underline"
+							className="text-md text-text-2 underline-offset-[3px] hover:text-ink hover:underline"
 						>
 							{plural(pendingInvitations, "pending invitation")}
 						</Link>
@@ -724,7 +724,7 @@ export function RosterScreen({ roster }: { roster: SendingChurchRoster }) {
 								<Link
 									href={`/network/sending-churches/${c.organizationId}`}
 									data-focus-inset=""
-									className="-mx-2 flex cursor-pointer items-center gap-3.5 rounded-md px-2 py-4 transition-colors hover:bg-hover"
+									className="-mx-2 flex items-center gap-3.5 rounded-md px-2 py-4 transition-colors hover:bg-hover"
 								>
 									<CardIcon icon={ChurchIcon} tone="blue" size={36} />
 									<span className="min-w-0 flex-1">

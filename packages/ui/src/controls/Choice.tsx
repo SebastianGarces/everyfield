@@ -20,7 +20,9 @@ function ChoiceLabel({
 		<span className="min-w-0 flex-1">
 			<label
 				htmlFor={htmlFor}
-				className={cn("font-medium text-ink", disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer")}
+				data-toggle-label
+				data-disabled={disabled ? "" : undefined}
+				className={cn("font-medium text-ink", disabled && "opacity-60")}
 			>
 				{label}
 			</label>
@@ -47,7 +49,7 @@ export function Checkbox({ label, description, shape = "square", id, className, 
 		<CheckboxPrimitive.Root
 			id={boxId}
 			className={cn(
-				"group/check grid size-5 flex-none cursor-pointer place-items-center bg-surface-raised shadow-[inset_0_0_0_1.5px_var(--ef-text-3)] transition-[background-color,box-shadow] duration-150 hover:shadow-[inset_0_0_0_1.5px_var(--ef-ink-2)] disabled:cursor-not-allowed disabled:opacity-45 data-[state=checked]:bg-ink data-[state=checked]:shadow-none data-[state=indeterminate]:bg-ink data-[state=indeterminate]:shadow-none",
+				"group/check grid size-5 flex-none place-items-center bg-surface-raised shadow-[inset_0_0_0_1.5px_var(--ef-text-3)] transition-[background-color,box-shadow] duration-150 hover:shadow-[inset_0_0_0_1.5px_var(--ef-ink-2)] disabled:opacity-45 data-[state=checked]:bg-ink data-[state=checked]:shadow-none data-[state=indeterminate]:bg-ink data-[state=indeterminate]:shadow-none",
 				shape === "round" ? "rounded-full" : "rounded-xs",
 				!label && className,
 			)}
@@ -113,7 +115,7 @@ export function Radio({ label, description, id, className, ...props }: RadioProp
 		<div className={cn("flex min-h-11 items-start gap-3 py-3", className)}>
 			<RadioPrimitive.Item
 				id={itemId}
-				className="size-5 flex-none cursor-pointer rounded-full bg-surface-raised shadow-[inset_0_0_0_1.5px_var(--ef-text-3)] transition-[box-shadow] duration-150 hover:shadow-[inset_0_0_0_1.5px_var(--ef-ink-2)] disabled:cursor-not-allowed disabled:opacity-45 data-[state=checked]:shadow-[inset_0_0_0_6px_var(--ef-ink)]"
+				className="size-5 flex-none rounded-full bg-surface-raised shadow-[inset_0_0_0_1.5px_var(--ef-text-3)] transition-[box-shadow] duration-150 hover:shadow-[inset_0_0_0_1.5px_var(--ef-ink-2)] disabled:opacity-45 data-[state=checked]:shadow-[inset_0_0_0_6px_var(--ef-ink)]"
 				{...props}
 			/>
 			<ChoiceLabel htmlFor={itemId} label={label} description={description} disabled={props.disabled} />
@@ -139,7 +141,7 @@ export function Switch({ label, description, tone = "green", id, className, ...p
 		<SwitchPrimitive.Root
 			id={switchId}
 			className={cn(
-				"relative h-7 w-12 flex-none cursor-pointer rounded-pill bg-[var(--ef-switch-off)] p-0 shadow-[inset_0_0_0_1px_var(--ef-text-3)] transition-[background-color,box-shadow] duration-200 disabled:cursor-not-allowed disabled:opacity-45",
+				"relative h-7 w-12 flex-none rounded-pill bg-[var(--ef-switch-off)] p-0 shadow-[inset_0_0_0_1px_var(--ef-text-3)] transition-[background-color,box-shadow] duration-200 disabled:opacity-45",
 				tone === "blue"
 					? "data-[state=checked]:bg-blue-500 data-[state=checked]:shadow-[inset_0_0_0_1px_var(--ef-blue-600)]"
 					: "data-[state=checked]:bg-green-500 data-[state=checked]:shadow-[inset_0_0_0_1px_var(--ef-green-700)]",
