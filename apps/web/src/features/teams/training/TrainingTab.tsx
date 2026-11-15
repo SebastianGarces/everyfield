@@ -25,21 +25,21 @@ import {
 	useToast,
 } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
-import { useEffect, useRef, useState } from "react";
+import { useState, useTransition } from "react";
+import { createRead, useRead } from "../../../components/read.tsx";
 import { NoticeInDialog, SaveNotice, useSaveIntent } from "../../../components/save/parts.tsx";
-import { dayText } from "../model.ts";
+import { dayText, type Outcome } from "../model.ts";
 import {
 	attestCompletion,
 	attestService,
 	correctProgram,
 	createProgram,
 	loadTraining,
-	previewRoster,
 	recompleteTraining,
 	revokeCompletion,
 	saveRoster,
 } from "./actions.ts";
-import { AssignDialog, CompletionDialog, CorrectDialog, CreateDialog, ServiceDialog } from "./dialogs.tsx";
+import { AssignDialog, checkRoster, CompletionDialog, CorrectDialog, CreateDialog, ServiceDialog } from "./dialogs.tsx";
 import { PersonLookup } from "./PersonLookup.tsx";
 import {
 	applyCorrect,
@@ -61,6 +61,15 @@ import {
 
 // The ministry Training tab. One save at a time. A write updates this list from its own answer.
 
+type ShownRead = Outcome<ShownProgram[]>;
+
+const loadShown = (teamId: string): Promise<ShownRead> =>
+	loadTraining(teamId).then((result) =>
+		result.status === "ok" ? { status: "ok", value: toShown(result.value, teamId) } : result,
+	);
+
+const trainings = createRead(loadShown, { failed: (): ShownRead => ({ status: "lost" }) });
+
 export function TrainingTab({
 	teamId,
 	teamName,
@@ -76,47 +85,29 @@ export function TrainingTab({
 }) {
 	const toast = useToast();
 	const lane = useSaveIntent<Flow>({ explain: problemText });
-	const [programs, setPrograms] = useState<ShownProgram[] | null>(null);
-	const [failed, setFailed] = useState<"refused" | "lost" | null>(null);
-	const [reason, setReason] = useState("unavailable");
-	const [pending, setPending] = useState(true);
-	const [request, setRequest] = useState(0);
+	const training = useRead(trainings, teamId);
+	const [reloading, startReload] = useTransition();
 	const [tick, setTick] = useState(0);
-	const shown = useRef(false);
+	const loaded = training.value;
+	const programs = loaded?.status === "ok" ? loaded.value : null;
+	const pending = training.status !== "ready" || reloading;
 	const busy = lane.wait !== null;
 
-	useEffect(() => {
-		let live = true;
-		loadTraining(teamId).then(
-			(result) => {
-				if (!live) return;
-				setPending(false);
-				if (result.status === "ok") {
-					shown.current = true;
-					setPrograms(toShown(result.value, teamId));
-					setFailed(null);
-					return;
-				}
-				if (!shown.current) {
-					setFailed(result.status === "refused" ? "refused" : "lost");
-					if (result.status === "refused") setReason(result.code);
-				}
-			},
-			() => {
-				if (!live) return;
-				setPending(false);
-				if (!shown.current) setFailed("lost");
-			},
-		);
-		return () => {
-			live = false;
-		};
-	}, [request, teamId]);
+	const setPrograms = (change: (rows: ShownProgram[]) => ShownProgram[]) =>
+		training.patch((current) => ({ status: "ok", value: change(current.status === "ok" ? current.value : []) }));
 
 	function reload() {
 		if (busy || pending) return;
-		setPending(true);
-		setRequest((n) => n + 1);
+		const shown = programs !== null;
+		startReload(async () => {
+			const result = await loadShown(teamId).catch((): ShownRead => ({ status: "lost" }));
+			if (result.status === "ok" || !shown) training.patch(() => result);
+		});
+	}
+
+	function open(form: Flow) {
+		if (form.kind === "assign") checkRoster(form, reload);
+		lane.open(form);
 	}
 
 	function refused(code: string) {
@@ -142,7 +133,7 @@ export function TrainingTab({
 							teamId: form.churchwide && admin ? null : teamId,
 						}),
 					ok: (value) => {
-						setPrograms((rows) => applyCreate(rows ?? [], value.program, teamId));
+						setPrograms((rows) => applyCreate(rows, value.program, teamId));
 						tell("success", `Added ${value.program.name}.`);
 					},
 					refused,
@@ -161,7 +152,7 @@ export function TrainingTab({
 							reason: form.reason.trim(),
 						}),
 					ok: (value) => {
-						setPrograms((rows) => applyCorrect(rows ?? [], value, teamId));
+						setPrograms((rows) => applyCorrect(rows, value, teamId));
 						tell(
 							value.outcome === "noop" ? "info" : "success",
 							value.outcome === "noop"
@@ -184,7 +175,7 @@ export function TrainingTab({
 							rosterDigest: form.rosterDigest!,
 						}),
 					ok: (value) => {
-						setPrograms((rows) => applyRoster(rows ?? [], value));
+						setPrograms((rows) => applyRoster(rows, value));
 						tell(
 							value.outcome === "noop" ? "info" : "success",
 							value.outcome === "noop"
@@ -219,7 +210,7 @@ export function TrainingTab({
 										earnedOn: form.earnedOn,
 									}),
 					ok: (value) => {
-						setPrograms((rows) => applyCredit(rows ?? [], value));
+						setPrograms((rows) => applyCredit(rows, value));
 						setTick((n) => n + 1);
 						tell(value.outcome === "noop" ? "info" : "success", creditMessage(form, value.outcome));
 					},
@@ -312,7 +303,9 @@ export function TrainingTab({
 							</Button>
 						}
 					>
-						{failed === "refused" ? problemText(reason) : `Nothing on ${teamName} was changed. Try again in a moment.`}
+						{loaded?.status === "refused"
+							? problemText(loaded.code)
+							: `Nothing on ${teamName} was changed. Try again in a moment.`}
 					</StatePanel>
 				) : programs.length === 0 ? (
 					<EmptyState
@@ -347,7 +340,7 @@ export function TrainingTab({
 										canChange={canChange}
 										admin={admin}
 										busy={busy}
-										onOpen={lane.open}
+										onOpen={open}
 									/>
 								</li>
 							))}
@@ -361,7 +354,7 @@ export function TrainingTab({
 				canWrite={(program) => canWriteProgram(program, teamId, canChange, admin)}
 				busy={busy}
 				tick={tick}
-				onOpen={lane.open}
+				onOpen={open}
 			/>
 			<NoticeInDialog {...lane.noticeProps}>
 				<TrainingDialogs
@@ -496,7 +489,6 @@ function TrainingDialogs({
 				rosterKnown={rosterKnown}
 				problem={problem}
 				wait={wait}
-				preview={(personIds) => previewRoster(editing.programId, personIds)}
 				onStale={onStale}
 				onClose={onClose}
 				onSubmit={onSubmit}

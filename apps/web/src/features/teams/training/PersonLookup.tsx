@@ -13,7 +13,8 @@ import {
 	StatePanel,
 } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { createRead, useRead } from "../../../components/read.tsx";
 import { PersonPicker } from "../../meetings/dialogs.tsx";
 import { dayText, plural } from "../model.ts";
 import { loadPersonTraining } from "./actions.ts";
@@ -29,6 +30,14 @@ import {
 } from "./model.ts";
 
 // One person's training, looked up from the ministry tab. The person page does not show this yet.
+
+type PersonRead = { status: "ok"; value: PersonLoad } | { status: "lost" };
+
+const personTraining = createRead(
+	({ personId }: { personId: string; tick: number }): Promise<PersonRead> =>
+		loadPersonTraining(personId).then((value) => ({ status: "ok", value })),
+	{ failed: (): PersonRead => ({ status: "lost" }) },
+);
 
 export function PersonLookup({
 	programs,
@@ -47,28 +56,12 @@ export function PersonLookup({
 	onOpen: (form: Flow) => void;
 }) {
 	const [person, setPerson] = useState<{ id: string; name: string } | null>(null);
-	const [attempt, setAttempt] = useState(0);
-	const [got, setGot] = useState<{ key: string; value: PersonLoad } | { key: string; failed: true } | null>(null);
-	const key = person ? `${person.id}:${tick}:${attempt}` : "";
-
-	useEffect(() => {
-		if (!person) return;
-		let live = true;
-		const requestKey = `${person.id}:${tick}:${attempt}`;
-		loadPersonTraining(person.id).then(
-			(value) => {
-				if (live) setGot({ key: requestKey, value });
-			},
-			() => {
-				if (live) setGot({ key: requestKey, failed: true });
-			},
-		);
-		return () => {
-			live = false;
-		};
-	}, [person, tick, attempt]);
-
-	const ready = got?.key === key ? got : null;
+	const training = useRead(person ? personTraining : null, { personId: person?.id ?? "", tick });
+	const ready = training.value;
+	const choose = (next: { id: string; name: string } | null) => {
+		if (next) personTraining.prefetch({ personId: next.id, tick });
+		setPerson(next);
+	};
 
 	return (
 		<Card as="section" aria-labelledby="person-training-title">
@@ -80,7 +73,7 @@ export function PersonLookup({
 					<CardDescription>Look up what they have finished, then record, revoke, or record it again.</CardDescription>
 				</CardHeading>
 			</CardHeader>
-			<PersonPicker label="Person" value={person} onChange={setPerson} />
+			<PersonPicker label="Person" value={person} onChange={choose} />
 			{person ? (
 				<div className="mt-6 flex flex-col gap-6">
 					<IntentLink
@@ -89,20 +82,20 @@ export function PersonLookup({
 					>
 						Open their person page
 					</IntentLink>
-					{ready && "failed" in ready ? (
+					{ready?.status === "lost" ? (
 						<StatePanel
 							tone="error"
 							title="Training for this person did not load"
 							headingLevel="h3"
 							actions={
-								<Button variant="secondary" onClick={() => setAttempt((n) => n + 1)}>
+								<Button variant="secondary" onClick={training.retry}>
 									Try again
 								</Button>
 							}
 						>
 							Nothing was changed.
 						</StatePanel>
-					) : !ready || !("value" in ready) ? (
+					) : !ready ? (
 						<p role="status" className="flex items-center gap-2 text-sm text-text-3">
 							<Spinner size={16} /> Loading training for this person…
 						</p>
@@ -115,7 +108,7 @@ export function PersonLookup({
 							canWrite={canWrite}
 							busy={busy}
 							onOpen={onOpen}
-							onRetry={() => setAttempt((n) => n + 1)}
+							onRetry={training.retry}
 						/>
 					)}
 				</div>
