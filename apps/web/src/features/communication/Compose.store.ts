@@ -1,8 +1,18 @@
 import { createDebouncer } from "@everyfield/ui/foundations";
 import { createStore, type StoreApi } from "zustand/vanilla";
+import { createRead } from "../../components/read.tsx";
+import { searchRecipients } from "./actions.ts";
 import { bodyToTextResult } from "./body.ts";
 import { blankForm, draftPayload, formFrom, type Form } from "./composeModel.ts";
-import { templateBinding, type Audience, type Draft, type MeetingContext, type Template } from "./model.ts";
+import {
+	templateBinding,
+	type Audience,
+	type Draft,
+	type MeetingContext,
+	type Outcome,
+	type Recipient,
+	type Template,
+} from "./model.ts";
 import type { SendPlan } from "./ReviewStep.tsx";
 
 export type Opening =
@@ -19,6 +29,12 @@ export type Undo = {
 	templateKey: string;
 	binding: Pick<Form, "templateId" | "templateSource">;
 };
+
+export const recipientSearches = createRead((text: string) => searchRecipients(text), {
+	failed: (): Outcome<{ people: Recipient[] }> => ({ status: "lost" }),
+});
+
+const answered = (text: string) => text !== "" && recipientSearches.peek(text)?.value !== undefined;
 
 export type PersonSearch = { query: string; searched: string; previous: string; open: boolean; active: number };
 
@@ -129,7 +145,14 @@ export function createComposeStore(init: { opening: Opened; templates: readonly 
 					return;
 				}
 				searchPause.run(() =>
-					set((state) => ({ search: { ...state.search, searched: text, previous: state.search.searched, active: 0 } })),
+					set(({ search }) => ({
+						search: {
+							...search,
+							searched: text,
+							previous: answered(search.searched) ? search.searched : search.previous,
+							active: 0,
+						},
+					})),
 				);
 			},
 			openList: (open) => set((state) => ({ search: { ...state.search, open } })),

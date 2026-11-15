@@ -7,8 +7,8 @@ import Link from "next/link";
 import { useId, useState, type ElementType, type KeyboardEvent } from "react";
 import { createRead, useRead } from "../../components/read.tsx";
 import { useStore } from "../../components/store.ts";
-import { resolveAudience, searchRecipients } from "./actions.ts";
-import type { ComposeStore } from "./Compose.store.ts";
+import { resolveAudience } from "./actions.ts";
+import { recipientSearches, type ComposeStore } from "./Compose.store.ts";
 import { audienceSize, plural } from "./composeModel.ts";
 import {
 	audienceGroups,
@@ -36,9 +36,6 @@ const chipAudience = (value: string): Audience => {
 };
 const chipCounts = createRead((value: string) => resolveAudience(chipAudience(value)), {
 	failed: lost<AudienceSummary>,
-});
-const recipientSearches = createRead((text: string) => searchRecipients(text), {
-	failed: lost<{ people: Recipient[] }>,
 });
 
 export function useAudienceSummary(audience: Audience, counted: Audience) {
