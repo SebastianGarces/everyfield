@@ -1,0 +1,428 @@
+{
+	"$schema": "../../../feature-map.schema.json",
+	"feature": "identity",
+	"catalog": ["IDN-001", "IDN-002", "IDN-003", "IDN-009", "IDN-017", "IDN-019", "IDN-028"],
+	"surfaces": [
+		{
+			"id": "identity.signin",
+			"says": "Sign in with email and password, then land where the seat and a safe return address say.",
+			"routes": ["/signin"],
+			"endpoints": ["/api/auth/[...path]"],
+			"catalog": ["IDN-001", "IDN-028"],
+			"reach": [{ "link": "/signin" }],
+			"personas": { "visitor": "write", "landing-finished": "write", "landing-new": "write" },
+			"states": [
+				{
+					"id": "form",
+					"reach": { "persona": "visitor", "open": "/signin" },
+					"expect": [
+						{ "role": "heading", "name": "Welcome back" },
+						{ "role": "button", "name": "Sign in" }
+					]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "wrong-password",
+					"says": "A wrong password and an unknown address get the same answer.",
+					"catalog": ["IDN-001"],
+					"operations": [],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/identity/identity.test.mts",
+								"name": "AC:TARGET-IDN-001 INV-nonenumeration: sign-in refuses a wrong password and an unknown address alike, and a deleting account gets no session"
+							}
+						],
+						"cases": ["TARGET-IDN-001"],
+						"browser": {
+							"state": "form",
+							"steps": [
+								{ "type": "nobody@example.test", "into": "Email" },
+								{ "type": "not-the-password-1", "into": "Password" },
+								{ "click": { "role": "button", "name": "Sign in" } }
+							],
+							"expect": [{ "text": "Email or password is incorrect." }]
+						}
+					}
+				},
+				{
+					"id": "landing",
+					"says": "An Owner whose setup is finished lands on Overview; an unfinished setup or a new account lands on onboarding.",
+					"catalog": ["IDN-001"],
+					"operations": [],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/ui/identity/landing.test.mjs",
+								"name": "AC:TARGET-IDN-001 (${name}): an owner whose setup is finished lands on /overview"
+							},
+							{
+								"file": "tests/ui/identity/landing.test.mjs",
+								"name": "AC:TARGET-IDN-001 (${name}): a new account lands on /onboarding"
+							}
+						],
+						"cases": ["TARGET-IDN-001"],
+						"browser": {
+							"state": "form",
+							"steps": [
+								{ "type": "$invitation:/landing/finished", "into": "Email" },
+								{ "type": "$invitation:/password", "into": "Password" },
+								{ "click": { "role": "button", "name": "Sign in" } }
+							],
+							"expect": [{ "url": "/overview" }]
+						}
+					}
+				},
+				{
+					"id": "safe-return",
+					"says": "A safe local return address wins over the landing rule; an unsafe one is ignored and never leaves the site.",
+					"catalog": ["IDN-028"],
+					"operations": [],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/ui/identity/landing.test.mjs",
+								"name": "AC:TARGET-IDN-028 INV-safe-return (${name}): an unsafe returnTo is ignored and never leaves the origin"
+							},
+							{
+								"file": "packages/contracts/src/identity/identity.test.mts",
+								"name": "AC:TARGET-IDN-028 AC:CASE-ADM-004 landingFor sends a finished seat to a safe returnTo, else its home, and setup never skips"
+							}
+						],
+						"cases": ["TARGET-IDN-028", "CASE-ADM-004"]
+					}
+				}
+			]
+		},
+		{
+			"id": "identity.home",
+			"says": "The landing address every home and post-sign-in link uses; it only redirects.",
+			"routes": ["/home"],
+			"catalog": ["IDN-001"],
+			"reach": [{ "link": "/home" }],
+			"personas": { "visitor": "read", "plant-owner": "read" },
+			"states": [
+				{
+					"id": "signed-out",
+					"reach": { "persona": "visitor", "open": "/home" },
+					"expect": [{ "url": "/signin?returnTo=%2Fhome" }]
+				},
+				{
+					"id": "plant-seat",
+					"reach": { "persona": "plant-owner", "open": "/home" },
+					"expect": [{ "url": "/overview" }]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "redirect",
+					"says": "Signed out goes to sign in with /home to come back to, without a loop.",
+					"catalog": ["IDN-001"],
+					"operations": [],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/ui/identity/landing.test.mjs",
+								"name": "AC:TARGET-IDN-001 INV-session (${name}): a signed-out visitor to /home goes to /signin with /home as returnTo, without a loop"
+							}
+						],
+						"cases": ["TARGET-IDN-001"],
+						"browser": { "state": "signed-out", "steps": [], "expect": [{ "role": "heading", "name": "Welcome back" }] }
+					}
+				}
+			]
+		},
+		{
+			"id": "identity.register",
+			"says": "Create an account to start a church, join as a sending church or network, or explore.",
+			"routes": ["/register"],
+			"catalog": ["IDN-002", "IDN-003"],
+			"reach": [
+				{
+					"from": "identity.signin",
+					"persona": "visitor",
+					"path": [{ "click": { "role": "link", "name": "Start your church" } }]
+				}
+			],
+			"personas": { "visitor": "write" },
+			"states": [
+				{
+					"id": "form",
+					"reach": { "persona": "visitor", "open": "/register" },
+					"expect": [
+						{ "role": "heading", "name": "Create your account" },
+						{ "role": "button", "name": "Create account" }
+					]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "register",
+					"says": "Registration reveals no account or church, and a repeated registration ends in one account.",
+					"catalog": ["IDN-002"],
+					"operations": [],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/identity/identity.test.mts",
+								"name": "AC:TARGET-IDN-030 INV-nonenumeration: pending credentials reveal no account or tenant authority, duplicate registration converges, authenticated self resumes"
+							}
+						],
+						"cases": ["TARGET-IDN-030"]
+					}
+				}
+			]
+		},
+		{
+			"id": "identity.recover",
+			"says": "Ask for a password reset link by email; the answer never says whether the address has an account.",
+			"routes": ["/recover-password"],
+			"catalog": ["IDN-009"],
+			"reach": [{ "link": "/recover-password" }],
+			"personas": { "visitor": "write" },
+			"states": [
+				{
+					"id": "form",
+					"reach": { "persona": "visitor", "open": "/recover-password" },
+					"expect": [
+						{ "role": "heading", "name": "Reset your password" },
+						{ "role": "button", "name": "Send reset link" }
+					]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "request-link",
+					"says": "Send reset link always answers Check your email, for a known or an unknown address.",
+					"catalog": ["IDN-009"],
+					"operations": [],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/identity/identity.test.mts",
+								"name": "AC:TARGET-IDN-009 INV-nonenumeration INV-identity: recovery is nonenumerating through outbox failure and unknown provider acceptance; tokens never reach security diagnostics"
+							}
+						],
+						"cases": ["TARGET-IDN-009"],
+						"browser": {
+							"state": "form",
+							"steps": [
+								{ "type": "nobody@example.test", "into": "Email" },
+								{ "click": { "role": "button", "name": "Send reset link" } }
+							],
+							"expect": [{ "role": "heading", "name": "Check your email" }]
+						}
+					}
+				}
+			]
+		},
+		{
+			"id": "identity.reset",
+			"says": "Choose a new password from the emailed link; the link works once and ends every other session.",
+			"routes": ["/reset-password"],
+			"catalog": ["IDN-009"],
+			"reach": [
+				{
+					"link": "/reset-password?token={token}",
+					"email": "reset",
+					"fill": { "token": "the proof in the reset email" }
+				}
+			],
+			"personas": { "visitor": "write" },
+			"states": [
+				{
+					"id": "no-token",
+					"reach": { "persona": "visitor", "open": "/reset-password" },
+					"expect": [
+						{ "role": "heading", "name": "This link is incomplete" },
+						{ "role": "link", "name": "Ask for a new link" }
+					]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "reset",
+					"says": "A real reset consumes one proof, refuses an expired or used one and signs out every earlier session.",
+					"catalog": ["IDN-009"],
+					"operations": [],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/identity/identity.test.mts",
+								"name": "AC:TARGET-IDN-009 INV-proof-link: real single-use reset consumes one proof, rejects unchanged/expired/consumed proof, revokes every prior session and reports failure truthfully"
+							}
+						],
+						"cases": ["TARGET-IDN-009"]
+					}
+				}
+			]
+		},
+		{
+			"id": "identity.verify-email",
+			"says": "Confirm an email address from the emailed link.",
+			"routes": ["/verify-email"],
+			"catalog": ["IDN-002"],
+			"reach": [
+				{
+					"link": "/verify-email?token={token}",
+					"email": "verify",
+					"fill": { "token": "the proof in the confirmation email" }
+				}
+			],
+			"personas": { "visitor": "write" },
+			"states": [
+				{
+					"id": "no-token",
+					"reach": { "persona": "visitor", "open": "/verify-email" },
+					"expect": [{ "role": "heading", "name": "This link is incomplete" }]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "verify",
+					"says": "Confirming the address records it with its security event and mail together.",
+					"catalog": ["IDN-002"],
+					"operations": [],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/identity/identity.test.mts",
+								"name": "INV-identity: interruption after credentials preserves authenticated resumption, email verification and successful reset append event and outbox together"
+							}
+						]
+					}
+				}
+			]
+		},
+		{
+			"id": "identity.invitation",
+			"says": "Accept or decline a seat or residency invitation from its emailed link, signing in or creating an account on the way.",
+			"routes": ["/invitation"],
+			"endpoints": ["/api/invitation"],
+			"catalog": ["IDN-003", "IDN-017"],
+			"reach": [
+				{
+					"link": "/invitation#proof={proof}",
+					"email": "invitation",
+					"fill": { "proof": "the proof in the invitation email" }
+				}
+			],
+			"personas": { "visitor": "write", "plant-owner": "write" },
+			"states": [
+				{
+					"id": "no-proof",
+					"reach": { "persona": "visitor", "open": "/invitation" },
+					"expect": [{ "role": "heading", "name": "This page is not available" }]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "accept",
+					"says": "Accepting activates one seat and Person even when two tabs accept at once, and never from email equality alone.",
+					"catalog": ["IDN-017"],
+					"operations": ["seats.acceptInvitation"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/identity/invitations.test.mts",
+								"name": "AC:TARGET-IDN-002 AC:TARGET-IDN-030 AC:SCHEMA-002 INV-acceptance: concurrent same-intent claim activates one seat, Person, receipt and security intent"
+							},
+							{
+								"file": "tests/integration/identity/invitations.test.mts",
+								"name": "AC:TARGET-IDN-002 AC:TARGET-IDN-003 AC:TARGET-IDN-030 AC:SEC-03 native invitation signup, sign-in and exact resume never activate from email equality"
+							}
+						],
+						"cases": ["TARGET-IDN-002", "TARGET-IDN-003", "TARGET-IDN-030"]
+					}
+				}
+			]
+		},
+		{
+			"id": "identity.seats",
+			"says": "Seats and invitations: who can sign in to the church, pending invitations, roles and removal.",
+			"routes": ["/settings/seats"],
+			"catalog": ["IDN-017", "IDN-019"],
+			"reach": [
+				{
+					"from": "people.list",
+					"persona": "plant-owner",
+					"path": [
+						{ "click": { "role": "button", "name": "account menu", "match": "contains" } },
+						{ "click": { "role": "menuitem", "name": "Seats and invitations" } }
+					]
+				},
+				{ "link": "/settings/seats" }
+			],
+			"personas": { "plant-owner": "write", "plant-admin": "write", "plant-member": "read" },
+			"states": [
+				{
+					"id": "manage",
+					"reach": { "persona": "plant-owner", "open": "/settings/seats" },
+					"expect": [
+						{ "role": "heading", "name": "Seats and invitations" },
+						{ "role": "button", "name": "Send invitation" }
+					]
+				},
+				{
+					"id": "member",
+					"reach": { "persona": "plant-member", "open": "/settings/seats" },
+					"expect": [{ "role": "heading", "name": "Seats and invitations" }, { "noText": "Send invitation" }]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "invite",
+					"says": "Send invitation emails a link that works for 30 days and lists it under Waiting for an answer.",
+					"catalog": ["IDN-017"],
+					"operations": ["seats.invite", "seats.listInvitations"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/identity/invitations.test.mts",
+								"name": "AC:TARGET-IDN-017 AC:TARGET-IDN-003 AC:ROLE43-006 ordinary invitation hides account resolution and persists hashed expiring proof"
+							},
+							{
+								"file": "tests/integration/identity/invitations.test.mts",
+								"name": "AC:ROLE43-006 INV-settings-member INV-invitations: pending and Member actors cannot send or list administrative invitations"
+							}
+						],
+						"cases": ["TARGET-IDN-017", "ROLE43-006"],
+						"browser": {
+							"state": "manage",
+							"steps": [
+								{ "type": "map-proof@example.test", "into": "Email address" },
+								{ "click": { "role": "button", "name": "Send invitation" } }
+							],
+							"expect": [{ "text": "Invitation sent to", "match": "contains" }, { "text": "map-proof@example.test" }]
+						}
+					}
+				},
+				{
+					"id": "roles-and-removal",
+					"says": "An Owner changes roles and removes a seat after handing over its open duties; the Owner seat stays.",
+					"catalog": ["IDN-019"],
+					"operations": ["seats.changeOrdinaryRole", "seats.appointAdmin", "seats.demote", "seats.remove"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/identity/invitations.test.mts",
+								"name": "AC:TARGET-IDN-019 AC:ROLE43-009 AC:ROLE43-017 roster and ordinary role changes preserve Owner and exact tenant"
+							},
+							{
+								"file": "tests/integration/identity/invitations.test.mts",
+								"name": "AC:TARGET-IDN-019 INV-removal: exact open-duty handoff retains Person and closed work while revoking all sessions"
+							}
+						],
+						"cases": ["TARGET-IDN-019"],
+						"browser": {
+							"state": "manage",
+							"steps": [],
+							"expect": [{ "role": "combobox", "name": "Role for", "match": "contains" }]
+						}
+					}
+				}
+			]
+		}
+	]
+}

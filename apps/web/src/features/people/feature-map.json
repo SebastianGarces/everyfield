@@ -1,0 +1,426 @@
+{
+	"$schema": "../../../feature-map.schema.json",
+	"feature": "people",
+	"catalog": [
+		"PPL-001",
+		"PPL-002",
+		"PPL-003",
+		"PPL-005",
+		"PPL-006",
+		"PPL-007",
+		"PPL-008",
+		"PPL-014",
+		"PPL-016",
+		"PPL-017",
+		"PPL-018",
+		"PPL-019"
+	],
+	"surfaces": [
+		{
+			"id": "people.list",
+			"says": "The church's directory as a list, cards or the recruitment pipeline, with search and filters in the address.",
+			"routes": ["/people"],
+			"endpoints": ["/api/people/export"],
+			"catalog": ["PPL-001", "PPL-002", "PPL-007", "PPL-019"],
+			"reach": [{ "rail": "People", "personas": ["plant-owner", "plant-admin", "plant-member"] }],
+			"personas": { "plant-owner": "write", "plant-admin": "write", "plant-member": "read", "visitor": "none" },
+			"states": [
+				{
+					"id": "populated",
+					"reach": { "persona": "plant-owner", "open": "/people" },
+					"expect": [
+						{ "role": "radiogroup", "name": "View" },
+						{ "role": "button", "name": "Add person" }
+					]
+				},
+				{
+					"id": "member",
+					"reach": { "persona": "plant-member", "open": "/people" },
+					"expect": [{ "role": "radiogroup", "name": "View" }, { "noText": "Import CSV" }]
+				},
+				{
+					"id": "loading",
+					"file": "apps/web/src/app/(product)/(frame)/people/(list)/loading.tsx",
+					"reach": { "manual": "shows only while the server renders the list" },
+					"expect": [{ "text": "Loading people" }]
+				},
+				{
+					"id": "error",
+					"file": "apps/web/src/app/(product)/(frame)/people/error.tsx",
+					"reach": { "manual": "renders only when the page throws while rendering" },
+					"expect": [{ "role": "heading", "name": "We could not load your people" }]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "search",
+					"says": "Typing in Search people narrows the directory after a pause and keeps the term in the address.",
+					"catalog": ["PPL-001"],
+					"operations": ["people.listPeople"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/people/people.test.mts",
+								"name": "AC:TARGET-PPL-001 literal search, tag intersection, full totals and page numbers past ties"
+							},
+							{
+								"file": "tests/unit/people/model.test.mjs",
+								"name": "AC:TARGET-PPL-001 INV-url: the page number lives in the address; a filter change goes back to page one"
+							}
+						],
+						"cases": ["TARGET-PPL-001"],
+						"browser": {
+							"state": "populated",
+							"steps": [{ "type": "Maria", "into": "Search people" }],
+							"expect": [{ "url": "/people?q=Maria" }]
+						}
+					}
+				},
+				{
+					"id": "add-person",
+					"says": "An Owner or Admin adds a person with only a name and lands on their page.",
+					"catalog": ["PPL-002"],
+					"operations": ["people.createPerson"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/people/people.test.mts",
+								"name": "AC:TARGET-PPL-002 AC:LAUNCH46-003 AC:SEC-02 AC:TEN-002 minimal contact, explicit null, current tenancy and atomic retry"
+							}
+						],
+						"cases": ["TARGET-PPL-002"],
+						"browser": {
+							"state": "populated",
+							"steps": [
+								{ "click": { "role": "button", "name": "Add person" } },
+								{ "type": "Map Proof Person", "into": "Name" },
+								{ "press": "Enter" }
+							],
+							"expect": [{ "url": "/people/{personId}" }, { "role": "heading", "name": "Map Proof Person" }]
+						}
+					}
+				},
+				{
+					"id": "pipeline",
+					"says": "The Pipeline view groups people by stage, and a move keeps its place and its newest revision.",
+					"catalog": ["PPL-007"],
+					"operations": ["people.getPipelineData", "people.reorderPipeline"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/people/people.test.mts",
+								"name": "AC:TARGET-PPL-007 INV-move-round-trips: a pipeline move is one transaction with a constant round-trip count"
+							},
+							{
+								"file": "tests/unit/people/model.test.mjs",
+								"name": "AC:TARGET-PPL-007 INV-move-revisions: after reorder, away and back, a card keeps its newest revision and the saved order"
+							}
+						],
+						"cases": ["TARGET-PPL-007"],
+						"browser": {
+							"state": "populated",
+							"steps": [{ "click": { "role": "radio", "name": "Pipeline" } }],
+							"expect": [{ "url": "/people?view=pipeline" }]
+						}
+					}
+				},
+				{
+					"id": "export",
+					"says": "Export CSV downloads the directory as it is filtered, without private fields.",
+					"catalog": ["PPL-019"],
+					"operations": ["people.exportPeople"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/people/csv/csv.test.mts",
+								"name": "AC:TARGET-PPL-019 AC:PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-RETIRE INV-tenancy INV-filters the export matches the directory's filters as formula-safe CSV without private fields"
+							}
+						],
+						"cases": ["TARGET-PPL-019"],
+						"browser": {
+							"state": "populated",
+							"steps": [{ "click": { "role": "button", "name": "Export CSV" } }],
+							"expect": [{ "role": "heading", "name": "Export people" }]
+						}
+					}
+				}
+			]
+		},
+		{
+			"id": "people.person",
+			"says": "One person: profile, stage and its history, Activity, records, photo and commitment documents.",
+			"routes": ["/people/[personId]"],
+			"endpoints": ["/people/[personId]/photo/[versionId]", "/people/[personId]/commitments/[commitmentId]/document"],
+			"catalog": ["PPL-002", "PPL-003", "PPL-005", "PPL-006", "PPL-008", "PPL-014"],
+			"reach": [
+				{
+					"from": "people.list",
+					"persona": "plant-owner",
+					"path": [{ "click": { "role": "link", "name": "Maria Santos" } }]
+				},
+				{ "link": "/people/{personId}", "fill": { "personId": "$people:/people/Maria Santos" } }
+			],
+			"personas": { "plant-owner": "write", "plant-admin": "write", "plant-member": "read" },
+			"states": [
+				{
+					"id": "populated",
+					"reach": {
+						"persona": "plant-owner",
+						"open": "/people/{personId}",
+						"fill": { "personId": "$people:/people/Maria Santos" }
+					},
+					"expect": [
+						{ "role": "button", "name": "Change stage" },
+						{ "role": "tablist", "name": "Person" }
+					]
+				},
+				{
+					"id": "member",
+					"reach": {
+						"persona": "plant-member",
+						"open": "/people/{personId}",
+						"fill": { "personId": "$people:/people/Maria Santos" }
+					},
+					"expect": [{ "role": "tablist", "name": "Person" }, { "noText": "Change stage" }]
+				},
+				{
+					"id": "not-found",
+					"file": "apps/web/src/app/(product)/(frame)/people/[personId]/not-found.tsx",
+					"reach": { "persona": "plant-owner", "open": "/people/00000000-0000-4000-8000-000000000000" },
+					"expect": [
+						{ "role": "heading", "name": "This person is not here" },
+						{ "role": "link", "name": "Back to People" }
+					]
+				},
+				{
+					"id": "error",
+					"file": "apps/web/src/app/(product)/(frame)/people/error.tsx",
+					"reach": { "manual": "renders only when the page throws while rendering" },
+					"expect": [{ "role": "heading", "name": "We could not load your people" }]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "change-stage",
+					"says": "Change stage moves a person to another stage with a reason, after the recorded-evidence check.",
+					"catalog": ["PPL-006"],
+					"operations": ["people.changeStatus"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/people/people.test.mts",
+								"name": "AC:TARGET-PPL-006 AC:TARGET-PPL-007 AC:TARGET-PPL-003 stage skip, no-op, complete handoffs, retirement and guarded restore"
+							}
+						],
+						"cases": ["TARGET-PPL-006"],
+						"browser": {
+							"state": "populated",
+							"steps": [{ "click": { "role": "button", "name": "Change stage" } }],
+							"expect": [{ "text": "New stage" }, { "text": "Reason" }]
+						}
+					}
+				},
+				{
+					"id": "retire-restore",
+					"says": "Retire person takes someone out of active lists; Restore person brings them back with their history.",
+					"catalog": ["PPL-003"],
+					"operations": ["people.deletePerson", "people.restorePerson"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/people/people.test.mts",
+								"name": "AC:TARGET-PPL-006 AC:TARGET-PPL-007 AC:TARGET-PPL-003 stage skip, no-op, complete handoffs, retirement and guarded restore"
+							}
+						],
+						"cases": ["TARGET-PPL-003"],
+						"browser": {
+							"state": "populated",
+							"steps": [{ "click": { "role": "button", "name": "More actions" } }],
+							"expect": [
+								{ "role": "menuitem", "name": "Retire person" },
+								{ "role": "menuitem", "name": "Edit profile" }
+							]
+						}
+					}
+				},
+				{
+					"id": "activity",
+					"says": "Activity lists changes and notes newest first, keeping each note's author and revisions.",
+					"catalog": ["PPL-008"],
+					"operations": ["people.getActivities", "people.addNote", "people.editNote", "people.deleteNote"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/people/people.test.mts",
+								"name": "AC:TARGET-PPL-008 person Activity is newest first and pages continue with older items without gaps or duplicates"
+							},
+							{
+								"file": "tests/integration/people/people.test.mts",
+								"name": "AC:TARGET-PPL-008 original author and exact note revisions preserve occurrence, tombstone and removed attribution"
+							}
+						],
+						"cases": ["TARGET-PPL-008"]
+					}
+				},
+				{
+					"id": "photo",
+					"says": "A person's photo is served only to readers who may see that person, as it is now.",
+					"catalog": ["PPL-005"],
+					"operations": ["people.getPersonPhoto", "people.setPersonPhoto", "people.removePersonPhoto"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/people/person-photos.test.mts",
+								"name": "AC:TARGET-IDN-006: a reader whose seat ended gets a refusal, and a request past one page is refused"
+							}
+						],
+						"cases": ["TARGET-IDN-006"]
+					}
+				}
+			]
+		},
+		{
+			"id": "people.duplicates",
+			"says": "Possible duplicates: pairs to review, dismiss or merge; Everyfield never merges on its own.",
+			"routes": ["/people/duplicates"],
+			"catalog": ["PPL-016", "PPL-017"],
+			"reach": [
+				{ "link": "/people/duplicates" },
+				{
+					"from": "people.list",
+					"persona": "plant-owner",
+					"path": [{ "click": { "role": "link", "name": "to review in Duplicates", "match": "contains" } }]
+				}
+			],
+			"personas": { "plant-owner": "write", "plant-admin": "write", "plant-member": "none" },
+			"states": [
+				{
+					"id": "pairs",
+					"reach": { "persona": "plant-owner", "open": "/people/duplicates" },
+					"expect": [
+						{ "role": "heading", "name": "Possible duplicates" },
+						{ "role": "link", "name": "Dismissed" }
+					]
+				},
+				{
+					"id": "error",
+					"file": "apps/web/src/app/(product)/(frame)/people/error.tsx",
+					"reach": { "manual": "renders only when the page throws while rendering" },
+					"expect": [{ "role": "heading", "name": "We could not load your people" }]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "dismiss-restore",
+					"says": "Dismiss moves a pair to the Dismissed view; Restore puts it back in its import order.",
+					"catalog": ["PPL-016"],
+					"operations": ["people.listDuplicatePairs"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/people/csv/duplicates.test.mts",
+								"name": "AC:TARGET-PPL-016 a dismissed pair leaves the list for the Dismissed view, and Restore puts it back in its import order, each with its audit row"
+							},
+							{
+								"file": "tests/unit/people/duplicate-pairs.test.mjs",
+								"name": "a refused dismiss puts the row back in its place and says nothing changed"
+							}
+						],
+						"cases": ["TARGET-PPL-016"],
+						"browser": {
+							"state": "pairs",
+							"steps": [{ "click": { "role": "link", "name": "Dismissed" } }],
+							"expect": [{ "url": "/people/duplicates?view=dismissed" }]
+						}
+					}
+				},
+				{
+					"id": "merge",
+					"says": "A reviewed merge keeps the chosen details on the survivor and refuses what history blocks.",
+					"catalog": ["PPL-017"],
+					"operations": ["people.mergePeople", "people.unmergePeople"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/unit/people/corrections-model.test.mjs",
+								"name": "AC:TARGET-PPL-016 a merge blocked by past history names what blocks it and gives no advice that cannot clear it"
+							},
+							{
+								"file": "tests/integration/people/corrections/merge.test.mts",
+								"name": "AC:REQ-PPL-024 a write racing a merge waits for it and never leaves a current reference on the retired source"
+							}
+						],
+						"cases": ["TARGET-PPL-016"]
+					}
+				}
+			]
+		},
+		{
+			"id": "people.import",
+			"says": "Import people from a CSV: upload, preview with duplicates, choose per row, then import and resume.",
+			"routes": ["/people/import"],
+			"endpoints": [
+				"/api/people/import",
+				"/api/people/import/preview",
+				"/api/people/import/retry",
+				"/api/people/import/template",
+				"/api/people/import/upload"
+			],
+			"catalog": ["PPL-018"],
+			"reach": [
+				{
+					"from": "people.list",
+					"persona": "plant-owner",
+					"path": [{ "click": { "role": "link", "name": "Import CSV" } }]
+				}
+			],
+			"personas": { "plant-owner": "write", "plant-admin": "write", "plant-member": "none" },
+			"states": [
+				{
+					"id": "choose-file",
+					"reach": { "persona": "plant-owner", "open": "/people/import" },
+					"expect": [
+						{ "role": "heading", "name": "Import people" },
+						{ "role": "link", "name": "Download template" }
+					]
+				},
+				{
+					"id": "error",
+					"file": "apps/web/src/app/(product)/(frame)/people/error.tsx",
+					"reach": { "manual": "renders only when the page throws while rendering" },
+					"expect": [{ "role": "heading", "name": "We could not load your people" }]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "preview-and-import",
+					"says": "The server reads the stored file, previews duplicates without writing, and imports exactly the reviewed rows.",
+					"catalog": ["PPL-018"],
+					"operations": ["people.previewImport", "people.executeBulkImport", "people.generateCsvTemplate"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/people/csv/csv.test.mts",
+								"name": "AC:TARGET-PPL-018 the server reads the file honestly, previews duplicates without writing and refuses capped or malformed files"
+							},
+							{
+								"file": "tests/integration/people/csv/stored-upload.test.mts",
+								"name": "AC:TARGET-PPL-018 the Owner signs one upload, and the preview and the import read the stored object, never the browser's rows"
+							},
+							{
+								"file": "tests/unit/people/import-done.test.mts",
+								"name": "BUG-PR551 (people/peo-7): a partial Done screen lists every row that did not save, unreached rows included"
+							}
+						],
+						"cases": ["TARGET-PPL-018"],
+						"browser": {
+							"state": "choose-file",
+							"steps": [],
+							"expect": [{ "role": "button", "name": "Choose a CSV file" }]
+						}
+					}
+				}
+			]
+		}
+	]
+}
