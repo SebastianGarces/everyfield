@@ -74,24 +74,15 @@ import { isPending, PENDING, type CardEntry, type Change, type GuestRow, type Pe
 import { IntentLink, TabStack } from "./parts.tsx";
 
 type Filter = "all" | Rsvp;
-/** Someone new on the Chosen list: their Person and guest row are made in one write when the form is added. */
 type NewGuest = { key: string; displayName: string; email: string; phone: string };
 type Contact = { displayName: string; email: string; phone: string };
 type AddDraft = {
 	mode: "existing" | "new";
-	/** Everyone chosen in "Someone in People", across searches. */
 	people: PickedPerson[];
-	/** Everyone added in "Someone new". Both lists make the one Chosen list. */
 	fresh: NewGuest[];
-	/** What is typed in "Someone new" and not yet on the list. */
 	contact: Contact;
-	/** Names of people an earlier add did not reach: the form opens again with only them chosen. */
 	notAdded?: string[];
 };
-/**
- * The card's open form with what was entered. A save closes it; a refusal opens it again with the same values and the
- * reason, while it is still the latest form (components/save).
- */
 export type GuestForm = (
 	| { kind: "add"; draft: AddDraft }
 	| { kind: "inviter"; guest: Guest; inviter: PickedPerson | null }
@@ -112,17 +103,8 @@ export const ADD_GUEST: GuestForm = { kind: "add", draft: EMPTY_ADD };
 
 export const useGuestLane = () => useSaveIntent<GuestForm>({ explain: problemText });
 
-/**
- * The guest list (REQ-MTG-007, REQ-MTG-019): each guest's RSVP, who invited them and, for Vision meetings, their
- * response card. Owners and Admins correct an RSVP from the row menu (REQ-MTG-008, not drawn: composed from Menu).
- * Every change shows at once in the row and the page's counts; the answer confirms it, or the page goes back and says
- * why. A form that fails reopens with what was entered. Before attendance is final, the row menu marks each guest
- * attended, excused or absent (REQ-MTG-010); an attended guest can get a note in their history (REQ-MTG-017).
- */
-/** Room the Email column adds to the table, so "No open recorded" and an open's time stay on one line each. */
 const EMAIL_COLUMN_WIDTH = 140;
 
-/** The open time on the meeting's clock, as the rest of the meeting page shows times. */
 function openedText(iso: string, zone: string | undefined): string {
 	return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short", timeZone: zone }).format(
 		new Date(iso),
@@ -150,22 +132,17 @@ export function GuestList({
 }: {
 	lane: ReturnType<typeof useGuestLane>;
 	cardsRequest: number;
-	/** Send invites as a link beside the filter, when the header's main action is another one. */
 	invitesHref?: string;
 	meeting: Detail;
 	guests: GuestRow[] | null;
-	/** When a guest first opened an email of this meeting, from the email service. Never an RSVP or attendance. */
 	emailOpens: readonly { personId: string; openedAt: string }[];
-	/** Each guest's photo as the People list shows it; a guest with none keeps the initials. */
 	photos: readonly PersonPhoto[];
 	cards: CardEntry[] | null;
 	attendance: Attendance | null;
 	presence: ReturnType<typeof usePresence>;
-	/** Presence may change: an Owner or Admin, before attendance is final, on a meeting that is not cancelled. */
 	canMark: boolean;
 	canWrite: boolean;
 	project: (change: Change) => void;
-	/** A saved guest; a guest result also names the meeting's attendance revision after it, which the page keeps. */
 	onGuest: (guest: Guest, attendanceRevision?: string) => void;
 	onRemoved: (guestId: string, attendanceRevision: string) => void;
 	onCard: (personId: string, card: CardEntry | null) => void;
@@ -181,7 +158,6 @@ export function GuestList({
 	const cardOf = new Map((cards ?? []).map((c) => [c.personId, c]));
 	const openedOf = new Map<string | null, string>(emailOpens.map((o) => [o.personId, o.openedAt]));
 	const photoOf = new Map<string | null, string>(photos.map((p) => [p.personId, listPhotoRoute(p.photo)]));
-	/** Owners and Admins see the Email column; until a guest has an open, a note says when opens appear. */
 	const noOpensYet = canWrite && shown.length > 0 && !shown.some((g) => openedOf.has(g.person.personId));
 	const cardTarget = shown.find((g) => g.presence === "attended" && !isPending(g) && !cardOf.has(g.person.personId));
 	const focusCardTarget = useFocusRequest<HTMLDivElement>(cardsRequest, (table) =>
@@ -194,11 +170,6 @@ export function GuestList({
 	const open = answeringStatuses.includes(meeting.status);
 	const busy = lane.wait !== null;
 
-	/**
-	 * One save through the card's lane: `changes` show at once, the answer confirms them, and the lane replays a lost
-	 * answer once with the same request key or offers Check again. A refusal puts the page back and says why; out of
-	 * date also reads the meeting again.
-	 */
 	function write<T>(save: {
 		what: string;
 		done: string;
@@ -231,11 +202,6 @@ export function GuestList({
 			},
 		});
 	}
-	/**
-	 * Everyone on Chosen, added together in one meetings.addGuests write: people from People and new people (their
-	 * Person and guest row). The request key is made once per click, so the lane's replay of a lost answer never adds
-	 * anyone twice. People no longer live are not added: the others stay and the form opens again with only them chosen.
-	 */
 	function add(draft: AddDraft) {
 		const names = new Map(draft.people.map((p) => [p.id, p.name]));
 		const count = draft.people.length + draft.fresh.length;
@@ -354,7 +320,6 @@ export function GuestList({
 			},
 		});
 	}
-	/** A note about an attendee, kept in their history with this meeting as its source (REQ-MTG-017). */
 	function note(guest: Guest, text: string) {
 		write({
 			what: `The note about ${guest.person.displayName}`,
@@ -424,8 +389,6 @@ export function GuestList({
 				</div>
 			),
 		},
-		// Opens sit in their own column for Owners and Admins, the only viewers who get opens: an open is not an answer
-		// and not attendance. No open claims nothing about delivery, so the row says only that none is recorded.
 		...(canWrite
 			? [
 					{
@@ -471,7 +434,6 @@ export function GuestList({
 					},
 				]
 			: []),
-		// An Owner or Admin gets the whole menu; the leader of a team meeting gets only attendance (C74).
 		...(canWrite || marker
 			? [
 					{
@@ -567,7 +529,6 @@ export function GuestList({
 														) : null}
 													</>
 												) : null}
-												{/* After finalization only Correct attendance changes who attended (R3-2). */}
 												{final && g.presence === "attended" ? null : (
 													<>
 														<MenuSeparator />
@@ -735,7 +696,6 @@ export function GuestList({
 	);
 }
 
-/** A guest row shown while its add is saved: no link, no actions, Pending, absent. */
 function pendingGuest(person: PickedPerson | null, name: string, key = crypto.randomUUID()): PendingGuest {
 	return {
 		id: `${PENDING}${person?.id ?? key}`,
@@ -752,7 +712,6 @@ function pendingGuest(person: PickedPerson | null, name: string, key = crypto.ra
 
 type FormProps<T> = {
 	initial: T;
-	/** Why the last save of this form was refused, in words. */
 	problem: string | undefined;
 	wait: Wait;
 	onClose: () => void;
@@ -760,13 +719,6 @@ type FormProps<T> = {
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-/**
- * Add guest (REQ-MTG-011): one Chosen list for both tabs. "Someone in People" checks people already in People, across
- * searches. "Someone new" adds each new person to the same list with a name and optional contact details; a new person
- * starts as a prospect from this meeting, in the United States by default. One submit adds everyone on Chosen.
- * Nothing here gives them a login, and a guest added here has no inviter: "Who invited them?" on the guest row sets one
- * later.
- */
 function AddGuestForm({
 	initial,
 	problem,
@@ -777,7 +729,6 @@ function AddGuestForm({
 	onSubmit,
 }: FormProps<AddDraft> & { meeting: Detail; guestIds: string[]; onSubmit: (draft: AddDraft) => void }) {
 	const [draft, setDraft] = useState(initial);
-	// `adding`: Add to list was pressed. `submitted`: the primary button was pressed. Each shows its own messages.
 	const [adding, setAdding] = useState(false);
 	const [submitted, setSubmitted] = useState(false);
 	const root = useRef<HTMLDivElement>(null);
@@ -835,7 +786,6 @@ function AddGuestForm({
 			onClose={onClose}
 			onSubmit={() => {
 				setSubmitted(true);
-				// Text typed and not added is never lost or added for them: show the "Someone new" panel and say so.
 				if (typed) {
 					if (mode === "new") nameInput.current?.focus();
 					else set({ mode: "new" });
@@ -951,7 +901,6 @@ function AddGuestForm({
 	);
 }
 
-/** Who invited a guest (REQ-MTG-019). A guest cannot be their own inviter. */
 function InviterForm({
 	initial,
 	problem,
@@ -987,10 +936,6 @@ function InviterForm({
 	);
 }
 
-/**
- * A guest's Vision response card (REQ-MTG-013): one response and optional prayer or question notes. Notes are private
- * to Owners and Admins. A card records what the guest wrote; it does not mark them as attended.
- */
 function CardForm({
 	initial,
 	problem,
@@ -1001,7 +946,6 @@ function CardForm({
 	onSubmit,
 }: FormProps<{ response: CardResponse | null; notes: string }> & {
 	guest: Guest;
-	/** The guest already has a card: this corrects it. */
 	corrects: boolean;
 	onSubmit: (response: CardResponse, notes: string) => void;
 }) {
@@ -1050,7 +994,6 @@ function CardForm({
 	);
 }
 
-/** A note about one attendee (REQ-MTG-017). It goes to their history with this meeting as its source. */
 function NoteForm({
 	initial,
 	problem,

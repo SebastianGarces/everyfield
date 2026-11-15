@@ -38,11 +38,6 @@ import { attendeeOf, isPending, PENDING, withAttendees, type GuestRow, type Pend
 import { Problem, TabStack } from "./parts.tsx";
 import type { CheckInData } from "./server.ts";
 
-/**
- * Door check-in (REQ-MTG-010, phone layout): one tap marks a guest here, a second tap takes it back. A walk-in is
- * someone in People or someone new. Each tap shows at once; one save per person runs at a time. Finish reviews and
- * finalizes the attendance. The list never reloads while people arrive.
- */
 export function CheckInScreen({ data, admin }: { data: CheckInData; admin: boolean }) {
 	return (
 		<ToastProvider>
@@ -51,26 +46,16 @@ export function CheckInScreen({ data, admin }: { data: CheckInData; admin: boole
 	);
 }
 
-/**
- * `admin` is an Owner or Admin. A team meeting's current leader (not admin) marks people here, checks in someone already
- * in People and finishes check-in (REQ-MTG-010, D-562); adding a new person stays with Owners and Admins (C74).
- */
 function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 	const toast = useToast();
 	const [data, setData] = useState(loaded);
-	// The saved walk-in to show: scrolled to the middle and held in a soft highlight for a moment. Keyed by guest id,
-	// because two guests can share a name.
 	const [arrived, setArrived] = useState<string | null>(null);
 	const [search, setSearch] = useState("");
-	// A walk-in and Finish both change who attended, so they share one save lane (C68). Presence taps have one per person.
 	const door = useSaveIntent<DoorForm>({ explain: problemText });
-	// The walk-in row as the person asked for it, shown while its save is on its way or unknown.
 	const [draft, setDraft] = useState<PendingGuest | null>(null);
 	const m = data.meeting;
 	const final = data.attendance?.finalized != null;
-	// Who finalizes: the attendance read answers by the write's rule (Owner, Admin or this team meeting's leader).
 	const finalizer = admin || data.attendance?.viewerCanMarkAttendance === true;
-	/** The latest guests and attendance after a refusal as out of date. Resolves true once they show. */
 	const stale = () =>
 		reloadCheckIn(m.id).then(
 			(r) => {
@@ -87,7 +72,6 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 	});
 
 	const guests: GuestRow[] = [...presence.shown(data.guests), ...(door.wait !== null && draft ? [draft] : [])];
-	// A row whose save is unknown stays in the list where it was tapped, marked Not confirmed, so it is easy to find.
 	const before = new Map(data.guests.map((g) => [g.person.personId, g.presence]));
 	const stateOf = (g: GuestRow) => (isPending(g) ? undefined : presence.stateOf(g.person.personId));
 	const listed = (g: GuestRow) => {
@@ -98,7 +82,6 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 	};
 	const here = guests.filter((g) => listed(g) === "attended");
 	const q = search.trim().toLowerCase();
-	// One list. The order never depends on who is here, so a tap never moves a row.
 	const rows = guests
 		.filter((g) => !q || g.person.displayName.toLowerCase().includes(q))
 		.sort((a, b) => rank(a) - rank(b) || a.person.displayName.localeCompare(b.person.displayName));
@@ -160,7 +143,6 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 			...save,
 			send: (key) => addWalkIn(key, body),
 			ok: ({ guest: g, attendanceRevision }) => {
-				// The walk-in moved the attendance revision; Finish reviews at the one it returned.
 				setData((d) => withAttendees({ ...d, guests: [...d.guests, g] }, [attendeeOf(g)], attendanceRevision));
 				done(g.id);
 			},
@@ -198,7 +180,6 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 			refused: (code) => code === "conflict" && settleConflict(),
 		});
 	}
-	/** A finalize or its review out of date: review again from who is marked now, never from the earlier list (F6). */
 	function settleConflict() {
 		void stale().then((shown) =>
 			door.open({ kind: "settle", input: null, problem: shown ? "conflict" : "conflict_unloaded" }),
@@ -360,10 +341,8 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 	);
 }
 
-/** Guests who said yes come first, then pending, then no. */
 const rank = (g: GuestRow) => (g.rsvp === "confirmed" ? 0 : g.rsvp === "pending" ? 1 : 2);
 
-/** One guest at the door: a 56px to-do row with a round check and a status chip. Pressed means here. */
 const ARRIVAL_HOLD_MS = 3000;
 const ARRIVAL_FADE_MS = 150;
 
@@ -391,9 +370,7 @@ function Row({
 }: {
 	guest: GuestRow;
 	disabled: boolean;
-	/** This row's save: on its way, unknown or being checked again. Undefined when the row takes a tap. */
 	state: RowSave | undefined;
-	/** A walk-in just saved: held in a soft highlight for a moment. */
 	highlight: boolean;
 	onToggle: () => void;
 }) {
@@ -444,7 +421,6 @@ function Row({
 				className="w-[76px] justify-center"
 			>
 				{here ? (
-					// The badge sets text-ink after its soft tone, so the green text sits on an inner span.
 					<span className="inline-flex items-center gap-1 text-green-700">
 						<Icon icon={Tick02Icon} size={16} />
 						Here
@@ -458,15 +434,10 @@ function Row({
 }
 
 type WalkInInput = { person: PickedPerson | null; name: string; email: string; phone: string };
-/** The door's open form, with what was entered when a refusal opens it again. */
 type DoorForm = ({ kind: "walkIn"; input: WalkInInput | null } | { kind: "settle"; input: SettleInput | null }) & {
 	problem?: string;
 };
 
-/**
- * A walk-in (REQ-MTG-010, REQ-MTG-011): someone in People who is not on the list, or someone new. Someone new joins
- * People as a prospect from this meeting with their attendance in the same save; nothing gives them a login.
- */
 function WalkInDialog({
 	initial,
 	problem,
@@ -476,10 +447,8 @@ function WalkInDialog({
 	onSubmit,
 }: {
 	initial: WalkInInput | null;
-	/** Why the last check-in was refused, in words. */
 	problem: string | undefined;
 	exclude: string[];
-	/** Only an Owner or Admin adds someone new to People; a team leader picks someone already there. */
 	allowNew: boolean;
 	onClose: () => void;
 	onSubmit: (input: WalkInInput) => void;
@@ -500,7 +469,6 @@ function WalkInDialog({
 					onSubmit={(e) => {
 						e.preventDefault();
 						setTouched(true);
-						// Focus goes to the first field to fix (F5).
 						const focus = (name: string) =>
 							body.current?.querySelector<HTMLElement>(`[data-field="${name}"] input`)?.focus();
 						if (mode === "existing")

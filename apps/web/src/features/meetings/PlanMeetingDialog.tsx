@@ -33,16 +33,13 @@ import { Problem } from "./parts.tsx";
 
 type Choice = { instant: string; offsetSeconds: number };
 type Fold = { choices: Choice[]; offset: number | null };
-/** A ministry a team meeting can name: one that is not archived. */
 type Ministry = { id: string; name: string };
 type Draft = {
 	type: MeetingType;
-	/** A team meeting's ministry; empty until one is chosen. */
 	teamId: string;
 	title: string;
 	date: string;
 	time: string;
-	/** "keep" (edit: the copied place stays), "none", "new" or a saved place's ID. */
 	place: string;
 	placeName: string;
 	placeAddress: string;
@@ -72,11 +69,6 @@ function initial(meeting: Detail | undefined, ministry: Ministry | undefined): D
 	};
 }
 
-/**
- * Plan a meeting, or edit one (REQ-MTG-002, REQ-MTG-003). The place is copied into the meeting when it is saved, so a
- * later change to the saved place does not rewrite this meeting. A new place is created in the same save. A time that
- * happens twice when the clocks fall back asks which one; a time that does not exist is refused with a reason.
- */
 export function PlanMeetingDialog<E extends { problem?: string }>({
 	open,
 	onOpenChange,
@@ -89,16 +81,11 @@ export function PlanMeetingDialog<E extends { problem?: string }>({
 }: {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
-	/** The page's save lane: its notice shows on the page while the dialog is closed, and inside it while open. */
 	lane: SaveIntent<E>;
-	/** The meeting to edit. Without it the dialog plans a new one. */
 	meeting?: Detail;
-	/** A new meeting only: plan a team meeting for this ministry, already chosen. */
 	ministry?: Ministry;
 	onSaved?: (meeting: Detail) => void;
-	/** Edit only: the meeting as it will look, shown while the save runs; null when the answer arrives. */
 	onPreview?: (meeting: Detail | null) => void;
-	/** Edit only: reads the meeting again after a save refused as out of date; resolves once the latest shows. */
 	onStale?: () => Promise<unknown>;
 }) {
 	const [kept, setKept] = useState<Kept | null>(null);
@@ -193,7 +180,6 @@ function Form<E extends { problem?: string }>({
 		setTouched(true);
 		setProblem(null);
 		if (lane.wait) return;
-		// Focus goes to the first field to fix once React has drawn the errors; the entered values stay.
 		if (Object.values(missing).some(Boolean)) return focusFirstProblem(event.currentTarget as HTMLFormElement);
 		if (choices && offset === null) return setProblem("ambiguous_local_time");
 		if (editing) {
@@ -204,7 +190,6 @@ function Form<E extends { problem?: string }>({
 				...(moved || offset !== null ? when : {}),
 				...(venue ? { venue } : {}),
 			};
-			// The page shows the change at once; the answer confirms it, or the page goes back and the dialog reopens.
 			const chosen = venues?.find((v) => v.id === draft.place);
 			onPreview?.({
 				...meeting,
@@ -237,8 +222,6 @@ function Form<E extends { problem?: string }>({
 					onPreview?.(null);
 					onSaved?.(value.meeting);
 				},
-				// The page goes back, and the dialog opens again with the person's input and the refusal. Out of date, it
-				// opens on the latest meeting instead, read again first, as the refusal says.
 				refused: (code) => {
 					onPreview?.(null);
 					if (code === "conflict" && onStale) return void onStale().then(onReopen);
@@ -258,13 +241,10 @@ function Form<E extends { problem?: string }>({
 		await lane.save({
 			what: "The meeting",
 			done: "planned",
-			// Success redirects in the action itself (one round trip): no answer comes back, and the save stays on its way
-			// until the meeting's page opens.
 			send: (key) => scheduleMeeting(key, input).then((r) => (r ? keepChoices(r) : new Promise<never>(() => {}))),
 			ok: () => {},
 		});
 	}
-	/** A time that happens twice comes back with its two choices: the form asks which one. */
 	function keepChoices<T extends Outcome<unknown>>(r: T): T {
 		const answered = r.status === "refused" ? r.choices : undefined;
 		if (answered) setFold((f) => ({ choices: answered, offset: f?.offset ?? null }));
@@ -447,7 +427,6 @@ function Form<E extends { problem?: string }>({
 	);
 }
 
-/** The ministries to choose from. A preset ministry shows while the list loads, so the dialog opens with it chosen. */
 function ministryOptions(list: Ministry[] | undefined, preset: Ministry | undefined) {
 	const all = list ?? (preset ? [preset] : []);
 	return all.map((m) => ({ value: m.id, label: m.name }));

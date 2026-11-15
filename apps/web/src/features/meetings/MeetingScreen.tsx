@@ -118,25 +118,17 @@ import { PlanMeetingDialog } from "./PlanMeetingDialog.tsx";
 import { RosterUpdate } from "./RosterUpdate.tsx";
 import type { MeetingPageData } from "./server.ts";
 
-// Width-gated classes for the Kit tab's fill height. Tailwind reads class names as literals, so each is spelled out.
 const FILL_FRAME = "app-md:-mb-[72px] app-md:flex app-md:h-[var(--frame-h,calc(100dvh-420px))] app-md:flex-col";
 const FILL_GRID = "app-md:min-h-0 app-md:flex-1 app-md:grid-rows-[auto_minmax(0,1fr)] app-md:items-stretch";
 const FILL_PANEL = "app-md:flex app-md:min-h-0 app-md:flex-col";
-// Beside the content the tab bar takes row 1; the panels and the rail share row 2, so the rail starts where the
-// panel's first card starts. The row gap replaces the panel's top padding (pt-6) at that width.
 const PANEL_CELL = "app-md:col-start-1 app-md:row-start-2 app-md:pt-0";
 const FILL_ASIDE = "app-md:-mx-1 app-md:min-h-0 app-md:overflow-y-auto app-md:px-1 app-md:pb-1";
 
 type Reason = "void" | "restore" | "not_held";
-/** The meeting's open form, with what was entered when a refusal opens it again. */
 type MeetingForm = ({ kind: "held"; at: string } | { kind: "reason"; reason: Reason; why: string }) & {
 	problem?: string;
 };
 
-/**
- * One meeting (REQ-MTG-001, -002, -005 to -009, -011, -013, -019). Every change updates this page from its own answer;
- * nothing reloads the page. A change refused as out of date reads the meeting again and says so.
- */
 export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageData; canWrite: boolean }) {
 	const router = useRouter();
 	const toast = useToast();
@@ -173,15 +165,10 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 	} = store.getState().actions;
 	const [, startTransition] = useTransition();
 	const [status, setOptimisticStatus] = useOptimistic(data.meeting.status);
-	// One optimistic page state: a write projects its change at once into every place it shows, then the confirmed
-	// data replaces it, or the page goes back when the write fails (page-state.ts).
 	const [view, project] = useOptimistic<PageView, Change>(
 		{ guests: data.guests, cards: data.cards, own: data.own, agenda: data.meeting.agenda, attendance: data.attendance },
 		applyChange,
 	);
-	// The page's save lanes (components/save, C68): one save at a time in each, a lost answer replayed once with the same
-	// request key, then Check again. The meeting itself (status, edit, held, occurrence corrections), the viewer's own
-	// answer, finalizing or correcting attendance, and the evaluation each have one.
 	const meetingLane = useSaveIntent<MeetingForm>({ explain: problemText });
 	const ownLane = useSaveIntent({ explain: problemText });
 	const settleLane = useSaveIntent<SettleEditing>({ explain: problemText });
@@ -211,7 +198,6 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 	const practice = m.type === "prelaunch_practice";
 
 	const setMeeting = (meeting: Detail) => setData((d) => ({ ...d, meeting }));
-	/** After a refusal as out of date: the latest page data, shown and returned; null when it did not load. */
 	const stale = () =>
 		reloadMeeting(m.id).then(
 			(r) => {
@@ -221,7 +207,6 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 			},
 			() => null,
 		);
-	/** One save of the meeting itself. An answer shows the saved meeting; out of date reads the page again. */
 	function saveMeeting(save: {
 		what: string;
 		done?: string;
@@ -253,15 +238,12 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 		});
 	}
 
-	// Attendance (WP-022) ------------------------------------------------------------------------------------------
 	const presence = usePresence({
 		meetingId: data.meeting.id,
 		onSaved: (a) => setData((d) => withAttendees(d, a.attendees, a.attendanceRevision)),
 		onStale: () => stale(),
 	});
 	const final = data.attendance?.finalized != null;
-	// Owners, Admins and the leader of a team meeting mark, finalize and correct attendance (C74, REQ-MTG-010, D-562);
-	// the server read says who may.
 	const marker = data.attendance?.viewerCanMarkAttendance === true;
 	function submitSettle(input: SettleInput) {
 		const mode = settleLane.editing!.mode;
@@ -278,7 +260,6 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 			form: { mode, input },
 			send: (key) => settleAttendance(mode, key, attendance.attendanceRevision, body),
 			ok: ({ result, analytics }) => {
-				// The rows the server wrote, at their new revisions, so the next save on any of them goes through.
 				setData((d) =>
 					withAttendees(
 						{
@@ -295,11 +276,6 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 			refused: (code) => code === "conflict" && settleConflict(mode, input, attendance),
 		});
 	}
-	/**
-	 * A finalize or correction, or its review, refused as out of date (F6): reload, then review again. A finalize starts
-	 * from who is marked now; a correction keeps only the people this person added and removed, applied to the current
-	 * list, and its reason.
-	 */
 	function settleConflict(
 		mode: SettleEditing["mode"],
 		input: SettleInput,
@@ -324,7 +300,6 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 	}
 
 	const saved = data.evaluation?.status === "available" ? data.evaluation.evaluation : null;
-	// What the person asked for, shown while its save is on its way or unknown; the answer replaces it.
 	const shownEvaluation = evaluationLane.wait !== null && evaluationDraft ? evaluationDraft : saved;
 	function submitEvaluation(input: EvaluationInput) {
 		const scores = { ...saved?.scores, ...input.scores } as Scores;
@@ -378,8 +353,6 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 					tone: "success",
 				});
 			},
-			// Out of date (F6): reload, then review again from the scores saved now, with only the factors and notes this
-			// person changed laid over them, and their reason. A colleague's correction stays.
 			refused: (code) => {
 				draftEvaluation(null);
 				if (code !== "conflict") return;
@@ -404,13 +377,10 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 
 	const moves = statusMoves(m.type, m.status);
 	const held = m.occurrence.heldAt !== null;
-	// The next step (next-step.ts): one primary action and at most two secondary buttons.
 	const guestList = view.guests ?? [];
 	const attendedCount = guestList.filter((g) => g.presence === "attended").length;
 	const cardOwners = new Set<string | null>((view.cards ?? []).map((c) => c.personId));
 	const cardsIn = guestList.filter((g) => g.presence === "attended" && cardOwners.has(g.person.personId)).length;
-	// Check-in has its own page and moves no status (F04 decision): attendance marked while the meeting is still
-	// planning or ready is shown as its own fact, not as a change of status.
 	const checkInStarted = attendedCount > 0 && !final && (m.status === "planning" || m.status === "ready");
 	const canSettle = m.status !== "cancelled" && !m.occurrence.voidedAt;
 	const next = nextStep({
@@ -426,11 +396,8 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 		vision,
 	});
 
-	// The tab is in the address (?tab=). The first one follows the meeting's state. A tab change writes the
-	// address with replaceState and asks the server for nothing.
 	const address = useAddress();
 	const tab = pickTab(address.params.get("tab"), tabs, firstTab);
-	// The Kit tab fills the height below its own top, where the two columns show (F02): the checklist scrolls in its card.
 	const fill = vision && tab === "kit";
 	function selectTab(to: TabId) {
 		const params = new URLSearchParams(address.params.toString());
@@ -452,7 +419,6 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 			if (evaluationLane.wait === null) evaluationLane.open({ input: null });
 		}
 	}
-	// Finalizing waits for presence saves and for its own save (C68); the button says so instead of ignoring a click.
 	const waiting = settleLane.wait !== null || presence.busy;
 	const inviteHref = `/communication?meeting=${m.id}&template=invitation&recipients=guests`;
 	const checkInHref = `/meetings/${m.id}/check-in`;
@@ -650,7 +616,6 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 								{vision ? <Tab value="kit">Kit</Tab> : null}
 								<Tab value="results">Results</Tab>
 							</TabsList>
-							{/* Every panel stays mounted: a tab switch keeps the guest filter and any open form. */}
 							<TabsPanel
 								value="guests"
 								forceMount
@@ -818,7 +783,6 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 						onClose={settleLane.close}
 						onSubmit={submitSettle}
 						onConflict={(input) => {
-							// The open review closes as a refused submit does, and opens again on the latest page.
 							const mode = settleLane.editing!.mode;
 							settleLane.close();
 							settleConflict(mode, input, data.attendance!);
@@ -900,7 +864,6 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 							confirmLabel="Delete meeting"
 							onClose={closeDialog}
 							onSubmit={(why) => {
-								// The list opens at once without this meeting; the answer confirms it or brings it back.
 								const { id, displayTitle, revision } = m;
 								deleteFromList({ id, title: displayTitle, revision }, why, toast);
 								router.push("/meetings");
@@ -928,7 +891,6 @@ const REASON_WHAT: Record<Reason, string> = {
 	not_held: "Marking this practice as not held",
 };
 
-/** Void or restore an occurrence, or mark a practice as not held: each needs a reason in the history. */
 function OccurrenceDialog({
 	reason,
 	...props
@@ -965,10 +927,6 @@ function OccurrenceDialog({
 	);
 }
 
-/**
- * Yes, No and Pending for this meeting, from the guest list. While check-in is under way before the meeting is marked
- * started, the attended count shows here too.
- */
 function RsvpSummary({ guests, attended, started }: { guests: GuestRow[] | null; attended: number; started: boolean }) {
 	const c = rsvpCounts(guests ?? []);
 	const total = guests?.length ?? 0;
@@ -1008,10 +966,6 @@ function RsvpSummary({ guests, attended, started }: { guests: GuestRow[] | null;
 	);
 }
 
-/**
- * Response cards (REQ-MTG-013): attended guests are the base; an attended guest without a card is unknown, never a
- * no. Cards from guests who were not recorded as attending are counted apart.
- */
 function CardsSummary({ guests, cards }: { guests: GuestRow[] | null; cards: MeetingPageData["cards"] }) {
 	if (!guests || !cards)
 		return (
@@ -1072,7 +1026,6 @@ function NotesCard({ notes }: { notes: string | null }) {
 	);
 }
 
-/** One response tally, every response listed, so zero counts show as zero. */
 function Breakdown({
 	label,
 	cards,
@@ -1100,7 +1053,6 @@ function Breakdown({
 	);
 }
 
-/** The signed-in guest's own answer (REQ-MTG-009). It shows at once; the answer confirms it or puts it back. */
 function OwnRsvp({
 	own,
 	title,
@@ -1113,7 +1065,6 @@ function OwnRsvp({
 	onChoose: (rsvp: "confirmed" | "declined") => void;
 }) {
 	const answer = own.rsvp;
-	// Once answered, the banner shrinks to one line with the answer and a way to change it.
 	const [changing, setChanging] = useState(false);
 	const notice = <SaveNotice {...lane.noticeProps} dialogOpen={false} />;
 	if (answer !== "pending" && !changing)
@@ -1182,18 +1133,12 @@ function OwnRsvp({
 	);
 }
 
-/** "2026-10-21T18:30" in the browser's zone, for a datetime-local input. */
 const localInput = (at: Date) => {
 	const p = (n: number) => String(n).padStart(2, "0");
 	return `${at.getFullYear()}-${p(at.getMonth() + 1)}-${p(at.getDate())}T${p(at.getHours())}:${p(at.getMinutes())}`;
 };
-/** The held time a new form starts from: the meeting's start, or the page's render time when the start is ahead. */
 const heldDefault = (m: Detail, now: string) => localInput(new Date(Math.min(Date.parse(m.startsAt), Date.parse(now))));
 
-/**
- * Mark a practice as held (REQ-MTG-002): it records when it actually happened, which cannot be in the future. Three
- * held practices meet the Launch criterion.
- */
 function HeldForm({
 	meeting,
 	initial,
@@ -1209,7 +1154,6 @@ function HeldForm({
 	wait: Wait;
 	now: string;
 	onClose: () => void;
-	/** The form's value and the instant it names. */
 	onSubmit: (at: string, occurredAt: string) => void;
 }) {
 	const [value, setValue] = useState(initial);
@@ -1250,11 +1194,9 @@ function HeldForm({
 	);
 }
 
-/** The people marked attended in an attendance list. */
 const attended = (a: NonNullable<MeetingPageData["attendance"]>): string[] =>
 	a.items.filter((x) => x.presence === "attended").map((x) => x.person.personId);
 
-/** The comparison after a new or corrected evaluation: the baseline stays, the delta is rounded from it (REQ-MTG-016). */
 function compareWith(
 	c: NonNullable<NonNullable<MeetingPageData["analytics"]>["evaluation"]>,
 	average: number,
