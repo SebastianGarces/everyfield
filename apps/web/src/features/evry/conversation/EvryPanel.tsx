@@ -85,9 +85,12 @@ export function useEvryPanel({ inPlant, off = false, context }: { inPlant: boole
 
 function followEnd() {
 	let stick = true;
+	let pinned = -1;
 	let box: HTMLElement | null = null;
 	const toEnd = () => {
-		if (stick && box) box.scrollTop = box.scrollHeight;
+		if (!stick || !box) return;
+		box.scrollTop = box.scrollHeight;
+		pinned = box.scrollTop;
 	};
 	return {
 		stick: () => {
@@ -99,7 +102,7 @@ function followEnd() {
 			box = node;
 			stick = true;
 			const onScroll = () => {
-				stick = node.scrollHeight - node.scrollTop - node.clientHeight < 80;
+				stick = node.scrollTop === pinned || node.scrollHeight - node.scrollTop - node.clientHeight < 80;
 			};
 			node.addEventListener("scroll", onScroll, { passive: true });
 			const resized = new ResizeObserver(toEnd);
