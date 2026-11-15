@@ -604,10 +604,23 @@ const noGlobalListeners = ratcheted("no-global-listeners", (context, push) => {
 			fn: enclosingName(node),
 			message: `${name}: page-wide events have one owner each. Address changes go through ${LOCATION_STORE} (an address rule registered at module scope, or onTraversal started from an event); shortcuts, the unsaved-work warning, the leave hold and the last write when the page is hidden go through ${PAGE_EVENTS} (shortcutMark on the form or control, unsavedMark or leaveHoldMark on the form, leaveBeaconMark on the element that holds the write). A listener tied to a component's lifetime is an effect: it needs a survivor entry.`,
 		});
-	const isGlobalHost = (node) =>
-		isHost(node, context, LISTENER_HOSTS) ||
-		(node?.type === "Identifier" && aliases.has(node.name)) ||
-		HOST_MEMBERS.has(memberName(node) ?? "");
+	const isGlobalHost = (node) => {
+		if (node?.type === "ConditionalExpression") return isGlobalHost(node.consequent) || isGlobalHost(node.alternate);
+		if (node?.type === "LogicalExpression") return isGlobalHost(node.left) || isGlobalHost(node.right);
+		if (node?.type === "SequenceExpression") return isGlobalHost(node.expressions.at(-1));
+		if (node?.type === "ChainExpression") return isGlobalHost(node.expression);
+		if (
+			node?.type === "TSAsExpression" ||
+			node?.type === "TSNonNullExpression" ||
+			node?.type === "TSSatisfiesExpression"
+		)
+			return isGlobalHost(node.expression);
+		return (
+			isHost(node, context, LISTENER_HOSTS) ||
+			(node?.type === "Identifier" && aliases.has(node.name)) ||
+			HOST_MEMBERS.has(memberName(node) ?? "")
+		);
+	};
 	return {
 		VariableDeclarator(node) {
 			if (node.id.type === "Identifier" && isGlobalHost(node.init)) aliases.add(node.id.name);
@@ -616,6 +629,9 @@ const noGlobalListeners = ratcheted("no-global-listeners", (context, push) => {
 				const name = p.type === "Property" ? keyName(p.key, p.computed) : null;
 				if (name && (LISTENER_MEMBERS.has(name) || ON_HANDLER.test(name))) report(p, name);
 			}
+		},
+		AssignmentExpression(node) {
+			if (node.left.type === "Identifier" && isGlobalHost(node.right)) aliases.add(node.left.name);
 		},
 		MemberExpression(node) {
 			const name = memberName(node);

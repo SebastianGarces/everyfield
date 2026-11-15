@@ -207,6 +207,7 @@ type SheetProps = {
 	children: ReactNode;
 	className?: string;
 	onOpenAutoFocus?: (event: Event) => void;
+	onEscapeKeyDown?: (event: KeyboardEvent) => void;
 	bodyRef?: Ref<HTMLDivElement>;
 };
 
@@ -222,6 +223,7 @@ export function Sheet({
 	children,
 	className,
 	onOpenAutoFocus,
+	onEscapeKeyDown,
 	bodyRef,
 }: SheetProps) {
 	const container = usePortalContainer();
@@ -234,6 +236,7 @@ export function Sheet({
 				<DialogPrimitive.Content
 					aria-modal={modal ? "true" : undefined}
 					{...focus}
+					onEscapeKeyDown={onEscapeKeyDown}
 					onInteractOutside={modal ? undefined : (e) => e.preventDefault()}
 					className={cn(
 						"ef-sheet fixed top-3 right-3 bottom-3 z-50 flex w-[420px] max-w-[calc(100vw-24px)] flex-col rounded-card bg-surface-raised text-md text-ink shadow-pop outline-none max-app-sm:top-0 max-app-sm:right-0 max-app-sm:bottom-0 max-app-sm:w-full max-app-sm:max-w-none max-app-sm:rounded-none",
