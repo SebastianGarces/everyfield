@@ -1,7 +1,7 @@
 {
 	"public": {
 		"Bell.tsx": "the notification bell the shell composes into the frame",
-		"actions.ts": "markSubjectRead, which the resident page calls on the server when a notice opens it",
-		"feed.tsx": "NotificationsProvider, which the shell provides"
+		"actions.ts": "markSubjectRead, which the resident page calls when a notice opens it",
+		"feed.tsx": "NotificationsProvider, which the shell provides, and useReadElsewhere, which the resident page calls after its mark"
 	}
 }

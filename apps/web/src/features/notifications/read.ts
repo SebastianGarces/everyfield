@@ -1,6 +1,6 @@
 import { feedCursor } from "@everyfield/contracts/notifications";
 import "server-only";
-import { parseQuery, type Outcome } from "./model.ts";
+import { parseQuery, stamped, type Outcome } from "./model.ts";
 import { call, loadFeedPage, notificationActor } from "./server.ts";
 
 const answer = (body: Outcome<unknown>) => Response.json(body, { headers: { "cache-control": "private, no-store" } });
@@ -12,7 +12,9 @@ export async function GET(request: Request) {
 	const query = parseQuery(p);
 	switch (p.get("what")) {
 		case "count":
-			return answer(await call(({ db, producer }) => producer.readUnreadCount(db, actor, {})));
+			if (p.has("account") && p.get("account") !== actor.actor.accountId)
+				return answer({ status: "refused", code: "access_denied" });
+			return answer(stamped(await call(({ db, producer }) => producer.readUnreadCount(db, actor, {}))));
 		case "revision":
 			return answer(
 				await call(async ({ db, producer }) => {

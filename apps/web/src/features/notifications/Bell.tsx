@@ -12,7 +12,7 @@ import {
 	StatePanel,
 } from "@everyfield/ui/controls";
 import { useRef, useState, type MouseEvent, type RefObject } from "react";
-import { useClock, useFeed } from "./feed.tsx";
+import { useClock, useCountRefresh, useFeed } from "./feed.tsx";
 import { ItemsSkeleton, NotificationItem } from "./parts.tsx";
 
 const ALL = { unread: false, category: null } as const;
@@ -23,6 +23,7 @@ export function useNotificationBell() {
 	const anchor = useRef<HTMLElement | null>(null);
 	const feed = useFeed(ALL, null);
 	const clock = useClock();
+	const refreshCount = useCountRefresh();
 
 	const show = (event?: MouseEvent<HTMLElement>) => {
 		if (event) anchor.current = event.currentTarget;
@@ -47,7 +48,7 @@ export function useNotificationBell() {
 					<Button
 						variant="ghost"
 						size="sm"
-						disabled={feed.state.status !== "ready" || !(feed.count ?? feed.state.data.unread)}
+						disabled={feed.state.status !== "ready" || !feed.state.data.unread}
 						onClick={feed.markAll}
 					>
 						Mark all read
@@ -96,7 +97,10 @@ export function useNotificationBell() {
 				</div>
 				<IntentLink
 					href="/notifications"
-					onClick={() => setOpen(false)}
+					onClick={() => {
+						setOpen(false);
+						refreshCount();
+					}}
 					className={buttonVariants({ variant: "secondary", size: "sm", className: "mt-1.5 w-full" })}
 				>
 					See all notifications
@@ -104,5 +108,5 @@ export function useNotificationBell() {
 			</PopoverContent>
 		</Popover>
 	);
-	return { unread: feed.count ?? 0, open: show, expanded: open, element };
+	return { unread: feed.count ?? 0, open: show, expanded: open, refresh: refreshCount, element };
 }

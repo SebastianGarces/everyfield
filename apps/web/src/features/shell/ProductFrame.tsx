@@ -168,7 +168,7 @@ export function ProductFrame({ settings: initial, seed, residency = null, ...pro
 		<ToastProvider>
 			<OwnSeat value={change}>
 				<Residency value={residencyState}>
-					<NotificationsProvider>
+					<NotificationsProvider account={initial?.accountId ?? ""}>
 						<WikiChrome>
 							<Frame {...props} settings={settings} seed={settings === initial ? seed : null} />
 						</WikiChrome>
@@ -229,7 +229,11 @@ function Frame({ name, photo, settings, seed = null, children }: FrameProps) {
 	} as const;
 	const organization = settings?.context === "organization";
 	const nav: ShellNav = organization
-		? { main: [PLANTS, PIPELINE, REVIEWS], pages: ORGANIZATION_PAGES, tools: [feedbackAction, settingsLink] }
+		? {
+				main: [PLANTS, PIPELINE, REVIEWS],
+				pages: ORGANIZATION_PAGES.map((p) => (p.key === "notifications" ? { ...p, onNavigate: bell.refresh } : p)),
+				tools: [feedbackAction, settingsLink],
+			}
 		: {
 				main: account
 					? linked

@@ -5,7 +5,7 @@ import type { RequestActor } from "@everyfield/domain/access";
 import { createNotificationProducer, parseKeyRing } from "@everyfield/domain/notifications";
 import { randomBytes } from "node:crypto";
 import "server-only";
-import type { FeedPage, FeedQuery, Outcome, Reply } from "./model.ts";
+import { stamped, type FeedPage, type FeedQuery, type Outcome, type Reply } from "./model.ts";
 
 type Producer = ReturnType<typeof createNotificationProducer>;
 export type Mount = { db: Database; producer: Producer; optOut: boolean };
@@ -42,11 +42,12 @@ export async function call<T>(run: (m: Mount) => Promise<Reply<T>>): Promise<Out
 	}
 }
 
-export function loadFeedPage(actor: RequestActor, query: FeedQuery): Promise<Outcome<FeedPage>> {
-	return call(({ db, producer }) =>
+export async function loadFeedPage(actor: RequestActor, query: FeedQuery): Promise<Outcome<FeedPage>> {
+	const page = await call(({ db, producer }) =>
 		producer.readFeedPage(db, actor, {
 			...(query.category ? { category: query.category } : {}),
 			...(query.unread ? { unread: true } : {}),
 		}),
 	);
+	return stamped(page);
 }

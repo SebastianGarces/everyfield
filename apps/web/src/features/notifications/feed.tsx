@@ -21,44 +21,63 @@ import {
 	type FeedPage,
 	type FeedQuery,
 	type Outcome,
+	type UnreadCount,
 } from "./model.ts";
 
 const STALE_MS = 60_000;
 
 const Account = storeContext<AccountState>("NotificationsProvider");
 
-export function NotificationsProvider({ children }: { children: ReactNode }) {
-	const store = useLocalStore(createAccountStore);
+export function NotificationsProvider({ account, children }: { account: string; children: ReactNode }) {
+	const store = useLocalStore(() => createAccountStore(account));
 	return <Account.Provider value={store}>{children}</Account.Provider>;
 }
 
-const lost = () => ({ status: "lost" }) as const;
+type Counted = Outcome<UnreadCount>;
 
-const unreadCount = createRead(() => readUnreadCount(), { failed: lost, fresh: STALE_MS });
+const unreadCount = createRead((account: string) => readUnreadCount(account), {
+	failed: (): Counted => ({ status: "lost" }),
+	fresh: STALE_MS,
+});
 
-type Counted = Outcome<{ count: number }> | undefined;
-const countOf = (value: Counted) => (value?.status === "ok" ? value.value.count : null);
-const counted = (count: number) => ({ status: "ok", value: { count } }) as const;
+const countOf = (value: Counted | undefined) => (value?.status === "ok" ? value.value : null);
+const counted = (count: number, at: number): Counted => ({ status: "ok", value: { count, at } });
 
-function setCount(count: number) {
-	if (unreadCount.peek()?.status === "ready") unreadCount.patch(() => counted(count));
-	else unreadCount.seed(counted(count));
+function setCount(account: string, count: number, at: number) {
+	const next = counted(count, at);
+	if (unreadCount.peek(account)?.status === "ready") unreadCount.patch(() => next, account);
+	else unreadCount.seed(next, account);
 }
 
-function adjustCount(delta: number) {
-	if (countOf(unreadCount.peek()?.value) === null) return;
-	unreadCount.patch((value) => (value.status === "ok" ? counted(Math.max(0, value.value.count + delta)) : value));
+function adjustCount(account: string, delta: number) {
+	const now = countOf(unreadCount.peek(account)?.value);
+	if (now) unreadCount.patch(() => counted(Math.max(0, now.count + delta), now.at), account);
 }
 
-const countNow = () => countOf(unreadCount.peek()?.value);
-
-export function useUnreadCount(): number | null {
+function useUnreadCount(): UnreadCount | null {
+	const account = Account.useSelect((s) => s.account);
 	const hidden = useDocumentHidden();
-	const live = countOf(useRead(hidden ? null : unreadCount).value);
-	const [shown, setShown] = useState<number | null>(null);
-	if (live !== null && live !== shown) setShown(live);
+	const live = countOf(useRead(hidden ? null : unreadCount, account).value);
+	const [shown, setShown] = useState<UnreadCount | null>(null);
+	if (live && (live.count !== shown?.count || live.at !== shown.at)) setShown(live);
 	return live ?? shown;
 }
+
+export function useCountRefresh(): () => void {
+	const account = Account.useSelect((s) => s.account);
+	return () => void unreadCount.refresh(account);
+}
+
+export function useReadElsewhere(): (ids: readonly string[]) => void {
+	const account = Account.useSelect((s) => s.account);
+	const { stand } = Account.useSelect((s) => s.actions);
+	return (ids) => {
+		stand({ token: {}, ids: new Set(ids), cutoff: null });
+		void unreadCount.refresh(account);
+	};
+}
+
+const lost = () => ({ status: "lost" }) as const;
 
 export function useClock(): Clock | null {
 	const zone = useBrowserZone();
@@ -66,7 +85,13 @@ export function useClock(): Clock | null {
 	return useMemo(() => (zone === null || now === null ? null : { zone, now }), [zone, now]);
 }
 
-type Ready = { items: FeedItem[]; nextCursor: string | null; unread: number; more: "idle" | "loading" | "failed" };
+type Ready = {
+	items: FeedItem[];
+	nextCursor: string | null;
+	unread: number;
+	at: number;
+	more: "idle" | "loading" | "failed";
+};
 type FeedState = { status: "loading" } | { status: "failed" } | ({ status: "ready" } & Ready);
 type Marked = Outcome<{ markedIds: string[] }>;
 type Envelope = { requestKey: string; expectedRevision: string };
@@ -75,6 +100,7 @@ const fromPage = (page: FeedPage): Ready => ({
 	items: page.feed.items,
 	nextCursor: page.feed.nextCursor,
 	unread: page.unread,
+	at: page.at,
 	more: "idle",
 });
 
@@ -82,23 +108,23 @@ export function useFeed(query: FeedQuery, initial: FeedPage | null) {
 	const toast = useToast();
 	const { stand, withdraw } = Account.useSelect((s) => s.actions);
 	const marks = Account.useSelect((s) => s.marks);
+	const account = Account.useSelect((s) => s.account);
 	const count = useUnreadCount();
-	const [state, setState] = useState<FeedState>(() => {
-		if (!initial) return { status: "loading" };
-		if (!query.category) unreadCount.seed(counted(initial.unread));
-		return { status: "ready", ...fromPage(initial) };
-	});
+	const [state, setState] = useState<FeedState>(() =>
+		initial ? { status: "ready", ...fromPage(initial) } : { status: "loading" },
+	);
 	const [refreshing, setRefreshing] = useState(false);
 	const latest = useRef(0);
 	const revision = useRef(initial?.revision ?? null);
 
 	const standing = state.status === "ready" ? withStandingMarks(state.items, marks) : null;
+	const countIsNewer = state.status === "ready" && count !== null && count.at >= state.at;
 	const shown: (Ready & { status: "ready" }) | null =
 		state.status === "ready" && standing
 			? {
 					...state,
 					items: standing.items,
-					unread: query.category || count === null ? Math.max(0, state.unread - standing.reached) : count,
+					unread: !query.category && countIsNewer && count ? count.count : Math.max(0, state.unread - standing.reached),
 				}
 			: null;
 
@@ -112,7 +138,7 @@ export function useFeed(query: FeedQuery, initial: FeedPage | null) {
 		if (r.status !== "ok") return setState({ status: "failed" });
 		setState({ status: "ready", ...fromPage(r.value) });
 		revision.current = r.value.revision;
-		if (!q.category) setCount(r.value.unread);
+		if (!q.category) setCount(account, r.value.unread, r.value.at);
 	};
 
 	const more = async () => {
@@ -151,12 +177,13 @@ export function useFeed(query: FeedQuery, initial: FeedPage | null) {
 		cutoff: string | null = null,
 	) => {
 		const envelope = { requestKey: newRequestKey(), expectedRevision: revision.current ?? "0" };
+		if (!query.category && shown && !countIsNewer) setCount(account, shown.unread, shown.at);
 		const go = async () => {
 			const token = {};
 			setState((s) =>
 				s.status === "ready" ? { ...s, items: markedRead(s.items, ids), unread: Math.max(0, s.unread - drop) } : s,
 			);
-			adjustCount(-drop);
+			adjustCount(account, -drop);
 			stand({ token, ids, cutoff });
 			const r = await deliver(envelope, run);
 			if (r.status === "ok") return settle?.(r.value.markedIds.length);
@@ -166,7 +193,7 @@ export function useFeed(query: FeedQuery, initial: FeedPage | null) {
 					? { ...s, items: s.items.map((i) => (ids.has(i.id) ? { ...i, read: false } : i)), unread: s.unread + drop }
 					: s,
 			);
-			adjustCount(drop);
+			adjustCount(account, drop);
 			toast({
 				tone: "error",
 				message: markProblem(r),
@@ -190,7 +217,7 @@ export function useFeed(query: FeedQuery, initial: FeedPage | null) {
 		const open = shown.items.filter((i) => !i.read);
 		const cutoff = cutoffOf(shown.items);
 		if (!query.category && cutoff) {
-			const before = countNow() ?? shown.unread;
+			const before = shown.unread;
 			if (before === 0 && !open.length) return;
 			mark(
 				new Set(open.map((i) => i.id)),
@@ -199,7 +226,7 @@ export function useFeed(query: FeedQuery, initial: FeedPage | null) {
 				(marked) => {
 					if (marked >= before) return;
 					setState((s) => (s.status === "ready" ? { ...s, unread: before - marked } : s));
-					adjustCount(before - marked);
+					adjustCount(account, before - marked);
 				},
 				cutoff,
 			);
@@ -216,5 +243,5 @@ export function useFeed(query: FeedQuery, initial: FeedPage | null) {
 		: state.status === "loading"
 			? { status: "loading" }
 			: { status: "error", title: "Notifications did not load", onRetry: () => void load(query) };
-	return { state: loadable, count, refreshing, load, more, markOne, markAll };
+	return { state: loadable, count: count?.count ?? null, refreshing, load, more, markOne, markAll };
 }
