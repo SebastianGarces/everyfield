@@ -6,6 +6,7 @@ import "server-only";
 import { z } from "zod";
 import type { RequestActor } from "../access/session.ts";
 import { liveResidency } from "../access/pipeline.ts";
+import { workspaceAvatar } from "../settings/photo-visibility.ts";
 import { activeResidents, answer, one, parse, refuse, seatOf, write, type Executor, type Writer } from "./seat.ts";
 
 // The organization pipeline (REQ-MUL-001, -002, -008, -009). An Owner or Admin reads and changes everyone; a seat named
@@ -181,6 +182,7 @@ const recordRow = z.object({
 			body: z.string(),
 			author_id: z.string().nullable(),
 			author: z.string().nullable(),
+			avatar: z.string().nullable(),
 			written: z.string(),
 			edited: z.string().nullable(),
 			removed: z.string().nullable(),
@@ -252,7 +254,7 @@ SELECT g.allowed,(SELECT today::text FROM o) AS as_of,(SELECT revision::text FRO
   ORDER BY a.occurred_at DESC,a.id DESC LIMIT 200) h),'[]'::jsonb) AS history,
  coalesce((SELECT jsonb_agg(n ORDER BY n.at DESC,n.id DESC) FROM (
   SELECT n.id,n.occurred_at AS at,n.revision::text AS revision,n.body,n.author_id,
-   (SELECT i.display_name FROM seat_identity(n.author_id) i) AS author,
+   (SELECT i.display_name FROM seat_identity(n.author_id) i) AS author,${workspaceAvatar(sql`n.author_id`, sql`${org}::uuid`)} AS avatar,
    (n.occurred_at AT TIME ZONE o.timezone)::date::text AS written,(n.edited_at AT TIME ZONE o.timezone)::date::text AS edited,
    (n.removed_at AT TIME ZONE o.timezone)::date::text AS removed,n.questions,
    coalesce((SELECT jsonb_agg(jsonb_build_object('id',r.id,'groupName',r.group_name,'questions',r.questions,
@@ -312,22 +314,24 @@ FROM g`);
 								: "edited";
 				return { ...base, kind };
 			}),
-			notes: row.notes.map((n) =>
-				n.removed
-					? { state: "removed", id: n.id, author: n.author, removedOn: n.removed }
+			notes: row.notes.map((n) => {
+				const avatar = n.avatar && n.author_id ? { accountId: n.author_id, versionId: n.avatar } : null;
+				return n.removed
+					? { state: "removed", id: n.id, author: n.author, avatar, removedOn: n.removed }
 					: {
 							state: "current",
 							id: n.id,
 							revision: n.revision,
 							body: n.body,
 							author: n.author,
+							avatar,
 							writtenOn: n.written,
 							editedOn: n.edited,
 							mine: n.author_id === seat.accountId,
 							questions: n.questions,
 							reviews: n.reviews,
-						},
-			),
+						};
+			}),
 			conversations: row.conversations.map((c) => ({
 				id: c.id,
 				revision: c.revision,

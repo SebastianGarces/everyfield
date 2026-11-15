@@ -2,6 +2,7 @@ import { z } from "zod";
 import { accountId, personId, recordId, revision } from "../common/values.ts";
 import { localDate } from "../common/time.ts";
 import { normalizedEmail } from "../identity/requests.ts";
+import { avatarReference } from "../settings/results.ts";
 import { noteReview } from "./reviews.ts";
 
 // The organization pipeline (REQ-MUL-001, -002, -008, -009): the people a sending church or network develops toward
@@ -207,6 +208,8 @@ export const pipelineNote = z.discriminatedUnion("state", [
 		revision,
 		body: z.string(),
 		author: z.string().nullable(),
+		/** The author's account photo, while this organization may see it (REQ-IDN-006); null shows initials. */
+		avatar: avatarReference.nullable(),
 		writtenOn: localDate,
 		editedOn: localDate.nullable(),
 		mine: z.boolean(),
@@ -219,6 +222,7 @@ export const pipelineNote = z.discriminatedUnion("state", [
 		state: z.literal("removed"),
 		id: recordId,
 		author: z.string().nullable(),
+		avatar: avatarReference.nullable(),
 		removedOn: localDate,
 	}),
 ]);
