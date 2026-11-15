@@ -85,6 +85,9 @@ Each `[role.*]` in `evf.toml` and the role notes its `.agents/role-prompts/<role
 | PR visual examples | `.agents/skills/pr/SKILL.md` |
 | Debugging | `.agents/skills/debug-with-traces/SKILL.md` |
 | Decisions | `.agents/skills/decisions/SKILL.md` |
+| Formal check for a new high-cost subsystem (permissions, billing) | `.agents/skills/create-formal-verification-skill/SKILL.md` |
+| Permissions model, its TLC check and conformance test | `.agents/skills/formal-permissions/SKILL.md` |
+| A diff touches a path in a formal `map.json` | `.agents/skills/maintain-formal-verification/SKILL.md` |
 | Previews | `.agents/skills/portless-preview/SKILL.md`, then the Everyfield rules in "Shared preview service" of `verify-preview` |
 | UI quality | better-interface and the better-* suite |
 | Browser runs, preview stack, logs | `bin/dev help` |
