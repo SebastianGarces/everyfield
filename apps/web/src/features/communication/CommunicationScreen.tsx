@@ -3,7 +3,7 @@
 import { Add01Icon } from "@hugeicons/core-free-icons";
 import { Button, PageHeader, SegmentedControl } from "@everyfield/ui/controls";
 import { useState } from "react";
-import { traversalRef, useAddress, writeAddress } from "../../components/location.ts";
+import { addAddressRule, useAddress, writeAddress } from "../../components/location.ts";
 import { Address } from "./Address.tsx";
 import { Compose } from "./Compose.tsx";
 import { History } from "./HistoryPanel.tsx";
@@ -12,10 +12,13 @@ import { Templates } from "./Templates.tsx";
 
 type Section = "messages" | "templates" | "address";
 
-const reopenUnsavedAtWho = traversalRef(() => {
-	const route = parseRoute(Object.fromEntries(new URLSearchParams(window.location.search)));
-	if (route.kind === "compose" && route.id === "new" && !route.handoff && route.step !== "who")
-		writeAddress(routeHref({ ...route, step: "who" }), { replace: true });
+const unsavedNew = (url: URL) => url.pathname === "/communication" && url.searchParams.get("compose") === "new";
+
+addAddressRule((to, from) => {
+	const route = parseRoute(Object.fromEntries(to.searchParams));
+	if (!unsavedNew(to) || route.kind !== "compose" || route.handoff || route.step === "who") return null;
+	if (from && unsavedNew(from)) return null;
+	return routeHref({ ...route, step: "who" });
 });
 
 export function CommunicationScreen({ data, canWrite }: { data: PageData; canWrite: boolean }) {
@@ -51,7 +54,7 @@ export function CommunicationScreen({ data, canWrite }: { data: PageData; canWri
 	};
 
 	return (
-		<div ref={reopenUnsavedAtWho} className="flex flex-col gap-6">
+		<div className="flex flex-col gap-6">
 			<PageHeader
 				size="xl"
 				title="Messages"

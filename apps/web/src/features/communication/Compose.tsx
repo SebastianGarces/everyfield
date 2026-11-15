@@ -3,8 +3,8 @@
 import { ArrowLeft01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 import { Button, ConfirmDialog, Field, Select } from "@everyfield/ui/controls";
 import { Icon } from "@everyfield/ui/foundations";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { unloadHoldRef } from "../../components/save/leave.ts";
+import { useEffect, useRef, useState } from "react";
+import { unsavedMark } from "../../components/save/leave.ts";
 import { deleteDraft, readDraft, readMeetingContext, readMeetingTemplate, saveDraft, handOff } from "./actions.ts";
 import { bodyToTextResult, textToBody } from "./body.ts";
 import {
@@ -206,7 +206,6 @@ export function Compose({
 
 	const payload = JSON.stringify(draftPayload(form));
 	const dirty = !locked && payload !== saved;
-	const holdUnsaved = useMemo(() => (dirty ? unloadHoldRef(() => true) : undefined), [dirty]);
 
 	const hasMeeting = form.meetingId !== null;
 	const write = writeReason(form, hasMeeting);
@@ -380,7 +379,7 @@ export function Compose({
 	const chrome = { from: data.churchName, to: previewName, subject: form.subject };
 
 	return (
-		<div ref={holdUnsaved} className="flex flex-col gap-6">
+		<div {...unsavedMark(dirty)} className="flex flex-col gap-6">
 			<div className="flex flex-wrap items-center justify-between gap-4">
 				<button
 					type="button"

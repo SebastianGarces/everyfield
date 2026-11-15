@@ -1,70 +1,89 @@
 "use client";
 
 import { usePathname, useSearchParams } from "next/navigation";
-import { useSyncExternalStore } from "react";
+import { useMemo, useSyncExternalStore } from "react";
 
 type Listener = () => void;
 type EntryChange = { navigationType: "push" | "replace" | "reload" | "traverse" | null };
 type EntryChanges = {
 	addEventListener(type: "currententrychange", listener: (event: EntryChange) => void): void;
-	removeEventListener(type: "currententrychange", listener: (event: EntryChange) => void): void;
 };
 
 export type AddressParams = Omit<URLSearchParams, "append" | "delete" | "set" | "sort">;
 export type Address = { readonly pathname: string; readonly params: AddressParams };
 export type AddressWrite = { replace?: boolean; state?: Record<string, unknown> };
+export type AddressRule = (to: URL, from: URL | null) => string | null;
 
 const changes = new Set<Listener>();
 const traversals = new Set<Listener>();
+const rules: AddressRule[] = [];
 let routerBehind = false;
 let writing = false;
+let shown: string | null = null;
 
-const entryChanges = () => (window as { navigation?: EntryChanges }).navigation;
+const ORIGIN = "http://address.invalid";
+export const currentAddress = () => window.location.pathname + window.location.search;
+const urlOf = (href: string | URL) => new URL(href, ORIGIN);
+
+function ruled(to: URL, from: URL | null): string | null {
+	for (const rule of rules) {
+		const next = rule(to, from);
+		if (next !== null) return next;
+	}
+	return null;
+}
+
+function write(href: string | URL, replace: boolean, state: Record<string, unknown> | null) {
+	writing = true;
+	try {
+		if (replace) window.history.replaceState(state, "", href);
+		else window.history.pushState(state, "", href);
+	} finally {
+		writing = false;
+	}
+	routerBehind = true;
+	shown = currentAddress();
+}
 
 function traversed() {
+	const from = shown === null ? null : urlOf(shown);
+	shown = currentAddress();
+	const rewrite = ruled(urlOf(shown), from);
+	if (rewrite !== null) write(rewrite, true, window.history.state);
 	routerBehind = true;
 	for (const listener of changes) listener();
 	for (const listener of traversals) listener();
 }
 
 function routerWrote(event: EntryChange) {
-	if (!writing && event.navigationType !== "traverse") routerBehind = false;
+	if (writing || event.navigationType === "traverse") return;
+	routerBehind = false;
+	shown = currentAddress();
 }
 
-function watch(set: Set<Listener>, listener: Listener): () => void {
-	if (changes.size + traversals.size === 0) {
-		window.addEventListener("popstate", traversed);
-		entryChanges()?.addEventListener("currententrychange", routerWrote);
-	}
-	set.add(listener);
-	return () => {
-		set.delete(listener);
-		if (changes.size + traversals.size > 0) return;
-		window.removeEventListener("popstate", traversed);
-		entryChanges()?.removeEventListener("currententrychange", routerWrote);
-	};
+if (typeof window !== "undefined") {
+	shown = currentAddress();
+	window.addEventListener("popstate", traversed);
+	(window as { navigation?: EntryChanges }).navigation?.addEventListener("currententrychange", routerWrote);
 }
 
-const subscribe = (listener: Listener) => watch(changes, listener);
+const subscribe = (listener: Listener) => {
+	changes.add(listener);
+	return () => void changes.delete(listener);
+};
 
-export const onTraversal = (listener: Listener) => watch(traversals, listener);
+export function onTraversal(listener: Listener): () => void {
+	traversals.add(listener);
+	return () => void traversals.delete(listener);
+}
 
-export const traversalRef =
-	(listener: Listener) =>
-	(node: Element | null): (() => void) | undefined =>
-		node ? onTraversal(listener) : undefined;
-
-export const currentAddress = () => window.location.pathname + window.location.search;
+export function addAddressRule(rule: AddressRule): void {
+	if (!rules.includes(rule)) rules.push(rule);
+}
 
 export function writeAddress(href: string | URL, { replace = false, state }: AddressWrite = {}): void {
-	writing = true;
-	try {
-		if (replace) window.history.replaceState(state ?? null, "", href);
-		else window.history.pushState(state ?? null, "", href);
-	} finally {
-		writing = false;
-	}
-	routerBehind = true;
+	const from = shown === null ? null : urlOf(shown);
+	write(ruled(urlOf(href), from) ?? href, replace, state ?? null);
 	for (const listener of changes) listener();
 }
 
@@ -81,15 +100,6 @@ export function usePath(): string {
 	return newest(seen, router);
 }
 
-let last: { href: string; address: Address } | null = null;
-
-function addressOf(href: string): Address {
-	if (last?.href === href) return last.address;
-	const url = new URL(href, "http://address.invalid");
-	last = { href, address: { pathname: url.pathname, params: url.searchParams } };
-	return last.address;
-}
-
 export function useAddress(): Address {
 	const pathname = usePathname();
 	const search = useSearchParams().toString();
@@ -99,5 +109,9 @@ export function useAddress(): Address {
 		() => marked(currentAddress()),
 		() => `-${router}`,
 	);
-	return addressOf(newest(seen, router));
+	const href = newest(seen, router);
+	return useMemo(() => {
+		const url = urlOf(href);
+		return { pathname: url.pathname, params: url.searchParams };
+	}, [href]);
 }

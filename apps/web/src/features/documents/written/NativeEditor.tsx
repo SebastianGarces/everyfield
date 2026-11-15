@@ -25,9 +25,9 @@ import { Tag } from "@everyfield/ui/display";
 import type { Node as PMNode } from "@tiptap/pm/model";
 import { EditorContent, EditorContext, useEditor } from "@tiptap/react";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { writeAddress } from "../../../components/location.ts";
-import { shortcutRef } from "../../../components/save/leave.ts";
+import { SAVE_SHORTCUT } from "../../../components/save/leave.ts";
 import { archiveOwnedDocument, designateOwnedDocument, saveOwnedDocument, type DocumentOutcome } from "../actions.ts";
 import { clean } from "../church/editor/document-json.ts";
 import "../church/editor/editor.css";
@@ -225,8 +225,6 @@ export default function NativeEditor({
 		return saves.save(() => isSaved(editor.state.doc) && titleRef.current.trim() === savedRef.current.title, saveNow);
 	}, [editor, isSaved, saveNow, saves]);
 
-	const saveShortcut = useMemo(() => shortcutRef("mod+s", () => void save()), [save]);
-
 	const [refused, setRefused] = useState(false);
 	useEffect(() => {
 		if (!editor) return;
@@ -340,7 +338,7 @@ export default function NativeEditor({
 	const conflict = phase.kind === "failed" && phase.conflict;
 	return (
 		<EditorContext.Provider value={{ editor }}>
-			<div ref={saveShortcut} className="flex flex-col gap-4">
+			<div className="flex flex-col gap-4">
 				<PageHeader
 					breadcrumb={[{ label: "Documents", href: "/documents" }]}
 					title={title.trim() || (saved.id ? saved.title : "New document")}
@@ -431,7 +429,11 @@ export default function NativeEditor({
 							icon={FloppyDiskIcon}
 							loading={busy}
 							disabled={!changed && phase.kind !== "failed"}
-							onClick={() => void save().then((ok) => ok && editor?.view.focus())}
+							aria-keyshortcuts={SAVE_SHORTCUT}
+							onClick={() => {
+								const typingIn = document.activeElement?.closest("input, textarea, [contenteditable=true]");
+								void save().then((ok) => ok && !typingIn && editor?.view.focus());
+							}}
 						>
 							Save
 						</Button>
