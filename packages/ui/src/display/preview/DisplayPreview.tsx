@@ -15,11 +15,6 @@ const GROUPS = [
 	{ value: "domain", label: "Domain" },
 ] as const satisfies readonly { value: Group; label: string }[];
 
-/**
- * The display preview at /design/display, after the prototype's #/components page: every display part a feature
- * imports, in its drawn states, with invented sample data. Every interactive part works, so keyboard, focus and the
- * loading, error and empty states can be checked in place.
- */
 export function DisplayPreview() {
 	const [group, setGroup] = useState<Group>("all");
 	const show = (g: Group) => group === "all" || group === g;

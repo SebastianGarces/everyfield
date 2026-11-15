@@ -16,22 +16,15 @@ export type SegmentOption<V extends string> = {
 };
 
 type SegmentedProps<V extends string> = {
-	/** The group's accessible name, such as "View". */
 	label: string;
 	options: SegmentOption<V>[];
 	value: V;
 	onValueChange: (value: V) => void;
 	size?: "md" | "sm";
-	/** Options wrap onto more than one line. The default control scrolls sideways. */
 	wrap?: boolean;
 	className?: string;
 };
 
-/**
- * SegmentedControl (components.md): one choice from a few, as a radio group. Arrow keys move between options and
- * Tab leaves the group. One raised highlight slides to the hovered or focused option and rests on the selected one.
- * A selection is always kept: choosing the selected option again does nothing.
- */
 export function SegmentedControl<V extends string>({
 	label,
 	options,
@@ -86,7 +79,6 @@ function Segment<V extends string>({ option, size }: { option: SegmentOption<V>;
 	);
 }
 
-/** The small count after a tab or segment label. */
 export function CountChip({ children }: { children: ReactNode }) {
 	return (
 		<span className="num rounded-pill bg-surface-2 px-[7px] py-px font-title text-xs tracking-[-0.02em] text-text-2">
@@ -104,10 +96,6 @@ type TabsProps = Omit<ComponentPropsWithRef<typeof TabsPrimitive.Root>, "value" 
 	onValueChange?: (value: string) => void;
 };
 
-/**
- * Tabs (components.md): List, Tab (with an optional Count) and Panel. Arrow keys move between tabs and select them;
- * the 2px ink underline slides to the selected tab. Controlled with value, or uncontrolled with defaultValue.
- */
 export function Tabs({ value: controlled, defaultValue = "", onValueChange, ...props }: TabsProps) {
 	const [inner, setInner] = useState(defaultValue);
 	const value = controlled ?? inner;
@@ -126,10 +114,6 @@ export function Tabs({ value: controlled, defaultValue = "", onValueChange, ...p
 	);
 }
 
-/**
- * The bar scrolls sideways only. Its bottom line is an inset shadow and the active underline sits inside the box, so
- * nothing reaches past the padding box and `overflow-y` can stay hidden without clipping the underline.
- */
 export function TabsList({ className, ...props }: ComponentPropsWithRef<typeof TabsPrimitive.List>) {
 	return (
 		<TabsPrimitive.List
