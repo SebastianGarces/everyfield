@@ -136,6 +136,11 @@ function contextFor(repo: Repo, values: Values): Context {
 	if (values.url) state.origin = values.url.replace(/\/+$/, "");
 	else if (local?.phase === "ready") state.origin = local.origin;
 	const origin = state.origin;
+	if (state.lastUrl && origin && !state.lastUrl.startsWith(`${origin}/`)) {
+		state.persona = undefined;
+		state.lastUrl = undefined;
+		state.baseline = undefined;
+	}
 	return { repo, browser: browserFor(session, origin), origin, state, task: values.task };
 }
 
