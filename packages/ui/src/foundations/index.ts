@@ -15,7 +15,16 @@ export * as EvryGeo from "./evry-geo";
 export type { EvryShape } from "./evry-geo";
 export { HoverGroup, useHoverItem } from "./HoverGroup";
 export { Icon, type IconSvgElement } from "./Icon";
-export { createFocusHandoff, firstField, focusFirstField, focusOnMount, type FocusHandoff } from "./focus";
+export {
+	createFocusRequests,
+	firstField,
+	focusFirstField,
+	focusIfLost,
+	focusOnMount,
+	useFocusRequest,
+	type FocusPick,
+	type FocusRequest,
+} from "./focus";
 export { Lockup, LogoMark } from "./Logo";
 export {
 	observeHeadings,
