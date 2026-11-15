@@ -10,12 +10,6 @@ import { History } from "./HistoryPanel.tsx";
 import { parseRoute, routeHref, type PageData, type Route, type Step, type Template } from "./model.ts";
 import { Templates } from "./Templates.tsx";
 
-// Messages. The page opens on the history list. New message starts the guided flow. Every state is in the address, so
-// reload and the Back button return to it. Opening a message or entering compose pushes an entry; a step change replaces.
-// Every move inside the page writes the address with the history API, which Next.js keeps in step with
-// useSearchParams, so it makes no server request. The page's data loads once; each panel reads what it shows.
-// Next.js starts following the history API in an effect after hydration. A move before that, such as a fresh load of an
-// unsaved message's Write going back to Who, goes through the router, or Next.js would not see it.
 const historyFollowed = () => !/\[native code\]/.test(Function.prototype.toString.call(window.history.pushState));
 
 type Section = "messages" | "templates" | "address";

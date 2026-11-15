@@ -18,11 +18,6 @@ import type { Wait } from "../../components/save/model.ts";
 import { RecordDialog } from "../../components/save/parts.tsx";
 import type { Outcome } from "./model.ts";
 
-/**
- * A change that needs a reason in the history: delete a meeting, clear a card, void an occurrence. The reason is
- * required. The caller's save lane owns the dialog: a save closes it, and a refusal opens it again with the reason
- * kept (`initial`) and the problem in words.
- */
 export function ReasonDialog({
 	title,
 	description,
@@ -83,10 +78,6 @@ export function ReasonDialog({
 
 export type PickedPerson = { id: string; name: string };
 
-/**
- * The search box and its answer, shared by both pickers. It searches only after the person types, so opening a form
- * sends no read. An answer for an older search is never shown.
- */
 function usePersonSearch() {
 	const [search, setSearch] = useState("");
 	const [query, setQuery] = useState("");
@@ -144,7 +135,6 @@ function PersonSearchBox({
 const emptyText = (idle: boolean) =>
 	idle ? "Type a name, email or phone." : "No one matches. Try another spelling, or add someone new.";
 
-/** The state of a search that has no list to show yet: still searching, or did not load. Null when results are ready. */
 function SearchState({ result }: { result: Outcome<PersonHit[]> | null }) {
 	if (result === null)
 		return (
@@ -161,11 +151,6 @@ function SearchState({ result }: { result: Outcome<PersonHit[]> | null }) {
 	return null;
 }
 
-/**
- * Find one person of this church by name, email or phone (the shared people search rule). The results are a radio
- * group: arrow keys move, and the chosen person stays chosen while the search changes. `none` adds a first choice for
- * "no one".
- */
 export function PersonPicker({
 	label,
 	value,
@@ -215,11 +200,6 @@ export function PersonPicker({
 	);
 }
 
-/**
- * Find several people across searches. Results are checkboxes. A chosen person stays checked when the search changes or
- * clears. The search text and its answer live here, so the caller keeps this mounted while another tab shows. The
- * chosen people are listed by the caller (ChosenList), also those that no current result shows.
- */
 export function PeoplePicker({
 	label,
 	value,
@@ -268,10 +248,6 @@ export function PeoplePicker({
 
 export type ChosenChip = { key: string; name: string; isNew: boolean };
 
-/**
- * Everyone chosen so far, as chips with a control to remove each. The region grows with its chips up to six rows, then
- * scrolls inside itself; it is never shorter than three rows, so a first chip does not move the controls below.
- */
 export function ChosenList({
 	chips,
 	onRemove,

@@ -17,11 +17,6 @@ const BAR: Record<Classification, string> = {
 };
 const ORDER: Classification[] = ["core_group", "returning", "first_time"];
 
-/**
- * The Vision report (REQ-MTG-016): totals and the attendance and evaluation trend of the last 12 finalized Vision
- * meetings. Read once when the list first shows, not again on every filter change. Unknown values say so, never 0.
- * The bars only repeat numbers that a table beside them holds for screen readers.
- */
 export function VisionReport({ thisYear }: { thisYear: number }) {
 	const [got, setGot] = useState<Got>({ status: "loading" });
 	const [attempt, setAttempt] = useState(0);

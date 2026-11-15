@@ -4,10 +4,6 @@ import { useEffect, useState } from "react";
 import { readPreviewContext } from "./actions.ts";
 import { History } from "./HistoryPanel.tsx";
 
-/**
- * Communication tab on the person screen. It shows this person's message history.
- * A saved follow-up is a new reviewed message. It does not send email.
- */
 export function PersonCommunication({ personId, canWrite }: { personId: string; canWrite: boolean }) {
 	const [saved, setSaved] = useState(false);
 	const [preview, setPreview] = useState<{ churchName: string; origin: string } | "failed" | null>(null);
