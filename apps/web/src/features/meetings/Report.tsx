@@ -4,12 +4,12 @@ import { dateText } from "@everyfield/contracts/common";
 
 import { Button, Card, CardDescription, CardHeader, CardHeading, CardTitle, Skeleton } from "@everyfield/ui/controls";
 import { KeyValue, KeyValueList } from "@everyfield/ui/display";
-import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
+import { Await, createRead, useRead } from "../../components/read.tsx";
 import { visionReport } from "./actions.ts";
-import { CLASSIFICATION_LABEL, scoreText, type Classification } from "./model.ts";
+import { CLASSIFICATION_LABEL, scoreText, type Classification, type Outcome } from "./model.ts";
 import type { MeetingsReport } from "./server.ts";
 
-type Got = { status: "loading" } | { status: "failed" } | { status: "ok"; report: MeetingsReport };
 const BAR: Record<Classification, string> = {
 	first_time: "bg-green-500",
 	returning: "bg-blue-500",
@@ -17,20 +17,14 @@ const BAR: Record<Classification, string> = {
 };
 const ORDER: Classification[] = ["core_group", "returning", "first_time"];
 
+const visionReports = createRead(() => visionReport(), {
+	failed: (): Outcome<MeetingsReport> => ({ status: "lost" }),
+});
+
 export function VisionReport({ thisYear }: { thisYear: number }) {
-	const [got, setGot] = useState<Got>({ status: "loading" });
-	const [attempt, setAttempt] = useState(0);
-	useEffect(() => {
-		let live = true;
-		visionReport()
-			.then((r) => live && setGot(r.status === "ok" ? { status: "ok", report: r.value } : { status: "failed" }))
-			.catch(() => live && setGot({ status: "failed" }));
-		return () => {
-			live = false;
-		};
-	}, [attempt]);
-	return (
-		<Card as="section" aria-labelledby="vision-report" aria-busy={got.status === "loading" || undefined}>
+	const { promise, retry } = useRead(visionReports);
+	const card = (busy: boolean, body: ReactNode) => (
+		<Card as="section" aria-labelledby="vision-report" aria-busy={busy || undefined}>
 			<CardHeader className="mb-2">
 				<CardHeading>
 					<CardTitle id="vision-report">Vision meetings</CardTitle>
@@ -40,32 +34,39 @@ export function VisionReport({ thisYear }: { thisYear: number }) {
 					</CardDescription>
 				</CardHeading>
 			</CardHeader>
-			{got.status === "loading" ? (
+			{body}
+		</Card>
+	);
+	return (
+		<Await
+			promise={promise}
+			fallback={card(
+				true,
 				<div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)] gap-6 max-app-md:grid-cols-1">
 					<Skeleton className="h-[220px] rounded-md" />
 					<Skeleton className="h-[220px] rounded-md" />
 					<span className="sr-only" role="status">
 						Loading the report
 					</span>
-				</div>
-			) : got.status === "failed" ? (
-				<div role="alert" className="flex flex-wrap items-center justify-between gap-3 py-2">
-					<p className="text-md text-text-2">The report did not load. Nothing was changed.</p>
-					<Button
-						variant="secondary"
-						size="sm"
-						onClick={() => {
-							setGot({ status: "loading" });
-							setAttempt((n) => n + 1);
-						}}
-					>
-						Try again
-					</Button>
-				</div>
-			) : (
-				<Body report={got.report} thisYear={thisYear} />
+				</div>,
 			)}
-		</Card>
+		>
+			{(got) =>
+				card(
+					false,
+					got.status === "ok" ? (
+						<Body report={got.value} thisYear={thisYear} />
+					) : (
+						<div role="alert" className="flex flex-wrap items-center justify-between gap-3 py-2">
+							<p className="text-md text-text-2">The report did not load. Nothing was changed.</p>
+							<Button variant="secondary" size="sm" onClick={retry}>
+								Try again
+							</Button>
+						</div>
+					),
+				)
+			}
+		</Await>
 	);
 }
 

@@ -3,6 +3,5 @@
 	"apps/web/src/features/communication/Compose.tsx": 3,
 	"apps/web/src/features/communication/EmailFrame.tsx": 3,
 	"apps/web/src/features/communication/HistoryPanel.tsx": 6,
-	"apps/web/src/features/communication/PersonCommunication.tsx": 1,
 	"apps/web/src/features/communication/WhoStep.tsx": 3
 }

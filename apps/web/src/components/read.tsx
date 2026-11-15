@@ -28,8 +28,6 @@ export type ReadState<T> = {
 	patch(change: (value: T) => T): void;
 };
 
-const FRESH_MS = 15_000;
-
 const outcomeOk = (value: unknown) =>
 	!(typeof value === "object" && value !== null && "status" in value && value.status !== "ok");
 
@@ -51,7 +49,7 @@ export function settled<T>(value: T): Promise<T> {
 
 export function createRead<A extends unknown[], T>(
 	load: (...args: A) => Promise<T>,
-	{ failed, fresh = FRESH_MS, keep = outcomeOk }: ReadOptions<T>,
+	{ failed, fresh = 0, keep = outcomeOk }: ReadOptions<T>,
 ): Read<A, T> {
 	const entries = new Map<string, { at: number; promise: Tracked<T> }>();
 	const key = (...args: A) => JSON.stringify(args);

@@ -25,7 +25,9 @@ import { Tag } from "@everyfield/ui/display";
 import type { Node as PMNode } from "@tiptap/pm/model";
 import { EditorContent, EditorContext, useEditor } from "@tiptap/react";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { writeAddress } from "../../../components/location.ts";
+import { shortcutRef } from "../../../components/save/leave.ts";
 import { archiveOwnedDocument, designateOwnedDocument, saveOwnedDocument, type DocumentOutcome } from "../actions.ts";
 import { clean } from "../church/editor/document-json.ts";
 import "../church/editor/editor.css";
@@ -170,7 +172,7 @@ export default function NativeEditor({
 
 	const created = (id: string) => {
 		if (savedRef.current.id) return;
-		window.history.replaceState(window.history.state, "", `/documents/written/${id}`);
+		writeAddress(`/documents/written/${id}`, { replace: true });
 	};
 
 	const saveNow = useCallback((): Promise<boolean> => {
@@ -223,16 +225,7 @@ export default function NativeEditor({
 		return saves.save(() => isSaved(editor.state.doc) && titleRef.current.trim() === savedRef.current.title, saveNow);
 	}, [editor, isSaved, saveNow, saves]);
 
-	useEffect(() => {
-		const onKey = (event: KeyboardEvent) => {
-			if ((event.metaKey || event.ctrlKey) && !event.altKey && event.key.toLowerCase() === "s") {
-				event.preventDefault();
-				void save();
-			}
-		};
-		window.addEventListener("keydown", onKey);
-		return () => window.removeEventListener("keydown", onKey);
-	}, [save]);
+	const saveShortcut = useMemo(() => shortcutRef("mod+s", () => void save()), [save]);
 
 	const [refused, setRefused] = useState(false);
 	useEffect(() => {
@@ -347,7 +340,7 @@ export default function NativeEditor({
 	const conflict = phase.kind === "failed" && phase.conflict;
 	return (
 		<EditorContext.Provider value={{ editor }}>
-			<div className="flex flex-col gap-4">
+			<div ref={saveShortcut} className="flex flex-col gap-4">
 				<PageHeader
 					breadcrumb={[{ label: "Documents", href: "/documents" }]}
 					title={title.trim() || (saved.id ? saved.title : "New document")}

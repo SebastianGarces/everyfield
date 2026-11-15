@@ -11,7 +11,9 @@ import {
 	Spinner,
 	Textarea,
 } from "@everyfield/ui/controls";
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { createDebouncer } from "@everyfield/ui/foundations";
+import { useId, useState, type ReactNode } from "react";
+import { Await, createRead, useRead } from "../../components/read.tsx";
 import type { PersonHit } from "@everyfield/domain/people";
 import { searchPeople } from "./actions.ts";
 import type { Wait } from "../../components/save/model.ts";
@@ -78,50 +80,41 @@ export function ReasonDialog({
 
 export type PickedPerson = { id: string; name: string };
 
+const PERSON_SEARCH_PAUSE_MS = 250;
+
+const people = createRead((query: string) => searchPeople(query), {
+	failed: (): Outcome<PersonHit[]> => ({ status: "lost" }),
+});
+
 function usePersonSearch() {
 	const [search, setSearch] = useState("");
 	const [query, setQuery] = useState("");
-	const [got, setGot] = useState<{ query: string; value: Outcome<PersonHit[]> } | null>(null);
+	const [pause] = useState(() => createDebouncer(PERSON_SEARCH_PAUSE_MS));
 	const idle = query === "";
-	const result: Outcome<PersonHit[]> | null = idle
-		? { status: "ok", value: [] }
-		: got?.query === query
-			? got.value
-			: null;
-	const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
-	useEffect(() => {
-		if (query === "") return;
-		let live = true;
-		searchPeople(query).then(
-			(value) => live && setGot({ query, value }),
-			() => live && setGot({ query, value: { status: "lost" } }),
-		);
-		return () => {
-			live = false;
-		};
-	}, [query]);
-	useEffect(() => () => clearTimeout(timer.current), []);
+	const { promise } = useRead(idle ? null : people, query);
 	const onChange = (next: string) => {
 		setSearch(next);
-		clearTimeout(timer.current);
-		timer.current = setTimeout(() => setQuery(next.trim()), 250);
+		pause.run(() => setQuery(next.trim()));
 	};
-	return { search, onChange, idle, result };
+	return { search, onChange, idle, promise, pauseRef: pause.ref };
 }
 
 function PersonSearchBox({
 	label,
 	search,
 	onChange,
+	pauseRef,
 	autoFocus,
 }: {
 	label: string;
 	search: string;
 	onChange: (value: string) => void;
+	pauseRef: (node: Element | null) => () => void;
 	autoFocus?: boolean;
 }) {
 	return (
 		<SearchInput
+			ref={pauseRef}
 			aria-label={`Search people for ${label.toLowerCase()}`}
 			placeholder="Search by name, email or phone"
 			value={search}
@@ -135,20 +128,36 @@ function PersonSearchBox({
 const emptyText = (idle: boolean) =>
 	idle ? "Type a name, email or phone." : "No one matches. Try another spelling, or add someone new.";
 
-function SearchState({ result }: { result: Outcome<PersonHit[]> | null }) {
-	if (result === null)
-		return (
-			<p role="status" className="flex items-center gap-2 px-2 py-3 text-sm text-text-2">
-				<Spinner size={14} /> Searching…
-			</p>
-		);
-	if (result.status !== "ok")
-		return (
-			<p role="alert" className="px-2 py-3 text-sm text-magenta-600">
-				People did not load. Change the search to try again.
-			</p>
-		);
-	return null;
+function SearchResults({
+	idle,
+	promise,
+	children,
+}: {
+	idle: boolean;
+	promise: Promise<Outcome<PersonHit[]>> | null;
+	children: (found: PersonHit[]) => ReactNode;
+}) {
+	if (idle) return children([]);
+	return (
+		<Await
+			promise={promise}
+			fallback={
+				<p role="status" className="flex items-center gap-2 px-2 py-3 text-sm text-text-2">
+					<Spinner size={14} /> Searching…
+				</p>
+			}
+		>
+			{(result) =>
+				result.status === "ok" ? (
+					children(result.value)
+				) : (
+					<p role="alert" className="px-2 py-3 text-sm text-magenta-600">
+						People did not load. Change the search to try again.
+					</p>
+				)
+			}
+		</Await>
+	);
 }
 
 export function PersonPicker({
@@ -166,35 +175,39 @@ export function PersonPicker({
 	none?: string;
 	autoFocus?: boolean;
 }) {
-	const { search, onChange: setSearch, idle, result } = usePersonSearch();
-	const found = result?.status === "ok" ? result.value.filter((p) => !exclude.includes(p.id)) : [];
-	const options = value && !found.some((p) => p.id === value.id) ? [{ ...value, detail: "" }, ...found] : found;
+	const { search, onChange: setSearch, idle, promise, pauseRef } = usePersonSearch();
 	return (
 		<div className="flex flex-col gap-2">
-			<PersonSearchBox label={label} search={search} onChange={setSearch} autoFocus={autoFocus} />
+			<PersonSearchBox label={label} search={search} onChange={setSearch} pauseRef={pauseRef} autoFocus={autoFocus} />
 			<div className="max-h-[232px] min-h-[120px] overflow-y-auto rounded-md px-1">
-				<SearchState result={result} />
-				{result?.status === "ok" ? (
-					<RadioGroup
-						aria-label={label}
-						value={value?.id ?? (none ? "" : undefined)}
-						onValueChange={(id) => {
-							if (id === "") return onChange(null);
-							const p = options.find((o) => o.id === id);
-							if (p) onChange({ id: p.id, name: p.name });
-						}}
-					>
-						{none ? <Radio value="" label={none} /> : null}
-						{options.map((p) => (
-							<Radio key={p.id} value={p.id} label={p.name} description={p.detail || undefined} />
-						))}
-						{options.length === 0 ? (
-							<p className="px-2 py-3 text-sm text-text-2" aria-live="polite">
-								{emptyText(idle)}
-							</p>
-						) : null}
-					</RadioGroup>
-				) : null}
+				<SearchResults idle={idle} promise={promise}>
+					{(hits) => {
+						const found = hits.filter((p) => !exclude.includes(p.id));
+						const options =
+							value && !found.some((p) => p.id === value.id) ? [{ ...value, detail: "" }, ...found] : found;
+						return (
+							<RadioGroup
+								aria-label={label}
+								value={value?.id ?? (none ? "" : undefined)}
+								onValueChange={(id) => {
+									if (id === "") return onChange(null);
+									const p = options.find((o) => o.id === id);
+									if (p) onChange({ id: p.id, name: p.name });
+								}}
+							>
+								{none ? <Radio value="" label={none} /> : null}
+								{options.map((p) => (
+									<Radio key={p.id} value={p.id} label={p.name} description={p.detail || undefined} />
+								))}
+								{options.length === 0 ? (
+									<p className="px-2 py-3 text-sm text-text-2" aria-live="polite">
+										{emptyText(idle)}
+									</p>
+								) : null}
+							</RadioGroup>
+						);
+					}}
+				</SearchResults>
 			</div>
 		</div>
 	);
@@ -211,36 +224,39 @@ export function PeoplePicker({
 	onChange: (people: PickedPerson[]) => void;
 	exclude?: string[];
 }) {
-	const { search, onChange: setSearch, idle, result } = usePersonSearch();
+	const { search, onChange: setSearch, idle, promise, pauseRef } = usePersonSearch();
 	const chosen = new Set(value.map((p) => p.id));
-	const found = result?.status === "ok" ? result.value.filter((p) => !exclude.includes(p.id)) : [];
 	const toggle = (p: PickedPerson, on: boolean) =>
 		onChange(
 			on ? [...value.filter((x) => x.id !== p.id), { id: p.id, name: p.name }] : value.filter((x) => x.id !== p.id),
 		);
 	return (
 		<div className="flex flex-col gap-2">
-			<PersonSearchBox label={label} search={search} onChange={setSearch} />
+			<PersonSearchBox label={label} search={search} onChange={setSearch} pauseRef={pauseRef} />
 			<div className="h-[184px] overflow-y-auto rounded-md px-1">
-				<SearchState result={result} />
-				{result?.status === "ok" ? (
-					<div role="group" aria-label={label} className="flex flex-col">
-						{found.map((p) => (
-							<Checkbox
-								key={p.id}
-								label={p.name}
-								description={p.detail || undefined}
-								checked={chosen.has(p.id)}
-								onCheckedChange={(on) => toggle(p, on === true)}
-							/>
-						))}
-						{found.length === 0 ? (
-							<p className="px-2 py-3 text-sm text-text-2" aria-live="polite">
-								{emptyText(idle)}
-							</p>
-						) : null}
-					</div>
-				) : null}
+				<SearchResults idle={idle} promise={promise}>
+					{(hits) => {
+						const found = hits.filter((p) => !exclude.includes(p.id));
+						return (
+							<div role="group" aria-label={label} className="flex flex-col">
+								{found.map((p) => (
+									<Checkbox
+										key={p.id}
+										label={p.name}
+										description={p.detail || undefined}
+										checked={chosen.has(p.id)}
+										onCheckedChange={(on) => toggle(p, on === true)}
+									/>
+								))}
+								{found.length === 0 ? (
+									<p className="px-2 py-3 text-sm text-text-2" aria-live="polite">
+										{emptyText(idle)}
+									</p>
+								) : null}
+							</div>
+						);
+					}}
+				</SearchResults>
 			</div>
 		</div>
 	);

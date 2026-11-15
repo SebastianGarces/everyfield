@@ -16,7 +16,9 @@ import {
 	useToast,
 } from "@everyfield/ui/controls";
 import { KeyValue, KeyValueList, List, ListRow, Tag } from "@everyfield/ui/display";
-import { useEffect, useOptimistic, useRef, useState, useTransition } from "react";
+import { createDebouncer } from "@everyfield/ui/foundations";
+import { useCallback, useEffect, useOptimistic, useState, useTransition } from "react";
+import { Await, createRead, useRead } from "../../components/read.tsx";
 import { changeVenue, createVenue, getVenue, listVenues } from "./actions.ts";
 import { problemText, type Outcome, type Venue } from "./model.ts";
 import { SaveButton, SaveNotice, useSaveIntent } from "../../components/save/parts.tsx";
@@ -77,26 +79,21 @@ export function VenuesSheet({
 	);
 }
 
+const PLACES_SEARCH_PAUSE_MS = 300;
+
+const places = createRead(
+	(archived: boolean, query: string) =>
+		listVenues({ archived: archived ? "include" : "exclude", ...(query ? { search: query } : {}), limit: 100 }),
+	{ failed: (): Outcome<{ items: Venue[]; total: number }> => ({ status: "lost" }) },
+);
+
 function Places({ canWrite, onOpen, onAdd }: { canWrite: boolean; onOpen: (id: string) => void; onAdd: () => void }) {
 	const [search, setSearch] = useState("");
 	const [archived, setArchived] = useState(false);
-	const [round, setRound] = useState(0);
-	const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
 	const [query, setQuery] = useState("");
-	const key = `${archived}:${query}:${round}`;
-	const [got, setGot] = useState<{ key: string; value: Outcome<{ items: Venue[]; total: number }> } | null>(null);
-	const result = got?.key === key ? got.value : null;
-	useEffect(() => {
-		let live = true;
-		listVenues({ archived: archived ? "include" : "exclude", ...(query ? { search: query } : {}), limit: 100 }).then(
-			(value) => live && setGot({ key, value }),
-			() => live && setGot({ key, value: { status: "lost" } }),
-		);
-		return () => {
-			live = false;
-		};
-	}, [archived, query, key]);
-	useEffect(() => () => clearTimeout(timer.current), []);
+	const [pause] = useState(() => createDebouncer(PLACES_SEARCH_PAUSE_MS));
+	const { promise, retry } = useRead(places, archived, query);
+	const cancelSearchOnDetach = useCallback((node: HTMLInputElement | null) => pause.ref(node), [pause]);
 
 	return (
 		<div className="flex flex-col gap-4">
@@ -107,11 +104,11 @@ function Places({ canWrite, onOpen, onAdd }: { canWrite: boolean; onOpen: (id: s
 						placeholder="Search name or address"
 						value={search}
 						maxLength={120}
+						ref={cancelSearchOnDetach}
 						onChange={(e) => {
 							const next = e.target.value;
 							setSearch(next);
-							clearTimeout(timer.current);
-							timer.current = setTimeout(() => setQuery(next.trim()), 300);
+							pause.run(() => setQuery(next.trim()));
 						}}
 					/>
 				</div>
@@ -122,52 +119,59 @@ function Places({ canWrite, onOpen, onAdd }: { canWrite: boolean; onOpen: (id: s
 				) : null}
 			</div>
 			<Switch label="Show archived places" checked={archived} onCheckedChange={setArchived} />
-			{result === null ? (
-				<div aria-busy="true" className="flex flex-col gap-3">
-					<span className="sr-only" role="status">
-						Loading places
-					</span>
-					{[0, 1, 2].map((i) => (
-						<Skeleton key={i} className="h-14 rounded-md" />
-					))}
-				</div>
-			) : result.status !== "ok" ? (
-				<StatePanel
-					tone="error"
-					title="Places did not load"
-					headingLevel="h3"
-					className="py-8"
-					actions={
-						<Button variant="secondary" size="sm" onClick={() => setRound((r) => r + 1)}>
-							Try again
-						</Button>
-					}
-				>
-					Nothing was changed. Try again in a moment.
-				</StatePanel>
-			) : result.value.items.length === 0 ? (
-				<EmptyState icon={Location01Icon} title={query ? "No places match" : "No places yet"} headingLevel="h3">
-					{query
-						? "Try another name or part of the address."
-						: canWrite
-							? "Add the homes, halls and schools where you meet. You can also add one while you plan a meeting."
-							: "When an Owner or Admin adds a place, it appears here."}
-				</EmptyState>
-			) : (
-				<List>
-					{result.value.items.map((v) => (
-						<ListRow
-							key={v.id}
-							title={v.name}
-							subtitle={v.address}
-							icon={Location01Icon}
-							tone={v.active ? "teal" : "ink"}
-							trailing={v.active ? null : <Tag>Archived</Tag>}
-							onClick={() => onOpen(v.id)}
-						/>
-					))}
-				</List>
-			)}
+			<Await
+				promise={promise}
+				fallback={
+					<div aria-busy="true" className="flex flex-col gap-3">
+						<span className="sr-only" role="status">
+							Loading places
+						</span>
+						{[0, 1, 2].map((i) => (
+							<Skeleton key={i} className="h-14 rounded-md" />
+						))}
+					</div>
+				}
+			>
+				{(result) =>
+					result.status !== "ok" ? (
+						<StatePanel
+							tone="error"
+							title="Places did not load"
+							headingLevel="h3"
+							className="py-8"
+							actions={
+								<Button variant="secondary" size="sm" onClick={retry}>
+									Try again
+								</Button>
+							}
+						>
+							Nothing was changed. Try again in a moment.
+						</StatePanel>
+					) : result.value.items.length === 0 ? (
+						<EmptyState icon={Location01Icon} title={query ? "No places match" : "No places yet"} headingLevel="h3">
+							{query
+								? "Try another name or part of the address."
+								: canWrite
+									? "Add the homes, halls and schools where you meet. You can also add one while you plan a meeting."
+									: "When an Owner or Admin adds a place, it appears here."}
+						</EmptyState>
+					) : (
+						<List>
+							{result.value.items.map((v) => (
+								<ListRow
+									key={v.id}
+									title={v.name}
+									subtitle={v.address}
+									icon={Location01Icon}
+									tone={v.active ? "teal" : "ink"}
+									trailing={v.active ? null : <Tag>Archived</Tag>}
+									onClick={() => onOpen(v.id)}
+								/>
+							))}
+						</List>
+					)
+				}
+			</Await>
 		</div>
 	);
 }
