@@ -88,7 +88,7 @@ jobs:
       - name: Playwright chromium and webkit with their system dependencies
         working-directory: apps/web
         run: pnpm exec playwright install --with-deps chromium webkit
-      - name: nightly.localhost on the loopback
+      - name: nightly.localhost on the loopback (the seeds accept only a *.localhost origin)
         run: echo "127.0.0.1 nightly.localhost" | sudo tee -a /etc/hosts
       - name: Production build
         run: pnpm build

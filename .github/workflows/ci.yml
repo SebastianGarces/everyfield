@@ -42,7 +42,7 @@ jobs:
         run: pnpm test:logs
         env:
           NEXT_TELEMETRY_DISABLED: "1"
-      - name: LibreOffice and the document fonts for the documents tests
+      - name: LibreOffice and the upright document fonts for the documents tests (the italic DM Sans files would set body text in italic)
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends libreoffice-writer libreoffice-calc
@@ -213,7 +213,7 @@ jobs:
         env:
           EVF_CENSUS_LOGS: ${{ runner.temp }}/census
           EVF_CENSUS_PART: ${{ format('{0}/{1}', matrix.part, env.CENSUS_PARTS) }}
-      - name: Server traces hold the runtime reference files (WP-032)
+      - name: Server traces hold the runtime reference files (WP-032), after the census so a trace failure still reports its counts
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: node --test tests/reference/server-trace.test.mjs
       - name: Statement census part

@@ -26,7 +26,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v7
+      - name: Trusted reporter from main, never code from the failed run or deploy
+        uses: actions/checkout@v7
         with:
           ref: main
           persist-credentials: false
