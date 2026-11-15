@@ -1,12 +1,3 @@
-# The setup every ci.yml and nightly.yml job shares (T-285, T-392): Node, pnpm from corepack and the workspace's
-# node_modules.
-# - Node and corepack's home come back from one cache keyed on the Node version and packageManager, so setup-node finds
-#   Node in the tool cache instead of downloading it, and corepack installs pnpm with no registry request. On a miss,
-#   corepack-install.sh fetches pnpm with its registry retries and the cache is saved straight after.
-# - node_modules comes back from a cache keyed on the lockfiles, pnpm-workspace.yaml, Node and pnpm, and
-#   `pnpm install --frozen-lockfile` still runs and checks it against the lockfile ("Already up to date"). On a miss pnpm
-#   installs from the registry and the cache is saved right after the install, before any test can write into it.
-# The job step that uses this action is named "Shared setup ...", which tools/ci/ci-timing.ts counts as setup.
 name: Shared CI setup
 description: Node, pnpm from corepack and node_modules from caches, then pnpm install --frozen-lockfile.
 inputs:

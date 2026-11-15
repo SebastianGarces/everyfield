@@ -1,16 +1,9 @@
-# Deterministic checks for every pull request and for main.
-# The required status check is the `ci` job. It passes only when every other job passed. The nightly full run behind
-# local selection, and the bun typecheck shadow, live in nightly.yml (T-216).
-# The database tests run against throwaway PostgreSQL 18 service containers, the major version the shared development
-# database runs (D-861), one for the db job and one per domain census part, with a synthetic password, never against
-# Neon. CI uses no secrets.
 name: CI
 
 on:
   pull_request:
   push:
     branches: [main]
-  # Dormant until this repository can use a merge queue (OPS-56): the `ci` check then also runs on the queue commit.
   merge_group:
 
 permissions:
@@ -22,12 +15,10 @@ concurrency:
 
 env:
   NODE_VERSION: "24.22.1"
-  # The domain matrix lists census parts 1 to CENSUS_PARTS; the ci job checks their union.
   CENSUS_PARTS: "3"
 
 jobs:
   app:
-    # The production build runs once per CI run, in domain census part 1, with the server-trace test after it (T-216).
     name: app (lint, types, logs, unit)
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -45,16 +36,12 @@ jobs:
         run: pnpm lint
       - name: Lint rules stay on, cover every file and only shrink their baselines
         run: node scripts/lint/check-comments.mjs
-      # TypeScript 7 over every package, then tsconfig.tools.json. The bun shadow (pnpm typecheck:bun) runs nightly.
       - name: Types
         run: pnpm typecheck
       - name: Server log privacy (next dev with synthetic passwords)
         run: pnpm test:logs
         env:
           NEXT_TELEMETRY_DISABLED: "1"
-      # The documents tests open the Word and Excel exports in LibreOffice, so they paginate with the fonts the files name.
-      # Only the upright DM Sans files: the italic ones alone carry the legacy family name "DM Sans", and LibreOffice would
-      # set all body text in italic.
       - name: LibreOffice and the document fonts for the documents tests
         run: |
           sudo apt-get update
@@ -63,26 +50,19 @@ jobs:
           sudo cp packages/domain/src/documents/fonts/DMSans-{Regular,Medium,Bold}.ttf packages/domain/src/documents/fonts/DMSerifDisplay-Regular.ttf /usr/local/share/fonts/everyfield/
           fc-cache -f
           soffice --version
-      # REQUIRE_SOFFICE=1 makes the LibreOffice checks fail instead of skip when soffice is missing (sofficeTest).
       - name: Package unit tests (each package's test:unit, no database or network)
         run: corepack pnpm -r --if-present test:unit
         env:
           REQUIRE_SOFFICE: "1"
 
   tooling:
-    # The checks that need no database service of their own: documentation, local stack and CI scripts, the product
-    # tools and the wiki tool, run in sequence on one runner so each skips its own setup. The QA seed tests migrate a
-    # Docker Postgres with db:migrate. A failed step still lets the later ones run and report.
     name: tooling (docs, workflow, tools, wiki)
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
         with:
-          fetch-depth: 0 # operation rule and rule placement checks read baseline commits
-      # Node, pnpm from corepack (tools/wiki pins the same packageManager) and node_modules from caches, then the
-      # frozen-lockfile install (.github/actions/setup). The cache holds tools/wiki's node_modules too, so on a miss this
-      # job saves it after the wiki tool install below.
+          fetch-depth: 0
       - name: Shared setup (Node, pnpm, node_modules)
         id: setup
         uses: ./.github/actions/setup
@@ -116,11 +96,9 @@ jobs:
       - name: QA preview tool
         if: ${{ !cancelled() }}
         run: node --test --disable-warning=ExperimentalWarning tools/qa/tests/*.test.ts
-      # The launchd watcher (ops/actionable-watch). Its one plutil test needs macOS and is skipped here.
       - name: Actionable watcher
         if: ${{ !cancelled() }}
         run: node --test ops/actionable-watch/test/*.test.mts
-      # The wiki tool has its own lockfile outside the workspace.
       - name: Wiki tool install
         if: ${{ !cancelled() }}
         id: wiki-install
@@ -137,8 +115,6 @@ jobs:
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('tools/wiki/pnpm-lock.yaml') }}
-      # The runner image already has the libraries Chromium needs. `--with-deps` ran apt on
-      # every run, and a slow Ubuntu mirror held the job until the timeout cancelled it.
       - name: Chromium for render tests
         if: ${{ !cancelled() && steps.wiki-install.outcome == 'success' }}
         id: chromium
@@ -150,11 +126,6 @@ jobs:
         run: pnpm test
 
   db:
-    # Every package with a test:db script except @everyfield/domain, one after another on one Postgres service. Each
-    # suite makes its own random schema in everyfield_ci and drops it at the end, so the suites share the database as
-    # they share the development one. A failed suite still lets the later ones run and report.
-    # The reference database suites run in the domain census instead. `node tools/ci/ci-tests.ts` fails when a package
-    # with test:db runs in no CI step, or when one test file runs in two CI commands.
     name: db (@everyfield/db, evry)
     runs-on: ubuntu-24.04
     timeout-minutes: 25
@@ -192,9 +163,6 @@ jobs:
         run: pnpm --filter "@everyfield/evry" test:db
 
   domain:
-    # @everyfield/domain runs only the statement census (tests/integration/writes/suites.json, which includes the
-    # reference database suites), split into CENSUS_PARTS parts that run side by side, each on
-    # its own Postgres service. The ci job checks their union.
     name: domain (census part ${{ matrix.part }})
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -203,8 +171,6 @@ jobs:
       matrix:
         include:
           - part: 1
-            # Part 1 counts real HTTP requests on the production build, the one build of the run. It also checks the
-            # build's server traces and saves the Next cache.
             build: true
           - part: 2
           - part: 3
@@ -247,13 +213,9 @@ jobs:
         env:
           EVF_CENSUS_LOGS: ${{ runner.temp }}/census
           EVF_CENSUS_PART: ${{ format('{0}/{1}', matrix.part, env.CENSUS_PARTS) }}
-      # After the census, so a trace failure still lets the part report its counts.
       - name: Server traces hold the runtime reference files (WP-032)
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: node --test tests/reference/server-trace.test.mjs
-      # Each census part keeps its full logs (behaviors.log holds every inner assertion and its time) and its counts
-      # file. The ci job reads the counts; a failed or timed-out part leaves its logs for reading. A rerun replaces its
-      # part's artifact.
       - name: Statement census part
         if: always()
         uses: actions/upload-artifact@v7
@@ -265,9 +227,6 @@ jobs:
           retention-days: 14
 
   ci:
-    # The one required check. It passes only when every other job passed and the census union holds. The union rules
-    # over the whole census: every budget measured by some part, every declared write exercised, no budget above its
-    # most measured count. It needs no database: it reads the counts files of every passing domain part.
     name: ci
     if: always()
     needs: [app, db, domain, tooling]
@@ -276,7 +235,6 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         if: needs.domain.result == 'success'
-      # Node only, from the tool cache's cache: this job runs no pnpm.
       - name: Shared setup (Node)
         if: needs.domain.result == 'success'
         uses: ./.github/actions/setup
