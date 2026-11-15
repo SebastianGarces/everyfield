@@ -23,13 +23,17 @@ export const border = (color: string, size = 4) =>
 		.map((side) => `<w:${side} w:val="single" w:sz="${size}" w:space="0" w:color="${hex(color)}"/>`)
 		.join("");
 
+/**
+ * The paragraph styles. Body lines are at least the PDF's line height (10.5 pt type at 1.5, 315 twips): an "auto" line
+ * multiplies the font's own line gap, which DM Sans makes tall, and LibreOffice then spills pages the PDF fits.
+ */
 export function styles(ctx: DocxCtx) {
 	const { heading, body } = ctx.fonts;
 	const font = (name: string) =>
 		`<w:rFonts w:ascii="${escape(name)}" w:hAnsi="${escape(name)}" w:cs="${escape(name)}"/>`;
 	const style = (id: string, name: string, ppr: string, rpr: string, o: { based?: string; next?: string } = {}) =>
 		`<w:style w:type="paragraph" w:styleId="${id}"><w:name w:val="${name}"/>${o.based ? `<w:basedOn w:val="${o.based}"/>` : ""}${o.next ? `<w:next w:val="${o.next}"/>` : ""}<w:qFormat/><w:pPr>${ppr}</w:pPr><w:rPr>${rpr}</w:rPr></w:style>`;
-	return `${HEAD}<w:styles ${NS}><w:docDefaults><w:rPrDefault><w:rPr>${font(body)}<w:color w:val="${hex(ctx.p.ink)}"/><w:sz w:val="21"/><w:szCs w:val="21"/><w:lang w:val="en-US" w:eastAsia="en-US" w:bidi="ar-SA"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr><w:spacing w:after="120" w:line="336" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults>
+	return `${HEAD}<w:styles ${NS}><w:docDefaults><w:rPrDefault><w:rPr>${font(body)}<w:color w:val="${hex(ctx.p.ink)}"/><w:sz w:val="21"/><w:szCs w:val="21"/><w:lang w:val="en-US" w:eastAsia="en-US" w:bidi="ar-SA"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr><w:spacing w:after="120" w:line="315" w:lineRule="atLeast"/></w:pPr></w:pPrDefault></w:docDefaults>
 <w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:qFormat/></w:style>
 ${style("BodyText", "Body Text", '<w:spacing w:after="120"/>', "", { based: "Normal" })}
 ${style("Title", "Title", '<w:keepNext/><w:spacing w:before="120" w:after="200" w:line="240" w:lineRule="auto"/>', `${font(heading)}<w:color w:val="${hex(ctx.p.primaryText)}"/><w:sz w:val="56"/><w:szCs w:val="56"/>`, { based: "Normal", next: "BodyText" })}
