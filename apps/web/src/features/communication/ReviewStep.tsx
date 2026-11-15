@@ -13,7 +13,8 @@ import {
 	MenuTrigger,
 	Select,
 } from "@everyfield/ui/controls";
-import { useMemo, useState } from "react";
+import { useMinuteClock } from "@everyfield/ui/foundations";
+import { useState } from "react";
 import { PreviewStage } from "./EmailFrame.tsx";
 import { textToBody } from "./body.ts";
 import { insideWindow, windowBounds } from "./scheduleWindow.ts";
@@ -69,7 +70,8 @@ export function ReviewStep({
 	const [picking, setPicking] = useState(false);
 	const [custom, setCustom] = useState("");
 	const [customError, setCustomError] = useState<string | undefined>();
-	const bounds = useMemo(() => windowBounds(), []);
+	const now = useMinuteClock();
+	const bounds = now === null ? null : windowBounds(new Date(now));
 	const safe = Math.min(index, Math.max(0, recipients.length - 1));
 	const name = recipients[safe]?.displayName ?? sampleName;
 	const eligible = summary?.eligibleRecipients ?? 0;
@@ -205,9 +207,8 @@ export function ReviewStep({
 							<Input
 								type="datetime-local"
 								value={custom}
-								min={bounds.min}
-								max={bounds.max}
-								suppressHydrationWarning
+								min={bounds?.min}
+								max={bounds?.max}
 								onChange={(event) => {
 									setCustom(event.target.value);
 									setCustomError(undefined);

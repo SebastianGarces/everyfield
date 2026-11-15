@@ -60,14 +60,10 @@ export function MessageEditor({
 		if (!el) return;
 		const start = from ?? el.selectionStart;
 		const end = el.selectionEnd;
-		const token = fieldToken(field.key);
-		onText(el.value.slice(0, start) + token + el.value.slice(end));
+		el.focus();
+		el.setRangeText(fieldToken(field.key), start, end, "end");
+		onText(el.value);
 		setOpen(null);
-		const caret = start + token.length;
-		requestAnimationFrame(() => {
-			el.focus();
-			el.setSelectionRange(caret, caret);
-		});
 	};
 
 	const onKey = (event: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -79,13 +75,11 @@ export function MessageEditor({
 		} else if (event.key === "Enter" || event.key === "Tab") {
 			event.preventDefault();
 			// Replace the typed `{{na` with the whole field.
-			const el = area.current!;
-			const end = el.selectionStart;
+			const el = event.currentTarget;
 			const field = shown[active] ?? shown[0]!;
-			onText(el.value.slice(0, open.from) + fieldToken(field.key) + el.value.slice(end));
+			el.setRangeText(fieldToken(field.key), open.from, el.selectionStart, "end");
+			onText(el.value);
 			setOpen(null);
-			const caret = open.from + fieldToken(field.key).length;
-			requestAnimationFrame(() => el.setSelectionRange(caret, caret));
 		} else if (event.key === "Escape") {
 			event.preventDefault();
 			setOpen(null);

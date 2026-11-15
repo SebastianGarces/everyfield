@@ -3,15 +3,16 @@
 import { ArrowLeft01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 import { Button, ConfirmDialog, Field, Select } from "@everyfield/ui/controls";
 import { Icon } from "@everyfield/ui/foundations";
-import { useEffect, useRef, useState } from "react";
+import { useFocusRequest } from "@everyfield/ui/foundations";
+import { useState, type ComponentProps } from "react";
+import { createRead, useRead } from "../../components/read.tsx";
+import { useLocalStore, useShallow, useStore } from "../../components/store.ts";
 import { unsavedMark } from "../../components/save/leave.ts";
 import { deleteDraft, readDraft, readMeetingContext, readMeetingTemplate, saveDraft, handOff } from "./actions.ts";
 import { bodyToTextResult, textToBody } from "./body.ts";
 import {
 	audienceSize,
-	blankForm,
 	draftPayload,
-	formFrom,
 	formatWhen,
 	isLocked,
 	listed,
@@ -34,10 +35,10 @@ import {
 	type Outcome,
 	type PageData,
 	type Step,
-	type Template,
 } from "./model.ts";
+import { createComposeStore, type Opening } from "./Compose.store.ts";
 import { useKeys } from "./useKeys.ts";
-import { ReviewStep, type SendPlan } from "./ReviewStep.tsx";
+import { ReviewStep } from "./ReviewStep.tsx";
 import { useAudienceSummary, WhoStep } from "./WhoStep.tsx";
 
 // The guided compose flow: Who, Write, Review and send. The address names the step, so Back and reload work. A new
@@ -61,148 +62,133 @@ function meetingWhen(date: string, time: string): string {
 	);
 }
 
-type Loaded = { status: "loading" } | { status: "ready" } | { status: "failed"; text: string };
+const lost = <T,>(): Outcome<T> => ({ status: "lost" });
 
-export function Compose({
-	data,
-	id,
-	step,
-	handoff,
-	onStep,
-	onSaved,
-	onLeave,
-	onDeleted,
-	onDone,
-}: {
+async function open(id: string, handoff: Handoff | null): Promise<Opening> {
+	if (id !== "new") {
+		const draft = await readDraft(id);
+		return draft.status === "ok" ? { kind: "draft", draft: draft.value } : { kind: "missing" };
+	}
+	if (!handoff) return { kind: "new", meeting: null, template: null, guests: false, notes: [] };
+	const context = await readMeetingContext(handoff.meeting);
+	if (context.status !== "ok")
+		return {
+			kind: "new",
+			meeting: null,
+			template: null,
+			guests: false,
+			notes: ["That meeting is not available. The message has no meeting."],
+		};
+	const found = handoff.template ? await readMeetingTemplate(context.value.type) : null;
+	return {
+		kind: "new",
+		meeting: context.value,
+		template: found?.status === "ok" ? found.value : null,
+		guests: handoff.recipients === "guests",
+		notes:
+			found && found.status !== "ok"
+				? ["No invitation template for this meeting type. Write the message, or start from another template."]
+				: [],
+	};
+}
+
+const openings = createRead(open, { failed: (): Opening => ({ kind: "missing" }) });
+const meetingContexts = createRead((meetingId: string) => readMeetingContext(meetingId), {
+	failed: lost<MeetingContext>,
+});
+
+const SAMPLE = pickSampleName("compose");
+
+type ComposeProps = {
 	data: PageData;
 	id: string;
 	step: Step;
 	handoff: Handoff | null;
 	onStep: (step: Step) => void;
-	/** The draft has an id now. The address changes to it by replace. */
 	onSaved: (id: string, step: Step) => void;
 	onLeave: () => void;
-	/** The draft was deleted. The screen returns to Messages. */
 	onDeleted: () => void;
 	onDone: (messageId: string, text: string) => void;
-}) {
+};
+
+export function Compose(props: ComposeProps) {
+	const [held, setHeld] = useState<{ id: string; opened: [string, Handoff | null] } | null>(null);
+	const [openId, openHandoff] = held && held.id === props.id ? held.opened : [props.id, props.handoff];
+	const opening = useRead(openings, openId, openHandoff);
+	const opened = opening.value;
+	if (opened === undefined) {
+		return (
+			<p role="status" className="text-md text-text-2">
+				Opening the message.
+			</p>
+		);
+	}
+	if (opened.kind === "missing") {
+		return (
+			<div className="flex flex-col items-start gap-3">
+				<p role="alert" className="text-md font-medium text-magenta-600">
+					That message is not here. It may have been deleted.
+				</p>
+				<Button variant="secondary" onClick={props.onLeave}>
+					Back to messages
+				</Button>
+			</div>
+		);
+	}
+	return (
+		<ComposeForm
+			key={openings.key(openId, openHandoff)}
+			{...props}
+			opening={opened}
+			onHeld={(id) => setHeld({ id, opened: [openId, openHandoff] })}
+		/>
+	);
+}
+
+function ComposeForm({
+	data,
+	id,
+	step,
+	opening,
+	onHeld,
+	onStep,
+	onSaved,
+	onLeave,
+	onDeleted,
+	onDone,
+}: ComposeProps & { opening: Exclude<Opening, { kind: "missing" }>; onHeld: (id: string) => void }) {
 	const keys = useKeys();
-	const busy = useRef(false);
-	const [form, setForm] = useState<Form>(blankForm);
-	const [loaded, setLoaded] = useState<Loaded>({ status: "loading" });
-	const [saved, setSaved] = useState(() => JSON.stringify(draftPayload(blankForm())));
-	const [extra, setExtra] = useState<Template[]>([]);
-	const [meeting, setMeeting] = useState<MeetingContext | null>(null);
-	const [notes, setNotes] = useState<string[]>([]);
-	const [undo, setUndo] = useState<{
-		subject: string;
-		text: string;
-		templateKey: string;
-		binding: Pick<Form, "templateId" | "templateSource">;
-	} | null>(null);
-	const [pending, setPending] = useState<string | null>(null);
-	const [problem, setProblem] = useState<string | null>(null);
-	const [plan, setPlan] = useState<SendPlan | null>(null);
-	const [leaving, setLeaving] = useState(false);
-	const [deleting, setDeleting] = useState(false);
-	const [scheduledId, setScheduledId] = useState<string | null>(null);
-	const [sample] = useState(() => pickSampleName("compose"));
-	/** The id this form already holds, set the moment a save returns, before the address changes to it. */
-	const heldId = useRef<string | null>(null);
-	const heading = useRef<HTMLHeadingElement>(null);
-	const { summary, failed, ready } = useAudienceSummary(form.audience);
+	const store = useLocalStore(() => createComposeStore({ opening, templates: data.templates }));
+	const { form, saved, extra, notes, undo, pending, problem, plan, scheduledId, counted, previewed, actions } =
+		useStore(
+			store,
+			useShallow((state) => ({
+				form: state.form,
+				saved: state.saved,
+				extra: state.extra,
+				notes: state.notes,
+				undo: state.undo,
+				pending: state.pending,
+				problem: state.problem,
+				plan: state.plan,
+				scheduledId: state.scheduledId,
+				counted: state.counted,
+				previewed: state.previewed,
+				actions: state.actions,
+			})),
+		);
+	const [moved, setMoved] = useState({ step, count: 0 });
+	if (moved.step !== step) setMoved({ step, count: moved.count + 1 });
+	const heading = useFocusRequest<HTMLHeadingElement>(moved.count);
+	const openedMeeting = opening.kind === "new" ? opening.meeting : null;
+	const meetingRead = useRead(!openedMeeting && form.meetingId ? meetingContexts : null, form.meetingId ?? "");
+	const meeting = openedMeeting ?? (meetingRead.value?.status === "ok" ? meetingRead.value.value : null);
+	const { summary, failed, ready } = useAudienceSummary(form.audience, counted);
 	const templates = [
 		...data.templates,
 		...extra.filter((t) => !data.templates.some((d) => d.templateId === t.templateId)),
 	];
 	const locked = isLocked(form);
-
-	// Open: a new message, the meeting handoff, or a saved draft.
-	useEffect(() => {
-		let live = true;
-		const fail = (text: string) => live && setLoaded({ status: "failed", text });
-		const open = async () => {
-			// The address moves from "new" to the saved id after the first save. The form already holds it.
-			if (id !== "new" && heldId.current === id) return;
-			if (id !== "new") {
-				// Always the stored draft: a copy held by the page can carry old text and an old revision.
-				const draft = await readDraft(id).then((r) => (r.status === "ok" ? r.value : null));
-				if (!draft) return fail("That message is not here. It may have been deleted.");
-				if (!live) return;
-				const next = formFrom(draft, data.templates);
-				heldId.current = draft.communicationId;
-				setForm(next);
-				setSaved(JSON.stringify(draftPayload(next)));
-				setLoaded({ status: "ready" });
-				return;
-			}
-			if (!handoff) {
-				setLoaded({ status: "ready" });
-				return;
-			}
-			const context = await readMeetingContext(handoff.meeting);
-			if (!live) return;
-			if (context.status !== "ok") {
-				setNotes(["That meeting is not available. The message has no meeting."]);
-				setLoaded({ status: "ready" });
-				return;
-			}
-			setMeeting(context.value);
-			let next = { ...blankForm(), meetingId: context.value.id };
-			const notesNext: string[] = [];
-			if (handoff.template) {
-				const found = await readMeetingTemplate(context.value.type);
-				if (!live) return;
-				if (found.status === "ok") {
-					const t = found.value;
-					setExtra([t]);
-					next = {
-						...next,
-						subject: t.subject,
-						text: bodyToTextResult(t.bodyHtml).text,
-						templateKey: t.templateId,
-						...templateBinding(t),
-					};
-				} else {
-					notesNext.push(
-						"No invitation template for this meeting type. Write the message, or start from another template.",
-					);
-				}
-			}
-			if (handoff.recipients === "guests") {
-				const people = context.value.guests.map((g) => ({ id: g.id, displayName: g.displayName, email: null }));
-				next = {
-					...next,
-					people,
-					audience: { ...next.audience, personIds: people.map((p) => p.id) },
-				};
-			}
-			setNotes(notesNext);
-			setForm(next);
-			setLoaded({ status: "ready" });
-		};
-		void open();
-		return () => {
-			live = false;
-		};
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [id, handoff?.meeting]);
-
-	// A saved draft that belongs to a meeting shows the meeting's context line.
-	useEffect(() => {
-		if (!form.meetingId || meeting?.id === form.meetingId) return;
-		let live = true;
-		void readMeetingContext(form.meetingId).then((result) => {
-			if (live && result.status === "ok") setMeeting(result.value);
-		});
-		return () => {
-			live = false;
-		};
-	}, [form.meetingId, meeting?.id]);
-
-	useEffect(() => {
-		heading.current?.focus();
-	}, [step]);
 
 	const payload = JSON.stringify(draftPayload(form));
 	const dirty = !locked && payload !== saved;
@@ -218,37 +204,31 @@ export function Compose({
 	const reason = step === "who" ? whoReason : step === "write" ? (locked ? null : (write?.reason ?? null)) : null;
 
 	const guard = async (name: string, body: () => Promise<void>) => {
-		if (busy.current) return;
-		busy.current = true;
-		setPending(name);
-		setProblem(null);
+		if (!actions.begin(name)) return;
 		try {
 			await body();
 		} finally {
-			busy.current = false;
-			setPending(null);
+			actions.end();
 		}
 	};
 
-	/** Save through saveDraft. Returns the saved form, or null when the save was refused. */
 	const persist = async (target: Step): Promise<Form | null> => {
 		if (locked) return form;
 		const result = await saveDraft(keys.take("save"), form.revision, draftPayload(form));
 		keys.settle("save", result);
 		if (result.status !== "ok") {
-			setProblem(outcomeText(result));
+			actions.fail(outcomeText(result));
 			return null;
 		}
 		const draft = result.value;
-		heldId.current = draft.communicationId;
 		const next: Form = {
 			...form,
 			communicationId: draft.communicationId,
 			revision: draft.revision,
 			state: draft.state,
 		};
-		setForm(next);
-		setSaved(JSON.stringify(draftPayload(next)));
+		actions.hold(next);
+		onHeld(draft.communicationId);
 		onSaved(draft.communicationId, target);
 		return next;
 	};
@@ -262,8 +242,6 @@ export function Compose({
 				if (step === "write" && !locked && write) return;
 			}
 			if (order === current) return;
-			// A save moves the address to the draft and the step in one replace. A locked message has nothing to save.
-			// A new message stays in the form until Review needs a saved revision.
 			if (locked || (!form.communicationId && target !== "review")) onStep(target);
 			else await persist(target);
 		});
@@ -271,17 +249,14 @@ export function Compose({
 	const saveOnly = () =>
 		guard("save", async () => {
 			const next = await persist(step);
-			if (next) setNotes(["Draft saved."]);
+			if (next) actions.note(["Draft saved."]);
 		});
 
 	const canDelete = form.state === "draft" && form.communicationId !== null && form.revision !== null;
 
 	const removeDraft = async () => {
 		if (!form.communicationId || !form.revision) throw new Error("Save the message before you delete it.");
-		// A request that never reaches the server rejects. Report it as a lost write: the key stays, so a retry replays.
-		const result = await deleteDraft(keys.take("delete"), form.revision, form.communicationId).catch(
-			(): Outcome<Draft> => ({ status: "lost" }),
-		);
+		const result = await deleteDraft(keys.take("delete"), form.revision, form.communicationId).catch(lost<Draft>);
 		keys.settle("delete", result);
 		if (result.status !== "ok") {
 			throw new Error(`${outcomeText(result) ?? "The draft was not deleted."} The draft is still in your list.`);
@@ -298,7 +273,7 @@ export function Compose({
 			previous &&
 			previous.subject === form.subject &&
 			textToBody(form.text) === textToBody(bodyToTextResult(previous.bodyHtml).text);
-		setUndo(
+		actions.offerUndo(
 			changed && !same
 				? {
 						subject: form.subject,
@@ -308,7 +283,7 @@ export function Compose({
 					}
 				: null,
 		);
-		setForm((current) => ({
+		actions.edit((current) => ({
 			...current,
 			subject: template.subject,
 			text: bodyToTextResult(template.bodyHtml).text,
@@ -319,14 +294,12 @@ export function Compose({
 
 	const confirm = async () => {
 		if (!plan) return;
-		// Review always works on a saved revision, so the form is what the server holds.
 		if (!form.communicationId || !form.revision) throw new Error("Save the message before you send it.");
 		const target =
 			form.state === "reviewed"
 				? ({ kind: "reviewed", communicationId: form.communicationId } as const)
 				: ({ kind: "draft", input: draftPayload(form) } as const);
 		const steps = { save: keys.take("save"), schedule: keys.take("schedule"), send: keys.take("send") };
-		// Send now hands off at once; Schedule keeps the email in Everyfield until the minute runner sends it at its time.
 		const result = await handOff(steps, form.revision, target, plan.kind === "now" ? null : plan.at.toISOString());
 		keys.settle("save", result);
 		keys.settle("schedule", result);
@@ -337,8 +310,8 @@ export function Compose({
 		keys.settle("send", { status: "ok", value: null });
 		const { report, communicationId } = result.value;
 		if (report === null) {
-			setForm({ ...form, communicationId, revision: result.value.revision, state: "scheduled" });
-			setScheduledId(communicationId);
+			actions.edit(() => ({ ...form, communicationId, revision: result.value.revision, state: "scheduled" }));
+			actions.scheduled(communicationId);
 			throw new Error(scheduledNotSentText);
 		}
 		onDone(
@@ -354,41 +327,26 @@ export function Compose({
 		"You cannot unsend it once it leaves.",
 	];
 
-	if (loaded.status === "loading") {
-		return (
-			<p role="status" className="text-md text-text-2">
-				Opening the message.
-			</p>
-		);
-	}
-	if (loaded.status === "failed") {
-		return (
-			<div className="flex flex-col items-start gap-3">
-				<p role="alert" className="text-md font-medium text-magenta-600">
-					{loaded.text}
-				</p>
-				<Button variant="secondary" onClick={onLeave}>
-					Back to messages
-				</Button>
-			</div>
-		);
-	}
-
 	const stepIndex = STEPS.findIndex((s) => s.value === step);
-	const previewName = summary?.recipients[0]?.displayName ?? sample;
+	const previewName = summary?.recipients[0]?.displayName ?? SAMPLE;
 	const chrome = { from: data.churchName, to: previewName, subject: form.subject };
 
 	return (
 		<div {...unsavedMark(dirty)} data-compose-draft={id} className="flex flex-col gap-6">
 			<div className="flex flex-wrap items-center justify-between gap-4">
-				<button
-					type="button"
-					onClick={() => (dirty ? setLeaving(true) : onLeave())}
-					className="inline-flex items-center gap-1.5 rounded-sm text-md font-medium text-ink-2 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ef-focus)]"
-				>
-					<Icon icon={ArrowLeft01Icon} size={16} />
-					Back to messages
-				</button>
+				{dirty ? (
+					<ConfirmDialog
+						trigger={<BackToMessages />}
+						title="Leave without saving?"
+						description="This message has changes that are not saved."
+						consequences={["Your changes to this message are lost."]}
+						confirmLabel="Leave"
+						tone="danger"
+						onConfirm={() => onLeave()}
+					/>
+				) : (
+					<BackToMessages onClick={onLeave} />
+				)}
 				<nav aria-label="Steps">
 					<ol className="flex items-center gap-2">
 						{STEPS.map((s, i) => (
@@ -438,16 +396,16 @@ export function Compose({
 			</h2>
 
 			{step === "who" ? (
-				<WhoStep form={form} setForm={setForm} teams={data.teams} locked={locked} summary={summary} failed={failed} />
+				<WhoStep store={store} teams={data.teams} locked={locked} summary={summary} failed={failed} />
 			) : null}
 
 			{step === "write" ? (
 				<div className="grid items-start gap-6 xl:grid-cols-[420px_minmax(0,1fr)]">
 					<MessageEditor
 						subject={form.subject}
-						onSubject={(subject) => setForm((c) => ({ ...c, subject }))}
+						onSubject={(subject) => actions.edit((c) => ({ ...c, subject }))}
 						text={form.text}
-						onText={(text) => setForm((c) => ({ ...c, text }))}
+						onText={(text) => actions.edit((c) => ({ ...c, text }))}
 						subjectError={!locked ? write?.subject : undefined}
 						bodyError={!locked ? write?.body : undefined}
 						hasMeeting={hasMeeting}
@@ -478,14 +436,14 @@ export function Compose({
 											type="button"
 											className="font-medium text-ink underline underline-offset-[3px]"
 											onClick={() => {
-												setForm((c) => ({
+												actions.edit((c) => ({
 													...c,
 													subject: undo.subject,
 													text: undo.text,
 													templateKey: undo.templateKey,
 													...undo.binding,
 												}));
-												setUndo(null);
+												actions.offerUndo(null);
 											}}
 										>
 											Undo
@@ -496,8 +454,9 @@ export function Compose({
 						)}
 					</MessageEditor>
 					<PreviewStage
+						live={textToBody(form.text)}
 						input={{
-							bodyHtml: textToBody(form.text),
+							bodyHtml: textToBody(previewed),
 							name: previewName,
 							hasMeeting,
 							origin: data.origin,
@@ -517,10 +476,10 @@ export function Compose({
 					meeting={meeting}
 					churchName={data.churchName}
 					origin={data.origin}
-					sampleName={sample}
+					sampleName={SAMPLE}
 					canSend={eligible > 0 && audienceSize(form.audience) > 0}
 					busy={pending !== null}
-					onPlan={setPlan}
+					onPlan={actions.plan}
 					onSaveDraft={saveOnly}
 					onBack={() => void go("write")}
 				/>
@@ -544,9 +503,19 @@ export function Compose({
 						</Button>
 					) : null}
 					{canDelete ? (
-						<Button variant="ghost" onClick={() => setDeleting(true)} disabled={pending !== null}>
-							Delete draft
-						</Button>
+						<ConfirmDialog
+							trigger={
+								<Button variant="ghost" disabled={pending !== null}>
+									Delete draft
+								</Button>
+							}
+							title="Delete this draft?"
+							description={`"${form.subject.trim() || "No subject"}"`}
+							consequences={["The draft is removed for good.", "You cannot undo this. No email was sent."]}
+							confirmLabel="Delete draft"
+							tone="danger"
+							onConfirm={removeDraft}
+						/>
 					) : null}
 					{!locked ? (
 						<Button
@@ -576,7 +545,7 @@ export function Compose({
 				open={plan !== null}
 				onOpenChange={(open) => {
 					if (open) return;
-					setPlan(null);
+					actions.plan(null);
 					if (scheduledId) onDone(scheduledId, scheduledNotSentText);
 				}}
 				title={
@@ -589,26 +558,19 @@ export function Compose({
 				confirmLabel={plan?.kind === "at" ? "Schedule email" : "Send now"}
 				onConfirm={confirm}
 			/>
-			<ConfirmDialog
-				open={deleting}
-				onOpenChange={setDeleting}
-				title="Delete this draft?"
-				description={`"${form.subject.trim() || "No subject"}"`}
-				consequences={["The draft is removed for good.", "You cannot undo this. No email was sent."]}
-				confirmLabel="Delete draft"
-				tone="danger"
-				onConfirm={removeDraft}
-			/>
-			<ConfirmDialog
-				open={leaving}
-				onOpenChange={setLeaving}
-				title="Leave without saving?"
-				description="This message has changes that are not saved."
-				consequences={["Your changes to this message are lost."]}
-				confirmLabel="Leave"
-				tone="danger"
-				onConfirm={() => onLeave()}
-			/>
 		</div>
+	);
+}
+
+function BackToMessages(props: ComponentProps<"button">) {
+	return (
+		<button
+			type="button"
+			{...props}
+			className="inline-flex items-center gap-1.5 rounded-sm text-md font-medium text-ink-2 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ef-focus)]"
+		>
+			<Icon icon={ArrowLeft01Icon} size={16} />
+			Back to messages
+		</button>
 	);
 }
