@@ -1,0 +1,22 @@
+{
+	"apps/web/src/features/intelligence/AssessmentScreen.tsx": 8,
+	"apps/web/src/features/intelligence/AttestationsScreen.tsx": 16,
+	"apps/web/src/features/intelligence/CheckInScreen.tsx": 7,
+	"apps/web/src/features/intelligence/FactsSection.tsx": 1,
+	"apps/web/src/features/intelligence/Header.tsx": 1,
+	"apps/web/src/features/intelligence/IntelligenceTabs.tsx": 1,
+	"apps/web/src/features/intelligence/TrendsScreen.tsx": 1,
+	"apps/web/src/features/intelligence/ZoneStep.tsx": 2,
+	"apps/web/src/features/intelligence/actions.ts": 2,
+	"apps/web/src/features/intelligence/assessment-actions.ts": 4,
+	"apps/web/src/features/intelligence/assessment-model.ts": 7,
+	"apps/web/src/features/intelligence/assessment-server.ts": 5,
+	"apps/web/src/features/intelligence/facts-model.ts": 5,
+	"apps/web/src/features/intelligence/model.ts": 13,
+	"apps/web/src/features/intelligence/path.ts": 2,
+	"apps/web/src/features/intelligence/routes.tsx": 13,
+	"apps/web/src/features/intelligence/server.ts": 6,
+	"apps/web/src/features/intelligence/signals-actions.ts": 3,
+	"apps/web/src/features/intelligence/signals-model.ts": 23,
+	"apps/web/src/features/intelligence/signals-server.ts": 5
+}

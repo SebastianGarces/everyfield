@@ -1,0 +1,6 @@
+{
+	"tests/unit/communication/body.test.mts": 2,
+	"tests/unit/communication/capture.test.mts": 5,
+	"tests/unit/communication/route.test.mts": 1,
+	"tests/unit/communication/sent-summary.test.mts": 9
+}

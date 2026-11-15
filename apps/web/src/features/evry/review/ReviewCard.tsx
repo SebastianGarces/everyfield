@@ -1143,7 +1143,6 @@ function PhotoTile({
 		<figure className="flex min-w-20 flex-none flex-col gap-1.5" aria-busy={shown === "loading" || undefined}>
 			<span className="grid size-20 place-items-center overflow-hidden rounded-md bg-surface-raised text-text-3 shadow-[inset_0_0_0_1px_var(--ef-line)]">
 				{shown === "image" ? (
-					// eslint-disable-next-line @next/next/no-img-element -- private per-request bytes; next/image would cache them
 					<img
 						src={src}
 						alt={alt}

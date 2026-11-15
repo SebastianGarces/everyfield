@@ -5,6 +5,7 @@
 		button,
 		summary,
 		select,
+		option,
 		input:is(
 			[type="checkbox"],
 			[type="radio"],
@@ -48,6 +49,7 @@
 		button,
 		summary,
 		select,
+		option,
 		input,
 		textarea,
 		label:has(

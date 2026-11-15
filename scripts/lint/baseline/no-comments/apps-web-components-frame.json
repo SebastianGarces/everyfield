@@ -1,0 +1,8 @@
+{
+	"apps/web/src/components/frame/FixedFrame.tsx": 2,
+	"apps/web/src/components/frame/PageScroll.tsx": 7,
+	"apps/web/src/components/frame/SiteFooter.tsx": 4,
+	"apps/web/src/components/frame/SiteNav.tsx": 11,
+	"apps/web/src/components/frame/SkipLink.tsx": 1,
+	"apps/web/src/components/frame/reader-input.ts": 4
+}

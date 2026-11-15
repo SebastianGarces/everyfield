@@ -1,0 +1,9 @@
+{
+	"packages/domain/src/settings/avatar.ts": 19,
+	"packages/domain/src/settings/core.ts": 5,
+	"packages/domain/src/settings/credentials.ts": 24,
+	"packages/domain/src/settings/deletion.ts": 16,
+	"packages/domain/src/settings/photo-visibility.ts": 5,
+	"packages/domain/src/settings/sections.ts": 14,
+	"packages/domain/src/settings/timezones.ts": 10
+}

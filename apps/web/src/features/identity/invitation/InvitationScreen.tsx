@@ -691,7 +691,6 @@ function ResidentOutcome({ done, organizationName }: { done: ResidentDone; organ
 				title={`You’re already linked to ${organizationName}`}
 				actions={
 					<Button asChild variant="primary" className="w-full">
-						{/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
 						<a href="/my-residency">Open My residency</a>
 					</Button>
 				}
@@ -728,11 +727,9 @@ function ResidentOutcome({ done, organizationName }: { done: ResidentDone; organ
 				<>
 					<Button asChild variant="primary" className="w-full">
 						{/* A full load, so the page and its navigation read the residency this answer just created. */}
-						{/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
 						<a href="/my-residency">Open My residency</a>
 					</Button>
 					<Button asChild variant="secondary" className="w-full">
-						{/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
 						<a href="/settings/sharing">Review your sharing</a>
 					</Button>
 				</>

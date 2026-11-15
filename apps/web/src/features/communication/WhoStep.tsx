@@ -323,10 +323,12 @@ function ToField({
 	};
 
 	const listId = `${id}-list`;
+	const inputId = `${id}-input`;
 	return (
 		<Field label="To" hint="Search by name or by the start of an email name. Pick people to add them.">
 			<div className="relative">
-				<div
+				<label
+					htmlFor={locked ? undefined : inputId}
 					className={cn(
 						"flex min-h-11 flex-wrap items-center gap-2 rounded-md bg-surface-raised px-3 py-2 shadow-[0_0_0_1px_var(--ef-line-2)] focus-within:shadow-[0_0_0_1px_var(--ef-ink),0_0_0_4px_color-mix(in_srgb,var(--ef-focus)_28%,transparent)]",
 						!locked && "cursor-text",
@@ -393,6 +395,7 @@ function ToField({
 					) : null}
 					{locked ? null : (
 						<input
+							id={inputId}
 							role="combobox"
 							aria-label="Add a person"
 							aria-expanded={open && shown.length > 0}
@@ -411,7 +414,7 @@ function ToField({
 							className="min-w-[160px] flex-1 bg-transparent text-md text-ink outline-none placeholder:text-text-3"
 						/>
 					)}
-				</div>
+				</label>
 				{open && shown.length > 0 ? (
 					<ul
 						id={listId}
