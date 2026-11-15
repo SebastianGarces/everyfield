@@ -1,9 +1,9 @@
 {
 	"apps/web/src/features/meetings/Agenda.tsx": 9,
 	"apps/web/src/features/meetings/CheckInScreen.tsx": 22,
-	"apps/web/src/features/meetings/GuestList.tsx": 36,
+	"apps/web/src/features/meetings/GuestList.tsx": 31,
 	"apps/web/src/features/meetings/Kit.tsx": 7,
-	"apps/web/src/features/meetings/MeetingScreen.tsx": 44,
+	"apps/web/src/features/meetings/MeetingScreen.tsx": 42,
 	"apps/web/src/features/meetings/MeetingsScreen.tsx": 2,
 	"apps/web/src/features/meetings/PlanMeetingDialog.tsx": 17,
 	"apps/web/src/features/meetings/RosterUpdate.tsx": 2,

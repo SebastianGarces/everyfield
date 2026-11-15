@@ -39,8 +39,8 @@ import { instant } from "@everyfield/contracts/common";
 import { answeringStatuses } from "@everyfield/contracts/meetings";
 import { listPhotoRoute, type PersonPhoto } from "@everyfield/contracts/people";
 import { Avatar, DataTable, StatusBadge, type Column } from "@everyfield/ui/display";
-import { flushSync } from "react-dom";
-import { startTransition, useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useFocusRequest } from "@everyfield/ui/foundations";
+import { startTransition, useRef, useState, type KeyboardEvent } from "react";
 import { NoticeInDialog, RecordDialog, RowNotices, SaveNotice, useSaveIntent } from "../../components/save/parts.tsx";
 import { addAttendeeNote, addGuests, clearCard, correctRsvp, recordCard, removeGuest, setInviter } from "./actions.ts";
 import { PresenceCell, type usePresence } from "./Attendance.tsx";
@@ -92,7 +92,7 @@ type AddDraft = {
  * The card's open form with what was entered. A save closes it; a refusal opens it again with the same values and the
  * reason, while it is still the latest form (components/save).
  */
-type Form = (
+export type GuestForm = (
 	| { kind: "add"; draft: AddDraft }
 	| { kind: "inviter"; guest: Guest; inviter: PickedPerson | null }
 	| { kind: "card"; guest: Guest; response: CardResponse | null; notes: string }
@@ -108,6 +108,9 @@ const EMPTY_ADD: AddDraft = {
 	fresh: [],
 	contact: { displayName: "", email: "", phone: "" },
 };
+export const ADD_GUEST: GuestForm = { kind: "add", draft: EMPTY_ADD };
+
+export const useGuestLane = () => useSaveIntent<GuestForm>({ explain: problemText });
 
 /**
  * The guest list (REQ-MTG-007, REQ-MTG-019): each guest's RSVP, who invited them and, for Vision meetings, their
@@ -141,11 +144,12 @@ export function GuestList({
 	onRemoved,
 	onCard,
 	onStale,
-	request,
+	lane,
+	cardsRequest,
 	invitesHref,
 }: {
-	/** The page header asks for the add form or for the first card still to record; each new `n` is one request. */
-	request?: { kind: "add" | "cards"; n: number };
+	lane: ReturnType<typeof useGuestLane>;
+	cardsRequest: number;
 	/** Send invites as a link beside the filter, when the header's main action is another one. */
 	invitesHref?: string;
 	meeting: Detail;
@@ -168,10 +172,9 @@ export function GuestList({
 	onStale: () => void;
 }) {
 	const toast = useToast();
-	const [filter, setFilter] = useState<Filter>("all");
+	const [chosenFilter, setChosenFilter] = useState<{ value: Filter; at: number }>({ value: "all", at: cardsRequest });
+	const filter = chosenFilter.at === cardsRequest ? chosenFilter.value : "all";
 	const [removing, setRemoving] = useState<Guest | null>(null);
-	// One save at a time for the whole guest list (C68): RSVP corrections, cards, inviters, adds and removals.
-	const lane = useSaveIntent<Form>({ explain: problemText });
 	const shown = guests ?? [];
 	const vision = meeting.type === "vision_meeting";
 	const counts = rsvpCounts(shown);
@@ -180,25 +183,10 @@ export function GuestList({
 	const photoOf = new Map<string | null, string>(photos.map((p) => [p.personId, listPhotoRoute(p.photo)]));
 	/** Owners and Admins see the Email column; until a guest has an open, a note says when opens appear. */
 	const noOpensYet = canWrite && shown.length > 0 && !shown.some((g) => openedOf.has(g.person.personId));
-	const table = useRef<HTMLDivElement>(null);
-	const seen = useRef(request?.n);
-	useEffect(() => {
-		if (!request || seen.current === request.n) return;
-		seen.current = request.n;
-		if (request.kind === "add") {
-			if (canWrite && lane.wait === null) lane.open({ kind: "add", draft: EMPTY_ADD });
-			return;
-		}
-		// The first attended guest with no card: their row menu holds the card action.
-		const target = shown.find((g) => g.presence === "attended" && !isPending(g) && !cardOf.has(g.person.personId));
-		// The filter can hide that guest, so show everyone first and focus once the row exists.
-		const timer = setTimeout(() => {
-			flushSync(() => setFilter("all"));
-			table.current?.querySelector<HTMLElement>(`[data-guest-menu="${target?.id}"]`)?.focus();
-		});
-		return () => clearTimeout(timer);
-		// eslint-disable-next-line react-hooks/exhaustive-deps -- one run for each request
-	}, [request?.n]);
+	const cardTarget = shown.find((g) => g.presence === "attended" && !isPending(g) && !cardOf.has(g.person.personId));
+	const focusCardTarget = useFocusRequest<HTMLDivElement>(cardsRequest, (table) =>
+		table.querySelector<HTMLElement>(`[data-guest-menu="${cardTarget?.id}"]`),
+	);
 	const marker = attendance?.viewerCanMarkAttendance === true;
 	const final = attendance?.finalized != null;
 	const classOf = new Map((attendance?.items ?? []).map((a) => [a.person.personId, a.classification]));
@@ -215,7 +203,7 @@ export function GuestList({
 		what: string;
 		done: string;
 		changes: Change[];
-		form?: Form;
+		form?: GuestForm;
 		send: (key: string) => Promise<Outcome<T>>;
 		ok: (value: T) => void;
 	}) {
@@ -616,7 +604,7 @@ export function GuestList({
 							label="Show guests"
 							size="sm"
 							value={filter}
-							onValueChange={setFilter}
+							onValueChange={(value: Filter) => setChosenFilter({ value, at: cardsRequest })}
 							options={[
 								{ value: "all", label: "All", count: shown.length },
 								{ value: "confirmed", label: "Yes", count: counts.confirmed },
@@ -634,7 +622,7 @@ export function GuestList({
 					Nothing was changed. Reload the page in a moment.
 				</StatePanel>
 			) : (
-				<div ref={table}>
+				<div ref={focusCardTarget}>
 					<DataTable
 						caption="Guests"
 						columns={columns}
@@ -662,13 +650,7 @@ export function GuestList({
 			)}
 			{canWrite && guests ? (
 				<div className="mt-4 flex items-center justify-between gap-3">
-					<Button
-						variant="ghost"
-						size="sm"
-						icon={UserAdd01Icon}
-						disabled={busy}
-						onClick={() => lane.open({ kind: "add", draft: EMPTY_ADD })}
-					>
+					<Button variant="ghost" size="sm" icon={UserAdd01Icon} disabled={busy} onClick={() => lane.open(ADD_GUEST)}>
 						Add guest
 					</Button>
 					<span className="text-sm text-text-3">
@@ -855,16 +837,14 @@ function AddGuestForm({
 				setSubmitted(true);
 				// Text typed and not added is never lost or added for them: show the "Someone new" panel and say so.
 				if (typed) {
-					set({ mode: "new" });
-					requestAnimationFrame(() => nameInput.current?.focus());
+					if (mode === "new") nameInput.current?.focus();
+					else set({ mode: "new" });
 					return false;
 				}
 				if (count === 0) {
-					requestAnimationFrame(() =>
-						root.current
-							?.querySelector<HTMLElement>(`[data-panel="${mode}"] :is(input, button):not([disabled])`)
-							?.focus(),
-					);
+					root.current
+						?.querySelector<HTMLElement>(`[data-panel="${mode}"] :is(input, button):not([disabled])`)
+						?.focus();
 					return false;
 				}
 				onSubmit(draft);

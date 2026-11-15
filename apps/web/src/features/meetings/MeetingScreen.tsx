@@ -40,10 +40,12 @@ import {
 } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { averageOf } from "@everyfield/contracts/meetings";
 import { useOptimistic, useState, useTransition } from "react";
 import { FixedFrame } from "../../components/frame/FixedFrame.tsx";
+import { useAddress, writeAddress } from "../../components/location.ts";
+import { useLocalStore, useShallow, useStore } from "../../components/store.ts";
 import type { Wait } from "../../components/save/model.ts";
 import {
 	NoticeInDialog,
@@ -79,11 +81,11 @@ import {
 	type EvaluationInput,
 	type SettleEditing,
 	type SettleInput,
-	type ShownEvaluation,
 } from "./Attendance.tsx";
 import { AgendaCard } from "./Agenda.tsx";
 import { ReasonDialog } from "./dialogs.tsx";
-import { GuestList } from "./GuestList.tsx";
+import { ADD_GUEST, GuestList, useGuestLane } from "./GuestList.tsx";
+import { createMeetingScreenStore } from "./MeetingScreen.store.ts";
 import { KitCard } from "./Kit.tsx";
 import {
 	CARD_LABEL,
@@ -99,7 +101,6 @@ import {
 	type Detail,
 	type MeetingStatus,
 	type Outcome,
-	type Issue,
 	type Scores,
 } from "./model.ts";
 import { MeetingStatusBadge, RsvpBar } from "./parts.tsx";
@@ -145,8 +146,31 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 		setServer(loaded);
 		setData(loaded);
 	}
-	const [editing, setEditing] = useState(false);
-	const [deleting, setDeleting] = useState(false);
+	const tabs: TabId[] = data.meeting.type === "vision_meeting" ? ["guests", "kit", "results"] : ["guests", "results"];
+	const store = useLocalStore(() =>
+		createMeetingScreenStore({
+			firstTab: defaultTab(data.meeting.status, data.attendance?.finalized != null),
+		}),
+	);
+	const { firstTab, dialog, preview, cardsRequest, evaluationDraft, issues } = useStore(
+		store,
+		useShallow((s) => ({
+			firstTab: s.firstTab,
+			dialog: s.dialog,
+			preview: s.preview,
+			cardsRequest: s.cardsRequest,
+			evaluationDraft: s.evaluationDraft,
+			issues: s.issues,
+		})),
+	);
+	const {
+		open: openDialog,
+		close: closeDialog,
+		askForCards,
+		draftEvaluation,
+		markIssues,
+		preview: showPreview,
+	} = store.getState().actions;
 	const [, startTransition] = useTransition();
 	const [status, setOptimisticStatus] = useOptimistic(data.meeting.status);
 	// One optimistic page state: a write projects its change at once into every place it shows, then the confirmed
@@ -181,8 +205,6 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 			});
 		});
 	}
-	// An edit in flight: the page shows the edited meeting until the answer arrives.
-	const [preview, setPreview] = useState<Detail | null>(null);
 	const m = { ...(preview ?? data.meeting), status, agenda: view.agenda };
 	const thisYear = Number(data.now.slice(0, 4));
 	const vision = m.type === "vision_meeting";
@@ -303,17 +325,14 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 
 	const saved = data.evaluation?.status === "available" ? data.evaluation.evaluation : null;
 	// What the person asked for, shown while its save is on its way or unknown; the answer replaces it.
-	const [draft, setDraft] = useState<ShownEvaluation | null>(null);
-	/** The named problems of the last refused evaluation, shown on the form's fields. */
-	const [issues, setIssues] = useState<Issue[]>([]);
-	const shownEvaluation = evaluationLane.wait !== null && draft ? draft : saved;
+	const shownEvaluation = evaluationLane.wait !== null && evaluationDraft ? evaluationDraft : saved;
 	function submitEvaluation(input: EvaluationInput) {
 		const scores = { ...saved?.scores, ...input.scores } as Scores;
 		const before = saved;
 		const changed = before
 			? Object.fromEntries(Object.entries(input.scores).filter(([k, v]) => before.scores[k as keyof Scores] !== v))
 			: input.scores;
-		setDraft({
+		draftEvaluation({
 			evaluatedOn: before?.evaluatedOn ?? localDate.parse(data.now.slice(0, 10)),
 			corrections: before?.corrections ?? { count: 0, lastAt: null },
 			scores,
@@ -332,11 +351,11 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 							reason: input.reason,
 						})
 					: recordEvaluation(key, { meetingId: m.id, scores: input.scores, notes: input.notes || null }));
-				setIssues(r.status === "refused" ? (r.issues ?? []) : []);
+				markIssues(r.status === "refused" ? (r.issues ?? []) : []);
 				return r;
 			},
 			ok: (value) => {
-				setDraft(null);
+				draftEvaluation(null);
 				const e = value.evaluation;
 				setData((d) => ({
 					...d,
@@ -362,7 +381,7 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 			// Out of date (F6): reload, then review again from the scores saved now, with only the factors and notes this
 			// person changed laid over them, and their reason. A colleague's correction stays.
 			refused: (code) => {
-				setDraft(null);
+				draftEvaluation(null);
 				if (code !== "conflict") return;
 				void stale().then((latest) => {
 					const now = latest?.evaluation?.status === "available" ? latest.evaluation.evaluation : null;
@@ -382,7 +401,6 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 		});
 	}
 	const history = useEvaluationHistory(m.id);
-	const [historyOpen, setHistoryOpen] = useState(false);
 
 	const moves = statusMoves(m.type, m.status);
 	const held = m.occurrence.heldAt !== null;
@@ -410,22 +428,23 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 
 	// The tab is in the address (?tab=). The first one follows the meeting's state. A tab change writes the
 	// address with replaceState and asks the server for nothing.
-	const tabs: TabId[] = vision ? ["guests", "kit", "results"] : ["guests", "results"];
-	const search = useSearchParams();
-	const [tab, setTab] = useState<TabId>(() => pickTab(search.get("tab"), tabs, defaultTab(m.status, final)));
+	const address = useAddress();
+	const tab = pickTab(address.params.get("tab"), tabs, firstTab);
 	// The Kit tab fills the height below its own top, where the two columns show (F02): the checklist scrolls in its card.
 	const fill = vision && tab === "kit";
 	function selectTab(to: TabId) {
-		setTab(to);
-		const url = new URL(window.location.href);
-		url.searchParams.set("tab", to);
-		window.history.replaceState(window.history.state, "", url);
+		const params = new URLSearchParams(address.params.toString());
+		params.set("tab", to);
+		writeAddress(`${address.pathname}?${params}`, { replace: true });
 	}
-	const [request, setRequest] = useState<{ kind: "add" | "cards"; n: number }>({ kind: "add", n: 0 });
+	const guestLane = useGuestLane();
 	function runPrimary(p: Primary) {
-		if (p === "add-guest" || p === "cards") {
+		if (p === "add-guest") {
 			selectTab("guests");
-			setRequest((r) => ({ kind: p === "cards" ? "cards" : "add", n: r.n + 1 }));
+			if (canWrite && guestLane.wait === null) guestLane.open(ADD_GUEST);
+		} else if (p === "cards") {
+			selectTab("guests");
+			askForCards();
 		} else if (p === "finalize") {
 			if (settleLane.wait === null && !presence.busy) settleLane.open({ mode: "finalize", input: null });
 		} else if (p === "evaluation") {
@@ -517,7 +536,7 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 				variant="secondary"
 				icon={Edit02Icon}
 				disabled={meetingLane.wait !== null}
-				onClick={() => setEditing(true)}
+				onClick={() => openDialog("edit")}
 			>
 				Edit
 			</Button>
@@ -554,7 +573,7 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 						</MenuItem>
 					) : null}
 					{m.status === "completed" ? <MenuSeparator /> : null}
-					<MenuItem icon={Delete02Icon} danger onSelect={() => setDeleting(true)}>
+					<MenuItem icon={Delete02Icon} danger onSelect={() => openDialog("delete")}>
 						Delete meeting
 					</MenuItem>
 				</MenuContent>
@@ -606,7 +625,7 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 				actions={actions}
 			/>
 
-			<SaveNotice {...meetingLane.noticeProps} dialogOpen={meetingLane.editing !== null || editing} />
+			<SaveNotice {...meetingLane.noticeProps} dialogOpen={meetingLane.editing !== null || dialog === "edit"} />
 			<div className="flex flex-col gap-5">
 				{m.status === "cancelled" ? (
 					<Card as="section" aria-label="Cancelled">
@@ -661,7 +680,8 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 									canMark={marker && !final && m.status !== "cancelled"}
 									canWrite={canWrite}
 									project={project}
-									request={request}
+									lane={guestLane}
+									cardsRequest={cardsRequest}
 									invitesHref={next.toolbarInvites ? inviteHref : undefined}
 									onGuest={(g, revision) =>
 										setData((d) =>
@@ -738,7 +758,7 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 										onCorrect={() => evaluationLane.wait === null && evaluationLane.open({ input: null })}
 										onHistory={() => {
 											if (saved) history.load(saved.revision);
-											setHistoryOpen(true);
+											openDialog("history");
 										}}
 										onPrefetchHistory={() => saved && history.load(saved.revision)}
 									/>
@@ -777,8 +797,8 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 
 			{saved ? (
 				<HistoryDialog
-					open={historyOpen}
-					onOpenChange={setHistoryOpen}
+					open={dialog === "history"}
+					onOpenChange={(next) => (next ? openDialog("history") : closeDialog())}
 					history={history.got}
 					revision={saved.revision}
 					onRetry={() => history.load(saved.revision)}
@@ -823,12 +843,12 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 						</NoticeInDialog>
 					) : null}
 					<PlanMeetingDialog
-						open={editing}
-						onOpenChange={setEditing}
+						open={dialog === "edit"}
+						onOpenChange={(next) => (next ? openDialog("edit") : closeDialog())}
 						lane={meetingLane}
 						meeting={preview ?? data.meeting}
 						onSaved={setMeeting}
-						onPreview={setPreview}
+						onPreview={showPreview}
 						onStale={stale}
 					/>
 					<NoticeInDialog {...meetingLane.noticeProps}>
@@ -868,7 +888,7 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 							/>
 						) : null}
 					</NoticeInDialog>
-					{deleting ? (
+					{dialog === "delete" ? (
 						<ReasonDialog
 							danger
 							title={`Delete ${m.displayTitle}?`}
@@ -878,7 +898,7 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 								...(practice && held ? ["A practice that really happened still counts toward Launch."] : []),
 							]}
 							confirmLabel="Delete meeting"
-							onClose={() => setDeleting(false)}
+							onClose={closeDialog}
 							onSubmit={(why) => {
 								// The list opens at once without this meeting; the answer confirms it or brings it back.
 								const { id, displayTitle, revision } = m;
