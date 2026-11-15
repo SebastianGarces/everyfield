@@ -4,6 +4,7 @@ import { ArrowDown01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 import { Select as SelectPrimitive } from "radix-ui";
 import type { ComponentPropsWithRef, ReactNode } from "react";
 import { cn, Icon } from "../foundations";
+import { unlessReset } from "../foundations/form-reset";
 import { inputBox, inputInvalid, useFieldControl } from "./Field";
 import { usePortalContainer } from "./overlay-portal";
 import { popSurface } from "./Popover";
@@ -31,6 +32,7 @@ export function Select({
 	className,
 	value,
 	defaultValue,
+	onValueChange,
 	...props
 }: SelectProps) {
 	const container = usePortalContainer();
@@ -38,7 +40,13 @@ export function Select({
 	const isInvalid = control["aria-invalid"] === true;
 	const current = options.find((o) => o.value === (value ?? defaultValue));
 	return (
-		<SelectPrimitive.Root value={value} defaultValue={defaultValue} {...props}>
+		<SelectPrimitive.Root
+			key={value === undefined ? defaultValue : undefined}
+			value={value}
+			defaultValue={defaultValue}
+			onValueChange={unlessReset(onValueChange)}
+			{...props}
+		>
 			<SelectPrimitive.Trigger
 				{...control}
 				aria-label={props["aria-label"]}
