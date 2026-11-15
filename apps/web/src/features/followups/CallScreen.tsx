@@ -11,8 +11,8 @@ import {
 	IntentLink,
 } from "@everyfield/ui/controls";
 import { Avatar, StatusBadge } from "@everyfield/ui/display";
-import { cn, Icon, useMinuteClock } from "@everyfield/ui/foundations";
-import { useRef, useState } from "react";
+import { cn, Icon, useFocusRequest, useMinuteClock } from "@everyfield/ui/foundations";
+import { useState } from "react";
 import { dueText, lacksOwner, ownerText } from "../tasks/model.ts";
 import { AssignMenu, dutyFrom } from "./duties.tsx";
 import { outcomeSaved } from "../tasks/fresh.tsx";
@@ -48,8 +48,8 @@ export function CallScreen({ initial, accountId, admin }: { initial: CallData; a
 	const [errors, setErrors] = useState<DraftErrors>({});
 	const [saved, setSaved] = useState<OutcomeMutation | null>(null);
 	const lane = useSaveIntent({ explain: problemText });
-	const notice = useRef<HTMLDivElement>(null);
-	const done = useRef<HTMLHeadingElement>(null);
+	const notice = useFocusRequest<HTMLDivElement>(lane.notice?.tone === "refused" ? lane.notice.id : null);
+	const done = useFocusRequest<HTMLHeadingElement>(saved?.record.id);
 	const { task, person, obligation } = call;
 	const open = OPEN.has(task.status);
 	const mine = task.assignees.some((a) => a.accountId === accountId);
@@ -93,7 +93,6 @@ export function CallScreen({ initial, accountId, admin }: { initial: CallData; a
 							}
 						: c.recent,
 				}));
-				requestAnimationFrame(() => done.current?.focus());
 			},
 			// The answers stay. Out of date: read the follow-up again so the next save uses its latest revision.
 			refused: async (code) => {
@@ -101,7 +100,6 @@ export function CallScreen({ initial, accountId, admin }: { initial: CallData; a
 					const fresh = await loadCall(task.id);
 					if (fresh.status === "ok" && fresh.value.kind === "call") setCall(fresh.value.call);
 				}
-				requestAnimationFrame(() => notice.current?.focus());
 			},
 		});
 	}

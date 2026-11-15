@@ -70,11 +70,14 @@ function Coverage({ coverage, owners, filter }: { coverage: Coverage; owners: Ac
 	useState(() => owners && seedOwners(owners));
 	const router = useRouter();
 	const path = usePathname();
-	const [rows, setRows] = useState<Row[]>(coverage.items);
-	const [totals, setTotals] = useState<Totals>(coverage);
-	const [moved, setMoved] = useState("");
+	const [view, setView] = useState<{ rows: Row[]; totals: Totals; moved: string }>({
+		rows: coverage.items,
+		totals: coverage,
+		moved: "",
+	});
+	const { rows, totals, moved } = view;
+	const setRows = (change: (rows: Row[]) => Row[]) => setView((v) => ({ ...v, rows: change(v.rows) }));
 	const [adding, setAdding] = useState<Row["person"] | null>(null);
-	const [handoffOpen, setHandoffOpen] = useState(false);
 	const opener = useOpener();
 	const lane = useSaveIntent({ explain: problemText });
 	const go = (show: Filter, page = 1) => {
@@ -99,15 +102,17 @@ function Coverage({ coverage, owners, filter }: { coverage: Coverage; owners: Ac
 	 * leaves the list, with a status line that says where it went.
 	 */
 	function confirmed(moves: Parameters<typeof totalsAfter>[1]) {
-		setTotals((t) => totalsAfter(t, moves));
-		if (filter === "any") return;
-		setRows((all) => {
-			const gone = all.filter((r) => coverageOf(r.duties) !== filter);
-			if (gone.length)
-				setMoved(
-					`${gone.map((r) => r.person.label).join(", ")} moved to ${COVERAGE_LABEL[coverageOf(gone[0]!.duties)]}.`,
-				);
-			return all.filter((r) => coverageOf(r.duties) === filter);
+		setView((v) => {
+			const totals = totalsAfter(v.totals, moves);
+			if (filter === "any") return { ...v, totals };
+			const gone = v.rows.filter((r) => coverageOf(r.duties) !== filter);
+			return {
+				totals,
+				rows: v.rows.filter((r) => coverageOf(r.duties) === filter),
+				moved: gone.length
+					? `${gone.map((r) => r.person.label).join(", ")} moved to ${COVERAGE_LABEL[coverageOf(gone[0]!.duties)]}.`
+					: v.moved,
+			};
 		});
 	}
 	/**
@@ -117,8 +122,7 @@ function Coverage({ coverage, owners, filter }: { coverage: Coverage; owners: Ac
 	async function reload() {
 		const r = await loadCoverage(filter, coverage.page);
 		if (r.status !== "ok") return;
-		setRows(r.value.items);
-		setTotals(r.value);
+		setView((v) => ({ ...v, rows: r.value.items, totals: r.value }));
 	}
 	const handoff = useHandoff((r, plan) => {
 		forgetOwners();
@@ -165,7 +169,7 @@ function Coverage({ coverage, owners, filter }: { coverage: Coverage; owners: Ac
 						icon={ArrowDataTransferHorizontalIcon}
 						onClick={(e) => {
 							opener.mark(e);
-							setHandoffOpen(true);
+							handoff.start();
 						}}
 						{...warmOn(prefetchSeats)}
 					>
@@ -188,7 +192,7 @@ function Coverage({ coverage, owners, filter }: { coverage: Coverage; owners: Ac
 						className="max-app-sm:w-full"
 					/>
 					<SaveNotice {...lane.noticeProps} dialogOpen={adding !== null} className="" />
-					<SaveNotice {...handoff.lane.noticeProps} dialogOpen={handoffOpen} className="" />
+					<SaveNotice {...handoff.lane.noticeProps} dialogOpen={handoff.open} className="" />
 					<p role="status" className="text-sm text-text-2 empty:hidden">
 						{moved}
 					</p>
@@ -323,7 +327,6 @@ function Coverage({ coverage, owners, filter }: { coverage: Coverage; owners: Ac
 											onClick={(e) => {
 												opener.mark(e);
 												handoff.start(o.accountId);
-												setHandoffOpen(true);
 											}}
 											{...warmOn(prefetchSeats)}
 										>
@@ -353,15 +356,12 @@ function Coverage({ coverage, owners, filter }: { coverage: Coverage; owners: Ac
 					}}
 				/>
 			) : null}
-			{handoffOpen ? (
+			{handoff.open ? (
 				<HandoffDialog
 					returnFocus={opener.returnFocus}
 					h={handoff}
 					former={totals.formerOwners}
-					onClose={() => {
-						setHandoffOpen(false);
-						handoff.closed();
-					}}
+					onClose={handoff.close}
 				/>
 			) : null}
 		</>

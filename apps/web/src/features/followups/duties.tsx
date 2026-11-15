@@ -22,13 +22,14 @@ import {
 	Spinner,
 } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
+import { useRead } from "../../components/read.tsx";
 import type { z } from "zod";
 import { When } from "../people/parts.tsx";
 import { AssigneePicker, forgetAssignees } from "../tasks/AssigneePicker.tsx";
 import { dueText, ownerText, ownerWarning } from "../tasks/model.ts";
 import { assignFollowUp, createFollowUp } from "./actions.ts";
-import { forgetOwners, prefetchOwners, warmOn } from "./fetch.ts";
+import { forgetOwners, ownerList, prefetchOwners, warmOn } from "./fetch.ts";
 import {
 	needsOwner,
 	OUTCOME_LABEL,
@@ -76,17 +77,8 @@ export function dutyFrom(task: TaskDetail, previous?: DutyItem): DutyItem {
 }
 
 /** The eligible owners, read on the first sign of intent and again when the menu or form opens (C76). */
-function useOwners(active: boolean) {
-	const [owners, setOwners] = useState<Outcome<Account[]> | null>(null);
-	useEffect(() => {
-		if (!active) return;
-		let live = true;
-		void prefetchOwners().then((r) => live && setOwners(r));
-		return () => {
-			live = false;
-		};
-	}, [active]);
-	return owners;
+function useOwners(active: boolean): Outcome<Account[]> | null {
+	return useRead(active ? ownerList : null).value ?? null;
 }
 
 /**
@@ -126,7 +118,13 @@ function OwnerLines({
 							<span className="text-sm text-text-2">{ownerText(o)}</span>
 						)}
 						{ineligible && canReassign ? (
-							<Menu open={open === o.accountId} onOpenChange={(next) => setOpen(next ? o.accountId : null)}>
+							<Menu
+								open={open === o.accountId}
+								onOpenChange={(next) => {
+									if (next) prefetchOwners();
+									setOpen(next ? o.accountId : null);
+								}}
+							>
 								<MenuTrigger asChild>
 									<Button
 										size="sm"
