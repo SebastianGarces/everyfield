@@ -54,12 +54,14 @@ export function oneTimeLinkValue(
 		if (entry.part === "query") query.delete(entry.param ?? "");
 		const rest = query.toString();
 		const clean = pathname + (rest ? "?" + rest : "") + (entry.part === "query" ? w.location.hash : "");
+		let handed = key;
 		try {
 			if (key !== null) w.sessionStorage.setItem(key, value);
-		} finally {
-			w.history.replaceState(w.history.state, "", clean);
+		} catch {
+			handed = null;
 		}
-		return { name, key, value };
+		w.history.replaceState(w.history.state, "", clean);
+		return { name, key: handed, value };
 	}
 	return null;
 }

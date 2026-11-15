@@ -518,14 +518,32 @@ const isNavigation = (node, context) =>
 	isHost(node, context, new Set(["navigation"])) ||
 	(memberName(node) === "navigation" && isHost(node.object, context, GLOBAL_HOSTS));
 
+const PLACEHOLDER = "\u0000";
+const addressText = (node) => {
+	if (node.type === "Literal") return typeof node.value === "string" ? node.value : PLACEHOLDER;
+	if (node.type === "TemplateLiteral")
+		return node.quasis.map((q, i) => (i ? PLACEHOLDER : "") + (q.value.cooked ?? "")).join("");
+	if (node.type === "BinaryExpression" && node.operator === "+")
+		return addressText(node.left) + addressText(node.right);
+	return PLACEHOLDER;
+};
+const MAIL_BUILDERS = /^apps\/web\/src\/server\//;
+
 const noRawHistory = ratcheted("no-raw-history", (context, push) => {
-	if ([LOCATION_STORE, ONE_TIME_LINK].includes(repoPath(context.filename))) return {};
+	const path = repoPath(context.filename);
+	if ([LOCATION_STORE, ONE_TIME_LINK].includes(path)) return {};
 	const report = (node, word) =>
 		push({
 			node,
 			fn: enclosingName(node),
 			message: `${word} outside ${LOCATION_STORE}: the address has one owner. Write it with writeAddress, read it with usePath or useAddress, read a one-time link value with useOneTimeLinkValue, react to Back and Forward with an address rule or onTraversal, so every reader sees the same address in the same event.`,
 		});
+	const linkAddress = (node, text) => {
+		if (MAIL_BUILDERS.test(path)) return;
+		const address = text.startsWith(PLACEHOLDER + "/") ? text.slice(1) : text;
+		if (carriesLinkValue(address))
+			report(node, "an in-app address with a one-time link value (only an emailed link may carry one)");
+	};
 	return {
 		MemberExpression(node) {
 			const name = memberName(node);
@@ -542,14 +560,24 @@ const noRawHistory = ratcheted("no-raw-history", (context, push) => {
 		Literal(node) {
 			const value = stringValue(node);
 			if (value && HISTORY_STRINGS.has(value) && memberName(node.parent) === null) report(node, value);
-			if (typeof node.value === "string" && carriesLinkValue(node.value))
-				report(node, "an in-app address with a one-time link value (only an emailed link may carry one)");
+			if (node.parent?.type !== "BinaryExpression" && typeof node.value === "string") linkAddress(node, node.value);
 		},
 		TemplateLiteral(node) {
 			const value = stringValue(node);
 			if (value && HISTORY_STRINGS.has(value)) report(node, value);
-			if (carriesLinkValue(node.quasis[0]?.value.cooked ?? ""))
-				report(node, "an in-app address with a one-time link value (only an emailed link may carry one)");
+			if (node.parent?.type !== "BinaryExpression") linkAddress(node, addressText(node));
+		},
+		BinaryExpression(node) {
+			if (node.operator === "+" && !(node.parent?.type === "BinaryExpression" && node.parent.operator === "+"))
+				linkAddress(node, addressText(node));
+		},
+		ImportSpecifier(node) {
+			if (keyName(node.imported, false) === "useLocationHash") report(node, "useLocationHash");
+		},
+		VariableDeclarator(node) {
+			if (node.id.type !== "ObjectPattern" || !isLocation(node.init, context)) return;
+			for (const p of node.id.properties)
+				if (p.type === "Property" && keyName(p.key, p.computed) === "hash") report(p, "location.hash");
 		},
 	};
 });
@@ -718,7 +746,7 @@ const readLoader = {
 	create(context) {
 		return {
 			CallExpression(node) {
-				if (node.callee.type !== "Identifier" || node.callee.name !== "createRead") return;
+				if (node.callee.type !== "Identifier" || !["createRead", "useLocalRead"].includes(node.callee.name)) return;
 				const loader = node.arguments[0];
 				if (!loader || loader.type === "Identifier") return;
 				const fine =
@@ -729,7 +757,7 @@ const readLoader = {
 					context.report({
 						node: loader,
 						message:
-							"A createRead loader only loads its key: one call of a server read or fetch, optionally mapped with then/catch/finally arrows that return a value. Anything else (marking read, navigation, focus, a timer, a write) would run once per key when the first reader subscribes, a mount hook with no cleanup.",
+							"A createRead or useLocalRead loader only loads its key: one call of a server read or fetch, optionally mapped with then/catch/finally arrows that return a value. Anything else (marking read, navigation, focus, a timer, a write) would run once per key when the first reader subscribes, a mount hook with no cleanup.",
 					});
 			},
 		};

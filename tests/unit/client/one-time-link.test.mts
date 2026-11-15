@@ -4,7 +4,7 @@ import { runInNewContext } from "node:vm";
 
 const { ONE_TIME_LINK_SCRIPT } = await import("../../../apps/web/src/components/one-time-link.ts");
 
-function arrive(href: string) {
+function arrive(href: string, blocked = false) {
 	const url = new URL(href, "https://everyfield.test");
 	const state = { kept: "entry" };
 	const writes: { state: unknown; url: string }[] = [];
@@ -15,7 +15,12 @@ function arrive(href: string) {
 			state,
 			replaceState: (next: unknown, _unused: string, to: string) => void writes.push({ state: next, url: to }),
 		},
-		sessionStorage: { setItem: (key: string, value: string) => void stored.set(key, value) },
+		sessionStorage: {
+			setItem: (key: string, value: string) => {
+				if (blocked) throw new Error("SecurityError");
+				stored.set(key, value);
+			},
+		},
 	};
 	runInNewContext(ONE_TIME_LINK_SCRIPT, { window, URLSearchParams });
 	return {
@@ -26,7 +31,7 @@ function arrive(href: string) {
 	};
 }
 
-test("INV-link: the script before hydration takes a one-time link value out of the address in one replace that keeps the entry's state, and keeps it in the tab only where the page reads it from there", () => {
+test("INV-link: a one-time link value leaves the address before the page hydrates, in one replace that keeps the entry's state, and is handed to the page that asked for it", () => {
 	const cases = [
 		{
 			href: "/connections/respond?invitation=inv-1#abc",
@@ -52,4 +57,10 @@ test("INV-link: the script before hydration takes a one-time link value out of t
 		assert.equal(after.stateKept, true, c.href);
 		assert.deepEqual(after.stored, c.stored, c.href);
 	}
+});
+
+test("INV-link: when the browser refuses storage, the value still leaves the address and the script does not throw", () => {
+	const after = arrive("/invitation#proof=xyz", true);
+	assert.equal(after.address, "/invitation");
+	assert.deepEqual(after.stored, {});
 });
