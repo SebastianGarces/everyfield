@@ -208,13 +208,12 @@ const BOUNDARY_DATA = {
 		exceptions: [],
 		platformFolders: { jobs: "jobs every feature schedules through" },
 		thickRoutes: {},
+		packages: {
+			domain: { kernel: { access: "the authority kernel every module checks with" }, entries: ["index.ts"] },
+		},
 	},
 	"boundaries/apps-web-features-tasks.json": { public: { "model.ts": "task texts other features show" } },
-	"boundaries/packages-domain.json": {
-		kernel: { access: "the authority kernel every module checks with" },
-		entries: ["index.ts"],
-		public: ["people/core.ts"],
-	},
+	"boundaries/packages-domain.json": { public: ["people/core.ts"] },
 };
 
 test("INV-lint: imports across feature, route, platform and package boundaries are reported unless they go through a public file", () => {
@@ -240,6 +239,13 @@ export default function Page() {
 	return [a, all];
 }
 `,
+		"apps/web/src/features/people/Hidden.ts": `type T = typeof import("@/features/tasks/private");
+import legacy = require("../tasks/private");
+export const load = () => import(\`@/features/tasks/private\`);
+export const typed: T | typeof legacy | null = null;
+`,
+		"apps/web/src/app/x/helpers.tsx": `import { a } from "@/features/tasks/model";\nimport { all } from "@/features/people/Panel";\nexport const both = [a, all];\n`,
+		"apps/web/src/app/x/opengraph-image.tsx": `import { a } from "@/features/tasks/model";\nimport { all } from "@/features/people/Panel";\nexport default function Image() {\n\treturn [a, all];\n}\n`,
 		"apps/web/src/server/jobs/mail.ts": `import { a } from "../../features/tasks/model";\nexport const m = a;\n`,
 		"apps/web/src/server/jobs/scheduled.ts": `import { a } from "../../features/tasks/model";\nexport const s = a;\n`,
 		"apps/web/src/server/tasks/index.ts": "export const t = 1;\n",
@@ -260,8 +266,14 @@ export const w = [core, q, s, contract];
 	assert.deepEqual(
 		lint(files, BOUNDARY_DATA),
 		[
+			"apps/web/src/app/x/helpers.tsx:1",
+			"apps/web/src/app/x/helpers.tsx:2",
+			"apps/web/src/app/x/opengraph-image.tsx:2",
 			"apps/web/src/app/x/page.tsx:2",
 			"apps/web/src/app/x/page.tsx:4",
+			"apps/web/src/features/people/Hidden.ts:1",
+			"apps/web/src/features/people/Hidden.ts:2",
+			"apps/web/src/features/people/Hidden.ts:3",
 			"apps/web/src/features/people/Panel.tsx:2",
 			"apps/web/src/features/people/Panel.tsx:4",
 			"apps/web/src/features/people/Panel.tsx:5",
@@ -277,7 +289,7 @@ export const w = [core, q, s, contract];
 	);
 });
 
-test("INV-lint: the boundary data check refuses a public entry that names nothing and a package dependency its layer forbids", () => {
+test("INV-lint: the boundary data check refuses a public entry that names nothing, a kernel outside the layout file and a package dependency its layer forbids", () => {
 	const dir = sandbox(
 		{
 			"apps/web/src/features/tasks/model.ts": "export const a = 1;\n",
@@ -293,7 +305,7 @@ test("INV-lint: the boundary data check refuses a public entry that names nothin
 		},
 		{
 			...BOUNDARY_DATA,
-			"boundaries/packages-domain.json": { kernel: {}, entries: ["index.ts"], public: [] },
+			"boundaries/packages-domain.json": { kernel: { tasks: "a kernel outside the gated layout file" }, public: [] },
 			"boundaries/apps-web-features-tasks.json": { public: { "gone.ts": "a file that was moved away" } },
 		},
 	);
@@ -304,6 +316,7 @@ test("INV-lint: the boundary data check refuses a public entry that names nothin
 	});
 	assert.equal(ran.status, 1);
 	assert.match(ran.stderr, /apps-web-features-tasks\.json public gone\.ts: names nothing/);
+	assert.match(ran.stderr, /packages-domain\.json: unknown key kernel/);
 	assert.match(
 		ran.stderr,
 		/packages\/contracts\/package\.json depends on @everyfield\/domain, which .* does not allow/,

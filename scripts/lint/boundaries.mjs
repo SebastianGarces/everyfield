@@ -19,8 +19,9 @@ export function readBoundaries(dir = boundariesDir) {
 		const feature = /^apps-web-features-(.+)\.json$/.exec(name)?.[1];
 		const pkg = /^packages-(.+)\.json$/.exec(name)?.[1];
 		if (feature) features[feature] = readJson(join(dir, name));
-		else if (pkg) modules[pkg] = readJson(join(dir, name));
+		else if (pkg) modules[pkg] = { public: readJson(join(dir, name)).public ?? [] };
 	}
+	for (const [pkg, rules] of Object.entries(layout.packages ?? {})) modules[pkg] = { ...modules[pkg], ...rules };
 	return {
 		layers: layout.layers ?? {},
 		compositionFeatures: Object.keys(layout.compositionFeatures ?? {}),
@@ -88,6 +89,7 @@ export function zone(path) {
 
 const ROUTE_FILE = /\/(?:page|layout|route|loading|error|not-found|global-error|template|default)\.[cm]?[jt]sx?$/;
 export const isRouteFile = (path) => path.startsWith(APP) && ROUTE_FILE.test(path);
+const METADATA_FILE = /\/(?:opengraph-image|twitter-image|icon|apple-icon|sitemap|robots|manifest)\.[cm]?[jt]sx?$/;
 
 const plain = (e) =>
 	!e ||
@@ -202,6 +204,12 @@ export function fileProblems(from, program) {
 			"platform-folder",
 			`server/${folder[0]}/ is not a platform folder. Code one feature owns lives in features/<feature>/; apps/web/src/server holds only ${data.platformFolders.join(", ")}.`,
 		]);
+	if (from.startsWith(APP) && !isRouteFile(from) && !METADATA_FILE.test(from))
+		problems.push([
+			program,
+			"app-file",
+			"app/ holds route files and Next metadata files only. Move this module into the feature it serves (or features/shared) and import it from there.",
+		]);
 	if (
 		isRouteFile(from) &&
 		!data.thickRoutes.some((path) => from === path || (path.endsWith("/") && from.startsWith(path)))
@@ -217,7 +225,7 @@ export function fileProblems(from, program) {
 }
 
 export function routeFeatures(from, imports) {
-	if (!isRouteFile(from) || data.compositionRoots.includes(from)) return null;
+	if (!from.startsWith(APP) || data.compositionRoots.includes(from)) return null;
 	const features = new Map();
 	for (const [node, spec] of imports) {
 		const there = zone(resolveImport(from, spec).to ?? "");
@@ -229,6 +237,6 @@ export function routeFeatures(from, imports) {
 	return [
 		node,
 		"route-features",
-		`A route file delegates to one feature; this one imports ${[...features.keys()].join(", ")}. Compose them inside one feature (or features/shell) and import that.`,
+		`A file under app/ delegates to one feature; this one imports ${[...features.keys()].join(", ")}. Compose them inside one feature (or features/shell) and import that.`,
 	];
 }

@@ -1,10 +1,4 @@
 {
-	"kernel": {
-		"access": "the authority kernel: session, viewer and pipeline checks every module runs before it reads or writes",
-		"mail-recipients": "the pure recipient rule every module that sends mail applies first",
-		"operations": "the write kernel: canonical operations and audited writes every module commits through"
-	},
-	"entries": ["index.ts"],
 	"public": [
 		"branding/color.ts",
 		"branding/files.ts",

@@ -39,5 +39,34 @@
 		"apps/web/src/app/page.tsx": "a landing-marketing owner-class page that composes the marketing site",
 		"apps/web/src/app/privacy/": "a landing-marketing owner-class page that composes the marketing site",
 		"apps/web/src/app/terms/": "a landing-marketing owner-class page that composes the marketing site"
+	},
+	"packages": {
+		"domain": {
+			"kernel": {
+				"access": "the authority kernel: session, viewer and pipeline checks every module runs before it reads or writes",
+				"mail-recipients": "the pure recipient rule every module that sends mail applies first",
+				"operations": "the write kernel: canonical operations and audited writes every module commits through"
+			},
+			"entries": ["index.ts"]
+		},
+		"contracts": {
+			"kernel": {
+				"common": "shared values, time, write and link shapes every contract module builds on"
+			},
+			"entries": ["index.ts"]
+		},
+		"evry": {
+			"kernel": {
+				"adapters/native": "the native-port kernel every adapter group writes and checks seats through",
+				"catalog": "the catalog that lists every adapter group's reads and commands",
+				"context": "the turn context every adapter reads",
+				"conversations": "conversation storage the runtime and adapters share",
+				"execution": "the reviewed-change executor the runtime and adapters share",
+				"index": "the package entry the app imports the runtime through",
+				"proposals": "proposal storage the runtime and adapters share",
+				"runtime": "the turn runtime the adapters plug into"
+			},
+			"entries": ["commands/index.ts", "index.ts", "reads/index.ts"]
+		}
 	}
 }

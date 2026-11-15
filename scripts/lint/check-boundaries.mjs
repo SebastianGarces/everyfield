@@ -38,6 +38,7 @@ function checkLayout() {
 		"exceptions",
 		"platformFolders",
 		"thickRoutes",
+		"packages",
 	]);
 	reasons(`${where} compositionFeatures`, layout.compositionFeatures, (name) => isDirectory(FEATURES + name));
 	reasons(`${where} compositionRoots`, layout.compositionRoots, exists);
@@ -64,6 +65,12 @@ function checkLayout() {
 	}
 	for (const name of Object.keys(layout.layers ?? {}))
 		if (!packages.includes(name)) fail(`${where} layers: packages/${name} does not exist; delete the entry`);
+	for (const [name, rules] of Object.entries(layout.packages ?? {})) {
+		const src = `packages/${name}/src/`;
+		keys(`${where} packages ${name}`, rules, ["kernel", "entries"]);
+		const moduleExists = (module) => [module, `${module}.ts`, `${module}.tsx`].some((path) => exists(src + path));
+		reasons(`${where} packages ${name} kernel`, rules.kernel, moduleExists);
+	}
 }
 
 function checkFeature(name) {
@@ -82,10 +89,8 @@ function checkPackage(name) {
 	const where = `${DATA}/${name}`;
 	if (!isDirectory(`packages/${pkg}/src`)) return fail(`${where}: packages/${pkg}/src does not exist; delete the file`);
 	const json = readJson(name);
-	keys(where, json, ["kernel", "entries", "public"]);
+	keys(where, json, ["public"]);
 	const src = `packages/${pkg}/src/`;
-	const moduleExists = (module) => [module, `${module}.ts`, `${module}.tsx`].some((path) => exists(src + path));
-	reasons(`${where} kernel`, json.kernel, moduleExists);
 	sorted(`${where} public`, json.public ?? []);
 	for (const file of json.public ?? [])
 		if (!exists(src + file)) fail(`${where} public ${file}: names nothing in ${src}; delete the entry`);

@@ -1,8 +1,4 @@
 {
-	"kernel": {
-		"common": "shared values, time, write and link shapes every contract module builds on"
-	},
-	"entries": ["index.ts"],
 	"public": [
 		"access/results.ts",
 		"identity/requests.ts",
