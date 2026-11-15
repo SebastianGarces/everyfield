@@ -119,7 +119,7 @@
 				},
 				{
 					"id": "rail-settings-cut-off",
-					"defect": "the rail is a sticky aside of fixed height with no scroll (packages/ui/src/shell/AppShell.tsx:263), so in a window as short as the proof browser's 577 px its last link, Settings, sits below the bottom edge and a click on it opens nothing; the account menu and keyboard Enter still open Settings",
+					"defect": "run it at the proof browser's default 1440x577 window (agent-browser set viewport 1440 577): the rail is a sticky aside of fixed height with no scroll (packages/ui/src/shell/AppShell.tsx:263), and for the Owner its last link, Settings, sits at y 568 to 614 whatever the window height. In a window 614 px or taller it is fully visible and opens Settings, so this state fails there; from 568 to 614 px it is cut off and a click on it opens nothing; below 568 px it is hidden. The account menu and keyboard Enter still open Settings, and the base branch behaves the same",
 					"reach": {
 						"persona": "owner",
 						"open": "/communication",
@@ -471,6 +471,48 @@
 								{
 									"text": "passes text",
 									"match": "contains"
+								}
+							]
+						}
+					}
+				},
+				{
+					"id": "logo",
+					"says": "Choose file uploads a logo or image with its alt text; the stored file is a private, trimmed copy that only this church plant's Owner and Admin can load. The tests prove the upload; the browser proof shows the control.",
+					"catalog": ["BRD-002"],
+					"operations": ["brand.uploadAsset"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/branding/branding.test.mts",
+								"name": "AC:CASE-BRD-002 alt-text-required and unsupported types refuse before anything is stored"
+							},
+							{
+								"file": "tests/integration/branding/branding.test.mts",
+								"name": "AC:CASE-BRD-002 the 960 x 380 SVG is trimmed and stored as a private PNG with a 3.0 aspect ratio"
+							},
+							{
+								"file": "tests/integration/branding/branding.test.mts",
+								"name": "AC:CASE-BRD-002 finalize attaches only this church plant's ready brand_asset file"
+							},
+							{
+								"file": "tests/integration/branding/branding.test.mts",
+								"name": "AC:CASE-BRD-002 a held tag is answered from the authorized read with no storage read, and never for a revoked viewer"
+							}
+						],
+						"cases": ["CASE-BRD-002"],
+						"browser": {
+							"kind": "presence",
+							"state": "kit",
+							"steps": [],
+							"expect": [
+								{
+									"role": "heading",
+									"name": "Logos and images"
+								},
+								{
+									"role": "button",
+									"name": "Choose file"
 								}
 							]
 						}

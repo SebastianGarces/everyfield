@@ -130,6 +130,7 @@ Searching History by subject or message keeps only the messages that match.
 ```bash
 agent-browser find label "Subject or message" fill "QA delivery"
 agent-browser wait --fn "!document.body.innerText.includes(\"Welcome to Harvest Point\")"
+agent-browser wait --text "QA delivery check"
 agent-browser find role button text --name "QA delivery check"
 ```
 

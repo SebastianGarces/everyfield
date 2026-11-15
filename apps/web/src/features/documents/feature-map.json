@@ -61,7 +61,7 @@
 					},
 					"expect": [
 						{
-							"text": "No written documents yet",
+							"text": "Your documents",
 							"match": "contains"
 						},
 						{
@@ -168,7 +168,7 @@
 				},
 				{
 					"id": "filter",
-					"says": "The Category choice narrows the template list to that kind of template.",
+					"says": "The Category choice narrows the template list to that kind of template; Administrative keeps Bylaws and Budget Worksheet and drops the Vision meeting templates. The narrowing runs in the page, and no test covers it; the test proves the list it narrows.",
 					"catalog": ["DOC-001"],
 					"operations": ["documents.templates.list"],
 					"proof": {
@@ -186,7 +186,7 @@
 								{
 									"click": {
 										"role": "radio",
-										"name": "Launch"
+										"name": "Administrative"
 									}
 								}
 							],
@@ -195,7 +195,19 @@
 									"noText": "Guest Sign-in Sheet"
 								},
 								{
-									"noText": "Bylaws"
+									"noText": "Vision Meeting Agenda"
+								},
+								{
+									"text": "Budget Worksheet",
+									"match": "contains"
+								},
+								{
+									"role": "button",
+									"name": "Bylaws"
+								},
+								{
+									"role": "button",
+									"name": "Budget Worksheet"
 								}
 							]
 						}
@@ -904,6 +916,44 @@
 								{
 									"role": "button",
 									"name": "More actions"
+								}
+							]
+						}
+					}
+				},
+				{
+					"id": "import",
+					"says": "Import a text or Word file turns a UTF-8 text or modern Word file into the document's text, keeping headings, lists, links and tables, and refuses unsafe or oversized files. The tests prove the import; the browser proof shows the control.",
+					"catalog": ["DOC-016"],
+					"operations": ["documents.importTextOrWord"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/documents/owned.test.mts",
+								"name": "AC:CASE-DOC-016 AC:SCHEMA-008 AC:WIKI52-003 one owner, unsafe imports stay out, and the church copy survives purge"
+							},
+							{
+								"file": "tests/integration/documents/owned.test.mts",
+								"name": "AC:CASE-DOC-016 a Word entry that declares 10 bytes and inflates past 40 MiB is refused without inflating past its declared size"
+							},
+							{
+								"file": "tests/integration/documents/owned.test.mts",
+								"name": "AC:CASE-DOC-016 a Word file keeps its headings, lists and links as native nodes"
+							},
+							{
+								"file": "tests/integration/documents/owned.test.mts",
+								"name": "AC:CASE-DOC-016: a Word table imports as a native table of text columns"
+							}
+						],
+						"cases": ["CASE-DOC-016"],
+						"browser": {
+							"kind": "presence",
+							"state": "new",
+							"steps": [],
+							"expect": [
+								{
+									"role": "button",
+									"name": "Import a text or Word file"
 								}
 							]
 						}

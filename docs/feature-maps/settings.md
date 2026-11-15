@@ -30,6 +30,7 @@ flowchart LR
   s0 -- "link #quot;Brand kit#quot;" --> s2
   s2 -.- s2_st0(("kit"))
   s2 --- s2_b0["primary-color<br/>tests + cases + browser behavior"]
+  s2 --- s2_b1["logo<br/>tests + cases + browser presence"]
   s3["settings.restricted<br/>/account-deletion /workspace-deletion /confirm-email"]
   s3_link0 --> s3
   s3_link1 --> s3
@@ -102,7 +103,7 @@ agent-browser wait --load networkidle
 agent-browser wait --url "**/signin?returnTo=%2Fsettings%2Faccount"
 ```
 
-- **rail-settings-cut-off**: heading "History"; no dialog "Church profile". Known defect, so this state shows what is wrong: the rail is a sticky aside of fixed height with no scroll (packages/ui/src/shell/AppShell.tsx:263), so in a window as short as the proof browser's 577 px its last link, Settings, sits below the bottom edge and a click on it opens nothing; the account menu and keyboard Enter still open Settings. As `owner`, on the QA seed:
+- **rail-settings-cut-off**: heading "History"; no dialog "Church profile". Known defect, so this state shows what is wrong: run it at the proof browser's default 1440x577 window (agent-browser set viewport 1440 577): the rail is a sticky aside of fixed height with no scroll (packages/ui/src/shell/AppShell.tsx:263), and for the Owner its last link, Settings, sits at y 568 to 614 whatever the window height. In a window 614 px or taller it is fully visible and opens Settings, so this state fails there; from 568 to 614 px it is cut off and a click on it opens nothing; below 568 px it is hidden. The account menu and keyboard Enter still open Settings, and the base branch behaves the same. As `owner`, on the QA seed:
 
 ```bash
 agent-browser open "$ORIGIN/communication"
@@ -266,6 +267,24 @@ agent-browser find text "No unsaved changes." text --exact
 agent-browser open "$ORIGIN/settings/brand"
 agent-browser wait --load networkidle
 agent-browser wait --text "passes text"
+```
+
+#### settings.brand#logo
+
+Choose file uploads a logo or image with its alt text; the stored file is a private, trimmed copy that only this church plant's Owner and Admin can load. The tests prove the upload; the browser proof shows the control.
+
+- Operations: brand.uploadAsset
+- Catalog: BRD-002
+- Cases: CASE-BRD-002
+- Test: `tests/integration/branding/branding.test.mts`: `AC:CASE-BRD-002 alt-text-required and unsupported types refuse before anything is stored`
+- Test: `tests/integration/branding/branding.test.mts`: `AC:CASE-BRD-002 the 960 x 380 SVG is trimmed and stored as a private PNG with a 3.0 aspect ratio`
+- Test: `tests/integration/branding/branding.test.mts`: `AC:CASE-BRD-002 finalize attaches only this church plant's ready brand_asset file`
+- Test: `tests/integration/branding/branding.test.mts`: `AC:CASE-BRD-002 a held tag is answered from the authorized read with no storage read, and never for a revoked viewer`
+- Browser, presence proof only (the control is there; the tests prove the outcome), from state kit:
+
+```bash
+agent-browser find role heading text --name "Logos and images" --exact
+agent-browser find role button text --name "Choose file" --exact
 ```
 
 ### settings.restricted

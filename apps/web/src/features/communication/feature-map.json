@@ -193,6 +193,10 @@
 									"noText": "Welcome to Harvest Point"
 								},
 								{
+									"text": "QA delivery check",
+									"match": "contains"
+								},
+								{
 									"role": "button",
 									"name": "QA delivery check",
 									"match": "contains"

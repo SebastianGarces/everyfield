@@ -48,6 +48,7 @@ flowchart LR
   s3 -.- s3_st2(("loading-documents (manual)"))
   s3 -.- s3_st3(("error (manual)"))
   s3 --- s3_b0["write-and-save<br/>tests + cases + browser behavior"]
+  s3 --- s3_b1["import<br/>tests + cases + browser presence"]
   s4["documents.template-picker-preview<br/>/design/documents/templates"]
   s4_link0 --> s4
   s4 -.- s4_st0(("picker"))
@@ -81,11 +82,11 @@ agent-browser find role link text --name "QA welcome letter" --exact
 agent-browser find role link text --name "Church documents" --exact
 ```
 
-- **account**: text containing "No written documents yet"; link "New document"; no button "Save for your church"; no link "Church documents". As `resident`, on the QA seed:
+- **account**: text containing "Your documents"; link "New document"; no button "Save for your church"; no link "Church documents". As `resident`, on the QA seed:
 
 ```bash
 agent-browser open "$ORIGIN/documents"
-agent-browser wait --text "No written documents yet"
+agent-browser wait --text "Your documents"
 agent-browser find role link text --name "New document" --exact
 ! agent-browser find role button text --name "Save for your church" --exact
 ! agent-browser find role link text --name "Church documents" --exact
@@ -120,7 +121,7 @@ agent-browser wait --text "for your church."
 
 #### documents.library#filter
 
-The Category choice narrows the template list to that kind of template.
+The Category choice narrows the template list to that kind of template; Administrative keeps Bylaws and Budget Worksheet and drops the Vision meeting templates. The narrowing runs in the page, and no test covers it; the test proves the list it narrows.
 
 - Operations: documents.templates.list
 - Catalog: DOC-001
@@ -129,9 +130,12 @@ The Category choice narrows the template list to that kind of template.
 - Browser, behavior proof (acts and checks the result), from state templates:
 
 ```bash
-agent-browser find role radio click --name "Launch" --exact
+agent-browser find role radio click --name "Administrative" --exact
 agent-browser wait --fn "!document.body.innerText.includes(\"Guest Sign-in Sheet\")"
-agent-browser wait --fn "!document.body.innerText.includes(\"Bylaws\")"
+agent-browser wait --fn "!document.body.innerText.includes(\"Vision Meeting Agenda\")"
+agent-browser wait --text "Budget Worksheet"
+agent-browser find role button text --name "Bylaws" --exact
+agent-browser find role button text --name "Budget Worksheet" --exact
 ```
 
 ### documents.church-library
@@ -414,6 +418,23 @@ agent-browser wait --load networkidle
 agent-browser wait --url "**/documents/written/*"
 agent-browser find role heading text --name "Map residency notes" --exact
 agent-browser find role button text --name "More actions" --exact
+```
+
+#### documents.written#import
+
+Import a text or Word file turns a UTF-8 text or modern Word file into the document's text, keeping headings, lists, links and tables, and refuses unsafe or oversized files. The tests prove the import; the browser proof shows the control.
+
+- Operations: documents.importTextOrWord
+- Catalog: DOC-016
+- Cases: CASE-DOC-016
+- Test: `tests/integration/documents/owned.test.mts`: `AC:CASE-DOC-016 AC:SCHEMA-008 AC:WIKI52-003 one owner, unsafe imports stay out, and the church copy survives purge`
+- Test: `tests/integration/documents/owned.test.mts`: `AC:CASE-DOC-016 a Word entry that declares 10 bytes and inflates past 40 MiB is refused without inflating past its declared size`
+- Test: `tests/integration/documents/owned.test.mts`: `AC:CASE-DOC-016 a Word file keeps its headings, lists and links as native nodes`
+- Test: `tests/integration/documents/owned.test.mts`: `AC:CASE-DOC-016: a Word table imports as a native table of text columns`
+- Browser, presence proof only (the control is there; the tests prove the outcome), from state new:
+
+```bash
+agent-browser find role button text --name "Import a text or Word file" --exact
 ```
 
 ### documents.template-picker-preview
