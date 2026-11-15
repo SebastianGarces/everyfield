@@ -57,10 +57,14 @@ export function useLeaveRequest(): LeaveRequest | null {
 
 export const SAVE_SHORTCUT = "Meta+S Control+S Meta+Shift+S Control+Shift+S";
 
-export const shortcutMark = (combos: string, { claim = false }: { claim?: boolean } = {}) => ({
+export const shortcutMark = (
+	combos: string,
+	{ claim = false, inFields = false }: { claim?: boolean; inFields?: boolean } = {},
+) => ({
 	"data-shortcut": combos,
 	"aria-keyshortcuts": combos,
 	...(claim ? { "data-shortcut-claim": "" } : {}),
+	...(inFields ? { "data-shortcut-fields": "" } : {}),
 });
 
 export const unsavedMark = (unsaved: boolean) => (unsaved ? { "data-unsaved": "" } : {});
@@ -105,21 +109,22 @@ const typing = (target: EventTarget | null) =>
 
 const SHIFTED_CHARACTER = /^[^\p{L}\p{N}\s]$/u;
 
-function matches(combo: string, event: KeyboardEvent): boolean {
+function matches(combo: string, event: KeyboardEvent, inFields: boolean): boolean {
 	const parts = combo.split("+");
 	const key = parts.pop()?.toLowerCase() ?? "";
 	if ((event.key ?? "").toLowerCase() !== key) return false;
 	const shiftFree = !parts.includes("Shift") && SHIFTED_CHARACTER.test(key);
 	const held = { Meta: event.metaKey, Control: event.ctrlKey, Alt: event.altKey, Shift: event.shiftKey };
 	if (MODIFIERS.some((m) => !(m === "Shift" && shiftFree) && held[m] !== parts.includes(m))) return false;
-	return parts.length > 0 || !typing(event.target);
+	return parts.length > 0 || inFields || !typing(event.target);
 }
 
 function shortcutTarget(event: KeyboardEvent): HTMLElement | null {
 	for (const element of document.querySelectorAll<HTMLElement>("[data-shortcut]")) {
 		if (!element.isConnected || (element.checkVisibility && !element.checkVisibility())) continue;
 		const combos = (element.getAttribute("data-shortcut") ?? "").split(/\s+/);
-		if (combos.some((combo) => combo && matches(combo, event))) return element;
+		const inFields = element.hasAttribute("data-shortcut-fields");
+		if (combos.some((combo) => combo && matches(combo, event, inFields))) return element;
 	}
 	return null;
 }

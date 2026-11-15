@@ -132,6 +132,19 @@ test("INV-shortcut: a punctuation shortcut matches whether or not the layout nee
 	assert.equal(press("j", { metaKey: true, shiftKey: true }).defaultPrevented, false);
 });
 
+test("INV-shortcut: a key without modifiers is ignored while typing in a field unless its mark opts in", () => {
+	const field = new FakeElement("input");
+	const search = new FakeElement("button", leave.shortcutMark("/"));
+	const menu = new FakeElement("button", leave.shortcutMark("Escape", { inFields: true }));
+	page = [search, menu];
+	const typed = (key: string) =>
+		dispatch("keydown", field, { key, metaKey: false, ctrlKey: false, altKey: false, shiftKey: false });
+	assert.equal(typed("/").defaultPrevented, false);
+	assert.equal(search.clicks, 0);
+	assert.equal(typed("Escape").defaultPrevented, true);
+	assert.equal(menu.clicks, 1);
+});
+
 test("INV-leave: an in-app link or a sign-out from a page holding unsaved work waits for the person's answer, and Leave goes on", () => {
 	const editor = new FakeForm("form", leave.leaveHoldMark(true));
 	const link = new FakeAnchor("a", { href: "/documents" });
