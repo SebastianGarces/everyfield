@@ -145,7 +145,9 @@ class World {
 		for (const w of Object.keys(init.data!)) world.plants.set(w, await fx.plant());
 		const names = [...new Set(Object.keys(init.sessions!).map((k) => k.split("/")[0]!))];
 		for (const name of names) {
-			const live = Object.entries(init.seats!).filter(([k, s]) => k.startsWith(`${name}/`) && seatOf(s).state === "live");
+			const live = Object.entries(init.seats!).filter(
+				([k, s]) => k.startsWith(`${name}/`) && seatOf(s).state === "live",
+			);
 			if (live.length > 1) throw Error(`the model starts ${name} with ${live.length} live seats`);
 			const seat = live[0] && seatOf(live[0][1]);
 			const actor = await fx.actor(seat ? world.plants.get(seat.ws)! : null, (seat?.role ?? "member") as "owner");
@@ -154,10 +156,12 @@ class World {
 				sql`INSERT INTO auth_account(user_id, provider_id, provider_account_id, password_hash)
 				VALUES(${actor.user}::uuid, 'credential', ${actor.user}, ${passwordHash})`,
 			);
-			if (live[0]) world.seats.set(live[0][0], (await rows(sql`SELECT id FROM seat WHERE account_id=${actor.id}::uuid`))[0]!.id);
+			if (live[0])
+				world.seats.set(live[0][0], (await rows(sql`SELECT id FROM seat WHERE account_id=${actor.id}::uuid`))[0]!.id);
 			for (const [key, state] of Object.entries(init.sessions!).filter(([k]) => k.startsWith(`${name}/`))) {
 				if (state === "unused") continue;
-				if (state !== "live" || !key.endsWith("/1")) throw Error(`the replay seeds only a live first session, not ${key} ${state}`);
+				if (state !== "live" || !key.endsWith("/1"))
+					throw Error(`the replay seeds only a live first session, not ${key} ${state}`);
 				const [s] = await rows(sql`SELECT token FROM auth_session WHERE id=${actor.session}::uuid`);
 				world.sessions.set(key, { id: actor.session, cookie: sessionCookie(s!.token) });
 			}
@@ -176,7 +180,9 @@ class World {
 		return s;
 	}
 	async authority(key: string) {
-		const actor = await fx.pools.runtime.transaction((tx) => RequestActor.resolve(tx, sessionId.parse(this.session(key).id)));
+		const actor = await fx.pools.runtime.transaction((tx) =>
+			RequestActor.resolve(tx, sessionId.parse(this.session(key).id)),
+		);
 		if (!(actor instanceof RequestActor)) throw new Unresolved(actor.status);
 		return actor;
 	}
@@ -244,7 +250,11 @@ class World {
 			const row = this.seatRows.find((r) => r.id === this.seats.get(key));
 			const code = row
 				? `${row.ended_at ? "ended" : "live"} ${wsName(row.plant_id)} ${row.role} ${
-						!this.revisions.has(row.id) ? "new" : this.revisions.get(row.id) !== row.revision ? "revision changed" : "revision same"
+						!this.revisions.has(row.id)
+							? "new"
+							: this.revisions.get(row.id) !== row.revision
+								? "revision changed"
+								: "revision same"
 					}`
 				: "no seat row";
 			out.push({ field: `seat ${key}`, model: `${s.state} ${s.ws} ${s.role} ${rev}`, code });
@@ -261,7 +271,9 @@ class World {
 		}
 		for (const [name, actor] of this.accounts) {
 			const mapped = new Set([...this.sessions].filter(([k]) => k.startsWith(`${name}/`)).map(([, s]) => s.id));
-			const extra = [...this.liveSessions].filter((k) => k.startsWith(`${actor.user}/`) && !mapped.has(k.split("/")[1]!));
+			const extra = [...this.liveSessions].filter(
+				(k) => k.startsWith(`${actor.user}/`) && !mapped.has(k.split("/")[1]!),
+			);
 			out.push({ field: `unmodeled live sessions of ${name}`, model: "0", code: `${extra.length}` });
 		}
 		for (const [key, value] of Object.entries(model.invitations!)) {
@@ -313,7 +325,9 @@ const handlers: Record<string, (world: World, args: Record<string, string>) => P
 	},
 	async SeatAction(world, { session, op, to, target }) {
 		const plant = world.plantOf(target);
-		const [seat] = await rows(sql`SELECT id, role, revision::text AS revision FROM seat WHERE id=${world.seats.get(target)}::uuid`);
+		const [seat] = await rows(
+			sql`SELECT id, role, revision::text AS revision FROM seat WHERE id=${world.seats.get(target)}::uuid`,
+		);
 		const input =
 			op === "remove"
 				? { seatId: seat!.id, expectedRole: seat!.role, handoffs: [] }
@@ -421,13 +435,18 @@ for (const [n, behavior] of traces.behaviors.entries())
 			await world.observe();
 			world.adopt(model);
 			const fields = [
-				{ field: "result", model: expected, code: expected === "refused" && code.startsWith("refused") ? "refused" : code },
+				{
+					field: "result",
+					model: expected,
+					code: expected === "refused" && code.startsWith("refused") ? "refused" : code,
+				},
 				...world.fields(model, before),
 			];
 			if (fields.some((f) => f.model !== f.code)) {
 				const width = Math.max(...fields.map((f) => f.model.length), 5);
 				const table = fields.map(
-					(f) => `  ${f.field.padEnd(30)} ${f.model.padEnd(width)}  ${f.code}${f.model === f.code ? "" : "   <- differs"}`,
+					(f) =>
+						`  ${f.field.padEnd(30)} ${f.model.padEnd(width)}  ${f.code}${f.model === f.code ? "" : "   <- differs"}`,
 				);
 				const steps = behavior
 					.slice(0, k + 1)

@@ -342,7 +342,12 @@ export function printedBehaviors(output: string, variables: readonly string[]): 
 
 /** One step of a behavior: the model action, its arguments, the result when the action has one, and every state
  * variable entry the step changed. */
-type TraceStep = { action: string; args: Record<string, Value>; ok?: boolean; after: Record<string, Record<string, Value>> };
+type TraceStep = {
+	action: string;
+	args: Record<string, Value>;
+	ok?: boolean;
+	after: Record<string, Record<string, Value>>;
+};
 
 /**
  * A permissions step from the state it made. The model records each step in `last` (Step(op, session,
@@ -374,7 +379,9 @@ function permissionStep(after: State): Omit<TraceStep, "after"> {
 	}
 	if (["read", "adminRead", "write"].includes(op))
 		return { action: "Run", args: { request: target, kind: op }, ok: last.ok === true };
-	throw new FormalError(`The model's step "${op}" maps to no action. Add it to permissionStep in tools/formal/formal.ts.`);
+	throw new FormalError(
+		`The model's step "${op}" maps to no action. Add it to permissionStep in tools/formal/formal.ts.`,
+	);
 }
 
 /** What one step covers: its action, with the seat change, or the statement kind and whether it was admitted. */
@@ -472,10 +479,7 @@ function generateTraces(dir: string, jar: string, how: Runner, seed: number) {
 		.map((f) => readFileSync(join(dir, f), "utf8"))
 		.join("\n");
 	const listed = new Set(sim.covers.map((c) => c.split(" ")[0]));
-	const missing = [
-		...nextActions(tla).filter((a) => !listed.has(a)),
-		...sim.covers.filter((c) => !covered.has(c)),
-	];
+	const missing = [...nextActions(tla).filter((a) => !listed.has(a)), ...sim.covers.filter((c) => !covered.has(c))];
 	const count = steps.reduce((n, s) => n + s.length, 0);
 	const text = `{\n\t"generatedBy": "bin/dev formal --write",\n\t"seed": ${seed},\n\t"traces": ${sim.traces},\n\t"depth": ${sim.depth},\n\t"init": ${JSON.stringify(start)},\n\t"behaviors": [\n${steps.map((b) => `\t\t[\n${b.map((s) => `\t\t\t${JSON.stringify(s)}`).join(",\n")}\n\t\t]`).join(",\n")}\n\t]\n}\n`;
 	return { text, traces: steps.length, steps: count, missing, ms: run.ms };
@@ -527,14 +531,7 @@ function checkModel(dir: string, jar: string, how: Runner, write: boolean) {
 			return { lines, ok: false };
 		}
 		lines.push(`  the traces cover every action: ${sim.covers.join(", ")}`);
-		ok &&= current(
-			lines,
-			join(dir, "traces.json"),
-			traces.text,
-			`${traces.traces} traces`,
-			"the replay test",
-			write,
-		);
+		ok &&= current(lines, join(dir, "traces.json"), traces.text, `${traces.traces} traces`, "the replay test", write);
 	}
 	return { lines, ok };
 }
@@ -564,7 +561,9 @@ function freshTraces(dirs: string[], out: string, seed: number, jar: string, how
 	for (const dir of dirs.filter((d) => simulationOf(d))) {
 		const traces = generateTraces(dir, jar, how, seed);
 		const file = join(out, basename(dir), "traces.json");
-		console.log(`${relative(root, dir)}: TLC simulation from seed ${seed}: ${traces.traces} traces, ${traces.steps} steps`);
+		console.log(
+			`${relative(root, dir)}: TLC simulation from seed ${seed}: ${traces.traces} traces, ${traces.steps} steps`,
+		);
 		if (traces.missing.length) console.log(`  the traces leave out: ${traces.missing.join(", ")}. Try another seed.`);
 		ok &&= !traces.missing.length;
 		mkdirSync(dirname(file), { recursive: true });
@@ -576,7 +575,15 @@ function freshTraces(dirs: string[], out: string, seed: number, jar: string, how
 }
 
 type MapEntry = { name: string; code: { file: string; function: string }[]; ids: string[] };
-type FormalMap = { model: string; actions: MapEntry[]; rules?: MapEntry[]; properties: MapEntry[] };
+type FormalMap = {
+	model: string;
+	/** The files `bin/dev formal --write` generates from the model, and the tests that run them against the code. */
+	generated?: string[];
+	tests?: string[];
+	actions: MapEntry[];
+	rules?: MapEntry[];
+	properties: MapEntry[];
+};
 
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 /** Whether `source` defines `name`: a function, a const, a method, an object property, or SQL. */
@@ -598,6 +605,8 @@ export function mapProblems(root: string, mapFile: string): string[] {
 	const problems: string[] = [];
 	const dir = join(root, map.model);
 	if (!existsSync(dir)) return [`${mapFile}: model ${map.model} does not exist`];
+	for (const file of [...(map.generated ?? []), ...(map.tests ?? [])])
+		if (!existsSync(join(root, file))) problems.push(`${mapFile}: ${file} does not exist`);
 	const tla = globSync("*.tla", { cwd: dir })
 		.map((f) => readFileSync(join(dir, f), "utf8"))
 		.join("\n");
@@ -647,7 +656,8 @@ export async function formalCommand(args: readonly string[], root: string): Prom
 	}
 }
 
-const USAGE = "Usage: bin/dev formal [--write] [<model dir>...] | bin/dev formal --traces <dir outside the repo> [--seed <n>]";
+const USAGE =
+	"Usage: bin/dev formal [--write] [<model dir>...] | bin/dev formal --traces <dir outside the repo> [--seed <n>]";
 
 async function formal(args: readonly string[], root: string): Promise<number> {
 	const write = args.includes("--write");

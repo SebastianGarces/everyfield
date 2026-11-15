@@ -34,8 +34,11 @@ const HELP = `Browser runs, the local preview stack, its logs and the fast pre-p
         of origin/main (else main), in seconds, with no database, stack or network. Prints each fix command
   dev hooks install                        points this repo's core.hooksPath at tools/git-hooks (pnpm install does it)
   dev formal [--write] [<model dir>...]    runs TLC on every model under formal/ with the pinned tla2tools.jar, checks
-        each model's outcomes.json (--write rewrites it) and the .agents/skills/formal-*/map.json maps; local Java 11+
-        or a pinned Java container in Docker (tools/formal/formal.ts, .agents/skills/formal-permissions/SKILL.md)
+        each model's outcomes.json and its TLC-simulated traces.json (--write rewrites both) and the
+        .agents/skills/formal-*/map.json maps; local Java 11+ or a pinned Java container in Docker
+        (tools/formal/formal.ts, .agents/skills/formal-permissions/SKILL.md)
+  dev formal --traces <dir> [--seed <n>]   writes fresh random behaviors from a new or given seed to <dir> outside the
+        repository, for the replay test's FORMAL_TRACES=<dir>
 
 Git hooks: on a push of a task branch (refs/heads/evf/*), tools/git-hooks/pre-push runs dev fast-check and refuses
 the push when it fails. Other refs pass unchecked. GitHub CI's full run over the whole repo stays required.`;
