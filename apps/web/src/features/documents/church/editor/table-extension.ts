@@ -466,7 +466,20 @@ function tableNodeView(initial: PMNode, editor: Editor, getPos: () => number | u
 		fieldKey(editor, event, getPos(), { row: null, col: null, blank: true });
 	});
 	let page = editor.state.doc.attrs.page;
+	let refocus = false;
+	const restoreFocus = () => {
+		const pos = getPos();
+		const here = tableContext(editor.state);
+		if (dom.contains(document.activeElement)) return;
+		if (pos !== undefined && here?.pos === pos && here.at.row === null && here.at.col !== null)
+			focusPlace(editor.view, pos, here.at);
+		else editor.view.focus();
+	};
 	const onTransaction = () => {
+		if (refocus) {
+			refocus = false;
+			restoreFocus();
+		}
 		if (editor.state.doc.attrs.page === page) return;
 		page = editor.state.doc.attrs.page;
 		widths();
@@ -480,15 +493,7 @@ function tableNodeView(initial: PMNode, editor: Editor, getPos: () => number | u
 			node = next;
 			const owned = head.contains(document.activeElement) || blanks.contains(document.activeElement);
 			draw();
-			if (owned && !dom.contains(document.activeElement))
-				queueMicrotask(() => {
-					const pos = getPos();
-					const here = tableContext(editor.state);
-					if (dom.contains(document.activeElement)) return;
-					if (pos !== undefined && here?.pos === pos && here.at.row === null && here.at.col !== null)
-						focusPlace(editor.view, pos, here.at);
-					else editor.view.focus();
-				});
+			refocus = owned && !dom.contains(document.activeElement);
 			return true;
 		},
 		stopEvent: (event: Event) => event.target instanceof Node && !body.contains(event.target),
