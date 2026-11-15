@@ -126,7 +126,7 @@ export function PhaseOffer({
 							description={`${taskCount(k.tasks.length)} · ${CATEGORY_LABEL[k.category]}. ${k.description}`}
 						/>
 						<details className="group mb-3 ml-8">
-							<summary className="cursor-pointer text-sm text-text-2 underline-offset-[3px] hover:underline">
+							<summary className="text-sm text-text-2 underline-offset-[3px] hover:underline">
 								Show the {taskCount(k.tasks.length)}
 							</summary>
 							<ol className="mt-2 flex flex-col gap-1.5">
@@ -152,7 +152,7 @@ export function PhaseOffer({
 							<li key={a.slug}>
 								<IntentLink
 									href={`/wiki/${a.slug}`}
-									className="cursor-pointer text-sm text-ink underline decoration-green-500 decoration-2 underline-offset-[3px]"
+									className="text-sm text-ink underline decoration-green-500 decoration-2 underline-offset-[3px]"
 								>
 									{a.title}
 								</IntentLink>

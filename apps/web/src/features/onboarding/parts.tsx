@@ -78,7 +78,7 @@ export function StepPills({
 									type="button"
 									className={cn(
 										pill,
-										"cursor-pointer transition-[background-color] duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus",
+										"transition-[background-color] duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus",
 										state !== "current" && "hover:bg-hover",
 									)}
 									aria-current={state === "current" ? "step" : undefined}
@@ -154,10 +154,10 @@ export function ChoiceCard({
 	return (
 		<label
 			className={cn(
-				"relative flex cursor-pointer items-center gap-3.5 rounded-card border border-line bg-surface-raised px-[18px] py-4 shadow-card transition-[box-shadow] duration-150",
+				"relative flex items-center gap-3.5 rounded-card border border-line bg-surface-raised px-[18px] py-4 shadow-card transition-[box-shadow] duration-150",
 				"has-[:checked]:shadow-[0_0_0_2px_var(--ef-ink),var(--ef-shadow-card)]",
 				"has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-focus",
-				"has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-60",
+				"has-[:disabled]:opacity-60",
 				className,
 			)}
 		>

@@ -316,11 +316,7 @@ export function JoinHouseholdDialog({
 							) : found.outcome.status !== "ok" ? (
 								<p role="alert" className="px-4 py-4 text-sm text-text-2">
 									Households did not load.{" "}
-									<button
-										type="button"
-										className="cursor-pointer font-medium text-ink underline"
-										onClick={() => load(search.trim())}
-									>
+									<button type="button" className="font-medium text-ink underline" onClick={() => load(search.trim())}>
 										Try again
 									</button>
 								</p>
