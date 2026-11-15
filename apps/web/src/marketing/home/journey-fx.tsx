@@ -7,17 +7,10 @@ import { EvryBot } from "@/components/kit/EvryBot";
 import { createAutoplay, joinRefs } from "../playback";
 import { stopCurve, stopLeft, type Pt } from "../sections/stop-curve";
 
-// The journey path (OPS-82 prototype, pthLayout to pthGo). One smooth curve runs through the six stop centres. EvryBot
-// eases along it from stop to stop and says one line at each stop. While the band is on screen it moves on every
-// STEP ms; hover, focus, a hidden tab and reduced motion pause it, and a click or an arrow key stops it for good.
-// Reduced motion shows the first stop and its line, with no motion. There is no play or pause control.
-
 const STEP = 4200;
-/** The app's EvryBot "lg" size; the walker scales it to the band's bot size (44 to 62 px). */
 const BOT = 40;
 
 export type JourneyStep = { title: string; body: string; say: string; icon: ReactNode };
-/** Measured path: stop centres and sizes, the length at each stop, the walker's length L and x, and the stop it is on. */
 type Geo = { c: (Pt & { s: number })[]; at: number[]; len: number; L: number; wx: number; k: number };
 
 const num = (i: number) => String(i + 1).padStart(2, "0");
@@ -53,7 +46,6 @@ export function JourneyPath({
 	const [k, setK] = useState(0);
 	const [autoplay] = useState(() => createAutoplay(STEP));
 
-	/** The walker rides above the line at length L; the walked line ends under it. */
 	const put = useCallback((L: number) => {
 		const g = geo.current,
 			p = trail.current!.getPointAtLength(L),
@@ -65,7 +57,6 @@ export function JourneyPath({
 		walked.current!.style.strokeDashoffset = (100 - (L / g.len) * 100).toFixed(2);
 	}, []);
 
-	/** The bubble sits over the walker and stays inside the band; its tail points at the walker. */
 	const place = useCallback(() => {
 		const b = bubble.current!,
 			bs = bot.current!.offsetWidth,
@@ -77,7 +68,6 @@ export function JourneyPath({
 		b.style.setProperty("--tx", Math.max(16, Math.min(bw - 16, x + bs / 2 - L)).toFixed(1) + "px");
 	}, []);
 
-	/** One curve through the stop centres, with horizontal tangents; at[i] is the length along it at stop i. */
 	const layout = useCallback(() => {
 		const B = band.current,
 			T = trail.current;
@@ -133,7 +123,6 @@ export function JourneyPath({
 			}
 			const dur = Math.min(1700, Math.max(700, dist * 2.2)),
 				t0 = performance.now();
-			// The line fades out while the walker moves; the next one fades in on arrival.
 			bubble.current!.setAttribute("data-swap", "");
 			mood.set("idle");
 			bot.current!.animate([{ translate: "0 0" }, { translate: "0 -16px", offset: 0.45 }, { translate: "0 0" }], {
@@ -240,7 +229,6 @@ export function JourneyPath({
 								className="absolute top-(--lo) -translate-1/2 even:top-(--hi)"
 								style={{ left: stopLeft(i, n) }}
 							>
-								{/* The number sits outside the button, so the button's name is its title alone (label in name). */}
 								<div className="group relative size-(--ic) transition-[translate,scale] duration-400 ease-[cubic-bezier(.3,1.4,.5,1)] hover:not-has-aria-pressed:-translate-y-[3px] has-aria-pressed:scale-[1.08]">
 									<span
 										aria-hidden="true"

@@ -13,11 +13,6 @@ const drawPath = observeSize<HTMLDivElement>(
 	{ fonts: true },
 );
 
-/**
- * "Raise the next planters." (OPS-82 prototype, pathBand without a walker): four brand-green stops on one dotted path.
- * The band is a picture, not a control: the list under it names the four stops. The line is drawn again when the band
- * resizes or the fonts arrive. It never moves, so it needs no reduced-motion or hidden-tab case.
- */
 export function StopPath({ icons }: { icons: ReactNode[] }) {
 	const n = icons.length;
 

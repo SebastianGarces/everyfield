@@ -18,11 +18,8 @@ import { clamp } from "@/components/motion/curves";
 
 type Props = { id: string; headingId: string; head: ReactNode; children: ReactNode };
 
-/** Rail geometry for the pinned mode: start offset a, travel, sticky top, side inset, viewport width, pin top in the document. */
 type Geo = { a: number; travel: number; stick: number; inset: number; vw: number; fh: number; pinTop: number };
 const WIDE = "(min-width: 901px)";
-/* Revision 16: where the first card's left edge sits when the section pins (share of the viewport width), moved left by
-   one card step so one more full card shows at pin start. */
 const START = 0.55,
 	LEAD = 1;
 
@@ -44,18 +41,11 @@ function driveRail(track: HTMLSpanElement | null) {
 }
 
 const cardsOf = (list: HTMLOListElement | null) => [...(list?.children ?? [])] as HTMLElement[];
-/** Distance between two cards (card width plus gap). */
 function stepOf(list: HTMLOListElement | null, rail: HTMLDivElement | null) {
 	const c = cardsOf(list);
 	return c.length > 1 ? c[1]!.offsetLeft - c[0]!.offsetLeft : (rail?.clientWidth ?? 0);
 }
 
-/**
- * The phases rail (Marketing v15). Desktop (above 900 px, no reduced motion): the section pins and vertical scroll moves
- * the rail left 1:1. The offset is a pure function of scrollY and geometry measured on resize (never a layout read per
- * scroll frame). Narrow screens and reduced motion: a native horizontal rail with scroll snap, mouse drag, touch swipe
- * and arrow keys.
- */
 export function PinnedRail({ id, headingId, head, children }: Props) {
 	const reduced = useReduced();
 	const frame = useRef<HTMLDivElement>(null);
@@ -103,7 +93,6 @@ export function PinnedRail({ id, headingId, head, children }: Props) {
 		[geo],
 	);
 
-	/* Pinned: keyboard focus on a card scrolls the page so the card is inside the rail window. */
 	const onFocus = (e: FocusEvent) => {
 		const c = (e.target as Element).closest<HTMLElement>("[data-card]");
 		const section = e.currentTarget.closest("section");
@@ -139,7 +128,6 @@ export function PinnedRail({ id, headingId, head, children }: Props) {
 			});
 	};
 
-	/* Native mode: mouse drag (touch and trackpads scroll natively). */
 	const drag = useRef<{ x: number; s: number; moved: boolean; id: number } | null>(null);
 	const dragged = useRef(false);
 	const [dragging, setDragging] = useState(false);
@@ -158,9 +146,7 @@ export function PinnedRail({ id, headingId, head, children }: Props) {
 			setDragging(true);
 			try {
 				Ra.setPointerCapture(d.id);
-			} catch {
-				/* pointer already released */
-			}
+			} catch {}
 		}
 		if (d.moved) Ra.scrollLeft = d.s - dx;
 	};

@@ -12,37 +12,18 @@ import type { PhotoName } from "../photo/photos";
 import { createAutoplay, joinRefs } from "../playback";
 
 type Props = {
-	/** The whole sentence for screen readers ("Sent by a church, a network through a church or a network. Seen in one place."). */
 	sentence: string;
 	lead: string;
 	tail: string;
 	phrases: string[];
-	/** Per state: the text pane, the product card (server-rendered) and the photo behind the card. */
 	panes: ReactNode[];
 	apps: ReactNode[];
 	photos: PhotoName[];
 };
 
-/* Revision 28: one timer moves the phrase and the card together every STEP ms, only while 30 % of the block is on screen
-   and the tab is visible. */
 const STEP = 5500;
 const EASE = "cubic-bezier(.65,0,.35,1)";
 
-/**
- * The /oversight sending paths: "Sent by <phrase>. Seen in one place." over one large card. The phrase rolls up one line,
- * its highlight takes the new phrase's width, the line stays centred, and the card crossfades, all over .7 s.
- *
- * No layout shift (the prototype animated the highlight's width, which moved the whole line ~50 times a roll): the
- * phrase slot always has the width of the widest phrase, so nothing is laid out again. Every moving part is a transform
- * transition on the same .7 s curve, so the roll runs on the compositor and paints nothing:
- * - The line is recentred and the period moves with translateX.
- * - The highlight's visible width wk is a window: the slot is a rounded window at the widest width, and an inner rounded
- *   window of the same size slides left by (widest - wk) while its content slides back by the same amount. Their
- *   intersection is the prototype's clip, inset(0 (widest - wk) 0 0 round .2em), at every frame.
- * - Each phrase is centred in the painted highlight: its offset is (wk - its width) / 2, also linear in wk.
- * Phrase widths are measured once per resize. Reduced motion: no auto advance and no transitions; the control shows
- * the next state.
- */
 export function PathsCycle({ sentence, lead, tail, phrases, panes, apps, photos }: Props) {
 	const reduced = useReduced();
 	const items = useRef<(HTMLSpanElement | null)[]>([]);
@@ -79,7 +60,6 @@ export function PathsCycle({ sentence, lead, tail, phrases, panes, apps, photos 
 	);
 
 	const wk = w ? w.items[k]! : 0;
-	// Before the first measurement (server HTML) the slot shows the widest phrase with its full highlight and the period after it.
 	const vars = (
 		w
 			? {
@@ -179,7 +159,6 @@ export function PathsCycle({ sentence, lead, tail, phrases, panes, apps, photos 
 						reduced ? "Show the next sending path" : paused ? "Play the sending paths" : "Pause the sending paths"
 					}
 					onClick={() => (reduced ? setK((c) => (c + 1) % n) : setPaused((p) => !p))}
-					// 34 px as in the prototype; the ring around it (before:) makes the hit area 44 px.
 					className="absolute right-4 bottom-4 z-2 grid size-[34px] place-items-center rounded-full border-0 bg-mk-ink-46 text-cream before:absolute before:-inset-[5px] before:content-[''] hover:bg-mk-ink-66 focus-visible:outline-cream max-mk-sm:right-3 max-mk-sm:bottom-3"
 				>
 					{reduced ? <Icon icon={ArrowRight02Icon} size={14} /> : <PlaybackGlyph paused={paused} />}
@@ -189,7 +168,6 @@ export function PathsCycle({ sentence, lead, tail, phrases, panes, apps, photos 
 	);
 }
 
-/** Revision 28 crossfade: out over the first 40 % (.28 s ease-in), in over the last 50 % (.35 s ease-out after .35 s). */
 function Fade({
 	on,
 	reduced,
