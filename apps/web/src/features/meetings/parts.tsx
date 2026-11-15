@@ -9,8 +9,8 @@ import {
 } from "@hugeicons/core-free-icons";
 import { CardIcon } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
-import { cn, Icon } from "@everyfield/ui/foundations";
-import { useEffect, useRef, type ReactNode } from "react";
+import { cn, Icon, useFocusRequest } from "@everyfield/ui/foundations";
+import { useState, type ReactNode } from "react";
 import { PersonLink } from "../people/parts.tsx";
 import { statusView, TYPE_TONE, type MeetingStatus, type MeetingType } from "./model.ts";
 
@@ -123,17 +123,13 @@ export function TabStack({
 	/** Size to the shown panel; the hidden panels take no height (they keep their state). */
 	fit?: boolean;
 }) {
-	const root = useRef<HTMLDivElement>(null);
-	const first = useRef(true);
-	useEffect(() => {
-		if (first.current) {
-			first.current = false;
-			return;
-		}
-		root.current?.querySelector<HTMLElement>(`[data-panel="${active}"] :is(${FIRST_CONTROL})`)?.focus();
-	}, [active]);
+	const [shown, setShown] = useState({ active, switches: 0 });
+	if (shown.active !== active) setShown({ active, switches: shown.switches + 1 });
+	const focusShownPanel = useFocusRequest<HTMLDivElement>(shown.switches, (root) =>
+		root.querySelector<HTMLElement>(`[data-panel="${active}"] :is(${FIRST_CONTROL})`),
+	);
 	return (
-		<div ref={root} className="grid">
+		<div ref={focusShownPanel} className="grid">
 			{Object.entries(panels).map(([key, node]) => (
 				<div
 					key={key}
