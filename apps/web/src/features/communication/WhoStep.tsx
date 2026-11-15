@@ -30,17 +30,13 @@ const lost = <T,>(): Outcome<T> => ({ status: "lost" });
 const audienceSummaries = createRead((audience: Audience) => resolveAudience(audience), {
 	failed: lost<AudienceSummary>,
 });
-const chipCounts = createRead(
-	(value: string) => {
-		const [kind, id] = value.split(":") as [string, string];
-		return resolveAudience({
-			groups: kind === "group" ? [id] : [],
-			teamIds: kind === "team" ? [id] : [],
-			personIds: [],
-		});
-	},
-	{ failed: lost<AudienceSummary> },
-);
+const chipAudience = (value: string): Audience => {
+	const [kind, id] = value.split(":") as [string, string];
+	return { groups: kind === "group" ? [id] : [], teamIds: kind === "team" ? [id] : [], personIds: [] };
+};
+const chipCounts = createRead((value: string) => resolveAudience(chipAudience(value)), {
+	failed: lost<AudienceSummary>,
+});
 const recipientSearches = createRead((text: string) => searchRecipients(text), {
 	failed: lost<{ people: Recipient[] }>,
 });
