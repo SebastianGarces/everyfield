@@ -15,7 +15,7 @@ import {
 	RadioGroup,
 	Skeleton,
 } from "@everyfield/ui/controls";
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRead } from "../../../components/read.tsx";
 import type { Locality, RegionRead, RegionSuggestion } from "../port";
 import { newRequestKey } from "../port";
@@ -105,6 +105,7 @@ function RegionDialog({
 	const [choice, setChoice] = useState<string | null | undefined>(undefined);
 	const [problem, setProblem] = useState<string | null>(null);
 	const [busy, startSave] = useTransition();
+	const lookup = useRef<Promise<unknown> | null>(null);
 	const matches = useRead(asked ? reads.regionMatches : null, asked ?? read.locality);
 	const found = asked && matches.value ? matches.value : null;
 	const lookupFailed = asked !== null && matches.status === "ready" && matches.value === null;
@@ -115,17 +116,21 @@ function RegionDialog({
 		setChoice(undefined);
 		if (asked) {
 			const shown = matches.value;
-			void reads.regionMatches.refresh(asked).then((next) => {
-				if (next !== null || !shown) return;
+			const answer = reads.regionMatches.refresh(asked);
+			lookup.current = answer;
+			void answer.then((next) => {
+				if (lookup.current !== answer || next !== null || !shown) return;
 				reads.regionMatches.patch(() => shown, asked);
 				setProblem("We couldn't look up areas. Try again in a moment.");
 			});
 		} else {
+			lookup.current = null;
 			reads.regionMatches.prefetch(place);
 			setAsked(place);
 		}
 	};
 	const set = (k: keyof Locality) => (e: React.ChangeEvent<HTMLInputElement>) => {
+		lookup.current = null;
 		setPlace({ ...place, [k]: e.target.value });
 		setAsked(null);
 		setChoice(undefined);
