@@ -295,6 +295,7 @@ export function Screen() {
 				(line) => `apps/web/src/features/x/mount.ts:${line} no-global-listeners`,
 			),
 			"apps/web/src/features/x/Screen.tsx:4 no-global-listeners",
+			"apps/web/src/features/x/Screen.tsx:6 no-effects",
 			"apps/web/src/features/x/Screen.tsx:6 no-global-listeners",
 		].sort(),
 	);
@@ -939,4 +940,152 @@ export const run = (client: { query(text: string): void }) => {
 		"packages/domain/src/q.ts:5 no-sql-comments",
 		"packages/domain/src/q.ts:8 no-sql-comments",
 	]);
+});
+
+test("INV-lint: a React namespace alias, a class lifecycle method and a ref callback that never uses its node are effects", () => {
+	const source = `import * as React from "react";
+import { Component, useCallback } from "react";
+const R = React;
+R.useEffect(() => {});
+export class Old extends Component {
+	componentDidMount() {}
+	componentDidUpdate = () => {};
+	componentWillUnmount() {}
+	componentDidCatch() {}
+	render() {
+		return null;
+	}
+}
+export function Panel({ start, keep }) {
+	const mount = useCallback(() => start(), [start]);
+	const sized = (node) => keep(node);
+	return (
+		<div>
+			<span ref={() => start()} />
+			<span ref={(node) => { if (node) start(); }} />
+			<span ref={(node) => (node ? start() : undefined)} />
+			<span ref={mount} />
+			<span ref={(node) => node?.focus()} />
+			<span ref={sized} />
+			<span ref={useCallback((node) => keep(node), [keep])} />
+		</div>
+	);
+}
+`;
+	assert.deepEqual(lint({ "apps/web/src/features/x/Old.tsx": source }), [
+		"apps/web/src/features/x/Old.tsx:19 no-effects",
+		"apps/web/src/features/x/Old.tsx:20 no-effects",
+		"apps/web/src/features/x/Old.tsx:21 no-effects",
+		"apps/web/src/features/x/Old.tsx:22 no-effects",
+		"apps/web/src/features/x/Old.tsx:4 no-effects",
+		"apps/web/src/features/x/Old.tsx:6 no-effects",
+		"apps/web/src/features/x/Old.tsx:7 no-effects",
+		"apps/web/src/features/x/Old.tsx:8 no-effects",
+	]);
+});
+
+test("INV-lint: a timer on any window, motion's frame loop and an await of a value already there are timers", () => {
+	const source = `import { frame, useAnimationFrame as useLoop, delay, cancelFrame } from "motion/react";
+export async function run(node, input) {
+	node.ownerDocument.defaultView.requestAnimationFrame(() => {});
+	const view = window;
+	view.setTimeout(() => {}, 1);
+	const { setTimeout: later } = view;
+	frame.update(() => {}, true);
+	frame.render(() => {});
+	delay(() => {}, 10);
+	await null;
+	await undefined;
+	await Promise.resolve();
+	Promise.resolve().then(() => {});
+	await scheduler.yield();
+	await Promise.resolve(input);
+	await input;
+	cancelFrame(run);
+	return [later, useLoop];
+}
+`;
+	assert.deepEqual(
+		lint({ "apps/web/src/features/x/loop.ts": source }).map((hit) =>
+			hit.replace("apps/web/src/features/x/loop.ts:", ""),
+		),
+		[
+			"3 no-timers",
+			"5 no-timers",
+			"6 no-timers",
+			"7 no-timers",
+			"8 no-timers",
+			"9 no-timers",
+			"10 no-timers",
+			"11 no-timers",
+			"12 no-timers",
+			"13 no-timers",
+			"14 no-timers",
+			"18 no-timers",
+		].sort(),
+	);
+});
+
+test("INV-lint: media query listeners, page observers and observers made at module load are global listeners, in packages/ui too", () => {
+	const source = `const pages = new MutationObserver(() => {});
+export function watch(node, run) {
+	window.matchMedia("(min-width: 1px)").addEventListener("change", run);
+	const query = matchMedia("(prefers-reduced-motion: reduce)");
+	query.onchange = run;
+	pages.observe(document.body, { childList: true });
+	new ResizeObserver(run).observe(node.ownerDocument.documentElement);
+	const own = new ResizeObserver(run);
+	own.observe(node);
+	own.observe(node.contentDocument.documentElement);
+	return own;
+}
+`;
+	const hits = lint({ "apps/web/src/features/x/watch.ts": source, "packages/ui/src/foundations/watch.ts": source });
+	assert.deepEqual(
+		hits,
+		["apps/web/src/features/x/watch.ts", "packages/ui/src/foundations/watch.ts"]
+			.flatMap((path) => [1, 3, 5, 6, 7].map((line) => `${path}:${line} no-global-listeners`))
+			.sort(),
+	);
+});
+
+test("INV-lint: a write to module state while rendering is reported, directly, through a module function or in a render-time initializer", () => {
+	const source = `import { useMemo, useState } from "react";
+import { unread } from "./reads.ts";
+const shown = new Set();
+let renders = 0;
+const cache = { last: null };
+function firstShow(id) {
+	if (shown.has(id)) return false;
+	shown.add(id);
+	return true;
+}
+const markShown = (id) => firstShow(id);
+export function Card({ id, count }) {
+	renders++;
+	cache.last = id;
+	const [fresh] = useState(() => markShown(id));
+	useState(() => unread.seed(count));
+	const sorted = useMemo(() => [...shown].sort(), []);
+	const onClick = () => {
+		shown.delete(id);
+		renders = 0;
+	};
+	return <button onClick={onClick}>{String(fresh) + sorted.length}</button>;
+}
+export function useCount() {
+	const local = new Set();
+	local.add(1);
+	return firstShow(0);
+}
+markShown("boot");
+`;
+	assert.deepEqual(
+		lint({ "apps/web/src/features/x/Card.tsx": source, "packages/ui/src/Card.tsx": source }),
+		[
+			...["apps/web/src/features/x/Card.tsx", "packages/ui/src/Card.tsx"].flatMap((path) =>
+				[13, 14, 15, 16, 27].map((line) => `${path}:${line} no-render-writes`),
+			),
+		].sort(),
+	);
 });

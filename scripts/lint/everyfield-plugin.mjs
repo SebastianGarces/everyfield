@@ -135,11 +135,14 @@ const TIMERS = new Set([
 	"requestAnimationFrame",
 	"requestIdleCallback",
 	"queueMicrotask",
+	"requestVideoFrameCallback",
 ]);
 const TIMER_HOSTS = new Set(["window", "globalThis", "self"]);
 const REACT = new Set(["react"]);
 const REACT_DOM = new Set(["react-dom"]);
 const TIMER_MODULES = new Set(["timers", "node:timers", "timers/promises", "node:timers/promises"]);
+const MOTION = new Set(["motion", "motion/react", "motion/react-client", "motion/mini", "motion-dom", "framer-motion"]);
+const MOTION_TIMERS = new Set(["frame", "frameData", "useAnimationFrame", "delay"]);
 const FUNCTIONS = new Set(["FunctionDeclaration", "FunctionExpression", "ArrowFunctionExpression"]);
 
 export const INTERACTIVE_HOSTS = ["a[href]", "area[href]", "button", "input", "option", "select", "summary"];
@@ -301,7 +304,9 @@ function moduleUses(sources, names, namespaces, found, dynamic = false) {
 			if (dynamic && isImportOf(node, sources)) found(node, `import("${literalArgument(node.source)}")`);
 		},
 		VariableDeclarator(node) {
-			if (node.id.type !== "ObjectPattern" || !isModuleValue(node.init, b, sources)) return;
+			if (!isModuleValue(node.init, b, sources)) return;
+			if (node.id.type === "Identifier") b.spaces.add(node.id.name);
+			if (node.id.type !== "ObjectPattern") return;
 			for (const p of node.id.properties) {
 				const name = p.type === "Property" ? keyName(p.key, p.computed) : null;
 				if (names.has(name)) found(p, name);
@@ -341,22 +346,79 @@ function ratcheted(rule, collect) {
 
 const survivorFile = (context) => `scripts/lint/survivors/${area(repoPath(context.filename))}.json`;
 
-const noEffects = ratcheted("no-effects", (context, push) =>
-	moduleUses(
-		REACT,
-		EFFECT_HOOKS,
-		["React"],
-		(node, name) =>
-			push({
-				node,
-				fn: enclosingName(node),
-				message: name.startsWith("import(")
-					? `${name} hides which hooks the code uses. Import from react statically.`
-					: `${name} is banned. Derive the value while rendering, do the work in the event handler that causes it, reset state with a key, or subscribe with useSyncExternalStore. An effect that no other pattern can replace needs an entry in ${survivorFile(context)} with its reason, which waits for the owner.`,
-			}),
-		true,
-	),
-);
+const LIFECYCLE_METHODS = new Set([
+	"componentDidMount",
+	"componentDidUpdate",
+	"componentWillUnmount",
+	"getSnapshotBeforeUpdate",
+	"UNSAFE_componentWillMount",
+	"UNSAFE_componentWillReceiveProps",
+	"UNSAFE_componentWillUpdate",
+]);
+const EXISTENCE_TESTS = new Set(["IfStatement", "ConditionalExpression", "LogicalExpression", "UnaryExpression"]);
+
+function refCallback(context, value) {
+	if (value?.type === "CallExpression" && value.callee.type === "Identifier" && value.callee.name === "useCallback")
+		return refCallback(context, value.arguments[0]);
+	if (value?.type === "ArrowFunctionExpression" || value?.type === "FunctionExpression") return value;
+	if (value?.type !== "Identifier") return null;
+	for (let scope = context.sourceCode.getScope(value); scope; scope = scope.upper) {
+		const def = scope.set?.get(value.name)?.defs?.[0];
+		if (def) return def.node.type === "VariableDeclarator" ? refCallback(context, def.node.init) : null;
+	}
+	return null;
+}
+
+const onlyTested = (reference) => {
+	const id = reference.identifier;
+	const p = id.parent;
+	if (p?.type === "UnaryExpression") return p.operator === "!";
+	return EXISTENCE_TESTS.has(p?.type) && (p.test === id || (p.type === "LogicalExpression" && p.left === id));
+};
+
+const noEffects = ratcheted("no-effects", (context, push) => {
+	const report = (node, message) => push({ node, fn: enclosingName(node), message });
+	const banned = (name) =>
+		`${name} is banned. Derive the value while rendering, do the work in the event handler that causes it, reset state with a key, or subscribe with useSyncExternalStore. An effect that no other pattern can replace needs an entry in ${survivorFile(context)} with its reason, which waits for the owner.`;
+	const lifecycle = (node) => {
+		const name = keyName(node.key, node.computed);
+		if (LIFECYCLE_METHODS.has(name)) report(node, `${name} is a class component's effect: ${banned(name)}`);
+	};
+	return merge(
+		moduleUses(
+			REACT,
+			EFFECT_HOOKS,
+			["React"],
+			(node, name) =>
+				report(
+					node,
+					name.startsWith("import(")
+						? `${name} hides which hooks the code uses. Import from react statically.`
+						: banned(name),
+				),
+			true,
+		),
+		{
+			MethodDefinition: lifecycle,
+			PropertyDefinition: lifecycle,
+			JSXAttribute(node) {
+				if (node.name.name !== "ref" || node.value?.type !== "JSXExpressionContainer") return;
+				const fn = refCallback(context, node.value.expression);
+				if (!fn) return;
+				const [param] = fn.params;
+				const variable =
+					param?.type === "Identifier"
+						? context.sourceCode.getDeclaredVariables(fn).find((v) => v.name === param.name)
+						: null;
+				if (param && (!variable || !variable.references.every(onlyTested))) return;
+				report(
+					node,
+					"A ref callback that never uses its node is a mount effect: it runs when the element attaches, whatever the work is. Do the work in the event that causes it, or derive it while rendering; a ref callback holds only logic about that DOM node.",
+				);
+			},
+		},
+	);
+});
 
 const isOwner = (name) => name === "default" || /^([A-Z]|use[A-Z0-9])/.test(name);
 
@@ -414,6 +476,18 @@ const merge = (...parts) => {
 	return merged;
 };
 
+const emptyResolve = (node) =>
+	node?.type === "CallExpression" &&
+	node.arguments.length === 0 &&
+	memberName(node.callee) === "resolve" &&
+	node.callee.object.type === "Identifier" &&
+	node.callee.object.name === "Promise";
+const tickOnly = (node) =>
+	node.type === "Literal" ||
+	(node.type === "Identifier" && node.name === "undefined") ||
+	(node.type === "UnaryExpression" && node.operator === "void") ||
+	emptyResolve(node);
+
 const noTimers = ratcheted("no-timers", (context, push) => {
 	const seen = new Set();
 	const report = (node, name) => {
@@ -451,19 +525,22 @@ const noTimers = ratcheted("no-timers", (context, push) => {
 		},
 		MemberExpression(node) {
 			const name = memberName(node);
-			if (TIMERS.has(name) && node.object.type === "Identifier" && TIMER_HOSTS.has(node.object.name))
-				report(node, name);
-			if (name === "wait" && scheduler(node.object)) report(node, "scheduler.wait");
+			if (TIMERS.has(name)) report(node, name);
+			if ((name === "wait" || name === "yield") && scheduler(node.object)) report(node, `scheduler.${name}`);
+		},
+		AwaitExpression(node) {
+			if (tickOnly(node.argument)) report(node, "await of a value that is already there");
 		},
 		VariableDeclarator(node) {
-			if (node.id.type !== "ObjectPattern" || node.init?.type !== "Identifier" || !TIMER_HOSTS.has(node.init.name))
-				return;
+			if (node.id.type !== "ObjectPattern") return;
 			for (const p of node.id.properties) {
 				const name = p.type === "Property" ? keyName(p.key, p.computed) : null;
 				if (TIMERS.has(name)) report(p, name);
 			}
 		},
 		CallExpression(node) {
+			if (CHAIN.has(memberName(node.callee) ?? "") && emptyResolve(node.callee.object))
+				return report(node, "Promise.resolve().then");
 			if (memberName(node.callee) !== "postTask" || !scheduler(node.callee.object)) return;
 			const options = node.arguments[1];
 			const delayed =
@@ -476,6 +553,7 @@ const noTimers = ratcheted("no-timers", (context, push) => {
 	return merge(
 		moduleUses(REACT_DOM, new Set(["flushSync"]), [], report),
 		moduleUses(TIMER_MODULES, TIMERS, [], report),
+		moduleUses(MOTION, MOTION_TIMERS, [], (node, name) => report(node, `${name} from motion`)),
 		own,
 	);
 });
@@ -538,6 +616,9 @@ const LISTENER_HOSTS = new Set([...GLOBAL_HOSTS, "document"]);
 const HOST_MEMBERS = new Set(["document", "body", "documentElement", "ownerDocument", "defaultView", "visualViewport"]);
 const ON_HANDLER = /^on[a-z]+$/;
 const REGISTRY_WORDS = new Set(["onTraversal", "addAddressRule"]);
+const OBSERVER = /^[A-Z]\w*Observer$/;
+const isMediaQuery = (call) =>
+	(call.callee.type === "Identifier" ? call.callee.name : memberName(call.callee)) === "matchMedia";
 
 function isJsxRef(fn) {
 	let node = fn.parent;
@@ -554,6 +635,15 @@ const noGlobalListeners = ratcheted("no-global-listeners", (context, push) => {
 			fn: enclosingName(node),
 			message: `${name}: page-wide events have one owner each. Address changes go through ${LOCATION_STORE} (an address rule registered at module scope, or onTraversal started from an event); shortcuts and the unsaved-work warning go through ${PAGE_EVENTS} (data-shortcut on the form or control, data-unsaved on the form). A listener tied to a component's lifetime is an effect: it needs a survivor entry.`,
 		});
+	const isPageNode = (node) => {
+		for (let at = node; at; at = at.type === "MemberExpression" ? at.object : at.expression) {
+			if (["ownerDocument", "defaultView"].includes(memberName(at))) return true;
+			if (at.type === "Identifier") return isHost(at, context, LISTENER_HOSTS) || aliases.has(at.name);
+			if (!["MemberExpression", "ChainExpression", "TSNonNullExpression", "TSAsExpression"].includes(at.type))
+				return false;
+		}
+		return false;
+	};
 	const isGlobalHost = (node) => {
 		if (node?.type === "ConditionalExpression") return isGlobalHost(node.consequent) || isGlobalHost(node.alternate);
 		if (node?.type === "LogicalExpression") return isGlobalHost(node.left) || isGlobalHost(node.right);
@@ -565,6 +655,7 @@ const noGlobalListeners = ratcheted("no-global-listeners", (context, push) => {
 			node?.type === "TSSatisfiesExpression"
 		)
 			return isGlobalHost(node.expression);
+		if (node?.type === "CallExpression") return isMediaQuery(node);
 		return (
 			isHost(node, context, LISTENER_HOSTS) ||
 			(node?.type === "Identifier" && aliases.has(node.name)) ||
@@ -593,8 +684,14 @@ const noGlobalListeners = ratcheted("no-global-listeners", (context, push) => {
 			if (node.parent?.type === "MemberExpression" && node.parent.property === node) return;
 			report(node, "addEventListener");
 		},
+		NewExpression(node) {
+			if (node.callee.type === "Identifier" && OBSERVER.test(node.callee.name) && atModuleLevel(node))
+				report(node, `a ${node.callee.name} created at module load`);
+		},
 		CallExpression(node) {
 			const name = node.callee.type === "Identifier" ? node.callee.name : memberName(node.callee);
+			if (name === "observe" && node.callee.type === "MemberExpression" && isPageNode(node.arguments[0]))
+				return report(node, "an observer of the whole document");
 			if (!REGISTRY_WORDS.has(name)) return;
 			if (name === "addAddressRule") {
 				if (!atModuleLevel(node))
@@ -692,6 +789,124 @@ const zustandShape = {
 		};
 	},
 };
+
+const MUTATORS = new Set([
+	"set",
+	"add",
+	"delete",
+	"clear",
+	"push",
+	"pop",
+	"shift",
+	"unshift",
+	"splice",
+	"sort",
+	"reverse",
+	"fill",
+	"copyWithin",
+	"setState",
+	"seed",
+]);
+const RENDER_CALLBACKS = {
+	useState: [0],
+	useReducer: [0, 2],
+	useMemo: [0],
+	useLocalStore: [0],
+	useSyncExternalStore: [1, 2],
+};
+
+function rendering(node) {
+	const fn = nearestFunction(node);
+	if (!fn) return false;
+	const name = functionName(fn);
+	if (name && isOwner(name)) return true;
+	const call = fn.parent;
+	const hook =
+		call?.type === "CallExpression"
+			? call.callee.type === "Identifier"
+				? call.callee.name
+				: memberName(call.callee)
+			: null;
+	return Boolean(RENDER_CALLBACKS[hook]?.includes(call.arguments.indexOf(fn))) && rendering(call);
+}
+
+const rootObject = (node) => {
+	let at = node;
+	while (at?.type === "MemberExpression" || at?.type === "ChainExpression" || at?.type === "TSNonNullExpression")
+		at = at.type === "MemberExpression" ? at.object : at.expression;
+	return at?.type === "Identifier" ? at : null;
+};
+
+function moduleBinding(context, id) {
+	if (!id) return null;
+	for (let scope = context.sourceCode.getScope(id); scope; scope = scope.upper) {
+		const variable = scope.set?.get(id.name);
+		if (variable?.defs?.length) return scope.type === "module" || scope.type === "global" ? variable : null;
+	}
+	return null;
+}
+
+const outermostFunction = (node) => {
+	let found = null;
+	for (let p = node.parent; p; p = p.parent) if (FUNCTIONS.has(p.type)) found = p;
+	return found;
+};
+
+const noRenderWrites = ratcheted("no-render-writes", (context, push) => {
+	const writes = [];
+	const calls = [];
+	const target = (node) => (node.type === "Identifier" ? node : rootObject(node));
+	const write = (node, at, what) => {
+		const variable = moduleBinding(context, at);
+		if (variable) writes.push({ node, what: what ?? variable.name });
+	};
+	return {
+		AssignmentExpression: (node) => write(node, target(node.left)),
+		UpdateExpression: (node) => write(node, target(node.argument)),
+		UnaryExpression: (node) => node.operator === "delete" && write(node, rootObject(node.argument)),
+		CallExpression(node) {
+			const name = memberName(node.callee);
+			if (name && MUTATORS.has(name))
+				write(node, rootObject(node.callee.object), `${rootObject(node.callee.object)?.name}.${name}`);
+			if (node.callee.type === "Identifier") calls.push(node);
+		},
+		"Program:exit"() {
+			const writers = new Map();
+			const owner = (node) => {
+				const fn = outermostFunction(node);
+				const named = fn?.parent?.type === "VariableDeclarator" ? fn.parent.id : fn?.id;
+				return named && moduleBinding(context, named) ? named.name : null;
+			};
+			for (const { node, what } of writes) {
+				const name = owner(node);
+				if (name && !writers.has(name)) writers.set(name, what);
+			}
+			for (let grew = true; grew;) {
+				grew = false;
+				for (const call of calls) {
+					const name = owner(call);
+					const callee = writers.get(call.callee.name);
+					if (name && callee && !writers.has(name) && moduleBinding(context, call.callee)) {
+						writers.set(name, callee);
+						grew = true;
+					}
+				}
+			}
+			const report = (node, what) =>
+				push({
+					node,
+					fn: enclosingName(node),
+					message: `${what} writes module state while rendering. A render can run on the server for every request and is thrown away whenever React discards it, so the write leaks between users and leaves a trace of a render that never showed. Keep the value in the component's store or state, and write it in the event that changes it.`,
+				});
+			for (const { node, what } of writes) if (rendering(node)) report(node, what);
+			for (const call of calls) {
+				const what = writers.get(call.callee.name);
+				if (what && moduleBinding(context, call.callee) && rendering(call))
+					report(call, `${call.callee.name} (through ${what})`);
+			}
+		},
+	};
+});
 
 const CHAIN = new Set(["then", "catch", "finally"]);
 const mapsOnly = (fn) =>
@@ -912,6 +1127,7 @@ export default {
 		"no-global-listeners": noGlobalListeners,
 		"zustand-shape": zustandShape,
 		"read-loader": readLoader,
+		"no-render-writes": noRenderWrites,
 		"feature-boundaries": featureBoundaries,
 		"no-sql-comments": noSqlComments,
 	},

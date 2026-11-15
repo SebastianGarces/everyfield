@@ -1,0 +1,18 @@
+{
+	"no-global-listeners": {
+		"apps/web/src/components/frame/FixedFrame.tsx": [
+			{
+				"function": "FixedFrame",
+				"count": 1,
+				"reason": "Temporary, the body ResizeObserver inside FixedFrame's baselined layout effect; #848 (shared app components) replaces the effect with the shared observeSize. It re-fits the frame when content above it changes height."
+			}
+		],
+		"apps/web/src/components/frame/PageScroll.tsx": [
+			{
+				"function": "PageScroll",
+				"count": 1,
+				"reason": "Temporary, the body ResizeObserver of a #fragment hold inside PageScroll's baselined effect, which #848 (shared app components) rewrites: it keeps the target in place while the page above it grows, and stops with the hold."
+			}
+		]
+	}
+}

@@ -1,0 +1,11 @@
+{
+	"no-global-listeners": {
+		"packages/ui/src/controls/preview/ControlsPreview.tsx": [
+			{
+				"function": "subscribePalette",
+				"count": 2,
+				"reason": "Temporary, in the controls preview page only. The Cmd+K shortcut that opens the preview's command palette: added while the overlays section reads the palette and removed with it; packages/ui has no page-event registry to register a shortcut with."
+			}
+		]
+	}
+}
