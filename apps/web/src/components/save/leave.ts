@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { currentAddress, fullAddress, onTraversal, writeAddress } from "../location.ts";
+import { currentAddress, fullAddress, onNavigation, onTraversal, writeAddress } from "../location.ts";
 
 type Hold = (go: () => void) => boolean;
 export type LeaveRequest = { readonly leave: () => void; readonly stay: () => void };
@@ -13,6 +13,7 @@ let armed = false;
 let leaving = false;
 let home: string | null = null;
 const requestReaders = new Set<() => void>();
+const sentBeacons = new WeakMap<Element, string>();
 
 export function holdLeave(next: Hold): () => void {
 	hold = next;
@@ -23,16 +24,27 @@ export function holdLeave(next: Hold): () => void {
 
 const holding = () => document.querySelector("[data-unsaved][data-leave-hold]") !== null;
 
+const readRequest = () => {
+	for (const reader of requestReaders) reader();
+};
+
+function dropRequest() {
+	if (request === null) return;
+	request = null;
+	readRequest();
+}
+
 function ask(leave: () => void, stay: () => void = () => {}) {
+	released = false;
 	const settle = (then: () => void) => () => {
 		if (request !== asked) return;
 		request = null;
-		for (const reader of requestReaders) reader();
+		readRequest();
 		then();
 	};
 	const asked: LeaveRequest = { leave: settle(leave), stay: settle(stay) };
 	request = asked;
-	for (const reader of requestReaders) reader();
+	readRequest();
 }
 
 export function leavePage(go: () => void): void {
@@ -85,7 +97,7 @@ function pushGuardEntry() {
 }
 
 export function armLeaveHold(): void {
-	if (onGuardEntry() || !holding()) return;
+	if (onGuardEntry()) return;
 	home = here();
 	pushGuardEntry();
 }
@@ -93,13 +105,23 @@ export function armLeaveHold(): void {
 function traversed() {
 	const left = armed;
 	armed = onGuardEntry();
-	if (leaving || !left || armed || here() !== home) return;
+	if (here() !== home) dropRequest();
+	if (leaving) {
+		leaving = false;
+		return;
+	}
+	if (!left || armed || here() !== home) return;
 	const back = () => {
 		leaving = true;
 		window.history.back();
 	};
 	if (holding()) ask(back, pushGuardEntry);
 	else back();
+}
+
+function navigated(to: string) {
+	released = false;
+	if (to.split("#")[0] !== home) dropRequest();
 }
 
 const MODIFIERS = ["Meta", "Control", "Alt", "Shift"] as const;
@@ -175,8 +197,10 @@ function onBeforeUnload(event: BeforeUnloadEvent) {
 
 function onPageHide() {
 	for (const element of document.querySelectorAll<HTMLElement>("[data-leave-beacon]")) {
-		const beacon = JSON.parse(element.getAttribute("data-leave-beacon") ?? "null") as LeaveBeacon | null;
-		if (!beacon) continue;
+		const marked = element.getAttribute("data-leave-beacon") ?? "null";
+		const beacon = JSON.parse(marked) as LeaveBeacon | null;
+		if (!beacon || sentBeacons.get(element) === marked) continue;
+		sentBeacons.set(element, marked);
 		void fetch(beacon.url, {
 			method: "POST",
 			keepalive: true,
@@ -192,6 +216,7 @@ type Installed = {
 	click: (event: MouseEvent) => void;
 	pagehide: () => void;
 	traversal: () => void;
+	navigation: () => void;
 };
 const INSTALLED = Symbol.for("everyfield.page-events");
 
@@ -204,6 +229,7 @@ if (typeof window !== "undefined") {
 		window.removeEventListener("click", previous.click, true);
 		window.removeEventListener("pagehide", previous.pagehide);
 		previous.traversal();
+		previous.navigation();
 	}
 	armed = onGuardEntry();
 	home = armed ? here() : null;
@@ -213,6 +239,7 @@ if (typeof window !== "undefined") {
 		click: onClick,
 		pagehide: onPageHide,
 		traversal: onTraversal(traversed),
+		navigation: onNavigation(navigated),
 	};
 	window.addEventListener("keydown", onKeyDown);
 	window.addEventListener("beforeunload", onBeforeUnload);

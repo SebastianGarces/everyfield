@@ -19,7 +19,10 @@ export type AddressRule = (to: URL, from: URL | null) => string | null;
 const changes = new Set<Listener>();
 const linkValueReaders = new Set<Listener>();
 const traversals = new Set<Listener>();
-const navigations = new Set<Listener>();
+export type RouterNavigation = "push" | "replace" | "traverse";
+type NavigationListener = (to: string, type: RouterNavigation) => void;
+const navigations = new Set<NavigationListener>();
+let showing: string | null = null;
 const rules = new Map<string, AddressRule>();
 let routerBehind = false;
 let writing = false;
@@ -82,19 +85,14 @@ function traversed() {
 	routerBehind = true;
 	for (const listener of changes) listener();
 	for (const listener of traversals) listener();
-	navigated();
 }
 
-function navigated() {
-	for (const listener of [...navigations]) listener();
-}
-
-function linkFollowed(event: MouseEvent) {
-	if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-	const link = event.target instanceof Element ? event.target.closest("a[href]") : null;
-	if (!(link instanceof HTMLAnchorElement) || link.hasAttribute("download")) return;
-	if ((link.target && link.target !== "_self") || link.origin !== window.location.origin) return;
-	navigated();
+export function routerTransitionStarted(href: string, type: RouterNavigation): void {
+	const target = new URL(href, window.location.href);
+	const to = target.pathname + target.search;
+	if (to === showing) return;
+	showing = to;
+	for (const listener of [...navigations]) listener(to + target.hash, type);
 }
 
 function routerWrote(event: EntryChange) {
@@ -103,11 +101,7 @@ function routerWrote(event: EntryChange) {
 	shown = fullAddress();
 }
 
-type Installed = {
-	popstate: () => void;
-	entry: (event: EntryChange) => void;
-	click: (event: MouseEvent) => void;
-};
+type Installed = { popstate: () => void; entry: (event: EntryChange) => void };
 const INSTALLED = Symbol.for("everyfield.location");
 
 if (typeof window !== "undefined") {
@@ -117,13 +111,12 @@ if (typeof window !== "undefined") {
 	if (previous) {
 		window.removeEventListener("popstate", previous.popstate);
 		navigation?.removeEventListener("currententrychange", previous.entry);
-		document.removeEventListener("click", previous.click);
 	}
-	host[INSTALLED] = { popstate: traversed, entry: routerWrote, click: linkFollowed };
+	host[INSTALLED] = { popstate: traversed, entry: routerWrote };
 	shown = fullAddress();
+	showing = currentAddress();
 	window.addEventListener("popstate", traversed);
 	navigation?.addEventListener("currententrychange", routerWrote);
-	document.addEventListener("click", linkFollowed);
 }
 
 const subscribe = (listener: Listener) => {
@@ -136,7 +129,7 @@ export function onTraversal(listener: Listener): () => void {
 	return () => void traversals.delete(listener);
 }
 
-export function onNavigation(listener: Listener): () => void {
+export function onNavigation(listener: NavigationListener): () => void {
 	navigations.add(listener);
 	return () => void navigations.delete(listener);
 }
@@ -149,7 +142,7 @@ export function writeAddress(href: string | URL, { replace = false, state }: Add
 	const from = shown === null ? null : urlOf(shown);
 	write(ruled(urlOf(href), from) ?? href, replace, state ?? null);
 	for (const listener of changes) listener();
-	navigated();
+	showing = currentAddress();
 }
 
 const marked = (value: string) => (routerBehind ? `+${value}` : `-${value}`);
@@ -189,7 +182,12 @@ const subscribeLinkValue = (listener: Listener) => {
 function linkValueNow(name: OneTimeLinkName): string | null {
 	const at = oneTimeLinkValue(ONE_TIME_LINK_VALUES, storeWindow, false);
 	if (at?.name !== name) return null;
-	return at.value ?? (at.key === null ? null : window.sessionStorage.getItem(at.key));
+	if (at.value !== null || at.key === null) return at.value;
+	try {
+		return window.sessionStorage.getItem(at.key);
+	} catch {
+		return null;
+	}
 }
 
 export function useOneTimeLinkValue(name: OneTimeLinkName): string | null | undefined {
@@ -200,11 +198,20 @@ export function useOneTimeLinkValue(name: OneTimeLinkName): string | null | unde
 	);
 }
 
+function removeStored(key: string): boolean {
+	try {
+		window.sessionStorage.removeItem(key);
+		return true;
+	} catch {
+		return false;
+	}
+}
+
 export function forgetOneTimeLinkValue(name: OneTimeLinkName): void {
 	const at = oneTimeLinkValue(ONE_TIME_LINK_VALUES, storeWindow, false);
 	if (at?.name !== name) return;
 	if (at.value !== null) oneTimeLinkValue(ONE_TIME_LINK_VALUES, storeWindow, true);
-	if (at.key !== null) window.sessionStorage.removeItem(at.key);
+	if (at.key !== null) removeStored(at.key);
 	readLinkValues();
 	if (at.value !== null) for (const listener of changes) listener();
 }

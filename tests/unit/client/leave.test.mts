@@ -61,7 +61,36 @@ class FakeForm extends FakeElement {
 }
 
 let page: FakeElement[] = [];
-const at = new URL("https://everyfield.test/documents/written/1");
+let at = new URL("https://everyfield.test/documents/written/1");
+const entries: { url: URL; state: unknown }[] = [{ url: at, state: null }];
+let index = 0;
+const history = {
+	get state() {
+		return entries[index]?.state ?? null;
+	},
+	get length() {
+		return entries.length;
+	},
+	pushState(state: unknown, _unused: string, href: string) {
+		entries.splice(index + 1, entries.length, { url: new URL(href, at), state });
+		index += 1;
+		at = entries[index]!.url;
+	},
+	replaceState(state: unknown, _unused: string, href: string) {
+		entries[index] = { url: new URL(href, at), state };
+		at = entries[index]!.url;
+	},
+	back() {
+		if (index === 0) return;
+		index -= 1;
+		at = entries[index]!.url;
+		window.dispatchEvent(new Event("popstate"));
+	},
+};
+function visit(href: string) {
+	routerTransitionStarted(href, "push");
+	history.pushState({ page: href }, "", href);
+}
 const sent: { url: string; init: RequestInit }[] = [];
 const document = Object.assign(new EventTarget(), {
 	querySelector: (selector: string) => page.find((e) => e.matches(selector)) ?? null,
@@ -86,7 +115,7 @@ Object.assign(globalThis, {
 				return at.href;
 			},
 		},
-		history: { state: null, pushState() {}, replaceState() {}, back() {} },
+		history,
 	}),
 	document,
 	Element: FakeElement,
@@ -97,6 +126,7 @@ Object.assign(globalThis, {
 });
 
 const leave = await import("../../../apps/web/src/components/save/leave.ts");
+const { routerTransitionStarted } = await import("../../../apps/web/src/components/location.ts");
 
 function dispatch(type: string, target: FakeElement | null, props: Record<string, unknown>) {
 	const event = Object.assign(new Event(type, { cancelable: true }), props);
@@ -169,6 +199,8 @@ test("INV-leave: an in-app link or a sign-out from a page holding unsaved work w
 	assert.equal(signedOut, 1);
 	const unload = dispatch("beforeunload", null, {});
 	assert.equal(unload.defaultPrevented, false, "after Leave the browser does not ask a second time");
+	routerTransitionStarted("/documents/written/2", "push");
+	assert.equal(dispatch("beforeunload", null, {}).defaultPrevented, true, "the next page with unsaved work asks again");
 
 	page = [link];
 	assert.equal(click(link).defaultPrevented, false, "nothing unsaved: the link is not held");
@@ -180,8 +212,60 @@ test("INV-leave: when the page is hidden, each marked beacon goes out once with 
 		new FakeElement("article", leave.leaveBeaconMark(null)),
 	];
 	window.dispatchEvent(new Event("pagehide"));
-	assert.equal(sent.length, 1);
+	window.dispatchEvent(new Event("pagehide"));
+	assert.equal(sent.length, 1, "a page restored from the back/forward cache does not send the same body again");
 	assert.equal(sent[0]?.url, "/api/wiki/progress");
 	assert.equal(sent[0]?.init.keepalive, true);
 	assert.equal(sent[0]?.init.body, JSON.stringify({ fraction: "0.62" }));
+});
+
+test("INV-leave: Back from a page with unsaved work asks every time, from its first edit, in every editor of the tab, and a question dies with its page", () => {
+	const editor = new FakeForm("form");
+	const open = (href: string) => {
+		visit(href);
+		page = [editor];
+	};
+	const edit = () => {
+		leave.armLeaveHold();
+		editor.attributes["data-unsaved"] = "";
+		editor.attributes["data-leave-hold"] = "";
+	};
+	const clean = () => {
+		delete editor.attributes["data-unsaved"];
+		delete editor.attributes["data-leave-hold"];
+	};
+
+	open("/documents/written/a");
+	const before = history.length;
+	edit();
+	assert.equal(history.length, before + 1, "the first edit arms, before the page marks itself");
+	history.back();
+	const asked = leave.leaveRequestNow();
+	assert.ok(asked, "Back asks");
+	assert.equal(at.pathname, "/documents/written/a");
+	asked.stay();
+	assert.equal(at.pathname, "/documents/written/a");
+	assert.equal(history.length, before + 1, "Stay keeps the address and the history length");
+	history.back();
+	leave.leaveRequestNow()?.leave();
+	assert.notEqual(at.pathname, "/documents/written/a", "Leave goes back");
+	clean();
+
+	for (const href of ["/documents/written/b", "/documents/written/c"]) {
+		open(href);
+		edit();
+		history.back();
+		assert.ok(leave.leaveRequestNow(), `the next editor asks again (${href})`);
+		history.back();
+		assert.equal(leave.leaveRequestNow(), null, "a second quick Back leaves the page and its question with it");
+		clean();
+	}
+
+	open("/documents/written/d");
+	assert.equal(leave.leaveRequestNow(), null, "a new editor starts with no question");
+	edit();
+	history.back();
+	assert.ok(leave.leaveRequestNow());
+	leave.leaveRequestNow()?.stay();
+	clean();
 });

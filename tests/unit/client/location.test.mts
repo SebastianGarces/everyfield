@@ -1,24 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-class FakeElement {
-	constructor(readonly attributes: Record<string, string> = {}) {}
-	closest(selector: string) {
-		return selector === "a[href]" && this instanceof FakeAnchor && "href" in this.attributes ? this : null;
-	}
-	hasAttribute(name: string) {
-		return name in this.attributes;
-	}
-}
-class FakeAnchor extends FakeElement {
-	get target() {
-		return this.attributes.target ?? "";
-	}
-	get origin() {
-		return new URL(this.attributes.href ?? "", "https://everyfield.test").origin;
-	}
-}
-
 let at = new URL("https://everyfield.test/people");
 const stored = new Map<string, string>();
 const history = {
@@ -47,6 +29,9 @@ const location = {
 	get origin() {
 		return at.origin;
 	},
+	get href() {
+		return at.href;
+	},
 };
 Object.assign(globalThis, {
 	window: Object.assign(new EventTarget(), {
@@ -59,45 +44,26 @@ Object.assign(globalThis, {
 		},
 	}),
 	document: new EventTarget(),
-	Element: FakeElement,
-	HTMLAnchorElement: FakeAnchor,
 });
 
 const store = await import("../../../apps/web/src/components/location.ts");
 
-function click(
-	target: FakeElement,
-	keys: Partial<Record<"button" | "metaKey" | "ctrlKey" | "shiftKey" | "altKey", unknown>> = {},
-) {
-	const event = Object.assign(
-		new Event("click"),
-		{ button: 0, metaKey: false, ctrlKey: false, shiftKey: false, altKey: false },
-		keys,
-	);
-	Object.defineProperty(event, "target", { value: target });
-	document.dispatchEvent(event);
-}
-
-test("INV-location: a navigation is reported for an in-app link, Back or Forward and the app's own write, and not for a click that opens elsewhere", () => {
+test("INV-location: every navigation Next's router starts is reported once, and one that stays on the shown address is not", () => {
 	const seen: string[] = [];
-	const stop = store.onNavigation(() => seen.push(at.pathname + at.search));
-	click(new FakeAnchor({ href: "/people/duplicates/dismissed" }));
-	click(new FakeAnchor({ href: "/people", target: "_blank" }));
-	click(new FakeAnchor({ href: "/people" }), { metaKey: true });
-	click(new FakeAnchor({ href: "/people" }), { button: 1 });
-	click(new FakeAnchor({ href: "/report.pdf", download: "" }));
-	click(new FakeAnchor({ href: "https://elsewhere.test/" }));
-	click(new FakeElement());
-	assert.deepEqual(seen, ["/people"], "only the plain in-app link counts, reported before the router moves");
-	store.writeAddress("/people?view=list");
-	window.dispatchEvent(new Event("popstate"));
-	assert.deepEqual(seen, ["/people", "/people?view=list", "/people?view=list"]);
+	const stop = store.onNavigation((to, type) => seen.push(`${type} ${to}`));
+	store.routerTransitionStarted("/people/duplicates/dismissed", "push");
+	store.routerTransitionStarted("https://everyfield.test/people?view=list", "replace");
+	store.routerTransitionStarted("/people?view=list#top", "push");
+	store.routerTransitionStarted("https://everyfield.test/people", "traverse");
+	store.writeAddress("/people?view=cards");
+	store.routerTransitionStarted("/people?view=cards", "push");
+	assert.deepEqual(seen, ["push /people/duplicates/dismissed", "replace /people?view=list", "traverse /people"]);
 	stop();
-	click(new FakeAnchor({ href: "/tasks" }));
+	store.routerTransitionStarted("/tasks", "push");
 	assert.equal(seen.length, 3, "a released listener hears nothing more");
 });
 
-test("INV-link: a one-time link value brought in by a same-document navigation leaves the address and is read from the tab until it is forgotten", () => {
+test("INV-link: a one-time link value brought in by a same-document navigation leaves the address and is handed to its page until it is forgotten", () => {
 	at = new URL("https://everyfield.test/invitation?from=mail#proof=second");
 	const before = history.length;
 	window.dispatchEvent(new Event("popstate"));
