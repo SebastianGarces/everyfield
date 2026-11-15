@@ -5,10 +5,6 @@ import { cn } from "../foundations";
 import { Avatar, STAGE_DOT, STAGE_LABEL, type Stage } from "./Badges";
 import type { Tone } from "./tone";
 
-/**
- * PersonCard (components.md): Avatar, Name, Meta and Footer; selected or dragging. The name is the link. The
- * dragging look is a prop: the feature owns drag and drop (dnd-kit) and its keyboard alternative.
- */
 export function PersonCard({
 	name,
 	photo,
@@ -22,7 +18,6 @@ export function PersonCard({
 	className,
 }: {
 	name: string;
-	/** The app's own route for the person's photo; the initials show without one or when it fails. */
 	photo?: string;
 	meta?: ReactNode;
 	tone?: Tone;
@@ -65,10 +60,6 @@ export function PersonCard({
 	);
 }
 
-/**
- * PipelineColumn (components.md): Header, Count, Cards and DropZone for one stage. `dropTarget` outlines the column
- * while a card is dragged over it; the feature wires dragging. An empty column says so.
- */
 export function PipelineColumn({
 	stage,
 	label,

@@ -14,17 +14,13 @@ type ListProps = {
 	options: ComboboxOption[];
 	value: string[];
 	onSelect: (value: string) => void;
-	/** Placeholder of the search box, such as "Search stages". */
 	searchLabel: string;
 	multiple: boolean;
-	/** Options are still arriving: shows a spinner row instead of "No matches". */
 	loading?: boolean;
-	/** Options failed to load: shows the message and a retry action instead of an empty list. */
 	error?: { message: string; onRetry: () => void };
 	emptyText?: string;
 };
 
-/** The searchable option list shared by Combobox and FilterChip (cmdk: arrow keys move, Enter selects, typing filters). */
 function OptionList({
 	options,
 	value,
@@ -107,13 +103,11 @@ function OptionList({
 
 type ComboboxProps = Omit<ListProps, "onSelect" | "multiple"> & {
 	onValueChange: (value: string[]) => void;
-	/** Several values (filters) or one. A single choice closes the list when picked. */
 	multiple?: boolean;
 	placeholder?: string;
 	invalid?: boolean;
 	id?: string;
 	className?: string;
-	/** The list opened or closed. A form that saves once per pick session commits when it closes. */
 	onOpenChange?: (open: boolean) => void;
 };
 
@@ -122,10 +116,6 @@ function toggle(value: string[], v: string, multiple: boolean) {
 	return value.includes(v) ? value.filter((x) => x !== v) : [...value, v];
 }
 
-/**
- * Combobox (components.md): an input-style trigger that opens a searchable list. Use it for long lists; use Select for
- * short fixed ones. Inside a Field the label names the trigger.
- */
 export function Combobox({
 	options,
 	value,
@@ -187,17 +177,11 @@ export function Combobox({
 }
 
 type FilterChipProps = Omit<ComboboxProps, "placeholder" | "invalid" | "id" | "className" | "onOpenChange"> & {
-	/** The filter's name ("Stage"). */
 	label: string;
 	icon?: IconSvgElement;
-	/** Shown when nothing is chosen ("Any"). */
 	anyText?: string;
 };
 
-/**
- * FilterChip (components.md, Combobox / filter chip): a toolbar chip that opens a searchable list. With a value it is
- * active (orange) and shows a Remove button that clears it. The chip and Remove are separate buttons, each named.
- */
 export function FilterChip({
 	label,
 	icon,

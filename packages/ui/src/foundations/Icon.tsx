@@ -3,10 +3,6 @@ import { cn } from "./cn";
 
 export type { IconSvgElement };
 
-/**
- * A Hugeicons stroke-rounded icon from the free set. Decorative: the control that holds it carries the accessible name.
- * Sizes follow foundations.md: 24 in the rail and top-bar icon buttons, 18 in buttons, 16 inline.
- */
 export function Icon({
 	icon,
 	size = 18,

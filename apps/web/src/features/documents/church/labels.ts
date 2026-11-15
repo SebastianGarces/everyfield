@@ -89,14 +89,3 @@ export function archivedText(iso: string, by: string | null) {
 	});
 	return `Archived ${date} by ${by ?? "a former member"}`;
 }
-
-/** "Nov 8, 2026, 3:04 PM" in the reader's own time zone. */
-export function savedAt(iso: string) {
-	return new Date(iso).toLocaleString("en-US", {
-		month: "short",
-		day: "numeric",
-		year: "numeric",
-		hour: "numeric",
-		minute: "2-digit",
-	});
-}
