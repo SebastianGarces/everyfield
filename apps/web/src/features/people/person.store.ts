@@ -81,7 +81,7 @@ export function withServer<P extends Saved, D>(store: PersonStore<P, D>, server:
 			const s = store.getState();
 			if (s !== seen || shown === null) {
 				seen = s;
-				shown = newerRevision(server.revision, s.saved.revision) ? { ...s, saved: server } : s;
+				shown = server === s.saved || newerRevision(s.saved.revision, server.revision) ? s : { ...s, saved: server };
 			}
 			return shown;
 		},

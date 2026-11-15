@@ -155,6 +155,13 @@ test("INV-revision: server props and answers never move the saved person back to
 		toPerson: (p) => p,
 	});
 	assert.equal(shown.getState().saved.displayName, "Answer", "an answer newer than the prop wins over it");
+	const before = createPersonStore(person("9", { displayName: "Shown" }));
+	const refreshed = withServer(before, person("9", { displayName: "Renamed elsewhere" }));
+	assert.equal(
+		refreshed.getState().saved.displayName,
+		"Renamed elsewhere",
+		"a refresh with the same revision shows its content",
+	);
 });
 
 test("INV-edit-patch: edit profile sends only the fields that changed", () => {
