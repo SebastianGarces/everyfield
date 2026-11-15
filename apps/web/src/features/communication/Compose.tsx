@@ -99,6 +99,13 @@ const meetingContexts = createRead((meetingId: string) => readMeetingContext(mee
 
 const SAMPLE = pickSampleName("compose");
 
+type Shown = { id: string; handoff: Handoff | null; held: string | null };
+
+const stillShown = (shown: Shown, id: string, handoff: Handoff | null) =>
+	id === shown.held ||
+	(id === shown.id && JSON.stringify(handoff) === JSON.stringify(shown.handoff)) ||
+	(id === "new" && handoff === null && shown.id === "new");
+
 type ComposeProps = {
 	data: PageData;
 	id: string;
@@ -112,8 +119,13 @@ type ComposeProps = {
 };
 
 export function Compose(props: ComposeProps) {
-	const [held, setHeld] = useState<{ id: string; opened: [string, Handoff | null] } | null>(null);
-	const [openId, openHandoff] = held && held.id === props.id ? held.opened : [props.id, props.handoff];
+	const [shown, setShown] = useState<Shown>({ id: props.id, handoff: props.handoff, held: null });
+	const next = stillShown(shown, props.id, props.handoff)
+		? shown
+		: { id: props.id, handoff: props.handoff, held: null };
+	if (next !== shown) setShown(next);
+	const openId = next.id;
+	const openHandoff = next.handoff;
 	const opening = useRead(openings, openId, openHandoff);
 	const opened = opening.value;
 	if (opened === undefined) {
@@ -140,7 +152,7 @@ export function Compose(props: ComposeProps) {
 			key={openings.key(openId, openHandoff)}
 			{...props}
 			opening={opened}
-			onHeld={(id) => setHeld({ id, opened: [openId, openHandoff] })}
+			onHeld={(id) => setShown((current) => ({ ...current, held: id }))}
 		/>
 	);
 }
