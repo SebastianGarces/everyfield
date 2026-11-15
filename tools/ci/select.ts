@@ -118,6 +118,9 @@ export const RULES: readonly Rule[] = [
 			"packages/domain/src/access/session.ts",
 			"packages/domain/src/identity/**",
 			"packages/contracts/src/identity/**",
+			// T-399: the map names People's seat check and the conformance and replay tests.
+			"packages/domain/src/people/core.ts",
+			"tests/integration/access/formal-*.test.mts",
 		],
 		tests: ["tests/workflow/formal.test.ts"],
 	},
