@@ -7,13 +7,6 @@ import type { mailEnv } from "../mail-env.ts";
 import { createMailService, type AuthorizeMail, type MailTransport, type MailUnsubscribe } from "./mail.ts";
 import { createNotificationService } from "./notifications.ts";
 
-// The mail and notification services the server mounts share. A request or worker that writes notices queues their
-// mail with a service that has no transport; the scheduled runner's pass for that mail sends it through the email
-// service. Notices reach a recipient only while they hold an accepted seat in the church, at that seat's address; a
-// residency notice reaches a linked resident, who holds no seat, and a review notice an organization seat holder, each at
-// their account's address.
-
-/** A mount's mail service: without `transport` it only queues mail; the runner's pass gives it the email service. */
 export function mountMailService(config: {
 	db: Database;
 	env: z.infer<z.ZodObject<typeof mailEnv>>;
@@ -32,7 +25,6 @@ export function mountMailService(config: {
 	});
 }
 
-/** The notification service for one church's notices, sent to each recipient's accepted seat. */
 export function seatedNotificationService(mail: ReturnType<typeof createMailService>) {
 	return createNotificationService({
 		mail,
@@ -50,11 +42,6 @@ export function seatedNotificationService(mail: ReturnType<typeof createMailServ
 	});
 }
 
-/**
- * The notification service for notices sent to the account's own address: a linked resident's residency notices
- * (T-365), as the resident holds no seat (REQ-MUL-013), and an organization reviewer's answers to review (T-385). The
- * caller has checked, under lock, that the resident's link is live (D-1416) or the send is shared with that seat.
- */
 export function accountNotificationService(mail: ReturnType<typeof createMailService>) {
 	return createNotificationService({
 		mail,
