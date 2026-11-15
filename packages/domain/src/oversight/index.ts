@@ -1,10 +1,10 @@
-import { recordId, type Clock, type Owner } from "@everyfield/contracts/common";
+import { localDate, recordId, type Clock, type Owner } from "@everyfield/contracts/common";
 import * as C from "@everyfield/contracts/oversight";
 import { sql, type SQL } from "@everyfield/db/query";
 import "server-only";
 import { z } from "zod";
 import { liveAccess, liveRead, liveRows, type RequestActor } from "../access/session.ts";
-import { createLaunchReader } from "../launch/reads.ts";
+import { createLaunchReader, offersTo } from "../launch/reads.ts";
 import { linkActive, type Reader } from "../organizations/core.ts";
 import { areaOf, latestGeography } from "../organizations/geography.ts";
 import { compatible } from "../teams/training/reads.ts";
@@ -34,7 +34,9 @@ const nowOf = (clock?: Clock) => (clock ? sql`${clock.now()}::timestamptz` : sql
  * locality is the plant's latest reporting location when it saved one, else its profile's, never the street. Health
  * reads the launch preparation counts and the released assessment's structured concerns only while the link shares
  * Plant Intelligence findings, and the gap counts only while it also shares Ministry teams. The released assessment
- * is the latest one its planter has opened or that became available 72 hours before `now` (PI-032).
+ * is the latest one its planter has opened or that became available 72 hours before `now` (PI-032). The plant's path
+ * names the milestone's organization only when it is this one, and reads whether and when it was reached only while
+ * the link shares findings; never the plant's note (T-388).
  */
 const directory = (org: SQL, where: SQL, now: SQL = nowOf()) => sql`SELECT p.id AS plant_id, p.name,
 	CASE WHEN g.plant_id IS NULL THEN p.city ELSE g.city END AS city,
@@ -44,7 +46,11 @@ const directory = (org: SQL, where: SQL, now: SQL = nowOf()) => sql`SELECT p.id 
 	CASE WHEN k.shared_findings THEN ${preparationJson(sql`p.id`, sql`k.share_ministry_teams`)} END AS preparation,
 	CASE WHEN k.shared_findings THEN ${releasedJson(sql`p.id`, now)} END AS released,
 	k.share_people, k.share_meetings, k.share_tasks, k.share_ministry_teams,
-	p.phase, l.target_date::text AS launch_date,
+	p.phase, l.target_date::text AS launch_date, l.gathering_path,
+	CASE WHEN go.id=${org} THEN go.name END AS chosen_by, go.gathering_milestone_name AS offered_name,
+	coalesce(${offersTo("go", sql`p.id`)}, false) AS offered,
+	CASE WHEN k.shared_findings THEN l.gathering_reached_on::text END AS reached_on,
+	CASE WHEN k.shared_findings THEN l.gathering_reached_name END AS reached_name,
 	(SELECT coalesce(json_agg(DISTINCT o.name), '[]'::json) FROM affiliation ps
 		JOIN organization o ON o.id=ps.organization_id AND o.kind='sending_church'
 		JOIN affiliation sn ON sn.sending_church_id=ps.organization_id AND sn.organization_id=${org} AND ${linkActive("sn")}
@@ -55,6 +61,7 @@ const directory = (org: SQL, where: SQL, now: SQL = nowOf()) => sql`SELECT p.id 
 		JOIN person pe ON pe.id=tn.person_id AND pe.plant_id=r.plant_id AND pe.state='live'
 		WHERE s.plant_id=p.id AND s.lead->>'answer'='yes') AS lead_planter
 	FROM affiliation k JOIN plant p ON p.id=k.plant_id LEFT JOIN launch l ON l.plant_id=p.id
+	LEFT JOIN organization go ON go.id=l.gathering_organization_id AND l.gathering_path='milestone'
 	LEFT JOIN LATERAL ${latestGeography(sql`p.id`)} g ON true
 	LEFT JOIN reference_item ri ON ri.id=g.region_item_id AND ri.kind='geography_region'
 	WHERE k.organization_id=${org} AND k.plant_id IS NOT NULL AND ${linkActive("k")} AND ${where}`;
@@ -65,7 +72,13 @@ const directoryRow = z.object({
 	state_province: z.string().nullable(),
 	country: z.string().nullable(),
 	phase: z.number(),
-	launch_date: z.string().nullable(),
+	launch_date: localDate.nullable(),
+	gathering_path: z.enum(["launch_sunday", "milestone"]).nullable(),
+	chosen_by: z.string().nullable(),
+	offered_name: z.string().nullable(),
+	offered: z.boolean(),
+	reached_on: localDate.nullable(),
+	reached_name: z.string().nullable(),
 	through: z.array(z.string()),
 	lead_planter: z.string().nullable(),
 	region_key: z.string().nullable(),
@@ -87,6 +100,20 @@ const assessmentOf = (r: DirectoryRow) =>
 		r.released,
 	);
 
+/** The row's path: no launch row reads as Launch Sunday. */
+function pathOf(r: DirectoryRow): C.PlantPath {
+	if (r.gathering_path !== "milestone") return { kind: "launch_sunday", date: r.launch_date };
+	const progress: C.MilestoneProgress = !r.shared_findings
+		? { status: "withheld" }
+		: r.reached_on
+			? { status: "reached", date: r.reached_on }
+			: r.offered
+				? { status: "not_reached" }
+				: { status: "withdrawn" };
+	const name = progress.status === "reached" ? r.reached_name : r.offered_name;
+	return { kind: "milestone", name, chosenBy: r.chosen_by, progress };
+}
+
 function plantRow(raw: unknown): C.PlantDirectoryRow {
 	const r = directoryRow.parse(raw);
 	const assessment = assessmentOf(r);
@@ -97,7 +124,7 @@ function plantRow(raw: unknown): C.PlantDirectoryRow {
 		stateProvince: r.state_province,
 		country: r.country,
 		phase: r.phase,
-		launchDate: r.launch_date,
+		path: pathOf(r),
 		provenance: r.through.length ? { kind: "through", sendingChurches: [...r.through].sort() } : { kind: "direct" },
 		leadPlanter: r.lead_planter,
 		region: areaOf(r.region_key),

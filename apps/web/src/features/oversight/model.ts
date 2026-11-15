@@ -4,7 +4,9 @@ import type {
 	LaunchState,
 	Level,
 	PERSON_STAGES,
+	MilestoneProgress,
 	PlantDirectoryRow,
+	PlantPath,
 	PlantSections,
 	Preparation,
 	ReleasedAssessment,
@@ -39,6 +41,39 @@ const DAY = new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeZone: "U
 /** A plant-local calendar date as "Mar 14, 2027": the date itself, never shifted by a time zone. */
 const calendarDate = (date: string) => DAY.format(new Date(`${date}T00:00:00Z`));
 export const launchLabel = (date: string | null) => (date ? calendarDate(date) : "Not set");
+
+/** "Reached Oct 11, 2026", "Not reached yet" or "No longer offered"; null while the plant withholds it. */
+export function progressText(progress: MilestoneProgress): string | null {
+	switch (progress.status) {
+		case "reached":
+			return `Reached ${calendarDate(progress.date)}`;
+		case "not_reached":
+			return "Not reached yet";
+		case "withdrawn":
+			return "No longer offered";
+		case "withheld":
+			return null;
+	}
+}
+/**
+ * The directory's Launch column for a plant's path (T-388): the label a narrow screen shows before it, so a milestone
+ * is never read as a Launch Sunday date, the value, and the milestone's progress under it.
+ */
+export function pathText(path: PlantPath): { label: string; value: string; detail: string | null; set: boolean } {
+	if (path.kind === "launch_sunday")
+		return { label: "Launch Sunday", value: launchLabel(path.date), detail: null, set: path.date !== null };
+	return { label: "Milestone", value: path.name ?? "Chosen milestone", detail: progressText(path.progress), set: true };
+}
+/**
+ * "chosen by Hill Country Network" when this organization chose the milestone, and never another organization's name
+ * (D-1547): "chosen by another organization Harvest Point is linked with".
+ */
+export function chosenText(path: Extract<PlantPath, { kind: "milestone" }>, plantName: string): string {
+	if (path.chosenBy) return `chosen by ${path.chosenBy}`;
+	return path.progress.status === "withdrawn"
+		? "chosen by another organization"
+		: `chosen by another organization ${plantName} is linked with`;
+}
 
 /** The directory's Linked column: "Directly" or "Through Grace Austin". */
 export function provenanceLabel(row: Pick<PlantDirectoryRow, "provenance">): string {

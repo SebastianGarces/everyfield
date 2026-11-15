@@ -2,6 +2,7 @@ import type {
 	IntelligenceView,
 	PlantDirectory,
 	PlantDirectoryRow,
+	PlantPath,
 	PlantView,
 	Section,
 	SectionKey,
@@ -15,6 +16,7 @@ import {
 	BookOpen01Icon,
 	Calendar03Icon,
 	ChurchIcon,
+	Flag02Icon,
 	LockKeyIcon,
 	News01Icon,
 	Pulse02Icon,
@@ -43,6 +45,7 @@ import { factText } from "../intelligence/assessment-model.ts";
 import { IntelligenceBody } from "./Intelligence.tsx";
 import {
 	dayOf,
+	chosenText,
 	daysText,
 	gapText,
 	HEALTH,
@@ -53,8 +56,10 @@ import {
 	leadLabel,
 	linkedLabel,
 	locality,
+	pathText,
 	phaseLabel,
 	plural,
+	progressText,
 	provenanceLabel,
 	regionText,
 	SECTIONS,
@@ -107,17 +112,21 @@ function PrivacyNote() {
 	);
 }
 
-/** One plant in a list: its name, locality and lead planter, phase, Launch Sunday and how it is linked. */
+/**
+ * One plant in a list: its name, locality and lead planter, phase, Launch Sunday or chosen milestone, and how it is
+ * linked.
+ */
 function PlantRow({ plant }: { plant: PlantDirectoryRow }) {
 	const place = locality(plant);
 	const region = regionText(plant);
 	const health = HEALTH[plant.health];
+	const path = pathText(plant.path);
 	return (
 		<li className="border-t border-line first:border-t-0" data-health={plant.health}>
 			<Link
 				href={`/network/plants/${plant.plantId}`}
 				data-focus-inset=""
-				className="-mx-2 grid cursor-pointer grid-cols-[minmax(0,1fr)_9rem_8rem_10rem_11rem_auto] items-center gap-x-4 gap-y-2 rounded-md px-2 py-4 transition-colors hover:bg-hover max-app-md:grid-cols-[minmax(0,1fr)_auto]"
+				className="-mx-2 grid cursor-pointer grid-cols-[minmax(0,1fr)_9rem_11rem_10rem_11rem_auto] items-center gap-x-4 gap-y-2 rounded-md px-2 py-4 transition-colors hover:bg-hover max-app-md:grid-cols-[minmax(0,1fr)_auto]"
 			>
 				<span className="flex min-w-0 items-center gap-3.5 max-app-md:col-start-1">
 					<CardIcon icon={ChurchIcon} tone="green" size={36} />
@@ -133,8 +142,11 @@ function PlantRow({ plant }: { plant: PlantDirectoryRow }) {
 				<Field label="Phase">
 					<Tag>{phaseLabel(plant.phase)}</Tag>
 				</Field>
-				<Field label="Launch Sunday">
-					<span className={plant.launchDate ? "text-ink" : "text-text-3"}>{launchLabel(plant.launchDate)}</span>
+				<Field label={path.label}>
+					<span className="min-w-0" data-path={plant.path.kind}>
+						<span className={cn("block", path.set ? "text-ink" : "text-text-3")}>{path.value}</span>
+						{path.detail ? <span className="block text-sm text-text-3">{path.detail}</span> : null}
+					</span>
 				</Field>
 				<Field label="Status">
 					<StatusBadge status={health.status} size="sm">
@@ -169,11 +181,11 @@ function PlantList({ plants, caption }: { plants: readonly PlantDirectoryRow[]; 
 		<div>
 			<div
 				aria-hidden="true"
-				className="grid grid-cols-[minmax(0,1fr)_9rem_8rem_10rem_11rem_auto] gap-x-4 border-b border-line pb-3 text-sm text-text-3 max-app-md:hidden"
+				className="grid grid-cols-[minmax(0,1fr)_9rem_11rem_10rem_11rem_auto] gap-x-4 border-b border-line pb-3 text-sm text-text-3 max-app-md:hidden"
 			>
 				<span>Plant</span>
 				<span>Phase</span>
-				<span>Launch Sunday</span>
+				<span>Launch or milestone</span>
 				<span>Status</span>
 				<span>Linked</span>
 				<span className="w-4" />
@@ -270,7 +282,11 @@ export function PlantScreen({ view }: { view: PlantView }) {
 					</StatusBadge>
 				}
 			/>
-			<LaunchCard view={view} />
+			{plant.path.kind === "milestone" ? (
+				<MilestoneCard plantName={plant.name} path={plant.path} />
+			) : (
+				<LaunchCard view={view} />
+			)}
 			<HealthCard view={view} />
 			{view.summary ? <SummaryCard view={view} summary={view.summary} /> : null}
 			<div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
@@ -293,6 +309,7 @@ export function PlantScreen({ view }: { view: PlantView }) {
  */
 function LaunchCard({ view }: { view: PlantView }) {
 	const { plant, launch } = view;
+	const date = plant.path.kind === "launch_sunday" ? plant.path.date : null;
 	if (launch.status === "withheld")
 		return (
 			<Card as="section" aria-label="Launch Sunday" size="sm" className="mb-5" data-launch="withheld">
@@ -300,9 +317,7 @@ function LaunchCard({ view }: { view: PlantView }) {
 					<CardIcon icon={Calendar03Icon} tone="amber" size={36} />
 					<div className="min-w-0 flex-1">
 						<p className="text-sm text-text-3">Launch Sunday</p>
-						<p className={cn("font-medium", plant.launchDate ? "text-ink" : "text-text-3")}>
-							{launchLabel(plant.launchDate)}
-						</p>
+						<p className={cn("font-medium", date ? "text-ink" : "text-text-3")}>{launchLabel(date)}</p>
 					</div>
 					<StatusBadge status="unknown" size="sm">
 						Limited visibility
@@ -370,6 +385,50 @@ function LaunchCard({ view }: { view: PlantView }) {
 						{daysText(days)}, with {gap}. {plant.name} sees the same on their Launch page.
 					</CalloutText>
 				</Card>
+			) : null}
+		</Card>
+	);
+}
+
+const PROGRESS_STATUS = {
+	reached: "positive",
+	not_reached: "measured",
+	withdrawn: "unknown",
+	withheld: "unknown",
+} as const;
+/**
+ * The milestone a plant uses instead of Launch Sunday (T-388), in Launch Sunday's place: its name, who chose it and
+ * whether it was reached. Without Plant Intelligence findings shared: the name only, and Limited visibility in place of
+ * whether it was reached. Never its description, the plant's note or its history.
+ */
+function MilestoneCard({ plantName, path }: { plantName: string; path: Extract<PlantPath, { kind: "milestone" }> }) {
+	const { progress } = path;
+	return (
+		<Card as="section" aria-label="Gathering milestone" className="mb-5" data-milestone={progress.status}>
+			<div className="flex flex-wrap items-center gap-x-8 gap-y-4">
+				<div className="flex min-w-[240px] flex-1 items-center gap-4">
+					<CardIcon icon={Flag02Icon} tone="amber" size={44} />
+					<div className="min-w-0">
+						<p className="text-sm text-text-3">Milestone that ends the gathering phase</p>
+						<p className="font-title text-title-sm tracking-[-0.02em] text-balance text-ink">
+							{path.name ?? "Chosen milestone"}{" "}
+							<span className="font-sans text-md tracking-normal text-text-2">({chosenText(path, plantName)})</span>
+						</p>
+					</div>
+				</div>
+				<StatusBadge status={PROGRESS_STATUS[progress.status]} size="sm">
+					{progressText(progress) ?? "Limited visibility"}
+				</StatusBadge>
+			</div>
+			{progress.status === "withheld" ? (
+				<p className="mt-3 text-md text-text-2 text-pretty">
+					{plantName} doesn&apos;t share Plant Intelligence findings with you, so whether it has reached this milestone
+					isn&apos;t shown. This is their choice.
+				</p>
+			) : progress.status === "withdrawn" ? (
+				<p className="mt-3 text-md text-text-2 text-pretty">
+					This milestone is no longer offered to {plantName}, and they haven&apos;t recorded reaching it.
+				</p>
 			) : null}
 		</Card>
 	);

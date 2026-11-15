@@ -16,6 +16,37 @@ export const plantProvenance = z.discriminatedUnion("kind", [
 	z.strictObject({ kind: z.literal("through"), sendingChurches: z.array(z.string().min(1)).min(1) }),
 ]);
 
+/**
+ * Where the plant stands on the milestone it uses instead of Launch Sunday (T-388): reached on a plant-local date, not
+ * reached yet, no longer offered to it (the organization turned it off or the affiliation ended before it was reached),
+ * or withheld while the plant does not share Plant Intelligence findings with this organization.
+ */
+export const milestoneProgress = z.discriminatedUnion("status", [
+	z.strictObject({ status: z.literal("withheld") }),
+	z.strictObject({ status: z.literal("not_reached") }),
+	z.strictObject({ status: z.literal("withdrawn") }),
+	z.strictObject({ status: z.literal("reached"), date: localDate }),
+]);
+export type MilestoneProgress = z.infer<typeof milestoneProgress>;
+/**
+ * How the plant ends its gathering phase, as this organization sees it (T-296, T-388): Launch Sunday with its planned
+ * date, or the milestone an organization it is affiliated with chose. Never the milestone's description, the plant's
+ * note, its history or who recorded anything.
+ */
+export const plantPath = z.discriminatedUnion("kind", [
+	/** `date` is the planned Launch Sunday, or null when none is set. */
+	z.strictObject({ kind: z.literal("launch_sunday"), date: localDate.nullable() }),
+	z.strictObject({
+		kind: z.literal("milestone"),
+		/** The name it was reached under once reached, else the organization's name for it now; null once that is gone. */
+		name: z.string().min(1).nullable(),
+		/** This organization's name when it chose the milestone; null for any other organization (D-1547). */
+		chosenBy: z.string().min(1).nullable(),
+		progress: milestoneProgress,
+	}),
+]);
+export type PlantPath = z.infer<typeof plantPath>;
+
 /** One row of the plant directory (oversight.listPlants). */
 export const plantDirectoryRow = z.strictObject({
 	plantId: tenantId,
@@ -25,8 +56,7 @@ export const plantDirectoryRow = z.strictObject({
 	country: z.string().nullable(),
 	/** The phase the church declared; Everyfield never moves it. */
 	phase: phaseNumber,
-	/** The planned Launch Sunday, or null when none is set. */
-	launchDate: localDate.nullable(),
+	path: plantPath,
 	provenance: plantProvenance,
 	/** The display name of the Person holding the recorded lead role now, or null when there is none. */
 	leadPlanter: z.string().nullable(),
