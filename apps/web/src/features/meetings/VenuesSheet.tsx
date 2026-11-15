@@ -17,7 +17,7 @@ import {
 } from "@everyfield/ui/controls";
 import { KeyValue, KeyValueList, List, ListRow, Tag } from "@everyfield/ui/display";
 import { createDebouncer } from "@everyfield/ui/foundations";
-import { useEffect, useOptimistic, useState, useTransition } from "react";
+import { useOptimistic, useState, useTransition } from "react";
 import { Await, createRead, useRead } from "../../components/read.tsx";
 import { changeVenue, createVenue, getVenue, listVenues } from "./actions.ts";
 import { problemText, type Outcome, type Venue } from "./model.ts";
@@ -72,7 +72,10 @@ export function VenuesSheet({
 			) : (
 				<VenueForm
 					venue={screen.kind === "edit" ? screen.venue : undefined}
-					onDone={(id, saved) => setScreen(id ? { kind: "venue", id, saved } : { kind: "list" })}
+					onDone={(id, saved) => {
+						if (id) placeDetails.forget(id);
+						setScreen(id ? { kind: "venue", id, saved } : { kind: "list" });
+					}}
 				/>
 			)}
 		</Sheet>
@@ -175,6 +178,10 @@ function Places({ canWrite, onOpen, onAdd }: { canWrite: boolean; onOpen: (id: s
 	);
 }
 
+const placeDetails = createRead((id: string) => getVenue(id), {
+	failed: (): Outcome<History> => ({ status: "lost" }),
+});
+
 function Place({
 	id,
 	saved,
@@ -189,32 +196,16 @@ function Place({
 	onEdit: (venue: Venue) => void;
 }) {
 	const toast = useToast();
-	const [got, setGot] = useState<Outcome<History> | null>(() =>
-		saved ? { status: "ok", value: { status: "available", venue: saved, history: [] } } : null,
-	);
-	const [historyPending, setHistoryPending] = useState(saved !== undefined);
+	const details = useRead(placeDetails, id);
+	const fromSaved: Outcome<History> | null = saved
+		? { status: "ok", value: { status: "available", venue: saved, history: [] } }
+		: null;
+	const got = details.value && (details.value.status === "ok" || !saved) ? details.value : fromSaved;
+	const historyPending = saved !== undefined && details.value === undefined;
 	const [, startTransition] = useTransition();
 	const [active, setActive] = useOptimistic<boolean | null>(null);
 	const [archiving, setArchiving] = useState(false);
 	const archive = useSaveIntent({ explain: problemText });
-	useEffect(() => {
-		let live = true;
-		getVenue(id).then(
-			(r) => {
-				if (!live) return;
-				setHistoryPending(false);
-				if (r.status === "ok" || !saved) setGot(r);
-			},
-			() => {
-				if (!live) return;
-				setHistoryPending(false);
-				if (!saved) setGot({ status: "lost" });
-			},
-		);
-		return () => {
-			live = false;
-		};
-	}, [id, saved]);
 
 	const back = (
 		<Button variant="ghost" size="sm" icon={ArrowLeft01Icon} onClick={onBack} className="self-start">
@@ -254,13 +245,13 @@ function Place({
 				done: to === "archive" ? "archived" : "restored",
 				send: (key) => changeVenue(to, key, venue.revision, input),
 				ok: (value) => {
-					startTransition(() => setGot({ status: "ok", value: { ...loaded, venue: value.venue } }));
+					details.patch(() => ({ status: "ok", value: { ...loaded, venue: value.venue } }));
 					toast({
 						message: to === "archive" ? `${venue.name} is archived.` : `${venue.name} is restored.`,
 						tone: "success",
 					});
 				},
-				refused: (code) => code === "conflict" && getVenue(venue.id).then(setGot),
+				refused: (code) => code === "conflict" && details.reload(),
 			});
 		});
 	}

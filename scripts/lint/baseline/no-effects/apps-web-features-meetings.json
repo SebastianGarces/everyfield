@@ -1,6 +1,5 @@
 {
 	"apps/web/src/features/meetings/GuestList.tsx": 1,
 	"apps/web/src/features/meetings/MeetingsScreen.tsx": 1,
-	"apps/web/src/features/meetings/VenuesSheet.tsx": 1,
 	"apps/web/src/features/meetings/parts.tsx": 1
 }
