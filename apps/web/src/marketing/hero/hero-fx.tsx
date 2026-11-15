@@ -1,7 +1,7 @@
 "use client";
 
-import { observeIntersection, observeSize, prefersReducedMotion } from "@everyfield/ui/foundations";
-import { useMotionValue, useTransform, type MotionValue } from "motion/react";
+import { observeSize, prefersReducedMotion, type NodeRef } from "@everyfield/ui/foundations";
+import { motionValue, useMotionValue, useTransform, type MotionValue } from "motion/react";
 import { useCallback, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { PlaybackGlyph } from "@/components/kit/kit";
 import { back, bump, clamp, inOut, out, P, sine, transformOf } from "@/components/motion/curves";
@@ -41,6 +41,7 @@ let LOOP = 0;
 	LOOP = SC[4]![1] + TM.seam;
 }
 const STILL = A[4]! + 1400 * TM.act;
+const STILL_T = motionValue(STILL);
 const at = (i: number, ms: number) => A[i]! + ms * TM.act;
 const d = (ms: number) => ms * TM.act;
 const seam = (i: number, v: number) => (i === 0 && v >= LOOP - 300 ? v - LOOP : v);
@@ -105,11 +106,7 @@ export function HeroStage({ label, chip, children }: { label: string; chip: Reac
 	const stage = useCallback(
 		(node: HTMLDivElement | null) =>
 			joinRefs<HTMLDivElement>(
-				loop.attach,
-				observeIntersection((entry) => {
-					setSeen(entry.isIntersecting);
-					loop.set("seen", entry.isIntersecting);
-				}),
+				loop.observe(setSeen),
 				observeSize(
 					(st) => {
 						pos.current = slots.current.map((s) => offsetIn(s, st));
@@ -121,7 +118,8 @@ export function HeroStage({ label, chip, children }: { label: string; chip: Reac
 		[loop, measured],
 	);
 
-	const clock = useMemo(() => ({ t, since: t, stagger: 0 }), [t]);
+	const shown = reduced ? STILL_T : t;
+	const clock = useMemo(() => ({ t: shown, since: shown, stagger: 0 }), [shown]);
 	const register = useMemo(
 		() => (name: string) => (el: HTMLElement | null) => {
 			slots.current[+name.slice(1)] = el;
@@ -143,7 +141,7 @@ export function HeroStage({ label, chip, children }: { label: string; chip: Reac
 							<TargetProvider value={register}>{children}</TargetProvider>
 						</FxProvider>
 					</PanelClockProvider>
-					<Live t={t} pos={pos} measured={measured}>
+					<Live t={shown} pos={pos} measured={measured}>
 						{chip}
 					</Live>
 				</div>
@@ -153,7 +151,7 @@ export function HeroStage({ label, chip, children }: { label: string; chip: Reac
 				aria-label={paused ? "Play animation" : "Pause animation"}
 				onClick={() => {
 					setPaused(!paused);
-					loop.set("paused", !paused);
+					loop.pause(!paused);
 				}}
 				className="absolute bottom-3.5 left-1/2 z-7 -ml-[17px] grid size-[34px] place-items-center rounded-sm border-0 bg-transparent text-ink hover:bg-white/35 motion-reduce:hidden"
 			>
@@ -166,29 +164,46 @@ export function HeroStage({ label, chip, children }: { label: string; chip: Reac
 function createLoop(t: MotionValue<number>) {
 	const state = { seen: false, paused: false };
 	let stop: (() => void) | undefined;
+	const halt = () => {
+		stop?.();
+		stop = undefined;
+	};
 	const sync = () => {
 		const reduced = prefersReducedMotion();
 		if (reduced) t.set(STILL);
 		const run = state.seen && !state.paused && !reduced;
 		if (run && !stop) stop = runFrames((dt) => t.set((t.get() + dt) % LOOP));
-		if (!run && stop) {
-			stop();
-			stop = undefined;
-		}
+		if (!run) halt();
 	};
 	return {
-		set(key: keyof typeof state, value: boolean) {
-			state[key] = value;
+		pause(paused: boolean) {
+			state.paused = paused;
 			sync();
 		},
-		attach(node: HTMLDivElement | null) {
-			if (!node) return;
-			sync();
-			const release = onPageStateChange(sync);
-			return () => {
-				release();
-				stop?.();
-				stop = undefined;
+		observe(onSeen: (seen: boolean) => void): NodeRef<HTMLDivElement> {
+			return (node) => {
+				if (!node) return;
+				let release: (() => void) | undefined;
+				const observer = new IntersectionObserver((entries) => {
+					for (const entry of entries) {
+						onSeen(entry.isIntersecting);
+						state.seen = entry.isIntersecting;
+						if (entry.isIntersecting) release ??= onPageStateChange(sync);
+						else {
+							release?.();
+							release = undefined;
+						}
+						sync();
+					}
+				});
+				observer.observe(node);
+				return () => {
+					observer.disconnect();
+					release?.();
+					release = undefined;
+					state.seen = false;
+					halt();
+				};
 			};
 		},
 	};

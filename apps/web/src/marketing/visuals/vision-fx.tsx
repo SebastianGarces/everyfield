@@ -41,54 +41,57 @@ function playOnce(t: MotionValue<number>) {
 	let settled = false;
 	return (el: HTMLDivElement | null) => {
 		if (!el) return;
+		if (settled || prefersReducedMotion()) {
+			settled = true;
+			return;
+		}
 		let stop: (() => void) | undefined;
-		let observer: IntersectionObserver | undefined;
+		let release: (() => void) | undefined;
+		const end = () => {
+			observer.disconnect();
+			release?.();
+			release = undefined;
+			stop?.();
+			stop = undefined;
+		};
 		const settle = () => {
 			if (!prefersReducedMotion()) return;
 			settled = true;
-			observer?.disconnect();
-			stop?.();
-			stop = undefined;
+			end();
 			t.set(END);
 		};
-		settle();
-		const release = onPageStateChange(settle);
-		if (!settled) {
-			const margin = 0.15;
-			let first = true;
-			observer = new IntersectionObserver(
-				([e]) => {
-					if (!e) return;
-					if (first) {
-						first = false;
-						const vh = e.rootBounds ? e.rootBounds.bottom / (1 - margin) : 0;
-						if (e.boundingClientRect.top < vh) {
-							observer?.disconnect();
-							return;
-						}
-						t.set(0);
+		const margin = 0.15;
+		let first = true;
+		const observer = new IntersectionObserver(
+			([e]) => {
+				if (!e) return;
+				if (first) {
+					first = false;
+					if (prefersReducedMotion()) {
+						settle();
 						return;
 					}
-					if (e.isIntersecting) {
-						observer?.disconnect();
-						stop = runFrames((dt) => {
-							const v = Math.min(t.get() + dt, END);
-							t.set(v);
-							if (v >= END) {
-								stop?.();
-								stop = undefined;
-							}
-						});
+					const vh = e.rootBounds ? e.rootBounds.bottom / (1 - margin) : 0;
+					if (e.boundingClientRect.top < vh) {
+						observer.disconnect();
+						return;
 					}
-				},
-				{ rootMargin: `0px 0px -${margin * 100}% 0px` },
-			);
-			observer.observe(el);
-		}
-		return () => {
-			release();
-			observer?.disconnect();
-			stop?.();
-		};
+					t.set(0);
+					release = onPageStateChange(settle);
+					return;
+				}
+				if (e.isIntersecting) {
+					observer.disconnect();
+					stop = runFrames((dt) => {
+						const v = Math.min(t.get() + dt, END);
+						t.set(v);
+						if (v >= END) end();
+					});
+				}
+			},
+			{ rootMargin: `0px 0px -${margin * 100}% 0px` },
+		);
+		observer.observe(el);
+		return end;
 	};
 }
