@@ -22,7 +22,6 @@ const traversals = new Set<Listener>();
 export type RouterNavigation = "push" | "replace" | "traverse";
 type NavigationListener = (to: string, type: RouterNavigation) => void;
 const navigations = new Set<NavigationListener>();
-let showing: string | null = null;
 const rules = new Map<string, AddressRule>();
 let routerBehind = false;
 let writing = false;
@@ -32,6 +31,7 @@ const ORIGIN = "http://address.invalid";
 export const currentAddress = () => window.location.pathname + window.location.search;
 export const fullAddress = () => currentAddress() + window.location.hash;
 const urlOf = (href: string | URL) => new URL(href, ORIGIN);
+const knownAddress = () => (shown ??= fullAddress());
 
 function ruled(to: URL, from: URL | null): string | null {
 	for (const rule of rules.values()) {
@@ -90,8 +90,8 @@ function traversed() {
 export function routerTransitionStarted(href: string, type: RouterNavigation): void {
 	const target = new URL(href, window.location.href);
 	const to = target.pathname + target.search;
-	if (to === showing) return;
-	showing = to;
+	knownAddress();
+	if (type !== "traverse" && to === currentAddress()) return;
 	for (const listener of [...navigations]) listener(to + target.hash, type);
 }
 
@@ -113,13 +113,12 @@ if (typeof window !== "undefined") {
 		navigation?.removeEventListener("currententrychange", previous.entry);
 	}
 	host[INSTALLED] = { popstate: traversed, entry: routerWrote };
-	shown = fullAddress();
-	showing = currentAddress();
 	window.addEventListener("popstate", traversed);
 	navigation?.addEventListener("currententrychange", routerWrote);
 }
 
 const subscribe = (listener: Listener) => {
+	knownAddress();
 	changes.add(listener);
 	return () => void changes.delete(listener);
 };
@@ -139,10 +138,8 @@ export function addAddressRule(name: string, rule: AddressRule): void {
 }
 
 export function writeAddress(href: string | URL, { replace = false, state }: AddressWrite = {}): void {
-	const from = shown === null ? null : urlOf(shown);
-	write(ruled(urlOf(href), from) ?? href, replace, state ?? null);
+	write(ruled(urlOf(href), urlOf(knownAddress())) ?? href, replace, state ?? null);
 	for (const listener of changes) listener();
-	showing = currentAddress();
 }
 
 const marked = (value: string) => (routerBehind ? `+${value}` : `-${value}`);

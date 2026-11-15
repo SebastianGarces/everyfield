@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 let at = new URL("https://everyfield.test/people");
+let addressReads = 0;
 const stored = new Map<string, string>();
 const history = {
 	state: null as unknown,
@@ -18,6 +19,7 @@ const history = {
 };
 const location = {
 	get pathname() {
+		addressReads += 1;
 		return at.pathname;
 	},
 	get search() {
@@ -47,20 +49,39 @@ Object.assign(globalThis, {
 });
 
 const store = await import("../../../apps/web/src/components/location.ts");
+const readsWhileLoading = addressReads;
 
-test("INV-location: every navigation Next's router starts is reported once, and one that stays on the shown address is not", () => {
+test("INV-location: loading the store reads nothing from the address, so it may load before or after the one-time link script", () => {
+	assert.equal(readsWhileLoading, 0);
+});
+
+test("INV-location: every navigation Next's router starts is reported once, Back and Forward always, and a push or replace to the address it starts from is not", () => {
 	const seen: string[] = [];
 	const stop = store.onNavigation((to, type) => seen.push(`${type} ${to}`));
-	store.routerTransitionStarted("/people/duplicates/dismissed", "push");
-	store.routerTransitionStarted("https://everyfield.test/people?view=list", "replace");
-	store.routerTransitionStarted("/people?view=list#top", "push");
-	store.routerTransitionStarted("https://everyfield.test/people", "traverse");
+	const navigate = (href: string, type: "push" | "replace") => {
+		store.routerTransitionStarted(href, type);
+		if (type === "push") history.pushState(null, "", href);
+		else history.replaceState(null, "", href);
+	};
+	navigate("/people/duplicates/dismissed", "push");
+	navigate("https://everyfield.test/people?view=list", "replace");
+	navigate("/people?view=list#top", "push");
+	history.replaceState(null, "", "/people/duplicates/dismissed");
+	navigate("/people?view=list", "push");
+	at = new URL("https://everyfield.test/people?view=list");
+	window.dispatchEvent(new Event("popstate"));
+	store.routerTransitionStarted("https://everyfield.test/people?view=list", "traverse");
 	store.writeAddress("/people?view=cards");
-	store.routerTransitionStarted("/people?view=cards", "push");
-	assert.deepEqual(seen, ["push /people/duplicates/dismissed", "replace /people?view=list", "traverse /people"]);
+	navigate("/people?view=cards", "push");
+	assert.deepEqual(seen, [
+		"push /people/duplicates/dismissed",
+		"replace /people?view=list",
+		"push /people?view=list",
+		"traverse /people?view=list",
+	]);
 	stop();
 	store.routerTransitionStarted("/tasks", "push");
-	assert.equal(seen.length, 3, "a released listener hears nothing more");
+	assert.equal(seen.length, 4, "a released listener hears nothing more");
 });
 
 test("INV-link: a one-time link value brought in by a same-document navigation leaves the address and is handed to its page until it is forgotten", () => {
