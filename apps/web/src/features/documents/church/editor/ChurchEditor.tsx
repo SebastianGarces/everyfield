@@ -212,7 +212,7 @@ export default function ChurchEditor({
 	}, [page, brand]);
 
 	// Save as template: each opening mounts the dialog afresh (a new request key); a success names the template here.
-	const [templateDialog, setTemplateDialog] = useState({ open: false, opening: 0 });
+	const [templateDialog, setTemplateDialog] = useState({ open: false, opening: 0, requestKey: "" });
 	const [savedTemplate, setSavedTemplate] = useState<TemplateSaved | null>(null);
 
 	const editorContext = useMemo(() => ({ editor }), [editor]);
@@ -283,7 +283,8 @@ export default function ChurchEditor({
 									icon={FileAddIcon}
 									onSelect={() => {
 										churchTemplates.retry();
-										setTemplateDialog((d) => ({ open: true, opening: d.opening + 1 }));
+										const requestKey = crypto.randomUUID();
+										setTemplateDialog((d) => ({ open: true, opening: d.opening + 1, requestKey }));
 									}}
 								>
 									Save as template
@@ -438,6 +439,7 @@ export default function ChurchEditor({
 					saving={status.kind === "saving"}
 					onSaveFirst={save}
 					onSaved={setSavedTemplate}
+					requestKey={templateDialog.requestKey}
 				/>
 			) : null}
 		</EditorContext.Provider>
