@@ -105,24 +105,24 @@ export function useUndoRedo(config: UseUndoRedoConfig) {
 	const { editor: providedEditor, action } = config;
 
 	const { editor } = useTiptapEditor(providedEditor);
-	const [isVisible, setIsVisible] = React.useState<boolean>(true);
+	const subscribe = React.useCallback(
+		(changed: () => void) => {
+			if (!editor) return () => {};
+			editor.on("mount", changed);
+			editor.on("transaction", changed);
+			return () => {
+				editor.off("mount", changed);
+				editor.off("transaction", changed);
+			};
+		},
+		[editor],
+	);
+	const isVisible = React.useSyncExternalStore(
+		subscribe,
+		() => !editor || shouldShowButton({ editor }),
+		() => true,
+	);
 	const canExecute = canExecuteUndoRedoAction(editor, action);
-
-	React.useEffect(() => {
-		if (!editor) return;
-
-		const handleUpdate = () => {
-			setIsVisible(shouldShowButton({ editor }));
-		};
-
-		handleUpdate();
-
-		editor.on("transaction", handleUpdate);
-
-		return () => {
-			editor.off("transaction", handleUpdate);
-		};
-	}, [editor]);
 
 	const handleAction = React.useCallback(() => {
 		if (!editor) return false;

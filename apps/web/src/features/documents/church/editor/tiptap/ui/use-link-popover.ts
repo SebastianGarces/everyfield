@@ -61,34 +61,10 @@ function shouldShowLinkButton(props: { editor: Editor | null }): boolean {
  */
 function useLinkHandler(props: LinkHandlerProps) {
 	const { editor } = props;
-	const [url, setUrl] = React.useState<string | null>(null);
-
-	React.useEffect(() => {
-		if (!editor) return;
-
-		// Get URL immediately on mount
-		const { href } = editor.getAttributes("link");
-
-		if (isLinkActive(editor) && url === null) {
-			setUrl(href || "");
-		}
-	}, [editor, url]);
-
-	React.useEffect(() => {
-		if (!editor) return;
-
-		const updateLinkState = () => {
-			const { href } = editor.getAttributes("link");
-			setUrl(href || "");
-		};
-
-		editor.on("selectionUpdate", updateLinkState);
-		return () => {
-			editor.off("selectionUpdate", updateLinkState);
-		};
-	}, [editor]);
-
+	const [draft, setDraft] = React.useState<{ at: Editor["state"]["selection"]; url: string } | null>(null);
 	const [error, setError] = React.useState<string | null>(null);
+	const selection = editor?.state.selection;
+	const url = draft && draft.at === selection ? draft.url : editor?.getAttributes("link").href || "";
 
 	const setLink = React.useCallback((): boolean => {
 		if (!url || !editor) return false;
@@ -113,7 +89,7 @@ function useLinkHandler(props: LinkHandlerProps) {
 
 		chain.run();
 
-		setUrl(null);
+		setDraft(null);
 
 		return true;
 	}, [editor, url]);
@@ -121,7 +97,7 @@ function useLinkHandler(props: LinkHandlerProps) {
 	const removeLink = React.useCallback(() => {
 		if (!editor) return;
 		editor.chain().focus().extendMarkRange("link").unsetLink().setMeta("preventAutolink", true).run();
-		setUrl("");
+		setDraft(null);
 	}, [editor]);
 
 	const openLink = React.useCallback(
@@ -137,11 +113,11 @@ function useLinkHandler(props: LinkHandlerProps) {
 	);
 
 	return {
-		url: url || "",
+		url,
 		error,
-		setUrl: (next: React.SetStateAction<string | null>) => {
+		setUrl: (next: string) => {
 			setError(null);
-			setUrl(next);
+			setDraft(selection ? { at: selection, url: next } : null);
 		},
 		setLink,
 		removeLink,

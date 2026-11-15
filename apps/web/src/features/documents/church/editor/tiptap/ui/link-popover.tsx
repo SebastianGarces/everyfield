@@ -32,7 +32,7 @@ interface LinkMainProps {
 	/**
 	 * Function to update the URL state.
 	 */
-	setUrl: React.Dispatch<React.SetStateAction<string | null>>;
+	setUrl: (url: string) => void;
 	/**
 	 * Function to set the link in the editor.
 	 */
@@ -56,11 +56,6 @@ export interface LinkPopoverProps extends Omit<ButtonProps, "type">, UseLinkPopo
 	 * Callback for when the popover opens or closes.
 	 */
 	onOpenChange?: (isOpen: boolean) => void;
-	/**
-	 * Whether to automatically open the popover when a link is active.
-	 * @default true
-	 */
-	autoOpenOnLinkActive?: boolean;
 }
 
 /**
@@ -146,7 +141,7 @@ const LinkMain: React.FC<LinkMainProps> = ({ url, error, setUrl, setLink, remove
  * For custom popover implementations, use the `useLinkPopover` hook instead.
  */
 export const LinkPopover = React.forwardRef<HTMLButtonElement, LinkPopoverProps>(
-	({ editor: providedEditor, onOpenChange, autoOpenOnLinkActive = true, onClick, children, ...buttonProps }, ref) => {
+	({ editor: providedEditor, onOpenChange, onClick, children, ...buttonProps }, ref) => {
 		const { editor } = useTiptapEditor(providedEditor);
 		const [isOpen, setIsOpen] = React.useState(false);
 
@@ -173,12 +168,6 @@ export const LinkPopover = React.forwardRef<HTMLButtonElement, LinkPopoverProps>
 			},
 			[onClick, isOpen],
 		);
-
-		React.useEffect(() => {
-			if (autoOpenOnLinkActive && isActive) {
-				setIsOpen(true);
-			}
-		}, [autoOpenOnLinkActive, isActive]);
 
 		if (!isVisible) {
 			return null;
