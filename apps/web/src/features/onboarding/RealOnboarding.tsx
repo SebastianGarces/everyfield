@@ -10,7 +10,6 @@ import { createPort } from "./port";
 
 const SIGN_IN = "/signin?returnTo=%2Fonboarding";
 
-/** /onboarding on the real API: the server actions behind the contract-parsing port. */
 export function RealOnboarding({
 	entry,
 	step,

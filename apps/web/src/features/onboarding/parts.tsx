@@ -6,9 +6,6 @@ import { cn, EvryBot, Icon, Lockup, useFocusRequest } from "@everyfield/ui/found
 import type { ReactNode } from "react";
 import { STEPS, type ErrorCode, type Notice as NoticeState, type Op, type StepKey } from "./model";
 
-// Shared pieces of the onboarding page, composed from @everyfield/ui and the prototype's .onb, .onb-steps and
-// .phase-pick layout (design/everyfield-ui.html, #/onboarding).
-
 export function OnboardingFrame({
 	steps,
 	aside,
@@ -32,10 +29,6 @@ export function OnboardingFrame({
 	);
 }
 
-/**
- * The step pills. Before the church exists they only show progress. After, each is a button: basics show read-only,
- * so moving back never reruns creation. The current step has aria-current="step".
- */
 export function StepPills({
 	current,
 	done,
@@ -106,7 +99,6 @@ function focusUnlessElsewhere(heading: HTMLHeadingElement): HTMLHeadingElement |
 		: null;
 }
 
-/** The centered step heading with Evry. Focus moves to the heading when the step changes, so screen readers hear it. */
 export function StepHeading({
 	title,
 	children,
@@ -132,7 +124,6 @@ export function StepHeading({
 	);
 }
 
-/** A choice card: a native radio inside its label, so arrow keys move within the group and the whole card is the target. */
 export function ChoiceCard({
 	name,
 	value,
@@ -192,7 +183,6 @@ export function ChoiceCard({
 	);
 }
 
-/** Back on the left; Skip and Continue on the right (prototype footer row). */
 export function StepFooter({
 	onBack,
 	onSkip,
@@ -234,10 +224,6 @@ export function StepFooter({
 	);
 }
 
-/**
- * One sentence per refusal code, saying what happened and what to do. `reloaded` is whether the latest facts arrived
- * after the refusal; without them the text never claims they did.
- */
 function noticeText(code: ErrorCode, reloaded: boolean): string {
 	switch (code) {
 		case "conflict":
@@ -267,7 +253,6 @@ function noticeText(code: ErrorCode, reloaded: boolean): string {
 	}
 }
 
-/** The refusal notice of one command, shown only on the step that sent it. */
 export function Notice({ notice, op }: { notice: NoticeState | null; op: Op }) {
 	return (
 		<div aria-live="polite" className="mx-auto max-w-[820px]">
@@ -280,7 +265,6 @@ export function Notice({ notice, op }: { notice: NoticeState | null; op: Op }) {
 	);
 }
 
-/** A read-only summary card for an answer that cannot change here. */
 export function SavedCard({ title, children }: { title: string; children?: ReactNode }) {
 	return (
 		<div className="mx-auto mt-[34px] max-w-[820px] rounded-card border border-line bg-surface-raised px-6 py-5 shadow-card">

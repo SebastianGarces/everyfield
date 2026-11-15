@@ -1,7 +1,6 @@
 import type { Feed, FeedPage, FeedQuery, Outcome } from "./model.ts";
 import { querySearch } from "./model.ts";
 
-// The browser side of read.ts. A network failure or a server error reads as lost, so the screen can offer a retry.
 async function get<T>(params: URLSearchParams): Promise<Outcome<T>> {
 	try {
 		const r = await fetch(`/notifications/read?${params}`, { cache: "no-store" });

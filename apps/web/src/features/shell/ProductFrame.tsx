@@ -42,13 +42,6 @@ import { useProductSettings } from "../settings/ProductSettings";
 import type { Role } from "../people/server.ts";
 import { useWikiChrome, WikiChrome } from "../wiki/client.tsx";
 
-// The product frame around People, Meetings, Messages, Tasks, Ministries, Wiki, Documents and Settings. Only destinations that
-// exist are in the navigation. The full product navigation and command palette come from their own packages and
-// replace these when they ship. The bell
-// opens the notification drop-down (WP-030). Send feedback (WP-049) opens its dialog over the current page. Settings sits
-// at the bottom of the rail and in the user menu behind the name button (screens.md, Overlays).
-
-// Overview (WP-048) is a church plant's home: every seat of a plant has it.
 const OVERVIEW = {
 	kind: "link",
 	key: "overview",
@@ -58,7 +51,6 @@ const OVERVIEW = {
 	prefetch: false,
 } as const;
 const PEOPLE = { kind: "link", key: "people", label: "People", href: "/people", icon: UserMultipleIcon } as const;
-// Meetings is a dynamic page; it loads when chosen, not whenever the frame renders.
 const MEETINGS = {
 	kind: "link",
 	key: "meetings",
@@ -68,7 +60,6 @@ const MEETINGS = {
 	prefetch: false,
 } as const;
 const TASKS = { kind: "link", key: "tasks", label: "Tasks", href: "/tasks", icon: Task01Icon } as const;
-// Messages is a dynamic page. It loads when chosen, not whenever the frame renders.
 const MESSAGES = {
 	kind: "link",
 	key: "messages",
@@ -77,7 +68,6 @@ const MESSAGES = {
 	icon: Mail01Icon,
 	prefetch: false,
 } as const;
-// Ministries (WP-017) loads when chosen, like Meetings.
 const MINISTRIES = {
 	kind: "link",
 	key: "ministries",
@@ -87,7 +77,6 @@ const MINISTRIES = {
 	prefetch: false,
 } as const;
 const WIKI = { kind: "link", key: "wiki", label: "Wiki", href: "/wiki", icon: BookOpen01Icon } as const;
-// Documents is a secondary rail page. It loads when chosen, not whenever the frame renders.
 const DOCUMENTS = {
 	kind: "link",
 	key: "documents",
@@ -96,7 +85,6 @@ const DOCUMENTS = {
 	icon: File02Icon,
 	prefetch: false,
 } as const;
-// Plant Intelligence (WP-038: the phase journey) is for a plant's Owners and Admins. It loads when chosen.
 const INTELLIGENCE = {
 	kind: "link",
 	key: "intelligence",
@@ -105,7 +93,6 @@ const INTELLIGENCE = {
 	icon: ChartLineData01Icon,
 	prefetch: false,
 } as const;
-// The Launch plan (WP-045) is for every seat of a church plant: Members read it and work their own prep tasks.
 const LAUNCH = {
 	kind: "link",
 	key: "launch",
@@ -114,15 +101,12 @@ const LAUNCH = {
 	icon: StartUp02Icon,
 	prefetch: false,
 } as const;
-// A sending church or network seat (WP-047a): its plants, its connections and what it shares, its notifications and
-// Settings. No planter page appears. Connections and Sharing are the one /settings/sharing page (D-1097).
 const PLANTS = { kind: "link", key: "plants", label: "Plants", href: "/network", icon: HierarchyIcon } as const;
 const ORGANIZATION_PAGES = [
 	{ kind: "link", key: "connections", label: "Connections", href: "/settings/sharing#connections", icon: Link01Icon },
 	{ kind: "link", key: "sharing", label: "Sharing", href: "/settings/sharing", icon: ShieldUserIcon },
 	{ kind: "link", key: "notifications", label: "Notifications", href: "/notifications", icon: Notification03Icon },
 ] as const;
-// An organization's Pipeline (WP-098a): the people a sending church or network develops toward planting.
 const PIPELINE = {
 	kind: "link",
 	key: "pipeline",
@@ -131,7 +115,6 @@ const PIPELINE = {
 	icon: Route01Icon,
 	prefetch: false,
 } as const;
-// Sent for review (T-385): the kept answers an Owner or Admin sent this organization seat to read.
 const REVIEWS = {
 	kind: "link",
 	key: "reviews",
@@ -140,7 +123,6 @@ const REVIEWS = {
 	icon: FileSearchIcon,
 	prefetch: false,
 } as const;
-// My residency (WP-100): a seatless account linked to a sending church's residency, only while the link is live.
 const MY_RESIDENCY = {
 	kind: "link",
 	key: "my-residency",
@@ -152,26 +134,17 @@ const ROLE: Record<Role, string> = { owner: "Owner", admin: "Admin", member: "Me
 
 type FrameProps = {
 	name: string;
-	/** The app's own route for the viewer's current photo, when there is one. */
 	photo?: string;
-	/** The viewer as Settings sees it, with the seat's role; null when there is no active actor. */
 	settings: SettingsViewer | null;
-	/** The settings section read the server started for this page's address, for the server's viewer only. */
 	seed?: SectionSeed | null;
-	/** A seatless account's live residency link, by the church's name; null without one. */
 	residency?: { organizationName: string } | null;
 	children: ReactNode;
 };
 
-/**
- * A confirmed change to the viewer's own seat, from a page inside the frame (Seats): the new role, or null when the
- * seat was removed. The frame shows it at once, without reading the page again.
- */
 const OwnSeat = createContext<(role: Role | null) => void>(() => {});
 export const useOwnSeatChange = () => use(OwnSeat);
 
 export function ProductFrame({ settings: initial, seed, residency = null, ...props }: FrameProps) {
-	// The server's link is the source until a page reports that the viewer left it.
 	const [left, setLeft] = useState<{ from: typeof residency } | null>(null);
 	const ended = left !== null && left.from === residency;
 	const residencyState: ResidencyState = {
@@ -179,7 +152,6 @@ export function ProductFrame({ settings: initial, seed, residency = null, ...pro
 		ended,
 		left: () => setLeft({ from: residency }),
 	};
-	// The server's viewer is the source until a page reports a change to the viewer's own seat.
 	const [own, setOwn] = useState({ from: initial, settings: initial });
 	const settings = own.from === initial ? own.settings : initial;
 	const change = (role: Role | null) =>
@@ -211,7 +183,6 @@ function Frame({ name, photo, settings, seed = null, children }: FrameProps) {
 	const toast = useToast();
 	const dialog = useProductSettings(settings, seed);
 	const pathname = usePathname();
-	// Evry is off while the private check-in is open: its panel closes and Ask Evry says so (REQ-PI-038).
 	const privatePage = evryOff(pathname);
 	const evry = useEvryPanel({
 		inPlant: settings?.context === "plant",
@@ -228,9 +199,7 @@ function Frame({ name, photo, settings, seed = null, children }: FrameProps) {
 	const [feedback, setFeedback] = useState(false);
 	const role = settings && settings.context !== "account" ? settings.role : null;
 	const { linked } = useResidency();
-	// A seatless account has no People, Meetings, Messages, Tasks or Ministries; while linked, it has My residency.
 	const account = !settings || settings.context === "account";
-	// A plant Member reads People and Tasks and works on their own tasks; organization seats have neither.
 	const banner =
 		settings?.context === "plant" && role === "member" ? (
 			<RoleBanner>
@@ -238,7 +207,6 @@ function Frame({ name, photo, settings, seed = null, children }: FrameProps) {
 				an Owner or Admin.
 			</RoleBanner>
 		) : null;
-	// The rail's Settings opens the dialog over the current page, as the user menu does; /settings is its address.
 	const settingsLink = {
 		kind: "link",
 		key: "settings",

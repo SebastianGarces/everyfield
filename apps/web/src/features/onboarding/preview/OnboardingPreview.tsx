@@ -8,12 +8,6 @@ import { parseStep } from "../model";
 import { OnboardingFlow, type Article } from "../OnboardingFlow";
 import { createFixturePort, parsePersona, PERSONA_LABEL, PERSONAS } from "./fixtures";
 
-/**
- * The onboarding design preview at /design/onboarding?as=<persona>. `delay` sets the reply time in milliseconds and
- * `fail=<op>:<code>` makes the first call of that command fail, and `fail=<op>:offline` drops the connection for it
- * instead. Replies come from the fixture API, parsed by the WP-009 contract. Browser tests read
- * window.__onboardingFixture to count requests.
- */
 export function OnboardingPreview({ articles }: { articles: Article[] }) {
 	const search = useSearchParams();
 	const persona = parsePersona(search.get("as"));

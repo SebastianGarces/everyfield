@@ -8,8 +8,6 @@ import { MyResidencyScreen } from "./MyResidencyScreen";
 import { MY_RESIDENCY_PATH, readingPath } from "./model";
 import { ResidentReadingScreen } from "./ResidentReadingScreen";
 
-// My residency (REQ-MUL-013) and its church-owned reading. app/(product)/(frame)/my-residency/** only re-exports these.
-
 export const myResidencyMetadata: Metadata = { title: "My residency", robots: { index: false, follow: false } };
 
 const refused = (

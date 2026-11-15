@@ -25,10 +25,6 @@ function pick<T extends string>(all: readonly T[], raw: string | null, fallback:
 	return (all as readonly string[]).includes(raw ?? "") ? (raw as T) : fallback;
 }
 
-/**
- * The access boundary previews at /design/access/[flow] (WP-006/ui R8). `staff-notes` takes `as` (viewer duties),
- * `notes` (scenario) and `delay` (fixture latency in ms). `session-ended` takes `returnTo`.
- */
 export function AccessPreview({ flow }: { flow: AccessFlow }) {
 	const search = useSearchParams();
 	if (flow === "session-ended") return <SessionEnded returnTo={search.get("returnTo") ?? "/people?view=core"} />;

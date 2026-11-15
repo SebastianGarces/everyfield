@@ -24,10 +24,6 @@ type Note = AllowedNotes["notes"][number];
 type FirstPage = OrganizationNotesResult | { status: "failed" };
 type More = { pages: AllowedNotes[]; status: "idle" | "loading" | "failed" | "unavailable" };
 
-/**
- * The viewer's own duties for one pipeline person (pipelineAccess.readPerson, REQ-MUL-002). It names only the
- * viewer's duties, which the viewer already holds; it never lists other staff.
- */
 export function PersonDuties({ access, personName }: { access: PipelineAccessResult; personName: string }) {
 	if (access.status !== "allowed") return null;
 	return (
@@ -44,11 +40,6 @@ export function PersonDuties({ access, personName }: { access: PipelineAccessRes
 	);
 }
 
-/**
- * Protected staff notes for one organization person (orgPeople.readNotes, REQ-MUL-002). Render it only when
- * `canReadStaffNotes` is true. It reads pages from the server and never keeps a note on screen after the server
- * stops allowing it: an `unavailable` page replaces every note already shown.
- */
 export function StaffNotesPanel({
 	personName,
 	read,
@@ -57,9 +48,7 @@ export function StaffNotesPanel({
 }: {
 	personName: string;
 	read: ReadNotes;
-	/** The display name of a note's author account, from the consumer's own directory read (WP-006/ui R6). */
 	authorName: (accountId: string) => string;
-	/** The organization's time zone, for note times. */
 	zone: string;
 }) {
 	const [{ read: readPage, first }] = useState(() => ({

@@ -37,18 +37,12 @@ type Linked = Extract<MyResidency, { status: "linked" }>;
 type Enrollment = Linked["enrollments"][number];
 type Milestone = Enrollment["milestones"][number];
 
-/**
- * My residency (REQ-MUL-013): a linked resident's own program, program stage, next meeting, milestones with their
- * confirmation and the director's feedback, reading list and what the church can see. Leaving the residency, here or
- * in another tab's Sharing card, turns the page into the no-longer-linked state at once.
- */
 export function MyResidencyScreen({ initial }: { initial: MyResidency }) {
 	const frame = useResidency();
 	if (initial.status === "not_linked" || frame.ended) return <NotLinked />;
 	return <LinkedResidency residency={initial} />;
 }
 
-/** The page a saved link opens once the resident left, was never linked or the church ended the link. */
 function NotLinked() {
 	return (
 		<div className="flex flex-col gap-5">
@@ -189,7 +183,6 @@ function Detail({ term, children }: { term: string; children: React.ReactNode })
 	);
 }
 
-/** The next meeting in the resident's own zone, naming the church's zone when the two differ. */
 function NextMeeting({
 	meeting,
 	timezone,
@@ -226,7 +219,6 @@ function NextMeeting({
 	);
 }
 
-/** One milestone: open, marked and waiting, or confirmed, with the director's feedback on the resident's own work. */
 function MilestoneRow({
 	milestone: m,
 	opened,
@@ -236,7 +228,6 @@ function MilestoneRow({
 	onMarked,
 }: {
 	milestone: Milestone;
-	/** The milestone a notice opened: shown set apart so the reader finds it. */
 	opened: boolean;
 	enrollmentId: string;
 	director: string;
@@ -247,7 +238,6 @@ function MilestoneRow({
 	const [problem, setProblem] = useState<string | null>(null);
 	async function mark() {
 		setProblem(null);
-		// Shown at once as waiting; the server confirms it, or the row goes back with a reason.
 		onMarked({ completedOn: today, confirmedOn: null, source: "resident" });
 		const answer = await markMilestone({ enrollmentId, milestoneId: m.id }).catch(() => ({ status: "lost" as const }));
 		if (answer.status !== "ok") {
@@ -331,7 +321,6 @@ function MilestoneRow({
 	);
 }
 
-/** The reading list: the church's own versions open here, global articles in the Wiki; a withdrawn one opens nothing. */
 function Reading({ readings, church }: { readings: Enrollment["readings"]; church: string }) {
 	return (
 		<Card>
@@ -387,7 +376,6 @@ function Reading({ readings, church }: { readings: Enrollment["readings"]; churc
 	);
 }
 
-/** What the church can see from the resident's account, and what it never sees. The Sharing card changes it. */
 function Visibility({ residency }: { residency: Linked }) {
 	const church = residency.organizationName;
 	const rows = [

@@ -17,10 +17,6 @@ import {
 } from "./model";
 import { refreshEntry, runCommand, type OnboardingPort } from "./port";
 
-// The onboarding store (WP-009/ui R6). It owns the one command on the wire, so a reply lands in the store even if
-// the step that sent it is gone, and facts change only from the server's reply (model.ts settle). The view follows
-// the address bar's ?step= so browser Back moves between steps.
-
 type Store = {
 	get(): State;
 	subscribe(listener: () => void): () => void;
@@ -45,9 +41,7 @@ function createStore(initial: State): Store {
 export type Actions = {
 	go(view: StepKey): void;
 	edit(patch: Partial<Drafts>): void;
-	/** Send one command. Resolves to the hold when nothing was sent, else to whether the server accepted it. */
 	run(op: Op, input: unknown): Promise<Hold | "ok" | "refused">;
-	/** Load the latest facts from the server, keeping drafts. */
 	refresh(): Promise<void>;
 };
 const Context = createContext<{ store: Store; actions: Actions } | null>(null);
@@ -79,11 +73,9 @@ export function OnboardingProvider({
 	port: OnboardingPort;
 	entry: Entry;
 	step: StepKey | null;
-	/** Where a reload that finds no session goes. */
 	signIn: () => void;
 	children: ReactNode;
 }) {
-	// One store per mount: the entry and step only seed it. A new account or persona remounts the provider.
 	const [store] = useState(() => createStore(initialState(entry, step)));
 
 	const actions = useMemo<Actions>(() => {

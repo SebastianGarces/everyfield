@@ -1,9 +1,6 @@
 import { organizationNotesResult, pipelineAccessResult, type PipelineAccessResult } from "@everyfield/contracts/access";
 import type { ReadNotes } from "../port";
 
-// Invented sample data for /design/access. Every reply goes through the contract parser, so a fixture that the
-// real API could not return fails here first (WP-006/ui R8).
-
 export const ACCESS_FLOWS = ["not-available", "session-ended", "pending", "staff-notes"] as const;
 export type AccessFlow = (typeof ACCESS_FLOWS)[number];
 
@@ -89,10 +86,6 @@ function note(i: number) {
 
 const PAGE = 4;
 
-/**
- * A fixture orgPeople.readNotes. Pages hold four notes so paging shows; the real API returns up to 100. The viewer's
- * notes duty comes from the same duties the page shows.
- */
 export function notesReader(viewer: Viewer, scenario: NoteScenario): ReadNotes {
 	const duty = DUTIES[viewer].find((d) => d.canReadStaffNotes)?.kind;
 	let firstFailures = scenario === "load-failed" ? 1 : 0;

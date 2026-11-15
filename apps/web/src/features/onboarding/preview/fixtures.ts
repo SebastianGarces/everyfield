@@ -2,10 +2,6 @@ import * as C from "@everyfield/contracts/onboarding";
 import { stable, type Command, type Entry, type ErrorCode, type Op } from "../model.ts";
 import { createPort, parseEntry, type OnboardingPort } from "../port.ts";
 
-// The design preview's API (WP-009/ui R8). It keeps the WP-009/api rules that the screens depend on: one creation
-// per account, request-key replay, revision checks, a once-only existing-journey declaration, launch schedule
-// revisions and a once-only completion stamp. Every reply is parsed by the contract here and again in port.ts.
-
 export const PERSONAS = [
 	"planter",
 	"either",
@@ -81,7 +77,6 @@ type World = {
 	plantName: string | null;
 	resume: Raw | null;
 	declared: boolean;
-	/** The launch row's revision, or null while the church has no launch row (the first planned date expects "1"). */
 	scheduleRevision: string | null;
 	discovery: Raw | null;
 	replays: Map<string, { digest: string; value: unknown }>;
@@ -344,7 +339,6 @@ function apply(w: World, op: Op, cmd: Command): unknown {
 				? {
 						answer: "yes",
 						assignment: { teamId: id(), roleId: id(), personId: id() },
-						// The Senior pastor fill: another person already holds the role for the pastor-held persona.
 						...(input.seniorPastor ? { seniorPastor: w.persona === "pastor-held" ? "occupied" : "filled" } : {}),
 						savedAt: at,
 					}
@@ -366,12 +360,10 @@ function apply(w: World, op: Op, cmd: Command): unknown {
 }
 
 type Call = { op: Op; requestKey: string; command: Command };
-/** `offline` drops the connection: the next call of that command and the entry reload after it throw, with no reply. */
 export type Fault = ErrorCode | "offline";
 export type FixtureControls = {
 	calls: Call[];
 	failNext(op: Op, code: Fault): void;
-	/** Another tab or person changes the facts, so the next write meets a newer revision. */
 	bumpRevision(): void;
 };
 

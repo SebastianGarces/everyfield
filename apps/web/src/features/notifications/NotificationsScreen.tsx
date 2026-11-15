@@ -26,10 +26,6 @@ import {
 } from "./model.ts";
 import { ItemsSkeleton, NotificationItem } from "./parts.tsx";
 
-// The Notifications page (prototype #/notifications): the account's own feed, newest first, with All and Unread, a
-// category filter and Load older. The filters live in the address; changing one reads the first page again without
-// reloading the page.
-
 const ANY = "any";
 
 export function NotificationsScreen({ initial }: { initial: FeedPage }) {
@@ -43,7 +39,6 @@ export function NotificationsScreen({ initial }: { initial: FeedPage }) {
 	};
 	const ready = feed.state.status === "ready" ? feed.state.data : null;
 	const openShown = ready?.items.filter((i) => !i.read).length ?? 0;
-	// Mark-all has no category, so a filtered page marks the unread entries it shows.
 	const markLabel = query.category ? "Mark shown as read" : "Mark all read";
 	const canMark = query.category ? openShown > 0 : (ready?.unread ?? 0) > 0 || openShown > 0;
 

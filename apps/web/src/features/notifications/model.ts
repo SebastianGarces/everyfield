@@ -23,9 +23,6 @@ import { reviewPath } from "../organizations/reviews/model";
 import { milestonePath } from "../residency/model";
 import { CATEGORY_TEXT } from "../settings/model";
 
-// Pure rules for the notification feed, the bell and the email opt-out page: the words, the grouping and the local
-// changes a mark makes while its answer is on the way.
-
 export type FeedItem = z.infer<typeof c.feedItem>;
 export type Feed = z.infer<typeof c.feedResult>;
 export type Category = FeedItem["category"];
@@ -33,16 +30,10 @@ export type OptOut = z.infer<typeof c.emailOptOutResult>;
 export type Reply<T> = c.NotificationReply<T>;
 type Code = c.NotificationError["code"];
 
-/** A screen action's answer. "lost" means no answer arrived: the same request key may be sent again. */
 export type Outcome<T> = { status: "ok"; value: T } | { status: "refused"; code: Code } | { status: "lost" };
 
-/**
- * What the feed page and the bell read: one page, the unread count of the same filter, and the account revision that
- * every mark's envelope carries. Marking never changes that revision; a settings save does.
- */
 export type FeedPage = { feed: Feed; unread: number; revision: string };
 
-/** The page's filters, kept in the address (?show=unread&category=task_due). */
 export type FeedQuery = { unread: boolean; category: Category | null };
 
 export const CATEGORIES = Object.keys(CATEGORY_TEXT) as Category[];
@@ -60,7 +51,6 @@ export function querySearch(q: FeedQuery): string {
 	return s ? `?${s}` : "";
 }
 
-/** The area line under each entry and its icon tile, as in the prototype's notification items. */
 const AREA: Record<Category, { area: string; icon: IconSvgElement; tone: Tone }> = {
 	task_due: { area: "Tasks", icon: Task01Icon, tone: "amber" },
 	task_overdue: { area: "Tasks", icon: Alert02Icon, tone: "magenta" },
@@ -81,10 +71,6 @@ const AREA: Record<Category, { area: string; icon: IconSvgElement; tone: Tone }>
 export const areaOf = (category: Category) => AREA[category];
 export const categoryLabel = (category: Category) => CATEGORY_TEXT[category].label;
 
-/**
- * The page an entry opens (D-731): the scheduled email in Messages, the task in Tasks, the meeting's page, the
- * published article in the Wiki, My residency at the resident's milestone, or a send on Sent for review. Null for an entry with no subject page; it stays a mark-read button or plain text.
- */
 export function subjectHref(subject: FeedItem["subject"]): string | null {
 	if (!subject) return null;
 	switch (subject.kind) {
@@ -103,7 +89,6 @@ export function subjectHref(subject: FeedItem["subject"]): string | null {
 	}
 }
 
-/** The browser's time zone and the minute it is, for "12 min ago" and the day groups. Null until the browser answers. */
 export type Clock = { zone: string; now: number };
 
 const day = (instant: number, zone: string) =>
@@ -115,7 +100,6 @@ function dayDistance(instant: number, clock: Clock): number {
 	return Math.round((b! - a!) / 86_400_000);
 }
 
-/** "Just now", "12 min ago" and "3 h ago" today; "4:12 pm" yesterday; "Oct 6" before; "Oct 6, 2025" in another year. */
 export function timeLabel(eligibleAt: string, clock: Clock): string {
 	const at = Date.parse(eligibleAt);
 	const minutes = Math.floor((clock.now - at) / 60_000);
@@ -137,7 +121,6 @@ export function timeLabel(eligibleAt: string, clock: Clock): string {
 	}).format(at);
 }
 
-/** The feed in Today, Yesterday and Earlier, newest first, as the server ordered it. */
 export function groupByDay(items: readonly FeedItem[], clock: Clock) {
 	const groups: { label: "Today" | "Yesterday" | "Earlier"; items: FeedItem[] }[] = [];
 	for (const item of items) {
@@ -150,7 +133,6 @@ export function groupByDay(items: readonly FeedItem[], clock: Clock) {
 	return groups;
 }
 
-/** "Due Oct 24" or "Overdue, due Oct 22" for a task entry. A local date, so it is formatted as written. */
 export function dueLabel(item: Pick<FeedItem, "dueLocalDate" | "overdue">): string | null {
 	if (!item.dueLocalDate) return null;
 	const date = new Intl.DateTimeFormat("en-US", { timeZone: "UTC", month: "short", day: "numeric" }).format(
@@ -159,7 +141,6 @@ export function dueLabel(item: Pick<FeedItem, "dueLocalDate" | "overdue">): stri
 	return item.overdue ? `Overdue, due ${date}` : `Due ${date}`;
 }
 
-/** The entries with these ids shown as read. */
 export function markedRead(items: readonly FeedItem[], ids: ReadonlySet<string>): FeedItem[] {
 	return items.map((i) => (ids.has(i.id) && !i.read ? { ...i, read: true } : i));
 }
@@ -191,13 +172,8 @@ export function withStandingMarks(
 	return { items: shown, reached };
 }
 
-/**
- * The cutoff for "Mark all read": the newest entry the person sees. Entries that arrive after it stay unread
- * (REQ-NTF-003, mark-all-visible). Null when nothing is shown.
- */
 export const cutoffOf = (items: readonly FeedItem[]) => items[0]?.eligibleAt ?? null;
 
-/** Words for a refused or lost mark. The entry shows as unread again. */
 export function markProblem(outcome: Exclude<Outcome<unknown>, { status: "ok" }>): string {
 	if (outcome.status === "lost") return "We could not reach Everyfield. It is still unread. Try again.";
 	switch (outcome.code) {
@@ -210,5 +186,4 @@ export function markProblem(outcome: Exclude<Outcome<unknown>, { status: "ok" }>
 	}
 }
 
-/** A fresh request key for one mark. A retry after a lost answer sends the same key again. */
 export const newRequestKey = () => `notifications-${crypto.randomUUID()}`;
