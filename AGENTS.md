@@ -44,9 +44,9 @@ evf numbers tasks T-<n>. WP-NNN, FB-<n> and OPS-<n> stay as labels and in histor
 - Prove actual behavior. Tooling checks establish tooling behavior, not application acceptance.
 - Keep screenshots, traces and temporary verification scripts outside the repository.
 - Encode repeated corrections in a type, lint rule or test before adding written rules.
-- Every clickable element shows `cursor-pointer`: buttons, links, tabs, menu items, clickable rows, chips,
-  labelled checkboxes and radios, icon buttons. `packages/ui` primitives apply it, not call sites.
-  Disabled controls keep `cursor-not-allowed`.
+- Every clickable element shows the pointer cursor through one base-layer rule in `packages/ui/src/controls/controls.css`,
+  keyed on semantics: links, native controls, toggle labels and the ARIA widget roles. The same rule gives disabled
+  controls `not-allowed` and busy ones `progress`. Keep clickables semantic; add no cursor classes at call sites.
 - Every Evry adapter operation or catalog tool you add or change ships with recorded eval cases in
   `tests/evry/evals/`; the rule is in `.agents/skills/test-standard/SKILL.md`.
 - Put shared workflow rules in `evf.toml`, a role prompt or a skill, never a second host-specific hook.
