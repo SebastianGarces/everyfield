@@ -17,7 +17,7 @@ import {
 } from "@everyfield/ui/controls";
 import { KeyValue, KeyValueList, List, ListRow, Tag } from "@everyfield/ui/display";
 import { createDebouncer } from "@everyfield/ui/foundations";
-import { useCallback, useEffect, useOptimistic, useState, useTransition } from "react";
+import { useEffect, useOptimistic, useState, useTransition } from "react";
 import { Await, createRead, useRead } from "../../components/read.tsx";
 import { changeVenue, createVenue, getVenue, listVenues } from "./actions.ts";
 import { problemText, type Outcome, type Venue } from "./model.ts";
@@ -91,9 +91,8 @@ function Places({ canWrite, onOpen, onAdd }: { canWrite: boolean; onOpen: (id: s
 	const [search, setSearch] = useState("");
 	const [archived, setArchived] = useState(false);
 	const [query, setQuery] = useState("");
-	const [pause] = useState(() => createDebouncer(PLACES_SEARCH_PAUSE_MS));
+	const [{ run: afterPause, cancelOnDetach }] = useState(() => createDebouncer(PLACES_SEARCH_PAUSE_MS));
 	const { promise, retry } = useRead(places, archived, query);
-	const cancelSearchOnDetach = useCallback((node: HTMLInputElement | null) => pause.ref(node), [pause]);
 
 	return (
 		<div className="flex flex-col gap-4">
@@ -104,11 +103,11 @@ function Places({ canWrite, onOpen, onAdd }: { canWrite: boolean; onOpen: (id: s
 						placeholder="Search name or address"
 						value={search}
 						maxLength={120}
-						ref={cancelSearchOnDetach}
+						ref={cancelOnDetach}
 						onChange={(e) => {
 							const next = e.target.value;
 							setSearch(next);
-							pause.run(() => setQuery(next.trim()));
+							afterPause(() => setQuery(next.trim()));
 						}}
 					/>
 				</div>

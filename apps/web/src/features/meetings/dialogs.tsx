@@ -96,25 +96,25 @@ function usePersonSearch() {
 		setSearch(next);
 		pause.run(() => setQuery(next.trim()));
 	};
-	return { search, onChange, idle, promise, pauseRef: pause.ref };
+	return { search, onChange, idle, promise, cancelOnDetach: pause.cancelOnDetach };
 }
 
 function PersonSearchBox({
 	label,
 	search,
 	onChange,
-	pauseRef,
+	cancelOnDetach,
 	autoFocus,
 }: {
 	label: string;
 	search: string;
 	onChange: (value: string) => void;
-	pauseRef: (node: Element | null) => () => void;
+	cancelOnDetach: (node: Element | null) => () => void;
 	autoFocus?: boolean;
 }) {
 	return (
 		<SearchInput
-			ref={pauseRef}
+			ref={cancelOnDetach}
 			aria-label={`Search people for ${label.toLowerCase()}`}
 			placeholder="Search by name, email or phone"
 			value={search}
@@ -175,10 +175,16 @@ export function PersonPicker({
 	none?: string;
 	autoFocus?: boolean;
 }) {
-	const { search, onChange: setSearch, idle, promise, pauseRef } = usePersonSearch();
+	const { search, onChange: setSearch, idle, promise, cancelOnDetach } = usePersonSearch();
 	return (
 		<div className="flex flex-col gap-2">
-			<PersonSearchBox label={label} search={search} onChange={setSearch} pauseRef={pauseRef} autoFocus={autoFocus} />
+			<PersonSearchBox
+				label={label}
+				search={search}
+				onChange={setSearch}
+				cancelOnDetach={cancelOnDetach}
+				autoFocus={autoFocus}
+			/>
 			<div className="max-h-[232px] min-h-[120px] overflow-y-auto rounded-md px-1">
 				<SearchResults idle={idle} promise={promise}>
 					{(hits) => {
@@ -224,7 +230,7 @@ export function PeoplePicker({
 	onChange: (people: PickedPerson[]) => void;
 	exclude?: string[];
 }) {
-	const { search, onChange: setSearch, idle, promise, pauseRef } = usePersonSearch();
+	const { search, onChange: setSearch, idle, promise, cancelOnDetach } = usePersonSearch();
 	const chosen = new Set(value.map((p) => p.id));
 	const toggle = (p: PickedPerson, on: boolean) =>
 		onChange(
@@ -232,7 +238,7 @@ export function PeoplePicker({
 		);
 	return (
 		<div className="flex flex-col gap-2">
-			<PersonSearchBox label={label} search={search} onChange={setSearch} pauseRef={pauseRef} />
+			<PersonSearchBox label={label} search={search} onChange={setSearch} cancelOnDetach={cancelOnDetach} />
 			<div className="h-[184px] overflow-y-auto rounded-md px-1">
 				<SearchResults idle={idle} promise={promise}>
 					{(hits) => {
