@@ -1,13 +1,3 @@
-/* Product foundations: the layer the product UI adds to the one Tailwind build in apps/web/src/styles/marketing.css.
-   That file imports Tailwind and design/handoff/tokens.css, the single token source, then this file. There is no second
-   Tailwind build: React keeps every loaded stylesheet after a client navigation, so a second build would re-declare
-   utilities later in the cascade and change marketing pages after a visit to the product.
-
-   Every rule here is scoped to the product root ([data-product-root], rendered by ProductRoot) or to <html> while it
-   carries data-theme, which only ProductRoot sets. Marketing pages render neither, so these rules never touch them.
-   The marketing base layer (light color-scheme, cream body, ink focus ring) stays as it is. */
-
-/* Product-only theme values. They extend the generated tokens and do not replace any of them. */
 @theme inline {
 	--radius-nav: var(--ef-nav-radius);
 	--radius-nav-item: var(--ef-nav-item-radius);
@@ -16,13 +6,9 @@
 	--text-nav: 15px;
 	--text-nav--line-height: 1.2;
 
-	/* The edge of a control or an unchecked state ring (WCAG 1.4.11, 3:1 on the frame, the surfaces and tinted rows).
-     The hairline --ef-line-2 stays for dividers and decoration. */
 	--shadow-edge: 0 0 0 1px var(--ef-edge);
 	--shadow-edge-inset: inset 0 0 0 1.5px var(--ef-edge);
 
-	/* Shell breakpoints from foundations.md (Layout), as max-* variants: max-app-lg is 1340px and narrower.
-     app-md and app-sm are the narrow-screen shell, which the prototype does not draw (WP-088 decision). */
 	--breakpoint-app-sm: 640px;
 	--breakpoint-app-md: 1024px;
 	--breakpoint-app-lg: 1341px;
@@ -31,12 +17,9 @@
 }
 
 @theme {
-	/* The brand ink in both themes, for marks drawn on a brand-green fill (the Evry eyes). The ink token flips in dark mode. */
 	--color-ink-fixed: #181d19;
 }
 
-/* The --ef-edge values per theme: light #7A808C is 3.4:1 or more on every light surface of the product, dark #747B88 is
-   3.1:1 or more on every dark surface. They extend the generated tokens, which stay as the prototype exports them. */
 :root {
 	--ef-edge: #7a808c;
 }
@@ -44,23 +27,15 @@
 	--ef-edge: #747b88;
 }
 
-/* Product dark mode is the data-theme attribute, never the system setting. */
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 @layer base {
-	/* While a product page is mounted, its theme is mirrored to <html> (ProductRoot), so the page canvas, scrollbars and
-     form controls follow it. The marketing base layer declares light; this rule is more specific. */
 	html[data-theme="dark"] {
 		color-scheme: dark;
 	}
-	/* The document is the product's scroll container, so the gutter goes on <html>: pages with and without a scrollbar
-     keep the same width. Marketing pages have no product root and keep their own scrolling. */
 	html:has([data-product-root]) {
 		scrollbar-gutter: stable;
 	}
-	/* A modal overlay (Radix, through react-remove-scroll) locks scrolling and adds the scrollbar's width to the body as
-     margin. The gutter above still holds that space while the scrollbar is hidden, so the margin would count it twice
-     and pull the page in from the right. The gutter alone keeps the width. */
 	html:has([data-product-root]) body[data-scroll-locked] {
 		margin-right: 0 !important;
 	}
@@ -75,7 +50,6 @@
 		line-height: 1.45;
 		-webkit-font-smoothing: antialiased;
 	}
-	/* Headings: DM Serif Display at 24px and up, DM Serif Text below (h3, h4 and small numbers), both 400 at -0.02em. */
 	[data-product-root] :where(h1, h2, h3, h4) {
 		font-family: var(--ef-font-display);
 		font-weight: 400;
@@ -90,8 +64,6 @@
 		letter-spacing: -0.02em;
 	}
 
-	/* Keyboard focus: a 2px --ef-focus ring with a 2px offset, on keyboard focus only (foundations.md, Accessibility).
-     More specific than the marketing ink ring. Rows and cards draw the ring inside their edge. */
 	[data-product-root] :is(a, button, summary, input, select, textarea, [tabindex]:not([tabindex="-1"])):focus-visible {
 		outline: 2px solid var(--ef-focus);
 		outline-offset: 2px;
@@ -100,7 +72,6 @@
 		outline-offset: -2px;
 	}
 
-	/* The theme switch cross-fades colors for 0.3s. ProductRoot sets data-theme-fade only without reduced motion. */
 	[data-product-root][data-theme-fade],
 	[data-product-root][data-theme-fade] * {
 		transition:
@@ -113,8 +84,6 @@
 }
 
 @layer components {
-	/* Brand specimens (Foundations preview): logo tiles, brand swatches and the field ramp show the fixed brand values in
-     both themes, like the prototype's .brand-fixed. Only the page chrome around them follows the theme. */
 	[data-product-root] .ef-brand-fixed {
 		--ef-ink: #181d19;
 		--ef-green-700: #0b5c38;
@@ -123,7 +92,6 @@
 		--ef-green-100: #cafbdc;
 	}
 
-	/* Page reveal (foundations.md, Motion): each block rises 14px and fades in over 0.4s. revealDelay() sets the order. */
 	[data-product-root] .reveal {
 		animation: ef-reveal-up 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 		animation-delay: var(--reveal-delay, 0ms);
@@ -134,7 +102,6 @@
 		}
 	}
 
-	/* Diagonal hatch for planned or estimated values. --hatch sets the hue step. */
 	[data-product-root] .hatch {
 		background-color: color-mix(in srgb, var(--hatch, var(--ef-blue-300)) 16%, transparent);
 		background-image: repeating-linear-gradient(
@@ -146,10 +113,6 @@
 		);
 	}
 
-	/* EvryBot (EvryBot.tsx), ported from the approved prototype (OPS-84, .evry-bot). One inline SVG: the body path morphs
-     between five shapes and two eye paths narrow and bend near the edge (evry-life.ts writes them). CSS adds the float,
-     the blink, the happy bounce and the thinking dot. The eyes stay brand ink on the green body in both themes, with a
-     fixed round shape and no highlight. */
 	[data-product-root] .evry-bot {
 		--s: 28px;
 		position: relative;
@@ -185,8 +148,6 @@
 		overflow: visible;
 		filter: drop-shadow(0 calc(var(--s) * 0.05) calc(var(--s) * 0.06) rgb(1 60 34 / 0.3));
 	}
-	/* Float at 40px and larger (smaller bots would move under a pixel): a slow bob with a little squash at the bottom and
-     stretch at the top. Held bots and happy, which bounces, do not float. */
 	[data-product-root]
 		.evry-bot[data-eb]:is([data-size="lg"], [data-size="xl"]):not([data-hold], [data-mood="happy"])
 		.eb-body {
@@ -197,7 +158,6 @@
 	[data-product-root] .evry-bot .eb-fill {
 		fill: var(--ef-green);
 	}
-	/* The body's shading (deep green, darker toward the base) and its highlight (white, upper left). */
 	[data-product-root] .evry-bot :is(.eb-s0, .eb-s1) {
 		stop-color: #013c22;
 		stop-opacity: 0;
@@ -217,11 +177,9 @@
 		transform-box: fill-box;
 		transform-origin: center;
 	}
-	/* Blink: the loop sets data-blink; each eye shuts vertically around its own centre. */
 	[data-product-root] .evry-bot[data-blink] .eb-e {
 		animation: ef-eb-blink 0.18s ease;
 	}
-	/* Happy: ^ ^ eyes with round caps, the whole bot bounces. */
 	[data-product-root] .evry-bot[data-mood="happy"] {
 		animation: ef-eb-bounce 0.9s cubic-bezier(0.3, 1.6, 0.5, 1) infinite alternate;
 	}
@@ -231,7 +189,6 @@
 		stroke-width: 4.65;
 		stroke-linecap: round;
 	}
-	/* Thinking: rigid eyes look up and to the right (the loop), a dot orbits at md and larger. */
 	[data-product-root] .evry-bot[data-mood="thinking"]:not([data-size="xs"], [data-size="sm"])::after {
 		content: "";
 		position: absolute;

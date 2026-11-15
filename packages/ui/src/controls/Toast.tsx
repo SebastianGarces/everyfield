@@ -10,19 +10,13 @@ export type ToastTone = "success" | "info" | "error";
 export type ToastInput = {
 	message: ReactNode;
 	tone?: ToastTone;
-	/**
-	 * One follow-up action, such as "View task". Never "Undo": records are corrected with history, not undone
-	 * (design/handoff/README.md). `altText` tells screen reader users how to reach the same action elsewhere.
-	 */
 	action?: { label: string; altText: string; onSelect: () => void };
-	/** Milliseconds before it closes. Hover and focus pause it. Errors stay until closed. */
 	duration?: number;
 };
 
 type ToastItem = ToastInput & { id: number };
 const ToastContext = createContext<((toast: ToastInput) => void) | null>(null);
 
-/** Shows a toast. Needs a ToastProvider above it. */
 export function useToast(): (toast: ToastInput) => void {
 	const show = use(ToastContext);
 	if (!show) throw new Error("useToast needs a ToastProvider above it.");
@@ -34,10 +28,6 @@ const ICON_TONE = { success: "text-green-300", info: "text-blue-300", error: "te
 
 let nextId = 0;
 
-/**
- * Toast (components.md): Icon, Message and Action, at the bottom center. Success and info toasts are polite status
- * messages; error toasts are assertive and stay until closed. F8 moves focus to the toast region. Swipe right closes.
- */
 export function ToastProvider({ children }: { children: ReactNode }) {
 	const [toasts, setToasts] = useState<ToastItem[]>([]);
 	const show = useCallback((toast: ToastInput) => setToasts((all) => [...all, { ...toast, id: ++nextId }]), []);

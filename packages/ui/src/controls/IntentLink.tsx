@@ -10,11 +10,6 @@ type IntentHandlers = {
 	onFocus: (e: FocusEvent<HTMLAnchorElement>) => void;
 };
 
-/**
- * Prefetch a route when a person shows intent: a mouse moves over the link, a finger touches it, or keyboard focus
- * reaches it. Spread on a link that has `prefetch={false}`, so scrolling into view sends nothing. `enabled` false
- * returns handlers that do nothing, for links that should never prefetch.
- */
 export function useIntentPrefetch(href: string, enabled = true): IntentHandlers {
 	const router = useRouter();
 	const warm = () => {
@@ -31,7 +26,6 @@ export function useIntentPrefetch(href: string, enabled = true): IntentHandlers 
 	};
 }
 
-/** Runs each handler in turn, so a link can carry both the hover highlight and the intent prefetch. */
 export function both<E>(a?: (e: E) => void, b?: (e: E) => void) {
 	return (e: E) => {
 		a?.(e);
@@ -39,7 +33,6 @@ export function both<E>(a?: (e: E) => void, b?: (e: E) => void) {
 	};
 }
 
-/** A next/link that prefetches on intent only (see useIntentPrefetch). */
 export function IntentLink({
 	href,
 	...props

@@ -18,15 +18,9 @@ const PANEL =
 const WIDTH = { sm: "max-w-[440px]", md: "max-w-[560px]", lg: "max-w-[720px]" } as const;
 
 type DialogContentProps = ComponentPropsWithRef<typeof DialogPrimitive.Content> & {
-	/** sm 440 · md 560 (the prototype) · lg 720. Below these it fills the screen less 12px each side. */
 	size?: keyof typeof WIDTH;
 };
 
-/**
- * Dialog (components.md): a modal with aria-modal. Focus moves in on open, Tab stays inside, Esc and the scrim close
- * it and focus returns to the trigger. The page behind is inert. Compose it from DialogHeader, DialogBody and
- * DialogFooter. A long body scrolls inside the dialog, so the header and footer stay in view.
- */
 export function DialogContent({
 	size = "md",
 	className,
@@ -52,13 +46,10 @@ type DialogHeaderProps = {
 	description?: ReactNode;
 	icon?: IconSvgElement;
 	tone?: Tone;
-	/** Hide the close button only when the footer has an explicit way out. */
 	closable?: boolean;
-	/** Header buttons left of the close button. */
 	actions?: ReactNode;
 };
 
-/** Icon, Title, Description and Close. The title and description name and describe the dialog. */
 export function DialogHeader({ title, description, icon, tone = "ink", closable = true, actions }: DialogHeaderProps) {
 	return (
 		<div className="flex flex-none items-start gap-4 px-7 pt-[26px] pb-4 max-app-sm:px-5 max-app-sm:pt-5">
@@ -102,27 +93,16 @@ export function DialogFooter({ className, ...props }: ComponentPropsWithRef<"div
 type ConfirmDialogProps = {
 	open?: boolean;
 	onOpenChange?: (open: boolean) => void;
-	/** The element that opens the dialog, when it is not controlled. */
 	trigger?: ReactNode;
 	title: ReactNode;
 	description?: ReactNode;
-	/** What will happen, one item per consequence. Shown as a list so nothing hides in a sentence. */
 	consequences?: ReactNode[];
-	/** The action's own words ("Hide article"), never "OK". */
 	confirmLabel: string;
 	cancelLabel?: string;
 	tone?: "default" | "danger";
-	/**
-	 * Runs the action. While it runs, the confirm button shows a spinner and the dialog stays open. A thrown error is
-	 * shown in the dialog with the message from the error, and the dialog stays open so the person can try again.
-	 */
 	onConfirm: () => void | Promise<void>;
 };
 
-/**
- * ConfirmDialog (components.md, Hide dialog): an alert dialog for an action that needs a deliberate yes. Focus starts
- * on Cancel, so Enter never confirms by accident. tone="danger" marks a destructive action.
- */
 export function ConfirmDialog({
 	open,
 	onOpenChange,
@@ -221,19 +201,13 @@ type SheetProps = {
 	trigger?: ReactNode;
 	title: ReactNode;
 	description?: ReactNode;
-	/**
-	 * modal (default) traps focus and makes the page inert. Non-modal keeps the page usable beside the panel (Guide
-	 * and Evry), still closes with Esc and does not close on an outside click.
-	 */
 	modal?: boolean;
-	/** Header actions left of the close button. */
 	actions?: ReactNode;
 	footer?: ReactNode;
 	children: ReactNode;
 	className?: string;
 };
 
-/** Sheet: a panel from the right edge for the Guide panel and similar side content. Full width below 640px. */
 export function Sheet({
 	open,
 	onOpenChange,

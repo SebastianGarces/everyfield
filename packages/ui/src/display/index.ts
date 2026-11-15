@@ -1,4 +1,3 @@
-// Shared data, content and domain display components (WP-090). Feature packages compose with them.
 export * from "./Badges";
 export * from "./DataTable";
 export * from "./Lists";

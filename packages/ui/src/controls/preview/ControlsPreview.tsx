@@ -117,11 +117,6 @@ const GROUPS = [
 	{ value: "feedback", label: "Feedback" },
 ] as const satisfies readonly { value: Group; label: string }[];
 
-/**
- * The controls preview at /design/controls, after the prototype's #/components page: every WP-089 inventory row in
- * its drawn states, with invented sample data. Every control works, so keyboard, focus and the overlay states can
- * be checked in place. Compositions that belong to feature packages are listed at the end with their parts.
- */
 export function ControlsPreview() {
 	const [group, setGroup] = useState<Group>("all");
 	const show = (g: Group) => group === "all" || group === g;
@@ -461,13 +456,8 @@ function ButtonsSection() {
 
 const CURSOR_STAGES = STAGES.map((o) => (o.value === "leader" ? { ...o, disabled: true } : o));
 const CURSOR_OWNERS = TAGS.owners.map((o, i) => (i === 1 ? { ...o, disabled: true } : o));
-/** Plain trigger look with no cursor class, so the samples show what the product-root cursor rule gives. */
 const PLAIN = "h-[34px] rounded-sm bg-surface-2 px-3 text-sm font-medium text-ink";
 
-/**
- * Enabled and disabled samples of the clickable controls, so the preview shows the cursor each one gets. The plain
- * triggers use no asChild and no cursor class: the product-root rule gives them a pointer.
- */
 function CursorSamples() {
 	const [view, setView] = useState("grid");
 	const [tab, setTab] = useState("one");
@@ -1125,7 +1115,6 @@ const COMPOSITIONS: [string, string, string][] = [
 	["Private check-in reminder", "Card variant=callout, CardClose", "WP-039"],
 ];
 
-/** Inventory rows in these groups whose content belongs to one feature: the feature composes them from these parts. */
 function CompositionMap() {
 	return (
 		<Section

@@ -8,16 +8,6 @@ import { mountEvry, type EvryHandle, type EvryLifeOptions } from "./evry-life";
 export type EvryBotSize = "xs" | "sm" | "md" | "lg" | "xl";
 export type EvryMood = "idle" | "thinking" | "talking" | "happy";
 
-/**
- * Evry's character, ported from the approved prototype (OPS-84): a brand-green shape with upright ink eyes in one inline
- * SVG. The shared life loop (evry-life.ts) morphs it between five shapes, moves the eyes and the body, blinks and runs the
- * moods; CSS in product.css adds the float, the happy bounce and the thinking dot. Reduced motion shows a still circle
- * (or `shape`). The server renders the first state: `shape` or the circle, with rest eyes.
- *
- * `talking` renders as `idle`: the prototype has no talking animation (WP-088 decision). `follow` turns the eyes toward
- * the pointer. `shape` sets the first shape, and with `hold` the only one. `blinkOffset` (0 to 1) staggers the float, so
- * several bots on one page do not bob together; blinks are random per bot.
- */
 export function EvryBot({
 	size,
 	mood = "idle",
@@ -37,7 +27,6 @@ export function EvryBot({
 }) {
 	const id = "eb" + useId().replace(/[^\w-]/g, "");
 	const face: EyeMood = mood === "talking" ? "idle" : mood;
-	// The loop owns the paths and data-shape after mount, so React renders them once and never writes them again.
 	const [first] = useState(() => ({ shape: shape ?? "circle", ...restPaths(shape ?? "circle", face) }));
 	const root = useRef<HTMLSpanElement>(null);
 	const path = useRef<SVGPathElement>(null);

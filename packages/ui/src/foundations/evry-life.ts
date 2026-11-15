@@ -1,13 +1,3 @@
-/**
- * Evry's life loop, ported from the approved prototype (design/everyfield-ui.html, `EvryLife`, OPS-84). DOM only, no
- * React: a component renders the SVG and hands its nodes to `mountEvry`. Every bot on the page shares one loop: frames
- * while a visible bot moves, else one timer to the next due action. Frames write only changed SVG attributes and read no
- * layout. Bots off screen, on a hidden page or inside a closed `[data-open="false"]` host do no work. Under reduced
- * motion every bot is still.
- *
- * The root carries the observable state: data-shape (the current shape), data-blink while a blink runs, data-act (look,
- * tilt or sway) while an idle act runs, and data-eb once the loop owns the bot.
- */
 import {
 	blend,
 	edges,
@@ -38,10 +28,8 @@ export type EvryNodes = {
 	sh: SVGLinearGradientElement;
 };
 export type EvryLifeOptions = {
-	/** Bots smaller than xl draw every second frame. */
 	small: boolean;
 	mood: EyeMood;
-	/** The first shape, and the only shape while held or under reduced motion. */
 	shape: EvryShape | undefined;
 	hold: boolean;
 	follow: boolean;
@@ -139,28 +127,17 @@ const TAU = 2 * Math.PI;
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
 const inOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(2 - 2 * t, 3) / 2);
 const smooth = (t: number) => t * t * (3 - 2 * t);
-/** Eased out: still at both ends, fastest at a quarter. */
 const travel = (t: number) => 1 - Math.pow(1 - t, 4) * (1 + 4 * t);
 const unit = (x: number, y: number): [number, number] => {
 	const l = Math.hypot(x, y) || 1;
 	return [x / l, y / l];
 };
 const REACH = 0.92;
-/**
- * Body pose: a tilt in degrees about a point low in the body (y = PIVOT), so the top leans further than the base, and a
- * shift in box units. The gaze adds a lean of LEAN degrees at full turn.
- */
 const DEG = Math.PI / 180;
 const PIVOT = 84;
 const LEAN = 3;
-/**
- * Thinking looks up and to the right, at a little under half of its reach, with rigid upright eyes. During a morph it
- * keeps the smaller reach of the two shapes, so its eyes hold still.
- */
 const think = (now: number, g0: [number, number]): Look => ({ u: [0.55, -0.835], m: 0.45, t0: now, g0, rigid: true });
 
-// Widest gaze per shape, mood and direction, shared by every bot. A morph blends the two ends' reach: an eye that fits
-// shape A at one gaze and shape B at another fits each blend in between.
 let shapeEdges: Record<EvryShape, Edges> | null = null;
 const RC = new Map<string, number>();
 function reachOf(name: EvryShape, mood: EyeMood, ux: number, uy: number) {
@@ -193,7 +170,6 @@ function reachNow(st: Bot, ux: number, uy: number) {
 	return m ? c[5] + (c[6] - c[5]) * m.e : c[6];
 }
 
-// ---- the page: one set of listeners while any bot is mounted
 const bots: Bot[] = [];
 let live: Bot[] = [];
 let raf = 0;
@@ -210,8 +186,6 @@ const refresh = () => {
 
 function start() {
 	const mq = matchMedia("(prefers-reduced-motion: reduce)");
-	// Read .matches once: Chromium skips a list's change event when script read .matches after the preference changed,
-	// so the loop reads this copy and only the change event updates it.
 	reduced = mq.matches;
 	const io = new IntersectionObserver(
 		(list) => {
@@ -254,7 +228,6 @@ function start() {
 	};
 }
 
-/** Starts the life of one rendered bot. The nodes must stay mounted until `unmount`. */
 export function mountEvry(nodes: EvryNodes, options: EvryLifeOptions): EvryHandle {
 	if (!page) start();
 	const host = nodes.root.parentElement?.closest<HTMLElement>("[data-open]") ?? null;
@@ -316,7 +289,6 @@ export function mountEvry(nodes: EvryNodes, options: EvryLifeOptions): EvryHandl
 			const prev = st.o;
 			st.o = next;
 			if (next.shape !== prev.shape || next.hold !== prev.hold) {
-				// A new labelled shape shows at once; a released hold morphs again on its own schedule.
 				if (next.shape && next.shape !== prev.shape) {
 					setShape(st, next.shape);
 					draw(st, true);
@@ -378,7 +350,6 @@ function edgesNow(st: Bot) {
 	return st.E;
 }
 
-// ---- actions
 function startMorph(st: Bot, name: EvryShape, ms: number, now: number) {
 	const S = SHAPES[name];
 	st.morph = {
@@ -393,10 +364,6 @@ function startMorph(st: Bot, name: EvryShape, ms: number, now: number) {
 	};
 	showShape(st, name);
 }
-/**
- * One gaze move: a small anticipation the other way, an eased travel past the target, a settle. Near the widest reach
- * the anticipation and the overshoot shrink so the eyes stay inside.
- */
 function move(from: number[], to: number[], t0: number, rfrom: number, rto: number): Move {
 	const dist = Math.hypot(to[0]! - from[0]!, to[1]! - from[1]!) || 1;
 	const room = (r: number) => (r ? ((1.04 - REACH) * r) / dist : 1);
@@ -420,7 +387,6 @@ function prof(mv: Move, t: number) {
 	if (t < mv.ts) return 1 + mv.o - mv.o * smooth(t / mv.ts);
 	return 1;
 }
-/** A look-around: to one side (level or up), then to the other side or straight back to centre. A short one never looks to the second side. */
 function glancePlan(st: Bot, now: number, one?: boolean) {
 	const side = Math.random() < 0.5 ? -1 : 1;
 	const moves: Move[] = [];
@@ -442,12 +408,6 @@ function glancePlan(st: Bot, now: number, one?: boolean) {
 	moves.push(move(from, [0, 0], t, rf, 0));
 	return moves;
 }
-/**
- * Idle acts fill each hold between two morphs, so idle Evry never only blinks. A look turns the eyes and the body leans
- * after them. A tilt rocks the body to one side, sometimes to the other, and back. A sway shifts it sideways, often a
- * little up, with a small lean. Body moves use the gaze's eased profile, a little slower, as a heavier part would. Poses
- * are [tilt, x, y].
- */
 const ACTS: Record<"first" | "later", [ActKind, number][]> = {
 	first: [
 		["look", 0.8],
@@ -512,10 +472,6 @@ function actPlan(st: Bot, now: number, kind: ActKind, one?: boolean): Act {
 	}
 	return { kind, eyes, body, end: Math.max(t, eyes ? moveEnd(eyes[eyes.length - 1]!) : 0) };
 }
-/**
- * The full act if it ends before the next morph, else its short form, else none (or, with force, the short form, and the
- * caller moves the morph back).
- */
 function fitAct(st: Bot, now: number, kind: ActKind, force: boolean) {
 	const room = st.due.morph - 250;
 	let a = actPlan(st, now, kind);
@@ -529,7 +485,6 @@ function startAct(st: Bot, a: Act) {
 	st.acting = true;
 	st.n.root.dataset.act = a.kind;
 }
-/** Ease the body back to rest from wherever it is (a pointer follow or a mood change cut the act). */
 function settle(st: Bot, now: number) {
 	st.bmoves = st.bmoves || st.B.some((v) => v) ? [bmove(st.B.slice(), [0, 0, 0], now)] : null;
 }
@@ -559,11 +514,9 @@ function onMood(st: Bot) {
 	wake();
 }
 
-// ---- planning: start the actions that are due on one visible bot
 function plan(st: Bot, now: number) {
 	const d = st.due;
 	const root = st.n.root;
-	// Blinks are a CSS animation on the eye paths; the loop only sets and clears data-blink.
 	if (d.unblink && now >= d.unblink) {
 		root.removeAttribute("data-blink");
 		d.unblink = 0;
@@ -588,7 +541,6 @@ function plan(st: Bot, now: number) {
 		d.act = Math.max(d.act, now + rand(2500, 5000));
 	}
 	if (st.morph || st.spin || st.moves || st.follow || st.bmoves) return;
-	// An idle hold ends only after its first act (below), so no hold between two morphs only blinks.
 	const hold = st.o.hold;
 	const idle = !hold && st.mood === "idle";
 	if (!hold && now >= d.morph && (st.moved || !idle)) {
@@ -602,7 +554,6 @@ function plan(st: Bot, now: number) {
 		return;
 	}
 	if (!idle) return;
-	// A spin or a glance starts only when it ends before the next morph.
 	if (now >= d.spin) {
 		const ms = rand(900, 1200);
 		if (d.morph - now > ms + 250) {
@@ -612,7 +563,6 @@ function plan(st: Bot, now: number) {
 		}
 		d.spin = d.morph + rand(1500, 4000);
 	}
-	// Every idle hold gets one act soon after its morph (after a spin that was due). The next morph waits for it if it must.
 	if (!st.moved && (now >= d.act || now >= d.morph)) {
 		const a = fitAct(st, now, pick(ACTS.first), true)!;
 		startAct(st, a);
@@ -620,7 +570,6 @@ function plan(st: Bot, now: number) {
 		d.act = a.end + rand(300, 1200);
 		return;
 	}
-	// More acts while the hold has room and no spin falls due during them; the next morph sets a new first act.
 	if (now >= d.act) {
 		const a = fitAct(st, now, pick(ACTS.later), false);
 		if (a && a.end < d.spin) {
@@ -630,7 +579,6 @@ function plan(st: Bot, now: number) {
 	}
 }
 
-// ---- one frame of one bot; returns true while it still animates
 const GV = [0, 0];
 function step(st: Bot, now: number) {
 	let body = false;
@@ -656,7 +604,6 @@ function step(st: Bot, now: number) {
 		}
 	}
 	if (st.follow) {
-		// Pointer follow: a damped spring (stiffness 260, damping ratio 0.7) toward the pointer's side.
 		const f = st.follow;
 		const R = reachNow(st, f.u[0], f.u[1]);
 		const tx = f.u[0] * f.m * R;
@@ -695,7 +642,6 @@ function step(st: Bot, now: number) {
 		st.n.root.removeAttribute("data-act");
 	}
 	draw(st, body);
-	// Between the moves of a look-around or an act the bot holds still, so the loop can sleep until the next one.
 	const busy = (l: Move[] | null) => !!l && (now < moveEnd(l[0]!) || (l.length > 1 && now >= l[1]!.t0));
 	return !!(
 		st.morph ||
@@ -706,7 +652,6 @@ function step(st: Bot, now: number) {
 		(st.look && !st.look.rest)
 	);
 }
-/** Run a list of moves: write the position now to out; return the list, or null once the last settled. */
 function advance(list: Move[], now: number, out: number[]) {
 	let mv = list[0]!;
 	while (list.length > 1 && now >= list[1]!.t0) {
@@ -718,7 +663,6 @@ function advance(list: Move[], now: number, out: number[]) {
 	return list.length === 1 && now >= moveEnd(mv) ? null : list;
 }
 
-// ---- DOM writes: path d, two gradient attributes and one group transform, each only on change
 function set(st: Bot, node: Element, key: string, name: string, v: string) {
 	if (st.w[key] !== v) {
 		st.w[key] = v;
@@ -736,17 +680,10 @@ function draw(st: Bot, body: boolean) {
 	const gxn = Math.max(-1, Math.min(1, st.gx / 18));
 	const gyn = Math.max(-1, Math.min(1, st.gy / 18));
 	const still = Math.abs(gxn) + Math.abs(gyn) < 0.01;
-	// Fake 3D: during a gaze the body narrows as it turns and the highlight slides the other way, so the flat shape reads
-	// as a turning solid. The turn updates by visible steps and always at rest.
 	if (still || Math.abs(gxn - D.tx) + Math.abs(gyn - D.ty) > 0.05) {
 		D.tx = still ? 0 : gxn;
 		D.ty = still ? 0 : gyn;
 	}
-	// Body pose: the tilt (a lean toward the gaze plus the idle act's tilt, in 0.2 degree steps) about a point low in the
-	// body, and the act's shift (0.05 unit steps). Steps stay under 0.2 px at 96 px and skip writes while a move settles.
-	// The group turns and both gradients turn back by the same angle about the body's centre, so the highlight, the
-	// shading and the drop shadow stay at the upper left of the body, as in a spin. A tilt frame writes three short
-	// attributes, no path.
 	const tilt = Math.round(((still ? 0 : LEAN * gxn) + B[0]!) * 5) / 5;
 	const ver = tilt ? st.ver : 0;
 	const bx = Math.round(B[1]! * 20) / 20;
@@ -814,7 +751,6 @@ function draw(st: Bot, body: boolean) {
 		);
 	}
 }
-/** The body's box in the SVG: the gradients' objectBoundingBox units. */
 function bbox(st: Bot) {
 	if (st.bver !== st.ver) {
 		const P = st.P;
@@ -838,8 +774,6 @@ function bbox(st: Bot) {
 	return st.bb;
 }
 
-// ---- the shared loop: frames while a visible bot moves, else one timer to the next due action
-/** The next time a bot needs the loop: a due action, the end of a pointer follow, the next glance move. */
 function dueOf(st: Bot) {
 	const d = st.due;
 	return Math.min(
@@ -890,7 +824,6 @@ function halt() {
 	timer = 0;
 }
 
-/** Reduced motion: the bot stops and shows one still shape (a circle, or its labelled shape). Otherwise it starts over. */
 function applyPref(st: Bot) {
 	const now = performance.now();
 	st.morph = st.spin = st.moves = st.follow = st.bmoves = null;

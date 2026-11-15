@@ -84,8 +84,6 @@
 }
 
 @layer components {
-	/* InsightCard (foundations.md, Gradient cards): base color, a blurred OKLCH mesh in ::before and film grain in
-     ::after. The tone sets --g-base and --g1 to --g5 from the --ef-grad-* tokens. */
 	[data-product-root] .ef-insight {
 		background: var(--g-base);
 		isolation: isolate;
@@ -152,9 +150,6 @@
 		mix-blend-mode: overlay;
 	}
 
-	/* The light-token island. Gradient cards look the same in both themes and carry ink text, so in dark mode the
-     neutral tokens inside them keep their light values (foundations.md; WP-088 ruling R7 hands this to WP-089).
-     The values are the light :root values of design/handoff/tokens.css. The per-card --on variables are ink too. */
 	[data-product-root] .ef-light-island {
 		--on: var(--ef-ink);
 		--on-2: rgb(from var(--ef-ink) r g b / 0.74);
@@ -185,28 +180,24 @@
 		--ef-shadow-raised: 0 1px 2px rgba(24, 29, 25, 0.06), 0 4px 12px -4px rgba(24, 29, 25, 0.1);
 		color-scheme: light;
 	}
-	/* On a gradient card the focus ring is ink (foundations.md, Accessibility). */
 	[data-product-root]
 		.ef-light-island
 		:is(a, button, input, select, textarea, [tabindex]:not([tabindex="-1"])):focus-visible {
 		outline-color: var(--ef-ink);
 	}
 
-	/* Card scroll area: fades out at the bottom like the prototype's .card-scroll. */
 	[data-product-root] .ef-scroll-fade {
 		mask-image: linear-gradient(to bottom, #000 85%, transparent);
 		scrollbar-width: thin;
 		scrollbar-color: var(--ef-line-2) transparent;
 	}
 
-	/* Skeleton shimmer. Reduced motion keeps the still placeholder. */
 	[data-product-root] .ef-skel {
 		background: linear-gradient(90deg, var(--ef-surface-2), var(--ef-surface-3), var(--ef-surface-2));
 		background-size: 200% 100%;
 		animation: ef-shimmer 1.4s infinite;
 	}
 
-	/* Overlay motion: pop-overs and menus drop in 6px and scale from .98 (the prototype's float-pop); dialogs fade; the scrim fades; sheets slide in from the right; toasts rise. Exit runs the same keyframes backwards. */
 	[data-product-root] .ef-pop[data-state="open"] {
 		animation: ef-pop-in 0.2s var(--ef-slide-ease) both;
 	}
@@ -251,8 +242,6 @@
 	}
 }
 
-/* Buttons on a gradient card (the prototype's .insight[data-on="ink"] .btn rules). Unlayered on purpose: these must
-   beat the Button utilities, which sit in the utilities layer. */
 [data-product-root] .ef-light-island [data-variant="light"] {
 	background: var(--ef-ink);
 	color: var(--ef-cream);
