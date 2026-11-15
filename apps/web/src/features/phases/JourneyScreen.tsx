@@ -1,9 +1,11 @@
 "use client";
 
 import {
+	checkReason,
 	type Catalog,
 	type HistoryResult,
 	type JourneyEntry,
+	type JourneyState,
 	type PhaseNumber,
 	type Readiness,
 } from "@everyfield/contracts/phases";
@@ -37,15 +39,32 @@ import {
 } from "@everyfield/ui/controls";
 import { StatusBadge, type Status } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
+import { useRef, useState } from "react";
 import type { PlantFacts } from "@everyfield/contracts/intelligence";
 import { FactsSection } from "../intelligence/FactsSection.tsx";
 import { IntelligenceTabs } from "../intelligence/IntelligenceTabs.tsx";
-import { useLocalStore, useStore } from "../../components/store.ts";
 import { declarePhase, movePhase } from "./actions.ts";
-import { createJourneyStore, type MoveDraft } from "./JourneyScreen.store.ts";
-import { entryDate, entryDetail, entryTitle, isPending, POST_LAUNCH_MEASURES, SHORT_NAME } from "./model.ts";
+import {
+	entryDate,
+	entryDetail,
+	entryTitle,
+	isPending,
+	pendingDeclaration,
+	pendingMove,
+	POST_LAUNCH_MEASURES,
+	REASON_MESSAGE,
+	refusalMessage,
+	requestKeys,
+	sent,
+	SHORT_NAME,
+	withEntry,
+	type Journey,
+} from "./model.ts";
 
 type Viewer = { accountId: string; name: string };
+type MoveDraft = { to: PhaseNumber; reason: string; error: string | null; changed: JourneyState | null };
+type JourneyDialog = { kind: "move"; draft: MoveDraft } | { kind: "declare"; to: PhaseNumber } | null;
+type LostAttempt = { kind: "move"; draft: MoveDraft } | { kind: "declare"; to: PhaseNumber } | null;
 type Props = {
 	history: HistoryResult;
 	catalog: Catalog;
@@ -64,20 +83,70 @@ const STATUS: Record<Readiness["criteria"][number]["status"], { status: Status; 
 
 export function JourneyScreen({ history, catalog, readiness, facts, launchDates, viewer }: Props) {
 	const toast = useToast();
-	const store = useLocalStore(() =>
-		createJourneyStore({
-			journey: { state: history.state, entries: history.entries },
-			port: {
-				move: movePhase,
-				declare: declarePhase,
-				failed: (message) => toast({ message, tone: "error" }),
-				actor: { accountId: viewer.accountId, displayName: viewer.name } as JourneyEntry["actor"],
-			},
-		}),
-	);
-	const { journey, dialog, receipt, actions } = useStore(store, (state) => state);
+	const [journey, setJourney] = useState<Journey>({ state: history.state, entries: history.entries });
+	const [dialog, setDialog] = useState<JourneyDialog>(null);
+	const [receipt, setReceipt] = useState<string | null>(null);
+	const [lost, setLost] = useState<LostAttempt>(null);
+	const keys = useRef<ReturnType<typeof requestKeys> | null>(null);
+	const keysNow = () => (keys.current ??= requestKeys(() => crypto.randomUUID()));
 	const phase = catalog.phases[journey.state.phase]!;
+	const actor = { accountId: viewer.accountId, displayName: viewer.name } as JourneyEntry["actor"];
 	const busy = journey.entries.some(isPending);
+
+	const openMove = () =>
+		setDialog({
+			kind: "move",
+			draft: lost?.kind === "move" ? lost.draft : { to: journey.state.phase, reason: "", error: null, changed: null },
+		});
+	const openDeclare = () => setDialog({ kind: "declare", to: lost?.kind === "declare" ? lost.to : 2 });
+	const editMove = (draft: MoveDraft | null) => setDialog(draft ? { kind: "move", draft } : null);
+	const editDeclare = (to: PhaseNumber | null) => setDialog(to === null ? null : { kind: "declare", to });
+
+	async function submitMove(draft: MoveDraft) {
+		const checked = checkReason(draft.reason);
+		if (!checked.ok) return editMove({ ...draft, error: REASON_MESSAGE[checked.problem] });
+		const before = journey;
+		setDialog(null);
+		setReceipt(null);
+		setLost((l) => (l?.kind === "move" ? null : l));
+		setJourney(pendingMove(before, draft.to, checked.reason, actor, new Date().toISOString()));
+		const intent = ["move", before.state.revision, draft.to, draft.reason] as const;
+		const r = await sent(() => movePhase(keysNow().keyFor(intent), before.state.revision, draft.to, draft.reason));
+		if (r.status === "lost") setLost({ kind: "move", draft: { ...draft, error: null, changed: null } });
+		else keysNow().settle(intent);
+		if (r.status === "ok") {
+			if (r.value.outcome === "noop") return setReceipt(`No change: already in Phase ${r.value.state.phase}.`);
+			return setJourney(withEntry(before, r.value.state, r.value.entry));
+		}
+		setJourney(before);
+		if (r.status === "refused" && r.error.code === "revision_conflict") {
+			const changed = r.error.details.state;
+			setJourney({ ...before, state: changed });
+			return editMove({ ...draft, error: null, changed });
+		}
+		if (r.status === "refused" && r.error.code === "invalid_reason")
+			return editMove({ ...draft, error: refusalMessage(r), changed: null });
+		toast({ message: refusalMessage(r), tone: "error" });
+	}
+
+	async function submitDeclare(to: PhaseNumber) {
+		const before = journey;
+		setDialog(null);
+		setReceipt(null);
+		setLost((l) => (l?.kind === "declare" ? null : l));
+		setJourney(pendingDeclaration(before, to, actor, new Date().toISOString()));
+		const intent = ["declare", before.state.revision, to] as const;
+		const r = await sent(() => declarePhase(keysNow().keyFor(intent), before.state.revision, to));
+		if (r.status === "lost") setLost({ kind: "declare", to });
+		else keysNow().settle(intent);
+		if (r.status === "ok") return setJourney(withEntry(before, r.value.state, r.value.entry));
+		setJourney(
+			r.status === "refused" && r.error.code === "revision_conflict"
+				? { ...before, state: r.error.details.state }
+				: before,
+		);
+		toast({ message: refusalMessage(r), tone: "error" });
+	}
 
 	return (
 		<>
@@ -95,7 +164,7 @@ export function JourneyScreen({ history, catalog, readiness, facts, launchDates,
 							<CardDescription>{phase.name}</CardDescription>
 						</CardHeading>
 						<CardActions>
-							<Button variant="outline" size="sm" disabled={busy} onClick={actions.openMove}>
+							<Button variant="outline" size="sm" disabled={busy} onClick={openMove}>
 								Change phase
 							</Button>
 						</CardActions>
@@ -107,7 +176,7 @@ export function JourneyScreen({ history, catalog, readiness, facts, launchDates,
 					{journey.state.declarable ? (
 						<div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-md bg-surface-2 px-4 py-3">
 							<p className="text-sm text-ink-2">Already further along? Declare your current phase.</p>
-							<Button variant="secondary" size="sm" disabled={busy} onClick={actions.openDeclare}>
+							<Button variant="secondary" size="sm" disabled={busy} onClick={openDeclare}>
 								Declare phase
 							</Button>
 						</div>
@@ -124,17 +193,12 @@ export function JourneyScreen({ history, catalog, readiness, facts, launchDates,
 					current={journey.state.phase}
 					catalog={catalog}
 					readiness={readiness[journey.state.phase]!}
-					onChange={actions.editMove}
-					onSubmit={actions.submitMove}
+					onChange={editMove}
+					onSubmit={submitMove}
 				/>
 			) : null}
 			{dialog?.kind === "declare" ? (
-				<DeclareDialog
-					to={dialog.to}
-					catalog={catalog}
-					onChange={actions.editDeclare}
-					onSubmit={actions.submitDeclare}
-				/>
+				<DeclareDialog to={dialog.to} catalog={catalog} onChange={editDeclare} onSubmit={submitDeclare} />
 			) : null}
 		</>
 	);
