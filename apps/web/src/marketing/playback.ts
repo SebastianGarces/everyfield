@@ -4,9 +4,16 @@ import { cancelFrame, frame } from "motion/react";
 type Listener = () => void;
 
 const pageListeners = new Set<Listener>();
+let reduced = false;
+let reducedTurns = 0;
 const pageChanged = () => {
+	const now = prefersReducedMotion();
+	if (now && !reduced) reducedTurns++;
+	reduced = now;
 	for (const listener of pageListeners) listener();
 };
+
+export const reducedMotionTurns = () => reducedTurns;
 
 export function onPageStateChange(listener: Listener): () => void {
 	pageListeners.add(listener);
@@ -25,6 +32,7 @@ function install() {
 	}
 	const media = matchMedia("(prefers-reduced-motion: reduce)");
 	host[INSTALLED] = { changed: pageChanged, media };
+	reduced = media.matches;
 	document.addEventListener("visibilitychange", pageChanged);
 	media.addEventListener("change", pageChanged);
 }

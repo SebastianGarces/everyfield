@@ -9,7 +9,7 @@ import { DoneButton } from "@/components/motion/DoneButton";
 import { FxProvider, TargetProvider, useT } from "@/components/motion/fx";
 import { m } from "@/components/motion/m";
 import { MText, PanelClockProvider, useReduced, useText, useTo } from "@/components/motion/scene";
-import { joinRefs, onPageStateChange, runFrames } from "../playback";
+import { joinRefs, onPageStateChange, reducedMotionTurns, runFrames } from "../playback";
 
 const TM = {
 	act: 1.5,
@@ -164,13 +164,15 @@ export function HeroStage({ label, chip, children }: { label: string; chip: Reac
 function createLoop(t: MotionValue<number>) {
 	const state = { seen: false, paused: false };
 	let stop: (() => void) | undefined;
+	let turns = reducedMotionTurns();
 	const halt = () => {
 		stop?.();
 		stop = undefined;
 	};
 	const sync = () => {
 		const reduced = prefersReducedMotion();
-		if (reduced) t.set(STILL);
+		if (reduced || turns !== reducedMotionTurns()) t.set(STILL);
+		turns = reducedMotionTurns();
 		const run = state.seen && !state.paused && !reduced;
 		if (run && !stop) stop = runFrames((dt) => t.set((t.get() + dt) % LOOP));
 		if (!run) halt();
