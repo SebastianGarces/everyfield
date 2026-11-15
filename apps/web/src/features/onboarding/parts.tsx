@@ -2,8 +2,8 @@
 
 import { ArrowLeft01Icon, ArrowRight01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 import { Button } from "@everyfield/ui/controls";
-import { cn, EvryBot, Icon, Lockup } from "@everyfield/ui/foundations";
-import { useEffect, useRef, type ReactNode } from "react";
+import { cn, EvryBot, Icon, Lockup, useFocusRequest } from "@everyfield/ui/foundations";
+import type { ReactNode } from "react";
 import { STEPS, type ErrorCode, type Notice as NoticeState, type Op, type StepKey } from "./model";
 
 // Shared pieces of the onboarding page, composed from @everyfield/ui and the prototype's .onb, .onb-steps and
@@ -99,6 +99,13 @@ export function StepPills({
 	);
 }
 
+function focusUnlessElsewhere(heading: HTMLHeadingElement): HTMLHeadingElement | null {
+	const active = heading.ownerDocument.activeElement;
+	return active === null || active === heading.ownerDocument.body || active.closest("[data-onboarding-step]")
+		? heading
+		: null;
+}
+
 /** The centered step heading with Evry. Focus moves to the heading when the step changes, so screen readers hear it. */
 export function StepHeading({
 	title,
@@ -109,11 +116,7 @@ export function StepHeading({
 	children?: ReactNode;
 	mood?: "idle" | "happy";
 }) {
-	const ref = useRef<HTMLHeadingElement>(null);
-	useEffect(() => {
-		if (document.activeElement === document.body || document.activeElement?.closest("[data-onboarding-step]"))
-			ref.current?.focus({ preventScroll: false });
-	}, [title]);
+	const ref = useFocusRequest<HTMLHeadingElement>(title, focusUnlessElsewhere);
 	return (
 		<div className="mx-auto max-w-[620px] text-center">
 			<EvryBot size="lg" mood={mood === "happy" ? "happy" : "idle"} />

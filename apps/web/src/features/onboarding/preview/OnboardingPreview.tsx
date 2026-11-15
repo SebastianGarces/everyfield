@@ -2,12 +2,11 @@
 
 import { Select } from "@everyfield/ui/controls";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useMemo } from "react";
+import { useState } from "react";
 import { loadPage } from "../../identity/api";
-import type { Op } from "../model";
 import { parseStep } from "../model";
 import { OnboardingFlow, type Article } from "../OnboardingFlow";
-import { createFixturePort, parsePersona, PERSONA_LABEL, PERSONAS, type Fault } from "./fixtures";
+import { createFixturePort, parsePersona, PERSONA_LABEL, PERSONAS } from "./fixtures";
 
 /**
  * The onboarding design preview at /design/onboarding?as=<persona>. `delay` sets the reply time in milliseconds and
@@ -18,17 +17,7 @@ import { createFixturePort, parsePersona, PERSONA_LABEL, PERSONAS, type Fault } 
 export function OnboardingPreview({ articles }: { articles: Article[] }) {
 	const search = useSearchParams();
 	const persona = parsePersona(search.get("as"));
-	const delay = Number(search.get("delay") ?? 450);
-	const fixture = useMemo(() => createFixturePort(persona, { delay }), [persona, delay]);
-	useEffect(() => {
-		for (const spec of search.getAll("fail")) {
-			const [op, code] = spec.split(":");
-			if (op && code) fixture.controls.failNext(op as Op, code as Fault);
-		}
-		(window as unknown as { __onboardingFixture?: unknown }).__onboardingFixture = fixture.controls;
-		// Faults from the URL apply once per fixture.
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [fixture]);
+	const [fixture] = useState(() => createFixturePort(persona, { faults: search.getAll("fail") }));
 	const choose = (value: string) => {
 		const url = new URL(window.location.href);
 		url.search = `?as=${value}`;

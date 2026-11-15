@@ -5,7 +5,7 @@ import { ownResidencyLinks } from "@/server/organizations";
 import { getViewer } from "@/server/request-context";
 import { ORGANIZATION_HOME } from "@everyfield/contracts/identity";
 import { FOUNDATION_ARTICLES } from "./foundations";
-import { parseStep } from "./model";
+import { addressStep, initialState, parseStep } from "./model";
 import { parseEntry } from "./port";
 import { RealOnboarding } from "./RealOnboarding";
 
@@ -24,18 +24,14 @@ export async function OnboardingPage({ searchParams }: { searchParams: Search })
 	const load = parseEntry(await onboardingEntry());
 	if (load.kind === "signed_out") redirect("/signin?returnTo=%2Fonboarding");
 	const raw = (await searchParams).step;
+	const requested = parseStep(typeof raw === "string" ? raw : null);
+	const step = addressStep(initialState(load.entry, requested));
+	if (step !== (raw ?? null)) redirect(step ? `/onboarding?step=${step}` : "/onboarding");
 	// A seatless account linked to a residency reaches My residency from its Discovery home (WP-100).
 	const live =
 		load.entry.kind === "discovery" && context?.kind === "account"
 			? (await ownResidencyLinks()).find((l) => l.sharing.status === "active")
 			: undefined;
 	const residency = live ? { organizationName: live.organizationName } : null;
-	return (
-		<RealOnboarding
-			residency={residency}
-			entry={load.entry}
-			step={parseStep(typeof raw === "string" ? raw : null)}
-			articles={FOUNDATION_ARTICLES}
-		/>
-	);
+	return <RealOnboarding residency={residency} entry={load.entry} step={requested} articles={FOUNDATION_ARTICLES} />;
 }

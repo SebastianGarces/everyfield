@@ -375,10 +375,9 @@ export type FixtureControls = {
 	bumpRevision(): void;
 };
 
-/** A fixture port for one persona and page load. `delay` is the reply time in milliseconds. */
 export function createFixturePort(
 	persona: Persona,
-	{ delay }: { delay: number },
+	{ faults: failing = [] }: { faults?: readonly string[] } = {},
 ): {
 	port: OnboardingPort;
 	entry: Entry;
@@ -388,10 +387,12 @@ export function createFixturePort(
 	const faults = new Map<Op, Fault>();
 	let offline = false;
 	const calls: Call[] = [];
-	const wait = () => new Promise((r) => setTimeout(r, delay));
+	for (const spec of failing) {
+		const [op, code] = spec.split(":");
+		if (op && code) faults.set(op as Op, code as Fault);
+	}
 	const port = createPort({
 		async entry() {
-			await wait();
 			if (offline) {
 				offline = false;
 				throw new TypeError("Failed to fetch");
@@ -400,7 +401,6 @@ export function createFixturePort(
 		},
 		async command(op, cmd) {
 			calls.push({ op, requestKey: cmd.requestKey, command: cmd });
-			await wait();
 			const fault = faults.get(op);
 			const error = (code: ErrorCode) => ({
 				status: "refused",

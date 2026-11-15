@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useState } from "react";
 import { loadPage } from "../identity/api";
 import { SessionActions } from "../identity/SessionActions";
 import { loadOnboardingEntry, runOnboardingCommand } from "./actions";
@@ -22,7 +22,7 @@ export function RealOnboarding({
 	articles: Article[];
 	residency?: { organizationName: string } | null;
 }) {
-	const port = useMemo(() => createPort({ entry: loadOnboardingEntry, command: runOnboardingCommand }), []);
+	const [port] = useState(() => createPort({ entry: loadOnboardingEntry, command: runOnboardingCommand }));
 	return (
 		<OnboardingFlow
 			port={port}
