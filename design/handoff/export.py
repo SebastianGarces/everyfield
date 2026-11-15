@@ -126,8 +126,8 @@ def render(css):
   --radius: var(--ef-radius-md);
 }}
 
-[data-theme="dark"],
-:root:has([data-product-root][data-theme="dark"]) {{
+:root:has([data-product-root][data-theme="dark"]),
+[data-theme="dark"] {{
 {decls(dark)}
 }}
 

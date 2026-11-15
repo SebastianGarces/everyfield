@@ -185,8 +185,8 @@
   --radius: var(--ef-radius-md);
 }
 
-[data-theme="dark"],
-:root:has([data-product-root][data-theme="dark"]) {
+:root:has([data-product-root][data-theme="dark"]),
+[data-theme="dark"] {
   --ef-ink: #EEF0F4;
   --ef-ink-2: #CDD2DA;
   --ef-text: #ECEEF2;
