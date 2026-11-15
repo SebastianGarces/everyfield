@@ -19,7 +19,7 @@ import {
 } from "@everyfield/contracts/identity";
 import { Button, ConfirmDialog, Field, Input, Skeleton } from "@everyfield/ui/controls";
 import { Avatar } from "@everyfield/ui/display";
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type FormEvent, type ReactNode } from "react";
+import { useCallback, useRef, useState, useSyncExternalStore, type FormEvent, type ReactNode } from "react";
 import { addAddressRule, currentAddress } from "../../../components/location.ts";
 import { NotAvailable } from "../../access/AccessStates";
 import { Refusal, useIntent, useLoad } from "../../organizations/intent";
@@ -77,6 +77,10 @@ function InvitationFor({ proof }: { proof: string }) {
 	}, [proof]);
 	const { state, reload, refreshing } = useLoad(fetch, "The invitation did not load");
 	const [held, setHeld] = useState<Held | null>(() => tabStore.held(proof));
+	const [joining, setJoining] = useState<Joining | null>(() => {
+		const email = tabStore.joining();
+		return email ? { email, here: false } : null;
+	});
 
 	if (state.status === "loading") return <Loading />;
 	if (state.status === "error")
@@ -126,19 +130,26 @@ function InvitationFor({ proof }: { proof: string }) {
 				Everyfield could not check your sign-in. Try again in a few minutes.
 			</Outcome>
 		);
-	if (session === "signed_out") return <SignedOut description={description} proof={proof} />;
-	return description.subject.purpose === "seat" ? (
-		<SeatAnswer description={description} proof={proof} refreshing={refreshing} onRefused={reload} onHeld={setHeld} />
-	) : (
-		<ResidentAnswer
-			description={description}
-			proof={proof}
-			refreshing={refreshing}
-			onRefused={reload}
-			onHeld={setHeld}
-		/>
-	);
+	const joined = (email: string) => {
+		tabStore.setJoining(email);
+		setJoining({ email, here: true });
+		reload();
+	};
+	const signedIn = session !== "signed_out" || joining?.here === true;
+	const answer = {
+		description,
+		proof,
+		refreshing,
+		onRefused: reload,
+		onHeld: setHeld,
+		joining: joining?.email ?? null,
+	};
+	if (description.subject.purpose === "seat") return <SeatFlow {...answer} signedIn={signedIn} onJoined={joined} />;
+	if (!signedIn) return <SignedOut description={description} proof={proof} onJoined={joined} />;
+	return <ResidentAnswer {...answer} />;
 }
+
+type Joining = { email: string; here: boolean };
 
 function Loading() {
 	return (
@@ -198,7 +209,15 @@ type Mode = { mode: "join" } | { mode: "sign_in"; email: string; afterRegister: 
 type FieldName = "name" | "email" | "password";
 
 /** Signed out: create the account the invitation names, or sign in to an existing one (REQ-IDN-030). */
-function SignedOut({ description, proof }: { description: Description; proof: string }) {
+function SignedOut({
+	description,
+	proof,
+	onJoined,
+}: {
+	description: Description;
+	proof: string;
+	onJoined: (email: string) => void;
+}) {
 	const [mode, setMode] = useState<Mode>({ mode: "join" });
 	const seat = description.subject.purpose === "seat";
 	const label = seat ? "join" : "continue";
@@ -233,6 +252,7 @@ function SignedOut({ description, proof }: { description: Description; proof: st
 			<JoinForm
 				proof={proof}
 				submitLabel={`Create account and ${label}`}
+				onJoined={onJoined}
 				onSignInNeeded={(email) => setMode({ mode: "sign_in", email, afterRegister: true })}
 			/>
 			<AuthFooter>
@@ -254,10 +274,12 @@ const INLINE = "rounded-md font-semibold text-ink underline-offset-4 hover:under
 function JoinForm({
 	proof,
 	submitLabel,
+	onJoined,
 	onSignInNeeded,
 }: {
 	proof: string;
 	submitLabel: string;
+	onJoined: (email: string) => void;
 	onSignInNeeded: (email: string) => void;
 }) {
 	const [errors, setErrors] = useState<Partial<Record<FieldName, string>>>({});
@@ -310,8 +332,7 @@ function JoinForm({
 		// just typed is the proof that continues; anything else asks for that account's own password.
 		const signedIn = await identityApi.signIn({ email: email.data, password });
 		if (signedIn.ok) {
-			tabStore.setJoining(email.data);
-			loadPage(PAGE);
+			onJoined(email.data);
 			return;
 		}
 		setBusy(false);
@@ -402,21 +423,29 @@ type AnswerProps = {
 	refreshing: boolean;
 	onRefused: () => void;
 	onHeld: (held: Held) => void;
+	joining: string | null;
 };
 
-/** A signed-in account accepts a seat (seats.acceptInvitation). Account creation from this page accepts at once. */
-function SeatAnswer({ description, proof, refreshing, onRefused, onHeld }: AnswerProps) {
+type SeatAccepted = ReturnType<typeof seatInvitationAcceptedResult.parse>;
+
+function SeatFlow({
+	description,
+	proof,
+	refreshing,
+	onRefused,
+	onHeld,
+	joining,
+	signedIn,
+	onJoined,
+}: AnswerProps & { signedIn: boolean; onJoined: (email: string) => void }) {
 	const intent = useIntent<SeatCommand>("seat-accept");
-	const [done, setDone] = useState<ReturnType<typeof seatInvitationAcceptedResult.parse> | null>(null);
-	const [joining] = useState(() => tabStore.joining());
-	const started = useRef(false);
-	const [attempts, setAttempts] = useState(0);
-	// Set once a claim from a just-created account is refused; the confirm step then stays until the seat is ready.
-	const [confirming, setConfirming] = useState(false);
+	const [done, setDone] = useState<SeatAccepted | null>(null);
+	const [confirm, setConfirm] = useState<{ tries: number } | null>(null);
+	const link = useConfirmationLink();
 	const role = description.subject.purpose === "seat" ? description.subject.role : "member";
 
-	const accept = useCallback(async () => {
-		setAttempts((n) => n + 1);
+	async function accept(asJoining: string | null) {
+		setConfirm((c) => c && { tries: c.tries + 1 });
 		const result = await intent.run(
 			description.invitationId,
 			(requestKey) =>
@@ -432,7 +461,10 @@ function SeatAnswer({ description, proof, refreshing, onRefused, onHeld }: Answe
 					try {
 						return await sendSeat(command);
 					} catch (e) {
-						if (e instanceof Refusal && e.code !== "temporary" && joining) setConfirming(true);
+						if (e instanceof Refusal && e.code !== "temporary" && asJoining) {
+							if (!confirm) void link.send(asJoining);
+							setConfirm((c) => c ?? { tries: 1 });
+						}
 						throw e;
 					}
 				},
@@ -450,16 +482,19 @@ function SeatAnswer({ description, proof, refreshing, onRefused, onHeld }: Answe
 			onRefused();
 		}
 		if (result.problem === "unknown") onHeld(tabStore.held(proof)!);
-	}, [intent, description, proof, joining, onRefused, onHeld]);
+	}
 
-	// The person already chose "Create account and join"; their first signed-in view accepts for them once.
-	useEffect(() => {
-		if (joining && !started.current) {
-			started.current = true;
-			void accept();
-		}
-	}, [joining, accept]);
-
+	if (!signedIn)
+		return (
+			<SignedOut
+				description={description}
+				proof={proof}
+				onJoined={(email) => {
+					onJoined(email);
+					void accept(email);
+				}}
+			/>
+		);
 	if (done)
 		return (
 			<Outcome
@@ -475,13 +510,15 @@ function SeatAnswer({ description, proof, refreshing, onRefused, onHeld }: Answe
 				Your {ROLE_TEXT[done.seat.role].name} seat is ready. {ROLE_TEXT[done.seat.role].detail}
 			</Outcome>
 		);
-	if (joining && confirming)
+	if (joining && confirm)
 		return (
 			<ConfirmEmail
 				email={joining}
 				busy={intent.pending !== null || refreshing}
-				stillRefused={attempts > 1 && intent.problem === "refused"}
-				onContinue={() => void accept()}
+				stillRefused={confirm.tries > 1 && intent.problem === "refused"}
+				sent={link.sent}
+				onSend={() => void link.send(joining)}
+				onContinue={() => void accept(joining)}
 			/>
 		);
 
@@ -497,7 +534,7 @@ function SeatAnswer({ description, proof, refreshing, onRefused, onHeld }: Answe
 				className="mt-6 w-full"
 				loading={intent.pending !== null}
 				disabled={refreshing}
-				onClick={() => void accept()}
+				onClick={() => void accept(joining)}
 			>
 				Accept and join
 			</Button>
@@ -506,23 +543,23 @@ function SeatAnswer({ description, proof, refreshing, onRefused, onHeld }: Answe
 	);
 }
 
-/**
- * A new account cannot claim until its address is confirmed. The link goes to the address typed on this page; the
- * answer is the same whether or not that address has an account.
- */
+type LinkSent = "idle" | "sending" | "sent" | "failed";
+
 function ConfirmEmail({
 	email,
 	busy,
 	stillRefused,
+	sent,
+	onSend,
 	onContinue,
 }: {
 	email: string;
 	busy: boolean;
-	/** Continue was tried after the link went out and the claim was still refused. */
 	stillRefused: boolean;
+	sent: LinkSent;
+	onSend: () => void;
 	onContinue: () => void;
 }) {
-	const { sent, send } = useConfirmationLink(email, true);
 	return (
 		<Outcome
 			icon={MailValidation01Icon}
@@ -541,7 +578,7 @@ function ConfirmEmail({
 					<Button variant="primary" className="w-full" loading={busy} onClick={onContinue}>
 						Continue
 					</Button>
-					<Button variant="ghost" className="w-full" loading={sent === "sending"} onClick={() => void send()}>
+					<Button variant="ghost" className="w-full" loading={sent === "sending"} onClick={onSend}>
 						Send the link again
 					</Button>
 				</>
@@ -552,27 +589,18 @@ function ConfirmEmail({
 	);
 }
 
-/** Sends a confirmation link to the address typed on this page, once on open when `auto` is set. */
-function useConfirmationLink(email: string, auto: boolean) {
-	const [sent, setSent] = useState<"idle" | "sending" | "sent" | "failed">("idle");
-	const send = useCallback(async () => {
+function useConfirmationLink() {
+	const [sent, setSent] = useState<LinkSent>("idle");
+	const send = async (email: string) => {
 		setSent("sending");
 		const r = await identityApi.sendVerification(email);
 		setSent(r.ok ? "sent" : "failed");
-	}, [email]);
-	const once = useRef(false);
-	useEffect(() => {
-		if (auto && !once.current) {
-			once.current = true;
-			void send();
-		}
-	}, [auto, send]);
+	};
 	return { sent, send };
 }
 
-/** For an account this page just created: its address must be confirmed before it can link. */
 function ConfirmHint({ email }: { email: string }) {
-	const { sent, send } = useConfirmationLink(email, false);
+	const { sent, send } = useConfirmationLink();
 	return (
 		<div className="mt-3 flex flex-col gap-3">
 			<FormMessage tone="success">
@@ -581,7 +609,7 @@ function ConfirmHint({ email }: { email: string }) {
 			<FormMessage tone="error">
 				{sent === "failed" ? "The link was not sent. Check your connection and try again." : null}
 			</FormMessage>
-			<Button variant="secondary" loading={sent === "sending"} onClick={() => void send()}>
+			<Button variant="secondary" loading={sent === "sending"} onClick={() => void send(email)}>
 				Send a confirmation link to {email}
 			</Button>
 		</div>
@@ -595,10 +623,9 @@ type ResidentDone = ReturnType<typeof residentInvitationDecisionResult.parse> | 
  * ResidencyDisclosure collects the sharing, unchecked by default, and its chosen value goes into the command exactly
  * as the component hands it over (ruling D51). Accepting never gives a seat; declining leaves the account unchanged.
  */
-function ResidentAnswer({ description, proof, refreshing, onRefused, onHeld }: AnswerProps) {
+function ResidentAnswer({ description, proof, refreshing, onRefused, onHeld, joining }: AnswerProps) {
 	const intent = useIntent<ResidentCommand>("resident-answer");
 	const [done, setDone] = useState<ResidentDone | null>(null);
-	const [joining] = useState(() => tabStore.joining());
 
 	const answer = async (
 		input:
