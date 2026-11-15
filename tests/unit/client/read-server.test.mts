@@ -10,13 +10,13 @@ const { createRead, useRead } = await import("../../../apps/web/src/components/r
 
 test("INV-read: the read cache holds nothing on the server, so one account's seeded value never reaches the next render", async () => {
 	let loads = 0;
-	const unread = createRead(async (_account: string) => ({ status: "ok" as const, count: ++loads }), {
+	const unread = createRead(async (account: string) => ({ status: "ok" as const, count: ++loads, account }), {
 		failed: () => ({ status: "lost" as const }),
 		fresh: 60_000,
 	});
 	const seen: unknown[] = [];
 	function Bell({ count }: { count: number }) {
-		useState(() => unread.seed({ status: "ok", count }, "account"));
+		useState(() => unread.seed({ status: "ok", count, account: "account" }, "account"));
 		seen.push(unread.peek("account"));
 		return createElement("output", null, String(useRead(unread, "account").status));
 	}
