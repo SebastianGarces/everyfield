@@ -21,7 +21,7 @@ export type Writer = {
 	readonly guard: string | null;
 };
 
-type Guard = "fromStates" | "entryStates";
+type Guard = { readonly fn: "fromStates" | "entryStates"; readonly event: string | null; readonly to: string | null };
 type Literal = { readonly text: string; readonly guarded: readonly (Guard | null)[]; readonly line: number };
 
 const SOURCE_ROOTS = ["apps", "packages", "ops", "scripts", "tools"];
@@ -44,13 +44,43 @@ function trackedFiles(root: string): string[] {
 		);
 }
 
+const stringOf = (expr: ts.Expression | undefined): string | null =>
+	expr !== undefined && (ts.isStringLiteral(expr) || ts.isNoSubstitutionTemplateLiteral(expr)) ? expr.text : null;
+
 function guardCall(expr: ts.Expression, binding: string): Guard | null {
 	if (!ts.isCallExpression(expr)) return null;
 	const callee = expr.expression.getText();
 	if (callee === "sql.param" && expr.arguments.length === 1) return guardCall(expr.arguments[0]!, binding);
-	return (callee === "fromStates" || callee === "entryStates") && expr.arguments[0]?.getText() === binding
-		? callee
-		: null;
+	if ((callee !== "fromStates" && callee !== "entryStates") || expr.arguments[0]?.getText() !== binding) return null;
+	return {
+		fn: callee,
+		event: stringOf(expr.arguments[1]),
+		to: callee === "fromStates" ? stringOf(expr.arguments[2]) : null,
+	};
+}
+
+function fits(m: MachineShape, guard: Guard | null | undefined, fn: Guard["fn"], written: string | null): boolean {
+	if (!guard || guard.fn !== fn) return false;
+	const moves = fn === "fromStates" ? m.transitions : m.entries;
+	if (guard.event !== null && !moves.some((t) => t.event === guard.event)) return false;
+	if (fn === "entryStates") return true;
+	if (guard.to !== null && written !== null && guard.to !== written) return false;
+	const to = guard.to ?? written;
+	return to === null || m.transitions.some((t) => (guard.event === null || t.event === guard.event) && t.to === to);
+}
+
+function statementEnd(text: string, start: number): number {
+	let depth = 0,
+		quoted = false;
+	for (let at = start; at < text.length; at++) {
+		const ch = text[at];
+		if (ch === "'") quoted = !quoted;
+		if (quoted) continue;
+		if (ch === "(") depth++;
+		if (ch === ")" && --depth < 0) return at;
+		if (ch === ";" && depth === 0) return at;
+	}
+	return text.length;
 }
 
 function literals(source: ts.SourceFile, binding: string): Literal[] {
@@ -95,6 +125,44 @@ function drizzleWriters(source: ts.SourceFile, m: MachineShape, file: string, bi
 	const found: Writer[] = [];
 	const target = new RegExp(`(?:^|\\.)${escape(m.table)}$`);
 	const targetColumn = new RegExp(`(?:^|\\.)${escape(m.table)}\\.${escape(m.column)}$`);
+	const constants = new Map<string, ts.Expression>();
+	const collect = (node: ts.Node) => {
+		if (
+			ts.isVariableDeclaration(node) &&
+			ts.isIdentifier(node.name) &&
+			node.initializer &&
+			ts.isVariableDeclarationList(node.parent) &&
+			node.parent.flags & ts.NodeFlags.Const
+		)
+			constants.set(node.name.text, node.initializer);
+		ts.forEachChild(node, collect);
+	};
+	collect(source);
+	const resolve = (expr: ts.Expression, depth = 0): ts.Expression =>
+		ts.isIdentifier(expr) && constants.has(expr.text) && depth < 8
+			? resolve(constants.get(expr.text)!, depth + 1)
+			: expr;
+	const textOf = (expr: ts.Expression): string => {
+		const e = resolve(expr);
+		return ts.isPropertyAccessExpression(e) ? `${textOf(e.expression)}.${e.name.text}` : e.getText(source);
+	};
+	const writes = (call: ts.Expression): "update" | "insert" | null => {
+		const c = resolve(call);
+		return ts.isCallExpression(c) &&
+			ts.isPropertyAccessExpression(c.expression) &&
+			(c.expression.name.text === "update" || c.expression.name.text === "insert") &&
+			c.arguments[0] !== undefined &&
+			target.test(textOf(c.arguments[0]))
+			? c.expression.name.text
+			: null;
+	};
+	const inserts = (expr: ts.Expression): boolean => {
+		const e = resolve(expr);
+		if (writes(e) === "insert") return true;
+		if (ts.isCallExpression(e)) return inserts(e.expression);
+		if (ts.isPropertyAccessExpression(e)) return inserts(e.expression);
+		return false;
+	};
 	const column = (p: ts.ObjectLiteralElementLike) =>
 		p.name !== undefined &&
 		!ts.isComputedPropertyName(p.name) &&
@@ -117,15 +185,22 @@ function drizzleWriters(source: ts.SourceFile, m: MachineShape, file: string, bi
 			initialStates(m).includes(last.initializer.text)
 		);
 	};
-	const filtered = (where: ts.Expression): boolean => {
+	const written = (arg: ts.Expression | undefined): string | null => {
+		if (arg === undefined || !ts.isObjectLiteralExpression(arg)) return null;
+		const last = arg.properties.findLast(
+			(p) => ts.isSpreadAssignment(p) || p.name === undefined || ts.isComputedPropertyName(p.name) || column(p),
+		);
+		return last !== undefined && ts.isPropertyAssignment(last) && column(last) ? stringOf(last.initializer) : null;
+	};
+	const filtered = (where: ts.Expression, value: string | null): boolean => {
 		if (!ts.isCallExpression(where)) return false;
 		const callee = where.expression.getText(source);
-		if (callee === "and") return where.arguments.some(filtered);
+		if (callee === "and") return where.arguments.some((w) => filtered(w, value));
 		return (
 			callee === "inArray" &&
 			where.arguments.length === 2 &&
-			targetColumn.test(where.arguments[0]!.getText(source)) &&
-			guardCall(where.arguments[1]!, binding) === "fromStates"
+			targetColumn.test(textOf(where.arguments[0]!)) &&
+			fits(m, guardCall(where.arguments[1]!, binding), "fromStates", value)
 		);
 	};
 	const guardOf = (node: ts.CallExpression, kind: string): string | null => {
@@ -135,25 +210,35 @@ function drizzleWriters(source: ts.SourceFile, m: MachineShape, file: string, bi
 			ts.isPropertyAccessExpression(parent) && parent.name.text === "where" && ts.isCallExpression(parent.parent)
 				? parent.parent
 				: null;
-		return where && where.arguments.length === 1 && filtered(where.arguments[0]!) ? "from-state filter" : null;
+		return where && where.arguments.length === 1 && filtered(where.arguments[0]!, written(node.arguments[0]))
+			? "from-state filter"
+			: null;
 	};
+	const line = (node: ts.Node) => source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1;
 	const visit = (node: ts.Node) => {
-		if (
-			ts.isCallExpression(node) &&
-			ts.isPropertyAccessExpression(node.expression) &&
-			["set", "values"].includes(node.expression.name.text) &&
-			ts.isCallExpression(node.expression.expression) &&
-			ts.isPropertyAccessExpression(node.expression.expression.expression) &&
-			["update", "insert"].includes(node.expression.expression.expression.name.text) &&
-			target.test(node.expression.expression.arguments[0]?.getText(source) ?? "") &&
-			node.arguments.some(names)
-		)
-			found.push({
-				file,
-				line: source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1,
-				statement: "drizzle",
-				guard: guardOf(node, node.expression.name.text),
-			});
+		if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression)) {
+			const method = node.expression.name.text;
+			const kind = writes(node.expression.expression);
+			if (
+				((method === "set" && kind === "update") || (method === "values" && kind === "insert")) &&
+				node.arguments.some(names)
+			)
+				found.push({ file, line: line(node), statement: "drizzle", guard: guardOf(node, method) });
+			if (
+				(method === "onConflictDoUpdate" || method === "onDuplicateKeyUpdate") &&
+				inserts(node.expression.expression)
+			) {
+				const config = node.arguments[0];
+				const set =
+					config && ts.isObjectLiteralExpression(config)
+						? config.properties.find(
+								(p): p is ts.PropertyAssignment => ts.isPropertyAssignment(p) && p.name.getText(source) === "set",
+							)
+						: undefined;
+				if (!config || !ts.isObjectLiteralExpression(config) || (set && names(set.initializer)))
+					found.push({ file, line: line(node), statement: "drizzle", guard: null });
+			}
+		}
 		ts.forEachChild(node, visit);
 	};
 	visit(source);
@@ -175,7 +260,12 @@ function functionGuard(m: MachineShape, text: string, index: number, to: string 
 	const listed = lock && new RegExp(`(?<![\\w.])${column}\\s+IN\\s*\\(([^)]*)\\)`, "i").exec(lock[1]!);
 	const required = single ? [single[1]!] : listed ? splitTop(listed[1]!).map((v) => v.replace(/'/g, "")) : [];
 	const same = from.length > 0 && required.length === from.length && from.every((s) => required.includes(s));
-	return same ? `locked ${from.join(", ")} in ${head[1]}` : null;
+	const where = /\bWHERE\s+(?:\w+\.)?id\s*=\s*(\w+)\s*$/i.exec(text.slice(index, statementEnd(text, index)));
+	const locked =
+		lock !== null &&
+		where !== null &&
+		new RegExp(`(?:^|\\sAND\\s)(?:\\w+\\.)?id\\s*=\\s*${escape(where[1]!)}(?:\\s|$)`, "i").test(lock[1]!);
+	return same && locked ? `locked ${from.join(", ")} in ${head[1]}` : null;
 }
 
 export function bindingOf(m: MachineShape): string {
@@ -224,15 +314,16 @@ export function census(root: string, m: MachineShape, binding = bindingOf(m)): W
 					writers.push({ file, line, statement: "update", guard: functionGuard(m, text, u.index, to) });
 					continue;
 				}
-				const f = filter.exec(lit.text);
-				const guarded = f !== null && lit.guarded[Number(f[1])] === "fromStates";
+				const f = filter.exec(lit.text.slice(u.index, statementEnd(lit.text, u.index)));
+				const value = /=\s*'([^']*)'\s*$/.exec(assignment)?.[1] ?? null;
+				const guarded = f !== null && fits(m, lit.guarded[Number(f[1])], "fromStates", value);
 				writers.push({ file, line, statement: "update", guard: guarded ? "from-state filter" : null });
 			}
 			for (const i of lit.text.matchAll(insert)) {
 				const line = lineOf(lit, i.index);
 				if (i[1] === undefined) {
-					const f = filter.exec(lit.text);
-					const copied = !sqlFile && f !== null && lit.guarded[Number(f[1])] === "entryStates";
+					const f = filter.exec(lit.text.slice(i.index, statementEnd(lit.text, i.index)));
+					const copied = !sqlFile && f !== null && fits(m, lit.guarded[Number(f[1])], "entryStates", null);
 					writers.push({ file, line, statement: "insert", guard: copied ? "entry-state filter" : null });
 					continue;
 				}
@@ -316,20 +407,27 @@ export function render(m: MachineShape, writers: readonly Writer[]): string {
 		"",
 		"The census is a static scan of git-tracked product code and SQL files under apps, packages, ops, scripts and",
 		"tools. It reads SQL literals (with an optional schema prefix), SET fragments in a file that also holds a dynamic",
-		"`SET ${…}` on the table, Drizzle `update`/`insert` calls, and `.sql` files. A guarded UPDATE filters on",
-		`\`${m.column} = ANY(\${fromStates(${bindingOf(m)}, …)})\` in the same statement, or a Drizzle update on`,
-		`\`inArray(<table>.${m.column}, fromStates(${bindingOf(m)}, …))\` in its \`where\` (alone or inside \`and\`). A guarded`,
-		"INSERT writes an initial state as a literal; in a Drizzle object literal that is the last property that names",
-		"the column, after any spread. An INSERT that copies rows without a column list is guarded when it filters on",
-		`\`${m.column} = ANY(\${entryStates(${bindingOf(m)}, …)})\`. An UPDATE in a \`.sql\` file is guarded only inside a`,
-		"function that an edge names with `sql`, after a `SELECT * INTO … FROM <table> WHERE … FOR UPDATE; IF NOT FOUND",
-		"THEN RAISE` whose required states are exactly that edge's from-states, and only when it writes that edge's",
-		"target as a literal. A column name or statement start built at runtime, or a Drizzle object that is not a",
-		"literal, counts as an unguarded writer.",
+		"`SET ${…}` on the table, Drizzle `update`/`insert`/`onConflictDoUpdate` calls (a table or query held in a",
+		"`const` of the same file is followed), and `.sql` files. A statement ends at its `;` or at the parenthesis",
+		"that closes its CTE, so a guard elsewhere in the same SQL text does not count. A guarded UPDATE filters on",
+		`\`${m.column} = ANY(\${fromStates(${bindingOf(m)}, …)})\` inside its own statement, or a Drizzle update on`,
+		`\`inArray(<table>.${m.column}, fromStates(${bindingOf(m)}, …))\` in its \`where\` (alone or inside \`and\`). When`,
+		"the guard names its event or target as a string literal, or the write sets the state as a literal, the event",
+		"must have a move to that state and the two targets must agree. A guarded INSERT writes an initial state as a",
+		"literal; in a Drizzle object literal that is the last property that names the column, after any spread. An",
+		"insert that updates the column on conflict is unguarded. An INSERT that copies rows without a column list is",
+		`guarded when its own statement filters on \`${m.column} = ANY(\${entryStates(${bindingOf(m)}, …)})\`. An UPDATE in`,
+		"a `.sql` file is guarded only inside a function that an edge names with `sql`, after a",
+		"`SELECT * INTO … FROM <table> WHERE … FOR UPDATE; IF NOT FOUND THEN RAISE` whose required states are exactly",
+		"that edge's from-states, only when it writes that edge's target as a literal, and only when its `WHERE` is",
+		"`id = <the id the lock read>`. A column name or statement start built at runtime, or a Drizzle object that is",
+		"not a literal, counts as an unguarded writer.",
 		"",
-		"It cannot see: a SET fragment passed in from another file, SQL text assembled from variables that hold no",
-		"literal naming the table, statements sent outside this repository, or writes made by hand in a database",
-		"session. Only a database trigger generated from this table would refuse those.",
+		"It cannot see: a SET fragment passed in from another file; SQL text assembled from variables that hold no",
+		"literal naming the table; a table or query handed through a parameter, a `let` or another file; whether an",
+		"event or target passed as a variable fits the write (only literal ones are checked); statements sent outside",
+		"this repository; or writes made by hand in a database session. Only a database trigger generated from this",
+		"table would refuse those.",
 		"",
 		"It is strict where it cannot tell: any other write in a `.sql` file counts as unguarded (a data backfill",
 		"needs its own edge and function), and so does a bare",

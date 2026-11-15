@@ -103,20 +103,27 @@ stateDiagram-v2
 
 The census is a static scan of git-tracked product code and SQL files under apps, packages, ops, scripts and
 tools. It reads SQL literals (with an optional schema prefix), SET fragments in a file that also holds a dynamic
-`SET ${…}` on the table, Drizzle `update`/`insert` calls, and `.sql` files. A guarded UPDATE filters on
-`status = ANY(${fromStates(meetingStatusMachine, …)})` in the same statement, or a Drizzle update on
-`inArray(<table>.status, fromStates(meetingStatusMachine, …))` in its `where` (alone or inside `and`). A guarded
-INSERT writes an initial state as a literal; in a Drizzle object literal that is the last property that names
-the column, after any spread. An INSERT that copies rows without a column list is guarded when it filters on
-`status = ANY(${entryStates(meetingStatusMachine, …)})`. An UPDATE in a `.sql` file is guarded only inside a
-function that an edge names with `sql`, after a `SELECT * INTO … FROM <table> WHERE … FOR UPDATE; IF NOT FOUND
-THEN RAISE` whose required states are exactly that edge's from-states, and only when it writes that edge's
-target as a literal. A column name or statement start built at runtime, or a Drizzle object that is not a
-literal, counts as an unguarded writer.
+`SET ${…}` on the table, Drizzle `update`/`insert`/`onConflictDoUpdate` calls (a table or query held in a
+`const` of the same file is followed), and `.sql` files. A statement ends at its `;` or at the parenthesis
+that closes its CTE, so a guard elsewhere in the same SQL text does not count. A guarded UPDATE filters on
+`status = ANY(${fromStates(meetingStatusMachine, …)})` inside its own statement, or a Drizzle update on
+`inArray(<table>.status, fromStates(meetingStatusMachine, …))` in its `where` (alone or inside `and`). When
+the guard names its event or target as a string literal, or the write sets the state as a literal, the event
+must have a move to that state and the two targets must agree. A guarded INSERT writes an initial state as a
+literal; in a Drizzle object literal that is the last property that names the column, after any spread. An
+insert that updates the column on conflict is unguarded. An INSERT that copies rows without a column list is
+guarded when its own statement filters on `status = ANY(${entryStates(meetingStatusMachine, …)})`. An UPDATE in
+a `.sql` file is guarded only inside a function that an edge names with `sql`, after a
+`SELECT * INTO … FROM <table> WHERE … FOR UPDATE; IF NOT FOUND THEN RAISE` whose required states are exactly
+that edge's from-states, only when it writes that edge's target as a literal, and only when its `WHERE` is
+`id = <the id the lock read>`. A column name or statement start built at runtime, or a Drizzle object that is
+not a literal, counts as an unguarded writer.
 
-It cannot see: a SET fragment passed in from another file, SQL text assembled from variables that hold no
-literal naming the table, statements sent outside this repository, or writes made by hand in a database
-session. Only a database trigger generated from this table would refuse those.
+It cannot see: a SET fragment passed in from another file; SQL text assembled from variables that hold no
+literal naming the table; a table or query handed through a parameter, a `let` or another file; whether an
+event or target passed as a variable fits the write (only literal ones are checked); statements sent outside
+this repository; or writes made by hand in a database session. Only a database trigger generated from this
+table would refuse those.
 
 It is strict where it cannot tell: any other write in a `.sql` file counts as unguarded (a data backfill
 needs its own edge and function), and so does a bare
