@@ -108,6 +108,19 @@ export const RULES: readonly Rule[] = [
 		tests: ["tests/workflow/role-prompts.test.mjs"],
 	},
 	{ name: "dev command", paths: ["bin/dev"], tests: ["tests/workflow/dev.test.mjs"] },
+	// bin/dev formal reads the models, the maps and every mapped code file as text (T-398, D93).
+	{
+		name: "formal checks",
+		paths: [
+			"formal/**",
+			"tools/formal/**",
+			".agents/skills/formal-*/**",
+			"packages/domain/src/access/session.ts",
+			"packages/domain/src/identity/**",
+			"packages/contracts/src/identity/**",
+		],
+		tests: ["tests/workflow/formal.test.ts"],
+	},
 	{ name: "QA command", paths: ["bin/qa"], suites: ["tools-qa"] },
 	{ name: "app verification command", paths: ["bin/app", "tools/app/**"], suites: ["tools-app"] },
 	// T-396: its tests live in the QA suite, which CI already runs, and share its throwaway Postgres.

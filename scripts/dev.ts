@@ -35,6 +35,9 @@ const HELP = `Browser runs, the local preview stack, its logs and the fast pre-p
   app help                                 interactive browser checks of this worktree's app (bin/app: agent-browser
         underneath, one line per result, one session, a local seeded app with app up)
   dev hooks install                        points this repo's core.hooksPath at tools/git-hooks (pnpm install does it)
+  dev formal [--write] [<model dir>...]    runs TLC on every model under formal/ with the pinned tla2tools.jar, checks
+        each model's outcomes.json (--write rewrites it) and the .agents/skills/formal-*/map.json maps; local Java 11+
+        or a pinned Java container in Docker (tools/formal/formal.ts, .agents/skills/formal-permissions/SKILL.md)
 
 Git hooks: on a push of a task branch (refs/heads/evf/*), tools/git-hooks/pre-push runs dev fast-check and refuses
 the push when it fails. Other refs pass unchecked. GitHub CI's full run over the whole repo stays required.`;
@@ -143,6 +146,8 @@ async function main([command, ...args]: string[]): Promise<number> {
 			return (await import("./nightly.ts")).nightlyCommand(args);
 		case "fast-check":
 			return fastCheckCommand(args);
+		case "formal":
+			return (await import("../tools/formal/formal.ts")).formalCommand(args, root);
 		case "hooks":
 			return hooks(args);
 		case "help":

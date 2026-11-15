@@ -382,6 +382,7 @@ test("INV-ci-select: reachability lint: every selectable test file and configure
 			"tests/workflow/sub/deep.test.mjs",
 			"tests/workflow/dev.test.mjs",
 			"tests/workflow/evry-evals-coverage.test.mjs",
+			"tests/workflow/formal.test.ts",
 			"tests/workflow/integration-timing.test.mjs",
 			"tests/workflow/lint-rule-coverage.test.mjs",
 			"tests/workflow/nightly.test.ts",
@@ -397,7 +398,12 @@ test("INV-ci-select: reachability lint: every selectable test file and configure
 	);
 	assert.deepEqual(
 		unreachable(
-			[...TESTS, "tests/workflow/integration-timing.test.mjs", "tests/workflow/lint-rule-coverage.test.mjs"],
+			[
+				...TESTS,
+				"tests/workflow/formal.test.ts",
+				"tests/workflow/integration-timing.test.mjs",
+				"tests/workflow/lint-rule-coverage.test.mjs",
+			],
 			RULES.filter((rule) => !rule.checks?.includes("docs")),
 		),
 		["check docs is selected by no rule"],
@@ -405,6 +411,7 @@ test("INV-ci-select: reachability lint: every selectable test file and configure
 	assert.deepEqual(unreachable([]), [
 		'rule "role prompts and evf roles" names tests/workflow/role-prompts.test.mjs, which no suite runs',
 		'rule "dev command" names tests/workflow/dev.test.mjs, which no suite runs',
+		'rule "formal checks" names tests/workflow/formal.test.ts, which no suite runs',
 		'rule "preview config" names tests/workflow/stack.test.mjs, which no suite runs',
 		'rule "preview config" names tests/workflow/setup-step.test.mjs, which no suite runs',
 		'rule "adapter operations and their eval cases" names tests/workflow/evry-evals-coverage.test.mjs, which no suite runs',
