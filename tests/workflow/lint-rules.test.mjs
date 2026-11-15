@@ -234,6 +234,7 @@ test("INV-lint: history writes, popstate and the Navigation API are reported out
 			"apps/web/src/features/x/go.ts:4 no-raw-history",
 			"apps/web/src/features/x/go.ts:5 no-raw-history",
 			"apps/web/src/features/x/go.ts:6 no-raw-history",
+			"apps/web/src/features/x/go.ts:6 no-global-listeners",
 			"apps/web/src/features/x/go.ts:7 no-raw-history",
 			"apps/web/src/features/x/go.ts:8 no-raw-history",
 			"apps/web/src/features/x/go.ts:9 no-raw-history",
@@ -252,16 +253,39 @@ test("INV-lint: window and document listeners are reported outside the location 
 	addEventListener("beforeunload", run);
 	window.document.addEventListener("click", run);
 	node.addEventListener("click", run);
-	return add;
+	const w = window;
+	w.addEventListener("resize", run);
+	document.body.addEventListener("click", run);
+	const { addEventListener: listen } = window;
+	window.onresize = run;
+	document.onclick = run;
+	node.ownerDocument.addEventListener("keydown", run);
+	window.visualViewport.addEventListener("resize", run);
+	return [add, listen];
+}
+`;
+	const registries = `import { addAddressRule, onTraversal } from "../../components/location.ts";
+addAddressRule("ok", () => null);
+export function Screen() {
+	addAddressRule("bad", () => null);
+	const go = () => onTraversal(() => {});
+	return <button ref={(node) => (node ? onTraversal(() => {}) : undefined)} onClick={go} />;
 }
 `;
 	assert.deepEqual(
 		lint({
 			"apps/web/src/features/x/mount.ts": source,
+			"apps/web/src/features/x/Screen.tsx": registries,
 			"apps/web/src/components/save/leave.ts": source,
 			"apps/web/src/components/location.ts": source,
 		}),
-		[2, 3, 4, 5, 6].map((line) => `apps/web/src/features/x/mount.ts:${line} no-global-listeners`),
+		[
+			...[2, 3, 4, 5, 6, 9, 10, 11, 12, 13, 14, 15].map(
+				(line) => `apps/web/src/features/x/mount.ts:${line} no-global-listeners`,
+			),
+			"apps/web/src/features/x/Screen.tsx:4 no-global-listeners",
+			"apps/web/src/features/x/Screen.tsx:6 no-global-listeners",
+		].sort(),
 	);
 });
 
@@ -277,13 +301,18 @@ export const a = make()(() => ({}));
 export const b = z.createStore()(() => ({}));
 export const c = (() => make()(() => ({})))();
 export const createOtherStore = () => make()(() => ({}));
+const alias = make;
+export const d = alias()(() => ({}));
+export const e = createOtherStore();
 `;
 	const component = `import { create } from "zustand";
 import { createStore } from "zustand/vanilla";
 import { persist } from "zustand/middleware";
 import { useStore } from "zustand";
 import { createPanelStore } from "./Panel.store.ts";
+import * as Panel from "./Panel.store.ts";
 export const used = [create, createStore, persist, useStore];
+export const viaSpace = Panel.createPanelStore();
 export const shared = createPanelStore();
 export function Panel() {
 	return createPanelStore();
@@ -301,13 +330,16 @@ export function Panel() {
 			"apps/web/src/features/x/Other.store.ts:4 zustand-shape",
 			"apps/web/src/features/x/Other.store.ts:5 zustand-shape",
 			"apps/web/src/features/x/Other.store.ts:6 zustand-shape",
+			"apps/web/src/features/x/Other.store.ts:9 zustand-shape",
+			"apps/web/src/features/x/Other.store.ts:10 zustand-shape",
 			"apps/web/src/features/x/Panel.store.ts:2 zustand-shape",
 			"apps/web/src/features/x/Panel.tsx:1 zustand-shape",
 			"apps/web/src/features/x/Panel.tsx:2 zustand-shape",
 			"apps/web/src/features/x/Panel.tsx:3 zustand-shape",
 			"apps/web/src/features/x/Panel.tsx:4 zustand-shape",
-			"apps/web/src/features/x/Panel.tsx:7 zustand-shape",
-		],
+			"apps/web/src/features/x/Panel.tsx:8 zustand-shape",
+			"apps/web/src/features/x/Panel.tsx:9 zustand-shape",
+		].sort(),
 	);
 });
 

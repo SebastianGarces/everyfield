@@ -533,32 +533,62 @@ const noRawHistory = ratcheted("no-raw-history", (context, push) => {
 });
 
 const GLOBAL_LISTENER_OWNERS = new Set([LOCATION_STORE, PAGE_EVENTS]);
-const LISTENER_MEMBERS = new Set(["addEventListener", "removeEventListener", "onbeforeunload", "onkeydown"]);
+const LISTENER_MEMBERS = new Set(["addEventListener", "removeEventListener"]);
 const LISTENER_HOSTS = new Set([...GLOBAL_HOSTS, "document"]);
+const HOST_MEMBERS = new Set(["document", "body", "documentElement", "ownerDocument", "defaultView", "visualViewport"]);
+const ON_HANDLER = /^on[a-z]+$/;
+const REGISTRY_WORDS = new Set(["onTraversal", "addAddressRule"]);
+
+function isJsxRef(fn) {
+	let node = fn.parent;
+	if (node?.type === "JSXExpressionContainer") node = node.parent;
+	return node?.type === "JSXAttribute" && node.name.name === "ref";
+}
 
 const noGlobalListeners = ratcheted("no-global-listeners", (context, push) => {
 	if (GLOBAL_LISTENER_OWNERS.has(repoPath(context.filename))) return {};
+	const aliases = new Set();
 	const report = (node, name) =>
 		push({
 			node,
 			fn: enclosingName(node),
-			message: `${name} on window or document: page-wide events have one owner each. Address changes go through ${LOCATION_STORE} (an address rule registered at module scope, or onTraversal started from an event); shortcuts and the unsaved-work warning go through ${PAGE_EVENTS} (aria-keyshortcuts on the control, data-unsaved on the form). A listener tied to a component's lifetime is an effect: it needs a survivor entry.`,
+			message: `${name}: page-wide events have one owner each. Address changes go through ${LOCATION_STORE} (an address rule registered at module scope, or onTraversal started from an event); shortcuts and the unsaved-work warning go through ${PAGE_EVENTS} (data-shortcut on the form or control, data-unsaved on the form). A listener tied to a component's lifetime is an effect: it needs a survivor entry.`,
 		});
+	const isGlobalHost = (node) =>
+		isHost(node, context, LISTENER_HOSTS) ||
+		(node?.type === "Identifier" && aliases.has(node.name)) ||
+		HOST_MEMBERS.has(memberName(node) ?? "");
 	return {
+		VariableDeclarator(node) {
+			if (node.id.type === "Identifier" && isGlobalHost(node.init)) aliases.add(node.id.name);
+			if (node.id.type !== "ObjectPattern" || !isGlobalHost(node.init)) return;
+			for (const p of node.id.properties) {
+				const name = p.type === "Property" ? keyName(p.key, p.computed) : null;
+				if (name && (LISTENER_MEMBERS.has(name) || ON_HANDLER.test(name))) report(p, name);
+			}
+		},
 		MemberExpression(node) {
 			const name = memberName(node);
-			if (!name || !LISTENER_MEMBERS.has(name)) return;
-			const host = node.object;
-			if (
-				isHost(host, context, LISTENER_HOSTS) ||
-				(memberName(host) === "document" && isHost(host.object, context, GLOBAL_HOSTS))
-			)
-				report(node, name);
+			if (!name || !(LISTENER_MEMBERS.has(name) || ON_HANDLER.test(name))) return;
+			if (isGlobalHost(node.object)) report(node, `${name} on window or document`);
 		},
 		Identifier(node) {
 			if (node.name !== "addEventListener" || !isValueReference(node) || declared(context, node)) return;
 			if (node.parent?.type === "MemberExpression" && node.parent.property === node) return;
 			report(node, "addEventListener");
+		},
+		CallExpression(node) {
+			const name = node.callee.type === "Identifier" ? node.callee.name : memberName(node.callee);
+			if (!REGISTRY_WORDS.has(name)) return;
+			if (name === "addAddressRule") {
+				if (!atModuleLevel(node))
+					report(node, "addAddressRule outside module scope (it would add a rule on every render)");
+				return;
+			}
+			const fn = nearestFunction(node);
+			const owner = fn && functionName(fn);
+			if (fn && (isJsxRef(fn) || (owner && /^([A-Z]|use[A-Z0-9])/.test(owner))))
+				report(node, "onTraversal registered for a component's lifetime");
 		},
 	};
 });
@@ -590,6 +620,7 @@ const zustandShape = {
 				: path === STORE_HELPER && (source === "zustand" || source === "zustand/react/shallow");
 		const factories = new Set();
 		const spaces = new Set();
+		const storeSpaces = new Set();
 		const sources = moduleSources((node, source) => {
 			if (!ZUSTAND.test(source)) return;
 			if ((node.type === "ExportNamedDeclaration" || node.type === "ExportAllDeclaration") && path !== STORE_HELPER)
@@ -607,8 +638,8 @@ const zustandShape = {
 			(callee?.type === "Identifier" && factories.has(callee.name)) ||
 			(callee?.type === "MemberExpression" &&
 				callee.object.type === "Identifier" &&
-				spaces.has(callee.object.name) &&
-				memberName(callee) === "createStore");
+				((spaces.has(callee.object.name) && memberName(callee) === "createStore") ||
+					(storeSpaces.has(callee.object.name) && STORE_FACTORY.test(memberName(callee) ?? ""))));
 		return {
 			...sources,
 			ImportDeclaration(node) {
@@ -618,13 +649,21 @@ const zustandShape = {
 				const storeModule = /\.store(\.ts)?$/.test(source);
 				if (!vanilla && !storeModule) return;
 				for (const spec of node.specifiers) {
-					if (spec.type === "ImportNamespaceSpecifier") spaces.add(spec.local.name);
+					if (spec.type === "ImportNamespaceSpecifier") (vanilla ? spaces : storeSpaces).add(spec.local.name);
 					else if (spec.type === "ImportSpecifier") {
 						const name = nameOf(spec.imported);
 						if ((vanilla && name === "createStore") || (storeModule && STORE_FACTORY.test(name)))
 							factories.add(spec.local.name);
 					}
 				}
+			},
+			VariableDeclarator(node) {
+				if (node.id.type !== "Identifier") return;
+				if (node.init?.type === "Identifier" && factories.has(node.init.name)) factories.add(node.id.name);
+				if (storeFile && STORE_FACTORY.test(node.id.name)) factories.add(node.id.name);
+			},
+			FunctionDeclaration(node) {
+				if (storeFile && node.id && STORE_FACTORY.test(node.id.name)) factories.add(node.id.name);
 			},
 			CallExpression(node) {
 				sources.CallExpression(node);
