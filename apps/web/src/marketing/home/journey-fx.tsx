@@ -308,18 +308,17 @@ export function JourneyPath({
 								>
 									{num(i)}
 								</span>
-								<h3 className="mk-display font-title type-title-sm leading-[1.15] mk-cx:type-title-md">
-									<button
-										type="button"
-										tabIndex={-1}
-										onClick={() => pick(i)}
-										className="text-left after:absolute after:inset-0"
-									>
-										{s.title}
-									</button>
-								</h3>
+								<h3 className="mk-display font-title type-title-sm leading-[1.15] mk-cx:type-title-md">{s.title}</h3>
 								<p className="mt-2 type-lg leading-[1.5] text-text-2">{s.body}</p>
 							</div>
+							<button
+								type="button"
+								tabIndex={-1}
+								aria-hidden="true"
+								onMouseDown={(event) => event.preventDefault()}
+								onClick={() => pick(i)}
+								className="absolute inset-0"
+							/>
 						</li>
 					))}
 				</ol>

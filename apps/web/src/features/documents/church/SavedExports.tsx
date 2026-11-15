@@ -29,7 +29,7 @@ export function SavedExports({
 	canManage: boolean;
 	onDeleted: (id: string) => void;
 }) {
-	const zone = useBrowserZone() ?? "UTC";
+	const zone = useBrowserZone();
 	return (
 		<section aria-labelledby="saved-exports-heading" className="mx-auto mt-8 flex w-full max-w-[880px] flex-col gap-3">
 			<div className="flex flex-col gap-1">

@@ -82,6 +82,12 @@
 			box-shadow 0.3s ease,
 			fill 0.3s ease !important;
 	}
+	[data-product-root][data-theme-fade="a"] {
+		animation: ef-theme-fade-a 0.3s linear;
+	}
+	[data-product-root][data-theme-fade="b"] {
+		animation: ef-theme-fade-b 0.3s linear;
+	}
 }
 
 @layer components {
@@ -213,6 +219,16 @@
 	}
 }
 
+@keyframes ef-theme-fade-a {
+	to {
+		--ef-theme-fading: 1;
+	}
+}
+@keyframes ef-theme-fade-b {
+	to {
+		--ef-theme-fading: 1;
+	}
+}
 @keyframes ef-reveal-up {
 	from {
 		opacity: 0;

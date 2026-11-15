@@ -29,22 +29,10 @@ const vendoredTiptap = {
 	},
 };
 
-const privateImages = {
-	name: "These images show data URLs, local object URLs or private per-request asset routes, which next/image would fetch, optimize and cache",
-	files: [
-		"src/features/documents/Thumbnail.tsx",
-		"src/features/evry/conversation/PhotoAttach.tsx",
-		"src/features/evry/review/ReviewCard.tsx",
-		"src/features/settings/brand/AssetsGroup.tsx",
-		"src/features/settings/brand/BrandPreview.tsx",
-	],
-	rules: { "@next/next/no-img-element": "off" },
-};
-
-const invitationLinks = {
-	name: "After an invitation answer the next page loads in full, so it and its navigation read the residency the answer just created",
-	files: ["src/features/identity/invitation/InvitationScreen.tsx"],
-	rules: { "@next/next/no-html-link-for-pages": "off" },
+const nativeElements = {
+	name: "NativeImage shows data URLs, local object URLs and private per-request asset routes, which next/image would fetch, optimize and cache; FullPageLink loads the next page in full so it reads state the current action just created",
+	files: ["src/components/native.tsx"],
+	rules: { "@next/next/no-img-element": "off", "@next/next/no-html-link-for-pages": "off" },
 };
 
 const oxlintEnforces = [
@@ -65,8 +53,7 @@ const config = [
 	prettier,
 	recordDialogFocus,
 	vendoredTiptap,
-	privateImages,
-	invitationLinks,
+	nativeElements,
 	...oxlintEnforces,
 	{ ignores: [".next/**", "next-env.d.ts"] },
 ];

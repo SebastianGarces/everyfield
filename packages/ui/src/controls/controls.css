@@ -46,6 +46,7 @@
 	}
 	:where(
 		a[href],
+		area[href],
 		button,
 		summary,
 		select,

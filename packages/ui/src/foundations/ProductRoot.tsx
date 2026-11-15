@@ -1,7 +1,7 @@
 "use client";
 
 import { MotionConfig } from "motion/react";
-import { createContext, use, useCallback, useRef, useState, type ReactNode } from "react";
+import { createContext, use, useCallback, useRef, useState, type ReactNode, type AnimationEvent } from "react";
 import { prefersReducedMotion, useHydrated } from "./browser";
 import { THEME_COOKIE, type ProductTheme } from "./theme";
 
@@ -16,6 +16,19 @@ export function useProductTheme(): ThemeState {
 
 const YEAR = 60 * 60 * 24 * 365;
 
+function endThemeFade(event: AnimationEvent<HTMLDivElement>) {
+	if (event.target === event.currentTarget && event.animationName.startsWith("ef-theme-fade"))
+		event.currentTarget.removeAttribute("data-theme-fade");
+}
+
+function fadeTo(el: HTMLDivElement, next: ProductTheme) {
+	if (el.dataset.theme === next || prefersReducedMotion()) {
+		el.removeAttribute("data-theme-fade");
+		return;
+	}
+	el.setAttribute("data-theme-fade", el.getAttribute("data-theme-fade") === "a" ? "b" : "a");
+}
+
 let chosen: ProductTheme | null = null;
 
 export function ProductRoot({ initialTheme, children }: { initialTheme: ProductTheme; children: ReactNode }) {
@@ -27,7 +40,7 @@ export function ProductRoot({ initialTheme, children }: { initialTheme: ProductT
 		chosen = next;
 		document.cookie = `${THEME_COOKIE}=${next}; Path=/; Max-Age=${YEAR}; SameSite=Lax`;
 		const el = root.current;
-		if (el && el.dataset.theme !== next && !prefersReducedMotion()) el.setAttribute("data-theme-fade", "");
+		if (el) fadeTo(el, next);
 		setThemeState(next);
 	}, []);
 
@@ -39,10 +52,7 @@ export function ProductRoot({ initialTheme, children }: { initialTheme: ProductT
 					data-product-root=""
 					data-theme={theme}
 					data-hydrated={hydrated ? "" : undefined}
-					onTransitionEnd={(event) => {
-						if (event.target === event.currentTarget && event.propertyName === "background-color")
-							event.currentTarget.removeAttribute("data-theme-fade");
-					}}
+					onAnimationEnd={endThemeFade}
 					className="min-h-dvh bg-frame font-sans text-md text-text"
 				>
 					{children}

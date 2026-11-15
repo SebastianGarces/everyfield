@@ -11,7 +11,10 @@ function tick() {
 
 export function subscribeMinute(changed: () => void): () => void {
 	listeners.add(changed);
-	ticker ??= setInterval(tick, MINUTE);
+	if (ticker === undefined) {
+		if (now !== null && Date.now() - now >= MINUTE) now = Date.now();
+		ticker = setInterval(tick, MINUTE);
+	}
 	return () => {
 		listeners.delete(changed);
 		if (listeners.size > 0) return;

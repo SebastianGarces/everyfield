@@ -1,0 +1,11 @@
+{
+	"clickable-host": {
+		"apps/web/src/marketing/rail/PinnedRail.tsx": [
+			{
+				"function": "PinnedRail",
+				"count": 1,
+				"reason": "The drag-to-scroll carousel region takes onPointerDown to start a drag that moves its scroll position; it activates nothing, its items stay links and buttons, and its cursor is grab."
+			}
+		]
+	}
+}

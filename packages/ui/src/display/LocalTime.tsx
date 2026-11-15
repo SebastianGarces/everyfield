@@ -7,18 +7,19 @@ export type LocalTimeStyle = "date" | "dateTime";
 const DATE = { month: "short", day: "numeric", year: "numeric" } as const;
 const DATE_TIME = { ...DATE, hour: "numeric", minute: "2-digit" } as const;
 
-export function formatLocalTime(iso: string, zone: string, style: LocalTimeStyle = "dateTime"): string {
+export function formatLocalTime(iso: string, zone: string | null, style: LocalTimeStyle = "dateTime"): string {
 	const parts = Object.fromEntries(
-		new Intl.DateTimeFormat("en-US", { ...(style === "dateTime" ? DATE_TIME : DATE), timeZone: zone })
+		new Intl.DateTimeFormat("en-US", { ...(style === "dateTime" ? DATE_TIME : DATE), timeZone: zone ?? "UTC" })
 			.formatToParts(new Date(iso))
 			.map((p) => [p.type, p.value]),
 	);
 	const date = `${parts.month} ${parts.day}, ${parts.year}`;
-	return style === "dateTime" ? `${date}, ${parts.hour}:${parts.minute} ${parts.dayPeriod}` : date;
+	const text = style === "dateTime" ? `${date}, ${parts.hour}:${parts.minute} ${parts.dayPeriod}` : date;
+	return zone === null ? `${text} UTC` : text;
 }
 
 export function useLocalTime(iso: string, style: LocalTimeStyle = "dateTime"): string {
-	return formatLocalTime(iso, useBrowserZone() ?? "UTC", style);
+	return formatLocalTime(iso, useBrowserZone(), style);
 }
 
 export function LocalTime({

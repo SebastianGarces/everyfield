@@ -326,12 +326,7 @@ function NarrowMenu({ nav, current, onSearch }: { nav: ShellNav; current: string
 	const rest = [...nav.pages, ...nav.tools];
 
 	return (
-		<div
-			ref={open ? closeOnPointerOutside : undefined}
-			role="presentation"
-			onKeyDown={onKeyDown}
-			className="app-md:hidden"
-		>
+		<div ref={closeOnPointerOutside} role="presentation" onKeyDown={onKeyDown} className="app-md:hidden">
 			<div className={cn(PILL, "flex h-topbar items-center px-2")}>
 				<button
 					ref={button}
