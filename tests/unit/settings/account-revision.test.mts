@@ -1,9 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-const { createSettingsStore, withAccountRevision } = await import(
-	"../../../apps/web/src/features/settings/settings.store.ts"
-);
+const { createSettingsStore, withAccountRevision } =
+	await import("../../../apps/web/src/features/settings/settings.store.ts");
 const { createFixturePort } = await import("../../../apps/web/src/features/settings/preview/fixtures.ts");
 
 test("BUG-account-revision: a Notifications save while Your account is shown lets the next name save through", async () => {
