@@ -76,7 +76,7 @@ export function SendingSection() {
 					<p className="mt-5 max-w-[46ch] text-mk-lead leading-[1.55] text-pretty text-mk-cream-92">{X.body}</p>
 					<Link
 						href="/oversight"
-						className="group mt-[18px] inline-flex min-h-11 cursor-pointer items-center gap-2 type-lg font-semibold whitespace-nowrap text-cream underline decoration-mk-cream-45 underline-offset-4 transition-[text-decoration-color] hover:decoration-cream focus-visible:outline-cream"
+						className="group mt-[18px] inline-flex min-h-11 items-center gap-2 type-lg font-semibold whitespace-nowrap text-cream underline decoration-mk-cream-45 underline-offset-4 transition-[text-decoration-color] hover:decoration-cream focus-visible:outline-cream"
 					>
 						{X.link}
 						<Icon icon={ICONS.arrow} size={17} className="transition-transform group-hover:translate-x-0.5" />

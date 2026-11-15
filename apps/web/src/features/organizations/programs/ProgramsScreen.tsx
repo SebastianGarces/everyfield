@@ -48,7 +48,7 @@ export function ProgramsScreen({ list }: { list: ProgramList }) {
 										<h2 className="min-w-0 font-body text-base font-semibold tracking-normal text-ink">
 											<Link
 												href={programHref(p.id)}
-												className="cursor-pointer [overflow-wrap:anywhere] after:absolute after:inset-0 after:rounded-card hover:underline"
+												className="[overflow-wrap:anywhere] after:absolute after:inset-0 after:rounded-card hover:underline"
 											>
 												{p.name}
 											</Link>

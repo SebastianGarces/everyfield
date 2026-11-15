@@ -68,7 +68,7 @@ type PresenceAnswer = Extract<Awaited<ReturnType<typeof setPresence>>, { status:
  * A trigger held by a save in flight or unknown (C68). It stays focusable, so focus can return to it when its dialog
  * closes, but it starts nothing; it looks like a disabled button.
  */
-export const HELD = "aria-disabled:cursor-not-allowed aria-disabled:opacity-45 aria-disabled:active:translate-y-0";
+export const HELD = "aria-disabled:opacity-45 aria-disabled:active:translate-y-0";
 
 /**
  * Presence saves, one save lane per person (components/save useRowLanes, C68): marking people at the door never waits

@@ -115,7 +115,7 @@ export function FaqList({
 				<Accordion.Item key={item.id} value={item.id} className="border-t border-line first:border-t-0">
 					<Accordion.Header asChild>
 						<FaqHeading level={headingLevel}>
-							<Accordion.Trigger className="group/faq flex w-full cursor-pointer items-center gap-3 py-[15px] text-left font-sans font-medium tracking-normal text-ink">
+							<Accordion.Trigger className="group/faq flex w-full items-center gap-3 py-[15px] text-left font-sans font-medium tracking-normal text-ink">
 								<span className="min-w-0 flex-1">{item.question}</span>
 								<Icon
 									icon={Add01Icon}
@@ -197,7 +197,7 @@ export function WikiTree({
 						<Accordion.Header>
 							<Accordion.Trigger
 								data-focus-inset=""
-								className="group/ph flex w-full cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-[9px] text-left font-medium text-ink transition-colors hover:bg-surface-2"
+								className="group/ph flex w-full items-center gap-2.5 rounded-md px-2.5 py-[9px] text-left font-medium text-ink transition-colors hover:bg-surface-2"
 							>
 								<span
 									aria-hidden="true"
@@ -372,7 +372,7 @@ export function WikiSourceBar({
 				<MenuTrigger asChild>
 					<button
 						type="button"
-						className="inline-flex h-10 cursor-pointer items-center gap-2.5 rounded-md bg-surface-2 pr-3 pl-2 text-ink transition-colors hover:bg-surface-3"
+						className="inline-flex h-10 items-center gap-2.5 rounded-md bg-surface-2 pr-3 pl-2 text-ink transition-colors hover:bg-surface-3"
 					>
 						<OrgBadge source={current} />
 						<span>
@@ -388,7 +388,7 @@ export function WikiSourceBar({
 							<DropdownMenu.RadioItem
 								key={s.id}
 								value={s.id}
-								className="grid cursor-pointer grid-cols-[30px_minmax(0,1fr)_auto] items-center gap-2.5 rounded-md p-2.5 outline-none data-[highlighted]:bg-surface-2"
+								className="grid grid-cols-[30px_minmax(0,1fr)_auto] items-center gap-2.5 rounded-md p-2.5 outline-none data-[highlighted]:bg-surface-2"
 							>
 								<OrgBadge source={s} size="md" />
 								<span className="min-w-0">
@@ -453,7 +453,7 @@ export function WikiSourceBar({
 }
 
 const MENU_ACTION =
-	"flex min-h-[38px] cursor-pointer items-center rounded-md px-2.5 py-2 text-md text-ink outline-none data-[highlighted]:bg-surface-2";
+	"flex min-h-[38px] items-center rounded-md px-2.5 py-2 text-md text-ink outline-none data-[highlighted]:bg-surface-2";
 
 export type EditorCommand =
 	"block" | "bold" | "italic" | "link" | "bulletList" | "orderedList" | "quote" | "callout" | "image" | "undo" | "redo";
@@ -474,7 +474,7 @@ const TOOLS: ({ cmd: EditorCommand; label: string; icon: IconSvgElement; toggle?
 ];
 
 const TOOL =
-	"grid size-9 cursor-pointer place-items-center rounded-md text-ink-2 transition-colors hover:bg-surface-2 hover:text-ink disabled:cursor-not-allowed disabled:opacity-40 aria-pressed:bg-surface-2 aria-pressed:text-ink data-[state=on]:bg-surface-2 data-[state=on]:text-ink";
+	"grid size-9 place-items-center rounded-md text-ink-2 transition-colors hover:bg-surface-2 hover:text-ink disabled:opacity-40 aria-pressed:bg-surface-2 aria-pressed:text-ink data-[state=on]:bg-surface-2 data-[state=on]:text-ink";
 
 /**
  * WikiEditor (components.md): Toolbar, Title, Body blocks, Change marks and the side panel. This is the frame only:

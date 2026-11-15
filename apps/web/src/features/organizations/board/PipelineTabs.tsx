@@ -17,7 +17,7 @@ export function PipelineTabs({ current }: { current: "people" | "programs" }) {
 					href={href}
 					aria-current={current === key ? "page" : undefined}
 					className={cn(
-						"-mb-px cursor-pointer border-b-2 px-3 pt-1 pb-2.5 text-sm font-medium transition-colors",
+						"-mb-px border-b-2 px-3 pt-1 pb-2.5 text-sm font-medium transition-colors",
 						current === key ? "border-ink text-ink" : "border-transparent text-text-2 hover:text-ink",
 					)}
 				>
