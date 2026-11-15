@@ -12,7 +12,7 @@ import {
 	type PointerEvent,
 	type ReactNode,
 } from "react";
-import { cn } from "@everyfield/ui/foundations";
+import { cn } from "@/components/cn";
 import { clamp } from "@/components/motion/curves";
 
 type Props = { id: string; headingId: string; head: ReactNode; children: ReactNode };

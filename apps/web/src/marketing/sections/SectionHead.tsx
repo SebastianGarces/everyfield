@@ -1,4 +1,4 @@
-import { cn } from "@everyfield/ui/foundations";
+import { cn } from "@/components/cn";
 import { Display } from "@/components/Display";
 import { Reveal } from "@/components/motion/Reveal";
 

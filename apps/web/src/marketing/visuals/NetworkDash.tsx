@@ -1,6 +1,6 @@
 import { Icon } from "@/components/Icon";
 import { Badge, CardIcon, UiButton, type Tone } from "@/components/kit/kit";
-import { cn } from "@everyfield/ui/foundations";
+import { cn } from "@/components/cn";
 import { ICONS } from "../icons";
 import { AppFrame, DashCard, DashHead } from "./dash";
 import { Insight } from "./insight";

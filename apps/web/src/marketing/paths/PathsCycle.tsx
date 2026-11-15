@@ -4,7 +4,7 @@ import { useReduced, useTabHidden } from "@/components/motion/scene";
 import { ArrowRight02Icon } from "@hugeicons/core-free-icons";
 import { useInView } from "motion/react";
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { cn } from "@everyfield/ui/foundations";
+import { cn } from "@/components/cn";
 import { Icon } from "@/components/Icon";
 import { PlaybackGlyph } from "@/components/kit/kit";
 import { Backdrop } from "../photo/Backdrop";

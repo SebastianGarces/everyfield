@@ -2,7 +2,7 @@
 
 import { useTransform } from "motion/react";
 import { createContext, useContext, type ReactNode } from "react";
-import { cn } from "@everyfield/ui/foundations";
+import { cn } from "../cn";
 import { EvryBot } from "../kit/EvryBot";
 import type { Frame } from "./curves";
 import { m } from "./m";

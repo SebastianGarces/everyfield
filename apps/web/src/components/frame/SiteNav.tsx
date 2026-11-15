@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { buttonClass } from "../ButtonLink";
-import { cn } from "@everyfield/ui/foundations";
+import { cn } from "../cn";
 
 type NavLink = { href: string; label: string; current: boolean };
 type Which = "inflow" | "pill";

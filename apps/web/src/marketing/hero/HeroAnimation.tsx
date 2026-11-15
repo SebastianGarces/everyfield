@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { cn } from "@everyfield/ui/foundations";
+import { cn } from "@/components/cn";
 import { Icon } from "@/components/Icon";
 import { Av, CardIcon, NUM, StageChip } from "@/components/kit/kit";
 import { Fade, MoodBot, Move, Target, Tf } from "@/components/motion/fx";

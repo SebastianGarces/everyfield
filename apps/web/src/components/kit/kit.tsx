@@ -1,6 +1,6 @@
 import type { IconSvgElement } from "@hugeicons/react";
 import type { ReactNode } from "react";
-import { cn } from "@everyfield/ui/foundations";
+import { cn } from "../cn";
 import { Icon } from "../Icon";
 
 // Product-visual parts for the marketing panels, cards and vignettes (the dashboard kit, scaled for the marketing page).

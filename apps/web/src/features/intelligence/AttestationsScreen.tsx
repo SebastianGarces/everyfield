@@ -261,7 +261,7 @@ export function AttestationsScreen({ initial, viewerName }: { initial: Attestati
 								{group.title}
 							</h2>
 						</div>
-						<Card className="p-0 max-app-sm:p-0">
+						<Card className="!p-0">
 							<ul>
 								{rows.map((entry, i) => (
 									<SignalRow
@@ -806,7 +806,7 @@ function CandidateSection({
 					Leadership candidates
 				</h2>
 			</div>
-			<Card className="p-0 max-app-sm:p-0">
+			<Card className="!p-0">
 				<CardHeader className="flex-wrap px-[18px] pt-4">
 					<CardHeading>
 						<CardTitle size="sm">Attended and volunteered, {CANDIDATE_DAYS} days unbroken</CardTitle>

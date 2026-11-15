@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { cn } from "@everyfield/ui/foundations";
+import { cn } from "@/components/cn";
 
 /**
  * One FAQ question (Revision 26): a button that opens its answer; several can be open at once. A link to #faq-<id> opens
