@@ -74,8 +74,6 @@ export const tabStore = {
 		return true;
 	},
 	held(proof: string): Held | null {
-		// The server render has no tab; it shows the loading state, and the tab's value is read on the client.
-		if (typeof window === "undefined") return null;
 		try {
 			const raw = sessionStorage.getItem(HELD);
 			const value = raw ? (JSON.parse(raw) as Held) : null;

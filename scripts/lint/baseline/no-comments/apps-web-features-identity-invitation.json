@@ -2,5 +2,5 @@
 	"apps/web/src/features/identity/invitation/InvitationScreen.tsx": 20,
 	"apps/web/src/features/identity/invitation/client.ts": 2,
 	"apps/web/src/features/identity/invitation/handler.ts": 7,
-	"apps/web/src/features/identity/invitation/model.ts": 9
+	"apps/web/src/features/identity/invitation/model.ts": 8
 }
