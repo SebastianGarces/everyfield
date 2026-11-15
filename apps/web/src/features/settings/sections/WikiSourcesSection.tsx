@@ -82,15 +82,19 @@ function OrderEditor({ view }: { view: WikiOrderView }) {
 	const [announcement, setAnnouncement] = useState("");
 	const [movedLast, setMovedLast] = useState<{ count: number; id: string; step: -1 | 1 } | null>(null);
 	const body = useRef<HTMLDivElement>(null);
-	const lists = useFocusRequest<HTMLDivElement>(movedLast?.count, (root) => {
-		if (!movedLast) return null;
-		const button = (step: number) =>
-			root.querySelector<HTMLButtonElement>(`[data-move="${movedLast.id}"][data-step="${step}"]`);
-		const same = button(movedLast.step);
-		const next = same && !same.disabled ? same : button(-movedLast.step);
-		if (next) focusInBody(next);
-		return null;
-	});
+	const lists = useFocusRequest<HTMLDivElement>(
+		movedLast?.count,
+		(root) => {
+			if (!movedLast) return null;
+			const button = (step: number) =>
+				root.querySelector<HTMLButtonElement>(`[data-move="${movedLast.id}"][data-step="${step}"]`);
+			const same = button(movedLast.step);
+			const next = same && !same.disabled ? same : button(-movedLast.step);
+			if (next) revealInBody(next);
+			return next;
+		},
+		PREVENT_SCROLL,
+	);
 	const setView = (next: WikiOrderView) => reads.wiki.patch(() => next);
 
 	const move = (kind: OrderKind, row: OrderRow, index: number, step: -1 | 1) => {
@@ -196,8 +200,9 @@ function OrderEditor({ view }: { view: WikiOrderView }) {
 	);
 }
 
-function focusInBody(control: HTMLElement) {
-	control.focus({ preventScroll: true });
+const PREVENT_SCROLL = { preventScroll: true };
+
+function revealInBody(control: HTMLElement) {
 	const body = control.closest<HTMLElement>("[role=region]");
 	if (!body) return;
 	const box = body.getBoundingClientRect();
