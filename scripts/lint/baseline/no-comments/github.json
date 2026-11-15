@@ -6,5 +6,5 @@
 	".github/scripts/internal-feedback-queue.cjs": 4,
 	".github/workflows/ci.yml": 43,
 	".github/workflows/fail-forward.yml": 3,
-	".github/workflows/nightly.yml": 20
+	".github/workflows/nightly.yml": 27
 }
