@@ -1,23 +1,19 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { EvryBot, type EvryMood } from "..";
+import { useState } from "react";
+import { EvryBot } from "..";
 
 export function EvryCheer() {
-	const [mood, setMood] = useState<EvryMood>("idle");
-	const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
+	const [happy, setHappy] = useState(false);
 	return (
 		<button
 			type="button"
 			aria-label="Make Evry happy"
+			aria-pressed={happy}
 			className="rounded-full"
-			onClick={() => {
-				setMood("happy");
-				clearTimeout(timer.current);
-				timer.current = setTimeout(() => setMood("idle"), 1400);
-			}}
+			onClick={() => setHappy((h) => !h)}
 		>
-			<EvryBot size="xl" mood={mood} follow />
+			<EvryBot size="xl" mood={happy ? "happy" : "idle"} follow />
 		</button>
 	);
 }

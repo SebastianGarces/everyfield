@@ -380,10 +380,6 @@ function InsightSection() {
 function ButtonsSection() {
 	const [range, setRange] = useState<DateRange>(PRESETS[1]!.range);
 	const [saving, setSaving] = useState(false);
-	const save = () => {
-		setSaving(true);
-		setTimeout(() => setSaving(false), 1600);
-	};
 	return (
 		<Section index={3} title="Buttons" code="<Button variant size icon loading> · <IconButton variant size label>">
 			<Specimen>
@@ -405,9 +401,14 @@ function ButtonsSection() {
 					<Button variant="primary" disabled>
 						Disabled
 					</Button>
-					<Button variant="primary" loading={saving} onClick={save}>
+					<Button variant="primary" loading={saving} onClick={() => setSaving(true)}>
 						{saving ? "Saving" : "Save changes"}
 					</Button>
+					{saving ? (
+						<Button variant="ghost" size="sm" onClick={() => setSaving(false)}>
+							Finish saving
+						</Button>
+					) : null}
 					<Button variant="light">
 						Review 7 guests <Icon icon={ArrowRight01Icon} size={18} />
 					</Button>
@@ -811,7 +812,19 @@ function OverlaysSection() {
 	const palette = useSyncExternalStore(subscribePalette, paletteSnapshot, closedOnServer);
 	const setPalette = setPaletteOpen;
 	const [guide, setGuide] = useState(false);
-	const [attempts, setAttempts] = useState(0);
+	const [answer, setAnswer] = useState<((hidden: boolean) => void) | null>(null);
+	const hide = () =>
+		new Promise<void>((resolve, reject) =>
+			setAnswer(() => (hidden: boolean) => {
+				setAnswer(null);
+				if (!hidden) {
+					reject(new Error("The article did not hide because the connection dropped. Nothing changed. Try again."));
+					return;
+				}
+				toast({ message: "Article hidden." });
+				resolve();
+			}),
+		);
 	const [offer, setOffer] = useState(true);
 
 	return (
@@ -897,17 +910,22 @@ function OverlaysSection() {
 								"It leaves the Wiki tree and search for everyone in Harvest Point.",
 								"Reading progress already recorded stays in history.",
 								"Links to it show that it is hidden.",
+								...(answer
+									? [
+											<span key="answer" className="flex flex-wrap items-center gap-2">
+												Preview: answer the request
+												<Button size="sm" variant="secondary" onClick={() => answer(true)}>
+													It hides
+												</Button>
+												<Button size="sm" variant="secondary" onClick={() => answer(false)}>
+													The connection drops
+												</Button>
+											</span>,
+										]
+									: []),
 							]}
 							confirmLabel="Hide article"
-							onConfirm={async () => {
-								await new Promise((r) => setTimeout(r, 900));
-								setAttempts((n) => n + 1);
-								if (attempts === 0)
-									throw new Error(
-										"The article did not hide because the connection dropped. Nothing changed. Try again.",
-									);
-								toast({ message: "Article hidden." });
-							}}
+							onConfirm={hide}
 						/>
 						<Button icon={HelpCircleIcon} onClick={() => setGuide(true)}>
 							Open the guide
