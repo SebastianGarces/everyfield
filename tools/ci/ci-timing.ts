@@ -12,11 +12,14 @@ class CiTimingError extends Error {
 /**
  * Setup is this fixed list of GitHub step names. Every other step is run time. Setup covers the runner's own steps,
  * checkout, pnpm and Node setup, the corepack install, `pnpm install`, cache restore, the Playwright browser install
- * and the post-job cleanup. pnpm/action-setup and "pnpm in the corepack cache" are the step names before T-251, kept
- * so older runs still classify.
+ * and the post-job cleanup. Since T-285 every job's Node, corepack and node_modules setup is one step named
+ * "Shared setup (...)" (.github/actions/setup), and tooling saves its node_modules in another "Shared setup" step.
+ * pnpm/action-setup and "pnpm in the corepack cache" are the step names before T-251, and the corepack, pnpm store
+ * and pnpm install steps the names before T-285, kept so older runs still classify.
  */
 const SETUP_STEPS: readonly RegExp[] = [
 	/^Set up job$/,
+	/^Shared setup\b/,
 	/^Run actions\/checkout@/,
 	/^Run pnpm\/action-setup@/,
 	/^Run actions\/setup-node@/,
@@ -29,7 +32,10 @@ const SETUP_STEPS: readonly RegExp[] = [
 	/^Post /,
 	/^Complete job$/,
 ];
-/** Lines that actions/cache and actions/setup-node print when a cache restores or is absent. */
+/**
+ * Lines that actions/cache, actions/cache/restore and actions/setup-node print when a cache restores or is absent. The
+ * shared setup's Node and corepack cache and its node_modules cache print them inside the "Shared setup" step's log.
+ */
 const CACHE_HIT = /Cache restored from key/;
 const CACHE_MISS = /Cache not found for input keys|\bcache is not found\b/;
 
