@@ -2,7 +2,7 @@
 
 import { MotionConfig } from "motion/react";
 import { createContext, use, useCallback, useRef, useState, type ReactNode } from "react";
-import { prefersReducedMotion } from "./browser";
+import { prefersReducedMotion, useHydrated } from "./browser";
 import { THEME_COOKIE, type ProductTheme } from "./theme";
 
 type ThemeState = { theme: ProductTheme; setTheme: (next: ProductTheme) => void };
@@ -21,24 +21,13 @@ let chosen: ProductTheme | null = null;
 export function ProductRoot({ initialTheme, children }: { initialTheme: ProductTheme; children: ReactNode }) {
 	const [theme, setThemeState] = useState(() => chosen ?? initialTheme);
 	const root = useRef<HTMLDivElement>(null);
-
-	const mirrorThemeToPage = useCallback((node: HTMLDivElement | null) => {
-		if (!node) return;
-		root.current = node;
-		const html = node.ownerDocument.documentElement;
-		html.setAttribute("data-theme", node.getAttribute("data-theme") ?? "light");
-		return () => {
-			root.current = null;
-			html.removeAttribute("data-theme");
-		};
-	}, []);
+	const hydrated = useHydrated();
 
 	const setTheme = useCallback((next: ProductTheme) => {
 		chosen = next;
 		document.cookie = `${THEME_COOKIE}=${next}; Path=/; Max-Age=${YEAR}; SameSite=Lax`;
 		const el = root.current;
 		if (el && el.dataset.theme !== next && !prefersReducedMotion()) el.setAttribute("data-theme-fade", "");
-		document.documentElement.setAttribute("data-theme", next);
 		setThemeState(next);
 	}, []);
 
@@ -46,9 +35,10 @@ export function ProductRoot({ initialTheme, children }: { initialTheme: ProductT
 		<ThemeContext value={{ theme, setTheme }}>
 			<MotionConfig reducedMotion="user">
 				<div
-					ref={mirrorThemeToPage}
+					ref={root}
 					data-product-root=""
 					data-theme={theme}
+					data-hydrated={hydrated ? "" : undefined}
 					onTransitionEnd={(event) => {
 						if (event.target === event.currentTarget && event.propertyName === "background-color")
 							event.currentTarget.removeAttribute("data-theme-fade");

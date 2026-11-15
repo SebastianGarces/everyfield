@@ -23,14 +23,15 @@
 :root {
 	--ef-edge: #7a808c;
 }
-[data-theme="dark"] {
+[data-theme="dark"],
+:root:has([data-product-root][data-theme="dark"]) {
 	--ef-edge: #747b88;
 }
 
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 @layer base {
-	html[data-theme="dark"] {
+	html:has([data-product-root][data-theme="dark"]) {
 		color-scheme: dark;
 	}
 	html:has([data-product-root]) {
@@ -39,7 +40,7 @@
 	html:has([data-product-root]) body[data-scroll-locked] {
 		margin-right: 0 !important;
 	}
-	html[data-theme] body {
+	html:has([data-product-root]) body {
 		background: var(--ef-frame);
 	}
 	[data-product-root][data-theme="dark"] {
