@@ -53,6 +53,7 @@ type Surface = {
 	routes: string[];
 	endpoints?: string[];
 	catalog?: string[];
+	polls?: string;
 	reach: Reach[];
 	personas: Record<string, Access>;
 	states: State[];
@@ -602,6 +603,26 @@ export async function checkFeatureMaps(root: string, options: CheckOptions): Pro
 		for (const surface of map.surfaces) {
 			const s = surface.id;
 			checkCatalog(s, surface.catalog);
+			const settles = (where: string, steps: Step[], observables: Observable[]) => {
+				if (!surface.polls) return;
+				let acted: string | null = null;
+				for (const item of [...steps, ...observables.map((o) => ({ expect: o }))]) {
+					if ("expect" in item) {
+						const o = (item as { expect: Observable }).expect;
+						const waits = "url" in o || "noText" in o || ("text" in o && o.match === "contains");
+						if (acted && !waits)
+							problems.push(
+								at(`${where}: ${s} polls, so the check after "${acted}" must wait (URL, noText or contains text)`),
+							);
+						acted = null;
+					} else if (!("type" in item)) {
+						if (acted)
+							problems.push(at(`${where}: ${s} polls, so "${acted}" needs a waiting check before the next step`));
+						acted = Object.keys(item)[0]!;
+					}
+				}
+				if (acted) problems.push(at(`${where}: ${s} polls, so "${acted}" needs a waiting check after it`));
+			};
 			if (requirementText.has(surface.says.trim()))
 				problems.push(at(`${s} says a requirement's text; say it in user words`));
 			for (const persona of Object.keys(surface.personas))
@@ -622,6 +643,7 @@ export async function checkFeatureMaps(root: string, options: CheckOptions): Pro
 					if (!surfaceIds.has(reach.from)) problems.push(at(`${where} starts from unknown surface "${reach.from}"`));
 					checkPersona(where, reach.persona, surface);
 					checkSteps(where, reach.path, [], typedIn(reach.path));
+					settles(where, reach.path, []);
 				} else if (reach.email) {
 					const prefix = staticPrefix(reach.link);
 					const key = new RegExp(`["'\`]${escape(reach.email)}["'\`]|\\b${escape(reach.email)}\\s*:`);
@@ -643,6 +665,15 @@ export async function checkFeatureMaps(root: string, options: CheckOptions): Pro
 						problems.push(at(`${where} names persona "${reach.persona}", which is not in ${PERSONAS_FILE}`));
 					const steps = [...("setup" in reach ? reach.setup : []), ...(reach.path ?? [])];
 					checkSteps(where, steps, state.expect, typedIn(steps));
+					settles(
+						where,
+						[
+							...("setup" in reach ? reach.setup : []),
+							...(reach.open ? [{ open: reach.open }] : []),
+							...(reach.path ?? []),
+						],
+						state.expect,
+					);
 				} else checkSteps(where, [], state.expect, new Set());
 			}
 			if (new Set(surface.states.map((x) => x.id)).size !== surface.states.length)
@@ -714,6 +745,7 @@ export async function checkFeatureMaps(root: string, options: CheckOptions): Pro
 							? [...("setup" in state.reach ? state.reach.setup : []), ...(state.reach.path ?? [])]
 							: [];
 					checkSteps(where, browser.steps, browser.expect, typedIn([...before, ...browser.steps]));
+					settles(where, browser.steps, browser.expect);
 				}
 			}
 		}
@@ -721,7 +753,9 @@ export async function checkFeatureMaps(root: string, options: CheckOptions): Pro
 
 	for (const [id, persona] of Object.entries(personas))
 		for (const item of railOf(persona)) {
-			const owned = [...owner.values()].find((o) => o.kind === "page" && opens(o.surface, item.href));
+			const owned = byUrl.has(item.href)
+				? owner.get(item.href)
+				: [...owner.values()].find((o) => o.kind === "page" && opens(o.surface, item.href));
 			if (!owned) continue;
 			const access = owned.surface.personas[id] ?? "none";
 			const declared = owned.surface.reach.some((r) => "rail" in r && r.rail === item.label && r.personas.includes(id));
@@ -791,9 +825,9 @@ function command(step: Step | Observable): string {
 		: `agent-browser wait --text ${q(step.text)}`;
 }
 
-function commands(steps: Step[], expect: Observable[] = []): string[] {
+function commands(steps: Step[], expect: Observable[] = [], polls = false): string[] {
 	return [
-		...steps.flatMap((s) => ("expect" in s || "type" in s ? [command(s)] : [command(s), IDLE])),
+		...steps.flatMap((s) => ("expect" in s || "type" in s || polls ? [command(s)] : [command(s), IDLE])),
 		...expect.map(command),
 	];
 }
@@ -812,7 +846,7 @@ const describeObservable = (o: Observable): string =>
 				? `no ${describeTarget(o.absent)}`
 				: describeTarget(o);
 
-function stateLines(state: State): string[] {
+function stateLines(state: State, polls: boolean): string[] {
 	const file = state.file ? ` (\`${state.file.slice(state.file.lastIndexOf("/") + 1)}\`)` : "";
 	const head = `- **${state.id}**${file}: ${state.expect.map(describeObservable).join("; ")}`;
 	const reach = state.reach;
@@ -829,15 +863,17 @@ function stateLines(state: State): string[] {
 					...(reach.path ?? []),
 				],
 				state.expect,
+				polls,
 			),
 		),
 		"",
 	];
 }
 
-function reachLines(reach: Reach): string[] {
+function reachLines(reach: Reach, polls: boolean): string[] {
 	if ("rail" in reach) return [`- Rail "${reach.rail}" for ${reach.personas.map((p) => `\`${p}\``).join(", ")}`];
-	if ("from" in reach) return [`- From ${reach.from} as \`${reach.persona}\`:`, "", ...block(commands(reach.path)), ""];
+	if ("from" in reach)
+		return [`- From ${reach.from} as \`${reach.persona}\`:`, "", ...block(commands(reach.path, [], polls)), ""];
 	const fill = reach.fill
 		? ` where ${Object.entries(reach.fill)
 				.map(([k, v]) => `\`{${k}}\` is ${v}`)
@@ -856,15 +892,17 @@ export function showSurface(surface: Surface): string {
 			.join(", ")}`,
 	);
 	if (surface.catalog?.length) lines.push(`- Catalog: ${surface.catalog.join(", ")}`);
+	const polls = surface.polls !== undefined;
+	if (polls) lines.push(`- Polls: ${surface.polls}. No network-idle wait here: each step waits on the check after it.`);
 	lines.push(
 		"",
 		"Reach:",
 		"",
-		...surface.reach.flatMap(reachLines),
+		...surface.reach.flatMap((r) => reachLines(r, polls)),
 		"",
 		"States:",
 		"",
-		...surface.states.flatMap(stateLines),
+		...surface.states.flatMap((st) => stateLines(st, polls)),
 	);
 	for (const behavior of surface.behaviors) {
 		lines.push("", `#### ${surface.id}#${behavior.id}`, "", behavior.says, "");
@@ -883,7 +921,7 @@ export function showSurface(surface: Surface): string {
 					? `- Browser, behavior proof (acts and checks the result), from state ${browser.state}:`
 					: `- Browser, presence proof only (the control is there; the tests prove the outcome), from state ${browser.state}:`,
 				"",
-				...block(commands(browser.steps, browser.expect)),
+				...block(commands(browser.steps, browser.expect, polls)),
 			);
 	}
 	return lines.join("\n").replace(/\n{3,}/g, "\n\n") + "\n";
@@ -1004,7 +1042,7 @@ function overviewDoc(maps: LoadedMap[], personas: Record<string, Persona>, pendi
 		`[\`${LOGINS_FILE}\`](../../${LOGINS_FILE}); a proof slot's \`login --persona <id>\` sets the same session cookie.`,
 		"In commands, `$ORIGIN` is the app's address, `$REPO` the checkout, and `<QA_LOGINS.x>` and `<QA_PASSWORD>` are",
 		"values from that file. Each step that opens, clicks, presses or uploads is followed by a network-idle wait, so the page",
-		"has hydrated and the next check sees the result.",
+		"has hydrated and the next check sees the result, except on a surface marked Polls (below).",
 		"A state marked setup creates its own data first; run its setup once per fresh seed.",
 		"",
 		"| Persona | Context | Who | Sign in with |",
@@ -1020,7 +1058,7 @@ function overviewDoc(maps: LoadedMap[], personas: Record<string, Persona>, pendi
 		"catalog features and are quoted or declared in code; email links name a template that builds that path; rail",
 		"reaches agree with `shellNav` both ways for every persona; personas are QA seed logins whose name, context, role",
 		"and residency link match what the seed creates; a behavior proof checks more than the address after it acts;",
-		"and every name, label",
+		"on a surface that polls, a waiting check follows every open, click, press and upload; and every name, label",
 		"and text in a step equals (or, for `contains`, is part of) a string literal or JSX text, comments excluded, in the",
 		"feature's folder, `packages/ui/src`, the shell (each with the modules it imports directly) or the QA seed, or was",
 		"typed earlier in the same steps.",
@@ -1035,9 +1073,11 @@ function overviewDoc(maps: LoadedMap[], personas: Record<string, Persona>, pendi
 		"",
 		"A browser proof marked presence only shows that the control is there; the listed tests prove the outcome.",
 		"",
-		"The network-idle wait suits these pages, which go quiet after each action. On a page that keeps fetching (for",
-		"example `/documents`, or import progress) it runs to its 25 s timeout and still succeeds, so it proves nothing there;",
-		"a map for a polling page should wait on its next check instead (`wait --text`, `wait --url`).",
+		"The network-idle wait suits pages that go quiet after each action. On a page that keeps fetching (for example",
+		"`/documents`, or import progress) it runs to its 25 s timeout and still succeeds, so it proves nothing there. Such a",
+		"surface sets `polls` to say what keeps fetching: its commands get no network-idle wait, and the checker requires the",
+		"check after each open, click, press or upload to be one that waits (a URL, `noText`, or `contains` text, printed as",
+		"`wait --url`, `wait --fn` and `wait --text`).",
 		"",
 	].join("\n");
 }

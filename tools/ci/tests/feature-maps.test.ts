@@ -410,3 +410,51 @@ test("INV-feature-maps: an absent observable names something that must not be on
 		at(`things.list#open: no string literal or JSX text in ${scope} equals "Shut thing"`),
 	]);
 });
+
+test("INV-feature-maps: on a surface that polls, every action is followed by a check that waits", async () => {
+	const root = fixture();
+	editMap(root, (map) => {
+		Object.assign(surface(map), { polls: "the previews keep fetching" });
+		surface(map).states[0]!.expect = [
+			{ text: "All things", match: "contains" },
+			{ role: "heading", name: "All things" },
+		];
+		behavior(map).proof.browser.steps.push({ click: { role: "button", name: "Open thing" } });
+	});
+	assert.deepEqual(await problems(root), [
+		at('things.list#open: things.list polls, so "click" needs a waiting check before the next step'),
+	]);
+	const fixed = fixture();
+	editMap(fixed, (map) => {
+		Object.assign(surface(map), { polls: "the previews keep fetching" });
+		surface(map).states[0]!.expect = [{ role: "heading", name: "All things" }];
+	});
+	assert.deepEqual(await problems(fixed), [
+		at(
+			'things.list state populated: things.list polls, so the check after "open" must wait (URL, noText or contains text)',
+		),
+	]);
+});
+
+test("INV-feature-maps: a rail item whose own static route is still pending is not charged to a dynamic route beside it", async () => {
+	const root = fixture();
+	for (const dir of ["[thingId]", "special"]) {
+		mkdirSync(join(root, `apps/web/src/app/(product)/things/${dir}`), { recursive: true });
+		writeFileSync(
+			join(root, `apps/web/src/app/(product)/things/${dir}/page.tsx`),
+			'export { ThingsPage as default } from "@/features/things/routes";\n',
+		);
+	}
+	writeFileSync(
+		join(root, "apps/web/feature-maps.pending.json"),
+		JSON.stringify({ routes: ["/later", "/things/special"] }),
+	);
+	writeFileSync(
+		join(root, "apps/web/src/features/shell/nav.ts"),
+		'export const shellNav = (viewer: { context: string }) => ({ main: viewer.context === "plant" ? [{ label: "Things", href: "/things" }, { label: "Special", href: "/things/special" }] : [{ label: "Wiki", href: "/wiki" }], pages: [] });\n',
+	);
+	editMap(root, (map) => {
+		surface(map).routes.push("/things/[thingId]");
+	});
+	assert.deepEqual(await problems(root, { routes: ["/later", "/things/special"] }), []);
+});
