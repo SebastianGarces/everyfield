@@ -277,7 +277,6 @@ export function ReviewCard({
 	proposalId: string;
 	target: string | null;
 	seed?: Review | null;
-	onSeen: (proposalId: string) => void;
 }) {
 	const r = useReview(proposalId, seed);
 	// The reason the person types on a card that asks for one. It stays in this card: Evry never saves it.

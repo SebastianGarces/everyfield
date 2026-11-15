@@ -61,7 +61,6 @@ export type EvryPanelState = {
 		followStream: (listener: () => void) => () => void;
 		select: (conversationId: string) => void;
 		newChat: () => void;
-		seen: (proposalId: string) => void;
 	};
 };
 
@@ -415,14 +414,6 @@ export function createEvryPanelStore(init: { context: string; port: EvryPort }):
 					createKey = null;
 					openState(EMPTY);
 					set({ load: "ready" });
-				},
-				seen: (proposalId) => {
-					const { reviews } = get().chat;
-					if (!(proposalId in reviews)) return;
-					update((chat) => ({
-						...chat,
-						reviews: Object.fromEntries(Object.entries(chat.reviews).filter(([id]) => id !== proposalId)),
-					}));
 				},
 			},
 		};
