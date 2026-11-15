@@ -1,0 +1,11 @@
+{
+	"no-global-listeners": {
+		"apps/web/src/features/wiki/ArticleSession.store.ts": [
+			{
+				"function": "track",
+				"count": 2,
+				"reason": "Reading progress is saved at coarse steps, so the furthest point read since the last step is sent when the reader closes or reloads the tab. Only pagehide fires then, a server action dies with the page, and the page-event registry owns only keydown and beforeunload (which prompts); the listener is added and removed with the measurement of the article column it belongs to."
+			}
+		]
+	}
+}

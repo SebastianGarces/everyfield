@@ -207,26 +207,9 @@ export function WikiScreen({ data, source }: { data: WikiPageData; source: strin
 		/>
 	);
 	const steps = article && !data.editing ? stepsAround(data.tree, article.article.articleId) : null;
-	return (
+	const frame = (
 		<FixedFrame fixed={fixed} className={FRAME}>
-			{article && !data.editing ? (
-				<ArticleSession
-					key={article.article.articleId}
-					articleId={article.article.articleId}
-					slug={article.article.slug}
-					source={source}
-					readingRevision={article.readingRevision}
-					plantId={article.plantId}
-					bookmarked={article.article.bookmarked}
-					observedFraction={article.article.observedFraction}
-					completed={article.article.completed}
-					updated={article.article.updatedLabel}
-				>
-					{header}
-				</ArticleSession>
-			) : (
-				header
-			)}
+			{header}
 			{article && article.sources.length && !data.editing ? (
 				<div className={SOURCE_BAR_GAP}>
 					<SourceBar
@@ -366,5 +349,23 @@ export function WikiScreen({ data, source }: { data: WikiPageData; source: strin
 				)}
 			</ArticleColumns>
 		</FixedFrame>
+	);
+	return article && !data.editing ? (
+		<ArticleSession
+			key={article.article.articleId}
+			articleId={article.article.articleId}
+			slug={article.article.slug}
+			source={source}
+			readingRevision={article.readingRevision}
+			plantId={article.plantId}
+			bookmarked={article.article.bookmarked}
+			observedFraction={article.article.observedFraction}
+			completed={article.article.completed}
+			updated={article.article.updatedLabel}
+		>
+			{frame}
+		</ArticleSession>
+	) : (
+		frame
 	);
 }

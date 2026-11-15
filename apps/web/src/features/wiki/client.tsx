@@ -25,18 +25,9 @@ import { Tag, Toc, WikiSourceBar, type WikiPhase, WikiTree } from "@everyfield/u
 import Link from "next/link";
 import { createDebouncer, observeHeadings } from "@everyfield/ui/foundations";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import {
-	createContext,
-	use,
-	useCallback,
-	useEffect,
-	useMemo,
-	useRef,
-	useState,
-	useTransition,
-	type ReactNode,
-} from "react";
+import { createContext, use, useCallback, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import { createRead, useRead } from "../../components/read.tsx";
+import { useLocalStore, useShallow, useStore } from "../../components/store.ts";
 import { shortcutMark } from "../../components/save/leave.ts";
 import {
 	downloadPdf,
@@ -47,18 +38,20 @@ import {
 	saveProgress,
 	saveSourceOrder,
 	searchWiki,
-	type ExportResult,
 	type GuideResult,
 	type OrderSave,
 	type SearchResult,
-	type WriteResult,
 } from "./actions.ts";
+import {
+	createArticleSessionStore,
+	type SessionPort,
+	type SessionSeed,
+	type SessionStore,
+} from "./ArticleSession.store.ts";
 import { useOpenSettings, useSettingsLink } from "../settings/opener.tsx";
 import { ARTICLE_FIXED, BELOW_WIDE_ONLY, GRID, GRID_FIXED, RAIL_FIXED, RAIL_STICKY, RAIL_TOC_PAD } from "./layout.ts";
 import {
 	type ArticleVersion,
-	fractionText,
-	pdfFilename,
 	PHASE_NAME,
 	preferredOrder,
 	snippetParts,
@@ -362,29 +355,11 @@ function GuideBody({ result }: { result: GuideResult | null }) {
 	);
 }
 
-type ArticleProps = {
-	articleId: string;
-	slug: string;
-	source: string | null;
-	readingRevision: string;
-	plantId?: string;
-	bookmarked: boolean;
-	observedFraction: string;
-	completed: boolean;
-	updated: boolean;
-	children: ReactNode;
-};
-
 type Session = {
-	marked: boolean;
-	percent: string;
-	done: boolean;
-	updated: boolean;
-	note: string;
-	busy: "pdf" | "print" | null;
-	toggleBookmark: () => void;
-	pdf: () => void;
-	print: () => void;
+	store: SessionStore;
+	exporting: boolean;
+	exportAs: (kind: "pdf" | "print") => void;
+	track: (column: HTMLElement | null) => (() => void) | undefined;
 };
 
 const SessionContext = createContext<Session | null>(null);
@@ -395,215 +370,52 @@ function useSession(): Session {
 	return session;
 }
 
-/** The scroll container of the article column. Below 1280px it does not scroll and the window does. */
-const ARTICLE_SCROLL_ID = "wiki-scroll";
+const SESSION_PORT: SessionPort = { recordView: recordArticleView, saveProgress, saveBookmark, downloadPdf, printCopy };
 
-/** The article column when it is the scroll container (1280px and up), else null and the window scrolls. */
-function scrollColumn(): HTMLElement | null {
-	const column = document.getElementById(ARTICLE_SCROLL_ID);
-	return column && getComputedStyle(column).overflowY !== "visible" ? column : null;
-}
-
-/** Coarse progress steps: each quarter, past the 0.80 completion line, and the end of the article. */
-function progressStep(fraction: number): number {
-	return [0.25, 0.5, 0.75, 1].filter((step) => fraction >= step).length + (fraction > 0.8 ? 1 : 0);
-}
-
-/**
- * One article's reading state: the open record, scroll progress, the bookmark and the print and PDF writes.
- * Mount it with the article id as key, so a new article starts from its own state.
- */
-export function ArticleSession({ children, ...props }: ArticleProps) {
-	const revision = useRef(props.readingRevision);
-	const chain = useRef<Promise<WriteResult | void>>(Promise.resolve());
-	const seen = useRef(Number(props.observedFraction) || 0);
-	// The furthest point already sent. Progress writes go out only at coarse steps and on leaving.
-	const sent = useRef(seen.current);
-	const viewKey = useRef(crypto.randomUUID());
-	// Strict mode runs this effect twice. Record one view per article.
-	const recorded = useRef<string | null>(null);
-	const bookmarkKey = useRef(crypto.randomUUID());
-	const [marked, setMarked] = useState(props.bookmarked);
-	const [percent, setPercent] = useState(props.observedFraction);
-	const [done, setDone] = useState(props.completed);
-	const [updated, setUpdated] = useState(props.updated);
-	const [note, setNote] = useState("");
-	const [fallback, setFallback] = useState<string | null>(null);
-	const [busy, setBusy] = useState<"pdf" | "print" | null>(null);
-
-	function enqueue(task: (rev: string) => Promise<WriteResult>) {
-		chain.current = chain.current.then(async (): Promise<WriteResult> => {
-			// A thrown write (network failure) must not reject the chain: that would stop every later write.
-			const result = await task(revision.current).catch((): WriteResult => ({ status: "lost" }));
-			if (result.status === "ok") {
-				revision.current = result.revision;
-				setMarked(result.bookmarked);
-				// The label follows the reader between the coarse saves, so a saved result never lowers it.
-				setPercent(fractionText(Math.max(Number(result.observedFraction) || 0, seen.current)));
-				setDone(result.completed);
-				if (result.updated) setUpdated(true);
-				setNote("");
-			} else if (result.status === "conflict") setNote("Reload the page, then try again.");
-			else if (result.status === "denied") setNote("You cannot change this article.");
-			else setNote("That did not save. Try again.");
-			return result;
-		});
-		return chain.current;
-	}
-
-	useEffect(() => {
-		if (recorded.current !== props.articleId) {
-			recorded.current = props.articleId;
-			viewKey.current = crypto.randomUUID();
-			void enqueue(() =>
-				recordArticleView({ requestKey: viewKey.current, articleId: props.articleId, plantId: props.plantId }),
-			);
-		}
-		const article = document.getElementById("wiki-article");
-		const column = scrollColumn();
-		if (!article) return;
-		let timer = 0;
-		const save = () => {
-			if (seen.current <= sent.current) return;
-			sent.current = seen.current;
-			const fraction = fractionText(seen.current);
-			void enqueue(() =>
-				saveProgress({ requestKey: crypto.randomUUID(), articleId: props.articleId, plantId: props.plantId }, fraction),
-			);
-		};
-		// Progress is the share of the article above the bottom edge of what the reader sees. That edge is the
-		// article column's, or the window’s below 1280px, where the column does not scroll.
-		const measure = () => {
-			const total = article.scrollHeight;
-			if (total <= 0) return;
-			const rect = article.getBoundingClientRect();
-			const edge = column ? column.getBoundingClientRect().bottom : window.innerHeight;
-			const visible = Math.min(total, Math.max(0, edge - rect.top));
-			const next = Math.min(1, visible / total);
-			const reached = next >= 0.995 ? 1 : next;
-			if (reached <= seen.current) return;
-			seen.current = reached;
-			setPercent(fractionText(reached));
-			if (progressStep(reached) > progressStep(sent.current)) save();
-		};
-		const onScroll = () => {
-			window.clearTimeout(timer);
-			timer = window.setTimeout(measure, 500);
-		};
-		measure();
-		const target: Element | Window = column ?? window;
-		target.addEventListener("scroll", onScroll, { passive: true });
-		window.addEventListener("resize", onScroll);
-		// Leaving the page saves the furthest point read since the last step. A server action's fetch dies with the
-		// page, so this one is a keepalive request. Leaving the article inside the app saves through the action below.
-		const leave = () => {
-			if (seen.current <= sent.current) return;
-			sent.current = seen.current;
-			void fetch("/api/wiki/progress", {
-				method: "POST",
-				keepalive: true,
-				headers: { "content-type": "application/json" },
-				body: JSON.stringify({
-					requestKey: crypto.randomUUID(),
-					articleId: props.articleId,
-					fraction: fractionText(seen.current),
-					...(props.plantId ? { plantId: props.plantId } : {}),
-				}),
-			}).catch(() => undefined);
-		};
-		window.addEventListener("pagehide", leave);
-		return () => {
-			target.removeEventListener("scroll", onScroll);
-			window.removeEventListener("resize", onScroll);
-			window.removeEventListener("pagehide", leave);
-			window.clearTimeout(timer);
-			save();
-		};
-		// Record the open once per article.
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [props.articleId]);
-
-	async function toggleBookmark() {
-		const desired = !marked;
-		setMarked(desired);
-		const result = await enqueue((rev) =>
-			saveBookmark({ requestKey: bookmarkKey.current, expectedRevision: rev, articleId: props.articleId }, desired),
-		);
-		if (!result || result.status !== "ok") setMarked(!desired);
-		else bookmarkKey.current = crypto.randomUUID();
-	}
-
-	async function pdf() {
-		setBusy("pdf");
-		setFallback(null);
-		// A rejected call (offline) is a lost export: the buttons come back and the reader sees why.
-		const result = await downloadPdf(props.articleId, props.source).catch((): ExportResult => ({ status: "lost" }));
-		setBusy(null);
-		if (result.status === "pdf") {
-			saveFile(pdfFilename(props.slug), result.bytes);
-			return;
-		}
-		if (result.status === "print" && result.fallback) {
-			setFallback(result.html);
-			setNote("The PDF font failed. You can print the article instead.");
-			return;
-		}
-		setNote(result.status === "denied" ? "You cannot download this article." : "The PDF could not be made. Try again.");
-	}
-
-	async function printArticle() {
-		setBusy("print");
-		const result = fallback
-			? { status: "print" as const, html: fallback, fallback: true }
-			: await printCopy(props.articleId, props.source).catch((): ExportResult => ({ status: "lost" }));
-		setBusy(null);
-		if (result.status === "print") {
-			if (!openPrint(result.html)) setNote("Allow pop-up windows to print this article.");
-			return;
-		}
-		setNote(result.status === "denied" ? "You cannot print this article." : "Print could not be prepared. Try again.");
-	}
-
-	return (
-		<SessionContext
-			value={{
-				marked,
-				percent,
-				done,
-				updated,
-				note,
-				busy,
-				toggleBookmark: () => void toggleBookmark(),
-				pdf: () => void pdf(),
-				print: () => void printArticle(),
-			}}
-		>
-			{children}
-		</SessionContext>
+export function ArticleSession({ children, ...seed }: SessionSeed & { children: ReactNode }) {
+	const store = useLocalStore(() => createArticleSessionStore(seed, SESSION_PORT));
+	const [exporting, startExport] = useTransition();
+	const track = useCallback(
+		(column: HTMLElement | null) => (column ? store.getState().actions.track(column) : undefined),
+		[store],
 	);
+	const session = useMemo(
+		() => ({
+			store,
+			exporting,
+			track,
+			exportAs: (kind: "pdf" | "print") => startExport(() => store.getState().actions[kind]()),
+		}),
+		[store, exporting, track],
+	);
+	return <SessionContext value={session}>{children}</SessionContext>;
 }
 
-/** Bookmark, download and print: one row of equal buttons beside the search field. */
 export function ArticleTools() {
-	const { marked, busy, toggleBookmark, pdf, print } = useSession();
+	const { store, exporting, exportAs } = useSession();
+	const marked = useStore(store, (state) => state.marked);
+	const { toggleBookmark } = useStore(store, (state) => state.actions);
 	return (
 		<>
 			<IconButton
 				icon={Bookmark02Icon}
 				label={marked ? "Remove bookmark" : "Bookmark"}
 				aria-pressed={marked}
-				onClick={toggleBookmark}
+				onClick={() => void toggleBookmark()}
 				className="aria-pressed:bg-ink aria-pressed:text-on-ink aria-pressed:shadow-none aria-pressed:hover:bg-ink-2 aria-pressed:[&_svg]:fill-current"
 			/>
-			<IconButton icon={Download01Icon} label="Download PDF" onClick={pdf} disabled={busy !== null} />
-			<IconButton icon={PrinterIcon} label="Print" onClick={print} disabled={busy !== null} />
+			<IconButton icon={Download01Icon} label="Download PDF" onClick={() => exportAs("pdf")} disabled={exporting} />
+			<IconButton icon={PrinterIcon} label="Print" onClick={() => exportAs("print")} disabled={exporting} />
 		</>
 	);
 }
 
-/** The meta line under the title: read status, the credit, the update flag and the status note. */
 export function ReadStatus({ credit, version }: { credit: string | null; version: ArticleVersion | null }) {
-	const { percent, done, updated, note } = useSession();
+	const { store } = useSession();
+	const { percent, done, updated, note } = useStore(
+		store,
+		useShallow(({ percent, done, updated, note }) => ({ percent, done, updated, note })),
+	);
 	const text = `${Math.round(Math.min(1, Math.max(0, Number(percent) || 0)) * 100)}% read`;
 	return (
 		<span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1 align-middle">
@@ -631,26 +443,6 @@ export function ReadStatus({ credit, version }: { credit: string | null; version
 			) : null}
 		</span>
 	);
-}
-
-function saveFile(filename: string, bytes: string) {
-	const binary = atob(bytes);
-	const data = new Uint8Array(binary.length);
-	for (let index = 0; index < binary.length; index += 1) data[index] = binary.charCodeAt(index);
-	const url = URL.createObjectURL(new Blob([data], { type: "application/pdf" }));
-	const link = document.createElement("a");
-	link.href = url;
-	link.download = filename;
-	link.click();
-	URL.revokeObjectURL(url);
-}
-
-function openPrint(html: string): boolean {
-	const url = URL.createObjectURL(new Blob([html], { type: "text/html" }));
-	const popup = window.open(url);
-	if (!popup) return false;
-	popup.addEventListener("load", () => popup.print());
-	return true;
 }
 
 /** What the last "Set as preferred" said, on the article it was chosen from. */
@@ -782,6 +574,13 @@ const SCROLL =
 /** A side column: it scrolls on its own when the layout is fixed, else it sticks below the app bar. */
 const RAIL = `${RAIL_FIXED} ${SCROLL}`;
 
+const ARTICLE_SCROLL_ID = "wiki-scroll";
+
+function scrollColumn(): HTMLElement | null {
+	const column = document.getElementById(ARTICLE_SCROLL_ID);
+	return column && getComputedStyle(column).overflowY !== "visible" ? column : null;
+}
+
 type Heading = { id: string; label: string; level?: 2 | 3 };
 
 /** Where the sidenav was scrolled to. It outlives the page mount, so a click on a link keeps the place. */
@@ -822,6 +621,7 @@ export function ArticleColumns({
 	fixed: boolean;
 }) {
 	const pathname = usePathname();
+	const session = use(SessionContext);
 	const [openPath, setOpenPath] = useState<string | null>(null);
 	const open = openPath === pathname;
 	const [heading, setHeading] = useState(headings[0]?.id);
@@ -889,6 +689,7 @@ export function ArticleColumns({
 					{tree()}
 				</div>
 				<div
+					ref={session?.track}
 					id={fixed ? ARTICLE_SCROLL_ID : undefined}
 					tabIndex={fixed ? 0 : undefined}
 					aria-label={fixed ? "Article" : undefined}
