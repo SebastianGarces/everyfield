@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
+import { observeIntersection } from "@everyfield/ui/foundations";
+import { useMemo, useRef, useState, type MouseEvent, type ReactNode, type RefObject } from "react";
+import { shortcutMark } from "../save/leave";
 import { buttonClass } from "../ButtonLink";
 import { cn } from "../cn";
 
@@ -26,7 +28,6 @@ type Props = {
  * menu: Escape closes it and returns focus to its toggle, and a link click closes it.
  */
 export function SiteNav({ links, cta, logo, pillLogo, arrow, menuIcon }: Props) {
-	const inflowRef = useRef<HTMLElement>(null);
 	const inflowToggle = useRef<HTMLButtonElement>(null);
 	const pillToggle = useRef<HTMLButtonElement>(null);
 	const pillOnRef = useRef(false);
@@ -34,38 +35,24 @@ export function SiteNav({ links, cta, logo, pillLogo, arrow, menuIcon }: Props) 
 	const [focusInHeader, setFocusInHeader] = useState(false);
 	const [open, setOpen] = useState<Which | null>(null);
 
-	// The pill shows once the in-flow header is entirely above the viewport. An IntersectionObserver reports that
-	// change; nothing runs per scroll frame and nothing reads layout.
-	useEffect(() => {
-		const header = inflowRef.current;
-		if (!header) return;
-		const io = new IntersectionObserver(([entry]) => {
-			const on = !entry!.isIntersecting;
-			if (on === pillOnRef.current) return;
-			pillOnRef.current = on;
-			setPillOn(on);
-			// A menu belongs to the bar that showed it; switching bars closes it.
-			setOpen(null);
-		});
-		io.observe(header);
-		return () => io.disconnect();
-	}, []);
-
-	// Escape closes the open menu and returns focus to its toggle. Listens only while a menu is open.
-	useEffect(() => {
-		if (!open) return;
-		const onKey = (e: KeyboardEvent) => {
-			if (e.key !== "Escape") return;
-			setOpen(null);
-			(open === "pill" ? pillToggle : inflowToggle).current?.focus();
-		};
-		document.addEventListener("keydown", onKey);
-		return () => document.removeEventListener("keydown", onKey);
-	}, [open]);
+	const watchHeader = useMemo(
+		() =>
+			observeIntersection<HTMLElement>((entry) => {
+				const on = !entry.isIntersecting;
+				if (on === pillOnRef.current) return;
+				pillOnRef.current = on;
+				setPillOn(on);
+				setOpen(null);
+			}),
+		[],
+	);
 
 	const pillLive = pillOn && !focusInHeader;
-	const onBlur = () =>
-		requestAnimationFrame(() => setFocusInHeader(!!inflowRef.current?.contains(document.activeElement)));
+	const toggle = (which: Which, e: MouseEvent<HTMLButtonElement>) => {
+		const closing = open === which;
+		setOpen(closing ? null : which);
+		if (closing && e.detail === 0) (which === "pill" ? pillToggle : inflowToggle).current?.focus();
+	};
 	const bar = (which: Which) => (
 		<NavBar
 			which={which}
@@ -76,7 +63,7 @@ export function SiteNav({ links, cta, logo, pillLogo, arrow, menuIcon }: Props) 
 			menuIcon={menuIcon}
 			open={open === which}
 			toggleRef={which === "pill" ? pillToggle : inflowToggle}
-			onToggle={() => setOpen((o) => (o === which ? null : which))}
+			onToggle={(e) => toggle(which, e)}
 			onLinkClick={() => setOpen(null)}
 		/>
 	);
@@ -84,12 +71,12 @@ export function SiteNav({ links, cta, logo, pillLogo, arrow, menuIcon }: Props) 
 	return (
 		<>
 			<header
-				ref={inflowRef}
+				ref={watchHeader}
 				className="relative z-50"
 				inert={pillLive}
 				aria-hidden={pillLive || undefined}
 				onFocus={() => setFocusInHeader(true)}
-				onBlur={onBlur}
+				onBlur={(e) => setFocusInHeader(e.currentTarget.contains(e.relatedTarget))}
 			>
 				{bar("inflow")}
 			</header>
@@ -125,7 +112,7 @@ type BarProps = {
 	menuIcon: ReactNode;
 	open: boolean;
 	toggleRef: RefObject<HTMLButtonElement | null>;
-	onToggle: () => void;
+	onToggle: (e: MouseEvent<HTMLButtonElement>) => void;
 	onLinkClick: () => void;
 };
 
@@ -194,6 +181,7 @@ function NavBar({ which, links, cta, logo, arrow, menuIcon, open, toggleRef, onT
 					aria-label="Menu"
 					aria-expanded={open}
 					aria-controls={menuId}
+					{...(open ? shortcutMark("Escape") : {})}
 					onClick={onToggle}
 					className={cn(
 						"hidden place-items-center rounded-nav-item border-0 bg-cream text-ink hover:bg-mk-surface-3 max-mk-nav:grid",
