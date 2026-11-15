@@ -68,12 +68,9 @@ function InvitationFor({ proof }: { proof: string }) {
 		const r = await readInvitation(proof);
 		return { description: invitationDescriptionResult.parse(r.description), session: r.session };
 	}, [proof]);
-	const { state, reload, refreshing } = useLoad(fetch, "The invitation did not load");
+	const { state, reload, update, refreshing } = useLoad(fetch, "The invitation did not load");
 	const [held, setHeld] = useState<Held | null>(() => tabStore.held(proof));
-	const [joining, setJoining] = useState<Joining | null>(() => {
-		const email = tabStore.joining();
-		return email ? { email, here: false } : null;
-	});
+	const [joining, setJoining] = useState<string | null>(() => tabStore.joining());
 
 	if (state.status === "loading") return <Loading />;
 	if (state.status === "error")
@@ -122,26 +119,31 @@ function InvitationFor({ proof }: { proof: string }) {
 				Everyfield could not check your sign-in. Try again in a few minutes.
 			</Outcome>
 		);
-	const joined = (email: string) => {
+	const joined = async (email: string): Promise<Read | null> => {
 		tabStore.setJoining(email);
-		setJoining({ email, here: true });
-		reload();
+		setJoining(email);
+		try {
+			const fresh = await fetch();
+			update(() => fresh);
+			return fresh;
+		} catch {
+			reload();
+			return null;
+		}
 	};
-	const signedIn = session !== "signed_out" || joining?.here === true;
+	const signedIn = session !== "signed_out";
 	const answer = {
 		description,
 		proof,
 		refreshing,
 		onRefused: reload,
 		onHeld: setHeld,
-		joining: joining?.email ?? null,
+		joining,
 	};
 	if (description.subject.purpose === "seat") return <SeatFlow {...answer} signedIn={signedIn} onJoined={joined} />;
 	if (!signedIn) return <SignedOut description={description} proof={proof} onJoined={joined} />;
 	return <ResidentAnswer {...answer} />;
 }
-
-type Joining = { email: string; here: boolean };
 
 function Loading() {
 	return (
@@ -420,26 +422,25 @@ function SeatFlow({
 	joining,
 	signedIn,
 	onJoined,
-}: AnswerProps & { signedIn: boolean; onJoined: (email: string) => void }) {
+}: AnswerProps & { signedIn: boolean; onJoined: (email: string) => Promise<Read | null> }) {
 	const intent = useIntent<SeatCommand>("seat-accept");
 	const [done, setDone] = useState<SeatAccepted | null>(null);
 	const [confirm, setConfirm] = useState<{ tries: number } | null>(null);
 	const link = useConfirmationLink();
 	const role = description.subject.purpose === "seat" ? description.subject.role : "member";
 
-	async function accept(asJoining: string | null) {
+	async function accept(asJoining: string | null, to: Description = description) {
 		setConfirm((c) => c && { tries: c.tries + 1 });
 		const result = await intent.run(
-			description.invitationId,
+			to.invitationId,
 			(requestKey) =>
 				acceptSeatInvitationRequest.parse({
 					requestKey,
-					expectedRevision: description.revision,
-					input: { invitationId: description.invitationId, proof },
+					expectedRevision: to.revision,
+					input: { invitationId: to.invitationId, proof },
 				}),
 			holding(
-				(command: SeatCommand) =>
-					tabStore.hold({ proof, workspaceName: description.workspaceName, kind: "seat", command }),
+				(command: SeatCommand) => tabStore.hold({ proof, workspaceName: to.workspaceName, kind: "seat", command }),
 				async (command: SeatCommand) => {
 					try {
 						return await sendSeat(command);
@@ -472,9 +473,14 @@ function SeatFlow({
 			<SignedOut
 				description={description}
 				proof={proof}
-				onJoined={(email) => {
-					onJoined(email);
-					void accept(email);
+				onJoined={async (email) => {
+					const fresh = await onJoined(email);
+					if (
+						fresh?.description.status === "pending" &&
+						fresh.session !== "signed_out" &&
+						fresh.session !== "unavailable"
+					)
+						void accept(email, fresh.description);
 				}}
 			/>
 		);
