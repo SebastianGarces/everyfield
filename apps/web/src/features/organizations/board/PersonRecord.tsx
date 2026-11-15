@@ -317,10 +317,10 @@ function MoveForm({
 	const [state, move, saving] = useActionState(
 		async (_: MoveState, form: FormData): Promise<MoveState> => {
 			const stageId = String(form.get("stageId") ?? "");
-			const reason = String(form.get("reason") ?? "").trim();
-			if (!reason) return { error: "Give a reason for this move.", problem: null, stageId, reason };
-			const problem = await onSubmit(stageId, reason);
-			return { error: null, problem, stageId, reason: problem ? reason : "" };
+			const typed = String(form.get("reason") ?? "");
+			if (!typed.trim()) return { error: "Give a reason for this move.", problem: null, stageId, reason: typed };
+			const problem = await onSubmit(stageId, typed.trim());
+			return { error: null, problem, stageId, reason: problem ? typed : "" };
 		},
 		{ error: null, problem: null, stageId: choices[0]?.id ?? "", reason: "" },
 	);
@@ -337,7 +337,7 @@ function MoveForm({
 				</Field>
 				<Field
 					label="Reason"
-					error={state.error ?? undefined}
+					error={saving ? undefined : (state.error ?? undefined)}
 					hint="Staff with access to this record see it in the history."
 				>
 					<Textarea name="reason" defaultValue={state.reason} rows={3} maxLength={1000} />
