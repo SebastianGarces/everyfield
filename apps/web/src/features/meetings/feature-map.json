@@ -22,40 +22,94 @@
 			"says": "Every meeting of the church, with the next one first, filtered by when, type and status.",
 			"routes": ["/meetings"],
 			"catalog": ["MTG-001", "MTG-002", "MTG-003"],
-			"reach": [{ "rail": "Meetings", "personas": ["plant-owner", "plant-admin", "plant-member"] }],
-			"personas": { "plant-owner": "write", "plant-admin": "write", "plant-member": "read", "visitor": "none" },
+			"reach": [
+				{
+					"rail": "Meetings",
+					"personas": ["owner", "admin", "member"]
+				}
+			],
+			"personas": {
+				"owner": "write",
+				"admin": "write",
+				"member": "read",
+				"visitor": "none"
+			},
 			"states": [
 				{
 					"id": "populated",
-					"reach": { "persona": "plant-owner", "open": "/meetings" },
+					"reach": {
+						"persona": "owner",
+						"open": "/meetings",
+						"seed": "qa"
+					},
 					"expect": [
-						{ "role": "heading", "name": "All meetings" },
-						{ "role": "button", "name": "Plan a meeting" }
+						{
+							"role": "heading",
+							"name": "All meetings"
+						},
+						{
+							"role": "button",
+							"name": "Plan a meeting"
+						}
 					]
 				},
 				{
 					"id": "member",
-					"reach": { "persona": "plant-member", "open": "/meetings" },
-					"expect": [{ "role": "heading", "name": "All meetings" }, { "noText": "Plan a meeting" }]
+					"reach": {
+						"persona": "member",
+						"open": "/meetings",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "All meetings"
+						},
+						{
+							"noText": "Plan a meeting"
+						}
+					]
 				},
 				{
 					"id": "signed-out",
-					"reach": { "manual": "open /meetings with no session: the page sends the visitor to sign in" },
-					"expect": [{ "url": "/signin?returnTo=%2Fmeetings" }]
+					"reach": {
+						"persona": "visitor",
+						"open": "/meetings",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"url": "/signin?returnTo=%2Fmeetings"
+						}
+					]
 				},
 				{
 					"id": "loading",
 					"file": "apps/web/src/app/(product)/(frame)/meetings/(list)/loading.tsx",
-					"reach": { "manual": "shows only while the server renders the list" },
-					"expect": [{ "text": "Loading meetings" }]
+					"reach": {
+						"manual": "shows only while the server renders the list"
+					},
+					"expect": [
+						{
+							"text": "Loading meetings"
+						}
+					]
 				},
 				{
 					"id": "error",
 					"file": "apps/web/src/app/(product)/(frame)/meetings/error.tsx",
-					"reach": { "manual": "renders only when the page throws while rendering" },
+					"reach": {
+						"manual": "renders only when the page throws while rendering"
+					},
 					"expect": [
-						{ "role": "heading", "name": "We could not load meetings" },
-						{ "role": "button", "name": "Try again" }
+						{
+							"role": "heading",
+							"name": "We could not load meetings"
+						},
+						{
+							"role": "button",
+							"name": "Try again"
+						}
 					]
 				}
 			],
@@ -75,8 +129,24 @@
 						"cases": ["TARGET-MTG-001", "B02-007"],
 						"browser": {
 							"state": "populated",
-							"steps": [{ "click": { "role": "radio", "name": "Past" } }],
-							"expect": [{ "url": "/meetings?when=past" }, { "role": "radio", "name": "Past" }]
+							"steps": [
+								{
+									"click": {
+										"role": "radio",
+										"name": "Past"
+									}
+								}
+							],
+							"expect": [
+								{
+									"url": "/meetings?when=past"
+								},
+								{
+									"role": "radio",
+									"name": "Past"
+								}
+							],
+							"kind": "behavior"
 						}
 					}
 				},
@@ -95,15 +165,28 @@
 						"cases": ["TARGET-MTG-002", "TARGET-MTG-005", "TARGET-MTG-006"],
 						"browser": {
 							"state": "populated",
-							"steps": [{ "click": { "role": "button", "name": "Plan a meeting" } }],
-							"expect": [{ "role": "dialog", "name": "Plan a meeting" }]
+							"steps": [
+								{
+									"click": {
+										"role": "button",
+										"name": "Plan a meeting"
+									}
+								}
+							],
+							"expect": [
+								{
+									"role": "dialog",
+									"name": "Plan a meeting"
+								}
+							],
+							"kind": "presence"
 						}
 					}
 				},
 				{
 					"id": "places",
 					"says": "Places keeps the church's venues; a meeting keeps its own copy of the venue it used.",
-					"catalog": ["MTG-003"],
+					"catalog": ["MTG-003", "MTG-004"],
 					"operations": ["venues.create", "venues.edit", "venues.archive", "venues.restore"],
 					"proof": {
 						"tests": [
@@ -115,8 +198,21 @@
 						"cases": ["TARGET-MTG-003", "TARGET-MTG-004"],
 						"browser": {
 							"state": "populated",
-							"steps": [{ "click": { "role": "button", "name": "Places" } }],
-							"expect": [{ "role": "dialog", "name": "Places" }]
+							"steps": [
+								{
+									"click": {
+										"role": "button",
+										"name": "Places"
+									}
+								}
+							],
+							"expect": [
+								{
+									"role": "dialog",
+									"name": "Places"
+								}
+							],
+							"kind": "presence"
 						}
 					}
 				}
@@ -131,39 +227,103 @@
 			"reach": [
 				{
 					"from": "meetings.list",
-					"persona": "plant-owner",
-					"path": [{ "click": { "role": "link", "name": "Vision meeting", "match": "contains" } }]
+					"persona": "owner",
+					"path": [
+						{
+							"click": {
+								"role": "link",
+								"name": "QA vision meeting"
+							}
+						},
+						{
+							"expect": {
+								"url": "/meetings/{meetingId}"
+							}
+						}
+					]
 				},
-				{ "link": "/meetings/{meetingId}", "fill": { "meetingId": "$meetings:/past/chromium/meetingId" } }
+				{
+					"link": "/meetings/{meetingId}",
+					"fill": {
+						"meetingId": "the id in a meeting row's link"
+					}
+				}
 			],
-			"personas": { "plant-owner": "write", "plant-admin": "write", "plant-member": "read" },
+			"personas": {
+				"owner": "write",
+				"admin": "write",
+				"member": "read"
+			},
 			"states": [
 				{
 					"id": "populated",
 					"reach": {
-						"persona": "plant-owner",
-						"open": "/meetings/{meetingId}",
-						"fill": { "meetingId": "$meetings:/past/chromium/meetingId" }
+						"persona": "owner",
+						"open": "/meetings",
+						"path": [
+							{
+								"click": {
+									"role": "link",
+									"name": "QA vision meeting"
+								}
+							},
+							{
+								"expect": {
+									"url": "/meetings/{meetingId}"
+								}
+							}
+						],
+						"seed": "qa"
 					},
 					"expect": [
-						{ "role": "button", "name": "Status", "match": "contains" },
-						{ "role": "tab", "name": "Guests", "match": "contains" }
+						{
+							"role": "heading",
+							"name": "QA vision meeting",
+							"match": "contains"
+						},
+						{
+							"role": "button",
+							"name": "Status",
+							"match": "contains"
+						},
+						{
+							"role": "tab",
+							"name": "Guests",
+							"match": "contains"
+						}
 					]
 				},
 				{
 					"id": "not-found",
 					"file": "apps/web/src/app/(product)/(frame)/meetings/[meetingId]/not-found.tsx",
-					"reach": { "persona": "plant-owner", "open": "/meetings/00000000-0000-4000-8000-000000000000" },
+					"reach": {
+						"persona": "owner",
+						"open": "/meetings/00000000-0000-4000-8000-000000000000",
+						"seed": "qa"
+					},
 					"expect": [
-						{ "role": "heading", "name": "This meeting is not here" },
-						{ "role": "link", "name": "Back to Meetings" }
+						{
+							"role": "heading",
+							"name": "This meeting is not here"
+						},
+						{
+							"role": "link",
+							"name": "Back to Meetings"
+						}
 					]
 				},
 				{
 					"id": "error",
 					"file": "apps/web/src/app/(product)/(frame)/meetings/error.tsx",
-					"reach": { "manual": "renders only when the page throws while rendering" },
-					"expect": [{ "role": "heading", "name": "We could not load meetings" }]
+					"reach": {
+						"manual": "renders only when the page throws while rendering"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "We could not load meetings"
+						}
+					]
 				}
 			],
 			"behaviors": [
@@ -177,23 +337,38 @@
 							{
 								"file": "tests/integration/meetings/meetings.test.mts",
 								"name": "AC:B02-008 AC:B02-009 AC:B02-011 AC:B02-012 AC:B02-013 AC:B02-015 AC:B02-032 AC:TARGET-MTG-002 held practices count once and only when actually held"
-							},
-							{
-								"file": "tests/unit/meetings/status-view.test.mjs",
-								"name": "BUG-58bc5acb8: a past planning or ready meeting reads Not closed in the attention tone"
 							}
 						],
 						"cases": ["TARGET-MTG-002"],
 						"browser": {
 							"state": "populated",
 							"steps": [
-								{ "click": { "role": "button", "name": "Status", "match": "contains" } },
-								{ "click": { "role": "menuitem", "name": "Mark as ready" } }
+								{
+									"click": {
+										"role": "button",
+										"name": "Status",
+										"match": "contains"
+									}
+								},
+								{
+									"click": {
+										"role": "menuitem",
+										"name": "Mark as ready"
+									}
+								}
 							],
 							"expect": [
-								{ "text": "is saved.", "match": "contains" },
-								{ "role": "button", "name": "Ready", "match": "contains" }
-							]
+								{
+									"text": "is saved.",
+									"match": "contains"
+								},
+								{
+									"role": "button",
+									"name": "Ready",
+									"match": "contains"
+								}
+							],
+							"kind": "behavior"
 						}
 					}
 				},
@@ -212,8 +387,21 @@
 						"cases": ["TARGET-MTG-007", "TARGET-MTG-011"],
 						"browser": {
 							"state": "populated",
-							"steps": [{ "click": { "role": "button", "name": "Add guest" } }],
-							"expect": [{ "role": "dialog", "name": "Add guest" }]
+							"steps": [
+								{
+									"click": {
+										"role": "button",
+										"name": "Add guest"
+									}
+								}
+							],
+							"expect": [
+								{
+									"role": "dialog",
+									"name": "Add guest"
+								}
+							],
+							"kind": "presence"
 						}
 					}
 				},
@@ -242,7 +430,7 @@
 				},
 				{
 					"id": "print-agenda",
-					"says": "A Vision meeting's Print agenda opens its agenda as a printable page; signed out it goes to sign in.",
+					"says": "A Vision meeting has Print agenda, which opens its agenda as a printable page.",
 					"catalog": ["MTG-005"],
 					"operations": ["meetings.readAgenda"],
 					"proof": {
@@ -256,7 +444,13 @@
 						"browser": {
 							"state": "populated",
 							"steps": [],
-							"expect": [{ "role": "link", "name": "Print agenda" }]
+							"expect": [
+								{
+									"role": "link",
+									"name": "Print agenda"
+								}
+							],
+							"kind": "presence"
 						}
 					}
 				}
@@ -270,23 +464,74 @@
 			"reach": [
 				{
 					"from": "meetings.detail",
-					"persona": "plant-owner",
-					"path": [{ "click": { "role": "link", "name": "Start check-in" } }]
+					"persona": "owner",
+					"path": [
+						{
+							"click": {
+								"role": "link",
+								"name": "Start check-in"
+							}
+						},
+						{
+							"expect": {
+								"url": "/meetings/{meetingId}/check-in"
+							}
+						}
+					]
 				},
-				{ "link": "/meetings/{meetingId}/check-in", "fill": { "meetingId": "$meetings:/past/chromium/meetingId" } }
+				{
+					"link": "/meetings/{meetingId}/check-in",
+					"fill": {
+						"meetingId": "the meeting's id"
+					}
+				}
 			],
-			"personas": { "plant-owner": "write", "plant-admin": "write", "plant-member": "none" },
+			"personas": {
+				"owner": "write",
+				"admin": "write",
+				"member": "none"
+			},
 			"states": [
 				{
 					"id": "guests",
 					"reach": {
-						"persona": "plant-owner",
-						"open": "/meetings/{meetingId}/check-in",
-						"fill": { "meetingId": "$meetings:/past/chromium/meetingId" }
+						"persona": "owner",
+						"open": "/meetings",
+						"path": [
+							{
+								"click": {
+									"role": "link",
+									"name": "QA vision meeting"
+								}
+							},
+							{
+								"expect": {
+									"url": "/meetings/{meetingId}"
+								}
+							},
+							{
+								"click": {
+									"role": "link",
+									"name": "Start check-in"
+								}
+							},
+							{
+								"expect": {
+									"url": "/meetings/{meetingId}/check-in"
+								}
+							}
+						],
+						"seed": "qa"
 					},
 					"expect": [
-						{ "role": "heading", "name": "Check-in" },
-						{ "role": "button", "name": "Finish check-in" }
+						{
+							"role": "heading",
+							"name": "Check-in"
+						},
+						{
+							"role": "button",
+							"name": "Finish check-in"
+						}
 					]
 				}
 			],
@@ -310,11 +555,25 @@
 						"cases": ["TARGET-MTG-010", "TARGET-MTG-012", "TARGET-MTG-014"],
 						"browser": {
 							"state": "guests",
-							"steps": [{ "click": { "role": "button", "name": "$meetings:/past/chromium/guests/0" } }],
+							"steps": [
+								{
+									"click": {
+										"role": "button",
+										"name": "Sara Nunez"
+									}
+								}
+							],
 							"expect": [
-								{ "text": "Here", "match": "contains" },
-								{ "text": "checked in", "match": "contains" }
-							]
+								{
+									"text": "Here",
+									"match": "contains"
+								},
+								{
+									"text": "checked in",
+									"match": "contains"
+								}
+							],
+							"kind": "behavior"
 						}
 					}
 				},
@@ -337,11 +596,37 @@
 						"cases": ["TARGET-MTG-011"],
 						"browser": {
 							"state": "guests",
-							"steps": [{ "click": { "role": "button", "name": "Add a walk-in" } }],
+							"steps": [
+								{
+									"click": {
+										"role": "button",
+										"name": "Add a walk-in"
+									}
+								},
+								{
+									"click": {
+										"role": "radio",
+										"name": "Someone new"
+									}
+								},
+								{
+									"type": "Map Walk-in",
+									"into": "Name"
+								},
+								{
+									"click": {
+										"role": "button",
+										"name": "Check in"
+									}
+								}
+							],
 							"expect": [
-								{ "role": "dialog", "name": "Add a walk-in" },
-								{ "role": "radio", "name": "Someone new" }
-							]
+								{
+									"text": "is checked in.",
+									"match": "contains"
+								}
+							],
+							"kind": "behavior"
 						}
 					}
 				}
@@ -356,15 +641,28 @@
 				{
 					"link": "/rsvp/{token}",
 					"email": "rsvp_link",
-					"fill": { "token": "the token in the guest's invitation email" }
+					"fill": {
+						"token": "the token in the guest's invitation email"
+					}
 				}
 			],
-			"personas": { "visitor": "write" },
+			"personas": {
+				"visitor": "write"
+			},
 			"states": [
 				{
 					"id": "unavailable",
-					"reach": { "persona": "visitor", "open": "/rsvp/not-a-token" },
-					"expect": [{ "role": "heading", "name": "This link does not work" }]
+					"reach": {
+						"persona": "visitor",
+						"open": "/rsvp/not-a-token",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "This link does not work"
+						}
+					]
 				}
 			],
 			"behaviors": [
@@ -384,9 +682,9 @@
 								"name": "BUG-ce8e6b7f7: a link to a cancelled or completed meeting reads as closed, open, answered or expired, and takes no answer"
 							}
 						],
-						"cases": ["CASE-COM-010", "TARGET-MTG-009"],
-						"browser": { "state": "unavailable", "steps": [], "expect": [{ "noText": "Sign in" }] }
-					}
+						"cases": ["CASE-COM-010", "TARGET-MTG-009"]
+					},
+					"noOperation": "the token RSVP reads and writes (meetings.readTokenRsvp, meetings.resolveTokenRsvp) are catalog names the code does not use"
 				}
 			]
 		}

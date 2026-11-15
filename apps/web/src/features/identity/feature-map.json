@@ -9,15 +9,33 @@
 			"routes": ["/signin"],
 			"endpoints": ["/api/auth/[...path]"],
 			"catalog": ["IDN-001", "IDN-028"],
-			"reach": [{ "link": "/signin" }],
-			"personas": { "visitor": "write", "landing-finished": "write", "landing-new": "write" },
+			"reach": [
+				{
+					"link": "/signin"
+				}
+			],
+			"personas": {
+				"visitor": "write",
+				"owner": "write",
+				"signup": "write"
+			},
 			"states": [
 				{
 					"id": "form",
-					"reach": { "persona": "visitor", "open": "/signin" },
+					"reach": {
+						"persona": "visitor",
+						"open": "/signin",
+						"seed": "qa"
+					},
 					"expect": [
-						{ "role": "heading", "name": "Welcome back" },
-						{ "role": "button", "name": "Sign in" }
+						{
+							"role": "heading",
+							"name": "Welcome back"
+						},
+						{
+							"role": "button",
+							"name": "Sign in"
+						}
 					]
 				}
 			],
@@ -38,13 +56,30 @@
 						"browser": {
 							"state": "form",
 							"steps": [
-								{ "type": "nobody@example.test", "into": "Email" },
-								{ "type": "not-the-password-1", "into": "Password" },
-								{ "click": { "role": "button", "name": "Sign in" } }
+								{
+									"type": "nobody@example.test",
+									"into": "Email"
+								},
+								{
+									"type": "not-the-password-1",
+									"into": "Password"
+								},
+								{
+									"click": {
+										"role": "button",
+										"name": "Sign in"
+									}
+								}
 							],
-							"expect": [{ "text": "Email or password is incorrect." }]
+							"expect": [
+								{
+									"text": "Email or password is incorrect."
+								}
+							],
+							"kind": "behavior"
 						}
-					}
+					},
+					"noOperation": "sign-in, recovery and verification run through the Better Auth handler at /api/auth; the catalog's auth.* names are not used in code"
 				},
 				{
 					"id": "landing",
@@ -66,13 +101,30 @@
 						"browser": {
 							"state": "form",
 							"steps": [
-								{ "type": "$invitation:/landing/finished", "into": "Email" },
-								{ "type": "$invitation:/password", "into": "Password" },
-								{ "click": { "role": "button", "name": "Sign in" } }
+								{
+									"type": "$login:owner",
+									"into": "Email"
+								},
+								{
+									"type": "$password",
+									"into": "Password"
+								},
+								{
+									"click": {
+										"role": "button",
+										"name": "Sign in"
+									}
+								}
 							],
-							"expect": [{ "url": "/overview" }]
+							"expect": [
+								{
+									"url": "/overview"
+								}
+							],
+							"kind": "behavior"
 						}
-					}
+					},
+					"noOperation": "sign-in, recovery and verification run through the Better Auth handler at /api/auth; the catalog's auth.* names are not used in code"
 				},
 				{
 					"id": "safe-return",
@@ -91,7 +143,8 @@
 							}
 						],
 						"cases": ["TARGET-IDN-028", "CASE-ADM-004"]
-					}
+					},
+					"noOperation": "sign-in, recovery and verification run through the Better Auth handler at /api/auth; the catalog's auth.* names are not used in code"
 				}
 			]
 		},
@@ -100,18 +153,41 @@
 			"says": "The landing address every home and post-sign-in link uses; it only redirects.",
 			"routes": ["/home"],
 			"catalog": ["IDN-001"],
-			"reach": [{ "link": "/home" }],
-			"personas": { "visitor": "read", "plant-owner": "read" },
+			"reach": [
+				{
+					"link": "/home"
+				}
+			],
+			"personas": {
+				"visitor": "read",
+				"owner": "read"
+			},
 			"states": [
 				{
 					"id": "signed-out",
-					"reach": { "persona": "visitor", "open": "/home" },
-					"expect": [{ "url": "/signin?returnTo=%2Fhome" }]
+					"reach": {
+						"persona": "visitor",
+						"open": "/home",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"url": "/signin?returnTo=%2Fhome"
+						}
+					]
 				},
 				{
 					"id": "plant-seat",
-					"reach": { "persona": "plant-owner", "open": "/home" },
-					"expect": [{ "url": "/overview" }]
+					"reach": {
+						"persona": "owner",
+						"open": "/home",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"url": "/overview"
+						}
+					]
 				}
 			],
 			"behaviors": [
@@ -127,9 +203,9 @@
 								"name": "AC:TARGET-IDN-001 INV-session (${name}): a signed-out visitor to /home goes to /signin with /home as returnTo, without a loop"
 							}
 						],
-						"cases": ["TARGET-IDN-001"],
-						"browser": { "state": "signed-out", "steps": [], "expect": [{ "role": "heading", "name": "Welcome back" }] }
-					}
+						"cases": ["TARGET-IDN-001"]
+					},
+					"noOperation": "sign-in, recovery and verification run through the Better Auth handler at /api/auth; the catalog's auth.* names are not used in code"
 				}
 			]
 		},
@@ -142,17 +218,36 @@
 				{
 					"from": "identity.signin",
 					"persona": "visitor",
-					"path": [{ "click": { "role": "link", "name": "Start your church" } }]
+					"path": [
+						{
+							"click": {
+								"role": "link",
+								"name": "Start your church"
+							}
+						}
+					]
 				}
 			],
-			"personas": { "visitor": "write" },
+			"personas": {
+				"visitor": "write"
+			},
 			"states": [
 				{
 					"id": "form",
-					"reach": { "persona": "visitor", "open": "/register" },
+					"reach": {
+						"persona": "visitor",
+						"open": "/register",
+						"seed": "qa"
+					},
 					"expect": [
-						{ "role": "heading", "name": "Create your account" },
-						{ "role": "button", "name": "Create account" }
+						{
+							"role": "heading",
+							"name": "Create your account"
+						},
+						{
+							"role": "button",
+							"name": "Create account"
+						}
 					]
 				}
 			],
@@ -170,7 +265,8 @@
 							}
 						],
 						"cases": ["TARGET-IDN-030"]
-					}
+					},
+					"noOperation": "sign-in, recovery and verification run through the Better Auth handler at /api/auth; the catalog's auth.* names are not used in code"
 				}
 			]
 		},
@@ -179,15 +275,31 @@
 			"says": "Ask for a password reset link by email; the answer never says whether the address has an account.",
 			"routes": ["/recover-password"],
 			"catalog": ["IDN-009"],
-			"reach": [{ "link": "/recover-password" }],
-			"personas": { "visitor": "write" },
+			"reach": [
+				{
+					"link": "/recover-password"
+				}
+			],
+			"personas": {
+				"visitor": "write"
+			},
 			"states": [
 				{
 					"id": "form",
-					"reach": { "persona": "visitor", "open": "/recover-password" },
+					"reach": {
+						"persona": "visitor",
+						"open": "/recover-password",
+						"seed": "qa"
+					},
 					"expect": [
-						{ "role": "heading", "name": "Reset your password" },
-						{ "role": "button", "name": "Send reset link" }
+						{
+							"role": "heading",
+							"name": "Reset your password"
+						},
+						{
+							"role": "button",
+							"name": "Send reset link"
+						}
 					]
 				}
 			],
@@ -208,12 +320,27 @@
 						"browser": {
 							"state": "form",
 							"steps": [
-								{ "type": "nobody@example.test", "into": "Email" },
-								{ "click": { "role": "button", "name": "Send reset link" } }
+								{
+									"type": "nobody@example.test",
+									"into": "Email"
+								},
+								{
+									"click": {
+										"role": "button",
+										"name": "Send reset link"
+									}
+								}
 							],
-							"expect": [{ "role": "heading", "name": "Check your email" }]
+							"expect": [
+								{
+									"role": "heading",
+									"name": "Check your email"
+								}
+							],
+							"kind": "behavior"
 						}
-					}
+					},
+					"noOperation": "sign-in, recovery and verification run through the Better Auth handler at /api/auth; the catalog's auth.* names are not used in code"
 				}
 			]
 		},
@@ -225,18 +352,32 @@
 			"reach": [
 				{
 					"link": "/reset-password?token={token}",
-					"email": "reset",
-					"fill": { "token": "the proof in the reset email" }
+					"email": "password_reset",
+					"fill": {
+						"token": "the proof in the reset email"
+					}
 				}
 			],
-			"personas": { "visitor": "write" },
+			"personas": {
+				"visitor": "write"
+			},
 			"states": [
 				{
 					"id": "no-token",
-					"reach": { "persona": "visitor", "open": "/reset-password" },
+					"reach": {
+						"persona": "visitor",
+						"open": "/reset-password",
+						"seed": "qa"
+					},
 					"expect": [
-						{ "role": "heading", "name": "This link is incomplete" },
-						{ "role": "link", "name": "Ask for a new link" }
+						{
+							"role": "heading",
+							"name": "This link is incomplete"
+						},
+						{
+							"role": "link",
+							"name": "Ask for a new link"
+						}
 					]
 				}
 			],
@@ -254,7 +395,8 @@
 							}
 						],
 						"cases": ["TARGET-IDN-009"]
-					}
+					},
+					"noOperation": "sign-in, recovery and verification run through the Better Auth handler at /api/auth; the catalog's auth.* names are not used in code"
 				}
 			]
 		},
@@ -266,16 +408,29 @@
 			"reach": [
 				{
 					"link": "/verify-email?token={token}",
-					"email": "verify",
-					"fill": { "token": "the proof in the confirmation email" }
+					"email": "email_verification",
+					"fill": {
+						"token": "the proof in the confirmation email"
+					}
 				}
 			],
-			"personas": { "visitor": "write" },
+			"personas": {
+				"visitor": "write"
+			},
 			"states": [
 				{
 					"id": "no-token",
-					"reach": { "persona": "visitor", "open": "/verify-email" },
-					"expect": [{ "role": "heading", "name": "This link is incomplete" }]
+					"reach": {
+						"persona": "visitor",
+						"open": "/verify-email",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "This link is incomplete"
+						}
+					]
 				}
 			],
 			"behaviors": [
@@ -291,7 +446,8 @@
 								"name": "INV-identity: interruption after credentials preserves authenticated resumption, email verification and successful reset append event and outbox together"
 							}
 						]
-					}
+					},
+					"noOperation": "sign-in, recovery and verification run through the Better Auth handler at /api/auth; the catalog's auth.* names are not used in code"
 				}
 			]
 		},
@@ -304,16 +460,30 @@
 			"reach": [
 				{
 					"link": "/invitation#proof={proof}",
-					"email": "invitation",
-					"fill": { "proof": "the proof in the invitation email" }
+					"email": "seat_invitation",
+					"fill": {
+						"proof": "the proof in the invitation email"
+					}
 				}
 			],
-			"personas": { "visitor": "write", "plant-owner": "write" },
+			"personas": {
+				"visitor": "write",
+				"owner": "write"
+			},
 			"states": [
 				{
 					"id": "no-proof",
-					"reach": { "persona": "visitor", "open": "/invitation" },
-					"expect": [{ "role": "heading", "name": "This page is not available" }]
+					"reach": {
+						"persona": "visitor",
+						"open": "/invitation",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "This page is not available"
+						}
+					]
 				}
 			],
 			"behaviors": [
@@ -346,28 +516,67 @@
 			"reach": [
 				{
 					"from": "people.list",
-					"persona": "plant-owner",
+					"persona": "owner",
 					"path": [
-						{ "click": { "role": "button", "name": "account menu", "match": "contains" } },
-						{ "click": { "role": "menuitem", "name": "Seats and invitations" } }
+						{
+							"click": {
+								"role": "button",
+								"name": "account menu",
+								"match": "contains"
+							}
+						},
+						{
+							"click": {
+								"role": "menuitem",
+								"name": "Seats and invitations"
+							}
+						}
 					]
 				},
-				{ "link": "/settings/seats" }
+				{
+					"link": "/settings/seats"
+				}
 			],
-			"personas": { "plant-owner": "write", "plant-admin": "write", "plant-member": "read" },
+			"personas": {
+				"owner": "write",
+				"admin": "write",
+				"member": "read"
+			},
 			"states": [
 				{
 					"id": "manage",
-					"reach": { "persona": "plant-owner", "open": "/settings/seats" },
+					"reach": {
+						"persona": "owner",
+						"open": "/settings/seats",
+						"seed": "qa"
+					},
 					"expect": [
-						{ "role": "heading", "name": "Seats and invitations" },
-						{ "role": "button", "name": "Send invitation" }
+						{
+							"role": "heading",
+							"name": "Seats and invitations"
+						},
+						{
+							"role": "button",
+							"name": "Send invitation"
+						}
 					]
 				},
 				{
 					"id": "member",
-					"reach": { "persona": "plant-member", "open": "/settings/seats" },
-					"expect": [{ "role": "heading", "name": "Seats and invitations" }, { "noText": "Send invitation" }]
+					"reach": {
+						"persona": "member",
+						"open": "/settings/seats",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Seats and invitations"
+						},
+						{
+							"noText": "Send invitation"
+						}
+					]
 				}
 			],
 			"behaviors": [
@@ -391,10 +600,27 @@
 						"browser": {
 							"state": "manage",
 							"steps": [
-								{ "type": "map-proof@example.test", "into": "Email address" },
-								{ "click": { "role": "button", "name": "Send invitation" } }
+								{
+									"type": "map-proof@example.test",
+									"into": "Email address"
+								},
+								{
+									"click": {
+										"role": "button",
+										"name": "Send invitation"
+									}
+								}
 							],
-							"expect": [{ "text": "Invitation sent to", "match": "contains" }, { "text": "map-proof@example.test" }]
+							"expect": [
+								{
+									"text": "Invitation sent to",
+									"match": "contains"
+								},
+								{
+									"text": "map-proof@example.test"
+								}
+							],
+							"kind": "behavior"
 						}
 					}
 				},
@@ -418,7 +644,14 @@
 						"browser": {
 							"state": "manage",
 							"steps": [],
-							"expect": [{ "role": "combobox", "name": "Role for", "match": "contains" }]
+							"expect": [
+								{
+									"role": "combobox",
+									"name": "Role for",
+									"match": "contains"
+								}
+							],
+							"kind": "presence"
 						}
 					}
 				}

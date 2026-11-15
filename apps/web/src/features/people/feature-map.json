@@ -22,33 +22,78 @@
 			"routes": ["/people"],
 			"endpoints": ["/api/people/export"],
 			"catalog": ["PPL-001", "PPL-002", "PPL-007", "PPL-019"],
-			"reach": [{ "rail": "People", "personas": ["plant-owner", "plant-admin", "plant-member"] }],
-			"personas": { "plant-owner": "write", "plant-admin": "write", "plant-member": "read", "visitor": "none" },
+			"reach": [
+				{
+					"rail": "People",
+					"personas": ["owner", "admin", "member"]
+				}
+			],
+			"personas": {
+				"owner": "write",
+				"admin": "write",
+				"member": "read",
+				"visitor": "none"
+			},
 			"states": [
 				{
 					"id": "populated",
-					"reach": { "persona": "plant-owner", "open": "/people" },
+					"reach": {
+						"persona": "owner",
+						"open": "/people",
+						"seed": "qa"
+					},
 					"expect": [
-						{ "role": "radiogroup", "name": "View" },
-						{ "role": "button", "name": "Add person" }
+						{
+							"role": "radiogroup",
+							"name": "View"
+						},
+						{
+							"role": "button",
+							"name": "Add person"
+						}
 					]
 				},
 				{
 					"id": "member",
-					"reach": { "persona": "plant-member", "open": "/people" },
-					"expect": [{ "role": "radiogroup", "name": "View" }, { "noText": "Import CSV" }]
+					"reach": {
+						"persona": "member",
+						"open": "/people",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "radiogroup",
+							"name": "View"
+						},
+						{
+							"noText": "Import CSV"
+						}
+					]
 				},
 				{
 					"id": "loading",
 					"file": "apps/web/src/app/(product)/(frame)/people/(list)/loading.tsx",
-					"reach": { "manual": "shows only while the server renders the list" },
-					"expect": [{ "text": "Loading people" }]
+					"reach": {
+						"manual": "shows only while the server renders the list"
+					},
+					"expect": [
+						{
+							"text": "Loading people"
+						}
+					]
 				},
 				{
 					"id": "error",
 					"file": "apps/web/src/app/(product)/(frame)/people/error.tsx",
-					"reach": { "manual": "renders only when the page throws while rendering" },
-					"expect": [{ "role": "heading", "name": "We could not load your people" }]
+					"reach": {
+						"manual": "renders only when the page throws while rendering"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "We could not load your people"
+						}
+					]
 				}
 			],
 			"behaviors": [
@@ -71,8 +116,18 @@
 						"cases": ["TARGET-PPL-001"],
 						"browser": {
 							"state": "populated",
-							"steps": [{ "type": "Maria", "into": "Search people" }],
-							"expect": [{ "url": "/people?q=Maria" }]
+							"steps": [
+								{
+									"type": "Maria",
+									"into": "Search people"
+								}
+							],
+							"expect": [
+								{
+									"url": "/people?q=Maria"
+								}
+							],
+							"kind": "behavior"
 						}
 					}
 				},
@@ -92,11 +147,30 @@
 						"browser": {
 							"state": "populated",
 							"steps": [
-								{ "click": { "role": "button", "name": "Add person" } },
-								{ "type": "Map Proof Person", "into": "Name" },
-								{ "press": "Enter" }
+								{
+									"click": {
+										"role": "button",
+										"name": "Add person"
+									}
+								},
+								{
+									"type": "Map Proof Person",
+									"into": "Name"
+								},
+								{
+									"press": "Enter"
+								}
 							],
-							"expect": [{ "url": "/people/{personId}" }, { "role": "heading", "name": "Map Proof Person" }]
+							"expect": [
+								{
+									"url": "/people/{personId}"
+								},
+								{
+									"role": "heading",
+									"name": "Map Proof Person"
+								}
+							],
+							"kind": "behavior"
 						}
 					}
 				},
@@ -119,8 +193,20 @@
 						"cases": ["TARGET-PPL-007"],
 						"browser": {
 							"state": "populated",
-							"steps": [{ "click": { "role": "radio", "name": "Pipeline" } }],
-							"expect": [{ "url": "/people?view=pipeline" }]
+							"steps": [
+								{
+									"click": {
+										"role": "radio",
+										"name": "Pipeline"
+									}
+								}
+							],
+							"expect": [
+								{
+									"url": "/people?view=pipeline"
+								}
+							],
+							"kind": "behavior"
 						}
 					}
 				},
@@ -139,8 +225,21 @@
 						"cases": ["TARGET-PPL-019"],
 						"browser": {
 							"state": "populated",
-							"steps": [{ "click": { "role": "button", "name": "Export CSV" } }],
-							"expect": [{ "role": "heading", "name": "Export people" }]
+							"steps": [
+								{
+									"click": {
+										"role": "button",
+										"name": "Export CSV"
+									}
+								}
+							],
+							"expect": [
+								{
+									"role": "heading",
+									"name": "Export people"
+								}
+							],
+							"kind": "presence"
 						}
 					}
 				}
@@ -155,48 +254,164 @@
 			"reach": [
 				{
 					"from": "people.list",
-					"persona": "plant-owner",
-					"path": [{ "click": { "role": "link", "name": "Maria Santos" } }]
+					"persona": "owner",
+					"path": [
+						{
+							"click": {
+								"role": "link",
+								"name": "Maria Santos"
+							}
+						},
+						{
+							"expect": {
+								"url": "/people/{personId}"
+							}
+						}
+					]
 				},
-				{ "link": "/people/{personId}", "fill": { "personId": "$people:/people/Maria Santos" } }
+				{
+					"link": "/people/{personId}",
+					"fill": {
+						"personId": "the id in a person row's link"
+					}
+				}
 			],
-			"personas": { "plant-owner": "write", "plant-admin": "write", "plant-member": "read" },
+			"personas": {
+				"owner": "write",
+				"admin": "write",
+				"member": "read"
+			},
 			"states": [
 				{
 					"id": "populated",
 					"reach": {
-						"persona": "plant-owner",
-						"open": "/people/{personId}",
-						"fill": { "personId": "$people:/people/Maria Santos" }
+						"persona": "owner",
+						"open": "/people",
+						"path": [
+							{
+								"click": {
+									"role": "link",
+									"name": "Maria Santos"
+								}
+							},
+							{
+								"expect": {
+									"url": "/people/{personId}"
+								}
+							}
+						],
+						"seed": "qa"
 					},
 					"expect": [
-						{ "role": "button", "name": "Change stage" },
-						{ "role": "tablist", "name": "Person" }
+						{
+							"role": "heading",
+							"name": "Maria Santos"
+						},
+						{
+							"role": "button",
+							"name": "Change stage"
+						},
+						{
+							"role": "tablist",
+							"name": "Person"
+						}
+					]
+				},
+				{
+					"id": "new-person",
+					"reach": {
+						"persona": "owner",
+						"setup": [
+							{
+								"open": "/people"
+							},
+							{
+								"click": {
+									"role": "button",
+									"name": "Add person"
+								}
+							},
+							{
+								"type": "Map Retire Person",
+								"into": "Name"
+							},
+							{
+								"press": "Enter"
+							}
+						]
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Map Retire Person"
+						},
+						{
+							"role": "button",
+							"name": "Change stage"
+						}
 					]
 				},
 				{
 					"id": "member",
 					"reach": {
-						"persona": "plant-member",
-						"open": "/people/{personId}",
-						"fill": { "personId": "$people:/people/Maria Santos" }
+						"persona": "member",
+						"open": "/people",
+						"path": [
+							{
+								"click": {
+									"role": "link",
+									"name": "Maria Santos"
+								}
+							},
+							{
+								"expect": {
+									"url": "/people/{personId}"
+								}
+							}
+						],
+						"seed": "qa"
 					},
-					"expect": [{ "role": "tablist", "name": "Person" }, { "noText": "Change stage" }]
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Maria Santos"
+						},
+						{
+							"noText": "Change stage"
+						}
+					]
 				},
 				{
 					"id": "not-found",
 					"file": "apps/web/src/app/(product)/(frame)/people/[personId]/not-found.tsx",
-					"reach": { "persona": "plant-owner", "open": "/people/00000000-0000-4000-8000-000000000000" },
+					"reach": {
+						"persona": "owner",
+						"open": "/people/00000000-0000-4000-8000-000000000000",
+						"seed": "qa"
+					},
 					"expect": [
-						{ "role": "heading", "name": "This person is not here" },
-						{ "role": "link", "name": "Back to People" }
+						{
+							"role": "heading",
+							"name": "This person is not here"
+						},
+						{
+							"role": "link",
+							"name": "Back to People"
+						}
 					]
 				},
 				{
 					"id": "error",
 					"file": "apps/web/src/app/(product)/(frame)/people/error.tsx",
-					"reach": { "manual": "renders only when the page throws while rendering" },
-					"expect": [{ "role": "heading", "name": "We could not load your people" }]
+					"reach": {
+						"manual": "renders only when the page throws while rendering"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "We could not load your people"
+						}
+					]
 				}
 			],
 			"behaviors": [
@@ -215,8 +430,23 @@
 						"cases": ["TARGET-PPL-006"],
 						"browser": {
 							"state": "populated",
-							"steps": [{ "click": { "role": "button", "name": "Change stage" } }],
-							"expect": [{ "text": "New stage" }, { "text": "Reason" }]
+							"steps": [
+								{
+									"click": {
+										"role": "button",
+										"name": "Change stage"
+									}
+								}
+							],
+							"expect": [
+								{
+									"text": "New stage"
+								},
+								{
+									"text": "Reason"
+								}
+							],
+							"kind": "presence"
 						}
 					}
 				},
@@ -234,11 +464,42 @@
 						],
 						"cases": ["TARGET-PPL-003"],
 						"browser": {
-							"state": "populated",
-							"steps": [{ "click": { "role": "button", "name": "More actions" } }],
+							"kind": "behavior",
+							"state": "new-person",
+							"steps": [
+								{
+									"click": {
+										"role": "button",
+										"name": "More actions"
+									}
+								},
+								{
+									"click": {
+										"role": "menuitem",
+										"name": "Retire person"
+									}
+								},
+								{
+									"type": "Map proof",
+									"into": "Reason"
+								},
+								{
+									"click": {
+										"role": "button",
+										"name": "Retire person"
+									}
+								}
+							],
 							"expect": [
-								{ "role": "menuitem", "name": "Retire person" },
-								{ "role": "menuitem", "name": "Edit profile" }
+								{
+									"role": "heading",
+									"name": "is retired",
+									"match": "contains"
+								},
+								{
+									"role": "button",
+									"name": "Restore person"
+								}
 							]
 						}
 					}
@@ -285,28 +546,106 @@
 			"routes": ["/people/duplicates"],
 			"catalog": ["PPL-016", "PPL-017"],
 			"reach": [
-				{ "link": "/people/duplicates" },
 				{
-					"from": "people.list",
-					"persona": "plant-owner",
-					"path": [{ "click": { "role": "link", "name": "to review in Duplicates", "match": "contains" } }]
+					"link": "/people/duplicates"
 				}
 			],
-			"personas": { "plant-owner": "write", "plant-admin": "write", "plant-member": "none" },
+			"personas": {
+				"owner": "write",
+				"admin": "write",
+				"member": "none"
+			},
 			"states": [
 				{
-					"id": "pairs",
-					"reach": { "persona": "plant-owner", "open": "/people/duplicates" },
+					"id": "empty",
+					"reach": {
+						"persona": "owner",
+						"open": "/people/duplicates",
+						"seed": "qa"
+					},
 					"expect": [
-						{ "role": "heading", "name": "Possible duplicates" },
-						{ "role": "link", "name": "Dismissed" }
+						{
+							"role": "heading",
+							"name": "Possible duplicates"
+						},
+						{
+							"role": "heading",
+							"name": "Nothing to review"
+						}
+					]
+				},
+				{
+					"id": "pairs",
+					"reach": {
+						"persona": "owner",
+						"setup": [
+							{
+								"open": "/people/import"
+							},
+							{
+								"upload": "tools/qa/fixtures/duplicate-maria.csv"
+							},
+							{
+								"click": {
+									"role": "radio",
+									"name": "Add, review later"
+								}
+							},
+							{
+								"click": {
+									"role": "button",
+									"name": "Import",
+									"match": "contains"
+								}
+							},
+							{
+								"expect": {
+									"text": "added",
+									"match": "contains"
+								}
+							}
+						],
+						"open": "/people/duplicates"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "to review",
+							"match": "contains"
+						},
+						{
+							"role": "button",
+							"name": "are not a duplicate",
+							"match": "contains"
+						}
+					]
+				},
+				{
+					"id": "member",
+					"reach": {
+						"persona": "member",
+						"open": "/people/duplicates",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"text": "Only Owners and Admins can merge people",
+							"match": "contains"
+						}
 					]
 				},
 				{
 					"id": "error",
 					"file": "apps/web/src/app/(product)/(frame)/people/error.tsx",
-					"reach": { "manual": "renders only when the page throws while rendering" },
-					"expect": [{ "role": "heading", "name": "We could not load your people" }]
+					"reach": {
+						"manual": "renders only when the page throws while rendering"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "We could not load your people"
+						}
+					]
 				}
 			],
 			"behaviors": [
@@ -314,7 +653,7 @@
 					"id": "dismiss-restore",
 					"says": "Dismiss moves a pair to the Dismissed view; Restore puts it back in its import order.",
 					"catalog": ["PPL-016"],
-					"operations": ["people.listDuplicatePairs"],
+					"operations": ["people.listDuplicatePairs", "people.dismissDuplicatePair", "people.restoreDuplicatePair"],
 					"proof": {
 						"tests": [
 							{
@@ -328,9 +667,40 @@
 						],
 						"cases": ["TARGET-PPL-016"],
 						"browser": {
+							"kind": "behavior",
 							"state": "pairs",
-							"steps": [{ "click": { "role": "link", "name": "Dismissed" } }],
-							"expect": [{ "url": "/people/duplicates?view=dismissed" }]
+							"steps": [
+								{
+									"click": {
+										"role": "button",
+										"name": "are not a duplicate",
+										"match": "contains"
+									}
+								},
+								{
+									"click": {
+										"role": "link",
+										"name": "Dismissed"
+									}
+								},
+								{
+									"click": {
+										"role": "button",
+										"name": "Restore",
+										"match": "contains"
+									}
+								}
+							],
+							"expect": [
+								{
+									"role": "heading",
+									"name": "Dismissed pairs"
+								},
+								{
+									"role": "heading",
+									"name": "Nothing dismissed"
+								}
+							]
 						}
 					}
 				},
@@ -370,25 +740,71 @@
 			"reach": [
 				{
 					"from": "people.list",
-					"persona": "plant-owner",
-					"path": [{ "click": { "role": "link", "name": "Import CSV" } }]
+					"persona": "owner",
+					"path": [
+						{
+							"click": {
+								"role": "link",
+								"name": "Import CSV"
+							}
+						},
+						{
+							"expect": {
+								"url": "/people/import"
+							}
+						}
+					]
 				}
 			],
-			"personas": { "plant-owner": "write", "plant-admin": "write", "plant-member": "none" },
+			"personas": {
+				"owner": "write",
+				"admin": "write",
+				"member": "none"
+			},
 			"states": [
 				{
 					"id": "choose-file",
-					"reach": { "persona": "plant-owner", "open": "/people/import" },
+					"reach": {
+						"persona": "owner",
+						"open": "/people",
+						"path": [
+							{
+								"click": {
+									"role": "link",
+									"name": "Import CSV"
+								}
+							},
+							{
+								"expect": {
+									"url": "/people/import"
+								}
+							}
+						],
+						"seed": "qa"
+					},
 					"expect": [
-						{ "role": "heading", "name": "Import people" },
-						{ "role": "link", "name": "Download template" }
+						{
+							"role": "heading",
+							"name": "Import people"
+						},
+						{
+							"role": "link",
+							"name": "Download template"
+						}
 					]
 				},
 				{
 					"id": "error",
 					"file": "apps/web/src/app/(product)/(frame)/people/error.tsx",
-					"reach": { "manual": "renders only when the page throws while rendering" },
-					"expect": [{ "role": "heading", "name": "We could not load your people" }]
+					"reach": {
+						"manual": "renders only when the page throws while rendering"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "We could not load your people"
+						}
+					]
 				}
 			],
 			"behaviors": [
@@ -414,9 +830,36 @@
 						],
 						"cases": ["TARGET-PPL-018"],
 						"browser": {
+							"kind": "behavior",
 							"state": "choose-file",
-							"steps": [],
-							"expect": [{ "role": "button", "name": "Choose a CSV file" }]
+							"steps": [
+								{
+									"upload": "tools/qa/fixtures/duplicate-maria.csv"
+								},
+								{
+									"click": {
+										"role": "radio",
+										"name": "Add, review later"
+									}
+								},
+								{
+									"click": {
+										"role": "button",
+										"name": "Import",
+										"match": "contains"
+									}
+								}
+							],
+							"expect": [
+								{
+									"text": "added",
+									"match": "contains"
+								},
+								{
+									"role": "link",
+									"name": "Duplicates"
+								}
+							]
 						}
 					}
 				}

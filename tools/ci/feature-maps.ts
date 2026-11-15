@@ -1,18 +1,22 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { dirname, join, relative } from "node:path";
+import { dirname, join, posix } from "node:path";
 import { pathToFileURL } from "node:url";
 import { testNames } from "./test-names.ts";
 
 export const SCHEMA_FILE = "apps/web/feature-map.schema.json";
 export const PENDING_FILE = "apps/web/feature-maps.pending.json";
-export const PERSONAS_FILE = "tests/ui/personas.json";
+export const PERSONAS_FILE = "tools/qa/personas.json";
 export const NAV_MODULE = "apps/web/src/features/shell/nav.ts";
+export const SEED_FILE = "tools/qa/qa-seed.ts";
+export const LOGINS_FILE = "tools/qa/qa-guard.ts";
 export const DOCS_DIR = "docs/feature-maps";
 const APP_DIR = "apps/web/src/app";
 const FEATURES_DIR = "apps/web/src/features";
+const SHELL_DIR = `${FEATURES_DIR}/shell`;
+const UI_DIR = "packages/ui/src";
 const APP_MAP = `${APP_DIR}/feature-map.json`;
-const SHOW_BUDGET = 4096;
+const SHOW_BUDGET = 6144;
 
 type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
 type Schema = { [key: string]: Json };
@@ -20,21 +24,26 @@ type Schema = { [key: string]: Json };
 type Match = "exact" | "contains";
 type Target = { role: string; name: string; match?: Match } | { text: string; match?: Match };
 type Observable = Target | { noText: string } | { url: string };
-type Fill = Record<string, string>;
-type Step = { open: string; fill?: Fill } | { click: Target } | { type: string; into: string } | { press: string };
+type Step =
+	{ open: string } | { click: Target } | { type: string; into: string } | { press: string } | { upload: string };
 type Reach =
 	| { rail: string; personas: string[] }
 	| { from: string; persona: string; path: Step[] }
-	| { link: string; fill?: Fill; email?: string };
-type StateReach = { persona: string; open: string; fill?: Fill } | { manual: string };
+	| { link: string; fill?: Record<string, string>; email?: string };
+type StateReach =
+	| { persona: string; open: string; path?: Step[]; seed: "qa" }
+	| { persona: string; setup: Step[]; open?: string; path?: Step[] }
+	| { manual: string };
 type State = { id: string; file?: string; reach: StateReach; expect: Observable[] };
 type TestRef = { file: string; name: string };
+type Browser = { kind: "behavior" | "presence"; state: string; steps: Step[]; expect: Observable[] };
 type Behavior = {
 	id: string;
 	says: string;
-	catalog?: string[];
+	catalog: string[];
 	operations: string[];
-	proof: { tests: TestRef[]; cases?: string[]; browser?: { state: string; steps: Step[]; expect: Observable[] } };
+	noOperation?: string;
+	proof: { tests: TestRef[]; cases?: string[]; browser?: Browser };
 };
 type Access = "write" | "read" | "none";
 type Surface = {
@@ -54,17 +63,15 @@ type Persona = {
 	context: "plant" | "organization" | "account" | "signed-out";
 	role?: "owner" | "admin" | "member";
 	residencyLinked?: boolean;
-	seed?: string;
-	cookie?: string;
-	email?: string;
-	password?: string;
+	seed?: "qa";
 };
 type LoadedMap = { file: string; map: FeatureMap };
 type Route = { url: string; kind: "page" | "handler"; file: string };
 type NavItem = { label: string; href: string };
 type ShellNav = (viewer: unknown) => { main: readonly NavItem[]; pages: readonly NavItem[] };
 
-export type CheckOptions = { basePending: string[] | null };
+export type BasePending = { routes: string[] } | { skip: string } | { error: string };
+export type CheckOptions = { base: BasePending; ci: boolean };
 export type CheckResult = { problems: string[]; summary: string };
 
 export function validate(schema: Schema, value: Json, root: Schema, at = ""): string[] {
@@ -174,43 +181,111 @@ export function stateFilesFor(root: string, routeFile: string): string[] {
 	return files.sort();
 }
 
-const SEEDS_LIST = /export const SEEDS = \[([^\]]*)\]/;
-
-function seedSources(root: string): Map<string, string> {
-	const list = SEEDS_LIST.exec(readFileSync(join(root, "tests/ui/seed-env.mts"), "utf8"));
-	const names = [...(list?.[1] ?? "").matchAll(/"([^"]+)"/g)].map((m) => m[1]!);
-	const sources = walk(root, "tests/ui", (f) => f.endsWith(".mts")).map((f) => readFileSync(join(root, f), "utf8"));
-	return new Map(names.map((name) => [name, sources.find((s) => s.includes(`writeFixture("${name}"`)) ?? ""] as const));
+export function sourceStrings(source: string, jsx: boolean): string[] {
+	const out: string[] = [];
+	const n = source.length;
+	const push = (text: string) => {
+		const t = text.replace(/\s+/g, " ").trim();
+		if (t) out.push(t);
+	};
+	const skipNested = (from: number): number => {
+		let j = from;
+		let depth = 1;
+		while (j < n && depth > 0) {
+			const c = source[j];
+			if (c === "'" || c === '"' || c === "`") {
+				j++;
+				while (j < n && source[j] !== c) j += source[j] === "\\" ? 2 : 1;
+			} else if (c === "{") depth++;
+			else if (c === "}") depth--;
+			j++;
+		}
+		return j;
+	};
+	let i = 0;
+	while (i < n) {
+		const c = source[i];
+		if (c === "/" && source[i + 1] === "/") {
+			const end = source.indexOf("\n", i);
+			i = end < 0 ? n : end;
+		} else if (c === "/" && source[i + 1] === "*") {
+			const end = source.indexOf("*/", i + 2);
+			i = end < 0 ? n : end + 2;
+		} else if (c === "'" || c === '"') {
+			let j = i + 1;
+			let text = "";
+			while (j < n && source[j] !== c && source[j] !== "\n") {
+				if (source[j] === "\\") {
+					text += source[j + 1] ?? "";
+					j += 2;
+				} else text += source[j++];
+			}
+			push(text);
+			i = j + 1;
+		} else if (c === "`") {
+			let j = i + 1;
+			let text = "";
+			while (j < n && source[j] !== "`") {
+				if (source[j] === "\\") {
+					text += source[j + 1] ?? "";
+					j += 2;
+				} else if (source[j] === "$" && source[j + 1] === "{") {
+					push(text);
+					text = "";
+					j = skipNested(j + 2);
+				} else text += source[j++];
+			}
+			push(text);
+			i = j + 1;
+		} else if (c === ">" && jsx) {
+			let j = i + 1;
+			while (j < n && !'<{}`";='.includes(source[j] ?? "")) j++;
+			if (/[A-Za-z]/.test(source.slice(i + 1, j))) push(source.slice(i + 1, j));
+			i = j;
+		} else i++;
+	}
+	return out;
 }
 
-function seedPointerProblem(seeds: Map<string, string>, seed: string, pointer: string): string | null {
-	if (!seeds.has(seed)) return `seed "${seed}" is not in SEEDS (tests/ui/seed-env.mts)`;
-	const first = pointer.split("/")[1] ?? "";
-	if (!first) return `seed pointer "${pointer}" names no fixture key`;
-	return new RegExp(`(^|[^\\w$])${first.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^\\w$]|$)`).test(seeds.get(seed)!)
-		? null
-		: `fixture key "${first}" does not occur in the ${seed} seed's source`;
+const SOURCE_FILE = /\.(tsx?|mts)$/;
+const isTest = (f: string) => /\.test\.|\.d\.ts$/.test(f);
+
+function stringsOf(root: string, files: string[]): Set<string> {
+	return new Set(files.flatMap((f) => sourceStrings(readFileSync(join(root, f), "utf8"), f.endsWith(".tsx"))));
 }
 
-export const SEED_VALUE = /^\$([a-z][a-z-]*):(\/.*)$/;
-
-function textCorpus(root: string): string {
-	const keep = (f: string) => /\.(tsx?|mts)$/.test(f) && !/\.test\.|\.d\.ts$/.test(f);
-	return ["apps/web/src", "packages/ui/src", "packages/contracts/src"]
-		.flatMap((dir) => walk(root, dir, keep))
-		.map((f) => readFileSync(join(root, f), "utf8"))
-		.join("\n")
-		.replace(/\s+/g, " ");
+function withImports(root: string, dir: string): string[] {
+	const files = walk(root, dir, (f) => SOURCE_FILE.test(f) && !isTest(f));
+	const imported = files.flatMap((file) =>
+		[...readFileSync(join(root, file), "utf8").matchAll(/from\s+"(\.\.?\/[^"]+)"/g)].flatMap((m) => {
+			const target = posix.normalize(posix.join(posix.dirname(file), m[1]!));
+			return [target, `${target}.ts`, `${target}.tsx`].filter((f) => SOURCE_FILE.test(f) && existsSync(join(root, f)));
+		}),
+	);
+	return [...new Set([...files, ...imported])];
 }
 
-function operationCorpus(root: string): string {
+export function qaLogins(root: string): Set<string> {
+	const block = /export const QA_LOGINS = \{([^}]*)\}/.exec(readFileSync(join(root, LOGINS_FILE), "utf8"))?.[1] ?? "";
+	return new Set([...block.matchAll(/^\s*([A-Za-z0-9]+):/gm)].map((m) => m[1]!));
+}
+
+function codeCorpus(root: string): Array<{ file: string; text: string }> {
 	const dirs = readdirSync(join(root, "packages"), { withFileTypes: true })
 		.filter((d) => d.isDirectory())
 		.map((d) => `packages/${d.name}/src`);
 	return [...dirs, "apps/web/src/server"]
-		.flatMap((dir) => walk(root, dir, (f) => /\.(tsx?|mts|mjs|js)$/.test(f)))
-		.map((f) => readFileSync(join(root, f), "utf8"))
-		.join("\n");
+		.flatMap((dir) => walk(root, dir, (f) => /\.(tsx?|mts|mjs|js)$/.test(f) && !isTest(f)))
+		.map((file) => ({ file, text: readFileSync(join(root, file), "utf8") }));
+}
+
+const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+export function implemented(code: Array<{ text: string }>, op: string): boolean {
+	const name = op.slice(op.indexOf(".") + 1);
+	const quoted = [`"${op}"`, `'${op}'`, `\`${op}\``];
+	const declared = new RegExp(`(?:function\\s+|(?:const|let)\\s+|async\\s+)${escape(name)}\\s*[=(<]`);
+	return code.some(({ text }) => quoted.some((q) => text.includes(q)) || declared.test(text));
 }
 
 const readJson = (root: string, file: string): Json => JSON.parse(readFileSync(join(root, file), "utf8")) as Json;
@@ -243,20 +318,28 @@ export function loadMaps(root: string): { maps: LoadedMap[]; problems: string[] 
 	return { maps, problems };
 }
 
-function targets(steps: Step[]): Target[] {
-	return steps.flatMap((s) => ("click" in s ? [s.click] : []));
-}
-function literals(observables: Observable[], steps: Step[]): string[] {
-	const fromTarget = (t: Target) => ("role" in t ? t.name : t.text);
+type Named = { value: string; match: Match; role?: string };
+function named(observables: Observable[], steps: Step[]): Named[] {
+	const fromTarget = (t: Target): Named =>
+		"role" in t
+			? { value: t.name, match: t.match ?? "exact", role: t.role }
+			: { value: t.text, match: t.match ?? "exact" };
 	return [
-		...observables.flatMap((o) => ("noText" in o ? [o.noText] : "url" in o ? [] : [fromTarget(o)])),
-		...targets(steps).map(fromTarget),
-		...steps.flatMap((s) => ("into" in s ? [s.into] : [])),
-	].filter((value) => !steps.some((s) => "type" in s && s.type === value));
+		...observables.flatMap((o) =>
+			"noText" in o ? [{ value: o.noText, match: "exact" as const }] : "url" in o ? [] : [fromTarget(o)],
+		),
+		...steps.flatMap((s): Named[] =>
+			"click" in s
+				? [fromTarget(s.click)]
+				: "into" in s
+					? [{ value: s.into, match: "exact" }]
+					: "expect" in s
+						? named([(s as { expect: Observable }).expect], [])
+						: [],
+		),
+	];
 }
-function fills(steps: Step[]): Array<{ path: string; fill?: Fill }> {
-	return steps.flatMap((s) => ("open" in s ? [{ path: s.open, fill: s.fill }] : []));
-}
+const typedIn = (steps: Step[]) => new Set(steps.flatMap((s) => ("type" in s ? [s.type] : [])));
 
 export function viewerOf(persona: Persona): unknown {
 	if (persona.context === "plant") return { context: "plant", role: persona.role };
@@ -264,15 +347,7 @@ export function viewerOf(persona: Persona): unknown {
 	return { context: "account", residencyLinked: persona.residencyLinked === true };
 }
 
-function placeholderProblems(path: string, fill: Fill | undefined): string[] {
-	const wanted = [...path.matchAll(/\{([A-Za-z]+)\}/g)].map((m) => m[1]!);
-	return [
-		...wanted.filter((w) => !fill || !(w in fill)).map((w) => `"${path}" has {${w}} but no fill for it`),
-		...Object.keys(fill ?? {})
-			.filter((k) => !wanted.includes(k))
-			.map((k) => `fill "${k}" is not a {placeholder} of "${path}"`),
-	];
-}
+export const SPECIAL_VALUE = /^\$(?:login:([A-Za-z0-9]+)|password)$/;
 
 const routePattern = (route: string) =>
 	new RegExp(
@@ -287,12 +362,13 @@ const routePattern = (route: string) =>
 							? "/.+"
 							: /^\[.+\]$/.test(s)
 								? "/[^/]+"
-								: "/" + s.replace(/[.*+?^$()|\\]/g, "\\$&"),
+								: "/" + escape(s),
 				)
 				.join("") || "/") +
 			"$",
 	);
 const opens = (surface: Surface, href: string) => surface.routes.some((route) => routePattern(route).test(href));
+const staticPrefix = (link: string) => link.split(/[{?#]/)[0]!.replace(/\/$/, "") || "/";
 
 export async function checkFeatureMaps(root: string, options: CheckOptions): Promise<CheckResult> {
 	const problems: string[] = [];
@@ -308,25 +384,15 @@ export async function checkFeatureMaps(root: string, options: CheckOptions): Pro
 	problems.push(...validate({ $ref: "#/$defs/pending" }, pendingJson, schema).map((p) => `${PENDING_FILE}: ${p}`));
 	const pending = ((pendingJson as { routes?: string[] }).routes ?? []).slice();
 
-	const seeds = seedSources(root);
+	const logins = qaLogins(root);
 	for (const [id, persona] of Object.entries(personas)) {
 		const at = `${PERSONAS_FILE}: persona "${id}"`;
 		if (persona.context === "plant" && !persona.role) problems.push(`${at}: a plant persona needs a role`);
 		if (persona.context !== "plant" && persona.role) problems.push(`${at}: only a plant persona has a role`);
 		if (persona.context === "signed-out") {
 			if (persona.seed) problems.push(`${at}: a signed-out persona has no seed`);
-			continue;
-		}
-		if (!persona.seed) {
-			problems.push(`${at}: needs a seed that signs it in`);
-			continue;
-		}
-		if (!persona.cookie && !(persona.email && persona.password))
-			problems.push(`${at}: needs a cookie pointer, or an email and a password pointer`);
-		for (const pointer of [persona.cookie, persona.email, persona.password]) {
-			const problem = pointer ? seedPointerProblem(seeds, persona.seed, pointer) : null;
-			if (problem) problems.push(`${at}: ${problem}`);
-		}
+		} else if (persona.seed !== "qa") problems.push(`${at}: needs "seed": "qa", the seed that creates it`);
+		else if (!logins.has(id)) problems.push(`${at}: is no QA_LOGINS key in ${LOGINS_FILE}, so nothing signs it in`);
 	}
 
 	const routes = appRoutes(root);
@@ -372,33 +438,38 @@ export async function checkFeatureMaps(root: string, options: CheckOptions): Pro
 		if (owned && owned.map.file !== APP_MAP) {
 			const feature = owned.map.map.feature;
 			const imported = new Set(
-				[...readFileSync(join(root, route.file), "utf8").matchAll(/@\/features\/([a-z][a-z-]*)/g)].map((m) => m[1]),
+				[...readFileSync(join(root, route.file), "utf8").matchAll(/from\s+["'][^"']*features\/([a-z][a-z-]*)/g)].map(
+					(m) => m[1],
+				),
 			);
 			for (const other of imported)
 				if (other !== feature)
 					problems.push(
-						`${route.file}: is mapped in ${feature} but imports @/features/${other}; move it to that feature's map`,
+						`${route.file}: is mapped in ${feature} but imports features/${other}; move it to that feature's map`,
 					);
 		}
 	}
 	for (const url of pending)
 		if (!byUrl.has(url)) problems.push(`${PENDING_FILE}: ${url} is no route any more; remove it from the pending list`);
-	if (options.basePending) {
-		const before = new Set(options.basePending);
+	if ("routes" in options.base) {
+		const before = new Set(options.base.routes);
 		for (const url of pending)
 			if (!before.has(url))
 				problems.push(
 					`${PENDING_FILE}: ${url} was added to the pending list; the list only shrinks, so map the route instead`,
 				);
-	}
+	} else if ("error" in options.base && options.ci)
+		problems.push(
+			`${PENDING_FILE}: cannot read the pending list at the merge base with origin/main: ${options.base.error}`,
+		);
 
-	const corpus = textCorpus(root);
-	const ops = operationCorpus(root);
+	const code = codeCorpus(root);
 	const catalog = readJson(root, "docs/catalog/index.json") as Record<string, Json>;
-	const operationIds = new Set(
-		((readJson(root, catalog.operation_source as string) as { operations: { id: string }[] }).operations ?? []).map(
-			(o) => o.id,
-		),
+	const operations = new Map(
+		(
+			(readJson(root, catalog.operation_source as string) as { operations: { id: string; feature_ids?: string[] }[] })
+				.operations ?? []
+		).map((o) => [o.id, o.feature_ids ?? []] as const),
 	);
 	const featureIds = new Set((readJson(root, catalog.feature_source as string) as { id: string }[]).map((f) => f.id));
 	const requirementText = new Set(
@@ -422,15 +493,23 @@ export async function checkFeatureMaps(root: string, options: CheckOptions): Pro
 			);
 		return namesByFile.get(file)!;
 	};
+	const shared = stringsOf(root, [
+		...walk(root, UI_DIR, (f) => SOURCE_FILE.test(f) && !isTest(f)),
+		...withImports(root, SHELL_DIR),
+	]);
+	const seeded = stringsOf(root, [SEED_FILE]);
 
 	const navModule = (await import(pathToFileURL(join(root, NAV_MODULE)).href)) as { shellNav: ShellNav };
 	const railOf = (persona: Persona) => {
+		if (persona.context === "signed-out") return [];
 		const nav = navModule.shellNav(viewerOf(persona));
 		return [...nav.main, ...nav.pages].map((i) => ({ label: i.label, href: i.href.replace(/#.*$/, "") }));
 	};
 
 	for (const { file, map } of maps) {
 		const at = (where: string) => `${file}: ${where}`;
+		const own = stringsOf(root, withImports(root, dirname(file)));
+		const scope = `${dirname(file)} (and what it imports), ${UI_DIR}, the shell or ${SEED_FILE}`;
 		const checkCatalog = (where: string, ids: string[] | undefined) => {
 			for (const id of ids ?? [])
 				if (!featureIds.has(id))
@@ -442,26 +521,32 @@ export async function checkFeatureMaps(root: string, options: CheckOptions): Pro
 			else if ((surface.personas[persona] ?? "none") === "none")
 				problems.push(at(`${where} reaches it as "${persona}", but the surface gives that persona no access`));
 		};
-		const checkSeedValue = (where: string, value: string) => {
-			const m = SEED_VALUE.exec(value);
-			if (!value.startsWith("$")) return false;
-			if (!m) problems.push(at(`${where}: "${value}" is not a seed value ($<seed>:/<pointer>)`));
-			else {
-				const problem = seedPointerProblem(seeds, m[1]!, m[2]!);
-				if (problem) problems.push(at(`${where}: ${problem}`));
+		const checkSteps = (where: string, steps: Step[], observables: Observable[], typed: Set<string>) => {
+			for (const step of steps) {
+				if ("upload" in step && !existsSync(join(root, step.upload)))
+					problems.push(at(`${where}: upload file ${step.upload} does not exist`));
+				if ("type" in step) {
+					const special = SPECIAL_VALUE.exec(step.type);
+					if (step.type.startsWith("$") && !special)
+						problems.push(at(`${where}: "${step.type}" is no $login:<persona> or $password`));
+					if (special?.[1] && !logins.has(special[1]))
+						problems.push(at(`${where}: $login:${special[1]} is no QA_LOGINS key in ${LOGINS_FILE}`));
+				}
 			}
-			return true;
-		};
-		const checkTexts = (where: string, values: string[]) => {
-			for (const value of values)
-				if (!checkSeedValue(where, value) && !corpus.includes(value.replace(/\s+/g, " ")))
+			for (const { value, match } of named(observables, steps)) {
+				if (typed.has(value)) continue;
+				const found = [own, shared, seeded].some((set) =>
+					match === "exact" ? set.has(value) : [...set].some((s) => s.includes(value)),
+				);
+				if (!found)
 					problems.push(
-						at(`${where}: "${value}" occurs nowhere in apps/web/src, packages/ui/src or packages/contracts/src`),
+						at(
+							match === "exact"
+								? `${where}: no string literal or JSX text in ${scope} equals "${value}"`
+								: `${where}: no string literal or JSX text in ${scope} contains "${value}"`,
+						),
 					);
-		};
-		const checkFills = (where: string, path: string, fill: Fill | undefined) => {
-			problems.push(...placeholderProblems(path, fill).map((p) => at(`${where}: ${p}`)));
-			for (const value of Object.values(fill ?? {})) checkSeedValue(where, value);
+			}
 		};
 		checkCatalog("the map", map.catalog);
 		for (const surface of map.surfaces) {
@@ -486,23 +571,29 @@ export async function checkFeatureMaps(root: string, options: CheckOptions): Pro
 				} else if ("from" in reach) {
 					if (!surfaceIds.has(reach.from)) problems.push(at(`${where} starts from unknown surface "${reach.from}"`));
 					checkPersona(where, reach.persona, surface);
-					checkTexts(where, literals([], reach.path));
-					for (const f of fills(reach.path)) checkFills(where, f.path, f.fill);
-				} else {
-					checkFills(where, reach.link, reach.fill);
-					if (reach.email && !ops.includes(reach.email) && !corpus.includes(reach.email))
-						problems.push(at(`${where}: email "${reach.email}" is no string in the source`));
+					checkSteps(where, reach.path, [], typedIn(reach.path));
+				} else if (reach.email) {
+					const prefix = staticPrefix(reach.link);
+					const key = new RegExp(`["'\`]${escape(reach.email)}["'\`]|\\b${escape(reach.email)}\\s*:`);
+					if (!code.some(({ text }) => key.test(text) && text.includes(prefix)))
+						problems.push(
+							at(
+								`${where}: no file in packages/*/src or apps/web/src/server names email "${reach.email}" and builds ${prefix}`,
+							),
+						);
 				}
 			}
 			for (const state of surface.states) {
 				const where = `${s} state ${state.id}`;
 				if (state.file && !existsSync(join(root, state.file)))
 					problems.push(at(`${where}: ${state.file} does not exist`));
-				if ("persona" in state.reach) {
-					checkPersona(where, state.reach.persona, surface);
-					checkFills(where, state.reach.open, state.reach.fill);
-				}
-				checkTexts(where, literals(state.expect, []));
+				const reach = state.reach;
+				if ("persona" in reach) {
+					if (!(reach.persona in personas))
+						problems.push(at(`${where} names persona "${reach.persona}", which is not in ${PERSONAS_FILE}`));
+					const steps = [...("setup" in reach ? reach.setup : []), ...(reach.path ?? [])];
+					checkSteps(where, steps, state.expect, typedIn(steps));
+				} else checkSteps(where, [], state.expect, new Set());
 			}
 			if (new Set(surface.states.map((x) => x.id)).size !== surface.states.length)
 				problems.push(at(`${s} has two states with one id`));
@@ -520,11 +611,25 @@ export async function checkFeatureMaps(root: string, options: CheckOptions): Pro
 				checkCatalog(where, behavior.catalog);
 				if (requirementText.has(behavior.says.trim()))
 					problems.push(at(`${where} says a requirement's text; say it in user words`));
+				if (behavior.operations.length === 0 && !behavior.noOperation)
+					problems.push(at(`${where}: lists no operation; name one or say why in "noOperation"`));
+				if (behavior.operations.length > 0 && behavior.noOperation)
+					problems.push(at(`${where}: lists operations and "noOperation"; keep one`));
 				for (const op of behavior.operations) {
-					if (!operationIds.has(op))
-						problems.push(at(`${where}: operation ${op} is not in docs/catalog/operations.json`));
-					else if (![`"${op}"`, `'${op}'`, `\`${op}\``].some((q) => ops.includes(q)))
-						problems.push(at(`${where}: operation ${op} appears in no packages/*/src or apps/web/src/server source`));
+					const features = operations.get(op);
+					if (!features) problems.push(at(`${where}: operation ${op} is not in docs/catalog/operations.json`));
+					else {
+						if (!implemented(code, op))
+							problems.push(
+								at(`${where}: operation ${op} is neither quoted nor declared in packages/*/src or apps/web/src/server`),
+							);
+						if (!features.some((f) => behavior.catalog.includes(f)))
+							problems.push(
+								at(
+									`${where}: operation ${op} serves ${features.join(", ")}, none of the behavior's catalog ${behavior.catalog.join(", ")}`,
+								),
+							);
+					}
 				}
 				for (const test of behavior.proof.tests) {
 					if (!existsSync(join(root, test.file))) problems.push(at(`${where}: test file ${test.file} does not exist`));
@@ -539,29 +644,35 @@ export async function checkFeatureMaps(root: string, options: CheckOptions): Pro
 				}
 				const browser = behavior.proof.browser;
 				if (browser) {
-					if (!surface.states.some((x) => x.id === browser.state))
-						problems.push(at(`${where}: browser proof starts in unknown state "${browser.state}"`));
-					checkTexts(where, literals(browser.expect, browser.steps));
-					for (const f of fills(browser.steps)) checkFills(where, f.path, f.fill);
+					const state = surface.states.find((x) => x.id === browser.state);
+					if (!state) problems.push(at(`${where}: browser proof starts in unknown state "${browser.state}"`));
+					else if ("manual" in state.reach)
+						problems.push(at(`${where}: browser proof starts in state "${browser.state}", which no script reaches`));
+					if (browser.kind === "behavior" && !browser.steps.some((st) => !("open" in st) && !("expect" in st)))
+						problems.push(at(`${where}: a behavior proof acts (click, type, press or upload) before it observes`));
+					const before =
+						state && "persona" in state.reach
+							? [...("setup" in state.reach ? state.reach.setup : []), ...(state.reach.path ?? [])]
+							: [];
+					checkSteps(where, browser.steps, browser.expect, typedIn([...before, ...browser.steps]));
 				}
 			}
 		}
 	}
 
-	for (const [id, persona] of Object.entries(personas)) {
-		if (persona.context === "signed-out") continue;
+	for (const [id, persona] of Object.entries(personas))
 		for (const item of railOf(persona)) {
 			const owned = [...owner.values()].find((o) => o.kind === "page" && opens(o.surface, item.href));
-			if (!owned || (owned.surface.personas[id] ?? "none") === "none") continue;
+			if (!owned) continue;
+			const access = owned.surface.personas[id] ?? "none";
 			const declared = owned.surface.reach.some((r) => "rail" in r && r.rail === item.label && r.personas.includes(id));
-			if (!declared)
+			if (access === "none" || !declared)
 				problems.push(
-					`${owned.map.file}: ${owned.surface.id} has no rail reach "${item.label}" for "${id}", but the rail offers it (${NAV_MODULE})`,
+					`${owned.map.file}: the rail offers "${id}" "${item.label}" (${NAV_MODULE}), but ${owned.surface.id} ${access === "none" ? `gives "${id}" no access` : `has no rail reach "${item.label}" for "${id}"`}`,
 				);
 		}
-	}
 
-	const docs = renderDocs(maps, pending.length, routes.length);
+	const docs = renderDocs(maps, personas, pending.length, routes.length);
 	const present = walk(root, DOCS_DIR, (f) => f.endsWith(".md"));
 	for (const [path, content] of docs) {
 		const current = existsSync(join(root, path)) ? readFileSync(join(root, path), "utf8") : null;
@@ -582,9 +693,10 @@ export async function checkFeatureMaps(root: string, options: CheckOptions): Pro
 	const surfaces = maps.flatMap((m) => m.map.surfaces);
 	const states = surfaces.flatMap((s) => s.states);
 	const behaviors = surfaces.flatMap((s) => s.behaviors);
+	const kind = (k: Browser["kind"]) => behaviors.filter((b) => b.proof.browser?.kind === k).length;
 	const summary =
 		`feature-maps: ${maps.length} maps, ${surfaces.length} surfaces, ${behaviors.length} behaviors ` +
-		`(${behaviors.filter((b) => b.proof.browser).length} with browser steps); ` +
+		`(browser proofs: ${kind("behavior")} behavior, ${kind("presence")} presence); ` +
 		`${owner.size} of ${routes.length} routes mapped, ${pending.length} pending; ` +
 		`${states.filter((x) => !("manual" in x.reach)).length} of ${states.length} states reachable by script`;
 	return { problems: [...new Set(problems)], summary };
@@ -592,51 +704,79 @@ export async function checkFeatureMaps(root: string, options: CheckOptions): Pro
 
 const q = (value: string) => JSON.stringify(value);
 const shown = (value: string) => {
-	const m = SEED_VALUE.exec(value);
-	return m ? `<${m[1]}:${m[2]}>` : value;
+	const special = SPECIAL_VALUE.exec(value);
+	return special ? (special[1] ? `<QA_LOGINS.${special[1]}>` : "<QA_PASSWORD>") : value;
 };
 const exact = (t: { match?: Match }) => ((t.match ?? "exact") === "exact" ? " --exact" : "");
+const IDLE = "agent-browser wait --load networkidle";
 
 function command(step: Step | Observable): string {
 	if ("open" in step) return `agent-browser open ${q("$ORIGIN" + step.open)}`;
 	if ("click" in step) {
 		const t = step.click;
 		return "role" in t
-			? `agent-browser find role ${t.role} click --name ${q(shown(t.name))}${exact(t)}`
-			: `agent-browser find text ${q(shown(t.text))} click${exact(t)}`;
+			? `agent-browser find role ${t.role} click --name ${q(t.name)}${exact(t)}`
+			: `agent-browser find text ${q(t.text)} click${exact(t)}`;
 	}
 	if ("into" in step) return `agent-browser find label ${q(step.into)} fill ${q(shown(step.type))}`;
 	if ("press" in step) return `agent-browser press ${step.press}`;
+	if ("upload" in step) return `agent-browser upload "input[type=file]" ${q("$REPO/" + step.upload)}`;
+	if ("expect" in step) return command((step as { expect: Observable }).expect);
 	if ("noText" in step) return `agent-browser wait --fn ${q(`!document.body.innerText.includes(${q(step.noText)})`)}`;
 	if ("url" in step) return `agent-browser wait --url ${q("**" + step.url.replace(/\{[A-Za-z]+\}/g, "*"))}`;
-	if ("role" in step) return `agent-browser find role ${step.role} text --name ${q(shown(step.name))}${exact(step)}`;
+	if ("role" in step) return `agent-browser find role ${step.role} text --name ${q(step.name)}${exact(step)}`;
 	return (step.match ?? "exact") === "exact"
-		? `agent-browser find text ${q(shown(step.text))} text --exact`
-		: `agent-browser wait --text ${q(shown(step.text))}`;
+		? `agent-browser find text ${q(step.text)} text --exact`
+		: `agent-browser wait --text ${q(step.text)}`;
 }
 
-const fillLine = (fill: Fill | undefined) =>
-	fill
-		? ` with ${Object.entries(fill)
-				.map(([k, v]) => `\`{${k}}\` = \`${shown(v)}\``)
-				.join(", ")}`
-		: "";
-const describeTarget = (t: Target) => ("role" in t ? `${t.role} "${shown(t.name)}"` : `text "${shown(t.text)}"`);
+function commands(steps: Step[], expect: Observable[] = []): string[] {
+	return [
+		...steps.flatMap((s) => ("expect" in s || "type" in s ? [command(s)] : [command(s), IDLE])),
+		...expect.map(command),
+	];
+}
+const block = (lines: string[]) => ["```bash", ...lines, "```"];
+
+const describeTarget = (t: Target) => {
+	const how = (t.match ?? "exact") === "contains" ? "containing " : "";
+	return "role" in t ? `${t.role} ${how}"${t.name}"` : `text ${how}"${t.text}"`;
+};
 const describeObservable = (o: Observable) =>
 	"noText" in o ? `no text "${o.noText}"` : "url" in o ? `URL \`${o.url}\`` : describeTarget(o);
-const describeStep = (s: Step) =>
-	"open" in s
-		? `open \`${s.open}\``
-		: "click" in s
-			? `click ${describeTarget(s.click)}`
-			: "into" in s
-				? `type "${shown(s.type)}" into "${s.into}"`
-				: `press ${s.press}`;
 
-function describeReach(reach: Reach): string {
-	if ("rail" in reach) return `rail "${reach.rail}" (${reach.personas.join(", ")})`;
-	if ("from" in reach) return `from ${reach.from} as ${reach.persona}: ${reach.path.map(describeStep).join(", ")}`;
-	return `${reach.email ? `email ${reach.email} link` : "link"} \`${reach.link}\`${fillLine(reach.fill)}`;
+function stateLines(state: State): string[] {
+	const file = state.file ? ` (\`${state.file.slice(state.file.lastIndexOf("/") + 1)}\`)` : "";
+	const head = `- **${state.id}**${file}: ${state.expect.map(describeObservable).join("; ")}`;
+	const reach = state.reach;
+	if ("manual" in reach) return [`${head}. Not scripted: ${reach.manual}.`];
+	const given = "setup" in reach ? "after the setup steps below, which create what no seed holds" : "on the QA seed";
+	return [
+		`${head}. As \`${reach.persona}\`, ${given}:`,
+		"",
+		...block(
+			commands(
+				[
+					...("setup" in reach ? reach.setup : []),
+					...(reach.open ? [{ open: reach.open }] : []),
+					...(reach.path ?? []),
+				],
+				state.expect,
+			),
+		),
+		"",
+	];
+}
+
+function reachLines(reach: Reach): string[] {
+	if ("rail" in reach) return [`- Rail "${reach.rail}" for ${reach.personas.map((p) => `\`${p}\``).join(", ")}`];
+	if ("from" in reach) return [`- From ${reach.from} as \`${reach.persona}\`:`, "", ...block(commands(reach.path)), ""];
+	const fill = reach.fill
+		? ` where ${Object.entries(reach.fill)
+				.map(([k, v]) => `\`{${k}}\` is ${v}`)
+				.join(", ")}`
+		: "";
+	return [`- ${reach.email ? `Email \`${reach.email}\` links to` : "Link"} \`${reach.link}\`${fill}`];
 }
 
 export function showSurface(surface: Surface): string {
@@ -645,56 +785,48 @@ export function showSurface(surface: Surface): string {
 	if (surface.endpoints) lines.push(`- Endpoints: ${surface.endpoints.map((r) => `\`${r}\``).join(", ")}`);
 	lines.push(
 		`- Personas: ${Object.entries(surface.personas)
-			.map(([p, a]) => `${p} ${a}`)
+			.map(([p, a]) => `\`${p}\` ${a}`)
 			.join(", ")}`,
 	);
 	if (surface.catalog?.length) lines.push(`- Catalog: ${surface.catalog.join(", ")}`);
 	lines.push(
-		"- Reach:",
-		...surface.reach.map((r) => `  - ${describeReach(r)}`),
 		"",
-		"| State | Reach | Expect |",
-		"|---|---|---|",
+		"Reach:",
+		"",
+		...surface.reach.flatMap(reachLines),
+		"",
+		"States:",
+		"",
+		...surface.states.flatMap(stateLines),
 	);
-	for (const state of surface.states) {
-		const reach =
-			"manual" in state.reach
-				? `manual: ${state.reach.manual}`
-				: `${state.reach.persona} opens \`${state.reach.open}\`${fillLine(state.reach.fill)}`;
-		const file = state.file ? ` (\`${state.file.slice(state.file.lastIndexOf("/") + 1)}\`)` : "";
-		lines.push(`| ${state.id}${file} | ${reach} | ${state.expect.map(describeObservable).join("; ")} |`);
-	}
 	for (const behavior of surface.behaviors) {
 		lines.push("", `#### ${surface.id}#${behavior.id}`, "", behavior.says, "");
-		if (behavior.operations.length) lines.push(`- Operations: ${behavior.operations.join(", ")}`);
+		lines.push(
+			behavior.operations.length
+				? `- Operations: ${behavior.operations.join(", ")}`
+				: `- No operation: ${behavior.noOperation ?? ""}`,
+		);
+		lines.push(`- Catalog: ${behavior.catalog.join(", ")}`);
 		if (behavior.proof.cases?.length) lines.push(`- Cases: ${behavior.proof.cases.join(", ")}`);
 		for (const test of behavior.proof.tests) lines.push(`- Test: \`${test.file}\`: \`${test.name}\``);
 		const browser = behavior.proof.browser;
-		if (browser) {
-			const state = surface.states.find((x) => x.id === browser.state);
-			const start =
-				state && "persona" in state.reach
-					? `As ${state.reach.persona}, from state ${browser.state} (\`${state.reach.open}\`${fillLine(state.reach.fill)}):`
-					: `From state ${browser.state}:`;
+		if (browser)
 			lines.push(
-				`- Browser: ${start}`,
+				browser.kind === "behavior"
+					? `- Browser, behavior proof (acts and checks the result), from state ${browser.state}:`
+					: `- Browser, presence proof only (the control is there; the tests prove the outcome), from state ${browser.state}:`,
 				"",
-				"```bash",
-				...browser.steps.map((s) => command(s)),
-				...(browser.steps.length ? ["agent-browser wait --load networkidle"] : []),
-				...browser.expect.map((s) => command(s)),
-				"```",
+				...block(commands(browser.steps, browser.expect)),
 			);
-		}
 	}
-	return lines.join("\n") + "\n";
+	return lines.join("\n").replace(/\n{3,}/g, "\n\n") + "\n";
 }
 
 const nodeLabel = (text: string) => text.replace(/"/g, "#quot;");
 
 function featureDoc(map: FeatureMap, file: string): string {
 	const ids = new Map(map.surfaces.map((s, i) => [s.id, `s${i}`] as const));
-	const graph = ["flowchart LR"];
+	const graph: string[] = [];
 	const entries = new Set<string>();
 	for (const surface of map.surfaces) {
 		const node = ids.get(surface.id)!;
@@ -704,50 +836,52 @@ function featureDoc(map: FeatureMap, file: string): string {
 				entries.add(`  rail(["rail"])`);
 				graph.push(`  rail -- "${nodeLabel(reach.rail)}" --> ${node}`);
 			} else if ("from" in reach) {
-				const from = ids.get(reach.from);
-				const last = reach.path.at(-1)!;
-				const label = nodeLabel("click" in last ? describeTarget(last.click) : describeStep(last));
-				if (from) graph.push(`  ${from} -- "${label}" --> ${node}`);
-				else {
-					entries.add(`  x_${reach.from.replace(/\W/g, "_")}(["${reach.from}"])`);
-					graph.push(`  x_${reach.from.replace(/\W/g, "_")} -- "${label}" --> ${node}`);
-				}
+				const from = ids.get(reach.from) ?? `x_${reach.from.replace(/\W/g, "_")}`;
+				if (!ids.has(reach.from)) entries.add(`  ${from}(["${reach.from}"])`);
+				const label = reach.path.flatMap((st) => ("click" in st ? [describeTarget(st.click)] : [])).join(", then ");
+				graph.push(`  ${from} -- "${nodeLabel(label || "path")}" --> ${node}`);
 			} else {
 				const entry = `${node}_link${i}`;
 				entries.add(`  ${entry}(["${nodeLabel(reach.email ? `email ${reach.email}` : `link ${reach.link}`)}"])`);
 				graph.push(`  ${entry} --> ${node}`);
 			}
 		}
+		for (const [i, state] of surface.states.entries())
+			graph.push(
+				`  ${node} -.- ${node}_st${i}(("${nodeLabel(`${state.id}${"manual" in state.reach ? " (manual)" : "setup" in state.reach ? " (setup)" : ""}`)}"))`,
+			);
 		for (const [i, behavior] of surface.behaviors.entries()) {
 			const proof = [
-				behavior.proof.tests.length ? "tests" : "",
+				"tests",
 				behavior.proof.cases?.length ? "cases" : "",
-				behavior.proof.browser ? "browser" : "",
+				behavior.proof.browser ? `browser ${behavior.proof.browser.kind}` : "",
 			]
 				.filter(Boolean)
 				.join(" + ");
 			graph.push(`  ${node} --- ${node}_b${i}["${nodeLabel(`${behavior.id}<br/>${proof}`)}"]`);
 		}
 	}
-	const lines = [
+	return [
 		`# Feature map: ${map.feature}`,
 		"",
 		`Generated from [\`${file}\`](../../${file}) by \`node tools/ci/feature-maps.ts --write\`. Do not edit by hand.`,
+		"Personas, sign-in and what the checker cannot catch: [README](README.md).",
 		"",
 		"```mermaid",
-		...graph.slice(0, 1),
+		"flowchart LR",
 		...[...entries].sort(),
-		...graph.slice(1),
+		...graph,
 		"```",
 		"",
 		"## Surfaces",
 		"",
 		...map.surfaces.map((s) => showSurface(s)),
-	];
-	return lines.join("\n").replace(/\n{3,}/g, "\n\n");
+	]
+		.join("\n")
+		.replace(/\n{3,}/g, "\n\n");
 }
 
-function overviewDoc(maps: LoadedMap[], pending: number, routes: number): string {
+function overviewDoc(maps: LoadedMap[], personas: Record<string, Persona>, pending: number, routes: number): string {
 	const graph = ["flowchart LR", `  rail(["rail"])`, `  links(["links and email"])`];
 	const ids = new Map<string, string>();
 	maps.forEach(({ map }, m) => map.surfaces.forEach((s, i) => ids.set(s.id, `f${m}s${i}`)));
@@ -759,21 +893,23 @@ function overviewDoc(maps: LoadedMap[], pending: number, routes: number): string
 	for (const { map } of maps)
 		for (const surface of map.surfaces) {
 			const node = ids.get(surface.id)!;
-			const rails = [...new Set(surface.reach.flatMap((r) => ("rail" in r ? [r.rail] : [])))];
-			for (const label of rails) graph.push(`  rail -- "${nodeLabel(label)}" --> ${node}`);
+			for (const label of new Set(surface.reach.flatMap((r) => ("rail" in r ? [r.rail] : []))))
+				graph.push(`  rail -- "${nodeLabel(label)}" --> ${node}`);
 			for (const from of new Set(surface.reach.flatMap((r) => ("from" in r ? [r.from] : []))))
 				if (ids.has(from)) graph.push(`  ${ids.get(from)} --> ${node}`);
 			if (surface.reach.some((r) => "link" in r)) graph.push(`  links -.-> ${node}`);
 		}
-	const mapped = maps.reduce(
-		(n, { map }) => n + map.surfaces.reduce((k, s) => k + s.routes.length + (s.endpoints?.length ?? 0), 0),
-		0,
-	);
+	const count = (map: FeatureMap) => map.surfaces.reduce((k, s) => k + s.routes.length + (s.endpoints?.length ?? 0), 0);
+	const mapped = maps.reduce((n, { map }) => n + count(map), 0);
 	const rows = maps.map(({ file, map }) => {
 		const behaviors = map.surfaces.flatMap((s) => s.behaviors);
-		const routeCount = map.surfaces.reduce((k, s) => k + s.routes.length + (s.endpoints?.length ?? 0), 0);
-		return `| [${map.feature}](${map.feature}.md) | [\`${file}\`](../../${file}) | ${map.surfaces.length} | ${routeCount} | ${behaviors.length} | ${behaviors.filter((b) => b.proof.browser).length} |`;
+		const kind = (k: Browser["kind"]) => behaviors.filter((b) => b.proof.browser?.kind === k).length;
+		return `| [${map.feature}](${map.feature}.md) | [\`${file}\`](../../${file}) | ${map.surfaces.length} | ${count(map)} | ${behaviors.length} | ${kind("behavior")} | ${kind("presence")} |`;
 	});
+	const personaRows = Object.entries(personas).map(
+		([id, p]) =>
+			`| \`${id}\` | ${p.context}${p.role ? ` ${p.role}` : ""}${p.residencyLinked ? ", residency linked" : ""} | ${p.says} | ${p.seed ? `\`QA_LOGINS.${id}\` and \`QA_PASSWORD\`` : "none"} |`,
+	);
 	return [
 		"# Feature maps",
 		"",
@@ -781,8 +917,7 @@ function overviewDoc(maps: LoadedMap[], pending: number, routes: number): string
 		"",
 		"Each feature directory under `apps/web/src/features/` describes its surfaces: the routes it owns, how each persona",
 		"reaches them, the states a verifier can open and the tests, cases and browser steps that prove each behavior.",
-		"Personas are in [`tests/ui/personas.json`](../../tests/ui/personas.json). Print one surface with",
-		"`node tools/ci/feature-maps.ts show <surface-id>`.",
+		"Print one surface with `node tools/ci/feature-maps.ts show <surface-id>`.",
 		"",
 		`Routes mapped: ${mapped} of ${routes}. Not yet mapped: ${pending}, listed in [\`${PENDING_FILE}\`](../../${PENDING_FILE}).`,
 		"",
@@ -790,15 +925,56 @@ function overviewDoc(maps: LoadedMap[], pending: number, routes: number): string
 		...graph,
 		"```",
 		"",
-		"| Feature | Map | Surfaces | Routes | Behaviors | Browser steps |",
-		"|---|---|---|---|---|---|",
+		"| Feature | Map | Surfaces | Routes | Behaviors | Browser behavior proofs | Browser presence proofs |",
+		"|---|---|---|---|---|---|---|",
 		...rows,
+		"",
+		"## Become a persona",
+		"",
+		`Every map uses the QA seed ([\`${SEED_FILE}\`](../../${SEED_FILE})): it creates the personas below and the data the`,
+		'steps name (for example "QA vision meeting" or "Maria Santos"). Run the app on a QA-seeded database, for example a',
+		"local proof slot or a QA preview (`bin/qa`). Sign in at `/signin` with the persona's address and password, both in",
+		`[\`${LOGINS_FILE}\`](../../${LOGINS_FILE}); a proof slot's \`login --persona <id>\` sets the same session cookie.`,
+		"In commands, `$ORIGIN` is the app's address, `$REPO` the checkout, and `<QA_LOGINS.x>` and `<QA_PASSWORD>` are",
+		"values from that file. Each step that opens, clicks, presses or uploads is followed by a network-idle wait, so the page",
+		"has hydrated and the next check sees the result.",
+		"A state marked setup creates its own data first; run its setup once per fresh seed.",
+		"",
+		"| Persona | Context | Who | Sign in with |",
+		"|---|---|---|---|",
+		...personaRows,
+		"",
+		"## What the check proves, and what it cannot",
+		"",
+		"`node tools/ci/feature-maps.ts` (CI: tooling job) proves the map is consistent with the code, not that the app",
+		"behaves as the map says. It checks: every route belongs to one surface or the shrink-only pending list; route",
+		"files import only their own feature; every `loading`, `error` and `not-found` file is a declared state; test",
+		"names exist exactly; cases are `AC:` markers in those tests; operations are in the catalog, serve the behavior's",
+		"catalog features and are quoted or declared in code; email links name a template that builds that path; rail",
+		"reaches agree with `shellNav` both ways for every persona; personas are QA seed logins; and every name, label",
+		"and text in a step equals (or, for `contains`, is part of) a string literal or JSX text, comments excluded, in the",
+		"feature's folder, `packages/ui/src`, the shell (each with the modules it imports directly) or the QA seed, or was",
+		"typed earlier in the same steps.",
+		"",
+		"It cannot catch, and only running the browser steps catches:",
+		"",
+		"- a rename where the old text still exists elsewhere in that scope;",
+		"- the wrong role for a name (a heading checked as a button);",
+		"- whether a persona really has the access the map gives it, or a state's checks also pass on another screen;",
+		"- whether the seed data the steps name is in the state the steps expect (each run needs a fresh seed).",
+		"",
+		"A browser proof marked presence only shows that the control is there; the listed tests prove the outcome.",
 		"",
 	].join("\n");
 }
 
-export function renderDocs(maps: LoadedMap[], pending: number, routes: number): Map<string, string> {
-	const docs = new Map<string, string>([[`${DOCS_DIR}/README.md`, overviewDoc(maps, pending, routes)]]);
+export function renderDocs(
+	maps: LoadedMap[],
+	personas: Record<string, Persona>,
+	pending: number,
+	routes: number,
+): Map<string, string> {
+	const docs = new Map<string, string>([[`${DOCS_DIR}/README.md`, overviewDoc(maps, personas, pending, routes)]]);
 	for (const { file, map } of maps) docs.set(`${DOCS_DIR}/${map.feature}.md`, featureDoc(map, file));
 	return docs;
 }
@@ -807,21 +983,32 @@ export function writeDocs(root: string): string[] {
 	const { maps, problems } = loadMaps(root);
 	if (problems.length) return problems;
 	const pending = ((readJson(root, PENDING_FILE) as { routes?: string[] }).routes ?? []).length;
-	const docs = renderDocs(maps, pending, appRoutes(root).length);
+	const personas = readJson(root, PERSONAS_FILE) as Record<string, Persona>;
+	const docs = renderDocs(maps, personas, pending, appRoutes(root).length);
 	for (const path of walk(root, DOCS_DIR, (f) => f.endsWith(".md"))) if (!docs.has(path)) rmSync(join(root, path));
 	mkdirSync(join(root, DOCS_DIR), { recursive: true });
 	for (const [path, content] of docs) writeFileSync(join(root, path), content);
 	return [];
 }
 
-export function basePendingFromGit(root: string): string[] | null {
+export function basePendingFromGit(root: string, ref = "origin/main"): BasePending {
 	const git = (...args: string[]) =>
 		execFileSync("git", args, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+	let base: string;
 	try {
-		const base = git("merge-base", "HEAD", "origin/main");
-		return (JSON.parse(git("show", `${base}:${PENDING_FILE}`)) as { routes: string[] }).routes;
+		base = git("merge-base", "HEAD", ref);
 	} catch {
-		return null;
+		return { error: `git merge-base HEAD ${ref} failed (is ${ref} fetched?)` };
+	}
+	try {
+		const files = git("ls-tree", "-r", "--name-only", base, "--", "apps/web").split("\n");
+		if (files.includes(PENDING_FILE))
+			return { routes: (JSON.parse(git("show", `${base}:${PENDING_FILE}`)) as { routes: string[] }).routes };
+		return files.some((f) => f.endsWith("/feature-map.json"))
+			? { routes: [] }
+			: { skip: `the merge base with ${ref} has no feature maps yet` };
+	} catch {
+		return { error: `git could not read ${PENDING_FILE} at ${base}` };
 	}
 }
 
@@ -832,23 +1019,24 @@ if (import.meta.main) {
 		const problems = writeDocs(root);
 		for (const p of problems) console.error(p);
 		if (problems.length) process.exit(1);
-		console.log(`feature-maps: wrote ${relative(root, join(root, DOCS_DIR))}/`);
+		console.log(`feature-maps: wrote ${DOCS_DIR}/`);
 	} else if (command === "show") {
 		const { maps } = loadMaps(root);
-		const found = maps.flatMap(({ map }) => map.surfaces.map((s) => ({ map, s }))).find(({ s }) => s.id === arg);
+		const found = maps.flatMap(({ map }) => map.surfaces).find((s) => s.id === arg);
 		if (!found) {
 			console.error(
 				`feature-maps: no surface "${arg ?? ""}". Surfaces: ${maps.flatMap(({ map }) => map.surfaces.map((s) => s.id)).join(", ")}`,
 			);
 			process.exit(2);
 		}
-		process.stdout.write(showSurface(found.s));
+		process.stdout.write(showSurface(found));
 	} else if (command === undefined || command === "--check") {
-		const basePending = basePendingFromGit(root);
-		const { problems, summary } = await checkFeatureMaps(root, { basePending });
+		const base = basePendingFromGit(root);
+		const ci = process.env.CI === "true";
+		const { problems, summary } = await checkFeatureMaps(root, { base, ci });
 		for (const p of problems) console.error(p);
-		if (basePending === null)
-			console.log("feature-maps: no origin/main pending list to compare, so growth is not checked");
+		if ("skip" in base) console.log(`feature-maps: pending-list growth not checked: ${base.skip}`);
+		if ("error" in base && !ci) console.log(`feature-maps: pending-list growth not checked: ${base.error}`);
 		if (problems.length) {
 			console.error(`feature-maps: ${problems.length} problem(s).`);
 			process.exit(1);

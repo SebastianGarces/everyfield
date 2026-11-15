@@ -10,7 +10,7 @@ verbatim ask names (routes, pages, sections, screens, commands, files) and open 
 before any criterion or check table. Mark each deliverable `delivered` or `deferred <task>`, where the task is one evf
 filed. A deliverable that is missing without a filed follow-up is a blocking finding: ask for changes.
 
-For a change under `apps/web/src/features/<feature>/`, start from that feature's map
+For a change under `apps/web/src/features/<feature>/`, when that feature has a map, start from it
 (`docs/feature-maps/<feature>.md`): it says how each persona reaches a surface and what proves each behavior.
 A changed behavior with no map entry, or a map entry the app contradicts, is a finding.
 Follow `.agents/skills/verify-preview/SKILL.md`. It runs the head on its own preview where a check needs one, captures

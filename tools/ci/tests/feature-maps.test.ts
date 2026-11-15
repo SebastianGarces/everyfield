@@ -1,13 +1,15 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { checkFeatureMaps, writeDocs } from "../feature-maps.ts";
+import { basePendingFromGit, checkFeatureMaps, writeDocs, type BasePending } from "../feature-maps.ts";
 
 const SCHEMA = fileURLToPath(new URL("../../../apps/web/feature-map.schema.json", import.meta.url));
 const TEST_NAME = "AC:CASE-THING-1 an Owner opens a thing";
+const MAP = "apps/web/src/features/things/feature-map.json";
 
 const thingsMap = () => ({
 	feature: "things",
@@ -17,18 +19,18 @@ const thingsMap = () => ({
 			id: "things.list",
 			says: "Every thing of the church.",
 			routes: ["/things"],
-			reach: [{ rail: "Things", personas: ["owner"] }],
-			personas: { owner: "write" },
+			reach: [{ rail: "Things", personas: ["owner"] } as Record<string, unknown>],
+			personas: { owner: "write", visitor: "none" } as Record<string, string>,
 			states: [
 				{
 					id: "populated",
-					reach: { persona: "owner", open: "/things" },
-					expect: [{ role: "heading", name: "All things" }],
+					reach: { persona: "owner", open: "/things", seed: "qa" } as Record<string, unknown>,
+					expect: [{ role: "heading", name: "All things" }] as Record<string, unknown>[],
 				},
 				{
 					id: "loading",
 					file: "apps/web/src/app/(product)/things/loading.tsx",
-					reach: { manual: "only while the server renders" },
+					reach: { manual: "only while the server renders" } as Record<string, unknown>,
 					expect: [{ text: "Loading things" }],
 				},
 			],
@@ -37,14 +39,16 @@ const thingsMap = () => ({
 					id: "open",
 					says: "An Owner opens a thing from the list.",
 					catalog: ["THG-001"],
-					operations: ["things.open"],
+					operations: ["things.open"] as string[],
+					noOperation: undefined as string | undefined,
 					proof: {
 						tests: [{ file: "tests/integration/things.test.mts", name: TEST_NAME }],
 						cases: ["CASE-THING-1"],
 						browser: {
+							kind: "behavior",
 							state: "populated",
-							steps: [{ click: { role: "button", name: "Open thing" } }],
-							expect: [{ text: "$things:/owner/thing", match: "contains" }],
+							steps: [{ click: { role: "button", name: "Open thing" } }] as Record<string, unknown>[],
+							expect: [{ text: "The Gym", match: "contains" }] as Record<string, unknown>[],
 						},
 					},
 				},
@@ -52,6 +56,7 @@ const thingsMap = () => ({
 		},
 	],
 });
+type ThingsMap = ReturnType<typeof thingsMap>;
 
 function fixture(): string {
 	const root = mkdtempSync(join(tmpdir(), "feature-maps-"));
@@ -73,49 +78,63 @@ function fixture(): string {
 	put("apps/web/src/app/(product)/later/page.tsx", "export default function Later() {}\n");
 	put(
 		"apps/web/src/features/things/routes.tsx",
-		"export const ThingsPage = () => <><h1>All things</h1><button>Open thing</button><p>Loading things</p></>;\n",
+		"export const ThingsPage = () => (\n\t<>\n\t\t<h1>All things</h1>\n\t\t<button>Open thing</button>\n\t\t<p>Loading things</p>\n\t</>\n);\n// Close the thing\n",
 	);
-	put("apps/web/src/features/things/feature-map.json", thingsMap());
+	put(MAP, thingsMap());
 	put(
 		"apps/web/src/features/shell/nav.ts",
-		'export const shellNav = (viewer: { context: string }) => ({ main: viewer.context === "plant" ? [{ label: "Things", href: "/things" }] : [], pages: [] });\n',
+		'export const shellNav = (viewer: { context: string }) => ({ main: viewer.context === "plant" ? [{ label: "Things", href: "/things" }] : [{ label: "Wiki", href: "/wiki" }], pages: [] });\n',
 	);
-	put("packages/core/src/things.ts", 'export const OPS = ["things.open"];\n');
+	put(
+		"packages/core/src/things.ts",
+		'export const OPS = ["things.open"];\nexport const delivery = { thing_link: `${origin}/things/${id}` };\n',
+	);
 	put("docs/catalog/index.json", {
 		feature_source: "docs/catalog/features.json",
 		operation_source: "docs/catalog/operations.json",
 		requirement_files: ["docs/catalog/requirements/things.json"],
 		case_files: ["docs/acceptance/things.json"],
 	});
-	put("docs/catalog/features.json", [{ id: "THG-001" }]);
-	put("docs/catalog/operations.json", { operations: [{ id: "things.open" }, { id: "things.close" }] });
+	put("docs/catalog/features.json", [{ id: "THG-001" }, { id: "OTH-001" }]);
+	put("docs/catalog/operations.json", {
+		operations: [
+			{ id: "things.open", feature_ids: ["THG-001"] },
+			{ id: "things.close", feature_ids: ["THG-001"] },
+			{ id: "other.make", feature_ids: ["OTH-001"] },
+		],
+	});
+	put("packages/core/src/other.ts", 'export const MORE = ["other.make"];\n');
 	put("docs/catalog/requirements/things.json", { requirements: [{ id: "REQ-THG-001", text: "Things open." }] });
 	put("docs/acceptance/things.json", { cases: [{ id: "CASE-THING-1" }, { id: "CASE-THING-2" }] });
-	put("tests/ui/seed-env.mts", 'export const SEEDS = ["things"] as const;\n');
-	put("tests/ui/things/seed.mts", 'writeFixture("things", schema, { owner: { cookie, thing } });\n');
-	put("tests/ui/personas.json", {
-		owner: { says: "An Owner", context: "plant", role: "owner", seed: "things", cookie: "/owner/cookie" },
+	put("tools/qa/qa-guard.ts", 'export const QA_LOGINS = {\n\towner: "delivered+qa-owner@resend.dev",\n} as const;\n');
+	put("tools/qa/qa-seed.ts", 'const PLACES = ["The Gym"];\n');
+	put("tools/qa/personas.json", {
+		owner: { says: "An Owner", context: "plant", role: "owner", seed: "qa" },
+		visitor: { says: "Nobody", context: "signed-out" },
 	});
 	put("tests/integration/things.test.mts", `test(${JSON.stringify(TEST_NAME)}, () => {});\n`);
 	assert.deepEqual(writeDocs(root), []);
 	return root;
 }
 
-async function problems(root: string, basePending: string[] | null = ["/later"]) {
+const NO_BASE: BasePending = { skip: "fixture" };
+async function problems(root: string, base: BasePending = { routes: ["/later"] }, ci = true) {
 	try {
-		return (await checkFeatureMaps(root, { basePending })).problems;
+		return (await checkFeatureMaps(root, { base, ci })).problems;
 	} finally {
 		rmSync(root, { recursive: true, force: true });
 	}
 }
 
-function editMap(root: string, change: (map: ReturnType<typeof thingsMap>) => void) {
-	const file = join(root, "apps/web/src/features/things/feature-map.json");
-	const map = JSON.parse(readFileSync(file, "utf8"));
+function editMap(root: string, change: (map: ThingsMap) => void, valid = true) {
+	const map = JSON.parse(readFileSync(join(root, MAP), "utf8")) as ThingsMap;
 	change(map);
-	writeFileSync(file, JSON.stringify(map));
-	assert.deepEqual(writeDocs(root), []);
+	writeFileSync(join(root, MAP), JSON.stringify(map));
+	if (valid) assert.deepEqual(writeDocs(root), []);
 }
+const surface = (map: ThingsMap) => map.surfaces[0]!;
+const behavior = (map: ThingsMap) => surface(map).behaviors[0]!;
+const at = (message: string) => `${MAP}: ${message}`;
 
 test("INV-feature-maps: a fixture whose maps, routes, tests, cases, names, rail and diagrams agree has no problem", async () => {
 	assert.deepEqual(await problems(fixture()), []);
@@ -141,44 +160,141 @@ test("INV-feature-maps: a pending route that a map now owns, and a route added t
 	]);
 });
 
+test("INV-feature-maps: under CI a pending list that cannot be read at the merge base fails; off CI it is only skipped", async () => {
+	const error: BasePending = { error: "git merge-base HEAD origin/main failed (is origin/main fetched?)" };
+	assert.deepEqual(await problems(fixture(), error, true), [
+		"apps/web/feature-maps.pending.json: cannot read the pending list at the merge base with origin/main: git merge-base HEAD origin/main failed (is origin/main fetched?)",
+	]);
+	assert.deepEqual(await problems(fixture(), error, false), []);
+});
+
+test("INV-feature-maps: the merge base's pending list comes from git, is empty once the base has maps, and is skipped before maps exist", () => {
+	const repo = mkdtempSync(join(tmpdir(), "feature-maps-git-"));
+	const git = (...args: string[]) => execFileSync("git", args, { cwd: repo, encoding: "utf8", stdio: "pipe" });
+	const commit = (file: string, content: string) => {
+		mkdirSync(dirname(join(repo, file)), { recursive: true });
+		writeFileSync(join(repo, file), content);
+		git("add", "-A");
+		git("-c", "user.name=t", "-c", "user.email=t@t.invalid", "commit", "-qm", file);
+	};
+	try {
+		git("init", "-q", "-b", "main");
+		assert.deepEqual(basePendingFromGit(repo), {
+			error: "git merge-base HEAD origin/main failed (is origin/main fetched?)",
+		});
+		commit("README.md", "x\n");
+		git("update-ref", "refs/remotes/origin/main", "HEAD");
+		assert.deepEqual(basePendingFromGit(repo), { skip: "the merge base with origin/main has no feature maps yet" });
+		commit("apps/web/src/features/things/feature-map.json", "{}\n");
+		git("update-ref", "refs/remotes/origin/main", "HEAD");
+		assert.deepEqual(basePendingFromGit(repo), { routes: [] });
+		commit("apps/web/feature-maps.pending.json", JSON.stringify({ routes: ["/later"] }));
+		git("update-ref", "refs/remotes/origin/main", "HEAD");
+		git("switch", "-qc", "stacked");
+		commit("apps/web/feature-maps.pending.json", JSON.stringify({ routes: ["/later", "/more"] }));
+		assert.deepEqual(basePendingFromGit(repo), { routes: ["/later"] });
+	} finally {
+		rmSync(repo, { recursive: true, force: true });
+	}
+});
+
 test("INV-feature-maps: a test name that does not exist in the named file fails", async () => {
 	const root = fixture();
 	editMap(root, (map) => {
-		map.surfaces[0]!.behaviors[0]!.proof.tests[0]!.name = "AC:CASE-THING-1 an Owner opens a thing quickly";
+		behavior(map).proof.tests[0]!.name = "AC:CASE-THING-1 an Owner opens a thing quickly";
 	});
 	assert.deepEqual(await problems(root), [
-		'apps/web/src/features/things/feature-map.json: things.list#open: tests/integration/things.test.mts has no test named "AC:CASE-THING-1 an Owner opens a thing quickly"',
+		at(
+			'things.list#open: tests/integration/things.test.mts has no test named "AC:CASE-THING-1 an Owner opens a thing quickly"',
+		),
 	]);
 });
 
 test("INV-feature-maps: a case that exists but no listed test name carries as AC: fails", async () => {
 	const root = fixture();
 	editMap(root, (map) => {
-		map.surfaces[0]!.behaviors[0]!.proof.cases = ["CASE-THING-2"];
+		behavior(map).proof.cases = ["CASE-THING-2"];
+	});
+	assert.deepEqual(await problems(root), [at("things.list#open: no listed test name carries AC:CASE-THING-2")]);
+});
+
+test("INV-feature-maps: an operation missing from the catalog, never named in code, or serving another feature fails", async () => {
+	const root = fixture();
+	editMap(root, (map) => {
+		behavior(map).operations = ["things.share", "things.close", "other.make"];
 	});
 	assert.deepEqual(await problems(root), [
-		"apps/web/src/features/things/feature-map.json: things.list#open: no listed test name carries AC:CASE-THING-2",
+		at("things.list#open: operation things.share is not in docs/catalog/operations.json"),
+		at(
+			"things.list#open: operation things.close is neither quoted nor declared in packages/*/src or apps/web/src/server",
+		),
+		at("things.list#open: operation other.make serves OTH-001, none of the behavior's catalog THG-001"),
 	]);
 });
 
-test("INV-feature-maps: an operation missing from the catalog, or in the catalog but never named in code, fails", async () => {
+test("INV-feature-maps: a behavior with no operation must say why", async () => {
 	const root = fixture();
 	editMap(root, (map) => {
-		map.surfaces[0]!.behaviors[0]!.operations = ["things.share", "things.close"];
+		behavior(map).operations = [];
 	});
 	assert.deepEqual(await problems(root), [
-		"apps/web/src/features/things/feature-map.json: things.list#open: operation things.share is not in docs/catalog/operations.json",
-		"apps/web/src/features/things/feature-map.json: things.list#open: operation things.close appears in no packages/*/src or apps/web/src/server source",
+		at('things.list#open: lists no operation; name one or say why in "noOperation"'),
 	]);
 });
 
-test("INV-feature-maps: an accessible name that occurs nowhere in the UI source fails", async () => {
+test("INV-feature-maps: a name must equal a whole string or JSX text in scope; part of one, or a comment, does not count", async () => {
 	const root = fixture();
 	editMap(root, (map) => {
-		map.surfaces[0]!.behaviors[0]!.proof.browser!.steps = [{ click: { role: "button", name: "Open the thing" } }];
+		behavior(map).proof.browser.steps = [{ click: { role: "button", name: "Open" } }];
+		surface(map).states[0]!.expect = [{ role: "heading", name: "Close the thing" }];
+	});
+	const scope = "apps/web/src/features/things (and what it imports), packages/ui/src, the shell or tools/qa/qa-seed.ts";
+	assert.deepEqual(await problems(root), [
+		at(`things.list state populated: no string literal or JSX text in ${scope} equals "Close the thing"`),
+		at(`things.list#open: no string literal or JSX text in ${scope} equals "Open"`),
+	]);
+});
+
+test("INV-feature-maps: seed data a step names must be in the QA seed, and a login must be a QA login", async () => {
+	const root = fixture();
+	editMap(root, (map) => {
+		behavior(map).proof.browser.expect = [{ text: "The Pool", match: "contains" }];
+		behavior(map).proof.browser.steps = [
+			{ type: "$login:nobody", into: "Open thing" },
+			{ click: { role: "button", name: "Open thing" } },
+		];
+	});
+	const scope = "apps/web/src/features/things (and what it imports), packages/ui/src, the shell or tools/qa/qa-seed.ts";
+	assert.deepEqual(await problems(root), [
+		at("things.list#open: $login:nobody is no QA_LOGINS key in tools/qa/qa-guard.ts"),
+		at(`things.list#open: no string literal or JSX text in ${scope} contains "The Pool"`),
+	]);
+});
+
+test("INV-feature-maps: a state with neither seed data nor setup steps is refused", async () => {
+	const root = fixture();
+	editMap(
+		root,
+		(map) => {
+			surface(map).states[0]!.reach = { persona: "owner", open: "/things" };
+		},
+		false,
+	);
+	assert.deepEqual(await problems(root), [
+		at('/surfaces/0/states/0/reach: is missing "seed"'),
+		"apps/web/src/app/(product)/things/page.tsx: /things is owned by no feature map; add it to a surface in its feature's feature-map.json",
+		"docs/feature-maps/README.md: is stale; run node tools/ci/feature-maps.ts --write",
+		"docs/feature-maps/things.md: belongs to no feature map; run node tools/ci/feature-maps.ts --write",
+	]);
+});
+
+test("INV-feature-maps: a behavior proof must act before it observes", async () => {
+	const root = fixture();
+	editMap(root, (map) => {
+		behavior(map).proof.browser.steps = [];
 	});
 	assert.deepEqual(await problems(root), [
-		'apps/web/src/features/things/feature-map.json: things.list#open: "Open the thing" occurs nowhere in apps/web/src, packages/ui/src or packages/contracts/src',
+		at("things.list#open: a behavior proof acts (click, type, press or upload) before it observes"),
 	]);
 });
 
@@ -193,34 +309,55 @@ test("INV-feature-maps: a committed diagram that differs from the maps fails as 
 test("INV-feature-maps: a route in two surfaces, and a state file the surface does not declare, fail", async () => {
 	const root = fixture();
 	editMap(root, (map) => {
-		const surface = map.surfaces[0]!;
-		surface.states = surface.states.filter((s) => s.id !== "loading");
-		map.surfaces.push({ ...surface, id: "things.again", reach: [{ link: "/things" }] } as never);
+		const first = surface(map);
+		first.states = first.states.filter((s) => s.id !== "loading");
+		map.surfaces.push({ ...first, id: "things.again", reach: [{ link: "/things" }] });
 	});
 	assert.deepEqual(await problems(root), [
-		"apps/web/src/features/things/feature-map.json: /things is owned by things.list and things.again",
-		"apps/web/src/features/things/feature-map.json: things.list declares no state for apps/web/src/app/(product)/things/loading.tsx, which renders on /things",
-		"apps/web/src/features/things/feature-map.json: things.again declares no state for apps/web/src/app/(product)/things/loading.tsx, which renders on /things",
+		at("/things is owned by things.list and things.again"),
+		at("things.list declares no state for apps/web/src/app/(product)/things/loading.tsx, which renders on /things"),
+		at("things.again declares no state for apps/web/src/app/(product)/things/loading.tsx, which renders on /things"),
 	]);
 });
 
-test("INV-feature-maps: a rail reach the rail does not offer fails, and so does a rail item a persona has but the map omits", async () => {
+test("INV-feature-maps: a rail reach the rail does not offer fails, also for a signed-out persona", async () => {
 	const root = fixture();
 	editMap(root, (map) => {
-		map.surfaces[0]!.reach = [{ rail: "Stuff", personas: ["owner"] }];
+		surface(map).personas.visitor = "read";
+		surface(map).reach = [{ rail: "Things", personas: ["owner", "visitor"] }];
 	});
 	assert.deepEqual(await problems(root), [
-		'apps/web/src/features/things/feature-map.json: things.list reach 1: the rail offers "owner" no "Stuff" (apps/web/src/features/shell/nav.ts)',
-		'apps/web/src/features/things/feature-map.json: things.list has no rail reach "Things" for "owner", but the rail offers it (apps/web/src/features/shell/nav.ts)',
+		at('things.list reach 1: the rail offers "visitor" no "Things" (apps/web/src/features/shell/nav.ts)'),
 	]);
 });
 
-test("INV-feature-maps: a seed value whose fixture key the seed never writes fails", async () => {
+test("INV-feature-maps: a rail item a persona has fails when the surface gives that persona no access or no rail reach", async () => {
 	const root = fixture();
 	editMap(root, (map) => {
-		map.surfaces[0]!.behaviors[0]!.proof.browser!.expect = [{ text: "$things:/admin/thing", match: "contains" }];
+		surface(map).personas.owner = "none";
+		surface(map).reach = [{ link: "/things" }];
+		surface(map).states[0]!.reach = { persona: "visitor", open: "/things", seed: "qa" };
 	});
 	assert.deepEqual(await problems(root), [
-		'apps/web/src/features/things/feature-map.json: things.list#open: fixture key "admin" does not occur in the things seed\'s source',
+		at(
+			'the rail offers "owner" "Things" (apps/web/src/features/shell/nav.ts), but things.list gives "owner" no access',
+		),
 	]);
+});
+
+test("INV-feature-maps: an email reach must name a template key in code that builds the link's path", async () => {
+	const root = fixture();
+	editMap(root, (map) => {
+		surface(map).reach.push({ link: "/things/{id}", email: "link", fill: { id: "the id" } });
+		surface(map).reach.push({ link: "/things/{id}", email: "thing_link", fill: { id: "the id" } });
+	});
+	assert.deepEqual(await problems(root), [
+		at('things.list reach 2: no file in packages/*/src or apps/web/src/server names email "link" and builds /things'),
+	]);
+});
+
+test("INV-feature-maps: off CI with no base, growth is not compared", async () => {
+	const root = fixture();
+	writeFileSync(join(root, "apps/web/feature-maps.pending.json"), JSON.stringify({ routes: ["/later"] }));
+	assert.deepEqual(await problems(root, NO_BASE), []);
 });

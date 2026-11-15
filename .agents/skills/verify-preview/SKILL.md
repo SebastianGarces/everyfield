@@ -78,11 +78,12 @@ Read your brief (the ask and the spec) and the full diff against the merge base.
 requirements the task names. Write down the behavior you will check before you run anything.
 You are a fresh Opus 5.5 medium session that never shared context with the author (D82).
 
-Start from the feature map. For each feature directory the diff touches, read
-`docs/feature-maps/<feature>.md` or run `node tools/ci/feature-maps.ts show <surface-id>`. It names
-the routes, the persona and seed that reach each state, the tests and cases behind each behavior, and
-browser steps as agent-browser commands. Follow those steps instead of exploring the app. When the
-map and the app disagree, that is a finding. Personas are in `tests/ui/personas.json`.
+Start from the feature map when the feature has one. For each feature directory the diff touches,
+read `docs/feature-maps/<feature>.md` or run `node tools/ci/feature-maps.ts show <surface-id>`. It
+names the routes, the QA seed persona that reaches each state, the tests and cases behind each
+behavior, and browser steps as agent-browser commands. "Become a persona" in
+`docs/feature-maps/README.md` says how to sign in. Follow those steps on a fresh QA seed instead of
+exploring the app. When the map and the app disagree, that is a finding.
 
 ## 2. Start the previews
 
