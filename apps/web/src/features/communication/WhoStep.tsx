@@ -4,7 +4,7 @@ import { Cancel01Icon } from "@hugeicons/core-free-icons";
 import { Combobox, Field, Spinner } from "@everyfield/ui/controls";
 import { cn, Icon } from "@everyfield/ui/foundations";
 import Link from "next/link";
-import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type ElementType, type KeyboardEvent } from "react";
 import { resolveAudience, searchRecipients } from "./actions.ts";
 import { audienceSize, plural, type Form } from "./composeModel.ts";
 import { audienceGroups, groupLabel, type Audience, type AudienceSummary, type Recipient, type Team } from "./model.ts";
@@ -324,10 +324,11 @@ function ToField({
 
 	const listId = `${id}-list`;
 	const inputId = `${id}-input`;
+	const Box: ElementType = locked ? "div" : "label";
 	return (
 		<Field label="To" hint="Search by name or by the start of an email name. Pick people to add them.">
 			<div className="relative">
-				<label
+				<Box
 					htmlFor={locked ? undefined : inputId}
 					className={cn(
 						"flex min-h-11 flex-wrap items-center gap-2 rounded-md bg-surface-raised px-3 py-2 shadow-[0_0_0_1px_var(--ef-line-2)] focus-within:shadow-[0_0_0_1px_var(--ef-ink),0_0_0_4px_color-mix(in_srgb,var(--ef-focus)_28%,transparent)]",
@@ -414,7 +415,7 @@ function ToField({
 							className="min-w-[160px] flex-1 bg-transparent text-md text-ink outline-none placeholder:text-text-3"
 						/>
 					)}
-				</label>
+				</Box>
 				{open && shown.length > 0 ? (
 					<ul
 						id={listId}

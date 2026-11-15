@@ -49,6 +49,7 @@ import {
 	type ResidentCommand,
 	type SeatCommand,
 } from "./model";
+import { FullPageLink } from "@/components/native";
 
 // /invitation, the link in a seat or residency invitation email (REQ-IDN-017, REQ-MUL-004). The page reads the proof,
 // removes it from the address bar and keeps it in this tab. It shows who invited whom to what (REQ-IDN-003), then
@@ -730,7 +731,7 @@ function ResidentOutcome({ done, organizationName }: { done: ResidentDone; organ
 						<a href="/my-residency">Open My residency</a>
 					</Button>
 					<Button asChild variant="secondary" className="w-full">
-						<a href="/settings/sharing">Review your sharing</a>
+						<FullPageLink href="/settings/sharing">Review your sharing</FullPageLink>
 					</Button>
 				</>
 			}

@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import type { Template } from "./model.ts";
 import { closePdf, drawPage, openPdf } from "./pdf.ts";
 import { bytesOf, sharedPreview } from "./preview-client.ts";
+import { NativeImage } from "@/components/native";
 
 // A library thumbnail: page 1 of the renderer's own bytes for the template, drawn when the card scrolls into view.
 // Renders run one at a time and the picture is kept for the visit, by the render key of what it printed, so the
@@ -89,7 +90,7 @@ export function Thumbnail({
 			data-thumbnail={url ? "ready" : "pending"}
 		>
 			{url && size ? (
-				<img
+				<NativeImage
 					src={url}
 					alt={`Page 1 of ${template.name}`}
 					width={size.width}
