@@ -3155,14 +3155,14 @@
         },
         {
           "path": "tests/integration/target/sql/knowledge/encrypted-copy.test.mts",
-          "commit": "7550ce29b220b78154dfe1600e691101dfe18d77",
+          "commit": "56eb357bd20058b5f896a095777e097f50ce1da1",
           "test": "AC:BKT60-002 in tests/integration/target/sql/knowledge/encrypted-copy.test.mts (node --test on Postgres; CI census through tests/integration/writes/suites.json)",
           "result": "passed",
           "note": "T-395 slice 3: maintenance.createEncryptedCopy (ops/maintenance/copy.mts) seals the 2026-10-13 image and ready bytes with AES-256-GCM, records checksums, key version and subject expiry 2026-10-20T16:00:00Z; only the restricted backup key from a private file opens it; another key or a changed copy is refused; the 2026-10-19 recopy keeps the expiry; A gets nothing through documents.download. Local crypto and fakes only: G-RECOVERY stays open."
         },
         {
           "path": "tests/integration/target/sql/knowledge/readiness.test.mts",
-          "commit": "7550ce29b220b78154dfe1600e691101dfe18d77",
+          "commit": "56eb357bd20058b5f896a095777e097f50ce1da1",
           "test": "AC:BKT60-004 in tests/integration/target/sql/knowledge/readiness.test.mts (node --test on Postgres; CI census through tests/integration/writes/suites.json)",
           "result": "passed",
           "note": "T-395 slice 3: ops.readiness (ops/maintenance/readiness.mts) reports customer_data_gate blocked and build_gate_from_backup false, naming each missing item of cost approval, host schedule, key exclusion and coherent restore; a restore rehearsal does not count. It never reads ready here (WP-058 closes it with live evidence); G-RECOVERY stays open."
