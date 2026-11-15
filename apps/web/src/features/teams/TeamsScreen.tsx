@@ -24,7 +24,8 @@ import {
 	useToast,
 } from "@everyfield/ui/controls";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { useAddress, writeAddress } from "../../components/location.ts";
 import { NoticeInDialog, SaveNotice, useSaveIntent } from "../../components/save/parts.tsx";
 import { createTeam, reloadTeams } from "./actions.ts";
 import { optional, TeamDialog, type TeamForm } from "./dialogs.tsx";
@@ -43,20 +44,20 @@ const NEW_TEAM: TeamForm = { mode: "create", name: "", description: "", icon: "t
  * organization view. Archived ministries stay out of the list until the person asks for them. The tab is kept in the
  * address without a reload, so a link opens the same view.
  */
-export function TeamsScreen({ view: initial, tab: first, admin }: { view: TeamsView; tab: TeamsTab; admin: boolean }) {
+export function TeamsScreen({ view: initial, admin }: { view: TeamsView; admin: boolean }) {
 	const router = useRouter();
 	const toast = useToast();
-	const [view, setView] = useState(initial);
+	const [local, setLocal] = useState<{ from: TeamsView; value: TeamsView } | null>(null);
+	const view = local?.from === initial ? local.value : initial;
 	// The ministry page drawn when Create ministry starts, before the write answers.
 	const [draft, setDraft] = useState<TeamView | null>(null);
-	const [tab, setTab] = useState(first);
+	const { pathname, params } = useAddress();
+	const tab: TeamsTab = params.get("view") === "chart" ? "chart" : "teams";
 	const [archived, setArchived] = useState(false);
 	const createLane = useSaveIntent<TeamForm>({ explain: problemText });
 	const setupLane = useSaveIntent<SetupForm>({ explain: problemText });
-	const choose = (next: TeamsTab) => {
-		setTab(next);
-		window.history.replaceState(null, "", next === "chart" ? "?view=chart" : window.location.pathname);
-	};
+	const choose = (next: TeamsTab) =>
+		writeAddress(next === "chart" ? `${pathname}?view=chart` : pathname, { replace: true });
 
 	const teams = view.teams;
 	const current = teams?.filter((t) => !t.archived) ?? [];
@@ -69,15 +70,17 @@ export function TeamsScreen({ view: initial, tab: first, admin }: { view: TeamsV
 	const ordered = [...current.filter(isLeadership), ...current.filter((t) => !isLeadership(t))];
 
 	// After an import the new ministries' ids are the server's, so the list reads itself once, in its own request.
-	const [refreshing, setRefreshing] = useState(false);
-	async function refresh() {
-		setRefreshing(true);
-		const r = await reloadTeams().catch(() => ({ status: "lost" }) as const);
-		setRefreshing(false);
-		if (r.status === "ok") setView(r.value);
-		else
-			toast({ tone: "error", message: "The new ministries are saved, but the list did not update. Reload the page." });
-	}
+	const [refreshing, startRefresh] = useTransition();
+	const refresh = () =>
+		startRefresh(async () => {
+			const r = await reloadTeams().catch(() => ({ status: "lost" }) as const);
+			if (r.status === "ok") setLocal({ from: initial, value: r.value });
+			else
+				toast({
+					tone: "error",
+					message: "The new ministries are saved, but the list did not update. Reload the page.",
+				});
+		});
 
 	function create(form: TeamForm) {
 		setDraft(openedMinistry(form, view.nodes, admin));
@@ -277,8 +280,8 @@ export function TeamsScreen({ view: initial, tab: first, admin }: { view: TeamsV
 						lane={setupLane}
 						present={present}
 						onDone={(added) => {
-							setTab("teams");
-							void refresh();
+							choose("teams");
+							refresh();
 							toast({
 								tone: "success",
 								message:

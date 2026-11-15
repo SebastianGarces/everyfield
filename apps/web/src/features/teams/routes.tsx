@@ -53,7 +53,7 @@ export async function TeamsPage({ searchParams }: { searchParams: Search }) {
 	const tab = (await searchParams).view === "chart" ? "chart" : "teams";
 	const g = await gate(tab === "chart" ? "/ministries?view=chart" : "/ministries", "Ministries");
 	if ("blocked" in g) return g.blocked;
-	return <TeamsScreen view={await loadTeams(g.viewer)} tab={tab} admin={isAdmin(g.viewer)} />;
+	return <TeamsScreen view={await loadTeams(g.viewer)} admin={isAdmin(g.viewer)} />;
 }
 
 export const teamMetadata: Metadata = { title: "Ministry", robots: { index: false, follow: false } };

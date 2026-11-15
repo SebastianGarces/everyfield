@@ -43,6 +43,7 @@ import { Avatar } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
 import { useRouter } from "next/navigation";
 import { useOptimistic, useState, useTransition, type ReactNode } from "react";
+import { useAddress, writeAddress } from "../../components/location.ts";
 import { createRead, useRead } from "../../components/read.tsx";
 import { NoticeInDialog, SaveNotice, useSaveIntent } from "../../components/save/parts.tsx";
 import {
@@ -106,6 +107,9 @@ const histories = createRead(({ teamId }: { teamId: string; revision: string }) 
 	failed: (): Outcome<{ entries: HistoryEntry[] }> => ({ status: "lost" }),
 });
 
+const TABS = ["roles", "responsibilities", "people", "training", "history"] as const;
+const tabOf = (value: string | null) => TABS.find((tab) => tab === value) ?? "roles";
+
 type Confirm =
 	| { kind: "archive" }
 	| { kind: "retire"; role: Role }
@@ -130,7 +134,10 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 	const templatesLane = useSaveIntent<SetupForm>({ explain: problemText });
 	const [flow, setFlow] = useState<PersonFlow | null>(null);
 	const [confirm, setConfirm] = useState<Confirm | null>(null);
-	const [tab, setTab] = useState("roles");
+	const { pathname, params } = useAddress();
+	const tab = tabOf(params.get("tab"));
+	const chooseTab = (next: string) =>
+		writeAddress(next === "roles" ? pathname : `${pathname}?tab=${tabOf(next)}`, { replace: true });
 
 	const t = view.team;
 	const can = data.canChange && !t.archived;
@@ -454,7 +461,7 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 			<SaveNotice {...templatesLane.noticeProps} dialogOpen={templatesLane.editing !== null} />
 
 			<div className="grid grid-cols-[minmax(0,1.9fr)_minmax(280px,1fr)] items-start gap-5 max-app-lg:grid-cols-1">
-				<Tabs value={tab} onValueChange={setTab} className="min-w-0">
+				<Tabs value={tab} onValueChange={chooseTab} className="min-w-0">
 					<TabsList aria-label="Ministry">
 						<Tab value="roles" count={roles?.length}>
 							Roles
