@@ -25,6 +25,12 @@ import { useReads, useSettings } from "../store";
 type Ready = Extract<RegionRead, { status: "ok" }>;
 const UNRESOLVED = "unresolved";
 
+const SAVE_PROBLEM = {
+	conflict: "Your church's settings changed since you opened this. Close it and try again.",
+	refused: "The Region wasn't saved. Only Owners and Admins can change it, and only to an area the list offers.",
+	lost: "Everyfield could not be reached, so the Region may not have saved. Close this and check the Region shown.",
+} as const;
+
 export function ReportingRegion({ onSaved }: { onSaved: () => void }) {
 	const reads = useReads();
 	const region = useRead(reads.region);
@@ -122,19 +128,17 @@ function RegionDialog({
 		const referenceVersionId = read.referenceVersionId;
 		if (!chosen || !referenceVersionId) return;
 		startSave(async () => {
-			const r = await port.region.save({
-				requestKey,
-				expectedRevision: read.revision,
-				locality: place,
-				referenceVersionId,
-				regionItemId: chosen === UNRESOLVED ? null : chosen,
-			});
+			const r = await port.region
+				.save({
+					requestKey,
+					expectedRevision: read.revision,
+					locality: place,
+					referenceVersionId,
+					regionItemId: chosen === UNRESOLVED ? null : chosen,
+				})
+				.catch(() => ({ status: "lost" }) as const);
 			if (r.status === "ok") return onSaved();
-			setProblem(
-				r.status === "conflict"
-					? "Your church's settings changed since you opened this. Close it and try again."
-					: "The Region wasn't saved. Only Owners and Admins can change it, and only to an area the list offers.",
-			);
+			setProblem(SAVE_PROBLEM[r.status]);
 		});
 	};
 
