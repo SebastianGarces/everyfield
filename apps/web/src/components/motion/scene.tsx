@@ -1,6 +1,6 @@
 "use client";
 
-import { cancelFrame, frame, useMotionValueEvent, useTransform, type MotionValue } from "motion/react";
+import { cancelFrame, frame, useTransform, type MotionValue } from "motion/react";
 import {
 	createContext,
 	useContext,
@@ -9,7 +9,6 @@ import {
 	useRef,
 	useSyncExternalStore,
 	type ReactNode,
-	type RefObject,
 } from "react";
 import { transformOf, type Frame } from "./curves";
 
@@ -47,15 +46,6 @@ export function useTo(t: MotionValue<number>, f: (t: number) => Frame) {
 /** Text as a function of a clock (typing, counters). Rendered as the child of an m element, so React never re-renders. */
 export function useText(t: MotionValue<number>, f: (t: number) => string) {
 	return useTransform(t, f);
-}
-
-/** Writes a data attribute from a clock in Motion's render step (EvryBot's mood). */
-export function useDataAttr(ref: RefObject<HTMLElement | null>, name: string, value: MotionValue<string>) {
-	const write = (v: string) => frame.render(() => ref.current?.setAttribute(name, v));
-	useMotionValueEvent(value, "change", write);
-	useEffect(() => {
-		ref.current?.setAttribute(name, value.get());
-	}, [ref, name, value]);
 }
 
 /**
