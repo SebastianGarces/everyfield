@@ -1278,7 +1278,9 @@
 			"rules": {
 				"everyfield/no-timers": "error",
 				"everyfield/clickable-host": "error",
-				"everyfield/no-cursor-utility": "error"
+				"everyfield/no-cursor-utility": "error",
+				"everyfield/no-raw-history": "error",
+				"everyfield/zustand-shape": "error"
 			}
 		},
 		{

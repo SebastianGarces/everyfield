@@ -387,6 +387,64 @@ const noTimers = ratcheted("no-timers", (context, push) => {
 	};
 });
 
+export const LOCATION_STORE = "apps/web/src/components/location.ts";
+const HISTORY_WRITES = new Set(["pushState", "replaceState"]);
+const HISTORY_WORDS = new Set([...HISTORY_WRITES, "popstate", "onpopstate"]);
+
+const noRawHistory = ratcheted("no-raw-history", (context, push) => {
+	if (repoPath(context.filename) === LOCATION_STORE) return {};
+	const report = (node, word) =>
+		push({
+			node,
+			fn: enclosingName(node),
+			message: `${word} outside ${LOCATION_STORE}: the address has one owner. Write it with writeAddress, read it with usePath or useAddress, and react to Back and Forward with onTraversal, so every reader sees the same address in the same event.`,
+		});
+	return {
+		MemberExpression(node) {
+			const name = node.computed ? literalArgument(node.property) : node.property.name;
+			if (name && HISTORY_WORDS.has(name)) report(node, name);
+		},
+		Literal(node) {
+			if (typeof node.value === "string" && HISTORY_WORDS.has(node.value) && node.parent?.type !== "MemberExpression")
+				report(node, node.value);
+		},
+	};
+});
+
+export const STORE_HELPER = "apps/web/src/components/store.ts";
+export const MODULE_STORES = ["apps/web/src/features/meetings/deletions.store.ts"];
+const ZUSTAND = /^zustand(?:\/|$)/;
+
+const zustandShape = {
+	meta: { type: "problem" },
+	create(context) {
+		const path = repoPath(context.filename);
+		const storeFile = path.endsWith(".store.ts");
+		const allowed = (source) =>
+			source === "zustand/vanilla" ? storeFile : path === STORE_HELPER && (source === "zustand" || source === "zustand/react/shallow");
+		const sources = moduleSources((node, source) => {
+			if (!ZUSTAND.test(source) || allowed(source)) return;
+			context.report({
+				node,
+				message: `${source} is not imported here. A store file (<Component>.store.ts) imports createStore from zustand/vanilla only; components read it through useLocalStore, useStore and storeContext from ${STORE_HELPER}. No module-level create(), no middleware.`,
+			});
+		});
+		return {
+			...sources,
+			CallExpression(node) {
+				sources.CallExpression(node);
+				if (!storeFile || MODULE_STORES.includes(path) || nearestFunction(node)) return;
+				if (node.callee.type === "Identifier" && node.callee.name === "createStore")
+					context.report({
+						node,
+						message:
+							"A store is created per component instance: export a create<Name>Store(init) function and call it from useLocalStore. A module-level store is shared by every request during server rendering.",
+					});
+			},
+		};
+	},
+};
+
 const BUNDLER_IGNORE = /^\s*(?:webpackIgnore|turbopackIgnore):\s*true\s*$/;
 const DIRECTIVE =
 	/^\s*(?:@ts-|\/\s*<|(?:eslint|oxlint)-(?:disable|enable)|eslint-env\b|globals?\s|(?:biome|prettier)-ignore|[#@]__|(?:c8|istanbul|v8|node:coverage)\s+ignore|@jsx)/;
@@ -474,5 +532,7 @@ export default {
 		"no-comments": noComments,
 		"clickable-host": clickableHost,
 		"no-cursor-utility": noCursorUtility,
+		"no-raw-history": noRawHistory,
+		"zustand-shape": zustandShape,
 	},
 };

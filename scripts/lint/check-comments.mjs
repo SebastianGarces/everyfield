@@ -26,7 +26,7 @@ const CONFIGS = {
 	},
 	"apps/web/.oxlintrc.json": {
 		"*": ["no-comments", "no-effects", "max-state"],
-		"src/**": ["no-timers", "clickable-host", "no-cursor-utility"],
+		"src/**": ["no-timers", "clickable-host", "no-cursor-utility", "no-raw-history", "zustand-shape"],
 	},
 	"tools/.oxlintrc.json": { "*": ["no-comments", "no-effects", "max-state"] },
 };
