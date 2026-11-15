@@ -491,13 +491,7 @@ function SettleForm({
 										? "The list of what this creates did not load. Nothing was changed."
 										: problemText(effects.code)}
 								</p>
-								<Button
-									ref={retryRef}
-									variant="secondary"
-									size="sm"
-									type="button"
-									onClick={actions.retry}
-								>
+								<Button ref={retryRef} variant="secondary" size="sm" type="button" onClick={actions.retry}>
 									Try again
 								</Button>
 							</div>
