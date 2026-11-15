@@ -651,10 +651,10 @@ function Browser({
 	const [noticed, setNoticed] = useState<{ id: string; notice: Notice } | null>(null);
 
 	const openedView = opened.value?.status === "ok" ? opened.value.value : null;
-	const followUp = openedView !== null && openedView.detail.state === "reviewed" && onCompose ? onCompose : null;
+	const followUp = openedView !== null && openedView.detail.state === "reviewed" && onCompose !== undefined;
 	const view = followUp ? null : openedView;
 	const detailError = opened.value && opened.value.status !== "ok" ? problem(opened.value) : null;
-	const opening = selected !== null && opened.value === undefined;
+	const opening = selected !== null && (opened.value === undefined || followUp);
 	const detailPending = acting ?? (opening ? "open" : null);
 	const review = reviewed && reviewed.id === selected ? reviewed.review : null;
 	const reviewError = reviewed && reviewed.id === selected ? reviewed.error : null;
@@ -878,14 +878,7 @@ function Browser({
 							{detailError}
 						</p>
 					) : null}
-					{followUp && selected ? (
-						<div className="flex flex-col items-start gap-3">
-							<p className="text-md text-ink">This follow-up is saved and not sent yet. It opens at Review.</p>
-							<Button variant="primary" onClick={() => followUp(selected, "review", true)}>
-								Open at Review
-							</Button>
-						</div>
-					) : view ? (
+					{view ? (
 						<Detail
 							view={view}
 							canWrite={canWrite}

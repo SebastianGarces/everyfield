@@ -237,11 +237,12 @@ function ToField({
 }) {
 	const id = useId();
 	const form = useStore(store, (state) => state.form);
-	const { query, searched, open, active } = useStore(store, (state) => state.search);
+	const { query, searched, previous, open, active } = useStore(store, (state) => state.search);
 	const actions = useStore(store, (state) => state.actions);
 	const [expanded, setExpanded] = useState(false);
 	const [card, setCard] = useState<string | null>(null);
-	const found = useRead(searched ? recipientSearches : null, searched).value;
+	const answer = useRead(searched ? recipientSearches : null, searched).value;
+	const found = answer ?? (previous ? recipientSearches.peek(previous)?.value : undefined);
 	const results = found?.status === "ok" ? found.value.people : [];
 	const status = found && found.status !== "ok" ? "The search did not load. Try again." : null;
 	const byId = new Map(known.map((person) => [person.id, person]));
@@ -251,7 +252,7 @@ function ToField({
 		email: person.email ?? byId.get(person.id)?.email ?? null,
 	}));
 	const shown = query.trim() ? results : [];
-	const searching = query.trim() !== "" && (searched !== query.trim() || found === undefined);
+	const searching = query.trim() !== "" && (searched !== query.trim() || answer === undefined);
 	const visible = expanded ? people : people.slice(0, MAX_CHIPS);
 
 	const picked = new Set(form.audience.personIds);

@@ -17,7 +17,7 @@ export type Undo = {
 	binding: Pick<Form, "templateId" | "templateSource">;
 };
 
-export type PersonSearch = { query: string; searched: string; open: boolean; active: number };
+export type PersonSearch = { query: string; searched: string; previous: string; open: boolean; active: number };
 
 export type ComposeState = {
 	form: Form;
@@ -98,7 +98,7 @@ export function createComposeStore(init: {
 		scheduledId: null,
 		counted: form.audience,
 		previewed: form.text,
-		search: { query: "", searched: "", open: false, active: 0 },
+		search: { query: "", searched: "", previous: "", open: false, active: 0 },
 		actions: {
 			edit: (update) => {
 				const before = get().form;
@@ -125,10 +125,12 @@ export function createComposeStore(init: {
 				set((state) => ({ search: { ...state.search, query, open: true } }));
 				if (!text) {
 					searchPause.cancel();
-					set((state) => ({ search: { ...state.search, searched: "" } }));
+					set((state) => ({ search: { ...state.search, searched: "", previous: "" } }));
 					return;
 				}
-				searchPause.run(() => set((state) => ({ search: { ...state.search, searched: text, active: 0 } })));
+				searchPause.run(() =>
+					set((state) => ({ search: { ...state.search, searched: text, previous: state.search.searched, active: 0 } })),
+				);
 			},
 			openList: (open) => set((state) => ({ search: { ...state.search, open } })),
 			move: (step, length) =>
@@ -137,7 +139,7 @@ export function createComposeStore(init: {
 				})),
 			clearSearch: () => {
 				searchPause.cancel();
-				set((state) => ({ search: { ...state.search, query: "", searched: "" } }));
+				set((state) => ({ search: { ...state.search, query: "", searched: "", previous: "" } }));
 			},
 		},
 	}));

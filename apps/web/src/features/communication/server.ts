@@ -116,3 +116,10 @@ export function loadCommunicationPage(viewer: Viewer): Promise<Outcome<PageData>
 		};
 	});
 }
+
+export async function isReviewedFollowUp(viewer: Viewer, communicationId: string): Promise<boolean> {
+	const detail = await read(viewer, (tx) =>
+		communicationWriter.getDetail(tx, viewer.authority, { id: communicationId }),
+	);
+	return detail.status === "ok" && detail.value.state === "reviewed";
+}
