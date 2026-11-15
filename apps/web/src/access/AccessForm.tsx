@@ -512,7 +512,6 @@ export function AccessForm({ paths, text, who: chosen }: Props) {
 							type="submit"
 							name="intent"
 							value="back"
-							aria-busy={sending || undefined}
 							aria-disabled={sending || undefined}
 							tabIndex={s.step === 0 ? -1 : undefined}
 						>
