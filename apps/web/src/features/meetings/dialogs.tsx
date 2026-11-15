@@ -94,7 +94,10 @@ function usePersonSearch() {
 	const hits = useRead(idle ? null : people, query);
 	const onChange = (next: string) => {
 		setSearch(next);
-		pause.run(() => setQuery(next.trim()));
+		pause.run(() => {
+			if (next.trim()) people.prefetch(next.trim());
+			setQuery(next.trim());
+		});
 	};
 	return { search, onChange, idle, hits, cancelOnDetach: pause.cancelOnDetach };
 }
