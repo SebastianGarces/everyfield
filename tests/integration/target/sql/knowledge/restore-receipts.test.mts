@@ -170,14 +170,16 @@ test("AC:REC59-006 an old copy restores no expired body and replays no mail or i
 
 	// The target's job runner, mail pass and issue publisher, run as the app would: no login of theirs reaches it.
 	const runtime = database.connect("runtime", { schema: target, max: 1 });
+	// Each batch may start work until 30 s past the frozen restore instant.
+	const until = RESTORE_AT.getTime() + 30_000;
 	assert.equal(await closedTo(runtime, target), true);
-	await assert.rejects(runDueScheduled(runtime, transport, {} as never, 10, Date.now() + 30_000));
+	await assert.rejects(runDueScheduled(runtime, transport, {} as never, 10, until));
 	await assert.rejects(
 		runDueFeedbackPublication(
 			runtime,
 			{ repository: { id: "10", name: "everyfield-test/feedback" }, issues: publisher, operatorMail: null },
 			10,
-			Date.now() + 30_000,
+			until,
 		),
 	);
 
