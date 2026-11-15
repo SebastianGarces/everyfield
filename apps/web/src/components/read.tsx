@@ -1,7 +1,7 @@
 "use client";
 
 import { useHydrated } from "@everyfield/ui/foundations";
-import { useMemo, useState, useSyncExternalStore, useTransition, type ReactNode } from "react";
+import { useMemo, useSyncExternalStore, useTransition, type ReactNode } from "react";
 
 export type ReadSnapshot<T> = {
 	readonly status: "loading" | "ready";
@@ -19,7 +19,8 @@ export type Read<A extends unknown[], T> = {
 	retry(...args: A): Promise<T>;
 	patch(change: (value: T) => T, ...args: A): void;
 	forget(...args: A | []): void;
-	subscribe(listener: () => void, key?: string): () => void;
+	snapshot(key: string): ReadSnapshot<T> | null;
+	connect(listener: () => void, ...args: A): () => void;
 };
 
 export type ReadOptions<T> = {
@@ -31,14 +32,13 @@ export type ReadOptions<T> = {
 export type ReadState<T> = {
 	status: "idle" | "loading" | "ready";
 	value: T | undefined;
-	promise: Promise<T> | null;
 	reloading: boolean;
 	retry(): void;
 	reload(): void;
 	patch(change: (value: T) => T): void;
 };
 
-type Entry<T> = ReadSnapshot<T> & { at: number; reusable: boolean };
+type Entry<T> = ReadSnapshot<T> & { at: number; reusable: boolean; unread: boolean };
 
 const outcomeOk = (value: unknown) =>
 	!(typeof value === "object" && value !== null && "status" in value && value.status !== "ok");
@@ -54,34 +54,39 @@ export function createRead<A extends unknown[], T>(
 		for (const listener of listeners) listener();
 	};
 	const key = (...args: A) => JSON.stringify(args);
+	const watched = (k: string) => (readers.get(k) ?? 0) > 0;
 
-	const settle = (k: string, promise: Promise<T>) =>
+	const usable = (entry: Entry<T> | undefined) =>
+		entry !== undefined &&
+		(entry.status === "loading" || entry.unread || (entry.reusable && Date.now() - entry.at < fresh));
+
+	const start = (k: string, args: A, keepValue: boolean) => {
+		const promise = new Promise<T>((resolve) => resolve(load(...args))).catch(failed);
+		const previous = keepValue ? entries.get(k)?.value : undefined;
+		entries.set(k, {
+			status: "loading",
+			value: previous,
+			promise,
+			at: Date.now(),
+			reusable: true,
+			unread: !watched(k),
+		});
 		void promise.then((value) => {
-			if (entries.get(k)?.promise !== promise) return;
-			entries.set(k, { status: "ready", value, promise, at: Date.now(), reusable: keep(value) });
+			const entry = entries.get(k);
+			if (entry?.promise !== promise) return;
+			entries.set(k, { ...entry, status: "ready", value, at: Date.now(), reusable: keep(value) });
 			emit();
 		});
-	const start = (k: string, promise: Promise<T>, value: T | undefined) => {
-		entries.set(k, { status: "loading", value, promise, at: Date.now(), reusable: true });
-		settle(k, promise);
+		emit();
 		return promise;
 	};
-	const run = (args: A) => new Promise<T>((resolve) => resolve(load(...args))).catch(failed);
-	const usable = (entry: Entry<T> | undefined) =>
-		entry !== undefined && (entry.status === "loading" || (entry.reusable && Date.now() - entry.at < fresh));
 
 	const get = (...args: A) => {
 		const k = key(...args);
 		const entry = entries.get(k);
-		if (usable(entry)) return entry!.promise;
-		return start(k, run(args), (readers.get(k) ?? 0) > 0 ? entry?.value : undefined);
+		return usable(entry) ? entry!.promise : start(k, args, watched(k));
 	};
-	const again = (args: A, keepValue: boolean) => {
-		const k = key(...args);
-		const promise = start(k, run(args), keepValue ? entries.get(k)?.value : undefined);
-		emit();
-		return promise;
-	};
+
 	return {
 		key,
 		get,
@@ -90,17 +95,25 @@ export function createRead<A extends unknown[], T>(
 		seed: (value, ...args) => {
 			const k = key(...args);
 			if (entries.has(k)) return;
-			if (value instanceof Promise) start(k, value.catch(failed), undefined);
-			else entries.set(k, { status: "ready", value, promise: Promise.resolve(value), at: Date.now(), reusable: true });
+			const promise = value instanceof Promise ? value.catch(failed) : Promise.resolve(value);
+			if (value instanceof Promise) {
+				entries.set(k, { status: "loading", value: undefined, promise, at: Date.now(), reusable: true, unread: true });
+				void promise.then((settled) => {
+					const entry = entries.get(k);
+					if (entry?.promise !== promise) return;
+					entries.set(k, { ...entry, status: "ready", value: settled, at: Date.now(), reusable: keep(settled) });
+					emit();
+				});
+			} else entries.set(k, { status: "ready", value, promise, at: Date.now(), reusable: true, unread: true });
 		},
-		refresh: (...args) => again(args, true),
-		retry: (...args) => again(args, false),
+		refresh: (...args) => start(key(...args), args, true),
+		retry: (...args) => start(key(...args), args, false),
 		patch: (change, ...args) => {
 			const k = key(...args);
 			const entry = entries.get(k);
 			if (entry?.status !== "ready" || entry.value === undefined) return;
 			const value = change(entry.value);
-			entries.set(k, { status: "ready", value, promise: Promise.resolve(value), at: Date.now(), reusable: true });
+			entries.set(k, { ...entry, value, promise: Promise.resolve(value), at: Date.now(), reusable: true });
 			emit();
 		},
 		forget: (...args) => {
@@ -108,12 +121,21 @@ export function createRead<A extends unknown[], T>(
 			else entries.delete(key(...(args as A)));
 			emit();
 		},
-		subscribe: (listener, k) => {
+		snapshot: (k) => {
+			const entry = entries.get(k);
+			if (!entry) return null;
+			return watched(k) || usable(entry) ? entry : null;
+		},
+		connect: (listener, ...args) => {
+			const k = key(...args);
 			listeners.add(listener);
-			if (k !== undefined) readers.set(k, (readers.get(k) ?? 0) + 1);
+			const entry = entries.get(k);
+			const others = watched(k);
+			readers.set(k, (readers.get(k) ?? 0) + 1);
+			if (usable(entry)) entry!.unread = false;
+			else start(k, args, others);
 			return () => {
 				listeners.delete(listener);
-				if (k === undefined) return;
 				const left = (readers.get(k) ?? 1) - 1;
 				if (left > 0) readers.set(k, left);
 				else readers.delete(k);
@@ -127,25 +149,19 @@ const none = () => () => {};
 export function useRead<A extends unknown[], T>(read: Read<A, T> | null, ...args: A): ReadState<T> {
 	const hydrated = useHydrated();
 	const key = read && hydrated ? read.key(...args) : null;
-	const [started, setStarted] = useState<string | null>(null);
 	const [reloading, startReload] = useTransition();
-	if (read && key !== null && (started !== key || read.peek(...args) === null)) {
-		read.get(...args);
-		if (started !== key) setStarted(key);
-	}
-	const subscribe = useMemo(
-		() => (read && key !== null ? (listener: () => void) => read.subscribe(listener, key) : none),
+	const connect = useMemo(
+		() => (read && key !== null ? (listener: () => void) => read.connect(listener, ...(JSON.parse(key) as A)) : none),
 		[read, key],
 	);
 	const snapshot = useSyncExternalStore(
-		subscribe,
-		() => (read && key !== null ? read.peek(...args) : null),
+		connect,
+		() => (read && key !== null ? read.snapshot(key) : null),
 		() => null,
 	);
 	return {
-		status: snapshot === null ? "idle" : snapshot.status,
+		status: key === null ? "idle" : (snapshot?.status ?? "loading"),
 		value: snapshot?.value,
-		promise: snapshot?.promise ?? null,
 		reloading: reloading || (snapshot?.status === "loading" && snapshot.value !== undefined),
 		retry: () => void (read && key !== null && read.retry(...args)),
 		reload: () => startReload(() => void (read && key !== null && read.refresh(...args))),
