@@ -393,7 +393,7 @@ export function DocumentsScreen({
 											aria-labelledby={`template-${template.id}-name`}
 											aria-describedby={`template-${template.id}-meta`}
 											onClick={() => select(template.id)}
-											className="flex cursor-pointer flex-col items-stretch gap-3 text-left outline-none after:absolute after:inset-0 after:content-['']"
+											className="flex flex-col items-stretch gap-3 text-left outline-none after:absolute after:inset-0 after:content-['']"
 										>
 											<Thumbnail
 												template={template}

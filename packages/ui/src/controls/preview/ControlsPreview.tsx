@@ -942,7 +942,7 @@ function OverlaysSection() {
 						>
 							<button
 								type="button"
-								className="h-11 cursor-pointer rounded-md px-3 font-medium text-ink underline decoration-dotted underline-offset-4"
+								className="h-11 rounded-md px-3 font-medium text-ink underline decoration-dotted underline-offset-4"
 							>
 								Oct 12 bar
 							</button>

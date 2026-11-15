@@ -61,7 +61,6 @@ test("AC:CASE-NTF-003 a residency entry opens My residency at its milestone, whi
 test("AC:CASE-NTF-003 a linked entry is one link read or unread; an unlinked one is a button, then text", () => {
 	const unreadLink = html(base);
 	assert.match(unreadLink, new RegExp(`^<li><a [^>]*href="/communication\\?message=${id}"`));
-	assert.match(unreadLink, /class="[^"]*cursor-pointer[^"]*focus-visible:shadow/);
 	assert.match(unreadLink, /<span class="sr-only">Unread: <\/span>/);
 	assert.match(unreadLink, /Ana Ruiz unsubscribed from a scheduled email/);
 	assert.doesNotMatch(unreadLink, /<button|Mark as read/);

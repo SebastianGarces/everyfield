@@ -280,7 +280,7 @@ function PlanView({ version, organizationId }: { version: ProgramVersion; organi
 							{r.slug ? (
 								<Link
 									href={readingHref(r.slug, r.source, organizationId)}
-									className="cursor-pointer font-medium [overflow-wrap:anywhere] text-ink underline decoration-line-2 underline-offset-2 hover:decoration-ink"
+									className="font-medium [overflow-wrap:anywhere] text-ink underline decoration-line-2 underline-offset-2 hover:decoration-ink"
 								>
 									{r.title}
 								</Link>
@@ -392,7 +392,7 @@ function Enrollments({
 								<div className="min-w-0 flex-1">
 									<Link
 										href={enrollmentHref(e.id)}
-										className="cursor-pointer font-semibold [overflow-wrap:anywhere] text-ink after:absolute after:inset-0 after:rounded-md hover:underline"
+										className="font-semibold [overflow-wrap:anywhere] text-ink after:absolute after:inset-0 after:rounded-md hover:underline"
 									>
 										{e.name}
 									</Link>

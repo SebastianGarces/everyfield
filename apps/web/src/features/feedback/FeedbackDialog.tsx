@@ -158,7 +158,7 @@ function FeedbackPanel({ name, onClose }: { name: string; onClose: () => void })
 						<label
 							key={c.value}
 							className={cn(
-								"flex cursor-pointer flex-col items-start gap-2 rounded-card px-3 pt-3 pb-[11px] text-sm font-medium transition-[background-color,box-shadow] duration-150 has-[:focus-visible]:shadow-[0_0_0_1.5px_var(--ef-ink),0_0_0_4px_color-mix(in_srgb,var(--ef-focus)_28%,transparent)]",
+								"flex flex-col items-start gap-2 rounded-card px-3 pt-3 pb-[11px] text-sm font-medium transition-[background-color,box-shadow] duration-150 has-[:focus-visible]:shadow-[0_0_0_1.5px_var(--ef-ink),0_0_0_4px_color-mix(in_srgb,var(--ef-focus)_28%,transparent)]",
 								category === c.value
 									? "bg-surface-raised text-ink shadow-[inset_0_0_0_1.5px_var(--ef-ink),var(--ef-shadow-raised)]"
 									: "bg-surface-2 text-ink-2 hover:bg-surface-raised hover:shadow-[inset_0_0_0_1px_var(--ef-line-2)]",
@@ -208,7 +208,7 @@ function FeedbackPanel({ name, onClose }: { name: string; onClose: () => void })
 					</div>
 				</div>
 				<details className="group rounded-card bg-surface-2 px-4 py-1">
-					<summary className="flex cursor-pointer list-none items-center gap-2.5 py-3 text-sm font-medium text-ink-2 [&::-webkit-details-marker]:hidden">
+					<summary className="flex list-none items-center gap-2.5 py-3 text-sm font-medium text-ink-2 [&::-webkit-details-marker]:hidden">
 						<Icon icon={InformationCircleIcon} size={18} />
 						<span>
 							Sent with your feedback: <b className="font-semibold">{page}</b> and 8 more details

@@ -9,7 +9,7 @@ import { areaOf, dueLabel, subjectHref, timeLabel, type Clock, type FeedItem } f
 const ROW =
 	"grid w-full grid-cols-[36px_minmax(0,1fr)_8px] items-start gap-3 rounded-card p-2.5 text-left transition-[background-color] duration-150";
 const CHOOSABLE =
-	"cursor-pointer hover:bg-surface-2 focus-visible:shadow-[0_0_0_2px_var(--ef-focus)] focus-visible:outline-none active:bg-surface-3";
+	"hover:bg-surface-2 focus-visible:shadow-[0_0_0_2px_var(--ef-focus)] focus-visible:outline-none active:bg-surface-3";
 
 /**
  * An entry whose category has a subject page is a link to it, read or not (D-731, D-732); following it marks it read.

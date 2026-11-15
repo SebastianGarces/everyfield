@@ -122,7 +122,7 @@ function WrapAction({ editor, reason, run }: { editor: Editor; reason: string | 
 	);
 	if (reason === null) return button;
 	return (
-		<Tip text={`Make block conditional: ${reason}`} className="flex cursor-not-allowed">
+		<Tip text={`Make block conditional: ${reason}`} className="flex">
 			<span
 				tabIndex={0}
 				aria-label={`Make block conditional is unavailable. ${reason}`}

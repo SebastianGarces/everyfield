@@ -372,7 +372,7 @@ function GuideBody({ result }: { result: GuideResult | null }) {
 			/>
 			<Link
 				href={result.href}
-				className="cursor-pointer self-start font-medium text-ink underline decoration-green-500 decoration-2 underline-offset-[3px]"
+				className="self-start font-medium text-ink underline decoration-green-500 decoration-2 underline-offset-[3px]"
 			>
 				Open the article
 			</Link>
