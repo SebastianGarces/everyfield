@@ -5,8 +5,6 @@ import { redirect } from "next/navigation";
 import { LaunchScreen } from "./LaunchScreen.tsx";
 import { administers, launchViewer, loadOffers, loadPlan } from "./server.ts";
 
-// The /launch route (WP-045). apps/web/src/app/(product)/(frame)/launch/ only re-exports these.
-
 export const launchMetadata: Metadata = { title: "Launch plan", robots: { index: false, follow: false } };
 
 export async function LaunchPage() {
@@ -21,7 +19,6 @@ export async function LaunchPage() {
 		);
 	}
 	const [loaded, offers] = await Promise.all([loadPlan(viewer), loadOffers(viewer)]);
-	// A failed load is never "no launch date": the page says it could not load (LCH-008).
 	if (loaded.status !== "ok")
 		return (
 			<StatePanel tone="error" title="The Launch plan could not load">
@@ -37,7 +34,6 @@ export async function LaunchPage() {
 	);
 }
 
-/** The first paint while the plan loads: its shape, not a spinner. */
 export function LaunchLoading() {
 	return (
 		<div aria-busy="true" className="flex flex-col gap-5">

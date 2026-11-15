@@ -33,7 +33,6 @@ import {
 } from "./model.ts";
 
 type Keys = ReturnType<typeof requestKeys>;
-/** The six areas, in order. The first is the recorded Launch Sunday, never a second copy of it. */
 const AREAS: { key: Written; label: string }[] = [
 	{ key: "wentWell", label: "What went well" },
 	{ key: "toChange", label: "What to change" },
@@ -42,11 +41,6 @@ const AREAS: { key: Written; label: string }[] = [
 	{ key: "supportNeeded", label: "Support needed from sending churches and networks" },
 ];
 
-/**
- * After Launch Sunday (LCH-010): the two evidence-governed milestones and the debrief. "Guest names entered" and
- * "Debrief done" follow the latest submitted debrief only; they have no checkbox. Owners and Admins write the debrief;
- * every seat sees the two milestones.
- */
 export function DebriefCard({
 	plan,
 	admin,
@@ -157,10 +151,6 @@ function Submitted({ plan }: { plan: Plan }) {
 	);
 }
 
-/**
- * The six-area debrief, saved as a draft as the planter types (and when they press Save draft), so leaving the page
- * keeps it. Submitting needs only the guest answer; no area has a minimum length.
- */
 function DebriefForm({
 	plan,
 	keys,
@@ -278,10 +268,6 @@ function DebriefForm({
 	);
 }
 
-/**
- * The summary a planter writes for their sending church or network (REQ-KNOW-112). Nothing from the debrief is copied
- * into it. They preview the exact text and publish it as the next version; earlier versions stay listed.
- */
 export function SummaryCard({ plan, keys, onPlan }: { plan: Plan; keys: Keys; onPlan: (p: Plan) => void }) {
 	const toast = useToast();
 	const s = plan.summary!;

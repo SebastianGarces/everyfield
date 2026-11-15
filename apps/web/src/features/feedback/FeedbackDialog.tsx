@@ -35,12 +35,6 @@ const ICON: Record<FeedbackCategory, IconSvgElement> = {
 
 type Failure = "lost" | "refused" | null;
 
-/**
- * Send feedback (the drawn Feedback dialog, REQ-ADM-001): a type, the words and the page and device details, with no
- * screenshot or file. It opens over the current page and reads that page's details when it opens. Church, role, app
- * version and time are the server's; the list shows what the server will store. A lost reply keeps the same request key,
- * so sending again saves the feedback once.
- */
 export function FeedbackDialog({
 	open,
 	onOpenChange,

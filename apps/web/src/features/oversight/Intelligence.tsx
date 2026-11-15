@@ -19,11 +19,6 @@ import { writeAddress } from "../../components/location.ts";
 import { ratePattern, refreshIntelligence } from "./actions.ts";
 import { concernLenses, HEALTH, type IntelligenceWords, plural, resultLabels, runLabel } from "./model.ts";
 
-// The body of /network/intelligence (WP-047b, T-372): the run shown and its history, the level switch, and each group's
-// plant rows with one short result per rule, and each rule pattern (NIR-03 to NIR-06) where two sharing plants qualify.
-// Plants are listed by name; nothing is ranked or scored. Refresh (Owners and Admins) shows the new run from the action's answer; a rating shows at once and rolls back
-// if the server refuses it.
-
 const href = (level: Level, runId: string | null) =>
 	`/network/intelligence?level=${level}${runId ? `&run=${runId}` : ""}`;
 

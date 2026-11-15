@@ -91,12 +91,6 @@ import {
 	type SignalOutcome,
 } from "./signals-model.ts";
 
-/**
- * The Attestations page (prototype #/intelligence/attestations, REQ-PI-014, REQ-PI-015). The seven signals an Owner or
- * Admin answers, by group, each with its answer, author, date, age and renewal state, and the leadership candidates they
- * attest. A save shows at once, then confirms or puts the row back with the reason, keeping what the admin typed. It
- * shows answers only: nothing here scores, ranks or assigns anyone.
- */
 export function AttestationsScreen({ initial, viewerName }: { initial: AttestationsPage; viewerName: string }) {
 	const [page, setPage] = useState(initial);
 	const [dialog, setDialog] = useState<
@@ -104,7 +98,6 @@ export function AttestationsScreen({ initial, viewerName }: { initial: Attestati
 	>(null);
 	const toast = useToast();
 	const [keys] = useState(() => new Map<string, string>());
-	/** One request key per distinct request, so a retry after a lost reply replays the first answer. */
 	const keyFor = (payload: string) => {
 		if (!keys.has(payload)) keys.set(payload, crypto.randomUUID());
 		return keys.get(payload)!;
@@ -119,7 +112,6 @@ export function AttestationsScreen({ initial, viewerName }: { initial: Attestati
 	const entryOf = (key: SignalKey) => page.signals.find((s) => s.key === key)!;
 	const fail = (result: SignalOutcome<unknown>) => refusalText(result.status === "refused" ? result.error : null);
 
-	/** Show `optimistic` at once, send the write, then confirm with a history line or roll back to `entry`. */
 	async function writeSignal(
 		entry: SignalEntry,
 		optimistic: (today: string) => SignalEntry,
@@ -139,7 +131,6 @@ export function AttestationsScreen({ initial, viewerName }: { initial: Attestati
 		return null;
 	}
 
-	/** Answer a signal for the first time or after a retraction, or correct it to the other value. */
 	async function save(entry: SignalEntry, draft: Draft): Promise<string | null> {
 		const what = intent(entry, draft);
 		if (what === "none" || !draft.value) return null;
@@ -182,7 +173,6 @@ export function AttestationsScreen({ initial, viewerName }: { initial: Attestati
 		else toast({ message: "Everyfield could not be reached. Try again in a moment.", tone: "error" });
 	}
 
-	/** Save a candidate attestation, or correct or retract it. */
 	async function saveCandidate(
 		input: Record<string, unknown> & { personId: string },
 		action: "attest" | "correct" | "retract",
@@ -426,7 +416,6 @@ function SignalRow({ entry, first, onOpen }: { entry: SignalEntry; first: boolea
 	);
 }
 
-/** The Yes and Not yet choice. Neither is chosen until the admin picks one. */
 function Choice({
 	value,
 	onChange,
@@ -497,8 +486,6 @@ function AnswerDialog({
 }) {
 	const def = definitionOf(entry.key);
 	const group = SIGNAL_GROUPS.find((g) => g.id === def.group)!;
-	// The draft starts from the entry as opened; the optimistic change of its own save never rewrites what is typed.
-	// A newer entry while no save runs, such as the page loaded again after a conflict, shows here and starts again.
 	const [opened, setOpened] = useState(entry);
 	const [draft, setDraft] = useState<Draft>(() => draftOf(opened, page.today));
 	const [error, setError] = useState<string | null>(null);
@@ -648,7 +635,6 @@ function AnswerDialog({
 
 type RowState = { pick: SignalValue | null; state: "idle" | "saving" | "saved" | "failed"; error: string | null };
 
-/** "Renew your monthly answers": each row the admin picks is its own Still true or answer; one failure never undoes another. */
 function RenewDialog({
 	entries,
 	today,
@@ -664,8 +650,6 @@ function RenewDialog({
 	onStillTrue: (entry: SignalEntry) => Promise<string | null>;
 	onReload: () => void;
 }) {
-	// The entries as opened; the optimistic change of a row's own save never shows here. Newer entries while no row
-	// saves, such as the page loaded again after a conflict, replace them, so the next save sends their revision.
 	const [opened, setOpened] = useState(entries);
 	const [rows, setRows] = useState<Record<string, RowState>>(() =>
 		Object.fromEntries(opened.map((e) => [e.key, { pick: null, state: "idle", error: null } as RowState])),
@@ -681,7 +665,6 @@ function RenewDialog({
 			picked.map(async (entry) => {
 				const row = rows[entry.key]!;
 				patch(entry.key, { state: "saving", error: null });
-				// The same answer is "Still true"; the other answer, or a first answer, is its own write.
 				const failure =
 					entry.state === "answered" && row.pick === entry.value
 						? await onStillTrue(entry)
@@ -850,7 +833,6 @@ function CandidateSection({
 										<b className="font-medium text-ink">{c.authorName ?? "A church admin"}</b> · {shortDate(c.asOf)}
 									</div>
 								</div>
-								{/* A retired Person takes no candidate write: restore them to update the row. */}
 								{c.personState === "live" ? (
 									<Button
 										variant="secondary"
@@ -908,7 +890,6 @@ function CandidateDialog({
 	onReload: () => void;
 	onDone: (message: string) => void;
 }) {
-	// The form starts from the candidate as opened; a later optimistic change never rewrites what is typed.
 	const [opened] = useState(() => page.candidates.find((c) => c.personId === personId) ?? null);
 	const [draft, setDraft] = useState<CandidateDraft>(() => ({
 		chosen: personId ?? "",
@@ -925,7 +906,6 @@ function CandidateDialog({
 	const [busy, setBusy] = useState(false);
 	const person = page.people.find((p) => p.id === chosen);
 	const current = page.candidates.find((c) => c.personId === chosen) ?? null;
-	// A Person with a retracted statement is recorded again; one with a current statement is corrected.
 	const action = !current || current.state === "retracted" ? "attest" : "correct";
 	const revision = person?.candidateRevision ?? "0";
 	const days = periodDays(start, end);

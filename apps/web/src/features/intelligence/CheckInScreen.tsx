@@ -42,12 +42,6 @@ import {
 import { CheckInHeader } from "./Header.tsx";
 import { createCheckInStore, editingOf, shownOf, thisWeekOf, type CheckInPort } from "./CheckInScreen.store.ts";
 
-/**
- * The private weekly check-in (prototype #/me/check-in, REQ-PI-038 to REQ-PI-041). The form answers this week or
- * corrects an earlier one; the strip shows the latest twelve weeks, with older pages behind it. A save shows at once
- * in the strip, then confirms or puts the strip back with the reason, keeping what the author typed. It only shows the
- * author's own answers back: no prompt, alert or score.
- */
 const port: CheckInPort = { save: saveCheckIn, correct: correctCheckIn, history: readCheckInHistory };
 
 export function CheckInScreen({ initial, name }: { initial: CarePage; name: string }) {

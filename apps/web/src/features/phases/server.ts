@@ -10,9 +10,6 @@ import { phaseReader, readCatalog, readReadiness, type PhaseWriter } from "@ever
 import "server-only";
 import type { Outcome } from "./model.ts";
 
-// The journey screen reaches the phases domain here. Pages and actions share the request's one viewer (D59/D60). Every
-// read and write rechecks the live Owner or Admin seat inside its own statement (C13, D70).
-
 type PhaseViewer = {
 	authority: RequestActor;
 	accountId: string;
@@ -20,7 +17,6 @@ type PhaseViewer = {
 	displayName: string;
 };
 
-/** The request's plant seat, or null for a signed-out reader, an organization seat or an account without a seat. */
 export async function phaseViewer(): Promise<PhaseViewer | null> {
 	const v = await getViewer();
 	const authority = v?.authority;
@@ -34,11 +30,6 @@ export const administers = (v: Pick<PhaseViewer, "role">) => v.role !== "member"
 const facts = createFacts();
 const launch = createLaunchReader();
 
-/**
- * The /intelligence/journey page: the journey (one statement), the Launch date history (one statement), the catalog,
- * the plant's measured facts (one statement) and the advisory readiness of every phase filled from those facts. A
- * database failure reads as lost, never as an empty journey or as zero facts.
- */
 export async function loadJourney(viewer: PhaseViewer) {
 	const db = requestDatabase();
 	if (!db) return { status: "lost" } as const;
@@ -53,7 +44,6 @@ export async function loadJourney(viewer: PhaseViewer) {
 		if (measured.status !== "ok") return { status: "refused", error: measured.error } as const;
 		if (journal.status !== "ok") return { status: "refused", error: journal.error } as const;
 		const readiness = readReadiness(catalog, measured.value.criteria);
-		// The journey shows when Launch Sunday was set and each time it moved; milestones and guests stay on /launch.
 		const launchDates = journal.value.entries.filter((e) => e.change.kind === "date");
 		return {
 			status: "ok",
@@ -65,7 +55,6 @@ export async function loadJourney(viewer: PhaseViewer) {
 	}
 }
 
-/** One phase write for the request's viewer. */
 export async function write<T>(
 	run: (writer: PhaseWriter, db: Database, authority: RequestActor) => Promise<PhasesReply<T>>,
 ): Promise<Outcome<T>> {

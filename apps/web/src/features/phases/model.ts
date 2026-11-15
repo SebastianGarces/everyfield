@@ -8,13 +8,8 @@ import {
 	type ReasonProblem,
 } from "@everyfield/contracts/phases";
 
-// The journey screen's pure model: labels, messages and the optimistic journey. No React and no server code, so the
-// UI tests can call it directly.
-
-/** A server action's answer: the operation's reply, or "lost" when the request never reached a database answer. */
 export type Outcome<T> = { status: "ok"; value: T } | { status: "refused"; error: PhasesError } | { status: "lost" };
 
-/** The seven phases as the track labels them (prototype #/intelligence). */
 export const SHORT_NAME: readonly string[] = [
 	"Discovery",
 	"Core group",
@@ -31,7 +26,6 @@ const DIRECTION_LABEL: Record<Direction, string> = {
 	backward: "Moved back",
 };
 
-/** What a timeline entry is called. */
 export function entryTitle(entry: JourneyEntry): string {
 	if (entry.kind === "creation") return "Church created";
 	if (entry.kind === "initial_declaration") return "Declared at setup";
@@ -40,7 +34,6 @@ export function entryTitle(entry: JourneyEntry): string {
 	return DIRECTION_LABEL[entry.direction];
 }
 
-/** The line under a timeline entry's title: the phases it moved between, or the day Launch Sunday or the milestone was. */
 export function entryDetail(entry: JourneyEntry): string {
 	const day = (date: string) =>
 		new Intl.DateTimeFormat("en-US", {
@@ -57,11 +50,6 @@ export function entryDetail(entry: JourneyEntry): string {
 		: `Phase ${entry.fromPhase} → Phase ${entry.toPhase}`;
 }
 
-/**
- * What Post-launch would measure, shown as not measured (launch.md "Post-launch measurement and proof"). No approved
- * post-launch source exists, so it is never met from Vision Meeting follow-ups before launch, the guest roster or the
- * debrief's follow-up plan.
- */
 export const POST_LAUNCH_MEASURES = [
 	{
 		key: "guest_follow_up_48h",
@@ -76,7 +64,6 @@ export const REASON_MESSAGE: Record<ReasonProblem, string> = {
 	reserved: "That sentence is kept for setup declarations. Write the reason in your own words.",
 };
 
-/** The message a refused or lost change shows next to the control that sent it. */
 export function refusalMessage(outcome: Exclude<Outcome<unknown>, { status: "ok" }>): string {
 	if (outcome.status === "lost")
 		return "Everyfield's answer did not come back, so the phase may not have changed. Try again: the same change will not apply twice.";
@@ -95,10 +82,6 @@ export function refusalMessage(outcome: Exclude<Outcome<unknown>, { status: "ok"
 	}
 }
 
-/**
- * One request key per intent: the same move or declaration from the same revision reuses its key, so a retry after a
- * lost answer replays the first write instead of applying it again. A settled answer (ok or refused) drops the key.
- */
 export function requestKeys(fresh: () => string) {
 	const keys = new Map<string, string>();
 	return {
@@ -113,7 +96,6 @@ export function requestKeys(fresh: () => string) {
 	};
 }
 
-/** A server action's call, with a rejected one (offline, a dropped connection) read as a lost answer. */
 export async function sent<T>(call: () => Promise<Outcome<T>>): Promise<Outcome<T>> {
 	try {
 		return await call();
@@ -124,13 +106,11 @@ export async function sent<T>(call: () => Promise<Outcome<T>>): Promise<Outcome<
 
 export type Journey = { state: JourneyState; entries: JourneyEntry[] };
 
-/** The journey with a new entry and state: the confirmed answer, or the optimistic one before it. */
 export function withEntry(journey: Journey, state: JourneyState, entry: JourneyEntry): Journey {
 	return { state, entries: [...journey.entries.filter((e) => e.id !== entry.id), entry] };
 }
 
 const PENDING_ID = "00000000-0000-4000-8000-000000000000" as JourneyEntry["id"];
-/** The entry a move shows before the server answers. The server's own entry replaces it. */
 export function pendingMove(
 	journey: Journey,
 	to: PhaseNumber,
@@ -153,7 +133,6 @@ export function pendingMove(
 	} as JourneyEntry;
 	return withEntry(journey, { ...journey.state, phase: to, declarable: false }, entry);
 }
-/** The entry a declaration shows before the server answers. */
 export function pendingDeclaration(
 	journey: Journey,
 	to: PhaseNumber,
@@ -172,7 +151,6 @@ export function pendingDeclaration(
 }
 export const isPending = (entry: JourneyEntry) => entry.id === PENDING_ID;
 
-/** "Nov 2, 2026" in the plant's time zone, the same on the server and in the browser. */
 export function entryDate(occurredAt: string, timeZone: string): string {
 	return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone }).format(
 		new Date(occurredAt),

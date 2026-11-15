@@ -51,7 +51,6 @@ type Props = {
 	catalog: Catalog;
 	readiness: Readiness[];
 	facts: PlantFacts;
-	/** Each time Launch Sunday was set, moved, postponed or rescheduled, newest first. */
 	launchDates: HistoryEntry[];
 	viewer: Viewer;
 };
@@ -63,11 +62,6 @@ const STATUS: Record<Readiness["criteria"][number]["status"], { status: Status; 
 	not_tracked: { status: "unknown", label: "Not tracked" },
 };
 
-/**
- * Plant Intelligence's phase card, journey and timeline (WP-038, prototype #/intelligence) and the measured facts (WP-040). A move or declaration shows
- * at once and is confirmed or rolled back from the server's answer; nothing reloads the page. Only Owners and Admins
- * reach this screen; the route shows Members a locked panel instead.
- */
 export function JourneyScreen({ history, catalog, readiness, facts, launchDates, viewer }: Props) {
 	const toast = useToast();
 	const store = useLocalStore(() =>
@@ -146,7 +140,6 @@ export function JourneyScreen({ history, catalog, readiness, facts, launchDates,
 	);
 }
 
-/** The seven-step track: done phases filled, the current one hatched (prototype .phase-track). */
 function Track({ current }: { current: PhaseNumber }) {
 	return (
 		<div>
@@ -179,7 +172,6 @@ function Track({ current }: { current: PhaseNumber }) {
 	);
 }
 
-/** The current phase's exit criteria with their advisory status. */
 function Signs({ readiness }: { readiness: Readiness }) {
 	if (readiness.verdict === "terminal")
 		return (
@@ -217,7 +209,6 @@ function Signs({ readiness }: { readiness: Readiness }) {
 	);
 }
 
-/** Post-launch measures with no approved source yet: each reads Not measured, never met. */
 function PostLaunchMeasures() {
 	return (
 		<ul className="flex flex-col gap-2.5">
@@ -240,7 +231,6 @@ function PostLaunchMeasures() {
 }
 
 type Dated = { kind: "launch_date"; id: string; occurredAt: string; entry: HistoryEntry };
-/** "Launch Sunday set for Mar 7, 2027", "Launch Sunday moved from Mar 7 to Mar 14, 2027". */
 function launchDateTitle(e: HistoryEntry) {
 	if (e.change.kind !== "date") return "";
 	const { event, from, to } = e.change;
@@ -250,7 +240,6 @@ function launchDateTitle(e: HistoryEntry) {
 	return `Launch Sunday ${event === "moved" ? "moved" : "rescheduled"} from ${day(from)} to ${day(to)}`;
 }
 
-/** Every recorded step and Launch date change, newest first. Entries are never edited; a correction is a new entry. */
 function Timeline({
 	entries,
 	launchDates,
@@ -336,7 +325,6 @@ function Timeline({
 	);
 }
 
-/** All seven phases with their Playbook exit criteria (PHASE-008). */
 function Phases({ catalog, current }: { catalog: Catalog; current: PhaseNumber }) {
 	return (
 		<Card className="mt-5">

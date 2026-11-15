@@ -46,11 +46,6 @@ type Draft = {
 	error: string | null;
 };
 
-/**
- * What happened on Launch Sunday (WP-046, LCH-006/007): the actual date beside the planned one, attendance, decisions,
- * the note and the guests named. Owners and Admins record and correct it; a Member reads the outcome and the guest
- * count. Recording moves no phase, creates no meeting and sends nothing.
- */
 export function OutcomeCard({
 	plan,
 	admin,
@@ -268,10 +263,6 @@ function OutcomeDialog({
 
 const GUEST_SEARCH_PAUSE_MS = 200;
 
-/**
- * The guests a planter names (LCH-007). Typing shows People of the church with a matching name; picking one links that
- * Person. "Add as a new person" creates a Person with only the typed name. A name alone never links anyone.
- */
 function Guests({ plan, keys, onPlan }: { plan: Plan; keys: Keys; onPlan: (p: Plan) => void }) {
 	const toast = useToast();
 	const [name, setName] = useState("");
@@ -313,7 +304,6 @@ function Guests({ plan, keys, onPlan }: { plan: Plan; keys: Keys; onPlan: (p: Pl
 	}
 
 	const named = plan.guests.named ?? [];
-	// Matches for a name of two letters or more; a shorter one shows none.
 	const shown = typed.length < 2 ? [] : matches;
 	return (
 		<section aria-labelledby="launch-guests" className="mt-6 border-t border-line pt-5">

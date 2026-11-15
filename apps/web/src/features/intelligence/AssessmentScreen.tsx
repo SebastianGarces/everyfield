@@ -87,12 +87,6 @@ const LENS_ICON: Record<Lens["key"], IconSvgElement> = {
 };
 const phaseName = (catalog: Catalog, n: number) => `Phase ${n} · ${catalog.phases[n]?.name ?? ""}`;
 
-/**
- * Plant Intelligence (WP-044): where the plant stands from its latest saved assessment. One main focus, two supporting
- * points and what's going well; the eight lens tiles; the assessed phase's exit criteria with evidence. Every citation
- * opens the exact fact or passage from that assessment's own snapshot. Opening the page records the reader's explicit
- * open once; nothing here calls a model.
- */
 export function AssessmentScreen({ view, facts, catalog }: Props) {
 	const current = view.current;
 	return (
@@ -274,7 +268,6 @@ function PointRow({ p, ordinal, runId, feedback, concern, onCite }: PointProps) 
 	);
 }
 
-/** A concern an organization this plant shares findings with sees too, by the same id, as counts only. */
 function ConcernNote({ ordinal, runId, light }: { ordinal: number; runId: string; light?: boolean }) {
 	return (
 		<p
@@ -314,7 +307,6 @@ function Citations({
 	);
 }
 
-/** The reader's own rating of one point, with an optional comment. It changes nothing about the assessment. */
 function Feedback({
 	runId,
 	ordinal,
@@ -356,7 +348,6 @@ function Feedback({
 	}
 	const muted = light ? "text-[var(--on-3)]" : "text-text-3";
 	const rate = (rating: OwnFeedback["rating"]) => {
-		// Not useful opens the comment box, so the reader can say why; the rating is saved either way.
 		if (rating === "not_useful" && writing === null) setWriting(saved?.comment ?? "");
 		void save(rating, saved?.comment ?? "", false);
 	};
@@ -534,7 +525,6 @@ function LensNote({ lens, onCite }: { lens: Lens; onCite: (key: string, label: s
 	);
 }
 
-/** One fact of a lens or criterion: its label and value, opening its citation. */
 function FactButton({ fact: e, onCite }: { fact: EvidenceFact; onCite: (key: string, label: string) => void }) {
 	return (
 		<button
@@ -604,7 +594,6 @@ function Criteria({
 	);
 }
 
-/** One citation, read from the assessment's own stored snapshot or the exact passage it read. */
 function CitationDialog({
 	runId,
 	citation,
@@ -700,7 +689,6 @@ function CitationBody({ view }: { view: CitationView }) {
 	);
 }
 
-/** No assessment yet: not prepared, on its way, or couldn't be prepared, with next steps from the measured facts only. */
 function ColdStart({ view, facts }: { view: AssessmentView; facts: PlantFacts }) {
 	const { title, body } = coldStartTitle(view.newest);
 	const steps = nextSteps(facts);

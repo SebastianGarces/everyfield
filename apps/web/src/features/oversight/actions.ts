@@ -6,10 +6,6 @@ import { oversightViewer } from "@/server/oversight";
 import { level, type IntelligenceView } from "@everyfield/contracts/oversight";
 import { submitIntelligenceFeedback, readIntelligence, requestIntelligenceRefresh } from "@everyfield/domain/oversight";
 
-// Server actions behind Network Intelligence (WP-047b). Each rebuilds the request actor; the domain parses the input and
-// rechecks the seat, so a Member's refresh or rating is refused on the server whatever the page shows.
-
-/** A new run, then that run at the level the page shows: the page replaces its view with the answer. */
 export async function refreshIntelligence(
 	runId: string,
 	shownLevel: string,
@@ -26,7 +22,6 @@ export async function refreshIntelligence(
 	return view ? { status: "ok", view } : { status: "lost" };
 }
 
-/** This seat's own rating of one pattern in one run. */
 export async function ratePattern(input: unknown) {
 	return pipelineWrite((db, authority) => submitIntelligenceFeedback(db, authority, input));
 }
