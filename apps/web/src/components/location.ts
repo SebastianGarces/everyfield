@@ -27,7 +27,7 @@ let shown: string | null = null;
 
 const ORIGIN = "http://address.invalid";
 export const currentAddress = () => window.location.pathname + window.location.search;
-const fullAddress = () => currentAddress() + window.location.hash;
+export const fullAddress = () => currentAddress() + window.location.hash;
 const urlOf = (href: string | URL) => new URL(href, ORIGIN);
 
 function ruled(to: URL, from: URL | null): string | null {

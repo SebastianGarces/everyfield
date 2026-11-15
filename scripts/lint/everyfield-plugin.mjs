@@ -573,7 +573,7 @@ const noGlobalListeners = ratcheted("no-global-listeners", (context, push) => {
 		push({
 			node,
 			fn: enclosingName(node),
-			message: `${name}: page-wide events have one owner each. Address changes go through ${LOCATION_STORE} (an address rule registered at module scope, or onTraversal started from an event); shortcuts and the unsaved-work warning go through ${PAGE_EVENTS} (data-shortcut on the form or control, data-unsaved on the form). A listener tied to a component's lifetime is an effect: it needs a survivor entry.`,
+			message: `${name}: page-wide events have one owner each. Address changes go through ${LOCATION_STORE} (an address rule registered at module scope, or onTraversal started from an event); shortcuts, the unsaved-work warning, the leave hold and the last write when the page is hidden go through ${PAGE_EVENTS} (shortcutMark on the form or control, unsavedMark or leaveHoldMark on the form, leaveBeaconMark on the element that holds the write). A listener tied to a component's lifetime is an effect: it needs a survivor entry.`,
 		});
 	const isGlobalHost = (node) =>
 		isHost(node, context, LISTENER_HOSTS) ||
