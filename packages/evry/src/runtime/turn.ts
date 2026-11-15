@@ -115,9 +115,8 @@ async function run(
 		return sequence;
 	};
 	const kick = () => {
-		saves.running ??= (async () => {
-			// Yield first, so the promise is stored before this loop can finish and clear it.
-			await null;
+		if (saves.running || !pending || lost) return;
+		saves.running = (async () => {
 			try {
 				while (pending && !lost) {
 					const delta = pending;

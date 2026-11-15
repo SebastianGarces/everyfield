@@ -15,5 +15,5 @@
 	"packages/evry/src/runtime/spend.ts": 8,
 	"packages/evry/src/runtime/tools.ts": 12,
 	"packages/evry/src/runtime/trace.ts": 21,
-	"packages/evry/src/runtime/turn.ts": 32
+	"packages/evry/src/runtime/turn.ts": 31
 }
