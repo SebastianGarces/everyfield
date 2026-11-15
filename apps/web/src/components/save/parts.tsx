@@ -2,18 +2,8 @@
 
 import { Alert02Icon } from "@hugeicons/core-free-icons";
 import { Button, Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader } from "@everyfield/ui/controls";
-import { cn, Icon, type IconSvgElement } from "@everyfield/ui/foundations";
-import {
-	createContext,
-	use,
-	useEffect,
-	useId,
-	useReducer,
-	useRef,
-	useState,
-	useSyncExternalStore,
-	type ReactNode,
-} from "react";
+import { cn, Icon, useFocusRequest, type IconSvgElement } from "@everyfield/ui/foundations";
+import { createContext, use, useId, useReducer, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { SaveLane, waitOf, type LaneOptions, type Notice, type SaveSpec, type Wait } from "./model.ts";
 
 /**
@@ -105,9 +95,9 @@ export function focusFirstProblem(form: HTMLFormElement) {
 /** What a keyboard can focus: not disabled, not taken out of the tab order (a roving group's other options). */
 const FOCUSABLE =
 	'input:not([disabled]):not([tabindex="-1"]), textarea:not([disabled]), select:not([disabled]), button:not([disabled]):not([tabindex="-1"]), [tabindex]:not([tabindex="-1"])';
-function firstProblem(root: HTMLElement): HTMLElement | null | undefined {
+function firstProblem(root: HTMLElement): HTMLElement | null {
 	const bad = root.querySelector<HTMLElement>('[aria-invalid="true"], [data-invalid="true"]');
-	return bad?.matches("input, textarea, button, select") ? bad : bad?.querySelector<HTMLElement>(FOCUSABLE);
+	return (bad?.matches("input, textarea, button, select") ? bad : bad?.querySelector<HTMLElement>(FOCUSABLE)) ?? null;
 }
 
 /**
@@ -148,6 +138,8 @@ export function RecordDialog({
 }) {
 	const alert = useRef<HTMLDivElement>(null);
 	const fields = useRef<HTMLDivElement>(null);
+	const [incomplete, setIncomplete] = useState(0);
+	const focusProblem = useFocusRequest<HTMLFormElement>(incomplete, firstProblem);
 	return (
 		<Dialog open onOpenChange={(next) => !next && onClose()}>
 			<DialogContent
@@ -166,12 +158,13 @@ export function RecordDialog({
 				}}
 			>
 				<form
+					ref={focusProblem}
 					noValidate
 					className="contents"
 					onSubmit={(e) => {
 						e.preventDefault();
 						if (wait || disabled) return;
-						if (!onSubmit()) focusFirstProblem(e.currentTarget);
+						if (!onSubmit()) setIncomplete((n) => n + 1);
 					}}
 				>
 					<DialogHeader icon={icon} tone={tone} title={title} description={description} />
@@ -276,6 +269,18 @@ const NoticeContext = createContext<NoticeProps | null>(null);
 const announced = new Set<string>();
 const noticeKey = (n: Notice) => `${n.id}:${n.tone}:${n.tone === "unknown" && n.checking}`;
 
+function recordShown(region: HTMLElement) {
+	for (const shown of region.querySelectorAll<HTMLElement>("[data-notice]")) announced.add(shown.dataset.notice!);
+}
+
+function recordAnnounced(region: HTMLDivElement | null) {
+	if (!region) return;
+	recordShown(region);
+	const changes = new MutationObserver(() => recordShown(region));
+	changes.observe(region, { subtree: true, childList: true, attributes: true, attributeFilter: ["data-notice"] });
+	return () => changes.disconnect();
+}
+
 /**
  * The card's notice of a save that was not saved, or whose result is unknown. It sits in an assertive live region on
  * the card. While one of the card's dialogs is open, the notice moves into that dialog (C69), because a modal dialog is
@@ -312,12 +317,9 @@ function NoticeRegion({ notice, busy, onDismiss, className }: NoticeProps & { cl
 	const now = shown.key === key ? shown : { key, isNew: key !== null && !announced.has(key) };
 	if (now !== shown) setShown(now);
 	const isNew = now.isNew;
-	useEffect(() => {
-		if (key) announced.add(key);
-	}, [key]);
 	const body = notice ? <NoticeBody notice={notice} busy={busy} onDismiss={onDismiss} /> : null;
 	return (
-		<div aria-live="assertive" className={cn("empty:hidden", className)}>
+		<div ref={recordAnnounced} aria-live="assertive" className={cn("empty:hidden", className)}>
 			{body && !isNew ? <div aria-live="off">{body}</div> : body}
 		</div>
 	);
@@ -327,6 +329,7 @@ function NoticeBody({ notice, busy, onDismiss }: NoticeProps & { notice: Notice 
 	const hintId = useId();
 	return (
 		<div
+			data-notice={noticeKey(notice)}
 			aria-atomic="true"
 			className="flex flex-col items-start gap-2.5 rounded-md bg-magenta-50 px-3.5 py-3 text-sm text-magenta-600"
 		>
