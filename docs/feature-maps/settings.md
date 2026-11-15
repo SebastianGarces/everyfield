@@ -103,7 +103,7 @@ agent-browser wait --load networkidle
 agent-browser wait --url "**/signin?returnTo=%2Fsettings%2Faccount"
 ```
 
-- **rail-settings-cut-off**: heading "History"; no dialog "Church profile". Known defect, so this state shows what is wrong: run it at the proof browser's default 1440x577 window (agent-browser set viewport 1440 577): the rail is a sticky aside of fixed height with no scroll (packages/ui/src/shell/AppShell.tsx:263), and for the Owner its last link, Settings, sits at y 568 to 614 whatever the window height. In a window 614 px or taller it is fully visible and opens Settings, so this state fails there; from 568 to 614 px it is cut off and a click on it opens nothing; below 568 px it is hidden. The account menu and keyboard Enter still open Settings, and the base branch behaves the same. As `owner`, on the QA seed:
+- **rail-settings-cut-off**: heading "History"; no dialog "Church profile". Known defect, so this state shows what is wrong: run it at the proof browser's default window, 1440 by 577 px (agent-browser set viewport 1440 577): the rail is a sticky aside of fixed height with no scroll (packages/ui/src/shell/AppShell.tsx:263), and for the Owner its last link, Settings, sits at y 568 to 614 whatever the window height. In a window 614 px or taller it is fully visible and opens Settings, so this state fails there; from 568 to 614 px it is cut off and a click on it opens nothing; below 568 px it is hidden. The account menu and keyboard Enter still open Settings, and the base branch behaves the same. As `owner`, on the QA seed:
 
 ```bash
 agent-browser open "$ORIGIN/communication"
