@@ -1,0 +1,6 @@
+{
+	"apps/web/src/features/evry/conversation/EvryPanel.tsx": 8,
+	"apps/web/src/features/evry/conversation/PhotoAttach.tsx": 1,
+	"apps/web/src/features/evry/conversation/useConversation.ts": 3,
+	"apps/web/src/features/evry/conversation/useRowPhotos.ts": 1
+}

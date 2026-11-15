@@ -1,0 +1,11 @@
+{
+	"apps/web/src/features/meetings/Attendance.tsx": 3,
+	"apps/web/src/features/meetings/CheckInScreen.tsx": 1,
+	"apps/web/src/features/meetings/GuestList.tsx": 1,
+	"apps/web/src/features/meetings/MeetingsScreen.tsx": 1,
+	"apps/web/src/features/meetings/PlanMeetingDialog.tsx": 2,
+	"apps/web/src/features/meetings/Report.tsx": 1,
+	"apps/web/src/features/meetings/VenuesSheet.tsx": 3,
+	"apps/web/src/features/meetings/dialogs.tsx": 2,
+	"apps/web/src/features/meetings/parts.tsx": 1
+}

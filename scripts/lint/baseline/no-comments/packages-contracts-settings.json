@@ -1,0 +1,8 @@
+{
+	"packages/contracts/src/settings/index.ts": 2,
+	"packages/contracts/src/settings/native.ts": 8,
+	"packages/contracts/src/settings/requests.ts": 5,
+	"packages/contracts/src/settings/results.ts": 4,
+	"packages/contracts/src/settings/server.ts": 51,
+	"packages/contracts/src/settings/values.ts": 14
+}

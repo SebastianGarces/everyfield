@@ -1,0 +1,9 @@
+{
+	"tests/integration/writes/budgets.mjs": 16,
+	"tests/integration/writes/counter.mjs": 11,
+	"tests/integration/writes/kinds.cjs": 2,
+	"tests/integration/writes/native.mjs": 42,
+	"tests/integration/writes/observer.cjs": 6,
+	"tests/integration/writes/requests.mjs": 81,
+	"tests/integration/writes/statements.test.mts": 27
+}

@@ -6,6 +6,7 @@ import { Tab, Tabs, TabsList, TabsPanel } from "@everyfield/ui/controls";
 import { createContext, use, useState, type CSSProperties, type ReactNode } from "react";
 import { familyOf } from "./fonts";
 import { themeOf, type BrandForm } from "./model";
+import { NativeImage } from "@/components/native";
 
 // The live preview (REQ-BRD-006, REQ-DOC-017): one miniature page per document class. Every rule on it comes from the
 // theme that resolveDocumentTheme returns for the unsaved draft, the function the server resolves with, so no class
@@ -113,8 +114,11 @@ function LogoSlot({
 	if (image)
 		return (
 			<div data-slot="logo" data-image="" className="flex items-center" style={{ height, width, maxWidth }}>
-				{/* eslint-disable-next-line @next/next/no-img-element -- the authenticated asset route */}
-				<img src={src(image.fileId)} alt={image.alt} className="max-h-full max-w-full object-contain object-left" />
+				<NativeImage
+					src={src(image.fileId)}
+					alt={image.alt}
+					className="max-h-full max-w-full object-contain object-left"
+				/>
 			</div>
 		);
 	return (
@@ -172,8 +176,7 @@ function Formal({ theme, layout }: { theme: DocumentTheme; layout: Layout<"forma
 				<p className="text-[10px] opacity-60">Signed</p>
 				{signature.image ? (
 					<div data-slot="signature" className="mt-1 flex h-10 items-end">
-						{/* eslint-disable-next-line @next/next/no-img-element -- the authenticated asset route */}
-						<img
+						<NativeImage
 							src={src(signature.image.fileId)}
 							alt={signature.image.alt}
 							className="max-h-full max-w-[160px] object-contain object-left"
@@ -231,8 +234,11 @@ function Outward({ theme, layout }: { theme: DocumentTheme; layout: Layout<"outw
 			</div>
 			{layout.coverPhoto ? (
 				<div data-slot="cover-photo" className="h-24 overflow-hidden">
-					{/* eslint-disable-next-line @next/next/no-img-element -- the authenticated asset route */}
-					<img src={src(layout.coverPhoto.fileId)} alt={layout.coverPhoto.alt} className="size-full object-cover" />
+					<NativeImage
+						src={src(layout.coverPhoto.fileId)}
+						alt={layout.coverPhoto.alt}
+						className="size-full object-cover"
+					/>
 				</div>
 			) : null}
 			<div className="h-1.5" style={{ background: stripe }} />

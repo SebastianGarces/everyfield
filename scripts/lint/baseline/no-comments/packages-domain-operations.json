@@ -1,0 +1,5 @@
+{
+	"packages/domain/src/operations/actions.ts": 4,
+	"packages/domain/src/operations/canonical.ts": 3,
+	"packages/domain/src/operations/writes.ts": 34
+}

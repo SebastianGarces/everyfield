@@ -1,0 +1,9 @@
+{
+	"tests/integration/wiki/blocks.test.mts": 6,
+	"tests/integration/wiki/editor.test.mts": 6,
+	"tests/integration/wiki/excerpt-checks.mjs": 20,
+	"tests/integration/wiki/excerpt.test.mts": 1,
+	"tests/integration/wiki/export.test.mts": 6,
+	"tests/integration/wiki/search-migration.test.mts": 12,
+	"tests/integration/wiki/wiki.test.mts": 32
+}

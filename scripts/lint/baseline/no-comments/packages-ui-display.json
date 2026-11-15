@@ -1,0 +1,15 @@
+{
+	"packages/ui/src/display/AvatarImage.tsx": 2,
+	"packages/ui/src/display/Badges.tsx": 15,
+	"packages/ui/src/display/Content.tsx": 19,
+	"packages/ui/src/display/DataTable.tsx": 9,
+	"packages/ui/src/display/Lists.tsx": 8,
+	"packages/ui/src/display/Pipeline.tsx": 3,
+	"packages/ui/src/display/WikiDiagram.tsx": 13,
+	"packages/ui/src/display/index.ts": 1,
+	"packages/ui/src/display/preview/DisplayPreview.tsx": 1,
+	"packages/ui/src/display/preview/fixtures.ts": 1,
+	"packages/ui/src/display/preview/kit.tsx": 3,
+	"packages/ui/src/display/tone.ts": 1,
+	"packages/ui/src/display/values.ts": 5
+}

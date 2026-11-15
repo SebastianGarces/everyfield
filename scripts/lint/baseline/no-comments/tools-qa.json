@@ -1,0 +1,21 @@
+{
+	"tools/qa/containers.ts": 12,
+	"tools/qa/cron-driver.ts": 16,
+	"tools/qa/main.ts": 1,
+	"tools/qa/qa-guard.ts": 11,
+	"tools/qa/qa-seed.ts": 106,
+	"tools/qa/qa.ts": 23,
+	"tools/qa/store.ts": 11,
+	"tools/qa/tests/containers.test.ts": 9,
+	"tools/qa/tests/fixtures.ts": 7,
+	"tools/qa/tests/fixtures/qa-churches-probe.ts": 6,
+	"tools/qa/tests/fixtures/qa-probe.ts": 14,
+	"tools/qa/tests/fixtures/quiet-database-child.ts": 4,
+	"tools/qa/tests/prod-identity-probe.ts": 2,
+	"tools/qa/tests/prod-identity.test.ts": 11,
+	"tools/qa/tests/qa-care-probe.ts": 5,
+	"tools/qa/tests/qa-check-ins.test.ts": 10,
+	"tools/qa/tests/qa-wiki-reader.ts": 9,
+	"tools/qa/tests/qa-wiki.test.ts": 23,
+	"tools/qa/tests/qa.test.ts": 94
+}

@@ -1,0 +1,6 @@
+{
+	"packages/contracts/src/meetings/attendance.ts": 28,
+	"packages/contracts/src/meetings/requests.ts": 12,
+	"packages/contracts/src/meetings/results.ts": 19,
+	"packages/contracts/src/meetings/values.ts": 8
+}

@@ -1,0 +1,22 @@
+{
+	"tests/integration/communication/batches.test.mts": 25,
+	"tests/integration/communication/catalog.test.mts": 1,
+	"tests/integration/communication/communication.test.mts": 2,
+	"tests/integration/communication/delivery.test.mts": 13,
+	"tests/integration/communication/email-safety.test.mts": 29,
+	"tests/integration/communication/held.test.mts": 20,
+	"tests/integration/communication/history.test.mts": 3,
+	"tests/integration/communication/invitations.test.mts": 4,
+	"tests/integration/communication/messages-unsubscribe.test.mts": 25,
+	"tests/integration/communication/opens.test.mts": 4,
+	"tests/integration/communication/resend-recorder.mts": 9,
+	"tests/integration/communication/restores.test.mts": 5,
+	"tests/integration/communication/rsvp.test.mts": 6,
+	"tests/integration/communication/sanitize.test.mts": 1,
+	"tests/integration/communication/scheduled-opt-out.test.mts": 21,
+	"tests/integration/communication/scheduled-support.mts": 7,
+	"tests/integration/communication/sealed-address.mts": 1,
+	"tests/integration/communication/ui-reads.test.mts": 6,
+	"tests/integration/communication/unsubscribe-notice.test.mts": 23,
+	"tests/integration/communication/unsubscribe.test.mts": 14
+}
