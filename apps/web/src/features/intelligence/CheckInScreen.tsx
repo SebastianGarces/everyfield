@@ -5,10 +5,13 @@ import {
 	CARE_AREAS,
 	careLevel,
 	NOTE_MAX,
+	type CareAnswers,
 	type CareArea,
+	type CareError,
 	type CareLevel,
 	type CarePage,
 	type CareWeek,
+	type CareWriteResult,
 } from "@everyfield/contracts/intelligence";
 import {
 	Button,
@@ -25,11 +28,12 @@ import {
 } from "@everyfield/ui/controls";
 import { cn, Icon } from "@everyfield/ui/foundations";
 import { RadioGroup } from "radix-ui";
-import { useRef } from "react";
-import { useLocalStore, useStore } from "../../components/store.ts";
+import { startTransition, useActionState, useOptimistic, useRef, useState, useTransition } from "react";
 import { correctCheckIn, readCheckInHistory, saveCheckIn } from "./actions.ts";
 import {
 	AREA,
+	complete,
+	draftOf,
 	LEVEL_LABEL,
 	missingAreas,
 	mondayDate,
@@ -38,30 +42,150 @@ import {
 	shortDate,
 	submitLabel,
 	weekNote,
+	withAnswer,
+	withResult,
+	type Draft,
+	type Outcome,
 } from "./model.ts";
 import { CheckInHeader } from "./Header.tsx";
-import { createCheckInStore, editingOf, shownOf, thisWeekOf, type CheckInPort } from "./CheckInScreen.store.ts";
 
-const port: CheckInPort = { save: saveCheckIn, correct: correctCheckIn, history: readCheckInHistory };
+type FormDraft = Draft & { origin: object };
+type Failure = { error: CareError | null };
+type Notice = {
+	origin: object | null;
+	status: { text: string; draft: FormDraft } | null;
+	failure: Failure | null;
+	incomplete: boolean;
+};
+type Intent =
+	| { kind: "save"; draft: FormDraft; answers: CareAnswers; week: CareWeek; correcting: boolean; revision: string }
+	| { kind: "incomplete"; origin: object }
+	| { kind: "failed"; origin: object; failure: Failure };
+
+const QUIET: Notice = { origin: null, status: null, failure: null, incomplete: false };
+const formOf = (week: CareWeek): FormDraft => ({ ...draftOf(week), origin: {} });
+const failureOf = <T,>(result: Outcome<T>): Failure => ({ error: result.status === "refused" ? result.error : null });
+const savedText = (result: CareWriteResult, correcting: boolean) =>
+	result.outcome === "unchanged"
+		? "Nothing changed, so nothing new was saved."
+		: correcting
+			? "Correction saved. Your earlier answer stays in your history."
+			: "Check-in saved.";
 
 export function CheckInScreen({ initial, name }: { initial: CarePage; name: string }) {
-	const store = useLocalStore(() => createCheckInStore({ initial, port }));
-	const s = useStore(store, (state) => state);
-	const { older, draft, saving: pending, paging, status, failure, incomplete, actions } = s;
-	const thisWeek = thisWeekOf(s);
-	const shown = shownOf(s);
-	const editing = editingOf(s);
-	const correcting = s.target !== null;
+	const [strip, setStrip] = useState(initial);
+	const [older, setOlder] = useState<CarePage | null>(null);
+	const [target, setTarget] = useState<CareWeek | null>(null);
+	const [draft, setDraft] = useState<FormDraft>(() => formOf(initial.weeks[0]!));
+	const [pages, showAnswer] = useOptimistic(
+		{ strip, older },
+		(p, a: { week: CareWeek; answers: CareAnswers; note: string }) => ({
+			strip: withAnswer(p.strip, a.week, a.answers, a.note),
+			older: p.older ? withAnswer(p.older, a.week, a.answers, a.note) : null,
+		}),
+	);
+	const [paging, startPaging] = useTransition();
+	const sent = useRef<{ payload: string; key: string } | null>(null);
 	const formRef = useRef<HTMLHeadingElement>(null);
 	const cardRef = useRef<HTMLDivElement>(null);
 
+	const [notice, act, pending] = useActionState(async (prev: Notice, intent: Intent): Promise<Notice> => {
+		if (intent.kind === "incomplete")
+			return {
+				...prev,
+				origin: intent.origin,
+				failure: prev.origin === intent.origin ? prev.failure : null,
+				incomplete: true,
+			};
+		if (intent.kind === "failed")
+			return {
+				...prev,
+				origin: intent.origin,
+				failure: intent.failure,
+				incomplete: prev.origin === intent.origin && prev.incomplete,
+			};
+		const { draft: sentDraft, answers, week, correcting, revision } = intent;
+		showAnswer({ week, answers, note: sentDraft.note });
+		const payload = JSON.stringify({ id: week.id, revision, answers, note: sentDraft.note });
+		if (sent.current?.payload !== payload) sent.current = { payload, key: crypto.randomUUID() };
+		const key = sent.current.key;
+		let result: Outcome<CareWriteResult>;
+		try {
+			result = correcting
+				? await correctCheckIn(key, revision, week.id, answers, sentDraft.note)
+				: await saveCheckIn(key, revision, answers, sentDraft.note);
+		} catch {
+			result = { status: "lost" };
+		}
+		if (result.status !== "ok")
+			return { origin: sentDraft.origin, status: null, failure: failureOf(result), incomplete: false };
+		sent.current = null;
+		const confirmed = result.value;
+		const next = formOf(confirmed.week);
+		setStrip((s) => withResult(s, confirmed));
+		setOlder((o) => (o ? withResult(o, confirmed) : o));
+		setDraft(next);
+		if (correcting) setTarget(confirmed.week);
+		return {
+			origin: next.origin,
+			status: { text: savedText(confirmed, correcting), draft: next },
+			failure: null,
+			incomplete: false,
+		};
+	}, QUIET);
+
+	const thisWeek = pages.strip.weeks[0]!;
+	const shown = pages.older ?? pages.strip;
+	const editing = target ?? thisWeek;
+	const correcting = target !== null;
+	const current = notice.origin === draft.origin;
+	const failure = !pending && current ? notice.failure : null;
+	const incomplete = !pending && current && notice.incomplete;
+	const status = pending ? "Saving…" : notice.status?.draft === draft ? notice.status.text : null;
+
 	const choose = (week: CareWeek | null) => {
-		actions.choose(week);
+		setTarget(week && week.ordinal !== thisWeek.ordinal ? week : null);
+		setDraft(formOf(week ?? thisWeek));
 		formRef.current?.focus({ preventScroll: true });
 		cardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
 	};
-	const submit = actions.submit;
-	const load = actions.load;
+	const answer = (area: CareArea, level: CareLevel) =>
+		setDraft((d) => ({ ...d, answers: { ...d.answers, [area]: level } }));
+	const write = (note: string) => setDraft((d) => ({ ...d, note }));
+
+	const submit = () => {
+		if (pending) return;
+		startTransition(() =>
+			complete(draft)
+				? act({
+						kind: "save",
+						draft,
+						answers: draft.answers,
+						week: editing,
+						correcting,
+						revision: strip.revision,
+					})
+				: act({ kind: "incomplete", origin: draft.origin }),
+		);
+	};
+
+	const load = (page: number) => {
+		const origin = draft.origin;
+		startPaging(async () => {
+			const result = await readCheckInHistory(page).catch((): Outcome<CarePage> => ({ status: "lost" }));
+			if (result.status !== "ok") {
+				startTransition(() => act({ kind: "failed", origin, failure: failureOf(result) }));
+				return;
+			}
+			if (page === 1) {
+				setStrip(result.value);
+				setOlder(null);
+			} else {
+				setOlder(result.value);
+				setStrip((s) => ({ ...s, revision: result.value.revision }));
+			}
+		});
+	};
 
 	const missing = incomplete ? missingAreas(draft) : [];
 	const conflict = failure?.error?.code === "revision_conflict";
@@ -107,7 +231,7 @@ export function CheckInScreen({ initial, name }: { initial: CarePage; name: stri
 								first={i === 0}
 								value={draft.answers[area]}
 								missing={missing.includes(area)}
-								onChange={(level) => actions.answer(area, level)}
+								onChange={(level) => answer(area, level)}
 							/>
 						))}
 					</div>
@@ -122,7 +246,7 @@ export function CheckInScreen({ initial, name }: { initial: CarePage; name: stri
 							maxLength={NOTE_MAX}
 							placeholder="What is on your mind this week?"
 							className="min-h-[90px]"
-							onChange={(e) => actions.write(e.target.value)}
+							onChange={(e) => write(e.target.value)}
 						/>
 					</Field>
 					{missing.length ? (
@@ -144,7 +268,7 @@ export function CheckInScreen({ initial, name }: { initial: CarePage; name: stri
 								{refusalText(failure.error)}
 							</span>
 							{conflict ? (
-								<Button size="sm" variant="secondary" loading={paging} onClick={() => void load(1)}>
+								<Button size="sm" variant="secondary" loading={paging} onClick={() => load(1)}>
 									Load the latest
 								</Button>
 							) : null}
@@ -156,7 +280,7 @@ export function CheckInScreen({ initial, name }: { initial: CarePage; name: stri
 								? "A correction becomes the current answer. The earlier one stays in this week's history."
 								: "You can change this week until Sunday. After that, a correction keeps the earlier answer."}
 						</span>
-						<Button variant="primary" loading={pending} onClick={() => void submit()}>
+						<Button variant="primary" loading={pending} onClick={submit}>
 							{submitLabel(editing, correcting)}
 						</Button>
 					</div>
@@ -191,7 +315,7 @@ export function CheckInScreen({ initial, name }: { initial: CarePage; name: stri
 									variant="secondary"
 									icon={ArrowLeft01Icon}
 									disabled={shown.page >= shown.pageCount || paging}
-									onClick={() => void load(shown.page + 1)}
+									onClick={() => load(shown.page + 1)}
 								>
 									Older weeks
 								</Button>
@@ -202,7 +326,7 @@ export function CheckInScreen({ initial, name }: { initial: CarePage; name: stri
 									size="sm"
 									variant="secondary"
 									disabled={shown.page === 1 || paging}
-									onClick={() => (shown.page === 2 ? actions.showLatest() : void load(shown.page - 1))}
+									onClick={() => (shown.page === 2 ? setOlder(null) : load(shown.page - 1))}
 								>
 									Newer weeks
 									<Icon icon={ArrowRight01Icon} size={16} />
