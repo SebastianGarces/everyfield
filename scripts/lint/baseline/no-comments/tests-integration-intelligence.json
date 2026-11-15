@@ -1,0 +1,14 @@
+{
+	"tests/integration/intelligence/assessment-church.mts": 20,
+	"tests/integration/intelligence/assessment-eval.test.mts": 21,
+	"tests/integration/intelligence/assessment-paid.test.mts": 9,
+	"tests/integration/intelligence/assessment.test.mts": 11,
+	"tests/integration/intelligence/care.test.mts": 47,
+	"tests/integration/intelligence/facts.test.mts": 20,
+	"tests/integration/intelligence/first-service.test.mts": 10,
+	"tests/integration/intelligence/lifecycle.test.mts": 46,
+	"tests/integration/intelligence/orchestration.test.mts": 15,
+	"tests/integration/intelligence/real-model.mts": 5,
+	"tests/integration/intelligence/signals.test.mts": 41,
+	"tests/integration/intelligence/views.test.mts": 15
+}

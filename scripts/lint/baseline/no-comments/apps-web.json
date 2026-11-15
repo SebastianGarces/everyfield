@@ -1,0 +1,6 @@
+{
+	"apps/web/next.config.ts": 29,
+	"apps/web/scripts/check-color-literals.mjs": 10,
+	"apps/web/scripts/check-corners.mjs": 4,
+	"apps/web/scripts/check-type-scale.mjs": 19
+}

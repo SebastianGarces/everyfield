@@ -1,0 +1,15 @@
+{
+	"scripts/browser.ts": 11,
+	"scripts/check.ts": 24,
+	"scripts/dev.ts": 5,
+	"scripts/fast-check.ts": 25,
+	"scripts/lint-rule-coverage.mjs": 18,
+	"scripts/nightly-schedule.ts": 17,
+	"scripts/nightly-ui.ts": 21,
+	"scripts/nightly.ts": 32,
+	"scripts/setup-step.mjs": 12,
+	"scripts/stack.mjs": 1,
+	"scripts/test-workflow.mjs": 3,
+	"scripts/throwaway-postgres.ts": 14,
+	"scripts/trace-reads.mjs": 7
+}

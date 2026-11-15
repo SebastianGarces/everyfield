@@ -1,0 +1,13 @@
+{
+	"apps/web/src/features/people/fields/HouseholdCard.tsx": 21,
+	"apps/web/src/features/people/fields/HouseholdDialogs.tsx": 13,
+	"apps/web/src/features/people/fields/ManageTagsDialog.tsx": 16,
+	"apps/web/src/features/people/fields/PersonPhoto.tsx": 12,
+	"apps/web/src/features/people/fields/SkillsCard.tsx": 5,
+	"apps/web/src/features/people/fields/TagsField.tsx": 9,
+	"apps/web/src/features/people/fields/actions.ts": 20,
+	"apps/web/src/features/people/fields/leave.ts": 1,
+	"apps/web/src/features/people/fields/model.ts": 12,
+	"apps/web/src/features/people/fields/photo-route.ts": 3,
+	"apps/web/src/features/people/fields/server.ts": 1
+}

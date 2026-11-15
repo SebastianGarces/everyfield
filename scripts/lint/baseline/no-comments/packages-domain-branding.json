@@ -1,0 +1,9 @@
+{
+	"packages/domain/src/branding/access.ts": 3,
+	"packages/domain/src/branding/color.ts": 6,
+	"packages/domain/src/branding/files.ts": 7,
+	"packages/domain/src/branding/kit.ts": 6,
+	"packages/domain/src/branding/reads.ts": 3,
+	"packages/domain/src/branding/theme.ts": 3,
+	"packages/domain/src/branding/writes.ts": 14
+}

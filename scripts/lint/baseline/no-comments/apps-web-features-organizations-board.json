@@ -1,0 +1,15 @@
+{
+	"apps/web/src/features/organizations/board/Conversations.tsx": 2,
+	"apps/web/src/features/organizations/board/GoalsArea.tsx": 10,
+	"apps/web/src/features/organizations/board/PersonDialog.tsx": 2,
+	"apps/web/src/features/organizations/board/PersonRecord.tsx": 13,
+	"apps/web/src/features/organizations/board/PipelineScreen.tsx": 6,
+	"apps/web/src/features/organizations/board/PipelineTabs.tsx": 1,
+	"apps/web/src/features/organizations/board/Problem.tsx": 1,
+	"apps/web/src/features/organizations/board/ResidencyLink.tsx": 2,
+	"apps/web/src/features/organizations/board/SendForReview.tsx": 6,
+	"apps/web/src/features/organizations/board/StageEditor.tsx": 1,
+	"apps/web/src/features/organizations/board/actions.ts": 8,
+	"apps/web/src/features/organizations/board/model.ts": 13,
+	"apps/web/src/features/organizations/board/routes.tsx": 3
+}

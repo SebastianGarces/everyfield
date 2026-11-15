@@ -1,0 +1,8 @@
+{
+	"packages/contracts/src/teams/requests.ts": 8,
+	"packages/contracts/src/teams/responsibilities/catalog.ts": 1,
+	"packages/contracts/src/teams/results.ts": 13,
+	"packages/contracts/src/teams/training/requests.ts": 5,
+	"packages/contracts/src/teams/training/results.ts": 6,
+	"packages/contracts/src/teams/values.ts": 1
+}

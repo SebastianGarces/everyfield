@@ -1,0 +1,12 @@
+{
+	"tests/unit/intelligence/assessment-model.test.mjs": 2,
+	"tests/unit/intelligence/assessment-mount.test.mts": 3,
+	"tests/unit/intelligence/assessment.test.mts": 9,
+	"tests/unit/intelligence/facts-model.test.mjs": 1,
+	"tests/unit/intelligence/facts.test.mts": 16,
+	"tests/unit/intelligence/model.test.mjs": 9,
+	"tests/unit/intelligence/real-model-eval.test.mts": 2,
+	"tests/unit/intelligence/signals-model.test.mjs": 3,
+	"tests/unit/intelligence/views-fixture.mjs": 3,
+	"tests/unit/intelligence/views.test.mts": 5
+}

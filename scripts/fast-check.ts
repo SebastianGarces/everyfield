@@ -123,6 +123,14 @@ function workspacePackages(root: string): Pkg[] {
 		});
 }
 
+export function oxlintRuns(root: string): { cwd: string; bin: string; config?: string; roots: string[] }[] {
+	return [...workspacePackages(root), ...rootLints(root)].flatMap(({ lint }) =>
+		(lint?.linters ?? [])
+			.filter((linter) => linter.tool === "oxlint")
+			.map((linter) => ({ cwd: lint!.cwd, bin: linter.bin, config: linter.config, roots: lint!.roots })),
+	);
+}
+
 type Ran = { status: number | null; stdout: string; stderr: string; missing: boolean };
 const run = (cwd: string, bin: string, args: string[]) =>
 	new Promise<Ran>((done) => {
