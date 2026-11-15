@@ -1,6 +1,6 @@
 ---
 name: maintain-formal-verification
-description: "Apply when a diff touches a path named in any .agents/skills/formal-*/map.json, or a formal/ model: update the model and map, rerun bin/dev formal and the conformance test, and file a task for a real weakness by its id only."
+description: "Apply when a diff touches a path named in any .agents/skills/formal-*/map.json, or a formal/ model: update the model and map, rerun bin/dev formal, the conformance test and the trace replay, and file a task for a real weakness by its id only."
 ---
 
 # Maintain formal verification
@@ -35,23 +35,45 @@ trailer `Formal-model: unchanged` to a branch commit's message; the step then pa
    add a property; give it a letter in the subsystem skill.
 3. **Update the map** (`.agents/skills/formal-<subsystem>/map.json`) for every moved, renamed, added or removed
    function, action, rule or property, with its requirement or decision ids.
-4. **Rerun the formal check:** `bin/dev formal`. It must pass every property, report the outcome table current and
-   pass the map check. When you changed the model on purpose, run `bin/dev formal --write` and read the
-   `outcomes.json` diff: each changed row is a permission that changed, and it must be the one you meant.
+4. **Rerun the formal check:** `bin/dev formal`. It must pass every property, report the outcome table and the traces
+   current and pass the map check. When you changed the model on purpose, run `bin/dev formal --write` and read the
+   `outcomes.json` diff: each changed row is a permission that changed, and it must be the one you meant. The same
+   run regenerates `traces.json`; any model change can reshuffle every behavior, so do not read that diff line by line,
+   but the command must still report that the traces cover every action. A new action in `Next` must be added to the
+   subsystem's `SIMULATIONS` entry in `tools/formal/formal.ts` (its translation and its coverage list).
 5. **Rerun the conformance test** on a throwaway Postgres (see `.agents/skills/verify/SKILL.md`), for permissions:
    from `packages/domain`, `npx tsx --conditions=react-server --test ../../tests/integration/access/formal-permissions.test.mts`.
    A row that fails means the code and the model disagree: fix whichever is wrong for this task.
-6. **Keep the demonstrations working.** If you moved a guard that a mutation in `tests/workflow/formal.test.ts`
+6. **Rerun the trace replay** the same way, for permissions `../../tests/integration/access/formal-replay.test.mts`,
+   after regenerating the traces. It must pass when the model or a mapped path changed, and when a new model action
+   appears it fails until the replay has a handler for it. Replay a few fresh seeds too
+   (`bin/dev formal --traces <dir> --seed <n>`, then `FORMAL_TRACES=<dir>`, in the subsystem skill): a disagreement
+   prints its seed, and a code weakness it finds is handled as below.
+7. **Keep the demonstrations working.** If you moved a guard that a mutation in `tests/workflow/formal.test.ts`
    edits, update that edit and the subsystem skill's demonstration together; never delete one to make the test pass.
    Run `node --test tests/workflow/formal.test.ts`.
-7. Say in your summary which model actions, rules or properties changed and why, and name the outcome rows that changed.
+8. Say in your summary which model actions, rules or properties changed and why, name the outcome rows that changed,
+   and give the trace and step counts `bin/dev formal` printed.
+
+## A filed nightly seed
+
+The Nightly incident names a seed and a commit when the nightly replay disagreed (`formal-permissions`, "Nightly"):
+
+1. Reproduce it locally with the incident's commands, at its commit, and read the disagreement the replay prints: the
+   behavior, the step, model and code side by side.
+2. Decide which side is wrong. When the model is (it allows or refuses what the requirement or ruling says the code
+   should, or it misses state the code keeps), fix the model and the map as in the steps above, regenerate, replay that
+   seed green, and say in the PR that the nightly seed found a model mistake and what changed.
+3. When the code is, it is a real weakness: file it with `evf task new` as below, with the seed and the behavior
+   number, and name it by its task id only everywhere public. Do not fix it in an unrelated task.
 
 ## A real weakness
 
-When TLC finds a counterexample, or the conformance test a disagreement, that shows the **code** breaks a property
+When TLC finds a counterexample, or the conformance test or the trace replay a disagreement, that shows the **code** breaks a property
 (not a model mistake), and fixing it is outside your task:
 
-1. File it with `evf task new`, with the counterexample, the property, the affected operation and how to reproduce it.
+1. File it with `evf task new`, with the counterexample, the property, the affected operation and how to reproduce it
+   (for a replay disagreement, the seed and the behavior number).
    The evf store is private; that is where the detail lives.
 2. Keep your branch green without hiding it: leave the property and the code as they are, and tell the owner with
    `evf ask owner` if the check cannot pass without a fix.
