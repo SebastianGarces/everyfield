@@ -1,0 +1,20 @@
+{
+	"no-effects": {
+		"apps/web/src/features/evry/conversation/EvryPanel.tsx": [
+			{
+				"function": "useEvryPanel",
+				"count": 1,
+				"reason": "Cmd+J and Ctrl+J open and close the Evry panel from any product page, and on the private check-in page they only close it and are still taken from the browser. The page-event registry can only click a visible element marked with data-shortcut, and the one control that is always on the page, the Ask Evry button, is drawn by the packages/ui AppShell, which takes no shortcut mark and whose click only opens; the panel itself is not in the page while it is closed. So nothing can carry the mark, and the listener lives as long as the product frame that owns the panel."
+			}
+		]
+	},
+	"no-global-listeners": {
+		"apps/web/src/features/evry/conversation/EvryPanel.tsx": [
+			{
+				"function": "useEvryPanel",
+				"count": 2,
+				"reason": "The add and remove of the same Cmd+J keydown listener as the no-effects survivor in useEvryPanel: the page-event registry has no handler-based shortcut and the Ask Evry button in the packages/ui AppShell cannot carry a data-shortcut mark."
+			}
+		]
+	}
+}
