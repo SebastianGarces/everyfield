@@ -191,7 +191,7 @@ function Figure({ term, value }: { term: string; value: string }) {
 function Today({ data }: { data: PipelineGoals }) {
 	return (
 		<Card>
-			<CardHeader className="mb-3">
+			<CardHeader>
 				<CardHeading>
 					<CardTitle size="sm">Your pipeline today</CardTitle>
 					<CardDescription>As of {formatDay(data.asOf)}</CardDescription>
@@ -234,7 +234,7 @@ function Conversations({ data }: { data: PipelineGoals }) {
 	const { months, quarters } = data.conversations;
 	return (
 		<Card>
-			<CardHeader className="mb-3">
+			<CardHeader>
 				<CardHeading>
 					<CardTitle size="sm">Leadership conversations</CardTitle>
 					<CardDescription>“I see in you” conversations staff logged, by the day they happened.</CardDescription>

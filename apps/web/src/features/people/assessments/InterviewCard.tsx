@@ -163,7 +163,7 @@ export function InterviewCard({
 
 	return (
 		<Card className="min-w-0">
-			<CardHeader className="mb-3">
+			<CardHeader>
 				<CardHeading>
 					<div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
 						<CardTitle size="sm">Interview</CardTitle>

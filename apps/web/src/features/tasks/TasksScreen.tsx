@@ -992,7 +992,7 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 				<PhaseOffer key={loaded.offer.transition.id} initial={loaded.offer} year={year} onAdded={addTasks} />
 			) : null}
 			<div className="grid grid-cols-[minmax(0,1.9fr)_minmax(0,1fr)] items-start gap-5 max-app-md:grid-cols-1">
-				<Card className="gap-2 px-[18px] py-5 max-app-sm:px-3">
+				<Card className="gap-2 px-[18px]">
 					<Toolbar query={query} go={go} admin={admin} rows={items} />
 					{report ? <BulkReport report={report} onOpen={open} onClose={() => setReport(null)} /> : null}
 					<Notices lanes={listNotices} />

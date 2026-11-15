@@ -336,7 +336,6 @@ function DigestControl({ value, onChange }: { value: DigestSchedule; onChange: (
 			{value.cadence === "weekly" ? (
 				<Select
 					aria-label="Digest day"
-					className="w-[150px]"
 					options={DAYS}
 					value={String(value.weekday)}
 					onValueChange={(v) => onChange({ ...value, weekday: Number(v) })}
@@ -345,7 +344,6 @@ function DigestControl({ value, onChange }: { value: DigestSchedule; onChange: (
 			{value.cadence !== "off" ? (
 				<Select
 					aria-label="Digest time"
-					className="w-[130px]"
 					options={HOURS}
 					value={String(value.hour)}
 					onValueChange={(v) => onChange({ ...value, hour: Number(v) })}

@@ -124,7 +124,7 @@ export function KitCard({
 		.filter((g) => g.items.length > 0);
 	return (
 		<Card as="section" aria-labelledby="kit-title" className={fill ? FILL_CARD : undefined}>
-			<CardHeader className="mb-3">
+			<CardHeader>
 				<CardHeading>
 					<CardTitle id="kit-title">Vision kit</CardTitle>
 					<CardDescription>
