@@ -1,4 +1,4 @@
-import { createDebouncer, observeSize } from "@everyfield/ui/foundations";
+import { createDebouncer, observeIntersection, observeSize } from "@everyfield/ui/foundations";
 import { createStore, type StoreApi } from "zustand/vanilla";
 import type { ExportResult, WriteResult } from "./actions.ts";
 import { fractionText, pdfFilename } from "./model.ts";
@@ -148,13 +148,20 @@ export function createArticleSessionStore(seed: SessionSeed, port: SessionPort):
 						if (progressStep(reached) > progressStep(sent)) save();
 					};
 					const settled = () => settle.run(measure);
-					measure();
+					const stopFirstSight = observeIntersection<HTMLElement>(
+						(_entry, stop) => {
+							stop();
+							measure();
+						},
+						{ root: scrolls ? column : null },
+					)(article);
 					const scroller: HTMLElement | Window = scrolls ? column : window;
 					scroller.addEventListener("scroll", settled, { passive: true });
 					const stopSizing = observeSize(settled, { viewport: true })(column);
 					window.addEventListener("pagehide", sendOnLeave);
 					return () => {
 						scroller.removeEventListener("scroll", settled);
+						stopFirstSight?.();
 						stopSizing?.();
 						window.removeEventListener("pagehide", sendOnLeave);
 						settle.cancel();
