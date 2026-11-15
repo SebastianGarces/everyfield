@@ -557,6 +557,8 @@ const noGlobalListeners = ratcheted("no-global-listeners", (context, push) => {
 	const isGlobalHost = (node) => {
 		if (node?.type === "ConditionalExpression") return isGlobalHost(node.consequent) || isGlobalHost(node.alternate);
 		if (node?.type === "LogicalExpression") return isGlobalHost(node.left) || isGlobalHost(node.right);
+		if (node?.type === "SequenceExpression") return isGlobalHost(node.expressions.at(-1));
+		if (node?.type === "ChainExpression") return isGlobalHost(node.expression);
 		if (
 			node?.type === "TSAsExpression" ||
 			node?.type === "TSNonNullExpression" ||
@@ -577,6 +579,9 @@ const noGlobalListeners = ratcheted("no-global-listeners", (context, push) => {
 				const name = p.type === "Property" ? keyName(p.key, p.computed) : null;
 				if (name && (LISTENER_MEMBERS.has(name) || ON_HANDLER.test(name))) report(p, name);
 			}
+		},
+		AssignmentExpression(node) {
+			if (node.left.type === "Identifier" && isGlobalHost(node.right)) aliases.add(node.left.name);
 		},
 		MemberExpression(node) {
 			const name = memberName(node);

@@ -266,6 +266,12 @@ test("INV-lint: window and document listeners are reported outside the location 
 	(node.scrolls ? node : window).removeEventListener("scroll", run);
 	const view = (node.root || document.defaultView) as Window;
 	view.addEventListener("resize", run);
+	let later;
+	later = node.root ?? window;
+	later.addEventListener("scroll", run);
+	(0, window).addEventListener("scroll", run);
+	const frame = node.ownerDocument?.defaultView;
+	frame.addEventListener("resize", run);
 	return [add, listen];
 }
 `;
@@ -285,7 +291,7 @@ export function Screen() {
 			"apps/web/src/components/location.ts": source,
 		}),
 		[
-			...[2, 3, 4, 5, 6, 9, 10, 11, 12, 13, 14, 15, 17, 18, 20].map(
+			...[2, 3, 4, 5, 6, 9, 10, 11, 12, 13, 14, 15, 17, 18, 20, 23, 24, 26].map(
 				(line) => `apps/web/src/features/x/mount.ts:${line} no-global-listeners`,
 			),
 			"apps/web/src/features/x/Screen.tsx:4 no-global-listeners",
