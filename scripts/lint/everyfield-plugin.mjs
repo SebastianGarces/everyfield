@@ -1,5 +1,5 @@
 import { fileProblems, importProblem, routeFeatures } from "./boundaries.mjs";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { area, commentsExempt, ratchet, repoPath, sqlMarkers } from "./ratchet.mjs";
 
 const RESEND_PACKAGE = /^resend(?:\/|$)/;
@@ -500,8 +500,9 @@ const isHistory = (node, context) =>
 	isHost(node, context, new Set(["history"])) ||
 	(memberName(node) === "history" && isHost(node.object, context, GLOBAL_HOSTS));
 const LINK_VALUE_ENTRY = /path: "(\/[^"]+)",\s*part: "(query|fragment)",\s*param: (?:null|"([^"]+)")/g;
+const LINK_REGISTRY = new URL(`../../${ONE_TIME_LINK}`, import.meta.url);
 const LINK_VALUES = [
-	...readFileSync(new URL(`../../${ONE_TIME_LINK}`, import.meta.url), "utf8").matchAll(LINK_VALUE_ENTRY),
+	...(existsSync(LINK_REGISTRY) ? readFileSync(LINK_REGISTRY, "utf8") : "").matchAll(LINK_VALUE_ENTRY),
 ].map(([, path, part, param]) => ({ path, part, param }));
 const carriesLinkValue = (text) =>
 	LINK_VALUES.some(({ path, part, param }) => {
