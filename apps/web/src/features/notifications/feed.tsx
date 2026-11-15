@@ -70,9 +70,11 @@ export function useCountRefresh(): () => void {
 
 export function useReadElsewhere(): (ids: readonly string[]) => void {
 	const account = Account.useSelect((s) => s.account);
-	const { stand } = Account.useSelect((s) => s.actions);
+	const { stand, confirm } = Account.useSelect((s) => s.actions);
 	return (ids) => {
-		stand({ token: {}, ids: new Set(ids), cutoff: null });
+		const token = {};
+		stand({ token, ids: new Set(ids), cutoff: null });
+		confirm(token);
 		void unreadCount.refresh(account);
 	};
 }
@@ -106,7 +108,7 @@ const fromPage = (page: FeedPage): Ready => ({
 
 export function useFeed(query: FeedQuery, initial: FeedPage | null) {
 	const toast = useToast();
-	const { stand, withdraw } = Account.useSelect((s) => s.actions);
+	const { stand, withdraw, confirm } = Account.useSelect((s) => s.actions);
 	const marks = Account.useSelect((s) => s.marks);
 	const account = Account.useSelect((s) => s.account);
 	const count = useUnreadCount();
@@ -186,7 +188,10 @@ export function useFeed(query: FeedQuery, initial: FeedPage | null) {
 			adjustCount(account, -drop);
 			stand({ token, ids, cutoff });
 			const r = await deliver(envelope, run);
-			if (r.status === "ok") return settle?.(r.value.markedIds.length);
+			if (r.status === "ok") {
+				confirm(token);
+				return settle?.(r.value.markedIds.length);
+			}
 			withdraw(token);
 			setState((s) =>
 				s.status === "ready"
