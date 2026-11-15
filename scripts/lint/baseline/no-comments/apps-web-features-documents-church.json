@@ -36,7 +36,7 @@
 	"apps/web/src/features/documents/church/editor/table-model.ts": 7,
 	"apps/web/src/features/documents/church/editor/table-ops.ts": 37,
 	"apps/web/src/features/documents/church/editor/word-marks.ts": 7,
-	"apps/web/src/features/documents/church/labels.ts": 11,
+	"apps/web/src/features/documents/church/labels.ts": 10,
 	"apps/web/src/features/documents/church/preview/templates.ts": 1,
 	"apps/web/src/features/documents/church/refusal.ts": 2,
 	"apps/web/src/features/documents/church/routes.tsx": 6,

@@ -1,5 +1,5 @@
 {
-	"apps/web/src/features/followups/CallScreen.tsx": 4,
+	"apps/web/src/features/followups/CallScreen.tsx": 3,
 	"apps/web/src/features/followups/FollowUpsScreen.tsx": 7,
 	"apps/web/src/features/followups/HandoffDialog.tsx": 11,
 	"apps/web/src/features/followups/PersonFollowUps.tsx": 9,

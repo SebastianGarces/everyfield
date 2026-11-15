@@ -2,11 +2,10 @@
 
 import { Download01Icon } from "@hugeicons/core-free-icons";
 import { Button } from "@everyfield/ui/controls";
-import { Tag } from "@everyfield/ui/display";
+import { LocalTime, Tag } from "@everyfield/ui/display";
 import { cn } from "@everyfield/ui/foundations";
 import { useState } from "react";
 import { FORMAT_LABEL } from "../model.ts";
-import { savedAt } from "./labels.ts";
 import type { RevisionRow } from "./server.ts";
 
 // The saved revisions of one Church Document, newest first, read only. Each row downloads that revision: the download
@@ -65,11 +64,8 @@ export function ChurchRevisions({
 									{r.number === current ? <Tag>Current</Tag> : null}
 								</span>
 								<span className="text-sm text-text-3 wrap-anywhere">
-									Saved{" "}
-									<time dateTime={r.recordedAt} suppressHydrationWarning className="tabular-nums">
-										{savedAt(r.recordedAt)}
-									</time>{" "}
-									by <span className="text-text-2">{r.savedBy ?? "A former member"}</span>
+									Saved <LocalTime iso={r.recordedAt} className="tabular-nums" /> by{" "}
+									<span className="text-text-2">{r.savedBy ?? "A former member"}</span>
 								</span>
 							</div>
 							<div className="flex flex-none flex-wrap items-center gap-2">
