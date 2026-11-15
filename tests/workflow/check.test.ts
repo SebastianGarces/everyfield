@@ -71,6 +71,7 @@ function repo(t: { after(fn: () => void): void }, change: Record<string, string>
 			"tools/ci/tests/a.test.ts": [],
 			".github/scripts/a.test.cjs": [],
 			"tools/qa/tests/a.test.ts": [],
+			"tools/app/tests/a.test.ts": [],
 			"ops/actionable-watch/test/a.test.mts": [],
 		},
 	};
@@ -213,7 +214,11 @@ test("T-41 --full, the verifier mode, ignores selection: a docs-only diff runs e
 	const { root, home } = repo(
 		t,
 		{ "docs/a.md": "b\n" },
-		{ "tools/qa/tests/a.test.ts": "\n", "ops/actionable-watch/test/a.test.mts": "\n" },
+		{
+			"tools/qa/tests/a.test.ts": "\n",
+			"tools/app/tests/a.test.ts": "\n",
+			"ops/actionable-watch/test/a.test.mts": "\n",
+		},
 	);
 	const selected = check({ root, full: false, home, run: fake().run }).record;
 	assert.deepEqual(ran(selected), ["docs"]);
@@ -247,6 +252,7 @@ test("T-41 --full, the verifier mode, ignores selection: a docs-only diff runs e
 			[".github/scripts/a.test.cjs", true, "passed"],
 			["ops/actionable-watch/test/a.test.mts", true, "passed"],
 			["tests/workflow/dev.test.mjs", true, "passed"],
+			["tools/app/tests/a.test.ts", true, "passed"],
 			["tools/ci/tests/a.test.ts", true, "passed"],
 			["tools/qa/tests/a.test.ts", true, "passed"],
 		],
