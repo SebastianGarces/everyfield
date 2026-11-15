@@ -7,10 +7,10 @@ import {
 	machines,
 	mermaid,
 	refusals,
+	skips,
 	unreachableStates,
 	type MachineShape,
 	type Observation,
-	type Refusal,
 } from "../../packages/contracts/src/machines/index.ts";
 import * as registry from "../../packages/contracts/src/machines/index.ts";
 
@@ -86,18 +86,54 @@ function splitTop(list: string): string[] {
 	return items;
 }
 
-function drizzleWriters(source: ts.SourceFile, m: MachineShape, file: string): Writer[] {
+const initialStates = (m: MachineShape) => [...new Set(m.entries.map((e) => e.to))];
+
+function drizzleWriters(source: ts.SourceFile, m: MachineShape, file: string, binding: string): Writer[] {
 	const found: Writer[] = [];
 	const target = new RegExp(`(?:^|\\.)${escape(m.table)}$`);
+	const targetColumn = new RegExp(`(?:^|\\.)${escape(m.table)}\\.${escape(m.column)}$`);
+	const column = (p: ts.ObjectLiteralElementLike) =>
+		p.name !== undefined &&
+		!ts.isComputedPropertyName(p.name) &&
+		p.name.getText(source).replace(/["']/g, "") === m.column;
 	const names = (arg: ts.Expression) =>
 		!ts.isObjectLiteralExpression(arg) ||
 		arg.properties.some(
-			(p) =>
-				ts.isSpreadAssignment(p) ||
-				p.name === undefined ||
-				ts.isComputedPropertyName(p.name) ||
-				p.name.getText(source).replace(/["']/g, "") === m.column,
+			(p) => ts.isSpreadAssignment(p) || p.name === undefined || ts.isComputedPropertyName(p.name) || column(p),
 		);
+	const initial = (arg: ts.Expression) => {
+		if (!ts.isObjectLiteralExpression(arg)) return false;
+		const last = arg.properties.findLast(
+			(p) => ts.isSpreadAssignment(p) || p.name === undefined || ts.isComputedPropertyName(p.name) || column(p),
+		);
+		return (
+			last !== undefined &&
+			ts.isPropertyAssignment(last) &&
+			column(last) &&
+			ts.isStringLiteral(last.initializer) &&
+			initialStates(m).includes(last.initializer.text)
+		);
+	};
+	const filtered = (where: ts.Expression): boolean => {
+		if (!ts.isCallExpression(where)) return false;
+		const callee = where.expression.getText(source);
+		if (callee === "and") return where.arguments.some(filtered);
+		return (
+			callee === "inArray" &&
+			where.arguments.length === 2 &&
+			targetColumn.test(where.arguments[0]!.getText(source)) &&
+			guardCall(where.arguments[1]!, binding)
+		);
+	};
+	const guardOf = (node: ts.CallExpression, kind: string): string | null => {
+		if (kind === "values") return node.arguments.length === 1 && initial(node.arguments[0]!) ? "initial state" : null;
+		const parent = node.parent;
+		const where =
+			ts.isPropertyAccessExpression(parent) && parent.name.text === "where" && ts.isCallExpression(parent.parent)
+				? parent.parent
+				: null;
+		return where && where.arguments.length === 1 && filtered(where.arguments[0]!) ? "from-state filter" : null;
+	};
 	const visit = (node: ts.Node) => {
 		if (
 			ts.isCallExpression(node) &&
@@ -113,7 +149,7 @@ function drizzleWriters(source: ts.SourceFile, m: MachineShape, file: string): W
 				file,
 				line: source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1,
 				statement: "drizzle",
-				guard: null,
+				guard: guardOf(node, node.expression.name.text),
 			});
 		ts.forEachChild(node, visit);
 	};
@@ -176,7 +212,9 @@ export function census(root: string, m: MachineShape, binding = bindingOf(m)): W
 				if (at < 0) continue;
 				const value = i[3] === undefined ? undefined : splitTop(i[3])[at];
 				const initial =
-					!sqlFile && value !== undefined && new RegExp(`^'${escape(m.initial.to)}'(?:::text)?$`).test(value);
+					!sqlFile &&
+					value !== undefined &&
+					initialStates(m).some((to) => new RegExp(`^'${escape(to)}'(?:::text)?$`).test(value));
 				writers.push({ file, line, statement: "insert", guard: initial ? "initial state" : null });
 			}
 		}
@@ -184,16 +222,19 @@ export function census(root: string, m: MachineShape, binding = bindingOf(m)): W
 			for (const lit of found)
 				if (!STATEMENT.test(lit.text) && splitTop(lit.text).some((item) => assigns.test(item)))
 					writers.push({ file, line: lit.line, statement: "set fragment", guard: null });
-		if (source) writers.push(...drizzleWriters(source, m, file));
+		if (source) writers.push(...drizzleWriters(source, m, file, binding));
 	}
 	return writers.sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line);
 }
 
 const title = (id: string) => id.charAt(0).toUpperCase() + id.slice(1).replace(/-/g, " ");
-const refusalRow = (r: Refusal) => `| ${r.subject} | \`${r.event}\` | ${r.from} | ${r.to} |`;
+const code = (text: string) => `\`${text}\``;
+const list = (items: readonly string[]) => items.map(code).join(", ");
 
-export function render(m: MachineShape, declaredRefusals: readonly Refusal[], writers: readonly Writer[]): string {
-	const statements = [...new Map(writers.map((w) => [`${w.file} ${w.statement}`, w])).values()];
+export function render(m: MachineShape, writers: readonly Writer[]): string {
+	const statements = [...new Map(writers.map((w) => [`${w.file} ${w.statement} ${w.guard}`, w])).values()];
+	const declaredRefusals = refusals(m),
+		declaredSkips = skips(m);
 	return [
 		`# ${title(m.id)} machine`,
 		"",
@@ -201,14 +242,20 @@ export function render(m: MachineShape, declaredRefusals: readonly Refusal[], wr
 		"`node tools/ci/machines.ts --check` fails when this page differs from the table, and when the writer census below",
 		"finds a write of the column that does not carry the machine's guard.",
 		"",
-		`- Column: \`${m.table}.${m.column}\``,
-		`- States: ${m.states.map((s) => `\`${s}\``).join(", ")}`,
-		`- Subjects the guards tell apart: ${Object.keys(m.subjects)
-			.map((s) => `\`${s}\``)
-			.join(", ")}`,
-		`- Refusal for every move the chart does not show: \`${m.refusal}\``,
+		`- Column: ${code(`${m.table}.${m.column}`)}`,
+		`- States: ${list(m.states)}`,
+		`- Subjects the guards tell apart: ${list(Object.keys(m.subjects))}`,
+		...(m.facts?.length ? [`- Guards that describe the moment, not the subject: ${list(m.facts)}`] : []),
+		`- Refusal for every move the chart does not show: ${code(m.refusal)}`,
+		...(m.refusalCodes ?? []).map(
+			(r) =>
+				`- ${code(r.code)} instead for ${code(r.event)}${r.from === undefined ? "" : ` from ${list(typeof r.from === "string" ? [r.from] : r.from)}`}`,
+		),
 		...(m.unchangedIsNoop.length
-			? [`- A request for the current state writes nothing: ${m.unchangedIsNoop.map((e) => `\`${e}\``).join(", ")}`]
+			? [`- A request for the current state writes nothing: ${list(m.unchangedIsNoop)}`]
+			: []),
+		...(declaredSkips.length
+			? ["- A sweep changes only the rows in its from-states and leaves every other row as it is"]
 			: []),
 		"",
 		"```mermaid",
@@ -217,26 +264,41 @@ export function render(m: MachineShape, declaredRefusals: readonly Refusal[], wr
 		"",
 		"## Refused moves",
 		"",
-		"| Subject | Event | From | To |",
-		"|---|---|---|---|",
-		...declaredRefusals.map(refusalRow),
+		"| Subject | Event | From | To | Refusal |",
+		"|---|---|---|---|---|",
+		...declaredRefusals.map((r) => `| ${r.subject} | ${code(r.event)} | ${r.from} | ${r.to} | ${code(r.code)} |`),
+		...(declaredSkips.length
+			? [
+					"",
+					"## Rows a sweep leaves unchanged",
+					"",
+					"| Subject | Event | From | Not moved to |",
+					"|---|---|---|---|",
+					...declaredSkips.map((r) => `| ${r.subject} | ${code(r.event)} | ${r.from} | ${r.to} |`),
+				]
+			: []),
 		"",
 		"## Writers of the column",
 		"",
 		"| File | Statement | Guard |",
 		"|---|---|---|",
-		...statements.map((w) => `| \`${w.file}\` | ${w.statement} | ${w.guard ?? "none"} |`),
+		...statements.map((w) => `| ${code(w.file)} | ${w.statement} | ${w.guard ?? "none"} |`),
 		"",
 		"The census is a static scan of git-tracked product code and SQL files under apps, packages, ops, scripts and",
 		"tools. It reads SQL literals (with an optional schema prefix), SET fragments in a file that also holds a dynamic",
 		"`SET ${…}` on the table, Drizzle `update`/`insert` calls, and `.sql` files. A guarded UPDATE filters on",
-		`\`${m.column} = ANY(\${fromStates(${bindingOf(m)}, …)})\` in the same statement; a guarded INSERT writes the`,
-		"initial state. A column name or statement start built at runtime, or a Drizzle object that is not a literal, counts",
-		"as an unguarded writer.",
+		`\`${m.column} = ANY(\${fromStates(${bindingOf(m)}, …)})\` in the same statement, or a Drizzle update on`,
+		`\`inArray(<table>.${m.column}, fromStates(${bindingOf(m)}, …))\` in its \`where\` (alone or inside \`and\`). A guarded`,
+		"INSERT writes an initial state as a literal; in a Drizzle object literal that is the last property that names",
+		"the column, after any spread. A column name or statement start built at runtime, or a Drizzle object that is not",
+		"a literal, counts as an unguarded writer.",
 		"",
 		"It cannot see: a SET fragment passed in from another file, SQL text assembled from variables that hold no",
 		"literal naming the table, statements sent outside this repository, or writes made by hand in a database",
 		"session. Only a database trigger generated from this table would refuse those.",
+		"",
+		"It is strict where it cannot tell: a write in a `.sql` file counts as unguarded, and so does a bare",
+		`\`${m.column} = …\` fragment of any table in a file that also holds a dynamic \`UPDATE ${m.table} SET \${…}\`.`,
 		"",
 		"## Proof",
 		"",
@@ -264,7 +326,7 @@ export function checkMachines(root: string, write = false): string[] {
 				);
 		for (const s of unreachableStates(m)) problems.push(`${m.id}: state ${s} has no incoming edge.`);
 		if (!existsSync(join(root, m.proof))) problems.push(`${m.id}: proof test ${m.proof} does not exist.`);
-		const expected = render(m, refusals(m), writers),
+		const expected = render(m, writers),
 			path = join(root, page(m));
 		if (write) {
 			mkdirSync(dirname(path), { recursive: true });
@@ -280,7 +342,7 @@ export function coverageReport(file: string): { lines: string[]; complete: boole
 		.split("\n")
 		.filter(Boolean)
 		.map((line) => JSON.parse(line) as Observation);
-	const results = machines.map((m) => coverage(m, refusals(m), observations));
+	const results = machines.map((m) => coverage(m, observations));
 	return {
 		lines: results.flatMap((r) => [r.line, ...r.missing.map((k) => `  missing: ${k}`)]),
 		complete: results.every((r) => r.complete),

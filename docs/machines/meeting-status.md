@@ -36,63 +36,63 @@ stateDiagram-v2
 
 ## Refused moves
 
-| Subject | Event | From | To |
-|---|---|---|---|
-| vision | `meetings.changeStatus` | planning | completed |
-| vision | `meetings.changeStatus` | ready | completed |
-| vision | `meetings.changeStatus` | in_progress | planning |
-| vision | `meetings.changeStatus` | completed | ready |
-| vision | `meetings.changeStatus` | completed | cancelled |
-| vision | `meetings.changeStatus` | completed | planning |
-| vision | `meetings.changeStatus` | cancelled | ready |
-| vision | `meetings.changeStatus` | cancelled | in_progress |
-| vision | `meetings.changeStatus` | cancelled | completed |
-| vision | `meetings.correctOccurrence` | planning | planning |
-| vision | `meetings.correctOccurrence` | ready | ready |
-| vision | `meetings.correctOccurrence` | in_progress | in_progress |
-| vision | `meetings.correctOccurrence` | cancelled | cancelled |
-| orientation | `meetings.changeStatus` | planning | completed |
-| orientation | `meetings.changeStatus` | ready | completed |
-| orientation | `meetings.changeStatus` | in_progress | planning |
-| orientation | `meetings.changeStatus` | completed | ready |
-| orientation | `meetings.changeStatus` | completed | cancelled |
-| orientation | `meetings.changeStatus` | completed | planning |
-| orientation | `meetings.changeStatus` | cancelled | ready |
-| orientation | `meetings.changeStatus` | cancelled | in_progress |
-| orientation | `meetings.changeStatus` | cancelled | completed |
-| orientation | `meetings.correctOccurrence` | planning | planning |
-| orientation | `meetings.correctOccurrence` | ready | ready |
-| orientation | `meetings.correctOccurrence` | in_progress | in_progress |
-| orientation | `meetings.correctOccurrence` | cancelled | cancelled |
-| team | `meetings.changeStatus` | planning | completed |
-| team | `meetings.changeStatus` | ready | completed |
-| team | `meetings.changeStatus` | in_progress | planning |
-| team | `meetings.changeStatus` | completed | ready |
-| team | `meetings.changeStatus` | completed | cancelled |
-| team | `meetings.changeStatus` | completed | planning |
-| team | `meetings.changeStatus` | cancelled | ready |
-| team | `meetings.changeStatus` | cancelled | in_progress |
-| team | `meetings.changeStatus` | cancelled | completed |
-| team | `meetings.correctOccurrence` | planning | planning |
-| team | `meetings.correctOccurrence` | ready | ready |
-| team | `meetings.correctOccurrence` | in_progress | in_progress |
-| team | `meetings.correctOccurrence` | cancelled | cancelled |
-| practice | `meetings.changeStatus` | planning | completed |
-| practice | `meetings.changeStatus` | ready | completed |
-| practice | `meetings.changeStatus` | in_progress | planning |
-| practice | `meetings.changeStatus` | in_progress | completed |
-| practice | `meetings.changeStatus` | completed | ready |
-| practice | `meetings.changeStatus` | completed | in_progress |
-| practice | `meetings.changeStatus` | completed | cancelled |
-| practice | `meetings.changeStatus` | completed | planning |
-| practice | `meetings.changeStatus` | cancelled | ready |
-| practice | `meetings.changeStatus` | cancelled | in_progress |
-| practice | `meetings.changeStatus` | cancelled | completed |
-| practice | `meetings.completePractice` | cancelled | completed |
-| practice | `meetings.correctOccurrence` | planning | planning |
-| practice | `meetings.correctOccurrence` | ready | ready |
-| practice | `meetings.correctOccurrence` | in_progress | in_progress |
-| practice | `meetings.correctOccurrence` | cancelled | cancelled |
+| Subject | Event | From | To | Refusal |
+|---|---|---|---|---|
+| vision | `meetings.changeStatus` | planning | completed | `status_transition` |
+| vision | `meetings.changeStatus` | ready | completed | `status_transition` |
+| vision | `meetings.changeStatus` | in_progress | planning | `status_transition` |
+| vision | `meetings.changeStatus` | completed | ready | `status_transition` |
+| vision | `meetings.changeStatus` | completed | cancelled | `status_transition` |
+| vision | `meetings.changeStatus` | completed | planning | `status_transition` |
+| vision | `meetings.changeStatus` | cancelled | ready | `status_transition` |
+| vision | `meetings.changeStatus` | cancelled | in_progress | `status_transition` |
+| vision | `meetings.changeStatus` | cancelled | completed | `status_transition` |
+| vision | `meetings.correctOccurrence` | planning | planning | `status_transition` |
+| vision | `meetings.correctOccurrence` | ready | ready | `status_transition` |
+| vision | `meetings.correctOccurrence` | in_progress | in_progress | `status_transition` |
+| vision | `meetings.correctOccurrence` | cancelled | cancelled | `status_transition` |
+| orientation | `meetings.changeStatus` | planning | completed | `status_transition` |
+| orientation | `meetings.changeStatus` | ready | completed | `status_transition` |
+| orientation | `meetings.changeStatus` | in_progress | planning | `status_transition` |
+| orientation | `meetings.changeStatus` | completed | ready | `status_transition` |
+| orientation | `meetings.changeStatus` | completed | cancelled | `status_transition` |
+| orientation | `meetings.changeStatus` | completed | planning | `status_transition` |
+| orientation | `meetings.changeStatus` | cancelled | ready | `status_transition` |
+| orientation | `meetings.changeStatus` | cancelled | in_progress | `status_transition` |
+| orientation | `meetings.changeStatus` | cancelled | completed | `status_transition` |
+| orientation | `meetings.correctOccurrence` | planning | planning | `status_transition` |
+| orientation | `meetings.correctOccurrence` | ready | ready | `status_transition` |
+| orientation | `meetings.correctOccurrence` | in_progress | in_progress | `status_transition` |
+| orientation | `meetings.correctOccurrence` | cancelled | cancelled | `status_transition` |
+| team | `meetings.changeStatus` | planning | completed | `status_transition` |
+| team | `meetings.changeStatus` | ready | completed | `status_transition` |
+| team | `meetings.changeStatus` | in_progress | planning | `status_transition` |
+| team | `meetings.changeStatus` | completed | ready | `status_transition` |
+| team | `meetings.changeStatus` | completed | cancelled | `status_transition` |
+| team | `meetings.changeStatus` | completed | planning | `status_transition` |
+| team | `meetings.changeStatus` | cancelled | ready | `status_transition` |
+| team | `meetings.changeStatus` | cancelled | in_progress | `status_transition` |
+| team | `meetings.changeStatus` | cancelled | completed | `status_transition` |
+| team | `meetings.correctOccurrence` | planning | planning | `status_transition` |
+| team | `meetings.correctOccurrence` | ready | ready | `status_transition` |
+| team | `meetings.correctOccurrence` | in_progress | in_progress | `status_transition` |
+| team | `meetings.correctOccurrence` | cancelled | cancelled | `status_transition` |
+| practice | `meetings.changeStatus` | planning | completed | `status_transition` |
+| practice | `meetings.changeStatus` | ready | completed | `status_transition` |
+| practice | `meetings.changeStatus` | in_progress | planning | `status_transition` |
+| practice | `meetings.changeStatus` | in_progress | completed | `status_transition` |
+| practice | `meetings.changeStatus` | completed | ready | `status_transition` |
+| practice | `meetings.changeStatus` | completed | in_progress | `status_transition` |
+| practice | `meetings.changeStatus` | completed | cancelled | `status_transition` |
+| practice | `meetings.changeStatus` | completed | planning | `status_transition` |
+| practice | `meetings.changeStatus` | cancelled | ready | `status_transition` |
+| practice | `meetings.changeStatus` | cancelled | in_progress | `status_transition` |
+| practice | `meetings.changeStatus` | cancelled | completed | `status_transition` |
+| practice | `meetings.completePractice` | cancelled | completed | `status_transition` |
+| practice | `meetings.correctOccurrence` | planning | planning | `status_transition` |
+| practice | `meetings.correctOccurrence` | ready | ready | `status_transition` |
+| practice | `meetings.correctOccurrence` | in_progress | in_progress | `status_transition` |
+| practice | `meetings.correctOccurrence` | cancelled | cancelled | `status_transition` |
 
 ## Writers of the column
 
@@ -104,13 +104,18 @@ stateDiagram-v2
 The census is a static scan of git-tracked product code and SQL files under apps, packages, ops, scripts and
 tools. It reads SQL literals (with an optional schema prefix), SET fragments in a file that also holds a dynamic
 `SET ${…}` on the table, Drizzle `update`/`insert` calls, and `.sql` files. A guarded UPDATE filters on
-`status = ANY(${fromStates(meetingStatusMachine, …)})` in the same statement; a guarded INSERT writes the
-initial state. A column name or statement start built at runtime, or a Drizzle object that is not a literal, counts
-as an unguarded writer.
+`status = ANY(${fromStates(meetingStatusMachine, …)})` in the same statement, or a Drizzle update on
+`inArray(<table>.status, fromStates(meetingStatusMachine, …))` in its `where` (alone or inside `and`). A guarded
+INSERT writes an initial state as a literal; in a Drizzle object literal that is the last property that names
+the column, after any spread. A column name or statement start built at runtime, or a Drizzle object that is not
+a literal, counts as an unguarded writer.
 
 It cannot see: a SET fragment passed in from another file, SQL text assembled from variables that hold no
 literal naming the table, statements sent outside this repository, or writes made by hand in a database
 session. Only a database trigger generated from this table would refuse those.
+
+It is strict where it cannot tell: a write in a `.sql` file counts as unguarded, and so does a bare
+`status = …` fragment of any table in a file that also holds a dynamic `UPDATE meeting SET ${…}`.
 
 ## Proof
 

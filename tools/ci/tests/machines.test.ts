@@ -4,9 +4,9 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { appendFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
+import { machines } from "../../../packages/contracts/src/machines/index.ts";
 
 const tool = resolve(import.meta.dirname, "../machines.ts");
-const proof = "tests/integration/meetings/status-machine.test.mts";
 const writer = "packages/domain/src/meetings/meetings.ts";
 
 const guarded = [
@@ -25,7 +25,7 @@ function repo() {
 		writeFileSync(join(root, file), source);
 		execFileSync("git", ["add", file], { cwd: root });
 	};
-	put(proof, "");
+	for (const m of machines) put(m.proof, "");
 	put(writer, guarded);
 	const cli = (...args: string[]) => spawnSync(process.execPath, [tool, ...args], { cwd: root, encoding: "utf8" });
 	return { root, put, cli, close: () => rmSync(root, { recursive: true, force: true }) };
@@ -114,6 +114,24 @@ test("INV-machines: a guarded writer and a current chart pass; a stale chart and
 			],
 			["drizzle update from a variable", a, "tx.update(tables.meeting).set(patch);", /a\.ts:1: drizzle writes/],
 			[
+				"drizzle update filtered inside or",
+				a,
+				"tx.update(tables.meeting).set({ status: to }).where(or(eq(tables.meeting.id, id), inArray(tables.meeting.status, fromStates(meetingStatusMachine, e, to, m))));",
+				/a\.ts:1: drizzle writes/,
+			],
+			[
+				"drizzle update filtered on another column",
+				a,
+				"tx.update(tables.meeting).set({ status: to }).where(inArray(tables.meeting.type, fromStates(meetingStatusMachine, e, to, m)));",
+				/a\.ts:1: drizzle writes/,
+			],
+			[
+				"drizzle insert whose spread comes after the initial state",
+				a,
+				"tx.insert(tables.meeting).values({ status: 'planning', ...row });",
+				/a\.ts:1: drizzle writes/,
+			],
+			[
 				"drizzle update with a computed key",
 				a,
 				"tx.update(tables.meeting).set({ ['status']: 'cancelled' });",
@@ -136,6 +154,18 @@ test("INV-machines: a guarded writer and a current chart pass; a stale chart and
 		r.put("packages/other/src/a.test.ts", "sql`UPDATE meeting SET status = 'ready' WHERE id = ${id}`");
 		r.put("packages/other/src/a.ts", "sql`UPDATE meeting SET title = ${t} WHERE status = 'ready'`");
 		assert.equal(r.cli("--check").status, 0, "test files and reads of the column are not writers");
+		r.put(
+			"packages/other/src/b.ts",
+			[
+				"tx.update(tables.meeting).set({ status: to }).where(and(eq(tables.meeting.id, id), inArray(tables.meeting.status, fromStates(meetingStatusMachine, e, to, m))));",
+				"tx.insert(tables.meeting).values({ ...row, status: 'planning' });",
+			].join("\n"),
+		);
+		assert.equal(r.cli("--write").status, 0);
+		assert.equal(r.cli("--check").status, 0, "a filtered Drizzle update and an initial Drizzle insert are guarded");
+		const writers = r.cli("census").stdout;
+		assert.match(writers, /packages\/other\/src\/b\.ts:1 drizzle guard=from-state filter/);
+		assert.match(writers, /packages\/other\/src\/b\.ts:2 drizzle guard=initial state/);
 	} finally {
 		r.close();
 	}
