@@ -109,7 +109,9 @@ export function observeScrollProgress<T extends HTMLElement>(
 			const seen = Math.min(total, Math.max(0, edge - node.getBoundingClientRect().top));
 			onProgress(seen / total);
 		};
-		const stopSize = observeSize<T>(report, { also: () => [root], viewport: !root })(node);
+		let laidOut = false;
+		const stopSize = observeSize<T>(() => laidOut && report(), { also: () => [root], viewport: !root })(node);
+		laidOut = true;
 		const stopScroll = observeScroll<T>(report, { root: () => root })(node);
 		return () => {
 			stopSize?.();
