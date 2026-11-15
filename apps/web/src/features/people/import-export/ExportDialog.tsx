@@ -12,7 +12,7 @@ import {
 	DialogFooter,
 	DialogHeader,
 } from "@everyfield/ui/controls";
-import { useCallback, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { querySearch, type PeopleQuery } from "../model.ts";
 import { describeFilters, plural } from "./model.ts";
 import "./export.css";
@@ -35,19 +35,14 @@ export function ExportDialog({
 	const [state, setState] = useState<State>({ kind: "ready" });
 	const busy = state.kind === "exporting";
 	const file = useRef<string | null>(null);
-	const releaseOnDetach = useCallback(
-		(node: HTMLDivElement | null) =>
-			node
-				? () => {
-						if (file.current) URL.revokeObjectURL(file.current);
-						file.current = null;
-					}
-				: undefined,
-		[],
-	);
+	const release = () => {
+		if (file.current) URL.revokeObjectURL(file.current);
+		file.current = null;
+	};
 	const filters = describeFilters(query);
 
 	const download = async () => {
+		release();
 		setState({ kind: "exporting" });
 		try {
 			const res = await fetch(`/api/people/export${querySearch({ ...query, page: 1 })}`, { cache: "no-store" });
@@ -76,6 +71,7 @@ export function ExportDialog({
 
 	const close = () => {
 		if (busy) return;
+		release();
 		onOpenChange(false);
 		setState({ kind: "ready" });
 	};
@@ -104,7 +100,7 @@ export function ExportDialog({
 					</p>
 					<div aria-live="polite">
 						{state.kind === "done" ? (
-							<Card ref={releaseOnDetach} variant="callout" tone="green">
+							<Card variant="callout" tone="green">
 								<CalloutLabel tone="green" icon={Tick02Icon}>
 									{state.complete ? "Downloaded" : "Downloaded, not complete"}
 								</CalloutLabel>

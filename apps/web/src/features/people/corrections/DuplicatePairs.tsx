@@ -15,7 +15,7 @@ import {
 	IntentLink,
 } from "@everyfield/ui/controls";
 import { Avatar } from "@everyfield/ui/display";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { sendTwice, type Outcome } from "../../../components/save/model.ts";
 import { dismissPair, restorePair, type PairChange } from "./actions.ts";
 import {
@@ -42,8 +42,8 @@ let returned: string | null = null;
 export const leaveConfirmation = (text: string) => {
 	returned = text;
 };
-const takeConfirmation = (node: HTMLElement | null) => {
-	if (node) returned = null;
+const consumeConfirmation = () => {
+	returned = null;
 };
 
 function usePairs<P extends Pair>(items: readonly P[], action: PairAction) {
@@ -67,12 +67,13 @@ function usePairs<P extends Pair>(items: readonly P[], action: PairAction) {
 export function DuplicatePairs({ pairs }: { pairs: Pairs }) {
 	const { shown, notice, run, said } = usePairs(pairs.items, "dismiss");
 	const [confirmation] = useState(() => returned);
+	useEffect(consumeConfirmation, []);
 	const count = shown.length;
 	return (
 		<>
 			<Said text={said} />
 			{confirmation ? (
-				<Card ref={takeConfirmation} variant="callout" tone="green" role="status" className="mb-5">
+				<Card variant="callout" tone="green" role="status" className="mb-5">
 					<CalloutLabel tone="green" icon={Tick02Icon}>
 						Marked not a duplicate
 					</CalloutLabel>
