@@ -53,20 +53,7 @@ export function SiteNav({ links, cta, logo, pillLogo, arrow, menuIcon }: Props) 
 		setOpen(closing ? null : which);
 		if (closing && e.detail === 0) (which === "pill" ? pillToggle : inflowToggle).current?.focus();
 	};
-	const bar = (which: Which) => (
-		<NavBar
-			which={which}
-			links={links}
-			cta={cta}
-			logo={which === "pill" ? pillLogo : logo}
-			arrow={arrow}
-			menuIcon={menuIcon}
-			open={open === which}
-			toggleRef={which === "pill" ? pillToggle : inflowToggle}
-			onToggle={(e) => toggle(which, e)}
-			onLinkClick={() => setOpen(null)}
-		/>
-	);
+	const shared = { links, cta, arrow, menuIcon, onLinkClick: () => setOpen(null) };
 
 	return (
 		<>
@@ -78,7 +65,14 @@ export function SiteNav({ links, cta, logo, pillLogo, arrow, menuIcon }: Props) 
 				onFocus={() => setFocusInHeader(true)}
 				onBlur={(e) => setFocusInHeader(e.currentTarget.contains(e.relatedTarget))}
 			>
-				{bar("inflow")}
+				<NavBar
+					{...shared}
+					which="inflow"
+					logo={logo}
+					open={open === "inflow"}
+					toggleRef={inflowToggle}
+					onToggle={(e) => toggle("inflow", e)}
+				/>
 			</header>
 			<header
 				data-on={pillOn}
@@ -97,7 +91,14 @@ export function SiteNav({ links, cta, logo, pillLogo, arrow, menuIcon }: Props) 
 					"max-mk-sm:top-[calc(12px_+_env(safe-area-inset-top))] max-mk-sm:right-[max(var(--spacing-page),env(safe-area-inset-right))] max-mk-sm:left-[max(var(--spacing-page),env(safe-area-inset-left))] max-mk-sm:w-auto",
 				)}
 			>
-				{bar("pill")}
+				<NavBar
+					{...shared}
+					which="pill"
+					logo={pillLogo}
+					open={open === "pill"}
+					toggleRef={pillToggle}
+					onToggle={(e) => toggle("pill", e)}
+				/>
 			</header>
 		</>
 	);
