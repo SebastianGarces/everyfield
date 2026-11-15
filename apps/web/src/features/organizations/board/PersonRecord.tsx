@@ -22,7 +22,7 @@ import {
 	Textarea,
 } from "@everyfield/ui/controls";
 import { Avatar } from "@everyfield/ui/display";
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useActionState, useState, type FormEvent, type ReactNode } from "react";
 import {
 	addNote,
 	editNote,
@@ -302,6 +302,8 @@ function MoveDialog({
 	);
 }
 
+type MoveState = { error: string | null; problem: string | null; stageId: string; reason: string };
+
 function MoveForm({
 	record,
 	stages,
@@ -312,39 +314,35 @@ function MoveForm({
 	onSubmit: (stageId: string, reason: string) => Promise<string | null>;
 }) {
 	const choices = stages.filter((s) => s.id !== record.stage.id);
-	const [stageId, setStageId] = useState(choices[0]?.id ?? "");
-	const [reason, setReason] = useState("");
-	const [error, setError] = useState<string | null>(null);
-	const [problem, setProblem] = useState<string | null>(null);
-	const [saving, setSaving] = useState(false);
-	async function submit(event: FormEvent) {
-		event.preventDefault();
-		if (!reason.trim()) {
-			setError("Give a reason for this move.");
-			return;
-		}
-		setError(null);
-		setSaving(true);
-		const failed = await onSubmit(stageId, reason.trim());
-		setSaving(false);
-		setProblem(failed);
-		if (!failed) setReason("");
-	}
+	const [state, move, saving] = useActionState(
+		async (_: MoveState, form: FormData): Promise<MoveState> => {
+			const stageId = String(form.get("stageId") ?? "");
+			const reason = String(form.get("reason") ?? "").trim();
+			if (!reason) return { error: "Give a reason for this move.", problem: null, stageId, reason };
+			const problem = await onSubmit(stageId, reason);
+			return { error: null, problem, stageId, reason: problem ? reason : "" };
+		},
+		{ error: null, problem: null, stageId: choices[0]?.id ?? "", reason: "" },
+	);
 	return (
-		<form onSubmit={submit} noValidate className="contents">
+		<form action={move} noValidate className="contents">
 			<DialogHeader title={`Move ${record.name}`} description={`Now at ${record.stage.label}.`} />
 			<DialogBody className="flex flex-col gap-4">
 				<Field label="Move to">
 					<Select
-						value={stageId}
-						onValueChange={setStageId}
+						name="stageId"
+						defaultValue={state.stageId}
 						options={choices.map((s) => ({ value: s.id, label: s.label }))}
 					/>
 				</Field>
-				<Field label="Reason" error={error ?? undefined} hint="Staff with access to this record see it in the history.">
-					<Textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={3} maxLength={1000} />
+				<Field
+					label="Reason"
+					error={state.error ?? undefined}
+					hint="Staff with access to this record see it in the history."
+				>
+					<Textarea name="reason" defaultValue={state.reason} rows={3} maxLength={1000} />
 				</Field>
-				<Problem text={problem} />
+				<Problem text={state.problem} />
 			</DialogBody>
 			<DialogFooter>
 				<Button type="submit" variant="primary" loading={saving}>

@@ -26,7 +26,8 @@ import {
 	useToast,
 } from "@everyfield/ui/controls";
 import { DeltaChip, StatusBadge } from "@everyfield/ui/display";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
+import { useLocalStore, useStore } from "../../components/store.ts";
 import { DialogNotice, SaveNotice, useRowLanes, type RowSave, type SaveIntent } from "../../components/save/parts.tsx";
 import { loadMeetingFollowUps } from "../followups/fetch.ts";
 import { preferredOwners } from "../followups/model.ts";
@@ -56,6 +57,7 @@ import {
 	type Scores,
 } from "./model.ts";
 import { Problem } from "./parts.tsx";
+import { choiceOf, chosenOf, createSettleStore, selectUnchanged } from "./SettleForm.store.ts";
 
 type Who = { personId: string; displayName: string };
 type PresenceAnswer = Extract<Awaited<ReturnType<typeof setPresence>>, { status: "ok" }>["value"];
@@ -355,80 +357,41 @@ function SettleForm({
 	onConflict,
 }: Omit<Parameters<typeof SettleDialog>[0], "open">) {
 	const current: string[] = attendedOf(attendance).map((a) => a.person.personId);
-	const [ids, setIds] = useState<string[]>(initial?.attendeeIds ?? current);
-	const [followUp, setFollowUpValue] = useState<string[]>(initial?.followUpAssigneeIds ?? []);
-	const [chose, setChose] = useState(initial !== null);
-	const setFollowUp = (v: string[]) => {
-		setChose(true);
-		setFollowUpValue(v);
-	};
-	useEffect(() => {
-		if (mode !== "reconcile" || chose) return;
-		let live = true;
-		void loadMeetingFollowUps(meeting.id).then((r) => {
-			const current = r.status === "ok" ? preferredOwners(r.value.items) : [];
-			if (live && current.length) setFollowUpValue(current);
-		});
-		return () => {
-			live = false;
-		};
-	}, [mode, meeting.id, chose]);
-	const [evaluation, setEvaluation] = useState<string[]>(initial?.evaluationAssigneeIds ?? []);
-	const [reason, setReason] = useState(initial?.reason ?? "");
+	const store = useLocalStore(() =>
+		createSettleStore({
+			mode,
+			meetingId: meeting.id,
+			current,
+			initial,
+			port: {
+				preview: (choice) => previewSettlement(mode, attendance.attendanceRevision, choice),
+				followUpOwners: () =>
+					loadMeetingFollowUps(meeting.id).then((r) => (r.status === "ok" ? preferredOwners(r.value.items) : [])),
+				conflict: onConflict,
+			},
+		}),
+	);
+	const s = useStore(store, (state) => state);
+	const { ids, followUp, evaluation, reason, touched, actions } = s;
+	const holdPreview = useCallback((node: HTMLFormElement | null) => store.getState().actions.hold(node), [store]);
 	const listRef = useRef<HTMLFieldSetElement>(null);
 	const reasonRef = useRef<HTMLTextAreaElement>(null);
-	const [touched, setTouched] = useState(false);
 	const vision = meeting.type === "vision_meeting";
 	const reconcile = mode === "reconcile";
 	const name = new Map<string, string>(attendance.items.map((a) => [a.person.personId, a.person.displayName]));
 	for (const g of guests) name.set(g.person.personId, g.person.displayName);
 	const added = ids.filter((id) => !current.includes(id));
 	const removed = current.filter((id) => !ids.includes(id));
-	const unchanged = reconcile && added.length === 0 && removed.length === 0;
+	const unchanged = selectUnchanged(s, mode, current);
 	const reasonMissing = reconcile && reason.trim() === "";
 	const choices = [
 		...guests.filter((g) => g.person.state === "live" || current.includes(g.person.personId)).map((g) => g.person),
 		...attendance.items.filter((a) => !guests.some((g) => g.id === a.guestId)).map((a) => a.person),
 	];
-	const choice = {
-		meetingId: meeting.id,
-		attendeeIds: [...ids].sort(),
-		followUpAssigneeIds: [...followUp].sort(),
-		...(reconcile ? { reason: "Review" } : { evaluationAssigneeIds: [...evaluation].sort() }),
-	};
-	const choiceKey = JSON.stringify(choice);
-	const [attempt, setAttempt] = useState(0);
-	const [got, setGot] = useState<{ key: string; attempt: number; value: Outcome<Finalization> } | null>(null);
+	const choiceKey = JSON.stringify(choiceOf(s, meeting.id, mode));
 	const retryRef = useRef<HTMLButtonElement>(null);
-	const chosen: SettleInput = {
-		attendeeIds: ids,
-		followUpAssigneeIds: followUp,
-		evaluationAssigneeIds: evaluation,
-		reason: reason.trim(),
-	};
-	const conflictRef = useRef(() => onConflict(chosen));
-	useEffect(() => {
-		conflictRef.current = () => onConflict(chosen);
-	});
-	useEffect(() => {
-		if (unchanged) return;
-		let live = true;
-		const t = setTimeout(() => {
-			previewSettlement(mode, attendance.attendanceRevision, JSON.parse(choiceKey))
-				.catch(() => ({ status: "lost" }) as const)
-				.then((value) => {
-					if (!live) return;
-					if (value.status === "refused" && value.code === "conflict") return conflictRef.current();
-					setGot({ key: choiceKey, attempt, value });
-				});
-		}, 250);
-		return () => {
-			live = false;
-			clearTimeout(t);
-		};
-	}, [choiceKey, attempt, mode, attendance.attendanceRevision, unchanged]);
-	const settled = got !== null && got.key === choiceKey && got.attempt === attempt;
-	const effects: Outcome<Finalization> = settled ? got.value : { status: "lost" };
+	const settled = s.effects !== null && s.effects.key === choiceKey;
+	const effects: Outcome<Finalization> = settled && s.effects ? s.effects.value : { status: "lost" };
 	const owner = (
 		label: string,
 		value: string[],
@@ -447,18 +410,25 @@ function SettleForm({
 		</Field>
 	);
 	return (
-		<DialogContent size="md" onOpenAutoFocus={onSeats}>
+		<DialogContent
+			size="md"
+			onOpenAutoFocus={() => {
+				onSeats();
+				actions.start();
+			}}
+		>
 			<form
+				ref={holdPreview}
 				noValidate
 				className="contents"
 				onSubmit={(e) => {
 					e.preventDefault();
-					setTouched(true);
+					actions.touch();
 					if (unchanged) return listRef.current?.querySelector<HTMLElement>('button[role="checkbox"]')?.focus();
 					if (reasonMissing) return reasonRef.current?.focus();
 					if (!settled) return;
 					if (effects.status !== "ok") return retryRef.current?.focus();
-					onSubmit(chosen);
+					onSubmit(chosenOf(s));
 				}}
 			>
 				<DialogHeader
@@ -481,9 +451,7 @@ function SettleForm({
 											added.includes(p.personId) ? "Added" : removed.includes(p.personId) ? "Removed" : undefined
 										}
 										checked={ids.includes(p.personId)}
-										onCheckedChange={(on) =>
-											setIds((all) => (on ? [...all, p.personId] : all.filter((x) => x !== p.personId)))
-										}
+										onCheckedChange={(on) => actions.toggle(p.personId, on === true)}
 										className="py-2"
 									/>
 								))}
@@ -528,7 +496,7 @@ function SettleForm({
 									variant="secondary"
 									size="sm"
 									type="button"
-									onClick={() => setAttempt((n) => n + 1)}
+									onClick={actions.retry}
 								>
 									Try again
 								</Button>
@@ -546,7 +514,7 @@ function SettleForm({
 							{owner(
 								"Follow-up calls go to",
 								followUp,
-								setFollowUp,
+								actions.pickFollowUp,
 								reconcile
 									? "Only calls for people you add. Up to 10 people."
 									: "Only people who can own follow-ups, up to 10. Or leave it, and assign them later in Tasks.",
@@ -557,7 +525,7 @@ function SettleForm({
 								: owner(
 										"Evaluation task goes to",
 										evaluation,
-										setEvaluation,
+										actions.pickEvaluation,
 										"Someone who was there. Up to 10 people.",
 										"any",
 									)}
@@ -572,7 +540,7 @@ function SettleForm({
 							<Textarea
 								ref={reasonRef}
 								value={reason}
-								onChange={(e) => setReason(e.target.value)}
+								onChange={(e) => actions.write(e.target.value)}
 								maxLength={500}
 								rows={2}
 							/>
