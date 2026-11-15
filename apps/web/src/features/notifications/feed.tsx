@@ -14,6 +14,7 @@ import {
 	markedRead,
 	markProblem,
 	newRequestKey,
+	readTogether,
 	withStandingMarks,
 	type Clock,
 	type FeedItem,
@@ -178,7 +179,10 @@ export function useFeed(query: FeedQuery, initial: FeedPage | null) {
 	};
 
 	const markOne = (item: FeedItem) => {
-		if (!item.read) mark(new Set([item.id]), 1, (e) => markRead(e, item.id));
+		if (item.read) return;
+		const ids = readTogether(item, shown?.items ?? []);
+		if (ids.length === 1) mark(new Set(ids), 1, (e) => markRead(e, item.id));
+		else mark(new Set(ids), ids.length, (e) => markSelectedRead(e, ids));
 	};
 
 	const markAll = () => {

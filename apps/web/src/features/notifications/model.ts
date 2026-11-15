@@ -164,6 +164,15 @@ export function markedRead(items: readonly FeedItem[], ids: ReadonlySet<string>)
 	return items.map((i) => (ids.has(i.id) && !i.read ? { ...i, read: true } : i));
 }
 
+export function readTogether(item: FeedItem, items: readonly FeedItem[]): string[] {
+	const subject = item.subject;
+	if (subject?.kind !== "residency_milestone") return [item.id];
+	const same = items.filter(
+		(i) => !i.read && i.subject?.kind === subject.kind && i.subject.id === subject.id && i.id !== item.id,
+	);
+	return [item.id, ...same.map((i) => i.id)];
+}
+
 export type MarkReach = { ids: ReadonlySet<string>; cutoff: string | null };
 
 const reaches = (item: FeedItem, mark: MarkReach) =>
