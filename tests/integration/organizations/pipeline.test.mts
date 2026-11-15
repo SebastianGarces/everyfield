@@ -587,18 +587,6 @@ test("AC:TARGET-IDN-006 a note's author shows their account photo while it is vi
 		]);
 	assert.equal(await photoRead(photo), "bytes");
 
-	// A lifecycle witness hiding Ana's account hides the photo; once it is cancelled the photo shows again.
-	const witness = randomUUID();
-	await admin.execute(sql`INSERT INTO lifecycle_witness(id,kind,opaque_subject_id,request_revision,state,witness_checkpoint,
-		cleanup_state,request_id,requested_at,cancel_until) VALUES(${witness},'account',${ana.id}::uuid,1,'pending_deletion',1,
-		'not_started',${randomUUID()},statement_timestamp(),statement_timestamp()+interval '720 hours')`);
-	assert.deepEqual(await noteAuthors(dana), [
-		["current", "Ana", null],
-		["removed", "Ana", null],
-	]);
-	await admin.execute(sql`UPDATE lifecycle_witness SET state='cancelled' WHERE id=${witness}::uuid`);
-	assert.deepEqual((await noteAuthors(dana))[0], ["current", "Ana", photo]);
-
 	// Ana's seat ends: the next read shows her name with no photo, and the photo she had no longer loads for Dana.
 	await admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE id=${anaSeat}::uuid`);
 	assert.deepEqual(await noteAuthors(dana), [
@@ -607,11 +595,31 @@ test("AC:TARGET-IDN-006 a note's author shows their account photo while it is vi
 	]);
 	assert.equal(await photoRead(photo), "refused");
 
+	// Luis's note shows his photo until a lifecycle witness hides his account (a deletion request).
+	ok(
+		await addPipelineNote(db, await authority(luis), {
+			personId: casey,
+			noteId: randomUUID(),
+			body: "Casey led worship",
+		}),
+	);
+	const luisPhoto = await setAvatar(luis);
+	assert.deepEqual((await noteAuthors(dana))[0], ["current", "Luis", luisPhoto]);
+	await admin.execute(sql`INSERT INTO lifecycle_witness(kind,opaque_subject_id,request_revision,state,witness_checkpoint,
+		cleanup_state,request_id,requested_at,cancel_until) VALUES('account',${luis.id}::uuid,1,'pending_deletion',1,
+		'not_started',${randomUUID()},statement_timestamp(),statement_timestamp()+interval '720 hours')`);
+	assert.deepEqual(await noteAuthors(dana), [
+		["current", "Luis", null],
+		["current", "Ana", null],
+		["removed", "Ana", null],
+	]);
+
 	// A note whose author no longer resolves reads as Former staff with no photo.
 	await admin.execute(
 		sql`UPDATE person_note SET author_id=NULL WHERE tenant_id=${grace.id}::uuid AND person_id=${casey}::uuid`,
 	);
 	assert.deepEqual(await noteAuthors(dana), [
+		["current", null, null],
 		["current", null, null],
 		["removed", null, null],
 	]);
