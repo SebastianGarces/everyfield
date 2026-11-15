@@ -209,7 +209,7 @@ export function Row({ on }) {
 	]);
 });
 
-test("INV-lint: history writes, popstate and the Navigation API are reported outside the location store, in every spelling", () => {
+test("INV-lint: history writes, popstate, the Navigation API, the address fragment and an in-app address carrying a one-time link value are reported outside the location store, in every spelling", () => {
 	const source = `export function go(mode, href) {
 	window.history.pushState(null, "", href);
 	history.replaceState(null, "", href);
@@ -221,11 +221,17 @@ test("INV-lint: history writes, popstate and the Navigation API are reported out
 	history["push" + "State"](null, "", href);
 	window.navigation.navigate(href);
 	navigation.addEventListener("navigate", go);
+	const proof = window.location.hash.slice(1) || location.hash || document.location.hash;
+	const links = ["/invitation#proof=" + proof, \`/reset-password?token=\${proof}\`, "/connections/respond?invitation=1#x", "/invitation", "/reset-password?step=2", \`\${origin}/invitation#proof=\${proof}\`];
 	return pushState;
 }
 `;
 	assert.deepEqual(
-		lint({ "apps/web/src/features/x/go.ts": source, "apps/web/src/components/location.ts": source }),
+		lint({
+			"apps/web/src/features/x/go.ts": source,
+			"apps/web/src/components/location.ts": source,
+			"apps/web/src/components/one-time-link.ts": `export const take = () => (window.history.replaceState(null, "", "/"), location.hash);\n`,
+		}),
 		[
 			"apps/web/src/features/x/go.ts:2 no-raw-history",
 			"apps/web/src/features/x/go.ts:3 no-raw-history",
@@ -241,6 +247,12 @@ test("INV-lint: history writes, popstate and the Navigation API are reported out
 			"apps/web/src/features/x/go.ts:10 no-raw-history",
 			"apps/web/src/features/x/go.ts:10 no-raw-history",
 			"apps/web/src/features/x/go.ts:11 no-raw-history",
+			"apps/web/src/features/x/go.ts:12 no-raw-history",
+			"apps/web/src/features/x/go.ts:12 no-raw-history",
+			"apps/web/src/features/x/go.ts:12 no-raw-history",
+			"apps/web/src/features/x/go.ts:13 no-raw-history",
+			"apps/web/src/features/x/go.ts:13 no-raw-history",
+			"apps/web/src/features/x/go.ts:13 no-raw-history",
 		].sort(),
 	);
 });

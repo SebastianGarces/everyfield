@@ -2,6 +2,7 @@
 
 import { usePathname, useSearchParams } from "next/navigation";
 import { useMemo, useSyncExternalStore } from "react";
+import { ONE_TIME_LINK_VALUES, oneTimeLinkValue, type LinkWindow, type OneTimeLinkName } from "./one-time-link.ts";
 
 type Listener = () => void;
 type EntryChange = { navigationType: "push" | "replace" | "reload" | "traverse" | null };
@@ -16,6 +17,7 @@ export type AddressWrite = { replace?: boolean; state?: Record<string, unknown> 
 export type AddressRule = (to: URL, from: URL | null) => string | null;
 
 const changes = new Set<Listener>();
+const linkValueReaders = new Set<Listener>();
 const traversals = new Set<Listener>();
 const rules = new Map<string, AddressRule>();
 let routerBehind = false;
@@ -24,6 +26,7 @@ let shown: string | null = null;
 
 const ORIGIN = "http://address.invalid";
 export const currentAddress = () => window.location.pathname + window.location.search;
+const fullAddress = () => currentAddress() + window.location.hash;
 const urlOf = (href: string | URL) => new URL(href, ORIGIN);
 
 function ruled(to: URL, from: URL | null): string | null {
@@ -43,12 +46,36 @@ function write(href: string | URL, replace: boolean, state: Record<string, unkno
 		writing = false;
 	}
 	routerBehind = true;
-	shown = currentAddress();
+	shown = fullAddress();
+}
+
+const storeWindow: LinkWindow = {
+	get location() {
+		return window.location;
+	},
+	history: {
+		get state() {
+			return window.history.state;
+		},
+		replaceState: (state, _unused, url) => write(url, true, (state ?? null) as Record<string, unknown> | null),
+	},
+	get sessionStorage() {
+		return window.sessionStorage;
+	},
+};
+
+const readLinkValues = () => {
+	for (const reader of linkValueReaders) reader();
+};
+
+function takeLinkValue(): void {
+	if (oneTimeLinkValue(ONE_TIME_LINK_VALUES, storeWindow, true)?.value) readLinkValues();
 }
 
 function traversed() {
 	const from = shown === null ? null : urlOf(shown);
-	shown = currentAddress();
+	takeLinkValue();
+	shown = fullAddress();
 	const rewrite = ruled(urlOf(shown), from);
 	if (rewrite !== null) write(rewrite, true, window.history.state);
 	routerBehind = true;
@@ -59,7 +86,7 @@ function traversed() {
 function routerWrote(event: EntryChange) {
 	if (writing || event.navigationType === "traverse") return;
 	routerBehind = false;
-	shown = currentAddress();
+	shown = fullAddress();
 }
 
 type Installed = { popstate: () => void; entry: (event: EntryChange) => void };
@@ -74,7 +101,7 @@ if (typeof window !== "undefined") {
 		navigation?.removeEventListener("currententrychange", previous.entry);
 	}
 	host[INSTALLED] = { popstate: traversed, entry: routerWrote };
-	shown = currentAddress();
+	shown = fullAddress();
 	window.addEventListener("popstate", traversed);
 	navigation?.addEventListener("currententrychange", routerWrote);
 }
@@ -126,4 +153,32 @@ export function useAddress(): Address {
 		const url = urlOf(href);
 		return { pathname: url.pathname, params: url.searchParams };
 	}, [href]);
+}
+
+const subscribeLinkValue = (listener: Listener) => {
+	linkValueReaders.add(listener);
+	return () => void linkValueReaders.delete(listener);
+};
+
+function linkValueNow(name: OneTimeLinkName): string | null {
+	const at = oneTimeLinkValue(ONE_TIME_LINK_VALUES, storeWindow, false);
+	if (at?.name !== name) return null;
+	return at.value ?? (at.key === null ? null : window.sessionStorage.getItem(at.key));
+}
+
+export function useOneTimeLinkValue(name: OneTimeLinkName): string | null | undefined {
+	return useSyncExternalStore(
+		subscribeLinkValue,
+		() => linkValueNow(name),
+		() => undefined,
+	);
+}
+
+export function forgetOneTimeLinkValue(name: OneTimeLinkName): void {
+	const at = oneTimeLinkValue(ONE_TIME_LINK_VALUES, storeWindow, false);
+	if (at?.name !== name) return;
+	if (at.value !== null) oneTimeLinkValue(ONE_TIME_LINK_VALUES, storeWindow, true);
+	if (at.key !== null) window.sessionStorage.removeItem(at.key);
+	readLinkValues();
+	if (at.value !== null) for (const listener of changes) listener();
 }

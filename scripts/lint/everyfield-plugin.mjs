@@ -1,4 +1,5 @@
 import { fileProblems, importProblem, routeFeatures } from "./boundaries.mjs";
+import { readFileSync } from "node:fs";
 import { area, commentsExempt, ratchet, repoPath, sqlMarkers } from "./ratchet.mjs";
 
 const RESEND_PACKAGE = /^resend(?:\/|$)/;
@@ -481,6 +482,7 @@ const noTimers = ratcheted("no-timers", (context, push) => {
 });
 
 export const LOCATION_STORE = "apps/web/src/components/location.ts";
+export const ONE_TIME_LINK = "apps/web/src/components/one-time-link.ts";
 export const PAGE_EVENTS = "apps/web/src/components/save/leave.ts";
 const HISTORY_MEMBERS = new Set(["pushState", "replaceState", "onpopstate"]);
 const HISTORY_STRINGS = new Set(["pushState", "replaceState", "popstate", "onpopstate", "currententrychange"]);
@@ -497,22 +499,37 @@ const isHost = (node, context, names) =>
 const isHistory = (node, context) =>
 	isHost(node, context, new Set(["history"])) ||
 	(memberName(node) === "history" && isHost(node.object, context, GLOBAL_HOSTS));
+const LINK_VALUE_ENTRY = /path: "(\/[^"]+)",\s*part: "(query|fragment)",\s*param: (?:null|"([^"]+)")/g;
+const LINK_VALUES = [
+	...readFileSync(new URL(`../../${ONE_TIME_LINK}`, import.meta.url), "utf8").matchAll(LINK_VALUE_ENTRY),
+].map(([, path, part, param]) => ({ path, part, param }));
+const carriesLinkValue = (text) =>
+	LINK_VALUES.some(({ path, part, param }) => {
+		if (!text.startsWith(path) || !/^[?#]/.test(text.slice(path.length))) return false;
+		const [beforeHash, ...hash] = text.split("#");
+		if (part === "fragment") return hash.length > 0;
+		return new RegExp(`[?&]${param}=`).test(beforeHash);
+	});
+const isLocation = (node, context) =>
+	isHost(node, context, new Set(["location"])) ||
+	(memberName(node) === "location" && isHost(node.object, context, new Set([...GLOBAL_HOSTS, "document"])));
 const isNavigation = (node, context) =>
 	isHost(node, context, new Set(["navigation"])) ||
 	(memberName(node) === "navigation" && isHost(node.object, context, GLOBAL_HOSTS));
 
 const noRawHistory = ratcheted("no-raw-history", (context, push) => {
-	if (repoPath(context.filename) === LOCATION_STORE) return {};
+	if ([LOCATION_STORE, ONE_TIME_LINK].includes(repoPath(context.filename))) return {};
 	const report = (node, word) =>
 		push({
 			node,
 			fn: enclosingName(node),
-			message: `${word} outside ${LOCATION_STORE}: the address has one owner. Write it with writeAddress, read it with usePath or useAddress, react to Back and Forward with an address rule or onTraversal, so every reader sees the same address in the same event.`,
+			message: `${word} outside ${LOCATION_STORE}: the address has one owner. Write it with writeAddress, read it with usePath or useAddress, read a one-time link value with useOneTimeLinkValue, react to Back and Forward with an address rule or onTraversal, so every reader sees the same address in the same event.`,
 		});
 	return {
 		MemberExpression(node) {
 			const name = memberName(node);
 			if (name && HISTORY_MEMBERS.has(name)) return report(node, name);
+			if (name === "hash" && isLocation(node.object, context)) return report(node, "location.hash");
 			if (node.computed && name === null && isHistory(node.object, context)) return report(node, "history[...]");
 			if (isNavigation(node, context) || isNavigation(node.object, context)) report(node, "the Navigation API");
 		},
@@ -524,10 +541,14 @@ const noRawHistory = ratcheted("no-raw-history", (context, push) => {
 		Literal(node) {
 			const value = stringValue(node);
 			if (value && HISTORY_STRINGS.has(value) && memberName(node.parent) === null) report(node, value);
+			if (typeof node.value === "string" && carriesLinkValue(node.value))
+				report(node, "an in-app address with a one-time link value (only an emailed link may carry one)");
 		},
 		TemplateLiteral(node) {
 			const value = stringValue(node);
 			if (value && HISTORY_STRINGS.has(value)) report(node, value);
+			if (carriesLinkValue(node.quasis[0]?.value.cooked ?? ""))
+				report(node, "an in-app address with a one-time link value (only an emailed link may carry one)");
 		},
 	};
 });
