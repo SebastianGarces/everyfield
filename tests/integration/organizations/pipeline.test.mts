@@ -551,7 +551,12 @@ async function setAvatar(a: Actor) {
 }
 /** What Dana's session gets for one photo version: "bytes", or "refused" for every refusal. */
 const photoRead = (photo: { accountId: string; versionId: string }) =>
-	readAvatar(db, photoStorage as never, { session: dana.session, selected: { kind: "account", id: dana.id } } as never, photo).then(
+	readAvatar(
+		db,
+		photoStorage as never,
+		{ session: dana.session, selected: { kind: "account", id: dana.id } } as never,
+		photo,
+	).then(
 		(bytes) => (Buffer.from(bytes).equals(PNG) ? "bytes" : "wrong bytes"),
 		(error: Error) => (error.message === "unavailable" ? "refused" : error.message),
 	);
@@ -561,7 +566,13 @@ const noteAuthors = async (reader: Actor) =>
 
 test("AC:TARGET-IDN-006 a note's author shows their account photo while it is visible in the organization, else initials", async () => {
 	// The earlier test left Ana's removed note on Casey; she adds a current one. With no photo, both carry none.
-	ok(await addPipelineNote(db, await authority(ana), { personId: casey, noteId: randomUUID(), body: "Met Casey's family" }));
+	ok(
+		await addPipelineNote(db, await authority(ana), {
+			personId: casey,
+			noteId: randomUUID(),
+			body: "Met Casey's family",
+		}),
+	);
 	assert.deepEqual(await noteAuthors(dana), [
 		["current", "Ana", null],
 		["removed", "Ana", null],
@@ -597,7 +608,9 @@ test("AC:TARGET-IDN-006 a note's author shows their account photo while it is vi
 	assert.equal(await photoRead(photo), "refused");
 
 	// A note whose author no longer resolves reads as Former staff with no photo.
-	await admin.execute(sql`UPDATE person_note SET author_id=NULL WHERE tenant_id=${grace.id}::uuid AND person_id=${casey}::uuid`);
+	await admin.execute(
+		sql`UPDATE person_note SET author_id=NULL WHERE tenant_id=${grace.id}::uuid AND person_id=${casey}::uuid`,
+	);
 	assert.deepEqual(await noteAuthors(dana), [
 		["current", null, null],
 		["removed", null, null],
