@@ -61,7 +61,9 @@ function keepTargetInPlace() {
 }
 
 function releaseHold() {
-	hold?.sizes.disconnect();
+	if (!hold) return;
+	hold.sizes.disconnect();
+	removeEventListener("scroll", onScroll);
 	hold = null;
 }
 
@@ -89,6 +91,7 @@ function pageShown() {
 	if (!target) return;
 	hold = { target, held: -1, height: 0, sizes: new ResizeObserver(keepTargetInPlace) };
 	hold.sizes.observe(document.body);
+	addEventListener("scroll", onScroll, { passive: true });
 }
 
 function install() {
@@ -104,7 +107,6 @@ function install() {
 	host[INSTALLED] = { click: glideToFragment, input: onReaderInput, scroll: onScroll, pages };
 	addEventListener("click", glideToFragment, true);
 	for (const t of READER_INPUT) addEventListener(t, onReaderInput, { capture: true, passive: true });
-	addEventListener("scroll", onScroll, { passive: true });
 	pages.observe(document.body, { childList: true, subtree: true });
 	pageShown();
 }

@@ -2,8 +2,7 @@
 
 import Link from "next/link";
 import { observeIntersection } from "@everyfield/ui/foundations";
-import { useMemo, useRef, useState, type MouseEvent, type ReactNode, type RefObject } from "react";
-import { shortcutMark } from "../save/leave";
+import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { buttonClass } from "../ButtonLink";
 import { cn } from "../cn";
 
@@ -39,12 +38,19 @@ export function SiteNav({ links, cta, logo, pillLogo, arrow, menuIcon }: Props) 
 		[],
 	);
 
+	useEffect(() => {
+		if (!open) return;
+		const onKey = (e: KeyboardEvent) => {
+			if (e.key !== "Escape") return;
+			setOpen(null);
+			(open === "pill" ? pillToggle : inflowToggle).current?.focus();
+		};
+		document.addEventListener("keydown", onKey);
+		return () => document.removeEventListener("keydown", onKey);
+	}, [open]);
+
 	const pillLive = pillOn && !focusInHeader;
-	const toggle = (which: Which, e: MouseEvent<HTMLButtonElement>) => {
-		const closing = open === which;
-		setOpen(closing ? null : which);
-		if (closing && e.detail === 0) (which === "pill" ? pillToggle : inflowToggle).current?.focus();
-	};
+	const toggle = (which: Which) => setOpen((o) => (o === which ? null : which));
 	const shared = { links, cta, arrow, menuIcon, onLinkClick: () => setOpen(null) };
 
 	return (
@@ -55,7 +61,7 @@ export function SiteNav({ links, cta, logo, pillLogo, arrow, menuIcon }: Props) 
 				inert={pillLive}
 				aria-hidden={pillLive || undefined}
 				onFocus={() => setFocusInHeader(true)}
-				onBlur={(e) => setFocusInHeader(e.currentTarget.contains(e.relatedTarget))}
+				onBlur={(e) => setFocusInHeader(e.currentTarget.contains(e.relatedTarget) || !document.hasFocus())}
 			>
 				<NavBar
 					{...shared}
@@ -63,7 +69,7 @@ export function SiteNav({ links, cta, logo, pillLogo, arrow, menuIcon }: Props) 
 					logo={logo}
 					open={open === "inflow"}
 					toggleRef={inflowToggle}
-					onToggle={(e) => toggle("inflow", e)}
+					onToggle={() => toggle("inflow")}
 				/>
 			</header>
 			<header
@@ -86,7 +92,7 @@ export function SiteNav({ links, cta, logo, pillLogo, arrow, menuIcon }: Props) 
 					logo={pillLogo}
 					open={open === "pill"}
 					toggleRef={pillToggle}
-					onToggle={(e) => toggle("pill", e)}
+					onToggle={() => toggle("pill")}
 				/>
 			</header>
 		</>
@@ -102,7 +108,7 @@ type BarProps = {
 	menuIcon: ReactNode;
 	open: boolean;
 	toggleRef: RefObject<HTMLButtonElement | null>;
-	onToggle: (e: MouseEvent<HTMLButtonElement>) => void;
+	onToggle: () => void;
 	onLinkClick: () => void;
 };
 
@@ -169,7 +175,6 @@ function NavBar({ which, links, cta, logo, arrow, menuIcon, open, toggleRef, onT
 					aria-label="Menu"
 					aria-expanded={open}
 					aria-controls={menuId}
-					{...(open ? shortcutMark("Escape") : {})}
 					onClick={onToggle}
 					className={cn(
 						"hidden place-items-center rounded-nav-item border-0 bg-cream text-ink hover:bg-mk-surface-3 max-mk-nav:grid",
