@@ -42,7 +42,8 @@ import {
 import { Avatar } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
 import { useRouter } from "next/navigation";
-import { useEffect, useOptimistic, useState, useTransition, type ReactNode } from "react";
+import { useOptimistic, useState, useTransition, type ReactNode } from "react";
+import { createRead, useRead } from "../../components/read.tsx";
 import { NoticeInDialog, SaveNotice, useSaveIntent } from "../../components/save/parts.tsx";
 import {
 	appointLeader,
@@ -100,6 +101,10 @@ import type { TeamView } from "./server.ts";
 // One ministry (REQ-TEAM-001, -002, -004 to -006): its roles, its people now and before, its leader, its place in the
 // organization view and its history. Every change shows at once, then settles from the write's own answer through the
 // same step (page-state.ts); a refusal puts the page back and says why. Nothing reloads the page.
+
+const histories = createRead(({ teamId }: { teamId: string; revision: string }) => teamHistory(teamId), {
+	failed: (): Outcome<{ entries: HistoryEntry[] }> => ({ status: "lost" }),
+});
 
 type Confirm =
 	| { kind: "archive" }
@@ -1102,19 +1107,8 @@ function PeopleCard({
 
 /** The ministry's history, read when the tab opens and again after the ministry changes. */
 function HistoryCard({ teamId, revision }: { teamId: string; revision: string }) {
-	const at = `${teamId}:${revision}`;
-	const [got, setGot] = useState<{ at: string; value: Outcome<{ entries: HistoryEntry[] }> } | null>(null);
-	useEffect(() => {
-		let live = true;
-		teamHistory(teamId).then(
-			(value) => live && setGot({ at, value }),
-			() => live && setGot({ at, value: { status: "lost" } }),
-		);
-		return () => {
-			live = false;
-		};
-	}, [at, teamId]);
-	return <HistoryList state={got?.at === at ? got.value : null} />;
+	const history = useRead(histories, { teamId, revision });
+	return <HistoryList state={history.value ?? null} />;
 }
 
 function HistoryList({ state }: { state: Outcome<{ entries: HistoryEntry[] }> | null }): ReactNode {

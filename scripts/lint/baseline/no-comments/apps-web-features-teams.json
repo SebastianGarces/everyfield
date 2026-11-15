@@ -1,7 +1,7 @@
 {
 	"apps/web/src/features/teams/MeetingsCard.tsx": 2,
 	"apps/web/src/features/teams/OrgChart.tsx": 10,
-	"apps/web/src/features/teams/Setup.tsx": 11,
+	"apps/web/src/features/teams/Setup.tsx": 9,
 	"apps/web/src/features/teams/TeamScreen.tsx": 23,
 	"apps/web/src/features/teams/TeamsScreen.tsx": 6,
 	"apps/web/src/features/teams/actions.ts": 24,
