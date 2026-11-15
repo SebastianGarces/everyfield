@@ -5,6 +5,7 @@ import * as c from "@everyfield/contracts/communication";
 import {
 	scheduleAccepted,
 	plainText,
+	mergeVariables,
 	renderBody,
 	renderEmailHtml,
 	sanitizeHtml,
@@ -809,6 +810,9 @@ async function preview(tx: Tx, authority: RequestActor, request: unknown, previe
 	const summary = summarizeAudience(found.people);
 	// The sample link is built here from the server origin, after the client input is parsed.
 	const merge = previewOrigin ? { ...input.merge, rsvp_link: `${previewOrigin}/rsvp/preview` } : input.merge;
+	// A field with no value would reach the reader as empty text, so the preview names it instead.
+	const missing = mergeVariables(input.bodyHtml).filter((key) => merge[key] === undefined);
+	if (missing.length) deny("missing_merge_variable", { missing, providerCalls: 0 });
 	const previewBody = renderBody(input.bodyHtml, merge, "preview");
 	const sourceBody = sanitizeHtml(input.bodyHtml);
 	const parts = reviewedParts(found.people);

@@ -83,12 +83,26 @@ const rsvpPlaceholder = (): string =>
 
 export type RenderMode = "send" | "preview";
 
+const MERGE_FIELD = () => /\{\{\s*([a-z0-9_]+)\s*\}\}/gi;
+
+/**
+ * The merge fields a body fills with a value, in order of first use: every `{{field}}` in its text except `rsvp_link`,
+ * which system code builds. A field inside a tag is dropped by `renderBody`, so it is not one.
+ */
+export function mergeVariables(input: string): string[] {
+	const keys = sanitizeHtml(input)
+		.split(/(<[^>]*>)/)
+		.filter((part) => !part.startsWith("<"))
+		.flatMap((part) => [...part.matchAll(MERGE_FIELD())].map((m) => m[1]!.toLowerCase()));
+	return [...new Set(keys)].filter((key) => key !== "rsvp_link");
+}
+
 /**
  * Replace `{{field}}` after sanitizing. An unknown field becomes empty text. `rsvp_link` becomes a link only for a valid
  * RSVP URL and is empty otherwise. Every other value is escaped text, never markup or an attribute.
  */
 export function renderBody(input: string, merge: Readonly<Record<string, string>>, mode: RenderMode = "send"): string {
-	const field = /\{\{\s*([a-z0-9_]+)\s*\}\}/gi;
+	const field = MERGE_FIELD();
 	// Fields fill text only. A field inside a tag (an href) is dropped, so no merge value reaches an attribute.
 	return sanitizeHtml(input)
 		.split(/(<[^>]*>)/)

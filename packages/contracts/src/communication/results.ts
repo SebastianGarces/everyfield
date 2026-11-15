@@ -15,6 +15,11 @@ export const communicationError = z.discriminatedUnion("code", [
 	defineSafeError("referenced", {}, "never"),
 	defineSafeError("not_found", {}, "never"),
 	defineSafeError("rsvp_needs_meeting", {}, "never"),
+	defineSafeError(
+		"missing_merge_variable",
+		{ missing: z.array(z.string()).min(1), providerCalls: z.literal(0) },
+		"never",
+	),
 	defineSafeError("cancel_unconfirmed", { replacementIntents: z.literal(0) }, "never"),
 ]);
 export type CommunicationError = z.infer<typeof communicationError>;

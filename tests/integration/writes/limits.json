@@ -1555,6 +1555,9 @@
 		"limit": 24,
 		"reason": "Activates through reference.promote. Its largest first run: 4 transaction, 4 locked read, 9 read, 7 write."
 	},
+	"reference.installMessageTemplates": {
+		"limit": 2
+	},
 	"reference.invalidateWikiCache": {
 		"limit": 1
 	},
