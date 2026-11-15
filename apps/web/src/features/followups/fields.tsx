@@ -193,7 +193,6 @@ function WhenField({
 					<Input
 						type="datetime-local"
 						value={draft.at}
-						// oxlint-disable-next-line react/purity -- the latest allowed time is now, read again on each render
 						max={localInputOf(new Date())}
 						onChange={(e) => onDraft({ ...draft, at: e.target.value })}
 					/>

@@ -1,0 +1,8 @@
+{
+	"packages/domain/src/communication/access.ts": 1,
+	"packages/domain/src/communication/audience.ts": 4,
+	"packages/domain/src/communication/delivery.ts": 59,
+	"packages/domain/src/communication/history.ts": 4,
+	"packages/domain/src/communication/opt-out.ts": 13,
+	"packages/domain/src/communication/writer.ts": 7
+}

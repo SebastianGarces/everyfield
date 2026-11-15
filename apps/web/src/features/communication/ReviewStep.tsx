@@ -144,7 +144,6 @@ export function ReviewStep({
 								"No one"
 							) : (
 								<ul
-									// biome-ignore lint/a11y/noNoninteractiveTabindex: a scrollable region must take focus so keyboard users can scroll it
 									tabIndex={0}
 									className="flex max-h-40 flex-col gap-0.5 overflow-y-auto rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
 									aria-label="Left out"

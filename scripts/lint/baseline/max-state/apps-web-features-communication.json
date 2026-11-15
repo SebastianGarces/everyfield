@@ -1,0 +1,7 @@
+{
+	"apps/web/src/features/communication/Address.tsx": 3,
+	"apps/web/src/features/communication/Compose.tsx": 10,
+	"apps/web/src/features/communication/HistoryPanel.tsx": 6,
+	"apps/web/src/features/communication/Templates.tsx": 3,
+	"apps/web/src/features/communication/WhoStep.tsx": 4
+}

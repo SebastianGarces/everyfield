@@ -1,0 +1,10 @@
+{
+	"packages/domain/src/phases/catalog.ts": 3,
+	"packages/domain/src/phases/core.ts": 5,
+	"packages/domain/src/phases/creation-entry/index.ts": 4,
+	"packages/domain/src/phases/declaration.ts": 1,
+	"packages/domain/src/phases/notices.ts": 1,
+	"packages/domain/src/phases/readiness.ts": 2,
+	"packages/domain/src/phases/reads.ts": 3,
+	"packages/domain/src/phases/writes.ts": 14
+}

@@ -1,0 +1,12 @@
+{
+	"apps/web/src/marketing/sections/CtaSection.tsx": 1,
+	"apps/web/src/marketing/sections/Faq.tsx": 2,
+	"apps/web/src/marketing/sections/FaqItem.tsx": 1,
+	"apps/web/src/marketing/sections/FrostIcon.tsx": 3,
+	"apps/web/src/marketing/sections/Marked.tsx": 2,
+	"apps/web/src/marketing/sections/PageHero.tsx": 1,
+	"apps/web/src/marketing/sections/SectionHead.tsx": 2,
+	"apps/web/src/marketing/sections/VisionSection.tsx": 1,
+	"apps/web/src/marketing/sections/card-title.ts": 1,
+	"apps/web/src/marketing/sections/stop-curve.ts": 2
+}
