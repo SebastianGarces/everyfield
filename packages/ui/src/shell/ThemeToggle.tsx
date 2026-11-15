@@ -9,12 +9,6 @@ const OPTIONS = [
 	{ theme: "dark", label: "Dark mode", short: "Dark", icon: Moon02Icon },
 ] as const;
 
-/**
- * The product theme switch: a radio group of two buttons (the sun and moon in the rail). Arrow keys move between the
- * options and select them, as in the WAI-ARIA radio group pattern; only the checked option is in the tab order.
- * `rail` draws icon buttons with a label that appears on hover and focus; `menu` draws labelled buttons for the
- * narrow-screen menu.
- */
 export function ThemeToggle({ variant, className }: { variant: "rail" | "menu"; className?: string }) {
 	const { theme, setTheme } = useProductTheme();
 	const refs = useRef<Partial<Record<ProductTheme, HTMLButtonElement | null>>>({});
@@ -107,7 +101,6 @@ function ThemeOption({
 	);
 }
 
-/** The rail label. It is the item's accessible name and appears on hover and on keyboard focus (foundations.md). */
 export function RailTip({ children }: { children: string }) {
 	return (
 		<span className="pointer-events-none absolute top-1/2 left-[60px] z-30 -translate-x-1 -translate-y-1/2 whitespace-nowrap rounded-md bg-ink px-2.5 py-1.5 text-sm font-medium text-on-ink opacity-0 transition-[opacity,translate] duration-150 group-hover/ri:translate-x-0 group-hover/ri:opacity-100 group-focus-visible/ri:translate-x-0 group-focus-visible/ri:opacity-100">

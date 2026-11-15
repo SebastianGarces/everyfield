@@ -1,4 +1,3 @@
-// Shared controls, surfaces and overlays (WP-089). Feature packages compose their screens from these exports.
 export { Button, buttonVariants, IconButton, iconButtonVariants } from "./Button";
 export {
 	CalloutLabel,

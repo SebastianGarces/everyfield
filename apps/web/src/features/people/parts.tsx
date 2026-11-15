@@ -1,7 +1,7 @@
 "use client";
 
 import { Alert02Icon } from "@hugeicons/core-free-icons";
-import { Icon } from "@everyfield/ui/foundations";
+import { Icon, useHydrated } from "@everyfield/ui/foundations";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useSyncExternalStore, type ComponentProps } from "react";
@@ -70,16 +70,11 @@ export const problemOf = <T,>(o: Outcome<T> | null): string | undefined =>
 const DATE = { month: "short", day: "numeric", year: "numeric" } as const;
 const TIME = { ...DATE, hour: "numeric", minute: "2-digit" } as const;
 const DAY = new Intl.DateTimeFormat("en-US", { ...DATE, timeZone: "UTC" });
-const noSubscribe = () => () => {};
 /**
  * An instant in the reader's own time zone. The server and the first browser render use UTC, so hydration matches; right after it the browser shows the reader's zone.
  */
 export function When({ at, withTime = false }: { at: string; withTime?: boolean }) {
-	const browser = useSyncExternalStore(
-		noSubscribe,
-		() => true,
-		() => false,
-	);
+	const browser = useHydrated();
 	const parts = Object.fromEntries(
 		new Intl.DateTimeFormat("en-US", { ...(withTime ? TIME : DATE), ...(browser ? {} : { timeZone: "UTC" }) })
 			.formatToParts(new Date(at))

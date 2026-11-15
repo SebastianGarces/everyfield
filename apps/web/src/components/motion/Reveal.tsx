@@ -1,5 +1,6 @@
 "use client";
 
+import { prefersReducedMotion } from "@everyfield/ui/foundations";
 import { useEffect, useRef, type CSSProperties, type ReactNode, type RefObject } from "react";
 import { cn } from "../cn";
 
@@ -13,7 +14,7 @@ import { cn } from "../cn";
 export function useReveal(ref: RefObject<HTMLElement | null>, up?: boolean) {
 	useEffect(() => {
 		const el = ref.current;
-		if (!el || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+		if (!el || prefersReducedMotion()) return;
 		const margin = up ? 0.12 : 0.08;
 		let first = true;
 		const io = new IntersectionObserver(

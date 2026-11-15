@@ -16,17 +16,11 @@ type SelectProps = Omit<ComponentPropsWithRef<typeof SelectPrimitive.Root>, "chi
 	invalid?: boolean;
 	id?: string;
 	"aria-label"?: string;
-	/** Draws the chosen option, for example as a StageChip. Defaults to its label. */
 	renderValue?: (option: SelectOption) => ReactNode;
-	/** Draws each option's label, here and in the trigger, for example in its own typeface. Defaults to the label. */
 	renderOption?: (option: SelectOption) => ReactNode;
 	className?: string;
 };
 
-/**
- * Select (components.md): Trigger, Value, Popup and Item, for one choice from a fixed list. Inside a Field the label
- * names the trigger. Space, Enter and the arrow keys open it; typing jumps to an option; Esc closes it.
- */
 export function Select({
 	options,
 	placeholder = "Choose",

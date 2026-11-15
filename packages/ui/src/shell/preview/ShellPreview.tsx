@@ -11,11 +11,6 @@ import { currentKey, type ShellNav } from "../nav";
 import { RoleBanner } from "../RoleBanner";
 import { PREVIEW_ROLES, PREVIEW_UNREAD, PREVIEW_USER, previewNav, ROLE_LABEL, type PreviewRole } from "./fixtures";
 
-/**
- * The shell preview at /design/shell/[role]/[page]: the AppShell with sample navigation for an Owner, a Member and a
- * residency account. Every control reports what it would open in the "Last action" card, so keyboard and pointer
- * use can be checked without the overlays, which belong to other packages. `children` replaces the sample page.
- */
 export function ShellPreview({ role, children }: { role: PreviewRole; children?: ReactNode }) {
 	const base = `/design/shell/${role}`;
 	const [lastAction, setLastAction] = useState("");
@@ -153,7 +148,6 @@ function RoleLink({ role, current }: { role: PreviewRole; current: boolean }) {
 	);
 }
 
-/** Page header used by the previews: breadcrumb, title and subtitle (prototype .page-header). */
 export function PageHead({
 	crumb,
 	title,
