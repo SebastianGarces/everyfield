@@ -158,7 +158,7 @@ function ArticleSpecimen() {
 			<Specimen>
 				<WikiTree phases={WIKI_PHASES} currentId="first" />
 			</Specimen>
-			<Specimen className="max-app-sm:py-6">
+			<Specimen className="px-11 max-app-sm:py-6">
 				<Prose ref={trackHeadings}>
 					<p className="text-lg text-ink">
 						A vision meeting is a short, warm gathering where you share why this church should exist.
