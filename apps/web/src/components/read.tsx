@@ -1,7 +1,7 @@
 "use client";
 
 import { useHydrated } from "@everyfield/ui/foundations";
-import { useState, useSyncExternalStore, useTransition, type ReactNode } from "react";
+import { useMemo, useState, useSyncExternalStore, useTransition, type ReactNode } from "react";
 
 export type ReadSnapshot<T> = {
 	readonly status: "loading" | "ready";
@@ -19,7 +19,7 @@ export type Read<A extends unknown[], T> = {
 	retry(...args: A): Promise<T>;
 	patch(change: (value: T) => T, ...args: A): void;
 	forget(...args: A | []): void;
-	subscribe(listener: () => void): () => void;
+	subscribe(listener: () => void, key?: string): () => void;
 };
 
 export type ReadOptions<T> = {
@@ -49,6 +49,7 @@ export function createRead<A extends unknown[], T>(
 ): Read<A, T> {
 	const entries = new Map<string, Entry<T>>();
 	const listeners = new Set<() => void>();
+	const readers = new Map<string, number>();
 	const emit = () => {
 		for (const listener of listeners) listener();
 	};
@@ -72,7 +73,8 @@ export function createRead<A extends unknown[], T>(
 	const get = (...args: A) => {
 		const k = key(...args);
 		const entry = entries.get(k);
-		return usable(entry) ? entry!.promise : start(k, run(args), undefined);
+		if (usable(entry)) return entry!.promise;
+		return start(k, run(args), (readers.get(k) ?? 0) > 0 ? entry?.value : undefined);
 	};
 	const again = (args: A, keepValue: boolean) => {
 		const k = key(...args);
@@ -106,9 +108,16 @@ export function createRead<A extends unknown[], T>(
 			else entries.delete(key(...(args as A)));
 			emit();
 		},
-		subscribe: (listener) => {
+		subscribe: (listener, k) => {
 			listeners.add(listener);
-			return () => void listeners.delete(listener);
+			if (k !== undefined) readers.set(k, (readers.get(k) ?? 0) + 1);
+			return () => {
+				listeners.delete(listener);
+				if (k === undefined) return;
+				const left = (readers.get(k) ?? 1) - 1;
+				if (left > 0) readers.set(k, left);
+				else readers.delete(k);
+			};
 		},
 	};
 }
@@ -124,8 +133,12 @@ export function useRead<A extends unknown[], T>(read: Read<A, T> | null, ...args
 		read.get(...args);
 		if (started !== key) setStarted(key);
 	}
+	const subscribe = useMemo(
+		() => (read && key !== null ? (listener: () => void) => read.subscribe(listener, key) : none),
+		[read, key],
+	);
 	const snapshot = useSyncExternalStore(
-		read?.subscribe ?? none,
+		subscribe,
 		() => (read && key !== null ? read.peek(...args) : null),
 		() => null,
 	);
