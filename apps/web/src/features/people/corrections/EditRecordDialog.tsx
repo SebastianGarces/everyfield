@@ -520,11 +520,11 @@ function Frame({
 				</Field>
 				{state.problem ? (
 					state.problem.tone === "info" ? (
-						<p key={state.problem.n} role="status" className="rounded-md bg-surface px-3.5 py-2.5 text-sm text-ink-2">
+						<p role="status" className="rounded-md bg-surface px-3.5 py-2.5 text-sm text-ink-2">
 							{state.problem.text}
 						</p>
 					) : (
-						<Problem key={state.problem.n}>{state.problem.text}</Problem>
+						<Problem request={state.problem.n}>{state.problem.text}</Problem>
 					)
 				) : null}
 				<History corrections={corrections} accountId={accountId} />

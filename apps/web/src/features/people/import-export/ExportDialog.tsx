@@ -12,13 +12,14 @@ import {
 	DialogFooter,
 	DialogHeader,
 } from "@everyfield/ui/controls";
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { querySearch, type PeopleQuery } from "../model.ts";
 import { describeFilters, plural } from "./model.ts";
+import "./export.css";
 
 type State =
 	| { kind: "ready" }
-	| { kind: "exporting"; slow: boolean }
+	| { kind: "exporting" }
 	| { kind: "done"; filename: string; returned: number; complete: boolean }
 	| { kind: "failed"; denied: boolean };
 
@@ -33,18 +34,21 @@ export function ExportDialog({
 }) {
 	const [state, setState] = useState<State>({ kind: "ready" });
 	const busy = state.kind === "exporting";
-	const slowTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 	const file = useRef<string | null>(null);
-	const release = () => {
-		if (file.current) URL.revokeObjectURL(file.current);
-		file.current = null;
-	};
+	const releaseOnDetach = useCallback(
+		(node: HTMLDivElement | null) =>
+			node
+				? () => {
+						if (file.current) URL.revokeObjectURL(file.current);
+						file.current = null;
+					}
+				: undefined,
+		[],
+	);
 	const filters = describeFilters(query);
 
 	const download = async () => {
-		release();
-		setState({ kind: "exporting", slow: false });
-		slowTimer.current = setTimeout(() => setState((s) => (s.kind === "exporting" ? { ...s, slow: true } : s)), 1000);
+		setState({ kind: "exporting" });
 		try {
 			const res = await fetch(`/api/people/export${querySearch({ ...query, page: 1 })}`, { cache: "no-store" });
 			if (!res.ok) {
@@ -67,14 +71,11 @@ export function ExportDialog({
 			});
 		} catch {
 			setState({ kind: "failed", denied: false });
-		} finally {
-			clearTimeout(slowTimer.current);
 		}
 	};
 
 	const close = () => {
 		if (busy) return;
-		release();
 		onOpenChange(false);
 		setState({ kind: "ready" });
 	};
@@ -103,7 +104,7 @@ export function ExportDialog({
 					</p>
 					<div aria-live="polite">
 						{state.kind === "done" ? (
-							<Card variant="callout" tone="green">
+							<Card ref={releaseOnDetach} variant="callout" tone="green">
 								<CalloutLabel tone="green" icon={Tick02Icon}>
 									{state.complete ? "Downloaded" : "Downloaded, not complete"}
 								</CalloutLabel>
@@ -122,8 +123,10 @@ export function ExportDialog({
 										: "The connection dropped or the server did not answer. Try again."}
 								</CalloutText>
 							</Card>
-						) : state.kind === "exporting" && state.slow ? (
-							<p className="text-sm text-text-2">Still preparing the file. A large export can take a few seconds.</p>
+						) : state.kind === "exporting" ? (
+							<p className="people-export-slow text-sm text-text-2">
+								Still preparing the file. A large export can take a few seconds.
+							</p>
 						) : null}
 					</div>
 				</DialogBody>

@@ -1,17 +1,10 @@
 {
 	"no-timers": {
-		"apps/web/src/features/people/import-export/ExportDialog.tsx": [
-			{
-				"function": "download",
-				"count": 1,
-				"reason": "The specified 'Still preparing the file' note (C33) appears when a CSV export has run for one second: the elapsed second is the product behavior and no event marks it; it is cleared in the same download's finally, so it never outlives the request that started it"
-			}
-		],
 		"apps/web/src/features/people/import-export/receipt-watch.ts": [
 			{
 				"function": "schedule",
 				"count": 1,
-				"reason": "Progress of a running import job: the server pushes nothing, so the receipt is read about once a second, backing off to eight seconds after a failed read, and only while the import screen subscribes; the loop stops when the job finishes or is refused and when the last subscriber leaves"
+				"reason": "The poll is the import job receipt's only transport: the server pushes nothing, so the receipt is read about once a second, backing off to eight seconds after a failed read, while the import screen subscribes, stopping at the job's end or the last unsubscribe. The base polled the same way from an effect; only a server push would remove it, because ?import= must resume a running job after a reload or Back"
 			}
 		]
 	}
