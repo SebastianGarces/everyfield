@@ -1,8 +1,6 @@
 import { z } from "zod";
 import { notificationCategory } from "../settings/values.ts";
 
-// The feed category is the preference category stored in logical_key, not the
-// coarse notice.category column. Wiki has no email channel.
 export { notificationCategory };
 export const digestCadence = z.enum(["daily", "weekly"]);
 export const digestPeriod = z.enum(["current", "owed_catchup"]);
