@@ -13,7 +13,7 @@ import {
 	MenuTrigger,
 } from "@everyfield/ui/controls";
 import { PersonCard, PipelineColumn, StageChip, StatusBadge } from "@everyfield/ui/display";
-import { useEffect, useState, type DragEvent } from "react";
+import { useMemo, useState, type DragEvent } from "react";
 import type { z } from "zod";
 import { loadColumn, reorderPipeline } from "./actions.ts";
 import { useRouter } from "next/navigation";
@@ -23,8 +23,6 @@ import {
 	isFiltered,
 	listRequest,
 	moveInOrder,
-	PersonStore,
-	runSave,
 	STAGE_KEY,
 	STAGE_LABEL,
 	STAGES,
@@ -33,7 +31,9 @@ import {
 	type PeopleQuery,
 	type StageValue,
 } from "./model.ts";
-import { CardLink, FormProblem, fresh, problemOf, problemText, useStore, When } from "./parts.tsx";
+import { useLocalStore } from "../../components/store.ts";
+import { createPersonStore, runSave, withServer, type PersonStore } from "./person.store.ts";
+import { CardLink, FormProblem, fresh, problemOf, problemText, usePersonState, When } from "./parts.tsx";
 import { StageDialog, type PersonDraft } from "./StageDialog.tsx";
 
 type Pipeline = z.infer<typeof people.pipelineResult>;
@@ -81,7 +81,7 @@ export function PipelineBoard({
 	const [dragged, setDragged] = useState<CardData | null>(null);
 	const [over, setOver] = useState<ColumnValue | null>(null);
 	const move = (card: CardData, target?: StageValue) =>
-		setMoving({ store: new PersonStore<PlantPerson, PersonDraft>(card.person), card, target });
+		setMoving({ store: createPersonStore<PlantPerson, PersonDraft>(card.person), card, target });
 
 	return (
 		<>
@@ -129,7 +129,7 @@ export function PipelineBoard({
 			</div>
 			{moving ? (
 				<StageDialog
-					key={moving.store.get().saved.id}
+					key={moving.store.getState().saved.id}
 					open
 					onOpenChange={(open) => !open && setMoving(null)}
 					store={moving.store}
@@ -204,10 +204,10 @@ function Column({
 	const router = useRouter();
 	// One reorder at a time per column, with the column's revision as the lock (REQ-PPL-007). The store outlives
 	// refreshes, so a refusal message stays until the next try; the server's newer revision replaces the old one.
-	const [store] = useState(() => new PersonStore<{ revision: string }, null>({ revision: group.revision }));
-	const order = useStore(store);
+	const own = useLocalStore(() => createPersonStore<{ revision: string }, null>({ revision: group.revision }));
 	const columnRevision = answer?.revision ?? group.revision;
-	useEffect(() => store.dispatch({ type: "server", person: { revision: columnRevision } }), [store, columnRevision]);
+	const store = useMemo(() => withServer(own, { revision: columnRevision }), [own, columnRevision]);
+	const order = usePersonState(store);
 	const [said, setSaid] = useState("");
 	// Up and down place a person next to their true neighbour. A search or filter hides people, and "Show more" may not
 	// have run, so the neighbour on screen may not be the real one: reorder needs an unfiltered, fully loaded column

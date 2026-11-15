@@ -20,16 +20,9 @@ import { useState } from "react";
 import type { z } from "zod";
 import { classifyAdult, restorePerson, retirePerson, updatePerson, type Receipt } from "./actions.ts";
 import type { EntryFields } from "./ActivityCard.tsx";
-import {
-	changedFields,
-	CLASSIFICATION_LABEL,
-	CLASSIFICATIONS,
-	runSave,
-	SOURCE_LABEL,
-	SOURCES,
-	type PersonStore,
-} from "./model.ts";
-import { FormProblem, fresh, isConflict, problemOf, problemText, useStore, useWarnings } from "./parts.tsx";
+import { changedFields, CLASSIFICATION_LABEL, CLASSIFICATIONS, SOURCE_LABEL, SOURCES } from "./model.ts";
+import { runSave, type PersonStore } from "./person.store.ts";
+import { FormProblem, fresh, isConflict, problemOf, problemText, usePersonState, useWarnings } from "./parts.tsx";
 import type { PersonDraft } from "./StageDialog.tsx";
 
 type PlantPerson = z.infer<typeof people.plantPerson>;
@@ -99,7 +92,7 @@ export function EditProfileDialog({
 	onOpenChange: (open: boolean) => void;
 	store: Store;
 } & Reported) {
-	const state = useStore(store);
+	const state = usePersonState(store);
 	const person = state.saved;
 	const pending = state.pending === "profile";
 	const draft = state.drafts.profile as ProfileDraft | undefined;
@@ -108,17 +101,13 @@ export function EditProfileDialog({
 	const [confirming, setConfirming] = useState(false);
 	const dirty = draft ? Object.keys(changedFields(draft.base, draft.values)).length > 0 : false;
 	const set = (k: ProfileKey, v: string) =>
-		store.dispatch({
-			type: "edit",
-			slot: "profile",
-			draft: { base: draft?.base ?? profileOf(person), values: { ...values, [k]: v } },
-		});
+		store.getState().actions.edit("profile", { base: draft?.base ?? profileOf(person), values: { ...values, [k]: v } });
 	const nameMissing = values.displayName.trim() === "";
 
 	const close = (next: boolean) => {
 		if (pending) return;
 		if (!next && dirty) return setConfirming(true);
-		if (!next) store.dispatch({ type: "discard", slot: "profile" });
+		if (!next) store.getState().actions.discard("profile");
 		setTouched(false);
 		onOpenChange(next);
 	};
@@ -245,7 +234,7 @@ export function EditProfileDialog({
 				cancelLabel="Keep editing"
 				tone="danger"
 				onConfirm={() => {
-					store.dispatch({ type: "discard", slot: "profile" });
+					store.getState().actions.discard("profile");
 					setTouched(false);
 					onOpenChange(false);
 				}}
@@ -272,7 +261,7 @@ export function ClassificationDialog({
 	onOpenChange: (open: boolean) => void;
 	store: Store;
 } & Reported) {
-	const state = useStore(store);
+	const state = usePersonState(store);
 	const person = state.saved;
 	const correction = person.adultClassification !== "unknown";
 	const pending = state.pending === "classify";
@@ -287,12 +276,11 @@ export function ClassificationDialog({
 	// The date the server last refused as after the church's today. Its error stays until the date changes, so the same
 	// date is not sent again; any other refusal shows below the form.
 	const [refusedOn, setRefusedOn] = useState<string | null>(null);
-	const set = (patch: Partial<ClassifyDraft>) =>
-		store.dispatch({ type: "edit", slot: "classify", draft: { ...draft, ...patch } });
+	const set = (patch: Partial<ClassifyDraft>) => store.getState().actions.edit("classify", { ...draft, ...patch });
 	const close = (next: boolean) => {
 		if (pending) return;
 		if (!next) {
-			store.dispatch({ type: "discard", slot: "classify" });
+			store.getState().actions.discard("classify");
 			setTouched(false);
 			setRefusedOn(null);
 		}
@@ -410,7 +398,7 @@ export function RetireDialog({
 	onOpenChange: (open: boolean) => void;
 	store: Store;
 } & Reported) {
-	const state = useStore(store);
+	const state = usePersonState(store);
 	const person = state.saved;
 	const pending = state.pending === "retire";
 	const reason = (state.drafts.retire as { body: string } | undefined)?.body ?? "";
@@ -421,7 +409,7 @@ export function RetireDialog({
 	const close = (next: boolean) => {
 		if (pending) return;
 		if (!next) {
-			store.dispatch({ type: "discard", slot: "retire" });
+			store.getState().actions.discard("retire");
 			setTouched(false);
 		}
 		onOpenChange(next);
@@ -494,7 +482,7 @@ export function RetireDialog({
 							maxLength={5000}
 							value={reason}
 							readOnly={pending}
-							onChange={(e) => store.dispatch({ type: "edit", slot: "retire", draft: { body: e.target.value } })}
+							onChange={(e) => store.getState().actions.edit("retire", { body: e.target.value })}
 						/>
 					</Field>
 					<FormProblem code={state.errors.retire} />
@@ -524,7 +512,7 @@ export function RestoreDialog({
 	onOpenChange: (open: boolean) => void;
 	store: Store;
 } & Reported) {
-	const person = useStore(store).saved;
+	const person = usePersonState(store).saved;
 	return (
 		<ConfirmDialog
 			open={open}

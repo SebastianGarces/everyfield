@@ -1,18 +1,18 @@
 {
 	"apps/web/src/features/people/ActivityCard.tsx": 10,
 	"apps/web/src/features/people/AddPersonDialog.tsx": 1,
-	"apps/web/src/features/people/PeopleScreen.tsx": 18,
+	"apps/web/src/features/people/PeopleScreen.tsx": 7,
 	"apps/web/src/features/people/PersonDialogs.tsx": 19,
-	"apps/web/src/features/people/PersonScreen.tsx": 21,
+	"apps/web/src/features/people/PersonScreen.tsx": 20,
 	"apps/web/src/features/people/PipelineBoard.tsx": 28,
 	"apps/web/src/features/people/StageDialog.tsx": 9,
 	"apps/web/src/features/people/actions.ts": 12,
 	"apps/web/src/features/people/activity.ts": 4,
 	"apps/web/src/features/people/boundary.ts": 4,
 	"apps/web/src/features/people/errors.tsx": 1,
-	"apps/web/src/features/people/model.ts": 46,
+	"apps/web/src/features/people/model.ts": 32,
 	"apps/web/src/features/people/page-data.ts": 3,
-	"apps/web/src/features/people/parts.tsx": 14,
+	"apps/web/src/features/people/parts.tsx": 9,
 	"apps/web/src/features/people/routes.tsx": 6,
 	"apps/web/src/features/people/server.ts": 8
 }

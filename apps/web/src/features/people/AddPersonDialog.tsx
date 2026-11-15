@@ -13,19 +13,12 @@ import {
 	Select,
 } from "@everyfield/ui/controls";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { createPerson } from "./actions.ts";
-import {
-	CLASSIFICATION_LABEL,
-	CLASSIFICATIONS,
-	PersonStore,
-	runSave,
-	SOURCE_LABEL,
-	SOURCES,
-	STAGE_LABEL,
-	STAGES,
-} from "./model.ts";
-import { FormProblem, fresh, useStore } from "./parts.tsx";
+import { CLASSIFICATION_LABEL, CLASSIFICATIONS, SOURCE_LABEL, SOURCES, STAGE_LABEL, STAGES } from "./model.ts";
+import { useLocalStore } from "../../components/store.ts";
+import { createPersonStore, runSave } from "./person.store.ts";
+import { FormProblem, fresh, usePersonState } from "./parts.tsx";
 
 type Draft = {
 	displayName: string;
@@ -55,12 +48,12 @@ const blankToNull = (v: string) => (v.trim() === "" ? null : v.trim());
  */
 export function AddPersonDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
 	const router = useRouter();
-	const store = useMemo(() => new PersonStore<{ revision: string }, Draft>({ revision: "0" }), []);
-	const state = useStore(store);
+	const store = useLocalStore(() => createPersonStore<{ revision: string }, Draft>({ revision: "0" }));
+	const state = usePersonState(store);
 	const draft = state.drafts.add ?? EMPTY;
 	const pending = state.pending === "add";
 	const [touched, setTouched] = useState(false);
-	const set = (patch: Partial<Draft>) => store.dispatch({ type: "edit", slot: "add", draft: { ...draft, ...patch } });
+	const set = (patch: Partial<Draft>) => store.getState().actions.edit("add", { ...draft, ...patch });
 	const nameMissing = draft.displayName.trim() === "";
 
 	async function submit(event: React.FormEvent) {

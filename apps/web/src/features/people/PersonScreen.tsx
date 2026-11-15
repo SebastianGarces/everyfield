@@ -136,16 +136,18 @@ export function PersonScreen({
 		records: initialRecords,
 		duplicates: initialDuplicates,
 		generation: 0,
+		household: initialFields?.household ?? null,
+		corrected: [] as CorrectedRecord[],
 	});
-	const { fields, records, duplicates, generation } = parts;
-	const [household, setHousehold] = useState<HouseholdResult | null>(initialFields?.household ?? null);
+	const { fields, records, duplicates, generation, household, corrected } = parts;
+	const setHousehold = (next: HouseholdResult | null) => setParts((old) => ({ ...old, household: next }));
 	/** A saved tag, skill or photo change: Activity records it as a change to the person's details. */
 	const changed = (receipt: Receipt) => saved(receipt, { kind: "activity", action: "updated" });
 	const householdName = household?.status === "available" ? household.household.name : null;
 	async function reload() {
 		const r = await reloadPerson(person.id).catch(() => null);
 		if (r?.status !== "ok") return;
-		store.dispatch({ type: "server", person: r.value.person });
+		store.getState().actions.server(r.value.person);
 		if (r.value.activities) setHistory({ status: "ok", value: r.value.activities });
 	}
 	// The person as shown: the saved person, plus a change the screen expects while it saves (the household address
@@ -183,21 +185,19 @@ export function PersonScreen({
 		if (got.receipt) saved(got.receipt, { kind: "activity", action: "person_unmerged" });
 		const page = got.page;
 		if (!page) return setStale(true);
-		store.dispatch({ type: "server", person: page.person });
+		store.getState().actions.server(page.person);
 		if (page.activities) setHistory({ status: "ok", value: page.activities });
 		setParts((old) => ({
 			fields: page.fields,
 			records: page.records,
 			duplicates: page.duplicates,
 			generation: old.generation + 1,
+			household: page.fields?.household ?? null,
+			corrected: [],
 		}));
-		setHousehold(page.fields?.household ?? null);
-		setCorrected([]);
 		setStale(false);
 	}
 
-	/** Every record Edit a record saved on this page, the newest per record, so each card shows its edited values. */
-	const [corrected, setCorrected] = useState<CorrectedRecord[]>([]);
 	const busy = state.pending !== null;
 	const lifecycle = p.lifecycle;
 	const live = lifecycle.state === "live";
@@ -582,7 +582,10 @@ export function PersonScreen({
 							accountId={accountId}
 							onClose={close}
 							onEdited={(receipt, next) => {
-								setCorrected((all) => [...all.filter((c) => c.record.id !== next.record.id), next]);
+								setParts((old) => ({
+									...old,
+									corrected: [...old.corrected.filter((c) => c.record.id !== next.record.id), next],
+								}));
 								if (receipt)
 									saved(receipt, {
 										kind: "activity",

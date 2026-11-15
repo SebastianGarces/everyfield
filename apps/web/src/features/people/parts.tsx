@@ -4,12 +4,14 @@ import { Alert02Icon } from "@hugeicons/core-free-icons";
 import { Icon, useHydrated } from "@everyfield/ui/foundations";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, useSyncExternalStore, type ComponentProps } from "react";
+import { useMemo, useSyncExternalStore, type ComponentProps } from "react";
 import type * as people from "@everyfield/contracts/people";
 import type { z } from "zod";
 import { statusWarnings } from "./actions.ts";
 import type { Outcome } from "../../components/save/model.ts";
-import { PersonStore, type PersonState, type Saved } from "./model.ts";
+import { createRead, useRead } from "../../components/read.tsx";
+import { useLocalStore } from "../../components/store.ts";
+import { createPersonStore, withServer, type PersonState, type PersonStore, type Saved } from "./person.store.ts";
 
 /** What a refusal or lost answer means for the person, in words. Nothing here reveals another tenant's records. */
 export function problemText(code: string): string {
@@ -47,18 +49,14 @@ export function FormProblem({ code, id }: { code: string | undefined; id?: strin
 	);
 }
 
-/** One store per person page. It survives dialogs opening and closing; the server props refresh it. */
 export function usePersonStore<P extends Saved & { id: string }, D>(person: P): [PersonStore<P, D>, PersonState<P, D>] {
-	// One store for this person on this page. Server props after a refresh update it; they never reset drafts.
-	const store = useMemo(() => new PersonStore<P, D>(person), [person.id]); // eslint-disable-line react-hooks/exhaustive-deps
-	const state = useSyncExternalStore(store.subscribe, store.get, store.get);
-	useEffect(() => store.dispatch({ type: "server", person }), [store, person]);
-	return [store, state];
+	const own = useLocalStore(() => createPersonStore<P, D>(person));
+	const store = useMemo(() => withServer(own, person), [own, person]);
+	return [store, usePersonState(store)];
 }
 
-/** The current state of a store, re-rendering on every change. */
-export function useStore<P extends Saved, D>(store: PersonStore<P, D>): PersonState<P, D> {
-	return useSyncExternalStore(store.subscribe, store.get, store.get);
+export function usePersonState<P extends Saved, D>(store: PersonStore<P, D>): PersonState<P, D> {
+	return useSyncExternalStore(store.subscribe, store.getState, store.getState);
 }
 
 export const fresh = () => crypto.randomUUID();
@@ -91,30 +89,13 @@ export function LocalDay({ day }: { day: string }) {
 	return <time dateTime={day}>{DAY.format(new Date(Date.UTC(y, m - 1, d)))}</time>;
 }
 
-/**
- * The person's status warnings, open duties and review revision, read when a dialog opens and again when `round`
- * changes (the dialog's save was refused as out of date). Null while loading. Dialogs mount when they open, so every
- * opening reads afresh; a dialog's own save never causes a second read.
- */
-export function useWarnings(
-	personId: string,
-	round: number,
-): Outcome<z.infer<typeof people.statusWarningsResult>> | null {
-	const key = `${personId}:${round}`;
-	const [got, setGot] = useState<{ key: string; value: Outcome<z.infer<typeof people.statusWarningsResult>> } | null>(
-		null,
-	);
-	useEffect(() => {
-		let live = true;
-		statusWarnings(personId).then(
-			(value) => live && setGot({ key, value }),
-			() => live && setGot({ key, value: { status: "lost" } }),
-		);
-		return () => {
-			live = false;
-		};
-	}, [key, personId]);
-	return got?.key === key ? got.value : null;
+type Warnings = Outcome<z.infer<typeof people.statusWarningsResult>>;
+const warningsRead = createRead<[personId: string, round: number], Warnings>((personId) => statusWarnings(personId), {
+	failed: () => ({ status: "lost" }),
+});
+
+export function useWarnings(personId: string, round: number): Warnings | null {
+	return useRead(warningsRead, personId, round).value ?? null;
 }
 
 /**

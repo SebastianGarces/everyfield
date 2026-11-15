@@ -17,9 +17,9 @@ import {
 import { Avatar, KeyValue, KeyValueList } from "@everyfield/ui/display";
 import { useEffect, useRef, useState } from "react";
 import type { z } from "zod";
-import { runSave, type PersonStore } from "../model.ts";
+import { runSave, type PersonStore } from "../person.store.ts";
 import type { Outcome } from "../../../components/save/model.ts";
-import { fresh, useStore, When } from "../parts.tsx";
+import { fresh, usePersonState, When } from "../parts.tsx";
 import type { PersonDraft } from "../StageDialog.tsx";
 import { unmergePair, unmergePreview, type Unmerged } from "./actions.ts";
 import { takeUnmergePreview } from "./intent.ts";
@@ -68,7 +68,7 @@ export function UnmergeDialog({
 	const seq = useRef(0);
 	const slot = `unmerge:${mergeId}`;
 	// An earlier Unmerge of this merge whose answer was lost: only a server answer may say what happened, never a failed read.
-	const uncertain = useStore(store).errors[slot] === "lost";
+	const uncertain = usePersonState(store).errors[slot] === "lost";
 
 	/** Reads the preview. The first read is the one started on intent, when there is one (intent.ts). */
 	async function load(first = false) {

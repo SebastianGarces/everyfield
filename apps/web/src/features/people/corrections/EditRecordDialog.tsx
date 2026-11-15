@@ -23,9 +23,9 @@ import { StatusBadge } from "@everyfield/ui/display";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { z } from "zod";
 import type { Receipt } from "../boundary.ts";
-import { runSave, type PersonStore } from "../model.ts";
+import { runSave, type PersonStore } from "../person.store.ts";
 import type { Outcome } from "../../../components/save/model.ts";
-import { fresh, LocalDay, useStore, When } from "../parts.tsx";
+import { fresh, LocalDay, usePersonState, When } from "../parts.tsx";
 import type { PersonDraft } from "../StageDialog.tsx";
 import { correctRecord, loadRecords } from "./actions.ts";
 import { takeRecords } from "./intent.ts";
@@ -119,7 +119,7 @@ export function EditRecordDialog({
 	const [pending, setPending] = useState(false);
 	const seq = useRef(0);
 	// Edits whose answer was lost. Only a server answer may say what happened, never a failed read.
-	const errors = useStore(store).errors;
+	const errors = usePersonState(store).errors;
 	const uncertain = new Set(
 		Object.entries(errors).flatMap(([k, v]) => (k.startsWith("correct:") && v === "lost" ? [k.slice(8)] : [])),
 	);
@@ -451,7 +451,7 @@ function useCorrection(
 		};
 		const rev = chosen.record.revision;
 		// An earlier answer for this record was lost, in this form or before the dialog was reopened.
-		if (store.get().errors[slot] === "lost") lost.current = true;
+		if (store.getState().errors[slot] === "lost") lost.current = true;
 		busy(true);
 		setProblem(null);
 		const r = await runSave(store, slot, { input, rev }, (key) => correctRecord(key, rev, input), { fresh });

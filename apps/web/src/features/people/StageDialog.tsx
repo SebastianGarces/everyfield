@@ -21,16 +21,15 @@ import type { z } from "zod";
 import { changeStatus } from "./actions.ts";
 import {
 	leavesCommitted,
-	runSave,
 	skippedStages,
 	STAGE_KEY,
 	STAGE_LABEL,
 	STAGES,
 	type ColumnValue,
-	type PersonStore,
 	type StageValue,
 } from "./model.ts";
-import { FormProblem, fresh, problemOf, useStore, useWarnings } from "./parts.tsx";
+import { runSave, type PersonStore } from "./person.store.ts";
+import { FormProblem, fresh, problemOf, usePersonState, useWarnings } from "./parts.tsx";
 
 type PlantPerson = z.infer<typeof people.plantPerson>;
 type Warnings = z.infer<typeof people.statusWarningsResult>;
@@ -78,7 +77,7 @@ export function StageDialog({
 	/** The move was refused because the person changed elsewhere: the caller reads the latest copy (D68). */
 	onConflict: () => void;
 }) {
-	const state = useStore(store);
+	const state = usePersonState(store);
 	const person = state.saved;
 	const pending = state.pending === "stage";
 	const draft = (state.drafts.stage as StageDraft | undefined) ?? { stage: target ?? null, reason: "" };
@@ -88,12 +87,11 @@ export function StageDialog({
 	const warnings = useWarnings(person.id, round);
 	const [touched, setTouched] = useState(false);
 
-	const set = (patch: Partial<StageDraft>) =>
-		store.dispatch({ type: "edit", slot: "stage", draft: { ...draft, ...patch } });
+	const set = (patch: Partial<StageDraft>) => store.getState().actions.edit("stage", { ...draft, ...patch });
 	const close = (next: boolean) => {
 		if (pending) return;
 		if (!next) {
-			store.dispatch({ type: "discard", slot: "stage" });
+			store.getState().actions.discard("stage");
 			setTouched(false);
 		}
 		onOpenChange(next);

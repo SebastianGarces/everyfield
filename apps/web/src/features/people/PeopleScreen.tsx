@@ -28,10 +28,12 @@ import {
 	StatePanel,
 } from "@everyfield/ui/controls";
 import { Avatar, DataTable, Pagination, PersonCard, StageChip, StatusBadge, type Column } from "@everyfield/ui/display";
-import { Icon } from "@everyfield/ui/foundations";
+import { createDebouncer, Icon } from "@everyfield/ui/foundations";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useOptimistic, useRef, useState, useTransition } from "react";
+import { useOptimistic, useState, useTransition, type ComponentProps } from "react";
 import type { z } from "zod";
+import { currentAddress, useAddress, writeAddress } from "../../components/location.ts";
+import { useLocalStore, useStore } from "../../components/store.ts";
 import { loadPeopleView } from "./actions.ts";
 import { AddPersonDialog } from "./AddPersonDialog.tsx";
 import { ExportDialog } from "./import-export/ExportDialog.tsx";
@@ -40,6 +42,7 @@ import {
 	CLASSIFICATIONS,
 	isFiltered,
 	pageCount,
+	parseQuery,
 	querySearch,
 	rangeText,
 	SOURCE_LABEL,
@@ -52,15 +55,13 @@ import {
 	type ViewValue,
 } from "./model.ts";
 import { CardLink, PersonLink, When } from "./parts.tsx";
+import { createPeopleViewsStore, shownOf, viewsOf } from "./PeopleScreen.store.ts";
 import { PipelineBoard } from "./PipelineBoard.tsx";
 import type { PeopleData, PeopleView } from "./server.ts";
 
 type PlantPerson = z.infer<typeof people.plantPerson>;
 /** A list row: the person and the photo it shows, when there is one (REQ-PPL-005, REQ-IDN-006). */
 type ListRow = PlantPerson & { photo?: string };
-/** List and cards show the same loaded rows; the pipeline is its own load. */
-type Kind = "rows" | "pipeline";
-const kindOf = (view: ViewValue): Kind => (view === "pipeline" ? "pipeline" : "rows");
 
 const COMMITMENT_LABEL = { active: "Committed", withdrawn: "Withdrawn", unknown: "Not recorded" } as const;
 const RETIRED_LABEL = { include: "Active and retired", only: "Retired only" } as const;
@@ -80,54 +81,33 @@ export function PeopleScreen({ loaded, canWrite }: { loaded: PeopleView; canWrit
 	const [navigating, startTransition] = useTransition();
 	const [adding, setAdding] = useState(false);
 	const [exporting, setExporting] = useState(false);
-	const [server, setServer] = useState(loaded);
-	const [views, setViews] = useState<Partial<Record<Kind, PeopleView>>>(() => ({
-		[kindOf(loaded.query.view)]: loaded,
-	}));
-	const [view, setView] = useState(loaded.query.view);
-	if (server !== loaded) {
-		setServer(loaded);
-		setViews({ [kindOf(loaded.query.view)]: loaded });
-		setView(loaded.query.view);
-	}
-	// The view the person asked for shows in the switch at once, also while its first load runs.
+	const store = useLocalStore(() => createPeopleViewsStore(loaded));
+	const views = viewsOf(
+		useStore(store, (s) => s),
+		loaded,
+	);
+	const view = views.view;
 	const [chosen, setChosen] = useOptimistic(view);
-	const current = views[kindOf(view)];
+	const current = shownOf(views);
 	const shown = current ?? loaded;
 	const query: PeopleQuery = current ? { ...current.query, view } : loaded.query;
 
-	// The latest server answer and the latest asked-for view, read when a load returns: an answer for older filters, or
-	// for a view the person already left, is not shown.
-	const latest = useRef({ loaded, wanted: view });
-	useEffect(() => {
-		latest.current.loaded = loaded;
-	}, [loaded]);
-
 	const go = (next: PeopleQuery, replace = false) =>
 		startTransition(() => (replace ? router.replace : router.push)(pathname + querySearch(next), { scroll: false }));
-	// Next.js keeps its router in step with history.replaceState, so the address changes without a server request.
-	const address = (q: PeopleQuery) => window.history.replaceState(null, "", pathname + querySearch(q));
+	const address = (q: PeopleQuery) => writeAddress(pathname + querySearch(q), { replace: true });
 	const switchView = (next: ViewValue) => {
-		latest.current.wanted = next;
-		const have = views[kindOf(next)];
-		if (have) {
-			setView(next);
-			address({ ...have.query, view: next });
-			return;
-		}
+		const { want, arrived } = store.getState().actions;
+		const have = want(loaded, next);
+		if (have) return address({ ...have.query, view: next });
 		const base = loaded;
+		const from = currentAddress();
 		const target = { ...query, view: next };
 		startTransition(async () => {
 			setChosen(next);
 			const got = await loadPeopleView(querySearch(target)).catch(() => null);
-			if (latest.current.loaded !== base) return;
-			// Signed out or no seat any more: load the page, which shows sign-in or the lock.
-			if (!got) return void (latest.current.wanted === next && go(target, true));
-			startTransition(() => {
-				setViews((v) => ({ ...v, [kindOf(next)]: got }));
-				if (latest.current.wanted === next) setView(next);
-			});
-			if (latest.current.wanted === next) address({ ...got.query, view: next });
+			const still = currentAddress() === from;
+			if (!got) return void (still && store.getState().wanted === next && go(target, true));
+			if (arrived(base, next, got) && still) address({ ...got.query, view: next });
 		});
 	};
 
@@ -203,31 +183,19 @@ export function PeopleScreen({ loaded, canWrite }: { loaded: PeopleView; canWrit
 	);
 }
 
-function SearchBox({ query, go }: { query: PeopleQuery; go: (q: PeopleQuery, replace?: boolean) => void }) {
-	const [value, setValue] = useState(query.search);
-	const latest = useRef(query);
-	const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
-	useEffect(() => {
-		latest.current = query;
-	});
-	// The terms this box sent and the address has not shown yet. Its own echo leaves the typed value alone; any other term
-	// (back or forward, a link, "Clear filters") replaces it and drops a pending send.
-	const sent = useRef<string[]>([]);
-	useEffect(() => {
-		const i = sent.current.indexOf(query.search);
-		if (i >= 0) {
-			sent.current = sent.current.slice(i + 1);
-			return;
-		}
-		sent.current = [];
-		clearTimeout(timer.current);
-		setValue(query.search);
-	}, [query.search]);
-	useEffect(() => () => clearTimeout(timer.current), []);
-	// Typing waits for a pause before it changes the address, so each keystroke is not a page load.
+function SearchBox({ go }: { go: (q: PeopleQuery, replace?: boolean) => void }) {
+	const search = parseQuery(useAddress().params).search;
+	const [value, setValue] = useState(search);
+	const [seen, setSeen] = useState(search);
+	const [{ run: afterPause, cancelOnDetach }] = useState(() => createDebouncer(300));
+	if (search !== seen) {
+		setSeen(search);
+		setValue(search);
+	}
 	return (
 		<div className="w-[320px] max-app-sm:w-full">
 			<SearchInput
+				ref={cancelOnDetach}
 				aria-label="Search people"
 				placeholder="Search name, email or phone"
 				value={value}
@@ -235,13 +203,15 @@ function SearchBox({ query, go }: { query: PeopleQuery; go: (q: PeopleQuery, rep
 				onChange={(e) => {
 					const next = e.target.value;
 					setValue(next);
-					clearTimeout(timer.current);
-					timer.current = setTimeout(() => {
+					afterPause(() => {
+						const now = parseQuery(new URLSearchParams(window.location.search));
 						const term = next.trim();
-						if (term === latest.current.search) return;
-						if (sent.current.at(-1) !== term) sent.current.push(term);
-						go(withFilters(latest.current, { search: term }), true);
-					}, 300);
+						if (now.search !== search || term === now.search) return;
+						const target = withFilters(now, { search: term });
+						setSeen(term);
+						writeAddress(window.location.pathname + querySearch(target), { replace: true });
+						go(target, true);
+					});
 				}}
 				data-people-search=""
 			/>
@@ -262,7 +232,7 @@ function Toolbar({
 }) {
 	return (
 		<div className="flex flex-wrap items-center gap-3">
-			<SearchBox query={query} go={go} />
+			<SearchBox go={go} />
 			<FilterChip
 				label="Stage"
 				icon={FilterHorizontalIcon}
@@ -395,7 +365,7 @@ function Results({
 									name={p.displayName}
 									photo={p.photo}
 									href={`/people/${p.id}`}
-									linkAs={CardLink}
+									linkAs={RowCardLink}
 									meta={p.email ?? p.phone ?? undefined}
 									footer={<PersonBadges person={p} />}
 								/>
@@ -439,13 +409,6 @@ function Pager({
 	total: number;
 	go: (q: PeopleQuery) => void;
 }) {
-	// The pager covers the window's bottom edge. While it shows, the window's scroll padding keeps a focused row link
-	// above it, so keyboard focus is never hidden (WCAG 2.4.11).
-	useEffect(() => {
-		const root = document.documentElement;
-		root.style.scrollPaddingBottom = "96px";
-		return () => void root.style.removeProperty("scroll-padding-bottom");
-	}, []);
 	// The pager stays at the bottom of the window while the rows scroll under it, so the next page is always one press
 	// away. It is the card's bottom edge, with the card's side padding, so it lines up when the list ends.
 	return (
@@ -456,6 +419,10 @@ function Pager({
 			<Pagination page={query.page} pageCount={pageCount(total)} onPageChange={(n) => go({ ...query, page: n })} />
 		</div>
 	);
+}
+
+function RowCardLink({ className, ...props }: ComponentProps<typeof CardLink>) {
+	return <CardLink {...props} className={`${className ?? ""} scroll-mb-24`} />;
 }
 
 /** Retired, committed and launch-team or leader badges: the facts a list row says in words. */
@@ -480,7 +447,7 @@ const COLUMNS: Column<ListRow>[] = [
 			<div className="flex items-center gap-3">
 				<Avatar name={p.displayName} src={p.photo} size="sm" decorative />
 				<div className="min-w-0">
-					<PersonLink href={`/people/${p.id}`} className="font-semibold text-ink hover:underline">
+					<PersonLink href={`/people/${p.id}`} className="scroll-mb-24 font-semibold text-ink hover:underline">
 						{p.displayName}
 					</PersonLink>
 					<div className="truncate text-sm text-text-3">{p.email ?? p.phone ?? "No contact details"}</div>

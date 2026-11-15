@@ -26,9 +26,9 @@ import { addNote, deleteNote, editNote, loadActivities } from "./actions.ts";
 import { CHANNEL_LABEL } from "../followups/model.ts";
 import { unmergeIntent } from "./corrections/intent.ts";
 import { describe } from "./activity.ts";
-import { runSave, type PersonStore } from "./model.ts";
+import { runSave, type PersonStore } from "./person.store.ts";
 import type { Outcome } from "../../components/save/model.ts";
-import { FormProblem, fresh, isConflict, problemOf, useStore, When } from "./parts.tsx";
+import { FormProblem, fresh, isConflict, problemOf, usePersonState, When } from "./parts.tsx";
 import type { PersonDraft } from "./StageDialog.tsx";
 
 type PlantPerson = z.infer<typeof people.plantPerson>;
@@ -45,7 +45,7 @@ type Store = PersonStore<PlantPerson, PersonDraft>;
 const savedAt =
 	(store: Store) =>
 	(v: { personRevision: PlantPerson["revision"] }): PlantPerson => ({
-		...store.get().saved,
+		...store.getState().saved,
 		revision: v.personRevision,
 	});
 type NoteEdit = { body: string; reason: string };
@@ -78,7 +78,7 @@ export function ActivityCard({
 	/** Opens the Unmerge preview for a merge in this history (WP-015). Owners and Admins only. */
 	onUnmerge?: (mergeId: string) => void;
 }) {
-	const state = useStore(store);
+	const state = usePersonState(store);
 	const person = state.saved;
 	const live = person.lifecycle.state === "live";
 	const [more, setMore] = useState<{ loading: boolean; problem?: string }>({ loading: false });
@@ -155,7 +155,7 @@ export function ActivityCard({
 							maxLength={5000}
 							value={composer}
 							readOnly={state.pending === "note"}
-							onChange={(e) => store.dispatch({ type: "edit", slot: "note", draft: { body: e.target.value } })}
+							onChange={(e) => store.getState().actions.edit("note", { body: e.target.value })}
 						/>
 					</Field>
 					<FormProblem code={state.errors.note} />
@@ -253,7 +253,7 @@ function Row({
 	onConflict: () => void;
 	onUnmerge?: (mergeId: string) => void;
 }) {
-	const state = useStore(store);
+	const state = usePersonState(store);
 	const slot = `note:${item.id}`;
 	const edit = state.drafts[slot] as NoteEdit | undefined;
 	const by = who(item.actor, mine);
@@ -261,13 +261,13 @@ function Row({
 
 	if (item.kind === "note" && edit) {
 		const pending = state.pending === slot;
-		const set = (patch: Partial<NoteEdit>) => store.dispatch({ type: "edit", slot, draft: { ...edit, ...patch } });
+		const set = (patch: Partial<NoteEdit>) => store.getState().actions.edit(slot, { ...edit, ...patch });
 		async function save(event: React.FormEvent) {
 			event.preventDefault();
 			setTouched(true);
 			if (item.kind !== "note" || !edit || !edit.body.trim() || !edit.reason.trim()) return;
 			const input = {
-				personId: store.get().saved.id,
+				personId: store.getState().saved.id,
 				noteId: item.id,
 				body: edit.body.trim(),
 				reason: edit.reason.trim(),
@@ -315,7 +315,7 @@ function Row({
 							disabled={pending}
 							onClick={() => {
 								setTouched(false);
-								store.dispatch({ type: "discard", slot });
+								store.getState().actions.discard(slot);
 							}}
 						>
 							Cancel
@@ -379,7 +379,7 @@ function Row({
 							size="sm"
 							icon={Edit02Icon}
 							disabled={state.pending !== null}
-							onClick={() => store.dispatch({ type: "edit", slot, draft: { body: item.body, reason: "" } })}
+							onClick={() => store.getState().actions.edit(slot, { body: item.body, reason: "" })}
 						>
 							Edit
 						</Button>
@@ -413,14 +413,14 @@ function DeleteNoteDialog({
 	onDeleted: (entry: Item) => void;
 	onConflict: () => void;
 }) {
-	const state = useStore(store);
+	const state = usePersonState(store);
 	const slot = note ? `delete:${note.id}` : "delete";
 	const pending = state.pending === slot;
 	const reason = (state.drafts[slot] as { body: string } | undefined)?.body ?? "";
 	const [touched, setTouched] = useState(false);
 	const close = () => {
 		if (pending) return;
-		store.dispatch({ type: "discard", slot });
+		store.getState().actions.discard(slot);
 		setTouched(false);
 		onClose();
 	};
@@ -454,7 +454,7 @@ function DeleteNoteDialog({
 							maxLength={5000}
 							value={reason}
 							readOnly={pending}
-							onChange={(e) => store.dispatch({ type: "edit", slot, draft: { body: e.target.value } })}
+							onChange={(e) => store.getState().actions.edit(slot, { body: e.target.value })}
 						/>
 					</Field>
 					<FormProblem code={state.errors[slot]} />

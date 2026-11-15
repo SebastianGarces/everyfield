@@ -31,8 +31,9 @@ import { cn, Icon } from "@everyfield/ui/foundations";
 import { startTransition, useOptimistic, useRef, useState, useTransition } from "react";
 import type { Outcome } from "../../../components/save/model.ts";
 import { NoticeInDialog, SaveNotice, useSaveIntent } from "../../../components/save/parts.tsx";
-import { newerRevision, STAGE_LABEL, throughStore } from "../model.ts";
-import { LocalDay, useStore } from "../parts.tsx";
+import { newerRevision, STAGE_LABEL } from "../model.ts";
+import { throughStore } from "../person.store.ts";
+import { LocalDay, usePersonState } from "../parts.tsx";
 import {
 	changeCommitment,
 	correctCommitment,
@@ -117,8 +118,8 @@ export function CommitmentCard({
 	);
 	const [, start] = useTransition();
 	// Another change to this person is saving: the card waits, and Check again waits for it (C65, C68).
-	useStore(store);
-	const dialog = useSaveIntent<Editing>({ explain: recordProblem, busy: () => store.get().pending !== null });
+	usePersonState(store);
+	const dialog = useSaveIntent<Editing>({ explain: recordProblem, busy: () => store.getState().pending !== null });
 	/** How much of the pending card's document the bucket has received, 0 to 1, or null when no bytes are moving. */
 	const [progress, setProgress] = useState<number | null>(null);
 	/** Uploads a refused save left pending, by file: a corrected form with the same file does not send it again. */
@@ -133,8 +134,8 @@ export function CommitmentCard({
 		if (code === "conflict") onConflict();
 	};
 	/** The person as the write left them: its revision and, for a card, the stage it advanced to. */
-	const personAfter = (revision: string, stageNow = store.get().saved.stage): PlantPerson =>
-		({ ...store.get().saved, stage: stageNow, revision }) as PlantPerson;
+	const personAfter = (revision: string, stageNow = store.getState().saved.stage): PlantPerson =>
+		({ ...store.getState().saved, stage: stageNow, revision }) as PlantPerson;
 
 	function record(draft: CommitmentDraft) {
 		start(async () => {
@@ -243,7 +244,7 @@ export function CommitmentCard({
 					effectiveOn: draft.effectiveOn as CommitmentStatus["effectiveOn"],
 				},
 			});
-			const revision = store.get().saved.revision;
+			const revision = store.getState().saved.revision;
 			const input = { personId, effectiveOn: draft.effectiveOn, reason: draft.reason || null };
 			const what = change === "withdraw" ? "Your withdrawal" : "Your reactivation";
 			await dialog.save({

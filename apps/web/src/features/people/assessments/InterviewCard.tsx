@@ -21,8 +21,9 @@ import { cn, Icon } from "@everyfield/ui/foundations";
 import { startTransition, useId, useOptimistic, useState, useTransition } from "react";
 import type { Wait } from "../../../components/save/model.ts";
 import { NoticeInDialog, RecordDialog, SaveNotice, useSaveIntent } from "../../../components/save/parts.tsx";
-import { STAGE_LABEL, throughStore } from "../model.ts";
-import { LocalDay, useStore } from "../parts.tsx";
+import { STAGE_LABEL } from "../model.ts";
+import { throughStore } from "../person.store.ts";
+import { LocalDay, usePersonState } from "../parts.tsx";
 import { loadInterviews, recordInterview } from "./actions.ts";
 import {
 	advancedStage,
@@ -96,8 +97,8 @@ export function InterviewCard({
 	const [shown, expect] = useOptimistic(history.items, withRecord<Interview>);
 	const [, start] = useTransition();
 	// Another change to this person is saving: the card waits, and Check again waits for it (C65, C68).
-	useStore(store);
-	const form = useSaveIntent<Editing>({ explain: recordProblem, busy: () => store.get().pending !== null });
+	usePersonState(store);
+	const form = useSaveIntent<Editing>({ explain: recordProblem, busy: () => store.getState().pending !== null });
 	const wait = form.wait;
 	const [open, setOpen] = useState(false);
 	const first = firstName(personName);
@@ -139,7 +140,7 @@ export function InterviewCard({
 					store,
 					"interview",
 					(v: { person: { stage: PlantPerson["stage"]; revision: string } }) =>
-						({ ...store.get().saved, stage: v.person.stage, revision: v.person.revision }) as PlantPerson,
+						({ ...store.getState().saved, stage: v.person.stage, revision: v.person.revision }) as PlantPerson,
 				),
 				ok: (value) => {
 					const moved = value.person.stageChange;

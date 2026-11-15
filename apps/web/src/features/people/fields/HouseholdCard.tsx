@@ -25,8 +25,8 @@ import type { z } from "zod";
 import type { Outcome, SaveSpec } from "../../../components/save/model.ts";
 import { NoticeInDialog, SaveNotice, useSaveIntent } from "../../../components/save/parts.tsx";
 import type { Receipt } from "../boundary.ts";
-import { throughStore, type PersonStore } from "../model.ts";
-import { PersonLink, useStore } from "../parts.tsx";
+import { throughStore, type PersonStore } from "../person.store.ts";
+import { PersonLink, usePersonState } from "../parts.tsx";
 import type { PersonDraft } from "../StageDialog.tsx";
 import {
 	joinHousehold,
@@ -105,10 +105,10 @@ export function HouseholdCard({
 	const [shown, expect] = useOptimistic(household, (_h, next: HouseholdResult) => next);
 	const first = person.displayName.split(" ")[0] ?? person.displayName;
 	// Another change to this person is saving: the card waits, and Check again waits for it (C65, C68).
-	useStore(store);
+	usePersonState(store);
 	const lane = useSaveIntent<Editing>({
 		explain: (code) => householdProblem(code, first),
-		busy: () => store.get().pending !== null,
+		busy: () => store.getState().pending !== null,
 	});
 	const editing = lane.editing;
 	const form = <T,>(kind: Kind) =>
@@ -142,7 +142,7 @@ export function HouseholdCard({
 	/** The page's person with the revision and address of their row in a household answer. */
 	function fromMember(answer: HouseholdResult): PlantPerson | null {
 		const row = answer.status === "available" ? answer.members.find((m) => m.personId === person.id) : undefined;
-		return row ? { ...store.get().saved, ...addressOf(row), revision: row.revision } : null;
+		return row ? { ...store.getState().saved, ...addressOf(row), revision: row.revision } : null;
 	}
 	/** Shows the expected household at once, then saves through the lane; the transition rolls back a refusal. */
 	function change<T>(next: HouseholdResult, spec: SaveSpec<Editing, T>, personPatch?: Partial<PlantPerson>) {
@@ -163,7 +163,7 @@ export function HouseholdCard({
 		then?: () => void,
 	): Pick<SaveSpec<Editing, A>, "send" | "through" | "ok" | "refused"> {
 		const before = membershipOf(household, person.id);
-		const revision = store.get().saved.revision;
+		const revision = store.getState().saved.revision;
 		return {
 			send: (key) => call(key, revision),
 			// The answer's member row carries this person's new revision and address; after leaving, the saved Person.

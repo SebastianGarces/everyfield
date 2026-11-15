@@ -21,8 +21,8 @@ import { useEffect, useRef, useState } from "react";
 import type { z } from "zod";
 import { SaveNotice, useSaveIntent } from "../../../components/save/parts.tsx";
 import type { Receipt } from "../boundary.ts";
-import { throughStore, type PersonStore } from "../model.ts";
-import { problemText, useStore } from "../parts.tsx";
+import { throughStore, type PersonStore } from "../person.store.ts";
+import { problemText, usePersonState } from "../parts.tsx";
 import type { PersonDraft } from "../StageDialog.tsx";
 import { readPhoto, removePhoto, uploadPhoto, type PhotoSaved } from "./actions.ts";
 import { photoProblem, photoSrc, takeFile, type PhotoResult } from "./model.ts";
@@ -70,10 +70,10 @@ export function PersonPhoto({
 }) {
 	const toast = useToast();
 	// Another change to this person is saving: the photo waits, and Check again waits for it (C65, C68).
-	useStore(store);
+	usePersonState(store);
 	const lane = useSaveIntent<{ problem?: string }>({
 		explain: photoRefusal,
-		busy: () => store.get().pending !== null,
+		busy: () => store.getState().pending !== null,
 	});
 	const input = useRef<HTMLInputElement>(null);
 	const [photo, setPhoto] = useState(initial);
@@ -101,7 +101,7 @@ export function PersonPhoto({
 	const through = throughStore(
 		store,
 		"photo",
-		(v: PhotoSaved) => ({ ...store.get().saved, revision: v.personRevision }) as PlantPerson,
+		(v: PhotoSaved) => ({ ...store.getState().saved, revision: v.personRevision }) as PlantPerson,
 	);
 	/** A conflict: the person or the photo changed elsewhere, so the page reads the person and the photo again. */
 	const refused = async (code: string) => {
@@ -117,7 +117,7 @@ export function PersonPhoto({
 		const local = URL.createObjectURL(file);
 		setPreview(local);
 		setBusy("upload");
-		const revision = store.get().saved.revision;
+		const revision = store.getState().saved.revision;
 		let settled = false;
 		await lane.save({
 			what: "The photo",
@@ -150,7 +150,7 @@ export function PersonPhoto({
 
 	async function remove() {
 		setBusy("remove");
-		const revision = store.get().saved.revision;
+		const revision = store.getState().saved.revision;
 		await lane.save({
 			what: "The photo",
 			done: "removed",
