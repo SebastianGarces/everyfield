@@ -1,7 +1,7 @@
 "use client";
 
 import { Alert02Icon, InformationCircleIcon } from "@hugeicons/core-free-icons";
-import type { ComponentPropsWithRef, ReactNode, Ref } from "react";
+import type { ComponentPropsWithRef, ReactNode } from "react";
 import { cn, Icon, useFocusRequest, type FocusRequest } from "../foundations";
 
 export type AlertTone = "error" | "neutral";
@@ -12,20 +12,11 @@ const TONE: Record<AlertTone, { box: string; title: string; icon: typeof Alert02
 	neutral: { box: "bg-surface-2 text-text-2", title: "text-ink", icon: InformationCircleIcon },
 };
 
-export type AlertProps = Omit<ComponentPropsWithRef<"div">, "title"> & {
+export type AlertProps = Omit<ComponentPropsWithRef<"div">, "title" | "ref"> & {
 	tone?: AlertTone;
 	title?: ReactNode;
 	actions?: ReactNode;
-	focus?: FocusRequest;
-};
-
-function useRefs<T>(a: Ref<T> | undefined, b: (node: T | null) => void): (node: T | null) => void {
-	return (node) => {
-		b(node);
-		if (typeof a === "function") a(node);
-		else if (a) a.current = node;
-	};
-}
+} & ({ focus?: FocusRequest; ref?: never } | { ref?: ComponentPropsWithRef<"div">["ref"]; focus?: never });
 
 export function Alert({
 	tone = "error",
@@ -39,11 +30,10 @@ export function Alert({
 	...props
 }: AlertProps) {
 	const focusRef = useFocusRequest<HTMLDivElement>(focus);
-	const refs = useRefs(ref, focusRef);
 	const look = TONE[tone];
 	return (
 		<div
-			ref={refs}
+			ref={ref ?? focusRef}
 			tabIndex={tabIndex ?? (focus === undefined ? undefined : -1)}
 			data-tone={tone}
 			className={cn(
@@ -72,7 +62,7 @@ export function InlineAlert({
 	className,
 	children,
 	...alert
-}: Omit<AlertProps, "id"> & { live?: AlertLive; id?: string }) {
+}: AlertProps & { live?: AlertLive }) {
 	return (
 		<div id={id} aria-live={live} aria-atomic="true" className={cn("empty:hidden", className)}>
 			{isEmpty(children) ? null : <Alert {...alert}>{children}</Alert>}
