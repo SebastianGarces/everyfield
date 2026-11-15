@@ -20,17 +20,8 @@ import "./export.css";
 type State =
 	| { kind: "ready" }
 	| { kind: "exporting" }
-	| { kind: "done"; filename: string; returned: number; complete: boolean; url: string }
+	| { kind: "done"; filename: string; returned: number; complete: boolean }
 	| { kind: "failed"; denied: boolean };
-
-function saveOnce(link: HTMLAnchorElement | null) {
-	if (!link) return;
-	if (!link.dataset.saved) {
-		link.dataset.saved = "true";
-		link.click();
-	}
-	return () => URL.revokeObjectURL(link.href);
-}
 
 export function ExportDialog({
 	query,
@@ -55,12 +46,17 @@ export function ExportDialog({
 			}
 			const blob = await res.blob();
 			const filename = /filename="([^"]+)"/.exec(res.headers.get("content-disposition") ?? "")?.[1] ?? "people.csv";
+			const url = URL.createObjectURL(blob);
+			const link = document.createElement("a");
+			link.href = url;
+			link.download = filename;
+			link.click();
+			URL.revokeObjectURL(url);
 			setState({
 				kind: "done",
 				filename,
 				returned: Number(res.headers.get("x-export-returned") ?? 0),
 				complete: res.headers.get("x-export-completeness") === "complete",
-				url: URL.createObjectURL(blob),
 			});
 		} catch {
 			setState({ kind: "failed", denied: false });
@@ -123,9 +119,6 @@ export function ExportDialog({
 						) : null}
 					</div>
 				</DialogBody>
-				{state.kind === "done" ? (
-					<a key={state.url} hidden href={state.url} download={state.filename} ref={saveOnce} />
-				) : null}
 				<DialogFooter>
 					<Button variant="ghost" disabled={busy} onClick={close}>
 						{state.kind === "done" ? "Close" : "Cancel"}
