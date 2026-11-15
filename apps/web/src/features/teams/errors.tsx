@@ -2,7 +2,6 @@
 
 import { Button, Card, PageHeader, StatePanel } from "@everyfield/ui/controls";
 
-/** An unexpected failure while rendering a ministries page. Retrying renders the page again; nothing was changed. */
 export function TeamsError({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
 	return (
 		<>

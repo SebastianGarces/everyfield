@@ -29,8 +29,6 @@ import {
 	type ShownProgram,
 } from "./model.ts";
 
-// One person's training, looked up from the ministry tab. The person page does not show this yet.
-
 type PersonRead = { status: "ok"; value: PersonLoad } | { status: "lost" };
 
 const personTraining = createRead(
@@ -51,7 +49,6 @@ export function PersonLookup({
 	canRecordService: boolean;
 	canWrite: (program: ShownProgram) => boolean;
 	busy: boolean;
-	/** Increases after a completion, revoke, or service record so this panel reads again. */
 	tick: number;
 	onOpen: (form: Flow) => void;
 }) {

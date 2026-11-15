@@ -39,17 +39,11 @@ import { SetupDialog } from "./Setup.tsx";
 type TeamsTab = "teams" | "chart";
 const NEW_TEAM: TeamForm = { mode: "create", name: "", description: "", icon: "team", state: "forming", reason: "" };
 
-/**
- * Ministries (REQ-TEAM-001, -003, -012): every current ministry with its leader and how many serve, and the
- * organization view. Archived ministries stay out of the list until the person asks for them. The tab is kept in the
- * address without a reload, so a link opens the same view.
- */
 export function TeamsScreen({ view: initial, admin }: { view: TeamsView; admin: boolean }) {
 	const router = useRouter();
 	const toast = useToast();
 	const [local, setLocal] = useState<{ from: TeamsView; value: TeamsView } | null>(null);
 	const view = local?.from === initial ? local.value : initial;
-	// The ministry page drawn when Create ministry starts, before the write answers.
 	const [draft, setDraft] = useState<TeamView | null>(null);
 	const { pathname, params } = useAddress();
 	const tab: TeamsTab = params.get("view") === "chart" ? "chart" : "teams";
@@ -66,10 +60,8 @@ export function TeamsScreen({ view: initial, admin }: { view: TeamsView; admin: 
 	const leaderless = current.filter((t) => !t.leaderPersonId);
 	const led = current.length - leaderless.length;
 	const filled = current.reduce((n, t) => n + t.activeCount, 0);
-	// Leadership first, as on the chart; then the ministries in their saved order.
 	const ordered = [...current.filter(isLeadership), ...current.filter((t) => !isLeadership(t))];
 
-	// After an import the new ministries' ids are the server's, so the list reads itself once, in its own request.
 	const [refreshing, startRefresh] = useTransition();
 	const refresh = () =>
 		startRefresh(async () => {
@@ -113,7 +105,6 @@ export function TeamsScreen({ view: initial, admin }: { view: TeamsView; admin: 
 		</Button>
 	) : null;
 
-	// The heading is the result. It is on screen while the write is still in flight. The saved page replaces it.
 	if (draft) {
 		return (
 			<>
@@ -297,7 +288,6 @@ export function TeamsScreen({ view: initial, admin }: { view: TeamsView; admin: 
 	);
 }
 
-/** A new ministry with no roles yet. It cannot be changed until the saved page replaces it. */
 function openedMinistry(form: TeamForm, nodes: TeamView["nodes"], admin: boolean): TeamView {
 	const id = crypto.randomUUID() as Team["id"];
 	return {

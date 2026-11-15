@@ -20,18 +20,10 @@ import { DialogNotice, SaveButton, type SaveIntent } from "../../components/save
 import { importTemplates, templateCatalog } from "./actions.ts";
 import { NEW_SETUP, plural, type Catalog, type Outcome, type SetupForm } from "./model.ts";
 
-// Set up ministries from the ten templates (REQ-TEAM-003). Nothing is created until the person reviews the exact
-// ministries and roles and confirms. Choosing nothing, closing or going back creates nothing. A template that is
-// already here only adds the roles it does not have yet; a renamed ministry keeps its name.
-// With `into` the same dialog adds roles to that one ministry: its own template comes first and is preselected, a role
-// it already has cannot be chosen again, and no ministry is created.
-
 type SetupInto = {
 	id: string;
 	name: string;
-	/** The ministry's own template, when it has one. */
 	templateKey: string | null;
-	/** Template role keys the ministry already has, retired ones too. */
 	has: ReadonlySet<string>;
 };
 
@@ -44,7 +36,6 @@ const catalogs = createRead(() => templateCatalog(), {
 
 type SetupProps = {
 	lane: SaveIntent<SetupForm>;
-	/** Template keys this church already has, archived ones too. Not needed with `into`. */
 	present?: ReadonlySet<string>;
 	into?: SetupInto;
 	onDone: (added: { newTeams: number; newRoles: number }) => void;
@@ -88,7 +79,6 @@ function SetupBody({ lane, present = NONE, into, onDone, form }: SetupProps & { 
 		}));
 	const newTeams = into ? 0 : selections.filter((s) => !present.has(s.teamKey)).length;
 	const roleCount = selections.reduce((n, s) => n + s.roleKeys.length, 0);
-	// A template that is already here with no role chosen would add nothing.
 	const nothing = newTeams === 0 && roleCount === 0;
 
 	const toggleTeam = (key: string, on: boolean) =>

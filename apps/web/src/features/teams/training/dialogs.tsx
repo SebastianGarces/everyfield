@@ -25,8 +25,6 @@ import { useState } from "react";
 import { createRead, useRead } from "../../../components/read.tsx";
 import { previewRoster } from "./actions.ts";
 
-// The training forms. Each one belongs to the training card's save lane. A refusal opens the same form again.
-
 const fieldText = "text-[16px]";
 
 function personValue(id: string | null, name: string) {
@@ -293,7 +291,6 @@ export function AssignDialog({
 	rosterKnown: boolean;
 	problem?: string;
 	wait: Wait;
-	/** The list this dialog opened from is out of date. */
 	onStale: () => void;
 	onClose: () => void;
 	onSubmit: (form: AssignForm) => void;

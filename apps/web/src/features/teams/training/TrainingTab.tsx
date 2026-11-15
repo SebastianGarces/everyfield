@@ -59,8 +59,6 @@ import {
 	type ShownProgram,
 } from "./model.ts";
 
-// The ministry Training tab. One save at a time. A write updates this list from its own answer.
-
 type ShownRead = Outcome<ShownProgram[]>;
 
 const loadShown = (teamId: string): Promise<ShownRead> =>

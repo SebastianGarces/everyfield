@@ -42,10 +42,6 @@ import {
 	readTeamRevision,
 } from "./actions.ts";
 
-// One ministry's responsibilities (REQ-TEAM-007). The playbook lines are an offer: a read shows them and writes
-// nothing, and only an Owner or Admin accepts or declines. Lines left out or declined do not come back. A check
-// records the church's day and does not move a phase. Each change draws at once, then settles from the write's answer.
-
 type Page = z.infer<typeof c.responsibilityPage>;
 type Item = Page["items"][number];
 type OfferState = Page["offer"];
