@@ -171,6 +171,8 @@ export function Row({ on }) {
 			<li role="option" aria-selected onClick={on} onKeyDown={on}>a</li>
 			<div role="presentation" onClick={on} className={\`p-2 hover:cursor-default \${on}\`} />
 			<button onClick={on} className="cursor-grab cursor-progress">b</button>
+			<div role="region" aria-roledescription="carousel" onPointerDown={on} onPointerUp={on} />
+			<div role="region" aria-roledescription="carousel" onClick={on} />
 		</ul>
 	);
 }
@@ -179,7 +181,42 @@ export function Row({ on }) {
 		"apps/web/src/features/x/Row.tsx:1 no-cursor-utility",
 		"apps/web/src/features/x/Row.tsx:6 clickable-host",
 		"apps/web/src/features/x/Row.tsx:6 no-cursor-utility",
+		"apps/web/src/features/x/Row.tsx:9 clickable-host",
 	]);
+});
+
+function cursorRuleSelectors(css, cursor) {
+	const rule = css.match(new RegExp(`(:where\\((?:[^{}])*?)\\{\\s*cursor:\\s*${cursor};`));
+	assert.ok(rule, `controls.css has a :where() rule that sets cursor: ${cursor}`);
+	const text = rule[1].slice(":where(".length);
+	const items = [];
+	let depth = 0;
+	let start = 0;
+	for (let i = 0; i < text.length && depth >= 0; i++) {
+		if (text[i] === "(") depth++;
+		else if (text[i] === ")") depth--;
+		if ((text[i] === "," && depth === 0) || depth < 0) {
+			items.push(text.slice(start, i).trim());
+			start = i + 1;
+		}
+	}
+	return items;
+}
+
+test("INV-cursor: the base cursor rule covers every host and role the clickable-host lint rule accepts", async () => {
+	const { INTERACTIVE_HOSTS, INTERACTIVE_ROLES } = await import(PLUGIN);
+	const css = readFileSync(join(repo, "packages/ui/src/controls/controls.css"), "utf8");
+	for (const cursor of ["pointer", "not-allowed"]) {
+		const items = cursorRuleSelectors(css, cursor);
+		const hosts = new Set(items.map((item) => item.match(/^[a-z]+/)?.[0]).filter(Boolean));
+		const roles = items.map((item) => item.match(/^\[role="([a-z]+)"\]$/)?.[1]).filter(Boolean);
+		assert.deepEqual(
+			INTERACTIVE_HOSTS.filter((host) => !hosts.has(host)),
+			[],
+			`hosts missing from the ${cursor} rule`,
+		);
+		assert.deepEqual([...roles].sort(), [...INTERACTIVE_ROLES].sort(), `roles of the ${cursor} rule`);
+	}
 });
 
 test("INV-lint: a baseline allows its count, refuses growth and refuses a stale entry; a survivor covers only its function", () => {

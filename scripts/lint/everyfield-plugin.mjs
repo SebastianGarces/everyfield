@@ -141,6 +141,11 @@ export const INTERACTIVE_ROLES = [
 	"tab",
 	"treeitem",
 ];
+export const DRAG_SURFACES = {
+	carousel:
+		"A drag-to-scroll carousel: its pointer handlers move the scroll position and activate nothing, and its cursor is grab.",
+};
+const DRAG_HANDLERS = new Set(["onMouseDown", "onMouseUp", "onPointerDown", "onPointerUp"]);
 const POINTER_HANDLERS = new Set([
 	"onClick",
 	"onDoubleClick",
@@ -412,10 +417,10 @@ const noComments = ratcheted("no-comments", (context, push) => {
 	};
 });
 
-const literalRole = (element) => {
-	const role = element.attributes.find((a) => a.type === "JSXAttribute" && a.name.name === "role");
-	if (!role) return undefined;
-	const value = role.value?.type === "JSXExpressionContainer" ? role.value.expression : role.value;
+const literalAttribute = (element, name) => {
+	const attribute = element.attributes.find((a) => a.type === "JSXAttribute" && a.name.name === name);
+	if (!attribute) return undefined;
+	const value = attribute.value?.type === "JSXExpressionContainer" ? attribute.value.expression : attribute.value;
 	return value?.type === "Literal" && typeof value.value === "string" ? value.value : null;
 };
 
@@ -423,8 +428,14 @@ const clickableHost = ratcheted("clickable-host", (context, push) => ({
 	JSXOpeningElement(node) {
 		if (node.name.type !== "JSXIdentifier" || !/^[a-z]/.test(node.name.name)) return;
 		if (INTERACTIVE_HOSTS.includes(node.name.name)) return;
-		const handler = node.attributes.find((a) => a.type === "JSXAttribute" && POINTER_HANDLERS.has(a.name.name));
-		if (!handler || INTERACTIVE_ROLES.includes(literalRole(node))) return;
+		const dragSurface = Object.hasOwn(DRAG_SURFACES, literalAttribute(node, "aria-roledescription") ?? "");
+		const handler = node.attributes.find(
+			(a) =>
+				a.type === "JSXAttribute" &&
+				POINTER_HANDLERS.has(a.name.name) &&
+				!(dragSurface && DRAG_HANDLERS.has(a.name.name)),
+		);
+		if (!handler || INTERACTIVE_ROLES.includes(literalAttribute(node, "role"))) return;
 		push({
 			node: handler,
 			fn: enclosingName(node),
