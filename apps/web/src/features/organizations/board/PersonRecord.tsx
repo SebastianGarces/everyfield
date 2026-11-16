@@ -22,7 +22,7 @@ import {
 	Textarea,
 } from "@everyfield/ui/controls";
 import { Avatar } from "@everyfield/ui/display";
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useActionState, useState, type FormEvent, type ReactNode } from "react";
 import {
 	addNote,
 	editNote,
@@ -45,11 +45,6 @@ type Record = PipelinePersonRecord;
 type Answer = Awaited<ReturnType<typeof movePerson>>;
 type Failure = Exclude<Answer, { status: "ok" }>;
 
-/**
- * One pipeline person (REQ-MUL-001, -008, -009). Owners and Admins edit, move with a reason, record an outside
- * assessment, retire and restore; the person's responsible staff read the record and write notes. A change reads the
- * record again, so history shows the server's own entry.
- */
 export function PersonRecord({
 	initial,
 	stages,
@@ -66,7 +61,6 @@ export function PersonRecord({
 	const [notice, setNotice] = useState<string | null>(null);
 	const admin = record.audience === "administrator";
 
-	/** Reads the record again and shows it; the fresh record, or null when the read failed. */
 	async function latest() {
 		const answer = await readPerson(record.personId).catch(() => null);
 		if (answer?.status !== "ok") return null;
@@ -76,10 +70,6 @@ export function PersonRecord({
 	async function reread() {
 		await latest();
 	}
-	/**
-	 * Runs a change; on success closes its dialog and reads the record again. A failure is returned for the form. When
-	 * someone else changed the person first, the record is read again and the answer names their stage now.
-	 */
 	async function change(run: () => Promise<Answer | Failure>): Promise<string | null> {
 		const answer = await run().catch((): Failure => ({ status: "lost" }));
 		if (answer.status === "refused" && answer.refusal.code === "conflict") {
@@ -246,7 +236,6 @@ function Detail({ term, children }: { term: string; children: ReactNode }) {
 	);
 }
 
-/** What a history entry says happened. A send for review names who sent it and to whom, never its questions. */
 function historyTitle(h: Record["history"][number]) {
 	switch (h.kind) {
 		case "placed":
@@ -270,7 +259,6 @@ function historyTitle(h: Record["history"][number]) {
 	}
 }
 
-/** Every move with who made it, the day and the reason, under the stage names of that day. */
 function History({ record }: { record: Record }) {
 	return (
 		<Card>
@@ -314,7 +302,8 @@ function MoveDialog({
 	);
 }
 
-/** Any stage but the current one, and a reason, which is required. Not continuing is a stage like any other. */
+type MoveState = { error: string | null; problem: string | null; stageId: string; reason: string };
+
 function MoveForm({
 	record,
 	stages,
@@ -325,39 +314,35 @@ function MoveForm({
 	onSubmit: (stageId: string, reason: string) => Promise<string | null>;
 }) {
 	const choices = stages.filter((s) => s.id !== record.stage.id);
-	const [stageId, setStageId] = useState(choices[0]?.id ?? "");
-	const [reason, setReason] = useState("");
-	const [error, setError] = useState<string | null>(null);
-	const [problem, setProblem] = useState<string | null>(null);
-	const [saving, setSaving] = useState(false);
-	async function submit(event: FormEvent) {
-		event.preventDefault();
-		if (!reason.trim()) {
-			setError("Give a reason for this move.");
-			return;
-		}
-		setError(null);
-		setSaving(true);
-		const failed = await onSubmit(stageId, reason.trim());
-		setSaving(false);
-		setProblem(failed);
-		if (!failed) setReason("");
-	}
+	const [state, move, saving] = useActionState(
+		async (_: MoveState, form: FormData): Promise<MoveState> => {
+			const stageId = String(form.get("stageId") ?? "");
+			const typed = String(form.get("reason") ?? "");
+			if (!typed.trim()) return { error: "Give a reason for this move.", problem: null, stageId, reason: typed };
+			const problem = await onSubmit(stageId, typed.trim());
+			return { error: null, problem, stageId, reason: problem ? typed : "" };
+		},
+		{ error: null, problem: null, stageId: choices[0]?.id ?? "", reason: "" },
+	);
 	return (
-		<form onSubmit={submit} noValidate className="contents">
+		<form action={move} noValidate className="contents">
 			<DialogHeader title={`Move ${record.name}`} description={`Now at ${record.stage.label}.`} />
 			<DialogBody className="flex flex-col gap-4">
 				<Field label="Move to">
 					<Select
-						value={stageId}
-						onValueChange={setStageId}
+						name="stageId"
+						defaultValue={state.stageId}
 						options={choices.map((s) => ({ value: s.id, label: s.label }))}
 					/>
 				</Field>
-				<Field label="Reason" error={error ?? undefined} hint="Staff with access to this record see it in the history.">
-					<Textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={3} maxLength={1000} />
+				<Field
+					label="Reason"
+					error={saving ? undefined : (state.error ?? undefined)}
+					hint="Staff with access to this record see it in the history."
+				>
+					<Textarea name="reason" defaultValue={state.reason} rows={3} maxLength={1000} />
 				</Field>
-				<Problem text={problem} />
+				<Problem text={state.problem} />
 			</DialogBody>
 			<DialogFooter>
 				<Button type="submit" variant="primary" loading={saving}>
@@ -368,7 +353,6 @@ function MoveForm({
 	);
 }
 
-/** Only that an outside assessment happened, when and who ran it. There is no field for its result. */
 function AssessmentDialog({
 	open,
 	onOpenChange,
@@ -425,10 +409,6 @@ function AssessmentDialog({
 	);
 }
 
-/**
- * Private staff notes (REQ-MUL-009): read by Owners, Admins and the person's responsible staff. Only the author edits
- * or removes their note; a removed note shows who removed it and when, with no text.
- */
 function Notes({
 	record,
 	staff,
@@ -502,7 +482,6 @@ function Notes({
 									<NoteItem
 										note={n}
 										editable={canWrite && n.mine}
-										// Only an Owner or Admin sends kept answers for review, and only while the person is live (T-385).
 										review={record.audience === "administrator" && canWrite ? { person: record.name, staff } : null}
 										canWithdraw={record.audience === "administrator"}
 										onChanged={onChanged}
@@ -519,7 +498,6 @@ function Notes({
 	);
 }
 
-/** The note author's account photo where this organization may see it (REQ-IDN-006), else their initials. */
 function NoteAuthorAvatar({ note }: { note: Record["notes"][number] }) {
 	return (
 		<Avatar
@@ -540,11 +518,8 @@ function NoteItem({
 	onChanged,
 }: {
 	note: Extract<Record["notes"][number], { state: "current" }>;
-	/** The author's own note on a live person: only then can it change (REQ-MUL-009). */
 	editable: boolean;
-	/** What sending kept answers for review needs, for an Owner or Admin on a live person; null otherwise. */
 	review: { person: string; staff: PipelineBoard["staff"] } | null;
-	/** An Owner or Admin withdraws a send, even from a retired person. */
 	canWithdraw: boolean;
 	onChanged: () => Promise<void>;
 }) {
