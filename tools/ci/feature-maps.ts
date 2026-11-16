@@ -35,7 +35,7 @@ type StateReach =
 	| { persona: string; open: string; path?: Step[]; seed: "qa" }
 	| { persona: string; setup: Step[]; open?: string; path?: Step[] }
 	| { manual: string };
-type State = { id: string; file?: string; reach: StateReach; expect: Observable[] };
+type State = { id: string; file?: string; defect?: string; reach: StateReach; expect: Observable[] };
 type TestRef = { file: string; name: string };
 type Browser = { kind: "behavior" | "presence"; state: string; steps: Step[]; expect: Observable[] };
 type Behavior = {
@@ -317,7 +317,7 @@ function codeCorpus(root: string): Array<{ file: string; text: string }> {
 const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 export function implemented(code: Array<{ text: string }>, op: string): boolean {
-	const name = op.slice(op.indexOf(".") + 1);
+	const name = op.slice(op.lastIndexOf(".") + 1);
 	const quoted = [`"${op}"`, `'${op}'`, `\`${op}\``];
 	const declared = new RegExp(`(?:function\\s+|(?:const|let)\\s+|async\\s+)${escape(name)}\\s*[=(<]`);
 	return code.some(({ text }) => quoted.some((q) => text.includes(q)) || declared.test(text));
@@ -663,6 +663,10 @@ export async function checkFeatureMaps(root: string, options: CheckOptions): Pro
 				const where = `${s} state ${state.id}`;
 				if (state.file && !existsSync(join(root, state.file)))
 					problems.push(at(`${where}: ${state.file} does not exist`));
+				if (state.defect && "manual" in state.reach)
+					problems.push(
+						at(`${where}: a known defect needs a script that shows it, so each run sees it until it is fixed`),
+					);
 				const reach = state.reach;
 				if ("persona" in reach) {
 					if (!(reach.persona in personas))
@@ -840,12 +844,13 @@ const describeObservable = (o: Observable): string =>
 
 function stateLines(state: State): string[] {
 	const file = state.file ? ` (\`${state.file.slice(state.file.lastIndexOf("/") + 1)}\`)` : "";
-	const head = `- **${state.id}**${file}: ${state.expect.map(describeObservable).join("; ")}`;
+	const defect = state.defect ? ` Known defect, so this state shows what is wrong: ${state.defect}.` : "";
+	const head = `- **${state.id}**${file}: ${state.expect.map(describeObservable).join("; ")}.${defect}`;
 	const reach = state.reach;
-	if ("manual" in reach) return [`${head}. Not scripted: ${reach.manual}.`];
+	if ("manual" in reach) return [`${head} Not scripted: ${reach.manual}.`];
 	const given = "setup" in reach ? "after the setup steps below, which create what no seed holds" : "on the QA seed";
 	return [
-		`${head}. As \`${reach.persona}\`, ${given}:`,
+		`${head} As \`${reach.persona}\`, ${given}:`,
 		"",
 		...block(
 			commands(
@@ -941,7 +946,7 @@ function featureDoc(map: FeatureMap, file: string): string {
 		}
 		for (const [i, state] of surface.states.entries())
 			graph.push(
-				`  ${node} -.- ${node}_st${i}(("${nodeLabel(`${state.id}${"manual" in state.reach ? " (manual)" : "setup" in state.reach ? " (setup)" : ""}`)}"))`,
+				`  ${node} -.- ${node}_st${i}(("${nodeLabel(`${state.id}${"manual" in state.reach ? " (manual)" : "setup" in state.reach ? " (setup)" : ""}${state.defect ? " (known defect)" : ""}`)}"))`,
 			);
 		for (const [i, behavior] of surface.behaviors.entries()) {
 			const proof = [
@@ -1031,7 +1036,10 @@ function overviewDoc(maps: LoadedMap[], personas: Record<string, Persona>, pendi
 		"In commands, `$ORIGIN` is the app's address, `$REPO` the checkout, and `<QA_LOGINS.x>` and `<QA_PASSWORD>` are",
 		"values from that file. Each step that opens, clicks, presses or uploads is followed by a network-idle wait, so the page",
 		"has hydrated and the next check sees the result.",
-		"A state marked setup creates its own data first; run its setup once per fresh seed.",
+		"A state marked setup creates its own data first; run its setup once per fresh seed. A setup and a behavior proof",
+		"that perform the same action (for example setting Launch Sunday) use up each other's starting state: run each",
+		"once per fresh seed, and after either has run, start the other state at its last `open`. A state marked known",
+		"defect shows a bug that is not fixed yet: it passes while the bug is there, and its text says what is wrong.",
 		"",
 		"| Persona | Context | Who | Sign in with |",
 		"|---|---|---|---|",
@@ -1057,7 +1065,13 @@ function overviewDoc(maps: LoadedMap[], personas: Record<string, Persona>, pendi
 		"- the wrong role for a name (a heading checked as a button);",
 		"- whether a persona really has the access the map gives it, or a state's checks also pass on another screen;",
 		"- whether the seed data the steps name is in the state the steps expect (each run needs a fresh seed);",
-		"- a real test name that tests something other than the behavior it is listed under.",
+		"- a real test name that tests something other than the behavior it is listed under;",
+		"- an absent check that passes only because a modal dialog hides the page behind it.",
+		"",
+		"What a map cannot express: a state has one persona, and its setup can only open, click, type, press and upload,",
+		"with names from its own feature, `packages/ui/src`, the shell and the QA seed. So a setup cannot switch persona",
+		"or run another feature's action. A state that needs either stays manual, with its steps in words, and a",
+		"behavior that needs either is proven by its tests only.",
 		"",
 		"A browser proof marked presence only shows that the control is there; the listed tests prove the outcome.",
 		"",

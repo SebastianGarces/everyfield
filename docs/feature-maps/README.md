@@ -6,61 +6,114 @@ Each feature directory under `apps/web/src/features/` describes its surfaces: th
 reaches them, the states a verifier can open and the tests, cases and browser steps that prove each behavior.
 Print one surface with `node tools/ci/feature-maps.ts show <surface-id>`.
 
-Routes mapped: 27 of 136. Not yet mapped: 109, listed in [`apps/web/feature-maps.pending.json`](../../apps/web/feature-maps.pending.json).
+Routes mapped: 41 of 136. Not yet mapped: 95, listed in [`apps/web/feature-maps.pending.json`](../../apps/web/feature-maps.pending.json).
 
 ```mermaid
 flowchart LR
   rail(["rail"])
   links(["links and email"])
-  subgraph f0["identity"]
-    f0s0["identity.signin"]
-    f0s1["identity.home"]
-    f0s2["identity.register"]
-    f0s3["identity.recover"]
-    f0s4["identity.reset"]
-    f0s5["identity.verify-email"]
-    f0s6["identity.invitation"]
-    f0s7["identity.seats"]
+  subgraph f0["followups"]
+    f0s0["followups.list"]
+    f0s1["followups.call"]
   end
-  subgraph f1["meetings"]
-    f1s0["meetings.list"]
-    f1s1["meetings.detail"]
-    f1s2["meetings.check-in"]
-    f1s3["meetings.rsvp"]
+  subgraph f1["identity"]
+    f1s0["identity.signin"]
+    f1s1["identity.home"]
+    f1s2["identity.register"]
+    f1s3["identity.recover"]
+    f1s4["identity.reset"]
+    f1s5["identity.verify-email"]
+    f1s6["identity.invitation"]
+    f1s7["identity.seats"]
   end
-  subgraph f2["people"]
-    f2s0["people.list"]
-    f2s1["people.person"]
-    f2s2["people.duplicates"]
-    f2s3["people.import"]
+  subgraph f2["launch"]
+    f2s0["launch.plan"]
+    f2s1["launch.progress"]
   end
-  links -.-> f0s0
+  subgraph f3["meetings"]
+    f3s0["meetings.list"]
+    f3s1["meetings.detail"]
+    f3s2["meetings.check-in"]
+    f3s3["meetings.rsvp"]
+  end
+  subgraph f4["notifications"]
+    f4s0["notifications.feed"]
+    f4s1["notifications.email-preferences"]
+  end
+  subgraph f5["overview"]
+    f5s0["overview.home"]
+  end
+  subgraph f6["people"]
+    f6s0["people.list"]
+    f6s1["people.person"]
+    f6s2["people.duplicates"]
+    f6s3["people.import"]
+  end
+  subgraph f7["phases"]
+    f7s0["phases.journey"]
+  end
+  subgraph f8["tasks"]
+    f8s0["tasks.list"]
+    f8s1["tasks.panel"]
+    f8s2["tasks.checklists"]
+  end
+  subgraph f9["wiki"]
+    f9s0["wiki.reader"]
+    f9s1["wiki.article"]
+  end
+  f8s0 --> f0s0
+  f0s0 --> f0s1
   links -.-> f0s1
-  f0s0 --> f0s2
-  links -.-> f0s3
-  links -.-> f0s4
-  links -.-> f0s5
-  links -.-> f0s6
-  f2s0 --> f0s7
-  links -.-> f0s7
-  rail -- "Meetings" --> f1s0
-  f1s0 --> f1s1
+  links -.-> f1s0
   links -.-> f1s1
-  f1s1 --> f1s2
-  links -.-> f1s2
+  f1s0 --> f1s2
   links -.-> f1s3
-  rail -- "People" --> f2s0
-  f2s0 --> f2s1
+  links -.-> f1s4
+  links -.-> f1s5
+  links -.-> f1s6
+  f6s0 --> f1s7
+  links -.-> f1s7
+  rail -- "Launch" --> f2s0
+  f5s0 --> f2s0
   links -.-> f2s1
-  links -.-> f2s2
-  f2s0 --> f2s3
+  rail -- "Meetings" --> f3s0
+  f3s0 --> f3s1
+  links -.-> f3s1
+  f3s1 --> f3s2
+  links -.-> f3s2
+  links -.-> f3s3
+  rail -- "Notifications" --> f4s0
+  f5s0 --> f4s0
+  links -.-> f4s1
+  rail -- "Overview" --> f5s0
+  links -.-> f5s0
+  rail -- "People" --> f6s0
+  f6s0 --> f6s1
+  links -.-> f6s1
+  links -.-> f6s2
+  f6s0 --> f6s3
+  links -.-> f7s0
+  rail -- "Tasks" --> f8s0
+  f8s0 --> f8s1
+  links -.-> f8s1
+  f8s0 --> f8s2
+  rail -- "Wiki" --> f9s0
+  links -.-> f9s0
+  f9s0 --> f9s1
 ```
 
 | Feature | Map | Surfaces | Routes | Behaviors | Browser behavior proofs | Browser presence proofs |
 |---|---|---|---|---|---|---|
+| [followups](followups.md) | [`apps/web/src/features/followups/feature-map.json`](../../apps/web/src/features/followups/feature-map.json) | 2 | 3 | 5 | 3 | 1 |
 | [identity](identity.md) | [`apps/web/src/features/identity/feature-map.json`](../../apps/web/src/features/identity/feature-map.json) | 8 | 10 | 11 | 4 | 1 |
+| [launch](launch.md) | [`apps/web/src/features/launch/feature-map.json`](../../apps/web/src/features/launch/feature-map.json) | 2 | 1 | 5 | 3 | 1 |
 | [meetings](meetings.md) | [`apps/web/src/features/meetings/feature-map.json`](../../apps/web/src/features/meetings/feature-map.json) | 4 | 5 | 10 | 4 | 4 |
+| [notifications](notifications.md) | [`apps/web/src/features/notifications/feature-map.json`](../../apps/web/src/features/notifications/feature-map.json) | 2 | 4 | 5 | 0 | 1 |
+| [overview](overview.md) | [`apps/web/src/features/overview/feature-map.json`](../../apps/web/src/features/overview/feature-map.json) | 1 | 1 | 4 | 1 | 1 |
 | [people](people.md) | [`apps/web/src/features/people/feature-map.json`](../../apps/web/src/features/people/feature-map.json) | 4 | 12 | 11 | 6 | 2 |
+| [phases](phases.md) | [`apps/web/src/features/phases/feature-map.json`](../../apps/web/src/features/phases/feature-map.json) | 1 | 1 | 4 | 1 | 2 |
+| [tasks](tasks.md) | [`apps/web/src/features/tasks/feature-map.json`](../../apps/web/src/features/tasks/feature-map.json) | 3 | 2 | 8 | 4 | 1 |
+| [wiki](wiki.md) | [`apps/web/src/features/wiki/feature-map.json`](../../apps/web/src/features/wiki/feature-map.json) | 2 | 2 | 6 | 3 | 1 |
 
 ## Become a persona
 
@@ -71,7 +124,10 @@ local proof slot or a QA preview (`bin/qa`). Sign in at `/signin` with the perso
 In commands, `$ORIGIN` is the app's address, `$REPO` the checkout, and `<QA_LOGINS.x>` and `<QA_PASSWORD>` are
 values from that file. Each step that opens, clicks, presses or uploads is followed by a network-idle wait, so the page
 has hydrated and the next check sees the result.
-A state marked setup creates its own data first; run its setup once per fresh seed.
+A state marked setup creates its own data first; run its setup once per fresh seed. A setup and a behavior proof
+that perform the same action (for example setting Launch Sunday) use up each other's starting state: run each
+once per fresh seed, and after either has run, start the other state at its last `open`. A state marked known
+defect shows a bug that is not fixed yet: it passes while the bug is there, and its text says what is wrong.
 
 | Persona | Context | Who | Sign in with |
 |---|---|---|---|
@@ -104,7 +160,13 @@ It cannot catch, and only running the browser steps catches:
 - the wrong role for a name (a heading checked as a button);
 - whether a persona really has the access the map gives it, or a state's checks also pass on another screen;
 - whether the seed data the steps name is in the state the steps expect (each run needs a fresh seed);
-- a real test name that tests something other than the behavior it is listed under.
+- a real test name that tests something other than the behavior it is listed under;
+- an absent check that passes only because a modal dialog hides the page behind it.
+
+What a map cannot express: a state has one persona, and its setup can only open, click, type, press and upload,
+with names from its own feature, `packages/ui/src`, the shell and the QA seed. So a setup cannot switch persona
+or run another feature's action. A state that needs either stays manual, with its steps in words, and a
+behavior that needs either is proven by its tests only.
 
 A browser proof marked presence only shows that the control is there; the listed tests prove the outcome.
 
