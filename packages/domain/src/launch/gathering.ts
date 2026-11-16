@@ -28,11 +28,6 @@ import {
 import { auditCte } from "./outcome.ts";
 import { offersTo, planAfter } from "./reads.ts";
 
-// How the church ends its gathering phase (T-296). Every command locks the church's launch row first (created as a
-// planning row when the church has none), with the offer it decides from, then writes its change and its history row
-// in one statement. None of them moves the phase, changes the launch date, or creates a task, a readiness milestone, a
-// meeting, a person or anything to send.
-
 const launchRow = z.object({
 	status: c.launchStatus,
 	revision: z.string(),
@@ -47,17 +42,11 @@ const lockRow = z.object({
 	prior: priorRow,
 	timezone: timeZone.nullable(),
 	launch: launchRow.nullable(),
-	/** The organization's milestone while it offers it to the church; null otherwise. */
 	offer: z.object({ organizationId: z.uuid(), organizationName: z.string(), name: z.string() }).nullable(),
-	/** The organization the church uses now and its milestone's name, whether or not it still offers it. */
 	current: z.object({ organizationName: z.string(), name: z.string().nullable() }).nullable(),
 });
 type Locked = Pick<z.infer<typeof lockRow>, "offer" | "current"> & { launch: z.infer<typeof launchRow> };
 
-/**
- * The command's first statement: its gate, its stored answer if any, the launch row locked, and the offer of
- * `organization` (the church's current organization when null), its organization row locked too.
- */
 async function lock(tx: Transaction, scope: Scope, key: string, organization: string | null) {
 	const p = sql`${scope.plantId}::uuid`;
 	const { rows } = await tx.execute(sql`WITH gate AS (SELECT ${scope.admin} AS ok), ${priorKey(scope, key)},
@@ -77,7 +66,6 @@ async function lock(tx: Transaction, scope: Scope, key: string, organization: st
 }
 
 export function gatheringCommands(clock: Clock) {
-	/** The lock, a replay of the same request, the refusals, then `decide`, which writes the change or nothing. */
 	async function command(
 		db: Database,
 		authority: RequestActor,
@@ -112,7 +100,6 @@ export function gatheringCommands(clock: Clock) {
 		});
 	}
 
-	/** One change to the launch row (`set`) with its history row, in one statement. */
 	async function save(
 		tx: Transaction,
 		scope: Scope,
@@ -127,7 +114,6 @@ export function gatheringCommands(clock: Clock) {
 		return "changed" as const;
 	}
 
-	/** The checked date and note of a record or correction, or the refusal. */
 	function checked(input: { date: string; note: string | null }, today: LocalDate) {
 		const r = c.checkGathering(input, today);
 		if (!r.ok) deny("invalid_gathering", { problem: r.problem });
@@ -138,7 +124,6 @@ export function gatheringCommands(clock: Clock) {
 		if (!r.ok) deny("invalid_reason", { problem: r.problem });
 		return r.note;
 	}
-	/** The milestone path's record, which the commands below need. */
 	function reached(l: Locked) {
 		if (l.launch.gathering_path !== "milestone" || !l.launch.gathering_reached_on || !l.launch.gathering_reached_name)
 			deny("conflict");
@@ -146,12 +131,6 @@ export function gatheringCommands(clock: Clock) {
 	}
 
 	return {
-		/**
-		 * launch.choosePath (T-296): use a milestone an organization the church is affiliated with offers instead of
-		 * Launch Sunday, or Launch Sunday again. The launch date and its state, the readiness milestones, the tasks and
-		 * the phase all stay as they are, so switching back shows Launch Sunday as it was. A church that already recorded
-		 * Launch Sunday keeps it; a reached milestone must be cleared first.
-		 */
 		async choosePath(db: Database, authority: RequestActor, raw: unknown) {
 			return settle(async () => {
 				const q = parse(c.choosePathRequest, raw);
@@ -162,7 +141,6 @@ export function gatheringCommands(clock: Clock) {
 					if (was.gathering_path === q.input.path && was.gathering_organization_id === target) return "noop";
 					if (was.status === "completed") deny("conflict");
 					if (target && !l.offer) deny("gathering_unavailable");
-					// History names the milestone left and the one chosen, as their organizations called them then.
 					const before = {
 						path: was.gathering_path,
 						organizationId: was.gathering_organization_id,
@@ -194,11 +172,6 @@ export function gatheringCommands(clock: Clock) {
 				});
 			});
 		},
-		/**
-		 * launch.recordGathering (T-296): the church-local day the chosen milestone was reached, with an optional note,
-		 * under the name the organization gives it today. It can't be after today, and the milestone must still be
-		 * offered. The same date and note again add nothing.
-		 */
 		async recordGathering(db: Database, authority: RequestActor, raw: unknown) {
 			return settle(async () => {
 				const q = parse(c.recordGatheringRequest, raw);
@@ -225,10 +198,6 @@ export function gatheringCommands(clock: Clock) {
 				});
 			});
 		},
-		/**
-		 * launch.correctGathering (T-296): correct the reached date or note with a reason. History keeps the date before
-		 * and after (a note only as changed). The name it was reached under stays. The same values again add nothing.
-		 */
 		async correctGathering(db: Database, authority: RequestActor, raw: unknown) {
 			return settle(async () => {
 				const q = parse(c.correctGatheringRequest, raw);
@@ -249,10 +218,6 @@ export function gatheringCommands(clock: Clock) {
 				});
 			});
 		},
-		/**
-		 * launch.clearGathering (T-296): take back the reached record with a reason, so the church can go back to Launch
-		 * Sunday. History keeps what was recorded.
-		 */
 		async clearGathering(db: Database, authority: RequestActor, raw: unknown) {
 			return settle(async () => {
 				const q = parse(c.clearGatheringRequest, raw);

@@ -7,9 +7,6 @@ import test, { after, describe } from "node:test";
 import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
 
-// T-9: an Owner or Admin archives a Church Document. It leaves the library and every write; its page, revisions and
-// saved exports stay readable and downloadable for every seat. Archive is not delete (D-935).
-
 const database = await fixture({ prefix: "t9arch", plant: { name: "Harvest Point" } });
 const { admin } = database;
 const db = database.pools.runtime;
@@ -68,7 +65,6 @@ const rowsOf = async (query) => (await admin.execute(query)).rows;
 const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex");
 const bytesFrom = (file) => Buffer.from(file.bytes, "base64");
 
-/** Everything the church plant has stored: every document row, revision, saved export and audit row, as one hash. */
 const stored = async () => {
 	const tenant = database.tenant.id;
 	const parts = await Promise.all([
@@ -279,7 +275,6 @@ describe("AC:DOC-022 archive a Church Document", { concurrency: 1 }, () => {
 				assert.equal(file.digest, saved.digest);
 			}
 		}
-		// The page-level saved history still lists them, with the archived document as their source.
 		const history = ok(await documentsWriter["history.list"](db, await authority(MEMBER), {}));
 		for (const saved of [pdf, word]) {
 			const entry = history.entries.find((e) => e.id === saved.id);
@@ -306,7 +301,6 @@ describe("AC:DOC-022 archive a Church Document", { concurrency: 1 }, () => {
 			)[0];
 		assert.deepEqual(await marks(deleted.id), { deleted: true, archived: false }, "a delete marks only deletion");
 		assert.deepEqual(await marks(archived.id), { deleted: false, archived: true }, "an archive marks only archive");
-		// Every document deleted before this change is still deleted and none is archived: the migration adds empty columns.
 		assert.deepEqual(
 			(
 				await rowsOf(

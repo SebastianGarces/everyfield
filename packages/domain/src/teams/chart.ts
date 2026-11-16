@@ -1,16 +1,11 @@
 import "server-only";
 
 type Rooted = { id: string; templateKey: string | null; archived: boolean };
-/**
- * The organization view's one root rule (REQ-TEAM-012): the first live Leadership-template ministry is the root and
- * every other shown ministry sits under it. An archived ministry is never a root; with no root, no ministry has a parent.
- */
 export function withParents<N extends Rooted>(nodes: readonly N[]): (N & { parentId: N["id"] | null })[] {
 	const root = nodes.find((node) => node.templateKey === "leadership" && !node.archived);
 	return nodes.map((node) => ({ ...node, parentId: root && node.id !== root.id ? root.id : null }));
 }
 
-/** The same wrapped lines feed the SVG and the PDF. */
 function wrapLabel(text: string, width = 42): string[] {
 	const lines: string[] = [];
 	for (let index = 0; index < text.length; index += width) lines.push(text.slice(index, index + width));
@@ -27,13 +22,11 @@ export function drawingLines(nodes: readonly { name: string; leaderName: string 
 function xml(text: string) {
 	return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
-/** WinAnsi bytes 0x80 to 0x9F, which differ from Latin-1. Every other byte from 0xA0 up is its Latin-1 character. */
 const winAnsiHigh = new Map(
 	[..."€\u0081‚ƒ„…†‡ˆ‰Š‹Œ\u008DŽ\u008F\u0090‘’“”•–—˜™š›œ\u009DžŸ"]
 		.map((char, index) => [char, 0x80 + index] as const)
 		.filter(([char]) => char.charCodeAt(0) > 0x9f),
 );
-/** A PDF string body in WinAnsi: ASCII as itself, other WinAnsi characters as octal escapes, anything else as "?". */
 function pdfText(text: string) {
 	let out = "";
 	for (const char of text) {
@@ -52,21 +45,17 @@ export function drawingSvg(lines: readonly string[]) {
 	const texts = lines
 		.map((line, index) => `<text x="50" y="${svgTop + index * svgLeading}">${xml(line)}</text>`)
 		.join("");
-	// A long chart grows the drawing so the last line stays inside it, with the same margin below as above.
 	const height = Math.max(792, svgTop * 2 + (lines.length - 1) * svgLeading);
 	return `<svg xmlns="http://www.w3.org/2000/svg" width="612" height="${height}" viewBox="0 0 612 ${height}">${texts}</svg>`;
 }
 const pageTop = 760;
 const pageLeading = 14;
-/** Lines that fit between the first baseline and a 40 pt bottom margin on a US Letter page. */
 const pdfLinesPerPage = Math.floor((pageTop - 40) / pageLeading) + 1;
-/** A PDF 1.4 with the same lines, as many US Letter pages as they need. Nothing is stored. */
 export function drawingPdf(lines: readonly string[]) {
 	const pages: (readonly string[])[] = [];
 	for (let index = 0; index < lines.length; index += pdfLinesPerPage)
 		pages.push(lines.slice(index, index + pdfLinesPerPage));
 	if (!pages.length) pages.push([]);
-	// Objects 1 to 3 are the catalog, the page tree and the font; each page then takes a page and a content object.
 	const pageId = (index: number) => 4 + index * 2;
 	const objects = [
 		"<< /Type /Catalog /Pages 2 0 R >>",

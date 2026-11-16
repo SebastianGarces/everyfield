@@ -50,11 +50,6 @@ export async function rowsOf<T>(db: Pick<Database, "execute"> | Transaction, que
 	return found.rows as T[];
 }
 
-/**
- * The second run of a one-statement write whose first statement failed on a racing write's unique key. It runs in a
- * transaction that names itself a retry on the wire (as the established write run does), so the statement budgets
- * count it as the retry of the same write.
- */
 export async function rerun<T>(db: Database, body: (bound: Database) => Promise<T>): Promise<T> {
 	const { client, db: bound } = await checkoutClient(db);
 	try {
@@ -112,7 +107,6 @@ export async function storeBytes(
 	}
 }
 
-/** One generated-document record, as the history and the export calls return it. */
 export function generatedFrom(
 	row: {
 		id: string;

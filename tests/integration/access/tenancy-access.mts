@@ -1,10 +1,7 @@
-// The access read of INV-tenancy (tenancy.test.mts): liveAccess, which turns the caller's own request actor into the
-// session, owner and seat a live-read condition checks. It returns a descriptor and runs no query.
 import assert from "node:assert/strict";
 import { sql } from "../../../packages/db/src/query.ts";
 import { liveAccess } from "../../../packages/domain/src/access/index.ts";
 
-/** Each owner's seat as the seat table holds it, so a case names the seat without reading it off the actor. */
 const seats = new Map();
 export async function seedAccess(t) {
 	for (const seat of await t.rows(sql`SELECT id::text, account_id::text, plant_id::text FROM seat`))
@@ -20,7 +17,6 @@ export function accessCases(t, who) {
 		[
 			"access:liveAccess",
 			{
-				// It takes no ids: only the caller's own request actor.
 				run: async () => ({ status: "ok", value: liveAccess(who.actor) }),
 				expected: {
 					value: own(who),

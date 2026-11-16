@@ -1,7 +1,0 @@
-{
-	"packages/domain/src/followups/assignments.ts": 9,
-	"packages/domain/src/followups/core.ts": 6,
-	"packages/domain/src/followups/index.ts": 1,
-	"packages/domain/src/followups/outcomes.ts": 18,
-	"packages/domain/src/followups/queries.ts": 14
-}
