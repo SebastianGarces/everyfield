@@ -19,15 +19,14 @@ import {
 } from "@everyfield/contracts/identity";
 import { Button, ConfirmDialog, Field, Input, Skeleton } from "@everyfield/ui/controls";
 import { Avatar } from "@everyfield/ui/display";
-import { useCallback, useRef, useState, useSyncExternalStore, type FormEvent, type ReactNode } from "react";
-import { addAddressRule, currentAddress } from "../../../components/location.ts";
+import { useCallback, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useOneTimeLinkValue } from "../../../components/location.ts";
 import { NotAvailable } from "../../access/AccessStates";
 import { Refusal, useIntent, useLoad } from "../../organizations/intent";
 import { ProblemLine } from "../../organizations/parts";
 import { ResidencyDisclosure } from "../../organizations/Residency";
 import { identityApi, loadPage } from "../api";
 import { AuthFooter, AuthHeading } from "../AuthFrame";
-import { useLinkSecretLeavesAddress } from "../link";
 import { refusalMessage } from "../messages";
 import { FormMessage, Outcome, PasswordInput } from "../parts";
 import { AFTER_SIGN_IN, SignInForm } from "../SignInScreen";
@@ -49,15 +48,8 @@ const PAGE = "/invitation";
 type Session = Awaited<ReturnType<typeof readInvitation>>["session"];
 type Read = { description: ReturnType<typeof invitationDescriptionResult.parse>; session: Session };
 
-addAddressRule("invitation-proof", (to) =>
-	to.pathname === PAGE && tabStore.keepProof() ? to.pathname + to.search : null,
-);
-
-const takeFragmentProof = () => (tabStore.keepProof() ? currentAddress() : null);
-
 export function InvitationScreen() {
-	const proof = useSyncExternalStore(tabStore.onProof, tabStore.proof, () => undefined);
-	useLinkSecretLeavesAddress(takeFragmentProof);
+	const proof = useOneTimeLinkValue("invitation");
 	if (proof === undefined) return <Loading />;
 	if (!proof) return <Unavailable />;
 	return <InvitationFor key={proof} proof={proof} />;
