@@ -68,7 +68,6 @@ export type TransportOutcome =
 	| { kind: "accepted"; id: string }
 	| { kind: "refused"; retryable: boolean; retryAfterSeconds?: number }
 	| { kind: "unknown" };
-/** One email as the transport hands it to the provider. `headers` holds the List-Unsubscribe pair, when the email has one. */
 export type MailPayload = Readonly<{
 	from: string;
 	to: string;
@@ -99,17 +98,9 @@ const stored = z.object({
 	job_id: z.uuid().nullable(),
 	created_at: z.date(),
 });
-/**
- * Mail a reader may turn off (REQ-NTF-012): a notification email and the two digests. Security, invitation and receipt
- * mail never carries an Unsubscribe link. Messages mail to CRM people (`communication`) is not listed here: it carries its own
- * Unsubscribe link, built in `packages/domain/src/communication/delivery.ts`.
- */
 const OPTIONAL_PURPOSES: ReadonlySet<string> = new Set(["notification", "planter_digest", "oversight_digest"]);
-/** The opt-out page's origin (scheme, host and port only) and key ring. Null when the deployment has no NOTIFICATION_OPT_OUT_KEYS: mail then goes without a link. */
 export type MailUnsubscribe = { origin: string; keys: OptOutKeyRing } | null;
-/** The category an optional email belongs to and the reader's current unsubscribe revision for its email. */
 type OptOut = { category: z.infer<typeof notificationCategory>; revision: string };
-/** The deployment's unsubscribe configuration: the public origin and the NOTIFICATION_OPT_OUT_KEYS ring the opt-out page opens. */
 export function mailUnsubscribe(env: Readonly<Record<string, string | undefined>> = process.env): MailUnsubscribe {
 	const keys = parseKeyRing(env.NOTIFICATION_OPT_OUT_KEYS);
 	const origin = z.url().safeParse(env.IDENTITY_ORIGIN);
@@ -117,10 +108,6 @@ export function mailUnsubscribe(env: Readonly<Record<string, string | undefined>
 }
 export const escapeHtml = (text: string) =>
 	text.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] ?? c);
-/**
- * The plain rendering of one email. Optional mail ends with its Unsubscribe and settings links in both bodies and
- * carries the RFC 8058 List-Unsubscribe pair with the same token.
- */
 function render(
 	to: string,
 	content: z.infer<typeof storedContentSchema>,
@@ -144,10 +131,6 @@ export function createMailService(config: {
 	addressKey: Uint8Array;
 	from: string;
 	authorize: AuthorizeMail;
-	/**
-	 * The email service. A request-side service that only queues mail has none: the scheduled runner's pass for its mount
-	 * sends it, so a request never waits on the email service.
-	 */
 	transport?: MailTransport | undefined;
 	authorizeRecovery?: AuthorizeRecovery;
 	unsubscribe?: MailUnsubscribe;
@@ -187,12 +170,7 @@ export function createMailService(config: {
 		logicalKey: m.logical_key,
 	});
 	const aad = (id: string, tenant: string, purpose: string) => `${tenant}/${id}/${purpose}`;
-	/**
-	 * Whether the mail may still go. Live mail answers with the opt-out its notice's category gives, when the reader may
-	 * turn that category's email off: the category and the email preference's current unsubscribe revision.
-	 */
 	async function live(tx: Transaction, m: z.infer<typeof stored>): Promise<false | { optOut: OptOut | null }> {
-		// Current deletion witnesses override restored or still-present intent rows.
 		const barriers = await tx
 			.select({ id: tables.lifecycle_witness.id })
 			.from(tables.lifecycle_witness)
@@ -267,7 +245,6 @@ export function createMailService(config: {
 			})
 			.onConflictDoNothing({ target: [tables.audit_event.subject_id, tables.audit_event.event_key] });
 	}
-	/** The verified producer queues a required intent with its facts and audit. Dispatch rechecks its live source. */
 	async function append(tx: Pick<Transaction, "insert">, input: MailIntent, writes: SQLWrapper[]): Promise<string> {
 		const v = intentSchema.parse(input),
 			id = randomUUID(),
@@ -329,7 +306,6 @@ export function createMailService(config: {
 		);
 		return id;
 	}
-	/** Validate, hash and seal mail intents into the rows `mailInsert` writes. Pure: no statement. */
 	function sealIntents(inputs: readonly MailIntent[]) {
 		return inputs.map((input) => {
 			const v = intentSchema.parse(input),
@@ -374,12 +350,6 @@ export function createMailService(config: {
 			};
 		});
 	}
-	/**
-	 * The CTEs that insert sealed mail with its request, member and job rows, for the end of one write statement.
-	 * `mail_input` holds the sealed rows and `mail_inserted` the stored mail (the existing row for a known key).
-	 * `queued` gives a producer these CTEs for intents it has already authorized and checked for deletion barriers
-	 * under its own locks; it sends no statement.
-	 */
 	function mailInsert(rows: readonly ReturnType<typeof sealIntents>[number]["row"][]) {
 		return sql`mail_input AS MATERIALIZED (SELECT * FROM jsonb_to_recordset(${JSON.stringify(rows)}::jsonb) i(id uuid,tenant uuid,recipient uuid,purpose text,key text,operation uuid,notice uuid,hash text,"addressHash" text,payload jsonb,address text,job uuid,request uuid,eligible timestamptz)),
    mail_inserted AS (
@@ -467,10 +437,6 @@ export function createMailService(config: {
 		return id;
 	}
 
-	/**
-	 * The Unsubscribe page and one-click URLs for one optional email, or null. The token names the recipient and the
-	 * email's own category, and is the same on every attempt of this mail (`issueMailOptOutToken`).
-	 */
 	function optOutLinks(m: z.infer<typeof stored>, optOut: OptOut | null) {
 		if (!unsubscribe || !optOut || !m.recipient_account_id) return null;
 		const token = issueMailOptOutToken(unsubscribe.keys, {
@@ -535,7 +501,6 @@ export function createMailService(config: {
 			);
 			const to = z.email().parse(open(m.recipient_address_encrypted, aad(m.id, m.tenant_id, "address")));
 			const attempt = randomUUID();
-			// The request's first send time, the in-flight attempt and the dispatched state: one statement.
 			await executeWrites(tx, [
 				tx
 					.update(tables.mail_request)
@@ -570,7 +535,6 @@ export function createMailService(config: {
 		const recorded = await transaction(config.db, async (tx) => {
 			if (!(await lockClaim(tx, claim))) return false;
 			const { m, attempt } = prepared;
-			// The attempt's outcome, the mail's state and its outcome audit row: one statement.
 			const completed = tx
 				.update(tables.mail_attempt)
 				.set({
@@ -609,7 +573,6 @@ export function createMailService(config: {
 					tx.update(tables.mail).set({ state: "refused" }).where(eq(tables.mail.id, m.id)),
 					audit(tx, m, attempt, "mail.refused"),
 				]);
-				// Authoritative refusal makes this checkpoint safe for the bounded retry path.
 				await checkpoint(tx, claim, "refused");
 				await finishClaim(
 					tx,
@@ -628,7 +591,6 @@ export function createMailService(config: {
 		const row = await config.db.select().from(tables.mail).where(eq(tables.mail.id, mailId));
 		const m = stored.parse(row[0]);
 		if (m.state !== "unknown" || !m.provider_message_id) return { kind: "unknown" } as const;
-		// Provider observations, never caller-supplied result strings, establish truth.
 		const provider = transport();
 		let observed: TransportOutcome;
 		try {
@@ -764,49 +726,26 @@ export function createMailService(config: {
 	};
 }
 
-/**
- * The logical-key prefixes each scheduled-runner mail pass claims, by pass. Every prefix a producer writes belongs to
- * exactly one pass, whose mount's authorizer judges that mail again just before the handoff: a mail claimed by the
- * wrong mount would fail its authorization and be cancelled.
- */
 export const MAIL_PASSES = {
-	/** Church invitations and their acceptance receipts. */
 	mail: ["invitation/", "invitation-accepted/"],
-	/** Password-reset links and their outcome notices, and sign-up verification links. */
 	identity: ["password_reset/", "email_verification/"],
-	/** Organization connection invitations. */
 	organization: ["relationship/"],
-	/** Email-change links, security notices and workspace deletion notices. */
 	settings: ["email-change/", "security/", "workspace-deletion/"],
-	/** Set-up and Discovery receipts, relationship receipts after a conversion, and Discovery association receipts. */
 	onboarding: ["onboarding/", "association/"],
-	/** Notice email: task reminders, phase advances, meeting announcements and reminders, milestones. */
 	notice: ["notice/"],
-	/** Planter and oversight digests. */
 	digest: ["digest/"],
-	/** The operator email for each piece of product feedback. */
 	feedback: ["feedback/"],
 } as const satisfies Record<string, readonly `${string}/`[]>;
 export type MailPassName = keyof typeof MAIL_PASSES;
 
-/** A reminder emailed later than this after its slot is stale: the next slot, or the event itself, has come. */
 const REMINDER_GRACE = "1 day";
 
-/**
- * Mail that no longer helps its reader, for a mail row `m` and its job `j`: a password-reset or verification link older
- * than the link itself (a reset's outcome notice still goes), and a task or meeting reminder whose slot passed a day
- * ago. It is never handed to the email service.
- */
 const stale = sql.raw(`((split_part(m.logical_key,'/',1) IN ('password_reset','email_verification')
     AND m.logical_key NOT LIKE 'password_reset/outcome/%'
     AND m.created_at+make_interval(secs=>${IDENTITY_LINK_SECONDS})<=clock_timestamp())
   OR (m.notice_id IS NOT NULL AND j.eligible_at+interval '${REMINDER_GRACE}'<=clock_timestamp()
     AND EXISTS(SELECT FROM notice n WHERE n.id=m.notice_id AND n.purpose IN ('task_due','meeting_reminder'))))`);
 
-/**
- * Cancels up to 500 stale queued mail (see `stale`) that was never handed off, with its job, so the first tick after
- * mail starts sending does not send a backlog of dead links and past reminders. One statement. Returns how many.
- */
 export async function expireStaleMail(db: Database): Promise<number> {
 	const rows = await db.execute(sql`WITH due AS (
     SELECT j.id AS job_id,m.id AS mail_id FROM job j JOIN mail m ON m.id=j.subject_record_id
@@ -821,12 +760,6 @@ export async function expireStaleMail(db: Database): Promise<number> {
 	return z.number().parse(rows.rows[0]?.count);
 }
 
-/**
- * The only automatic replay of an unknown effect: claims up to `limit` mail whose handoff answered unknown, under the
- * given key prefixes, while its request is still inside the email service's 23 h 55 min idempotency window. Dispatch
- * then sends the same stored request under the same key, so the email service answers with its first result. Past the
- * window, or once the job used its attempts, the mail stays in reconcile, unclaimed, for a provider callback.
- */
 export async function claimUnknownMail(db: Database, prefixes: readonly string[], limit = 1): Promise<Claim[]> {
 	z.number().int().min(1).max(100).parse(limit);
 	const rows = await db.execute(sql`WITH due AS (
@@ -843,11 +776,6 @@ export async function claimUnknownMail(db: Database, prefixes: readonly string[]
 	return rows.rows.map((row) => claimSchema.parse(row));
 }
 
-/**
- * Claims the oldest due mail job whose mail's logical key starts with one of `prefixes`, skipping rows another claim
- * holds and stale mail. A mount's worker claims only the mail its own authorizer can judge (`MAIL_PASSES`). One
- * statement, so one implicit transaction.
- */
 async function claimDueMail(db: Database, prefixes: readonly string[]): Promise<Claim | undefined> {
 	const rows = await db.execute(sql`WITH due AS (
     SELECT j.id FROM job j JOIN mail m ON m.id=j.subject_record_id
@@ -861,13 +789,8 @@ async function claimDueMail(db: Database, prefixes: readonly string[]): Promise<
 	return rows.rows.map((row) => claimSchema.parse(row))[0];
 }
 
-/** A scheduled-runner mail pass: sends at most `limit` due mail, starting none after `until`. Returns the claims. */
 export type MailPass = (limit: number, until: number) => Promise<number>;
 
-/**
- * One bounded batch of a mount's mail: first it replays the mail whose handoff answered unknown on an earlier tick
- * (`claimUnknownMail`), then it claims due mail, each dispatched under the mount's own authorizer. Returns the claims.
- */
 export async function runDueMail(
 	db: Database,
 	mail: Pick<ReturnType<typeof createMailService>, "dispatch">,
@@ -878,10 +801,8 @@ export async function runDueMail(
 	let claimed = 0;
 	const run = async (claim: Claim) => {
 		claimed++;
-		// A failed dispatch keeps its lease; lease recovery returns it to the queue. No error text: it can carry values.
 		await mail.dispatch(claim).catch(() => console.error(JSON.stringify({ component: "mail", outcome: "error" })));
 	};
-	// Replays first, so mail that answered unknown in this tick's own sends waits for the next tick.
 	while (claimed < limit && Date.now() < until) {
 		const [claim] = await claimUnknownMail(db, prefixes);
 		if (!claim) break;
