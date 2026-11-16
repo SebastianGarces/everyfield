@@ -58,7 +58,6 @@ const warningsRow = z.object({
 	committed: z.boolean(),
 	duties: z.array(z.object({ id: z.uuid(), revision: z.string() })),
 });
-/** Row filters for one People query, with the reader's C13 gate. The list, the pipeline and the CSV export share them. */
 export function peopleFilters(
 	ctx: Pick<Context, "selected">,
 	input: Omit<z.infer<typeof c.listPeopleRequest>, "page" | "limit" | "view" | "sort">,
@@ -79,7 +78,6 @@ export function peopleFilters(
 		filters.push(
 			sql`NOT EXISTS(SELECT unnest(${sql.param(input.tags)}::uuid[]) EXCEPT SELECT tag_id FROM person_tag WHERE person_id=${tables.person.id} AND plant_id=${tables.person.plant_id})`,
 		);
-	// The effective value, as the column shows it: the birth date decides when there is one (REQ-PPL-026).
 	if (input.adultClassification)
 		filters.push(
 			sql`${effectiveAdultSql(sql`${tables.person.birth_date}`, sql`${tables.person.adult_classification}`, plantTodaySql(sql`${tables.person.plant_id}`))}=${input.adultClassification}`,
@@ -95,7 +93,6 @@ async function list(tx: Tx, ctx: Context, raw: unknown) {
 	const input = parse(c.listPeopleRequest, raw);
 	const { gate } = await authorizeRead(tx, ctx);
 	const filters = peopleFilters(ctx, input, gate);
-	// The count always returns one row, so it also says whether the reader still has access.
 	const { total, allowed } = (
 		await tx
 			.select({ total: count(), allowed: sql<boolean>`${gate}` })
@@ -164,7 +161,6 @@ export const peopleReader: PeopleReader<Tx> = {
 		return readReply(async () => {
 			parse(c.ownAccountPersonRequest, raw);
 			const { actor, gate } = await authorizeRead(tx, ctx);
-			// The gate row is always present, so a refused reader and an unlinked one stay distinct.
 			const r = await tx.execute(sql`SELECT g.allowed,p.id FROM (SELECT ${gate} AS allowed) g
  LEFT JOIN person p ON g.allowed AND p.tenant_id=${ctx.selected.id}::uuid AND p.linked_account_id=${actor.accountId}::uuid
  AND p.state='live'`);
@@ -180,7 +176,6 @@ export const peopleReader: PeopleReader<Tx> = {
 			const { actor, gate } = await authorizeRead(tx, ctx);
 			const p = await person(tx, ctx, input.personId, gate);
 			await canReadPerson(tx, ctx, p, actor);
-			// One read, no locks: the dialog needs three booleans, the review revision and the open duties.
 			const result = await tx.execute(sql`SELECT pl.material_revision::text AS review,
       EXISTS(SELECT FROM four_cs f WHERE f.person_id=${p.id} AND f.plant_id=${ctx.selected.id}) AS assessment,
       EXISTS(SELECT FROM interview i WHERE i.person_id=${p.id} AND i.plant_id=${ctx.selected.id}) AS interview,
@@ -196,7 +191,6 @@ export const peopleReader: PeopleReader<Tx> = {
 				reviewRevision: row.review,
 				openDuties: row.duties,
 				warnings: [
-					// REQ-PPL-012: advisory only; the stage command never requires an assessment.
 					...(!row.assessment ? ["assessment_not_recorded"] : []),
 					...(!row.interview ? ["interview_not_recorded"] : []),
 					...(!row.committed ? ["commitment_not_recorded"] : []),
@@ -212,14 +206,12 @@ export const peopleReader: PeopleReader<Tx> = {
 			const input = parse(c.listPeopleRequest, raw);
 			if (ctx.selected.kind !== "plant") deny();
 			const { gate } = await authorizeRead(tx, ctx);
-			// The page read takes all five columns; "Show more" names one and reads only that one.
 			const columns: readonly z.infer<typeof c.pipelineColumn>[] = input.column
 				? [input.column]
 				: c.pipelineColumn.options;
 			const stages = columns.flatMap((column) =>
 				input.stages.length ? input.stages.filter((s) => columnStages(column).includes(s)) : columnStages(column),
 			);
-			// The gate row is always present, so a refused reader and a church without saved columns stay distinct.
 			const saved = await tx.execute(sql`SELECT g.allowed,pc.column_name AS column,pc.revision::text AS revision
  FROM (SELECT ${gate} AS allowed) g LEFT JOIN people_column pc ON g.allowed AND pc.plant_id=${ctx.selected.id}::uuid`);
 			if (saved.rows[0]?.allowed !== true) deny();
@@ -227,7 +219,6 @@ export const peopleReader: PeopleReader<Tx> = {
 				.array(z.object({ column: z.string().nullable(), revision: z.string().nullable() }))
 				.parse(saved.rows)
 				.filter((r) => r.column !== null);
-			// One window over every read column: each row carries its column, its rank in that column and the column total.
 			const column = sql<string>`CASE WHEN ${tables.person.stage} = ANY(${committedStagesSql()}) THEN 'core_group' ELSE ${tables.person.stage} END`;
 			const window = tx
 				.select({
@@ -243,7 +234,6 @@ export const peopleReader: PeopleReader<Tx> = {
 				.as("w");
 			const offset = (input.page - 1) * input.limit,
 				last = offset + input.limit;
-			// Each column's first row rides along so that a page past the end still reports the column total.
 			const rows = stages.length
 				? await tx
 						.select()
@@ -272,7 +262,6 @@ export const peopleReader: PeopleReader<Tx> = {
 				};
 			});
 			const ids = groups.flatMap((g) => g.cards.map((p) => p.id));
-			// Limit each person's duties independently, including the overflow witness.
 			const duties = tx
 				.select({ id: task_t.id, due_date: task_t.due_date })
 				.from(task_t)
@@ -293,8 +282,6 @@ export const peopleReader: PeopleReader<Tx> = {
 				.orderBy(asc(task_t.id))
 				.limit(101)
 				.as("duties");
-			// REQ-PPL-007 (WP-023): the latest recorded activity the Person's history shows, against the church's
-			// inactivity days in Settings. New activity clears the warning.
 			const lastActivity = sql`greatest(${tables.person.created_at},
 				(SELECT max(n.occurred_at) FROM person_note n WHERE n.tenant_id=${tables.person.tenant_id} AND n.person_id=${tables.person.id}),
 				(SELECT max(a.occurred_at) FROM audit_event a WHERE a.tenant_id=${tables.person.tenant_id} AND a.subject_id=${tables.person.id} AND a.kind<>'noop'),
@@ -362,20 +349,11 @@ export const peopleReader: PeopleReader<Tx> = {
 		});
 	},
 };
-/**
- * One statement: notes, audit events and follow-ups in one window, with the actor account joined for attribution. The
- * history of people merged into this one shows here too (REQ-PPL-025).
- */
 async function activities(tx: Tx, ctx: Context, p: Person, input: z.infer<typeof c.activityRequest>, gate: SQL) {
 	const result = await tx.execute(sql`SELECT ${activitiesJson(ctx, sql`${p.id}::uuid`, input, gate)} AS rows`);
 	return activityFeed(ctx, p.id, input, result.rows[0]?.rows);
 }
-/**
- * One page of a Person's activity, newest first (time, then ID, descending), as one JSON array, the window's rows plus one that says whether more follow. A scalar
- * subquery: `personId` may name the outer `person`.
- */
 export function activitiesJson(ctx: Context, personId: SQL, input: z.infer<typeof c.activityRequest>, gate: SQL) {
-	// This person and the people merged into them (REQ-PPL-025).
 	const feed = sql`(SELECT ${personId} UNION ALL SELECT m.id FROM person m WHERE m.merged_into_person_id=${personId} AND m.tenant_id=${sql.param(ctx.selected.id)})`;
 	return sql`(SELECT coalesce(jsonb_agg(jsonb_build_object('id',a.id,'occurred_at',a.occurred_at,'recorded_at',a.recorded_at,
  'actor_id',a.actor_id,'revision',a.revision::text,'body',a.body,'edited_at',a.edited_at,'removed_at',a.removed_at,'kind',a.kind,
@@ -436,7 +414,6 @@ export function activityFeed(ctx: Context, personId: string, input: z.infer<type
 				household: { from: r.before_value?.membership ?? null, to: r.after_value?.membership ?? null },
 			});
 		else if (r.kind === "record") {
-			// An assessment, interview or commitment event, with the stage advance it caused.
 			const from = r.before_value?.stage,
 				to = r.after_value?.stage;
 			items.push({
@@ -447,7 +424,6 @@ export function activityFeed(ctx: Context, personId: string, input: z.infer<type
 				...(from && to && from !== to ? { stage: { from, to } } : {}),
 			});
 		} else if (r.kind === "duplicate" && r.with_person)
-			// A "Not a duplicate" or its restore names the other person of the pair by their current name (D-844, D-845).
 			items.push({ ...base, kind: "activity", action: actions[r.action ?? ""], withPerson: r.with_person });
 		else if (r.kind === "follow_up")
 			items.push({
@@ -455,7 +431,6 @@ export function activityFeed(ctx: Context, personId: string, input: z.infer<type
 				kind: "follow_up",
 				outcome: r.outcome,
 				obligationId: r.obligation_id,
-				// A follow-up entry carries how it happened and its note in the shared body and action columns.
 				channel: r.action ?? null,
 				notes: r.body ?? null,
 			});
@@ -483,7 +458,6 @@ export async function getAccountLink(tx: Tx, ctx: Context, raw: unknown) {
 	});
 }
 
-/** The People viewer of a plant seat: the actor plus the own Person name the layout shows. Null for any other seat. */
 export function peopleViewer(authority: RequestActor, own: { id: string; name: string } | null) {
 	const actor = authority.actor;
 	if (actor.context.kind !== "seat" || actor.context.owner.kind !== "plant") return null;
@@ -498,11 +472,6 @@ export function peopleViewer(authority: RequestActor, own: { id: string; name: s
 	};
 }
 
-/**
- * Pipeline columns' saved order and revision, in one query inside the move's own transaction (D68). A reorder answers
- * with its column, a stage change with the column the person left and the one they joined, instead of re-reading the
- * whole pipeline. Each column lists every person's revision, which the page's next move must send.
- */
 export async function readColumnOrders(tx: Tx, ctx: Context, columns: readonly z.infer<typeof c.pipelineColumn>[]) {
 	const result = await tx.execute(sql`SELECT u.c AS column,
 		coalesce((SELECT revision::text FROM people_column WHERE plant_id=${ctx.selected.id} AND column_name=u.c), '1') AS revision,

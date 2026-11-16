@@ -1,4 +1,3 @@
-// WP-027/ui read changes: the recipient search rule (Task 14), named audience recipients and the history times.
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -131,8 +130,6 @@ test("AC:CASE-COM-001 history items and detail carry scheduled time, sent time a
 	assert.equal(ok(await read("getDetail", { id: draft }, keys)).sentAt, null);
 });
 
-// Send now from a draft chains the existing commands: save and schedule in one transaction, then send the new revision
-// with its own request key (chainSendNow in apps/web/src/features/communication/sendNowChain.ts, run by the web action).
 function carrier(behavior) {
 	const calls = { send: 0 };
 	return {
@@ -152,7 +149,6 @@ function carrier(behavior) {
 		},
 	};
 }
-/** The real Send now chain with the real commands: save and schedule one transaction, then send. */
 function chain(personId, transport, keysFor, sendRevision = (revision) => revision, now = Date.now()) {
 	return chainSendNow(
 		{
@@ -217,7 +213,6 @@ test("AC:CASE-COM-012 the real Send now chain sends once for a double confirm", 
 test("AC:CASE-COM-012 a refused send step leaves the message scheduled and names the issue", async () => {
 	const personId = await person("Chain Refused", `refused-${randomUUID().slice(0, 8)}@example.test`);
 	const transport = carrier(async () => ({ outcome: "ids", ids: ["never"] }));
-	// A stale revision on the send step is refused by the domain before any provider call.
 	const stale = ok(await chain(personId, transport, newKeys(), () => "999999"));
 	assert.equal(stale.report, null);
 	assert.notEqual(stale.sendIssue, null);
@@ -226,7 +221,6 @@ test("AC:CASE-COM-012 a refused send step leaves the message scheduled and names
 	assert.equal(row.state, "scheduled");
 	assert.equal(row.accepted, 0);
 
-	// A provider that throws leaves an unknown result, never an acceptance, and the message stays scheduled.
 	const personTwo = await person("Chain Down", `down-${randomUUID().slice(0, 8)}@example.test`);
 	const down = carrier(async () => {
 		throw new Error("provider_down");

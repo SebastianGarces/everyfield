@@ -6,9 +6,6 @@ import { fixture } from "../identity/invitations-support.mts";
 import { communicationWriter } from "../../../packages/domain/src/communication/index.ts";
 import { ok } from "../../support/fixture.mts";
 
-// REQ-NTF-011 (WP-028): "Your address" lists every earlier restore of the viewer's own blocked address, newest first,
-// with the date, who restored it and their reason, in a fixed number of statements.
-
 let f, plant, owner, other;
 const keys = {
 	encryptionKey: Buffer.alloc(32, 7),
@@ -17,7 +14,6 @@ const keys = {
 	origin: "https://app.example.test",
 };
 
-/** A hard bounce blocks the address, as the bounce callback does: a new block or a block again after a restore. */
 async function bounce(address) {
 	const hash = createHmac("sha256", keys.addressKey).update(address).digest("hex");
 	const eventId = randomUUID();
@@ -38,7 +34,6 @@ const restore = async (who, reason) =>
 			keys,
 		),
 	);
-/** The read through a database handle that counts its statements. */
 async function listed(who) {
 	let statements = 0;
 	const counted = new Proxy(f.db, {
@@ -82,7 +77,6 @@ test("AC:CASE-NTF-011 Your address lists each past restore of the viewer's own a
 	await bounce(owner.email);
 	assert.equal((await restore(owner, "Inbox full, now cleared")).suppressionClears, 1);
 	await bounce(owner.email);
-	// Another person's block and restore stay out of this list.
 	await bounce(other.email);
 	await restore(other, "Robin's own reason");
 

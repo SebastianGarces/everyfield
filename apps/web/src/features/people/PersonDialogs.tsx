@@ -20,27 +20,14 @@ import { useState } from "react";
 import type { z } from "zod";
 import { classifyAdult, restorePerson, retirePerson, updatePerson, type Receipt } from "./actions.ts";
 import type { EntryFields } from "./ActivityCard.tsx";
-import {
-	changedFields,
-	CLASSIFICATION_LABEL,
-	CLASSIFICATIONS,
-	runSave,
-	SOURCE_LABEL,
-	SOURCES,
-	type PersonStore,
-} from "./model.ts";
-import { FormProblem, fresh, isConflict, problemOf, problemText, useStore, useWarnings } from "./parts.tsx";
+import { changedFields, CLASSIFICATION_LABEL, CLASSIFICATIONS, SOURCE_LABEL, SOURCES } from "./model.ts";
+import { runSave, type PersonStore } from "./person.store.ts";
+import { FormProblem, fresh, isConflict, problemOf, problemText, usePersonState, useWarnings } from "./parts.tsx";
 import type { PersonDraft } from "./StageDialog.tsx";
 
 type PlantPerson = z.infer<typeof people.plantPerson>;
 type Store = PersonStore<PlantPerson, PersonDraft>;
-/** What every person dialog reports: a saved change with its Activity entry, or a refusal because the page is old. */
 type Reported = { onSaved: (receipt: Receipt, entry: EntryFields) => void; onConflict: () => void };
-
-// ---------------------------------------------------------------------------------------------------------------
-// Edit profile (REQ-PPL-002). The draft keeps the person as it was when editing began; Save sends only the fields
-// that differ from it, and a cleared field is sent as null so the server clears it. Stage is not here: it changes
-// only through Change stage, with its warnings.
 
 const PROFILE = [
 	"displayName",
@@ -99,7 +86,7 @@ export function EditProfileDialog({
 	onOpenChange: (open: boolean) => void;
 	store: Store;
 } & Reported) {
-	const state = useStore(store);
+	const state = usePersonState(store);
 	const person = state.saved;
 	const pending = state.pending === "profile";
 	const draft = state.drafts.profile as ProfileDraft | undefined;
@@ -108,17 +95,13 @@ export function EditProfileDialog({
 	const [confirming, setConfirming] = useState(false);
 	const dirty = draft ? Object.keys(changedFields(draft.base, draft.values)).length > 0 : false;
 	const set = (k: ProfileKey, v: string) =>
-		store.dispatch({
-			type: "edit",
-			slot: "profile",
-			draft: { base: draft?.base ?? profileOf(person), values: { ...values, [k]: v } },
-		});
+		store.getState().actions.edit("profile", { base: draft?.base ?? profileOf(person), values: { ...values, [k]: v } });
 	const nameMissing = values.displayName.trim() === "";
 
 	const close = (next: boolean) => {
 		if (pending) return;
 		if (!next && dirty) return setConfirming(true);
-		if (!next) store.dispatch({ type: "discard", slot: "profile" });
+		if (!next) store.getState().actions.discard("profile");
 		setTouched(false);
 		onOpenChange(next);
 	};
@@ -245,7 +228,7 @@ export function EditProfileDialog({
 				cancelLabel="Keep editing"
 				tone="danger"
 				onConfirm={() => {
-					store.dispatch({ type: "discard", slot: "profile" });
+					store.getState().actions.discard("profile");
 					setTouched(false);
 					onOpenChange(false);
 				}}
@@ -253,11 +236,6 @@ export function EditProfileDialog({
 		</>
 	);
 }
-
-// ---------------------------------------------------------------------------------------------------------------
-// Adult classification (REQ-PPL-026, cohort input). Recorded only for a person with no birth date: a birth date sets
-// adult or child itself, and this dialog is not offered then. Never inferred from a household or stage. The first
-// answer is recorded; a later one is a correction with a reason, both kept in history.
 
 export type ClassifyDraft = { classification: string; occurredOn: string; reason: string };
 
@@ -272,27 +250,22 @@ export function ClassificationDialog({
 	onOpenChange: (open: boolean) => void;
 	store: Store;
 } & Reported) {
-	const state = useStore(store);
+	const state = usePersonState(store);
 	const person = state.saved;
 	const correction = person.adultClassification !== "unknown";
 	const pending = state.pending === "classify";
 	const draft = (state.drafts.classify as ClassifyDraft | undefined) ?? {
 		classification: correction ? person.adultClassification : "adult",
-		// No default: only the server knows the church's date, and a date from the reader's clock can be the church's
-		// tomorrow (verifier finding on f0ea75d). The person picks the date.
 		occurredOn: "",
 		reason: "",
 	};
 	const [touched, setTouched] = useState(false);
-	// The date the server last refused as after the church's today. Its error stays until the date changes, so the same
-	// date is not sent again; any other refusal shows below the form.
 	const [refusedOn, setRefusedOn] = useState<string | null>(null);
-	const set = (patch: Partial<ClassifyDraft>) =>
-		store.dispatch({ type: "edit", slot: "classify", draft: { ...draft, ...patch } });
+	const set = (patch: Partial<ClassifyDraft>) => store.getState().actions.edit("classify", { ...draft, ...patch });
 	const close = (next: boolean) => {
 		if (pending) return;
 		if (!next) {
-			store.dispatch({ type: "discard", slot: "classify" });
+			store.getState().actions.discard("classify");
 			setTouched(false);
 			setRefusedOn(null);
 		}
@@ -395,10 +368,6 @@ export function ClassificationDialog({
 	);
 }
 
-// ---------------------------------------------------------------------------------------------------------------
-// Retire (REQ-PPL-003): a soft retirement with a reason. It reviews open duties first; each stays open as Needs
-// owner. History and relations stay; the person leaves active lists and pickers. Restore is separate.
-
 export function RetireDialog({
 	open,
 	onOpenChange,
@@ -410,18 +379,17 @@ export function RetireDialog({
 	onOpenChange: (open: boolean) => void;
 	store: Store;
 } & Reported) {
-	const state = useStore(store);
+	const state = usePersonState(store);
 	const person = state.saved;
 	const pending = state.pending === "retire";
 	const reason = (state.drafts.retire as { body: string } | undefined)?.body ?? "";
-	// Read when the dialog opens and again after a conflict, never because this dialog's own save moved the revision.
 	const [round, setRound] = useState(0);
 	const warnings = useWarnings(person.id, round);
 	const [touched, setTouched] = useState(false);
 	const close = (next: boolean) => {
 		if (pending) return;
 		if (!next) {
-			store.dispatch({ type: "discard", slot: "retire" });
+			store.getState().actions.discard("retire");
 			setTouched(false);
 		}
 		onOpenChange(next);
@@ -494,7 +462,7 @@ export function RetireDialog({
 							maxLength={5000}
 							value={reason}
 							readOnly={pending}
-							onChange={(e) => store.dispatch({ type: "edit", slot: "retire", draft: { body: e.target.value } })}
+							onChange={(e) => store.getState().actions.edit("retire", { body: e.target.value })}
 						/>
 					</Field>
 					<FormProblem code={state.errors.retire} />
@@ -512,7 +480,6 @@ export function RetireDialog({
 	);
 }
 
-/** Restore (REQ-PPL-003): only an ordinary retired person. It does not bring back a seat, consent or private care. */
 export function RestoreDialog({
 	open,
 	onOpenChange,
@@ -524,7 +491,7 @@ export function RestoreDialog({
 	onOpenChange: (open: boolean) => void;
 	store: Store;
 } & Reported) {
-	const person = useStore(store).saved;
+	const person = usePersonState(store).saved;
 	return (
 		<ConfirmDialog
 			open={open}
@@ -542,7 +509,6 @@ export function RestoreDialog({
 					fresh,
 					toPerson: (v) => v.person,
 				});
-				// ConfirmDialog shows a thrown message in the dialog and keeps it open for another try.
 				if (result === null) throw new Error("Another change to this person is still saving. Try again in a moment.");
 				if (isConflict(result)) onConflict();
 				if (result.status !== "ok") throw new Error(problemText(problemOf(result) ?? "unavailable"));

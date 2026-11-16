@@ -1,12 +1,9 @@
-// The tasks reads of INV-tenancy (tenancy.test.mts): church A's tasks, written through the task writes as its owner,
-// and one case per read.
 import assert from "node:assert/strict";
 import { createTaskWriter, taskReader, withTaskWrite } from "../../../packages/domain/src/tasks/index.ts";
 import { planNoReminders } from "./tenancy-meetings.mts";
 
 const tasks = createTaskWriter({ reminders: planNoReminders });
 
-/** A ministry task with a subtask, a prerequisite and a status change, and a weekly task with an open occurrence. */
 export async function seedTasks(t) {
 	const { a, MARK, key, ok } = t;
 	const write = (op, input) => withTaskWrite(t.f.db, t.ownerA.actor, (tx, c) => tasks[op](tx, c, input));
@@ -63,7 +60,6 @@ export function tasksCases(t, who) {
 		k("list", { search: MARK }, { value: { items: [], total: 0, page: 1, next: null, completeness: "complete" } }),
 		k(
 			"count",
-			// This seed's own tasks: the meetings and followups seeds' duties have other categories.
 			{ search: MARK, categories: ["general"] },
 			{
 				value: {
@@ -75,7 +71,6 @@ export function tasksCases(t, who) {
 					childTaskComplete: 0,
 					completeness: "complete",
 				},
-				// Counts only: church A's own owner counts its three tasks, one in progress, and the subtask.
 				control: (value) =>
 					assert.deepEqual(value, {
 						topLevelTotal: 3,
@@ -97,7 +92,6 @@ export function tasksCases(t, who) {
 		k(
 			"eligibleAssignees",
 			{},
-			// Church B's own seat, its owner: church A's owner reads church A's.
 			{ value: { items: [{ accountId: who.id, displayName: "Synthetic person", role: "owner" }] } },
 		),
 		k("relationOptions", { kind: "team", search: MARK }, { value: { items: [] } }),

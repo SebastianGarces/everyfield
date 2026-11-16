@@ -40,12 +40,9 @@ import {
 	type Tx,
 } from "./core.ts";
 import type { SettingsEffects } from "./sections.ts";
-// The replay record keeps only the preference revision: personal settings audit never holds the zone. A replay has
-// the same request, so its canonical zone rebuilds the reply.
 const personalRecord = z.object({ revision: n.personalTimezoneResult.shape.preference.shape.revision });
 const personalReply = (timeZone: string, revision: string) =>
 	n.personalTimezoneResult.parse({ preference: { status: "confirmed", timeZone, revision } });
-/** WP-039's private calendar hook: it holds no body, calendar revision or author-existence flag in settings rows. */
 export type PersonalCalendar = PersonalTimezoneCalendar<Tx>;
 function automatic(date: string, hour: number, zone: string) {
 	const resolved = resolveCalendar(
@@ -181,7 +178,6 @@ export function timezoneOperations(
 				const c = await begin(s, ctx, a.account.id, "plant.setTimezone", v);
 				if (c.kind === "replay") return q.plantTimezoneResult.parse(c.value);
 				revision(v.expectedRevision, a.plant.revision);
-				// The preview row and the database clock in one statement.
 				const [found] = await s
 					.select({ saved: t.settings_preview, at: now })
 					.from(t.settings_preview)
@@ -239,7 +235,6 @@ export function timezoneOperations(
 		previewPersonalTimezone: (tx, ctx, raw) =>
 			reply(tx, async (s) => {
 				const v = parse(n.previewPersonalTimezoneRequest, raw);
-				// The bound write already locked this account and checked its lifecycle; the preview is one insert.
 				const a = await self(s, ctx);
 				const zone = canonicalTimeZone(v.timeZone);
 				const at = injectedClock ? new Date(injectedClock.now()) : new Date();
@@ -274,7 +269,6 @@ export function timezoneOperations(
 				const c = await begin(s, { ...ctx }, a.account.id, "account.setPersonalTimezone", v);
 				if (c.kind === "replay") return personalReply(zone, personalRecord.parse(c.value).revision);
 				revision(v.expectedRevision, a.account.personal_timezone_revision);
-				// The preview row and the database clock in one statement.
 				const [found] = await s
 					.select({ saved: t.settings_preview, at: now })
 					.from(t.settings_preview)
@@ -294,7 +288,6 @@ export function timezoneOperations(
 				if (plan.newZone !== zone || plan.expectedRevision !== a.account.personal_timezone_revision)
 					deny("stale_preview");
 				if (a.account.personal_timezone !== zone) {
-					// The author's private weeks change with the zone or the whole change is refused (REQ-IDN-033).
 					if (
 						calendar &&
 						(await calendarEligible(s, a.account.id)) &&
@@ -312,14 +305,12 @@ export function timezoneOperations(
 							})
 							.where(eq(t.account.id, a.account.id)),
 					);
-					// Preference-only operation/intent. No private author existence or calendar metadata.
 					await effects.replan(s, {
 						owner: ctx.selected,
 						revision: next,
 						operationId: c.id,
 						kind: "personal_timezone",
 					});
-					// Personal settings audit names the changed field and its revision, never the zones.
 					const event = await appendEvent(
 						s,
 						c,
@@ -339,7 +330,6 @@ export function timezoneOperations(
 					await finish(s, c, personalRecord, () => ({ revision: next }));
 					return personalReply(zone, next);
 				}
-				// The account already has this zone: nothing changes.
 				await finish(s, c, personalRecord, () => ({ revision: a.account.personal_timezone_revision }));
 				return personalReply(zone, a.account.personal_timezone_revision);
 			}),

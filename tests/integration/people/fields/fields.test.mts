@@ -18,13 +18,10 @@ import {
 } from "../../../../packages/domain/src/people/index.ts";
 import { leave } from "../../../../apps/web/src/features/people/fields/leave.ts";
 
-// The task reminder port of a stage change or retirement. These people hold no dated, assigned task, so a replan
-// here would be a bug.
 const noReminders = async () => {
 	throw Error("unexpected task reminder replan");
 };
 
-// Households, tags, skills and the person photo through their public operations on a scratch schema.
 const database = await fixture({ prefix: "wp012" });
 const { admin } = database;
 const db = database.pools.runtime;
@@ -35,10 +32,8 @@ const plants = [database.tenant.id, (await database.plant()).id],
 		database.actors.member,
 		await database.actor({ kind: "plant", id: plants[1] }, "admin"),
 	];
-// 0: plant A owner, 1: plant A member, 2: plant B admin.
 const ctx = (who = 0) => ({ session: actors[who].session, selected: { kind: "plant", id: plants[who === 2 ? 1 : 0] } });
 const tx = (body) => db.transaction(body);
-// A write as the web mount runs it: withPeopleWrite with the request's resolved actor (RT-3).
 const write = async (who, body) =>
 	withPeopleWrite(db, await tx((t) => RequestActor.resolve(t, actors[who].session)), body);
 const key = () => randomUUID();
@@ -95,17 +90,14 @@ test("AC:GAP-PPL-010 AC:TARGET-PPL-010 AC:PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-RET
 			outcome: "changed",
 		},
 	);
-	// Case and surrounding spaces share one plant-local key; another church may use the same name.
 	const same = ok(await create("NORTHSIDE  ", "red"));
 	assert.deepEqual([same.outcome, same.tag.id, same.tag.color], ["noop", north.tag.id, "#3a7bd5"]);
 	const foreign = ok(await create("Northside", null, 2)).tag;
 	assert.notEqual(foreign.id, north.tag.id);
 	refused(await create("Northside", null, 1));
-	// Two requests racing on one name create one tag.
 	const raced = await Promise.all([create("Welcome", null), create(" welcome ", null)]);
 	assert.deepEqual(raced.map((r) => ok(r).outcome).sort(), ["changed", "noop"]);
 	assert.equal(new Set(raced.map((r) => ok(r).tag.id)).size, 1);
-	// Omitted color keeps it, null clears it; internal spaces stay significant.
 	const renamed = ok(
 		await write(0, async (t, c) =>
 			fields.updateTag(t, c, {
@@ -137,7 +129,6 @@ test("AC:GAP-PPL-010 AC:TARGET-PPL-010 AC:PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-RET
 		"conflict",
 	);
 
-	// Assign: a retry returns the original result, a second request is a no-op and records no activity.
 	const assign = { requestKey: key(), input: { personId: alex.id, tagId: north.tag.id } };
 	ok(
 		await write(0, async (t, c) =>
@@ -162,7 +153,6 @@ test("AC:GAP-PPL-010 AC:TARGET-PPL-010 AC:PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-RET
 			["noop", null],
 		],
 	);
-	// Live same-plant Person and tag only.
 	refused(
 		await write(0, async (t, c) =>
 			fields.assignTag(t, c, { requestKey: key(), input: { personId: alex.id, tagId: foreign.id } }),
@@ -175,7 +165,6 @@ test("AC:GAP-PPL-010 AC:TARGET-PPL-010 AC:PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-RET
 	);
 	refused(await tx((t) => fields.getPersonTags(t, ctx(2), { personId: alex.id })));
 
-	// A retired Person leaves the operational count but keeps the history of its tags.
 	ok(
 		await write(0, async (t, c) =>
 			fields.assignTag(t, c, { requestKey: key(), input: { personId: jamie.id, tagId: north.tag.id } }),
@@ -202,7 +191,6 @@ test("AC:GAP-PPL-010 AC:TARGET-PPL-010 AC:PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-RET
 		["retired", "updated", "created"],
 	);
 
-	// Delete previews the live count, removes every current link and keeps each Person's history.
 	const deleted = ok(
 		await write(0, async (t, c) =>
 			fields.deleteTag(t, c, {
@@ -218,7 +206,6 @@ test("AC:GAP-PPL-010 AC:TARGET-PPL-010 AC:PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-RET
 		["family"],
 	);
 	assert.equal((await audit(north.tag.id)).at(-1).action, "people.retired");
-	// Removing twice removes one link and records one change.
 	const remove = () =>
 		write(0, async (t, c) =>
 			fields.removeTag(t, c, { requestKey: key(), input: { personId: alex.id, tagId: family.id } }),
@@ -244,7 +231,6 @@ test("AC:GAP-PPL-011 AC:TARGET-PPL-011 skills keep closed categories, null clear
 	await add("Music", "worship", "advanced");
 	const added = await add(" Hospitality ", "hospitality", "beginner");
 	const hospitality = added.skills.find((s) => s.name === "Hospitality");
-	// Grouped by the closed category order, then name.
 	assert.deepEqual(
 		added.skills.map((s) => [s.category, s.name, s.proficiency]),
 		[
@@ -265,7 +251,6 @@ test("AC:GAP-PPL-011 AC:TARGET-PPL-011 skills keep closed categories, null clear
 		Music: "advanced",
 		Hospitality: "advanced",
 	});
-	// A stale edit changes nothing.
 	const before = await rows(sql`SELECT count(*)::int n FROM audit_event`);
 	refused(await update(hospitality.revision, { proficiency: null }), "conflict");
 	refused(await update(hospitality.revision, { proficiency: null }, 2));
@@ -292,7 +277,6 @@ test("AC:GAP-PPL-011 AC:TARGET-PPL-011 skills keep closed categories, null clear
 		removed.skills.map((s) => s.name),
 		["Music"],
 	);
-	// History keeps every change, including the removed skill.
 	assert.deepEqual(
 		(await audit(alex.id))
 			.filter((a) => a.kind === "edit")
@@ -315,7 +299,6 @@ test("AC:TARGET-PPL-009 AC:PERSONREF-PERSON-REDIRECT-MERGE-HISTORY-RETIRE househ
 				input: { name: "Rivera household", street: "9 Elm St", city: "Chicago", headPersonId: p.id },
 			}),
 		);
-	// A retired Person cannot head a household; no orphan household remains.
 	refused(await create(retiring, await revisionOf(retiring.id)));
 	assert.deepEqual(await rows(sql`SELECT count(*)::int n FROM household`), [{ n: 0 }]);
 	const created = ok(await create(head, head.revision)).result;
@@ -332,7 +315,6 @@ test("AC:TARGET-PPL-009 AC:PERSONREF-PERSON-REDIRECT-MERGE-HISTORY-RETIRE househ
 				input: { householdId: h.id, personId: p.id, role },
 			}),
 		);
-	// A person with a meaningful address keeps it; a blank one gets the household's.
 	ok(await join(casey, "spouse"));
 	const joined = ok(await join(jamie, "child")).result;
 	assert.deepEqual(
@@ -344,7 +326,6 @@ test("AC:TARGET-PPL-009 AC:PERSONREF-PERSON-REDIRECT-MERGE-HISTORY-RETIRE househ
 		],
 	);
 	refused(await join(head, "head", "1"), "conflict");
-	// Cross-tenant membership is unavailable.
 	refused(await tx((t) => fields.getHousehold(t, ctx(2), { householdId: h.id })));
 	refused(
 		await write(2, async (t, c) =>
@@ -356,7 +337,6 @@ test("AC:TARGET-PPL-009 AC:PERSONREF-PERSON-REDIRECT-MERGE-HISTORY-RETIRE househ
 		),
 	);
 
-	// Preview, then a stale household edit: the propagation writes nothing.
 	const preview = ok(await tx((t) => fields.getHouseholdMembers(t, ctx(), { householdId: h.id })));
 	const edited = ok(
 		await write(0, async (t, c) =>
@@ -379,7 +359,6 @@ test("AC:TARGET-PPL-009 AC:PERSONREF-PERSON-REDIRECT-MERGE-HISTORY-RETIRE househ
 	refused(await propagate(preview.household.revision), "conflict");
 	assert.equal((await rows(sql`SELECT street FROM person WHERE id=${sql.param(casey.id)}`))[0].street, "1 Own St");
 	refused(await propagate(edited.household.revision, reviewed.slice(1)), "conflict");
-	// A member's own edit after the preview makes it stale too: nothing is written and nothing is audited.
 	ok(
 		await write(0, async (t, c) =>
 			people.updatePerson(t, c, {
@@ -406,7 +385,6 @@ test("AC:TARGET-PPL-009 AC:PERSONREF-PERSON-REDIRECT-MERGE-HISTORY-RETIRE househ
 		{ street: "10 Oak Ave" },
 	]);
 
-	// Leaving keeps the person's address; deleting refuses live members.
 	const left = ok(
 		await write(0, async (t, c) =>
 			fields.removeFromHousehold(t, c, {
@@ -430,7 +408,6 @@ test("AC:TARGET-PPL-009 AC:PERSONREF-PERSON-REDIRECT-MERGE-HISTORY-RETIRE househ
 		"conflict",
 	);
 
-	// Retired members leave current membership; the household still shows in their history after deletion.
 	const role = ok(
 		await write(0, async (t, c) =>
 			fields.setHouseholdRole(t, c, {
@@ -456,7 +433,6 @@ test("AC:TARGET-PPL-009 AC:PERSONREF-PERSON-REDIRECT-MERGE-HISTORY-RETIRE househ
 	);
 	const empty = ok(await tx((t) => fields.getHousehold(t, ctx(), { householdId: h.id })));
 	assert.deepEqual([empty.household.memberCount, empty.members], [0, []]);
-	// A join racing the deletion: exactly one wins and no Person points at a missing household.
 	const raced = await Promise.all([
 		join(casey, "other"),
 		write(0, async (t, c) =>
@@ -490,7 +466,6 @@ test("AC:TARGET-PPL-009 AC:PERSONREF-PERSON-REDIRECT-MERGE-HISTORY-RETIRE househ
 	}
 	assert.deepEqual(await rows(sql`SELECT count(*)::int n FROM person WHERE household_id IS NOT NULL`), [{ n: 0 }]);
 	assert.deepEqual(ok(await tx((t) => fields.getHousehold(t, ctx(), { personId: jamie.id }))), { status: "none" });
-	// The public history still names the household the retired person belonged to.
 	const history = ok(await tx((t) => peopleReader.getActivities(t, ctx(), { personId: jamie.id }))).items;
 	assert.deepEqual(
 		history
@@ -525,7 +500,6 @@ test("AC:TARGET-PPL-009 leave-and-delete: one transaction, a replay answers ok, 
 	const leaving = (p, k, rev, deleteEmpty) =>
 		write(0, (t, c) => leave(t, c, { requestKey: k, expectedRevision: rev, input: { personId: p.id } }, deleteEmpty));
 
-	// The last member leaves and the empty household goes with them; the same request again answers ok.
 	const one = await start("Morgan Lee");
 	const k = key(),
 		rev = await revisionOf(one.p.id);
@@ -537,13 +511,11 @@ test("AC:TARGET-PPL-009 leave-and-delete: one transaction, a replay answers ok, 
 	assert.deepEqual(again, first, "the replay answers with the committed leave");
 	assert.deepEqual(await households(one.h.id), []);
 
-	// Leaving without the delete keeps the household.
 	const two = await start("Sam Ortiz");
 	ok(await leaving(two.p, key(), await revisionOf(two.p.id), false));
 	assert.equal(await membership(two.p.id), null);
 	assert.equal((await households(two.h.id)).length, 1);
 
-	// A household that still has a member refuses the delete, and the leave rolls back with it.
 	const three = await start("Ari Banks");
 	const other = await person("Noa Banks");
 	ok(
@@ -566,7 +538,6 @@ const png = Buffer.from(
 	"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADUlEQVQImWPgEpH7DwABpAE8sdwFIwAAAABJRU5ErkJggg==",
 	"base64",
 );
-/** A private bucket fake: it checks the private key and ACL on upload and serves exactly what was stored. */
 function privateStorage() {
 	const objects = new Map();
 	return {
@@ -632,7 +603,6 @@ test("AC:TARGET-PPL-005 AC:PROVIDER48-002 AC:PROVIDER48-003 person photo: verifi
 	const delivered = ok(await readPersonPhoto(db, storage, ctx(1), version));
 	assert.deepEqual([Buffer.from(delivered.bytes), delivered.mediaType], [png, "image/png"]);
 
-	// A failed upload keeps the current photo; a member cannot upload; a foreign church reads nothing.
 	const broken = ok(
 		await write(0, async (t, c) =>
 			fields.requestPersonPhotoUpload(t, c, { requestKey: key(), personId: alex.id, mime: "image/png", byteLength: 9 }),
@@ -660,7 +630,6 @@ test("AC:TARGET-PPL-005 AC:PROVIDER48-002 AC:PROVIDER48-003 person photo: verifi
 	refused(await readPersonPhoto(db, storage, ctx(2), version));
 	refused(await tx((t) => fields.getPersonPhoto(t, ctx(2), { personId: alex.id })));
 
-	// Replacing points at the new exact version; the old one is unavailable and queued for cleanup.
 	const second = await upload(png);
 	const replaced = ok(await set(second.pending.uploadId));
 	assert.equal(replaced.photo.versionId, second.pending.uploadId);
@@ -673,7 +642,6 @@ test("AC:TARGET-PPL-005 AC:PROVIDER48-002 AC:PROVIDER48-003 person photo: verifi
 		sql`SELECT subject_record_id FROM job WHERE kind='object_cleanup' AND eligible_at<=clock_timestamp()`,
 	);
 	assert.ok(cleanup.some((j) => j.subject_record_id === first.pending.uploadId));
-	// An upload already in use by another Person cannot be claimed again.
 	const other = await person("Casey Reed");
 	refused(
 		await write(0, async (t, c) =>
@@ -684,7 +652,6 @@ test("AC:TARGET-PPL-005 AC:PROVIDER48-002 AC:PROVIDER48-003 person photo: verifi
 			}),
 		),
 	);
-	// Revoked access ends delivery: the member's seat ends, and no storage link exists to outlive it.
 	await admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${sql.param(actors[1].id)}`);
 	refused(await readPersonPhoto(db, storage, ctx(1), { personId: alex.id, versionId: second.pending.uploadId }));
 	await admin.execute(sql`UPDATE seat SET ended_at=NULL WHERE account_id=${sql.param(actors[1].id)}`);
@@ -700,11 +667,9 @@ test("AC:TARGET-PPL-005 AC:PROVIDER48-002 AC:PROVIDER48-003 person photo: verifi
 	);
 	assert.deepEqual(removed.photo, { status: "absent" });
 	refused(await readPersonPhoto(db, storage, ctx(), { personId: alex.id, versionId: second.pending.uploadId }));
-	// Cleanup deletes the replaced and removed photos' bytes. The failed upload waits for its expiry.
 	assert.equal(storage.objects.size, 2);
 	assert.equal(await runDueObjectCleanup(db, storage, 10), 2);
 	assert.equal(storage.objects.size, 0);
-	// A retired Person's photo is unavailable.
 	const third = await upload(png);
 	ok(await set(third.pending.uploadId));
 	await retire({ id: alex.id, revision: await revisionOf(alex.id) });
@@ -713,7 +678,6 @@ test("AC:TARGET-PPL-005 AC:PROVIDER48-002 AC:PROVIDER48-003 person photo: verifi
 });
 
 const sharp = createRequire(import.meta.url)("../../../../packages/db/node_modules/sharp");
-/** A valid JPEG of exactly `size` bytes: a small image padded with comment segments after its start marker. */
 async function jpegOf(size) {
 	const image = await sharp({ create: { width: 64, height: 64, channels: 3, background: "#2e7d32" } })
 		.jpeg()
@@ -744,7 +708,6 @@ test("AC:TARGET-PPL-005 peo-51 peo-52 a 1.5 MB photo saves, and a replay of its 
 	};
 	const sam = await person("Sam Ortiz");
 	const photo = await jpegOf(1_500_000);
-	// The three steps uploadPhoto takes (apps/web/src/features/people/fields/actions.ts), each with the change's request key.
 	const change = async (requestKey, expectedRevision, bytes) => {
 		const staged = ok(
 			await write(0, async (t, c) =>
@@ -786,22 +749,17 @@ test("AC:TARGET-PPL-005 peo-51 peo-52 a 1.5 MB photo saves, and a replay of its 
 	const first = await change(requestKey, sam.revision, photo);
 	assert.equal(first.saved.outcome, "changed");
 	assert.deepEqual(first.saved.photo, { status: "available", personId: sam.id, versionId: first.uploadId });
-	// The answer is lost; the save lane sends the same request again. It answers the saved change, with its receipt.
 	const replay = await change(requestKey, sam.revision, photo);
 	assert.deepEqual(replay, first);
-	// One upload, stored once; one revision step and one audit entry.
 	assert.equal((await uploads()) - before.uploads, 1);
 	assert.equal(puts, 1);
 	assert.equal(storage.objects.size, 1);
 	assert.equal(await revisionOf(sam.id), String(Number(sam.revision) + 1));
 	assert.equal((await updates()) - before.updates, 1);
-	// Reading the photo back gives the new version and its bytes.
 	assert.deepEqual(ok(await tx((t) => fields.getPersonPhoto(t, ctx(1), { personId: sam.id }))), first.saved.photo);
 	const delivered = ok(await readPersonPhoto(db, storage, ctx(1), { personId: sam.id, versionId: first.uploadId }));
 	assert.deepEqual([Buffer.from(delivered.bytes).equals(photo), delivered.mediaType], [true, "image/jpeg"]);
 
-	// The upload ID comes from the church and the request key: another key names another upload, and the same key with
-	// another file is a conflict, not a replay.
 	const stage = (requestKey, byteLength) =>
 		write(0, async (t, c) =>
 			fields.requestPersonPhotoUpload(t, c, { requestKey, personId: sam.id, mime: "image/jpeg", byteLength }),
@@ -810,7 +768,6 @@ test("AC:TARGET-PPL-005 peo-51 peo-52 a 1.5 MB photo saves, and a replay of its 
 	assert.notEqual(ok(await stage(key(), photo.length)).uploadId, first.uploadId);
 	refused(await stage(requestKey, photo.length - 1), "conflict");
 
-	// A photo of exactly PHOTO_MAX_BYTES (3 MiB) passes the photo checks; one byte more is invalid.
 	const largest = await jpegOf(3 * 1024 * 1024);
 	const big = await change(key(), await revisionOf(sam.id), largest);
 	assert.equal(big.saved.outcome, "changed");
@@ -849,7 +806,6 @@ test("INV-tenancy C13: a seat ended after the request resolved its actor reads n
 			}),
 		),
 	);
-	// The member's actor is resolved first, as the web request does once per request.
 	const actor = await db.transaction((t) => RequestActor.resolve(t, actors[1].session));
 	assert.ok(actor instanceof RequestActor);
 	const reads = {
@@ -861,7 +817,6 @@ test("INV-tenancy C13: a seat ended after the request resolved its actor reads n
 		getHouseholdByPerson: (t, c) => fields.getHousehold(t, c, { personId: p.id }),
 		getHouseholdMembers: (t, c) => fields.getHouseholdMembers(t, c, { householdId: home.id }),
 		getPersonPhoto: (t, c) => fields.getPersonPhoto(t, c, { personId: p.id }),
-		// The byte adapter, called with the same request context: no bytes after access ends.
 		readPersonPhoto: (_t, c) => readPersonPhoto(db, storage, c, { personId: p.id, versionId: pending.uploadId }),
 	};
 	const run = (read) => db.transaction((t) => read(t, new PeopleReadContext(actor)));

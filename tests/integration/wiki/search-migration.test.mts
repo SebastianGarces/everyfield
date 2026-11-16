@@ -11,11 +11,8 @@ import { inspectMigrationProvenance, migrate, migrationArtifact } from "../../..
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { createWikiProducer } from "../../../packages/domain/src/wiki/index.ts";
 
-// T-275: the wiki search migration reaches head on a database whose revisions include a plain-text organization body,
-// which PostgreSQL 18 failed to cast under the first version's CASE guard.
 const TARGET = "20261112031340_article_revision_search_vector.sql";
 const FOLLOW_UP = "20261112073258_wiki_search_words_plain_text.sql";
-// The statements the first version of TARGET ended with. Its bytes are the current file followed by these.
 const ORIGINAL_TAIL = `--> statement-breakpoint
 -- The search_vector trigger fills every existing row.
 UPDATE "article_revision" SET "search_vector" = NULL;
@@ -35,7 +32,6 @@ after(async () => {
 	await database.close();
 });
 
-/** A migration folder holding `files`, each copied from the repository unless `bytes` gives its contents. */
 async function folder(files: readonly string[], bytes: Record<string, string> = {}) {
 	const directory = await mkdtemp(tmpdir() + "/evf-wiki-search-");
 	directories.push(directory);
@@ -55,7 +51,6 @@ const nodesBody = JSON.stringify({
 	content: [{ type: "callout", label: "kingfisher", wombatkey: "pangolin", content: [{ type: "p", text: "osprey" }] }],
 });
 
-/** A sending church's two editions, one plain text and one JSON nodes, and a global markdown article. */
 async function writeRevisions(db: Database) {
 	const section = randomUUID();
 	const hash = () => randomBytes(32).toString("hex");
@@ -78,7 +73,6 @@ async function writeRevisions(db: Database) {
 	}
 }
 
-/** Each revision's search vector, by revision id. */
 async function vectors(db: Database) {
 	return (await db.execute(sql`SELECT id::text, search_vector::text AS vector FROM article_revision ORDER BY id`)).rows;
 }
@@ -96,7 +90,6 @@ test("a plain-text organization body migrates through wiki search and is found b
 	);
 	assert.deepEqual(filled.rows[0], { total: 3, filled: 3 });
 
-	// A plant reads the church's published editions through a wiki-sharing affiliation, and the active global release.
 	const seed = seeds(admin);
 	const plant = await seed.plant();
 	const owner = await seed.actor(plant, "owner");
@@ -127,15 +120,10 @@ const server = Number(
 );
 test(
 	"a database that applied the first version of the migration migrates to head with the same vectors",
-	// The first version's backfill fails on any table with revisions (pending record-binding events block its ALTER),
-	// so a database applied it with none and wrote them later, through its SQL function, which PostgreSQL 18 cannot run
-	// on a plain-text body. Such a database can only exist on PostgreSQL 17, so this case skips on 18, which CI and
-	// shared dev run (T-276); there the test above covers a plain-text body migrating to head.
 	{ skip: server >= 180000 && "PostgreSQL 18 cannot write a plain-text body through the first version" },
 	async () => {
 		const upgraded = await database.createSchema("t275_upgraded_" + randomUUID().replaceAll("-", ""));
 		const original = (await readFile(source(TARGET), "utf8")) + ORIGINAL_TAIL;
-		// Main's head before T-275: the first version of TARGET and no follow-up. The runner accepts its bytes.
 		const mainHead = names.filter((name) => name !== FOLLOW_UP);
 		await migrate(admin, upgraded, await folder(mainHead, { [TARGET]: original }));
 		const db = database.connect("admin", { schema: upgraded, max: 1 });

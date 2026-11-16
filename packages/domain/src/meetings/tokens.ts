@@ -7,30 +7,15 @@ import { z } from "zod";
 import { plantVisible, type Reader } from "./core.ts";
 import { displayTitle } from "./rows.ts";
 
-// Public RSVP links (COM-010, REQ-MTG-009). The token is random, bound to one guest row (one meeting and one Person of
-// one church) and stored only as its SHA-256. An invitation send mints it (rsvpTokenUpdate); it lives until the later of
-// seven days from that send and the meeting's start. A newer token replaces the older one, so a guest has at most one
-// live link. Opening a link reads only; an explicit answer sets the canonical RSVP and closes the link.
-
-/** The shortest life of a link, from its send; a meeting further away keeps it open until the meeting starts. */
 const TOKEN_DAYS = 7;
 export const rsvpTokenDigest = (token: string) => createHash("sha256").update(token).digest("hex");
 
-/** The answering statuses as SQL literals. They are contract constants, never input. */
 const ANSWERING_SQL = c.answeringStatuses.map((s) => `'${s}'`).join(", ");
-/** One rule for an open meeting: not retired and still taking answers. `alias` is a fixed table alias, never input. */
 export const meetingOpenSql = (alias: string) =>
 	sql`${sql.raw(alias)}.retired_at IS NULL AND ${sql.raw(alias)}.status IN (${sql.raw(ANSWERING_SQL)})`;
 
-/** A fresh raw RSVP token. The caller keeps it only inside the message it builds; the database keeps only `rsvpTokenDigest`. */
 export const newRsvpToken = () => randomBytes(32).toString("base64url");
 
-/**
- * Set-based token write for an invitation send. `pairs` is a relation with columns `person_id uuid` and `token_hash text`.
- * Each pair that matches a live guest row of the open meeting gets the hash, an open link and an expiry at the later of
- * seven days from now and the meeting start; a newer token replaces the older one. Persons with no guest row are skipped.
- * The caller embeds this as a CTE in the statement that writes the mail rows, so it commits with them or not at all.
- */
 export function rsvpTokenUpdate(plantId: string, meetingId: string, pairs: SQLWrapper) {
 	return sql`UPDATE participation g SET rsvp_token_hash = t.token_hash,
 			rsvp_token_expires_at = greatest(clock_timestamp() + make_interval(days => ${TOKEN_DAYS}), m.starts_at),
@@ -43,7 +28,6 @@ export function rsvpTokenUpdate(plantId: string, meetingId: string, pairs: SQLWr
 
 const viewRow = z.object({
 	open: z.boolean(),
-	/** The meeting takes no more answers: cancelled or completed (meetingOpenSql). */
 	closed: z.boolean(),
 	expired: z.boolean(),
 	rsvp: c.rsvp,
@@ -59,10 +43,6 @@ const viewRow = z.object({
 	venue_name: z.string().nullable(),
 	venue_address: z.string().nullable(),
 });
-/**
- * What the public page shows for a link: only the meeting basics and the guest's own answer. Never writes. A plant that a
- * lifecycle witness hides (pending deletion) shows nothing, as an unknown link does.
- */
 export async function describeRsvpToken(db: Reader, raw: unknown) {
 	const input = c.describeRsvpTokenRequest.safeParse(raw);
 	if (!input.success) return c.rsvpTokenView.parse({ state: "unavailable" });
@@ -76,7 +56,6 @@ export async function describeRsvpToken(db: Reader, raw: unknown) {
 	if (!r.rows[0]) return c.rsvpTokenView.parse({ state: "unavailable" });
 	const v = viewRow.parse(r.rows[0]);
 	return c.rsvpTokenView.parse({
-		// A closed meeting says so first: answerRsvpToken refuses every answer for it, open link or not.
 		state: v.closed ? "closed" : !v.open ? "answered" : v.expired ? "expired" : "pending",
 		meeting: {
 			displayTitle: displayTitle(v),
@@ -91,11 +70,6 @@ export async function describeRsvpToken(db: Reader, raw: unknown) {
 	});
 }
 
-/**
- * An explicit answer through a link: one statement locks the open, unexpired guest row, sets the canonical RSVP,
- * closes the link and writes the audit row. Of two concurrent answers the first wins; the second finds the link
- * closed. Attendance, cards, contacts and commitment are untouched. No session authority is used or granted.
- */
 export async function answerRsvpToken(db: Database, raw: unknown) {
 	const input = c.answerRsvpTokenRequest.safeParse(raw);
 	if (!input.success)

@@ -8,14 +8,6 @@ import { command, deny, next, one, parse, read, reply, type MeetingsContext, typ
 import { guest, guestColumns, guestRow, type GuestRow } from "./guests.ts";
 import { meetingColumns, meetingRow, plantMeeting } from "./rows.ts";
 
-// A team meeting's guest list is a copy of its ministry's people, taken when the meeting is made (REQ-MTG-007). It
-// follows later joins and leaves only through a reviewed update: the preview names who would be added, removed and
-// kept, and the update applies exactly that review.
-
-/**
- * The live people who serve in the ministry now: an open tenure in a current role of a ministry not archived. Its own
- * aliases (s*) never shadow the caller's, so `teamId` may name a column of the enclosing query.
- */
 export const servingPeople = (teamId: SQL, plantId: SQL) =>
 	sql`SELECT DISTINCT sp.id, sp.display_name, sp.state FROM team_tenure stn
 		JOIN team_role sr ON sr.id = stn.role_id AND sr.plant_id = stn.plant_id AND sr.retired_at IS NULL
@@ -33,7 +25,6 @@ const rosterFacts = z.object({
 	serving: z.array(personRef),
 	guests: z.array(guestRow.extend({ roster_member: z.boolean() })),
 });
-/** The meeting's ministry, who serves in it now and every guest row, removed ones too, in one statement. */
 const rosterColumns = sql`(SELECT json_build_object('id', t.id, 'name', t.name, 'archived', t.archived_at IS NOT NULL)
 		FROM team t WHERE t.id = m.team_id AND t.plant_id = m.plant_id) AS team,
 	(SELECT coalesce(json_agg(json_build_object('personId', s.id, 'displayName', s.display_name, 'state', s.state)
@@ -42,10 +33,6 @@ const rosterColumns = sql`(SELECT json_build_object('id', t.id, 'name', t.name, 
 		WHERE g.meeting_id = m.id) x) AS guests`;
 
 const ref = (g: GuestRow) => ({ personId: g.person_id, displayName: g.person_name, state: g.person_state });
-/**
- * The difference between the guest list and the ministry now. Only guests the ministry copy added can leave; one marked
- * present stays and is named as kept. A person removed earlier comes back as the same guest row.
- */
 function plan(row: Record<string, unknown>) {
 	const f = rosterFacts.parse(row);
 	if (!f.team) deny("wrong_meeting_type");
@@ -66,7 +53,6 @@ const sameSet = (a: readonly string[], b: readonly string[]) =>
 	a.length === b.length && [...a].sort().join() === [...b].sort().join();
 
 export const rosterReader = {
-	/** What an update from the ministry would change now; Owner or Admin. Nothing is written. */
 	async previewRosterImport(db: Reader, authority: RequestActor, raw: unknown) {
 		return read(authority, async (v) => {
 			const i = parse(c.meetingRequest, raw);
@@ -90,11 +76,6 @@ export const rosterReader = {
 };
 
 export const rosterWriter = {
-	/**
-	 * Applies a reviewed update from the ministry as one write. A removal follows the hand removal's rules: the guest
-	 * leaves the current list, their open RSVP link closes and their card clears, and the row and its history stay;
-	 * reminders read the current list when they run. A replay of the same request key returns the first answer.
-	 */
 	async copyTeamRoster(tx: Tx, ctx: MeetingsContext, raw: unknown) {
 		return reply(tx, async () => {
 			const input = parse(c.copyTeamRosterRequest, raw);
@@ -109,7 +90,6 @@ export const rosterWriter = {
 				const now = z.coerce.date().parse(row.now);
 				const p = plan(row);
 				const removeIds = p.remove.map((g) => g.personId);
-				// The list changed since the review: nothing is applied that the person did not see.
 				const addIds = p.add.map((a) => a.personId);
 				if (!sameSet(input.input.add, addIds) || !sameSet(input.input.remove, removeIds)) deny("conflict");
 				const added: GuestRow[] = p.add.map((a) => {
@@ -136,7 +116,6 @@ export const rosterWriter = {
 					};
 				});
 				const changed = added.length > 0 || removeIds.length > 0;
-				// A guest who comes back already marked present changes who attended (REQ-MTG-012).
 				if (added.some((g) => g.presence === "attended")) {
 					if (row.finalized === true) deny("status_transition");
 					audit.writes.push(

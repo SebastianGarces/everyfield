@@ -1,4 +1,3 @@
-// Prints "<template id> <sha256>" for every template. The determinism test runs it in two separate Node processes.
 import { createHash } from "node:crypto";
 import { renderPreview } from "../../../../packages/domain/src/documents/library-render.ts";
 import { library } from "../../../../packages/domain/src/documents/catalog.ts";

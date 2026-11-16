@@ -113,6 +113,9 @@ jobs:
       - name: CI test coverage tool
         if: ${{ !cancelled() }}
         run: node --test tools/ci/tests/*.test.ts
+      - name: Feature maps (routes, proofs and diagrams)
+        if: ${{ !cancelled() }}
+        run: corepack pnpm feature-maps
       - name: QA preview tool
         if: ${{ !cancelled() }}
         run: node --test --disable-warning=ExperimentalWarning tools/qa/tests/*.test.ts

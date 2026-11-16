@@ -627,7 +627,6 @@ test("INV-tenancy a forged session, a stale role, and a non-leader cannot change
 test("AC:REQ-IDN-005 an unknown or another church's team or line is unavailable to responsibilities", async () => {
 	const gone = (result) => refused(result, "unavailable");
 	const foreign = ok(await run(teamsWriter.create, { requestKey: key(), input: { name: "Foreign duties" } }, 3)).team;
-	// Another church's line, written directly: the writer is not under test for that church.
 	const foreignLine = { id: randomUUID(), revision: "1" };
 	await admin.execute(sql`INSERT INTO responsibility (id, plant_id, team_id, source_version_id, source_line, text, sort_order)
 		VALUES (${foreignLine.id}, ${Q}, ${foreign.id}, (SELECT id FROM reference_version ORDER BY id LIMIT 1),

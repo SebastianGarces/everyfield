@@ -19,16 +19,10 @@ import {
 } from "../../../apps/web/src/server/jobs/notification-worker.ts";
 import { scheduledJobs } from "../../../apps/web/src/server/jobs/scheduled.ts";
 
-// The notification worker (T-229): meeting writes queue one `notification` job per slot, and the scheduled runner
-// writes each due slot's notices and email to the plan's current recipients. Time moves by the runner's clock; a slot
-// whose time the clock passed is made due in the queue, as the real clock would.
-
 const database = await testDatabase({ prefix: "t229", max: 6 });
 const { admin } = database;
 const db = database.pools.runtime;
 
-// Plant P: 0 Owner (creates the meetings), 1 seated guest, 2 Core Group member (not a guest), 3 seated guest who is
-// removed before the 3-day reminder.
 const P = randomUUID();
 const actors = Array.from({ length: 4 }, () => ({ id: randomUUID(), user: randomUUID(), session: randomUUID() }));
 const [creator, guest, core, leaving] = actors.map((a) => a.id) as [string, string, string, string];
@@ -69,7 +63,6 @@ const jobs = async (meetingId: string) =>
 			WHERE kind='notification' AND subject_record_id=${meetingId}
 			ORDER BY array_position(ARRAY['announcement','day_7','day_3','day_1'], split_part(producer_key,'/',2))`)
 	).rows;
-/** The notices of one meeting: [recipient, category, slot], with the state of the email each queued. */
 const notices = async (meetingId: string) =>
 	(
 		await admin.execute(sql`SELECT n.recipient_id AS recipient, split_part(n.logical_key,'/',2) AS category,
@@ -80,7 +73,6 @@ const notices = async (meetingId: string) =>
 const mailed = (recipients: string[], category: string, slot: string) =>
 	[...recipients].sort().map((r) => [r, category, slot, "notification", "pending"]);
 
-/** Moves the runner's clock a minute past `at` and makes every slot job of the meeting due by then. */
 const clock = { at: new Date() };
 async function advance(meetingId: string, at: string) {
 	clock.at = new Date(Date.parse(at) + 60_000);
@@ -125,10 +117,7 @@ async function runTick() {
 	return body;
 }
 const feed = createNotificationProducer({ optOutKey: randomBytes(32), now: () => new Date() });
-/** The recipient's bell entries about this meeting, as [category, title]. */
 async function bell(who: number, meetingId: string) {
-	// A notice shows from its time on the database clock, which may trail the host's by a few milliseconds: bring this
-	// meeting's notices that are still ahead of it back to the database's now, in their order.
 	await admin.execute(sql`UPDATE notice SET eligible_at=clock_timestamp()
 		WHERE source_record_id=${meetingId} AND eligible_at>clock_timestamp()`);
 	const reader = await RequestActor.resolve(db, actors[who]!.session);
@@ -175,19 +164,16 @@ test("AC:CASE-NTF-006 AC:TARGET-MTG-018 the scheduled tick sends each slot to it
 	const m = await schedule();
 	const at = await slotTimes(m.id);
 
-	// The announcement is due when the meeting is planned: only the linked Core Group gets it.
 	clock.at = new Date();
 	const first = await runTick();
 	assert.deepEqual([first.steps.notification, first.notified], [{ status: "ok", count: 1 }, 1]);
 	assert.deepEqual(await notices(m.id), mailed([core], "meeting_announcement", "announcement"));
 	assert.deepEqual(await bell(2, m.id), [["meeting_announcement", "New meeting: Orientation"]]);
 
-	// Seven days before: the creator and both seated guests. The contact without a seat gets nothing.
 	await advance(m.id, at.day_7);
 	assert.equal((await runTick()).notified, 1);
 	assert.deepEqual((await notices(m.id)).slice(1), mailed([creator, guest, leaving], "meeting_reminder", "day_7"));
 
-	// A guest removed before the 3-day reminder is not sent it.
 	const removed = ok(
 		await reads.listGuests(db, await RequestActor.resolve(db, actors[0]!.session), { meetingId: m.id }),
 	).guests.find((g) => g.person.personId === people.leaving);
@@ -211,8 +197,6 @@ test("AC:CASE-NTF-006 AC:TARGET-MTG-018 the scheduled tick sends each slot to it
 		["meeting_reminder", "In 3 days: Orientation"],
 	]);
 
-	// Cancelled before the last reminder: its job is superseded in the same write, and the tick sends nothing.
-	// Guest changes leave the meeting's revision as it was planned.
 	ok(
 		await run(meetings.changeStatus, {
 			requestKey: key(),
@@ -232,13 +216,11 @@ test("AC:CASE-NTF-006 AC:TARGET-MTG-018 the scheduled tick sends each slot to it
 			["day_1", "superseded"],
 		],
 	);
-	// The contact without a seat appears in no notice and no email.
 	assert.ok((await notices(m.id)).every(([recipient]) => [creator, guest, leaving, core].includes(recipient)));
 });
 
 test("INV-notification-worker: a passed, suppressed or stale slot finishes without a notice, and a failure waits for its retry", async () => {
 	const worker = createNotificationWorker({ mail: service() });
-	// Late: by the time the worker runs, the 3-day reminder is also due, so the 7-day one has passed.
 	const late = await schedule();
 	const at = await slotTimes(late.id);
 	await worker.run(db, new Date().toISOString());
@@ -259,7 +241,6 @@ test("INV-notification-worker: a passed, suppressed or stale slot finishes witho
 		"the creator and both seated guests get the latest owed reminder only",
 	);
 
-	// Suppressed: the meeting stopped without a write reaching its jobs. Stale: the meeting moved past the job's revision.
 	const stopped = await schedule(),
 		moved = await schedule();
 	await admin.execute(sql`UPDATE meeting SET status='cancelled' WHERE id=${stopped.id}`);
@@ -273,7 +254,6 @@ test("INV-notification-worker: a passed, suppressed or stale slot finishes witho
 	]);
 	assert.deepEqual([await notices(stopped.id), await notices(moved.id)], [[], []]);
 
-	// A failure while writing rolls the notices back and leaves the job to the queue's retry.
 	const failing = createNotificationWorker({
 		mail: service(async () => {
 			throw Error("synthetic mail outage");
