@@ -1,7 +1,3 @@
-// The Launch plan's gathering path (T-296), rendered in node with no browser and no database. It runs from
-// packages/domain's test:unit: tsx --tsconfig ../../tests/unit/render.tsconfig.json --test <this file>.
-//   When the offered milestones can't load, the page says so and still shows the church's current path; it never
-//   reads as a church with no choice.
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { test } from "node:test";
@@ -50,14 +46,12 @@ const milestone = {
 	offered: { name: "Constituted as a church", description: "Adopts its constitution." },
 	reached: { name: "Constituted as a church", date: "2026-10-11", note: "Voted in." },
 };
-// Nothing is clicked here, so no action runs.
 const act = {
 	choose: async () => ({ status: "lost" }),
 	save: async () => ({ status: "lost" }),
 	offers: async () => null,
 };
 const keys = { keyFor: () => "k", settle() {} };
-/** The gathering area of the Launch plan as the page lays it out: the path in place of the countdown, then the choice. */
 const screen = (p, offers, admin = true) =>
 	text(
 		createElement(
@@ -96,12 +90,10 @@ test("when the offered milestones can't load on Launch Sunday, the countdown sta
 	assert.match(page, /could not load/);
 	assert.match(page, /Launch Sunday countdown/);
 	assert.doesNotMatch(page, /End the gathering phase another way/);
-	// With the offers loaded, the choice appears, labelled with who chose it.
 	assert.match(
 		screen(plan({ kind: "launch_sunday" }), offered),
 		/End the gathering phase another way .*Constituted as a church \(chosen by Hill Country Network\)/,
 	);
-	// A church offered nothing sees the Launch plan as before, with no new area.
 	const none = screen(plan({ kind: "launch_sunday" }), { status: "ok", value: [] });
 	assert.doesNotMatch(none, /gathering|milestone offered|could not load/i);
 });

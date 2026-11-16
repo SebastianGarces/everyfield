@@ -1,19 +1,9 @@
-// T-120, kept by T-237 and moved out of the browser suite by T-259: "Save and leave" picked while a save is in flight
-// in the written-document editor (NativeEditor) and the Church Document editor (ChurchEditor). Both editors save through
-// SaveChain and their leave dialog (LeaveDialog) through saveAndLeave. A silent break would leave the page with the text
-// typed after the first save started unsaved, or leave before that text is stored. These tests drive the real module
-// in node; each save's send is held until the test releases it with the server's answer.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { SaveChain, saveAndLeave } from "../../../apps/web/src/features/documents/save-chain.ts";
 
 const tick = () => new Promise((resolve) => setImmediate(resolve));
 
-/**
- * An editor as both editors wire the chain: `page` is what is on screen, `stored` the last saved copy. A save sends a
- * copy of the page as it is when the save starts. The written document also counts its title as unsaved; the Church
- * Document has no title field. `answer(i, ok)` releases the i-th save with the server's answer.
- */
 function editor({ withTitle }) {
 	const chain = new SaveChain();
 	const page = { body: "Opening line.", title: "Plan" };
@@ -47,7 +37,6 @@ for (const [name, withTitle] of [
 		const ed = editor({ withTitle });
 		ed.page.body += " First edit.";
 		const first = ed.save();
-		// Typed while the first save runs: that save carries "First edit." only.
 		ed.page.body += " Typed later.";
 		if (withTitle) ed.page.title = "Plan for spring";
 		const leaving = ed.leave();
@@ -99,7 +88,6 @@ test("INV-save-order: a save and Save and leave both waiting on one save in flig
 	ed.page.body += " First edit.";
 	void ed.save();
 	ed.page.body += " Typed later.";
-	// Cmd+S and then Save and leave, both while the first save runs.
 	const again = ed.save();
 	const leaving = ed.leave();
 	ed.answer(0, true);

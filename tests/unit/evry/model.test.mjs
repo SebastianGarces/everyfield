@@ -1,13 +1,3 @@
-// Evry panel rules (WP-051/ui) that a silent break would turn into a doubled or lost message, a run the panel waits on
-// forever, or a retry offered where it can't work. They run in node against the module the panel uses; no browser.
-//   AC:EVRY-RETRY-CANCEL INV-merge: events from a read, the stream and a reconnect with Last-Event-ID overlap; each
-//     sequence shows once, in order, and the final status ends the run the panel waits for.
-//   INV-optimistic: a sent message shows at once and falls away when its saved event arrives, in either order.
-//   AC:GAP-EVR-405 INV-turns: one turn is the message, Evry's text and result cards in saved order, then its end; a
-//     withheld text shows one notice and never the withheld words.
-//   INV-retry: only the last turn that did not complete can be retried, never while a run is active or after a refusal
-//     that says a retry can't help.
-//   AC:UI45-006 INV-page: only a person page offers a reference.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
@@ -61,7 +51,6 @@ const conversation = { id: "c", title: "t", context: "plant", lastSequence: 0, a
 test("AC:EVRY-RETRY-CANCEL INV-merge: overlapping reads show each event once, and the final status ends the run", () => {
 	let s = opened({ conversation, run: { turnId: T, state: "running" }, events: [ask(1), say(2, "Look")], more: false });
 	assert.equal(s.activeTurnId, T);
-	// A reconnect resends from its last id; the read and the stream overlap.
 	s = merge(s, [say(2, "Look"), card(3), say(4, "ing.")]);
 	s = merge(s, [card(3), end(5, { state: "completed", reason: "completed" })]);
 	assert.deepEqual(
@@ -69,7 +58,6 @@ test("AC:EVRY-RETRY-CANCEL INV-merge: overlapping reads show each event once, an
 		[1, 2, 3, 4, 5],
 	);
 	assert.equal(s.activeTurnId, null);
-	// A lost run is waited for: the stream saves its end and delivers it. No run, nothing to wait for.
 	assert.equal(
 		opened({ conversation, run: { turnId: T, state: "lost" }, events: [ask(1)], more: false }).activeTurnId,
 		T,
@@ -83,9 +71,7 @@ test("AC:EVRY-RETRY-CANCEL INV-merge: overlapping reads show each event once, an
 test("INV-optimistic: a sent message falls away when its saved event arrives, before or after the confirmation", () => {
 	const send = { key: "k", text: "Find Alex", references: [], state: "sending", error: null, sequence: null };
 	const pending = { ...EMPTY, conversation, sends: [send] };
-	// Saved event first, then the confirmation names the sequence: the reducer filters it on confirmation.
 	assert.equal(merge(pending, [ask(1)]).sends.length, 1);
-	// Confirmation first, then the saved event.
 	const confirmed = { ...pending, sends: [{ ...send, sequence: 1 }] };
 	const after = merge(confirmed, [ask(1)]);
 	assert.equal(after.sends.length, 0);
@@ -121,9 +107,7 @@ test("INV-retry: only the last turn that did not complete, with no run active an
 	assert.equal(check([ask(1), end(2, { state: "stopped", reason: "cancelled" })]), true);
 	assert.equal(check([ask(1), end(2, { state: "completed", reason: "completed" })]), false);
 	assert.equal(check([ask(1)], T), false);
-	// A run already active (a retry just sent) blocks another, even though the last saved turn failed.
 	assert.equal(check([ask(1), failed("model_unavailable", "new_turn")], T), false);
-	// model_unavailable is a calm notice, not an error.
 	assert.equal(endNotice({ state: "failed", reason: "failed", error: { code: "model_unavailable" } }).tone, "neutral");
 });
 
