@@ -5,8 +5,6 @@ import type {
 	PipelineImportResult,
 } from "@everyfield/contracts/organizations";
 
-// The words of the pipeline import (T-363). No React and no server code.
-
 export type Preview = PipelineImportPreview;
 export type Result = PipelineImportResult;
 export type Row = Preview["rows"][number];
@@ -14,9 +12,7 @@ export type Answer<T> =
 	{ status: "ok"; value: T } | { status: "refused"; refusal: PipelineImportRefusal } | { status: "lost" };
 export type Notice = { title: string; text: string };
 export type Decision = "skip" | "add";
-/** The responsible-staff choice for no one. */
 export const NOBODY = "none";
-/** What the person reviewed, and the one import id every press of Import sends for it. */
 export type Review = {
 	file: File;
 	preview: Preview;
@@ -28,16 +24,12 @@ export type Review = {
 	problem: Notice | null;
 };
 
-/** The review with a change to what is imported (a new preview, stage, staff or decision), so a new import id: the
- * server answers a repeated id with the first import's result, which would no longer match. */
 export const revised = (review: Review, change: Partial<Omit<Review, "importId">>): Review => ({
 	...review,
 	...change,
 	importId: crypto.randomUUID(),
 });
 
-/** The import request for a review. A retry of the same review, such as after a lost reply, sends the same id, so the
- * server adds no one twice. */
 export const importRequest = (review: Review) => ({
 	importId: review.importId,
 	fileDigest: review.preview.fileDigest,
@@ -48,7 +40,6 @@ export const importRequest = (review: Review) => ({
 	duplicates: [...review.decisions].map(([row, choice]) => ({ row, choice })),
 });
 
-/** The step after an import answers: the result, or the same review (same import id) with the reason. */
 export const afterImport = (review: Review, got: Answer<Result>) =>
 	got.status === "ok"
 		? { step: "done" as const, review, result: got.value }
@@ -96,7 +87,6 @@ const FILE_PROBLEM: Record<Extract<PipelineImportRefusal, { code: "file_refused"
 	},
 };
 
-/** What a refused or lost preview or import tells the person. */
 export function refusalNotice(answer: Exclude<Answer<unknown>, { status: "ok" }>): Notice {
 	if (answer.status === "lost")
 		return {
