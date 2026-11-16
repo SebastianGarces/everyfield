@@ -8,9 +8,6 @@ import { createMailService } from "../jobs/mail";
 import { createNotificationService } from "../jobs/notifications";
 import { phaseNotices } from "./notices";
 
-// The phases mount (WP-038). A forward move queues its phase-advance notices in the move's transaction through WP-031's
-// notification service; the runner's notice mail pass sends them later.
-
 const env = z.object({
 	IDENTITY_DATABASE_URL: z.string().min(1),
 	...mailEnv,
@@ -29,7 +26,6 @@ function create(v: z.infer<typeof env>) {
 	const notices: PhaseNotices = phaseNotices((eligible) => createNotificationService({ mail, eligible }));
 	return { db, writer: createPhaseWriter({ notices }) };
 }
-/** The phase writer and its database, or null when the deployment has no identity and mail configuration. */
 export function phasesMount() {
 	const v = env.safeParse(process.env);
 	if (!v.success) return null;

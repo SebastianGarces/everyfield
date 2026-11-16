@@ -1,6 +1,3 @@
-// Unsubscribe links and List-Unsubscribe headers (T-25, REQ-NTF-012). A task-due notification goes through the real
-// notification service, mail dispatch and Resend transport; a fake of the Resend HTTP API records each provider
-// request. The tokens the tests use are read back from those requests, never minted by the test.
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { createDecipheriv, randomBytes, randomUUID } from "node:crypto";
@@ -34,7 +31,6 @@ async function provider(_input: string | URL | Request, init: RequestInit = {}) 
 	return Response.json({ id: `re-${randomUUID()}` });
 }
 
-/** Every mail service in this file shares the allow-all authorizer: the tests are about rendering, not authority. */
 function service(
 	unsubscribe: Parameters<typeof createMailService>[0]["unsubscribe"],
 	env: Record<string, string> = PRODUCTION,
@@ -54,7 +50,6 @@ const account = randomUUID(),
 	address = `planter-${account.slice(0, 8)}@example.test`,
 	task = randomUUID();
 
-/** Queue one notice for the planter through the notification service. */
 async function notify(mail: ReturnType<typeof createMailService>, category: "task_due" | "task_overdue") {
 	const notifications = createNotificationService({
 		mail,
@@ -76,7 +71,6 @@ async function notify(mail: ReturnType<typeof createMailService>, category: "tas
 		]),
 	);
 }
-/** Dispatch every due mail job with `mail`; returns the provider requests they made. */
 async function dispatchAll(mail: ReturnType<typeof createMailService>) {
 	const before = requests.length;
 	await db.execute(
@@ -86,7 +80,6 @@ async function dispatchAll(mail: ReturnType<typeof createMailService>) {
 		await mail.dispatch(claim);
 	return requests.slice(before).map((r) => r.body);
 }
-/** Opens a token with the ring: the account and category it names. */
 function claimOf(token: string) {
 	const bytes = Buffer.from(token, "base64url");
 	const decipher = createDecipheriv("aes-256-gcm", ring.current, bytes.subarray(0, 12));
@@ -147,13 +140,11 @@ test("AC:CASE-NTF-012 a task-due email ends with Unsubscribe and settings links 
 		),
 		email.html,
 	);
-	// Criterion 3: the exact headers in the provider request body, with the visible link's token.
 	assert.deepEqual(email.headers, {
 		"List-Unsubscribe": `<${ORIGIN}/email-preferences/${token}/one-click>`,
 		"List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
 	});
 	assert.equal(headerToken(email), token);
-	// The token names this account and the email's own category.
 	assert.deepEqual((({ purpose, accountId, category }) => ({ purpose, accountId, category }))(claimOf(token)), {
 		purpose: "disable",
 		accountId: account,
@@ -168,7 +159,6 @@ test("AC:CASE-NTF-012 a retried send of the same mail repeats the same body unde
 	);
 	const [claim] = await claimDue(runtime, ["mail"]);
 	assert.ok(claim);
-	// The first request times out: the send is unknown. The retry must send the same body.
 	const retry = service({ origin: ORIGIN, keys: ring });
 	const first = requests.length;
 	const lost = createMailService({
@@ -205,7 +195,6 @@ test("AC:CASE-NTF-012 one-click with the header's token turns off task-due email
 	assert.ok(email);
 	const token = headerToken(email);
 	assert.ok(token);
-	// Opening the link shows the confirm page for task due and changes nothing (a GET reaches only this read).
 	const described = await producer.describeEmailOptOut(runtime, { token: pageToken(email) });
 	assert.equal(described.status, "ok", JSON.stringify(described));
 	assert.deepEqual(
@@ -215,7 +204,6 @@ test("AC:CASE-NTF-012 one-click with the header's token turns off task-due email
 		{ category: "task_due", emailEnabled: true, changed: false },
 	);
 	assert.equal(await emailPref("task_due"), null);
-	// The mail client's one-click POST: email off; a repeat is harmless.
 	const clicked = await producer.applyEmailOptOut(runtime, { token });
 	assert.equal(clicked.status, "ok", JSON.stringify(clicked));
 	assert.equal((clicked as { value: { changed: boolean; emailEnabled: boolean } }).value.changed, true);
@@ -225,7 +213,6 @@ test("AC:CASE-NTF-012 one-click with the header's token turns off task-due email
 	assert.equal(await emailPref("task_due"), false);
 	assert.equal(await emailPref("task_overdue"), null);
 
-	// The next task-due notice reaches the bell and not the inbox; task overdue still emails.
 	await notify(linked, "task_due");
 	await notify(linked, "task_overdue");
 	const next = await dispatchAll(linked);
@@ -293,7 +280,6 @@ test("AC:CASE-NTF-012 a captured notification records its List-Unsubscribe heade
 	const saved = process.env.EVERYFIELD_DEV_OUTBOX;
 	process.env.EVERYFIELD_DEV_OUTBOX = outbox;
 	try {
-		// Not production, and the address is not approved: the transport captures instead of calling the provider.
 		const captured = service({ origin: ORIGIN, keys: ring }, {});
 		await notify(captured, "task_overdue");
 		const before = requests.length;

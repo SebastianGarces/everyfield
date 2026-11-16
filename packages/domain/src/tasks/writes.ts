@@ -27,24 +27,19 @@ import { structureWriter } from "./structure.ts";
 import type { Catalog } from "./catalog.ts";
 import { templateWriter } from "./templates.ts";
 
-/** What a reminder needs about one task after a write. WP-031's sync replaces its owed due and overdue notices. */
 export type ReminderSource = {
 	plantId: string;
 	taskId: string;
 	revision: string;
 	title: string;
-	/** Every account the task is assigned to; each gets its own due and overdue notices. */
 	assigneeIds: string[];
 	due: { kind: "undated" } | { kind: "date_only"; date: string; zone: string } | { kind: "timed"; at: string };
 	open: boolean;
-	/** Created by this write: it has no notices yet, so the sync has nothing to replace or cancel. */
 	created: boolean;
 };
-/** All tasks of one write go in one call, so the sync costs a fixed number of statements (patterns.md). */
 export type TaskReminders = (tx: Tx, sources: readonly ReminderSource[]) => Promise<unknown>;
 
 type DueColumns = Pick<TaskRow, "due_kind" | "due_date" | "due_time" | "timezone" | "due_at">;
-/** The server resolves a deadline from the entered church-local time (REQ-TSK-018); the client never sends an instant. */
 export function dueColumns(due: z.infer<typeof c.dueInput>, zone: TimeZone): DueColumns {
 	if (due.kind === "undated")
 		return { due_kind: "undated", due_date: null, due_time: null, timezone: null, due_at: null };
@@ -68,11 +63,6 @@ const relationColumns = (r: z.infer<typeof c.relation> | null) => ({
 	team_id: r?.kind === "team" ? r.id : null,
 });
 
-/**
- * The named accounts as one JSON array expression a caller can put in a read it makes anyway: each account's display
- * name when it holds a current seat in the plant, why it cannot own a follow-up, and a share lock on the seat and the
- * linked Persons. Locked in account order, so two writes naming the same accounts never wait on each other in a cycle.
- */
 export const assigneeFacts = (plantId: string, ids: readonly string[]) => sql`(SELECT coalesce(jsonb_agg(
 		jsonb_build_object('id',u.id,'name',u.name,'reason',u.reason,'locked',u.locked) ORDER BY u.id),'[]')
 	FROM (SELECT x.id,
@@ -85,14 +75,9 @@ export const assigneeFacts = (plantId: string, ids: readonly string[]) => sql`(S
 const assigneeFactRows = z.array(
 	z.object({ id: accountId, name: z.string().nullable(), reason: z.string().nullable() }),
 );
-/**
- * Every named assignee must hold a current seat; for a person follow-up each must also be an eligible owner. One
- * failing account refuses the whole write and names that account (REQ-TSK-012). Returns the accounts as assignees.
- */
 export function checkAssignees(
 	facts: unknown,
 	followUp: boolean,
-	/** What an account without a current seat is refused as. A follow-up command calls every such account ineligible. */
 	unseated: "invalid_subject" | "owner_ineligible" = "invalid_subject",
 ) {
 	const rows = assigneeFactRows.parse(facts);
@@ -103,14 +88,12 @@ export function checkAssignees(
 	return rows.map((a) => ({ accountId: a.id, displayName: a.name ?? "", seated: true }));
 }
 
-/** Names for references a write is about to store, each checked against the church and its current state. */
 export async function references(
 	tx: Tx,
 	plantId: string,
 	input: {
 		assigneeIds?: readonly string[];
 		relation?: z.infer<typeof c.relation> | null;
-		/** The task is a person follow-up: its assignees must be eligible follow-up owners (REQ-TSK-012). */
 		followUp?: boolean;
 	},
 ) {
@@ -136,7 +119,6 @@ export async function references(
 }
 
 const OPEN = (s: string) => !(c.settledStatus as readonly string[]).includes(s);
-/** The task columns a reminder reads: a task row, or a light locked read of the task table with the plant's zone. */
 type ReminderRow = Pick<
 	TaskRow,
 	"id" | "title" | "status" | "assignees" | "due_kind" | "due_date" | "due_at" | "deleted_at"
@@ -159,7 +141,6 @@ function reminderSource(plantId: string, row: ReminderRow): ReminderSource {
 	};
 }
 const remindable = (s: ReminderSource) => s.open && s.assigneeIds.length > 0 && s.due.kind !== "undated";
-/** Reminders change only when the task had or now has owed reminders; other writes keep their small budget. */
 export function reminderChange(plantId: string, before: ReminderRow | null, after: ReminderRow) {
 	const prior = before && reminderSource(plantId, before),
 		next = reminderSource(plantId, after);
@@ -176,16 +157,11 @@ export function syncReminders(
 	const change = reminderChange(plantId, before, after);
 	return change && (() => reminders(tx, [change]));
 }
-/** One reminder call for all tasks a command changed, or none: a fixed statement count for any batch size. */
 export function syncAll(reminders: TaskReminders, tx: Tx, changes: readonly (ReminderSource | undefined)[]) {
 	const all = changes.filter((s) => s !== undefined);
 	return all.length ? () => reminders(tx, all) : undefined;
 }
 
-/**
- * Insert new task rows, a parent before its checklist rows. `after` names an earlier write of the same statement that
- * must run first, such as the completion that frees its series' one open slot for the successor.
- */
 export function insertTasks(plantId: string, creatorId: string, rows: readonly TaskRow[], after?: SQLWrapper): SQL[] {
 	const values = rows.map((r) => ({
 		id: r.id,
@@ -224,7 +200,6 @@ export function insertTasks(plantId: string, creatorId: string, rows: readonly T
 		timezone text, due_at timestamptz, resolver_version text, person_id uuid, meeting_id uuid, team_id uuid,
 		parent_id uuid, series_id uuid, occurrence_key text, predecessor_id uuid, obligation_id uuid, completed_at timestamptz)
 	${after ? sql`WHERE EXISTS(SELECT FROM ${after})` : sql``}`;
-	// The members follow the tasks in the same statement; the foreign key is checked when the statement ends.
 	return members.length
 		? [
 				insert,
@@ -234,7 +209,6 @@ export function insertTasks(plantId: string, creatorId: string, rows: readonly T
 			]
 		: [insert];
 }
-/** The audit rows of newly created tasks. */
 export function auditCreated(cmd: AuditCommand, rows: readonly TaskRow[], source?: z.infer<typeof c.historySource>) {
 	for (const r of rows)
 		auditRow(cmd, {
@@ -249,7 +223,6 @@ export function auditCreated(cmd: AuditCommand, rows: readonly TaskRow[], source
 		});
 }
 
-/** The persisted fields a status or edit writes, also the values its audit row compares. */
 export const audited = (r: TaskRow) => ({
 	title: r.title,
 	description: r.description,
@@ -268,7 +241,6 @@ export const audited = (r: TaskRow) => ({
 	deleted_at: r.deleted_at?.toISOString() ?? null,
 });
 export const bump = (r: string) => revision.parse(String(BigInt(r) + 1n));
-/** A command that changes nothing records one noop audit row (C98); it carries the request key and stored answer. */
 export function noop(cmd: AuditCommand, row: TaskRow) {
 	auditRow(cmd, {
 		taskId: row.id,
@@ -282,7 +254,6 @@ export function noop(cmd: AuditCommand, row: TaskRow) {
 	return { row, outcome: "noop" as const };
 }
 
-/** The locked live task under the expected revision, or a refusal. Members act only on a task they hold (own duty). */
 export async function current(tx: Tx, cmd: Command, taskId: string, expectedRevision: string, ownDuty: boolean) {
 	const row = await loadTask(tx, cmd.actor.plantId, taskId, true);
 	if (!row || row.deleted_at) deny();
@@ -299,17 +270,9 @@ export function update(plantId: string, row: TaskRow, next: TaskRow): SQL[] {
 		person_id=${v.person_id}::uuid, meeting_id=${v.meeting_id}::uuid, team_id=${v.team_id}::uuid,
 		completed_at=${v.completed_at}::timestamptz, deleted_at=${v.deleted_at}::timestamptz, revision=revision+1
 		WHERE id=${row.id}::uuid AND plant_id=${plantId}::uuid AND revision=${row.revision}::bigint`;
-	// The task row stays first: a write that follows it, such as a successor, names it with lastWrite.
 	return [task, ...setWrites(plantId, row.id, idsOf(row.assignees), v.assigneeIds)];
 }
 
-/**
- * One status change for every entry point: complete, reopen, waive, changeStatus, checklist ticks and bulk completion
- * share it, so each records the same completion instant, waiver and history (REQ-TSK-003). The same status again is a
- * no-op with no history entry. Completing a recurring task also creates its one successor with fresh checklist rows in
- * the same statement (REQ-TSK-007). The caller passes `changes` to the reminder port once for the whole command and
- * builds the reply it needs from `row`; a bulk change needs only the new revision.
- */
 export function setStatus(
 	tx: Tx,
 	cmd: AuditCommand,
@@ -317,7 +280,6 @@ export function setStatus(
 	input: { status: z.infer<typeof c.taskStatus>; reason?: string | null; source?: z.infer<typeof c.historySource> },
 ) {
 	if (row.status === input.status) {
-		// Generated work appends to another domain's command, which records its own row.
 		if (input.source !== "generated") noop(cmd, row);
 		return { row, outcome: "noop" as const, changes: [], successor: null };
 	}
@@ -331,7 +293,6 @@ export function setStatus(
 		revision: bump(row.revision),
 	};
 	cmd.writes.push(...update(cmd.actor.plantId, row, next));
-	// A waived generated duty stays closed through edits and deletion; only an explicit reopen clears the waiver.
 	if (row.obligation_id && (input.status === "no_longer_needed" || row.status === "no_longer_needed"))
 		cmd.writes.push(
 			tx
@@ -368,7 +329,6 @@ export function setStatus(
 	});
 	const created = input.status === "complete" ? successorOf(row, at) : null;
 	if (created) {
-		// The successor follows the completion inside the statement: the series has one open task at a time.
 		cmd.writes.push(...insertTasks(cmd.actor.plantId, cmd.actor.accountId, created, lastWrite(cmd)));
 		auditCreated(cmd, created, "recurrence");
 	}
@@ -383,7 +343,6 @@ export function setStatus(
 		successor,
 	};
 }
-/** setStatus for one task command, with its reminder changes synced after the write. */
 export function changeTo(
 	tx: Tx,
 	cmd: AuditCommand,
@@ -394,7 +353,6 @@ export function changeTo(
 	const r = setStatus(tx, cmd, row, input);
 	return { value: mutation(cmd, r.row, r.outcome), after: syncAll(reminders, tx, r.changes) };
 }
-/** A new task row with no completion, deletion, source, series or checklist. */
 export function newTask(
 	zone: TimeZone,
 	fields: Pick<TaskRow, "title" | "category" | "priority" | "status" | "assignees"> & Partial<TaskRow>,
@@ -440,13 +398,11 @@ export function mutation(cmd: AuditCommand, row: TaskRow, outcome: "changed" | "
 	});
 }
 
-/** The task commands. The web mount supplies WP-031's reminder sync, as settings supplies its effects. */
 export function createTaskWriter(deps: { reminders: TaskReminders; catalog?: Catalog }) {
 	const { reminders } = deps;
 	return {
 		...structureWriter(reminders),
 		...templateWriter(reminders, deps.catalog),
-		/** Create a top-level task. Owner/Admin. Checklist rows come from createSubtask. */
 		async create(tx: Tx, context: TaskContext, raw: unknown) {
 			return reply(tx, async () => {
 				const input = parse(c.createTaskRequest, raw);
@@ -481,7 +437,6 @@ export function createTaskWriter(deps: { reminders: TaskReminders; catalog?: Cat
 				});
 			});
 		},
-		/** Edit fields of a live task. A generated duty keeps its relation and category (REQ-TSK-002). Owner/Admin. */
 		async edit(tx: Tx, context: TaskContext, raw: unknown) {
 			return reply(tx, async () => {
 				const input = parse(c.editTaskRequest, raw);
@@ -500,7 +455,6 @@ export function createTaskWriter(deps: { reminders: TaskReminders; catalog?: Cat
 					)
 						deny("protected_source");
 					if (row.parent_id && ((p.due && p.due.kind !== "undated") || p.relation)) deny("invalid_input");
-					// Only accounts joining the set are checked: one that already holds the task stays, whatever its state.
 					const held = idsOf(row.assignees),
 						joining = p.assigneeIds?.filter((id) => !held.includes(id)) ?? [];
 					const refs =
@@ -514,7 +468,6 @@ export function createTaskWriter(deps: { reminders: TaskReminders; catalog?: Cat
 										row.parent_id === null,
 								})
 							: null;
-					// Every named ID is held already or in `joining`, which `references` returns whole or refuses.
 					const known = new Map([...row.assignees, ...(refs?.assignees ?? [])].map((a) => [a.accountId, a]));
 					const next: TaskRow = {
 						...row,
@@ -547,7 +500,6 @@ export function createTaskWriter(deps: { reminders: TaskReminders; catalog?: Cat
 				});
 			});
 		},
-		/** Soft-delete a task with its checklist rows. A generated obligation and every history entry remain. */
 		async delete(tx: Tx, context: TaskContext, raw: unknown) {
 			return reply(tx, async () => {
 				const input = parse(c.taskCommandRequest, raw);
@@ -592,7 +544,6 @@ export function createTaskWriter(deps: { reminders: TaskReminders; catalog?: Cat
 				});
 			});
 		},
-		/** Complete a task: the server records when and by whom. A Member completes only a task they hold. */
 		async complete(tx: Tx, context: TaskContext, raw: unknown) {
 			return reply(tx, async () => {
 				const input = parse(c.taskCommandRequest, raw);
@@ -603,7 +554,6 @@ export function createTaskWriter(deps: { reminders: TaskReminders; catalog?: Cat
 				);
 			});
 		},
-		/** Reopen a settled task. History keeps the earlier completion or waiver; an open later occurrence refuses. */
 		async reopen(tx: Tx, context: TaskContext, raw: unknown) {
 			return reply(tx, async () => {
 				const input = parse(c.taskCommandRequest, raw);
@@ -614,7 +564,6 @@ export function createTaskWriter(deps: { reminders: TaskReminders; catalog?: Cat
 				);
 			});
 		},
-		/** Close as no longer needed: no completion time or success credit; a generated duty stays waived. */
 		async waive(tx: Tx, context: TaskContext, raw: unknown) {
 			return reply(tx, async () => {
 				const input = parse(c.waiveTaskRequest, raw);
@@ -626,7 +575,6 @@ export function createTaskWriter(deps: { reminders: TaskReminders; catalog?: Cat
 				);
 			});
 		},
-		/** Any status, through the same writer as complete, reopen and waive. */
 		async changeStatus(tx: Tx, context: TaskContext, raw: unknown) {
 			return reply(tx, async () => {
 				const input = parse(c.changeStatusRequest, raw);

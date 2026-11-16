@@ -1,11 +1,8 @@
-// WP-034/api: the Guide and reference excerpt cut rules. No database: sectionExcerpt is the pure cut both reads return.
-// tests/integration/wiki/excerpt.test.mts runs every check in CI.
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { sectionExcerpt } from "../../../packages/domain/src/wiki/excerpt.ts";
 import { GUIDE_ROUTES } from "../../../packages/domain/src/wiki/guides.ts";
 
-/** The app's global corpus: the living Wiki seed the reference bundle installs. */
 export const SEED = JSON.parse(
 	readFileSync(new URL("../../../docs/reference/wiki/seed.json", import.meta.url), "utf8"),
 );
@@ -16,7 +13,6 @@ export function seedBody(slug) {
 	return article.content;
 }
 
-/** The section under `heading` as the source holds it, or the whole text without one. */
 export function sourceSection(body, heading) {
 	const lines = body.split("\n");
 	const start = heading ? lines.findIndex((line) => line.replace(/^#{1,6}\s+/, "").trim() === heading) : -1;
@@ -28,13 +24,8 @@ export function sourceSection(body, heading) {
 
 const LETTER = /[\p{L}\p{N}]/u;
 
-/**
- * Criterion 3's rule for one excerpt of `section`: it ends at a block end, a sentence end, or a whole word with "…",
- * never inside a row, an item, a component or an inline span, and never on a break or a bare heading.
- */
 export function assertCleanEnd(body, section, label) {
 	const text = body.endsWith("…") ? body.slice(0, -1) : body;
-	// A cut code block closes its fence again, so only the text before that line is the source's.
 	const refenced = /\n(```|~~~)$/.test(text) && !section.startsWith(text);
 	const core = refenced ? text.slice(0, text.lastIndexOf("\n")) : text;
 	assert.ok(core.length > 0, `${label}: the excerpt has text`);
@@ -77,7 +68,6 @@ export function assertCleanEnd(body, section, label) {
 	}
 }
 
-/** Every route's Guide body on the seeded corpus, with its source section. */
 export function seededGuides() {
 	return GUIDE_ROUTES.map((entry) => {
 		const body = seedBody(entry.slug);
@@ -129,12 +119,10 @@ export const checks = {
 		const { excerpt, section } = guideOf("/meetings");
 		assert.doesNotMatch(excerpt, /Present the vis…?$/);
 		assertCleanEnd(excerpt, section, "/meetings");
-		// The next paragraph has no sentence end inside the limit, so it keeps whole words and gets "…".
 		assert.match(excerpt, /\n\nPresent the…$/);
 	},
 	3() {
 		for (const { route, excerpt, section } of seededGuides()) assertCleanEnd(excerpt, section, route);
-		// Every heading of every seeded article holds the same rule, not only the mapped ones.
 		const failures = [];
 		for (const article of SEED.articles)
 			for (const line of article.content.split("\n")) {
@@ -154,16 +142,13 @@ export const checks = {
 		assert.deepEqual(failures, []);
 	},
 	4() {
-		// A sentence end inside the limit: the cut keeps whole sentences only.
 		const sentences = `## Plan\n${sentence(20)}`;
 		const cut = sectionExcerpt("safe_mdx", sentences, "Plan");
 		assert.equal(cut, `## Plan\n${sentence(12).trimEnd()}`);
-		// No sentence end inside the limit: the last whole word, then "…".
 		const plain = `## Plan\n${words(100)}`;
 		const wordCut = sectionExcerpt("safe_mdx", plain, "Plan");
 		assert.equal(wordCut, `## Plan\n${words(100).slice(0, 489).replace(/ \S*$/, "")}…`);
 		assert.ok(wordCut.length < 500);
-		// A cut inside a span moves back to before the span opens.
 		for (const [open, close] of [
 			["**", "**"],
 			["*", "*"],
@@ -175,7 +160,6 @@ export const checks = {
 			const text = `## Plan\n${words(60)} ${span} tail`;
 			assert.equal(sectionExcerpt("safe_mdx", text, "Plan"), `## Plan\n${words(60)}…`, open);
 		}
-		// A sentence end inside a bold span counts once the span closes.
 		const bold = `## Plan\n**Lead with prayer.** ${words(100)}`;
 		assert.equal(sectionExcerpt("safe_mdx", bold, "Plan"), "## Plan\n**Lead with prayer.**");
 	},
@@ -187,7 +171,6 @@ export const checks = {
 		assert.deepEqual(kept, items.slice(0, kept.length));
 		assert.ok(cut.length < 500);
 		assert.ok(`${cut}\n${items[kept.length]}`.length >= 500, "every item that fits stays");
-		// Continuation lines stay with their item.
 		const nested = ["## List", "", ...items.slice(0, 11).map((item) => `${item}\n  more of the same item`)].join("\n");
 		const nestedCut = sectionExcerpt("safe_mdx", nested, "List");
 		assert.match(nestedCut, /\n {2}more of the same item$/);
@@ -195,7 +178,6 @@ export const checks = {
 	6() {
 		const head = ["| Name | Notes |", "|------|-------|"];
 		const rows = (n) => Array.from({ length: n }, (_, i) => `| Row ${i} | A note about row ${i} |`);
-		// Inside the ceiling: the table stays whole even past the limit, and nothing comes after it.
 		const whole = sectionExcerpt(
 			"safe_mdx",
 			["## Table", "", ...head, ...rows(30), "", "After the table."].join("\n"),
@@ -203,13 +185,11 @@ export const checks = {
 		);
 		assert.equal(whole, ["## Table", "", ...head, ...rows(30)].join("\n"));
 		assert.ok(whole.length >= 500 && whole.length <= 1500);
-		// Past the ceiling: the header, the separator and the whole rows that fit.
 		const long = sectionExcerpt("safe_mdx", ["## Table", "", ...head, ...rows(80)].join("\n"), "Table");
 		const kept = long.split("\n").slice(2);
 		assert.deepEqual(kept.slice(0, 2), head);
 		assert.deepEqual(kept.slice(2), rows(80).slice(0, kept.length - 2));
 		assert.ok(long.length <= 1500 && `${long}\n${rows(80)[kept.length - 2]}`.length > 1500);
-		// A paragraph that crosses the limit ends the excerpt, so a table after it is left out.
 		const late = sectionExcerpt(
 			"safe_mdx",
 			["## Table", "", sentence(14).trimEnd(), "", ...head, ...rows(3)].join("\n"),
@@ -228,18 +208,15 @@ export const checks = {
 		assert.equal(fits, ["## Box", "", sentence(5).trimEnd(), "", ...callout].join("\n"));
 		const late = sectionExcerpt("safe_mdx", ["## Box", "", sentence(12).trimEnd(), "", ...callout].join("\n"), "Box");
 		assert.equal(late, ["## Box", "", sentence(12).trimEnd()].join("\n"));
-		// One line, self-closing or not, is one component too.
 		assert.equal(
 			sectionExcerpt("safe_mdx", ["## Box", "", "<Callout>One line.</Callout>", "<Divider />"].join("\n"), "Box"),
 			"## Box\n\n<Callout>One line.</Callout>\n<Divider />",
 		);
 	},
 	8() {
-		// No heading, or a heading the text does not hold: the start of the text, under the same rules.
 		const text = `${sentence(20)}\n\n## Later\nMore.`;
 		for (const heading of [undefined, "Missing"])
 			assert.equal(sectionExcerpt("safe_mdx", text, heading), sentence(13).trimEnd(), String(heading));
-		// Organization text stored as safe_nodes.
 		const doc = (blocks) => JSON.stringify({ format: "everyfield-editor-v1", blocks });
 		const run = (text) => [{ type: "text", text, marks: [] }];
 		const items = Array.from({ length: 30 }, (_, i) => run(`Item ${i} keeps its whole line`));
