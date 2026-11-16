@@ -1,8 +1,0 @@
-{
-	"packages/contracts/src/communication/catalog.ts": 5,
-	"packages/contracts/src/communication/email.ts": 7,
-	"packages/contracts/src/communication/html.ts": 15,
-	"packages/contracts/src/communication/requests.ts": 3,
-	"packages/contracts/src/communication/results.ts": 23,
-	"packages/contracts/src/communication/values.ts": 4
-}

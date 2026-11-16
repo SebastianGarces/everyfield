@@ -1,10 +1,4 @@
 #!/usr/bin/env node
-// Setup step timing for local previews: how long install and build take, and whether the build cache was warm.
-//   node scripts/setup-step.mjs run --source stack|verify-preview --step install|build --records <dir>
-//        [--task <t>] [--role <r>] -- <command...>     run the command unchanged and record one setup step
-//   node scripts/setup-step.mjs report [--json] [--records <dir>]   weekly totals per (source, step)
-// Records are one JSON file each, outside the checkout: <git common dir>/evf-setup-steps, or EVF_SETUP_STEPS_DIR.
-// A record holds exactly the eight RECORD_KEYS. Step names are fixed labels, never the command line.
 import { spawn, spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
@@ -17,7 +11,6 @@ const SOURCES = ["stack", "verify-preview"];
 const STEPS = ["install", "build"];
 const WRAPPER = fileURLToPath(import.meta.url);
 
-/** The record directory for a checkout, or null when it is not a git checkout and no override is set. */
 export function recordsDir(cwd) {
 	if (process.env.EVF_SETUP_STEPS_DIR) return process.env.EVF_SETUP_STEPS_DIR;
 	const git = spawnSync("git", ["-C", cwd, "rev-parse", "--path-format=absolute", "--git-common-dir"], {
@@ -26,10 +19,6 @@ export function recordsDir(cwd) {
 	return git.status === 0 ? join(git.stdout.trim(), "evf-setup-steps") : null;
 }
 
-/**
- * The same preview config with its install and build commands run through this wrapper. Every other key and the
- * commands themselves stay as they were. Portless gives jobs a fixed env, so task and role travel as wrapper options.
- */
 export function wrapSetupCommands(config, { source, records, node }) {
 	const wrapped = { ...config };
 	const who = [
@@ -56,7 +45,6 @@ export function wrapSetupCommands(config, { source, records, node }) {
 	return wrapped;
 }
 
-/** hit when the build cache already has content, miss when it is missing or empty, unknown when it cannot be read. */
 function buildCacheState(cwd) {
 	try {
 		return readdirSync(join(cwd, "apps/web/.next/cache")).length > 0 ? "hit" : "miss";
@@ -101,7 +89,6 @@ async function run(args) {
 		process.exit(2);
 	}
 	const cwd = process.cwd();
-	// Read the cache before the build writes to it.
 	const cacheState = values.step === "build" ? buildCacheState(cwd) : "unknown";
 	const startedAt = new Date();
 	const started = performance.now();
@@ -135,7 +122,6 @@ async function run(args) {
 	process.exit(result.code ?? 1);
 }
 
-/** ISO 8601 week of a date, in UTC, as 2026-W45. */
 function isoWeek(date) {
 	const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
 	d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
@@ -187,10 +173,6 @@ function readRecords(dir) {
 	return records;
 }
 
-/**
- * Each ISO week from the first record to the last, with every (source, step) pair sorted by total time. A week with
- * no records has no pairs. hitRate is hits over hits and misses, and null when the pair has neither.
- */
 function setupReport(records) {
 	if (!records.length) return { weeks: [] };
 	const times = records.map((r) => Date.parse(r.startedAt));

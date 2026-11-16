@@ -1,3 +1,2 @@
 #!/bin/sh
-# The global prepare-commit-msg (such as the one that adds the Bematist-Session trailer) still runs.
 exec "$(dirname "$0")/global-hook" prepare-commit-msg "$@"

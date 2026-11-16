@@ -3,15 +3,9 @@ import type { ReactNode } from "react";
 import { cn } from "../cn";
 import { Icon } from "../Icon";
 
-// Product-visual parts for the marketing panels, cards and vignettes (the dashboard kit, scaled for the marketing page).
-// No hooks and no "use client": the same parts render on the server (vignettes, cards) and inside client panels.
-
-/** Numbers in the product visuals: serif at -0.02em, never wrapped. The caller adds the family with the size:
- * font-display at 24px and up, font-title below. */
 export const NUM = "tracking-[-0.02em] whitespace-nowrap";
 
 export type Tone = "green" | "blue" | "magenta" | "amber" | "violet" | "teal" | "ink";
-/** Tinted background and strong text of a tone (icon circles, stage chips, tags, avatars). */
 const TONE: Record<Tone, string> = {
 	green: "bg-green-100 text-green-700",
 	blue: "bg-blue-100 text-blue-600",
@@ -22,7 +16,6 @@ const TONE: Record<Tone, string> = {
 	ink: "bg-surface-2 text-ink-2",
 };
 
-/** A round tinted icon. size and glyph are in px (38 and 18 in a dashboard card). */
 export function CardIcon({
 	tone,
 	icon,
@@ -46,7 +39,6 @@ export function CardIcon({
 	);
 }
 
-/** A people stage: tinted pill with a dot. */
 export function StageChip({ tone, children, className }: { tone: Tone; children: ReactNode; className?: string }) {
 	return (
 		<span
@@ -69,7 +61,6 @@ const DOT: Record<Status, string> = {
 	attention: "before:bg-amber-500",
 	unknown: "before:bg-transparent before:shadow-[inset_0_0_0_1.5px_var(--color-text-3)]",
 };
-/** A status badge: white pill, coloured dot. */
 export function Badge({
 	status,
 	size = "md",
@@ -95,8 +86,6 @@ export function Badge({
 	);
 }
 
-/** Initials in a small green circle (inside person chips). */
-/** small: 20 px (meeting guests, names); who: 20 px amber (the assignee). */
 export function Av({ children, small, who }: { children: ReactNode; small?: boolean; who?: boolean }) {
 	return (
 		<span
@@ -114,7 +103,6 @@ export function Av({ children, small, who }: { children: ReactNode; small?: bool
 	);
 }
 
-/** A dashboard avatar (34 px, tone tint; small is 32 px). */
 export function Avatar({ tone, small, children }: { tone: Tone; small?: boolean; children: ReactNode }) {
 	return (
 		<span
@@ -129,7 +117,6 @@ export function Avatar({ tone, small, children }: { tone: Tone; small?: boolean;
 	);
 }
 
-/** A small dashboard button (not interactive: product visuals are pictures of the app). */
 export function UiButton({
 	variant,
 	size = "md",
@@ -161,7 +148,6 @@ export function UiButton({
 	);
 }
 
-/** The play and pause glyphs of the scene controls: solid shapes, as in the prototype (not stroke icons). */
 export function PlaybackGlyph({ paused }: { paused: boolean }) {
 	return (
 		<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className="block size-3.5 flex-none">

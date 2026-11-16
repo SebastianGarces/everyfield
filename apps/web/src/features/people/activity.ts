@@ -44,7 +44,6 @@ const FOLLOW_UP: Record<Extract<Item, { kind: "follow_up" }>["outcome"], string>
 	no_longer_needed: "Follow-up no longer needed",
 };
 
-/** What one Activity entry says and shows: its title, icon and tone. `by` names who did it, for a deleted note. */
 export function describe(item: Item, by: string): { title: string; icon: IconSvgElement; tone: Tone } {
 	switch (item.kind) {
 		case "note":
@@ -58,11 +57,9 @@ export function describe(item: Item, by: string): { title: string; icon: IconSvg
 				tone: "green",
 			};
 		case "activity":
-			// A household join, leave or role change names the household as it was then (REQ-PPL-009).
 			if (item.household) return { title: householdChange(item.household), icon: Home01Icon, tone: "teal" };
 			if (item.action === "person_merged" || item.action === "person_unmerged")
 				return { title: ACTION[item.action], icon: GitMergeIcon, tone: "violet" };
-			// A duplicate review names the other person of the pair by their current name, as plain text (D-845).
 			if (item.action === "duplicate_dismissed" || item.action === "duplicate_restored")
 				return {
 					title: item.withPerson ? `${ACTION[item.action]} of ${item.withPerson.displayName}` : ACTION[item.action],
@@ -70,7 +67,6 @@ export function describe(item: Item, by: string): { title: string; icon: IconSvg
 					tone: "violet",
 				};
 			return {
-				// A record that advanced the stage says so in the same entry (REQ-PPL-020).
 				title: item.stage
 					? `${ACTION[item.action]}. Stage moved from ${STAGE_LABEL[item.stage.from].toLowerCase()} to ${STAGE_LABEL[item.stage.to].toLowerCase()}`
 					: ACTION[item.action],

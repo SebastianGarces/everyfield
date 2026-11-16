@@ -1,15 +1,3 @@
-/**
- * T-396: the one-time production identity setup. Sebastian runs it himself, on his Mac, against the production Neon
- * database; no seat runs it there. It creates the app's three production logins (runtime, auth, cleanup) with the
- * grants the migrations expect, generates the identity keys the app needs, and writes the exact
- * `vercel env add ... production` commands for every setting Vercel Production lacks to a 0600 file outside the
- * repository. It reports every other setting production needs, by name only. Runbook: docs/runbooks/production-identity.md.
- *
- * Dry run by default: a read-only database session and a read of Vercel's setting names. `--apply` writes, and only to
- * the endpoint the operator names with `--confirm` or types at the prompt. The admin connection comes from the
- * PROD_IDENTITY_ADMIN_URL environment variable, never a flag. No value reaches the terminal, an error or an argv:
- * errors pass through qa's Redactor, and the commands file pipes each value to `vercel env add` on stdin.
- */
 import { spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
@@ -24,11 +12,6 @@ export const ADMIN_ENV = "PROD_IDENTITY_ADMIN_URL";
 export const VERCEL_TARGET = { project: "everyfield", scope: "sebastian-garces-projects-335a0259" } as const;
 export const DEFAULT_OUT = join(homedir(), ".everyfield", "prod-identity", "vercel-production.sh");
 
-/**
- * The production logins, one per app database role, named apart from the QA ones (evf_qa_*). The runtime and cleanup
- * pools set statement_timeout as a startup option, which Neon's pooler refuses, so they use the direct endpoint; the
- * auth layer uses the pooled one, as `bin/qa` sets them for previews.
- */
 export const LOGINS = [
 	{ name: "everyfield_prod_runtime", group: "everyfield_runtime", setting: "IDENTITY_DATABASE_URL", pooled: false },
 	{ name: "everyfield_prod_auth", group: "everyfield_auth", setting: "IDENTITY_AUTH_DATABASE_URL", pooled: true },
@@ -42,7 +25,6 @@ export const LOGINS = [
 export type Login = (typeof LOGINS)[number];
 
 const hex32 = () => randomBytes(32).toString("hex");
-/** The keys this script generates, in the formats `bin/qa` gives previews and the app parses. */
 export const KEYS = {
 	IDENTITY_SECRET: hex32,
 	IDENTITY_MAIL_KEY: hex32,
@@ -61,7 +43,6 @@ const KEY_SHAPE: Record<KeyName, string> = {
 export const generateKeys = (): Record<KeyName, string> =>
 	Object.fromEntries(Object.entries(KEYS).map(([name, make]) => [name, make()])) as Record<KeyName, string>;
 
-/** Settings the app reads in production that this script cannot generate, and what each is for. */
 export const BY_HAND: Readonly<Record<string, string>> = {
 	DATABASE_URL: "the operator connection, for migrations (Neon's Vercel integration sets it)",
 	DATABASE_URL_UNPOOLED: "the operator's direct connection (Neon's Vercel integration sets it)",
@@ -89,7 +70,6 @@ export const BY_HAND: Readonly<Record<string, string>> = {
 	LANGFUSE_BASE_URL: "optional Evry tracing",
 	LANGFUSE_TRACING_ENVIRONMENT: "optional Evry tracing",
 };
-/** Settings previews or local runs use that production must leave unset. */
 export const NOT_IN_PRODUCTION = [
 	"EMAIL_TEST_RECIPIENTS",
 	"PLATFORM_PROOF_SECRET",
@@ -100,14 +80,11 @@ export const NOT_IN_PRODUCTION = [
 export type Role = {
 	name: string;
 	canLogin: boolean;
-	/** The unsafe attributes the role holds: any of SUPERUSER, CREATEDB, CREATEROLE, BYPASSRLS. */
 	unsafe: string[];
 	groups: string[];
 };
 export type Observed = {
-	/** Every login and group role of LOGINS that exists. */
 	roles: Map<string, Role>;
-	/** Setting names in Vercel Production and Preview, or null when Vercel could not be read. */
 	production: Set<string> | null;
 	preview: Set<string> | null;
 };
@@ -115,13 +92,10 @@ export type LoginStep = { login: Login; action: "create" | "keep" | "rotate"; gr
 export type Plan = {
 	logins: LoginStep[];
 	keys: { name: KeyName | "IDENTITY_ORIGIN"; generate: boolean }[];
-	/** Why apply must not run; empty when it may. */
 	refusals: string[];
-	/** Every setting production needs, by name, and its state. */
 	report: { name: string; state: string }[];
 };
 
-/** What apply would do, from what exists. Pure: the dry run and apply print the same plan. */
 export function plan(seen: Observed, rotate: boolean): Plan {
 	const refusals: string[] = [];
 	if (!seen.production) refusals.push("Vercel Production's setting names could not be read (is `vercel` logged in?).");
@@ -174,7 +148,6 @@ export function plan(seen: Observed, rotate: boolean): Plan {
 const reportedByScript = (name: string) =>
 	name in KEYS || name === "IDENTITY_ORIGIN" || LOGINS.some((l) => l.setting === name);
 
-/** The admin connection's direct and pooled forms. Neon names its pooler `<endpoint>-pooler`; other hosts pool nowhere. */
 export function target(adminUrl: string): { direct: string; pooled: string; endpoint: string; database: string } {
 	const u = new URL(adminUrl);
 	if (!/^postgres(ql)?:$/.test(u.protocol)) throw new Error(`${ADMIN_ENV} is not a postgres:// URL.`);
@@ -190,21 +163,17 @@ export function target(adminUrl: string): { direct: string; pooled: string; endp
 	};
 }
 
-/** The IDENTITY_ORIGIN flag: an https origin with no path, or why not. */
 export function parseOrigin(raw: string | undefined): string | Error {
 	if (!raw) return new Error("--origin is required: the production origin, e.g. --origin https://everyfield.app");
 	try {
 		const u = new URL(raw);
 		if (u.protocol === "https:" && u.pathname === "/" && !u.search && !u.hash && !u.username) return u.origin;
-	} catch {
-		// Reported below.
-	}
+	} catch {}
 	return new Error(`--origin must be an https origin with no path, e.g. https://everyfield.app (got ${raw}).`);
 }
 
 const shellQuote = (s: string) => `'${s.replaceAll("'", "'\\''")}'`;
 
-/** The commands file: one `vercel env add` per setting, each value on stdin through the shell's printf builtin. */
 export function commandsFile(
 	settings: { name: string; value: string; force: boolean }[],
 	endpoint: string,
@@ -231,15 +200,12 @@ export function commandsFile(
 	].join("\n");
 }
 
-// ---- The edges: Postgres, Vercel, the terminal.
-
 type PgClient = {
 	connect(): Promise<unknown>;
 	query(text: string, values?: unknown[]): Promise<{ rows: Record<string, unknown>[] }>;
 	end(): Promise<void>;
 };
 const ROOT = resolve(import.meta.dirname, "../..");
-// pg lives in @everyfield/db's dependencies; this tool runs on plain Node with no package of its own.
 const pg = createRequire(join(ROOT, "packages/db/package.json"))("pg") as {
 	Client: new (c: { connectionString: string; options?: string; connectionTimeoutMillis?: number }) => PgClient;
 };
@@ -290,10 +256,6 @@ async function observeRoles(direct: string): Promise<Map<string, Role>> {
 	);
 }
 
-/**
- * Setting names in one Vercel environment, or null when Vercel cannot be read. It reads the plain table, never
- * `--json`, which carries readable values; only names leave this function.
- */
 function vercelNames(environment: "production" | "preview"): Set<string> | null {
 	const r = spawnSync(
 		"vercel",
@@ -309,7 +271,6 @@ function vercelNames(environment: "production" | "preview"): Set<string> | null 
 	return names;
 }
 
-/** True when `path` is inside a git working tree, such as this repository. */
 function insideGitTree(path: string): boolean {
 	let dir = dirname(path);
 	while (!existsSync(dir)) dir = dirname(dir);
@@ -337,7 +298,6 @@ database session and a read of Vercel's setting names (vercel env ls), then the 
 
 Runbook: docs/runbooks/production-identity.md`;
 
-/** Runs the tool. Returns the exit code; every line it prints holds names, never values. */
 export async function main(argv: string[], env: NodeJS.ProcessEnv = process.env): Promise<number> {
 	const redactor = new Redactor();
 	const say = (line: string) => console.log(redactor.clean(line));
@@ -442,7 +402,6 @@ export async function main(argv: string[], env: NodeJS.ProcessEnv = process.env)
 				.map((k) => ({ name: k.name, value: k.name === "IDENTITY_ORIGIN" ? origin : keys[k.name], force: false })),
 		];
 
-		// One transaction: the logins and grants commit only once the commands file holding their passwords exists.
 		let wrote = false;
 		await withClient(db.direct, undefined, async (c) => {
 			await c.query("BEGIN");
@@ -471,7 +430,6 @@ export async function main(argv: string[], env: NodeJS.ProcessEnv = process.env)
 
 		say("\nApplied. Logins and grants are in place.");
 		for (const s of p.logins.filter((s) => s.action !== "keep")) {
-			// As the app connects: the job and cleanup pools set statement_timeout at startup, on the direct endpoint.
 			const options = s.login.pooled ? undefined : "-c statement_timeout=5s";
 			const table = s.login.group === "everyfield_auth" ? "auth_user" : "tenant";
 			await withClient(urlOf(s), options, (c) => c.query(`SELECT 1 FROM ${table} LIMIT 1`));
@@ -490,7 +448,6 @@ export async function main(argv: string[], env: NodeJS.ProcessEnv = process.env)
 	}
 }
 
-/** A SQL string literal. Passwords are hex, so this only guards the quoting. */
 const literal = (s: string) => `'${s.replaceAll("'", "''")}'`;
 
 if (import.meta.main) process.exitCode = await main(process.argv.slice(2));

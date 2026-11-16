@@ -8,20 +8,11 @@ import { Logo, LogoSymbols } from "@/components/Logo";
 import { ACCESS_PATH } from "@/site";
 import { COPY } from "./copy";
 
-// Static frame pieces, rendered on the server and handed to the client nav as elements.
 const navLogo = <Logo variant="nav" />;
 const pillLogo = <Logo variant="pill" />;
 const arrow = <Icon icon={ArrowRight02Icon} size={17} />;
 const menuIcon = <Icon icon={Menu01Icon} />;
 
-/**
- * The page frame: skip link, logo sprite, header (in-flow and floating pill), main and footer.
- *
- * One plain block holds them all. When a link opens a page, Next finds the page top from the page's outermost
- * elements: with the fixed skip link and the hidden pill among them (both sit above the viewport), it took the top
- * as out of view even at scroll 0, and scrolled every element into view in turn, footer first. With one block that
- * starts at the document top, Next scrolls to 0 once, or not at all.
- */
 export function Site({
 	path,
 	footerHeadline,

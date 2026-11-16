@@ -13,7 +13,6 @@ const notice =
 const tones: Record<string, string> = { tip: "green", insight: "blue", warning: "amber", important: "violet" };
 function Callout({ type, children }: { type: string; children: ReactNode }) {
 	if (type === "scripture") {
-		// The restricted MDX shape is one paragraph, emphasis quote, then its attribution.
 		const paragraph = Children.toArray(children).find(isValidElement<{ children: ReactNode }>);
 		const parts = paragraph ? Children.toArray(paragraph.props.children) : [];
 		const attribution = parts.find((p) => typeof p === "string" && p.includes("—"));
@@ -36,8 +35,6 @@ function Callout({ type, children }: { type: string; children: ReactNode }) {
 		h("div", { className: "callout-text" }, children),
 	);
 }
-// A ```diagram block draws as the app's figure: the title as its caption and the nodes as a list in source order
-// (`<ol>`, or nested `<ul>` for a hierarchy). The parser is the app's own. Other fences stay <pre><code>.
 function nodeText(node: DiagramNode) {
 	return [
 		h("span", { key: "l", className: "dg-label" }, node.label),

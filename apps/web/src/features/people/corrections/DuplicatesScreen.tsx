@@ -28,10 +28,11 @@ import {
 	StatePanel,
 } from "@everyfield/ui/controls";
 import { Avatar, KeyValue, KeyValueList, StageChip, StatusBadge } from "@everyfield/ui/display";
-import { cn } from "@everyfield/ui/foundations";
+import { cn, focusOnMount } from "@everyfield/ui/foundations";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useRef, useState, useTransition, type ReactNode } from "react";
 import { keyFor, STAGE_KEY, STAGE_LABEL, type KeyedPayload, type StageValue } from "../model.ts";
+import { writeAddress } from "../../../components/location.ts";
 import type { Outcome } from "../../../components/save/model.ts";
 import { fresh, LocalDay, When } from "../parts.tsx";
 import { dismissPair, mergeDestination, mergePair, reviewPair, type Merged } from "./actions.ts";
@@ -65,59 +66,52 @@ type Done = { merged: Pick<Merged, "moved" | "survivorId" | "sourceId">; source:
 const first = (name: string) => name.split(" ")[0] ?? name;
 const crumbs = [{ label: "People", href: "/people" }, { label: "Possible duplicate" }];
 
-/**
- * Duplicate review and merge (REQ-PPL-016, 017, 025; prototype #/people/duplicates). The review shows both people side
- * by side: every differing field with both values to choose from, the stage and commitment the survivor keeps, what
- * moves, what stays and anything that blocks the merge. Nothing merges without the confirm dialog, and the result names
- * what moved and the way back (Unmerge in the survivor's Activity).
- */
 export function DuplicatesScreen({ initial, query }: { initial: PairView; query: PairQuery }) {
 	const [view, setView] = useState<PairView>(initial);
 	const [done, setDone] = useState<Done | null>(null);
-	/** A problem the page shows after the dialog closed, with a key so a repeat problem takes focus again. */
 	const [notice, setNotice] = useState<{ n: number; text: string } | null>(null);
-	const [loading, setLoading] = useState(false);
-	// Each review request carries a number; an answer to an older request never replaces a newer one.
+	const [loading, startLoad] = useTransition();
 	const seq = useRef(0);
 	const router = useRouter();
-	const [dismissing, setDismissing] = useState(false);
+	const [dismissing, startDismiss] = useTransition();
 	const [dismiss] = useState(() => reviewDismiss(dismissPair));
 
-	/** "Not a duplicate" on a listed pair (T-268): dismiss it and return to the list, or stay and say why. */
-	async function notDuplicate(listed: ListedPair, review: Review) {
+	function notDuplicate(listed: ListedPair, review: Review) {
 		const name = (id: string) =>
 			id === review.source.personId ? review.source.displayName : review.survivor.displayName;
-		setDismissing(true);
-		const r = await dismiss(listed);
-		if (!r) return;
-		if (r.next === "list") {
-			leaveConfirmation(notDuplicateText(name(listed.personId), name(listed.withPersonId)));
-			return router.push("/people/duplicates");
-		}
-		setDismissing(false);
-		if (r.reread) return load(review.survivor.personId, r.text);
-		setNotice((old) => ({ n: (old?.n ?? 0) + 1, text: r.text }));
+		startDismiss(async () => {
+			const r = await dismiss(listed);
+			if (!r) return;
+			if (r.next === "list") {
+				leaveConfirmation(notDuplicateText(name(listed.personId), name(listed.withPersonId)));
+				return router.push("/people/duplicates");
+			}
+			if (r.reread) return load(review.survivor.personId, r.text);
+			startDismiss(() => setNotice((old) => ({ n: (old?.n ?? 0) + 1, text: r.text })));
+		});
 	}
 
-	async function load(keep: string | null, then?: string) {
+	function load(keep: string | null, then?: string) {
 		const n = ++seq.current;
-		setLoading(true);
-		const r: Outcome<PairView> = await reviewPair({ ...query, keep }).catch(() => ({ status: "lost" }) as const);
-		if (n !== seq.current) return;
-		setLoading(false);
-		if (r.status === "ok") {
-			setView(r.value);
-			if (r.value.kind === "ready")
-				window.history.replaceState(null, "", pairHref(query.person, query.with, keep ?? undefined));
-			setNotice(then ? { n, text: then } : null);
-		} else
-			setNotice({
-				n,
-				text:
-					r.status === "lost"
-						? "The review did not load. Try again in a moment."
-						: "You cannot review these people. Your seat may have changed; reload the page.",
+		startLoad(async () => {
+			const r: Outcome<PairView> = await reviewPair({ ...query, keep }).catch(() => ({ status: "lost" }) as const);
+			if (n !== seq.current) return;
+			startLoad(() => {
+				if (r.status === "ok") {
+					setView(r.value);
+					if (r.value.kind === "ready")
+						writeAddress(pairHref(query.person, query.with, keep ?? undefined), { replace: true });
+					setNotice(then ? { n, text: then } : null);
+				} else
+					setNotice({
+						n,
+						text:
+							r.status === "lost"
+								? "The review did not load. Try again in a moment."
+								: "You cannot review these people. Your seat may have changed; reload the page.",
+					});
 			});
+		});
 	}
 
 	if (done) return <Result done={done} />;
@@ -129,8 +123,8 @@ export function DuplicatesScreen({ initial, query }: { initial: PairView; query:
 				subtitle="Everyfield never merges on its own. You choose which details to keep."
 			/>
 			{notice ? (
-				<div className="mb-5" key={notice.n}>
-					<Problem>{notice.text}</Problem>
+				<div className="mb-5">
+					<Problem request={notice.n}>{notice.text}</Problem>
 				</div>
 			) : null}
 			{view.kind === "ready" ? (
@@ -203,13 +197,10 @@ function PairReview({
 }: {
 	view: Ready;
 	loading: boolean;
-	/** A "Not a duplicate" is in flight: nothing else on the review starts. */
 	dismissing: boolean;
 	onNotDuplicate: (listed: ListedPair) => void;
-	/** Review the pair again with `personId` as the person who stays; `why` is shown when it is a refusal's answer. */
 	onKeep: (personId: string, why?: string) => void;
 	onDone: (done: Done) => void;
-	/** The reviewed state is out of date: read it again and say why. */
 	onStale: (why: string) => void;
 }) {
 	const { review } = view;
@@ -223,7 +214,6 @@ function PairReview({
 	const blocked = review.blockers.causes.length > 0;
 	const fromSource = (review.fields as Field[]).filter((f) => choices[f.field] === "source").map((f) => f.field);
 	const stageMoves = review.stage && review.stage.result !== review.stage.survivor;
-	// Two records with one name: name the swap by record, not by a name that fits both.
 	const swapLabel =
 		source.displayName === survivor.displayName
 			? "Keep the other record instead"
@@ -503,7 +493,6 @@ function PersonHead({
 	);
 }
 
-/** One differing field: a labelled radio group with both values. Arrow keys move the choice. */
 function FieldRow({
 	field,
 	view,
@@ -560,11 +549,6 @@ function FieldRow({
 	);
 }
 
-/**
- * The merge confirmation. One request key per reviewed merge: a retry after a lost answer sends the same key, so the
- * server replays a merge that did happen. A refusal after a lost answer first asks where the source's links lead, so
- * the screen never says a merge failed when it went through.
- */
 function ConfirmMerge({
 	review,
 	fromSource,
@@ -579,7 +563,6 @@ function ConfirmMerge({
 	fromSource: MergeField[];
 	fieldChoices: ReturnType<typeof sourceChoices>;
 	stageTo: StageValue | null;
-	/** This review's merge intent: its request key and whether an answer was lost. It outlives the dialog. */
 	intentRef: { current: Intent };
 	onClose: () => void;
 	onDone: (done: Done) => void;
@@ -589,10 +572,8 @@ function ConfirmMerge({
 		survivor = review.survivor.displayName;
 	const [pending, setPending] = useState(false);
 	const [problem, setProblem] = useState<{ n: number; text: string; retry?: boolean } | null>(null);
-	/** Shows a problem; each one gets a new number, so a repeat of the same words still takes focus. */
 	const say = (p: { text: string; retry?: boolean }) => setProblem((old) => ({ ...p, n: (old?.n ?? 0) + 1 }));
 	const moves = referenceGroups(review.references).moves;
-	// After a merge the result heading takes focus; the closing dialog must not move it back to the page.
 	const finished = useRef(false);
 	const done = (moved: Merged["moved"]) => {
 		finished.current = true;
@@ -627,7 +608,6 @@ function ConfirmMerge({
 		}
 		key.payload = null;
 		if (key.lost) {
-			// An earlier attempt's answer was lost. It may have merged them: check before saying anything.
 			const d = await mergeDestination(review.source.personId).catch(() => ({ status: "lost" }) as const);
 			if (d.status === "ok" && d.value.status === "merged" && d.value.destinationId === review.survivor.personId)
 				return done(moves.map(({ kind, count }) => ({ kind, count })));
@@ -676,7 +656,7 @@ function ConfirmMerge({
 						You can undo this with Review Unmerge in {first(survivor)}&rsquo;s Activity, while nothing that depends on
 						the merge has changed.
 					</p>
-					{problem ? <Problem key={problem.n}>{problem.text}</Problem> : null}
+					{problem ? <Problem request={problem.n}>{problem.text}</Problem> : null}
 				</DialogBody>
 				<DialogFooter>
 					<Button variant="secondary" disabled={pending} onClick={onClose}>
@@ -700,10 +680,7 @@ function Point({ children }: { children: ReactNode }) {
 	);
 }
 
-/** The merge result: what moved, a link to the survivor and the way back. Focus moves to its heading. */
 function Result({ done }: { done: Done }) {
-	const ref = useRef<HTMLHeadingElement>(null);
-	useEffect(() => ref.current?.focus(), []);
 	const { merged } = done;
 	return (
 		<>
@@ -712,7 +689,7 @@ function Result({ done }: { done: Done }) {
 				<CalloutLabel tone="green" icon={Tick02Icon}>
 					Merged
 				</CalloutLabel>
-				<h2 ref={ref} tabIndex={-1} className="mt-3 font-title text-title-md text-ink outline-none">
+				<h2 ref={focusOnMount} tabIndex={-1} className="mt-3 font-title text-title-md text-ink outline-none">
 					{done.source} is now part of {done.survivor}
 				</h2>
 				<CalloutText className="text-sm">

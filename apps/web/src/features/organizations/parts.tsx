@@ -15,11 +15,6 @@ export function PrivateLine({ children }: { children: ReactNode }) {
 const UNKNOWN =
 	"We could not confirm that this went through. Check your connection, then try again. Trying again never does it twice.";
 
-/**
- * The live region for a failed command. `refused` says the server checked and changed nothing; the caller words it
- * for the action. `unknown` asks for a retry, which reuses the same request key. `focusRef` makes the message a focus
- * target, for a caller that moves focus to it.
- */
 export function ProblemLine({
 	problem,
 	refused,

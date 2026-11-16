@@ -11,11 +11,6 @@ import { FormMessage } from "./parts";
 
 type Busy = "sign_out" | "others" | null;
 
-/**
- * Sign out, and sign out every other device (auth.signOut, auth.revokeOtherSessions). Settings > Your account
- * (WP-010) and the signed-in sign-in screen compose it. Both act on the current cookie session only; the server picks
- * the session, never this component.
- */
 export function SessionActions({ className }: { className?: string }) {
 	const [busy, setBusy] = useState<Busy>(null);
 	const [message, setMessage] = useState<{ tone: "error" | "success"; text: string } | null>(null);
@@ -41,7 +36,6 @@ export function SessionActions({ className }: { className?: string }) {
 			setMessage({ tone: "success", text: "Your other devices are signed out." });
 			return;
 		}
-		// This session ended meanwhile (expired or revoked elsewhere): go to sign-in and come back here after.
 		if (result.error.code === "unauthenticated") {
 			loadPage(invalidSessionReturn(window.location.pathname + window.location.search));
 			return;

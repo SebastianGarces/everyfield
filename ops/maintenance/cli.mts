@@ -142,7 +142,6 @@ async function main() {
 				if (/^[0-9a-f-]{36}$/.test(String(o?.id)))
 					objects.set(o.id, await readPrivateBytes(`${dir}/objects/${o.id}`, SNAPSHOT_LIMIT).catch(() => null));
 			for (const [id, bytes] of objects) if (!bytes) objects.delete(id);
-			// The fresh target is closed to every app login and dropped when the rehearsal ends; its bytes stay in memory.
 			const targetSchema = `${schema.slice(0, 40)}_rehearsal_${randomBytes(6).toString("hex")}`;
 			try {
 				const result = await restoreWithCurrentManifest(
