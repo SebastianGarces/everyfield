@@ -33,7 +33,6 @@ const scriptsOf = (dir: string): Record<string, string> =>
 	JSON.parse(readFileSync(join(repo, dir, "package.json"), "utf8")).scripts;
 const bunScript = scriptsOf("packages/ui")["typecheck:bun"]!;
 
-/** PATH without any directory that holds a `bun`, so only the pinned binary can run. */
 function pathWithoutBun(): string {
 	return (process.env.PATH ?? "")
 		.split(delimiter)
@@ -50,7 +49,6 @@ function pathWithoutBun(): string {
 
 type Fixture = { root: string; state: string; close: () => void };
 
-/** A pnpm workspace whose packages have the given scripts and files, with an empty state directory beside it. */
 function workspace(
 	packages: Record<string, { scripts: Record<string, string>; files?: Record<string, string> }>,
 	rootScripts: Record<string, string> = {},
@@ -77,7 +75,6 @@ function workspace(
 	};
 }
 
-/** Make a fixture package checkable by the pinned bun. */
 function checkable(root: string, dir: string) {
 	symlinkSync(join(repo, "node_modules"), join(root, "node_modules"));
 	writeFileSync(
@@ -92,7 +89,6 @@ function env(extra: Record<string, string | undefined> = {}): NodeJS.ProcessEnv 
 	return out;
 }
 
-/** `pnpm typecheck` (or typecheck:bun) in a fixture, with the state directory the retired shadow log would have used. */
 function typecheck(f: Fixture, extra: Record<string, string | undefined> = {}, script = "typecheck") {
 	return spawnSync(process.execPath, [tool, script], {
 		cwd: f.root,
@@ -234,7 +230,6 @@ test("INV-typecheck: every package's typecheck runs tsc, and its typecheck:bun t
 	assert.equal(rootPkg.scripts["typecheck:bun"], "node tools/ci/typecheck.ts typecheck:bun");
 	for (const dir of PACKAGES) {
 		const scripts = scriptsOf(dir);
-		// apps/web checks its typecheck-only tsconfig (T-258), the others their own.
 		const project = dir === "apps/web" ? " -p tsconfig.typecheck.json" : "";
 		assert.equal(scripts.typecheck, `../../node_modules/typescript-7/bin/tsc --noEmit${project}`, dir);
 		assert.equal(
@@ -245,7 +240,6 @@ test("INV-typecheck: every package's typecheck runs tsc, and its typecheck:bun t
 		assert.equal("typecheck:tsc" in scripts, false, dir);
 	}
 	assert.equal("typecheck:tsc" in rootPkg.scripts, false);
-	// A global bun that records any call, ahead of everything else on a PATH that holds no other bun.
 	const fake = mkdtempSync(join(tmpdir(), "global-bun-"));
 	t.after(() => rmSync(fake, { recursive: true, force: true }));
 	const marker = join(fake, "called");
@@ -297,7 +291,6 @@ test("INV-typecheck: typecheck:bun at the root and in a package never starts a c
 	assert.equal(inPackage.status, 0, inPackage.stdout + inPackage.stderr);
 	assert.match(inPackage.stdout + inPackage.stderr, /No type errors/);
 	for (const marker of markers) assert.equal(existsSync(marker), false, `${marker} must not exist`);
-	// Without --no-script the same binary does start the package's check script, so the marker can appear.
 	spawnSync(join(repo, "node_modules/.bin/bun"), ["check"], { cwd: join(f.root, "packages/p"), env: env() });
 	assert.equal(existsSync(markers[1]!), true, "control: bun check without --no-script runs the check script");
 });
@@ -314,7 +307,6 @@ test("INV-typecheck: a package .env reaches no checker, child process or output"
 				"print.ts": "console.log(String(process.env.T53_SENTINEL));\n",
 			},
 		},
-		// A child that prints its whole environment, so a loaded .env would show in the output.
 		"packages/q": { scripts: { "typecheck:bun": "env" } },
 	});
 	t.after(f.close);
@@ -327,7 +319,6 @@ test("INV-typecheck: a package .env reaches no checker, child process or output"
 	assert.match(run.stdout, /packages\/q typecheck:bun: PATH=/, "control: the child did print its environment");
 	assert.match(run.stdout, /packages\/p typecheck:bun: src\/a\.ts\(1,14\): error TS2322/);
 	assert.equal(run.stdout.includes("\x1b["), false, "bun check did not take FORCE_COLOR from .env");
-	// Controls: the same FORCE_COLOR from the real environment does colour bun check, and bun's runtime does load .env.
 	const coloured = spawnSync("pnpm", ["run", "typecheck:bun"], {
 		cwd: join(f.root, "packages/p"),
 		encoding: "utf8",
@@ -347,7 +338,6 @@ test("INV-typecheck: a type error seeded in any one of the 7 packages fails pnpm
 	t.after(() => rmSync(copy, { recursive: true, force: true }));
 	const before = spawnSync("git", ["status", "--porcelain"], { cwd: repo, encoding: "utf8" }).stdout;
 	copyWorkspace(repo, copy, PACKAGES);
-	// The copy holds the packages only, so the tools step (tested above) has nothing to check here.
 	const copyPkg = JSON.parse(readFileSync(join(copy, "package.json"), "utf8"));
 	delete copyPkg.scripts["typecheck:tools"];
 	writeFileSync(join(copy, "package.json"), JSON.stringify(copyPkg));
@@ -365,7 +355,6 @@ test("INV-typecheck: a type error seeded in any one of the 7 packages fails pnpm
 		assert.match(failed.stderr, new RegExp(`typecheck failed in 1 of 7 packages:\\n  ${dir}: type errors`), dir);
 		rmSync(join(copy, dir, "src/__seeded__"), { recursive: true });
 	}
-	// The nightly's bun shadow fails a seeded copy as well.
 	writeFileSync(join(copy, "packages/ui", "src/t110-seeded.ts"), 'export const seeded: number = "seeded";\n');
 	const bun = spawnSync(process.execPath, [tool, "typecheck:bun"], { cwd: copy, encoding: "utf8" });
 	assert.equal(bun.status, 1, bun.stdout + bun.stderr);

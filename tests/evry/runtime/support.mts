@@ -1,5 +1,3 @@
-// One isolated schema on the shared development database (or the disposable CI database), migrated from scratch, with
-// synthetic accounts, seats, plants and people. Each suite drops its schema and login role afterwards.
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { testDatabase } from "../../support/test-database.mts";
 import { readViewer } from "../../../packages/domain/src/access/session.ts";
@@ -9,15 +7,11 @@ import { evryActor, runTurn, selectQualifiedModel } from "../../../packages/evry
 import type { PrivateStorage } from "../../../packages/db/src/schema/storage.ts";
 import { createHash, randomUUID } from "node:crypto";
 
-// The schema and role exist from import on; `setup` seeds them and `teardown` drops them.
 const database = await testDatabase({ prefix: "wp051", max: 6 });
-/** The suite's own runtime login; tests scope lock-wait checks to its sessions. */
 export const role = database.logins.runtime.name;
 export const { admin } = database;
 export const db = database.pools.runtime;
-/** Every statement the runtime role sent, for statement counts. */
 export const queries: string[] = [];
-/** The same statements with their bound values, for planning checks. */
 export const statements: { text: string; values: unknown[] }[] = [];
 
 export const plant = randomUUID();
@@ -47,7 +41,6 @@ export async function freshActor(session: string) {
 }
 export const scripted = () => selectQualifiedModel({ EVRY_SCRIPTED_MODEL: "1" });
 
-/** Claims the next due turn through the WP-031 queue, runs it and finishes the claim, as the app worker does. */
 export async function work(model = scripted(), extra: Partial<Parameters<typeof runTurn>[0]> = {}) {
 	const claimStart = new Date();
 	const [claim] = await claimDue(db, ["assistant_turn"], 1, 240);
@@ -108,7 +101,6 @@ export async function setup() {
 	people.alexChen = await person(plant, "Alex Chen", "Evanston", 2);
 	people.casey = await person(plant, "Casey Reed", null, 3);
 	people.foreign = await person(otherPlant, "Quinn Foreign", "Peoria", 1);
-	// 200 matching people in the plant, and 2,500 in the other plant for the tool budget.
 	await admin.execute(sql`INSERT INTO person(tenant_id,plant_id,display_name,source,created_at,stage,adult_classification,commitment_state,pipeline_position,state)
 		SELECT ${plant}::uuid,${plant}::uuid,'Member '||lpad(n::text,3,'0'),'other',clock_timestamp(),'attendee','unknown','unknown',10+n,'live' FROM generate_series(1,200) n`);
 	await admin.execute(sql`INSERT INTO person(tenant_id,plant_id,display_name,source,created_at,stage,adult_classification,commitment_state,pipeline_position,state)
@@ -117,14 +109,12 @@ export async function setup() {
 
 export const teardown = database.close;
 
-/** Counts of rows a test must see unchanged, read by the admin connection. */
 export async function counts() {
 	const r = await admin.execute(sql`SELECT (SELECT count(*)::int FROM conversation) conversations,
 		(SELECT count(*)::int FROM conversation_event) events, (SELECT count(*)::int FROM job WHERE kind='assistant_turn') runs,
 		(SELECT count(*)::int FROM audit_event) audits, (SELECT count(*)::int FROM person) people`);
 	return r.rows[0] as Record<string, number>;
 }
-/** A private bucket fake that serves exactly the bytes stored under each key, and can lose one. */
 export function bucket() {
 	const objects = new Map<string, Buffer>();
 	const send = async (command: { constructor: { name: string }; input: { Key: string } }) => {
@@ -137,7 +127,6 @@ export function bucket() {
 	return {
 		storage,
 		objects,
-		/** A verified, ready person-photo upload of these bytes in the tenant, as uploadPersonPhoto leaves it. */
 		async upload(bytes: Buffer, tenant = plant) {
 			const id = randomUUID();
 			const key = `private/${tenant}/${randomUUID()}`;
@@ -148,7 +137,6 @@ export function bucket() {
 		},
 	};
 }
-/** A 1x1 PNG. */
 export const png = Buffer.from(
 	"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADUlEQVQImWPgEpH7DwABpAE8sdwFIwAAAABJRU5ErkJggg==",
 	"base64",

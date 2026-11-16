@@ -1,8 +1,3 @@
-// Evry email drafts and reviewed scheduling on a seeded preview (WP-028 slice 2, MAIL51-009), in both engines at phone
-// width. Seed with tests/ui/people/seed.mts, then tests/ui/evry/seed.mts, and run with --env-file=<home apps/web/.env.local>
-// for the admin connection. The preview runs the scripted model (EVRY_SCRIPTED_MODEL=1) and the dev mail capture: a send,
-// cancel or time change lands in the capture folder, and a file named no-answer there makes the capture give no answer.
-// Every test drives the Evry panel and approves the card the way a planter does, then checks the database and the capture.
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
@@ -14,15 +9,12 @@ import { BASE, ENGINES, fixture, hydrated, signIn, withPage } from "../setup.mjs
 
 const owner = () => fixture("people").owner.cookie;
 const SUBJECT = "Sunday's interest meeting";
-// The preview records mail in its own temp folder. `bin/dev browser run` gives this process a private temp folder inside it.
 const systemTmp = /\/browser-run-[^/]+$/.test(tmpdir()) ? dirname(tmpdir()) : tmpdir();
 const outbox = process.env.EVERYFIELD_DEV_OUTBOX?.trim() || join(systemTmp, "everyfield-dev-outbox");
 
 let db = null;
-/** The seeded database, opened on first use, for counting rows the page does not show. */
 async function database() {
 	if (db) return db;
-	// `evf ac run` starts no env file: the admin connection comes from the home checkout's, which node loads and nothing prints.
 	if (!process.env.DATABASE_URL && !process.env.DATABASE_URL_UNPOOLED) {
 		const common = execFileSync("git", ["rev-parse", "--path-format=absolute", "--git-common-dir"], {
 			encoding: "utf8",
@@ -38,7 +30,6 @@ async function database() {
 		sql,
 		rows,
 		plant,
-		/** The newest message with this subject. */
 		async message(subject = SUBJECT) {
 			return (
 				await rows(sql`SELECT id,state,revision::text,to_char(scheduled_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS scheduled_at,
@@ -82,7 +73,6 @@ const silence = async (on) => {
 	else await rm(join(outbox, "no-answer"), { force: true });
 };
 
-/** Opens Messages with a new Evry chat. */
 async function openEvry(page, context, cookie = owner()) {
 	await signIn(context, cookie);
 	await page.goto(`${BASE}/communication`);
@@ -93,48 +83,36 @@ async function openEvry(page, context, cookie = owner()) {
 	await panel.getByRole("button", { name: "New chat" }).click();
 	return panel;
 }
-/** Sends one request and returns the newest card whose heading matches. */
 async function ask(panel, text, heading) {
-	// One turn at a time: the earlier answer is finished before the next request goes in.
 	await panel.getByRole("button", { name: "Stop" }).waitFor({ state: "hidden", timeout: 120_000 });
 	const regions = panel.getByRole("region", { name: heading });
 	const seen = await regions.count();
 	const box = panel.getByLabel("Message Evry");
 	await box.fill(text);
 	await box.press("Enter");
-	// The new card is the one after those already on screen.
 	const card = regions.nth(seen);
 	await card.waitFor({ timeout: 120_000 });
 	return card;
 }
-/** The head icon's drawing, to tell the confirmed tick from the alert. A re-render may reorder an SVG's attributes, so only the path shapes count. */
 const headIcon = (card) =>
 	card
 		.locator("h3 svg")
 		.first()
 		.locator("path")
 		.evaluateAll((paths) => paths.map((path) => path.getAttribute("d")).join(" "));
-/** Approves the way a keyboard user does (Safari does not focus a button on a mouse click). */
 async function approve(card) {
 	await card.getByRole("button", { name: "Approve" }).focus();
 	await card.page().keyboard.press("Enter");
 }
-/** Messages with its history loaded: the page text once the message is listed. */
 async function messages(page) {
 	await page.goto(`${BASE}/communication`);
 	await hydrated(page);
 	await page.getByText(SUBJECT).first().waitFor({ timeout: 90_000 });
 	return page.locator("main").innerText();
 }
-/** The status line of the newest history row with this subject. */
 const newestStatus = (text) => new RegExp(`${SUBJECT}\\n([^\\n]+)`).exec(text)?.[1];
 const done = (panel, heading) => panel.getByRole("region", { name: heading }).last();
 
-/**
- * The email service holds message `id`'s waiting recipients, as it does for a message scheduled before T-241 moved the
- * handoff to the send time: each gets a capture in the outbox and that capture's id, so a cancel or a time change asks
- * the capture and can go unconfirmed while it is silent.
- */
 async function heldByService(d, id) {
 	const waiting = await d.rows(
 		d.sql`SELECT m.id,to_char(m.scheduled_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS scheduled_at
@@ -151,10 +129,6 @@ async function heldByService(d, id) {
 	}
 }
 
-/**
- * A saved draft, then scheduled for Friday at 9am: the state most criteria start from. It waits in Everyfield for its
- * send time; `held` (the default) then puts it with the email service. Returns the message.
- */
 async function scheduledFriday(panel, d, held = true) {
 	const draft = await ask(
 		panel,
@@ -214,7 +188,6 @@ for (const [engine, launcher] of ENGINES) {
 			assert.deepEqual(await d.mail(draft.id), [], "no mail row");
 			assert.equal(await d.attempts(draft.id), 0, "no mail attempt");
 			assert.equal(await d.requests(draft.id), 0, "no email service call");
-			// The draft is in Messages and opens for editing.
 			await page.goto(`${BASE}/communication?compose=${draft.id}&step=write`);
 			await hydrated(page);
 			assert.equal(await page.getByLabel("Subject").inputValue(), SUBJECT);
@@ -251,7 +224,6 @@ for (const [engine, launcher] of ENGINES) {
 				"the day, 9:00 AM and the zone name",
 			);
 			assert.equal((await d.message()).state, "draft", "nothing is scheduled before approval");
-			// A time past the 30-day window, and a time already gone, are refused on the card with a plain reason.
 			const far = await ask(panel, "Schedule it for 45 days from now at 9am", "Can't schedule this email");
 			assert.match(await far.innerText(), /Everyfield can hold an email for up to 30 days/);
 			assert.equal(
@@ -277,9 +249,7 @@ for (const [engine, launcher] of ENGINES) {
 			await done(panel, "Saved").waitFor({ timeout: 90_000 });
 			const before = await d.message();
 			const card = await ask(panel, "Schedule it for Friday at 9am", "Review before scheduling");
-			// Not approved: the draft is unchanged and the email service has had no request.
 			assert.equal(await d.requests(before.id), 0);
-			// The 15-minute approval lapses before the click.
 			const id = await card.evaluate((el) => el.getAttribute("data-proposal"));
 			await d.rows(d.sql`UPDATE proposal SET expires_at=clock_timestamp()-interval '1 second' WHERE id=${id}::uuid`);
 			await approve(card);
@@ -301,7 +271,6 @@ for (const [engine, launcher] of ENGINES) {
 			const message = await scheduledFriday(panel, d, false);
 			const card = done(panel, /^Scheduled for Fri, 9:00 AM/);
 			const text = await card.innerText();
-			// The email waits in Everyfield (D-927): the card counts who waits and who the review left out.
 			assert.match(text, /Waiting\s*3/);
 			assert.match(text, /Left out\s*3/);
 			assert.match(
@@ -347,7 +316,6 @@ for (const [engine, launcher] of ENGINES) {
 			const id = await schedule.evaluate((el) => el.getAttribute("data-proposal"));
 			await approve(schedule);
 			await done(panel, /^Scheduled for Fri, 9:00 AM/).waitFor({ timeout: 90_000 });
-			// The effect ended with no saved result and its approval lapsed: the state a killed worker can leave.
 			await d.rows(
 				d.sql`UPDATE proposal SET outcome='failed',receipt='{"reached":true}'::jsonb,expires_at=clock_timestamp()-interval '1 second' WHERE id=${id}::uuid`,
 			);
@@ -381,7 +349,6 @@ for (const [engine, launcher] of ENGINES) {
 					held.filter((m) => m.state === "accepted").every((m) => m.scheduled_at === message.scheduled_at),
 					"no recipient moved",
 				);
-				// The email service answers on the next ask.
 				await silence(false);
 				await unconfirmed.getByRole("button", { name: "Check again" }).click();
 				await done(panel, /^Moved to Sat, 9:00 AM/).waitFor({ timeout: 90_000 });
@@ -414,7 +381,6 @@ for (const [engine, launcher] of ENGINES) {
 			await done(panel, /^Scheduled for Fri, 9:00 AM/).waitFor({ timeout: 90_000 });
 			const message = await d.message();
 			const before = message.scheduled_at;
-			// The email service was handed every recipient and never answered about any of them.
 			await d.rows(
 				d.sql`UPDATE mail SET state='unknown' WHERE tenant_id=${d.plant}::uuid AND logical_key LIKE ${"communication/" + message.id + "/%"} AND state='scheduled'`,
 			);
@@ -433,7 +399,6 @@ for (const [engine, launcher] of ENGINES) {
 			const panel = await openEvry(page, context);
 			const message = await scheduledFriday(panel, d);
 			const tick = await headIcon(done(panel, /^Scheduled for Fri/));
-			// Closing the review is not a cancel: the card never says the word the email service has not confirmed.
 			const dismissed = await ask(panel, "Cancel the Friday email", "Review before cancelling");
 			await dismissed.getByRole("button", { name: "Close review" }).click();
 			const closed = done(panel, "Review closed");
@@ -464,7 +429,6 @@ for (const [engine, launcher] of ENGINES) {
 				await done(panel, "Cancel not confirmed").getByRole("button", { name: "Check again" }).click();
 				await done(panel, "Cancelled").waitFor({ timeout: 90_000 });
 				assert.equal(await headIcon(done(panel, "Cancelled")), tick);
-				// A screen reader hears the confirmed cancel too, not the stale "Cancel not confirmed".
 				assert.equal(await done(panel, "Cancelled").getByRole("status").innerText(), "Cancelled");
 			} finally {
 				await silence(false);
@@ -490,7 +454,6 @@ for (const [engine, launcher] of ENGINES) {
 			assert.match(text, /Body after\s*We moved to 5 pm/);
 			assert.match(text, /cancelled first/);
 			assert.match(text, /only after every cancel is confirmed/);
-			// The email service gives no answer to the cancel: nothing new is scheduled.
 			await silence(true);
 			try {
 				await approve(card);
@@ -509,7 +472,6 @@ for (const [engine, launcher] of ENGINES) {
 				d.sql`SELECT id,state FROM communication WHERE plant_id=${d.plant}::uuid AND subject=${SUBJECT} AND created_at>(SELECT created_at FROM communication WHERE id=${original.id}::uuid)`,
 			);
 			assert.deepEqual(sameSubject, [], "no replacement was saved or scheduled");
-			// Check again once the email service answers: every cancel is confirmed, then the replacement is scheduled.
 			await done(panel, /^Not replaced/)
 				.getByRole("button", { name: "Check again" })
 				.click();
@@ -533,7 +495,6 @@ for (const [engine, launcher] of ENGINES) {
 			const panel = await openEvry(page, context);
 			const message = await scheduledFriday(panel, d);
 			const card = await ask(panel, "Move the Friday email to Saturday at 9am", "Review the new time");
-			// Another window cancels the message in Messages before the approval.
 			const messagesPage = await context.newPage();
 			await messagesPage.goto(`${BASE}/communication?message=${message.id}`);
 			await hydrated(messagesPage);
@@ -554,7 +515,6 @@ for (const [engine, launcher] of ENGINES) {
 			assert.doesNotMatch(staleText, /stay the same/, "a stale card promises nothing");
 			assert.equal(await stale.getByRole("button", { name: "Approve" }).isDisabled(), true);
 			assert.equal((await d.message()).scheduled_at, moved.scheduled_at, "the time did not move");
-			// Reviewing again finds nothing left to move, and says so.
 			await stale.getByRole("button", { name: "Review again" }).click();
 			await stale.getByText(/no longer waiting to send/).waitFor({ timeout: 90_000 });
 		}));
@@ -591,7 +551,6 @@ for (const [engine, launcher] of ENGINES) {
 			const d = await database();
 			const panel = await openEvry(page, context);
 			const friday = await scheduledFriday(panel, d);
-			// A second message on another day must not be picked.
 			const draft = await ask(
 				panel,
 				"Draft an email to the launch team inviting them to Sunday's interest meeting.",
@@ -622,7 +581,6 @@ for (const [engine, launcher] of ENGINES) {
 			const d = await database();
 			const panel = await openEvry(page, context);
 			const original = await scheduledFriday(panel, d);
-			/** How many Friday messages the newest read returned. */
 			const offered = async () => {
 				const label = await panel
 					.getByRole("region", { name: /^Messages, \d+ messages?$/ })

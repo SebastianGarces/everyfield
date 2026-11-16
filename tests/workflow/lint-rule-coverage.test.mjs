@@ -1,5 +1,3 @@
-// T-43: Oxlint runs ahead of ESLint and takes the rules it has. No rule that was on in the old ESLint configs
-// (tests/workflow/lint-rules-baseline.json) may end up in neither tool.
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";

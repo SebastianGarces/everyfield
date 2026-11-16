@@ -1,6 +1,3 @@
-// WP-005: the post-sign-in landing rule through the real sign-in form and the real server (no stubbed API). Seed the
-// preview with invitation-seed.mts first; it writes the three landing accounts. Each row signs in and asserts the
-// final URL, so a removed rule (a hardcoded landing) fails here.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { BASE, ENGINES, fixture, withPage } from "../setup.mjs";

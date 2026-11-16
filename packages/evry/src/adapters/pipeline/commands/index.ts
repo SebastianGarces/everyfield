@@ -10,23 +10,14 @@ import { EvryRefusal } from "../../../context/errors.ts";
 import type { EffectResult, ReviewedWrite } from "../../../proposals/types.ts";
 import { change, organizationAdmin, organizationSeat, target } from "../../native.ts";
 
-// The pipeline and program reviewed writes (WP-101). The model proposes only identities and a plan; a person approves
-// the exact card. Each runs the native pipeline or program command the Pipeline and Programs pages run, once, in the
-// approval request (approveNow): those commands take the organization's write gate themselves. Both are an Owner's or
-// Admin's, as natively, except a program's next version, which only its current director drafts, whatever their role.
-// Evry never logs a conversation, writes a note or a reason, records a milestone, publishes or enrolls (REQ-MUL-015).
-
-/** A native pipeline or program reply as an effect result: its new revision, or the domain's refusal code. */
 const settled = (
 	reply: { status: "ok"; value: { revision: string } } | { status: "refused"; refusal: { code: string } },
 ) => (reply.status === "ok" ? { revision: reply.value.revision } : { refused: reply.refusal.code });
 
-/** A reviewed write that runs in the approval request; the job path never reaches it. */
 function approvedNow<I>(spec: {
 	operation: string;
 	description: string;
 	input: z.ZodType<I>;
-	/** Who may propose it: an Owner or Admin unless set. */
 	allowed?: (actor: EvryActor) => boolean;
 	review: ReviewedWrite<I>["review"];
 	reason: boolean;
@@ -57,7 +48,6 @@ export const proposeStageMove = approvedNow({
 	operation: "pipeline.proposeStageMove",
 	description:
 		"Propose moving one person in this organization's pipeline to another stage: only the person (personId) and the destination stage (stageId), both from pipeline.listPeople. It takes no reason, note or other text: the user types the reason on the review card, and Evry never sees it. Nothing changes until the user approves",
-	// Identities only (REQ-MUL-015): a reason, note or any other field is refused.
 	input: z.strictObject({ personId: z.uuid(), stageId: z.uuid() }),
 	review(actor, value) {
 		const refusal = sql`CASE WHEN fs.id=ds.id THEN jsonb_build_object('refusal',p.display_name||' is already in '||ds.label||'.')
@@ -73,7 +63,6 @@ export const proposeStageMove = approvedNow({
 	reason: true,
 	run: async (db, authority, args, reason) =>
 		settled(await pipelineWriter.movePerson(db, authority, { ...args, reason: reason ?? "" })),
-	// A move refused because the person moved since the review: where they are now.
 	current: (p) => sql`(SELECT jsonb_agg(jsonb_build_object('id',x.id,'label',x.display_name,'value',s.label))
 		FROM person x JOIN pipeline_person pp ON pp.person_id=x.id AND pp.organization_id=x.tenant_id
 		JOIN pipeline_stage s ON s.id=pp.stage_id AND s.organization_id=pp.organization_id
@@ -86,7 +75,6 @@ const months = z.int().min(0).max(120);
 const planInput = z.strictObject({
 	kind: programKind,
 	name: z.string().trim().min(1).max(120),
-	/** A seat row's id from development.draftPlan. */
 	directorSeatId: z.uuid(),
 	expectedMonths: z.int().min(1).max(120),
 	rhythm: programRhythm,
@@ -112,7 +100,6 @@ export const saveProgram = approvedNow({
 		"Propose creating one program from a drafted plan: kind, name, director (a seat id from development.draftPlan), expected length, rhythm, stages and milestones. It is saved as an unpublished draft: nothing is published and no one is enrolled, and only the director publishes it from Programs. Nothing changes until the user approves",
 	input: planInput,
 	review(actor, value) {
-		// The native request, with the ids it names once: a repeated approval creates no second program.
 		const plan = programPlan.safeParse({
 			rhythm: value.rhythm,
 			expectedMonths: value.expectedMonths,
@@ -158,7 +145,6 @@ export const saveProgram = approvedNow({
 });
 
 const nextPlanInput = z.strictObject({
-	/** A program row's id from development.readProgram. */
 	programId: z.uuid(),
 	plan: z.strictObject({
 		rhythm: programRhythm,
@@ -167,7 +153,6 @@ const nextPlanInput = z.strictObject({
 		milestones: z
 			.array(
 				z.strictObject({
-					/** A milestone the plan keeps names its lineage from development.readProgram; a new one has none. */
 					lineage: z.uuid().optional(),
 					title: z.string().trim().min(1).max(200),
 					description: z.string().trim().min(1).max(2000).nullable().optional(),
@@ -183,10 +168,6 @@ const stageText = (s: { label: string; minMonths: number; maxMonths: number }) =
 	`${s.label}, ${rangeText(s.minMonths, s.maxMonths)}`;
 const list = (items: string[]) => (items.length ? items.join("; ") : "none");
 
-/**
- * The review of a director's next plan against the plan it starts from (the draft in progress, else the published
- * version): each change, then what stays. Pure, so the eval and unit tests read the same card the panel shows.
- */
 export function nextVersionReview(program: ProgramDetail, value: NextPlan) {
 	const base = (program.draft ?? program.published) as Version;
 	const number = program.draft ? program.draft.number : base.number + 1;
@@ -207,7 +188,6 @@ export function nextVersionReview(program: ProgramDetail, value: NextPlan) {
 		expectedMonths: value.plan.expectedMonths,
 		stages: value.plan.stages,
 		milestones,
-		// The draft keeps the reading list of the plan it starts from: Evry never edits a reading list.
 		readings: base.readings.map((r) => ({ revisionId: r.revisionId })),
 	});
 	if (!plan.success) throw new EvryRefusal("invalid_input");
@@ -295,7 +275,6 @@ export const draftNextVersion = approvedNow({
 	description:
 		"Propose the next version's draft of one program the user directs: only the program (programId from development.readProgram) and the whole changed plan, starting from the draft in progress or else the published version. Keep each kept or renamed milestone's lineage from development.readProgram, and leave lineage out for a new milestone. The reading list stays as it is. It saves the draft only: nothing is published, no one enrolled changes version, and only the director publishes it from Programs. Nothing changes until the user approves",
 	input: nextPlanInput,
-	// Natively only the current director saves a plan, whatever their role: the review refuses anyone else.
 	allowed: organizationSeat,
 	async review(actor, value, { db }) {
 		const read = await readProgram(db, actor.authority, { programId: value.programId });
@@ -311,7 +290,6 @@ export const draftNextVersion = approvedNow({
 	run: async (db, authority, args) => settled(await programWriter.savePlan(db, authority, args)),
 });
 
-/** The installed pipeline and program reviewed writes, keyed by operation. */
 export const PIPELINE_COMMANDS = {
 	"pipeline.proposeStageMove": proposeStageMove,
 	"development.saveProgram": saveProgram,

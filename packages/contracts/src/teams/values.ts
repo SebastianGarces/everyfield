@@ -1,6 +1,5 @@
 import { z } from "zod";
 
-/** In-code ministry catalog generation. A client that sends another generation is stale. */
 export const TEMPLATE_VERSION = "2";
 export const teamState = z.enum(["forming", "active", "paused"]);
 export const leaderSource = z.enum(["explicit", "role_derived", "legacy"]);

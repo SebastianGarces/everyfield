@@ -1,5 +1,3 @@
-// T-396 test probe: generates one set of production identity keys and checks each against the app's own parser.
-// Prints the verdicts as JSON, never a value. Run with tsx and --conditions=react-server (opt-out.ts is server-only).
 import { parseKeyRing } from "../../../packages/domain/src/notifications/opt-out.ts";
 import { mailEnv } from "../../../apps/web/src/server/mail-env.ts";
 import { generateKeys } from "../../prod-identity/setup.ts";

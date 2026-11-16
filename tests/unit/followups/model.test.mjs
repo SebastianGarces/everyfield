@@ -1,6 +1,3 @@
-// Follow-up screen rules (WP-023/ui) that decide what a save sends and what the screen says while it runs. A silent
-// break would send a guessed contact time or count the wrong owner totals. They run in node against the real modules
-// the screens use; no browser. The save lane itself is tested once, in tests/unit/save/model.test.mjs.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
@@ -28,7 +25,6 @@ test("AC:TARGET-MTG-022 contacted needs the person to say when; the time is neve
 		ok: true,
 		input: { outcome: "contacted", occurredAt: now.toISOString(), channel: null, notes: null, completeTask: true },
 	});
-	// Another outcome left blank sends no time: the server records now.
 	const tried = outcomeInput(pickOutcome(emptyDraft(), "attempted_no_contact"), { completable: true, now });
 	assert.deepEqual(tried, {
 		ok: true,
@@ -104,7 +100,6 @@ test("AC:TARGET-TSK-012 AC:TARGET-TSK-013 owner totals follow confirmed assignme
 	const daniel = { accountId: "d", displayName: "Daniel Reyes" };
 	const start = { owners: [{ ...ruth, open: 2 }], formerOwners: [], needsOwner: 1, uncovered: 5 };
 	const view = (who, eligible = true, reason = null) => ({ ...who, eligible, reason });
-	// Needs owner -> Daniel: Daniel appears with one, Needs owner drops to zero.
 	assert.deepEqual(totalsAfter(start, [{ before: [], after: [view(daniel)] }]), {
 		owners: [
 			{ ...daniel, open: 1 },
@@ -114,13 +109,11 @@ test("AC:TARGET-TSK-012 AC:TARGET-TSK-013 owner totals follow confirmed assignme
 		needsOwner: 0,
 		uncovered: 5,
 	});
-	// A first follow-up for a contact with none, left as Needs owner.
 	assert.deepEqual(totalsAfter(start, [{ before: "new", after: [], firstForContact: true }]), {
 		...start,
 		needsOwner: 2,
 		uncovered: 4,
 	});
-	// Ruth hands both to Daniel: Ruth leaves the tally.
 	assert.deepEqual(
 		totalsAfter(start, [
 			{ before: [view(ruth)], after: [view(daniel)] },
@@ -128,18 +121,15 @@ test("AC:TARGET-TSK-012 AC:TARGET-TSK-013 owner totals follow confirmed assignme
 		]).owners,
 		[{ ...daniel, open: 2 }],
 	);
-	// A follow-up with two owners counts once under each; the totals still count it once (D-a).
 	assert.deepEqual(totalsAfter(start, [{ before: "new", after: [view(ruth), view(daniel)] }]).owners, [
 		{ ...daniel, open: 1 },
 		{ ...ruth, open: 3 },
 	]);
-	// With one eligible and one ineligible owner it is owned, and the ineligible one stays on the handoff tally.
 	const mixed = totalsAfter(start, [{ before: "new", after: [view(daniel), view(ruth, false, "no_seat")] }]);
 	assert.deepEqual(
 		[mixed.needsOwner, mixed.formerOwners, mixed.owners.map((o) => o.open)],
 		[1, [{ ...ruth, open: 1 }], [1, 2]],
 	);
-	// A departed account's two follow-ups move to Daniel: they leave Needs owner and the former owner's count.
 	const sam = { accountId: "s", displayName: "Sam Lee" };
 	const left = { owners: [], formerOwners: [{ ...sam, open: 2 }], needsOwner: 2, uncovered: 0 };
 	assert.deepEqual(
@@ -153,9 +143,7 @@ test("AC:TARGET-TSK-012 AC:TARGET-TSK-013 owner totals follow confirmed assignme
 	const ready = { ...ruth, eligible: true, reason: null };
 	const stuck = { ...sam, eligible: false, reason: "no_person" };
 	assert.equal(coverageOf([{ owners: [ready] }, { owners: [] }]), "needs_owner");
-	// A follow-up whose only assignee cannot own follow-ups still counts as Needs owner (D-a, REQ-TSK-012).
 	assert.equal(coverageOf([{ owners: [ready] }, { owners: [stuck] }]), "needs_owner");
-	// One eligible owner is enough, whoever else is on it.
 	assert.equal(coverageOf([{ owners: [ready, stuck] }]), "owned");
 	assert.equal(coverageOf([{ owners: [ready] }]), "owned");
 });
@@ -166,8 +154,6 @@ test("AC:TARGET-TSK-012 AC:TARGET-MTG-022 an ineligible owner shows why, no owne
 	assert.equal(ownerText(ruth), "Ruth Allen");
 	assert.equal(ownerText(tomas), "Tomas Weaver · Can't own follow-ups: no linked Person");
 	assert.equal(ownerText(null), "Needs owner");
-	// Correct attendance offers the set of eligible owners most of the meeting's open follow-ups have (D-e); a tie goes
-	// to the newest (the list is newest first); no eligible owner reads Needs owner.
 	const open = (...owners) => ({ kind: "first_vision_follow_up", state: "open", owners });
 	const dan = { accountId: "d", displayName: "Daniel Reyes", eligible: true, reason: null };
 	assert.deepEqual(preferredOwners([open(ruth), open(dan), open(dan)]), ["d"]);

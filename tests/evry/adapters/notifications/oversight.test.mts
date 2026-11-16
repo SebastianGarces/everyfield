@@ -36,15 +36,10 @@ import {
 	work,
 } from "../../runtime/support.mts";
 
-// WP-081 and WP-082 for an organization (T-341, D-1278): an organization Owner previews their own next oversight
-// digest and changes its cadence only through a review they approve. The database is real, every effect runs through
-// the real queue and every turn uses the scripted model.
-
 const ZONE = "America/Chicago";
 const DAY = 86_400_000;
 const CARE = "Confidential: Robin asked us to pray about a hard diagnosis.";
 const civil = (at: number) => new Intl.DateTimeFormat("en-CA", { timeZone: ZONE }).format(new Date(at));
-/** Noon in Chicago `days` before today: far from any day boundary. */
 const noon = (days: number) => `${civil(Date.now() - days * DAY)}T18:00:00Z`;
 const endedPlant = randomUUID();
 let owner: EvryActor;
@@ -59,7 +54,6 @@ async function affiliate(tenant: string, share: boolean, ended = false) {
 		VALUES(${tenant},${organization},clock_timestamp()-interval '30 days',${ended ? sql`clock_timestamp()-interval '10 days'` : null},false,false,false,false,false,${share},false)`);
 }
 const preview = () => invokeRead(db, owner, oversightDigest, {});
-/** What the Owner reads back: the rows any preview changes. */
 const effects = async () =>
 	(
 		await admin.execute(sql`SELECT
@@ -94,15 +88,12 @@ before(async () => {
 	await affiliate(plant, true);
 	await affiliate(otherPlant, false);
 	await affiliate(endedPlant, true, true);
-	// The Owner's oversight digest last covered three days ago, so the next one covers the two days since and today.
 	await admin.execute(sql`INSERT INTO digest_coverage(tenant_id,recipient_id,purpose,cadence,timezone,covered_through)
 		VALUES(${organization},${accounts.orgOwner.id},'oversight','daily',${ZONE},${civil(Date.now() - 3 * DAY)})`);
-	// Hope Fellowship's activity, one change of it naming a person; activity of the plants that share none.
 	await activity(plant, noon(2), 3);
 	await activity(plant, noon(1), 1, { display_name: "Robin Care", note: CARE });
 	await activity(otherPlant, noon(1), 4);
 	await activity(endedPlant, noon(1), 2);
-	// Private care in Hope Fellowship.
 	const person = randomUUID();
 	await admin.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,source,created_at,stage,adult_classification,commitment_state,pipeline_position,state)
 		VALUES(${person},${plant},${plant},'Robin Care','other',clock_timestamp(),'prospect','unknown','unknown',5,'live')`);
@@ -116,7 +107,6 @@ test("INV-oversight-preview the next oversight digest is what the runner compile
 	const result = await preview();
 	const [head, ...lines] = result.rows;
 	assert.equal(head!.id, "next");
-	// Daily at 07:00 in Chicago: the next one goes out at the next 07:00 and covers completed days since the coverage.
 	assert.match(String(head!.fields.sendsAt), /, 7:00 AM$/);
 	assert.equal(head!.fields.from, civil(Date.now() - 2 * DAY));
 	assert.equal(head!.fields.cadence, "daily");
@@ -135,7 +125,6 @@ test("INV-oversight-preview the next oversight digest is what the runner compile
 		lines.map((l) => l.label),
 		text.lines,
 	);
-	// Hope Fellowship's two days only: Quiet Creek shares no activity and Ended Ridge's affiliation ended.
 	const day = (days: number) =>
 		new Date(Date.now() - days * DAY).toLocaleDateString("en-US", {
 			timeZone: ZONE,
@@ -149,7 +138,6 @@ test("INV-oversight-preview the next oversight digest is what the runner compile
 	);
 	assert.equal(result.total, 4);
 	assert.doesNotMatch(JSON.stringify(result), /Robin|diagnosis|pray|Quiet Creek|Ended Ridge/);
-	// Reading changes nothing: no coverage moves, no digest is queued or sent and no notice is created.
 	assert.deepEqual(await effects(), before);
 	const answer = await ask("What will my next oversight digest say?");
 	assert.match(answer.text, /Hope Fellowship: 3 activities/);
@@ -224,18 +212,15 @@ test("INV-digest-cadence daily to weekly is reviewed, changes nothing until appr
 	assert.equal(await runNext(), "completed");
 	assert.equal((await readReview(db, owner, proposal.id)).outcome, "completed");
 	assert.equal(await settingsCadence(), "weekly");
-	// Approving the same card again returns it as already applied and writes nothing.
 	const writes = await audits();
 	const again = await approve(proposal);
 	assert.equal(again.replayed, true);
 	assert.equal(again.proposal.outcome, "completed");
 	assert.equal(await runNext(), null);
 	assert.equal(await audits(), writes);
-	// The weekly digest goes out on Mondays at 07:00 and covers the seven days to the Sunday before.
 	const [head] = (await preview()).rows;
 	assert.match(String(head!.fields.sendsAt), /^Mon, .*, 7:00 AM$/);
 	assert.equal(head!.fields.cadence, "weekly");
-	// Asking again for what is already set is a review that can't be approved.
 	assert.ok((await propose("notifications.oversightDigestCadence.set", { cadence: "weekly" }))?.review.refusal);
 });
 
@@ -270,6 +255,5 @@ test("INV-digest-cadence only daily or weekly, only the account's own: the input
 		assert.equal(answer.proposals, 0, text);
 		assert.match(answer.text, says, text);
 	}
-	// A request Settings offers gets its review.
 	assert.equal((await ask("Send my oversight digest daily")).proposals, 1);
 });

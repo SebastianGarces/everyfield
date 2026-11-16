@@ -89,8 +89,6 @@ export const publicPreviewRequest = z.strictObject({
 	path: z.string().min(1).max(500),
 	userAgent: z.string().max(500).optional(),
 });
-// Progress and views are monotone, so they carry no expected revision: two tabs never conflict.
-// Bookmark keeps its revision check.
 export const updateProgressRequest = z.strictObject({
 	requestKey,
 	input: z.strictObject({
@@ -122,8 +120,6 @@ export const setSourceOrderRequest = commandEnvelope(
 export const listResult = z.strictObject({
 	articles: z.array(wikiArticle),
 	nextCursor: z.string().nullable(),
-	/** The plant's live sending churches and networks in reading order: stored order first, then the rest by join
-	 * time. `orderRevision` "0" means no order is stored yet. */
 	churches: z.array(z.uuid()),
 	networks: z.array(z.uuid()),
 	orderRevision: z.string(),
@@ -175,8 +171,6 @@ export const tocResult = z.strictObject({
 	headings: z.array(z.strictObject({ level: z.union([z.literal(2), z.literal(3)]), text: z.string() })),
 	errorCode: z.literal("content_access_denied").nullable(),
 });
-/** The Guide for one app route: the excerpt of the version the viewer reads, its title and slug. `citation` names
- * the section heading the excerpt was asked for. */
 export const guideResult = z.strictObject({
 	found: z.boolean(),
 	missing: z.boolean(),
@@ -263,13 +257,8 @@ export const organizationArticleResult = z.strictObject({
 	invalidationCalls: z.number().int().nonnegative(),
 	state: z.enum(["published", "hide", "draft", "inherited"]).nullable(),
 });
-/**
- * An organization body is capped on the text a reader sees, so editor JSON around a long seed article still saves.
- * `stored` bounds the stored string itself.
- */
 export const ORGANIZATION_BODY_LIMIT = { visible: 20_000, stored: 100_000 } as const;
 
-/** The characters a reader sees: the text, callout labels and diagram source of everyfield-editor-v1 nodes, else the string. */
 export function visibleBodyLength(body: string): number {
 	let parsed: unknown;
 	try {
@@ -292,15 +281,10 @@ export function visibleBodyLength(body: string): number {
 	return length;
 }
 
-/** A body within the stored bound and within the visible-text cap. */
 export function organizationBodyFits(body: string): boolean {
 	return body.length <= ORGANIZATION_BODY_LIMIT.stored && visibleBodyLength(body) <= ORGANIZATION_BODY_LIMIT.visible;
 }
 
-/**
- * A credit that names a person or church. Internal ids, source paths, file names and digests never reach a reader,
- * on screen, in a PDF footer or in print.
- */
 export function humanCredit(credit: string | null | undefined): string | null {
 	const text = credit?.trim() ?? "";
 	if (!text || /^(church|network|global):/i.test(text)) return null;

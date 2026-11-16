@@ -1,5 +1,4 @@
 #!/bin/sh
-# wiki: the EveryField wiki CLI. Runs tools/wiki/main.ts on Node 24+ (native TypeScript).
 set -e
 here=$(cd "$(dirname "$0")/.." && pwd)
 tool=wiki
