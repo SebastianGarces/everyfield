@@ -1,3 +1,4 @@
+import { fileProblems, importProblem, routeFeatures } from "./boundaries.mjs";
 import { area, commentsExempt, ratchet, repoPath, sqlMarkers } from "./ratchet.mjs";
 
 const RESEND_PACKAGE = /^resend(?:\/|$)/;
@@ -10,7 +11,12 @@ const text = (node) =>
 		: node.type === "TemplateElement"
 			? (node.value.cooked ?? node.value.raw)
 			: null;
-const literalArgument = (node) => (node?.type === "Literal" && typeof node.value === "string" ? node.value : null);
+const literalArgument = (node) =>
+	node?.type === "Literal" && typeof node.value === "string"
+		? node.value
+		: node?.type === "TemplateLiteral" && node.expressions.length === 0
+			? node.quasis[0].value.cooked
+			: null;
 const isRequire = (node) => node.callee.type === "Identifier" && node.callee.name === "require";
 
 function moduleSources(report) {
@@ -25,6 +31,15 @@ function moduleSources(report) {
 		},
 		CallExpression: (node) => {
 			const name = isRequire(node) ? literalArgument(node.arguments[0]) : null;
+			if (name !== null) report(node, name);
+		},
+		TSImportType: (node) => {
+			const name = literalArgument(node.source ?? node.argument?.literal);
+			if (name !== null) report(node, name);
+		},
+		TSImportEqualsDeclaration: (node) => {
+			const reference = node.moduleReference;
+			const name = reference.type === "TSExternalModuleReference" ? literalArgument(reference.expression) : null;
 			if (name !== null) report(node, name);
 		},
 	};
@@ -610,6 +625,26 @@ const noCursorUtility = ratcheted("no-cursor-utility", (context, push) => {
 	};
 });
 
+const featureBoundaries = ratcheted("feature-boundaries", (context, push) => {
+	const from = repoPath(context.filename);
+	const imports = [];
+	const found = (node, [, message]) => push({ node, fn: null, message });
+	return {
+		...moduleSources((node, spec) => {
+			imports.push([node, spec]);
+			const problem = importProblem(from, spec);
+			if (problem) found(node, problem);
+		}),
+		Program(program) {
+			for (const [node, ...problem] of fileProblems(from, program)) found(node, problem);
+		},
+		"Program:exit"() {
+			const [node, ...problem] = routeFeatures(from, imports) ?? [];
+			if (node) found(node, problem);
+		},
+	};
+});
+
 export default {
 	meta: { name: "everyfield" },
 	rules: {
@@ -623,6 +658,7 @@ export default {
 		"no-comments": noComments,
 		"clickable-host": clickableHost,
 		"no-cursor-utility": noCursorUtility,
+		"feature-boundaries": featureBoundaries,
 		"no-sql-comments": noSqlComments,
 	},
 };
