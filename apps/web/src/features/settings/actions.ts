@@ -29,10 +29,6 @@ import {
 	run,
 } from "./server";
 
-// The settings server actions: one per operation the product screens use. Each parses the browser's request with the
-// settings contract (server.ts run), so a field the contract refuses never reaches the database, and the owner comes
-// from the session, never from the browser.
-
 export async function getSection(request: GetSectionRequest): Promise<Reply<SectionResult>> {
 	return readSection(request);
 }
@@ -46,7 +42,6 @@ export async function saveSection(request: SaveSectionRequest): Promise<Reply<Sa
 	);
 }
 
-/** One church form submission: up to three changes in one write, with one audit row and one request key. */
 export async function saveChurch(request: SaveChurchRequest): Promise<Reply<SavedSection>> {
 	return run(
 		S.saveChurchRequest,
@@ -56,7 +51,6 @@ export async function saveChurch(request: SaveChurchRequest): Promise<Reply<Save
 	);
 }
 
-/** A preview stores what it shows, so it runs as a write. */
 export async function previewPlantTimezone(
 	request: z.input<typeof S.previewPlantTimezoneRequest>,
 ): Promise<Reply<PlantTimezonePreview>> {
@@ -79,10 +73,6 @@ export async function setPlantTimezone(
 	);
 }
 
-// Your account's photo (REQ-IDN-006). The bytes go to the authenticated version route
-// (/api/accounts/<account>/avatar/<upload>) between the two calls.
-
-/** Stages one upload: the server owns its id, type and size. The bytes follow with PUT to the version route. */
 export async function requestAvatarUpload(
 	request: z.input<typeof S.requestAvatarUpload>,
 ): Promise<Reply<AvatarUpload>> {
@@ -95,7 +85,7 @@ export async function requestAvatarUpload(
 }
 
 export async function finalizeAvatar(request: z.input<typeof S.finalizeAvatarRequest>): Promise<Reply<AvatarResult>> {
-	drainObjectCleanup(); // after the response: delete the bytes of the photo this change released
+	drainObjectCleanup();
 	return run(
 		S.finalizeAvatarRequest,
 		request,
@@ -105,7 +95,7 @@ export async function finalizeAvatar(request: z.input<typeof S.finalizeAvatarReq
 }
 
 export async function removeAvatar(request: z.input<typeof S.removeAvatarRequest>): Promise<Reply<AvatarResult>> {
-	drainObjectCleanup(); // after the response: delete the bytes of the photo this change released
+	drainObjectCleanup();
 	return run(
 		S.removeAvatarRequest,
 		request,
@@ -113,8 +103,6 @@ export async function removeAvatar(request: z.input<typeof S.removeAvatarRequest
 		(ops, tx, context, r) => ops.avatar.removeAvatar(tx, context, r),
 	);
 }
-
-// Sign-in email and password (REQ-IDN-007, REQ-IDN-008): Better Auth makes the change.
 
 export async function requestEmailChange(
 	request: z.input<typeof N.requestEmailChange>,
@@ -134,7 +122,6 @@ export async function changePassword(request: z.input<typeof N.changePasswordReq
 	);
 }
 
-/** A credential call the mount refused before Better Auth ran reads as refused, never as success. */
 function outcome(
 	reply: CredentialOutcome | { status: "refused"; error: { correlationId: string } },
 ): CredentialOutcome {
@@ -142,8 +129,6 @@ function outcome(
 		? N.credentialOutcome.parse({ status: "refused", correlationId: reply.error.correlationId })
 		: reply;
 }
-
-// Your own time zone (REQ-IDN-033): a preview stores what it shows, then the save binds to it.
 
 export async function previewPersonalTimezone(
 	request: z.input<typeof N.previewPersonalTimezoneRequest>,
@@ -167,9 +152,6 @@ export async function setPersonalTimezone(
 	);
 }
 
-// Deleting your own login (REQ-IDN-032). The request ends every session; the restricted page then shows the
-// request and can cancel it before the deadline.
-
 export async function requestAccountDeletion(
 	request: z.input<typeof S.requestAccountDeletion>,
 ): Promise<Reply<DeletionStatus>> {
@@ -181,7 +163,6 @@ export async function requestAccountDeletion(
 	);
 }
 
-/** Fresh proof on the restricted page: the original login and its current password. */
 export async function openAccountDeletion(
 	request: z.input<typeof N.openAccountDeletionRequest>,
 ): Promise<Reply<DeletionStatus>> {
@@ -196,9 +177,6 @@ export async function cancelAccountDeletion(expectedRevision: string): Promise<R
 	return cancelRestrictedDeletion("account", expectedRevision);
 }
 
-// Deleting the church workspace (REQ-IDN-026, REQ-IDN-032): the Owner only, which the domain checks again. The request
-// ends the session of every seat; the Owner who asked cancels from the restricted workspace deletion page.
-
 export async function requestWorkspaceDeletion(
 	request: z.input<typeof S.requestWorkspaceDeletion>,
 ): Promise<Reply<DeletionStatus>> {
@@ -210,7 +188,6 @@ export async function requestWorkspaceDeletion(
 	);
 }
 
-/** Fresh proof of the Owner who asked: the latest workspace request that login made opens, nothing else. */
 export async function openWorkspaceDeletion(
 	request: z.input<typeof N.openAccountDeletionRequest>,
 ): Promise<Reply<DeletionStatus>> {

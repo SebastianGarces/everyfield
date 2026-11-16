@@ -9,7 +9,6 @@ import { refusalOf } from "../save";
 import type { SettingsError } from "../port";
 import { useFlowState, useFlows } from "../store";
 
-/** Why a link was not sent. A request that may have sent one says so: a new request replaces it safely. */
 function notSent(error: SettingsError | null): string {
 	if (!error || error.code === "unknown")
 		return "We could not confirm that the link was sent. Send it again: the new link replaces the old one.";
@@ -23,19 +22,11 @@ type State =
 	| { step: "editing"; value: string; error?: string; sending: boolean }
 	| { step: "sent"; email: string };
 
-/**
- * Changing the sign-in email (REQ-IDN-007). The new address gets a link that works for 24 hours; until it is opened
- * the current address stays. Each request replaces the one before, so only the newest link works. One request runs at
- * a time: while it sends, Send link is loading, so a second Enter or click does nothing, and Cancel waits for the
- * answer, so the screen never hides a link that was sent.
- */
 export function EmailChange({ currentEmail }: { currentEmail: string }) {
 	const port = useFlows();
-	// Kept in the settings store: leaving Your account while a link sends, or after it was sent, keeps that step.
 	const [state, setState] = useFlowState<State>("email-change", { step: "idle" });
 	const field = useRef<HTMLInputElement>(null);
 	const start = () => setState({ step: "editing", value: "", sending: false });
-	// After a refusal the field takes focus, so the reason is read with it and the address can be corrected at once.
 	const refuse = (error: string) => {
 		setState((s) => (s.step === "editing" ? { ...s, sending: false, error } : s));
 		field.current?.focus();
@@ -55,8 +46,6 @@ export function EmailChange({ currentEmail }: { currentEmail: string }) {
 			reply = null;
 		}
 		if (reply?.status === "ok") return setState({ step: "sent", email: parsed.data });
-		// The form stays in the store while it sends (Cancel is disabled), so the reason lands even if another section
-		// was opened meanwhile.
 		refuse(notSent(reply?.status === "refused" ? reply.error : null));
 	};
 

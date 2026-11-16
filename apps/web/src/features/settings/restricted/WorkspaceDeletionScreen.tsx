@@ -11,7 +11,6 @@ const PORT: DeletionPort = {
 	cancel: cancelWorkspaceDeletion,
 };
 
-/** The product's restricted deletion page for a church workspace (/workspace-deletion), for the Owner who asked. */
 export function WorkspaceDeletionScreen({
 	initial,
 	requestedUntil,
