@@ -5,12 +5,6 @@ import type { z } from "zod";
 import type { BulkResult, OfferAnswered, Outcome, Rule, Saved, TemplateImport } from "./model.ts";
 import { taskViewer, write, type TaskViewer } from "./server.ts";
 
-// Server actions behind the Tasks screens' writes: the browser boundary. Reads go through read.ts, a GET handler, because
-// Next runs one server action at a time and a read must never hold up a save. Each one rebuilds the viewer from the request and
-// hands the browser's input to the writer, which parses it with the WP-024 contract, whose strict schemas refuse any
-// owner, creator or authority field, and rechecks authority inside its statement. A lost answer may be retried with the
-// same request key: the writer replays a write that did commit instead of acting twice.
-
 const denied = { status: "refused", code: "access_denied" } as const;
 const invalid = { status: "refused", code: "invalid_input" } as const;
 
@@ -19,7 +13,6 @@ async function boundary<T>(run: (viewer: TaskViewer) => Promise<Outcome<T>>): Pr
 	return viewer ? run(viewer) : denied;
 }
 
-/** The saved task after a write, as the screen shows it from now on, with the audit record that is its history entry. */
 const saved = (r: z.infer<typeof c.taskMutation> & { successor?: z.infer<typeof c.taskDetail> | null }): Saved => ({
 	task: r.task,
 	receiptId: r.receiptId,
@@ -58,11 +51,6 @@ export type StatusAction =
 	| { kind: "waive"; reason: string | null }
 	| { kind: "status"; status: "not_started" | "in_progress" | "blocked" };
 
-/**
- * Complete, reopen, close as no longer needed or set an open status. Every path uses the one status writer. Complete
- * goes through tasks.completeOccurrence, the same completion, which also returns the next occurrence of a recurring
- * task so the screen can show it without reading the list again.
- */
 export async function changeTaskStatus(
 	requestKey: string,
 	expectedRevision: string,
@@ -82,7 +70,6 @@ export async function changeTaskStatus(
 			return run((v) => write(v, (w, tx, ctx) => w.waive(tx, ctx, { ...envelope, input })));
 		}
 		case "status": {
-			// This action sets an open status only; completion and closing have their own paths above.
 			if (!["not_started", "in_progress", "blocked"].includes(action.status)) return invalid;
 			const input = { taskId, status: action.status };
 			return run((v) => write(v, (w, tx, ctx) => w.changeStatus(tx, ctx, { ...envelope, input })));
@@ -92,9 +79,6 @@ export async function changeTaskStatus(
 	}
 }
 
-// Task structure (WP-025). Each is one command with its own request key; the writer rechecks authority in its statement.
-
-/** Add a step under `parentId`. `assigneeIds` undefined takes the task's assignees; only an Owner or Admin may name them. */
 export async function addStep(
 	requestKey: string,
 	parentRevision: string,
@@ -110,7 +94,6 @@ export async function addStep(
 	);
 }
 
-/** Tick or untick a step. Its own assignee or an Owner/Admin; holding the parent does not count. */
 export async function setStep(
 	requestKey: string,
 	expectedRevision: string,
@@ -124,7 +107,6 @@ export async function setStep(
 	);
 }
 
-/** Remove a step. Its history stays. Owner/Admin. */
 export async function removeStep(
 	requestKey: string,
 	expectedRevision: string,
@@ -140,7 +122,6 @@ export async function removeStep(
 	);
 }
 
-/** Replace what a task waits for, as a whole set. A loop refuses with dependency_cycle. Owner/Admin. */
 export async function setPrerequisites(
 	requestKey: string,
 	expectedRevision: string,
@@ -156,7 +137,6 @@ export async function setPrerequisites(
 	);
 }
 
-/** Make a task repeat, change its rule, or stop it with null. Stopping keeps every occurrence. Owner/Admin. */
 export async function setRecurrence(
 	requestKey: string,
 	expectedRevision: string,
@@ -173,26 +153,19 @@ export async function setRecurrence(
 }
 
 type BulkItems = { taskId: string; expectedRevision: string }[];
-/** Complete up to 100 reviewed tasks. Each gets its own outcome; a retry with the same key changes nothing twice. */
 export async function bulkComplete(requestKey: string, items: BulkItems): Promise<Outcome<BulkResult>> {
 	return boundary((v) => write(v, (w, tx, ctx) => w.bulkComplete(tx, ctx, { requestKey, items })));
 }
-/** Give up to 100 reviewed open tasks the same due date. Owner/Admin. */
 export async function bulkReschedule(requestKey: string, items: BulkItems, due: unknown): Promise<Outcome<BulkResult>> {
 	return boundary((v) => write(v, (w, tx, ctx) => w.bulkReschedule(tx, ctx, { requestKey, items, due })));
 }
 
-// Phase checklists (WP-026). The writer checks the catalog version, the keys and the Owner or Admin seat in its own
-// statements; a lost answer is retried with the same request key and replays the stored result.
-
-/** Import the previewed items of one checklist as tasks assigned to the importer. */
 export async function importTemplate(
 	requestKey: string,
 	input: { catalogVersion: number; checklistKey: string; itemKeys: string[] },
 ): Promise<Outcome<TemplateImport>> {
 	return boundary((v) => write(v, (w, tx, ctx) => w.importTemplate(tx, ctx, { requestKey, input })));
 }
-/** Accept some of a phase offer's checklists, or decline them all with an empty list. */
 export async function answerOffer(
 	requestKey: string,
 	input: { transitionId: string; catalogVersion: number; checklistKeys: string[] },
