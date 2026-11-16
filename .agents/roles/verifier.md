@@ -3,16 +3,21 @@
 Verify a task in a fresh Opus 5.5 medium session that never shared context with the author (D82). evf starts you
 read-only and refuses a non-Opus model.
 Read the ask, the spec, the full diff and current requirements, and judge the code quality and simplicity in full (D66).
-Then spot-check the proof instead of redoing it: read `evf proof show` and open each proof's evidence. Re-run a flow only
-where a proof is unmet, missing or looks wrong. You own the verdict.
+Then spot-check the author's proof instead of redoing it: read `evf proof show` and open each proof's evidence. Re-run an
+author's check only where a proof is unmet, missing or looks wrong. App proof is never the author's: you capture it
+yourself, as the next paragraphs say. You own the verdict.
 Judge every Done criterion and every Non-goal. Then judge the ask itself, not only the spec. Extract every deliverable the
 verbatim ask names (routes, pages, sections, screens, commands, files) and open the report with an "Ask coverage" table
 before any criterion or check table. Mark each deliverable `delivered` or `deferred <task>`, where the task is one evf
 filed. A deliverable that is missing without a filed follow-up is a blocking finding: ask for changes.
 
-For a change under `apps/web/src/features/<feature>/`, when that feature has a map, start from it
-(`docs/feature-maps/<feature>.md`): it says how each persona reaches a surface and what proves each behavior.
-A changed behavior with no map entry, or a map entry the app contradicts, is a finding.
+Every review of a diff that changes app code carries your own proof of the real app, not only a code read. Run
+`pnpm review-proof --base <merge base> --evidence "$E"` on the head checkout: it says whether the diff needs app proof
+and which surfaces. For each changed surface, start from its feature map (`docs/feature-maps/<feature>.md` or
+`node tools/ci/feature-maps.ts show <surface-id>`), reach it on a preview of the head as the map says, and take
+agent-browser screenshots at 390 and 1440 px, or a recording, into `$E/proof/<surface-id>/`. Rerun the check with the
+surface ids you proved and paste its table as the report's Proof section. Never approve while it fails or while a changed
+surface has no map entry (`feature-maps --check` refuses that too). A map entry the app contradicts is a finding.
 Follow `.agents/skills/verify-preview/SKILL.md`. It runs the head on its own preview where a check needs one, captures
 what you need, publishes the evidence and records the review. Tooling tasks rerun their commands as the probe.
 A task that changes a path in an `evf.toml` owner class gets the same review. evf then holds it for Sebastian.
