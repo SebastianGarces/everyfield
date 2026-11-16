@@ -19,16 +19,6 @@ import {
 import { listRequest, parseQuery } from "../model.ts";
 import { read, type Viewer } from "../server.ts";
 
-// The CSV routes under /api/people (REQ-PPL-018, REQ-PPL-019). No request here carries the import file: the browser puts
-// it once into the private bucket with the URL the upload route signs, and the preview and the import name that upload,
-// so the server reads the stored object itself (REQ-PPL-014's private-file flow). A function's request and reply bodies
-// are capped well under 10 MiB on the host, so the preview, which lists every row, streams its reply. Each route rebuilds
-// the viewer from the session; the producer rechecks the seat's authority in its own statement. Answers are JSON: ok
-// with the value, refused with the producer's code (and the bad line for quoting), both with status 200 because the
-// request itself worked, or 503 for a failed database call, which the screen reads as a lost reply. The CSV downloads
-// answer 403 or 503 without a body. The scheduled runner drains due imports; the import and retry routes also start the
-// import worker after the answer, so previews, which run no cron, still finish.
-
 const NO_STORE = { "Cache-Control": "private, no-store" };
 type Answer = { status: "ok"; value: unknown } | { status: "refused"; code: string; line?: number };
 const json = (body: Answer) => Response.json(body, { headers: NO_STORE });
@@ -44,11 +34,6 @@ function answer<T>(reply: PeopleReply<T> | { status: "failed" }, ok: (value: T) 
 	return json({ status: "ok", value: ok(reply.value) });
 }
 
-/**
- * Whether a browser sent this request from another site. The import posts write and read church data, so only a
- * same-origin request is accepted; a request without the header (an older browser or a script) is allowed, as in
- * saveExportRoute.
- */
 function crossSite(request: Request) {
 	const site = request.headers.get("sec-fetch-site");
 	return site !== null && site !== "same-origin";
@@ -57,12 +42,7 @@ function crossSite(request: Request) {
 async function viewer(): Promise<Viewer | null> {
 	return (await getViewer())?.people ?? null;
 }
-/** The reviewed choice of every row the contract allows (about 31 bytes each as JSON) and the rest of the request. */
 const BODY_LIMIT = importLimits.rows * 48 + 64 * 1024;
-/**
- * The request body, read from its stream and counted as it arrives: null once it passes `limit`, before the rest is
- * read into memory. A declared Content-Length above the limit is refused without reading at all.
- */
 async function boundedBody(request: Request, limit = BODY_LIMIT): Promise<Uint8Array<ArrayBuffer> | null> {
 	if (Number(request.headers.get("content-length") ?? 0) > limit) return null;
 	const chunks: Uint8Array[] = [];
@@ -70,7 +50,6 @@ async function boundedBody(request: Request, limit = BODY_LIMIT): Promise<Uint8A
 	if (request.body)
 		for await (const chunk of request.body) {
 			size += chunk.byteLength;
-			// Leaving the loop early cancels the stream: the rest of the body is never read.
 			if (size > limit) return null;
 			chunks.push(chunk);
 		}
@@ -83,7 +62,6 @@ async function boundedBody(request: Request, limit = BODY_LIMIT): Promise<Uint8A
 	return body;
 }
 
-/** GET /api/people/import/template: the 12 import columns, header only. It holds no church data. */
 export async function templateRoute() {
 	if (!(await viewer())) return new Response(null, { status: 403, headers: NO_STORE });
 	const file = peopleCsv.generateCsvTemplate();
@@ -96,7 +74,6 @@ export async function templateRoute() {
 	});
 }
 
-/** A JSON reply sent in pieces: the host caps a reply it holds whole, and a full preview is about the file's size. */
 function streamed(body: Answer) {
 	const text = new TextEncoder().encode(JSON.stringify(body));
 	const PIECE = 256 * 1024;
@@ -110,7 +87,6 @@ function streamed(body: Answer) {
 	return new Response(stream, { headers: { ...NO_STORE, "Content-Type": "application/json" } });
 }
 
-/** A small JSON request body (an upload id, or the reviewed choices), read within BODY_LIMIT; undefined when not JSON. */
 async function jsonBody(request: Request): Promise<unknown> {
 	const body = await boundedBody(request);
 	if (!body) return undefined;
@@ -121,7 +97,6 @@ async function jsonBody(request: Request): Promise<unknown> {
 	}
 }
 
-/** The viewer, database and private bucket an import route needs, or the refusal the screen shows without them. */
 async function importDeps(request: Request) {
 	if (crossSite(request)) return refused("access_denied");
 	const v = await viewer();
@@ -132,10 +107,6 @@ async function importDeps(request: Request) {
 	return { v, db, storage };
 }
 
-/**
- * POST /api/people/import/upload: `{ byteLength }`. A five-minute URL that puts this one file straight into the private
- * bucket; a file over the limit is refused before anything is uploaded.
- */
 export async function uploadRoute(request: Request) {
 	const deps = await importDeps(request);
 	if (deps instanceof Response) return deps;
@@ -148,7 +119,6 @@ export async function uploadRoute(request: Request) {
 	}
 }
 
-/** POST /api/people/import/preview: `{ uploadId }`. Every row's outcome and duplicates in the stored file; it writes nothing. */
 export async function previewRoute(request: Request) {
 	const deps = await importDeps(request);
 	if (deps instanceof Response) return deps;
@@ -163,10 +133,6 @@ export async function previewRoute(request: Request) {
 	}
 }
 
-/**
- * POST /api/people/import: the same upload and the reviewed choices under one request key, as JSON. Repeating it
- * after a lost reply returns the saved receipt.
- */
 export async function importRoute(request: Request) {
 	const deps = await importDeps(request);
 	if (deps instanceof Response) return deps;
@@ -181,10 +147,6 @@ export async function importRoute(request: Request) {
 	}
 }
 
-/**
- * POST /api/people/import/retry: `{ requestKey, uploadId? }`. "Try N rows again" for a partial import: from the server's
- * kept copy, or, once that is deleted, from the same file uploaded again.
- */
 export async function retryRoute(request: Request) {
 	const deps = await importDeps(request);
 	if (deps instanceof Response) return deps;
@@ -199,13 +161,11 @@ export async function retryRoute(request: Request) {
 	}
 }
 
-/** The receipt for one import key, for the page and for the screen's polling. Null when the key is malformed. */
 export function readReceipt(v: Viewer, requestKey: unknown) {
 	const input = importReceiptRequest.safeParse({ requestKey });
 	return input.success ? read(v, (tx, ctx) => peopleCsv.getImportReceipt(tx, ctx, input.data)) : null;
 }
 
-/** GET /api/people/import?key=: the import's outcome for each row, read again while it runs or after a lost reply. */
 export async function receiptRoute(request: Request) {
 	const v = await viewer();
 	if (!v) return refused("access_denied");
@@ -215,7 +175,6 @@ export async function receiptRoute(request: Request) {
 	return answer(reply);
 }
 
-/** The export request for a People address: the directory's own filters, without paging or view. */
 function exportFilters(search: URLSearchParams) {
 	const r = listRequest(parseQuery(search));
 	return exportPeopleRequest.parse({
@@ -230,10 +189,6 @@ function exportFilters(search: URLSearchParams) {
 	});
 }
 
-/**
- * GET /api/people/export?<People address>: every person the directory's current filters match, as formula-safe CSV.
- * The receipt's counts and filters travel in headers, so the screen can say what the file holds.
- */
 export async function exportRoute(request: Request) {
 	const v = await viewer();
 	if (!v) return new Response(null, { status: 403, headers: NO_STORE });
