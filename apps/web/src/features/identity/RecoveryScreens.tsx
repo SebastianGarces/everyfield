@@ -9,9 +9,10 @@ import {
 } from "@hugeicons/core-free-icons";
 import { nativePassword, normalizedEmail } from "@everyfield/contracts/identity";
 import { Button, Field, Input } from "@everyfield/ui/controls";
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useRef, useState, type FormEvent, type ReactNode } from "react";
 import { identityApi } from "./api";
 import { AuthFooter, AuthHeading, AuthLink } from "./AuthFrame";
+import { takeQueryProof, useLinkSecretLeavesAddress } from "./link";
 import { refusalMessage } from "./messages";
 import { FormMessage, Outcome, PasswordInput } from "./parts";
 
@@ -23,18 +24,6 @@ function SignInButton({ label = "Sign in" }: { label?: string }) {
 	);
 }
 
-/**
- * A proof arrives in the link's query string. Keep it in memory and drop it from the address bar and history, so it
- * is not left in the browser history or shown on screen.
- */
-function useProofFromLink(proof: string | null): string | null {
-	const [kept] = useState(proof);
-	useEffect(() => {
-		if (kept) window.history.replaceState(null, "", window.location.pathname);
-	}, [kept]);
-	return kept;
-}
-
 function IncompleteLink({ action }: { action: ReactNode }) {
 	return (
 		<Outcome icon={UnlinkIcon} tone="amber" title="This link is incomplete" actions={action}>
@@ -43,27 +32,24 @@ function IncompleteLink({ action }: { action: ReactNode }) {
 	);
 }
 
-/** Password recovery request (auth.requestPasswordRecovery). Every address gets the same answer (REQ-IDN-009). */
 export function RecoverScreen() {
-	const [sentTo, setSentTo] = useState<string | null>(null);
+	const [sent, setSent] = useState<{ to: string; again: boolean } | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [refusal, setRefusal] = useState<string | null>(null);
-	const [resent, setResent] = useState(false);
 	const [busy, setBusy] = useState(false);
 	const emailRef = useRef<HTMLInputElement>(null);
 
 	async function send(email: string) {
 		setBusy(true);
 		setRefusal(null);
-		setResent(false);
+		if (sent) setSent({ to: sent.to, again: false });
 		const result = await identityApi.requestPasswordRecovery(email);
 		setBusy(false);
 		if (!result.ok) {
 			setRefusal(refusalMessage("recover", result.error));
 			return;
 		}
-		if (sentTo) setResent(true);
-		setSentTo(email);
+		setSent({ to: email, again: sent !== null });
 	}
 
 	async function submit(event: FormEvent<HTMLFormElement>) {
@@ -78,7 +64,7 @@ export function RecoverScreen() {
 		await send(email.data);
 	}
 
-	if (sentTo)
+	if (sent)
 		return (
 			<Outcome
 				icon={MailOpen01Icon}
@@ -87,16 +73,16 @@ export function RecoverScreen() {
 				actions={
 					<>
 						<FormMessage tone="error">{refusal}</FormMessage>
-						<FormMessage tone="success">{resent ? "Another link is on its way." : null}</FormMessage>
+						<FormMessage tone="success">{sent.again ? "Another link is on its way." : null}</FormMessage>
 						<SignInButton label="Back to sign in" />
-						<Button variant="ghost" loading={busy} onClick={() => void send(sentTo)} className="w-full">
+						<Button variant="ghost" loading={busy} onClick={() => void send(sent.to)} className="w-full">
 							Send another link
 						</Button>
 					</>
 				}
 			>
-				If an account uses <span className="font-medium text-ink">{sentTo}</span>, it gets a link to reset the password.
-				The link works once and expires after 1 hour.
+				If an account uses <span className="font-medium text-ink">{sent.to}</span>, it gets a link to reset the
+				password. The link works once and expires after 1 hour.
 			</Outcome>
 		);
 
@@ -132,9 +118,8 @@ export function RecoverScreen() {
 
 type ResetState = "form" | "done" | "expired";
 
-/** Choose a new password from a reset link (auth.recoverPassword). It never signs in by itself (REQ-IDN-009). */
-export function ResetPasswordScreen({ proof: linkProof }: { proof: string | null }) {
-	const proof = useProofFromLink(linkProof);
+export function ResetPasswordScreen({ proof }: { proof: string | null }) {
+	useLinkSecretLeavesAddress(takeQueryProof);
 	const [state, setState] = useState<ResetState>("form");
 	const [errors, setErrors] = useState<{ newPassword?: string; confirmPassword?: string }>({});
 	const [refusal, setRefusal] = useState<string | null>(null);
@@ -233,12 +218,8 @@ export function ResetPasswordScreen({ proof: linkProof }: { proof: string | null
 
 type VerifyState = "ready" | "done" | "expired";
 
-/**
- * Confirm an email address from its link. The proof is spent only when the person presses the button: mail scanners
- * open links on their own, and a GET must never use up the proof.
- */
-export function VerifyEmailScreen({ proof: linkProof }: { proof: string | null }) {
-	const proof = useProofFromLink(linkProof);
+export function VerifyEmailScreen({ proof }: { proof: string | null }) {
+	useLinkSecretLeavesAddress(takeQueryProof);
 	const [state, setState] = useState<VerifyState>("ready");
 	const [refusal, setRefusal] = useState<string | null>(null);
 	const [busy, setBusy] = useState(false);
