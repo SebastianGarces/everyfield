@@ -3,6 +3,7 @@
 import { Checkbox as CheckboxPrimitive, RadioGroup as RadioPrimitive, Switch as SwitchPrimitive } from "radix-ui";
 import { useId, type ComponentPropsWithRef, type ReactNode } from "react";
 import { cn } from "../foundations";
+import { unlessReset } from "../foundations/form-reset";
 
 function ChoiceLabel({
 	htmlFor,
@@ -36,12 +37,22 @@ type CheckboxProps = Omit<ComponentPropsWithRef<typeof CheckboxPrimitive.Root>, 
 	shape?: "square" | "round";
 };
 
-export function Checkbox({ label, description, shape = "square", id, className, ...props }: CheckboxProps) {
+export function Checkbox({
+	label,
+	description,
+	shape = "square",
+	id,
+	className,
+	onCheckedChange,
+	...props
+}: CheckboxProps) {
 	const auto = useId();
 	const boxId = id ?? auto;
 	const box = (
 		<CheckboxPrimitive.Root
+			key={props.checked === undefined ? String(props.defaultChecked) : undefined}
 			id={boxId}
+			onCheckedChange={unlessReset(onCheckedChange)}
 			className={cn(
 				"group/check grid size-5 flex-none place-items-center bg-surface-raised shadow-[inset_0_0_0_1.5px_var(--ef-text-3)] transition-[background-color,box-shadow] duration-150 hover:shadow-[inset_0_0_0_1.5px_var(--ef-ink-2)] disabled:opacity-45 data-[state=checked]:bg-ink data-[state=checked]:shadow-none data-[state=indeterminate]:bg-ink data-[state=indeterminate]:shadow-none",
 				shape === "round" ? "rounded-full" : "rounded-xs",
@@ -85,11 +96,14 @@ export function Checkbox({ label, description, shape = "square", id, className, 
 export function RadioGroup({
 	className,
 	orientation = "vertical",
+	onValueChange,
 	...props
 }: ComponentPropsWithRef<typeof RadioPrimitive.Root>) {
 	return (
 		<RadioPrimitive.Root
+			key={props.value === undefined ? props.defaultValue : undefined}
 			orientation={orientation}
+			onValueChange={unlessReset(onValueChange)}
 			className={cn("flex gap-x-6", orientation === "vertical" && "flex-col", className)}
 			{...props}
 		/>
@@ -122,12 +136,14 @@ type SwitchProps = Omit<ComponentPropsWithRef<typeof SwitchPrimitive.Root>, "chi
 	tone?: "green" | "blue";
 };
 
-export function Switch({ label, description, tone = "green", id, className, ...props }: SwitchProps) {
+export function Switch({ label, description, tone = "green", id, className, onCheckedChange, ...props }: SwitchProps) {
 	const auto = useId();
 	const switchId = id ?? auto;
 	const control = (
 		<SwitchPrimitive.Root
+			key={props.checked === undefined ? String(props.defaultChecked) : undefined}
 			id={switchId}
+			onCheckedChange={unlessReset(onCheckedChange)}
 			className={cn(
 				"relative h-7 w-12 flex-none rounded-pill bg-[var(--ef-switch-off)] p-0 shadow-[inset_0_0_0_1px_var(--ef-text-3)] transition-[background-color,box-shadow] duration-200 disabled:opacity-45",
 				tone === "blue"

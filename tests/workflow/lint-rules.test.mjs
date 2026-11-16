@@ -209,6 +209,158 @@ export function Row({ on }) {
 	]);
 });
 
+test("INV-lint: history writes, popstate and the Navigation API are reported outside the location store, in every spelling", () => {
+	const source = `export function go(mode, href) {
+	window.history.pushState(null, "", href);
+	history.replaceState(null, "", href);
+	window.history[mode === "push" ? "pushState" : "replaceState"](null, "", href);
+	onTraversal("popstate");
+	window.onpopstate = null;
+	const { pushState } = window.history;
+	listen(\`popstate\`);
+	history["push" + "State"](null, "", href);
+	window.navigation.navigate(href);
+	navigation.addEventListener("navigate", go);
+	return pushState;
+}
+`;
+	assert.deepEqual(
+		lint({ "apps/web/src/features/x/go.ts": source, "apps/web/src/components/location.ts": source }),
+		[
+			"apps/web/src/features/x/go.ts:2 no-raw-history",
+			"apps/web/src/features/x/go.ts:3 no-raw-history",
+			"apps/web/src/features/x/go.ts:4 no-raw-history",
+			"apps/web/src/features/x/go.ts:4 no-raw-history",
+			"apps/web/src/features/x/go.ts:4 no-raw-history",
+			"apps/web/src/features/x/go.ts:5 no-raw-history",
+			"apps/web/src/features/x/go.ts:6 no-raw-history",
+			"apps/web/src/features/x/go.ts:6 no-global-listeners",
+			"apps/web/src/features/x/go.ts:7 no-raw-history",
+			"apps/web/src/features/x/go.ts:8 no-raw-history",
+			"apps/web/src/features/x/go.ts:9 no-raw-history",
+			"apps/web/src/features/x/go.ts:10 no-raw-history",
+			"apps/web/src/features/x/go.ts:10 no-raw-history",
+			"apps/web/src/features/x/go.ts:11 no-raw-history",
+		].sort(),
+	);
+});
+
+test("INV-lint: window and document listeners are reported outside the location store and the page-event registry", () => {
+	const source = `export function mount(node, run) {
+	window.addEventListener("keydown", run);
+	document.removeEventListener("click", run);
+	const add = globalThis.addEventListener;
+	addEventListener("beforeunload", run);
+	window.document.addEventListener("click", run);
+	node.addEventListener("click", run);
+	const w = window;
+	w.addEventListener("resize", run);
+	document.body.addEventListener("click", run);
+	const { addEventListener: listen } = window;
+	window.onresize = run;
+	document.onclick = run;
+	node.ownerDocument.addEventListener("keydown", run);
+	window.visualViewport.addEventListener("resize", run);
+	return [add, listen];
+}
+`;
+	const registries = `import { addAddressRule, onTraversal } from "../../components/location.ts";
+addAddressRule("ok", () => null);
+export function Screen() {
+	addAddressRule("bad", () => null);
+	const go = () => onTraversal(() => {});
+	return <button ref={(node) => (node ? onTraversal(() => {}) : undefined)} onClick={go} />;
+}
+`;
+	assert.deepEqual(
+		lint({
+			"apps/web/src/features/x/mount.ts": source,
+			"apps/web/src/features/x/Screen.tsx": registries,
+			"apps/web/src/components/save/leave.ts": source,
+			"apps/web/src/components/location.ts": source,
+		}),
+		[
+			...[2, 3, 4, 5, 6, 9, 10, 11, 12, 13, 14, 15].map(
+				(line) => `apps/web/src/features/x/mount.ts:${line} no-global-listeners`,
+			),
+			"apps/web/src/features/x/Screen.tsx:4 no-global-listeners",
+			"apps/web/src/features/x/Screen.tsx:6 no-global-listeners",
+		].sort(),
+	);
+});
+
+test("INV-lint: zustand is reached only through store files and the store helper, never at module level", () => {
+	const store = `import { createStore } from "zustand/vanilla";
+export const shared = createStore()(() => ({}));
+export const createPanelStore = () => createStore()(() => ({}));
+`;
+	const evasions = `import { createStore as make } from "zustand/vanilla";
+import * as z from "zustand/vanilla";
+export { createStore } from "zustand/vanilla";
+export const a = make()(() => ({}));
+export const b = z.createStore()(() => ({}));
+export const c = (() => make()(() => ({})))();
+export const createOtherStore = () => make()(() => ({}));
+const alias = make;
+export const d = alias()(() => ({}));
+export const e = createOtherStore();
+`;
+	const component = `import { create } from "zustand";
+import { createStore } from "zustand/vanilla";
+import { persist } from "zustand/middleware";
+import { useStore } from "zustand";
+import { createPanelStore } from "./Panel.store.ts";
+import * as Panel from "./Panel.store.ts";
+export const used = [create, createStore, persist, useStore];
+export const viaSpace = Panel.createPanelStore();
+export const shared = createPanelStore();
+export function Panel() {
+	return createPanelStore();
+}
+`;
+	assert.deepEqual(
+		lint({
+			"apps/web/src/features/x/Panel.store.ts": store,
+			"apps/web/src/features/x/Other.store.ts": evasions,
+			"apps/web/src/features/x/Panel.tsx": component,
+			"apps/web/src/components/store.ts": `import { useStore } from "zustand";\nexport { useShallow } from "zustand/react/shallow";\nexport { useStore };\n`,
+		}),
+		[
+			"apps/web/src/features/x/Other.store.ts:3 zustand-shape",
+			"apps/web/src/features/x/Other.store.ts:4 zustand-shape",
+			"apps/web/src/features/x/Other.store.ts:5 zustand-shape",
+			"apps/web/src/features/x/Other.store.ts:6 zustand-shape",
+			"apps/web/src/features/x/Other.store.ts:9 zustand-shape",
+			"apps/web/src/features/x/Other.store.ts:10 zustand-shape",
+			"apps/web/src/features/x/Panel.store.ts:2 zustand-shape",
+			"apps/web/src/features/x/Panel.tsx:1 zustand-shape",
+			"apps/web/src/features/x/Panel.tsx:2 zustand-shape",
+			"apps/web/src/features/x/Panel.tsx:3 zustand-shape",
+			"apps/web/src/features/x/Panel.tsx:4 zustand-shape",
+			"apps/web/src/features/x/Panel.tsx:8 zustand-shape",
+			"apps/web/src/features/x/Panel.tsx:9 zustand-shape",
+		].sort(),
+	);
+});
+
+test("INV-lint: a createRead loader only loads its key: a call of a read, optionally mapped, and nothing else", () => {
+	const source = `import { createRead } from "../../components/read.tsx";
+import { loadThing, markSeen } from "./actions.ts";
+export const a = createRead((id) => loadThing(id), { failed: () => null });
+export const b = createRead((id) => fetch("/x?id=" + id).then((r) => r.json()), { failed: () => null });
+export const c = createRead(() => loadThing().catch(() => null), { failed: () => null });
+export const d = createRead(async (id) => { markSeen(id); return loadThing(id); }, { failed: () => null });
+export const e = createRead(loadThing, { failed: () => null });
+export const f = createRead((id) => (markSeen(id), loadThing(id)), { failed: () => null });
+export const g = createRead((id) => loadThing(id).then((r) => { markSeen(id); return r; }), { failed: () => null });
+`;
+	assert.deepEqual(lint({ "apps/web/src/features/x/reads.ts": source }), [
+		"apps/web/src/features/x/reads.ts:6 read-loader",
+		"apps/web/src/features/x/reads.ts:8 read-loader",
+		"apps/web/src/features/x/reads.ts:9 read-loader",
+	]);
+});
+
 function cursorRuleSelectors(css, cursor) {
 	const rule = css.match(new RegExp(`(:where\\((?:[^{}])*?)\\{\\s*cursor:\\s*${cursor};`));
 	assert.ok(rule, `controls.css has a :where() rule that sets cursor: ${cursor}`);
