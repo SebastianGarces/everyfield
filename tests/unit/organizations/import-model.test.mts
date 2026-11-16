@@ -1,6 +1,3 @@
-// The pipeline import screen sends one import id per reviewed import (T-363 criterion 9): a retry after a lost reply
-// resends the same id, so the server's replay guard answers it with the first import's result and adds no one twice.
-// A change to what is imported makes a new id.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
@@ -34,7 +31,6 @@ test("a retry after a lost reply sends the same import id", () => {
 	assert.equal(back.step, "review");
 	assert.ok(back.review.problem, "the lost reply is explained");
 	assert.deepEqual(importRequest(back.review), first);
-	// A refused reply, such as a stale review, keeps the id as well: nothing was written.
 	const refused = afterImport(back.review, { status: "refused", refusal: { code: "review_stale" } });
 	assert.equal(importRequest(refused.review).importId, first.importId);
 });

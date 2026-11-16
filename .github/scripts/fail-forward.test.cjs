@@ -174,7 +174,6 @@ test('INV-ci-incident: green main CI closes the open CI incident only when the g
   }
   assert.equal(p.issues[0].state, 'open');
   assert.deepEqual(compared, [`${'a'.repeat(40)}...${'c'.repeat(40)}`, `${'a'.repeat(40)}...${'c'.repeat(40)}`]);
-  // A green pull request run never closes a main incident.
   p.github.rest.repos.compareCommitsWithBasehead = async () => ({ data: { status: 'ahead' } });
   assert.equal(await report({ ...p, context: ci({ conclusion: 'success', event: 'pull_request' }) }), undefined);
   assert.equal(p.issues[0].state, 'open');
@@ -182,7 +181,6 @@ test('INV-ci-incident: green main CI closes the open CI incident only when the g
   assert.equal(p.issues[0].state, 'closed');
   assert.equal(p.comments.length, 1);
   assert.match(p.comments[0].body, /passed again at c{40}, which contains the failed commit a{40}: https:\/\/github.com\/run\/9/);
-  // The next failure opens a new incident instead of reopening the closed one.
   assert.equal(await report({ ...p, context: ci({ head_sha: 'd'.repeat(40) }) }), 2);
   assert.equal(await report({ ...p, context: ci({ conclusion: 'success', head_sha: 'e'.repeat(40) }) }), 2);
   assert.deepEqual(p.issues.map(i => i.state), ['closed', 'closed']);
@@ -197,16 +195,13 @@ test('INV-ci-incident: a failed nightly run on main opens its own incident, whic
   assert.match(p.issues[0].body, /^<!-- evf-fail-forward:nightly -->/);
   assert.match(p.issues[0].body, /Commit: a{40}/);
   assert.match(p.issues[0].body, /compile failed: fixture failure/);
-  // A later failure, scheduled or started by hand on main, updates the same incident.
   assert.equal(await report({ ...p, context: nightly({ event: 'workflow_dispatch', head_sha: 'b'.repeat(40) }) }), 1);
   assert.equal(p.issues.length, 1);
   assert.match(p.issues[0].body, /Commit: b{40}/);
-  // A push CI failure is a separate incident, and a green push CI run never closes the nightly one.
   assert.equal(await report({ ...p, context: ci({ head_sha: 'c'.repeat(40) }) }), 2);
   assert.equal(p.issues[1].title, 'P0: CI failed on main');
   assert.equal(await report({ ...p, context: ci({ conclusion: 'success', head_sha: 'd'.repeat(40) }) }), 2);
   assert.deepEqual(p.issues.map(i => i.state), ['open', 'closed']);
-  // Runs that are not the nightly on main: another branch, a pull request, and a schedule event on CI, which has none.
   for (const change of [{ head_branch: 'feature' }, { event: 'pull_request' }]) {
     assert.equal(await report({ ...p, context: nightly({ ...change, conclusion: 'success', head_sha: 'e'.repeat(40) }) }), undefined);
   }

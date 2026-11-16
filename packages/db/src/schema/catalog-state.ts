@@ -15,7 +15,6 @@ function normalize(value: unknown, schema: string): unknown {
 const sorted = (rows: unknown[], schema: string) =>
 	rows.map((row) => normalize(row, schema)).sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
 
-/** Read actual definitions, never application rows. Used against isolated migration/generation rehearsals. */
 export async function modeledCatalog(db: Database | Transaction, schema: string) {
 	const [columns, constraints, indexes, tables, policies] = [
 		await db.execute(
@@ -43,7 +42,6 @@ export async function modeledCatalog(db: Database | Transaction, schema: string)
 	};
 }
 
-/** Objects Kit cannot model have explicit, reviewed expectations beside the Drizzle declarations. */
 export async function supplementalCatalog(db: Database | Transaction, schema: string) {
 	const [deferred, triggers, functions, roles, acl, defaults, extensions] = [
 		await db.execute(

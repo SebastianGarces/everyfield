@@ -1,9 +1,3 @@
-// "Set as preferred" on the article's Source menu (apps/web/src/features/wiki/model.ts). No browser, no database: the
-// save is wiki.setSourceOrder's, covered in tests/integration/wiki.
-//   INV-wiki-prefer-head: the chosen source moves to the head of its own list, the rest keep their order and the
-//   other list is unchanged.
-//   INV-wiki-prefer-offered: the item is offered only with an order to change, never for Global, the preferred
-//   source or a source already first, except a church while two or more churches have no stored order.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { preferredOrder, toHead, type SourceOrder } from "../../../apps/web/src/features/wiki/model.ts";

@@ -1,6 +1,3 @@
-// The everyfield.doc/1 tree as TypeScript types. The tree has the ProseMirror shape (`type`, `attrs`, `content`,
-// `marks`, `text`). An attribute with a default may be left out; `attrsOf` fills the defaults from the schema.
-
 export type Token = "none" | "ink" | "muted-text" | "primary" | "accent" | "muted" | "border";
 export type Align = "left" | "center" | "right";
 export type DocClass = "formal/legal" | "outward-facing" | "operational";
@@ -58,17 +55,11 @@ export type WriteInNode = {
 };
 export type SlotNode = {
 	type: "slot";
-	/** `key` names the slot, such as `statement-of-faith`. */
 	attrs?: { label?: string; key?: string };
 	content?: (ParagraphNode | BulletListNode | OrderedListNode)[];
 };
 
-/** What a condition tests: a field has a value, is empty, or (a number or a list field) is more than `value`. */
 export type ConditionTest = "has-value" | "is-empty" | "more-than";
-/**
- * Conditional text: blocks that print only while the condition on one of the document's fields holds. It sits in the
- * body, a column or a box, and holds no other conditional text, no budget table and no section slot.
- */
 export type IfNode = {
 	type: "if";
 	attrs: { field: string; test: ConditionTest; value?: number };
@@ -160,13 +151,9 @@ type Envelope = {
 	page: PageSetup;
 	body: DocNode;
 };
-/** A template: the catalog file a document is forked from. It has no `data` and no `origin`. */
 export type DocTemplate = Envelope & { kind: "template" };
-/** A document: a fork of a template, or a blank document (`origin: null`). It holds frozen merge values. */
 export type DocDocument = Envelope & { kind: "document"; origin: Origin | null; data?: Record<string, unknown> };
 export type EveryfieldDoc = DocTemplate | DocDocument;
-
-// ---------------------------------------------------------------- the schema's own shape
 
 export type ValueSpec = {
 	type:

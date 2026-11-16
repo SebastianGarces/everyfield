@@ -8,4 +8,3 @@ export const lockedPersonReference = z.strictObject({
 	revision,
 	state: z.literal("live"),
 });
-// Merge, its review and its inverse live in ./merge/ (WP-015).
